@@ -1151,13 +1151,13 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_NAME:
     case IR_LIT_REAL:               { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); }         return 0;
     case IR_KW_ICON:
-    case IR_KW_ICON_GEN:     g_emit.op_var_form = nd->pat_static; bb_emit_x86(bb_keyword_icon()); g_emit.op_var_form = 0; return 0;
+    case IR_KW_ICON_GEN:     g_emit.op_var_form = nd->pat_static; g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_icon()); g_emit.op_var_form = 0; return 0;
     case IR_KW_SNOBOL4:      bb_emit_x86(bb_keyword_snobol4());    return 0;
-    case IR_KW_ASSIGN:       bb_emit_x86(bb_keyword_assign());     return 0;
-    case IR_KW_ASSIGN_SNOBOL4: bb_emit_x86(bb_keyword_assign_snobol4()); return 0;
+    case IR_KW_ASSIGN:       g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_assign());     return 0;
+    case IR_KW_ASSIGN_SNOBOL4: g_emit.op_imm_a = g_emit.op_sval ? rt_kw_index(g_emit.op_sval) : -1; bb_emit_x86(bb_keyword_assign_snobol4()); return 0;
     case IR_VAR:                  { extern int is_global(const char *);
         const char * _vn = IR_LIT(nd).sval;
-        if (_vn && _vn[0] == '&') bb_emit_x86(bb_keyword_icon());
+        if (_vn && _vn[0] == '&') { g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_icon()); }
         else if (_vn && (is_global(_vn) && !graph_has_local(g_emit_cfg, _vn))) { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } { extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && !g_emit.op_zres) g_emit.op_wpop += (int)_w; } bb_emit_x86(bb_var_global()); }
         else bb_emit_x86(bb_var()); } return 0;
     case IR_VAR_FRAME:            bb_emit_x86(bb_var_frame()); return 0;
@@ -4269,3 +4269,7 @@ void assign_frame_prepare(IR_t *nd) {
     g_emit.op_sa    = (g_emit.op_a_sval && g_emit.op_sval) ? stage2_owner_varslot(g_emit.op_a_sval, g_emit.op_sval) : -1;
     g_emit.op_sb    = g_emit.op_name1 ? -1 : frame_display_mem_off(g_emit.op_seal, g_emit.op_a_sval);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * kw_bare(const char * s) { return !s ? "" : (s[0] == '&' ? s + 1 : s); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sn4_defer_beta_guard(void) { static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } return _bg; }
