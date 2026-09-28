@@ -338,18 +338,18 @@ void nfa_free(Nfa *nfa) { if(!nfa)return; ct_drop(nfa->gname_off.p); ct_drop(nfa
 typedef struct { int *ids; int n; } State_set;
 typedef struct Re_ev { int g; int s; int e; int depth; const struct Re_ev *prev; } Re_ev;
 typedef struct { const int *gse; const int *log; int loglen; const Re_ev *ev; } Re_snap;
-typedef struct { int w; cv_t gse; cv_t lo; cv_t ll; cv_t log; } Re_store;
+typedef struct { int w; int *gse; int *lo; int *ll; cv_t log; } Re_store;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int *re_ints(cv_t *v, uint64_t k, const char *nm) { cv_reserve(v, (uint32_t)sizeof(int), k ? k : 1, nm); return (int *)v->p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void re_store_put(Re_store *st, int slot, const Re_snap *sn) {
     int evn = sn->ev ? sn->ev->depth : 0, len = sn->loglen + evn;
-    int *g = re_ints(&st->gse, (uint64_t)(slot + 1) * (uint64_t)st->w, "re.gse") + (size_t)slot * (size_t)st->w;
+    int *g = st->gse + (size_t)slot * (size_t)st->w;
     int base = (int)st->log.len;
     int *lg;
     memcpy(g, sn->gse, (size_t)st->w * sizeof(int));
-    re_ints(&st->lo, (uint64_t)slot + 1, "re.lo")[slot] = base;
-    re_ints(&st->ll, (uint64_t)slot + 1, "re.ll")[slot] = len;
+    st->lo[slot] = base;
+    st->ll[slot] = len;
     lg = re_ints(&st->log, (uint64_t)base + (uint64_t)len * 3, "re.log") + base;
     st->log.len = (uint32_t)(base + len * 3);
     if (sn->loglen) memcpy(lg, sn->log, (size_t)sn->loglen * 3 * sizeof(int));
@@ -358,14 +358,14 @@ static void re_store_put(Re_store *st, int slot, const Re_snap *sn) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Re_snap re_store_get(const Re_store *st, int slot) {
     Re_snap sn;
-    sn.gse = (const int *)st->gse.p + (size_t)slot * (size_t)st->w;
-    sn.log = (const int *)st->log.p + ((const int *)st->lo.p)[slot];
-    sn.loglen = ((const int *)st->ll.p)[slot];
+    sn.gse = st->gse + (size_t)slot * (size_t)st->w;
+    sn.log = (const int *)st->log.p + st->lo[slot];
+    sn.loglen = st->ll[slot];
     sn.ev = (const Re_ev *)0;
     return sn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void re_store_drop(Re_store *st) { ct_drop(st->gse.p); ct_drop(st->lo.p); ct_drop(st->ll.p); ct_drop(st->log.p); }
+static void re_store_drop(Re_store *st) { ct_drop(st->log.p); }
 static int re_is_word_ch(unsigned char c) { return isalnum(c) || c=='_'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void ss_add(State_set *ss, Re_store *snaps, const Nfa *nfa, int id,
@@ -439,10 +439,12 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
     int w = nfa->ngroups > 0 ? 2 * nfa->ngroups : 1, nn = nfa->n > 0 ? nfa->n : 1;
     int blank_g[w]; for (int i = 0; i < w; i++) blank_g[i] = -1;
     Re_snap blank; blank.gse = blank_g; blank.log = (const int *)0; blank.loglen = 0; blank.ev = (const Re_ev *)0;
+    int ga[nn * w], gb[nn * w], loa[nn], lla[nn], lob[nn], llb[nn], ida[nn], idb[nn], bestg[w];
     Re_store sa, sb; memset(&sa, 0, sizeof sa); memset(&sb, 0, sizeof sb); sa.w = w; sb.w = w;
+    sa.gse = ga; sa.lo = loa; sa.ll = lla; sb.gse = gb; sb.lo = lob; sb.ll = llb;
     Re_store *cs = &sa, *ns_st = &sb;
-    cv_t ida, idb, bestg, bestl; memset(&ida, 0, sizeof ida); memset(&idb, 0, sizeof idb); memset(&bestg, 0, sizeof bestg); memset(&bestl, 0, sizeof bestl);
-    int *cur_ids = re_ints(&ida, (uint64_t)nn, "re.ids"), *nxt_ids = re_ints(&idb, (uint64_t)nn, "re.ids");
+    cv_t bestl; memset(&bestl, 0, sizeof bestl);
+    int *cur_ids = ida, *nxt_ids = idb;
     int found = 0, found_start = 0, found_end = 0, best_len = 0;
     for (int start_pos=0; start_pos<=slen; start_pos++) {
         State_set cur; cur.ids = cur_ids; cur.n=0;
@@ -455,7 +457,7 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
                 if (nfa->states[cur.ids[i]].kind==NK_ACCEPT && pos>=best_end) {
                     Re_snap b = re_store_get(cs, i);
                     best_end  = pos;
-                    memcpy(re_ints(&bestg, (uint64_t)w, "re.bestg"), b.gse, (size_t)w * sizeof(int));
+                    memcpy(bestg, b.gse, (size_t)w * sizeof(int));
                     if (b.loglen) memcpy(re_ints(&bestl, (uint64_t)b.loglen * 3, "re.bestl"), b.log, (size_t)b.loglen * 3 * sizeof(int));
                     best_len = b.loglen;
                 }
@@ -488,7 +490,7 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
         if (best_end >= 0) { found = 1; found_start = start_pos; found_end = best_end; break; }
         if (anchored_bol) break;
     }
-    if (found) re_result(result, nfa, 1, found_start, found_end, (const int *)bestg.p, (const int *)bestl.p, best_len);
+    if (found) re_result(result, nfa, 1, found_start, found_end, bestg, (const int *)bestl.p, best_len);
     else re_result(result, nfa, 0, 0, 0, (const int *)0, (const int *)0, 0);
-    re_store_drop(&sa); re_store_drop(&sb); ct_drop(ida.p); ct_drop(idb.p); ct_drop(bestg.p); ct_drop(bestl.p);
+    re_store_drop(&sa); re_store_drop(&sb); ct_drop(bestl.p);
 }

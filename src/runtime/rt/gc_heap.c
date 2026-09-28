@@ -3,6 +3,7 @@
 #include "../../ir/ct_arena.h"
 #include <stdarg.h>
 #include <stdlib.h>
+#include <alloca.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
@@ -1555,14 +1556,14 @@ static long gc_audit_b_frame_ranges(const char *lo0, const char *hi, gc_audit_b_
 }
 static long gc_audit_b_shim(char *floor)
 {
-    static cv_t rgv; gc_audit_b_rgn_t *rg; gc_audit_b_skip_t sk[32]; gc_audit_b_t v; gc_seg_it_t it; char *lo, *hi; long n = 0, k = 0, i, nstat, nx = 0, xcap = 0; int pop, saved = g_gc_seg_main;
+    long rgcap = 8; gc_audit_b_rgn_t *rg = (gc_audit_b_rgn_t *)alloca((size_t)rgcap * sizeof(gc_audit_b_rgn_t)); gc_audit_b_skip_t sk[32]; gc_audit_b_t v; gc_seg_it_t it; char *lo, *hi; long n = 0, k = 0, i, nstat, nx = 0, xcap = 0; int pop, saved = g_gc_seg_main;
     gc_audit_b_xr_t *xr = (gc_audit_b_xr_t *)0;
     if (!g_hp_arena || !g_gc_idx) return -1;
     gc_static_segs_init();
-    for (i = 0; i < g_gc_nseg; i++) { cv_reserve(&rgv, (uint32_t)sizeof(gc_audit_b_rgn_t), (uint64_t)n + 1, "gc.audit_rgn"); rg = (gc_audit_b_rgn_t *)rgv.p; rg[n].lo = g_gc_segs[i].lo; rg[n].hi = g_gc_segs[i].hi; rg[n].pop = "static"; rg[n].name = "writable-PT_LOAD"; rg[n].xr = xr; rg[n].nxr = 0; n++; }
+    for (i = 0; i < g_gc_nseg; i++) { if (n == rgcap) { gc_audit_b_rgn_t *nr = (gc_audit_b_rgn_t *)alloca((size_t)rgcap * 2 * sizeof(gc_audit_b_rgn_t)); memcpy(nr, rg, (size_t)n * sizeof(gc_audit_b_rgn_t)); rg = nr; rgcap *= 2; } rg[n].lo = g_gc_segs[i].lo; rg[n].hi = g_gc_segs[i].hi; rg[n].pop = "static"; rg[n].name = "writable-PT_LOAD"; rg[n].xr = xr; rg[n].nxr = 0; n++; }
     nstat = n;
     gc_seg_begin(&it, floor);
-    while (gc_seg_next(&it, &lo, &hi, &pop)) { cv_reserve(&rgv, (uint32_t)sizeof(gc_audit_b_rgn_t), (uint64_t)n + 1, "gc.audit_rgn"); rg = (gc_audit_b_rgn_t *)rgv.p; rg[n].lo = lo; rg[n].hi = hi; rg[n].pop = "stack"; rg[n].name = g_gc_rep_popname[pop];
+    while (gc_seg_next(&it, &lo, &hi, &pop)) { if (n == rgcap) { gc_audit_b_rgn_t *nr = (gc_audit_b_rgn_t *)alloca((size_t)rgcap * 2 * sizeof(gc_audit_b_rgn_t)); memcpy(nr, rg, (size_t)n * sizeof(gc_audit_b_rgn_t)); rg = nr; rgcap *= 2; } rg[n].lo = lo; rg[n].hi = hi; rg[n].pop = "stack"; rg[n].name = g_gc_rep_popname[pop];
         rg[n].xr = xr; rg[n].nxr = 0; xcap += (long)(hi - lo) / 8 + 1; n++; }
     g_gc_seg_main = saved;
     if (xcap > 0) { xr = (gc_audit_b_xr_t *)gcbk_alloc((size_t)xcap * sizeof(*xr));
@@ -1580,7 +1581,7 @@ static long gc_audit_b_shim(char *floor)
     sk[k].at = (const void *)&g_gc_mhead;       sk[k].bytes = (long)sizeof g_gc_mhead;       sk[k].name = "g_gc_mhead";       k++;
     sk[k].at = (const void *)g_gc_spine_rec;    sk[k].bytes = (long)sizeof g_gc_spine_rec;   sk[k].name = "g_gc_spine_rec";   k++;
     v.blk_of = gc_audit_b_blk_of; v.blk_at = gc_audit_b_blk_at; v.birth_of = gc_birth_on() ? gc_audit_b_birth_of : (long (*)(const char *, char *, long))0;
-    rg = (gc_audit_b_rgn_t *)rgv.p; v.alo = g_hp_arena; v.ahi = g_hp_top; v.run = g_gc_runs + 1; v.nblk = g_gc_nblk; v.rgn = rg; v.nrgn = n; v.skip = sk; v.nskip = k;
+    v.alo = g_hp_arena; v.ahi = g_hp_top; v.run = g_gc_runs + 1; v.nblk = g_gc_nblk; v.rgn = rg; v.nrgn = n; v.skip = sk; v.nskip = k;
     { extern const char *core_gc_audit_nonref(const char *p); v.owner_nonref = core_gc_audit_nonref; }
     { long r = gc_audit_b_collect(&v); if (xr) gcbk_drop((void *)xr); return r; }
 }

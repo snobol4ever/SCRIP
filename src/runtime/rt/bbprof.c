@@ -1,8 +1,8 @@
 #define _GNU_SOURCE
 #include <stdio.h>
 #include "ct_arena.h"
-#include "ct_vec.h"
 #include <stdlib.h>
+#include <alloca.h>
 #include <string.h>
 #include <stdint.h>
 #include <signal.h>
@@ -32,14 +32,10 @@ void bbprof_record(int nid, int kind, int uid, void *lo, void *hi)
     if (g_armed) g_late_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bbp_getline(FILE *fp, cv_t *v)
-{
-    int c, k = 0;
-    while ((c = fgetc(fp)) != EOF) { cv_reserve(v, 1, (uint64_t)k + 2, "bbprof.line"); ((char *)v->p)[k++] = (char)c; if (c == 10) break; }
-    if (!k && c == EOF) return -1;
-    cv_reserve(v, 1, (uint64_t)k + 1, "bbprof.line"); ((char *)v->p)[k] = 0;
-    return k;
-}
+#define BBP_GETLINE(fp, buf, len) do { size_t cap_ = 128; int c_ = 0; (buf) = (char *)alloca(cap_); (len) = 0; \
+    while ((c_ = fgetc(fp)) != EOF) { if ((size_t)(len) + 2 > cap_) { char *nb_ = (char *)alloca(cap_ * 2); memcpy(nb_, (buf), (size_t)(len)); (buf) = nb_; cap_ *= 2; } \
+        (buf)[(len)++] = (char)c_; if (c_ == 10) break; } \
+    if (!(len) && c_ == EOF) (len) = -1; else (buf)[(len)] = 0; } while (0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bbprof_cmp(const void *a, const void *b) { uintptr_t x = ((const bbprof_e *)a)->lo, y = ((const bbprof_e *)b)->lo; return x < y ? -1 : x > y ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -149,14 +145,14 @@ void bbprof_report(void)
     qsort(g_pcs, BBPROF_PC_CAP, sizeof(bbprof_pc), bbprof_pc_rank);
     fprintf(stderr, "[BBPROF] -- top C sites (%llu samples outside boxes; via-C above re-attributes %llu of them) --\n",
         (unsigned long long)g_c_samples, (unsigned long long)(g_c_samples - g_unattr));
-    { static cv_t exev; ssize_t el = 0; char *exe;
-      for (uint32_t cap = 256;; cap *= 2) { cv_reserve(&exev, 1, (uint64_t)cap, "bbprof.exe"); el = readlink("/proc/self/exe", (char *)exev.p, (size_t)cap - 1); if (el < (ssize_t)cap - 1) break; }
-      exe = (char *)exev.p; if (el <= 0) el = 0; exe[el] = 0;
+    { ssize_t el = 0; char *exe = (char *)0;
+      for (size_t cap = 256;; cap *= 2) { exe = (char *)alloca(cap); el = readlink("/proc/self/exe", exe, cap - 1); if (el < (ssize_t)cap - 1) break; }
+      if (el <= 0) el = 0; exe[el] = 0;
       char cmd[fmt_len("addr2line -f -C -e '%s'", exe[0] ? exe : "/proc/self/exe") + 15 * 24]; int cl = snprintf(cmd, sizeof cmd, "addr2line -f -C -e '%s'", exe[0] ? exe : "/proc/self/exe");
       int npc = 0; for (int i = 0; i < 15 && g_pcs[i].n > 0; i++) { cl += snprintf(cmd + cl, sizeof cmd - (size_t)cl, " %#lx", (unsigned long)g_pcs[i].pc); npc++; }
       char names[15][96]; for (int i = 0; i < 15; i++) names[i][0] = 0;
       FILE *fp = npc ? popen(cmd, "r") : NULL;
-      if (fp) { static cv_t l1v, l2v; char *l1, *l2; for (int i = 0; i < npc; i++) { if (bbp_getline(fp, &l1v) < 0 || bbp_getline(fp, &l2v) < 0) break; l1 = (char *)l1v.p; l2 = (char *)l2v.p; (void)l2; l1[strcspn(l1, "\n")] = 0; if (l1[0] && l1[0] != '?') snprintf(names[i], sizeof names[i], "%s", l1); } pclose(fp); }
+      if (fp) { char *l1, *l2; long n1, n2; for (int i = 0; i < npc; i++) { BBP_GETLINE(fp, l1, n1); BBP_GETLINE(fp, l2, n2); if (n1 < 0 || n2 < 0) break; (void)l2; l1[strcspn(l1, "\n")] = 0; if (l1[0] && l1[0] != '?') snprintf(names[i], sizeof names[i], "%s", l1); } pclose(fp); }
       for (int i = 0; i < npc; i++) {
         Dl_info di; const char *nm = names[i][0] ? names[i] : "?"; uintptr_t off = 0;
         if (!names[i][0] && dladdr((void *)g_pcs[i].pc, &di) && di.dli_sname) { nm = di.dli_sname; off = g_pcs[i].pc - (uintptr_t)di.dli_saddr; }
