@@ -234,5 +234,24 @@ for rank, _, t, owner, other, age in HQ:
     print(f"    {t}  [rank {rank}, minted {age.total_seconds() / 3600:.0f} h ago, {owner} holds {other}] -> {_route(t)}")
 if HQx: print(f"    (named, not counted: {len(HQx)} such row(s) whose mint time the baton does not carry -- {' '.join(HQx[:5])})")
 findings += len(BR) + len(HQ)
+# DONE-WHEN RUNS A BOARD (ceo CEO-1342 clause 5; the coo's row bus-done-runs-no-board-for-any-seat-..., 2026-09-28): the bus's
+# computed done no longer admits a board run for any seat but the lane owner, so a live row whose DONE-WHEN runs a suite, a board or
+# the guard can never close through done -- named here for its lane to rewrite (read the coo's SUITE TABLE row through
+# scripts/util_suite_row_at_or_after.sh instead). The names come from util_donewhen_exemption_census.py, the one reader of that class.
+import subprocess as _sp, json as _json
+_xc = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'util_donewhen_exemption_census.py')
+DB = []
+try:
+    _env = dict(os.environ); _env.setdefault('S4E_TASKS', tasks_dir)
+    _p = _sp.run([sys.executable, _xc, '--json'], capture_output=True, text=True, timeout=300, env=_env)
+    _d = _json.loads(_p.stdout or '{}')
+    DB = [r for r in _d.get('rows', []) if r.get('live') and r.get('class') in ('BOARD', 'GUARD')]
+    _xc_note = ''
+except Exception as _e:
+    _xc_note = f" (the exemption census could not be read: {type(_e).__name__}: {_e})"
+print(f"DONE-WHEN RUNS A BOARD (cannot close through done, CEO-1342 clause 5): {len(DB)}{_xc_note}")
+for r in sorted(DB, key=lambda r: (r.get('owner', ''), r.get('topic', ''))):
+    print(f"    {r.get('topic')}  [owner {r.get('owner')}, {r.get('state')}, {r.get('class')} <- {', '.join(sorted(set(r.get('mechanism') or [])))[:120]}] -> rewrite to read the coo's row: scripts/util_suite_row_at_or_after.sh <key> <tree>")
+findings += len(DB)
 if findings == 0: print("CENSUS CLEAN: every minted row is pickable, closable, and owned."); sys.exit(0)
 print(f"TOTAL FINDINGS: {findings}"); sys.exit(1)

@@ -90,6 +90,7 @@ test_gate_dispatch_bus_failure_modes.sh	WIRED	-	-	-
 test_gate_dispatch_claim_single_authority.sh	WIRED	-	-	-
 test_gate_dispatch_refuses_placeholder_donewhen.sh	WIRED	-	-	-
 test_gate_done_manifest_handoff.sh	WIRED	-	-	-
+test_gate_done_runs_no_board_for_any_seat.sh	WIRED	-	-	-
 test_gate_done_runs_the_master_arm_for_codegen_rows.sh	WIRED	-	-	-
 test_gate_donewhen_exemption_census_names_every_row.sh	WIRED	-	-	-
 test_gate_driver_extension_table_lives_once.sh	WIRED	-	-	-

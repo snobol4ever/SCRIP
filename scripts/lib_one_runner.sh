@@ -202,7 +202,11 @@ one_runner_guard() {
   fi
   local _hq=0; [ -n "$seat" ] && one_runner_seat_is_language_hq "$seat" && _hq=1
   if [ "$_hq" = 0 ]; then
-    if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf 'ONE-RUNNER: %s runs under the bus computed done for seat %s (exempt, one run per closure)\n' "$board" "${seat:-?}"; return 0; fi
+    # ⛔ DONE RUNS NO BOARD FOR ANY SEAT (ceo CEO-1342 clause 5, the coo's row bus-done-runs-no-board-for-any-seat-..., 2026-09-28): the bus's
+    # computed done (S4E_DONE_WHEN_RUN=1) was the one road by which a non-tester seat still ran a suite; it is refused here and in the
+    # harness alike. A DONE-WHEN that needs a suite's verdict reads the coo's SUITE TABLE row at a tree at or after the landing
+    # (scripts/util_suite_row_at_or_after.sh <suite-key> <tree>); the lane owner's own done never reaches this line (admitted above).
+    if [ "${S4E_DONE_WHEN_RUN:-}" = 1 ]; then printf '⛔ REFUSE(2) DONE RUNS NO BOARD FOR ANY SEAT (ceo CEO-1342 clause 5): %s is a board, seat %s is not its runner, and the bus computed done no longer admits it -- read the coo'"'"'s SUITE TABLE row instead: scripts/util_suite_row_at_or_after.sh <suite-key> <tree>\n' "$board" "${seat:-?}"; return 2; fi
     if [ -n "${S4E_ONE_RUNNER_OVERRIDE:-}" ]; then printf '⚠ ONE-RUNNER OVERRIDE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_OVERRIDE"; return 0; fi
   else
     printf '⛔ ONE SEAT, ONE LANGUAGE: %s is a language HQ -- no S4E_ONE_RUNNER_OVERRIDE and no DONE-WHEN admits it to a %s board (Lon 2026-09-24: "Just have each seat run only their own test suites.")\n' "$seat" "${lang:-unknown}" >&2

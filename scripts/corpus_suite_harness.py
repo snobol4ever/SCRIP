@@ -2687,7 +2687,11 @@ def _one_runner_guard(suite_path=None, corpus_root=None, lang=None):
                          "a %s board (Lon 2026-09-24: \"Just have each seat run only their own test suites.\")\n" % (seat, blang))
     else:
         if os.environ.get("S4E_DONE_WHEN_RUN") == "1":
-            print("ONE-RUNNER: master run under the bus computed done for seat %s (exempt, one run per closure)" % (seat or "?")); return
+            # DONE RUNS NO BOARD FOR ANY SEAT (ceo CEO-1342 clause 5, the coo 2026-09-28): the exemption is retired; mirrors lib_one_runner.sh
+            sys.stderr.write("⛔ REFUSE(2) DONE RUNS NO BOARD FOR ANY SEAT (ceo CEO-1342 clause 5): a %s board under the bus computed done for seat %s "
+                             "is refused -- a DONE-WHEN that needs a suite's verdict reads the coo's SUITE TABLE row at a tree at or after the "
+                             "landing: scripts/util_suite_row_at_or_after.sh <suite-key> <tree>\n" % (blang, seat or "?"))
+            sys.exit(2)
         if os.environ.get("S4E_ONE_RUNNER_OVERRIDE"):
             print("\u26a0 ONE-RUNNER OVERRIDE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_OVERRIDE"])); return
     sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: a %s master/package run is a board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ.\n" % (blang, seat or "?", " or ".join(who) if who else "<no seat -- the LANES line names none>", blang))
