@@ -2,7 +2,7 @@
 #include "ct_arena.h"
 #include "ct_vec.h"
 #include "prolog_lex.h"
-#include "prolog_atom.h"
+#include "rt/prolog_atom.h"
 #include "stage2.h"
 #include <stdio.h>
 #include <stdlib.h>

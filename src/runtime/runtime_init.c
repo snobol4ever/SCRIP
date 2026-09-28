@@ -3,7 +3,7 @@
 #include "core.h"
 #include "IR.h"
 #include "bb_pool.h"
-#include "../parsers/prolog/prolog_atom.h"
+#include "rt/prolog_atom.h"
 #include <stdio.h>
 #include <stdlib.h>
 __attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rsp = 0UL;

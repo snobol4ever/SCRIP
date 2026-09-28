@@ -1,7 +1,7 @@
 #include "prolog_lower.h"
 #include "ct_arena.h"
 #include "ct_vec.h"
-#include "prolog_atom.h"
+#include "rt/prolog_atom.h"
 #include "scrip_cc.h"
 #include <stdio.h>
 #include <stdlib.h>

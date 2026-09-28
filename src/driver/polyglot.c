@@ -4,7 +4,7 @@
 #include <string.h>
 #include "parsers/snobol4/scrip_cc.h"
 #include "parsers/prolog/prolog_driver.h"
-#include "parsers/prolog/prolog_atom.h"
+#include "runtime/rt/prolog_atom.h"
 #include "parsers/icon/icon_driver.h"
 #include "parsers/raku/raku_driver.h"
 #include "parsers/rebus/rebus_lower.h"

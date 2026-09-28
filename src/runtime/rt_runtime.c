@@ -3,7 +3,7 @@
 #include "rt/rt.h"
 #include "lower.h"
 #include "../../emitter/sil_macros.h"
-#include "../../parsers/prolog/prolog_atom.h"
+#include "rt/prolog_atom.h"
 #include "re.h"
 #include <stddef.h>
 #include <string.h>

@@ -9,7 +9,7 @@
 #include "SM.h"
 #include "driver.h"
 #include "parsers/snobol4/scrip_cc.h"
-#include "parsers/prolog/prolog_atom.h"
+#include "runtime/rt/prolog_atom.h"
 #ifdef WITH_CSNOBOL4
 typedef struct { char *name; char *val_str; } CsnNvPair;
 int  csnobol4_run_steps(const char *core_path, int step_limit,

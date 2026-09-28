@@ -6,7 +6,7 @@
 #include "core.h"
 #include "core/utf8.h"
 #include "bb_pool.h"
-#include "../parsers/prolog/prolog_atom.h"
+#include "rt/prolog_atom.h"
 #include "../ir/IR.h"
 #include <stdio.h>
 #include <time.h>

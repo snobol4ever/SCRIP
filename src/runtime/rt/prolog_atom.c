@@ -1,6 +1,6 @@
 #include "rt/rt_arena.h"
-#include "ct_arena.h"
-#include "prolog_atom.h"
+#include "rt_slab.h"
+#include "rt/prolog_atom.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -20,6 +20,8 @@ typedef struct { char *key; int id; } HEntry;
 static HEntry *ht      = NULL;
 static int     ht_size = 0;
 static int     ht_used = 0;
+static char   *name_pool      = NULL;
+static size_t  name_pool_left = 0;
 typedef struct { int name; int arity; } FEntry;
 static FEntry *functors    = NULL;
 static int     functor_len = 0;
@@ -32,6 +34,12 @@ typedef struct { OpCol pre; OpCol in; OpCol post; } OpCols;
 static OpCols *opcols     = NULL;
 static int     opcols_cap = 0;
 static int     opcols_ready = 0;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *pool_strdup(const char *s) {
+    size_t n = strlen(s) + 1;
+    if (n > name_pool_left) { size_t chunk = n > 65536 ? n : 65536; name_pool = (char *)rt_slab_region(chunk); name_pool_left = chunk; }
+    { char *p = name_pool; memcpy(p, s, n); name_pool += n; name_pool_left -= n; return p; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned int ht_hash(const char *s) {
     unsigned int h = 2166136261u;
@@ -90,7 +98,7 @@ int prolog_atom_intern(const char *name) {
           atom_names = grown; }
         memset(atom_names + old_cap, 0, (atom_cap - old_cap) * sizeof(char *));
     }
-    char *copy = ct_strdup(name);
+    char *copy = pool_strdup(name);
     int   id   = atom_len++;
     atom_names[id] = copy;
     ht[h].key = copy;

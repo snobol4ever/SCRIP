@@ -9,7 +9,7 @@
 #include "parsers/snobol4/scrip_cc.h"
 #include "parsers/snocone/snocone_driver.h"
 #include "parsers/prolog/prolog_driver.h"
-#include "parsers/prolog/prolog_atom.h"
+#include "runtime/rt/prolog_atom.h"
 #include "runtime/re.h"
 #include "parsers/icon/icon_driver.h"
 #include "parsers/raku/raku_driver.h"
