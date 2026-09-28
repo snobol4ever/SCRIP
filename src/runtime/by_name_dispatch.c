@@ -733,6 +733,13 @@ static char *rk_case_str(const char *s, size_t n, int mfirst, int mrest, int wor
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_real_str(double r, char *buf, int bufsz);
+static const char *rk_cstr(DESCR_t v) {
+    if (IS_REAL_fn(v)) { char *b = rt_wsb_alloc(64); return rk_real_str(v.r, b, 64); }
+    if (IS_INT_fn(v) || v.v == DT_BOOL || v.v == DT_ORDER) { char *b = rt_wsb_alloc(32); return to_cstring(v, b, 32); }
+    const char *s = to_cstring(v, NULL, 0); return s ? s : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_typeobj(const char *nm) {
     size_t l = strlen(nm ? nm : ""); char *r = (char *)rt_str_alloc(l + 1); r[0] = RK_TY; memcpy(r + 1, nm ? nm : "", l); r[l + 1] = '\0'; return STRVAL(r);
 }
@@ -761,10 +768,11 @@ static int rk_type_isa(const char *have, const char *want) {
     if (!have || !want) return 0;
     if (!strcmp(have, want) || !strcmp(want, "Mu")) return 1;
     for (int i = 0; up[i][0]; i++) if (!strcmp(up[i][0], have)) { for (int j = 1; up[i][j]; j++) if (!strcmp(up[i][j], want)) return 1; return 0; }
-    extern int dat_mro(const char *name, const char **out, int max);
-    const char *mro[64]; int mn = dat_mro(have, mro, 64);
-    for (int i = 0; i < mn; i++) if (mro[i] && !strcmp(mro[i], want)) return 1;
-    return mn > 0 && !strcmp(want, "Any");
+    DatType *t = dat_find_type(have);
+    if (!t) return 0;
+    if (!strcmp(t->name, want) || !strcmp(want, "Any")) return 1;
+    for (int i = 1; i < t->mro_len; i++) if (t->mro[i] && !strcmp(t->mro[i], want)) return 1;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz);
@@ -4165,13 +4173,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else { const char *x = to_cstring(g, sb1, sizeof sb1), *y = to_cstring(e, sb2, sizeof sb2); c = !strcmp(rk_a_body(x ? x : ""), rk_a_body(y ? y : "")); }
             const char *d = nargs > 2 ? to_cstring(args[2], msg, sizeof msg) : "";
             rk_tap_proclaim(c, d, "");
-            if (!c) { char b[1200]; snprintf(b, sizeof b, "expected: %s", rk_list_as_str(to_cstring(e, sb2, sizeof sb2))); rk_tap_diag(b);
-                      snprintf(b, sizeof b, "     got: %s", rk_list_as_str(to_cstring(g, sb1, sizeof sb1))); rk_tap_diag(b); }
+            if (!c) { const char *ex = rk_list_as_str(rk_cstr(e)), *go = rk_list_as_str(rk_cstr(g));
+                      size_t l = strlen(ex) + strlen(go) + 16; char *b = rt_wsb_alloc(l);
+                      snprintf(b, l, "expected: %s", ex); rk_tap_diag(b); snprintf(b, l, "     got: %s", go); rk_tap_diag(b); }
             *out = INTVAL(c); return 1; }
         if (!strcmp(op, "isa_ok") && nargs >= 2) {
             const char *want = rk_typeobj_name(args[1]) ? rk_typeobj_name(args[1]) : args[1].v == DT_SNUL ? "Nil" : to_cstring(args[1], sb2, sizeof sb2);
             int c = rk_type_isa(rk_value_type(args[0]), want);
-            char dd[600]; const char *d = nargs > 2 ? to_cstring(args[2], sb1, sizeof sb1) : (snprintf(dd, sizeof dd, "The object is-a '%s'", want ? want : ""), dd);
+            const char *d = nargs > 2 ? to_cstring(args[2], sb1, sizeof sb1) : NULL;
+            if (!d) { size_t l = strlen(want ? want : "") + 24; char *dd = rt_wsb_alloc(l); snprintf(dd, l, "The object is-a '%s'", want ? want : ""); d = dd; }
             rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         { static const struct { const char *nm; int di; } rk_unimpl[] = { { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 }, { (const char *)0, 0 } };
           for (int i = 0; rk_unimpl[i].nm; i++) if (!strcmp(op, rk_unimpl[i].nm)) {
@@ -4799,8 +4809,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(buf); return 1;
     }
     if (!strcmp(fn, "__rk_substr_replace") && (nargs == 3 || nargs == 4)) {
-        char sa[64], sr[64]; const char *str = to_cstring(args[0], sa, sizeof sa); if (!str) str = "";
-        const char *rep = to_cstring(args[nargs - 1], sr, sizeof sr); if (!rep) rep = "";
+        const char *str = rk_cstr(args[0]);
+        const char *rep = rk_cstr(args[nargs - 1]);
         long from = IS_INT_fn(args[1]) ? (long)args[1].i : 0, len = nargs == 4 && IS_INT_fn(args[2]) ? (long)args[2].i : -1;
         size_t n = strlen(str), a = 0; long k = 0;
         while (a < n && k < from) { a++; while (a < n && ((unsigned char)str[a] & 0xC0) == 0x80) a++; k++; }
@@ -4817,7 +4827,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (an != bn) t = 0;
         else if (an) t = IS_INT_fn(a) && IS_INT_fn(b) ? a.i == b.i : IS_REAL_fn(a) && IS_REAL_fn(b) ? a.r == b.r : 0;
         else if (a.v == DT_BOOL || b.v == DT_BOOL) t = a.v == b.v && a.i == b.i;
-        else { char sa[64], sb[64]; const char *x = to_cstring(a, sa, sizeof sa), *y = to_cstring(b, sb, sizeof sb); t = !strcmp(rk_a_body(x ? x : ""), rk_a_body(y ? y : "")); }
+        else { const char *x = rk_cstr(a), *y = rk_cstr(b); t = !strcmp(rk_a_body(x), rk_a_body(y)); }
         *out = (DESCR_t){ .v = DT_BOOL, .i = t }; return 1;
     }
     if ((!strcmp(fn, "__rk_min") || !strcmp(fn, "__rk_max")) && nargs == 2) {
@@ -4826,7 +4836,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (IS_INT_fn(a) && IS_INT_fn(b)) c = a.i < b.i ? -1 : a.i > b.i;
             else { double x = IS_REAL_fn(a) ? a.r : (double)a.i, y = IS_REAL_fn(b) ? b.r : (double)b.i; c = x < y ? -1 : x > y; }
         } else {
-            char sa[64], sb[64]; const char *xs = to_cstring(a, sa, sizeof sa), *ys = to_cstring(b, sb, sizeof sb);
+            const char *xs = rk_cstr(a), *ys = rk_cstr(b);
             c = strcmp(xs ? xs : "", ys ? ys : "");
         }
         *out = (fn[5] == 'm' && fn[6] == 'i') ? (c <= 0 ? a : b) : (c >= 0 ? a : b); return 1;
@@ -4836,8 +4846,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char **els[nargs]; size_t *lens[nargs]; long long cnt[nargs]; size_t sum[nargs];
         long long rows = zip ? -1 : 1;
         for (int i = 0; i < nargs; i++) {
-            char sb[64]; const char *s = IS_REAL_fn(args[i]) ? rk_real_str(args[i].r, sb, (int)sizeof sb) : to_cstring(args[i], sb, sizeof sb);
-            if (s == sb) s = rt_heap_strdup_c(sb);
+            const char *s = rk_cstr(args[i]);
             cnt[i] = rk_a_split(rk_a_body(s ? s : ""), &els[i], &lens[i]);
             sum[i] = 0; for (long long k = 0; k < cnt[i]; k++) sum[i] += lens[i][k];
             if (zip) rows = (rows < 0 || cnt[i] < rows) ? cnt[i] : rows; else rows *= cnt[i];
@@ -4867,7 +4876,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (a.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(a.i ? "True" : "False")); return 1; }
         if (a.v == DT_ORDER) { *out = STRVAL(rt_heap_strdup_c(a.i < 0 ? "Less" : (a.i > 0 ? "More" : "Same"))); return 1; }
         if (a.v == DT_SNUL || rk_typeobj_name(a)) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
-        if (IS_REAL_fn(a)) { char rb[64]; rk_real_str(a.r, rb, (int)sizeof rb); *out = STRVAL(rt_heap_strdup_c(rb)); return 1; }
+        if (IS_REAL_fn(a)) { *out = STRVAL(rt_heap_strdup_c(rk_cstr(a))); return 1; }
         *out = a; return 1;
     }
     if ((!strcmp(fn, "rk_write") || !strcmp(fn, "rk_writes"))) {
