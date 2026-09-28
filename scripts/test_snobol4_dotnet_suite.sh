@@ -165,10 +165,13 @@ for sno in "$SUITE"/*.sno; do
     if sbl_died "$gotS" && inventory_is_excluded "$SUITE" "$name.sno"; then
         UNSCR=$((UNSCR+1)); FLU="$FLU $name(oracle-refuses-a-csnobol4-feature:EXCLUDED.tsv)"; prog_unscr "$name" "unscored: EXCLUDED not SPITBOL dialect, the oracle stops on the CSNOBOL4 feature"; continue
     fi
-    DIED=0; if sbl_died "$gotS"; then DIED=1; FATAL_GRADED="$FATAL_GRADED $name"; gotS="$(mask_dot "$gotS" "$name" oracle)"; fi
+    DIED=0; if sbl_died "$gotS"; then DIED=1; FATAL_GRADED="$FATAL_GRADED $name"; fi
+    # every oracle stream passes the ONE mask shim (CEO-1352, hq_snobol4: the -LIST listing's version and clock lines of SourceLines001-003
+    # are per-entry rows); a row that matches nothing changes nothing, so a program without one is compared byte for byte as before
+    gotS="$(mask_dot "$gotS" "$name" oracle)"
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
     got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>"$W/err3")"; rc3=$?
-    [ "$DIED" = 1 ] && got3="$(mask_dot "$(fatal_render "$got3" "$W/err3")" "$name" scrip)"
+    if [ "$DIED" = 1 ]; then got3="$(mask_dot "$(fatal_render "$got3" "$W/err3")" "$name" scrip)"; else got3="$(mask_dot "$got3" "$name" scrip)"; fi
     [ -n "${DOTNET_DEBUG_DIR:-}" ] && { printf '%s' "$gotS" > "$DOTNET_DEBUG_DIR/$name.oracle"; printf '%s' "$got3" > "$DOTNET_DEBUG_DIR/$name.m3"; cp "$W/err3" "$DOTNET_DEBUG_DIR/$name.err3" 2>/dev/null; }   # what this runner compared, on request (a red a reader cannot see is a red nobody can cure)
     if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); OUT3=PASS; else F3=$((F3+1)); FL3="$FL3 $name"; OUT3="$(verdict_of "$rc3")"; fi
     # ⛔ A HANG NEVER COLLAPSES INTO PASS (the verdict ladder): measured 2026-09-07 (coo) on code/palin/temp -- the
@@ -178,7 +181,7 @@ for sno in "$SUITE"/*.sno; do
     [ "$rc3" -eq 124 ] && OUT3=HANG
     rc4=""; if compile_m4 "$sno" "$W/prog.bin" "$ca"; then
         got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>"$W/err4")"; rc4=$?
-        [ "$DIED" = 1 ] && got4="$(mask_dot "$(fatal_render "$got4" "$W/err4")" "$name" scrip)"
+        if [ "$DIED" = 1 ]; then got4="$(mask_dot "$(fatal_render "$got4" "$W/err4")" "$name" scrip)"; else got4="$(mask_dot "$got4" "$name" scrip)"; fi
         if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); OUT4=PASS; else F4=$((F4+1)); FL4="$FL4 $name"; OUT4="$(verdict_of "$rc4")"; fi
         [ "$rc4" -eq 124 ] && OUT4=HANG
     else S4=$((S4+1)); FL4="$FL4 $name(CC)"; OUT4=SKIP
@@ -198,8 +201,8 @@ if [ "$UNSCR" -gt 0 ]; then echo "OUTSIDE-SPITBOL-BASELINE ($UNSCR; name<TAB>why
 if [ -f "$OUTSIDE_TSV" ]; then
     rec="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{sub(/\.sno$/,"",$1); print $1}' "$OUTSIDE_TSV" | sort)"
     live="$(printf '%b' "$OUTSIDE_LIST" | cut -f1 | grep . | sort)"
-    stale="$(comm -23 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
-    unrec="$(comm -13 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | tr '\n' ' ')"
+    stale="$(comm -23 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | grep . | tr '\n' ' ')"
+    unrec="$(comm -13 <(printf '%s\n' "$rec") <(printf '%s\n' "$live") | grep . | tr '\n' ' ')"
     [ -n "$stale" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv STALE -- recorded as unrunnable by the oracle, but it answered cleanly this run; move it back into the baseline record: $stale"
     [ -n "$unrec" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv UNRECORDED -- the oracle gave no answer for these and the record does not name them; record each with its error and a source check: $unrec"
     [ -z "$stale$unrec" ] && echo "OUTSIDE_SPITBOL_BASELINE.tsv agrees with the measured outside set ($UNSCR)"
