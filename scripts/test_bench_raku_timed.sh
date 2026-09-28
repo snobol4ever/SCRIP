@@ -69,7 +69,6 @@ declare -a DECL_SW=()
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/prelude" && cp "$RDIR/prelude_rakudo.rakumod" "$W/prelude/" || { echo "⛔ REFUSED: cannot stage the prelude." >&2; exit 2; }
-ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 
 WORK_OPEN='$t0 = wall_us(); my $m0 = wall_ms();'
 
@@ -126,14 +125,14 @@ for f in "$RDIR"/*.raku; do
   # ⛔ USES THE FULL $T TIMEOUT, NOT A SHORT HARDCODED ONE: point_class_add/add1 alone cost ~20-26s on m3 --
   # a short correctness-check timeout would kill them mid-run and misreport a real answer as DIFF.
   ckstat=ok
-  DECL_SW=(); dw=$(declared_switches_beside "$f") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"
+  DECL_SW=(); dw=$(declared_switches_beside "$f") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$f" || true
   m3o="$W/m3o.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$m3o" 2>/dev/null)
   cmp -s "$m3o" "$ref" || ckstat="m3:DIFF"
   if [ "$ckstat" = ok ]; then
     m4s="$W/m4c.$$.s"; m4b="$W/m4c.$$.bin"; m4o="$W/m4o.$$"
     if (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$m4s" "$f" </dev/null >/dev/null 2>/dev/null) && [ -s "$m4s" ] \
        && as --64 -o "$m4s.o" "$m4s" 2>/dev/null && gcc -no-pie -o "$m4b" "$m4s.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; then
-      timeout "$T" "$m4b" </dev/null >"$m4o" 2>/dev/null; cmp -s "$m4o" "$ref" || ckstat="m4:DIFF"
+      timeout "$T" "$m4b" "${DECL_SW[@]}" </dev/null >"$m4o" 2>/dev/null; cmp -s "$m4o" "$ref" || ckstat="m4:DIFF"
     else ckstat="m4:BUILD-ERR"; fi
   fi
   if [ "$ckstat" = ok ]; then

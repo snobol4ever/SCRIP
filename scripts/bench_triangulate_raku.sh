@@ -73,7 +73,6 @@ RAKU_VER="$("$RAKU" --version 2>/dev/null | sed -n 's/.*Rakudo™ v\([0-9][0-9.]
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build." >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/prelude" && cp "$RDIR/prelude_rakudo.rakumod" "$W/prelude/" || { echo "⛔ REFUSED: cannot stage the prelude." >&2; exit 2; }
-ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT_TSV="${OUT_TSV:-$RDIR/worktime-$TS.tsv}"
 
@@ -96,6 +95,7 @@ echo "population: ${#all[@]} kernels in corpus · ${#timed[@]} self-timed with .
 [ "${#untimed[@]}" -gt 0 ] && echo "  not self-timed (add the wall_us()/note() bracket, then they join): ${untimed[*]}"
 [ "${#noref[@]}"   -gt 0 ] && echo "  no .ref (cannot be byte-verified, so cannot be timed):           ${noref[*]}"
 [ "${#timed[@]}" -gt 0 ] || { echo "⛔ REFUSED: no self-timed kernel with a .ref to measure." >&2; exit 2; }
+for k in "${timed[@]}"; do undeclared_beside_named "$RDIR/$k.raku" || true; done
 echo
 
 # angles 1+2, run fresh and UNMODIFIED (one authority per mechanism, same discipline as bench_triangulate_prolog.sh):

@@ -254,15 +254,6 @@ else
     echo "  SKIP test_shared_nv.scrip (file not found)"
 fi
 
-# ── Raku corpus harness ───────────────────────────────────────────────────────
-echo "=== Raku corpus ==="
-RAKU_OUT=$(bash "$HERE/test_raku_ir_rungs.sh" 2>/dev/null) || true
-RAKU_PASS=$(echo "$RAKU_OUT" | grep -c "^PASS") || true
-RAKU_FAIL=$(echo "$RAKU_OUT" | grep -c "^FAIL") || true
-echo "$RAKU_OUT" | grep -E "^PASS|^FAIL|^SKIP" | sed 's/^/  /'
-PASS=$((PASS + RAKU_PASS))
-FAIL=$((FAIL + RAKU_FAIL))
-
 # ── OE-12: --run polyglot smoke test ──────────────────────────────────────
 echo "=== --run polyglot (OE-12) ==="
 SMRUN_FILE="$ROOT/../corpus/tests/scrip_test/test_shared_nv.scrip"

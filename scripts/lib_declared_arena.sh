@@ -436,6 +436,16 @@ declared_switches_beside() {
   st=$(declared_stack_kb_beside "$prog") || return 2
   _declared_switch_words "$kb" "$st"
 }
+# undeclared_beside_named <program> -- a STANDALONE unit (a benchmark kernel, a demo) that carries neither a .heap nor a .stack sidecar
+#   is NAMED on stdout, in the run's own output, and rc 1; a unit declaring either is silent, rc 0. The standalone counterpart of
+#   declared_row_in_table's naming (RULES.md 8 (f): "A declaration that is missing is a gap the runner names, never a default silently
+#   taken"; ceo CEO-1353, the coo's ask to hq_raku 2026-09-28: "an undeclared unit is NAMED in the run's own output").
+undeclared_beside_named() {
+  local prog="$1"
+  [ -f "${prog%.*}.heap" ] || [ -f "${prog%.*}.stack" ] && return 0
+  echo "⛔ UNDECLARED (RULES.md 8 (f)): $(basename "$prog") has no .heap or .stack sidecar beside it -- run at the runtime's defaults, a gap named here, never a default taken silently"
+  return 1
+}
 
 # declared_compile_args_beside <program> -- a STANDALONE program's declared compile switches (a demo, a benchmark kernel, an extracted
 #   entry: no ALL.csv row to read), from its <stem>.cmdline sidecar, one line NAME<TAB>compile_args<TAB>run_args, read through

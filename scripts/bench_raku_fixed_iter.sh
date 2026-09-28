@@ -55,7 +55,6 @@ declare -a DECL_SW=()
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || { echo "⛔ REFUSED: bench_rusage failed to build" >&2; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/prelude" && cp "$RDIR/prelude_rakudo.rakumod" "$W/prelude/" || { echo "⛔ REFUSED: cannot stage the prelude." >&2; exit 2; }
-ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
 WORK_OPEN='$t0 = wall_us(); my $m0 = wall_ms();'
 
 rate() { awk -v n="$1" -v us="$2" 'BEGIN{ if (us+0>0) printf "%.4f", n/(us/1e6); else print "NA" }'; }
@@ -91,6 +90,7 @@ if [ "$CALIBRATE" -eq 1 ]; then
     grep -qF "$WORK_OPEN" "$f" || continue
     if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
     # single-shot correctness on m3 first -- a kernel that cannot even run once correctly gets no N.
+    DECL_SW=(); dw=$(declared_switches_beside "$f") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$f" || true
     o="$W/cal.$$"; (cd "$W" && timeout "$T" "$SCRIP" --run "${DECL_SW[@]}" "$f" </dev/null >"$o" 2>/dev/null)
     if ! cmp -s "$o" "$ref"; then echo "  $k: SKIP (m3 single-shot does not match .ref)"; continue; fi
     N=1; cpu=0
@@ -134,6 +134,7 @@ for k in $(printf '%s\n' "${!NCOMMIT[@]}" | sort); do
   N="${NCOMMIT[$k]}"; f="$RDIR/$k.raku"
   [ -f "$f" ] || { printf "%-24s %8s   MISSING KERNEL SOURCE -- recalibrate\n" "$k" "-"; tot_bad=$((tot_bad+1)); continue; }
   if [ -n "$KERNELS" ]; then case " $KERNELS " in *" $k "*) ;; *) continue ;; esac; fi
+  DECL_SW=(); dw=$(declared_switches_beside "$f") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$f" || true
   raku_bench_wrap "$f" "$N" "$W/r.$k.raku"
   ckstat=ok; declare -A RATE=()
   for eng in m3 m4 rakudo; do

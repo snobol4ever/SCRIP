@@ -83,6 +83,24 @@ is_tier_c() {
   esac
 }
 TMP=$(mktemp -d)
+# ⛔ EACH TEST'S DECLARED HEAP AND STACK RIDE ITS OWN COMMAND LINE (ceo CEO-1353; RULES.md 8 (f)): the attribute table keyed by pname,
+# read through lib_declared_arena.sh, as -d<kb>k -s<kb>k after --run in mode 3 and at the head of the binary's arguments in mode 4 --
+# never SCRIP_HEAP_KB (the collector's window), never a ulimit. A test with no row is NAMED (ROAST_UNDECLARED), never run silently at a default.
+. "$(dirname "$0")/lib_declared_arena.sh" || { echo "⛔ REFUSING (rc=2): cannot load lib_declared_arena.sh -- the ONE reader of a test's declared heap and stack" >&2; exit 2; }
+DCSV="$ROOT/../corpus/packages/raku/roast/ALL.csv"; DTBL="$TMP/declared.tsv"
+[ -f "$DCSV" ] || { echo "⛔ REFUSING (rc=2): no roast attribute table at $DCSV -- every test's heap and stack are read from it (CEO-1353)" >&2; exit 2; }
+declared_memory_begin "$DCSV" "$DTBL" >/dev/null || { echo "⛔ REFUSING (rc=2): $DCSV carries a cell the reader refuses (it said why above)" >&2; exit 2; }
+ROAST_UNDECL=""; RSW=()
+roast_sw() {  # <rel or pname> -> RSW, the test's declared switches; a test with no row joins ROAST_UNDECL
+  local e="${1%.t}" w; RSW=()
+  declared_row_in_table "$DTBL" "$e" 2>/dev/null || ROAST_UNDECL="$ROAST_UNDECL $e"
+  w=$(declared_switches_from_table "$DTBL" "$e") || { echo "⛔ REFUSING (rc=2): the declared-memory table vanished mid-run" >&2; exit 2; }
+  [ -n "$w" ] && read -r -a RSW <<<"$w"; return 0
+}
+roast_undecl_report() {
+  local k; k=$(wc -w <<<"$ROAST_UNDECL")
+  printf 'ROAST_UNDECLARED %d test(s) with no row in %s (run at the runtime defaults, named here):%s\n' "$k" "$DCSV" "$( [ "$k" -gt 0 ] && printf ' %s' $ROAST_UNDECL | cut -c1-2000 )"
+}
 trap 'rm -rf "$TMP"' EXIT
 declare -A SEC_TOT SEC_PASS
 n_intier=0; n_pass=0; n_fail=0; n_parse=0; n_crash=0; n_notap=0; n_missing=0
@@ -123,8 +141,8 @@ if [ "$DO_INV" = 1 ]; then
     n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
     stage="$TMP/case.raku"; cp "$src" "$stage"
     so="$TMP/o"; se="$TMP/e"
-    timeout 10 "$SCRIP" --run "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
-    rel="${src#$ROAST/}"
+    rel="${src#$ROAST/}"; roast_sw "$rel"
+    timeout 10 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
     err1=$(head -1 "$se" 2>/dev/null)
     bucket=$(roast_bucket "$so" "$se" "$rc")   # lib_raku_roast_bucket.sh -- the ONE bucket rule
     # The line the parser died on, so the histogram names CONSTRUCTS and not line numbers.
@@ -134,6 +152,7 @@ if [ "$DO_INV" = 1 ]; then
     printf '%s\t%s\t%s\t%s\n' "$rel" "$bucket" "${ln:-.}" "${srcln:-.}" >> "$CSV"
     if [ $((n % 200)) -eq 0 ]; then printf '  ...%d/%d files (%ds)\n' "$n" "$TREE_T" "$(( $(date +%s) - t0 ))" >&2; fi
   done < <(find -L "$ROAST" -name '*.t' -print0 | sort -z)
+  roast_undecl_report
   # ⛔ REFUSES rather than printing the success shape over an empty population (CLAUDE.md § Testing).
   [ "$n" -gt 0 ] || { echo "⛔ REFUSE(2) [roast --inventory]: classified ZERO files -- an inventory with no population is not an inventory" >&2; exit 2; }
   graded=$(awk -F'\t' '$2 ~ /^GRADED-/' "$CSV" | wc -l)
@@ -209,8 +228,8 @@ if [ "$DO_RUN" = 1 ]; then
     n=$((n+1)); [ "$LIMIT" -gt 0 ] && [ "$n" -gt "$LIMIT" ] && { n=$((n-1)); break; }
     stage="$TMP/case.raku"; cp "$src" "$stage"
     so="$TMP/o"; se="$TMP/e"
-    pname="${src#$ROAST/}"; pname="${pname%.t}"
-    timeout 5 "$SCRIP" --run "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
+    pname="${src#$ROAST/}"; pname="${pname%.t}"; roast_sw "$pname"
+    timeout 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
     v3="$(classify "$so" "$se" "$rc")"
     progress_append package roast raku "$pname" m3 "$(roast_outcome "$v3")" >/dev/null 2>&1 || true
     if [ "$v3" = PASS ]; then m3p=$((m3p+1)); else m3f=$((m3f+1)); FAILED_M3="$FAILED_M3 $pname:$v3"; fi
@@ -219,7 +238,7 @@ if [ "$DO_RUN" = 1 ]; then
        && timeout 20 gcc -c "$s4" -o "$o4" 2>/dev/null \
        && timeout 20 gcc "$o4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
       compiled_ok=$((compiled_ok+1))
-      timeout 10 "$b4" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?
+      timeout 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?
       v4="$(classify "$TMP/o4" "$TMP/e4" "$rc4")"
       progress_append package roast raku "$pname" m4 "$(roast_outcome "$v4")" >/dev/null 2>&1 || true
       if [ "$v4" = PASS ]; then m4p=$((m4p+1)); else m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:$v4"; fi
@@ -231,6 +250,7 @@ if [ "$DO_RUN" = 1 ]; then
       printf '  ...%d files (%ds elapsed): m3 %d/%d  m4 %d/%d\n' "$n" "$(( $(date +%s) - t0 ))" "$m3p" "$n" "$m4p" "$n" >&2
     fi
   done < <(find -L "$ROAST" -name '*.t' -print0 | sort -z)
+  roast_undecl_report
   compile_only=$((compiled_ok - m4p))
   elapsed=$(( $(date +%s) - t0 ))
   both=$((m3p < m4p ? m3p : m4p))
@@ -314,8 +334,8 @@ while read -r rel _rest; do
   if [ ! -f "$src" ]; then n_missing=$((n_missing+1)); continue; fi
   stage="$TMP/case.raku"
   cp "$src" "$stage"
-  so="$TMP/o"; se="$TMP/e"
-  timeout 5 "$SCRIP" --run "$stage" > "$so" 2> "$se" < /dev/null
+  so="$TMP/o"; se="$TMP/e"; roast_sw "$rel"
+  timeout 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null
   rc=$?
   verdict=$(classify "$so" "$se" "$rc")
   case "$verdict" in
@@ -330,12 +350,13 @@ while read -r rel _rest; do
     if timeout 20 "$SCRIP" --compile --target=x86 "$stage" > "$s4" 2>/dev/null \
        && as -o "$o4" "$s4" 2>/dev/null \
        && gcc -no-pie -o "$b4" "$o4" -L"$ROOT/out" -lscrip_rt 2>/dev/null; then
-      LD_LIBRARY_PATH="$ROOT/out" timeout 10 "$b4" > "$TMP/o4" 2> "$TMP/e4"
+      LD_LIBRARY_PATH="$ROOT/out" timeout 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4"
       [ "$(classify "$TMP/o4" "$TMP/e4" $?)" = PASS ] && n_pass4=$((n_pass4+1))
     fi
   fi
   [ "$LIMIT" -gt 0 ] && [ "$n_intier" -ge "$LIMIT" ] && break
 done < "$MANIFEST"
+roast_undecl_report
 pct() { [ "$2" -eq 0 ] && { echo "0.0"; return; }; awk -v a="$1" -v b="$2" 'BEGIN{printf "%.1f", (a*100.0)/b}'; }
 PCT=$(pct "$n_pass" "$n_intier")
 {
