@@ -10,12 +10,10 @@ extern "C" void rt_pl_cut_barrier(void *);
 static std::string cut_barrier() {
     if (!x86_fb_pinned()) return std::string();
     if (_.op_ival) return std::string();
-    int kt = g_emit.flat_frame_bytes;
-    uint64_t fp; { void (*f)(void *) = rt_pl_cut_barrier; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return  x86("mov", RDQ(x86_fb(), kt - 56), 0L)
-         + x86("mov", RDQ(x86_fb(), kt - 48), 0L)
-         + x86("lea", "rdi", RDQ(x86_fb(), kt - 64))
-         + x86("call_bare", "rt_pl_cut_barrier", fp)
+    return  x86("mov", RDQ(x86_fb(), _.flat_frame_bytes - 56), 0L)
+         + x86("mov", RDQ(x86_fb(), _.flat_frame_bytes - 48), 0L)
+         + x86("lea", "rdi", RDQ(x86_fb(), _.flat_frame_bytes - 64))
+         + x86("call_bare", "rt_pl_cut_barrier", (uint64_t)(uintptr_t)(void *)(void (*)(void *))rt_pl_cut_barrier)
          + x86("mov", "rsp", x86_fb());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
