@@ -67,13 +67,17 @@ BAD=0
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built at $SCRIP — run scripts/build_scrip.sh"; exit 2; }
 
 A2=""; A3=""; A4=""; SMX3=0; SMX4=0; RC3=0
+# ⭐ THE ENTRY'S OWN COMMAND LINE (ceo CEO-1353, clause 8 (g)(4); clause 8 (f)): RUN_SW holds its declared heap and stack as -d<kb>k -s<kb>k
+# (never SCRIP_HEAP_KB, the collector's window) and RUN_AV its ALL.argv arguments -- this gate passed neither, so entry 882
+# (rung36_jcon_image, dump(args)) read its one declared argument as absent in every mode and the gate stood red.
+declare -a RUN_SW=() RUN_AV=()
 run3() {
     local f="$1" TO="${2:-8}"
     local IN="${f%.icn}.stdin"; [ -f "$IN" ] || IN="$(dirname "$f")/config/$(basename "$IN")"; [ -f "$IN" ] || IN=/dev/null
     local D; D="$(dirname "$f")"
-    A2=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>/dev/null <"$IN")
+    A2=$(cd "$D" && timeout "$TO" "$SCRIP" --run ${RUN_SW[@]+"${RUN_SW[@]}"} "$f" ${RUN_AV[@]+--} ${RUN_AV[@]+"${RUN_AV[@]}"} 2>/dev/null <"$IN")
     local e3; e3=$(mktemp)
-    A3=$(cd "$D" && timeout "$TO" "$SCRIP" --run "$f" 2>"$e3" <"$IN"); RC3=$?
+    A3=$(cd "$D" && timeout "$TO" "$SCRIP" --run ${RUN_SW[@]+"${RUN_SW[@]}"} "$f" ${RUN_AV[@]+--} ${RUN_AV[@]+"${RUN_AV[@]}"} 2>"$e3" <"$IN"); RC3=$?
     SMX3=0; grep -q '\[SMX\]' "$e3" && SMX3=1; rm -f "$e3"
     A4=""; SMX4=0
     local s4 b4 e4; s4=$(mktemp --suffix=.s); b4=$(mktemp); rm -f "$b4"; e4=$(mktemp)
@@ -81,7 +85,7 @@ run3() {
     grep -q '\[SMX\]' "$e4" && SMX4=1
     if [ "$SMX4" = 0 ] && [ -s "$s4" ] && [ -f "$RT_SO" ]; then
         if gcc -no-pie "$s4" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -o "$b4" 2>/dev/null; then
-            A4=$(cd "$D" && timeout "$TO" "$b4" 2>/dev/null <"$IN")
+            A4=$(cd "$D" && timeout "$TO" "$b4" ${RUN_SW[@]+"${RUN_SW[@]}"} ${RUN_SW[@]+--} ${RUN_AV[@]+"${RUN_AV[@]}"} 2>/dev/null <"$IN")
         fi
     fi
     rm -f "$s4" "$b4" "$e4"
@@ -287,8 +291,9 @@ BUCKET_TMP="$(mktemp -d)"; trap 'rm -rf "$BUCKET_TMP"' EXIT
 MASTER_DIR="$CORPUS" MASTER_EXT=.icn
 . "$HERE/lib_master_extract.sh"
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
-while IFS=$'\t' read -r origin heapkb; do
-    [ -n "$origin" ] || continue
+while IFS=$'\t' read -r -a ROW; do
+    origin="${ROW[0]:-}"; [ -n "$origin" ] || continue
+    RUN_SW=(); [ -n "${ROW[1]:-}" ] && RUN_SW+=("-d${ROW[1]}k"); [ -n "${ROW[2]:-}" ] && RUN_SW+=("-s${ROW[2]}k"); RUN_AV=("${ROW[@]:3}")
     safe="$(printf '%s' "$origin" | tr -c 'A-Za-z0-9_' '_')"
     out="$BUCKET_TMP/$safe.icn"; ref="$BUCKET_TMP/$safe.expected"
     master_extract_origin "$origin" "$out" "$ref" || { echo "  FAIL: could not extract $origin (master_extract_origin refused)"; C3F=$((C3F+1)); continue; }
@@ -297,17 +302,24 @@ while IFS=$'\t' read -r origin heapkb; do
     exp=$(cat "$ref" 2>/dev/null || true)
     # the entry runs at the heap its ALL.csv row declares (heap_kb, CEO-1167/1225), as every suite runner does -- an undeclared
     # entry runs at the shipped default, unchanged
-    if [ -n "$heapkb" ]; then SCRIP_HEAP_KB="$heapkb" run3 "$out" 30; else run3 "$out" 30; fi
+    run3 "$out" 30
     if [ "$A2" = "$exp" ]; then r2=PASS; C2P=$((C2P+1)); else r2=FAIL; C2F=$((C2F+1)); fi
     if [ "$SMX3" = 1 ]; then r3=REFUSED; C3E=$((C3E+1)); elif [ "$A3" = "$exp" ]; then r3=PASS; C3P=$((C3P+1)); else r3=FAIL; C3F=$((C3F+1)); fi
     if [ "$SMX4" = 1 ]; then r4=REFUSED; C4E=$((C4E+1)); elif [ "$A4" = "$exp" ]; then r4=PASS; C4P=$((C4P+1)); else r4=FAIL; C4F=$((C4F+1)); fi
     printf "  %-46s m2=%-4s m3=%-7s m4=%s\n" "$origin" "$r2" "$r3" "$r4"
 done < <(python3 - "$CORPUS/ALL.csv" assign <<'PY' | grep -vP '^(rung36_all__rung36_jcon_kwds|rung36_all__rung36_jcon_fncs1)\t'
-import csv, sys
+import csv, os, sys
 path, col = sys.argv[1], sys.argv[2]
+av = {}
+ap = os.path.join(os.path.dirname(path), "ALL.argv")
+if os.path.isfile(ap):
+    for ln in open(ap, encoding="utf-8"):
+        ln = ln.rstrip("\n")
+        if ln.strip() and not ln.lstrip().startswith("#"):
+            f = ln.split("\t"); av[f[0]] = f[1:]
 for r in csv.DictReader(open(path)):
     if r.get(col, "0") not in ("", "0") and r.get("xfail", "0") in ("", "0"):
-        print(r["origin"] + "\t" + (r.get("heap_kb") or "").strip())
+        print("\t".join([r["origin"], (r.get("heap_kb") or "").strip(), (r.get("stack_kb") or "").strip()] + av.get(r["entry"], [])))
 PY
 )
 # ⛔ THE TWO EXCLUSIONS ABOVE ARE VERIFIED BUCKET-EXTRACTION ARTIFACTS, NOT SCRIP DEFECTS (2026-09-04,
