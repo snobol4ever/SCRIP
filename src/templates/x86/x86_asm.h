@@ -2079,6 +2079,12 @@ inline std::string x86_strtab_lbl(const char * s) {
     return std::string(lbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline uint64_t x86_cset_word(const char * s, long n, int k) {
+    uint64_t w = 0;
+    for (long i = 0; s && i < n; i++) if (((unsigned char)s[i] >> 6) == k) w |= 1ull << ((unsigned char)s[i] & 63);
+    return w;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint64_t x86_csettab_ptr(const char * cset) {
     char lbl[24];
     return (uint64_t)(uintptr_t)csettab_label(lbl, sizeof lbl, cset);
