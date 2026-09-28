@@ -821,6 +821,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
     while (c->cur < c->top) {
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
+        if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
         int len = (int)e->len; if (len < 0) len = 0;
         { extern int Σlen;
           long long _end = (long long)e->saved_delta + (long long)len;

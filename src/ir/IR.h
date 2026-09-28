@@ -157,6 +157,7 @@ typedef enum {
     IR_LIT_ATOM,
     IR_OP_COUNT
 } IR_e;
+typedef enum { SNO_FENCE_LIT_BARE = 0, SNO_FENCE_LIT_ARG = 1, SNO_FENCE_LIT_ARG_IN_ARBNO = 2, SNO_FENCE_LIT_FLUSH = 3 } sno_fence_lit_e;
 DESCR_SASSERT(IR_OP_COUNT > 0,
                "THE OP-IN-A-BYTE GUARD THAT STOOD HERE IS RETIRED AND THIS ASSERT KEEPS ITS PLACE SO THE HISTORY IS "
                "NOT LOST. It read IR_OP_COUNT <= 255 because descr.h carried a uint8_t mint_op holding the minting "

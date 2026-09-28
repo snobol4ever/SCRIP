@@ -1734,12 +1734,12 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         sno_pre_req(cx, t, nd);
         return nd;
     }
-    case TT_FLUSH: { IR_t * F = lc_build(g, IR_MATCH_FENCE0, succ, NULL); sno_ω_to(F, fail); IR_LIT(F).ival = 3; return F; }
+    case TT_FLUSH: { IR_t * F = lc_build(g, IR_MATCH_FENCE0, succ, NULL); sno_ω_to(F, fail); IR_LIT(F).ival = SNO_FENCE_LIT_FLUSH; return F; }
     case TT_FENCE:
         if (t->n > 0 && t->c[0] && !g_sno_in_patproc) {
             IR_t * F = lc_build(g, IR_MATCH_FENCE1, succ, NULL);
             sno_ω_to(F, fail);
-            IR_LIT(F).ival = 1;
+            IR_LIT(F).ival = SNO_FENCE_LIT_ARG;
             int before_p = g->n;
             IR_t * pe = sno_pat_node(cx, t->c[0], F, F);
             IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
@@ -1920,7 +1920,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     int f_idx = g->n;
                     IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
                     sno_ω_to(F, fail_p);
-                    IR_LIT(F).ival = 2;
+                    IR_LIT(F).ival = SNO_FENCE_LIT_ARG_IN_ARBNO;
                     int before_p = g->n;
                     IR_t * pe = sno_pat_node(cx, inner, F, F);
                     IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
@@ -1939,7 +1939,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     int f_idx = g->n;
                     IR_t * F = lc_build(g, IR_MATCH_FENCE1, cur_succ, NULL);
                     sno_ω_to(F, fail_p);
-                    IR_LIT(F).ival = 1;
+                    IR_LIT(F).ival = SNO_FENCE_LIT_ARG;
                     int before_p = g->n;
                     IR_t * pe = sno_pat_node(cx, inner, F, F);
                     IR_t * p_tail = (before_p < g->n) ? g->all[before_p] : pe;
@@ -1958,7 +1958,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     int f_idx = g->n;
                     IR_t * F = lc_build(g, IR_MATCH_FENCE0, cur_succ, NULL);
                     sno_ω_to(F, fail_p);
-                    IR_LIT(F).ival = sno_is_flush(elems[i]) ? 3 : 0;
+                    IR_LIT(F).ival = sno_is_flush(elems[i]) ? SNO_FENCE_LIT_FLUSH : SNO_FENCE_LIT_BARE;
                     cur_succ = F; right_tail = F; right_tail_idx = f_idx;
                 }
                 if (!rlast && g->n > 0) rlast = g->all[g->n - 1];

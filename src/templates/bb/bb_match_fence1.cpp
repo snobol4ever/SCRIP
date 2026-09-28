@@ -11,7 +11,7 @@ static int fence_u2_frame(void) {
     static int v = -1;
     if (v < 0)
         { const char * e = getenv("SCRIP_U2_FENCE"); v = (e && e[0] == '0') ? 0 : 1; }
-    return v && _.op_ival != 2;
+    return v && _.op_ival != SNO_FENCE_LIT_ARG_IN_ARBNO;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string fence_release(int off, int kk = 0) {
@@ -26,7 +26,7 @@ static const char * fence_cap_top(int off) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence1() {
     x86_begin();
-    if (_.op_ival == 0)
+    if (_.op_ival == SNO_FENCE_LIT_BARE)
         return x86("comment", "IR_MATCH_FENCE1")
              + x86_alpha()
              + x86_gamma()

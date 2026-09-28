@@ -675,6 +675,7 @@ test_gate_sno_every_real_overflow_in_the_family_raises.sh	WIRED	-	-	-
 test_gate_sno_every_unused_operator_opsyn_names_calls_its_function.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_field_function_with_no_argument_raises_041_not_022.sh	WIRED	-	-	-
+test_gate_sno_flush_runs_the_recorded_conditional_assignments_then_cuts.sh	WIRED	-	-	-
 test_gate_sno_fnclevel_is_mirrored_at_every_level_move_not_only_in_the_gva_shim.sh	WIRED	-	-	-
 test_gate_sno_goto_with_no_preceding_error.sh	WIRED	-	-	-
 test_gate_sno_host_1_runs_the_command_and_returns_its_wait_status.sh	WIRED	-	-	-
