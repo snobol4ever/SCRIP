@@ -56,6 +56,8 @@ static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
 static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from, void **fp_from);
 static char *gc_stack_top(void);
+static int gc_ceiling_on(void);
+static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo);
 typedef struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; long serial; void *ra_site; void *ra_from; } gc_vac_t;
 static gc_vac_t *g_gc_vac = (gc_vac_t *)0;
 static long g_gc_vacn = 0, g_gc_vaccap = 0, g_gc_vacover = 0, g_gc_vacgen = 0;
@@ -1122,7 +1124,20 @@ static void gc_seg_begin(gc_seg_it_t *it, char *floor)
     it->floor = floor; it->run_hi = gc_stack_top(); g_gc_co_parked = 0;
 }
 static char *g_gc_emit_ceiling = (char *)0;
+static long  g_gc_ceil_bytes;
 static int   g_gc_seg_main = 0;
+static const gc_frame_map_t *gc_root_map(void) { for (int i = 0; i < g_gc_maps_n; i++) if (g_gc_maps[i] && (g_gc_maps[i]->flags & GC_FRAME_MAP_ROOT)) return g_gc_maps[i]; return (const gc_frame_map_t *)0; }
+static char *gc_emit_ceiling_resolve(const char *floor, const char *run_hi) {
+    const gc_frame_map_t *r = gc_root_map(), *m = (const gc_frame_map_t *)0; const char *c, *lo, *hi; long top;
+    if (!r || !g_gc_emit_ceiling) return (char *)0;
+    top = 16 + (long)r->header_bytes; c = g_gc_emit_ceiling - top;
+    if (c > floor && c + 16 <= run_hi && gc_walk_cell(c, run_hi, &m) && m == r) return g_gc_emit_ceiling;
+    c -= (long)r->map_off; lo = c - 2 * (long)r->frame_bytes; hi = c + (long)r->frame_bytes; if (lo < floor) lo = floor; if (hi > run_hi) hi = run_hi;
+    for (c = (const char *)(((uintptr_t)lo + 7u) & ~(uintptr_t)7u); c + 16 <= hi; c += 8) { m = (const gc_frame_map_t *)0; if (gc_walk_cell(c, hi, &m) && m == r) return (char *)c + top; }
+    return (char *)0;
+}
+void rt_gc_emit_ceiling_adopt(char *entry_sp) { const gc_frame_map_t *r = gc_root_map(); if (!r || !entry_sp || g_gc_emit_ceiling || !gc_ceiling_on()) return; g_gc_emit_ceiling = entry_sp + (long)r->map_off + 16 + (long)r->header_bytes; }
+_Static_assert(GC_FRAME_MAP_ROOT == 1u, "THE EMITTED-STACK CEILING IS RECORDED AT ENTRY AND RESOLVED THROUGH THE ROOT MAP, AND EVERY COLLECTION VERIFIES IT BEFORE TRUSTING IT (cfo 2026-09-28, row gc-the-emitted-stack-walk-takes-a-ceiling-at-the-rt-outer-call-entry-rsp; ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 10b; law CEO-812 THE COLLECTOR GUESSES NOTHING): rt_outer_call (src/driver/scrip.c) hands rt_gc_emit_ceiling_adopt the rsp it enters emitted code at; the root frame is the map_off+16+header_bytes above that rsp (measured on hb_arr.sno: entry rsp+624 holds the ROOT cell, +640 is the frame top, which is exactly the value the first walk used to learn by scanning the 4 MB reserve above it); gc_seg_next bounds the main segment there only after the ROOT map's own cell is found 16+header_bytes under the ceiling, or, when the root prologue lays its frame BELOW the entry rsp (Icon: the cell 88 bytes under it, header 96), by a bounded search of [entry-2*frame_bytes, entry+frame_bytes) for that cell -- a record that resolves to no ROOT cell is dropped and that collection walks unbounded, so a ceiling that could cut a live frame is never applied. Mode 4 has no trampoline and keeps the learned bound, which the same check verifies.");
 _Static_assert(sizeof(void *) == 8, "A PARKED STACK IS A SEGMENT FROM ITS RECORDED STACK POINTER, NOT FROM ITS MAPPING (cto, 2026-09-23, row gc-heap-growth-...; law CEO-812 THE COLLECTOR GUESSES NOTHING): scrip_coswitch records rsp in park_sp before it posts the semaphore, every word of the mutator's lives at or above it, and the words below it are glibc's sem_wait frames -- the whole-mapping walk read those raw words as cells (the accident test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh names) and cost geddump 5.5 s per collection walking 8 MB per parked co-expression; SCRIP_GC_COEXPR_PLANT=3 restores the whole-mapping walk as the plant");
 static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (scrip_co_gc_plant() != 3 && c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
 static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
@@ -1138,7 +1153,7 @@ static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
         *lo = gc_seg_parked_lo(c, clo); *hi = chi; *pop = 4; g_gc_co_parked++; return 1; }
     if (it->stage == 2) { it->stage = 3; if (it->floor < it->run_hi) { *lo = it->floor; *hi = it->run_hi; *pop = 1;
         g_gc_seg_main = (it->run_hi == gc_stack_top()) ? 1 : 0;
-        if (g_gc_seg_main && g_gc_emit_ceiling && g_gc_emit_ceiling > it->floor && g_gc_emit_ceiling < it->run_hi) *hi = g_gc_emit_ceiling;
+        if (g_gc_seg_main && g_gc_emit_ceiling && g_gc_emit_ceiling > it->floor && g_gc_emit_ceiling < it->run_hi) { char *cl = gc_emit_ceiling_resolve(it->floor, it->run_hi); g_gc_emit_ceiling = cl; if (cl && cl > it->floor && cl < it->run_hi) { g_gc_ceil_bytes += (long)(it->run_hi - cl); *hi = cl; } }
         return 1; } }
     return 0;
 }
@@ -1352,7 +1367,6 @@ static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const 
     if (span > covered) g->i_gap += (span - covered) / 8;
 }
 static int gc_ceiling_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_CEILING"); v = (e && *e) ? (*e != '0') : 1; } return v; }
-static long g_gc_ceil_bytes;
 static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo)
 {
     const DESCR_t *d = (const DESCR_t *)p; const gc_frame_map_t *m;
@@ -1378,7 +1392,7 @@ static void gc_walk_range(const char *lo0, const char *hi0)
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
         if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; }
-            if (above && gc_ceiling_on() && g_gc_seg_main && (!g_gc_emit_ceiling || (char *)p < g_gc_emit_ceiling)) { g_gc_ceil_bytes += (long)((g_gc_emit_ceiling ? g_gc_emit_ceiling : g_gc_stktop) - (char *)p); g_gc_emit_ceiling = (char *)p; } }
+            if (above && gc_ceiling_on() && g_gc_seg_main && (!g_gc_emit_ceiling || (char *)p < g_gc_emit_ceiling)) g_gc_emit_ceiling = (char *)p; }
     }
 }
 static long g_gc_rtccb_heap;
