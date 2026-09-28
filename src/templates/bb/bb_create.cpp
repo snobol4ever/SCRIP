@@ -9,28 +9,25 @@ extern "C" {
 #include "x86_asm.h"
 std::string xa_coexpr_body_lea(const char * dst);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define CR_PINNED() ((g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit_cfg->zframe_pinned_base) ? 1 : 0)
+#define CR_REG(k) ((k) == 0 ? "r12" : (k) == 1 ? "r13" : (k) == 2 ? "r14" : (k) == 3 ? "r15" : (k) == 4 ? "rbx" : (k) == 5 ? (CR_PINNED() ? "rbp" : "rsp") : "r9")
 std::string bb_create() {
     x86_begin();
     if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_create: op_off < 0 (no slot assigned -- IR_CREATE missing from ir_node_produces_value?)");
     if (!_.lbl_t0)
         return x86_alpha() + x86_bomb("bb_create: body-entry target (t0 port) is NULL -- codegen_flat_chain_body's IR_CREATE resolution did not thread g_create_body_entry "
                          "(operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)");
-    std::string s = x86("comment", "IR_CREATE")
-                   + x86_alpha();
-    int frame_base_pinned = (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit_cfg->zframe_pinned_base) ? 1 : 0;
-    const char *contract_regs[7] = {"r12", "r13", "r14", "r15", "rbx", frame_base_pinned ? "rbp" : "rsp", "r9"};
-    for (int k = 0; k < 7; k++) {
-        s += x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 16 + k * 8) + "]", contract_regs[k]);
-    }
-    s += xa_coexpr_body_lea("rdi");
-    s += x86_frame_lea("rsi", _.op_off + 16)
-       + x86("mov", "edx", std::to_string(_.flat_carve_total > _.frame_region ? _.flat_carve_total : (_.frame_region > 0 ? _.frame_region : 0)))
-       + x86("mov", "ecx", std::to_string(frame_base_pinned ? _.flat_carve_total : 0))
-       + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")
-       + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
+    return x86("comment", "IR_CREATE")
+         + x86_alpha()
+         + FOR(0, 7, [&](int k) { return x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 16 + k * 8) + "]", CR_REG(k)); })
+         + xa_coexpr_body_lea("rdi")
+         + x86_frame_lea("rsi", _.op_off + 16)
+         + x86("mov", "edx", std::to_string(_.flat_carve_total > _.frame_region ? _.flat_carve_total : (_.frame_region > 0 ? _.frame_region : 0)))
+         + x86("mov", "ecx", std::to_string(CR_PINNED() ? _.flat_carve_total : 0))
+         + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")
+         + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
          + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", (long)DT_CO)
-       + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 8) + "]", "rax")
-       + x86_gamma()
-       + x86_beta_trampoline();
-    return s;
+         + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 8) + "]", "rax")
+         + x86_gamma()
+         + x86_beta_trampoline();
 }
