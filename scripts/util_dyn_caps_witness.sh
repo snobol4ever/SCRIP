@@ -40,7 +40,14 @@ read -r nst nsl nsf <<<"$(awk -F'\t' 'FILENAME==ARGV[1] {ok[$1] = 1; next} FNR>1
                             END {n = 0; for (k in f) n++; print t+0, l+0, n+0}' "$T/ns.ok" "$T/c.tsv")"
 awk -F'\t' 'FILENAME==ARGV[1] {ok[$1] = 1; next} FNR==1 || !($1 in ok)' "$T/ns.ok" "$T/c.tsv" > "$T/c.kept" && mv "$T/c.kept" "$T/c.tsv"
 [ -z "$nsred" ] || { echo "RED: $NS declares a file that ships or does not exist -- nothing of it was set aside; fix the row:"; printf '%s\n' "$nsred"; red=1; }
-count_caps() { awk -F'\t' -v dirs="$1" -v caps="$2" 'NR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $1 ~ dirs && $5 ~ caps {print "  " $1 ":" $2 " " $4 "[" $5 "]"}' "$T/c.tsv"; }
+# ⛔ A CLASS A/B DECLARATION LEAVES THE STILL-BOUND LIST (the cfo's ask 2026-09-27 18:5x, the coo 2026-09-28): the compile and runtime
+# verbs listed rows by bound name and never read CLASS_AB.tsv, so a table declared class A (stage2.h's chained hash width, 256, that no
+# count of predicates fills) could never leave its list and the umbrella's DONE-WHEN stayed red over a declared row. count_caps now
+# drops a (file, name) CLASS_AB.tsv declares, exactly as the census verb drops it from the no-guard line; count_caps_declared names what
+# was set aside, so the line reads "still bound: n (k declared class A/B, set aside)" and the ratchet counts are untouched.
+_ab_file() { printf '%s' "${DYN_CAPS_CLASS_AB:-scripts/fixtures/dyn_caps/CLASS_AB.tsv}"; }
+count_caps() { awk -F'\t' -v dirs="$1" -v caps="$2" 'FILENAME==ARGV[1] { if ($0 !~ /^#/ && NF>=3) ab[$1 "\t" $2]=1; next } FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $1 ~ dirs && $5 ~ caps && !(($1 "\t" $4) in ab) {print "  " $1 ":" $2 " " $4 "[" $5 "]"}' "$(_ab_file)" "$T/c.tsv"; }
+count_caps_declared() { awk -F'\t' -v dirs="$1" -v caps="$2" 'FILENAME==ARGV[1] { if ($0 !~ /^#/ && NF>=3) ab[$1 "\t" $2]=$3; next } FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && $1 ~ dirs && $5 ~ caps && (($1 "\t" $4) in ab) {print "  " $1 ":" $2 " " $4 "[" $5 "] class " ab[$1 "\t" $4]}' "$(_ab_file)" "$T/c.tsv"; }
 COMPILE_CAPS='^(SNO_DEF_MAX|SNO_PAT_MAX|SNO_EXPR_MAX|SNO_FZW_MAX|SNO_LOOP_STACK_MAX|MAX_PREDS|PL_BB_TABLE_MAX|PL_INIT_GOALS_MAX|PL_CONSULT_FILES_MAX|FL_MAX_ENTRIES|FL_MAX_FIELDS|FL_MAX_SCOPES|FL_MAX_GRAPHS|ZDP_CAP|BB_PATCH_MAX|SMX_STRTAB_CAP|SMX_CSETTAB_CAP|AB_FNCELL_MAX|XA_BB_EMIT_PAIR_MAX|ZD_NOPS_MAX|FLAT_CHAIN_SET_MAX|FLAT_DATA_LBL_MAX|WASM_STRTAB_MAX|WASM_USERFNS_MAX|STAGE2_LABEL_MAX|STAGE2_PROC_TABLE_MAX|STAGE2_PL_PRED_TABLE_SIZE|STAGE2_FRAME_SLOT_MAX|STAGE2_MOD_MAX|MAX_STATES|MAX_GROUPS|MAX_CAPLOG|RK_GRAM_MAX|SC_DAT_MAX_TYPES|INIT_MAX|SHADOW_MAX|CALL_STACK_MAX)$'
 RUNTIME_CAPS='^(CALL_ARGS_MAX|RT_FRAME_STACK_MAX|RT_FRAME_SLOT_MAX|FH_MAX|GLOBAL_MAX|RT_MAX_CAPTURES|VSTACK_MAX|SAVE_MAX|FRAME_STACK_MAX|FRAME_SLOT_MAX|FRAME_DEPTH_MAX|EVERY_GEN_SLOT_MAX|SCAN_STACK_MAX|RT_INITIAL_MAX|RT_DC_FNS_MAX|RT_PROC_LOC_MAX|FIELD_ACCESSOR_MAX|RT_CAS_CAPO_MAX|VAR_BUCKETS|ZSM_N|ZDP_RBP_TAB_N|EXPRESSION_REG_MAX|BB_DCAP_MAX|SEQ_CACHE_MAX|SUSP_GEN_CACHE_MAX|ICN_STACK_MAX|NV_MEMO_N|RT_DCAP_NVCACHE_N)$'
 case "$mode" in
@@ -56,7 +63,7 @@ compile)
   ( cd "$T/w" && timeout 120 gplc preds600.pl -o preds600.gp > /dev/null 2>&1 ) || { echo "REFUSE(2): gplc could not compile preds600.pl"; exit 2; }
   timeout 120 "$T/w/preds600.gp" < /dev/null > "$T/b.ref" 2> /dev/null; timeout 120 ./scrip --run "$T/w/preds600.pl" < /dev/null > "$T/b.out" 2> "$T/b.err"
   if cmp -s "$T/b.ref" "$T/b.out"; then echo "PASS preds600.pl: 600 predicates, $(wc -l < "$T/b.ref") lines identical to gprolog"; else echo "RED preds600.pl: gprolog prints $(wc -l < "$T/b.ref") lines, scrip $(wc -l < "$T/b.out") -- $(head -c 120 "$T/b.err" | tr '\n' ' ')"; red=1; fi
-  L=$(count_caps '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); n=$(printf '%s' "$L" | grep -c .); echo "compile-time tables still bound by a population cap: $n"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }
+  L=$(count_caps '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); n=$(printf '%s' "$L" | grep -c .); D=$(count_caps_declared '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); d=$(printf '%s' "$D" | grep -c .); echo "compile-time tables still bound by a population cap: $n ($d declared class A/B in $(_ab_file), set aside)"; [ "$d" = 0 ] || printf '%s\n' "$D"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }
   ;;
 runtime)
   [ -x ./scrip ] || { echo "REFUSE(2): no ./scrip"; exit 2; }
@@ -65,7 +72,7 @@ runtime)
   ( cd "$T/w" && "$ICONT" -s -o args70x args70.icn > /dev/null 2>&1 && PATH=/home/resources/icon-master/bin:$PATH ./args70x > "$T/c.ref" 2>&1 ) || { echo "REFUSE(2): the oracle could not run args70.icn"; exit 2; }
   timeout 60 ./scrip --run "$T/w/args70.icn" < /dev/null > "$T/c.out" 2> "$T/c.err"
   if cmp -s "$T/c.ref" "$T/c.out"; then echo "PASS args70.icn: a 70-argument call reads $(tr -d '\n' < "$T/c.ref") in both"; else echo "RED args70.icn: iconx prints $(tr -d '\n' < "$T/c.ref"), scrip prints '$(head -c 40 "$T/c.out" | tr -d '\n')' -- $(head -c 140 "$T/c.err" | tr '\n' ' ')"; red=1; fi
-  L=$(count_caps '^src/runtime/' "$RUNTIME_CAPS"); n=$(printf '%s' "$L" | grep -c .); echo "runtime tables still bound by a population cap: $n"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }
+  L=$(count_caps '^src/runtime/' "$RUNTIME_CAPS"); n=$(printf '%s' "$L" | grep -c .); D=$(count_caps_declared '^src/runtime/' "$RUNTIME_CAPS"); d=$(printf '%s' "$D" | grep -c .); echo "runtime tables still bound by a population cap: $n ($d declared class A/B in $(_ab_file), set aside)"; [ "$d" = 0 ] || printf '%s\n' "$D"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }
   ;;
 census)
   B=scripts/fixtures/dyn_caps/BASELINE; [ -f "$B" ] || { echo "REFUSE(2): no baseline at $B"; exit 2; }
