@@ -83,8 +83,8 @@ src/templates/bb/bb_keyword_assign.cpp:46:rt_keyword_subject_set_strict/rt_keywo
 src/templates/bb/bb_keyword_assign.cpp:90:rt_keyword_trace_set	src/templates/bb/bb_keyword_assign.cpp:95	hb_trace_wildcard_registry_root.icn
 src/templates/bb/bb_keyword_assign_snobol4.cpp:22:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:29	hb_errtext_keyword.sno
 src/templates/bb/bb_keyword_assign_snobol4.cpp:39:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:44	UNWITNESSED
-src/templates/bb/bb_keyword_icon.cpp:22:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:25	hb_icn_reversible_assignment_to_pos_and_subject.icn
-src/templates/bb/bb_keyword_icon.cpp:123:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:128	hb_icn_errorvalue_keyword.icn
+src/templates/bb/bb_keyword_icon.cpp:21:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:24	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_keyword_icon.cpp:122:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:127	hb_icn_errorvalue_keyword.icn
 src/templates/bb/bb_keyword_snobol4.cpp:47:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:52	UNWITNESSED
 src/templates/bb/bb_keyword_snobol4.cpp:84:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:87	UNWITNESSED
 src/templates/bb/bb_limit.cpp:25:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:35	hb_sibling_frames_leave_no_dead_map_cell.icn
