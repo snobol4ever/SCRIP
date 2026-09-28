@@ -923,7 +923,9 @@ tree_t *rkb_binop(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
     case LV_AND: return rk_logical_and(l, r);
     case LV_OR: return k == 0 ? expr_binary(TT_ALT, l, r) : call2(k == 1 ? "__rk_xor" : k == 2 ? "__rk_max" : "__rk_min", l, r);
     case LV_POW: return expr_binary(TT_POW, nctx(b, l), nctx(b, r));
-    case LV_PAIR: { tree_t *pc = make_call("__rk_pair"); expr_add_child(pc, l); expr_add_child(pc, r); return pc; }
+    case LV_PAIR: {
+        if (l && l->t == TT_VAR && (l->slen & 1) && !l->n && l->v.sval) l = leaf_sval(TT_QLIT, l->v.sval);
+        tree_t *pc = make_call("__rk_pair"); expr_add_child(pc, l); expr_add_child(pc, r); return pc; }
     default: return l;
     }
 }
@@ -1276,7 +1278,7 @@ void rkb_colonpair(RkB *b, RkTerm *it, int from, int to, int ck, int kfrom, int 
 void rkb_fatarrow(RkB *b, RkTerm *it, int from, int to, int kfrom, int kto, RkList *val) {
     memset(it, 0, sizeof *it); it->kind = TK_FAT; it->from = from; it->to = it->core_to = to;
     it->name = spn(b, kfrom, kto); it->val = rkb_expr(b, val);
-    tree_t *c = make_call("__rk_pair"); expr_add_child(c, var_node(b, it->name)); expr_add_child(c, it->val); it->t = c;
+    tree_t *c = make_call("__rk_pair"); expr_add_child(c, leaf_sval(TT_QLIT, it->name)); expr_add_child(c, it->val); it->t = c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_prefix(RkTerm *it, const char *s, int n) { GROW(it->pre, it->npre, it->cpre, const char *); it->pre[it->npre++] = trimdup(s, n); }
@@ -1684,6 +1686,7 @@ tree_t *rkb_block_seq(RkB *b, tree_t *list, int bk, int yada) {
 void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *sig, int sub, RkList *last, int nstmts) {
     (void) sub;
     memset(it, 0, sizeof *it); it->kind = TK_BLOCK; it->from = from; it->to = it->core_to = to; it->val = seq; it->lop = rkb_paren(b, last, nstmts);
+    if (!sig && nstmts == 1 && last && last->n >= 1) { tree_t *h = paren_hash(b, last); if (h) { it->kind = TK_TREE; it->t = h; return; } }
     tree_t *a = ast_node_new(TT_ANON_BLOCK); expr_add_child(a, seq);
     for (int i = 0; sig && i < sig->n; i++) { tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0]; expr_add_child(a, p); }
     it->t = a;
