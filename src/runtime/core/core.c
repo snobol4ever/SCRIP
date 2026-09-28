@@ -3066,6 +3066,11 @@ int64_t to_int_slow(DESCR_t v) {
         }
         case DT_K:
             return to_int(NV_GET_fn(v.s));
+        case DT_N:
+            if (v.slen == 1 && v.p) return to_int(*(DESCR_t *)v.p);
+            if (v.slen == 2 && v.p && ((VCELL_t *)v.p)->cellp) return to_int(*((VCELL_t *)v.p)->cellp);
+            core_runtime_error(1, NULL);
+            return 0;
         default:
             core_runtime_error(1, NULL);
             return 0;
