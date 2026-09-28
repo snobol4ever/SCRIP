@@ -3986,13 +3986,22 @@ def smoke_select(corpus_root, features, only_tables=None):
 
 
 def _smoke_outside_names(suite):
-    """The entries the sibling ALL.outside.tsv declares outside the baseline: excluded from the smoke, named."""
+    """The entries the suite's own declarations keep out of the graded denominator -- excluded from the smoke, named (the cfo
+    2026-09-28: the first smoke selected arizona's cfuncs, extlvals, env, checkc, fncs1 and kwds, each declared beside the package,
+    and read six reds the board never counts). A master declares ALL.outside.tsv; a package declares UNGRADED.tsv, UNGRADABLE.tsv,
+    OUTSIDE_*_BASELINE.tsv, EXCLUDED.tsv and CONTAINERS.tsv (lib_inventory.sh's buckets), first column a file name whose extension
+    the entry name drops. The smoke reads the same files the board reads and grades the same denominator."""
     out = set()
-    p = Path(suite).with_name("ALL.outside.tsv")
-    if p.is_file():
-        for ln in p.read_text(encoding="utf-8").splitlines():
+    d = Path(suite).parent
+    files = [d / "ALL.outside.tsv", d / "UNGRADED.tsv", d / "UNGRADABLE.tsv", d / "EXCLUDED.tsv", d / "CONTAINERS.tsv"] + sorted(d.glob("OUTSIDE_*_BASELINE.tsv"))
+    for p in files:
+        if not p.is_file():
+            continue
+        for ln in p.read_text(encoding="utf-8", errors="replace").splitlines():
             if ln.strip() and not ln.lstrip().startswith("#"):
-                out.add(ln.split("\t")[0].strip())
+                name = ln.split("\t")[0].strip()
+                out.add(name)
+                out.add(name.rsplit(".", 1)[0] if "." in name.rsplit("/", 1)[-1] else name)
     return out
 
 
@@ -4052,6 +4061,7 @@ def cmd_smoke(args):
     check_scrip(paths)
     tmp_root = Path(tempfile.mkdtemp(prefix="csh_smoke_"))
     reds = []
+    skipped = []
     graded = 0
     all_pass = 0
     per_table = []
@@ -4099,7 +4109,12 @@ def cmd_smoke(args):
                 verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=suite.parent)
                 graded += 1
                 kinds = {m: verdicts[m].kind for m in modes}
-                ok = all(k == "PASS" for k in kinds.values())
+                # a SKIP (mode 4 could not compile or link) is a could-not-measure for that mode, never a red (the cfo 2026-09-28):
+                # the entry is green when every MEASURED mode passed and at least one was measured; it is named as skipped
+                measured = {m: k for m, k in kinds.items() if k != "SKIP"}
+                if len(measured) < len(kinds):
+                    skipped.append((key, n, [m for m, k in kinds.items() if k == "SKIP"]))
+                ok = bool(measured) and all(k == "PASS" for k in measured.values())
                 if ok:
                     t_pass += 1
                     all_pass += 1
@@ -4118,8 +4133,11 @@ def cmd_smoke(args):
         print(f"AREA_SMOKE_TABLE table={key} run={n} pass={p} red={len(red)} outside_excluded={len(outs)}"
               + (f" reds: {_smoke_names(red, cap)}" if red else "")
               + (f" outside: {_smoke_names(outs, cap)}" if outs else ""))
+    if skipped:
+        print("AREA_SMOKE_SKIPPED %d entr(y/ies) had a mode that could not be measured (SKIP: mode 4 did not compile or link), graded on the "
+              "other mode and named: %s" % (len(skipped), _smoke_names(["%s:%s[%s]" % (k, n, ",".join(ms)) for k, n, ms in skipped], cap)))
     print(f"AREA_SMOKE_TOTAL features={' '.join(features)} modes={','.join(modes)} tables={len(per_table)} entries={graded} "
-          f"all_pass={all_pass} red={len(reds)} -- no progress row appended, no score cell written: an area smoke is not a board "
+          f"all_pass={all_pass} red={len(reds)} skipped_modes={len(skipped)} -- no progress row appended, no score cell written: an area smoke is not a board "
           f"(CEO-547, CEO-1342 clause 4); the suite number is the coo's SUITE TABLE row")
     sys.exit(1 if reds else 0)
 
