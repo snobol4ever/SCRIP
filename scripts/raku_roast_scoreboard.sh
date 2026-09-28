@@ -359,6 +359,9 @@ done < "$MANIFEST"
 roast_undecl_report
 pct() { [ "$2" -eq 0 ] && { echo "0.0"; return; }; awk -v a="$1" -v b="$2" 'BEGIN{printf "%.1f", (a*100.0)/b}'; }
 PCT=$(pct "$n_pass" "$n_intier")
+# ⛔ A NON-PUBLISHING RUN (--limit) WRITES NO COVERAGE TABLE: this arm wrote $OUT under --limit, so a 4-file smoke replaced the
+# published RAKU-COVERAGE.md with a 4-file table (hq_raku 2026-09-28, caught in its .github working tree). The partial goes to $TMP.
+[ "$PUBLISHES" = 1 ] || { OUT="$TMP/RAKU-COVERAGE.partial.md"; echo "ROAST_PARTIAL: --limit $LIMIT was in force, so this is a SMOKE OF THE INSTRUMENT; RAKU-COVERAGE.md is NOT written."; }
 {
   echo "# RAKU-COVERAGE.md — computed by scripts/raku_roast_scoreboard.sh"
   echo
