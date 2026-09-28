@@ -2784,15 +2784,14 @@ static int pl_cell_text(DESCR_t v, char *buf, size_t n, const char **out) {
     return 0;
 }
 static DESCR_t pl_text_list(const char *s, int codes) {
-    gv_t el; int n = 0;
-    el.p = 0; el.len = 0; el.cap = 0; el.esz = 0; el.kind = 0; el.pad = 0;
-    for (; *s; s++) {
+    DESCR_t acc = pl_nil();
+    for (size_t i = strlen(s); i-- > 0;) {
         DESCR_t a;
-        if (codes) a = INTVAL((long long)(unsigned char)*s);
-        else { char c2[2] = { *s, 0 }; a = pl_mk_atom_dup(c2, 1); }
-        *(DESCR_t *)gv_push(&el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "pl_text_list") = a; n++;
+        if (codes) a = INTVAL((long long)(unsigned char)s[i]);
+        else a = pl_mk_atom_dup(s + i, 1);
+        acc = pl_cons(a, acc);
     }
-    return pl_list_from_arr((DESCR_t *)el.p, n);
+    return acc;
 }
 static int pl_parse_number_radix(const char *s, DESCR_t *out) { char *e = 0; int base = 0;
     if (s[0] == '0' && s[1] == '\'') {
@@ -3334,12 +3333,15 @@ PL_ATOM_OP_LEAF(atom_length, 2) PL_ATOM_OP_LEAF(atom_concat, 3) PL_ATOM_OP_LEAF(
 PL_ATOM_OP_LEAF(upcase_atom, 2) PL_ATOM_OP_LEAF(downcase_atom, 2) PL_ATOM_OP_LEAF(string_concat, 3) PL_ATOM_OP_LEAF(string_length, 2) PL_ATOM_OP_LEAF(string_lower, 2) PL_ATOM_OP_LEAF(string_upper, 2)
 PL_ATOM_OP_LEAF(string_to_atom, 2) PL_ATOM_OP_LEAF(number_string, 2) PL_ATOM_OP_LEAF(string_codes, 2) PL_ATOM_OP_LEAF(string_chars, 2)
 static int pl_split_text(DESCR_t *args, pl_tr_ctx_t *cx) {
-    char sb[256], tb[8192]; const char *sep, *txt; gv_t el; int n = 0; size_t sl;
+    char sb[256], tb[8192]; const char *sep, *txt; size_t sl, n = 1, k = 1; DESCR_t acc = pl_nil();
     if (!pl_cell_text(args[1], sb, sizeof sb, &sep) || !sep[0] || !pl_cell_text(args[2], tb, sizeof tb, &txt)) return 0;
     sl = strlen(sep);
-    el.p = 0; el.len = 0; el.cap = 0; el.esz = 0; el.kind = 0; el.pad = 0;
-    for (const char *p = txt;;) { const char *q = strstr(p, sep); size_t L = q ? (size_t)(q - p) : strlen(p); DESCR_t a = pl_mk_atom_dup(p, L); *(DESCR_t *)gv_push(&el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "pl_split_text") = a; n++; if (!q) break; p = q + sl; }
-    return plw_unify_vals(args[0], pl_list_from_arr((DESCR_t *)el.p, n), cx);
+    for (const char *q = strstr(txt, sep); q; q = strstr(q + sl, sep)) n++;
+    size_t off[n + 1]; off[0] = 0;
+    for (const char *q = strstr(txt, sep); q; q = strstr(q + sl, sep)) off[k++] = (size_t)(q - txt) + sl;
+    off[n] = strlen(txt) + sl;
+    for (size_t i = n; i-- > 0;) acc = pl_cons(pl_mk_atom_dup(txt + off[i], off[i + 1] - sl - off[i]), acc);
+    return plw_unify_vals(args[0], acc, cx);
 }
 DESCR_t rt_pl_dop_atomic_list_concat_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) { int ok;
     if (nargs != 2 && nargs != 3) return FAILDESCR;
@@ -5756,7 +5758,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cname = (di && di->type) ? di->type->name : NULL; }
         else cname = VARVAL_fn(args[0]);
         DatType *dt = cname ? dat_find_type(cname) : NULL; if (!dt) { *out = FAILDESCR; return 1; }
-        DESCR_t fvals[64]; for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = NULVCL;
+        DESCR_t fvals[dt->nfields + 1]; for (int fi = 0; fi < dt->nfields; fi++) fvals[fi] = NULVCL;
         *out = dat_construct(dt, fvals, dt->nfields); return 1;
     }
     if (!strncmp(fn, "nqp::bindattr", 13) && nargs == 4 && (!fn[13] || !strcmp(fn + 13, "_n") || !strcmp(fn + 13, "_i") || !strcmp(fn + 13, "_s"))) {
@@ -5789,11 +5791,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             extern DESCR_t rt_construct_build(DatType *t, DESCR_t *named, int nnamed);
             *out = rt_construct_build(dt, &args[1], nargs - 1); return 1;
         }
-        DESCR_t fvals[64];
-        for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = NULVCL;
+        DESCR_t fvals[dt->nfields + 1];
+        for (int fi = 0; fi < dt->nfields; fi++) fvals[fi] = NULVCL;
         for (int ci = 1; ci + 1 < nargs; ci += 2) {
             const char *kname = VARVAL_fn(args[ci]); if (!kname) continue;
-            for (int fi = 0; fi < dt->nfields && fi < 64; fi++) {
+            for (int fi = 0; fi < dt->nfields; fi++) {
                 if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
             }
         }
@@ -5851,11 +5853,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (mname0 && !strcmp(mname0, "bless")) {
             const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
             DatType *dt = dat_find_type(cname); if (!dt) { *out = FAILDESCR; return 1; }
-            DESCR_t fvals[64];
-            for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = NULVCL;
+            DESCR_t fvals[dt->nfields + 1];
+            for (int fi = 0; fi < dt->nfields; fi++) fvals[fi] = NULVCL;
             for (int ci = 2; ci + 1 < nargs; ci += 2) {
                 const char *kname = VARVAL_fn(args[ci]); if (!kname) continue;
-                for (int fi = 0; fi < dt->nfields && fi < 64; fi++)
+                for (int fi = 0; fi < dt->nfields; fi++)
                     if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
             }
             *out = dat_construct(dt, fvals, dt->nfields); return 1;
@@ -5863,11 +5865,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (mname0 && !strcmp(mname0, "clone") && IS_DATA_INST_fn(args[0]) && args[0].u) {
             DATINST_t *src = (DATINST_t *)args[0].u; const char *cname = (src && src->type) ? src->type->name : NULL;
             DatType *dt = cname ? dat_find_type(cname) : NULL; if (!dt) { *out = FAILDESCR; return 1; }
-            DESCR_t fvals[64];
-            for (int fi = 0; fi < dt->nfields && fi < 64; fi++) fvals[fi] = (src->fields && fi < src->type->nfields) ? src->fields[fi] : NULVCL;
+            DESCR_t fvals[dt->nfields + 1];
+            for (int fi = 0; fi < dt->nfields; fi++) fvals[fi] = (src->fields && fi < src->type->nfields) ? src->fields[fi] : NULVCL;
             for (int ci = 2; ci + 1 < nargs; ci += 2) {
                 const char *kname = VARVAL_fn(args[ci]); if (!kname) continue;
-                for (int fi = 0; fi < dt->nfields && fi < 64; fi++) if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
+                for (int fi = 0; fi < dt->nfields; fi++) if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; }
             }
             *out = dat_construct(dt, fvals, dt->nfields); return 1;
         }
@@ -9396,7 +9398,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_DATA) && nargs == 1) {
         extern DatType *dat_register(const char *spec);
         const char *sp = VARVAL_fn(args[0]); if (!sp || !*sp) { *out = FAILDESCR; return 1; }
-        char nb[128]; int k = 0; for (; sp[k] && sp[k] != '(' && k < 127; k++) nb[k] = sp[k]; nb[k] = 0;
+        char nb[strcspn(sp, "(") + 1]; int k = 0; for (; sp[k] && sp[k] != '('; k++) nb[k] = sp[k]; nb[k] = 0;
         if (nb[0] && sn4_sysfn_protected(nb)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); *out = FAILDESCR; return 1; }
         if (sp[k] == '(') {
             const char *fs = sp + k + 1; const char *fe = strchr(fs, ')'); if (!fe) fe = fs + strlen(fs);
