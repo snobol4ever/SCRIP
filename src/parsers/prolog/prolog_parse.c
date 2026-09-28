@@ -1264,6 +1264,8 @@ static const char *PL_PRELUDE_SRC =
     "'$ev'(asinh(number),float).\n"
     "'$ev'(asin(number),float).\n"
     "'$ev'(atan2(number,number),float).\n"
+    "'$ev'(copysign(number,number),number).\n"
+    "'$ev'(nexttoward(number,number),float).\n"
     "'$ev'(atanh(number),float).\n"
     "'$ev'(atan(number),float).\n"
     "'$ev'(ceiling(float),integer).\n"

@@ -2419,8 +2419,10 @@ static int dop_ax(const char *op, DESCR_t *args, int nargs, DESCR_t *out, void *
         *out = REALVAL(atan2(ad, bd)); return 1; }
     if (!strcmp(op, "logb")) { if (ad <= 0.0 || bd <= 0.0 || ad == 1.0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("undefined", "log", 2); return 1; }
         *out = REALVAL(log(bd) / log(ad)); return 1; }
-    if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : REALVAL(ad < bd ? ad : bd); return 1; }
-    if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : REALVAL(ad > bd ? ad : bd); return 1; }
+    if (!strcmp(op, "min")) { *out = (ai && bi) ? INTVAL(a.i < b.i ? a.i : b.i) : (ad < bd ? a : ad > bd ? b : arl ? a : b); return 1; }
+    if (!strcmp(op, "max")) { *out = (ai && bi) ? INTVAL(a.i > b.i ? a.i : b.i) : (ad > bd ? a : ad < bd ? b : arl ? a : b); return 1; }
+    if (!strcmp(op, "copysign")) { if (ai) { long long m = a.i < 0 ? -a.i : a.i; *out = INTVAL(signbit(bd) ? -m : m); } else *out = REALVAL(copysign(ad, bd)); return 1; }
+    if (!strcmp(op, "nexttoward")) { *out = REALVAL(nexttoward(ad, (long double)bd)); return 1; }
     if (!strcmp(op, "gcd")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } long long x = a.i < 0 ? -a.i : a.i, y = b.i < 0 ? -b.i : b.i; while (y) { long long t2 = x % y; x = y; y = t2; } *out = INTVAL(x); return 1; }
     if (!strcmp(op, "rem")) { if (!ai || !bi) { if (ball && !*ball) *ball = pl_ax_int_ball(a, b, ai); *out = FAILDESCR; return 1; } if (b.i == 0) { *out = FAILDESCR; if (ball && !*ball) *ball = rt_pl_ball_eval_error("zero_divisor", "rem", 2); return 1; } *out = INTVAL(b.i == -1 ? 0 : a.i % b.i); return 1; }
     if (!strcmp(op, "idiv") || !strcmp(op, "divf") || !strcmp(op, "mod")) {

@@ -1,3 +1,4 @@
+#include <math.h>
 #include <errno.h>
 #include "rt/rt_arena.h"
 #include "ct_arena.h"
@@ -1250,7 +1251,8 @@ static int rt_pl_cell_compare(pl_cell_t *ca, pl_cell_t *cb) {
     if (cla == 0) return a == b ? 0 : ((uintptr_t)a < (uintptr_t)b ? -1 : 1);
     if (cla == 1 && ((int)a->v == DT_R) != ((int)b->v == DT_R)) return ((int)a->v == DT_R) ? -1 : 1;
     if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
-    if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; if (x < y) return -1; if (x > y) return 1; if ((int)a->v == (int)b->v) return 0; return ((int)a->v == DT_R) ? -1 : 1; }
+    if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; if (x < y) return -1; if (x > y) return 1;
+        if ((int)a->v == DT_R && (int)b->v == DT_R && signbit(x) != signbit(y)) return signbit(x) ? -1 : 1; if ((int)a->v == (int)b->v) return 0; return ((int)a->v == DT_R) ? -1 : 1; }
     if (cla == 2) { if ((int)a->v == DT_PLATOM && (int)b->v == DT_PLATOM && a->i == b->i) return 0; int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     int ara = plc_fid_arity(a->slen), arb = plc_fid_arity(b->slen);
     if (ara != arb) return ara < arb ? -1 : 1;

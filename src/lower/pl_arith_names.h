@@ -27,6 +27,7 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
     if (!s) return (const char *)0;
     if (ar == 2) {
         if (!strcmp(s, "atan2")) return "atan2"; if (!strcmp(s, "atan")) return "atan2"; if (!strcmp(s, "log")) return "logb";
+        if (!strcmp(s, "copysign")) return "copysign"; if (!strcmp(s, "nexttoward")) return "nexttoward";
         if (!strcmp(s, "truncate")) return (const char *)0;
         return (const char *)0;
     }
