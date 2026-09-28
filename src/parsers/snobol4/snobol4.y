@@ -16,19 +16,25 @@ int             snobol4_lex(YYSTYPE *yylval_param);
 void            snobol4_error(void *p, const char *msg);
 static Lex     *g_lx;
 static int      g_err_lineno;
-#define TAL_MAX 512
-#define TAL_DEPTH 64
-static tree_t *g_tal[TAL_MAX];
-static int     g_tal_base[TAL_DEPTH];
+static tree_t **g_tal;
+static int     *g_tal_base;
 static int     g_tal_n     = 0;
 static int     g_tal_depth = 0;
-static inline void   tal_open(void)      { g_tal_base[g_tal_depth++] = g_tal_n; }
-static inline void   tal_push(tree_t *c) { g_tal[g_tal_n++] = c; }
+static int     g_tal_cap   = 0;
+static int     g_tal_dcap  = 0;
+static tree_e  *g_tal_kind;
+static char   **g_tal_sval;
+static void tal_depth_reserve(void) {
+    if (g_tal_depth < g_tal_dcap) return;
+    int nc = g_tal_dcap ? g_tal_dcap * 2 : 8;
+    g_tal_base = (int *) ct_grow(g_tal_base, (size_t) nc * sizeof *g_tal_base); g_tal_kind = (tree_e *) ct_grow(g_tal_kind, (size_t) nc * sizeof *g_tal_kind);
+    g_tal_sval = (char **) ct_grow(g_tal_sval, (size_t) nc * sizeof *g_tal_sval); g_tal_dcap = nc;
+}
+static inline void   tal_open(void)      { tal_depth_reserve(); g_tal_base[g_tal_depth++] = g_tal_n; }
+static inline void   tal_push(tree_t *c) { if (g_tal_n >= g_tal_cap) { g_tal_cap = g_tal_cap ? g_tal_cap * 2 : 16; g_tal = (tree_t **) ct_grow(g_tal, (size_t) g_tal_cap * sizeof *g_tal); } g_tal[g_tal_n++] = c; }
 static inline int    tal_count(void)     { return g_tal_n - g_tal_base[g_tal_depth-1]; }
 static inline tree_t*tal_child(int i)    { return g_tal[g_tal_base[g_tal_depth-1] + i]; }
 static inline void   tal_close(void)     { g_tal_n = g_tal_base[--g_tal_depth]; }
-static tree_e  g_tal_kind[TAL_DEPTH];
-static char   *g_tal_sval[TAL_DEPTH];
 static inline void    tal_fnc_open(tree_e k, char *s) { g_tal_kind[g_tal_depth-1]=k; g_tal_sval[g_tal_depth-1]=s; }
 static inline tree_t *tal_fnc_close(void) {
     int n=tal_count(); tree_e k=g_tal_kind[g_tal_depth-1]; char *sv=g_tal_sval[g_tal_depth-1];
@@ -119,7 +125,7 @@ goto_label_expr
            : T_GOTO_LPAREN T_IDENT T_GOTO_RPAREN                                             { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($2.sval);$$=e; }
            | T_GOTO_LPAREN T_END T_GOTO_RPAREN                                               { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($2.sval);$$=e; }
            | T_GOTO_LPAREN T_FUNCTION T_GOTO_RPAREN                                          { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($2.sval);$$=e; }
-           | T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN                                   { tree_t*e=ast_node_new(TT_QLIT);char buf[512];snprintf(buf,sizeof buf,"$%s",$3.sval);e->v.sval=ct_strdup(buf);$$=e; }
+           | T_GOTO_LPAREN T_1DOLLAR T_IDENT T_GOTO_RPAREN                                   { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_fmt("$%s",$3.sval);$$=e; }
            | T_GOTO_LPAREN T_1DOLLAR T_GOTO_LPAREN goto_expr T_GOTO_RPAREN T_GOTO_RPAREN    { $$=$4; }
            | T_GOTO_LPAREN T_1DOLLAR T_STR T_GOTO_RPAREN                                     { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup($3.sval);$$=e; }
            | T_GOTO_LPAREN T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($2.sval); tal_open(); tal_fnc_open(_k,(char*)$2.sval); } goto_fnc_args T_GOTO_RPAREN T_GOTO_RPAREN { $$=tal_fnc_close(); }

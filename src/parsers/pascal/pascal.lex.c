@@ -999,10 +999,14 @@ char *yytext;
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
-static char pascal_strbuf[65536];
-static int  pascal_strpos;
-static char pascal_ifdefbuf[256];
-static int  pascal_ifdefpos;
+typedef struct { char *p; int n, cap; } pas_hbuf_t;
+static void pas_hbuf_reset(pas_hbuf_t *b) { b->n = 0; if (b->p) b->p[0] = '\0'; }
+static void pas_hbuf_add(pas_hbuf_t *b, char c) {
+    if (b->n + 2 > b->cap) { int nc = b->cap ? b->cap * 2 : 32; b->p = (char *)ct_grow(b->p, (size_t)nc); b->cap = nc; }
+    b->p[b->n++] = c; b->p[b->n] = '\0';
+}
+static const char *pas_hbuf_str(const pas_hbuf_t *b) { return b->p ? b->p : ""; }
+static pas_hbuf_t pascal_ifdefbuf;
 int pas_const_get(const char *name, long long *out);
 int pas_rconst_get(const char *name, double *out);
 const char *pas_sconst_get(const char *name);
@@ -1024,19 +1028,19 @@ static int pascal_if_declared(const char *name) {
     return pas_const_get(name, &iv) || pas_rconst_get(name, &rv) || pas_sconst_get(name) != NULL;
 }
 static int pascal_if_eval(const char *expr) {
-    char buf[256]; int bn = 0;
-    for (const char *s = expr; *s && bn < (int)sizeof(buf) - 1; s++) buf[bn++] = (char)tolower((unsigned char)*s);
+    char buf[strlen(expr) + 1]; int bn = 0;
+    for (const char *s = expr; *s; s++) buf[bn++] = (char)tolower((unsigned char)*s);
     buf[bn] = '\0';
     char *p = buf; while (*p == ' ' || *p == '\t') p++;
     int neg = 0;
     if (!strncmp(p, "not ", 4)) { neg = 1; p += 4; while (*p == ' ') p++; }
     int result = 0;
-    char ident[128];
-    if (sscanf(p, "declared(%127[^)])", ident) == 1) {
+    char ident[strlen(p) + 1];
+    if (sscanf(p, "declared(%[^)])", ident) == 1) {
         result = pascal_if_declared(ident);
     } else {
-        char op[3] = { 0, 0, 0 }; long long rhs;
-        if (sscanf(p, "%127[a-z_0-9] %2[<>=] %lld", ident, op, &rhs) == 3) {
+        char op[strlen(p) + 1]; long long rhs; op[0] = '\0';
+        if (sscanf(p, "%[a-z_0-9] %[<>=] %lld", ident, op, &rhs) == 3) {
             long long lv;
             if (pas_const_get(ident, &lv)) {
                 if      (!strcmp(op, ">=")) result = lv >= rhs;
@@ -1052,17 +1056,14 @@ static int pascal_if_eval(const char *expr) {
 }
 int g_pas_seen_mode_directive = 0;
 int pascal_seen_decl_start = 0;
-static char pascal_modebuf[64];
-static int  pascal_modepos;
+static pas_hbuf_t pascal_modebuf;
 int g_pas_min_enum_size = 4;
 int g_pas_pack_set_size = 0;
 int g_pas_range_check_on = 2;
 int g_pas_align_mac68k = 0;
-static char pascal_alignbuf[32];
-static int  pascal_alignpos;
+static pas_hbuf_t pascal_alignbuf;
 int g_pas_codepage = 0;
-static char pascal_codepagebuf[32];
-static int  pascal_codepagepos;
+static pas_hbuf_t pascal_codepagebuf;
 static int pas_codepage_parse(const char *s) {
     if (!s) return 0;
     while (*s == ' ' || *s == '\t') s++;
@@ -1071,16 +1072,19 @@ static int pas_codepage_parse(const char *s) {
     for (const char *p = s; *p; p++) if (!isdigit((unsigned char)*p)) { alldig = 0; break; }
     return alldig ? atoi(s) : 0;
 }
-static int g_pas_min_enum_stack[64];
-static int g_pas_pack_set_stack[64];
+static int *g_pas_min_enum_stack;
+static int *g_pas_pack_set_stack;
 static int g_pas_min_enum_sp;
-static char pascal_minenumbuf[16];
-static int  pascal_minenumpos;
-static char pascal_packsetbuf[16];
-static int  pascal_packsetpos;
+static int g_pas_min_enum_cap;
+static pas_hbuf_t pascal_minenumbuf;
+static pas_hbuf_t pascal_packsetbuf;
 static void pas_min_enum_size_set(int n) { if (n > 0) g_pas_min_enum_size = n; }
 static void pas_pack_set_size_set(int n) { if (n > 0) g_pas_pack_set_size = n; }
-static void pas_min_enum_size_push(void) { if (g_pas_min_enum_sp < (int)(sizeof(g_pas_min_enum_stack) / sizeof(g_pas_min_enum_stack[0]))) { g_pas_min_enum_stack[g_pas_min_enum_sp] = g_pas_min_enum_size; g_pas_pack_set_stack[g_pas_min_enum_sp] = g_pas_pack_set_size; g_pas_min_enum_sp++; } }
+static void pas_min_enum_size_push(void) {
+    if (g_pas_min_enum_sp >= g_pas_min_enum_cap) { g_pas_min_enum_cap = g_pas_min_enum_cap ? g_pas_min_enum_cap * 2 : 8;
+        g_pas_min_enum_stack = (int *)ct_grow(g_pas_min_enum_stack, (size_t)g_pas_min_enum_cap * sizeof(int)); g_pas_pack_set_stack = (int *)ct_grow(g_pas_pack_set_stack, (size_t)g_pas_min_enum_cap * sizeof(int)); }
+    g_pas_min_enum_stack[g_pas_min_enum_sp] = g_pas_min_enum_size; g_pas_pack_set_stack[g_pas_min_enum_sp] = g_pas_pack_set_size; g_pas_min_enum_sp++;
+}
 static void pas_min_enum_size_pop(void) { if (g_pas_min_enum_sp > 0) { g_pas_min_enum_sp--; g_pas_min_enum_size = g_pas_min_enum_stack[g_pas_min_enum_sp]; g_pas_pack_set_size = g_pas_pack_set_stack[g_pas_min_enum_sp]; } }
 static int pascal_mode_is_known(const char *m) {
     static const char *K[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
@@ -1416,15 +1420,15 @@ YY_RULE_SETUP
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-{ pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IF_HDR; }
+{ pas_hbuf_reset(&pascal_ifdefbuf); BEGIN IF_HDR; }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-{ BEGIN (pascal_if_eval(pascal_ifdefbuf) ? IFDEF_TRUE : IFDEF_BODY); }
+{ BEGIN (pascal_if_eval(pas_hbuf_str(&pascal_ifdefbuf)) ? IFDEF_TRUE : IFDEF_BODY); }
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-{ if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
+{ pas_hbuf_add(&pascal_ifdefbuf, pascal_yytext[0]); }
 	YY_BREAK
 case 9:
 /* rule 9 can match eol */
@@ -1433,11 +1437,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-{ pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IFDEF_HDR; }
+{ pas_hbuf_reset(&pascal_ifdefbuf); BEGIN IFDEF_HDR; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-{ BEGIN (strcasecmp(pascal_ifdefbuf, "fpc") == 0 ? IFDEF_TRUE : IFDEF_BODY); }
+{ BEGIN (strcasecmp(pas_hbuf_str(&pascal_ifdefbuf), "fpc") == 0 ? IFDEF_TRUE : IFDEF_BODY); }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
@@ -1445,7 +1449,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-{ if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
+{ pas_hbuf_add(&pascal_ifdefbuf, pascal_yytext[0]); }
 	YY_BREAK
 case 14:
 /* rule 14 can match eol */
@@ -1518,11 +1522,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-{ pascal_minenumbuf[0] = '\0'; pascal_minenumpos = 0; BEGIN MINENUM_HDR; }
+{ pas_hbuf_reset(&pascal_minenumbuf); BEGIN MINENUM_HDR; }
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-{ pas_min_enum_size_set(atoi(pascal_minenumbuf)); BEGIN INITIAL; }
+{ pas_min_enum_size_set(atoi(pas_hbuf_str(&pascal_minenumbuf))); BEGIN INITIAL; }
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
@@ -1530,7 +1534,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-{ if (pascal_minenumpos < (int)sizeof(pascal_minenumbuf) - 1) { pascal_minenumbuf[pascal_minenumpos++] = pascal_yytext[0]; pascal_minenumbuf[pascal_minenumpos] = '\0'; } }
+{ pas_hbuf_add(&pascal_minenumbuf, pascal_yytext[0]); }
 	YY_BREAK
 case 34:
 /* rule 34 can match eol */
@@ -1539,11 +1543,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-{ pascal_packsetbuf[0] = '\0'; pascal_packsetpos = 0; BEGIN PACKSET_HDR; }
+{ pas_hbuf_reset(&pascal_packsetbuf); BEGIN PACKSET_HDR; }
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-{ pas_pack_set_size_set(atoi(pascal_packsetbuf)); BEGIN INITIAL; }
+{ pas_pack_set_size_set(atoi(pas_hbuf_str(&pascal_packsetbuf))); BEGIN INITIAL; }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
@@ -1551,7 +1555,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-{ if (pascal_packsetpos < (int)sizeof(pascal_packsetbuf) - 1) { pascal_packsetbuf[pascal_packsetpos++] = pascal_yytext[0]; pascal_packsetbuf[pascal_packsetpos] = '\0'; } }
+{ pas_hbuf_add(&pascal_packsetbuf, pascal_yytext[0]); }
 	YY_BREAK
 case 39:
 /* rule 39 can match eol */
@@ -1576,11 +1580,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
-{ pascal_modebuf[0] = '\0'; pascal_modepos = 0; BEGIN MODE_HDR; }
+{ pas_hbuf_reset(&pascal_modebuf); BEGIN MODE_HDR; }
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-{ if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; BEGIN INITIAL; }
+{ if (!pascal_seen_decl_start && pascal_mode_is_known(pas_hbuf_str(&pascal_modebuf)) && strcasecmp(pas_hbuf_str(&pascal_modebuf), "iso") != 0) g_pas_seen_mode_directive = 1; BEGIN INITIAL; }
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
@@ -1588,7 +1592,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
-{ if (pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = pascal_yytext[0]; pascal_modebuf[pascal_modepos] = '\0'; } }
+{ pas_hbuf_add(&pascal_modebuf, pascal_yytext[0]); }
 	YY_BREAK
 case 48:
 /* rule 48 can match eol */
@@ -1597,11 +1601,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 49:
 YY_RULE_SETUP
-{ pascal_alignbuf[0] = '\0'; pascal_alignpos = 0; BEGIN ALIGN_HDR; }
+{ pas_hbuf_reset(&pascal_alignbuf); BEGIN ALIGN_HDR; }
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-{ g_pas_align_mac68k = (strcasecmp(pascal_alignbuf, "mac68k") == 0); BEGIN INITIAL; }
+{ g_pas_align_mac68k = (strcasecmp(pas_hbuf_str(&pascal_alignbuf), "mac68k") == 0); BEGIN INITIAL; }
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
@@ -1609,7 +1613,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-{ if (pascal_alignpos < (int)sizeof(pascal_alignbuf) - 1) { pascal_alignbuf[pascal_alignpos++] = pascal_yytext[0]; pascal_alignbuf[pascal_alignpos] = '\0'; } }
+{ pas_hbuf_add(&pascal_alignbuf, pascal_yytext[0]); }
 	YY_BREAK
 case 53:
 /* rule 53 can match eol */
@@ -1618,11 +1622,11 @@ YY_RULE_SETUP
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-{ pascal_codepagebuf[0] = '\0'; pascal_codepagepos = 0; BEGIN CODEPAGE_HDR; }
+{ pas_hbuf_reset(&pascal_codepagebuf); BEGIN CODEPAGE_HDR; }
 	YY_BREAK
 case 55:
 YY_RULE_SETUP
-{ g_pas_codepage = pas_codepage_parse(pascal_codepagebuf); BEGIN INITIAL; }
+{ g_pas_codepage = pas_codepage_parse(pas_hbuf_str(&pascal_codepagebuf)); BEGIN INITIAL; }
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
@@ -1630,7 +1634,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
-{ if (pascal_codepagepos < (int)sizeof(pascal_codepagebuf) - 1) { pascal_codepagebuf[pascal_codepagepos++] = pascal_yytext[0]; pascal_codepagebuf[pascal_codepagepos] = '\0'; } }
+{ pas_hbuf_add(&pascal_codepagebuf, pascal_yytext[0]); }
 	YY_BREAK
 case 58:
 /* rule 58 can match eol */
@@ -1828,12 +1832,12 @@ YY_RULE_SETUP
 case 105:
 /* rule 105 can match eol */
 YY_RULE_SETUP
-{ int n = (int)pascal_yyleng; pascal_strpos = 0;
+{ int n = (int)pascal_yyleng; char pascal_strbuf[n > 0 ? n : 1]; int pascal_strpos = 0;
                           if (n == 2) { g_pas_iso_errors++;
                               fprintf(stderr, "pascal: ISO 7185 6.1.7 violation line %d: a character-string shall contain at least one string-element -- '' is not one\n", pascal_yylineno); }
                           for (int i = 1; i < n - 1; i++) {
-                              if (pascal_yytext[i] == '\'' && i + 1 < n - 1 && pascal_yytext[i + 1] == '\'') { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = '\''; i++; }
-                              else { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = pascal_yytext[i]; }
+                              if (pascal_yytext[i] == '\'' && i + 1 < n - 1 && pascal_yytext[i + 1] == '\'') { pascal_strbuf[pascal_strpos++] = '\''; i++; }
+                              else pascal_strbuf[pascal_strpos++] = pascal_yytext[i];
                           }
                           pascal_strbuf[pascal_strpos] = '\0';
                           pascal_yylval.str = pascal_raw_dup(pascal_strbuf, pascal_strpos);

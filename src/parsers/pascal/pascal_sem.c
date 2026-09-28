@@ -31,9 +31,9 @@ static int pas_sem_threatens(const tree_t *root, const tree_t *node, const char 
     if (node->t == TT_FOR && node != self_for && node->n > 0 && node->c[0] && node->c[0]->v.sval && !strcmp(node->c[0]->v.sval, cv)) return node->line ? node->line : 1;
     if (node->t == TT_FNC && node->n > 1 && node->c[0] && node->c[0]->v.sval) {
         const tree_t *callee = pas_sem_find_proc(root, node->c[0]->v.sval);
-        if (callee) { const tree_t *pl = pas_sem_params(callee); long long mask = pl ? pl->v.ival : 0;
+        if (callee) { const tree_t *pl = pas_sem_params(callee);
             for (int a = 1; a < node->n; a++) { int idx = a - 1;
-                if (idx < 64 && (mask & (1LL << idx)) && node->c[a] && node->c[a]->t == TT_VAR
+                if (pas_param_is_byref(pl, idx) && node->c[a] && node->c[a]->t == TT_VAR
                     && node->c[a]->v.sval && !strcmp(node->c[a]->v.sval, cv)) return node->line ? node->line : 1; } }
     }
     for (int i = 0; i < node->n; i++) { int r = pas_sem_threatens(root, node->c[i], cv, self_for); if (r) return r; }

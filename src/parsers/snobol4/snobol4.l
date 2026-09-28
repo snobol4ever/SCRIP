@@ -13,14 +13,23 @@
 #include <math.h>
 void sno_error(int, const char *, ...);
 void sno_error_voice(int, const char *, int);
-char *inc_dirs[64];
+char **inc_dirs;
 int   n_inc = 0;
+static int inc_dirs_cap;
 int   sno_nerrors = 0;
 static int  sno_err_quiet = 0;
-static char sno_err_capture[1024];
-void sno_error_quiet_begin(void) { sno_err_quiet = 1; sno_err_capture[0] = '\0'; }
+static char *sno_err_capture;
+static int   sno_err_capture_cap;
+static void sno_err_vcapture(const char *fmt, va_list ap) {
+    int need = vfmt_len(fmt, ap);
+    if (need > sno_err_capture_cap) { int nc = sno_err_capture_cap ? sno_err_capture_cap * 2 : 256; if (nc < need) nc = need;
+        sno_err_capture = (char *) ct_grow(sno_err_capture, (size_t) nc); sno_err_capture_cap = nc; }
+    vsnprintf(sno_err_capture, (size_t) sno_err_capture_cap, fmt, ap);
+}
+static void sno_err_capturef(const char *fmt, ...) { va_list ap; va_start(ap, fmt); sno_err_vcapture(fmt, ap); va_end(ap); }
+void sno_error_quiet_begin(void) { sno_err_quiet = 1; if (sno_err_capture) sno_err_capture[0] = '\0'; }
 void sno_error_quiet_end(void) { sno_err_quiet = 0; }
-const char *sno_error_captured(void) { return sno_err_capture[0] ? sno_err_capture : NULL; }
+const char *sno_error_captured(void) { return (sno_err_capture && sno_err_capture[0]) ? sno_err_capture : NULL; }
 static int   lineno = 1;
 static struct { int lineno; int lline; char *fname; char *pend_fname; } g_stmt_pos = { 1, 1, (char *)0, (char *)0 };
 static int   g_nofail_mode = 0;
@@ -28,8 +37,12 @@ int snobol4_get_nofail_mode(void) { return g_nofail_mode; }
 static int   g_case_fold = 0;
 int snobol4_get_case_fold(void) { return g_case_fold; }
 static void sno_fold(char *s) { if (!g_case_fold) return; for (; *s; s++) if (*s >= 'a' && *s <= 'z') *s = (char)(*s - 'a' + 'A'); }
-static char  strbuf[65536];
+static char *strbuf;
+static int   strcap;
 static int   strpos;
+static void sno_sb_reserve(int need) { if (need <= strcap) return; int nc = strcap ? strcap * 2 : 256; if (nc < need) nc = need; strbuf = (char *) ct_grow(strbuf, (size_t) nc); strcap = nc; }
+static void sno_sb_set(const char *s) { size_t n = strlen(s); sno_sb_reserve((int) n + 1); memcpy(strbuf, s, n + 1); }
+static void sno_sb_add(const char *s, int n) { sno_sb_reserve(strpos + n + 1); memcpy(strbuf + strpos, s, (size_t) n); strpos += n; }
 static int   gt_depth;
 static int   gt_angle;
 static int   gt_have_operand;
@@ -37,18 +50,24 @@ int snobol4_get_stmt_lineno(void) { return g_stmt_pos.lineno; }
 int snobol4_get_stmt_lline(void) { return g_stmt_pos.lline; }
 const char *snobol4_get_stmt_file(void) { return g_stmt_pos.fname ? g_stmt_pos.fname : ""; }
 extern void stmt_src_mark_include_range(int start_line, int end_line);
-#define MAX_INCL_NEST 64
 typedef struct { int start_line; int line_delta; char *fname; } SNO_SRC_FRAME_t;
-static SNO_SRC_FRAME_t incl_start_stack[MAX_INCL_NEST + 1];
+static SNO_SRC_FRAME_t *incl_start_stack;
+static int incl_start_cap;
 static int incl_stack_depth = 0;
+static SNO_SRC_FRAME_t *sno_frame_at(int d) {
+    if (d >= incl_start_cap) { int nc = incl_start_cap ? incl_start_cap * 2 : 8; if (nc <= d) nc = d + 1;
+        incl_start_stack = (SNO_SRC_FRAME_t *) ct_grow(incl_start_stack, (size_t) nc * sizeof *incl_start_stack);
+        memset(incl_start_stack + incl_start_cap, 0, (size_t) (nc - incl_start_cap) * sizeof *incl_start_stack); incl_start_cap = nc; }
+    return &incl_start_stack[d];
+}
 int snobol4_incl_depth(void) { return incl_stack_depth; }
 extern const char *stmt_src_get_file(void);
 static const char *sno_frame_file(void) {
-    const char *n = incl_start_stack[incl_stack_depth].fname;
+    const char *n = sno_frame_at(incl_stack_depth)->fname;
     if (n) return n;
     { const char *p = stmt_src_get_file(); return p ? p : ""; }
 }
-static int sno_frame_line(void) { return lineno + incl_start_stack[incl_stack_depth].line_delta; }
+static int sno_frame_line(void) { return lineno + sno_frame_at(incl_stack_depth)->line_delta; }
 static void sno_stmt_pos_mark(void) {
     g_stmt_pos.lineno = lineno; g_stmt_pos.lline = sno_frame_line();
     ct_drop(g_stmt_pos.fname);
@@ -59,17 +78,17 @@ static void sno_stmt_comment_latch(void) {
     if (!g_stmt_pos.pend_fname) g_stmt_pos.pend_fname = ct_strdup(sno_frame_file());
 }
 static void sno_frame_push(const char *name) {
-    if (incl_stack_depth >= MAX_INCL_NEST) return;
-    { SNO_SRC_FRAME_t *f = &incl_start_stack[++incl_stack_depth];
+    { SNO_SRC_FRAME_t *f = sno_frame_at(++incl_stack_depth);
       f->start_line = lineno; f->line_delta = 1 - lineno;
       ct_drop(f->fname); f->fname = ct_strdup(name ? name : ""); }
 }
-#define MAX_INCL_ONCE 512
-static char *incl_once[MAX_INCL_ONCE];
+static char **incl_once;
 static int   incl_once_n = 0;
+static int   incl_once_cap;
 static int sno_include_once_seen(const char *key) {
     for (int i = 0; i < incl_once_n; i++) if (!strcmp(incl_once[i], key)) return 1;
-    if (incl_once_n < MAX_INCL_ONCE) incl_once[incl_once_n++] = ct_strdup(key);
+    if (incl_once_n >= incl_once_cap) { incl_once_cap = incl_once_cap ? incl_once_cap * 2 : 16; incl_once = (char **) ct_grow(incl_once, (size_t) incl_once_cap * sizeof *incl_once); }
+    incl_once[incl_once_n++] = ct_strdup(key);
     return 0;
 }
 static Token mktok(int k, const char *sv, long iv, double dv) {
@@ -98,15 +117,15 @@ G       ({WS}|{CONT})*
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
     if(q1 && q2 && q2>q1){
-        char iname[4096]; int fi=(int)(q2-q1-1);
-        if(fi>=(int)sizeof iname)fi=(int)sizeof iname-1;
+        int fi=(int)(q2-q1-1); char iname[fi+1];
         memcpy(iname,q1+1,fi);iname[fi]='\0';
-        char ikey[4096]; snprintf(ikey,sizeof ikey,"%s",iname);
+        char ikey[fi+1]; memcpy(ikey,iname,(size_t)fi+1);
         while(fi>0 && (iname[fi-1]==' '||iname[fi-1]=='\t')) iname[--fi]='\0';
-        char rpath[4096]; rpath[0]='\0';
+        size_t rmax=(size_t)fi+1; for(int i=0;i<n_inc;i++){size_t l=strlen(inc_dirs[i])+(size_t)fi+2;if(l>rmax)rmax=l;}
+        char rpath[rmax]; rpath[0]='\0';
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
-        if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
+        if(!inc){char p[rmax];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
             if(sno_include_once_seen(ikey)){fclose(inc);}
@@ -123,15 +142,15 @@ G       ({WS}|{CONT})*
     char *q1 = strchr(yytext,'"'); char *q2 = strrchr(yytext,'"');
     lineno++;
     if(q1 && q2 && q2>q1){
-        char iname[4096]; int fi=(int)(q2-q1-1);
-        if(fi>=(int)sizeof iname)fi=(int)sizeof iname-1;
+        int fi=(int)(q2-q1-1); char iname[fi+1];
         memcpy(iname,q1+1,fi);iname[fi]='\0';
-        char ikey[4096]; snprintf(ikey,sizeof ikey,"%s",iname);
+        char ikey[fi+1]; memcpy(ikey,iname,(size_t)fi+1);
         while(fi>0 && (iname[fi-1]==' '||iname[fi-1]=='\t')) iname[--fi]='\0';
-        char rpath[4096]; rpath[0]='\0';
+        size_t rmax=(size_t)fi+1; for(int i=0;i<n_inc;i++){size_t l=strlen(inc_dirs[i])+(size_t)fi+2;if(l>rmax)rmax=l;}
+        char rpath[rmax]; rpath[0]='\0';
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
-        if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
+        if(!inc){char p[rmax];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
             if(sno_include_once_seen(ikey)){fclose(inc);}
@@ -149,13 +168,13 @@ G       ({WS}|{CONT})*
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
     if(q1 && q2 && q2>q1){
-        char iname[4096]; int fi=(int)(q2-q1-1);
-        if(fi>=(int)sizeof iname)fi=(int)sizeof iname-1;
+        int fi=(int)(q2-q1-1); char iname[fi+1];
         memcpy(iname,q1+1,fi);iname[fi]='\0';
-        char rpath[4096]; rpath[0]='\0';
+        size_t rmax=(size_t)fi+1; for(int i=0;i<n_inc;i++){size_t l=strlen(inc_dirs[i])+(size_t)fi+2;if(l>rmax)rmax=l;}
+        char rpath[rmax]; rpath[0]='\0';
         FILE *inc=fopen(iname,"r");
         if(inc){snprintf(rpath,sizeof rpath,"%s",iname);}
-        if(!inc){char p[4096];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
+        if(!inc){char p[rmax];for(int i=0;i<n_inc&&!inc;i++){snprintf(p,sizeof p,"%s/%s",inc_dirs[i],iname);if((inc=fopen(p,"r")))snprintf(rpath,sizeof rpath,"%s",p);}}
         if(!inc)sno_error(lineno,"cannot open include '%s'",iname);
         else {
             char *sl=strrchr(rpath,'/');
@@ -169,7 +188,7 @@ G       ({WS}|{CONT})*
 <INITIAL>"-"[Ll][Ii][Nn][Ee]{WS}+{DIGIT}+[^\n]*\n  {
     lineno++;
     {
-        const char *p = yytext; SNO_SRC_FRAME_t *f = &incl_start_stack[incl_stack_depth]; long nn = 0;
+        const char *p = yytext; SNO_SRC_FRAME_t *f = sno_frame_at(incl_stack_depth); long nn = 0;
         while (*p && !(*p >= '0' && *p <= '9')) p++;
         while (*p >= '0' && *p <= '9') nn = nn * 10 + (*p++ - '0');
         f->line_delta = (int)(nn - lineno);
@@ -202,26 +221,24 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>[^ \t\n*!|;+.\-] {
-    strbuf[0] = yytext[0]; strpos = 1;
+    sno_sb_reserve(2); strbuf[0] = yytext[0]; strpos = 1;
     sno_stmt_pos_mark();
     BEGIN(LABEL);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL>[^ \t\n;]+  {
-    int take = yyleng < (int)sizeof(strbuf)-strpos-1
-               ? yyleng : (int)sizeof(strbuf)-strpos-1;
-    memcpy(strbuf+strpos, yytext, take); strpos += take;
+    sno_sb_add(yytext, yyleng);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL>[ \t]            {
-    strbuf[strpos] = '\0';
+    sno_sb_reserve(strpos + 1); strbuf[strpos] = '\0';
     sno_fold(strbuf);
     BEGIN(BODY_START);
     return T_LABEL;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL>{CONT}           {
-    strbuf[strpos] = '\0';
+    sno_sb_reserve(strpos + 1); strbuf[strpos] = '\0';
     sno_fold(strbuf);
     lineno++;
     BEGIN(BODY_START);
@@ -229,7 +246,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL>\n               {
-    strbuf[strpos] = '\0';
+    sno_sb_reserve(strpos + 1); strbuf[strpos] = '\0';
     sno_fold(strbuf);
     lineno++;
     BEGIN(LABEL_DONE);
@@ -237,7 +254,7 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <LABEL><<EOF>>          {
-    strbuf[strpos] = '\0';
+    sno_sb_reserve(strpos + 1); strbuf[strpos] = '\0';
     sno_fold(strbuf);
     BEGIN(LABEL_DONE);
     return T_LABEL;
@@ -250,7 +267,7 @@ G       ({WS}|{CONT})*
 <LABEL_DONE><<EOF>>        { BEGIN(INITIAL); return T_STMT_END; }
 <LABEL>.                {
     yyless(0);
-    strbuf[strpos] = '\0';
+    sno_sb_reserve(strpos + 1); strbuf[strpos] = '\0';
     sno_fold(strbuf);
     BEGIN(BODY_START);
     return T_LABEL;
@@ -268,7 +285,7 @@ G       ({WS}|{CONT})*
 <BODY>";"              { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY>{W}";"           { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <BODY>{G}":"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_depth=0; gt_angle=0; gt_have_operand=0; BEGIN(GT); }
-<BODY>&{ALPHA}{ALNUM}* { strbuf[0]='\0'; strncat(strbuf,yytext+1,sizeof(strbuf)-1); sno_fold(strbuf); return T_KEYWORD; }
+<BODY>&{ALPHA}{ALNUM}* { sno_sb_set(yytext+1); sno_fold(strbuf); return T_KEYWORD; }
 <BODY>{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_CONCAT; }
 <BODY>{W}"**"{W}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
 <BODY>{W}"^"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2CARET;  }
@@ -295,11 +312,11 @@ G       ({WS}|{CONT})*
 <BODY>{G}"]"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
 <BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
 <BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
-<BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return T_FUNCTION; }
-<BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
+<BODY>{ALPHA}{IDCONT}*/"("  { sno_sb_set(yytext); sno_fold(strbuf); return T_FUNCTION; }
+<BODY>{ALPHA}{IDCONT}*      { sno_sb_set(yytext); sno_fold(strbuf); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 <BODY>{DIGIT}+"."{DIGIT}*{EXP}? |
-<BODY>{DIGIT}+{EXP}         { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); for (char *_e = strbuf; *_e; _e++) if (*_e == 'd' || *_e == 'D') *_e = 'e'; return T_REAL; }
-<BODY>{DIGIT}+                { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
+<BODY>{DIGIT}+{EXP}         { sno_sb_set(yytext); for (char *_e = strbuf; *_e; _e++) if (*_e == 'd' || *_e == 'D') *_e = 'e'; return T_REAL; }
+<BODY>{DIGIT}+                { sno_sb_set(yytext); return T_INT;  }
 <BODY>\'                       { strpos=0; BEGIN(STR1); }
 <BODY>\"                       { strpos=0; BEGIN(STR2); }
 <BODY>"**"   { return T_2CARET;  }
@@ -321,17 +338,15 @@ G       ({WS}|{CONT})*
 <BODY>"&"    { return T_1AMP;    }
 <BODY>.      { sno_error(lineno,"unexpected char '%s'",yytext); }
 <STR1>[^'\n]*           {
-    int take = yyleng < (int)sizeof(strbuf)-strpos-1
-               ? yyleng : (int)sizeof(strbuf)-strpos-1;
-    memcpy(strbuf+strpos, yytext, take); strpos += take;
+    sno_sb_add(yytext, yyleng);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR1>\'\'              {
-    if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '\'';
+    sno_sb_add("'", 1);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR1>\'                {
-    strbuf[strpos] = '\0';
+    sno_sb_reserve(strpos + 1); strbuf[strpos] = '\0';
     BEGIN(BODY);
     return T_STR;
 }
@@ -341,17 +356,15 @@ G       ({WS}|{CONT})*
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR2>[^\"\n]*          {
-    int take = yyleng < (int)sizeof(strbuf)-strpos-1
-               ? yyleng : (int)sizeof(strbuf)-strpos-1;
-    memcpy(strbuf+strpos, yytext, take); strpos += take;
+    sno_sb_add(yytext, yyleng);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR2>\"\"              {
-    if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '"';
+    sno_sb_add("\"", 1);
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR2>\"                {
-    strbuf[strpos] = '\0';
+    sno_sb_reserve(strpos + 1); strbuf[strpos] = '\0';
     BEGIN(BODY);
     return T_STR;
 }
@@ -362,9 +375,9 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>[ \t]+/[)>;\n]      { }
 <GT>[ \t]+              { if (gt_depth > 0 && gt_have_operand) return T_CONCAT; }
-<GT>[Ss]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_S; }
+<GT>[Ss]/"("            { if (gt_depth > 0) { gt_have_operand=1; sno_sb_set(yytext); sno_fold(strbuf); return T_IDENT; } return T_GOTO_S; }
 <GT>[Ss]/"<"            { return T_GOTO_S; }
-<GT>[Ff]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
+<GT>[Ff]/"("            { if (gt_depth > 0) { gt_have_operand=1; sno_sb_set(yytext); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
 <GT>[Ff]/"<"            { return T_GOTO_F; }
 <GT>"("                 { gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; }
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
@@ -373,21 +386,21 @@ G       ({WS}|{CONT})*
 <GT>"$"                 { return T_1DOLLAR; }
 <GT>[A-Za-z][A-Za-z0-9_.]* {
     gt_have_operand=1;
-    strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf);
+    sno_sb_set(yytext); sno_fold(strbuf);
     return T_IDENT;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>\'[^\'\n]*\'    {
     int len = yyleng - 2;
     if (len < 0) len = 0;
-    if (len >= (int)sizeof(strbuf)) len = sizeof(strbuf)-1;
+    sno_sb_reserve(len + 1);
     memcpy(strbuf, yytext+1, len); strbuf[len]='\0';
     gt_have_operand=1;
     return T_STR;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>","                 { gt_have_operand=0; return T_COMMA; }
-<GT>{DIGIT}+            { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_INT; }
+<GT>{DIGIT}+            { gt_have_operand=1; sno_sb_set(yytext); return T_INT; }
 <GT>";"                 { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <GT>{CONT}              { lineno++; }
 <GT>\n                  { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
@@ -400,7 +413,7 @@ G       ({WS}|{CONT})*
 <AFTER_BLANK>.|\n        { yyless(0); BEGIN(INITIAL); }
 <<EOF>>             {
     if (incl_stack_depth > 0) {
-        int _incl_start = incl_start_stack[incl_stack_depth--].start_line;
+        int _incl_start = sno_frame_at(incl_stack_depth--)->start_line;
         stmt_src_mark_include_range(_incl_start, lineno);
         lineno = _incl_start;
     }
@@ -412,7 +425,7 @@ G       ({WS}|{CONT})*
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_error_voice(int code, const char *text, int ln) {
     extern void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno);
-    if (sno_err_quiet) { snprintf(sno_err_capture, sizeof(sno_err_capture), "%s", text); sno_nerrors++; return; }
+    if (sno_err_quiet) { sno_err_capturef("%s", text); sno_nerrors++; return; }
     core_error_voice_at(code, text, sno_frame_file(), ln, 0);
     sno_nerrors++;
 }
@@ -420,7 +433,7 @@ void sno_error_voice(int code, const char *text, int ln) {
 void sno_error(int ln, const char *fmt, ...) {
     va_list ap;
     if (sno_err_quiet) {
-        va_start(ap,fmt); vsnprintf(sno_err_capture,sizeof(sno_err_capture),fmt,ap); va_end(ap);
+        va_start(ap,fmt); sno_err_vcapture(fmt,ap); va_end(ap);
         sno_nerrors++;
         return;
     }
@@ -432,7 +445,8 @@ void sno_error(int ln, const char *fmt, ...) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_add_include_dir(const char *d) {
-    if (n_inc < 64) inc_dirs[n_inc++] = (char *)d;
+    if (n_inc >= inc_dirs_cap) { inc_dirs_cap = inc_dirs_cap ? inc_dirs_cap * 2 : 16; inc_dirs = (char **) ct_grow(inc_dirs, (size_t) inc_dirs_cap * sizeof *inc_dirs); }
+    inc_dirs[n_inc++] = (char *)d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

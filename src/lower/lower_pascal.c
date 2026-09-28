@@ -8,7 +8,7 @@ typedef struct pas_scope_s {
     const char **       names;
     int                 n;
     int                 nparams;
-    long long           byref;
+    unsigned char *     isref;
     int                 has_children;
     const char *        proc_name;
     struct pas_scope_s * outer;
@@ -61,7 +61,7 @@ static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω);
 static IR_t * pas_lower_exit(pcx_t * cx, const tree_t * t, IR_t * ω);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_name_is_byref(pcx_t * cx, const char * name) {
-    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) return sl < 64 && (int)((s->byref >> sl) & 1LL); }
+    for (const pas_scope_t * s = &cx->sc; s; s = s->outer) { int sl = scope_slot(s, name); if (sl >= 0) return s->isref[sl]; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -232,11 +232,14 @@ static IR_t * pas_index_fault(pcx_t * cx, IR_t * ω) {
     IR_t * r = NULL; IR_t * e = lower(cx, f, ω, ω, &r); return e ? e : ω;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static uint64_t pas_callee_byref_mask(const char * name) {
-    if (!name) return 0;
-    for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) return g_stage2.proc_table[pi].byref_mask;
-    return 0;
+static const tree_t * pas_callee_params(const char * name) {
+    if (!name) return NULL;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) {
+        const tree_t * p = (const tree_t *) g_stage2.proc_table[pi].proc; return (p && p->t == TT_PROC_DECL && p->n >= 2) ? p->c[1] : NULL; }
+    return NULL;
 }
+static int pas_params_any_byref(const tree_t * pl) { for (int k = 0; pl && k < pl->n; k++) if (pas_param_is_byref(pl, k)) return 1; return 0; }
+static uint64_t pas_params_low_mask(const tree_t * pl) { uint64_t m = 0; for (int k = 0; pl && k < pl->n && k < 64; k++) if (pas_param_is_byref(pl, k)) m |= (1ULL << k); return m; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_is_stdfile_actual(const tree_t * a) {
     return a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_stdfile");
@@ -248,19 +251,19 @@ static tree_t * pas_vptmp_var(void) {
     tree_t * v = ast_node_new(TT_VAR); v->v.sval = lp_strdup(buf); return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, IR_t * tgt, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω, int rtl) {
+static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, IR_t * tgt, const tree_t * brm, const tree_t * const * args, int nargs, IR_t * ω, int rtl) {
     IR_t * entry = tgt; IR_t * prevres = NULL;
     IR_t ** ar_slot = (IR_t **) ct_zalloc((size_t) (nargs > 0 ? nargs : 1), sizeof(IR_t *));
     for (int i = 0; i < nargs; i++) {
         int k = rtl ? (nargs - 1 - i) : i;
         IR_t * ar = NULL; IR_t * ae;
-        if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
+        if (pas_param_is_byref(brm, k) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
             pas_res_t r; pas_resolve2(cx, args[k]->v.sval, &r);
             IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_REF, args[k]->v.sval, &r, (i == nargs - 1) ? tgt : NULL, ω)
                                   : build(cx, IR_VAR_REF, (i == nargs - 1) ? tgt : NULL, ω);
             IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
-        } else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
+        } else if (pas_param_is_byref(brm, k) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval) {
             IR_t * vr = build(cx, IR_VAR, (i == nargs - 1) ? tgt : NULL, ω); IR_LIT(vr).sval = args[k]->v.sval;
             ae = vr; ar = vr;
         } else ae = lower(cx, args[k], (i == nargs - 1) ? tgt : NULL, ω, &ar);
@@ -273,13 +276,13 @@ static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, IR_t * tgt, uint64_
     return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, uint64_t brm, const tree_t * const * args, int nargs, IR_t * ω) {
+static IR_t * pas_call_args_brm(pcx_t * cx, IR_t * call, const tree_t * brm, const tree_t * const * args, int nargs, IR_t * ω) {
     return pas_call_args_brm_dir(cx, call, call, brm, args, nargs, ω, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pas_call_args(pcx_t * cx, IR_t * call, double dv, const tree_t * const * args, int nargs, IR_t * ω) {
     (void) dv;
-    return pas_call_args_brm(cx, call, 0, args, nargs, ω);
+    return pas_call_args_brm(cx, call, NULL, args, nargs, ω);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_callee_is_user_proc(const char * name) {
@@ -317,20 +320,20 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         IR_t * e = pas_call_args(cx, nd, 2.0, (const tree_t * const *) (t->n > 1 ? &t->c[1] : NULL), (t->n > 0) ? t->n - 1 : 0, ω);
         *res = nd; return e;
     }
-    uint64_t brm = pas_callee_byref_mask(cn ? cn->v.sval : NULL);
-    if (brm) { int rw = 0; for (int i = env + 1; i < t->n; i++) { if (((brm >> (i - env - 1)) & 1ULL) && t->c[i] && (t->c[i]->t == TT_IDX || pas_is_stdfile_actual(t->c[i]))) { rw = 1; break; } }
+    const tree_t * brm = pas_callee_params(cn ? cn->v.sval : NULL);
+    if (pas_params_any_byref(brm)) { int rw = 0; for (int i = env + 1; i < t->n; i++) { if (pas_param_is_byref(brm, i - env - 1) && t->c[i] && (t->c[i]->t == TT_IDX || pas_is_stdfile_actual(t->c[i]))) { rw = 1; break; } }
         if (rw) {
             tree_t * seq = ast_node_new(TT_SEQ_EXPR);
             tree_t * call = ast_node_new(TT_FNC); for (int i = 0; i < env; i++) ast_push(call, t->c[i]); ast_push(call, pas_lc_leaf(TT_VAR, cn && cn->v.sval ? cn->v.sval : ""));
             tree_t * outs[t->n]; int nout = 0;
             for (int i = env + 1; i < t->n; i++) {
                 tree_t * arg = t->c[i];
-                if (((brm >> (i - env - 1)) & 1ULL) && arg && arg->t == TT_IDX) {
+                if (pas_param_is_byref(brm, i - env - 1) && arg && arg->t == TT_IDX) {
                     tree_t * tv = pas_vptmp_var();
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
                     ast_push(call, tv);
                     outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg), pas_lc_clone(tv));
-                } else if (((brm >> (i - env - 1)) & 1ULL) && pas_is_stdfile_actual(arg)) {
+                } else if (pas_param_is_byref(brm, i - env - 1) && pas_is_stdfile_actual(arg)) {
                     tree_t * tv = pas_vptmp_var();
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
                     ast_push(call, tv);
@@ -680,9 +683,9 @@ static void build_scope(pas_scope_t * sc, const tree_t * pd, pas_scope_t * outer
     const tree_t * params = (pd->n > 1) ? pd->c[1] : NULL;
     const tree_t * locals = (pd->n > 0) ? pd->c[pd->n - 1] : NULL;
     if (locals && locals->t != TT_VLIST) locals = NULL;
-    sc->byref = (params && params->t == TT_VLIST) ? params->v.ival : 0;
+    sc->isref = (unsigned char *) ct_zalloc((size_t) ((params && params->t == TT_VLIST) ? params->n : 0) + (size_t) (locals ? locals->n : 0) + 1, 1);
     sc->names = (const char **) ct_zalloc((size_t) ((params && params->t == TT_VLIST) ? params->n : 0) + (size_t) (locals ? locals->n : 0) + 1, sizeof(const char *));
-    if (params && params->t == TT_VLIST) for (int i = 0; i < params->n; i++) { if (params->c[i] && params->c[i]->v.sval) sc->names[sc->n++] = params->c[i]->v.sval; }
+    if (params && params->t == TT_VLIST) for (int i = 0; i < params->n; i++) { if (params->c[i] && params->c[i]->v.sval) { sc->isref[sc->n] = (unsigned char) pas_param_is_byref(params, i); sc->names[sc->n++] = params->c[i]->v.sval; } }
     sc->nparams = sc->n;
     if (locals) for (int i = 0; i < locals->n; i++) { if (locals->c[i] && locals->c[i]->v.sval) sc->names[sc->n++] = locals->c[i]->v.sval; }
 }
@@ -955,7 +958,7 @@ static void pascal_register_program(stage2_t * s2, const tree_t * prog) {
                 s2->proc_table[_pi].entry_pc = -1;
                 s2->proc_table[_pi].bb_idx   = -1;
                 s2->proc_table[_pi].nparams  = (proc->t == TT_PROC_DECL && proc->n >= 2 ? proc->c[1]->n : 0);
-                s2->proc_table[_pi].byref_mask = (proc->t == TT_PROC_DECL && proc->n >= 2 && proc->c[1]) ? (uint64_t)proc->c[1]->v.ival : 0;
+                s2->proc_table[_pi].byref_mask = (proc->t == TT_PROC_DECL && proc->n >= 2) ? pas_params_low_mask(proc->c[1]) : 0;
                 if (mod_idx >= 0) s2->module_registry.mods[mod_idx].nprocs++;
                 if (strcmp(name, "main") == 0 && s2->module_registry.main_mod < 0) s2->module_registry.main_mod = mod_idx;
             }
@@ -969,7 +972,7 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
     g_pas_has_nesting = 0;
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
-        if (proc && proc->t == TT_PROC_DECL && (proc_decl_level(proc) > 1 || g_stage2.proc_table[pi].byref_mask)) { g_pas_has_nesting = 1; break; }
+        if (proc && proc->t == TT_PROC_DECL && (proc_decl_level(proc) > 1 || pas_params_any_byref(proc->n >= 2 ? proc->c[1] : NULL))) { g_pas_has_nesting = 1; break; }
     }
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;

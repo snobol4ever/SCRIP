@@ -847,6 +847,7 @@ CODE_t *snocone_parse_program(const char *src, const char *filename) {
     state.filename  = filename;
     state.nerrors   = 0;
     int rc = sc_parse(&state);
+    ct_drop(ctx.strbuf);
     while (state.loop_top) sc_loop_pop(&state);
     if (rc != 0 || state.nerrors > 0) {
         ct_drop(state.code);
