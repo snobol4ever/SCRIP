@@ -414,7 +414,7 @@ Procbody    = ( ProcbodyEnd | FENCE(StmtBody) *Procbody );
 /* Proc: collect name + params + stmts; reduce to TT_FNC; wrap in :subj then STMT. */
 Proc        = ( nPush()  Prochead  Procbody
                 reduce('TT_FNC', 'nTop()') reduce(':subj', 1) reduce('STMT', 1)
-                nPop()
+                nPop() FLUSH
               );
 /* GlobalDecl: collect var names; reduce to TT_GLOBAL; wrap in :subj then STMT. */
 GlobalDecl = ( nPush() $'global' $'  ' DeclIds $' ' semi_opt $' '

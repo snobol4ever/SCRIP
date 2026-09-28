@@ -214,7 +214,7 @@ Stmt        =  nPush()
                reduce("'TT_STMT'", 'nTop()')
                nPop()
                $' ';
-Commands    =  *Command FENCE(*Commands | epsilon);
+Commands    =  *Command FLUSH FENCE(*Commands | epsilon);
 Command     =  FENCE(
                   shift(*Comment, "'TT_COMMENT'") nInc() reduce("'TT_COMMENT'", 1) nl
                |  shift(*Control, "'TT_CONTROL'") nInc() reduce("'TT_CONTROL'", 1) (nl | ';')
