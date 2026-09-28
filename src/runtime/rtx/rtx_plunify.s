@@ -4,11 +4,11 @@ RTX_GATE_DEF(plunify)
 #define CTX_B             8
 #define CTX_BALL         16
 #define CTX_FRAME        24
-#define PL_TR_ARENA_MASK  -134217728
+#define PL_TR_ARENA_MASK  -1099511627776
 #define PL_TR_BALL_SLOT   8
-#define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
-#define PL_BALL_DROP(t)    xor r15d, r15d; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], 0
-#define PL_BALL_GET(d)  mov d, r12; and d, PL_TR_ARENA_MASK; mov d, qword ptr [d + PL_TR_BALL_SLOT]
+#define PL_BALL_ARM(r, t)  mov r15, r; movabs t, PL_TR_ARENA_MASK; and t, r12; mov qword ptr [t + PL_TR_BALL_SLOT], r
+#define PL_BALL_DROP(t)    xor r15d, r15d; movabs t, PL_TR_ARENA_MASK; and t, r12; mov qword ptr [t + PL_TR_BALL_SLOT], 0
+#define PL_BALL_GET(d)  movabs d, PL_TR_ARENA_MASK; and d, r12; mov d, qword ptr [d + PL_TR_BALL_SLOT]
 RTX_FUNC(rt_pl_quad_seed)
     sub     rsp, 8
     mov     r14, rdi

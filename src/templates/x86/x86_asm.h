@@ -1805,9 +1805,9 @@ inline std::string x86_zrelease(long b) { return x86("add", "rsp", b); }
 inline std::string x86_arbno_rbp_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "arbno_rbp_unwind") + x86("mov", "rax", mark_mem) + x86("def", L(l_loop)) + x86("cmp", "rbp", "rax") + x86("jae", L(l_done)) + x86("test", "rbp", "rbp") + x86("je", L(l_done)) + x86("mov", "rbp", RDQ("rbp", 24)) + x86("jmp", L(l_loop)) + x86("def", L(l_done)); }
 inline std::string x86_arbno_rbp_unwind(const char * mark_base, int mark_off, int l_loop, int l_done) { return x86_arbno_rbp_unwind_at(RDQ(mark_base, mark_off), l_loop, l_done); }
 #define X86_PL_TR_ENTRY_BYTES 32L
-#define X86_PL_TR_ARENA_MASK  (-134217728L)
+#define X86_PL_TR_ARENA_MASK  (-1099511627776L)
 inline std::string x86_pl_tr_pop_entry() { return x86("sub", "r12", X86_PL_TR_ENTRY_BYTES) + x86("mov", "rdi", RDQ("r12", 0)) + x86("mov", "rax", RDQ("r12", 16)) + x86("mov", "rdx", RDQ("r12", 24)) + x86("mov", RDQ("rdi", 0), "rax") + x86("mov", RDQ("rdi", 8), "rdx"); }
-inline std::string x86_pl_tr_top_sync() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", RDQ("rax", 0), "r12"); }
+inline std::string x86_pl_tr_top_sync() { return x86_movabs_r64("rax", (uint64_t)X86_PL_TR_ARENA_MASK) + x86("and", "rax", "r12") + x86("mov", RDQ("rax", 0), "r12"); }
 inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) + x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_entry() + x86("jmp", L(l_loop)) + x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_call_frame_enter(int gamma_ilbl, int omega_ilbl) {
