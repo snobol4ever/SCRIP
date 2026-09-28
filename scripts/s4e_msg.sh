@@ -424,7 +424,7 @@ s4e_promotion_admissible() {   # <promo-topic> <blocked-topic> <rank>
       if [ -n "$_tl" ] && [ "$_tl" != "$_my_lane" ] && [ "${_lane_filter:-own-lane}" = own-lane ]; then
         printf '⛔ REFUSED PROMOTION: rank-%s %s is BLOCKED-ON %s, but %s is %s'"'"'s lane and yours is %s.\n' \
           "$_rank" "$_blocked" "$_p" "$_p" "$_tl" "$_my_lane"
-        if s4e_any_lane_closed; then printf '   Not promoted; %s stays skipped -- the any-lane fallback is CLOSED under TENET (ceo CEO-1302 (b)), so no pass retries it cross-lane.\n' "$_blocked"
+        if s4e_any_lane_closed; then printf '   Not promoted; %s stays skipped -- the any-lane fallback is CLOSED under TENET and QUINTET (ceo CEO-1302 (b), CEO-1356), so no pass retries it cross-lane.\n' "$_blocked"
         else printf '   Not promoted (own-lane pass); %s stays skipped this pass -- retried cross-lane if your own lane has nothing else.\n' "$_blocked"; fi
         return 1
       fi
@@ -742,24 +742,27 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            # so the admission is written down beside the refusals rather than left to the shape of the case.
            cto)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
-                      DUO|DUO-STUPID|QUARTET|NONET|TENET) : ;; esac;;
+                      DUO|DUO-STUPID|QUARTET|QUINTET|NONET|TENET) : ;; esac;;
            # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
            # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
            # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
            cfo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO|DUO-STUPID) _dr "an officer" "Under $_m only the ceo and the cto work rows -- the cfo and the coo are stood down (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
-                      QUARTET|NONET|TENET) : ;; esac;;
+                      QUARTET|QUINTET|NONET|TENET) : ;; esac;;
            coo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO|DUO-STUPID) _dr "an officer" "Under $_m only the ceo and the cto work rows -- the cfo and the coo are stood down (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
                       TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";;
-                      QUARTET|NONET|TENET) : ;; esac;;
+                      QUARTET|QUINTET|NONET|TENET) : ;; esac;;
            hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO|DUO-STUPID) _dr "an HQ" "Under $_m no HQ is standing -- the ceo and the cto work the rows (DUO: Lon 2026-09-19, CEO-907; DUO-STUPID: Lon 2026-09-21, CEO-1087).";;
                       TRIO) _dr "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the cfo work the rows (Lon 2026-09-19, CEO-910).";;
                       QUARTET) _dr "an HQ" "Under QUARTET no HQ is standing -- the four officers work the rows (Lon 2026-09-19, CEO-911).";;
+                      # ⛔⭐ MODE QUINTET (Lon 2026-09-28 17:2x, in-chat to the ceo, verbatim: "Bring the fleet into QUARTET mode: CEO, CTO, CFO, and COO. Leave HQ-SNOCONE alone. So QUNTET mode."; ceo CEO-1356).
+                      # The four officers and ONE language HQ, hq_snocone, named here so that no other hq_* seat is admitted by falling out of the case (CEO-755b).
+                      QUINTET) case "$_seat" in hq_snocone) : ;; *) _dr "an HQ" "Under QUINTET only hq_snocone stands among the HQs -- the four officers and hq_snocone work rows, and $_seat is stood down (Lon 2026-09-28, CEO-1356).";; esac;;
                       # ⛔⭐ MODE NONET (Lon 2026-09-25, in-chat to the ceo: "Go now to NONET mode." and, asked which five HQs stand: "SNO, PL, PAS, SNOCONE, and ICON"; ceo CEO-1266).
                       # Written by name for CEO-755b's reason: before this arm every hq_* seat -- hq_raku and the lettered legacy names included -- was admitted under NONET by FALLING OUT of the case.
                       NONET) case "$_seat" in hq_icon|hq_prolog|hq_snobol4|hq_snocone|hq_pascal) : ;; *) _dr "an HQ" "Under NONET five LANGUAGE HQs stand -- hq_icon hq_prolog hq_snobol4 hq_snocone hq_pascal -- and $_seat is not one of them: RAKU is the cto's and REBUS the ceo's (Lon 2026-09-25, CEO-1266).";; esac;;
@@ -986,13 +989,16 @@ s4e_lane_owner_of_language() {
        # Written out per language rather than collapsed to a default for the reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE.
        # ⭐ MODE TENET AGAIN (CEO-1285, 2026-09-26 13:5x, Lon in-chat to the ceo, verbatim: "Switch to TENET mode."): the seven-line edit the CEO block above promised -- every
        # language HQ takes its language back, rebus stays the ceo's (Lon: "There is no HQ-REBUS.").
-       icon)     printf 'hq_icon';;
-       prolog)   printf 'hq_prolog';;
-       snobol4)  printf 'hq_snobol4';;
-       pascal)   printf 'hq_pascal';;
+       # ⛔⭐ MODE QUINTET (CEO-1356, 2026-09-28 17:2x, Lon in-chat to the ceo: "Bring the fleet into QUARTET mode: CEO, CTO, CFO, and COO. Leave HQ-SNOCONE alone. So QUNTET mode."): SNOCONE
+       # stays hq_snocone's; the other languages take the QUARTET map of CEO-1123 -- ICON, SNOBOL4 and REBUS to the ceo, PROLOG, RAKU and PASCAL to the cto. The TENET mapping
+       # this replaces -- icon hq_icon, prolog hq_prolog, snobol4 hq_snobol4, pascal hq_pascal, snocone hq_snocone, rebus ceo, raku hq_raku -- is the flip-back template.
+       icon)     printf 'ceo';;
+       prolog)   printf 'cto';;
+       snobol4)  printf 'ceo';;
+       pascal)   printf 'cto';;
        snocone)  printf 'hq_snocone';;
        rebus)    printf 'ceo';;
-       raku)     printf 'hq_raku';;
+       raku)     printf 'cto';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
@@ -1012,7 +1018,7 @@ s4e_seat_owns_a_language() { local _l _who; _who="$(s4e_my_lane 2>/dev/null)"; [
 # ⛔ THE ANY-LANE FALLBACK CLOSES UNDER TENET FOR EVERY SEAT, ORDINARY AND PROMOTION PATHS ALIKE (ceo CEO-1302 (b), 2026-09-27): an HQ
 # runs only its own language (CEO-1232) and holds one row, so a language seat whose lane has nothing servable is told so (rc 2), never
 # handed another HQ's row; the census at the ruling found zero live rows owned `unassigned`, so the close strands nothing. MODE line 1.
-s4e_any_lane_closed() { case "$(head -1 "$PO/MODE" 2>/dev/null | tr -d '[:space:]')" in TENET) return 0;; esac; return 1; }
+s4e_any_lane_closed() { case "$(head -1 "$PO/MODE" 2>/dev/null | tr -d '[:space:]')" in TENET|QUINTET) return 0;; esac; return 1; }
 s4e_lane_help() { local _l _o _out=""; for _l in $(s4e_lane_languages); do _o="$(s4e_lane_owner_of_language "$_l")"; _out="$_out$_l -> $_o · "; done; printf '%s' "${_out% · }"; }
 s4e_topic_lane() {
     local _t="$1" _owner _lang
@@ -3478,7 +3484,7 @@ TASKEOF
          if [ "${_xlane_refused:-0}" -gt 0 ] && s4e_seat_owns_a_language && s4e_any_lane_closed; then
            s4e_report_owned_skips
            s4e_report_rankcap_skips
-           printf '⛔ REFUSED (rc=2): %s cross-lane row(s) NOT served -- your lane %s has nothing servable, and the any-lane fallback is CLOSED under TENET (ceo CEO-1302 (b): an HQ runs only its own language, CEO-1232). Last: %s\n' "$_xlane_refused" "${_my_lane:-$ME}" "$_xlane_last"
+           printf '⛔ REFUSED (rc=2): %s cross-lane row(s) NOT served -- your lane %s has nothing servable, and the any-lane fallback is CLOSED under TENET and QUINTET (ceo CEO-1302 (b), CEO-1356: an HQ runs only its own language, CEO-1232). Last: %s\n' "$_xlane_refused" "${_my_lane:-$ME}" "$_xlane_last"
            printf '   Your lane is empty, not the queue: ask your officer or the ceo for your next row (s4e_msg.sh ask <topic>); another lane'"'"'s row is an ASK to its owner, never a claim.\n'
            exit 2
          fi
