@@ -2997,6 +2997,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             prelude_tail = pbind;
         }
         if (prelude_head) { lc_γ_to(prelude_tail, g->entry); g->entry = prelude_head; }
+        { IR_t * qt = lc_build(g, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_320"; g->entry = qt; }
     }
     int pi = stage2_proc_grow(&g_stage2);
     g_stage2.proc_table[pi].name = "main";

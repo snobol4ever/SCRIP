@@ -45,6 +45,7 @@ DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_bind(DESCR_t *, int); DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_abolish_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_retractall_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_ref(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_ref_r(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_decl(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
 DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
+DESCR_t rt_quit_trap_300(DESCR_t *, int); DESCR_t rt_quit_trap_320(DESCR_t *, int);
 DESCR_t rt_pl_dop_char_guard(DESCR_t *, int); DESCR_t rt_pl_dop_between_guard(DESCR_t *, int); DESCR_t rt_pl_dop_stream_guard(DESCR_t *, int); DESCR_t rt_pl_dop_curstream_guard(DESCR_t *, int);
 DESCR_t rt_pl_dop_nb_getval_guard(DESCR_t *, int);
 DESCR_t rt_pl_dop_goal_guard(DESCR_t *, int); DESCR_t rt_pl_dop_list_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_declared(DESCR_t *, int);
@@ -223,6 +224,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$nb_setval", 2, "rt_pl_dop_nb_setval", rt_pl_dop_nb_setval }, { "$nb_getval", 2, "rt_pl_dop_nb_getval", rt_pl_dop_nb_getval }, { "$b_setval", 2, "rt_pl_dop_b_setval", rt_pl_dop_b_setval },
         { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },
         { "$ax_eguard", 1, "rt_pl_dop_ax_eguard", rt_pl_dop_ax_eguard },
+        { "$quit_trap_300", 0, "rt_quit_trap_300", rt_quit_trap_300 }, { "$quit_trap_320", 0, "rt_quit_trap_320", rt_quit_trap_320 },
         { "$pl_char_guard", 1, "rt_pl_dop_char_guard", rt_pl_dop_char_guard },
         { "$pl_between_guard", 3, "rt_pl_dop_between_guard", rt_pl_dop_between_guard },
         { "$pl_stream_guard", 2, "rt_pl_dop_stream_guard", rt_pl_dop_stream_guard },

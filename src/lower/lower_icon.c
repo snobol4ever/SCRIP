@@ -1692,6 +1692,7 @@ static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
         succ = entry; fail = entry;
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
+    if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
     g->icn_cells_graph = 1;
     return g;
 }

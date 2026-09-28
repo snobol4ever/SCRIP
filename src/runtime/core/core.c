@@ -28,6 +28,7 @@ int g_call_fastpath_off = 0;
 #include <inttypes.h>
 #include <unistd.h>
 #include <sys/resource.h>
+#include <signal.h>
 #include <time.h>
 #define MON_RS "\x1e"
 #define MON_US "\x1f"
@@ -2983,6 +2984,36 @@ int core_icn_error(int code, DESCR_t val) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_fatal(int code, DESCR_t val) {
     core_icn_report(code, val, (const char *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void core_quit_trap_300_sig(int sig) {
+    (void)sig;
+    core_icn_report(300, FAILDESCR, (const char *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void core_quit_trap_320_sig(int sig) {
+    extern void rt_kw_publish_error_at_exit(int code, const char *msg);
+    (void)sig;
+    core_error_voice(320, "user interrupt", 0, FAILDESCR);
+    rt_kw_publish_error_at_exit(320, "user interrupt");
+    exit(1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void core_quit_trap_install(void (*h)(int)) {
+    struct sigaction sa; memset(&sa, 0, sizeof sa); sa.sa_handler = h; sa.sa_flags = SA_ONSTACK; sigemptyset(&sa.sa_mask);
+    sigaction(SIGQUIT, &sa, NULL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_quit_trap_300(DESCR_t *args, int nargs) {
+    (void)args; (void)nargs;
+    core_quit_trap_install(core_quit_trap_300_sig);
+    return NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_quit_trap_320(DESCR_t *args, int nargs) {
+    (void)args; (void)nargs;
+    core_quit_trap_install(core_quit_trap_320_sig);
+    return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_by_zero_check(int64_t by) {
