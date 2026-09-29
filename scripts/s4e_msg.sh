@@ -995,6 +995,10 @@ s4e_lane_owner_of_language() {
        # ⛔⭐ MODE CEO (CEO-1357, 2026-09-28 18:1x, Lon in-chat to the ceo, verbatim: "Go to CEO mode. For go all work but what we focus on together here. I want to focus on the 6 Snocone parsers (excluding Raku)."): ONE SEAT
        # HOLDS EVERY LANGUAGE, and the one thing it works is the six self-hosted Snocone parsers with Lon. The QUINTET mapping this replaces -- icon ceo, prolog cto, snobol4 ceo, pascal cto,
        # snocone hq_snocone, rebus ceo, raku cto -- is the flip-back template, and the TENET mapping stays in the QUINTET comment above.
+       # ⛔⭐ MODE DUO (CEO-1362, 2026-09-29 16:3x, Lon in-chat to the ceo: "Would it help to get CTO involved and to go to DUO mode? We have the bandwidth and the usage credits." then "Let me know
+       # when CTO can start. He is seated as Opus 5.5 with max effort."): TWO WORKING SEATS, split by layer -- the cto bakes every call and deferred-pattern address (no by-name lookup at run
+       # time, compile-time site tables, patch on a second DEFINE or assignment; its row is assigned, not picked), the ceo keeps the six parsers, the runtime diagnostics switch and the boards.
+       # Every language stays the ceo's, so this table is the MODE CEO table unchanged; the DUO guard arms above already admit the cto.
        icon)     printf 'ceo';;
        prolog)   printf 'ceo';;
        snobol4)  printf 'ceo';;
