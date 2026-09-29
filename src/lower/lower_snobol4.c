@@ -1260,6 +1260,14 @@ static const char * sno_cset_fold(const tree_t * a) {
     if (a->t == TT_FNC && a->v.sval && (!strcmp(a->v.sval, "CHAR") || !strcmp(a->v.sval, "char")) && a->n == 1 && a->c[0] && a->c[0]->t == TT_ILIT && a->c[0]->v.ival >= 1 && a->c[0]->v.ival <= 255) {
         char * cb = (char *) ct_alloc(2); if (!cb) return NULL; cb[0] = (char)(unsigned char) a->c[0]->v.ival; cb[1] = 0; return cb;
     }
+    if (a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "SUBSTR") && a->n == 3 && a->c[0] && a->c[0]->t == TT_KEYWORD && a->c[0]->v.sval
+        && !strcmp(a->c[0]->v.sval + (a->c[0]->v.sval[0] == '&'), "ALPHABET") && a->c[1] && a->c[1]->t == TT_ILIT && a->c[2] && a->c[2]->t == TT_ILIT) {
+        long i = (long) a->c[1]->v.ival, n = (long) a->c[2]->v.ival;
+        if (i < 2 || n < 1 || i + n - 1 > 256) return NULL;
+        char * cb = (char *) ct_alloc((size_t) n + 1); if (!cb) return NULL;
+        for (long k = 0; k < n; k++) cb[k] = (char)(unsigned char)(i - 1 + k);
+        cb[n] = 0; return cb;
+    }
     if (a->t == TT_SEQ || a->t == TT_CAT) {
         const char * l = sno_cset_fold((a->n > 0) ? a->c[0] : NULL); if (!l) return NULL;
         const char * r = sno_cset_fold((a->n > 1) ? a->c[1] : NULL); if (!r) return NULL;
@@ -2876,10 +2884,9 @@ static int sno_rsv_stmt(tree_t * s, int quiet) {
         else if (!strcmp(a->v.sval, ":eq")) eq = 1; else if (!strcmp(a->v.sval, ":pat")) pat = 1; }
     if (eq && !pat && subj && subj->t == TT_VAR && sno_rsv_name(subj->v.sval)) {
         if (!sno_rsv_nullval(repl)) return sno_rsv_err(s, subj->v.sval, "it cannot be assigned", quiet);
-        int keep = repl && !(repl->t == TT_NUL || (repl->t == TT_QLIT && (!repl->v.sval || !repl->v.sval[0])));
-        if (keep) sa->c[0] = repl;
+        if (repl && repl->t != TT_NUL) sa->c[0] = repl; else { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) ""; sa->c[0] = q; }
         int k = 0; for (int i = 0; i < s->n; i++) { tree_t * a = s->c[i];
-            if (a && a->t == TT_ATTR && a->v.sval && (!strcmp(a->v.sval, ":eq") || !strcmp(a->v.sval, ":repl") || (!keep && a == sa))) continue; s->c[k++] = a; }
+            if (a && a->t == TT_ATTR && a->v.sval && (!strcmp(a->v.sval, ":eq") || !strcmp(a->v.sval, ":repl"))) continue; s->c[k++] = a; }
         s->n = k;
     }
     else if (eq && subj && ((pat && subj->t == TT_VAR && sno_rsv_name(subj->v.sval))
