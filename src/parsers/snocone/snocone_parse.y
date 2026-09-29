@@ -184,9 +184,6 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
 %token T_2STAR
 %token T_2SLASH
 %token T_2CARET
-%token T_EQ T_NE T_LT T_GT T_LE T_GE
-%token T_LEQ T_LNE T_LLT T_LGT T_LLE T_LGE
-%token T_IDENT_OP T_DIFFER
 %token T_1PLUS
 %token T_1MINUS
 %token T_2EQUAL
@@ -406,49 +403,7 @@ expr4       : expr4 T_CONCAT expr5
             | expr5
                                 { $$ = $1; }
             ;
-expr5       : expr5 T_EQ        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("EQ");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_NE        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("NE");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LT        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LT");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_GT        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("GT");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LE        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LE");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_GE        expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("GE");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LEQ       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LEQ");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LNE       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LNE");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LLT       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LLT");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LGT       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LGT");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LLE       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LLE");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_LGE       expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("LGE");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_IDENT_OP  expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("IDENT");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr5 T_DIFFER    expr6
-                                { tree_t *e = expr_new(TT_FNC); e->sval = ct_strdup("DIFFER");
-                                  expr_add_child(e, $1); expr_add_child(e, $3); $$ = e; }
-            | expr6
+expr5       : expr6
                                 { $$ = $1; }
             ;
 expr6       : expr6 T_2PLUS    expr9

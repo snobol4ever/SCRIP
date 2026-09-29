@@ -223,30 +223,18 @@ S_STR2:
     if (PEEK(0) == '\n' )                                          {  ctx->line++; ctx->strbuf[ctx->strpos++] = '\n'; ADV(1); goto S_STR2;   }
                                                                    {  ctx->strbuf[ctx->strpos++] = *p; ADV(1);              goto S_STR2;     }
 S_OP_COLON:
-    if (PEEK(1) == ':' )                                           {  ADV(2);                                              goto LX_IDENT_OP;  }
-    if (PEEK(1) == '!' && PEEK(2) == ':' )                         {  ADV(3);                                              goto LX_DIFFER;    }
-    if (PEEK(1) == '<' && PEEK(2) == '=' && PEEK(3) == ':' )       {  ADV(4);                                              goto TT_LLE;       }
-    if (PEEK(1) == '>' && PEEK(2) == '=' && PEEK(3) == ':' )       {  ADV(4);                                              goto TT_LGE;       }
-    if (PEEK(1) == '=' && PEEK(2) == '=' && PEEK(3) == ':' )       {  ADV(4);                                              goto TT_LEQ;       }
-    if (PEEK(1) == '!' && PEEK(2) == '=' && PEEK(3) == ':' )       {  ADV(4);                                              goto TT_LNE;       }
-    if (PEEK(1) == '<' && PEEK(2) == ':' )                         {  ADV(3);                                              goto TT_LLT;       }
-    if (PEEK(1) == '>' && PEEK(2) == ':' )                         {  ADV(3);                                              goto TT_LGT;       }
                                                                    {  ADV(1);                                              goto LX_COLON;     }
 S_OP_EQ:
-    if (PEEK(1) == '=' )                                           {  ADV(2);                                              goto TT_EQ;        }
     if (last_value)                                                {  ADV(1);                                              goto TT_ASSIGN;    }
                                                                    {  ADV(1);                                              goto LX_UN_EQUAL;  }
 S_OP_BANG:
-    if (PEEK(1) == '=' )                                           {  ADV(2);                                              goto TT_NE;        }
     if (had_ws && last_value && is_rws_at(p, 1))                   {  ADV(1);                                              goto LX_EXP;       }
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_BANG;   }
 S_OP_LT:
-    if (PEEK(1) == '=' )                                           {  ADV(2);                                              goto TT_LE;        }
-                                                                   {  ADV(1);                                              goto TT_LT;        }
+                                                                   {  tok_start = p; ADV(1);                               goto TT_UNKNOWN;   }
 S_OP_GT:
-    if (PEEK(1) == '=' )                                           {  ADV(2);                                              goto TT_GE;        }
-                                                                   {  ADV(1);                                              goto TT_GT;        }
+                                                                   {  tok_start = p; ADV(1);                               goto TT_UNKNOWN;   }
 S_OP_PLUS:
     if (PEEK(1) == '=' )                                           {  ADV(2);                                              goto LX_PLUS_ASSIGN;  }
     if (had_ws && last_value && is_rws_at(p, 1))                   {  ADV(1);                                              goto TT_ADD;       }
@@ -290,7 +278,6 @@ S_OP_DOT:
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_DOT;    }
 S_OP_AMP:
-    if (PEEK(1) == '&' )                                           {  ADV(2);                                              EMIT(T_CONCAT);    }
     if (had_ws && last_value && is_rws_at(p, 1))                   {  ADV(1);                                              goto LX_AMP;       }
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_AMP;    }
@@ -323,21 +310,6 @@ LX_COLON:         EMIT(T_COLON);
 TT_ASSIGN:        EMIT(T_2EQUAL);
 LX_MATCH:         EMIT(T_2QUEST);
 TT_ALT:           EMIT(T_2PIPE);
-TT_LEQ:           EMIT(T_LEQ);
-TT_LNE:           EMIT(T_LNE);
-TT_LLE:           EMIT(T_LLE);
-TT_LGE:           EMIT(T_LGE);
-TT_LLT:           EMIT(T_LLT);
-TT_LGT:           EMIT(T_LGT);
-LX_DIFFER:           goto LX_RELOP_REMOVED;
-LX_IDENT_OP:           goto LX_RELOP_REMOVED;
-TT_EQ:           EMIT(T_EQ);
-TT_NE:           EMIT(T_NE);
-TT_LE:           EMIT(T_LE);
-TT_GE:           EMIT(T_GE);
-TT_LT:           EMIT(T_LT);
-TT_GT:           EMIT(T_GT);
-LX_RELOP_REMOVED: EMIT(T_COLON);
 TT_ADD:           EMIT(T_2PLUS);
 TT_SUB:           EMIT(T_2MINUS);
 TT_MUL:           EMIT(T_2STAR);
@@ -355,21 +327,21 @@ LX_MINUS_ASSIGN:  EMIT(T_MINUS_ASSIGN);
 LX_STAR_ASSIGN:   EMIT(T_STAR_ASSIGN);
 LX_SLASH_ASSIGN:  EMIT(T_SLASH_ASSIGN);
 LX_CARET_ASSIGN:  EMIT(T_CARET_ASSIGN);
-LX_UN_PLUS:       EMIT(T_1PLUS);
-LX_UN_MINUS:      EMIT(T_1MINUS);
-LX_UN_STAR:       EMIT(T_1STAR);
-LX_UN_SLASH:      EMIT(T_1SLASH);
-LX_UN_PERCENT:    EMIT(T_1PERCENT);
-LX_UN_AT:         EMIT(T_1AT);
-LX_UN_TILDE:      EMIT(T_1TILDE);
-LX_UN_DOLLAR:     EMIT(T_1DOLLAR);
-LX_UN_DOT:        EMIT(T_1DOT);
-LX_UN_POUND:      EMIT(T_1POUND);
-LX_UN_PIPE:       EMIT(T_1PIPE);
-LX_UN_EQUAL:      EMIT(T_1EQUAL);
-LX_UN_QUEST:      EMIT(T_1QUEST);
-LX_UN_AMP:        EMIT(T_1AMP);
-LX_UN_BANG:       EMIT(T_1BANG);
+LX_UN_PLUS: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1PLUS);
+LX_UN_MINUS: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1MINUS);
+LX_UN_STAR: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1STAR);
+LX_UN_SLASH: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1SLASH);
+LX_UN_PERCENT: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1PERCENT);
+LX_UN_AT: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1AT);
+LX_UN_TILDE: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1TILDE);
+LX_UN_DOLLAR: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1DOLLAR);
+LX_UN_DOT: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1DOT);
+LX_UN_POUND: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1POUND);
+LX_UN_PIPE: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1PIPE);
+LX_UN_EQUAL: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1EQUAL);
+LX_UN_QUEST: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1QUEST);
+LX_UN_AMP: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1AMP);
+LX_UN_BANG: if (is_rws_at(p, 0)) { tok_start = p - 1; goto TT_UNKNOWN; } EMIT(T_1BANG);
 LX_INT:           EMIT_V(T_INT);
 LX_REAL:          EMIT_V(T_REAL);
 LX_CALL:

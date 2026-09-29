@@ -67,19 +67,10 @@ $'**'       =   $'  ' '**'  $'  ';
 $'!'        =   $'  ' '!'   $'  ';
 $'$'        =   $'  ' '$'   $'  ';
 $'.'        =   $'  ' '.'   $'  ';
-$'&&'       =   $'  ' '&&'  $'  ';
 $'@'        =   $'  ' '@'   $'  ';
 $'#'        =   $'  ' '#'   $'  ';
 $'%'        =   $'  ' '%'   $'  ';
 $'~'        =   $'  ' '~'   $'  ';
-$'=='       =   $'  ' '=='  $'  ';
-$'!='       =   $'  ' '!='  $'  ';
-$'<'        =   $'  ' '<'   $'  ';
-$'>'        =   $'  ' '>'   $'  ';
-$'<='       =   $'  ' '<='  $'  ';
-$'>='       =   $'  ' '>='  $'  ';
-$'::'       =   $'  ' '::'  $'  ';
-$':!:'      =   $'  ' ':!:' $'  ';
 $'+='       =   $'  ' '+='  $'  ';
 $'-='       =   $'  ' '-='  $'  ';
 $'*='       =   $'  ' '*='  $'  ';
@@ -147,19 +138,13 @@ Expr6           =   *Expr7  FENCE($'+' *Expr6 . *Reduce('TT_ADD', 2) | $'-' *Exp
 Expr5           =   *Expr6
                     FENCE(
                       $'@'  *Expr5 . *Reduce('TT_CAPT_CURSOR', 2)
-                    | $'==' *Expr6 . *Reduce('TT_EQ', 2)
-                    | $'!=' *Expr6 . *Reduce('TT_NE', 2)
-                    | $'<=' *Expr6 . *Reduce('TT_LE', 2)
-                    | $'>=' *Expr6 . *Reduce('TT_GE', 2)
-                    | $'<'  *Expr6 . *Reduce('TT_LT', 2)
-                    | $'>'  *Expr6 . *Reduce('TT_GT', 2)
                     | epsilon
                     );
 Expr4           =   epsilon . *PushCounter() *X4 . *Reduce('TT_SEQ', nTop()) . *PopCounter();
 X4              =   epsilon . *IncCounter() *Expr5 FENCE($'  ' *X4 | epsilon);
 Expr3           =   epsilon . *PushCounter() *X3 . *Reduce('TT_ALT', nTop()) . *PopCounter();
 X3              =   epsilon . *IncCounter() *Expr4 FENCE($'|' *X3 | epsilon);
-Expr2           =   *Expr3 FENCE($'&&' *Expr2 . *Reduce('TT_SEQ', 2) | epsilon);
+Expr2           =   *Expr3;
 Expr1           =   *Expr2 FENCE($'?' *Expr1 . *Reduce('TT_SCAN', 2) | epsilon);
 Expr0           =   *Expr1 FENCE(
                       $'='  FENCE(*Expr0 | (epsilon) . thx . *Shift('TT_QLIT', thx)) . *Reduce('TT_ASSIGN', 2)
