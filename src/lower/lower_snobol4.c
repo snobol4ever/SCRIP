@@ -1287,7 +1287,13 @@ static const tree_t * sno_const_pat(const char * ck) { if (!sno_const_static_on(
 static int sno_const_t1_on(void) { static int _t = -1; if (_t < 0) { const char * e = getenv("SCRIP_CONST_T1"); _t = (e && *e == '0') ? 0 : 1; } return _t; }
 static int sno_const_scalar_tree(const tree_t * t) { return t && (t->t == TT_ILIT || t->t == TT_FLIT || t->t == TT_QLIT); }
 static void sno_const_note_val(const char * nm, const tree_t * val) { if (!nm || !val) return; for (uint32_t i = 0; i < g_sno_seal.len; i++) if (!strcmp(CV_AT(g_sno_seal, sno_seal_ent_t, i).name, nm)) return; { sno_seal_ent_t x; x.name = nm; x.pat = NULL; x.val = val; CV_PUSH(g_sno_seal, sno_seal_ent_t) = x; } }
-static const tree_t * sno_const_val(const char * ck) { if (!sno_const_static_on() || !sno_const_t1_on() || !g_sno_seal_enabled || !ck) return NULL; if (rt_kw_index(ck) >= 0) return NULL; for (int i = 0; i < (int) g_sno_seal.len; i++) if (!strcmp(CV_AT(g_sno_seal, sno_seal_ent_t, i).name, ck)) return CV_AT(g_sno_seal, sno_seal_ent_t, i).val; return NULL; }
+static const tree_t * sno_protected_kw_const(const char * ck) {
+    const char * v = !strcmp(ck, "&UCASE") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(ck, "&LCASE") ? "abcdefghijklmnopqrstuvwxyz" : (const char *) 0;
+    if (!v) return (const tree_t *) 0;
+    { tree_t * q = ast_node_new(TT_QLIT); q->v.sval = (char *) v; return q; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * sno_const_val(const char * ck) { if (ck) { const tree_t * pk = sno_protected_kw_const(ck); if (pk) return pk; } if (!sno_const_static_on() || !sno_const_t1_on() || !g_sno_seal_enabled || !ck) return NULL; if (rt_kw_index(ck) >= 0) return NULL; for (int i = 0; i < (int) g_sno_seal.len; i++) if (!strcmp(CV_AT(g_sno_seal, sno_seal_ent_t, i).name, ck)) return CV_AT(g_sno_seal, sno_seal_ent_t, i).val; return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_dfree(const tree_t * t, int spine, int depth) {
     if (!t) return 1;
