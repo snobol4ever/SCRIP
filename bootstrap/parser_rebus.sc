@@ -13,7 +13,7 @@ Id      = ANY(&UCASE &LCASE '_') FENCE(SPAN(&UCASE &LCASE '0123456789' '_' '.') 
 Integer = SPAN('0123456789');
 Real    = SPAN('0123456789') '.' SPAN('0123456789');
 KW_open = '&';
-KW_body = ANY(&UCASE &LCASE '_') (SPAN(&UCASE &LCASE '0123456789' '_') | epsilon);
+KW_body = ANY(&UCASE &LCASE '_') FENCE(SPAN(&UCASE &LCASE '0123456789' '_') | epsilon);
 DQ_body = BREAK('"');
 SQ_body = BREAK("'");
 $'('        =       '('        *$' ';  $')'        = *$' ' ')';
@@ -193,7 +193,7 @@ match_or_expr = *expr FENCE(*$'?-match' *alt_expr . *Reduce('REPLN', 2)
                            | *$' ' ('?' *$' ' *alt_expr *$'<-arrow' *alt_expr . *Reduce('REPLACE', 3)
                            | '?' *$' ' *alt_expr . *Reduce('MATCH', 2)
                            ) | epsilon);
-opt_nl = (CHAR(10) | epsilon);
+opt_nl = FENCE(CHAR(10) | epsilon);
 StmtT     = TABLE(12);
 kw_stmt   = *$' ' *Id $ tx *DIFFER(StmtT[tx]) *StmtT[tx];
 stmt_body = *opt_nl *$' ' FENCE(*compound_stmt | *kw_stmt | *match_or_expr);
@@ -262,7 +262,7 @@ func_cmd = epsilon . *IncCounter() *function_decl;
 rec_cmd  = epsilon . *IncCounter() *record_decl;
 blank    = *$' ' CHAR(10);
 Command  = *func_cmd | *rec_cmd | *blank;
-Compiland = epsilon . *PushCounter() POS(0) ARBNO(*Command) RPOS(0) . *Reduce('Parse', nTop()) . *PopCounter();
+Compiland = epsilon . *PushCounter() POS(0) ARBNO(*Command FLUSH) RPOS(0) . *Reduce('Parse', nTop()) . *PopCounter();
 StmtT['case'] = case_stmt_rest; StmtT['if'] = if_stmt_rest; StmtT['while'] = while_stmt_rest; StmtT['unless'] = unless_stmt_rest;
 StmtT['until'] = until_stmt_rest; StmtT['repeat'] = repeat_stmt_rest; StmtT['for'] = for_stmt_rest; StmtT['return'] = return_stmt_rest;
 StmtT['stop'] = stop_stmt_rest; StmtT['fail'] = fail_stmt_rest; StmtT['exit'] = exit_stmt_rest; StmtT['next'] = next_stmt_rest;

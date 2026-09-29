@@ -7,7 +7,7 @@ white        =   (  SPAN(' ' CHAR(9))
                  |  '#' BREAK(CHAR(10))
                  );
 White        =   *white FENCE(*White | epsilon);
-Gray         =   *White | epsilon;
+Gray         =   FENCE(*White | epsilon);
 $' '         =   Gray;
 $'  '        =   White;
 Id           = ANY(&UCASE &LCASE '_') FENCE(SPAN('0123456789' &UCASE &LCASE '_') | epsilon);
@@ -30,7 +30,7 @@ str_pat      = ('"' BREAK('"') . strbody '"');
 cset_pat     = ("'" BREAK("'") . csetbody "'");
 strchars     = ARBNO(NOTANY('"\_') | '\^' LEN(1) | '\' LEN(1) | '_' CHAR(10) FENCE(SPAN(' ' CHAR(9)) | epsilon) | '_');
 csetchars    = ARBNO(NOTANY("'\_") | '\^' LEN(1) | '\' LEN(1) | '_' CHAR(10) FENCE(SPAN(' ' CHAR(9)) | epsilon) | '_');
-semi_opt     = (';' | epsilon);
+semi_opt     = FENCE(';' | epsilon);
 $'if'        =  *$' ' *Id $ tx *IDENT(tx, 'if')       ;
 $'then'      =  *$' ' *Id $ tx *IDENT(tx, 'then')     ;
 $'else'      =  *$' ' *Id $ tx *IDENT(tx, 'else')     ;
@@ -420,7 +420,7 @@ StmtBody  = ( *LocalDecl . *IncCounter()
             );
 ParamFirst = ( *$' ' (*id_pat) . thx . *Shift('TT_VAR', thx)  . *IncCounter() );
 ParamRest  = ( *$',' (*id_pat) . thx . *Shift('TT_VAR', thx)  . *IncCounter() );
-Params     = ( *ParamFirst ARBNO(*ParamRest) (*$'[' *$']' | epsilon) | epsilon );
+Params     = ( *ParamFirst ARBNO(*ParamRest) FENCE(*$'[' *$']' | epsilon) | epsilon );
 Prochead   = ( *$'procedure' *$'  ' (*id_pat) . thx . *Shift('TT_VAR', thx)  . *IncCounter()
                *$'(' *Params *$')' *$' ' *semi_opt *$' '
              );
@@ -460,7 +460,7 @@ InvocableDecl = ( epsilon . *PushCounter() *$'invocable' *$'  ' *LinkName *LinkS
                 . *Reduce('TT_INVOCABLE', nTop()) . *Reduce(':subj', 1) . *Reduce('STMT', 1)
                 . *PopCounter()
               );
-TopStar   = FENCE( epsilon . *IncCounter() *$' ' (*GlobalDecl | *Record | *Proc | *LinkDecl | *InvocableDecl) *$' ' *TopStar | epsilon );
+TopStar   = FENCE( epsilon . *IncCounter() *$' ' (*GlobalDecl | *Record | *Proc | *LinkDecl | *InvocableDecl) FLUSH *$' ' *TopStar | epsilon );
 Compiland = ( epsilon . *PushCounter()
               POS(0) *$' ' *TopStar RPOS(0)
               . *Reduce('Parse', nTop())

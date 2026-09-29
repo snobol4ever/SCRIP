@@ -4,18 +4,18 @@ white   =   (  SPAN(' ' CHAR(9) CHAR(10))
             |  '/*' BREAK('*') '*' ARBNO('*' | NOTANY('/*') BREAK('*') '*') '/'
             );
 White   =   *white FENCE(*White | epsilon);
-Gray    =   *White | epsilon;
+Gray    =   FENCE(*White | epsilon);
 $' '    =   Gray;
 $'  '   =   White;
 Atom_first = ANY(&LCASE SUBSTR(&ALPHABET, 129, 128));
 Atom_rest  = SPAN('0123456789' &UCASE &LCASE '_' SUBSTR(&ALPHABET, 129, 128));
-Atom       = (*Atom_first (*Atom_rest | epsilon));
+Atom       = (*Atom_first FENCE(*Atom_rest | epsilon));
 Qchars     = FENCE((NOTANY("'\") | "''" | '\' ('x' SPAN('0123456789AaBbCcDdEeFf') '\' | SPAN('01234567') '\' | LEN(1))) *Qchars | epsilon);
 Qatom      = ("'" *Qchars . q_body "'");
 Qatom_h    = ("'" BREAK("'") . h_body "'");
 Var_first  = ANY(&UCASE '_');
 Var_rest   = SPAN('0123456789' &UCASE &LCASE '_');
-Var        = (*Var_first (*Var_rest | epsilon));
+Var        = (*Var_first FENCE(*Var_rest | epsilon));
 Float      = (SPAN('0123456789') '.' SPAN('0123456789') FENCE('e' FENCE(ANY('+-') | epsilon) SPAN('0123456789') | 'E' FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon));
 Char_code  = ("0'" NOTANY(CHAR(10)));
 Int        = SPAN('0123456789') FENCE(('_' FENCE(SPAN(' ' CHAR(9) CHAR(10)) | epsilon) | ' ') *Int | epsilon);
@@ -56,8 +56,8 @@ $'\'   = *$' ' '\' . op_name_;
 $'->'  = *$' ' '->' *$' ';
 Graphic_first = ANY('\\@#^~?=<>+\-*/:.$&`');
 Graphic_rest  = SPAN('\\+\-*/^<>=~?@#&:.$`');
-Graphic_atom  = (*Graphic_first (*Graphic_rest | epsilon));
-Graphic_atom2 = (*Graphic_first *Graphic_first (*Graphic_rest | epsilon));
+Graphic_atom  = (*Graphic_first FENCE(*Graphic_rest | epsilon));
+Graphic_atom2 = (*Graphic_first *Graphic_first FENCE(*Graphic_rest | epsilon));
 hex_value = TABLE();
 hex_i = 0;
 while (LE(hex_i, 35)) {
@@ -192,7 +192,7 @@ list = (    *$'['
 primary = (   *Atom . p_name *$'('
                   . *PushCounter()
                   . *Shift('TT_FNC', p_name) . *IncCounter()
-                  (*args | epsilon) *$')'
+                  FENCE(*args | epsilon) *$')'
                   . *Reduce('TT_COMPOUND', nTop())
               . *PopCounter()
           |   *$' ' (*Graphic_atom | ';') . g_name *$'('
@@ -403,7 +403,7 @@ top_form  = (*directive | *clause | *dcg_rule);
 /* ==================================================================================================================== */
 /* SCT-pivot (2026-05-17): nInc() must fire AFTER top_form commits, not before. */
 Compiland = epsilon . *PushCounter()
-            POS(0) ARBNO( FENCE(*$' ' *top_form . *IncCounter()) ) *$' ' RPOS(0)
+            POS(0) ARBNO( FENCE(*$' ' *top_form . *IncCounter()) FLUSH ) *$' ' RPOS(0)
             . *Reduce('Parse', nTop())
             . *PopCounter();
 function ParseOne(ptree, i, n_kids) {

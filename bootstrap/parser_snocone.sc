@@ -169,7 +169,7 @@ if_cmd_rest     =   *$' ' *$'(' *Expr0 *$')' *ForBody
 /* while_cmd → TT_WHILE(cond, body) */
 while_cmd_rest  =   *$' ' *$'(' *Expr0 *$')' *ForBody . *Reduce('TT_WHILE', 2);
 /* do_cmd → TT_DO_WHILE(body, cond) */
-do_cmd_rest     =   *$' ' *ThenBlock *$'while' *$'(' *Expr0 *$')' (*$';' | epsilon)
+do_cmd_rest     =   *$' ' *ThenBlock *$'while' *$'(' *Expr0 *$')' FENCE(*$';' | epsilon)
                     . *Reduce('TT_DO_WHILE', 2);
 /* for_cmd → TT_FOR(init, cond, step, body) */
 ForBody         =   *ThenBlock
@@ -218,7 +218,7 @@ StructFields     =  epsilon . *PushCounter() (*StructFieldFirst ARBNO(*StructFie
 struct_cmd_rest =   *$' ' (*Ident) . thx . *Shift('TT_QLIT', thx)
                     *$'{' *StructFields *$'}' . *Reduce('TT_STRUCT', 2);
 /* stmt_cmd — subject/pattern decomposition removed (lower's job per PST-SC-4l) */
-stmt_body       =   *Expr0 (*$';' | epsilon);
+stmt_body       =   *Expr0 FENCE(*$';' | epsilon);
 stmt_cmd        =   *stmt_body;
 /* empty_cmd */
 empty_cmd       =   *$';';
@@ -249,7 +249,7 @@ Command         =   *$' ' FENCE( *empty_cmd
                     | *stmt_cmd
                     ) );
 /* Compiland — top-level program */
-Compiland       =   epsilon . *PushCounter() POS(0) ARBNO(*Command) *$' ' RPOS(0)
+Compiland       =   epsilon . *PushCounter() POS(0) ARBNO(*Command FLUSH) *$' ' RPOS(0)
                     . *Reduce('Parse', nTop()) . *PopCounter();
 /* ==================================================================================================================== */
 /* Driver                                                                                  */

@@ -52,9 +52,9 @@ DQ          =  '"' (BREAK('"' CHAR(10))) . thx . *Shift('TT_QLIT', thx) '"';
 SQ          =  "'" (BREAK("'" CHAR(10))) . thx . *Shift('TT_QLIT', thx) "'";
 String      =  *SQ | *DQ;
 Real        =  (  SPAN('0123456789')
-                  ('.' FENCE(SPAN('0123456789') | epsilon) | epsilon)
+                  FENCE('.' FENCE(SPAN('0123456789') | epsilon) | epsilon)
                   ('E' | 'e')
-                  ('+' | '-' | epsilon)
+                  FENCE('+' | '-' | epsilon)
                   SPAN('0123456789')
                |  SPAN('0123456789') '.' FENCE(SPAN('0123456789') | epsilon)
                );
@@ -64,7 +64,7 @@ White       =  (  SPAN(' ' CHAR(9))
                   FENCE(CHAR(10) ('+' | '.') FENCE(SPAN(' ' CHAR(9)) | epsilon) | epsilon)
                |  CHAR(10) ('+' | '.') FENCE(SPAN(' ' CHAR(9)) | epsilon)
                );
-Gray        =  *White | epsilon;
+Gray        =  FENCE(*White | epsilon);
 $'  '       =  White;
 $' '        =  Gray;
 $'='        =  *$'  ' '='  *$'  ';
@@ -183,8 +183,8 @@ Goto        =  *$' ' ':'
                *$' '
                FENCE(
                   *Ugo (epsilon) . thx . *Shift('', thx)
-               |  *Sgo FENCE(*$' ' (':' *$' ' | epsilon) *Fgo | (epsilon) . thx . *Shift('', thx))
-               |  *Fgo FENCE(*$' ' (':' *$' ' | epsilon) *Sgo | (epsilon) . thx . *Shift('', thx))
+               |  *Sgo FENCE(*$' ' FENCE(':' *$' ' | epsilon) *Fgo | (epsilon) . thx . *Shift('', thx))
+               |  *Fgo FENCE(*$' ' FENCE(':' *$' ' | epsilon) *Sgo | (epsilon) . thx . *Shift('', thx))
                );
 Control     =  '-' BREAK(CHAR(10) ';');
 Comment     =  '*' BREAK(CHAR(10));

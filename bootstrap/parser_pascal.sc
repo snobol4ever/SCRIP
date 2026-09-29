@@ -37,7 +37,7 @@ white       =   (  SPAN(' ' CHAR(9) CHAR(10) CHAR(13))
                 |  '(*' FENCE(BREAKX('*') '*)')
                 );
 White       =   *white FENCE(*White | epsilon);
-Gray        =   *White | epsilon;
+Gray        =   FENCE(*White | epsilon);
 $'  '       =   White;
 $' '        =   Gray;
 Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN('0123456789' &UCASE '_' &LCASE) | epsilon);
@@ -233,11 +233,11 @@ AssignTarget    =   *Primary *PostStar;
 assign_cmd      =   *AssignTarget *$':=' *Expr0 . *Reduce('TT_ASSIGN', 2);
 /* compound: begin S1; S2; … end -> TT_SEQ_EXPR(S1, S2, …)                               */
 StmtFirst       =   *Command . *IncCounter();
-StmtRest        =   *$';' (*Command . *IncCounter() | epsilon);
+StmtRest        =   *$';' FENCE(*Command . *IncCounter() | epsilon);
 /* the statements of a sequence repeat greedily: a refusal further on fails at once instead of    */
 /* backtracking through every earlier statement (46 lines took over 60 s that way)                */
 StmtStar        =   FENCE(*StmtRest *StmtStar | epsilon);
-compound_cmd_rest =   epsilon . *PushCounter() *$' ' (*StmtFirst *StmtStar | epsilon) *$'end'
+compound_cmd_rest =   epsilon . *PushCounter() *$' ' FENCE(*StmtFirst *StmtStar | epsilon) *$'end'
                     . *Reduce('TT_SEQ_EXPR', nTop()) . *PopCounter();
 /* if C then S [else S] -> TT_IF(C, S[, S])                                              */
 if_cmd_rest     =   *$' ' *Expr0 *$'then' *Command
@@ -246,7 +246,7 @@ if_cmd_rest     =   *$' ' *Expr0 *$'then' *Command
 /* while C do S -> TT_WHILE(C, S)                                                        */
 while_cmd_rest  =   *$' ' *Expr0 *$'do' *Command . *Reduce('TT_WHILE', 2);
 /* repeat S… until C -> TT_REPEAT(S…, C).  The body is a statement sequence.             */
-repeat_cmd_rest =   epsilon . *PushCounter() *$' ' (*StmtFirst *StmtStar | epsilon) *$'until'
+repeat_cmd_rest =   epsilon . *PushCounter() *$' ' FENCE(*StmtFirst *StmtStar | epsilon) *$'until'
                     *Expr0 . *IncCounter() . *Reduce('TT_REPEAT', nTop()) . *PopCounter();
 /* for v := a to|downto b do S -> TT_FOR(v, a, b, S)                                     */
 for_cmd_rest    =   *$' ' (*Ident) . thx . *Shift('TT_VAR', thx) *$':=' *Expr0
@@ -328,7 +328,7 @@ Params          =   epsilon . *PushCounter() FENCE(*$'(' *ParamFirst ARBNO(*Para
                     . *Reduce('TT_VLIST', nTop()) . *PopCounter();
 /* procedure/function P(params); <decls> begin … end;  or  ...; forward;                  */
 /*   -> TT_PROC_DECL(TT_VAR P, TT_VLIST(params), <nested TT_PROC_DECL…>, TT_PROGRAM(body), TT_VLIST()) */
-SubBody         =   epsilon . *PushCounter() *$'begin' (*StmtFirst *StmtStar | epsilon) *$'end'
+SubBody         =   epsilon . *PushCounter() *$'begin' FENCE(*StmtFirst *StmtStar | epsilon) *$'end'
                     . *Reduce('TT_PROGRAM', nTop()) . *PopCounter();
 proc_decl       =   epsilon . *PushCounter() (*$'procedure' | *$'function') (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter()
                     *Params . *IncCounter() FENCE(*$':' *TypeName | epsilon) *$';'
@@ -338,14 +338,14 @@ proc_decl       =   epsilon . *PushCounter() (*$'procedure' | *$'function') (*Id
                     . *Reduce('TT_PROC_DECL', nTop()) . *PopCounter();
 /* A block's declaration parts in ISO 7185 6.2.1's order: label, const, type, var, then the   */
 /* procedures and functions; the C frontend refuses any other order, and so does this.          */
-ProcDecls       =   FENCE(*proc_decl . *IncCounter() *ProcDecls | epsilon);
+ProcDecls       =   FENCE(*proc_decl . *IncCounter() FLUSH *ProcDecls | epsilon);
 Decls           =   FENCE(*label_part | epsilon) FENCE(*const_part | epsilon) FENCE(*type_part | epsilon)
                     FENCE(*var_part | epsilon) *ProcDecls;
 /* ==================================================================================================================== */
 /* Compiland — program header, declarations, main block.  The main block is emitted as    */
 /* a TT_PROC_DECL named `main`, which is the shape the C frontend's dump carries.         */
 /* ==================================================================================================================== */
-MainBody        =   epsilon . *PushCounter() *$'begin' (*StmtFirst *StmtStar | epsilon) *$'end'
+MainBody        =   epsilon . *PushCounter() *$'begin' FENCE(*StmtFirst *StmtStar | epsilon) *$'end'
                     . *Reduce('TT_PROGRAM', nTop()) . *PopCounter();
 program_head    =   FENCE(*$'program' *Ident FENCE(*$'(' BREAK(')') ')' | epsilon) *$';' | epsilon);
 main_decl       =   epsilon . *Shift('TT_VAR', 'main')
