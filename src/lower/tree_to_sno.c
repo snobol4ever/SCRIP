@@ -184,9 +184,11 @@ static void emit_expr(core_ctx_t *c, const tree_t *e) {
         emit(c, "%s", rb);
         break;
     }
-    case TT_VAR:
-        emit(c, "%s", label_sanitize(sval_or(e, "?VAR?")));
-        break;
+    case TT_VAR: {
+        const char *nm = sval_or(e, "?VAR?"); int ok = (nm[0] >= 'A' && nm[0] <= 'Z') || (nm[0] >= 'a' && nm[0] <= 'z') || nm[0] == '_' || (unsigned char) nm[0] >= 0x80;
+        for (const char *q = nm + 1; ok && *q; q++) ok = (*q >= 'A' && *q <= 'Z') || (*q >= 'a' && *q <= 'z') || (*q >= '0' && *q <= '9') || *q == '.' || *q == '_' || (unsigned char) *q >= 0x80;
+        if (ok) emit(c, "%s", label_sanitize(nm)); else if (!strchr(nm, '\'')) emit(c, "$'%s'", nm); else emit(c, "$\"%s\"", nm);
+        break; }
     case TT_KEYWORD:
         emit(c, "&%s", sval_or(e, "?KW?"));
         break;
