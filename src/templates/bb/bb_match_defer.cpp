@@ -42,7 +42,7 @@ std::string bb_match_defer() {
       if (d && d[2] >= '0' && d[2] <= '9')
       { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } }
     const int gva_road = (vslot < 0 && g_gva_active && _.op_gva_k >= 0);
-    if (gva_road) b[0] = 0; else strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
+    if (gva_road || vslot >= 0) b[0] = 0; else strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
@@ -91,7 +91,7 @@ std::string bb_match_defer() {
                x86("comment", "IR_MATCH_DEFER $V-slot")
              + x86("mov",  "rdi", RDQ("rbp", -24))
              + x86("mov",  "esi", (long)vslot)
-             + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("xor",  "edx", "edx")
              + x86_align_enter()
              + x86("call", "rt_patv_defer_get_pat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(void *, long, const char *))rt_patv_defer_get_pat_dtp)
              + x86_align_leave()
@@ -276,7 +276,7 @@ std::string bb_match_defer() {
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, int))rt_defer_open_entry)
              : x86("mov",  "rdi", RDQ("rbp", -24))
              + x86("mov",  "esi", (long)vslot)
-             + x86("lea",  "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("xor",  "edx", "edx")
              + x86("xor",  "ecx", "ecx")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *, int))rt_patv_defer_open_entry))
          + x86_rt_gc_poll_rec_sigma_pair(1, 51)

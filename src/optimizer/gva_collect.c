@@ -131,6 +131,6 @@ int gva_collect_var(const char *name) {
     return g_gva_n - 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int gva_name_hidden(const char *name) { return name && (!strncmp(name, "SCV$", 4) || !strncmp(name, "SNO$VL$", 7) || !strncmp(name, "PATV$", 5)); }
+int gva_name_hidden(const char *name) { return name && (!strncmp(name, "SCV$", 4) || !strncmp(name, "SNO$VL$", 7) || !strncmp(name, "PATV$", 5) || !strncmp(name, "PAT$", 4)); }
 int gva_count(void) { return g_gva_n; }
 const char *gva_name(int k) { return (k >= 0 && k < g_gva_n) ? g_gva_names[k] : (const char *)0; }

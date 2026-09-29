@@ -1293,6 +1293,7 @@ static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag)
 {
     DTP_t *h = (DTP_t *)hv;
     if (h && h->snap && i >= 0 && i < h->nsnap) return h->snap[i];
+    if (!fb) return NULVCL;
     { DESCR_t val = rt_defer_nv_read(fb); if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); } return val; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
