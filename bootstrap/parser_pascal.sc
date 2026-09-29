@@ -96,7 +96,13 @@ Real        =   ( SPAN('0123456789')
 StrChars    =   FENCE((NOTANY("'") | "''") *StrChars | epsilon);
 Quoted      =   "'" *StrChars "'";
 String      =   "'" (*StrChars) . thx . *Shift('TT_QLIT', thx) "'";
-Ident       =   *Id $ tx $ *notmatch(lwr(tx), reserved) . token;
+ResT        =   TABLE(35);
+ResT['and'] = 1; ResT['array'] = 1; ResT['begin'] = 1; ResT['case'] = 1; ResT['const'] = 1; ResT['div'] = 1; ResT['do'] = 1; ResT['downto'] = 1;
+ResT['else'] = 1; ResT['end'] = 1; ResT['file'] = 1; ResT['for'] = 1; ResT['function'] = 1; ResT['goto'] = 1; ResT['if'] = 1; ResT['in'] = 1;
+ResT['label'] = 1; ResT['mod'] = 1; ResT['nil'] = 1; ResT['not'] = 1; ResT['of'] = 1; ResT['or'] = 1; ResT['packed'] = 1; ResT['procedure'] = 1;
+ResT['program'] = 1; ResT['record'] = 1; ResT['repeat'] = 1; ResT['set'] = 1; ResT['then'] = 1; ResT['to'] = 1; ResT['type'] = 1; ResT['until'] = 1;
+ResT['var'] = 1; ResT['while'] = 1; ResT['with'] = 1;
+Ident       =   *Id $ tx *IDENT(ResT[lwr(tx)]) . token;
 /* Punctuation.                                                                          */
 $'('        =   *$' ' '(' *$' ';
 $')'        =   *$' ' ')';
@@ -231,19 +237,19 @@ StmtRest        =   *$';' (*Command . *IncCounter() | epsilon);
 /* the statements of a sequence repeat greedily: a refusal further on fails at once instead of    */
 /* backtracking through every earlier statement (46 lines took over 60 s that way)                */
 StmtStar        =   FENCE(*StmtRest *StmtStar | epsilon);
-compound_cmd    =   epsilon . *PushCounter() *$'begin' (*StmtFirst *StmtStar | epsilon) *$'end'
+compound_cmd_rest =   epsilon . *PushCounter() *$' ' (*StmtFirst *StmtStar | epsilon) *$'end'
                     . *Reduce('TT_SEQ_EXPR', nTop()) . *PopCounter();
 /* if C then S [else S] -> TT_IF(C, S[, S])                                              */
-if_cmd          =   *$'if' *Expr0 *$'then' *Command
+if_cmd_rest     =   *$' ' *Expr0 *$'then' *Command
                     FENCE( *$'else' *Command . *Reduce('TT_IF', 3)
                          | epsilon . *Reduce('TT_IF', 2) );
 /* while C do S -> TT_WHILE(C, S)                                                        */
-while_cmd       =   *$'while' *Expr0 *$'do' *Command . *Reduce('TT_WHILE', 2);
+while_cmd_rest  =   *$' ' *Expr0 *$'do' *Command . *Reduce('TT_WHILE', 2);
 /* repeat S… until C -> TT_REPEAT(S…, C).  The body is a statement sequence.             */
-repeat_cmd      =   epsilon . *PushCounter() *$'repeat' (*StmtFirst *StmtStar | epsilon) *$'until'
+repeat_cmd_rest =   epsilon . *PushCounter() *$' ' (*StmtFirst *StmtStar | epsilon) *$'until'
                     *Expr0 . *IncCounter() . *Reduce('TT_REPEAT', nTop()) . *PopCounter();
 /* for v := a to|downto b do S -> TT_FOR(v, a, b, S)                                     */
-for_cmd         =   *$'for' (*Ident) . thx . *Shift('TT_VAR', thx) *$':=' *Expr0
+for_cmd_rest    =   *$' ' (*Ident) . thx . *Shift('TT_VAR', thx) *$':=' *Expr0
                     (*$'to' | *$'downto') *Expr0 *$'do' *Command
                     . *Reduce('TT_FOR', 4);
 /* case e of c1, c2: S; … end -> TT_CASE(e, TT_ALT(c1, c2), S, …): an arm's constants are one TT_ALT */
@@ -253,27 +259,22 @@ ConstStar       =   FENCE(*$',' *CaseConst *ConstStar | epsilon);
 CaseArm         =   epsilon . *PushCounter() *CaseConst *ConstStar . *Reduce('TT_ALT', nTop()) . *PopCounter() . *IncCounter()
                     *$':' *Command . *IncCounter();
 ArmStar         =   FENCE(*$';' *CaseArm *ArmStar | epsilon);
-case_cmd        =   epsilon . *PushCounter() *$'case' *Expr0 . *IncCounter() *$'of'
+case_cmd_rest   =   epsilon . *PushCounter() *$' ' *Expr0 . *IncCounter() *$'of'
                     *CaseArm *ArmStar FENCE(*$';' | epsilon)
                     FENCE(*$'else' *Command . *IncCounter() FENCE(*$';' | epsilon) | epsilon)
                     *$'end' . *Reduce('TT_CASE', nTop()) . *PopCounter();
 /* with r1, r2 do S -> TT_FNC(TT_VAR __pas_with, r1, r2, S), the oracle's naming for a lowered form  */
-with_cmd        =   epsilon . *PushCounter() *$'with' . *Shift('TT_VAR', '__pas_with') . *IncCounter()
+with_cmd_rest   =   epsilon . *PushCounter() *$' ' . *Shift('TT_VAR', '__pas_with') . *IncCounter()
                     *Expr0 . *IncCounter() ARBNO(*$',' *Expr0 . *IncCounter()) *$'do' *Command . *IncCounter()
                     . *Reduce('TT_FNC', nTop()) . *PopCounter();
 /* goto 20 -> (TT_GOTO_U 20); 10: S -> TT_LABEL_DEF(TT_ILIT 10, S)                          */
-goto_cmd        =   *$'goto' (*Integer) . thx . *Shift('TT_GOTO_U', thx);
+goto_cmd_rest   =   *$' ' (*Integer) . thx . *Shift('TT_GOTO_U', thx);
 label_cmd       =   (*Integer) . thx . *Shift('TT_ILIT', thx) *$':' *Command . *Reduce('TT_LABEL_DEF', 2);
 /* an empty statement is legal Pascal wherever a statement may appear: the oracle's TT_SUCCEED */
 empty_cmd       =   *$' ' *IDENT(epsilon, epsilon) . *Shift('TT_SUCCEED', '');
-Command         =   *$' ' ( *compound_cmd
-                    | *if_cmd
-                    | *while_cmd
-                    | *repeat_cmd
-                    | *for_cmd
-                    | *case_cmd
-                    | *with_cmd
-                    | *goto_cmd
+CmdT            =   TABLE(8);
+kw_cmd          =   *$' ' *Id $ tx *DIFFER(CmdT[lwr(tx)]) *CmdT[lwr(tx)];
+Command         =   *$' ' ( *kw_cmd
                     | *label_cmd
                     | *assign_cmd
                     | *WriteCall
@@ -359,6 +360,8 @@ Compiland       =   epsilon . *PushCounter() POS(0) *$' ' *program_head
                     . *Reduce('Parse', nTop()) . *PopCounter();
 /* ==================================================================================================================== */
 /* Driver — byte-identical in shape to the other six parsers.                             */
+CmdT['begin'] = compound_cmd_rest; CmdT['if'] = if_cmd_rest; CmdT['while'] = while_cmd_rest; CmdT['repeat'] = repeat_cmd_rest;
+CmdT['for'] = for_cmd_rest; CmdT['case'] = case_cmd_rest; CmdT['with'] = with_cmd_rest; CmdT['goto'] = goto_cmd_rest;
 /* ==================================================================================================================== */
 function ParseOne(ptree, i, n_kids) {
     pf_a = TIME();

@@ -149,38 +149,29 @@ Expr15      =  *Expr17
 Expr16      =  epsilon . *IncCounter()
                (*$'[' *ExprList *$']' | *$'<' *ExprList *$'>')
                FENCE(*Expr16 | epsilon);
+PrimLEN_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_LEN', nTop())    . *PopCounter() *$')';
+PrimBREAK_rest  =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_BREAK', nTop())  . *PopCounter() *$')';
+PrimSPAN_rest   =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_SPAN', nTop())   . *PopCounter() *$')';
+PrimANY_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_ANY', nTop())    . *PopCounter() *$')';
+PrimNOTANY_rest =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_NOTANY', nTop()) . *PopCounter() *$')';
+PrimFENCE_rest  =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_FENCE', nTop())  . *PopCounter() *$')';
+PrimARBNO_rest  =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_ARBNO', nTop())  . *PopCounter() *$')';
+PrimPOS_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_POS', nTop())    . *PopCounter() *$')';
+PrimRPOS_rest   =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_RPOS', nTop())   . *PopCounter() *$')';
+PrimTAB_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_TAB', nTop())    . *PopCounter() *$')';
+PrimRTAB_rest   =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_RTAB', nTop())   . *PopCounter() *$')';
+PrimBREAKX_rest =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_BREAKX', nTop()) . *PopCounter() *$')';
+PrimT       =  TABLE(12);
+prim_call   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(PrimT[sn_upr(tx)]) *PrimT[sn_upr(tx)];
 Expr17      =  FENCE(
                   epsilon . *PushCounter() *$'(' *ExprList *$')' . *Reduce('()', 1) . *PopCounter()
-               |  *PrimLEN    *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_LEN', nTop())    . *PopCounter() *$')'
-               |  *PrimBREAK  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_BREAK', nTop())  . *PopCounter() *$')'
-               |  *PrimSPAN   *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_SPAN', nTop())   . *PopCounter() *$')'
-               |  *PrimANY    *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_ANY', nTop())    . *PopCounter() *$')'
-               |  *PrimNOTANY *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_NOTANY', nTop()) . *PopCounter() *$')'
-               |  *PrimFENCE  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_FENCE', nTop())  . *PopCounter() *$')'
-               |  *PrimARBNO  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_ARBNO', nTop())  . *PopCounter() *$')'
-               |  *PrimPOS    *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_POS', nTop())    . *PopCounter() *$')'
-               |  *PrimRPOS   *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_RPOS', nTop())   . *PopCounter() *$')'
-               |  *PrimTAB    *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_TAB', nTop())    . *PopCounter() *$')'
-               |  *PrimRTAB   *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_RTAB', nTop())   . *PopCounter() *$')'
-               |  *PrimBREAKX *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_BREAKX', nTop()) . *PopCounter() *$')'
+               |  *prim_call
                |  (*Function) . thx . *Shift('TT_VAR', thx) FENCE(epsilon . *PushCounter() *$'(' FENCE(*FnArgList | epsilon) . *Reduce('TT_FNC', nTop() + 1) . *PopCounter() *$')' | epsilon)
                |  (*Id) . thx . *Shift('TT_VAR', thx) FENCE(epsilon . *PushCounter() *$'(' FENCE(*FnArgList | epsilon) . *Reduce('TT_FNC', nTop() + 1) . *PopCounter() *$')' | epsilon)
                |  *String
                |  (*Real) . thx . *Shift('TT_RLIT', thx)
                |  (*Integer) . thx . *Shift('TT_ILIT', thx)
                );
-PrimLEN     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'LEN');
-PrimBREAK   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAK');
-PrimSPAN    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'SPAN');
-PrimANY     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ANY');
-PrimNOTANY  =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'NOTANY');
-PrimFENCE   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'FENCE');
-PrimARBNO   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ARBNO');
-PrimPOS     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'POS');
-PrimRPOS    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RPOS');
-PrimTAB     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'TAB');
-PrimRTAB    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RTAB');
-PrimBREAKX  =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAKX');
 SGoto       =  ('S' | 's');
 FGoto       =  ('F' | 'f');
 Target      =  *$'(' . *assign(.Brackets, *'()') *Expr *$')'
@@ -231,6 +222,9 @@ Compiland   =  epsilon . *PushCounter()
                POS(0) ARBNO(*Command FLUSH) ('END' (ANY(' ' CHAR(9) CHAR(10)) | RPOS(0)) ARB | epsilon) RPOS(0)
                . *Reduce('Parse', nTop())
                . *PopCounter();
+PrimT['LEN'] = PrimLEN_rest; PrimT['BREAK'] = PrimBREAK_rest; PrimT['SPAN'] = PrimSPAN_rest; PrimT['ANY'] = PrimANY_rest;
+PrimT['NOTANY'] = PrimNOTANY_rest; PrimT['FENCE'] = PrimFENCE_rest; PrimT['ARBNO'] = PrimARBNO_rest; PrimT['POS'] = PrimPOS_rest;
+PrimT['RPOS'] = PrimRPOS_rest; PrimT['TAB'] = PrimTAB_rest; PrimT['RTAB'] = PrimRTAB_rest; PrimT['BREAKX'] = PrimBREAKX_rest;
 /* ==================================================================================================================== */
 function ParseOne(ptree, i, nk, cmd) {
     pf_a = TIME();
