@@ -864,7 +864,6 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
             { int reg = 0; long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb, &reg);
               if (!reg) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return (rt_dcap_next_t){ 1, 0 }; continue; }
               if (!fn) { if (rt_dcap_star_finish(c, FAILDESCR)) return (rt_dcap_next_t){ 1, 0 }; continue; }
-              { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter(pn); }
               return (rt_dcap_next_t){ fn, (long)c->how }; }
         }
         if (e->varname && e->varname[0]) {
@@ -1144,8 +1143,10 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r)
         if (r.v == DT_X) {
             const char *nm = r.s ? r.s : "";
             s->dtx_used = 1;
-            if (!rt_proc_is_registered(nm)) { r = NV_GET_fn(nm); continue; }
-            { rt_dcap_next_t n = rt_call_open_by_name(nm, 0); if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; } { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter(nm); } return n; }
+            { extern rt_dcap_next_t rt_call_open_staged(const char *, int *); int reg = 0; rt_dcap_next_t n = rt_call_open_staged(nm, &reg);
+              if (!reg) { r = NV_GET_fn(nm); continue; }
+              if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
+              return n; }
         }
         if (r.v == DT_P && r.p) { dtp_fn_of(r.p); if (*(void **)r.p) { g_dfx_top--; return (rt_dcap_next_t){ (long)(uintptr_t)r.p, 4 }; } s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
         s->val = r;

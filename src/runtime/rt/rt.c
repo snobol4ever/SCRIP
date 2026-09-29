@@ -388,8 +388,9 @@ static inline __attribute__((always_inline)) void rt_lvl_retire(void) { rt_stno_
 #define PROC_FRAME_QWORDS 512
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
-    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
+    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; int stage_var; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
 } rt_proc_t;
+static int rt_eval_stage_is_var(const char *name);
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.s bakes PROC_NAME and PROC_ISGEN");
 _Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128, "RTX-1-PL: rtx_plcall.S baked PROC_DYN_SCOPE and the shl 7 index stride. THAT FILE IS GONE -- added ff6947e52, DELETED f3565287f 2026-08-13 (GLOBALS ERADICATED s55, whose own message says g_pcall* went REGARDLESS OF CONSUMERS). The offset is TRUE and NO LIVE ASM READS THIS TABLE: grep of src/runtime/rtx/*.s and *.inc for rt_proc_t or PROC_DYN_SCOPE returns nothing. Do not read this assert as evidence of an asm consumer. \u26d4 AND IT IS NOT THE C->BB DISPATCHER: rtx_plcall.S ported rt_proc_call_open_det, the PROLOG deterministic predicate-call open, and mentions rt_call_proc_descr ZERO times; the SNOBOL4 procedure dispatcher that carries the C->BB population was never ported (ceo CEO-1085, correcting CEO-1085a)");
@@ -434,7 +435,7 @@ void rt_proc_register(const char *name, const char **pnames, int nparams)
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->alpha_slot = -1; p->byref_mask = 0;
+    p->name = name; p->stage_var = rt_eval_stage_is_var(name); p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->alpha_slot = -1; p->byref_mask = 0;
     p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; p->gen_region_ft = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -574,7 +575,7 @@ int rt_proc_unregister(const char *name)
     if (!name) return 0;
     int i = rt_proc_hash_lookup(name);
     if (i < 0) return 0;
-    g_rt_gen_procs[i].name = "\x01<unloaded>";
+    g_rt_gen_procs[i].name = "\x01<unloaded>"; g_rt_gen_procs[i].stage_var = 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -796,7 +797,7 @@ void rt_proc_set_fn(const char *name, bb_box_fn fn)
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
+    p->name = name; p->stage_var = rt_eval_stage_is_var(name); p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
     p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->gen_region_ft = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1144,7 +1145,8 @@ rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) 
 static int rt_eval_stage_is_var(const char *name) { return name && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
 void rt_eval_stage_enter(const char *name) { if (g_error == 0 && !rt_eval_stage_is_var(name)) g_error = G_ERROR_EVAL_STAGE; }
 void rt_eval_stage_leave(const char *name) { if (g_error == G_ERROR_EVAL_STAGE && !rt_eval_stage_is_var(name)) g_error = 0; }
-void rt_eval_stage_leave_word(long word) { long idx = word >> 40; rt_eval_stage_leave((idx >= 0 && idx < g_rt_gen_proc_count) ? g_rt_gen_procs[idx].name : (const char *)0); }
+void rt_eval_stage_leave_word(long word) { long idx = word >> 40; if (g_error == G_ERROR_EVAL_STAGE && !((idx >= 0 && idx < g_rt_gen_proc_count) ? g_rt_gen_procs[idx].stage_var : 0)) g_error = 0; }
+rt_call_next_t rt_call_open_staged(const char *name, int *registered) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; *registered = p ? 1 : 0; if (!p) return (rt_call_next_t){ 0, 0 }; { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; } }
 long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered)
 {
     rt_proc_t *p = rt_proc_find(name);
@@ -1152,6 +1154,7 @@ long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registere
     if (!p) return 0;
     { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0);
       if (!n.fn) return 0;
+      if (g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE;
       *how = (short)(n.how & 0xff); *nsb = (int)((n.how >> 8) & 0xffffffffL);
       return n.fn; }
 }
