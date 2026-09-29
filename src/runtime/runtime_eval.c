@@ -279,8 +279,12 @@ static eval_chain_fn eval_build_chain(const char *s)
     var->v.sval = (char *)EVAL_TMP;
     tree_t *st = ast_stmt_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", 1));
+#if RT_DIAG
     { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; }
       ast_push(st, ast_attr_int(":stno", _cs ? 1 : 0)); }
+#else
+    ast_push(st, ast_attr_int(":stno", 0));
+#endif
     ast_push(st, ast_attr_int(":nocount", 1));
     ast_push(st, ast_attr_expr(":subj", var));
     ast_push(st, ast_attr_leaf(":eq", ""));
@@ -327,24 +331,30 @@ __asm__(
 "  movq g_eval_ret_v@GOTPCREL(%rip), %rax\n"
 "  cmpl $0, (%rax)\n"
 "  je 1f\n"
+#if RT_DIAG
 "  pushq %rdi\n"
 "  leaq 2f(%rip), %rdi\n"
 "  leaq 4f(%rip), %rsi\n"
 "  call rt_c2bb_hit\n"
 "  popq %rdi\n"
+#endif
 "  jmp rt_chain_enter_v\n"
 "1:\n"
+#if RT_DIAG
 "  pushq %rdi\n"
 "  leaq 3f(%rip), %rdi\n"
 "  leaq 4f(%rip), %rsi\n"
 "  call rt_c2bb_hit\n"
 "  popq %rdi\n"
+#endif
 "  jmp rt_chain_enter\n"
+#if RT_DIAG
 ".section .rodata\n"
 "2:  .asciz \"chain.eval.v\"\n"
 "3:  .asciz \"chain.eval\"\n"
 "4:  .asciz \"?\"\n"
 ".text\n"
+#endif
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
@@ -352,10 +362,16 @@ static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const 
 static int eval_chain_run_guarded(eval_chain_fn fn) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
     static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; }
+#if RT_DIAG
     if (!_ef) { rt_c2bb_hit("chain.eval.unguarded", "?"); eval_chain_enter_only(fn); return 1; }
+#else
+    if (!_ef) { eval_chain_enter_only(fn); return 1; }
+#endif
     int my = g_core_errjmp_n++; long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = -1;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
+#if RT_DIAG
     rt_c2bb_hit("chain.eval.guarded", "?");
+#endif
     eval_chain_enter_only(fn);
     g_core_errjmp_n = my; g_error = esv; return 1;
 }
@@ -532,7 +548,11 @@ int rt_goto_transfer(const char *name)
 {
     extern void rt_c2bb_hit(const char *site, const char *name);
     void *fn = rt_goto_resolve(name);
+#if RT_DIAG
     if (fn) { rt_c2bb_hit("chain.goto", name); RT_GC_CALLBACK_V(rt_chain_enter((eval_chain_fn)fn)); return 1; }
+#else
+    if (fn) { RT_GC_CALLBACK_V(rt_chain_enter((eval_chain_fn)fn)); return 1; }
+#endif
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -37,7 +37,11 @@ _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva)               == 56, "pkg
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes)       == 64, "pkg layout drift: frame_bytes -- the trampoline reads it at 64(pkg) to size the frame-snapshot restore onto the body stack");
 _Static_assert(sizeof(DESCR_t) == 16, "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
 static void co_xmit_set(DESCR_t *x, uint64_t d0, uint64_t d1) { uint64_t w[2]; w[0] = d0; w[1] = d1; memcpy(x, w, sizeof *x); }
+#if RT_DIAG
 int scrip_co_gc_plant(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_COEXPR_PLANT"); v = (e && *e) ? atoi(e) : 0; } return v; }
+#else
+int scrip_co_gc_plant(void) { return 0; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_uerror(const char *msg) {
     perror(msg);
@@ -130,6 +134,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t g_root_ctx;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static long scrip_co_serial_disp(scrip_coctx_t *c) { if (!c) return 0; if (c == &g_root_ctx && c->serial == 0) return 1; return c->serial; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void scrip_co_trace_xmit(const char *procname, scrip_coctx_t *self, scrip_coctx_t *target, uint64_t x0, uint64_t x1) {
@@ -145,6 +150,7 @@ static void scrip_co_trace_term(scrip_coctx_t *me, scrip_coctx_t *back, uint64_t
     if (!me || !back || me->serial == 0 || me->create_line <= 0) return;
     rt_icn_trace_coexpr(me->create_proc ? me->create_proc : "main", me->serial, scrip_co_serial_disp(back), d0, d1, failed ? 1 : 2, me->create_line);
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static scrip_coctx_t *scrip_co_live_activator(scrip_coctx_t *me) {
     scrip_coctx_t *b = me ? me->activator : 0;
@@ -161,7 +167,9 @@ void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr) {
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_coret with no activator (RUNG 5 `@` did not set scrip_co_current->activator before switching in)");
     co_xmit_set(&back->xmit, d0, d1);
     me->activations++;
+#if RT_DIAG
     scrip_co_trace_term(me, back, d0, d1, 0);
+#endif
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
 }
@@ -172,7 +180,9 @@ void scrip_cofail(void) {
     me->dead = 1;
     scrip_coctx_t *back = scrip_co_live_activator(me);
     if (!back) scrip_co_uerror("scrip_coexpr: scrip_cofail with no activator (RUNG 5 `@` did not set the activator chain)");
+#if RT_DIAG
     scrip_co_trace_term(me, back, 0, 0, 1);
+#endif
     scrip_co_current = back;
     scrip_coswitch(me, back, 1);
 }
@@ -317,10 +327,17 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname) {
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
     scrip_coctx_t *self = scrip_co_current ? scrip_co_current : &g_root_ctx;
+#if RT_DIAG
     if (target->dead) { scrip_co_trace_xmit(procname, self, target, x0, x1); scrip_co_trace_term(target, self, 0, 0, 1); return 0; }
+#else
+    (void)procname;
+    if (target->dead) return 0;
+#endif
     scrip_coctx_t *prev = scrip_co_current;
     int first = target->alive ? 1 : 0;
+#if RT_DIAG
     scrip_co_trace_xmit(procname, self, target, x0, x1);
+#endif
     target->activator = self;
     co_xmit_set(&target->xmit, x0, x1);
     { extern long g_line; self->cur_line = g_line; if (!target->alive && target->create_line > 0) g_line = target->create_line; }
@@ -368,6 +385,7 @@ void rt_coexpr_gc_scan_states(void)
     for (c = g_co_gc_head; c; c = c->gc_next) gen_gc_visit_scan_state(c->scan_state);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 void rt_coexpr_gc_audit_scan_states(long *hp, long *un)
 {
     extern void gen_gc_audit_scan_state(void *, long *, long *);
@@ -375,6 +393,9 @@ void rt_coexpr_gc_audit_scan_states(long *hp, long *un)
     gen_gc_audit_scan_state(g_root_ctx.scan_state, hp, un);
     for (c = g_co_gc_head; c; c = c->gc_next) gen_gc_audit_scan_state(c->scan_state, hp, un);
 }
+#else
+void rt_coexpr_gc_audit_scan_states(long *hp, long *un) { (void)hp; (void)un; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -385,6 +406,7 @@ static void co_gc_visit_record(scrip_coctx_t *c, long *n_sigma)
     if (c->entry_fn == scrip_coexpr_trampoline_entry) { scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)c->entry_arg; rt_gc_visit_raw((const char **)&pkg->r13); (*n_sigma)++; return; }
     if (c->entry_fn == rt_genp_thread_entry) { rt_gc_visit_raw((const char **)((char *)c->entry_arg + 24)); (*n_sigma)++; return; }
 }
+#if RT_DIAG
 void scrip_co_gc_images(long *on_stack, long *off_stack)
 {
     long on = 0, off = 0; scrip_coctx_t *c;
@@ -392,10 +414,15 @@ void scrip_co_gc_images(long *on_stack, long *off_stack)
     if (on_stack) *on_stack = on;
     if (off_stack) *off_stack = off;
 }
+#else
+void scrip_co_gc_images(long *on_stack, long *off_stack) { if (on_stack) *on_stack = 0; if (off_stack) *off_stack = 0; }
+#endif
 long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma)
 {
     long n = 0, ns = 0; scrip_coctx_t *c;
+#if RT_DIAG
     if (scrip_co_gc_plant() == 1) { if (n_ctx) *n_ctx = 0; if (n_sigma) *n_sigma = 0; return 0; }
+#endif
     rt_gc_visit_descr(&g_root_ctx.xmit); n++;
     for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); co_gc_visit_record(c, &ns); n++; }
     if (n_ctx) *n_ctx = n;

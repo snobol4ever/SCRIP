@@ -11,6 +11,7 @@
 #include "sil_macros.h"
 #include "builtins/gen_runtime.h"
 #include "rt/gc_heap.h"
+#include "rt_diag.h"
 #include "rt/rt_arena.h"
 #include "rt/rt_protected.h"
 #include "snobol4_system_fns.h"
@@ -50,7 +51,11 @@ void pm_struct_gc_visit(uint16_t type, void *p, size_t bytes)
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static int pstamp_trace(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PSTAMP_TRACE"); v = e ? (atoi(e) != 0) : 0; } return v; }
+#else
+#define pstamp_trace() 0
+#endif
 static DTP_t *dtp_new(void *fn, dtp_rcp_t *rcp) { DTP_t *h = (DTP_t *)rt_pm_struct_alloc(HB_DTP, sizeof(DTP_t)); h->fn = fn; h->rcp = rcp; h->zsz = 0; h->zstatic = 0; h->zpad = 0; h->snap = 0; h->nsnap = 0; return h; }
 void *dtp_wrap_fn(void *fn) { return (void *)dtp_new(fn, (dtp_rcp_t *)0); }
 void *dtp_wrap_fn_sz(void *fn, int64_t zsz, int32_t zstatic) { DTP_t *h = dtp_new(fn, (dtp_rcp_t *)0); h->zsz = zsz; h->zstatic = zstatic; if (pstamp_trace()) fprintf(stderr, "PSTAMP wrap fn=%p zsz=%lld zstatic=%d\n", fn, (long long)zsz, (int)zstatic); return (void *)h; }
@@ -75,7 +80,11 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
 }
 extern tree_t *ast_stmt_new(tree_e kind);
+#if RT_DIAG
 static int rtpat_plant_heapimm(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_RTPAT_PLANT_HEAPIMM"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
+#else
+#define rtpat_plant_heapimm() 0
+#endif
 _Static_assert(sizeof(tree_t *) == 8, "EVERY STRING A RUNTIME-COMPILED PATTERN BAKES INTO ITS CODE LIVES IN THE COMPILE-TIME ARENA, NEVER IN THE COLLECTED HEAP (cto 2026-09-23, CTO-152; site bb_match_defer.cpp:115): dtp_rcp_tree hands the runtime compiler a tree whose sval words become imm64 operands of code that outlives every collection, so a heap string there (the ARB$n deferred name was one, rt_heap_strdup_c; the literal copies were rt_str_alloc) is an address the collector never sees, reclaimed at the first collection after the compile -- arbno_fence_span_branch_1 read FAIL for MATCH at stress 1/3/5 in every arena and relocation configuration once the entry was polled. ct_strdup/ct_strndup own them for the code's lifetime, like the parser's own literals; SCRIP_RTPAT_PLANT_HEAPIMM=1 restores the heap name as the plant the gate fires on");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dtp_rcp_tree(dtp_rcp_t *r, DESCR_t self) {
@@ -400,7 +409,11 @@ static int subscript_set_body(DESCR_t arr, DESCR_t idx, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { int ok = subscript_set_body(arr, idx, val); if (ok && g_trace_budget != 0) sno_trace_value("<lval>", val); return ok; }
+#else
+int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val) { return subscript_set_body(arr, idx, val); }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t subscript_get2_s(DESCR_t arr, DESCR_t i, DESCR_t j, int strict);
 static DESCR_t subscript_get2_ext_s(DESCR_t arr, DESCR_t i, DESCR_t end, int strict) {
@@ -471,7 +484,11 @@ static int subscript_set2_body(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { int ok = subscript_set2_body(arr, i, j, val); if (ok && g_trace_budget != 0) sno_trace_value("<lval>", val); return ok; }
+#else
+int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { return subscript_set2_body(arr, i, j, val); }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args) {
     (void)max_args;
@@ -737,6 +754,7 @@ static int g_sno_defer_pair_hwm = 0;
 void rt_defer_pairs_forget(void) { for (int i = 0; i < g_sno_defer_pair_hwm; i++) { g_sno_defer_cells[2048 + i * 2] = 0; g_sno_defer_cells[2048 + i * 2 + 1] = 0; } g_sno_defer_pair_hwm = 0; }
 uint64_t g_pat_main_rsp = 0;
 uint64_t g_rspd_save = 0, g_rspd_g4 = 0, g_rspd_g5 = 0, g_rspd_s2 = 0, g_rspd_g6 = 0, g_rspd_beta = 0;
+#if RT_DIAG
 static int g_rspd_active = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rt_rspd_init(void) { g_rspd_active = (getenv("SCRIP_RSPDIFF") != NULL); }
@@ -749,6 +767,7 @@ __attribute__((destructor)) static void rt_rspd_report(void) {
     if (g_rspd_save && g_rspd_beta) fprintf(stderr, "RSPDIFF beta-children (save-beta)  = %ld\n", (long)(g_rspd_save - g_rspd_beta));
     if (g_rspd_s2 && g_rspd_g6)    fprintf(stderr, "RSPDIFF exhaust-delta (s2-g6)      = %ld\n", (long)(g_rspd_s2 - g_rspd_g6));
 }
+#endif
 #include "pin_va.h"
 typedef struct { const char *varname; uint64_t saved_delta; uint64_t len; } rt_dcap_e;
 const char *g_dcap_base = 0;
@@ -766,7 +785,11 @@ void rt_dcap_lazy_init(void) {
 int rt_cap_fail_retreat(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_FAIL_RETREAT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 int rt_cap_name_strict(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_POISON"); v = (e && *e && *e != '0') ? (int)(unsigned char)'Z' : 0; } return v; }
+#else
+#define rt_cap_poison() 0
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_SLICE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; const char *star; int nsb; short how; short rc; int wsv; uint32_t asv; } rt_dcf_t;
@@ -775,7 +798,11 @@ _Static_assert(sizeof(rt_dcap_next_t) == 16, "bb_match_end reads the pump result
 __attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 extern uint32_t g_cap_gen;
 __attribute__((visibility("hidden"))) uint32_t g_cap_abort_gen;
+#if RT_DIAG
 __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
+#else
+__attribute__((visibility("hidden"))) int g_dcap_trace = 0;
+#endif
 _Static_assert(sizeof(rt_dcf_t) == 64, "rtx_match.s rt_dcap_end_ok_open hardcodes stride 64 for rt_dcf_t (shl 6) and zeroes +40..+63");
 _Static_assert(offsetof(rt_dcf_t, star) == 40 && offsetof(rt_dcf_t, nsb) == 48 && offsetof(rt_dcf_t, how) == 52 && offsetof(rt_dcf_t, rc) == 54 && offsetof(rt_dcf_t, wsv) == 56 && offsetof(rt_dcf_t, asv) == 60, "rtx_match.s rt_dcap_end_ok_open zeroes the box-driven call record at +40 +48 +56 as three qwords");
 _Static_assert(offsetof(rt_dcf_t, cur) == 0, "rtx_match.s RTX-8 slice 8 hardcodes cur at +0");
@@ -809,8 +836,14 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm)
     rt_g_want_name = c->wsv;
     const int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0;
     DESCR_t d = c->pending;
+#if RT_DIAG
     if (IS_FAIL_fn(nm)) { if (strict) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", c->star); c->rc = 1; return 1; } fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", c->star); return 0; }
     if (strict && !by_name) { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", c->star, (int)nm.v, nm.slen, (nm.v == DT_S && nm.s) ? nm.s : "?"); c->rc = 1; return 1; }
+#else
+    if (IS_FAIL_fn(nm)) { if (strict) { c->rc = 1; return 1; }
+        fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", c->star); return 0; }
+    if (strict && !by_name) { c->rc = 1; return 1; }
+#endif
     if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
     else rt_assign_var(nm, d);
     return 0;
@@ -824,10 +857,14 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
     if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) { g_cap_abort_gen = 0; return (rt_dcap_next_t){ 1, 0 }; }
     if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+#if RT_DIAG
     int _cva = comm_var_active();
     int _prev_star = 0;
+#endif
     while (c->cur < c->top) {
+#if RT_DIAG
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
+#endif
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
         int len = (int)e->len; if (len < 0) len = 0;
@@ -841,13 +878,19 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
               continue; } }
         DESCR_t d;
         int _star_arm = (e->varname && e->varname[0] == '*');
+#if RT_DIAG
         static long _slice_budget = -2; static int _slice_trace = -1; static long _slice_idx = 0;
         if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
         if (_slice_trace < 0) { const char *_e = getenv("SCRIP_CAP_SLICE_TRACE"); _slice_trace = (_e && *_e) ? 1 : 0; }
         int _budget_ok = (_slice_budget < 0) || (_slice_idx < _slice_budget);
+#else
+        enum { _budget_ok = 1 };
+#endif
         if (len > 0 && c->subj && _budget_ok && rt_cap_slice_on()) {
+#if RT_DIAG
             if (_slice_trace) fprintf(stderr, "[SLICE] #%ld var=%s len=%d delta=%llu subj=%p\n", _slice_idx, e->varname ? e->varname : "?", len, (unsigned long long)e->saved_delta, (const void *)c->subj);
             _slice_idx++;
+#endif
             rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
         else {
             char *copy = rt_str_alloc(len);
@@ -859,7 +902,9 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
             extern int rt_proc_is_registered(const char *);
             extern long rt_dcap_call_prepare(const char *, short *, int *, int *);
             const char *pn = e->varname + 1;
+#if RT_DIAG
             _prev_star = 1;
+#endif
             c->pending = d; c->star = e->varname; c->wsv = rt_g_want_name; c->asv = g_cap_abort_gen; c->how = 0; c->nsb = 0;
             rt_g_want_name = 1;
             { int reg = 0; long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb, &reg);
@@ -879,7 +924,9 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
                 if (cell) {
                     if (d.v == DT_S) rt_sxt_break_fast(d.s);
                     *cell = d;
+#if RT_DIAG
                     if (_cva) comm_var(e->varname, d, stmt_src_get_file(), 0, 0);
+#endif
                 } else {
                     NV_SET_fn(e->varname, d);
                 }
@@ -891,7 +938,9 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
 {
+#if RT_DIAG
     { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }
+#endif
     if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
     if (g_dcf_top >= g_dcf_cap) { fprintf(stderr, "rt_cas: dcf overflow (%d) — raise RT_CAS_DCF_MAX\n", g_dcf_cap); abort(); }
     rt_dcf_t *c = &g_dcf[g_dcf_top++];
@@ -1058,7 +1107,9 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n)
 {
     DESCR_t d = rt_concat_parts_d(parts, n);
     NV_SET_fn(dst ? dst : "", d);
+#if RT_DIAG
     if (g_trace_budget != 0) sno_trace_value(dst ? dst : "", d);
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_at_cursor(const char *varname, int cur_delta)
@@ -1389,7 +1440,11 @@ static DESCR_t c_rt_subscript_var_container_only_s(DESCR_t base, DESCR_t idx, in
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_table_assign_fast(DESCR_t base, DESCR_t idx, DESCR_t val) {
+#if RT_DIAG
     extern int g_gc_pending; extern int g_sno_etrace_n;
+#else
+    extern int g_gc_pending; enum { g_sno_etrace_n = 0, g_trace_budget = 0 };
+#endif
     if (g_gc_pending || g_sno_etrace_n != 0) {
         DESCR_t ref = rt_subscript_var(base, idx);
         if (ref.v == DT_FAIL) return ref;
@@ -1450,7 +1505,11 @@ DESCR_t rt_field_var(const char *fname, DESCR_t obj) {
       if (fname && IS_DATA_INST_fn(obj) && obj.u && obj.u->type && obj.u->fields) { int fi = rt_field_index_cached(fname, obj.u->type); if (fi >= 0 && rt_data_is_record_inst(obj)) cell = &obj.u->fields[fi]; }
       if (!cell) cell = rt_data_is_record_inst(obj) ? data_field_ptr(fname ? fname : "", obj) : (DESCR_t *)0;
       if (!cell) { core_runtime_error(41, "field function argument is wrong datatype"); return FAILDESCR; }
+#if RT_DIAG
       if (!comm_var_active()) return (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell };
+#else
+      return (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell };
+#endif
       return rt_field_var_cell(fname, obj, cell); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1675,7 +1734,11 @@ DESCR_t rt_deref_slow(DESCR_t d) {
 static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
     { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     if (var.v == DT_N && var.slen == 0 && var.s && *var.s) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); NV_SET_fn(var.s, val); return val; }
+#if RT_DIAG
     if (var.v == DT_N && var.slen == 1 && var.ptr) { extern void mon_tap_cell_store(void *, DESCR_t); *(DESCR_t *)var.ptr = val; if (monitor_fd >= 0) mon_tap_cell_store(var.ptr, val); return val; }
+#else
+    if (var.v == DT_N && var.slen == 1 && var.ptr) { *(DESCR_t *)var.ptr = val; return val; }
+#endif
     if (!IS_NAMETRAP_fn(var)) {
         { extern int core_icn_error(int code, DESCR_t val); if (strict) { core_icn_error(111, var); return FAILDESCR; } }
         fprintf(stderr, "[IDX] BOMB rt_assign_var: lvalue is not a variable (dtype=%d) — string/record subscript assignment is the tvsubs rung (GOAL-IR-IMMUTABLE-EMIT IDX-UNIFY)\n", (int)var.v);
@@ -1686,7 +1749,11 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         fprintf(stderr, "[IDX] BOMB rt_assign_var: assignment to keyword variable %s is not implemented (the keyword write also resets the scanning environment, so it is not a cell store)\n", vc->key);
         abort();
     }
+#if RT_DIAG
     if (vc->cellp) { extern void mon_tap_cell_store(void *, DESCR_t); *vc->cellp = val; if (monitor_fd >= 0) mon_tap_cell_store((void *)vc->cellp, val); return val; }
+#else
+    if (vc->cellp) { *vc->cellp = val; return val; }
+#endif
     if (vc->tbl) { table_set_descr_d(vc->tbl, vc->key_d, val); return val; }
     if (IS_VARREF_fn(vc->sv)) {
         char nb[64]; const char *src; long srclen; int owned = 1;
@@ -1705,9 +1772,13 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
         char *ns = rt_str_alloc(nlen);
         memcpy(ns, sp, (size_t)prelen); memcpy(ns + prelen, src, (size_t)srclen); memcpy(ns + prelen + srclen, sp + poststrt, (size_t)(slen - poststrt)); ns[nlen] = 0;
         DESCR_t nsd = (DESCR_t){ .v = DT_S, .slen = (uint32_t)nlen, .s = ns };
+#if RT_DIAG
         long tb = g_trace_budget; g_trace_budget = 0;
+#endif
         DESCR_t wr = rt_assign_var(vc->sv, nsd);
+#if RT_DIAG
         g_trace_budget = tb;
+#endif
         if (wr.v == DT_FAIL) return FAILDESCR;
         vc->len = srclen;
         if (owned) return (DESCR_t){ .v = DT_S, .slen = (uint32_t)srclen, .s = (char *)src };
@@ -1719,6 +1790,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict)
 {
+#if RT_DIAG
     int simple = (var.v == DT_N && var.slen == 0 && var.s && *var.s);
     DESCR_t r = c_rt_assign_var_body(var, val, strict);
     if (!simple && g_trace_budget != 0 && !IS_FAIL_fn(r)) {
@@ -1729,6 +1801,9 @@ static DESCR_t c_rt_assign_var_s(DESCR_t var, DESCR_t val, int strict)
     { extern int g_sno_etrace_n; extern void rt_sno_elem_store_trace(DESCR_t, DESCR_t);
       if (g_sno_etrace_n != 0 && !IS_FAIL_fn(r) && IS_NAMETRAP_fn(var)) rt_sno_elem_store_trace(var, val); }
     return r;
+#else
+    return c_rt_assign_var_body(var, val, strict);
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static VCELL_t * vcell_ultimate(DESCR_t d) {
@@ -1762,8 +1837,18 @@ DESCR_t rt_swap_var(DESCR_t va, DESCR_t vb) {
     }
     VCELL_t *xc = (VCELL_t *)va.p, *yc = (VCELL_t *)vb.p; if (!xc || !yc) return FAILDESCR;
     { extern int g_sno_etrace_n;
+#if !RT_DIAG
+#define g_trace_budget 0
+#define g_sno_etrace_n 0
+#define monitor_fd (-1)
+#endif
       if (xc->len == 1 && yc->len == 1 && xc->pos > 0 && yc->pos > 0 && !xc->cellp && !yc->cellp && !xc->tbl && !yc->tbl
           && g_trace_budget == 0 && g_sno_etrace_n == 0 && monitor_fd < 0) {
+#if !RT_DIAG
+#undef g_trace_budget
+#undef g_sno_etrace_n
+#undef monitor_fd
+#endif
           DESCR_t *cx_cell = swap_base_cell(xc->sv), *cy_cell = swap_base_cell(yc->sv);
           if (cx_cell && cx_cell == cy_cell) {
               DESCR_t sd = *cx_cell;

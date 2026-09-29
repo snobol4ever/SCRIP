@@ -181,8 +181,10 @@ RTX_FUNC(rt_match_enter)
 RTX_ENDF(rt_match_enter)
 RTX_FUNC(rt_dcap_end_ok_open)
     RTX_GATE(match, .Ldeoo_c)
+#if RT_DIAG
     cmp     dword ptr [rip + g_dcap_trace], 0
     jne     .Ldeoo_c
+#endif
     mov     rax, qword ptr [rip + g_dcf]
     test    rax, rax
     jz      .Ldeoo_c
@@ -216,8 +218,10 @@ RTX_ENDF(rt_dcap_end_ok_close)
 RTX_FUNC(rt_match_replace)
     RTX_SAVE
     RTX_GATE(match, .Lmr_c)
+#if RT_DIAG
     cmp     dword ptr [rip + g_repl_trace], 0
     jne     .Lmr_c
+#endif
     test    rdi, rdi
     jz      .Lmr_c
     cmp     byte ptr [rdi], 0
@@ -431,6 +435,7 @@ RTX_ENTRY(rt_cap_open_plain)
     or      rax, rdx
     mov     qword ptr [r9], rax
     mov     qword ptr [r9 + 8], r8
+#if RT_DIAG
     RTX_CALL_ALIGN
     push    r11
     push    r8
@@ -455,6 +460,7 @@ RTX_ENTRY(rt_cap_open_plain)
     xor     r9d, r9d
     call    comm_var@PLT
     RTX_CALL_UNALIGN
+#endif
 .Lcap_fastret:
     xor     eax, eax
     RTX_RET
@@ -477,6 +483,7 @@ RTX_FUNC(rt_cap_open_gva)
     mov     rax, qword ptr [rip + g_call_fastpath_off@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lcg_plain
+#if RT_DIAG
     mov     rax, qword ptr [rip + monitor_fd@GOTPCREL]
     cmp     dword ptr [rax], 0
     jge     .Lcg_plain
@@ -484,6 +491,7 @@ RTX_FUNC(rt_cap_open_gva)
     jne     .Lcg_plain
     cmp     dword ptr [rip + g_comm_dbg], 0
     jne     .Lcg_plain
+#endif
     RTX_SAVE
     mov     r11, rdi
     mov     eax, edx

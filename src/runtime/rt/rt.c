@@ -27,11 +27,15 @@
 #include <stdlib.h>
 extern const char *Σ;
 extern int Σlen;
+#if RT_DIAG
 void rt_c2bb_hit(const char *site, const char *name) { static int on = -1; static const char *path; if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; } if (!on) return;
     { const char *w1 = "?", *w2 = "?"; Dl_info di;
       if (__builtin_frame_address(1) && __builtin_return_address(1) && dladdr(__builtin_return_address(1), &di) && di.dli_sname) w1 = di.dli_sname;
       if (__builtin_frame_address(2) && __builtin_return_address(2) && dladdr(__builtin_return_address(2), &di) && di.dli_sname) w2 = di.dli_sname;
       FILE *f = fopen(path, "a"); if (!f) return; fprintf(f, "%s\t%s\t%s\t%s\n", site, name ? name : "?", w1, w2); fclose(f); } }
+#else
+void rt_c2bb_hit(const char *site, const char *name) { (void)site; (void)name; }
+#endif
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -106,7 +110,9 @@ void rt_gvar_assign_str(const char *name, const char *str)
     d.s    = (char *)(str ? str : "");
     d.slen = descr_cstrlen(d.s);
     NV_SET_fn(name ? name : "", d);
+#if RT_DIAG
     if (g_trace_budget != 0) sno_trace_value(name ? name : "", d);
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_indirect_assign_str(const char *holder, const char *str)
@@ -119,7 +125,9 @@ void rt_indirect_assign_var(const char *holder, const char *val_name)
     const char *target = rt_nv_cstr(holder ? holder : "");
     DESCR_t val = NV_GET_fn(val_name ? val_name : "");
     NV_SET_fn(target ? target : "", val);
+#if RT_DIAG
     if (g_trace_budget != 0) sno_trace_value(target ? target : "", val);
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_pat(const char *name, void *head)
@@ -188,7 +196,9 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
     d.slen = u.f.slen;
     d.i    = hi;
     NV_SET_fn(name ? name : "", d);
+#if RT_DIAG
     if (g_trace_budget != 0) sno_trace_value(name ? name : "", d);
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rt_coerce_errmsg(int code) {
@@ -359,8 +369,10 @@ void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
 }
 extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
+#if RT_DIAG
 const char *g_subject_dbg_base = 0;
 long        g_subject_dbg_len  = -1;
+#endif
 __attribute__((visibility("hidden"))) int rt_k_level = 1;
 int * const rt_k_level_p = &rt_k_level;
 static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
@@ -445,7 +457,11 @@ void rt_proc_set_result_name(const char *name, const char *rname)
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].result_name = rname; g_rt_gen_procs[i].cells_done = 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 const char *rt_proc_trace_canon(const char *name) { int i = name ? rt_proc_hash_lookup(name) : -1; return (i >= 0 && g_rt_gen_procs[i].result_name) ? g_rt_gen_procs[i].result_name : name; }
+#else
+const char *rt_proc_trace_canon(const char *name) { return name; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_dyn_scope(const char *name, int v)
 {
@@ -566,7 +582,9 @@ void rt_lvl_stno_land(void)
 DESCR_t rt_sno_dtx_value(const char *name)
 {
     if (name && *name && !rt_proc_is_registered(name)) return NV_GET_fn(name);
+#if RT_DIAG
     rt_c2bb_hit("via.dtx", name);
+#endif
     return RT_GC_CALLBACK(rt_call_proc_descr(name ? name : "", 0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1068,7 +1086,9 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
         { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn); }
+#if RT_DIAG
         rt_c2bb_hit(frag ? "descr.frag" : "descr.named", name);
+#endif
         return frag ? rt_proc_enter_frag(fn, (long)(p - g_rt_gen_procs)) : rt_proc_enter_named(fn, (long)(p - g_rt_gen_procs)); } }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
@@ -1077,19 +1097,33 @@ DESCR_t rt_call_proc_descr(const char *name, int nargs)
         return FAILDESCR;
     }
     if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs);
-        int _n = nargs < 0 ? 0 : nargs; rt_call_args_need(_n); rt_c2bb_hit("descr.tiny", name); return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
+        int _n = nargs < 0 ? 0 : nargs; rt_call_args_need(_n);
+#if RT_DIAG
+        rt_c2bb_hit("descr.tiny", name);
+#endif
+        return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
     int _nsb = rt_name_save_mark();
     long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
+#if RT_DIAG
         if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn); }
+#else
+        if (p->jmp_entry) { return rt_proc_enter((void *)p->fn); }
+#endif
         core_runtime_error(287, "lexical procedure has no jmp_entry: the callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). It alloca'd the frame on the C STACK, called the box, and then chose omega-vs-gamma IN C via rt_proc_call_epilogue_ret -- runtime logic where the law requires BB logic. It cannot be converted to return-the-target because a C-stack frame cannot outlive a tail jump; the frame must come from the zeta-spine first. Traced ZERO times over 486 programs (336 snocone master + 150 snobol4 package), so this error is the row, not a regression.");
         return FAILDESCR;
     }
     rt_g_want_name = _wn_gen;
+#if RT_DIAG
     if (name && strchr(name, '$')) { rt_c2bb_hit("descr.enter.dyn$", name); return rt_proc_enter_barrier((void *)p->fn, (long)_nsb); }
+#else
+    if (name && strchr(name, '$')) { return rt_proc_enter_barrier((void *)p->fn, (long)_nsb); }
+#endif
+#if RT_DIAG
     rt_c2bb_hit("descr.enter.dyn.named", name);
+#endif
     return rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1250,7 +1284,9 @@ void rt_genp_entry_c(rt_genp_s *g)
     for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
     long fb = rt_proc_call_open(g->name, g->nargs);
     if (!fb) { g->done = 2; scrip_cofail(); }
+#if RT_DIAG
     rt_c2bb_hit(g->region_ft > 0 ? "genp.spine.n2" : "genp.spine", g->name);
+#endif
     if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0); else rt_genp_spine_enter(g->fn);
     g->done = 2; scrip_cofail();
     for (;;) pause();
@@ -1295,7 +1331,9 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         g->co.inherit_scan = 1;
         scrip_co_gc_link(&g->co);
         g->next = g_genp_head; g_genp_head = g;
+#if RT_DIAG
         rt_c2bb_hit("gen_h.coro", name);
+#endif
         uint64_t out2[2] = { 0, 0 };
         int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0);
         return rt_genp_triage(g, ok, out2, hout);
@@ -1304,7 +1342,9 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         long fb2 = rt_proc_call_open(name, nargs);
         if (!fb2) { if (hout) *hout = (void *)0; return FAILDESCR; }
         if (hout) *hout = (void *)0;
+#if RT_DIAG
         rt_c2bb_hit("gen_h.enter", name);
+#endif
         return rt_proc_enter((void *)p->fn);
     }
     if (hout) *hout = (void *)0;
@@ -1326,7 +1366,9 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
     if (!frame) return FAILDESCR;
     { rt_genp_s *g = rt_genp_lookup(frame);
       if (g) {
+#if RT_DIAG
           rt_c2bb_hit("gen_h.coro_resume", g->name);
+#endif
           uint64_t out2[2] = { 0, 0 };
           rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
           int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0);
@@ -1401,7 +1443,11 @@ int rt_name_save_push(const char **names, DESCR_t **cells, DESCR_t *args, int na
         g_name_save[g_name_save_top].name = nm;
         g_name_save[g_name_save_top].cell = cell;
         if (cell) { g_name_save[g_name_save_top].old = *cell; *cell = arg; }
+#if RT_DIAG
         else { monitor_quiet_depth++; g_name_save[g_name_save_top].old = NV_GET_fn(nm); NV_SET_fn(nm, arg); monitor_quiet_depth--; }
+#else
+        else { g_name_save[g_name_save_top].old = NV_GET_fn(nm); NV_SET_fn(nm, arg); }
+#endif
         g_name_save_top++;
     }
     return base;
@@ -1411,7 +1457,11 @@ void rt_name_restore(int base)
 {
     for (int k = g_name_save_top - 1; k >= base; k--) {
         if (g_name_save[k].cell) *g_name_save[k].cell = g_name_save[k].old;
+#if RT_DIAG
         else { monitor_quiet_depth++; NV_SET_fn(g_name_save[k].name, g_name_save[k].old); monitor_quiet_depth--; }
+#else
+        else { NV_SET_fn(g_name_save[k].name, g_name_save[k].old); }
+#endif
     }
     g_name_save_top = base;
 }
@@ -1470,8 +1520,10 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     { int rn_shadow = (p->cells_done & 2) ? 1 : 0;
       if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
+#if RT_DIAG
     if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
     if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_stno); }
+#endif
     rt_lvl_open(0);
     if (rt_wn_park_on()) { rt_lvl_park_wn(wn); rt_g_want_name = 0; } else rt_g_want_name = wn;
     return fbytes;
@@ -1517,8 +1569,10 @@ static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
     DESCR_t *rcell = p->rcell;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
     int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0;
+#if RT_DIAG
     if (g_trace_budget != 0) sno_trace_return(p->result_name ? p->result_name : p->name, result);
     if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event(TRK_RETURN, p->result_name ? p->result_name : p->name, result, g_stno); }
+#endif
     rt_name_restore(base);
     if (wn_parked >= 0) rt_g_want_name = wn_parked;
     return result;
@@ -1759,7 +1813,11 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
             for (int i = nargs; i < fixed; i++) CALL_ARGS[i] = NULVCL;
             DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
             CALL_ARGS[fixed] = _tail; } } }
+#if RT_DIAG
     { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_stno); } }
+#else
+    { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); }
+#endif
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1769,7 +1827,9 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
     for (int i = 0; i < nargs; i++) CALL_ARGS[i] = args ? args[i] : NULVCL;
     if (p->jmp_entry) {
         (void)rt_proc_call_prologue_lex(p, nargs, wn);
+#if RT_DIAG
         rt_c2bb_hit("c_lex.enter", p->name);
+#endif
         return rt_proc_enter((void *)p->fn);
     }
     (void)rt_proc_call_prologue_lex(p, nargs, wn);
@@ -1898,9 +1958,15 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
     { void *afn = (rt_byname_alpha_on() && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
       if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs; if (_n < 0) _n = 0; rt_call_args_need(_n);
-                 for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i]; rt_g_want_name = _wn; rt_c2bb_hit("named.tiny", name); return rt_tiny_record_enter(afn, (long)_n); } }
+                 for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i]; rt_g_want_name = _wn;
+#if RT_DIAG
+                 rt_c2bb_hit("named.tiny", name);
+#endif
+                 return rt_tiny_record_enter(afn, (long)_n); } }
     (void)rt_proc_call_prologue(p, args, nargs, _wn);
+#if RT_DIAG
     rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
+#endif
     return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

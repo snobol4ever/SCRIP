@@ -3,6 +3,7 @@
 #define GC_HEAP_H
 #include <stdint.h>
 #include <stddef.h>
+#include "rt_diag.h"
 #define HB_ZCOL  200
 #define HB_FILL  202
 #define HB_ZBLK  204
@@ -65,8 +66,13 @@ void  rt_gc_assert_dead(const void *payload);
 void *rt_gc_assert_instances(uint16_t type, long n);
 long  rt_gc_cb_open(void);
 long  rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi);
+#if RT_DIAG
 #define RT_GC_CALLBACK(expr)   ({ long _cb_m = rt_gc_cb_open(); char _cb_f; __typeof__(expr) _cb_r = (expr); rt_gc_cb_close(_cb_m, __FILE__, __LINE__, (void *)&_cb_f, (void *)__builtin_frame_address(0)); _cb_r; })
 #define RT_GC_CALLBACK_V(expr) do { long _cb_m = rt_gc_cb_open(); char _cb_f; (expr); rt_gc_cb_close(_cb_m, __FILE__, __LINE__, (void *)&_cb_f, (void *)__builtin_frame_address(0)); } while (0)
+#else
+#define RT_GC_CALLBACK(expr)   (expr)
+#define RT_GC_CALLBACK_V(expr) do { (expr); } while (0)
+#endif
 void  rt_gc_poll(void);
 long  rt_gc_polls_count(void);
 void  rt_gc_point(struct DESCR_t *d0, const char **r0);

@@ -1,6 +1,7 @@
 #include "descr.h"
 #include "core.h"
 #include "gc_heap.h"
+#include "rt_diag.h"
 #include "pin_va.h"
 #include <stdlib.h>
 #include <stddef.h>
@@ -27,7 +28,11 @@ extern const char __stop_rtx_entry_names[] __attribute__((visibility("hidden")))
 int rtx_entry_is(const char *sym) { if (!sym) return 0; for (const char *p = __start_rtx_entry_names; p < __stop_rtx_entry_names; p += strlen(p) + 1) if (strcmp(p, sym) == 0) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned char rtx_env_on(const char *name, unsigned char dflt) { const char *e = getenv(name); if (!e || !*e) return dflt; return (unsigned char)(e[0] != '0'); }
+#if RT_DIAG
 static unsigned char rtx_mon_dflt(void) { const char *m = getenv("MONITOR_BIN"); return (unsigned char)((m && *m && m[0] != '0') ? 0 : 1); }
+#else
+static unsigned char rtx_mon_dflt(void) { return 1; }
+#endif
 __attribute__((constructor)) static void rtx_gates_init(void) { unsigned char d = rtx_mon_dflt(); rtx_gate_misc = rtx_env_on("SCRIP_RTX_MISC", d); rtx_gate_alloc = rtx_env_on("SCRIP_RTX_ALLOC", d); rtx_gate_str = rtx_env_on("SCRIP_RTX_STR", d); rtx_gate_leaf = rtx_env_on("SCRIP_RTX_LEAF", d); rtx_gate_arith = rtx_env_on("SCRIP_RTX_ARITH", d); rtx_gate_icnvar = rtx_env_on("SCRIP_RTX_ICNVAR", d); rtx_gate_icnnum = rtx_env_on("SCRIP_RTX_ICNNUM", d); rtx_gate_icnrel = rtx_env_on("SCRIP_RTX_ICNREL", d); rtx_gate_icnagg = rtx_env_on("SCRIP_RTX_ICNAGG", d); rtx_gate_match = rtx_env_on("SCRIP_RTX_MATCH", d); rtx_gate_icngen = rtx_env_on("SCRIP_RTX_ICNGEN", d); rtx_gate_icncall = rtx_env_on("SCRIP_RTX_ICNCALL", d); rtx_gate_icnsub = rtx_env_on("SCRIP_RTX_ICNSUB", d); rtx_gate_plunify = rtx_env_on("SCRIP_RTX_PLUNIFY", d);
   rtx_gate_table = rtx_env_on("SCRIP_RTX_TABLE", d); }
 extern int Σlen; extern uint32_t g_cap_gen; extern uint32_t g_cap_gen_next;

@@ -1,5 +1,6 @@
 #include "by_name_dispatch.h"
 #include "ct_arena.h"
+#include "rt/rt_diag.h"
 #define ICN_ARITY_UNKNOWN (-99)
 int icn_builtin_arity(const char *name);
 extern int rt_icn_cset_member(const char *, int);
@@ -16,11 +17,13 @@ void rt_pl_iso_throw_existence_key(const char *key);
 extern int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 extern ssize_t rt_line_read(char **buf, size_t *cap, FILE *f);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static void pas_trace_print_value(FILE *f, DESCR_t v) {
     if (IS_INT_fn(v)) { fprintf(f, "%lld", (long long)v.i); return; }
     if (IS_REAL_fn(v)) { fprintf(f, "%g", v.r); return; }
     { const char *s = VARVAL_fn(v); fputs(s ? s : "", f); }
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_loadfunc_cstr_args(DESCR_t *args, int nargs) {
     for (int i = 0; i < nargs && i < 2; i++) {
@@ -1180,8 +1183,10 @@ static void pas_heap_release(long m) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pas_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *);
+#if RT_DIAG
     static int plant = -1; if (plant < 0) { const char * e = getenv("SCRIP_TEST_PLANT_PAS_ROOT_SKIP"); plant = (e && *e == '1') ? 1 : 0; }
     if (plant) return;
+#endif
     long top = (g_pas_heap_ctr < g_pas_heap_cap) ? g_pas_heap_ctr : g_pas_heap_cap - 1;
     for (long n = 1; n <= top; n++) rt_gc_visit_descr(&g_pas_heap[n]);
     gv_gc_root(&g_pas_tf);
@@ -1364,7 +1369,9 @@ rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
       if (!pn || !*pn) return none;
       { int na = nargs - 1; if (na > 64) na = 64;
         rt_call_args_need(na); for (int k = 0; k < na; k++) CALL_ARGS[k] = args[k + 1];
+#if RT_DIAG
         rt_c2bb_hit("apply.open", pn);
+#endif
         { extern rt_call_next_t rt_call_open_found(const char *, int, int *); extern void rt_lvl_stno_stash(long, long); extern long g_stno, g_line; long sv_stno = g_stno, sv_line = g_line; int reg = 0; rt_call_next_t n = rt_call_open_found(pn, na, &reg);
           if (!(reg && n.fn)) return none;
           rt_lvl_stno_stash(sv_stno, sv_line); return n; } } }
@@ -1868,7 +1875,9 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     if (!IS_PROCVAL_BUILTIN_fn(callee) && rt_proc_is_registered(nm)) {
         extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
         rt_call_args_need(n); for (int k = 0; k < n; k++) CALL_ARGS[k] = argv[k]; rt_call_args_clear_from(n);
+#if RT_DIAG
         rt_c2bb_hit("gen_h.call_value", nm);
+#endif
         return rt_proc_call_gen_h(nm, n, hslot);
     }
     if (n == 3 && !strcmp(nm, "...")) {
@@ -1928,10 +1937,15 @@ DESCR_t rt_call_apply_gen_h(DESCR_t callee, DESCR_t lv, void **hslot) {
     return RT_GC_CALLBACK(rt_call_value_gen_h(callee, buf, n, hslot));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static FILE *cvprep_log(void) { static FILE *f = (FILE *)0; static int tried = 0; if (!tried) { const char *e = getenv("SCRIP_CV_PREP_LOG"); tried = 1; if (e && *e) { f = fopen(e, "a"); if (f) setvbuf(f, (char *)0, _IOLBF, 0); } } return f; }
 static int cvprep_trace_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_CV_PREP_TRACE"); p = ((e && *e && *e != '0') || cvprep_log()) ? 1 : 0; } return p; }
 static void cvprep_say(const char *what, const char *why, const char *nm) { if (!cvprep_trace_on()) return; FILE *f = cvprep_log(); if (!f) f = stderr; fprintf(f, "[CV-PREP] %s %s %s\n", what, why, nm ? nm : "(noname)"); if (f == stderr) fflush(f); }
 static CVSPINE_t cvprep_decline(const char *why, const char *nm) { cvprep_say("decline", why, nm); return (CVSPINE_t){ 0, 0 }; }
+#else
+#define cvprep_say(what, why, nm) ((void)0)
+#define cvprep_decline(why, nm) ((CVSPINE_t){ 0, 0 })
+#endif
 CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
     const char *nm = procval_name(callee);
@@ -2028,7 +2042,9 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
         if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; }
         rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
     rt_pl_goal_stage(kids, ar, argv, n);
+#if RT_DIAG
     rt_c2bb_hit("gen_h.pl_goal", key);
+#endif
     return rt_proc_call_gen_h(key, ar + n, hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2044,7 +2060,9 @@ DESCR_t rt_call_value_resume_h(void **hslot, int n) {
               DESCR_t *buf = (ln > 0) ? (DESCR_t *)rt_ws_alloc_descr((size_t)ln) : (DESCR_t *)0;
               n = buf ? rt_apply_unpack(argv[0], buf, ln) : 0; if (n < 0) n = 0; argv = buf; icn_call_value_deref_args(g->nm, argv, n); }
           DESCR_t v = icn_opgen_pump(g, argv, n); if (IS_FAIL_fn(v)) { ct_drop(g); *hslot = (void *)0; } return v; } }
+#if RT_DIAG
     rt_c2bb_hit("gen_h.resume_frame", "?");
+#endif
     return rt_proc_resume_frame_h(hslot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4133,6 +4151,7 @@ static int rk_list_coercion_meth(const char *m, int nargs) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
+#if RT_DIAG
     if (!strcmp(fn, "__trace_stmt") && nargs == 1) {
         extern void rt_trace_stmt(long line);
         rt_trace_stmt(IS_INT_fn(args[0]) ? (long)args[0].i : 0L);
@@ -4159,6 +4178,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         rt_trace_tap_off();
         *out = NULVCL; return 1;
     }
+#else
+    if (fn[0] == '_' && fn[1] == '_' && !strncmp(fn, "__trace_", 8)) {
+        const char *tk = fn + 8;
+        if ((!strcmp(tk, "stmt") && nargs == 1) || (!strcmp(tk, "call") && nargs >= 1) || (!strcmp(tk, "return") && (nargs == 1 || nargs == 2))) { *out = NULVCL; return 1; }
+        if ((!strcmp(tk, "value") && nargs == 2) || (!strcmp(tk, "tap_off") && nargs == 0)) { *out = NULVCL; return 1; }
+    }
+#endif
     if (!strcmp(fn, "where") && nargs == 1) {
         extern void  fh_ensure_init(void);
         extern FILE *fh_get(int);
@@ -6327,7 +6353,9 @@ DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+#if RT_DIAG
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
+#endif
     if (g_core_errjmp_n >= 64) { DESCR_t r0 = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4)); return r0; }
     int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_bi_reset(bimark); core_unwind_pending(); return FAILDESCR; }
@@ -6354,7 +6382,9 @@ static int sn4_call_in_scope(const char *fn) {
 }
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
     DESCR_t out = FAILDESCR;
+#if RT_DIAG
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
+#endif
     if (!fn) return out;
     if (fn[0] == 'S' && fn[1] == 'N' && !strcmp(fn, "SNO$NOFAIL")) { extern void rt_nofail_abort(void); rt_nofail_abort(); return out; }
     if (fn[0] == '$' && fn[1]) { if (script_try_call_builtin_by_name(fn, args, nargs, &out)) return out; out = FAILDESCR; }
@@ -7039,7 +7069,11 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
         if (in) {
             extern int comm_var_active(void); extern DESCR_t *NV_CELL_IF_FASTSET_fn(const char *);
             const int special = (in[0] == 'I' && !strcmp(in, "INPUT")) || (in[0] == 'O' && !strcmp(in, "OUTPUT")) || (in[0] == 'T' && !strcmp(in, "TERMINAL")) || (is_protected_pat_lead(in[0]) && is_protected_pat_name(in));
+#if RT_DIAG
             DESCR_t *cell = (!special && !comm_var_active()) ? NV_CELL_IF_FASTSET_fn(in) : (DESCR_t *)0;
+#else
+            DESCR_t *cell = (!special) ? NV_CELL_IF_FASTSET_fn(in) : (DESCR_t *)0;
+#endif
             *out = cell ? (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell } : (DESCR_t){ .v = DT_N, .slen = 0, .s = in };
             return 1; }
     }
@@ -7048,10 +7082,12 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     { extern const char *NV_intern_name_fn(const char *); const char *in = NV_intern_name_fn(sv);
       DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 0; d.s = in ? in : rt_heap_strdup_c(sv); *out = d; return 1; }
 }
+#if RT_DIAG
 long g_bidprof[1024]; int g_bidprof_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bidprof_dump(void) { for (int i = 0; i < 1024; i++) if (g_bidprof[i]) fprintf(stderr, "BIDPROF %d %ld\n", i, g_bidprof[i]); }
 void bidprof_init(void) { const char *e = getenv("SCRIP_BID_PROF"); g_bidprof_on = (e && e[0]=='1') ? 1 : 0; if (g_bidprof_on) atexit(bidprof_dump); }
+#endif
 int g_bidjmp_on = 1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *sort_key_cstr(DESCR_t v, char *buf, int bufsz) {
@@ -7426,9 +7462,11 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if (bidlen >= 0) { const int _fb0 = bidlen & BID_BAKE_MASK; if (_fb0 == BID_SNOx24NAME && nargs == 1) return bn_sno_name(args, nargs, out); }
     if (bidlen >= 0 && rt_dtax_gen == 0 && !dtax_off()) {
         const int _fb = bidlen & BID_BAKE_MASK;
+#if RT_DIAG
         extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void);
         if (g_bidprof_on < 0) bidprof_init();
         if (g_bidprof_on && _fb >= 0 && _fb < 1024) g_bidprof[_fb]++;
+#endif
         if (_fb == BID_SIZE)    return bn_size(args, nargs, out);
         if (_fb == BID_REPLACE) return bn_replace(args, nargs, out);
         if (_fb == BID_TRIM)    return bn_trim(args, nargs, out);
@@ -7447,7 +7485,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & BID_BAKE_MASK) : bid_of(fn, (unsigned)_fnlen);
+#if RT_DIAG
     { extern long g_bidprof[1024]; extern int g_bidprof_on; extern void bidprof_init(void); if (g_bidprof_on < 0) bidprof_init(); if (g_bidprof_on && _bid >= 0 && _bid < 1024) g_bidprof[_bid]++; }
+#endif
     { extern int rt_g_want_name;
       if (rt_g_want_name && nargs == 1 && IS_DATA_TAG_fn(args[0].v)) {
           extern const char *FUNC_ENTRY_fn(const char *); extern int rt_dat_field_of_any(const char *);
@@ -9256,7 +9296,11 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_6534: ;
     if ((_bid == BID_SNOx24STMT) && (nargs == 1 || nargs == 2 || nargs == 3)) {
         extern void rt_stmt_enter(long stno, long line);
+#if RT_DIAG
         if (!IS_INT(args[0]) && nargs == 1) { extern void rt_trace_label_hook(const char *); const char *lb = VARVAL_fn(args[0]); rt_trace_label_hook(lb ? lb : ""); *out = NULVCL; return 1; }
+#else
+        if (!IS_INT(args[0]) && nargs == 1) { *out = NULVCL; return 1; }
+#endif
         long n = IS_INT(args[0]) ? (long)args[0].i : 0;
         long ln = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
         if (n >= 0) rt_stmt_enter(n, ln);

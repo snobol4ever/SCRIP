@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "rt_diag.h"
 #include "ct_arena.h"
 #include "core.h"
 #include "sil_macros.h"
@@ -177,6 +178,7 @@ void kw_errtext_gc_root(void)
     if (g_sno_errtext) rt_gc_visit_raw(&g_sno_errtext);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static int kw_cset_plant_strong(void)
 {
     static int v = -1, said = 0;
@@ -186,15 +188,22 @@ static int kw_cset_plant_strong(void)
                                                 "ONCE PER PROCESS.\n"); }
     return v;
 }
+#endif
 void kw_cset_gc_roots(void)
 {
     extern void rt_gc_visit_raw(const char **loc);
     kw_errtext_gc_root();
     if (!g_kw_cset_names) return;
     rt_gc_visit_raw((const char **)&g_kw_cset_names);
+#if RT_DIAG
     int strong = kw_cset_plant_strong();
+#endif
     for (int i = 0; i < g_kw_cset_count; i++) {
+#if RT_DIAG
         if (!g_kw_cset_names[i].name && !strong) continue;
+#else
+        if (!g_kw_cset_names[i].name) continue;
+#endif
         if (g_kw_cset_names[i].ptr) rt_gc_visit_raw(&g_kw_cset_names[i].ptr);
         rt_gc_visit_raw(&g_kw_cset_names[i].name);
     }
@@ -612,7 +621,9 @@ void rt_stmt_enter(long stno, long line) {
     if (kw_stlimit < 0) return;
     g_stcount++;
     if (g_stcount == 1) rt_stmt_seed_code_fragment_statement_hooks();
+#if RT_DIAG
     { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_stcount, (long long)stno); }
+#endif
     if (g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

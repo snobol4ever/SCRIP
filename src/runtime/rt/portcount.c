@@ -5,6 +5,8 @@
 #include <string.h>
 #include <stdint.h>
 #include "portcount.h"
+#include "rt_diag.h"
+#if RT_DIAG
 #define PC_CHUNK 4096
 #define PC_PORTS 4
 static uint64_t ** g_pc_chunk; static long g_pc_nchunk;
@@ -119,3 +121,10 @@ __attribute__((force_align_arg_pointer)) void rt_port_counts_dump(void)
     if (!rt_port_counts_on()) return;
     rt_port_counts_report("mode-3 EXACT", 0);
 }
+#else
+int rt_port_counts_on(void) { return 0; }
+uint64_t * rt_port_counts_cell(int uid, int port, const char * label) { (void)uid; (void)port; (void)label; return NULL; }
+uint64_t * rt_port_counts_slot(int uid, int port, const char * label) { (void)uid; (void)port; (void)label; return NULL; }
+void rt_port_counts_report(const char * tag, int four) { (void)tag; (void)four; }
+__attribute__((force_align_arg_pointer)) void rt_port_counts_dump(void) { }
+#endif

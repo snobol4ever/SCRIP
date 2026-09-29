@@ -4,6 +4,8 @@
 #include <cstring>
 #include "emit.h"
 #include "portcount.h"
+#include "rt_diag.h"
+#if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plt_mode(void) {
     if (!g_emit.pl_trace_mode) {
@@ -54,3 +56,8 @@ extern "C" __attribute__((force_align_arg_pointer)) void rt_pl_port_trace(const 
     else if (target)                 fprintf(stderr, "(%lu) %ld %s: %s -> %s\n", n, depth, pn, stem ? stem : "?", target);
     else                             fprintf(stderr, "(%lu) %ld %s: %s\n", n, depth, pn, stem ? stem : "?");
 }
+#else
+extern "C" __attribute__((force_align_arg_pointer)) void rt_pl_port_trace(const char * stem, const char * target, long ev, long uid, long ball) {
+    (void)stem; (void)target; (void)ev; (void)uid; (void)ball;
+}
+#endif

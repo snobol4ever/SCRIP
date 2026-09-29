@@ -1,4 +1,5 @@
 #include "rtx_abi.inc"
+#if RT_DIAG
 RTX_FUNC(rt_zdp_anchor)
     push    rax
     pushfq
@@ -130,4 +131,14 @@ RTX_FUNC(rt_zdp_probe)
     pop     rdx
     pop     rcx
     jmp     .Lzdpp_done
+#else
+RTX_FUNC(rt_zdp_anchor)
+    ret
+RTX_FUNC(rt_zdp_origin)
+    ret
+RTX_FUNC(rt_zdp_ev)
+    ret
+RTX_FUNC(rt_zdp_probe)
+    ret
+#endif
 .section .note.GNU-stack,"",@progbits

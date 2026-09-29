@@ -156,3 +156,4 @@
 #define RTX_CALL_UNALIGN   mov rsp, [rsp + 8]
 
 #endif
+#include "../rt/rt_diag.h"

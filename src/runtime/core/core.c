@@ -2,6 +2,7 @@
 #include "ct_arena.h"
 #include "../rtx/rtcc.h"
 #include "../rt/rt_arena.h"
+#include "../rt/rt_diag.h"
 #include "sil_macros.h"
 #include "utf8.h"
 #include "../../parsers/snobol4/scrip_cc.h"
@@ -36,6 +37,7 @@ int g_call_fastpath_off = 0;
 #define MON_US "\x1f"
 #include <sys/uio.h>
 #include "../../../scripts/monitor/monitor_wire.h"
+#if RT_DIAG
 int monitor_fd  = -1;
 int monitor_ack_fd = -1;
 int monitor_ready = 0;
@@ -121,6 +123,17 @@ static void trace_unregister(const char *name, int kind) {
 static int trace_registered(const char *name) { return trace_find_any(name) != (trace_ent_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int trace_is_active(const char *name) { return trace_find(name, TRK_VALUE) != (trace_ent_t *)0; }
+#else
+int monitor_fd  = -1;
+int monitor_quiet_depth = 0;
+int g_monitor_bin = 0;
+int g_mon_max_stno = 0;
+__attribute__((visibility("hidden"))) int trace_set_n = 0;
+__attribute__((visibility("hidden"))) int g_comm_dbg = 0;
+int rt_trace_idle(void) { return 1; }
+int g_sno_etrace_n = 0;
+int trace_is_active(const char *name) { (void)name; return 0; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dump_obj_head(DESCR_t d, char *out, int n);
 static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
@@ -141,6 +154,7 @@ static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static long trace_depth_override = -1;
 static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, int kind) {
     extern int64_t kw_fnclevel; extern int rt_k_level; extern long g_line; extern const char *g_file;
@@ -177,6 +191,7 @@ static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, 
     fflush(stdout);
 }
 static void trace_print_banner(const char *name, DESCR_t value, long long stno, int kind) { trace_print_banner_args(name, (DESCR_t *)0, 0, value, stno, kind); }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void trace_image_icon_plain_f(FILE *fp, DESCR_t a) {
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
@@ -247,6 +262,7 @@ static void trace_image_icon_f(FILE *fp, DESCR_t a, int top) {
     }
     trace_image_icon_leaf_f(fp, a);
 }
+#if RT_DIAG
 static void trace_print_icon(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value) {
     extern const char *g_file; extern long g_line; extern int * const rt_k_level_p;
     extern int try_call_builtin_by_name(const char *fn, DESCR_t *a, int n, DESCR_t *out);
@@ -394,11 +410,25 @@ void rt_trace_call_hook(const char *fname) {
     for (int i = 0; i < np; i++) { const char *pn = rt_proc_pname(fname, i); a[i] = pn ? NV_GET_fn(pn) : NULVCL; }
     rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
 }
+#else
+void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override) {
+    (void)procname; (void)self_serial; (void)targ_serial; (void)x0; (void)x1; (void)kind; (void)line_override;
+}
+void rt_trace_all_set(int on) { (void)on; }
+void rt_trace_label_hook(const char *name) { (void)name; }
+void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) { (void)kw; (void)v; (void)stno; }
+void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) {
+    (void)kind; (void)name; (void)args; (void)nargs; (void)value; (void)stno;
+}
+void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { (void)kind; (void)name; (void)value; (void)stno; }
+void rt_trace_call_hook(const char *fname) { (void)fname; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n);
 icn_act_rec_t g_icn_act[ICN_ACT_CAP];
 static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
 static struct { const char *sym; int arity; DESCR_t a, b; } g_icn_op;
+#if RT_DIAG
 static int core_icn_op_plant(void) {
     static int v = -1;
     if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_ICN_OP"); v = (e && (e[0] == '1' || e[0] == '2') && !e[1]) ? e[0] - '0' : 0;
@@ -408,9 +438,14 @@ static int core_icn_op_plant(void) {
                                "moved operand is read from its old ground" : "", v); }
     return v;
 }
+#endif
 static const char *icn_basename(const char *f) { const char *bn = f ? strrchr(f, '/') : (const char *)0; return bn ? bn + 1 : (f ? f : ""); }
 void core_icn_op_ctx(const char *sym, int arity, DESCR_t a, DESCR_t b) { g_icn_op.sym = sym; g_icn_op.arity = arity; g_icn_op.a = a; g_icn_op.b = b; }
+#if RT_DIAG
 void core_icn_op_ctx_clear(void) { if (core_icn_op_plant()) return; g_icn_op.sym = (const char *)0; }
+#else
+void core_icn_op_ctx_clear(void) { g_icn_op.sym = (const char *)0; }
+#endif
 const char *core_icn_binop_sym(int bcode) {
     switch (bcode) {
         case BINOP_ADD: case BINOP_ADD_BIG: return "+"; case BINOP_SUB: case BINOP_SUB_BIG: return "-"; case BINOP_MUL: case BINOP_MUL_BIG: return "*";
@@ -461,7 +496,13 @@ int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int stri
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) { extern int rt_k_level; r->name = name; r->args = args; r->nargs = nargs; r->level = rt_k_level; r->prev = g_icn_bi_top; r->callee = NULVCL; g_icn_bi_top = r; if (!core_icn_op_plant()) g_icn_op.sym = (const char *)0; }
+#else
+void core_icn_bi_push(icn_bi_rec_t *r, const char *name, DESCR_t *args, int nargs) {
+    extern int rt_k_level; r->name = name; r->args = args; r->nargs = nargs; r->level = rt_k_level; r->prev = g_icn_bi_top; r->callee = NULVCL; g_icn_bi_top = r; g_icn_op.sym = (const char *)0;
+}
+#endif
 void core_icn_bi_pop(icn_bi_rec_t *r) { g_icn_bi_top = r->prev; }
 void *core_icn_bi_mark(void) { return (void *)g_icn_bi_top; }
 void core_icn_bi_reset(void *mark) { g_icn_bi_top = (icn_bi_rec_t *)mark; }
@@ -530,6 +571,7 @@ static void core_icn_report(int code, DESCR_t val, const char *msg) {
     core_error_voice(code, msg ? msg : icn_errmsg(code), 1, val);
     exit(1);
 }
+#if RT_DIAG
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     extern long g_stno;
     if (trace_idle()) return;
@@ -580,11 +622,19 @@ void rt_trace_resume_hook(const char *pname) {
     g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL); trace_recursion_depth--;
     g_line = save;
 }
+#else
+void rt_trace_call_hook_f(const char *fname, int np, void *base) { (void)fname; (void)np; (void)base; }
+void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line) { (void)pname; (void)lo; (void)hi; (void)line; }
+void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h) { (void)pname; (void)lo; (void)hi; (void)h; }
+void rt_trace_gen_fail_hook(const char *fname, void *h) { (void)fname; (void)h; }
+void rt_trace_resume_hook(const char *pname) { (void)pname; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_act_restore_call_line(void) {
     extern int rt_k_level; extern long g_line; extern const char *g_file;
     if (rt_k_level >= 0 && rt_k_level < ICN_ACT_CAP) { icn_act_rec_t *r = &g_icn_act[rt_k_level]; if (r->line > 0) { g_line = r->line; if (r->file) g_file = r->file; } }
 }
+#if RT_DIAG
 void rt_trace_fail_hook(const char *fname) {
     if (trace_idle()) return;
     extern long g_stno;
@@ -596,8 +646,13 @@ void rt_trace_return_hook(const char *fname, DESCR_t retval) {
     if (!trace_idle()) rt_trace_event(TRK_RETURN, fname, retval, g_stno);
     icn_act_restore_call_line();
 }
+#else
+void rt_trace_fail_hook(const char *fname) { (void)fname; }
+void rt_trace_return_hook(const char *fname, DESCR_t retval) { (void)fname; (void)retval; icn_act_restore_call_line(); }
+#endif
 int64_t kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static void mon_send(const char *kind, const char *name, const char *value) {
     if (monitor_fd < 0) return;
     if (!value) value = "";
@@ -679,6 +734,16 @@ static char  **g_bin_names      = NULL;
 static int    *g_bin_name_lens  = NULL;
 static int     g_bin_n_names    = 0;
 static int     g_bin_names_cap  = 0;
+#else
+long g_trace_budget = 0;
+void rt_trace_stmt(long line) { (void)line; }
+void rt_trace_call(const char *name, DESCR_t *args, int nargs) { (void)name; (void)args; (void)nargs; }
+void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) { (void)name; (void)retval; (void)wireval; }
+void rt_trace_return(const char *name, DESCR_t retval) { (void)name; (void)retval; }
+void rt_trace_tap_off(void) { }
+void rt_trace_value_sigil(const char *name, DESCR_t val, int hook) { (void)name; (void)val; (void)hook; }
+void rt_trace_value(const char *name, DESCR_t val) { (void)name; (void)val; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_line_cap(char **buf, size_t *cap, size_t want)
 {
@@ -712,6 +777,7 @@ ssize_t rt_line_read(char **buf, size_t *cap, FILE *f)
     return (ssize_t)n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static int load_names_file_bin(const char *path) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
@@ -915,6 +981,14 @@ void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
     }
     mon_send_bin(kind, name_id, type, vp, vlen);
 }
+#else
+void rt_mon_set_max_stno(int v) { (void)v; }
+void mon_emit_label_bin(int64_t stno) { kw_stcount = stno; }
+void sno_trace_value(const char *name, DESCR_t val) { (void)name; (void)val; }
+void sno_trace_call(const char *fname) { (void)fname; }
+void sno_trace_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
+void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) { (void)kind; (void)name; (void)val; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _arg_str(DESCR_t a, const char **out_p, int *out_len) {
     if (a.v == DT_S && a.s) {
@@ -925,6 +999,7 @@ static void _arg_str(DESCR_t a, const char **out_p, int *out_len) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static DESCR_t _mon_put_helper(DESCR_t *args, int nargs, uint32_t kind, int opaque) {
     if (nargs < 2) return FAILDESCR;
     const char *np; int nlen;
@@ -1024,6 +1099,19 @@ static DESCR_t _b_MON_CLOSE(DESCR_t *args, int nargs) {
     }
     return (DESCR_t){ .v = DT_I, .i = 0 };
 }
+#else
+static DESCR_t _b_MON_OPEN(DESCR_t *args, int nargs) { (void)args; (void)nargs; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_S_VALUE (DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_I_VALUE (DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_R_VALUE (DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_O_VALUE (DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_S_RETURN(DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_I_RETURN(DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_R_RETURN(DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_O_RETURN(DESCR_t *a, int n) { (void)a; (void)n; return FAILDESCR; }
+static DESCR_t _b_MON_PUT_CALL(DESCR_t *args, int nargs) { (void)args; (void)nargs; return FAILDESCR; }
+static DESCR_t _b_MON_CLOSE(DESCR_t *args, int nargs) { (void)args; (void)nargs; return (DESCR_t){ .v = DT_I, .i = 0 }; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _b_LOAD_stub(DESCR_t *args, int nargs) {
     if (nargs < 1) return FAILDESCR;
@@ -1045,6 +1133,7 @@ static DESCR_t _UNLOAD_(DESCR_t *a, int n) {
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static int mon_synth_name(const char *n) { static int keep = -1; if (keep < 0) { const char *e = getenv("SCRIP_MON_SYNTH"); keep = (e && *e == '1') ? 1 : 0; } return keep ? 0 : mon_name_is_internal(n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int comm_var_active(void) { return g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0; }
@@ -1117,6 +1206,13 @@ void comm_return(const char *fname, DESCR_t retval) {
     const char *s = VARVAL_fn(retval);
     mon_send("RETURN", fname, s ? s : "(fail)");
 }
+#else
+int comm_var_active(void) { return 0; }
+void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook) { (void)name; (void)val; (void)file; (void)line; (void)stno; (void)hook; }
+void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { (void)name; (void)val; (void)file; (void)line; (void)stno; }
+void comm_call(const char *fname) { (void)fname; }
+void comm_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
+#endif
 int64_t kw_fullscan = 0;
 int64_t kw_maxlngth = 524288;
 int64_t kw_anchor   = 0;
@@ -1516,6 +1612,7 @@ void rt_terminal_to_file(const char *path) {
     _io_chan[c].fp = f; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
     _io_chan[c].varname = rt_heap_strdup_c("TERMINAL"); g_call_fastpath_off = 1; _io_var_refresh("TERMINAL");
 }
+#if RT_DIAG
 static int sno_name_is_output_assoc(const char *name) {
     if (!name || !name[0]) return 0;
     if (strcmp(name, "OUTPUT") == 0 || strcmp(name, "TERMINAL") == 0) return 1;
@@ -1523,6 +1620,7 @@ static int sno_name_is_output_assoc(const char *name) {
     int ch = _io_chan_find_by_var(name);
     return ch >= 0 && _io_chan[ch].is_output;
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch) {
     _io_chan_setup();
@@ -2129,6 +2227,7 @@ static DESCR_t _DUMP_(DESCR_t *a, int n) {
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static DESCR_t _TRACE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     char ebuf[256]; long eid = 0;
@@ -2166,6 +2265,10 @@ static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     etrace_recount();
     return STRVAL(rt_heap_strdup_c(varname));
 }
+#else
+static DESCR_t _TRACE_(DESCR_t *a, int n) { (void)a; (void)n; return NULVCL; }
+static DESCR_t _STOPTR_(DESCR_t *a, int n) { (void)a; (void)n; return NULVCL; }
+#endif
 static DATBLK_t *_udef_lookup(const char *name);
 typedef struct { char *typename; int nfields; char **fields; } DataClosure;
 typedef struct { char *typename; char *fieldname; } FieldClosure;
@@ -2545,6 +2648,7 @@ void core_lib_init(void) {
     if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs); g_user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts);
       _g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
+#if RT_DIAG
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
     if (mon_fifo && mon_fifo[0]) {
         monitor_fd = open(mon_fifo, O_WRONLY | O_NONBLOCK);
@@ -2584,6 +2688,7 @@ void core_lib_init(void) {
             atexit(mon_at_exit);
         }
     }
+#endif
     extern void register_fn(const char *, DESCR_t (*)(DESCR_t*, int), int, int);
     register_fn("GT",       _GT_,       2, 2);
     register_fn("LT",       _LT_,       2, 2);
@@ -2724,7 +2829,9 @@ void core_lib_init(void) {
     NV_SET_fn("FAIL",    pat_fail());
     NV_SET_fn("REM",     pat_rem());
     NV_SET_fn("SUCCEED", pat_succeed());
+#if RT_DIAG
     monitor_ready = 1;
+#endif
     DEFDAT_fn("tree(t,v,n,c)");
     register_fn("c", _b_tree_c, 1, 1);
     register_fn("t", _b_tree_t, 1, 1);
@@ -3283,6 +3390,7 @@ static void _var_init(void) {
     { extern void rt_dump_atexit_arm(void); rt_dump_atexit_arm(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 int mon_cell_is_named(void *cellp) {
     if (!cellp) return 0;
     for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VBR(h); e; e = e->next) if ((void *)e->cell == cellp || (void *)&e->val == cellp) return 1;
@@ -3295,6 +3403,10 @@ void mon_tap_cell_store(void *cellp, DESCR_t val) {
         if ((void *)e->cell == cellp || (void *)&e->val == cellp) { if (getenv("SCRIP_TAP_DBG")) fprintf(stderr, "[TAP] cell-store name=%s ready=%d quiet=%d ktr=%lld\n", e->name, monitor_ready, monitor_quiet_depth, (long long)kw_trace); comm_var(e->name, val, stmt_src_get_file(), 0, 0); return; }
     if (getenv("SCRIP_TAP_DBG")) { DESCR_t *c = (DESCR_t *)cellp; fprintf(stderr, "[TAP] cell-store UNRESOLVED cellp=%p v=%d slen=%u s=%.24s\n", cellp, (int)(c ? (int)((unsigned char)c->v) : -1), c ? c->slen : 0, (c && (c->v == 2 || c->v == 0) && c->s) ? c->s : "?"); }
 }
+#else
+int mon_cell_is_named(void *cellp) { (void)cellp; return 0; }
+void mon_tap_cell_store(void *cellp, DESCR_t val) { (void)cellp; (void)val; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s, size_t n) {
     uint64_t h = 0x9E3779B97F4A7C15ull ^ (uint64_t)n, w = 0;
@@ -3402,7 +3514,9 @@ static DESCR_t NV_GET_untapped(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_GET_fn(const char *name) {
     DESCR_t v = NV_GET_untapped(name);
+#if RT_DIAG
     if (trace_access_n != 0 && name && *name) { extern long g_stno; rt_trace_event(TRK_ACCESS, name, v, (long long)g_stno); }
+#endif
     return v;
 }
 int g_protected_pat_vars_armed = 0;
@@ -3416,7 +3530,9 @@ __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
+#if RT_DIAG
     { static int _xd = -1; if (_xd) { if (_xd < 0) _xd = getenv("SCRIP_EXPR_STORE_DBG") ? 1 : 0; if (_xd && name && name[0] == 'E' && name[1] == 'X' && name[2] == 'P' && name[3] == 'R' && name[4] == '$') { extern int rt_g_ret_by_name, rt_g_want_name; fprintf(stderr, "[XSTORE] %s val.v=%d byn=%d wn=%d\n", name, (int)val.v, rt_g_ret_by_name, rt_g_want_name); } } }
+#endif
     if (!_var_init_done) _var_init();
     if (val.v == DT_S) rt_sxt_break_fast(val.s);
     if (g_protected_pat_vars_armed && name && is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) {
@@ -3424,7 +3540,11 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
+#if RT_DIAG
     { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2); return val; } }
+#else
+    { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; return val; } }
+#endif
     _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
@@ -3476,11 +3596,15 @@ nv_store: ;
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
             if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;
+#if RT_DIAG
             comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2);
+#endif
             return val;
         }
     }
+#if RT_DIAG
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
+#endif
     NV_t *e = rt_wsb_alloc(sizeof(NV_t));
     e->name = rt_heap_strdup_c(name);
     e->val  = val;
@@ -3491,14 +3615,27 @@ nv_store: ;
     if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
     e->next = VB(h);
     VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
+#if RT_DIAG
     comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2);
+#endif
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
 int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
 DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
+#if RT_DIAG
 DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = VB(h); VB(h) = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
+#else
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
+    _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
+    unsigned h = _var_hash(name);
+    for (NV_t *e = VBR(h); e; e = e->next)
+        if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
+    NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = VB(h); VB(h) = e; g_nv_memo_gen++;
+    return val;
+}
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *NV_intern_name_n(const char *s, size_t n) {
     if (!s || n == 0 || n >= 0xFFFFFFFFu || memchr(s, 0, n)) return (const char *)0;
@@ -3534,7 +3671,9 @@ DESCR_t *NV_PTR_fn(const char *name) {
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next)
         if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
+#if RT_DIAG
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
+#endif
     NV_t *e = rt_wsb_alloc(sizeof(NV_t));
     e->name = rt_heap_strdup_c(name);
     e->val  = NULVCL;
@@ -3734,6 +3873,7 @@ static void dump_contents(void) {
 static void kw_dump_emit(const char *name, DESCR_t v) { dump_putc('&'); dump_puts(name); dump_puts(" = "); dump_val(v); dump_nl(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static int etrace_var_name_ok(const char *nm) { return nm && nm[0] && nm[0] != '&' && nm[0] != '_' && !strchr(nm, '$'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) {
@@ -3786,6 +3926,9 @@ void rt_sno_elem_store_trace(DESCR_t var, DESCR_t val) {
     { trace_ent_t *ee = trace_find(eb, TRK_VALUE); if (!ee || ee->eid != eid) return; }
     rt_trace_event(TRK_VALUE, eb, val, (long long)g_stno);
 }
+#else
+void rt_sno_elem_store_trace(DESCR_t var, DESCR_t val) { (void)var; (void)val; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void var_dump(void) {
     extern long g_dump;
@@ -3836,22 +3979,28 @@ void NPUSH_fn(void) {
             _nhome[++_nhome_top] = _ntop;
         }
     }
+#if RT_DIAG
     fprintf(stderr, "SEQ%04d NPUSH depth=%d top=%lld\n",
             ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NINC_fn(void) {
     if (_ntop >= 0) _nstack[_ntop]++;
+#if RT_DIAG
     fprintf(stderr, "SEQ%04d NINC  depth=%d top=%lld\n",
             ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NDEC_fn(void) { if (_ntop >= 0) _nstack[_ntop]--; }
 int64_t ntop(void) { return (_ntop >= 0) ? _nstack[_ntop] : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void NPOP_fn(void) {
+#if RT_DIAG
     fprintf(stderr, "SEQ%04d NPOP  depth=%d top=%lld\n",
             ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
+#endif
     if (_ntop >= 0) _ntop--;
 }
 static int    _vstop = -1;
@@ -4280,8 +4429,10 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
         DESCR_t r = g_user_call_hook(name, args, nargs);
         if (!IS_FAIL_fn(r)) return r;
     }
+#if RT_DIAG
     if (getenv("SCRIP_DEBUG_APPLY"))
         fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
+#endif
     core_runtime_error(22, "Undefined function called");
     return FAILDESCR;
 }
@@ -4751,8 +4902,10 @@ void core_gc_roots(void)
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
     extern void rt_gc_visit_raw_in(const char **loc, const void *holder);
+#if RT_DIAG
     if (g_bin_names) { rt_gc_visit_raw((const char **)&g_bin_names); rt_gc_visit_raw((const char **)&g_bin_name_lens);
         for (int i = 0; i < g_bin_n_names; i++) if (g_bin_names[i]) rt_gc_visit_raw_in((const char **)&g_bin_names[i], g_bin_names); }
+#endif
     for (int i = 0; i < IO_CHAN_MAX; i++) if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
     gv_gc_root(&g_var_buckets);
     for (unsigned b = 0; b < _var_nbuckets; b++) {
@@ -4777,11 +4930,15 @@ void core_gc_roots(void)
             for (int i = 0; i < t->nfields; i++) if (t->fields[i]) rt_gc_visit_raw_in((const char **)&t->fields[i], t->fields); }
         if (t->next) rt_gc_visit_raw_in((const char **)&t->next, t); }
     rt_gc_visit_descr(&g_icn_errvalue);
+#if RT_DIAG
     if (core_icn_op_plant() != 2) { rt_gc_visit_descr(&g_icn_op.a); rt_gc_visit_descr(&g_icn_op.b); }
     for (int i = 0; i < TRACE_TAB_CAP; i++) if (trace_tab[i].used) {
         if (trace_tab[i].name) rt_gc_visit_raw((const char **)&trace_tab[i].name);
         if (trace_tab[i].tag)  rt_gc_visit_raw((const char **)&trace_tab[i].tag);
         if (trace_tab[i].cbfn) rt_gc_visit_raw((const char **)&trace_tab[i].cbfn);
     }
+#else
+    rt_gc_visit_descr(&g_icn_op.a); rt_gc_visit_descr(&g_icn_op.b);
+#endif
 }
 int core_icn_int_ok_d(DESCR_t d) { return core_icn_int_ok(d); }

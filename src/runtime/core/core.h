@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "descr.h"
+#include "../rt/rt_diag.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
 int kw_cset_len(const char *ptr);
@@ -278,7 +279,11 @@ void rt_trace_return(const char *name, DESCR_t retval);
 void rt_trace_value(const char *name, DESCR_t val);
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
 extern int g_comm_dbg; extern int trace_set_n; extern int monitor_fd; extern long g_trace; extern int64_t kw_trace; extern int64_t kw_ftrace;
+#if RT_DIAG
 #define rt_trace_layer_idle() (g_comm_dbg == 0 && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && kw_ftrace <= 0 && g_trace == 0)
+#else
+#define rt_trace_layer_idle() (1)
+#endif
 typedef enum { TRK_VALUE = 0, TRK_ACCESS, TRK_LABEL, TRK_KEYWORD, TRK_FUNCTION, TRK_CALL, TRK_RETURN, TRK_SUSPEND, TRK_RESUME } trace_kind_t;
 void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line);
 void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h);

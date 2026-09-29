@@ -11,6 +11,8 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include "bbprof.h"
+#include "rt_diag.h"
+#if RT_DIAG
 typedef struct { uintptr_t lo, hi; int32_t nid, kind, uid; uint64_t direct, viac; } bbprof_e;
 static bbprof_e *g_tab; static int g_n, g_cap, g_sorted, g_armed;
 static bbprof_e *g_live_tab; static int g_live_n, g_late_n;
@@ -151,3 +153,9 @@ void bbprof_report(void)
       } }
     ct_drop(rank);
 }
+#else
+int bbprof_on(void) { return 0; }
+void bbprof_record(int nid, int kind, int uid, void *lo, void *hi) { (void)nid; (void)kind; (void)uid; (void)lo; (void)hi; }
+void bbprof_start(void) { }
+void bbprof_report(void) { }
+#endif

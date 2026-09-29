@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "ct_vec.h"
+#include "rt_diag.h"
+#if RT_DIAG
 __attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rsp = 0UL;
 __attribute__((visibility("hidden"))) unsigned long g_zdp_anchor_rbp = 0UL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -169,6 +171,9 @@ void rt_zdp_sm_event(unsigned long node, unsigned long rbp, unsigned long rsp, l
             else if (g_zsm_violations <= 8UL) fprintf(stderr, "[ZSM] ω· node=%lu rsp still %ld low vs α -- counted (frameless arm)\n", node, (long)(e->rsp_a - rsp)); }
     }
 }
+#else
+void rt_zdp_sm_init(void) { }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_bomb(const char *msg)
 {

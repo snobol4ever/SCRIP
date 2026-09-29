@@ -25,7 +25,9 @@ RTX_FUNC(rt_gcheap_alloc)
     sub     rsi, rcx
     mov     [rdx + 0], rax
     add     qword ptr [rdx + 56], rcx
+#if RT_DIAG
     add     qword ptr [rdx + 16], 1
+#endif
     cmp     di, DT_S
     jne     .Lga_counted
     add     qword ptr [rdx + 64], rcx

@@ -28,12 +28,14 @@ RTX_FUNC(rt_table_assign_fast)
     mov     rax, qword ptr [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lta_c
+#if RT_DIAG
     mov     rax, qword ptr [rip + g_sno_etrace_n@GOTPCREL]
     cmp     dword ptr [rax], 0
     jne     .Lta_c
     mov     rax, qword ptr [rip + g_trace_budget@GOTPCREL]
     cmp     qword ptr [rax], 0
     jne     .Lta_c
+#endif
     RTX_SAVE
     push    rdi
     push    rsi

@@ -48,16 +48,21 @@ static char *g_hp_cap_end = (char *)0;
 static size_t g_hp_chunk = 0;
 static long g_hp_sw_win_kb = 0, g_hp_sw_cap_kb = 0;
 void rt_heap_size_set(long win_kb, long cap_kb) { if (win_kb > 0) g_hp_sw_win_kb = win_kb; if (cap_kb > 0) g_hp_sw_cap_kb = cap_kb; }
+#if RT_DIAG
 static long g_hp_capped = 0;
 static long g_hp_grown = 0;
 static long g_hp_grows = 0;
+#endif
 static long g_hp_live = 0;
 static int   g_hp_report_reg = 0;
 static void gc_static_segs_init(void);
+#if RT_DIAG
 static void gc_birth_record(char *at, uint64_t total, uint16_t type, void *ra_site, void *ra_from, void **fp_from);
+#endif
 static char *gc_stack_top(void);
 static int gc_ceiling_on(void);
 static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo);
+#if RT_DIAG
 typedef struct gc_vac_t { char *at; char *fwd; uint32_t size; uint32_t gen; uint16_t type; uint16_t pad; long serial; void *ra_site; void *ra_from; } gc_vac_t;
 static gc_vac_t *g_gc_vac = (gc_vac_t *)0;
 static long g_gc_vacn = 0, g_gc_vaccap = 0, g_gc_vacover = 0, g_gc_vacgen = 0;
@@ -74,10 +79,15 @@ static long g_hp_qgen = 0, g_hp_qarm = 0, g_hp_qbytes = 0;
 static void gc_quar_release(char *need_end);
 static void gc_quar_arm(char *lo);
 static void gc_fr_line_sync(void) { g_hp_fr.line = (g_hp_qlo && g_hp_qlo < g_hp_gcline) ? g_hp_qlo : g_hp_gcline; }
+#else
+static void gc_fr_line_sync(void) { g_hp_fr.line = g_hp_gcline; }
+#endif
 int g_gc_pending;
+#if RT_DIAG
 static long g_gc_polls = 0;
 static const char *g_gc_top_graph = (const char *)0;
 static const char *g_gc_poll_site = (const char *)0;
+#endif
 extern long g_line;
 static int g_gc_in;
 __attribute__((visibility("hidden"))) rt_sxt_fr_t g_sxt_fr = { (char *)0, 0, 0, -1 };
@@ -140,7 +150,9 @@ char *rt_sxt_extend(char *s, long al, long bl)
     if (want > h->size) {
         uint64_t d = want - h->size;
         if (g_hp_top + d > g_hp_end) { g_sxt_owner = (char *)0; return (char *)0; }
+#if RT_DIAG
         gc_quar_release(g_hp_top + d);
+#endif
         h->size = (uint32_t)want;
         g_hp_top += d; g_hp_fr.alloc_total += (long)d; g_hp_fr.alloc_str += (long)d;
     }
@@ -148,6 +160,7 @@ char *rt_sxt_extend(char *s, long al, long bl)
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 long rt_gcheap_verify(void)
 {
     long n = 0;
@@ -173,6 +186,9 @@ static void rt_gcheap_report(void)
     long live = rt_gcheap_verify();
     fprintf(stderr, "[ZHP] arena=%ldKB reserve=%ldMB collections=%ld blocks=%ld(alloc'd)=%ld(walked) bytes=%ld capped=%ld grew=%ldKB cap=%ldKB grows=%ld verify=OK\n", win_kb, rsv_mb, rt_gc_runs_count(), g_hp_blocks, live, g_hp_arena ? (long)(g_hp_top - g_hp_arena) : 0L, g_hp_capped, (long)(g_hp_grown >> 10), (g_hp_cap_end && g_hp_arena) ? (long)((size_t)(g_hp_cap_end - g_hp_arena) >> 10) : 0L, g_hp_grows);
 }
+#else
+long rt_gcheap_verify(void) { return 0; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_huge_advise(char *a0, char *e0)
 {
@@ -181,7 +197,9 @@ static void gc_huge_advise(char *a0, char *e0)
     { uintptr_t a = ((uintptr_t)a0 + 0x1FFFFFu) & ~(uintptr_t)0x1FFFFFu, e = ((uintptr_t)e0) & ~(uintptr_t)0x1FFFFFu; if (e > a) madvise((void *)a, (size_t)(e - a), MADV_HUGEPAGE); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static void rt_gcheap_cap_hit(uint64_t need);
+#endif
 _Static_assert(sizeof(long) == 8, "THE LINE FOLLOWS THE TOP AND THE WINDOW FOLLOWS THE LIVE SET (cto, 2026-09-23, row gc-heap-growth-...; hq_icon's geddump measured 128 KB timing out past 15 s against 0.115 s at the 4096 KB cap): the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, fifteen sixteenths of what is free -- half until CEO-1264) at init, after every grow and after every collection -- a line fixed at half the STARTING window made every poll collect once the live set outgrew it -- and a grow commits the larger of the request and the committed size whenever the last collection left the window more than half live, else the request alone; still lazy, still one mprotect per grow, still nothing past the cap");
 static void rt_gcheap_line_reset(void)
 {
@@ -193,7 +211,11 @@ static void rt_gcheap_line_reset(void)
 static int rt_gcheap_grow(uint64_t need)
 {
     size_t left = (size_t)(g_hp_cap_end - g_hp_end);
+#if RT_DIAG
     if (!left) { rt_gcheap_cap_hit(need); return 0; }
+#else
+    if (!left) return 0;
+#endif
     { size_t want = (size_t)need + sizeof(rt_hblk_t), committed = (size_t)(g_hp_end - g_hp_arena); want = (want + 0xFFFu) & ~(size_t)0xFFFu;
       if ((size_t)g_hp_live * 2u > committed && want < committed) want = committed;
       if (want < g_hp_chunk) want = g_hp_chunk;
@@ -201,17 +223,23 @@ static int rt_gcheap_grow(uint64_t need)
       if (mprotect(g_hp_end, want, PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[ZHP] lazy commit refused %ld KB at %p under a %ld KB hard cap\n", (long)(want >> 10), (void *)g_hp_end, (long)((g_hp_cap_end - g_hp_arena) >> 10)); return 0; }
       gc_huge_advise(g_hp_end, g_hp_end + want);
       g_hp_end += want;
+#if RT_DIAG
       g_hp_grown += (long)want; g_hp_grows++;
+#endif
       rt_gcheap_line_reset();
+#if RT_DIAG
       if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZHP] lazy commit -> %ld KB of a %ld KB hard cap (committed %ld KB total)\n", (long)((g_hp_end - g_hp_arena) >> 10), (long)((g_hp_cap_end - g_hp_arena) >> 10), (long)(g_hp_grown >> 10));
+#endif
       return 1; }
 }
+#if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_cap_hit(uint64_t need)
 {
     if (g_hp_capped++) return;
     fprintf(stderr, "[ZHP] HARD CAP REACHED: %ld KB is committed, THE CAP IS %ld KB AND THE HEAP DOES NOT EXTEND PAST IT (Lon 2026-09-21, in-chat to the ceo, verbatim: \"Place a hard cap on the GC HEAP. Do not extend it.\" and \"Do however use the lazy instantiation of memory as the heap grows.\"; ceo CEO-1101). Memory inside the cap is instantiated LAZILY, a page at a time, as the heap grows into it; there is NOTHING BEYOND THE CAP -- the old 8x reserve is what let a point DECLARED at 64 KB grow to 2 MB and read as a 2 MB measurement wearing a 64 KB label (ceo CEO-1100, coo COO-139). A collection is ARMED for the next safe point and this request wanted %llu bytes; if the run now dies exhausted, read the distance to the next SAFE POINT before reading the size of the cap.\n", (long)((g_hp_end - g_hp_arena) >> 10), (long)((g_hp_cap_end - g_hp_arena) >> 10), (unsigned long long)need);
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gcheap_init(void)
 {
@@ -238,7 +266,9 @@ static void rt_gcheap_init(void)
     g_hp_virgin = g_hp_arena;
     rt_gcheap_line_reset();
     gc_static_segs_init();
+#if RT_DIAG
     { const char *b = getenv("SCRIP_GC_BIRTH_LEDGER"); if (b && *b && *b != '0') (void)gc_vac_ledger(); }
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
@@ -254,10 +284,13 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     if (fresh) { }
     else if (!zfull && pay > 32 && (type == (uint16_t)DT_S || type == HB_WSC)) memset((char *)(h + 1) + (pay - 32), 0, 32);
     else memset((void *)(h + 1), 0, (size_t)pay);
+#if RT_DIAG
     g_hp_blocks += 1;
     gc_birth_record(at, total, type, __builtin_return_address(1), __builtin_return_address(2), (void **)((void **)__builtin_frame_address(0))[0]);
+#endif
     return (void *)(h + 1); }
 }
+#if RT_DIAG
 static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_reg = 0;
 __attribute__((visibility("hidden"))) int g_ah_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -297,18 +330,31 @@ static long gc_plant_pin_type(void)
     if (t == -2) { const char *e = getenv("SCRIP_GC_PLANT_PIN_TYPE"); t = (e && *e) ? atol(e) : -1; }
     return t;
 }
+#else
+void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes) { (void)ra; (void)type; (void)bytes; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int g_alloc_detax = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
 {
+#if RT_DIAG
     if (g_alloc_detax == 1 && g_ah_on <= 0) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) g_gc_pending = 1; if (g_hp_top + tf <= g_hp_end) { if (g_hp_qlo) gc_quar_release(g_hp_top + tf); { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } } }
     if (g_ah_on > 0) { unsigned t = (unsigned)type & 511u; g_ah_tn[t] += 1; g_ah_tb[t] += (long)payload_bytes; }
+#else
+    if (g_alloc_detax == 1) { uint64_t tf = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull); if (g_hp_gcline && !g_gc_in && g_hp_top + tf > g_hp_gcline) g_gc_pending = 1;
+        if (g_hp_top + tf <= g_hp_end) { { void *rf = rt_gcheap_carve(g_hp_top, tf, type); g_hp_top += tf; return rf; } } }
+#endif
     uint64_t total = sizeof(rt_hblk_t) + ((payload_bytes + 15u) & ~15ull);
     void *r;
+#if RT_DIAG
     static long stress_n = -1, stress_c = 0;
     if (!g_hp_report_reg) { g_hp_report_reg = 1; atexit(rt_gcheap_report); }
+#else
+    if (!g_hp_report_reg) g_hp_report_reg = 1;
+#endif
     if (!g_hp_arena) rt_gcheap_init();
+#if RT_DIAG
     if (stress_n < 0) { const char *e = getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
     if (stress_n > 0 && ++stress_c >= stress_n) { stress_c = 0; g_gc_pending = 1; }
     { static long since = 0, budget = -1;
@@ -316,9 +362,17 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
       if (!g_alloc_detax) g_alloc_detax = (stress_n == 0 && budget == 0 && g_ah_on <= 0 && !gc_birth_on() && g_hp_arena && g_hp_report_reg) ? 1 : -1;
       g_hp_fr.armed = (g_alloc_detax == 1 && g_ah_on <= 0 && !gc_birth_on()) ? 1 : 0;
       if (budget) { since += (long)total; if (since >= budget && (g_hp_top - g_hp_arena) * 2 >= (g_hp_end - g_hp_arena)) { since = 0; g_gc_pending = 2; } } }
+#else
+    if (!g_alloc_detax) g_alloc_detax = (g_hp_arena && g_hp_report_reg) ? 1 : -1;
+    g_hp_fr.armed = (g_alloc_detax == 1) ? 1 : 0;
+#endif
     if (g_hp_gcline && !g_gc_in && g_hp_top + total > g_hp_gcline && g_hp_top + total <= g_hp_end) g_gc_pending = 1;
     if (g_hp_top + total > g_hp_end && g_hp_win + total > g_hp_wend) { g_gc_pending = 1; rt_gcheap_grow(total); }
+#if RT_DIAG
     if (g_hp_top + total <= g_hp_end) { if (g_hp_qlo) gc_quar_release(g_hp_top + total); r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
+#else
+    if (g_hp_top + total <= g_hp_end) { r = rt_gcheap_carve(g_hp_top, total, type); g_hp_top += total; return r; }
+#endif
     if (g_hp_win + total <= g_hp_wend) {
         uint64_t avail = (uint64_t)(g_hp_wend - g_hp_win);
         if (avail - total == sizeof(rt_hblk_t)) total += sizeof(rt_hblk_t);
@@ -327,14 +381,18 @@ void *c_rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes)
         if (g_hp_win < g_hp_wend) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_win; fl->fwd = 0; fl->size = (uint32_t)(g_hp_wend - g_hp_win); fl->type = HB_FILL; fl->flags = HBF_TTL; }
         return r;
     }
+#if RT_DIAG
     fprintf(stderr, "[ZHP] heap exhausted AT THE HARD CAP (%ld KB cap, %ld KB committed lazily so far, %ld blocks live, cap hit %ld times, COLLECTIONS RUN %ld) -- THIS REQUEST wanted %llu payload bytes (%llu with the header) of block kind %u. THE HEAP DOES NOT EXTEND ON LON'S ORDER, so this is one of exactly three things and never a fourth: a CORRUPTED LENGTH (a size computed from a pointer a collection moved asks for the world -- read the size FIRST), a MISSING SAFE POINT between this allocation and the last one (the collection is armed and never ran), or a live set that genuinely does not fit the window THIS RUN NAMED. SCRIP_HEAP_MAX_MB and SCRIP_HEAP_CAP_KB name the CAP ITSELF rather than a reserve above the window. \342\233\224 READ COLLECTIONS RUN FIRST: AN ABORT WITH ZERO COLLECTIONS IS NEVER A CAPACITY VERDICT -- nothing was ever reclaimed, so the cap was never full of LIVE data, and the cause is a MISSING SAFE POINT between two allocations. Capacity means the collector RAN, reclaimed what it could, and the survivors still did not fit (ceo CEO-1101, the classification the coo's item-4 rail buckets on).\n", (long)((g_hp_cap_end - g_hp_arena) >> 10), (long)((g_hp_end - g_hp_arena) >> 10), g_hp_blocks, g_hp_capped, rt_gc_runs_count(), (unsigned long long)payload_bytes, (unsigned long long)total, (unsigned)type);
+#endif
     { extern void rt_heap_out_of_memory(unsigned, unsigned long long, long, long); rt_heap_out_of_memory((unsigned)type, (unsigned long long)payload_bytes, (long)((g_hp_cap_end - g_hp_arena) >> 10), (long)((g_hp_end - g_hp_arena) >> 10)); }
     abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 char *c_rt_str_alloc(long n)
 {
+#if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)DT_S, 0);
+#endif
     long want = (n < 0 ? 0 : n) + 1;
     _Static_assert(DT_S < HB_ZCOL, "value-world heap types carry DTYPE_t verbatim: DT_S is the ONLY DTYPE_t ever passed as a block type (every other caller passes HB_*), so the invariant is that it can never be mistaken for one -- it is NOT that DT_S holds any particular value. This assert read DT_S == 1 until s230, which pinned an incidental number instead of the property its own message names, and therefore fired on the TAG-3 class-bit renumber while the property still held.");
     return (char *)rt_gcheap_alloc((uint16_t)DT_S, (uint64_t)want);
@@ -351,7 +409,9 @@ char *rt_str_dup(const char *s)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_wsb_alloc(size_t n)
 {
+#if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WSB, (uint64_t)n);
+#endif
     return rt_gcheap_alloc((uint16_t)HB_WSB, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -359,7 +419,9 @@ void *rt_ws_alloc_descr(size_t n)
 {
     size_t b = (n ? n : 1) * sizeof(DESCR_t);
     void *q;
+#if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_DVEC, (uint64_t)b);
+#endif
     q = rt_gcheap_alloc((uint16_t)HB_DVEC, (uint64_t)b);
     if (q) memset(q, 0, b);
     return q;
@@ -367,14 +429,18 @@ void *rt_ws_alloc_descr(size_t n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_heap_alloc_c(size_t n)
 {
+#if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_WSC, 0);
+#endif
     return rt_gcheap_alloc((uint16_t)HB_WSC, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_struct_alloc(uint16_t type, size_t n)
 {
     if (type < HB_PLDB || type > HB_PLDBK) abort();
+#if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), type, (uint64_t)n);
+#endif
     return rt_gcheap_alloc(type, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -382,7 +448,9 @@ void *rt_pvec_alloc(size_t n)
 {
     size_t b = (n ? n : 1) * sizeof(void *);
     void *q;
+#if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), (uint16_t)HB_PVEC, (uint64_t)b);
+#endif
     q = rt_gcheap_alloc((uint16_t)HB_PVEC, (uint64_t)b);
     if (q) memset(q, 0, b);
     return q;
@@ -399,22 +467,34 @@ void *rt_pvec_realloc(void *p, size_t n)
 void *rt_pm_struct_alloc(uint16_t type, size_t n)
 {
     if (type < HB_DTP || type > HB_DTPRCP) abort();
+#if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), type, (uint64_t)n);
+#endif
     return rt_gcheap_alloc(type, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_raw(const char **loc);
 void *rt_gcheap_grow_block(void *p, uint16_t type, uint64_t n)
 {
+#if RT_DIAG
     static long stress_n = -1;
+#endif
     if (!p) { void *q = c_rt_gcheap_alloc(type, n ? n : 1); memset(q, 0, (size_t)(n ? n : 1)); return q; }
     { rt_hblk_t *h = (rt_hblk_t *)p - 1; uint64_t old = (uint64_t)h->size - sizeof(rt_hblk_t);
       if (n <= old) return p;
+#if RT_DIAG
       if (stress_n < 0) { const char *e = getenv("SCRIP_GC_STRESS"); stress_n = e ? atol(e) : 0; }
+#endif
       { uint64_t total = sizeof(rt_hblk_t) + ((n + 15u) & ~15ull); uint64_t delta = total - (uint64_t)h->size;
-        if (stress_n == 0 && g_ah_on <= 0 && !g_gc_in && (char *)h + h->size == g_hp_top && g_hp_top + delta <= g_hp_end && total <= 0xFFFFFFFFull) {
+        if (
+#if RT_DIAG
+            stress_n == 0 && g_ah_on <= 0 &&
+#endif
+            !g_gc_in && (char *)h + h->size == g_hp_top && g_hp_top + delta <= g_hp_end && total <= 0xFFFFFFFFull) {
             if (g_hp_gcline && g_hp_top + delta > g_hp_gcline) g_gc_pending = 1;
+#if RT_DIAG
             if (g_hp_qlo) gc_quar_release(g_hp_top + delta);
+#endif
             memset(g_hp_top, 0, (size_t)delta); h->size = (uint32_t)total; g_hp_top += delta; g_hp_fr.alloc_total += (long)delta;
             return p; } }
       { void *q = c_rt_gcheap_alloc(type, n); memcpy(q, p, (size_t)old); memset((char *)q + old, 0, (size_t)(n - old)); return q; } }
@@ -450,7 +530,9 @@ void gv_gc_root(gv_t *v) { if (v->p) rt_gc_visit_raw((const char **)&v->p); }
 void *c_rt_agg_alloc(int kind, size_t n)
 {
     uint16_t ty = (uint16_t)(HB_AGGV + (kind < 0 ? 0 : (kind > 2 ? 2 : kind)));
+#if RT_DIAG
     if (g_alloc_detax != 1 && rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), ty, (uint64_t)n);
+#endif
     return rt_gcheap_alloc(ty, (uint64_t)(n ? n : 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -482,7 +564,11 @@ typedef struct gc_slot_t { rt_hblk_t *hloc; uintptr_t off; rt_hblk_t *tgt; } gc_
 static gc_slot_t *g_gc_slots = (gc_slot_t *)0;
 static long g_gc_nslot = 0, g_gc_scap = 0;
 static int g_gc_in = 0;
+#if RT_DIAG
 static long g_gc_runs = 0, g_gc_interior = 0;
+#else
+static long g_gc_runs = 0;
+#endif
 static char *g_gc_stktop = (char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GCBK_MAGIC 0x5a47424b48445200ull
@@ -498,15 +584,22 @@ static void *gcbk_alloc(size_t n)
     return (void *)((uint8_t *)h + sizeof(gcbk_head_t));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static size_t gc_pg(void)
 {
     static size_t pg = 0;
     if (!pg) { long v = sysconf(_SC_PAGESIZE); pg = (v > 0) ? (size_t)v : (size_t)4096; }
     return pg;
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(sizeof(int) == 4, "THE COLLECTOR'S SELF-CHECKS ARE DIAGNOSTICS AND ONE SWITCH TURNS THEM ALL OFF (Lon 2026-09-25, in-chat to the ceo, verbatim: \"Why must there be a heap check at every collection? That seems to be diagnostic. Can the be turned off by a switch?\" and \"For benchmarks turn off all diagnostic code.\"; ceo CEO-1262): SCRIP_DIAG=0 turns off the heap check at every collection (rt_gcheap_verify), the 0xDB poison of vacated ground, the stale-read quarantine and its ledger, and the compiled node-id stores; each keeps its own switch (SCRIP_GC_VERIFY, SCRIP_GC_POISON, SCRIP_GC_TRAP, SCRIP_DIAG_REGS), which wins when set; unset, every diagnostic stays on, so every test runs with them and every benchmark driver exports SCRIP_DIAG=0");
+#if RT_DIAG
 static int gc_diag_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DIAG"); v = (e && *e == '0') ? 0 : 1; } return v; }
+#else
+static int gc_diag_on(void) { return 0; }
+#endif
+#if RT_DIAG
 static int gc_verify_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_VERIFY"); v = (e && *e) ? (*e != '0') : gc_diag_on(); } return v; }
 static int gc_telem_on(void) { static int v = -1; if (v < 0) v = getenv("SCRIP_ZETA_TELEM") ? 1 : 0; return v; }
 static int gc_trap_on(void)
@@ -669,6 +762,10 @@ int rt_gc_stale_addr_report(void *fault, void *ip)
     if (n > 0) { ssize_t w = write(2, bf, (size_t)n); (void)w; }
     return 1;
 }
+#else
+int rt_gc_poison_reg_report(const long long *gregs, int n, void *ip) { (void)gregs; (void)n; (void)ip; return 0; }
+int rt_gc_stale_addr_report(void *fault, void *ip) { (void)fault; (void)ip; return 0; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *gcbk_grow(void *p, size_t n)
 {
@@ -698,7 +795,9 @@ static void gcbk_drop(void *p)
 static void gc_live_grow(long need) { if (need < g_gc_lcap) return; g_gc_lcap = g_gc_lcap ? g_gc_lcap : 4096; while (g_gc_lcap <= need) g_gc_lcap *= 2;
     g_gc_liveo = (rt_hblk_t **)gcbk_grow((void *)g_gc_liveo, (size_t)g_gc_lcap * sizeof(*g_gc_liveo)); g_gc_livef = (uint64_t *)gcbk_grow((void *)g_gc_livef, (size_t)g_gc_lcap * sizeof(*g_gc_livef)); if (!g_gc_liveo || !g_gc_livef) abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static double gc_walk_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
+#endif
 static long gc_collect_ex(void);
 static char *g_gc_seam_sp = (char *)0;
 static DESCR_t *g_gc_shield_arr = (DESCR_t *)0;
@@ -721,7 +820,9 @@ static __attribute__((used, noinline)) void gc_point_arr_body(DESCR_t *arr, int 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_point_arr_c(DESCR_t *arr, int n, const char **r0, char *floor)
 {
+#if RT_DIAG
     g_gc_poll_site = (const char *)__builtin_return_address(0);
+#endif
     gc_point_arr_body(arr, n, r0, floor, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -749,8 +850,10 @@ static inline int gc_hins(void *p) {
       g_gc_hs[s] = p; g_gc_hn++; return 1; }
 }
 static char *g_gc_pmap_top = (char *)0;
+#if RT_DIAG
 static long g_gc_dvec_elems = 0;
 static long g_gc_dvec_nondvec = 0;
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline rt_hblk_t *gc_blk_of(const char *p) __attribute__((always_inline));
 static inline rt_hblk_t *gc_blk_of(const char *p) {
@@ -835,14 +938,20 @@ static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)
 static inline int gc_tag_bears_ptr(uint8_t v) __attribute__((always_inline));
 static inline int gc_tag_bears_ptr(uint8_t v) { return v == DT_S || v == DT_SNUL || v == DT_X || v == DT_A || v == DT_T || v == DT_N || v == DT_DATA || v == DT_P || v == DT_PLVAR || v == DT_PLREF || v == DT_E || v == DT_BIG || v == DT_CPLX || v == DT_EXTL; }
 static DESCR_t **g_gc_wl = (DESCR_t **)0;
+#if RT_DIAG
 static long g_gc_wln = 0, g_gc_wlcap = 0, g_gc_wlmax = 0;
+#else
+static long g_gc_wln = 0, g_gc_wlcap = 0;
+#endif
 static int g_gc_wl_draining = 0;
 static inline void gc_wl_push(DESCR_t *d) __attribute__((always_inline));
 static inline void gc_wl_push(DESCR_t *d) {
     if (!d || !gc_tag_bears_ptr(d->v)) return;
     if (g_gc_wln == g_gc_wlcap) { g_gc_wlcap = g_gc_wlcap ? g_gc_wlcap * 2 : 4096; g_gc_wl = (DESCR_t **)gcbk_grow((void *)g_gc_wl, (size_t)g_gc_wlcap * sizeof(*g_gc_wl)); if (!g_gc_wl) { fprintf(stderr, "[ZGC] mark worklist alloc failed at %ld entries\n", g_gc_wlcap); abort(); } }
     g_gc_wl[g_gc_wln++] = d;
+#if RT_DIAG
     if (g_gc_wln > g_gc_wlmax) g_gc_wlmax = g_gc_wln;
+#endif
 }
 static void gc_visit_tbblk(struct _TBBLK_t *t);
 static int gc_block_exact(const char *q, uint16_t want_type);
@@ -906,7 +1015,9 @@ static void gc_visit_one(DESCR_t *d)
         rt_hblk_t *h = gc_blk_of(d->s);
         if (!h) return;
         gc_mark_blk(h, 0);
+#if RT_DIAG
         if (d->s != (char *)(h + 1)) g_gc_interior++;
+#endif
         gc_slot_reg_tgt((void *)&d->s, h);
         return; }
     case DT_A: {
@@ -925,9 +1036,13 @@ static void gc_visit_one(DESCR_t *d)
         gc_visit_tbblk(t);
         return; }
     case DT_DATA: {
+#if RT_DIAG
         if (d->slen == DATA_ELEMS_SLEN) { rt_hblk_t *eh = gc_blk_of((const char *)d->ptr);
             if (eh) { g_gc_dvec_elems++; if (eh->type != HB_DVEC) { g_gc_dvec_nondvec++; } }
             rt_gc_visit_raw((const char **)&d->ptr); return; }
+#else
+        if (d->slen == DATA_ELEMS_SLEN) { rt_gc_visit_raw((const char **)&d->ptr); return; }
+#endif
         { DATINST_t *u = d->u; rt_hblk_t *uh = gc_block_exact_h((const char *)u, HB_DINST);
           if (!uh) return;
           gc_mark_blk(uh, 0);
@@ -950,7 +1065,9 @@ static void gc_visit_one(DESCR_t *d)
         rt_hblk_t *h = gc_blk_of((const char *)d->p);
         if (!h) return;
         gc_mark_blk(h, 0);
+#if RT_DIAG
         if ((const char *)d->p != (const char *)(h + 1)) g_gc_interior++;
+#endif
         gc_slot_reg_tgt((void *)&d->p, h);
         return; }
     case DT_BIG: {
@@ -976,7 +1093,9 @@ static void gc_visit_one(DESCR_t *d)
         rt_hblk_t *h = gc_blk_of(d->s);
         if (!h) return;
         gc_mark_blk(h, 0);
+#if RT_DIAG
         if (d->s != (char *)(h + 1)) g_gc_interior++;
+#endif
         gc_slot_reg_tgt((void *)&d->s, h);
         return; }
     default: return;
@@ -993,7 +1112,9 @@ void rt_gc_visit_descr(DESCR_t *d)
     g_gc_wl_draining = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static long g_gc_rrng_ss = 0;
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_root_range_add(const char *lo, const char *hi)
 {
@@ -1003,13 +1124,19 @@ void rt_gc_root_range_add(const char *lo, const char *hi)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const gc_frame_map_t **g_gc_maps = (const gc_frame_map_t **)0;
+#if RT_DIAG
 static int g_gc_maps_n = 0, g_gc_maps_cap = 0, g_gc_map_report_reg = 0;
 static long g_gc_map_checked = 0;
 static void gc_frame_maps_dump_atexit(void);
+#else
+static int g_gc_maps_n = 0, g_gc_maps_cap = 0;
+#endif
 static int gc_frame_map_registered(const gc_frame_map_t *m) { for (int i = 0; i < g_gc_maps_n; i++) if (g_gc_maps[i] == m) return 1; return 0; }
 void rt_gc_frame_maps_add(const gc_frame_map_t *m)
 {
+#if RT_DIAG
     { static int dreg = 0; if (!dreg) { const char *e = getenv("SCRIP_GC_MAPS_DUMP"); dreg = 1; if (e && *e == '1') atexit(gc_frame_maps_dump_atexit); } }
+#endif
     if (!m || gc_frame_map_registered(m)) return;
     if (m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-MAP] rt_gc_frame_maps_add: %p is not a frame map (magic %08x)\n", (const void *)m, m->magic); abort(); }
     if (g_gc_maps_n == g_gc_maps_cap) { g_gc_maps_cap = g_gc_maps_cap ? g_gc_maps_cap * 2 : 64;
@@ -1019,6 +1146,7 @@ void rt_gc_frame_maps_add(const gc_frame_map_t *m)
 void rt_gc_frame_maps_install(const gc_frame_map_t *const *maps, int n) { for (int i = 0; i < n; i++) rt_gc_frame_maps_add(maps[i]); }
 void rt_gc_frame_maps_install_counted(const void *tab) { const uint64_t *t = (const uint64_t *)tab; if (!t) return; rt_gc_frame_maps_install((const gc_frame_map_t *const *)(t + 1), (int)t[0]); }
 const gc_frame_map_t *const *rt_gc_frame_maps(int *n) { if (n) *n = g_gc_maps_n; return g_gc_maps; }
+#if RT_DIAG
 void rt_gc_frame_maps_dump(void)
 {
     int n = 0; const gc_frame_map_t *const *t = rt_gc_frame_maps(&n);
@@ -1043,6 +1171,10 @@ void rt_gc_frame_map_check(const DESCR_t *cell)
     if (!g_gc_map_report_reg) { g_gc_map_report_reg = 1; atexit(gc_frame_map_report); }
     g_gc_map_checked++;
 }
+#else
+void rt_gc_frame_maps_dump(void) { }
+void rt_gc_frame_map_check(const DESCR_t *cell) { (void)cell; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_root_range_add_topword(const char *lo)
 {
@@ -1051,7 +1183,11 @@ void rt_gc_root_range_add_topword(const char *lo)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_root_range_add_seamsafe(const char *lo, const char *hi)
 {
+#if RT_DIAG
     rt_gc_root_range_add(lo, hi); g_gc_rrng_ss++;
+#else
+    rt_gc_root_range_add(lo, hi);
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_root_range_del(const char *lo)
@@ -1079,19 +1215,29 @@ static void gc_static_segs_init(void)
     dl_iterate_phdr(gc_phdr_cb, (void *)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static void gc_platom_plant(void);
+#endif
 void rt_gcheap_warmup(void)
 {
     gc_static_segs_init();
+#if RT_DIAG
     if (gc_diag_on()) gc_platom_plant();
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void *__libc_stack_end;
+#if RT_DIAG
 static int gc_plant_stack_label(void) { static int v = -1, said = 0; if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_STACK_LABEL"); v = (e && *e && *e != '0') ? 1 : 0; } if (v && !said) { said = 1; fprintf(stderr, "[GC-STACKLABEL] plant: the main stack's top is read from the [stack] label alone and never from the mapping holding __libc_stack_end\n"); } return v; }
+#endif
 _Static_assert(sizeof(void *) == 8, "THE MAIN STACK IS THE MAPPING HOLDING __libc_stack_end, NOT THE MAPPING LABELLED [stack] (cto, 2026-09-24, row gc-the-main-stack-top-is-the-mapping-holding-libc-stack-end-...; hq_icon's and hq_prolog's findings): under valgrind the [stack] line of /proc/self/maps is the HOST's stack while the client's frames live in an unlabelled mapping, so a walk from the mutator's floor to the labelled top crossed unmapped ground and every collecting run died rc=139 in gc_walk_cell; glibc's __libc_stack_end is the entry rsp in both settings and the mapping containing it is the real stack in both; the label is the fallback only when no mapping contains it; SCRIP_GC_PLANT_STACK_LABEL=1 restores the label-only read as the plant");
 static void gc_stack_region(char **lo, char **hi)
 {
+#if RT_DIAG
     FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0, la = 0, lb = 0, e = gc_plant_stack_label() ? 0 : g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
+#else
+    FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0, la = 0, lb = 0, e = g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
+#endif
     if (f) { while (fgets(ln, sizeof ln, f)) { unsigned long x = 0, y = 0; if (sscanf(ln, "%lx-%lx", &x, &y) != 2) continue;
             if (e && x <= e && e < y) { a = x; b = y; break; }
             if (!lb && strstr(ln, "[stack]")) { la = x; lb = y; } } fclose(f); }
@@ -1110,20 +1256,32 @@ static char *gc_stack_top(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct gc_seg_it_t { int stage; pthread_t self, mainthr; int co; scrip_coctx_t *c; char *floor; char *run_hi; } gc_seg_it_t;
+#if RT_DIAG
 static long g_gc_co_ctxs, g_gc_co_sigma, g_gc_co_parked, g_gc_shift_now, g_gc_shift_prefix;
 static int g_gc_rep_pop;
+#endif
 static void gc_coexpr_records(void)
 {
+#if RT_DIAG
     g_gc_co_ctxs = g_gc_co_sigma = 0;
     scrip_co_gc_visit_records(&g_gc_co_ctxs, &g_gc_co_sigma);
+#else
+    scrip_co_gc_visit_records((long *)0, (long *)0);
+#endif
 }
 static void gc_seg_begin(gc_seg_it_t *it, char *floor)
 {
     it->stage = 0; it->self = pthread_self(); it->co = scrip_co_main_known(&it->mainthr); it->c = it->co ? scrip_co_gc_head() : (scrip_coctx_t *)0;
+#if RT_DIAG
     it->floor = floor; it->run_hi = gc_stack_top(); g_gc_co_parked = 0;
+#else
+    it->floor = floor; it->run_hi = gc_stack_top();
+#endif
 }
 static char *g_gc_emit_ceiling = (char *)0;
+#if RT_DIAG
 static long  g_gc_ceil_bytes;
+#endif
 static int   g_gc_seg_main = 0;
 static const gc_frame_map_t *gc_root_map(void) { for (int i = 0; i < g_gc_maps_n; i++) if (g_gc_maps[i] && (g_gc_maps[i]->flags & GC_FRAME_MAP_ROOT)) return g_gc_maps[i]; return (const gc_frame_map_t *)0; }
 static char *gc_emit_ceiling_resolve(const char *floor, const char *run_hi) {
@@ -1138,21 +1296,38 @@ static char *gc_emit_ceiling_resolve(const char *floor, const char *run_hi) {
 void rt_gc_emit_ceiling_adopt(char *entry_sp) { const gc_frame_map_t *r = gc_root_map(); if (!r || !entry_sp || g_gc_emit_ceiling || !gc_ceiling_on()) return; g_gc_emit_ceiling = entry_sp + (long)r->map_off + 16 + (long)r->header_bytes; }
 _Static_assert(GC_FRAME_MAP_ROOT == 1u, "THE EMITTED-STACK CEILING IS RECORDED AT ENTRY AND RESOLVED THROUGH THE ROOT MAP, AND EVERY COLLECTION VERIFIES IT BEFORE TRUSTING IT (cfo 2026-09-28, row gc-the-emitted-stack-walk-takes-a-ceiling-at-the-rt-outer-call-entry-rsp; ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 10b; law CEO-812 THE COLLECTOR GUESSES NOTHING): rt_outer_call (src/driver/scrip.c) hands rt_gc_emit_ceiling_adopt the rsp it enters emitted code at; the root frame is the map_off+16+header_bytes above that rsp (measured on hb_arr.sno: entry rsp+624 holds the ROOT cell, +640 is the frame top, which is exactly the value the first walk used to learn by scanning the 4 MB reserve above it); gc_seg_next bounds the main segment there only after the ROOT map's own cell is found 16+header_bytes under the ceiling, or, when the root prologue lays its frame BELOW the entry rsp (Icon: the cell 88 bytes under it, header 96), by a bounded search of [entry-2*frame_bytes, entry+frame_bytes) for that cell -- a record that resolves to no ROOT cell is dropped and that collection walks unbounded, so a ceiling that could cut a live frame is never applied. Mode 4 has no trampoline and keeps the learned bound, which the same check verifies.");
 _Static_assert(sizeof(void *) == 8, "A PARKED STACK IS A SEGMENT FROM ITS RECORDED STACK POINTER, NOT FROM ITS MAPPING (cto, 2026-09-23, row gc-heap-growth-...; law CEO-812 THE COLLECTOR GUESSES NOTHING): scrip_coswitch records rsp in park_sp before it posts the semaphore, every word of the mutator's lives at or above it, and the words below it are glibc's sem_wait frames -- the whole-mapping walk read those raw words as cells (the accident test_gate_gc_the_coexpression_roots_are_typed_and_the_parked_stacks_are_segments.sh names) and cost geddump 5.5 s per collection walking 8 MB per parked co-expression; SCRIP_GC_COEXPR_PLANT=3 restores the whole-mapping walk as the plant");
+#if RT_DIAG
 static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (scrip_co_gc_plant() != 3 && c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
+#else
+static char *gc_seg_parked_lo(scrip_coctx_t *c, char *lo) { return (c->park_sp && c->park_sp > lo) ? c->park_sp : lo; }
+#endif
 static int gc_seg_next(gc_seg_it_t *it, char **lo, char **hi, int *pop)
 {
     if (it->stage == 0) { it->stage = 1;
         if (it->co && !pthread_equal(it->self, it->mainthr)) { char *slo, *shi; gc_stack_region(&slo, &shi);
-            if (slo && shi && slo < shi) { *lo = gc_seg_parked_lo(scrip_co_gc_root(), slo); *hi = shi; *pop = 4; g_gc_co_parked++; return 1; } } }
+            if (slo && shi && slo < shi) { *lo = gc_seg_parked_lo(scrip_co_gc_root(), slo); *hi = shi; *pop = 4;
+#if RT_DIAG
+                g_gc_co_parked++;
+#endif
+                return 1; } } }
     while (it->stage == 1) { scrip_coctx_t *c = it->c; char *clo, *chi;
         if (!c) { it->stage = 2; break; }
         it->c = c->gc_next;
         if (!scrip_co_stack_of(c, &clo, &chi) || clo >= chi) continue;
         if (c->alive && pthread_equal(it->self, c->thread)) { it->run_hi = chi; continue; }
-        *lo = gc_seg_parked_lo(c, clo); *hi = chi; *pop = 4; g_gc_co_parked++; return 1; }
+        *lo = gc_seg_parked_lo(c, clo); *hi = chi; *pop = 4;
+#if RT_DIAG
+        g_gc_co_parked++;
+#endif
+        return 1; }
     if (it->stage == 2) { it->stage = 3; if (it->floor < it->run_hi) { *lo = it->floor; *hi = it->run_hi; *pop = 1;
         g_gc_seg_main = (it->run_hi == gc_stack_top()) ? 1 : 0;
+#if RT_DIAG
         if (g_gc_seg_main && g_gc_emit_ceiling && g_gc_emit_ceiling > it->floor && g_gc_emit_ceiling < it->run_hi) { char *cl = gc_emit_ceiling_resolve(it->floor, it->run_hi); g_gc_emit_ceiling = cl; if (cl && cl > it->floor && cl < it->run_hi) { g_gc_ceil_bytes += (long)(it->run_hi - cl); *hi = cl; } }
+#else
+        if (g_gc_seg_main && g_gc_emit_ceiling && g_gc_emit_ceiling > it->floor && g_gc_emit_ceiling < it->run_hi) {
+            char *cl = gc_emit_ceiling_resolve(it->floor, it->run_hi); g_gc_emit_ceiling = cl; if (cl && cl > it->floor && cl < it->run_hi) { *hi = cl; } }
+#endif
         return 1; } }
     return 0;
 }
@@ -1160,7 +1335,11 @@ static long gc_stack_segments(char *floor)
 {
     gc_seg_it_t it; char *lo, *hi; int pop; long words = 0;
     gc_seg_begin(&it, floor);
+#if RT_DIAG
     while (gc_seg_next(&it, &lo, &hi, &pop)) { g_gc_rep_pop = pop; words += gc_visit_segment((const char *)lo, (const char *)hi); g_gc_rep_pop = 0; g_gc_seg_main = 0; }
+#else
+    while (gc_seg_next(&it, &lo, &hi, &pop)) { gc_visit_segment((const char *)lo, (const char *)hi); g_gc_seg_main = 0; }
+#endif
     return words;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1187,6 +1366,7 @@ static rt_hblk_t *gc_block_exact_h(const char *q, uint16_t want_type)
 long rt_gc_alloc_total(void) { return g_hp_fr.alloc_total; }
 long rt_gc_alloc_str(void) { return g_hp_fr.alloc_str; }
 long rt_gc_bytes_in_use(void) { return (g_hp_arena && g_hp_top >= g_hp_arena && g_hp_top <= g_hp_cap_end) ? (long)(g_hp_top - g_hp_arena) : g_hp_live; }
+#if RT_DIAG
 static int  g_gc_maps_rep = -1;
 #define GC_REP_POPS 5
 static const char *const g_gc_rep_popname[GC_REP_POPS] = { "other", "cstack", "seam", "heapblk", "parked" };
@@ -1230,8 +1410,10 @@ static int gc_sniff_would_take(const DESCR_t *d)
     if (d->v == DT_P || d->v == DT_PLVAR || d->v == DT_PLREF) { rt_hblk_t *ph = gc_blk_of((const char *)d->p); if (ph) return 1; }
     return 0;
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int gc_tag_known(uint8_t v);
+#if RT_DIAG
 static void gc_platom_plant(void)
 {
     DESCR_t a; char probe; int bad = 0;
@@ -1275,7 +1457,9 @@ static void gc_spine_record(const char *graph, long off, const char *const *w, r
     if (g_gc_spine_recn >= GC_SPINE_REC_CAP) return;
     g_gc_spine_rec[g_gc_spine_recn].h = h; g_gc_spine_rec[g_gc_spine_recn].graph = graph; g_gc_spine_rec[g_gc_spine_recn].off = off; g_gc_spine_rec[g_gc_spine_recn].at = w; g_gc_spine_recn++;
 }
+#endif
 static int gc_tag_known(uint8_t v) { return v == DT_SNUL || v == DT_S || v == DT_I || v == DT_R || ((v & 7u) == 0 && v >= DT_P && v <= DT_MAP) || v == DT_PLATOM; }
+#if RT_DIAG
 static void gc_walk_site(const char *cls, const char *graph, long off, const char *const *w, rt_hblk_t *h)
 {
     if (!gc_maps_on()) return;
@@ -1316,6 +1500,7 @@ static void gc_walk_dump(const char *lo, const char *base, const char *graph)
         else if (((uintptr_t)w & 0xFFFFFF00u) == 0 && gc_tag_known((uint8_t)(uintptr_t)w) && ((uintptr_t)w >> 32) != 0) cls = "tag";
         fprintf(stderr, "[GC-WALK-DUMP] off=%ld at=%p word=%p cls=%s type=%u\n", (long)(p - base), (const void *)p, (const void *)w, cls, ty); }
 }
+#endif
 static int gc_cell_visit(DESCR_t *d)
 {
     if (d->v == DT_S || d->v == DT_X || (d->v == DT_N && d->slen == 0)) { rt_hblk_t *h = gc_blk_of(d->s);
@@ -1335,9 +1520,12 @@ static int gc_cell_visit(DESCR_t *d)
     if (d->v == DT_EXTL) { rt_hblk_t *xh = gc_blk_of((const char *)d->p); if (xh && xh->type == HB_WSB && (char *)d->p == (char *)(xh + 1)) { rt_gc_visit_descr(d); return 1; } return 0; }
     return 0;
 }
+#if RT_DIAG
 static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }
+#endif
 static void gc_walk_words(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base)
 {
+#if RT_DIAG
     gc_walk_t *g = &g_gw[g_gc_rep_pop];
     for (const char *p = lo; p + 8 <= hi; p += 8) { const char **w = (const char **)p; rt_hblk_t *h = gc_blk_of(*w);
         if (cls == 0) g->s_words++; else if (cls == 1) g->h_words++; else g->a_words++;
@@ -1346,24 +1534,43 @@ static void gc_walk_words(const char *lo, const char *hi, int cls, const char *r
         if (cls == 2) { g->a_heap++; gc_walk_site("ABOVE", graph, (long)(p - base), w, h); continue; }
         if (p - 8 >= rlo && gc_tag_bears_ptr(*(const uint8_t *)(p - 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; continue; }
         if (cls == 0) { g->s_raw_heap++; gc_walk_site("SPINE", graph, (long)(p - base), w, h); gc_spine_record(graph, (long)(p - base), w, h); } else { g->h_raw_heap++; gc_walk_site("HEADER", graph, (long)(p - base), w, h); } }
+#else
+    (void)rlo; (void)graph; (void)base;
+    if (cls == 2) return;
+    for (const char *p = lo; p + 16 <= hi; p += 8) if (gc_cell_visit((DESCR_t *)p)) p += 8;
+#endif
 }
+#if RT_DIAG
 static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
+#endif
 static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi)
 {
+#if RT_DIAG
     gc_walk_t *g = &g_gw[g_gc_rep_pop]; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0]; long covered = 0; int blob = (m->flags & GC_FRAME_MAP_BLOB) ? 1 : 0;
     if (blob) g_gc_blob_frames++;
     long span = (m->flags & GC_FRAME_MAP_BLOB) ? (long)m->frame_bytes + 8 : (long)m->map_off;
+#else
+    const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0];
+#endif
     for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); const char *w = anchor + off, *e = w + size;
         if (w < lo) w = (kind == GC_LAY_DESCR) ? w + (((lo - w) + 15) & ~15L) : lo;
         if (e > hi) e = hi;
         if (w >= e) continue;
+#if RT_DIAG
         covered += e - w;
         if (blob) { g_gc_blob_entries++; if (kind == GC_LAY_DESCR) g_gc_blob_descr++; else if (kind == GC_LAY_PTR_GC) g_gc_blob_ptr++; else if (kind == GC_LAY_RAW) g_gc_blob_raw++; else g_gc_blob_code++; }
         if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; g->i_descr++; if (!gc_tag_known(d->v)) { g->i_badtag++; if (gc_tag_known((uint8_t)(uintptr_t)d->p)) g->i_phase++; gc_walk_badtag(m->graph_name, (long)(c - anchor), d); } else { if (gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) g->i_heap++; rt_gc_visit_descr(d); } } continue; }
         for (const char *c = w; c + 8 <= e; c += 8) { const char **pw = (const char **)c; rt_hblk_t *h = gc_blk_of(*pw);
             if (kind == GC_LAY_PTR_GC) { g->i_ptr++; if (h) { g->i_ptr_heap++; rt_gc_visit_raw(pw); } continue; }
-            g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); if (blob && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%ld kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", (long)(c - anchor), kind, (const void *)*pw, (const void *)h, (unsigned)h->type); } } } }
+            g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); if (blob && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%ld kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", (long)(c - anchor), kind, (const void *)*pw, (const void *)h, (unsigned)h->type); } } }
+#else
+        if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; if (gc_tag_known(d->v)) rt_gc_visit_descr(d); } continue; }
+        if (kind == GC_LAY_PTR_GC) for (const char *c = w; c + 8 <= e; c += 8) rt_gc_visit_raw((const char **)c);
+#endif
+    }
+#if RT_DIAG
     if (span > covered) g->i_gap += (span - covered) / 8;
+#endif
 }
 static int gc_ceiling_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_CEILING"); v = (e && *e) ? (*e != '0') : 1; } return v; }
 static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo)
@@ -1376,24 +1583,42 @@ static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo
 }
 static void gc_walk_range(const char *lo0, const char *hi0)
 {
+#if RT_DIAG
     const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = hi0, *p = lo; int k = g_gc_rep_pop, nf = 0, above = 0; const char *last = "-"; gc_walk_t *g = &g_gw[k];
+#else
+    const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = hi0, *p = lo; int above = 0; const char *last = "-";
+#endif
     while (p + 8 <= hi) {
         const char *c = p; const gc_frame_map_t *m = (const gc_frame_map_t *)0;
         while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
+#if RT_DIAG
         if (!m) { if (nf == 0) g->nomap++; if (above && g_gc_seg_main && gc_ceiling_on() && !gc_maps_on()) { g_gc_ceil_bytes += (long)(hi - p); return; } gc_walk_words(p, hi, above ? 2 : 0, lo, last, p); return; }
         nf++; g->frames++; if (nf == 1 && !above && !g_gc_top_graph) g_gc_top_graph = m->graph_name ? m->graph_name : "?";
         if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above);
+#else
+        if (!m) { if (!above) gc_walk_words(p, hi, 0, lo, last, p); return; }
+#endif
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi); p = top; }
         else { const char *base = c - (long)m->map_off, *slo = (base < p) ? p : base, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (hhi > hi) hhi = hi;
+#if RT_DIAG
             { long before = g->s_raw_heap; gc_walk_words(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base); if (nf == 1 && !above && g->s_raw_heap > before) gc_walk_dump(p, slo, m->graph_name); }
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi); else g->notab++;
+#else
+            gc_walk_words(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base);
+            if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi);
+#endif
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
-        if (m->flags & GC_FRAME_MAP_ROOT) { g->roots++; { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; }
+        if (m->flags & GC_FRAME_MAP_ROOT) {
+#if RT_DIAG
+            g->roots++;
+#endif
+            { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; }
             if (above && gc_ceiling_on() && g_gc_seg_main && (!g_gc_emit_ceiling || (char *)p < g_gc_emit_ceiling)) g_gc_emit_ceiling = (char *)p; }
     }
 }
+#if RT_DIAG
 static long g_gc_rtccb_heap;
 static void gc_walk_print(void)
 {
@@ -1416,21 +1641,31 @@ static void gc_spine_lost_check(void)
     if (nlost) fprintf(stderr, "[GC-SPINE-LOST] blocks=%ld raw_spine_words=%ld -- a word on the emitted spine that no map covers points at a block NO ROOT MARKED. ⛔ NECESSARY, NOT SUFFICIENT (cfo 2026-09-20, CFO-114): a DEAD spill slot holding a stale pointer reads identically, and 12 of the 32 green witnesses in scripts/gc_witnesses print this line while answering their oracle. It names a candidate, never a defect; only the frame map can say whether the slot is live.\n", nlost, g_gc_spine_seen);
     g_gc_spine_recn = 0; g_gc_spine_seen = 0;
 }
+#endif
 static long gc_visit_segment(const char *lo0, const char *hi0)
 {
+#if RT_DIAG
     if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
+#endif
     gc_walk_range(lo0, hi0);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static long g_gc_cas_bytes = 0;
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_root_cas(void)
 {
     extern long rt_cas_gc_roots(void);
+#if RT_DIAG
     g_gc_cas_bytes = rt_cas_gc_roots();
+#else
+    (void)rt_cas_gc_roots();
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static long gc_plant_shift_bytes(void)
 {
     static long v = -1;
@@ -1479,8 +1714,10 @@ static void gc_displace_census(rt_hblk_t **liveo, uint64_t *livef, long li, long
     fprintf(stderr, "[GC-DISPLACE] run=%ld forced=%d live=%ld unmoved=%ld moved=%ld down=%ld up=%ld dmin=%ld dmax=%ld dmean=%ld hist zero=%ld lt4K=%ld lt64K=%ld lt1M=%ld ge1M=%ld\n",
         run, forced, li, un, dn + up, dn, up, mn < 0 ? 0L : mn, mx, (dn + up) ? sum / (dn + up) : 0L, h0, h1, h2, h3, h4);
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifdef SCRIP_GC_AUDIT_B
+#if RT_DIAG
 static const rt_hblk_t *gc_audit_b_blk_of(const char *p) { return (const rt_hblk_t *)gc_blk_of(p); }
 static const rt_hblk_t *gc_audit_b_blk_at(long i) { return (i >= 0 && i < g_gc_nblk && g_gc_idx) ? (const rt_hblk_t *)g_gc_idx[i] : (const rt_hblk_t *)0; }
 static long gc_audit_b_birth_of(const char *blk, char *buf, long cap)
@@ -1548,6 +1785,8 @@ static long gc_audit_b_shim(char *floor)
     { long r = gc_audit_b_collect(&v); if (xr) gcbk_drop((void *)xr); return r; }
 }
 #endif
+#endif
+#if RT_DIAG
 static void gc_assert_report_done(void) { const char *e = getenv("SCRIP_GC_ASSERT_FATAL"); if (e && *e == '1') { fprintf(stderr, "[ZGC-ASSERT] SCRIP_GC_ASSERT_FATAL=1: aborting on the first violated assertion.\n"); abort(); } }
 static void gc_assert_check(void)
 {
@@ -1560,19 +1799,25 @@ static void gc_assert_check(void)
             for (long j = 0; j < g_gc_nblk; j++) if ((g_gc_idx[j]->flags & HBF_MARK) && g_gc_idx[j]->type == t) found++;
             if (found != want) { fprintf(stderr, "[ZGC-ASSERT] INSTANCES kind=%u/%s expected %ld live, the trace found %ld at collection #%ld\n", (unsigned)t, HB_KIND_NAME(t), want, found, g_gc_runs + 1); gc_assert_report_done(); } } }
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_collect_ex(void)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern void drv_gc_roots(void); extern int rt_scan_active(void);
+#if RT_DIAG
     char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; long nforeign = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0, w_unm = 0; int w_tel = gc_telem_on();
     long n_rfz = 0; int reloc = gc_reloc_forced();
     int st_n = 0, st_slot[32]; uint64_t st_word[32], st_fwd[32]; rt_hblk_t *st_blk[32];
     int pl_slot = gc_plant_rtccb_slot(), pl_mark = 0; rt_hblk_t *pl_blk = (rt_hblk_t *)0; char *pl_addr = (char *)0; uint64_t pl_save = 0, pl_fwd = 0;
     double n_cnt = 0, n_idx = 0, n_mrk = 0, n_fwd = 0, n_liv = 0, n_sld = 0, n_vfy = 0, n_fix = 0, n_t0 = 0, n_all = w_tel ? gc_walk_ns() : 0;
+#else
+    char anchor; long before_b, after_b; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0;
+#endif
     g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
+#if RT_DIAG
     gc_quar_release(g_hp_cap_end);
     if (g_hp_flo) { if (mprotect(g_hp_flo, (size_t)(g_hp_fhi - g_hp_flo), PROT_READ | PROT_WRITE) != 0) { fprintf(stderr, "[GC-FLIP] could not re-open the protected from-space arena+%ld..arena+%ld for the collection -- the plant refuses the run rather than collect over ground it cannot read\n", (long)(g_hp_flo - g_hp_arena), (long)(g_hp_fhi - g_hp_arena)); abort(); } g_hp_flo = (char *)0; g_hp_fhi = (char *)0; }
     g_gc_flip_to = (char *)0;
@@ -1580,32 +1825,56 @@ static long gc_collect_ex(void)
     n_t0 = w_tel ? gc_walk_ns() : 0;
     g_gc_nblk = 0;
     if (w_tel) { w_cnt = g_gc_nblk; n_cnt = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+#else
+    g_hp_win = (char *)0; g_hp_wend = (char *)0;
+    g_gc_nblk = 0;
+#endif
     if (g_gc_nblk > g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap : 4096; while (g_gc_icap < g_gc_nblk) g_gc_icap *= 2;
         g_gc_idxbuf = (rt_hblk_t **)gcbk_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); }
     g_gc_idx = g_gc_idxbuf;
     { char *p = g_hp_arena; long i = 0; int fold = 1; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)gcbk_alloc((((size_t)(g_hp_cap_end - g_hp_arena)) >> 6) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
         if (fold && i >= g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096; g_gc_idxbuf = (rt_hblk_t **)gcbk_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); g_gc_idx = g_gc_idxbuf; }
         h->flags &= (uint16_t)~HBF_MARK;
+#if RT_DIAG
         if (h->type == HB_ZBLK) nforeign++;
-        h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 63u) & ~(size_t)63u); if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 63) >> 6);
+#endif
+        h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 63u) & ~(size_t)63u);
+#if RT_DIAG
+        if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 63) >> 6);
+#endif
             for (char *gs = gs0; gs < e; gs += 64) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 6] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
+#if RT_DIAG
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     g_gc_mhead = (rt_hblk_t *)0; g_gc_spine_recn = 0; g_gc_top_graph = (const char *)0;
     g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
     g_gc_nslot = 0; g_gc_interior = 0;
     if (pl_slot >= 0 && g_gc_nblk > 0) { pl_blk = g_gc_idx[g_gc_nblk - 1]; pl_addr = (char *)(pl_blk + 1); pl_save = rtccb[pl_slot]; rtccb[pl_slot] = (uint64_t)(uintptr_t)pl_addr; }
+#else
+    g_gc_mhead = (rt_hblk_t *)0;
+    g_gc_hn = 0; if (g_gc_hs) memset(g_gc_hs, 0, (size_t)g_gc_hcap * sizeof(void *));
+    g_gc_nslot = 0;
+#endif
     { extern void pl_tr_gc_root_ball(const char *); for (long i = 0; i < g_gc_rrng_n; i++) if (!g_gc_rrng[i].hi) pl_tr_gc_root_ball(g_gc_rrng[i].lo); }
     for (long i = 0; i < g_gc_rrng_n; i++) { if (g_gc_rrng[i].hi) continue; { const char *top = *(const char * const *)g_gc_rrng[i].lo;
         for (char *e = (char *)g_gc_rrng[i].lo + 32; e + 32 <= top; e += 32) { const char **cell = (const char **)e; DESCR_t *old = (DESCR_t *)(e + 16); if (*cell) rt_gc_visit_raw(cell); rt_gc_visit_descr(old); } } }
     rt_gc_ws_roots();
+#if RT_DIAG
     gc_coexpr_records(); words += gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
+#else
+    gc_coexpr_records(); gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
+#endif
     gc_root_cas();
     kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots(); bnd_gc_roots();
 #ifdef SCRIP_GC_AUDIT_B
+#if RT_DIAG
     { const char *pu = getenv("SCRIP_GC_PLANT_UNROOT"); if (pu && *pu && *pu != '0') { if (g_gc_runs == 0) fprintf(stderr, "[GC-UNROOT] plant: the file-handle table's root walk (drv_gc_roots) is SKIPPED at every collection, so g_fh's name, alias and encoding strings go unmarked while g_fh still holds them -- a lost root made on purpose for pass B to name (SCRIP_GC_PLANT_UNROOT=1, auditor build only). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first collection.\n"); } else drv_gc_roots(); }
 #else
     drv_gc_roots();
 #endif
+#else
+    drv_gc_roots();
+#endif
+#if RT_DIAG
     if (gc_maps_on()) for (int k = 0; k < GC_REP_POPS; k++) if (g_gc_rep_ranges[k])
         fprintf(stderr, "[GC-MAPS] pop=%-7s ranges=%ld bytes=%ld agree=%ld map_only=%ld sniff_only=%ld divergence=%ld raw_hits=%ld\n",
             g_gc_rep_popname[k], g_gc_rep_ranges[k], g_gc_rep_bytes[k], g_gc_rep_agree[k], g_gc_rep_map_only[k], g_gc_rep_sniff_only[k],
@@ -1620,11 +1889,18 @@ static long gc_collect_ex(void)
     { for (int ci = 0; ci < 32; ci++) { rt_hblk_t *hb = gc_blk_of((const char *)rtccb[ci]); if (!hb) continue; g_gc_rtccb_heap++;
         if (gc_maps_on()) fprintf(stderr, "[GC-WALK-RTCCB] slot=%d word=%p graph=%s line=%ld site=%p\n", ci, (const void *)rtccb[ci], g_gc_top_graph ? g_gc_top_graph : "?", g_line, (const void *)g_gc_poll_site);
         if (st_n < 32 && (w_tel || gc_maps_on())) { st_slot[st_n] = ci; st_word[st_n] = rtccb[ci]; st_blk[st_n] = hb; st_fwd[st_n] = 0; st_n++; } } }
+#endif
     if (g_gc_shield_r && *g_gc_shield_r) { extern const char *Σ; extern const char *scan_subj; if (*g_gc_shield_r == Σ || *g_gc_shield_r == scan_subj) rt_gc_visit_raw(g_gc_shield_r); else if (!g_gc_shield_r_is_probe) { fprintf(stderr, "[ZHP] rt_gc_point_arr_c refuses r0 %p: a CALLER handed this shield a word to protect and it aliases neither the subject nor scan_subj, so this shield cannot reach it and honouring the call silently would drop a root -- pass the word as a tagged DESCR cell in arr[] instead (CEO-972). The asm shim's saved-subject PROBE is rt_gc_point_arr_probe_c and is not this road.\n", (const void *)*g_gc_shield_r); abort(); } }
     { extern const char *Σ; rt_gc_visit_raw(&Σ); }
     for (int si = 0; si < g_gc_shield_n; si++) rt_gc_visit_descr(&g_gc_shield_arr[si]);
-    { long walked = 0, nscan = 0, rounds = 0;
-      { for (;;) { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0; walked++; nscan++;
+    {
+#if RT_DIAG
+      long walked = 0, nscan = 0, rounds = 0;
+#endif
+      { for (;;) { while (g_gc_mhead) { rt_hblk_t *h = g_gc_mhead; g_gc_mhead = (rt_hblk_t *)(uintptr_t)h->fwd; h->fwd = 0;
+#if RT_DIAG
+        walked++; nscan++;
+#endif
             if (h->type == HB_DVEC) { DESCR_t *v = (DESCR_t *)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t)); for (long i = 0; i < n; i++) gc_wl_push(&v[i]); continue; }
             if (h->type == HB_ARR) { ARBLK_t *a = (ARBLK_t *)(h + 1); if (gc_hins((void *)a)) gc_visit_arblk(a); continue; }
             if (h->type == HB_DINST) { DATINST_t *u = (DATINST_t *)(h + 1); if (gc_hins((void *)u)) gc_visit_datinst(u); continue; }
@@ -1636,16 +1912,27 @@ static long gc_collect_ex(void)
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; }
+#if RT_DIAG
             if (h->type < HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;
-            interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *)); }
+            interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
+#endif
+            }
         if (g_gc_wln == 0) break;
-        rounds++; g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
+#if RT_DIAG
+        rounds++;
+#endif
+        g_gc_wl_draining = 1; while (g_gc_wln > 0) gc_visit_one(g_gc_wl[--g_gc_wln]); g_gc_wl_draining = 0; } }
+#if RT_DIAG
       if (w_tel) { n_mrk = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); fprintf(stderr, "[ZGC-MARK] arm=%s titles-walked=%ld blocks-scanned=%ld rounds=%ld nblk=%ld\n", "WL", walked, nscan, rounds, g_gc_nblk); n_t0 = gc_walk_ns(); }
+#endif
     }
     { extern void kw_cset_gc_weak(void); kw_cset_gc_weak(); }
 #ifdef SCRIP_GC_AUDIT_B
+#if RT_DIAG
     gc_audit_b_shim(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
 #endif
+#endif
+#if RT_DIAG
     gc_spine_lost_check();
     gc_assert_check();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
@@ -1664,28 +1951,51 @@ static long gc_collect_ex(void)
           else { static int said_flip = 0; g_gc_flip_declined++;
               if (!said_flip) { said_flip = 1; fprintf(stderr, "[GC-FLIP] plant DECLINED at a collection: %ld live bytes fit neither above the page-rounded top (arena+%ld, committed end arena+%ld) nor below the first live block (arena+%ld), so THAT collection compacted in place and its stale copies were not trapped; the count is flip_declined= on the GC-EXERCISE line. Printed ONCE per process.\n", lt, (long)(up - g_hp_arena), (long)(g_hp_end - g_hp_arena), (long)(fl0 - g_hp_arena)); } } }
         if (g_gc_flip_to) { dest = g_gc_flip_to; g_gc_flip_live = lt; } }
-    { int fold = 1; long rel_rem = 0;
+#else
+    dest = g_hp_arena;
+#endif
+    { int fold = 1;
+#if RT_DIAG
+    long rel_rem = 0;
     if (reloc && !g_gc_flip_to) for (long i = 0; i < g_gc_nblk; i++) if (g_gc_idx[i]->flags & HBF_MARK) rel_rem += (long)g_gc_idx[i]->size;
+#endif
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
-    { const long ppt = gc_plant_pin_type(), pps = gc_plant_pin_skip();
+    {
+#if RT_DIAG
+    const long ppt = gc_plant_pin_type(), pps = gc_plant_pin_skip();
+#endif
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
+#if RT_DIAG
         if (h->flags & HBF_MARK) { n_mk++; { int _pt = (ppt < 0 || (long)h->type == ppt) ? 1 : 0; if (_pt) n_plant++; if (n_plant == pps && _pt) { h->fwd = 0; dest += h->size; }
             else { if (reloc && !g_gc_flip_to && (char *)dest == (char *)h) { if (dest + 2 * (long)sizeof(rt_hblk_t) + rel_rem <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t); else n_rfz++; } if (reloc) rel_rem -= (long)h->size; h->fwd = (uint64_t)dest; dest += h->size; nlive++; } } }
+#else
+        if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; }
+#endif
         else h->fwd = 0;
+#if RT_DIAG
         if (h->fwd) n_fw++;
+#endif
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } } }
+#if RT_DIAG
     if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     gc_displace_census(liveo, livef, li, g_gc_runs + 1, reloc);
     if (reloc && n_rfz) fprintf(stderr, "[GC-RELOC] REFUSED to displace %ld live block(s): no room for a minimum legal block (32 bytes) of gap, so they kept their address and THIS COLLECTION IS NOT A FORCED-RELOCATION MEASUREMENT\n", n_rfz);
-    gc_vac_record(g_gc_flip_to ? g_hp_arena : dest); }
+    gc_vac_record(g_gc_flip_to ? g_hp_arena : dest);
+#endif
+    }
+#if RT_DIAG
     if (pl_blk) { pl_mark = (pl_blk->flags & HBF_MARK) ? 1 : 0; pl_fwd = pl_blk->fwd; }
     for (int z = 0; z < st_n; z++) st_fwd[z] = st_blk[z]->fwd;
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
+#endif
     for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; const char **loc = sl->hloc ? (const char **)((char *)(sl->hloc + 1) + sl->off) : (const char **)sl->off;
         rt_hblk_t *h = sl->tgt; if (h && h->fwd && h->fwd != (uint64_t)h) *loc = (const char *)((rt_hblk_t *)h->fwd + 1) + (*loc - (const char *)(h + 1)); }
+#if RT_DIAG
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
+#endif
     dest = g_hp_arena;
+#if RT_DIAG
     if (g_gc_flip_to) {
         for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; memcpy((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
         dest = g_gc_flip_to + g_gc_flip_live;
@@ -1714,13 +2024,30 @@ static long gc_collect_ex(void)
               q = nb + ((rt_hblk_t *)nb)->size; }
           dest = q; }
     } else
+#endif
     for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size;
-        if ((char *)livef[i] == (char *)h) { w_unm++; if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
+        if ((char *)livef[i] == (char *)h) {
+#if RT_DIAG
+            w_unm++;
+#endif
+            if (dest < (char *)h) { rt_hblk_t *fl = (rt_hblk_t *)dest; fl->fwd = 0; fl->size = (uint32_t)((char *)h - dest); fl->type = HB_FILL; fl->flags = HBF_TTL;
+#if RT_DIAG
+            nfill++;
+#endif
             if ((long)fl->size > (long)(g_hp_wend - g_hp_win)) { g_hp_win = dest; g_hp_wend = (char *)h; } } dest = (char *)h + sz; }
-        else { memmove((void *)livef[i], (void *)h, (size_t)sz); dest = (char *)livef[i] + sz; if (w_tel) w_mov += (long)sz; } }
+        else { memmove((void *)livef[i], (void *)h, (size_t)sz); dest = (char *)livef[i] + sz;
+#if RT_DIAG
+            if (w_tel) w_mov += (long)sz;
+#endif
+            } }
+#if RT_DIAG
     g_hp_top = dest; g_hp_blocks = nlive + nfill; g_hp_live = g_gc_flip_to ? g_gc_flip_live : (long)(dest - g_hp_arena); if (g_gc_flip_to && g_hp_top > g_hp_virgin) g_hp_virgin = g_hp_top; rt_gcheap_line_reset();
+#else
+    g_hp_top = dest; g_hp_live = (long)(dest - g_hp_arena); rt_gcheap_line_reset();
+#endif
     for (long i = 0; i < li; i++) { rt_hblk_t *nh = (rt_hblk_t *)livef[i]; nh->fwd = 0; nh->flags = (uint16_t)((nh->flags | HBF_TTL) & ~HBF_MARK); }
     after_b = (long)(g_hp_top - g_hp_arena);
+#if RT_DIAG
     if (st_n) { static int said_stale = 0; long mv = 0, un = 0, sw = 0;
         for (int z = 0; z < st_n; z++) { int moved = (st_fwd[z] && st_fwd[z] != (uint64_t)(uintptr_t)st_blk[z]) ? 1 : 0, kept = (rtccb[st_slot[z]] == st_word[z]) ? 1 : 0;
             if (moved) mv++; if (moved && kept) un++; if (!st_fwd[z] && kept) sw++;
@@ -1737,21 +2064,28 @@ static long gc_collect_ex(void)
         rtccb[pl_slot] = pl_save; }
     { static int psn = -1; if (psn < 0) { const char *e = getenv("SCRIP_GC_POISON"); psn = (e && *e) ? (*e != '0') : gc_diag_on(); } if (psn) { char *ot = g_hp_arena + before_b; long pb = ot > g_hp_top ? (long)(ot - g_hp_top) : 0; if (pb > 0) memset(g_hp_top, 0xDB, (size_t)pb); if (w_tel) fprintf(stderr, "[ZGC-POISON] vacated=%ldB filled=0xDB top=%p oldtop=%p\n", pb, (void *)g_hp_top, (void *)ot); } }
     if (w_tel) { w_sld = li; n_sld = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
+#endif
     { extern void rt_nv_memo_invalidate(void); extern void pm_lf_type_invalidate(void); rt_nv_memo_invalidate(); pm_lf_type_invalidate(); }
+#if RT_DIAG
     if (gc_verify_on()) { rt_gcheap_verify(); if (w_tel) { w_vfy = nlive + nfill; n_vfy = gc_walk_ns() - n_t0; } }
+#endif
     g_gc_runs++;
+#if RT_DIAG
     if (w_tel) fprintf(stderr, "[ZGC-WALK] arm=%s nblk=%ld | count=%ld/%.0fus index=%ld/%.0fus pmap-gran=%ld fwd=%ld/%.0fus live=%ld/%.0fus | mark=%.0fus fixup=%ld+%ld/%.0fus slide=%ld/%.0fus moved=%ldB unmoved=%ld verify=%ld/%.0fus | walk-floor=%ld titles %.0fus of %.0fus total\n",
         "FOLD", g_gc_nblk, w_cnt, n_cnt / 1e3, w_idx, n_idx / 1e3, w_pmg, w_fwd, n_fwd / 1e3, w_liv, n_liv / 1e3, n_mrk / 1e3, w_cel, w_raw, n_fix / 1e3, w_sld, n_sld / 1e3, w_mov, w_unm, w_vfy, n_vfy / 1e3,
         w_cnt + w_idx + w_fwd + w_liv + w_vfy, (n_cnt + n_idx + n_fwd + n_liv + n_vfy) / 1e3, (gc_walk_ns() - n_all) / 1e3);
     if (g_gc_dvec_elems && (w_tel || gc_maps_on())) fprintf(stderr, "[GC-DVEC] elems=%ld non_dvec=%ld\n", g_gc_dvec_elems, g_gc_dvec_nondvec);
     if (w_tel) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
+#endif
     if (g_hp_cap_end > g_hp_end && (long)(g_hp_end - g_hp_arena - g_hp_live) * 100L < (long)(g_hp_end - g_hp_arena) * (long)GC_FREE_PCT) (void)rt_gcheap_grow(0);
     rt_gcheap_line_reset();
+#if RT_DIAG
     if (g_gc_flip_to && g_gc_flip_to > g_hp_arena + sizeof(rt_hblk_t)) { size_t pg = gc_pg(); char *a = (char *)(((uintptr_t)g_hp_arena + sizeof(rt_hblk_t) + pg - 1) & ~(uintptr_t)(pg - 1)), *b = (char *)((uintptr_t)g_gc_flip_to & ~(uintptr_t)(pg - 1));
         memset(g_hp_arena + sizeof(rt_hblk_t), 0xDB, (size_t)(g_gc_flip_to - g_hp_arena - (long)sizeof(rt_hblk_t)));
         if (b > a && mprotect(a, (size_t)(b - a), PROT_NONE) == 0) { g_hp_flo = a; g_hp_fhi = b; } }
     gc_quar_arm(g_hp_top);
     if (w_tel) fprintf(stderr, "[ZGC-TRAP] quarantine arena+%ld..arena+%ld (%ld pages PROT_NONE) ledger=%ld entries over=%ld arms=%ld\n", g_hp_qlo ? (long)(g_hp_qlo - g_hp_arena) : -1L, g_hp_qhi ? (long)(g_hp_qhi - g_hp_arena) : -1L, g_hp_qlo ? (long)((g_hp_qhi - g_hp_qlo) / (long)gc_pg()) : 0L, g_gc_vacn, g_gc_vacover, g_hp_qarm);
+#endif
     g_gc_idx = (rt_hblk_t **)0;
     g_gc_in = 0;
     return before_b - after_b;
@@ -1770,11 +2104,17 @@ void rt_gc_poll(void)
 {
     if (g_gc_in) return;
     if (!g_gc_pending && !(g_hp_gcline && g_hp_top > g_hp_gcline)) return;
+#if RT_DIAG
     g_gc_polls++;
+#endif
     rt_gc_point_arr_c((DESCR_t *)0, 0, (const char **)0, (char *)__builtin_frame_address(0) + 16);
 }
 _Static_assert(sizeof(void *) == 8, "rt_gc_poll's floor is its caller's stack pointer: the frame pointer plus the saved rbp and the return address, 16 bytes on x86-64 -- the walk steps 8-byte words from this floor and never aligns it, so a floor taken from a char local (an odd address) misreads every cell above it (cto 2026-09-23, user_function_opsyn_8 printed empty at the association tap's spilled-pair poll)");
+#if RT_DIAG
 long rt_gc_polls_count(void) { return g_gc_polls; }
+#else
+long rt_gc_polls_count(void) { return 0; }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_poll_slow(void);
 void rt_gc_poll_asm(void);
@@ -1794,9 +2134,11 @@ __asm__(
 "  pushq %r11\n"
 "  subq  $16, %rsp\n"
 "  movq  %r13, (%rsp)\n"
+#if RT_DIAG
 "  incq g_gc_polls(%rip)\n"
 "  movq 88(%rsp), %rax\n"
 "  movq %rax, g_gc_poll_site(%rip)\n"
+#endif
 "  xorl %edi, %edi\n"
 "  xorl %esi, %esi\n"
 "  movq %rsp, %rdx\n"
@@ -1850,6 +2192,7 @@ __asm__(
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_free(void) { if (!g_hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 long rt_gc_cb_open(void) { return rt_gc_runs_count(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi)
@@ -1867,6 +2210,15 @@ long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi)
     }
     return n;
 }
+#else
+long rt_gc_cb_open(void) { return 0; }
+long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi) { (void)mark; (void)file; (void)line; (void)lo; (void)hi; return 0; }
+#endif
 long rt_gc_runs_count(void) { return g_gc_runs; }
+#if RT_DIAG
 void rt_gc_assert_dead(const void *payload) { if (!payload || (const char *)payload <= g_hp_arena || (const char *)payload >= g_hp_top) return; ((rt_hblk_t *)payload - 1)->flags |= HBF_ASSERT_DEAD; }
 void *rt_gc_assert_instances(uint16_t type, long n) { DESCR_t *v = (DESCR_t *)rt_gcheap_alloc(HB_DVEC, 2 * sizeof(DESCR_t)); v[0] = INTVAL((long long)type); v[1] = INTVAL((long long)n); ((rt_hblk_t *)v - 1)->flags |= HBF_ASSERT_INST; return (void *)v; }
+#else
+void rt_gc_assert_dead(const void *payload) { (void)payload; }
+void *rt_gc_assert_instances(uint16_t type, long n) { (void)type; (void)n; return (void *)0; }
+#endif

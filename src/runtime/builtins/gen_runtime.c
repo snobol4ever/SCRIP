@@ -5,6 +5,7 @@
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "gen.h"
 #include "../rt/gc_heap.h"
+#include "rt_diag.h"
 #include "coerce.h"
 #include "../by_name_dispatch.h"
 #include "../../lower/lower.h"
@@ -180,7 +181,11 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
 }
+#if RT_DIAG
 __attribute__((visibility("hidden"))) int g_repl_trace = -1;
+#else
+__attribute__((visibility("hidden"))) int g_repl_trace = 0;
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
     extern char * rt_str_alloc(long n);
@@ -192,9 +197,13 @@ void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int6
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
     int64_t rlen = (rv.v == DT_S && rv.slen && rs == rv.s) ? (int64_t)rv.slen : (int64_t)strlen(rs);
+#if RT_DIAG
     int64_t raw_start = start, raw_end = end;
+#endif
     if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
+#if RT_DIAG
     { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start, (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen); }
+#endif
     int64_t nlen = start + rlen + (slen - end);
     char *buf = rt_str_alloc((long)nlen);
     if (buf) { memcpy(buf, s, (size_t)start); memcpy(buf + start, rs, (size_t)rlen); memcpy(buf + start + rlen, s + end, (size_t)(slen - end)); buf[nlen] = '\0'; }
@@ -322,6 +331,7 @@ DESCR_t rt_keyword_error_set(DESCR_t v) { extern long g_error;
     else return FAILDESCR;
     g_error = i; return INTVAL((int64_t)i); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 DESCR_t rt_keyword_trace_set(DESCR_t v) { extern long g_trace;
     long i;
     if (v.v == DT_I) i = (long)v.i;
@@ -329,6 +339,15 @@ DESCR_t rt_keyword_trace_set(DESCR_t v) { extern long g_trace;
     else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
     else return FAILDESCR;
     g_trace = i; { extern void rt_trace_all_set(int on); rt_trace_all_set(i != 0); } return INTVAL((int64_t)i); }
+#else
+DESCR_t rt_keyword_trace_set(DESCR_t v) { extern long g_trace;
+    long i;
+    if (v.v == DT_I) i = (long)v.i;
+    else if (v.v == DT_R) i = (long)v.r;
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
+    else return FAILDESCR;
+    g_trace = i; return INTVAL((int64_t)i); }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_dump_set(DESCR_t v)  { extern long g_dump;
     long i;
@@ -360,6 +379,7 @@ void gen_gc_visit_scan_state(void *p)
     for (int i = 0; i < s->saved_depth; i++) if (s->saved[i].subj) rt_gc_visit_raw(&s->saved[i].subj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
 static void gen_audit_one(const char **loc, long *hp, long *un)
 {
     extern int rt_gc_ptr_in_heap_slot(const char *);
@@ -383,3 +403,8 @@ void gen_gc_audit_scan_slots(long *hp, long *un)
     for (int i = 0; i < scan_saved_depth; i++) gen_audit_one(&SCAN_SAVED(i).subj, hp, un);
     rt_coexpr_gc_audit_scan_states(hp, un);
 }
+#else
+void gen_gc_audit_scan_state(void *p, long *hp, long *un) { (void)p; (void)hp; (void)un; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void gen_gc_audit_scan_slots(long *hp, long *un) { (void)hp; (void)un; }
+#endif

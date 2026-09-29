@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "gc_audit_b.h"
+#if RT_DIAG
 typedef struct gc_audit_b_ctr_t { long words; long inheap; long marked; long fill; long excl; long found; long shown; long suppressed; long xframe; long xowner; } gc_audit_b_ctr_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_audit_b_log(const char *line)
@@ -98,4 +99,5 @@ long gc_audit_b_collect(const gc_audit_b_t *v)
         v->run, c.found, c.shown, c.suppressed, c.words, c.inheap, c.marked, c.fill, c.excl, v->nrgn, nhw, nop, v->nblk, ps, c.xframe, c.xowner);
     return c.found;
 }
+#endif
 #endif

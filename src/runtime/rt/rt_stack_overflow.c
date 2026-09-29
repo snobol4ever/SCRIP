@@ -12,6 +12,7 @@
 #include <sys/mman.h>
 #include <dlfcn.h>
 #include <stdio.h>
+#if RT_DIAG
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_fault_say(int sig, const siginfo_t *si, const ucontext_t *uc)
 {
@@ -30,14 +31,17 @@ static void rt_fault_say(int sig, const siginfo_t *si, const ucontext_t *uc)
     if (n > (int)sizeof buf) n = (int)sizeof buf;
     if (n > 0) write(2, buf, (size_t)n);
 }
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx)
 {
     ucontext_t *uc = (ucontext_t *)uctx;
     uintptr_t fault = (uintptr_t)si->si_addr, rsp = (uintptr_t)uc->uc_mcontext.gregs[REG_RSP];
     pthread_attr_t attr; void *lo_p = NULL; size_t sz = 0; int have = 0;
+#if RT_DIAG
     if (rt_gc_stale_addr_report(si->si_addr, (void *)uc->uc_mcontext.gregs[REG_RIP])) { signal(sig, SIG_DFL); raise(sig); }
     { extern int rt_gc_poison_reg_report(const long long *gregs, int n, void *ip); if (rt_gc_poison_reg_report((const long long *)uc->uc_mcontext.gregs, (int)NGREG, (void *)uc->uc_mcontext.gregs[REG_RIP])) { signal(sig, SIG_DFL); raise(sig); } }
+#endif
     { extern void rt_gc_main_stack_bounds(char **, char **); char *mlo = NULL, *mhi = NULL; rt_gc_main_stack_bounds(&mlo, &mhi);
       if (mlo && mhi && rsp <= (uintptr_t)mhi && rsp + 16UL * 1024 * 1024 >= (uintptr_t)mlo) { lo_p = mlo; sz = (size_t)(mhi - mlo); have = 1; } }
     if (!have && pthread_getattr_np(pthread_self(), &attr) == 0) { have = (pthread_attr_getstack(&attr, &lo_p, &sz) == 0); pthread_attr_destroy(&attr); }
@@ -45,7 +49,9 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx)
         if (fault < lo && fault + guard >= lo && rsp + guard >= lo && rsp <= hi) {
             static const char msg[] = "scrip: runtime error: ERROR 246 -- stack overflow (unbounded or too-deep recursion exhausted the call stack)\n";
             write(2, msg, sizeof msg - 1); _exit(1); } }
+#if RT_DIAG
     rt_fault_say(sig, si, uc);
+#endif
     signal(sig, SIG_DFL);
     raise(sig);
 }

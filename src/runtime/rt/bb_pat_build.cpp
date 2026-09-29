@@ -26,6 +26,7 @@ extern int g_flat_frame_floor;
 }
 #include <cstdio>
 #include <cstdlib>
+#include "rt_diag.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bb_jmp_entry_ktotal(const IR_graph_t *g) {
     int rg = g ? zls_g_region(g) : -1;
@@ -88,7 +89,9 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     zls_reset();
     fc_tables_reset();
     bb_src_reset();
+#if RT_DIAG
     { const char *dg = getenv("SCRIP_RTPAT_DIAG"); if (dg && atoi(dg) >= 2) { fputs("[RTPAT-TREE] ", stderr); ir_print_node((const tree_t *)tv, stderr); fputc('\n', stderr); } }
+#endif
     IR_graph_t *g = sno_pat_tree_graph_rt((const tree_t *)tv);
     if (!g || !g->entry) { if (zsz) *zsz = 0; if (zstatic) *zstatic = 0; return (void *)0; }
     optimizer_run(g);
@@ -103,15 +106,21 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     int kt = bb_jmp_entry_ktotal(g) + 16;
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
     g_emit.flat_pat = 1;
+#if RT_DIAG
     if (getenv("SCRIP_RTPAT_DIAG")) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d cro=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, sn4_choice_rbp_off(), 1, g_flat_frame_floor, _nc, _lf, _fn); }
     size_t pool_before = bb_pool_mark();
+#endif
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
+#if RT_DIAG
     size_t pool_after = bb_pool_mark();
+#endif
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
     g_emit.flat_pat = 0;
+#if RT_DIAG
     if (fn && getenv("SCRIP_RTPAT_DIAG")) { long heapimm = 0; const unsigned char *cb = (const unsigned char *)fn; size_t clen = pool_after > pool_before ? pool_after - pool_before : 0;
         for (size_t i = 0; i + 8 <= clen; i++) { uint64_t w; memcpy(&w, cb + i, 8); if (rt_gc_in_arena((const char *)(uintptr_t)w)) heapimm++; }
         fprintf(stderr, "[RTPAT-HEAPIMM] fn=%p bytes=%zu heapimm=%ld\n", (void *)fn, clen, heapimm); }
+#endif
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
     g_gva_active = saved_gva;
