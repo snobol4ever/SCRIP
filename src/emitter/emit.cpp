@@ -2449,6 +2449,7 @@ int sn4_blob_casmark(void) { static int v = -1; if (v < 0) { const char * e = ge
 static int blob_head_bytes(void) { return sn4_blob_casmark() ? 40 : 24; }
 static int frame_slot_off(int scan_rc, int idx) { return -((scan_rc == 2 ? (blob_head_bytes() + 8) : 64) + 16 * idx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int sn4_choice_rbp_off(void);
 static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes) {
     if (out_lo) *out_lo = 0; if (out_bytes) *out_bytes = 0;
     if (!nd || nd->n_operands < 3 || !g_emit_cfg) return 0;
@@ -2465,6 +2466,9 @@ static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes
         int u = (m->op == IR_MATCH_ALTERNATE) ? 2 : (zdp_scratch_cell(m) ? 2 : 1);
         if (j >= s0 && j <= s1 && m != nd) { int a = frame_slot_off(rc, k + u - 1), b = frame_slot_off(rc, k) + 16; if (!any || a < lo) lo = a; if (!any || b > top) top = b; any = 1; }
         k += u; }
+    for (int j = s0; j <= s1; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd || m->op != IR_MATCH_ALTERNATE || frame_slot_is_candidate(m)) continue;
+        int c = sn4_choice_rbp_off(); if (!c) continue;
+        if (!any || c < lo) lo = c; if (!any || c + 32 > top) top = c + 32; any = 1; }
     if (out_lo) *out_lo = lo; if (out_bytes) *out_bytes = any ? top - lo : 0;
     return any;
 }

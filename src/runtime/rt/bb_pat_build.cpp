@@ -82,11 +82,13 @@ static int bb_graph_zstatic(const IR_graph_t *g) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void ir_print_node(const tree_t *, FILE *);
 extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *zstatic) {
     bb_pool_init();
     zls_reset();
     fc_tables_reset();
     bb_src_reset();
+    { const char *dg = getenv("SCRIP_RTPAT_DIAG"); if (dg && atoi(dg) >= 2) { fputs("[RTPAT-TREE] ", stderr); ir_print_node((const tree_t *)tv, stderr); fputc('\n', stderr); } }
     IR_graph_t *g = sno_pat_tree_graph_rt((const tree_t *)tv);
     if (!g || !g->entry) { if (zsz) *zsz = 0; if (zstatic) *zstatic = 0; return (void *)0; }
     optimizer_run(g);
