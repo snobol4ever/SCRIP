@@ -13,7 +13,7 @@ White       =   white ARBNO(white);
 Gray        =   White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
-Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN('.' digits &UCASE '_' &LCASE) | epsilon);
+Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN('.' '0123456789' &UCASE '_' &LCASE) | epsilon);
 $'break'    =   *$' ' Id $ tx *IDENT(tx, 'break')    *$' ';
 $'case'     =   *$' ' Id $ tx *IDENT(tx, 'case')     *$' ';
 $'continue' =   *$' ' Id $ tx *IDENT(tx, 'continue') *$' ';
@@ -31,19 +31,19 @@ $'struct'   =   *$' ' Id $ tx *IDENT(tx, 'struct')   *$' ';
 $'switch'   =   *$' ' Id $ tx *IDENT(tx, 'switch')   *$' ';
 $'while'    =   *$' ' Id $ tx *IDENT(tx, 'while')    *$' ';
 Keyword     =   '&' (SPAN(&UCASE '_' &LCASE)) . thx . *Shift('TT_KEYWORD', thx);
-Integer     =   SPAN(digits) . token;
+Integer     =   SPAN('0123456789') . token;
 DQ_lit      =   '"' (BREAK('"')) . thx . *Shift('TT_QLIT', thx) '"';
 SQ_lit      =   "'" (BREAK("'")) . thx . *Shift('TT_QLIT', thx) "'";
 String      =   (*SQ_lit | *DQ_lit);
 Ident       =   Id $ tx $ *notmatch(tx, reserved) . token;
-Real        =   ( SPAN(digits)
+Real        =   ( SPAN('0123456789')
                   FENCE(
                     '.'
-                    SPAN(digits)
-                    FENCE(ANY('eEdD') FENCE(ANY('+-') | epsilon) SPAN(digits) | epsilon)
+                    SPAN('0123456789')
+                    FENCE(ANY('eEdD') FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon)
                   | ANY('eEdD')
                     FENCE(ANY('+-') | epsilon)
-                    SPAN(digits)
+                    SPAN('0123456789')
                   )
                 ) . token;
 $'('        =   '(' *$' ';

@@ -8,17 +8,17 @@ Gray    =   White | epsilon;
 $' '    =   Gray;
 $'  '   =   White;
 Atom_first = ANY(&LCASE X1xxxxxxx);
-Atom_rest  = SPAN(digits &UCASE &LCASE '_' X1xxxxxxx);
+Atom_rest  = SPAN('0123456789' &UCASE &LCASE '_' X1xxxxxxx);
 Atom       = (Atom_first (Atom_rest | epsilon));
-Qchars     = FENCE((NOTANY("'\") | "''" | '\' ('x' SPAN(hex_digits) '\' | SPAN(oct_digits) '\' | LEN(1))) *Qchars | epsilon);
+Qchars     = FENCE((NOTANY("'\") | "''" | '\' ('x' SPAN('0123456789AaBbCcDdEeFf') '\' | SPAN('01234567') '\' | LEN(1))) *Qchars | epsilon);
 Qatom      = ("'" *Qchars . q_body "'");
 Qatom_h    = ("'" BREAK("'") . h_body "'");
 Var_first  = ANY(&UCASE '_');
-Var_rest   = SPAN(digits &UCASE &LCASE '_');
+Var_rest   = SPAN('0123456789' &UCASE &LCASE '_');
 Var        = (Var_first (Var_rest | epsilon));
-Float      = (SPAN(digits) '.' SPAN(digits) FENCE('e' FENCE(ANY('+-') | epsilon) SPAN(digits) | 'E' FENCE(ANY('+-') | epsilon) SPAN(digits) | epsilon));
+Float      = (SPAN('0123456789') '.' SPAN('0123456789') FENCE('e' FENCE(ANY('+-') | epsilon) SPAN('0123456789') | 'E' FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon));
 Char_code  = ("0'" NOTANY(nl));
-Int        = SPAN(digits) FENCE(('_' FENCE(SPAN(' ' tab nl) | epsilon) | ' ') *Int | epsilon);
+Int        = SPAN('0123456789') FENCE(('_' FENCE(SPAN(' ' tab nl) | epsilon) | ' ') *Int | epsilon);
 Str        = ('"' BREAK('"') . s_body '"');
 $'('   =       '('  *$' ';  $')'  = *$' ' ')';
 $'['   =       '['  *$' ';  $']'  = *$' ' ']';
@@ -214,18 +214,18 @@ primary = (   Atom . p_name *$'('
           |   *$' ' '\+' *$' ' *unify_expr    . *Reduce('TT_NAF', 1)
           |   (Graphic_atom2) . thx . *Shift('TT_FNC', thx)
           |   Tk_cut                  . *Reduce('TT_CUT', 0)
-          |   "0'\x" SPAN(hex_digits) . p_radix FENCE('\' | epsilon)
+          |   "0'\x" SPAN('0123456789AaBbCcDdEeFf') . p_radix FENCE('\' | epsilon)
                   . *Shift('TT_ILIT', compute_hex(p_radix))
           |   "0'" ("''" | '\' LEN(1) | NOTANY(nl)) . p_cc
                   . *Shift('TT_ILIT', ascii_table[p_cc])
-          |   SPAN(digits) . p_rad "'" SPAN(digits &LCASE &UCASE) . p_rdig
+          |   SPAN('0123456789') . p_rad "'" SPAN('0123456789' &LCASE &UCASE) . p_rdig
                   . *Shift('TT_ILIT', compute_radix(p_rad, p_rdig))
           |   (Float) . thx . *Shift('TT_FLIT', thx)
-          |   '0x' SPAN(hex_digits) . p_radix
+          |   '0x' SPAN('0123456789AaBbCcDdEeFf') . p_radix
                   . *Shift('TT_ILIT', compute_hex(p_radix))
           |   '0b' SPAN(bin_digits) . p_radix
                   . *Shift('TT_ILIT', compute_bin(p_radix))
-          |   '0o' SPAN(oct_digits) . p_radix
+          |   '0o' SPAN('01234567') . p_radix
                   . *Shift('TT_ILIT', compute_oct(p_radix))
           |   Int . p_int
                   . *Shift('TT_ILIT', compute_radix(10, p_int))

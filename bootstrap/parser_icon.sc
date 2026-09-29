@@ -10,16 +10,16 @@ White        =   white FENCE(*White | epsilon);
 Gray         =   White | epsilon;
 $' '         =   Gray;
 $'  '        =   White;
-Id           = ANY(&UCASE &LCASE '_') FENCE(SPAN(digits &UCASE &LCASE '_') | epsilon);
+Id           = ANY(&UCASE &LCASE '_') FENCE(SPAN('0123456789' &UCASE &LCASE '_') | epsilon);
 reserved     = POS(0) ('break' | 'by' | 'case' | 'create' | 'default' | 'do' | 'else' | 'end' | 'every' | 'fail'
                      | 'global' | 'if' | 'initial' | 'invocable' | 'link' | 'local' | 'next' | 'not' | 'of'
                      | 'procedure' | 'record' | 'repeat' | 'return' | 'static' | 'suspend' | 'then' | 'to'
                      | 'until' | 'while') RPOS(0);
 id_pat       = Id $ tx $ *notmatch(tx, reserved);
-int_pat      = SPAN(digits) FENCE(ANY('rR') SPAN(digits &UCASE &LCASE) | epsilon);
-exp_part     = (('e' | 'E') ('+' | '-' | '') SPAN(digits));
-real_pat     = (( SPAN(digits) '.' (SPAN(digits) | '') | '.' SPAN(digits) ) (exp_part | '')
-               | SPAN(digits) exp_part
+int_pat      = SPAN('0123456789') FENCE(ANY('rR') SPAN('0123456789' &UCASE &LCASE) | epsilon);
+exp_part     = (('e' | 'E') ('+' | '-' | '') SPAN('0123456789'));
+real_pat     = (( SPAN('0123456789') '.' (SPAN('0123456789') | '') | '.' SPAN('0123456789') ) (exp_part | '')
+               | SPAN('0123456789') exp_part
                );
 str_pat      = ('"' BREAK('"') . strbody '"');
 cset_pat     = ("'" BREAK("'") . csetbody "'");
@@ -431,7 +431,7 @@ Record      = ( epsilon . *PushCounter()
                 . *PopCounter()
               );
 /* link a, "b" and invocable all, "+": names as TT_VAR leaves, a quoted name too (the C frontend's shape). */
-LinkName    = ( ( *$' ' '"' (BREAK('"')) . thx . *Shift('TT_VAR', thx) '"' | *$' ' (id_pat) . thx . *Shift('TT_VAR', thx) ) FENCE(*$':' SPAN(digits) | epsilon) . *IncCounter() );
+LinkName    = ( ( *$' ' '"' (BREAK('"')) . thx . *Shift('TT_VAR', thx) '"' | *$' ' (id_pat) . thx . *Shift('TT_VAR', thx) ) FENCE(*$':' SPAN('0123456789') | epsilon) . *IncCounter() );
 LinkStar    = FENCE( *$',' LinkName *LinkStar | epsilon );
 LinkDecl    = ( epsilon . *PushCounter() *$'link' *$'  ' LinkName *LinkStar *$' ' semi_opt *$' '
                 . *Reduce('TT_LINK', nTop()) . *Reduce(':subj', 1) . *Reduce('STMT', 1)

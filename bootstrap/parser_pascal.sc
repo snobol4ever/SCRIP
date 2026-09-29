@@ -41,7 +41,7 @@ White       =   white FENCE(*White | epsilon);
 Gray        =   White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
-Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN(digits &UCASE '_' &LCASE) | epsilon);
+Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN('0123456789' &UCASE '_' &LCASE) | epsilon);
 $'and'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'and')       *$' ';
 $'begin'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'begin')     *$' ';
 $'div'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'div')       *$' ';
@@ -81,15 +81,15 @@ $'record'   =   *$' ' Id $ tx *IDENT(lwr(tx), 'record')    *$' ';
 $'set'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'set')       *$' ';
 $'type'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'type')      *$' ';
 /* Literals.  A Pascal string is single-quoted and doubles an embedded quote.            */
-Integer     =   ('$' SPAN(digits 'abcdefABCDEF') | SPAN(digits)) . token;
-Real        =   ( SPAN(digits)
+Integer     =   ('$' SPAN('0123456789' 'abcdefABCDEF') | SPAN('0123456789')) . token;
+Real        =   ( SPAN('0123456789')
                   FENCE(
                     '.'
-                    SPAN(digits)
-                    FENCE(ANY('eE') FENCE(ANY('+-') | epsilon) SPAN(digits) | epsilon)
+                    SPAN('0123456789')
+                    FENCE(ANY('eE') FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon)
                   | ANY('eE')
                     FENCE(ANY('+-') | epsilon)
-                    SPAN(digits)
+                    SPAN('0123456789')
                   )
                 ) . token;
 /* a string's characters, a doubled quote among them, are taken greedily: shortest-first, '''' read as the  */

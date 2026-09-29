@@ -12,7 +12,7 @@ function TValue(x, i) {
             zeros = '';
             fval ('.' BREAK('0') | '.') SPAN('0') . zeros;
         }
-        fval SPAN(digits &UCASE &LCASE '+' '-') . pre;
+        fval SPAN('0123456789' &UCASE &LCASE '+' '-') . pre;
         if (DIFFER(pre) IDENT(SIZE(pre) + 1, SIZE(fval))) fval = pre;
         TValue = '(' t(x) ' ' fval ')';
         return;
@@ -25,7 +25,7 @@ function TValue(x, i) {
     if (TValue = IDENT(t(x), 'string')     "'" SqlSQize(v(x)) "'") { return; }
     if (TValue = IDENT(t(x), 'identifier') v(x))                   { return; }
     if (DIFFER(v(x))) {
-        if (t(x) ? (POS(0) ANY(&UCASE &LCASE) (SPAN(&UCASE &LCASE digits '_') | epsilon) RPOS(0))) {
+        if (t(x) ? (POS(0) ANY(&UCASE &LCASE) (SPAN(&UCASE &LCASE '0123456789' '_') | epsilon) RPOS(0))) {
             TValue = '(' t(x) ' ' v(x) ')';
             return;
         }
@@ -77,7 +77,7 @@ TLump_normal:
     freturn;
 TLump0:
     TLump = '(';
-    if (t(x) ? (POS(0) ANY(&UCASE &LCASE) (SPAN(digits &UCASE '_' &LCASE) | '') RPOS(0))) {
+    if (t(x) ? (POS(0) ANY(&UCASE &LCASE) (SPAN('0123456789' &UCASE '_' &LCASE) | '') RPOS(0))) {
         t = t(x);
     } else {
         t = '"' t(x) '"';
@@ -86,7 +86,7 @@ TLump0:
     if (DIFFER(v(x))) {
         if (IDENT(t(x), 'TT_FLIT')) {
             fval = '' v(x);
-            fval SPAN(digits) . pre;
+            fval SPAN('0123456789') . pre;
             if (DIFFER(pre) IDENT(SIZE(pre) + 1, SIZE(fval))) fval = pre;
             TLump = TLump ' ' fval;
         } else {
@@ -124,7 +124,7 @@ function TDump(x, outNm, i, t) {
             return;
         }
         if (~(t(x) ? (POS(0) ANY(&UCASE &LCASE)
-                     (SPAN(&UCASE &LCASE digits '_') | epsilon) RPOS(0))))
+                     (SPAN(&UCASE &LCASE '0123456789' '_') | epsilon) RPOS(0))))
             t = '"' t(x) '"';
         else
             t = t(x);
@@ -157,7 +157,7 @@ function TreeDumpValue(x, t, v, fval, zeros, pre) {
             zeros = '';
             fval ('.' BREAK('0') | '.') SPAN('0') . zeros;
         }
-        fval SPAN(digits &UCASE &LCASE '+' '-') . pre;
+        fval SPAN('0123456789' &UCASE &LCASE '+' '-') . pre;
         if (DIFFER(pre) IDENT(SIZE(pre) + 1, SIZE(fval))) fval = pre;
         TreeDumpValue = ' ' fval;
         return;

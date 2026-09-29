@@ -42,24 +42,24 @@ kw_s = UnprotKwds;   while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { 
 kw_s = ProtKwds;     while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { ProtKwdsT[kw_w] = 1; }
 kw_s = BuiltinVars;  while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { BuiltinVarsT[kw_w] = 1; }
 kw_s = SpecialNms;   while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { SpecialNmsT[kw_w] = 1; }
-Function    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *DIFFER(FunctionsT[sn_upr(tx)]);
-BuiltinVar  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *DIFFER(BuiltinVarsT[sn_upr(tx)]);
-SpecialNm   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *DIFFER(SpecialNmsT[sn_upr(tx)]);
+Function    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(FunctionsT[sn_upr(tx)]);
+BuiltinVar  =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(BuiltinVarsT[sn_upr(tx)]);
+SpecialNm   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(SpecialNmsT[sn_upr(tx)]);
 ProtKwd     =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(ProtKwdsT[sn_upr(tx)]);
 UnprotKwd   =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(UnprotKwdsT[sn_upr(tx)]);
-Integer     =  SPAN(digits);
+Integer     =  SPAN('0123456789');
 DQ          =  '"' (BREAK('"' nl)) . thx . *Shift('TT_QLIT', thx) '"';
 SQ          =  "'" (BREAK("'" nl)) . thx . *Shift('TT_QLIT', thx) "'";
 String      =  *SQ | *DQ;
-Real        =  (  SPAN(digits)
-                  ('.' FENCE(SPAN(digits) | epsilon) | epsilon)
+Real        =  (  SPAN('0123456789')
+                  ('.' FENCE(SPAN('0123456789') | epsilon) | epsilon)
                   ('E' | 'e')
                   ('+' | '-' | epsilon)
-                  SPAN(digits)
-               |  SPAN(digits) '.' FENCE(SPAN(digits) | epsilon)
+                  SPAN('0123456789')
+               |  SPAN('0123456789') '.' FENCE(SPAN('0123456789') | epsilon)
                );
 Id          =  ANY(&UCASE &LCASE)
-               FENCE(SPAN('.' digits &UCASE '_' &LCASE) | epsilon);
+               FENCE(SPAN('.' '0123456789' &UCASE '_' &LCASE) | epsilon);
 White       =  (  SPAN(' ' tab)
                   FENCE(nl ('+' | '.') FENCE(SPAN(' ' tab) | epsilon) | epsilon)
                |  nl ('+' | '.') FENCE(SPAN(' ' tab) | epsilon)
@@ -170,18 +170,18 @@ Expr17      =  FENCE(
                |  (*Real) . thx . *Shift('TT_RLIT', thx)
                |  (*Integer) . thx . *Shift('TT_ILIT', thx)
                );
-PrimLEN     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'LEN');
-PrimBREAK   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAK');
-PrimSPAN    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'SPAN');
-PrimANY     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ANY');
-PrimNOTANY  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'NOTANY');
-PrimFENCE   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'FENCE');
-PrimARBNO   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ARBNO');
-PrimPOS     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'POS');
-PrimRPOS    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RPOS');
-PrimTAB     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'TAB');
-PrimRTAB    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RTAB');
-PrimBREAKX  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAKX');
+PrimLEN     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'LEN');
+PrimBREAK   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAK');
+PrimSPAN    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'SPAN');
+PrimANY     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ANY');
+PrimNOTANY  =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'NOTANY');
+PrimFENCE   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'FENCE');
+PrimARBNO   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ARBNO');
+PrimPOS     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'POS');
+PrimRPOS    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RPOS');
+PrimTAB     =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'TAB');
+PrimRTAB    =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RTAB');
+PrimBREAKX  =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAKX');
 SGoto       =  ('S' | 's');
 FGoto       =  ('F' | 'f');
 Target      =  *$'(' . *assign(.Brackets, *'()') *Expr *$')'
