@@ -6306,12 +6306,11 @@ static inline int rt_field_index_cached_i(const char *fn, const DATBLK_t *idb)
 }
 int rt_field_index_cached(const char *fn, const DATBLK_t *idb) { return rt_field_index_cached_i(fn, idb); }
 DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
-    extern long g_error; extern int64_t kw_errlimit;
-    if (nargs == 1 && g_error == 0 && kw_errlimit == 0 && fn && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
+    if (nargs == 1 && fn && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; int fi = rt_field_index_cached_i(fn, idb);
         if (fi >= 0 && args[0].u->fields) return args[0].u->fields[fi];
     }
-    if (g_error == 0 && kw_errlimit == 0 && fn) { int h = rt_ctor_ic_find(fn, rt_ctor_gen());
+    if (fn) { int h = rt_ctor_ic_find(fn, rt_ctor_gen());
       if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt;
         if (nargs <= _udt->nfields) return dat_construct(_udt, args, nargs); } }
     { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen)); g_ctor_ic_site = outer; return r; }
