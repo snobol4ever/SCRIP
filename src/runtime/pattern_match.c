@@ -1124,9 +1124,9 @@ int c_rt_defer_close(int cur_delta)
     else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
     if (val.v == DT_S || val.v == DT_SNUL) {
         const char *lit = val.s ? val.s : "";
-        int llen = val.slen ? (int)val.slen : (int)strlen(lit);
+        int llen = (val.v == DT_SNUL || !val.s) ? 0 : (val.slen == 0xFFFFFFFFu ? (int)strlen(lit) : (int)val.slen);
         if (cur_delta + llen > Σlen) return -1;
-        if (llen > 0 && strncmp(Σ + cur_delta, lit, (size_t)llen) != 0) return -1;
+        if (llen > 0 && memcmp(Σ + cur_delta, lit, (size_t)llen) != 0) return -1;
         return cur_delta + llen;
     }
     return -1;
