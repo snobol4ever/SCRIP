@@ -3335,7 +3335,7 @@ static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _io_var_refresh(const char *name) { if (!name) return; NV_t *e = _var_bucket_find(name); if (e) e->is_io = (_io_chan_find_by_var(name) >= 0); g_nv_memo_gen++; }
+static void _io_var_refresh(const char *name) { extern void rt_defer_pairs_forget(void); if (!name) return; NV_t *e = _var_bucket_find(name); if (e) e->is_io = (_io_chan_find_by_var(name) >= 0); g_nv_memo_gen++; rt_defer_pairs_forget(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nv_memo_invalidate(void) { g_nv_memo_gen++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
