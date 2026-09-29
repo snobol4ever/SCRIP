@@ -1948,6 +1948,9 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         tree_e pk = TT_VAR;
         if (name && !sno_predef_registered(name)) for (int i = 0; pm[i].n; i++) if (!strcmp(name, pm[i].n)) { pk = pm[i].k; break; }
         if (pk != TT_VAR) { extern tree_t * ast_stmt_new(tree_e kind); tree_t * syn = ast_stmt_new(pk); for (int k = argbase; k < t->n; k++) ast_push(syn, (tree_t *) t->c[k]); return sno_pat_node(cx, syn, succ, fail); }
+        { const tree_t * ca = (name && t->n - argbase == 1 && !strcmp(name, "CHAR") && !sno_predef_registered(name)) ? t->c[argbase] : NULL;
+          if (ca && ca->t == TT_ILIT && ca->v.ival >= 1 && ca->v.ival <= 255) {
+              tree_t * q = ast_node_new(TT_QLIT); char * cb = (char *) ct_alloc(2); cb[0] = (char)(unsigned char) ca->v.ival; cb[1] = 0; q->v.sval = cb; return sno_pat_node(cx, q, succ, fail); } }
         { static int _ec = -1; if (_ec < 0) { const char * e = getenv("SCRIP_PAT_EAGER_CALL"); _ec = (!e || *e != '0') ? 1 : 0; }
           if (_ec && cx->npre >= 0 && cx->npre < 64) {
             IR_t * mvd = lc_build(g, IR_MATCH_DEFER, succ, NULL); sno_defer_seal(cx, mvd); sno_ω_to(mvd, fail);
