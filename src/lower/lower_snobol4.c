@@ -2004,7 +2004,18 @@ static int sno_is_pattern_rhs(const tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_mkpat_here(const tree_t * t) { static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_MKPAT_ANYWHERE"); _on = (e && *e == '0') ? 0 : 1; } return _on && t && t->t != TT_VAR && t->t != TT_KEYWORD && t->t != TT_INDIRECT && t->t != TT_DEFER && sno_is_pattern_rhs(t) && sno_pat_supported(t); }
+static int sno_null_lit(const tree_t * t) { return t && ((t->t == TT_QLIT && (!t->v.sval || !t->v.sval[0])) || t->t == TT_NUL); }
+static int sno_mkpat_here(const tree_t * t) {
+    static int _on = -1; if (_on < 0) { const char * e = getenv("SCRIP_MKPAT_ANYWHERE"); _on = (e && *e == '0') ? 0 : 1; }
+    if (!_on || !t || t->t == TT_VAR || t->t == TT_KEYWORD || t->t == TT_INDIRECT || t->t == TT_DEFER || !sno_is_pattern_rhs(t) || !sno_pat_supported(t)) return 0;
+    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1 && (sno_null_lit(t->c[0]) || sno_null_lit(t->c[1]))) return 0;
+    IR_graph_t * tg = IR_alloc(256);
+    scx_t tx; tx.g = tg; tx.loop_exit = NULL; tx.loop_next = NULL; tx.result_name = NULL; tx.pat_fail = NULL; tx.pat_seal = NULL; tx.npre = 0; tx.prog_nstmt = 0; tx.stno_base = 0;
+    IR_t * tok = lc_build(tg, IR_SUCCEED, NULL, NULL); IR_t * tno = lc_build(tg, IR_FAIL, NULL, NULL);
+    tx.pat_fail = tno; tx.pat_seal = sno_thunk_abort_exit(tg, tno);
+    sno_pat_node(&tx, t, tok, tno);
+    return tx.npre == 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_right_sealed(const tree_t * t) {
     if (!t) return 0;
@@ -2729,7 +2740,15 @@ static IR_t * sno_pat_carrier_build(scx_t * px, const tree_t * pat, IR_t * ok, I
     return pe;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_pat_publish_body_root(IR_graph_t * gp, int before_pat, const tree_t * pat, IR_t * brt, int pfenced, const char * dbgname) {
+static int sno_pat_right_fence0(const tree_t * t) {
+    if (!t) return 0;
+    if (sno_is_fence0(t) || sno_is_flush(t)) return 1;
+    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n > 1) return sno_is_fence1(t->c[1]) ? sno_pat_right_fence0(t->c[0]) : sno_pat_right_fence0(t->c[1]);
+    if ((t->t == TT_CAPT_COND_ASGN || t->t == TT_CAPT_IMMED_ASGN) && t->n > 0) return sno_pat_right_fence0(t->c[0]);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_pat_publish_body_root(IR_graph_t * gp, int before_pat, const tree_t * pat, IR_t * brt, int pfenced, const char * dbgname, IR_t * abort_nd) {
     IR_t * rn = NULL;
     if (sno_defer_resume() && !pfenced) {
         rn = brt;
@@ -2740,6 +2759,7 @@ static void sno_pat_publish_body_root(IR_graph_t * gp, int before_pat, const tre
     }
     int rs = sno_pat_right_sealed(pat) ? 1 : 0;
     gp->body_root = (gp->n > before_pat && !rs) ? ((sno_defer_resume() && pfenced && !rn) ? NULL : (rn ? rn : gp->all[before_pat])) : NULL;
+    if (abort_nd && sno_pat_right_fence0(pat)) gp->body_root = abort_nd;
     if (getenv("SCRIP_RESUME_WHY") && !gp->body_root)
         { extern int zdp_seam_tier(const IR_t *); const IR_t * _fb = NULL; for (int k3 = before_pat; k3 < gp->n; k3++) { IR_t * x3 = gp->all[k3]; if (x3 && !(x3->op == IR_GOTO && x3->n_operands == 0)) { _fb = x3; break; } }
             fprintf(stderr, "[RESUME-NIL] pat=%s empty=%d right_sealed=%d pfenced=%d rn=%d brt=%d fb=%s fbtier=%d chain=%s|%s|%s|%s\n", dbgname ? dbgname : "?", !(gp->n > before_pat), rs, pfenced, rn ? 1 : 0, brt ? 1 : 0, _fb ? bb_op_name(_fb->op) : "-", zdp_seam_tier(_fb), (before_pat + 0 < gp->n) ? bb_op_name(gp->all[before_pat + 0]->op) : "-", (before_pat + 1 < gp->n) ? bb_op_name(gp->all[before_pat + 1]->op) : "-", (before_pat + 2 < gp->n) ? bb_op_name(gp->all[before_pat + 2]->op) : "-", (before_pat + 3 < gp->n) ? bb_op_name(gp->all[before_pat + 3]->op) : "-"); }
@@ -2779,7 +2799,7 @@ void sno_pat_thunks_build(int p0) {
         }
         gp->entry = pe;
         gp->resumable_callable = 1;
-        sno_pat_publish_body_root(gp, before_pat, CV_AT(g_sno_pats, sno_pat_ent_t, pi2).pat, brt, pfenced, CV_AT(g_sno_pats, sno_pat_ent_t, pi2).name);
+        sno_pat_publish_body_root(gp, before_pat, CV_AT(g_sno_pats, sno_pat_ent_t, pi2).pat, brt, pfenced, CV_AT(g_sno_pats, sno_pat_ent_t, pi2).name, px.pat_seal);
         int ppi = stage2_proc_grow(&g_stage2);
         g_stage2.proc_table[ppi].name = CV_AT(g_sno_pats, sno_pat_ent_t, pi2).name;
         g_stage2.proc_table[ppi].proc = NULL;
@@ -3009,7 +3029,7 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
     if (sno_expr_mark() != rt_xmark) sno_fatal("deferred pattern-primitive argument reached the RT recipe graph builder — its expression thunk has no builder on this path (B-RE contract)", NULL);
     gp->entry = pe;
     gp->resumable_callable = 1;
-    if (rtc) sno_pat_publish_body_root(gp, before_pat, pat, brt, pfenced, "RT$");
+    if (rtc) sno_pat_publish_body_root(gp, before_pat, pat, brt, pfenced, "RT$", px.pat_seal);
     else gp->body_root = (gp->n > before_pat && !sno_pat_right_sealed(pat)) ? gp->all[before_pat] : NULL;
     return gp;
 }

@@ -3858,6 +3858,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                         IR_t * _tt = zd_chase(nodes[i]->γ.node); if (_tt && _tt->op == IR_SUCCEED) { if (_ti >= 0) { _ti = -2; break; } _ti = i; } }
                     if (_mok && _ti >= 0 && nodes[_ti]->op != IR_MATCH_FENCE1 && nodes[_ti]->op != IR_MATCH_FENCE0) resume_tgt = betas[_ti];
                 } } } }
+        if (g_emit_cfg && g_emit_cfg->body_root && g_emit_cfg->body_root->op == IR_MATCH_ABORT) { int i = nidx(nodes, n, g_emit_cfg->body_root); if (i >= 0) resume_tgt = lbls[i]; }
         if (icn_gen_regime() && g_emit.flat_gen && g_suspend_resume_slot >= 0)
             bb_emit_x86( x86("mov", "rax", FRQ(g_suspend_resume_slot)) + x86_jmp_reg("rax"));
         else
