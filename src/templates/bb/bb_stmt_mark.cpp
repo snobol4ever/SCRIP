@@ -34,8 +34,8 @@ std::string bb_stmt_mark(long stno, long line) {
 std::string bb_line_mark(long line, const char * file) {
     x86_begin();
     return x86_alpha()
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", RDQ("rax", 0), (long)line)
+         + IF(line >= 0, x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", RDQ("rax", 0), (long)line))
          + IF(file != (const char *)0,
              x86("comment", "IR_LINE_MARK with the source file: g_file <- the read-only string, the ICN$LINE dispatcher call this replaces set exactly g_line and g_file")
            + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")

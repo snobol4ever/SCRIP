@@ -2577,19 +2577,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * mark = lc_build(g, IR_STMT_MARK, body, body);
             IR_LIT(mark).ival = (int64_t)(i + 1) + stno_base;
             mark->pat_static = (int)lp_s_int(st[i], ":line");
-            if (_mark_first) {
-                _mark_first = 0;
-                IR_t * hook = lc_build(g, IR_CALL, mark, mark); IR_LIT(hook).sval = (char *) "SNO$STMT";
-                IR_t * num = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(num).ival = (int64_t)-1;
-                IR_t * lnn = lc_build(g, IR_LIT_INTEGER, hook, hook); IR_LIT(lnn).ival = (int64_t)0;
-                lc_γ_to(num, lnn);
-                ir_operand_push(hook, num); ir_operand_push(hook, lnn);
-                IR_t * fpn = lc_build(g, IR_LIT_STRING, hook, hook); IR_LIT(fpn).sval = (char *) _sf;
-                lc_γ_to(lnn, fpn);
-                ir_operand_push(hook, fpn);
-                lc_γ_to(anchor[i], num);
-                continue;
-            }
+            if (_mark_first) { _mark_first = 0; IR_t * fm = lc_build(g, IR_LINE_MARK, mark, mark); IR_LIT(fm).sval = (char *) _sf; fm->pat_static = -1; lc_γ_to(anchor[i], fm); continue; }
             lc_γ_to(anchor[i], mark);
         }
     }
