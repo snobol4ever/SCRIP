@@ -84,11 +84,22 @@ static void pl_splice_consults(tree_t *prog, const char *from_file) {
     g_pl_consult_depth--;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *prolog_compile_parse(const char *source, const char *filename)
+{
+    return prolog_parse(source, filename ? filename : "<stdin>");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void prolog_compile(const char *source, const char *filename, tree_t **out_ast)
+{
+    if (out_ast) *out_ast = NULL;
+    prolog_compile_finish(prolog_compile_parse(source, filename), filename, out_ast);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void prolog_compile_finish(void *parsed, const char *filename, tree_t **out_ast)
 {
     if (!filename) filename = "<stdin>";
     if (out_ast) *out_ast = NULL;
-    PlProgram *pl = prolog_parse(source, filename);
+    PlProgram *pl = (PlProgram *)parsed;
     if (!pl) { fprintf(stderr, "prolog_compile: parse failed for %s\n", filename); return; }
     if (pl->nerrors > 0) fprintf(stderr, "prolog: %d parse error(s) in %s\n", pl->nerrors, filename);
     if (pl->nclauses == 0) { if (out_ast) *out_ast = NULL; if (pl->nerrors > 0) exit(1); }

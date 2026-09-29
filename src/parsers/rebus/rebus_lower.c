@@ -457,16 +457,19 @@ CODE_t *rebus_lower(tree_t *prog) {
     return L.prog;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rebus_compile_parse(const char *src, const char *filename) {
+    return rebus_parse_buf(src, strlen(src), filename ? filename : "<stdin>");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rebus_compile(const char *src, const char *filename, tree_t **out_ast) {
+    if (out_ast) *out_ast = NULL;
+    rebus_compile_finish(rebus_compile_parse(src, filename), filename, out_ast);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rebus_compile_finish(void *parsed, const char *filename, tree_t **out_ast) {
     if (!filename) filename = "<stdin>";
     if (out_ast) *out_ast = NULL;
-    FILE *f = fmemopen((void *)src, strlen(src), "r");
-    if (!f) {
-        fprintf(stderr, "rebus_compile: fmemopen failed\n");
-        return;
-    }
-    tree_t *rp = rebus_parse(f, filename);
-    fclose(f);
+    tree_t *rp = (tree_t *)parsed;
     if (rebus_nerrors > 0) {
         fprintf(stderr, "rebus_compile: %d parse error(s) in %s -- no code generated\n", rebus_nerrors, filename);
         return;

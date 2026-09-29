@@ -129,9 +129,10 @@ void icn_prune_unreachable_procs(tree_t * prog) {
     prog->n = w; ct_drop(procs); ct_drop(keep); ct_drop(walked);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
+void *icon_compile_parse(const char *source, const char *filename) {
+    tree_t *ast = NULL;
+    tree_t **out_ast = &ast;
     if (!filename) filename = "<stdin>";
-    if (out_ast) *out_ast = NULL;
     IcnLexer lx;
     icn_pp_set_source_path(filename);
     icn_lex_init(&lx, source);
@@ -146,5 +147,15 @@ void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
         exit(1);
     }
     (void)prog;
-    if (out_ast && *out_ast) icn_resolve_links(*out_ast, filename);
+    return ast;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void icon_compile_finish(void *parsed, const char *filename, tree_t **out_ast) {
+    if (!filename) filename = "<stdin>";
+    if (out_ast) { *out_ast = (tree_t *)parsed; if (*out_ast) icn_resolve_links(*out_ast, filename); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void icon_compile(const char *source, const char *filename, tree_t **out_ast) {
+    if (out_ast) *out_ast = NULL;
+    icon_compile_finish(icon_compile_parse(source, filename), filename, out_ast);
 }

@@ -817,22 +817,13 @@ static int lookup_kw(const char *u) {
         if (strcmp(kwtab[i].word,u)==0) return kwtab[i].tok;
     return 0;
 }
-#define RBUF_MAX (4<<20)
-static char  *rbuf = NULL;
+static const char *rbuf = NULL;
 static size_t rlen = 0;
 static size_t rpos = 0;
 #define YY_INPUT(buf,result,max_size) \
     do { size_t _n=(rlen-rpos<(size_t)(max_size))?(rlen-rpos):(size_t)(max_size); \
          if(!_n){(result)=YY_NULL;} \
          else{memcpy((buf),rbuf+rpos,_n);rpos+=_n;(result)=(int)_n;} } while(0)
-static void load_file(FILE *fp) {
-    char line[65536];
-    while (fgets(line,sizeof line,fp)) {
-        int n=(int)strlen(line);
-        if (rlen+n+2<RBUF_MAX) { memcpy(rbuf+rlen,line,n); rlen+=n; }
-    }
-    rbuf[rlen]='\0';
-}
 static int next_is_continuation(void) {
     int target = yylineno;
     size_t p = 0;
@@ -2366,17 +2357,23 @@ extern int   rebus_yyparse(void);
 extern void  rebus_parse_init(void);
 tree_t      *rebus_parsed_program = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rebus_parse(FILE *f, const char *filename) {
+tree_t *rebus_parse_buf(const char *src, size_t len, const char *filename) {
     rebus_filename=(char *)filename;
     last_tok=0;
-    rbuf=ct_alloc(RBUF_MAX);
-    if(!rbuf){fprintf(stderr,"rebus: out of memory\n");exit(1);}
-    rlen=0; rpos=0;
-    load_file(f);
+    rbuf=src; rlen=len; rpos=0;
     yy_switch_to_buffer(yy_create_buffer(NULL,YY_BUF_SIZE));
     rebus_parse_init();
     rebus_yyparse();
-    ct_drop(rbuf); rbuf=NULL;
+    rbuf=NULL;
     return rebus_parsed_program;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rebus_parse(FILE *f, const char *filename) {
+    size_t cap=1<<16, n=0; char *b=ct_alloc(cap+1);
+    for(;;){ size_t r=fread(b+n,1,cap-n,f); n+=r; if(n<cap) break; cap*=2; b=ct_grow(b,cap+1); }
+    b[n]='\0';
+    tree_t *p=rebus_parse_buf(b,n,filename);
+    ct_drop(b);
+    return p;
 }
 

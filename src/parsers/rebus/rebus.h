@@ -31,6 +31,7 @@ static inline char *rebus_intern_n(const char *s, int n) {
     return p;
 }
 tree_t *rebus_parse(FILE *f, const char *filename);
+tree_t *rebus_parse_buf(const char *src, size_t len, const char *filename);
 void rebus_print(tree_t *prog, FILE *out);
 void rebus_error(int lineno, const char *fmt, ...);
 extern int   rebus_nerrors;

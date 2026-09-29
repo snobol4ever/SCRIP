@@ -100,6 +100,7 @@ tree_t       *ast_attr_leaf(const char *tag, const char *val);
 tree_t       *ast_attr_int(const char *tag, int ival);
 tree_t       *ast_attr_expr(const char *tag, tree_t *expr);
 tree_t       *sno_parse_ast(FILE *f, const char *filename, CODE_t **code_out);
+tree_t       *sno_parse_ast_buf(char *buf, size_t len, const char *filename, CODE_t **code_out, int expand_includes);
 void sno_error(int lineno, const char *fmt, ...);
 void sno_error_quiet_begin(void);
 void sno_error_quiet_end(void);

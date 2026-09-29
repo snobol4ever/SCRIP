@@ -802,6 +802,7 @@ static Token mktok(int k, const char *sv, long iv, double dv) {
     Token t; t.kind=k; t.sval=sv; t.ival=iv; t.dval=dv; t.lineno=lineno;
     return t;
 }
+#define SNO_LEX_NO_INCLUDE ((void *)1)
 
 #define INITIAL 0
 #define LABEL 1
@@ -1149,6 +1150,7 @@ case 5:
 /* rule 5 can match eol */
 YY_RULE_SETUP
 {
+    if (yyextra == SNO_LEX_NO_INCLUDE) { lineno++; } else {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
     if(q1 && q2 && q2>q1){
@@ -1172,12 +1174,14 @@ YY_RULE_SETUP
             }
         }
     }
+    }
 }
 	YY_BREAK
 case 6:
 /* rule 6 can match eol */
 YY_RULE_SETUP
 {
+    if (yyextra == SNO_LEX_NO_INCLUDE) { lineno++; } else {
     char *q1 = strchr(yytext,'"'); char *q2 = strrchr(yytext,'"');
     lineno++;
     if(q1 && q2 && q2>q1){
@@ -1201,6 +1205,7 @@ YY_RULE_SETUP
             }
         }
     }
+    }
 }
 	YY_BREAK
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1208,6 +1213,7 @@ case 7:
 /* rule 7 can match eol */
 YY_RULE_SETUP
 {
+    if (yyextra == SNO_LEX_NO_INCLUDE) { lineno++; } else {
     char *q1 = strchr(yytext,'\''); char *q2 = strrchr(yytext,'\'');
     lineno++;
     if(q1 && q2 && q2>q1){
@@ -1225,6 +1231,7 @@ YY_RULE_SETUP
             yypush_buffer_state(yy_create_buffer(inc,YY_BUF_SIZE,yyscanner),yyscanner);
             sno_frame_push(iname);
         }
+    }
     }
 }
 	YY_BREAK
@@ -3239,15 +3246,31 @@ void lex_destroy(Lex *lx) { flex_lex_destroy(lx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *sno_parse_ast(FILE *f, const char *fname, CODE_t **code_out) {
-    Lex lx; memset(&lx,0,sizeof lx);
-    flex_lex_open(&lx,f,fname);
+static tree_t *sno_parse_lexed(Lex *lx, CODE_t **code_out) {
     tree_t *ast = NULL;
-    CODE_t *prog = parse_program_tokens_ast(&lx, &ast);
-    flex_lex_destroy(&lx);
+    CODE_t *prog = parse_program_tokens_ast(lx, &ast);
+    flex_lex_destroy(lx);
     if (prog) { int saw_end = 0; STMT_t *p; for (p = prog->head; p; p = p->next) if (p->is_end) { saw_end = 1; break; } if (!saw_end) sno_error(prog->tail ? prog->tail->lineno : 0, "missing END statement"); }
     if (code_out) *code_out = prog;
     return ast;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *sno_parse_ast(FILE *f, const char *fname, CODE_t **code_out) {
+    Lex lx; memset(&lx,0,sizeof lx);
+    flex_lex_open(&lx,f,fname);
+    return sno_parse_lexed(&lx, code_out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *sno_parse_ast_buf(char *buf, size_t len, const char *fname, CODE_t **code_out, int expand_includes) {
+    Lex lx; memset(&lx,0,sizeof lx);
+    yyscan_t sc;
+    (void)fname;
+    if (yylex_init_extra(expand_includes ? NULL : SNO_LEX_NO_INCLUDE, &sc)) return NULL;
+    if (!yy_scan_buffer(buf, len + 2, sc)) { yylex_destroy(sc); return NULL; }
+    lineno = 1;
+    lx._scanner = sc;
+    lx._extra = NULL;
+    return sno_parse_lexed(&lx, code_out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
