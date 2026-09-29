@@ -999,6 +999,9 @@ s4e_lane_owner_of_language() {
        # when CTO can start. He is seated as Opus 5.5 with max effort."): TWO WORKING SEATS, split by layer -- the cto bakes every call and deferred-pattern address (no by-name lookup at run
        # time, compile-time site tables, patch on a second DEFINE or assignment; its row is assigned, not picked), the ceo keeps the six parsers, the runtime diagnostics switch and the boards.
        # Every language stays the ceo's, so this table is the MODE CEO table unchanged; the DUO guard arms above already admit the cto.
+       # ⛔⭐ MODE QUARTET (CEO-1364, 2026-09-29 18:3x, Lon in-chat to the ceo: "WIll we not benefit from having CFO and COO at work?" then "The goal is parser.sc same as C and 2x faster than SPITBOL."): the four officers,
+       # split by layer as DUO was -- the cto bakes the calls, the coo is the testing officer again (LANES: names the coo), the cfo takes the collector and allocation under the parsers, the ceo keeps the
+       # parsers and the stored-pattern thunks. Rows are assigned, not picked by language, so this table stays the MODE CEO table unchanged; the QUARTET guard arms above already admit cto, cfo and coo.
        icon)     printf 'ceo';;
        prolog)   printf 'ceo';;
        snobol4)  printf 'ceo';;
