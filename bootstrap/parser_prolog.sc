@@ -20,40 +20,40 @@ Float      = (SPAN(digits) '.' SPAN(digits) FENCE('e' FENCE(ANY('+-') | epsilon)
 Char_code  = ("0'" NOTANY(nl));
 Int        = SPAN(digits) FENCE(('_' FENCE(SPAN(' ' tab nl) | epsilon) | ' ') *Int | epsilon);
 Str        = ('"' BREAK('"') . s_body '"');
-$'('   =       '('  $' ';  $')'  = $' ' ')';
-$'['   =       '['  $' ';  $']'  = $' ' ']';
-$','   = $' '  ','  $' ';  $';'  = $' ' ';' $' ';
-$'|'   = $' '  '|'  $' ';
-$'.'   = $' '  '.';
-$':-'  = $' '  ':-' $' ';  $':'  = $' '  ':'  . op_name_ @la_c *DIFFER(SUBSTR(Src, la_c + 1, 1), '-') $' ';  $'='  = $' ' '='  $' ';
-$'+'   = $' '  '+'  $' ';  $'-'   = $' ' '-' @la_m *DIFFER(SUBSTR(Src, la_m + 1, 1), '>') *DIFFER(SUBSTR(Src, la_m + 1, 2), '->') $' ';
-$'*'   = $' '  '*' @la_s *DIFFER(SUBSTR(Src, la_s + 1, 2), '->') $' ';  $'/'  = $' ' '/'  $' ';
-$'is'  = $'  ' 'is' $'  ';
-$'*->' = $' ' '*->' . op_name_ $' ';
-$'as'  = $'  ' 'as' . op_name_ $'  ';
-$'-->' = $' ' '-->' $' ';
-$'{'   = $' '  '{'  $' ';  $'}'  = $' ' '}'  $' ';
-Tk_cut = $' ' '!' $' ';
-$'=:=' = $' ' '=:=' $' ';  $'=\=' = $' ' '=\=' $' ';
-$'=='  = $' ' '=='  $' ';  $'\==' = $' ' '\==' $' ';
-$'>='  = $' ' '>='  $' ';  $'=<'  = $' ' '=<'  $' ';
-$'>'   = $' ' '>'   $' ';  $'<'   = $' ' '<'   $' ';
-$'\='  = $' ' '\='  $' ';
-$'=..' = $' ' '=..' $' ';
-$'=@=' = $' ' '=@=' . op_name_ $' ';  $'\=@=' = $' ' '\=@=' . op_name_ $' ';
-$'@>=' = $' ' '@>=' . op_name_ $' ';  $'@=<' = $' ' '@=<' . op_name_ $' ';
-$'@>'  = $' ' '@>'  . op_name_ $' ';  $'@<'  = $' ' '@<'  . op_name_ $' ';
-$'**'  = $' ' '**'  . op_name_ $' ';  $'^'   = $' '  '^'  . op_name_ $' ';
-$'//'  = $' ' '//'  $' ';
-$'/\' = $' ' '/\' . op_name_ $' ';  $'\/' = $' ' '\/' . op_name_ $' ';
-$'>>'  = $' ' '>>'  . op_name_ $' ';  $'<<'  = $' ' '<<'  . op_name_ $' ';
-$'mod' = $'  ' 'mod' . op_name_ $'  ';
-$'rem' = $'  ' 'rem' . op_name_ $'  ';
-$'xor' = $'  ' 'xor' . op_name_ $'  ';
-$'div' = $'  ' 'div' . op_name_ $'  ';
-$'rdiv' = $'  ' 'rdiv' . op_name_ $'  ';
-$'\'   = $' ' '\' . op_name_;
-$'->'  = $' ' '->' $' ';
+$'('   =       '('  *$' ';  $')'  = *$' ' ')';
+$'['   =       '['  *$' ';  $']'  = *$' ' ']';
+$','   = *$' '  ','  *$' ';  $';'  = *$' ' ';' *$' ';
+$'|'   = *$' '  '|'  *$' ';
+$'.'   = *$' '  '.';
+$':-'  = *$' '  ':-' *$' ';  $':'  = *$' '  ':'  . op_name_ @la_c *DIFFER(SUBSTR(Src, la_c + 1, 1), '-') *$' ';  $'='  = *$' ' '='  *$' ';
+$'+'   = *$' '  '+'  *$' ';  $'-'   = *$' ' '-' @la_m *DIFFER(SUBSTR(Src, la_m + 1, 1), '>') *DIFFER(SUBSTR(Src, la_m + 1, 2), '->') *$' ';
+$'*'   = *$' '  '*' @la_s *DIFFER(SUBSTR(Src, la_s + 1, 2), '->') *$' ';  $'/'  = *$' ' '/'  *$' ';
+$'is'  = *$'  ' 'is' *$'  ';
+$'*->' = *$' ' '*->' . op_name_ *$' ';
+$'as'  = *$'  ' 'as' . op_name_ *$'  ';
+$'-->' = *$' ' '-->' *$' ';
+$'{'   = *$' '  '{'  *$' ';  $'}'  = *$' ' '}'  *$' ';
+Tk_cut = *$' ' '!' *$' ';
+$'=:=' = *$' ' '=:=' *$' ';  $'=\=' = *$' ' '=\=' *$' ';
+$'=='  = *$' ' '=='  *$' ';  $'\==' = *$' ' '\==' *$' ';
+$'>='  = *$' ' '>='  *$' ';  $'=<'  = *$' ' '=<'  *$' ';
+$'>'   = *$' ' '>'   *$' ';  $'<'   = *$' ' '<'   *$' ';
+$'\='  = *$' ' '\='  *$' ';
+$'=..' = *$' ' '=..' *$' ';
+$'=@=' = *$' ' '=@=' . op_name_ *$' ';  $'\=@=' = *$' ' '\=@=' . op_name_ *$' ';
+$'@>=' = *$' ' '@>=' . op_name_ *$' ';  $'@=<' = *$' ' '@=<' . op_name_ *$' ';
+$'@>'  = *$' ' '@>'  . op_name_ *$' ';  $'@<'  = *$' ' '@<'  . op_name_ *$' ';
+$'**'  = *$' ' '**'  . op_name_ *$' ';  $'^'   = *$' '  '^'  . op_name_ *$' ';
+$'//'  = *$' ' '//'  *$' ';
+$'/\' = *$' ' '/\' . op_name_ *$' ';  $'\/' = *$' ' '\/' . op_name_ *$' ';
+$'>>'  = *$' ' '>>'  . op_name_ *$' ';  $'<<'  = *$' ' '<<'  . op_name_ *$' ';
+$'mod' = *$'  ' 'mod' . op_name_ *$'  ';
+$'rem' = *$'  ' 'rem' . op_name_ *$'  ';
+$'xor' = *$'  ' 'xor' . op_name_ *$'  ';
+$'div' = *$'  ' 'div' . op_name_ *$'  ';
+$'rdiv' = *$'  ' 'rdiv' . op_name_ *$'  ';
+$'\'   = *$' ' '\' . op_name_;
+$'->'  = *$' ' '->' *$' ';
 Graphic_first = ANY('\\@#^~?=<>+\-*/:.$&`');
 Graphic_rest  = SPAN('\\+\-*/^<>=~?@#&:.$`');
 Graphic_atom  = (Graphic_first (Graphic_rest | epsilon));
@@ -142,7 +142,7 @@ function compute_radix(r, raw, n, i, len, d, s) {
 /* op/3: the user operator table -- uop_band[name] is the band key ('in700', 'pre500', 'post'); uop_on is FAIL until the first */
 /* op/3 goal declares, then the one token pattern, and each site checks its own key by *IDENT at match time; no pattern is built */
 uop_band = TABLE();
-uop_tok  = $' ' ((((Atom | Graphic_atom) $ uop_tx) . thx) . *Shift('TT_FNC', thx)) $' ';
+uop_tok  = *$' ' ((((Atom | Graphic_atom) $ uop_tx) . thx) . *Shift('TT_FNC', thx)) *$' ';
 uop_on   = FAIL;
 op_infix   = epsilon . *OpSwap(3);
 op_postfix = epsilon . *OpSwap(2);
@@ -166,44 +166,44 @@ function DeclareOp(p, t, n, b) {
 }
 /* ==================================================================================================================== */
 arg       = ( *arg_top | (Graphic_atom | ';') . b_name . *Shift('TT_FNC', b_name) );
-arg_ite   = ( *unify_expr FENCE( $'->' *arg_ite  . *Reduce('TT_IFTHEN', 2) | epsilon ) );
-arg_disj  = ( *arg_ite    FENCE( $';'  *arg_disj . *Reduce('TT_DISJ', 2) | epsilon ) );
-arg_top   = ( *arg_disj   FENCE( $':-' *arg_disj . *Reduce('TT_CLAUSE', 2) | epsilon ) );
+arg_ite   = ( *unify_expr FENCE( *$'->' *arg_ite  . *Reduce('TT_IFTHEN', 2) | epsilon ) );
+arg_disj  = ( *arg_ite    FENCE( *$';'  *arg_disj . *Reduce('TT_DISJ', 2) | epsilon ) );
+arg_top   = ( *arg_disj   FENCE( *$':-' *arg_disj . *Reduce('TT_CLAUSE', 2) | epsilon ) );
 args      = ( epsilon . *IncCounter() *arg FENCE(*args_tail | epsilon) );
-args_tail = ( $',' . *IncCounter() *arg FENCE(*args_tail | epsilon) );
-list_body_tail = ( $',' . *IncCounter() *arg FENCE( *list_body_tail | epsilon ) );
+args_tail = ( *$',' . *IncCounter() *arg FENCE(*args_tail | epsilon) );
+list_body_tail = ( *$',' . *IncCounter() *arg FENCE( *list_body_tail | epsilon ) );
 list_body      = ( epsilon . *IncCounter() *arg FENCE( *list_body_tail | epsilon ) );
 /* list: nil → TT_MAKELIST(0 children); [h|t] or [h,..] → TT_MAKELIST(n+1: elems then tail) */
-list = (    $'['
+list = (    *$'['
             FENCE(
-              $']'                    . *Reduce('TT_MAKELIST', 0)
+              *$']'                    . *Reduce('TT_MAKELIST', 0)
             | epsilon . *PushCounter()
                   *list_body
-                  FENCE( $'|' *arg
+                  FENCE( *$'|' *arg
                        | epsilon           . *Reduce('TT_MAKELIST', 0)
                        )
-                  $']'
+                  *$']'
                                        . *Reduce('TT_MAKELIST', nTop() + 1)
               . *PopCounter()
             )
        );
 /* ==================================================================================================================== */
 /* primary: leaf atoms, variables, numbers, compound terms, parenthesised expr, list */
-primary = (   Atom . p_name $'('
+primary = (   Atom . p_name *$'('
                   . *PushCounter()
                   . *Shift('TT_FNC', p_name) . *IncCounter()
-                  (*args | epsilon) $')'
+                  (*args | epsilon) *$')'
                   . *Reduce('TT_COMPOUND', nTop())
               . *PopCounter()
-          |   $' ' (Graphic_atom | ';') . g_name $'('
+          |   *$' ' (Graphic_atom | ';') . g_name *$'('
                   . *PushCounter()
                   . *Shift('TT_FNC', g_name) . *IncCounter()
-                  *args $')'
+                  *args *$')'
                   . *Reduce('TT_COMPOUND', nTop())
               . *PopCounter()
-          |   $' ' '-' Float . p_negf
+          |   *$' ' '-' Float . p_negf
                   . *Shift('TT_FLIT', '-' p_negf)
-          |   $' ' '-' Int . p_negi
+          |   *$' ' '-' Int . p_negi
                   . *Shift('TT_ILIT', '-' p_negi)
           |   *uop_on *IDENT(uop_band[uop_tx], 'pre200') *primary     . *Reduce('TT_COMPOUND', 2)
           |   *uop_on *IDENT(uop_band[uop_tx], 'pre400') *pow_expr    . *Reduce('TT_COMPOUND', 2)
@@ -211,7 +211,7 @@ primary = (   Atom . p_name $'('
           |   *uop_on *IDENT(uop_band[uop_tx], 'pre600') *add_expr    . *Reduce('TT_COMPOUND', 2)
           |   *uop_on *IDENT(uop_band[uop_tx], 'pre700') *colon_expr  . *Reduce('TT_COMPOUND', 2)
           |   *uop_on *IDENT(uop_band[uop_tx], 'pre900') *unify_expr  . *Reduce('TT_COMPOUND', 2)
-          |   $' ' '\+' $' ' *unify_expr    . *Reduce('TT_NAF', 1)
+          |   *$' ' '\+' *$' ' *unify_expr    . *Reduce('TT_NAF', 1)
           |   (Graphic_atom2) . thx . *Shift('TT_FNC', thx)
           |   Tk_cut                  . *Reduce('TT_CUT', 0)
           |   "0'\x" SPAN(hex_digits) . p_radix FENCE('\' | epsilon)
@@ -230,10 +230,10 @@ primary = (   Atom . p_name $'('
           |   Int . p_int
                   . *Shift('TT_ILIT', compute_radix(10, p_int))
           |   (Atom) . thx . *Shift('TT_FNC', thx)
-          |   Qatom $'('
+          |   Qatom *$'('
                   . *PushCounter()
                   . *Shift('TT_FNC', unescape_q(q_body)) . *IncCounter()
-                  *args $')'
+                  *args *$')'
                   . *Reduce('TT_COMPOUND', nTop())
               . *PopCounter()
           |   Qatom
@@ -242,83 +242,83 @@ primary = (   Atom . p_name $'('
                   . *Shift('TT_FNC', s_body)
           |   Var . p_text
                   . *Shift('TT_VAR', p_text)
-          |   $'(' *unify_expr $')'
-          |   $'(' *unify_expr $':-' *body $')'  . *Reduce('TT_CLAUSE', 2)
-          |   $'(' *unify_expr FENCE($',' *unify_expr . *Reduce('TT_CONJ', 2) | epsilon) $'-->' *dcg_body $')'  . *Reduce('TT_DCG_RULE', 2)
-          |   $'(' $':-' *body $')'              . *Reduce('TT_DIRECTIVE', 1)
-          |   $'(' *body $')'
-          |   $'(' (Graphic_atom | ';') . b_name $')'
+          |   *$'(' *unify_expr *$')'
+          |   *$'(' *unify_expr *$':-' *body *$')'  . *Reduce('TT_CLAUSE', 2)
+          |   *$'(' *unify_expr FENCE(*$',' *unify_expr . *Reduce('TT_CONJ', 2) | epsilon) *$'-->' *dcg_body *$')'  . *Reduce('TT_DCG_RULE', 2)
+          |   *$'(' *$':-' *body *$')'              . *Reduce('TT_DIRECTIVE', 1)
+          |   *$'(' *body *$')'
+          |   *$'(' (Graphic_atom | ';') . b_name *$')'
                   . *Shift('TT_FNC', b_name)
-          |   $'{' $'}'             . *Reduce('TT_DCG_IL', 0)
-          |   $'{' *body $'}'       . *Reduce('TT_DCG_IL', 1)
+          |   *$'{' *$'}'             . *Reduce('TT_DCG_IL', 0)
+          |   *$'{' *body *$'}'       . *Reduce('TT_DCG_IL', 1)
           |   *list
-          |   $'\' $' ' *primary            . *Reduce('TT_BINOP', 2)
-          |   $' ' '-' $' ' *primary   . *Reduce('TT_UMINUS', 1)
-          |   $' ' '+' $' ' *primary   . *Reduce('TT_UPLUS', 1)
+          |   *$'\' *$' ' *primary            . *Reduce('TT_BINOP', 2)
+          |   *$' ' '-' *$' ' *primary   . *Reduce('TT_UMINUS', 1)
+          |   *$' ' '+' *$' ' *primary   . *Reduce('TT_UPLUS', 1)
           );
 pow_expr  = (   *primary
-                FENCE( $'^'  *pow_expr  . *Reduce('TT_BINOP', 2)
-                     | $'**' *primary   . *Reduce('TT_BINOP', 2)
+                FENCE( *$'^'  *pow_expr  . *Reduce('TT_BINOP', 2)
+                     | *$'**' *primary   . *Reduce('TT_BINOP', 2)
                      | *uop_on *IDENT(uop_band[uop_tx], 'in200') *pow_expr op_infix
                      | *uop_on *IDENT(uop_band[uop_tx], 'post') op_postfix
                      | epsilon
                      )
             );
 mul_expr  = (   *pow_expr *mul_tail );
-mul_tail  = FENCE( FENCE( $'mod' *pow_expr  . *Reduce('TT_BINOP', 2)
-                         | $'rem' *pow_expr  . *Reduce('TT_BINOP', 2)
-                         | $'div' *pow_expr  . *Reduce('TT_BINOP', 2)
-                         | $'rdiv' *pow_expr . *Reduce('TT_BINOP', 2)
-                         | $'>>'  *pow_expr  . *Reduce('TT_BINOP', 2)
-                         | $'<<'  *pow_expr  . *Reduce('TT_BINOP', 2)
-                         | $'*'   *pow_expr  . *Reduce('TT_MUL', 2)
-                         | $'//'  *pow_expr  . *Reduce('TT_IDIV', 2)
-                         | $'/\'  *pow_expr  . *Reduce('TT_BINOP', 2)
-                         | $'/'   *pow_expr  . *Reduce('TT_DIV', 2)
+mul_tail  = FENCE( FENCE( *$'mod' *pow_expr  . *Reduce('TT_BINOP', 2)
+                         | *$'rem' *pow_expr  . *Reduce('TT_BINOP', 2)
+                         | *$'div' *pow_expr  . *Reduce('TT_BINOP', 2)
+                         | *$'rdiv' *pow_expr . *Reduce('TT_BINOP', 2)
+                         | *$'>>'  *pow_expr  . *Reduce('TT_BINOP', 2)
+                         | *$'<<'  *pow_expr  . *Reduce('TT_BINOP', 2)
+                         | *$'*'   *pow_expr  . *Reduce('TT_MUL', 2)
+                         | *$'//'  *pow_expr  . *Reduce('TT_IDIV', 2)
+                         | *$'/\'  *pow_expr  . *Reduce('TT_BINOP', 2)
+                         | *$'/'   *pow_expr  . *Reduce('TT_DIV', 2)
                          | *uop_on *IDENT(uop_band[uop_tx], 'in400') *pow_expr op_infix
                          ) *mul_tail | epsilon );
 add_expr  = (   *mul_expr *add_tail );
-add_tail  = FENCE( FENCE( $'+' *mul_expr  . *Reduce('TT_ADD', 2)
-                         | $'-' *mul_expr  . *Reduce('TT_SUB', 2)
-                         | $'\/' *mul_expr . *Reduce('TT_BINOP', 2)
-                         | $'xor' *mul_expr . *Reduce('TT_BINOP', 2)
+add_tail  = FENCE( FENCE( *$'+' *mul_expr  . *Reduce('TT_ADD', 2)
+                         | *$'-' *mul_expr  . *Reduce('TT_SUB', 2)
+                         | *$'\/' *mul_expr . *Reduce('TT_BINOP', 2)
+                         | *$'xor' *mul_expr . *Reduce('TT_BINOP', 2)
                          | *uop_on *IDENT(uop_band[uop_tx], 'in500') *mul_expr op_infix
                          ) *add_tail | epsilon );
 colon_expr = (  *add_expr
-                FENCE( $':' *colon_expr  . *Reduce('TT_BINOP', 2)
+                FENCE( *$':' *colon_expr  . *Reduce('TT_BINOP', 2)
                      | *uop_on *IDENT(uop_band[uop_tx], 'in600') *colon_expr op_infix
                      | epsilon
                      )
              );
 is_expr   = (   *colon_expr
-                FENCE( $'is' *colon_expr  . *Reduce('TT_IS', 2)
+                FENCE( *$'is' *colon_expr  . *Reduce('TT_IS', 2)
                      | epsilon
                      )
             );
 cmp_expr  = (   *is_expr
-                FENCE( $'as'  *is_expr  . *Reduce('TT_BINOP', 2)
-                     | $'=@=' *is_expr  . *Reduce('TT_BINOP', 2)
-                     | $'\=@=' *is_expr . *Reduce('TT_BINOP', 2)
-                     | $'=:=' *is_expr  . *Reduce('TT_EQQ', 2)
-                     | $'=\=' *is_expr  . *Reduce('TT_NE2', 2)
-                     | $'\==' *is_expr  . *Reduce('TT_NE3', 2)
-                     | $'@>=' *is_expr  . *Reduce('TT_BINOP', 2)
-                     | $'@=<' *is_expr  . *Reduce('TT_BINOP', 2)
-                     | $'@>'  *is_expr  . *Reduce('TT_BINOP', 2)
-                     | $'@<'  *is_expr  . *Reduce('TT_BINOP', 2)
-                     | $'>='  *is_expr  . *Reduce('TT_GE', 2)
-                     | $'=<'  *is_expr  . *Reduce('TT_LE', 2)
-                     | $'>'   *is_expr  . *Reduce('TT_GT', 2)
-                     | $'<'   *is_expr  . *Reduce('TT_LT', 2)
-                     | $'\='  *is_expr  . *Reduce('TT_NE1', 2)
-                     | $'=='  *is_expr  . *Reduce('TT_ID', 2)
+                FENCE( *$'as'  *is_expr  . *Reduce('TT_BINOP', 2)
+                     | *$'=@=' *is_expr  . *Reduce('TT_BINOP', 2)
+                     | *$'\=@=' *is_expr . *Reduce('TT_BINOP', 2)
+                     | *$'=:=' *is_expr  . *Reduce('TT_EQQ', 2)
+                     | *$'=\=' *is_expr  . *Reduce('TT_NE2', 2)
+                     | *$'\==' *is_expr  . *Reduce('TT_NE3', 2)
+                     | *$'@>=' *is_expr  . *Reduce('TT_BINOP', 2)
+                     | *$'@=<' *is_expr  . *Reduce('TT_BINOP', 2)
+                     | *$'@>'  *is_expr  . *Reduce('TT_BINOP', 2)
+                     | *$'@<'  *is_expr  . *Reduce('TT_BINOP', 2)
+                     | *$'>='  *is_expr  . *Reduce('TT_GE', 2)
+                     | *$'=<'  *is_expr  . *Reduce('TT_LE', 2)
+                     | *$'>'   *is_expr  . *Reduce('TT_GT', 2)
+                     | *$'<'   *is_expr  . *Reduce('TT_LT', 2)
+                     | *$'\='  *is_expr  . *Reduce('TT_NE1', 2)
+                     | *$'=='  *is_expr  . *Reduce('TT_ID', 2)
                      | *uop_on *IDENT(uop_band[uop_tx], 'in700') *is_expr  op_infix
                      | epsilon
                      )
             );
 eq_expr    = (  *cmp_expr
-                FENCE( $'=..' *cmp_expr  . *Reduce('TT_UNIV', 2)
-                     | $'='   *cmp_expr  . *Reduce('TT_UNIFY', 2)
+                FENCE( *$'=..' *cmp_expr  . *Reduce('TT_UNIV', 2)
+                     | *$'='   *cmp_expr  . *Reduce('TT_UNIFY', 2)
                      | epsilon
                      )
              );
@@ -330,19 +330,19 @@ pfx_kw_name = (   "dynamic" | "discontiguous" | "meta_predicate" | "multifile"
               |   "initialization" | "thread_initialization" | "public" | "table" | "record"
               );
 op_type = ( 'xfx' | 'xfy' | 'yfx' | 'fy' | 'fx' | 'xf' | 'yf' );
-op_goal = (   $' ' 'op' $'(' . *PushCounter() . *Shift('TT_FNC', 'op') . *IncCounter()
-              (Int $ op_p) . thx . *Shift('TT_ILIT', thx) . *IncCounter() $','
-              (op_type $ op_t) . thx . *Shift('TT_FNC', thx) . *IncCounter() $','
-              $' ' ( "'" (BREAK("'") $ op_n . thx) "'" | (Atom | Graphic_atom) $ op_n . thx ) . *Shift('TT_FNC', thx) . *IncCounter()
-              $')' epsilon $ *DeclareOp(op_p, op_t, op_n)
+op_goal = (   *$' ' 'op' *$'(' . *PushCounter() . *Shift('TT_FNC', 'op') . *IncCounter()
+              (Int $ op_p) . thx . *Shift('TT_ILIT', thx) . *IncCounter() *$','
+              (op_type $ op_t) . thx . *Shift('TT_FNC', thx) . *IncCounter() *$','
+              *$' ' ( "'" (BREAK("'") $ op_n . thx) "'" | (Atom | Graphic_atom) $ op_n . thx ) . *Shift('TT_FNC', thx) . *IncCounter()
+              *$')' epsilon $ *DeclareOp(op_p, op_t, op_n)
               . *Reduce('TT_COMPOUND', nTop()) . *PopCounter()
           );
-body_goal = (   $' ' pfx_kw_name . pfx_kw $'  ' *unify_expr
+body_goal = (   *$' ' pfx_kw_name . pfx_kw *$'  ' *unify_expr
                     . *Reduce('TT_PFX', 1)
-            |   $' ' '\+' $' ' *body_goal  . *Reduce('TT_NAF', 1)
+            |   *$' ' '\+' *$' ' *body_goal  . *Reduce('TT_NAF', 1)
             |   *op_goal
             |   *unify_expr
-            |   $'(' *body $')'
+            |   *$'(' *body *$')'
             );
 conj = (    epsilon . *PushCounter()
                 . *IncCounter() *body_goal
@@ -350,9 +350,9 @@ conj = (    epsilon . *PushCounter()
                                    . *Reduce('TT_CONJ', nTop())
             . *PopCounter()
         );
-conj_tail = FENCE( $',' . *IncCounter() *body_goal *conj_tail | epsilon );
-conj_arrow = ( *conj FENCE( $'->' *conj_arrow  . *Reduce('TT_IFTHEN', 2)  | $'*->' *conj_arrow  . *Reduce('TT_BINOP', 2)  | epsilon ) );
-disj_tail = ( $';' . *IncCounter() *conj_arrow FENCE( *disj_tail | epsilon ) );
+conj_tail = FENCE( *$',' . *IncCounter() *body_goal *conj_tail | epsilon );
+conj_arrow = ( *conj FENCE( *$'->' *conj_arrow  . *Reduce('TT_IFTHEN', 2)  | *$'*->' *conj_arrow  . *Reduce('TT_BINOP', 2)  | epsilon ) );
+disj_tail = ( *$';' . *IncCounter() *conj_arrow FENCE( *disj_tail | epsilon ) );
 disj = (    epsilon . *PushCounter()
                 . *IncCounter() *conj_arrow
                 FENCE( *disj_tail | epsilon )
@@ -363,9 +363,9 @@ body = *disj;
 /* head: reduces to a single TT_COMPOUND node (functor + args as children) */
 head = *unify_expr;
 dcg_goal = (   *list
-           |   $'{' *body $'}'       . *Reduce('TT_DCG_IL', 1)
+           |   *$'{' *body *$'}'       . *Reduce('TT_DCG_IL', 1)
            |   Tk_cut               . *Reduce('TT_CUT', 0)
-           |   $'(' *dcg_body $')'
+           |   *$'(' *dcg_body *$')'
            |   *unify_expr
            );
 dcg_conj = (   epsilon . *PushCounter()
@@ -380,30 +380,30 @@ dcg_disj = (   epsilon . *PushCounter()
                                       . *Reduce('TT_DISJ', nTop())
                . *PopCounter()
            );
-dcg_conj_tail = FENCE( $',' . *IncCounter() *dcg_goal *dcg_conj_tail | epsilon );
-dcg_disj_tail = FENCE( $';' . *IncCounter() *dcg_conj *dcg_disj_tail | epsilon );
+dcg_conj_tail = FENCE( *$',' . *IncCounter() *dcg_goal *dcg_conj_tail | epsilon );
+dcg_disj_tail = FENCE( *$';' . *IncCounter() *dcg_conj *dcg_disj_tail | epsilon );
 dcg_body = *dcg_disj;
 /* a pushback after the head is a comma sequence of terms, right-nested as Prolog reads ','(A, ','(B, C)) */
-dcg_push  = (   *unify_expr FENCE($',' *dcg_push . *Reduce('TT_CONJ', 2) | epsilon) );
-dcg_rule  = (   *head FENCE($',' *dcg_push . *Reduce('TT_CONJ', 2) | epsilon) $'-->'
-                *dcg_body $'.'
+dcg_push  = (   *unify_expr FENCE(*$',' *dcg_push . *Reduce('TT_CONJ', 2) | epsilon) );
+dcg_rule  = (   *head FENCE(*$',' *dcg_push . *Reduce('TT_CONJ', 2) | epsilon) *$'-->'
+                *dcg_body *$'.'
                                       . *Reduce('TT_DCG_RULE', 2)
             );
 clause    = (   head
-                ( $':-' *body         . *Reduce('TT_CLAUSE', 2)
+                ( *$':-' *body         . *Reduce('TT_CLAUSE', 2)
                 | epsilon            . *Reduce('TT_CLAUSE', 1)
                 )
-                $'.'
+                *$'.'
             );
-directive = (   $':-'
-                *body $'.'
+directive = (   *$':-'
+                *body *$'.'
                                      . *Reduce('TT_DIRECTIVE', 1)
             );
 top_form  = (*directive | *clause | *dcg_rule);
 /* ==================================================================================================================== */
 /* SCT-pivot (2026-05-17): nInc() must fire AFTER top_form commits, not before. */
 Compiland = epsilon . *PushCounter()
-            POS(0) ARBNO( FENCE($' ' *top_form . *IncCounter()) ) $' ' RPOS(0)
+            POS(0) ARBNO( FENCE(*$' ' *top_form . *IncCounter()) ) *$' ' RPOS(0)
             . *Reduce('Parse', nTop())
             . *PopCounter();
 function ParseOne(ptree, i, n_kids) {
