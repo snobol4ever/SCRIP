@@ -281,7 +281,7 @@ G       ({WS}|{CONT})*
 <BODY>{W}"."{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2DOT;     }
 <BODY>{W}"|"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2PIPE;     }
 <BODY>{W}"="{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2EQUAL;      }
-<BODY>{W}"="       { return T_2EQUAL; }
+<BODY>{W}"="/[\n;:)\]>] { return T_2EQUAL; }
 <BODY>{W}"?"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2QUEST;           }
 <BODY>{W}"&"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2AMP;       }
 <BODY>{W}"@"{W}   { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_2AT;         }
@@ -302,7 +302,6 @@ G       ({WS}|{CONT})*
 <BODY>{DIGIT}+                { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
 <BODY>\'                       { strpos=0; BEGIN(STR1); }
 <BODY>\"                       { strpos=0; BEGIN(STR2); }
-<BODY>"**"   { return T_2CARET;  }
 <BODY>"^"    { return T_1CARET;  }
 <BODY>"+"    { return T_1PLUS;         }
 <BODY>"-"    { return T_1MINUS;        }

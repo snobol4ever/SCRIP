@@ -744,6 +744,7 @@ test_gate_sno_tracing_does_not_change_a_match_result.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_beauty_suite_reads_every_test_in_both_modes_with_no_xfail.sh	WIRED	-	-	-
+test_gate_snocone_expressions_are_snobol4_expressions.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_spitbol_x32_case_conversion_is_oracle_equivalent.sh	WIRED	-	-	-
 test_gate_spitbol_x64_case_conversion_is_oracle_equivalent.sh	WIRED	-	-	-

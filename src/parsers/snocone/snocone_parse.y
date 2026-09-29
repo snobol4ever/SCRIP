@@ -209,7 +209,7 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
 %token T_UNKNOWN
 %token T_LBRACE T_RBRACE
 %token T_IF T_ELSE T_WHILE
-%type <expr> expr0 expr1 expr3 expr4 expr5 expr6 expr9 expr11 expr12 expr14 expr15 expr17 exprlist exprlist_ne
+%type <expr> expr0 expr1 expr3 expr4 expr5 expr6 expr9 expr11 expr12 expr14 expr15 expr17 exprlist exprlist_c optexpr
 %type <whilehead> while_head
 %type <dohead>    do_head
 %type <ifhead>    if_head
@@ -388,7 +388,7 @@ expr0       : expr1 T_2EQUAL    expr0
             | expr1
                                 { $$ = $1; }
             ;
-expr1       : expr3 T_2QUEST expr1
+expr1       : expr1 T_2QUEST expr3
                                 { $$ = expr_binary(TT_SCAN, $1, $3); }
             | expr3
                                 { $$ = $1; }
@@ -437,7 +437,7 @@ expr14      : T_1PLUS  expr14
             | T_1MINUS expr14
                                 { $$ = expr_unary(TT_MNS, $2); }
             | T_1STAR   expr14  { $$ = expr_unary(TT_DEFER,       $2); }
-            | T_1DOT    expr14  { $$ = expr_unary(TT_NAME,        $2); }
+            | T_1DOT    expr14  { if ($2 && ($2->t == TT_ILIT || $2->t == TT_FLIT || $2->t == TT_QLIT)) sc_error(st, "value used where name is required"); $$ = expr_unary(TT_NAME, $2); }
             | T_1DOLLAR expr14  { $$ = expr_unary(TT_INDIRECT,    $2); }
             | T_1AT     expr14  { $$ = expr_unary(TT_CAPT_CURSOR, $2); }
             | T_1TILDE  expr14  { $$ = expr_unary(TT_NOT,         $2); }
@@ -469,18 +469,22 @@ expr15      : expr15 T_LBRACK exprlist T_RBRACK
             | expr17
                                 { $$ = $1; }
             ;
-exprlist    : exprlist_ne
+exprlist    : exprlist_c
                                 { $$ = $1; }
+            | expr0
+                                { tree_t *l = expr_new(TT_NUL); expr_add_child(l, $1); $$ = l; }
             |
                                 { $$ = expr_new(TT_NUL); }
             ;
-exprlist_ne : exprlist_ne T_COMMA expr0
-                                { tree_t *l = expr_new(TT_NUL);
-                                  for (int i = 0; i < $1->nchildren; i++) expr_add_child(l, $1->children[i]);
-                                  if ($1->c) ct_drop((char*)$1->c - sizeof(size_t)); ct_drop($1);
-                                  expr_add_child(l, $3); $$ = l; }
-            | expr0
-                                { tree_t *l = expr_new(TT_NUL); expr_add_child(l, $1); $$ = l; }
+exprlist_c  : exprlist_c T_COMMA optexpr
+                                { expr_add_child($1, $3); $$ = $1; }
+            | optexpr T_COMMA optexpr
+                                { tree_t *l = expr_new(TT_NUL); expr_add_child(l, $1); expr_add_child(l, $3); $$ = l; }
+            ;
+optexpr     : expr0
+                                { $$ = $1; }
+            |
+                                { $$ = expr_new(TT_NUL); }
             ;
 expr17      : T_CALL exprlist T_RPAREN
                                 { tree_e _k = sc_pat_prim_kind($1);
@@ -506,12 +510,11 @@ expr17      : T_CALL exprlist T_RPAREN
                                 { $$ = sc_str_literal($1); ct_drop($1); }
             | T_LPAREN expr0 T_RPAREN
                                 { $$ = $2; }
-            | T_LPAREN expr0 T_COMMA exprlist_ne T_RPAREN
+            | T_LPAREN exprlist_c T_RPAREN
                                 { tree_t *a = expr_new(TT_VLIST);
-                                  expr_add_child(a, $2);
-                                  for (int i = 0; i < $4->nchildren; i++)
-                                      expr_add_child(a, $4->children[i]);
-                                  if ($4->c) ct_drop((char*)$4->c - sizeof(size_t)); ct_drop($4);
+                                  for (int i = 0; i < $2->nchildren; i++)
+                                      expr_add_child(a, $2->children[i]);
+                                  if ($2->c) ct_drop((char*)$2->c - sizeof(size_t)); ct_drop($2);
                                   $$ = a; }
             | T_LPAREN T_RPAREN
                                 { $$ = expr_new(TT_NUL); }

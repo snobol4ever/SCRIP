@@ -7,10 +7,11 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int is_alpha(int c)        { return ((c | 32) >= 'a' && (c | 32) <= 'z') || c == '_'; }
 static inline int is_digit(int c)        { return c >= '0' && c <= '9'; }
-static inline int is_idcont(int c)       { return is_alpha(c) || is_digit(c); }
+static inline int is_idstart(int c)      { return ((c | 32) >= 'a' && (c | 32) <= 'z') || c >= 0x80; }
+static inline int is_idcont(int c)       { return is_idstart(c) || is_digit(c) || c == '_' || c == '.'; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int is_value_starter(int c) {
-    return is_alpha(c) || is_digit(c) || c == '\'' || c == '"' ||
+    return is_alpha(c) || c >= 0x80 || is_digit(c) || c == '\'' || c == '"' ||
            c == '(';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -148,14 +149,12 @@ S_BC_STAR:
                                                                    {  ADV(1);                                              goto S_BCOMMENT;  }
 S_DISPATCH:
     if (had_ws && last_value && is_value_starter(PEEK(0)))         {  EMIT(T_CONCAT);                 }
-    if (had_ws && last_value && PEEK(0) == '.' && is_digit(PEEK(1))) { EMIT(T_CONCAT);                }
     if (had_ws && last_value && PEEK(0) == '&' && is_alpha(PEEK(1))) { EMIT(T_CONCAT);               }
     if (PEEK(0) == '\0' )                                                                                                  goto LX_EOF;
     if (PEEK(0) == '\'' )                                          {  ctx->strpos = 0; ADV(1);                             goto S_STR1;      }
     if (PEEK(0) == '"'  )                                          {  ctx->strpos = 0; ADV(1);                             goto S_STR2;      }
-    if (is_alpha(PEEK(0)))                                         {  tok_start = p; ADV(1);                               goto S_IDENT;     }
+    if (is_idstart(PEEK(0)))                                       {  tok_start = p; ADV(1);                               goto S_IDENT;     }
     if (is_digit(PEEK(0)))                                         {  tok_start = p; ADV(1);                               goto S_INT;       }
-    if (PEEK(0) == '.'  && is_digit(PEEK(1)))                      {  tok_start = p; ADV(1);                                goto S_FRAC;      }
     if (PEEK(0) == '.'  )                                                                                                  goto S_OP_DOT;
     if (PEEK(0) == '&'  && is_alpha(PEEK(1)))                      {  ADV(1); tok_start = p;                               goto S_KEYWORD;   }
     if (PEEK(0) == '('  )                                          {  ADV(1);                                              goto LX_LPAREN;    }
@@ -225,7 +224,8 @@ S_STR2:
 S_OP_COLON:
                                                                    {  ADV(1);                                              goto LX_COLON;     }
 S_OP_EQ:
-    if (last_value)                                                {  ADV(1);                                              goto TT_ASSIGN;    }
+    if (had_ws && last_value && (is_rws_at(p, 1) || PEEK(1) == ';' || PEEK(1) == ')' || PEEK(1) == ']')) {  ADV(1);             goto TT_ASSIGN;    }
+    if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_EQUAL;  }
 S_OP_BANG:
     if (had_ws && last_value && is_rws_at(p, 1))                   {  ADV(1);                                              goto LX_EXP;       }
@@ -246,7 +246,7 @@ S_OP_MINUS:
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }
                                                                    {  ADV(1);                                              goto LX_UN_MINUS;  }
 S_OP_STAR:
-    if (PEEK(1) == '*' && is_rws_at(p, 2))                         {  ADV(2);                                              goto LX_EXP;       }
+    if (had_ws && last_value && PEEK(1) == '*' && is_rws_at(p, 2)) {  ADV(2);                                              goto LX_EXP;       }
     if (PEEK(1) == '=' )                                           {  ADV(2);                                              goto LX_STAR_ASSIGN;  }
     if (had_ws && last_value && is_rws_at(p, 1))                   {  ADV(1);                                              goto TT_MUL;       }
     if (had_ws && last_value)                                      {  EMIT(T_CONCAT);                 }

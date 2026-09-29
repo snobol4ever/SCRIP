@@ -126,6 +126,7 @@ goto_label_expr
            | T_GOTO_LANGLE expr0 T_GOTO_RANGLE                                               { tree_t*e=ast_node_new(TT_GOTO_DIRECT);expr_add_child(e,$2);$$=e; }
            ;
 expr0      : expr1 T_2EQUAL expr0                                                             { $$=expr_binary(TT_ASSIGN,          $1,$3); }
+           | expr1 T_2EQUAL                                                                        { tree_t*e=ast_node_new(TT_QLIT);e->v.sval=ct_strdup("");$$=expr_binary(TT_ASSIGN,$1,e); }
            | expr1                                                                                 { $$=$1; }
            ;
 expr1      : expr1 T_2QUEST      expr2                                                             { $$=expr_binary(TT_SCAN,            $1,$3); }
@@ -177,7 +178,7 @@ expr14     : T_1AT      expr14                                                  
            | T_1MINUS        expr14                                                             { $$=expr_unary(TT_MNS,             $2); }
            | T_1STAR     expr14                                                             { $$=expr_unary(TT_DEFER,           $2); }
            | T_1DOLLAR  expr14                                                             { $$=expr_unary(TT_INDIRECT,        $2); }
-           | T_1DOT       expr14                                                             { $$=expr_unary(TT_NAME,            $2); }
+           | T_1DOT       expr14                                                             { if ($2 && ($2->t==TT_ILIT || $2->t==TT_FLIT || $2->t==TT_QLIT)) sno_error(g_err_lineno,"value used where name is required"); $$=expr_unary(TT_NAME, $2); }
            | T_1BANG  expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("!"); $$=_e; }
            | T_1PERCENT      expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("%"); $$=_e; }
            | T_1SLASH        expr14                                                             { tree_t*_e=expr_unary(TT_OPSYN,$2); _e->v.sval=ct_strdup("/"); $$=_e; }
@@ -191,14 +192,15 @@ expr15     : expr15 T_LBRACK { tal_open(); tal_push($1); } idx_args T_RBRACK  { 
            | expr15 T_LANGLE { tal_open(); tal_push($1); } idx_args T_RANGLE  { int _n=tal_count(); tree_t*_i=ast_node_new(TT_IDX); for(int _j=0;_j<_n;_j++) expr_add_child(_i,tal_child(_j)); tal_close(); $$=_i; }
            | expr17                                                                                { $$=$1; }
            ;
-idx_args   : idx_args T_COMMA expr0                                                               { tal_push($3); }
-           | idx_args T_COMMA                                                                     { tal_push(ast_node_new(TT_NUL)); }
+idx_args   : idx_args T_COMMA expr0                                                               { if (tal_count()==1) tal_push(ast_node_new(TT_NUL)); tal_push($3); }
+           | idx_args T_COMMA                                                                     { if (tal_count()==1) tal_push(ast_node_new(TT_NUL)); tal_push(ast_node_new(TT_NUL)); }
            | expr0                                                                                 { tal_push($1); }
            |
            ;
 expr17     : T_LPAREN expr0 T_RPAREN                                                            { $$=$2; }
            | T_LPAREN expr0 T_COMMA { tal_open(); tal_push($2); } vlist_args T_RPAREN { int _n=tal_count(); tree_t*_a=ast_node_new(TT_VLIST); for(int _j=0;_j<_n;_j++) expr_add_child(_a,tal_child(_j)); tal_close(); $$=_a; }
            | T_LPAREN T_RPAREN                                                                  { $$=ast_node_new(TT_NUL); }
+           | T_LPAREN T_COMMA { tal_open(); tal_push(ast_node_new(TT_NUL)); } vlist_args T_RPAREN { int _n=tal_count(); tree_t*_a=ast_node_new(TT_VLIST); for(int _j=0;_j<_n;_j++) expr_add_child(_a,tal_child(_j)); tal_close(); $$=_a; }
            | T_FUNCTION T_LPAREN { tree_e _k=pat_prim_kind($1.sval); tal_open(); tal_fnc_open(_k,(char*)$1.sval); } fnc_args T_RPAREN { $$=tal_fnc_close(); }
            | T_IDENT                                                                              { tree_t*e=ast_node_new(TT_VAR);e->v.sval=(char*)$1.sval;$$=e; }
            | T_END                                                                                { tree_t*e=ast_node_new(TT_VAR);    e->v.sval=(char*)$1.sval;$$=e; }
@@ -208,7 +210,9 @@ expr17     : T_LPAREN expr0 T_RPAREN                                            
            | T_REAL                                                                               { tree_t*e=ast_node_new(TT_FLIT);   e->v.dval=$1.dval;$$=e; }
            ;
 vlist_args : vlist_args T_COMMA expr0                                                            { tal_push($3); }
+           | vlist_args T_COMMA                                                                   { tal_push(ast_node_new(TT_NUL)); }
            | expr0                                                                                 { tal_push($1); }
+           |                                                                                       { tal_push(ast_node_new(TT_NUL)); }
            ;
 fnc_args   : fnc_args T_COMMA expr0                                                              { if (tal_count()==0) tal_push(ast_node_new(TT_NUL)); tal_push($3); }
            | fnc_args T_COMMA                                                                     { if (tal_count()==0) tal_push(ast_node_new(TT_NUL)); tal_push(ast_node_new(TT_NUL)); }
