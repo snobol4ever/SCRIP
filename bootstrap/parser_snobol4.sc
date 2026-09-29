@@ -26,19 +26,27 @@ ProtKwds    = 'ABORT ALPHABET ARB BAL COMPNO DIGITS FAIL FATAL FENCE FILE '
 BuiltinVars = 'ABORT ARB BAL FAIL REM SUCCEED TERMINAL ';
 SpecialNms  = 'ABORT CONTINUE END FRETURN NRETURN RETURN SCONTINUE START ';
 /* ==================================================================================================================== */
-/* PST-SN4-2 (2026-05-16): sn_match and sn_upr are pure tokenizer helpers — they perform
-   keyword classification during lexing and build no tree nodes.  They are the only functions
-   permitted in a pure-syntax-tree parser.  All stmt-building helpers (pp_stmt, strip_parens,
-   make_goto_slot, push_qlit) are deleted; the grammar builds TT_STMT directly. */
-function sn_match(subject, pattern) { sn_match = .dummy; if (subject ? pattern) nreturn; else freturn; }
-/* ==================================================================================================================== */
+/* PST-SN4-2 (2026-05-16): sn_upr is the one tokenizer helper -- it builds no tree nodes; all stmt-building helpers
+   (pp_stmt, strip_parens, make_goto_slot, push_qlit) are deleted and the grammar builds TT_STMT directly.
+   Keyword classes are TABLE lookups, each table sized exactly to its list (Lon 2026-09-29: "use simple TABLE() lookups
+   with exactly sized TABLE parameters") -- the upper-cased token is looked up once; the old list scan
+   re-evaluated *sn_upr(tx) at every start position of an unanchored match over the whole list. */
 function sn_upr(s)                  { sn_upr   = REPLACE(s, &LCASE, &UCASE); return; }
-TxInList    =  (POS(0) | ' ') *sn_upr(tx) (' ' | RPOS(0));
-Function    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match(Functions,   TxInList);
-BuiltinVar  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match(BuiltinVars, TxInList);
-SpecialNm   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match(SpecialNms,  TxInList);
-ProtKwd     =  SPAN(&UCASE &LCASE)                $ tx $ *sn_match(ProtKwds,    TxInList);
-UnprotKwd   =  SPAN(&UCASE &LCASE)                $ tx $ *sn_match(UnprotKwds,  TxInList);
+FunctionsT   = TABLE(123);
+UnprotKwdsT  = TABLE(21);
+ProtKwdsT    = TABLE(28);
+BuiltinVarsT = TABLE(7);
+SpecialNmsT  = TABLE(8);
+kw_s = Functions;    while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { FunctionsT[kw_w] = 1; }
+kw_s = UnprotKwds;   while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { UnprotKwdsT[kw_w] = 1; }
+kw_s = ProtKwds;     while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { ProtKwdsT[kw_w] = 1; }
+kw_s = BuiltinVars;  while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { BuiltinVarsT[kw_w] = 1; }
+kw_s = SpecialNms;   while (kw_s ? (POS(0) BREAK(' ') . kw_w ' ' REM . kw_s)) { SpecialNmsT[kw_w] = 1; }
+Function    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *DIFFER(FunctionsT[sn_upr(tx)]);
+BuiltinVar  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *DIFFER(BuiltinVarsT[sn_upr(tx)]);
+SpecialNm   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *DIFFER(SpecialNmsT[sn_upr(tx)]);
+ProtKwd     =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(ProtKwdsT[sn_upr(tx)]);
+UnprotKwd   =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(UnprotKwdsT[sn_upr(tx)]);
 Integer     =  SPAN(digits);
 DQ          =  '"' (BREAK('"' nl)) . thx . *Shift('TT_QLIT', thx) '"';
 SQ          =  "'" (BREAK("'" nl)) . thx . *Shift('TT_QLIT', thx) "'";
@@ -162,18 +170,18 @@ Expr17      =  FENCE(
                |  (*Real) . thx . *Shift('TT_RLIT', thx)
                |  (*Integer) . thx . *Shift('TT_ILIT', thx)
                );
-PrimLEN     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('LEN ',    TxInList);
-PrimBREAK   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('BREAK ',  TxInList);
-PrimSPAN    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('SPAN ',   TxInList);
-PrimANY     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('ANY ',    TxInList);
-PrimNOTANY  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('NOTANY ', TxInList);
-PrimFENCE   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('FENCE ',  TxInList);
-PrimARBNO   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('ARBNO ',  TxInList);
-PrimPOS     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('POS ',    TxInList);
-PrimRPOS    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('RPOS ',   TxInList);
-PrimTAB     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('TAB ',    TxInList);
-PrimRTAB    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('RTAB ',   TxInList);
-PrimBREAKX  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx $ *sn_match('BREAKX ', TxInList);
+PrimLEN     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'LEN');
+PrimBREAK   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAK');
+PrimSPAN    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'SPAN');
+PrimANY     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ANY');
+PrimNOTANY  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'NOTANY');
+PrimFENCE   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'FENCE');
+PrimARBNO   =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'ARBNO');
+PrimPOS     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'POS');
+PrimRPOS    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RPOS');
+PrimTAB     =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'TAB');
+PrimRTAB    =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'RTAB');
+PrimBREAKX  =  SPAN('.' digits &UCASE '_' &LCASE) $ tx *IDENT(sn_upr(tx), 'BREAKX');
 SGoto       =  ('S' | 's');
 FGoto       =  ('F' | 'f');
 Target      =  *$'(' . *assign(.Brackets, *'()') *Expr *$')'
