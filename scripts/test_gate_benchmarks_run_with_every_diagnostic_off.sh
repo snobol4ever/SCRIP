@@ -4,14 +4,15 @@
 # the ceo: "Why must there be a heap check at every collection? That seems to be diagnostic. Can the be turned off by a switch?" and
 # "For benchmarks turn off all diagnostic code."
 # ONE SWITCH, SCRIP_DIAG=0, turns off every diagnostic the default run carries: the heap check at every collection (rt_gcheap_verify),
-# the 0xDB poison of vacated ground, the stale-read quarantine, and the compiled node-id stores (`mov r11, <id>` at every alpha and beta
-# port). Each keeps its own switch (SCRIP_GC_VERIFY, SCRIP_GC_POISON, SCRIP_GC_TRAP, SCRIP_DIAG_REGS), which wins when set. UNSET, EVERY
-# DIAGNOSTIC STAYS ON: every test and every board runs with them; every benchmark driver exports SCRIP_DIAG=0 on its second line, or on
+# the 0xDB poison of vacated ground and the stale-read quarantine. Each keeps its own switch (SCRIP_GC_VERIFY, SCRIP_GC_POISON, SCRIP_GC_TRAP),
+# which wins when set. UNSET, EVERY COLLECTOR DIAGNOSTIC STAYS ON: every test and every board runs with them. ⛔ THE COMPILED NODE-ID STORES
+# (`mov r11, <id>` at every alpha and beta port) ARE DIAGNOSTIC ONLY AND OFF BY DEFAULT (Lon 2026-09-29, in-chat to the ceo, verbatim: "Also the
+# R11, tracking node-ids, should be DIAGNOSTIC only."): only SCRIP_DIAG_REGS=1 at the compile emits them; every benchmark driver exports SCRIP_DIAG=0 on its second line, or on
 # its third when its second is the one-runner guard (coo 2026-09-25, ceo CEO-1272: test_gate_one_runner_one_board.sh arm 6a holds the guard
 # to line 2, and the guard runs nothing SCRIP_DIAG reads -- one named line of window, never a free search of the header).
 # ARMS: (1) every benchmark driver in scripts/ (bench_*.sh, test_bench_*.sh, test_<lang>_bench_suite.sh, test_icon_bench_{corpus,rung36}.sh)
-# exports SCRIP_DIAG=0; (2) a churning witness compiled with SCRIP_DIAG=0 carries no node-id store and one compiled without it carries
-# them; (3) at run time SCRIP_DIAG=0 reads verify=0 and no poison line in the collector's telemetry, unset reads both, and
+# exports SCRIP_DIAG=0; (2) a churning witness compiled by default carries no node-id store, nor one compiled with SCRIP_DIAG=0, and one
+# compiled with SCRIP_DIAG_REGS=1 carries them; (3) at run time SCRIP_DIAG=0 reads verify=0 and no poison line in the collector's telemetry, unset reads both, and
 # SCRIP_GC_VERIFY=1 turns the check back on under SCRIP_DIAG=0; (4) the witness answers the oracle in m3 and m4 with and without it.
 # FAIL_ONCE (recorded): on the pre-landing tree b547d2ea3 no driver exported the switch, the SCRIP_DIAG=0 witness carried 114 node-id stores,
 # and its telemetry read verify=<n> and a poison line at every collection (arms 1-3 RED, arm 4 green: the witness's live set is bounded,
@@ -39,12 +40,14 @@ LOOP    I = I + 1
         OUTPUT = SIZE(T<REMDR(I, 100)>) ' ' SIZE(S)
 END
 SNO
-( cd "$W" && env -u SCRIP_DIAG -u SCRIP_DIAG_REGS "$ROOT/scrip" --compile -o on.s churn.sno < /dev/null > /dev/null 2>&1 && gcc on.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o on.bin 2>/dev/null \
+( cd "$W" && env -u SCRIP_DIAG SCRIP_DIAG_REGS=1 "$ROOT/scrip" --compile -o on.s churn.sno < /dev/null > /dev/null 2>&1 && gcc on.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o on.bin 2>/dev/null \
   && env -u SCRIP_DIAG_REGS SCRIP_DIAG=0 "$ROOT/scrip" --compile -o off.s churn.sno < /dev/null > /dev/null 2>&1 && gcc off.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o off.bin 2>/dev/null ) \
   || { echo "REFUSED(2): the churn witness did not build in mode 4"; exit 2; }
 non=$(grep -cE 'mov[[:space:]]+r11, [0-9]+' "$W/on.s"); noff=$(grep -cE 'mov[[:space:]]+r11, [0-9]+' "$W/off.s")
-if [ "$non" -gt 0 ] && [ "$noff" -eq 0 ]; then echo "ok  (2) the node-id stores: $non compiled with the diagnostics on, $noff with SCRIP_DIAG=0"
-else echo "RED (2) the node-id stores do not follow the switch: $non with the diagnostics on, $noff with SCRIP_DIAG=0 (want >0 and 0)"; red=1; fi
+( cd "$W" && env -u SCRIP_DIAG -u SCRIP_DIAG_REGS "$ROOT/scrip" --compile -o dflt.s churn.sno < /dev/null > /dev/null 2>&1 ) || { echo "REFUSED(2): the churn witness did not compile by default"; exit 2; }
+ndef=$(grep -cE 'mov[[:space:]]+r11, [0-9]+' "$W/dflt.s")
+if [ "$non" -gt 0 ] && [ "$noff" -eq 0 ] && [ "$ndef" -eq 0 ]; then echo "ok  (2) the node-id stores: $non with SCRIP_DIAG_REGS=1, $ndef by default, $noff with SCRIP_DIAG=0"
+else echo "RED (2) the node-id stores do not follow the switch: $non with SCRIP_DIAG_REGS=1, $ndef by default, $noff with SCRIP_DIAG=0 (want >0, 0 and 0)"; red=1; fi
 tele() { ( cd "$W" && env -u SCRIP_DIAG -u SCRIP_GC_VERIFY -u SCRIP_GC_POISON -u SCRIP_GC_TRAP -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB SCRIP_HEAP_KB=256 SCRIP_ZETA_TELEM=1 "$@" ./off.bin < /dev/null 2>&1 >/dev/null ) > "$W/t.txt"
   v=$(grep -oE 'verify=[0-9]+/' "$W/t.txt" | grep -vc 'verify=0/'); p=$(grep -c 'ZGC-POISON' "$W/t.txt"); c=$(grep -c '^\[ZGC-WALK\]' "$W/t.txt"); echo "${c}|${v}|${p}"; }
 on=$(tele); off=$(tele SCRIP_DIAG=0); back=$(tele SCRIP_DIAG=0 SCRIP_GC_VERIFY=1)

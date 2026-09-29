@@ -968,12 +968,7 @@ static IR_t * sco_stmt_hook(scx_t * cx, const tree_t * s, IR_t * body) {
         ir_operand_push(hook, num); ir_operand_push(hook, lnn);
         return num;
     }
-    {   extern const char * stmt_src_get_file(void);
-        const char * sf = stmt_src_get_file();
-        if (!sf || !*sf) return body;
-    }
-    IR_t * mark = lc_build(cx->g, IR_STMT_MARK, body, body); IR_LIT(mark).ival = (int64_t) stno; mark->pat_static = (int) line;
-    return mark;
+    return body;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_goto_specials_impossible(const tree_t * expr) {
@@ -2582,20 +2577,6 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
                 }
             }
             lc_γ_to(anchor[i], num);
-        }
-    } else {
-        int _mark_first = 1;
-        for (int i = 0; i < nst; i++) {
-            if (lp_s_int(st[i], ":nocount") || sno_stmt_is_blank(st[i])) continue;
-            extern const char * stmt_src_get_file(void);
-            const char * _sf = stmt_src_get_file();
-            if (!_sf || !*_sf) break;
-            IR_t * body = anchor[i]->γ.node;
-            IR_t * mark = lc_build(g, IR_STMT_MARK, body, body);
-            IR_LIT(mark).ival = (int64_t)(i + 1) + stno_base;
-            mark->pat_static = (int)lp_s_int(st[i], ":line");
-            if (_mark_first) { _mark_first = 0; IR_t * fm = lc_build(g, IR_LINE_MARK, mark, mark); IR_LIT(fm).sval = (char *) _sf; fm->pat_static = -1; lc_γ_to(anchor[i], fm); continue; }
-            lc_γ_to(anchor[i], mark);
         }
     }
     for (int i = 0; i < nst; i++) {

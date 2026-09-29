@@ -509,7 +509,9 @@ void core_icn_traceback(void) {
 }
 void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno) {
     fflush(stdout);
-    fprintf(stderr, "scrip: error %d: %s\n  at %s:%ld", code, msg ? msg : "", file ? file : "", line);
+    fprintf(stderr, "scrip: error %d: %s\n", code, msg ? msg : "");
+    if (!(file && *file) && line <= 0 && stno <= 0) return;
+    fprintf(stderr, "  at %s:%ld", file ? file : "", line);
     if (stno > 0) fprintf(stderr, "; statement %ld", stno);
     fputc('\n', stderr);
 }
