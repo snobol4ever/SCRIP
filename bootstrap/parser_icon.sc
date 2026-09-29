@@ -15,7 +15,12 @@ reserved     = POS(0) ('break' | 'by' | 'case' | 'create' | 'default' | 'do' | '
                      | 'global' | 'if' | 'initial' | 'invocable' | 'link' | 'local' | 'next' | 'not' | 'of'
                      | 'procedure' | 'record' | 'repeat' | 'return' | 'static' | 'suspend' | 'then' | 'to'
                      | 'until' | 'while') RPOS(0);
-id_pat       = *Id $ tx $ *notmatch(tx, reserved);
+ResT         = TABLE(29);
+ResT['break'] = 1; ResT['by'] = 1; ResT['case'] = 1; ResT['create'] = 1; ResT['default'] = 1; ResT['do'] = 1; ResT['else'] = 1; ResT['end'] = 1;
+ResT['every'] = 1; ResT['fail'] = 1; ResT['global'] = 1; ResT['if'] = 1; ResT['initial'] = 1; ResT['invocable'] = 1; ResT['link'] = 1;
+ResT['local'] = 1; ResT['next'] = 1; ResT['not'] = 1; ResT['of'] = 1; ResT['procedure'] = 1; ResT['record'] = 1; ResT['repeat'] = 1;
+ResT['return'] = 1; ResT['static'] = 1; ResT['suspend'] = 1; ResT['then'] = 1; ResT['to'] = 1; ResT['until'] = 1; ResT['while'] = 1;
+id_pat       = *Id $ tx *IDENT(ResT[tx]);
 int_pat      = SPAN('0123456789') FENCE(ANY('rR') SPAN('0123456789' &UCASE &LCASE) | epsilon);
 exp_part     = (('e' | 'E') ('+' | '-' | '') SPAN('0123456789'));
 real_pat     = (( SPAN('0123456789') '.' (SPAN('0123456789') | '') | '.' SPAN('0123456789') ) (*exp_part | '')
@@ -134,28 +139,34 @@ $'===:='    =   *$' ' '===:=' *$' ';
 /* ==================================================================================================================== */
 /* Leaf-push helpers: allowed by PST rules — set v.sval/v.dval from token capture, no child inspection. */
 /* ==================================================================================================================== */
-If     = ( *$'if'     *$'  ' *Expr  *$'then' *$' ' *Expr
+If     = ( *$'if' *If_rest );
+If_rest          = (      *$'  ' *Expr  *$'then' *$' ' *Expr
            (  *$'else' *$' ' *Expr  . *Reduce('TT_IF', 3)
            |  epsilon . *Reduce('TT_IF', 2)
            )
          );
-While  = ( *$'while'  *$'  ' *Expr
+While  = ( *$'while' *While_rest );
+While_rest       = (   *$'  ' *Expr
            (  *$'do' *$' ' *Expr  . *Reduce('TT_WHILE', 2)
            |  epsilon . *Reduce('TT_WHILE', 1)
            )
          );
-Until  = ( *$'until'  *$'  ' *Expr
+Until  = ( *$'until' *Until_rest );
+Until_rest       = (   *$'  ' *Expr
            (  *$'do' *$' ' *Expr  . *Reduce('TT_UNTIL', 2)
            |  epsilon . *Reduce('TT_UNTIL', 1)
            )
          );
-Every  = ( *$'every'  *$' ' *Expr
+Every  = ( *$'every' *Every_rest );
+Every_rest       = (   *$' ' *Expr
            (  *$'do' *$' ' *Expr  . *Reduce('TT_EVERY', 2)
            |  epsilon . *Reduce('TT_EVERY', 1)
            )
          );
-Repeat = ( *$'repeat' *$' ' *Expr  . *Reduce('TT_REPEAT', 1) );
-Create = ( *$'create' *$' ' *Expr  . *Reduce('TT_CREATE', 1) );
+Repeat = ( *$'repeat' *Repeat_rest );
+Repeat_rest      = (  *$' ' *Expr  . *Reduce('TT_REPEAT', 1) );
+Create = ( *$'create' *Create_rest );
+Create_rest      = (  *$' ' *Expr  . *Reduce('TT_CREATE', 1) );
 ArgFirst  = ( *$' ' *Expr  . *IncCounter() );
 /* an omitted argument f(a, , b) is &null, the C frontend's own leaf                                */
 ArgRest   = ( *$',' (*Expr | epsilon . *Shift('TT_VAR', '&null')) . *IncCounter() );
@@ -227,8 +238,9 @@ Expr11tail  = ( epsilon . *PushCounter() *$'(' *CallArgs *$')' . *Reduce('TT_FNC
 CaseGray     = (*White | epsilon);
 CaseClause   = ( *CaseGray *Expr *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() . *IncCounter() );
 CaseDefault  = ( *CaseGray *$'default' *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() );
-Case         = ( epsilon . *PushCounter()
-                 *$'case' *$' ' *Expr  . *IncCounter()
+Case         = ( *$'case' *Case_rest );
+Case_rest        = ( epsilon . *PushCounter()
+                  *$' ' *Expr  . *IncCounter()
                  *$'of' *CaseGray *$'{' *CaseGray
                  ARBNO( FENCE(*CaseDefault | *CaseClause) )
                  *CaseGray *$'}'
@@ -237,10 +249,12 @@ Case         = ( epsilon . *PushCounter()
                );
 /* return and suspend are expressions too (a | return b): DEFERRED, because they are defined below   */
 /* and a by-value reference here would be the empty pattern, which matches everywhere (measured)     */
-Expr11 = (   *If  |  *Until  |  *While  |  *Every  |  *Repeat  |  *Case  |  *Create  |  *ReturnExpr  |  *SuspendExpr
-         |   *$'break' FENCE( SPAN(' ' CHAR(9)) *Expr . *Reduce('TT_LOOP_BREAK', 1) | *$' ' . *Reduce('TT_LOOP_BREAK', 0) )
-         |   *$'next'  *$' '  . *Reduce('TT_LOOP_NEXT', 0)
-         |   *$'fail'  *$' '  . *Reduce('TT_PROC_FAIL', 0)
+break_rest   = FENCE( SPAN(' ' CHAR(9)) *Expr . *Reduce('TT_LOOP_BREAK', 1) | *$' ' . *Reduce('TT_LOOP_BREAK', 0) );
+next_rest    = *$' '  . *Reduce('TT_LOOP_NEXT', 0);
+fail_rest    = *$' '  . *Reduce('TT_PROC_FAIL', 0);
+KwT          = TABLE(12);
+kw_expr      = *$' ' *Id $ tx *DIFFER(KwT[tx]) *KwT[tx];
+Expr11 = (   *kw_expr
          |   *ListCtor
          |   *Call  |  *Paren  |  *Compound
          |   *$' ' "'" (*csetchars) . thx . *Shift('TT_CSET', thx) "'"
@@ -350,14 +364,16 @@ Expr1     = ( *Expr2
               |   epsilon
               )
             );
-ReturnExpr  = ( epsilon . *PushCounter()
-                *$'return' *$' ' *Expr1a . *IncCounter()  . *Reduce('TT_RETURN', 1) . *PopCounter()
-              | *$'return' *$' '                   . *Reduce('TT_RETURN', 0)
+ReturnExpr  = ( *$'return' *ReturnExpr_rest );
+ReturnExpr_rest  = ( epsilon . *PushCounter()
+                 *$' ' *Expr1a . *IncCounter()  . *Reduce('TT_RETURN', 1) . *PopCounter()
+              |  *$' '                   . *Reduce('TT_RETURN', 0)
               );
-SuspendExpr = ( epsilon . *PushCounter()
-                ( *$'suspend' *$' ' *Expr1a . *IncCounter()
+SuspendExpr = ( *$'suspend' *SuspendExpr_rest );
+SuspendExpr_rest = ( epsilon . *PushCounter()
+                (  *$' ' *Expr1a . *IncCounter()
                   FENCE( *$'do' *$'  ' *Expr1a . *IncCounter() | epsilon )
-                | *$'suspend' *$' '
+                |  *$' '
                 )
                 . *Reduce('TT_SUSPEND', nTop()) . *PopCounter()
               );
@@ -430,6 +446,9 @@ Record      = ( epsilon . *PushCounter()
                 . *Reduce('TT_RECORD', nTop()) . *Reduce(':subj', 1) . *Reduce('STMT', 1)
                 . *PopCounter()
               );
+KwT['if'] = If_rest; KwT['until'] = Until_rest; KwT['while'] = While_rest; KwT['every'] = Every_rest; KwT['repeat'] = Repeat_rest;
+KwT['case'] = Case_rest; KwT['create'] = Create_rest; KwT['return'] = ReturnExpr_rest; KwT['suspend'] = SuspendExpr_rest;
+KwT['break'] = break_rest; KwT['next'] = next_rest; KwT['fail'] = fail_rest;
 /* link a, "b" and invocable all, "+": names as TT_VAR leaves, a quoted name too (the C frontend's shape). */
 LinkName    = ( ( *$' ' '"' (BREAK('"')) . thx . *Shift('TT_VAR', thx) '"' | *$' ' (*id_pat) . thx . *Shift('TT_VAR', thx) ) FENCE(*$':' SPAN('0123456789') | epsilon) . *IncCounter() );
 LinkStar    = FENCE( *$',' *LinkName *LinkStar | epsilon );

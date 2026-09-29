@@ -35,7 +35,9 @@ Integer     =   SPAN('0123456789') . token;
 DQ_lit      =   '"' (BREAK('"')) . thx . *Shift('TT_QLIT', thx) '"';
 SQ_lit      =   "'" (BREAK("'")) . thx . *Shift('TT_QLIT', thx) "'";
 String      =   (*SQ_lit | *DQ_lit);
-Ident       =   *Id $ tx $ *notmatch(tx, reserved) . token;
+ResT        =   TABLE(5);
+ResT['if'] = 1; ResT['else'] = 1; ResT['while'] = 1; ResT['do'] = 1; ResT['for'] = 1;
+Ident       =   *Id $ tx *IDENT(ResT[tx]) . token;
 Real        =   ( SPAN('0123456789')
                   FENCE(
                     '.'
@@ -162,25 +164,24 @@ Expr0           =   *Expr1 FENCE(
 ThenBlock       =   epsilon . *PushCounter() *$'{' ARBNO(*Command) *$'}' . *Reduce('TT_PROGRAM', nTop()) . *PopCounter();
 /* if_cmd → TT_IF(cond, then_block) or TT_IF(cond, then_block, else_block) */
 ElseBranch      =   *$'else' *ForBody;
-if_cmd          =   *$'if' *$'(' *Expr0 *$')' *ForBody
+if_cmd_rest     =   *$' ' *$'(' *Expr0 *$')' *ForBody
                     FENCE(*ElseBranch . *Reduce('TT_IF', 3) | epsilon . *Reduce('TT_IF', 2));
 /* while_cmd → TT_WHILE(cond, body) */
-while_cmd       =   *$'while' *$'(' *Expr0 *$')' *ForBody . *Reduce('TT_WHILE', 2);
+while_cmd_rest  =   *$' ' *$'(' *Expr0 *$')' *ForBody . *Reduce('TT_WHILE', 2);
 /* do_cmd → TT_DO_WHILE(body, cond) */
-do_cmd          =   *$'do' *ThenBlock *$'while' *$'(' *Expr0 *$')' (*$';' | epsilon)
+do_cmd_rest     =   *$' ' *ThenBlock *$'while' *$'(' *Expr0 *$')' (*$';' | epsilon)
                     . *Reduce('TT_DO_WHILE', 2);
 /* for_cmd → TT_FOR(init, cond, step, body) */
 ForBody         =   *ThenBlock
                 |   epsilon . *PushCounter() *Command . *Reduce('TT_PROGRAM', nTop()) . *PopCounter();
-for_cmd         =   *$'for' *$'(' *Expr0 *$';' *Expr0 *$';' *Expr0 *$')'
+for_cmd_rest    =   *$' ' *$'(' *Expr0 *$';' *Expr0 *$';' *Expr0 *$')'
                     *ForBody . *Reduce('TT_FOR', 4);
 /* switch_cmd → TT_CASE(disc, val0, body0, val1, body1, …) */
 CaseArm         =   *$'case' *Expr0 *$':' . *IncCounter() . *PushCounter() ARBNO(*Command)
                     . *Reduce('TT_PROGRAM', nTop()) . *PopCounter() . *IncCounter();
 DefaultArm      =   *$'default' *$':' (epsilon) . thx . *Shift('TT_NUL', thx) . *IncCounter()
                     . *PushCounter() ARBNO(*Command) . *Reduce('TT_PROGRAM', nTop()) . *PopCounter() . *IncCounter();
-switch_cmd      =   epsilon . *PushCounter()
-                    *$'switch' *$'(' *Expr0 *$')' . *IncCounter()
+switch_cmd_rest =   epsilon . *PushCounter() *$' ' *$'(' *Expr0 *$')' . *IncCounter()
                     *$'{' ARBNO(*CaseArm | *DefaultArm) *$'}'
                     . *Reduce('TT_CASE', nTop())
                     . *PopCounter();
@@ -191,22 +192,22 @@ Params          =   epsilon . *PushCounter() (*ParamFirst ARBNO(*ParamRest) | ep
                     . *Reduce('TT_PARAMS', nTop()) . *PopCounter();
 Locals          =   epsilon . *PushCounter() (*$' ' *ParamFirst ARBNO(*ParamRest) | epsilon)
                     . *Reduce('TT_LOCALS', nTop()) . *PopCounter();
-func_cmd        =   *$'function' (*Ident) . thx . *Shift('TT_QLIT', thx)
+func_cmd_rest   =   *$' ' (*Ident) . thx . *Shift('TT_QLIT', thx)
                     *$'(' *Params *$')' *Locals *ThenBlock
                     . *Reduce('TT_DEFINE', 4);
 /* return_cmd / freturn_cmd / nreturn_cmd */
-return_cmd      =   *$'return' ( *Expr0 *$';' . *Reduce('TT_RETURN', 1)
+return_cmd_rest =   *$' ' ( *Expr0 *$';' . *Reduce('TT_RETURN', 1)
                                |        *$';' . *Reduce('TT_RETURN', 0) );
-freturn_cmd     =   *$'freturn' *$';' . *Reduce('TT_PROC_FAIL', 0);
-nreturn_cmd     =   *$'nreturn' *$';' . *Reduce('TT_NRETURN', 0);
+freturn_cmd_rest =   *$' ' *$';' . *Reduce('TT_PROC_FAIL', 0);
+nreturn_cmd_rest =   *$' ' *$';' . *Reduce('TT_NRETURN', 0);
 /* goto_cmd / label_prefix */
-goto_cmd        =   *$'goto' (*Ident) . thx . *Shift('TT_QLIT', thx) *$';' . *Reduce('TT_GOTO_U', 1);
+goto_cmd_rest   =   *$' ' (*Ident) . thx . *Shift('TT_QLIT', thx) *$';' . *Reduce('TT_GOTO_U', 1);
 label_prefix    =   (*Ident) . thx . *Shift('TT_QLIT', thx) *$':'       . *Reduce('TT_LABEL', 1);
 /* break_cmd / continue_cmd */
-break_cmd       =   *$'break'
+break_cmd_rest  =   *$' '
                     ( (*Ident) . thx . *Shift('TT_QLIT', thx) *$';' . *Reduce('TT_LOOP_BREAK', 1)
                     | *$';'                            . *Reduce('TT_LOOP_BREAK', 0) );
-continue_cmd    =   *$'continue'
+continue_cmd_rest =   *$' '
                     ( (*Ident) . thx . *Shift('TT_QLIT', thx) *$';' . *Reduce('TT_LOOP_NEXT', 1)
                     | *$';'                            . *Reduce('TT_LOOP_NEXT', 0) );
 /* struct_cmd → TT_STRUCT(name, fields) */
@@ -214,7 +215,7 @@ StructFieldFirst =  (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter();
 StructFieldRest  =  *$',' (*Ident) . thx . *Shift('TT_VAR', thx) . *IncCounter();
 StructFields     =  epsilon . *PushCounter() (*StructFieldFirst ARBNO(*StructFieldRest) | epsilon)
                     . *Reduce('TT_FIELDS', nTop()) . *PopCounter();
-struct_cmd       =  *$'struct' (*Ident) . thx . *Shift('TT_QLIT', thx)
+struct_cmd_rest =   *$' ' (*Ident) . thx . *Shift('TT_QLIT', thx)
                     *$'{' *StructFields *$'}' . *Reduce('TT_STRUCT', 2);
 /* stmt_cmd — subject/pattern decomposition removed (lower's job per PST-SC-4l) */
 stmt_body       =   *Expr0 (*$';' | epsilon);
@@ -222,24 +223,28 @@ stmt_cmd        =   *stmt_body;
 /* empty_cmd */
 empty_cmd       =   *$';';
 block_cmd       =   *$'{' ARBNO(*Command) *$'}';
+CmdT            =   TABLE(14);
+CmdT['if']          = if_cmd_rest;
+CmdT['while']       = while_cmd_rest;
+CmdT['do']          = do_cmd_rest;
+CmdT['for']         = for_cmd_rest;
+CmdT['function']    = func_cmd_rest;
+CmdT['return']      = return_cmd_rest;
+CmdT['freturn']     = freturn_cmd_rest;
+CmdT['nreturn']     = nreturn_cmd_rest;
+CmdT['goto']        = goto_cmd_rest;
+CmdT['break']       = break_cmd_rest;
+CmdT['continue']    = continue_cmd_rest;
+CmdT['struct']      = struct_cmd_rest;
+CmdT['switch']      = switch_cmd_rest;
+CmdT['procedure']   = func_cmd_rest;
+kw_cmd          =   *$' ' *Id $ tx *DIFFER(CmdT[tx]) *CmdT[tx];
 /* Command dispatcher */
 Command         =   *$' ' FENCE( *empty_cmd
                     | *block_cmd
                     | *$'case' *CaseArm
                     | *DefaultArm
-                    | epsilon . *IncCounter() ( *if_cmd
-                    | *while_cmd
-                    | *do_cmd
-                    | *for_cmd
-                    | *func_cmd
-                    | *return_cmd
-                    | *freturn_cmd
-                    | *nreturn_cmd
-                    | *goto_cmd
-                    | *break_cmd
-                    | *continue_cmd
-                    | *struct_cmd
-                    | *switch_cmd
+                    | epsilon . *IncCounter() ( *kw_cmd
                     | *label_prefix
                     | *stmt_cmd
                     ) );
