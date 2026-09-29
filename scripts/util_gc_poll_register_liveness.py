@@ -18,7 +18,7 @@ polls by the callee's DECLARED RETURN CLASS put 77 in and cost 57 Icon programs,
 the callee RETURNS and nothing about what is ALREADY LIVE in a register across the site.  CEO-1110: a 54-witness
 6.8-second sweep cleared 14 sites that still cost 7 programs, so THE SWEEP IS NOT SUFFICIENT EITHER.  Both
 instruments ask about the program's OUTPUT.  This one asks about the emitted instruction stream, which is where the
-defect is, and it is static: no arena, no stress, no load, no master -- so it never competes for the board channel
+defect is, and it is static: no arena, no stress, no load, no rungs -- so it never competes for the board channel
 two seats share (MODE line 2, DUO).
 
 THE READING, and the conservative direction is the whole design.  Everything on the emitted stack is a DESCR and a

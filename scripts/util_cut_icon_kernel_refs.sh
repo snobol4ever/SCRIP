@@ -2,8 +2,8 @@
 # util_cut_icon_kernel_refs.sh -- CUT A RUN REF FROM THE ARIZONA ORACLE FOR EVERY ICON KERNEL AND DEMO,
 # per THE KERNEL CONVENTION (RULES.md § FACT RULE, Lon 2026-09-11 16:3x CDT, CEO-567) and the ceo's
 # CEO-609 ruling that a kernel or demo WITHOUT a ref is owed A REF -- cut from iconx and recorded --
-# never absorption into the master (CEO-565 forbids a second copy; benchmarks/ and demos/ are the only
-# trees carrying .s artifacts and the SPEED axis, and a master file is a CONTAINER).
+# never absorption into the rungs (CEO-565 forbids a second copy; benchmarks/ and demos/ are the only
+# trees carrying .s artifacts and the SPEED axis, and a rung suite file is a CONTAINER).
 #
 #   bash scripts/util_cut_icon_kernel_refs.sh                 # CENSUS ONLY: classify, write nothing
 #   bash scripts/util_cut_icon_kernel_refs.sh --apply          # mint NAME.ref beside every LIVE kernel
@@ -140,7 +140,7 @@ ORACLE_ID="$("$ICONX" -V 2>&1 | head -1)"
 # its run is a CLEAN, DETERMINISTIC, non-empty, banner-free success and every arm below passed it: the ref
 # minted was the single line "Icon Version 9.5.25a, September 7, 2025". That pins THE ORACLE'S OWN IDENTITY
 # as the correct answer -- SCRIP prints its own version and can never match it, and the pin moves the day the
-# oracle is rebuilt. ⛔ THE SAME CLASS IS ALREADY ON THE RECORD IN THE ICON MASTER: procedure_every_alt_
+# oracle is rebuilt. ⛔ THE SAME CLASS IS ALREADY ON THE RECORD IN THE ICON RUNGS: procedure_every_alt_
 # replace_4 is a keyword dump whose diff is entirely `&version: Jcon 2.2` vs `Icon 9.5`, `&allocated`,
 # `&regions`, `&storage` and `&progname`, and it needs a mask or an outside-baseline ruling rather than a
 # re-cut (GOAL-HQ-VALIDATE HQV-18). A cutter aimed at a NEW tree inherits that blindness unless told, and
@@ -330,7 +330,7 @@ for root in "${ROOTS[@]}"; do
       if LC_ALL=C grep -qF "$_pat" "$o1" 2>/dev/null; then _hit="$_pat"; break; fi
     done
     if [ -n "$_hit" ]; then
-      row "$root" "$rel" IMPLEMENTATION_IDENTITY "$n1" "the output carries the oracle's own identity ('$_hit'): a byte pin would make the ONE oracle the correct answer, which no other engine can reproduce and which moves when the oracle is rebuilt -- wants a mask or an outside-baseline ruling, never a re-cut (same class as the master's procedure_every_alt_replace_4)"; continue
+      row "$root" "$rel" IMPLEMENTATION_IDENTITY "$n1" "the output carries the oracle's own identity ('$_hit'): a byte pin would make the ONE oracle the correct answer, which no other engine can reproduce and which moves when the oracle is rebuilt -- wants a mask or an outside-baseline ruling, never a re-cut (same class as the rungs' procedure_every_alt_replace_4)"; continue
     fi
     if [ "$APPLY" -eq 1 ]; then
       cp "$o1" "${icn%.icn}.ref" || { row "$root" "$rel" INSTRUMENT_FAIL - "could not write ${rel%.icn}.ref"; continue; }

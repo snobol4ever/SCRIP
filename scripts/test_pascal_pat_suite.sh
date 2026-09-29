@@ -244,7 +244,7 @@ if . "$HERE/lib_gate.sh" 2>/dev/null && command -v gate_stamp >/dev/null 2>&1; t
 # no-op and this call is removed so the intent is visible rather than inferred from an empty output.
 # ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
 # per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
-# 497 pascal rows stood in that table and every one was pascal-master -- ZERO from pat or fpc, so no Pascal
+# 497 pascal rows stood in that table and every one was pascal-rungs -- ZERO from pat or fpc, so no Pascal
 # PACKAGE flip had ever been visible to the measure OCTET is actually run on. One bulk call, not 854.
 # ⛔ NON-FATAL, LOUDLY: bookkeeping must never turn a real measurement into a red board, and it must never fail quietly either.
 if [ -s "$PROG_ROWS" ]; then

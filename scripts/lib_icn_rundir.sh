@@ -125,9 +125,9 @@ icn_rundir_env() {
 # (hq_V 2026-09-12, CEO-604, on hq_T's census: test_gate_icn_rundir_contract REFUSED rc=2 fleet-wide).
 # TWO readers share `.argv` and they disagree by design. `NAME.argv` beside a WITNESS `NAME.icn` is ONE
 # program's argv and must name NAME -- ipl_argv_read refuses anything else as a copied sidecar arming the
-# wrong program, which is a refusal worth having. `ALL.argv` beside the MASTER `ALL.icn` is the PER-ENTRY
+# wrong program, which is a refusal worth having. `ALL.argv` beside the RUNGS `ALL.icn` is the PER-ENTRY
 # table read by corpus_suite_harness.read_argv_sidecar, keyed on ENTRY names; it names `ALL` nowhere and
-# never could. A master is a CONTAINER, never compiled whole (CLAUDE.md), and the same is true of its
+# never could. A rung suite is a CONTAINER, never compiled whole (CLAUDE.md), and the same is true of its
 # sidecars -- so pointing the witness reader at one is a category error, not a malformed file.
 # ⭐ THE DISCRIMINATOR IS THE ENTRY TABLE, NOT THE NAME "ALL": a container is the thing that ships a
 # per-entry provenance table beside it. Measured over corpus/tests/icon -- exactly one of the 9 .icn files

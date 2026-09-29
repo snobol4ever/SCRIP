@@ -12,7 +12,7 @@
 # ⭐ THE ORACLE IS NOT THE BAR FOR THE WITNESS, AND THAT IS WORTH KNOWING BEFORE YOU READ THIS GATE: fpc -Miso does NOT detect a
 # case-index that matches no constant (it runs 1751 to rc=0), so the witness arm is graded against the STANDARD and PAT's own
 # rejection criterion. The control arm is the opposite case and IS cut from fpc -Miso, because a legal program has an output to
-# compare. Measured before landing, every graded Pascal program RUN in both modes (the master 246, the FPC suite 181, the eleven
+# compare. Measured before landing, every graded Pascal program RUN in both modes (the rungs 246, the FPC suite 181, the eleven
 # benchmarks, PAT's acceptance programs): no program's cell moved except 1751's, so no legal corpus program falls through a case.
 #
 # ARMS: one vendored PAT witness, required to be REFUSED at run time with a non-empty diagnostic in BOTH modes (m4 compiles, links

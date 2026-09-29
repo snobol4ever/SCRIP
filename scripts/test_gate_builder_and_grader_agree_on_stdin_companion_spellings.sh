@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# scripts/test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh -- THE MASTER BUILDER AND THE
+# scripts/test_gate_builder_and_grader_agree_on_stdin_companion_spellings.sh -- THE RUNGS BUILDER AND THE
 # GRADER ASK THE SAME QUESTION ABOUT A STDIN COMPANION, IN EVERY SPELLING AND IN BOTH LOCATIONS.
 # AUTHORS: Lon Jones Cherryholmes · Claude Opus 5   DATE: 2026-09-11
 #
 # ⛔⭐⭐ THE DEFECT THIS CLOSES, MEASURED BEFORE IT WAS TOUCHED (hq_V 2026-09-11). One question -- "does this
 # program have stdin?" -- was written down THREE times with THREE different answers:
 #     corpus_suite_harness.loose_stdin_companion()          .stdin  .in  .input   (beside + config/)
-#     util_build_master_suite.py generalised stdin guard             .in  .input   (beside + config/)
-#     util_build_master_suite.py snobol4 plain-program guard         .input        (beside + config/)
+#     util_build_rungs_suite.py generalised stdin guard             .in  .input   (beside + config/)
+#     util_build_rungs_suite.py snobol4 plain-program guard         .input        (beside + config/)
 # and ALL 8 icon stdin companions in this corpus are spelled `config/<stem>.stdin` -- the one spelling the
 # BUILDER did not know. A program whose input the builder cannot see is not refused: it is ABSORBED as an
-# ordinary pair, the master then grades a stdin-reading program against /dev/null, it exits at EOF before
+# ordinary pair, the rungs then grades a stdin-reading program against /dev/null, it exits at EOF before
 # reaching the behaviour it was written to test, and the auto-xfail path files the starved run as a
 # DOCUMENTED red. THERE IS NO XFAIL -- every one of those is a FAIL on the board.
 # ⭐ PROVED BOTH DIRECTIONS ON SCRATCH CORPORA ONE BYTE APART, which is what this gate mechanises: the same
 # program with `config/w.stdin` was ABSORBED (0 excluded, entry stamped XFAIL) and with `config/w.in` was
 # EXCLUDED BY NAME. Same source, same input bytes, same ref; the spelling alone decided.
 # ⚠ THE GAP WAS ARMED, NOT LATENT. The 8 icon programs are held out today only by a KEEP.md declaration --
-# which is checked BEFORE this guard -- so the builder's masters do not move. rung36_jcon_recogn fell through
+# which is checked BEFORE this guard -- so the builder's rung suites do not move. rung36_jcon_recogn fell through
 # the instant its deferral row reached DONE, and the other seven are one retired declaration away each.
 #
 # ⛔ THE GATE READS THE SPELLINGS FROM THE HARNESS, NEVER FROM A LIST OF ITS OWN. A hand-maintained copy of
 # the list is the defect this gate exists to prevent, so adding a spelling to STDIN_COMPANION_SUFFIXES must
 # automatically widen the gate. A gate that carried its own fourth copy would drift exactly as the other
 # three did, and would read GREEN while doing it.
-# ⛔ IT GRADES ON ITS OWN FIXTURES, NEVER ON THE CORPUS MASTER (CEO-547 part 2): a synthetic corpus per
+# ⛔ IT GRADES ON ITS OWN FIXTURES, NEVER ON THE CORPUS RUNGS (CEO-547 part 2): a synthetic corpus per
 # spelling, built and torn down here, so the gate is runnable by any seat under ONE RUNNER, ONE BOARD.
 #
 # EXIT: 0 every spelling in both locations is CARRIED into ALL.in by the builder and found by the grader
@@ -33,7 +33,7 @@
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
 command -v python3 >/dev/null 2>&1 || { echo "REFUSED: no python3 -- cannot measure"; exit 2; }
-[ -f "$HERE/util_build_master_suite.py" ] || { echo "REFUSED: no util_build_master_suite.py -- cannot measure"; exit 2; }
+[ -f "$HERE/util_build_rungs_suite.py" ] || { echo "REFUSED: no util_build_rungs_suite.py -- cannot measure"; exit 2; }
 SUFFIXES="$(python3 -c "
 import sys
 sys.path.insert(0, '$HERE')
@@ -73,14 +73,14 @@ for SUF in $SUFFIXES; do
     printf 'plain\n' > "$D/gate_plain_probe.ref"
     if [ "$WHERE" = beside ]; then CP="$D/gate_stdin_probe$SUF"; else CP="$D/config/gate_stdin_probe$SUF"; fi
     printf 'alpha\nbeta\n' > "$CP"
-    OUT="$(S4E_HOME="$T" timeout 120s python3 "$HERE/util_build_master_suite.py" --lang "$LANG" --write 2>&1)" || true
+    OUT="$(S4E_HOME="$T" timeout 120s python3 "$HERE/util_build_rungs_suite.py" --lang "$LANG" --write 2>&1)" || true
     CHECKED=$((CHECKED + 1))
     # ⛔⭐ THE ASSERTION MOVED FROM "THE BUILDER REFUSES IT" TO "THE BUILDER CARRIES IT", 2026-09-11 (hq_V),
     # AND THAT IS A STRENGTHENING, NOT A WEAKENING -- read this before changing it back. The defect this gate
     # was written for is UNCHANGED and is still what it measures: the builder and the grader must answer the
     # same question about a file, or a stdin-reading program is graded against /dev/null. What changed is the
-    # ANSWER agreement produces. It used to be "both refuse", because the master had no way to carry input;
-    # the master pair ships ALL.in and the icon master was already grading 20 stdin-fed entries while that
+    # ANSWER agreement produces. It used to be "both refuse", because the rungs had no way to carry input;
+    # the rungs pair ships ALL.in and the icon rungs was already grading 20 stdin-fed entries while that
     # park went on turning the rest away, so agreement now means THE BUILDER CARRIES WHAT THE GRADER WOULD FEED.
     # ⛔ THE OLD FAILURE IS STILL CAUGHT, and by a STRICTER test: a builder that cannot see this spelling does
     # not refuse the pair -- it absorbs it UNFED, and then ALL.in has no block for the probe and the byte
@@ -92,9 +92,9 @@ for SUF in $SUFFIXES; do
       echo "PASS  $LANG  $WHERE  $SUF  -- builder absorbs it and carries the companion into ALL.in byte-for-byte"
     else
       echo "FAIL  $LANG  $WHERE  $SUF  -- the GRADER finds this companion and the BUILDER does not carry it: the"
-      echo "      pair is absorbed and the master will grade a stdin-reading program against /dev/null."
+      echo "      pair is absorbed and the rungs will grade a stdin-reading program against /dev/null."
       echo "      ALL.in $([ -f "$_in" ] && echo "carries: $(printf '%s' "$_got" | tr '\n' '|')" || echo 'WAS NOT WRITTEN AT ALL')  · companion: $(tr '\n' '|' < "$CP")"
-      printf '%s\n' "$OUT" | grep -i 'CANNOT ABSORB\|MASTER SUITE:' | sed 's/^/      /'
+      printf '%s\n' "$OUT" | grep -i 'CANNOT ABSORB\|RUNGS SUITE:' | sed 's/^/      /'
       FAILED=$((FAILED + 1))
     fi
     # the grader's own answer on the identical layout, so the two are compared and not merely asserted

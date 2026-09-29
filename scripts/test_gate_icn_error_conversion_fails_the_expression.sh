@@ -18,7 +18,7 @@
 # two arms are what catch it.
 # ⭐ A NEGATIVE &error COUNTS DOWN THROUGH EVERY NEGATIVE VALUE (iconx: -1 -> -2 -> -3 ...), so the count shares g_error with the
 # SNOBOL4 evaluation stage and must never meet it: 4ff9addec spelled that stage -3, and the THIRD converted error of `&error := -1`
-# went fatal (master rung29 operator-value witnesses and procedure_record_every_replace_12, bisected by hq_icon 2026-09-27). The
+# went fatal (rungs rung29 operator-value witnesses and procedure_record_every_replace_12, bisected by hq_icon 2026-09-27). The
 # neg_countdown witness converts four errors from -1 and prints &error; the stage is G_ERROR_EVAL_STAGE (keywords.h) since.
 # ⛔ REFUSES rc=2 unless all 12 runs (6 witnesses x 2 modes) are graded, and rc=2 if the oracle is
 # missing. Expectations come from a LIVE iconx run, never hardcoded.

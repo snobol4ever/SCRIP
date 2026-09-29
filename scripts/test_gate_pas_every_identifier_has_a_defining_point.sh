@@ -12,7 +12,7 @@
 # variable position (mk_ident's fall-through) or a for-statement control-variable with no defining-point in an enclosing scope is
 # refused. Required identifiers (true, false, maxint, input, output) and SCRIP's own type identifiers (integer, real, char, boolean,
 # text, string and the FPC integer and real type names) are defined by the implementation.
-# Measured before landing, every acceptance program (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs): the only programs
+# Measured before landing, every acceptance program (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs): the only programs
 # newly refused are five FPC-suite programs that apply an FPC system-unit identifier (inoutres, random, returnnilifgrowheapfails,
 # cp_acp) -- fpc -Miso runs them, ISO 7185 refuses them -- named in fpc_tests/ISO_EXPECTED_REFUSALS.tsv under CEO-1225/1228.
 #

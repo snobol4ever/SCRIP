@@ -6,7 +6,7 @@
 # THE DEFECT: under &ERRLIMIT 0 (the default of both) sbl -bf raises a FATAL runtime error and terminates on x + 1, x - 1,
 # x * 2, x / 2 and x ** 2 with x = 'abc', on ARRAY(0 - 1) and on REPLACE with unequally long 2nd and 3rd arguments; SCRIP
 # failed the statement silently, took :F, ran on and exited 0, in both modes. -x was raised but numbered 1 where sbl says 010.
-# NO SUITE SAW IT: corpus/tests/snobol4/ALL.ref carries no ERROR line, so these programs sit outside every master's
+# NO SUITE SAW IT: corpus/tests/snobol4/ALL.ref carries no ERROR line, so these programs sit outside every rung suite's
 # denominator -- which is why a cure proven on them owes this gate (the ceo's rule of 2026-09-27: a cure proven on a program
 # that leaves the denominator owes a gate that keeps it under test).
 # THE CURE: the SNOBOL4 lowerer marks its arithmetic nodes strict=2 and bb_binop_arith calls a SNOBOL4-voiced entry family

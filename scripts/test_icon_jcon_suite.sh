@@ -265,7 +265,7 @@ run_one() {
             ;;
         m4)
             # ⛔⭐ THE M4 BINARY IS BUILT UNDER A STABLE STATED NAME IN THE RUNDIR, NEVER A MKTEMP PATH
-            # (CEO-569, hq_V 2026-09-11; the same cure the coo landed one level up for the master harness at
+            # (CEO-569, hq_V 2026-09-11; the same cure the coo landed one level up for the rungs harness at
             # 413a0e0a6 and hq_B landed for arizona under CEO-557). It was "$WORK/${name}_bin" -- an ABSOLUTE
             # path under a mktemp root -- invoked by that absolute path, so a mode-4 binary, which IS the program
             # and correctly answers its own argv[0], reported a name that CHANGES EVERY RUN and that no .ref

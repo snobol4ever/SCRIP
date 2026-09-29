@@ -27,7 +27,7 @@ identically today -- a program with no expected output -- and only one of them i
     FACT RULE CEO-542), and per CEO-749 IT STAYS IN THE PUBLISHED DENOMINATOR.
   * REFLESS: nobody has cut the ref yet. It is simply ungraded, and it is work owed.
 ⛔ THE CLASSES ARE EXCLUSIVE AND HAS-REF WINS, WHICH IS A CHOICE AND IS STATED: a program may both carry a
-ref and be listed OUTSIDE (three SNOBOL4 master entries are exactly that), and such a program is counted
+ref and be listed OUTSIDE (three SNOBOL4 rungs entries are exactly that), and such a program is counted
 HAS-REF here because this census measures REF DEBT, not denominator membership. So the OUTSIDE column reads
 "refless, and explained" -- it is the part of the gap that is NOT work owed. Denominator membership is
 SUITES.tsv's and the harness's business, and per CEO-749 an OUTSIDE entry stays in the published denominator
@@ -42,7 +42,7 @@ census therefore reads all ten OUTSIDE records in the corpus and reports the two
 ten files on 2026-09-21. A census that knew only one convention would silently miss the other's population and
 report those programs as refless debt. Both shapes are name<TAB>CLASS<TAB>reason with # comments.
 
-⛔ THE MASTER SUITES ARE NOT PER-FILE AND THE BANNER IS PER-LANGUAGE COMMENT SYNTAX, which is the trap in this
+⛔ THE RUNGS SUITES ARE NOT PER-FILE AND THE BANNER IS PER-LANGUAGE COMMENT SYNTAX, which is the trap in this
 population. tests/<lang>/ALL.<ext> is a CONTAINER: a "program" is an ENTRY indexed in ALL.csv, and its ref is
 a banner-delimited block in ALL.ref whose delimiter is that language's OWN comment syntax -- measured on
 2026-09-21: icon/raku/rebus "#----", pascal "{----}", snocone "/*----*/", prolog "%----", snobol4 "*----".
@@ -143,8 +143,8 @@ def file_population(rootdir, label):
     return rows
 
 
-def master_population():
-    """Per-ENTRY population for the seven master suites, read THROUGH THE HARNESS'S OWN READER.
+def rungs_population():
+    """Per-ENTRY population for the seven rungs suites, read THROUGH THE HARNESS'S OWN READER.
 
     ⛔⭐ THE PAIRING IS NOT RE-DERIVED HERE, AND THE FIRST DRAFT PROVED WHY. tests/<lang>/ALL.<ext> is a
     CONTAINER: an entry's ref is either a banner-delimited block (the banner being that language's OWN comment
@@ -202,7 +202,7 @@ def master_population():
             rt = getattr(en, "ref_text_or_lines", None)
             if rt is None:
                 rt = getattr(en, "ref", None)
-            rows.append({"pop": "master:" + lang, "lang": lang, "name": en.name,
+            rows.append({"pop": "rungs:" + lang, "lang": lang, "name": en.name,
                          "path": "tests/%s/ALL%s#%s" % (lang, ext, en.seq),
                          "has_ref": bool(rt),
                          "shape": "%s line=%d block=%d" % (reader, kinds.get("line", 0),
@@ -227,15 +227,15 @@ def main():
     rows += file_population(os.path.join(CORPUS, "benchmarks"), "benchmarks")
     rows += file_population(os.path.join(CORPUS, "demos"), "demos")
     rows += file_population(os.path.join(HERE, "gc_witnesses"), "gc_witnesses")
-    mrows, merr = master_population()
-    master_refused = merr
+    mrows, merr = rungs_population()
+    rungs_refused = merr
 
     print("REFLESS CENSUS -- corpus %s · SCRIP %s -- every program carrying no ref, BY NAME" % (ctree, stree))
     print("  OUTSIDE records read: %d file(s), %d named program(s)" % (len(ofiles), len(outside)))
     for f in sorted(ofiles):
         print("      %s" % f)
-    if master_refused:
-        print("  ⛔ REFUSE: the master-suite population COULD NOT BE MEASURED -- %s" % master_refused)
+    if rungs_refused:
+        print("  ⛔ REFUSE: the rungs-suite population COULD NOT BE MEASURED -- %s" % rungs_refused)
         print("     It is NOT reported as zero: an unmeasured population printed as clean is the defect this")
         print("     census exists to prevent.")
     else:
@@ -329,9 +329,9 @@ def main():
           % (grand["HAS-REF"], grand["OUTSIDE-BASELINE"], grand["REFLESS"], total, len(rows),
              "OK" if total == len(rows) else "⛔ MISMATCH"))
     print("REFLESS-CENSUS: corpus=%s scrip=%s population=%d has_ref=%d outside=%d refless=%d "
-          "outside_records=%d master_population=%s"
+          "outside_records=%d rungs_population=%s"
           % (ctree, stree, len(rows), grand["HAS-REF"], grand["OUTSIDE-BASELINE"], grand["REFLESS"],
-             len(ofiles), "REFUSED" if master_refused else "measured"))
+             len(ofiles), "REFUSED" if rungs_refused else "measured"))
     print("⛔ REFLESS IS WORK OWED AND NOT A RED HERE: this row is the census, not the cutting. Each language's")
     print("   HQ cuts its own refs from its own oracle, because only that oracle can say what the right answer")
     print("   is. What this instrument forbids is a NARROWED DENOMINATOR passing as progress.")
@@ -357,8 +357,8 @@ def main():
             print("   split is this census's whole point, and with no records read every OUTSIDE program would")
             print("   be reported as refless debt.")
             return 2
-        if master_refused:
-            print("⛔ CHECK REFUSED(2): the master population could not be measured, named above")
+        if rungs_refused:
+            print("⛔ CHECK REFUSED(2): the rungs population could not be measured, named above")
             return 2
         for pop in pops:
             if not [r for r in rows if r["pop"] == pop]:

@@ -318,7 +318,7 @@ if [ "$rc" -ne 2 ] || ! printf '%s' "$out" | grep -q 'BARE NAME'; then
     echo "GATE FAIL: an ambiguous bare declaration was not refused (rc=$rc): $out"; violations=$((violations+1))
 fi
 
-# ARM 15 — ⛔⭐ OUR OWN GENERATED MASTER IS NOT A SHIPPED PROGRAM. Four packages carry an `ALL.<ext>`
+# ARM 15 — ⛔⭐ OUR OWN GENERATED RUNGS IS NOT A SHIPPED PROGRAM. Four packages carry an `ALL.<ext>`
 # beside the vendor's files. Counting it inflates `shipped` by one and makes the SUM unreachable by one
 # forever. ⭐ It was also the entire 851-vs-852 disagreement between hq_I's Icon runner and this body —
 # two correct instruments answering different questions, neither able to say which.
@@ -328,7 +328,7 @@ INV_PACKAGE=gen; INV_DIR="$TD/gen"; INV_EXT=".icn"
 examined=$((examined+1))
 out="$(run_inv 2 0)"; rc=$?
 if [ "$rc" -ne 0 ] || ! printf '%s' "$out" | grep -q 'shipped=2 '; then
-    echo "GATE FAIL: the generated ALL.icn master was counted as a shipped program (rc=$rc): $out"; violations=$((violations+1))
+    echo "GATE FAIL: the generated ALL.icn rungs was counted as a shipped program (rc=$rc): $out"; violations=$((violations+1))
 fi
 
 # ARM 16 — THE VOCABULARY IS CLOSED (hq_T ruling 2026-09-06). An unknown class refuses; a legacy spelling
@@ -449,7 +449,7 @@ for r in "$HERE"/test_*_suite.sh "$HERE"/raku_roast_scoreboard.sh "$HERE"/board_
     # own GOAL text, row every-package-runner-prints-...) -- a ladder/stress suite over corpus/crosscheck
     # or a hand-built rung corpus has no vendor and nothing "shipped" to name shipped=/ungradable= against;
     # forcing one to grow a package-inventory line is the same category error CLAUDE.md names for running
-    # an ALL.<ext> master whole ("both are artifacts of the wrong invocation, never findings"). Verified
+    # an ALL.<ext> rungs whole ("both are artifacts of the wrong invocation, never findings"). Verified
     # structurally, not asserted: EVERY runner wired onto lib_inventory.sh (12/12 measured this sitting)
     # references corpus/packages/ literally; every runner that does not was individually read (not just
     # grepped) and confirmed to be a construct-ladder/stress suite: test_gc_stress_suite.sh (corpus/

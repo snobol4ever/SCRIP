@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|master] [--declared TSV] [--jobs N (default: the fan-out ceiling of lib_fanout.py, max(2, min(4, cores - load1)), CEO-1333)] [--timeout S] [--list TSV]
+"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|rungs] [--declared TSV] [--jobs N (default: the fan-out ceiling of lib_fanout.py, max(2, min(4, cores - load1)), CEO-1333)] [--timeout S] [--list TSV]
 
 DOES EACH BOOTSTRAP PARSER WORK? (Lon 2026-09-23 15:2x, in-chat to the ceo: hq_snocone "to get all the SCRIP bootstrap
 parsers working".) For every language, the Snocone-hosted parser SCRIP/bootstrap/parser_<lang>.sc -- loaded behind the
 14-file bootstrap runtime in the order scripts/run_scrip_parser.sh declares, BY CONCATENATION (the Snocone branch of the
 driver never reads a -L chain; util_parser_sc_census.sh's note) -- is run by ./scrip over every program of a declared
-population with the program as its stdin. POPULATION ladder (default): every entry of the language's master whose ALL.csv
-origin is ladder__* -- the construct ladder, one construct per rung, cut from the public reference; POPULATION master:
-every entry of the master; POPULATION corpus, the default (Lon to hq_snocone 15:2x: "Test the parsers using all the corpus
+population with the program as its stdin. POPULATION ladder (default): every entry of the language's rungs whose ALL.csv
+origin is ladder__* -- the construct ladder, one construct per rung, cut from the public reference; POPULATION rungs:
+every entry of the rungs; POPULATION corpus, the default (Lon to hq_snocone 15:2x: "Test the parsers using all the corpus
 sources"): every file of the language's extension under corpus/, the ALL.* containers and the root library/ (the second .sc chain) excluded -- a package's own library/ counts (hq_snocone 2026-09-26: the depth-blind prune dropped packages/prolog/swi_tests/library, 39 .pl). CLASSIFICATION (hq_snocone's, kept): the first non-blank output line not starting with SEQ<n>
 begins with '(' = PARSED (the parser emitted a tree); contains "Parse Error" = REFUSED; a clean exit (rc 0, no error line) that
 printed nothing = EMPTY (hq_snocone 2026-09-25: a source holding only comments and control lines -- the gimpel *_driver.sno that are
@@ -17,12 +17,12 @@ else -- a crash, a timeout, heap exhaustion, a runtime error -- = CRASH, its fir
 parser that declines. A program's time limit is 10 x its language's start-up on an empty input (10..300 s) unless --timeout S names one;
 without --timeout every program that times out is re-run alone at 300 s before it counts, so a load rise mid-run is no CRASH.
 It prints its denominator per language as each language finishes and names the first REFUSED and first CRASH; --list TSV
-also writes EVERY member as a row (lang, corpus-relative source or master key, class, first line) so a class can be read whole
+also writes EVERY member as a row (lang, corpus-relative source or rungs key, class, first line) so a class can be read whole
 (hq_snocone 2026-09-27: 66 Icon CRASHes on the SCRIP arm were one name on the board line and no list). A REFUSED
 source listed in --declared (default SCRIP/bootstrap/tests/parser_refusals.tsv: lang, corpus-relative path, the measurement
 that the source is not a legal program of its language, or for an EMPTY source that it holds no statement) is DECLARED, never red;
 an undeclared refusal or EMPTY is red, because a parser that declines a legal program, or prints nothing for one, is not working. rc 0 GREEN (every language: population > 0, CRASH 0, undeclared REFUSED 0),
-1 RED, 2 REFUSE (no ./scrip, no master, a population that could not be materialized).
+1 RED, 2 REFUSE (no ./scrip, no rungs, a population that could not be materialized).
 PARSED is a tree, not a CORRECT tree: equivalence with the C frontend's AST is the next bar, written in the row's GOAL.
 """
 import concurrent.futures
@@ -158,8 +158,8 @@ def main(argv):
     langs = [l for l in LANGS if not want or l[0] in want.split(",")]
     if not langs:
         refuse("no language matches --lang " + want)
-    if pop not in ("corpus", "ladder", "master"):
-        refuse("--population is corpus, ladder or master")
+    if pop not in ("corpus", "ladder", "rungs"):
+        refuse("--population is corpus, ladder or rungs")
     scrip = os.path.join(SCRIP, "scrip")
     if not os.access(scrip, os.X_OK):
         refuse("no ./scrip at " + scrip + " -- run make")
@@ -191,7 +191,7 @@ def main(argv):
             tdir = os.path.join(CORPUS, "tests", lang)
             src, ref, idx = os.path.join(tdir, "ALL." + ext), os.path.join(tdir, "ALL.ref"), os.path.join(tdir, "ALL.csv")
             if not (os.path.isfile(src) and os.path.isfile(ref) and os.path.isfile(idx)):
-                refuse("the %s master (ALL.%s, ALL.ref, ALL.csv) is not under %s" % (lang, ext, tdir))
+                refuse("the %s rungs (ALL.%s, ALL.ref, ALL.csv) is not under %s" % (lang, ext, tdir))
             rows = list(csv.DictReader(open(idx, encoding="utf-8")))
             keys = [(r["origin"], True) for r in rows if r.get("origin", "").startswith("ladder__")] if pop == "ladder" else [(r["entry"], False) for r in rows if r.get("entry")]
             pops[lang] = len(keys)

@@ -9,7 +9,7 @@
 #                it can silently redirect an if/every/while written to depend on the error halting.
 #   (-2.0) ^ 0.5 oracle iconx: 'before' then Run-time error 206, rc=1  | SCRIP: 'before','nan','after', rc=0
 #
-# These are the two named reds of the Icon master board (ladder_rung26_pow_pow_zero_negexp,
+# These are the two named reds of the Icon rungs board (ladder_rung26_pow_pow_zero_negexp,
 # ladder_rung26_pow_pow_negbase_real) and the reason its watermark pins at 607 and not 609.
 # ALL.wantrc requires rc=1 and ALL.ref requires stdout to be exactly 'before' for both.
 #

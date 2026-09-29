@@ -8,7 +8,7 @@
 # ⛔⭐ THE MEASUREMENT THAT MINTED THIS GATE, live table, 2026-09-21: 2934 duplicate (tree, corpus, suite,
 # program, mode) keys in one day; SEVEN byte-identical rows for snocone break_any_pos_replace_1 m3 inside five
 # minutes, appended by a gate arm whose own name ends "under_forced_collection"; and 139 keys since 09-20 where
-# ONE tree and ONE corpus carry CONTRADICTORY outcomes -- raku-master token_say_4 m3 reads both PASS and FAIL at
+# ONE tree and ONE corpus carry CONTRADICTORY outcomes -- raku-rungs token_say_4 m3 reads both PASS and FAIL at
 # the CLEAN tree 5418432bb. Under a byte-for-byte oracle diff that is impossible unless something unrecorded
 # changed, and the unrecorded thing is the configuration. util_progress_flips.py keys on (suite, program, mode)
 # and so resolves every one of those collisions BY ARRIVAL ORDER: the divergence the whole fleet is hunting is
@@ -64,14 +64,14 @@ ck() { checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; 
 OLD_HDR='ts_utc	scrip	corpus	measurer	class	suite	lang	program	mode	outcome	secs	note'
 seed_old_table() {
   printf '%s\n' "$OLD_HDR" > "$S4E_PROGRESS_DB"
-  printf '2026-09-06T00:00:00\tdeadbeef1\tcafebabe2\tcoo\tmaster\tsnobol4-master\tsnobol4\tgate_seed\tm3\tPASS\t0\t\n' >> "$S4E_PROGRESS_DB"
+  printf '2026-09-06T00:00:00\tdeadbeef1\tcafebabe2\tcoo\trungs\tsnobol4-rungs\tsnobol4\tgate_seed\tm3\tPASS\t0\t\n' >> "$S4E_PROGRESS_DB"
 }
 
 echo "=== gate: the progress database records the configuration it exercised, and its header names every column ==="
 
 echo "--- ARM 1: a column the writer writes is NAMED by the header of a table that ALREADY EXISTED ---"
 seed_old_table
-python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --program gate_a1 --mode m3 --outcome FAIL >/dev/null 2>&1
+python3 "$PY" append --class rungs --suite snobol4-rungs --lang snobol4 --program gate_a1 --mode m3 --outcome FAIL >/dev/null 2>&1
 unnamed=$(python3 - "$S4E_PROGRESS_DB" <<'PY'
 import csv, sys
 with open(sys.argv[1], encoding="utf-8", newline="") as f:
@@ -90,7 +90,7 @@ set -- $unnamed; nhdr="$1"; nextra="$2"
 
 echo "--- ARM 2: the writer REFUSES an undeclared row while a GC axis is set in its environment ---"
 seed_old_table
-out=$(SCRIP_GC_STRESS=3 python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --program gate_a2 --mode m3 --outcome PASS 2>&1); rc=$?
+out=$(SCRIP_GC_STRESS=3 python3 "$PY" append --class rungs --suite snobol4-rungs --lang snobol4 --program gate_a2 --mode m3 --outcome PASS 2>&1); rc=$?
 if [ "$rc" = 2 ]; then
   printf '%s' "$out" | grep -qi 'SCRIP_GC_STRESS' && ck ok "refused rc=2 and NAMED the axis it saw" \
     || ck no "refused rc=2 but did not NAME the axis -- a refusal a caller cannot act on"
@@ -102,7 +102,7 @@ n=$(awk -F'\t' '$8=="gate_a2"' "$S4E_PROGRESS_DB" 2>/dev/null | wc -l)
 
 echo "--- ARM 3: a declared configuration reaches the column and reads back BY NAME ---"
 seed_old_table
-env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=3 SCRIP_HEAP_KB=128 python3 "$PY" append --class master --suite snobol4-master --lang snobol4 \
+env -u SCRIP_HEAP_MB SCRIP_GC_STRESS=3 SCRIP_HEAP_KB=128 python3 "$PY" append --class rungs --suite snobol4-rungs --lang snobol4 \
   --program gate_a3 --mode m3 --outcome PASS --config 'arena=1,stress=3' >/dev/null 2>&1
 got=$(python3 - "$S4E_PROGRESS_DB" <<'PY'
 import csv, sys
@@ -122,7 +122,7 @@ echo "--- ARM 4: two configurations of one program do not overwrite one another 
 seed_old_table
 for cfg_out in 'shipped:PASS' 'arena=1,stress=3:FAIL'; do
   cfg="${cfg_out%%:*}"; oc="${cfg_out##*:}"
-  python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --program gate_a4 --mode m3 \
+  python3 "$PY" append --class rungs --suite snobol4-rungs --lang snobol4 --program gate_a4 --mode m3 \
     --outcome "$oc" --config "$cfg" >/dev/null 2>&1
 done
 qout=$(S4E_PROGRESS_DB="$S4E_PROGRESS_DB" python3 "$Q" --register --program gate_a4 2>&1)
@@ -132,8 +132,8 @@ printf '%s' "$qout" | grep -q 'arena=1,stress=3' && printf '%s' "$qout" | grep -
 
 echo "--- ARM 5: a same-tree same-configuration contradiction is NAMED, never resolved by arrival order ---"
 seed_old_table
-python3 "$PY" append --class master --suite raku-master --lang raku --program gate_a5 --mode m3 --outcome PASS --config shipped >/dev/null 2>&1
-python3 "$PY" append --class master --suite raku-master --lang raku --program gate_a5 --mode m3 --outcome FAIL --config shipped >/dev/null 2>&1
+python3 "$PY" append --class rungs --suite raku-rungs --lang raku --program gate_a5 --mode m3 --outcome PASS --config shipped >/dev/null 2>&1
+python3 "$PY" append --class rungs --suite raku-rungs --lang raku --program gate_a5 --mode m3 --outcome FAIL --config shipped >/dev/null 2>&1
 qout=$(S4E_PROGRESS_DB="$S4E_PROGRESS_DB" python3 "$Q" --contradictions 2>&1); qrc=$?
 if printf '%s' "$qout" | grep -q 'gate_a5'; then
   ck ok "the contradiction is NAMED (rc=$qrc)"
@@ -143,7 +143,7 @@ fi
 
 echo "--- ARM 6: SEAM/CONTROL -- nothing set, nothing declared, the row is ACCEPTED and says 'undeclared' ---"
 seed_old_table
-python3 "$PY" append --class master --suite snobol4-master --lang snobol4 --program gate_a6 --mode m3 --outcome PASS >/dev/null 2>&1; rc=$?
+python3 "$PY" append --class rungs --suite snobol4-rungs --lang snobol4 --program gate_a6 --mode m3 --outcome PASS >/dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && ck ok "accepted rc=0 with no axis set -- the gate does not simply refuse everything" || ck no "rc=$rc: refused a row no axis contradicts"
 got=$(python3 - "$S4E_PROGRESS_DB" <<'PY'
 import csv, sys

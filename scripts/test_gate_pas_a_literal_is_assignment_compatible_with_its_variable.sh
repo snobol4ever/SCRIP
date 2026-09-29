@@ -13,7 +13,7 @@
 # expression is NOT treated as Boolean: an FPC typecast lowers to its argument, so LongWord(i1 < i2) arrives looking like a relation
 # (measured: without that restriction tbs_tb0601 and test_cg_tcnvint1 were refused). The variable's type must agree across EVERY
 # declaration of its name in the flat type table, and an array variable is never checked (the table records a char array under its
-# component type). Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs)
+# component type). Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs)
 # was compiled with the check: the refused set was identical to the tree before, so the check cannot move another suite's row.
 #
 # ARMS: four vendored PAT witnesses, each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the

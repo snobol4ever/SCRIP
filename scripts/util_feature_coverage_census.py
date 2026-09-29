@@ -13,7 +13,7 @@ THE SCHEMA: corpus/tests/<lang>/ALL.csv carries a fixed prefix (rank, entry, ori
 n_lines, heap_kb) -- verified identical across all seven languages before a line of this was written --
 followed by one 0/1 column per feature (snobol4/snocone/rebus 39, icon 61, prolog 39, raku
 39, pascal 50; measured against the real trees, matches GOAL-TEST-SUITE-CONSISTENCY.md's own count).
-A cell is boolean presence, not a count (measured max cell value across the whole snobol4 master is 1).
+A cell is boolean presence, not a count (measured max cell value across the whole snobol4 rungs is 1).
 
 ⛔⭐ A FEATURE COLUMN NEVER FILLED IS A REFUSAL (rc=2), NOT A ZERO (GOAL, verbatim). Same vacuity-trap
 family as util_ladder_forms_check.py's own headline risk: a language whose ALL.csv carries the column
@@ -51,7 +51,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 S4E = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(HERE, "..", ".."))
 CORPUS = os.path.join(S4E, "corpus")
 LANGS = ["snobol4", "icon", "prolog", "raku", "pascal", "snocone", "rebus"]
-# ⛔⭐ heap_kb JOINED THIS PREFIX 2026-09-23 (Lon / CEO-1167) AND THAT IS NOT A COSMETIC ENTRY. read_master()
+# ⛔⭐ heap_kb JOINED THIS PREFIX 2026-09-23 (Lon / CEO-1167) AND THAT IS NOT A COSMETIC ENTRY. read_rungs()
 # locates these columns BY NAME, in order, and treats everything after the last of them as a feature column by
 # construction -- so the instant the column landed in ALL.csv without this line moving, all seven
 # languages REFUSED with "1/40 feature column(s) declared but NEVER FILLED: heap_kb". That refusal is
@@ -104,9 +104,9 @@ def read_floors(lang, features):
     return floor, "override %s: %d feature(s) named, %d on DEFAULT=%d" % (p, named, len(features) - named, DEFAULT_FLOOR)
 
 
-def read_master(lang):
+def read_rungs(lang):
     # Returns (feature_cols, rows) where rows is a list of {feature: 0/1}. Raises via die() on any
-    # structural surprise -- a malformed master describes a tree nobody can trust the rest of either.
+    # structural surprise -- a malformed rungs describes a tree nobody can trust the rest of either.
     p = all_csv_path(lang)
     if not os.path.exists(p):
         return None, None, "no ALL.csv at %s" % p
@@ -146,7 +146,7 @@ def read_master(lang):
 def check_lang(lang, verbose=True):
     # Returns (status, entries, denom, missing) -- status one of OK / SHORT / REFUSED. `denom` is the
     # feature-column count (the per-language denominator every printed line names).
-    feat_cols, rows, why = read_master(lang)
+    feat_cols, rows, why = read_rungs(lang)
     if why:
         if verbose:
             print("  %-8s REFUSED  %s" % (lang, why))
@@ -209,7 +209,7 @@ def check_lang(lang, verbose=True):
 
 
 def selftest():
-    # ⛔ THE VACUITY ARM IS THE ONE THAT MATTERS. A checker that reads GREEN for a master carrying no
+    # ⛔ THE VACUITY ARM IS THE ONE THAT MATTERS. A checker that reads GREEN for a rung suite carrying no
     # feature columns, or that reports a plain "0" for a column nobody ever filled, would pass every
     # language that has not started yet -- the exact gap this row exists to name. Both directions proven.
     import tempfile, shutil

@@ -19,7 +19,7 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #       columns byte-identical to a table with no compile_args column; declared_compile_args_from_table returns exactly those words
 #   L2  refusals, rc 2 each: a compile_args word outside COMPILE_ARGS_ADMITTED; a run_args cell (no bash reader honours one yet);
 #       a lookup with no table
-#   H   corpus_suite_harness.py run on a scratch one-line SNOBOL4 family -- the masters' path
+#   H   corpus_suite_harness.py run on a scratch one-line SNOBOL4 family -- the rung suites' path
 #   P1..P10  the ten package runners, each on its own scratch suite and scratch progress table: dotnet, snoflake, spitbol_x64,
 #       spitbol_testpgms, csnobol4, aisnobol (through the harness), jcon, arizona, ipl, and spitbol_x32 (hq_snobol4's X32T, 1cddec296)
 #
@@ -31,7 +31,7 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #   S1  scorecard_snobol4.sh on a scratch gimpel table (the path test_snobol4_gimpel_suite.sh grades through)
 #   S2  scorecard_snobol4.sh on a scratch benchmarks dir with no table: the <stem>.cmdline sidecar is the only declaration
 #   D1  test_corpus_snobol4.sh's own run_test and compile_mode4, lifted out of the runner by sed (never copied) and run on a demo
-#       pair: the runner's master block cannot be fixtured cheaply, and these two functions are its every direct scrip command line
+#       pair: the runner's rungs block cannot be fixtured cheaply, and these two functions are its every direct scrip command line
 #   A   landing 5, THE ACCEPT ARM: every word of COMPILE_ARGS_ADMITTED (read from the harness) is accepted by scrip at both compile
 #       steps and switches the witness to the oracle's answer, and every compile_args word the corpus declares -- 25 tables and every
 #       <stem>.cmdline -- is admitted; FAIL-ONCE inside the arm: --nosuchswitch must be REJECTED at both steps, or acceptance could not
@@ -123,7 +123,7 @@ pair() {  # <arm> <runner rc> <decl m3> <decl m4> <nodecl m3> <nodecl m4>
 show_on_red() { printf '%s\n' "$1" | grep -E 'REFUSE|⛔' | head -3 | sed 's/^/        /'; }
 csv_pair() { printf '%s\n%s,131072,4096,--stlimit,\n%s,131072,4096,,\n' "$HDR" "$1" "$2"; }
 
-# ── H: the harness, on a one-line SNOBOL4 family (the masters' path); the same family feeds P6, the aisnobol runner ────────────────
+# ── H: the harness, on a one-line SNOBOL4 family (the rung suites' path); the same family feeds P6, the aisnobol runner ────────────────
 mkdir -p "$W/fam"
 printf " X = 1; Y = 2; OUTPUT = 'count=' &STCOUNT;END;* decl\n X = 1; Y = 2; OUTPUT = 'count=' &STCOUNT;END;* nodecl\n" > "$W/fam/ALL.sno"
 printf 'count=3\ncount=3\n' > "$W/fam/ALL.ref"; for n in decl nodecl; do cp "$W/cnt.sno" "$W/fam/$n.sno"; done   # the loose programs a package ships beside its suite

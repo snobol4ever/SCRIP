@@ -23,17 +23,17 @@ FILES=("$@")
 if [ ${#FILES[@]} -eq 0 ]; then
     # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): the passthru.{sno,ref}
     # and retry.{sno,ref} per-family suite pairs this comment used to name (2026-08-28/29 re-points)
-    # were themselves absorbed into THE ONE FLAT MASTER (tests/snobol4/ALL.{sno,ref,csv}) and deleted.
-    # lib_master_extract.sh now materializes both families back out of the master by origin, same
+    # were themselves absorbed into THE ONE FLAT RUNGS (tests/snobol4/ALL.{sno,ref,csv}) and deleted.
+    # lib_rungs_extract.sh now materializes both families back out of the rungs by origin, same
     # scratch-dir contract as before -- nothing downstream of $FILES changed.
-    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$S4E/SCRIP/scripts/lib_master_extract.sh"
+    RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$S4E/SCRIP/scripts/lib_rungs_extract.sh"
     PTC_TMP="$TMP/ptc_grid"; mkdir -p "$PTC_TMP"
     while IFS= read -r o; do
         base="${o#probe_passthru__}"
-        case "$base" in ptc*) master_extract_origin "$o" "$PTC_TMP/$base.sno" >/dev/null 2>&1 ;; esac
-    done < <(master_origins_of_family probe_passthru)
+        case "$base" in ptc*) rungs_extract_origin "$o" "$PTC_TMP/$base.sno" >/dev/null 2>&1 ;; esac
+    done < <(rungs_origins_of_family probe_passthru)
     RETRY_TMP="$TMP/retry_family"; mkdir -p "$RETRY_TMP"
-    master_extract_family probe_retry "$RETRY_TMP" 2>/dev/null
+    rungs_extract_family probe_retry "$RETRY_TMP" 2>/dev/null
     FILES=( "$PTC_TMP"/*.sno "$RETRY_TMP"/*.sno )
 fi
 n=0

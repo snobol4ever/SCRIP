@@ -8,7 +8,7 @@ graph of every program it is pointed at and reports every word the table does NO
 
   region-gap        a byte in [0, region_end) of the graph that no scope's field covers (the classic hole:
                     the return-value cell IR_RETURN writes at frame +0 was never registered -- found by this
-                    census on the Raku master, ceo 2026-09-17, CEO-820)
+                    census on the Raku rungs, ceo 2026-09-17, CEO-820)
   scope-gap         a byte inside a scope's [lo, hi) between two registered fields
   overlap           a byte two fields of one scope both claim (two kinds for one word)
   vslot-unmapped    a named variable slot (vslot) not covered by exactly one field
@@ -21,7 +21,7 @@ FN__add stores rcx/rdx/rsp at +120/+128/+136 of a 144-byte frame whose zls regio
 zls table and is the cto's per-frame map cell (F6 step 2).  Nor does it see the spine (F1 tagged cells).
 The population is the zls REGION, and the summary line says so.
 
-POPULATION: one master suite (--lang, extracted in-process through the harness's own readers, the ONE
+POPULATION: one rung suite suite (--lang, extracted in-process through the harness's own readers, the ONE
 extraction authority) or explicit --files.  An entry the compiler refuses (no `; graph` line, or rc != 0)
 is NO LAYOUT, named and counted beside the verdict, never silently dropped and never graded green.
 ⛔⭐ A NO-LAYOUT ROW PRINTS rc WITH THE FIRST LINE OF THE REFUSAL, because `rc=1` alone is a bucket and not a
@@ -63,7 +63,7 @@ space) for the same reason.
 no_layout_declared is APPENDED, never inserted: the frozen token and the order and meaning of every field before it are
 untouched, and no_layout stays the TOTAL so no consumer silently changes its mind about what it is reading (ceo CEO-1003,
 cto's three conditions, 2026-09-20).  It is PRINTED FOR EVERY LANGUAGE INCLUDING ZERO, so a diff of two census lines is a
-diff of numbers and never of shapes.  A DECLARED no-layout is an entry the master's own ALL.wantrc gives a NON-ZERO rc:
+diff of numbers and never of shapes.  A DECLARED no-layout is an entry the rungs' own ALL.wantrc gives a NON-ZERO rc:
 the suite declares it must not compile, so having no frame is the correct and permanent answer rather than a defect.
 words = 8-byte words of every graded graph's zls region; unkinded = words of those inside a reported hole.
 Planted arm: SCRIP_TEST_PLANT_ZLS_HOLE=1 makes zls_dump omit the first field of every graph, so a gate can
@@ -175,12 +175,12 @@ def dump_one(scrip, path, timeout):
 def wantrc_sidecar(lang, s4e_home):
     """THE DECLARATION IS ALREADY IN THE DATA (hq_raku, granted ceo CEO-1003 + cto, 2026-09-20).  A program the suite itself
     declares must not compile HAS no frame layout, and that is the correct and permanent answer rather than a refusal the
-    census cannot tell from a compiler defect.  The declaration is DERIVED from the master's own ALL.wantrc -- the same
+    census cannot tell from a compiler defect.  The declaration is DERIVED from the rungs' own ALL.wantrc -- the same
     sidecar util_raku_entry_grade.sh already grades rc against -- so it cannot go stale the way a hand-kept list does, and
     it is a declaration INSIDE the printed denominator rather than a narrowing of it: no_layout keeps its meaning as the
     TOTAL and the real defects stay counted as defects.
     Returns (map name->wantrc, note).  A sidecar that EXISTS and cannot be read REFUSES (raises); an ABSENT one is itself
-    data -- the master declares no non-zero-rc entry -- and says so on its own line rather than defaulting silently."""
+    data -- the rungs declares no non-zero-rc entry -- and says so on its own line rather than defaulting silently."""
     d = Path(s4e_home) / "corpus" / "tests" / lang
     f = d / "ALL.wantrc"
     if not f.is_file():
@@ -199,13 +199,13 @@ def wantrc_sidecar(lang, s4e_home):
     return out, ""
 
 
-def master_entries(lang, s4e_home):
+def rungs_entries(lang, s4e_home):
     import corpus_suite_harness as H
     cfg = H.LANG_CONFIGS.get(lang) or (H.LANG_CONFIGS.get("") if lang == "snobol4" else None) or {"ext": ".sno", "comment_open": "*", "comment_close": ""}
     d = Path(s4e_home) / "corpus" / "tests" / lang
     src = d / ("ALL" + cfg["ext"]); ref = d / "ALL.ref"
     if not src.is_file() or not ref.is_file():
-        return None, cfg["ext"], f"master {src} or {ref} missing", []
+        return None, cfg["ext"], f"rungs {src} or {ref} missing", []
     banner_re = H.banner_re_for(cfg["comment_open"], cfg["comment_close"])
     try:
         entries = H.read_block_suite(str(src), str(ref), banner_re, in_path=H.sidecar_in_path(str(src)), x_path=H.sidecar_xfail_path(str(src)))
@@ -217,10 +217,10 @@ def master_entries(lang, s4e_home):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--lang", default="", help="census this language's master suite (corpus/tests/<lang>/ALL.<ext>)")
-    ap.add_argument("--files", nargs="*", default=[], help="census these programs instead of a master")
+    ap.add_argument("--lang", default="", help="census this language's rungs suite (corpus/tests/<lang>/ALL.<ext>)")
+    ap.add_argument("--files", nargs="*", default=[], help="census these programs instead of a rung suite")
     ap.add_argument("--timeout", type=float, default=8.0)
-    ap.add_argument("--wantrc", default="", help="grade DECLARED against this ALL.wantrc instead of the master's own (the gate fixture seam; --files has no master)")
+    ap.add_argument("--wantrc", default="", help="grade DECLARED against this ALL.wantrc instead of the rungs' own (the gate fixture seam; --files has no rungs)")
     a = ap.parse_args()
     s4e_home = os.environ.get("S4E_HOME", str(HERE.parent.parent))
     scrip = Path(os.environ.get("SCRIP", str(HERE.parent / "scrip")))
@@ -249,7 +249,7 @@ def main():
             print(f"zls-frame-map-census[{label}]: REFUSE(2): the ALL.wantrc sidecar EXISTS and cannot be read, so a DECLARED no-layout cannot be told from a defect: {e}"); return 2
     tmp = tempfile.TemporaryDirectory(prefix="zls_census_")
     if a.lang:
-        entries, ext, err, comp_dirs = master_entries(a.lang, s4e_home)
+        entries, ext, err, comp_dirs = rungs_entries(a.lang, s4e_home)
         if entries is None:
             print(f"zls-frame-map-census[{label}]: REFUSE(2): {err}"); return 2
         for e in entries:
@@ -291,7 +291,7 @@ def main():
         by_kind[kind] = by_kind.get(kind, 0) + 1
     for name, err, kind in nolayout:
         if wantrc.get(name, 0) != 0:
-            print(f"NO-LAYOUT lang={label} entry={name} ({err}) [{kind}] [DECLARED wantrc={wantrc[name]}] -- the master declares this entry must not compile, so having no frame is correct and permanent, not a defect")
+            print(f"NO-LAYOUT lang={label} entry={name} ({err}) [{kind}] [DECLARED wantrc={wantrc[name]}] -- the rungs declares this entry must not compile, so having no frame is correct and permanent, not a defect")
         else:
             print(f"NO-LAYOUT lang={label} entry={name} ({err}) [{kind}]")
     if sum(by_kind.values()) != len(nolayout):

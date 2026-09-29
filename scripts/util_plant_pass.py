@@ -9,9 +9,9 @@ wide and counts, per language and per arm, the files that fired and the tags. An
 a control arm that fired, is dead on that population; an arm that fires names its smallest witnesses.
 
 POPULATIONS. A population is a directory walked for every extension scrip_exts[] admits. DIR/INDEX.tsv (written by
-util_extract_master_entries.py) adds each entry's declared compile_args when the population is named with :declared;
-a master is a CONTAINER and is never compiled whole, so the masters' entries must be extracted one per file into a
-population of their own (SCRIP 65b0bc779 retired an arm on corpus sources alone and two SnoM entries reached it).
+util_extract_rungs_entries.py) adds each entry's declared compile_args when the population is named with :declared;
+a rung suite is a CONTAINER and is never compiled whole, so the rung suites' entries must be extracted one per file into a
+population of their own (SCRIP 65b0bc779 retired an arm on corpus sources alone and two SnoRungs entries reached it).
 
 RECEIPT (TSV, one row per language x population x arm; a header comment names the binary, its tree and the date):
   language population files compiled refused crashed timedout arm files_fired tags witnesses

@@ -108,7 +108,7 @@ END
 EOF
 for w in fb ctl; do ( cd "$T" && timeout 20 "$SBL" -bf "$w.sno" < /dev/null > "$w.oracle" 2>&1 ) || refuse "sbl did not run $w cleanly"; done
 grep -qx 'fence one \[R\]' "$T/fb.oracle" && grep -qx 'fence in fence \[RQ\]' "$T/fb.oracle" && grep -qx 'kept through \[ABC\]' "$T/ctl.oracle" || refuse "sbl's answer moved: [$(tr '\n' '|' < "$T/fb.oracle")]"
-S4E_HOME="$S4E" SCRIP="$SCRIP" timeout 300 python3 "$HERE/test_bootstrap_parsers.py" snocone --arm m3 --only library/counter.sc --no-master --timeout 120 --work "$T/bp" > "$T/bp.log" 2>&1
+S4E_HOME="$S4E" SCRIP="$SCRIP" timeout 300 python3 "$HERE/test_bootstrap_parsers.py" snocone --arm m3 --only library/counter.sc --no-rungs --timeout 120 --work "$T/bp" > "$T/bp.log" 2>&1
 PSNO="$T/bp/snocone/parser_snocone.sno"
 [ -s "$PSNO" ] || refuse "the snocone chain did not transpile: $(tail -2 "$T/bp.log" | tr '\n' ' ')"
 ( cd "$T" && timeout 120 "$SBL" -bf -s2000m -d4000m "$PSNO" < "$SRC" > counter.oracle 2>&1 ) || refuse "sbl did not run the snocone parser on counter.sc"

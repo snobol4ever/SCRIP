@@ -17,7 +17,7 @@
 # ARMS: 1 behavioural refusal (missing suite file) -> rc=2 · 2 the source carries ZERO sys.exit(3) arms and
 # refuse() exits 2 · 3 a red board still exits 1 (the distinction that must survive) · 4 a clean run still
 # exits 0 · 5 the staleness refusal, which was already 2, is unchanged -- both refusal paths now agree.
-# ⛔⭐ CEO-547 PART 2 (cto, 2026-09-11): arms 4, 6, 7, 8 and 9 graded the corpus master itself, so ONE RUNNER, ONE
+# ⛔⭐ CEO-547 PART 2 (cto, 2026-09-11): arms 4, 6, 7, 8 and 9 graded the corpus rungs itself, so ONE RUNNER, ONE
 # BOARD (CEO-523) refused each of them rc=2 on every seat but the coo -- THIS GATE was why `make test` was red for
 # twelve of thirteen seats, and two of the five arms read GREEN off that wrong rc. Every grading arm now runs on
 # this gate's own fixtures under $W, outside the corpus tree, and the two arms that could not distinguish one
@@ -27,36 +27,36 @@
 # pair whose suffix names a dialect REFUSES rc=2 without --lang, in `run` AND in `pin-ref`, and the refusal names
 # the flag instead of accusing the corpus · the explicit `--lang snobol4` escape hatch still reaches the
 # line-per-entry reader · and a .sno pair with no --lang is untouched, which is the arm that catches a guard
-# written too wide (it would red the SNOBOL4 master for the whole fleet).
-# EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (no python3/harness/master, or an unbuilt tree).
+# written too wide (it would red the SNOBOL4 rungs for the whole fleet).
+# EXIT: 0 all arms · 1 an arm failed · 2 REFUSED (no python3/harness/rungs, or an unbuilt tree).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 . "$HERE/lib_board_line.sh"      # board_field/board_is: a board is read BY NAME, never by adjacency (CEO-839)
 H="$HERE/corpus_suite_harness.py"
-MASTER="$S4E/corpus/tests/rebus"
+RUNGS="$S4E/corpus/tests/rebus"
 [ -f "$H" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: harness not found at $H"; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE rc=2: python3 not on PATH"; exit 2; }
-[ -f "$MASTER/ALL.reb" ] && [ -f "$MASTER/ALL.ref" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: rebus master absent at $MASTER -- arms 3/4 cannot distinguish a red board from a refusal"; exit 2; }
+[ -f "$RUNGS/ALL.reb" ] && [ -f "$RUNGS/ALL.ref" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: rebus rungs absent at $RUNGS -- arms 3/4 cannot distinguish a red board from a refusal"; exit 2; }
 "$HERE/util_require_fresh.sh" --gate test_gate_harness_refusal_is_rc2 >/dev/null 2>&1 || {
     echo "⛔ REFUSED-TO-GRADE rc=2: this tree's binary is stale or unbuilt -- arms 3/4 run real programs. Run 'make'."; exit 2; }
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_rc2.XXXXXX")" || { echo "⛔ REFUSED-TO-GRADE rc=2: mktemp failed"; exit 2; }
 trap 'rm -rf "$W"' EXIT
-# ⛔⭐ EVERY GRADING ARM BELOW RUNS ON THIS GATE'S OWN FIXTURES, NEVER ON THE CORPUS MASTER ITSELF (cto, 2026-09-11,
+# ⛔⭐ EVERY GRADING ARM BELOW RUNS ON THIS GATE'S OWN FIXTURES, NEVER ON THE CORPUS RUNGS ITSELF (cto, 2026-09-11,
 # CEO-547 part 2, on the ceo's ruling that make test was red for twelve of thirteen seats). ONE RUNNER, ONE BOARD
 # (CEO-523) refuses a run whose POPULATION is under the corpus tree to any seat but the coo, and arms 4, 6, 7, 8 and
-# 9 each pointed at a real master -- so on every seat but the coo they collected a ONE-RUNNER rc=2 instead of the
+# 9 each pointed at a real rungs -- so on every seat but the coo they collected a ONE-RUNNER rc=2 instead of the
 # behaviour they claim to grade. ⛔ TWO OF THEM READ **GREEN** ON THAT WRONG RC, which is the false green this gate
 # exists to prevent: arm 5 asserted only `rc=2` and the one-runner refusal is also 2, and arm 8 asserted only that
 # the words `has suffix` were absent, which they are in a refusal that never reached the suffix check. Both now
-# assert what the refusal SAYS, not merely its code. The fixtures are byte copies of the real rebus master (so arm
+# assert what the refusal SAYS, not merely its code. The fixtures are byte copies of the real rebus rungs (so arm
 # 3's red is still a real graded failure of a real suite) written OUTSIDE the corpus tree, where the guard
 # correctly judges them not a board: $W/clean is the unmutated pair, $W/red carries the injected mismatch, $W/sno
-# is a two-entry SNOBOL4 pair for arm 9. The cost is unchanged -- this gate graded the rebus master twice before
+# is a two-entry SNOBOL4 pair for arm 9. The cost is unchanged -- this gate graded the rebus rungs twice before
 # and still does.
 mkdir -p "$W/clean" "$W/red" "$W/sno" || { echo "⛔ REFUSED-TO-GRADE rc=2: cannot build fixtures under $W"; exit 2; }
-python3 - "$MASTER" "$W" <<'FIXTURES' || { echo "⛔ REFUSED-TO-GRADE rc=2: fixture build failed"; exit 2; }
+python3 - "$RUNGS" "$W" <<'FIXTURES' || { echo "⛔ REFUSED-TO-GRADE rc=2: fixture build failed"; exit 2; }
 import sys, pathlib
 m, w = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 src, ref = (m/'ALL.reb').read_text(), (m/'ALL.ref').read_text()
@@ -91,7 +91,7 @@ n=$(grep -c 'sys.exit(3)' "$H")
 [ "$n" = 0 ] && ck ok "zero sys.exit(3) arms in the harness" || ck no "$n sys.exit(3) arm(s) remain -- the second refusal code is still there"
 grep -qE '^\s*sys\.exit\(2\)' <<<"$(sed -n '/^def refuse/,/^def /p' "$H")" && ck ok "refuse() itself exits 2" || ck no "refuse() does not exit 2"
 echo "--- ARM 3 (the distinction that must survive): a RED board still exits 1, never 2 ---"
-# ⛔ Built from the REAL master so the red is a real graded failure, not a synthetic one: one entry whose ref is
+# ⛔ Built from the REAL rungs so the red is a real graded failure, not a synthetic one: one entry whose ref is
 # deliberately wrong. A harness that returned 2 for everything would pass every other arm of this gate.
 out="$(timeout 300 python3 "$H" run "$W/red/ALL.reb" "$W/red/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
 [ "$rc" = 1 ] && ck ok "a graded board with a red exits 1 (could-not-measure did not swallow measured-and-red)" \
@@ -106,11 +106,11 @@ echo "--- ARM 4: a clean graded run still exits 0 or 1 by its board, never a ref
 # went unseen. A check that cannot fail is an instrument reporting success while doing nothing (RULES.md THE
 # INSTRUMENT LAWS); it is written on one line now so no continuation can detach it again.
 out="$(timeout 300 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
-if [ "$rc" = 0 ] || [ "$rc" = 1 ]; then ck ok "a clean master pair grades and returns a board verdict (rc=$rc), not a refusal"; else ck no "a runnable master must not refuse; got rc=$rc -- $(tail -c 300 <<<"$out")"; fi
+if [ "$rc" = 0 ] || [ "$rc" = 1 ]; then ck ok "a clean rungs pair grades and returns a board verdict (rc=$rc), not a refusal"; else ck no "a runnable rungs must not refuse; got rc=$rc -- $(tail -c 300 <<<"$out")"; fi
 grep -qiE 'suite_board' <<<"$out" && ck ok "the run printed its board" || ck no "no board printed -- $(tail -c 300 <<<"$out")"
 echo "--- ARM 5: the staleness refusal (already 2) agrees -- BOTH refusal paths now return one code ---"
 # ⛔ rc=2 ALONE CANNOT IDENTIFY WHICH REFUSAL FIRED, and that is exactly how this arm read green for months on
-# every seat but the coo: it was pointed at the corpus master, the ONE-RUNNER guard refused it first with its own
+# every seat but the coo: it was pointed at the corpus rungs, the ONE-RUNNER guard refused it first with its own
 # rc=2, and the assertion could not tell the two apart. The arm now names the refusal it is grading.
 cp "$ROOT/scrip" "$W/scrip.old"; touch -d "2020-01-01T00:00:00" "$W/scrip.old"
 out="$(SCRIP="$W/scrip.old" timeout 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --lang rebus --modes m3,m4 2>&1)"; rc=$?
@@ -120,11 +120,11 @@ echo "--- ARM 6: a corpus suite pair whose suffix names a dialect REFUSES rc=2 w
 # ⛔⭐ ROW corpus-suite-harness-run-without-lang-silently-regrades-the-suite-one-entry-per-line-instead-of-refusing
 # (minted by the cfo 2026-09-08 from two live near-misses; cured by hq_T 2026-09-10). --lang is what selects the
 # comment syntax that DELIMITS ENTRIES. Omitted, `run` fell back to the SNOBOL4 `*`-banner grammar, which over a
-# .pas/.reb master parses EVERY SOURCE LINE as its own entry -- a different population -- and then reported
+# .pas/.reb rungs parses EVERY SOURCE LINE as its own entry -- a different population -- and then reported
 # failures about that imaginary population with total confidence: `family.ref is shorter than family.sno at seq
 # 904` for a pascal pair whose ALL.pas and ALL.ref BOTH carry 251 markers, and `declarations with no matching
 # entry` naming four rebus entries that DO exist. ⛔ BOTH MESSAGES ACCUSE THE DATA, so the reader is sent to edit
-# a corpus that is fine -- the cfo was one step from filing two masters as unrunnable. THE DEFECT WAS THE SILENT
+# a corpus that is fine -- the cfo was one step from filing two rung suites as unrunnable. THE DEFECT WAS THE SILENT
 # FALLBACK, NOT THE MISSING FLAG.
 out="$(timeout 120 python3 "$H" run "$W/clean/ALL.reb" "$W/clean/ALL.ref" --modes m3 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "a .reb pair with no --lang REFUSES rc=2 instead of regrading line-per-entry" \
@@ -155,8 +155,8 @@ grep -qiE 'one runner|is a board' <<<"$out" && ck no "this arm never reached the
                                             || ck ok "and it reached the reader rather than an unrelated refusal"
 echo "--- ARM 9: a .sno pair with no --lang is UNTOUCHED (every existing caller) ---"
 # The census before the cure: every `harness run` invocation in scripts/ that omits --lang passes a .sno pair.
-# This arm is the one that would catch a guard written too wide -- it would red the SNOBOL4 master for the fleet.
-# ⛔ THE POPULATION HERE IS THE GATE'S OWN TWO-ENTRY .sno PAIR, not a shard of the SNOBOL4 master (cto 2026-09-11):
+# This arm is the one that would catch a guard written too wide -- it would red the SNOBOL4 rungs for the fleet.
+# ⛔ THE POPULATION HERE IS THE GATE'S OWN TWO-ENTRY .sno PAIR, not a shard of the SNOBOL4 rungs (cto 2026-09-11):
 # the claim is that the SUFFIX guard does not fire on .sno, and a two-entry pair witnesses that exactly as well as
 # 1/40 of 3832 while grading something this gate owns. ⛔ AND IT MUST ACTUALLY GRADE: the board line is checked for
 # m3_n=2 as well as for existing, because a run that graded NOTHING also prints a SUITE_BOARD and also exits 0.

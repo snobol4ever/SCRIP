@@ -75,13 +75,13 @@ echo "=== gate: next refuses a row of a language parked by THE ORDER OF WORK ===
 # better rank, and an owner cell that names the seat by name.
 set_mode 'NONET' "$LIVE_L2"
 reset_q
-mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 0 snobol4-rungs-red-fixture  hq_snobol4 FREE
 mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
 out="$(run_next hq_snobol4)"
-grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
+grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" && ! grep -qE '^LOCKED.*snobol4-rungs-red-fixture' <<<"$out" \
   && ck ok "(a) THE ORDER OF WORK IS ICON ONLY parks the rank-0 SNOBOL4 row; the rank-5 icon row is served instead" \
   || ck no "(a) a parked-language row must never be served automatically, owner cell or not -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
-grep -q 'snobol4-master-red-fixture' <<<"$out" && grep -qE 'SKIP|PARKED|ORDER OF WORK' <<<"$out" \
+grep -q 'snobol4-rungs-red-fixture' <<<"$out" && grep -qE 'SKIP|PARKED|ORDER OF WORK' <<<"$out" \
   && ck ok "(b) the skip is printed and names the parked topic -- a refusal a reader can act on, not silence" \
   || ck no "(b) a parked-language skip must be VISIBLE and NAMED, never silent -- got: $out"
 
@@ -90,7 +90,7 @@ grep -q 'snobol4-master-red-fixture' <<<"$out" && grep -qE 'SKIP|PARKED|ORDER OF
 # different mode entirely and carries no freeze wording of any spelling.
 set_mode 'NONET' "$OTHER_L2" 'ORDER-OF-WORK: icon'
 reset_q
-mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 0 snobol4-rungs-red-fixture  hq_snobol4 FREE
 mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
 out="$(run_next hq_snobol4)"
 grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" \
@@ -103,10 +103,10 @@ grep -qE '^LOCKED.*icon-jcon-std-recut-fixture' <<<"$out" \
 # parked and the arm would fail. Precedence proven, not assumed.
 set_mode 'NONET' "$LIVE_L2" 'ORDER-OF-WORK: snobol4'
 reset_q
-mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 0 snobol4-rungs-red-fixture  hq_snobol4 FREE
 mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
 out="$(run_next hq_snobol4)"
-grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
+grep -qE '^LOCKED.*snobol4-rungs-red-fixture' <<<"$out" \
   && ck ok "(d) the marker line is AUTHORITATIVE over prose -- prose ICON ONLY, marker snobol4, SNOBOL4 served" \
   || ck no "(d) the machine line must outrank the prose it replaces -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
 
@@ -115,10 +115,10 @@ grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
 # 2026-09-08 ("SNOBOL4 AND ICON TO 100%"). An equality test fails CLOSED here, parking a LIVE language.
 set_mode 'NONET' "$OTHER_L2" 'ORDER-OF-WORK: icon snobol4'
 reset_q
-mk 0 snobol4-master-red-fixture  hq_snobol4 FREE
+mk 0 snobol4-rungs-red-fixture  hq_snobol4 FREE
 mk 5 icon-jcon-std-recut-fixture hq_snobol4 FREE
 out="$(run_next hq_snobol4)"
-grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
+grep -qE '^LOCKED.*snobol4-rungs-red-fixture' <<<"$out" \
   && ck ok "(e) two live languages: a SNOBOL4 row is served when the order of work names icon AND snobol4" \
   || ck no "(e) the order of work is a SET, not one language -- a live language must never be parked: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
 
@@ -135,9 +135,9 @@ grep -qE '^LOCKED.*prolog-inria-red-fixture' <<<"$out" \
 # ⛔ A checker that always refuses and one that never refuses BOTH pass every arm above except this one.
 set_mode 'NONET' "$OTHER_L2"
 reset_q
-mk 0 snobol4-master-red-fixture hq_snobol4 FREE
+mk 0 snobol4-rungs-red-fixture hq_snobol4 FREE
 out="$(run_next hq_snobol4)"
-grep -qE '^LOCKED.*snobol4-master-red-fixture' <<<"$out" \
+grep -qE '^LOCKED.*snobol4-rungs-red-fixture' <<<"$out" \
   && ck ok "(g) POSITIVE CONTROL: with no marker and no ONLY clause, the SNOBOL4 row IS served -- no misfire" \
   || ck no "(g) an inactive order of work must restrict nothing -- got: $(grep -E '^LOCKED|QUEUE EMPTY' <<<"$out")"
 

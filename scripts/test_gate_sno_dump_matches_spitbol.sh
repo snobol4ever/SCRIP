@@ -5,7 +5,7 @@
 #
 # Before the cure SCRIP's end-of-run dump omitted every ARRAY, TABLE, DATA, PATTERN, EXPRESSION, NAME and CODE
 # value, printed null-valued variables and its own EXPR$n temps, did not wrap at 120 bytes, dumped OUTPUT under
-# its internal name, and had no &DUMP = 2 contents section at all. NOTHING GRADED EXERCISED IT (the SNOBOL4 master
+# its internal name, and had no &DUMP = 2 contents section at all. NOTHING GRADED EXERCISED IT (the SNOBOL4 rungs
 # never sets &DUMP), which is the regression-protection shape the ceo's 22:1x audit named -- so this gate is the
 # instrument: five witnesses, every expectation cut from the LIVE sbl -bf oracle at run time, never a stored ref,
 # compared byte for byte (cmp, not a line diff: the 120-byte wrap and the trailing blank lines are the point).

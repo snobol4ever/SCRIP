@@ -160,7 +160,7 @@ def classify(icont, corpus, staged_root, rel):
     with open(src, "r", encoding="utf-8", errors="surrogateescape") as fh:
         text = fh.read()
     # ⛔⭐ A CONTAINER IS NOT A PROGRAM, AND ASKING icont TO COMPILE ONE WHOLE IS A CATEGORY ERROR OF THE
-    # INSTRUMENT, NOT A DEFECT OF THE FILE (RULES.md: a master file is a CONTAINER, never compiled whole --
+    # INSTRUMENT, NOT A DEFECT OF THE FILE (RULES.md: a rung suite file is a CONTAINER, never compiled whole --
     # the same correction this seat sent hq_C on 09-10 about ALL.icn). tests/icon/rung36_all.icn holds 37
     # `procedure main()` behind 42 banner separators, probe_witness.icn holds 10, and
     # rung20_section_seqexpr_excluded.icn holds 2. Compiled whole they raise `inconsistent redeclaration` --

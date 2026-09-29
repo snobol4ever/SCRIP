@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gate_right_sealed_defer_beta_no_double_teardown.sh -- THE ACCEPTANCE GATE for row
-# snobol4-a-right-sealed-defer-tears-down-its-zeta-frame-twice (cto 2026-09-11, CEO-564: the snobol4-master
+# snobol4-a-right-sealed-defer-tears-down-its-zeta-frame-twice (cto 2026-09-11, CEO-564: the snobol4-rungs
 # 16 CRASH + 8 HANG class).
 #
 # THE DEFECT: a MATCH_DEFER whose referenced pattern is RIGHT-SEALED -- its rightmost element is a FENCE, so

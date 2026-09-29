@@ -16,7 +16,7 @@
 # &TRACE emits variable/label/function events in its own format rather than a Byrd four-port sequence, so it
 # needs a normalisation layer; `test_gate_icn_port_trace.sh` builds exactly that layer for iconx's &trace and is
 # the proof of shape. Until someone writes SNOBOL4's, this gate is the pinned instrument and says so. The ANSWER
-# column is where SNOBOL4 is graded against the real oracle today, and the master suite owns that.
+# column is where SNOBOL4 is graded against the real oracle today, and the rungs suite owns that.
 # EXIT: 0 every witness matches in both modes; 1 a mismatch, a killswitch or perturbation failure; 2 REFUSED.
 set -u
 PORTTRACE_LANG=SNOBOL4; PORTTRACE_SUITE=snobol4; PORTTRACE_EXT=.sno; PORTTRACE_FAMILIES="ladder"

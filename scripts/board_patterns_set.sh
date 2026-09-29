@@ -24,15 +24,15 @@ SNAPDIR=${BOARD_SNAPS:-$S4A/work/board_snaps}
 PER=${PAT_TIMEOUT:-30}
 mkdir -p "$SNAPDIR"
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): crosscheck/patterns/
-# is gone -- absorbed into THE ONE FLAT MASTER. An explicit PAT_CORPUS override is honored as-is; the
-# default now materializes the "crosscheck_patterns" family via lib_master_extract.sh into a
+# is gone -- absorbed into THE ONE FLAT RUNGS. An explicit PAT_CORPUS override is honored as-is; the
+# default now materializes the "crosscheck_patterns" family via lib_rungs_extract.sh into a
 # persistent scratch dir under SNAPDIR so repeated snap/diff invocations reuse the same extraction.
 if [ -n "${PAT_CORPUS:-}" ]; then
   DIR="$PAT_CORPUS"
 else
-  MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(cd "$(dirname "$0")" && pwd)/lib_master_extract.sh"
+  RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$(cd "$(dirname "$0")" && pwd)/lib_rungs_extract.sh"
   DIR="$SNAPDIR/crosscheck_patterns_src"
-  [ -d "$DIR" ] && [ -n "$(ls -A "$DIR" 2>/dev/null)" ] || { mkdir -p "$DIR"; master_extract_family crosscheck_patterns "$DIR" 2>/dev/null; }
+  [ -d "$DIR" ] && [ -n "$(ls -A "$DIR" 2>/dev/null)" ] || { mkdir -p "$DIR"; rungs_extract_family crosscheck_patterns "$DIR" 2>/dev/null; }
 fi
 
 snap() {

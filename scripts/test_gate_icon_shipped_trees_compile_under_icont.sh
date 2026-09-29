@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_gate_icon_shipped_trees_compile_under_icont.sh -- THE SHIPPED-TREE GRADABILITY GATE (CEO-489, hq_V
-# 2026-09-10). The widening the ceo granted of test_gate_icon_master_entries_compile_under_icont.sh, whose
-# criterion this file carries onto EVERY SHIPPED .icn rather than only the ones the Icon master stores.
+# 2026-09-10). The widening the ceo granted of test_gate_icon_rungs_entries_compile_under_icont.sh, whose
+# criterion this file carries onto EVERY SHIPPED .icn rather than only the ones the Icon rungs stores.
 #
 # THE CRITERION, in the ceo's words (CEO-489): every shipped `.icn` under corpus packages/icon, tests/icon,
 # benchmarks/icon and demos/icon compiles under `icont -s -c`; the SEMICOLON CLASS is reported SEPARATELY from
@@ -52,7 +52,7 @@
 # hq_B's CEO-488 row lands, and wiring a known-red arm blocking would turn `make test` red for all thirteen
 # seats and make every other seat pay for one open row (CEO-463). IT WIRES BLOCKING THE MOMENT IT READS ZERO,
 # and it must -- the conversion is a WRITER, and a writer that regresses re-manufactures the class silently,
-# which is the identical argument that keeps the master gate wired.
+# which is the identical argument that keeps the rungs gate wired.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
@@ -72,7 +72,7 @@ done
 
 # ⛔ ALL.icn IS EXCLUDED AND IT IS NOT AN EXCEPTION TO THE CRITERION -- it is A CONTAINER, NEVER COMPILED
 # WHOLE (RULES.md; the correction this seat sent hq_C on 09-10). Its ENTRIES are graded one at a time by the
-# sibling gate test_gate_icon_master_entries_compile_under_icont.sh, which is where that question is asked and
+# sibling gate test_gate_icon_rungs_entries_compile_under_icont.sh, which is where that question is asked and
 # answered. Feeding the container to icont here would produce one meaningless refusal standing for 758 files.
 mapfile -t FILES < <(cd "$CORPUS" && find "${TREES[@]}" -path '*.fixtures' -prune -o -name '*.icn' -type f ! -name 'ALL.icn' -print | sort)
 N=${#FILES[@]}

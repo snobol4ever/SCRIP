@@ -10,7 +10,7 @@
 # the fallback sits after the constant table in both mk_ident and scalar_constant, and Pascal-P4 (const maxint = 32767) relies on it.
 # ⛔ NAMED, NOT CURED HERE: the constant table is flat and first-match, so a PROCEDURE-LOCAL const maxint = 100 leaks into the
 # program block (measured: the main body then reads 100) -- the same scoping class as every other local constant, its own landing.
-# Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
+# Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the change: the refused set was identical to the tree before.
 #
 # ARMS: two legal programs, each cut LIVE from fpc -Miso and required byte-identical in BOTH modes (m4 compiles, links and runs):

@@ -16,7 +16,7 @@
 # last arm's failure is the list's. A list of three or more arms nests to the right, each inner list joining at its own read of the
 # temporary, because the zd planner seeds a failing arm's spine depth from its test only when the arm rejoins that test's own run:
 # flat, a third arm started at depth 0 and overwrote the operand evaluated before the list ('77' for 'three-last-succeeds  7' --
-# the master's user_function_array_replace_branch_1, which withdrew the flat form before it was pushed). Any other list -- an arm
+# the rungs' user_function_array_replace_branch_1, which withdrew the flat form before it was pushed). Any other list -- an arm
 # that can fail through a call, a pattern match, INPUT -- keeps the IR_DISJUNCTION: a call's failure edge pops to the statement
 # base, so as control flow it lost the operands before the list (and SIGSEGV'd in a function), while the disjunction answers those.
 # NO MONITOR BRACKET: the program dies, or answers wrong, before its first diverging event.

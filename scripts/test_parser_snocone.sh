@@ -10,7 +10,7 @@ SD="${SD:-$S4E/SCRIP/bootstrap}"
 if [ ! -f "$SCRIP" ]; then echo "SKIP scrip not found: $SCRIP"; exit 0; fi
 
 # ⭐ REPOINTED (dead-suite-path-consumer-sweep, seat06 2026-09-04): corpus/tests/snocone/parser-fixtures/
-# no longer exists -- Lon's one-flat-suite ruling absorbed it into the Snocone master (ALL.sc/ALL.ref/
+# no longer exists -- Lon's one-flat-suite ruling absorbed it into the Snocone rungs (ALL.sc/ALL.ref/
 # ALL.csv) as the "parser" family, 67 entries (family=parser, kind=block, modes=ast), origin names
 # parser__<old-name> preserving the old per-file names. Verified by direct extraction before wiring this
 # in: parser__arith_add materializes to "x = 1 + 2;" / "(STMT :subj (TT_ASSIGN ...))" -- exactly the
@@ -22,17 +22,17 @@ if [ ! -f "$SCRIP" ]; then echo "SKIP scrip not found: $SCRIP"; exit 0; fi
 if [ -n "${FIX:-}" ]; then
     [ -d "$FIX" ] || { echo "⛔ REFUSE(2): FIX override '$FIX' does not exist" >&2; exit 2; }
 else
-    # MASTER_DIR/MASTER_EXT must be set BEFORE sourcing -- lib_master_extract.sh reads them once at
-    # source time into MASTER_SNO/MASTER_REF/MASTER_CSV, not live on each call (learned the hard way:
-    # setting them as a prefix on the master_extract_family call below silently extracted against the
-    # SNOBOL4 master instead and produced an empty dir).
-    MASTER_DIR="$S4E/corpus/tests/snocone"
-    MASTER_EXT=.sc
-    . "$HERE/lib_master_extract.sh"
+    # RUNGS_DIR/RUNGS_EXT must be set BEFORE sourcing -- lib_rungs_extract.sh reads them once at
+    # source time into RUNGS_SNO/RUNGS_REF/RUNGS_CSV, not live on each call (learned the hard way:
+    # setting them as a prefix on the rungs_extract_family call below silently extracted against the
+    # SNOBOL4 rungs instead and produced an empty dir).
+    RUNGS_DIR="$S4E/corpus/tests/snocone"
+    RUNGS_EXT=.sc
+    . "$HERE/lib_rungs_extract.sh"
     FIX=$(mktemp -d /tmp/parser_snocone_fix_XXXXXX) || { echo "⛔ REFUSE(2): mktemp failed" >&2; exit 2; }
     trap 'rm -rf "$FIX"' EXIT
-    master_extract_family parser "$FIX" \
-        || { echo "⛔ REFUSE(2): extracting the 'parser' family from the Snocone master failed" >&2; exit 2; }
+    rungs_extract_family parser "$FIX" \
+        || { echo "⛔ REFUSE(2): extracting the 'parser' family from the Snocone rungs failed" >&2; exit 2; }
     [ -n "$(ls -A "$FIX" 2>/dev/null)" ] || { echo "⛔ REFUSE(2): extraction produced an empty directory -- the 'parser' family may have been renamed again" >&2; exit 2; }
 fi
 

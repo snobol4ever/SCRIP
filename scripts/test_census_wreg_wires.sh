@@ -36,7 +36,7 @@ printf "%-24s %6s %6s %6s %6s %6s\n" program blobs entry jmp_r10 jmp_r11 proc_e
 tb=0; te=0; tg=0; nsw=0
 for f in "$CORPUS"/*.sno; do
   [ -e "$f" ] || continue   # unmatched glob with nullglob unset -- refuse below, never silently skip
-  [ "$(basename "$f")" = "ALL.sno" ] && continue   # THE ONE FLAT MASTER is suite data, never a standalone program
+  [ "$(basename "$f")" = "ALL.sno" ] && continue   # THE ONE FLAT RUNGS is suite data, never a standalone program
   nsw=$((nsw+1))
   b=$(basename "$f" .sno); [ -n "$1" ] && [ "$b" != "$1" ] && continue
   s=$(SCRIP_WREG=${SCRIP_WREG:-1} "$SCRIP" --compile "$f" 2>/dev/null < /dev/null) || continue

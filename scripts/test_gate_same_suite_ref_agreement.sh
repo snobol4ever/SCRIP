@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 # test_gate_same_suite_ref_agreement.sh -- THE SAME-SUITE TWIN of test_gate_cross_suite_ref_agreement.sh:
-# TWO ENTRIES IN ONE MASTER MUST NOT HOLD CONTRADICTORY REFS FOR A BYTE-IDENTICAL PROGRAM.
+# TWO ENTRIES IN ONE RUNGS MUST NOT HOLD CONTRADICTORY REFS FOR A BYTE-IDENTICAL PROGRAM.
 #
 # ⛔ WHY THIS EXISTS (hq_B's find 2026-09-04, routed by ceo, task
-# same-suite-contradictory-refs-gate-two-entries-one-program-two-answers): the Icon master held
-# contradictory refs for one program that appeared TWICE UNDER TWO NAMES IN THE SAME MASTER (not one master
+# same-suite-contradictory-refs-gate-two-entries-one-program-two-answers): the Icon rungs held
+# contradictory refs for one program that appeared TWICE UNDER TWO NAMES IN THE SAME RUNGS (not one rung suite
 # vs a sibling suite, which the cross-suite gate already covers) -- and the cross-suite gate cannot see it,
 # because its whole method is comparing ACROSS suites via the ALL.csv `origin` linkage; two entries that
 # both live directly in ALL.<ext> never go through that linkage at all. Same defect class as row ICN4
 # (a ref disagreement is invisible until something asks the ORACLE, and this gate still cannot say which
 # side is right -- only that a disagreement exists), one level down: WITHIN a suite, not just between two.
 #
-# ⛔⭐ READS EVERY MASTER THROUGH corpus_suite_harness.py's OWN reader, NEVER A HAND-ROLLED BANNER REGEX
+# ⛔⭐ READS EVERY RUNGS THROUGH corpus_suite_harness.py's OWN reader, NEVER A HAND-ROLLED BANNER REGEX
 # (CLAUDE.md: shared authorities are sourced, never reimplemented). The seven languages do NOT share one
-# banner syntax -- each master is delimited in ITS OWN comment style (icon/raku/rebus `#`, prolog `%`,
+# banner syntax -- each rung suite is delimited in ITS OWN comment style (icon/raku/rebus `#`, prolog `%`,
 # pascal `{...}`, snocone `/*...*/`, snobol4 bare `*` one-line-tagged format A, no LANG_CONFIGS entry at
 # all) -- and a single `#`-prefixed regex, tried first while building this row, silently parsed only 3 of
-# 7 masters to zero visible error: the other four just produced zero sections and read as "nothing to
+# 7 rung suites to zero visible error: the other four just produced zero sections and read as "nothing to
 # compare" instead of REFUSING. `corpus_suite_harness.read_suite`/`read_block_suite` already carry the
 # real per-dialect banner_re (via LANG_CONFIGS) AND the SNOBOL4 format-A/format-B mix, are exercised by
-# the actual master builder (util_build_master_suite.py) on every push, and already parse the `.wantrc`
+# the actual rungs builder (util_build_rungs_suite.py) on every push, and already parse the `.wantrc`
 # sidecar into `Entry.want_rc` -- so this gate does not re-derive any of that, it asks the one place that
 # already knows.
 #
-# METHOD: within each language's own master, group entries by their SOURCE BODY (banner/name excluded --
+# METHOD: within each language's own rungs, group entries by their SOURCE BODY (banner/name excluded --
 # that is what the shared reader already returns as `Entry.sno_lines`). Two or more entries sharing one
 # body are, by construction, the same program under different names. For every such group (every entry is
 # run-graded in both modes -- there is no modes column, CEO-1230) their ref
@@ -33,7 +33,7 @@
 # the reader can take it to the oracle directly, exactly as the cross-suite gate's own closing line says.
 #
 # EXIT 0 no contradictions (over a real, nonzero population); 1 at least one contradiction (names them);
-# 2 REFUSED -- cannot measure (no language's master was readable, or the population was empty: a green
+# 2 REFUSED -- cannot measure (no language's rungs was readable, or the population was empty: a green
 # here would be an empty claim, same vacuity guard as the cross-suite gate).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -74,7 +74,7 @@ for lang in langs:
                                           in_path=ip, w_path=wp)
         else:   # snobol4: no LANG_CONFIGS entry -- format-A/format-B mix, read_suite's own hardcoded dialect
             entries = h.read_suite(srcp, refp, in_path=ip, w_path=wp)
-    except Exception as e:   # a parse exception IS "cannot read this master" -- named, not silently skipped
+    except Exception as e:   # a parse exception IS "cannot read this rung suite" -- named, not silently skipped
         unreadable.append((lang, "%s: %s" % (type(e).__name__, e)))
         continue
     if not entries:
@@ -118,7 +118,7 @@ if unreadable:
     for lang, why in unreadable:
         print("  ⛔ [%s] UNREADABLE, skipped: %s" % (lang, why))
 if bad:
-    sys.stderr.write("⛔ GATE FAIL (rc=1): CONTRADICTORY REFS/want_rc for byte-identical programs WITHIN ONE master:\n")
+    sys.stderr.write("⛔ GATE FAIL (rc=1): CONTRADICTORY REFS/want_rc for byte-identical programs WITHIN ONE rungs:\n")
     for lang, mode, names, entry_refs, entry_rc in bad:
         sys.stderr.write("    [%s] %s\n" % (lang, ", ".join(names)))
         for n in names:
@@ -130,5 +130,5 @@ if total_pairs == 0:
     sys.stderr.write("⛔ GATE REFUSED (rc=2): 0 same-suite duplicate-body pairs found across %d checked language(s) "
                       "-- a green here would be an empty claim\n" % checked_langs)
     sys.exit(2)
-print("✅ GATE OK: every byte-identical program sharing a master carries the same ref and want_rc")
+print("✅ GATE OK: every byte-identical program sharing a rung suite carries the same ref and want_rc")
 PY

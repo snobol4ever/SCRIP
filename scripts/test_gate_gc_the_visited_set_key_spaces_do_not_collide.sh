@@ -3,7 +3,7 @@
 # TABLE, AND A KEY OF ONE KIND MUST NEVER ANSWER A QUESTION OF ANOTHER (cto 2026-09-23, CTO-153; law RULES.md FACT RULE THE
 # COLLECTOR GUESSES NOTHING, CEO-812).
 #
-# MEASURED 2026-09-23 on procedure_every_scan_replace_9 (the Icon master), the ONE entry the holder-(A) landing bda7691cc
+# MEASURED 2026-09-23 on procedure_every_scan_replace_9 (the Icon rungs), the ONE entry the holder-(A) landing bda7691cc
 # turned non-green (CRASH at SCRIP_GC_STRESS=1/3/5 under SCRIP_GC_RELOC=1 in both modes, [ZGC-STALE] "THE FAULT HAPPENED
 # INSIDE A COLLECTION"): the crash was gc_visit_tbblk reading a table whose buckets pointer had not been repaired for
 # three collections while the table itself moved every time.  The gdb probes (slot2..slot8.py: a watchpoint on the frame
@@ -18,7 +18,7 @@
 # referenced cell (the DT_N slen=1 case), an even key = an aggregate whose contents were visited.  The plant
 # The key-collision PLANT (SCRIP_GC_PLANT_KEY_COLLISION, which restored the shared key so the crash could be seen to return) was RETIRED 2026-09-26 (cto, row gc-the-key-collision-plant-has-no-witness-today): no producer of a slen-1 name cell into a block whose key is that cell exists on the tree, so arm (b) now grades the one producer of the shape that does exist, a record field used as a name, and FAIL_ONCE grades arm (a) against an empty ref.
 #
-# ARMS: (a) THE PROPERTY: the witness (the master entry, ref cut from iconx) answers its ref at SCRIP_GC_STRESS=1,3,5 under
+# ARMS: (a) THE PROPERTY: the witness (the rungs entry, ref cut from iconx) answers its ref at SCRIP_GC_STRESS=1,3,5 under
 # SCRIP_GC_RELOC=1 at the compiled default arena in mode 3 and mode 4; (b) the plant reproduces the loss (rc!=0 or DIFF) at
 # stress 1 -- an instrument never seen to fire is not known to look; (c) the source carries the distinct key.
 # FAIL_ONCE=1 runs arm (a) under the plant and requires it to red.

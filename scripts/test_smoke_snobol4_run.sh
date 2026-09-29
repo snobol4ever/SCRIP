@@ -12,24 +12,24 @@ CORPUS="${CORPUS:-$S4E/corpus}"
 INC="$CORPUS/include"
 TIMEOUT="${TIMEOUT:-10}"
 # ⛔ REPOINTED (seat04, 2026-08-30, row dead-suite-path-consumer-sweep): $CORPUS/crosscheck was retired by
-# the SNOBOL4 master consolidation -- these 4 families now live as origins inside
-# corpus/tests/snobol4/ALL.sno. Extract them fresh via lib_master_extract.sh's master_extract_family
+# the SNOBOL4 rungs consolidation -- these 4 families now live as origins inside
+# corpus/tests/snobol4/ALL.sno. Extract them fresh via lib_rungs_extract.sh's rungs_extract_family
 # (the established bridge for exactly this shape of consumer: "materialize EVERY entry of one origin-family
 # as loose <old-name>.sno/.ref pairs, the way the old per-family trees did") rather than re-pointing at a
 # directory that no longer exists. Same 4 families this dispatcher's sibling test_crosscheck_all_backends.sh
 # names (patterns/assign/arith_new/control_new) -- that script's own OWN delegate scripts are missing
 # entirely (a bigger, separate problem), so it is NOT mirrored here; this fix is scoped to this file only.
-MASTER_LANG="${MASTER_LANG:-snobol4}" source "$HERE/lib_master_extract.sh"
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" source "$HERE/lib_rungs_extract.sh"
 
 if [ ! -x "$SCRIP" ]; then echo "SKIP scrip not built at $SCRIP"; exit 0; fi
-if [ ! -f "$MASTER_SNO" ] || [ ! -f "$MASTER_REF" ]; then echo "SKIP SNOBOL4 master not populated at $MASTER_SNO"; exit 0; fi
+if [ ! -f "$RUNGS_SNO" ] || [ ! -f "$RUNGS_REF" ]; then echo "SKIP SNOBOL4 rungs not populated at $RUNGS_SNO"; exit 0; fi
 
 WORKDIR=$(mktemp -d)
 SRC_WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR" "$SRC_WORKDIR"' EXIT
 
 for _fam in crosscheck_patterns crosscheck_assign crosscheck_arith_new crosscheck_control_new; do
-    master_extract_family "$_fam" "$SRC_WORKDIR" || { echo "SKIP extraction failed for family $_fam"; exit 0; }
+    rungs_extract_family "$_fam" "$SRC_WORKDIR" || { echo "SKIP extraction failed for family $_fam"; exit 0; }
 done
 
 compile_mode4() {

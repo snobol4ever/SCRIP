@@ -8,7 +8,7 @@
 # digits running straight into letters -- reports the violation, pushes the letters back with yyless and returns the number, so the
 # parse continues and the program is refused at the end with the others. flex's equal-length tie goes to the EARLIER rule, which is
 # why 1e5 stays a real: that exponent case is this gate's control, not an assumption. Before landing, every acceptance program in
-# the corpus was compiled with the rule (PasM, the FPC suite, P4, P5, benchmarks): zero tripped; the only trips were P5 copies of
+# the corpus was compiled with the rule (PasRungs, the FPC suite, P4, P5, benchmarks): zero tripped; the only trips were P5 copies of
 # rejection tests (1913 itself, 1914, and 1503/1505/1506/1507, which PAT already refused by other routes).
 #
 # ARMS: 1913 (42div) and 1914 (42myvar), each REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is

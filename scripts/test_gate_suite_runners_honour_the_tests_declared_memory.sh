@@ -245,7 +245,7 @@ print('%s|%s' % (d.get('e_one'), 'e_two' in d))
 
 # ── arm G: the PYTHON harness exports at a real run, not merely reads the column ───────────────────────────────
 # ⛔⭐ ARMS B AND C PROVE THE SHELL READER; E PROVES THE PYTHON READER CAN READ.  Neither proves that
-# corpus_suite_harness.py, which is what grades every master and three of the packages, actually puts the
+# corpus_suite_harness.py, which is what grades every rung suite and three of the packages, actually puts the
 # value into the environment of the process it runs.  A reader that parses perfectly and threads the value
 # nowhere is the exact silent shape this gate was written against, and it would pass A..F.  So arm G runs
 # the SAME fixture through run_m3() twice and requires the two verdicts to differ.

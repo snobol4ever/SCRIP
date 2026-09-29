@@ -471,8 +471,8 @@ inventory_line() {
     for e in $INV_EXT; do
         while IFS= read -r f; do
             rel="${f#"$INV_DIR"/}"
-            # ⛔⭐ OUR OWN GENERATED MASTER IS NOT A SHIPPED PROGRAM. Four packages carry an `ALL.<ext>`
-            # concatenated master beside the vendor's files (ipl, aisnobol, csnobol4_suite, gimpel,
+            # ⛔⭐ OUR OWN GENERATED RUNGS IS NOT A SHIPPED PROGRAM. Four packages carry an `ALL.<ext>`
+            # concatenated rungs beside the vendor's files (ipl, aisnobol, csnobol4_suite, gimpel,
             # measured 2026-09-06). Counting it inflates `shipped` by exactly one and makes the SUM
             # unreachable by one FOREVER -- a lane grades every vendor program and still refuses.
             # ⭐ It is also the whole of the 851-vs-852 disagreement between hq_I's Icon runner (which

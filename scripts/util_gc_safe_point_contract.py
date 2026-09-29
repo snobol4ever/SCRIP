@@ -1066,7 +1066,7 @@ def selftest():
 # could lose a site silently must say so instead.
 #
 # THE ENVIRONMENT IS PINNED (ceo 2026-09-24, CEO-1250): the reach reading compiles every witness with SCRIP_SNO_STMTKW=1 and
-# the stress-0 runs carry it too -- the masters' configuration, under which the trace-hook sites (bb_define.cpp, bb_suspend.cpp,
+# the stress-0 runs carry it too -- the rung suites' configuration, under which the trace-hook sites (bb_define.cpp, bb_suspend.cpp,
 # xa_flat.cpp) are emitted. Read from a bare shell, nine WITNESSED rows turned STALE and the ceiling arm went red on a tree
 # nobody had changed; a reading that depends on the caller's shell is not a reading.
 # THE TABLE.  scripts/gc_bare_poll_witnesses.tsv is the DECLARED name set: one row per credited bare site, naming its

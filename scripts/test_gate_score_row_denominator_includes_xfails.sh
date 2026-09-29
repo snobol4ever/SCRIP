@@ -5,8 +5,8 @@
 # row test-gate-score-row-denominator-includes-xfails-refuses-on-every-tree-under-ceo-753-rewrite-it-to-police-the-ceo-749-identity).
 #
 # ⛔ WHAT THIS FILE USED TO ASSERT, AND WHY IT IS GONE: hq_T's 2026-09-08 gate (on the coo's ask; CEO-416 "an xfail counts as a
-# FAIL, so it sits in the denominator") read a RUNNER-PUBLISHED `xfail=` count out of SCORE.md's Master board cell and checked
-# total >= pass + xfail. Under CEO-753 (2026-09-14) THERE IS NO XFAIL -- the builder that mints one is the defect and no master
+# FAIL, so it sits in the denominator") read a RUNNER-PUBLISHED `xfail=` count out of SCORE.md's Rungs board cell and checked
+# total >= pass + xfail. Under CEO-753 (2026-09-14) THERE IS NO XFAIL -- the builder that mints one is the defect and no rungs
 # cell publishes an xfail= count -- so from that day the gate REFUSED rc=2 on every tree (measured 2026-09-16 11:1x on 61315eaa9
 # and 11:21 on 0a3f38904): a standing rc=2 in `make test` for ten seats, asking for a number the law forbids. The property it
 # protected (a known red stays in the denominator) is now the wider CEO-749 identity, and the evidence is the DB, not a cell.
@@ -38,20 +38,20 @@ if [ "$SELFTEST" = 1 ]; then
   trap 'rm -rf "$W"' EXIT
   mkdir -p "$W/corpus/tests/snobol4" "$W/corpus/packages/snobol4/gimpel"
   printf '# fixture\nkey\tnick\temoji\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\ttoday_pass\ttoday_total\ttree\tcriterion_changed\n' > "$W/SUITES.tsv"
-  printf 'sno-master\tSnoM\tx\tsnobol4\t2026-09-06\t1\t3\t2026-09-16\t2\t4\tfeedbeef1\tfixture\n' >> "$W/SUITES.tsv"      # 2 PASS + 1 FAIL + 1 sidecar OUTSIDE = 4: AGREE
+  printf 'sno-rungs\tSnoM\tx\tsnobol4\t2026-09-06\t1\t3\t2026-09-16\t2\t4\tfeedbeef1\tfixture\n' >> "$W/SUITES.tsv"      # 2 PASS + 1 FAIL + 1 sidecar OUTSIDE = 4: AGREE
   printf 'gimpel\tGimpel\tx\tsnobol4\t2026-09-04\t1\t2\t2026-09-16\t1\t2\tfeedbeef1\tfixture\n' >> "$W/SUITES.tsv"          # 1 PASS + 1 FAIL + 1 UNGRADED = 3, row says 2: PLANTED DISAGREE
   printf 'gnu_fd\tGnuFD\tx\tprolog\t\t\t\t\t\t30\t\tDEFERRED by ruling CEO-579: 30 FD programs\n' >> "$W/SUITES.tsv"       # DEFERRED by ruling: AGREE
   printf 'roast\tRoast\tx\traku\t2026-09-03\t4\t986\t2026-09-13\t6\t986\tdeadbeef2\tfixture\n' >> "$W/SUITES.tsv"           # no DB rows on its tree: UNPROVEN, named
   printf 'p_out\tORACLE_REFUSES\tfixture\n' > "$W/corpus/tests/snobol4/ALL.outside.tsv"
   DB="$W/results.tsv"; printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n' > "$DB"
-  row(){ printf '2026-09-16T00:00:00\t%s\tc\tfixture\tmaster\t%s\tsnobol4\t%s\t%s\t%s\t0\t\n' "$1" "$2" "$3" "$4" "$5" >> "$DB"; }
-  for m in m3 m4; do row feedbeef1 snobol4-master p1 $m PASS; row feedbeef1 snobol4-master p2 $m PASS; row feedbeef1 snobol4-master p3 $m FAIL; done
-  row feedbeef1 snobol4-master p2 m3 FAIL; row feedbeef1 snobol4-master p2 m3 PASS   # last row wins: p2 is PASS
+  row(){ printf '2026-09-16T00:00:00\t%s\tc\tfixture\trungs\t%s\tsnobol4\t%s\t%s\t%s\t0\t\n' "$1" "$2" "$3" "$4" "$5" >> "$DB"; }
+  for m in m3 m4; do row feedbeef1 snobol4-rungs p1 $m PASS; row feedbeef1 snobol4-rungs p2 $m PASS; row feedbeef1 snobol4-rungs p3 $m FAIL; done
+  row feedbeef1 snobol4-rungs p2 m3 FAIL; row feedbeef1 snobol4-rungs p2 m3 PASS   # last row wins: p2 is PASS
   for m in m3 m4; do row feedbeef1 gimpel g1 $m PASS; row feedbeef1 gimpel g2 $m CRASH; row feedbeef1 gimpel g3 $m UNGRADED; done
   fails=0; ck(){ if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
   echo "=== selftest: the identity gate on a planted fixture ==="
   out="$(S4E_SUITES_TSV="$W/SUITES.tsv" S4E_PROGRESS_DB="$DB" S4E_CORPUS_ROOT="$W/corpus" bash "$0")"; rc=$?
-  { [ "$rc" = 0 ] && grep -q 'gimpel.*DISAGREE' <<<"$out" && grep -q 'sno-master.*AGREE' <<<"$out" && grep -q 'gnu_fd.*DEFERRED' <<<"$out" && grep -q 'roast.*UNPROVEN' <<<"$out"; } \
+  { [ "$rc" = 0 ] && grep -q 'gimpel.*DISAGREE' <<<"$out" && grep -q 'sno-rungs.*AGREE' <<<"$out" && grep -q 'gnu_fd.*DEFERRED' <<<"$out" && grep -q 'roast.*UNPROVEN' <<<"$out"; } \
     && ck ok "(a) report mode: AGREE, the planted DISAGREE, DEFERRED by ruling and UNPROVEN are each printed by name, rc=0" \
     || ck no "(a) report mode rc=$rc -- got: $out"
   out="$(S4E_SUITES_TSV="$W/SUITES.tsv" S4E_PROGRESS_DB="$DB" S4E_CORPUS_ROOT="$W/corpus" bash "$0" --strict)"; rc=$?
@@ -76,11 +76,11 @@ CORPUS="${S4E_CORPUS_ROOT:-$HERE/../../corpus}"
 python3 - "$SUITES" "$DB" "$CORPUS" "$STRICT" <<'PY'
 import sys, os, re, collections
 suites, db, corpus, strict = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1"
-# SUITES.tsv key -> progress DB suite name (the masters carry a -master suffix in the DB; x64tests appends as spitbol_x64)
-DBNAME = {"sno-master": "snobol4-master", "icn-master": "icon-master", "pl-master": "prolog-master", "pas-master": "pascal-master",
-          "raku-master": "raku-master", "snc-master": "snocone-master", "reb-master": "rebus-master", "x64tests": "spitbol_x64", "x32tests": "spitbol_x32"}
+# SUITES.tsv key -> progress DB suite name (the rung suites carry a -rungs suffix in the DB; x64tests appends as spitbol_x64)
+DBNAME = {"sno-rungs": "snobol4-rungs", "icn-rungs": "icon-rungs", "pl-rungs": "prolog-rungs", "pas-rungs": "pascal-rungs",
+          "raku-rungs": "raku-rungs", "snc-rungs": "snocone-rungs", "reb-rungs": "rebus-rungs", "x64tests": "spitbol_x64", "x32tests": "spitbol_x32"}
 # the OUTSIDE-BASELINE sidecars (ORACLE_REFUSES / NEEDS_VENDORED_SOURCE entries), relative to the corpus root
-SIDECAR = {"sno-master": "tests/snobol4/ALL.outside.tsv",
+SIDECAR = {"sno-rungs": "tests/snobol4/ALL.outside.tsv",
            "gimpel": "packages/snobol4/gimpel/OUTSIDE_SPITBOL_BASELINE.tsv",
            "csnobol4": "packages/snobol4/csnobol4_suite/OUTSIDE_SPITBOL_BASELINE.tsv",
            "snoflake": "packages/snobol4/snoflake_suite/OUTSIDE_SPITBOL_BASELINE.tsv",

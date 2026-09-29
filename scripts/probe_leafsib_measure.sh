@@ -15,12 +15,12 @@ SIBS="${SIBS:-span tab rtab rem arb bal break breakx arb_flat_red arb_flat_grn b
 # below, its env-var-arm sensitivity, and its output format are all byte-for-byte unchanged.
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): leafsib.{sno,ref}
-# (itself a 2026-08-29 re-point) was absorbed into THE ONE FLAT MASTER and deleted;
-# lib_master_extract.sh materializes the "probe_leafsib" family back into leafsib_<sib>.sno/.ref --
+# (itself a 2026-08-29 re-point) was absorbed into THE ONE FLAT RUNGS and deleted;
+# lib_rungs_extract.sh materializes the "probe_leafsib" family back into leafsib_<sib>.sno/.ref --
 # origins strip to exactly that naming, so the SIBS loop below is unchanged.
-MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/lib_master_extract.sh"
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$HERE/lib_rungs_extract.sh"
 P="$WORK/leafsib_src"; mkdir -p "$P"
-master_extract_family probe_leafsib "$P" 2>/dev/null
+rungs_extract_family probe_leafsib "$P" 2>/dev/null
 [ -n "$(ls -A "$P" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $P (suite missing or extraction failed)"; exit 2; }
 cd "$(dirname "$0")/.." || exit 1
 case "${SCRIP_SPAN_FRAME-}" in 0) ARM=0;; *) ARM=1;; esac   # ⛔ COMPUTED, NEVER TYPED: this must mirror sn4_span_frame() (emit.cpp) EXACTLY -- `(e && *e == '0') ? 0 : 1`, i.e. UNSET IS ON.  It read `${SCRIP_SPAN_FRAME:-0}` from s131 until s193 and so labelled every default-arm run `=0` after the s188 flip (d3251f23) made unset mean ON: the instrument printed the OFF label over ON-arm numbers for five sessions.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """util_prolog_iso_attributes.py -- THE FEATURE-ATTRIBUTE TABLE OF THE PROLOG ISO SUITES (Lon 2026-09-12 to the
 cto, verbatim: "Has a full feature attribute TSV/CSV file been created for all the Prolog test suites. See what we
-did for SNOBOL4 master suite with 100's of attributes. It help to triage failure sets.").
+did for SNOBOL4 rungs suite with 100's of attributes. It help to triage failure sets.").
 
 WHAT IT WRITES. One ALL.csv per ISO package, in the shape every other package table already has
 (corpus/packages/snobol4/gimpel/ALL.csv, corpus/packages/icon/ipl/ALL.csv): the seven fixed leading columns

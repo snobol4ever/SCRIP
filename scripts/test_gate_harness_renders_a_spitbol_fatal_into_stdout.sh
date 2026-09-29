@@ -4,7 +4,7 @@
 # spitbol-equivalence-list-into-stdout-and-masks-the-run-summary-lines-ceo-1344).
 # THE DEFECT: x64 sbl -bf prints its fatal block ON STDOUT (and stderr), so a ref cut from the oracle for a program that ends in a
 # run-time fatal carries the block, and SCRIP's one error voice (stderr) could never match it -- six programs were ungradable by
-# construction (Budne tab.sno, rewind1.sno; Dotnet 1brc.sno, asgn1.sno; SnoM simple_output_62, user_function_arbno_rpos_1).
+# construction (Budne tab.sno, rewind1.sno; Dotnet 1brc.sno, asgn1.sno; SnoRungs simple_output_62, user_function_arbno_rpos_1).
 # THE CURE, PROVEN HERE ON A WITNESS WHOSE REF IS CUT FROM THE LIVE ORACLE AT GATE TIME:
 #   1  corpus_suite_harness.py (the ONE reader) renders SCRIP's stderr block through util_render_error_voice.py into sbl's stdout
 #      block and appends it before the compare: the witness reads PASS in BOTH modes; the run-summary lines are masked beside the data;

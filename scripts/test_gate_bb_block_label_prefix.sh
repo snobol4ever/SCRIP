@@ -60,10 +60,10 @@ SCRIP_BIN=./scrip
 WITDIR="$(mktemp -d)"
 trap 'rm -rf "$WITDIR"' EXIT
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): tests/snobol4/probe/indirect.sno
-# was absorbed into THE ONE FLAT MASTER and deleted; lib_master_extract.sh materializes it back out
+# was absorbed into THE ONE FLAT RUNGS and deleted; lib_rungs_extract.sh materializes it back out
 # by origin ("probe_indirect__indirect_pattern_operand").
-MASTER_LANG="${MASTER_LANG:-snobol4}" . "$S4E/SCRIP/scripts/lib_master_extract.sh"
-master_extract_origin probe_indirect__indirect_pattern_operand "$WITDIR/indirect.sno" >/dev/null 2>&1
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$S4E/SCRIP/scripts/lib_rungs_extract.sh"
+rungs_extract_origin probe_indirect__indirect_pattern_operand "$WITDIR/indirect.sno" >/dev/null 2>&1
 # ⚠️ SCOPE, READ BEFORE ADDING A WITNESS: porter.sno and beauty.sno were tried and dropped (seat05
 # 2026-08-29). Both are large/heavily-optimized enough that some straight-line boxes' own alpha port
 # label is optimizer-elided (nothing jumps to it directly, so dead-label elimination removes it) while

@@ -11,7 +11,7 @@
 # global flag, so an out-of-order FPC program (legal to fpc -Miso) could have tripped it.
 # ⭐ WHAT IT DOES NOT CLAIM: only two defining-points in one variable-declaration-part. A var against a const, type, parameter or
 # routine of the same block is not graded here. Before landing, every acceptance program in the corpus was compiled with the check
-# (PasM, the FPC suite, P4, P5, the benchmarks): zero tripped; the only trips were the P5 copies of these same two tests.
+# (PasRungs, the FPC suite, P4, P5, the benchmarks): zero tripped; the only trips were the P5 copies of these same two tests.
 #
 # ARMS: two vendored PAT witnesses, each REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is
 # accepted, links and runs). A third arm proves the check DISCRIMINATES: one spelling legally defined as a global variable, a

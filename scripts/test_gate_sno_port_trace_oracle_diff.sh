@@ -52,26 +52,26 @@ S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 CUT=0; for a in "$@"; do [ "$a" = --cut ] && CUT=1; done
 gate_parse_args "$@"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-MASTER_DIR="$S4E/corpus/tests/snobol4"; MASTER_EXT=.sno; export MASTER_DIR MASTER_EXT
-REF="$MASTER_DIR/ALL.trace.oracle"; T="${TIMEOUT:-20}"
+RUNGS_DIR="$S4E/corpus/tests/snobol4"; RUNGS_EXT=.sno; export RUNGS_DIR RUNGS_EXT
+REF="$RUNGS_DIR/ALL.trace.oracle"; T="${TIMEOUT:-20}"
 gate_require_exec "$SCRIP" "scrip binary"
 gate_require "$RT/libscrip_rt.so" "runtime library"
-gate_require "$MASTER_DIR/ALL.sno" "SNOBOL4 master suite"
-gate_require "$MASTER_DIR/ALL.csv" "SNOBOL4 master suite index"
+gate_require "$RUNGS_DIR/ALL.sno" "SNOBOL4 rungs suite"
+gate_require "$RUNGS_DIR/ALL.csv" "SNOBOL4 rungs suite index"
 [ "$CUT" = 1 ] || gate_require "$REF" "oracle trace refs (run with --cut to create them)"
-. "$HERE/lib_master_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_master_extract.sh"; exit 2; }
+. "$HERE/lib_rungs_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_rungs_extract.sh"; exit 2; }
 if [ "$CUT" = 1 ]; then
   . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot load lib_oracle_flags.sh"; exit 2; }
   SBL="$(sbl_correctness_bin)" || exit 2
   LANGFLAGS="$(sbl_lang_flags)"
 fi
 origins=""
-for o in $(master_origins_of_family ladder); do
+for o in $(rungs_origins_of_family ladder); do
   wtmp="$(mktemp -d)"
-  master_extract_origin "$o" "$wtmp/x.sno" "$wtmp/x.ref" >/dev/null 2>&1 && grep -q 'DEFINE(' "$wtmp/x.sno" 2>/dev/null && origins="$origins $o"
+  rungs_extract_origin "$o" "$wtmp/x.sno" "$wtmp/x.ref" >/dev/null 2>&1 && grep -q 'DEFINE(' "$wtmp/x.sno" 2>/dev/null && origins="$origins $o"
   rm -rf "$wtmp"
 done
-[ -n "${origins# }" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no DEFINE-containing ladder origins in $MASTER_DIR/ALL.csv -- the population moved, re-derive it, never hardcode a list"; gate_stamp; exit 2; }
+[ -n "${origins# }" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no DEFINE-containing ladder origins in $RUNGS_DIR/ALL.csv -- the population moved, re-derive it, never hardcode a list"; gate_stamp; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 # ⛔⭐ `n<K>_call` IS NOT A USER-FUNCTION-ONLY BOX FAMILY -- MEASURED 2026-09-05, three of the twelve
 # witnesses (array_arg_implicit_reference, call_by_name_swap, returns_pattern_for_match): it ALSO fires
@@ -125,7 +125,7 @@ n=0; bad=0; ans_ok=0; ans_red=0; declare -a lines
 [ "$CUT" = 1 ] && : > "$W/ALL.trace.oracle"
 for o in $origins; do
   n=$((n+1)); src="$W/$o.sno"; ref="$W/$o.ref"
-  master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
+  rungs_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the rungs suite"; gate_stamp; exit 2; }
   NAMES="$(define_names_of "$src")"
   [ -n "$NAMES" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $o: no DEFINE'd name could be parsed back out of its own extracted source"; gate_stamp; exit 2; }
   (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$src" </dev/null >/dev/null 2>&1); (cd "$W" && SCRIP_PL_TRACE=0 timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$src" </dev/null >/dev/null 2>&1)
@@ -169,5 +169,5 @@ for o in $origins; do
 done
 printf '%s\n' "${lines[@]}"
 if [ "$CUT" = 1 ]; then cp "$W/ALL.trace.oracle" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks)"; fi
-echo "witnesses=$n (DEFINE-containing ladder origins) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the master suite owns answers) . oracle=SPITBOL &FTRACE, Call/RETURN/FRETURN -> alpha/gamma/omega, statement numbers and nesting depth stripped, never beta (DEFINE'd functions call/return exactly once)"
+echo "witnesses=$n (DEFINE-containing ladder origins) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the rungs suite owns answers) . oracle=SPITBOL &FTRACE, Call/RETURN/FRETURN -> alpha/gamma/omega, statement numbers and nesting depth stripped, never beta (DEFINE'd functions call/return exactly once)"
 GATE_EXAMINED=$((n*2)); gate_verdict "$bad" "failed checks across killswitch/perturbation/trace"

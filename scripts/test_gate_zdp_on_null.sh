@@ -26,10 +26,10 @@ cd "$(dirname "$0")/.." || exit 1
 [ -x ./scrip ] || { echo "FAIL  ./scrip not built"; exit 1; }
 ENVS=("$@"); [ ${#ENVS[@]} -eq 0 ] && ENVS=("SCRIP_ZDP=1")
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): corpus/probe/ is gone
-# (dropped); ALL.sno (THE ONE FLAT MASTER) is explicitly excluded -- it is suite DATA, one test per
+# (dropped); ALL.sno (THE ONE FLAT RUNGS) is explicitly excluded -- it is suite DATA, one test per
 # line, never a standalone program, and would otherwise hash a few hundred spurious "duplicate
 # label" compile errors as this gate's null-check for a single pseudo-file. KNOWN LIMITATION, not
-# fixed here: the master's own ~1500+ entries are invisible to this gate now (see census_zdp_sources.sh's
+# fixed here: the rungs' own ~1500+ entries are invisible to this gate now (see census_zdp_sources.sh's
 # identical note) -- the TOTAL<100 vacuity floor below still protects against a fully-empty sweep, it
 # does not restore that coverage.
 CORPUS_DIRS="${CORPUS_DIRS:-$S4E/corpus/tests/snobol4}"

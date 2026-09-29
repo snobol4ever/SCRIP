@@ -12,12 +12,12 @@
 #
 # ⭐ THE OTHER HALF OF THE SAME SENTENCE -- "equal to the set of values", a variant-part that OMITS a tag value (PAT iso7185prt1856)
 # -- WAS HELD FOR A RULING AND IS NOW HERE: ceo CEO-1231 (2026-09-24), ISO wins. Measured before it landed, it refused exactly six
-# acceptance programs, each now carrying empty arms for the values it omitted, behaviour unchanged: two master entries,
+# acceptance programs, each now carrying empty arms for the values it omitted, behaviour unchanged: two rungs entries,
 # program_record_array_replace_2 (blck) and program_record_packed_replace_1 (scalar, pointer), their outputs byte-identical under
 # the oracle that cut their refs (fpc default mode for the first, whose enum write fpc -Miso cannot build; fpc -Miso for the second);
 # Pascal-P4 comp.pas (expr, inxd, blck and rec -- PATCHES.md item 7, generation-1 listing, stderr and P-code byte-identical) and int.pas
 # (undef -- item 8, emitted assembly byte-identical); and the P4-derived pcom.pas and pint.pas, with the same arms.
-# Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
+# Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the check: the refused set was identical to the tree before.
 #
 # ARMS: two vendored PAT witnesses (a value omitted, a value outside the tag-type), each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is

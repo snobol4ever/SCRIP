@@ -164,7 +164,7 @@ that produced it. The suite table:
 Every row is generated from the leaderboard's machine record, `.github/SUITES.tsv` (the SUITE TABLE of `.github/SCORE.md`),
 never typed by hand: the suite's latest reading, written by that suite's own runner in the landing that measured it, with the
 day it was measured (the SCRIP tree and the runner of every reading are in that record). Passing / graded counts a program
-only when it passes in BOTH modes. The seven masters are our own flat
+only when it passes in BOTH modes. The seven rung suites are our own flat
 suites with refs cut from each oracle; each Bench row is that language's benchmark programs graded as tests, a program passing when it prints its ref under all three angles (wrapper process, fixed iterations, fixed time limit); the others are vendored third-party suites. Raku is IN DEVELOPMENT: its rows stand as measured.
 
 | Language | Suite | passing / graded | measured |
@@ -178,27 +178,27 @@ suites with refs cut from each oracle; each Bench row is that language's benchma
 | SNOBOL4 | X64T | **28/36** | `2026-09-27` |
 | SNOBOL4 | X32T | **17/21** | `2026-09-27` |
 | SNOBOL4 | SnoDemo | **24/24** | `2026-09-28` |
-| SNOBOL4 | SnoM (master) | **1980/1994** | `2026-09-28` |
+| SNOBOL4 | SnoRungs (rungs) | **1980/1994** | `2026-09-28` |
 | SNOBOL4 | SnoBench | **23/23** | `2026-09-28` |
 | Icon | Zona | **117/119** | `2026-09-28` |
 | Icon | Jcon | **86/86** | `2026-09-28` |
 | Icon | IPL | **599/661** | `2026-09-27` |
 | Icon | IcnDemo | **6/6** | `2026-09-28` |
-| Icon | IcnM (master) | **900/900** | `2026-09-28` |
+| Icon | IcnRungs (rungs) | **900/900** | `2026-09-28` |
 | Icon | IcnBench | **26/26** | `2026-09-28` |
 | Prolog | INRIA | **442/442** | `2026-09-28` |
 | Prolog | SWI | **531/2935** | `2026-09-28` |
 | Prolog | GNU source | **11/11** | `2026-09-28` |
 | Prolog | Logtalk | **3421/3528** | `2026-09-26` |
 | Prolog | ProDemo | **0/2** | `2026-09-28` |
-| Prolog | ProM (master) | **563/563** | `2026-09-28` |
+| Prolog | ProRungs (rungs) | **563/563** | `2026-09-28` |
 | Prolog | ProBench | **23/23** | `2026-09-28` |
 | Pascal | FPC | **161/181** | `2026-09-28` |
 | Pascal | PAT | **396/427** | `2026-09-28` |
-| Pascal | PasM (master) | **252/252** | `2026-09-28` |
+| Pascal | PasRungs (rungs) | **252/252** | `2026-09-28` |
 | Pascal | PasBench | **11/11** | `2026-09-28` |
 | Raku — IN DEVELOPMENT | Roast | **170/1464** | `2026-09-28` |
-| Raku — IN DEVELOPMENT | RakM (master) | **913/953** | `2026-09-28` |
+| Raku — IN DEVELOPMENT | RakRungs (rungs) | **913/953** | `2026-09-28` |
 | Raku — IN DEVELOPMENT | RakBench | **62/84** | `2026-09-28` |
 | SCRIP (hybrid) | ScrDemo | **10/10** | `2026-09-28` |
 <!-- SUITE-TABLE:END -->
@@ -212,7 +212,7 @@ measurement that put it there and stays in the denominator as debt); **Flake** �
 fixture suite, 180 self-describing programs in CSNOBOL4's home dialect; **AIS** — the Shafto AI programs; **Dotnet** — the
 .NET port's programs; **TPgm** — SPITBOL's own testpgms; **X64T** — the self-checking tests shipped with our x64 SPITBOL fork.
 Every one is graded against the one oracle, `sbl -bf` (our SPITBOL x64 fork with its enhancements; RULES.md § Oracles), in both
-modes; **SnoM** is our own flat master suite with refs cut from that oracle, and **SnoBench** the benchmark kernels graded as
+modes; **SnoRungs** is our own flat rungs suite with refs cut from that oracle, and **SnoBench** the benchmark kernels graded as
 tests. The numbers are in the table and nowhere else: a count typed here would have no writer.
 
 **Benchmarks.** SnoBench is the 23 kernels under `corpus/benchmarks/snobol4/`, each a standalone program with
@@ -298,7 +298,7 @@ column includes SPITBOL's; m4 is the prebuilt binary. beauty is the Snocone beau
 
 **Coverage** (third-party, every row in the suite table above): **Zona** — Arizona's own test set, shipped with the
 reference implementation; **Jcon** — the tests of Proebsting & Townsend's Icon-to-JVM compiler; **IPL** — the Icon Program
-Library's programs, each with a ref cut from Arizona `icont`/`iconx` 9.5; **IcnM** is our own flat master suite and
+Library's programs, each with a ref cut from Arizona `icont`/`iconx` 9.5; **IcnRungs** is our own flat rungs suite and
 **IcnBench** the classic benchmark set graded as tests. The oracle everywhere is Arizona `iconx`; a vendored source is
 converted to SCRIP's semicolon-required Icon on the way in and checked in converted. Their boards, and how far the JCON
 self-host gets, follow the benchmark grid below.
@@ -353,7 +353,7 @@ Geometric mean over the 24 kernels citable on every angle: **1.08x** in mode 3 a
 | sub_table_miss_dispatch | 1,712,547,751 | 1,374,535,060 | **1.248x** | 80 | 90 | 70 | TOTAL:1.286x |
 | sub_table_miss_semantics | 25,963,913 | 65,241,638 | **0.412x** | 0 | 70 | 0 | <1 tick |
 
-**Vendor test suites.** Every Icon suite row — Zona, Jcon, IPL, IcnM, IcnBench — is in the suite table above and nowhere else (`scripts/test_icon_arizona_suite.sh`, `test_icon_jcon_suite.sh`, `test_icon_ipl_suite.sh`).
+**Vendor test suites.** Every Icon suite row — Zona, Jcon, IPL, IcnRungs, IcnBench — is in the suite table above and nowhere else (`scripts/test_icon_arizona_suite.sh`, `test_icon_jcon_suite.sh`, `test_icon_ipl_suite.sh`).
 
 **Major demo — the JCON compiler, written in Icon.** JCON (Proebsting & Townsend, Arizona) is a production Icon-to-JVM compiler, itself written in Icon: 9,953 lines across 16 hand-written modules plus 2 that JCON generates with its own Icon programs — the largest real-world Icon program in the corpus. The demo entries live in `corpus/demos/icon/jcon/`, each a thin file of `link` directives resolved by SCRIP's own `icn_resolve_links`; the gate `scripts/test_demo_icon_jcon.sh` builds its own `icont` oracle from the same sources every run and grades stdout (jlink answers on stderr, and the oracle picks the stream once):
 
@@ -390,7 +390,7 @@ Geometric mean over the 24 kernels citable on every angle: **1.08x** in mode 3 a
 **Coverage** (third-party, every row in the suite table above): **INRIA** — the ISO/IEC 13211-1 conformance suite;
 **Logtalk** — the Logtalk ISO conformance suite (3600 cases, each carrying its own expectation from the standard, graded
 per family); **SWI** — the SWI-Prolog plunit test tree, graded whole; **GNU** — the GNU Prolog source tree's programs that
-carry entry points, run against real `gprolog`; **ProM** is our own flat master suite and **ProBench** the classic van Roy
+carry entry points, run against real `gprolog`; **ProRungs** is our own flat rungs suite and **ProBench** the classic van Roy
 kernels graded as tests. The oracle is THE SUPERSET (RULES.md § Oracles): the ISO core, every non-conflicting GNU and SWI
 builtin, and a conflict settled through an ISO Prolog flag in the program (double_quotes defaults to codes, as ISO and GNU
 read it); `swipl` and `gprolog` are the two reference systems, and both are instrumented for the lock-step monitor.
@@ -432,7 +432,7 @@ Geometric mean, SCRIP mode 4 then mode 3, against each of the three: the **GNU P
 ### Raku
 
 **Coverage** (third-party, every row in the suite table above): **Roast** — Raku's official specification test suite, the
-shipped `.t` files graded whole against a local Rakudo; **RakM** is our own flat master suite with refs cut from Rakudo,
+shipped `.t` files graded whole against a local Rakudo; **RakRungs** is our own flat rungs suite with refs cut from Rakudo,
 **RakBench** the kernel set graded as tests. Raku is IN DEVELOPMENT: the front-end accepts a deliberate working subset of
 the language, most of Roast is outside it, and the parse-fail column is the roadmap.
 
@@ -465,7 +465,7 @@ patch list, not yet written. (coo, 2026-09-12)
 
 **Coverage** (third-party, every row in the suite table above): **FPC** — the Free Pascal compiler's own test suite,
 vendored (181 programs); **PAT** — the ISO 7185 conformance suite, 427 tests, Pascal-P5's own transcripts as the record of
-what each test requires; **PasM** is our own flat master suite and **PasBench** the classic Pascal kernels graded as tests.
+what each test requires; **PasRungs** is our own flat rungs suite and **PasBench** the classic Pascal kernels graded as tests.
 The oracle everywhere is `fpc -Miso`, with ISO 7185 the authority where FPC is looser than the standard: a rejection test
 passes when SCRIP refuses the program with the ISO diagnostic, and a test the standard does not actually reject is named
 outside the ISO baseline with its measurement and kept in the denominator.
@@ -513,7 +513,7 @@ The eighth language is the other seven together: a `.scrip` file is a Markdown d
 
 ### Snocone
 
-Snocone is Koenig's structured SNOBOL4 (Bell Labs TR 124). No independent implementation ships a test suite, so its programs are graded through the SPITBOL oracle by construction, as SNOBOL4 programs are; the paper's own examples are in the corpus, and the self-hosting front-end's own beautifier is part of its master suite. Its suite and benchmark readings are kept on the leaderboard (`.github/SCORE.md` § THE SUITE TABLE) and are not shown here.
+Snocone is Koenig's structured SNOBOL4 (Bell Labs TR 124). No independent implementation ships a test suite, so its programs are graded through the SPITBOL oracle by construction, as SNOBOL4 programs are; the paper's own examples are in the corpus, and the self-hosting front-end's own beautifier is part of its rungs suite. Its suite and benchmark readings are kept on the leaderboard (`.github/SCORE.md` § THE SUITE TABLE) and are not shown here.
 
 ### Rebus
 

@@ -11,7 +11,7 @@
 #   (c) THE RATCHET: every count is exactly its baseline (scripts/gc_census_baseline.tsv).  UP is a regression; DOWN
 #       with the baseline unchanged is a win nobody recorded, and a loose ratchet lets the next regression back in --
 #       the landing that earns the fall runs `util_gc_census.py all --write-baseline scripts/gc_census_baseline.tsv`
-#   (d) the maps census reports its TWO HALVES separately (slot-kind over the languages' masters; the section 6.4 table
+#   (d) the maps census reports its TWO HALVES separately (slot-kind over the languages' rung suites; the section 6.4 table
 #       from three independent producers) -- a green slot-kind half folded over an absent table would read as if the
 #       design existed -- and a partial language sweep NAMES itself as partial rather than reading as coverage
 #   (e) hq_snocone's DECIDABLE TEST runs, and its verdict is consistent with the conservative census: "the collector

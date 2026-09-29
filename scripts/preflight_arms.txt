@@ -17,7 +17,7 @@
 # whole defect this target exists to cure -- the instrument was one second and it was bolted to a full build.
 scripts/strip_comments.py --check
 scripts/test_gate_absent_line_is_unproven_not_red.sh
-scripts/test_gate_no_master_ref_is_an_ast_dump.sh
+scripts/test_gate_no_rungs_ref_is_an_ast_dump.sh
 scripts/test_gate_coexpr_stack_of_uncreated_thread.sh
 scripts/test_gate_cross_suite_ref_agreement.sh
 scripts/test_gate_done_manifest_handoff.sh
@@ -56,7 +56,7 @@ scripts/test_gate_bench_prolog_kernels_pristine.sh
 scripts/test_gate_bench_wrap_raku_cuts_a_line_at_its_statements.sh
 scripts/test_gate_control_edges_live_on_ports.sh
 scripts/test_gate_library_driver_generator.sh
-scripts/test_gate_master_banner_seq_is_position.sh
+scripts/test_gate_rungs_banner_seq_is_position.sh
 scripts/test_gate_mint_refuses_a_prose_donewhen.sh
 scripts/test_gate_triangulate_parsers_read_only_the_first_grid.sh
 scripts/util_gate_wiring.py check

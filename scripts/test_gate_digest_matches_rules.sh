@@ -203,7 +203,7 @@ check_rule "MAKE-TEST-LOOPS-AND-REPORTS" \
 
 # ⛔⭐ WIDENED 2026-09-21 BY THE coo, PAID FOR IN A WRONG RUN: EVERY ALTERNATIVE ABOVE THIS LINE NAMES THE
 # SEAT IN THE THIRD PERSON, AND A ROOT DIGEST IS WRITTEN IN THE SECOND. /home/claude_coo/CLAUDE.md carried
-# "YOU ARE THE ONE RUNNER ... only the coo runs a master or package board" for the five days after CEO-775
+# "YOU ARE THE ONE RUNNER ... only the coo runs a rung suite or package board" for the five days after CEO-775
 # retired it, and this gate read PASS(0) over that root on every run -- the pattern could not match a
 # sentence addressed to the reader. MEASURED COST, 2026-09-21 18:5x CDT: on the strength of that line this
 # seat ran test_snobol4_gimpel_suite.sh (SNOBOL4 is another lane's board under QUARTET), was refused rc=2
@@ -213,10 +213,10 @@ check_rule "MAKE-TEST-LOOPS-AND-REPORTS" \
 # knows "the coo" is checking a voice nobody writes in. Both voices are matched now, and the second-person
 # alternatives are proven by exit code against the uncorrected root, not by reading.
 check_rule "NO-CENTRAL-RUNNER" \
-    'coo (is |-- )?THE ONE RUNNER|THE ONE RUNNER IS THE coo|one runner \(the coo\)|the coo.s (next )?pass grades|the coo runs every board|admits the coo|you are the one runner \(|you are the one runner\)|only the coo runs a (master|board)|the coo runs EVERY master and package board|the parked languages are run by nobody but you|the one runner.s alone' \
+    'coo (is |-- )?THE ONE RUNNER|THE ONE RUNNER IS THE coo|one runner \(the coo\)|the coo.s (next )?pass grades|the coo runs every board|admits the coo|you are the one runner \(|you are the one runner\)|only the coo runs a (rungs|board)|the coo runs EVERY rungs and package board|the parked languages are run by nobody but you|the one runner.s alone' \
     'no central|per language|PER LANGUAGE|CEO-775|supersed|retire|history|until|used to|was the|before 09-16|runs NO board|no longer' \
     '.github/RULES.md FACT RULE -- NO CENTRAL RUNNER: ONE RUNNER PER LANGUAGE (Lon 2026-09-16 10:5x, CEO-775): every language HQ runs its own language suites; the coo runs no board' \
-    'THE ONE RUNNER IS THE coo under EXECUTIVE: every master or package board runs once per landing batch by the coo'
+    'THE ONE RUNNER IS THE coo under EXECUTIVE: every rung suite or package board runs once per landing batch by the coo'
 
 check_rule "FINDING-FILES-ARE-PERMITTED-AGAIN" \
     'FINDING FILES ARE GONE|never (create |be |write )?a .?FINDING|gone on Lon.s word 2026-09-16|FINDING files? (are|is) GONE|ZERO .?FINDING-\*\.md|no FINDING files? (exist|remain)|FINDING-\*\.md.{0,30}(is|are) (forbidden|retired|gone|ZERO)|FINDING-\*\.md.{0,12}\(gone|CEO-(760|796)|no .?FINDING-\*\.md.? (exists|may be)|FINDING-\*\.md.? IS ZERO|all 874 were removed' \

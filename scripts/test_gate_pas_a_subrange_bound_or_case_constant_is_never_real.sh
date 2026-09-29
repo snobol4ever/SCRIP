@@ -8,7 +8,7 @@
 # compiled and ran. The check sits on that one reduction, and it is exact: bison's own report shows every real constant-definition
 # (const r = 1.5, = +1.5, = -1.5) SHIFTS into its own const_decl production (states 81/135/137), so scalar_constant: REALCONST is
 # reached only from a subrange bound or a case-constant-list, and never from a legal program.
-# Before landing, every acceptance program in the corpus was compiled with the check (PasM, the FPC suite, P4, P5, the benchmarks,
+# Before landing, every acceptance program in the corpus was compiled with the check (PasRungs, the FPC suite, P4, P5, the benchmarks,
 # 456 programs): the refused set was identical to the tree before, so the check cannot move another suite's row.
 #
 # ARMS: three vendored PAT witnesses, each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the

@@ -60,7 +60,7 @@ done
 # board") gives the coo exactly these four, and the fifth is the donor the library function came out of. A
 # glob here would silently change what this gate asserts every time somebody adds a board_*.sh; the growing
 # population is ARM 8's job, and it is a ratchet precisely so the two questions stay separate.
-BOARDS=(test_icon_jcon_suite.sh test_icon_arizona_suite.sh test_icon_ipl_suite.sh board_icon_master.sh test_corpus_snobol4.sh)
+BOARDS=(test_icon_jcon_suite.sh test_icon_arizona_suite.sh test_icon_ipl_suite.sh board_icon_rungs.sh test_corpus_snobol4.sh)
 
 fails=0; examined=0
 red() { echo "  ⛔ $*"; fails=$((fails+1)); }
@@ -87,8 +87,8 @@ printf 'AAAA' > "$W/a.bin"; printf 'BBBB' > "$W/b.so"
 # their contract (a board must not be able to continue past one) and it is exactly why they cannot be probed
 # in-process. The subshell's rc IS the measurement.
 echo "── ARM 7 (MID-RUN REBUILD): the harness refuses when the binary is rebuilt under it, printing no board and recording no rows ──"
-# (coo 2026-09-16; hq_raku's RakM 764/927 graded across a mid-run make; ceo CEO-802; row instruments-a-board-does-not-refuse-when-its-
-# own-seat-rebuilds-the-binary-under-it-...). A 300-entry cut of the SNOBOL4 master under mktemp (several seconds of m3 grading); the harness runs against a SCRATCH COPY of ./scrip and out/ (SCRIP= and RT_DIR=) with the progress DB redirected; 0.6 s in,
+# (coo 2026-09-16; hq_raku's RakRungs 764/927 graded across a mid-run make; ceo CEO-802; row instruments-a-board-does-not-refuse-when-its-
+# own-seat-rebuilds-the-binary-under-it-...). A 300-entry cut of the SNOBOL4 rungs under mktemp (several seconds of m3 grading); the harness runs against a SCRATCH COPY of ./scrip and out/ (SCRIP= and RT_DIR=) with the progress DB redirected; 0.6 s in,
 # while the busy loop still runs, the scratch binary is mutated (a byte appended: same program, new fingerprint) -- the board must end in
 # THE BINARY MOVED UNDER THIS BOARD, rc=2, no SUITE_BOARD, zero rows in the scratch DB. FAIL_ONCE=1 skips the mutation. (The verdict
 # lines are printed after the board, so a poll for them cannot mark mid-run; the busy loop is what holds the run open.)
@@ -116,7 +116,7 @@ if [ -f "$M/ALL.sno" ] && [ -x "$HERE/../scrip" ] && [ -f "$HERE/../out/libscrip
         wait $_p7; red "ARM 7 MID-RUN: the harness finished within a second of stating its baseline, so nothing could be rebuilt under it -- the 300-entry cut did not hold the run open (rc=$(cat "$W7/rc" 2>/dev/null)); a fixture that cannot reproduce the defect proves nothing"
     fi
 else
-    echo "  ----  ARM 7 MID-RUN [UNBUILDABLE: no master at $M, no ./scrip or no out/libscrip_rt.so]"
+    echo "  ----  ARM 7 MID-RUN [UNBUILDABLE: no rungs at $M, no ./scrip or no out/libscrip_rt.so]"
 fi
 echo "── ARM 3-6: the authority itself ──"
 out3="$( ( . "$HERE/lib_gate.sh"; GATE_NAME=probe gate_bin_watch "$W/a.bin" "$W/b.so"; printf 'CCCC' > "$W/a.bin"; GATE_NAME=probe gate_bin_unmoved; echo "PUBLISHED" ) 2>&1 )"; rc3=$?

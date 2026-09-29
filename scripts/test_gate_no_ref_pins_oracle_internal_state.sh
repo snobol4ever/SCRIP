@@ -32,11 +32,11 @@
 #
 # ⛔⭐⭐ THE FLOOR IS 23, NOT 22, AND THE 23rd IS THE FINDING. The ceo, hq_B and my own first census all read
 # 22 -- all of them in csnobol4_suite. This gate found a 23rd ON ITS FIRST RUN, inside
-# corpus/tests/snobol4/ALL.ref: THE SNOBOL4 MASTER, the board that answers Lon's 100% question. Three of its
+# corpus/tests/snobol4/ALL.ref: THE SNOBOL4 RUNGS, the board that answers Lon's 100% question. Three of its
 # entries carry SPITBOL's allocator counters in their refs -- 1900 simple_output_64, 1902 simple_output_62,
 # 1910 user_function_arbno_rpos_1 -- and all three are marked XFAIL, which is the tell: they were marked
 # expected-red because they could never pass, and they could never pass because the ref pins state we cannot
-# produce. ⛔ SO THREE OF THE MASTER'S 27 XFAIL ARE NOT WINNABLE BUGS AT ALL, and a seat curing toward them
+# produce. ⛔ SO THREE OF THE RUNGS'S 27 XFAIL ARE NOT WINNABLE BUGS AT ALL, and a seat curing toward them
 # is doing hq_R's rewind1 over again. They need reclassification, not a cure.
 # ⭐ WHY EVERY EARLIER CENSUS MISSED IT, and it is a trap worth more than the count: ALL.ref carries non-UTF-8
 # bytes, so grep calls it BINARY. `grep -rl` still reports it (that is how this gate saw it) but `grep -n`
@@ -44,7 +44,7 @@
 # sees NOTHING and concludes the tool was wrong. I nearly retracted this finding as a false positive on
 # exactly that reading. Use `grep -a` on any corpus ref before believing an absence.
 #
-# ⛔ A RATCHET, AND THE FLOOR ONLY FALLS. 23 exist today, 22 in csnobol4_suite and 1 in the snobol4 master
+# ⛔ A RATCHET, AND THE FLOOR ONLY FALLS. 23 exist today, 22 in csnobol4_suite and 1 in the snobol4 rungs
 # -- verified here and
 # independently by hq_B -- in NO other package (gimpel 0 after tonight's cure, aisnobol 0, dotnet 0,
 # snoflake 0, testpgms 0, and zero across every icon and prolog package). Green on arrival, so it can be

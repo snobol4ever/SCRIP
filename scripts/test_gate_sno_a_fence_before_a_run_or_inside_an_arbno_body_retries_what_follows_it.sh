@@ -21,7 +21,7 @@
 # STILL OPEN, not armed here (with the cto): ARBNO(P) with the fenced sequence held in a VARIABLE (a PAT$ graph whose fenced
 # body root meets the zeta seam-tier check): P1 = 'c' FENCE('+' | '') ':' ARBNO('b'); '{c:bb}' ? POS(0) '{' ARBNO(P1) '}' RPOS(0).
 #
-# AND WITNESS 12 (hq_snobol4's bisect of master entry arbno_fence_span_branch_7 to cc0e5a2a6): ARBNO(FENCE('+') SPAN(d) . L1),
+# AND WITNESS 12 (hq_snobol4's bisect of rungs entry arbno_fence_span_branch_7 to cc0e5a2a6): ARBNO(FENCE('+') SPAN(d) . L1),
 # a fenced body whose rightmost segment ends in a conditional capture -- the ARBNO's range operands must span the WHOLE body in
 # the emitter's order (a gamma-first DFS from the body entry), and its resume operand is the body's rightmost tail, or the capture
 # record is read as outside the ARBNO (rt_dcap_pump: CORRUPT CAPTURE ENTRY) and the match fails.

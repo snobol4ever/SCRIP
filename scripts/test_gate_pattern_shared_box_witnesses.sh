@@ -39,7 +39,7 @@
 #                      gate does not re-route it, only adopts the already-isolated witness for standing
 #                      coverage). `ARBNO(<body>)` with an internally-choice-bearing body (an alternation)
 #                      HANGS on re-entry -- a genuine non-terminating cycle in `bb_match_arbno_frame()`,
-#                      confirmed independently this session against the real master-suite entry
+#                      confirmed independently this session against the real rungs-suite entry
 #                      (`probe_passthru__ptw_min_defer2_hang`, already carried as `arbno_pos_rpos_branch_81`
 #                      xfail=1). EXPECTED verdict today is FAIL/timeout -- this is the one group where a
 #                      witness going GREEN is the news (hq_U's cure landed), never a gate violation.
@@ -58,13 +58,13 @@
 #   (4) SELF-PIN: the normalised trace matches refs_pattern_shared_box_witnesses.trace (--cut rewrites
 #       it). ⛔ Same doctrine as lib_port_trace.sh: this is a SELF-consistency pin, not an oracle diff --
 #       it proves the port sequence has not MOVED, never that it is right. This gate does not reuse
-#       lib_port_trace.sh itself because that library is shaped around the master-suite ladder (families,
-#       rungs, --to/--only over corpus/tests/<lang>/ALL.csv); these witnesses are not master-suite members
+#       lib_port_trace.sh itself because that library is shaped around the rungs-suite ladder (families,
+#       rungs, --to/--only over corpus/tests/<lang>/ALL.csv); these witnesses are not rungs-suite members
 #       (deliberately -- they are a from-FINDING ad hoc set, not general corpus), so the same four checks
 #       are re-implemented directly below over an inline, self-contained witness set instead.
 #
 # CORRECTNESS CHECK: gate_oracle_stdout_match (lib_gate.sh) against a LIVE `sbl -bf` run per witness, both
-# modes -- the same helper test_one_witness.sh uses, not a stored .ref (nothing here is a master entry).
+# modes -- the same helper test_one_witness.sh uses, not a stored .ref (nothing here is a rung suite entry).
 #
 # EXIT: 0 every regression-pin witness (groups 1-3) matches the oracle and all port-trace checks pass,
 # AND the arbno group's status is one of its two EXPECTED shapes (still hangs, or hq_U's cure landed and
@@ -120,7 +120,7 @@ GO	LIST  ANC  (BAL . IC  SEIZE) . COMMON	:F(FRETURN)
 END
 SNOEOF
 # arbno_ctrl / arbno_pin_reentry -- seat14's v1/v6 pair (FINDING-2026-09-05-seat14-arbno-frame-arm-hangs-
-# re-entering-a-choice-bearing-body.md sec 2), reproduced here via the real master-suite entry
+# re-entering-a-choice-bearing-body.md sec 2), reproduced here via the real rungs-suite entry
 # (probe_passthru__ptw_min_defer2_hang, entry arbno_pos_rpos_branch_81) for arbno_pin_reentry, and the
 # same shape with the alternation removed for arbno_ctrl. Deferred pattern-variable reference (*G1, *P)
 # is part of the witness, not incidental -- it is how the corpus entry is phrased; seat14's own v2/v3

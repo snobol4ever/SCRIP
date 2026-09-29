@@ -3,7 +3,7 @@
 # (no type-identifier) whose field is of a record type: that field's own fields are selected, assigned and written (ISO 7185 6.5.3.3)
 #
 # MEASURED 2026-09-26 by hq_pascal, both modes, row pascal-every-suite-to-100-under-nonet-ceo-1266. FOUND BY PROBING, NOT BY ANY SUITE
-# (the master's nested records all go through a named outer type): type q = record a, b: integer end; var g: record x: integer; c: q end;
+# (the rungs' nested records all go through a named outer type): type q = record a, b: integer end; var g: record x: integer; c: q end;
 # g.c.a := 42; writeln(g.c.a) wrote nothing and every statement after it was skipped, where fpc -Miso prints 42. The selector g.c.a lowers
 # through pas_nested_field_resolve, which asked pas_with_sel_rtype for the record type of g.c -- and that function found a record-type for
 # g only when some DECLARED record type happened to carry g's field names, so an anonymous g had none and g.c.a fell to an unresolved
@@ -12,7 +12,7 @@
 #
 # ARMS, both modes, each run byte-identical to fpc -Miso: (1) na -- g.c.a/g.c.b of an anonymous g with a field of record type q;
 # (2) nc -- the inner record holds a char field, written in one writeln; (3) nw -- the inner fields assigned through with g do c.a; (4) nh -- two
-# anonymous variables copying inner fields between them; (5) nn -- the named outer type (the master's shape, green before and after).
+# anonymous variables copying inner fields between them; (5) nn -- the named outer type (the rungs' shape, green before and after).
 # It FAILS on the parent (arms na/nc/nw/nh). NOT CURED HERE, measured and rowed: a store through with g.c do a := 4, and a store two
 # record levels deep (g.c.u.a), are lost through a NAMED outer type too -- separate defects.
 # FAIL_ONCE=1 corrupts arm nn's ref to prove it can fail.

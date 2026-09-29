@@ -9,7 +9,7 @@
 # ACCEPTS out-of-order parts, and 15 programs of the vendored FPC suite rely on it (13 were green the day this landed). ISO wins:
 # they are named, with the measurement, in corpus/packages/pascal/fpc_tests/OUTSIDE_ISO_BASELINE.tsv (mirrored by UNGRADABLE.tsv),
 # stay in the FPC row's denominator (CEO-749 shape, OUTSIDE=15), and test_pascal_fpc_suite.sh cross-checks each run that every one
-# is still refused. Before landing, every other acceptance program in the corpus was compiled with the check (PasM, P4, P5,
+# is still refused. Before landing, every other acceptance program in the corpus was compiled with the check (PasRungs, P4, P5,
 # benchmarks): zero tripped.
 #
 # ARMS: the five vendored witnesses, each REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION (clause 8 (f), CEO-1281, landing 4): the master's entries declare it in tests/snobol4/ALL.csv, which the harness applies; a demo row declares it in its <stem>.cmdline sidecar, which run_test reads. This board exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source); measured that day, all 23 demos run byte-identical in both modes without it
+# ⛔ THE STATEMENT INSTRUMENTATION (--stlimit) IS EACH PROGRAM'S OWN compile_args DECLARATION (clause 8 (f), CEO-1281, landing 4): the rungs' entries declare it in tests/snobol4/ALL.csv, which the harness applies; a demo row declares it in its <stem>.cmdline sidecar, which run_test reads. This board exported SCRIP_SNO_STMTKW=1 for every program until 2026-09-26 (Lon 2026-09-24 16:0x: off by default, never inferred from the source); measured that day, all 23 demos run byte-identical in both modes without it
 # scripts/test_corpus_snobol4.sh — SNOBOL4 broad corpus, modes 2+3+4
 # Mode-4 gate (hard). Modes 2+3 informational. Reinstated 2026-06-08.
 # Compares output against .ref files. Reports PASS/FAIL/SKIP per mode.
@@ -82,13 +82,13 @@ GATE_NAME=test_corpus_snobol4 gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 # ⚠️ If you want to change what the FAMILIES get, export it or set it per-call (see the TIMEOUT=30 below).
 # Changing the value here moves only the loose/hardcoded programs.
 TIMEOUT="${TIMEOUT:-120}"
-# ⭐ SHARDED / RESUMABLE ARM (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02). The master block
+# ⭐ SHARDED / RESUMABLE ARM (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02). The rungs block
 # is one 1700+-entry harness run (~220s here alone, ~7.7 min under fleet load), so a caller under a single-call cap got a
 # REFUSAL (rc=2, "no SUITE_BOARD line") instead of a verdict -- honest, but a blocking gate nobody can run in one call is a
-# gate nobody runs. Now: `--shard k/N` grades ONLY the master's k-th interleaved N-th of the entries (the harness's own
+# gate nobody runs. Now: `--shard k/N` grades ONLY the rungs' k-th interleaved N-th of the entries (the harness's own
 # --shard, so every entry lands in exactly one shard) and writes its SUITE_BOARD to a CHECKPOINT stamped with the scrip
-# binary's and the master pair's md5 -- then exits WITHOUT a verdict ("verdict at --combine"). `--combine N` reads the N
-# checkpoints, REFUSES rc=2 if any is missing or was cut on a different binary/master (stale by construction, never summed),
+# binary's and the rungs pair's md5 -- then exits WITHOUT a verdict ("verdict at --combine"). `--combine N` reads the N
+# checkpoints, REFUSES rc=2 if any is missing or was cut on a different binary/rungs (stale by construction, never summed),
 # SUMS every count into one synthesized board line, and then runs everything else (demo arms, floors, GATE line) exactly
 # as the monolithic run does. PROVEN byte-equal once: monolithic summary == --shard 1/3, 2/3, 3/3 + --combine 3 (ledger).
 # Checkpoints live under $SCRIP_BOARD_CKPT (default /tmp/si_board_shards<seat-root-with-dashes>, per checkout like the objdir).
@@ -107,9 +107,9 @@ case "$SHARD" in ""|[0-9]*/[0-9]*) :;; *) echo "⛔ REFUSED: --shard wants k/N, 
 case "$COMBINE" in ""|[1-9]*) :;; *) echo "⛔ REFUSED: --combine wants N (a count), got '$COMBINE'"; exit 2;; esac
 [ -n "$SHARD" ] && [ -n "$COMBINE" ] && { echo "⛔ REFUSED: --shard and --combine are two different calls, not one"; exit 2; }
 CKPT="${SCRIP_BOARD_CKPT:-/tmp/si_board_shards$(printf '%s' "$S4E" | tr / -)}"
-board_stamp() { printf 'stamp scrip=%s master=%s-%s\n' "$(md5sum < "$SCRIP" | cut -c1-12)" "$(md5sum < "$MASTER_SNO" | cut -c1-12)" "$(md5sum < "$MASTER_REF" | cut -c1-12)"; }
+board_stamp() { printf 'stamp scrip=%s rungs=%s-%s\n' "$(md5sum < "$SCRIP" | cut -c1-12)" "$(md5sum < "$RUNGS_SNO" | cut -c1-12)" "$(md5sum < "$RUNGS_REF" | cut -c1-12)"; }
 board_checkpoint_write() {   # <k/N> <run board line>
-    local f="$CKPT/master.${1%/*}-of-${1#*/}.board"; mkdir -p "$CKPT" || { echo "⛔ REFUSED: cannot create checkpoint dir $CKPT"; exit 2; }
+    local f="$CKPT/rungs.${1%/*}-of-${1#*/}.board"; mkdir -p "$CKPT" || { echo "⛔ REFUSED: cannot create checkpoint dir $CKPT"; exit 2; }
     { board_stamp; printf '%s\n' "$2"; } > "$f"
     echo "SHARD $1 boarded -> $f"; echo "   $2"; echo "   no verdict here: run the other shards, then '$0 --combine ${1#*/}' for the GATE line"
 }
@@ -118,14 +118,14 @@ board_checkpoint_write() {   # <k/N> <run board line>
 board_combine() {   # <N> -> prints the synthesized SUITE_BOARD line on stdout; refusals on stderr, rc 2
     local n="$1" k f want="$(board_stamp)" got line prefix key kv
     for k in $(seq 1 "$n"); do
-        f="$CKPT/master.$k-of-$n.board"
+        f="$CKPT/rungs.$k-of-$n.board"
         [ -f "$f" ] || { echo "⛔ GATE REFUSES: checkpoint for shard $k/$n missing at $f -- run '$0 --shard $k/$n' first; a partial sum is not a board" >&2; return 2; }
         got="$(sed -n 1p "$f")"; [ "$got" = "$want" ] || { echo "⛔ GATE REFUSES: checkpoint $k/$n was cut on a different tree ($got vs now $want) -- stale by construction, re-run that shard" >&2; return 2; }
     done
     for prefix in SUITE_BOARD; do
         unset sum; declare -A sum; local -a keys=()
         for k in $(seq 1 "$n"); do
-            f="$CKPT/master.$k-of-$n.board"
+            f="$CKPT/rungs.$k-of-$n.board"
             line="$(grep -m1 "^$prefix " "$f")"; [ -n "$line" ] || { echo "⛔ GATE REFUSES: checkpoint $k/$n carries no $prefix line -- it predates the two-population board; re-run '$0 --shard $k/$n'" >&2; return 2; }
             echo "$line" | grep -q " shard=$k/$n " || { echo "⛔ GATE REFUSES: checkpoint $k/$n's $prefix is tagged '$(echo "$line" | grep -oE 'shard=[0-9/]+')', not shard=$k/$n" >&2; return 2; }
             for kv in $(echo "$line" | grep -oE '[a-z0-9_]+=[0-9]+' | grep -v '^shard='); do key="${kv%%=*}"; [ -n "${sum[$key]+x}" ] || keys+=("$key"); sum[$key]=$(( ${sum[$key]:-0} + ${kv#*=} )); done
@@ -162,7 +162,7 @@ gate_require_fresh "$HERE/.." src "$SCRIP" "$RT_DIR/libscrip_rt.so"
 # said green while 22 programs had left the denominator. A clean numerator over a shrunken denominator is the most
 # dangerous shape a board has, and corpus paths have moved three times in two days, so this WILL happen again.
 # FAIL=0 is not a verdict; FAIL=0 over the expected denominator is.
-for _d in "$DEMO"; do   # beauty_suite left this list 2026-08-29: its 13 drivers were absorbed into the MASTER suite (one-flat-suite cutover) and the dir no longer exists; the master block refuses on ITS absence instead
+for _d in "$DEMO"; do   # beauty_suite left this list 2026-08-29: its 13 drivers were absorbed into the RUNGS suite (one-flat-suite cutover) and the dir no longer exists; the rungs block refuses on ITS absence instead
     if [ ! -d "$_d" ]; then echo "⛔ GATE REFUSES: corpus subtree missing: $_d"; echo "   The corpus layout moved. Repoint this script; do NOT read a smaller total as a pass."; exit 2; fi
 done
 
@@ -291,18 +291,18 @@ done < <(find "$CORPUS/crosscheck" -name "*.sno" 2>/dev/null | sort)
 # ⛔ So crosscheck gets the same refusal, conditioned on the distinguisher the other two do not need: absence of
 # the loose tree is acceptable ONLY when the converted families are actually present to be graded instead.
 if [ ! -d "$CORPUS/crosscheck" ]; then
-    _cc_master="$CORPUS/tests/snobol4/ALL.csv"
-    if [ -f "$_cc_master" ] && grep -q ',crosscheck_' "$_cc_master"; then
-        echo "note: loose crosscheck tree is absent and its entries live in the MASTER suite (one-flat-suite ruling) — graded by the master block below, not skipped."
+    _cc_rungs="$CORPUS/tests/snobol4/ALL.csv"
+    if [ -f "$_cc_rungs" ] && grep -q ',crosscheck_' "$_cc_rungs"; then
+        echo "note: loose crosscheck tree is absent and its entries live in the RUNGS suite (one-flat-suite ruling) — graded by the rungs block below, not skipped."
     else
         echo "⛔ GATE REFUSES: corpus subtree missing: $CORPUS/crosscheck"
         # ⛔⭐ THIS MESSAGE USED TO NAME $_cc_conv, A VARIABLE THAT NO LONGER EXISTS. The guard was repointed at
-        # the MASTER when crosscheck was absorbed into it, but the refusal text kept citing the old
+        # the RUNGS when crosscheck was absorbed into it, but the refusal text kept citing the old
         # directory variable -- and with no `set -u` an undefined name expands to EMPTY, so the refusal read
         # "...exist at " and pointed the reader nowhere. ⭐ Error paths are the least-exercised code in any
         # instrument, so a stale reference there survives every green run and only surfaces on the day
         # something is already wrong -- degrading the diagnostic exactly when the diagnostic is all you have.
-        echo "   AND the master suite at $_cc_master carries no crosscheck_ entries either, so this board would grade a"
+        echo "   AND the rungs suite at $_cc_rungs carries no crosscheck_ entries either, so this board would grade a"
         echo "   NARROWER DENOMINATOR and still print FAIL=0. The corpus layout moved. Repoint this script;"
         echo "   do NOT read a smaller total as a pass."
         exit 2
@@ -311,7 +311,7 @@ fi
 
 # ── THE ONE FLAT SUITE (Lon 2026-08-29: "one big *.sno and one big *.ref ... Not 10's of folders and 100's of files") ──
 # Replaces the three per-family discovery blocks that lived here (crosscheck / probe / top-level-misc --
-# each with its own floor): every absorbed family's entries are graded through the ONE master pair, with
+# each with its own floor): every absorbed family's entries are graded through the ONE rungs pair, with
 # per-entry provenance in ALL.csv's origin column and levels as rank prefixes. The un-absorbable
 # residue (beauty_suite drivers, rtx_func_11, linker, probe_loose, stdin classes) is listed LOUDLY in
 # ALL.excluded.txt and still graded by its own blocks below (beauty) or its own instruments.
@@ -326,9 +326,9 @@ HARNESS="${HARNESS:-$HERE/corpus_suite_harness.py}"
 # the real harness carries a shebang but no executable bit and is run through python3, unchanged; an INJECTED harness that is
 # executable is run directly, so a fail-direction proof can substitute any program for it (the I9 DONE-WHEN injects a bash script).
 run_harness() { if [ -x "$HARNESS" ]; then "$HARNESS" "$@"; else python3 "$HARNESS" "$@"; fi; }
-MASTER_SNO="$CORPUS/tests/snobol4/ALL.sno"
-MASTER_REF="$CORPUS/tests/snobol4/ALL.ref"
-MASTER_OUTSIDE="$CORPUS/tests/snobol4/ALL.outside.tsv"
+RUNGS_SNO="$CORPUS/tests/snobol4/ALL.sno"
+RUNGS_REF="$CORPUS/tests/snobol4/ALL.ref"
+RUNGS_OUTSIDE="$CORPUS/tests/snobol4/ALL.outside.tsv"
 # ⛔⭐ THE OUTSIDE LIST IS PASSED WHEN IT EXISTS, AND THAT WIRING IS THE WHOLE POINT OF THE FILE (hq_P 2026-09-08,
 # ceo CEO-423/428). Under ONE ORACLE a program the oracle REFUSES TO RUN has no ground truth and is outside the
 # baseline by definition; the harness drops each named entry from the graded denominator and PRINTS it with the
@@ -337,19 +337,19 @@ MASTER_OUTSIDE="$CORPUS/tests/snobol4/ALL.outside.tsv"
 # this project keeps finding"). So the file and its wiring land together or neither lands. The harness itself
 # REFUSES a list naming an entry that is not in the suite, so a stale row cannot quietly shrink the board.
 _outside_arg=""
-[ -f "$MASTER_OUTSIDE" ] && _outside_arg="--outside $MASTER_OUTSIDE"
-MASTER_ENTRY_FLOOR="${MASTER_ENTRY_FLOOR:-1576}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the master
+[ -f "$RUNGS_OUTSIDE" ] && _outside_arg="--outside $RUNGS_OUTSIDE"
+RUNGS_ENTRY_FLOOR="${RUNGS_ENTRY_FLOOR:-1576}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the rungs
 if [ ! -f "$HARNESS" ]; then
     echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
 fi
-if [ ! -f "$MASTER_SNO" ] || [ ! -f "$MASTER_REF" ]; then
-    echo "⛔ GATE REFUSES: the master suite is missing at $MASTER_SNO"
-    echo "   The per-family suite files were RETIRED INTO the master (Lon 2026-08-29 one-flat-suite ruling);"
+if [ ! -f "$RUNGS_SNO" ] || [ ! -f "$RUNGS_REF" ]; then
+    echo "⛔ GATE REFUSES: the rungs suite is missing at $RUNGS_SNO"
+    echo "   The per-family suite files were RETIRED INTO the rungs (Lon 2026-08-29 one-flat-suite ruling);"
     echo "   a checkout without it cannot grade the suite population at all. Pull corpus; do NOT read the"
     echo "   remaining loose blocks' smaller total as the board."
     exit 2
 fi
-# ⛔ THE HARNESS'S STDERR IS KEPT, NOT DISCARDED (hq_B 2026-09-01). This line read `2>/dev/null`, so when the master run
+# ⛔ THE HARNESS'S STDERR IS KEPT, NOT DISCARDED (hq_B 2026-09-01). This line read `2>/dev/null`, so when the rungs run
 # produced no SUITE_BOARD line the refusal below could only say THAT it happened -- the cause (a refuse() message, a
 # traceback, a linker error, a kill) was gone. Measured live: a board that refused after 7.7 minutes under fleet load
 # 18-24 with nothing to read but "no SUITE_BOARD line", while the same harness run by hand with stderr kept was clean.
@@ -369,13 +369,13 @@ _hout="$(mktemp)"; _herr="$(mktemp)"
 if [ -n "$COMBINE" ]; then
     _combined=$(board_combine "$COMBINE") || { rm -f "$_hout" "$_herr"; exit 2; }; harness_rc=0
     board=$(printf '%s\n' "$_combined" | grep '^SUITE_BOARD ')
-    echo "master: COMBINED from $COMBINE shard checkpoints under $CKPT (each stamped with this binary and master)"
+    echo "rungs: COMBINED from $COMBINE shard checkpoints under $CKPT (each stamped with this binary and rungs)"
 else
-    run_harness run "$MASTER_SNO" "$MASTER_REF" --modes m3,m4 $_outside_arg ${SHARD:+--shard "$SHARD"} > "$_hout" 2> "$_herr"; harness_rc=$?
+    run_harness run "$RUNGS_SNO" "$RUNGS_REF" --modes m3,m4 $_outside_arg ${SHARD:+--shard "$SHARD"} > "$_hout" 2> "$_herr"; harness_rc=$?
     board=$(grep '^SUITE_BOARD ' "$_hout")
 fi
 if [ -z "$board" ]; then
-    echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the master suite"
+    echo "⛔ GATE REFUSES: harness produced no SUITE_BOARD line for the rungs suite"
     # ⭐⭐ THE REFUSAL CARRIES ONE MACHINE-READABLE LINE, NOT ONLY PROSE (hq_C 2026-09-01, same row). The prose
     # below is for a human reading a log; a gate, a sweep or a DONE-WHEN that wants to know "was this refusal a
     # kill or a real red" must not have to parse English. ⛔ MEASURED, and the reason this line exists: the row's
@@ -449,7 +449,7 @@ done
 PASS3=$((PASS3+m3p)); FAIL3=$((FAIL3+m3f+m3c)); TMOUT3=$((TMOUT3+m3h+m3u))
 PASS4=$((PASS4+m4p)); FAIL4=$((FAIL4+m4f+m4c)); TMOUT4=$((TMOUT4+m4h+m4u)); SKIP4=$((SKIP4+m4s))
 XFAIL3=$((XFAIL3+${m3x:-0})); XFAIL4=$((XFAIL4+${m4x:-0}))
-# ⛔⭐ THE MASTER'S AND, FOLDED FROM THE HARNESS AND NEVER RE-DERIVED (ceo-372). m3p and m4p cannot produce it:
+# ⛔⭐ THE RUNGS'S AND, FOLDED FROM THE HARNESS AND NEVER RE-DERIVED (ceo-372). m3p and m4p cannot produce it:
 # the AND is a fact about each ENTRY, and by the time a board line exists the entries are gone. corpus_suite_harness.py
 # emits all_pass for exactly this fold.
 # ⛔ REFUSE RATHER THAN FOLD A ZERO. An older harness -- or a shard checkpoint cut before this field existed --
@@ -457,22 +457,22 @@ XFAIL3=$((XFAIL3+${m3x:-0})); XFAIL4=$((XFAIL4+${m4x:-0}))
 # publish the loop population alone and read as a catastrophic regression that never happened. A runner that
 # cannot measure REFUSES; it does not print the success shape over a number it failed to read.
 m_all=$(field all_pass)
-[ -n "$m_all" ] || { echo "⛔ GATE REFUSES: the master SUITE_BOARD carries no all_pass= field -- this runner's row is the AND per program (ceo-372) and cannot be assembled without it. The harness beside this script emits it; a stale shard checkpoint does not (re-run the shards)."; exit 2; }
+[ -n "$m_all" ] || { echo "⛔ GATE REFUSES: the rungs SUITE_BOARD carries no all_pass= field -- this runner's row is the AND per program (ceo-372) and cannot be assembled without it. The harness beside this script emits it; a stale shard checkpoint does not (re-run the shards)."; exit 2; }
 BOTH=$((BOTH+m_all))
-[ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m3; per-entry attributes: ALL.csv)\n"
-[ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:master (rerun: python3 $HARNESS run $MASTER_SNO $MASTER_REF --modes m4; per-entry attributes: ALL.csv)\n"
-echo "master: total=$mt · m3 xfail=$m3x ($m3xs) xpass=$m3xp · m4 xfail=$m4x ($m4xs) xpass=$m4xp"
+[ "$((m3f+m3c))" -gt 0 ] && FAILURES3="${FAILURES3}  FAIL-M3 suite:rungs (rerun: python3 $HARNESS run $RUNGS_SNO $RUNGS_REF --modes m3; per-entry attributes: ALL.csv)\n"
+[ "$((m4f+m4c))" -gt 0 ] && FAILURES4="${FAILURES4}  FAIL suite:rungs (rerun: python3 $HARNESS run $RUNGS_SNO $RUNGS_REF --modes m4; per-entry attributes: ALL.csv)\n"
+echo "rungs: total=$mt · m3 xfail=$m3x ($m3xs) xpass=$m3xp · m4 xfail=$m4x ($m4xs) xpass=$m4xp"
 [ "$((m3xp+m4xp))" -gt 0 ] && echo "⭐ XPASS>0: a bug got FIXED and its XFAIL marker was never promoted -- as actionable as a failure, in the opposite direction (names: python3 $HARNESS run ... | grep XPASS)"
-# ⛔ THE FLOOR IS OVER THE WHOLE MASTER: every entry is in the one run-graded population now.
+# ⛔ THE FLOOR IS OVER THE WHOLE RUNGS: every entry is in the one run-graded population now.
 _mt_all=$mt
-if [ "$_mt_all" -lt "$MASTER_ENTRY_FLOOR" ]; then
-    MISSING=$((MISSING+MASTER_ENTRY_FLOOR-_mt_all))
-    MISSING_LIST="${MISSING_LIST}  master-entry-count: master total ${_mt_all} is under the floor ${MASTER_ENTRY_FLOOR} -- entries vanished from the master, or this checkout is behind origin\n"
+if [ "$_mt_all" -lt "$RUNGS_ENTRY_FLOOR" ]; then
+    MISSING=$((MISSING+RUNGS_ENTRY_FLOOR-_mt_all))
+    MISSING_LIST="${MISSING_LIST}  rungs-entry-count: rungs total ${_mt_all} is under the floor ${RUNGS_ENTRY_FLOOR} -- entries vanished from the rungs, or this checkout is behind origin\n"
 fi
 
-# ── Beauty library drivers: RETIRED INTO THE MASTER (one-flat-suite cutover 2026-08-29) ──
+# ── Beauty library drivers: RETIRED INTO THE RUNGS (one-flat-suite cutover 2026-08-29) ──
 # The 13 *_driver.sno/.ref pairs and their .inc companions were absorbed into ALL.* (origins
-# beauty_suite__*, see ALL.csv) and the loose pairs deleted; the master block above grades them.
+# beauty_suite__*, see ALL.csv) and the loose pairs deleted; the rungs block above grades them.
 
 # ── Demo programs ─────────────────────────────────────────────────────────────
 # Coverage audit (demo-corpus-coverage-audit, 2026-08-22): wordcount's ref/input were
@@ -506,7 +506,7 @@ run_test "demo_calculator_2"        "$DEMO/calculator/calculator-2.sno"        "
 # associated variable was silently discarded in BOTH modes (rc=0, ordinary output intact), because
 # _OUTPUT_ never called the -fn parser that _INPUT_ had been calling all along. Graded on -f1 rather
 # than -f2 because this harness compares stdout; the defect was never fd2-specific.
-# feat_io_fd_assoc: retired hardcoded row (one-flat-suite cutover) -- absorbed into the master (origin feat_f21_io_fd_assoc... see ALL.csv), graded there; the loose pair is deleted.
+# feat_io_fd_assoc: retired hardcoded row (one-flat-suite cutover) -- absorbed into the rungs (origin feat_f21_io_fd_assoc... see ALL.csv), graded there; the loose pair is deleted.
 # k41: the IMMEDIATE pattern lambda, the arm that is LANDED (row lang-lambda-pattern-primitives).
 # ⛔ NOT k40. k40 is the row's INSTRUMENT, authored before the cure and RED ON PURPOSE until the
 # whole feature lands (conditional lambda, backtrack-unqueue, stored-pattern round trip are all
@@ -689,13 +689,13 @@ _sn4_killed=""
 # STRUCTURALLY BLIND TO MOVEMENT INSIDE ITS OWN KNOWN-RED SET. A seat can cure a real bug and this row cannot show
 # it; a marker can go stale and this row cannot show that either. Both are invisible for the SAME reason and in
 # OPPOSITE directions, which is why no amount of staring at the fraction distinguishes them.
-# ⭐ AND IT CONVERTS AN AMBIGUITY FROM A RUN INTO A READ: "is this master 1871/1898 with 27 live reds, or with some
+# ⭐ AND IT CONVERTS AN AMBIGUITY FROM A RUN INTO A READ: "is this rung suite 1871/1898 with 27 live reds, or with some
 # of them already cured behind stale markers?" was previously answerable only by re-running the suite. A nonzero
 # xpass IS the stale-marker case, printed. Nobody has to reason about which of two indistinguishable shapes they
 # are looking at, and nobody has to spend a board to find out.
-# ⛔ EVERY FRACTION IN THIS CELL IS NOW OVER THE MASTER'S OWN POPULATION. The cell is named sno-master and carried
-# $BOTH/$TOTAL -- master PLUS the loop programs -- while the pair DECLARED beside it (--suite-pass/--suite-total)
-# was the master's own $m_all/$mt. So the human reading the cell and the grid reading the declared pair took two
+# ⛔ EVERY FRACTION IN THIS CELL IS NOW OVER THE RUNGS'S OWN POPULATION. The cell is named sno-rungs and carried
+# $BOTH/$TOTAL -- rungs PLUS the loop programs -- while the pair DECLARED beside it (--suite-pass/--suite-total)
+# was the rungs' own $m_all/$mt. So the human reading the cell and the grid reading the declared pair took two
 # different numbers out of one row: the two-readers-of-one-cell shape, in the row that ruling was written about.
 # The wider figure is not dropped -- it is moved to the end and labelled as not being this row.
 # ⛔⭐ THE ROW IS PASS OVER THE SHIPPED POPULATION WITH OUTSIDE NAMED (CEO-749; Lon 2026-09-16: OUTSIDE is debt; coo, row
@@ -704,19 +704,19 @@ _sn4_killed=""
 # population as the row's denominator -- 1961/1972 was seven outside passes leaving the numerator and eight entries leaving
 # the denominator, read once as engine movement (COO-82). A denominator move needs its stamp: S4E_CRITERION_CHANGED is forwarded.
 _sn4_shipped=$(field shipped); _sn4_outside=$(field outside)
-[ -n "$_sn4_shipped" ] && [ -n "$_sn4_outside" ] || { echo "⛔ GATE REFUSES: the master SUITE_BOARD carries no shipped=/outside= fields -- the row would publish the graded population and drop OUTSIDE silently (CEO-749); the harness beside this runner must print them." >&2; exit 2; }
-_sn4_board="master both-modes $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt) · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp MISSING=0$_sn4_killed · runner-wide (master + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
-# ⛔⭐ THE CELL IS NAMED sno-master AND MUST RECEIVE THE MASTER'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
-# $BOTH/$TOTAL spans the master PLUS the loop programs, so publishing it put a master+loop number in a master cell --
+[ -n "$_sn4_shipped" ] && [ -n "$_sn4_outside" ] || { echo "⛔ GATE REFUSES: the rungs SUITE_BOARD carries no shipped=/outside= fields -- the row would publish the graded population and drop OUTSIDE silently (CEO-749); the harness beside this runner must print them." >&2; exit 2; }
+_sn4_board="rungs both-modes $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt) · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp MISSING=0$_sn4_killed · runner-wide (rungs + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
+# ⛔⭐ THE CELL IS NAMED sno-rungs AND MUST RECEIVE THE RUNGS'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
+# $BOTH/$TOTAL spans the rungs PLUS the loop programs, so publishing it put a rung suite+loop number in a rung suite cell --
 # the second half of why this row kept re-flipping. The combined figure stays on the terminal, labelled, and the
 # published pair is printed beside it so the board everyone quotes and the terminal cannot silently disagree.
-echo "sno-master ROW PUBLISHED: $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt)  (master only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
-echo "runner-wide population (master + loop, NOT the published row): $BOTH/$TOTAL"
+echo "sno-rungs ROW PUBLISHED: $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt)  (rungs only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
+echo "runner-wide population (rungs + loop, NOT the published row): $BOTH/$TOTAL"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
 # This board line carries FOUR fractions -- the AND, m3, m4 and the ast fixtures -- over TWO different
 # populations, so any rule that reads a pair out of it is choosing between them silently, and the ast pair
-# (28/28) would publish as the master suite's score. The runner names its own headline pair instead.
+# (28/28) would publish as the rungs suite's score. The runner names its own headline pair instead.
 # ⛔⭐ AND THE HEADLINE PAIR IS THE AND PER PROGRAM (ceo-372, 2026-09-06, RULING on this runner's ask):
 # "a suite row states the programs that pass in EVERY graded mode -- a program red in m3 and another red in
 # m4 both count against the row; never m3 alone, never m4 alone, never the min of two counts (which hides a
@@ -728,7 +728,7 @@ python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3
     --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$m_all" --suite-total "$_sn4_shipped" \
     ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why; a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call)"
-# ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_master.sh for the same call and why it is here
+# ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_rungs.sh for the same call and why it is here
 # rather than only in lib_gate.sh: this runner writes its row directly, bypassing gate_score_row).
 # ⛔ THE PROGRESS LINE IS DELETED (Lon 2026-09-13, verbatim: "All bogus. Delete that. Do not show
 # that ever again."). The call that stood here printed it; util_score_row.py progress is now a silent

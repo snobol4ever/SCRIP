@@ -8,7 +8,7 @@
 # call_with_args beside the arity check and fires on a real literal, or on a bare variable whose EVERY declaration in the flat type
 # table resolves to real -- a global integer r is not refused because some procedure declares a local r: real (the fourth arm).
 # A user routine named ord, chr, succ or pred is never checked. A real EXPRESSION (succ(r + 1)) is not graded here.
-# Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
+# Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the check: the refused set was identical to the tree before, so the check cannot move another suite's row.
 #
 # ARMS: two vendored PAT witnesses, each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the

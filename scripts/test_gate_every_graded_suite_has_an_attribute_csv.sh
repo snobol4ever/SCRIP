@@ -17,8 +17,8 @@ declare -A DIR=(
   [x64tests]=corpus/packages/snobol4/spitbol_x64_tests [x32tests]=corpus/packages/snobol4/spitbol_x32_tests [arizona]=corpus/packages/icon/arizona_tests [jcon]=corpus/packages/icon/jcon_tests
   [ipl]=corpus/packages/icon/ipl [inria]=corpus/packages/prolog/inriasuite [swi]=corpus/packages/prolog/swi_tests [gnu]=corpus/packages/prolog/gnu_prolog
   [gnu_fd]=corpus/packages/prolog/gnu_fd [logtalk]=corpus/packages/prolog/logtalk_iso [fpc]=corpus/packages/pascal/fpc_tests [pat]=corpus/packages/pascal/pat
-  [roast]=corpus/packages/raku/roast [sno-master]=corpus/tests/snobol4 [icn-master]=corpus/tests/icon [pl-master]=corpus/tests/prolog
-  [pas-master]=corpus/tests/pascal [raku-master]=corpus/tests/raku [snc-master]=corpus/tests/snocone [reb-master]=corpus/tests/rebus
+  [roast]=corpus/packages/raku/roast [sno-rungs]=corpus/tests/snobol4 [icn-rungs]=corpus/tests/icon [pl-rungs]=corpus/tests/prolog
+  [pas-rungs]=corpus/tests/pascal [raku-rungs]=corpus/tests/raku [snc-rungs]=corpus/tests/snocone [reb-rungs]=corpus/tests/rebus
   [snocone-bench-ref]=corpus/benchmarks/snocone [snobol4-bench-ref]=corpus/benchmarks/snobol4 [icon-bench-ref]=corpus/benchmarks/icon
   [prolog-bench-ref]=corpus/benchmarks/prolog [pascal-bench-ref]=corpus/benchmarks/pascal [raku-bench-ref]=corpus/benchmarks/raku
   [rebus-bench-ref]=corpus/benchmarks/rebus

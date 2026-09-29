@@ -6,12 +6,12 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/pascal}"
 HARNESS="${HARNESS:-$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py}"
-MASTER_SRC="${MASTER_SRC:-$CORPUS/ALL.pas}"
-MASTER_REF="${MASTER_REF:-$CORPUS/ALL.ref}"
+RUNGS_SRC="${RUNGS_SRC:-$CORPUS/ALL.pas}"
+RUNGS_REF="${RUNGS_REF:-$CORPUS/ALL.ref}"
 # ⭐ REPOINTED (seat04, 2026-08-30, row pascal-master-flatten-and-scrip-test-pas) -- see test_gate_pascal_m3.sh
 # for the full rationale (kept byte-identical in substance between the two files, same reason as before).
 # ⛔ REVERTED BACK TO THE FLAT PATH (seat04, 2026-08-30) after a stale-checkout mixup briefly pointed this at
-# the already-deleted `master/` subdir -- see test_gate_pascal_m3.sh for the full timeline (kept
+# the already-deleted `rungs/` subdir -- see test_gate_pascal_m3.sh for the full timeline (kept
 # byte-identical in substance between the two files, same reason as before).
 # ⛔ HAND-MAINTAINED -- keep byte-identical to test_gate_pascal_m3.sh's STDIN_FAMILIES list.
 STDIN_FAMILIES="read1 read2 read3 read4 pb35"
@@ -62,22 +62,22 @@ for name in $STDIN_FAMILIES; do
     fi
 done
 
-MASTER_PASS=0; MASTER_FAIL=0; MASTER_EXAMINED=0
-if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
-    # Every master entry is graded in this gate's mode: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
+RUNGS_PASS=0; RUNGS_FAIL=0; RUNGS_EXAMINED=0
+if [ -f "$RUNGS_SRC" ] && [ -f "$RUNGS_REF" ]; then
+    # Every rung suite entry is graded in this gate's mode: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
     # ⛔⭐ CAPTURE THE HARNESS rc AND ITS stderr -- A REFUSAL IS NOT A RED AND IS NOT A CORPUS DEFECT (hq_B 2026-09-13,
     # row pascal-gates-report-a-one-runner-refusal-as-an-unpopulated-master). `2>/dev/null` here threw away the ONE sentence
-    # that said what had happened. Under ONE RUNNER, ONE BOARD (CEO-523) a run of the master IS a board, so the harness
-    # refuses it rc=2 to every seat but the coo; `board` came back empty, `p` was unset, MASTER_EXAMINED fell to 0, and the
-    # arm at the bottom then accused $MASTER_SRC of being "a path defect or unpopulated master" -- while it sits on disk,
+    # that said what had happened. Under ONE RUNNER, ONE BOARD (CEO-523) a run of the rungs IS a board, so the harness
+    # refuses it rc=2 to every seat but the coo; `board` came back empty, `p` was unset, RUNGS_EXAMINED fell to 0, and the
+    # arm at the bottom then accused $RUNGS_SRC of being "a path defect or unpopulated rungs" -- while it sits on disk,
     # populated, 5239 lines. hq_S measured that message, went and checked the corpus, and found it fine (relayed by the coo
     # 2026-09-13). ⭐ THE COST IS NOT THE RED, IT IS THE FALSE CAUSE: a gate that cannot measure must say so and name what
     # stopped it, never nominate a suspect it never looked at. RULES.md § a correct procedure with a false explanation.
-    HERR=$(mktemp); board=$(timeout 180s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --modes m4 2>"$HERR"); hrc=$?
+    HERR=$(mktemp); board=$(timeout 180s python3 "$HARNESS" run "$RUNGS_SRC" "$RUNGS_REF" --lang pascal --modes m4 2>"$HERR"); hrc=$?
     if [ $hrc -eq 2 ]; then
-        echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the master, so M4 has NO master verdict. This gate does not know the master is bad and does not say so." >&2
+        echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the rungs, so M4 has NO rungs verdict. This gate does not know the rungs is bad and does not say so." >&2
         sed 's/^/    harness said: /' "$HERR" >&2; rm -f "$HERR"
-        echo "    the master is present and populated -- $MASTER_SRC ($(wc -l <"$MASTER_SRC") lines) / $MASTER_REF ($(wc -l <"$MASTER_REF") lines); it is NOT what this refusal is about." >&2
+        echo "    the rungs is present and populated -- $RUNGS_SRC ($(wc -l <"$RUNGS_SRC") lines) / $RUNGS_REF ($(wc -l <"$RUNGS_REF") lines); it is NOT what this refusal is about." >&2
         exit 2
     fi
     rm -f "$HERR"
@@ -86,17 +86,17 @@ if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
     unproven=$(grep -oP '(?<=m4_unproven=)\d+' <<<"$board")
     total=$(grep '^SUITE_BOARD ' <<<"$board" | grep -oP '(?<=total=)\d+')
     if [ -z "$p" ]; then
-        echo -e "master:ALL\tHARNESS_UNPROVEN\t" >> "$RESULTS"
+        echo -e "rungs:ALL\tHARNESS_UNPROVEN\t" >> "$RESULTS"
         FAIL=$((FAIL+1))
     else
-        MASTER_EXAMINED=${total:-0}
+        RUNGS_EXAMINED=${total:-0}
         bad=$((f + crash + hang + unproven))
-        echo -e "master:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven\t" >> "$RESULTS"
+        echo -e "rungs:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven\t" >> "$RESULTS"
         PASS=$((PASS+p)); FAIL=$((FAIL+bad))
-        MASTER_PASS=$p; MASTER_FAIL=$bad
+        RUNGS_PASS=$p; RUNGS_FAIL=$bad
     fi
 else
-    echo -e "master:ALL\tMISSING\t" >> "$RESULTS"
+    echo -e "rungs:ALL\tMISSING\t" >> "$RESULTS"
     FAIL=$((FAIL+1))
 fi
 
@@ -121,12 +121,12 @@ if [ -f "$WCORPUS/uplevel2.pas" ]; then
     done
 fi
 
-echo "M4: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (master: $MASTER_EXAMINED entries, $MASTER_PASS pass / $MASTER_FAIL fail; stdin-loose: $EXAMINED examined)"
+echo "M4: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (rungs: $RUNGS_EXAMINED entries, $RUNGS_PASS pass / $RUNGS_FAIL fail; stdin-loose: $EXAMINED examined)"
 echo "M4 witnesses (benchmarks/pascal): EXAMINED=$W_EXAMINED PASS=$W_PASS FAIL=$W_FAIL"
-# ⛔ MASTER_EXAMINED refuses ON ITS OWN (seat11's finding, see test_gate_pascal_m3.sh) -- the stdin-loose loop
-# always examines >0, so a master-path defect used to hide completely behind it.
-if [ $MASTER_EXAMINED -eq 0 ]; then
-    echo "⛔ UNPROVEN: 0 master entries examined under $MASTER_SRC / $MASTER_REF -- path defect or unpopulated master, not a clean pass (this arm cannot hide behind the other)" >&2
+# ⛔ RUNGS_EXAMINED refuses ON ITS OWN (seat11's finding, see test_gate_pascal_m3.sh) -- the stdin-loose loop
+# always examines >0, so a rung suite-path defect used to hide completely behind it.
+if [ $RUNGS_EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 rungs entries examined under $RUNGS_SRC / $RUNGS_REF -- path defect or unpopulated rungs, not a clean pass (this arm cannot hide behind the other)" >&2
     exit 2
 fi
 if [ $EXAMINED -eq 0 ] && [ $W_EXAMINED -eq 0 ]; then

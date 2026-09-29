@@ -47,15 +47,15 @@ if [ ! -x "$SCRIP" ]; then echo "⛔ REFUSED-TO-GRADE rc=2: scrip not built at $
 WORKDIR=$(mktemp -d)
 trap 'rm -rf "$WORKDIR"' EXIT
 # ⛔ GCDIR IS EXTRACTED, NOT A FIXED TREE (row dead-suite-path-consumer-sweep): corpus/crosscheck/gc/ is
-# gone -- corpus-suites-consolidation converted its 15 files into the master suite, family crosscheck_gc
+# gone -- corpus-suites-consolidation converted its 15 files into the rungs suite, family crosscheck_gc
 # (confirmed: 15 origins, matching the conversion commit's own count, not assumed). The old "SKIP no gc
 # corpus" fallback was skip-as-success on a genuinely-present population -- RULES.md's own standing rule
 # is that a check which cannot measure must REFUSE, never quietly pass; an explicit GCDIR override still
 # runs the old loose-directory path unchanged, for anyone testing against a hand-built tree.
 if [ -z "${GCDIR:-}" ]; then
     GCDIR="$WORKDIR/gc_src"
-    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/lib_master_extract.sh"
-    master_extract_family crosscheck_gc "$GCDIR" || { echo "GATE UNPROVEN(2) [test_gc_stress_suite]: could not extract the crosscheck_gc family from the master suite"; exit 2; }
+    RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$HERE/lib_rungs_extract.sh"
+    rungs_extract_family crosscheck_gc "$GCDIR" || { echo "GATE UNPROVEN(2) [test_gc_stress_suite]: could not extract the crosscheck_gc family from the rungs suite"; exit 2; }
 fi
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04): an EXPLICIT $GCDIR override skips extraction entirely, and every P/F

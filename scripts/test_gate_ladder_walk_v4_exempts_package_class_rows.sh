@@ -12,14 +12,14 @@
 # ⛔ THE CURE IS BY SHAPE, NOT BY A LIST OF PACKAGE NAMES, and this gate pins that: a list is a census that drifts
 # silently the day a new suite is vendored -- its class rows would be flagged again and read as genuine inversions by
 # whoever had stopped seeing the old ones. The shape the law defines is <lang>-<package>-class-<slug>: a recognised
-# language prefix, exactly ONE package token, then -class-. Two tokens (prolog-master-red-class-…) is a MASTER-BOARD red
+# language prefix, exactly ONE package token, then -class-. Two tokens (prolog-master-red-class-…) is a RUNGS-BOARD red
 # class, not a package class, and stays a V4 candidate.
 #
 # ARMS, hermetic (a scratch plan + a scratch postoffice under mktemp; the LIVE postoffice is never read):
 #   ARM 1  a <lang>-<package>-class-* row FREE at rank 1 is NOT flagged            (pre-cure: flagged -- the fail-once arm)
 #   ARM 2  a genuine off-ladder rank-1 row IS still flagged                        (control: the cure did not delete V4's job)
 #   ARM 3  the exemption is COUNTED on one visible line, never silent              (pre-cure: no such line)
-#   ARM 4  by SHAPE: a two-token -master-red-class- row at rank 1 is still flagged
+#   ARM 4  by SHAPE: a two-token -rungs-red-class- row at rank 1 is still flagged
 #   ARM 5  rank 2+ was never V4's business, either way
 #   ARM 6  a PRE-SHAPE package row (no -class- token) is exempt too -- 15 were minted before the rule
 #   ARM 7  the package token may sit at segment two (pascal-iso7185-pat-*, prolog-swi-tests-*)
@@ -61,7 +61,7 @@ echo "--- ARM 2 (control): a genuine off-ladder rank-1 row IS still flagged ---"
 n=$(v4 'icon-scratch-genuine-off-ladder-row'); [ "$n" = 1 ] && ck ok "genuine off-ladder rank-1 row -> exactly one V4 line" || ck no "genuine inversion not flagged ($n line(s)) -- the cure deleted V4's job"
 echo "--- ARM 3: the exemption is COUNTED, never silent ---"
 grep -qE '^V4 EXEMPT \(package rule\): 3 FREE package row' <<<"$out" && ck ok "one visible census line names all 3 exempted rows" || ck no "no census line -- an invisible filter is indistinguishable from lost lines"
-echo "--- ARM 4: by SHAPE -- two tokens before -class- is a master-board red class, not a package class ---"
+echo "--- ARM 4: by SHAPE -- two tokens before -class- is a rung suite-board red class, not a package class ---"
 n=$(v4 'prolog-master-red-class-scratch-two-tokens'); [ "$n" = 1 ] && ck ok "prolog-master-red-class-* at rank 1 -> still flagged" || ck no "two-token row wrongly exempted ($n line(s))"
 echo "--- ARM 5: rank 2+ was never V4's business, either way ---"
 n=$(v4 'pascal-fpc-class-scratch-rank-two'); [ "$n" = 0 ] && ck ok "package class row at rank 2 -> no V4 line" || ck no "rank-2 row flagged ($n) -- V4 looks only at rank 0/1"

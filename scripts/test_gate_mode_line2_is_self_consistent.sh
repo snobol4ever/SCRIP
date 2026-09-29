@@ -189,8 +189,8 @@ if [ "${1:-}" = "--selftest" ]; then
   # /home/resources/postoffice is not version-controlled: a fixture that can vanish is a selftest that can
   # go quiet, which is the failure this whole gate exists to refuse.
   _hdr='# 2026-09-13 ceo: MODE cut.'
-  _clean_tail='cfo SNOBOL4, the master; hq_C PROLOG BREADTH; hq_I SNOCONE, A PER-LANGUAGE LADDER SEAT; hq_T RAKU, A PER-LANGUAGE LADDER SEAT; ceo ICON (and the CEO loop); cto PROLOG, the ISO ladder. THE SEATS: RAKU -- hq_T; PROLOG -- the cto; SNOCONE -- hq_I; SNOBOL4 -- the cfo; PASCAL -- hq_S; ICON -- the ceo'
-  _hq_s_clause='hq_S PASCAL, A PER-LANGUAGE LADDER SEAT AND THE PASCAL COMPLETENESS OWNER; the oracle is fpc -Miso. REBUS IS CLOSED (RebM 43 of 43 both modes with zero xpass, coo 2026-09-13) and the SNOBOL4 runtime moves to the cfo, so this seat carries Pascal and nothing else'
+  _clean_tail='cfo SNOBOL4, the rungs; hq_C PROLOG BREADTH; hq_I SNOCONE, A PER-LANGUAGE LADDER SEAT; hq_T RAKU, A PER-LANGUAGE LADDER SEAT; ceo ICON (and the CEO loop); cto PROLOG, the ISO ladder. THE SEATS: RAKU -- hq_T; PROLOG -- the cto; SNOCONE -- hq_I; SNOBOL4 -- the cfo; PASCAL -- hq_S; ICON -- the ceo'
+  _hq_s_clause='hq_S PASCAL, A PER-LANGUAGE LADDER SEAT AND THE PASCAL COMPLETENESS OWNER; the oracle is fpc -Miso. REBUS IS CLOSED (RebRungs 43 of 43 both modes with zero xpass, coo 2026-09-13) and the SNOBOL4 runtime moves to the cfo, so this seat carries Pascal and nothing else'
 
   printf '%s\n%s; %s; DT_BOOL rides with it. Rebus moves to hq_S. %s; REBUS -- hq_S\n' \
       "$_hdr" "$_hq_s_clause" "$_clean_tail" "CONCERN 2, SPEED: hq_P" > "$sandbox/MODE.dirty"
@@ -208,7 +208,7 @@ if [ "${1:-}" = "--selftest" ]; then
   # arm cannot fire, and only the exclusivity clause is left to catch it. Without this fixture the disclaimer
   # code could be dead and every other arm would still pass, which is how a criterion gets shipped untested.
   printf '%s\n%s; %s; REBUS -- hq_S\n' "$_hdr" \
-      "$(printf '%s' "$_hq_s_clause" | sed 's/REBUS IS CLOSED (RebM 43 of 43 both modes with zero xpass, coo 2026-09-13) and t/T/')" \
+      "$(printf '%s' "$_hq_s_clause" | sed 's/REBUS IS CLOSED (RebRungs 43 of 43 both modes with zero xpass, coo 2026-09-13) and t/T/')" \
       "$_clean_tail" > "$sandbox/MODE.disclaimonly"
 
   out_d="$(scan_line2 "$sandbox/MODE.dirty" 2>&1)";   rc_d=$?

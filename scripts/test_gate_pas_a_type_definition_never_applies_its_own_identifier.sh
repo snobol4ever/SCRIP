@@ -8,7 +8,7 @@
 # procedure block, so a: r still names the r being defined) compiled and ran. type_decl now reads the pending type's own name and
 # every pending field's type name (g_pas_pend_typename, g_pas_pend_fldtypename, both already kept for the record table) before they
 # are reset, and refuses a match that is not a pointer's domain.
-# Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
+# Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the check: the refused set was identical to the tree before.
 #
 # ARMS: two vendored PAT witnesses, each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the

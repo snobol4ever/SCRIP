@@ -7,7 +7,7 @@ CEO-1289: "Get a new lexer/parser for Raku before doing the benchmarks. Just get
 produce no trees.").
 
 THE POPULATION, three parts, every unit named by a durable key:
-    master:<entry>     every entry of corpus/tests/raku/ALL.raku, extracted alone (a master is a CONTAINER of
+    rungs:<entry>     every entry of corpus/tests/raku/ALL.raku, extracted alone (a rung suite is a CONTAINER of
                        programs, never one program) through corpus_suite_harness.py's own suite readers
     bench:<file>       every *.raku kernel under corpus/benchmarks/raku
     roast:<relpath>    every *.t file under the roast checkout (/home/resources/roast-master)
@@ -33,8 +33,8 @@ HERE = Path(__file__).resolve().parent
 SCRIP_DIR = HERE.parent
 HOME = Path(os.environ.get("S4E_HOME", SCRIP_DIR.parent))
 CORPUS = HOME / "corpus"
-MASTER = CORPUS / "tests" / "raku" / "ALL.raku"
-MASTER_REF = CORPUS / "tests" / "raku" / "ALL.ref"
+RUNGS = CORPUS / "tests" / "raku" / "ALL.raku"
+RUNGS_REF = CORPUS / "tests" / "raku" / "ALL.ref"
 BENCH = CORPUS / "benchmarks" / "raku"
 ROAST = Path(os.environ.get("RAKU_ROAST_DIR", "/home/resources/roast-master"))
 CACHE = CORPUS / "tests" / "raku" / "config" / "RAKUDO-SYNTAX-VERDICTS.tsv"
@@ -48,24 +48,24 @@ def refuse(msg):
     raise SystemExit(2)
 
 
-def master_units(workdir):
+def rungs_units(workdir):
     sys.path.insert(0, str(HERE))
     import corpus_suite_harness as h
     try:
-        entries = h.read_block_suite(str(MASTER), str(MASTER_REF), h.banner_re_for("#", ""))
+        entries = h.read_block_suite(str(RUNGS), str(RUNGS_REF), h.banner_re_for("#", ""))
     except Exception:
-        entries = h.read_suite(str(MASTER), str(MASTER_REF))
+        entries = h.read_suite(str(RUNGS), str(RUNGS_REF))
     out = []
     for e in entries:
         text = (e.sno_lines[0] if e.kind == "line" else "\n".join(e.sno_lines)) + "\n"
         p = workdir / f"{e.name}.raku"
         p.write_text(text)
-        out.append((f"master:{e.name}", p))
+        out.append((f"rungs:{e.name}", p))
     return out
 
 
 def population(workdir):
-    units = master_units(workdir)
+    units = rungs_units(workdir)
     units += [(f"bench:{p.name}", p) for p in sorted(BENCH.glob("*.raku"))]
     units += [(f"roast:{p.relative_to(ROAST)}", p) for p in sorted(ROAST.rglob("*.t"))]
     return units
@@ -135,11 +135,11 @@ def main():
     ap.add_argument("--oracle-timeout", type=int, default=120)
     ap.add_argument("--scrip-timeout", type=int, default=20)
     ap.add_argument("--show", action="store_true", help="under each disagreement, print the source line scrip's error names, with a caret at its column")
-    ap.add_argument("--only", default="", help="grade only units whose key starts with this prefix (master: bench: roast:); a partial run prints PARTIAL")
+    ap.add_argument("--only", default="", help="grade only units whose key starts with this prefix (rungs: bench: roast:); a partial run prints PARTIAL")
     a = ap.parse_args()
     if not Path(RAKU).is_file():
         refuse(f"the oracle {RAKU} is not on the box")
-    for need in (MASTER, MASTER_REF, BENCH, ROAST):
+    for need in (RUNGS, RUNGS_REF, BENCH, ROAST):
         if not need.exists():
             refuse(f"population part missing: {need}")
     with tempfile.TemporaryDirectory(prefix="rk_syntax_") as td:

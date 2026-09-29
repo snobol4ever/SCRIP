@@ -24,7 +24,7 @@
 #       grades the retirement over the CORPUS across a declared window, which under CEO-1232 only the language HQs may
 #       run.  So the silence here is necessary, not sufficient: it reads GREEN with RETIREMENT-PENDING printed, and the
 #       deletion is graded by row gc-the-conservative-auditor-retires-on-six-hq-receipts-each-master-under-the-auditor-build-at-stress-1-and-3-reads-zero-findings
-#       (six receipts, one per language HQ: its master under this auditor build at stress 1 and 3 at the shipped
+#       (six receipts, one per language HQ: its rungs under this auditor build at stress 1 and 3 at the shipped
 #       arena, zero findings), whose own landing deletes everything (f1) lists.
 # ⛔⭐ (d3) AND (e2) STAND ON A PLANT SINCE 2026-09-26 (cfo, the CEO-1274 board row; CEO-554).  Both were keyed on a holder the
 # sweep FOUND, and when 957efcc7c took the lc_vec class off the collected heap the sweep found none and both went red on a

@@ -12,7 +12,7 @@
 # parser's type table resolves to an enumerated, integer, real or char type. The table is flat, so a procedure's locals stay in it
 # after the procedure ends: requiring every declaration of the name to agree is what keeps a Boolean global legal after an
 # enumerated local of the same name (the control arm below proves it). A non-Boolean EXPRESSION (i + 1) is not graded here.
-# Before landing, every acceptance program in the corpus was compiled with the check (PasM, the FPC suite, P4, P5, the benchmarks):
+# Before landing, every acceptance program in the corpus was compiled with the check (PasRungs, the FPC suite, P4, P5, the benchmarks):
 # zero tripped, so the check cannot move another suite's row. The only trips were the P5 copies of these same three tests.
 #
 # ARMS: three vendored PAT witnesses, each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the

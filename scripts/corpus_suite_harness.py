@@ -129,11 +129,11 @@ LANG_CONFIGS = {
 
 # ⛔⭐ A SUITE IS GRADED IN m3 AND m4 AND NOTHING ELSE, AND ANY OTHER --modes REFUSES BEFORE A ROW IS WRITTEN (coo 2026-09-25,
 # row instruments-the-harness-defaults-rebus-raku-prolog-and-snocone-to-the-dead-ast-mode-..., ceo CEO-1269). raku, rebus,
-# prolog and snocone defaulted to "ast" here after the ast entries left the masters (corpus a6646f04c), so `run --lang rebus`
+# prolog and snocone defaulted to "ast" here after the ast entries left the rung suites (corpus a6646f04c), so `run --lang rebus`
 # with no --modes graded --dump-ast against run refs: SUITE_BOARD ast_n=43 ast_pass=0, exit 1, and 43 FAIL rows in the
 # progress record -- three times in five days (coo 09-21, ceo 09-24 and 09-25) -- while --modes m3,m4 read 43/43 FAIL 0.
 # A plausible, entirely false 0 of N. Every entry is graded in both media (CEO-1218), so the defaults are m3,m4 and a mode
-# outside them is a could-not-measure, never a grade. run_ast stays: util_build_master_suite.py's classifier calls it.
+# outside them is a could-not-measure, never a grade. run_ast stays: util_build_rungs_suite.py's classifier calls it.
 GRADED_MODES = ("m3", "m4")
 def parse_modes(spec, where):
     modes = [m for m in (spec or "").split(",") if m]
@@ -141,7 +141,7 @@ def parse_modes(spec, where):
     if not modes or bad:
         refuse(f"{where}: --modes {spec!r} names {', '.join(bad) if bad else 'no mode'} -- a suite is graded in m3 and m4 only "
                f"(CEO-1218: every entry in both media). Mode ast (--dump-ast) grades a parse against a run ref and recorded "
-               f"0 of 43 FAIL rows for the Rebus master three times; nothing was graded and no progress row was written.")
+               f"0 of 43 FAIL rows for the Rebus rungs three times; nothing was graded and no progress row was written.")
     return modes
 
 
@@ -638,7 +638,7 @@ def read_mask_sidecar(ref_path):
     gc2.icn): apply_line_mask sees one line at a time, with no neighbor and no position, so a value sharing
     its digit alphabet with legitimate surrounding output cannot be isolated by a content regex without also
     matching most of the file, which guardrail 4 correctly refuses. Missing file -> no masks, and that is
-    the overwhelmingly common case: seven masters and every package carry none today."""
+    the overwhelmingly common case: seven rung suites and every package carry none today."""
     mp = Path(str(ref_path).rsplit(".", 1)[0] + ".mask")
     if not mp.is_file():
         return {}
@@ -733,7 +733,7 @@ def apply_line_mask(text, patterns, side="both"):
 # ⛔⭐ A SPITBOL FATAL IS GRADABLE (hq_snobol4's measurement 2026-09-27, the cfo seconding, ceo CEO-1344, the coo's row
 # instruments-a-spitbol-fatal-is-gradable-...): x64 sbl -bf prints its FATAL BLOCK ON STDOUT as well as stderr, so a ref cut from
 # the oracle for a program that ends in a fatal carries the block, and SCRIP -- whose ONE error voice goes to stderr -- could never
-# match it: every such program (Budne tab.sno, rewind1.sno; Dotnet 1brc.sno, asgn1.sno; SnoM simple_output_62,
+# match it: every such program (Budne tab.sno, rewind1.sno; Dotnet 1brc.sno, asgn1.sno; SnoRungs simple_output_62,
 # user_function_arbno_rpos_1) was ungradable by construction. THE ONE READER renders SCRIP's stderr error block through
 # util_render_error_voice.py's spitbol list into sbl's block shape and appends it to SCRIP's stdout BEFORE the compare; the runtime
 # keeps its one voice (no SPITBOL text enters src/), the ref stays the oracle's word, and the run-summary lines sbl prints after
@@ -790,8 +790,8 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     got = out.decode("utf-8", "replace").rstrip("\n")
     # ⛔ RENDER ONLY WHAT THE REF CARRIES: the block is appended when the oracle's ref itself holds a fatal line (`<file>(<n>) : ERROR
     # nnn -- ...`). A ref cut without one (snocone ladder__rung23_..._stlimit_halts_a_loop_body: ref `before`, want_rc 1, the halt
-    # graded by rc alone) must not gain a block it never had -- the first masters pass after the render landed read that entry
-    # FAIL and wrote SncM 337/338 on 8c81190b7, a false red of this instrument (coo 2026-09-28 11:0x), restored the same hour.
+    # graded by rc alone) must not gain a block it never had -- the first rung suites pass after the render landed read that entry
+    # FAIL and wrote SncRungs 337/338 on 8c81190b7, a false red of this instrument (coo 2026-09-28 11:0x), restored the same hour.
     if rc is not None and rc != 0 and expected_text is not None and FATAL_REF_LINE.search(expected_text):
         got, _fatal_n = _render_fatal_into_stdout(got, err)
         # THE rc CLAUSE OF THE SAME LIST (measured 2026-09-28): sbl -bf EXITS 0 after a run-time fatal, SCRIP's one voice exits 1;
@@ -928,7 +928,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
         return Verdict("SKIP", detail="libscrip_rt.so not built")
     # ⛔⭐ THE m4 BINARY IS NAMED AFTER ITS OWN SOURCE AND INVOKED BY BARE NAME (ceo CEO-569, on the
     # coo's COO-56 ask; the same cure hq_B landed for the arizona runner, one level up). It was "t.bin"
-    # for every entry of every master suite in seven languages, so &progname / &pgname answered a name
+    # for every entry of every rung suite suite in seven languages, so &progname / &pgname answered a name
     # NO .ref was ever cut from and every entry answered the SAME one -- the mode-4 half of hq_B's finding
     # that no single ref can be right for both modes on a program that prints its own name. Entry 924
     # (jcon kwds.icn, absorbed) STAYS RED by that ruling: its ref is a one-step cut naming the .icn source,
@@ -943,7 +943,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # materialized INTO tmp_dir ... so tmp_dir IS the cwd below" -- and run_suite_entry materializes the entry
     # into ITS OWN tempdir and then calls run_all_modes, which opens A SECOND, NESTED tempdir and passes THAT
     # as tmp_dir. So out_bin.parent was never run_dir for a suite entry, _same was always False, and every
-    # master entry in seven languages was still invoked BY ITS ABSOLUTE MKTEMP PATH -- the exact ungradability
+    # rungs entry in seven languages was still invoked BY ITS ABSOLUTE MKTEMP PATH -- the exact ungradability
     # CEO-569 named, surviving a cure that had been checked by reading the source and by grepping for the
     # spelling. ⛔ A SOURCE-LEVEL ASSERTION IS NOT A MEASUREMENT OF BEHAVIOUR: the gate's own clause 1 greps
     # this file for the pinned form and went green throughout, because the form is right here and the caller
@@ -954,7 +954,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # ⛔ ONLY THE BINARY MOVES. The .s/.o intermediates stay in tmp_dir, so the run directory gains exactly one
     # file -- the same discipline test_icon_jcon_suite.sh keeps for its rundir, and for the same measured
     # reason: a program that lists its own directory grades what is in it (jcon io.icn). Censused across all
-    # seven masters before landing: no entry lists or globs its run directory; three print their own argv[0]
+    # seven rung suites before landing: no entry lists or globs its run directory; three print their own argv[0]
     # (icon 414 prints only its TYPE and length, icon 924 is this row, snobol4 104 prints HOST(0)).
     out_bin = (Path(bin_dir) if bin_dir else tmp_dir) / (Path(sno_path).stem or "t")
     skip = compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=compile_args)
@@ -1284,7 +1284,7 @@ def write_suite(entries, out_sno, out_ref, out_in=None, lang=""):
     constant; a '*'-banner in a non-SNOBOL4 block is not a comment in that language at all (Icon's is '#'),
     so the container stops being valid source in its own language. LANG_CONFIGS already carries the right
     comment_open/close (make_banner_cfg/banner_re_for already existed for this, used by
-    util_build_master_suite.py -- this writer just never took a lang param to reach them). Blank/"snobol4"
+    util_build_rungs_suite.py -- this writer just never took a lang param to reach them). Blank/"snobol4"
     keeps the exact prior '*' behaviour (every already-built package is lang="" and is unaffected).
     ⛔ The round-trip self-check below MUST use the same convention it just wrote with, or it silently
     validates against its own SNOBOL4-flavored default reader while the real bug (wrong comment char for
@@ -1415,10 +1415,10 @@ def stdin_companion_candidates(src):
     """Every stdin companion that EXISTS for a loose source: <stem><suffix> beside it and in `config/`.
     ⛔⭐ THIS IS THE ONE PLACE THE SPELLINGS ARE WRITTEN DOWN, and it exists because they were written
     down THREE times with THREE different answers (hq_V 2026-09-11, measured): this finder knew
-    `.stdin/.in/.input`, util_build_master_suite.py's generalised stdin guard knew `.in/.input`, and its
+    `.stdin/.in/.input`, util_build_rungs_suite.py's generalised stdin guard knew `.in/.input`, and its
     snobol4 plain-program guard knew `.input` alone. All 8 icon stdin companions in the corpus are spelled
     `config/<stem>.stdin` -- the one spelling the BUILDER did not know -- so the builder absorbed each of
-    them as an ordinary pair, the master graded a stdin-reading program against /dev/null, and the
+    them as an ordinary pair, the rungs graded a stdin-reading program against /dev/null, and the
     auto-xfail path filed the starved run as a documented red. THERE IS NO XFAIL: every one of those is a
     FAIL on the board. Proved both directions on scratch corpora one byte apart: `config/w.stdin`
     ABSORBED (0 excluded), `config/w.in` EXCLUDED BY NAME, same program, same input, same ref.
@@ -1444,7 +1444,7 @@ def loose_stdin_companion(src):
     # ⛔⭐ SEARCH `config/` TOO, NOT ONLY BESIDE THE SOURCE (hq_U 2026-09-08, measured). The Icon ladder
     # keeps its inputs in a `config/` subdirectory, so this function answered "no companion" for a program
     # that plainly has one, and the documented `no companion -> /dev/null` path minted the entry UNFED.
-    # rung36_jcon_recogn was absorbed into the Icon master that way and its .ref recorded the STARVED run
+    # rung36_jcon_recogn was absorbed into the Icon rungs that way and its .ref recorded the STARVED run
     # (one newline, against the standalone witness's 8 lines) -- a green cell inside a 704/704 board that
     # was grading a program which exits at EOF before reaching any `suspend`. It also hid a real by-name
     # scanning defect underneath it for three sittings. 9 such companions are live (8 icon, 1 snobol4).
@@ -1982,7 +1982,7 @@ def _copy_companions(text, companion_dir, dest_dir):
     # INPUT() never signals failure and THE SAME PROGRAM HANGS. So a companion the search cannot find does not
     # produce four red entries somebody notices -- it produces a board that STOPS, which reads as
     # infrastructure trouble and sends the next person to the runner instead of to the corpus.
-    # ⭐ The measurement behind this branch is hq_C's controlled A/B on the snobol4 master, one variable
+    # ⭐ The measurement behind this branch is hq_C's controlled A/B on the snobol4 rungs, one variable
     # (companion location): companions BESIDE -> m3 1421 pass / 0 fail; the same 16 in config/ WITHOUT this
     # search -> 1417 / 4 fail; WITH it -> 1421 / 0, re-run independently by hq_B with the beside-arm
     # reproducing 1421/0 first as the positive control for the experiment itself.
@@ -2104,7 +2104,7 @@ def cmd_capture_oracle_refs(args):
 
     green, red = [], []
     # ⛔⭐ A SCRIP-RULED PIN IS NOT THE ORACLE'S TO OVERWRITE (row/ask hq_C -> hq_T 2026-09-04). `pin-ref`
-    # records, in ALL.refpins.tsv beside the master, every entry whose ref disagrees with the oracle ON A
+    # records, in ALL.refpins.tsv beside the rungs, every entry whose ref disagrees with the oracle ON A
     # STATED RULING -- the witness being Lon's lambda-deferred-target sugar, which SPITBOL fails and always
     # will. Without this consultation `--force` would faithfully restore the oracle's answer and silently undo
     # a decision nobody remembers making; the refusal is what turns the ledger from documentation into a
@@ -2524,14 +2524,14 @@ def require_lang_for_suite(subcmd, src_path, args):
 
     `run` and `pin-ref` take a suite pair and an OPTIONAL --lang, and --lang is what selects the comment syntax
     that DELIMITS ENTRIES. Omitted, they fell back to the SNOBOL4 grammar (`*` banners), which over a Pascal or
-    Rebus master parses EVERY SOURCE LINE as its own entry -- a completely different population -- and then
+    Rebus rungs parses EVERY SOURCE LINE as its own entry -- a completely different population -- and then
     reports failures about that imaginary population with total confidence.
-    ⛔ MEASURED on two committed, UNCORRUPT masters: `run` on the pascal master without --lang printed
+    ⛔ MEASURED on two committed, UNCORRUPT rung suites: `run` on the pascal rungs without --lang printed
     `family.ref is shorter than family.sno at seq 904` for a pair whose ALL.pas and ALL.ref BOTH carry exactly
-    251 entry markers, and the rebus master printed `ALL.wantrc: declarations with no matching entry` naming
+    251 entry markers, and the rebus rungs printed `ALL.wantrc: declarations with no matching entry` naming
     four entries that DO exist.
     ⛔⭐ THE DEFECT IS THE SILENT FALLBACK, NOT THE MISSING FLAG: both messages ACCUSE THE DATA, so the reader is
-    sent to edit a corpus that is fine. The cfo was one step from filing two masters as unrunnable and telling
+    sent to edit a corpus that is fine. The cfo was one step from filing two rung suites as unrunnable and telling
     Lon so; what stopped it was hand-counting the markers and finding that 251 and 251 did not fit the story.
     A tool that changes its POPULATION SEMANTICS on an omitted argument owes its user a refusal, not a verdict.
     ⭐ This is the same fault class, and deliberately the same wording, as the suffix refusal cmd_list has
@@ -2566,7 +2566,7 @@ def _corpus_is_the_shared_population(corpus_root):
     the corpus root is whatever S4E_HOME/corpus resolves to. A hermetic fixture that builds its own two-repo world and
     points S4E_HOME at it therefore lands INSIDE its own corpus tree and is judged a board, which is how
     test_gate_progress_rows_carry_the_start_fingerprint.sh came to be DARK on origin for a day: its eight-entry scratch
-    master was refused rc=2, the harness appended nothing, and arms 1 and 2 read FAIL for a reason that was never about
+    rungs was refused rc=2, the harness appended nothing, and arms 1 and 2 read FAIL for a reason that was never about
     fingerprints. ⭐ THE FACT ASKED HERE IS THE ONE CEO-547 ACTUALLY NAMES -- is this the population every seat has? --
     and it is asked of the remote: a real checkout carries origin snobol4ever/corpus, a `git init` scratch world carries
     no remote at all. ⛔ UNREADABLE ANSWERS TRUE: a guard that cannot tell must refuse, never wave through."""
@@ -2711,7 +2711,7 @@ def _one_runner_guard(suite_path=None, corpus_root=None, lang=None):
             sys.exit(2)
         if os.environ.get("S4E_ONE_RUNNER_OVERRIDE"):
             print("\u26a0 ONE-RUNNER OVERRIDE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_OVERRIDE"])); return
-    sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: a %s master/package run is a board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ.\n" % (blang, seat or "?", " or ".join(who) if who else "<no seat -- the LANES line names none>", blang))
+    sys.stderr.write("\u26d4 REFUSE(2) ONE RUNNER, ONE BOARD -- ONE RUNNER PER LANGUAGE: a %s rungs/package run is a board and seat %s is not %s, the seat MODE LANES: names for %s. Every language HQ runs its OWN language suites, once per landing, on origin HEAD, and writes its own rows (Lon 2026-09-16 10:5x, RULES.md § ONE RUNNER PER LANGUAGE, CEO-775); another language board is an ASK to that language HQ.\n" % (blang, seat or "?", " or ".join(who) if who else "<no seat -- the LANES line names none>", blang))
     sys.exit(2)
 
 def cmd_run(args):
@@ -2727,11 +2727,11 @@ def cmd_run(args):
         os.environ["S4E_MEM_OOM_AT_START"] = str(_mem_scope().oom_kills() or 0)
     _progress_pin(paths)
     check_scrip(paths)
-    # ⛔⭐ THE STATEMENT INSTRUMENTATION IS EACH UNIT'S OWN DECLARATION (clause 8 (f), CEO-1281): every snobol4, snocone and rebus master
+    # ⛔⭐ THE STATEMENT INSTRUMENTATION IS EACH UNIT'S OWN DECLARATION (clause 8 (f), CEO-1281): every snobol4, snocone and rebus rungs
     # row declares --stlimit in its compile_args (corpus d57d1ae81), which read_command_line_columns attaches and _compile_switches
-    # applies. This harness typed it here for those three languages from 2026-09-25 (hq_snocone: SncM graded 335/338 without it,
+    # applies. This harness typed it here for those three languages from 2026-09-25 (hq_snocone: SncRungs graded 335/338 without it,
     # SPITBOL always counts) until 2026-09-26, when the rows took it over; a row without the cell compiles without the switch.
-    # ⛔ THE BINARY IS STAMPED AT THE START AND CHECKED BEFORE ANY BOARD LINE IS PRINTED (coo 2026-09-16; hq_raku's RakM 764/927 graded
+    # ⛔ THE BINARY IS STAMPED AT THE START AND CHECKED BEFORE ANY BOARD LINE IS PRINTED (coo 2026-09-16; hq_raku's RakRungs 764/927 graded
     # across a mid-run make). An outer runner's S4E_BIN_AT_START is kept; otherwise this run stamps its own.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import util_progress_append as _upa_bin
@@ -2741,7 +2741,7 @@ def cmd_run(args):
     print(f"BINARY_AT_START {os.environ['S4E_BIN_AT_START']} (md5/12 of scrip, libscrip_rt.so; a rebuild under this run refuses the board)", flush=True)
     # ⛔⭐ A BOARD NAMES THE ARENA IT RAN UNDER (Lon 2026-09-19, ceo CEO-931/934/938; RULES.md batch 28 CLAUSE 2).  The
     # tiny arena is the default of all GC testing, so the SAME suite legitimately reads two different populations on one
-    # binary -- SnoM 1963/1974 at the shipped 512 MB window and 1959/1974 at 1 MB -- and a reader who cannot see which
+    # binary -- SnoRungs 1963/1974 at the shipped 512 MB window and 1959/1974 at 1 MB -- and a reader who cannot see which
     # one a board is has no measurement.  Reported, never defaulted here: the knob comes from the environment (the
     # Makefile exports 1 for everything run through make), because a harness that silently changed every existing
     # board's arena would change what every published number MEANS with no line of evidence anywhere.
@@ -2790,7 +2790,7 @@ def cmd_run(args):
     for _label, _p in (("suite", args.sno), ("ref", args.ref)):
         if not Path(_p).is_file():
             refuse(f"{_label} file does not exist: {_p} -- nothing was graded, and a run that graded nothing is "
-                   f"UNMEASURED, never a red board (check the path, or build the master first)")
+                   f"UNMEASURED, never a red board (check the path, or build the rungs first)")
     if args.lang:
         cfg = LANG_CONFIGS[args.lang]
         ext = cfg["ext"]
@@ -2827,7 +2827,7 @@ def cmd_run(args):
     require_population(paths, len(entries), 1, f"entries read from {args.sno} (a suite pair that names zero entries cannot be graded)")
     # ⛔ THE SUITE'S NAMES ARE TAKEN BEFORE THE SHARD CUTS THEM: the outside list's presence check below asks whether a name is in
     # THIS SUITE, never in this shard -- read from the sharded list, every outside name graded by another shard read as a stale row
-    # and 6 of 6 SnoM shards refused rc=2 (hq_snobol4 2026-09-24; row instruments-the-harness-shard-filter-cuts-the-entry-list-
+    # and 6 of 6 SnoRungs shards refused rc=2 (hq_snobol4 2026-09-24; row instruments-the-harness-shard-filter-cuts-the-entry-list-
     # before-the-outside-list-presence-check-so-every-sharded-run-of-a-suite-with-an-outside-list-refuses).
     _suite_names = {e.name for e in entries}
     shard_tag = ""
@@ -2893,17 +2893,17 @@ def cmd_run(args):
     # and m4 specific columns. We do not do that here." and "mode 3 and 4 are the same with only different MEDIA, binary versus
     # text"). Every entry is graded in every mode the caller asked for; nothing in a suite can narrow that.
     run_entries = entries
-    # ⛔⭐ OUTSIDE THE BASELINE (ceo ruling 2026-09-08 on the cfo's find; the master half of the rule
-    # OUTSIDE_SPITBOL_BASELINE.tsv already carries for a package). A MASTER entry the language's ORACLE
-    # CANNOT RUN is outside the master's baseline exactly as a package program is: it leaves the graded
+    # ⛔⭐ OUTSIDE THE BASELINE (ceo ruling 2026-09-08 on the cfo's find; the rungs half of the rule
+    # OUTSIDE_SPITBOL_BASELINE.tsv already carries for a package). A RUNGS entry the language's ORACLE
+    # CANNOT RUN is outside the rungs' baseline exactly as a package program is: it leaves the graded
     # denominator, it is NEVER masked per line, and the reason is recorded beside the suite with the
     # oracle's own words. The board then reads N/N honestly instead of carrying a permanent red nobody can
     # ever cure, and the denominator move is a CRITERION CHANGE, never a regression.
-    # ⛔ WHY THIS IS NEEDED AT ALL, WHICH IS THE ACTUAL FINDING: master refs were cut from OUR OWN OUTPUT
+    # ⛔ WHY THIS IS NEEDED AT ALL, WHICH IS THE ACTUAL FINDING: rungs refs were cut from OUR OWN OUTPUT
     # rather than from the oracle, so a program the oracle cannot even compile came to sit in the graded
     # set asserting another implementation's answers as Icon's. A ref that pins us is not an oracle.
     # ⛔ THE LIST IS A RECORD, NOT A MASK: every name here is printed with its reason on every run. It is
-    # NOT re-probed against the oracle by this harness -- the master grades SCRIP against a stored ref and
+    # NOT re-probed against the oracle by this harness -- the rungs grades SCRIP against a stored ref and
     # never invokes the oracle -- so a stale entry (one the oracle has since learned to run) is caught by a
     # re-probe elsewhere, not here, and the record carries the date its refusal was checked.
     outside = {}
@@ -2912,10 +2912,10 @@ def cmd_run(args):
     if _outside_none and _outside_path:
         refuse("--outside and --outside-none together: one names a baseline and the other refuses every baseline -- a run cannot be graded both ways")
     # ⛔⭐ THE SIBLING LIST RIDES WITHOUT THE FLAG (coo 2026-09-17, MEASURED: two boards, same corpus a6bcd8097,
-    # 76 minutes apart, disagreed on the SAME SEVEN snobol4-master entries -- cfo 22:55:52Z read PASS, cto
+    # 76 minutes apart, disagreed on the SAME SEVEN snobol4-rungs entries -- cfo 22:55:52Z read PASS, cto
     # 00:11:39Z read OUTSIDE -- and the accounting closed exactly: cfo PASS 3940 vs cto 3926 (+14 = 7 entries
     # x 2 modes), cfo FAIL 23 vs cto 21 (+2), 16 = the cto's whole OUTSIDE count. The difference was not the
-    # tree and not the oracle: it was the FLAG. `test_corpus_snobol4.sh` and `board_icon_master.sh` pass
+    # tree and not the oracle: it was the FLAG. `test_corpus_snobol4.sh` and `board_icon_rungs.sh` pass
     # --outside; a direct `corpus_suite_harness.py run` -- the invocation this repo's own digest documents --
     # did not, so the eight entries the ONE ORACLE REFUSES TO RUN were graded against their stored .ref and
     # seven of them "passed" by agreeing with our own past output. A ref is evidence about a past oracle run,
@@ -2924,7 +2924,7 @@ def cmd_run(args):
     # THE INSTRUMENT LAW THIS BREAKS: a declared fact sitting beside the data must not depend on a caller
     # remembering a flag -- `test_corpus_snobol4.sh` already says in its own comment that "a declared outside
     # list that no runner passes is INERT", and this closes the other half of that hole. The list is DERIVED
-    # from the suite's own directory whenever the suite is a master (`ALL.<ext>`) with `ALL.outside.tsv`
+    # from the suite's own directory whenever the suite is a rung suite (`ALL.<ext>`) with `ALL.outside.tsv`
     # beside it, and the provenance is PRINTED either way, so no board can be read without knowing which
     # baseline it was graded against. --outside-none is the loud, printed escape for a run that deliberately
     # wants the shipped set; it is never the default and never silent.
@@ -2992,7 +2992,7 @@ def cmd_run(args):
     # ⭐⭐ OOM ON THE BOARD LINE (CEO-1229 (2); the verdict is _oom_verdict's). The PROGRESS ROW says OOM. The SUITE_BOARD line keeps
     # an OOM inside <m>_fail and prints how many of them were OOM beside it as <m>_fail_oom, the way the xfail split rides beside
     # xfail (CEO-432 item 2) -- because 89 files under scripts/ name this line on 2026-09-24, the boards among them read fail (+crash)
-    # as their red (test_corpus_snobol4.sh FAIL = m3_fail + m3_crash, board_icon_master.sh, the Pascal gates' bad sums), and none of
+    # as their red (test_corpus_snobol4.sh FAIL = m3_fail + m3_crash, board_icon_rungs.sh, the Pascal gates' bad sums), and none of
     # them knows the new word: folding OOM OUT of fail would turn each such board green on a program that did not answer, silently. Since dc739c38a an OOM already read as fail here (rc 1, output mismatch), so no reader's verdict moves by a unit.
     # Whether a landing gate should stop counting an OOM as red is a ruling, asked of the ceo, not taken here.
     _OOMK = "OOM"
@@ -3097,7 +3097,7 @@ def cmd_run(args):
 
 def _entry_note(xfail, v, shard_tag=""):
     # ⛔ A RED IS A BUCKET, NOT A VERDICT (hq_snobol4 2026-09-16, row instruments-a-red-is-a-bucket-every-board-prints-a-fingerprint-
-    # beside-each-red-and-the-denominator-of-its-comparison): SnoM read 1962/1981 with a defect and 1962/1981 without it while
+    # beside-each-red-and-the-denominator-of-its-comparison): SnoRungs read 1962/1981 with a defect and 1962/1981 without it while
     # testpgms test1 was red on base AND head with a DIFFERENT first diff each time -- every board compared counts, the careful
     # ones red NAME SETS, and both treat reds as interchangeable.  So every non-PASS row carries a FINGERPRINT of OUR OWN stdout
     # for that entry (md5/8) and its rc, beside the xfail marker and the shard tag (row instruments-a-sharded-harness-run-appends-
@@ -3129,7 +3129,7 @@ PROGRESS_PACKAGE_KEYS = {"arizona_tests": "arizona", "jcon_tests": "jcon", "ipl"
 def progress_suite_for(sno_path, paths):
     """(class, suite, lang) when sno_path is a CANONICAL suite -- corpus/tests/<lang>/ALL.<ext> or
     corpus/packages/<lang>/<pkg>/ALL.<ext> under this tree's corpus root (or under any root when S4E_PROGRESS_DB
-    redirects the table, which is how the gate proves the arm) -- else None. A scratch copy of a master grades
+    redirects the table, which is how the gate proves the arm) -- else None. A scratch copy of a rung suite grades
     exactly as before and records nothing: the live table only ever sees the real suites."""
     p = Path(sno_path).resolve()
     parts = p.parts
@@ -3141,7 +3141,7 @@ def progress_suite_for(sno_path, paths):
     if p.stem != "ALL":
         return None
     if len(parts) >= 3 and parts[-3] == "tests":
-        return ("master", f"{parts[-2]}-master", parts[-2])
+        return ("rungs", f"{parts[-2]}-rungs", parts[-2])
     if len(parts) >= 4 and parts[-4] == "packages":
         return ("package", PROGRESS_PACKAGE_KEYS.get(parts[-2], parts[-2]), parts[-3])
     return None
@@ -3191,7 +3191,7 @@ def _progress_record(sno_path, paths, rows):
 
 
 def refpins_path(src_path):
-    """The pin ledger beside a master pair: ALL.refpins.tsv for ALL.sno."""
+    """The pin ledger beside a rung suite pair: ALL.refpins.tsv for ALL.sno."""
     return Path(src_path).parent / (Path(src_path).stem + ".refpins.tsv")
 
 
@@ -3213,12 +3213,12 @@ def read_refpins(src_path):
 def cmd_pin_ref(args):
     """⛔⭐ RE-ANCHOR ONE ENTRY'S REF TO SCRIP'S OWN RULED OUTPUT, WITH PROVENANCE AND A LEDGER.
 
-    THE GAP THIS FILLS (hq_C -> hq_T, 2026-09-04, blocking the SNOBOL4 master control arm): an entry whose
+    THE GAP THIS FILLS (hq_C -> hq_T, 2026-09-04, blocking the SNOBOL4 rungs control arm): an entry whose
     correct answer is a SCRIP RULING rather than the oracle's answer had NO supported way to be re-anchored.
     The witness is `p = LEN(1) . *(n = n + 1)` (entry user_function_len_defer_branch_6): Lon ruled the
     lambda-deferred-target sugar in, SCRIP now prints `before / after n=1 dummy=[]`, SPITBOL fails the
     construct and always will -- so `capture-oracle-refs` would faithfully re-record the OLD answer, which is
-    exactly what seat08 warned must never be run on that row. The master's loose source pair no longer exists
+    exactly what seat08 warned must never be run on that row. The rungs' loose source pair no longer exists
     (one-flat-suite), so there was no upstream to fix either: the only remaining option was hand-editing a
     generated 1753-entry file, which hq_C correctly refused to do.
 
@@ -3244,7 +3244,7 @@ def cmd_pin_ref(args):
     if not args.ruling.strip():
         refuse("--ruling is mandatory: a pinned ref with no stated authority cannot be told from a ref cut "
                "while the compiler was broken")
-    # ⛔ THE READER IS CHOSEN THE WAY `run` CHOOSES IT, never assumed. The SNOBOL4 master is MIXED -- one-line
+    # ⛔ THE READER IS CHOSEN THE WAY `run` CHOOSES IT, never assumed. The SNOBOL4 rungs is MIXED -- one-line
     # entries and banner blocks in one file -- and read_block_suite dies on its very first line. Getting this
     # wrong is not a crash you can ignore: a pin is a rewrite of the whole pair, so a reader that mis-parses
     # would rewrite 1753 entries into whatever it thought it read.
@@ -3346,7 +3346,7 @@ def cmd_pin_ref(args):
                         "date": time.strftime("%Y-%m-%dT%H:%MZ", time.gmtime()),
                         "ruling": args.ruling.strip() + f"  [ORACLE AT PIN TIME: {ora_line}]"}
     with open(led, "w") as f:
-        f.write("# SCRIP-RULED REF PINS for this master. ⛔ An entry listed here has a ref that DISAGREES WITH THE\n"
+        f.write("# SCRIP-RULED REF PINS for this rung suite. ⛔ An entry listed here has a ref that DISAGREES WITH THE\n"
                 "# ORACLE ON PURPOSE, on a stated ruling -- capture-oracle-refs REFUSES to touch these, because\n"
                 "# restoring the oracle's answer would silently undo a decision nobody remembers making.\n"
                 "# ⛔ A pin is evidence only while its sha matches: if the ref has been edited since, the pin no\n"
@@ -3357,7 +3357,7 @@ def cmd_pin_ref(args):
             f.write(f"{k}\t{r['sha']}\t{r['measurer']}\t{r['date']}\t{r['ruling']}\n")
     print(f"\n✅ PINNED {args.entry} from a live {args.mode} run · ledger {led.name} now carries {len(rows)} pin(s)")
     print(f"   sha256/16 {sha} · ruling: {args.ruling.strip()}")
-    print("   ⛔ Commit the master pair AND the ledger together -- a pin whose ledger line is unpushed is a ref "
+    print("   ⛔ Commit the rungs pair AND the ledger together -- a pin whose ledger line is unpushed is a ref "
           "that disagrees with the oracle for no recorded reason.")
 
 
@@ -3384,7 +3384,7 @@ def cmd_extract(args):
     if getattr(args, "origin", ""):
         _csv = Path(args.sno).with_name("ALL.csv")
         if not _csv.is_file():
-            refuse(f"--origin needs the master index beside the suite ({_csv}) and it is not there -- extract by name, or point at the master")
+            refuse(f"--origin needs the rungs index beside the suite ({_csv}) and it is not there -- extract by name, or point at the rungs")
         import csv as _csvmod
         _hits = [r["entry"] for r in _csvmod.DictReader(open(_csv, encoding="utf-8")) if r.get("origin") == args.origin]
         if not _hits:
@@ -3406,10 +3406,10 @@ def cmd_extract(args):
     # suite-harness-xfail-extract-round-trip, hq_P finding 2026-08-30, seat15 landing). Neither reader was
     # ever given in_path/x_path here, so e.stdin and e.xfail_reason came back None for EVERY extracted
     # entry regardless of what the suite actually carries -- exactly the same hole 4cc1ccbb closed in
-    # util_build_master_suite.py's deletion verifier, one consumer over. MEASURED live and dangerous:
+    # util_build_rungs_suite.py's deletion verifier, one consumer over. MEASURED live and dangerous:
     # snobol4's ALL.in has 9 stdin-bearing entries; a stdin-starved program routinely exits rc=0 with
     # EMPTY output (identical exit code to a fed run), so nothing about the run distinguishes the two --
-    # only carrying the field does. 21 scripts route through lib_master_extract.sh -> this function.
+    # only carrying the field does. 21 scripts route through lib_rungs_extract.sh -> this function.
     _in_path = sidecar_in_path(args.sno)
     _x_path = sidecar_xfail_path(args.sno)
     try:
@@ -3707,7 +3707,7 @@ def validate_args_cell(raw, col, where):
     (nothing declared: byte-identical to the run before the column existed). RULES.md hard-cap rule clause 8 (f), ceo
     CEO-1281: the command line a test unit needs is stored with it, and the runner types none of its own.
     ⛔ SPACE-SEPARATED WORDS, NO QUOTING LANGUAGE: a comma, a quote or a tab is refused, because the positional readers
-    (lib_master_extract.sh, board_denominators.sh) split rows on commas. Censused 2026-09-26 over the 68 argv declarations
+    (lib_rungs_extract.sh, board_denominators.sh) split rows on commas. Censused 2026-09-26 over the 68 argv declarations
     in 63 sidecars: no argument holds a space, a comma or a quote, so the rule loses nothing today, and an argument that
     ever needs one is refused here rather than split wrong."""
     if raw is None:
@@ -3766,7 +3766,7 @@ def cmdline_declarations(sno_path):
 
 def read_command_line_columns(src_path, entries, modes=None):
     """Attach the compile_args and run_args columns of the ALL.csv beside a suite to its entries BY NAME: the ONE reader of
-    a test unit's command line for the masters and the package tables (clause 8 (f), CEO-1281). compile_args are applied at
+    a test unit's command line for the rung suites and the package tables (clause 8 (f), CEO-1281). compile_args are applied at
     the compile step in both modes (scrip --run in m3, scrip --compile in m4); run_args are the program's own argv after
     `--`, both modes, carried in entry.argv exactly as a <family>.argv declaration is.
     ⛔ AN ENTRY DECLARED IN BOTH PLACES IS REFUSED: the column is the declaration and the argv sidecars fold into it, so two
@@ -3827,18 +3827,18 @@ def read_command_line_columns(src_path, entries, modes=None):
 
 def cmd_extract_family(args):
     """Materialize every entry of ONE family back out as a standalone SUITE PAIR (still banner-block or
-    one-line, matching the master's own format) rather than loose individual files -- the bridge for a
+    one-line, matching the rungs' own format) rather than loose individual files -- the bridge for a
     gate that grades a whole suite via `run` the way an old per-family suite file did, before the
     one-flat-suite cutover retired per-family files (corpus-suites-consolidation.task.md, THE ONE-FLAT-
-    SUITE RULING). Family membership comes from the master's OWN CSV (the `family` column), never
+    SUITE RULING). Family membership comes from the rungs' OWN CSV (the `family` column), never
     re-derived from a name convention -- entries carry no origin/family field once round-tripped through
     plain suite text, and the family-prefix-in-the-name shape is a naming CONVENTION this row's own
     output uses, not a guarantee every consumer may assume (a descriptive rename could break it silently
-    -- see util_build_master_suite.py's own descriptive_name(), which never consults the CSV either).
+    -- see util_build_rungs_suite.py's own descriptive_name(), which never consults the CSV either).
     ⛔⭐ CARRIES STDIN + XFAIL, BOTH WAYS (seat07 2026-08-30, on hq_C's law: "a check that does not carry
     every field the grader reads is not a check"). The first version of this command read and wrote body
     text only, silently dropping any entry's stdin sidecar -- the identical hole hq_C found and fixed in
-    util_build_master_suite.py's deletion verifier the same night (SCRIP 4cc1ccbb), independently hit here
+    util_build_rungs_suite.py's deletion verifier the same night (SCRIP 4cc1ccbb), independently hit here
     because extraction is its own round trip with its own read and its own write."""
     import csv as _csv
     with open(args.csv, newline="") as f:
@@ -3874,7 +3874,7 @@ def cmd_extract_family(args):
         write_block_suite(sel, args.out_sno, args.out_ref, _copen, _cclose)
     else:
         write_suite(sel, args.out_sno, args.out_ref)
-    # ⭐ SAME PATTERN AS util_build_master_suite.py's main() write path, deliberately not
+    # ⭐ SAME PATTERN AS util_build_rungs_suite.py's main() write path, deliberately not
     # write_block_suite's own out_in=/out_x= parameters: mirroring the one place this sidecar-write-
     # plus-cleanup dance is already proven correct, rather than trusting write_block_suite's internal
     # handling (which writes when told to but does not clean up a stray existing file if nothing new
@@ -3947,7 +3947,7 @@ def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
     output's own stem, since lib_declared_arena.sh's *_beside readers key a sidecar by the program beside it: <stem>.heap and
     <stem>.stack (NAME<TAB>KB) and <stem>.cmdline (NAME<TAB>compile_args<TAB>run_args), each only when the unit's ALL.csv row
     declares it. ⛔⭐ CEO-1127: an entry extracted standalone is how every seat cures, and a declaration left behind grades a
-    different program -- master entry 1991 declares --stlimit, 131072 KB and 4096 KB, and extract carried none of the three
+    different program -- rungs entry 1991 declares --stlimit, 131072 KB and 4096 KB, and extract carried none of the three
     (coo 2026-09-26, measured). A stale sidecar is removed only when an extract wrote it (its first line says so)."""
     import csv as _csvm
     csv_path = Path(suite_sno).parent / "ALL.csv"
@@ -3977,7 +3977,7 @@ def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
 # THE AREA SMOKE (Lon 2026-09-27, verbatim: "So if you change the SPAN function, then run every program that has SPAN as a
 # reference. That is one of the columns in the attribute file."; ceo CEO-1342; RULES.md section ONE TESTING OFFICER, ONE SCORE
 # BOARD, THE AREA SMOKE clause 4; the coo's row instruments-the-area-smoke-...-ceo-1342). The per-landing arm every seat runs
-# INSTEAD of a suite: the master and package entries whose ATTRIBUTE ROW marks a named feature, read through THIS one reader,
+# INSTEAD of a suite: the rungs and package entries whose ATTRIBUTE ROW marks a named feature, read through THIS one reader,
 # run in both modes with each entry's declared heap_kb / stack_kb / compile_args / run_args / out_files, the population
 # printed by name beside the verdict.
 # ⛔ IT IS NOT A BOARD AND IT NEVER BECOMES ONE: it calls no one-runner guard because it needs none -- it appends NO progress
@@ -4067,7 +4067,7 @@ def smoke_select(corpus_root, features, only_tables=None):
 def _smoke_outside_names(suite):
     """The entries the suite's own declarations keep out of the graded denominator -- excluded from the smoke, named (the cfo
     2026-09-28: the first smoke selected arizona's cfuncs, extlvals, env, checkc, fncs1 and kwds, each declared beside the package,
-    and read six reds the board never counts). A master declares ALL.outside.tsv; a package declares UNGRADED.tsv, UNGRADABLE.tsv,
+    and read six reds the board never counts). A rung suite declares ALL.outside.tsv; a package declares UNGRADED.tsv, UNGRADABLE.tsv,
     OUTSIDE_*_BASELINE.tsv, EXCLUDED.tsv and CONTAINERS.tsv (lib_inventory.sh's buckets), first column a file name whose extension
     the entry name drops. The smoke reads the same files the board reads and grades the same denominator."""
     out = set()
@@ -4297,8 +4297,8 @@ def cmd_list(args):
     cmd_extract, ONE AUTHORITY: read_suite()).
 
     ⛔⭐ --lang ADDED 2026-09-02 (hq_P, on hq_B's report from the rung-6 witness landing). THIS SUBCOMMAND
-    COULD NOT READ ANY NON-SNOBOL4 MASTER AT ALL. read_suite() hardcodes SNOBOL4's `*` banner marker, so a
-    Prolog master (`%` comments) parsed as thousands of one-line entries and died on the UNMODIFIED committed
+    COULD NOT READ ANY NON-SNOBOL4 RUNGS AT ALL. read_suite() hardcodes SNOBOL4's `*` banner marker, so a
+    Prolog rungs (`%` comments) parsed as thousands of one-line entries and died on the UNMODIFIED committed
     ALL.pl/ALL.ref with `family.ref is shorter than family.sno at seq NNNN` -- cmd_run has taken --lang and
     dispatched to read_block_suite() since 2026-08-29, and cmd_list was simply never given the same dispatch.
     ⛔⭐ THE ERROR MESSAGE WAS THE EXPENSIVE HALF: it names the REF FILE as short, so it reads as a corpus
@@ -4306,7 +4306,7 @@ def cmd_list(args):
     to establish that their own edit had not broken it. A WRONG-READER FAULT THAT ACCUSES THE DATA COSTS THE
     NEXT READER A BISECTION THEY DID NOT NEED. Hence the explicit suffix refusal below: it names the reader,
     the suffix and the exact flag to pass, and it fires BEFORE the grammar can produce a misleading message.
-    ⭐ AND IT MADE A DOCUMENTED PROCEDURE UNFOLLOWABLE: lib_master_extract.sh's INTERIM PROMOTION PROTOCOL
+    ⭐ AND IT MADE A DOCUMENTED PROCEDURE UNFOLLOWABLE: lib_rungs_extract.sh's INTERIM PROMOTION PROTOCOL
     tells a promoter to prove the promotion with `list`, which for .pl could not be done at all."""
     if args.lang:
         cfg = LANG_CONFIGS[args.lang]
@@ -4363,7 +4363,7 @@ def main():
     r.add_argument("--lang", default="", choices=LANG_CHOICES, help="read/grade as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format")
     r.add_argument("--outside", default="", help="TSV of entries OUTSIDE this suite's baseline (name<TAB>CLASS<TAB>reason), each dropped from the graded denominator and printed with its reason -- for a program the language's own oracle refuses to run")
     r.add_argument("--outside-none", action="store_true", dest="outside_none",
-                   help="grade the SHIPPED set: do NOT pick up the sibling ALL.outside.tsv that a master suite would otherwise "
+                   help="grade the SHIPPED set: do NOT pick up the sibling ALL.outside.tsv that a rung suite suite would otherwise "
                         "ride with. Prints OUTSIDE_BASELINE_LIST NONE loudly, naming the list it skipped, because such a run's "
                         "pass count is not comparable to a board graded against the baseline. Incompatible with --outside.")
     r.add_argument("--shard", default="", help="k/N: grade only every N-th entry starting at the k-th (1-based, interleaved), so the N shards partition the suite exactly once and their boards SUM to the monolithic board; the SUITE_BOARD line carries shard=k/N and total=<this shard's entries> (row corpus-runner-master-suite-exceeds-single-call-cap, hq_B 2026-09-02)")
@@ -4374,7 +4374,7 @@ def main():
     e.add_argument("ref")
     e.add_argument("name", nargs="?", default="", help="the entry's CURRENT name (the builder renames entries: directive_82); or give --origin instead")
     e.add_argument("out_sno")
-    e.add_argument("--origin", default="", help="resolve the entry by its ORIGIN (the durable provenance key, e.g. ladder__rung00_hello) through the ALL.csv beside the master; REFUSES if the CSV or the origin is absent (hq_C ask 2026-09-02, rung 0)")
+    e.add_argument("--origin", default="", help="resolve the entry by its ORIGIN (the durable provenance key, e.g. ladder__rung00_hello) through the ALL.csv beside the rungs; REFUSES if the CSV or the origin is absent (hq_C ask 2026-09-02, rung 0)")
     e.add_argument("--out-ref", default="", dest="out_ref")
     e.add_argument("--out-in", default="", dest="out_in", help="required if the entry carries stdin -- REFUSES rather than silently materializing a stdin-bearing entry without it")
     e.add_argument("--out-xfail", default="", dest="out_xfail", help="optional: write the entry's xfail reason here if it has one (documentation only, never affects grading)")
@@ -4405,7 +4405,7 @@ def main():
     l.add_argument("--lang", default="", choices=LANG_CHOICES, help="read as a LANG_CONFIGS dialect instead of the default SNOBOL4 suite format (a non-.sno suffix without this REFUSES rather than misreading)")
     l.set_defaults(func=cmd_list)
 
-    sm = sub.add_parser("smoke", help="THE AREA SMOKE (CEO-1342 clause 4): run, in both modes, every master and package entry whose ALL.csv attribute row marks any named feature column; population printed by name; appends no progress row and writes no score cell -- not a board")
+    sm = sub.add_parser("smoke", help="THE AREA SMOKE (CEO-1342 clause 4): run, in both modes, every rung suite and package entry whose ALL.csv attribute row marks any named feature column; population printed by name; appends no progress row and writes no score cell -- not a board")
     sm.add_argument("features", nargs="*", help="feature column names as the tables spell them (FENCE SPAN scan suspend cut ...); a name no table knows REFUSES rc=2")
     sm.add_argument("--modes", default="", help="default m3,m4")
     sm.add_argument("--tables", default="", help="restrict to tables whose key (tests/<lang>, packages/<lang>/<pkg>) contains any of these tokens")

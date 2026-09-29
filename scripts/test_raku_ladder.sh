@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # test_raku_ladder.sh -- THE CONSTRUCT-LADDER RUNNER for Raku (GOAL-TEST-SUITE-CONSISTENCY.md, row
 # raku-construct-ladder-from-rung-0; shape copied from test_prolog_ladder.sh, minted by hq_B 2026-09-02).
-#   --to N     grade rungs 0..N CUMULATIVELY (default: every rung the master carries)
+#   --to N     grade rungs 0..N CUMULATIVELY (default: every rung the rungs carries)
 #   --only N   grade rung N ALONE -- the rung under construction, while the rungs below it are still red.
 #              Mutually exclusive with --to: a request naming both REFUSES rc=2 rather than guessing.
 #   --list     print the witnesses per rung and exit 0 without grading
 # POPULATION: every origin `ladder__rungNN_<slug>` of corpus/tests/raku/ALL.csv with NN <= N, materialized
-# OUT of the master by origin through lib_master_extract.sh (MASTER_DIR=corpus/tests/raku, MASTER_EXT=.raku)
+# OUT of the rungs by origin through lib_rungs_extract.sh (RUNGS_DIR=corpus/tests/raku, RUNGS_EXT=.raku)
 # -- keyed on the CSV `origin` column, never on the entry name or a filename glob.
 # EACH WITNESS RUNS ALONE IN BOTH MODES:  m3 = scrip --run   ·   m4 = scrip --compile -o x.s + as --64 + gcc -no-pie + run
 # Verdict per witness per mode: stdout byte-equal to the .ref AND rc equal to the declared rc (ALL.wantrc,
@@ -20,7 +20,7 @@
 # diffing SCRIP against it. Re-cut a rung's .ref only when its witness source changes.
 # ⛔ XFAIL MARKERS ARE IGNORED HERE ON PURPOSE, same as the Prolog runner: this is the gate for the rung
 # that OWNS the witness, and a rung is landed only when its witnesses PASS.
-# PRINTS ITS DENOMINATOR. REFUSES rc=2 when it graded ZERO witnesses (no master, no ladder origins at or
+# PRINTS ITS DENOMINATOR. REFUSES rc=2 when it graded ZERO witnesses (no rungs, no ladder origins at or
 # below --to N, or an extraction failure) -- a runner that cannot measure never prints the success shape.
 # FAILED ONCE, PASSED ONCE (INSTRUMENT LAWS): rungs 0-9 (10 witnesses, one per rung) were built and verified
 # against Rakudo 2026.x (rakudo-local) 2026-09-03 by seat11 -- `--to 5` and `--to 9` both PASS 20/20 and

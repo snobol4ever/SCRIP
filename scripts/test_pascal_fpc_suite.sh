@@ -59,7 +59,7 @@ trap 'rm -rf "$TMP"' EXIT
 . "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSED-TO-GRADE: lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"; exit 2; }
 DECL="$TMP/declared_memory.tsv"
 declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
-cd "$TMP"   # master harness convention (test_gate_em_beauty_subsystems_mode4.sh): graded programs run
+cd "$TMP"   # rungs harness convention (test_gate_em_beauty_subsystems_mode4.sh): graded programs run
             # against a scratch cwd, never the invoker's -- some vendored fpc tests (tisobuf1/tisoread)
             # write scratch files relative to cwd and were leaking them into the caller's directory
 
@@ -122,7 +122,7 @@ for name in "${PAIRS[@]}"; do
     # proposition it proved was not the one this board's header claims.
     # ⛔ THE EXPECTED rc IS CUT FROM THE ORACLE, NEVER FROM US: corpus/packages/pascal/fpc_tests/ALL.wantrc
     # carries fpc's own exit status for every entry that is not 0, same filename and format as the Icon
-    # master's. An entry absent from that file expects 0. A line there is the oracle's answer, not a waiver.
+    # rungs'. An entry absent from that file expects 0. A line there is the oracle's answer, not a waiver.
     m3out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
     wantrc=$(awk -F'\t' -v n="$name" '$1==n{print $2; exit}' "$WANTRC" 2>/dev/null); [ -n "$wantrc" ] || wantrc=0
     if [ "$m3out" = "$exp" ] && [ "$m3rc" = "$wantrc" ]; then
@@ -219,7 +219,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 #
 # ⛔⭐ THE FACT RULE'S OTHER HALF (CEO-319, /home/resources/progress/README.md): every suite run APPENDS its
 # per-program rows in the same sitting it rewrites its cell. MEASURED by hq_V at its opening, 2026-09-06:
-# of 497 pascal rows in that table every one was pascal-master -- ZERO from fpc or pat, so a Pascal PACKAGE
+# of 497 pascal rows in that table every one was pascal-rungs -- ZERO from fpc or pat, so a Pascal PACKAGE
 # flip was invisible to the measure OCTET is run on. One bulk call, not 362. Non-fatal, never silent.
 #
 # ⛔ APPEND BEFORE WRITE, NOT AFTER (hq_pascal 2026-09-23): the write below's own db_crosscheck (CEO-750)

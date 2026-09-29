@@ -10,7 +10,7 @@
 # ⭐ WHAT IT DELIBERATELY DOES NOT CLAIM: an integer is flagged only past 64 bits (strtoull's own range), not past maxint, so a
 # qword-range literal an FPC-lineage program may carry is not refused here; and a real that UNDERFLOWS toward zero (1e-400) is not an
 # error, only one that overflows. The $ hexadecimal rule is untouched. Before landing, every acceptance program in the corpus was
-# compiled with the checks (PasM, the FPC suite, P4, P5, benchmarks): zero tripped; the only trips were the P5 copies of these tests.
+# compiled with the checks (PasRungs, the FPC suite, P4, P5, benchmarks): zero tripped; the only trips were the P5 copies of these tests.
 #
 # ARMS: 1846 and 1847, each REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is accepted, links and
 # runs). A third arm proves the checks DISCRIMINATE: 2147483647, 1.0e308, 1.0e-300 and 2.5e-3 run byte-identical to fpc -Miso in both

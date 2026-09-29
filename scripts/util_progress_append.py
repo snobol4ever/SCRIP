@@ -9,15 +9,15 @@ THE TABLE: /home/resources/progress/results.tsv, append-only, one row per (progr
     ts_utc  scrip  corpus  measurer  class  suite  lang  program  mode  outcome  secs  note  fingerprint  config
 ts_utc is the RUN's own wall clock (UTC, second precision, no zone suffix -- the shape the replay rows already carry);
 scrip/corpus are the short hashes of the trees graded; measurer is the seat identity derived from the root path by the
-ONE map (util_score_row.derive_measurer -- never a fourth copy of the map); class is master | package | benchmark;
-suite is the SUITES.tsv key for packages, <lang>-master for masters, <lang>-bench for benchmarks; outcome is one of
+ONE map (util_score_row.derive_measurer -- never a fourth copy of the map); class is rungs | package | benchmark;
+suite is the SUITES.tsv key for packages, <lang>-rungs for rung suites, <lang>-bench for benchmarks; outcome is one of
 OUTCOMES, never a count; secs is the program's own seconds when the runner knows them, else 0; note is free text
 (xfail marker, benchmark rates) and may be empty; fingerprint is the binary identity at the board's start.
 ⛔⭐ config is WHAT THE RUN EXERCISED -- `arena=1,stress=3`, or `shipped`, or `undeclared` when nobody said.
 It is part of the ROW'S IDENTITY, not a qualifier: without it, (suite, program, mode) collapses every
 configuration of one program into one cell and every reader resolves the collision BY ARRIVAL ORDER. Measured
 on the live table 2026-09-21 before this column existed: 2934 duplicate (tree, corpus, suite, program, mode)
-keys in one day, and 139 keys since 09-20 where ONE tree carries CONTRADICTORY outcomes -- raku-master
+keys in one day, and 139 keys since 09-20 where ONE tree carries CONTRADICTORY outcomes -- raku-rungs
 token_say_4 m3 reading both PASS and FAIL at the clean tree 5418432bb, impossible under a byte-for-byte oracle
 diff unless something unrecorded changed. ⛔ THE WRITER GUESSES NOTHING: it refuses rc=2 to record a row that
 declares no configuration while a GC axis is set in its own environment, and it never infers `shipped`.
@@ -70,7 +70,7 @@ CONFIG_UNDECLARED = "undeclared"
 # ⛔ THE MACHINE TOKEN FOR A DEVELOPMENT PASS.  A reader asking "was this a board pass?" greps the note for
 # this prefix; a row without it is a board pass and IS expected to have a published suite row behind it.
 DEVPASS_TOKEN = "dev-pass="
-CLASSES = ("master", "package", "benchmark")
+CLASSES = ("rungs", "package", "benchmark")
 # ⭐ OOM (ceo CEO-1229 (2), 2026-09-23, verbatim: "THE PROGRESS WORD IS OOM: a run that ends in a properly reported out-of-memory at
 # the heap it ran under, recorded with that heap. It is not PASS and it is not FAIL or CRASH"): the runtime's own report since SCRIP
 # dc739c38a, classified by corpus_suite_harness._oom_verdict, the note carrying heap_cap_kb= (the cap the runtime named) and

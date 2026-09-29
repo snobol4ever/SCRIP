@@ -13,7 +13,7 @@
 # ⭐ THE HONEST CELL FOR THIS LANGUAGE'S ORACLE DIFF IS "NOT BUILT YET", NEVER "IMPOSSIBLE". Snocone runs on the SNOBOL4 oracle (`sbl -bf`), whose \&TRACE emits variable/label/function events in its own format rather than a Byrd four-port sequence, so it needs the same normalisation layer SNOBOL4's does and shares its fate.
 # `test_gate_icn_port_trace.sh` is the proof of shape: it normalises iconx's own \&trace onto the four Byrd ports
 # and is strictly stronger than this pin. Until someone writes Snocone's, this gate is the pinned instrument and
-# says so; the ANSWER column is where Snocone is graded against its real oracle today, and the master suite owns it.
+# says so; the ANSWER column is where Snocone is graded against its real oracle today, and the rungs suite owns it.
 # EXIT: 0 every witness matches in both modes; 1 a mismatch, a killswitch or perturbation failure; 2 REFUSED.
 set -u
 PORTTRACE_LANG=Snocone; PORTTRACE_SUITE=snocone; PORTTRACE_EXT=.sc; PORTTRACE_FAMILIES="ladder"

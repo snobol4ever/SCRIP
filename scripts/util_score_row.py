@@ -12,7 +12,7 @@
 #
 # ⛔⭐ WHY THIS IS NOT util_build_score_md.py, AND WHY IT MUST NOT BECOME IT. That generator answers a
 # different question and answers it well: it REGENERATES THE WHOLE GRID by invoking all seven
-# languages' floor gates and all seven master boards. That is ~30-40 minutes on a loaded box -- which
+# languages' floor gates and all seven rungs boards. That is ~30-40 minutes on a loaded box -- which
 # is the exact cost Lon was ruling against in the sentence that created this file. A helper that
 # re-runs anything to record a measurement someone ALREADY MADE has reintroduced the hour-away wait it
 # was written to remove. So the hard rule for this file: IT RUNS NO SUITE, NO GATE AND NO COMPILER. It
@@ -26,7 +26,7 @@
 # told.  A leaderboard that invents a cell is worse than one that is stale: stale says so.
 #
 # ⛔⭐ THE PROVENANCE COLUMN IS A LIST, NOT A LINE, AND THAT IS DELIBERATE. One row's cells are
-# routinely measured by different sessions on different trees -- Icon's STRICT rung suite, its master
+# routinely measured by different sessions on different trees -- Icon's STRICT rung suite, its rungs
 # board and its Arizona/JCON vendor numbers were three trees and three measurers on the day this was
 # written.  A single "Tree - clock - by" string for the whole row would therefore be false for at
 # least two of its cells, and falsely PRECISE, which is worse than vague.  So the last cell holds one
@@ -47,9 +47,9 @@ REPOS = ["SCRIP", "corpus"]
 # find_table) -- the table below is the naming authority, never the shape authority, so a column
 # renamed upstream refuses loudly here instead of writing into the wrong cell.
 COLUMNS = {
-    "entries": (1, "Master suite"),
+    "entries": (1, "Rungs suite"),
     "floor":   (2, "Floor / smoke gate"),
-    "board":   (3, "Master board"),
+    "board":   (3, "Rungs board"),
     "vendor":  (4, "Vendor / package suites"),
 }
 PROV_COL = 5
@@ -1171,8 +1171,8 @@ def write_grid_direct(a):
 # suite-table-row-rewritten-by-the-runner-through-util-suite-banner-set).  SCORE.md's grid and
 # .github/SUITES.tsv are TWO records of one measurement, and only SUITES.tsv feeds the banner and Lon's
 # read.  Three fixers in one hour wrote the grid cell here and left SUITES.tsv untouched (hq_I: IPL, Jcon;
-# hq_U: IcnM; hq_T: AIS), so the ceo was setting rows BY HAND off flip lines -- a second record kept by
-# discipline is a record kept by nobody.  A write that moves a V (vendor) or M (master board) cell now
+# hq_U: IcnRungs; hq_T: AIS), so the ceo was setting rows BY HAND off flip lines -- a second record kept by
+# discipline is a record kept by nobody.  A write that moves a V (vendor) or M (rungs board) cell now
 # moves the suite row in the SAME call, or REFUSES naming the row.
 # ⛔ IT NEVER GUESSES A FRACTION.  Auto-extraction fires only when the runner's own --text carries EXACTLY
 # ONE N/M; two fractions or none is a REFUSAL, not a pick, because picking the wrong one writes a wrong
@@ -1249,10 +1249,10 @@ def resolve_suite_key(lang, column, suite, explicit):
     if err:
         return None, err
     if column == "board":
-        hits = [r["key"] for r in rows if r.get("lang") == lang and r["key"].endswith("-master")]
+        hits = [r["key"] for r in rows if r.get("lang") == lang and r["key"].endswith("-rungs")]
         if len(hits) == 1:
             return hits[0], None
-        return None, ("--column board --lang %s matches %d master rows in SUITES.tsv (%s); name it with --suite-key"
+        return None, ("--column board --lang %s matches %d rungs rows in SUITES.tsv (%s); name it with --suite-key"
                       % (lang, len(hits), ", ".join(hits) or "none"))
     if column in SUITE_ONLY:
         hits = [r["key"] for r in rows if r.get("lang") == lang and r["key"].endswith(SUITE_ONLY[column])]
@@ -1351,7 +1351,7 @@ def fraction_from_text(text, p_override, t_override):
         return uniq[0][0], uniq[0][1], None
     if not found:
         # ⛔⭐ THE CANONICAL BOARD LINE IS SELF-SUFFICIENT AND WAS BEING RETYPED (hq_raku 2026-09-20, to the coo,
-        # on their first real write of raku-master 830/927).  CEO-827 tells a runner to hand this writer its
+        # on their first real write of raku-rungs 830/927).  CEO-827 tells a runner to hand this writer its
         # VERBATIM SUITE_BOARD line; that line states the suite's fraction as `all_pass=830 all_n=927` -- the
         # harness's OWN AND-per-program count over its OWN population -- in key=value form and with no N/M
         # anywhere.  So the writer refused the very line the law asks for, and every board-column write had to
@@ -1373,7 +1373,7 @@ def fraction_from_text(text, p_override, t_override):
 # ⭐⭐ A BOARD RECEIPT KEEPS THE RUNNER'S VERBATIM LINE (ceo CEO-827, 2026-09-17, on the coo's ask; read by the ceo as
 # the COMPLETION of the standing "a watermark without its command is void" rule rather than a new one).  A receipt that
 # PARAPHRASES its own board cannot be compared by util_suite_population_diff.py -- which is exactly the gap that bit
-# this fleet the same morning: the SNOBOL4 master went m4_skip 0 -> 3 and back again across two landings, and neither
+# this fleet the same morning: the SNOBOL4 rungs went m4_skip 0 -> 3 and back again across two landings, and neither
 # reading survived anywhere in .github as anything but prose, so the pair the defect lived in could not be diffed at
 # all.  This writer is the ONE write path for a row, so the line rides with the row write: every `write` archives the
 # verbatim SUITE_BOARD line it was handed, and when it was handed none it SAYS SO in a greppable line rather than
@@ -1462,7 +1462,7 @@ def suite_sync_decide(a):
         die("this --text names an INSTRUMENT CHANGE for suite row %r and no --criterion-changed '<YYYY-MM-DD>:<reason>' stamps it.\n"
             "        The criterion moved even if the total did not; the row names why, by the writer, in column 12.\n"
             "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % key)
-    # ⛔⭐ THE STAMP IS A TWO-REPO FEATURE, AND THE GUARD WAS ONE-SIDED (hq_raku 2026-09-16, raku-master 925 -> 927 with column 12
+    # ⛔⭐ THE STAMP IS A TWO-REPO FEATURE, AND THE GUARD WAS ONE-SIDED (hq_raku 2026-09-16, raku-rungs 925 -> 927 with column 12
     # byte-identical; row util-score-row-forwards-the-criterion-stamp-to-a-banner-it-never-checked-and-never-reads-the-row-back):
     # this file (SCRIP) refuses without the stamp and forwards it; util_suite_banner.py (.github) stores it. A root whose SCRIP is
     # ahead of its .github ran an old banner that read --set by index and dropped the flag -- the dishonest denominator reached
@@ -1484,7 +1484,7 @@ def suite_sync_decide(a):
 
 def db_crosscheck(key, p, t):
     # ⛔ THE SETTER TAKES ITS NUMBER FROM THE APPEND, NOT FROM THE PRINT (hq_raku 2026-09-16, row instruments-a-suite-row-set-
-    # from-a-runners-printed-line-can-drift-from-the-append-behind-it-the-writer-reads-the-db-at-write-time): raku-master read
+    # from-a-runners-printed-line-can-drift-from-the-append-behind-it-the-writer-reads-the-db-at-write-time): raku-rungs read
     # 830/927 on db4a6b1fc while the progress DB on that tree read 829 -- the 830 was a printed line from a pass on
     # 7b21dcb5b-dirty, stamped with the later tree; the printed fail list (capped at 40) read zero regressed, and only the
     # DB, 1854 rows key for key, named benchmark_point_class_add m3 PASS -> CRASH.  A row set from a printed line can always
@@ -1654,10 +1654,10 @@ def write_suite_row_only(a):
     key, why = resolve_suite_key(a.lang, a.column, a.suite, getattr(a, "suite_key", "") or "")
     rows, _err = suites_rows()
     row = next((r for r in rows if r.get("key") == key), None) if key else None
-    # ⛔ THIS PATH WRITES A ROW WITH NO GRID CELL, SO IT WRITES ONLY THE ROWS THAT HAVE NONE: an explicit --suite-key naming a master
+    # ⛔ THIS PATH WRITES A ROW WITH NO GRID CELL, SO IT WRITES ONLY THE ROWS THAT HAVE NONE: an explicit --suite-key naming a rung suite
     # or a package row would publish that row while its grid cell kept the old number -- the two-records split CEO-363 closed.
     if key and (not key.endswith(suffix) or row is None or row.get("lang") != a.lang):
-        die("--column %s writes only a %s-language row whose key ends in %s, and %r is %s. A master or a package row is written\n"
+        die("--column %s writes only a %s-language row whose key ends in %s, and %r is %s. A rung suite or a package row is written\n"
             "        with its grid cell (--column board / vendor), never through this path.\n"
             "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched."
             % (a.column, a.lang, suffix, key, ("not a SUITES.tsv key" if row is None else "language %r" % row.get("lang"))))
@@ -1724,7 +1724,7 @@ def cmd_write(a):
         _mk = None
     if _mk and not getattr(a, "dry_run", False):
         die("A CGROUP MEMORY KILL CUT THE RUN THAT PRODUCED THIS ROW -- %s NOTHING WAS WRITTEN." % _mk)
-    # ⛔ THE BINARY MOVED UNDER THIS BOARD -> no row (coo 2026-09-16, hq_raku's RakM 764/927 graded across a mid-run make): the stamp
+    # ⛔ THE BINARY MOVED UNDER THIS BOARD -> no row (coo 2026-09-16, hq_raku's RakRungs 764/927 graded across a mid-run make): the stamp
     # one_runner_guard exported at the board's start is compared to the binary now, before anything is written.
     try:
         sys.path.insert(0, HERE); import util_progress_append as _upa
@@ -2357,7 +2357,7 @@ def cmd_check(a):
     # off seat13's make-test refusal report).  Until now this scanned cells[PROV_COL] and nothing else, on the
     # premise that `write` stamps every measurement there -- which it does (merge_prov, one clause per column).
     # The premise holds for writes THROUGH THIS HELPER and silently fails for the hand-edit, and the board is
-    # full of hand-edits.  The witness that found it: snobol4's Master board CELL reads "LANE RE-MEASURE
+    # full of hand-edits.  The witness that found it: snobol4's Rungs board CELL reads "LANE RE-MEASURE
     # 2026-09-05 (hq_P) ... on SCRIP `f3f4870d7`", while its `board:` provenance clause still reads hq_B
     # 2026-09-04 on `7d7ff2dc5`.  One cell, two trees, two measurers, and `check` had never once graded
     # f3f4870d7 -- the number every human reader of that row is looking at.
@@ -2559,11 +2559,11 @@ def cmd_selftest(a):
             # end of this selftest prove. Seeding 48 here, stamped, keeps every older arm what it always was: a write at
             # the fixture's own denominator, never a denominator move.
             _seed_env = dict(os.environ); _seed_env["S4E_SUITES_TSV"] = SUITES_TSV; _seed_env["S4E_SCORE_MD"] = SCORE_MD
-            _seed = subprocess.run([sys.executable, SUITE_BANNER, "--set", "reb-master", "0", "48", "2026-09-16", "selftest",
+            _seed = subprocess.run([sys.executable, SUITE_BANNER, "--set", "reb-rungs", "0", "48", "2026-09-16", "selftest",
                                     "--criterion-changed", "2026-09-16:selftest seed -- the fixture denominator is 48, not the row's"],
                                    capture_output=True, text=True, env=_seed_env)
             if _seed.returncode != 0:
-                print("SELFTEST FAIL: the fixture seed (reb-master -> 0/48, stamped) refused rc=%d: %s" % (_seed.returncode, (_seed.stderr or _seed.stdout).strip()[:200])); ok = False
+                print("SELFTEST FAIL: the fixture seed (reb-rungs -> 0/48, stamped) refused rc=%d: %s" % (_seed.returncode, (_seed.stderr or _seed.stdout).strip()[:200])); ok = False
         # ⛔ SEED A KNOWN CELL BEFORE PROVING REWRITE-IN-PLACE, rather than inherit whatever prose the LIVE
         # rebus/board cell happens to carry that day. This selftest's own claim ("rewrite-in-place holds")
         # has never depended on the starting content -- only on two known writes landing as one cell -- but
@@ -2580,7 +2580,7 @@ def cmd_selftest(a):
         class A: pass
         for run in (1, 2):
             a2 = A(); a2.lang = "rebus"; a2.column = "board"; a2.measurer = "selftest"
-            a2.text = "master: m3 %d/48 · m4 %d/48 (selftest, not a measurement)" % (run, run)
+            a2.text = "rungs: m3 %d/48 · m4 %d/48 (selftest, not a measurement)" % (run, run)
             a2.modes = "m3,m4"; a2.dry_run = False; a2.suite = ""
             cmd_write(a2)
         n1 = len(open(SCORE_MD, encoding="utf-8").read().split("\n"))
@@ -2971,7 +2971,7 @@ def cmd_selftest(a):
         _real_s4e = S4E
         _saved_seat = os.environ.pop("S4E_SEAT", None)
         # ⛔ RESET rebus/board TO EMPTY FIRST. By this point the rewrite-in-place proof above left it
-        # holding "master: m3 2/48 ..." -- real prior content that a3.text="1/1" would (correctly, per
+        # holding "rungs: m3 2/48 ..." -- real prior content that a3.text="1/1" would (correctly, per
         # cell_prose_loss) refuse to clobber, which is not what THIS block is testing. "—" is the file's
         # own empty-cell sentinel, so cell_prose_loss treats it as nothing-to-lose by construction.
         _reset_lines = open(SCORE_MD, encoding="utf-8").read().split("\n")
@@ -3014,11 +3014,11 @@ def cmd_selftest(a):
             if _saved_seat is not None: os.environ["S4E_SEAT"] = _saved_seat
         # the measurer arms left the fixture row at 1/1; put it back to the fixture denominator, stamped (CEO-785), so
         # every arm below is a write at 48 and never a denominator move
-        _rs = subprocess.run([sys.executable, SUITE_BANNER, "--set", "reb-master", "0", "48", "2026-09-16", "selftest",
+        _rs = subprocess.run([sys.executable, SUITE_BANNER, "--set", "reb-rungs", "0", "48", "2026-09-16", "selftest",
                               "--criterion-changed", "2026-09-16:selftest re-seed after the measurer arms -- back to the fixture denominator 48"],
                              capture_output=True, text=True, env=dict(os.environ, S4E_SUITES_TSV=SUITES_TSV, S4E_SCORE_MD=SCORE_MD))
         if _rs.returncode != 0:
-            print("SELFTEST FAIL: the fixture re-seed (reb-master -> 0/48, stamped) refused rc=%d: %s" % (_rs.returncode, (_rs.stderr or _rs.stdout).strip()[:200])); ok = False
+            print("SELFTEST FAIL: the fixture re-seed (reb-rungs -> 0/48, stamped) refused rc=%d: %s" % (_rs.returncode, (_rs.stderr or _rs.stdout).strip()[:200])); ok = False
         # ⛔⭐ A FRACTION LABELLED BY A TRAILING FAILURE WORD IS NOT A PASS FRACTION -- and the two arms that
         # matter pull in OPPOSITE directions, which is why both are pinned. Under-drop and `924/986
         # PARSE-FAIL` convicts raku of a conflict with the grid's correct `4/986`; over-drop and icon's real
@@ -3143,11 +3143,11 @@ def cmd_selftest(a):
             return x
         # the existing write arms plant no progress rows: the DB cross-check is overridden LOUDLY for them and proven below
         os.environ["S4E_DB_CHECK_OVERRIDE"] = "selftest: the suite-sync arms plant no progress rows"
-        _before = _tsv_row("reb-master")
+        _before = _tsv_row("reb-rungs")
         cmd_write(_A(text="m3 7/48 · m4 7/48"))
-        _after = _tsv_row("reb-master")
+        _after = _tsv_row("reb-rungs")
         if _after and (_after["today_pass"], _after["today_total"]) == ("7", "48"):
-            print("SELFTEST: an M-cell write SET the suite row in the same call (reb-master -> 7/48)")
+            print("SELFTEST: an M-cell write SET the suite row in the same call (reb-rungs -> 7/48)")
         else:
             print("SELFTEST FAIL: an M-cell write left the suite row at %r" % (_after and (_after["today_pass"], _after["today_total"]),)); ok = False
         if _before is not None and _after is not None and _before["tree"] == _after["tree"] and _before["today_pass"] == "7":
@@ -3172,9 +3172,9 @@ def cmd_selftest(a):
                "m4_n=48 m4_pass=7 m4_fail=41 all_pass=7 all_n=48 arena_mb=512")
         if not _arm("a canonical SUITE_BOARD line with NO N/M fraction WRITES -- all_pass=/all_n= are read by name",
                     lambda: cmd_write(_A(text=_BL)), False): ok = False
-        _v = _tsv_row("reb-master")
+        _v = _tsv_row("reb-rungs")
         if _v and (_v["today_pass"], _v["today_total"]) == ("7", "48"):
-            print("SELFTEST: ...and the row it set is the board line's OWN fraction (reb-master -> 7/48, nothing retyped)")
+            print("SELFTEST: ...and the row it set is the board line's OWN fraction (reb-rungs -> 7/48, nothing retyped)")
         else:
             print("SELFTEST FAIL: the board-line write left the suite row at %r" % (_v and (_v["today_pass"], _v["today_total"]),)); ok = False
         # ⛔ A SHARD BOARD IS NOT THE SUITE.  `--shard k/N` makes the harness print shard=k/N and a total that is THIS
@@ -3227,7 +3227,7 @@ def cmd_selftest(a):
         cmd_write(_A(text="m3 9/48 · m4 9/48", criterion_changed="2026-09-20:selftest fixture restored to the 48 denominator the arms below are written against"))
         if not _arm("--no-suite-sync is a labelled escape, not a refusal",
                     lambda: cmd_write(_A(text="m3 PASS=7 FAIL=41", no_suite_sync=True)), False): ok = False
-        # ⛔ THE SETTER TAKES ITS NUMBER FROM THE APPEND (hq_raku 2026-09-16): a scratch DB with 7 PASS + 41 FAIL rebus-master rows on
+        # ⛔ THE SETTER TAKES ITS NUMBER FROM THE APPEND (hq_raku 2026-09-16): a scratch DB with 7 PASS + 41 FAIL rebus-rungs rows on
         # THIS tree; --suite-pass 7 writes, 8 refuses naming both numbers, a labelled DB bounds (9 PASS outcome-class accepts 7), and a
         # tree with no rows refuses under CEO-750.
         os.environ.pop("S4E_DB_CHECK_OVERRIDE", None)
@@ -3237,7 +3237,7 @@ def cmd_selftest(a):
                 _fh.write("ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n")
                 for _i in range(npass + nfail):
                     for _m in ("m3", "m4"):
-                        _fh.write("2026-09-17T00:00:00\t%s\tc\tselftest\tmaster\trebus-master\trebus\tr%d\t%s\t%s\t0\t%s\n"
+                        _fh.write("2026-09-17T00:00:00\t%s\tc\tselftest\trungs\trebus-rungs\trebus\tr%d\t%s\t%s\t0\t%s\n"
                                   % (_tr, _i, _m, "PASS" if _i < npass else "FAIL", note))
         os.environ["S4E_PROGRESS_DB"] = _dbp; _plant(9, 39)   # the row stands at 9/48 from the arm above and must still after these
         if not _arm("DB CROSS-CHECK: --suite-pass 9 with 9 PASS rows on this tree in the progress DB writes",
@@ -3262,7 +3262,7 @@ def cmd_selftest(a):
             print("SELFTEST: a REFUSED write leaves SCORE.md byte-identical -- rc=2 means NOTHING was written, so a runner reading the rc tells the truth")
         else:
             print("SELFTEST FAIL: a REFUSED write had already rewritten SCORE.md -- the runner that reads rc=2 prints NOT UPDATED over a row it wrote"); ok = False
-        _v = _tsv_row("reb-master")
+        _v = _tsv_row("reb-rungs")
         if _v and _v["today_pass"] == "9":
             print("SELFTEST: the last accepted write is the one that stands (9/48) -- rewrite-in-place holds for the suite row too")
         else:
@@ -3289,7 +3289,7 @@ def cmd_selftest(a):
                 _l = open(SCORE_MD, encoding="utf-8").read().split("\n")
                 _h, _r, _ = find_table(_l)
                 _i, _c = _r["rebus"]
-                _c[COLUMNS["board"][0]] = "master: m3 9/48 · m4 9/48 (selftest seed)"
+                _c[COLUMNS["board"][0]] = "rungs: m3 9/48 · m4 9/48 (selftest seed)"
                 _c[PROV_COL] = merge_prov(_c[PROV_COL], "board",
                                           "SCRIP `%s` · RT_OPT=-O0 · seeded · selftest" % tree)
                 _l[_i] = "| " + " | ".join(_c) + " |"
@@ -3299,7 +3299,7 @@ def cmd_selftest(a):
                 _prev = os.environ.get("S4E_TREE_AT_START")
                 os.environ["S4E_TREE_AT_START"] = "SCRIP=%s" % stamp_tree
                 a9 = A(); a9.lang = "rebus"; a9.column = "board"; a9.measurer = "selftest"
-                a9.text = "master: m3 11/48 · m4 11/48 (%s, not a measurement)" % label
+                a9.text = "rungs: m3 11/48 · m4 11/48 (%s, not a measurement)" % label
                 a9.modes = "m3,m4"; a9.dry_run = False; a9.suite = ""
                 try:
                     cmd_write(a9)
@@ -3368,7 +3368,7 @@ def cmd_selftest(a):
         _rag[_rgi] = "| " + " | ".join(list(_rgc) + ["pre-existing damage, not this write's"]) + " |"
         _write_score_md(_rag, seeding=True)
         a8 = A(); a8.lang = "rebus"; a8.column = "board"; a8.measurer = "selftest"
-        a8.text = "master: m3 12/48 · m4 12/48 (past a ragged neighbour, not a measurement)"
+        a8.text = "rungs: m3 12/48 · m4 12/48 (past a ragged neighbour, not a measurement)"
         a8.modes = "m3,m4"; a8.dry_run = False; a8.suite = ""
         try:
             cmd_write(a8)
@@ -3411,18 +3411,18 @@ def cmd_selftest(a):
             print("SELFTEST: a cell with no `vendor:` clause reads UNSTAMPED, its quoted hash named as not a claim")
         else:
             print("SELFTEST FAIL: unstamped cell -- %r" % (_vl[:1],)); ok = False
-        # ⛔ COLUMN KIND: a master runner named with the vendor suffix classifies M, a vendor runner still V (hq_raku 2026-09-16)
+        # ⛔ COLUMN KIND: a rung suite runner named with the vendor suffix classifies M, a vendor runner still V (hq_raku 2026-09-16)
         _ck = (citation_kind("bash scripts/test_raku_ir_full_suite.sh"), citation_kind("bash scripts/test_icon_ipl_suite.sh"),
                citation_kind("bash scripts/test_prolog_rung_suite.sh"))
         if _ck == ("M", "V", "L"):
-            print("SELFTEST: citation_kind reads the Raku master runner as M (its name ends in the vendor suffix), a vendor runner as V, the Prolog rung runner as L")
+            print("SELFTEST: citation_kind reads the Raku rungs runner as M (its name ends in the vendor suffix), a vendor runner as V, the Prolog rung runner as L")
         else:
-            print("SELFTEST FAIL: citation_kind gave %r for (raku master, ipl vendor, prolog rung), wanted ('M', 'V', 'L')" % (_ck,)); ok = False
+            print("SELFTEST FAIL: citation_kind gave %r for (raku rungs, ipl vendor, prolog rung), wanted ('M', 'V', 'L')" % (_ck,)); ok = False
         # ⭐⭐ --column bench-ref: A SUITE-TABLE ROW WITH NO GRID CELL (coo 2026-09-23, CEO-1221; row instruments-benchmarks-enter-the-
         # suite-grid-...). The fixture PLANTS its own empty rebus-bench-ref row in the scratch table, so these arms read the same on a
         # root whose real SUITES.tsv predates the benchmark rows. Proven: the first write sets the row AND its first_* (a row that
         # entered empty), the grid and display cells for the language stay byte-identical, a second write moves today_* and never
-        # first_*, a master key forced through this path refuses byte-identical, a language with no bench row refuses, and a dry run
+        # first_*, a rung suite key forced through this path refuses byte-identical, a language with no bench row refuses, and a dry run
         # writes nothing.
         _tl = [l for l in open(SUITES_TSV, encoding="utf-8").read().split("\n") if not l.startswith("rebus-bench-ref\t")]
         while _tl and _tl[-1] == "":
@@ -3457,13 +3457,13 @@ def cmd_selftest(a):
         else:
             print("SELFTEST FAIL: second bench-ref write -- today_pass %r first_pass %r" % (_r.get("today_pass"), _r.get("first_pass"))); ok = False
         _b_md = open(SCORE_MD, "rb").read(); _b_tsv = open(SUITES_TSV, "rb").read()
-        # ⛔ THE FORCED WRITE CARRIES THE MASTER'S OWN DENOMINATOR, so the ONLY guard that can refuse it is the one under test. The
+        # ⛔ THE FORCED WRITE CARRIES THE RUNGS'S OWN DENOMINATOR, so the ONLY guard that can refuse it is the one under test. The
         # first cut used the bench fixture's 2/3, and a mutant with the guard removed stayed GREEN: CEO-785's stampless-denominator
         # refusal (48 -> 3) fired instead -- an arm green for a reason other than the one its label names (COO-153's shape).
-        _mt = (_tsv_row("reb-master") or {}).get("today_total", "48")
+        _mt = (_tsv_row("reb-rungs") or {}).get("today_total", "48")
         _ml = "SUITE_BOARD family=ALL total=%s shipped=%s all_pass=7 all_n=%s (selftest, not a measurement)" % (_mt, _mt, _mt)
-        if not _arm("a MASTER key forced through --column bench-ref (--suite-key reb-master, its own denominator %s) REFUSES" % _mt,
-                    lambda: cmd_write(_A(column="bench-ref", suite_key="reb-master", text=_ml)), True): ok = False
+        if not _arm("a RUNGS key forced through --column bench-ref (--suite-key reb-rungs, its own denominator %s) REFUSES" % _mt,
+                    lambda: cmd_write(_A(column="bench-ref", suite_key="reb-rungs", text=_ml)), True): ok = False
         if not _arm("a language with no bench row (--lang cobol) REFUSES", lambda: cmd_write(_A(column="bench-ref", lang="cobol", text=_bl)), True): ok = False
         if not _arm("a bench-ref --dry-run lands nothing", lambda: cmd_write(_A(column="bench-ref", dry_run=True, text=_bl.replace("all_pass=2", "all_pass=1"))), False): ok = False
         if open(SCORE_MD, "rb").read() == _b_md and open(SUITES_TSV, "rb").read() == _b_tsv:
@@ -3487,10 +3487,10 @@ def cmd_selftest(a):
         _stamp = "2026-09-16:selftest -- the fixture denominator moves 48 -> 49"
         if not _arm("the same denominator move WITH --criterion-changed lands",
                     lambda: cmd_write(_A(text="m3 7/49 · m4 7/49", criterion_changed=_stamp)), False): ok = False
-        _r = _tsv_row("reb-master")
+        _r = _tsv_row("reb-rungs")
         _cc = (_r or {}).get("criterion_changed", "")
         if _r and _r["today_total"] == "49" and _cc.endswith(_stamp) and " | " + _stamp in _cc:
-            print("SELFTEST: the stamped move set reb-master to 49 and APPENDED the stamp to column 12 with ' | ' (the seed's stamp kept before it)")
+            print("SELFTEST: the stamped move set reb-rungs to 49 and APPENDED the stamp to column 12 with ' | ' (the seed's stamp kept before it)")
         else:
             print("SELFTEST FAIL: stamped move -- total %r, criterion_changed %r" % ((_r or {}).get("today_total"), _cc)); ok = False
         # ⭐ CEO-827: THE VERBATIM BOARD LINE RIDES WITH THE ROW WRITE.  Three arms, on a scratch archive dir: a
@@ -3499,9 +3499,9 @@ def cmd_selftest(a):
         if True:
             _buf = []
             _line = "SUITE_BOARD family=ALL total=1982 m3_pass=1970 m3_skip=0 m4_pass=1967 m4_skip=3"
-            _p1 = archive_board_line("the runner printed: " + _line, "sno-master", "coo", "b12714737", out=_buf.append)
-            _p2 = archive_board_line(_line, "sno-master", "coo", "b12714737", out=_buf.append)
-            _p3 = archive_board_line("the snobol4 master reads 1967/1982", "sno-master", "coo", "b12714737", out=_buf.append)
+            _p1 = archive_board_line("the runner printed: " + _line, "sno-rungs", "coo", "b12714737", out=_buf.append)
+            _p2 = archive_board_line(_line, "sno-rungs", "coo", "b12714737", out=_buf.append)
+            _p3 = archive_board_line("the snobol4 rungs reads 1967/1982", "sno-rungs", "coo", "b12714737", out=_buf.append)
             _txt = open(_p1, encoding="utf-8").read() if _p1 else ""
             if _p1 and _p2 == _p1 and _p3 is None and _txt.count(_line) == 1 \
                and any("already archived" in x for x in _buf) and any("NOT ARCHIVED" in x for x in _buf):
@@ -3670,7 +3670,7 @@ PROGRESS_NO_PUBLIC_SUITE = ("snocone", "rebus")   # no shipped package at all: n
 # file, and place it into a ONE-LINER or a MULTI-LINER Python test harness."). So every vendored package counts over
 # its SHIPPED POPULATION: a package not yet run-graded counts as 0 of its population (it is on the list, it pulls the
 # percent down until its programs run against the oracle), never as absent. The percent is the V column only; our own
-# master, AST fixtures and ladders are printed as ours and never counted.
+# rungs, AST fixtures and ladders are printed as ours and never counted.
 PROGRESS_COUNTED = {
     # ⛔ csnobol4's 119 ADDED (row score-v-clause-truncation-publishes-a-graded-package-as-ungraded,
     # hq_T 2026-09-05): the `--compat=csnobol4` dialect switch (ceo R1) moved setexit2 into scope,
@@ -4448,7 +4448,7 @@ def language_progress(lang, cells, prov=""):
     # ⛔⭐⭐ THE PERCENT IS THE INDUSTRY STANDARD, NEVER OUR OWN TESTS (Lon 2026-09-04, in-chat to ceo, verbatim:
     # "do not consider our stupid tests as part of the percentage; only the packages of industry standard ones
     # count for a percentage. Fix that reporting now." -- after "Is Icon really at 90%? I do not believe it.":
-    # icon's 90% was 811/901 with 730 of the denominator our own master and AST fixtures, the two public suites at
+    # icon's 90% was 811/901 with 730 of the denominator our own rungs and AST fixtures, the two public suites at
     # 48% and 47% barely moving it). Basis from here: the V column ONLY -- the vendored industry-standard packages
     # graded by their own oracle. M and AST are printed beside as "ours" and never counted. A language with no
     # public suite (snocone, rebus) prints no-public-suite and is excluded from ALL by design, never scored 100%
@@ -4573,20 +4573,20 @@ def language_progress(lang, cells, prov=""):
 COLUMN_KINDS = {
     "L": [r"_ladder\.sh$", r"rung_suite\.sh$", r"LADDER\.tsv$"],
     "V": [r"_suite\.sh$", r"^scorecard_", r"roast_scoreboard", r"_packages?\.sh$"],
-    "M": [r"corpus_suite_harness\.py$", r"^board_.*_master\.sh$", r"^test_corpus_.*\.sh$", r"^test_gate_pascal_m[34].*"],
+    "M": [r"corpus_suite_harness\.py$", r"^board_.*_rungs\.sh$", r"^test_corpus_.*\.sh$", r"^test_gate_pascal_m[34].*"],
 }
 KIND_ORDER = ("L", "V", "M")
-# ⛔ MASTER RUNNERS WHOSE NAME ENDS IN THE VENDOR SUFFIX (hq_raku 2026-09-16; coo, row util-score-row-citation-kind-classifies-the-
+# ⛔ RUNGS RUNNERS WHOSE NAME ENDS IN THE VENDOR SUFFIX (hq_raku 2026-09-16; coo, row util-score-row-citation-kind-classifies-the-
 # raku-master-runner-as-vendor-by-its-suite-suffix): test_raku_ir_full_suite.sh grades corpus/tests/raku/ALL.raku + ALL.ref -- the
-# RAKU MASTER by population -- but `_suite.sh$` is the V pattern and V is tried before M, so a raku M cell naming its own runner
+# RAKU RUNGS by population -- but `_suite.sh$` is the V pattern and V is tried before M, so a raku M cell naming its own runner
 # went red in test_gate_score_column_semantics.sh and the cell had to omit the runner's name. Named here and tried FIRST, the same
-# cure test_prolog_rung_suite.sh has in L. A name enters this list by what it GRADES (a master pair), never by what it is called.
-MASTER_RUNNERS_WITH_SUITE_SUFFIX = [r"^test_raku_ir_full_suite\.sh$"]
+# cure test_prolog_rung_suite.sh has in L. A name enters this list by what it GRADES (a rung suite pair), never by what it is called.
+RUNGS_RUNNERS_WITH_SUITE_SUFFIX = [r"^test_raku_ir_full_suite\.sh$"]
 
 
 def citation_kind(cite):
     base = cite.split("/")[-1]
-    for pat in MASTER_RUNNERS_WITH_SUITE_SUFFIX:
+    for pat in RUNGS_RUNNERS_WITH_SUITE_SUFFIX:
         if re.search(pat, base):
             return "M"
     for k in KIND_ORDER:
@@ -4630,7 +4630,7 @@ def cmd_columns(a):
             print("    " + b)
         print("    ⭐ A cell in the wrong column is READABLE AND WRONG -- the one shape no parse check catches.")
         return 1
-    print("GATE PASS(0) [score_column_semantics]: %d runner citation(s) across %d grid row(s) all match their column's kind (M master · L ladder · V vendor)" % (checked, len(rows)))
+    print("GATE PASS(0) [score_column_semantics]: %d runner citation(s) across %d grid row(s) all match their column's kind (M rungs · L ladder · V vendor)" % (checked, len(rows)))
     return 0
 
 
@@ -4895,8 +4895,8 @@ def main():
         return 2
     # ⛔⭐ THE ENVIRONMENT'S STAMP IS READ HERE, ONCE, FOR EVERY CALLER (coo 2026-09-25, on hq_icon's measurement). The runners tell a
     # seat that "a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call", but only the runners that
-    # spell ${S4E_CRITERION_CHANGED:+--criterion-changed ...} passed it on: 22 row-writing scripts did not -- board_icon_master.sh among
-    # them -- so IcnM's move 826 -> 828 refused its own write with the stamp set, and hq_icon wrote the row by hand (.github 915c1ff4).
+    # spell ${S4E_CRITERION_CHANGED:+--criterion-changed ...} passed it on: 22 row-writing scripts did not -- board_icon_rungs.sh among
+    # them -- so IcnRungs' move 826 -> 828 refused its own write with the stamp set, and hq_icon wrote the row by hand (.github 915c1ff4).
     # The flag, when given, still wins; the environment fills only an absent one.
     if getattr(a, "cmd", "") == "write" and not (getattr(a, "criterion_changed", "") or "").strip():
         _env_cc = os.environ.get("S4E_CRITERION_CHANGED", "").strip()

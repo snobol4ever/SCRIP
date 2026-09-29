@@ -3,12 +3,12 @@
 family in corpus/tests/<lang>/ALL.{csv,<ext>,ref,wantrc} (task icon-witness-audit-passes-for-the-wrong-
 reason, hq_B mail 2026-09-06 "next-is-the-missing-add-a-witness-path"). Before this script, none existed:
 corpus_suite_harness.py has convert/convert-blocks/run/extract/extract-family/pin-ref/list and NOTHING that
-appends one new entry to an existing master -- three prior sessions on that task file hit this exact wall
+appends one new entry to an existing rungs -- three prior sessions on that task file hit this exact wall
 (see its own SUPERSEDED-NEXT history) and the seat05 census filed two oracle-verified witness bodies
 (not() rung07, / rung34) that stayed parked in a FINDING instead of the corpus for want of this tool.
 
 WHAT THIS DOES: takes ONE new witness's source, an origin naming its rung + construct, and mints it into
-the master suite -- ALL.<ext>/ALL.ref get the new banner-delimited block (via corpus_suite_harness.py's
+the rungs suite -- ALL.<ext>/ALL.ref get the new banner-delimited block (via corpus_suite_harness.py's
 OWN Entry/read_block_suite/write_block_suite, never a hand-rolled marker writer, so formatting is
 byte-identical to the other N entries by construction, not by care), and ALL.csv gets a new row with
 EVERY column DERIVED from the source + the oracle's own verdict -- rank, entry, family, kind, xfail,
@@ -94,10 +94,10 @@ ORACLE = {
 # ⭐ SNOBOL4 SUPPORT (ceo 2026-09-08, walking snobol4-ladder-every-feature-in-isolation-with-variations, whose
 # forms check reported 131 declared slots with no witness across rungs 14-33): every language-specific fact
 # below is TAKEN FROM AN EXISTING AUTHORITY rather than re-derived here -- the feature columns and the entry
-# name come from util_build_master_suite.py's own COLS/NAME_FEATURES tables (the builder writes ALL.csv, so
-# anything else would be a second opinion about the same file), and the master's shape comes from
+# name come from util_build_rungs_suite.py's own COLS/NAME_FEATURES tables (the builder writes ALL.csv, so
+# anything else would be a second opinion about the same file), and the rungs' shape comes from
 # corpus_suite_harness.py. VALIDATED before use: the builder's predicates were run against all 94 existing
-# family==ladder rows of the SNOBOL4 master and reproduced every one of their 39 flags, 0 mismatches.
+# family==ladder rows of the SNOBOL4 rungs and reproduced every one of their 39 flags, 0 mismatches.
 
 SIMPLE_WORDS = ["write", "writes", "read", "reads", "find", "match", "upto", "many", "any", "bal", "tab",
     "move", "pos", "stop", "image", "type", "sort", "put", "push", "pop", "get", "insert", "delete",
@@ -111,17 +111,17 @@ FLAG_ORDER = SIMPLE_WORDS + SPECIAL_ORDER
 assert len(FLAG_ORDER) == 61, len(FLAG_ORDER)
 FIXED = ["rank", "entry", "origin", "family", "kind", "xfail", "n_lines"]
 # ⛔⭐ THE ATTRIBUTE ROW CARRIES THE TEST UNIT'S COMMAND LINE (Lon 2026-09-26, RULES.md hard-cap rule clause 8 (f), CEO-1281):
-# heap_kb, stack_kb, compile_args and run_args are declared on EVERY master row, and a witness this tool mints is a test unit
+# heap_kb, stack_kb, compile_args and run_args are declared on EVERY rungs row, and a witness this tool mints is a test unit
 # like any other. It left all four BLANK (ceo CEO-1323, on hq_snocone's entry 1994 filled by hand), so the runner graded the
-# new witness under a default it never declared. The values are never baked here: they are READ from the master's own ladder
-# rows (the convention every ladder row carries, 131072 / 4096 / --stlimit / empty run_args on the SNOBOL4-family masters),
+# new witness under a default it never declared. The values are never baked here: they are READ from the rungs' own ladder
+# rows (the convention every ladder row carries, 131072 / 4096 / --stlimit / empty run_args on the SNOBOL4-family rung suites),
 # an explicit --heap-kb/--stack-kb/--compile-args/--run-args overrides, and a column the ladder rows disagree on REFUSES.
 ATTR_COLUMNS = ["heap_kb", "stack_kb", "compile_args", "run_args"]
 
 
 def ladder_convention(rows, fields, overrides):
-    """{column: value} for every ATTR column the master's header carries. An override wins; otherwise the ONE value
-    the existing ladder__ rows agree on (all rows when the master has no ladder row yet); several values -> refuse."""
+    """{column: value} for every ATTR column the rungs' header carries. An override wins; otherwise the ONE value
+    the existing ladder__ rows agree on (all rows when the rungs has no ladder row yet); several values -> refuse."""
     out = {}
     for col in ATTR_COLUMNS:
         if col not in fields:
@@ -132,7 +132,7 @@ def ladder_convention(rows, fields, overrides):
         pool = [r for r in rows if r.get("origin", "").startswith("ladder__")] or rows
         seen = sorted({(r.get(col) or "") for r in pool})
         if len(seen) != 1:
-            refuse("cannot determine the master's %s convention: its %s rows carry %d different values (%s) -- pass --%s"
+            refuse("cannot determine the rungs' %s convention: its %s rows carry %d different values (%s) -- pass --%s"
                    % (col, "ladder" if pool is not rows else "", len(seen),
                       ", ".join(repr(v) for v in seen[:6]), col.replace("_", "-")))
         out[col] = seen[0]
@@ -231,10 +231,10 @@ def run_oracle_twice(oracle_argv, src_path, timeout=8):
 
 def _builder():
     import importlib.util
-    spec = importlib.util.spec_from_file_location("_bms", str(HERE / "util_build_master_suite.py"))
+    spec = importlib.util.spec_from_file_location("_bms", str(HERE / "util_build_rungs_suite.py"))
     mod = importlib.util.module_from_spec(spec)
     argv = sys.argv[:]
-    sys.argv = ["util_build_master_suite.py"]
+    sys.argv = ["util_build_rungs_suite.py"]
     try:
         spec.loader.exec_module(mod)
     finally:
@@ -247,10 +247,10 @@ def lang_schema(lang, rows):
     its compiled-in assertion (its 61 columns are this script's own contract); every other language takes the
     builder's own flag columns as the header names them, because the builder owns that header and a second copy
     of it here would drift. The four attribute columns (heap_kb, stack_kb, compile_args, run_args) are filled by
-    ladder_convention() from the master's own ladder rows (CEO-1323); any other column this tool does not derive
+    ladder_convention() from the rungs' own ladder rows (CEO-1323); any other column this tool does not derive
     is left BLANK on the new row and the dry-run names it."""
     if not rows:
-        refuse("%s master ALL.csv has no rows -- nothing to derive a schema from" % lang)
+        refuse("%s rungs ALL.csv has no rows -- nothing to derive a schema from" % lang)
     fields = list(rows[0].keys())
     if fields[:len(FIXED)] != FIXED:
         refuse("%s ALL.csv does not open with the %d fixed columns %s -- do not proceed blind" % (lang, len(FIXED), FIXED))
@@ -261,19 +261,19 @@ def lang_schema(lang, rows):
         return fields, FLAG_ORDER
     b = _builder()
     if lang not in b.LANG_TABLES:
-        refuse("util_build_master_suite.py has no LANG_TABLES entry for %r" % lang)
+        refuse("util_build_rungs_suite.py has no LANG_TABLES entry for %r" % lang)
     derived = {name for name, _ in b.LANG_TABLES[lang][0]}
     return fields, [f for f in rest if f in derived]
 
 
 def builder_flags(lang, sno_lines):
-    """⛔ THE BUILDER'S OWN PREDICATES, NOT A SECOND OPINION. util_build_master_suite.py writes every other row
+    """⛔ THE BUILDER'S OWN PREDICATES, NOT A SECOND OPINION. util_build_rungs_suite.py writes every other row
     of ALL.csv from LANG_TABLES[lang][0] applied to the entry's joined source text; deriving the same columns
     any other way here would put two rulesets on one file and the disagreement would show up as a flag nobody
     can explain. Validated 2026-09-08 against all 94 existing family==ladder SNOBOL4 rows: 0 mismatches."""
     b = _builder()
     if lang not in b.LANG_TABLES:
-        refuse("util_build_master_suite.py has no LANG_TABLES entry for %r" % lang)
+        refuse("util_build_rungs_suite.py has no LANG_TABLES entry for %r" % lang)
     cols = b.LANG_TABLES[lang][0]
     text = "\n".join(sno_lines)
     return {name: pred(text) for name, pred in cols}
@@ -282,7 +282,7 @@ def builder_flags(lang, sno_lines):
 def builder_entry_name(lang, rows, sno_lines, flags):
     """The entry NAME is the builder's descriptive_name() plus the next free number, exactly as absorption
     would have named it -- so an entry minted here and an entry minted by a rebuild are indistinguishable, and
-    test_gate_master_order_is_the_builders_order stays satisfiable (run the builder's --resort after minting)."""
+    test_gate_rungs_order_is_the_builders_order stays satisfiable (run the builder's --resort after minting)."""
     b = _builder()
     base = b.descriptive_name("\n".join(sno_lines), flags)
     used = {r["entry"] for r in rows}
@@ -292,18 +292,18 @@ def builder_entry_name(lang, rows, sno_lines, flags):
     return "%s_%d" % (base, n)
 
 
-def banner_drift(lang, master_dir, master_src, master_ref, entries):
-    """Return a human summary of the master's stale banner numbers, or "" if every banner already equals its
+def banner_drift(lang, rungs_dir, rungs_src, rungs_ref, entries):
+    """Return a human summary of the rungs' stale banner numbers, or "" if every banner already equals its
     entry's position. This is the DIAGNOSIS half of the round-trip refusal above: it answers "is the file
     stale?" so the refusal never has to accuse the tool for a defect in the data. It reads only -- the CURE
-    is util_renumber_master_banners.py, deliberately a separate tool so that the sanctioned add-a-witness
-    path never silently rewrites 1000 lines of somebody else's master as a side effect of minting one row."""
+    is util_renumber_rungs_banners.py, deliberately a separate tool so that the sanctioned add-a-witness
+    path never silently rewrites 1000 lines of somebody else's rungs as a side effect of minting one row."""
     cfg = csh.LANG_CONFIGS.get(lang)
     banner_re = (csh.banner_re_for(cfg["comment_open"], cfg["comment_close"]) if cfg else csh.BANNER_RE)
     pos = {e.name: i for i, e in enumerate(entries, 1)}
     hits, first = [], None
-    for label, path in (("ALL." + master_src.suffix.lstrip("."), master_src), ("ALL.ref", master_ref),
-                        ("ALL.in", master_dir / "ALL.in")):
+    for label, path in (("ALL." + rungs_src.suffix.lstrip("."), rungs_src), ("ALL.ref", rungs_ref),
+                        ("ALL.in", rungs_dir / "ALL.in")):
         if not path.is_file():
             continue
         n = 0
@@ -355,36 +355,36 @@ def main():
                          "everything is derived from --source, so no sibling is needed -- the flag exists so a "
                          "typo'd rung number is still caught")
     ap.add_argument("--apply", action="store_true", help="write the files; omit for a dry-run report")
-    ap.add_argument("--master-dir", default="", help="the master's directory (default corpus/tests/<lang>); a gate points it at a scratch copy")
+    ap.add_argument("--rungs-dir", default="", help="the rungs' directory (default corpus/tests/<lang>); a gate points it at a scratch copy")
     for _a in ATTR_COLUMNS:
         ap.add_argument("--" + _a.replace("_", "-"), default=None, dest="attr_" + _a,
-                        help="the new row's %s; omitted, the master's own ladder convention is READ from its ladder rows" % _a)
+                        help="the new row's %s; omitted, the rungs' own ladder convention is READ from its ladder rows" % _a)
     args = ap.parse_args()
 
     lang = args.lang
     # ⛔ SNOBOL4 IS DELIBERATELY ABSENT FROM csh.LANG_CONFIGS (see LANG_CHOICES there: every other language is
-    # a converted block suite; SNOBOL4 is the original MIXED master and its config would imply a shape it does
+    # a converted block suite; SNOBOL4 is the original MIXED rungs and its config would imply a shape it does
     # not have). Its three facts are spelled here, beside the code that uses them, rather than added to the
-    # shared table where they would claim membership of a family this master is not in.
+    # shared table where they would claim membership of a family this rung suite is not in.
     cfg = csh.LANG_CONFIGS[lang] if lang in csh.LANG_CONFIGS else {
         "ext": ".sno", "comment_open": "*", "comment_close": ""}
-    master_dir = Path(args.master_dir) if args.master_dir else S4E / "corpus" / "tests" / lang
-    master_src, master_ref, master_csv = (master_dir / ("ALL" + cfg["ext"]), master_dir / "ALL.ref",
-                                           master_dir / "ALL.csv")
-    for p in (master_src, master_ref, master_csv):
+    rungs_dir = Path(args.rungs_dir) if args.rungs_dir else S4E / "corpus" / "tests" / lang
+    rungs_src, rungs_ref, rungs_csv = (rungs_dir / ("ALL" + cfg["ext"]), rungs_dir / "ALL.ref",
+                                           rungs_dir / "ALL.csv")
+    for p in (rungs_src, rungs_ref, rungs_csv):
         if not p.is_file():
-            refuse("master file missing: %s" % p)
+            refuse("rungs file missing: %s" % p)
 
     m = re.match(r"^ladder__rung(\d+)_(\S+)$", args.origin)
     if not m:
         refuse("--origin must match ladder__rungNN_<slug>, got %r" % args.origin)
     rung_num = int(m.group(1))
 
-    with open(master_csv, newline="") as fh:
+    with open(rungs_csv, newline="") as fh:
         rows = list(csv.DictReader(fh))
     fields, flag_order = lang_schema(lang, rows)
     if any(r["origin"] == args.origin for r in rows):
-        refuse("origin %r already exists in %s" % (args.origin, master_csv))
+        refuse("origin %r already exists in %s" % (args.origin, rungs_csv))
     existing_rungs = {int(mm.group(1)) for r in rows
                        for mm in [re.match(r"^ladder__rung(\d+)_", r["origin"])] if mm}
     if rung_num not in existing_rungs and not args.first_in_rung:
@@ -396,12 +396,12 @@ def main():
         # --first-in-rung is an explicit opt-in and not a deletion. The real safety nets are downstream and
         # still run for a first witness: the byte-for-byte round-trip proof and the extract-it-back-out proof.
         # ⛔ Before this flag existed the message said "mint it by hand once", and there is no by-hand path --
-        # the master is a mixed one-line/banner-block format whose only sanctioned writer is this script.
+        # the rungs is a mixed one-line/banner-block format whose only sanctioned writer is this script.
         # hq_P 2026-09-09: rungs 24-33 are ALL brand new (witnesses stop at rung16), so the advice was
         # unfollowable for ten consecutive rungs, which is how it was found.
         refuse("rung%02d has no existing ladder__ witness in %s -- if this is deliberately the FIRST "
                "witness for a brand-new rung, pass --first-in-rung; refusing rather than guessing"
-               % (rung_num, master_csv))
+               % (rung_num, rungs_csv))
 
     src_path = Path(args.source)
     if not src_path.is_file():
@@ -465,10 +465,10 @@ def main():
     # ⛔⭐ A NONZERO want_rc IS DECLARED IN ALL.wantrc, NEVER ONLY IN ALL.csv (hq_I 2026-09-13, extending the
     # refusal that stood here). lib_ladder.sh's own wantrc() reads the sidecar and nothing else, so a witness
     # minted without that line is graded against the default rc=0 forever -- which is why the old refusal was
-    # right to block rather than mint half of it. The sidecar is written below, after the master and the CSV,
+    # right to block rather than mint half of it. The sidecar is written below, after the rungs and the CSV,
     # under the same tmp+replace discipline and the same preserve-what-existed proof.
     if want_rc != 0 and lang not in csh.LANG_CONFIGS:
-        refuse("oracle exited rc=%d and %s is a mixed (non-block) master, whose reader this tool drives "
+        refuse("oracle exited rc=%d and %s is a mixed (non-block) rungs, whose reader this tool drives "
                "through read_suite without a wantrc sidecar path -- extend that arm before minting a "
                "nonzero-rc witness for it" % (want_rc, lang))
 
@@ -478,61 +478,61 @@ def main():
     # "icon"` while it had only two languages, so the two axes coincided and nothing said which one it meant.
     # They part at the third: snocone is a converted BLOCK suite like icon, and sending it down the mixed
     # SNOBOL4 reader raises `family.ref is shorter than family.sno at seq 1416` -- a real refusal, but one
-    # that accuses the master of being malformed when the caller merely picked the wrong reader. The axis is
+    # that accuses the rungs of being malformed when the caller merely picked the wrong reader. The axis is
     # the one this file's own comment above already names: membership of csh.LANG_CONFIGS IS being a block
-    # suite, and SNOBOL4's absence from it IS the mixed master.
+    # suite, and SNOBOL4's absence from it IS the mixed rungs.
     if lang in csh.LANG_CONFIGS:
         banner_re = csh.banner_re_for(cfg["comment_open"], cfg["comment_close"])
-        entries = csh.read_block_suite(str(master_src), str(master_ref), banner_re,
-                                        w_path=str(master_dir / "ALL.wantrc"))
+        entries = csh.read_block_suite(str(rungs_src), str(rungs_ref), banner_re,
+                                        w_path=str(rungs_dir / "ALL.wantrc"))
         reserialize = lambda es, a, b: csh.write_block_suite(es, a, b, cfg["comment_open"], cfg["comment_close"])
     else:
-        # ⛔ THE SNOBOL4 MASTER IS MIXED: one-line entries (`stmt;END;* name`) and 80-column banner blocks in
+        # ⛔ THE SNOBOL4 RUNGS IS MIXED: one-line entries (`stmt;END;* name`) and 80-column banner blocks in
         # ONE file, so read_block_suite REFUSES on its first line. read_suite/write_suite are the harness's
         # own readers for that shape -- the round-trip proof below is what makes using them safe, and it is
-        # run against the real master before a single byte is written.
-        entries = csh.read_suite(str(master_src), str(master_ref), in_path=str(master_dir / "ALL.in"),
-                                  x_path=str(master_dir / "ALL.xfail"))
+        # run against the real rungs before a single byte is written.
+        entries = csh.read_suite(str(rungs_src), str(rungs_ref), in_path=str(rungs_dir / "ALL.in"),
+                                  x_path=str(rungs_dir / "ALL.xfail"))
         reserialize = lambda es, a, b: csh.write_suite(es, a, b, out_in=None, lang=lang)
     # ── ROUND-TRIP PROOF, before this tool is trusted to touch the real files: re-serialize the
     # UNCHANGED entries and diff against what is actually on disk. A mismatch here means this script's
     # understanding of the format is wrong, and it must refuse before writing anything, not after.
-    tmp_src, tmp_ref = master_src.with_suffix(master_src.suffix + ".rtcheck"), master_ref.with_suffix(".ref.rtcheck")
+    tmp_src, tmp_ref = rungs_src.with_suffix(rungs_src.suffix + ".rtcheck"), rungs_ref.with_suffix(".ref.rtcheck")
     reserialize(entries, str(tmp_src), str(tmp_ref))
-    same = tmp_src.read_text() == master_src.read_text() and tmp_ref.read_text() == master_ref.read_text()
+    same = tmp_src.read_text() == rungs_src.read_text() and tmp_ref.read_text() == rungs_ref.read_text()
     tmp_src.unlink(missing_ok=True); tmp_ref.unlink(missing_ok=True)
     if not same:
         # ⛔⭐ THE REFUSAL IS CORRECT; ITS EXPLANATION WAS FALSE, AND THAT COST FOUR LANES A DIAGNOSIS EACH
         # (hq_T 2026-09-13, on the cfo's routed brief). This message used to say only "this language's
-        # reader+writer pair does not reproduce the existing master" -- which accuses THE TOOL, while by far
+        # reader+writer pair does not reproduce the existing rungs" -- which accuses THE TOOL, while by far
         # the likeliest fault is in THE FILE: corpus a6646f04c removed the 620 AST-graded entries from all
-        # seven masters without renumbering, leaving banner numbers that no longer equal their positions, and
+        # seven rung suites without renumbering, leaving banner numbers that no longer equal their positions, and
         # this proof went red on five of the seven at once. Three lanes each paid the same unaided diagnosis
-        # and then each hand-renumbered their own master. So before accusing itself, the proof now SEPARATES
+        # and then each hand-renumbered their own rungs. So before accusing itself, the proof now SEPARATES
         # its two causes -- a stale banner number (a data defect, with a one-command cure) from a genuine
         # format disagreement (a tool defect) -- and names which one it actually found. ⭐ A refusal that
         # cannot say which of its causes fired is a refusal every reader must re-derive from scratch.
-        stale = banner_drift(lang, master_dir, master_src, master_ref, entries)
+        stale = banner_drift(lang, rungs_dir, rungs_src, rungs_ref, entries)
         if stale:
-            refuse("the master's banner numbers are STALE, not this tool's format understanding: %s. The "
+            refuse("the rungs' banner numbers are STALE, not this tool's format understanding: %s. The "
                    "banner number must equal the entry's POSITION (read_block_suite/read_suite re-derive seq "
                    "positionally and the writers print it back out), and corpus a6646f04c's 620-entry removal "
-                   "left it behind in five of seven masters.\n"
-                   "   CURE, run by this master's own lane owner:  "
-                   "python3 scripts/util_renumber_master_banners.py --lang %s --apply\n"
+                   "left it behind in five of seven rung suites.\n"
+                   "   CURE, run by this rung suite's own lane owner:  "
+                   "python3 scripts/util_renumber_rungs_banners.py --lang %s --apply\n"
                    "   (it renumbers ALL.<ext>, ALL.ref AND ALL.in together, proves every graded field and "
                    "every non-banner byte unmoved first, and refuses rc=2 rather than write on any arm.)"
                    % (stale, lang))
         refuse("round-trip proof failed and the banner numbers are NOT the cause -- this language's "
-               "reader+writer pair genuinely does not reproduce the existing master byte-for-byte. That is a "
-               "defect in this tool or in the harness, not in the master: refusing to trust either with a "
+               "reader+writer pair genuinely does not reproduce the existing rungs byte-for-byte. That is a "
+               "defect in this tool or in the harness, not in the rungs: refusing to trust either with a "
                "real write. Diff the .rtcheck pair to see what moved.")
 
-    # ⛔⭐ A LADDER WITNESS IS NAMED FOR ITS ORIGIN. Every `family==ladder` row of every block-suite master
-    # carries entry == origin, and a reader who greps the master for a rung finds the row by that name. The
+    # ⛔⭐ A LADDER WITNESS IS NAMED FOR ITS ORIGIN. Every `family==ladder` row of every block-suite rungs
+    # carries entry == origin, and a reader who greps the rungs for a rung finds the row by that name. The
     # builder's descriptive_name() is content-derived (`say (3 <=> 1);` names itself simple_assign_1), which
     # is right for an ABSORBED corpus program and wrong for a witness whose whole identity is its rung: the
-    # first row this tool minted for rung17 was the ONLY entry != origin ladder row in the raku master
+    # first row this tool minted for rung17 was the ONLY entry != origin ladder row in the raku rungs
     # (hq_T 2026-09-13). --entry-name still overrides, and a non-ladder origin keeps the builder's name.
     default_name = args.origin if args.origin.startswith("ladder__") else (
         next_entry_name(rows) if lang == "icon" else builder_entry_name(lang, rows, sno_lines, flags))
@@ -543,9 +543,9 @@ def main():
     # ⛔⭐ THE BANNER'S seq IS THE ENTRY'S POSITION, NOT ITS CSV rank. read_block_suite() IGNORES the number
     # printed in the banner and re-derives seq positionally (`seq += 1`), while write_block_suite() writes
     # e.seq back out -- so "banner number == position" is an invariant of every file the reader has touched,
-    # and an entry whose seq is its rank makes the master fail this tool's OWN round-trip proof on the very
+    # and an entry whose seq is its rank makes the rungs fail this tool's OWN round-trip proof on the very
     # next invocation. It was invisible for as long as rank and position coincided; corpus a6646f04c removed
-    # the 620 AST-graded entries from all seven masters and separated them permanently (hq_T 2026-09-13).
+    # the 620 AST-graded entries from all seven rung suites and separated them permanently (hq_T 2026-09-13).
     new_entry = csh.Entry("block", len(entries) + 1, entry_name, sno_lines, ref_lines, want_rc=want_rc)
     new_row = {"rank": str(rank), "entry": entry_name, "origin": args.origin, "family": "ladder",
                "kind": "block", "xfail": "0", "n_lines": str(len(sno_lines))}
@@ -558,7 +558,7 @@ def main():
           % (rank, entry_name, args.origin, want_rc, len(sno_lines)))
     if attrs:
         print("  attribute row (clause 8 f):", ", ".join("%s=%r" % (c, attrs[c]) for c in ATTR_COLUMNS if c in attrs),
-              "-- read from the master's ladder rows unless given on the command line")
+              "-- read from the rungs' ladder rows unless given on the command line")
     _blank = [f for f in fields if f not in new_row]
     if _blank:
         print("  left blank (not derived here):", ", ".join(_blank))
@@ -571,20 +571,20 @@ def main():
         return
 
     all_entries = entries + [new_entry]
-    tmp_src2 = master_src.with_suffix(master_src.suffix + ".newtmp")
-    tmp_ref2 = master_ref.with_suffix(".ref.newtmp")
+    tmp_src2 = rungs_src.with_suffix(rungs_src.suffix + ".newtmp")
+    tmp_ref2 = rungs_ref.with_suffix(".ref.newtmp")
     reserialize(all_entries, str(tmp_src2), str(tmp_ref2))
     # Verify the OLD entries still round-trip identically inside the new file (prefix-equality check)
     # before replacing anything -- appending must never perturb what already existed.
-    old_src_text = master_src.read_text()
-    old_ref_text = master_ref.read_text()
+    old_src_text = rungs_src.read_text()
+    old_ref_text = rungs_ref.read_text()
     if not tmp_src2.read_text().startswith(old_src_text[:-1] if old_src_text.endswith("\n") else old_src_text):
         tmp_src2.unlink(missing_ok=True); tmp_ref2.unlink(missing_ok=True)
         refuse("post-append check failed: the existing entries were perturbed by the append -- nothing written")
-    tmp_src2.replace(master_src)
-    tmp_ref2.replace(master_ref)
+    tmp_src2.replace(rungs_src)
+    tmp_ref2.replace(rungs_ref)
 
-    tmp_csv = master_csv.with_suffix(".csv.newtmp")
+    tmp_csv = rungs_csv.with_suffix(".csv.newtmp")
     with open(tmp_csv, "w", newline="") as fh:
         # ⛔ csv.writer DEFAULTS TO \r\n -- "OUR FILES ARE LF" (MODE), and the real ALL.csv is LF-only
         # (confirmed byte-for-byte: 0a, never 0d0a). Without this override every one of 808 existing
@@ -598,17 +598,17 @@ def main():
     written = tmp_csv.read_bytes()
     if b"\r" in written:
         tmp_csv.unlink(missing_ok=True)
-        refuse("internal error: wrote a CR byte into %s -- LF-only invariant violated, nothing replaced" % master_csv)
-    old_csv_bytes = master_csv.read_bytes()
+        refuse("internal error: wrote a CR byte into %s -- LF-only invariant violated, nothing replaced" % rungs_csv)
+    old_csv_bytes = rungs_csv.read_bytes()
     if not written.startswith(old_csv_bytes if old_csv_bytes.endswith(b"\n") else old_csv_bytes + b"\n"):
         tmp_csv.unlink(missing_ok=True)
         refuse("post-append check failed: existing ALL.csv rows were perturbed by the append -- nothing written")
-    tmp_csv.replace(master_csv)
+    tmp_csv.replace(rungs_csv)
 
     # ── THE wantrc SIDECAR. Written only for a nonzero rc: read_wantrc_sidecar() REFUSES a declared rc=0
-    # (it is already the default), so writing one would break every later read of this master.
+    # (it is already the default), so writing one would break every later read of this rung suite.
     if want_rc != 0:
-        w_path = master_dir / "ALL.wantrc"
+        w_path = rungs_dir / "ALL.wantrc"
         header = ("# ALL.wantrc \u2014 DECLARED exit codes for entries whose CORRECT run exits nonzero.\n"
                   "# Format: name<TAB>rc   \u00b7   blank lines and # comments ignored   \u00b7   rc=0 is the default and is REFUSED here.\n"
                   "#\n"
@@ -630,12 +630,12 @@ def main():
     # script's own belief) and confirm it is byte-identical to what the oracle produced.
     check_src, check_ref = Path("/tmp") / (entry_name + cfg["ext"]), Path("/tmp") / (entry_name + ".ref")
     err = subprocess.run([sys.executable, str(HERE / "corpus_suite_harness.py"), "extract",
-                          str(master_src), str(master_ref), entry_name, str(check_src),
+                          str(rungs_src), str(rungs_ref), entry_name, str(check_src),
                           "--out-ref", str(check_ref)], capture_output=True, text=True)
-    # ⛔⭐ THE EXPECTATION IS RECONSTRUCTED FROM THE LINES THE MASTER STORES, NEVER FROM rstrip (hq_V,
+    # ⛔⭐ THE EXPECTATION IS RECONSTRUCTED FROM THE LINES THE RUNGS STORES, NEVER FROM rstrip (hq_V,
     # 2026-09-09, on the FIRST rung minted for CEO-445). It was `ref_text.rstrip("\n") + "\n"`, which
     # collapses ANY run of trailing newlines to exactly one -- so a witness whose ORACLE OUTPUT LEGITIMATELY
-    # ENDS IN A BLANK LINE could never pass its own proof: the master stores lines (`ref_text.splitlines()`),
+    # ENDS IN A BLANK LINE could never pass its own proof: the rungs stores lines (`ref_text.splitlines()`),
     # the extractor faithfully returns the blank one, and the comparison had just stripped it. ⭐ NOTHING WAS
     # EVER WRONG WITH THE STORED DATA -- the round trip was exact and only the assertion about it was not,
     # which is why it read as a corpus fault rather than a proof fault and got worked around by appending a
@@ -649,21 +649,21 @@ def main():
           and check_ref.read_text() == _as_stored(ref_text))
     check_src.unlink(missing_ok=True); check_ref.unlink(missing_ok=True)
     if not ok:
-        # ⛔ A REFUSAL LEAVES THE TREE AS IT FOUND IT. The proof necessarily runs AFTER the three masters are
+        # ⛔ A REFUSAL LEAVES THE TREE AS IT FOUND IT. The proof necessarily runs AFTER the three rung suites are
         # replaced -- it extracts through the OFFICIAL extractor rather than this script's belief, so there is
         # nothing to extract until the write lands. hq_V's measured cost: the tool refused and left the corpus
         # dirty, telling the operator not to trust files it had already written, which is the expensive half.
         # So the pre-write contents are restored before refusing, and the refusal says the tree is clean.
         try:
-            master_src.write_text(old_src_text); master_ref.write_text(old_ref_text)
-            master_csv.write_bytes(old_csv_bytes)
-            _rolled = "the three masters were RESTORED to their pre-write contents; the tree is clean"
+            rungs_src.write_text(old_src_text); rungs_ref.write_text(old_ref_text)
+            rungs_csv.write_bytes(old_csv_bytes)
+            _rolled = "the three rung suites were RESTORED to their pre-write contents; the tree is clean"
         except OSError as exc:
-            _rolled = "⛔ ROLLBACK ITSELF FAILED (%s) -- the masters are dirty, restore them from git" % exc
+            _rolled = "⛔ ROLLBACK ITSELF FAILED (%s) -- the rung suites are dirty, restore them from git" % exc
         refuse("post-write extraction proof failed for %s (stderr: %s) -- %s"
                % (entry_name, err.stderr, _rolled))
     print("APPLIED: %s rank=%s -> %s / %s / %s (extraction round-trip verified)"
-          % (entry_name, rank, master_src, master_ref, master_csv))
+          % (entry_name, rank, rungs_src, rungs_ref, rungs_csv))
 
 
 if __name__ == "__main__":

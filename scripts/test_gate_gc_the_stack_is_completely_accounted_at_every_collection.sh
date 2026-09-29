@@ -18,7 +18,7 @@
 # DESIGN?" (test_gate_term_wordref_ratchet.sh's question, which is what makes this shape legitimate):
 # YES -- every unaccounted region is DEBT that is to be deleted or declared, and 0 is the intended terminal
 # value.  But it is NOT zero today and pretending otherwise would be the false clearance this row exists to
-# prevent: MEASURED 2026-09-21 over all 826 icon master entries at 64 KB / stress 1, 149 programs carry a
+# prevent: MEASURED 2026-09-21 over all 826 icon rungs entries at 64 KB / stress 1, 149 programs carry a
 # nonzero completeness counter across 163 DISTINCT NAMED FRAMES and 133648 raw-heap word sites, the largest
 # single region being the SPINE of `main` (33633 sites across 100 programs).  So the gate pins the named
 # remainder and goes RED when a NEW frame appears or a pinned one grows.
@@ -42,7 +42,7 @@ PINS="$REPO/scripts/gc_stack_accounting_pins.tsv"
 
 gate_require_fresh || exit 2
 
-# ── THE DECLARED POPULATION.  Deep witnesses, named, from the icon master.  Chosen by measured frame depth
+# ── THE DECLARED POPULATION.  Deep witnesses, named, from the icon rungs.  Chosen by measured frame depth
 #    (see the ONE_LINER at the foot), never by looking like they might recurse.
 # ⛔⭐ THE POPULATION IS CURATED AGAINST THE RUNTIME'S OWN LINE CAP, AND THAT COST IS REAL.  gc_walk_site
 #    stops after GC_WALK_LINE_CAP=48 site lines PER COLLECTION and reports the rest as `suppressed`, so a
@@ -97,9 +97,9 @@ DEPTH_FLOOR="${GC_STACK_DEPTH_FLOOR:-10}"     # max frames the population MUST r
 #   vs 763), which is the spread this gate already refuses to pin.  Set GC_STACK_ARENA_KB=64 to reproduce the
 #   pre-cap reading.
 ARENA_KB="${GC_STACK_ARENA_KB:-256}"
-export MASTER_EXT=".icn" MASTER_DIR="$S4E/corpus/tests/icon"
-. "$REPO/scripts/lib_master_extract.sh" >/dev/null 2>&1 || {
-    echo "GATE UNPROVEN(2) [$GATE_NAME]: scripts/lib_master_extract.sh is absent -- this gate materializes witnesses through the ONE authority and invents no extractor of its own"; exit 2; }
+export RUNGS_EXT=".icn" RUNGS_DIR="$S4E/corpus/tests/icon"
+. "$REPO/scripts/lib_rungs_extract.sh" >/dev/null 2>&1 || {
+    echo "GATE UNPROVEN(2) [$GATE_NAME]: scripts/lib_rungs_extract.sh is absent -- this gate materializes witnesses through the ONE authority and invents no extractor of its own"; exit 2; }
 
 TD="$(mktemp -d)"; trap 'rm -rf "$TD"' EXIT
 LOG="$TD/walk.log"; : > "$LOG"
@@ -122,8 +122,8 @@ for tok in $WITNESSES; do
         *)   w="$tok";       wstress="$DEFAULT_STRESS" ;;
     esac
     src="$TD/$w.icn"
-    master_extract_name "$w" "$src" "$TD/$w.ref" >/dev/null 2>&1 || {
-        echo "GATE UNPROVEN(2) [$GATE_NAME]: could not materialize witness '$w' from $MASTER_DIR -- a population that cannot be built is not a clean reading"; exit 2; }
+    rungs_extract_name "$w" "$src" "$TD/$w.ref" >/dev/null 2>&1 || {
+        echo "GATE UNPROVEN(2) [$GATE_NAME]: could not materialize witness '$w' from $RUNGS_DIR -- a population that cannot be built is not a clean reading"; exit 2; }
     t0=$(date +%s)
     env SCRIP_GC_MAPS=1 SCRIP_HEAP_KB="$ARENA_KB" SCRIP_GC_STRESS="$wstress" SCRIP_GC_EXERCISE=1 \
         timeout "$CEILING" "$REPO/scrip" "$src" >/dev/null 2>>"$LOG" </dev/null

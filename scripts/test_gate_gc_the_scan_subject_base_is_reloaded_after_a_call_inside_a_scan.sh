@@ -4,7 +4,7 @@
 # CTO-165; row icon-gc-procedure-record-scan-replace-2-goes-crash-to-diff-across-fa1dc84a5-...; law RULES.md FACT RULE
 # THE COLLECTOR GUESSES NOTHING, CEO-812; hq_icon's 15-line witness, FINDING-2026-09-24-hq_icon-htprep-stale-scan-subject).
 #
-# MEASURED 2026-09-24 on SCRIP 8b6cb3607: the Icon master entry procedure_record_scan_replace_2 (htprep) reads its ref at
+# MEASURED 2026-09-24 on SCRIP 8b6cb3607: the Icon rungs entry procedure_record_scan_replace_2 (htprep) reads its ref at
 # stress 0 and prints NUL-filled garbage where scanned text belongs at stress 5 under forced relocation, differently on
 # every run.  Under the flip plant the fault is located: the inline cset test of upto in braces (movzx esi, byte ptr
 # [r13+rcx]) reads a 64-byte HB_WSB string block (the line trim(read()) returned, the scan subject) 20 bytes in, at the

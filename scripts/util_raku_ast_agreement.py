@@ -7,12 +7,12 @@ dump-on-every-master-entry-and-kernel-then-the-old-parser-is-deleted (Lon 2026-0
 scripts/util_raku_ast_agreement.sh, which the row's DONE-WHEN runs.
 
 THE POPULATION, every unit named by a durable key:
-    master:<entry>     every entry of corpus/tests/raku/ALL.raku, extracted alone through corpus_suite_harness.py's
+    rungs:<entry>     every entry of corpus/tests/raku/ALL.raku, extracted alone through corpus_suite_harness.py's
                        own suite readers (the same extraction util_raku_syntax_agreement.py uses)
     bench:<file>       every *.raku kernel under corpus/benchmarks/raku
 
 THE REFERENCE is the flex/bison parser's own `scrip --dump-ast` output, cut ONCE by `--cut` before the parser swap:
-    corpus/tests/raku/ALL.ast            one banner per master entry, `#-- <key>` then `#rc <n>` then the dump
+    corpus/tests/raku/ALL.ast            one banner per rungs entry, `#-- <key>` then `#rc <n>` then the dump
     corpus/benchmarks/raku/<stem>.ast    one file per kernel, `#rc <n>` then the dump
 each file headed by the SCRIP commit that cut it. `--cut` REFUSES rc=2 once src/parsers/raku/raku.y is gone:
 the reference is the old parser's tree, and nothing else may write it.
@@ -35,9 +35,9 @@ HERE = Path(__file__).resolve().parent
 SCRIP_DIR = HERE.parent
 HOME = Path(os.environ.get("S4E_HOME", SCRIP_DIR.parent))
 CORPUS = HOME / "corpus"
-MASTER = CORPUS / "tests" / "raku" / "ALL.raku"
-MASTER_REF = CORPUS / "tests" / "raku" / "ALL.ref"
-MASTER_AST = CORPUS / "tests" / "raku" / "ALL.ast"
+RUNGS = CORPUS / "tests" / "raku" / "ALL.raku"
+RUNGS_REF = CORPUS / "tests" / "raku" / "ALL.ref"
+RUNGS_AST = CORPUS / "tests" / "raku" / "ALL.ast"
 EXCEPTIONS = CORPUS / "tests" / "raku" / "ALL.ast.exceptions.tsv"
 BENCH = CORPUS / "benchmarks" / "raku"
 SCRIP = SCRIP_DIR / "scrip"
@@ -49,24 +49,24 @@ def refuse(msg):
     raise SystemExit(2)
 
 
-def master_units(workdir):
+def rungs_units(workdir):
     sys.path.insert(0, str(HERE))
     import corpus_suite_harness as h
     try:
-        entries = h.read_block_suite(str(MASTER), str(MASTER_REF), h.banner_re_for("#", ""))
+        entries = h.read_block_suite(str(RUNGS), str(RUNGS_REF), h.banner_re_for("#", ""))
     except Exception:
-        entries = h.read_suite(str(MASTER), str(MASTER_REF))
+        entries = h.read_suite(str(RUNGS), str(RUNGS_REF))
     out = []
     for e in entries:
         text = (e.sno_lines[0] if e.kind == "line" else "\n".join(e.sno_lines)) + "\n"
         p = workdir / f"{e.name}.raku"
         p.write_text(text)
-        out.append((f"master:{e.name}", p))
+        out.append((f"rungs:{e.name}", p))
     return out
 
 
 def population(workdir):
-    return master_units(workdir) + [(f"bench:{p.name}", p) for p in sorted(BENCH.glob("*.raku"))]
+    return rungs_units(workdir) + [(f"bench:{p.name}", p) for p in sorted(BENCH.glob("*.raku"))]
 
 
 def dump(flag, path, timeout):
@@ -97,10 +97,10 @@ def cut(units, jobs, timeout):
         refuse("SCRIP has uncommitted changes -- a reference must name a tree someone else can check out")
     got = run_all(units, "--dump-ast", jobs, timeout)
     head = f"# cut by scripts/util_raku_ast_agreement.py --cut from SCRIP {commit}: the flex/bison parser's `scrip --dump-ast`\n"
-    with open(MASTER_AST, "wb") as f:
+    with open(RUNGS_AST, "wb") as f:
         f.write(("# ALL.ast -- the reference Raku AST of every entry of ALL.raku (row raku-the-new-parser-builds-the-tree, CEO-1289)\n" + head).encode())
         for k, _ in units:
-            if not k.startswith("master:"):
+            if not k.startswith("rungs:"):
                 continue
             rc, out = got[k]
             f.write(f"#-- {k}\n#rc {rc}\n".encode() + out + (b"" if out.endswith(b"\n") or not out else b"\n"))
@@ -111,15 +111,15 @@ def cut(units, jobs, timeout):
         rc, out = got[k]
         (BENCH / (p.stem + ".ast")).write_bytes(head.encode() + f"#rc {rc}\n".encode() + out)
         nb += 1
-    nm = sum(1 for k, _ in units if k.startswith("master:"))
-    print(f"RAKU_AST_REFERENCE cut from SCRIP {commit}: master={nm} -> {MASTER_AST}  bench={nb} -> {BENCH}/*.ast")
+    nm = sum(1 for k, _ in units if k.startswith("rungs:"))
+    print(f"RAKU_AST_REFERENCE cut from SCRIP {commit}: rungs={nm} -> {RUNGS_AST}  bench={nb} -> {BENCH}/*.ast")
 
 
 def read_reference(units):
-    if not MASTER_AST.is_file():
-        refuse(f"no reference at {MASTER_AST} -- cut it first with --cut, on a tree that still has the old parser")
+    if not RUNGS_AST.is_file():
+        refuse(f"no reference at {RUNGS_AST} -- cut it first with --cut, on a tree that still has the old parser")
     ref, cur, buf = {}, None, []
-    for line in MASTER_AST.read_bytes().split(b"\n"):
+    for line in RUNGS_AST.read_bytes().split(b"\n"):
         if line.startswith(b"#-- "):
             if cur:
                 ref[cur] = buf

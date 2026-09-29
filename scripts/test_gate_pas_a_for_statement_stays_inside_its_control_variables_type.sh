@@ -12,7 +12,7 @@
 # ⭐ WHERE THE ORACLE IS STRICTER THAN THE STANDARD: fpc -Miso refuses out-of-range literal bounds even on a loop that never executes
 # ('for j := 10 to 0' over 1..9: "range check error while evaluating constants"); ISO constrains only an executed loop, and SCRIP
 # follows ISO there. The oracle cannot cut a ref for that shape, so it is named here and not graded.
-# Before landing, every acceptance program in the corpus was compiled with the check (PasM, the FPC suite, P4, P5, benchmarks): zero
+# Before landing, every acceptance program in the corpus was compiled with the check (PasRungs, the FPC suite, P4, P5, benchmarks): zero
 # tripped; the only trip was the P5 copy of this same test.
 #
 # ARMS: the vendored witness, REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is accepted, links

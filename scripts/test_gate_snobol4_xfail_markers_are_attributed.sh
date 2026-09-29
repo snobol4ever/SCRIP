@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_gate_snobol4_xfail_markers_are_attributed.sh — every surviving XFAIL marker in the SNOBOL4
-# master must NAME A LIVE ROW, so that "expected to fail" always carries a route to a cure.
+# rungs must NAME A LIVE ROW, so that "expected to fail" always carries a route to a cure.
 #
 # ⛔ WHY THIS GATE EXISTS (hq_P 2026-09-06, row snobol4-every-xfail-fixed-as-a-faulty-test-or-cured-
 # as-a-defect; CEO-328 (4) asked the question in prose and nobody could run it). Measured at the time
@@ -46,17 +46,17 @@
 # and is still wrong -- that is a different question and needs a different instrument.
 set -u
 here="$(cd "$(dirname "$0")" && pwd)"; root="$(cd "$here/../.." && pwd)"
-MASTER_XFAIL="$root/corpus/tests/snobol4/ALL.xfail"
-MASTER_CSV="$root/corpus/tests/snobol4/ALL.csv"
+RUNGS_XFAIL="$root/corpus/tests/snobol4/ALL.xfail"
+RUNGS_CSV="$root/corpus/tests/snobol4/ALL.csv"
 QUEUE="${S4E_QUEUE:-/home/resources/postoffice/QUEUE.tsv}"
 # ⛔ REFUSE rc=2 rather than skip-as-success: an instrument that cannot measure must say so. A missing
 # ALL.xfail is NOT "zero unattributed markers" -- it is a gate that graded nothing and must not print
 # the same string as one that passed.
-[ -f "$MASTER_XFAIL" ] || { echo "⛔ GATE REFUSES: no $MASTER_XFAIL -- cannot grade marker attribution"; exit 2; }
+[ -f "$RUNGS_XFAIL" ] || { echo "⛔ GATE REFUSES: no $RUNGS_XFAIL -- cannot grade marker attribution"; exit 2; }
 [ -f "$QUEUE" ]        || { echo "⛔ GATE REFUSES: no QUEUE.tsv at $QUEUE -- cannot tell a live row from a dead one"; exit 2; }
-[ -f "$MASTER_CSV" ]   || { echo "⛔ GATE REFUSES: no $MASTER_CSV -- ALL.csv is the POPULATION; without it this gate can only see xfails that already have a reason, which is the blind spot it exists to close"; exit 2; }
+[ -f "$RUNGS_CSV" ]   || { echo "⛔ GATE REFUSES: no $RUNGS_CSV -- ALL.csv is the POPULATION; without it this gate can only see xfails that already have a reason, which is the blind spot it exists to close"; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "⛔ GATE REFUSES: no python3"; exit 2; }
-python3 - "$MASTER_XFAIL" "$QUEUE" "$MASTER_CSV" <<'PY'
+python3 - "$RUNGS_XFAIL" "$QUEUE" "$RUNGS_CSV" <<'PY'
 import re, sys, csv, collections
 BANNER = re.compile(r"^\*-+ (?P<seq>\d+) (?P<name>\S+)(?P<xfail> XFAIL)?$")
 xf, q, cs = sys.argv[1], sys.argv[2], sys.argv[3]

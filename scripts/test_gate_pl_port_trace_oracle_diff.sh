@@ -20,7 +20,7 @@
 # answer stream" instrument without first solving a harder problem (silencing gprolog's own banner/compile
 # noise) that is out of scope for this rung.
 #
-# ⛔⭐ POPULATION IS ONE HAND-WRITTEN CANARY WITNESS, NOT DRAWN FROM THE MASTER SUITE -- A DELIBERATE,
+# ⛔⭐ POPULATION IS ONE HAND-WRITTEN CANARY WITNESS, NOT DRAWN FROM THE RUNGS SUITE -- A DELIBERATE,
 # NAMED DEPARTURE FROM EVERY OTHER GATE IN THIS FAMILY, explained in full because a silent one would read
 # as an oversight. MEASURED 2026-09-05 on corpus/tests/prolog's own `rung05_backtrack_backtrack` family
 # (list_directive_2.pl, a recursive member/2): SCRIP logs ONE Redo event PER ACTIVE STACK FRAME when
@@ -61,11 +61,11 @@ S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 CUT=0; for a in "$@"; do [ "$a" = --cut ] && CUT=1; done
 gate_parse_args "$@"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-MASTER_DIR="$S4E/corpus/tests/prolog"
-REF="$MASTER_DIR/ALL.trace.oracle"; T="${TIMEOUT:-20}"
+RUNGS_DIR="$S4E/corpus/tests/prolog"
+REF="$RUNGS_DIR/ALL.trace.oracle"; T="${TIMEOUT:-20}"
 gate_require_exec "$SCRIP" "scrip binary"
 gate_require "$RT/libscrip_rt.so" "runtime library"
-gate_require "$MASTER_DIR" "Prolog corpus dir (only used to co-locate the ref beside its self-pin sibling)"
+gate_require "$RUNGS_DIR" "Prolog corpus dir (only used to co-locate the ref beside its self-pin sibling)"
 [ "$CUT" = 1 ] || gate_require "$REF" "oracle trace ref (run with --cut to create it)"
 if [ "$CUT" = 1 ]; then
   . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot load lib_oracle_flags.sh"; exit 2; }
@@ -159,5 +159,5 @@ lines+=("$(printf '%-20s killswitch=%-4s perturb m3=%-4s m4=%-7s trace m3=%-16s 
 for m in m3 m4; do [ -f "$W/$o.$m.diff" ] && lines+=("$(cat "$W/$o.$m.diff")"); done
 printf '%s\n' "${lines[@]}"
 if [ "$CUT" = 1 ]; then cp "$W/ALL.trace.oracle" "$REF"; echo "refs CUT -> $REF (1 block)"; fi
-echo "witnesses=$n (1 hand-written canary, non-recursive single-frame backtracking -- NOT drawn from the master suite, see header) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational) . oracle=swipl trace/0, Call/Redo/Exit/Fail -> alpha/beta/gamma/omega verbatim (Prolog's own port names ARE this codebase's Byrd vocabulary), depths/args/main dropped, one named one-direction trailing-choicepoint-pair drop on SCRIP's side only (see header)"
+echo "witnesses=$n (1 hand-written canary, non-recursive single-frame backtracking -- NOT drawn from the rungs suite, see header) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational) . oracle=swipl trace/0, Call/Redo/Exit/Fail -> alpha/beta/gamma/omega verbatim (Prolog's own port names ARE this codebase's Byrd vocabulary), depths/args/main dropped, one named one-direction trailing-choicepoint-pair drop on SCRIP's side only (see header)"
 GATE_EXAMINED=$((n*2)); gate_verdict "$bad" "failed checks across killswitch/perturbation/trace"

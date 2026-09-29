@@ -227,7 +227,7 @@ rm -rf "$SCRATCH"
 # The defect this replays (hq_T 2026-09-05, found off seat13's make-test refusal report): `check` read
 # cells[PROV_COL] and nothing else, on the premise that every measurement arrives through `write`, which
 # stamps there. True for writes through the helper, silently false for the hand-edit -- and the board is
-# full of hand-edits. Live witness at the time: snobol4's Master board cell read "LANE RE-MEASURE
+# full of hand-edits. Live witness at the time: snobol4's Rungs board cell read "LANE RE-MEASURE
 # 2026-09-05 (hq_P) ... on SCRIP `f3f4870d7`" while its `board:` clause still read hq_B 2026-09-04 on
 # `7d7ff2dc5`, so the number every human reader was looking at had never once been graded.
 # ⭐ THE ARM IS TWO-SIDED ON PURPOSE. A detector is only worth its line count if it also stays QUIET on the

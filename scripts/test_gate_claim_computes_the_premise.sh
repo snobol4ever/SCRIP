@@ -8,7 +8,7 @@
 # 2026-09-20, every one a premise that was cheap to check and that nothing made anyone check: a 51-entry
 # taxonomy withdrawn because the allocator never collects; a trail mark banked against an empty trail; a cure
 # announced for a raw push a watchpoint then proved dead; effort inferred from `ps`; a row opened on a premise
-# red in every SnoM run; an eight-program bisect with three claims false on this tree.
+# red in every SnoRungs run; an eight-program bisect with three claims false on this tree.
 # ⛔ A RED PREMISE IS NOT A DEFECT. It is the row needing REWRITING before an hour goes into it -- so the
 # refusal must not lock, must not serve, must name the premise, and must say which of those two things it is.
 # TEN ARMS against a THROWAWAY postoffice under mktemp -- never the live one:

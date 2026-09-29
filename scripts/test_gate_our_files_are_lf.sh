@@ -7,7 +7,7 @@
 # CRLF LOWERS its score; they convert only on Lon's word, in a commit of their own) and MINUS generated flex/bison outputs.
 # WHAT IT COUNTS: a CR at END OF LINE (\r$). A CR byte inside a string literal (benchmarks/icon/geddump.s carries
 # "\t\n\r " as DATA in a .string directive) is not a line ending and is not counted.
-# WHY IT EXISTS: Python's csv.writer defaults lineterminator to "\r\n", so util_build_master_suite.py re-minted every
+# WHY IT EXISTS: Python's csv.writer defaults lineterminator to "\r\n", so util_build_rungs_suite.py re-minted every
 # ALL.csv as CRLF on each rebuild; tests/prolog/ALL.csv was converted by hand (corpus 1feca4aa4) and the other five were
 # not, and a seat then RESTORED snobol4's CRLF (corpus 40441ed53) applying the binary-read rule with no law to read
 # against -- RULES.md carried no LF rule until 2026-09-04. A rule with no instrument is a memo; this is the instrument.

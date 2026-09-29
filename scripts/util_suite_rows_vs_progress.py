@@ -31,9 +31,9 @@ import sys, os, re, collections, tempfile, shutil
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CRITERION_NOTE_RX = re.compile(r"^(?!xfail$)[a-z]+(-[a-z]+)+$")   # a criterion label in the note column, e.g. outcome-class; hashes and xfail never match
-DBNAME = {"sno-master": "snobol4-master", "icn-master": "icon-master", "pl-master": "prolog-master", "pas-master": "pascal-master",
-          "raku-master": "raku-master", "snc-master": "snocone-master", "reb-master": "rebus-master", "x64tests": "spitbol_x64", "x32tests": "spitbol_x32"}
-SIDECAR = {"sno-master": "tests/snobol4/ALL.outside.tsv",
+DBNAME = {"sno-rungs": "snobol4-rungs", "icn-rungs": "icon-rungs", "pl-rungs": "prolog-rungs", "pas-rungs": "pascal-rungs",
+          "raku-rungs": "raku-rungs", "snc-rungs": "snocone-rungs", "reb-rungs": "rebus-rungs", "x64tests": "spitbol_x64", "x32tests": "spitbol_x32"}
+SIDECAR = {"sno-rungs": "tests/snobol4/ALL.outside.tsv",
            "gimpel": "packages/snobol4/gimpel/OUTSIDE_SPITBOL_BASELINE.tsv",
            "csnobol4": "packages/snobol4/csnobol4_suite/OUTSIDE_SPITBOL_BASELINE.tsv",
            "snoflake": "packages/snobol4/snoflake_suite/OUTSIDE_SPITBOL_BASELINE.tsv",
@@ -298,8 +298,8 @@ def selftest():
         suites = os.path.join(w, "SUITES.tsv")
         db = os.path.join(w, "results.tsv")
         hdr = "key\tnick\temoji\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\ttoday_pass\ttoday_total\ttree\tcriterion_changed\n"
-        rows = ["sno-master\tSnoM\tx\tsnobol4\t2026-09-06\t1\t3\t2026-09-16\t2\t4\tfeedbeef1\tfixture\n",       # 2 PASS 1 FAIL + 1 sidecar OUTSIDE = 2/4 AGREE
-                "snc-master\tSncM\tx\tsnocone\t2026-09-03\t1\t3\t2026-09-16\t1\t3\tfeedbeef1\tfixture\n",       # DB 2/3, the extra PASS is an xfail-noted one: gap == xpass
+        rows = ["sno-rungs\tSnoM\tx\tsnobol4\t2026-09-06\t1\t3\t2026-09-16\t2\t4\tfeedbeef1\tfixture\n",       # 2 PASS 1 FAIL + 1 sidecar OUTSIDE = 2/4 AGREE
+                "snc-rungs\tSncM\tx\tsnocone\t2026-09-03\t1\t3\t2026-09-16\t1\t3\tfeedbeef1\tfixture\n",       # DB 2/3, the extra PASS is an xfail-noted one: gap == xpass
                 "gimpel\tGimpel\tx\tsnobol4\t2026-09-04\t1\t2\t2026-09-16\t1\t2\tfeedbeef1\tfixture\n",         # DB 1/3 (1 PASS 1 FAIL 1 UNGRADED): denominator planted
                 "roast\tRoast\tx\traku\t2026-09-03\t4\t986\t2026-09-13\t6\t986\tdeadbeef2\tfixture\n",           # no rows on its tree: UNPROVEN
                 "gnu_fd\tGnuFD\tx\tprolog\t\t\t\t\t\t30\t\tDEFERRED by ruling CEO-579\n",
@@ -308,15 +308,15 @@ def selftest():
         open(suites, "w").write("# fixture\n" + hdr + "".join(rows))
         open(os.path.join(w, "corpus", "tests", "snobol4", "ALL.outside.tsv"), "w").write("p_out\tORACLE_REFUSES\tfixture\n")
         def row(tree, suite, prog, mode, out, note=""):
-            return f"2026-09-16T00:00:00\t{tree}\tc\tfixture\tmaster\t{suite}\tsnobol4\t{prog}\t{mode}\t{out}\t0\t{note}\n"
+            return f"2026-09-16T00:00:00\t{tree}\tc\tfixture\trungs\t{suite}\tsnobol4\t{prog}\t{mode}\t{out}\t0\t{note}\n"
         lines = ["ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n"]
         for m in ("m3", "m4"):
-            lines += [row("feedbeef1", "snobol4-master", "p1", m, "PASS"), row("feedbeef1", "snobol4-master", "p2", m, "PASS"), row("feedbeef1", "snobol4-master", "p3", m, "FAIL")]
-            lines += [row("feedbeef1", "snocone-master", "s1", m, "PASS"), row("feedbeef1", "snocone-master", "s2", m, "PASS", "xfail"), row("feedbeef1", "snocone-master", "s3", m, "FAIL")]
+            lines += [row("feedbeef1", "snobol4-rungs", "p1", m, "PASS"), row("feedbeef1", "snobol4-rungs", "p2", m, "PASS"), row("feedbeef1", "snobol4-rungs", "p3", m, "FAIL")]
+            lines += [row("feedbeef1", "snocone-rungs", "s1", m, "PASS"), row("feedbeef1", "snocone-rungs", "s2", m, "PASS", "xfail"), row("feedbeef1", "snocone-rungs", "s3", m, "FAIL")]
             lines += [row("feedbeef1", "gimpel", "g1", m, "PASS"), row("feedbeef1", "gimpel", "g2", m, "CRASH"), row("feedbeef1", "gimpel", "g3", m, "UNGRADED")]
             lines += [row("feedbeef1", "inria", "i%d" % k, m, "PASS", "outcome-class") for k in (1, 2, 3)]
             lines += [row("feedbeef1", "swi", "w1", m, "PASS", "outcome-class"), row("feedbeef1", "swi", "w2", m, "PASS", "outcome-class"), row("feedbeef1", "swi", "w3", m, "FAIL", "outcome-class")]
-        lines += [row("feedbeef1", "snobol4-master", "p2", "m3", "FAIL"), row("feedbeef1", "snobol4-master", "p2", "m3", "PASS")]   # last row wins
+        lines += [row("feedbeef1", "snobol4-rungs", "p2", "m3", "FAIL"), row("feedbeef1", "snobol4-rungs", "p2", "m3", "PASS")]   # last row wins
         open(db, "w").write("".join(lines))
         fails = 0
         def ck(ok, label):
@@ -327,7 +327,7 @@ def selftest():
         buf = []
         rc = audit(suites, db, os.path.join(w, "corpus"), out=buf.append)
         txt = "\n".join(buf)
-        ck(rc == 1 and "sno-master" in txt and re.search(r"sno-master .*AGREE", txt) and re.search(r"snc-master .*DISAGREE: numerator row 1 vs DB 2 \(\+1\) = xpass: STALE MARKERS", txt) and
+        ck(rc == 1 and "sno-rungs" in txt and re.search(r"sno-rungs .*AGREE", txt) and re.search(r"snc-rungs .*DISAGREE: numerator row 1 vs DB 2 \(\+1\) = xpass: STALE MARKERS", txt) and
            re.search(r"gimpel .*DISAGREE: denominator row 2 vs DB population 3", txt) and re.search(r"roast .*UNPROVEN", txt) and re.search(r"gnu_fd .*DEFERRED", txt),
            "(a) rc=1: the agreeing row AGREEs, the planted numerator gap is named and equals its xpass (stale markers), the planted denominator gap is named by class, UNPROVEN and DEFERRED named")
         ck(bool(re.search(r"inria .*AGREE-BOUNDED: the DB carries criterion 'outcome-class' per entry, an upper bound \(3\) on the row's own criterion \(2\)", txt))

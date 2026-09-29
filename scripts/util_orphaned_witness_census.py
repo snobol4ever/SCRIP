@@ -7,7 +7,7 @@ denominator contains it, and no board has ever run it.
 
 WHY THIS IS ITS OWN SHAPE, worse than an xfail (ceo CEO-414, hq_P 2026-09-08):
 an xfail is at least censused by test_gate_no_xfail_survives.sh.  An orphan appears in NO
-count we keep, because every count starts from ALL.csv.  The SNOBOL4 master read 1894/1894
+count we keep, because every count starts from ALL.csv.  The SNOBOL4 rungs read 1894/1894
 FAIL=0 with a SEGFAULTING witness (nested_arbno_rpos) sitting in the tree beside it.
 
 MEMBERSHIP IS DELIBERATELY GENEROUS -- a name counts as KNOWN if it appears anywhere in any

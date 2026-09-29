@@ -17,15 +17,15 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 # ⛔ CORPUS IS EXTRACTED, NOT A FIXED TREE (row dead-suite-path-consumer-sweep): corpus/crosscheck/ is
-# gone -- the corpus-suites-consolidation converted it into the master suite's crosscheck_* families
+# gone -- the corpus-suites-consolidation converted it into the rungs suite's crosscheck_* families
 # (31 of them). An explicit CORPUS override still runs the old loose-directory path unchanged, for
 # anyone testing against a hand-built tree.
 if [ -z "${CORPUS:-}" ]; then
     WORKDIR=$(mktemp -d)
     trap 'rm -rf "$WORKDIR"' EXIT
     CORPUS="$WORKDIR/crosscheck_src"
-    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
-    master_extract_origin_prefix crosscheck_ "$CORPUS" || { echo "GATE UNPROVEN(2) [util_fc_spine_census]: could not extract the crosscheck_* families from the master suite"; exit 2; }
+    RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_rungs_extract.sh"
+    rungs_extract_origin_prefix crosscheck_ "$CORPUS" || { echo "GATE UNPROVEN(2) [util_fc_spine_census]: could not extract the crosscheck_* families from the rungs suite"; exit 2; }
 fi
 [ -d "$CORPUS" ] || { echo "no corpus dir found"; exit 1; }
 declare -A CELLS; TOTAL=0; PROGS=0

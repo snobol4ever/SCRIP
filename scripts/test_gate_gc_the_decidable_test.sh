@@ -2,10 +2,10 @@
 # test_gate_gc_the_decidable_test.sh -- F6 STEP 6, THE DECIDABLE TEST (coo; ceo CEO-869/876, hq_snocone's ask).
 #
 # ⛔⭐ THE QUESTION IS NOT "DOES THE COLLECTOR FIND THE ROOTS".  IT IS: CAN A SUITE BE GREEN WHILE IT DOES NOT?
-# THE MEASUREMENT THAT MAKES THIS THE CRITICAL PATH (the cto, 2026-09-18; reproduced by the ceo on an Icon master
-# entry): 320 master entries across four frontends run with ZERO COLLECTIONS at default settings.  So every
-# master board we own today is green over a collector that never ran once.  When three seats land F6 step 4's
-# 208 poll sites, NOTHING WE OWN CAN TELL US WHETHER THEY ARE RIGHT -- not a board, not a smoke, not a master.
+# THE MEASUREMENT THAT MAKES THIS THE CRITICAL PATH (the cto, 2026-09-18; reproduced by the ceo on an Icon rungs
+# entry): 320 rungs entries across four frontends run with ZERO COLLECTIONS at default settings.  So every
+# rungs board we own today is green over a collector that never ran once.  When three seats land F6 step 4's
+# 208 poll sites, NOTHING WE OWN CAN TELL US WHETHER THEY ARE RIGHT -- not a board, not a smoke, not a rung suite.
 # A green suite is evidence about the collector only if something FORCES it to run, FORCES the heap to slide
 # under a live value, and then READS THAT VALUE BACK.  That is what each witness here does, per registered kind.
 #
@@ -166,7 +166,7 @@ fi
 # ⛔⭐ EVERY ARM ABOVE SAYS "THE VALUE SURVIVED".  NONE OF THEM SAYS THE WITNESS COULD HAVE NOTICED IF IT HAD NOT.
 # That gap is the entire subject of this gate: a suite that passes over a collector that never ran, or whose
 # roots were never really exercised, is green for reasons unrelated to correctness -- which is exactly the state
-# the cto measured across 320 master entries.  So the collector is DELIBERATELY BROKEN and each witness must be
+# the cto measured across 320 rungs entries.  So the collector is DELIBERATELY BROKEN and each witness must be
 # seen to FAIL.  SCRIP_GC_PLANT_PIN_SKIP=n denies the nth marked block a forwarding address, so the heap slides
 # around it and every reference to it is left pointing at whatever now occupies that address -- a lost root, by
 # the collector's own [ZGC-PIN] VIOLATION definition.  A witness that stays green through that is not a witness.

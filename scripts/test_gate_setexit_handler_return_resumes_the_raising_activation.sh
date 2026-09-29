@@ -6,7 +6,7 @@
 # core_runtime_error enters a SETEXIT handler NESTED, through rt_goto_transfer_checked -> rt_chain_enter, and rt_chain_enter
 # pushes [rt_kw_return_level_zero, rt_kw_return_level_zero] as the function-return wire pair. So a :(RETURN) or :(FRETURN)
 # in a handler whose error fired inside a user function jumped to the level-zero sentinel: FRETURN printed ERROR 242
-# (the two SnoM ReadWrite entries), and a handler that had re-armed SETEXIT trapped that 242 too and re-entered itself
+# (the two SnoRungs ReadWrite entries), and a handler that had re-armed SETEXIT trapped that 242 too and re-entered itself
 # until a misaligned movaps faulted (X64T math_ln/math_pow; math_div/math_prod under the separate zd_plan hang).
 # a22f9c6ed (SETEXIT priority inside EVAL) only routed EVAL-raised errors -- every chks.inc exception -- onto this path;
 # the path itself predates it (the no-EVAL arm already SIGSEGVed at 8f567e685).

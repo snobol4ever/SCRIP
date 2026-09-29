@@ -4,7 +4,7 @@
 # COLLECTOR GUESSES NOTHING, CEO-812: a word the collector never visits is not a root, and an imm64 inside emitted code is
 # exactly such a word).
 #
-# MEASURED 2026-09-23 on arbno_fence_span_branch_1 (the SNOBOL4 master, extracted standalone): with the deferred-pattern
+# MEASURED 2026-09-23 on arbno_fence_span_branch_1 (the SNOBOL4 rungs, extracted standalone): with the deferred-pattern
 # entry polled after dtp_fn_of (bb_match_defer.cpp:115, the last unpolled site of the census) the witness printed FAIL for
 # MATCH at SCRIP_GC_STRESS=1/3/5 in every arena and relocation configuration, and gdb disassembly of the function dtp_fn_of
 # returned (a runtime-compiled "rtpat" chain in the box pool) showed ONE imm64 inside [g_hp_arena, g_hp_top): an HB_WSC

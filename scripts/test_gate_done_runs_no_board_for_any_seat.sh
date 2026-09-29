@@ -20,7 +20,7 @@ gate_parse_args "$@"
 L="$HERE/lib_one_runner.sh"; H="$HERE/corpus_suite_harness.py"; RA="$HERE/util_suite_row_at_or_after.sh"; XC="$HERE/util_donewhen_exemption_census.py"
 for f in "$L" "$H" "$RA" "$XC"; do gate_require "$f" "$(basename "$f")" || exit 2; done
 CORPUS="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}/corpus"
-gate_require "$CORPUS/tests/rebus/ALL.reb" "the rebus master (a real board path for the guard to judge)" || exit 2
+gate_require "$CORPUS/tests/rebus/ALL.reb" "the rebus rungs (a real board path for the guard to judge)" || exit 2
 W=$(mktemp -d) || exit 2; trap 'rm -rf "$W"' EXIT INT TERM
 fails=0; n=0
 ck() { n=$((n+1)); if eval "$2"; then echo "  ok   $1"; else fails=$((fails+1)); echo "  FAIL $1"; fi; }
@@ -40,15 +40,15 @@ ck "2 rc 2, the same sentence, the same helper named" '[ "$r2" = 2 ] && grep -q 
 echo "--- ARM 3: util_suite_row_at_or_after.sh reads the row a DONE-WHEN cites instead of running a board ---"
 mkdir -p "$W/home/.github"; ln -s "$ROOT" "$W/home/SCRIP"
 NEW=$(git -C "$ROOT" rev-parse --short HEAD); OLD=$(git -C "$ROOT" rev-parse --short HEAD~3)
-printf '# scratch suite table\nkey\tnick\temoji\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\ttoday_pass\ttoday_total\ttree\tcriterion_changed\ttoday_excluded\nreb-master\tRebM\tx\trebus\t2026-09-03\t15\t48\t2026-09-28\t43\t43\t%s\t\t\n' "$NEW" > "$W/home/.github/SUITES.tsv"
-o3a=$(S4E_HOME="$W/home" bash "$RA" reb-master "$OLD" 2>&1); r3a=$?
-ck "3a a landing at HEAD~3 with the row measured on HEAD: rc 0, the row printed AT OR AFTER" '[ "$r3a" = 0 ] && grep -q "SUITE_ROW reb-master 43/43" <<<"$o3a" && grep -q "AT OR AFTER" <<<"$o3a"'
-printf '# scratch suite table\nkey\tnick\temoji\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\ttoday_pass\ttoday_total\ttree\tcriterion_changed\ttoday_excluded\nreb-master\tRebM\tx\trebus\t2026-09-03\t15\t48\t2026-09-28\t43\t43\t%s\t\t\n' "$OLD" > "$W/home/.github/SUITES.tsv"
-o3b=$(S4E_HOME="$W/home" bash "$RA" reb-master "$NEW" 2>&1); r3b=$?
+printf '# scratch suite table\nkey\tnick\temoji\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\ttoday_pass\ttoday_total\ttree\tcriterion_changed\ttoday_excluded\nreb-rungs\tRebM\tx\trebus\t2026-09-03\t15\t48\t2026-09-28\t43\t43\t%s\t\t\n' "$NEW" > "$W/home/.github/SUITES.tsv"
+o3a=$(S4E_HOME="$W/home" bash "$RA" reb-rungs "$OLD" 2>&1); r3a=$?
+ck "3a a landing at HEAD~3 with the row measured on HEAD: rc 0, the row printed AT OR AFTER" '[ "$r3a" = 0 ] && grep -q "SUITE_ROW reb-rungs 43/43" <<<"$o3a" && grep -q "AT OR AFTER" <<<"$o3a"'
+printf '# scratch suite table\nkey\tnick\temoji\tlang\tfirst_date\tfirst_pass\tfirst_total\ttoday_date\ttoday_pass\ttoday_total\ttree\tcriterion_changed\ttoday_excluded\nreb-rungs\tRebM\tx\trebus\t2026-09-03\t15\t48\t2026-09-28\t43\t43\t%s\t\t\n' "$OLD" > "$W/home/.github/SUITES.tsv"
+o3b=$(S4E_HOME="$W/home" bash "$RA" reb-rungs "$NEW" 2>&1); r3b=$?
 ck "3b a landing at HEAD with the row measured on HEAD~3: rc 1, BEFORE, wait for the loop (never run the board)" '[ "$r3b" = 1 ] && grep -q "BEFORE" <<<"$o3b" && grep -q "never run the board" <<<"$o3b"'
 o3c=$(S4E_HOME="$W/home" bash "$RA" no-such-key "$NEW" 2>&1); r3c=$?
 ck "3c an unknown key refuses rc 2" '[ "$r3c" = 2 ]'
-o3d=$(S4E_HOME="$W/home" bash "$RA" reb-master 0000000 2>&1); r3d=$?
+o3d=$(S4E_HOME="$W/home" bash "$RA" reb-rungs 0000000 2>&1); r3d=$?
 ck "3d a tree git cannot resolve refuses rc 2" '[ "$r3d" = 2 ]'
 
 echo "--- ARM 4: the exemption census names a live baton whose DONE-WHEN runs a board (class BOARD) ---"
@@ -66,6 +66,6 @@ o5=$(S4E_SEAT=cto S4E_DONE_WHEN_RUN=1 bash -c "source \"$W/lib_planted.sh\"; one
 ck "5 with the exemption planted back the run is admitted rc 0 -- the defect this gate exists to see" '[ "$r5" = 0 ] && grep -q "exempt (planted)" <<<"$o5"'
 
 echo "------------------------------------------------------------"
-echo "population: $n check(s): both guards under S4E_DONE_WHEN_RUN=1 on the real rebus master path (no board run), the row reader over a scratch table against real trees $OLD..$NEW, the exemption census over a 2-baton scratch postoffice, one planted exemption"
+echo "population: $n check(s): both guards under S4E_DONE_WHEN_RUN=1 on the real rebus rungs path (no board run), the row reader over a scratch table against real trees $OLD..$NEW, the exemption census over a 2-baton scratch postoffice, one planted exemption"
 if [ "$fails" -eq 0 ]; then echo "GATE PASS [$GATE_NAME]: $n of $n checks hold"; gate_stamp; exit 0; fi
 echo "⛔ GATE FAIL [$GATE_NAME]: $fails of $n check(s) failed"; gate_stamp; exit 1

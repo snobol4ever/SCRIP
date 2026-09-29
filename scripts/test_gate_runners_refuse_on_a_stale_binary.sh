@@ -39,7 +39,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SHIM="$HERE/util_require_fresh.sh"
 SCRIP_BIN="${SCRIP:-$ROOT/scrip}"
-MASTER="$S4E/corpus/tests/snobol4"
+RUNGS="$S4E/corpus/tests/snobol4"
 # ARM 15's population rule now lives in lib_gate.sh (see the note at that arm). Source it, and REFUSE rather
 # than fall back to a local copy: a census that silently re-spelled the rule is the exact failure ARM 10 grades.
 . "$HERE/lib_gate.sh" 2>/dev/null || true
@@ -48,7 +48,7 @@ command -v gate_file_executes_scrip >/dev/null 2>&1 || {
 
 [ -x "$SHIM" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: shim under test missing: $SHIM"; exit 2; }
 [ -x "$SCRIP_BIN" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: scrip not built at $SCRIP_BIN -- this gate needs a CURRENT tree to prove the control arm"; exit 2; }
-[ -f "$MASTER/ALL.csv" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: snobol4 master absent at $MASTER -- arms 5/6 cannot distinguish a staleness refusal from a missing-corpus refusal"; exit 2; }
+[ -f "$RUNGS/ALL.csv" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: snobol4 rungs absent at $RUNGS -- arms 5/6 cannot distinguish a staleness refusal from a missing-corpus refusal"; exit 2; }
 # ⭐ THE CONTROL ARM IS ALSO THIS GATE'S OWN PRECONDITION: every stale-arm below points a runner at a
 # deliberately old COPY of the real binary, so the real one must itself be current or a refusal proves nothing.
 if ! "$SHIM" --gate gate-precondition >/dev/null 2>&1; then
@@ -96,7 +96,7 @@ out="$("$SHIM" --nonesuch 2>&1)"; rc=$?
 echo "--- ARM 5: the LADDER body refuses rc=2 on a stale binary (all seven languages inherit this) ---"
 out="$(SCRIP="$OLD" timeout 120 bash "$HERE/test_snobol4_ladder.sh" --to 0 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "ladder --to 0 with a stale binary -> rc=2" || ck no "must REFUSE rc=2; got rc=$rc -- $out"
-grep -q "$STALE_RE" <<<"$out" && ck ok "ladder refusal names staleness (not a missing-master refusal)" \
+grep -q "$STALE_RE" <<<"$out" && ck ok "ladder refusal names staleness (not a missing-rungs refusal)" \
                               || ck no "ladder refused for the WRONG reason -- $out"
 
 echo "--- ARM 6 (scope): --list is NOT grading, so it still works on a stale tree ---"
@@ -105,8 +105,8 @@ out="$(SCRIP="$OLD" timeout 120 bash "$HERE/test_snobol4_ladder.sh" --list 2>&1)
               || ck no "--list must not demand a rebuild; got rc=$rc -- $out"
 
 echo "--- ARM 7: the PYTHON harness refuses rc=2 on a stale binary (same bash function, not a copy) ---"
-# ⛔ A SCRATCH FAMILY, NEVER THE MASTER (ceo CEO-1302 (c), coo 2026-09-27): the fixture exemption no longer admits the shared corpus,
-# so over "$MASTER/ALL.sno" the one-runner guard refused first and this arm read ITS rc 2 -- arm 12's rc check passed on it vacuously.
+# ⛔ A SCRATCH FAMILY, NEVER THE RUNGS (ceo CEO-1302 (c), coo 2026-09-27): the fixture exemption no longer admits the shared corpus,
+# so over "$RUNGS/ALL.sno" the one-runner guard refused first and this arm read ITS rc 2 -- arm 12's rc check passed on it vacuously.
 SFAM="$W/stale_fam"; mkdir -p "$SFAM"; printf " OUTPUT = 'x';END\n" > "$SFAM/ALL.sno"; printf 'x\n' > "$SFAM/ALL.ref"
 out="$(SCRIP="$OLD" timeout 120 python3 "$HERE/corpus_suite_harness.py" run "$SFAM/ALL.sno" "$SFAM/ALL.ref" --modes m3 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ck ok "harness run with a stale binary -> rc=2" || ck no "must REFUSE rc=2; got rc=$rc -- $(head -c 400 <<<"$out")"

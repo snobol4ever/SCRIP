@@ -580,7 +580,7 @@ case "$cmd" in mailbox|banner|check|premise|"") ;; *) s4e_pid_acquire;; esac
 # ⛔⭐⭐ THE CODEGEN CONTROL ARM -- `done` COMPUTES WHETHER A LANDING TOUCHED CODEGEN, AND CITES A BOARD OF ITS
 # OWN TREE RATHER THAN RUNNING ONE.  Row done-runs-the-snobol4-master-arm-itself-for-any-row-whose-commits-touch-
 # codegen (ceo, CEO-342 rule 4, minted 2026-09-06).  THE INCIDENT: seat11's DEFINE landing d067ceae4 turned 299
-# SNOBOL4 master entries red and ITS DONE-WHEN PASSED -- the rule "a codegen landing carries the master as its
+# SNOBOL4 rungs entries red and ITS DONE-WHEN PASSED -- the rule "a codegen landing carries the rungs as its
 # control arm" lived in prose, so the one command whose job is to certify completion could not see it, and three
 # hours of eight HQs went to the bisect, the revert and the re-measure.
 #
@@ -589,10 +589,10 @@ case "$cmd" in mailbox|banner|check|premise|"") ;; *) s4e_pid_acquire;; esac
 # DONE-WHEN, the gates your diff touched, and make preflight").  The row's own GOAL anticipated this and offered
 # both branches -- "test_corpus_snobol4.sh, OR the one-board-per-tree CITED board of the same tree" -- and CEO-697
 # decided which one is lawful.  ⛔ ITS CENTRAL RUNNER IS RETIRED: CEO-697 quoted MODE line 2 under NONET ("every
-# master and package board is the coo's"), which died with CEO-775; since CEO-1232 the lander grades its own
+# rungs and package board is the coo's"), which died with CEO-775; since CEO-1232 the lander grades its own
 # language's suites, the gates it touched and make preflight, and every other language's verdict is that HQ's next
 # per-landing pass on origin, which stamps the range it covers.  Cite-not-run survives that ruling unchanged.  ⭐ THE REASON THIS MATTERS MORE HERE THAN
-# ANYWHERE ELSE: `done` runs in EVERY seat.  A `done` that auto-ran a master board would not merely repeat the
+# ANYWHERE ELSE: `done` runs in EVERY seat.  A `done` that auto-ran a rung suite board would not merely repeat the
 # drift CEO-697 was issued to stop, it would MECHANISE it and make it compulsory -- thirteen seats each firing a
 # board on every codegen landing, which is the 25m55s-at-load-11-13 contention the cfo measured, but automated.
 # An instrument that enforces a rule by breaking a newer one is not an instrument, it is a second defect.
@@ -771,9 +771,9 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       # admitted by FALLING OUT of this case, which returns success -- the admission was correct and nothing in the file said it was INTENDED, which is CEO-755b's class exactly: the hazard is not that
                       # the wrong seat is admitted, it is that no reader can tell an intended admission from a missing arm. The six LANGUAGE HQs are named; every other hq_* name, the lettered hq_B..hq_V included, is refused.
                       # ⛔⭐ MODE SEPTET (Lon 2026-09-20, in-chat to the ceo: "Go to mode SEPTET, with the four current officers and 3 more HQ's as Opus"; ceo CEO-979). THREE language HQs stand, chosen for GC work and
-                      # not for language coverage: hq_raku (31 of the 72 no_layout, the 8,000,486-hit method road), hq_snobol4 (31 no_layout, SnoM's two tiny-arena reds, the pattern-replacement class) and hq_prolog
+                      # not for language coverage: hq_raku (31 of the 72 no_layout, the 8,000,486-hit method road), hq_snobol4 (31 no_layout, SnoRungs' two tiny-arena reds, the pattern-replacement class) and hq_prolog
                       # (10 no_layout and the findall enumeration defect, the only reds left in the 108-witness battery). hq_pascal and hq_snocone are REFUSED BY NAME rather than omitted: both have ZERO no_layout and
-                      # masters at 246/246 and 336/336, so there is no GC work to give them, and hq_icon is refused for the same reason at two entries -- a refusal that states its measurement is a decision, not an oversight.
+                      # rung suites at 246/246 and 336/336, so there is no GC work to give them, and hq_icon is refused for the same reason at two entries -- a refusal that states its measurement is a decision, not an oversight.
                       SEPTET) case "$_seat" in hq_raku|hq_snobol4|hq_prolog) : ;; *) _dr "an HQ" "Under SEPTET three LANGUAGE HQs stand -- hq_raku hq_snobol4 hq_prolog -- and $_seat is not one of them. hq_icon, hq_pascal and hq_snocone are stood down because their GC debt is 2, 0 and 0 entries (CEO-979).";; esac ;;
                       # ⛔⭐ MODE TENET (Lon 2026-09-20, in-chat to the ceo, verbatim: "Let's got to TENET mode, 4 officers and 6 HQ's all running Opus 5 (xhigh). All officers running Opus 5 (max)."; ceo CEO-1010). TEN WORKING SEATS: the four officers and the SIX language HQs.
                       # ⛔ THIS ARM EXISTS BECAUSE THE coo PREDICTED ITS ABSENCE THIS MORNING, verbatim: "both cures are correct today and NEITHER SURVIVES THE NEXT MODE LON NAMES." TENET is that next mode, and the arm is written BEFORE the MODE file is flipped -- the ec3a99b43 order, never the reverse.
@@ -880,7 +880,7 @@ s4e_lane_owner_of_language() {
       # kept in the comment above so the flip back is a seven-line edit and not a reconstruction.
       # ⛔ MODE CEO (CEO-1103, 2026-09-22, Lon in-chat to the ceo: "The fleet is quiet. It is just you, CEO. We will get GC 100%, you and me. Go to CEO mode only."): ONE SEAT HOLDS EVERY LANGUAGE again. Written out per language rather than collapsed to a default, for the reason every table above gives: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE, and a default agrees with a line 2 that has drifted on six of them without anything noticing.
       # ⛔ MODE SEPTET (CEO-979, 2026-09-20, Lon: "Go to mode SEPTET, with the four current officers and 3 more HQ's as Opus"): THREE language HQs stand and they were chosen by GC DEBT, not by
-      # language coverage -- hq_raku 31 of the 72 no_layout plus the 8,000,486-hit method road, hq_snobol4 31 no_layout plus SnoM's two tiny-arena reds, hq_prolog 10 no_layout plus the findall
+      # language coverage -- hq_raku 31 of the 72 no_layout plus the 8,000,486-hit method road, hq_snobol4 31 no_layout plus SnoRungs' two tiny-arena reds, hq_prolog 10 no_layout plus the findall
       # enumeration defect. The four languages whose HQ is NOT standing stay with the ceo, and rebus stays the cfo's keep-green as under DECTET. Written out per language, never collapsed to a
       # default, for the reason the two tables above give: the gate beside this compares it to MODE line 2 LANGUAGE BY LANGUAGE, and a default agrees with a line 2 that has drifted on four of them.
       # ⛔ MODE TENET (CEO-1010, 2026-09-20, Lon: 4 officers and 6 HQs): EVERY language goes to its own HQ and the three the ceo was holding -- icon, pascal, snocone -- are handed over. Rebus stays the cfo's keep-green at 43/43. The officers own NO language, which is CEO-802 unchanged: they supervise and take the rows an HQ fails at.
@@ -932,7 +932,7 @@ s4e_lane_owner_of_language() {
       # BY THE WORK IN FRONT OF BOTH SEATS -- the C->BB->C->BB eradication of CEO-1086 -- and the language cells are
       # assigned so that each seat owns the languages whose runtime carries its half of that population: the ceo
       # holds SNOBOL4 and SNOCONE because rt_call_proc_descr and core.c's APPLY road are the ceo's half (1044 of the
-      # 1062 live transitions measured on the SnoM pass at f177904f6), plus ICON and REBUS; the cto holds PROLOG,
+      # 1062 live transitions measured on the SnoRungs pass at f177904f6), plus ICON and REBUS; the cto holds PROLOG,
       # RAKU and PASCAL and the by_name_dispatch.c / runtime_eval.c / rt_call_named_proc / rt_proc_call_gen_h half.
       # ⛔ THE NAME IS LON'S AND IT IS SPELLED OUT IN EVERY GUARD RATHER THAN ALIASED TO DUO: an alias would make
       # two modes share one reason, and a mode name that no `case` arm lists is admitted by FALLING OUT, which
@@ -958,7 +958,7 @@ s4e_lane_owner_of_language() {
       # SITE CONVERSIONS behind that refusal. ⛔ THE REASON THE ENFORCEMENT COMES FIRST IS MEASURED, NOT ARGUED
       # (CEO-1107): with maps keyed by GRAPH and not by SAFE POINT, "what is live at this poll" is not a question the
       # compiler can answer, so every one of the 120 open sites is a hand liveness judgment audited after the fact by
-      # a five-minute master run -- 77 insertions by callee return class broke three languages in m3, and the 26 that
+      # a five-minute rungs run -- 77 insertions by callee return class broke three languages in m3, and the 26 that
       # survived all eight smokes still cost 57 Icon programs against a clean-tree control arm.
       # ⛔ THE LANGUAGE CELLS ARE THE DUO-STUPID SPLIT OF CEO-1087 UNCHANGED, deliberately: the work is layer-split, so
       # re-cutting the language cells would be churn that costs both seats their bearings for no measured reason. The
@@ -967,10 +967,10 @@ s4e_lane_owner_of_language() {
       # population lives; REBUS stays the ceo's keep-green with the cfo stood down. The cto holds PROLOG, RAKU and
       # PASCAL. ⛔ A SHARED-NODE LANDING STILL TRAVELS WITH ITS CONTROL ARM whoever lands it (CEO-801/757): the lane
       # names the default picker and the reviewer-after-the-fact, never who may land.
-      # ⛔ AND THE TWO SEATS DO NOT RUN MASTERS AT THE SAME TIME ON THIS BOX: a board taken while the other seat is
+      # ⛔ AND THE TWO SEATS DO NOT RUN RUNG_SUITES AT THE SAME TIME ON THIS BOX: a board taken while the other seat is
       # building or grading is void (the cfo's flakiness finding plus CEO-1107's own rebuild-under-a-board), which is
       # the second reason the layer split is the right one -- the cto's half is compile-and-gate work and needs almost
-      # no master passes, and the ceo's half is what needs them.
+      # no rungs passes, and the ceo's half is what needs them.
        # ⛔ MODE CEO (CEO-1247, 2026-09-24 18:4x CDT, Lon in-chat to the ceo, verbatim: "The fleet is in CEO only mode." and "You, CEO, are
        # seated as Fable 5.1 with max effort."): ONE SEAT HOLDS EVERY LANGUAGE for the SNOBOL4 speed campaign (CEO-1246). Written out per
        # language, never collapsed to a default, for the reason every table above gives: the gate beside this compares it to MODE line 2
@@ -1605,7 +1605,7 @@ s4e_predispatch_placeholder_check() {   # $1 = topic; rc 0 = placeholder (refuse
 # never collects (a fact in their own file); hq_prolog banked a trail mark to cure findall and it changed nothing
 # because the trail was empty; the cto announced a cure for a raw push a watchpoint then proved dead; the ceo
 # inferred effort from `ps` and escalated a wrong finding to Lon; hq_snobol4 opened row 1 on a premise reading red
-# in every SnoM run when the entry is green at both arenas; hq_prolog inherited an eight-program bisect with three
+# in every SnoRungs run when the entry is green at both arenas; hq_prolog inherited an eight-program bisect with three
 # claims false on this tree.
 # ⛔ A RED PREMISE IS NOT A DEFECT AND NOT A FAILING GATE. It is the row needing REWRITING before anyone spends an
 # hour inside it -- which is exactly what hq_snobol4 did by hand, correctly, and reported. So the refusal says so
@@ -2656,26 +2656,26 @@ case "$cmd" in
                 exit 2
               fi
               # ⛔⭐⭐ THE CODEGEN CONTROL ARM FIRES HERE -- AFTER the DONE-WHEN has passed and BEFORE the DONE
-              # marker is written, because a landing that reds the master is NOT DONE however green its own
+              # marker is written, because a landing that reds the rungs is NOT DONE however green its own
               # criterion is.  That ordering IS the cure: seat11's DONE-WHEN passed and the row closed, and the
-              # 299 red master entries were discovered by other seats hours later.  See s4e_codegen_touched above
+              # 299 red rungs entries were discovered by other seats hours later.  See s4e_codegen_touched above
               # for why the touch set is COMPUTED and why this CITES a board rather than running one (CEO-697, CEO-1232).
               _cg_repo="$S4E/SCRIP"; _cg_touch="$(s4e_codegen_touched "$_cg_repo" "$c")"
               if [ -n "$_cg_touch" ]; then
                 printf '\n⭐ CODEGEN CONTROL ARM -- this landing touches codegen, computed from the diff (never asserted):\n'
                 printf '%s\n' "$_cg_touch" | sed 's/^/     /'
-                if [ -n "${S4E_DONE_SKIP_MASTER_ARM:-}" ]; then
+                if [ -n "${S4E_DONE_SKIP_RUNGS_ARM:-}" ]; then
                   # ω-class escape hatch, LOUD AND RECORDED, exactly like S4E_DONE_OVERRIDE. A silent skip and a
                   # silent pass are indistinguishable one layer up, which is the trap this whole guard is about.
-                  printf '⚠⚠ CONTROL ARM SKIPPED by %s -- reason recorded in the baton ledger: %s\n' "$ME" "$S4E_DONE_SKIP_MASTER_ARM" >&2
-                  [ -f "$tf" ] && printf '\n- [%s·%s] ⚠ CODEGEN CONTROL ARM **SKIPPED** via S4E_DONE_SKIP_MASTER_ARM on a landing touching: %s -- stated reason: %s\n' \
-                    "$ME" "$(date -u +%Y-%m-%d)" "$(printf '%s' "$_cg_touch" | tr '\n' ' ')" "$S4E_DONE_SKIP_MASTER_ARM" >> "$tf"
+                  printf '⚠⚠ CONTROL ARM SKIPPED by %s -- reason recorded in the baton ledger: %s\n' "$ME" "$S4E_DONE_SKIP_RUNGS_ARM" >&2
+                  [ -f "$tf" ] && printf '\n- [%s·%s] ⚠ CODEGEN CONTROL ARM **SKIPPED** via S4E_DONE_SKIP_RUNGS_ARM on a landing touching: %s -- stated reason: %s\n' \
+                    "$ME" "$(date -u +%Y-%m-%d)" "$(printf '%s' "$_cg_touch" | tr '\n' ' ')" "$S4E_DONE_SKIP_RUNGS_ARM" >> "$tf"
                 else
-                  # ⛔ THE SUITES ARE CHOSEN BY WHAT THE DIFF TOUCHED, not by a fixed pair: the SNOBOL4 master is the
+                  # ⛔ THE SUITES ARE CHOSEN BY WHAT THE DIFF TOUCHED, not by a fixed pair: the SNOBOL4 rungs is the
                   # standing control arm for ANY codegen change, and the Icon watermark joins it exactly when the diff
                   # reaches Icon's own lowerer or templates (this row's GOAL, "the Icon watermark arm likewise").
-                  _cg_suites="snobol4-master"
-                  printf '%s\n' "$_cg_touch" | grep -qE 'lower_icon\.c|templates/.*icn|icn.*\.cpp' && _cg_suites="$_cg_suites icon-master"
+                  _cg_suites="snobol4-rungs"
+                  printf '%s\n' "$_cg_touch" | grep -qE 'lower_icon\.c|templates/.*icn|icn.*\.cpp' && _cg_suites="$_cg_suites icon-rungs"
                   _cg_scrip="$(git -C "$_cg_repo" rev-parse --short HEAD 2>/dev/null)"
                   _cg_corpus="$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)"
                   _cg_db="${S4E_PROGRESS_DB:-/home/resources/progress/results.tsv}"
@@ -2693,7 +2693,7 @@ case "$cmd" in
                         printf '   ⭐ This board was CITED, not run: it was measured on scrip=%s corpus=%s, which is your tree.\n' "$_cg_scrip" "$_cg_corpus" >&2
                         printf '   Cure the regression, or -- if these are genuinely inherited -- add them to the baton INHERITED: line\n' >&2
                         printf '   with the board that shows them red BEFORE your change. ⛔ Do NOT widen INHERITED to make this pass.\n' >&2
-                        printf '   Escape hatch, loud and recorded: S4E_DONE_SKIP_MASTER_ARM="why".\n' >&2
+                        printf '   Escape hatch, loud and recorded: S4E_DONE_SKIP_RUNGS_ARM="why".\n' >&2
                         exit 1; fi
                       printf '   ✅ %s: CITED board of this tree is clean over the inherited set (%s entry/entries inherited).\n' \
                         "$_cg_s" "$(printf '%s' "$_cg_inh" | sed '/^$/d' | grep -c . || echo 0)"

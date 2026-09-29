@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_gate_area_smoke_reads_the_attribute_rows.sh -- THE AREA SMOKE'S GATE (coo 2026-09-28, row instruments-the-area-smoke-a-seat-
 # runs-per-landing-...-ceo-1342; RULES.md section ONE TESTING OFFICER, ONE SCORE BOARD, THE AREA SMOKE clause 4).
-# WHAT IT PROVES, each arm on a scratch copy of the rebus master (43 entries; the smallest table with the SNOBOL4 feature columns):
+# WHAT IT PROVES, each arm on a scratch copy of the rebus rungs (43 entries; the smallest table with the SNOBOL4 feature columns):
 #   1  the selector picks EXACTLY the one row doctored to carry FENCE (and nothing else in the table);
 #   2  FAIL-ONCE: with the mark dropped the smoke REFUSES rc=2 on a zero selection, running nothing;
 #   3  a feature no table knows REFUSES rc=2 naming it;
@@ -24,9 +24,9 @@ gate_require "$H" "corpus_suite_harness.py" || exit 2
 gate_require "$SMOKE" "test_area_smoke.sh" || exit 2
 gate_require "$MAP" "area_map.tsv" || exit 2
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"; SRC="$S4E/corpus/tests/rebus"
-gate_require "$SRC/ALL.csv" "rebus master index" || exit 2
-gate_require "$SRC/ALL.reb" "rebus master" || exit 2
-gate_require "$SRC/ALL.ref" "rebus master refs" || exit 2
+gate_require "$SRC/ALL.csv" "rebus rungs index" || exit 2
+gate_require "$SRC/ALL.reb" "rebus rungs" || exit 2
+gate_require "$SRC/ALL.ref" "rebus rungs refs" || exit 2
 SCRATCH="${S4E_SCRATCH:-$(cd "$ROOT/.." && pwd)/.scratch}"; mkdir -p "$SCRATCH" || exit 2
 WORK=$(mktemp -d "$SCRATCH/gate_area_smoke_XXXXXX") || exit 2
 trap '[ -n "${WORK:-}" ] && rm -rf "$WORK"' EXIT INT TERM
@@ -125,6 +125,6 @@ bad_rows=$(awk -F'\t' '$1 !~ /^#/ && NF>0 && NF!=2 {print NR": "$0}' "$MAP" | he
 ck "7c every map row is feature<TAB>carrier" '[ -z "$bad_rows" ]'
 
 echo "------------------------------------------------------------"
-echo "population: $n check(s) over a $(($(wc -l <"$SRC/ALL.csv")-1))-row scratch copy of the rebus master, a 3-file fixture repo, and the real map ($ncar carriers) against $ntab runnable table(s)"
+echo "population: $n check(s) over a $(($(wc -l <"$SRC/ALL.csv")-1))-row scratch copy of the rebus rungs, a 3-file fixture repo, and the real map ($ncar carriers) against $ntab runnable table(s)"
 if [ "$fails" -eq 0 ]; then echo "GATE PASS [$GATE_NAME]: $n of $n checks hold"; gate_stamp; exit 0; fi
 echo "⛔ GATE FAIL [$GATE_NAME]: $fails of $n check(s) failed"; gate_stamp; exit 1

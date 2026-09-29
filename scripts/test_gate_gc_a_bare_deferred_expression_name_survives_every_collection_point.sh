@@ -68,7 +68,7 @@
 # reading rather than a per-landing arm.
 # ⛔⭐ WHY 16 AND 25 ARE IN THE DEFAULT THOUGH NO RED ON THIS POPULATION HAS EVER BEEN ABOVE 8 (ceo CEO-1024,
 # measured by hq_raku and paid for by reversing their own green): the fleet graded GC health at stress 1, 3 and
-# 5; hq_raku went to 16 on the raku master at the tiny arena and lost 65 gradings over 36 DISTINCT PROGRAMS,
+# 5; hq_raku went to 16 on the raku rungs at the tiny arena and lost 65 gradings over 36 DISTINCT PROGRAMS,
 # every one exit 0 with a plausible wrong answer.  A BAND THAT ENDS WHERE THE KNOWN DEFECTS START MEASURES THE
 # BAND AND NOT THE COMPILER.  The two extra points cost ten arms per witness pair and would have caught that
 # class on this population; they are cheap exactly because this gate's witnesses are small.

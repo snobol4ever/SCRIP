@@ -21,13 +21,13 @@
 #     printed with its POPULATION, and a population of zero is spelled NO-PINS, never 0-dead.  A census that
 #     cannot see its population must never print 0.
 # (2) ⛔ MEASURE A PREDICATE WITH THE INTERPRETER THAT WILL RUN IT.  `corpus/tests/snobol4/ALL.ref` — the
-#     SNOBOL4 MASTER, the announcement board — carries ONE NUL byte in 330570, so `file` calls it "data".
-#     ⛔ AN EARLIER VERSION OF THIS HEADER SAID THAT BYTE *HID* THREE DEAD-PINNED MASTER ENTRIES behind a grep
+#     SNOBOL4 RUNGS, the announcement board — carries ONE NUL byte in 330570, so `file` calls it "data".
+#     ⛔ AN EARLIER VERSION OF THIS HEADER SAID THAT BYTE *HID* THREE DEAD-PINNED RUNGS ENTRIES behind a grep
 #     that reports nothing and exits 0.  THAT WAS WRONG, and hq_T bounded it 2026-09-08.  The interactive shell
 #     on this box routes `grep` to a ugrep FUNCTION; it is NOT exported (no BASH_FUNC_grep), so it never reaches
 #     a script.  Inside a script — the only place `sbl_died` ever runs — grep is /usr/bin/grep GNU 3.11, whose
 #     binary detection suppresses OUTPUT but never EXIT STATUS, and -q prints nothing anyway.  RE-MEASURED HERE
-#     on the real master, in a script: no -a => DEAD, with -a => DEAD.  The predicate has ALWAYS answered DEAD
+#     on the real rungs, in a script: no -a => DEAD, with -a => DEAD.  The predicate has ALWAYS answered DEAD
 #     everywhere it actually runs; nothing was concealed and no board number was ever hidden.  The three entries
 #     are genuinely dead-pinned — that half of the finding stands — but the NUL byte is not why they went unseen.
 #     ⭐ THE KEEPER: `command -v grep` printed a bare "grep" and could not say so; `type -t` is the instrument
@@ -107,11 +107,11 @@ done < <( { find "$CORPUS/packages" -mindepth 2 -maxdepth 2 -type d 2>/dev/null;
 # ⛔ ALL.ref IS EXCLUDED FROM THE PER-FILE LOOP ABOVE and counted only here.  It is one file holding many
 # entries: counting it there as "1 dead pin" AND here as "3 dead entries" made this census's own total read
 # 26 for 25 real entries.  A census that double-counts is the same defect as one that undercounts.
-# ⛔ A CONCATENATED MASTER IS ONE FILE HOLDING MANY ENTRIES, so the per-file loop above counts it as a single
+# ⛔ A CONCATENATED RUNGS IS ONE FILE HOLDING MANY ENTRIES, so the per-file loop above counts it as a single
 # pin and would UNDERCOUNT it to 1.  Counted separately, by occurrence, and this is where the three hidden
-# master entries live.  Named by the source line of each fatal report, which carries the program's own name.
+# rungs entries live.  Named by the source line of each fatal report, which carries the program's own name.
 echo
-echo "CONCATENATED MASTERS (one file, many entries -- counted by occurrence, not by file):"
+echo "CONCATENATED RUNG_SUITES (one file, many entries -- counted by occurrence, not by file):"
 while IFS= read -r f; do
   k=$(grep -acE '^in statement +[0-9]+$' "$f")
   if [ "${k:-0}" -gt 0 ]; then
@@ -127,7 +127,7 @@ echo
 [ "$seen_any" = 1 ] || { echo "⛔ REFUSE(2): zero pin files found anywhere under $CORPUS -- a census over nothing, not a clean corpus"; exit 2; }
 echo "TOTAL dead-pinned entries: $tot_dead   (per-program pins examined: $tot_pins)"
 echo "affected:$dead_dirs"
-[ -n "${DIVERGE:-}" ] && { echo; echo "⚠️ PREDICATE DRIFT -- this census matches with -a and scorecard_snobol4.sh's sbl_died no longer does."; echo "   ⛔ This is NOT a claim that a number is being hidden: GNU grep in a script answers the same either way"; echo "   (measured 2026-09-08, hq_T + hq_B, on the real master). It is a spelling-drift guard only -- -a is"; echo "   insurance against a non-GNU grep on PATH, at zero verdict cost. Restore -a there and this goes quiet."; echo "   authority: $DIVERGE"; }
+[ -n "${DIVERGE:-}" ] && { echo; echo "⚠️ PREDICATE DRIFT -- this census matches with -a and scorecard_snobol4.sh's sbl_died no longer does."; echo "   ⛔ This is NOT a claim that a number is being hidden: GNU grep in a script answers the same either way"; echo "   (measured 2026-09-08, hq_T + hq_B, on the real rungs). It is a spelling-drift guard only -- -a is"; echo "   insurance against a non-GNU grep on PATH, at zero verdict cost. Restore -a there and this goes quiet."; echo "   authority: $DIVERGE"; }
 # ⭐ WHAT THE PINS CONCEAL (ceo CEO-427).  Opt-in, because it BUILDS NOTHING but does RUN every dead-pinned
 # program, and a census must stay cheap enough that nobody skips it.
 if [ "$BEHIND" = 1 ]; then

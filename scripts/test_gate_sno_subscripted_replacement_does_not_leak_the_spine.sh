@@ -34,9 +34,9 @@
 # spelling. Arm 7 exists so that cure cannot read as complete.
 #
 # ⛔ COVERAGE NOTE, measured and worth more than the gate: corpus/tests/snobol4/ALL.sno contains ZERO entries whose
-# replacement subject is subscripted, which is exactly why the SNOBOL4 master reads clean while gimpel PERMS_driver
-# SIGSEGVs. A green board is necessary, never sufficient. Adding a master witness is hq_S's suite-gap row and waits
-# on the cure -- a red entry in the master is not a cure and must not land as one.
+# replacement subject is subscripted, which is exactly why the SNOBOL4 rungs reads clean while gimpel PERMS_driver
+# SIGSEGVs. A green board is necessary, never sufficient. Adding a rung suite witness is hq_S's suite-gap row and waits
+# on the cure -- a red entry in the rungs is not a cure and must not land as one.
 #
 # Every arm compares against the ORACLE's own output, refs cut from it ON THIS RUN, never from our output; the
 # oracle is run TWICE per witness and diffed against ITSELF first, refusing rc=2 if it differs.

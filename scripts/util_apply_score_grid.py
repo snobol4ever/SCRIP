@@ -44,7 +44,7 @@ _spec.loader.exec_module(_usr)
 def norm(name):
     # Compare column names the way a reader does: case-insensitively, ignoring any parenthesised gloss and
     # the spacing around a slash. `Floor/smoke gate` (generator) and `Floor / smoke gate` (display) are one
-    # column; `Master suite (\`ALL.csv\`)` and `Master suite` are one column. Matching on the raw string
+    # column; `Rungs suite (\`ALL.csv\`)` and `Rungs suite` are one column. Matching on the raw string
     # would make this script refuse over a space, and matching on the index is what (1) above already cost.
     n = name.split("(")[0]
     n = re.sub(r"`[^`]*`", "", n).strip().lower()
@@ -177,7 +177,7 @@ def selftest():
         _usr.SCORE_MD = tmp
         hdr_i, disp, _ = _usr.find_table(before)
         dhdr = [c.strip() for c in before[hdr_i].strip().strip("|").split("|")]
-        # A deliberately NARROW grid (Language + Master board only), in the generator's own spacing.
+        # A deliberately NARROW grid (Language + Rungs board only), in the generator's own spacing.
         lang = sorted(disp)[0]
         # ⛔ SEED A KNOWN, PROSE-FREE CELL FIRST. The live board column for whichever language sorts first
         # (currently icon) carries real hand-written prose, and this selftest's own claim -- "the mapped
@@ -190,7 +190,7 @@ def selftest():
                 [x.strip() for x in before[disp[lang][0]].strip().strip("|").split("|")])]) + " |"
         open(tmp, "w", encoding="utf-8").write("\n".join(before))
         before = open(tmp, encoding="utf-8").read().split("\n")
-        grid = ("| Language | Master board (`ALL.<ext>` via `corpus_suite_harness.py run`, m3 · m4) |\n"
+        grid = ("| Language | Rungs board (`ALL.<ext>` via `corpus_suite_harness.py run`, m3 · m4) |\n"
                 "|---|---|\n| %s | SELFTEST-BOARD-VALUE |\n" % lang)
         apply_grid(tmp, grid, "SELFTEST-STAMP")
         after = open(tmp, encoding="utf-8").read().split("\n")
@@ -233,7 +233,7 @@ def selftest():
             [(_seed if i == bi else c) for i, c in enumerate(
                 [x.strip() for x in _sl[_sd2[lang][0]].strip().strip("|").split("|")])]) + " |"
         open(tmp, "w", encoding="utf-8").write("\n".join(_sl))
-        grid2 = ("| Language | Master board (`ALL.<ext>` via `corpus_suite_harness.py run`, m3 · m4) |\n"
+        grid2 = ("| Language | Rungs board (`ALL.<ext>` via `corpus_suite_harness.py run`, m3 · m4) |\n"
                  "|---|---|\n| %s | SELFTEST-BOARD-VALUE |\n" % lang)
         rc2 = apply_grid(tmp, grid2, "SELFTEST-STAMP-2")
         _cl = open(tmp, encoding="utf-8").read().split("\n")

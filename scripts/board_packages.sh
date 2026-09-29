@@ -5,8 +5,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # hand (MASTER-PLAN I21; task board-packages-into-make-test-reported-then-blocking).
 #
 # THE DENOMINATOR is corpus/packages/<lang>/<name>, walked from the live tree every run, never a
-# hardcoded count -- the same shrink-detection concern board_icon_master.sh already established for
-# the Icon master suite (RULES.md § the denominator law): a package directory added or removed changes
+# hardcoded count -- the same shrink-detection concern board_icon_rungs.sh already established for
+# the Icon rungs suite (RULES.md § the denominator law): a package directory added or removed changes
 # this board's `suites=` with no script edit, and one that stops being graded shows as UNPROVEN rather
 # than silently vanishing from the count.
 #
@@ -27,7 +27,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #
 # REPORTED, NOT BLOCKING (the task's own D1 vs D5 staging): a graded suite being RED does not fail this
 # script's OWN exit code today -- only a board-wide inability to measure (scrip missing, no packages/
-# tree at all) does, matching board_icon_master.sh's "a board that cannot measure refuses" split from
+# tree at all) does, matching board_icon_rungs.sh's "a board that cannot measure refuses" split from
 # "measured a suite that is legitimately red". The RED/UNPROVEN counts below are the report; turning
 # them into a hard floor is D5's ratchet, not this landing's.
 #
@@ -37,7 +37,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # same seat, same day). This board calls util_score_row.py for none of them on purpose: that helper's
 # own rule is that it is handed numbers a caller already measured and runs no suite of its own, and a
 # second writer for the same cell is exactly the twin-writer class its own file header warns against.
-set -uo pipefail   # NOT -e: one suite's nonzero rc must never abort the board surveying all of them (board_icon_master.sh, same reasoning)
+set -uo pipefail   # NOT -e: one suite's nonzero rc must never abort the board surveying all of them (board_icon_rungs.sh, same reasoning)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 SCRIP_BIN="${SCRIP:-$HERE/../scrip}"

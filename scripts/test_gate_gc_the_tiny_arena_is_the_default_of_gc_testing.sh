@@ -17,8 +17,8 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: the rebus shard below is a run
 # every scrip invocation, which reads as "the harness printed no ARENA line" rather than as "the floor refused" -- a probe that
 # cannot run is not a negative result about the thing probed.  256 and 512 are used, both distinct from the 128 default.
 # 1614 collections at 1 MB, 788 at 2, 389 at 4, SIX at the shipped 512, stdout byte-identical at every size.  That is the
-# exasperation Lon asked for, and it found real defects the same afternoon (SnoM 1959/1974 at 1 MB against 1963 at 512;
-# IcnM 824/826 against 826).
+# exasperation Lon asked for, and it found real defects the same afternoon (SnoRungs 1959/1974 at 1 MB against 1963 at 512;
+# IcnRungs 824/826 against 826).
 #
 # ⛔ WHY A GATE AND NOT A PARAGRAPH: this rule is a DEFAULT, and a default that lives only in prose is one forgetful
 # recipe away from being off for everybody, silently, with every board still printing a number.  Three mechanisms carry
@@ -46,13 +46,13 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 S4E="$(cd "$ROOT/.." && pwd)"
-[ -f "$S4E/corpus/tests/rebus/ALL.reb" ] && [ -f "$S4E/corpus/tests/rebus/ALL.ref" ] || { echo "⛔ REFUSE(2) [$G]: no rebus master at $S4E/corpus/tests/rebus/ALL.reb -- this gate needs one graded entry to make the harness print a board"; exit 2; }
+[ -f "$S4E/corpus/tests/rebus/ALL.reb" ] && [ -f "$S4E/corpus/tests/rebus/ALL.ref" ] || { echo "⛔ REFUSE(2) [$G]: no rebus rungs at $S4E/corpus/tests/rebus/ALL.reb -- this gate needs one graded entry to make the harness print a board"; exit 2; }
 command -v make >/dev/null || { echo "⛔ REFUSE(2) [$G]: make is arm 1's instrument and it is absent"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
-# ⛔ A SCRATCH COPY OF THE REBUS MASTER, NEVER THE MASTER ITSELF (ceo CEO-1302 (c), coo 2026-09-27): the fixture exemption no longer
+# ⛔ A SCRATCH COPY OF THE REBUS RUNGS, NEVER THE RUNGS ITSELF (ceo CEO-1302 (c), coo 2026-09-27): the fixture exemption no longer
 # admits the shared corpus, so the harness refused a shard of corpus/tests/rebus/ALL.reb and printed no ARENA line. The copy, beside
 # its ALL.csv and sidecars, sits outside every checkout: the same entries, the same shard, and no board.
-cp -a "$S4E/corpus/tests/rebus" "$T/rebus" || { echo "⛔ REFUSE(2) [$G]: could not copy the rebus master to a scratch directory"; exit 2; }
+cp -a "$S4E/corpus/tests/rebus" "$T/rebus" || { echo "⛔ REFUSE(2) [$G]: could not copy the rebus rungs to a scratch directory"; exit 2; }
 SUITE="$T/rebus/ALL.reb"; SREF="$T/rebus/ALL.ref"
 RC=0; examined=0
 # ARM 1 -- the tiny arena is A PASS OF ITS OWN (make test-arena), it announces its arena, the arena TRACKS its knob,

@@ -6,7 +6,7 @@
 # ⛔ WHY THIS EXISTS, and it is a measured cost, not a hypothetical (hq_B 2026-09-03, row ICN4, ceo CEO-177):
 # `procedure_every_scan_replace_5` in ALL.ref said Icon's x[-3+:6] FAILS; `rung36_jcon_lists` in
 # rung36_all.ref said it yields `[4] 3 4 5 6`. THE SOURCES WERE BYTE-IDENTICAL. icont agrees with the second.
-# ALL.ref was wrong, so the master board's two reds were correct SCRIP output failing a bad ref -- and I
+# ALL.ref was wrong, so the rungs board's two reds were correct SCRIP output failing a bad ref -- and I
 # "cured" the compiler to match the bad ref, landing a real regression and a FALSE GREEN at 380/381 that five
 # green arms and a ceo audit all missed, because not one of them asked the ORACLE.
 # ⭐ A ref is evidence about a PAST ORACLE RUN, not about the oracle. This gate cannot tell which ref is right
@@ -49,19 +49,19 @@ for lang in langs:
     icn=[f for f in os.listdir(d) if f.startswith('ALL.') and f not in ('ALL.csv','ALL.ref')]
     if not os.path.exists(csv) or not os.path.exists(os.path.join(d,'ALL.ref')): continue
     mref=sections(os.path.join(d,'ALL.ref'))
-    # PICK THE MASTER SOURCE DETERMINISTICALLY. A first cut took the first ALL.* off os.listdir() and got
+    # PICK THE RUNGS SOURCE DETERMINISTICALLY. A first cut took the first ALL.* off os.listdir() and got
     # ALL.trace or ALL.in on some runs -- which parses, yields a small bogus section set, and silently drops
     # most pairs (10 seen where 76 exist). An unordered listdir is not a selection rule. Choose the candidate
     # whose section NAMES overlap ALL.ref's most: the real source is the file that shares the ref's entries.
-    src_master=None; best=0
+    src_rungs=None; best=0
     for f in sorted(icn):
         fp=os.path.join(d,f)
         if not os.path.isfile(fp): continue
         ov=len(set(sections(fp)) & set(mref))
-        if ov>best: best=ov; src_master=fp
-    if not src_master: continue
-    msrc=sections(src_master)
-    ext=os.path.splitext(src_master)[1]
+        if ov>best: best=ov; src_rungs=fp
+    if not src_rungs: continue
+    msrc=sections(src_rungs)
+    ext=os.path.splitext(src_rungs)[1]
     rows=io.open(csv,encoding='utf-8',errors='replace').read().split('\n')
     if not rows: continue
     hdr=rows[0].split(','); 
@@ -92,7 +92,7 @@ for lang in langs:
         if ma!=sa:
             a=ma.split('\n'); b=sa.split('\n')
             first=next((f"{x!r}  vs  {y!r}" for x,y in zip(a,b) if x!=y), "(one ref is a prefix of the other)")
-            bad.append((lang,entry,os.path.basename(src_master),oentry,fam,first))
+            bad.append((lang,entry,os.path.basename(src_rungs),oentry,fam,first))
 print(f"cross-suite ref agreement: {pairs} byte-identical program pair(s) compared "
       f"({checked} origin-linked entries seen) across {len(langs)} language dir(s)")
 if bad:

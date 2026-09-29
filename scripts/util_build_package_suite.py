@@ -53,7 +53,7 @@ Stdin: `<stem>.stdin` / `<stem>.IN` / `<stem>.in` / `<stem>.input` beside the so
 variants explicitly rather than relying on with_suffix()'s case-sensitive match).
 
 Grading is unchanged machinery: python3 scripts/corpus_suite_harness.py run ALL.<ext> ALL.ref --modes m3,m4
-Stdlib only except corpus_suite_harness/util_build_master_suite, imported for the ONE suite-grammar and
+Stdlib only except corpus_suite_harness/util_build_rungs_suite, imported for the ONE suite-grammar and
 ONE attribute-table authorities respectively -- never a second parser or a second column set.
 """
 import os
@@ -67,7 +67,7 @@ from pathlib import Path
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import corpus_suite_harness as h  # noqa: E402
-import util_build_master_suite as m  # noqa: E402
+import util_build_rungs_suite as m  # noqa: E402
 
 LANG_EXT = {"": ".sno", "snobol4": ".sno", "prolog": ".pl", "raku": ".raku",
             "snocone": ".sc", "rebus": ".reb", "icon": ".icn", "pascal": ".pas"}
@@ -221,7 +221,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         # ⭐ QUALIFY WITH PARENT DIR WHEN NESTED (measured on csnobol4_suite: aa.sno at pkg_dir root AND
         # aa/aa.sno one level down are BOTH real, byte-identical vendored fixtures -- bare name would
         # give both entries the identical name/origin ("aa"/"csnobol4_suite__aa"), which is exactly the
-        # kind of collision THE MASTER SUITE's CSV manifest exists to make queryable by name; a name that
+        # kind of collision THE RUNGS SUITE's CSV manifest exists to make queryable by name; a name that
         # means two different things defeats that).
         name = f"{src.parent.name}/{src.stem}" if src.parent != pkg_dir else src.stem
         text, non_utf8 = read_text_tolerant(src)
@@ -392,7 +392,7 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     # and nothing in a program's text can regenerate it. This builder overwrote out_csv unconditionally,
     # so without this read a routine rebuild would silently return a declared 65536 KB program to the
     # shipped default -- a capacity red reappearing with no diff naming the cause, which is precisely the
-    # failure the master builder's own MERGE-NEVER-OVERWRITE note was written about one file over.
+    # failure the rungs builder's own MERGE-NEVER-OVERWRITE note was written about one file over.
     _old_heap = {}
     _old_stack = {}   # stack_kb: the same kind of paid-for measurement, carried forward the same way (CEO-1225)
     _old_cmd = {}     # compile_args and run_args: the unit's command line, carried forward the same way (clause 8 (f), CEO-1281)

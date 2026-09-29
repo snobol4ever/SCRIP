@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_gate_errlimit_survival_is_measured_per_code.sh -- &ERRLIMIT SURVIVAL IS DECIDED PER ERROR CODE BY THE
 # ORACLE, NOT BY MEMBERSHIP IN A LIST BUILT FOR A DIFFERENT QUESTION.  hq_U 2026-09-12, curing the coo's
-# bisected master regression keyword_replace_branch_9 (SNOBOL4 master 1869/1894, FAIL=1 where the previous
+# bisected rungs regression keyword_replace_branch_9 (SNOBOL4 rungs 1869/1894, FAIL=1 where the previous
 # pass read FAIL=0).
 #
 # ⛔⭐ THE DEFECT THIS PINS, AND IT IS A CLASS, NOT A CODE.  70a0bc6c0 (hq_U) cured a real bug -- a goto to an

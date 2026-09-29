@@ -19,11 +19,11 @@ SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIP_BIN="${SCRIP_BIN:-$SCRIP_DIR/scrip}"
 # ⭐ RE-POINTED (ceo s283h, probe total-conversion): corpus/probe/kw is GONE -- kw_direct_read lives in
 # the kw SUITE and is materialized via the harness `extract` verb (test_arbno_witnesses.sh's idiom).
-MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # zero-subfolders cutover: extract by ORIGIN from the master
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_rungs_extract.sh"   # zero-subfolders cutover: extract by ORIGIN from the rungs
 [[ -x "$SCRIP_BIN" ]] || { echo "GATE BLOCKED: no scrip at $SCRIP_BIN"; exit 2; }
 WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
 WIT="$WORK/kw_direct_read.sno"; REF="$WORK/kw_direct_read.ref"
-master_extract_origin probe_kw__kw_direct_read "$WIT" "$REF" || { echo "GATE BLOCKED: master extract kw_direct_read failed"; exit 2; }
+rungs_extract_origin probe_kw__kw_direct_read "$WIT" "$REF" || { echo "GATE BLOCKED: rungs extract kw_direct_read failed"; exit 2; }
 [[ -f "$WIT" && -f "$REF" ]] || { echo "GATE BLOCKED: witness pair missing after extract"; exit 2; }
 pass=0; fail=0
 say() { if [[ "$2" == ok ]]; then pass=$((pass+1)); echo "PASS  $1"; else fail=$((fail+1)); echo "FAIL  $1 ($3)"; fi; }

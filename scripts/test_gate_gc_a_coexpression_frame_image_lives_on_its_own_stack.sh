@@ -29,7 +29,7 @@
 # eager already has its stack). (6) hb_coexpr_genp_scan.icn -- a generator called by VALUE inside a scan (rt.c's lazily
 # started generator thread) keeps the caller's scan environment across its first yield back to main, both modes, stress
 # 0,1,3,5 under the shift plant: the fail-once of rung 2's first cut, whose `started` flag read main's context as never
-# started and reset the scan environment on that yield (IcnM 825/826, procedure_suspend_scan_replace_1, both modes).
+# started and reset the scan environment on that yield (IcnRungs 825/826, procedure_suspend_scan_replace_1, both modes).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -76,7 +76,7 @@ for st in 0 1 3 5; do
     g3="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$SCRIP" "$GW" 2>/dev/null </dev/null | tr -d '\0' )"; g4="$( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=$st timeout 120 "$T/gp" 2>/dev/null </dev/null | tr -d '\0' )"
     if [ "$g3" = "$gref" ] && [ "$g4" = "$gref" ]; then a6="$a6 @$st:ok"; else a6="$a6 @$st:m3=$([ "$g3" = "$gref" ] && echo ok || echo RED),m4=$([ "$g4" = "$gref" ] && echo ok || echo RED)"; a6bad=1; fi
 done
-if [ "$a6bad" = 0 ]; then echo "  arm 6 PASS: a generator called by value inside a scan (the lazily started generator thread) keeps the caller's scan environment across its first yield back to main, at stress 0,1,3,5 in both modes under the shift plant --$a6 (the fail-once: rung 2's first cut reset it and IcnM read 825/826)"
+if [ "$a6bad" = 0 ]; then echo "  arm 6 PASS: a generator called by value inside a scan (the lazily started generator thread) keeps the caller's scan environment across its first yield back to main, at stress 0,1,3,5 in both modes under the shift plant --$a6 (the fail-once: rung 2's first cut reset it and IcnRungs read 825/826)"
 else echo "  arm 6 FAIL: the generator thread's first yield disturbed the caller's scan environment --$a6"; RC=1; fi
 if bash "$HERE/test_gate_coexpr_stack_of_uncreated_thread.sh" >"$T/u.txt" 2>&1; then echo "  arm 5 PASS: $(grep '^PASS:' "$T/u.txt" | head -1 | cut -c1-150)"; else echo "  arm 5 FAIL: $(tail -2 "$T/u.txt" | tr '\n' ' ' | cut -c1-160)"; RC=1; fi
 pl=$( ( cd "$T" && SCRIP_GC_PLANT_SHIFT=4096 SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WIT" 2>&1 >/dev/null </dev/null ) | grep -c "^\[GC-SHIFT\] plant:" ); pl=${pl:-0}

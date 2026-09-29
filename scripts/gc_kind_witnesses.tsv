@@ -2,7 +2,7 @@
 #
 # ⛔ THE QUESTION THIS TABLE EXISTS TO ANSWER IS NOT "DOES THE COLLECTOR FIND THE ROOTS".  It is the one
 # hq_snocone asked and the ceo made critical path: CAN A SUITE BE GREEN WHILE IT DOES NOT?  The cto measured 320
-# master entries across four frontends with ZERO collections at default settings -- so every master board we own
+# rungs entries across four frontends with ZERO collections at default settings -- so every rung suite board we own
 # is green over a collector that never ran, and when three seats land 208 poll sites nothing we own can tell us
 # whether they are right.  A green suite is not evidence about the collector unless something forces the
 # collector to run, forces the heap to slide under a live value, and then READS THAT VALUE BACK.

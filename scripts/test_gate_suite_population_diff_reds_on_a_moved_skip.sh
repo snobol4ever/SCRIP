@@ -3,9 +3,9 @@
 # (coo 2026-09-17, CEO-824; row instruments-a-skip-count-change-between-batches-is-a-red-not-a-silent-population-change,
 # minted on the cfo's escalation).
 #
-# THE DEFECT, MEASURED, AND WHY A GATE RATHER THAN A HABIT.  The SNOBOL4 master read m4_pass=1970 m4_skip=0 at SCRIP
+# THE DEFECT, MEASURED, AND WHY A GATE RATHER THAN A HABIT.  The SNOBOL4 rungs read m4_pass=1970 m4_skip=0 at SCRIP
 # ad0f85fae and m4_pass=1967 m4_skip=3 at b12714737, and that landing's own commit said "equal to base program for
-# program" while its board wrote SCORE's SnoM row on that tree; the three were cured at 0567ad829 and read skip=0 at
+# program" while its board wrote SCORE's SnoRungs row on that tree; the three were cured at 0567ad829 and read skip=0 at
 # a861648ab.  BOTH the appearance and the disappearance passed unremarked, because every reader compared PASS and a
 # SKIP fires no verdict in the ladder -- it is the DENOMINATOR moving, which lowers the pass count exactly like a
 # regression and raises it exactly like a cure.

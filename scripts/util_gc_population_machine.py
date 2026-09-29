@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""THE POPULATION MACHINE (CEO-1165 form, generalized for the acceptance bar of CEO-1202): a language master BY NAME through
+"""THE POPULATION MACHINE (CEO-1165 form, generalized for the acceptance bar of CEO-1202): a language rungs BY NAME through
 the harness reader and refs, on one tree (--single, the acceptance census) or on a control tree and a cure tree (the landing
 evidence), in mode 3 and mode 4, over a list of named collector ARMS, arms run SEQUENTIALLY with a fixed environment (a
 threaded first cut mis-assigned stress levels), every child under RLIMIT_AS 6 GB.

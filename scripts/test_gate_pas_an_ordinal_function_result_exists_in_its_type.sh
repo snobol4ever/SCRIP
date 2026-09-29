@@ -14,7 +14,7 @@
 # letter of 6.6.6.4 and PAT's own note on 1739), char (0..255), Boolean (0..1) or an enumerated type (0..its last ordinal): an int64,
 # longint or other FPC integer type, a subrange (whose succ yields its HOST type, not its own range) and an expression are left
 # unchecked, so no legal program of any of those types can be stopped by it. No benchmark calls succ, pred or chr.
-# Measured before landing, every graded Pascal program RUN in both modes (the master 246, the FPC suite 181, the eleven benchmarks,
+# Measured before landing, every graded Pascal program RUN in both modes (the rungs 246, the FPC suite 181, the eleven benchmarks,
 # PAT's acceptance programs): no cell moved except the five witnesses' ten.
 #
 # ARMS: five vendored PAT witnesses, each required to be REFUSED at run time with a non-empty diagnostic in BOTH modes (m4 compiles,

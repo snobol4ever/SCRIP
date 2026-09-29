@@ -11,7 +11,7 @@
 # so it stays as it was). (2) THE FRAME: iconx's traceback ends with the attempted call and its arguments undereferenced --
 # "&null((variable = "a")) from line 4" -- and SCRIP printed no such frame; rt_call_value_spine_prep also dereferenced the arguments
 # before it declined a callee with no name. The error now pushes a builtin frame record that carries the callee, and the decline
-# comes first. The master cannot grade this -- it discards stderr -- so it is graded here: six witnesses under icont/iconx, m3 and m4,
+# comes first. The rungs cannot grade this -- it discards stderr -- so it is graded here: six witnesses under icont/iconx, m3 and m4,
 # stdout and stderr merged and read through the error-voice renderer the suite runners use. On the tree before the cure, w_do, w_then,
 # w_case and w_conj differ in the line and every witness differs in the frame (red).
 set -uo pipefail

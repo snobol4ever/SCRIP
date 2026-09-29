@@ -22,11 +22,11 @@ set -u
 SCRIP_DIR="${SCRIP_DIR:-$S4E/SCRIP}"
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): the passthru.{sno,ref}
 # per-family suite pair this script used to read (itself a 2026-08-28 re-point) was absorbed into
-# THE ONE FLAT MASTER (tests/snobol4/ALL.{sno,ref,csv}, Lon's one-flat-suite ruling) and deleted.
-# lib_master_extract.sh (the ONE authority for this, per its own header) now materializes each
+# THE ONE FLAT RUNGS (tests/snobol4/ALL.{sno,ref,csv}, Lon's one-flat-suite ruling) and deleted.
+# lib_rungs_extract.sh (the ONE authority for this, per its own header) now materializes each
 # origin "probe_passthru__<oldname>" back into a standalone .sno/.ref pair -- same idiom every other
 # re-pointed consumer in this sweep uses.
-MASTER_LANG="${MASTER_LANG:-snobol4}" . "$SCRIP_DIR/scripts/lib_master_extract.sh"
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$SCRIP_DIR/scripts/lib_rungs_extract.sh"
 MODE="${1:-both}"
 FILT="${2:-}"
 TMO="${TMO:-8}"
@@ -38,10 +38,10 @@ while IFS= read -r o; do
   base="${o#probe_passthru__}"
   [ -n "$FILT" ] && case "$base" in *"$FILT"*) ;; *) continue;; esac
   n=$((n+1))
-  master_extract_origin "$o" "$EX/$base.sno" "$EX/$base.ref" \
+  rungs_extract_origin "$o" "$EX/$base.sno" "$EX/$base.ref" \
     || { echo "⚠️  extract FAILED for $base" >&2; extract_fail=$((extract_fail+1)); }
-done < <(master_origins_of_family probe_passthru)
-[ "$n" -eq 0 ] && { echo "⛔ GATE REFUSES: zero probe_passthru entries found in the master (family absent, or renamed again)"; exit 2; }
+done < <(rungs_origins_of_family probe_passthru)
+[ "$n" -eq 0 ] && { echo "⛔ GATE REFUSES: zero probe_passthru entries found in the rungs (family absent, or renamed again)"; exit 2; }
 [ "$extract_fail" -gt 0 ] && echo "⚠️  $extract_fail/$n entries failed to extract -- board below is incomplete" >&2
 one_shot() {
   local f="$1" mode="$2" ref="$3" out rc

@@ -10,14 +10,14 @@ OUT=${WREG_OUT:-/tmp/wreg_board.$$}
 PER=${WREG_TIMEOUT:-15}
 mkdir -p "$OUT"
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): crosscheck/patterns/
-# is gone -- absorbed into THE ONE FLAT MASTER. An explicit WREG_CORPUS override is honored as-is;
-# the default now materializes the "crosscheck_patterns" family via lib_master_extract.sh.
+# is gone -- absorbed into THE ONE FLAT RUNGS. An explicit WREG_CORPUS override is honored as-is;
+# the default now materializes the "crosscheck_patterns" family via lib_rungs_extract.sh.
 if [ -n "${WREG_CORPUS:-}" ]; then
   DIR="$WREG_CORPUS"
 else
-  MASTER_LANG="${MASTER_LANG:-snobol4}" . "$S4E/SCRIP/scripts/lib_master_extract.sh"
+  RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$S4E/SCRIP/scripts/lib_rungs_extract.sh"
   DIR="$OUT/crosscheck_patterns_src"; mkdir -p "$DIR"
-  master_extract_family crosscheck_patterns "$DIR" 2>/dev/null
+  rungs_extract_family crosscheck_patterns "$DIR" 2>/dev/null
 fi
 run_arm() {
   local val="$1" tag="$2"

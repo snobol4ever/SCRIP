@@ -76,7 +76,7 @@ m1="$(cat "$TSV" "$W/.github/SCORE.md" | md5sum)"
 out="$(S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer "${S4E_SEAT:-}" --dry-run --criterion-changed '2026-09-16:gate fixture preview' 2>&1)"; rc=$?
 [ "$rc" = 0 ] && grep -q 'WOULD' <<<"$out" && ck ok "(e3) the same --dry-run with the stamp previews rc=0" || ck no "(e3) rc=$rc -- got: $(tail -2 <<<"$out" | cut -c1-200)"
 # (e4) THE STAMP IN THE ENVIRONMENT IS READ WHEN THE FLAG IS ABSENT (coo 2026-09-25, hq_icon's measurement): 22 row-writing scripts,
-# board_icon_master.sh among them, never forwarded S4E_CRITERION_CHANGED, so IcnM's 826 -> 828 refused with the stamp set.
+# board_icon_rungs.sh among them, never forwarded S4E_CRITERION_CHANGED, so IcnRungs' 826 -> 828 refused with the stamp set.
 out="$(S4E_CRITERION_CHANGED='2026-09-25:gate fixture preview through the environment' S4E_HOME="$W" python3 "$HELPER" write --lang icon --column vendor --suite Arizona --text "Arizona: m3 $AZP/$AZN · m4 $AZP/$AZN (\`test_icon_arizona_suite.sh\`)" --measurer "${S4E_SEAT:-}" --dry-run 2>&1)"; rc=$?
 [ "$rc" = 0 ] && grep -q 'WOULD' <<<"$out" && ck ok "(e4) the same --dry-run with the stamp only in S4E_CRITERION_CHANGED previews rc=0 -- the writer reads the environment when the flag is absent" || ck no "(e4) rc=$rc -- got: $(tail -2 <<<"$out" | cut -c1-200)"
 # (f) a planted OLD banner (the flag string removed) -- the writer must refuse BEFORE any write, naming .github behind

@@ -6,7 +6,7 @@
 # returned +x unchanged and -x as mk_neg(x) whatever x was, so PAT iso7185prt1916 (writeln(+c), c: char) compiled and ran. The check
 # reuses the classification of the assignment-compatibility check (pas_expr_lit_class, pas_var_decl_class): a char, Boolean or string
 # literal, or a bare variable whose EVERY declaration is char, Boolean or enumerated, is refused; anything else is left alone.
-# Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
+# Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the check: the refused set was identical to the tree before.
 #
 # ARMS: one vendored PAT witness, required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is

@@ -31,7 +31,7 @@ to trip on a planted violation by --selftest (39 arms, the ratchet included):
                  Want unwrapped 0 on both.
   maps           TWO HALVES, printed and graded separately, because a green slot-kind half beside an absent table would
                  read as if the design existed.  SLOT-KIND: the ceo's util_zls_frame_map_census.py over each language's
-                 master (token frozen CEO-821), want unkinded=0 and holes=0, with no_layout NAMED beside the number and
+                 rungs (token frozen CEO-821), want unkinded=0 and holes=0, with no_layout NAMED beside the number and
                  never folded into it; the wire header past region_end and the spine are NAMED as not censused here
                  (section 2b makes the spine tagged cells, so its census is the tag census, not a hole count).
                  TABLE: section 6.4, from three independent producers per witness -- the frame allocator (--dump-zeta),
@@ -1702,7 +1702,7 @@ def read_gcmaps(text):
 
 
 # THE BLOB-FRAME CLASS MUST BE IN THE WITNESS SET OR THE CENSUS REFUSES (cto 2026-09-17, after their PAT$0 cure was
-# built, measured against the SNOBOL4 master, cost one entry and was withdrawn under CEO-589).  A stored-pattern
+# built, measured against the SNOBOL4 rungs, cost one entry and was withdrawn under CEO-589).  A stored-pattern
 # activation frame presents NO map cell -- ARCH-GC 6.2b states the walk rule for it -- so a table census run over
 # witnesses that contain no pattern reads 0 divergences BY NEVER LOOKING, the same shape as words_scanned=0 on a run
 # that never collected.  A zero has to be a zero somebody could have failed.

@@ -5,7 +5,7 @@
 # class; ceo ruled it rank 0, 2026-09-03 20:57 CDT).
 #
 # THE MEASURED DEFECT: seat03 (Icon lane) held a snobol4-* row; seat05 (Prolog lane) held an icon-jcon-*
-# row; seat06 (Prolog master lane) held a snobol4-gimpel-aisnobol-dotnet row; seat16 (Rebus lane) held an
+# row; seat06 (Prolog rungs lane) held a snobol4-gimpel-aisnobol-dotnet row; seat16 (Rebus lane) held an
 # icon-strict-rung-suite row. THE ENABLING DEFECT: the picker read only the STATE column (FREE/CLAIMED/...)
 # and the owner CELL when filled, never the topic's LANGUAGE, so a lane-blind rank sort served whichever
 # seat asked `next` first.

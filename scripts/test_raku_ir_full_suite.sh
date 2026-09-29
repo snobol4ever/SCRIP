@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "${0##*/}" || exit 2
-# scripts/test_raku_ir_full_suite.sh — Raku master-suite run sweep, both modes, via corpus_suite_harness.py.
+# scripts/test_raku_ir_full_suite.sh — Raku rungs-suite run sweep, both modes, via corpus_suite_harness.py.
 # Re-pointed off the retired test/raku rung tree (row test-raku-ir-full-suite-skips-rc-0-when-its-population-
 # directory-is-absent): the old TRACK-4 population never existed under the one-flat-suite corpus reorg, so this
 # always printed "SKIP ... rc=0" -- a never-ran reading as green (GOAL-CEO.md CEO-20, FINDING-2026-08-30-hq_B).
-# Population is the master pair corpus/tests/raku/ALL.raku + ALL.ref. An absent population REFUSES rc=2 -- it
+# Population is the rungs pair corpus/tests/raku/ALL.raku + ALL.ref. An absent population REFUSES rc=2 -- it
 # is never silently skipped.
 # ⛔ --modes m3,m4 EXPLICITLY: --lang raku alone defaults the harness to the ast dump instrument. Every entry is graded in
 # both modes -- there is no modes column (Lon 2026-09-23, CEO-1218/1230).
@@ -15,7 +15,7 @@ SNO="$S4E/corpus/tests/raku/ALL.raku"
 REF="$S4E/corpus/tests/raku/ALL.ref"
 
 if [ ! -f "$SNO" ] || [ ! -f "$REF" ]; then
-    echo "⛔ REFUSING (rc=2): raku master suite population absent -- expected $SNO + $REF" >&2
+    echo "⛔ REFUSING (rc=2): raku rungs suite population absent -- expected $SNO + $REF" >&2
     exit 2
 fi
 

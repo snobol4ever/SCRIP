@@ -99,16 +99,16 @@ EOF
 # ── Icon ─────────────────────────────────────────────────────────────────────
 echo "=== Icon ==="
 
-# ⭐ seat03 2026-08-30: hello.icn/palindrome.icn were absorbed into the icon master
-# (icon-scrip-test-icn-absorption) -- materialize them fresh via lib_master_extract.sh rather than
+# ⭐ seat03 2026-08-30: hello.icn/palindrome.icn were absorbed into the icon rungs
+# (icon-scrip-test-icn-absorption) -- materialize them fresh via lib_rungs_extract.sh rather than
 # reading loose tests/scrip_test/icon/... files that may no longer be on disk.
-MASTER_DIR="$ICN_CORPUS" MASTER_EXT=.icn source "$HERE/lib_master_extract.sh"
+RUNGS_DIR="$ICN_CORPUS" RUNGS_EXT=.icn source "$HERE/lib_rungs_extract.sh"
 ICN_EXTRACT_DIR="$(mktemp -d)"
 trap 'rm -rf "$ICN_EXTRACT_DIR"' EXIT
-master_extract_origin "scrip_test_icon_hello__hello" "$ICN_EXTRACT_DIR/hello.icn" \
-    || { echo "  FAIL ICN: hello (could not extract from icon master)"; FAIL=$((FAIL+1)); }
-master_extract_origin "scrip_test_icon_palindrome__palindrome" "$ICN_EXTRACT_DIR/palindrome.icn" \
-    || { echo "  FAIL ICN: palindrome (could not extract from icon master)"; FAIL=$((FAIL+1)); }
+rungs_extract_origin "scrip_test_icon_hello__hello" "$ICN_EXTRACT_DIR/hello.icn" \
+    || { echo "  FAIL ICN: hello (could not extract from icon rungs)"; FAIL=$((FAIL+1)); }
+rungs_extract_origin "scrip_test_icon_palindrome__palindrome" "$ICN_EXTRACT_DIR/palindrome.icn" \
+    || { echo "  FAIL ICN: palindrome (could not extract from icon rungs)"; FAIL=$((FAIL+1)); }
 
 file_test "ICN: hello" "$ICN_EXTRACT_DIR/hello.icn" "Hello, World!"
 

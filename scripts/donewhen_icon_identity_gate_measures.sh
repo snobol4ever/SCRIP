@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # DONE-WHEN for row icon-master-identity-gate-refuses-rc2-in-the-blocking-set-so-it-asserts-nothing (hq_V, CEO-586 -> CEO-547).
 # ⛔ IT ASSERTS WHAT THE REFUSAL SAYS, NOT MERELY ITS CODE (CEO-547 part 2, RULES.md batch 23 / CEO-594). The refusal
-# said "a master suite run is a board and this seat is not the coo" -- which is CEO-523 working exactly as written.
+# said "a rung suite suite run is a board and this seat is not the coo" -- which is CEO-523 working exactly as written.
 # So the defect was never the guard and never the comparison: it was a BOARD SITTING IN THE BLOCKING SET. This grades
 # both halves of the cure -- the gate is out of `make test` and in the coo's pass, AND the comparison still measures
 # and can still say no. ⛔ NO POPULATION LITERAL: every count is read from what the gate prints.
 set -u
 R="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-G=test_gate_icon_master_per_entry_identity.sh
+G=test_gate_icon_rungs_per_entry_identity.sh
 cd "$R/SCRIP" || { echo "DONE-WHEN rc=2: no SCRIP tree at $R/SCRIP"; exit 2; }
 [ -f "scripts/$G" ] || { echo "DONE-WHEN rc=2: the gate is absent at scripts/$G"; exit 2; }
 fail() { echo "DONE-WHEN RED: $1"; exit 1; }
@@ -23,7 +23,7 @@ for l in open("Makefile",encoding="utf-8"):
 sys.stdout.write("".join(out))
 PY
 }
-recipe test    | grep -q "$G" && fail "arm 1 -- the gate is STILL in the blocking set; it runs the corpus Icon master, which ONE RUNNER, ONE BOARD (CEO-523) refuses to every seat but the coo, so wired it can only ever exit rc=2"
+recipe test    | grep -q "$G" && fail "arm 1 -- the gate is STILL in the blocking set; it runs the corpus Icon rungs, which ONE RUNNER, ONE BOARD (CEO-523) refuses to every seat but the coo, so wired it can only ever exit rc=2"
 recipe test-boards | grep -q "$G" || fail "arm 2 -- the gate is not in the coo's pass (make test-boards): CEO-547 moved it there, it must not simply vanish"
 row="$(grep -P "^\Q$G\E\t" scripts/gate_wiring.tsv)" || fail "arm 3 -- the gate is absent from gate_wiring.tsv, the one population"
 cls="$(cut -f2 <<<"$row")"; why="$(cut -f3 <<<"$row")"; by="$(cut -f4 <<<"$row")"
@@ -43,15 +43,15 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 # and FALL BACK to the one runner's newest board of any tree, SAYING WHICH -- because a DONE-WHEN gradable only in
 # the window between a landing and the coo's next board is a DONE-WHEN that gets waved through.
 head -1 "$DB" >"$T/m.tsv"
-awk -F'\t' -v sc="$SC" '$6=="icon-master" && $2==sc && $4=="coo"' "$DB" >>"$T/m.tsv"
+awk -F'\t' -v sc="$SC" '$6=="icon-rungs" && $2==sc && $4=="coo"' "$DB" >>"$T/m.tsv"
 n=$(( $(wc -l <"$T/m.tsv") - 1 )); ON="of this tree"
 if [ "$n" -eq 0 ]; then
-    ALT="$(awk -F'\t' '$6=="icon-master" && $4=="coo"{t=$2} END{print t}' "$DB")"
-    [ -n "$ALT" ] || unproven "the one runner has recorded no icon-master board at all -- there is nothing to grade, which is not a pass"
+    ALT="$(awk -F'\t' '$6=="icon-rungs" && $4=="coo"{t=$2} END{print t}' "$DB")"
+    [ -n "$ALT" ] || unproven "the one runner has recorded no icon-rungs board at all -- there is nothing to grade, which is not a pass"
     head -1 "$DB" >"$T/m.tsv"
-    awk -F'\t' -v sc="$ALT" '$6=="icon-master" && $2==sc && $4=="coo"' "$DB" >>"$T/m.tsv"
+    awk -F'\t' -v sc="$ALT" '$6=="icon-rungs" && $2==sc && $4=="coo"' "$DB" >>"$T/m.tsv"
     n=$(( $(wc -l <"$T/m.tsv") - 1 )); SC="$ALT"; ON="NOT of this tree -- the one runner's newest board"
-    echo "⚠ no coo icon-master board recorded for this tree; arms 7-12 grade the one runner's newest board (scrip $ALT) instead. They assert the COMPARISON measures, never that this tree is clean."
+    echo "⚠ no coo icon-rungs board recorded for this tree; arms 7-12 grade the one runner's newest board (scrip $ALT) instead. They assert the COMPARISON measures, never that this tree is clean."
 fi
 [ "$n" -gt 0 ] || unproven "the recorded board for scrip $SC carries no rows -- there is nothing to grade, which is not a pass"
 out="$(ICON_IDENTITY_MEASURED_FROM="$T/m.tsv" bash "scripts/$G" 2>&1)"; rc=$?

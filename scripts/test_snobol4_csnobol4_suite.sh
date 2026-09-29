@@ -267,7 +267,7 @@ declared_memory_begin "$SUITE/ALL.csv" "$DECL" || { echo "⛔ REFUSE(rc=2): a de
 # when the two differ; unset, it behaves exactly as it always did.
 # ⛔⭐ THE HAND-SPELLED export S4E_TREE_AT_START THAT STOOD HERE IS RETIRED ONTO gate_tree_watch (coo
 # 2026-09-10, COO-54), which SETS THE STAMP AND TAKES THE BASELINE IN ONE CALL. It was the THIRD copy of
-# this string: written out here, in board_icon_master.sh and in test_corpus_snobol4.sh, and ABSENT from
+# this string: written out here, in board_icon_rungs.sh and in test_corpus_snobol4.sh, and ABSENT from
 # every other board -- so the runners that had it stamped honestly and the rest stamped HEAD AT WRITE
 # TIME, silently. This one was found by ARM 12 of test_gate_boards_refuse_when_the_binary_moves.sh on the
 # very run that landed the arm; I had retired the other two by hand and missed this one, which is the

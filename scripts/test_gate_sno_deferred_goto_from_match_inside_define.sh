@@ -30,7 +30,7 @@
 # THE SAME BUILD, so no rebuild is needed to see the arms flip. Every b-arm is RED under it and every c-arm
 # stays GREEN. Prove that before trusting a green:  SCRIP_ZD_DEFER_EXIT=0 bash <this file>
 #
-# ⭐ WHY A GATE AND NOT A BOARD LINE: the SNOBOL4 master board CANNOT SEE this cure. Censused at the landing,
+# ⭐ WHY A GATE AND NOT A BOARD LINE: the SNOBOL4 rungs board CANNOT SEE this cure. Censused at the landing,
 # ZERO of 32 sampled corpus SNOBOL4 programs outside the packages reach the arm, and Icon and Prolog emit no
 # goto_deferred box at all (0 in 72 programs). The payload that does reach it is aisnobol WANG.sno, which the
 # board does not carry. A cure whose only witness lives in one package program needs a gate or it is unpinned.

@@ -1,11 +1,11 @@
 #!/bin/bash
-# ⭐ PER-ENTRY GRADER FOR NAMED raku MASTER ENTRIES -- the development aid, never a board (hq_T 2026-09-13,
-# row raku-every-xfail-fixed-as-a-faulty-test-or-cured-as-a-defect). ONE RUNNER, ONE BOARD binds: every master
+# ⭐ PER-ENTRY GRADER FOR NAMED raku RUNGS ENTRIES -- the development aid, never a board (hq_T 2026-09-13,
+# row raku-every-xfail-fixed-as-a-faulty-test-or-cured-as-a-defect). ONE RUNNER, ONE BOARD binds: every rung suite
 # and package board is the coo's. This is the other thing -- `corpus_suite_harness.py on one entry`, the grading
 # the contract explicitly leaves to each seat -- lifted to a NAMED SET so a class row's DONE-WHEN is one line
 # instead of a twenty-line shell loop copied once per row. It writes no SCORE.md cell and prints no board line.
 # ⛔ IT REFUSES rc=2 RATHER THAN PRINTING THE SUCCESS SHAPE when it cannot measure: no entry named, an entry the
-# master does not carry, or a build that is not there. A runner that graded zero witnesses and exited 0 is the
+# rungs does not carry, or a build that is not there. A runner that graded zero witnesses and exited 0 is the
 # `make test` false-green trap wearing a different hat (CLAUDE.md § Testing).
 # ⛔ rc CONTRACT: the expected rc comes from ALL.wantrc when the entry is declared there and is 0 otherwise --
 # a die test whose stdout matches is a PASS, and grading it on stdout alone would score four xfails XPASS that
@@ -16,12 +16,12 @@ here=$(cd "$(dirname "$0")" && pwd); root=$(cd "$here/.." && pwd); corpus="$root
 M="$corpus/tests/raku"
 [ $# -ge 1 ] || { echo "⛔ REFUSE(2) [util_raku_entry_grade]: no entry named -- a grader with an empty population cannot report a verdict" >&2; exit 2; }
 [ -x "$root/scrip" ] || { echo "⛔ REFUSE(2) [util_raku_entry_grade]: no $root/scrip -- run make first" >&2; exit 2; }
-[ -f "$M/ALL.raku" ] && [ -f "$M/ALL.ref" ] || { echo "⛔ REFUSE(2) [util_raku_entry_grade]: no raku master at $M" >&2; exit 2; }
+[ -f "$M/ALL.raku" ] && [ -f "$M/ALL.ref" ] || { echo "⛔ REFUSE(2) [util_raku_entry_grade]: no raku rungs at $M" >&2; exit 2; }
 graded=0; green=0; red=0
 for n in "$@"; do
     d=$(mktemp -d) || exit 2
     if ! python3 "$here/corpus_suite_harness.py" extract "$M/ALL.raku" "$M/ALL.ref" "$n" "$d/w.raku" --out-ref "$d/w.ref" >/dev/null 2>&1; then
-        echo "⛔ REFUSE(2) [util_raku_entry_grade]: the master carries no entry '$n' -- a name that cannot be resolved is not a red, it is an unmeasurable" >&2
+        echo "⛔ REFUSE(2) [util_raku_entry_grade]: the rungs carries no entry '$n' -- a name that cannot be resolved is not a red, it is an unmeasurable" >&2
         rm -rf "$d"; exit 2
     fi
     want_rc=0

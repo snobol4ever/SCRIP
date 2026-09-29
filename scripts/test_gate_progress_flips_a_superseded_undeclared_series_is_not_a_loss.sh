@@ -6,13 +6,13 @@
 # declaring-a-config-and-the-undeclared-series-stopped, the coo). .github/scripts/util_progress_flips.py keys its NET series on (suite,
 # program, mode, config) -- rightly, CEO-1047/1050: a shipped PASS must never hide an arena FAIL. But when a runner began DECLARING its
 # configuration, the program's undeclared series stopped, and its last reading stayed its verdict forever: over 09-20..09-23 the tool
-# listed 37 master programs LOST and every one of the 37 PASSED on its latest published clean reading. The gain count had the mirror
+# listed 37 rungs programs LOST and every one of the 37 PASSED on its latest published clean reading. The gain count had the mirror
 # fault: a series that went red-to-green before the switch read as a gain the program no longer has, and a program red before the
 # switch and green after it read as no gain at all.
 # THE CURE (one rule): an undeclared series is SUPERSEDED when a declared series of the same (suite, program, mode) has a clean reading
 # after its last one; it stops being a position, and every declared series born inside the window after its base INHERITS that base.
 # ONLY the series that CONTINUES the undeclared one inherits (CONTINUES_UNDECLARED, `shipped`): the first cut handed the base to every
-# declared series born in the window and, on the frozen 4.18M-row snapshot, master LOST went 37 -> 83 -- sixty stress and arena series
+# declared series born in the window and, on the frozen 4.18M-row snapshot, rungs LOST went 37 -> 83 -- sixty stress and arena series
 # read as losses against an undeclared PASS they never continued. Across configurations a change is a differential, not a flip.
 # A declared series is never superseded: one that stopped (a retired arm) stays LOST and says STOPPED beside the program's latest reading.
 #
@@ -56,7 +56,7 @@ H=$(date -u -d '10 hours ago' +%FT%T); W1=$(date -u -d '3 hours ago' +%FT%T); W2
            "M1 $H FAIL -" "M1 $W2 PASS shipped" "M2 $H FAIL -" "M2 $W1 PASS -" "M2 $W2 FAIL shipped" \
            "A $H PASS -" "A $W2 PASS shipped" "A $W2 FAIL arena_mb=1"; do
     set -- $x; c=$4; [ "$c" = - ] && c=
-    printf '%s\tabc1234\tdef5678\tfx\tmaster\tfx\tsnobol4\t%s\tm3\t%s\t0\t\t\t%s\n' "$2" "$1" "$3" "$c"
+    printf '%s\tabc1234\tdef5678\tfx\trungs\tfx\tsnobol4\t%s\tm3\t%s\t0\t\t\t%s\n' "$2" "$1" "$3" "$c"
   done; } > "$WORK/r.tsv"
 
 # grade <reader> <label> -- prints one "ARM <name> ok|RED" line per arm, and the reader's own output under it when asked

@@ -6,26 +6,26 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/pascal}"
 HARNESS="${HARNESS:-$(dirname "${BASH_SOURCE[0]}")/corpus_suite_harness.py}"
-MASTER_SRC="${MASTER_SRC:-$CORPUS/ALL.pas}"
-MASTER_REF="${MASTER_REF:-$CORPUS/ALL.ref}"
+RUNGS_SRC="${RUNGS_SRC:-$CORPUS/ALL.pas}"
+RUNGS_REF="${RUNGS_REF:-$CORPUS/ALL.ref}"
 # ⭐ REPOINTED (seat04, 2026-08-30, row pascal-master-flatten-and-scrip-test-pas): the old dual mechanism
 # (a loose-*.pas loop + a hand-maintained SUITE_FAMILIES list over crosscheck/) is retired now that
-# util_build_master_suite.py --lang pascal absorbs both shapes into ONE flat ALL.pas/ALL.ref, matching
+# util_build_rungs_suite.py --lang pascal absorbs both shapes into ONE flat ALL.pas/ALL.ref, matching
 # test_corpus_snobol4.sh's own cutover. `pcom`/`pint` are gone (confirmed absent, the old skip is dropped).
 # ⛔ REVERTED BACK TO THE FLAT PATH (seat04, 2026-08-30) after seat11 (`94c98593`, row pascal-restore-prezeta,
 # genuinely well-intentioned) repointed this at `$CORPUS/master/ALL.pas`, believing the flat path "has never
 # existed" -- it existed on origin/main a full 30 minutes before that commit (corpus `066a680bb`, 20:16:32,
-# vs. `94c98593` at 20:43:53); seat11's own `master/` subdir had already been deleted in that same commit as
+# vs. `94c98593` at 20:43:53); seat11's own `rungs/` subdir had already been deleted in that same commit as
 # superseded, so their fix pointed the gate at a path that was freshly GONE, not one that had never arrived.
 # Read as a stale/unpulled local corpus checkout at the time they investigated, not a real conflict.
 # ⭐ WHAT SEAT11 FOUND THAT STAYS FIXED, independent of the path mixup: this gate's own all-arms-zero refusal
-# (below) could not have caught the master silently grading 0 entries, because the STDIN_FAMILIES loop (and
+# (below) could not have caught the rungs silently grading 0 entries, because the STDIN_FAMILIES loop (and
 # on m3 the benchmark-witness section) always examines >0 -- exactly the kind of "measured fine" vs. "could
-# not measure" collision RULES.md's own gate-witness law exists to forbid. MASTER_EXAMINED now refuses
+# not measure" collision RULES.md's own gate-witness law exists to forbid. RUNGS_EXAMINED now refuses
 # independently, not just as part of the combined check.
 # ⛔ FIVE entries stay loose PERMANENTLY, not a residue of this repoint: read1-4 and pb35 read real stdin,
 # and the suite format has no stdin-input concept (hq_C's SNOBOL4-side ruling, 2026-08-24 — see KEEP.md
-# section 1). The master builder independently reaches the same conclusion (ALL.excluded.txt names all 5).
+# section 1). The rungs builder independently reaches the same conclusion (ALL.excluded.txt names all 5).
 # Register a new permanent stdin exception in BOTH this file and test_gate_pascal_m4.sh's identical list.
 STDIN_FAMILIES="read1 read2 read3 read4 pb35"
 RESULTS="${RESULTS:-/tmp/m3_results.tsv}"
@@ -58,22 +58,22 @@ for name in $STDIN_FAMILIES; do
     fi
 done
 
-MASTER_PASS=0; MASTER_FAIL=0; MASTER_EXAMINED=0
-if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
-    # Every master entry is graded in this gate's mode: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
+RUNGS_PASS=0; RUNGS_FAIL=0; RUNGS_EXAMINED=0
+if [ -f "$RUNGS_SRC" ] && [ -f "$RUNGS_REF" ]; then
+    # Every rung suite entry is graded in this gate's mode: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
     # ⛔⭐ CAPTURE THE HARNESS rc AND ITS stderr -- A REFUSAL IS NOT A RED AND IS NOT A CORPUS DEFECT (hq_B 2026-09-13,
     # row pascal-gates-report-a-one-runner-refusal-as-an-unpopulated-master). `2>/dev/null` here threw away the ONE sentence
-    # that said what had happened. Under ONE RUNNER, ONE BOARD (CEO-523) a run of the master IS a board, so the harness
-    # refuses it rc=2 to every seat but the coo; `board` came back empty, `p` was unset, MASTER_EXAMINED fell to 0, and the
-    # arm at the bottom then accused $MASTER_SRC of being "a path defect or unpopulated master" -- while it sits on disk,
+    # that said what had happened. Under ONE RUNNER, ONE BOARD (CEO-523) a run of the rungs IS a board, so the harness
+    # refuses it rc=2 to every seat but the coo; `board` came back empty, `p` was unset, RUNGS_EXAMINED fell to 0, and the
+    # arm at the bottom then accused $RUNGS_SRC of being "a path defect or unpopulated rungs" -- while it sits on disk,
     # populated, 5239 lines. hq_S measured that message, went and checked the corpus, and found it fine (relayed by the coo
     # 2026-09-13). ⭐ THE COST IS NOT THE RED, IT IS THE FALSE CAUSE: a gate that cannot measure must say so and name what
     # stopped it, never nominate a suspect it never looked at. RULES.md § a correct procedure with a false explanation.
-    HERR=$(mktemp); board=$(timeout 120s python3 "$HARNESS" run "$MASTER_SRC" "$MASTER_REF" --lang pascal --modes m3 2>"$HERR"); hrc=$?
+    HERR=$(mktemp); board=$(timeout 120s python3 "$HARNESS" run "$RUNGS_SRC" "$RUNGS_REF" --lang pascal --modes m3 2>"$HERR"); hrc=$?
     if [ $hrc -eq 2 ]; then
-        echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the master, so M3 has NO master verdict. This gate does not know the master is bad and does not say so." >&2
+        echo "⛔ REFUSED-TO-GRADE rc=2: the harness refused the rungs, so M3 has NO rungs verdict. This gate does not know the rungs is bad and does not say so." >&2
         sed 's/^/    harness said: /' "$HERR" >&2; rm -f "$HERR"
-        echo "    the master is present and populated -- $MASTER_SRC ($(wc -l <"$MASTER_SRC") lines) / $MASTER_REF ($(wc -l <"$MASTER_REF") lines); it is NOT what this refusal is about." >&2
+        echo "    the rungs is present and populated -- $RUNGS_SRC ($(wc -l <"$RUNGS_SRC") lines) / $RUNGS_REF ($(wc -l <"$RUNGS_REF") lines); it is NOT what this refusal is about." >&2
         exit 2
     fi
     rm -f "$HERR"
@@ -82,17 +82,17 @@ if [ -f "$MASTER_SRC" ] && [ -f "$MASTER_REF" ]; then
     unproven=$(grep -oP '(?<=m3_unproven=)\d+' <<<"$board")
     total=$(grep '^SUITE_BOARD ' <<<"$board" | grep -oP '(?<=total=)\d+')
     if [ -z "$p" ]; then
-        echo -e "master:ALL\tHARNESS_UNPROVEN\t" >> "$RESULTS"
+        echo -e "rungs:ALL\tHARNESS_UNPROVEN\t" >> "$RESULTS"
         FAIL=$((FAIL+1))
     else
-        MASTER_EXAMINED=${total:-0}
+        RUNGS_EXAMINED=${total:-0}
         bad=$((f + crash + hang + unproven))
-        echo -e "master:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven\t" >> "$RESULTS"
+        echo -e "rungs:ALL\tPASS=$p FAIL=$f CRASH=$crash HANG=$hang UNPROVEN=$unproven\t" >> "$RESULTS"
         PASS=$((PASS+p)); FAIL=$((FAIL+bad))
-        MASTER_PASS=$p; MASTER_FAIL=$bad
+        RUNGS_PASS=$p; RUNGS_FAIL=$bad
     fi
 else
-    echo -e "master:ALL\tMISSING\t" >> "$RESULTS"
+    echo -e "rungs:ALL\tMISSING\t" >> "$RESULTS"
     FAIL=$((FAIL+1))
 fi
 
@@ -106,7 +106,7 @@ fi
 # ⛔ 7 of the 9 open with `readln(reps)`; feeding /dev/null yields reps=0, an empty loop and a PLAUSIBLE all-zero
 # board that is pure instrument error (measured, hq_C 2026-08-27). The `1` below is load-bearing -- do not remove it.
 WCORPUS="${WCORPUS:-$S4E/corpus/benchmarks/pascal}"
-WITNESS_XFAIL="${WITNESS_XFAIL:-}"   # ⛔ EMPTY, AND THAT IS THE CURED STATE -- THERE IS NO XFAIL (Lon 2026-09-03 21:30). `fbench` sat here since 2026-08-28 blocked on pascal-m4-for-spine-leak-64b-per-iter (nested if/elseif-inside-for SIGSEGV in transitXsurface/traceXline). That row is cured: fbench now matches its .ref, rc=0, measured hq_B 2026-09-13, so the XFAIL_STALE arm below fired exactly as designed and the entry is deleted here. ⭐ THE ARM IS THE POINT AND IT STAYS: an exception list that only permits FAILING lets a cure rot unnoticed, and this one caught its own rot. ⛔ It could only report it to a seat that could reach the witness section at all -- for two weeks every non-coo seat exited 2 at the master arm above and never got here, which is how a stale entry survived its own detector.
+WITNESS_XFAIL="${WITNESS_XFAIL:-}"   # ⛔ EMPTY, AND THAT IS THE CURED STATE -- THERE IS NO XFAIL (Lon 2026-09-03 21:30). `fbench` sat here since 2026-08-28 blocked on pascal-m4-for-spine-leak-64b-per-iter (nested if/elseif-inside-for SIGSEGV in transitXsurface/traceXline). That row is cured: fbench now matches its .ref, rc=0, measured hq_B 2026-09-13, so the XFAIL_STALE arm below fired exactly as designed and the entry is deleted here. ⭐ THE ARM IS THE POINT AND IT STAYS: an exception list that only permits FAILING lets a cure rot unnoticed, and this one caught its own rot. ⛔ It could only report it to a seat that could reach the witness section at all -- for two weeks every non-coo seat exited 2 at the rungs arm above and never got here, which is how a stale entry survived its own detector.
 W_PASS=0; W_FAIL=0; W_EXAMINED=0; W_STALE=0
 if [ -f "$WCORPUS/uplevel2.pas" ]; then
     for wpas in "$WCORPUS"/*.pas; do
@@ -138,13 +138,13 @@ if [ -f "$WCORPUS/uplevel2.pas" ]; then
     done
 fi
 
-echo "M3: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (master: $MASTER_EXAMINED entries, $MASTER_PASS pass / $MASTER_FAIL fail; stdin-loose: $EXAMINED examined)"
+echo "M3: PASS=$PASS FAIL=$FAIL NOREF=$NOREF XFAIL=$XFAIL (rungs: $RUNGS_EXAMINED entries, $RUNGS_PASS pass / $RUNGS_FAIL fail; stdin-loose: $EXAMINED examined)"
 echo "M3 witnesses (benchmarks/pascal): EXAMINED=$W_EXAMINED PASS=$W_PASS FAIL=$W_FAIL XFAIL_STALE=$W_STALE"
-# ⛔ MASTER_EXAMINED refuses ON ITS OWN, not only when every arm is zero (seat11's finding): the stdin-loose
-# loop and the benchmark witnesses both always examine >0, so a master-path defect used to hide completely
+# ⛔ RUNGS_EXAMINED refuses ON ITS OWN, not only when every arm is zero (seat11's finding): the stdin-loose
+# loop and the benchmark witnesses both always examine >0, so a rung suite-path defect used to hide completely
 # behind them -- ~150 entries silently dropped from the board with a clean-looking exit code either way.
-if [ $MASTER_EXAMINED -eq 0 ]; then
-    echo "⛔ UNPROVEN: 0 master entries examined under $MASTER_SRC / $MASTER_REF -- path defect or unpopulated master, not a clean pass (this arm cannot hide behind the other two)" >&2
+if [ $RUNGS_EXAMINED -eq 0 ]; then
+    echo "⛔ UNPROVEN: 0 rungs entries examined under $RUNGS_SRC / $RUNGS_REF -- path defect or unpopulated rungs, not a clean pass (this arm cannot hide behind the other two)" >&2
     exit 2
 fi
 if [ $EXAMINED -eq 0 ] && [ $W_EXAMINED -eq 0 ]; then

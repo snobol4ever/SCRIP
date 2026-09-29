@@ -8,7 +8,7 @@
 # pas_mod's three uses of it, through __pas_ord_check(j, 1, max, what, "6.7.2.2") -- the ordinal-range arm of by_name_dispatch.c,
 # which takes an optional clause -- and stops through pas_file_err. A positive literal divisor, the common case, is never checked.
 # j = 0 now stops with this same 6.7.2.2 message instead of the shared runtime's "error 2", so 1746A (the zero half) is an arm too.
-# Measured before landing, every graded Pascal program RUN in both modes (the master 246, the FPC suite 181, the eleven benchmarks,
+# Measured before landing, every graded Pascal program RUN in both modes (the rungs 246, the FPC suite 181, the eleven benchmarks,
 # PAT's acceptance programs): no cell moved except 1746b's two. No benchmark uses a variable divisor.
 #
 # ARMS: two vendored PAT witnesses (the negative and the zero divisor), each required to be REFUSED at run time with a non-empty

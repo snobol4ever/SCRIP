@@ -16,7 +16,7 @@
 # `git status src/` is EMPTY, the binary answers `type=integer image=0` where the tree says `null / &null`, and
 # util_require_fresh's mtime half returns rc=0. The probe returns rc=2.
 #
-# ⭐ WHAT THE PROBE PROVES, STATED HONESTLY: it is a SELF-PIN in exactly the sense CEO-395 draws for master refs -- the
+# ⭐ WHAT THE PROBE PROVES, STATED HONESTLY: it is a SELF-PIN in exactly the sense CEO-395 draws for rungs refs -- the
 # emitted code HAS NOT MOVED under a tree that HAS NOT MOVED. It says nothing about whether that code is RIGHT; the
 # oracle diffs do that. That narrow claim is the one the FINDING needed and could not get.
 #

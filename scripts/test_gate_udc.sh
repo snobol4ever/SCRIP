@@ -26,26 +26,26 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 RT="${RT:-$S4E/SCRIP/out}"
-MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "$0")/lib_master_extract.sh"
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$(dirname "$0")/lib_rungs_extract.sh"
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }
 # ⛔ SUITE_SNO/SUITE_REF/HARNESS RETIRED (row dead-suite-path-consumer-sweep): the dedicated cn.sno/cn.ref
-# pair this script used to extract from is gone -- Lon's one-flat-suite ruling absorbed it into the master
+# pair this script used to extract from is gone -- Lon's one-flat-suite ruling absorbed it into the rungs
 # ALL.sno/.ref/.csv under family probe_cn (confirmed: all 10 witness names below are present as
-# probe_cn__<name> origins in ALL.csv). lib_master_extract.sh's master_extract_origin is the modern
+# probe_cn__<name> origins in ALL.csv). lib_rungs_extract.sh's rungs_extract_origin is the modern
 # replacement for exactly this old dedicated-suite-file consumer shape (its own header names this pattern).
 # Materializes suite entry $1 into /tmp/gate_x_$1.sno (+ .ref) and sets EX_SNO/EX_REF. Returns nonzero
-# (and records a FAIL itself) if the name isn't in the master suite -- callers just `|| continue`.
+# (and records a FAIL itself) if the name isn't in the rungs suite -- callers just `|| continue`.
 extract_witness() {
   local w="$1"
   EX_SNO="/tmp/gate_x_$w.sno"; EX_REF="/tmp/gate_x_$w.ref"
-  if ! master_extract_origin "probe_cn__$w" "$EX_SNO" "$EX_REF" 2>/tmp/gate_x_err.txt; then
-    echo "  FAIL: extract $w (origin probe_cn__$w) from the master suite failed: $(cat /tmp/gate_x_err.txt)"; fail=$((fail+1)); return 1
+  if ! rungs_extract_origin "probe_cn__$w" "$EX_SNO" "$EX_REF" 2>/tmp/gate_x_err.txt; then
+    echo "  FAIL: extract $w (origin probe_cn__$w) from the rungs suite failed: $(cat /tmp/gate_x_err.txt)"; fail=$((fail+1)); return 1
   fi
 }
 # ⛔ CN IS ASSEMBLED, NOT A FIXED TREE: cn_udc_closed is the one witness that deliberately stayed a loose
 # .err_sno file (no .ref, stream-separated checking -- doesn't fit the suite's one-.ref-per-entry model,
-# per this file's own header comment) rather than moving into the master suite. It now lives under
+# per this file's own header comment) rather than moving into the rungs suite. It now lives under
 # tests/snobol4/config/, prefixed probe_loose_cn_ -- confirmed via find, not assumed. Override honoured as-is.
 if [ -z "${CN:-}" ]; then
     CN="$(mktemp -d)"

@@ -1,7 +1,7 @@
 #!/bin/bash
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
-# test_gate_pas_boolean_write_iso_mod_and_forward_params.sh -- three Pascal-master reds cured together (coo, row
+# test_gate_pas_boolean_write_iso_mod_and_forward_params.sh -- three Pascal-rungs reds cured together (coo, row
 # pascal-ladder-every-feature-in-isolation-with-variations, 2026-09-12; ladder rungs 01, 02, 05):
 #   1. write(<Boolean>) prints the word true/false, right-justified in a default field of 5, an explicit width
 #      pads or truncates like a string (fpc 3.2.2 -Miso measured 2026-09-12 16:0x CDT: " true", "false",

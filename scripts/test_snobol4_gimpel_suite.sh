@@ -98,7 +98,7 @@ SCORED=$((TOTAL-UNSCR))
 # "no failures" because it graded nothing is the false green the registry was built to prevent, arriving
 # through the one path the registry cannot see: its own caller's arithmetic.
 # ⛔⭐ TWO HQs CURED THE total=0 DEFECT INDEPENDENTLY, WITHIN ONE HOUR, IN THIS FILE -- hq_T (7b18a3c52, hit via
-# the vendored-dir overlay row) and hq_C (cfde5756f, hit by running gimpel concurrently with the master board).
+# the vendored-dir overlay row) and hq_C (cfde5756f, hit by running gimpel concurrently with the rungs board).
 # Both cures were right and the merge left the tree carrying BOTH, one above and one here. Consolidated into
 # the single early refusal above, which fires before the counters and prints the scorecard's own log.
 # ⭐ THE COINCIDENCE IS THE LESSON, not the duplication: this is the one-cure-many-copies class running FORWARD

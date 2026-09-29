@@ -17,8 +17,8 @@ THE FIVE ARMS (one per run; --arm):
   ⛔ The .sc chain is loaded by CONCATENATION because a .sc program cannot load a library chain (no -INCLUDE for
   Snocone; scrip takes the first positional as the program and the rest as ITS arguments).
 
-THE POPULATION (--list prints it): every corpus file carrying one of the language's source extensions, masters
-excluded, PLUS every entry of the language's master tests/<lang>/ALL.<ext>, materialized through the suite
+THE POPULATION (--list prints it): every corpus file carrying one of the language's source extensions, rung_suites
+excluded, PLUS every entry of the language's rungs tests/<lang>/ALL.<ext>, materialized through the suite
 harness's own readers (never a second parser of the suite grammar).
 
 CLASSES, strict: PARSED = no "Parse Error", no runtime error, rc 0 and at least one output line; REFUSED = the
@@ -41,13 +41,13 @@ SBL = Path(os.environ.get("SBL") or "/home/resources/x64/bin/sbl")
 RUNTIME = ["global", "case", "assign", "match", "counter", "stack", "tree", "ShiftReduce",
            "tdump", "gen", "qize", "semantic", "omega", "trace"]
 LANGS = {
-    "snobol4": {"exts": [".sno", ".SNO", ".inc", ".INC", ".sbl", ".spt", ".SPT"], "master": "ALL.sno", "harness_lang": ""},
-    "snocone": {"exts": [".sc"], "master": "ALL.sc", "harness_lang": "snocone"},
-    "rebus":   {"exts": [".reb"], "master": "ALL.reb", "harness_lang": "rebus"},
-    "icon":    {"exts": [".icn"], "master": "ALL.icn", "harness_lang": "icon"},
-    "prolog":  {"exts": [".pl", ".P", ".pro"], "master": "ALL.pl", "harness_lang": "prolog"},
-    "raku":    {"exts": [".raku", ".rakumod"], "master": "ALL.raku", "harness_lang": "raku"},
-    "pascal":  {"exts": [".pas", ".pp"], "master": "ALL.pas", "harness_lang": "pascal"},
+    "snobol4": {"exts": [".sno", ".SNO", ".inc", ".INC", ".sbl", ".spt", ".SPT"], "rungs": "ALL.sno", "harness_lang": ""},
+    "snocone": {"exts": [".sc"], "rungs": "ALL.sc", "harness_lang": "snocone"},
+    "rebus":   {"exts": [".reb"], "rungs": "ALL.reb", "harness_lang": "rebus"},
+    "icon":    {"exts": [".icn"], "rungs": "ALL.icn", "harness_lang": "icon"},
+    "prolog":  {"exts": [".pl", ".P", ".pro"], "rungs": "ALL.pl", "harness_lang": "prolog"},
+    "raku":    {"exts": [".raku", ".rakumod"], "rungs": "ALL.raku", "harness_lang": "raku"},
+    "pascal":  {"exts": [".pas", ".pp"], "rungs": "ALL.pas", "harness_lang": "pascal"},
 }
 SPITBOL_ERR = re.compile(r"\bERROR \d+ --")
 # SPITBOL's default stack (-s4m) is too small for a recursive grammar on a 1000-line source (ERROR 246 on beauty.sc and
@@ -73,11 +73,11 @@ def git_head(repo):
         return "?"
 
 
-def master_entries(lang, work):
-    """Materialize every entry of the language's master into work/pop/<lang>/ through the suite harness's own
+def rungs_entries(lang, work):
+    """Materialize every entry of the language's rungs into work/pop/<lang>/ through the suite harness's own
     readers. Returns [(name, path)]."""
     cfg = LANGS[lang]
-    src = CORPUS / "tests" / lang / cfg["master"]
+    src = CORPUS / "tests" / lang / cfg["rungs"]
     ref = src.with_suffix(".ref")
     if not src.is_file() or not ref.is_file():
         return []
@@ -96,7 +96,7 @@ def master_entries(lang, work):
         text = e.sno_lines[0] if e.kind == "line" else "\n".join(e.sno_lines)
         p = out_dir / f"{e.name}{ext}"
         p.write_text(text + "\n")
-        res.append((f"master:{e.name}", p))
+        res.append((f"rungs:{e.name}", p))
     return res
 
 
@@ -201,7 +201,7 @@ def main():
     ap.add_argument("--timeout", type=float, default=30.0, help="seconds per source (default 30)")
     ap.add_argument("--work", default="", help="work directory (default: $TMPDIR/bootstrap_parsers)")
     ap.add_argument("--only", default="", help="grade only members whose name contains this substring")
-    ap.add_argument("--no-master", action="store_true", help="corpus files only")
+    ap.add_argument("--no-rungs", action="store_true", help="corpus files only")
     ap.add_argument("--list", action="store_true", help="print the population and exit 0")
     ap.add_argument("--show", type=int, default=40, help="names printed per class (default 40; 0 = all)")
     a = ap.parse_args()
@@ -210,7 +210,7 @@ def main():
     work.mkdir(parents=True, exist_ok=True)
     worst = 0
     for lang in langs:
-        pop = corpus_files(lang) + ([] if a.no_master else master_entries(lang, work))
+        pop = corpus_files(lang) + ([] if a.no_rungs else rungs_entries(lang, work))
         if a.only:
             pop = [(n, p) for n, p in pop if a.only in n]
         if a.list:
@@ -236,10 +236,10 @@ def main():
         counts = {k: 0 for k in ("PARSED", "REFUSED", "CRASH", "TIMEOUT", "EMPTY")}
         for c, _, _ in results.values():
             counts[c] += 1
-        nfile = sum(1 for n, _ in pop if not n.startswith("master:"))
+        nfile = sum(1 for n, _ in pop if not n.startswith("rungs:"))
         print(f"bootstrap parser {lang} arm={a.arm}" + (f" sbl -s{SBL_STACK} -d{SBL_HEAP}" if a.arm == "sbl" else f" scrip {' '.join(SCRIP_ARENA)}")
               + f" SCRIP {git_head(SCRIP_DIR)} corpus {git_head(CORPUS)} work={work / lang}")
-        print(f"POPULATION {lang}: files={nfile} master={len(pop) - nfile} total={len(pop)}")
+        print(f"POPULATION {lang}: files={nfile} rungs={len(pop) - nfile} total={len(pop)}")
         print(f"BOARD {lang} {a.arm}: PARSED={counts['PARSED']} REFUSED={counts['REFUSED']} CRASH={counts['CRASH']} "
               f"TIMEOUT={counts['TIMEOUT']} EMPTY={counts['EMPTY']} / {len(pop)}")
         for cls in ("REFUSED", "CRASH", "TIMEOUT", "EMPTY"):

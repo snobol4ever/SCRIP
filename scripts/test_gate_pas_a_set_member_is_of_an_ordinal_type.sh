@@ -7,7 +7,7 @@
 # expression was, so PAT iso7185prt1901 ([r] <> [] with r: real) compiled and ran. The check sits on both set_member productions
 # (x and x..y) and reuses the assignment-compatibility classifiers: a real literal or constant, a string of other than one
 # character, or a bare variable whose EVERY declaration resolves to real, is refused.
-# Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
+# Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the check: the refused set was identical to the tree before.
 #
 # ARMS: one vendored PAT witness, required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is

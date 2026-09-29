@@ -26,7 +26,7 @@
 #
 # ⛔ AND IT REFUSES RATHER THAN PRINTING A ZERO.  Population comes from the corpus by ORIGIN column, never
 # a filename glob and never a hardcoded list of 11 that silently stops covering witnesses added later.  A
-# missing oracle, a missing master, or an EMPTY census exits 2: a census that cannot see its population
+# missing oracle, a missing rungs, or an EMPTY census exits 2: a census that cannot see its population
 # must never report success over it (`find corpus/crosscheck -name '*.sno'` printing nothing and exiting 0
 # is the house example).
 #
@@ -42,30 +42,30 @@ SCRIP="${SCAN_ARGTYPE_SCRIP:-$ROOT/scrip}"
 T="${TIMEOUT:-20}"
 refuse() { echo "⛔ GATE REFUSE(2) [icn-scan-argtype]: $*"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" || refuse "cannot source lib_oracle_flags.sh"
-MASTER_DIR="$S4E/corpus/tests/icon"; MASTER_EXT=.icn
-. "$HERE/lib_master_extract.sh" || refuse "cannot source lib_master_extract.sh"
+RUNGS_DIR="$S4E/corpus/tests/icon"; RUNGS_EXT=.icn
+. "$HERE/lib_rungs_extract.sh" || refuse "cannot source lib_rungs_extract.sh"
 ICONT="$(icont_bin)" || refuse "no icont oracle (lib_oracle_flags icont_bin) -- a missing oracle prints a full, plausible, entirely false all-FAIL table"
 ICONX="$(iconx_bin)" || refuse "no iconx oracle (lib_oracle_flags iconx_bin)"
 [ -x "$SCRIP" ] || refuse "$SCRIP is not built -- run make"
 [ -f "$RT/libscrip_rt.so" ] || refuse "$RT/libscrip_rt.so missing -- run make"
-[ -f "$MASTER_DIR/ALL.csv" ] || refuse "$MASTER_DIR/ALL.csv missing -- cannot census the population"
-# THE POPULATION, by origin: every scan-route argtype witness the master carries, refusals and coercions
+[ -f "$RUNGS_DIR/ALL.csv" ] || refuse "$RUNGS_DIR/ALL.csv missing -- cannot census the population"
+# THE POPULATION, by origin: every scan-route argtype witness the rungs carries, refusals and coercions
 # alike.  Both halves are graded by ONE census on purpose -- the cure that makes `tab([1,2])` raise is the
 # same helper that makes `tab("2")` convert, so a gate holding only the refusals would go green on a
 # regression that re-broke the coercions, which is precisely how this class was half-cured the first time.
-ORIGINS="$(awk -F, 'NR>1 && $3 ~ /^ladder__rung[0-9]+_.*_scan_(refuse|coerce)/ {print $3}' "$MASTER_DIR/ALL.csv")"
+ORIGINS="$(awk -F, 'NR>1 && $3 ~ /^ladder__rung[0-9]+_.*_scan_(refuse|coerce)/ {print $3}' "$RUNGS_DIR/ALL.csv")"
 N="$(printf '%s' "$ORIGINS" | grep -c . || true)"
-[ "$N" -gt 0 ] || refuse "census over $MASTER_DIR/ALL.csv found ZERO scan-argtype witnesses -- the population is unreachable, not empty"
+[ "$N" -gt 0 ] || refuse "census over $RUNGS_DIR/ALL.csv found ZERO scan-argtype witnesses -- the population is unreachable, not empty"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 code_of() { grep -oE '(Run-time error|scrip: error) [0-9]+' | grep -oE '[0-9]+' | head -1; }   # the ONE field this gate compares out of stderr
 echo "=== Icon scan-node builtin argument-type gate (oracle-cut, both modes) ==="
 echo "oracle: $ICONT / $ICONX"
-echo "population: $N witnesses by origin from $MASTER_DIR/ALL.csv"
+echo "population: $N witnesses by origin from $RUNGS_DIR/ALL.csv"
 printf '%-46s | %-8s %-3s | %-8s %-3s | %-8s %-3s | %s\n' witness orac rc m3 rc m4 rc verdict
 fail=0; graded=0
 for org in $ORIGINS; do
     src="$W/w.icn"
-    master_extract_origin "$org" "$src" >/dev/null 2>&1 || { echo "REFUSE: cannot extract $org"; exit 2; }
+    rungs_extract_origin "$org" "$src" >/dev/null 2>&1 || { echo "REFUSE: cannot extract $org"; exit 2; }
     # THE ORACLE CUTS THE ANSWER EVERY RUN -- never a stored .ref.  Compile failure here is a refusal, not
     # a fail: an oracle that will not build the witness has not graded it.
     ( cd "$W" && timeout "$T" "$ICONT" -s -o w.x w.icn >/dev/null 2>&1 ) && [ -s "$W/w.x" ] \

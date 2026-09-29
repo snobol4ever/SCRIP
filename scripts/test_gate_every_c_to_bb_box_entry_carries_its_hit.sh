@@ -3,7 +3,7 @@
 # SO AN UNHOOKED ENTRY AND A DEAD ENTRY READ THE SAME. THIS GATE MAKES THAT IMPOSSIBLE TO REPEAT.
 #
 # ⛔⭐ WHY THIS EXISTS, MEASURED AND NOT ARGUED (cto 2026-09-21, CTO-88, under the C->BB->C->BB eradication,
-# Lon 2026-09-21 17:0x / RULES.md line 238 FACT RULE / CEO-1086).  The ceo swept the whole SNOBOL4 master under
+# Lon 2026-09-21 17:0x / RULES.md line 238 FACT RULE / CEO-1086).  The ceo swept the whole SNOBOL4 rungs under
 # SCRIP_C2BB_TRACE and reported 1062 live transitions over six live site names, with FOUR static sites reading
 # ZERO and correctly called BOUNDED rather than dead.  That census could not see the roads that carry no
 # rt_c2bb_hit AT ALL.  THREE SUCH ROADS EXISTED AND ALL THREE WERE IN THE cto's HALF:

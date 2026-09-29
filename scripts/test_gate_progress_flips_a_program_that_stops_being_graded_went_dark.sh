@@ -15,7 +15,7 @@
 #   O  PASS -> OUTSIDE       reclassified; not lost; not dark
 #   F  PASS -> FAIL          lost; not dark
 #   G  PASS -> UNGRADED      no line at all: UNGRADED is NOT_A_READING, so the last real reading (PASS) stands
-#   count                    the NET line reads went DARK: master 2
+#   count                    the NET line reads went DARK: rungs 2
 # ⭐ FAIL-ONCE IS BUILT IN, EVERY RUN: the same arms grade the reader at the parent of the commit that introduced "went DARK" (found
 # with `git log -S` in .github's own history). It must red on exactly the arms the cure changed -- D_dark, D_not_reclassified,
 # U_dark, U_not_reclassified and count_2 -- and stay green on the rest by construction (O F G, and D/U not lost, which the old reader
@@ -44,7 +44,7 @@ H=$(date -u -d '10 hours ago' +%FT%T); W1=$(date -u -d '2 hours ago' +%FT%T)
 { printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\tfingerprint\tconfig\n'
   for x in "D $H PASS" "D $W1 DEFERRED" "U $H PASS" "U $W1 UNGRADABLE" "O $H PASS" "O $W1 OUTSIDE" "F $H PASS" "F $W1 FAIL" "G $H PASS" "G $W1 UNGRADED"; do
     set -- $x
-    printf '%s\tabc1234\tdef5678\tfx\tmaster\tfx\tsnobol4\t%s\tm4\t%s\t0\t\t\t\n' "$2" "$1" "$3"
+    printf '%s\tabc1234\tdef5678\tfx\trungs\tfx\tsnobol4\t%s\tm4\t%s\t0\t\t\t\n' "$2" "$1" "$3"
   done; } > "$WORK/r.tsv"
 
 grade() {   # grade <reader> <label> -- one "ARM <name> ok|RED" line per arm
@@ -63,7 +63,7 @@ grade() {   # grade <reader> <label> -- one "ARM <name> ok|RED" line per arm
   a O_reclassified      'has "^ +reclassified fx:O -> OUTSIDE" && ! has "^ +went dark fx:O " && ! has "^ +lost fx:O "'
   a F_lost              'has "^ +lost fx:F " && ! has "^ +went dark fx:F "'
   a G_no_line           '! has "fx:G( |$)"'
-  a count_2             'has "went DARK \(PASS -> DEFERRED/UNGRADABLE[^)]*\): master 2,"'
+  a count_2             'has "went DARK \(PASS -> DEFERRED/UNGRADABLE[^)]*\): rungs 2,"'
 }
 new=$(grade "$F" new); old=$(grade "$WORK/old.py" old)
 fails=0

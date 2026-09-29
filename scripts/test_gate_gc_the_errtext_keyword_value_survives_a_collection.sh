@@ -60,7 +60,7 @@
 #
 # BAND: default 0 1 2 3 4 5 6 8 16 25.  `GC_BAND_FULL=1` walks the full 17 points to 50.
 # ⛔⭐ 16 AND 25 ARE IN THE DEFAULT BAND PER CEO-1024 (measured by `hq_raku`, who paid for it by reversing their
-# own green: the raku master at the tiny arena lost 65 gradings over 36 DISTINCT programs at stress 16, every one
+# own green: the raku rungs at the tiny arena lost 65 gradings over 36 DISTINCT programs at stress 16, every one
 # exit 0 with a plausible wrong answer).  THIS WITNESS ARGUES IT FROM THE OTHER SIDE AND THE SHAPE IS WHY THE BAND
 # IS WALKED RATHER THAN SAMPLED: base is RED at m4 25 and GREEN at 10, 12, 16, 20, 30, 35, 40 and 50.  NOT
 # MONOTONE, NOT AN INTERVAL.  A two-point DONE-WHEN at 30 and 200 reads clean and banks the defect (CEO-807).

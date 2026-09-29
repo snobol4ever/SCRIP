@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
-# ⛔ ONE RUN OF THIS GATE AT A TIME ON THE BOX (coo 2026-09-25, hq_icon's measurement): its corpus bucket runs the Icon master's
+# ⛔ ONE RUN OF THIS GATE AT A TIME ON THE BOX (coo 2026-09-25, hq_icon's measurement): its corpus bucket runs the Icon rungs'
 # procedure_every_to_replace_4 (rung37 file_io), which writes and reads the FIXED path /tmp/rung37_fh_test.txt, so two concurrent runs
 # of this gate -- two seats' make test, or a sharded blocking set -- overwrite each other's file and read it FAIL; alone it passes 3 of 3
 # in m4 on two binaries. The program is right to use a fixed path; the gate serialises itself, and a lock not granted in 600 s refuses.
@@ -283,20 +283,20 @@ echo "--- (c) corpus IR_ASSIGN bucket (ratchet floors m2>=$VAR_M2_MIN m3>=$VAR_M
 # 2026-09-04) — same cause and same cure as the sibling icn_scan gate (read that script's comment at this
 # spot for the full account). The old `find $CORPUS -maxdepth 1 -name 'rung*.icn'` walk never reached
 # packages/icon at all (maxdepth 1, and none of those files are rung*-named anyway) and only saw N=12 of a
-# required 62 because most rung*.icn assign-touching programs are now MASTER-SUITE entries, not loose
-# files. Source the honest population from ALL.csv's `assign` feature column via lib_master_extract.sh.
+# required 62 because most rung*.icn assign-touching programs are now RUNGS-SUITE entries, not loose
+# files. Source the honest population from ALL.csv's `assign` feature column via lib_rungs_extract.sh.
 # The loose KEEPER/DEFERRED rung36_jcon_* files stay deliberately excluded from ALL.csv (each already has
 # its own LIVE row — see tests/icon/ALL.excluded.txt) so this bucket does not re-litigate them.
 BUCKET_TMP="$(mktemp -d)"; trap 'rm -rf "$BUCKET_TMP"' EXIT
-MASTER_DIR="$CORPUS" MASTER_EXT=.icn
-. "$HERE/lib_master_extract.sh"
+RUNGS_DIR="$CORPUS" RUNGS_EXT=.icn
+. "$HERE/lib_rungs_extract.sh"
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
 while IFS=$'\t' read -r -a ROW; do
     origin="${ROW[0]:-}"; [ -n "$origin" ] || continue
     RUN_SW=(); [ -n "${ROW[1]:-}" ] && RUN_SW+=("-d${ROW[1]}k"); [ -n "${ROW[2]:-}" ] && RUN_SW+=("-s${ROW[2]}k"); RUN_AV=("${ROW[@]:3}")
     safe="$(printf '%s' "$origin" | tr -c 'A-Za-z0-9_' '_')"
     out="$BUCKET_TMP/$safe.icn"; ref="$BUCKET_TMP/$safe.expected"
-    master_extract_origin "$origin" "$out" "$ref" || { echo "  FAIL: could not extract $origin (master_extract_origin refused)"; C3F=$((C3F+1)); continue; }
+    rungs_extract_origin "$origin" "$out" "$ref" || { echo "  FAIL: could not extract $origin (rungs_extract_origin refused)"; C3F=$((C3F+1)); continue; }
     [ -f "${out%.icn}.in" ] && cp "${out%.icn}.in" "${out%.icn}.stdin"   # run3 looks for .stdin, extract writes .in
     CN=$((CN+1))
     exp=$(cat "$ref" 2>/dev/null || true)
@@ -330,11 +330,11 @@ PY
 #     any other extractor will ever reproduce. A byte-equal comparison on this entry can never pass
 #     regardless of correctness; it is not this gate's population to grade.
 #   rung36_all__rung36_jcon_fncs1: genuinely does file I/O against a companion data file
-#     (corpus/tests/icon/config/fncs1.dat) that lib_master_extract.sh's extraction does not fetch (it
+#     (corpus/tests/icon/config/fncs1.dat) that lib_rungs_extract.sh's extraction does not fetch (it
 #     materializes .icn/.ref/.stdin only) — CLAUDE.md's own suite-eligibility rule states graded entries
 #     must be self-contained with "no file I/O", so this entry's presence in ALL.csv's assign==1 column
 #     is itself the pre-existing anomaly, not something to chase inside this bucket.
-# If lib_master_extract.sh ever grows companion-data-file support, re-admit both and re-verify PASS.
+# If lib_rungs_extract.sh ever grows companion-data-file support, re-admit both and re-verify PASS.
 echo "  bucket: N=$CN | m2 PASS=$C2P FAIL=$C2F | m3 PASS=$C3P FAIL=$C3F REFUSED=$C3E | m4 PASS=$C4P FAIL=$C4F REFUSED=$C4E"
 [ "$C2P" -ge "$VAR_M2_MIN" ] || { echo "  FLOOR FAIL m2 $C2P < $VAR_M2_MIN"; BAD=1; }
 [ "$C3P" -ge "$VAR_M3_MIN" ] || { echo "  FLOOR FAIL m3 $C3P < $VAR_M3_MIN"; BAD=1; }

@@ -15,15 +15,15 @@ OUT="${OUT_TSV:-/tmp/patterns_2mode.tsv}"
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): crosscheck/patterns/
-# is gone -- absorbed into THE ONE FLAT MASTER (tests/snobol4/ALL.{sno,ref,csv}). An explicit
+# is gone -- absorbed into THE ONE FLAT RUNGS (tests/snobol4/ALL.{sno,ref,csv}). An explicit
 # PAT_CORPUS override is honored as-is (a caller's own standalone dir); the default now materializes
-# the "crosscheck_patterns" family via lib_master_extract.sh into a scratch dir first.
+# the "crosscheck_patterns" family via lib_rungs_extract.sh into a scratch dir first.
 if [ -n "${PAT_CORPUS:-}" ]; then
   DIR="$PAT_CORPUS"
 else
-  MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/lib_master_extract.sh"
+  RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$HERE/lib_rungs_extract.sh"
   DIR="$WORKDIR/crosscheck_patterns_src"; mkdir -p "$DIR"
-  master_extract_family crosscheck_patterns "$DIR" 2>/dev/null
+  rungs_extract_family crosscheck_patterns "$DIR" 2>/dev/null
 fi
 [ -d "$DIR" ] || { echo "no corpus at $DIR"; exit 1; }
 

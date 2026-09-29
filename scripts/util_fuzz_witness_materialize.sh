@@ -7,7 +7,7 @@
 # ⛔⭐ WHY THIS EXISTS — THE ROW'S WITNESSES STOPPED BEING FILES AND ITS INSTRUMENTS DID NOT NOTICE.
 # Both instruments defaulted FUZZ_DIR to corpus/tests/snobol4/probe_loose/fuzz.  The one-flat-suite
 # cutover (corpus c06960a1, Lon 2026-08-29 total-conversion ruling) DELETED that directory: 4 of the 5
-# witnesses were absorbed into the master suite as XFAIL block entries under NEW names, and only the
+# witnesses were absorbed into the rungs suite as XFAIL block entries under NEW names, and only the
 # 5th (fz_red_m4b, explicitly held out in ALL.excluded.txt) survives as a loose pair.  The instruments
 # refused correctly (rc=2 "witness dir missing") rather than reporting an empty set as stable — the law
 # working — but a refusal is not a measurement, and the row was left with NO instrument at all.
@@ -30,7 +30,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SD="$HERE/.."; ROOT="$(cd 
 T="$ROOT/corpus/tests/snobol4"; HARNESS="$SD/scripts/corpus_suite_harness.py"
 OUT="${OUT_DIR:-$(mktemp -d)}"
 say() { printf '%s\n' "$*" >&2; }
-[ -f "$T/ALL.sno" ] && [ -f "$T/ALL.ref" ] && [ -f "$T/ALL.csv" ] || { say "⛔ REFUSE(rc=2): master suite triple missing under $T"; exit 2; }
+[ -f "$T/ALL.sno" ] && [ -f "$T/ALL.ref" ] && [ -f "$T/ALL.csv" ] || { say "⛔ REFUSE(rc=2): rungs suite triple missing under $T"; exit 2; }
 [ -f "$HARNESS" ] || { say "⛔ REFUSE(rc=2): harness missing at $HARNESS"; exit 2; }
 mkdir -p "$OUT" || { say "⛔ REFUSE(rc=2): cannot create $OUT"; exit 2; }
 n=0
@@ -39,9 +39,9 @@ while IFS=, read -r entry family; do
     [ -n "$entry" ] || continue
     short="$(printf '%s' "$family" | sed 's/^probe_loose_fuzz_//; s/_arbno_defer_blob$//; s/_blob_alt_fence_defer$//; s/_blob_defer_fence$//')"
     if python3 "$HARNESS" extract "$T/ALL.sno" "$T/ALL.ref" "$entry" "$OUT/$short.sno" --out-ref "$OUT/$short.ref" >/dev/null 2>&1; then
-        n=$((n+1)); say "  materialized  $short  <- master entry $entry"
+        n=$((n+1)); say "  materialized  $short  <- rungs entry $entry"
     else
-        say "⛔ REFUSE(rc=2): harness could not extract master entry '$entry' (origin $family)"; exit 2
+        say "⛔ REFUSE(rc=2): harness could not extract rungs entry '$entry' (origin $family)"; exit 2
     fi
 done < <(awk -F, 'NR>1 && $4 ~ /^probe_loose_fuzz_/ {print $2","$4}' "$T/ALL.csv")
 # (b) the HELD-OUT witness that is still a loose pair (ALL.excluded.txt).  ⭐ It is not an oversight that
@@ -52,7 +52,7 @@ for f in "$T"/probe_loose_fuzz_*.sno; do
     b="$(basename "$f" .sno)"; short="$(printf '%s' "$b" | sed 's/^probe_loose_fuzz_//; s/_blob_defer_fence$//')"
     cp "$f" "$OUT/$short.sno" || { say "⛔ REFUSE(rc=2): cannot copy $f"; exit 2; }
     [ -f "${f%.sno}.ref" ] && cp "${f%.sno}.ref" "$OUT/$short.ref"
-    n=$((n+1)); say "  materialized  $short  <- loose pair (held out of the master by ALL.excluded.txt)"
+    n=$((n+1)); say "  materialized  $short  <- loose pair (held out of the rungs by ALL.excluded.txt)"
 done
 [ "$n" -eq 5 ] || { say "⛔ REFUSE(rc=2): materialized $n witnesses, expected 5 — the set changed; re-census ALL.csv and ALL.excluded.txt before grading anything against it"; exit 2; }
 say "── 5/5 witnesses materialized into $OUT"

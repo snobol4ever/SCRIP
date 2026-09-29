@@ -3,9 +3,9 @@
 row instruments-a-skip-count-change-between-batches-is-a-red-not-a-silent-population-change; the cfo's escalation).
 
 THE DEFECT THIS EXISTS FOR, MEASURED.  A suite entry that SKIPs leaves the GRADED population with no red anywhere:
-the pass count falls and nothing points at why.  The SNOBOL4 master read m4_pass=1970 m4_skip=0 at SCRIP ad0f85fae
+the pass count falls and nothing points at why.  The SNOBOL4 rungs read m4_pass=1970 m4_skip=0 at SCRIP ad0f85fae
 and m4_pass=1967 m4_skip=3 at b12714737 -- and that landing's own commit said "equal to base program for program"
-while its board wrote SCORE's SnoM row on that tree.  The three were cured at 0567ad829 and read skip=0 again at
+while its board wrote SCORE's SnoRungs row on that tree.  The three were cured at 0567ad829 and read skip=0 again at
 a861648ab.  BOTH the appearance and the disappearance passed unremarked, because every reader compared PASS.
 
 A SKIP IS NOT A RED AND NOT A PASS; IT IS THE DENOMINATOR MOVING.  Three programs that stop being graded lower the
@@ -28,7 +28,7 @@ are printed.  When it is the board line alone the instrument says the entries ar
 implying a set it never saw.
 
   util_suite_population_diff.py BEFORE AFTER      two files, each a SUITE_BOARD line or a full runner output
-  util_suite_population_diff.py --archive .github/board-lines/DATE-WHO.tsv --suite sno-master --from TREE --to TREE
+  util_suite_population_diff.py --archive .github/board-lines/DATE-WHO.tsv --suite sno-rungs --from TREE --to TREE
                                                   two VERBATIM archived lines (ceo CEO-827), the runner's own output
   util_suite_population_diff.py --selftest        planted arms, plus the real archived pair when it is on disk
 """
@@ -82,7 +82,7 @@ def read_board(path, out):
 def read_archive(path, suite, tree, out):
     """one reading out of a board-lines TSV (tree<TAB>suite<TAB>measurer<TAB>verbatim line; ceo CEO-827).
 
-    THIS IS WHY THE ARCHIVE EXISTS.  The pair this instrument was built for -- the SNOBOL4 master's m4_skip 0 -> 3 at
+    THIS IS WHY THE ARCHIVE EXISTS.  The pair this instrument was built for -- the SNOBOL4 rungs' m4_skip 0 -> 3 at
     b12714737 and 3 -> 0 at a861648ab -- could not be diffed at all on the morning it was ruled, because every receipt
     in .github paraphrased its board in prose.  A reading reconstructed by hand is faithful at best; it is not the
     runner's own line, and this instrument will not let one wear the other's authority."""
@@ -258,30 +258,30 @@ def selftest():
     # THE ARCHIVE READER (ceo CEO-827): a verbatim line kept by a receipt, and every way it can refuse.
     arc = put("arc.tsv",
               "# header\n"
-              "b12714737\tsnobol4-master\tceo\t" + skipped.strip() + "\n"
-              "a861648ab\tsnobol4-master\tceo\t" + base.strip() + "\n"
-              "b12714737\ticon-master\tceo\tSUITE_BOARD family=ALL total=826 m3_n=826 m4_n=826 m4_skip=0\n")
+              "b12714737\tsnobol4-rungs\tceo\t" + skipped.strip() + "\n"
+              "a861648ab\tsnobol4-rungs\tceo\t" + base.strip() + "\n"
+              "b12714737\ticon-rungs\tceo\tSUITE_BOARD family=ALL total=826 m3_n=826 m4_n=826 m4_skip=0\n")
     buf.clear()
-    ck(diff(read_archive(arc, "snobol4-master", "b12714737", buf.append),
-            read_archive(arc, "snobol4-master", "a861648ab", buf.append), buf.append) == 1
+    ck(diff(read_archive(arc, "snobol4-rungs", "b12714737", buf.append),
+            read_archive(arc, "snobol4-rungs", "a861648ab", buf.append), buf.append) == 1
        and any("SKIP MOVED m4_skip: 3 -> 0" in l for l in buf),
        "the ARCHIVED pair (the runner's own lines, CEO-827) reds on m4_skip 3 -> 0 -- a reading, not a reconstruction")
     buf.clear()
-    ck(read_archive(arc, "raku-master", "b12714737", buf.append) is None
+    ck(read_archive(arc, "raku-rungs", "b12714737", buf.append) is None
        and any("holds no verbatim line for suite" in l and "Suites archived here" in l for l in buf),
        "an archive with no line for that suite REFUSES rc=2 and NAMES what it does hold")
     buf.clear()
-    ck(read_archive(arc, "snobol4-master", "deadbeef", buf.append) is None
+    ck(read_archive(arc, "snobol4-rungs", "deadbeef", buf.append) is None
        and any("That suite is archived at: a861648ab, b12714737." in l for l in buf),
        "a tree the archive never recorded REFUSES rc=2 and names the trees it has for that suite")
     buf.clear()
-    dupe = put("dupe.tsv", "b12714737\tsnobol4-master\tceo\t" + skipped.strip() + "\n"
-                           "b12714737\tsnobol4-master\thq_snobol4\t" + base.strip() + "\n")
-    ck(read_archive(dupe, "snobol4-master", "b12714737", buf.append) is None
+    dupe = put("dupe.tsv", "b12714737\tsnobol4-rungs\tceo\t" + skipped.strip() + "\n"
+                           "b12714737\tsnobol4-rungs\thq_snobol4\t" + base.strip() + "\n")
+    ck(read_archive(dupe, "snobol4-rungs", "b12714737", buf.append) is None
        and any("DIFFERENT lines" in l for l in buf),
        "two DIFFERENT archived lines for one tree and suite REFUSE rc=2 -- two readings of one tree disagreeing is its own finding, not an input to this one")
     buf.clear()
-    ck(read_archive(os.path.join(w, "no-archive.tsv"), "snobol4-master", "b12714737", buf.append) is None
+    ck(read_archive(os.path.join(w, "no-archive.tsv"), "snobol4-rungs", "b12714737", buf.append) is None
        and any("no archive at" in l for l in buf),
        "a missing archive REFUSES rc=2, never an empty reading")
     print(f"population: {arms} selftest arm(s), {fails} FAIL")

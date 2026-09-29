@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test_gate_icn_dump_ast_shows_the_parsed_program_and_pruning_stays_a_lowering_step.sh -- --dump-ast prints what was parsed even when no procedure is reachable from main, and the unreachable-procedure prune still happens for a single Icon compiland but never across languages (ceo CEO-658).
 #
-# MEASURED 2026-09-13 on ea0c83883: 13 of the Icon master's ast-graded entries printed NOTHING under --dump-ast
+# MEASURED 2026-09-13 on ea0c83883: 13 of the Icon rungs' ast-graded entries printed NOTHING under --dump-ast
 # (procedure_write_89/91/92/94, procedure_36/40/43, procedure_suspend_1, procedure_fail_write_1,
 # procedure_suspend_write_1/2, procedure_every_to_replace_6, procedure_every_suspend_5) -- every one a program with no
 # `main`. icn_prune_unreachable_procs ran inside icon_compile, in the FRONTEND, keeping only what is reachable from main

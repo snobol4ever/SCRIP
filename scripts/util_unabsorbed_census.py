@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# util_unabsorbed_census.py -- WHICH OF OUR OWN SOURCES ARE NOT YET IN THE ONE-LINER / MULTI-LINER MASTER (ceo, 2026-09-04,
+# util_unabsorbed_census.py -- WHICH OF OUR OWN SOURCES ARE NOT YET IN THE ONE-LINER / MULTI-LINER RUNGS (ceo, 2026-09-04,
 # on Lon's order: "For every source from every language that we've generated or that existed in corpus which is not
 # part of any third-party package, if you can get it to run and it has output then add that to the test suite list.
 # I.e. All our testing should be ONE-LINER and MULTI-LINER Python test suite. Oh yeah, CEO, have you ensured that all
@@ -31,7 +31,7 @@ for lang in set(EXT.values()):
             line = line.strip()
             if not line or line.startswith('#'): continue
             key = line.split()[0]; excluded[lang].add(key)
-            # ⛔⭐ ADDITIVE (demos/benchmarks) exclusions are keyed "name[category]" (util_build_master_suite.py's
+            # ⛔⭐ ADDITIVE (demos/benchmarks) exclusions are keyed "name[category]" (util_build_rungs_suite.py's
             # additive_absorb, disambiguating e.g. a demo and a benchmark that share a basename) -- registered
             # as a (name, category) PAIR, never a bare name: a first attempt at this fix added the bare stripped
             # name to excluded[lang] globally, which MEASURED-WRONG immediately -- demos/snobol4/calculator/
@@ -59,18 +59,18 @@ for lang in set(EXT.values()):
 def _additive_origin(top, lang, base):
     singular = top[:-1] if top.endswith('s') else top
     return '%s_%s_%s__%s' % (singular, lang, base, base)
-# ⭐ every util_build_master_suite.py --from category whose src_dir sits under corpus/tests/** -- i.e. every
+# ⭐ every util_build_rungs_suite.py --from category whose src_dir sits under corpus/tests/** -- i.e. every
 # category this census's own `top == 'tests'` branch below has to consider, since path-derived `top` is always
 # the literal string "tests" for anything under corpus/tests/**, never the category name the builder was
 # actually invoked with (row snobol4-every-non-package-source-...-oracle-refs, seat07 2026-09-05: `--from
 # scrip_test,snocone_ladder` absorbed real entries whose origin used THOSE category names as the singular
 # prefix -- "scrip_test_snobol4_X__X" / "snocone_ladder_snobol4_X__X" -- which the single-guess 'test' prefix
-# below could never match. Keep this list in sync with util_build_master_suite.py's own "tests" +
+# below could never match. Keep this list in sync with util_build_rungs_suite.py's own "tests" +
 # _EXTRA_TEST_TREES categories by hand; nothing enforces the two lists agreeing).
 _TESTS_ADDITIVE_CATS = ('tests', 'scrip_test', 'snocone_ladder')
 # ======================================================= the deferral contract, READ FROM THE BUILDER ===
 # ⛔⭐⭐ ONE SET OF DECLARATIONS, TWO INSTRUMENTS (ceo CEO-606, 2026-09-12, on hq_B's snocone absorption row).
-# This census and util_build_master_suite.py were each succeeding on their own terms and disagreeing about the
+# This census and util_build_rungs_suite.py were each succeeding on their own terms and disagreeing about the
 # same 68 files: the builder REFUSES BY CONTRACT to absorb a source a KEEP.md declares a permanent keeper or a
 # PENDING.md defers to a live row, while this census had never heard of either filename and printed all 68 as
 # OWED -- debt no instrument would ever have let anyone pay, and a row whose DONE-WHEN is this census's own rc
@@ -79,7 +79,7 @@ _TESTS_ADDITIVE_CATS = ('tests', 'scrip_test', 'snocone_ladder')
 # ⭐ THE GENERAL FORM, which outlives the fix: TWO INSTRUMENTS EACH SUCCEEDING ON THEIR OWN TERMS GIVE A
 # CONFIDENT, SELF-CONSISTENT, WRONG ANSWER, and a declaration read by one and not the other is exactly that
 # shape -- neither instrument is broken, so neither can warn you.
-# ⛔ THEREFORE THE MATCHERS ARE IMPORTED, NEVER RE-IMPLEMENTED. util_build_master_suite.py's _declared_in_keep /
+# ⛔ THEREFORE THE MATCHERS ARE IMPORTED, NEVER RE-IMPLEMENTED. util_build_rungs_suite.py's _declared_in_keep /
 # _pending_deferral are already a deliberate port of test_gate_suite_conversion_complete.sh's bash matcher; a
 # THIRD copy here would reopen the substring/scope bugs those two paid to fix, and any disagreement between the
 # third copy and the other two would be UNATTRIBUTABLE -- you could not tell a real keeper from a drift.
@@ -87,7 +87,7 @@ _TESTS_ADDITIVE_CATS = ('tests', 'scrip_test', 'snocone_ladder')
 # import failed is this file's own must-never-print-0 doctrine inverted: a population you cannot see is not an
 # empty population.
 import importlib.util
-_BLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'util_build_master_suite.py')
+_BLD = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'util_build_rungs_suite.py')
 try:
     _spec = importlib.util.spec_from_file_location('_census_reads_the_builder', _BLD)
     _bld = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(_bld)
@@ -139,7 +139,7 @@ def _declared_keeper_of(abspath, lang):
     return None
 # ⛔⭐ THE KERNEL TREES ARE NOT ABSORPTION DEBT (ceo CEO-609, addendum to CEO-606; CEO-565 ONE COPY + CEO-567 the
 # kernel convention). A source under benchmarks/<lang>/ or demos/<lang>/ is a kernel program: it is graded where
-# it lives, by the benchmark and demo instruments, and absorbing a second copy of it into a master is the very
+# it lives, by the benchmark and demo instruments, and absorbing a second copy of it into a rung suite is the very
 # duplication CEO-565 forbids. What it CAN owe is a ref: with a .ref/.expected/.std beside it there is nothing
 # owed (kernel-with-ref); without one it is owed a ref cut from the oracle (kernel-owed-ref) and is named.
 # ⛔ KEYED ON THE TREE, NEVER ON THE LANGUAGE SEGMENT MATCHING THE FILE'S OWN LANGUAGE -- measured:
@@ -204,7 +204,7 @@ for root, dirs, files in os.walk(C):
     # ⭐ THE GENERAL FORM, which is why this lives in the walk and not in a one-off script: AN INVENTORY THAT
     # WALKS ONE HALF OF A PAIR CAN NEVER REPORT DEBT ON THE OTHER HALF, and it will keep printing a clean
     # number while it does. A dangling ref is not cosmetic: it is a SELF-PIN waiting for a name collision --
-    # restore a source with that basename and the master builder's discover_pairs falls back to the sibling
+    # restore a source with that basename and the rungs builder's discover_pairs falls back to the sibling
     # .expected, silently pinning a new program to a ref cut for a deleted one.
     # ⛔ THE PREDICATE IS EXACT ON PURPOSE -- "no file in this directory shares the ref's basename", never a
     # prefix or fuzzy match. A first pass asked "is there a partner with one of the SEVEN source extensions"
@@ -228,7 +228,7 @@ for root, dirs, files in os.walk(C):
         if A.lang and lang != A.lang: continue
         path = os.path.normpath(os.path.join(rel, f)); top = path.split(os.sep)[0]; base = f[:-len(ext) - 1]
         # ⛔⭐ THE ACCOUNTING KEY THE BUILDER ACTUALLY WRITES IS THE FAMILY NAME, NOT THE BASENAME (hq_B 2026-09-04,
-        # row icon-every-non-package-source-...). util_build_master_suite.py names an excluded source by its FAMILY --
+        # row icon-every-non-package-source-...). util_build_rungs_suite.py names an excluded source by its FAMILY --
         # the path under corpus/tests/<lang>/ with os.sep -> '_' and the extension dropped (discover_pairs: `fam =
         # rel[:-len(EXT)].replace(os.sep, "_")`) -- so a fixture at tests/icon/parser/alt_arith.icn is written as
         # `parser_alt_arith`. This census matched only basename / filename / corpus-relative path, none of which is that
@@ -247,10 +247,10 @@ for root, dirs, files in os.walk(C):
         # THAT DECLARATION, as surely as an entry named in ALL.excluded.txt is accounted by its reason line.
         # ⛔ MEASURED, and it is not hypothetical: `tests/icon/rung36_jcon_io.fixtures/io.icn` read `loose pair`
         # (an `io.std` sits beside it) and `rung36_jcon_recent.fixtures/recent.icn` read `loose source (no ref)`.
-        # This row's instruction is that an owed source is absorbed into the master AND THEN DELETED from the
+        # This row's instruction is that an owed source is absorbed into the rungs AND THEN DELETED from the
         # tree -- so acting on those two would have deleted the staged data out from under two witnesses that
         # pass all four arms of that gate today, and the gate would have gone red naming a missing fixture while
-        # the master gained two entries that grade nothing. ⭐ The criterion of this row is the census's own rc,
+        # the rungs gained two entries that grade nothing. ⭐ The criterion of this row is the census's own rc,
         # so a census that counts load-bearing data as debt is a criterion that commands the damage.
         elif _fixture_of_a_witness(root, rel, f): kind = 'accounted'
         elif top in ('include', 'library'): kind = 'module'
@@ -263,7 +263,7 @@ for root, dirs, files in os.walk(C):
         elif _dk: kind = 'declared-keeper'; keepers[lang].append((path, _dk))
         # ⛔⭐ SAME COLLISION CLASS AS THE additive_excluded FIX ABOVE, NEVER CLOSED HERE (seat02 2026-09-06,
         # row pascal-every-non-package-source-...-with-oracle-refs): ALL.excluded.txt's bare `name` column is
-        # only ever written meaning "this name under tests/<lang>/" (util_build_master_suite.py's own loose-pair
+        # only ever written meaning "this name under tests/<lang>/" (util_build_rungs_suite.py's own loose-pair
         # path never walks benchmarks/demos/programs), but the plain `base`/`f` checks below applied it to EVERY
         # tree unconditionally. MEASURED: absorbing tests/pascal/sieve.pas wrote a bare "sieve" reason into
         # ALL.excluded.txt, which silently marked the UNRELATED benchmarks/pascal/sieve.pas 'accounted' too --
@@ -271,8 +271,8 @@ for root, dirs, files in os.walk(C):
         # construction (empty outside tests/<lang>/); `base`/`f` were not. `path in excluded[lang]` stays
         # unscoped -- a corpus-relative path is unique by construction, so it carries no collision risk.
         elif path in excluded[lang] or (top == 'tests' and (base in excluded[lang] or f in excluded[lang] or (fam and fam in excluded[lang]))): kind = 'accounted'
-        # ⭐ 'tests' joined this check (row snobol4-every-non-package-source-...-absorbed-into-the-master-with-
-        # oracle-refs, seat07 2026-09-05): util_build_master_suite.py's --additive --from tests absorbs
+        # ⭐ 'tests' joined this check (row snobol4-every-non-package-source-...-absorbed-into-the-rungs-with-
+        # oracle-refs, seat07 2026-09-05): util_build_rungs_suite.py's --additive --from tests absorbs
         # corpus/tests/<lang>/'s OWN loose-noref/fixture backlog the identical way it already absorbs
         # demos/benchmarks -- same bracketed "name[tests]" exclusion key, same "test_<lang>_<name>__<name>"
         # origin shape (_additive_origin generalizes: 'tests'[:-1] == 'test'). Without this, every entry that
@@ -320,7 +320,7 @@ d = sum(len(v) for v in dangling.values())
 # ⛔⭐ A KERNEL SOURCE WITH NO REF IS DEBT, AND IT JOINS THE rc -- the same call this file already made for a
 # dangling ref, for the same reason: a debt reported beside an rc=0 is a debt nobody is measured on. CEO-609
 # names it "owed a ref cut from the oracle", and rc=1 fires when something is owed. ⭐ It is its OWN bucket and
-# is never folded into the absorption number: those are sources awaiting a master entry, these are kernel
+# is never folded into the absorption number: those are sources awaiting a rung suite entry, these are kernel
 # programs that stay where they live and want an oracle-cut ref. Summing them would keep the arithmetic
 # plausible while the meaning drained out. ⛔ declared-keeper and kernel-with-ref owe NOTHING and never touch
 # the rc -- a declaration and a satisfied kernel pair are answers, not debt.
@@ -331,7 +331,7 @@ n = sum(len(v) for v in owed.values()) + d + k
 # ⭐ It is reported as its own bucket and never folded into 'loose pair': those are sources awaiting absorption,
 # these are refs whose source is already gone. Summing them would hide a ref-side regression inside a source-side
 # backlog that is being worked down anyway -- the arithmetic would stay plausible while the meaning drained out.
-print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d declared-keepers=%d kernel-with-ref=%d derived-refs=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d, KERNEL OWED A REF %d) -- an owed source is absorbed into its master with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the master entry that absorbed it) or restored beside its source; a KERNEL source owed a ref is given one cut from its oracle and stays where it lives; a DERIVED REF is a kernel of a language with NO RIVAL IMPLEMENTATION (CEO-607) whose ref is derived cross-language under a real oracle with the derivation recorded beside it -- accounted, never owed, never available to a language that has an oracle, and kept a SEPARATE class from kernel-with-ref so a derived ref never reads as an oracle-cut one. Declared keepers are REPORTED BESIDE owed and never folded into it -- one master per language is the order, and a keeper is a deliberate exception that is SEEN, not one that hides' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], tot['declared-keeper'], tot['kernel-with-ref'], tot['derived-ref'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d, k))
+print('UNABSORBED_CENSUS%s: containers=%d modules=%d accounted=%d declared-keepers=%d kernel-with-ref=%d derived-refs=%d OWED=%d (loose pairs %d, fixtures %d, loose no-ref %d, DANGLING REFS %d, KERNEL OWED A REF %d) -- an owed source is absorbed into its rungs with an oracle-cut ref, or named in ALL.excluded.txt with the reason it cannot run with output; an owed DANGLING REF is a .ref/.expected/.std whose source no longer exists and is deleted once its content is proven preserved (diff it against the rungs entry that absorbed it) or restored beside its source; a KERNEL source owed a ref is given one cut from its oracle and stays where it lives; a DERIVED REF is a kernel of a language with NO RIVAL IMPLEMENTATION (CEO-607) whose ref is derived cross-language under a real oracle with the derivation recorded beside it -- accounted, never owed, never available to a language that has an oracle, and kept a SEPARATE class from kernel-with-ref so a derived ref never reads as an oracle-cut one. Declared keepers are REPORTED BESIDE owed and never folded into it -- one rung suite per language is the order, and a keeper is a deliberate exception that is SEEN, not one that hides' % (' lang=' + A.lang if A.lang else '', tot['container'], tot['module'], tot['accounted'], tot['declared-keeper'], tot['kernel-with-ref'], tot['derived-ref'], n, tot['loose pair (has ref)'], tot['fixture'], tot['loose source (no ref)'], d, k))
 for lang in sorted(set(list(owed) + list(dangling) + list(kernel_owed) + list(keepers))):
     bits = []
     if dangling[lang]: bits.append('dangling refs %d' % len(dangling[lang]))

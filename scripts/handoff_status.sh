@@ -273,7 +273,7 @@ if [ "${SKIP_ZLS_ALL:-0}" = "1" ]; then
 elif [ ! -f "$SELF_DIR/util_gc_census.py" ]; then
   echo "  ⛔ NOT MEASURED — $SELF_DIR/util_gc_census.py is missing. Nothing was censused; this is not a zero."
 elif [ ! -x "$_zls_root/scrip" ]; then
-  echo "  ⛔ NOT MEASURED — no ./scrip binary under $_zls_root (run make). A census that cannot compile a master must never print 0."
+  echo "  ⛔ NOT MEASURED — no ./scrip binary under $_zls_root (run make). A census that cannot compile a rung suite must never print 0."
 else
   _zls_out="$(cd "$_zls_root" && timeout 300s python3 scripts/util_gc_census.py maps --zls-langs all 2>&1)"; _zls_rc=$?
   if [ "$_zls_rc" = 124 ]; then

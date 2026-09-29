@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # util_cross_language_regression_diff.sh -- base-vs-patched verdict DIFFERENTIAL over the SNOBOL4,
-# Icon and Prolog masters, for a commit or an uncommitted working-tree change (row
+# Icon and Prolog rung suites, for a commit or an uncommitted working-tree change (row
 # cross-language-regression-differential-over-all-three-open-masters, hq_U, 2026-09-05).
 #
 # ⛔ MERGE NOTE (seat17, 2026-09-05): this row was independently built twice -- seat17 (this file,
@@ -119,21 +119,21 @@ for name, mode in sorted(set(base) | set(patched)):
 PYEOF
 }
 
-# ============================================================ per-language master invocation ===
-# ⛔ These three invocations are copied from the boards that already grade these masters in production
-# (test_corpus_snobol4.sh, board_icon_master.sh, test_gate_pl_master_board_floor.sh), not re-derived --
+# ============================================================ per-language rungs invocation ===
+# ⛔ These three invocations are copied from the boards that already grade these rung suites in production
+# (test_corpus_snobol4.sh, board_icon_rungs.sh, test_gate_pl_rungs_board_floor.sh), not re-derived --
 # this codebase has three independent documented incidents (Pascal/Snocone/Raku, 2026-09-03/04) of a
 # false-but-plausible board from getting one language's --lang/--modes pairing wrong.
 lang_src()  { case "$1" in snobol4) echo "$CORPUS/tests/snobol4/ALL.sno";; icon) echo "$CORPUS/tests/icon/ALL.icn";; prolog) echo "$CORPUS/tests/prolog/ALL.pl";; esac; }
 lang_ref()  { case "$1" in snobol4) echo "$CORPUS/tests/snobol4/ALL.ref";; icon) echo "$CORPUS/tests/icon/ALL.ref";; prolog) echo "$CORPUS/tests/prolog/ALL.ref";; esac; }
 lang_args() { case "$1" in snobol4) echo "--modes m3,m4";; icon) echo "--lang icon --modes m3,m4";; prolog) echo "--lang prolog --modes m3,m4";; esac; }
-# Every entry of every master is graded in both modes: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
+# Every entry of every rung suite is graded in both modes: there is no modes column (Lon 2026-09-23, CEO-1218/1230).
 
-run_master() {  # $1=lang $2=stdout-file $3=stderr-file ; returns the harness's own exit code
+run_rungs() {  # $1=lang $2=stdout-file $3=stderr-file ; returns the harness's own exit code
     local lang="$1" out="$2" err="$3" src ref
     src="$(lang_src "$lang")"; ref="$(lang_ref "$lang")"
     [ -n "$src" ] || refuse "unknown language '$lang' -- only snobol4, icon, prolog are wired"
-    [ -f "$src" ] && [ -f "$ref" ] || refuse "$lang master suite missing ($src / $ref) -- pull corpus"
+    [ -f "$src" ] && [ -f "$ref" ] || refuse "$lang rungs suite missing ($src / $ref) -- pull corpus"
     local args=(); read -ra args <<<"$(lang_args "$lang")"
     [ -n "${SHARD:-}" ] && args+=(--shard "$SHARD")
     local rc=0
@@ -234,7 +234,7 @@ run_selftest() {
     local lang src ref
     for lang in snobol4 icon prolog; do
         src="$(lang_src "$lang")"; ref="$(lang_ref "$lang")"
-        [ -f "$src" ] && [ -f "$ref" ] || { echo "SELFTEST FAIL: $lang master suite missing ($src / $ref)"; fail=1; }
+        [ -f "$src" ] && [ -f "$ref" ] || { echo "SELFTEST FAIL: $lang rungs suite missing ($src / $ref)"; fail=1; }
     done
     command -v git >/dev/null || { echo "SELFTEST FAIL: git not found"; fail=1; }
     command -v python3 >/dev/null || { echo "SELFTEST FAIL: python3 not found"; fail=1; }
@@ -242,19 +242,19 @@ run_selftest() {
 
     # ⭐ REAL-PIPELINE CHECK (seat18's concurrent build had this and this file's earlier revision did
     # not -- adopted here): the checks above are pure unit tests of classify_deltas/check_measured and
-    # never touch `make` or the harness, so a real flag/argv regression in run_master (e.g. one
+    # never touch `make` or the harness, so a real flag/argv regression in run_rungs (e.g. one
     # language's --lang/--modes pairing breaking) would still pass every check above. Build
     # once for real, then measure the SAME freshly-built binary against itself on a small shard: if
     # comparing a binary to itself ever reports a delta, the measure+parse+diff pipeline is broken, not
-    # the compiler -- mirrors board_icon_master.sh's own "0 changed can mean I diffed one arm against
+    # the compiler -- mirrors board_icon_rungs.sh's own "0 changed can mean I diffed one arm against
     # itself" lesson, applied as a standing regression test instead of a one-time finding.
     if [ "$fail" -eq 0 ]; then
         local buildlog="$t/selftest.make.log"
         if build_tree "$buildlog"; then
             local o1="$t/self_a.out" e1="$t/self_a.err" o2="$t/self_b.out" e2="$t/self_b.err" rc1=0 rc2=0
             local saved_shard="${SHARD:-}"; SHARD="1/300"
-            run_master snobol4 "$o1" "$e1" || rc1=$?
-            run_master snobol4 "$o2" "$e2" || rc2=$?
+            run_rungs snobol4 "$o1" "$e1" || rc1=$?
+            run_rungs snobol4 "$o2" "$e2" || rc2=$?
             SHARD="$saved_shard"
             if [ "$rc1" -le 1 ] && [ "$rc2" -le 1 ] && grep -q '^SUITE_BOARD ' "$o1" 2>/dev/null && grep -q '^SUITE_BOARD ' "$o2" 2>/dev/null; then
                 d="$(classify_deltas "$e1" "$e2")"
@@ -326,7 +326,7 @@ measure_state() {  # $1=state label (base|patched); must be called with $SCRIP_R
     [ "$rc" -eq 0 ] || refuse "make failed while building the '$state' tree -- see $WORK/$state.make.log. Last lines: $(tail -5 "$WORK/$state.make.log" | tr '\n' ' ')"
     for lang in "${LANGS[@]}"; do
         rc=0
-        run_master "$lang" "$WORK/$state.$lang.out" "$WORK/$state.$lang.err" || rc=$?
+        run_rungs "$lang" "$WORK/$state.$lang.out" "$WORK/$state.$lang.err" || rc=$?
         check_measured "$lang" "$WORK/$state.$lang.out" "$WORK/$state.$lang.err" "$rc"
     done
     echo "artifact_md5=$(artifact_md5)" >"$WORK/$state.md5"

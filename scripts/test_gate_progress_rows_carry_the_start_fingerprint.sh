@@ -59,7 +59,7 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/gate_fingerprint.XXXXXX")" || { echo "GATE UNPRO
 trap 'rm -rf "$W"' EXIT
 fails=0; checks=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
-# ---- scratch world: two real git repos, a copied binary, a canonical-looking master suite ------------------------
+# ---- scratch world: two real git repos, a copied binary, a canonical-looking rungs suite ------------------------
 mk_world() {
   local w="$1"; rm -rf "$w"; mkdir -p "$w/SCRIP/scripts" "$w/corpus/tests/snobol4" "$w/bin/out"
   cp "$ROOT/scrip" "$w/bin/scrip"; cp -L "$ROOT/out/libscrip_rt.so" "$w/bin/out/libscrip_rt.so"
@@ -89,7 +89,7 @@ wait_grading() { # $1=world -- block until the harness has EXECUTED the scratch 
   done
   return 1
 }
-run_harness() { # $1=world  $2=db ; runs the harness on the scratch master, prints rc
+run_harness() { # $1=world  $2=db ; runs the harness on the scratch rungs, prints rc
   local w="$1" db="$2"
   S4E_HOME="$w" SCRIP="$w/bin/scrip" RT_DIR="$w/bin/out" S4E_PROGRESS_DB="$db" TIMEOUT=10 \
     python3 "$H" run "$w/corpus/tests/snobol4/ALL.sno" "$w/corpus/tests/snobol4/ALL.ref" --modes m3 >"$w/out.log" 2>&1

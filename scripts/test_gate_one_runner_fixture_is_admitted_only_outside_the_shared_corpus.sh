@@ -5,8 +5,8 @@
 #
 # ⛔⭐ WHY: lib_one_runner.sh returned 0 on the variable alone, and corpus_suite_harness.py's mirror admitted exactly the case it should
 # refuse (its scratch suites return before the check, so the check only ever saw boards). test_gate_nreturn_by_name_value_broken.sh and
-# test_gate_snocone_returns_codegen.sh export the variable and ran test_corpus_snobol4.sh over the real 1991-entry master as a
-# non-regression arm, so the coo's control arm of 2026-09-26 made two whole SnoM passes and appended 7964 rows under a seat that runs
+# test_gate_snocone_returns_codegen.sh export the variable and ran test_corpus_snobol4.sh over the real 1991-entry rungs as a
+# non-regression arm, so the coo's control arm of 2026-09-26 made two whole SnoRungs passes and appended 7964 rows under a seat that runs
 # no board -- and both arms then read UNPROVEN anyway, their regex having missed the runner's line since c18cb9811.
 #
 #   B1  bash: a suite inside the shared corpus under the exemption is REFUSED rc 2, naming the rule (the inert probe seat, so no lane
@@ -19,9 +19,9 @@
 #   R   the seven runners whose population comes from --corpus or CORPUS hand it to the guard, and one of them (the Jcon runner, a
 #       mktemp --corpus with no programs) is admitted by the guard and stops on its own refusal instead
 #   H   the harness: a shared-corpus suite under the exemption is refused rc 2, naming the rule; a mktemp suite is admitted
-#   G   the two master gates grade a scratch master: util_scratch_snobol4_master.py builds it and test_corpus_snobol4.sh runs only with
+#   G   the two rungs gates grade a scratch rungs: util_scratch_snobol4_rungs.py builds it and test_corpus_snobol4.sh runs only with
 #       S4E_HOME at it -- no bare call remains
-#   S   util_scratch_snobol4_master.py builds a scratch master: entries > 0, ALL.sno/ALL.ref/ALL.cmdline, no ALL.csv beside the
+#   S   util_scratch_snobol4_rungs.py builds a scratch rungs: entries > 0, ALL.sno/ALL.ref/ALL.cmdline, no ALL.csv beside the
 #       sidecars, and ROOT/corpus a git world with no remote
 #   F   FAIL-ONCE: a copy of lib_one_runner.sh and of the harness with the exemption restored to the old unconditional admission
 #       admits B1, B3 and H's shared-corpus suite -- rc 0 -- so those three arms can red
@@ -36,7 +36,7 @@ G=one_runner_fixture_is_admitted_only_outside_the_shared_corpus
 unproven() { echo "GATE UNPROVEN(2) [$G]: $*"; exit 2; }
 L="$HERE/lib_one_runner.sh"; [ -f "$L" ] || unproven "no lib_one_runner.sh"
 CORPUS="$(cd "$ROOT/.." && pwd)/corpus"
-[ -f "$CORPUS/tests/snobol4/ALL.sno" ] || unproven "no shared corpus master at $CORPUS/tests/snobol4/ALL.sno"
+[ -f "$CORPUS/tests/snobol4/ALL.sno" ] || unproven "no shared corpus rungs at $CORPUS/tests/snobol4/ALL.sno"
 . "$L"
 one_runner_in_a_shared_checkout "$CORPUS" || unproven "$CORPUS is no checkout of $ONE_RUNNER_SHARED_CORPUS_REMOTE -- B1, B3 and H would measure nothing"
 PROBE="$ONE_RUNNER_PROBE_SEAT"
@@ -55,13 +55,13 @@ hb() {  # <harness dir> <suite> <corpus root>: rc and output of the harness's ow
         python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); sys.path.insert(1, sys.argv[4]); import corpus_suite_harness as h; h._one_runner_guard(sys.argv[2], sys.argv[3], "snobol4")' \
         "$1" "$2" "$3" "$HERE" 2>&1
 }
-MASTER="$CORPUS/tests/snobol4/ALL.sno"
+RUNGS="$CORPUS/tests/snobol4/ALL.sno"
 : > "$W/scratch.sno"
 mkdir -p "$W/bare/corpus" "$W/init" "$W/shared"; git init -q "$W/init/corpus"; git init -q "$W/shared/corpus"
 git -C "$W/shared/corpus" remote add origin "git@github.com:$ONE_RUNNER_SHARED_CORPUS_REMOTE.git"
 
 # ── B, P: the bash guard ─────────────────────────────────────────────────────────────────────────────────────────────────────
-o="$(gb "$L" -- test_x_suite.sh "$MASTER")"; r=$?
+o="$(gb "$L" -- test_x_suite.sh "$RUNGS")"; r=$?
 [ "$r" = 2 ] && grep -q 'ONE-RUNNER FIXTURE NOT ADMITTED' <<<"$o" && ok B1 "a shared-corpus suite under the exemption is refused rc 2, naming the rule" || red B1 "rc=$r: $(head -2 <<<"$o" | tr '\n' ' ')"
 o="$(gb "$L" -- test_x_suite.sh "$W/scratch.sno")"; r=$?
 [ "$r" = 0 ] && ok B2 "a mktemp suite is admitted" || red B2 "rc=$r: $(head -2 <<<"$o" | tr '\n' ' ')"
@@ -77,7 +77,7 @@ p3="$(env -u CORPUS bash -c 'source "$1"; one_runner_population_of run' _ "$L")"
 
 # ── R: the runners that take their population from --corpus or CORPUS hand it over ─────────────────────────────────────────────
 miss=""
-for f in test_icon_jcon_suite.sh test_icon_rung_suite.sh test_prolog_rung_suite.sh test_icon_all_rungs.sh board_icon_master.sh scorecard_snobol4.sh test_snobol4_gimpel_suite.sh; do
+for f in test_icon_jcon_suite.sh test_icon_rung_suite.sh test_prolog_rung_suite.sh test_icon_all_rungs.sh board_icon_rungs.sh scorecard_snobol4.sh test_snobol4_gimpel_suite.sh; do
     sed -n '2p' "$HERE/$f" | grep -qF 'one_runner_guard "${0##*/}' && sed -n '2p' "$HERE/$f" | grep -qF '"$(one_runner_population_of "$@")"' || miss="$miss $f"
 done
 mkdir -p "$W/jc"
@@ -89,25 +89,25 @@ else
 fi
 
 # ── H: the harness ──────────────────────────────────────────────────────────────────────────────────────────────────────────
-o1="$(hb "$HERE" "$MASTER" "$CORPUS")"; r1=$?; o2="$(hb "$HERE" "$W/scratch.sno" "$CORPUS")"; r2=$?
+o1="$(hb "$HERE" "$RUNGS" "$CORPUS")"; r1=$?; o2="$(hb "$HERE" "$W/scratch.sno" "$CORPUS")"; r2=$?
 [ "$r1" = 2 ] && grep -q 'ONE-RUNNER FIXTURE NOT ADMITTED' <<<"$o1" && [ "$r2" = 0 ] && ok H "the harness refuses a shared-corpus suite under the exemption rc 2, naming the rule, and admits a mktemp suite" \
     || red H "shared rc=$r1 ($(head -1 <<<"$o1" | cut -c1-120)); mktemp rc=$r2 ($(head -1 <<<"$o2" | cut -c1-120))"
 
-# ── G: the two master gates ─────────────────────────────────────────────────────────────────────────────────────────────────
+# ── G: the two rungs gates ─────────────────────────────────────────────────────────────────────────────────────────────────
 gmiss=""
 for f in test_gate_nreturn_by_name_value_broken.sh test_gate_snocone_returns_codegen.sh; do
     x="$(grep -v '^\s*#' "$HERE/$f")"
-    grep -q 'util_scratch_snobol4_master.py "$SNO_ROOT"' <<<"$x" && grep -q 'S4E_HOME="$SNO_ROOT".* bash scripts/test_corpus_snobol4.sh' <<<"$x" \
+    grep -q 'util_scratch_snobol4_rungs.py "$SNO_ROOT"' <<<"$x" && grep -q 'S4E_HOME="$SNO_ROOT".* bash scripts/test_corpus_snobol4.sh' <<<"$x" \
       && ! grep -qE '(^|[;(]) *bash scripts/test_corpus_snobol4.sh' <<<"$x" || gmiss="$gmiss $f"
 done
-[ -z "$gmiss" ] && ok G "both master gates build a scratch master and run test_corpus_snobol4.sh only at it" || red G "still reaching the shared master:$gmiss"
+[ -z "$gmiss" ] && ok G "both rungs gates build a scratch rungs and run test_corpus_snobol4.sh only at it" || red G "still reaching the shared rungs:$gmiss"
 
-# ── S: the scratch master ───────────────────────────────────────────────────────────────────────────────────────────────────
-so="$(python3 "$HERE/util_scratch_snobol4_master.py" "$W/sm" '\bNRETURN\b' 2>&1)"; sr=$?
-sn="$(sed -n 's/^SCRATCH_MASTER entries=\([0-9]*\) .*/\1/p' <<<"$so")"; T="$W/sm/corpus/tests/snobol4"
+# ── S: the scratch rungs ───────────────────────────────────────────────────────────────────────────────────────────────────
+so="$(python3 "$HERE/util_scratch_snobol4_rungs.py" "$W/sm" '\bNRETURN\b' 2>&1)"; sr=$?
+sn="$(sed -n 's/^SCRATCH_RUNGS entries=\([0-9]*\) .*/\1/p' <<<"$so")"; T="$W/sm/corpus/tests/snobol4"
 if [ "$sr" = 0 ] && [ "${sn:-0}" -gt 0 ] && [ -s "$T/ALL.sno" ] && [ -s "$T/ALL.ref" ] && [ -s "$T/ALL.cmdline" ] && [ ! -e "$T/ALL.csv" ] \
    && git -C "$W/sm/corpus" rev-parse --git-dir >/dev/null 2>&1 && [ -z "$(git -C "$W/sm/corpus" remote)" ] && [ -d "$W/sm/corpus/demos/snobol4" ]; then
-    ok S "a scratch master of $sn entries, its sidecars and no ALL.csv, in a git world with no remote, the demos beside it"
+    ok S "a scratch rungs of $sn entries, its sidecars and no ALL.csv, in a git world with no remote, the demos beside it"
 else
     red S "rc=$sr entries=${sn:-none}: $(tail -1 <<<"$so" | cut -c1-160)"
 fi
@@ -125,12 +125,12 @@ a = t.index('    if os.environ.get("S4E_ONE_RUNNER_FIXTURE"):\n')
 b = t.index('(suite_path or "a run naming no suite"))\n', a) + len('(suite_path or "a run naming no suite"))\n')
 open(sys.argv[4], "w").write(t[:a] + '    if os.environ.get("S4E_ONE_RUNNER_FIXTURE"):\n        print("ONE-RUNNER FIXTURE by %s: %s" % (seat or "?", os.environ["S4E_ONE_RUNNER_FIXTURE"])); return\n' + t[b:])
 PY
-( o="$(gb "$W/mut/lib_one_runner.sh" -- test_x_suite.sh "$MASTER")"; echo "$?" ) > "$W/f1"
+( o="$(gb "$W/mut/lib_one_runner.sh" -- test_x_suite.sh "$RUNGS")"; echo "$?" ) > "$W/f1"
 ( o="$(gb "$W/mut/lib_one_runner.sh" -- test_x_suite.sh)"; echo "$?" ) > "$W/f3"
-( o="$(hb "$W/mut" "$MASTER" "$CORPUS")"; echo "$?" ) > "$W/fh"
+( o="$(hb "$W/mut" "$RUNGS" "$CORPUS")"; echo "$?" ) > "$W/fh"
 f1="$(cat "$W/f1")"; f3="$(cat "$W/f3")"; fh="$(cat "$W/fh")"
-[ "$f1" = 0 ] && [ "$f3" = 0 ] && [ "$fh" = 0 ] && ok F "the old unconditional exemption admits B1's master, B3's default root and H's master (rc 0, 0, 0): those arms can red" \
+[ "$f1" = 0 ] && [ "$f3" = 0 ] && [ "$fh" = 0 ] && ok F "the old unconditional exemption admits B1's rungs, B3's default root and H's rungs (rc 0, 0, 0): those arms can red" \
     || red F "under the restored old exemption B1 rc=$f1 B3 rc=$f3 H rc=$fh (want 0 0 0) -- the arms may not distinguish"
 
-echo "GATE $([ "$FAIL" = 0 ] && echo PASS || echo "FAIL($FAIL)") [$G]: $PASS of $((PASS + FAIL)) arms green (population: 2 guards, 7 runners, 2 gates, 1 scratch master)"
+echo "GATE $([ "$FAIL" = 0 ] && echo PASS || echo "FAIL($FAIL)") [$G]: $PASS of $((PASS + FAIL)) arms green (population: 2 guards, 7 runners, 2 gates, 1 scratch rungs)"
 [ "$FAIL" = 0 ]

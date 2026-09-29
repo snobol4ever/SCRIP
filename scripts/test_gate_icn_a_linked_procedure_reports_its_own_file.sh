@@ -7,7 +7,7 @@
 # &file read m.icn, a &trace line printed "m.icn : 3 | p returned 2", and a run-time error in a linked procedure reported
 # "File m.icn; Line 6" and "{2 + "abc"} from line 6 in m.icn". The link loop now tags each linked statement with a :file attribute
 # and the lowerer carries it per procedure into &file and the statement marks (a program that links nothing pays nothing).
-# The master cannot grade this -- its entries are single files and it discards stderr -- so it is graded here: a two-file
+# The rungs cannot grade this -- its entries are single files and it discards stderr -- so it is graded here: a two-file
 # witness under icont/iconx, m3 and m4 with stdout and stderr merged into one file and read through the error-voice renderer
 # the suite runners use, twice -- once under --stlimit with &trace on (the trace hooks' statement marks) and once with neither
 # (the plain marks). On lower_icon.c before the cure every run differs (red).

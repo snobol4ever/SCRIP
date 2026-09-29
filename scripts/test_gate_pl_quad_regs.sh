@@ -8,7 +8,7 @@
 # frame), r14 = ROOT (the ζ-STANDING record), r15 = the ball or 0 -- live for the whole run.  The analysis is pl_quad_regs_scan.py
 # (read its header: the enrolment table IS the contract; a rung that adds a legitimate B/TR/BALL writer enrols ONE shape there).
 # POPULATION: every origin `ladder__rungNN_*` of corpus/tests/prolog/ALL.csv (all rungs, or --to N) and every `probe_plz` origin,
-# materialised out of the master by lib_master_extract.sh, PLUS every .pl under corpus/demos/prolog and corpus/benchmarks/prolog
+# materialised out of the rungs by lib_rungs_extract.sh, PLUS every .pl under corpus/demos/prolog and corpus/benchmarks/prolog
 # (recursive: bench/, vanroy/, src/swi-*, the preludes).  Each is compiled to
 # mode-4 TEXT (`scrip --compile -o`).  During the rebuild most corpus programs REFUSE with "not on the ladder yet -- rung N lands
 # it"; those are COUNTED and printed, never graded and never green.  A witness that compiles is graded; zero compiled witnesses
@@ -28,7 +28,7 @@
 # `xor r13d,r13d` `xor r15d,r15d` `lea r14,[rsp+64]`); rtx reachable=3 (rt_gen_spine_pass_γ/ω, rt_gen_spine_resume_enter),
 # rtx writes=0.  The tree-wide informational sweep (`--rtx-scan-all`) finds the ONLY r12-r15 writers in all 47 rtx routines are
 # three push/pop-bracketed scratch uses of r12 in rt_match_replace (SNOBOL4), preserved for the caller.
-# EXIT: 0 clean · 1 a violation · 2 UNPROVEN (cannot measure: no binary, no master, zero compiled witnesses, a canary not red).
+# EXIT: 0 clean · 1 a violation · 2 UNPROVEN (cannot measure: no binary, no rungs, zero compiled witnesses, a canary not red).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
@@ -37,28 +37,28 @@ TO=""; ARGS=(); while [ $# -gt 0 ]; do case "$1" in --to) TO="${2:-}"; shift 2;;
 case "$TO" in ""|*[!0-9]*) [ -z "$TO" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: --to wants a rung number, got '$TO'"; gate_stamp; exit 2; };; esac
 gate_parse_args "$@"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"; T="${TIMEOUT:-20}"; SCAN="$HERE/pl_quad_regs_scan.py"; RTX="$ROOT/src/runtime/rtx"
-MASTER_DIR="$S4E/corpus/tests/prolog"; MASTER_EXT=.pl; export MASTER_DIR MASTER_EXT
+RUNGS_DIR="$S4E/corpus/tests/prolog"; RUNGS_EXT=.pl; export RUNGS_DIR RUNGS_EXT
 gate_require_exec "$SCRIP" "scrip binary"
 gate_require "$RT/libscrip_rt.so" "runtime library"
 gate_require "$SCAN" "scanner pl_quad_regs_scan.py"
 gate_require "$RTX/rtx_abi.inc" "rtx asm tree"
-gate_require "$MASTER_DIR/ALL.pl" "Prolog master suite"
-gate_require "$MASTER_DIR/ALL.csv" "Prolog master suite index"
+gate_require "$RUNGS_DIR/ALL.pl" "Prolog rungs suite"
+gate_require "$RUNGS_DIR/ALL.csv" "Prolog rungs suite index"
 command -v python3 >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: python3 not found"; gate_stamp; exit 2; }
-. "$HERE/lib_master_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_master_extract.sh"; gate_stamp; exit 2; }
+. "$HERE/lib_rungs_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_rungs_extract.sh"; gate_stamp; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; mkdir -p "$W/src" "$W/s" "$W/rtx"
-origins=$(master_origins_of_family ladder 2>/dev/null) || origins=""
-[ -n "$origins" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins in $MASTER_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }
-plz=$(master_origins_of_family probe_plz 2>/dev/null) || plz=""
+origins=$(rungs_origins_of_family ladder 2>/dev/null) || origins=""
+[ -n "$origins" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins in $RUNGS_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }
+plz=$(rungs_origins_of_family probe_plz 2>/dev/null) || plz=""
 nl=0; np=0; declare -a srcs=()
 for o in $(printf '%s\n' $origins | sort); do
   nn=$(printf '%s\n' "$o" | sed -nE 's/^ladder__rung0*([0-9]+)_.*/\1/p'); [ -n "$nn" ] || continue
   [ -z "$TO" ] || [ "$nn" -le "$TO" ] || continue
-  master_extract_origin "$o" "$W/src/$o.pl" "$W/src/$o.ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
+  rungs_extract_origin "$o" "$W/src/$o.pl" "$W/src/$o.ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the rungs suite"; gate_stamp; exit 2; }
   srcs+=("$W/src/$o.pl"); nl=$((nl+1))
 done
 for o in $(printf '%s\n' $plz | sort); do
-  master_extract_origin "$o" "$W/src/$o.pl" "$W/src/$o.ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
+  rungs_extract_origin "$o" "$W/src/$o.pl" "$W/src/$o.ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the rungs suite"; gate_stamp; exit 2; }
   srcs+=("$W/src/$o.pl"); np=$((np+1))
 done
 nc=0

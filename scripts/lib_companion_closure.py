@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""THE ONE COMPANION RESOLVER: which files does a master-suite entry name, and where do they live.
+"""THE ONE COMPANION RESOLVER: which files does a rung suite-suite entry name, and where do they live.
 AUTHORS: Lon Jones Cherryholmes · Claude Opus 5   DATE: 2026-09-05
 ⛔⭐⭐ WHAT THE GRADER CAN ACTUALLY REACH, WHICH IS WIDER THAN _copy_companions AND NARROWER THAN THE CORPUS. A suite entry
 is graded in a FRESH temp dir, so it sees only what is copied in -- but the driver's include search is not just the file's own
 directory. `src/driver/scrip.c:963-995` builds it per input file: the source's own dir, then EVERY colon-separated dir in
 $SNO_LIB, then an UPWARD WALK of the source's ancestors adding each `<anc>/include`, `<anc>/lib`, `<anc>/library`, then ".".
 And corpus_suite_harness sets `SNO_LIB=<corpus>/include` on every m3 run and every m4 compile (run_m3/compile_m4), for every
-language. So `-INCLUDE 'global.inc'` DOES resolve at grading time even though global.inc is nowhere near the master.
+language. So `-INCLUDE 'global.inc'` DOES resolve at grading time even though global.inc is nowhere near the rungs.
 ⛔⭐⭐ THAT IS THE TRAP THIS FILE IS REALLY ABOUT, AND IT COST THIS SEAT A WRONG FINDING BEFORE IT COST ANYONE ELSE ANYTHING.
 The two halves of the resolution live in different places -- one in an env var the harness sets, one in an upward walk that
 only fires INSIDE the corpus tree -- so the SAME entry resolves under the board and fails under a hand run from /tmp with a
 hard "cannot open include", which reads as a compiler defect. Measured twice in one fleet: two ALL.xfail notes written
-2026-09-04 say a witness is "unresolved from the flat master" -- true of a hand run, false of the board that greens it -- and
+2026-09-04 say a witness is "unresolved from the flat rungs" -- true of a hand run, false of the board that greens it -- and
 this seat reproduced the identical mistake on 2026-09-05 and filed it as a 26-entry class before grading through
 run_suite_entry and finding 23 of those 25 entries PASS.
 ⭐ SO THE QUESTION THIS LIBRARY ANSWERS IS NARROW AND WORTH ASKING: which named companions can the grader reach AT ALL, and
 which exist in this corpus somewhere it cannot? The second set is the real defect class -- an entry graded against a
-dependency that is simply absent -- and materializing those beside the master (tests/<lang>/config/, Lon's flat end state)
+dependency that is simply absent -- and materializing those beside the rungs (tests/<lang>/config/, Lon's flat end state)
 both cures it and makes the entry SELF-CONTAINED, so a hand run and the board finally agree.
 ⛔ THE PATH IS DECLARED, NEVER A CORPUS-WIDE BASENAME SCAN, and that is not fastidiousness -- it is measured. `VBGinTASA.dat`
 resolves to THREE files in this corpus, and benchmarks/snocone/demo/VBGinTASA.dat is a DIFFERENT file (md5 48c78061) from the
@@ -38,7 +38,7 @@ import corpus_suite_harness as _csh
 companion_names = _csh._companion_files
 
 # ⛔ THE DEFAULT DECLARED PATH IS EMPTY, DELIBERATELY. `corpus/include/` is NOT here: it is what the harness points $SNO_LIB
-# at, so it is already GRADER-REACHABLE (see GRADER_ENV_DIRS) and copying its 20 files beside the master would be churn
+# at, so it is already GRADER-REACHABLE (see GRADER_ENV_DIRS) and copying its 20 files beside the rungs would be churn
 # justified by a premise that measurement retired. A dir belongs on this path only when the grader cannot reach it.
 DEFAULT_PATH_DIRS = ()
 # ⭐ THE DIRS THE HARNESS ITSELF PUTS ON THE COMPILER'S INCLUDE PATH, corpus-relative. Sourced from ONE place --
@@ -108,7 +108,7 @@ def closure(texts, suite_dir, corpus_root):
     -> dict(reachable={name: path}, materializable={name: src_path}, unresolvable={name: True},
             ambiguous=[(name, path_a, path_b)], grader_dirs=[...], declared_dirs=[...])
     `reachable` = the grader finds it today · `materializable` = IT EXISTS IN THIS CORPUS AND THE GRADER CANNOT REACH IT
-    (the defect class; --write copies these beside the master) · `unresolvable` = named, found nowhere either list can see.
+    (the defect class; --write copies these beside the rungs) · `unresolvable` = named, found nowhere either list can see.
 
     ⭐ CLOSURE, NOT ONE LEVEL, AND ACROSS THE TWO CLASSES BOTH WAYS: an entry names A, A is already reachable but names B,
     and B lives only on the declared path -- so a reachable file must still be SCANNED even though nothing needs copying.

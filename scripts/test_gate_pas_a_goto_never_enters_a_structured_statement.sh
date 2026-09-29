@@ -16,7 +16,7 @@
 # forbids, so it is gone: P4's vendored comp.pas carries a documented source patch instead (corpus/packages/pascal/p4/PATCHES.md,
 # patch 6; SCRIP runs the patched and original compilers to byte-identical generation-1 output), and corpus/packages/pascal/pcom.pas,
 # a P4-lineage copy no suite grades, is now refused at that line. Before landing, every acceptance program in the corpus was compiled
-# with the check (PasM, the FPC suite, P4, P5, the benchmarks; 38 of them use goto): zero tripped but pcom.pas, named above; the
+# with the check (PasRungs, the FPC suite, P4, P5, the benchmarks; 38 of them use goto): zero tripped but pcom.pas, named above; the
 # other trips were the P5 copies of these same seven tests.
 #
 # ARMS: seven vendored PAT witnesses, each REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is

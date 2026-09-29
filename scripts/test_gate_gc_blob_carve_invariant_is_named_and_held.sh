@@ -40,12 +40,12 @@ G="$(basename "${BASH_SOURCE[0]}" .sh)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $SCRIP"; exit 2; }
-CORPUS="$S4E/corpus/tests/snobol4"; [ -f "$CORPUS/ALL.sno" ] || { echo "⛔ GATE REFUSE(2) [$G]: no SNOBOL4 master at $CORPUS/ALL.sno -- the witness is cut from it"; exit 2; }
+CORPUS="$S4E/corpus/tests/snobol4"; [ -f "$CORPUS/ALL.sno" ] || { echo "⛔ GATE REFUSE(2) [$G]: no SNOBOL4 rungs at $CORPUS/ALL.sno -- the witness is cut from it"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
 echo "  INVARIANT: the deferred-capture re-entry at a match's end is BOX-DRIVEN (Lon 2026-09-19: no BB is entered from C after the original program invocation; a C leaf returns the data for the jump) -- so the R-4(b) blob carve is a SIZE, not a depth: +16/+32/+48 bytes on it run clean in mode 3 where they used to kill user_function_eval_pos_replace_branch_1, the emitted match-end carries the pump's open/land calls and no rt_match_end_all, and the witness matches its ref in both modes."
-python3 "$HERE/corpus_suite_harness.py" extract "$CORPUS/ALL.sno" "$CORPUS/ALL.ref" user_function_eval_pos_replace_branch_1 "$T/w.sno" --out-ref "$T/w.ref" >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: could not extract the witness entry from the master"; exit 2; }
+python3 "$HERE/corpus_suite_harness.py" extract "$CORPUS/ALL.sno" "$CORPUS/ALL.ref" user_function_eval_pos_replace_branch_1 "$T/w.sno" --out-ref "$T/w.ref" >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: could not extract the witness entry from the rungs"; exit 2; }
 timeout 60 "$SCRIP" "$T/w.sno" </dev/null > "$T/m3.out" 2>/dev/null; m3rc=$?
 "$SCRIP" --compile "$T/w.sno" </dev/null > "$T/base.s" 2>/dev/null && gcc "$T/base.s" -o "$T/w.x" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm -lpthread 2>/dev/null
 if [ -x "$T/w.x" ]; then timeout 60 "$T/w.x" </dev/null > "$T/m4.out" 2>/dev/null; m4rc=$?; else m4rc=127; fi

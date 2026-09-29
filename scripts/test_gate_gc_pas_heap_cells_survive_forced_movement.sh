@@ -20,14 +20,14 @@
 #   SCRIP_GC_STRESS=N   forces a collection every Nth allocation -- UNSET IS ZERO FORCED COLLECTIONS, which is why ARM 1 exists.
 #   SCRIP_GC_PLANT_SHIFT forces a deterministic shift every collection, so live blocks MOVE even when they would otherwise stay put.
 #   SCRIP_GC_POISON is ON BY DEFAULT (gc_heap.c) and fills vacated space with 0xDB, so an unforwarded cell reads garbage rather than stale-but-plausible bytes.
-# ⛔⭐ ARM 1 IS THE ONE THIS GATE EXISTS FOR AND IT IS hq_snocone's, CREDITED (2026-09-20, their snocone GC row, same mechanism in their lane): "THE MASTER IS
-# CLEAN AT ONE MEGABYTE" CAN BE TRUE AND MEAN NOTHING.  Measured in the Pascal lane the same day: all 246 Pascal master entries at SCRIP_HEAP_MB=1 with NO
+# ⛔⭐ ARM 1 IS THE ONE THIS GATE EXISTS FOR AND IT IS hq_snocone's, CREDITED (2026-09-20, their snocone GC row, same mechanism in their lane): "THE RUNGS IS
+# CLEAN AT ONE MEGABYTE" CAN BE TRUE AND MEAN NOTHING.  Measured in the Pascal lane the same day: all 246 Pascal rungs entries at SCRIP_HEAP_MB=1 with NO
 # stress read PASS=246 FAIL=0 with collectors=0 non_collectors=246 regenerations=0 -- a perfect green over a population that never ran a collector once.  No rc,
 # no denominator and no FAIL=0 anywhere in a pass/fail instrument can say so.  THEREFORE the liveness question is asked SEPARATELY, FIRST, and AT EVERY BAND
 # POINT (a HIGHER plant collects LESS often, so a high point can be inert for the same reason the tiny arena was), and a point that did not collect REFUSES
 # rc=2 rather than reporting green.
 # ⛔ WHAT THIS GATE DOES NOT PROVE, said plainly so a green is not over-read: the witnesses are hand-cut record shapes (a record with integer fields and a
-# packed array field; a linked list threaded through pointer fields), NOT the Pascal master.  A green here is a statement about those shapes at those band
+# packed array field; a linked list threaded through pointer fields), NOT the Pascal rungs.  A green here is a statement about those shapes at those band
 # points at THIS path length, and per hq_raku 2026-09-20 a stress band is a property of (program, runner, PATH LENGTH) -- the argv string is allocated and the
 # stress plant counts allocations, so the pathname decides which allocation a collection lands on.  The path length is printed on the first line for that reason.
 # Whatever a band finds is a LOWER BOUND, never a population (hq_prolog 2026-09-20: their window is ragged and non-monotonic, wrong at 1,2,3,5,10,25 and right

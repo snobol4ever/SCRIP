@@ -10,7 +10,7 @@ export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrum
 # A per-language gate sets four variables and calls port_trace_main "$@":
 #   PORTTRACE_LANG      display name used in refusal text       e.g. Prolog
 #   PORTTRACE_SUITE     directory under corpus/tests/           e.g. prolog
-#   PORTTRACE_EXT       master/source extension, leading dot    e.g. .pl
+#   PORTTRACE_EXT       rungs/source extension, leading dot    e.g. .pl
 #   PORTTRACE_FAMILIES  default graded families                 e.g. "probe_plz ladder"
 #
 # ⭐⭐ THE INSTRUMENT IS OURS, NOT THE ORACLE'S (ceo CEO-172, 2026-09-03, on hq_T's measured correction of its
@@ -51,7 +51,7 @@ export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrum
 #       $2F unmangled to /, and the raw r15= field dropped (a mmap address inherited from the driver, ASLR-random
 #       per run). A ref block may be a PREFIX (banner carries total= and prefix=): the first prefix lines are
 #       compared AND the total line count must match, so a runaway witness is pinned whole without storing 60k lines.
-#   (4) ANSWER column, informational: stdout vs the entry's .ref -- the master suite owns answers, this gate owns traces.
+#   (4) ANSWER column, informational: stdout vs the entry's .ref -- the rungs suite owns answers, this gate owns traces.
 # SELECTORS over the ladder family (mutually exclusive; a request naming BOTH REFUSES rc=2 rather than guessing):
 #   --to N     grade/cut rungs 0..N CUMULATIVELY.
 #   --only N   grade/cut rung N ALONE -- the rung under construction, while the rungs BELOW it are still red.
@@ -72,7 +72,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
 . "$HERE/lib_gate.sh"
 port_trace_main() {
-  # ⛔ SCRIP / RT / T / MASTER_DIR / MASTER_EXT ARE DELIBERATELY NOT `local`: `local X` shadows the inherited
+  # ⛔ SCRIP / RT / T / RUNGS_DIR / RUNGS_EXT ARE DELIBERATELY NOT `local`: `local X` shadows the inherited
   # environment, so `local SCRIP` would make SCRIP=... on the command line silently unreachable and the gate
   # would grade the DEFAULT binary while you pointed it at another -- a green board about the wrong tree.
   # That exact defect was introduced and caught during the lib_ladder.sh extraction; it is not hypothetical.
@@ -88,33 +88,33 @@ port_trace_main() {
   CUT=0; for a in "$@"; do [ "$a" = --cut ] && CUT=1; done
   gate_parse_args "$@"
   SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-  MASTER_DIR="$S4E/corpus/tests/$PORTTRACE_SUITE"; MASTER_EXT="$PORTTRACE_EXT"; export MASTER_DIR MASTER_EXT
-  REF="$MASTER_DIR/ALL.trace"; PREFIX_CAP="${PREFIX_CAP:-400}"; T="${TIMEOUT:-20}"
+  RUNGS_DIR="$S4E/corpus/tests/$PORTTRACE_SUITE"; RUNGS_EXT="$PORTTRACE_EXT"; export RUNGS_DIR RUNGS_EXT
+  REF="$RUNGS_DIR/ALL.trace"; PREFIX_CAP="${PREFIX_CAP:-400}"; T="${TIMEOUT:-20}"
   gate_require_exec "$SCRIP" "scrip binary"
   gate_require "$RT/libscrip_rt.so" "runtime library"
   # ⛔ THE BINARY IS AS NEW AS src/ OR THE GATE CANNOT MEASURE (cto 2026-09-27 22:1x, from the port-trace bisect under CEO-1343):
   # a worktree whose make had refused rc 2 graded the PREVIOUS tree's binary here and stamped the NEW tree's hash on the
   # verdict -- a reading of nothing wearing a hash. The guard every other gate carries, in the ONE body all seven share.
   [ -n "${SCRIP_BIN:-}" ] || "$HERE/util_require_fresh.sh" --gate "$GATE_NAME" "$SCRIP" "$RT/libscrip_rt.so" || exit 2
-  gate_require "$MASTER_DIR/ALL$PORTTRACE_EXT" "$PORTTRACE_LANG master suite"
-  gate_require "$MASTER_DIR/ALL.csv" "$PORTTRACE_LANG master suite index"
+  gate_require "$RUNGS_DIR/ALL$PORTTRACE_EXT" "$PORTTRACE_LANG rungs suite"
+  gate_require "$RUNGS_DIR/ALL.csv" "$PORTTRACE_LANG rungs suite index"
   [ "$CUT" = 1 ] || gate_require "$REF" "trace refs (run with --cut to create them)"
-  . "$HERE/lib_master_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_master_extract.sh"; exit 2; }
+  . "$HERE/lib_rungs_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_rungs_extract.sh"; exit 2; }
   FAMILIES="${FAMILIES:-${PORTTRACE_FAMILIES:-ladder}}"; [ -z "$TO$ONLY" ] || FAMILIES="${FAMILIES_TO:-ladder}"; origins=""
-  for fam in $FAMILIES; do o=$(master_origins_of_family "$fam") || o=""; [ -n "$o" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no $fam origins in $MASTER_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }; origins="$origins $o"; done
+  for fam in $FAMILIES; do o=$(rungs_origins_of_family "$fam") || o=""; [ -n "$o" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no $fam origins in $RUNGS_DIR/ALL.csv -- the witnesses moved; re-point, never skip"; gate_stamp; exit 2; }; origins="$origins $o"; done
   if [ -n "$TO$ONLY" ]; then kept=""; for o in $origins; do nn=$(printf '%s\n' "$o" | sed -nE 's/^ladder__rung0*([0-9]+)_.*/\1/p'); [ -n "$nn" ] || continue
       if [ -n "$ONLY" ]; then [ "$nn" -eq "$ONLY" ] && kept="$kept $o"; else [ "$nn" -le "$TO" ] && kept="$kept $o"; fi; done; origins="$kept"
     # ⛔ AN EMPTY SELECTION IS UNMEASURED, NEVER A PASS -- a rung with no witness must refuse exactly as the ladder runner does.
-    [ -n "${origins// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins $SELDESC in $MASTER_DIR/ALL.csv"; gate_stamp; exit 2; }; fi
+    [ -n "${origins// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins $SELDESC in $RUNGS_DIR/ALL.csv"; gate_stamp; exit 2; }; fi
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   # ⛔⭐⭐ THE SOURCE FILENAME IS NORMALISED OUT, AND WITHOUT IT A SELF-PIN CANNOT BE RE-CUT AT ALL
   # (hq_T 2026-09-13, on hq_S's ask; reproduced here before landing). The SNO$STMT/stmt_mark startup
   # preamble minted at lower_snobol4.c:927 carries THE SOURCE FILE NAME as a lit_string operand, so
   # THE SAME PROGRAM, BYTE-IDENTICAL, RUN UNDER TWO DIFFERENT FILENAMES PRODUCED TWO DIFFERENT
-  # NORMALISED TRACES. MEASURED on ladder__rung01_arith_divide extracted from the rebus master: 58
+  # NORMALISED TRACES. MEASURED on ladder__rung01_arith_divide extracted from the rebus rungs: 58
   # trace lines under each of two names, diff = exactly 4 lines, all of them the basename at node (3)
   # ("(3) Call: lit_string A.reb" vs "... zz_a_much_longer_origin_name_here.reb").
-  # ⛔ WHY THAT BLOCKED A RE-CUT RATHER THAN MERELY ANNOYING ONE: master_extract_origin materialises
+  # ⛔ WHY THAT BLOCKED A RE-CUT RATHER THAN MERELY ANNOYING ONE: rungs_extract_origin materialises
   # every witness under its ORIGIN name, 40-60 characters, so a --cut today would have written refs
   # PINNED TO THE HARNESS'S EXTRACTION BASENAME -- an instrument that reds the first time an origin is
   # renamed, and whose failing line talks about a filename instead of about ports. hq_S stopped and
@@ -157,7 +157,7 @@ port_trace_main() {
     # basename -- the design this body already had -- simply works, and nothing here knows about 48.
     n=$((n+1)); srcbn="w$PORTTRACE_EXT"; src="$W/$srcbn"; ref="$W/$o.ref"
     rm -f "$W/$srcbn" "$W/${srcbn%.*}.in"
-    master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
+    rungs_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the rungs suite"; gate_stamp; exit 2; }
     (cd "$W" && timeout "$T" "$SCRIP" --compile -o "$o.s0" "$srcbn" </dev/null >/dev/null 2>"$W/$o.cc.err"); crc=$?; (cd "$W" && env "$PORT_TRACE_ENV=0" timeout "$T" "$SCRIP" --compile -o "$o.s0b" "$srcbn" </dev/null >/dev/null 2>&1)
     # ⛔⭐ A WITNESS THAT NEVER COMPILED HAS NOTHING TO TRACE, AND THAT IS NOT A TRACER THAT IS NOT FIRING (row
     # port-trace-zero-lines-check-cannot-tell-a-compile-time-refusal-from-a-tracer-that-is-not-firing; seat09's
@@ -242,7 +242,7 @@ port_trace_main() {
       cat "$W/kept.trace" "$W/ALL.trace" > "$REF"; echo "refs CUT (merged, $SELTAG re-cut, other blocks kept) -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"
     else cp "$W/ALL.trace" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"; fi
   fi
-  echo "witnesses=$n ($SELTAG) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the master suite grades answers) . normalisation: depth dropped, n<k>_ stripped, \$2F->/, r15= dropped"
+  echo "witnesses=$n ($SELTAG) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the rungs suite grades answers) . normalisation: depth dropped, n<k>_ stripped, \$2F->/, r15= dropped"
   # ⛔⭐ A RUNNER THAT GRADED ZERO TRACE CHECKS REFUSES rc=2 RATHER THAN PRINTING THE SUCCESS SHAPE. With
   # NOREF correctly out of `bad`, a gate whose witnesses are ALL unpinned would otherwise report
   # "0 failed checks" -- the cleanest possible green over a measurement that never happened, and strictly

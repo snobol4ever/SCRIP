@@ -20,7 +20,7 @@ set -u
 unset S4E_DONE_WHEN_RUN S4E_ONE_RUNNER_OVERRIDE S4E_ONE_RUNNER_FIXTURE S4E_SEAT
 H="$(cd "$(dirname "$0")" && pwd)"; L="$H/lib_one_runner.sh"; G=one_runner_one_board; fail=0; examined=0
 CORPUS="${S4E_CORPUS:-${S4E_HOME:-$(cd "$H/../.." && pwd)}/corpus}"
-[ -r "$CORPUS/tests/icon/ALL.icn" ] || { echo "REFUSE(2) [$G]: no corpus master at $CORPUS/tests/icon/ALL.icn -- the board/not-a-board arms cannot be measured"; exit 2; }
+[ -r "$CORPUS/tests/icon/ALL.icn" ] || { echo "REFUSE(2) [$G]: no corpus rungs at $CORPUS/tests/icon/ALL.icn -- the board/not-a-board arms cannot be measured"; exit 2; }
 [ -r "$L" ] || { echo "REFUSE(2) [$G]: $L missing -- cannot measure"; exit 2; }
 arm() { examined=$((examined+1)); if eval "$2"; then echo "  ok   $1"; else echo "  FAIL $1"; fail=$((fail+1)); fi; }
 # ⛔⭐ THE OWNERS ARE READ FROM THE SUBJECT'S OWN AUTHORITY, NOT NAMED HERE (COO-80, 2026-09-19, row
@@ -51,8 +51,8 @@ arm "1a detector: legacy seat hq_B refused rc=2 on an icon board, naming the rul
 arm "1b detector: a seat the LANES line does not name for icon ($NOT_ICON) is refused rc=2 on an icon board -- the runner is whoever LANES names, the coo for every language since CEO-1342" 'out=$(S4E_SEAT=$NOT_ICON bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "ONE RUNNER PER LANGUAGE" <<<"$out"'
 arm "1c detector: $NOT_ICON is refused rc=2 on an icon board -- a seat the icon lane does not name" 'out=$(S4E_SEAT=$NOT_ICON bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "$OWN_ICON" <<<"$out"'
 arm "2a the lane owner the LANES line names for icon ($OWN_ICON) passes rc=0 silently on an icon board" 'out=$(S4E_SEAT=$OWN_ICON bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
-arm "2b the owner is read from the LANES line, not baked in: the rebus owner $OWN_REBUS passes on a rebus master path" 'out=$(S4E_SEAT=$OWN_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
-arm "2c control: $NOT_REBUS is refused rc=2 on that same rebus master path" 'out=$(S4E_SEAT=$NOT_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ]'
+arm "2b the owner is read from the LANES line, not baked in: the rebus owner $OWN_REBUS passes on a rebus rungs path" 'out=$(S4E_SEAT=$OWN_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
+arm "2c control: $NOT_REBUS is refused rc=2 on that same rebus rungs path" 'out=$(S4E_SEAT=$NOT_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ]'
 arm "2d a BARE language directory is a suite path: the rebus owner $OWN_REBUS passes on $CORPUS/benchmarks/rebus with nothing below it (it printed the whole path as the language and refused the owner too, coo 2026-09-23)" 'out=$(S4E_SEAT=$OWN_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/benchmarks/rebus" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
 arm "2e control: $NOT_REBUS is refused rc=2 on that bare directory, naming the rebus owner, and no sed error reaches the reader" 'out=$(S4E_SEAT=$NOT_REBUS bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/benchmarks/rebus" 2>&1); [ $? -eq 2 ] && printf "%s" "$out" | grep -q "is not $OWN_REBUS" && ! printf "%s" "$out" | grep -q "unknown option"'
 arm "3 the bus computed done is REFUSED rc=2 for an officer seat too, naming the rule and the row to read instead (ceo CEO-1342 clause 5: done runs no board for any seat)" 'out=$(S4E_SEAT=cto S4E_DONE_WHEN_RUN=1 bash -c "source $L; one_runner_guard test_icon_x_suite.sh" 2>&1); [ $? -eq 2 ] && grep -q "DONE RUNS NO BOARD FOR ANY SEAT" <<<"$out" && grep -q "util_suite_row_at_or_after.sh" <<<"$out"'
@@ -63,13 +63,13 @@ arm "6a census: every listed board runner sources the guard on line 2 and calls 
 # 6a reads only the runners the list names, and five row-writing boards were never added to it -- the Icon, Pascal and Snocone bench
 # suites, spitbol_x64 and logtalk. Four of them had the switch export on line 2 and the guard on line 3, which 6a could not see.
 arm "6d census, the inverse: every runner that calls the guard and writes a score row is on the list 6a reads" 'miss=""; for f in "$H"/*.sh; do b=${f##*/}; case "$b" in lib_one_runner.sh|test_gate_*) continue;; esac; grep -q one_runner_guard "$f" && grep -q util_score_row "$f" && ! grep -qxF "$b" "$H/one_runner_boards.txt" && miss="$miss $b"; done; [ -z "$miss" ] || { echo "     unlisted:$miss"; false; }'
-arm "6b census: the master harness guards cmd_run before it grades, with the suite it holds" 'grep -A2 "^def cmd_run(args):" "$H/corpus_suite_harness.py" | grep -q "_one_runner_guard(args.sno, paths\\[.corpus.\\], getattr(args, .lang., None))"'
+arm "6b census: the rungs harness guards cmd_run before it grades, with the suite it holds" 'grep -A2 "^def cmd_run(args):" "$H/corpus_suite_harness.py" | grep -q "_one_runner_guard(args.sno, paths\\[.corpus.\\], getattr(args, .lang., None))"'
 arm "6c the bus done run exports S4E_DONE_WHEN_RUN=1" 'grep -q "S4E_DONE_WHEN_RUN=1 timeout" "$H/s4e_msg.sh"'
 arm "7 harness detector: a wrong-language run of a CORPUS suite is refused rc=2 before any grading" 'out=$(cd "$H/.." && S4E_SEAT=hq_pascal python3 scripts/corpus_suite_harness.py run "$CORPUS/tests/icon/ALL.icn" "$CORPUS/tests/icon/ALL.ref" --lang icon 2>&1); rc=$?; [ $rc -eq 2 ] && grep -q "ONE RUNNER, ONE BOARD" <<<"$out"'
 
 # ⛔⭐ CEO-547 PART 1 -- WHAT MAKES A RUN A BOARD IS THE POPULATION IT GRADES, NOT THE ENTRY POINT. The guard used to fire at the
 # top of cmd_run before it knew which it was holding, so a gate feeding the harness its own two-entry mktemp fixture was refused
-# rc=2 exactly like a 763-entry corpus master -- and make test, THE blocking set, was red on a clean origin tree for twelve of
+# rc=2 exactly like a 763-entry corpus rungs -- and make test, THE blocking set, was red on a clean origin tree for twelve of
 # thirteen seats. Arms 8 and 10 are the DETECTOR half (they FAIL on the un-narrowed guard) and 9 and 11 are the CONTROL half
 # (they FAIL on a guard narrowed too far, which is the way this cure breaks): a real board must still be refused.
 arm "8 a suite OUTSIDE the corpus tree is not a board and is not refused" 'out=$(S4E_SEAT=hq_pascal bash -c "source $L; one_runner_guard test_x_suite.sh /tmp/fixture_not_a_board/ALL.icn" 2>&1); [ $? -eq 0 ] && [ -z "$out" ]'
@@ -96,9 +96,9 @@ HQSEAT=hq_icon
 arm "16 a language HQ ($HQSEAT) is refused rc=2 on a rebus board even with the override AND a computed done set" 'out=$(S4E_SEAT=$HQSEAT S4E_ONE_RUNNER_OVERRIDE="probe" S4E_DONE_WHEN_RUN=1 bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ] && grep -q "ONE SEAT, ONE LANGUAGE" <<<"$out"'
 arm "17 harness: the same language HQ with the override is refused rc=2 by the guard before any grading" 'out=$(cd "$H/.." && S4E_SEAT=$HQSEAT S4E_ONE_RUNNER_OVERRIDE="probe" python3 scripts/corpus_suite_harness.py run "$CORPUS/tests/rebus/NO_SUCH_SUITE.reb" "$CORPUS/tests/rebus/NO_SUCH_SUITE.ref" --lang rebus --modes m3 2>&1); [ $? -eq 2 ] && grep -q "ONE SEAT, ONE LANGUAGE" <<<"$out"'
 # ⛔⭐ AND THE FIXTURE EXEMPTION HOLDS ONLY FOR A POPULATION OUTSIDE THE SHARED CORPUS (ceo CEO-1302 (c), coo 2026-09-27): arm 18
-# asserted that a language HQ with the fixture variable was admitted to the REAL rebus master -- the exact admission two gates used to
-# run the whole SNOBOL4 master inside a control arm. It now asserts the fixture on a scratch world (a git world with no remote, named
-# by S4E_HOME, the runner naming no suite), and 18b the refusal on the real master, in both copies of the guard.
+# asserted that a language HQ with the fixture variable was admitted to the REAL rebus rungs -- the exact admission two gates used to
+# run the whole SNOBOL4 rungs inside a control arm. It now asserts the fixture on a scratch world (a git world with no remote, named
+# by S4E_HOME, the runner naming no suite), and 18b the refusal on the real rungs, in both copies of the guard.
 arm "18 a GATE's instrument fixture still admits a language HQ on a scratch population (S4E_HOME=<git world, no remote>, no suite named)" 'E=$(mktemp -d) || exit 1; git init -q "$E/corpus" || exit 1; out=$(S4E_SEAT=$HQSEAT S4E_ONE_RUNNER_FIXTURE="probe fixture" S4E_HOME="$E" bash -c "source $L; one_runner_guard test_x_suite.sh" 2>&1); rc=$?; rm -rf "$E"; [ $rc -eq 0 ] && grep -q "ONE-RUNNER FIXTURE" <<<"$out"'
 arm "18b the fixture exemption does NOT admit a language HQ to a real corpus suite -- refused rc=2, naming the rule (bash and harness)" 'out=$(S4E_SEAT=$HQSEAT S4E_ONE_RUNNER_FIXTURE="probe fixture" bash -c "source $L; one_runner_guard test_x_suite.sh $CORPUS/tests/rebus/ALL.reb" 2>&1); [ $? -eq 2 ] && grep -q "ONE-RUNNER FIXTURE NOT ADMITTED" <<<"$out" && out2=$(cd "$H/.." && S4E_SEAT=$HQSEAT S4E_ONE_RUNNER_FIXTURE="probe fixture" python3 -c "import sys; sys.path.insert(0, \"scripts\"); import corpus_suite_harness as h; h._one_runner_guard(\"$CORPUS/tests/rebus/ALL.reb\", \"$CORPUS\", \"rebus\")" 2>&1); [ $? -eq 2 ] && grep -q "ONE-RUNNER FIXTURE NOT ADMITTED" <<<"$out2"'
 echo "$G: examined=$examined fail=$fail"

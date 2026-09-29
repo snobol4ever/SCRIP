@@ -74,7 +74,7 @@ for pkg in $PKGS; do
     # "(121A1)" files behind -- programs write beside themselves. Each package is copied whole into scratch (so -INCLUDE
     # siblings and .in files still resolve) and every program runs in the copy; the copy dies with the trap.
     # The copy keeps the package's corpus-relative path, with the trees a -INCLUDE reaches ('../../benchmarks/snobol4/
-    # harness.inc', library/, include/) beside it -- the master's probes resolved in the tree and not in a flat copy.
+    # harness.inc', library/, include/) beside it -- the rungs' probes resolved in the tree and not in a flat copy.
     rel="${pkg#$CORPUS/}"; run="$SCRATCH/$rel"; rm -rf "$run"; mkdir -p "$(dirname "$run")"; cp -r "$pkg" "$run"; rm -f "$run/ORACLE_ACCEPTANCE.tsv"
     for side in benchmarks/snobol4 library include; do
         [ -d "$CORPUS/$side" ] && [ ! -e "$SCRATCH/$side" ] && { mkdir -p "$SCRATCH/$(dirname "$side")"; cp -r "$CORPUS/$side" "$SCRATCH/$side"; }

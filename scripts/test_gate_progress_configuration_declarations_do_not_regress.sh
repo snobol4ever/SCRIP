@@ -82,11 +82,11 @@ TREE="$(python3 -c 'import sys; sys.path.insert(0,"'"$S4E"'/.github/scripts"); i
 HDR='ts_utc	scrip	corpus	measurer	class	suite	lang	program	mode	outcome	secs	note	fingerprint	config'
 seed() {   # seed <db>  -- a table that already exists, already has history, already in the old short shape
   printf '%s\n' "$HDR" > "$1"
-  printf '2026-09-06T00:00:00\tdeadbeef1\tcafebabe2\told_lane\tmaster\tsnobol4-master\tsnobol4\thist_a\tm3\tPASS\t0\t\tfeedface0000\n' >> "$1"
-  printf '2026-09-19T00:00:00\tdeadbeef1\tcafebabe2\told_lane\tmaster\tsnobol4-master\tsnobol4\thist_b\tm3\tPASS\t0\t\tfeedface0000\n' >> "$1"
+  printf '2026-09-06T00:00:00\tdeadbeef1\tcafebabe2\told_lane\trungs\tsnobol4-rungs\tsnobol4\thist_a\tm3\tPASS\t0\t\tfeedface0000\n' >> "$1"
+  printf '2026-09-19T00:00:00\tdeadbeef1\tcafebabe2\told_lane\trungs\tsnobol4-rungs\tsnobol4\thist_b\tm3\tPASS\t0\t\tfeedface0000\n' >> "$1"
 }
-row13() { printf '%s\t%s\tcafebabe2\t%s\tmaster\t%s\tsnobol4\t%s\tm3\tPASS\t0\t\tfeedface0000\n' "$1" deadbeef1 "$2" "$3" "$4" >> "$5"; }
-row14() { printf '%s\t%s\tcafebabe2\t%s\tmaster\t%s\tsnobol4\t%s\tm3\tPASS\t0\t\tfeedface0000\t%s\n' "$1" deadbeef1 "$2" "$3" "$4" "$6" >> "$5"; }
+row13() { printf '%s\t%s\tcafebabe2\t%s\trungs\t%s\tsnobol4\t%s\tm3\tPASS\t0\t\tfeedface0000\n' "$1" deadbeef1 "$2" "$3" "$4" >> "$5"; }
+row14() { printf '%s\t%s\tcafebabe2\t%s\trungs\t%s\tsnobol4\t%s\tm3\tPASS\t0\t\tfeedface0000\t%s\n' "$1" deadbeef1 "$2" "$3" "$4" "$6" >> "$5"; }
 ratchet() { python3 "$Q" --db "$1" --ratchet ${2:+--baseline "$2"} 2>&1; }
 
 echo "=== gate: the configuration ratchet -- a lane that has declared may never silently stop ==="
@@ -112,13 +112,13 @@ D="$W/a.tsv"; seed "$D"
 # the first cut of this arm held only pre-baseline rows, so it read rc=2 NOTHING TO MEASURE and I had written
 # it down as "the baseline is decoration". The floor was right and the arm was wrong. One clean post-baseline
 # row goes in FIRST, so a green here is a green over a real population and not over an empty one.
-row14 "2026-09-21T17:59:00" lane_ok snobol4-master anchor "$D" "shipped"
-row13 "2026-09-20T10:00:00" lane_a snobol4-master before_base "$D"     # short, BEFORE the baseline -- history
+row14 "2026-09-21T17:59:00" lane_ok snobol4-rungs anchor "$D" "shipped"
+row13 "2026-09-20T10:00:00" lane_a snobol4-rungs before_base "$D"     # short, BEFORE the baseline -- history
 out="$(ratchet "$D")"; rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'ARM A: 0 short rows' \
   && ck ok "a short row dated BEFORE the baseline is history and is NOT judged, over a non-empty window (rc=0)" \
   || ck no "a pre-baseline short row was judged (rc=$rc) -- the baseline is decoration, not a bound"
-row13 "2026-09-21T18:00:00" lane_a snobol4-master after_base "$D"      # short, AFTER the baseline -- the defect
+row13 "2026-09-21T18:00:00" lane_a snobol4-rungs after_base "$D"      # short, AFTER the baseline -- the defect
 out="$(ratchet "$D")"; rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'ARM A -- 1 SHORT ROW' \
   && ck ok "ONE short row after the baseline is named and reds the ratchet (rc=1)" \
@@ -129,10 +129,10 @@ printf '%s' "$out" | grep -q 'lane_a' \
 
 echo "--- ARM 3: ARM B FIRES when a lane declares and then stops ---"
 D="$W/b.tsv"; seed "$D"
-row14 "2026-09-21T18:00:00" lane_b snobol4-master p1 "$D" "SCRIP_GC_STRESS=3"
+row14 "2026-09-21T18:00:00" lane_b snobol4-rungs p1 "$D" "SCRIP_GC_STRESS=3"
 out="$(ratchet "$D")"; rc=$?
 [ "$rc" = 0 ] && ck ok "a lane that declares is green" || ck no "a declaring lane was red (rc=$rc)"
-row14 "2026-09-21T18:05:00" lane_b snobol4-master p2 "$D" ""           # full width, blank -- the regression
+row14 "2026-09-21T18:05:00" lane_b snobol4-rungs p2 "$D" ""           # full width, blank -- the regression
 out="$(ratchet "$D")"; rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'ARM B -- 1 LANE' \
   && ck ok "declaring then going blank is named as a REGRESSION and reds the ratchet (rc=1)" \
@@ -143,8 +143,8 @@ printf '%s' "$out" | grep -q "declared first at 2026-09-21T18:00:00" \
 
 echo "--- ARM 4: SEAM/CONTROL -- absence is NOT regression (the arm that makes this landable) ---"
 D="$W/c.tsv"; seed "$D"
-row14 "2026-09-21T18:00:00" never_declared snobol4-master p1 "$D" ""
-row14 "2026-09-21T18:05:00" never_declared snobol4-master p2 "$D" ""
+row14 "2026-09-21T18:00:00" never_declared snobol4-rungs p1 "$D" ""
+row14 "2026-09-21T18:05:00" never_declared snobol4-rungs p2 "$D" ""
 out="$(ratchet "$D")"; rc=$?
 [ "$rc" = 0 ] \
   && ck ok "a lane that has NEVER declared appending blank config is ACCEPTED -- the ratchet holds no lane to a bar it has not itself set" \
@@ -152,7 +152,7 @@ out="$(ratchet "$D")"; rc=$?
 
 echo "--- ARM 5: FLOOR -- an empty window REFUSES rather than reporting success over nothing ---"
 D="$W/d.tsv"; seed "$D"
-row14 "2026-09-21T18:00:00" lane_e snobol4-master p1 "$D" "shipped"
+row14 "2026-09-21T18:00:00" lane_e snobol4-rungs p1 "$D" "shipped"
 out="$(ratchet "$D" "2099-01-01T00:00:00")"; rc=$?
 [ "$rc" = 2 ] && printf '%s' "$out" | grep -q 'REFUSE(2)' \
   && ck ok "a baseline with no rows after it is rc=2 NOTHING TO MEASURE, never a green" \

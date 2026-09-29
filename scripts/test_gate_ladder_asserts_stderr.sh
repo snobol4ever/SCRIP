@@ -61,24 +61,24 @@ if grep -qE '(as --64|gcc -no-pie)[^|]*2>/dev/null' <<<"$BODY"; then ok "5 the a
 echo "== the debt is reported, not silently uncompared =="
 grep -q 'unasserted=' <<<"$BODY" && ok "6 the runner counts witnesses whose stderr no block asserts" || no "6 no debt counter -- captured-but-uncompared is the same defect one step quieter"
 grep -q 'stderr UNASSERTED' <<<"$BODY" && ok "7 and prints it on the board" || no "7 the debt is counted but never printed"
-grep -q 'err_ref' <<<"$BODY" && ok "8 stderr is compared where the master declares a block" || no "8 stderr is captured but can never be asserted"
+grep -q 'err_ref' <<<"$BODY" && ok "8 stderr is compared where the rungs declares a block" || no "8 stderr is captured but can never be asserted"
 
 echo "== additive: it changes no verdict until a block exists =="
 # ⛔ PROVEN BY CONSTRUCTION, WHICH IS STRONGER THAN AN A/B OVER ONE RUN: with no ALL.err anywhere and nothing writing
 # $W/$o.err, `[ -f "$err_ref" ]` is always false, so both added conjuncts short-circuit true and every verdict is
 # byte-identical to the pre-change body FOR EVERY INPUT. This arm re-derives that premise instead of trusting it, so the
 # day someone adds --out-err the claim stops being asserted for free.
-_err_masters=$(ls "$ROOT"/../corpus/tests/*/ALL.err 2>/dev/null | wc -l)
+_err_rung_suites=$(ls "$ROOT"/../corpus/tests/*/ALL.err 2>/dev/null | wc -l)
 # ⛔⭐ EXCLUDE THIS FILE FROM ITS OWN CENSUS. The first spelling counted `out-err` across $HERE and found ONE writer --
 # this gate's own comment. A gate whose PROSE changes its own measurement is the open row
 # `gate-arms-and-their-own-fixtures-are-never-graded-against-each-other`, met here by the arm that would have shipped it.
 # Comments are stripped and this file is excluded, so the census answers about PRODUCTION code only.
 _outerr=$(for _f in "$HERE"/*.sh "$HERE"/*.py; do [ -f "$_f" ] || continue; [ "$_f" = "${BASH_SOURCE[0]}" ] && continue; grep -vE '^[[:space:]]*#' "$_f" 2>/dev/null | grep -q 'out-err' && echo "$_f"; done | wc -l)
 if grep -qE '\[ ! -f "\$err_ref" \] \|\| cmp -s' <<<"$BODY"; then ok "9 the stderr comparison is guarded by the block's existence"; else no "9 the stderr comparison is unguarded -- it would change verdicts wholesale"; fi
-if [ "$_err_masters" = 0 ] && [ "$_outerr" = 0 ]; then
-    ok "10 no master declares ALL.err and nothing writes \$o.err, so TODAY the added conjuncts are provably vacuous (0 verdicts changed)"
+if [ "$_err_rung_suites" = 0 ] && [ "$_outerr" = 0 ]; then
+    ok "10 no rungs declares ALL.err and nothing writes \$o.err, so TODAY the added conjuncts are provably vacuous (0 verdicts changed)"
 else
-    ok "10 ALL.err is now in use ($_err_masters master(s), $_outerr writer(s)) -- the vacuity proof no longer applies and the assertion mechanism is live"
+    ok "10 ALL.err is now in use ($_err_rung_suites rung suite(s), $_outerr writer(s)) -- the vacuity proof no longer applies and the assertion mechanism is live"
 fi
 
 echo "== no status-used early-exit pipeline survives in this body =="

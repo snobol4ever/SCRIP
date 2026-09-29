@@ -46,6 +46,9 @@ if [ -z "$cf" ] || [ -z "$cb" ]; then echo "GATE UNPROVEN(2) [$GATE_NAME]: the c
 mkdir -p "$WORK/old"
 git -C "$GH" show "$cf^:scripts/util_progress_flips.py" > "$WORK/old/util_progress_flips.py" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot read the old ratchet at $cf^"; gate_stamp; exit 2; }
 git -C "$GH" show "$cb^:scripts/util_suite_banner.py" > "$WORK/old/util_suite_banner.py" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot read the old banner at $cb^"; gate_stamp; exit 2; }
+# The seven rung suites were renamed after both cures (Lon 2026-09-29: sno-master -> sno-rungs, snobol4-master -> snobol4-rungs,
+# class master -> rungs): the old readers get the same names, so the comparison stays one of algorithms, never of spellings.
+perl -pi -e 's/\b(sno|icn|pl|pas|raku|snc|reb|snobol4|icon|prolog|pascal|snocone|rebus)-master\b/$1-rungs/g; s/(["\x27])master\1/$1rungs$1/g; s/board_icon_master/board_icon_rungs/g' "$WORK/old/util_progress_flips.py" "$WORK/old/util_suite_banner.py"
 echo "  old readers: util_progress_flips.py at $cf^, util_suite_banner.py at $cb^ (.github history)"
 
 HDR="$(head -1 "$DB")"
@@ -102,7 +105,7 @@ spec = importlib.util.spec_from_file_location("usb", sys.argv[1]); m = importlib
 _h, rows = m.load()
 print(json.dumps({r['key']: [m.likeforlike(r), m.lfl_why(r)] for r in rows}, sort_keys=True))
 PY
-fixture lfl "[row(ts_utc='2026-09-%02dT%02d:%02d:00' % (d, h, mi), scrip=('abc1234-dirty' if (d + h) % 7 == 0 else 'abc1234'), suite=s, program='x/%s/p%d.sno' % (s, pn), mode=md, outcome=o) for d in (18, 19, 21, 23) for h in (3, 9, 9, 15) for mi in (0, 30) for s in ('snobol4-master', 'gimpel', 'icon-master', 'rebus-master') for pn in range(4) for md in ('m3', 'm4', 'ast') for o in [('PASS' if (d + pn + h) % 3 else 'FAIL')]] + [row(ts_utc=t, scrip='abc1234', suite='rebus-master', program='x/rebus/z.reb', mode=md, outcome=o) for (t, md, o) in [('2026-09-18T12:00:00', 'm4', 'PASS'), ('2026-09-18T23:59:59', 'm3', 'FAIL'), ('2026-09-18T23:59:59', 'm3', 'PASS'), ('2026-09-23T18:00:00', 'm3', 'FAIL'), ('2026-09-23T18:00:00', 'm3', 'PASS'), ('2026-09-23T18:00:00', 'm4', 'PASS')]]"
+fixture lfl "[row(ts_utc='2026-09-%02dT%02d:%02d:00' % (d, h, mi), scrip=('abc1234-dirty' if (d + h) % 7 == 0 else 'abc1234'), suite=s, program='x/%s/p%d.sno' % (s, pn), mode=md, outcome=o) for d in (18, 19, 21, 23) for h in (3, 9, 9, 15) for mi in (0, 30) for s in ('snobol4-rungs', 'gimpel', 'icon-rungs', 'rebus-rungs') for pn in range(4) for md in ('m3', 'm4', 'ast') for o in [('PASS' if (d + pn + h) % 3 else 'FAIL')]] + [row(ts_utc=t, scrip='abc1234', suite='rebus-rungs', program='x/rebus/z.reb', mode=md, outcome=o) for (t, md, o) in [('2026-09-18T12:00:00', 'm4', 'PASS'), ('2026-09-18T23:59:59', 'm3', 'FAIL'), ('2026-09-18T23:59:59', 'm3', 'PASS'), ('2026-09-23T18:00:00', 'm3', 'FAIL'), ('2026-09-23T18:00:00', 'm3', 'PASS'), ('2026-09-23T18:00:00', 'm4', 'PASS')]]"
 o3=$(S4E_PROGRESS="$WORK/lfl.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" python3 "$WORK/lfl.py" "$WORK/old/util_suite_banner.py" 2>&1); n3=$(S4E_PROGRESS="$WORK/lfl.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" python3 "$WORK/lfl.py" "$B" 2>&1)
 if [ "$o3" != "$n3" ] || ! printf '%s' "$n3" | grep -q '"then"'; then
   fails=$((fails+1)); echo "  FAIL arm3: likeforlike/lfl_why differ on the planted table (or compared nothing)"

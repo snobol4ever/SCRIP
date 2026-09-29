@@ -8,7 +8,7 @@
 # checked where it is declared (label_list) and where it prefixes a statement; the heading's parameters are checked for distinctness.
 # ⭐ THE ORACLE HANGS ON THE LEGAL LOW EXTREME: fpc -Miso never finished compiling a control that declares and jumps to label 0
 # (killed after two minutes, 2026-09-23), so the control uses labels 1 and 9999 and label 0 is named here, not graded.
-# Before landing, every acceptance program in the corpus was compiled with the checks (PasM, the FPC suite, P4, P5, benchmarks):
+# Before landing, every acceptance program in the corpus was compiled with the checks (PasRungs, the FPC suite, P4, P5, benchmarks):
 # zero tripped; the only trips were the P5 copies of these two tests.
 #
 # ARMS: 1759 and 1767, each REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is accepted, links and

@@ -9,7 +9,7 @@
 #
 # ⛔⭐ WHY THIS GATE EXISTS AT ALL, and it is the reason the cure was nearly withdrawn instead of landed: the
 # FENCE widening is INVISIBLE ON EVERY BOARD. Measured as a one-variable A/B on one tree (base origin/main
-# 8691682f2 vs base+change), the SNOBOL4 master, the demo set, Icon, Prolog and Snocone are ALL BYTE-IDENTICAL
+# 8691682f2 vs base+change), the SNOBOL4 rungs, the demo set, Icon, Prolog and Snocone are ALL BYTE-IDENTICAL
 # between the arms -- same 1838/1839, same sole named red, same three stale XPASS, same 15 demo rows. A change
 # with a zero delta on every board is indistinguishable from dead code UNTIL A WITNESS DEMANDS IT. These two
 # witnesses are that demand: RED on clean main in both modes, GREEN with the change, emitted .s differing by 8

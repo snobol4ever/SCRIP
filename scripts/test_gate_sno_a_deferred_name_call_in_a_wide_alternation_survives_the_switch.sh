@@ -2,7 +2,7 @@
 export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh -- THE PORTER CRASH UNDER --stlimit (ceo, 2026-09-24,
-# CEO-1248; found by the SnoM pass after the by-name landing f8c25ae0e: demo_porter and benchmark_porter CRASH signal 11 in both modes).
+# CEO-1248; found by the SnoRungs pass after the by-name landing f8c25ae0e: demo_porter and benchmark_porter CRASH signal 11 in both modes).
 # THE WITNESS is porter's step-4 pattern with nine arms (fixtures/sno_switch/porter_step4_nine_arms.sno, the program reduced by
 # ablation: the eight arms tried and failed before the winning '-ement' arm, then that arm's deferred guard *g_m_gt_1() and its
 # conditional assignment through the deferred call *s_empty()), on the ONE input word "abatement". Facts measured on f8c25ae0e:

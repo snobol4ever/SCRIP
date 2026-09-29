@@ -8,7 +8,7 @@
 # BRACKET: an absent error sends no event. The cure: g_pas_range_check_on is three-state -- 2 by default (ISO: checked, and a failure
 # stops with the ISO 7185 clause, rc 1, which the PAT verdict reads as a refusal), 1 under {$R+} or {$r+} (fpc's own runtime error 201 and
 # rc 201, which FPC test_trstr7 and webtbs_tw2690 expect), 0 under {$R-} (unchecked, like fpc) -- and read into a subrange variable is
-# wrapped as assignment already was. MEASURED before landing: default-on checking moved no FPC, master or bench program.
+# wrapped as assignment already was. MEASURED before landing: default-on checking moved no FPC, rungs or bench program.
 #
 # ⭐ A SET VARIABLE REGISTERS ITS BASE RANGE LIKE A SUBRANGE VARIABLE, so the old {$R+} check compared the SET'S VALUE with 1..20 and
 # refused s := [1, 3, 13] (measured: default-on checking turned test_gate_pas_calls_carry_more_than_six_operands red, and PAT 1750 read

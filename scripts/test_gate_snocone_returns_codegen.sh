@@ -62,17 +62,17 @@ fi
 # fleet load) is UNPROVEN, not a failed DONE-WHEN for THIS row -- fail() would read a busy box as a
 # Snocone regression (row a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-read-as-unparseable,
 # seat15/hq_T 2026-09-05).
-# ⛔ A SCRATCH MASTER, NEVER THE REAL ONE (ceo CEO-1302 (c), coo 2026-09-27): this arm ran test_corpus_snobol4.sh over the whole
-# 1991-entry master under the one-runner fixture exemption, so every seat that ran this gate ran a SnoM board -- the coo's control
-# arm of 2026-09-26 made two passes and appended 7964 rows. It grades the master entries this row is about (every one whose source
+# ⛔ A SCRATCH RUNGS, NEVER THE REAL ONE (ceo CEO-1302 (c), coo 2026-09-27): this arm ran test_corpus_snobol4.sh over the whole
+# 1991-entry rungs under the one-runner fixture exemption, so every seat that ran this gate ran a SnoRungs board -- the coo's control
+# arm of 2026-09-26 made two passes and appended 7964 rows. It grades the rungs entries this row is about (every one whose source
 # uses NRETURN or FRETURN, XFAIL and outside-baseline entries left out) and the runner's 23 demos, in a git world with no remote,
-# through util_scratch_snobol4_master.py, with a scratch progress table and no leaderboard write. The regex below also missed the
+# through util_scratch_snobol4_rungs.py, with a scratch progress table and no leaderboard write. The regex below also missed the
 # runner's line since c18cb9811 put "both-modes PASS=" first, so this arm read UNPROVEN after every full pass; it reads the line now.
 SNO_ROOT="$TMP/snoroot"
-python3 scripts/util_scratch_snobol4_master.py "$SNO_ROOT" '\b[NF]RETURN\b' > "$TMP/snoroot.out" 2>&1 \
-  || { echo "⚠️ UNPROVEN(2), not a fail: the scratch SNOBOL4 master could not be built -- $(tail -2 "$TMP/snoroot.out")" >&2; exit 2; }
-sn_n=$(sed -n 's/^SCRATCH_MASTER entries=\([0-9]*\) .*/\1/p' "$TMP/snoroot.out")
-snout=$(S4E_HOME="$SNO_ROOT" S4E_PROGRESS_DB="$TMP/snoroot_progress.tsv" S4E_SCORE_NO_WRITE="gate ${0##*/}: a scratch master" MASTER_ENTRY_FLOOR="$sn_n" bash scripts/test_corpus_snobol4.sh 2>&1); snrc=$?
+python3 scripts/util_scratch_snobol4_rungs.py "$SNO_ROOT" '\b[NF]RETURN\b' > "$TMP/snoroot.out" 2>&1 \
+  || { echo "⚠️ UNPROVEN(2), not a fail: the scratch SNOBOL4 rungs could not be built -- $(tail -2 "$TMP/snoroot.out")" >&2; exit 2; }
+sn_n=$(sed -n 's/^SCRATCH_RUNGS entries=\([0-9]*\) .*/\1/p' "$TMP/snoroot.out")
+snout=$(S4E_HOME="$SNO_ROOT" S4E_PROGRESS_DB="$TMP/snoroot_progress.tsv" S4E_SCORE_NO_WRITE="gate ${0##*/}: a scratch rungs" RUNGS_ENTRY_FLOOR="$sn_n" bash scripts/test_corpus_snobol4.sh 2>&1); snrc=$?
 # rc==1 is that script's OWN "measured, mode-4 regressed" signal -- decide it directly rather than via
 # gate_three_way's pattern match, since a real rc=1 prints a DIFFERENT (sparser) "GATE FAIL:" line that
 # would otherwise look just as absent as a genuine kill; this must stay a real fail(), never UNPROVEN.

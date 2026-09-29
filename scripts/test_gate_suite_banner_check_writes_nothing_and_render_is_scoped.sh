@@ -4,7 +4,7 @@
 # a-seat-did-not-measure-and-there-is-no-check-mode-that-writes-nothing).
 #
 # THE DEFECT: util_suite_banner.py --render re-rendered EVERY suite-table row of SCORE.md from the local SUITES.tsv, so a seat
-# reaching for it to VERIFY agreement after a rebase rewrote rows it never measured (Zona 88/88 -> 88/90, Jcon, SnoM's OUTSIDE=8
+# reaching for it to VERIFY agreement after a rebase rewrote rows it never measured (Zona 88/88 -> 88/90, Jcon, SnoRungs' OUTSIDE=8
 # clause dropped), twice; and the only way to ask whether the two files agreed was the command that made them agree.
 #
 # THE CURE UNDER TEST (util_suite_banner.py): --check prints every disagreement side by side and writes nothing (rc 1 on a

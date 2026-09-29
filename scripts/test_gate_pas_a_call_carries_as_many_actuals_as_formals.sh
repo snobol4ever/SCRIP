@@ -13,7 +13,7 @@
 # checked, because Pascal-P4's compiler declares local procedures named new, ord, chr and eof and calls the REQUIRED ones outside
 # them (measured: without that exemption P4 comp.pas and pcom.pas were refused). An argument list carrying a write-parameter width
 # is not counted. A formal count of 16 or more is not counted (the table caps at 16).
-# Before landing, every acceptance program in the corpus (PasM, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
+# Before landing, every acceptance program in the corpus (PasRungs, the FPC suite, P4, P5, the benchmarks, 456 programs) was compiled
 # with the check: the refused set was identical to the tree before, so the check cannot move another suite's row.
 #
 # ARMS: two vendored PAT witnesses, each required to be REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the

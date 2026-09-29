@@ -5,10 +5,10 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 OUT=$1
 : > "$OUT"
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): corpus/probe/ is gone
-# (dropped from the sweep); ALL.sno (THE ONE FLAT MASTER) is explicitly excluded -- it is suite DATA,
+# (dropped from the sweep); ALL.sno (THE ONE FLAT RUNGS) is explicitly excluded -- it is suite DATA,
 # one test per line, never a standalone program, and hashing an attempted whole-file compile of it
 # would manifest a few hundred spurious "duplicate label" errors as if they were one file's byte
-# identity. Same known limitation as census_zdp_sources.sh: the master's own ~1500+ entries are not
+# identity. Same known limitation as census_zdp_sources.sh: the rungs' own ~1500+ entries are not
 # walked by this manifest -- a follow-up, not solved here.
 for f in $(find $S4E/corpus/tests/snobol4 -name '*.sno' ! -name 'ALL.sno' | sort); do
     h=$(timeout 15 ./scrip --compile "$f" < /dev/null 2>/dev/null | md5sum | cut -d' ' -f1)

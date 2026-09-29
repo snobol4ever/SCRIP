@@ -13,7 +13,7 @@
 # ⭐ THE HONEST CELL FOR THIS LANGUAGE'S ORACLE DIFF IS "NOT BUILT YET", NEVER "IMPOSSIBLE". Rebus has NO external oracle at all -- it is one of the two languages scored by its own ladder census (Lon 2026-09-03), so there is no second implementation to diff a trace against and this pin is the only port instrument it can have.
 # `test_gate_icn_port_trace.sh` is the proof of shape: it normalises iconx's own \&trace onto the four Byrd ports
 # and is strictly stronger than this pin. Until someone writes Rebus's, this gate is the pinned instrument and
-# says so; the ANSWER column is where Rebus is graded against its real oracle today, and the master suite owns it.
+# says so; the ANSWER column is where Rebus is graded against its real oracle today, and the rungs suite owns it.
 # EXIT: 0 every witness matches in both modes; 1 a mismatch, a killswitch or perturbation failure; 2 REFUSED.
 set -u
 PORTTRACE_LANG=Rebus; PORTTRACE_SUITE=rebus; PORTTRACE_EXT=.reb; PORTTRACE_FAMILIES="ladder"

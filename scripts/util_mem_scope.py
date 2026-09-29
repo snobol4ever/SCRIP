@@ -55,7 +55,7 @@ UNIT_PREFIX = "s4e-mem-"
 #     other arm under 215 MB, and the serial phase's GC and timing arms under 296 MB together. The 4556 MB arm is therefore
 #     DECLARED SERIAL in blocking_set_serial_arms.txt, so the worst case is max(4556 alone, six banner arms at once = 4296)
 #     = 4.6 GB, and the cap is 2x that: 10 GB.
-#   board: no lane's board peak is on record but the Pascal master's 81,572 KB (hq_pascal, CEO-1136); the heaviest step a
+#   board: no lane's board peak is on record but the Pascal rungs' 81,572 KB (hq_pascal, CEO-1136); the heaviest step a
 #     board takes that this seat can measure is its row write's banner load, 716 MB, and the heaviest SCRIP workloads in the
 #     tree (the serial GC arms) stay under 296 MB. With less known, the headroom is larger -- 4x 716 MB -- so 3 GB.
 # ⛔ BOTH GROW WITH THE PROGRESS TABLE (about 4 percent a day), so at that rate the blocking-set worst case reaches its cap in

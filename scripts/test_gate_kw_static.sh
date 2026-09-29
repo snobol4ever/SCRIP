@@ -19,8 +19,8 @@ SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # per hq_C's permanent stdin ruling and are copied in beside them, so this gate's witness population
 # is UNCHANGED (15) and the .dat-stdin arm below still exercises what it always did.
 KW_ASSEMBLED="$(mktemp -d)"
-MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # zero-subfolders cutover: the kw suite lives IN the master; loose stdin pair is flat-prefixed
-master_extract_family probe_kw "$KW_ASSEMBLED" || true
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_rungs_extract.sh"   # zero-subfolders cutover: the kw suite lives IN the rungs; loose stdin pair is flat-prefixed
+rungs_extract_family probe_kw "$KW_ASSEMBLED" || true
 for f in "$S4E/corpus/tests/snobol4/"probe_loose_kw_*; do
     [ -f "$f" ] || continue
     b="$(basename "$f")"; cp "$f" "$KW_ASSEMBLED/${b#probe_loose_kw_}"

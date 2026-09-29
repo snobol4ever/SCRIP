@@ -2,7 +2,7 @@
 # test_gate_pl_xfail_marker_consistent.sh -- AN XFAIL MARKER LIVES IN THREE PLACES AND MUST AGREE IN ALL THREE.
 # Row prolog-master-seven-stale-xfail-markers-xpass-on-the-rung-3-tree (hq_C mint, ceo assign).
 #
-# The INTERIM PROMOTION PROTOCOL (lib_master_extract.sh) requires a promotion to move together:
+# The INTERIM PROMOTION PROTOCOL (lib_rungs_extract.sh) requires a promotion to move together:
 #   (1) the ` XFAIL` suffix on the ALL.pl banner,
 #   (2) the same suffix on the ALL.ref banner,
 #   (3) the `xfail` column in ALL.csv.
@@ -50,7 +50,7 @@ print('  ok    (b) banner lists identical across ALL.pl and ALL.ref')
 print('  ok    (d) banner width uniform at %d'%w.pop())
 PY
 rc=$?; [ "$rc" -eq 0 ] || exit "$rc"
-n="$(python3 "$HERE/corpus_suite_harness.py" list "$P/ALL.pl" "$P/ALL.ref" --lang prolog 2>/dev/null | grep -c .)" || refuse "read_suite could not list the master -- the grader cannot load this tree"
+n="$(python3 "$HERE/corpus_suite_harness.py" list "$P/ALL.pl" "$P/ALL.ref" --lang prolog 2>/dev/null | grep -c .)" || refuse "read_suite could not list the rungs -- the grader cannot load this tree"
 [ "${n:-0}" -gt 0 ] || refuse "read_suite listed 0 entries -- the grader cannot load this tree"
 echo "  ok    (c) read_suite lists $n entries in this tree"
 echo "✅ GATE PASS"; exit 0

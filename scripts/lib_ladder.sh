@@ -8,11 +8,11 @@
 # A per-language runner sets three variables and calls ladder_main "$@":
 #   LADDER_LANG   display name used in refusal text            e.g. Prolog
 #   LADDER_SUITE  directory under corpus/tests/                e.g. prolog
-#   LADDER_EXT    master/source extension, leading dot         e.g. .pl
+#   LADDER_EXT    rungs/source extension, leading dot         e.g. .pl
 # Everything else -- the interface, the population rule, the grading, the printed shape -- is here and is
 # THE SAME FOR ALL SEVEN LANGUAGES, which is the entire point: one instrument body, seven instantiations.
 #
-#   --to N     grade rungs 0..N CUMULATIVELY (default: every rung the master carries)
+#   --to N     grade rungs 0..N CUMULATIVELY (default: every rung the rungs carries)
 #   --only N   grade rung N ALONE -- the rung under construction, while the rungs below it are still red.
 #              Mutually exclusive with --to: a request naming both REFUSES rc=2 rather than guessing.
 #   --list     print the witnesses per rung and exit 0 without grading
@@ -21,9 +21,9 @@
 # witnesses / 66 gradings because ALL.csv already carries rung 10-12 witnesses for rungs nobody has built,
 # while `--to 9` -- the actual frontier -- is 28 / 56. Two sessions compared those two numbers and briefly
 # suspected the runner of miscounting (hq_T/hq_C, same day). ⭐ `--to N` is the ONLY honest way to ask how far
-# the ladder reaches; the bare default answers a different question -- 'everything the master mentions'.
+# the ladder reaches; the bare default answers a different question -- 'everything the rungs mentions'.
 # POPULATION: every origin `ladder__rungNN_<slug>` of corpus/tests/<suite>/ALL.csv with NN <= N, materialized
-# OUT of the master by origin through lib_master_extract.sh -- keyed on the CSV `origin` column, never on the
+# OUT of the rungs by origin through lib_rungs_extract.sh -- keyed on the CSV `origin` column, never on the
 # entry name or a filename glob.
 # EACH WITNESS RUNS ALONE IN BOTH MODES:  m3 = scrip --run  ·  m4 = scrip --compile -o x.s + as --64 + gcc -no-pie + run
 # Verdict per witness per mode: stdout byte-equal to the .ref AND rc equal to the declared rc (ALL.wantrc,
@@ -33,11 +33,11 @@
 # diffing SCRIP against it. Which oracle cut them is the per-language runner's header to state.
 # ⛔ XFAIL MARKERS ARE IGNORED HERE ON PURPOSE: this is the gate for the rung that OWNS the witness, and a
 # rung is landed only when its witnesses PASS.
-# PRINTS ITS DENOMINATOR. REFUSES rc=2 when it graded ZERO witnesses (no master, no ladder origins at or
+# PRINTS ITS DENOMINATOR. REFUSES rc=2 when it graded ZERO witnesses (no rungs, no ladder origins at or
 # below --to N, or an extraction failure) -- a runner that cannot measure never prints the success shape.
 # EXIT: 0 every graded witness PASS in both modes · 1 any FAIL · 2 REFUSED (cannot measure).
 ladder_main() {
-  # ⛔ SCRIP / RT / T / MASTER_DIR / MASTER_EXT ARE DELIBERATELY NOT `local`: `local X` shadows the inherited
+  # ⛔ SCRIP / RT / T / RUNGS_DIR / RUNGS_EXT ARE DELIBERATELY NOT `local`: `local X` shadows the inherited
   # environment, so `local SCRIP` would make SCRIP=... on the command line silently unreachable and the
   # ${SCRIP:-default} fallback would ALWAYS win -- a runner that ignores the binary you pointed it at and
   # grades the default one instead, printing a green board about the wrong tree. Caught by the negative test
@@ -49,7 +49,7 @@ ladder_main() {
   refuse() { echo "REFUSE (rc=2): $*"; exit 2; }
   [ -n "${LADDER_LANG:-}" ] && [ -n "${LADDER_SUITE:-}" ] && [ -n "${LADDER_EXT:-}" ] \
     || refuse "lib_ladder.sh sourced without LADDER_LANG/LADDER_SUITE/LADDER_EXT -- the per-language runner must set all three"
-  MASTER_DIR="$S4E/corpus/tests/$LADDER_SUITE"; MASTER_EXT="$LADDER_EXT"; export MASTER_DIR MASTER_EXT
+  RUNGS_DIR="$S4E/corpus/tests/$LADDER_SUITE"; RUNGS_EXT="$LADDER_EXT"; export RUNGS_DIR RUNGS_EXT
   TO=""; ONLY=""; LIST=0
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -68,8 +68,8 @@ ladder_main() {
   if [ -n "$ONLY" ]; then SEL="--only $ONLY"; else SEL="--to ${TO:-max}"; fi
   [ -x "$SCRIP" ] || refuse "scrip binary not built at $SCRIP"
   [ -f "$RT/libscrip_rt.so" ] || refuse "runtime library missing at $RT/libscrip_rt.so"
-  [ -f "$MASTER_DIR/ALL$MASTER_EXT" ] && [ -f "$MASTER_DIR/ALL.ref" ] && [ -f "$MASTER_DIR/ALL.csv" ] || refuse "$LADDER_LANG master suite missing under $MASTER_DIR (ALL$MASTER_EXT / ALL.ref / ALL.csv)"
-  . "$HERE/lib_master_extract.sh" || refuse "cannot source lib_master_extract.sh"
+  [ -f "$RUNGS_DIR/ALL$RUNGS_EXT" ] && [ -f "$RUNGS_DIR/ALL.ref" ] && [ -f "$RUNGS_DIR/ALL.csv" ] || refuse "$LADDER_LANG rungs suite missing under $RUNGS_DIR (ALL$RUNGS_EXT / ALL.ref / ALL.csv)"
+  . "$HERE/lib_rungs_extract.sh" || refuse "cannot source lib_rungs_extract.sh"
   . "$HERE/lib_declared_arena.sh" || refuse "cannot source lib_declared_arena.sh -- the one reader of a witness's declared heap and stack"
   # ladder_cmdline_words <program> -- two lines: the compile_args and the run_args its <stem>.cmdline declares (empty lines when none),
   # through corpus_suite_harness.cmdline_declarations(), the one reader of a test unit's command line (clause 8 (f), CEO-1281).
@@ -82,15 +82,15 @@ ca, ra = decl.get(os.path.splitext(os.path.basename(sys.argv[1]))[0], (None, Non
 print(" ".join(ca or [])); print(" ".join(ra or []))
 PY
   }
-  local all_origins; all_origins=$(master_origins_of_family ladder 2>/dev/null) || all_origins=""
-  [ -n "$all_origins" ] || refuse "no \`ladder\` origins in $MASTER_DIR/ALL.csv -- the witnesses moved or were never absorbed; re-point, never skip"
+  local all_origins; all_origins=$(rungs_origins_of_family ladder 2>/dev/null) || all_origins=""
+  [ -n "$all_origins" ] || refuse "no \`ladder\` origins in $RUNGS_DIR/ALL.csv -- the witnesses moved or were never absorbed; re-point, never skip"
   local -a origins=(); local o r
   for o in $(printf '%s\n' $all_origins | sort); do
     r=$(printf '%s' "$o" | sed -nE 's/^ladder__rung([0-9]+)_.*$/\1/p'); [ -n "$r" ] || continue
     r=$((10#$r)); if [ -n "$ONLY" ]; then [ "$r" -eq "$ONLY" ] || continue; else [ -z "$TO" ] || [ "$r" -le "$TO" ] || continue; fi
     origins+=("$r $o")
   done
-  [ "${#origins[@]}" -gt 0 ] || refuse "zero ladder__rungNN_* origins selected by $SEL in $MASTER_DIR/ALL.csv (family present, rung filter empty) -- a rung with no witness is UNMEASURED, never a pass"
+  [ "${#origins[@]}" -gt 0 ] || refuse "zero ladder__rungNN_* origins selected by $SEL in $RUNGS_DIR/ALL.csv (family present, rung filter empty) -- a rung with no witness is UNMEASURED, never a pass"
   if [ "$LIST" = 1 ]; then printf '%s\n' "${origins[@]}" | sort -n | awk '{printf "rung %2d  %s\n", $1, $2}'; echo "witnesses=${#origins[@]} ($SEL)"; exit 0; fi
   # ⛔⭐ STALE-BINARY PREFLIGHT -- placed HERE, after --list's early exit, on purpose (row harness-and-
   # ladder-runner-refuse-on-a-stale-binary-like-the-artifact-regen-does, ceo -> hq_T 2026-09-04).
@@ -104,25 +104,25 @@ PY
   # ⭐ NOT BEFORE `--list`: listing witnesses is not grading them, and a refusal there would demand a rebuild
   # to answer a question the binary is not consulted for. The refusal belongs where the verdict is minted.
   "$HERE/util_require_fresh.sh" --gate "${LADDER_SUITE}-ladder" "$SCRIP" "$RT/libscrip_rt.so" || exit 2
-  wantrc() { local n="$1"; [ -f "$MASTER_DIR/ALL.wantrc" ] || { echo 0; return; }; local v; v=$(awk -F'\t' -v n="$n" '$1==n{print $2; exit}' "$MASTER_DIR/ALL.wantrc"); printf '%s\n' "${v:-0}"; }
+  wantrc() { local n="$1"; [ -f "$RUNGS_DIR/ALL.wantrc" ] || { echo 0; return; }; local v; v=$(awk -F'\t' -v n="$n" '$1==n{print $2; exit}' "$RUNGS_DIR/ALL.wantrc"); printf '%s\n' "${v:-0}"; }
   local W; W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   local n=0 pass=0 fail=0 pair src ref name want r3 r4 v3 v4; local -A rp rf
   # ⭐ THE DEBT COUNTER IS PART OF THE CURE, NOT A DECORATION. Capturing stderr without saying how much of it nobody
   # asserts would replace a silent false green with a silent uncompared stream -- the same defect one step quieter.
-  # This prints, on every run, how many witnesses EMIT stderr that no master block asserts. It is a work list.
+  # This prints, on every run, how many witnesses EMIT stderr that no rungs block asserts. It is a work list.
   local unasserted=0 unasserted_names="" _decl_nums="" undeclared=""
   for pair in $(printf '%s\n' "${origins[@]}" | sort -n | tr ' ' ':'); do
-    r=${pair%%:*}; o=${pair#*:}; src="$W/$o$MASTER_EXT"; ref="$W/$o.ref"
-    master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || refuse "cannot extract $o from the master suite (lib_master_extract.sh)"
-    name=$(master_entry_for_origin "$o") || refuse "no entry name for origin $o"
+    r=${pair%%:*}; o=${pair#*:}; src="$W/$o$RUNGS_EXT"; ref="$W/$o.ref"
+    rungs_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || refuse "cannot extract $o from the rungs suite (lib_rungs_extract.sh)"
+    name=$(rungs_entry_for_origin "$o") || refuse "no entry name for origin $o"
     want=$(wantrc "$name"); n=$((n+1))
-    # ⛔⭐ STDIN (row icon-construct-ladder-from-rung-0, seat01): master_extract_origin already writes
-    # $W/$o.in via master_extract_name's --out-in whenever the origin has one (lib_master_extract.sh) --
+    # ⛔⭐ STDIN (row icon-construct-ladder-from-rung-0, seat01): rungs_extract_origin already writes
+    # $W/$o.in via rungs_extract_name's --out-in whenever the origin has one (lib_rungs_extract.sh) --
     # this loop just never looked for it and fed /dev/null unconditionally, so no ladder witness in ANY
     # language could ever legitimately read() stdin. Purely additive: no .in present -> /dev/null, byte
     # for byte the prior behavior.
     local stdin_src="$W/$o.in"; [ -f "$stdin_src" ] || stdin_src=/dev/null
-    # ⛔⭐ STDERR IS CAPTURED, AND COMPARED ONLY WHERE THE MASTER DECLARES IT (hq_T 2026-09-09; hq_B .github 367b083e
+    # ⛔⭐ STDERR IS CAPTURED, AND COMPARED ONLY WHERE THE RUNGS DECLARES IT (hq_T 2026-09-09; hq_B .github 367b083e
     # and hq_V's FINDING measured the same gap from both ends, ceo ordered the cure CEO-457 item 3).
     # THE DEFECT: these two graded runs sent stderr to /dev/null, and Icon's &trace writes EXCLUSIVELY there
     # (core.c trace_print_icon) -- so every trace rung in the Icon ladder was graded on stdout alone and COULD NOT FAIL
@@ -132,7 +132,7 @@ PY
     # and the LADDER instrument was wrong, and the ladder is where rungs are minted.
     # ⛔ WHY NOT SIMPLY 2>&1 LIKE ARIZONA, which is what the ruling first said: hq_V MEASURED that Icon writes a trace
     # line's first column as the SOURCE FILE NAME in a fixed 13-character field truncated FROM THE LEFT, and
-    # master_extract_origin materialises a witness under its ORIGIN name (40-60 chars). A merged ref is therefore pinned
+    # rungs_extract_origin materialises a witness under its ORIGIN name (40-60 chars). A merged ref is therefore pinned
     # to the extraction basename -- a self-pin on a harness temp filename, which is a WORSE instrument than the one it
     # replaces and would rot the first time an origin is renamed. A separate stream has no such column.
     # ⭐ ADDITIVE, EXACTLY LIKE THE .in SIDECAR ABOVE: no $o.err declared -> stderr is captured but NOT compared, which
@@ -190,7 +190,7 @@ PY
   # clothes: the runner reported PASS over the population it could see, and the population was the answer.
   # LADDER.tsv is the DECLARED census (its last line is the top); when it exists, every rung it declares at
   # or below the requested ceiling must have at least one witness, or this REFUSES rc=2 and names them.
-  _ltsv="$MASTER_DIR/config/LADDER.tsv"
+  _ltsv="$RUNGS_DIR/config/LADDER.tsv"
   if [ -f "$_ltsv" ]; then
       _ceiling="${ONLY:-${TO:-9999}}"
       _undeclared=""
@@ -204,7 +204,7 @@ PY
           _decl_nums="$(printf '%s\n' "${origins[@]}" | awk '{print $1}')"
           grep -qx "$_num" <<<"$_decl_nums" || _undeclared="$_undeclared $_r"
       done < "$_ltsv"
-      [ -z "$_undeclared" ] || refuse "LADDER.tsv declares rung(s)$_undeclared at or below $_ceiling with NO witness in $MASTER_DIR/ALL.csv -- a declared rung that is not built is RED, not absent; grading only what exists would print the success shape over the gap"
+      [ -z "$_undeclared" ] || refuse "LADDER.tsv declares rung(s)$_undeclared at or below $_ceiling with NO witness in $RUNGS_DIR/ALL.csv -- a declared rung that is not built is RED, not absent; grading only what exists would print the success shape over the gap"
       # ⛔⭐⭐ THE SAME LAW ONE LEVEL DOWN, AT FORM GRANULARITY -- REPORTED, NOT YET ENFORCED (hq_T 2026-09-13,
       # on hq_I's report from inside this body). The refusal above enforces "declared and not built is RED" at
       # RUNG granularity: a rung with AT LEAST ONE witness satisfies it. Nothing compared the FORMS column
@@ -264,7 +264,7 @@ EOF
   _top=$(printf '%s\n' "${!rp[@]}" "${!rf[@]}" | sort -n | tail -1)
   if [ -z "$ONLY" ]; then
     _ll=$(printf '%s' "$LADDER_LANG" | tr 'A-Z' 'a-z')
-    _dtop=$( [ -f "$MASTER_DIR/config/LADDER.tsv" ] && grep -o '^rung[0-9]*' "$MASTER_DIR/config/LADDER.tsv" | sed 's/^rung0*//' | sort -n | tail -1 )
+    _dtop=$( [ -f "$RUNGS_DIR/config/LADDER.tsv" ] && grep -o '^rung[0-9]*' "$RUNGS_DIR/config/LADDER.tsv" | sed 's/^rung0*//' | sort -n | tail -1 )
     # ⛔ THE UNBUILT SET IS ENUMERATED, NEVER A RANGE (cfo 2026-09-13). This printed "rungs <top+1>..<dtop> NOT BUILT",
     # a contiguous-range claim derived from two numbers -- true only while every built rung is below every unbuilt one.
     # It stopped being true the moment rungs 19, 20 and 21 were built above the 17/18 gap: `--to 16` is the cumulative
@@ -275,12 +275,12 @@ EOF
     # made `--to 16` report every rung above 16 as unbuilt -- including the five that have witnesses. Measured both ways here.
     _have="$(printf '%s\n' $all_origins | sed -nE 's/^ladder__rung0*([0-9]+)_.*$/\1/p' | sort -n -u)"
     _unb=""
-    if [ -f "$MASTER_DIR/config/LADDER.tsv" ]; then
+    if [ -f "$RUNGS_DIR/config/LADDER.tsv" ]; then
       while read -r _r _rest; do
         case "$_r" in rung[0-9]*) ;; *) continue;; esac
         _num=$(printf '%s' "$_r" | sed 's/^rung0*//'); [ -n "$_num" ] || _num=0
         grep -qx "$_num" <<<"$_have" || _unb="$_unb $_num"
-      done < "$MASTER_DIR/config/LADDER.tsv"
+      done < "$RUNGS_DIR/config/LADDER.tsv"
     fi
     # ⛔⭐ THE CELL NAMES THE COMMAND THAT PRODUCED IT, AND THAT COMMAND MUST RUN. This printed
   # `--to ${TO:-max}`, so a cell measured with no --to told its reader to run `--to max` -- which the

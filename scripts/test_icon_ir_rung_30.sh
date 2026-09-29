@@ -54,11 +54,11 @@ echo "PASS=$PASS FAIL=$FAIL XFAIL=$XFAIL"
 # ⛔ THE CONTENT IS NOT LOST AND THIS IS NOT RE-POINTED ON PURPOSE: test_icon_all_rungs.sh /
 # test_icon_rung_suite.sh / test_icon_x64_all_rungs.sh already grade these families as SUITE pairs
 # (measured: `SUITE rung30_builtins_misc: pass=5`, and so on for 31-35, 33 entries in total). So this
-# script is REDUNDANT, not a coverage hole -- unlike the Prolog twins, where no master board over ALL.pl
+# script is REDUNDANT, not a coverage hole -- unlike the Prolog twins, where no rungs board over ALL.pl
 # existed and the same shape hid 143 real gradings. Re-pointing this at the absorbed data would duplicate
 # the aggregate; refusing is the honest state, and whether to retire it outright is a corpus-layout call.
 if [ $((PASS+FAIL+XFAIL)) -eq 0 ]; then
-    echo "REFUSE (rc=2): graded ZERO witnesses -- every named witness lacks its .ref (consolidated away). Coverage lives in test_icon_all_rungs.sh as SUITE pairs AND, since 2026-08-30, in board_icon_master.sh, which grades the whole 534-entry ALL.icn set and prints its own denominator -- so a family that stops being graded is now caught at the SET level, which is the guarantee the family-by-family graders never gave. This script is redundant, not a hole. Cannot measure, not a pass."
+    echo "REFUSE (rc=2): graded ZERO witnesses -- every named witness lacks its .ref (consolidated away). Coverage lives in test_icon_all_rungs.sh as SUITE pairs AND, since 2026-08-30, in board_icon_rungs.sh, which grades the whole 534-entry ALL.icn set and prints its own denominator -- so a family that stops being graded is now caught at the SET level, which is the guarantee the family-by-family graders never gave. This script is redundant, not a hole. Cannot measure, not a pass."
     exit 2
 fi
 [ "$FAIL" -eq 0 ]

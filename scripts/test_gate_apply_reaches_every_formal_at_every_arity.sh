@@ -11,7 +11,7 @@
 # which is the correct offset table for nargs 0, 1 and 2 BY COINCIDENCE (off_0 = 16N and off_1 = 16 are right only when N <= 2)
 # and wrong for every higher arity: at N = 3 formal 1 read formal 2's actual and formal 2 read PAST THE RECORD, whatever the
 # frame held there.  MEASURED on SCRIP f0368fb08: APPLY('F3',10,20,30) SIGSEGV rc=139 in BOTH modes, arities 0-2 correct, and
-# the whole 1974-entry SNOBOL4 master green over it -- no board we own reaches a three-argument APPLY, which is why this arm
+# the whole 1974-entry SNOBOL4 rungs green over it -- no board we own reaches a three-argument APPLY, which is why this arm
 # exists rather than a board line.  The cure builds N offsets, and sizes the frame 24N + 40 (padded to keep rsp 16-aligned at
 # the transfer) where the old shape allowed the record only 40 bytes above the actuals.
 #

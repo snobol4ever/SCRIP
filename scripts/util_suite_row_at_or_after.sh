@@ -9,7 +9,7 @@
 # The table is $S4E_HOME/.github/SUITES.tsv (key = column 1, tree = the `tree` column by header name); SCRIP is $S4E_HOME/SCRIP.
 set -u
 key="${1:-}"; tree="${2:-}"
-[ -n "$key" ] && [ -n "$tree" ] || { echo "REFUSE(rc=2): usage: util_suite_row_at_or_after.sh <suite-key> <tree>  (keys: column 1 of .github/SUITES.tsv, e.g. sno-master icn-master arizona gimpel)"; exit 2; }
+[ -n "$key" ] && [ -n "$tree" ] || { echo "REFUSE(rc=2): usage: util_suite_row_at_or_after.sh <suite-key> <tree>  (keys: column 1 of .github/SUITES.tsv, e.g. sno-rungs icn-rungs arizona gimpel)"; exit 2; }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 T="$S4E/.github/SUITES.tsv"; R="$S4E/SCRIP"

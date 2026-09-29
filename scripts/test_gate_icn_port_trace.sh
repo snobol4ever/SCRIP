@@ -71,21 +71,21 @@ if [ -n "$ONLY" ]; then SELDESC="at rung $ONLY alone"; SELTAG="--only $ONLY"; el
 CUT=0; for a in "$@"; do [ "$a" = --cut ] && CUT=1; done
 gate_parse_args "$@"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
-MASTER_DIR="$S4E/corpus/tests/icon"; MASTER_EXT=.icn; export MASTER_DIR MASTER_EXT
-REF="$MASTER_DIR/ALL.trace"; PREFIX_CAP="${PREFIX_CAP:-400}"; T="${TIMEOUT:-20}"
+RUNGS_DIR="$S4E/corpus/tests/icon"; RUNGS_EXT=.icn; export RUNGS_DIR RUNGS_EXT
+REF="$RUNGS_DIR/ALL.trace"; PREFIX_CAP="${PREFIX_CAP:-400}"; T="${TIMEOUT:-20}"
 gate_require_exec "$SCRIP" "scrip binary"
 gate_require "$RT/libscrip_rt.so" "runtime library"
-gate_require "$MASTER_DIR/ALL.icn" "Icon master suite"
-gate_require "$MASTER_DIR/ALL.csv" "Icon master suite index"
+gate_require "$RUNGS_DIR/ALL.icn" "Icon rungs suite"
+gate_require "$RUNGS_DIR/ALL.csv" "Icon rungs suite index"
 [ "$CUT" = 1 ] || gate_require "$REF" "trace refs (run with --cut to create them)"
-. "$HERE/lib_master_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_master_extract.sh"; exit 2; }
+. "$HERE/lib_rungs_extract.sh" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot source lib_rungs_extract.sh"; exit 2; }
 if [ "$CUT" = 1 ]; then
   . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot load lib_oracle_flags.sh"; exit 2; }
   ICONT="$(icont_bin)" || exit 2
   ICONX="$(iconx_bin)" || exit 2
 fi
 rung_of_family() { [ "$1" = hello ] && { echo 0; return; }; printf '%s\n' "$1" | sed -nE 's/^rung0*([0-9]+)_.*/\1/p'; }
-ALLFAMS=$(awk -F, 'NR>1{print $4}' "$MASTER_DIR/ALL.csv" | sort -u)
+ALLFAMS=$(awk -F, 'NR>1{print $4}' "$RUNGS_DIR/ALL.csv" | sort -u)
 KEEPFAMS=""
 for fam in $ALLFAMS; do
   rn=$(rung_of_family "$fam"); [ -n "$rn" ] || continue
@@ -93,9 +93,9 @@ for fam in $ALLFAMS; do
   elif [ -n "$TO" ]; then [ "$rn" -le "$TO" ] 2>/dev/null && KEEPFAMS="$KEEPFAMS $fam"
   else KEEPFAMS="$KEEPFAMS $fam"; fi
 done
-[ -n "${KEEPFAMS// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no rung-tagged families $SELDESC in $MASTER_DIR/ALL.csv"; gate_stamp; exit 2; }
+[ -n "${KEEPFAMS// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no rung-tagged families $SELDESC in $RUNGS_DIR/ALL.csv"; gate_stamp; exit 2; }
 origins=""
-for fam in $KEEPFAMS; do o=$(master_origins_of_family "$fam") || { echo "GATE UNPROVEN(2) [$GATE_NAME]: family $fam has no origins in $MASTER_DIR/ALL.csv"; gate_stamp; exit 2; }; origins="$origins $o"; done
+for fam in $KEEPFAMS; do o=$(rungs_origins_of_family "$fam") || { echo "GATE UNPROVEN(2) [$GATE_NAME]: family $fam has no origins in $RUNGS_DIR/ALL.csv"; gate_stamp; exit 2; }; origins="$origins $o"; done
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 drop_trailing_pair() { awk '{ln[NR]=$0} END{n=NR; if (n>=2 && ln[n] ~ /^omega /  && ln[n-1] ~ /^beta /) n-=2; for (i=1;i<=n;i++) print ln[i]}'; }
 scrip_trace_norm() {
@@ -135,8 +135,8 @@ n=0; bad=0; noref=0; skip=0; ans_ok=0; ans_red=0; declare -a lines
 [ "$CUT" = 1 ] && : > "$W/ALL.trace"
 for o in $origins; do
   src="$W/$o.icn"; ref="$W/$o.ref"
-  master_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the master suite"; gate_stamp; exit 2; }
-  # ⛔⭐ FEED THE ENTRY ITS OWN STDIN. master_extract_name already requests --out-in unconditionally,
+  rungs_extract_origin "$o" "$src" "$ref" >/dev/null 2>&1 || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot extract $o from the rungs suite"; gate_stamp; exit 2; }
+  # ⛔⭐ FEED THE ENTRY ITS OWN STDIN. rungs_extract_name already requests --out-in unconditionally,
   # so a stdin-bearing entry arrives here with "$W/$o.in" beside its source -- and every run below read
   # </dev/null anyway, so rung36_jcon_recogn hit EOF on read(), exited before reaching any `suspend`, and
   # this gate refused with "produced ZERO proc_gen lines". ⭐ THE REFUSAL WAS ALWAYS CORRECT and was
@@ -213,7 +213,7 @@ if [ "$CUT" = 1 ]; then
     cat "$W/kept.trace" "$W/ALL.trace" > "$REF"; echo "refs CUT (merged, $SELTAG re-cut, other blocks kept) -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"
   else cp "$W/ALL.trace" "$REF"; echo "refs CUT -> $REF ($(grep -c '^%---- ' "$REF") blocks, prefix cap $PREFIX_CAP)"; fi
 fi
-echo "witnesses=$n skipped=$skip ($SELTAG) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the master suite grades answers) . oracle=iconx &trace, normalised Call/Redo/Exit/Fail -> alpha/beta/gamma/omega, node numbers stripped, a trailing beta+omega handshake dropped from both sides (see header)"
+echo "witnesses=$n skipped=$skip ($SELTAG) modes=2 (m3 --run, m4 --compile+as+gcc) . answer ok=$ans_ok red=$ans_red (informational: the rungs suite grades answers) . oracle=iconx &trace, normalised Call/Redo/Exit/Fail -> alpha/beta/gamma/omega, node numbers stripped, a trailing beta+omega handshake dropped from both sides (see header)"
 # ⛔⭐ A RUNNER THAT GRADED ZERO TRACE CHECKS REFUSES rc=2 RATHER THAN PRINTING THE SUCCESS SHAPE. With
 # NOREF correctly out of `bad`, a gate whose witnesses are ALL unpinned would otherwise report
 # "0 failed checks" -- the cleanest possible green over a measurement that never happened, and strictly

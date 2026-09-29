@@ -1,4 +1,4 @@
-board_icon_master.sh
+board_icon_rungs.sh
 board_packages.sh
 test_icon_arizona_suite.sh
 test_icon_ipl_suite.sh

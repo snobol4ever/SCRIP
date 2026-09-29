@@ -5,7 +5,7 @@
 # the-shipped-1980-with-outside-named).
 #
 # THE DEFECT: corpus_suite_harness.py dropped every --outside entry from its SUITE_BOARD total= (1972 for a 1980-entry
-# master) and recorded nothing for them, so test_corpus_snobol4.sh published 1961/1972 and the SUITES.tsv row had to be
+# rungs) and recorded nothing for them, so test_corpus_snobol4.sh published 1961/1972 and the SUITES.tsv row had to be
 # hand-set to 1961/1980 OUTSIDE=8 (COO-82); on one of the harness's two paths total= still carried the outside
 # entries while the mode counts did not -- one word, two arithmetics. Every board write dropped OUTSIDE (hq_snobol4).
 #
@@ -14,7 +14,7 @@
 # appended to the progress DB as OUTSIDE in every requested mode; test_corpus_snobol4.sh quotes all_pass/shipped OUTSIDE=N
 # and refuses when the fields are absent.
 #
-# ARMS (hermetic: a three-entry suite cut from the live master under mktemp in a tests/snobol4/ALL.sno layout, the progress
+# ARMS (hermetic: a three-entry suite cut from the live rungs under mktemp in a tests/snobol4/ALL.sno layout, the progress
 # DB redirected by S4E_PROGRESS_DB to a scratch table -- the live table is never touched; a fixture outside the corpus is not
 # a board and the one-runner guard does not apply, CEO-547):
 #   (a) with one entry declared outside: SUITE_BOARD total=2 shipped=3 outside=1, all_n=2, m3_n=2 m4_n=2
@@ -23,7 +23,7 @@
 #   (d) ⛔ AMENDED 2026-09-17 (coo): the same suite with NO --outside now rides the SIBLING list and still prints
 #       total=2 shipped=3 outside=1, with OUTSIDE_BASELINE_LIST saying DERIVED. This arm used to assert the OPPOSITE
 #       (total=3 shipped=3 outside=0), and that assertion was the defect written down: two boards on the same corpus
-#       a6bcd8097 76 minutes apart disagreed on seven snobol4-master entries -- cfo 22:55:52Z PASS, cto 00:11:39Z
+#       a6bcd8097 76 minutes apart disagreed on seven snobol4-rungs entries -- cfo 22:55:52Z PASS, cto 00:11:39Z
 #       OUTSIDE -- because a direct `corpus_suite_harness.py run` omitted the flag and graded the eight entries the
 #       ONE ORACLE REFUSES against their stored .ref. A declared fact beside the data may not depend on the caller
 #       remembering a flag; the escape is loud, not silent, which is arm (f).
@@ -33,22 +33,22 @@
 #   (f) --outside-none is the LOUD escape: total=3 shipped=3 outside=0 AND the printed line names the list it skipped
 #       and says the count is not comparable to a baseline board; --outside with --outside-none together REFUSE rc=2
 # FAIL_ONCE=1 rewrites the captured board line's shipped=3 to shipped=2 before arm (a) grades, to prove the arm trips.
-# rc 0 = every arm holds; rc 1 = a FAIL named; rc 2 = REFUSED-TO-GRADE (no binary, no master to cut the fixture from).
+# rc 0 = every arm holds; rc 1 = a FAIL named; rc 2 = REFUSED-TO-GRADE (no binary, no rungs to cut the fixture from).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-H="$HERE/corpus_suite_harness.py"; MASTER="${S4E_CORPUS_ROOT:-$HERE/../../corpus}/tests/snobol4"
+H="$HERE/corpus_suite_harness.py"; RUNGS="${S4E_CORPUS_ROOT:-$HERE/../../corpus}/tests/snobol4"
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -f "$H" ] || refuse "no harness at $H"
 [ -x "$HERE/../scrip" ] || refuse "no ./scrip binary beside scripts/ -- make first"
-[ -f "$MASTER/ALL.sno" ] && [ -f "$MASTER/ALL.ref" ] || refuse "no master pair under $MASTER to cut a fixture from"
+[ -f "$RUNGS/ALL.sno" ] && [ -f "$RUNGS/ALL.ref" ] || refuse "no rungs pair under $RUNGS to cut a fixture from"
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_shipped_outside.XXXXXX")" || refuse "mktemp failed"
 trap 'rm -rf "$W"' EXIT
-mkdir -p "$W/tests/snobol4"; head -3 "$MASTER/ALL.sno" > "$W/tests/snobol4/ALL.sno"; head -3 "$MASTER/ALL.ref" > "$W/tests/snobol4/ALL.ref"
-[ "$(wc -l < "$W/tests/snobol4/ALL.sno")" = 3 ] || refuse "the master's first three lines did not cut cleanly"
+mkdir -p "$W/tests/snobol4"; head -3 "$RUNGS/ALL.sno" > "$W/tests/snobol4/ALL.sno"; head -3 "$RUNGS/ALL.ref" > "$W/tests/snobol4/ALL.ref"
+[ "$(wc -l < "$W/tests/snobol4/ALL.sno")" = 3 ] || refuse "the rungs' first three lines did not cut cleanly"
 NAME="$(sed -n 2p "$W/tests/snobol4/ALL.sno" | sed 's/.*;\* //')"; [ -n "$NAME" ] || refuse "cannot read the second entry's name from its ';* name' tail"
 printf '%s\tORACLE_REFUSES\tfixture: the oracle refuses this entry\n' "$NAME" > "$W/tests/snobol4/ALL.outside.tsv"
 DB="$W/results.tsv"; printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n' > "$DB"
-echo "    fixture: 3 entries cut from the master; outside = $NAME"
+echo "    fixture: 3 entries cut from the rungs; outside = $NAME"
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: the board line prints PASS over the shipped population with OUTSIDE named (CEO-749) ==="
 out="$(S4E_PROGRESS_DB="$DB" timeout 120 python3 "$H" run "$W/tests/snobol4/ALL.sno" "$W/tests/snobol4/ALL.ref" --modes m3,m4 --outside "$W/tests/snobol4/ALL.outside.tsv" 2>&1)"; rc=$?

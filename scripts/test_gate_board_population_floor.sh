@@ -17,7 +17,7 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # this seat, exactly the decay this repo's own docs keep warning about. The REAL, verified-on-disk
 # precedents this gate's design and ARM 9/10 below are copied from: lib_ladder.sh (already carries
 # `[ "$n" -gt 0 ] || refuse "graded ZERO witnesses..."` plus a second, stronger check for a rung
-# DECLARED-but-unbuilt), board_beauty_m1.sh and board_icon_master.sh (already call gate_floor()/
+# DECLARED-but-unbuilt), board_beauty_m1.sh and board_icon_rungs.sh (already call gate_floor()/
 # gate_verdict() directly), and util_require_fresh.sh (the shim shape this row's own
 # util_require_population.sh is a mechanical copy of, down to the flag parsing).
 #
@@ -29,7 +29,7 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #
 # ⭐⭐ THE CENSUS IS HONEST, NOT UNIFORM (found while doing this row, not assumed): `board_*.sh` and
 # `scorecard_*.sh` are NOT one shape. Every one of the 13 board_*.sh + 2 scorecard_*.sh files surveyed
-# is EITHER already adequate (board_icon_master.sh / board_beauty_m1.sh call gate_floor directly;
+# is EITHER already adequate (board_icon_rungs.sh / board_beauty_m1.sh call gate_floor directly;
 # scorecard_icon.sh's header explains IN WORDS why it has "no pass/fail bar to violate" and uses
 # lib_gate.sh's 0/2 convention on purpose) OR legitimately has no boolean verdict at all by design
 # (perf-ratio boards, snap/diff comparison tools, board_packages.sh explicitly REPORTED-only "at this

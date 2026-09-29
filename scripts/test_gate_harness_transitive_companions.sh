@@ -17,7 +17,7 @@
 # own companions, to a fixed point (closure, not a fixed depth), with a `seen` set as the cycle
 # guard so a self- or mutually-including pair terminates instead of spinning.
 #
-# ARMS: 1 the REAL witness (array_replace_branch_2, a genuine 2-level chain in the SNOBOL4 master)
+# ARMS: 1 the REAL witness (array_replace_branch_2, a genuine 2-level chain in the SNOBOL4 rungs)
 # graded through run_suite_entry -- self-contained fail-once/pass-once: monkeypatched back to a
 # faithful reconstruction of the one-level copier it reproduces the exact pre-cure verdicts (FAIL
 # m3 / SKIP m4, matching the FINDING that spawned this row), and with the real cured copier it
@@ -36,7 +36,7 @@ H="$HERE/corpus_suite_harness.py"
 FAM="$S4E/corpus/tests/snobol4"
 [ -f "$H" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: harness not found at $H"; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE rc=2: python3 not on PATH"; exit 2; }
-[ -f "$FAM/ALL.sno" ] && [ -f "$FAM/ALL.ref" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: snobol4 master absent at $FAM"; exit 2; }
+[ -f "$FAM/ALL.sno" ] && [ -f "$FAM/ALL.ref" ] || { echo "⛔ REFUSED-TO-GRADE rc=2: snobol4 rungs absent at $FAM"; exit 2; }
 [ -f "$FAM/gimpel_triage_class8_sig6_perm_module.sno" ] && [ -f "$FAM/gimpel_triage_class8_sig6_perm_swap.sno" ] || {
     echo "⛔ REFUSED-TO-GRADE rc=2: the real 2-level witness companions are gone from $FAM -- ARM 1 needs the genuine corpus witness, not a synthetic stand-in"; exit 2; }
 "$HERE/util_require_fresh.sh" --gate test_gate_harness_transitive_companions >/dev/null 2>&1 || {

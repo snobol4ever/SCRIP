@@ -9,7 +9,7 @@
 # allocation's -- roughly as discriminating as naming main.  It also printed an ABSOLUTE runtime %p, which is
 # meaningless once the process exits and different on every run under ASLR.
 #
-# ⛔⛔ WHAT THAT COST, MEASURED, NOT HYPOTHESISED.  hq_icon reported two Icon master entries crashing
+# ⛔⛔ WHAT THAT COST, MEASURED, NOT HYPOTHESISED.  hq_icon reported two Icon rungs entries crashing
 # deterministically at SCRIP_HEAP_MB=1 with "the IDENTICAL birth signature both times: kind=215, allocated by
 # rt_wsb_alloc, called from try_call_builtin_by_name_bl_s", and read that as ONE unrooted allocation class with
 # two independent reproducers; the ceo routed it on that basis.  With the offset printed and resolved:
@@ -74,7 +74,7 @@ if [ -s "$W" ] && [ -s "$WIN" ]; then
   if [ -n "${off:-}" ] && [ -n "${nm:-}" ] && printf '%s' "$src" | grep -q 'src/.*\.c:[0-9]' && ! printf '%s' "$src" | grep -q 'gc_heap\.c:[0-9]'; then
     echo "  arm 2 PASS: the ledger printed $nm and a module-relative offset that addr2line resolves to ${src##*/} -- one line, not a 2125-line symbol"
   else echo "  arm 2 FAIL: the birth line does not carry a resolvable site OUTSIDE the allocator family -- offset [${off:-none}] kindname [${nm:-none}] resolved [${src:-none}]. A bare symbol cannot tell 26 call sites apart, an absolute %p dies with the process, and a line inside gc_heap.c names the allocator that carved the block, never the caller that asked for it (cto 2026-09-26: the HB_WSB block was born through rt_wsb_realloc, one allocator frame deeper than the fixed two-frame pair reached, and the ledger printed gc_heap.c:405)."; RC=1; fi
-else echo "  arm 2 UNPROVEN: could not extract the witness from the Icon master -- reported, not counted as green"; fi
+else echo "  arm 2 UNPROVEN: could not extract the witness from the Icon rungs -- reported, not counted as green"; fi
 # ARM 3 -- NO ABSOLUTE RUNTIME POINTER IN THE BIRTH LINE.  An absolute address is a fact about ONE RUN under
 # ASLR; a module-relative offset is a fact about the BUILD and survives being pasted into a mail or a FINDING.
 examined=$((examined + 1))

@@ -7,7 +7,7 @@ export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrum
 # traced.  The name is specified without an ampersand."  MEASURED on 71b32337f, BOTH modes: SCRIP accepted
 # TRACE('ALPHABET','KEYWORD'), TRACE('&FNCLEVEL','KEYWORD') and STOPTR('ALPHABET','KEYWORD') silently and
 # ran on, where `sbl -bf` raises ERROR 198 / ERROR 198 / ERROR 190 -- three programs that printed the
-# success shape over a refusal.  These three forms CANNOT be master witnesses: the oracle answers each with
+# success shape over a refusal.  These three forms CANNOT be rungs witnesses: the oracle answers each with
 # a fatal listing carrying its own banner date (RULING R5), so they are graded here instead, through the
 # sanctioned trace grader, which compares the ERROR NUMBER both implementations raise and never their text.
 set -u

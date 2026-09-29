@@ -6,7 +6,7 @@ export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (u
 #
 # WHAT IT PROTECTS. Two independent code sites replace a SCORE.md cell wholesale --
 # util_score_row.py:cmd_write's no-suite path (`cells[idx] = text`, ~17 runners including
-# test_corpus_snobol4.sh and board_icon_master.sh) and util_apply_score_grid.py:apply_grid
+# test_corpus_snobol4.sh and board_icon_rungs.sh) and util_apply_score_grid.py:apply_grid
 # (`cells[di] = new`, the September-10-grid merge). Both can silently discard whatever hand-written prose
 # a human appended to a cell and no runner ever modelled, WITH THE MEASURED NUMBERS UNCHANGED -- so
 # nothing about the diff looks wrong. Measured live, .github 46ff295c: test_corpus_snobol4.sh dropped

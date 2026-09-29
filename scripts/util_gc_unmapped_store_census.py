@@ -19,7 +19,7 @@ describes memory in a frame.  REFUSING to grade them is correct and the selftest
 WRONG IS THAT THE REFUSAL WAS SILENT: the store was dropped on the floor, so a language whose shielding rides this
 road printed `members=0 undecidable=0`, which is spelled exactly like clean.  Raku was published as CLEAN and
 DECIDED COMPLETELY in three cursor entries on the strength of EIGHT graded frame stores, while 207 of its shielded
-stores went unread and its master was losing 65 gradings at SCRIP_GC_STRESS=16 the same evening.  MEASURED over
+stores went unread and its rungs was losing 65 gradings at SCRIP_GC_STRESS=16 the same evening.  MEASURED over
 the shared witness set: 2230 safe points, 972 frame stores graded, 6690 shielded into `rtccb` -- this census reads
 about an eighth of the shielding at its own safe points, and every run now says so.  THE SAFETY OF THAT ROAD IS A
 ROOT-SET QUESTION AND NOT A MAP QUESTION, and it is open: rtcc_init.c registers the block with
@@ -1142,7 +1142,7 @@ def report(scrip, progs, workdir, out=print):
         "arriving. These lines are the name set the arm ratchets, one per witness, which is this row's own "
         "NAME-NEVER-A-COUNT rule applied one level down from where it was first applied.")
     out("CENSUS unmapped-store THE GRAPH COUNT IS KEYED BY (witness, graph) AND NOT BY GRAPH NAME (hq_snocone "
-        "2026-09-20, who read graphs=1 over 336 snocone master entries because EVERY entry's graph is called main "
+        "2026-09-20, who read graphs=1 over 336 snocone rungs entries because EVERY entry's graph is called main "
         "and graphs_seen was a set union of NAMES). A name collision across witnesses is not a population, and a "
         "census whose denominator collapses to 1 over 336 programs is reporting the wrong denominator even where "
         "nothing in the reading rests on it.")

@@ -14,13 +14,13 @@
 #   * mode 3: `scrip --run path/<stem>.icn` names the program `path/<stem>` -- the source path with its extension
 #     stripped, which is exactly the name icont gives the program it builds from that source;
 #   * mode 4: every runner invokes the binary by that same string -- the bare `<stem>`, resolved through PATH (the
-#     master harness, the jcon runner and the arizona runner all put the binary's directory first on PATH and invoke
+#     rungs harness, the jcon runner and the arizona runner all put the binary's directory first on PATH and invoke
 #     `<stem>`), so argv[0] is `<stem>` and the oracle under the same invocation (`iconx <stem>`) answers the same;
 #   * therefore ONE ref line is right for both modes, cut from the oracle under `iconx <stem>`, and NO per-mode
 #     declaration exists at all -- the .moderef mechanism is gone (CEO-1218/1230: one machine in two media, one ref).
 #
 # ⛔ IT GRADES ON ITS OWN FIXTURES, NEVER ON A BOARD (CEO-547 part 2, ONE RUNNER ONE BOARD): a source-level assertion
-# over the three graders, a live round trip on a witness it compiles itself, the one-entry master graded THROUGH the
+# over the three graders, a live round trip on a witness it compiles itself, the one-entry rungs graded THROUGH the
 # harness, and the two shipped programs that print &progname extracted and run directly.  No board, no row written.
 # With icont unreachable this gate REFUSES rc=2: an instrument that cannot measure refuses.
 #
@@ -42,9 +42,9 @@ say_fail() { echo "  FAIL  $*"; RED=$((RED+1)); }
 
 echo "CLAUSE 1 -- every grader invokes the mode-4 binary by its bare stem through PATH (source-level)"
 if grep -q 'argv = stdbuf_wrap(paths, \[out_bin.name\])' "$HARNESS" && grep -q 'PATH=str(out_bin.parent) + os.pathsep' "$HARNESS"; then
-  say_ok "master harness: run_m4 invokes <stem> with the binary's directory first on PATH"
+  say_ok "rungs harness: run_m4 invokes <stem> with the binary's directory first on PATH"
 else
-  say_fail "master harness: run_m4 no longer invokes the bare <stem> through PATH"
+  say_fail "rungs harness: run_m4 no longer invokes the bare <stem> through PATH"
 fi
 if grep -qE 'PATH="\$rundir:\$PATH" .*timeout "\$TIMEOUT" "\$name"' "$JCON"; then
   say_ok "jcon runner: invokes <stem> with the rundir first on PATH"
@@ -76,7 +76,7 @@ GOTABS="$( cd "$W" && "$W/pinwitness" </dev/null 2>&1 )"
 if [ "$GOTABS" = "&progname: $W/pinwitness" ]; then say_ok "fail-once arm: the same binary invoked by its absolute path answers the absolute path, so the bare-name rule is observable and not vacuous"
 else say_fail "fail-once arm: the absolute invocation answered '$GOTABS' -- this gate can no longer tell a pinned invocation from an unpinned one"; fi
 
-echo "CLAUSE 3 -- measured through the grading path itself: a one-entry master whose ref says <stem> passes BOTH modes"
+echo "CLAUSE 3 -- measured through the grading path itself: a one-entry rungs whose ref says <stem> passes BOTH modes"
 PW="$W/livepin"; mkdir -p "$PW"
 printf '#%s 1 pinwitness\nprocedure main()\n   write("&progname: ",&progname)\nend\n' "-----------------" > "$PW/ALL.icn"
 printf '#%s 1 pinwitness\n&progname: pinwitness\n' "-----------------" > "$PW/ALL.ref"
@@ -101,8 +101,8 @@ if [ "$O_BARE" = "   &progname: pn" ] && [ "$O_DOT" = "   &progname: ./pn" ]; th
 else
   say_fail "oracle answers forms this gate does not recognise (bare '$O_BARE' · dot '$O_DOT') -- re-measure before trusting any ref that prints &progname"
 fi
-MASTER="$S4E/corpus/tests/icon"; JC="$S4E/corpus/packages/icon/jcon_tests"; AZ="$S4E/corpus/packages/icon/arizona_tests/general"
-if grep -q '^   &progname: procedure_every_alt_replace_4$' "$MASTER/ALL.ref"; then say_ok "IcnM entry procedure_every_alt_replace_4: the ref line reads the bare stem"; else say_fail "IcnM entry procedure_every_alt_replace_4: the ref line does not read the bare stem"; fi
+RUNGS="$S4E/corpus/tests/icon"; JC="$S4E/corpus/packages/icon/jcon_tests"; AZ="$S4E/corpus/packages/icon/arizona_tests/general"
+if grep -q '^   &progname: procedure_every_alt_replace_4$' "$RUNGS/ALL.ref"; then say_ok "IcnRungs entry procedure_every_alt_replace_4: the ref line reads the bare stem"; else say_fail "IcnRungs entry procedure_every_alt_replace_4: the ref line does not read the bare stem"; fi
 if grep -q '^   &progname: kwds$' "$JC/kwds.ref"; then say_ok "jcon kwds.ref: the ref line reads the bare stem"; else say_fail "jcon kwds.ref: the ref line does not read the bare stem"; fi
 if grep -q '^   &progname: kwds$' "$AZ/kwds.ref"; then say_ok "arizona kwds.ref: the ref line reads the bare stem"; else say_fail "arizona kwds.ref: the ref line does not read the bare stem"; fi
 n_decl=$(find "$S4E/corpus" -name '*.moderef' -not -path '*/.git/*' 2>/dev/null | wc -l)
@@ -123,10 +123,10 @@ run_both() {  # <label> <dir> <stem> <ref>
   if [ "$o4" = "$(cat "$ref")" ]; then say_ok "$label: mode 4 reproduces the SAME ref"; else say_fail "$label: mode 4 differs from its ref on $(diff <(printf '%s\n' "$o4") "$ref" | grep -c '^[<>]') line(s)"; fi
 }
 EX="$W/e924"; mkdir -p "$EX"
-if MASTER_EXT=.icn MASTER_DIR="$MASTER" bash -c "source '$HERE/lib_master_extract.sh'; master_extract_name procedure_every_alt_replace_4 '$EX/procedure_every_alt_replace_4.icn' '$EX/procedure_every_alt_replace_4.ref'" >/dev/null 2>&1; then
-  run_both "IcnM entry 924 procedure_every_alt_replace_4" "$EX" procedure_every_alt_replace_4 "$EX/procedure_every_alt_replace_4.ref"
+if RUNGS_EXT=.icn RUNGS_DIR="$RUNGS" bash -c "source '$HERE/lib_rungs_extract.sh'; rungs_extract_name procedure_every_alt_replace_4 '$EX/procedure_every_alt_replace_4.icn' '$EX/procedure_every_alt_replace_4.ref'" >/dev/null 2>&1; then
+  run_both "IcnRungs entry 924 procedure_every_alt_replace_4" "$EX" procedure_every_alt_replace_4 "$EX/procedure_every_alt_replace_4.ref"
 else
-  echo "REFUSED rc=2: could not extract entry 924 from the Icon master -- cannot measure"; exit 2
+  echo "REFUSED rc=2: could not extract entry 924 from the Icon rungs -- cannot measure"; exit 2
 fi
 KD="$W/kwds"; mkdir -p "$KD"; cp "$JC/kwds.icn" "$KD/"; run_both "jcon kwds" "$KD" kwds "$JC/kwds.ref"
 

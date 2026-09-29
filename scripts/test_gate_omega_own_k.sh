@@ -35,7 +35,7 @@ BM_DIR="$CORPUS/benchmarks/snobol4"
 # dead-suite-path-consumer-sweep -- ".s exists only beside benchmarks and demos", RULES.md handoff
 # step 4, .github 9b819998) -- there is nothing left under $CORPUS/crosscheck to find (the directory
 # itself is gone). Per this row's own "s-regeneration technique" (seat14's diagnosis, not attempted
-# by them): extract the .sno SOURCES by origin from the SNOBOL4 master and compile them fresh via
+# by them): extract the .sno SOURCES by origin from the SNOBOL4 rungs and compile them fresh via
 # ./scrip --compile -- "to know what the compiler emits, sweep the compiler, never the artifacts" is
 # this project's own standing principle, and it is literally what this census needs anyway (a stale
 # committed .s would be exactly the "never wire .s byte-identity into it" trap line 16 already warns
@@ -44,17 +44,17 @@ BM_DIR="$CORPUS/benchmarks/snobol4"
 CC_FAMILIES="crosscheck_patterns crosscheck_assign crosscheck_arith_new crosscheck_control_new"
 CC_WORK="$(mktemp -d)"
 trap 'rm -rf "$CC_WORK"' EXIT
-MASTER_LANG="${MASTER_LANG:-snobol4}" source "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"
+RUNGS_LANG="${RUNGS_LANG:-snobol4}" source "$(dirname "${BASH_SOURCE[0]}")/lib_rungs_extract.sh"
 CC_S_FILES=()
 for fam in $CC_FAMILIES; do
     while IFS= read -r origin; do
         [ -n "$origin" ] || continue
-        name=$(master_entry_for_origin "$origin") || continue
+        name=$(rungs_entry_for_origin "$origin") || continue
         sno="$CC_WORK/${name}.sno"
-        master_extract_origin "$origin" "$sno" >/dev/null 2>&1 || continue
+        rungs_extract_origin "$origin" "$sno" >/dev/null 2>&1 || continue
         s="$CC_WORK/${name}.s"
         "$SCRIP/scrip" --compile "$sno" -o "$s" < /dev/null >/dev/null 2>&1 && [ -s "$s" ] && CC_S_FILES+=("$s")
-    done < <(master_origins_of_family "$fam")
+    done < <(rungs_origins_of_family "$fam")
 done
 
 # ── gather .s files ──────────────────────────────────────────────────────────

@@ -21,7 +21,7 @@ arm() { N=$((N+1)); if [ "$1" = 0 ]; then echo "  ✅ $2"; else echo "  ⛔ $2";
 printf 'alpha\ntime = 1.25\nbeta\n' > "$W/e.ref"
 
 # (A) DEFAULT-OFF IS BYTE-IDENTICAL. No sidecar must mean the identical stream, not merely an equivalent one:
-# every master and every package carries no sidecar today, so this is the path essentially all grading takes.
+# every rung suite and every package carries no sidecar today, so this is the path essentially all grading takes.
 IN=$'alpha\ntime = 9.99\nbeta'
 OUT="$(printf '%s' "$IN" | python3 "$SHIM" "$W/e.ref" e "$W/n" 2>/dev/null)"; rc=$?
 [ "$rc" = 0 ] && [ "$OUT" = "$IN" ] && [ "$(cat "$W/n")" = 0 ]; arm $? "no sidecar -> stream byte-identical, count 0, rc=0 (default-off)"

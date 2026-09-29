@@ -20,13 +20,13 @@ WHY THIS EXISTS (hq_T 2026-09-13, on hq_I's report from inside lib_ladder.sh):
     GLOB   icon                          -- a human summary, e.g. 'ladder__rung01_paper_* (8)'
     DASH   rebus, snobol4                -- '-', unpopulated; forms map to origins BY NAME only
   A census keyed on that column answers "is this column populated in the style I assumed", never
-  "is the form built". So this tool derives BUILT from ALL.csv -- the master is the only authority on
+  "is the form built". So this tool derives BUILT from ALL.csv -- the rungs is the only authority on
   what exists -- and matches each declared form by name against the rung's own origins. The column is
   then reported as METADATA (which convention it uses), never as evidence.
 """
 import argparse, csv, os, re, sys, glob
 
-def load_master_origins(lang, root):
+def load_rungs_origins(lang, root):
     p = os.path.join(root, 'corpus', 'tests', lang, 'ALL.csv')
     if not os.path.exists(p): return None
     out = []
@@ -50,7 +50,7 @@ def convention(vals):
 def census_lang(lang, root):
     tsv = os.path.join(root, 'corpus', 'tests', lang, 'config', 'LADDER.tsv')
     if not os.path.exists(tsv): return None
-    origins = load_master_origins(lang, root)
+    origins = load_rungs_origins(lang, root)
     if origins is None: return {'lang': lang, 'refuse': 'no ALL.csv -- cannot tell built from unbuilt'}
     by_rung = {}
     for o in origins: by_rung.setdefault(rung_of(o), []).append(o)

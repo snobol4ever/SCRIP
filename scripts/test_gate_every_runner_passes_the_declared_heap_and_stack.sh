@@ -14,7 +14,7 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # A runner that reads no declaration reads deepdecl FAIL; a runner that hands the declared heap to SCRIP_HEAP_KB (the collector's initial
 # WINDOW, cap = max(128 MB, window)) reads livedecl PASS -- both are named. The premise arm W re-measures the four against scrip directly
 # (and the window mistake), so the day a witness stops depending on its size this gate says so.
-# FAMILIES: H the harness (the masters' and package tables' one reader), D test_demos_suite.sh (a standalone unit's .heap/.stack
+# FAMILIES: H the harness (the rung suites' and package tables' one reader), D test_demos_suite.sh (a standalone unit's .heap/.stack
 # sidecars), P1 test_snobol4_dotnet_suite.sh, P2 test_snobol4_csnobol4_suite.sh (the SNOBOL4 package runners through
 # run_at_declared_table). EVERY OTHER RUNNER FAMILY IS NAMED BELOW AS NOT YET FIXTURED AND COUNTED RED -- the DONE-WHEN cannot pass while
 # a family is unproven; each is added here as its lane cures its runner (the HQ asks of 2026-09-28).
@@ -75,7 +75,7 @@ quad() {  # <arm> <db> <label> -- the four units' outcomes in both modes against
 HDR="rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args"
 csv4() { printf '%s\n' "$HDR"; local i=1 u; for u in $UNITS; do printf '%s,%s,%s,%s,5,0,0,%s,%s,,\n' "$i" "$u" "$u" "$1" "${HEAP[$u]}" "${STACK[$u]}"; i=$((i+1)); done; }
 
-echo "--- H: the harness (the masters' and package tables' one reader) ---"
+echo "--- H: the harness (the rung suites' and package tables' one reader) ---"
 mkdir -p "$W/h"; python3 - "$HERE" "$W" <<'PY'
 import sys; sys.path.insert(0, sys.argv[1]); import corpus_suite_harness as h
 W = sys.argv[2]; src = []; ref = []
@@ -122,7 +122,7 @@ o2=$(CSNOBOL4_SUITE="$W/p2" S4E_PROGRESS_DB="$W/p2.tsv" timeout 600 bash "$HERE/
 quad P2 "$W/p2.tsv" "test_snobol4_csnobol4_suite.sh over a scratch package (rc $r2)"
 
 echo "--- PENDING: runner families not yet fixtured here -- RED by declaration until each is added as its lane cures its runner ---"
-PENDING="the seven ladders (lib_ladder.sh, cured by the coo 2026-09-28, fixture owed) | snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench family, the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_master.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
+PENDING="the seven ladders (lib_ladder.sh, cured by the coo 2026-09-28, fixture owed) | snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench family, the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_rungs.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
 n_pend=$(tr '|' '\n' <<<"$PENDING" | grep -c .)
 echo "  PENDING ($n_pend groups): $PENDING"
 FAIL=$((FAIL+n_pend))

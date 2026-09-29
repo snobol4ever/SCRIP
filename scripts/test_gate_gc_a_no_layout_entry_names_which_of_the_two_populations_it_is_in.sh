@@ -9,7 +9,7 @@
 # unmapped slots BY CONSTRUCTION: the cfo's clause, the correctness population, and it DOES gate completeness.
 #
 # ⛔ THE RULING NAMED `rc=2` AGAINST `rc=1` AS THE SPLIT AND THE DATA SAYS OTHERWISE, WHICH IS WHY THIS GATE GRADES
-# THE FACT AND NOT THE rc.  Measured 2026-09-20 over all seven masters: prolog's ten read `rc=2 builtin X is not on
+# THE FACT AND NOT THE rc.  Measured 2026-09-20 over all seven rung suites: prolog's ten read `rc=2 builtin X is not on
 # the ladder yet`, and raku's seven read `rc=1 raku parse error` / `lex error` / a role-composition refusal.  BOTH
 # ARE REFUSALS THAT EMIT NOTHING.  So rc=1 against rc=2 separates a LADDER refusal from a PARSER refusal -- two
 # flavours inside bucket (a) -- and not (a) from (b).  The fact the ruling asked for is DID THIS ENTRY PRODUCE
@@ -23,7 +23,7 @@
 # POPULATION IS EMPTY ACROSS THE FLEET, so `no_layout` gates no language's completeness today.  ⛔ THAT IS NOT A
 # CLEAN COLLECTOR AND MUST NOT BE READ AS ONE: hq_raku's 36 programs that answer wrong at SCRIP_GC_STRESS=16 are in
 # NEITHER bucket -- those graphs emit, run, exit 0 and print a plausible wrong answer, which is the class itself.
-# This gate is HERMETIC and runs the stubs below rather than the masters, because the seven-language sweep costs
+# This gate is HERMETIC and runs the stubs below rather than the rung suites, because the seven-language sweep costs
 # minutes and MODE TENET condition 2 charges that to ten seats through an essentially serial set.
 set -u
 cd "$(dirname "$0")/.." || exit 2
@@ -180,6 +180,6 @@ else
   ck no "(h) this gate is not named in the Makefile -- a gate in no runner is not measuring (RULES.md THE INSTRUMENT LAWS)"
 fi
 
-echo "population: $checks arm(s) graded, $fails FAIL; hermetic (stub compilers and a stub census root, no master)"
+echo "population: $checks arm(s) graded, $fails FAIL; hermetic (stub compilers and a stub census root, no rungs)"
 [ "$fails" = 0 ] && { echo "GATE PASS [gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in]: $checks of $checks arms hold"; exit 0; }
 echo "⛔ GATE RED [gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in]: $fails of $checks arms FAIL"; exit 1

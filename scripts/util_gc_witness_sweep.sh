@@ -5,11 +5,11 @@
 # ⛔ WHY THIS EXISTS, AND THE NUMBER IS THE REASON.  On 2026-09-22 the ceo inserted 77 safe-point polls chosen by
 # the callee's DECLARED RETURN CLASS -- VOID or a narrow scalar means nothing wide enough to be a pointer comes
 # back in rax -- and the census read 133 -> 210 of 253.  ALL EIGHT PER-LANGUAGE SMOKES PASSED on 26 of them, and
-# those 26 still cost 57 Icon programs when the Icon master ran: 823/826 m3 on a clean tree against 766/826 with
+# those 26 still cost 57 Icon programs when the Icon rungs ran: 823/826 m3 on a clean tree against 766/826 with
 # the batch, plus a new hang.  The return class says what the CALLEE RETURNS and NOTHING about what is ALREADY
 # LIVE in a register at that point -- the scan templates hold the Σ pair in r13/r15d, bb_to/bb_to_by hold the
 # generator's state -- so a register-preserving poll hands those back STALE once the block moves.
-# ⛔ THE SMOKE ARM IS NOT A DETECTOR FOR A COLLECTOR CHANGE.  The master is, and it costs five minutes a pass,
+# ⛔ THE SMOKE ARM IS NOT A DETECTOR FOR A COLLECTOR CHANGE.  The rungs is, and it costs five minutes a pass,
 # which is too slow to iterate a hundred-site conversion against.  This sweep is the instrument in between.
 #
 # HOW IT GETS ITS TEETH, and neither half is optional:
@@ -24,7 +24,7 @@
 #
 # ⛔ THIS SWEEP IS NOT A BOARD AND NEVER REWRITES A SCORE ROW.  It grades the GC witness set, not a denominator
 # anyone ships.  A green here licenses the NEXT step of a conversion, never a landing: the landing verdict is
-# still the row's DONE-WHEN plus the cure's own language MASTER with a clean-tree control arm (CEO-1107).
+# still the row's DONE-WHEN plus the cure's own language RUNGS with a clean-tree control arm (CEO-1107).
 #
 # Usage: util_gc_witness_sweep.sh [--stress "0 3 16"] [--arena-kb 128] [--modes m3|m3,m4] [--list-all]
 set -u

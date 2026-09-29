@@ -12,7 +12,7 @@
 # sqr is not checked. trunc and round are checked against -maxint..maxint, the letter of 6.6.6.3 now that maxint is defined
 # (04f8b19af). ⛔ FPC's int(x) lowered to the same __pas_trunc arm, and int has no integer range (fpc prints int(1e10) as 1e10):
 # ISO trunc now passes a second argument and ONLY the two-argument call is checked, so int(1e10) still prints 10000000000.
-# Measured before landing, every graded Pascal program RUN in both modes (the master 246, the FPC suite 181, the eleven benchmarks,
+# Measured before landing, every graded Pascal program RUN in both modes (the rungs 246, the FPC suite 181, the eleven benchmarks,
 # PAT's acceptance programs): no cell moved except the five witnesses' ten.
 #
 # ARMS: five vendored PAT witnesses, each required to be REFUSED at run time with a non-empty diagnostic in BOTH modes (m4 compiles,

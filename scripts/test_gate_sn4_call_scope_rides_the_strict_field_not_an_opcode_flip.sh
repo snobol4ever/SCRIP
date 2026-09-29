@@ -7,7 +7,7 @@
 # WHY: the entry point hq_snobol4 was granted (rt_call_arr_bl_sn4 beside rt_call_arr_bl / rt_call_arr_bl_strict) is selected in
 # bb_call.cpp and bb_call_fn.cpp exactly where _.op_strict already selects the strict variant, and op_strict is NOT an opcode:
 # emit.cpp copies it from the node field IR_t.strict (lower_icon.c:45 sets 1 for Icon's strict calls). Their branch 6835dec48
-# instead re-stamped sx_call_named's node as IR_CALL_SNOBOL4 and lost 26 SnoM entries (base 319e8e7ad 1961/1972 -> head
+# instead re-stamped sx_call_named's node as IR_CALL_SNOBOL4 and lost 26 SnoRungs entries (base 319e8e7ad 1961/1972 -> head
 # 1936/1972): the tree carries ~110 bare IR_CALL tokens, 35 of them in the shared nodes off the helper lines (emit.cpp 35, lower_snobol4.c 31, scrip.c 18,
 # frame_layout.c 7, bb templates 10, scrip_ir.c 4, gva_collect.c 2, proc_collect.c 2), and the ones a SNOBOL4 graph reaches --
 # gva_collect.c:31 (INPUT/OUTPUT refuse GVA) and :87 (TRACE demote), proc_collect.c:39/:52 (proc census, OPSYN taint),

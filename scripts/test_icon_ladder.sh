@@ -2,12 +2,12 @@
 # test_icon_ladder.sh -- THE CONSTRUCT-LADDER RUNNER for Icon (GOAL-TEST-SUITE-CONSISTENCY.md standard point 1;
 # row icon-port-trace-gate-against-ampersand-trace, seat14). Minted by hq_T 2026-09-03 from the ONE shared body lib_ladder.sh, which
 # is test_prolog_ladder.sh's and test_raku_ladder.sh's body extracted once for all seven languages.
-#   --to N     grade rungs 0..N CUMULATIVELY (default: every rung the master carries)
+#   --to N     grade rungs 0..N CUMULATIVELY (default: every rung the rungs carries)
 #   --only N   grade rung N ALONE -- the rung under construction, while the rungs below it are still red.
 #              Mutually exclusive with --to: a request naming both REFUSES rc=2 rather than guessing.
 #   --list     print the witnesses per rung and exit 0 without grading
 # POPULATION: every origin `ladder__rungNN_<slug>` of corpus/tests/icon/ALL.csv with NN <= N, materialized OUT of
-# the master by origin through lib_master_extract.sh (MASTER_DIR=corpus/tests/icon, MASTER_EXT=.icn) -- keyed on
+# the rungs by origin through lib_rungs_extract.sh (RUNGS_DIR=corpus/tests/icon, RUNGS_EXT=.icn) -- keyed on
 # the CSV `origin` column, never on the entry name and never on a filename glob.
 # EACH WITNESS RUNS ALONE IN BOTH MODES:  m3 = scrip --run  ·  m4 = scrip --compile -o x.s + as --64 + gcc -no-pie + run
 # Verdict per witness per mode: stdout byte-equal to the .ref AND rc equal to the declared rc (ALL.wantrc, keyed

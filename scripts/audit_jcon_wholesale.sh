@@ -21,15 +21,15 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$HERE/.."
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING(3): cannot load lib_oracle_flags.sh -- the ONE oracle-path authority." >&2; exit 3; }
 SCRIP="$ROOT/scrip"; RT="$ROOT/out"
-# ⭐ seat03 2026-08-30: the 94 jcon_audit probes were absorbed into the icon master
+# ⭐ seat03 2026-08-30: the 94 jcon_audit probes were absorbed into the icon rungs
 # (icon-scrip-test-icn-absorption) EXCEPT 3 genuine scrip-vs-oracle disagreements, which were
 # relocated to corpus/tests/icon/unresolved/ (see its KEEP.md) once tests/scrip_test/icon/ was
 # otherwise fully drained -- this audit's own coverage must include both: 91 extracted fresh from
-# the master, plus the 3 permanent-residue files, combined into one scratch dir so the rest of this
+# the rungs, plus the 3 permanent-residue files, combined into one scratch dir so the rest of this
 # script (which globs [0-9][0-9]_*.icn and expects a sibling .ref) is unchanged below this point.
 DIR="$(mktemp -d)"
-MASTER_DIR="$ROOT/../corpus/tests/icon" MASTER_EXT=.icn source "$HERE/lib_master_extract.sh"
-master_extract_origin_prefix "scrip_test_icon_jcon_audit_" "$DIR" >/dev/null || { echo "AUDIT REFUSED: could not extract jcon_audit probes from the icon master"; exit 2; }
+RUNGS_DIR="$ROOT/../corpus/tests/icon" RUNGS_EXT=.icn source "$HERE/lib_rungs_extract.sh"
+rungs_extract_origin_prefix "scrip_test_icon_jcon_audit_" "$DIR" >/dev/null || { echo "AUDIT REFUSED: could not extract jcon_audit probes from the icon rungs"; exit 2; }
 UNRESOLVED="$ROOT/../corpus/tests/icon/unresolved"
 for f in "$UNRESOLVED"/jcon_audit_*.icn; do
     [ -f "$f" ] || continue

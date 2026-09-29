@@ -3,7 +3,7 @@
 # MUST FAIL FORWARD WHEN THE CALLER BACKTRACKS INTO IT, IN BOTH MODES, AT EVERY ARENA AND STRESS LEVEL.
 # ⛔ THE MEASURED DEFECT THIS PINS (ceo 2026-09-19, row gc-the-five-c-to-bb-entries-outside-rt-c-go-to-zero, CEO-929's design behind the open/land pair):
 # rt_call_value_spine_prep used to refuse every callee that was not a generator, which sent 26 of the 40 procedure-value calls reaching
-# by_name_dispatch.c 1129 over the Icon master down rt_call_value_gen_h -- a C frame entering a Byrd box, which is the thing Lon's 13:5x order
+# by_name_dispatch.c 1129 over the Icon rungs down rt_call_value_gen_h -- a C frame entering a Byrd box, which is the thing Lon's 13:5x order
 # ('ZERO instances of C code calling into a BB') removes. The refusal was not a policy: it was the box's ONLY guard. bb_call_value's beta
 # reads callgen.act +0 and resumes on 1, and a plain procedure returns its one result and RELEASES its frame, so opening one on the spine with
 # nothing else changed makes every redo jump back into a dead frame. Measured that day on this very witness with the refusal removed and no

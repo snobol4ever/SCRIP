@@ -3,7 +3,7 @@
 # instruments-ninety-two-scripts-and-the-makefile-size-the-arena-through-the-env-not-the-d-switch, the coo; CEO-1225/1226: SCRIP sizes the
 # heap with -d and -i and the stack with -s, and a switch is recorded with the run where an environment knob is invisible).
 #
-# THE TWO SPELLINGS: corpus_suite_harness.py's _size_switches(heap_kb, stack_kb) for the masters, and lib_declared_arena.sh's
+# THE TWO SPELLINGS: corpus_suite_harness.py's _size_switches(heap_kb, stack_kb) for the rung suites, and lib_declared_arena.sh's
 # declared_arena_switches / declared_switches_from_table for the shell runners. A runner that moves off the SCRIP_HEAP_KB export puts the
 # lib's words on its own command line; if the two spellings drifted, the same declaration would size two boards differently.
 # ARMS (hermetic: a fixture ALL.csv under mktemp; one scrip run for the last arm):

@@ -5,7 +5,7 @@
 # iconx flushes &output before anything reaches &errout, so a program's merged stdout+stderr reads in program order. The
 # write builtin flushed stdout before a file argument only for write (the nl case), never for writes; a mode-4 binary, whose
 # stdout is fully buffered into a file, therefore printed writes(&errout, ...) ahead of every earlier stdout line
-# (openchk: "Open of ..." ahead of "close again", then " failed." after it). The master discards stderr, so this is graded
+# (openchk: "Open of ..." ahead of "close again", then " failed." after it). The rungs discards stderr, so this is graded
 # here: the witness runs under icont/iconx, m3 and m4 with stdout and stderr merged into one file, and all three must agree.
 # On by_name_dispatch.c before the cure the m4 file differs (red).
 set -uo pipefail

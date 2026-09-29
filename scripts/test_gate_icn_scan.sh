@@ -288,11 +288,11 @@ echo "--- (c) corpus IR_GEN_SCAN bucket (ratchet floors m2>=$SCAN_M2_MIN m3>=$SC
 # 2026-09-04). The old `find $CORPUS -name '*.icn'` + --dump-bb-sniff walk measured a fraction of its own
 # floor (N=3 of a required 26) because TWO migrations shrank it, one after the other: the 2026-08-24 corpus
 # re-grid moved jcon-ref/jcon-compiler/ipl out of tests/icon into corpus/packages/icon (this row's original
-# diagnosis), and the later MASTER-SUITE flattening absorbed most of the remaining loose scan-touching
+# diagnosis), and the later RUNGS-SUITE flattening absorbed most of the remaining loose scan-touching
 # programs into tests/icon/ALL.icn. Repointing CORPUS at packages/icon is A DEAD END, verified, not assumed:
 # those three trees carry ZERO .expected files (grep -c across all three = 0), so widening the walk there
 # admits nothing. The honest current population lives in ALL.csv's own `scan` feature column; source it via
-# lib_master_extract.sh (CLAUDE.md MASTER SUITES: "the ONE way" to materialize a witness) instead of
+# lib_rungs_extract.sh (CLAUDE.md RUNGS SUITES: "the ONE way" to materialize a witness) instead of
 # re-deriving the filter with a second --dump-bb sniff per file. The loose KEEPER/DEFERRED files under
 # tests/icon (rung36_jcon_cxprimes/_genqueen/_recogn/_proto/_var, ...) are DELIBERATELY excluded from
 # ALL.csv by the suite's own absorption policy (tests/icon/ALL.excluded.txt) because each already has its
@@ -300,14 +300,14 @@ echo "--- (c) corpus IR_GEN_SCAN bucket (ratchet floors m2>=$SCAN_M2_MIN m3>=$SC
 # icon-v9gen-augmented-assign-and-unary-refresh-plus-two-emitter-gaps) — this bucket is not the place to
 # re-litigate them under a different name; it grades the population the rest of the project already trusts.
 BUCKET_TMP="$(mktemp -d)"; trap 'rm -rf "$BUCKET_TMP"' EXIT
-MASTER_DIR="$CORPUS" MASTER_EXT=.icn
-. "$HERE/lib_master_extract.sh"
+RUNGS_DIR="$CORPUS" RUNGS_EXT=.icn
+. "$HERE/lib_rungs_extract.sh"
 C2P=0; C2F=0; C3P=0; C3F=0; C3E=0; C4P=0; C4F=0; C4E=0; CN=0
 while IFS= read -r origin; do
     [ -n "$origin" ] || continue
     safe="$(printf '%s' "$origin" | tr -c 'A-Za-z0-9_' '_')"
     out="$BUCKET_TMP/$safe.icn"; ref="$BUCKET_TMP/$safe.expected"
-    master_extract_origin "$origin" "$out" "$ref" || { echo "  FAIL: could not extract $origin (master_extract_origin refused)"; C3F=$((C3F+1)); continue; }
+    rungs_extract_origin "$origin" "$out" "$ref" || { echo "  FAIL: could not extract $origin (rungs_extract_origin refused)"; C3F=$((C3F+1)); continue; }
     [ -f "${out%.icn}.in" ] && cp "${out%.icn}.in" "${out%.icn}.stdin"   # run3 looks for .stdin, extract writes .in
     CN=$((CN+1))
     exp=$(cat "$ref" 2>/dev/null || true)

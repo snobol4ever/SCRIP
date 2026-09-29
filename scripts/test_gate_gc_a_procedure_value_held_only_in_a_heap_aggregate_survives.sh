@@ -8,7 +8,7 @@
 # carries a FUNCTION POINTER in .ptr and a staged proc carries an INTEGER entry_pc in .i, neither of which is a heap reference.  Only the
 # three PROCVAL sentinels (IS_PROCVAL_fn) name a char * in .s, which is why the arm asks that question and not `case DT_E:` alone.
 # MEASURED ON ORIGIN d698d3bce: stress 0 green both modes; stress 1, 3, 5, 8 RED both modes (error 106 with the corrupted .s printed as
-# the offending image).  With the arm: 10 of 10 green.  Three independent witnesses agreed -- Icon master procedure_write_253, jcon
+# the offending image).  With the arm: 10 of 10 green.  Three independent witnesses agreed -- Icon rungs procedure_write_253, jcon
 # args.icn at the SHIPPED arena (collections=3, no stress needed), and this one.
 # ⛔ COLLECTIONS ARE THE EVIDENCE (ceo, INSTRUMENT LAWS 33rd batch): a run that collected ZERO times has not exercised the collector, so
 # this gate reads rt_gc_runs_count out of its own run report and REFUSES rc=2 rather than grading a silence green.

@@ -19,10 +19,10 @@
 #
 # THE ARMS (expectations cut from sbl -bf AT RUN TIME):
 #   1-2  m3 / m4: the probe matrix -- the cured shapes and the bare-FENCE controls (which must stay nomatch)   -- RED on base
-#   3-4  m3 / m4: the SNOBOL4 master's three xfails of this class answer their .ref                           -- RED on base
+#   3-4  m3 / m4: the SNOBOL4 rungs' three xfails of this class answer their .ref                           -- RED on base
 # NOT HERE: P = ARBNO(LEN(1)) LEN(1) resumed through *P fails on alternating extension counts with no FENCE at all -- a separate
-# defect, left visibly red in the master and named in the baton.
-# EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle, no master).
+# defect, left visibly red in the rungs and named in the baton.
+# EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle, no rungs).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,12 +30,12 @@ ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="$ROOT/scrip"
 RT_DIR="$ROOT/out"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
-MASTER="$S4E/corpus/tests/snobol4"
+RUNGS="$S4E/corpus/tests/snobol4"
 NAME=sno_backtracking_into_fence_of_p_retreats_to_its_left
 refuse() { echo "GATE REFUSE(2) [$NAME]: $*"; exit 2; }
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- cannot measure"
 [ -f "$RT_DIR/libscrip_rt.so" ] || refuse "no $RT_DIR/libscrip_rt.so -- cannot measure mode 4"
-[ -f "$MASTER/ALL.sno" ] && [ -f "$MASTER/ALL.ref" ] || refuse "no SNOBOL4 master under $MASTER -- pull corpus"
+[ -f "$RUNGS/ALL.sno" ] && [ -f "$RUNGS/ALL.ref" ] || refuse "no SNOBOL4 rungs under $RUNGS -- pull corpus"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || true
 SBL="$(sbl_correctness_bin 2>/dev/null || true)"; [ -n "${SBL:-}" ] && [ -x "$SBL" ] || SBL=/home/resources/x64/bin/sbl
 [ -x "$SBL" ] || refuse "no sbl oracle -- cannot measure (a missing oracle prints a full false table)"
@@ -76,7 +76,7 @@ done
 grep -qx 'nomatch' "$T/p20.oracle" && grep -qx 'match ' "$T/p2.oracle" || refuse "the oracle's FENCE answers moved: p2 [$(cat "$T/p2.oracle")] p20 [$(cat "$T/p20.oracle")]"
 ENTRIES=(arbno_fence_pos_branch_22 arbno_fence_pos_replace_branch_3 fence_pos_rpos_replace_branch_3)
 for e in "${ENTRIES[@]}"; do
-    python3 "$HERE/corpus_suite_harness.py" extract "$MASTER/ALL.sno" "$MASTER/ALL.ref" "$e" "$T/$e.sno" --out-ref "$T/$e.ref" > /dev/null 2>&1 || refuse "could not extract master entry $e"
+    python3 "$HERE/corpus_suite_harness.py" extract "$RUNGS/ALL.sno" "$RUNGS/ALL.ref" "$e" "$T/$e.sno" --out-ref "$T/$e.ref" > /dev/null 2>&1 || refuse "could not extract rungs entry $e"
 done
 fail=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   arm $n  $1"; else echo "  FAIL arm $n  $1 -- $2"; fail=1; fi; }
@@ -93,7 +93,7 @@ entries() { local bad=""
     done; [ -z "$bad" ] && echo ok || echo "$bad"; }
 arm "m3: the FENCE(P) probe matrix (${#PROBES[@]} probes, bare-FENCE controls included) answers as sbl -bf" "$(matrix m3)"
 arm "m4: the FENCE(P) probe matrix (${#PROBES[@]} probes, bare-FENCE controls included) answers as sbl -bf" "$(matrix m4)"
-arm "m3: the master's ${#ENTRIES[@]} entries of this class answer their .ref" "$(entries m3)"
-arm "m4: the master's ${#ENTRIES[@]} entries of this class answer their .ref" "$(entries m4)"
+arm "m3: the rungs' ${#ENTRIES[@]} entries of this class answer their .ref" "$(entries m3)"
+arm "m4: the rungs' ${#ENTRIES[@]} entries of this class answer their .ref" "$(entries m4)"
 [ "$fail" = 0 ] && { echo "GATE PASS [$NAME]: $n/$n arms"; exit 0; }
 echo "GATE FAIL [$NAME]"; exit 1

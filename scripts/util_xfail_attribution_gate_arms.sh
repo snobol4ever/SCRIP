@@ -21,7 +21,7 @@ echo "ARM 3 QUEUE parses to zero rows (expect rc=2)"
 run "  empty" env S4E_QUEUE="$SC/empty_queue.tsv" bash "$G"
 
 # ARM 4/5 need a rewritten copy pointing at synthetic corpus files
-mk() { sed -e "s|^MASTER_XFAIL=.*|MASTER_XFAIL=\"$1\"|" -e "s|^MASTER_CSV=.*|MASTER_CSV=\"$2\"|" "$G" > "$SC/g.sh"; }
+mk() { sed -e "s|^RUNGS_XFAIL=.*|RUNGS_XFAIL=\"$1\"|" -e "s|^RUNGS_CSV=.*|RUNGS_CSV=\"$2\"|" "$G" > "$SC/g.sh"; }
 
 echo "ARM 4 missing ALL.csv (expect rc=2 -- the population is gone)"
 mk "/home/claude_P/corpus/tests/snobol4/ALL.xfail" "/nonexistent/ALL.csv"

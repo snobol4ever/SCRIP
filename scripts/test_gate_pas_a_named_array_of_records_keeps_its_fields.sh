@@ -8,7 +8,7 @@
 # its element record's fields into the pending field list (pas_rectype_to_pend ran only in the non-array arm), so var_decl saw no
 # fields, skipped the flattened array-of-record registration, and r[2].v became a generic TT_FIELD that reads nothing. type_decl had
 # already registered row with pt's fields, so the arm now loads them too; the named form then builds the IDENTICAL AST to the inline
-# form. No suite cell moved (no PAT, FPC, master or benchmark program declares a variable through a named array-of-record type).
+# form. No suite cell moved (no PAT, FPC, rungs or benchmark program declares a variable through a named array-of-record type).
 # ⛔ NAMED, NOT CURED HERE: a record nested inside an arrayed record (r[2].b.x) still reads back empty -- its own landing.
 #
 # ARMS: one program cut LIVE from fpc -Miso and required byte-identical in BOTH modes (m4 compiles, links and runs): a two-field record

@@ -22,14 +22,14 @@ OUT="${2:-/tmp/cen_m34.tsv}"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 [ -x "$SC/scrip" ] || { echo "no $SC/scrip — build first"; exit 0; }
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): crosscheck/patterns/
-# is gone -- absorbed into THE ONE FLAT MASTER. An explicit DIR arg ($1) is honored as-is; the
-# default now materializes the "crosscheck_patterns" family via lib_master_extract.sh.
+# is gone -- absorbed into THE ONE FLAT RUNGS. An explicit DIR arg ($1) is honored as-is; the
+# default now materializes the "crosscheck_patterns" family via lib_rungs_extract.sh.
 if [ -n "${1:-}" ]; then
   D="$1"
 else
-  MASTER_LANG="${MASTER_LANG:-snobol4}" . "$SC/scripts/lib_master_extract.sh"
+  RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$SC/scripts/lib_rungs_extract.sh"
   D="$W/crosscheck_patterns_src"; mkdir -p "$D"
-  master_extract_family crosscheck_patterns "$D" 2>/dev/null
+  rungs_extract_family crosscheck_patterns "$D" 2>/dev/null
 fi
 : > "$OUT"
 tot=0; agree=0; div=0; s3=0; s4=0; h3=0; h4=0; bf=0; only4=0

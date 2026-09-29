@@ -37,13 +37,13 @@ G="$(basename "$0" .sh)"
 CHK="$ROOT/scripts/util_gc_safe_point_contract.py"
 TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
 # 57 over 154 on the slim-road restore (cto 2026-09-27, hq_snobol4's shared-node verdict on 65b0bc779): the two rt_proc_call_open_slim sites
-# (bb_call_proc_staged.cpp, the zref and frame slim roads) RETURN to the table UNWITNESSED with their roads -- two SnoM DEFINE entries with 30 and
-# 60 formals reach them and the plant that retired them never compiled a master's entries; the count holds at 57 because the same re-cut
+# (bb_call_proc_staged.cpp, the zref and frame slim roads) RETURN to the table UNWITNESSED with their roads -- two SnoRungs DEFINE entries with 30 and
+# 60 formals reach them and the plant that retired them never compiled a rung suite's entries; the count holds at 57 because the same re-cut
 # (over the witness set on the pristine tree) credits the two bb_field_get.cpp sites to the record-field witness of 67c8f3692, which the
 # table still carried UNWITNESSED -- two in, two out, the ceiling a ratchet on arrivals that neither falls for the witnessed pair nor rises.
 # 55 over 154 on the slim roads' second retirement (cto 2026-09-27, row gc-family-1-...-extracted-one-per-file): the role-4 shim now takes 30 to
-# 60 formals (beaf84b26), and the plant over the corpus sources, the master entries compiled and the dyn-scope master entries run in mode 3 read
-# both slim sites at 0 with a forced-positive control (SCRIP_NO_TINY=1) firing them (scripts/gc_master_entry_plant_receipt.tsv); the two
+# 60 formals (beaf84b26), and the plant over the corpus sources, the rungs entries compiled and the dyn-scope rungs entries run in mode 3 read
+# both slim sites at 0 with a forced-positive control (SCRIP_NO_TINY=1) firing them (scripts/gc_rungs_entry_plant_receipt.tsv); the two
 # UNWITNESSED rt_proc_call_open_slim sites leave the table with their roads, and nothing arrives, so the ceiling only falls.
 CEILING="${BARE_POLL_UNWITNESSED_CEILING:-54}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0

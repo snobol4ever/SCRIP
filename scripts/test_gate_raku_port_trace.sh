@@ -13,7 +13,7 @@
 # ⭐ THE HONEST CELL FOR THIS LANGUAGE'S ORACLE DIFF IS "NOT BUILT YET", NEVER "IMPOSSIBLE". Rakudo has no Byrd-port trace to normalise; its `--tracing` output is a MoarVM-level instruction log, a different grain entirely, so an oracle diff here is a real design question and not a missing afternoon.
 # `test_gate_icn_port_trace.sh` is the proof of shape: it normalises iconx's own \&trace onto the four Byrd ports
 # and is strictly stronger than this pin. Until someone writes Raku's, this gate is the pinned instrument and
-# says so; the ANSWER column is where Raku is graded against its real oracle today, and the master suite owns it.
+# says so; the ANSWER column is where Raku is graded against its real oracle today, and the rungs suite owns it.
 # EXIT: 0 every witness matches in both modes; 1 a mismatch, a killswitch or perturbation failure; 2 REFUSED.
 set -u
 PORTTRACE_LANG=Raku; PORTTRACE_SUITE=raku; PORTTRACE_EXT=.raku; PORTTRACE_FAMILIES="ladder"

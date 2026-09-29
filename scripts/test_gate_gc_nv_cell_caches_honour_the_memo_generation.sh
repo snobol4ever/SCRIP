@@ -3,7 +3,7 @@
 # after every collection, and the cache that holds one must join the invalidation protocol the collector already calls
 # (cfo CFO-116, 2026-09-20, SCRIP 621c08866).
 #
-# MEASURED: `user_function_eval_arbno_replace_branch_2` of the snobol4 master, extracted through the harness's OWN
+# MEASURED: `user_function_eval_arbno_replace_branch_2` of the snobol4 rungs, extracted through the harness's OWN
 # extract and run with SNO_LIB and the cwd the grader uses, died rc=139 at SCRIP_GC_STRESS=21 and 35 under a 1 MB arena,
 # 3 of 3, stable partial md5 ae252bdf. core_gc_roots (core/core.c) followed _var_buckets[192] into a block whose header
 # read size=32 type=2 -- DT_S, a STRING -- because rt_dcap_pump's `*cell = d` (pattern_match.c) wrote 16 bytes through a
@@ -41,7 +41,7 @@ SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no 
 SUITE="$ROOT/../corpus/tests/snobol4/ALL.sno"; SREF="$ROOT/../corpus/tests/snobol4/ALL.ref"
 INC="${INC:-$ROOT/../corpus/include}"
 ENTRY=user_function_eval_arbno_replace_branch_2
-[ -f "$SUITE" ] && [ -f "$SREF" ] || { echo "⛔ REFUSE(2): snobol4 master absent ($SUITE)"; exit 2; }
+[ -f "$SUITE" ] && [ -f "$SREF" ] || { echo "⛔ REFUSE(2): snobol4 rungs absent ($SUITE)"; exit 2; }
 [ -d "$INC" ] || { echo "⛔ REFUSE(2): the -INCLUDE companion dir is absent ($INC) -- the witness needs its 16 companions"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 python3 "$HERE/corpus_suite_harness.py" extract "$SUITE" "$SREF" "$ENTRY" "$T/w.sno" --out-ref "$T/w.ref" >/dev/null 2>&1 \

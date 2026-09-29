@@ -148,7 +148,7 @@ fi
 # a fixed symbol.  What was never measured is the CONSEQUENCE: a language whose shielding rides that road reads
 # `members=0 undecidable=0`, which is spelled exactly like clean.  Raku read CLEAN AND DECIDED COMPLETELY in three
 # published cursor entries on EIGHT graded frame stores while 207 of its shielded stores went unread, and the
-# language it certified was losing 65 gradings at SCRIP_GC_STRESS=16 in another seat's master the same evening.
+# language it certified was losing 65 gradings at SCRIP_GC_STRESS=16 in another seat's rungs the same evening.
 # Over the shared witness set the two roads are 972 graded against 6690 unread: this census grades about an
 # eighth of the shielding at its own safe points, and now says so on every run.
 reach="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store REACH ')"
@@ -217,7 +217,7 @@ fi
 
 # (f) THE PROPERTY ITSELF, graded by ORACLE DIFF and not by rc (CEO-997), over a band that goes WELL ABOVE 5.
 # ⛔ THE BAND WAS [0 1 2 3 4] UNTIL 2026-09-20 21:3x AND THAT WAS A DEFECT IN THIS GATE, not a conservative choice
-# (CEO-1024, hq_raku's measurement: the raku master at the tiny arena loses 65 gradings over 36 DISTINCT PROGRAMS
+# (CEO-1024, hq_raku's measurement: the raku rungs at the tiny arena loses 65 gradings over 36 DISTINCT PROGRAMS
 # at SCRIP_GC_STRESS=16 that a 1-3-5 band calls green -- every one exit 0, no diagnostic, plausible wrong answer).
 # A band that ends where the defects start does not measure the tree, it measures the band. The cto's own A/B/A at
 # CTO-101 had already read this witness at twelve points and its BASE band is `. X X . X . . X . . . .` -- the X at

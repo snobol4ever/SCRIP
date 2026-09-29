@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh -- INSIDE A QUOTED TOKEN THE APOSTROPHE DOUBLES (ISO
 # 6.4.2.1), in every writer and in BOTH MODES (row prolog-logtalk-write-term-print-and-write-canonical-family,
-# hq_R 2026-09-13, on the coo's master-board diagnosis of entry format_directive_6).
+# hq_R 2026-09-13, on the coo's rungs-board diagnosis of entry format_directive_6).
 #
 # THE DEFECT THIS PINS. plc_wt_atom escaped the apostrophe as \' -- the swipl spelling. gprolog, SICStus and the
-# Prolog master's OWN REF all double it: the ref reads  it's|'it''s'  and we printed  it's|'it\'s'. One character,
+# Prolog rungs' OWN REF all double it: the ref reads  it's|'it''s'  and we printed  it's|'it\'s'. One character,
 # one site, and it reached writeq/1, print/1, write_canonical/1, write_term/2,3 and format ~q at once, because all
 # five go through that one function.
 #
@@ -88,11 +88,11 @@ for mode in m3 m4; do
         *) echo "  RED  $mode [round trip] writeq's own output did not read back as the same atom (rc=$rc): ${got:-<no output>}"; FAIL=$((FAIL+1)) ;;
     esac
 done
-# ---- THE REF ARM. The master entry the coo's board lost on this defect, graded against its OWN ref bytes rather
+# ---- THE REF ARM. The rungs entry the coo's board lost on this defect, graded against its OWN ref bytes rather
 # than against a string typed in here -- a gate that retypes the expected output is a gate that can drift from it.
-MASTER="${S4E_CORPUS:-$ROOT/../corpus}/tests/prolog"
-if [ -f "$MASTER/ALL.pl" ] && [ -f "$MASTER/ALL.ref" ]; then
-    if python3 "$HERE/corpus_suite_harness.py" extract "$MASTER/ALL.pl" "$MASTER/ALL.ref" format_directive_6 \
+RUNGS="${S4E_CORPUS:-$ROOT/../corpus}/tests/prolog"
+if [ -f "$RUNGS/ALL.pl" ] && [ -f "$RUNGS/ALL.ref" ]; then
+    if python3 "$HERE/corpus_suite_harness.py" extract "$RUNGS/ALL.pl" "$RUNGS/ALL.ref" format_directive_6 \
             "$D/fd6.pl" --out-ref "$D/fd6.ref" >/dev/null 2>&1 && [ -s "$D/fd6.ref" ]; then
         grep -q "it''s" "$D/fd6.ref" || { echo "⛔ REFUSE(2) [$GATE_NAME]: format_directive_6's ref no longer carries the doubled apostrophe, so this arm is grading something else -- read the ref before changing this gate"; exit 2; }
         for mode in m3 m4; do
@@ -100,15 +100,15 @@ if [ -f "$MASTER/ALL.pl" ] && [ -f "$MASTER/ALL.ref" ]; then
             got="$(cd "$D" && run_mode "$mode" "$D/fd6.pl")"; rc=$?
             printf '%s\n' "$got" > "$D/fd6.$mode"
             if [ $rc -eq 0 ] && diff -q "$D/fd6.ref" "$D/fd6.$mode" >/dev/null; then PASS=$((PASS+1))
-            else echo "  RED  $mode [master format_directive_6] does not match its own ref (rc=$rc):"; diff "$D/fd6.ref" "$D/fd6.$mode" | head -6; FAIL=$((FAIL+1)); fi
+            else echo "  RED  $mode [rungs format_directive_6] does not match its own ref (rc=$rc):"; diff "$D/fd6.ref" "$D/fd6.$mode" | head -6; FAIL=$((FAIL+1)); fi
         done
     else
-        echo "⛔ REFUSE(2) [$GATE_NAME]: could not extract format_directive_6 from the Prolog master -- the entry was renamed or the harness moved, and an arm that cannot measure must not report a verdict"; exit 2
+        echo "⛔ REFUSE(2) [$GATE_NAME]: could not extract format_directive_6 from the Prolog rungs -- the entry was renamed or the harness moved, and an arm that cannot measure must not report a verdict"; exit 2
     fi
 else
-    echo "⛔ REFUSE(2) [$GATE_NAME]: no Prolog master at $MASTER -- the ref arm is this gate's external witness and there is no substitute for it here"; exit 2
+    echo "⛔ REFUSE(2) [$GATE_NAME]: no Prolog rungs at $RUNGS -- the ref arm is this gate's external witness and there is no substitute for it here"; exit 2
 fi
 [ "$N" -gt 0 ] || { echo "⛔ REFUSE(2) [$GATE_NAME]: graded ZERO shapes -- a runner that cannot measure must never print the success shape"; exit 2; }
-echo "PL QUOTED APOSTROPHE: PASS=$PASS FAIL=$FAIL / $N arms graded (m3+m4, shapes + round trip + the master ref)"
-[ "$FAIL" -eq 0 ] && { echo "verdict=GREEN -- the apostrophe doubles in every writer and both modes, the neighbouring escapes are untouched, writeq's output reads back equal, and the master entry matches its own ref"; exit 0; }
+echo "PL QUOTED APOSTROPHE: PASS=$PASS FAIL=$FAIL / $N arms graded (m3+m4, shapes + round trip + the rungs ref)"
+[ "$FAIL" -eq 0 ] && { echo "verdict=GREEN -- the apostrophe doubles in every writer and both modes, the neighbouring escapes are untouched, writeq's output reads back equal, and the rungs entry matches its own ref"; exit 0; }
 echo "verdict=RED"; exit 1

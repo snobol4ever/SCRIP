@@ -19,20 +19,20 @@ row() {
 # ⛔ corpus/crosscheck/ is GONE -- converted into tests/snobol4/ALL.{sno,ref,csv} (corpus da0987478
 # lineage, row dead-suite-path-consumer-sweep). `find` on the dead path prints nothing and exits 0, so
 # this silently returned "0" -- a wrong-but-plausible-looking count, not a loud failure. Counts by
-# origin-family prefix via the master CSV instead, same idiom already used by d_probebb/d_beauty_total
+# origin-family prefix via the rungs CSV instead, same idiom already used by d_probebb/d_beauty_total
 # below (ONE AUTHORITY for the suite grammar, never a second parser of it).
 d_crosscheck()  { awk -F, 'NR>1 && $4 ~ /^crosscheck_/' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }
 # library/probe_reference/bb/probes moved into suite format 2026-08-28 (probe-consolidate-bb, LON-20260828 total
 # conversion) -- counts its entries via the harness (ONE AUTHORITY for the suite grammar) instead
 # of a loose-file find, since the suite text file is no longer one file per test.
-d_probebb()     { awk -F, 'NR>1 && $4=="probe_bb_probes"' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # counts master entries by origin-family (zero-subfolders cutover)
+d_probebb()     { awk -F, 'NR>1 && $4=="probe_bb_probes"' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # counts rungs entries by origin-family (zero-subfolders cutover)
 d_demo()        { find "$CORPUS/demos" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_demo15()      { echo 14; }  # ⛔ CORRECTED 2026-09-04 (hq_T, row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-vacuously): was 15, cited as "fixed by construction (board_sno15_ident.sh's own for-loop)" -- mechanically re-counted (`for nm in <the loop's list>; do echo "$nm"; done | wc -l`) and that loop carries 14 names, not 15; the filename and this function's name are the only places "15" survives now. See NOTE below
 d_bench()       { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.sno" 2>/dev/null | wc -l; }
 d_bench_xfail() { find "$CORPUS/benchmarks/snobol4" -maxdepth 1 -name "*.xfail" 2>/dev/null | wc -l; }   # COMPUTED, never typed: the count was written into the row text as "1" and would have gone stale the moment a marker was added or retired (s170)
-d_beauty_total(){ awk -F, 'NR>1 && $4 ~ /^beauty_suite_/' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # beauty drivers absorbed into the master (one per family)
+d_beauty_total(){ awk -F, 'NR>1 && $4 ~ /^beauty_suite_/' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # beauty drivers absorbed into the rungs (one per family)
 d_beauty_drivers(){ d_beauty_total; }
-d_earn0()       { awk -F, 'NR>1 && ($4=="probe_earn0" || $4=="probe_earn02")' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # master origin-family count (zero-subfolders cutover)
+d_earn0()       { awk -F, 'NR>1 && ($4=="probe_earn0" || $4=="probe_earn02")' "$CORPUS/tests/snobol4/ALL.csv" 2>/dev/null | wc -l; }   # rungs origin-family count (zero-subfolders cutover)
 d_broad336()    {
     # Mirrors test_broad_corpus_snobol4.sh's OWN LOGIC verbatim (crosscheck-with-ref via the exact same
     # while-loop guard, + beauty *_driver.sno files with a .ref, + 4 named demos hardcoded in the script).
@@ -71,7 +71,7 @@ case "$SEL" in
     "")
         printf "%-16s %-8s %s\n" SUITE COUNT NOTE
         printf '%.0s-' {1..60}; echo
-        row crosscheck      "$(d_crosscheck)"       "master-CSV origin-family count (crosscheck_*) since corpus/crosscheck/ itself no longer exists"
+        row crosscheck      "$(d_crosscheck)"       "rungs-CSV origin-family count (crosscheck_*) since corpus/crosscheck/ itself no longer exists"
         row probe_bb        "$(d_probebb)"          "moves on any BOARD mint — re-check every session"
         row demo            "$(d_demo)"             "top-level only; recursive find OVERCOUNTS (subdirs not board members)"
         row demo15          "$(d_demo15)"            "the 15-board is a FIXED named set (board_sno15_ident.sh's own for-loop), not a corpus count — will not drift with corpus size"

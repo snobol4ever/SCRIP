@@ -55,9 +55,9 @@ CONTROLS=" icn_suspend_list_control icn_return_record_control icn_coexpr_int_con
 
 red=0; examined=0
 for p in $PROGS; do
-    # ⛔ THE FIXTURE LIVES IN THE ICON MASTER, NOT BESIDE IT (coo 2026-09-25, on the ceo's triage of hq_icon's report): corpus
+    # ⛔ THE FIXTURE LIVES IN THE ICON RUNGS, NOT BESIDE IT (coo 2026-09-25, on the ceo's triage of hq_icon's report): corpus
     # a80ca7617 (09-10) absorbed these witnesses into tests/icon/ALL.icn after measuring each three ways, and deleted the loose
-    # pairs; the master renamed each entry by feature (list_alt_elem1_control is procedure_every_elemgen_replace_11), and
+    # pairs; the rungs renamed each entry by feature (list_alt_elem1_control is procedure_every_elemgen_replace_11), and
     # ALL.csv keeps the old name in its origin column. So the gate refused "missing committed fixture" on every run since. It
     # now extracts each entry BY ORIGIN through the harness (the durable provenance key), byte-identical to the loose pair.
     mkdir -p "$T/fx"; src="$T/fx/$p.icn"; ref="$T/fx/$p.ref"

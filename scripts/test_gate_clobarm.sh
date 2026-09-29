@@ -27,11 +27,11 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 if [ -z "${DIR:-}" ]; then
     # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): clobarm.{sno,ref}
     # (itself a 2026-08-29 re-point onto the per-family suite pair) was absorbed into THE ONE FLAT
-    # MASTER and deleted; lib_master_extract.sh materializes the "probe_clobarm" family's origins
+    # RUNGS and deleted; lib_rungs_extract.sh materializes the "probe_clobarm" family's origins
     # back into a loose-file dir, same idiom this file's own header already documents.
-    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$HERE/lib_master_extract.sh"
+    RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$HERE/lib_rungs_extract.sh"
     DIR="$WORK/clobarm_src"; mkdir -p "$DIR"
-    master_extract_family probe_clobarm "$DIR" 2>/dev/null
+    rungs_extract_family probe_clobarm "$DIR" 2>/dev/null
 fi
 [ -n "$(ls -A "$DIR" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $DIR (suite missing or extraction failed)"; exit 2; }
 for f in "$DIR"/*.sno; do

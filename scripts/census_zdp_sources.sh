@@ -6,12 +6,12 @@ OUT=${1:-/tmp/zdp_sweep_out}
 mkdir -p "$OUT"; : > "$OUT/sources.txt"; : > "$OUT/tiers.txt"
 # ⭐ RE-POINTED 2026-08-30 (seat12, repo-wide dead-suite-path consumer sweep): corpus/probe/ was
 # deleted wholesale (corpus-crosscheck-probe-total-conversion) -- dropped from the sweep. ALL.sno
-# (THE ONE FLAT MASTER, tests/snobol4/ALL.sno) is explicitly excluded too: it is a suite DATA file,
+# (THE ONE FLAT RUNGS, tests/snobol4/ALL.sno) is explicitly excluded too: it is a suite DATA file,
 # one test per LINE, and is never a standalone program -- feeding it to `--compile` whole produces a
 # few hundred spurious "duplicate label 'END'" errors that would otherwise pollute this histogram.
 # ⛔ KNOWN LIMITATION, NOT FIXED HERE: excluding ALL.sno means the ~1500+ entries it now holds are
 # invisible to this census (previously reachable as individual loose files) -- restoring that
-# coverage needs the census to walk ALL.csv/harness-decompose the master, a bigger follow-up than a
+# coverage needs the census to walk ALL.csv/harness-decompose the rungs, a bigger follow-up than a
 # dead-path repoint. Flagged, not silently accepted as "the corpus is just smaller now."
 n=0
 for f in $(find $S4E/corpus/tests/snobol4 -name '*.sno' ! -name 'ALL.sno' | sort); do

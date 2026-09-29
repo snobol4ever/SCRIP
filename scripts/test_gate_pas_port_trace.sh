@@ -13,7 +13,7 @@
 # ⭐ THE HONEST CELL FOR THIS LANGUAGE'S ORACLE DIFF IS "NOT BUILT YET", NEVER "IMPOSSIBLE". `fpc -Miso` emits no goal-directed trace because Pascal has no backtracking -- the four ports collapse to α/γ on every node, which makes this pin cheap and an oracle diff close to meaningless rather than merely unbuilt.
 # `test_gate_icn_port_trace.sh` is the proof of shape: it normalises iconx's own \&trace onto the four Byrd ports
 # and is strictly stronger than this pin. Until someone writes Pascal's, this gate is the pinned instrument and
-# says so; the ANSWER column is where Pascal is graded against its real oracle today, and the master suite owns it.
+# says so; the ANSWER column is where Pascal is graded against its real oracle today, and the rungs suite owns it.
 # EXIT: 0 every witness matches in both modes; 1 a mismatch, a killswitch or perturbation failure; 2 REFUSED.
 set -u
 PORTTRACE_LANG=Pascal; PORTTRACE_SUITE=pascal; PORTTRACE_EXT=.pas; PORTTRACE_FAMILIES="ladder"

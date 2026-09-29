@@ -23,7 +23,7 @@
 #     SCRIP and the oracle both starved to 442 lines and AGREED, exactly the class this gate exists over. So
 #     no amount of oracle agreement can guard the rundir; only an absolute floor on the ANSWER can, and it is
 #     the one arm that still bites on a row whose ref is disputed. A floor that RISES prints a re-pin line
-#     (MASTER_ENTRY_FLOOR's discipline); only a fixture actually retired may lower one, in the commit that
+#     (RUNGS_ENTRY_FLOOR's discipline); only a fixture actually retired may lower one, in the commit that
 #     retires it. The fixture/rundir copy check is kept underneath it, as a staging assert, not as the guard.
 #   2 SCRIP == THE LIVE ARIZONA ORACLE, byte for byte, in that rundir. ⭐ The oracle is COMPILED FROM THE
 #     WITNESS'S OWN SOURCE EVERY RUN, never a checked-in ref, so an oracle/SCRIP difference cannot be a
@@ -95,7 +95,7 @@ REF_DISPUTED=""
 # method this gate uses; the two pre-existing pins (io 135, recent 443) were RE-DERIVED by that method first
 # and reproduced exactly, which is what makes the six trustworthy rather than merely plausible. SCRIP agrees
 # with the oracle on all eight at the tree that pinned them.
-# (2026-09-24: seven. rung36_jcon_others is master entry 824 since 09-11 and its loose pair is deleted; its floor went with it.)
+# (2026-09-24: seven. rung36_jcon_others is rungs entry 824 since 09-11 and its loose pair is deleted; its floor went with it.)
 contract_floor() {
     case "$1" in
         rung36_jcon_io)      echo 133 ;;   # 135 until 2026-09-23: the retired io.std fixture was two listed names

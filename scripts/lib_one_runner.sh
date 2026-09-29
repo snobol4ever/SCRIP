@@ -1,7 +1,7 @@
 #!/bin/bash
 # lib_one_runner.sh -- ONE RUNNER, ONE BOARD (Lon 2026-09-10 16:3x CDT, in-chat to ceo, verbatim: "Quit running the boards over and over
 # again. Co-ordinate with one runner and one board. Do something to alleviate the churn."; RULES.md § FACT RULES, CEO-523).
-# Sourced on line 2 of every master/package board runner and called by corpus_suite_harness.py run: a board is refused (rc=2) to any
+# Sourced on line 2 of every rung suite/package board runner and called by corpus_suite_harness.py run: a board is refused (rc=2) to any
 # seat but the one MODE's LANES: line names for the board's LANGUAGE (CEO-775 below; the centralized coo runner is history). Exempt: the bus's own
 # computed `done`/dispatch run of a DONE-WHEN (S4E_DONE_WHEN_RUN=1, set by s4e_msg.sh, one run per closure) and a loud, named
 # override (S4E_ONE_RUNNER_OVERRIDE="why", printed on the board). ⛔⭐ THE OVERRIDE ADMITS THE RUN AND NOTHING ELSE (ceo CEO-961,
@@ -46,7 +46,7 @@ one_runner_seat() {
 # written for it asked a PATH question, "is the suite under the corpus root", and the corpus root is whatever S4E_HOME/corpus
 # resolves to. A hermetic fixture that builds its own two-repo world and points S4E_HOME at it therefore lands INSIDE its own corpus
 # tree and is judged a board: test_gate_progress_rows_carry_the_start_fingerprint.sh was DARK on origin for a day because its
-# eight-entry scratch master was refused rc=2, the harness appended nothing, and arms 1 and 2 read FAIL for a reason that was never
+# eight-entry scratch rungs was refused rc=2, the harness appended nothing, and arms 1 and 2 read FAIL for a reason that was never
 # about fingerprints. ⭐ THE FACT ASKED IS THE ONE CEO-547 NAMES -- is this the population every seat has? -- and it is asked of the
 # remote: a real checkout carries origin snobol4ever/corpus, a `git init` scratch world carries no remote at all. ⛔ BOTH FACTS, NEVER
 # EITHER: a real board that merely redirected its progress writes is still a board, and a checkout that merely lost its remote is
@@ -154,7 +154,7 @@ one_runner_seat_admitted() {
 }
 # ⛔⭐ THE BINARY IS STAMPED WHERE EVERY BOARD STARTS (coo 2026-09-16; hq_raku's report against themselves, ceo CEO-802; row instruments-
 # a-board-does-not-refuse-when-its-own-seat-rebuilds-the-binary-under-it-the-raku-master-graded-a-tree-that-changed-mid-run): a board and a
-# build share one mutable artefact, ./scrip + out/libscrip_rt.so, and a board whose seat ran `make` under it printed RakM 764/927 -- a
+# build share one mutable artefact, ./scrip + out/libscrip_rt.so, and a board whose seat ran `make` under it printed RakRungs 764/927 -- a
 # measurement of nothing. one_runner_guard exports S4E_BIN_AT_START (lib_gate.sh's fingerprint shape: md5 first 12 of each file, space-
 # joined); util_progress_append.py and util_score_row.py REFUSE when the binary they see differs, and corpus_suite_harness.py checks it
 # before printing any board. An outer runner's stamp is kept by an inner one.
@@ -192,8 +192,8 @@ one_runner_guard() {
   # S4E_ONE_RUNNER_FIXTURE="why" and is admitted for every seat; S4E_ONE_RUNNER_OVERRIDE is the SEAT's override and is not an HQ's.
   # ⛔⭐ AND THE EXEMPTION HOLDS ONLY FOR A POPULATION OUTSIDE THE SHARED CORPUS (ceo CEO-1302 (c), 2026-09-27, on the coo's COO-198
   # report): it admitted the variable alone, whatever the runner graded, so test_gate_nreturn_by_name_value_broken.sh and
-  # test_gate_snocone_returns_codegen.sh ran test_corpus_snobol4.sh over the real 1991-entry master inside a control arm -- two whole
-  # SnoM passes and 7964 dev-pass rows under a seat that runs no board. A suite path that reaches this line is a board (a scratch one
+  # test_gate_snocone_returns_codegen.sh ran test_corpus_snobol4.sh over the real 1991-entry rungs inside a control arm -- two whole
+  # SnoRungs passes and 7964 dev-pass rows under a seat that runs no board. A suite path that reaches this line is a board (a scratch one
   # returned above), and a runner that names none is judged by the corpus its environment resolves -- S4E_CORPUS, else S4E_HOME/corpus
   # -- which is a fixture only when it lies inside no checkout of the shared corpus (one_runner_in_a_shared_checkout, the test a suite
   # outside the configured root already gets: a gate's mktemp root, git-initialised or not, is outside; a worktree of the corpus is

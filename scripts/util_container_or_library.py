@@ -181,7 +181,7 @@ class Package:
             for f in fs:
                 rel = os.path.relpath(os.path.join(d, f), self.root)
                 if f.startswith('ALL.'):
-                    continue  # our own generated master concatenates the vendor's files: it is never a shipped includer or opener
+                    continue  # our own generated rungs concatenates the vendor's files: it is never a shipped includer or opener
                 if lang_of(rel) or f == 'tests.in':
                     self.files.append(rel)
         self.files.sort()

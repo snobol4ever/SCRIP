@@ -231,7 +231,7 @@ gate_behaviour_signature() {
 # object among 269 leaves all three artifacts newer than every source in the tree. The mtime guard is satisfied by
 # make having RUN. It is structurally incapable of failing after a make that compiled anything at all.
 #
-# ⭐ WHAT THIS PROVES, STATED HONESTLY: it is a SELF-PIN, in exactly the sense CEO-395 draws for master refs and the
+# ⭐ WHAT THIS PROVES, STATED HONESTLY: it is a SELF-PIN, in exactly the sense CEO-395 draws for rungs refs and the
 # port-trace standard draws for its two shapes. It proves the emitted code HAS NOT MOVED under a tree that HAS NOT
 # MOVED. It proves nothing whatever about whether that code is RIGHT -- the oracle diffs do that. That narrow claim is
 # the one the FINDING needed and could not get: hq_P's three builds sat on ONE commit, so the tree signature was

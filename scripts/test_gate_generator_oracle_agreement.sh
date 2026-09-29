@@ -14,7 +14,7 @@
 # ⛔ REFUSES rc=2 on: missing python3/generator/scrip/oracle, a dead or -bf-incapable oracle (the generator's
 # own capability probe), an empty (zero) population, or a rung-1 population that is not exactly the stated
 # 110 (a silent change to the vocabulary without updating this gate's stated denominator is itself a defect
-# this gate exists to catch -- "the shrunken-denominator law", corpus README / util_build_master_suite.py).
+# this gate exists to catch -- "the shrunken-denominator law", corpus README / util_build_rungs_suite.py).
 # ⛔ FAILS rc=1 on: any infra failure during grading (timeout/exec error on a nonzero population -- distinct
 # from "could not measure at all"), or any real divergence between scrip and the oracle. A divergence is a
 # genuine finding, routed to hq_P (SNOBOL4) per the task file, never swallowed here to keep the board green.

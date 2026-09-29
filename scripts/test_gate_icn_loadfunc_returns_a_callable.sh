@@ -7,7 +7,7 @@
 # and f(x) could never work.
 #
 # ⛔⭐ WHY IT NEEDED A GATE OF ITS OWN, AND IT IS THE WHOLE REASON THIS FILE EXISTS: the defect was INVISIBLE.
-# No .so in the corpus could be dlopen'd at all (the one master consumer, procedure_write_254, loads the
+# No .so in the corpus could be dlopen'd at all (the one rung suite consumer, procedure_write_254, loads the
 # COMBINED ipl/cfuncs library, which is a plug-in against the iconx interpreter's own C runtime and needs 12
 # symbols iconx exports from its -rdynamic link), so every call site died at ERROR 216 BEFORE reaching the
 # stub — and the raise-216 arm is indistinguishable from a working implementation to every test the tree
@@ -16,7 +16,7 @@
 # and no permission-gated symbol, and it exercises the marshalling surface a real plug-in uses.
 #
 # THE STANDING NEGATIVE CONTROL IS ARM N and it is load-bearing: a cure that returns a callable must STILL
-# raise 216 when dlopen genuinely fails, or `ladder_rung41_rt_loadfunc_refusal` in the Icon master goes red.
+# raise 216 when dlopen genuinely fails, or `ladder_rung41_rt_loadfunc_refusal` in the Icon rungs goes red.
 #
 # EXPECTATIONS ARE PINNED FROM icont/iconx 9.5.25a, cut live 2026-09-10 by hq_S; the gate does not need the
 # oracle at run time (it needs gcc and icall.h) and REFUSES rc=2 rather than measuring nothing.

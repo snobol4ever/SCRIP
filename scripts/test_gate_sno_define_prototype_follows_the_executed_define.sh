@@ -10,7 +10,7 @@
 # Two witnesses, both cut live from the oracle:
 #   W1 rename the formal:  DEFINE('rd(n)') ... DEFINE('rd(rd)','rd2') -- the FIRST call, before any redefine,
 #      must bind n (rd(3) = 6, not 0).  Checked at n=3 AND n=5 so 3! = 3*2 cannot hide the last-prototype body
-#      (three master entries passed by exactly that coincidence until 0d54a825f).
+#      (three rungs entries passed by exactly that coincidence until 0d54a825f).
 #   W2 drop a local (Gimpel's COPYL idiom): DEFINE('C(L)T') whose body re-DEFINEs 'C(L)' with entry C_1 and
 #      sets T before recursing -- the inner calls must NOT save-and-null T (ERROR 235 today).
 # Exit: 0 both witnesses match the oracle in both modes · 1 the defect is present · 2 REFUSED (cannot measure).

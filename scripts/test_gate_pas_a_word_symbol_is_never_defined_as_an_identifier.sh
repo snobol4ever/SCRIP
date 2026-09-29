@@ -7,7 +7,7 @@
 # through as an ordinary IDENT (mk_ident turns a USE of it into the null pointer), so PAT iso7185prt1911's 'var nil: integer' compiled
 # and ran. The check sits in id_list, which is only ever a DEFINING occurrence (program parameters, enumeration constants, record
 # fields, variables, formal parameters), and tests the whole 6.1.2 list, so any word-symbol the lexer lets through is refused the same
-# way. Before landing, every acceptance program in the corpus was compiled with the check (PasM, the FPC suite, P4, P5, benchmarks):
+# way. Before landing, every acceptance program in the corpus was compiled with the check (PasRungs, the FPC suite, P4, P5, benchmarks):
 # zero tripped; the only trip was the P5 copy of this same test.
 #
 # ARMS: the vendored witness, REFUSED with a non-empty diagnostic in BOTH modes (m4 compiles, and if the compile is accepted, links

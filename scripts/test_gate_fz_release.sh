@@ -41,9 +41,9 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 # An explicit FZ override (a caller's own standalone witness dir) is used AS-IS, exactly as before --
 # extraction only runs on the default path, so override semantics are unchanged.
 if [ -z "${FZ:-}" ]; then
-    MASTER_LANG="${MASTER_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_master_extract.sh"   # re-pointed to THE MASTER (zero-subfolders cutover, ceo s283h): family probe_fz
+    RUNGS_LANG="${RUNGS_LANG:-snobol4}" . "$(dirname "${BASH_SOURCE[0]}")/lib_rungs_extract.sh"   # re-pointed to THE RUNGS (zero-subfolders cutover, ceo s283h): family probe_fz
     FZ="$WORK/fz_src"; mkdir -p "$FZ"
-    master_extract_family probe_fz "$FZ" || true
+    rungs_extract_family probe_fz "$FZ" || true
 fi
 [ -d "$FZ" ] && [ -n "$(ls -A "$FZ" 2>/dev/null)" ] || { echo "⛔ REFUSED-TO-GRADE no $FZ (suite missing or extraction failed)"; exit 2; }
 rc=0

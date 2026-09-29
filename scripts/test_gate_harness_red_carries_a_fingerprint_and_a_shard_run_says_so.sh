@@ -3,12 +3,12 @@
 # coo; rows instruments-a-red-is-a-bucket-every-board-prints-a-fingerprint-beside-each-red-and-the-denominator-of-its-comparison and
 # instruments-a-sharded-harness-run-appends-progress-rows-wearing-a-full-boards-suite-name-the-shard-is-not-in-the-row).
 #
-# THE DEFECT, MEASURED: SnoM read 1962/1981 with a defect and 1962/1981 without it, all seven SNOBOL4 package boards at their totals,
+# THE DEFECT, MEASURED: SnoRungs read 1962/1981 with a defect and 1962/1981 without it, all seven SNOBOL4 package boards at their totals,
 # red NAME SETS identical -- while spitbol_testpgms test1 was red on base AND head with a DIFFERENT first diff each time (ERROR AT 137
 # ERRTYPE 22 became ERROR AT 72 ERRTYPE 29).  Counts and name sets treat reds as interchangeable, so a program that got MORE wrong
 # while staying red was invisible.  And a --shard k/N harness run appended progress rows a reader could not tell from a full board's.
 #
-# ARMS (a three-entry fixture cut from the SNOBOL4 master into mktemp, entry 2's ref broken so it reads FAIL both runs; a scratch DB):
+# ARMS (a three-entry fixture cut from the SNOBOL4 rungs into mktemp, entry 2's ref broken so it reads FAIL both runs; a scratch DB):
 #   (a) run A: the RED line for entry 2 carries [fp=<md5/8 of our stdout> rc=<n>] and the DB row's note carries the same fp= token
 #   (b) run B: entry 2's SOURCE replaced by entry 3's (same name, same broken ref): the count is unchanged (1 red, same name) and the
 #       fingerprint MOVED -- the shape change the counts and name sets could not see
@@ -16,15 +16,15 @@
 # FAIL_ONCE=1 copies run A's fingerprint over run B's before arm (b) asserts, to prove the arm trips.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-H="$HERE/corpus_suite_harness.py"; MASTER="${S4E_CORPUS_ROOT:-$HERE/../../corpus}/tests/snobol4"
+H="$HERE/corpus_suite_harness.py"; RUNGS="${S4E_CORPUS_ROOT:-$HERE/../../corpus}/tests/snobol4"
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -f "$H" ] || refuse "no harness at $H"
 [ -x "$HERE/../scrip" ] || refuse "no ./scrip binary beside scripts/ -- make first"
-[ -f "$MASTER/ALL.sno" ] && [ -f "$MASTER/ALL.ref" ] || refuse "no master pair under $MASTER to cut a fixture from"
+[ -f "$RUNGS/ALL.sno" ] && [ -f "$RUNGS/ALL.ref" ] || refuse "no rungs pair under $RUNGS to cut a fixture from"
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_red_fp.XXXXXX")" || refuse "mktemp failed"; trap 'rm -rf "$W"' EXIT
 mkdir -p "$W/tests/snobol4"; F="$W/tests/snobol4/ALL.sno"; R="$W/tests/snobol4/ALL.ref"
-head -3 "$MASTER/ALL.sno" > "$F"; head -3 "$MASTER/ALL.ref" > "$R"
-[ "$(wc -l < "$F")" = 3 ] && [ "$(wc -l < "$R")" = 3 ] || refuse "the master's first three lines did not cut cleanly"
+head -3 "$RUNGS/ALL.sno" > "$F"; head -3 "$RUNGS/ALL.ref" > "$R"
+[ "$(wc -l < "$F")" = 3 ] && [ "$(wc -l < "$R")" = 3 ] || refuse "the rungs' first three lines did not cut cleanly"
 NAME="$(sed -n 2p "$F" | sed 's/.*;\* //')"; [ -n "$NAME" ] || refuse "cannot read entry 2's name from its ';* name' tail"
 sed -i '2s/.*/FIXTURE-BROKEN-REF: this line is not what the program prints/' "$R"
 DB="$W/results.tsv"; printf 'ts_utc\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\tsecs\tnote\n' > "$DB"

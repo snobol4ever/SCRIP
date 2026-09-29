@@ -72,7 +72,7 @@ run_write() { # run_write <home> <measurer> [extra args...]
 sum_of() { md5sum "$1/.github/SCORE.md" | cut -d' ' -f1; }
 echo "--- ARMS 1-2: a scratch MODE naming the coo -- a non-runner seat writes NOTHING and SAYS SO, the runner writes ---"
 B1="$WORK/b1"; mkboard "$B1" yes || refuse "could not build the repo-backed fixture board"
-mode_with 'coo PASCAL, and THE ONE RUNNER for every master and package board; hq_I SNOCONE'
+mode_with 'coo PASCAL, and THE ONE RUNNER for every rung suite and package board; hq_I SNOCONE'
 before="$(sum_of "$B1")"; out="$(run_write "$B1" hq_I)"; rc=$?
 [ "$rc" = 0 ]; arm $? "the refusal is NON-FATAL (rc=$rc) -- a bookkeeping rule must never be able to red a measured board"
 [ "$(sum_of "$B1")" = "$before" ]; arm $? "the board file is BYTE-UNCHANGED -- nothing for a stage-everything to sweep in"
@@ -83,7 +83,7 @@ out="$(run_write "$B1" coo)"; rc=$?
 [[ "$out" == *"rewritten in place"* ]]; arm $? "and the write says so in the runner's own words"
 echo "--- ARM 3: THE ROSTER IS READ, NOT SPELLED -- name a runner who is not the coo and the coo is refused ---"
 B3="$WORK/b3"; mkboard "$B3" yes || refuse "could not build the second fixture board"
-mode_with 'cfo SNOBOL4, and THE ONE RUNNER for every master and package board; coo PASCAL'
+mode_with 'cfo SNOBOL4, and THE ONE RUNNER for every rung suite and package board; coo PASCAL'
 before="$(sum_of "$B3")"; out="$(run_write "$B3" coo)"
 [ "$(sum_of "$B3")" = "$before" ] && [[ "$out" == *"NOT UPDATED"* && "$out" == *cfo* ]]
 arm $? "the coo is REFUSED where the scratch MODE names the cfo -- an implementation spelling a seat name fails here"
@@ -110,7 +110,7 @@ echo "--- ARMS 6-7b: THE SANCTIONED DOORS, LOUD AND RECORDED -- and NEITHER the 
 # ⭐ THE RULING'S OWN ARGUMENT IS ARM 6B: the lane owner writes EITHER WAY, because the lane check passes before this
 # door is ever read, so closing it costs the legitimate case nothing and shuts only the control-arm case.
 B6="$WORK/b6"; mkboard "$B6" yes || refuse "could not build the fifth fixture board"
-mode_with 'coo PASCAL, and THE ONE RUNNER for every master and package board'
+mode_with 'coo PASCAL, and THE ONE RUNNER for every rung suite and package board'
 before="$(sum_of "$B6")"; out="$(DW=1 run_write "$B6" hq_I)"
 [ "$(sum_of "$B6")" = "$before" ] && [[ "$out" == *"NOT UPDATED"* ]]
 arm $? "the bus's computed \`done\` run of a DONE-WHEN by a seat that is NOT the lane owner writes NOTHING and says so (CEO-997 ONE)"
@@ -139,7 +139,7 @@ echo "--- ARMS 7c-7d: A GATE NEVER PUBLISHES A LEADERBOARD ROW -- the caller's o
 # the record of MEASUREMENTS; an invariant check that writes to the record makes the record a function of who ran which
 # gate today. So the declaration is the CALLER's and it beats lane ownership, which is what arm 7c grades.
 B7C="$WORK/b7c"; mkboard "$B7C" yes || refuse "could not build the eighth fixture board"
-mode_with 'coo PASCAL, and THE ONE RUNNER for every master and package board'
+mode_with 'coo PASCAL, and THE ONE RUNNER for every rung suite and package board'
 before="$(sum_of "$B7C")"; out="$(NW='gate fixture: an invariant check, not a measurement of record' run_write "$B7C" coo)"; rc=$?
 [ "$rc" = 0 ] && [ "$(sum_of "$B7C")" = "$before" ] && [[ "$out" == *"NOT UPDATED"* && "$out" == *"publishes nothing by its caller"* ]]
 arm $? "the LANE OWNER's own run publishes NOTHING when the caller declares it (S4E_SCORE_NO_WRITE), non-fatal and byte-unchanged"

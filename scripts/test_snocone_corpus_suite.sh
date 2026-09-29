@@ -17,7 +17,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # this gate used to read was ABSORBED into tests/snocone/ALL.sc and DELETED once byte-equal-or-no-
 # delete verified it. Reading a now-deleted path would SKIP-as-exit-0 forever -- the exact "a
 # missing prerequisite must REFUSE, never a green exit" class RULES.md names -- so this gate now
-# re-materializes the "corpus" family out of the master via `extract-family` (family membership
+# re-materializes the "corpus" family out of the rungs via `extract-family` (family membership
 # from ALL.csv, never a name guess) and grades THAT.
 #
 # Gate: FAIL=0 over the printed total (do not pin a specific total here -- the fixture count
@@ -35,20 +35,20 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail   # deliberately NOT -e: this script's own diagnostic must never mask a fail count
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MASTER_SNO="$S4E/corpus/tests/snocone/ALL.sc"
-MASTER_REF="$S4E/corpus/tests/snocone/ALL.ref"
-MASTER_CSV="$S4E/corpus/tests/snocone/ALL.csv"
+RUNGS_SNO="$S4E/corpus/tests/snocone/ALL.sc"
+RUNGS_REF="$S4E/corpus/tests/snocone/ALL.ref"
+RUNGS_CSV="$S4E/corpus/tests/snocone/ALL.csv"
 
 echo "=== Snocone corpus suite (m3+m4) ==="
 
-if [ ! -f "$MASTER_SNO" ] || [ ! -f "$MASTER_REF" ] || [ ! -f "$MASTER_CSV" ]; then
-    echo "REFUSES rc=2: master not found at $MASTER_SNO / $MASTER_REF / $MASTER_CSV -- cannot measure."
+if [ ! -f "$RUNGS_SNO" ] || [ ! -f "$RUNGS_REF" ] || [ ! -f "$RUNGS_CSV" ]; then
+    echo "REFUSES rc=2: rungs not found at $RUNGS_SNO / $RUNGS_REF / $RUNGS_CSV -- cannot measure."
     exit 2
 fi
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-if ! python3 "$HERE/corpus_suite_harness.py" extract-family "$MASTER_SNO" "$MASTER_REF" "$MASTER_CSV" corpus "$W/corpus.sc" "$W/corpus.ref" >&2; then
-    echo "REFUSES rc=2: could not extract family 'corpus' from the master -- see stderr above."
+if ! python3 "$HERE/corpus_suite_harness.py" extract-family "$RUNGS_SNO" "$RUNGS_REF" "$RUNGS_CSV" corpus "$W/corpus.sc" "$W/corpus.ref" >&2; then
+    echo "REFUSES rc=2: could not extract family 'corpus' from the rungs -- see stderr above."
     exit 2
 fi
 
