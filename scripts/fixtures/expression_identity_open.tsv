@@ -4,5 +4,3 @@ A # B	snocone-binary-opsyn-operators-parse-like-snobol4-and-spitbol-and-dispatch
 A % B	snocone-binary-opsyn-operators-parse-like-snobol4-and-spitbol-and-dispatch-through-opsyn
 A @ B	snocone-binary-opsyn-operators-parse-like-snobol4-and-spitbol-and-dispatch-through-opsyn
 A ~ B	snocone-binary-opsyn-operators-parse-like-snobol4-and-spitbol-and-dispatch-through-opsyn
-é	SCRIP accepts non-ASCII identifier letters (src/parsers/snobol4/unicode_alpha_ranges.h); SPITBOL x64 refuses them -- for Lon
-Aé	SCRIP accepts non-ASCII identifier letters (src/parsers/snobol4/unicode_alpha_ranges.h); SPITBOL x64 refuses them -- for Lon

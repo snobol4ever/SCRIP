@@ -5,6 +5,8 @@
 # must be SPITBOL's, and for a valid expression the two parsers' trees must be byte-identical. Two exceptions are NAMED,
 # never silent: angle-bracket subscripts are out of Snocone by Lon's ruling (the Snocone verdict must be a refusal), and
 # lines listed in scripts/fixtures/expression_identity_open.tsv are printed with the row that owns them -- and still read RED (no xfail).
+# SCRIP's non-ASCII identifier letters are KEPT (Lon 2026-09-28: "keep the extension"; src/parsers/snobol4/unicode_alpha_ranges.h): an
+# expression holding a byte >= 0x80 outside a literal is graded as valid whatever sbl -bf says, so both parsers must accept it alike.
 # rc 0 all agree · rc 1 a disagreement not named as open · rc 2 cannot measure (no oracle, no scrip, empty deck).
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="$HERE/../scrip"
@@ -47,7 +49,7 @@ def parse(e, lang):
     return True, " ".join("".join(o).split())
 red = []; named = []
 for e in exprs:
-    v = oracle(e); nok, nt = parse(e, "sno"); cok, ct = parse(e, "sc"); why = []
+    v = oracle(e) or bool(re.search(r"[\x80-\U0010ffff]", re.sub(r"'[^']*'|\"[^\"]*\"", "", e))); nok, nt = parse(e, "sno"); cok, ct = parse(e, "sc"); why = []
     if nok != v: why.append("SNOBOL4 %s where SPITBOL %s" % ("accepts" if nok else "refuses", "accepts" if v else "refuses"))
     if v and ("<" in e or ">" in e):
         if cok: why.append("Snocone accepts an angle-bracket subscript (ruled out, Lon 2026-09-28)")
