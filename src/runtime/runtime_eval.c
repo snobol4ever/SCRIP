@@ -243,13 +243,15 @@ static void eval_thunks_emit_from(int pc0)
                 for (int _mi = 0; _mi < g_stage2.proc_count; _mi++) if (g_stage2.proc_table[_mi].name && !strcmp(g_stage2.proc_table[_mi].name, "main")) {
                     int _mx = g_stage2.proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]); break; }
                 if (g_flat_frame_floor <= 0 && b1cland) g_flat_frame_floor = zls_g_region(_pg); } }
+        int _ispe = 0;
         { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
           int _isp = emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
-          if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; }
+          if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; _ispe = _isp; }
         char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
         { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
         if (pfn) rt_proc_set_fn(pname, pfn);
+        { extern int g_last_flat_frame_bytes, g_last_flat_zstatic; extern void bb_thunk_rec_fill(const char *, void *, int32_t, int32_t); if (pfn && _ispe) bb_thunk_rec_fill(pname, (void *)pfn, b1c ? g_last_flat_frame_bytes : 0, b1c ? g_last_flat_zstatic : 0); }
         { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }
         if (b1c && pfn) { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
         if (b1c && pfn) { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); rt_proc_set_zstatic(pname, g_last_flat_zstatic); }

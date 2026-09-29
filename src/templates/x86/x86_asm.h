@@ -724,6 +724,10 @@ inline std::string x86_asm_str_escape(const char * s, size_t len) {
     return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_ro_seal_addr(int n, const char * sym, const void * addr) {
+    if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le((uint64_t)(uintptr_t)addr));
+    return x86_internal_name(n) + ":\n .quad " + std::string(sym ? sym : "0") + "\n";
+}
 inline std::string x86_ro_seal_str(int n, const char * lit) {
     const char * s = lit ? lit : "";
     if (MEDIUM_BINARY) return x86_Drec(X86_INTERNAL_BASE + n) + x86_Lrec(u64le((uint64_t)(uintptr_t)s));

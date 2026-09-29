@@ -1270,6 +1270,15 @@ void rt_patv_freeze(void *hv, const char *bn, long n)
     h->snap = v; h->nsnap = n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_sno_mkpat_d(DESCR_t *args, int nargs)
+{
+    const sno_thunk_rec_t *r = (nargs >= 1 && args[0].v == DT_I) ? (const sno_thunk_rec_t *)(uintptr_t)args[0].i : (const sno_thunk_rec_t *)0;
+    if (!r || !r->fn) return FAILDESCR;
+    DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(r->fn, (int64_t)r->frame_bytes, r->zstatic);
+    if (nargs > 1) { long n = (long)nargs - 1; DESCR_t *v = (DESCR_t *)rt_ws_alloc_descr((size_t)n); for (long i = 0; i < n; i++) v[i] = args[1 + i]; ((DTP_t *)pd.p)->snap = v; ((DTP_t *)pd.p)->nsnap = n; }
+    return pd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t patv_slot(void *hv, long i, const char *fb, int ival_flag)
 {
     DTP_t *h = (DTP_t *)hv;

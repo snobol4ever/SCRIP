@@ -1626,6 +1626,7 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes;
                   if (getenv("SCRIP_N2_FB_PREPASS")) fprintf(stderr, "[N2-FB] POSTEMIT mode=4 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes); }
                 { extern int g_last_flat_zstatic; proc_zstatic_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_zstatic; }
+                if (proc_ispat_buf[n_procs] && pname) emit_textf("  .section .data.rel.ro\n  .p2align 4\n.Lthk_%s:\n  .quad FN__%s\n  .long %d, %d\n  .section .text\n  .intel_syntax noprefix\n", asm_sym_name(pname), asm_sym_name(pname), proc_fb_buf[n_procs], proc_zstatic_buf[n_procs]);
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
@@ -1802,9 +1803,10 @@ int main(int argc, char **argv)
                 { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
                 { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0; g_flat_frame_floor = 0; int _floor_hit = (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED))); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG] pname=%s is_lbl=%d entry_op=%d hit=%d\n", pname ? pname : "(null)", _is_lbl, _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
+                int _isp3 = 0;
                 { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
                   int _isp = emit_jmp_entry_for_patproc(pname, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
-                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; }
+                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; _isp3 = _isp; }
                 { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
@@ -1819,6 +1821,7 @@ int main(int argc, char **argv)
                 { extern int g_last_flat_frame_bytes; if (getenv("SCRIP_N2_FB_PREPASS"))
                   fprintf(stderr, "[N2-FB] POSTEMIT mode=3 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes); }
                 if (pfn) rt_proc_set_fn(pname, pfn);
+                { extern int g_last_flat_frame_bytes, g_last_flat_zstatic; extern void bb_thunk_rec_fill(const char *, void *, int32_t, int32_t); if (pfn && _isp3) bb_thunk_rec_fill(pname, (void *)pfn, g_last_flat_frame_bytes, g_last_flat_zstatic); }
                 if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
                 { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
                 { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }

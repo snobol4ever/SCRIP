@@ -2051,47 +2051,22 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     IR_graph_t * g = cx->g;
     const char * bn = sno_pat_collect(pat);
     IR_t * mk = lc_build(g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$MKPAT";
-    IR_t * nl = lc_build(g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = (char *) bn;
+    IR_t * nl = lc_build(g, IR_LIT_STRING, NULL, ω); IR_LIT(nl).sval = (char *) bn; nl->seal = IR_SEAL_THUNK_REF;
     ir_operand_push(mk, nl);
-    IR_t * pae = nl;
     IR_graph_t * tg = IR_alloc(256);
     scx_t tx; tx.g = tg; tx.loop_exit = NULL; tx.loop_next = NULL; tx.result_name = NULL; tx.pat_fail = NULL; tx.pat_seal = NULL; tx.npre = 0; tx.prog_nstmt = 0; tx.stno_base = 0;
     IR_t * tok = lc_build(tg, IR_SUCCEED, NULL, NULL);
     IR_t * tno = lc_build(tg, IR_FAIL, NULL, NULL);
     tx.pat_fail = tno; tx.pat_seal = sno_thunk_abort_exit(tg, tno);
     sno_pat_node(&tx, pat, tok, tno);
-    IR_t * pahead = NULL; IR_t * palast = NULL; const char * pbao = getenv("SCRIP_PB_ARGORDER");
-    if (!pbao && tx.npre > 0) {
-        IR_t * asns[64]; IR_t * cont;
-        for (int api = tx.npre - 1; api >= 0; api--) {
-            char abuf[48]; snprintf(abuf, sizeof abuf, "%s$V%d", bn, api);
-            asns[api] = lc_build(g, IR_ASSIGN, pae, ω); IR_LIT(asns[api]).sval = lp_strdup(abuf);
-            pae = asns[api];
-        }
-        cont = asns[0];
-        for (int api = tx.npre - 1; api >= 0; api--) {
-            IR_t * av = NULL;
-            cont = sx_lower(cx, tx.pre[api].arg, cont, ω, &av);
-            ir_operand_push(asns[api], av);
-        }
-        pae = cont;
+    IR_t * last = nl;
+    for (int api = 0; api < tx.npre; api++) {
+        IR_t * av = NULL; IR_t * ae = sx_lower(cx, tx.pre[api].arg, NULL, ω, &av);
+        lc_γ_to(last, ae); ir_operand_push(mk, av); last = av;
     }
-    else {
-        for (int api = 0; api < tx.npre; api++) {
-            char abuf[48]; snprintf(abuf, sizeof abuf, "%s$V%d", bn, api);
-            IR_t * asnA = lc_build(g, IR_ASSIGN, pae, ω); IR_LIT(asnA).sval = lp_strdup(abuf);
-            IR_t * av = NULL;
-            IR_t * ae = sx_lower(cx, tx.pre[api].arg, asnA, ω, &av);
-            ir_operand_push(asnA, av);
-            if (pbao && *pbao == '0') { pae = ae; continue; }
-            if (!pahead) pahead = ae; else lc_γ_to(palast, ae);
-            palast = asnA;
-        }
-        if (pahead) pae = pahead;
-    }
-    if (tx.npre > 0) { IR_t * ncnt = lc_build(g, IR_LIT_STRING, mk, ω); char cb[16]; snprintf(cb, sizeof cb, "%d", tx.npre); IR_LIT(ncnt).sval = lp_strdup(cb); ir_operand_push(mk, ncnt); lc_γ_to(nl, ncnt); }
+    lc_γ_to(last, mk);
     if (res) *res = mk;
-    return pae;
+    return nl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * repl_t, int has_repl, IR_t * sJ, IR_t * fJ, IR_t ** out_land) {

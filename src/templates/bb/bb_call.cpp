@@ -21,6 +21,8 @@ DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
 extern "C" {
 #include "builtin_ids.h"
 #include "snobol4_system_fns.h"
+#include "dtp.h"
+const char * bb_ab_sym_name(const char * nm);
 }
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L;
@@ -31,7 +33,7 @@ extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
 static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1; if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2; if (strict == 2) return 3; if (strict) return 4; return 5; }
 static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
 static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
-DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_catch_handle(DESCR_t *, int); DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_clause_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_fp_model_spitbol(DESCR_t *, int); DESCR_t rt_sno_wantnm_d(DESCR_t *, int);
+DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_catch_handle(DESCR_t *, int); DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_clause_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_fp_model_spitbol(DESCR_t *, int); DESCR_t rt_sno_wantnm_d(DESCR_t *, int); DESCR_t rt_sno_mkpat_d(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
 DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *, int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
 DESCR_t rt_pl_dop_wall_us(DESCR_t *, int); DESCR_t rt_pl_dop_wall_ms(DESCR_t *, int);
@@ -139,6 +141,19 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("mov", FRQ(aoff + 8), "rax");
         return s;
     }
+    if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_THUNK_REF) {
+        int nseal = idx * 2, nskip = idx * 2 + 1;
+        std::string lbl = std::string(".Lthk_") + bb_ab_sym_name(IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
+        std::string s;
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = THUNK-REF (the compiled pattern's record, baked) -> [zr+" + std::to_string(aoff) + "]");
+        s += x86("mov", FRQ(aoff), (long)DT_I);
+        s += x86("mov", "rax", ROQ(nseal));
+        s += x86("mov", FRQ(aoff + 8), "rax");
+        s += x86_jmp_id(nskip);
+        s += x86_ro_seal_addr(nseal, lbl.c_str(), bb_thunk_rec_addr(IR_LIT(lf).sval));
+        s += x86_deflabel_id(nskip);
+        return s;
+    }
     if (lf->op == IR_LIT_STRING) {
         int nseal = idx * 2, nskip = idx * 2 + 1;
         std::string s;
@@ -202,7 +217,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$throw", 1, "rt_pl_throw_raise", rt_pl_throw_raise }, { "$existence_error", 1, "rt_pl_exist_raise", rt_pl_exist_raise },
         { "$catch_handle", 1, "rt_pl_catch_handle", rt_pl_catch_handle },
         { "$write", 1, "dop_write", dop_write }, { "$nl", 0, "dop_nl", dop_nl },
-        { "$fp_model_spitbol", 0, "rt_fp_model_spitbol", rt_fp_model_spitbol }, { "SNO$WANTNM", -1, "rt_sno_wantnm_d", rt_sno_wantnm_d },
+        { "$fp_model_spitbol", 0, "rt_fp_model_spitbol", rt_fp_model_spitbol }, { "SNO$WANTNM", -1, "rt_sno_wantnm_d", rt_sno_wantnm_d }, { "SNO$MKPAT", -1, "rt_sno_mkpat_d", rt_sno_mkpat_d },
         { "$compare", 3, "rt_pl_dop_compare", rt_pl_dop_compare }, { "$functor", 3, "rt_pl_dop_functor", rt_pl_dop_functor }, { "$arg", 3, "rt_pl_dop_arg", rt_pl_dop_arg },
         { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term },
         { "$term_variables", 2, "rt_pl_dop_term_variables", rt_pl_dop_term_variables }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },

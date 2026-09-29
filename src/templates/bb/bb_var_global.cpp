@@ -17,8 +17,8 @@ static inline int vg_patv_slot(const char * sv) { const char * d = sv ? strstr(s
 std::string bb_var_global() {
         const int vs = vg_patv_slot(_.op_sval);
         return !_.op_zres && _.op_off < 0 ? x86_alpha() + x86_bomb("bb_var_global: unhandled (needs descr flat-chain + own slot)")
-             : vs >= 0 && g_gva_active && _.op_gva_k >= 0 ?
-               x86("comment", "IR_VAR patv-slot")
+             : vs >= 0 ?
+               x86("comment", "IR_VAR patv-slot: the snapshot the pattern's constructor passed, read from its own header")
              + x86_alpha()
              + x86("mov",    "rdi", RDQ("rbp", -24))
              + x86("test",   "rdi", "rdi")
@@ -32,10 +32,8 @@ std::string bb_var_global() {
              + x86("mov",    "rdx", RDQ("rsi", vs * 16 + 8))
              + x86("jmp",    L(2))
              + x86("def",    L(1))
-             + x86("note", gva_name(_.op_gva_k))
-             + x86("mov",    "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 0) : ABSQ(RT_GVA_VA + _.op_gva_k * 16))
-             + x86("note", gva_name(_.op_gva_k))
-             + x86("mov",    "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
+             + x86("xor",    "eax", "eax")
+             + x86("xor",    "edx", "edx")
              + x86("def",    L(2))
              + x86("note", "result")
              + x86("mov",    vg_res(0), "rax")

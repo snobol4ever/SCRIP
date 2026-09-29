@@ -552,6 +552,10 @@ typedef struct {
     long                         pl_trace_lastn_cap;
     unsigned long *              pl_trace_lastn;
     int                          pl_trace_atexit;
+    cv_t                         thk_chunks;
+    cv_t                         thk_names;
+    cv_t                         thk_hix;
+    int                          thk_n;
 } sm_emit_t;
 extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))

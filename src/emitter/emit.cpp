@@ -5,6 +5,7 @@
 #include <string>
 #include "emit.h"
 #include "gc_frame_map.h"
+#include "dtp.h"
 #include "icn_act.h"
 #include "ir_index.h"
 #include "templates/x86/x86_asm.h"
@@ -1556,6 +1557,33 @@ void * bb_ab_cell_addr(const char * fname) { return MEDIUM_BINARY ? (void *)ab_c
 void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)ab_cell(bb_ab_slot_for(fname)); }
 int    bb_ab_slot_index(const char * fname) { return bb_ab_slot_for(fname); }
 void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < g_ab_fn_cell_n) ? (void *)ab_cell(slot) : (void *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static sno_thunk_rec_t * thk_rec(int slot) { return (sno_thunk_rec_t *)CV_AT(g_emit.thk_chunks, void *, slot >> 8) + (slot & 255); }
+static void thk_hix_put(const char * name, int slot) {
+    uint32_t m = g_emit.thk_hix.len - 1, h = ab_fn_hash(name) & m;
+    while (CV_AT(g_emit.thk_hix, ab_ent_t, h).name) h = (h + 1) & m;
+    CV_AT(g_emit.thk_hix, ab_ent_t, h).name = name; CV_AT(g_emit.thk_hix, ab_ent_t, h).slot = slot;
+}
+static void thk_hix_grow(void) {
+    uint32_t c = g_emit.thk_hix.len ? g_emit.thk_hix.len * 2 : 256;
+    cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(ab_ent_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(ab_ent_t); g_emit.thk_hix = v;
+    for (int s = 0; s < g_emit.thk_n; s++) thk_hix_put(CV_AT(g_emit.thk_names, const char *, s), s);
+}
+static int thk_slot_for(const char * name) {
+    if (g_emit.thk_hix.len) { uint32_t m = g_emit.thk_hix.len - 1, h = ab_fn_hash(name) & m;
+        for (;; h = (h + 1) & m) { ab_ent_t * e = &CV_AT(g_emit.thk_hix, ab_ent_t, h); if (!e->name) break; if (!strcmp(e->name, name)) return e->slot; } }
+    int s = g_emit.thk_n;
+    if ((s & 255) == 0) CV_PUSH(g_emit.thk_chunks, void *) = ct_zalloc(256, sizeof(sno_thunk_rec_t));
+    CV_PUSH(g_emit.thk_names, const char *) = ct_strdup(name);
+    g_emit.thk_n = s + 1;
+    if ((uint64_t)g_emit.thk_n * 2 > (uint64_t)g_emit.thk_hix.len) thk_hix_grow(); else thk_hix_put(CV_AT(g_emit.thk_names, const char *, s), s);
+    return s;
+}
+extern "C" void * bb_thunk_rec_addr(const char * name) { return (MEDIUM_BINARY && name) ? (void *)thk_rec(thk_slot_for(name)) : (void *)0; }
+extern "C" void bb_thunk_rec_fill(const char * name, void * fn, int32_t frame_bytes, int32_t zstatic) {
+    if (!name) return;
+    sno_thunk_rec_t * r = thk_rec(thk_slot_for(name)); r->fn = fn; r->frame_bytes = frame_bytes; r->zstatic = zstatic;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_no_template(IR_t *nd) {
     fprintf(stderr, "FATAL emit_drive: IR op=%d has NO TEMPLATE in the universal driver -- the switch carries no case for it at all. Every op must be handled; the driver never refuses silently. Implement op=%d.\n",

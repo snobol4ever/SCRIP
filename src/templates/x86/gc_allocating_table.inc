@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1911
-#define GC_ALLOC_TAB_N_VOID 222
-#define GC_ALLOC_TAB_N_DESCR 1045
-#define GC_ALLOC_TAB_N_OTHER 638
+#define GC_ALLOC_TAB_N 1917
+#define GC_ALLOC_TAB_N_VOID 223
+#define GC_ALLOC_TAB_N_DESCR 1046
+#define GC_ALLOC_TAB_N_OTHER 642
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -705,6 +705,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_tf_write", GC_RET_VOID },
     { "pas_trace_print_value", GC_RET_VOID },
     { "pascal_compile", GC_RET_VOID },
+    { "pascal_compile_parse", GC_RET_OTHER },
     { "pascal_parse_string", GC_RET_OTHER },
     { "pascal_register_program", GC_RET_VOID },
     { "pascal_yyparse", GC_RET_OTHER },
@@ -790,6 +791,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_static_ball", GC_RET_OTHER },
     { "pl_db_store", GC_RET_OTHER },
     { "pl_edin_switch", GC_RET_OTHER },
+    { "pl_flag_find_or_create", GC_RET_OTHER },
     { "pl_format_body", GC_RET_OTHER },
     { "pl_gnu_abs_path", GC_RET_OTHER },
     { "pl_gnu_cat3", GC_RET_OTHER },
@@ -906,6 +908,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "prolog_atom_intern", GC_RET_OTHER },
     { "prolog_atom_intern_n", GC_RET_OTHER },
     { "prolog_compile", GC_RET_VOID },
+    { "prolog_compile_finish", GC_RET_VOID },
+    { "prolog_compile_parse", GC_RET_OTHER },
     { "prolog_functor_intern", GC_RET_OTHER },
     { "prolog_inject_prelude", GC_RET_VOID },
     { "prolog_lower", GC_RET_OTHER },
@@ -1024,6 +1028,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_open_by_name", GC_RET_OTHER },
     { "rt_call_open_by_name_p", GC_RET_OTHER },
     { "rt_call_open_found", GC_RET_OTHER },
+    { "rt_call_open_staged", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },
@@ -1767,6 +1772,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_sno_elem_store_trace", GC_RET_VOID },
     { "rt_sno_goto_special_is", GC_RET_OTHER },
     { "rt_sno_indirect_name", GC_RET_OTHER },
+    { "rt_sno_mkpat_d", GC_RET_DESCR },
     { "rt_sno_operand_error", GC_RET_VOID },
     { "rt_sno_pow", GC_RET_DESCR },
     { "rt_sno_runtime_define", GC_RET_VOID },
