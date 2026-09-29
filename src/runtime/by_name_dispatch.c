@@ -7287,6 +7287,44 @@ int try_call_builtin_by_name_bl(const char *fn, DESCR_t *args, int nargs, DESCR_
 typedef struct { int (*fn)(DESCR_t *, int, DESCR_t *, int); int op; int _pad; } bn_direct_t;
 _Static_assert(sizeof(bn_direct_t) == 16, "rtx_misc.s indexes g_bn_direct with a 16-byte stride: fn at +0, op at +8 (ceo 2026-09-25, CEO-1255)");
 static int bn_sno_name_d(DESCR_t *args, int nargs, DESCR_t *out, int op) { (void)op; return nargs == 1 ? bn_sno_name(args, nargs, out) : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RT_HOOK_GUARD(nm) do { extern long g_error; extern int64_t kw_errlimit; if (g_error != 0 || kw_errlimit != 0) return c_rt_call_bid_sn4((nm), args, nargs, -1); } while (0)
+DESCR_t rt_sno_name_dl(DESCR_t *args, int nargs) { RT_HOOK_GUARD("SNO$NAME"); DESCR_t out = FAILDESCR; if (nargs == 1) bn_sno_name(args, nargs, &out); return out; }
+DESCR_t rt_sno_pbk_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_cset(int, const char *); RT_HOOK_GUARD("SNO$PBK"); return nargs == 2 ? pat_mk_cset((int)to_int(args[0]), rt_cstr_d(args[1])) : FAILDESCR; }
+DESCR_t rt_sno_pbn_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_num(int, int64_t); RT_HOOK_GUARD("SNO$PBN"); return nargs == 2 ? pat_mk_num((int)to_int(args[0]), to_int(args[1])) : FAILDESCR; }
+DESCR_t rt_sno_pb0_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_nil(int); RT_HOOK_GUARD("SNO$PB0"); return nargs == 1 ? pat_mk_nil((int)to_int(args[0])) : FAILDESCR; }
+DESCR_t rt_sno_pbc_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); RT_HOOK_GUARD("SNO$PBC"); return nargs == 3 ? pat_mk_capt((int)to_int(args[0]), rt_cstr_d(args[1]), args[2]) : FAILDESCR; }
+DESCR_t rt_sno_pcur_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_cursor(const char *); RT_HOOK_GUARD("SNO$PCUR"); return nargs == 1 ? pat_mk_cursor(rt_cstr_d(args[0])) : FAILDESCR; }
+DESCR_t rt_sno_pbalt_d(DESCR_t *args, int nargs) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); RT_HOOK_GUARD("SNO$PBALT"); return nargs == 2 ? pat_alt(args[0], args[1]) : FAILDESCR; }
+DESCR_t rt_sno_parb_d(DESCR_t *args, int nargs) { extern DESCR_t pat_arbno(DESCR_t); RT_HOOK_GUARD("SNO$PARB"); return nargs == 1 ? pat_arbno(args[0]) : FAILDESCR; }
+DESCR_t rt_sno_pfen_d(DESCR_t *args, int nargs) { extern DESCR_t pat_fence_p(DESCR_t); RT_HOOK_GUARD("SNO$PFEN"); return nargs == 1 ? pat_fence_p(args[0]) : FAILDESCR; }
+DESCR_t rt_sno_pdef_d(DESCR_t *args, int nargs) { extern DESCR_t pat_defer(const char *); RT_HOOK_GUARD("SNO$PDEF"); return nargs == 1 ? pat_defer(rt_cstr_d(args[0])) : FAILDESCR; }
+DESCR_t rt_sno_kwset_d(DESCR_t *args, int nargs) {
+    extern int rt_keyword_write_snobol4(const char *sval, DESCR_t v); RT_HOOK_GUARD("SNO$KWSET");
+    if (nargs != 2) return FAILDESCR;
+    char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
+    return rt_keyword_write_snobol4(kn ? kn : "", args[1]) ? args[1] : FAILDESCR;
+}
+DESCR_t rt_sno_mkexpr_d(DESCR_t *args, int nargs) {
+    if (nargs != 1) return FAILDESCR;
+    const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
+    DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = rt_heap_strdup_c(nm); return xd;
+}
+DESCR_t rt_sno_stmt_d(DESCR_t *args, int nargs) {
+    extern void rt_stmt_enter(long stno, long line); RT_HOOK_GUARD("SNO$STMT");
+    if (nargs < 1 || nargs > 3) return FAILDESCR;
+#if RT_DIAG
+    if (!IS_INT(args[0]) && nargs == 1) { extern void rt_trace_label_hook(const char *); const char *lb = VARVAL_fn(args[0]); rt_trace_label_hook(lb ? lb : ""); return NULVCL; }
+#else
+    if (!IS_INT(args[0]) && nargs == 1) return NULVCL;
+#endif
+    long n = IS_INT(args[0]) ? (long)args[0].i : 0;
+    long ln = (nargs >= 2 && IS_INT(args[1])) ? (long)args[1].i : 0;
+    if (n >= 0) rt_stmt_enter(n, ln);
+    if (nargs == 3) { extern void rt_stmt_file_init(const char *file); const char *fp = VARVAL_fn(args[2]); rt_stmt_file_init(fp ? fp : ""); }
+    return NULVCL;
+}
+DESCR_t rt_sno_nofail_d(DESCR_t *args, int nargs) { extern void rt_nofail_abort(void); RT_HOOK_GUARD("SNO$NOFAIL"); rt_nofail_abort(); return FAILDESCR; }
 static int bn_prototype(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern DESCR_t agg_prototype(DESCR_t); (void)op; *out = agg_prototype(nargs >= 1 ? args[0] : NULVCL); return 1; }
 static int bn_wantnm(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern int rt_g_want_name; (void)args; (void)nargs; (void)op; rt_g_want_name = 1; *out = NULVCL; return 1; }
 static int bn_array(DESCR_t *args, int nargs, DESCR_t *out, int op) {

@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1917
+#define GC_ALLOC_TAB_N 1931
 #define GC_ALLOC_TAB_N_VOID 223
-#define GC_ALLOC_TAB_N_DESCR 1046
+#define GC_ALLOC_TAB_N_DESCR 1060
 #define GC_ALLOC_TAB_N_OTHER 642
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1772,10 +1772,24 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_sno_elem_store_trace", GC_RET_VOID },
     { "rt_sno_goto_special_is", GC_RET_OTHER },
     { "rt_sno_indirect_name", GC_RET_OTHER },
+    { "rt_sno_kwset_d", GC_RET_DESCR },
+    { "rt_sno_mkexpr_d", GC_RET_DESCR },
     { "rt_sno_mkpat_d", GC_RET_DESCR },
+    { "rt_sno_name_dl", GC_RET_DESCR },
+    { "rt_sno_nofail_d", GC_RET_DESCR },
     { "rt_sno_operand_error", GC_RET_VOID },
+    { "rt_sno_parb_d", GC_RET_DESCR },
+    { "rt_sno_pb0_d", GC_RET_DESCR },
+    { "rt_sno_pbalt_d", GC_RET_DESCR },
+    { "rt_sno_pbc_d", GC_RET_DESCR },
+    { "rt_sno_pbk_d", GC_RET_DESCR },
+    { "rt_sno_pbn_d", GC_RET_DESCR },
+    { "rt_sno_pcur_d", GC_RET_DESCR },
+    { "rt_sno_pdef_d", GC_RET_DESCR },
+    { "rt_sno_pfen_d", GC_RET_DESCR },
     { "rt_sno_pow", GC_RET_DESCR },
     { "rt_sno_runtime_define", GC_RET_VOID },
+    { "rt_sno_stmt_d", GC_RET_DESCR },
     { "rt_stmt_enter", GC_RET_VOID },
     { "rt_str_alloc", GC_RET_OTHER },
     { "rt_str_coerce", GC_RET_DESCR },

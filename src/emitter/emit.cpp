@@ -999,7 +999,7 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN_GEN) return CALL_ROUTE_BYNAME_GEN;
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
-    if (k == IR_CALL && fn[0] == '$') { const char * _ds = 0; if (dop_direct_fp(fn, narg, &_ds)) return CALL_ROUTE_FN; }
+    if (k == IR_CALL && fn[0]) { const char * _ds = 0; if (dop_direct_fp(fn, narg, &_ds)) return CALL_ROUTE_FN; }
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;
