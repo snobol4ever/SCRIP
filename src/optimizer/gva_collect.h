@@ -6,6 +6,7 @@ void gva_collect_reset(void);
 int gva_index_of(const char *name);
 int gva_collect_var(const char *name);
 int gva_count(void);
+int gva_name_hidden(const char *name);
 const char *gva_name(int k);
 void gva_io_refuse_name(const char *name);
 int gva_keyword_refused(const char *name);

@@ -867,17 +867,18 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
 #endif
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
+        DESCR_t *ecell; { extern DESCR_t *rt_gva_cell_of(const void *); ecell = rt_gva_cell_of(e->varname); }
         int len = (int)e->len; if (len < 0) len = 0;
         { extern int Σlen;
           long long _end = (long long)e->saved_delta + (long long)len;
           if (len > Σlen || _end > (long long)Σlen) {
               fprintf(stderr, "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu end=%lld exceeds subject length %d (target '%s', frame depth %d). Deferred re-entry invalidated the outer frame; capture skipped rather than reading out of bounds.\n",
-                      len, (unsigned long long)e->saved_delta, _end, Σlen, e->varname ? e->varname : "(null)", g_dcf_top);
+                      len, (unsigned long long)e->saved_delta, _end, Σlen, ecell ? "(a variable's cell)" : e->varname ? e->varname : "(null)", g_dcf_top);
               c->cur += sizeof(rt_dcap_e);
               c->rc = 1;
               continue; } }
         DESCR_t d;
-        int _star_arm = (e->varname && e->varname[0] == '*');
+        int _star_arm = (!ecell && e->varname && e->varname[0] == '*');
 #if RT_DIAG
         static long _slice_budget = -2; static int _slice_trace = -1; static long _slice_idx = 0;
         if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
@@ -888,7 +889,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
 #endif
         if (len > 0 && c->subj && _budget_ok && rt_cap_slice_on()) {
 #if RT_DIAG
-            if (_slice_trace) fprintf(stderr, "[SLICE] #%ld var=%s len=%d delta=%llu subj=%p\n", _slice_idx, e->varname ? e->varname : "?", len, (unsigned long long)e->saved_delta, (const void *)c->subj);
+            if (_slice_trace) fprintf(stderr, "[SLICE] #%ld var=%s len=%d delta=%llu subj=%p\n", _slice_idx, ecell ? "(cell)" : e->varname ? e->varname : "?", len, (unsigned long long)e->saved_delta, (const void *)c->subj);
             _slice_idx++;
 #endif
             rt_sxt_break_fast(c->subj); d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = (char *)c->subj + e->saved_delta }; }
@@ -898,6 +899,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
             d = (DESCR_t){ .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         }
         c->cur += sizeof(rt_dcap_e);
+        if (ecell) { if (d.v == DT_S) rt_sxt_break_fast(d.s); *ecell = d; continue; }
         if (e->varname && e->varname[0] == '*') {
             extern int rt_proc_is_registered(const char *);
             extern long rt_dcap_call_prepare(const char *, short *, int *, int *);
@@ -1206,6 +1208,14 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r)
     }
     s->failed = 1;
     return (rt_dcap_next_t){ 0, 0 };
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_dcap_next_t rt_defer_open_cell(DESCR_t *cell, int ival_flag)
+{
+    rt_dfx_t *s = rt_dfx_push();
+    DESCR_t val = cell ? *cell : NULVCL;
+    if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); }
+    return rt_defer_resolve(s, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag)

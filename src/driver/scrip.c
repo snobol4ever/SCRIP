@@ -1685,9 +1685,9 @@ int main(int argc, char **argv)
             if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
             if (n_gva_icn > 0) {
                 emit_textf("  .section .rodata\n");
-                for (int k = 0; k < n_gva_icn; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char * _gn = gva_name(k) ? gva_name(k) : ""; size_t _cap = 4 * strlen(_gn) + 1; char _esc[_cap]; x86_asm_str_escape_c(_gn, _esc, _cap); emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc); }
+                for (int k = 0; k < n_gva_icn; k++) { extern int gva_name_hidden(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char * _gn = gva_name(k) ? gva_name(k) : ""; if (gva_name_hidden(_gn)) continue; size_t _cap = 4 * strlen(_gn) + 1; char _esc[_cap]; x86_asm_str_escape_c(_gn, _esc, _cap); emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc); }
                 emit_textf("  .align 8\n__gva_names:\n");
-                for (int k = 0; k < n_gva_icn; k++) emit_textf("  .quad .Lgvan%d\n", k);
+                { extern int gva_name_hidden(const char *); for (int k = 0; k < n_gva_icn; k++) { if (gva_name_hidden(gva_name(k))) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); } }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
             if (s2->label_count > 0) {
@@ -1767,7 +1767,7 @@ int main(int argc, char **argv)
                 if (n_gva_m3 > 0) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)ct_alloc((size_t)n_gva_m3 * sizeof(const char *));
-                    for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name(_k);
+                    { extern int gva_name_hidden(const char *); for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name_hidden(gva_name(_k)) ? (const char *)0 : gva_name(_k); }
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);

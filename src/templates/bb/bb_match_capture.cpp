@@ -14,6 +14,7 @@ extern "C" long rt_cap_land_γ(DESCR_t frame0, long word);
 extern "C" long rt_cap_land_ω(long word);
 extern "C" long rt_cap_open_gva(DESCR_t *cell, int saved_delta, int cur_delta, const char *varname);
 extern "C" int is_protected_pat_name(const char *name);
+extern "C" int gva_name_hidden(const char *name);
 extern "C" int g_gva_active;
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -42,6 +43,12 @@ static std::string cap_imm_gva(const std::string & homeop) {
          + x86_anchor_leave()
          + x86_gamma()
          + x86_beta_trampoline();
+}
+static std::string cap_cond_target_rcx() {
+    if (cap_gva() && gva_name_hidden(_.op_sval)) return x86("note", gva_name(_.op_gva_k))
+                        + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str())
+                                                            : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)));
+    return x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str());
 }
 #define writehome() (_.op_zres ? ZRESD(0) : FR(_.op_off))
 #define readhome() (_.op_zres ? ZOPD(1, 0) : FR(_.op_off))
@@ -85,7 +92,7 @@ std::string bb_match_capture() {
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND")
            + x86_alpha()
            + x86("mov",  "eax", CFC(0))
-           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
+           + cap_cond_target_rcx()
            + x86("mov",  RDQ("r12", 0), "rcx")
            + x86("mov",  "esi", "eax")
            + x86("mov",  RDQ("r12", 8), "rsi")
@@ -106,7 +113,7 @@ std::string bb_match_capture() {
          ? ( x86("comment", "IR_MATCH_CAPTURE_COND")
            + x86_alpha()
            + x86("mov",  "eax", readhome())
-           + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
+           + cap_cond_target_rcx()
            + x86("mov",  RDQ("r12", 0), "rcx")
            + x86("mov",  "esi", "eax")
            + x86("mov",  RDQ("r12", 8), "rsi")

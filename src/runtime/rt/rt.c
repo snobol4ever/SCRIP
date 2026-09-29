@@ -541,6 +541,8 @@ DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail)
     return rt_nret_fix(result, wn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *rt_gva_cell_of(const void *p) { uintptr_t a = (uintptr_t)p; return (a >= (uintptr_t)RT_GVA_VA && a - (uintptr_t)RT_GVA_VA < (uintptr_t)g_gva_mapped && !((a - (uintptr_t)RT_GVA_VA) & 15u)) ? (DESCR_t *)p : (DESCR_t *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *rt_gva_island(int n) {
     if ((size_t)n * sizeof(DESCR_t) > g_gva_mapped) {
         size_t want = g_gva_mapped ? g_gva_mapped : RT_GVA_WINDOW_BYTES;

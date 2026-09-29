@@ -6,6 +6,7 @@ extern "C" {
 }
 typedef struct { long fn; long how; } rt_dcap_next_t;
 extern "C" rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag);
+extern "C" rt_dcap_next_t rt_defer_open_cell(DESCR_t *cell, int ival_flag);
 extern "C" rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag);
 extern "C" rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word);
 extern "C" rt_dcap_next_t rt_defer_land_ω(long word);
@@ -36,11 +37,12 @@ static int defer_ic_on(void) { static int v = -1; if (v < 0) { const char *e = g
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_defer() {
     static char b[24];
-    strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     int vslot = -1;
     { const char *sv = _.op_sval, *d = sv ? strstr(sv, "$V") : 0;
       if (d && d[2] >= '0' && d[2] <= '9')
       { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } }
+    const int gva_road = (vslot < 0 && g_gva_active && _.op_gva_k >= 0);
+    if (gva_road) b[0] = 0; else strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
     int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
     static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
     const char * clbl = ci >= 0 ? cl[cln] : "";
@@ -262,7 +264,13 @@ std::string bb_match_defer() {
                     + x86("cmp",  "eax", -2L)
                     + x86("jne",  L(49)))
          + x86_xfer_enter()
-         + (vslot < 0
+         + (vslot < 0 && gva_road
+             ? x86("note", gva_name(_.op_gva_k))
+             + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", (std::string("[" RTCC_GVA_REG " + ") + std::to_string(_.op_gva_k * 16) + "]").c_str())
+                                                     : x86_movabs_r64("rdi", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
+             + x86("xor",  "esi", "esi")
+             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_cell", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t *, int))rt_defer_open_cell)
+             : vslot < 0
              ? x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
              + x86("xor",  "esi", "esi")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, int))rt_defer_open_entry)
