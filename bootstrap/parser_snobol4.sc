@@ -226,6 +226,7 @@ Compiland   =  epsilon . *PushCounter()
                . *PopCounter();
 /* ==================================================================================================================== */
 function ParseOne(ptree, i, nk, cmd) {
+    pf_a = TIME();
     InitCounter();
     InitStack();
     if (Src ? Compiland) {
@@ -233,6 +234,7 @@ function ParseOne(ptree, i, nk, cmd) {
          * SPITBOL's built-in array-indexing brackets.  Use ITEM(array, index) which
          * is standard SNOBOL4 and not affected by OPSYN redefinition of '['. */
         ptree = Pop();
+        pf_parse = pf_parse + (TIME() - pf_a);
         i = 1;
         nk = n(ptree);
         while (LE(i, nk)) {
@@ -240,7 +242,7 @@ function ParseOne(ptree, i, nk, cmd) {
             if (IDENT(t(cmd), 'TT_STMT')) { TreeDump(cmd); }
             i = i + 1;
         }
-    } else OUTPUT = 'Parse Error.';
+    } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error.'; }
     return;
 }
 pf_list = HOST(4, 'PARSER_FILES');
@@ -251,20 +253,18 @@ if (IDENT(pf_list)) {
 } else {
     pf_n = 0;
     pf_bytes = 0;
+    pf_parse = 0;
+    pf_parse1 = 0;
     INPUT(.pf_names, 8, pf_list);
-    pf_t0 = TIME();
-    pf_t1 = pf_t0;
     while (pf_name = pf_names) {
-        Src = '';
-        INPUT(.pf_file, 9, pf_name '[-r16777215]');
-        Src = pf_file;
+        INPUT(.INPUT, 9, pf_name '[-r16777215]');
+        Src = INPUT;
         ENDFILE(9);
         pf_bytes = pf_bytes + SIZE(Src);
         OUTPUT = '== ' pf_name;
         ParseOne();
         pf_n = pf_n + 1;
-        if (EQ(pf_n, 1)) pf_t1 = TIME();
+        if (EQ(pf_n, 1)) { pf_parse1 = pf_parse; }
     }
-    pf_t2 = TIME();
-    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' first_us=' (pf_t1 - pf_t0) / 1000 ' rest_us=' (pf_t2 - pf_t1) / 1000 ' total_us=' (pf_t2 - pf_t0) / 1000;
+    TERMINAL = 'PARSER-METRICS files=' pf_n ' bytes=' pf_bytes ' parse_first_us=' pf_parse1 / 1000 ' parse_us=' pf_parse / 1000;
 }
