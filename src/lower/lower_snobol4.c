@@ -2842,12 +2842,97 @@ static void sno_indirect_lit_to_var(tree_t * t) {
     for (int i = 0; i < t->n; i++) sno_indirect_lit_to_var(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_rsv_name(const char * nm) { return nm && (!strcmp(nm, "epsilon") || !strcmp(nm, "NULL") || !strcmp(nm, "null")); }
+static int sno_rsv_nullval(const tree_t * t) {
+    static const char * const pr[] = { "IDENT", "DIFFER", "EQ", "NE", "LT", "LE", "GT", "GE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", NULL };
+    if (!t || t->t == TT_NUL || t->t == TT_INTERROGATE || (t->t == TT_QLIT && (!t->v.sval || !t->v.sval[0])) || (t->t == TT_VAR && sno_rsv_name(t->v.sval))) return 1;
+    if ((t->t == TT_SEQ || t->t == TT_CAT) && t->n == 2) return sno_rsv_nullval(t->c[0]) && sno_rsv_nullval(t->c[1]);
+    if (t->t == TT_FNC && t->v.sval) for (int i = 0; pr[i]; i++) if (!strcmp(t->v.sval, pr[i])) return 1;
+    return 0;
+}
+static int sno_rsv_err(const tree_t * s, const char * nm, const char * what, int quiet) {
+    if (quiet) return 1;
+    extern const char * stmt_src_get_file(void);
+    const char * f = s ? sfind_str(s, ":file") : NULL; if (!f || !*f) f = stmt_src_get_file();
+    long l = s ? (long) lp_s_int(s, ":lline") : 0; if (!l && s) l = (long) lp_s_int(s, ":line");
+    fprintf(stderr, "%s:%ld: error: %s is a reserved constant, the zero-length string -- %s\n", (f && *f) ? f : "scrip", l, nm, what);
+    return 1;
+}
+static int sno_rsv_proto(const char * p, const tree_t * s, int quiet) {
+    int bad = 0; const char * q = p ? strchr(p, '(') : NULL; if (!q) return 0;
+    for (q++; *q; ) {
+        while (*q == ' ' || *q == ',' || *q == ')') q++;
+        const char * b = q; while (*q && *q != ',' && *q != ')' && *q != ' ') q++;
+        char nm[16]; size_t n = (size_t)(q - b); if (q == b || n >= sizeof nm) continue;
+        memcpy(nm, b, n); nm[n] = 0; if (sno_rsv_name(nm)) bad += sno_rsv_err(s, nm, "it cannot be a parameter or a local", quiet);
+    }
+    return bad;
+}
+static int sno_rsv_walk(tree_t * t, const tree_t * s, int quiet);
+static int sno_rsv_stmt(tree_t * s, int quiet) {
+    tree_t * sa = NULL; tree_t * subj = NULL; tree_t * repl = NULL; int eq = 0, pat = 0, bad = 0;
+    for (int i = 0; i < s->n; i++) { tree_t * a = s->c[i]; if (!a || a->t != TT_ATTR || !a->v.sval) continue;
+        if (!strcmp(a->v.sval, ":subj")) { sa = a; subj = a->n > 0 ? a->c[0] : NULL; } else if (!strcmp(a->v.sval, ":repl")) repl = a->n > 0 ? a->c[0] : NULL;
+        else if (!strcmp(a->v.sval, ":eq")) eq = 1; else if (!strcmp(a->v.sval, ":pat")) pat = 1; }
+    if (eq && !pat && subj && subj->t == TT_VAR && sno_rsv_name(subj->v.sval)) {
+        if (!sno_rsv_nullval(repl)) return sno_rsv_err(s, subj->v.sval, "it cannot be assigned", quiet);
+        int keep = repl && !(repl->t == TT_NUL || (repl->t == TT_QLIT && (!repl->v.sval || !repl->v.sval[0])));
+        if (keep) sa->c[0] = repl;
+        int k = 0; for (int i = 0; i < s->n; i++) { tree_t * a = s->c[i];
+            if (a && a->t == TT_ATTR && a->v.sval && (!strcmp(a->v.sval, ":eq") || !strcmp(a->v.sval, ":repl") || (!keep && a == sa))) continue; s->c[k++] = a; }
+        s->n = k;
+    }
+    else if (eq && subj && ((pat && subj->t == TT_VAR && sno_rsv_name(subj->v.sval))
+                         || (subj->t == TT_SCAN && subj->n > 0 && subj->c[0] && subj->c[0]->t == TT_VAR && sno_rsv_name(subj->c[0]->v.sval))))
+        return sno_rsv_err(s, subj->t == TT_VAR ? subj->v.sval : subj->c[0]->v.sval, "it cannot be the subject of a replacement", quiet);
+    for (int i = 0; i < s->n; i++) { tree_t * a = s->c[i]; if (!a) continue;
+        if (a->t == TT_ATTR && a->v.sval && (!strcmp(a->v.sval, ":lbl") || !strncmp(a->v.sval, ":go", 3))) continue;
+        bad += sno_rsv_walk(a, s, quiet); }
+    return bad;
+}
+static int sno_rsv_walk(tree_t * t, const tree_t * s, int quiet) {
+    if (!t) return 0;
+    int bad = 0, from = 0;
+    switch (t->t) {
+    case TT_STMT: return sno_rsv_stmt(t, quiet);
+    case TT_GOTO_U: case TT_GOTO_S: case TT_GOTO_F: return 0;
+    case TT_VAR: if (sno_rsv_name(t->v.sval)) { t->t = TT_QLIT; t->v.sval = (char *) ""; t->n = 0; } return 0;
+    case TT_NAME: if (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) return 0; break;
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN:
+        if (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR && sno_rsv_name(t->c[1]->v.sval))
+            return sno_rsv_err(s, t->c[1]->v.sval, "it cannot be a capture target", quiet) + sno_rsv_walk(t->c[0], s, quiet);
+        break;
+    case TT_CAPT_CURSOR: if (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && sno_rsv_name(t->c[0]->v.sval)) return sno_rsv_err(s, t->c[0]->v.sval, "it cannot be a capture target", quiet); break;
+    case TT_ASSIGN:
+        if (t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && sno_rsv_name(t->c[0]->v.sval)) {
+            if (!sno_rsv_nullval(t->c[1])) return sno_rsv_err(s, t->c[0]->v.sval, "it cannot be assigned", quiet);
+            if (!t->c[1]) { t->t = TT_QLIT; t->v.sval = (char *) ""; t->n = 0; return 0; }
+            *t = *t->c[1]; return sno_rsv_walk(t, s, quiet); }
+        break;
+    case TT_DEFINE: if (t->n > 1 && t->c[1] && t->c[1]->t == TT_QLIT) bad += sno_rsv_proto(t->c[1]->v.sval, s, quiet); break;
+    case TT_FNC:
+        if (!t->v.sval && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) from = 1;
+        { const char * fn = t->v.sval ? t->v.sval : (from ? t->c[0]->v.sval : NULL);
+          if (fn && !strcmp(fn, "DEFINE") && t->n > from && t->c[from] && t->c[from]->t == TT_QLIT) bad += sno_rsv_proto(t->c[from]->v.sval, s, quiet); }
+        break;
+    default: break;
+    }
+    for (int i = from; i < t->n; i++) bad += sno_rsv_walk(t->c[i], s, quiet);
+    return bad;
+}
+static int sno_rsv_program(const tree_t * prog, int quiet) {
+    int bad = 0;
+    for (int i = 0; prog && i < prog->n; i++) bad += sno_rsv_walk((tree_t *) prog->c[i], NULL, quiet);
+    return bad;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     { extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_seed_snobol4(); }
     g_sno_expr_define_seen = 0; g_sno_prescan_top = NULL;
     g_sno_seal_enabled = 1;
     if (!prog || prog->t != TT_PROGRAM) return NULL;
     for (int i = 0; i < prog->n; i++) sno_indirect_lit_to_var((tree_t *) prog->c[i]);
+    { int rsv = sno_rsv_program(prog, 0); if (rsv) { fprintf(stderr, "scrip: %d reserved-constant error(s) -- no code generated\n", rsv); exit(1); } }
     g_sno_exprs.len = 0;
     g_sno_pats.len = 0;
     g_sno_uses_stmtkw = 0; g_sno_traces_a_label = 0;
@@ -3032,7 +3117,7 @@ IR_graph_t * sno_pat_tree_graph_rt(const tree_t * pat) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno_base) {
-    if (!prog || prog->t != TT_PROGRAM) return NULL;
+    if (!prog || prog->t != TT_PROGRAM || sno_rsv_program(prog, 1)) return NULL;
     { extern void zls_reset(void); zls_reset(); }
     int nst = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) nst++;
