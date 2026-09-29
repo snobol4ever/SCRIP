@@ -1004,6 +1004,15 @@ inline std::string x86_reg_disp32_store64(const char * base, int disp, const cha
     return x86_rec("mov") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + src + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_movups_store_xmm0(const char * base, int disp) {
+    int b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; if (b >= 8) c += (char)0x41; c += (char)0x0F; c += (char)0x11; x86_rd32_modrm(c, 0, b);
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return x86_rec("movups") + "xmmword ptr [" + base + " + " + std::to_string(disp) + "], xmm0\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_reg_disp32_inc64(const char * base, int disp) {
     int b = x86_rnum(base);
     if (MEDIUM_BINARY) {
@@ -1734,6 +1743,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (X86_MEQ(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
     if (X86_MEQ(mnem, "bt"))     { (void)a; (void)b; return x86_cset_bt(); }
     if (X86_MEQ(mnem, "xorps"))  { return x86_xorps_xmm0(); }
+    if (X86_MEQ(mnem, "movups")) { if (a.kind == XK_REGDISP && b.kind == XK_REG && !strcmp(b.txt, "xmm0")) return x86_movups_store_xmm0(a.base, a.off); return x86_bomb("movups: only [reg + disp], xmm0 is encodable -- an encoder that cannot encode refuses loudly"); }
     if (X86_MEQ(mnem, "movsd"))  {
         if (b.txt && !strncmp(b.txt, "f64:", 4)) { uint64_t bits = strtoull(b.txt + 4, 0, 10); double d; memcpy(&d, &bits, 8); return x86_set_xmm0_double(d); }
         return std::string();

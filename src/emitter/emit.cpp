@@ -2610,6 +2610,17 @@ static void blob_layout_slot(const IR_t * m, int k, int units) {
 }
 static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
 static int blob_layout_plant(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_BLOB_LAYOUT_PLANT"); v = e ? atoi(e) : 0; } return v; }
+static int blob_zf_rep(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_ZF_REP"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static int blob_omega_ret(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_OMEGA_RET"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static std::string blob_zero_fill(int bfb) {
+    int top = sn4_blob_casmark() ? -32 : -24, o = -bfb;
+    if (top - o <= 0) return std::string();
+    if (blob_zf_rep() || top - o > 1200) return x86("lea", "rdi", RDQ("rbp", o)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(top - o)) + x86("rep_stosb");
+    std::string s = x86("xorps", "xmm0", "xmm0");
+    for (; o + 16 <= top; o += 16) s += x86("movups", RDQ("rbp", o), "xmm0");
+    if (o < top) s += x86("xor", "eax", "eax") + x86("mov", RDQ("rbp", o), "rax");
+    return s;
+}
 static int blob_layout_build(int bfb) {
     int count = 0; g_blob_lay.len = 0;
     blob_lay_push(0, GC_LAY_RAW, 8); blob_lay_push(8, GC_LAY_PTR_CODE, 8); blob_lay_push(16, GC_LAY_PTR_CODE, 8);
@@ -3462,7 +3473,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
-    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb); bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) + emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + x86("lea", "rdi", RDQ("rbp", -_bfb)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_bfb) + x86("rep_stosb") + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); }
+    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb); bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) + emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + blob_zero_fill(_bfb) + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); }
     }
     { extern int g_flat_outer_nparams; static int _gsym = -1; if (_gsym < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); _gsym = (e && *e == '1') ? 1 : 0; } int _legacy = (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !g_emit.zframe_graph && !g_emit.flat_lcl_proc);  extern int g_glue_entered; g_glue_entered = (g_emit.flat_outer_nparams == 0 && _legacy) ? 1 : 0; if (g_glue_entered) bb_emit_x86(x86_main_prologue()); (void)_gsym; { static int _gluo = -1; if (_gluo < 0) { const char * e = getenv("SCRIP_GLUEO"); _gluo = (e && *e == '0') ? 0 : 1; } static int _gluod = -1; if (_gluod < 0) { const char * e = getenv("SCRIP_GLUEO_DIAG"); _gluod = (e && *e == '1') ? 1 : 0; } extern int g_glue_o_sup; g_glue_o_sup = (_gluo && g_glue_entered && !emit_rec_pin()) ? 1 : 0; if (g_glue_o_sup) g_glue_entered = 0; if (_gluod) fprintf(stderr, "[GLUEO] graph=%s entered=%d rec_pin=%d deep=%d pat=%d gen=%d -> closed_loop_suppressed=%d\n", g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", g_glue_entered, emit_rec_pin() ? 1 : 0, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_glue_o_sup); } if (g_glue_entered) { { long _capN = 0; if (g_emit_cfg) for (int _ci = 0; _ci < g_emit_cfg->n; _ci++) { IR_t * _cs = g_emit_cfg->all[_ci]; if (_cs && _cs->op == IR_MATCH_ASSIGN_SAVE && cap_anchor_of(_cs) > 0) _capN++; } g_emit.op_fc_bytes = _capN > 0 ? (long)(64 + 16 * _capN) : 0; }    bb_emit_x86(bb_glue_framed_enter()); } }
     nidx_build(nodes, n);
@@ -3927,7 +3938,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 3, 0));
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
-    else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp"))  + x86("add", "rsp", 8L) + x86("ret")); }
+    else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp"))  + (blob_omega_ret() ? x86("add", "rsp", 8L) + x86("ret") : x86_rsp_load64("rcx", 8) + x86("add", "rsp", 16L) + x86("jmp", "rcx"))); }
     else if (icn_gen_regime() && g_emit.flat_gen) {
         { bb_emit_x86( icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 5, 0)); }
         bb_emit_x86( x86("mov", "rcx", RDQ("rbp", 8))
