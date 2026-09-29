@@ -5,37 +5,37 @@ reserved          = POS(0) ('if' | 'else' | 'while' | 'do' | 'for') RPOS(0);
 /* run_parser_sync_monitor.sh / run_scrip_parser.sh).  Redefining it here triggered       */
 /* SPITBOL ERROR 217 duplicate-label when the transpiled .sno was run under SPITBOL with  */
 /* match.sc included in the prelude.  SCT-9 (Opus 4.7, 2026-05-18).                       */
-white       =   (  SPAN(' ' tab nl)
-                |  '//' BREAK(nl) nl
+white       =   (  SPAN(' ' CHAR(9) CHAR(10))
+                |  '//' BREAK(CHAR(10)) CHAR(10)
                 |  '/*' BREAK('*') '*' ARBNO('*' | NOTANY('/*') BREAK('*') '*') '/'
                 );
-White       =   white ARBNO(white);
-Gray        =   White | epsilon;
+White       =   *white ARBNO(*white);
+Gray        =   *White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
 Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN('.' '0123456789' &UCASE '_' &LCASE) | epsilon);
-$'break'    =   *$' ' Id $ tx *IDENT(tx, 'break')    *$' ';
-$'case'     =   *$' ' Id $ tx *IDENT(tx, 'case')     *$' ';
-$'continue' =   *$' ' Id $ tx *IDENT(tx, 'continue') *$' ';
-$'default'  =   *$' ' Id $ tx *IDENT(tx, 'default')  *$' ';
-$'do'       =   *$' ' Id $ tx *IDENT(tx, 'do')       *$' ';
-$'else'     =   *$' ' Id $ tx *IDENT(tx, 'else')     *$' ';
-$'for'      =   *$' ' Id $ tx *IDENT(tx, 'for')      *$' ';
-$'freturn'  =   *$' ' Id $ tx *IDENT(tx, 'freturn')  *$' ';
-$'function' =   *$' ' Id $ tx (*IDENT(tx, 'function') | *IDENT(tx, 'procedure')) *$' ';
-$'goto'     =   *$' ' Id $ tx *IDENT(tx, 'goto')     *$' ';
-$'if'       =   *$' ' Id $ tx *IDENT(tx, 'if')       *$' ';
-$'nreturn'  =   *$' ' Id $ tx *IDENT(tx, 'nreturn')  *$' ';
-$'return'   =   *$' ' Id $ tx *IDENT(tx, 'return')   *$' ';
-$'struct'   =   *$' ' Id $ tx *IDENT(tx, 'struct')   *$' ';
-$'switch'   =   *$' ' Id $ tx *IDENT(tx, 'switch')   *$' ';
-$'while'    =   *$' ' Id $ tx *IDENT(tx, 'while')    *$' ';
+$'break'    =   *$' ' *Id $ tx *IDENT(tx, 'break')    *$' ';
+$'case'     =   *$' ' *Id $ tx *IDENT(tx, 'case')     *$' ';
+$'continue' =   *$' ' *Id $ tx *IDENT(tx, 'continue') *$' ';
+$'default'  =   *$' ' *Id $ tx *IDENT(tx, 'default')  *$' ';
+$'do'       =   *$' ' *Id $ tx *IDENT(tx, 'do')       *$' ';
+$'else'     =   *$' ' *Id $ tx *IDENT(tx, 'else')     *$' ';
+$'for'      =   *$' ' *Id $ tx *IDENT(tx, 'for')      *$' ';
+$'freturn'  =   *$' ' *Id $ tx *IDENT(tx, 'freturn')  *$' ';
+$'function' =   *$' ' *Id $ tx (*IDENT(tx, 'function') | *IDENT(tx, 'procedure')) *$' ';
+$'goto'     =   *$' ' *Id $ tx *IDENT(tx, 'goto')     *$' ';
+$'if'       =   *$' ' *Id $ tx *IDENT(tx, 'if')       *$' ';
+$'nreturn'  =   *$' ' *Id $ tx *IDENT(tx, 'nreturn')  *$' ';
+$'return'   =   *$' ' *Id $ tx *IDENT(tx, 'return')   *$' ';
+$'struct'   =   *$' ' *Id $ tx *IDENT(tx, 'struct')   *$' ';
+$'switch'   =   *$' ' *Id $ tx *IDENT(tx, 'switch')   *$' ';
+$'while'    =   *$' ' *Id $ tx *IDENT(tx, 'while')    *$' ';
 Keyword     =   '&' (SPAN(&UCASE '_' &LCASE)) . thx . *Shift('TT_KEYWORD', thx);
 Integer     =   SPAN('0123456789') . token;
 DQ_lit      =   '"' (BREAK('"')) . thx . *Shift('TT_QLIT', thx) '"';
 SQ_lit      =   "'" (BREAK("'")) . thx . *Shift('TT_QLIT', thx) "'";
 String      =   (*SQ_lit | *DQ_lit);
-Ident       =   Id $ tx $ *notmatch(tx, reserved) . token;
+Ident       =   *Id $ tx $ *notmatch(tx, reserved) . token;
 Real        =   ( SPAN('0123456789')
                   FENCE(
                     '.'

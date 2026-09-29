@@ -48,8 +48,8 @@ SpecialNm   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(SpecialNmsT
 ProtKwd     =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(ProtKwdsT[sn_upr(tx)]);
 UnprotKwd   =  SPAN(&UCASE &LCASE)                $ tx *DIFFER(UnprotKwdsT[sn_upr(tx)]);
 Integer     =  SPAN('0123456789');
-DQ          =  '"' (BREAK('"' nl)) . thx . *Shift('TT_QLIT', thx) '"';
-SQ          =  "'" (BREAK("'" nl)) . thx . *Shift('TT_QLIT', thx) "'";
+DQ          =  '"' (BREAK('"' CHAR(10))) . thx . *Shift('TT_QLIT', thx) '"';
+SQ          =  "'" (BREAK("'" CHAR(10))) . thx . *Shift('TT_QLIT', thx) "'";
 String      =  *SQ | *DQ;
 Real        =  (  SPAN('0123456789')
                   ('.' FENCE(SPAN('0123456789') | epsilon) | epsilon)
@@ -60,11 +60,11 @@ Real        =  (  SPAN('0123456789')
                );
 Id          =  ANY(&UCASE &LCASE)
                FENCE(SPAN('.' '0123456789' &UCASE '_' &LCASE) | epsilon);
-White       =  (  SPAN(' ' tab)
-                  FENCE(nl ('+' | '.') FENCE(SPAN(' ' tab) | epsilon) | epsilon)
-               |  nl ('+' | '.') FENCE(SPAN(' ' tab) | epsilon)
+White       =  (  SPAN(' ' CHAR(9))
+                  FENCE(CHAR(10) ('+' | '.') FENCE(SPAN(' ' CHAR(9)) | epsilon) | epsilon)
+               |  CHAR(10) ('+' | '.') FENCE(SPAN(' ' CHAR(9)) | epsilon)
                );
-Gray        =  White | epsilon;
+Gray        =  *White | epsilon;
 $'  '       =  White;
 $' '        =  Gray;
 $'='        =  *$'  ' '='  *$'  ';
@@ -117,7 +117,6 @@ Expr6       =  *Expr7
 Expr7       =  *Expr8 FENCE(*$'#' *Expr7 . *Reduce('TT_MUL', 2) | epsilon);
 Expr8       =  *Expr9 FENCE(*$'/' *Expr8 . *Reduce('TT_DIV', 2) | epsilon);
 Expr9       =  *Expr10 FENCE(*$'*' *Expr9 . *Reduce('TT_MUL', 2) | epsilon);
-Expr10      =  *Expr11 FENCE(*$'%' *Expr10 . *Reduce('TT_DIV', 2) | epsilon);
 Expr10      =  *Expr11 FENCE(*$'%' *Expr10 . *Reduce('TT_DIV', 2) | epsilon);
 /* SCT-9g-snobol4 n-ary rewrite (2026-05-17): exponentiation n-ary flat, lowerer right-folds.
    a^b^c => TT_POW(a,b,c); lower_sno.c / sm_lower.c right-fold to a^(b^c).
@@ -196,12 +195,12 @@ Goto        =  *$' ' ':'
                |  *Sgo FENCE(*$' ' (':' *$' ' | epsilon) *Fgo | (epsilon) . thx . *Shift('', thx))
                |  *Fgo FENCE(*$' ' (':' *$' ' | epsilon) *Sgo | (epsilon) . thx . *Shift('', thx))
                );
-Control     =  '-' BREAK(nl ';');
-Comment     =  '*' BREAK(nl);
+Control     =  '-' BREAK(CHAR(10) ';');
+Comment     =  '*' BREAK(CHAR(10));
 /* PST-SN4-2 (2026-05-16): Stmt redesigned to emit TT_STMT directly as a pure syntax tree.
    Children in source order: TT_LABEL? subject? TT_PAT? TT_EQ? replacement? goto*.
    No post-parse cooking.  Counter tracks child count for reduce('TT_STMT', nTop()). */
-StmtLabel   =  (BREAK(' ' tab nl ';') | ARBNO(NOTANY(' ' tab nl ';')) RPOS(0)) . thx . *Shift('TT_LABEL', thx);
+StmtLabel   =  (BREAK(' ' CHAR(9) CHAR(10) ';') | ARBNO(NOTANY(' ' CHAR(9) CHAR(10) ';')) RPOS(0)) . thx . *Shift('TT_LABEL', thx);
 StmtRepl    =  *$'=' *$' ' *Expr . *Reduce('TT_EQ', 2)
             |  *$'  ' '=' *$' ' (epsilon) . thx . *Shift('TT_EQ', thx);
 StmtGoto    =  FENCE(*Goto . *IncCounter() . *IncCounter() | epsilon);
@@ -224,12 +223,12 @@ Stmt        =  epsilon . *PushCounter()
                *$' ';
 Commands    =  *Command FENCE(*Commands | epsilon);
 Command     =  FENCE(
-                  (*Comment) . thx . *Shift('TT_COMMENT', thx) . *IncCounter() . *Reduce('TT_COMMENT', 1) nl
-               |  (*Control) . thx . *Shift('TT_CONTROL', thx) . *IncCounter() . *Reduce('TT_CONTROL', 1) (nl | ';')
-               |  *Stmt . *IncCounter() (nl | ';' | RPOS(0))
+                  (*Comment) . thx . *Shift('TT_COMMENT', thx) . *IncCounter() . *Reduce('TT_COMMENT', 1) CHAR(10)
+               |  (*Control) . thx . *Shift('TT_CONTROL', thx) . *IncCounter() . *Reduce('TT_CONTROL', 1) (CHAR(10) | ';')
+               |  *Stmt . *IncCounter() (CHAR(10) | ';' | RPOS(0))
                );
 Compiland   =  epsilon . *PushCounter()
-               POS(0) ARBNO(*Command FLUSH) ('END' (ANY(' ' tab nl) | RPOS(0)) ARB | epsilon) RPOS(0)
+               POS(0) ARBNO(*Command FLUSH) ('END' (ANY(' ' CHAR(9) CHAR(10)) | RPOS(0)) ARB | epsilon) RPOS(0)
                . *Reduce('Parse', nTop())
                . *PopCounter();
 /* ==================================================================================================================== */

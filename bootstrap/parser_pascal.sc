@@ -32,54 +32,53 @@ reserved          = POS(0) ( 'and' | 'array' | 'begin' | 'case' | 'const' | 'div
                            | 'to' | 'type' | 'until' | 'var' | 'while' | 'with' ) RPOS(0);
 /* ==================================================================================================================== */
 /* Lexical layer.  Pascal has TWO comment forms and neither nests; a CR is blank (CRLF files). */
-&ALPHABET ? (POS(13) LEN(1) . cr);
-white       =   (  SPAN(' ' tab nl cr)
+white       =   (  SPAN(' ' CHAR(9) CHAR(10) CHAR(13))
                 |  '{' BREAK('}') '}'
                 |  '(*' FENCE(BREAKX('*') '*)')
                 );
-White       =   white FENCE(*White | epsilon);
-Gray        =   White | epsilon;
+White       =   *white FENCE(*White | epsilon);
+Gray        =   *White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
 Id          =   ANY(&UCASE &LCASE '_') FENCE(SPAN('0123456789' &UCASE '_' &LCASE) | epsilon);
-$'and'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'and')       *$' ';
-$'begin'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'begin')     *$' ';
-$'div'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'div')       *$' ';
-$'do'       =   *$' ' Id $ tx *IDENT(lwr(tx), 'do')        *$' ';
-$'downto'   =   *$' ' Id $ tx *IDENT(lwr(tx), 'downto')    *$' ';
-$'else'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'else')      *$' ';
-$'end'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'end')       *$' ';
-$'false'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'false')     *$' ';
-$'for'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'for')       *$' ';
-$'function' =   *$' ' Id $ tx *IDENT(lwr(tx), 'function')  *$' ';
-$'if'       =   *$' ' Id $ tx *IDENT(lwr(tx), 'if')        *$' ';
-$'mod'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'mod')       *$' ';
-$'not'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'not')       *$' ';
-$'or'       =   *$' ' Id $ tx *IDENT(lwr(tx), 'or')        *$' ';
-$'procedure' =  *$' ' Id $ tx *IDENT(lwr(tx), 'procedure') *$' ';
-$'program'  =   *$' ' Id $ tx *IDENT(lwr(tx), 'program')   *$' ';
-$'repeat'   =   *$' ' Id $ tx *IDENT(lwr(tx), 'repeat')    *$' ';
-$'then'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'then')      *$' ';
-$'to'       =   *$' ' Id $ tx *IDENT(lwr(tx), 'to')        *$' ';
-$'true'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'true')      *$' ';
-$'until'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'until')     *$' ';
-$'var'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'var')       *$' ';
-$'while'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'while')     *$' ';
-$'with'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'with')      *$' ';
-$'array'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'array')     *$' ';
-$'case'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'case')      *$' ';
-$'const'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'const')     *$' ';
-$'file'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'file')      *$' ';
-$'forward'  =   *$' ' Id $ tx *IDENT(lwr(tx), 'forward')   *$' ';
-$'goto'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'goto')      *$' ';
-$'in'       =   *$' ' Id $ tx *IDENT(lwr(tx), 'in')        *$' ';
-$'label'    =   *$' ' Id $ tx *IDENT(lwr(tx), 'label')     *$' ';
-$'nil'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'nil')       *$' ';
-$'of'       =   *$' ' Id $ tx *IDENT(lwr(tx), 'of')        *$' ';
-$'packed'   =   *$' ' Id $ tx *IDENT(lwr(tx), 'packed')    *$' ';
-$'record'   =   *$' ' Id $ tx *IDENT(lwr(tx), 'record')    *$' ';
-$'set'      =   *$' ' Id $ tx *IDENT(lwr(tx), 'set')       *$' ';
-$'type'     =   *$' ' Id $ tx *IDENT(lwr(tx), 'type')      *$' ';
+$'and'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'and')       *$' ';
+$'begin'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'begin')     *$' ';
+$'div'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'div')       *$' ';
+$'do'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'do')        *$' ';
+$'downto'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'downto')    *$' ';
+$'else'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'else')      *$' ';
+$'end'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'end')       *$' ';
+$'false'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'false')     *$' ';
+$'for'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'for')       *$' ';
+$'function' =   *$' ' *Id $ tx *IDENT(lwr(tx), 'function')  *$' ';
+$'if'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'if')        *$' ';
+$'mod'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'mod')       *$' ';
+$'not'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'not')       *$' ';
+$'or'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'or')        *$' ';
+$'procedure' =  *$' ' *Id $ tx *IDENT(lwr(tx), 'procedure') *$' ';
+$'program'  =   *$' ' *Id $ tx *IDENT(lwr(tx), 'program')   *$' ';
+$'repeat'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'repeat')    *$' ';
+$'then'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'then')      *$' ';
+$'to'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'to')        *$' ';
+$'true'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'true')      *$' ';
+$'until'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'until')     *$' ';
+$'var'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'var')       *$' ';
+$'while'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'while')     *$' ';
+$'with'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'with')      *$' ';
+$'array'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'array')     *$' ';
+$'case'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'case')      *$' ';
+$'const'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'const')     *$' ';
+$'file'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'file')      *$' ';
+$'forward'  =   *$' ' *Id $ tx *IDENT(lwr(tx), 'forward')   *$' ';
+$'goto'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'goto')      *$' ';
+$'in'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'in')        *$' ';
+$'label'    =   *$' ' *Id $ tx *IDENT(lwr(tx), 'label')     *$' ';
+$'nil'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'nil')       *$' ';
+$'of'       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'of')        *$' ';
+$'packed'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'packed')    *$' ';
+$'record'   =   *$' ' *Id $ tx *IDENT(lwr(tx), 'record')    *$' ';
+$'set'      =   *$' ' *Id $ tx *IDENT(lwr(tx), 'set')       *$' ';
+$'type'     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'type')      *$' ';
 /* Literals.  A Pascal string is single-quoted and doubles an embedded quote.            */
 Integer     =   ('$' SPAN('0123456789' 'abcdefABCDEF') | SPAN('0123456789')) . token;
 Real        =   ( SPAN('0123456789')
@@ -97,7 +96,7 @@ Real        =   ( SPAN('0123456789')
 StrChars    =   FENCE((NOTANY("'") | "''") *StrChars | epsilon);
 Quoted      =   "'" *StrChars "'";
 String      =   "'" (*StrChars) . thx . *Shift('TT_QLIT', thx) "'";
-Ident       =   Id $ tx $ *notmatch(lwr(tx), reserved) . token;
+Ident       =   *Id $ tx $ *notmatch(lwr(tx), reserved) . token;
 /* Punctuation.                                                                          */
 $'('        =   *$' ' '(' *$' ';
 $')'        =   *$' ' ')';
@@ -142,9 +141,9 @@ ArgRest         =   *$',' *Expr0 . *IncCounter();
 CallArgs        =   *ArgFirst ARBNO(*ArgRest);
 /* A write/writeln call lowers to TT_FNC(TT_VAR __pas_write[ln], args…, TT_ILIT -1) --   */
 /* the trailing -1 is the oracle's own field-width sentinel, read off its dump.          */
-WriteName       =   *$' ' Id $ tx *IDENT(lwr(tx), 'write')   *$' '
+WriteName       =   *$' ' *Id $ tx *IDENT(lwr(tx), 'write')   *$' '
                     . *Shift('TT_VAR', '__pas_write') . *IncCounter();
-WritelnName     =   *$' ' Id $ tx *IDENT(lwr(tx), 'writeln') *$' '
+WritelnName     =   *$' ' *Id $ tx *IDENT(lwr(tx), 'writeln') *$' '
                     . *Shift('TT_VAR', '__pas_writeln') . *IncCounter();
 WriteArg        =   *Expr0 . *IncCounter() FENCE(*$':' *Expr0 . *IncCounter() FENCE(*$':' *Expr0 . *IncCounter() | epsilon) | epsilon);
 WriteArgs       =   *WriteArg ARBNO(*$',' *WriteArg);
@@ -285,7 +284,7 @@ Command         =   *$' ' ( *compound_cmd
 /* Declarations.  var/const/type declare no tree of their own -- the oracle's dump shows  */
 /* them absorbed, so they are PARSED AND DISCARDED here rather than silently skipped.     */
 /* ==================================================================================================================== */
-TypeName        =   *$' ' Id *$' ' FENCE(*$'[' BREAK(']') ']' *$' ' | epsilon);
+TypeName        =   *$' ' *Id *$' ' FENCE(*$'[' BREAK(']') ']' *$' ' | epsilon);
 /* A type denoter, ISO 7185 6.4: parsed and discarded like the rest of the declarations.  */
 IdList          =   *Ident ARBNO(*$',' *Ident);
 SConst          =   FENCE(*$'-' | *$'+' | epsilon) (*Real | *Integer | *Quoted | *Ident);

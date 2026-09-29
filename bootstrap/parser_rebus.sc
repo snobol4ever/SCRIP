@@ -1,12 +1,12 @@
 /* PST-RB-SC ✅ 2026-05-19 — already shift/reduce-pure; verified zero violations. */
 &FULLSCAN = 1;
-white       =   (  SPAN(' ' tab)
-                |  '#'  BREAK(nl)
-                |  '//' BREAK(nl)
+white       =   (  SPAN(' ' CHAR(9))
+                |  '#'  BREAK(CHAR(10))
+                |  '//' BREAK(CHAR(10))
                 |  '/*' BREAK('*') '*' ARBNO('*' | NOTANY('/*') BREAK('*') '*') '/'
                 );
-White       =   white ARBNO(white);
-Gray        =   White | epsilon;
+White       =   *white ARBNO(*white);
+Gray        =   *White | epsilon;
 $'  '       =   White;
 $' '        =   Gray;
 Id      = ANY(&UCASE &LCASE '_') (SPAN(&UCASE &LCASE '0123456789' '_' '.') | epsilon);
@@ -117,7 +117,7 @@ call_or_id = FENCE(  epsilon . *PushCounter() (*Id) . thx . *Shift('TT_VAR', thx
                   );
 primary = FENCE(  '"' (*DQ_body) . thx . *Shift('TT_QLIT', thx) '"'
                 | "'" (*SQ_body) . thx . *Shift('TT_QLIT', thx) "'"
-                | KW_open (*KW_body) . thx . *Shift('TT_KEYWORD', thx)
+                | *KW_open (*KW_body) . thx . *Shift('TT_KEYWORD', thx)
                 | '@' (*Id) . thx . *Shift('TT_CAPT_CURSOR', thx)
                 | (*Real) . thx . *Shift('TT_FLIT', thx)
                 | (*Integer) . thx . *Shift('TT_ILIT', thx)
@@ -193,7 +193,7 @@ match_or_expr = *expr FENCE(*$'?-match' *alt_expr . *Reduce('REPLN', 2)
                            | *$'?' *alt_expr *$'<-arrow' *alt_expr . *Reduce('REPLACE', 3)
                            | *$'?' *alt_expr . *Reduce('MATCH', 2)
                            | epsilon);
-opt_nl = (nl | epsilon);
+opt_nl = (CHAR(10) | epsilon);
 stmt_body = *opt_nl *$' ' FENCE(*compound_stmt | *case_stmt | *if_stmt | *while_stmt | *unless_stmt | *until_stmt | *repeat_stmt | *for_stmt | *return_stmt | *stop_stmt | *fail_stmt | *exit_stmt | *next_stmt | *match_or_expr);
 if_stmt    = *$'if'     *match_or_expr *$'then' FENCE(*opt_nl *stmt_body *opt_nl *$'else' *opt_nl *stmt_body . *Reduce('IFELSE', 3) | *opt_nl *stmt_body . *Reduce('IF', 2));
 while_stmt = *$'while'  *match_or_expr *$'do'   *opt_nl *stmt_body . *Reduce('WHILE', 2);
@@ -209,9 +209,9 @@ fail_stmt   = *$'fail'   . *Reduce('RB_FAIL', 0);
 stop_stmt   = *$'stop'   . *Reduce('RB_STOP', 0);
 next_stmt   = *$'next'   . *Reduce('RB_NEXT', 0);
 compound_end       = *$' ' '}';
-compound_item      = epsilon . *IncCounter() *stmt_inline FENCE(*$';' | epsilon) *$' ' nl;
+compound_item      = epsilon . *IncCounter() *stmt_inline FENCE(*$';' | epsilon) *$' ' CHAR(10);
 compound_body_tail = FENCE(*compound_end | *blank_line *compound_body_tail | *compound_item *compound_body_tail);
-compound_stmt = *$' ' '{' *$' ' nl . *PushCounter() *compound_body_tail . *Reduce('COMPOUND', nTop()) . *PopCounter();
+compound_stmt = *$' ' '{' *$' ' CHAR(10) . *PushCounter() *compound_body_tail . *Reduce('COMPOUND', nTop()) . *PopCounter();
 CASE_CLAUSE   = 'CASE_CLAUSE';
 CASE_DEFAULT  = 'CASE_DEFAULT';
 stmt_inline = *$' ' FENCE(*compound_stmt | *case_stmt | *if_stmt | *while_stmt | *unless_stmt | *until_stmt | *repeat_stmt | *for_stmt | *return_stmt | *stop_stmt | *fail_stmt | *exit_stmt | *next_stmt | *match_or_expr) *$' ';
@@ -219,12 +219,12 @@ caseclause_guard   = epsilon . *IncCounter() *match_or_expr *$':' *stmt_inline .
 rb_default_kw  = *$' '  'default'   *$' ';
 caseclause_default = epsilon . *IncCounter() *rb_default_kw *$':' *stmt_inline . *Reduce('CASE_DEFAULT', 1);
 caseclause         = FENCE(*caseclause_default | *caseclause_guard);
-caselist_tail = FENCE(FENCE(*$';' | epsilon) *$' ' nl *$' ' FENCE(*caseclause *caselist_tail | *caselist_tail) | *$';' FENCE(*caseclause *caselist_tail | epsilon) | epsilon);
+caselist_tail = FENCE(FENCE(*$';' | epsilon) *$' ' CHAR(10) *$' ' FENCE(*caseclause *caselist_tail | *caselist_tail) | *$';' FENCE(*caseclause *caselist_tail | epsilon) | epsilon);
 caselist      = *caseclause *caselist_tail;
 case_stmt = *rb_case_kw . *PushCounter() . *IncCounter() *match_or_expr *$'of' *$'{' *opt_nl *$' ' *caselist *$'}' . *Reduce('RB_CASE', nTop()) . *PopCounter();
-stmt = *$' ' FENCE(*compound_stmt | *case_stmt | *if_stmt | *while_stmt | *unless_stmt | *until_stmt | *repeat_stmt | *for_stmt | *return_stmt | *stop_stmt | *fail_stmt | *exit_stmt | *next_stmt | *match_or_expr) *$' ' FENCE(*$';' FENCE(nl | epsilon) | nl);
-func_end      = *$'end' *$' ' nl;
-blank_line    = *$' ' nl;
+stmt = *$' ' FENCE(*compound_stmt | *case_stmt | *if_stmt | *while_stmt | *unless_stmt | *until_stmt | *repeat_stmt | *for_stmt | *return_stmt | *stop_stmt | *fail_stmt | *exit_stmt | *next_stmt | *match_or_expr) *$' ' FENCE(*$';' FENCE(CHAR(10) | epsilon) | CHAR(10));
+func_end      = *$'end' *$' ' CHAR(10);
+blank_line    = *$' ' CHAR(10);
 func_body_stmt = FENCE(*blank_line *func_body_stmt | *func_end | epsilon . *IncCounter() *stmt *func_body_stmt);
 func_body     = epsilon . *PushCounter() *func_body_stmt . *Reduce('BODY', nTop()) . *PopCounter();
 X_params  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', thx) FENCE(*$',' *X_params | epsilon);
@@ -232,23 +232,23 @@ opt_params = epsilon . *PushCounter() FENCE(*X_params | epsilon) . *Reduce('PARA
 X_fields  = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', thx) FENCE(*$',' *X_fields | epsilon);
 opt_fields = epsilon . *PushCounter() FENCE(*X_fields | epsilon) . *Reduce('FIELDS', nTop()) . *PopCounter();
 X_locals   = epsilon . *IncCounter() (*Id) . thx . *Shift('TT_VAR', thx) FENCE(*$',' *X_locals | epsilon);
-opt_locals = epsilon . *PushCounter() FENCE(*$'local' *X_locals FENCE(*$';' | epsilon) *$' ' nl | epsilon) . *Reduce('LOCALS', nTop()) . *PopCounter();
+opt_locals = epsilon . *PushCounter() FENCE(*$'local' *X_locals FENCE(*$';' | epsilon) *$' ' CHAR(10) | epsilon) . *Reduce('LOCALS', nTop()) . *PopCounter();
 init_expr   = *stmt_inline;
-opt_initial = FENCE(epsilon . *PushCounter() *$'initial' *init_expr FENCE(*$';' | epsilon) *$' ' nl . *Reduce('RB_INITIAL', 1) . *PopCounter() | epsilon . *Reduce('RB_INITIAL', 0));
+opt_initial = FENCE(epsilon . *PushCounter() *$'initial' *init_expr FENCE(*$';' | epsilon) *$' ' CHAR(10) . *Reduce('RB_INITIAL', 1) . *PopCounter() | epsilon . *Reduce('RB_INITIAL', 0));
 function_decl =
-    *$'function' (*Id) . thx . *Shift('TT_VAR', thx) *$'(' *opt_params *$')' *$' ' nl
+    *$'function' (*Id) . thx . *Shift('TT_VAR', thx) *$'(' *opt_params *$')' *$' ' CHAR(10)
     *opt_locals
     *opt_initial
     *func_body
     . *Reduce('FUNC_DECL', 5);
 record_decl =
-    *$'record' (*Id) . thx . *Shift('TT_VAR', thx) *$'(' *opt_fields *$')' *$' ' nl
+    *$'record' (*Id) . thx . *Shift('TT_VAR', thx) *$'(' *opt_fields *$')' *$' ' CHAR(10)
     . *Reduce('REC_DECL', 2);
 func_cmd = epsilon . *IncCounter() *function_decl;
 rec_cmd  = epsilon . *IncCounter() *record_decl;
-blank    = *$' ' nl;
+blank    = *$' ' CHAR(10);
 Command  = *func_cmd | *rec_cmd | *blank;
-Compiland = epsilon . *PushCounter() POS(0) ARBNO(Command) RPOS(0) . *Reduce('Parse', nTop()) . *PopCounter();
+Compiland = epsilon . *PushCounter() POS(0) ARBNO(*Command) RPOS(0) . *Reduce('Parse', nTop()) . *PopCounter();
 function ParseOne(ptree, i, n_kids) {
     pf_a = TIME();
     InitCounter();
