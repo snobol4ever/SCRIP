@@ -153,7 +153,7 @@ src/templates/bb/bb_unop.cpp:96:rt_cset_compl	src/templates/bb/bb_unop.cpp:99	UN
 src/templates/bb/bb_unop.cpp:107:rt_size_d	src/templates/bb/bb_unop.cpp:110	hb_size_result_polled.icn
 src/templates/bb/bb_unop.cpp:117:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg	src/templates/bb/bb_unop.cpp:122	hb_bignum_length.icn
 src/templates/bb/bb_unop.cpp:119:rt_num_pos	src/templates/bb/bb_unop.cpp:122	hb_bignum_length.icn
-src/templates/bb/bb_var_global.cpp:32:NV_GET_fn	src/templates/bb/bb_var_global.cpp:39	hb_dvec_sort_match.sno
+src/templates/bb/bb_var_global.cpp:62:NV_GET_fn	src/templates/bb/bb_var_global.cpp:69	hb_protected_pattern_value_read.sno
 src/templates/bb/bb_var_ref.cpp:45:rt_pl_fresh_var_ref	src/templates/bb/bb_var_ref.cpp:48	UNWITNESSED
 src/templates/bb/bb_var_ref.cpp:59:rt_var_ref_cell_named	src/templates/bb/bb_var_ref.cpp:68	UNWITNESSED
 src/templates/xa/xa_flat.cpp:81:rt_arg_stage	src/templates/xa/xa_flat.cpp:82	hb_wsb_rk_iter_grep.raku
@@ -161,7 +161,7 @@ src/templates/xa/xa_flat.cpp:500:rt_trace_call_hook_f	src/templates/xa/xa_flat.c
 src/templates/xa/xa_flat.cpp:501:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_flat.cpp:502:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_flat.cpp:503:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
-src/emitter/emit.cpp:3039:rt_trace_call_hook_f	src/emitter/emit.cpp:3043	hb_size_result_polled.icn
-src/emitter/emit.cpp:3040:rt_trace_return_hook	src/emitter/emit.cpp:3043	hb_size_result_polled.icn
-src/emitter/emit.cpp:3041:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3043	hb_size_result_polled.icn
-src/emitter/emit.cpp:3042:rt_trace_fail_hook	src/emitter/emit.cpp:3043	hb_size_result_polled.icn
+src/emitter/emit.cpp:3043:rt_trace_call_hook_f	src/emitter/emit.cpp:3047	hb_size_result_polled.icn
+src/emitter/emit.cpp:3044:rt_trace_return_hook	src/emitter/emit.cpp:3047	hb_size_result_polled.icn
+src/emitter/emit.cpp:3045:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3047	hb_size_result_polled.icn
+src/emitter/emit.cpp:3046:rt_trace_fail_hook	src/emitter/emit.cpp:3047	hb_size_result_polled.icn

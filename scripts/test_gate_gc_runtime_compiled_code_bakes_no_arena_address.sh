@@ -23,6 +23,10 @@
 # an instrument never seen to fire is not known to look; (c) THE PROPERTY: the witness answers its oracle-cut ref at
 # SCRIP_GC_STRESS=1,3,5 under SCRIP_GC_RELOC=1 at the compiled default arena in mode 3 and mode 4, with the entry polled.
 # FAIL_ONCE=1 runs arm (a) under the plant and requires it to red.
+# ⛔ THE WITNESS IS BUILT AT RUN TIME BY CONSTRUCTION (ceo 2026-09-28, SCRIP 0d9ae641f): it used to reach the run-time compiler
+# only because $'W' was outside the pattern pre-compile; once $'name' lowered as the variable, the whole match compiled ahead of
+# time and arms (a) and (b) read 0 compiles (CEO-554: a gate anchored on a found witness dies the day the witness is cured). The
+# ARBNO now goes through a TABLE element -- the value road, with $'W' a variant reference -- so it is built and compiled at run time.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -34,7 +38,9 @@ RC=0
 cat > "$T/w.sno" <<'SNO'
         $'W' = FENCE(SPAN(' ') | '')
         S = '1,2,3'
-        S POS(0) ANY('123') ARBNO($'W' ',' ANY('123')) RPOS(0)   :S(OK)F(BAD)
+        R = TABLE()
+        R<1> = ARBNO($'W' ',' ANY('123'))
+        S POS(0) ANY('123') R<1> RPOS(0)                          :S(OK)F(BAD)
 OK      OUTPUT = 'MATCH'                                          :(NEXT)
 BAD     OUTPUT = 'FAIL'
 NEXT    T = 'a b  c'
