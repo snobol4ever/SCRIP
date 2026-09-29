@@ -31,7 +31,7 @@ extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
 static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1; if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2; if (strict == 2) return 3; if (strict) return 4; return 5; }
 static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
 static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
-DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_catch_handle(DESCR_t *, int); DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_clause_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_fp_model_spitbol(DESCR_t *, int);
+DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_catch_handle(DESCR_t *, int); DESCR_t rt_pl_dop_unify(DESCR_t *, int); DESCR_t rt_pl_dop_clause_unify(DESCR_t *, int); DESCR_t rt_pl_dop_mkc(DESCR_t *, int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_fp_model_spitbol(DESCR_t *, int); DESCR_t rt_sno_wantnm_d(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
 DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *, int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
 DESCR_t rt_pl_dop_wall_us(DESCR_t *, int); DESCR_t rt_pl_dop_wall_ms(DESCR_t *, int);
@@ -202,7 +202,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$throw", 1, "rt_pl_throw_raise", rt_pl_throw_raise }, { "$existence_error", 1, "rt_pl_exist_raise", rt_pl_exist_raise },
         { "$catch_handle", 1, "rt_pl_catch_handle", rt_pl_catch_handle },
         { "$write", 1, "dop_write", dop_write }, { "$nl", 0, "dop_nl", dop_nl },
-        { "$fp_model_spitbol", 0, "rt_fp_model_spitbol", rt_fp_model_spitbol },
+        { "$fp_model_spitbol", 0, "rt_fp_model_spitbol", rt_fp_model_spitbol }, { "SNO$WANTNM", -1, "rt_sno_wantnm_d", rt_sno_wantnm_d },
         { "$compare", 3, "rt_pl_dop_compare", rt_pl_dop_compare }, { "$functor", 3, "rt_pl_dop_functor", rt_pl_dop_functor }, { "$arg", 3, "rt_pl_dop_arg", rt_pl_dop_arg },
         { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term },
         { "$term_variables", 2, "rt_pl_dop_term_variables", rt_pl_dop_term_variables }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },

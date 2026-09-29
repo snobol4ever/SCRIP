@@ -3754,6 +3754,8 @@ static void pl_flags_ready(void) {
     if (g_pl_flags.len) return;
     for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; }
 }
+DESCR_t rt_sno_wantnm_d(DESCR_t *args, int nargs) { extern int rt_g_want_name; (void)args; (void)nargs; rt_g_want_name = 1; return NULVCL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
 void rt_pl_flags_gc_roots(void) { extern void rt_gc_visit_raw(const char **); for (uint32_t i = 0; i < g_pl_flags.len; i++) if (pl_flags[i].nm) rt_gc_visit_raw(&pl_flags[i].nm); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
