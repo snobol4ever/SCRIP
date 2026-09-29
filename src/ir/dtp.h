@@ -2,6 +2,7 @@
 #ifndef DTP_H
 #define DTP_H
 #include <stdint.h>
+#include "ct_vec.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -14,6 +15,14 @@ static_assert(sizeof(sno_thunk_rec_t) == 16 && __builtin_offsetof(sno_thunk_rec_
 #else
 _Static_assert(sizeof(sno_thunk_rec_t) == 16 && __builtin_offsetof(sno_thunk_rec_t, frame_bytes) == 8 && __builtin_offsetof(sno_thunk_rec_t, zstatic) == 12, "a compiled pattern thunk's record is one .quad entry and two .long fields, emitted as .Lthk_<sym> in mode 4 and filled in place in mode 3 (Lon 2026-09-29: every address baked, no name at run time)");
 #endif
+typedef struct sno_callee_rec { const char *name; uint32_t gen1; int32_t fi; cv_t types; } sno_callee_rec_t;
+#ifdef __cplusplus
+static_assert(sizeof(sno_callee_rec_t) == 40 && __builtin_offsetof(sno_callee_rec_t, gen1) == 8 && __builtin_offsetof(sno_callee_rec_t, fi) == 12 && __builtin_offsetof(sno_callee_rec_t, types) == 16, "a field callee's record is its name, the definition generation it was filled at plus one, the field's index when every type declaring it agrees (else -1), and the list of those types' dat_types indices -- emitted as .Lfld_<sym> in mode 4 (.quad, .long, .long, .quad, three .long and a pad) and held in the emitter's directory in mode 3 (Lon 2026-09-29: no by-name lookup for function calls)");
+#else
+_Static_assert(sizeof(sno_callee_rec_t) == 40 && __builtin_offsetof(sno_callee_rec_t, gen1) == 8 && __builtin_offsetof(sno_callee_rec_t, fi) == 12 && __builtin_offsetof(sno_callee_rec_t, types) == 16, "a field callee's record is its name, the definition generation it was filled at plus one, the field's index when every type declaring it agrees (else -1), and the list of those types' dat_types indices -- emitted as .Lfld_<sym> in mode 4 (.quad, .long, .long, .quad, three .long and a pad) and held in the emitter's directory in mode 3 (Lon 2026-09-29: no by-name lookup for function calls)");
+#endif
+void *bb_fld_rec_addr(const char *name);
+void emit_fld_records_data(void);
 void *bb_thunk_rec_addr(const char *name);
 void bb_thunk_rec_fill(const char *name, void *fn, int32_t frame_bytes, int32_t zstatic);
 #ifdef __cplusplus

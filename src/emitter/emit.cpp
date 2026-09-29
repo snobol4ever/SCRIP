@@ -1558,31 +1558,53 @@ void * bb_ab_fn_cell_ptr(const char * fname) { return (void *)ab_cell(bb_ab_slot
 int    bb_ab_slot_index(const char * fname) { return bb_ab_slot_for(fname); }
 void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < g_ab_fn_cell_n) ? (void *)ab_cell(slot) : (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static sno_thunk_rec_t * thk_rec(int slot) { return (sno_thunk_rec_t *)CV_AT(g_emit.thk_chunks, void *, slot >> 8) + (slot & 255); }
-static void thk_hix_put(const char * name, int slot) {
-    uint32_t m = g_emit.thk_hix.len - 1, h = ab_fn_hash(name) & m;
-    while (CV_AT(g_emit.thk_hix, ab_ent_t, h).name) h = (h + 1) & m;
-    CV_AT(g_emit.thk_hix, ab_ent_t, h).name = name; CV_AT(g_emit.thk_hix, ab_ent_t, h).slot = slot;
+struct emit_dir_ref { cv_t * chunks; cv_t * names; cv_t * hix; int * n; size_t esz; };
+static emit_dir_ref thk_dir(void) { emit_dir_ref d = { &g_emit.thk_chunks, &g_emit.thk_names, &g_emit.thk_hix, &g_emit.thk_n, sizeof(sno_thunk_rec_t) }; return d; }
+static emit_dir_ref fld_dir(void) { emit_dir_ref d = { &g_emit.fld_chunks, &g_emit.fld_names, &g_emit.fld_hix, &g_emit.fld_n, sizeof(sno_callee_rec_t) }; return d; }
+static void * dir_rec(emit_dir_ref d, int slot) { return (char *)CV_AT(*d.chunks, void *, slot >> 8) + (size_t)(slot & 255) * d.esz; }
+static void dir_hix_put(emit_dir_ref d, const char * name, int slot) {
+    uint32_t m = d.hix->len - 1, h = ab_fn_hash(name) & m;
+    while (CV_AT(*d.hix, ab_ent_t, h).name) h = (h + 1) & m;
+    CV_AT(*d.hix, ab_ent_t, h).name = name; CV_AT(*d.hix, ab_ent_t, h).slot = slot;
 }
-static void thk_hix_grow(void) {
-    uint32_t c = g_emit.thk_hix.len ? g_emit.thk_hix.len * 2 : 256;
-    cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(ab_ent_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(ab_ent_t); g_emit.thk_hix = v;
-    for (int s = 0; s < g_emit.thk_n; s++) thk_hix_put(CV_AT(g_emit.thk_names, const char *, s), s);
+static void dir_hix_grow(emit_dir_ref d) {
+    uint32_t c = d.hix->len ? d.hix->len * 2 : 256;
+    cv_t v = { 0, 0, 0, 0 }; v.p = ct_zalloc(c, sizeof(ab_ent_t)); v.len = c; v.cap = c; v.esz = (uint32_t)sizeof(ab_ent_t); *d.hix = v;
+    for (int s = 0; s < *d.n; s++) dir_hix_put(d, CV_AT(*d.names, const char *, s), s);
 }
-static int thk_slot_for(const char * name) {
-    if (g_emit.thk_hix.len) { uint32_t m = g_emit.thk_hix.len - 1, h = ab_fn_hash(name) & m;
-        for (;; h = (h + 1) & m) { ab_ent_t * e = &CV_AT(g_emit.thk_hix, ab_ent_t, h); if (!e->name) break; if (!strcmp(e->name, name)) return e->slot; } }
-    int s = g_emit.thk_n;
-    if ((s & 255) == 0) CV_PUSH(g_emit.thk_chunks, void *) = ct_zalloc(256, sizeof(sno_thunk_rec_t));
-    CV_PUSH(g_emit.thk_names, const char *) = ct_strdup(name);
-    g_emit.thk_n = s + 1;
-    if ((uint64_t)g_emit.thk_n * 2 > (uint64_t)g_emit.thk_hix.len) thk_hix_grow(); else thk_hix_put(CV_AT(g_emit.thk_names, const char *, s), s);
+static int dir_slot_for(emit_dir_ref d, const char * name) {
+    if (d.hix->len) { uint32_t m = d.hix->len - 1, h = ab_fn_hash(name) & m;
+        for (;; h = (h + 1) & m) { ab_ent_t * e = &CV_AT(*d.hix, ab_ent_t, h); if (!e->name) break; if (!strcmp(e->name, name)) return e->slot; } }
+    int s = *d.n;
+    if ((s & 255) == 0) CV_PUSH(*d.chunks, void *) = ct_zalloc(256, d.esz);
+    CV_PUSH(*d.names, const char *) = ct_strdup(name);
+    *d.n = s + 1;
+    if ((uint64_t)*d.n * 2 > (uint64_t)d.hix->len) dir_hix_grow(d); else dir_hix_put(d, CV_AT(*d.names, const char *, s), s);
     return s;
 }
-extern "C" void * bb_thunk_rec_addr(const char * name) { return (MEDIUM_BINARY && name) ? (void *)thk_rec(thk_slot_for(name)) : (void *)0; }
+extern "C" void * bb_thunk_rec_addr(const char * name) { return (MEDIUM_BINARY && name) ? dir_rec(thk_dir(), dir_slot_for(thk_dir(), name)) : (void *)0; }
 extern "C" void bb_thunk_rec_fill(const char * name, void * fn, int32_t frame_bytes, int32_t zstatic) {
     if (!name) return;
-    sno_thunk_rec_t * r = thk_rec(thk_slot_for(name)); r->fn = fn; r->frame_bytes = frame_bytes; r->zstatic = zstatic;
+    sno_thunk_rec_t * r = (sno_thunk_rec_t *)dir_rec(thk_dir(), dir_slot_for(thk_dir(), name)); r->fn = fn; r->frame_bytes = frame_bytes; r->zstatic = zstatic;
+}
+extern "C" void * bb_fld_rec_addr(const char * name) {
+    if (!name) return (void *)0;
+    int s = dir_slot_for(fld_dir(), name);
+    if (!MEDIUM_BINARY) return (void *)0;
+    sno_callee_rec_t * r = (sno_callee_rec_t *)dir_rec(fld_dir(), s);
+    if (!r->name) { r->name = CV_AT(g_emit.fld_names, const char *, s); r->gen1 = 0; r->fi = -1; }
+    return (void *)r;
+}
+extern "C" void emit_fld_records_data(void) {
+    if (!g_emit.fld_n) return;
+    extern const char * bb_ab_sym_name(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+    emit_textf("  .section .data\n");
+    for (int k = 0; k < g_emit.fld_n; k++) { const char * nm = CV_AT(g_emit.fld_names, const char *, k); std::string sym = bb_ab_sym_name(nm);
+        emit_textf("  .p2align 3\n.Lfld_%s:\n  .quad .Lfldn_%s\n  .long 0, -1\n  .quad 0\n  .long 0, 0, 0, 0\n", sym.c_str(), sym.c_str()); }
+    emit_textf("  .section .rodata\n");
+    for (int k = 0; k < g_emit.fld_n; k++) { const char * nm = CV_AT(g_emit.fld_names, const char *, k); std::string sym = bb_ab_sym_name(nm); size_t cap = 4 * strlen(nm) + 1; std::string esc(cap, '\0'); x86_asm_str_escape_c(nm, &esc[0], cap);
+        emit_textf(".Lfldn_%s: .string \"%s\"\n", sym.c_str(), esc.c_str()); }
+    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_no_template(IR_t *nd) {

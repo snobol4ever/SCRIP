@@ -1,3 +1,4 @@
+#include "dtp.h"
 #include "by_name_dispatch.h"
 #include "ct_arena.h"
 #include "rt/rt_diag.h"
@@ -6333,6 +6334,27 @@ static inline int rt_field_index_cached_i(const char *fn, const DATBLK_t *idb)
     return -1;
 }
 int rt_field_index_cached(const char *fn, const DATBLK_t *idb) { return rt_field_index_cached_i(fn, idb); }
+DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen);
+static void rt_crec_fill(sno_callee_rec_t *r)
+{
+    extern int dat_type_count(void); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int); extern unsigned rt_dtax_gen;
+    r->types.len = 0; int fi = -1, same = 1;
+    for (int c = 0; c < dat_type_count(); c++) for (int f = 0; f < dat_type_nfields(c); f++) { const char *fn2 = dat_type_field(c, f);
+        if (fn2 && r->name && !strcmp(fn2, r->name)) { if (fi < 0) fi = f; else if (fi != f) same = 0; CV_PUSH(r->types, int32_t) = (int32_t)c; } }
+    r->fi = same ? fi : -1;
+    r->gen1 = rt_dtax_gen + 1u;
+}
+DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
+{
+    extern unsigned rt_dtax_gen; extern const void *dat_type_blk(int);
+    if (r->gen1 != rt_dtax_gen + 1u) rt_crec_fill(r);
+    if (nargs == 1 && r->fi >= 0 && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type && args[0].u->fields) {
+        const void *tb = (const void *)args[0].u->type; const int32_t *ti = (const int32_t *)r->types.p;
+        for (uint32_t k = 0; k < r->types.len; k++) if (dat_type_blk(ti[k]) == tb) return args[0].u->fields[r->fi];
+    }
+    return rt_call_name_sn4(r->name, args, nargs, -1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     if (nargs == 1 && fn && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; int fi = rt_field_index_cached_i(fn, idb);

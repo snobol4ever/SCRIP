@@ -93,6 +93,8 @@ DatType *dat_find_type_n(const char *name, size_t n) {
         if (strncmp(dat_types[i].name, name, 63) == 0 && dat_types[i].name[63] != '\0') return &dat_types[i];
     return NULL;
 }
+const void *dat_type_blk(int k) { return (k >= 0 && k < dat_ntypes) ? (const void *)dat_types[k].blk : (const void *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_type(const char *name) {
     for (int i = dat_ntypes - 1; i >= 0; i--)
         if (strcmp(dat_types[i].name, name) == 0) return &dat_types[i];

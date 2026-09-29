@@ -30,6 +30,15 @@ void bb_slot_register(IR_t * nd, int off);
 #include "x86_asm.h"
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
+extern "C" {
+#include "dtp.h"
+DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r);
+int rt_dat_field_of_any(const char *name);
+void * dat_find_type(const char *name);
+const char * bb_ab_sym_name(const char * nm);
+}
+static int bcfn_field_callee(const char * fn, int strict) { return fn && fn[0] && sn4_byname_kind(fn, strict) == 2 && rt_dat_field_of_any(fn) && !dat_find_type(fn); }
+static std::string bcfn_fld_rdx(const char * fn) { std::string lbl = std::string(".Lfld_") + bb_ab_sym_name(fn); return x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)bb_fld_rec_addr(fn), lbl.c_str()); }
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand);
 std::string pl_leaf_zd_cold(const char * fn, int narg);
 int pl_leaf_inline_known(const char * fn, int narg);
@@ -161,6 +170,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (_mopen) { s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
         if (_aopen) { s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
+        if (bcfn_field_callee(fn, _.op_strict) && !_mopen && !_aopen) {
+            s += x86("comment", (std::string("FIELD CALL ") + fn + " -> rt_call_fld_sn4 with its record baked (no name, no lookup)").c_str());
+            if (nargs > 0) s += x86_reg_disp32_lea64("rdi", "rsp", 0);
+            else           s += x86("xor", "edi", "edi");
+            s += x86("mov32", "esi", (long)nargs);
+            s += bcfn_fld_rdx(fn);
+            s += x86("call", "rt_call_fld_sn4", (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4);
+        } else {
         {
             std::string fl = std::string(".L") + x86_boxkind() + "_rkfnzd" + std::to_string(g_flat_node_id++);
             s += x86("directive", ".section .rodata");
@@ -174,6 +191,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
+        }
         if (_mopen || _aopen) s += x86_deflabel_id(29);
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
@@ -248,6 +266,15 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (_iopen) { std::string _cq = FRQ(argbase); std::string _rq = FRQ(resoff); s += bcfn_iter_open_enter(40, _cq, _rq, nargs, 48, 29); s += x86_deflabel_id(48); }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
         if (_aopen) { s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
+        if (bcfn_field_callee(fn, _.op_strict) && !_mopen && !_iopen && !_aopen) {
+            s += x86("comment", (std::string("FIELD CALL ") + fn + " -> rt_call_fld_sn4 with its record baked (no name, no lookup)").c_str());
+            s += x86("lea", "rdi", FRQ(argbase));
+            s += x86("mov32", "esi", (long)nargs);
+            s += bcfn_fld_rdx(fn);
+            s += x86("rtcc_wb");
+            s += x86("call_bare", "rt_call_fld_sn4", (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4);
+            s += x86("rtcc_rl");
+        } else {
         std::string fl = std::string(".L") + x86_boxkind() + "_rkfn" + std::to_string(g_flat_node_id++);
         s += x86("directive", ".section .rodata");
         s += x86("directive", (fl + ": .string \"" + fn + "\"").c_str());
@@ -260,6 +287,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call_bare", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         s += x86("rtcc_rl");
+        }
         if (_mopen || _iopen || _aopen) s += x86_deflabel_id(29);
     }
     if (!polled_in_arm) { s += x86("mov", FRQ(resoff), "rax"); s += x86("mov", FRQ(resoff + 8), "rdx"); }

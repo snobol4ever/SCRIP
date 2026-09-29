@@ -556,6 +556,10 @@ typedef struct {
     cv_t                         thk_names;
     cv_t                         thk_hix;
     int                          thk_n;
+    cv_t                         fld_chunks;
+    cv_t                         fld_names;
+    cv_t                         fld_hix;
+    int                          fld_n;
 } sm_emit_t;
 extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))

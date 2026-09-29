@@ -1725,6 +1725,7 @@ int main(int argc, char **argv)
             { extern int g_proc_direct_active; g_proc_direct_active = 0; }
             extern void xa_emit_strtab_rodata(void);
             xa_emit_strtab_rodata();
+            { extern void emit_fld_records_data(void); emit_fld_records_data(); }
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
             { extern int g_monitor_bin; extern long g_trace_budget; extern int g_mon_max_stno; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
             if (_pl_atoms) { m4_emit_atom_table(); m4_emit_functor_table(); }
