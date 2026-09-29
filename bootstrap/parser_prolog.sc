@@ -223,7 +223,7 @@ primary = (   *Atom . p_name *$'('
           |   (*Float) . thx . *Shift('TT_FLIT', thx)
           |   '0x' SPAN('0123456789AaBbCcDdEeFf') . p_radix
                   . *Shift('TT_ILIT', compute_hex(p_radix))
-          |   '0b' SPAN(bin_digits) . p_radix
+          |   '0b' SPAN('01') . p_radix
                   . *Shift('TT_ILIT', compute_bin(p_radix))
           |   '0o' SPAN('01234567') . p_radix
                   . *Shift('TT_ILIT', compute_oct(p_radix))
@@ -412,7 +412,7 @@ function ParseOne(ptree, i, n_kids) {
     pf_a = TIME();
     InitCounter();
     InitStack();
-    if (Src ? Compiland) {
+    if (Src ? *Compiland) {
         ptree = Pop();
         pf_parse = pf_parse + (TIME() - pf_a);
         if (DIFFER(ptree)) {

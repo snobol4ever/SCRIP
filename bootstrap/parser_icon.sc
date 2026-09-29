@@ -451,7 +451,7 @@ function ParseOne(ptree, i, n_kids) {
     pf_a = TIME();
     InitCounter();
     InitStack();
-    if (Src ? Compiland) {
+    if (Src ? *Compiland) {
         ptree = Pop();
         pf_parse = pf_parse + (TIME() - pf_a);
         if (DIFFER(ptree)) {

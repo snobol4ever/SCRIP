@@ -236,7 +236,7 @@ function ParseOne(ptree, i, nk, cmd) {
     pf_a = TIME();
     InitCounter();
     InitStack();
-    if (Src ? Compiland) {
+    if (Src ? *Compiland) {
         /* SCT-fix: $'[' and $']' are OPSYN binary operators (Expr16) that override
          * SPITBOL's built-in array-indexing brackets.  Use ITEM(array, index) which
          * is standard SNOBOL4 and not affected by OPSYN redefinition of '['. */
