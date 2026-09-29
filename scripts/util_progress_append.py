@@ -423,12 +423,41 @@ def append_rows(rows, db=None):
                 receipt = migrate_header(path)
                 if receipt:
                     print(receipt, file=sys.stderr)
-            with open(path, "a", encoding="utf-8", newline="\n") as f:
-                if new:
-                    f.write("\t".join(COLUMNS) + "\n")
-                f.write(payload)
-                f.flush()
-                os.fsync(f.fileno())
+            if not new and os.path.exists(path + ".current"):
+                # ⭐ THE CURRENT TABLE (Lon 2026-09-29, in-chat to the cto: "delete the entire file and just keep a
+                # CURRENT TABLE. We are close enough to 100% now to do that."): once results.tsv.current marks the
+                # table, it holds ONE row per (class, suite, lang, program, mode) -- the latest reading -- and a board
+                # REPLACES the rows it re-measures instead of appending history. Rewritten whole under the same flock
+                # through a temporary file and os.replace, so a reader sees the old table or the new, never half.
+                # Without the marker this writer appends exactly as before: it never collapses history on its own.
+                with open(path, encoding="utf-8", errors="replace") as f:
+                    body = f.read().split("\n")
+                hdr, rows_in = body[0], [l for l in body[1:] if l]
+                last = {}
+                for i, l in enumerate(rows_in):
+                    last[tuple(l.split("\t")[4:9])] = i
+                old_rows = [l for i, l in enumerate(rows_in) if last[tuple(l.split("\t")[4:9])] == i]
+                at = {tuple(l.split("\t")[4:9]): i for i, l in enumerate(old_rows)}
+                for l in lines:
+                    k = tuple(l.split("\t")[4:9])
+                    if k in at:
+                        old_rows[at[k]] = l
+                    else:
+                        at[k] = len(old_rows)
+                        old_rows.append(l)
+                tmp = path + ".tmp"
+                with open(tmp, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(hdr + "\n" + "\n".join(old_rows) + "\n")
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp, path)
+            else:
+                with open(path, "a", encoding="utf-8", newline="\n") as f:
+                    if new:
+                        f.write("\t".join(COLUMNS) + "\n")
+                    f.write(payload)
+                    f.flush()
+                    os.fsync(f.fileno())
             fcntl.flock(lk.fileno(), fcntl.LOCK_UN)
     except (OSError, ProgressUnwritable) as e:
         msg = f"⛔ PROGRESS DATABASE UNWRITABLE ({path}): {e} -- {len(rows)} row(s) NOT recorded. A run that leaves the table untouched is a defect of that run (progress/README.md, CEO-319); fix the table or the permission, never the caller."
