@@ -1684,7 +1684,7 @@ int main(int argc, char **argv)
             if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
             if (n_gva_icn > 0) {
                 emit_textf("  .section .rodata\n");
-                for (int k = 0; k < n_gva_icn; k++) emit_textf("  .Lgvan%d: .string \"%s\"\n", k, gva_name(k));
+                for (int k = 0; k < n_gva_icn; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(gva_name(k) ? gva_name(k) : "", _esc, sizeof _esc); emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc); }
                 emit_textf("  .align 8\n__gva_names:\n");
                 for (int k = 0; k < n_gva_icn; k++) emit_textf("  .quad .Lgvan%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
