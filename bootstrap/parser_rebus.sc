@@ -181,18 +181,18 @@ cat_tail = ( *$'||' *cmp_expr . *Reduce('TT_CAT', 2) *cat_tail
            );
 X_alt = epsilon . *IncCounter() *cat_expr FENCE(*$'|' *X_alt | epsilon);
 alt_expr = epsilon . *PushCounter() *X_alt . *Reduce('ALT', nTop()) . *PopCounter();
-expr = *alt_expr FENCE(  *$'||:=' *alt_expr . *Reduce('CATASSIGN', 2)
-                       | *$'+:='  *alt_expr . *Reduce('ADDASSIGN', 2)
-                       | *$'-:='  *alt_expr . *Reduce('SUBASSIGN', 2)
-                       | *$':=:'  *alt_expr . *Reduce('EXCHG', 2)
-                       | *$':='   *alt_expr . *Reduce('ASSIGN', 2)
-                       | epsilon
+expr = *alt_expr FENCE(  *$' ' ('||:=' *$' ' *alt_expr . *Reduce('CATASSIGN', 2)
+                       | '+:=' *$' '  *alt_expr . *Reduce('ADDASSIGN', 2)
+                       | '-:=' *$' '  *alt_expr . *Reduce('SUBASSIGN', 2)
+                       | ':=:' *$' '  *alt_expr . *Reduce('EXCHG', 2)
+                       | ':=' *$' '   *alt_expr . *Reduce('ASSIGN', 2)
+                       ) | epsilon
                       );
 $'?-match'  = *$' '  '?-'  *$' ';
 match_or_expr = *expr FENCE(*$'?-match' *alt_expr . *Reduce('REPLN', 2)
-                           | *$'?' *alt_expr *$'<-arrow' *alt_expr . *Reduce('REPLACE', 3)
-                           | *$'?' *alt_expr . *Reduce('MATCH', 2)
-                           | epsilon);
+                           | *$' ' ('?' *$' ' *alt_expr *$'<-arrow' *alt_expr . *Reduce('REPLACE', 3)
+                           | '?' *$' ' *alt_expr . *Reduce('MATCH', 2)
+                           ) | epsilon);
 opt_nl = (CHAR(10) | epsilon);
 StmtT     = TABLE(12);
 kw_stmt   = *$' ' *Id $ tx *DIFFER(StmtT[tx]) *StmtT[tx];

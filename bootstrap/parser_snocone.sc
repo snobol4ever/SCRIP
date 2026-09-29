@@ -127,16 +127,16 @@ Expr14          =   '@' *Expr14 . *Reduce('TT_CAPT_CURSOR', 1)
 Expr13          =   *Expr14 FENCE(*$'~' *Expr13 . *Reduce('TT_NOT', 2) | epsilon);
 Expr12          =   *Expr13
                     FENCE(
-                      *$'$' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) FENCE(*$'$' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) | epsilon)
-                    | *$'.' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) FENCE(*$'.' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) | epsilon)
-                    | epsilon
+                      *$'  ' ('$' *$'  ' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) FENCE(*$'$' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) | epsilon)
+                    | '.' *$'  ' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) FENCE(*$'.' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) | epsilon)
+                    ) | epsilon
                     );
-Expr11          =   *Expr12 FENCE((*$'^' | *$'!' | *$'**') *Expr11 . *Reduce('TT_POW', 2) | epsilon);
+Expr11          =   *Expr12 FENCE((*$'  ' ('^' *$'  ' | '!' *$'  ' | '**' *$'  ')) *Expr11 . *Reduce('TT_POW', 2) | epsilon);
 Expr10          =   *Expr11 FENCE(*$'%' *Expr10 . *Reduce('TT_MUL', 2) | epsilon);
 Expr9           =   *Expr10 FENCE(*$'*' *Expr9  . *Reduce('TT_MUL', 2) | epsilon);
 Expr8           =   *Expr9  FENCE(*$'/' *Expr8  . *Reduce('TT_DIV', 2) | epsilon);
 Expr7           =   *Expr8  FENCE(*$'#' *Expr7  . *Reduce('TT_SUB', 2) | epsilon);
-Expr6           =   *Expr7  FENCE(*$'+' *Expr6 . *Reduce('TT_ADD', 2) | *$'-' *Expr6 . *Reduce('TT_SUB', 2) | epsilon);
+Expr6           =   *Expr7  FENCE(*$'  ' ('+' *$'  ' *Expr6 . *Reduce('TT_ADD', 2) | '-' *$'  ' *Expr6 . *Reduce('TT_SUB', 2) ) | epsilon);
 Expr5           =   *Expr6
                     FENCE(
                       *$'@'  *Expr5 . *Reduce('TT_CAPT_CURSOR', 2)
@@ -151,12 +151,12 @@ Expr1           =   *Expr2 FENCE(*$'?' *Expr1 . *Reduce('TT_SCAN', 2) | epsilon)
 Expr0           =   *Expr1 FENCE(
                       *$'='  FENCE(*Expr0 | (epsilon) . thx . *Shift('TT_QLIT', thx)) . *Reduce('TT_ASSIGN', 2)
                     | *$'  ' '=' *$';' (epsilon) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ASSIGN', 2)
-                    | *$'+=' *Expr0 . *Reduce('TT_AUGOP', 2)
-                    | *$'-=' *Expr0 . *Reduce('TT_AUGOP', 2)
-                    | *$'*=' *Expr0 . *Reduce('TT_AUGOP', 2)
-                    | *$'/=' *Expr0 . *Reduce('TT_AUGOP', 2)
-                    | *$'^=' *Expr0 . *Reduce('TT_AUGOP', 2)
-                    | epsilon);
+                    | *$'  ' ('+=' *$'  ' *Expr0 . *Reduce('TT_AUGOP', 2)
+                    | '-=' *$'  ' *Expr0 . *Reduce('TT_AUGOP', 2)
+                    | '*=' *$'  ' *Expr0 . *Reduce('TT_AUGOP', 2)
+                    | '/=' *$'  ' *Expr0 . *Reduce('TT_AUGOP', 2)
+                    | '^=' *$'  ' *Expr0 . *Reduce('TT_AUGOP', 2)
+                    ) | epsilon);
 /* ==================================================================================================================== */
 /* Statement grammar — pure shift/reduce.  SC-SC-2.                                       */
 /* ==================================================================================================================== */

@@ -175,9 +175,9 @@ SetCtor         =   epsilon . *PushCounter() *$'[' . *Shift('TT_VAR', '__pas_set
 IdxTail         =   epsilon . *IncCounter() *$'[' *ArgFirst ARBNO(*ArgRest) *$']';
 /* A variable access is a primary and any number of postfixes: a[i], r.f, p^.               */
 Postfix         =   ( epsilon . *PushCounter() *IdxTail . *Reduce('TT_IDX', nTop()) . *PopCounter()
-                    | *$'.' (*Ident) . thx . *Shift('TT_VAR', thx) . *Reduce('TT_FIELD', 2)
-                    | *$'^' . *Reduce('TT_DEREF', 1)
-                    );
+                    | *$' ' ('.' *$' ' (*Ident) . thx . *Shift('TT_VAR', thx) . *Reduce('TT_FIELD', 2)
+                    | '^' *$' ' . *Reduce('TT_DEREF', 1)
+                    ));
 PostStar        =   FENCE(*Postfix *PostStar | epsilon);
 Primary         =   ( *$'(' *Expr0 *$')'
                     | *WriteCall
@@ -201,28 +201,28 @@ Expr3           =   *$'-'   *Expr3 . *Reduce('TT_MNS', 1)
                 |   *Expr4;
 /* Multiplying operators.  `/` forces a real result the way the oracle does, by folding  */
 /* the LEFT operand with a 1.0 before dividing.  `mod` is the named divergence above.    */
-MulOp           =   ( *$'*'   *Expr3 . *Reduce('TT_MUL', 2)
-                    | *$'/'   . *Shift('TT_FLIT', '1') . *Reduce('TT_MUL', 2)
+MulOp           =   ( *$' ' ('*' *$' '   *Expr3 . *Reduce('TT_MUL', 2)
+                    | '/' *$' '   . *Shift('TT_FLIT', '1') . *Reduce('TT_MUL', 2)
                              *Expr3 . *Reduce('TT_DIV', 2)
-                    | *$'div' *Expr3 . *Reduce('TT_DIV', 2)
+                    ) | *$'div' *Expr3 . *Reduce('TT_DIV', 2)
                     | *$'mod' *Expr3 . *Reduce('TT_MOD', 2)
                     | *$'and' *Expr3 . *Reduce('TT_MUL', 2)
                     );
 Expr2           =   *Expr3 *MulStar;
 MulStar         =   FENCE(*MulOp *MulStar | epsilon);
-AddOp           =   ( *$'+'  *Expr2 . *Reduce('TT_ADD', 2)
-                    | *$'-'  *Expr2 . *Reduce('TT_SUB', 2)
-                    | *$'or' *Expr2 . *Reduce('TT_ADD', 2)
+AddOp           =   ( *$' ' ('+' *$' '  *Expr2 . *Reduce('TT_ADD', 2)
+                    | '-' *$' '  *Expr2 . *Reduce('TT_SUB', 2)
+                    ) | *$'or' *Expr2 . *Reduce('TT_ADD', 2)
                     );
 Expr1           =   *Expr2 *AddStar;
 AddStar         =   FENCE(*AddOp *AddStar | epsilon);
-RelOp           =   ( *$'<>' *Expr1 . *Reduce('TT_NE', 2)
-                    | *$'<=' *Expr1 . *Reduce('TT_LE', 2)
-                    | *$'>=' *Expr1 . *Reduce('TT_GE', 2)
-                    | *$'='  *Expr1 . *Reduce('TT_EQ', 2)
-                    | *$'<'  *Expr1 . *Reduce('TT_LT', 2)
-                    | *$'>'  *Expr1 . *Reduce('TT_GT', 2)
-                    | *$'in' . *Shift('TT_VAR', '__pas_in') *swap *Expr1 . *Reduce('TT_FNC', 3)
+RelOp           =   ( *$' ' ('<>' *$' ' *Expr1 . *Reduce('TT_NE', 2)
+                    | '<=' *$' ' *Expr1 . *Reduce('TT_LE', 2)
+                    | '>=' *$' ' *Expr1 . *Reduce('TT_GE', 2)
+                    | '=' *$' '  *Expr1 . *Reduce('TT_EQ', 2)
+                    | '<' *$' '  *Expr1 . *Reduce('TT_LT', 2)
+                    | '>' *$' '  *Expr1 . *Reduce('TT_GT', 2)
+                    ) | *$'in' . *Shift('TT_VAR', '__pas_in') *swap *Expr1 . *Reduce('TT_FNC', 3)
                     );
 Expr0           =   *Expr1 FENCE(*RelOp | epsilon);
 /* ==================================================================================================================== */
@@ -288,7 +288,7 @@ Command         =   *$' ' ( *kw_cmd
 TypeName        =   *$' ' *Id *$' ' FENCE(*$'[' BREAK(']') ']' *$' ' | epsilon);
 /* A type denoter, ISO 7185 6.4: parsed and discarded like the rest of the declarations.  */
 IdList          =   *Ident ARBNO(*$',' *Ident);
-SConst          =   FENCE(*$'-' | *$'+' | epsilon) (*Real | *Integer | *Quoted | *Ident);
+SConst          =   FENCE(*$' ' ('-' *$' ' | '+' *$' ' ) | epsilon) (*Real | *Integer | *Quoted | *Ident);
 SimpleType      =   ( *$'(' *IdList *$')'
                     | *SConst *$'..' *SConst
                     | *TypeName

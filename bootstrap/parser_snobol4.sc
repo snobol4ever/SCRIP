@@ -113,7 +113,7 @@ Expr4       =  epsilon . *PushCounter() *X4  . *Reduce('TT_SEQ', *(GT(nTop(), 1)
 X4          =  epsilon . *IncCounter() *Expr5 FENCE(*$'  ' *X4 | epsilon);
 Expr5       =  *Expr6 FENCE(*$'@' *Expr5 . *Reduce('TT_CAPT_CURSOR', 2) | epsilon);
 Expr6       =  *Expr7
-               FENCE(*$'+' *Expr6 . *Reduce('TT_ADD', 2) | *$'-' *Expr6 . *Reduce('TT_SUB', 2) | epsilon);
+               FENCE(*$'  ' ('+' *$'  ' *Expr6 . *Reduce('TT_ADD', 2) | '-' *$'  ' *Expr6 . *Reduce('TT_SUB', 2) ) | epsilon);
 Expr7       =  *Expr8 FENCE(*$'#' *Expr7 . *Reduce('TT_MUL', 2) | epsilon);
 Expr8       =  *Expr9 FENCE(*$'/' *Expr8 . *Reduce('TT_DIV', 2) | epsilon);
 Expr9       =  *Expr10 FENCE(*$'*' *Expr9 . *Reduce('TT_MUL', 2) | epsilon);
@@ -123,9 +123,9 @@ Expr10      =  *Expr11 FENCE(*$'%' *Expr10 . *Reduce('TT_DIV', 2) | epsilon);
    Uses nPush/nInc/X11/nPop pattern (same as snocone X3/X4) to collect all base/exponent
    operands in left-to-right order, then reduce to flat n-ary node. */
 Expr11      =  epsilon . *PushCounter() *X11 . *Reduce('TT_POW', *(GT(nTop(), 1) nTop())) . *PopCounter();
-X11         =  epsilon . *IncCounter() *Expr12 FENCE((*$'^' | *$'!' | *$'**') *X11 | epsilon);
+X11         =  epsilon . *IncCounter() *Expr12 FENCE((*$'  ' ('^' *$'  ' | '!' *$'  ' | '**' *$'  ')) *X11 | epsilon);
 Expr12      =  *Expr13 *Expr12tail;
-Expr12tail  =  FENCE(*$'$' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) *Expr12tail | *$'.' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) *Expr12tail | epsilon);
+Expr12tail  =  FENCE(*$'  ' ('$' *$'  ' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) *Expr12tail | '.' *$'  ' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) *Expr12tail ) | epsilon);
 Expr13      =  *Expr14 FENCE(*$'~' *Expr13 . *Reduce('TT_NOT', 2) | epsilon);
 Expr14      =  '@' *Expr14 . *Reduce('TT_CAPT_CURSOR', 1)
             |  '~' *Expr14 . *Reduce('TT_NOT', 1)
