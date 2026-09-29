@@ -1495,6 +1495,9 @@ static void _io_chan_setup(void) {
 void rt_io_chan_prebind(int ch, const char *path) { if (ch < 0 || ch >= IO_CHAN_MAX || ch == 5 || ch == 6) return; _io_chan_setup(); _io_chan[ch].prebind = path; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch);
+static void _io_var_refresh(const char *name);
+static FILE *_input_fp;
+static int _input_fp_is_popen;
 static int _io_chan_find_by_var(const char *name) {
     _io_chan_setup();
     if (!g_call_fastpath_off) return -1;
@@ -1509,7 +1512,7 @@ void rt_terminal_to_file(const char *path) {
     int c = 7;
     _io_chan_close(c);
     _io_chan[c].fp = f; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
-    _io_chan[c].varname = rt_heap_strdup_c("TERMINAL"); g_call_fastpath_off = 1;
+    _io_chan[c].varname = rt_heap_strdup_c("TERMINAL"); g_call_fastpath_off = 1; _io_var_refresh("TERMINAL");
 }
 static int sno_name_is_output_assoc(const char *name) {
     if (!name || !name[0]) return 0;
@@ -1522,8 +1525,9 @@ static int sno_name_is_output_assoc(const char *name) {
 static void _io_chan_close(int ch) {
     _io_chan_setup();
     if (ch < 0 || ch >= IO_CHAN_MAX) return;
+    if (_io_chan[ch].fp && _io_chan[ch].fp == _input_fp) { _input_fp = stdin; _input_fp_is_popen = 0; }
     if (_io_chan[ch].fp) { if (_io_chan[ch].fp == stdin || _io_chan[ch].fp == stdout) { } else if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
-    if (_io_chan[ch].varname) { _io_chan[ch].varname = NULL; }
+    if (_io_chan[ch].varname) { const char *ov = _io_chan[ch].varname; _io_chan[ch].varname = NULL; _io_var_refresh(ov); }
     if (_io_chan[ch].buf)  { ct_drop(_io_chan[ch].buf); _io_chan[ch].buf = NULL; }
     _io_chan[ch].cap = 0;
     _io_chan[ch].is_output = 0;
@@ -3255,6 +3259,7 @@ typedef struct _VarEntry {
     int      is_gva;
     int      is_const;
     int      touched;
+    int      is_io;
     struct _VarEntry *next;
 } NV_t;
 static gv_t g_var_buckets; static unsigned _var_nbuckets = 0; static unsigned long _var_count = 0;
@@ -3330,6 +3335,8 @@ static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void _io_var_refresh(const char *name) { if (!name) return; NV_t *e = _var_bucket_find(name); if (e) e->is_io = (_io_chan_find_by_var(name) >= 0); g_nv_memo_gen++; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nv_memo_invalidate(void) { g_nv_memo_gen++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int _nv_kwsplit(void) { static int _k = -1; if (_k < 0) { const char *e = getenv("SCRIP_KWSPACE_SPLIT"); _k = (e && *e == '0') ? 0 : 1; } return _k; }
@@ -3340,7 +3347,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     if (e) { e->val = val; return val; }
     unsigned h = _var_hash(key);
     e = rt_wsb_alloc(sizeof(NV_t));
-    e->name = rt_heap_strdup_c(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0;
+    e->name = rt_heap_strdup_c(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0; e->is_io = (_io_chan_find_by_var(key) >= 0);
     if (!_var_nbuckets) { _var_grow(8); h = _var_hash(key); }
     e->next = VB(h); VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
     return val;
@@ -3350,7 +3357,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
     _var_init();
     if (!name) return NULVCL;
     if (is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { NV_t *pe = _var_bucket_find(name); if (pe) pe->touched = 1; }
-    if (!g_call_fastpath_off && name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0) && (name[0] != 'T' || strcmp(name, "TERMINAL") != 0)) { NV_t *e = _var_find_cached(name); if (e) return e->is_gva ? *e->cell : e->val; }
+    if (name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0) && (name[0] != 'T' || strcmp(name, "TERMINAL") != 0)) { NV_t *e = _var_find_cached(name); if (e && !e->is_io) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) { extern int rt_kw_input_on(void); if (!rt_kw_input_on()) return NULVCL; return input_read(); }
     if (strcmp(name, "TERMINAL") == 0) return terminal_read();
     if (strcmp(name, "OUTPUT") == 0) { NV_t *e = _var_bucket_find("_OUTPUT"); return e ? (e->is_gva ? *e->cell : e->val) : NULVCL; }
@@ -3400,9 +3407,9 @@ int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {
     if (!_var_init_done) _var_init();
-    if (g_call_fastpath_off || !name || name[0] == '&') return (DESCR_t *)0;
+    if (!name || name[0] == '&') return (DESCR_t *)0;
     NV_t *e = _var_find_cached(name);
-    if (!e) return (DESCR_t *)0;
+    if (!e || e->is_io) return (DESCR_t *)0;
     return e->is_gva ? e->cell : &e->val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3478,6 +3485,7 @@ nv_store: ;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
     e->is_const = (name[0] == '&' && !_nv_kwsplit()) ? 1 : 0;
+    e->is_io = (_io_chan_find_by_var(name) >= 0);
     if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
     e->next = VB(h);
     VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
@@ -3531,6 +3539,7 @@ DESCR_t *NV_PTR_fn(const char *name) {
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
     e->is_const = 0;
+    e->is_io = (_io_chan_find_by_var(name) >= 0);
     if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
     e->next = VB(h);
     VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
@@ -4429,11 +4438,20 @@ const char *FUNC_ENTRY_fn(const char *fname) {
 }
 static FILE *_input_fp = NULL;
 static int _input_fp_is_popen = 0;
+static void _input_fp_release(void) {
+    if (_input_fp && _input_fp != stdin) {
+        int owned = 0;
+        for (int c = 0; c < IO_CHAN_MAX; c++) if (_io_chan[c].fp == _input_fp) { owned = 1; break; }
+        if (!owned) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
+    }
+    _input_fp = stdin; _input_fp_is_popen = 0;
+}
+static int _io_chan_in_use(int ch) { return ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp && _io_chan[ch].fp != stdin && _io_chan[ch].fp != stdout; }
 void rt_input_from_file_at(const char *path, long off) {
     FILE *f = fopen(path, "r");
     if (!f) return;
     if (fseek(f, off, SEEK_SET) != 0) { fclose(f); return; }
-    if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
+    _input_fp_release();
     _input_fp = f; _input_fp_is_popen = 0;
 }
 static char *_input_buf = NULL;
@@ -4593,7 +4611,7 @@ static DESCR_t _DETACH_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     _io_chan_setup();
     { const char *vn = _io_varname(a[0]);
-      if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) _io_chan[ch].varname = NULL; } }
+      if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) { _io_chan[ch].varname = NULL; _io_var_refresh(vn); } } }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4617,7 +4635,8 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
-    if ((!fname || !fname[0]) && ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].prebind) fname = _io_chan[ch].prebind;
+    int from_prebind = 0;
+    if ((!fname || !fname[0]) && ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].prebind) { fname = _io_chan[ch].prebind; from_prebind = 1; }
     else if (!core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
         core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
     if (!fname || !fname[0]) {
@@ -4625,8 +4644,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         long fd = -1, rlen = 0;
         if (_io_assoc_pair_state(a, n) == 0) return NULVCL;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
-        if (_input_fp && _input_fp != stdin) fclose(_input_fp);
-        _input_fp = stdin;
+        _input_fp_release();
         if (fd >= 0) { FILE *nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR; _input_fp = nf; }
         _input_rlen = rlen;
         { const char *vn = (n == 1) ? _io_varname(a[0]) : NULL;
@@ -4634,12 +4652,13 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
               int c = 5;
               _io_chan_close(c);
               _io_chan[c].fp = _input_fp; _io_chan[c].is_output = 0; _io_chan[c].is_popen = 0;
-              _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1;
+              _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1; _io_var_refresh(vn);
           } }
         return NULVCL;
     }
     int is_pipe = (fname[0] == '|');
     if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) return NULVCL;
+    if (!from_prebind && _io_chan_in_use(ch)) { core_runtime_error(289, "input channel currently in use"); return FAILDESCR; }
     FILE *f = is_pipe ? popen(fname + 1, "r") : fopen(fname, "r");
     if (!f) return FAILDESCR;
     long fopt = -1, frlen = 0;
@@ -4651,10 +4670,10 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _io_chan[ch].is_popen = is_pipe;
         _io_chan[ch].rlen = frlen;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) g_call_fastpath_off = 1;
-        if (vn && !strcmp(vn, "INPUT")) { if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); } _input_fp = f; _input_fp_is_popen = is_pipe; _input_rlen = frlen; }
+        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
+        if (vn && !strcmp(vn, "INPUT")) { _input_fp_release(); _input_fp = f; _input_fp_is_popen = is_pipe; _input_rlen = frlen; }
     } else {
-        if (_input_fp && _input_fp != stdin) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
+        _input_fp_release();
         _input_fp = f;
         _input_fp_is_popen = is_pipe;
         _input_rlen = frlen;
@@ -4666,7 +4685,8 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
     char fname_buf[4096];
     const char *fname = NULL;
-    { int pch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1; if (n < 3 && pch >= 0 && pch < IO_CHAN_MAX && _io_chan[pch].prebind) fname = _io_chan[pch].prebind; }
+    int from_prebind = 0;
+    { int pch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1; if (n < 3 && pch >= 0 && pch < IO_CHAN_MAX && _io_chan[pch].prebind) { fname = _io_chan[pch].prebind; from_prebind = 1; } }
     if (!fname && !core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
         core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
     if (fname) {
@@ -4680,7 +4700,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
             int c = 6;
             _io_chan_close(c);
             _io_chan[c].fp = stdout; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
-            _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1;
+            _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1; _io_var_refresh(vn);
         }
         return NULVCL;
     }
@@ -4698,13 +4718,14 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
           _io_chan[ch].fp = nf;
           _io_chan[ch].is_output = 1;
           { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-            _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) g_call_fastpath_off = 1; } }
+            _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); } } }
         return NULVCL;
     }
     int is_pipe = (fname[0] == '|');
     if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
         core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR;
     }
+    if (!from_prebind && _io_chan_in_use(ch)) { core_runtime_error(290, "output channel currently in use"); return FAILDESCR; }
     FILE *f = is_pipe ? popen(fname + 1, "w") : fopen(fname, "w");
     if (!f) return FAILDESCR;
     if (ch >= 0 && ch < IO_CHAN_MAX) {
@@ -4713,7 +4734,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         _io_chan[ch].is_output = 1;
         _io_chan[ch].is_popen = is_pipe;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) g_call_fastpath_off = 1;
+        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
     } else {
         if (is_pipe) pclose(f); else fclose(f);
         return FAILDESCR;

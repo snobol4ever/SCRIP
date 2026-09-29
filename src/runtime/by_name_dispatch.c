@@ -1294,6 +1294,7 @@ void bnd_gc_roots(void)
     for (int gi = 0; gi < gram_n; gi++) { if (GRAM(gi).qname) rt_gc_visit_raw(&GRAM(gi).qname); if (GRAM(gi).body) rt_gc_visit_raw(&GRAM(gi).body); }
     for (int rd = 0; rd < g_redisp_top; rd++) { rt_gc_visit_descr(&g_redisp[rd].self); rt_gc_visit_descr(&g_redisp[rd].mname); for (int k = 0; k < g_redisp[rd].nargs; k++) rt_gc_visit_descr(&RD_ARG(rd, k)); }
     { extern void rt_main_args_gc_root(void); rt_main_args_gc_root(); }
+    { extern void rt_pl_flags_gc_roots(void); rt_pl_flags_gc_roots(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int total) {
@@ -3754,6 +3755,7 @@ static void pl_flags_ready(void) {
     for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; }
 }
 const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
+void rt_pl_flags_gc_roots(void) { extern void rt_gc_visit_raw(const char **); for (uint32_t i = 0; i < g_pl_flags.len; i++) if (pl_flags[i].nm) rt_gc_visit_raw(&pl_flags[i].nm); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) {
     pl_flags_ready();
@@ -3763,7 +3765,7 @@ static pl_flag_t * pl_flag_find(const char *nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find_or_create(const char *nm) {
     int i = 0; pl_flags_ready(); for (; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
-    { char *persist = strdup(nm); if (!persist) return (pl_flag_t *)0;
+    { extern char *rt_heap_strdup_c(const char *); char *persist = rt_heap_strdup_c(nm); if (!persist) return (pl_flag_t *)0;
       (void)CV_PUSH(g_pl_flags, pl_flag_t);
       pl_flags[i].nm = persist; pl_flags[i].val[0] = 0; pl_flags[i].mod = 1; pl_flags[i].ok[0] = 0; }
     return &pl_flags[i];

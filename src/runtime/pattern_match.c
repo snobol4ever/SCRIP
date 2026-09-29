@@ -789,9 +789,7 @@ static unsigned long g_dcap_nv_seen[RT_DCAP_NVCACHE_N];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char *name)
 {
-    extern int g_call_fastpath_off;
     extern unsigned long g_nv_memo_gen;
-    if (g_call_fastpath_off) return (DESCR_t *)0;
     unsigned i = (unsigned)((((uintptr_t)name * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
     if (g_dcap_nv_key[i] == name && g_dcap_nv_seen[i] == g_nv_memo_gen) return g_dcap_nv_cell[i];
     DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name);
@@ -871,9 +869,9 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
         }
         if (e->varname && e->varname[0]) {
             DESCR_t *cell0;
-            { extern int g_call_fastpath_off; extern unsigned long g_nv_memo_gen;
+            { extern unsigned long g_nv_memo_gen;
               unsigned _i = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
-              cell0 = (!g_call_fastpath_off && g_dcap_nv_key[_i] == e->varname && g_dcap_nv_seen[_i] == g_nv_memo_gen) ? g_dcap_nv_cell[_i] : (DESCR_t *)0; }
+              cell0 = (g_dcap_nv_key[_i] == e->varname && g_dcap_nv_seen[_i] == g_nv_memo_gen) ? g_dcap_nv_cell[_i] : (DESCR_t *)0; }
             if (!cell0 && g_protected_pat_vars_armed && is_protected_pat_lead(e->varname[0]) && is_protected_pat_name(e->varname)) {
                 NV_SET_fn(e->varname, d);
             } else {

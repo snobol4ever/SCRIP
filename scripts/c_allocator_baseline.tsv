@@ -101,5 +101,5 @@ arena_in_runtime_evasion	0
 arena_in_runtime_debt	88
 container_unmarked_live	1
 libc_owned_misuse	0
-libc_doors	1
+libc_doors	0
 outside_src_sites	25
