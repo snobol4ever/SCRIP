@@ -113,6 +113,7 @@ static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
         if (!s || s->t != TT_STMT) continue;
         const tree_t * subj = lc_stmt_subj(s);
         if (!subj) continue;
+        if (sfind(s, ":eq") && !sfind(s, ":pat")) { tree_t * a = ast_node_new(TT_ASSIGN); ast_push(a, (tree_t *) subj); ast_push(a, sfind_expr(s, ":repl")); subj = a; }
         IR_t * r = NULL;
         entry = sco_stmt_hook(cx, s, sx_lower(cx, subj, entry, entry, &r));
     }

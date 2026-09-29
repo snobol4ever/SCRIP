@@ -575,6 +575,11 @@ static void sc_append_stmt(ScParseState *st, tree_t *top) {
     s->lineno  = st->ctx ? st->ctx->line : 0;
     s->stno    = ++st->code->nstmts;
     s->subject = top;
+    if (top->t == TT_ASSIGN && top->n == 2 && top->c[0] && top->c[1]) {
+        tree_t *lhs = top->c[0];
+        if (lhs->t == TT_INDIRECT && lhs->n == 1 && lhs->c[0] && lhs->c[0]->t == TT_QLIT && lhs->c[0]->sval && lhs->c[0]->sval[0] && lhs->c[0]->sval[0] != '&') { tree_t *v = ast_node_new(TT_VAR); v->sval = ct_strdup(lhs->c[0]->sval); lhs = v; }
+        if (lhs->t == TT_VAR && lhs->sval) { s->subject = lhs; s->replacement = top->c[1]; s->has_eq = 1; }
+    }
     sc_append_chain(st, s, s);
 }
 static tree_t *sc_int_literal(const char *txt) {
