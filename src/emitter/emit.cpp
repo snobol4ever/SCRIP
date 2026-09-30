@@ -796,10 +796,12 @@ static int fence0_release_bytes(const IR_t * nd) {
     return total;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int blob_slots_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_SLOTS"); v = 1; if (e) { v = 0; for (; *e; e++) v |= (*e == 'c') ? 1 : (*e == 'f') ? 2 : (*e == 'x') ? 4 : 0; } } return v; }
+static int blob_slots_env(void) { return blob_slots_mask() != 0; }
 static int fence_frame_candidate(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
     if (IR_LIT(nd).ival == 2) return 1;
-    if (IR_LIT(nd).ival != 0) { int blob_frame_scope(void); if (blob_frame_scope()) return 1; }
+    if (IR_LIT(nd).ival != 0) { int blob_frame_scope(void); if ((blob_slots_mask() & 2) && blob_frame_scope()) return 1; }
     { IR_t * cur = zd_chase(nd->operands[0]); int guard = 0;
       while (cur && guard++ <= g_emit_cfg->n) {
           if (cur != nd && fence_body_kk_complex((int)cur->op)) return 1;
@@ -2472,7 +2474,7 @@ static void xci_build(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xop_frame_member(const IR_t * nd) {
     extern int zdp_scratch_cell(const IR_t *); int blob_frame_scope(void);
-    if (!nd || !blob_frame_scope() || zdp_scratch_cell(nd) || zd_k((IR_t *)nd) != 16) return 0;
+    if (!nd || !(blob_slots_mask() & 4) || !blob_frame_scope() || zdp_scratch_cell(nd) || zd_k((IR_t *)nd) != 16) return 0;
     if (nd->op == IR_MATCH_ASSIGN_SAVE || nd->op == IR_MATCH_ARBNO || nd->op == IR_MATCH_FENCE1) return 0;
     if (!g_emit_cfg) return 0;
     if (g_xci_g != g_emit_cfg || g_xci_all != g_emit_cfg->all || g_xci_n != g_emit_cfg->n || g_xci_built != g_xci_epoch) xci_build();
@@ -2491,7 +2493,7 @@ void sn4_blob_choice_scan(int * n_choice, int * leaf_ok, int * has_fence);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int choice_frame_candidate(const IR_t * nd) {
     if (!nd || nd->seal) return 0;
-    if (!sn4_alt_carrier() || !blob_frame_scope()) return 0;
+    if (!(blob_slots_mask() & 1) || !sn4_alt_carrier() || !blob_frame_scope()) return 0;
     { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
       if (_nc >= 2) return 1;
       if (_nc == 1 && _fn) return 1;
