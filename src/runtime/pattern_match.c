@@ -831,7 +831,7 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm)
     extern int rt_g_ret_by_name;
     extern int rt_g_want_name;
     const int strict = rt_cap_name_strict();
-    const int nmyield = !strncmp(c->star + 1, "EXPRNM$", 7);
+    const int nmyield = c->star[1] == 'E' && !strncmp(c->star + 1, "EXPRNM$", 7);
     g_cap_abort_gen = c->asv;
     rt_g_want_name = c->wsv;
     const int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0;
@@ -1021,7 +1021,7 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
       { DESCR_t matched = { .v = DT_S, .slen = (uint32_t)len, .s = copy ? copy : "" };
         if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) return (rt_dcap_next_t){ 0, 0 };
         if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return (rt_dcap_next_t){ 0, 0 }; }
-        { const char *tn = varname + 1; const int nmyield = !strncmp(tn, "EXPRNM$", 7); int wsv = rt_g_want_name;
+        { const char *tn = varname + 1; const int nmyield = tn[0] == 'E' && !strncmp(tn, "EXPRNM$", 7); int wsv = rt_g_want_name;
           if (!rt_proc_is_registered(tn)) { rt_g_want_name = 1; DESCR_t nm = NV_GET_fn(tn); rt_g_want_name = wsv; { int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0; return (rt_dcap_next_t){ rt_cap_target_finish(nm, matched, by_name), 0 }; } }
           gv_reserve(&g_capo, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), (uint64_t)(g_capo_top + 1) * 4, "g_capo");
           CAPO_AT(g_capo_top, 0) = matched; CAPO_AT(g_capo_top, 1) = INTVAL((long long)wsv); CAPO_AT(g_capo_top, 2) = INTVAL((long long)g_cap_abort_gen);

@@ -7042,6 +7042,26 @@ static int dtax_off(void) { static int p = -1; if (p < 0) { const char *e = gete
 static void dtx4(dtax_ent_t *e, unsigned char l, const char *nm, void *h) { if (!e || !l) return; e->gen = rt_dtax_gen; e->len = l; e->kind = 4; e->nf = 0; memcpy(e->nm, nm, l); e->ctor = h; e->syn = 0; }
 static void dtx5(dtax_ent_t *e, unsigned char l, const char *nm, void *h, short x) { if (!e || !l) return; e->gen = rt_dtax_gen; e->len = l; e->kind = 5; e->nf = x; memcpy(e->nm, nm, l); e->ctor = h; e->syn = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *bn_datatype_upper(const char *t)
+{
+    switch (t[0]) {
+    case 's': return !strcmp(t, "string") ? "STRING" : !strcmp(t, "set") ? "SET" : (const char *)0;
+    case 'i': return !strcmp(t, "integer") ? "INTEGER" : (const char *)0;
+    case 'r': return !strcmp(t, "real") ? "REAL" : !strcmp(t, "record") ? "RECORD" : (const char *)0;
+    case 't': return !strcmp(t, "table") ? "TABLE" : (const char *)0;
+    case 'a': return !strcmp(t, "array") ? "ARRAY" : (const char *)0;
+    case 'l': return !strcmp(t, "list") ? "LIST" : (const char *)0;
+    case 'c': return !strcmp(t, "cset") ? "CSET" : !strcmp(t, "co-expression") ? "CO-EXPRESSION" : (const char *)0;
+    case 'f': return !strcmp(t, "file") ? "FILE" : !strcmp(t, "function") ? "FUNCTION" : (const char *)0;
+    case 'p': return !strcmp(t, "procedure") ? "PROCEDURE" : (const char *)0;
+    case 'n': return !strcmp(t, "name") ? "NAME" : !strcmp(t, "null") ? "NULL" : (const char *)0;
+    case 'E': return !strcmp(t, "EXPRESSION") ? "EXPRESSION" : (const char *)0;
+    case 'P': return !strcmp(t, "PATTERN") ? "PATTERN" : (const char *)0;
+    case 'C': return !strcmp(t, "CODE") ? "CODE" : (const char *)0;
+    default: return (const char *)0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *out)
 {
     DESCR_t av = args[0];
@@ -7078,6 +7098,7 @@ static int bn_type_datatype(const char *fn, DESCR_t *args, int nargs, DESCR_t *o
     else if (av.v==DT_SNUL)  t=(!strcmp(fn,"DATATYPE")) ? "string" : "null";
     else t="string";
     if (!strcmp(fn,"DATATYPE") && declared) { *out = STRVAL(rt_heap_strdup_c(t)); return 1; }
+    if (!strcmp(fn,"DATATYPE")) { const char *uc = bn_datatype_upper(t); if (uc) { *out = STRVAL(uc); return 1; } }
     if (!strcmp(fn,"DATATYPE")) { char ub[32]; int ui=0;
         for (; t[ui] && ui<31; ui++) ub[ui]=(char)((t[ui]>='a'&&t[ui]<='z')?t[ui]-32:t[ui]); ub[ui]=0; *out = STRVAL(rt_heap_strdup_c(ub)); return 1; }
     *out = STRVAL(t); return 1;

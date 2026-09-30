@@ -192,11 +192,11 @@ void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int6
     uint64_t w[2]; w[0] = sub_lo; w[1] = sub_hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv); if (!s) s = "";
-    int64_t slen = (sv.v == DT_S && sv.slen && s == sv.s) ? (int64_t)sv.slen : (int64_t)strlen(s);
+    int64_t slen = (sv.v == DT_S && s == sv.s && sv.slen != 0xFFFFFFFFu) ? (int64_t)sv.slen : (int64_t)strlen(s);
     DESCR_t rv = replp ? *replp : sv;
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
-    int64_t rlen = (rv.v == DT_S && rv.slen && rs == rv.s) ? (int64_t)rv.slen : (int64_t)strlen(rs);
+    int64_t rlen = (rv.v == DT_S && rs == rv.s && rv.slen != 0xFFFFFFFFu) ? (int64_t)rv.slen : (int64_t)strlen(rs);
 #if RT_DIAG
     int64_t raw_start = start, raw_end = end;
 #endif

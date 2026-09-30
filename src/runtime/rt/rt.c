@@ -1178,7 +1178,7 @@ DESCR_t rt_call_land_ω(long word)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_call_open_by_name(const char *name, int nargs) { return rt_call_open_by_name_p(rt_proc_find(name), name, nargs); }
 rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) { rt_proc_t *p = rt_proc_find(name); *registered = p ? 1 : 0; return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 }; }
-static int rt_eval_stage_is_var(const char *name) { return name && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
+static int rt_eval_stage_is_var(const char *name) { return name && name[0] == 'E' && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
 void rt_eval_stage_enter(const char *name) { if (g_error == 0 && !rt_eval_stage_is_var(name)) g_error = G_ERROR_EVAL_STAGE; }
 void rt_eval_stage_leave(const char *name) { if (g_error == G_ERROR_EVAL_STAGE && !rt_eval_stage_is_var(name)) g_error = 0; }
 void rt_eval_stage_leave_word(long word) { long idx = word >> 40; if (g_error == G_ERROR_EVAL_STAGE && !((idx >= 0 && idx < g_rt_gen_proc_count) ? g_rt_gen_procs[idx].stage_var : 0)) g_error = 0; }
