@@ -92,126 +92,137 @@ $')'        =  *$' ' ')';
 $']'        =  *$' ' ']';
 $'>'        =  *$' ' '>';
 /* ==================================================================================================================== */
-FnArgList   =  epsilon . *IncCounter() (*Expr | (epsilon) . thx . *Shift('TT_NUL', thx)) FENCE(*FnArgTail | epsilon);
-FnArgTail   =  *$',' . *IncCounter() (*Expr | (epsilon) . thx . *Shift('TT_NUL', thx)) FENCE(*FnArgTail | epsilon);
-ExprList    =  epsilon . *PushCounter()
-               *XList
-               . *Reduce('ExprList', *(GT(nTop(), 1) nTop()))
-               . *PopCounter();
-XList       =  epsilon . *IncCounter() (*Expr | (epsilon) . thx . *Shift('', thx)) FENCE(*$',' *XList | epsilon);
+/* THE EXPRESSION, as src/parsers/snobol4/snobol4.y builds it (Lon 2026-09-30: the C tree is canonical, and "the tree is */
+/* built from tokens in the same order as they are recognized by the PATTERN ... directly and once only"): every left-     */
+/* associative level is a tail loop that reduces as each right operand is recognised; =, ^ and ~ are right-recursive.     */
+ArgTail     =  *$',' FENCE(*Expr | epsilon . *Reduce('TT_NUL', 0)) . *IncCounter() FENCE(*ArgTail | epsilon);
+ArgList     =  FENCE(*Expr . *IncCounter() FENCE(*ArgTail | epsilon) | epsilon . *Reduce('TT_NUL', 0) . *IncCounter() *ArgTail);
 Expr        =  *Expr0;
 Expr0       =  *Expr1 FENCE(*$'=' *Expr0 . *Reduce('TT_ASSIGN', 2) | *$'  ' '=' (epsilon) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ASSIGN', 2) | epsilon);
-Expr1       =  *Expr2 FENCE(*$'?' *Expr1 . *Reduce('TT_SCAN', 2) | epsilon);
-Expr2       =  *Expr3 FENCE(*$'&' *Expr2 . *Reduce('TT_SEQ', 2) | epsilon);
-/* PST-SN4-SC-4 (2026-05-19): replaced all foldop chains with pure shift/reduce.
-   Expr3 (|/TT_ALT) and Expr4 (space/TT_SEQ): n-ary flat collect via nPush/nInc/X/nPop.
-   Expr6-Expr10 binary arithmetic: right-recursive reduce(tag,2); lower flattens later.
-   All *cont helper rules deleted. */
-Expr3       =  epsilon . *PushCounter() *X3  . *Reduce('TT_ALT', *(GT(nTop(), 1) nTop())) . *PopCounter();
-X3          =  epsilon . *IncCounter() *Expr4 FENCE(*$'|'  *X3 | epsilon);
-Expr4       =  epsilon . *PushCounter() *X4  . *Reduce('TT_SEQ', *(GT(nTop(), 1) nTop())) . *PopCounter();
-X4          =  epsilon . *IncCounter() *Expr5 FENCE(*$'  ' *X4 | epsilon);
-Expr5       =  *Expr6 FENCE(*$'@' *Expr5 . *Reduce('TT_CAPT_CURSOR', 2) | epsilon);
-Expr6       =  *Expr7
-               FENCE(*$'  ' ('+' *$'  ' *Expr6 . *Reduce('TT_ADD', 2) | '-' *$'  ' *Expr6 . *Reduce('TT_SUB', 2) ) | epsilon);
-Expr7       =  *Expr8 FENCE(*$'#' *Expr7 . *Reduce('TT_MUL', 2) | epsilon);
-Expr8       =  *Expr9 FENCE(*$'/' *Expr8 . *Reduce('TT_DIV', 2) | epsilon);
-Expr9       =  *Expr10 FENCE(*$'*' *Expr9 . *Reduce('TT_MUL', 2) | epsilon);
-Expr10      =  *Expr11 FENCE(*$'%' *Expr10 . *Reduce('TT_DIV', 2) | epsilon);
-/* SCT-9g-snobol4 n-ary rewrite (2026-05-17): exponentiation n-ary flat, lowerer right-folds.
-   a^b^c => TT_POW(a,b,c); lower_sno.c / sm_lower.c right-fold to a^(b^c).
-   Uses nPush/nInc/X11/nPop pattern (same as snocone X3/X4) to collect all base/exponent
-   operands in left-to-right order, then reduce to flat n-ary node. */
-Expr11      =  epsilon . *PushCounter() *X11 . *Reduce('TT_POW', *(GT(nTop(), 1) nTop())) . *PopCounter();
-X11         =  epsilon . *IncCounter() *Expr12 FENCE((*$'  ' ('^' *$'  ' | '!' *$'  ' | '**' *$'  ')) *X11 | epsilon);
+Expr1       =  *Expr2 *Expr1t;
+Expr1t      =  FENCE(*$'?' *Expr2 . *Reduce('TT_SCAN', 2) *Expr1t | epsilon);
+Expr2       =  *Expr3 *Expr2t;
+Expr2t      =  FENCE(*$'&' *Expr3 . *Reduce('TT_OPSYN', 2, '&') *Expr2t | epsilon);
+Expr3       =  *Expr4 *Expr3t;
+Expr3t      =  FENCE(*$'|' *Expr4 . *Reduce('TT_ALT', 2) *Expr3t | epsilon);
+Expr4       =  *Expr5 *Expr4t;
+Expr4t      =  FENCE(*$'  ' *Expr5 . *Reduce('TT_SEQ', 2) *Expr4t | epsilon);
+Expr5       =  *Expr6 *Expr5t;
+Expr5t      =  FENCE(*$'@' *Expr6 . *Reduce('TT_OPSYN', 2, '@') *Expr5t | epsilon);
+Expr6       =  *Expr7 *Expr6t;
+Expr6t      =  FENCE(*$'  ' ('+' *$'  ' *Expr7 . *Reduce('TT_ADD', 2) | '-' *$'  ' *Expr7 . *Reduce('TT_SUB', 2)) *Expr6t | epsilon);
+Expr7       =  *Expr8 *Expr7t;
+Expr7t      =  FENCE(*$'#' *Expr8 . *Reduce('TT_OPSYN', 2, '#') *Expr7t | epsilon);
+Expr8       =  *Expr9 *Expr8t;
+Expr8t      =  FENCE(*$'/' *Expr9 . *Reduce('TT_DIV', 2) *Expr8t | epsilon);
+Expr9       =  *Expr10 *Expr9t;
+Expr9t      =  FENCE(*$'*' *Expr10 . *Reduce('TT_MUL', 2) *Expr9t | epsilon);
+Expr10      =  *Expr11 *Expr10t;
+Expr10t     =  FENCE(*$'%' *Expr11 . *Reduce('TT_OPSYN', 2, '%') *Expr10t | epsilon);
+Expr11      =  *Expr12 FENCE(*$'  ' ('**' | '^' | '!') *$'  ' *Expr11 . *Reduce('TT_POW', 2) | epsilon);
 Expr12      =  *Expr13 *Expr12tail;
 Expr12tail  =  FENCE(*$'  ' ('$' *$'  ' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) *Expr12tail | '.' *$'  ' *Expr13 . *Reduce('TT_CAPT_COND_ASGN', 2) *Expr12tail ) | epsilon);
-Expr13      =  *Expr14 FENCE(*$'~' *Expr13 . *Reduce('TT_NOT', 2) | epsilon);
+Expr13      =  *Expr14 FENCE(*$'~' *Expr13 . *Reduce('TT_OPSYN', 2, '~') | epsilon);
 Expr14      =  '@' *Expr14 . *Reduce('TT_CAPT_CURSOR', 1)
             |  '~' *Expr14 . *Reduce('TT_NOT', 1)
             |  '?' *Expr14 . *Reduce('TT_INTERROGATE', 1)
             |  '&' (*ProtKwd) . thx . *Shift('TT_KEYWORD', thx)
             |  '&' (*Id) . thx . *Shift('TT_KEYWORD', thx)
+            |  '&' *Expr14 . *Reduce('TT_OPSYN', 1, '&')
             |  '+' *Expr14 . *Reduce('TT_PLS', 1)
             |  '-' *Expr14 . *Reduce('TT_MNS', 1)
             |  '*' *Expr14 . *Reduce('TT_DEFER', 1)
             |  '$' *Expr14 . *Reduce('TT_INDIRECT', 1)
             |  '.' *Expr14 . *Reduce('TT_NAME', 1)
-            |  ('!' | '^') *Expr14 . *Reduce('TT_POW', 1)
-            |  '%' *Expr14 . *Reduce('TT_DIV', 1)
-            |  '/' *Expr14 . *Reduce('TT_DIV', 1)
-            |  '#' *Expr14 . *Reduce('TT_MUL', 1)
-            |  '=' *Expr14 . *Reduce('TT_ASSIGN', 1)
-            |  '|' *Expr14 . *Reduce('TT_OPSYN', 1)
+            |  '!' *Expr14 . *Reduce('TT_OPSYN', 1, '!')
+            |  '^' *Expr14 . *Reduce('TT_OPSYN', 1, '^')
+            |  '%' *Expr14 . *Reduce('TT_OPSYN', 1, '%')
+            |  '/' *Expr14 . *Reduce('TT_OPSYN', 1, '/')
+            |  '#' *Expr14 . *Reduce('TT_OPSYN', 1, '#')
+            |  '=' *Expr14 . *Reduce('TT_OPSYN', 1, '=')
+            |  '|' *Expr14 . *Reduce('TT_OPSYN', 1, '|')
             |  *Expr15;
-Expr15      =  *Expr17
-               FENCE(epsilon . *PushCounter() *Expr16 . *Reduce('TT_IDX', nTop() + 1) . *PopCounter() | epsilon);
-Expr16      =  epsilon . *IncCounter()
-               (*$'[' *ExprList *$']' | *$'<' *ExprList *$'>')
-               FENCE(*Expr16 | epsilon);
-PrimLEN_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_LEN', nTop())    . *PopCounter() *$')';
-PrimBREAK_rest  =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_BREAK', nTop())  . *PopCounter() *$')';
-PrimSPAN_rest   =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_SPAN', nTop())   . *PopCounter() *$')';
-PrimANY_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_ANY', nTop())    . *PopCounter() *$')';
-PrimNOTANY_rest =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_NOTANY', nTop()) . *PopCounter() *$')';
-PrimFENCE_rest  =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_FENCE', nTop())  . *PopCounter() *$')';
-PrimARBNO_rest  =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_ARBNO', nTop())  . *PopCounter() *$')';
-PrimPOS_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_POS', nTop())    . *PopCounter() *$')';
-PrimRPOS_rest   =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_RPOS', nTop())   . *PopCounter() *$')';
-PrimTAB_rest    =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_TAB', nTop())    . *PopCounter() *$')';
-PrimRTAB_rest   =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_RTAB', nTop())   . *PopCounter() *$')';
-PrimBREAKX_rest =  *$'(' . *PushCounter() FENCE(*FnArgList | epsilon) . *Reduce('TT_BREAKX', nTop()) . *PopCounter() *$')';
-PrimT       =  TABLE(12);
-prim_call   =  SPAN('.' '0123456789' &UCASE '_' &LCASE) $ tx *DIFFER(PrimT[sn_upr(tx)]) *PrimT[sn_upr(tx)];
+Expr15      =  *Expr17 *Expr15t;
+Expr15t     =  FENCE(  epsilon . *PushCounter() . *IncCounter() *$'[' FENCE(*ArgList | epsilon) *$']' . *Reduce('TT_IDX', nTop()) . *PopCounter() *Expr15t
+                     | epsilon . *PushCounter() . *IncCounter() *$'<' FENCE(*ArgList | epsilon) *$'>' . *Reduce('TT_IDX', nTop()) . *PopCounter() *Expr15t
+                     | epsilon);
+/* a call: the name is held (PushVal) when its '(' is recognised and SnoCall builds the ONE node -- TT_FNC <name>, or the  */
+/* pattern primitive's own kind for snobol4.y pat_prim_kind's names (exact case), ARB BAL REM FAIL SUCCEED ABORT keeping it */
+SnoPrimT    =  TABLE(31);
+SnoPrimT['ANY'] = 'TT_ANY'; SnoPrimT['NOTANY'] = 'TT_NOTANY'; SnoPrimT['SPAN'] = 'TT_SPAN'; SnoPrimT['BREAK'] = 'TT_BREAK';
+SnoPrimT['BREAKX'] = 'TT_BREAKX'; SnoPrimT['LEN'] = 'TT_LEN'; SnoPrimT['POS'] = 'TT_POS'; SnoPrimT['RPOS'] = 'TT_RPOS';
+SnoPrimT['TAB'] = 'TT_TAB'; SnoPrimT['RTAB'] = 'TT_RTAB'; SnoPrimT['ARBNO'] = 'TT_ARBNO'; SnoPrimT['FENCE'] = 'TT_FENCE';
+SnoPrimT['FLUSH'] = 'TT_FLUSH'; SnoPrimT['ARB'] = 'TT_ARB'; SnoPrimT['BAL'] = 'TT_BAL'; SnoPrimT['REM'] = 'TT_REM';
+SnoPrimT['FAIL'] = 'TT_FAIL'; SnoPrimT['SUCCEED'] = 'TT_SUCCEED'; SnoPrimT['ABORT'] = 'TT_ABORT';
+SnoPrimNamed = 'ARB BAL REM FAIL SUCCEED ABORT ';
+function SnoCall(n, nm, k) {
+    SnoCall = .dummy;
+    nm = PopVal();
+    k = SnoPrimT[nm];
+    if (IDENT(k)) { Reduce('TT_FNC', n, nm); nreturn; }
+    if (SnoPrimNamed ? (nm ' ')) { Reduce(k, n, nm); nreturn; }
+    Reduce(k, n);
+    nreturn;
+}
+Call        =  (*Id) . thx '(' . *PushVal(thx) . *PushCounter() *$' ' FENCE(*ArgList | epsilon) *$')' . *SnoCall(nTop()) . *PopCounter();
 Expr17      =  FENCE(
-                  epsilon . *PushCounter() *$'(' *ExprList *$')' . *Reduce('()', 1) . *PopCounter()
-               |  *prim_call
-               |  (*Function) . thx . *Shift('TT_VAR', thx) FENCE(epsilon . *PushCounter() *$'(' FENCE(*FnArgList | epsilon) . *Reduce('TT_FNC', nTop() + 1) . *PopCounter() *$')' | epsilon)
-               |  (*Id) . thx . *Shift('TT_VAR', thx) FENCE(epsilon . *PushCounter() *$'(' FENCE(*FnArgList | epsilon) . *Reduce('TT_FNC', nTop() + 1) . *PopCounter() *$')' | epsilon)
+                  *$'(' FENCE(  *$')' . *Reduce('TT_NUL', 0)
+                             |  epsilon . *PushCounter() *Expr . *IncCounter() FENCE(*ArgTail *$')' . *Reduce('TT_VLIST', nTop()) | *$')') . *PopCounter()
+                             |  epsilon . *PushCounter() . *Reduce('TT_NUL', 0) . *IncCounter() *ArgTail *$')' . *Reduce('TT_VLIST', nTop()) . *PopCounter()
+                             )
+               |  *Call
+               |  (*Id) . thx . *Shift('TT_VAR', thx)
                |  *String
-               |  (*Real) . thx . *Shift('TT_RLIT', thx)
-               |  (*Integer) . thx . *Shift('TT_ILIT', thx)
+               |  (*Real) . thx . *Shift('TT_FLIT', thx)
+               |  (*Integer) . thx . *Shift('TT_ILIT', '' (thx + 0))
                );
 SGoto       =  ('S' | 's');
 FGoto       =  ('F' | 'f');
-Target      =  *$'(' . *assign(.Brackets, *'()') *Expr *$')'
-            |  *$'<' . *assign(.Brackets, *'<>') *Expr *$'>';
-Sgo         =  *SGoto *$' ' *Target . *Reduce('TT_GOTO_S', 1);
-Fgo         =  *FGoto *$' ' *Target . *Reduce('TT_GOTO_F', 1);
-Ugo         =  *Target . *Reduce('TT_GOTO_U', 1);
+/* a goto target as snobol4.y goto_label_expr: (L) and ($L) are the label's text, ($'s') the string, ($(e)) the           */
+/* expression, (F(args)) a call, <e> TT_GOTO_DIRECT e                                                                      */
+GoInner     =  FENCE(  '$' '(' *$' ' *Expr *$' ' ')'
+                    |  '$' "'" (BREAK("'")) . thx . *Shift('TT_QLIT', thx) "'"
+                    |  '$' '"' (BREAK('"')) . thx . *Shift('TT_QLIT', thx) '"'
+                    |  '$' (*Id) . thx . *Shift('TT_QLIT', '$' thx)
+                    |  *Call
+                    |  (*Id) . thx . *Shift('TT_QLIT', thx)
+                    );
+Target      =  '(' *$' ' *GoInner *$' ' ')'
+            |  '<' *$' ' *Expr *$' ' '>' . *Reduce('TT_GOTO_DIRECT', 1);
+Sgo         =  *SGoto *$' ' *Target . *Reduce('TT_GOTO_S', 1) . *IncCounter();
+Fgo         =  *FGoto *$' ' *Target . *Reduce('TT_GOTO_F', 1) . *IncCounter();
+Ugo         =  *Target . *Reduce('TT_GOTO_U', 1) . *IncCounter();
 Goto        =  *$' ' ':'
                *$' '
                FENCE(
-                  *Ugo (epsilon) . thx . *Shift('', thx)
-               |  *Sgo FENCE(*$' ' FENCE(':' *$' ' | epsilon) *Fgo | (epsilon) . thx . *Shift('', thx))
-               |  *Fgo FENCE(*$' ' FENCE(':' *$' ' | epsilon) *Sgo | (epsilon) . thx . *Shift('', thx))
+                  *Ugo
+               |  *Sgo FENCE(*$' ' FENCE(':' *$' ' | epsilon) *Fgo | epsilon)
+               |  *Fgo FENCE(*$' ' FENCE(':' *$' ' | epsilon) *Sgo | epsilon)
                );
 Control     =  '-' BREAK(CHAR(10) ';');
 Comment     =  '*' BREAK(CHAR(10));
-/* PST-SN4-2 (2026-05-16): Stmt redesigned to emit TT_STMT directly as a pure syntax tree.
-   Children in source order: TT_LABEL? subject? TT_PAT? TT_EQ? replacement? goto*.
-   No post-parse cooking.  Counter tracks child count for reduce('TT_STMT', nTop()). */
-StmtLabel   =  (BREAK(' ' CHAR(9) CHAR(10) ';') | ARBNO(NOTANY(' ' CHAR(9) CHAR(10) ';')) RPOS(0)) . thx . *Shift('TT_LABEL', thx);
-StmtRepl    =  *$'=' *$' ' *Expr . *Reduce('TT_EQ', 2)
-            |  *$'  ' '=' *$' ' (epsilon) . thx . *Shift('TT_EQ', thx);
-StmtGoto    =  FENCE(*Goto . *IncCounter() . *IncCounter() | epsilon);
+/* THE STATEMENT, as stmt_ast.c stmt_to_ast lays it out, built in recognition order: :lbl, then :subj -- a blank-separated */
+/* or ?-separated pattern match is TT_SCAN subject pattern inside it (snobol4.y opt_subject) -- then :eq and :repl (an     */
+/* empty replacement is the null string), then the gotos present.                                                         */
+StmtLabel   =  NOTANY(' ' CHAR(9) CHAR(10) ';') FENCE(BREAK(' ' CHAR(9) CHAR(10) ';') | REM);
+StmtRepl    =  *$'  ' '=' . *Reduce('TT_ATTR', 0, ':eq') . *IncCounter() *$' '
+               FENCE(*Expr | (epsilon) . thx . *Shift('TT_QLIT', thx)) . *Reduce('TT_ATTR', 1, ':repl') . *IncCounter();
 Stmt        =  epsilon . *PushCounter()
-               FENCE(epsilon . *IncCounter() *StmtLabel | epsilon)
+               FENCE((*StmtLabel) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ATTR', 1, ':lbl') . *IncCounter() | epsilon)
                FENCE(
-                  *$'  '
-                  . *IncCounter() *Expr14
-                  *$'?'
-                  . *IncCounter() *Expr1 . *Reduce('TT_PAT', 1)
-                  FENCE(*StmtRepl | epsilon)
-               |  *$'  '
-                  . *IncCounter() *Expr1
-                  FENCE(*StmtRepl | epsilon)
+                  *$'  ' *Expr14 *$'  ' *Expr2 . *Reduce('TT_SCAN', 2) . *Reduce('TT_ATTR', 1, ':subj') . *IncCounter()
+               |  *$'  ' *Expr2 *$'?' FENCE(*Expr3 . *Reduce('TT_SCAN', 2) | epsilon . *Reduce('TT_SCAN', 1)) . *Reduce('TT_ATTR', 1, ':subj') . *IncCounter()
+               |  *$'  ' *Expr5 . *Reduce('TT_ATTR', 1, ':subj') . *IncCounter()
                |  epsilon
                )
-               *StmtGoto
+               FENCE(*StmtRepl | epsilon)
+               FENCE(*Goto | epsilon)
                . *Reduce('TT_STMT', nTop())
                . *PopCounter()
                *$' ';
+EndStmt     =  ( 'END' . *PushCounter() . *Shift('TT_QLIT', 'END') . *Reduce('TT_ATTR', 1, ':lbl') . *IncCounter()
+                 FENCE(*$'  ' (*Id) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ATTR', 1, ':entry') . *IncCounter() | epsilon)
+               ) . *Reduce('TT_END', nTop()) . *PopCounter();
 Commands    =  *Command FENCE(*Commands | epsilon);
 Command     =  FENCE(
                   (*Comment) . thx . *Shift('TT_COMMENT', thx) . *IncCounter() . *Reduce('TT_COMMENT', 1) CHAR(10)
@@ -219,12 +230,9 @@ Command     =  FENCE(
                |  *Stmt . *IncCounter() (CHAR(10) | ';' | RPOS(0))
                );
 Compiland   =  epsilon . *PushCounter()
-               POS(0) ARBNO(*Command FLUSH) ('END' (ANY(' ' CHAR(9) CHAR(10)) | RPOS(0)) ARB | epsilon) RPOS(0)
+               POS(0) ARBNO(*Command FLUSH) (*EndStmt . *IncCounter() (ANY(' ' CHAR(9) CHAR(10)) | RPOS(0)) ARB | epsilon) RPOS(0)
                . *Reduce('Parse', nTop())
                . *PopCounter();
-PrimT['LEN'] = PrimLEN_rest; PrimT['BREAK'] = PrimBREAK_rest; PrimT['SPAN'] = PrimSPAN_rest; PrimT['ANY'] = PrimANY_rest;
-PrimT['NOTANY'] = PrimNOTANY_rest; PrimT['FENCE'] = PrimFENCE_rest; PrimT['ARBNO'] = PrimARBNO_rest; PrimT['POS'] = PrimPOS_rest;
-PrimT['RPOS'] = PrimRPOS_rest; PrimT['TAB'] = PrimTAB_rest; PrimT['RTAB'] = PrimRTAB_rest; PrimT['BREAKX'] = PrimBREAKX_rest;
 /* ==================================================================================================================== */
 function ParseOne(ptree, i, nk, cmd) {
     pf_a = TIME();
@@ -240,7 +248,7 @@ function ParseOne(ptree, i, nk, cmd) {
         nk = n(ptree);
         while (LE(i, nk)) {
             cmd = ITEM(c(ptree), i);
-            if (IDENT(t(cmd), 'TT_STMT')) { TreeDump(cmd); }
+            if (t(cmd) ? (POS(0) ('TT_STMT' | 'TT_END') RPOS(0))) { TreeDump(cmd); }
             i = i + 1;
         }
         TreeDumpEnd();
