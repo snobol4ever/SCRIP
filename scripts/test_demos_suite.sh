@@ -115,7 +115,7 @@ if [ "$IS_BOARD" = 1 ] || [ -n "${S4E_PROGRESS_DB:-}" ]; then
 fi
 if [ "$IS_BOARD" = 1 ]; then
     if [ "$NOWRITE" = 0 ]; then
-        python3 "$HERE/util_score_row.py" write --lang "$L" --column demos --modes m3,m4 --measurer "${S4E_SEAT:-}" \
+        python3 "$HERE/util_score_row.py" write --lang "$L" --column demos --modes m3,m4 --measurer "${S4E_SEAT:-}" ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
             --text "$LINE" \
             || echo "⚠ SUITE ROW NOT WRITTEN -- the writer's refusal above says why"
     fi
