@@ -1021,7 +1021,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_arr_impl", GC_RET_DESCR },
     { "rt_call_arr_strict", GC_RET_DESCR },
     { "rt_call_bid_sn4", GC_RET_DESCR },
-    { "rt_call_ctor_sn4", GC_RET_DESCR },
+    { "rt_call_callee_sn4", GC_RET_DESCR },
     { "rt_call_fld_sn4", GC_RET_DESCR },
     { "rt_call_land_γ", GC_RET_DESCR },
     { "rt_call_land_ω", GC_RET_DESCR },

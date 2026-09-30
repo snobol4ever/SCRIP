@@ -6354,7 +6354,7 @@ DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
     }
     return rt_call_name_sn4(r->name, args, nargs, -1);
 }
-DESCR_t rt_call_ctor_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
+DESCR_t rt_call_callee_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
 {
     extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
     if (r->ctor && r->cgen == rt_ctor_gen() && nargs <= ((DatType *)r->ctor)->nfields && !(nargs == 1 && IS_DATA_INST_fn(args[0]))) return dat_construct((DatType *)r->ctor, args, nargs);

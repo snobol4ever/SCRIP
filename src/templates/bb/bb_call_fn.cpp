@@ -33,14 +33,14 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 extern "C" {
 #include "dtp.h"
 DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r);
-DESCR_t rt_call_ctor_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r);
+DESCR_t rt_call_callee_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r);
 int rt_dat_field_of_any(const char *name);
 void * dat_find_type(const char *name);
 const char * bb_ab_sym_name(const char * nm);
 }
-static int bcfn_baked_kind(const char * fn, int strict) { if (!fn || !fn[0] || sn4_byname_kind(fn, strict) != 2) return 0; if (dat_find_type(fn)) return 2; return rt_dat_field_of_any(fn) ? 1 : 0; }
-static const char * bcfn_baked_sym(int k) { return k == 2 ? "rt_call_ctor_sn4" : "rt_call_fld_sn4"; }
-static uint64_t bcfn_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_ctor_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
+int bb_callee_baked_kind(const char * fn, int strict) { if (!fn || !fn[0] || sn4_byname_kind(fn, strict) != 2) return 0; return (rt_dat_field_of_any(fn) && !dat_find_type(fn)) ? 1 : 2; }
+const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" : "rt_call_fld_sn4"; }
+uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
 std::string bb_callee_rdx(const char * fn) { std::string lbl = std::string(".Lcallee_") + bb_ab_sym_name(fn); return x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)bb_callee_rec_addr(fn), lbl.c_str()); }
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand);
 std::string pl_leaf_zd_cold(const char * fn, int narg);
@@ -173,14 +173,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (_mopen) { s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
         if (_aopen) { s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
-        int _bk = bcfn_baked_kind(fn, _.op_strict);
+        int _bk = bb_callee_baked_kind(fn, _.op_strict);
         if (_bk && !_mopen && !_aopen) {
-            s += x86("comment", (std::string(_bk == 2 ? "CTOR CALL " : "FIELD CALL ") + fn + " -> " + bcfn_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
+            s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
             if (nargs > 0) s += x86_reg_disp32_lea64("rdi", "rsp", 0);
             else           s += x86("xor", "edi", "edi");
             s += x86("mov32", "esi", (long)nargs);
             s += bb_callee_rdx(fn);
-            s += x86("call", bcfn_baked_sym(_bk), bcfn_baked_fp(_bk));
+            s += x86("call", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
         } else {
         {
             std::string fl = std::string(".L") + x86_boxkind() + "_rkfnzd" + std::to_string(g_flat_node_id++);
@@ -270,14 +270,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (_iopen) { std::string _cq = FRQ(argbase); std::string _rq = FRQ(resoff); s += bcfn_iter_open_enter(40, _cq, _rq, nargs, 48, 29); s += x86_deflabel_id(48); }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
         if (_aopen) { s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
-        int _bk = bcfn_baked_kind(fn, _.op_strict);
+        int _bk = bb_callee_baked_kind(fn, _.op_strict);
         if (_bk && !_mopen && !_iopen && !_aopen) {
-            s += x86("comment", (std::string(_bk == 2 ? "CTOR CALL " : "FIELD CALL ") + fn + " -> " + bcfn_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
+            s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
             s += x86("lea", "rdi", FRQ(argbase));
             s += x86("mov32", "esi", (long)nargs);
             s += bb_callee_rdx(fn);
             s += x86("rtcc_wb");
-            s += x86("call_bare", bcfn_baked_sym(_bk), bcfn_baked_fp(_bk));
+            s += x86("call_bare", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
             s += x86("rtcc_rl");
         } else {
         std::string fl = std::string(".L") + x86_boxkind() + "_rkfn" + std::to_string(g_flat_node_id++);
