@@ -10,10 +10,10 @@
 # after gamma (a beta into any of them fails straight through to omega) and none keeps a DESCR, so its PAT$ thunk has no gamma->beta
 # window, nothing for the collector to see, and needs no frame, no map cell and no zero-fill. p2 holds an alternation and p3 an ARBNO,
 # each a recede window, so their thunks keep the frame -- the control: a framed-needed shape run frameless is this gate's red as much
-# as a recede-free one framed. NOT GRADED HERE, named as the open question of the row: a pattern whose only frame need is a DESCR (a
-# conditional or immediate assignment's pending value, a capture) keeps its frame today because the collector maps DESCR slots per
-# RBP frame (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 7, frozen); moving that value off the frame is a design the row records, not
-# something this gate asserts. The thunks are
+# as a recede-free one framed. NOT GRADED HERE, the row's next steps: a pattern whose frame holds only RAW scratch (SPAN, BREAK and
+# ANY save the cursor through rbp today) or a pending assignment's DESCR keeps its frame today by the EMITTER's placement, not by any
+# collector need -- the collector visits a tagged DESCR cell on the RSP spine by its tag (gc_walk_words; ARCH-GC-COMPILE-TIME-FRAME-
+# MAPS.md section 2b, the spine carries its own types; Lon's question of 2026-09-30, answered by measurement). The thunks are
 # read from the mode-4 .s by their FN__PAT$n labels in source order (p1 = PAT$0, p2 = PAT$1, p3 = PAT$2); a thunk is FRAMED when the
 # text between FN__PAT$n and PAT$n_omega carries "mov rbp, rsp". The program's output must equal sbl -bf in both modes whatever the
 # frames read. MEASURED RED at de0302f83: every thunk is framed (PAT$0 carries push rbp / mov rbp, rsp / sub rsp, 88, the map cell and
