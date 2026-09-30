@@ -665,13 +665,14 @@ static tree_t *parse_ctrl(IcnParser *p) {
         push_child(e, parse_expr(p));
         expect(p, TK_OF, "case expression");
         expect(p, TK_LBRACE, "case body");
-        tree_t *dflt = NULL;
+        int ndflt = 0;
         while (!check(p, TK_RBRACE) && !check(p, TK_EOF)) {
             if (check(p, TK_DEFAULT)) {
                 advance(p);
                 expect(p, TK_COLON, "case default");
-                if (dflt) parser_error(p, "case default: duplicate default clause");
-                dflt = parse_expr(p);
+                if (ndflt++) parser_error(p, "case default: duplicate default clause");
+                push_child(e, ast_node_new(TT_NUL));
+                push_child(e, parse_expr(p));
                 if (match(p, TK_SEMICOL) && check(p, TK_RBRACE)) parser_error(p, "case body: a semicolon separates case clauses and may not follow the last one");
                 continue;
             }
@@ -681,7 +682,6 @@ static tree_t *parse_ctrl(IcnParser *p) {
             if (match(p, TK_SEMICOL) && check(p, TK_RBRACE)) parser_error(p, "case body: a semicolon separates case clauses and may not follow the last one");
         }
         expect(p, TK_RBRACE, "case body end");
-        if (dflt) push_child(e, dflt);
         return e;
     }
     return parse_and(p);

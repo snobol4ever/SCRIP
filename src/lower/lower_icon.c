@@ -1409,7 +1409,8 @@ static void icn_arm_mark_edges(IR_graph_t * g, int before, IR_t * dj) {
 static IR_t * lower_case(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_graph_t * g = cx->g;
     if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    int nc = t->n - 1, npairs = nc / 2, n = npairs + (nc % 2 == 1);
+    int nc = t->n - 1, npairs = nc / 2, n = npairs + (nc % 2 == 1), dk = -1;
+    for (int j = 0; j < npairs; j++) if (t->c[1 + 2 * j] && t->c[1 + 2 * j]->t == TT_NUL) { dk = j; break; }
     IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
     if (n == 0) { γ_to(sr, ω); cx->beta = ω; *res = sr; return se; }
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
@@ -1417,8 +1418,9 @@ static IR_t * lower_case(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     IR_t * fs = IR_node_alloc(g, IR_FAIL);
     IR_t ** entv = (IR_t **) ct_zalloc((size_t) n, sizeof *entv); IR_t ** resumev = (IR_t **) ct_zalloc((size_t) n, sizeof *resumev); IR_t ** resv = (IR_t **) ct_zalloc((size_t) n, sizeof *resv);
     for (int j = 0; j < n; j++) {
-        const tree_t * SEL = (j < npairs) ? t->c[1 + 2 * j] : NULL;
-        const tree_t * BODY = (j < npairs) ? t->c[2 + 2 * j] : t->c[t->n - 1];
+        int pj = (dk < 0 || j < dk) ? j : (j == n - 1) ? dk : j + 1;
+        const tree_t * SEL = (pj < npairs && pj != dk) ? t->c[1 + 2 * pj] : NULL;
+        const tree_t * BODY = (pj < npairs) ? t->c[2 + 2 * pj] : t->c[t->n - 1];
         int before = g->n;
         IR_t * ar = NULL; cx->beta = dj;
         IR_t * aent = lower(cx, BODY, dj, ω, &ar);

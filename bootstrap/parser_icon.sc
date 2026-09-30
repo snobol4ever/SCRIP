@@ -308,30 +308,18 @@ Expr11tail  = ( epsilon . *PushCounter() *$'(' *CallArgs *$')' . *Reduce('TT_FNC
                 . *PopCounter()
               | *FieldTail
               );
-/* C's case keeps the default clause aside and appends its expression last (icon_parse.c parse_ctrl, TK_CASE): the   */
-/* default's expression is reduced into an ICN_DEFAULT marker and moved to the end once the TT_CASE node is built.     */
-function IcnCaseFix(x, i, d) {
-    IcnCaseFix = .dummy;
-    x = Pop();
-    i = 1;
-    while (i = LT(i, n(x)) i + 1) {
-        if (IDENT(t(c(x)[i]), 'ICN_DEFAULT')) { d = c(c(x)[i])[1]; Remove(x, i); Append(x, d); Push(x); nreturn; }
-    }
-    Push(x);
-    nreturn;
-}
 /* the blanks inside a case take the greedy form too: each clause sits in a FENCE, so a shortest-first  */
 /* CaseGray that stopped before ` ;` could never be re-entered to take it                                */
 CaseGray     = (*White | epsilon);
 CaseClause   = ( *CaseGray *Expr *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() . *IncCounter() );
-CaseDefault  = ( *CaseGray *$'default' *CaseGray *$':' *Expr . *Reduce('ICN_DEFAULT', 1) *CaseGray *semi_opt . *IncCounter() );
+CaseDefault  = ( *CaseGray *$'default' . *Reduce('TT_NUL', 0) . *IncCounter() *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() );
 Case         = ( *$'case' *Case_rest );
 Case_rest        = ( epsilon . *PushCounter()
                   *$' ' *Expr  . *IncCounter()
                  *$'of' *CaseGray *$'{' *CaseGray
                  ARBNO( FENCE(*CaseDefault | *CaseClause) )
                  *CaseGray *$'}'
-                 . *Reduce('TT_CASE', nTop()) . *IcnCaseFix()
+                 . *Reduce('TT_CASE', nTop())
                  . *PopCounter()
                );
 /* return and suspend are expressions too (a | return b): DEFERRED, because they are defined below   */
