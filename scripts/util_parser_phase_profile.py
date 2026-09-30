@@ -35,7 +35,8 @@
 #      is SYNTAX; the allocator, the collector, DATA and its fields, DATATYPE and the NV cell writes are TREE; the scanners are LEX.
 #   3. EVERYTHING ELSE INHERITS: libc, the loader, a runtime helper no family names, and a bare address (a stub the runtime built at
 #      run time) take the phases of their callers, each caller weighted by the inclusive cost callgrind recorded on that call arc,
-#      walked up to eight callers deep. The share that arrived this way is printed beside each phase ("inherited"), never hidden.
+#      walked up to eight callers deep (a recursion level, callgrind's name'2, is its function, and a function's arcs to itself
+#      are no callers). The share that arrived this way is printed beside each phase ("inherited"), never hidden.
 #      A cost whose callers never reach a classed symbol is UNCLASSIFIED and is printed by symbol.
 import collections, re, sys
 
@@ -226,14 +227,20 @@ def report(cg, sfile, mapfile, binname, topn):
             if re.match(r'(?:' + rx + r')', b):
                 return ph
         return 'INHERIT'
-    syms = set(selfc) | {c for _, c in arcs} | {a for a, _ in arcs}
+    def base(x):   # a recursion level (callgrind's name'2) is the same function for inheritance
+        return re.sub(r"'\d+$", '', x)
+    for s in list(objof):
+        objof.setdefault(base(s), objof[s])
+    syms = {base(x) for x in set(selfc) | {c for _, c in arcs} | {a for a, _ in arcs}}
     cls = {s: classify(s) for s in syms}
-    callers = collections.defaultdict(list)
+    callers = collections.defaultdict(collections.Counter)
     for (a, b), v in arcs.items():
-        callers[b].append((a, v))
+        if base(a) != base(b):
+            callers[base(b)][base(a)] += v
     memo = {}
 
     def resolve(s, depth, seen):
+        s = base(s)
         c = cls.get(s)
         if c != 'INHERIT':
             return {c: 1.0}
@@ -241,11 +248,11 @@ def report(cg, sfile, mapfile, binname, topn):
             return memo[s]
         if depth > 8 or s in seen:
             return {None: 1.0}
-        tot = sum(v for _, v in callers[s])
+        tot = sum(callers[s].values())
         if not tot:
             return {None: 1.0}
         out = collections.Counter()
-        for a, v in callers[s]:
+        for a, v in callers[s].items():
             for ph, w in resolve(a, depth + 1, seen | {s}).items():
                 out[ph] += w * v / tot
         if depth == 0:
@@ -258,7 +265,7 @@ def report(cg, sfile, mapfile, binname, topn):
         for ph, w in resolve(s, 0, frozenset()).items():
             phase[ph] += v * w
             bysym[ph][label] += v * w
-            if cls.get(s) == 'INHERIT':
+            if cls.get(base(s)) == 'INHERIT':
                 inh[ph] += v * w
     tot = sum(selfc.values())
     print('TOTAL %d' % tot)

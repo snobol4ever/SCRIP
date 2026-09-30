@@ -11,6 +11,13 @@
 # in PHASE_VIA_TRANSPILE, default raku, compiles the transpiled chain as the grid does), run over every corpus program of the
 # language less each file that ends SCRIP's own run (the grid's scan, SCRIP's arm only), -s2000m -d8000m -i64m, SCRIP_DIAG=0,
 # PARSER_TREE_HASH=1. PHASE_FILES=<n> keeps the first n files of the list (default all).
+# ⛔ THE BOX IS SHARED: CALLGRIND RUNS WITH --pop-on-jump=* AND UNDER A WATCHDOG. Measured 2026-09-30 (the coo's own mistake): a
+# box's jump to a function's first instruction is a CALL to callgrind, and box-to-box jumps run at one rsp, so its call stack never
+# unwound -- the first full -O2 run grew callgrind to 27 GB resident on the snobol4 list and the kernel's global OOM killer took it
+# (10:26:29 CDT, nothing else killed), the icon run reached 17 GB in 71 s before it was stopped; 100 snobol4 files passed 4 GB in
+# 15 s where the parser itself peaks at 94 MB. --pop-on-jump=* (callgrind's: a jump out of a function is its return) holds the same
+# 100 files at 143 MB with the same attribution (the plants below). The watchdog kills a run whose resident memory passes
+# PHASE_MAX_RSS_MB (4096) or which outlasts PHASE_TIMEOUT (3600 s), and the language REFUSES naming which; each run's peak is kept.
 # THE CLOCK ONLY: the run is made under valgrind --tool=callgrind with collection OFF at start, and a preloaded shim interposes the
 # runtime's rt_time_ns (every TIME() reaches it through the PLT) and toggles collection after each reading. Each driver reads TIME()
 # twice per file -- once before Init*() + Src ? Compiland + Pop() and once after -- so the profile holds exactly the instructions
@@ -51,7 +58,7 @@ command -v valgrind > /dev/null || refuse "no valgrind on PATH -- the profile is
 [ -f /usr/include/valgrind/callgrind.h ] || refuse "no valgrind/callgrind.h -- the shim's toggle is a callgrind client request"
 B="$W/bootstrap"; CHAIN="global.sc case.sc assign.sc match.sc counter.sc stack.sc tree.sc ShiftReduce.sc tdump.sc gen.sc qize.sc semantic.sc omega.sc trace.sc"
 for f in $CHAIN; do [ -f "$B/$f" ] || refuse "chain file missing: $B/$f"; done
-SW="-s2000m -d8000m -i64m"; TMO="${PHASE_TIMEOUT:-3600}"; TMO1="${PHASE_ONE_TIMEOUT:-60}"; VIA=" ${PHASE_VIA_TRANSPILE-raku} "; TOPN="${PHASE_TOPN:-8}"; export SCRIP_DIAG=0
+SW="-s2000m -d8000m -i64m"; MAXRSS="${PHASE_MAX_RSS_MB:-4096}"; TMO="${PHASE_TIMEOUT:-3600}"; TMO1="${PHASE_ONE_TIMEOUT:-60}"; VIA=" ${PHASE_VIA_TRANSPILE-raku} "; TOPN="${PHASE_TOPN:-8}"; export SCRIP_DIAG=0
 bi() { env -u RT_OPT make -s -C "$W" ${1:+"RT_OPT=$1"} buildinfo 2>/dev/null | sed -n "s/^$2 *: *//p" | sed 's/ *$//'; }
 lt="$(readlink "$W/out/libscrip_rt.so" | sed -n 's/^libscrip_rt-\([0-9a-f]*\)\.so$/\1/p')"
 [ -n "$lt" ] || refuse "$W/out/libscrip_rt.so names no tagged runtime -- make"
@@ -107,9 +114,18 @@ build() {  # $1 the .s, $2 the binary
     gcc -m64 -no-pie -rdynamic "$1" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$2" 2>> "$T/$L.cc.err"
 }
 profile() {  # $1 list, $2 stem, $3 binary: the callgrind run of the parse clock, checked; prints why it cannot be trusted, else nothing
-    local n; n=$(wc -l < "$1"); rm -f "$2.cg"
-    PARSER_FILES="$1" PARSER_TREE_HASH=1 LD_PRELOAD="$T/shim.so" timeout "$TMO" valgrind --tool=callgrind --collect-atstart=no \
-        --callgrind-out-file="$2.cg" "$3" $SW < /dev/null > "$2.out" 2> "$2.err"
+    local n pid rss peak=0 t0=$SECONDS killed=""; n=$(wc -l < "$1"); rm -f "$2.cg"
+    PARSER_FILES="$1" PARSER_TREE_HASH=1 LD_PRELOAD="$T/shim.so" valgrind --tool=callgrind --collect-atstart=no "--pop-on-jump=*" \
+        --callgrind-out-file="$2.cg" "$3" $SW < /dev/null > "$2.out" 2> "$2.err" &
+    pid=$!
+    while kill -0 "$pid" 2> /dev/null; do   # THE WATCHDOG: the box is shared, and callgrind's own tables are what grow
+        rss=$(awk '/^VmRSS:/ { print int($2 / 1024) }' "/proc/$pid/status" 2> /dev/null); rss=${rss:-0}; [ "$rss" -gt "$peak" ] && peak=$rss
+        [ "$rss" -gt "$MAXRSS" ] && { kill -9 "$pid" 2> /dev/null; killed="its resident memory passed PHASE_MAX_RSS_MB=$MAXRSS"; }
+        [ $((SECONDS - t0)) -gt "$TMO" ] && { kill -9 "$pid" 2> /dev/null; killed="it outlasted PHASE_TIMEOUT=$TMO s"; }
+        sleep 0.5
+    done
+    wait "$pid" 2> /dev/null; echo "$peak" > "$2.peak"
+    [ -z "$killed" ] || { echo "the callgrind run was killed: $killed (peak $peak MB)"; return; }
     [ "$(metric "$2.err" files)" = "$n" ] || { echo "the callgrind run did not reach PARSER-METRICS over all $n files"; return; }
     [ "$(sed -n 's/^PHASE-TOGGLES //p' "$2.err")" = "$((2 * n))" ] || { echo "the shim toggled $(sed -n 's/^PHASE-TOGGLES //p' "$2.err") times, not twice per file ($((2 * n))) -- the region is not the clock"; return; }
     cmp -s <(grep -v '^PARSER-METRICS' "$2.out") <(grep -v '^PARSER-METRICS' "$T/$L.plain.out") || { echo "the callgrind run printed other trees than the plain run"; return; }
@@ -163,7 +179,7 @@ for L in $LANGS; do
         top="$(awk -v p="$p" '$1 == "PHASE" && $2 == p { $1 = $2 = $3 = $4 = ""; sub(/^ +/, ""); print }' "$T/$L.phases")"
         [ -n "$top" ] && echo "   $L $p: $top"
     done
-    echo "   $L list: $nf of $np corpus programs$via; dropped because the file ended SCRIP's run: $(wc -l < "$T/$L.gone")${PHASE_FILES:+ (PHASE_FILES=$PHASE_FILES kept)}"
+    echo "   $L list: $nf of $np corpus programs$via; dropped because the file ended SCRIP's run: $(wc -l < "$T/$L.gone")${PHASE_FILES:+ (PHASE_FILES=$PHASE_FILES kept)}; callgrind peak $(cat "$T/$L.prof.peak") MB"
     awk -v u="$un" -v t="$tot" 'BEGIN { exit !(u * 10 >= t) }' && { echo "   $L ⛔ OVER THE BAR: UNCLASSIFIED $(pct "$un" "$tot")% >= 10%"; [ "$RC" = 2 ] || RC=1; }
     if [ "${PHASE_PLANT:-}" = 1 ] && [ -z "$PLANTED" ] && [ -z "$via" ]; then
         PLANTED=1; head -n "${PHASE_PLANT_FILES:-40}" "$T/$L.list" > "$T/$L.plist"; run "$T/$L.plist" "$T/$L.plain"
