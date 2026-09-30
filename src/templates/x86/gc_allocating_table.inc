@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1936
+#define GC_ALLOC_TAB_N 1938
 #define GC_ALLOC_TAB_N_VOID 223
 #define GC_ALLOC_TAB_N_DESCR 1062
-#define GC_ALLOC_TAB_N_OTHER 645
+#define GC_ALLOC_TAB_N_OTHER 647
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1031,6 +1031,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_open_by_name_p", GC_RET_OTHER },
     { "rt_call_open_found", GC_RET_OTHER },
     { "rt_call_open_staged", GC_RET_OTHER },
+    { "rt_call_open_staged_rec", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },
@@ -1085,6 +1086,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_defer_nv_read", GC_RET_DESCR },
     { "rt_defer_open_cell", GC_RET_OTHER },
     { "rt_defer_open_entry", GC_RET_OTHER },
+    { "rt_defer_open_rec", GC_RET_OTHER },
     { "rt_defer_probe_run", GC_RET_OTHER },
     { "rt_defer_resolve", GC_RET_OTHER },
     { "rt_defer_run_all_v", GC_RET_OTHER },

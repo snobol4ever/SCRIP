@@ -1231,6 +1231,17 @@ rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag)
       return rt_defer_resolve(s, val); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_dcap_next_t rt_defer_open_rec(sno_dstar_rec_t *r)
+{
+    extern rt_dcap_next_t rt_call_open_staged_rec(sno_dstar_rec_t *, int *);
+    rt_dfx_t *s = rt_dfx_push();
+    s->dtx_used = 1;
+    { int reg = 0; rt_dcap_next_t n = rt_call_open_staged_rec(r, &reg);
+      if (!reg) return rt_defer_resolve(s, NV_GET_fn(r->star + 1));
+      if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
+      return n; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag)
 {
     rt_dfx_t *s = rt_dfx_push();

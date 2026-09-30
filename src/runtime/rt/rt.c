@@ -1195,12 +1195,17 @@ static long rt_dcap_call_prepare_p(rt_proc_t *p, const char *name, short *how, i
       return n.fn; }
 }
 long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_find(name), name, how, nsb, registered); }
-long rt_dcap_call_prepare_rec(sno_dstar_rec_t *r, short *how, int *nsb, int *registered)
+static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r)
 {
-    const char *name = r->star + 1;
-    rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count) ? &g_rt_gen_procs[r->pidx] : rt_proc_find(name);
+    rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count && g_rt_gen_procs[r->pidx].name && g_rt_gen_procs[r->pidx].name[0] != 1) ? &g_rt_gen_procs[r->pidx] : rt_proc_find(r->star + 1);
     if (p) r->pidx = (int32_t)(p - g_rt_gen_procs);
-    return rt_dcap_call_prepare_p(p, name, how, nsb, registered);
+    return p;
+}
+long rt_dcap_call_prepare_rec(sno_dstar_rec_t *r, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_of_rec(r), r->star + 1, how, nsb, registered); }
+rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered)
+{
+    rt_proc_t *p = rt_proc_of_rec(r); *registered = p ? 1 : 0; if (!p) return (rt_call_next_t){ 0, 0 };
+    { rt_call_next_t n = rt_call_open_by_name_p(p, r->star + 1, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)
