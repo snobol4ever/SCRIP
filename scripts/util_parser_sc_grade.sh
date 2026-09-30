@@ -23,9 +23,11 @@ if [ ! -x "$BIN" ] || [ "$B/parser_$L.sc" -nt "$BIN" ] || [ "$W/scrip" -nt "$BIN
 fi
 # CHUNK files per process (default 100): the tree gate runs each file alone (Lon 2026-09-28), and a long single run of the mode-4
 # binary dies in emitted code once its dead trees pass ~2 GB (the 2026-09-30 witness, any collector window) -- a runtime defect rowed apart
-CHUNK="${CHUNK:-1}"; : > "$OUT/$L.sc.dump"; : > "$OUT/$L.sc.err"; rc=0; split -l "$CHUNK" -d -a 3 "$LIST" "$OUT/$L.chunk."
+CHUNK="${CHUNK:-1}"; : > "$OUT/$L.sc.dump"; : > "$OUT/$L.sc.err"; rc=0; split -l "$CHUNK" -d -a 4 "$LIST" "$OUT/$L.chunk."
 for ck in "$OUT/$L.chunk."*; do
     ( cd "$CORPUS" && PARSER_FILES="$ck" PARSER_TREE_HASH=0 SCRIP_DIAG=0 timeout 600 "$BIN" -s2000m -d8000m -i64m < /dev/null >> "$OUT/$L.sc.dump" 2>> "$OUT/$L.sc.err" ); r=$?; [ "$r" -gt "$rc" ] && rc=$r
+    # the tree gate's classes, per process: a signal is a CRASH, any other nonzero exit a refusal (with CHUNK=1 the process is the file)
+    if [ "$r" -ge 128 ]; then echo "CRASH rc=$r" >> "$OUT/$L.sc.dump"; elif [ "$r" -ne 0 ]; then echo "Parse Error (rc=$r)" >> "$OUT/$L.sc.dump"; fi
     echo >> "$OUT/$L.sc.dump"
 done
 rm -f "$OUT/$L.chunk."*
@@ -39,17 +41,19 @@ def sections(path):
     return d
 c = sections(CDUMP); s = sections(SCDUMP)
 files = [os.path.basename(x.strip()) for x in open(LIST) if x.strip()]
-match = []; diff = []; fail = []; crefused = []
+match = []; diff = []; fail = []; crefused = []; crash = []
 for f in files:
     cs = c.get(f); ss = s.get(f)
+    if ss is not None and "CRASH rc=" in ss: crash.append(f); continue
     cbad = cs is None or "Parse Error" in cs
     sbad = ss is None or "Parse Error" in (ss or "")
     if cbad and sbad: match.append(f); continue
     if cbad: crefused.append(f); continue
     if sbad: fail.append(f); continue
     (match if cs == ss else diff).append(f)
-print(f"PARSER-SC lang={L} files={len(files)} match={len(match)} diff={len(diff)} fail={len(fail)} c_refused={len(crefused)} run_rc={rc}")
+print(f"PARSER-SC lang={L} files={len(files)} match={len(match)} diff={len(diff)} fail={len(fail)} crash={len(crash)} c_refused={len(crefused)} run_rc={rc}")
 if fail: print("FAIL (Parse Error or unparsed): " + " ".join(fail[:40]) + (" ..." if len(fail) > 40 else ""))
+if crash: print("CRASH (the .sc binary died on a signal): " + " ".join(crash[:40]) + (" ..." if len(crash) > 40 else ""))
 if crefused: print("C-REFUSED (the C parser prints Parse Error, the .sc a tree): " + " ".join(crefused[:20]))
 def flat(x): return re.sub(r'\n\s*', ' ', x).replace("(TT_STMT (TT_ATTR :subj ", "(S ")
 def toks(x): return flat(x).replace("(", " ( ").replace(")", " ) ").split()
@@ -72,5 +76,5 @@ for f in sorted(diff, key=lambda f: len(c[f]))[:SHOW]:
     try: src = open(os.path.join(srcdir, f), encoding="utf-8").read().strip()
     except Exception: src = "?"
     print("---- DIFF " + f + "\n" + src[:200].replace("\n", " ⏎ ") + "\n" + win[f][0] + "\n" + win[f][1])
-sys.exit(0 if not diff and not fail else 1)
+sys.exit(0 if not diff and not fail and not crash and not crefused else 1)
 PYEOF

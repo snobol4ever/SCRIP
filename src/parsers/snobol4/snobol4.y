@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+static int sno4_goto_f_first;
 #include <ctype.h>
 typedef struct { CODE_t *prog; tree_t **result; tree_t *ast_prog; } PP;
 static void     sno4_stmt_commit_go(void*,Token,tree_t*,tree_t*,int,tree_t*,tree_t*,tree_t*,tree_t*);
@@ -81,13 +83,13 @@ stmt
              | T_LABEL opt_subject opt_repl T_GOTO_S goto_label_expr T_STMT_END            { sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,$5,NULL); }
              | T_LABEL opt_subject opt_repl T_GOTO_F goto_label_expr T_STMT_END            { sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,NULL,$5); }
              | T_LABEL opt_subject opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,$5,$7); }
-             | T_LABEL opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,$7,$5); }
+             | T_LABEL opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_goto_f_first=1; sno4_stmt_commit_go(yyparse_param,$1,$2,NULL,($3!=NULL),$3,NULL,$7,$5); }
            | T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_STMT_END                      { sno4_stmt_commit_go(yyparse_param,$1,expr_binary(TT_SCAN,$2,$4),NULL,($5!=NULL),$5,NULL,NULL,NULL); }
            | T_LABEL expr2 T_2QUEST opt_pattern opt_repl goto_label_expr T_STMT_END      { sno4_stmt_commit_go(yyparse_param,$1,expr_binary(TT_SCAN,$2,$4),NULL,($5!=NULL),$5,$6,NULL,NULL); }
            | T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,$1,expr_binary(TT_SCAN,$2,$4),NULL,($5!=NULL),$5,NULL,$7,NULL); }
            | T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,$1,expr_binary(TT_SCAN,$2,$4),NULL,($5!=NULL),$5,NULL,NULL,$7); }
            | T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,$1,expr_binary(TT_SCAN,$2,$4),NULL,($5!=NULL),$5,NULL,$7,$9); }
-           | T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,$1,expr_binary(TT_SCAN,$2,$4),NULL,($5!=NULL),$5,NULL,$9,$7); }
+           | T_LABEL expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_goto_f_first=1; sno4_stmt_commit_go(yyparse_param,$1,expr_binary(TT_SCAN,$2,$4),NULL,($5!=NULL),$5,NULL,$9,$7); }
            | unlabeled_stmt
            ;
 unlabeled_stmt
@@ -96,13 +98,13 @@ unlabeled_stmt
              | opt_subject opt_repl T_GOTO_S goto_label_expr T_STMT_END                    { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$4,NULL); }
              | opt_subject opt_repl T_GOTO_F goto_label_expr T_STMT_END                    { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,NULL,$4); }
              | opt_subject opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$4,$6); }
-             | opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$6,$4); }
+             | opt_subject opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_goto_f_first=1; sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),$1,NULL,($2!=NULL),$2,NULL,$6,$4); }
            | expr2 T_2QUEST opt_pattern opt_repl T_STMT_END                              { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,NULL,NULL); }
            | expr2 T_2QUEST opt_pattern opt_repl goto_label_expr T_STMT_END              { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,$5,NULL,NULL); }
            | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_STMT_END     { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$6,NULL); }
            | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_STMT_END     { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,NULL,$6); }
            | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_S goto_label_expr T_GOTO_F goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$6,$8); }
-           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$8,$6); }
+           | expr2 T_2QUEST opt_pattern opt_repl T_GOTO_F goto_label_expr T_GOTO_S goto_label_expr T_STMT_END { sno4_goto_f_first=1; sno4_stmt_commit_go(yyparse_param,((Token){0,0,0,0}),expr_binary(TT_SCAN,$1,$3),NULL,($4!=NULL),$4,NULL,$8,$6); }
            ;
 opt_subject: expr14 T_CONCAT expr2                                                                 { $$=expr_binary(TT_SCAN,$1,$3); }
            | expr5                                                                                  { $$=$1; }
@@ -224,6 +226,7 @@ goto_atom  : T_STR    { tree_t*e=ast_node_new(TT_QLIT); e->v.sval=(char*)$1.sval
            | T_IDENT   { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
            | T_FUNCTION{ tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
            | T_END     { tree_t*e=ast_node_new(TT_VAR);  e->v.sval=(char*)$1.sval; $$=e; }
+           | T_IDENT T_GOTO_LPAREN { tree_e _k=pat_prim_kind($1.sval); tal_open(); tal_fnc_open(_k,(char*)$1.sval); } goto_fnc_args T_GOTO_RPAREN { $$=tal_fnc_close(); }
            ;
 goto_fnc_args : goto_fnc_args T_COMMA goto_expr                                                 { tal_push($3); }
            | goto_fnc_args T_COMMA                                                              { tal_push(ast_node_new(TT_NUL)); }
@@ -244,12 +247,13 @@ void snobol4_error(void *p,const char *msg){(void)p;sno_error(g_err_lineno,"pars
 static void sno4_stmt_commit_go(void *param,Token lbl,tree_t *subj,tree_t *pat,int has_eq,tree_t *repl,tree_t *gu,tree_t *gs,tree_t *gf){
     PP *pp=(PP*)param;
     STMT_t *s=stmt_new();
+    s->goto_f_first=sno4_goto_f_first; sno4_goto_f_first=0;
     s->lineno = lbl.lineno ? lbl.lineno : snobol4_get_stmt_lineno();
     { extern int snobol4_get_stmt_lline(void); extern const char *snobol4_get_stmt_file(void);
       s->lline = snobol4_get_stmt_lline(); s->file = ct_strdup(snobol4_get_stmt_file()); }
     { extern int snobol4_get_nofail_mode(void); s->nofail = snobol4_get_nofail_mode(); }
     s->stno = ++pp->prog->nstmts;
-    if(lbl.sval){s->label=ct_strdup(lbl.sval);s->is_end=lbl.ival||(strcmp(lbl.sval,"END")==0);
+    if(lbl.sval){s->label=ct_strdup(lbl.sval);s->is_end=lbl.ival||(strcasecmp(lbl.sval,"END")==0);
         for(STMT_t *p=pp->prog->head;p;p=p->next) if(p->label&&!strcmp(p->label,lbl.sval)){sno_error(s->lineno,"duplicate label '%s'",lbl.sval);break;}}
     s->subject=subj; s->pattern=pat;
     if(has_eq){s->has_eq=1;s->replacement=repl;}

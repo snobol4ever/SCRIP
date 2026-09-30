@@ -25,7 +25,8 @@
 # byte its dump would print (C: ir_dump_tree into a hashing stream, src/tools/parser_main.c; .sc: TreeDumpPut/TreeDumpEnd,
 # bootstrap/tdump.sc) -- and the gate compares the numbers. THE CANARY: the first compared file of each language is also dumped in full on
 # both sides and each number is re-derived from its dump here, so a hash that stopped folding cannot read as MATCH (rc 2).
-# GATE_DETAIL=1 dumps the first DIFF file of each language in full and prints its first differing line pair.
+# GATE_DETAIL=1 dumps the first DIFF file of each language in full and prints its first differing line pair. GATE_LANGS="snobol4 icon"
+# grades those languages alone (a landing's own arm; the closure run grades all six).
 # THE C SIDE DUMPS WHAT ITS PARSER BUILT (the ceo's row, CEO-1364: "the C side dumps the parse tree the .sc reproduces"): Icon
 # before link resolution, Pascal before its semantic check, Rebus before rebus_lower, Prolog each clause's tree before
 # prolog_lower (a clause list with a parse error is refused), Snocone code_to_ast of the statements its parser builds, SNOBOL4
@@ -62,7 +63,7 @@ tree_canary() {
     echo LIVE; }
 RC=0; GRADED=0; GREEN=0
 echo "TREE-FOR-TREE [$G]: population=$POP, EACH FILE ALONE through out/parser_<lang> and the .sc chain compiled once to a mode-4 binary (-s4096m -d16384m), one tree hash per file per side (PARSER_TREE_HASH=1), timeout ${TMO}s per run"
-for L in snobol4 snocone icon prolog rebus pascal; do
+for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
     ext=${EXT[$L]}; exe="$ROOT/out/parser_$L"
     [ -x "$exe" ] || { echo "  $L: ⛔ REFUSE(2) no $exe -- make parsers"; RC=2; continue; }
     if [ "$POP" = corpus ]; then find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/$L.files"

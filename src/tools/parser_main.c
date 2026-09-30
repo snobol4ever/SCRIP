@@ -113,7 +113,7 @@ static int parse_snobol4_program(char * src, size_t len, const char * path, int6
     sno_reset();
     tree_t * ast = sno_parse_ast_buf(src, len, path, NULL, 0);
     *pns += mono_ns() - a;
-    if (!ast) { puts("Parse Error"); return 1; }
+    if (!ast || sno_nerrors > 0) { puts("Parse Error"); return 1; }
     dump_program(ast, hash);
     return 0;
 }
