@@ -6354,6 +6354,14 @@ DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
     }
     return rt_call_name_sn4(r->name, args, nargs, -1);
 }
+DESCR_t rt_call_ctor_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
+{
+    extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
+    if (r->ctor && r->cgen == rt_ctor_gen() && nargs <= ((DatType *)r->ctor)->nfields && !(nargs == 1 && IS_DATA_INST_fn(args[0]))) return dat_construct((DatType *)r->ctor, args, nargs);
+    { DESCR_t v = rt_call_name_sn4(r->name, args, nargs, -1); int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
+      if (h >= 0) { r->ctor = g_ctor_ic[h].dt; r->cgen = g_ctor_ic[h].gen; }
+      return v; }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     if (nargs == 1 && fn && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {

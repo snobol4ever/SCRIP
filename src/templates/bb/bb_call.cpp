@@ -30,6 +30,9 @@ static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L
 extern "C" int prolog_atom_intern(const char *);
 extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
+extern "C" DESCR_t rt_call_ctor_sn4(DESCR_t *, int, sno_callee_rec_t *);
+extern "C" void * dat_find_type(const char *);
+extern "C++" std::string bb_callee_rdx(const char * fn);
 static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1; if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2; if (strict == 2) return 3; if (strict) return 4; return 5; }
 static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
 static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
@@ -100,6 +103,7 @@ int  rk_is_truthy(DESCR_t v);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int zoff(const IR_t * nd) { return nd ? zls_off(nd) : -1; }
+static int bcbn_ctor_callee(const char * fn, int strict) { return fn && fn[0] && sn4_byname_kind(fn, strict) == 2 && dat_find_type(fn) && !x86_is_scan_builtin_name(fn) && strcmp(fn, "tab") && strcmp(fn, "move"); }
 extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_fn_str(IR_t *);
 extern std::string bb_call_bool_str(IR_t *);
@@ -333,6 +337,14 @@ static std::string bb_call_byname_str(IR_t * pBB) {
                 s += x86("mov", x86_zref(i * 16 + 8, 1), "rax");
             }
         }
+        if (bcbn_ctor_callee(fn, _.op_strict)) {
+            s += x86("comment", (std::string("CTOR CALL ") + fn + " -> rt_call_ctor_sn4 with its record baked (no name, no lookup)").c_str());
+            if (narg > 0) s += x86_reg_disp32_lea64("rdi", "rsp", 0);
+            else          s += x86("xor", "edi", "edi");
+            s += x86("mov32", "esi", (long)narg);
+            s += bb_callee_rdx(fn);
+            s += x86("call", "rt_call_ctor_sn4", (uint64_t)(uintptr_t)(void *)rt_call_ctor_sn4);
+        } else {
         {
             std::string fl = std::string(".L") + x86_boxkind() + "_bynamefnzd" + std::to_string((long long)_.nid);
             bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
@@ -348,6 +360,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)narg);
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
+        }
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
         s += x86("cmp", "al", (long)DT_FAIL);
         s += x86_omega("je");
@@ -374,6 +387,14 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int  dsave  = argbase + 16 * (int)narg;
     if (curmov) s += x86("mov", FRQ(dsave), "r14");
     if (scansync) s += x86_scan_sync_out_force();
+    if (bcbn_ctor_callee(fn, _.op_strict)) {
+    s += x86("comment", (std::string("CTOR CALL ") + fn + " -> rt_call_ctor_sn4 with its record baked (no name, no lookup)").c_str());
+    s += x86("lea", "rdi", FRQ(argbase));
+    s += x86("mov32", "esi", (long)narg);
+    s += bb_callee_rdx(fn);
+    s += x86("rtcc_wb");
+    s += x86("call_bare", "rt_call_ctor_sn4", (uint64_t)(uintptr_t)(void *)rt_call_ctor_sn4);
+    } else {
     { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
       if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
     s += x86("directive", ".section .rodata")
@@ -386,6 +407,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += x86("rtcc_wb");
     s += x86("mov32", "ecx", bid_bake_of(fn));
     s += x86("call_bare", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
+    }
     s += x86_rt_gc_poll_res();
     s += x86("rtcc_rl");
     s += x86("mov", FRQ(resoff), "rax"); s += x86("mov", FRQ(resoff + 8), "rdx");

@@ -556,10 +556,10 @@ typedef struct {
     cv_t                         thk_names;
     cv_t                         thk_hix;
     int                          thk_n;
-    cv_t                         fld_chunks;
-    cv_t                         fld_names;
-    cv_t                         fld_hix;
-    int                          fld_n;
+    cv_t                         callee_chunks;
+    cv_t                         callee_names;
+    cv_t                         callee_hix;
+    int                          callee_n;
     cv_t                         fg_bind;
     int                          fg_bind_built;
 } sm_emit_t;

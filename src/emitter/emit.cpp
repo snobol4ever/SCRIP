@@ -1560,7 +1560,7 @@ void * bb_ab_cell_at(int slot) { return (slot >= 0 && slot < g_ab_fn_cell_n) ? (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 struct emit_dir_ref { cv_t * chunks; cv_t * names; cv_t * hix; int * n; size_t esz; };
 static emit_dir_ref thk_dir(void) { emit_dir_ref d = { &g_emit.thk_chunks, &g_emit.thk_names, &g_emit.thk_hix, &g_emit.thk_n, sizeof(sno_thunk_rec_t) }; return d; }
-static emit_dir_ref fld_dir(void) { emit_dir_ref d = { &g_emit.fld_chunks, &g_emit.fld_names, &g_emit.fld_hix, &g_emit.fld_n, sizeof(sno_callee_rec_t) }; return d; }
+static emit_dir_ref callee_dir(void) { emit_dir_ref d = { &g_emit.callee_chunks, &g_emit.callee_names, &g_emit.callee_hix, &g_emit.callee_n, sizeof(sno_callee_rec_t) }; return d; }
 static void * dir_rec(emit_dir_ref d, int slot) { return (char *)CV_AT(*d.chunks, void *, slot >> 8) + (size_t)(slot & 255) * d.esz; }
 static void dir_hix_put(emit_dir_ref d, const char * name, int slot) {
     uint32_t m = d.hix->len - 1, h = ab_fn_hash(name) & m;
@@ -1587,23 +1587,23 @@ extern "C" void bb_thunk_rec_fill(const char * name, void * fn, int32_t frame_by
     if (!name) return;
     sno_thunk_rec_t * r = (sno_thunk_rec_t *)dir_rec(thk_dir(), dir_slot_for(thk_dir(), name)); r->fn = fn; r->frame_bytes = frame_bytes; r->zstatic = zstatic;
 }
-extern "C" void * bb_fld_rec_addr(const char * name) {
+extern "C" void * bb_callee_rec_addr(const char * name) {
     if (!name) return (void *)0;
-    int s = dir_slot_for(fld_dir(), name);
+    int s = dir_slot_for(callee_dir(), name);
     if (!MEDIUM_BINARY) return (void *)0;
-    sno_callee_rec_t * r = (sno_callee_rec_t *)dir_rec(fld_dir(), s);
-    if (!r->name) { r->name = CV_AT(g_emit.fld_names, const char *, s); r->gen1 = 0; r->fi = -1; }
+    sno_callee_rec_t * r = (sno_callee_rec_t *)dir_rec(callee_dir(), s);
+    if (!r->name) { r->name = CV_AT(g_emit.callee_names, const char *, s); r->gen1 = 0; r->fi = -1; }
     return (void *)r;
 }
-extern "C" void emit_fld_records_data(void) {
-    if (!g_emit.fld_n) return;
+extern "C" void emit_callee_records_data(void) {
+    if (!g_emit.callee_n) return;
     extern const char * bb_ab_sym_name(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
     emit_textf("  .section .data\n");
-    for (int k = 0; k < g_emit.fld_n; k++) { const char * nm = CV_AT(g_emit.fld_names, const char *, k); std::string sym = bb_ab_sym_name(nm);
-        emit_textf("  .p2align 3\n.Lfld_%s:\n  .quad .Lfldn_%s\n  .long 0, -1\n  .quad 0\n  .long 0, 0, 0, 0\n", sym.c_str(), sym.c_str()); }
+    for (int k = 0; k < g_emit.callee_n; k++) { const char * nm = CV_AT(g_emit.callee_names, const char *, k); std::string sym = bb_ab_sym_name(nm);
+        emit_textf("  .p2align 3\n.Lcallee_%s:\n  .quad .Lcalleen_%s\n  .long 0, -1\n  .quad 0\n  .long 0, 0, 0, 0\n  .quad 0, 0\n", sym.c_str(), sym.c_str()); }
     emit_textf("  .section .rodata\n");
-    for (int k = 0; k < g_emit.fld_n; k++) { const char * nm = CV_AT(g_emit.fld_names, const char *, k); std::string sym = bb_ab_sym_name(nm); size_t cap = 4 * strlen(nm) + 1; std::string esc(cap, '\0'); x86_asm_str_escape_c(nm, &esc[0], cap);
-        emit_textf(".Lfldn_%s: .string \"%s\"\n", sym.c_str(), esc.c_str()); }
+    for (int k = 0; k < g_emit.callee_n; k++) { const char * nm = CV_AT(g_emit.callee_names, const char *, k); std::string sym = bb_ab_sym_name(nm); size_t cap = 4 * strlen(nm) + 1; std::string esc(cap, '\0'); x86_asm_str_escape_c(nm, &esc[0], cap);
+        emit_textf(".Lcalleen_%s: .string \"%s\"\n", sym.c_str(), esc.c_str()); }
     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
