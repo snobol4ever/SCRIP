@@ -873,7 +873,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
           long long _end = (long long)e->saved_delta + (long long)len;
           if (len > Σlen || _end > (long long)Σlen) {
               fprintf(stderr, "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu end=%lld exceeds subject length %d (target '%s', frame depth %d). Deferred re-entry invalidated the outer frame; capture skipped rather than reading out of bounds.\n",
-                      len, (unsigned long long)e->saved_delta, _end, Σlen, ecell ? "(a variable's cell)" : e->varname ? e->varname : "(null)", g_dcf_top);
+                      len, (unsigned long long)e->saved_delta, _end, Σlen, ecell ? "(a variable's cell)" : !e->varname ? "(null)" : (e->varname[0] == '*' && (unsigned char)e->varname[1] == 1) ? ((const sno_dstar_rec_t *)(const void *)e->varname)->star : e->varname, g_dcf_top);
               c->cur += sizeof(rt_dcap_e);
               c->rc = 1;
               continue; } }
@@ -903,13 +903,16 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
         if (e->varname && e->varname[0] == '*') {
             extern int rt_proc_is_registered(const char *);
             extern long rt_dcap_call_prepare(const char *, short *, int *, int *);
-            const char *pn = e->varname + 1;
+            extern long rt_dcap_call_prepare_rec(sno_dstar_rec_t *, short *, int *, int *);
+            sno_dstar_rec_t *srec = ((unsigned char)e->varname[1] == 1) ? (sno_dstar_rec_t *)(void *)e->varname : (sno_dstar_rec_t *)0;
+            const char *star = srec ? srec->star : e->varname;
+            const char *pn = star + 1;
 #if RT_DIAG
             _prev_star = 1;
 #endif
-            c->pending = d; c->star = e->varname; c->wsv = rt_g_want_name; c->asv = g_cap_abort_gen; c->how = 0; c->nsb = 0;
+            c->pending = d; c->star = star; c->wsv = rt_g_want_name; c->asv = g_cap_abort_gen; c->how = 0; c->nsb = 0;
             rt_g_want_name = 1;
-            { int reg = 0; long fn = rt_dcap_call_prepare(pn, &c->how, &c->nsb, &reg);
+            { int reg = 0; long fn = srec ? rt_dcap_call_prepare_rec(srec, &c->how, &c->nsb, &reg) : rt_dcap_call_prepare(pn, &c->how, &c->nsb, &reg);
               if (!reg) { if (rt_dcap_star_finish(c, NV_GET_fn(pn))) return (rt_dcap_next_t){ 1, 0 }; continue; }
               if (!fn) { if (rt_dcap_star_finish(c, FAILDESCR)) return (rt_dcap_next_t){ 1, 0 }; continue; }
               return (rt_dcap_next_t){ fn, (long)c->how }; }

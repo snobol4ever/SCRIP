@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <stddef.h>
 #include "../ir/pin_va.h"
+#include "../ir/dtp.h"
 #include "../ir/ab_abi.h"
 #include <alloca.h>
 #include "gc_heap.h"
@@ -1183,9 +1184,8 @@ void rt_eval_stage_enter(const char *name) { if (g_error == 0 && !rt_eval_stage_
 void rt_eval_stage_leave(const char *name) { if (g_error == G_ERROR_EVAL_STAGE && !rt_eval_stage_is_var(name)) g_error = 0; }
 void rt_eval_stage_leave_word(long word) { long idx = word >> 40; if (g_error == G_ERROR_EVAL_STAGE && !((idx >= 0 && idx < g_rt_gen_proc_count) ? g_rt_gen_procs[idx].stage_var : 0)) g_error = 0; }
 rt_call_next_t rt_call_open_staged(const char *name, int *registered) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; *registered = p ? 1 : 0; if (!p) return (rt_call_next_t){ 0, 0 }; { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; } }
-long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered)
+static long rt_dcap_call_prepare_p(rt_proc_t *p, const char *name, short *how, int *nsb, int *registered)
 {
-    rt_proc_t *p = rt_proc_find(name);
     *how = 0; *nsb = 0; *registered = p ? 1 : 0;
     if (!p) return 0;
     { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0);
@@ -1193,6 +1193,14 @@ long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registere
       if (g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE;
       *how = (short)(n.how & 0xff); *nsb = (int)((n.how >> 8) & 0xffffffffL);
       return n.fn; }
+}
+long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_find(name), name, how, nsb, registered); }
+long rt_dcap_call_prepare_rec(sno_dstar_rec_t *r, short *how, int *nsb, int *registered)
+{
+    const char *name = r->star + 1;
+    rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count) ? &g_rt_gen_procs[r->pidx] : rt_proc_find(name);
+    if (p) r->pidx = (int32_t)(p - g_rt_gen_procs);
+    return rt_dcap_call_prepare_p(p, name, how, nsb, registered);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback)

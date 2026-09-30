@@ -561,6 +561,10 @@ typedef struct {
     cv_t                         callee_names;
     cv_t                         callee_hix;
     int                          callee_n;
+    cv_t                         dstar_chunks;
+    cv_t                         dstar_names;
+    cv_t                         dstar_hix;
+    int                          dstar_n;
     cv_t                         fg_bind;
     int                          fg_bind_built;
 } sm_emit_t;
