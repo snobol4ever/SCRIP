@@ -4227,6 +4227,17 @@ def cmd_smoke(args):
                 tag = ""
                 if not ok and stand and stand[-1][1] == n and stand[-1][0] == key:
                     tag = " STANDING (the last reading: %s)" % ", ".join(f"{m}={v}" for m, v in was.items())
+                elif not ok:
+                    # ⭐ A RED THE LANDING IS CHARGED WITH SAYS WHICH KIND IT IS (the cfo, 2026-09-30: eleven Icon package reds read "no
+                    # reading" when the record held a board PASS for each -- the smoke grades the package's generated container, the
+                    # board the shipped program): PASS at the last reading, or never read under this table's progress suite name.
+                    seen = {m: v for m, v in was.items() if v}
+                    if seen:
+                        tag = " NEW RED (the last reading: %s%s)" % (", ".join(f"{m}={v}" for m, v in seen.items()),
+                                                                     "; %s never read" % ",".join(m for m in was if not was[m]) if len(seen) < len(was) else "")
+                    else:
+                        tag = (" NEW RED (never read in the progress record as %s/%s)" % (suite_of.get(key), n) if suite_of.get(key)
+                               else " NEW RED (this table maps to no progress suite, so no reading can exist)")
                 print("AREA_SMOKE_ENTRY table=%s entry=%s %s%s" % (key, n, " ".join(f"{m}={kinds[m]}" for m in modes), tag))
                 for m in modes:
                     if kinds[m] != "PASS" and verdicts[m].detail:
