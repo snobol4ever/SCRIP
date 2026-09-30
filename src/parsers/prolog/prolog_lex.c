@@ -3,178 +3,131 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#define PEEK(n)  ((unsigned char)p[(n)])
+#define ADV(n)   (p += (n))
+#define NL()     (lx->line++)
+#define SYNC()   (lx->pos = (int)(p - lx->src))
+enum { CC_DIGIT = 1, CC_UPPER = 2, CC_LOWER = 4, CC_USCORE = 8, CC_LAYOUT = 16, CC_GRAPHIC = 32 };
+static const unsigned char CC[256] = {
+    [' '] = CC_LAYOUT, ['\t'] = CC_LAYOUT, ['\n'] = CC_LAYOUT, ['\r'] = CC_LAYOUT, ['\f'] = CC_LAYOUT, ['\v'] = CC_LAYOUT, ['_'] = CC_USCORE,
+    ['0'] = CC_DIGIT, ['1'] = CC_DIGIT, ['2'] = CC_DIGIT, ['3'] = CC_DIGIT, ['4'] = CC_DIGIT, ['5'] = CC_DIGIT, ['6'] = CC_DIGIT, ['7'] = CC_DIGIT, ['8'] = CC_DIGIT, ['9'] = CC_DIGIT,
+    ['A'] = CC_UPPER, ['B'] = CC_UPPER, ['C'] = CC_UPPER, ['D'] = CC_UPPER, ['E'] = CC_UPPER, ['F'] = CC_UPPER, ['G'] = CC_UPPER, ['H'] = CC_UPPER, ['I'] = CC_UPPER, ['J'] = CC_UPPER,
+    ['K'] = CC_UPPER, ['L'] = CC_UPPER, ['M'] = CC_UPPER, ['N'] = CC_UPPER, ['O'] = CC_UPPER, ['P'] = CC_UPPER, ['Q'] = CC_UPPER, ['R'] = CC_UPPER, ['S'] = CC_UPPER, ['T'] = CC_UPPER,
+    ['U'] = CC_UPPER, ['V'] = CC_UPPER, ['W'] = CC_UPPER, ['X'] = CC_UPPER, ['Y'] = CC_UPPER, ['Z'] = CC_UPPER,
+    ['a'] = CC_LOWER, ['b'] = CC_LOWER, ['c'] = CC_LOWER, ['d'] = CC_LOWER, ['e'] = CC_LOWER, ['f'] = CC_LOWER, ['g'] = CC_LOWER, ['h'] = CC_LOWER, ['i'] = CC_LOWER, ['j'] = CC_LOWER,
+    ['k'] = CC_LOWER, ['l'] = CC_LOWER, ['m'] = CC_LOWER, ['n'] = CC_LOWER, ['o'] = CC_LOWER, ['p'] = CC_LOWER, ['q'] = CC_LOWER, ['r'] = CC_LOWER, ['s'] = CC_LOWER, ['t'] = CC_LOWER,
+    ['u'] = CC_LOWER, ['v'] = CC_LOWER, ['w'] = CC_LOWER, ['x'] = CC_LOWER, ['y'] = CC_LOWER, ['z'] = CC_LOWER,
+    ['+'] = CC_GRAPHIC, ['-'] = CC_GRAPHIC, ['*'] = CC_GRAPHIC, ['/'] = CC_GRAPHIC, ['\\'] = CC_GRAPHIC, ['^'] = CC_GRAPHIC, ['<'] = CC_GRAPHIC, ['>'] = CC_GRAPHIC, ['='] = CC_GRAPHIC,
+    ['~'] = CC_GRAPHIC, ['?'] = CC_GRAPHIC, ['@'] = CC_GRAPHIC, ['#'] = CC_GRAPHIC, ['&'] = CC_GRAPHIC, [':'] = CC_GRAPHIC, ['$'] = CC_GRAPHIC, ['.'] = CC_GRAPHIC,
+};
+enum { D_OTHER = 0, D_EOF, D_LAYOUT, D_NL, D_PERCENT, D_SLASH, D_SQUOTE, D_DQUOTE, D_BQUOTE, D_UPPER, D_USCORE, D_ZERO, D_DIGIT, D_LOWER,
+       D_LPAREN, D_RPAREN, D_LBRACK, D_RBRACK, D_PIPE, D_COMMA, D_BANG, D_SEMI, D_LBRACE, D_RBRACE, D_DOT, D_GRAPHIC };
+static const unsigned char DC[256] = {
+    [0] = D_EOF, [' '] = D_LAYOUT, ['\t'] = D_LAYOUT, ['\r'] = D_LAYOUT, ['\f'] = D_LAYOUT, ['\v'] = D_LAYOUT, ['\n'] = D_NL, ['%'] = D_PERCENT, ['/'] = D_SLASH,
+    ['\''] = D_SQUOTE, ['"'] = D_DQUOTE, ['`'] = D_BQUOTE, ['_'] = D_USCORE, ['0'] = D_ZERO,
+    ['1'] = D_DIGIT, ['2'] = D_DIGIT, ['3'] = D_DIGIT, ['4'] = D_DIGIT, ['5'] = D_DIGIT, ['6'] = D_DIGIT, ['7'] = D_DIGIT, ['8'] = D_DIGIT, ['9'] = D_DIGIT,
+    ['A'] = D_UPPER, ['B'] = D_UPPER, ['C'] = D_UPPER, ['D'] = D_UPPER, ['E'] = D_UPPER, ['F'] = D_UPPER, ['G'] = D_UPPER, ['H'] = D_UPPER, ['I'] = D_UPPER, ['J'] = D_UPPER,
+    ['K'] = D_UPPER, ['L'] = D_UPPER, ['M'] = D_UPPER, ['N'] = D_UPPER, ['O'] = D_UPPER, ['P'] = D_UPPER, ['Q'] = D_UPPER, ['R'] = D_UPPER, ['S'] = D_UPPER, ['T'] = D_UPPER,
+    ['U'] = D_UPPER, ['V'] = D_UPPER, ['W'] = D_UPPER, ['X'] = D_UPPER, ['Y'] = D_UPPER, ['Z'] = D_UPPER,
+    ['a'] = D_LOWER, ['b'] = D_LOWER, ['c'] = D_LOWER, ['d'] = D_LOWER, ['e'] = D_LOWER, ['f'] = D_LOWER, ['g'] = D_LOWER, ['h'] = D_LOWER, ['i'] = D_LOWER, ['j'] = D_LOWER,
+    ['k'] = D_LOWER, ['l'] = D_LOWER, ['m'] = D_LOWER, ['n'] = D_LOWER, ['o'] = D_LOWER, ['p'] = D_LOWER, ['q'] = D_LOWER, ['r'] = D_LOWER, ['s'] = D_LOWER, ['t'] = D_LOWER,
+    ['u'] = D_LOWER, ['v'] = D_LOWER, ['w'] = D_LOWER, ['x'] = D_LOWER, ['y'] = D_LOWER, ['z'] = D_LOWER,
+    ['('] = D_LPAREN, [')'] = D_RPAREN, ['['] = D_LBRACK, [']'] = D_RBRACK, ['|'] = D_PIPE, [','] = D_COMMA, ['!'] = D_BANG, [';'] = D_SEMI, ['{'] = D_LBRACE, ['}'] = D_RBRACE,
+    ['.'] = D_DOT, ['+'] = D_GRAPHIC, ['-'] = D_GRAPHIC, ['*'] = D_GRAPHIC, ['\\'] = D_GRAPHIC, ['^'] = D_GRAPHIC, ['<'] = D_GRAPHIC, ['>'] = D_GRAPHIC, ['='] = D_GRAPHIC,
+    ['~'] = D_GRAPHIC, ['?'] = D_GRAPHIC, ['@'] = D_GRAPHIC, ['#'] = D_GRAPHIC, ['&'] = D_GRAPHIC, [':'] = D_GRAPHIC, ['$'] = D_GRAPHIC,
+};
+#define CLASS(c)      (CC[(unsigned char)(c)])
+#define is_digit(c)   (CLASS(c) & CC_DIGIT)
+#define is_upper(c)   (CLASS(c) & CC_UPPER)
+#define is_lower(c)   (CLASS(c) & CC_LOWER)
+#define is_alnum(c)   (CLASS(c) & (CC_DIGIT | CC_UPPER | CC_LOWER))
+#define is_idcont(c)  (CLASS(c) & (CC_DIGIT | CC_UPPER | CC_LOWER | CC_USCORE))
+#define is_layout(c)  (CLASS(c) & CC_LAYOUT)
+#define is_graphic(c) (CLASS(c) & CC_GRAPHIC)
+static int hexval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'f') return c - 'a' + 10; if (c >= 'A' && c <= 'F') return c - 'A' + 10; return -1; }
+static int digval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'z') return c - 'a' + 10; if (c >= 'A' && c <= 'Z') return c - 'A' + 10; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char cur(Lexer *lx) {
-    return lx->src[lx->pos];
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char peek1(Lexer *lx) {
-    if (lx->src[lx->pos] == '\0') return '\0';
-    return lx->src[lx->pos + 1];
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char advance(Lexer *lx) {
-    char c = lx->src[lx->pos];
-    if (c == '\n') lx->line++;
-    if (c) lx->pos++;
-    return c;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void buf_push(char **buf, int *len, int *cap, char c) {
-    if (*len + 2 > *cap) {
-        *cap = (*cap) ? (*cap) * 2 : 32;
-        *buf = ct_grow(*buf, *cap);
-    }
-    (*buf)[(*len)++] = c;
-    (*buf)[*len] = '\0';
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token make_tok(TkKind kind, char *text, int line) {
+static inline Token tok(TkKind kind, char *text, int line) {
     Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token make_err(int line, const char *msg) {
-    Token t; t.kind = TK_ERROR; t.text = ct_strdup(msg); t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
-    return t;
+static Token err_tok(int line, const char *msg) {
+    return tok(TK_ERROR, ct_strdup(msg), line);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void skip_ws(Lexer *lx) {
-    for (;;) {
-        while (cur(lx) && isspace((unsigned char)cur(lx))) advance(lx);
-        if (cur(lx) == '%') {
-            while (cur(lx) && cur(lx) != '\n') advance(lx);
-            continue;
-        }
-        if (cur(lx) == '/' && peek1(lx) == '*') {
-            advance(lx); advance(lx);
-            while (cur(lx)) {
-                if (cur(lx) == '*' && peek1(lx) == '/') {
-                    advance(lx); advance(lx); break;
-                }
-                advance(lx);
-            }
-            continue;
-        }
-        break;
-    }
+static char *span_text(const char *s, const char *e, int seps) {
+    if (!seps) return ct_strndup(s, (size_t)(e - s));
+    char *o = (char *)ct_alloc((size_t)(e - s) + 1); size_t n = 0;
+    for (; s < e; s++) if (*s != '_' && *s != ' ') o[n++] = *s;
+    o[n] = '\0';
+    return o;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int hexval(char c) {
-    if (c >= '0' && c <= '9') return c - '0';
-    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
-    return -1;
+static inline void sb_put(Lexer *lx, int c) {
+    if (lx->slen + 1 >= lx->scap) { lx->scap = lx->scap ? lx->scap * 2 : 256; lx->sbuf = (char *)ct_grow(lx->sbuf, (size_t)lx->scap); }
+    lx->sbuf[lx->slen++] = (char)c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_lex_u8_put(char *o, int cp) {
-    if (cp < 0x80) { o[0] = (char)cp; return 1; }
-    if (cp < 0x800) { o[0] = (char)(0xC0 | (cp >> 6)); o[1] = (char)(0x80 | (cp & 0x3F)); return 2; }
-    if (cp < 0x10000) { o[0] = (char)(0xE0 | (cp >> 12)); o[1] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[2] = (char)(0x80 | (cp & 0x3F)); return 3; }
-    o[0] = (char)(0xF0 | (cp >> 18)); o[1] = (char)(0x80 | ((cp >> 12) & 0x3F)); o[2] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[3] = (char)(0x80 | (cp & 0x3F)); return 4;
+static void sb_utf8(Lexer *lx, int cp) {
+    if (cp < 0x80) { sb_put(lx, cp); return; }
+    if (cp < 0x800) { sb_put(lx, 0xC0 | (cp >> 6)); sb_put(lx, 0x80 | (cp & 0x3F)); return; }
+    if (cp < 0x10000) { sb_put(lx, 0xE0 | (cp >> 12)); sb_put(lx, 0x80 | ((cp >> 6) & 0x3F)); sb_put(lx, 0x80 | (cp & 0x3F)); return; }
+    sb_put(lx, 0xF0 | (cp >> 18)); sb_put(lx, 0x80 | ((cp >> 12) & 0x3F)); sb_put(lx, 0x80 | ((cp >> 6) & 0x3F)); sb_put(lx, 0x80 | (cp & 0x3F));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int decode_escape(Lexer *lx, int *code) {
-    char e = advance(lx);
+static char *sb_text(Lexer *lx) {
+    return lx->slen ? ct_strndup(lx->sbuf, (size_t)lx->slen) : ct_strdup("");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int u8_decode(const unsigned char *u, int *cp) {
+    if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { *cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); return 2; }
+    if ((u[0] & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { *cp = ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F); return 3; }
+    if ((u[0] & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80) {
+        *cp = ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F); return 4; }
+    *cp = u[0]; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int decode_escape(Lexer *lx, const char **pp, int *code) {
+    const char *p = *pp; int e = PEEK(0), v = 0, h, i, want;
+    if (e) ADV(1);
+    if (e == '\n') NL();
     switch (e) {
-        case 'a': *code = 7;  return 1;
-        case 'b': *code = 8;  return 1;
-        case 'f': *code = 12; return 1;
-        case 'n': *code = 10; return 1;
-        case 'r': *code = 13; return 1;
-        case 't': *code = 9;  return 1;
-        case 'v': *code = 11; return 1;
-        case 'e': *code = 27; return 1;
-        case 's': *code = 32; return 1;
-        case 'd': *code = 127; return 1;
-        case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': {
-            int v = e - '0';
-            while (cur(lx) >= '0' && cur(lx) <= '7') v = v * 8 + (advance(lx) - '0');
-            if (cur(lx) == '8' || cur(lx) == '9') return -1;
-            if (cur(lx) == '\\') advance(lx);
-            *code = v; return 1;
-        }
-        case 'x': {
-            int v = 0, h;
-            if (hexval(cur(lx)) < 0) return -1;
-            while ((h = hexval(cur(lx))) >= 0) { v = v * 16 + h; advance(lx); }
-            if (isalnum((unsigned char)cur(lx))) return -1;
-            if (cur(lx) == '\\') advance(lx);
-            *code = v; return 1;
-        }
-        case 'u': case 'U': {
-            int want = (e == 'u') ? 4 : 8, v = 0, h;
-            for (int i = 0; i < want; i++) { if ((h = hexval(cur(lx))) < 0) return -1; v = v * 16 + h; advance(lx); }
-            *code = v; return 1;
-        }
-        case '\\': *code = '\\'; return 1;
-        case '\'': *code = '\''; return 1;
-        case '"':  *code = '"';  return 1;
-        case '`':  *code = '`';  return 1;
-        case 'c': while (cur(lx) == ' ' || cur(lx) == '\t' || cur(lx) == '\n' || cur(lx) == '\r' || cur(lx) == '\f' || cur(lx) == '\v') advance(lx); return 0;
-        case '\n': return 0;
-        default:   *code = (unsigned char)e; return -1;
+        case 'a': *code = 7;   break;
+        case 'b': *code = 8;   break;
+        case 'f': *code = 12;  break;
+        case 'n': *code = 10;  break;
+        case 'r': *code = 13;  break;
+        case 't': *code = 9;   break;
+        case 'v': *code = 11;  break;
+        case 'e': *code = 27;  break;
+        case 's': *code = 32;  break;
+        case 'd': *code = 127; break;
+        case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7':
+            v = e - '0';
+            while (PEEK(0) >= '0' && PEEK(0) <= '7') { v = v * 8 + (PEEK(0) - '0'); ADV(1); }
+            if (PEEK(0) == '8' || PEEK(0) == '9') { *pp = p; return -1; }
+            if (PEEK(0) == '\\') ADV(1);
+            *code = v; break;
+        case 'x':
+            if (hexval(PEEK(0)) < 0) { *pp = p; return -1; }
+            while ((h = hexval(PEEK(0))) >= 0) { v = v * 16 + h; ADV(1); }
+            if (is_alnum(PEEK(0))) { *pp = p; return -1; }
+            if (PEEK(0) == '\\') ADV(1);
+            *code = v; break;
+        case 'u': case 'U':
+            want = (e == 'u') ? 4 : 8;
+            for (i = 0; i < want; i++) { if ((h = hexval(PEEK(0))) < 0) { *pp = p; return -1; } v = v * 16 + h; ADV(1); }
+            *code = v; break;
+        case '\\': case '\'': case '"': case '`': *code = e; break;
+        case 'c':  while (is_layout(PEEK(0))) { if (PEEK(0) == '\n') NL(); ADV(1); } *pp = p; return 0;
+        case '\n': *pp = p; return 0;
+        default:   *code = e; *pp = p; return -1;
     }
+    *pp = p; return 1;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_quoted_atom(Lexer *lx) {
-    int line = lx->line;
-    advance(lx);
-    char *buf = NULL; int len = 0, cap = 0;
-    for (;;) {
-        char c = cur(lx);
-        if (c == '\0') return make_err(line, "unterminated quoted atom");
-        if (c == '\'') {
-            advance(lx);
-            if (cur(lx) == '\'') {
-                buf_push(&buf, &len, &cap, '\''); advance(lx);
-            } else break;
-        } else if (c == '\\') {
-            advance(lx);
-            int code; int st = decode_escape(lx, &code);
-            if (st == 1) { char eb[8]; int bl = pl_lex_u8_put(eb, code); for (int i = 0; i < bl; i++) buf_push(&buf, &len, &cap, eb[i]); }
-            else if (st < 0) { ct_drop(buf); return make_err(line, "invalid escape sequence in quoted atom"); }
-        } else if (c == '\n' || c == '\t') {
-            ct_drop(buf); return make_err(line, "unescaped layout character in quoted atom");
-        } else {
-            buf_push(&buf, &len, &cap, c); advance(lx);
-        }
-    }
-    if (!buf) buf = ct_strdup("");
-    Token t = make_tok(TK_ATOM, buf, line);
-    return t;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_string_q(Lexer *lx, char q, TkKind kind) {
-    int line = lx->line;
-    advance(lx);
-    char *buf = NULL; int len = 0, cap = 0;
-    for (;;) {
-        char c = cur(lx);
-        if (c == '\0') return make_err(line, "unterminated string");
-        if (c == q) { advance(lx); if (cur(lx) == q) { buf_push(&buf, &len, &cap, q); advance(lx); continue; } break; }
-        if (c == '\\') {
-            advance(lx);
-            int code; int st = decode_escape(lx, &code);
-            if (st == 1) { char eb[8]; int bl = pl_lex_u8_put(eb, code); for (int i = 0; i < bl; i++) buf_push(&buf, &len, &cap, eb[i]); }
-            else if (st < 0) { ct_drop(buf); return make_err(line, "invalid escape sequence in double-quoted token"); }
-        } else if (c == '\n' || c == '\t') {
-            ct_drop(buf); return make_err(line, "unescaped layout character in double-quoted token");
-        } else {
-            buf_push(&buf, &len, &cap, c); advance(lx);
-        }
-    }
-    if (!buf) buf = ct_strdup("");
-    Token t = make_tok(kind, buf, line);
-    return t;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_string(Lexer *lx) { return scan_string_q(lx, '"', TK_STRING); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_bqstring(Lexer *lx) { return scan_string_q(lx, '`', TK_BQSTRING); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *lex_radix_to_decimal(const char *digs, int radix) {
     size_t nd = strlen(digs), cap = nd * 2 + 2, n = 1; unsigned char *dec = (unsigned char *)ct_alloc(cap); char *out;
@@ -190,116 +143,6 @@ static char *lex_radix_to_decimal(const char *digs, int radix) {
     if (!out) { ct_drop(dec); return NULL; }
     for (size_t i = 0; i < n; i++) out[i] = (char)('0' + dec[n - 1 - i]);
     out[n] = 0; ct_drop(dec); return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_number(Lexer *lx) {
-    int line = lx->line;
-    char *buf = NULL; int len = 0, cap = 0;
-    int is_float = 0;
-    if (cur(lx) == '0' && peek1(lx) == '\'') {
-        advance(lx); advance(lx);
-        Token t = make_tok(TK_INT, NULL, line); t.text = ct_strdup("0'c");
-        if (cur(lx) == '\\') { advance(lx); int code; int st = decode_escape(lx, &code);
-            if (st != 1) { ct_drop(t.text); return make_err(line, "invalid escape sequence in character code constant"); }
-            t.ival = (long)code; return t; }
-        if (cur(lx) == '\'' && peek1(lx) == '\'') { advance(lx); advance(lx); t.ival = (long)'\''; return t; }
-        { const unsigned char *u = (const unsigned char *)&lx->src[lx->pos]; int adv = 1, cp = (int)u[0];
-          if ((u[0] & 0xE0) == 0xC0 && (u[1] & 0xC0) == 0x80) { adv = 2; cp = ((u[0] & 0x1F) << 6) | (u[1] & 0x3F); }
-          else if ((u[0] & 0xF0) == 0xE0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80) { adv = 3; cp = ((u[0] & 0x0F) << 12) | ((u[1] & 0x3F) << 6) | (u[2] & 0x3F); }
-          else if ((u[0] & 0xF8) == 0xF0 && (u[1] & 0xC0) == 0x80 && (u[2] & 0xC0) == 0x80 && (u[3] & 0xC0) == 0x80)
-              { adv = 4; cp = ((u[0] & 0x07) << 18) | ((u[1] & 0x3F) << 12) | ((u[2] & 0x3F) << 6) | (u[3] & 0x3F); }
-          while (adv--) advance(lx);
-          t.ival = (long)cp; }
-        return t;
-    }
-    if (cur(lx) == '0' && (peek1(lx) == 'b' || peek1(lx) == 'x' || peek1(lx) == 'o')) {
-        buf_push(&buf, &len, &cap, advance(lx));
-        buf_push(&buf, &len, &cap, advance(lx));
-        int radix = (buf[1]=='b'||buf[1]=='B') ? 2 :
-                    (buf[1]=='o'||buf[1]=='O') ? 8 : 16;
-        int ndig = 0;
-        while (1) {
-            int dv = hexval(cur(lx));
-            if (dv >= 0 && dv < radix) { buf_push(&buf, &len, &cap, advance(lx)); ndig++; }
-            else if (cur(lx) == '_' && ndig) advance(lx);
-            else if (cur(lx) == ' ' && ndig) { int pv = hexval(peek1(lx)); if (pv < 0 || pv >= radix) break; advance(lx); }
-            else break;
-        }
-        if (!ndig || (hexval(cur(lx)) >= 0) || isalnum((unsigned char)cur(lx))) { ct_drop(buf); return make_err(line, "malformed radix integer"); }
-        Token t = make_tok(TK_INT, buf, line);
-        errno = 0;
-        { unsigned long long uv = strtoull(buf + 2, NULL, radix);
-          if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { char *dec = lex_radix_to_decimal(buf + 2, radix); if (dec) { t.text = dec; t.big = 1; t.ival = 0; return t; } }
-          t.ival = (long)uv; }
-        return t;
-    }
-    while (isdigit((unsigned char)cur(lx)) || cur(lx) == '_') {
-        if (cur(lx) != '_') buf_push(&buf, &len, &cap, advance(lx));
-        else advance(lx);
-    }
-    while (cur(lx) == ' ' && isdigit((unsigned char)peek1(lx))) {
-        advance(lx);
-        while (isdigit((unsigned char)cur(lx)) || cur(lx) == '_') {
-            if (cur(lx) != '_') buf_push(&buf, &len, &cap, advance(lx));
-            else advance(lx);
-        }
-    }
-    if (cur(lx) == '\'' && buf && len > 0) {
-        long radix = strtol(buf, NULL, 10);
-        char pd = peek1(lx);
-        int pdv = isdigit((unsigned char)pd) ? (pd - '0') : (isalpha((unsigned char)pd) ? (tolower((unsigned char)pd) - 'a' + 10) : -1);
-        if (radix >= 2 && radix <= 36 && pdv >= 0 && pdv < radix) {
-            advance(lx);
-            char *dbuf = NULL; int dlen = 0, dcap = 0;
-            while (isalnum((unsigned char)cur(lx))) {
-                char dc = cur(lx);
-                int v = isdigit((unsigned char)dc) ? (dc - '0') : (tolower((unsigned char)dc) - 'a' + 10);
-                if (v < 0 || v >= radix) break;
-                buf_push(&dbuf, &dlen, &dcap, advance(lx));
-            }
-            if (!dbuf) dbuf = ct_strdup("0");
-            ct_drop(buf);
-            Token t = make_tok(TK_INT, dbuf, line);
-            t.ival = (long)(unsigned long long)strtoull(dbuf, NULL, (int)radix);
-            return t;
-        }
-    }
-    if ((cur(lx) == 'e' || cur(lx) == 'E') && buf && len > 0 && (isdigit((unsigned char)peek1(lx)) || ((peek1(lx) == '+' || peek1(lx) == '-') && isdigit((unsigned char)lx->src[lx->pos + 2])))) {
-        is_float = 1;
-        buf_push(&buf, &len, &cap, advance(lx));
-        if (cur(lx) == '+' || cur(lx) == '-') buf_push(&buf, &len, &cap, advance(lx));
-        while (isdigit((unsigned char)cur(lx))) buf_push(&buf, &len, &cap, advance(lx));
-    }
-    else if (cur(lx) == '.' && isdigit((unsigned char)peek1(lx))) {
-        is_float = 1;
-        buf_push(&buf, &len, &cap, advance(lx));
-        while (isdigit((unsigned char)cur(lx)))
-            buf_push(&buf, &len, &cap, advance(lx));
-        if (cur(lx) == 'e' || cur(lx) == 'E') {
-            buf_push(&buf, &len, &cap, advance(lx));
-            if (cur(lx) == '+' || cur(lx) == '-')
-                buf_push(&buf, &len, &cap, advance(lx));
-            while (isdigit((unsigned char)cur(lx)))
-                buf_push(&buf, &len, &cap, advance(lx));
-        }
-        if ((cur(lx)=='N' && lx->src[lx->pos+1]=='a' && lx->src[lx->pos+2]=='N') ||
-            (cur(lx)=='I' && lx->src[lx->pos+1]=='n' && lx->src[lx->pos+2]=='f')) {
-            advance(lx); advance(lx); advance(lx);
-            if (!buf) buf = ct_strdup("nan");
-        }
-    }
-    if (!buf) buf = ct_strdup("0");
-    if (is_float) {
-        Token t = make_tok(TK_FLOAT, buf, line);
-        t.fval = atof(buf);
-        return t;
-    } else {
-        Token t = make_tok(TK_INT, buf, line);
-        errno = 0;
-        t.ival = (long)strtoll(buf, NULL, 10);
-        t.big = (errno == ERANGE);
-        return t;
-    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_u_letter(const char *s, int *adv) {
@@ -322,95 +165,147 @@ int prolog_u_letter(const char *s, int *adv) {
     return 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int ident_len(Lexer *lx) { int adv; unsigned char c = (unsigned char)cur(lx);
-    if (isalnum(c) || c == '_') return 1;
-    if (c >= 0x80 && prolog_u_letter(lx->src + lx->pos, &adv)) return adv;
-    return 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_word(Lexer *lx) {
-    int line = lx->line;
-    char *buf = NULL; int len = 0, cap = 0, n;
-    while ((n = ident_len(lx)) > 0) while (n--) buf_push(&buf, &len, &cap, advance(lx));
-    if (!buf) buf = ct_strdup("");
-    return make_tok(TK_ATOM, buf, line);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_graphic(char c) {
-    return c == '+' || c == '-' || c == '*' || c == '/' || c == '\\' ||
-           c == '^' || c == '<' || c == '>' || c == '=' || c == '~' ||
-           c == '?' || c == '@' || c == '#' || c == '&' || c == ':' ||
-           c == '$' || c == '.';
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static Token scan_graphic(Lexer *lx) {
-    int line = lx->line;
-    char *buf = NULL; int len = 0, cap = 0;
-    while (is_graphic(cur(lx)) && cur(lx) != ',' && cur(lx) != '|')
-        buf_push(&buf, &len, &cap, advance(lx));
-    if (!buf) buf = ct_strdup("");
-    if (strcmp(buf, ":-") == 0) { Token t = make_tok(TK_NECK, buf, line); return t; }
-    if (strcmp(buf, "?-") == 0) { Token t = make_tok(TK_QUERY, buf, line); return t; }
-    return make_tok(TK_OP, buf, line);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static Token lexer_next_raw(Lexer *lx) {
-    if (lx->fenced) return make_tok(TK_EOF, ct_strdup(""), lx->line);
-    if (lx->has_peek) {
-        lx->has_peek = 0;
-        return lx->peek;
+    const char *p, *s; int line, seps = 0, radix = 0, ndig = 0, code = 0, st, c = 0, q = 0, n, uk; TkKind kind = TK_ATOM; Token t; char msg[32];
+    if (lx->fenced) return tok(TK_EOF, (char *)"", lx->line);
+    if (lx->has_peek) { lx->has_peek = 0; return lx->peek; }
+    p = lx->src + lx->pos;
+S_START:
+    line = lx->line; s = p; c = PEEK(0);
+    if (c >= 0x80)                                                                                                                             goto S_HI;
+    switch (DC[c]) {
+    case D_LAYOUT:                                                   {  ADV(1);                                                                goto S_START;       }
+    case D_NL:                                                       {  NL(); ADV(1);                                                          goto S_START;       }
+    case D_PERCENT:                                                  {  ADV(1);                                                                goto S_LCOMMENT;    }
+    case D_SLASH:   if (PEEK(1) == '*')                              {  ADV(2);                                                                goto S_BCOMMENT;    }
+                                                                     {  ADV(1);                                                                goto S_GRAPHIC;     }
+    case D_EOF:                                                      {  SYNC(); return tok(TK_EOF, (char *)"", line);                                              }
+    case D_SQUOTE:                                                   {  ADV(1); q = '\''; kind = TK_ATOM;     lx->slen = 0;                    goto S_QUOTED;      }
+    case D_DQUOTE:                                                   {  ADV(1); q = '"';  kind = TK_STRING;   lx->slen = 0;                    goto S_QUOTED;      }
+    case D_BQUOTE:                                                   {  ADV(1); q = '`';  kind = TK_BQSTRING; lx->slen = 0;                    goto S_QUOTED;      }
+    case D_UPPER:                                                    {  ADV(1);                                                                goto S_VAR;         }
+    case D_USCORE:                                                   {  ADV(1);                                                                goto S_UNDERSCORE;  }
+    case D_ZERO:    if (PEEK(1) == '\'')                             {  ADV(2);                                                                goto S_CHARCODE;    }
+                    if (PEEK(1) == 'x' || PEEK(1) == 'o' || PEEK(1) == 'b') {  radix = PEEK(1) == 'b' ? 2 : PEEK(1) == 'o' ? 8 : 16; ndig = 0; ADV(2); goto S_RADIX; }
+                                                                     {  ADV(1);                                                                goto S_INT;         }
+    case D_DIGIT:                                                    {  ADV(1);                                                                goto S_INT;         }
+    case D_LOWER:                                                    {  ADV(1);                                                                goto S_WORD;        }
+    case D_LPAREN:                                                   {  ADV(1); SYNC(); return tok(TK_LPAREN,   (char *)"(",  line);                               }
+    case D_RPAREN:                                                   {  ADV(1); SYNC(); return tok(TK_RPAREN,   (char *)")",  line);                               }
+    case D_LBRACK:  if (PEEK(1) == ']')                              {  ADV(2); SYNC(); return tok(TK_ATOM,     (char *)"[]", line);                               }
+                                                                     {  ADV(1); SYNC(); return tok(TK_LBRACKET, (char *)"[",  line);                               }
+    case D_RBRACK:                                                   {  ADV(1); SYNC(); return tok(TK_RBRACKET, (char *)"]",  line);                               }
+    case D_PIPE:                                                     {  ADV(1); SYNC(); return tok(TK_PIPE,     (char *)"|",  line);                               }
+    case D_COMMA:                                                    {  ADV(1); SYNC(); return tok(TK_COMMA,    (char *)",",  line);                               }
+    case D_BANG:                                                     {  ADV(1); SYNC(); return tok(TK_CUT,      (char *)"!",  line);                               }
+    case D_SEMI:                                                     {  ADV(1); SYNC(); return tok(TK_SEMI,     (char *)";",  line);                               }
+    case D_LBRACE:                                                   {  ADV(1); SYNC(); return tok(TK_LBRACE,   (char *)"{",  line);                               }
+    case D_RBRACE:                                                   {  ADV(1); SYNC(); return tok(TK_RBRACE,   (char *)"}",  line);                               }
+    case D_DOT:     if (PEEK(1) == '\0' || is_layout(PEEK(1)) || PEEK(1) == '%') {  ADV(1); SYNC(); return tok(TK_DOT, (char *)".", line);                         }
+                                                                     {  ADV(1);                                                                goto S_GRAPHIC;     }
+    case D_GRAPHIC:                                                  {  ADV(1);                                                                goto S_GRAPHIC;     }
+    default:                                                         {  ADV(1);                                                                goto LX_UNEXPECTED; }
     }
-    skip_ws(lx);
-    int line = lx->line;
-    char c = cur(lx);
-    if (c == '\0') return make_tok(TK_EOF, ct_strdup(""), line);
-    if (c == '\'') return scan_quoted_atom(lx);
-    if (c == '"') return scan_string(lx);
-    if (c == '`') return scan_bqstring(lx);
-    { int uadv, uk = ((unsigned char)c >= 0x80) ? prolog_u_letter(lx->src + lx->pos, &uadv) : 0;
-      if (isupper((unsigned char)c) || uk == 1) {
-        char *buf = NULL; int len = 0, cap = 0, n;
-        while ((n = ident_len(lx)) > 0) while (n--) buf_push(&buf, &len, &cap, advance(lx));
-        if (!buf) buf = ct_strdup("");
-        return make_tok(TK_VAR, buf, line);
-      }
-      if (uk == 2) return scan_word(lx); }
-    if (c == '_') {
-        advance(lx);
-        if (!ident_len(lx))
-            return make_tok(TK_ANON, ct_strdup("_"), line);
-        char *buf = NULL; int len = 0, cap = 0, n;
-        buf_push(&buf, &len, &cap, '_');
-        while ((n = ident_len(lx)) > 0) while (n--) buf_push(&buf, &len, &cap, advance(lx));
-        return make_tok(TK_VAR, buf, line);
-    }
-    if (isdigit((unsigned char)c)) return scan_number(lx);
-    if (islower((unsigned char)c)) return scan_word(lx);
-    advance(lx);
-    switch (c) {
-        case '(': return make_tok(TK_LPAREN,   ct_strdup("("), line);
-        case ')': return make_tok(TK_RPAREN,   ct_strdup(")"), line);
-        case '[':
-            if (cur(lx) == ']') { advance(lx); return make_tok(TK_ATOM, ct_strdup("[]"), line); }
-            return make_tok(TK_LBRACKET, ct_strdup("["), line);
-        case ']': return make_tok(TK_RBRACKET, ct_strdup("]"), line);
-        case '|': return make_tok(TK_PIPE,     ct_strdup("|"), line);
-        case ',': return make_tok(TK_COMMA,    ct_strdup(","), line);
-        case '!': return make_tok(TK_CUT,      ct_strdup("!"), line);
-        case ';': return make_tok(TK_SEMI,     ct_strdup(";"), line);
-        case '{': return make_tok(TK_LBRACE,   ct_strdup("{"), line);
-        case '}': return make_tok(TK_RBRACE,   ct_strdup("}"), line);
-        case '.':
-            if (cur(lx) == '\0' || isspace((unsigned char)cur(lx)) || cur(lx) == '%')
-                return make_tok(TK_DOT, ct_strdup("."), line);
-            lx->pos--;
-            return scan_graphic(lx);
-        default:
-            lx->pos--;
-            if (is_graphic(cur(lx))) return scan_graphic(lx);
-            advance(lx);
-            { char msg[32]; snprintf(msg,sizeof msg,"unexpected '%c'",c);
-              return make_err(line, msg); }
-    }
+S_HI:
+    uk = prolog_u_letter(p, &n);
+    if (uk == 1)                                                     {  ADV(n);                                                                goto S_VAR;         }
+    if (uk == 2)                                                     {  ADV(n);                                                                goto S_WORD;        }
+                                                                     {  ADV(1);                                                                goto LX_UNEXPECTED; }
+S_LCOMMENT:
+    if (PEEK(0) == '\0')                                                                                                                       goto S_START;
+    if (PEEK(0) == '\n')                                                                                                                       goto S_START;
+                                                                     {  ADV(1);                                                                goto S_LCOMMENT;    }
+S_BCOMMENT:
+    if (PEEK(0) == '\0')                                                                                                                       goto S_START;
+    if (PEEK(0) == '*' && PEEK(1) == '/')                            {  ADV(2);                                                                goto S_START;       }
+    if (PEEK(0) == '\n')                                             {  NL(); ADV(1);                                                          goto S_BCOMMENT;    }
+                                                                     {  ADV(1);                                                                goto S_BCOMMENT;    }
+S_VAR:
+    if (is_idcont(PEEK(0)))                                          {  ADV(1);                                                                goto S_VAR;         }
+    if (PEEK(0) >= 0x80 && prolog_u_letter(p, &n))                   {  ADV(n);                                                                goto S_VAR;         }
+                                                                     {  SYNC(); return tok(TK_VAR, ct_strndup(s, (size_t)(p - s)), line);                          }
+S_WORD:
+    if (is_idcont(PEEK(0)))                                          {  ADV(1);                                                                goto S_WORD;        }
+    if (PEEK(0) >= 0x80 && prolog_u_letter(p, &n))                   {  ADV(n);                                                                goto S_WORD;        }
+                                                                     {  SYNC(); return tok(TK_ATOM, ct_strndup(s, (size_t)(p - s)), line);                         }
+S_UNDERSCORE:
+    if (is_idcont(PEEK(0)))                                          {  ADV(1);                                                                goto S_VAR;         }
+    if (PEEK(0) >= 0x80 && prolog_u_letter(p, &n))                   {  ADV(n);                                                                goto S_VAR;         }
+                                                                     {  SYNC(); return tok(TK_ANON, (char *)"_", line);                                            }
+S_INT:
+    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_INT;         }
+    if (PEEK(0) == '_')                                              {  seps = 1; ADV(1);                                                      goto S_INT;         }
+    if (PEEK(0) == ' ' && is_digit(PEEK(1)))                         {  seps = 1; ADV(1);                                                      goto S_INT;         }
+    if (PEEK(0) == '\'')                                             {  radix = 0; for (const char *r = s; r < p && radix <= 36; r++) if (is_digit(*r)) radix = radix * 10 + (*r - '0');
+                                                                        c = digval(PEEK(1)); if (radix >= 2 && radix <= 36 && c >= 0 && c < radix) { ADV(1); s = p; goto S_RDIGITS; } goto LX_INT; }
+    if ((PEEK(0) == 'e' || PEEK(0) == 'E') && (is_digit(PEEK(1)) || ((PEEK(1) == '+' || PEEK(1) == '-') && is_digit(PEEK(2))))) {  ADV(1);    goto S_EXP_SIGN;    }
+    if (PEEK(0) == '.' && is_digit(PEEK(1)))                         {  ADV(1);                                                                goto S_FRAC;        }
+                                                                                                                                               goto LX_INT;
+S_RDIGITS:
+    c = digval(PEEK(0)); if (c >= 0 && c < radix)                    {  ADV(1);                                                                goto S_RDIGITS;     }
+                                                                     {  t = tok(TK_INT, ct_strndup(s, (size_t)(p - s)), line); t.ival = (long)(unsigned long long)strtoull(t.text, NULL, radix);
+                                                                        SYNC(); return t;                                                                          }
+S_EXP_SIGN:
+    if (PEEK(0) == '+' || PEEK(0) == '-')                            {  ADV(1);                                                                goto S_EXP_DIG;     }
+                                                                                                                                               goto S_EXP_DIG;
+S_EXP_DIG:
+    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_EXP_DIG;     }
+                                                                                                                                               goto LX_FLOAT;
+S_FRAC:
+    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_FRAC;        }
+    if (PEEK(0) == 'e' || PEEK(0) == 'E')                            {  ADV(1);                                                                goto S_FRAC_EXP_SIGN; }
+                                                                                                                                               goto S_FRAC_END;
+S_FRAC_EXP_SIGN:
+    if (PEEK(0) == '+' || PEEK(0) == '-')                            {  ADV(1);                                                                goto S_FRAC_EXP_DIG; }
+                                                                                                                                               goto S_FRAC_EXP_DIG;
+S_FRAC_EXP_DIG:
+    if (is_digit(PEEK(0)))                                           {  ADV(1);                                                                goto S_FRAC_EXP_DIG; }
+                                                                                                                                               goto S_FRAC_END;
+S_FRAC_END:
+    if ((PEEK(0) == 'N' && PEEK(1) == 'a' && PEEK(2) == 'N') || (PEEK(0) == 'I' && PEEK(1) == 'n' && PEEK(2) == 'f')) {
+                                                                        t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = atof(t.text); ADV(3); SYNC(); return t; }
+                                                                                                                                               goto LX_FLOAT;
+S_RADIX:
+    c = hexval(PEEK(0)); if (c >= 0 && c < radix)                    {  ndig++; ADV(1);                                                        goto S_RADIX;       }
+    if (PEEK(0) == '_' && ndig)                                      {  seps = 1; ADV(1);                                                      goto S_RADIX;       }
+    if (PEEK(0) == ' ' && ndig)                                      {  c = hexval(PEEK(1)); if (c >= 0 && c < radix) { seps = 1; ADV(1); goto S_RADIX; }         goto S_RADIX_END;   }
+                                                                                                                                               goto S_RADIX_END;
+S_RADIX_END:
+    if (!ndig || hexval(PEEK(0)) >= 0 || is_alnum(PEEK(0)))          {  SYNC(); return err_tok(line, "malformed radix integer");                                   }
+    t = tok(TK_INT, span_text(s, p, seps), line); errno = 0;
+    { unsigned long long uv = strtoull(t.text + 2, NULL, radix);
+      if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { char *dec = lex_radix_to_decimal(t.text + 2, radix); if (dec) { t.text = dec; t.big = 1; SYNC(); return t; } }
+      t.ival = (long)uv; }
+    SYNC(); return t;
+S_CHARCODE:
+    if (PEEK(0) == '\\')                                             {  ADV(1); st = decode_escape(lx, &p, &code);
+                                                                        if (st != 1) { SYNC(); return err_tok(line, "invalid escape sequence in character code constant"); }
+                                                                        t = tok(TK_INT, (char *)"0'c", line); t.ival = (long)code; SYNC(); return t;                }
+    if (PEEK(0) == '\'' && PEEK(1) == '\'')                          {  ADV(2); t = tok(TK_INT, (char *)"0'c", line); t.ival = (long)'\''; SYNC(); return t;        }
+                                                                     {  n = u8_decode((const unsigned char *)p, &code); if (PEEK(0) == '\n') NL(); if (PEEK(0)) ADV(n);
+                                                                        t = tok(TK_INT, (char *)"0'c", line); t.ival = (long)code; SYNC(); return t;                }
+S_QUOTED:
+    if (PEEK(0) == '\0')                                             {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unterminated quoted atom" : "unterminated string"); }
+    if (PEEK(0) == q && PEEK(1) == q)                                {  sb_put(lx, q); ADV(2);                                                 goto S_QUOTED;      }
+    if (PEEK(0) == q)                                                {  ADV(1); SYNC(); return tok(kind, sb_text(lx), line);                                       }
+    if (PEEK(0) == '\\')                                             {  ADV(1); st = decode_escape(lx, &p, &code); if (st == 1) sb_utf8(lx, code);
+                                                                        else if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
+                                                                                                                                         : "invalid escape sequence in double-quoted token"); }
+                                                                                                                                               goto S_QUOTED;      }
+    if (PEEK(0) == '\n' || PEEK(0) == '\t')                          {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"
+                                                                                                                    : "unescaped layout character in double-quoted token"); }
+                                                                     {  sb_put(lx, PEEK(0)); ADV(1);                                           goto S_QUOTED;      }
+S_GRAPHIC:
+    if (is_graphic(PEEK(0)))                                         {  ADV(1);                                                                goto S_GRAPHIC;     }
+    if (p - s == 2 && s[0] == ':' && s[1] == '-')                    {  SYNC(); return tok(TK_NECK,  (char *)":-", line);                                          }
+    if (p - s == 2 && s[0] == '?' && s[1] == '-')                    {  SYNC(); return tok(TK_QUERY, (char *)"?-", line);                                          }
+                                                                     {  SYNC(); return tok(TK_OP, ct_strndup(s, (size_t)(p - s)), line);                           }
+LX_INT:
+    t = tok(TK_INT, span_text(s, p, seps), line); errno = 0; t.ival = (long)strtoll(t.text, NULL, 10); t.big = (errno == ERANGE); SYNC(); return t;
+LX_FLOAT:
+    t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = atof(t.text); SYNC(); return t;
+LX_UNEXPECTED:
+    snprintf(msg, sizeof msg, "unexpected '%c'", (char)c); SYNC(); return err_tok(line, msg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 Token lexer_next(Lexer *lx) {
@@ -434,5 +329,6 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->has_peek = 0;
     lx->last_kind = TK_EOF;
     lx->fenced = 0;
+    lx->sbuf = NULL; lx->slen = 0; lx->scap = 0;
     memset(&lx->peek, 0, sizeof lx->peek);
 }
