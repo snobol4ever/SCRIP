@@ -2653,7 +2653,7 @@ static std::string blob_zero_fill(int bfb) {
 }
 static int blob_fg_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_FIRST_GUARD"); v = (e && *e == '0') ? 0 : 1; } return v; }
 typedef struct { unsigned char set[256]; int nempty, impure, unknown; } blob_fg_t;
-typedef struct { const char * var[16]; const char * thunk[16]; int n, full; } blob_fg_deps_t;
+typedef struct { cv_t var; cv_t thunk; } blob_fg_deps_t;
 typedef struct { const char * var; const char * thunk; const char * from; int conflict; } blob_fg_bind_t;
 static blob_fg_bind_t * blob_fg_bind_find(const char * var) {
     for (uint32_t i = 0; i < g_emit.fg_bind.len; i++) { blob_fg_bind_t * e = &CV_AT(g_emit.fg_bind, blob_fg_bind_t, i); if (!strcmp(e->var, var)) return e; }
@@ -2708,8 +2708,8 @@ static void blob_fg_from(const IR_t * n, const IR_t * stop, const blob_fg_t * co
         extern int g_gva_active; extern int gva_index_of(const char *);
         const char * th = (s && s[0] != '*' && g_gva_active && gva_index_of(s) >= 0) ? blob_fg_bound_thunk(s) : (const char *)0;
         IR_graph_t * tg = th ? blob_fg_thunk_graph(th) : (IR_graph_t *)0;
-        if (!tg || !tg->entry || !deps || deps->n >= 4) { out->unknown = 1; return; }
-        { int seen = 0; for (int i = 0; i < deps->n; i++) if (!strcmp(deps->var[i], s)) seen = 1; if (!seen) { deps->var[deps->n] = s; deps->thunk[deps->n] = th; deps->n++; } }
+        if (!tg || !tg->entry || !deps || deps->var.len >= 4) { out->unknown = 1; return; }
+        { int seen = 0; for (uint32_t i = 0; i < deps->var.len; i++) if (!strcmp(CV_AT(deps->var, const char *, i), s)) seen = 1; if (!seen) { CV_PUSH(deps->var, const char *) = s; CV_PUSH(deps->thunk, const char *) = th; } }
         { blob_fg_t sub, after; blob_fg_from(tg->entry, (const IR_t *)0, &eps, &sub, depth + 1, deps); blob_fg_from(n->γ.node, stop, cont, &after, depth + 1, deps); blob_fg_seq(&sub, &after, out); }
         return; }
     case IR_SUCCEED: out->nempty = 1; return;
@@ -2737,27 +2737,27 @@ static void blob_first_guard(void) {
     blob_fg_t r; blob_fg_deps_t deps; memset(&deps, 0, sizeof deps);
     blob_fg_from(g_emit_cfg->entry, (const IR_t *)0, &eps, &r, 0, &deps);
     int fast_empty = (r.nempty == 1 && !r.impure);
-    if (r.unknown || r.set[0] || (r.nempty && !fast_empty) || (deps.n && !blob_fg_bind_on())) return;
+    if (r.unknown || r.set[0] || (r.nempty && !fast_empty) || (deps.var.len && !blob_fg_bind_on())) return;
     int k = 0; char * set = (char *)ct_alloc(256); for (int i = 1; i < 256; i++) if (r.set[i]) set[k++] = (char)i; set[k] = 0;
     if (k == 0 && !fast_empty) return;
     static int seq = 0; int id = seq++;
     bb_label_t * none = emit_label_alloc(".Lfg_none_%d", id); bb_label_t * ok = emit_label_alloc(".Lfg_ok_%d", id); bb_label_t * fire = emit_label_alloc(".Lfg_fire_%d", id);
-    bb_emit_x86(x86("cmp", "r14d", "r15d")); emit_jmp_label(deps.n ? fire : none, JMP_JGE);
+    bb_emit_x86(x86("cmp", "r14d", "r15d")); emit_jmp_label(deps.var.len ? fire : none, JMP_JGE);
     if (k > 0) {
         bb_emit_x86(x86("movsxd", "rcx", "r14d") + x86("movzx", "eax", "[r13+rcx]") + x86("lea", "rcx", "[rip + __]", x86_csettab_ptr(set), x86_csettab_lbl(set).c_str()) + x86("movzx", "eax", "[rcx+rax]") + x86("test", "eax", "eax"));
         emit_jmp_label(ok, JMP_JNE);
     }
     emit_label_define_bb(fire);
-    for (int i = 0; i < deps.n; i++) {
-        int gk = gva_index_of(deps.var[i]);
-        bb_label_t * q = emit_label_alloc(".Lfg_rec_%d_%d", id, i), * over = emit_label_alloc(".Lfg_over_%d_%d", id, i);
+    for (uint32_t i = 0; i < deps.var.len; i++) {
+        const char * dv = CV_AT(deps.var, const char *, i), * dt = CV_AT(deps.thunk, const char *, i); int gk = gva_index_of(dv);
+        bb_label_t * q = emit_label_alloc(".Lfg_rec_%d_%u", id, i), * over = emit_label_alloc(".Lfg_over_%d_%u", id, i);
         bb_emit_x86(x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 0) : ABSQ(RT_GVA_VA + gk * 16)) + x86("cmp", "al", (long)DT_P));
         emit_jmp_label(ok, JMP_JNE);
         bb_emit_x86(x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 8) : ABSQ(RT_GVA_VA + gk * 16 + 8)) + x86("mov", "rax", RDQ("rax", 0)) + x86_lea_ext("rcx", q) + x86("mov", "rcx", RDQ("rcx", 0)) + x86("mov", "rcx", RDQ("rcx", 0)) + x86("cmp", "rax", "rcx"));
         emit_jmp_label(ok, JMP_JNE);
         emit_jmp_label(over, JMP_JMP);
         emit_label_define_bb(q);
-        { extern const char * bb_ab_sym_name(const char *); std::string lbl = std::string(".Lthk_") + bb_ab_sym_name(deps.thunk[i]); void * rec = bb_thunk_rec_addr(deps.thunk[i]); bb_emit_x86(x86(".quad", lbl.c_str(), rec ? (const char *)rec : "")); }
+        { extern const char * bb_ab_sym_name(const char *); std::string lbl = std::string(".Lthk_") + bb_ab_sym_name(dt); void * rec = bb_thunk_rec_addr(dt); bb_emit_x86(x86(".quad", lbl.c_str(), rec ? (const char *)rec : "")); }
         emit_label_define_bb(over);
     }
     emit_label_define_bb(none);
