@@ -145,16 +145,33 @@ function TDump(x, outNm, i, t) {
     return;
 }
 /* ==================================================================================================================== */
+/* a real as C's printf %g prints it (ast_print.c: every TT_FLIT): 6 significant digits, trailing zeros dropped,       */
+/* the exponent form d.ddddde+XX when the decimal exponent is below -4 or at least 6.                                  */
+function TreeDumpG(r, sg, x, m, ds, ip, fp) {
+    if (EQ(r, 0)) { TreeDumpG = '0'; return; }
+    sg = '';
+    if (LT(r, 0)) { sg = '-'; r = -r; }
+    x = 0;
+    while (GE(r, 10.0)) { r = r / 10.0; x = x + 1; }
+    while (LT(r, 1.0)) { r = r * 10.0; x = x - 1; }
+    m = CONVERT(r * 100000.0 + 0.5, 'INTEGER');
+    if (GE(m, 1000000)) { m = m / 10; x = x + 1; }
+    ds = '' m;
+    if (LT(x, -4)) { ip = SUBSTR(ds, 1, 1); fp = SUBSTR(ds, 2); }
+    else if (GE(x, 6)) { ip = SUBSTR(ds, 1, 1); fp = SUBSTR(ds, 2); }
+    else if (GE(x, 0)) { ip = SUBSTR(ds, 1, x + 1); fp = SUBSTR(ds, x + 2); }
+    else { ip = '0'; fp = DUPL('0', -x - 1) ds; }
+    fp ? (SPAN('0') RPOS(0)) = ;
+    TreeDumpG = sg ip (DIFFER(fp) '.' fp, '');
+    if (LT(x, -4)) { TreeDumpG = TreeDumpG 'e-' (LT(-x, 10) '0', '') (-x); return; }
+    if (GE(x, 6)) { TreeDumpG = TreeDumpG 'e+' (LT(x, 10) '0', '') x; return; }
+    return;
+}
 function TreeDumpValue(x, t, v, fval, zeros, pre) {
     t = t(x); v = v(x);
     if (t ? (POS(0) ('TT_QLIT' | 'TT_CSET') RPOS(0))) { TreeDumpValue = ' "' CQize(v) '"'; return; }
     if (~DIFFER(v)) { TreeDumpValue = ; return; }
-    if (IDENT(t, 'TT_FLIT')) {
-        fval = '' CONVERT(v, 'REAL');
-        if (fval ? (POS(0) (SPAN('0123456789+-') . pre) '.' RPOS(0))) { fval = pre; }
-        TreeDumpValue = ' ' fval;
-        return;
-    }
+    if (IDENT(t, 'TT_FLIT')) { TreeDumpValue = ' ' TreeDumpG(CONVERT(v, 'REAL')); return; }
     TreeDumpValue = ' ' v;
     return;
 }

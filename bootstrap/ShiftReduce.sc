@@ -9,7 +9,7 @@ function Shift(t, v, s) {
     nreturn;
 }
 /* ==================================================================================================================== */
-function Reduce(t, n, c, i, r, empty) {
+function Reduce(t, n, v, c, i, r) {
     Reduce = .dummy;
     if (IDENT(DATATYPE(t), 'EXPRESSION')) {
         if (~(t = EVAL(t))) { nreturn; }
@@ -19,8 +19,7 @@ function Reduce(t, n, c, i, r, empty) {
     }
     OUTPUT = GT(xTrace, 3) 'Reduce(' t ', ' n ')';
     if (IDENT(n, 0)) {
-        empty = ;
-        r = tree(t, empty, 0);
+        r = tree(t, v, 0);
         Push(r);
         nreturn;
     }
@@ -29,8 +28,7 @@ function Reduce(t, n, c, i, r, empty) {
     while (i = GT(i, 1) i - 1) {
         c[i] = Pop();
     }
-    empty = ;
-    r = tree(t, empty, n, c);
+    r = tree(t, v, n, c);
     Push(r);
     nreturn;
 }
