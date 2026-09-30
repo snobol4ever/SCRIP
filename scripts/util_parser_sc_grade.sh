@@ -3,7 +3,7 @@
 # BUILD: the runtime chain and the parser are concatenated, transpiled (scrip --transpile), compiled to a mode-4 binary the
 # way util_parser_grid.sh builds the SCRIP engine, cached under OUTDIR (default: the scratchpad) by the parser's mtime.
 # GRADE: the binary runs the LIST (one file per line, absolute paths, run from corpus/) with the tree dump on; each file's
-# dump is compared to its section of CDUMP (the C parser's output over the same list, "== path" headers).  Prints
+# dump is compared to its section of CDUMP, keyed by the full path (three benchmark directories hold a different fib.pl) (the C parser's output over the same list, "== path" headers).  Prints
 # PARSER-SC lang=L files=N match=M diff=D fail=F (fail = Parse Error or no section), then the differing files smallest
 # first with the two dumps side by side (SC left, C right), capped by SHOW (default 6).  rc 0 all match, 1 otherwise, 2 refused.
 set -u
@@ -37,10 +37,10 @@ L, LIST, CDUMP, SCDUMP, SHOW, rc = sys.argv[1], sys.argv[2], sys.argv[3], sys.ar
 def sections(path):
     t = open(path, encoding="utf-8", errors="replace").read()
     parts = re.split(r'^== (.*)$', t, flags=re.M); d = {}
-    for i in range(1, len(parts), 2): d[os.path.basename(parts[i].strip())] = parts[i+1].strip("\n")
+    for i in range(1, len(parts), 2): d[parts[i].strip()] = parts[i+1].strip("\n")
     return d
 c = sections(CDUMP); s = sections(SCDUMP)
-files = [os.path.basename(x.strip()) for x in open(LIST) if x.strip()]
+files = [x.strip() for x in open(LIST) if x.strip()]
 match = []; diff = []; fail = []; crefused = []; crash = []
 for f in files:
     cs = c.get(f); ss = s.get(f)
@@ -52,12 +52,11 @@ for f in files:
     if sbad: fail.append(f); continue
     (match if cs == ss else diff).append(f)
 print(f"PARSER-SC lang={L} files={len(files)} match={len(match)} diff={len(diff)} fail={len(fail)} crash={len(crash)} c_refused={len(crefused)} run_rc={rc}")
-if fail: print("FAIL (Parse Error or unparsed): " + " ".join(fail[:40]) + (" ..." if len(fail) > 40 else ""))
-if crash: print("CRASH (the .sc binary died on a signal): " + " ".join(crash[:40]) + (" ..." if len(crash) > 40 else ""))
-if crefused: print("C-REFUSED (the C parser prints Parse Error, the .sc a tree): " + " ".join(crefused[:20]))
+if fail: print("FAIL (Parse Error or unparsed): " + " ".join(os.path.basename(x) for x in fail[:40]) + (" ..." if len(fail) > 40 else ""))
+if crash: print("CRASH (the .sc binary died on a signal): " + " ".join(os.path.basename(x) for x in crash[:40]) + (" ..." if len(crash) > 40 else ""))
+if crefused: print("C-REFUSED (the C parser prints Parse Error, the .sc a tree): " + " ".join(os.path.basename(x) for x in crefused[:20]))
 def flat(x): return re.sub(r'\n\s*', ' ', x).replace("(TT_STMT (TT_ATTR :subj ", "(S ")
 def toks(x): return flat(x).replace("(", " ( ").replace(")", " ) ").split()
-srcdir = os.path.dirname(open(LIST).readline().strip())
 classes = {}
 win = {}
 for f in diff:
@@ -69,11 +68,11 @@ for f in diff:
 print("DIFF CLASSES (first divergence, SC token pair -> C token pair): count, example")
 for key, fs in sorted(classes.items(), key=lambda kv: -len(kv[1]))[:24]:
     ex = sorted(fs, key=lambda f: len(c[f]))[0]
-    try: exsrc = open(os.path.join(srcdir, ex), encoding="utf-8").read().strip().replace("\n", " ⏎ ")[:150]
+    try: exsrc = open(ex, encoding="utf-8").read().strip().replace("\n", " ⏎ ")[:150]
     except Exception: exsrc = "?"
-    print(f"  {len(fs):4d}  {key[0]!r:28} -> {key[1]!r:28}  e.g. {ex}\n          {exsrc}\n          {win[ex][0][:230]}\n          {win[ex][1][:230]}")
+    print(f"  {len(fs):4d}  {key[0]!r:28} -> {key[1]!r:28}  e.g. {os.path.basename(ex)}\n          {exsrc}\n          {win[ex][0][:230]}\n          {win[ex][1][:230]}")
 for f in sorted(diff, key=lambda f: len(c[f]))[:SHOW]:
-    try: src = open(os.path.join(srcdir, f), encoding="utf-8").read().strip()
+    try: src = open(f, encoding="utf-8").read().strip()
     except Exception: src = "?"
     print("---- DIFF " + f + "\n" + src[:200].replace("\n", " ⏎ ") + "\n" + win[f][0] + "\n" + win[f][1])
 sys.exit(0 if not diff and not fail and not crash and not crefused else 1)

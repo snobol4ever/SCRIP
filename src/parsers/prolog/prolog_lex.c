@@ -50,7 +50,7 @@ static int hexval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a
 static int digval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'z') return c - 'a' + 10; if (c >= 'A' && c <= 'Z') return c - 'A' + 10; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline Token tok(TkKind kind, char *text, int line) {
-    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
+    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.len = -1;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -79,7 +79,10 @@ static void sb_utf8(Lexer *lx, int cp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *sb_text(Lexer *lx) {
-    return lx->slen ? ct_strndup(lx->sbuf, (size_t)lx->slen) : ct_strdup("");
+    char *b = (char *)ct_alloc((size_t)lx->slen + 1);
+    if (!b) return ct_strdup("");
+    memcpy(b, lx->sbuf, (size_t)lx->slen); b[lx->slen] = 0;
+    return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int u8_decode(const unsigned char *u, int *cp) {
@@ -190,7 +193,7 @@ S_START:
                                                                      {  ADV(1);                                                                goto S_INT;         }
     case D_DIGIT:                                                    {  ADV(1);                                                                goto S_INT;         }
     case D_LOWER:                                                    {  ADV(1);                                                                goto S_WORD;        }
-    case D_LPAREN:                                                   {  ADV(1); SYNC(); return tok(TK_LPAREN,   (char *)"(",  line);                               }
+    case D_LPAREN:                                                   {  t = tok(TK_LPAREN, (char *)"(", line); t.adj = (p > lx->src && !is_layout((unsigned char)p[-1])); ADV(1); SYNC(); return t;                               }
     case D_RPAREN:                                                   {  ADV(1); SYNC(); return tok(TK_RPAREN,   (char *)")",  line);                               }
     case D_LBRACK:  if (PEEK(1) == ']')                              {  ADV(2); SYNC(); return tok(TK_ATOM,     (char *)"[]", line);                               }
                                                                      {  ADV(1); SYNC(); return tok(TK_LBRACKET, (char *)"[",  line);                               }
@@ -287,7 +290,7 @@ S_CHARCODE:
 S_QUOTED:
     if (PEEK(0) == '\0')                                             {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unterminated quoted atom" : "unterminated string"); }
     if (PEEK(0) == q && PEEK(1) == q)                                {  sb_put(lx, q); ADV(2);                                                 goto S_QUOTED;      }
-    if (PEEK(0) == q)                                                {  ADV(1); SYNC(); return tok(kind, sb_text(lx), line);                                       }
+    if (PEEK(0) == q)                                                {  ADV(1); SYNC(); t = tok(kind, sb_text(lx), line); t.len = lx->slen; return t;                                       }
     if (PEEK(0) == '\\')                                             {  ADV(1); st = decode_escape(lx, &p, &code); if (st == 1) sb_utf8(lx, code);
                                                                         else if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
                                                                                                                                          : "invalid escape sequence in double-quoted token"); }

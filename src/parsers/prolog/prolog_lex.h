@@ -34,6 +34,8 @@ typedef struct {
     double  fval;
     int     line;
     int     big;
+    int     adj;
+    int     len;
 } Token;
 typedef struct {
     const char *src;

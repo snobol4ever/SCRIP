@@ -101,8 +101,10 @@ void prolog_compile_finish(void *parsed, const char *filename, tree_t **out_ast)
     if (out_ast) *out_ast = NULL;
     PlProgram *pl = (PlProgram *)parsed;
     if (!pl) { fprintf(stderr, "prolog_compile: parse failed for %s\n", filename); return; }
+    prolog_preprocess(pl);
     if (pl->nerrors > 0) fprintf(stderr, "prolog: %d parse error(s) in %s\n", pl->nerrors, filename);
     if (pl->nclauses == 0) { if (out_ast) *out_ast = NULL; if (pl->nerrors > 0) exit(1); }
+    if (!filename || strcmp(filename, "<prelude>") != 0) prolog_inject_prelude(pl, pl->src);
     tree_t *prog = prolog_lower(pl);
     if (out_ast && prog) { *out_ast = prog; pl_splice_consults(*out_ast, filename); }
 }
