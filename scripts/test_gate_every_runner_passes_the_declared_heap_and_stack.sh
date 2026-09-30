@@ -16,9 +16,11 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # (and the window mistake), so the day a witness stops depending on its size this gate says so.
 # FAMILIES: H the harness (the rung suites' and package tables' one reader), D test_demos_suite.sh (a standalone unit's .heap/.stack
 # sidecars), P1 test_snobol4_dotnet_suite.sh, P2 test_snobol4_csnobol4_suite.sh (the SNOBOL4 package runners through
-# run_at_declared_table). EVERY OTHER RUNNER FAMILY IS NAMED BELOW AS NOT YET FIXTURED AND COUNTED RED -- the DONE-WHEN cannot pass while
+# run_at_declared_table), L lib_ladder.sh -- the one body of all seven test_<lang>_ladder.sh, driven through test_snobol4_ladder.sh
+# over a scratch S4E_HOME whose rungs table carries the four units as ladder__rung00_* origins (the coo, 2026-09-30). EVERY OTHER RUNNER FAMILY IS NAMED BELOW AS NOT YET FIXTURED AND COUNTED RED -- the DONE-WHEN cannot pass while
 # a family is unproven; each is added here as its lane cures its runner (the HQ asks of 2026-09-28).
-# FAIL_ONCE=1: the harness family runs from a scratch copy of scripts/ whose _size_switches returns nothing (the reader removed) -- H reds.
+# FAIL_ONCE=1: the harness family runs from a scratch copy of scripts/ whose _size_switches returns nothing (the reader removed) -- H reds;
+# the ladder family runs from a scratch copy whose lib_declared_arena.sh declared_switches_beside prints nothing -- L reds.
 # EXIT 0 every family's pair holds and none is pending; 1 a pair failed or a family is pending; 2 could not measure.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -121,13 +123,37 @@ o2=$(CSNOBOL4_SUITE="$W/p2" S4E_PROGRESS_DB="$W/p2.tsv" timeout 600 bash "$HERE/
 [ "$r2" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$o2" | cut -c1-200)"
 quad P2 "$W/p2.tsv" "test_snobol4_csnobol4_suite.sh over a scratch package (rc $r2)"
 
+echo "--- L: lib_ladder.sh (the ONE body of all seven ladders) through test_snobol4_ladder.sh over a scratch rungs table ---"
+mkdir -p "$W/l/corpus/tests/snobol4"; python3 - "$HERE" "$W" <<'PY'
+import sys; sys.path.insert(0, sys.argv[1]); import corpus_suite_harness as h
+W = sys.argv[2]; src = []; ref = []
+for i, u in enumerate(["deepdecl", "deepnodecl", "livedecl", "livenodecl"], 1):
+    b = h.make_banner(i, u); w = "deep" if u.startswith("deep") else "live"
+    src.append(b + "\n" + open(f"{W}/{w}.sno").read()); ref.append(b + "\n" + open(f"{W}/{w}.ref").read())
+open(f"{W}/l/corpus/tests/snobol4/ALL.sno", "w").write("".join(src)); open(f"{W}/l/corpus/tests/snobol4/ALL.ref", "w").write("".join(ref))
+PY
+{ printf '%s\n' "$HDR"; i=1; for u in $UNITS; do printf '%s,%s,ladder__rung00_%s,ladder,5,0,0,%s,%s,,\n' "$i" "$u" "$u" "${HEAP[$u]}" "${STACK[$u]}"; i=$((i+1)); done; } > "$W/l/corpus/tests/snobol4/ALL.csv"
+LSCRIPTS="$HERE"
+if [ "${FAIL_ONCE:-0}" = 1 ]; then
+  mkdir -p "$W/fl"; cp -rs "$HERE" "$W/fl/scripts" 2>/dev/null; rm -f "$W/fl/scripts/lib_declared_arena.sh"
+  { cat "$HERE/lib_declared_arena.sh"; printf '\ndeclared_switches_beside() { return 0; }  # FAIL_ONCE: the reader removed\n'; } > "$W/fl/scripts/lib_declared_arena.sh"
+  LSCRIPTS="$W/fl/scripts"; echo "FAIL_ONCE=1: the ladder family runs with declared_switches_beside removed"
+fi
+ol=$(S4E_HOME="$W/l" SCRIP="$SCRIP" RT_DIR="$RT" timeout 600 bash "$LSCRIPTS/test_snobol4_ladder.sh" 2>&1); rl=$?
+[ "$rl" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ol" | cut -c1-200)"
+# the ladder appends no progress rows; it prints one line per witness, "rung NN  ladder__rung00_<unit>  m3=<v> m4=<v> (...)"
+{ printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
+  for u in $UNITS; do ln=$(grep -m1 -E "^rung +0 +ladder__rung00_$u " <<<"$ol"); for m in m3 m4; do
+    v=$(sed -n "s/.* $m=\([A-Z]*\).*/\1/p" <<<"$ln"); printf 'x\tx\tx\tx\tx\tl\tsnobol4\t%s\t%s\t%s\n' "$u" "$m" "$v"; done; done; } > "$W/l.tsv"
+quad L "$W/l.tsv" "test_snobol4_ladder.sh (lib_ladder.sh) over a scratch rungs table (rc $rl)"
+
 echo "--- PENDING: runner families not yet fixtured here -- RED by declaration until each is added as its lane cures its runner ---"
-PENDING="the seven ladders (lib_ladder.sh, cured by the coo 2026-09-28, fixture owed) | snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench family, the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_rungs.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
+PENDING="snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench family, the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_rungs.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
 n_pend=$(tr '|' '\n' <<<"$PENDING" | grep -c .)
 echo "  PENDING ($n_pend groups): $PENDING"
 FAIL=$((FAIL+n_pend))
 
 echo "------------------------------------------------------------"
-echo "population: $((PASS+FAIL)) verdict(s): the premise, 4 families x 4 units x 2 modes, and $n_pend pending family group(s) counted red"
+echo "population: $((PASS+FAIL)) verdict(s): the premise, 5 families (H D P1 P2 L) x 4 units x 2 modes, and $n_pend pending family group(s) counted red"
 if [ "$FAIL" -eq 0 ]; then echo "GATE PASS [$GATE_NAME]: every runner family passes each unit's declared heap and stack in both modes"; gate_stamp; exit 0; fi
 echo "⛔ GATE FAIL [$GATE_NAME]: $FAIL red (pairs that failed, and $n_pend family group(s) not yet fixtured)"; gate_stamp; exit 1
