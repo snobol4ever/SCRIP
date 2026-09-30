@@ -50,6 +50,10 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+# ⛔⭐ SCRIP DOES NOT PREPROCESS (RULES.md, Lon 2026-09-30, CEO-1366): every program and every module it links is compiled from the
+# pre-step's twin of this package (lib_icon_pre_step.sh icon_twin_tree), never from the shipped text; a program the pre-step refuses
+# is graded REJECT and named with the tool's own message. The population, the refs and every sidecar are still read off $CORPUS.
+. "$HERE/lib_icon_pre_step.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_icon_pre_step.sh unloadable" >&2; exit 2; }
 # ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL EITHER. lib_progress.sh's header is explicit that it never hides
 # the writer's rc and that the caller decides. Neither `|| true` nor `|| exit` is right here: swallowing
 # turns "the table was never written" into silence, and aborting mid-loop would let one bookkeeping failure
@@ -140,6 +144,10 @@ fi
 OUTDIR="$(dirname "$RT_SO")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
+IPP="$(icon_pre_step_tool)" || exit 2
+icon_pre_step_header
+TWIN="$WORK/twin"
+icon_twin_tree "$CORPUS" "$TWIN" || { echo "⛔ REFUSED TO GRADE: the pre-step twin of $CORPUS could not be built" >&2; exit 2; }
 # ⭐ THE DECLARED COMPILE SWITCHES, READ ONCE, HERE IN THE MAIN SHELL (clause 8 (f), CEO-1281): declared_memory_table validates every cell
 # of the attribute file through the harness's own validators, so a refused cell refuses this board before one program is graded;
 # run_one, which runs inside a command substitution, only looks its program's compile_args up with one awk.
@@ -364,12 +372,14 @@ run_mode() {
         name=$(basename "$icn" .icn)
         decl_ask "$name"
         _want="$std"
-        kind=$(run_one "$mode" "$exe" "$_want" "$outfile")
+        _ppr=""; for _ppf in "$(basename "$exe")" "$(basename "$icn")"; do _ppr="$(icon_twin_refused "$TWIN" "$_ppf")" && break; _ppr=""; done
+        if [ -n "$_ppr" ]; then kind=REJECT; echo "  [PRE-STEP REJECT] $name: $_ppr" >&2
+        else kind=$(run_one "$mode" "$TWIN/$(basename "$exe")" "$_want" "$outfile"); fi
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
         # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
         # the same value -- a second classification here would be a second opinion that drifts. $kind is
         # already exactly the writer's vocabulary (PASS|FAIL|REJECT|CRASH|HANG), so nothing is translated.
-        progress_append package jcon icon "$name" "$mode" "$kind" || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
+        progress_append package jcon icon "$name" "$mode" "$kind" 0 "$_ppr" || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
         case "$kind" in
             PASS)   pass=$((pass+1)) ;;
             FAIL)   fail=$((fail+1)); fail_names+=("$name") ;;
@@ -382,12 +392,12 @@ run_mode() {
         local _pp _pargv _prc _prest _pgot _pa
         while IFS=$'\t' read -r _pp _pargv _prc _prest; do
             case "$_pp" in ''|'#'*) continue ;; esac
-            ( cd "$CORPUS/$(dirname "$_pp")" && timeout "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$WORK/pp.out" 2> "$WORK/pp.err" ); _pgot=$?
+            ( cd "$CORPUS/$(dirname "$_pp")" && LPATH="$(icon_pre_step_lpath)" timeout "$TIMEOUT" "$IPP" $_pargv < /dev/null > "$WORK/pp.out" 2> "$WORK/pp.err" ); _pgot=$?
             if cat "$WORK/pp.err" "$WORK/pp.out" | cmp -s - "$CORPUS/$(dirname "$_pp")/$(basename "$_pp" .icn).E.ref" && [ "$_pgot" = "$_prc" ]; then kind=PASS
             elif [ "$_pgot" = 124 ]; then kind=HANG; elif [ "$_pgot" -ge 128 ]; then kind=CRASH; else kind=FAIL; fi
             for _pa in $_pargv; do
                 name="$(basename "$_pa" .icn)"
-                progress_append package jcon icon "$name" "$mode" "$kind" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- the frontend both modes share" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
+                progress_append package jcon icon "$name" "$mode" "$kind" 0 "preprocess-only contract: scrip-ipp $_pargv (SCRIP's own pre-step) against icont -E (stderr then stdout, rc $_prc) -- the frontend both modes share" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1))
                 case "$kind" in
                     PASS)  pass=$((pass+1)) ;;
                     FAIL)  fail=$((fail+1)); fail_names+=("$name") ;;

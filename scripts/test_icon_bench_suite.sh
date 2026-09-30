@@ -60,6 +60,14 @@ ICONT="$(icont_bin)" || refuse "the Arizona icont oracle is missing (reached by 
 PW="$HERE/util_progress_append.py"; [ -f "$PW" ] || refuse "the one progress-database writer $PW is missing (CEO-331)"
 "$HERE/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" >/dev/null || refuse "the binary is older than the tree -- run make (util_require_fresh.sh)"
 W="$(mktemp -d "${TMPDIR:-/tmp}/icnbench.XXXXXX")" || refuse "cannot make a work dir"; trap 'rm -rf "$W"' EXIT
+# ⛔⭐ SCRIP DOES NOT PREPROCESS (RULES.md, Lon 2026-09-30, CEO-1366): every engine compiles the kernel's pre-step twin (lib_icon_pre_step.sh
+# icon_twin_tree over the benchmark tree; out/scrip-ipp, never icont -E) -- m3, m4, the wrapper generator and the oracle's own check --
+# while the ref, stdin, argv and size sidecars are read beside the shipped kernel and every run keeps the kernel's own directory as cwd.
+# A kernel the pre-step refuses is UNPROVEN, named with the tool's message.
+. "$HERE/lib_icon_pre_step.sh" 2>/dev/null || refuse "lib_icon_pre_step.sh unloadable"
+IPP="$(icon_pre_step_tool)" || exit 2
+icon_pre_step_header
+icon_twin_tree "$BD" "$W/twin" || refuse "the pre-step twin of $BD could not be built"
 [ -n "$OUTDIR" ] || OUTDIR="$W/out"; mkdir -p "$OUTDIR" || refuse "cannot make $OUTDIR"
 RUSAGE="$W/bench_rusage"; gcc -o "$RUSAGE" "$ROOT/tools/bench_rusage.c" 2>"$W/rusage.err" || refuse "tools/bench_rusage.c did not build: $(head -1 "$W/rusage.err")"
 POP=()
@@ -95,11 +103,14 @@ for f in "${POP[@]}"; do
   # before the kernel's argv), never SCRIP_HEAP_KB -- gc_heap.c reads that as the collector's WINDOW, so every declared kernel ran at
   # window = cap. The oracle runs get none.
   [ -n "$kb" ] && HEAPD=$((HEAPD + 1))
-  python3 "$GEN" "$f" >"$K/$NM.icn" 2>"$K/gen.err" || { printf '  %-40s UNPROVEN -- the wrapper generator refused: %s\n' "$rel" "$(head -1 "$K/gen.err")"
+  FT="$W/twin/$rel"
+  if _ppr="$(icon_twin_refused "$W/twin" "$rel")"; then printf '  %-40s UNPROVEN -- %s\n' "$rel" "$_ppr"; NOTES="$NOTES\n    $rel: $_ppr"
+    record "$rel" m3 UNPROVEN 0 "$_ppr"; record "$rel" m4 UNPROVEN 0 "$_ppr"; continue; fi
+  python3 "$GEN" "$FT" >"$K/$NM.icn" 2>"$K/gen.err" || { printf '  %-40s UNPROVEN -- the wrapper generator refused: %s\n' "$rel" "$(head -1 "$K/gen.err")"
     record "$rel" m3 UNPROVEN 0 "unwrappable"; record "$rel" m4 UNPROVEN 0 "unwrappable"; continue; }
   # ---- the oracle: the REF's own check (the PRISTINE kernel), then the loop shape both modes are held to (the WRAPPED one)
   ENVP=(); SHAPE=""; why=""
-  if ! ( cd "$K" && "$ICONT" -s -o op "$f" && "$ICONT" -s -o ox "$NM.icn" ) >"$K/icont.log" 2>&1; then why="REF DRIFT: icont refuses the kernel or its wrapper -- $(grep -v '^$' "$K/icont.log" | head -1 | cut -c1-100)"
+  if ! ( cd "$K" && "$ICONT" -s -o op "$FT" && "$ICONT" -s -o ox "$NM.icn" ) >"$K/icont.log" 2>&1; then why="REF DRIFT: icont refuses the kernel or its wrapper -- $(grep -v '^$' "$K/icont.log" | head -1 | cut -c1-100)"
   else go "$K/op" ${AV[@]+"${AV[@]}"}
     if [ "$RC" != 0 ] || ! cmp -s "$W/o" "$ref"; then why="REF DRIFT: the oracle's own run of the pristine kernel (stdout, from its directory) is not this REF (exit=$RC) -- $(diff "$W/o" "$ref" | head -2 | tr '\n' ' ' | cut -c1-100)"
     else ENVP=(BENCH_MODE=iter BENCH_N=2); go "$K/ox" ${AV[@]+"${AV[@]}"}; refx "$ref" "$W/r2" 2
@@ -116,10 +127,10 @@ for f in "${POP[@]}"; do
   o3=PASS; o4=PASS; s3=0; s4=0; cells=""
   for mode in m3 m4; do
     PRI=(); WRP=(); o=PASS
-    if [ "$mode" = m3 ]; then PRI=("$SCRIP" ${SWA[@]+"${SWA[@]}"} "$f"); WRP=("$SCRIP" ${SWA[@]+"${SWA[@]}"} "$K/$NM.icn"); [ "${#AV[@]}" -gt 0 ] && { PRI+=(-- "${AV[@]}"); WRP+=(-- "${AV[@]}"); }
+    if [ "$mode" = m3 ]; then PRI=("$SCRIP" ${SWA[@]+"${SWA[@]}"} "$FT"); WRP=("$SCRIP" ${SWA[@]+"${SWA[@]}"} "$K/$NM.icn"); [ "${#AV[@]}" -gt 0 ] && { PRI+=(-- "${AV[@]}"); WRP+=(-- "${AV[@]}"); }
     else
       mkdir -p "$K/p4" "$K/w4"
-      if ( cd "$KD" && "$SCRIP" --compile -o "$K/p4/$NM.s" "$f" </dev/null && gcc -no-pie -o "$K/p4/$NM" "$K/p4/$NM.s" "$RT/libscrip_rt.so" -lm -lstdc++ -lpthread -Wl,-rpath,"$RT" ) >"$K/m4p.log" 2>&1 \
+      if ( cd "$KD" && "$SCRIP" --compile -o "$K/p4/$NM.s" "$FT" </dev/null && gcc -no-pie -o "$K/p4/$NM" "$K/p4/$NM.s" "$RT/libscrip_rt.so" -lm -lstdc++ -lpthread -Wl,-rpath,"$RT" ) >"$K/m4p.log" 2>&1 \
          && ( cd "$KD" && "$SCRIP" --compile -o "$K/w4/$NM.s" "$K/$NM.icn" </dev/null && gcc -no-pie -o "$K/w4/$NM" "$K/w4/$NM.s" "$RT/libscrip_rt.so" -lm -lstdc++ -lpthread -Wl,-rpath,"$RT" ) >"$K/m4w.log" 2>&1; then
         PRI=("$K/p4/$NM" ${SWA[@]+"${SWA[@]}"}); WRP=("$K/w4/$NM" ${SWA[@]+"${SWA[@]}"})
         [ "${#AV[@]}" -gt 0 ] && { [ "${#SWA[@]}" -gt 0 ] && { PRI+=(--); WRP+=(--); }; PRI+=("${AV[@]}"); WRP+=("${AV[@]}"); }

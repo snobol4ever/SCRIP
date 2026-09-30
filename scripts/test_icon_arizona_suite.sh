@@ -55,11 +55,18 @@ mask_apply() { # $1=std_path $2=name $3=text -> echoes the masked text; count la
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+# ⛔⭐ SCRIP DOES NOT PREPROCESS (RULES.md, Lon 2026-09-30, CEO-1366): every program and every library it links is compiled from
+# the pre-step's twin of this package (lib_icon_pre_step.sh icon_twin_tree), never from the shipped text; a program the pre-step
+# refuses is graded REJECT in both modes and named with the tool's own message.
+. "$HERE/lib_icon_pre_step.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_icon_pre_step.sh unloadable" >&2; exit 2; }
 # ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL. See lib_progress.sh's header: it never hides the writer's rc and
 # the caller decides. Aborting mid-loop would let one bookkeeping failure destroy a real measurement of 90
 # programs (the reason gate_score_row is non-fatal); `|| true` would turn "never written" into silence.
 PROGRESS_FAILED=0
-arizona_progress() { progress_append package arizona icon "$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
+# ⛔ THE PROGRESS KEY IS THE PATH, parentdir/stem (ceo CEO-1366 (a), 2026-09-30): the key of this unit's ALL.csv row and the name
+# its container entry carries, as every other package board writes it (IPL, gimpel, gnu, roast, swi) -- a bare stem met no smoke
+# lookup, so the area smoke charged a standing red to every Icon landing. Callers pass the bare id; $sub is the loop's.
+arizona_progress() { progress_append package arizona icon "$sub/$1" "$2" "$3" "${4:-0}" "${5:-}" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
@@ -131,6 +138,9 @@ GATE_NAME=test_icon_arizona_suite gate_tree_watch "$(cd "$HERE/../.." && pwd)"
 # nothing it reads moves; only what it WRITES lands here, and dies with the trap.
 RUNDIR="$(mktemp -d "${TMPDIR:-/tmp}/ariz_run.XXXXXX")" || { echo "⛔ GATE REFUSES: mktemp failed" >&2; exit 2; }
 trap 'rm -rf "$RUNDIR"' EXIT
+IPP="$(icon_pre_step_tool)" || exit 2
+icon_pre_step_header
+icon_twin_tree "$PKG" "$RUNDIR/twin" || { echo "⛔ GATE REFUSES: the pre-step twin of $PKG could not be built" >&2; exit 2; }
 # ⭐ THE DECLARED COMPILE SWITCHES, READ ONCE (clause 8 (f), CEO-1281): declared_memory_table validates every cell of the attribute file
 # through the harness's own validators before one program is graded; each program then looks its compile_args up with one awk.
 CA_TBL="$RUNDIR/compile_args.tsv"
@@ -195,6 +205,7 @@ m3rc=0; m4rc=0
 for sub in $SUITE_SUBDIRS; do
 SUITE="$PKG/$sub"
 [ -d "$SUITE" ] || continue
+TWSUITE="$RUNDIR/twin/$sub"
 # ⛔ A DRIVER'S IPATH NAMES THE SUITE'S LIBRARIES, NEVER ITS PROGRAMS (coo ruling 2026-09-28 on hq_icon's ask): general/ ships io.icn, an
 # Arizona TEST PROGRAM, and cfunc.icn says `link io` meaning the IPL library that defines pathload. icont links ucode only and the suite
 # holds no io.u, so iconx falls through to the installed io; SCRIP's link search reads source, so the whole suite on IPATH linked the
@@ -202,7 +213,7 @@ SUITE="$PKG/$sub"
 # procedure main -- the libraries, their data and their includes stay reachable, the programs do not. test_gate_icon_arizona_driver_
 # ipath_names_libraries_not_programs.sh proves it (red once with the whole directory on IPATH).
 LIBPATH="$RUNDIR/libpath/$sub"; mkdir -p "$LIBPATH" || { echo "⛔ GATE REFUSES: cannot create $LIBPATH" >&2; exit 2; }
-for _f in "$SUITE"/*; do
+for _f in "$TWSUITE"/*; do
   [ -f "$_f" ] || continue
   case "$_f" in *.icn) grep -qE '^[[:space:]]*procedure[[:space:]]+main[[:space:]]*\(' "$_f" && continue ;; esac
   ln -sf "$_f" "$LIBPATH/" || { echo "⛔ GATE REFUSES: cannot link $_f into $LIBPATH" >&2; exit 2; }
@@ -278,13 +289,21 @@ for std in "$SUITE"/*.ref; do
   # driver grades the file it is named for. EVERY OTHER PROGRAM RUNS WITHOUT IT: ilib's ref was cut by icont against its INSTALLED IPL
   # ucode (icont cannot see an untranslated .icn beside the program), so the suite first on IPATH linked the older shipped options.icn
   # and turned ilib red in both modes at 6850da706 (hq_icon's bisect, line 169 "a:1 b:1 c:-" for "abc:-").
+  _ppr=""
+  for _ppf in "$sub/$name.icn" "$sub/$id.icn"; do _ppr="$(icon_twin_refused "$RUNDIR/twin" "$_ppf")" && break; _ppr=""; done
+  if [ -n "$_ppr" ]; then
+    M3_REJECT=$((M3_REJECT+1)); M3_REJECT_NAMES="$M3_REJECT_NAMES $id"; arizona_progress "$id" m3 REJECT 0 "$_ppr"
+    M4_REJECT=$((M4_REJECT+1)); M4_REJECT_NAMES="$M4_REJECT_NAMES $id"; arizona_progress "$id" m4 REJECT 0 "$_ppr"
+    echo "  [PRE-STEP REJECT] $sub/$name: $_ppr"
+    continue
+  fi
   _ipath=(); case "$name" in *_driver) _ipath=(env "IPATH=$LIBPATH${IPATH:+:$IPATH}") ;; esac
   # ⛔ A PROGRAM THAT LOADS C DECLARES ITS LIBRARY (hq_icon 2026-09-27, general/cfuncs under CEO-1336): iconx exports FPATH=". <its bin>"
   # into every program, and its bin holds the distribution's build of ipl/cfuncs, so pathload(LIB, ...) finds libcfunc.so there. A
   # <stem>.clib sidecar names the vendored sources; declared_clib_beside (lib_declared_arena.sh, the one reader) builds them and the run
   # gets FPATH=". <that directory>" in both modes -- the same search iconx makes. No sidecar, no FPATH: every other program runs as before.
   _fp=(); _clib="$(declared_clib_beside "$SUITE/$name.icn" "$PKG")" || exit 2; [ -n "$_clib" ] && _fp=(env "FPATH=. $_clib")
-  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  m3out=$(cd "$TWSUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
@@ -314,16 +333,16 @@ for std in "$SUITE"/*.ref; do
   # TRUTH at the head of this file, compiles NAME.icn to NAME and runs ./NAME; that is what the .ref files
   # were cut under, so that is what we reproduce. The binary is litter like any other and is removed by name
   # below, both explicitly and by the pre-run snapshot sweep.
-  s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4="$SUITE/$name"
+  s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4="$TWSUITE/$name"
   # ⛔ REFUSE rather than overwrite: if a shipped file already owns that name, building over it would destroy
   # tracked corpus content, and the snapshot sweep would NOT remove it (it is not new) -- so the damage would
   # be silent and permanent. No arizona name collides today; this is the guard for the day one does.
   if [ -e "$bin4" ]; then echo "REFUSE(2): $sub/$name -- cannot pin the m4 binary to $bin4, a shipped file already owns that name" >&2; rm -f "$s4"; exit 2; fi
-  m4diag=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
+  m4diag=$(cd "$TWSUITE" && ${_ipath[@]+"${_ipath[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(cd "$TWSUITE" && PATH="$TWSUITE:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
       m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
     fi
   fi
@@ -349,6 +368,8 @@ done
 done
 
 # ⛔⭐ THE PREPROCESS-ONLY CONTRACT (hq_icon, SCRIP 999a62f58: icont's ipp.c ported whole, scrip -E prints what icont -E prints; coo
+# ⛔ SINCE 2026-09-30 GRADED THROUGH out/scrip-ipp, SCRIP's standalone pre-step (RULES.md SCRIP DOES NOT PREPROCESS, CEO-1366: scrip -E
+# retires with the lexer's pass); the contract, the argv and the ref are unchanged, so the tool is held to icont -E's text here.
 # 2026-09-25, the naming hq_icon accepted 21:0x). Upstream's tests/general Makefile grades tpp by preprocessing, never by running it:
 # `icont -E tpp.icn tpp9.icn`, stderr followed by stdout, compared byte for byte, exit 1 by design (50 deliberate errors).
 # PREPROCESS.tsv beside the package names each contract -- program<TAB>argv<TAB>rc, program in the sidecar key form (general/tpp.icn),
@@ -368,7 +389,7 @@ if [ -f "$PRE_TSV" ]; then
       [ -f "$_pd/$_pa" ] || { echo "⛔ REFUSED TO GRADE rc=2: $_pp's contract argv names $_psub/$_pa, which is not shipped" >&2; exit 2; }
       [ -f "$_pd/${_pa%.icn}.ref" ] && { echo "⛔ REFUSED TO GRADE rc=2: $_psub/$_pa has its own .ref AND a preprocess contract -- two grading vehicles for one program" >&2; exit 2; }
     done
-    ( cd "$_pd" && timeout "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$RUNDIR/pp.out" 2> "$RUNDIR/pp.err" ); _pgot=$?
+    ( cd "$_pd" && LPATH="$(icon_pre_step_lpath)" timeout "$TIMEOUT" "$IPP" $_pargv < /dev/null > "$RUNDIR/pp.out" 2> "$RUNDIR/pp.err" ); _pgot=$?
     if cat "$RUNDIR/pp.err" "$RUNDIR/pp.out" | cmp -s - "$_pref" && [ "$_pgot" = "$_prc" ]; then _pv=PASS
     elif [ "$_pgot" = 124 ]; then _pv=HANG
     elif [ "$_pgot" -ge 128 ]; then _pv=CRASH
@@ -381,7 +402,7 @@ if [ -f "$PRE_TSV" ]; then
         CRASH) M3_CRASH=$((M3_CRASH+1)); M4_CRASH=$((M4_CRASH+1)); M3_CRASH_NAMES="$M3_CRASH_NAMES $id"; M4_CRASH_NAMES="$M4_CRASH_NAMES $id" ;;
         *)     M3_FAIL=$((M3_FAIL+1)); M4_FAIL=$((M4_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $id"; M4_FAIL_NAMES="$M4_FAIL_NAMES $id" ;;
       esac
-      for _pm in m3 m4; do progress_append package arizona icon "$id" "$_pm" "$_pv" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- one run, the shared frontend, recorded in both modes" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); done
+      for _pm in m3 m4; do progress_append package arizona icon "$_psub/$id" "$_pm" "$_pv" 0 "preprocess-only contract: scrip-ipp $_pargv (SCRIP's own pre-step) against icont -E (stderr then stdout, rc $_prc) -- one run, recorded in both modes" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); done
     done
     echo "PREPROCESS_CONTRACT $_pp argv=\"$_pargv\" want_rc=$_prc got_rc=$_pgot verdict=$_pv graded=$(echo $_pargv | wc -w)"
   done < "$PRE_TSV"

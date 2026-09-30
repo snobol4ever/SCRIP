@@ -62,6 +62,11 @@ S4E="${S4E_HOME:-$(cd "$SELF/.." && pwd)}"; CORPUS="${CORPUS:-$S4E/corpus}"
 [ -x "$W/scripts/util_require_fresh.sh" ] || refuse "$W is not a SCRIP checkout (no scripts/util_require_fresh.sh)"
 "$W/scripts/util_require_fresh.sh" --gate "$G" "$W/scrip" "$W/out/libscrip_rt.so" || exit 2
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "cannot load lib_oracle_flags.sh -- the ONE oracle-path authority"
+# ⛔⭐ SCRIP DOES NOT PREPROCESS (RULES.md, Lon 2026-09-30, CEO-1366): the icon population is the pre-step's twin of every corpus .icn
+# (lib_icon_pre_step.sh icon_twin_list; the measured checkout's own out/scrip-ipp, never icont -E), and C, SCRIP and SBL all parse that
+# one generated text; a file the pre-step refuses leaves the population, named with the tool's message.
+. "$HERE/lib_icon_pre_step.sh" 2>/dev/null || refuse "cannot load lib_icon_pre_step.sh -- the Icon pre-step"
+export IPP_BIN="${IPP_BIN:-$W/out/scrip-ipp}"
 SBL="$(sbl_clean_bin)" || refuse "no clean benchmark oracle (sbl_clean_bin)"
 B="$W/bootstrap"; CHAIN="$B/global.sc $B/case.sc $B/assign.sc $B/match.sc $B/counter.sc $B/stack.sc $B/tree.sc $B/ShiftReduce.sc $B/tdump.sc $B/gen.sc $B/qize.sc $B/semantic.sc $B/omega.sc $B/trace.sc"
 for f in $CHAIN; do [ -f "$f" ] || refuse "chain file missing: $f"; done
@@ -79,6 +84,7 @@ LANGS="$*"; if [ -z "$LANGS" ]; then for L in snobol4 snocone icon prolog rebus 
 [ -n "$LANGS" ] || refuse "no bootstrap/parser_<lang>.sc reads PARSER_FILES"
 tree="$(git -C "$W" rev-parse --short HEAD 2>/dev/null)$(git -C "$W" diff --quiet 2>/dev/null || echo -dirty)"
 echo "PARSER GRID [$G]: tree $tree corpus $(git -C "$CORPUS" rev-parse --short HEAD 2>/dev/null) RT_OPT=$OPT runtime libscrip_rt-$lt.so sbl $(sbl_oracle_fingerprint "$SBL" | cut -d' ' -f1-2) switches $SW SCRIP_DIAG=0 median of $RUNS load $(cut -d' ' -f1-3 /proc/loadavg)"
+case " $LANGS " in *" icon "*) icon_pre_step_header || refuse "no Icon pre-step at $IPP_BIN -- make builds out/scrip-ipp" ;; esac
 printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' lang files bytes "C ms" "SCRIP ms" "SBL ms" "SBL/SCRIP" "C/SCRIP" trees
 RC=0; NL=0; NC=0; N2=0
 run() {   # $1 engine, $2 list, $3 output stem: one run of that engine over the list
@@ -133,6 +139,11 @@ for L in $LANGS; do
         || { echo "$L ⛔ REFUSE(2): the ${via:+transpiled }chain did not compile or link to a mode-4 binary ($(head -1 "$T/$L.cc.err" | cut -c1-100))"; RC=2; continue; }
     sbl_clean_refuse_if_load "$T/$L.sno" > /dev/null || { echo "$L ⛔ REFUSE(2): the transpiled chain calls LOAD(), unverified on the clean oracle"; RC=2; continue; }
     find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/$L.pop"
+    pre=""
+    if [ "$L" = icon ]; then
+        icon_twin_list "$T/$L.pop" "$T/$L.twin" > "$T/$L.pop.tw" 2> "$T/$L.prestep" || { echo "$L ⛔ REFUSE(2): the pre-step could not run ($(head -1 "$T/$L.prestep" | cut -c1-100))"; RC=2; continue; }
+        pre="; pre-step refused $(grep -c '^PRE-STEP REFUSED ' "$T/$L.prestep") (named in $L.prestep, left out)"; mv "$T/$L.pop.tw" "$T/$L.pop"
+    fi
     np=$(wc -l < "$T/$L.pop"); [ "$np" -gt 0 ] || { echo "$L ⛔ REFUSE(2): no corpus program ends in .$ext"; RC=2; continue; }
     bad=""; for e in C SCRIP SBL; do scan "$e" || { bad="$e"; break; }; done
     [ -z "$bad" ] || { echo "$L ⛔ REFUSE(2): $bad dies before its first file (an empty list does not reach PARSER-METRICS; see $bad's stderr under GRID_OUT)"; RC=2; continue; }
@@ -152,7 +163,7 @@ for L in $LANGS; do
               END { for (n in a) if (!(n in b) || a[n] != b[n]) d++; for (n in b) if (!(n in a)) d++; print d + 0 }' "$T/$L.SCRIP.out" "$T/$L.SBL.out")
     t=SCRIP==SBL; [ "$nd" = 0 ] || t="DIFFER $nd/$nf"
     printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' "$L" "$nf" "$(metric "$T/$L.SCRIP.err" bytes)" "$(ms "$c")" "$(ms "$s")" "$(ms "$b")" "$(x "$b" "$s")" "$(x "$c" "$s")" "$t$via$gap"
-    echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL") (each engine over all $np); runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us; SCRIP hash-off ${so:--} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
+    echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL") (each engine over all $np)$pre; runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us; SCRIP hash-off ${so:--} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
     NL=$((NL + 1)); awk -v c="$c" -v s="$s" 'BEGIN { exit !(s > 0 && c / s >= 1.0) }' && NC=$((NC + 1)); awk -v b="$b" -v s="$s" 'BEGIN { exit !(s > 0 && b / s >= 2.0) }' && N2=$((N2 + 1))
 done
 echo "BAR [$G]: $NC of $NL parsers at C's parse clock (C/SCRIP >= 1.00), $N2 of $NL at SPITBOL/SCRIP >= 2.00; load at end $(cut -d' ' -f1-3 /proc/loadavg)${GRID_OUT:+; lists, dropped names and dumps kept under $GRID_OUT}"
