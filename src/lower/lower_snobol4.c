@@ -363,7 +363,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_DEFER: {
         const char * bn = sno_expr_collect((t->n > 0) ? t->c[0] : NULL);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$MKEXPR";
-        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = (char *) bn;
+        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = (char *) bn; nl->seal = IR_SEAL_DSTAR_REF;
         ir_operand_push(mk, nl);
         if (res) *res = mk;
         return nl;

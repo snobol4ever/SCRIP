@@ -18,6 +18,9 @@ static uint64_t blsc_bits(double d, uint64_t b = 0) { memcpy(&b, &d, 8); return 
 #define ls_rd(w) (_.op_zres ? ZRESD(w) : FR(_.op_off + (w)))
 static std::string blsc_thk_label(const char * n) { return std::string(".Lthk_") + bb_ab_sym_name(n ? n : ""); }
 static const char * blsc_thk_rec(const char * n) { void * r = bb_thunk_rec_addr(n); return r ? (const char *)r : ""; }
+extern "C" void * bb_dstar_rec_addr(const char * star);
+static std::string blsc_dstar_label(const char * n) { return std::string(".Ldstar_") + bb_ab_sym_name((std::string("*") + (n ? n : "")).c_str()); }
+static const char * blsc_dstar_rec(const char * n) { void * r = bb_dstar_rec_addr((std::string("*") + (n ? n : "")).c_str()); return r ? (const char *)r : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_lit_scalar() {
     return _.op_node_kind == (int)IR_LIT_INTEGER && (_.op_off >= 0 || _.op_zres)
@@ -32,6 +35,18 @@ std::string bb_lit_scalar() {
              + x86_beta_trampoline()
              + x86("def",    L(0))
              + x86(".quad",  (uint64_t)_.op_ival)
+         : _.op_node_kind == (int)IR_LIT_STRING && _.node && _.node->seal == IR_SEAL_DSTAR_REF && (_.op_off >= 0 || _.op_zres)
+         ? x86("comment", "IR_LIT_STRING DSTAR-REF: the unevaluated expression's star record, its address baked -- no name at run time")
+             + x86_alpha()
+             + x86("note",   ZRESN())
+             + x86("mov",    ls_rq(0), lit_tag_imm((long)DT_I))
+             + x86("mov",    "rax", ROQ(0))
+             + x86("note",   ZRESN())
+             + x86("mov",    ls_rq(8), "rax")
+             + x86_gamma()
+             + x86_beta_trampoline()
+             + x86("def",    L(0))
+             + x86(".quad",  blsc_dstar_label(_.op_sval).c_str(), blsc_dstar_rec(_.op_sval))
          : _.op_node_kind == (int)IR_LIT_STRING && _.node && _.node->seal == IR_SEAL_THUNK_REF && (_.op_off >= 0 || _.op_zres)
          ? x86("comment", "IR_LIT_STRING THUNK-REF: the compiled pattern's record, its address baked -- no name at run time")
              + x86_alpha()

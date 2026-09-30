@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1938
+#define GC_ALLOC_TAB_N 1940
 #define GC_ALLOC_TAB_N_VOID 223
-#define GC_ALLOC_TAB_N_DESCR 1062
+#define GC_ALLOC_TAB_N_DESCR 1064
 #define GC_ALLOC_TAB_N_OTHER 647
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1033,6 +1033,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_open_staged", GC_RET_OTHER },
     { "rt_call_open_staged_rec", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
+    { "rt_call_proc_descr_p", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },
     { "rt_call_value_resume_h", GC_RET_DESCR },
@@ -1775,12 +1776,13 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_section_var_strict", GC_RET_DESCR },
     { "rt_size_d", GC_RET_DESCR },
     { "rt_sno_cnv_num", GC_RET_DESCR },
-    { "rt_sno_dtx_value", GC_RET_DESCR },
+    { "rt_sno_dtx_value_rec", GC_RET_DESCR },
     { "rt_sno_elem_store_trace", GC_RET_VOID },
     { "rt_sno_goto_special_is", GC_RET_OTHER },
     { "rt_sno_indirect_name", GC_RET_OTHER },
     { "rt_sno_kwset_d", GC_RET_DESCR },
     { "rt_sno_mkexpr_d", GC_RET_DESCR },
+    { "rt_sno_mkexpr_of", GC_RET_DESCR },
     { "rt_sno_mkpat_d", GC_RET_DESCR },
     { "rt_sno_name_dl", GC_RET_DESCR },
     { "rt_sno_nofail_d", GC_RET_DESCR },

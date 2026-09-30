@@ -7356,10 +7356,15 @@ DESCR_t rt_sno_kwset_d(DESCR_t *args, int nargs) {
     char kb[64]; const char *kn = to_cstring(args[0], kb, sizeof kb);
     return rt_keyword_write_snobol4(kn ? kn : "", args[1]) ? args[1] : FAILDESCR;
 }
+DESCR_t rt_sno_mkexpr_of(DESCR_t a) {
+    extern void *bb_dstar_rec_intern(const char *, uint32_t);
+    sno_dstar_rec_t *rec = (a.v == DT_I) ? (sno_dstar_rec_t *)(uintptr_t)a.i : (sno_dstar_rec_t *)0;
+    if (!rec) { const char *nm = VARVAL_fn(a); if (!nm) nm = ""; size_t nl = strlen(nm); char key[nl + 2]; key[0] = '*'; memcpy(key + 1, nm, nl + 1); rec = (sno_dstar_rec_t *)bb_dstar_rec_intern(key, 0u); }
+    DESCR_t xd; xd.v = DT_X; xd.slen = 0; xd.p = rec; return xd;
+}
 DESCR_t rt_sno_mkexpr_d(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
-    const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
-    DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = rt_heap_strdup_c(nm); return xd;
+    return rt_sno_mkexpr_of(args[0]);
 }
 DESCR_t rt_sno_stmt_d(DESCR_t *args, int nargs) {
     extern void rt_stmt_enter(long stno, long line); RT_HOOK_GUARD("SNO$STMT");
@@ -9403,9 +9408,8 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_6540: ;
     if ((_bid == BID_SNOx24MKEXPR) && nargs == 1) {
-        const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
-        DESCR_t xd; xd.v = DT_X; xd.slen = (uint32_t)strlen(nm); xd.s = rt_heap_strdup_c(nm);
-        *out = xd; return 1;
+        extern DESCR_t rt_sno_mkexpr_of(DESCR_t);
+        *out = rt_sno_mkexpr_of(args[0]); return 1;
     }
     L_bidjmp_6545: ;
     if ((_bid == BID_SNOx24PBK) && nargs == 2) { extern DESCR_t pat_mk_cset(int, const char *); *out = pat_mk_cset((int)to_int(args[0]), rt_cstr_d(args[1])); return 1; }
@@ -9452,7 +9456,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_EVAL) && nargs == 1) {
         extern DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
         DESCR_t av = args[0];
-        if (av.v == DT_X) { extern DESCR_t rt_sno_dtx_value(const char *); *out = rt_sno_dtx_value(av.s ? av.s : ""); return 1; }
+        if (av.v == DT_X) { extern DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *); *out = rt_sno_dtx_value_rec(SNO_DTX_REC(av)); return 1; }
         if (av.v != DT_P && av.v != DT_E) { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
         if (IS_INT_fn(av) || IS_REAL_fn(av)) { *out = av; return 1; }
         if (av.v == DT_SNUL) { *out = NULVCL; return 1; }

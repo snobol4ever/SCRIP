@@ -23,6 +23,7 @@ extern "C" {
 #include "snobol4_system_fns.h"
 #include "dtp.h"
 const char * bb_ab_sym_name(const char * nm);
+extern "C" void * bb_dstar_rec_addr(const char * star);
 }
 static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L;
@@ -146,6 +147,20 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("mov", FRQ(aoff), (long)DT_PLATOM);
         s += x86_movabs_r64("rax", (uint64_t)(unsigned)prolog_atom_intern(IR_LIT(lf).sval ? IR_LIT(lf).sval : ""));
         s += x86("mov", FRQ(aoff + 8), "rax");
+        return s;
+    }
+    if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_DSTAR_REF) {
+        int nseal = idx * 2, nskip = idx * 2 + 1;
+        std::string star = std::string("*") + (IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
+        std::string lbl = std::string(".Ldstar_") + bb_ab_sym_name(star.c_str());
+        std::string s;
+        s += x86("comment", std::string("marshal arg") + std::to_string(idx) + " = DSTAR-REF (the unevaluated expression's star record, baked) -> [zr+" + std::to_string(aoff) + "]");
+        s += x86("mov", FRQ(aoff), (long)DT_I);
+        s += x86("mov", "rax", ROQ(nseal));
+        s += x86("mov", FRQ(aoff + 8), "rax");
+        s += x86_jmp_id(nskip);
+        s += x86_ro_seal_addr(nseal, lbl.c_str(), bb_dstar_rec_addr(star.c_str()));
+        s += x86_deflabel_id(nskip);
         return s;
     }
     if (lf->op == IR_LIT_STRING && lf->seal == IR_SEAL_THUNK_REF) {

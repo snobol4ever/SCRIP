@@ -208,6 +208,7 @@ struct IR_t {
 #define IR_LIT(nd)  (*(nd))
 #define IR_SEAL_CALL_DET_LEAF 2
 #define IR_SEAL_THUNK_REF 3
+#define IR_SEAL_DSTAR_REF 4
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_range_tag_has(const IR_t * nd, char a, char b, char c) {
     const char * t = nd ? IR_LIT(nd).sval : (const char *)0; if (!t) return 0;

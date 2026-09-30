@@ -1604,6 +1604,13 @@ extern "C" void * bb_dstar_rec_addr(const char * star) {
     if (!r->star) { r->mark[0] = '*'; r->mark[1] = 1; r->star = CV_AT(g_emit.dstar_names, const char *, s); r->pidx = -1; r->flags = 0; }
     return (void *)r;
 }
+extern "C" void * bb_dstar_rec_intern(const char * key, uint32_t flags) {
+    if (!key || !key[0] || !key[1]) return (void *)0;
+    int s = dir_slot_for(dstar_dir(), key);
+    sno_dstar_rec_t * r = (sno_dstar_rec_t *)dir_rec(dstar_dir(), s);
+    if (!r->star) { r->mark[0] = '*'; r->mark[1] = 1; r->star = CV_AT(g_emit.dstar_names, const char *, s); r->pidx = -1; r->flags = flags; }
+    return (void *)r;
+}
 static void emit_dstar_records_data(void) {
     if (!g_emit.dstar_n) return;
     extern const char * bb_ab_sym_name(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long);

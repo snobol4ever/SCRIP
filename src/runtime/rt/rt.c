@@ -484,6 +484,8 @@ int rt_proc_entry_pending(const char *name)
       { rt_proc_t *p = &g_rt_gen_procs[i]; return (p->dyn_scope && !p->fn && !p->jmp_entry && core_define_entry_label(name)) ? 1 : 0; } }
 }
 static rt_proc_t *rt_proc_find(const char *name);
+static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r);
+DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs);
 void rt_proc_cache_clear(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
@@ -582,13 +584,14 @@ void rt_lvl_stno_land(void)
     if (g_stno != sl[SNO_LVL_STNO / 8] || g_line != sl[SNO_LVL_LINE / 8]) { g_lastno = g_stno; g_lastline = g_line; g_stno = sl[SNO_LVL_STNO / 8]; g_line = sl[SNO_LVL_LINE / 8]; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_sno_dtx_value(const char *name)
+DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *r)
 {
-    if (name && *name && !rt_proc_is_registered(name)) return NV_GET_fn(name);
+    rt_proc_t *p = (r && !(r->flags & SNO_DSTAR_VARREF)) ? rt_proc_of_rec(r) : (rt_proc_t *)0;
+    if (!p) return NV_GET_fn(r ? r->star + 1 : "");
 #if RT_DIAG
-    rt_c2bb_hit("via.dtx", name);
+    rt_c2bb_hit("via.dtx", r->star + 1);
 #endif
-    return RT_GC_CALLBACK(rt_call_proc_descr(name ? name : "", 0));
+    return RT_GC_CALLBACK(rt_call_proc_descr_p(p, r->star + 1, 0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_unregister(const char *name)
@@ -1083,9 +1086,9 @@ static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
 static long rt_proc_call_open_p(rt_proc_t *p, int nargs);
 static int proc_open_p_on(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_proc_descr(const char *name, int nargs)
+DESCR_t rt_call_proc_descr(const char *name, int nargs) { return rt_call_proc_descr_p(rt_proc_find(name), name, nargs); }
+DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
 {
-    rt_proc_t *p = rt_proc_find(name);
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
         { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn); }

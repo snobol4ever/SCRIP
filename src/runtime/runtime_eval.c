@@ -5,6 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include "core.h"
+#include "dtp.h"
 #include "keywords.h"
 #include "sil_macros.h"
 #include "../parsers/snobol4/scrip_cc.h"
@@ -712,10 +713,9 @@ DESCR_t CONVE_fn(DESCR_t str_d)
     const char *s = VARVAL_fn(str_d);
     if (!s || !*s) return FAILDESCR;
     if (conve_is_bare_name(s)) {
-        DESCR_t xd;
-        xd.v    = DT_X;
-        xd.slen = (uint32_t)strlen(s);
-        xd.s    = rt_heap_strdup_c(s);
+        extern void *bb_dstar_rec_intern(const char *, uint32_t);
+        size_t nl = strlen(s); char key[nl + 2]; key[0] = '='; memcpy(key + 1, s, nl + 1);
+        DESCR_t xd; xd.v = DT_X; xd.slen = 0; xd.p = bb_dstar_rec_intern(key, SNO_DSTAR_VARREF);
         return xd;
     }
     eval_chain_fn fn = eval_build_chain(s);

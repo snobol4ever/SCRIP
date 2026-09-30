@@ -73,7 +73,7 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
         NV_SET_fn(nb, d);
         { const char *pn = rt_heap_strdup_c(nb); return rcp_node(TT_DEFER, pn, (uint32_t)strlen(pn), 0, 0, 0); }
     }
-    if (d.v == DT_X) { const char *nm = d.s ? d.s : ""; uint32_t nl = d.slen ? d.slen : (uint32_t)strlen(nm); char *pb = rt_str_alloc((int)nl + 1); pb[0] = '*'; memcpy(pb + 1, nm, nl); pb[nl + 1] = 0; return rcp_node(TT_DEFER, pb, nl + 1, 0, 0, 0); }
+    if (d.v == DT_X) { sno_dstar_rec_t *rec = SNO_DTX_REC(d); const char *nm = !rec ? "*" : (rec->flags & SNO_DSTAR_VARREF) ? rec->star + 1 : rec->star; return rcp_node(TT_DEFER, nm, (uint32_t)strlen(nm), 0, 0, 0); }
     if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
     if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
     if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); gcvt(d.r, 14, b); return rcp_lit(b, (uint32_t)strlen(b)); }
@@ -500,10 +500,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     if (expr.v == DT_E) {
         return EXPVAL_fn(expr);
     }
-    if (expr.v == DT_X) {
-        extern DESCR_t eval_string_transient(const char *s);
-        return eval_string_transient(expr.s ? expr.s : "");
-    }
+    if (expr.v == DT_X) { extern DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *); return rt_sno_dtx_value_rec(SNO_DTX_REC(expr)); }
     if (expr.v != DT_P) { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (expr.v == DT_I) return expr;
     if (expr.v == DT_R) return expr;
@@ -1198,10 +1195,12 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r)
         if (IS_FAIL_fn(r)) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
         if (r.v == DT_E) { r = EXPVAL_fn(r); continue; }
         if (r.v == DT_X) {
-            const char *nm = r.s ? r.s : "";
+            sno_dstar_rec_t *rec = SNO_DTX_REC(r);
             s->dtx_used = 1;
-            { extern rt_dcap_next_t rt_call_open_staged(const char *, int *); int reg = 0; rt_dcap_next_t n = rt_call_open_staged(nm, &reg);
-              if (!reg) { r = NV_GET_fn(nm); continue; }
+            if (!rec) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
+            if (rec->flags & SNO_DSTAR_VARREF) { r = NV_GET_fn(rec->star + 1); continue; }
+            { extern rt_dcap_next_t rt_call_open_staged_rec(sno_dstar_rec_t *, int *); int reg = 0; rt_dcap_next_t n = rt_call_open_staged_rec(rec, &reg);
+              if (!reg) { r = NV_GET_fn(rec->star + 1); continue; }
               if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
               return n; }
         }
@@ -1225,7 +1224,7 @@ rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag)
 {
     rt_dfx_t *s = rt_dfx_push();
     if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
-    if (varname && varname[0] == '*') { DESCR_t x = NULVCL; x.v = DT_X; x.s = varname + 1; return rt_defer_resolve(s, x); }
+    if (varname && varname[0] == '*') { extern void *bb_dstar_rec_intern(const char *, uint32_t); DESCR_t x = NULVCL; x.v = DT_X; x.slen = 0; x.p = bb_dstar_rec_intern(varname, 0u); return rt_defer_resolve(s, x); }
     { DESCR_t val = rt_defer_nv_read(varname ? varname : "");
       if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); }
       return rt_defer_resolve(s, val); }
@@ -1233,13 +1232,9 @@ rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_defer_open_rec(sno_dstar_rec_t *r)
 {
-    extern rt_dcap_next_t rt_call_open_staged_rec(sno_dstar_rec_t *, int *);
     rt_dfx_t *s = rt_dfx_push();
-    s->dtx_used = 1;
-    { int reg = 0; rt_dcap_next_t n = rt_call_open_staged_rec(r, &reg);
-      if (!reg) return rt_defer_resolve(s, NV_GET_fn(r->star + 1));
-      if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
-      return n; }
+    DESCR_t x = NULVCL; x.v = DT_X; x.slen = 0; x.p = r;
+    return rt_defer_resolve(s, x);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag)
