@@ -52,7 +52,7 @@ ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails
 refuse() { echo "⛔ GATE REFUSED(2) [$G]: $1"; exit 2; }
 [ -x "$ROOT/scrip" ] || refuse "no scrip binary -- build before grading"
 [ -f "$CHK" ] || refuse "the checker $CHK is missing"
-[ -f "$TABLE" ] || refuse "the declared table $TABLE is missing; run: python3 scripts/util_gc_safe_point_contract.py scripts/gc_witnesses/*.{icn,sno,pl,raku,sc} --write-bare-poll-table"
+[ -f "$TABLE" ] || refuse "the declared table $TABLE is missing; run: python3 scripts/util_gc_safe_point_contract.py scripts/gc_witnesses/*.{icn,sno,pl,raku,sc,pas} --write-bare-poll-table"
 export SCRIP_HEAP_MB=512   # THE PIN (CEO-931 pin rule): this gate measures the poll's PRESENCE with the collector NEVER RUNNING, so collections must read 0; a tiny arena would make every site NOT-ZERO by construction. The checker's bare_run_env sets the same value and removes SCRIP_HEAP_KB; this line is the declaration the tiny-arena gate counts.
 unset SCRIP_HEAP_KB
 echo "ARENA SCRIP_HEAP_MB=512 PINNED inside the checker for the stress-0 arm (collections must read 0; a tiny arena would make every site NOT-ZERO by construction) -- declared in the tiny-arena gate's pinned set"
