@@ -273,7 +273,7 @@ GATE_NAME=test_icon_ipl_suite gate_bin_unmoved
 # the tree moved is not a refusal -- util_score_row would happily write "graded; HEAD moved during the run"
 # onto a number that describes no single tree.
 GATE_NAME=test_icon_ipl_suite gate_tree_unmoved
-echo "IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL run_graded=$RUN_GRADED nomain_total=$NOMAIN_TOTAL hasmain_total=$HASMAIN_TOTAL nomain_ok=$NOMAIN_OK linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER"
+BOARD_LINE="IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL run_graded=$RUN_GRADED nomain_total=$NOMAIN_TOTAL hasmain_total=$HASMAIN_TOTAL nomain_ok=$NOMAIN_OK linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER"; echo "$BOARD_LINE"
 
 # ═══ RUN TIER -- every progs/*.icn with a NAME.ref (cut by util_cut_icon_ipl_refs.sh) gets EXECUTED,
 # both modes independently, and diffed against it. See file header: execution goes through
@@ -528,7 +528,7 @@ fi
 [ -n "${AND_PASS:-}" ] && [ -n "$IPL_SHIPPED" ] && python3 "$HERE/util_score_row.py" write --lang icon --column vendor --suite IPL --modes m3,m4 \
     --suite-pass "${AND_PASS}" --suite-total "$IPL_SHIPPED" ${_cc:+--criterion-changed "$_cc"} ${EXCL_N:+--excluded "$EXCL_N"} \
     --measurer "${S4E_SEAT:-}" \
-    --text "AND per program ${AND_PASS}/$IPL_SHIPPED shipped${IPL_EXCLUDED:+ less $IPL_EXCLUDED graphics units excluded (EXCLUDED.tsv, Lon 2026-09-27)} (ceo CEO-1272/CEO-1245: the shipped population is the denominator, the libraries owed their drivers in it) · graded ${AND_PASS}/$RUN_GRADED (a program is green only if BOTH modes are; union of reds ${AND_RED:-n/a}:${AND_NAMES:-}) · compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`)" \
+    --text "AND per program ${AND_PASS}/$IPL_SHIPPED shipped${IPL_EXCLUDED:+ less $IPL_EXCLUDED graphics units excluded (EXCLUDED.tsv, Lon 2026-09-27)} (ceo CEO-1272/CEO-1245: the shipped population is the denominator, the libraries owed their drivers in it) · graded ${AND_PASS}/$RUN_GRADED (a program is green only if BOTH modes are; union of reds ${AND_RED:-n/a}:${AND_NAMES:-}) · compile_pass=$COMPILE_PASS compile_fail=$COMPILE_FAIL (linkgap=$LINKGAP parseerr=$PARSEERR timeout=$TIMEOUT_N other=$OTHER) of total=$TOTAL · nomain_ok=$NOMAIN_OK of nomain_total=$NOMAIN_TOTAL, hasmain_total=$HASMAIN_TOTAL · run m3 $M3_RUN_PASS/$RUN_GRADED m4 $M4_RUN_PASS/$RUN_GRADED (of $RUN_GRADED oracle-cut · fail m3=$M3_RUN_FAIL m4=$M4_RUN_FAIL, crash m3=$M3_RUN_CRASH m4=$M4_RUN_CRASH, hang m3=$M3_RUN_HANG m4=$M4_RUN_HANG)${INV_LINE:+ · $INV_LINE}${UNG_SPLIT:+ · ungraded_by_class=$UNG_SPLIT} (\`test_icon_ipl_suite.sh\`) · $BOARD_LINE" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
