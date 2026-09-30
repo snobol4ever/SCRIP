@@ -51,8 +51,9 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
 # ⛔⭐ SCRIP DOES NOT PREPROCESS (RULES.md, Lon 2026-09-30, CEO-1366): every program and every module it links is compiled from the
-# pre-step's twin of this package (lib_icon_pre_step.sh icon_twin_tree), never from the shipped text; a program the pre-step refuses
-# is graded REJECT and named with the tool's own message. The population, the refs and every sidecar are still read off $CORPUS.
+# pre-step's twin of this package (lib_icon_pre_step.sh icon_twin_tree: generated source only), never from the shipped text, and still
+# runs in its run directory beside raw copies of its data and modules (a program may read a .icn as data); a program the pre-step
+# refuses is graded REJECT and named with the tool's own message. The population, the refs and every sidecar are read off $CORPUS.
 . "$HERE/lib_icon_pre_step.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_icon_pre_step.sh unloadable" >&2; exit 2; }
 # ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL EITHER. lib_progress.sh's header is explicit that it never hides
 # the writer's rc and that the caller decides. Neither `|| true` nor `|| exit` is right here: swallowing
@@ -148,6 +149,10 @@ IPP="$(icon_pre_step_tool)" || exit 2
 icon_pre_step_header
 TWIN="$WORK/twin"
 icon_twin_tree "$CORPUS" "$TWIN" || { echo "⛔ REFUSED TO GRADE: the pre-step twin of $CORPUS could not be built" >&2; exit 2; }
+# the IPL procs directory -- where SCRIP's link search ends for an IPL module -- generated too and first on IPATH, so a program's
+# `link io` reaches generated text rather than the raw corpus file SCRIP's own fallback reads
+icon_twin_tree "$(dirname "$CORPUS")/ipl/procs" "$WORK/iplprocs" || exit 2
+export IPATH="$WORK/iplprocs""${IPATH:+:$IPATH}"
 # ⭐ THE DECLARED COMPILE SWITCHES, READ ONCE, HERE IN THE MAIN SHELL (clause 8 (f), CEO-1281): declared_memory_table validates every cell
 # of the attribute file through the harness's own validators, so a refused cell refuses this board before one program is graded;
 # run_one, which runs inside a command substitution, only looks its program's compile_args up with one awk.
@@ -179,13 +184,16 @@ run_one() {
     # never the whole package: the ref for that `ls` expects to see io.dat and io.icn and NOTHING ELSE, so
     # copying more would break the very test this fixes. The .ref is deliberately NOT copied for the same
     # reason. This is the same class the .dat line above already cures, one filename over.
-    cp "$icn" "$rundir/$(basename "$icn")" 2>/dev/null || true
+    local gen="$TWIN/$(basename "$icn")"
+    # the program's own .icn in its run directory is its GENERATED text, run by its bare name (SCRIP's mode 3 takes &progname and &file
+    # from the path it is handed); the modules copied beside it stay shipped text, since a program may read a .icn as data
+    cp "$gen" "$rundir/$(basename "$icn")" 2>/dev/null || true
     # ⭐ TWO MORE SIDECARS, BOTH OURS AND BOTH DECLARED, NEVER INFERRED (cfo 2026-09-07, row every-package-runner-
     # prints-...: link1.icn was the package's one UNGRADED row, NEEDS_RUNNER_WIRING). `<name>.args` is the argv the
     # ref was cut with (test_demo_icon_jcon.sh's own convention, words split by the shell); the modules a program
     # `link`s are read from the program itself -- the entry IS the manifest, as that gate puts it -- and handed to
     # scrip beside it in BOTH modes, the same two-file build icont needs (`icont link1.icn link2.icn`).
-    local args="${base}.args" m; local -a mods=()
+    local args="${base}.args" m; local -a mods=() gmods=()
     if [ -f "$args" ]; then prog_args=($(cat "$args")); fi
     # ⛔ THE `--` IS THE DRIVER'S, NOT THE PROGRAM'S (cfo 2026-09-07, measured on link1): `scrip --run f -- a b c`
     # strips the `--` and hands the program `a b c`, but a mode-4 binary is a plain executable and saw `--` as
@@ -203,7 +211,7 @@ run_one() {
         for _ln in $(sed -nE 's/#.*$//; s/^[[:space:]]*link[[:space:]]+(.*)$/\1/p' "$_ls" | tr ',"' '  '); do
             _ln="${_ln%.icn}"; case "$_lseen" in *" $_ln "*) continue ;; esac; _lseen="$_lseen$_ln "
             [ -f "$(dirname "$icn")/$_ln.icn" ] || continue
-            mods+=("$(dirname "$icn")/$_ln.icn"); _lq+=("$(dirname "$icn")/$_ln.icn")
+            mods+=("$(dirname "$icn")/$_ln.icn"); gmods+=("$TWIN/$_ln.icn"); _lq+=("$(dirname "$icn")/$_ln.icn")
         done
     done
     # ⛔⭐ A LINKED MODULE TRAVELS WITH THE PROGRAM, exactly as the program's own source does one screen up
@@ -252,7 +260,7 @@ run_one() {
     # the library shipped beside it, while every other program's ref was cut by icont against its INSTALLED IPL ucode, which the
     # directory first on IPATH would shadow with an older shipped namesake (Arizona ilib read red at 6850da706 exactly that way).
     local -a _ipath3=() _ipath4=()
-    case "$name" in *_driver) _ipath3=(env "IPATH=$rundir${IPATH:+:$IPATH}"); _ipath4=(env "IPATH=$(dirname "$icn")${IPATH:+:$IPATH}") ;; esac
+    case "$name" in *_driver) _ipath3=(env "IPATH=$TWIN${IPATH:+:$IPATH}"); _ipath4=(env "IPATH=$TWIN${IPATH:+:$IPATH}") ;; esac
     case "$mode" in
         m3)
             # ⛔⭐ THE PROGRAM'S OWN NAME IN argv IS THE BARE NAME, NEVER THE ABSOLUTE PATH (hq_V 2026-09-11,
@@ -268,7 +276,7 @@ run_one() {
             # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
             # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
             # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
-            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$(basename "$icn")" ${gmods[@]+"${gmods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -288,7 +296,7 @@ run_one() {
             # all. Measured across every .ref in the package: io is the ONLY program that lists its directory.
             local s="$WORK/$name.s" o="$WORK/$name.o" bin="$rundir/$name"
             # the shipped library first on the link search for a driver run only, as in the arizona runner (coo 2026-09-25)
-            if ! ${_ipath4[@]+"${_ipath4[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 $_ca "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
+            if ! ${_ipath4[@]+"${_ipath4[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 $_ca "$gen" ${gmods[@]+"${gmods[@]}"} < /dev/null > "$s" 2>"$errf"; then
                 : > "$outfile"; rc=1
             elif grep -q 'icon: parse error' "$errf"; then
                 : > "$outfile"; rc=1
@@ -374,7 +382,7 @@ run_mode() {
         _want="$std"
         _ppr=""; for _ppf in "$(basename "$exe")" "$(basename "$icn")"; do _ppr="$(icon_twin_refused "$TWIN" "$_ppf")" && break; _ppr=""; done
         if [ -n "$_ppr" ]; then kind=REJECT; echo "  [PRE-STEP REJECT] $name: $_ppr" >&2
-        else kind=$(run_one "$mode" "$TWIN/$(basename "$exe")" "$_want" "$outfile"); fi
+        else kind=$(run_one "$mode" "$exe" "$_want" "$outfile"); fi
         # ⭐ THE PROGRESS DATABASE, ONE ROW PER PROGRAM PER MODE (CEO-331). Placed at the SINGLE point where
         # this runner already decides a per-program verdict, so the recorded outcome and the counted one are
         # the same value -- a second classification here would be a second opinion that drifts. $kind is

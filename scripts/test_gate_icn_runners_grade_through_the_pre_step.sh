@@ -10,7 +10,9 @@
 #      anything. A runner that stops sourcing the library is read here, not on a board a day later.
 #  (b) THE TWIN: icon_twin_tree over a scratch package -- a program that $includes a file and $defines a constant, a library in the
 #      same directory that $defines one too -- generates text with no directive left in it, carries the program's own line numbering
-#      in a #line marker (SCRIP's lexer honours it), leaves the scratch package byte-identical, and SCRIP compiles and runs the twin program (linking the twin library) to the right answer.
+#      in a #line marker (SCRIP's lexer honours it), leaves the scratch package byte-identical, and SCRIP compiles the twin program
+#      (linking the twin library) and runs it in the SHIPPED directory to the right answer -- including a line it reads from lib.icn AS
+#      DATA, which must be the shipped text (arizona io_lib_driver reads filetext("io_lib.icn")).
 #  (c) THE REFUSAL IS NAMED: a program carrying a malformed directive is not in the twin, and icon_twin_refused names it with the
 #      tool's own message -- never dropped, never handed to scrip raw.
 #  (d) THE HARNESS: icon_pre_step() replaces a scratch entry with its generated text and returns None; on the malformed one it
@@ -59,6 +61,7 @@ $define THREE 3
 link lib;
 procedure main();
     write(GREETING, " ", twice(THREE));
+    write(read(open("lib.icn")));
 end
 EOF
 cat > "$P/sub/bad.icn" <<'EOF'
@@ -72,9 +75,10 @@ icon_twin_tree "$P" "$T/twin" 2> "$T/twin.log"; trc=$?
 tw="$T/twin/sub/prog.icn"
 if [ "$trc" -eq 0 ] && [ -s "$tw" ] && ! grep -qE '^[[:space:]]*\$(define|include|ifdef|ifndef|undef|endif|else)' "$tw" "$T/twin/sub/lib.icn" \
    && grep -q '^#line [0-9]* "prog.icn"' "$tw" && [ "$(cd "$P" && find . -type f -exec md5sum {} + | sort)" = "$sum0" ]; then
-    out="$(cd "$T/twin/sub" && IPATH="$T/twin/sub" timeout 20 "$SCRIP" prog.icn < /dev/null 2>&1)"; orc=$?
-    [ "$orc" -eq 0 ] && [ "$out" = "hello 6" ] && ck ok "(b) the twin carries no directive and its #line numbering, leaves the package untouched, and scrip runs it (twin library linked) to 'hello 6'" \
-        || ck no "(b) scrip on the twin printed '$(printf '%s' "$out" | head -2 | tr '\n' ' ')' rc=$orc, not 'hello 6'"
+    want="$(printf 'hello 6\n$define TWICE 2')"
+    out="$(cd "$P/sub" && IPATH="$T/twin/sub" timeout 20 "$SCRIP" "$T/twin/sub/prog.icn" < /dev/null 2>&1)"; orc=$?
+    [ "$orc" -eq 0 ] && [ "$out" = "$want" ] && ck ok "(b) the twin carries no directive and its #line numbering, leaves the package untouched; scrip compiles it (twin library linked) and runs it in the SHIPPED directory, where lib.icn read as data is the shipped text" \
+        || ck no "(b) scrip on the twin, run in the shipped directory, printed '$(printf '%s' "$out" | head -3 | tr '\n' ' ')' rc=$orc, not 'hello 6' then the shipped first line of lib.icn"
 else
     ck no "(b) the twin is wrong (rc=$trc): $(head -2 "$T/twin.log" | tr '\n' ' ')"
 fi

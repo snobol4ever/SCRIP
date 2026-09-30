@@ -15,14 +15,16 @@
 # stderr, and that program is UNGRADABLE and named, never dropped. It inserts no semicolon and passes every newline through, so a
 # twin keeps the program's line numbers and, through its #line lines, its file name.
 #
-# ⛔⭐ THE TWIN IS A WHOLE TREE, NOT ONE FILE. SCRIP compiles every `link`ed library FROM SOURCE (icon_driver.c icn_link_open: IPATH,
-# ICONPATH, then the corpus IPL procs directory, then the program's own directory), so a library carrying a directive reaches SCRIP
-# raw unless the directory SCRIP searches is itself pre-stepped: 40 IPL library files do (procs 14, gprocs 26; coo 2026-09-30).
-# icon_twin_tree therefore copies a source tree whole into scratch -- data files, refs and fixtures travel, so a program run from
-# its twin directory by its bare name sees exactly its shipped neighbours -- and replaces every .icn in the copy with the tool's
-# output, read from the ORIGINAL file in its own directory (the corpus is only ever read). A runner compiles and runs from the twin
-# and points IPATH/ICONPATH at the twin's directories. A container (ALL.icn) and a NAME.fixtures/ data file are copied, not
-# generated: neither is a program any runner compiles.
+# ⛔⭐ THE TWIN IS A TREE OF GENERATED SOURCE, AND ONLY THAT. SCRIP compiles every `link`ed library FROM SOURCE (icon_driver.c
+# icn_link_open: IPATH, ICONPATH, then the corpus IPL procs directory, then the program's own directory), so a library carrying a
+# directive reaches SCRIP raw unless the directory SCRIP searches is itself pre-stepped: 40 IPL library files do (procs 14, gprocs 26;
+# coo 2026-09-30). icon_twin_tree writes the tool's output for every .icn of a source tree into TWINDIR at the same relative path, read
+# from the ORIGINAL file in its own directory (the corpus is only ever read). ⛔ THE PROGRAM STILL RUNS IN ITS SHIPPED DIRECTORY: a
+# runner hands SCRIP the twin's PATH (so a link finds the generated siblings beside it, and IPATH names the twin directories first)
+# and keeps its cwd where it always was -- because a program may read a .icn as DATA: arizona io_lib_driver reads filetext("io_lib.icn")
+# and lists_lib_driver file2lst("lists_lib.icn"), and a first cut that replaced the files in a copied tree read the generated text and
+# failed them (measured 2026-09-30). The twin holds no data file, no ref and no sidecar. A container (ALL.icn) and a NAME.fixtures/
+# file are not generated: neither is a program any runner compiles.
 #
 #   icon_pre_step_tool                 # echoes the tool's path; rc 2 (and says why) when it is not built
 #   icon_pre_step_lpath                # echoes the LPATH value the contract names (the corpus IPL incl and gincl)
@@ -65,10 +67,9 @@ icon_twin_tree() {
     lp="$(icon_pre_step_lpath)"
     [ -d "$src" ] || { echo "⛔ REFUSED(2): icon_twin_tree: no source tree $src" >&2; return 2; }
     mkdir -p "$twin" || return 2
-    cp -r "$src"/. "$twin"/ || { echo "⛔ REFUSED(2): icon_twin_tree: cannot copy $src into $twin" >&2; return 2; }
     : > "$twin/.ipp_refused"
     while IFS= read -r -d '' f; do
-        rel="${f#$src/}"
+        rel="${f#$src/}"; mkdir -p "$twin/$(dirname "$rel")" || return 2
         ( cd "$(dirname "$f")" && LPATH="$lp" timeout 60 "$tool" "$(basename "$f")" < /dev/null ) > "$twin/$rel" 2> "$twin/$rel.ipp_err"
         rc=$?
         n=$((n + 1))

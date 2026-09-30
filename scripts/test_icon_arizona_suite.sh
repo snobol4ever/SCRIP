@@ -56,8 +56,9 @@ mask_apply() { # $1=std_path $2=name $3=text -> echoes the masked text; count la
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
 # ⛔⭐ SCRIP DOES NOT PREPROCESS (RULES.md, Lon 2026-09-30, CEO-1366): every program and every library it links is compiled from
-# the pre-step's twin of this package (lib_icon_pre_step.sh icon_twin_tree), never from the shipped text; a program the pre-step
-# refuses is graded REJECT in both modes and named with the tool's own message.
+# the pre-step's twin of this package (lib_icon_pre_step.sh icon_twin_tree: generated source only), never from the shipped text, while
+# it still RUNS in its shipped directory (a driver reads its library's .icn as data); a program the pre-step refuses is graded REJECT
+# in both modes and named with the tool's own message.
 . "$HERE/lib_icon_pre_step.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_icon_pre_step.sh unloadable" >&2; exit 2; }
 # ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL. See lib_progress.sh's header: it never hides the writer's rc and
 # the caller decides. Aborting mid-loop would let one bookkeeping failure destroy a real measurement of 90
@@ -141,6 +142,10 @@ trap 'rm -rf "$RUNDIR"' EXIT
 IPP="$(icon_pre_step_tool)" || exit 2
 icon_pre_step_header
 icon_twin_tree "$PKG" "$RUNDIR/twin" || { echo "⛔ GATE REFUSES: the pre-step twin of $PKG could not be built" >&2; exit 2; }
+# the IPL procs directory -- where SCRIP's link search ends for an IPL module -- generated too and first on IPATH, so a program's
+# `link io` reaches generated text rather than the raw corpus file SCRIP's own fallback reads
+icon_twin_tree "$(dirname "$PKG")/ipl/procs" "$RUNDIR/iplprocs" || exit 2
+export IPATH="$RUNDIR/iplprocs""${IPATH:+:$IPATH}"
 # ⭐ THE DECLARED COMPILE SWITCHES, READ ONCE (clause 8 (f), CEO-1281): declared_memory_table validates every cell of the attribute file
 # through the harness's own validators before one program is graded; each program then looks its compile_args up with one awk.
 CA_TBL="$RUNDIR/compile_args.tsv"
@@ -206,6 +211,10 @@ for sub in $SUITE_SUBDIRS; do
 SUITE="$PKG/$sub"
 [ -d "$SUITE" ] || continue
 TWSUITE="$RUNDIR/twin/$sub"
+# ⛔ THE PROGRAM RUNS BY ITS BARE NAME IN A SCRATCH COPY OF ITS SHIPPED DIRECTORY (MIRROR): every shipped file is there as data (a driver
+# reads its library's .icn), and for its own run only the program's .icn is its generated text -- SCRIP's mode 3 takes &progname and
+# &file from the path it is handed, so a generated file handed by its absolute path printed "/tmp/.../kwds" (measured 2026-09-30).
+MIRROR="$RUNDIR/mirror/$sub"; mkdir -p "$MIRROR" && cp -r "$SUITE"/. "$MIRROR"/ || { echo "⛔ GATE REFUSES: cannot copy $SUITE to $MIRROR" >&2; exit 2; }
 # ⛔ A DRIVER'S IPATH NAMES THE SUITE'S LIBRARIES, NEVER ITS PROGRAMS (coo ruling 2026-09-28 on hq_icon's ask): general/ ships io.icn, an
 # Arizona TEST PROGRAM, and cfunc.icn says `link io` meaning the IPL library that defines pathload. icont links ucode only and the suite
 # holds no io.u, so iconx falls through to the installed io; SCRIP's link search reads source, so the whole suite on IPATH linked the
@@ -303,7 +312,8 @@ for std in "$SUITE"/*.ref; do
   # <stem>.clib sidecar names the vendored sources; declared_clib_beside (lib_declared_arena.sh, the one reader) builds them and the run
   # gets FPATH=". <that directory>" in both modes -- the same search iconx makes. No sidecar, no FPATH: every other program runs as before.
   _fp=(); _clib="$(declared_clib_beside "$SUITE/$name.icn" "$PKG")" || exit 2; [ -n "$_clib" ] && _fp=(env "FPATH=. $_clib")
-  m3out=$(cd "$TWSUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+  cp "$TWSUITE/$name.icn" "$MIRROR/$name.icn" || { echo "⛔ GATE REFUSES: cannot stage $sub/$name's generated text" >&2; exit 2; }
+  m3out=$(cd "$MIRROR" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
   # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
   m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
@@ -333,16 +343,16 @@ for std in "$SUITE"/*.ref; do
   # TRUTH at the head of this file, compiles NAME.icn to NAME and runs ./NAME; that is what the .ref files
   # were cut under, so that is what we reproduce. The binary is litter like any other and is removed by name
   # below, both explicitly and by the pre-run snapshot sweep.
-  s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4="$TWSUITE/$name"
+  s4=$(mktemp /tmp/ariz_XXXXXX.s); bin4="$MIRROR/$name"
   # ⛔ REFUSE rather than overwrite: if a shipped file already owns that name, building over it would destroy
   # tracked corpus content, and the snapshot sweep would NOT remove it (it is not new) -- so the damage would
   # be silent and permanent. No arizona name collides today; this is the guard for the day one does.
   if [ -e "$bin4" ]; then echo "REFUSE(2): $sub/$name -- cannot pin the m4 binary to $bin4, a shipped file already owns that name" >&2; rm -f "$s4"; exit 2; fi
-  m4diag=$(cd "$TWSUITE" && ${_ipath[@]+"${_ipath[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
+  m4diag=$(cd "$MIRROR" && ${_ipath[@]+"${_ipath[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$TWSUITE" && PATH="$TWSUITE:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
+      m4out=$(cd "$MIRROR" && PATH="$MIRROR:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
       m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
     fi
   fi
@@ -363,7 +373,7 @@ for std in "$SUITE"/*.ref; do
     M4_FAIL=$((M4_FAIL+1)); M4_FAIL_NAMES="$M4_FAIL_NAMES $id"; arizona_progress "$id" m4 FAIL
     [ "$VERBOSE" = 1 ] && echo "  [m4 FAIL] $name"
   fi
-  rm -f "$s4" "$bin4"
+  rm -f "$s4" "$bin4"; cp "$SUITE/$name.icn" "$MIRROR/$name.icn"
 done
 done
 

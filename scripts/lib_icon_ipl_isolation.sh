@@ -165,7 +165,7 @@ ipl_isolation_run() {
   # and IPL ships four basenames twice over, so a procs/ driver's `link NAME` could reach a progs/ namesake. IPL_ISO_DRIVER=1 puts
   # the driver's own isolated directory first on IPATH, which SCRIP and icont read before ICONPATH -- as the Arizona and Jcon runners
   # give a NAME_driver run (09ee9fb91). Any other program runs exactly as before.
-  [ -n "${IPL_ISO_DRIVER:-}" ] && _isoenv+=("IPATH=$work/$sub")
+  [ -n "${IPL_ISO_DRIVER:-}" ] && _isoenv+=("IPATH=${IPL_ISO_GEN:+$IPL_ISO_GEN/$sub:}$work/$sub${IPL_ISO_GEN:+${IPATH:+:$IPATH}}")   # IPL_ISO_GEN (the pre-step's generated twin, lib_icon_pre_step.sh) first and the caller's IPATH after; unset, as before
   # ⭐ THE UNIT'S RUN SIDECARS (NAME.env, NAME.pin, NAME.pty, NAME.outfiles), applied exactly as the cutter applies them.
   local -a _cmd=("$@")
   if [ -n "${IPL_ISO_FIXTURES:-}" ]; then

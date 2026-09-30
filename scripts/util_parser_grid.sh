@@ -86,7 +86,7 @@ tree="$(git -C "$W" rev-parse --short HEAD 2>/dev/null)$(git -C "$W" diff --quie
 echo "PARSER GRID [$G]: tree $tree corpus $(git -C "$CORPUS" rev-parse --short HEAD 2>/dev/null) RT_OPT=$OPT runtime libscrip_rt-$lt.so sbl $(sbl_oracle_fingerprint "$SBL" | cut -d' ' -f1-2) switches $SW SCRIP_DIAG=0 median of $RUNS load $(cut -d' ' -f1-3 /proc/loadavg)"
 case " $LANGS " in *" icon "*) icon_pre_step_header || refuse "no Icon pre-step at $IPP_BIN -- make builds out/scrip-ipp" ;; esac
 printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' lang files bytes "C ms" "SCRIP ms" "SBL ms" "SBL/SCRIP" "C/SCRIP" trees
-RC=0; NL=0; NC=0; N2=0
+RC=0; NL=0; NC=0; N2=0; N3=0
 run() {   # $1 engine, $2 list, $3 output stem: one run of that engine over the list
     case "$1" in
     C)     ( cd "$CORPUS" && PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" IPATH="$CORPUS/packages/icon/ipl/procs" timeout "${TM:-$TMO}" "$W/out/parser_$L" < /dev/null > "$3.out" 2> "$3.err" ) ;;
@@ -164,7 +164,10 @@ for L in $LANGS; do
     t=SCRIP==SBL; [ "$nd" = 0 ] || t="DIFFER $nd/$nf"
     printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' "$L" "$nf" "$(metric "$T/$L.SCRIP.err" bytes)" "$(ms "$c")" "$(ms "$s")" "$(ms "$b")" "$(x "$b" "$s")" "$(x "$c" "$s")" "$t$via$gap"
     echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL") (each engine over all $np)$pre; runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us; SCRIP hash-off ${so:--} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
-    NL=$((NL + 1)); awk -v c="$c" -v s="$s" 'BEGIN { exit !(s > 0 && c / s >= 1.0) }' && NC=$((NC + 1)); awk -v b="$b" -v s="$s" 'BEGIN { exit !(s > 0 && b / s >= 2.0) }' && N2=$((N2 + 1))
+    NL=$((NL + 1)); awk -v c="$c" -v s="$s" 'BEGIN { exit !(s > 0 && c / s >= 1.0) }' && NC=$((NC + 1)); awk -v b="$b" -v s="$s" 'BEGIN { exit !(s > 0 && b / s >= 2.0) }' && N2=$((N2 + 1)); awk -v b="$b" -v s="$s" 'BEGIN { exit !(s > 0 && b / s >= 3.0) }' && N3=$((N3 + 1))
 done
-echo "BAR [$G]: $NC of $NL parsers at C's parse clock (C/SCRIP >= 1.00), $N2 of $NL at SPITBOL/SCRIP >= 2.00; load at end $(cut -d' ' -f1-3 /proc/loadavg)${GRID_OUT:+; lists, dropped names and dumps kept under $GRID_OUT}"
+# ⛔ THE BAR IS SPITBOL (Lon 2026-09-30, CEO-1367, verbatim: "you can loosen the fact we wish to be at par with the C versions of parsers,
+# but the truth is our competition is really SPITBOL. So we want to be 2-3x times faster than SPITBOL at parsing."): the count at
+# SPITBOL/SCRIP >= 2.00 is the bar, the count at >= 3.00 beside it; C's clock is printed as a reference only.
+echo "BAR [$G]: $N2 of $NL parsers at the bar SPITBOL/SCRIP >= 2.00, $N3 of $NL at >= 3.00; reference: $NC of $NL at C's parse clock (C/SCRIP >= 1.00); load at end $(cut -d' ' -f1-3 /proc/loadavg)${GRID_OUT:+; lists, dropped names and dumps kept under $GRID_OUT}"
 exit $RC
