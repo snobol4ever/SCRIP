@@ -147,18 +147,11 @@ function TDump(x, outNm, i, t) {
 /* ==================================================================================================================== */
 function TreeDumpValue(x, t, v, fval, zeros, pre) {
     t = t(x); v = v(x);
-    if (~DIFFER(v)) { TreeDumpValue = ; return; }
     if (t ? (POS(0) ('TT_QLIT' | 'TT_CSET') RPOS(0))) { TreeDumpValue = ' "' CQize(v) '"'; return; }
+    if (~DIFFER(v)) { TreeDumpValue = ; return; }
     if (IDENT(t, 'TT_FLIT')) {
         fval = '' CONVERT(v, 'REAL');
-        fval ('.' BREAK('0') | '.') SPAN('0') . zeros;
-        while (DIFFER(zeros)) {
-            fval = REPLACE(fval, zeros, '');
-            zeros = '';
-            fval ('.' BREAK('0') | '.') SPAN('0') . zeros;
-        }
-        fval SPAN('0123456789' &UCASE &LCASE '+' '-') . pre;
-        if (DIFFER(pre) IDENT(SIZE(pre) + 1, SIZE(fval))) fval = pre;
+        if (fval ? (POS(0) (SPAN('0123456789+-') . pre) '.' RPOS(0))) { fval = pre; }
         TreeDumpValue = ' ' fval;
         return;
     }

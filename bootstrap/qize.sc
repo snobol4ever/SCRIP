@@ -92,9 +92,8 @@ function CQize_nibble(n, hdig, hx) {
 }
 /* ==================================================================================================================== */
 function CQize_xNN(ch, junk, pos, hi, lo) {
-    junk = CQize_ctrl32;
-    junk ch = ;
-    pos = SIZE(CQize_ctrl32) - SIZE(junk);
+    CQize_ctrl32 ? (BREAK(ch) . junk);
+    pos = SIZE(junk) + 1;
     hi  = pos / 16;
     lo  = pos - (hi * 16);
     CQize_xNN = '\x' CQize_nibble(hi) CQize_nibble(lo);

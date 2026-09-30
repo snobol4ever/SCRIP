@@ -35,7 +35,7 @@ for L in $LANGS; do
         if [ $m4 = 1 ]; then a=$(now); timeout "$TMO" "$T/$L.bin" -s4096m -d16384m < "$f" > "$T/o" 2>/dev/null; r=$?; t4=$(add "$t4" "$a" "$(now)"); k=$(tally $r "$T/o"); K[4$k]=$((K[4$k] + 1)); fi
     done < "$T/$L.files"
     [ $m4 = 1 ] || t4="no-m4"
-    note=""; [ "$L" = raku ] && note="  (parser_raku.sc: recognizer, no tree -- P counts Parsed.; frozen)"
+    note=
     ratio=$(awk -v a="$t4" -v b="$tc" 'BEGIN { if (b > 0 && a + 0 == a) printf "%.1fx", a / b; else print "-" }')
     printf '%-8s %6d %10d | %10s %-12s | %10s %-12s | %8s%s\n' "$L" "$nf" "$nb" "$tc" "${K[cP]}/${K[cR]}/${K[cT]}" "$t4" "${K[4P]}/${K[4R]}/${K[4T]}" "$ratio" "$note"
     unset K

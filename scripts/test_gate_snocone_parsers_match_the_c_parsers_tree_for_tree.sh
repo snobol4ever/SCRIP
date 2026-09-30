@@ -15,8 +15,9 @@
 # closure run (S4E_DONE_WHEN_RUN=1) every corpus program of the language (every *.<ext> outside .git and corpus/library, not
 # ALL.*) -- the whole-corpus run is a closure run, one at a time (CEO-1341). Each file goes to the C parser and to the .sc parser
 # compiled ONCE per language to a mode-4 binary (Lon 2026-09-28: "forget mode 3 runs."), run at the largest arena on the file's own
-# stdin; the two dumps are compared for THAT file. Raku is not graded (parser_raku.sc is
-# a recognizer, frozen by Lon until hq_raku's parser is stable); util_parser_speed_c_vs_sc.sh times it.
+# stdin; the two dumps are compared for THAT file. Raku is not graded yet: parser_raku.sc is the 2026-09-29 conversion of
+# rk_syntax.c + rk_tree.c, not yet byte-identical on every corpus file, and its direct .sc compile hits a Snocone-frontend defect
+# (a second statement hangs; its own transpile runs) -- it joins this gate the landing it matches 100%.
 # THE TREE HASH (Lon 2026-09-29 18:5x CDT, in-chat to the ceo, verbatim: "You might consider creating a hash calculated of the
 # trees to compare quickly success and delay the details." and "hashing the output tree is what I meant. In memory. Then output
 # the one number per-test for comparison. It shows only how many do not match, not in what ay do they not match."): each side runs
@@ -96,7 +97,7 @@ for L in snobol4 snocone icon prolog rebus pascal; do
     echo "  $L: $verdict files=$nf hashes-compared=$hc MATCH=$m DIFF=$d REFUSED-by-C=$rc_ REFUSED-by-.sc=$rs refused-by-both=$rb CRASH-C=$kc CRASH-.sc=$ks timeout=$u${first:+ -- first: $first}"
     case "$verdict" in MATCH) GREEN=$((GREEN + 1)) ;; RED) [ $RC -eq 2 ] || RC=1 ;; *) RC=2 ;; esac
 done
-echo "  raku: not graded (parser_raku.sc is a recognizer, frozen by Lon until hq_raku's parser is stable)"
+echo "  raku: not graded yet (parser_raku.sc, the rk_syntax.c conversion, joins at 100%)"
 [ $RC -eq 2 ] && { echo "⛔ GATE REFUSE(2) [$G]: a language could not be measured (see above)"; exit 2; }
 if [ $RC -eq 0 ]; then echo "✅ GATE PASS(0) [$G]: $GREEN/$GRADED graded languages print the same tree from the C parser and the .sc parser on every file ($POP population)"
 else echo "⛔ GATE FAIL(1) [$G]: $GREEN/$GRADED graded languages match on every file ($POP population) -- the shape classes are in the cursor"; fi

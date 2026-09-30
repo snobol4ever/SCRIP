@@ -64,7 +64,7 @@ scrip --run \
 | `parser_snobol4.sc` | `GOAL-PARSER-SNOBOL4.md` | written under PARSER-SN-0 |
 | `parser_snocone.sc` | `GOAL-PARSER-SNOCONE.md` | written under PARSER-SC-0 |
 | `parser_rebus.sc`   | `GOAL-PARSER-REBUS.md`   | written under PARSER-RB-0 |
-| `parser_raku.sc`    | `GOAL-PARSER-RAKU.md`    | written under PARSER-RK-0 |
+| `parser_raku.sc`    | `GOAL-SNOCONE-100.md`    | rewritten 2026-09-29 as the conversion of src/parsers/raku/rk_syntax.c + rk_tree.c |
 | `parser_icon.sc`    | `GOAL-PARSER-ICON.md`    | written under PARSER-IC-0 |
 | `parser_prolog.sc`  | `GOAL-PARSER-PROLOG.md`  | written under PARSER-PR-0 |
 
@@ -77,7 +77,6 @@ PST cleanup live in sidecars and are loaded by
 | File | Loaded with | Contents |
 |------|-------------|----------|
 | `icon_helpers.sc` | `parser_icon.sc`  | 4 leaf-push helpers (`push_qlit`, `push_cset`, `push_flit`, `push_kw`) + `notmatch` redef of `match.sc` |
-| `raku_helpers.sc` | `parser_raku.sc`  | `push_interp_str`, `dq_unescape`, 9 `finish_*` counter-based variable-arity assemblers |
 
 The sidecars exist because the helpers cannot yet be expressed as
 inline `shift`/`reduce` actions — the `finish_*` ones use

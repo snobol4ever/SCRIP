@@ -12,7 +12,7 @@ sources"): every file of the language's extension under corpus/, the ALL.* conta
 begins with '(' = PARSED (the parser emitted a tree); contains "Parse Error" = REFUSED; a clean exit (rc 0, no error line) that
 printed nothing = EMPTY (hq_snocone 2026-09-25: a source holding only comments and control lines -- the gimpel *_driver.sno that are
 one -INCLUDE -- has no statement to print, which is neither a tree shown nor a crash); a clean exit whose output is "Parsed." and no
-tree = RECOGNIZED (a recognizer's acceptance, Lon's phase 1 for parser_raku.sc: not a tree, so still red, and not a crash); anything
+tree = RECOGNIZED (a recognizer's acceptance: not a tree, so still red, and not a crash); anything
 else -- a crash, a timeout, heap exhaustion, a runtime error -- = CRASH, its first line named, because a parser that dies is not a
 parser that declines. A program's time limit is 10 x its language's start-up on an empty input (10..300 s) unless --timeout S names one;
 without --timeout every program that times out is re-run alone at 300 s before it counts, so a load rise mid-run is no CRASH.
@@ -109,9 +109,8 @@ def parse_one(scrip, chain, prog, timeout):
         return "EMPTY", "no output, rc=0"
     if first.startswith("("):
         return "PARSED", first
-    # RECOGNIZED (hq_snocone 2026-09-25): a clean exit that prints "Parsed." and no tree is a recognizer's acceptance -- Lon's phase 1
-    # for parser_raku.sc, "test first without any semantic rountines, i.e. no tree building" -- which is neither a tree (still red)
-    # nor a crash: counted apart so 85 accepted Raku programs do not read as 85 crashes.
+    # RECOGNIZED (hq_snocone 2026-09-25): a clean exit that prints "Parsed." and no tree is a recognizer's acceptance -- the old
+    # parser_raku.sc's phase 1 (it builds trees since the 2026-09-29 rewrite) -- neither a tree (still red) nor a crash.
     if any(re.fullmatch(r"Parsed\.?", l) for l in lines):
         return "RECOGNIZED", first
     return "CRASH", first or "(no output, rc=%d)" % r.returncode
