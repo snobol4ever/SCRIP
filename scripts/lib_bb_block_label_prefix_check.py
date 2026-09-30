@@ -72,7 +72,11 @@ EXEMPT = [
      "driver-level per-procedure startup/reflection table (src/driver/scrip.c) -- same ruling as .Lgvan"),
     (re.compile(r'^\.Lseala\d+$'),
      "driver-level rt_proc_seal_alpha startup table (src/driver/scrip.c) -- same ruling as .Lgvan"),
+    (re.compile(r'^\.Lgcmap_'),
+     "the collector's frame map for a graph or thunk (emit.cpp emit_label_initf \".Lgcmap_%s\", ~line 3292), .quad data emitted "
+     "after the graph's omega in the text section -- a MODULE DATUM with no owning box; ceo 2026-09-30, CEO-1380"),
 ]
+ENTRY = re.compile(r'^(FN__|main$|module_init$|__gva_names$|[A-Za-z_][A-Za-z0-9_$]*_α_body$)')
 
 
 def exempt(name):
@@ -80,6 +84,9 @@ def exempt(name):
         if pat.match(name):
             return True
     return False
+
+
+SECTION_DIRECTIVE = re.compile(r'^\s*\.(?:section\s+(\S+)|(text|data|rodata|bss|previous|popsection))\b')
 
 
 def classify(name):
@@ -107,16 +114,31 @@ def check(path):
     greek_missing = []
     owner = None
     n_checked = 0
+    in_text = True
     with open(path, encoding='utf-8') as f:
         for lineno, line in enumerate(f, 1):
+            sm = SECTION_DIRECTIVE.match(line)
+            if sm:
+                # A label defined in a non-text section is a MODULE DATUM (the thunk record .Lthk_<pat> and the frame map
+                # .Lgcmap_<pat> in .data.rel.ro, the label-name table .Llbln<N>, the Icon startup tables .Lstartup_*): it has no
+                # owning box, so the Greek infix would be false, not redundant -- the header's own mechanism test. The emitter
+                # returns to .text and continues the block it was in, so the owner is kept across the interlude (ceo 2026-09-30,
+                # CEO-1380: 59 such labels read as violations after the stored-pattern landings moved the data emission).
+                sec = (sm.group(1) or sm.group(2) or '').strip()
+                in_text = sec in ('text', '.text', 'previous', 'popsection') or sec.startswith('.text')
+                continue
             m = LABEL_DEF.match(line.rstrip('\n'))
             if not m:
                 continue
             name = m.group(1)
             n_checked += 1
+            if not in_text:
+                continue
             if FAMILY_SUFFIX.search(name) and not (GREEK_SET & set(name)):
                 greek_missing.append((lineno, name))
             if exempt(name):
+                if ENTRY.match(name):
+                    owner = None
                 continue
             kind, new_owner = classify(name)
             if kind == 'anchor':
