@@ -1665,6 +1665,12 @@ static void gc_root_cas(void)
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_root_gva(void)
+{
+    DESCR_t *gv = (DESCR_t *)RT_GVA_VA;
+    for (int k = 0; k < g_sxt_gva_n; k++) rt_gc_visit_descr(&gv[k]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static long gc_plant_shift_bytes(void)
 {
@@ -1863,7 +1869,7 @@ static long gc_collect_ex(void)
 #else
     gc_coexpr_records(); gc_stack_segments(g_gc_seam_sp ? g_gc_seam_sp : &anchor);
 #endif
-    gc_root_cas();
+    gc_root_cas(); gc_root_gva();
     kw_cset_gc_roots(); core_gc_roots(); dat_gc_roots(); gen_gc_roots(); pas_gc_roots(); pl_gc_roots(); rt_gc_root_args(); eval_gc_roots(); lower_gc_roots(); bnd_gc_roots();
 #ifdef SCRIP_GC_AUDIT_B
 #if RT_DIAG

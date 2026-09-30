@@ -4914,7 +4914,7 @@ void core_gc_roots(void)
             if (e->name) rt_gc_visit_raw_in((const char **)&e->name, e);
             if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e);
             rt_gc_visit_descr(&e->val);
-            if (e->cell) { rt_gc_visit_raw_in((const char **)&e->cell, e); rt_gc_visit_descr(e->cell); } } }
+            if (e->cell) rt_gc_visit_raw_in((const char **)&e->cell, e); } }
     for (int b = 0; b < FUNC_BUCKETS; b++) {
         if (_func_buckets[b]) rt_gc_visit_raw((const char **)&_func_buckets[b]);
         for (FNCBLK_t *e = _func_buckets[b]; e; e = (FNCBLK_t *)e->next) {
