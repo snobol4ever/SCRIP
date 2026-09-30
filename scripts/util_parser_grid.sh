@@ -16,6 +16,7 @@
 # Each engine runs the list; when a run dies, the files from the last "== <file>" it printed are run ALONE until one dies alone,
 # that file leaves the list and the scan resumes after it (a buffered engine can die past the last header it flushed; a file that
 # dies only in company leaves as the last one begun). The count each engine dropped is printed beside the list; GRID_OUT keeps names.
+# A list run is bounded by GRID_TIMEOUT (600 s) and a file run alone by GRID_ONE_TIMEOUT (60 s); a file that outlasts either leaves.
 # THE THREE ENGINES, each reading PARSER_FILES=<list> and printing "== <file>" then the file's tree, and one line
 # PARSER-METRICS files= bytes= parse_first_us= parse_us= whose parse_us is the clock:
 #   C      out/parser_<lang> (src/tools/parser_main.c): times only its parser -- no lowering, no I/O; a link or include is resolved
@@ -25,6 +26,10 @@
 #   SBL    sbl_clean_bin -bf (the clean benchmark oracle, never the monitor-hooked x64 fork: GOAL-SNOCONE-100 cursor 29k) running
 #          scrip --transpile of the same chain; the same driver, the same clock. TIME() reads nanoseconds in both, measured.
 #   SCRIP and SBL both run -s2000m -d8000m -i64m; SCRIP_DIAG=0 for the compile and every run. The median of GRID_RUNS (3) runs.
+#   VIA TRANSPILE: a language named in GRID_VIA_TRANSPILE (default: raku) has its SCRIP binary compiled from the same transpiled
+#   chain SPITBOL runs, through the SNOBOL4 frontend, and its row says "via transpile" -- the ceo's order of 2026-09-29 19:4x
+#   (da1b3a85a's rewritten parser_raku.sc hangs on a second statement when the chain is compiled directly as .sc, a Snocone-frontend
+#   defect; the default drops raku the day the ceo telegrams the cure). Raku's C clock is rk_parse_tree: parse and tree, as the .sc's.
 # COLUMNS: files, bytes, C ms, SCRIP ms, SBL ms, SBL/SCRIP, C/SCRIP, trees -- every run is made under PARSER_TREE_HASH=1, so each
 # engine prints ONE NUMBER per file in place of its tree (125bb54e6, the cfo's: the dump's bytes folded in memory, h = (h * 256 +
 # byte) mod (2^55 - 55), outside every parse clock), and each file's number from SCRIP is compared with the same file's from
@@ -54,7 +59,7 @@ S4E="${S4E_HOME:-$(cd "$SELF/.." && pwd)}"; CORPUS="${CORPUS:-$S4E/corpus}"
 SBL="$(sbl_clean_bin)" || refuse "no clean benchmark oracle (sbl_clean_bin)"
 B="$W/bootstrap"; CHAIN="$B/global.sc $B/case.sc $B/assign.sc $B/match.sc $B/counter.sc $B/stack.sc $B/tree.sc $B/ShiftReduce.sc $B/tdump.sc $B/gen.sc $B/qize.sc $B/semantic.sc $B/omega.sc $B/trace.sc"
 for f in $CHAIN; do [ -f "$f" ] || refuse "chain file missing: $f"; done
-SW="-s2000m -d8000m -i64m"; RUNS="${GRID_RUNS:-3}"; TMO="${GRID_TIMEOUT:-3000}"; export SCRIP_DIAG=0
+SW="-s2000m -d8000m -i64m"; RUNS="${GRID_RUNS:-3}"; TMO="${GRID_TIMEOUT:-600}"; TMO1="${GRID_ONE_TIMEOUT:-60}"; VIA=" ${GRID_VIA_TRANSPILE-raku} "; export SCRIP_DIAG=0
 case "$RUNS" in ''|*[!0-9]*|0) refuse "GRID_RUNS=$RUNS is not a positive count" ;; esac
 bi() { env -u RT_OPT make -s -C "$W" ${1:+"RT_OPT=$1"} buildinfo 2>/dev/null | sed -n "s/^$2 *: *//p" | sed 's/ *$//'; }
 lt="$(readlink "$W/out/libscrip_rt.so" | sed -n 's/^libscrip_rt-\([0-9a-f]*\)\.so$/\1/p')"
@@ -72,9 +77,9 @@ printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' lang files bytes "C m
 RC=0; NL=0; NC=0; N2=0
 run() {   # $1 engine, $2 list, $3 output stem: one run of that engine over the list
     case "$1" in
-    C)     ( cd "$CORPUS" && PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" IPATH="$CORPUS/packages/icon/ipl/procs" timeout "$TMO" "$W/out/parser_$L" < /dev/null > "$3.out" 2> "$3.err" ) ;;
-    SCRIP) PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "$TMO" "$T/$L.bin" $SW < /dev/null > "$3.out" 2> "$3.err" ;;
-    SBL)   PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "$TMO" "$SBL" -bf $SW "$T/$L.sno" < /dev/null > "$3.out" 2> "$3.err" ;;
+    C)     ( cd "$CORPUS" && PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" IPATH="$CORPUS/packages/icon/ipl/procs" timeout "${TM:-$TMO}" "$W/out/parser_$L" < /dev/null > "$3.out" 2> "$3.err" ) ;;
+    SCRIP) PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "${TM:-$TMO}" "$T/$L.bin" $SW < /dev/null > "$3.out" 2> "$3.err" ;;
+    SBL)   PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "${TM:-$TMO}" "$SBL" -bf $SW "$T/$L.sno" < /dev/null > "$3.out" 2> "$3.err" ;;
     esac
 }
 section() { awk -v x="$2" '/^== / { f = (substr($0, 4) == x); next } f' "$1"; }   # the lines an output printed for file $2
@@ -101,7 +106,7 @@ scan() {  # $1 engine: drop from $T/$L.list each file that ends the engine's run
         run "$e" "$rest" "$T/$L.scan"; whole "$T/$L.scan" "$rest" && break
         last="$(grep '^== ' "$T/$L.scan.out" | tail -1 | cut -c4-)"; culprit=""
         while IFS= read -r f; do
-            printf '%s\n' "$f" > "$T/$L.one"; run "$e" "$T/$L.one" "$T/$L.onerun"; whole "$T/$L.onerun" "$T/$L.one" || { culprit="$f"; break; }
+            printf '%s\n' "$f" > "$T/$L.one"; TM="$TMO1" run "$e" "$T/$L.one" "$T/$L.onerun"; whole "$T/$L.onerun" "$T/$L.one" || { culprit="$f"; break; }
         done < <(awk -v x="$last" 'x == "" || $0 == x { f = 1 } f' "$rest")
         [ -n "$culprit" ] || culprit="$last"; [ -n "$culprit" ] || return 1
         echo "$culprit" >> "$T/$L.gone.$e"
@@ -117,9 +122,10 @@ for L in $LANGS; do
     grep -q "PARSER_FILES" "$B/parser_$L.sc" 2>/dev/null || { echo "$L ⛔ REFUSE(2): bootstrap/parser_$L.sc reads no PARSER_FILES list"; RC=2; continue; }
     [ -x "$W/out/parser_$L" ] && [ "$W/out/parser_$L" -nt "$W/src/tools/parser_main.c" ] || { echo "$L ⛔ REFUSE(2): out/parser_$L missing or older than src/tools/parser_main.c -- make parsers"; RC=2; continue; }
     cat $CHAIN "$B/parser_$L.sc" > "$T/$L.sc"
-    "$W/scrip" --compile "$T/$L.sc" -o "$T/$L.s" < /dev/null > "$T/$L.cc.err" 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$L.s" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$T/$L.bin" 2>> "$T/$L.cc.err" \
-        || { echo "$L ⛔ REFUSE(2): the .sc chain did not compile or link to a mode-4 binary ($(head -1 "$T/$L.cc.err" | cut -c1-100))"; RC=2; continue; }
     "$W/scrip" --transpile "$T/$L.sc" > "$T/$L.sno" 2> "$T/$L.tr.err" && [ -s "$T/$L.sno" ] || { echo "$L ⛔ REFUSE(2): scrip --transpile of the chain failed"; RC=2; continue; }
+    src="$T/$L.sc"; via=""; case "$VIA" in *" $L "*) src="$T/$L.sno"; via=" | via transpile" ;; esac
+    "$W/scrip" --compile "$src" -o "$T/$L.s" < /dev/null > "$T/$L.cc.err" 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$L.s" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$T/$L.bin" 2>> "$T/$L.cc.err" \
+        || { echo "$L ⛔ REFUSE(2): the ${via:+transpiled }chain did not compile or link to a mode-4 binary ($(head -1 "$T/$L.cc.err" | cut -c1-100))"; RC=2; continue; }
     sbl_clean_refuse_if_load "$T/$L.sno" > /dev/null || { echo "$L ⛔ REFUSE(2): the transpiled chain calls LOAD(), unverified on the clean oracle"; RC=2; continue; }
     find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/$L.list"
     np=$(wc -l < "$T/$L.list"); [ "$np" -gt 0 ] || { echo "$L ⛔ REFUSE(2): no corpus program ends in .$ext"; RC=2; continue; }
@@ -137,8 +143,8 @@ for L in $LANGS; do
     nd=$(awk 'FNR == 1 { k++ } /^== / { nm = substr($0, 4); if (k == 1) a[nm] = ""; else b[nm] = ""; next } k == 1 { a[nm] = a[nm] $0 "\n"; next } { b[nm] = b[nm] $0 "\n" }
               END { for (n in a) if (!(n in b) || a[n] != b[n]) d++; for (n in b) if (!(n in a)) d++; print d + 0 }' "$T/$L.SCRIP.out" "$T/$L.SBL.out")
     t=SCRIP==SBL; [ "$nd" = 0 ] || t="DIFFER $nd/$nf"
-    printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' "$L" "$nf" "$(metric "$T/$L.SCRIP.err" bytes)" "$(ms "$c")" "$(ms "$s")" "$(ms "$b")" "$(x "$b" "$s")" "$(x "$c" "$s")" "$t"
-    echo "   $L list: $nf of $np corpus programs; dropped because the file ended the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL"); runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us"
+    printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' "$L" "$nf" "$(metric "$T/$L.SCRIP.err" bytes)" "$(ms "$c")" "$(ms "$s")" "$(ms "$b")" "$(x "$b" "$s")" "$(x "$c" "$s")" "$t$via"
+    echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL"); runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
     NL=$((NL + 1)); awk -v c="$c" -v s="$s" 'BEGIN { exit !(s > 0 && c / s >= 1.0) }' && NC=$((NC + 1)); awk -v b="$b" -v s="$s" 'BEGIN { exit !(s > 0 && b / s >= 2.0) }' && N2=$((N2 + 1))
 done
 echo "BAR [$G]: $NC of $NL parsers at C's parse clock (C/SCRIP >= 1.00), $N2 of $NL at SPITBOL/SCRIP >= 2.00; load at end $(cut -d' ' -f1-3 /proc/loadavg)${GRID_OUT:+; lists, dropped names and dumps kept under $GRID_OUT}"
