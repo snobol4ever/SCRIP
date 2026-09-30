@@ -11,7 +11,8 @@
 # when the rewritten parser_raku.sc prints trees through that driver). A language named whose driver does not read the list REFUSES.
 # THE FILE LIST, ONE FOR ALL THREE ENGINES, DERIVED HERE AND PRINTED WITH ITS COUNT: every corpus program of the language (the tree
 # gate's corpus population: *.<ext> outside .git and corpus/library, not ALL.*), less each file that ENDS an engine's run before
-# its PARSER-METRICS line. Measured on 2026-09-29: the C Icon parser exits the process on a link it cannot open, and SPITBOL stops on
+# its PARSER-METRICS line. Each engine scans the WHOLE population on its own, so its count is independent of the others' (a file
+# that kills two engines is counted under both) and the list is the population less the union. Measured on 2026-09-29: the C Icon parser exits the process on a link it cannot open, and SPITBOL stops on
 # a run-time error in the parser program (field function argument is wrong datatype) -- either way every later file goes unparsed.
 # Each engine runs the list; when a run dies, the files from the last "== <file>" it printed are run ALONE until one dies alone,
 # that file leaves the list and the scan resumes after it (a buffered engine can die past the last header it flushed; a file that
@@ -99,8 +100,8 @@ canary() {   # prints LIVE, or why the numbers cannot be trusted
 }
 metric() { grep '^PARSER-METRICS ' "$1" | tail -1 | grep -o " $2=[0-9]*" | cut -d= -f2; }
 whole() { [ "$(metric "$1.err" files)" = "$(wc -l < "$2")" ]; }   # the run reached its PARSER-METRICS line over every file of the list
-scan() {  # $1 engine: drop from $T/$L.list each file that ends the engine's run; the dropped names in $T/$L.gone.$1
-    local e="$1" rest="$T/$L.rest" last culprit f; : > "$T/$L.gone.$e"; cp "$T/$L.list" "$rest"
+scan() {  # $1 engine: each file of the population that ends the engine's run, named in $T/$L.gone.$1
+    local e="$1" rest="$T/$L.rest" last culprit f; : > "$T/$L.gone.$e"; cp "$T/$L.pop" "$rest"
     : > "$T/$L.none"; run "$e" "$T/$L.none" "$T/$L.smoke"; whole "$T/$L.smoke" "$T/$L.none" || return 1
     while [ -s "$rest" ]; do
         run "$e" "$rest" "$T/$L.scan"; whole "$T/$L.scan" "$rest" && break
@@ -112,7 +113,6 @@ scan() {  # $1 engine: drop from $T/$L.list each file that ends the engine's run
         echo "$culprit" >> "$T/$L.gone.$e"
         awk -v x="$culprit" 'f; $0 == x { f = 1 }' "$rest" > "$rest.2"; mv "$rest.2" "$rest"
     done
-    grep -vxF -f "$T/$L.gone.$e" "$T/$L.list" > "$T/$L.list.2"; mv "$T/$L.list.2" "$T/$L.list"
 }
 med() { printf '%s\n' "$@" | sort -n | sed -n "$(( ($# + 1) / 2 ))p"; }
 ms() { awk -v u="$1" 'BEGIN { if (u == "") printf "-"; else printf "%.1f", u / 1000 }'; }
@@ -127,10 +127,11 @@ for L in $LANGS; do
     "$W/scrip" --compile "$src" -o "$T/$L.s" < /dev/null > "$T/$L.cc.err" 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$L.s" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$T/$L.bin" 2>> "$T/$L.cc.err" \
         || { echo "$L ⛔ REFUSE(2): the ${via:+transpiled }chain did not compile or link to a mode-4 binary ($(head -1 "$T/$L.cc.err" | cut -c1-100))"; RC=2; continue; }
     sbl_clean_refuse_if_load "$T/$L.sno" > /dev/null || { echo "$L ⛔ REFUSE(2): the transpiled chain calls LOAD(), unverified on the clean oracle"; RC=2; continue; }
-    find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/$L.list"
-    np=$(wc -l < "$T/$L.list"); [ "$np" -gt 0 ] || { echo "$L ⛔ REFUSE(2): no corpus program ends in .$ext"; RC=2; continue; }
+    find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/$L.pop"
+    np=$(wc -l < "$T/$L.pop"); [ "$np" -gt 0 ] || { echo "$L ⛔ REFUSE(2): no corpus program ends in .$ext"; RC=2; continue; }
     bad=""; for e in C SCRIP SBL; do scan "$e" || { bad="$e"; break; }; done
     [ -z "$bad" ] || { echo "$L ⛔ REFUSE(2): $bad dies before its first file (an empty list does not reach PARSER-METRICS; see $bad's stderr under GRID_OUT)"; RC=2; continue; }
+    sort -u "$T/$L.gone.C" "$T/$L.gone.SCRIP" "$T/$L.gone.SBL" > "$T/$L.gone"; grep -vxF -f "$T/$L.gone" "$T/$L.pop" > "$T/$L.list"
     nf=$(wc -l < "$T/$L.list"); [ "$nf" -gt 0 ] || { echo "$L ⛔ REFUSE(2): every file ends some engine's run"; RC=2; continue; }
     tc=(); ts=(); tb=(); short=""
     for k in $(seq "$RUNS"); do
@@ -144,7 +145,7 @@ for L in $LANGS; do
               END { for (n in a) if (!(n in b) || a[n] != b[n]) d++; for (n in b) if (!(n in a)) d++; print d + 0 }' "$T/$L.SCRIP.out" "$T/$L.SBL.out")
     t=SCRIP==SBL; [ "$nd" = 0 ] || t="DIFFER $nd/$nf"
     printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' "$L" "$nf" "$(metric "$T/$L.SCRIP.err" bytes)" "$(ms "$c")" "$(ms "$s")" "$(ms "$b")" "$(x "$b" "$s")" "$(x "$c" "$s")" "$t$via"
-    echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL"); runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
+    echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL") (each engine over all $np); runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
     NL=$((NL + 1)); awk -v c="$c" -v s="$s" 'BEGIN { exit !(s > 0 && c / s >= 1.0) }' && NC=$((NC + 1)); awk -v b="$b" -v s="$s" 'BEGIN { exit !(s > 0 && b / s >= 2.0) }' && N2=$((N2 + 1))
 done
 echo "BAR [$G]: $NC of $NL parsers at C's parse clock (C/SCRIP >= 1.00), $N2 of $NL at SPITBOL/SCRIP >= 2.00; load at end $(cut -d' ' -f1-3 /proc/loadavg)${GRID_OUT:+; lists, dropped names and dumps kept under $GRID_OUT}"
