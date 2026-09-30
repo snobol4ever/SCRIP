@@ -2633,11 +2633,12 @@ static int blob_choice_rbp_scan(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int blob_carve_pad(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_CARVE_PAD"); v = e ? 16 * atoi(e) : 0; } return v; }
+static int blob_spine_only(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_SPINE"); v = (e && *e == '0') ? 0 : 1; } return v; }
 int blob_frame_bytes(void) {
     if (!blob_frame_scope() || !g_emit_cfg) return 0;
     int count = 0; if (frame_slot_scan((const IR_t *)0, (int *)0, &count) != 2) { count = 0; }
     int _pend = 0; if (sn4_blob_casmark()) for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _m = g_emit_cfg->all[_i]; if (_m && _m->op == IR_MATCH_ASSIGN_COND) { _pend = 1; break; } }
-    if (count == 0 && !_pend && !blob_wire_clobber_scan() && !blob_choice_rbp_scan()) return blob_head_bytes();
+    if (count == 0 && !_pend && !blob_wire_clobber_scan() && !blob_choice_rbp_scan()) return blob_spine_only() ? 0 : blob_head_bytes();
     return blob_head_bytes() + 16 * count + (blob_choice_rbp_scan() ? 32 : 0);
 }
 extern "C" int sn4_choice_rbp_off(void);

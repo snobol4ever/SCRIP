@@ -6,10 +6,14 @@
 # CRITERION, RULES.md, Lon 2026-08-27: RESULT/LOCALS stay on the RSP spine iff every consumer reaches them at a fixed compile-time
 # offset on every path, and move to an RBP frame the moment a gamma->beta window with unbounded activity between can intervene).
 #
-# THE WITNESS: p1 is recede-free -- POS, LIT, SPAN, ANY, LEN, BREAK, a conditional assignment mark and RPOS: no box in it can be
-# receded into after gamma (a beta into any of them fails straight through to omega), so its PAT$ thunk has no gamma->beta window and
-# needs no frame, no map cell and no zero-fill. p2 holds an alternation and p3 an ARBNO, each a recede window, so their thunks keep
-# the frame -- the control: a framed-needed shape run frameless is this gate's red as much as a recede-free one framed. The thunks are
+# THE WITNESS: p1 is recede-free and holds no value -- POS, LIT, SPAN, ANY, LEN, BREAK, LIT and RPOS: no box in it can be receded into
+# after gamma (a beta into any of them fails straight through to omega) and none keeps a DESCR, so its PAT$ thunk has no gamma->beta
+# window, nothing for the collector to see, and needs no frame, no map cell and no zero-fill. p2 holds an alternation and p3 an ARBNO,
+# each a recede window, so their thunks keep the frame -- the control: a framed-needed shape run frameless is this gate's red as much
+# as a recede-free one framed. NOT GRADED HERE, named as the open question of the row: a pattern whose only frame need is a DESCR (a
+# conditional or immediate assignment's pending value, a capture) keeps its frame today because the collector maps DESCR slots per
+# RBP frame (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 7, frozen); moving that value off the frame is a design the row records, not
+# something this gate asserts. The thunks are
 # read from the mode-4 .s by their FN__PAT$n labels in source order (p1 = PAT$0, p2 = PAT$1, p3 = PAT$2); a thunk is FRAMED when the
 # text between FN__PAT$n and PAT$n_omega carries "mov rbp, rsp". The program's output must equal sbl -bf in both modes whatever the
 # frames read. MEASURED RED at de0302f83: every thunk is framed (PAT$0 carries push rbp / mov rbp, rsp / sub rsp, 88, the map cell and
@@ -21,11 +25,11 @@ SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2)
 SBL="$(sbl_correctness_bin)" || { echo "⛔ GATE REFUSE(2) [$G]: no SPITBOL correctness oracle"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 cat > "$T/w.sno" <<'SNO'
-        p1 = POS(0) 'ab' SPAN('cd') ANY('xy') LEN(1) BREAK('!') . part '!' RPOS(0)
+        p1 = POS(0) 'ab' SPAN('cd') ANY('xy') LEN(1) BREAK('!') '!' RPOS(0)
         p2 = 'ab' | SPAN('cd')
         p3 = ARBNO('a' | 'b') 'c'
         'abccdxq..!' p1                                 :F(n1)
-        OUTPUT = 'ok1 ' part
+        OUTPUT = 'ok1'
 n1      'abccdxq..' p1                                  :S(bad1)
         OUTPUT = 'no1'
 bad1    'ccd' p2                                        :F(n2)
