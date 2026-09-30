@@ -89,22 +89,39 @@ static void lex_clock_calibrate(double * in_ns, double * full_ns) {
     *full_ns = (double) ((t2 - t1) - (t1 - t0)) / N + (double) (s & 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define TREE_HASH_P 36028797018963913ULL
+static ssize_t tree_hash_write(void * cookie, const char * b, size_t n) {
+    uint64_t * h = (uint64_t *) cookie;
+    for (size_t i = 0; i < n; i++) *h = (*h * 256 + (unsigned char) b[i]) % TREE_HASH_P;
+    return (ssize_t) n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void dump_program(const tree_t * ast, int hash) {
+    if (!hash) { for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], stdout); return; }
+    uint64_t h = 0; cookie_io_functions_t io = { NULL, tree_hash_write, NULL, NULL };
+    FILE * f = fopencookie(&h, "w", io);
+    if (!f) { fprintf(stderr, "parser_%s: no hashing stream\n", PARSER_NAME); exit(2); }
+    for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], f);
+    fclose(f);
+    printf("%llu\n", (unsigned long long) h);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if defined(PARSER_LANG_SNOBOL4)
-static int parse_snobol4_program(char * src, size_t len, const char * path, int64_t * pns) {
+static int parse_snobol4_program(char * src, size_t len, const char * path, int64_t * pns, int hash) {
     int64_t a = mono_ns();
     sno_reset();
     tree_t * ast = sno_parse_ast_buf(src, len, path, NULL, 0);
     *pns += mono_ns() - a;
     if (!ast) { puts("Parse Error"); return 1; }
-    for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], stdout);
+    dump_program(ast, hash);
     return 0;
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int parse_and_dump(char * src, size_t len, const char * name, int64_t * pns) {
+static int parse_and_dump(char * src, size_t len, const char * name, int64_t * pns, int hash) {
     stmt_src_set_file(name);
 #if defined(PARSER_LANG_SNOBOL4)
-    return parse_snobol4_program(src, len, name, pns);
+    return parse_snobol4_program(src, len, name, pns, hash);
 #else
     (void)len;
     tree_t * ast = NULL;
@@ -113,12 +130,13 @@ static int parse_and_dump(char * src, size_t len, const char * name, int64_t * p
     *pns += mono_ns() - a;
     { int64_t ln = g_lex_ns, lc = g_lex_calls; PARSER_FINISH(parsed, name, &ast); g_lex_ns = ln; g_lex_calls = lc; }
     if (!ast) { puts("Parse Error"); return 1; }
-    for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], stdout);
+    dump_program(ast, hash);
     return 0;
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char ** argv) {
+    const char * hv = getenv("PARSER_TREE_HASH"); int hash = hv && !strcmp(hv, "1");
     const char * list = getenv("PARSER_FILES");
     if (list && *list) {
         FILE * lf = fopen(list, "r");
@@ -134,7 +152,7 @@ int main(int argc, char ** argv) {
             if (!src) { fprintf(stderr, "parser_%s: out of memory\n", PARSER_NAME); return 2; }
             bytes += (long)len;
             fflush(stdout);
-            if (parse_and_dump(src, len, nm, &pns)) rc = 1;
+            if (parse_and_dump(src, len, nm, &pns, hash)) rc = 1;
             fflush(stdout);
             if (++files == 1) pns1 = pns;
         }
@@ -151,5 +169,5 @@ int main(int argc, char ** argv) {
     if (path) fclose(f);
     if (!src) { fprintf(stderr, "parser_%s: out of memory\n", PARSER_NAME); return 2; }
     int64_t pns = 0;
-    return parse_and_dump(src, len, path ? path : "(stdin)", &pns);
+    return parse_and_dump(src, len, path ? path : "(stdin)", &pns, hash);
 }

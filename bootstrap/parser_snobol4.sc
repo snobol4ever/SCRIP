@@ -243,6 +243,7 @@ function ParseOne(ptree, i, nk, cmd) {
             if (IDENT(t(cmd), 'TT_STMT')) { TreeDump(cmd); }
             i = i + 1;
         }
+        TreeDumpEnd();
     } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error.'; }
     return;
 }

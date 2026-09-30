@@ -378,6 +378,7 @@ function ParseOne(ptree, i, n_kids) {
                 i = i + 1;
             }
         }
+        TreeDumpEnd();
     } else { pf_parse = pf_parse + (TIME() - pf_a); OUTPUT = 'Parse Error'; }
     return;
 }

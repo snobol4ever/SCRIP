@@ -178,13 +178,33 @@ function TreeDumpAt(x, level, outNm, i, line, kids) {
     kids = 0;
     i = 0;
     while (i = LT(i, n(x)) i + 1) kids = (TreeDumpSkip(c(x)[i]) kids, kids + 1);
-    if (~GT(kids, 0)) { $outNm = line ')'; return; }
-    $outNm = line;
+    if (~GT(kids, 0)) { TreeDumpPut(line ')', outNm); return; }
+    TreeDumpPut(line, outNm);
     i = 0;
     while (i = LT(i, n(x)) i + 1) {
         if (~TreeDumpSkip(c(x)[i])) TreeDumpAt(c(x)[i], level + 1, outNm);
     }
-    $outNm = DUPL(' ', 2 * level) ')';
+    TreeDumpPut(DUPL(' ', 2 * level) ')', outNm);
+    return;
+}
+/* ==================================================================================================================== */
+/* PARSER_TREE_HASH=1 (Lon 2026-09-29 18:5x CDT: "hashing the output tree is what I meant. In memory. Then output the one number   */
+/* per-test for comparison."): each line TreeDumpAt would print, and its newline, is folded into TreeHashH instead, byte by byte, */
+/* h = (h * 256 + byte) mod (2^55 - 55) -- the same fold, over the same bytes, as out/parser_<lang> (src/tools/parser_main.c).   */
+/* TreeDumpEnd prints the one number for the file and resets it; unset, TreeDumpPut prints the line and TreeDumpEnd does nothing. */
+function TreeDumpPut(s, outNm, i, n) {
+    if (~IDENT(TreeHashOn, '1')) { $outNm = s; return; }
+    n = SIZE(s);
+    i = 0;
+    while (i = LT(i, n) i + 1) TreeHashH = REMDR(TreeHashH * 256 + TreeHashOrd[SUBSTR(s, i, 1)], TreeHashP);
+    TreeHashH = REMDR(TreeHashH * 256 + 10, TreeHashP);
+    return;
+}
+/* ==================================================================================================================== */
+function TreeDumpEnd() {
+    if (~IDENT(TreeHashOn, '1')) return;
+    OUTPUT = TreeHashH;
+    TreeHashH = 0;
     return;
 }
 /* ==================================================================================================================== */
@@ -193,3 +213,9 @@ function TreeDump(x, outNm) {
     TreeDumpAt(x, 0, outNm);
     return;
 }
+TreeHashOn  = HOST(4, 'PARSER_TREE_HASH');
+TreeHashP   = 36028797018963913;
+TreeHashH   = 0;
+TreeHashOrd = TABLE(257);
+TreeHashI   = 0;
+while (LT(TreeHashI, 256)) { TreeHashOrd[SUBSTR(&ALPHABET, TreeHashI + 1, 1)] = TreeHashI; TreeHashI = TreeHashI + 1; }
