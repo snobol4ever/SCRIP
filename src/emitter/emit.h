@@ -532,6 +532,7 @@ typedef struct {
     int                          op_arbno_win_bytes;
     int                          op_arbno_body_fence;
     int                          op_alt_cell;
+    const char *                 op_alt_first;
     int                          op_cap_frame_off;
     int                          op_fence0_release;
     int                          op_fence0_floor;

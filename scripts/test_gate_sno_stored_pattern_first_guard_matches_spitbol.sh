@@ -11,13 +11,15 @@
 # 5955a2e73 (cases 1, 2, 3, 5 printed "matched" where SPITBOL fails), GREEN after the cure; twelve_shapes: a nullable immediate
 # capture, POS alternatives, NOTANY, a deferred ref before and after the first consumer, a nullable alternation, FENCE, the subject
 # end, &ANCHOR, a NUL subject character; bound_and_reassigned: white, White, Gray and $' ' reassigned mid-program (every guard
-# stands down) and the empty-success path. Exit 0 = all six runs match; 1 = a divergence; 2 = cannot measure.
+# stands down) and the empty-success path; alternations: the alternation-level guard (an alternation whose every arm has a known
+# first character fails at its entry when none can start) inside ARBNO, under &ANCHOR, after a capture, beside a NUL subject byte.
+# Exit 0 = all eight runs match; 1 = a divergence; 2 = cannot measure.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; G="$(basename "${BASH_SOURCE[0]}" .sh)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $SCRIP"; exit 2; }
 FX="$HERE/fixtures/sno_first_guard"; T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0; N=0
-for w in abort_and_bare_fence twelve_shapes bound_and_reassigned; do
+for w in abort_and_bare_fence twelve_shapes bound_and_reassigned alternations; do
     [ -f "$FX/$w.sno" ] && [ -f "$FX/$w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing fixture $FX/$w.{sno,ref}"; exit 2; }
     timeout 20 "$SCRIP" "$FX/$w.sno" < /dev/null > "$T/$w.m3" 2>&1
     if timeout 20 "$SCRIP" --compile -o "$T/$w.s" "$FX/$w.sno" < /dev/null > /dev/null 2>&1 && gcc -m64 -no-pie "$T/$w.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/$w.bin" 2>/dev/null

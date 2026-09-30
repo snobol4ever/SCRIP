@@ -1262,7 +1262,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_ASSIGN_COND:    { bb_prepare(nd); g_emit.op_fc_disp = fc_cond_fp(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] COND nd=%p fc_disp=%d zres=%d zread0=%d anchor=%d frame_off=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_zres, g_emit.op_zread[0], g_emit.op_cap_anchor, g_emit.op_cap_frame_off); bb_emit_x86(bb_match_capture()); } return 0;
     case IR_MATCH_ASSIGN_IMM:     { bb_prepare(nd); g_emit.op_fc_disp = fc_cond_fp(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] IMM nd=%p fc_disp=%d anchor=%d off=%d pin=%d refine=%d deep=%d pat=%d frame_off=%d\n", (void*)nd, g_emit.op_fc_disp, g_emit.op_cap_anchor, g_emit.op_off, emit_jmp_pin_legacy(), g_emit.flat_fb_refine, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.op_cap_frame_off); bb_emit_x86(bb_match_capture()); } return 0;
     case IR_MATCH_ASSIGN_SAVE:    { bb_prepare(nd); g_emit.op_cap_anchor = cap_anchor_of(nd); g_emit.op_cap_frame_off = capture_frame_slot(nd); { long fck; if (fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_cap_anchor ? -1 : g_emit.op_off; } } { extern int fc_save_active(const IR_t *); if (getenv("SCRIP_CAP_DIAG")) fprintf(stderr, "[CAP] SAVE nd=%p save_active=%d fc_bytes=%ld anchor=%d frame_off=%d\n", (void*)nd, fc_save_active(nd), (long)g_emit.op_fc_bytes, g_emit.op_cap_anchor, g_emit.op_cap_frame_off); } bb_emit_x86(bb_match_capture()); } return 0;
-    case IR_MATCH_ALTERNATE:      { g_emit.op_alt_cell = alt_arm_complex(nd); g_emit.op_sa = sn4_choice_rbp_off_nd(); bb_emit_x86(bb_match_alternate()); } return 0;
+    case IR_MATCH_ALTERNATE:      { g_emit.op_alt_cell = alt_arm_complex(nd); g_emit.op_sa = sn4_choice_rbp_off_nd(); { extern const char * blob_alt_first(const IR_t *); g_emit.op_alt_first = blob_alt_first(nd); } bb_emit_x86(bb_match_alternate()); g_emit.op_alt_first = (const char *)0; } return 0;
     case IR_MATCH_FENCE0:          { bb_prepare(nd); g_emit.op_fence0_release = fence0_release_bytes(nd); g_emit.op_fence0_floor = fence0_dyn_floor(nd);
                                      switch ((sno_fence_lit_e)IR_LIT(nd).ival) { case SNO_FENCE_LIT_BARE: bb_emit_x86(bb_match_fence0()); break; case SNO_FENCE_LIT_FLUSH: bb_emit_x86(bb_match_flush()); break;
                                      default: fprintf(stderr, "[EMIT] FATAL IR_MATCH_FENCE0 node %p carries literal %lld, which names neither the bare FENCE nor FLUSH (sno_fence_lit_e in IR.h) -- refused, not emitted as a plain FENCE\n", (void *)nd, (long long)IR_LIT(nd).ival); abort(); } } return 0;
@@ -2708,6 +2708,19 @@ static void blob_fg_from(const IR_t * n, const IR_t * stop, const blob_fg_t * co
     case IR_SUCCEED: out->nempty = 1; return;
     default: out->unknown = 1; return;
     }
+}
+static int blob_alt_guard_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ALT_FIRST_GUARD"); v = (e && *e == '0') ? 0 : 1; } return v; }
+const char * blob_alt_first(const IR_t * nd) {
+    extern int sn4_cset32(void);
+    if (!blob_alt_guard_on() || sn4_cset32() || !nd || nd->seal || nd->n_operands < 4 || (nd->n_operands & 1)) return (const char *)0;
+    static const blob_fg_t eps = { {0}, 1, 0, 0 };
+    blob_fg_t u; memset(&u, 0, sizeof u);
+    for (int k = 0; k + 1 < nd->n_operands; k += 2) { blob_fg_t a; blob_fg_from(nd->operands[k], nd, &eps, &a, 0, (blob_fg_deps_t *)0);
+        if (a.unknown || a.nempty) return (const char *)0;
+        for (int i = 0; i < 256; i++) u.set[i] |= a.set[i]; }
+    if (u.set[0]) return (const char *)0;
+    int k = 0; char * set = (char *)ct_alloc(256); for (int i = 1; i < 256; i++) if (u.set[i]) set[k++] = (char)i; set[k] = 0;
+    return (k > 0 && k < 200) ? set : (const char *)0;
 }
 static int blob_fg_bind_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_FIRST_BIND"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static void blob_first_guard(void) {
