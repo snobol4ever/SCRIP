@@ -145,17 +145,36 @@ function TDump(x, outNm, i, t) {
     return;
 }
 /* ==================================================================================================================== */
-/* a real as C's printf %g prints it (ast_print.c: every TT_FLIT): 6 significant digits, trailing zeros dropped,       */
-/* the exponent form d.ddddde+XX when the decimal exponent is below -4 or at least 6.                                  */
-function TreeDumpG(r, sg, x, m, ds, ip, fp) {
+/* a real as C's printf %g prints it (ast_print.c: every TT_FLIT): 6 significant digits rounded half to even, trailing */
+/* zeros dropped, the exponent form d.ddddde+XX when the decimal exponent is below -4 or at least 6. The value is scaled */
+/* ONCE by an exact power of ten, so a tie such as 36524.25 stays a tie.                                                  */
+function TreeDumpScale(a, k, p, n) {
+    p = 1.0;
+    n = (GE(k, 0) k, -k);
+    while (GT(n, 0)) { p = p * 10.0; n = n - 1; }
+    TreeDumpScale = (GE(k, 0) a * p, a / p);
+    return;
+}
+function TreeDumpRound(s, m, f) {
+    m = CONVERT(s, 'INTEGER');
+    f = s - m;
+    if (GT(f, 0.5)) { m = m + 1; }
+    else if (EQ(f, 0.5)) { m = m + REMDR(m, 2); }
+    TreeDumpRound = m;
+    return;
+}
+function TreeDumpG(r, sg, a, t, x, m, ds, ip, fp) {
     if (EQ(r, 0)) { TreeDumpG = '0'; return; }
     sg = '';
-    if (LT(r, 0)) { sg = '-'; r = -r; }
+    a = r;
+    if (LT(r, 0)) { sg = '-'; a = -r; }
+    t = a;
     x = 0;
-    while (GE(r, 10.0)) { r = r / 10.0; x = x + 1; }
-    while (LT(r, 1.0)) { r = r * 10.0; x = x - 1; }
-    m = CONVERT(r * 100000.0 + 0.5, 'INTEGER');
-    if (GE(m, 1000000)) { m = m / 10; x = x + 1; }
+    while (GE(t, 10.0)) { t = t / 10.0; x = x + 1; }
+    while (LT(t, 1.0)) { t = t * 10.0; x = x - 1; }
+    m = TreeDumpRound(TreeDumpScale(a, 5 - x));
+    if (GE(m, 1000000)) { x = x + 1; m = TreeDumpRound(TreeDumpScale(a, 5 - x)); }
+    if (LT(m, 100000)) { x = x - 1; m = TreeDumpRound(TreeDumpScale(a, 5 - x)); }
     ds = '' m;
     if (LT(x, -4)) { ip = SUBSTR(ds, 1, 1); fp = SUBSTR(ds, 2); }
     else if (GE(x, 6)) { ip = SUBSTR(ds, 1, 1); fp = SUBSTR(ds, 2); }
@@ -169,7 +188,7 @@ function TreeDumpG(r, sg, x, m, ds, ip, fp) {
 }
 function TreeDumpValue(x, t, v, fval, zeros, pre) {
     t = t(x); v = v(x);
-    if (t ? (POS(0) ('TT_QLIT' | 'TT_CSET') RPOS(0))) { TreeDumpValue = ' "' CQize(v) '"'; return; }
+    if (t ? (POS(0) ('TT_QLIT' | 'TT_CSET') RPOS(0))) { v ? (BREAK(nul) . v); TreeDumpValue = ' "' CQize(v) '"'; return; }
     if (~DIFFER(v)) { TreeDumpValue = ; return; }
     if (IDENT(t, 'TT_FLIT')) { TreeDumpValue = ' ' TreeDumpG(CONVERT(v, 'REAL')); return; }
     TreeDumpValue = ' ' v;

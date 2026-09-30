@@ -259,13 +259,21 @@ Paren     = ( epsilon . *PushCounter()
               )
               . *PopCounter()
             );
-CompoundFirst = ( *$' ' *Expr *$' ' *semi_opt *$' ' . *IncCounter() );
-CompoundRest  = ( *$' ' *Expr *$' ' *semi_opt *$' ' . *IncCounter() );
-CompoundStar  = FENCE(*CompoundRest *CompoundStar | epsilon);
+/* { s1; s2 } is C's parse_block_or_expr: each statement may take one trailing ';', a bare ';' is the leaf &null, and */
+/* when the token before '}' is a ';' one more &null closes the block; {} is an empty TT_SEQ_EXPR, one item stands alone. */
+/* The ';' is tracked by the deferred actions themselves (IcnSemi), which run in match order, inner blocks first.         */
+function IcnSemi(f) { icnSemiFlag = f; IcnSemi = .dummy; nreturn; }
+function IcnBlockEnd() {
+    IcnBlockEnd = .dummy;
+    if (IDENT(icnSemiFlag, 1)) { Shift('TT_VAR', '&null'); IncCounter(); }
+    nreturn;
+}
+CompoundItem  = FENCE( *$' ' *$';' . *Shift('TT_VAR', '&null') . *IncCounter() . *IcnSemi(1)
+                     | *$' ' *Expr . *IncCounter() *$' ' FENCE( *$';' . *IcnSemi(1) | epsilon . *IcnSemi(0) ) );
+CompoundItems = FENCE( *CompoundItem *CompoundItems | epsilon );
 Compound      = ( epsilon . *PushCounter()
                   *$'{'
-                  ( FENCE(*CompoundFirst) *CompoundStar | epsilon )
-                  *$'}'
+                  ( *$' ' *$'}' | epsilon . *IcnSemi(0) *CompoundItems *$' ' *$'}' . *IcnBlockEnd() )
                   . *Reduce('TT_SEQ_EXPR', *(DIFFER(nTop(), 1) nTop()))
                   . *PopCounter()
                 );
@@ -300,18 +308,30 @@ Expr11tail  = ( epsilon . *PushCounter() *$'(' *CallArgs *$')' . *Reduce('TT_FNC
                 . *PopCounter()
               | *FieldTail
               );
+/* C's case keeps the default clause aside and appends its expression last (icon_parse.c parse_ctrl, TK_CASE): the   */
+/* default's expression is reduced into an ICN_DEFAULT marker and moved to the end once the TT_CASE node is built.     */
+function IcnCaseFix(x, i, d) {
+    IcnCaseFix = .dummy;
+    x = Pop();
+    i = 1;
+    while (i = LT(i, n(x)) i + 1) {
+        if (IDENT(t(c(x)[i]), 'ICN_DEFAULT')) { d = c(c(x)[i])[1]; Remove(x, i); Append(x, d); Push(x); nreturn; }
+    }
+    Push(x);
+    nreturn;
+}
 /* the blanks inside a case take the greedy form too: each clause sits in a FENCE, so a shortest-first  */
 /* CaseGray that stopped before ` ;` could never be re-entered to take it                                */
 CaseGray     = (*White | epsilon);
 CaseClause   = ( *CaseGray *Expr *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() . *IncCounter() );
-CaseDefault  = ( *CaseGray *$'default' *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() );
+CaseDefault  = ( *CaseGray *$'default' *CaseGray *$':' *Expr . *Reduce('ICN_DEFAULT', 1) *CaseGray *semi_opt . *IncCounter() );
 Case         = ( *$'case' *Case_rest );
 Case_rest        = ( epsilon . *PushCounter()
                   *$' ' *Expr  . *IncCounter()
                  *$'of' *CaseGray *$'{' *CaseGray
                  ARBNO( FENCE(*CaseDefault | *CaseClause) )
                  *CaseGray *$'}'
-                 . *Reduce('TT_CASE', nTop())
+                 . *Reduce('TT_CASE', nTop()) . *IcnCaseFix()
                  . *PopCounter()
                );
 /* return and suspend are expressions too (a | return b): DEFERRED, because they are defined below   */
@@ -433,18 +453,18 @@ Expr1     = ( *Expr2
             );
 ReturnExpr  = ( *$'return' *ReturnExpr_rest );
 ReturnExpr_rest  = ( epsilon . *PushCounter()
-                 *$' ' *Expr1a . *IncCounter()  . *Reduce('TT_RETURN', 1) . *PopCounter()
+                 *$' ' *Expr . *IncCounter()  . *Reduce('TT_RETURN', 1) . *PopCounter()
               |  *$' '                   . *Reduce('TT_RETURN', 0)
               );
 SuspendExpr = ( *$'suspend' *SuspendExpr_rest );
 SuspendExpr_rest = ( epsilon . *PushCounter()
-                (  *$' ' *Expr1a . *IncCounter()
-                  FENCE( *$'do' *$'  ' *Expr1a . *IncCounter() | epsilon )
-                |  *$' '
+                (  *$' ' *Expr . *IncCounter()
+                  FENCE( *$'do' *$'  ' *Expr . *IncCounter() | epsilon )
+                |  *$' ' . *Shift('TT_VAR', '&null') . *IncCounter()
                 )
                 . *Reduce('TT_SUSPEND', nTop()) . *PopCounter()
               );
-Expr1a    = ( *Expr1 FENCE(*$'?' *Expr . *Reduce('TT_SCAN', 2) | epsilon) );
+Expr1a    = ( *Expr1 FENCE(*$'?' *Expr1a . *Reduce('TT_SCAN', 2) | epsilon) );
 ExprSeqRest = ( *$'&' ( *ReturnExpr | *SuspendExpr | *Expr1a ) . *IncCounter() );
 ExprSeqStar = FENCE(*ExprSeqRest *ExprSeqStar | epsilon);
 Expr        = ( epsilon . *PushCounter()
@@ -471,7 +491,7 @@ InitialStmt = ( epsilon . *PushCounter() *$'initial' *$' ' *Expr . *IncCounter()
 SuspendStmt = ( epsilon . *PushCounter()
                 ( *$'suspend' *$' ' *Expr . *IncCounter()
                   FENCE( *$'do' *$'  ' *Expr . *IncCounter() | epsilon )
-                | *$'suspend' *$' '
+                | *$'suspend' *$' ' . *Shift('TT_VAR', '&null') . *IncCounter()
                 )
                 *$' ' *semi_opt *$' '
                 . *Reduce('TT_SUSPEND', nTop()) . *PopCounter()
