@@ -389,6 +389,7 @@ test_gate_outside_baseline_rows_name_a_live_measurement.sh	WIRED	-	-	-
 test_gate_package_runners_grade_a_library_through_its_driver.sh	WIRED	-	-	-
 test_gate_package_runners_print_the_inventory.sh	WIRED	-	-	-
 test_gate_package_runners_read_each_units_declared_compile_args.sh	WIRED	-	-	-
+test_gate_parser_demos_match_bootstrap.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
 test_gate_parser_raku_sc_nest8_witness.sh	WIRED	-	-	-
 test_gate_pas_a_blocks_declaration_parts_come_in_iso_order.sh	WIRED	-	-	-
@@ -680,6 +681,7 @@ test_gate_sno_an_immediate_assignment_to_a_global_stores_into_its_gva_cell.sh	WI
 test_gate_sno_an_integer_string_operand_takes_the_integer_fast_path.sh	WIRED	-	-	-
 test_gate_sno_an_opsyn_operator_whose_function_freturns_fails.sh	WIRED	-	-	-
 test_gate_sno_an_output_associated_variable_keeps_the_value_it_was_assigned.sh	WIRED	-	-	-
+test_gate_sno_arbno_literal_body_then_fence_terminates.sh	WIRED	-	-	-
 test_gate_sno_arg_names_only_a_functions_formals.sh	WIRED	-	-	-
 test_gate_sno_backtracking_into_fence_of_p_retreats_to_its_left.sh	WIRED	-	-	-
 test_gate_sno_by_name_paths_find_once_dollar_apply_eval.sh	WIRED	-	-	-
