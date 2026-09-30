@@ -4175,6 +4175,12 @@ extern const char __start_rtx_entry_names[] __attribute__((visibility("hidden"))
 extern const char __stop_rtx_entry_names[] __attribute__((visibility("hidden")));
 static const char ** g_rtxe_tab = (const char **)0; static uint32_t g_rtxe_cap = 0;
 static uint32_t rtxe_hash(const char * s) { uint32_t h = 2166136261u; for (const unsigned char * p = (const unsigned char *)s; *p; p++) { h ^= *p; h *= 16777619u; } return h; }
+#include "../templates/x86/rtx_clobber_table.inc"
+extern "C" unsigned emit_rtx_clob_mask(const char * sym) {
+    if (!sym) return 0u;
+    for (int i = 0; i < RTX_CLOB_TAB_N; i++) if (rtx_clob_tab[i].sym[0] == sym[0] && strcmp(rtx_clob_tab[i].sym, sym) == 0) return rtx_clob_tab[i].mask;
+    return 0u;
+}
 int emit_rtx_entry_is(const char * sym) {
     if (!sym) return 0;
     if (!g_rtxe_cap) { uint32_t n = 0, c = 64; for (const char * p = __start_rtx_entry_names; p < __stop_rtx_entry_names; p += strlen(p) + 1) n++;

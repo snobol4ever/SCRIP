@@ -14,6 +14,7 @@ extern unsigned char g_rtcc_on;
 long *rt_anchor_ptr(void);
 int rtx_entry_is(const char *sym);
 int emit_rtx_entry_is(const char * sym);
+unsigned emit_rtx_clob_mask(const char * sym);
 }
 #include "rtx/rtcc.h"
 #ifndef _
@@ -321,7 +322,7 @@ static inline unsigned x86_rtcc_clob_raw(const char * sym);
 static inline unsigned x86_rtcc_clob(const char * sym) { return x86_rtcc_clob_raw(sym) & x86_rtcc_live_mask(); }
 static inline unsigned x86_rtcc_clob_raw(const char * sym) {
     if (!sym) return RTCC_C_ALL;
-    return (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) ? 0 : RTCC_C_ALL;
+    return (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) ? emit_rtx_clob_mask(sym) : RTCC_C_ALL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 constexpr bool x86_rtcc_streq(const char * a, const char * b) { return *a == *b && (*a == '\0' ? true : x86_rtcc_streq(a + 1, b + 1)); }
@@ -406,9 +407,17 @@ static inline std::string x86_rtcc_rl_text(unsigned m = RTCC_C_ALL) {
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int x86_diag_regs_on();
+inline std::string x86_rtx_reestablish(unsigned m) {
+    std::string s;
+    if (m & RTCC_C_R9) s += MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin((uint64_t)(uintptr_t)rtccb, RTCC_C_R9)) : x86_rtcc_rl_text(RTCC_C_R9);
+    if ((m & RTCC_C_R11) && x86_diag_regs_on()) s += x86_movabs_r64("r11", (uint64_t)_.nid);
+    return s;
+}
 inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
     unsigned m = x86_rtcc_clob(sym);
     if (m == 0) return x86_call_ro(sym, ptr);
+    if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro(sym, ptr) + x86_rtx_reestablish(m);
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
         std::string call_b = x86_rtcc_call_b(ptr, m);

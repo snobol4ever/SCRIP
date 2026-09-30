@@ -32,6 +32,7 @@ global function the objects define must be in it). Exit 0 = every entry proven, 
 import re, subprocess, sys
 
 REGS = ('r8', 'r9', 'r10', 'r11')
+CLOB_TABLE = {}
 ALIAS = {}
 for base in REGS:
     for sfx in ('', 'd', 'w', 'b'):
@@ -133,7 +134,7 @@ def gotrel(rel):
     return rel is not None and ('GOTPC' in rel[0])
 
 
-def walk(name, code, funcs, rtx):
+def walk(name, code, funcs, rtx, clob=None):
     if name not in funcs: return ['%s: no body found in the objects' % name]
     obj, sec, base = funcs[name]
     errs, seen, rets, r9_input = [], set(), [], []
@@ -221,6 +222,13 @@ def walk(name, code, funcs, rtx):
         if mn == 'ret':
             bad = []
             if stack != ['RA']: bad.append('%d slot(s) left above the return address' % (len(stack) - 1))
+            if clob is not None:
+                for r in ('r8', 'r10', 'r11'):
+                    if getr(r) != 'E': clob.add(r)
+                if getr('r9') not in ('E', 'G'): clob.add('r9')
+                if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
+                else: rets.append((where, getr('r9')))
+                continue
             for r in ('r8', 'r10', 'r11'):
                 if getr(r) != 'E': bad.append('%s not returned' % r)
             if getr('r9') not in ('E', 'G'): bad.append('r9 not returned as GVA')
@@ -242,6 +250,8 @@ def walk(name, code, funcs, rtx):
                     setr('r9', 'G')
                     if not gotrel(rel):
                         setr('r10', 'X'); setr('r11', 'X')
+                    if clob is not None:
+                        for r in CLOB_TABLE.get(rel[1], ()): setr(r, 'X')
                 else:
                     for r in REGS: setr(r, 'X')
                 push_state(nxt); continue
@@ -251,12 +261,22 @@ def walk(name, code, funcs, rtx):
             if mn == 'jmp' and rel is not None and rel[1] in rtx and gotrel(rel):
                 bad = []
                 if stack != ['RA']: bad.append('tail jump with %d slot(s) above the return address' % (len(stack) - 1))
+                if clob is not None:
+                    for r in ('r8', 'r10', 'r11'):
+                        if getr(r) != 'E': clob.add(r)
+                    if getr('r9') not in ('E', 'G'): clob.add('r9')
+                    for r in CLOB_TABLE.get(rel[1], ()): clob.add(r)
+                    if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
+                    continue
                 for r in ('r8', 'r10', 'r11'):
                     if getr(r) != 'E': bad.append('%s not intact at the tail jump' % r)
                 if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
                 continue
             what = rel[1] if rel is not None else tgt
             how = 'through a PLT slot into another RTX entry' if (rel is not None and rel[1] in rtx) else 'into C'
+            if clob is not None and mn == 'jmp':
+                for r in REGS: clob.add(r)
+                continue
             errs.append('%s: tail exit %s (%s) -- it returns to our caller with the four unrestored' % (where, how, what))
             if mn != 'jmp': push_state(nxt)
             continue
@@ -287,16 +307,19 @@ def walk(name, code, funcs, rtx):
     if r9_input:
         for where, v in rets:
             if v == 'E':
-                errs.append('%s: r9 came in as an argument (%s) and goes back unrestored' % (where, r9_input[0]))
+                if clob is not None: clob.add('r9')
+                else: errs.append('%s: r9 came in as an argument (%s) and goes back unrestored' % (where, r9_input[0]))
     return errs
 
 
 def main(argv):
-    objs, entries_file = [], None
+    objs, entries_file, clobber = [], None, False
     i = 0
     while i < len(argv):
         if argv[i] == '--entries':
             entries_file = argv[i + 1]; i += 2; continue
+        if argv[i] == '--clobber-table':
+            clobber = True; i += 1; continue
         objs.append(argv[i]); i += 1
     if not objs:
         print('REFUSED: no objects named'); return 2
@@ -311,6 +334,21 @@ def main(argv):
     entries = [l.strip() for l in open(entries_file, encoding='utf-8') if l.strip()] if entries_file else sorted(defined)
     rtx = set(entries) | defined
     all_errs, proven = [], 0
+    if clobber:
+        for _round in range(8):
+            changed = False
+            for e in entries:
+                c = set(CLOB_TABLE.get(e, ()))
+                errs = walk(e, code, funcs, rtx, c)
+                if errs: all_errs.extend(errs)
+                if c != set(CLOB_TABLE.get(e, ())): CLOB_TABLE[e] = tuple(sorted(c)); changed = True
+            if not changed: break
+            all_errs = []
+        for e in entries:
+            print('RTX-CLOBBER %s %s' % (e, ','.join(CLOB_TABLE.get(e, ())) or '-'))
+        for x in sorted(set(all_errs)): print('  UNANALYZABLE  ' + x)
+        print('RTX-CLOBBER-TABLE entries=%d clobbering=%d unanalyzable=%d' % (len(entries), sum(1 for e in entries if CLOB_TABLE.get(e)), len(set(all_errs))))
+        return 2 if all_errs else 0
     for e in entries:
         errs = walk(e, code, funcs, rtx)
         if errs: all_errs.extend(errs)

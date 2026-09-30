@@ -297,6 +297,7 @@ test_gate_icn_open_directory_reads_entries.sh	WIRED	-	-	-
 test_gate_icn_outside_baseline_is_read_and_mirrored.sh	WIRED	-	-	-
 test_gate_icn_port_trace.sh	WIRED	-	-	-
 test_gate_icn_pow_large_integer_exponent.sh	WIRED	-	-	-
+test_gate_icn_pre_step_tool_matches_icont_e.sh	WIRED	-	-	-
 test_gate_icn_range_operands_must_be_integers.sh	WIRED	-	-	-
 test_gate_icn_rbp_census_ratchet.sh	WIRED	-	-	-
 test_gate_icn_real_str_is_icons_own_convention.sh	WIRED	-	-	-
@@ -307,6 +308,7 @@ test_gate_icn_rundir_contract.sh	WIRED	-	-	-
 test_gate_icn_scan_argtype.sh	WIRED	-	-	-
 test_gate_icn_scan_find_and_match_carry_a_literals_length.sh	WIRED	-	-	-
 test_gate_icn_scan_subject_must_be_string_convertible.sh	WIRED	-	-	-
+test_gate_icn_scrip_does_not_preprocess.sh	WIRED	-	-	-
 test_gate_icn_seq_null_argument_defaults.sh	WIRED	-	-	-
 test_gate_icn_seq_takes_a_variable_step.sh	WIRED	-	-	-
 test_gate_icn_string_builtins_refuse_a_non_string_argument.sh	WIRED	-	-	-
@@ -588,6 +590,7 @@ test_gate_right_sealed_defer_beta_no_double_teardown.sh	WIRED	-	-	-
 test_gate_rtcc_claimed_regs.sh	WIRED	-	-	-
 test_gate_rtx_calls_carry_no_veneer.sh	WIRED	-	-	-
 test_gate_rtx_entries_keep_the_rtcc_four.sh	WIRED	-	-	-
+test_gate_rtx_the_leaf_clobber_table_is_derived_and_gated_against_the_objects.sh	WIRED	-	-	-
 test_gate_rungs_banner_seq_is_position.sh	WIRED	-	-	-
 test_gate_rungs_boards_publish_xpass.sh	WIRED	-	-	-
 test_gate_rungs_builder_reindex_only.sh	WIRED	-	-	-
@@ -720,6 +723,7 @@ test_gate_sno_pattern_position_expression.sh	WIRED	-	-	-
 test_gate_sno_port_trace_oracle_diff.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_real_literal_overflow_is_a_parse_error.sh	WIRED	-	-	-
+test_gate_sno_recede_free_stored_pattern_runs_on_the_rsp_spine.sh	WIRED	-	-	-
 test_gate_sno_repl_lvalue_subject.sh	WIRED	-	-	-
 test_gate_sno_rewind_on_an_unopened_unit_raises_174.sh	WIRED	-	-	-
 test_gate_sno_rtntype_is_set_by_an_asm_leaf.sh	WIRED	-	-	-
@@ -960,6 +964,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_sno_recede_free_stored_pattern_runs_on_the_rsp_spine.sh	WIRED	-	-	-
-test_gate_icn_scrip_does_not_preprocess.sh	WIRED	-	-	-
-test_gate_icn_pre_step_tool_matches_icont_e.sh	WIRED	-	-	-
