@@ -796,7 +796,7 @@ static int fence0_release_bytes(const IR_t * nd) {
     return total;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int blob_slots_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_SLOTS"); v = 1; if (e) { v = 0; for (; *e; e++) v |= (*e == 'c') ? 1 : (*e == 'f') ? 2 : (*e == 'x') ? 4 : 0; } } return v; }
+static int blob_slots_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_SLOTS"); v = 7; if (e) { v = 0; for (; *e; e++) v |= (*e == 'c') ? 1 : (*e == 'f') ? 2 : (*e == 'x') ? 4 : 0; } } return v; }
 static int blob_slots_env(void) { return blob_slots_mask() != 0; }
 static int fence_frame_candidate(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
@@ -2426,7 +2426,7 @@ int cap_fail_retreat(void) {
     static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CAP_FAIL_RETREAT"); _cf = (e && *e == '0') ? 0 : 1; } return _cf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int leaf_frame_env(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_LEAF_FRAME"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static int leaf_frame_env(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_LEAF_FRAME"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int leaf_frame_member(const IR_t * nd) { extern int zdp_scratch_cell(const IR_t *); int blob_frame_scope(void); return nd && zdp_scratch_cell(nd) && leaf_frame_env() && (alt_arm_member(nd, (const IR_t *)0) || blob_frame_scope()); }
 int blob_spine_depth_gamma(void) { extern int zdp_scratch_cell(const IR_t *); int blob_frame_scope(void); if (!blob_frame_scope() || !g_emit_cfg) return 0; int d = 0; for (int j = 0; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && zdp_scratch_cell(m)) d += 16; } return d; }
 static int xop_hazard_kind(int op) { return op == IR_MATCH_DEFER || op == IR_MATCH_ARBNO || op == IR_MATCH_VALUE; }
