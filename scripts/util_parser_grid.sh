@@ -25,11 +25,13 @@
 #   SBL    sbl_clean_bin -bf (the clean benchmark oracle, never the monitor-hooked x64 fork: GOAL-SNOCONE-100 cursor 29k) running
 #          scrip --transpile of the same chain; the same driver, the same clock. TIME() reads nanoseconds in both, measured.
 #   SCRIP and SBL both run -s2000m -d8000m -i64m; SCRIP_DIAG=0 for the compile and every run. The median of GRID_RUNS (3) runs.
-# COLUMNS: files, bytes, C ms, SCRIP ms, SBL ms, SBL/SCRIP, C/SCRIP, trees -- each file's section of SCRIP's output against the same
-# file's section of SPITBOL's: SCRIP==SBL when every file agrees, else DIFFER n/N, how many and never how (Lon 2026-09-29: "It shows
-# only how many do not match, not in what ay do they not match."; the details come from the full dump of a mismatching file, kept
-# under GRID_OUT). The comparison is per file whatever a section holds, so it reads the per-file tree hash unchanged once the
-# dumpers print one number per file instead of the tree (the cfo's row, CEO-1364).
+# COLUMNS: files, bytes, C ms, SCRIP ms, SBL ms, SBL/SCRIP, C/SCRIP, trees -- every run is made under PARSER_TREE_HASH=1, so each
+# engine prints ONE NUMBER per file in place of its tree (125bb54e6, the cfo's: the dump's bytes folded in memory, h = (h * 256 +
+# byte) mod (2^55 - 55), outside every parse clock), and each file's number from SCRIP is compared with the same file's from
+# SPITBOL: SCRIP==SBL when every file agrees, else DIFFER n/N, how many and never how (Lon 2026-09-29: "It shows only how many do
+# not match, not in what ay do they not match."; the details come from the full dump of a mismatching file). THE CANARY: the first
+# file that printed a number is dumped in full by SCRIP and by SPITBOL, and each number must be an independent fold of its own
+# dump, so a hash that stopped folding REFUSES rc=2 instead of reading SCRIP==SBL (the tree gate's canary, the same fold).
 # THE RUNTIME MEASURED IS A CHECKOUT'S OWN: GRID_ROOT=<a SCRIP checkout> (default: this one) names the scrip, out/libscrip_rt.so,
 # out/parser_<lang> and bootstrap/ measured, each refused when older than that checkout's src/. RT_OPT IS READ BACK, NEVER ASSUMED:
 # the linked runtime's tag (Makefile: RT_TAG, an md5 of RT_OPT|ZCFLAGS) against the tag of the checkout's default RT_OPT and, when
@@ -70,10 +72,25 @@ printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' lang files bytes "C m
 RC=0; NL=0; NC=0; N2=0
 run() {   # $1 engine, $2 list, $3 output stem: one run of that engine over the list
     case "$1" in
-    C)     ( cd "$CORPUS" && PARSER_FILES="$2" IPATH="$CORPUS/packages/icon/ipl/procs" timeout "$TMO" "$W/out/parser_$L" < /dev/null > "$3.out" 2> "$3.err" ) ;;
-    SCRIP) PARSER_FILES="$2" timeout "$TMO" "$T/$L.bin" $SW < /dev/null > "$3.out" 2> "$3.err" ;;
-    SBL)   PARSER_FILES="$2" timeout "$TMO" "$SBL" -bf $SW "$T/$L.sno" < /dev/null > "$3.out" 2> "$3.err" ;;
+    C)     ( cd "$CORPUS" && PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" IPATH="$CORPUS/packages/icon/ipl/procs" timeout "$TMO" "$W/out/parser_$L" < /dev/null > "$3.out" 2> "$3.err" ) ;;
+    SCRIP) PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "$TMO" "$T/$L.bin" $SW < /dev/null > "$3.out" 2> "$3.err" ;;
+    SBL)   PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "$TMO" "$SBL" -bf $SW "$T/$L.sno" < /dev/null > "$3.out" 2> "$3.err" ;;
     esac
+}
+section() { awk -v x="$2" '/^== / { f = (substr($0, 4) == x); next } f' "$1"; }   # the lines an output printed for file $2
+fold() { python3 -c 'import sys
+h = 0
+for c in sys.stdin.buffer.read(): h = (h * 256 + c) % (2**55 - 55)
+print(h)'; }
+canary() {   # prints LIVE, or why the numbers cannot be trusted
+    local f e n; f="$(awk '/^== / { nm = substr($0, 4); next } nm != "" && /^[0-9]+$/ { print nm; exit }' "$T/$L.SCRIP.out")"
+    [ -n "$f" ] || { echo "no file of the list printed a tree number"; return; }
+    printf '%s\n' "$f" > "$T/$L.one"
+    for e in SCRIP SBL; do
+        n="$(section "$T/$L.$e.out" "$f")"; H=0 run "$e" "$T/$L.one" "$T/$L.canary"
+        [ "$(section "$T/$L.canary.out" "$f" | fold)" = "$n" ] || { echo "$e printed $n for ${f#$CORPUS/}, not the fold of its own dump"; return; }
+    done
+    echo LIVE
 }
 metric() { grep '^PARSER-METRICS ' "$1" | tail -1 | grep -o " $2=[0-9]*" | cut -d= -f2; }
 whole() { [ "$(metric "$1.err" files)" = "$(wc -l < "$2")" ]; }   # the run reached its PARSER-METRICS line over every file of the list
@@ -116,6 +133,7 @@ for L in $LANGS; do
     done
     [ -z "$short" ] || { echo "$L ⛔ REFUSE(2): a timed run did not reach PARSER-METRICS over all $nf files:$short"; RC=2; continue; }
     c=$(med "${tc[@]}"); s=$(med "${ts[@]}"); b=$(med "${tb[@]}")
+    k="$(canary)"; [ "$k" = LIVE ] || { echo "$L ⛔ REFUSE(2): the tree-hash canary: $k"; RC=2; continue; }
     nd=$(awk 'FNR == 1 { k++ } /^== / { nm = substr($0, 4); if (k == 1) a[nm] = ""; else b[nm] = ""; next } k == 1 { a[nm] = a[nm] $0 "\n"; next } { b[nm] = b[nm] $0 "\n" }
               END { for (n in a) if (!(n in b) || a[n] != b[n]) d++; for (n in b) if (!(n in a)) d++; print d + 0 }' "$T/$L.SCRIP.out" "$T/$L.SBL.out")
     t=SCRIP==SBL; [ "$nd" = 0 ] || t="DIFFER $nd/$nf"
