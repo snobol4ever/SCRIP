@@ -161,7 +161,7 @@ src/templates/xa/xa_flat.cpp:500:rt_trace_call_hook_f	src/templates/xa/xa_flat.c
 src/templates/xa/xa_flat.cpp:501:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_flat.cpp:502:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_flat.cpp:503:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:504	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
-src/emitter/emit.cpp:3259:rt_trace_call_hook_f	src/emitter/emit.cpp:3263	hb_size_result_polled.icn
-src/emitter/emit.cpp:3260:rt_trace_return_hook	src/emitter/emit.cpp:3263	hb_size_result_polled.icn
-src/emitter/emit.cpp:3261:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3263	hb_size_result_polled.icn
-src/emitter/emit.cpp:3262:rt_trace_fail_hook	src/emitter/emit.cpp:3263	hb_size_result_polled.icn
+src/emitter/emit.cpp:3262:rt_trace_call_hook_f	src/emitter/emit.cpp:3266	hb_size_result_polled.icn
+src/emitter/emit.cpp:3263:rt_trace_return_hook	src/emitter/emit.cpp:3266	hb_size_result_polled.icn
+src/emitter/emit.cpp:3264:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3266	hb_size_result_polled.icn
+src/emitter/emit.cpp:3265:rt_trace_fail_hook	src/emitter/emit.cpp:3266	hb_size_result_polled.icn
