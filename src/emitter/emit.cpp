@@ -2632,6 +2632,7 @@ static void blob_layout_slot(const IR_t * m, int k, int units) {
 }
 static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
 static int blob_layout_plant(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_BLOB_LAYOUT_PLANT"); v = e ? atoi(e) : 0; } return v; }
+int blob_cont_copy(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_CONT_COPY"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int blob_zf_rep(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_ZF_REP"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int blob_omega_ret(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_OMEGA_RET"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static std::string blob_zero_fill(int bfb) {
@@ -2644,40 +2645,109 @@ static std::string blob_zero_fill(int bfb) {
     return s;
 }
 static int blob_fg_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_FIRST_GUARD"); v = (e && *e == '0') ? 0 : 1; } return v; }
-typedef struct { unsigned char set[256]; int nullable, unknown; } blob_fg_t;
-static void blob_fg_from(const IR_t * n, const IR_t * stop, const blob_fg_t * cont, blob_fg_t * out, int depth) {
+typedef struct { unsigned char set[256]; int nempty, impure, unknown; } blob_fg_t;
+typedef struct { const char * var[16]; const char * thunk[16]; int n, full; } blob_fg_deps_t;
+typedef struct { const char * var; const char * thunk; const char * from; int conflict; } blob_fg_bind_t;
+static blob_fg_bind_t * blob_fg_bind_find(const char * var) {
+    for (uint32_t i = 0; i < g_emit.fg_bind.len; i++) { blob_fg_bind_t * e = &CV_AT(g_emit.fg_bind, blob_fg_bind_t, i); if (!strcmp(e->var, var)) return e; }
+    return (blob_fg_bind_t *)0;
+}
+static void blob_fg_bind_build(void) {
+    extern stage2_t g_stage2;
+    g_emit.fg_bind_built = 1; g_emit.fg_bind.len = 0;
+    for (int gi = 0; gi < g_stage2.bbp.count; gi++) { IR_graph_t * g = g_stage2.bbp.table[gi]; if (!g || !g->all) continue;
+        for (int i = 0; i < g->n; i++) { IR_t * x = g->all[i]; if (!x || x->op != IR_ASSIGN || !IR_LIT(x).sval || x->n_operands < 1 || !x->operands[0]) continue;
+            IR_t * v = x->operands[0]; const char * t = (const char *)0, * f = (const char *)0;
+            if (ir_norm_call_kind(v->op) == IR_CALL && IR_LIT(v).sval && !strcmp(IR_LIT(v).sval, "SNO$MKPAT") && v->n_operands >= 1 && v->operands[0] && v->operands[0]->op == IR_LIT_STRING && IR_LIT(v->operands[0]).sval && !strncmp(IR_LIT(v->operands[0]).sval, "PAT$", 4)) t = IR_LIT(v->operands[0]).sval;
+            else if (v->op == IR_VAR && IR_LIT(v).sval) f = IR_LIT(v).sval;
+            else continue;
+            blob_fg_bind_t * e = blob_fg_bind_find(IR_LIT(x).sval);
+            if (!e) { e = &CV_PUSH(g_emit.fg_bind, blob_fg_bind_t); e->var = IR_LIT(x).sval; e->thunk = t; e->from = f; e->conflict = 0; continue; }
+            if ((t && e->thunk && strcmp(t, e->thunk)) || (f && e->from && strcmp(f, e->from)) || (t && e->from) || (f && e->thunk)) e->conflict = 1;
+            if (t && !e->thunk) e->thunk = t; if (f && !e->from) e->from = f; } }
+}
+static const char * blob_fg_bound_thunk(const char * var) {
+    if (!g_emit.fg_bind_built) blob_fg_bind_build();
+    for (int hop = 0; hop < 8 && var; hop++) { blob_fg_bind_t * e = blob_fg_bind_find(var); if (!e || e->conflict) return (const char *)0; if (e->thunk) return e->thunk; var = e->from; }
+    return (const char *)0;
+}
+static IR_graph_t * blob_fg_thunk_graph(const char * name) {
+    extern stage2_t g_stage2;
+    for (int i = 0; i < g_stage2.proc_count; i++) { ProcEntry * pe = &g_stage2.proc_table[i]; if (pe->name && !strcmp(pe->name, name) && pe->bb_idx >= 0 && pe->bb_idx < g_stage2.bbp.count) return g_stage2.bbp.table[pe->bb_idx]; }
+    return (IR_graph_t *)0;
+}
+static void blob_fg_seq(const blob_fg_t * a, const blob_fg_t * cont, blob_fg_t * out) {
+    *out = *a; if (!a->nempty) return;
+    for (int i = 0; i < 256; i++) out->set[i] |= cont->set[i];
+    out->nempty = a->nempty * cont->nempty > 2 ? 2 : a->nempty * cont->nempty; out->impure |= cont->impure; out->unknown |= cont->unknown;
+}
+static void blob_fg_from(const IR_t * n, const IR_t * stop, const blob_fg_t * cont, blob_fg_t * out, int depth, blob_fg_deps_t * deps) {
+    static const blob_fg_t eps = { {0}, 1, 0, 0 };
     memset(out, 0, sizeof *out);
     if (!n || depth > 64) { out->unknown = 1; return; }
     if (n == stop) { *out = *cont; return; }
     if (n->seal) { out->unknown = 1; return; }
     const char * s = IR_LIT(n).sval; int lit = (n->n_operands == 0 && !n->pat_static && s);
     switch ((int)n->op) {
-    case IR_MATCH_LIT: if (!lit) { out->unknown = 1; return; } if (!s[0]) { blob_fg_from(n->γ.node, stop, cont, out, depth + 1); return; } out->set[(unsigned char)s[0]] = 1; return;
+    case IR_MATCH_LIT: if (!lit) { out->unknown = 1; return; } if (!s[0]) { blob_fg_from(n->γ.node, stop, cont, out, depth + 1, deps); return; } out->set[(unsigned char)s[0]] = 1; return;
     case IR_MATCH_ANY: case IR_MATCH_SPAN: if (!lit) { out->unknown = 1; return; } for (const char * p = s; *p; p++) out->set[(unsigned char)*p] = 1; return;
     case IR_MATCH_NOTANY: if (!lit) { out->unknown = 1; return; } for (int i = 0; i < 256; i++) out->set[i] = 1; for (const char * p = s; *p; p++) out->set[(unsigned char)*p] = 0; return;
-    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_FENCE0: blob_fg_from(n->γ.node, stop, cont, out, depth + 1); return;
-    case IR_MATCH_ALTERNATE: { blob_fg_t after, a; if (n->n_operands < 2 || (n->n_operands & 1)) { out->unknown = 1; return; } blob_fg_from(n->γ.node, stop, cont, &after, depth + 1);
-        for (int k = 0; k + 1 < n->n_operands; k += 2) { blob_fg_from(n->operands[k], n, &after, &a, depth + 1); for (int i = 0; i < 256; i++) out->set[i] |= a.set[i]; out->nullable |= a.nullable; out->unknown |= a.unknown; } return; }
-    case IR_MATCH_FENCE1: { blob_fg_t after; if (n->n_operands < 1) { out->unknown = 1; return; } blob_fg_from(n->γ.node, stop, cont, &after, depth + 1); blob_fg_from(n->operands[0], n, &after, out, depth + 1); return; }
-    case IR_SUCCEED: out->nullable = 1; return;
+    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_FENCE0:
+        blob_fg_from(n->γ.node, stop, cont, out, depth + 1, deps); if (out->nempty) out->impure = 1; return;
+    case IR_MATCH_ALTERNATE: { blob_fg_t after, a; if (n->n_operands < 2 || (n->n_operands & 1)) { out->unknown = 1; return; } blob_fg_from(n->γ.node, stop, cont, &after, depth + 1, deps);
+        for (int k = 0; k + 1 < n->n_operands; k += 2) { blob_fg_from(n->operands[k], n, &after, &a, depth + 1, deps); for (int i = 0; i < 256; i++) out->set[i] |= a.set[i]; out->nempty = out->nempty + a.nempty > 2 ? 2 : out->nempty + a.nempty; out->impure |= a.impure; out->unknown |= a.unknown; } return; }
+    case IR_MATCH_FENCE1: { blob_fg_t after, in; if (n->n_operands < 1) { out->unknown = 1; return; } blob_fg_from(n->γ.node, stop, cont, &after, depth + 1, deps); blob_fg_from(n->operands[0], n, &eps, &in, depth + 1, deps); if (in.nempty > 1) in.nempty = 1; blob_fg_seq(&in, &after, out); return; }
+    case IR_MATCH_DEFER: {
+        extern int g_gva_active; extern int gva_index_of(const char *);
+        const char * th = (s && s[0] != '*' && g_gva_active && gva_index_of(s) >= 0) ? blob_fg_bound_thunk(s) : (const char *)0;
+        IR_graph_t * tg = th ? blob_fg_thunk_graph(th) : (IR_graph_t *)0;
+        if (!tg || !tg->entry || !deps || deps->n >= 4) { out->unknown = 1; return; }
+        { int seen = 0; for (int i = 0; i < deps->n; i++) if (!strcmp(deps->var[i], s)) seen = 1; if (!seen) { deps->var[deps->n] = s; deps->thunk[deps->n] = th; deps->n++; } }
+        { blob_fg_t sub, after; blob_fg_from(tg->entry, (const IR_t *)0, &eps, &sub, depth + 1, deps); blob_fg_from(n->γ.node, stop, cont, &after, depth + 1, deps); blob_fg_seq(&sub, &after, out); }
+        return; }
+    case IR_SUCCEED: out->nempty = 1; return;
     default: out->unknown = 1; return;
     }
 }
+static int blob_fg_bind_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_FIRST_BIND"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static void blob_first_guard(void) {
-    extern int sn4_cset32(void);
+    extern int sn4_cset32(void); extern int g_gva_active; extern int gva_index_of(const char *);
     if (!blob_fg_on() || sn4_cset32() || !g_emit_cfg || !g_emit_cfg->entry) return;
-    blob_fg_t cont, r; memset(&cont, 0, sizeof cont); cont.nullable = 1;
-    blob_fg_from(g_emit_cfg->entry, (const IR_t *)0, &cont, &r, 0);
-    if (r.unknown || r.nullable || r.set[0]) return;
+    static const blob_fg_t eps = { {0}, 1, 0, 0 };
+    blob_fg_t r; blob_fg_deps_t deps; memset(&deps, 0, sizeof deps);
+    blob_fg_from(g_emit_cfg->entry, (const IR_t *)0, &eps, &r, 0, &deps);
+    int fast_empty = (r.nempty == 1 && !r.impure);
+    if (r.unknown || r.set[0] || (r.nempty && !fast_empty) || (deps.n && !blob_fg_bind_on())) return;
     int k = 0; char * set = (char *)ct_alloc(256); for (int i = 1; i < 256; i++) if (r.set[i]) set[k++] = (char)i; set[k] = 0;
-    if (k == 0) return;
+    if (k == 0 && !fast_empty) return;
     static int seq = 0; int id = seq++;
-    bb_label_t * fail = emit_label_alloc(".Lfg_fail_%d", id); bb_label_t * ok = emit_label_alloc(".Lfg_ok_%d", id);
-    bb_emit_x86(x86("cmp", "r14d", "r15d")); emit_jmp_label(fail, JMP_JGE);
-    bb_emit_x86(x86("movsxd", "rcx", "r14d") + x86("movzx", "eax", "[r13+rcx]") + x86("lea", "rcx", "[rip + __]", x86_csettab_ptr(set), x86_csettab_lbl(set).c_str()) + x86("movzx", "eax", "[rcx+rax]") + x86("test", "eax", "eax"));
-    emit_jmp_label(ok, JMP_JNE);
-    emit_label_define_bb(fail);
-    bb_emit_x86(blob_omega_ret() ? x86("add", "rsp", 8L) + x86("ret") : x86_rsp_load64("rcx", 8) + x86("add", "rsp", 16L) + x86("jmp", "rcx"));
+    bb_label_t * none = emit_label_alloc(".Lfg_none_%d", id); bb_label_t * ok = emit_label_alloc(".Lfg_ok_%d", id); bb_label_t * fire = emit_label_alloc(".Lfg_fire_%d", id);
+    bb_emit_x86(x86("cmp", "r14d", "r15d")); emit_jmp_label(deps.n ? fire : none, JMP_JGE);
+    if (k > 0) {
+        bb_emit_x86(x86("movsxd", "rcx", "r14d") + x86("movzx", "eax", "[r13+rcx]") + x86("lea", "rcx", "[rip + __]", x86_csettab_ptr(set), x86_csettab_lbl(set).c_str()) + x86("movzx", "eax", "[rcx+rax]") + x86("test", "eax", "eax"));
+        emit_jmp_label(ok, JMP_JNE);
+    }
+    emit_label_define_bb(fire);
+    for (int i = 0; i < deps.n; i++) {
+        int gk = gva_index_of(deps.var[i]);
+        bb_label_t * q = emit_label_alloc(".Lfg_rec_%d_%d", id, i), * over = emit_label_alloc(".Lfg_over_%d_%d", id, i);
+        bb_emit_x86(x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 0) : ABSQ(RT_GVA_VA + gk * 16)) + x86("cmp", "al", (long)DT_P));
+        emit_jmp_label(ok, JMP_JNE);
+        bb_emit_x86(x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, 8) : ABSQ(RT_GVA_VA + gk * 16 + 8)) + x86("mov", "rax", RDQ("rax", 0)) + x86_lea_ext("rcx", q) + x86("mov", "rcx", RDQ("rcx", 0)) + x86("mov", "rcx", RDQ("rcx", 0)) + x86("cmp", "rax", "rcx"));
+        emit_jmp_label(ok, JMP_JNE);
+        emit_jmp_label(over, JMP_JMP);
+        emit_label_define_bb(q);
+        { extern const char * bb_ab_sym_name(const char *); std::string lbl = std::string(".Lthk_") + bb_ab_sym_name(deps.thunk[i]); void * rec = bb_thunk_rec_addr(deps.thunk[i]); bb_emit_x86(x86(".quad", lbl.c_str(), rec ? (const char *)rec : "")); }
+        emit_label_define_bb(over);
+    }
+    emit_label_define_bb(none);
+    if (!fast_empty) bb_emit_x86(blob_omega_ret() ? x86("add", "rsp", 8L) + x86("ret") : x86_rsp_load64("rcx", 8) + x86("add", "rsp", 16L) + x86("jmp", "rcx"));
+    else {
+        bb_label_t * stub = emit_label_alloc(".Lfg_stub_%d", id);
+        bb_emit_x86(x86_rsp_load64("rax", 0) + x86_rsp_load64("rcx", 8) + x86("push", "rbp") + x86("push", "rcx") + x86("push", "rax") + x86_lea_ext("rcx", stub) + x86("push", "rcx") + x86("jmp", "rax"));
+        emit_label_define_bb(stub);
+        bb_emit_x86(x86_rsp_load64("rbp", 24) + x86_rsp_load64("rcx", 16) + x86("add", "rsp", 48L) + x86("jmp", "rcx"));
+    }
     emit_label_define_bb(ok);
 }
 static int blob_layout_build(int bfb) {
@@ -3178,7 +3248,7 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
            + x86("call", "rt_gc_frame_map_check", fp)
            + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8") + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi");
     }
-    return s + x86("mov", "eax", 0L);
+    return s + IF(frame_rel != 2 || blob_cont_copy(), x86("mov", "eax", 0L));
 }
 static void emit_gc_map_data(const char * fam) {
     { extern const char * zls_graph_name_get(const IR_graph_t *); const char * ef = gc_map_entry_fam(fam);
@@ -3535,7 +3605,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
     if (!bare && blob_frame_scope()) blob_first_guard();
-    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb); bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) + emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + blob_zero_fill(_bfb) + x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx") + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); }
+    { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb); bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) + emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + blob_zero_fill(_bfb) + IF(blob_cont_copy(), x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx")) + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); }
     }
     { extern int g_flat_outer_nparams; static int _gsym = -1; if (_gsym < 0) { const char * e = getenv("SCRIP_GLUE_SYM"); _gsym = (e && *e == '1') ? 1 : 0; } int _legacy = (!g_emit.flat_jmp_entry && !g_emit.flat_pat && !g_emit.flat_gen && !g_gen_proc_active && !g_emit.zframe_graph && !g_emit.flat_lcl_proc);  extern int g_glue_entered; g_glue_entered = (g_emit.flat_outer_nparams == 0 && _legacy) ? 1 : 0; if (g_glue_entered) bb_emit_x86(x86_main_prologue()); (void)_gsym; { static int _gluo = -1; if (_gluo < 0) { const char * e = getenv("SCRIP_GLUEO"); _gluo = (e && *e == '0') ? 0 : 1; } static int _gluod = -1; if (_gluod < 0) { const char * e = getenv("SCRIP_GLUEO_DIAG"); _gluod = (e && *e == '1') ? 1 : 0; } extern int g_glue_o_sup; g_glue_o_sup = (_gluo && g_glue_entered && !emit_rec_pin()) ? 1 : 0; if (g_glue_o_sup) g_glue_entered = 0; if (_gluod) fprintf(stderr, "[GLUEO] graph=%s entered=%d rec_pin=%d deep=%d pat=%d gen=%d -> closed_loop_suppressed=%d\n", g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "<anon>", g_glue_entered, emit_rec_pin() ? 1 : 0, g_emit.flat_deep_arrival, g_emit.flat_pat, g_emit.flat_gen, g_glue_o_sup); } if (g_glue_entered) { { long _capN = 0; if (g_emit_cfg) for (int _ci = 0; _ci < g_emit_cfg->n; _ci++) { IR_t * _cs = g_emit_cfg->all[_ci]; if (_cs && _cs->op == IR_MATCH_ASSIGN_SAVE && cap_anchor_of(_cs) > 0) _capN++; } g_emit.op_fc_bytes = _capN > 0 ? (long)(64 + 16 * _capN) : 0; }    bb_emit_x86(bb_glue_framed_enter()); } }
     nidx_build(nodes, n);
@@ -3978,7 +4048,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }
     else if (_blob_wire) {
         int _bfb = blob_frame_bytes();
-        bb_emit_x86(IF(_bfb > 0,  x86("mov", "rcx", RDQ("rbp", -16)) + x86("push", "rbp") + x86("push", "rcx") + x86("mov", "rcx", RDQ("rbp", -8)) + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86("mov", "rbp", RDQ("rbp", 0)) + x86_jmp_reg("rcx")) + IF(_bfb <= 0,  x86("mov", "rdx", RDQ("rsp", 8)) + x86("mov", "rcx", RDQ("rsp", 0)) + x86("sub", "rsp", 8L) + x86("push", "rdx") + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86_jmp_reg("rcx")));
+        bb_emit_x86(IF(_bfb > 0,  x86("mov", "rcx", RDQ("rbp", blob_cont_copy() ? -16 : 16)) + x86("push", "rbp") + x86("push", "rcx") + x86("mov", "rcx", RDQ("rbp", blob_cont_copy() ? -8 : 8)) + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86("mov", "rbp", RDQ("rbp", 0)) + x86_jmp_reg("rcx")) + IF(_bfb <= 0,  x86("mov", "rdx", RDQ("rsp", 8)) + x86("mov", "rcx", RDQ("rsp", 0)) + x86("sub", "rsp", 8L) + x86("push", "rdx") + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86_jmp_reg("rcx")));
     }
     else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 2, 0));
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
