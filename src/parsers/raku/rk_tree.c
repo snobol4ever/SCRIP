@@ -185,68 +185,9 @@ static tree_t *make_seq(TL *stmts) { tree_t *seq = ast_node_new(TT_SEQ_EXPR); if
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *seq1(tree_t *stmt) { tree_t *seq = ast_node_new(TT_SEQ_EXPR); if (stmt) expr_add_child(seq, stmt); return seq; }
 /*====================================================================================================================================================================================================*/
-#define RK_PH_BODY 4
-#define RK_PH_DROP (-1)
-#define RK_PH_LOOP (-2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_phaser_mark(const char *name, tree_t *body) {
     tree_t *m = make_call(fmt("__rk_phaser_%s", name ? name : "")); expr_add_child(m, body ? body : ast_node_new(TT_SEQ_EXPR)); return m;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_phaser_of(tree_t *n) { if (!n || n->t != TT_FNC || !n->v.sval || strncmp(n->v.sval, "__rk_phaser_", 12) != 0) return NULL; return n->v.sval + 12; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *rk_phaser_body(tree_t *n) { return (n && n->n >= 2) ? n->c[n->n - 1] : ast_node_new(TT_SEQ_EXPR); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_phaser_is_loop(const char *p) { return !strcmp(p, "FIRST") || !strcmp(p, "LAST") || !strcmp(p, "NEXT") || !strcmp(p, "once"); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_phaser_rank(const char *p, int mainline) {
-    if (!strcmp(p, "BEGIN")) return 0;
-    if (!strcmp(p, "CHECK")) return 1;
-    if (!strcmp(p, "INIT")) return 2;
-    if (!strcmp(p, "ENTER") || !strcmp(p, "PRE")) return 3;
-    if (!strcmp(p, "LEAVE") || !strcmp(p, "POST")) return 5;
-    if (!strcmp(p, "KEEP")) return mainline ? RK_PH_DROP : 6;
-    if (!strcmp(p, "UNDO")) return mainline ? 6 : RK_PH_DROP;
-    if (!strcmp(p, "END")) return 7;
-    if (!strcmp(p, "TEMP")) return RK_PH_DROP;
-    if (rk_phaser_is_loop(p)) return RK_PH_LOOP;
-    return RK_PH_BODY;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_phaser_unplaced(const char *p) {
-    extern void rt_script_die_surface(const char *msg);
-    rt_script_die_surface(fmt("%s { } is implemented at mainline scope and as a loop phaser at the top level of a loop body, not here", p));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_phaser_inline_tree(tree_t *n) {
-    if (!n) return;
-    for (int i = 0; i < n->n; i++) {
-        const char *p = rk_phaser_of(n->c[i]);
-        if (p) { if (rk_phaser_is_loop(p)) rk_phaser_unplaced(p); n->c[i] = rk_phaser_body(n->c[i]); }
-        rk_phaser_inline_tree(n->c[i]);
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static TL *rk_phasers_place(TL *l, int mainline) {
-    int any = 0; tree_t *tail_ret = NULL;
-    for (int i = 0; i < l->n; i++) if (rk_phaser_of(l->v[i])) { any = 1; break; }
-    if (!any) return l;
-    if (!mainline && l->n > 0 && l->v[l->n - 1] && l->v[l->n - 1]->t == TT_RETURN) tail_ret = l->v[--l->n];
-    TL *out = (TL *) ct_zalloc(1, sizeof(TL));
-    for (int rank = 0; rank <= 7; rank++) {
-        for (int i = 0; i < l->n; i++) {
-            tree_t *it = l->v[i];
-            const char *p = rk_phaser_of(it);
-            int r = p ? rk_phaser_rank(p, mainline) : RK_PH_BODY;
-            if (r == RK_PH_DROP) continue;
-            if (r == RK_PH_LOOP && !mainline) { if (rank == RK_PH_BODY) tl_add(out, it); continue; }
-            if (r == RK_PH_LOOP) r = RK_PH_BODY;
-            if (r != rank) continue;
-            tl_add(out, p ? rk_phaser_body(it) : it);
-        }
-    }
-    if (tail_ret) tl_add(out, tail_ret);
-    return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_tail_is_statement(int t) {
@@ -278,39 +219,6 @@ static void rk_tail_value(TL *l) {
     tree_t *last = l->v[l->n - 1];
     if (!last || (rk_tail_is_statement(last->t) && !rk_seq_is_logical_and(last))) return;
     tree_t *r = ast_node_new(TT_RETURN); r->line = last->line; expr_add_child(r, last); l->v[l->n - 1] = r;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *rk_phaser_join(tree_t *a, tree_t *c) { if (!a) return c; TL l = { 0 }; tl_add(&l, a); tl_add(&l, c); return make_seq(&l); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *rk_loop_phasers(RkB *b, tree_t *loop, tree_t *body) {
-    tree_t *first = NULL, *nxt = NULL, *last = NULL;
-    int keep = 0;
-    if (!body || body->t != TT_SEQ_EXPR) return loop;
-    for (int i = 0; i < body->n; i++) {
-        const char *p = rk_phaser_of(body->c[i]);
-        if (p && (!strcmp(p, "FIRST") || !strcmp(p, "once"))) first = rk_phaser_join(first, rk_phaser_body(body->c[i]));
-        else if (p && !strcmp(p, "NEXT")) nxt = rk_phaser_join(nxt, rk_phaser_body(body->c[i]));
-        else if (p && !strcmp(p, "LAST")) last = rk_phaser_join(last, rk_phaser_body(body->c[i]));
-        else body->c[keep++] = body->c[i];
-    }
-    if (keep == body->n) return loop;
-    const char *g = fmt("__rk_ph_g%d", b->after_line);
-    TL inner = { 0 };
-    if (first) {
-        tree_t *t = ast_node_new(TT_SEQ_EXPR); expr_add_child(t, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, g), rk_ilit(0))); expr_add_child(t, first);
-        tree_t *iff = ast_node_new(TT_IF); expr_add_child(iff, leaf_sval(TT_VAR, g)); expr_add_child(iff, t); tl_add(&inner, iff);
-    }
-    else if (last) tl_add(&inner, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, g), rk_ilit(0)));
-    for (int i = 0; i < keep; i++) tl_add(&inner, body->c[i]);
-    if (nxt) tl_add(&inner, nxt);
-    body->n = 0;
-    for (int i = 0; i < inner.n; i++) ast_push(body, inner.v[i]);
-    if (!first && !last) return loop;
-    TL outer = { 0 };
-    tl_add(&outer, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, g), rk_ilit(1)));
-    tl_add(&outer, loop);
-    if (last) { tree_t *u = ast_node_new(TT_UNLESS); ast_push(u, leaf_sval(TT_VAR, g)); ast_push(u, seq1(last)); tl_add(&outer, u); }
-    return make_seq(&outer);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_cstyle_loop(tree_t *init, tree_t *cond, tree_t *incr, tree_t *body) {
@@ -358,6 +266,7 @@ static tree_t *rk_destructure(RkB *b, TL *targets, tree_t *rhs_arr) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_arr_rhs(tree_t *rhs);
+static tree_t *stmt_plain(RkB *b, RkList *L);
 static tree_t *rk_for_multi(RkB *b, TL *vars, tree_t *list, tree_t *body) {
     const char *av = fmt("__fm_a_%d", b->fm_uid), *iv = fmt("__fm_i_%d", b->fm_uid); b->fm_uid++;
     int k = vars ? vars->n : 0;
@@ -853,7 +762,7 @@ static tree_t *el_t0(RkB *b, RkEl *e) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plain(RkTerm *t, int cls) { return t && t->kind == TK_VAR && t->cls == cls && !t->npost && !t->npre; }
 /*====================================================================================================================================================================================================*/
-static const char *const lv_mul[] = { "*", "\xc3\xb7", "\xc3\x97", "~&", "mod", "lcm", "/", "%", "div", "gcd", "+&", "+<", 0 };
+static const char *const lv_mul[] = { "*", "\xc3\xb7", "\xc3\x97", "~&", "mod", "lcm", "/", "%", "div", "gcd", "+&", "+<", "%%", 0 };
 static const char *const lv_addsub[] = { "+", "\xe2\x88\x92", "?^", "?|", "~|", "+|", "-", 0 };
 static const char *const lv_repl[] = { "x", "xx", 0 };
 static const char *const lv_cat[] = { "~", "\xe2\x88\x98", "o", 0 };
@@ -861,7 +770,7 @@ static const char *const lv_range1[] = { "..", "...", "..^", 0 };
 static const char *const lv_range2[] = { "unicmp", "coll", "^..^", "^..", 0 };
 static const char *const lv_dor[] = { "//", 0 };
 static const char *const lv_jct[] = { "|", "(^)", "(-)", "(+)", "(|)", "(.)", "(&)", "&", 0 };
-static const char *const lv_divis[] = { "%%", 0 };
+static const char *const lv_divis[] = { 0 };
 static const char *const lv_cmp[] = { "==", "!=", "<", ">", "<=", ">=", "\xe2\x89\xa4", "\xe2\x89\xa5", "\xe2\x89\xa0", "!~~", "=~=", "(elem)", "(cont)", "after", "before", "eqv", "===",
                                       "eq", "<=>", "cmp", "leg", "ne", "lt", "le", "gt", "ge", "~~", 0 };
 static const char *const lv_and[] = { "&&", 0 };
@@ -896,7 +805,8 @@ static tree_t *b_mul(RkB *b, int k, tree_t *l, tree_t *r) {
     case 8: return call2("__rk_intdiv", nctx(b, l), nctx(b, r));
     case 9: return call2("__rk_gcd", l, r);
     case 10: return call2("iand", l, r);
-    default: return call2("ishift", l, r);
+    case 11: return call2("ishift", l, r);
+    default: return expr_binary(TT_DIVIS, l, r);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1346,6 +1256,7 @@ static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
     if (pf->mod == '^') { char *x = (char *) ct_alloc(strlen(nm) + 2); x[0] = '^'; strcpy(x + 1, nm); nm = x; }
     tree_t *c = ast_node_new(TT_METHCALL); ast_push(c, inv); ast_push(c, leaf_sval(TT_QLIT, nm));
     if (pf->args) {
+        if (pf->form == 2 && pf->args->n == 1 && pf->args->nitem > 1 && pf->args->op1) { ast_push(c, stmt_plain(b, pf->args)); return c; }
         TL pos = { 0 }, named = { 0 };
         arglist(b, pf->args, pf->form == 2 ? 4 : 2, &pos, &named);
         for (int i = 0; i < pos.n; i++) ast_push(c, pos.v[i]);
@@ -1357,6 +1268,8 @@ static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
 void rkb_method_term(RkB *b, RkTerm *it, RkPf *pf) {
     memset(it, 0, sizeof *it); it->from = pf->from; it->to = it->core_to = pf->to;
     if (pf->k == 'M') { it->kind = TK_DOTTY; it->name = pf->txt; it->t = method_call(b, var_node(b, "$_"), pf); return; }
+    if (pf->k == '[' && pf->inner) { tree_t *g = ast_node_new(TT_ARR_GET); ast_push(g, var_node(b, "$_")); ast_push(g, rkb_expr(b, pf->inner)); it->kind = TK_TREE; it->t = g; return; }
+    if ((pf->k == '{' && pf->inner) || (pf->k == '<' && pf->txt)) { tree_t *g = ast_node_new(TT_HASH_GET); ast_push(g, var_node(b, "$_")); ast_push(g, pf->k == '<' ? leaf_sval(TT_QLIT, trimdup(pf->txt, (int) strlen(pf->txt))) : rkb_expr(b, pf->inner)); it->kind = TK_TREE; it->t = g; return; }
     it->kind = TK_TREE; it->t = ast_node_new(TT_NUL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1589,38 +1502,38 @@ static tree_t *wrap_mod(RkB *b, const char *k, RkList *cx, tree_t *base) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
+    (void) tail; (void) bk;
     RkEl *e0 = &L->v[0]; RkTerm *t0 = &e0->t0;
     const char *op1 = L->nitem > 1 ? L->op1 : NULL;
     if (!op1) return NULL;
-    int eq = !strcmp(op1, "=");
-    if (!strcmp(op1, ":=") && plain(t0, 'S') && (!tail || bk == BK_BLOCK || bk == BK_CATCH || bk == BK_GIVEN)) {
+    int eq = !strcmp(op1, "=") || (!strcmp(op1, ":=") && !plain(t0, 'S'));
+    if (!strcmp(op1, ":=") && plain(t0, 'S')) {
         tree_t *e = el_rest(b, e0);
         tree_t *bd = rk_bind(var_node(b, t0->name), rk_scalar_rhs(e));
         return bd ? bd : expr_binary(TT_ASSIGN, var_node(b, t0->name), e);
     }
-    if (eq && t0->npost && !t0->npre && t0->t && t0->t->t == TT_METHCALL && t0->t->n == 2 && L->n == 1 && (!tail || bk == BK_BLOCK || bk == BK_CATCH || bk == BK_GIVEN)) {
+    if (eq && t0->npost && !t0->npre && t0->t && t0->t->t == TT_METHCALL && t0->t->n == 2 && L->n == 1) {
         tree_t *rhs = el_rest(b, e0);
         tree_t *fe = ast_node_new(TT_FIELD); fe->v.sval = (char *) intern(t0->t->c[1]->v.sval); expr_add_child(fe, t0->t->c[0]);
         return expr_binary(TT_ASSIGN, fe, rhs);
     }
-    if (eq && plain(t0, 'T') && L->n == 1 && (!tail || bk != BK_SUB)) {
+    if (eq && plain(t0, 'T') && L->n == 1) {
         tree_t *rhs = el_rest(b, e0);
         tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(t0->name + 1));
         return expr_binary(TT_ASSIGN, fe, rhs);
     }
-    if (eq && t0->kind == TK_VAR && t0->npost == 1 && !t0->npre && t0->t && L->n == 1 && (!tail || bk == BK_BLOCK || bk == BK_CATCH || bk == BK_GIVEN)) {
+    if (eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && t0->t && L->n == 1) {
         tree_t *g = t0->t;
-        if (g->t == TT_ARR_GET && (!tail || t0->cls == 'A')) { tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_ARR_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
+        if (g->t == TT_ARR_GET) { tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_ARR_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
             return c; }
-        if (g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "__rk_arr_slice") && g->n == 4 && (!tail || t0->cls == 'A')) {
+        if (g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "__rk_arr_slice") && g->n == 4) {
             tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_ARR_SET); ast_push(c, g->c[1]); ast_push(c, expr_binary(TT_TO, g->c[2], g->c[3])); ast_push(c, rhs); return c;
         }
-        if (g->t == TT_HASH_GET && (!tail || t0->cls == 'H')) { tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_HASH_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
+        if (g->t == TT_HASH_GET) { tree_t *rhs = el_rest(b, e0); tree_t *c = ast_node_new(TT_HASH_SET); ast_push(c, g->c[0]); ast_push(c, g->c[1]); ast_push(c, rhs);
             return c; }
     }
     int clv, ck;
-    if (!eq && t0->kind == TK_VAR && t0->npost == 1 && !t0->npre && rk_is_elem(t0->t) && L->n == 1 && (!tail || bk == BK_BLOCK || bk == BK_CATCH || bk == BK_GIVEN)
-        && rkb_compound_base(op1, &clv, &ck)) {
+    if (!eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && rk_is_elem(t0->t) && L->n == 1 && rkb_compound_base(op1, &clv, &ck)) {
         tree_t *g = t0->t; tree_t *rhs = el_rest(b, e0);
         return rk_elem_store(g, rk_scalar_rhs(rkb_binop(b, clv, ck, rk_tree_clone(g), rhs)));
     }
@@ -1686,7 +1599,8 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
 static tree_t *stmt_tail(RkB *b, RkList *L, int bk) {
     if (!L->n) return ast_node_new(TT_NUL);
     tree_t *a = assign_forms(b, L, 1, bk);
-    if (a) return a;
+    if (!a && L->nitem > 1 && L->op1 && !strcmp(L->op1, ".=")) a = stmt_plain(b, L);
+    if (a) { if (bk == BK_SUB || bk == BK_METHOD) { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, a); return r; } return a; }
     RkTerm *t0 = &L->v[0].t0;
     tree_t *e = el_tree(b, &L->v[0]);
     if (bk == BK_SUB || bk == BK_METHOD) {
@@ -1744,13 +1658,9 @@ tree_t *rkb_block_seq(RkB *b, tree_t *list, int bk, int yada) {
     if (b->tail_list == list && st.n && st.v[st.n - 1] == b->tail_tree) { tail = st.v[--st.n]; b->tail_list = NULL; }
     if (bk == BK_CLASS || bk == BK_GRAMMAR || bk == BK_MODULE) { if (tail) tl_add(&st, tail); return make_seq(&st); }
     if ((bk == BK_BLOCK || bk == BK_METHOD || bk == BK_CATCH || bk == BK_GIVEN) && tail && tail->t == TT_YADA && !st.n) { TL y = { 0 }; tl_add(&y, tail); return make_seq(&y); }
-    TL *l;
-    if (bk == BK_SUB || bk == BK_METHOD) {
-        if (tail) { l = rk_phasers_place(&st, 0); tl_add(l, tail); }
-        else { rk_tail_value(&st); l = rk_phasers_place(&st, 0); }
-    }
-    else { l = rk_phasers_place(&st, 0); if (tail) tl_add(l, tail); }
-    return make_seq(l);
+    if ((bk == BK_SUB || bk == BK_METHOD) && !tail) rk_tail_value(&st);
+    if (tail) tl_add(&st, tail);
+    return make_seq(&st);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *sig, int sub, RkList *last, int nstmts) {
@@ -1870,18 +1780,18 @@ tree_t *rkb_unless(RkB *b, RkList *cond, tree_t *blk) { tree_t *e = ast_node_new
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_while(RkB *b, int until, RkList *cond, tree_t *blk) {
     tree_t *c = rkb_expr(b, cond);
-    if (!until) return rk_loop_phasers(b, expr_binary(TT_WHILE, c, blk), blk);
-    tree_t *e = ast_node_new(TT_UNTIL); expr_add_child(e, c); expr_add_child(e, blk); return rk_loop_phasers(b, e, blk);
+    if (!until) return expr_binary(TT_WHILE, c, blk);
+    tree_t *e = ast_node_new(TT_UNTIL); expr_add_child(e, c); expr_add_child(e, blk); return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_repeat(RkB *b, int until, tree_t *blk, RkList *cond) {
     tree_t *e = ast_node_new(TT_REPEAT); expr_add_child(e, blk);
     if (cond) { expr_add_child(e, rkb_expr(b, cond)); e->v.ival = until ? 2 : 1; } else e->v.ival = 0;
-    return rk_loop_phasers(b, e, blk);
+    return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_loop(RkB *b, RkList *e1, RkList *e2, RkList *e3, int parens, tree_t *blk) {
-    if (!parens) return rk_loop_phasers(b, expr_binary(TT_WHILE, rk_ilit(1), blk), blk);
+    if (!parens) return expr_binary(TT_WHILE, rk_ilit(1), blk);
     tree_t *init;
     if (e1 && e1->nitem == 1 && e1->n && e1->v[0].t0.kind == TK_DECL && e1->v[0].t0.decl) {
         RkDecl *d = e1->v[0].t0.decl;
@@ -1891,7 +1801,7 @@ tree_t *rkb_loop(RkB *b, RkList *e1, RkList *e2, RkList *e3, int parens, tree_t 
     else init = rkb_expr(b, e1);
     tree_t *cond = rkb_expr(b, e2);
     tree_t *incr = rkb_expr(b, e3);
-    return rk_loop_phasers(b, rk_cstyle_loop(init, cond, incr, blk), blk);
+    return rk_cstyle_loop(init, cond, incr, blk);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_unpack_scalars(RkB *b, const char *s, TL *vars) {
@@ -1920,19 +1830,19 @@ tree_t *rkb_for(RkB *b, RkList *list, tree_t *sig, tree_t *blk) {
         el_fill(b, &list->v[0]);
         tree_t *r = ast_node_new(TT_FOR_RANGE);
         ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, list->rg_lo); ast_push(r, list->rg_op[2] == '^' ? rk_dec(list->rg_hi) : list->rg_hi); ast_push(r, blk); ast_push(r, rk_ilit(0));
-        return rk_loop_phasers(b, r, blk);
+        return r;
     }
     tree_t *lst;
     if (n > 1) { lst = make_call("__rk_arr"); for (int i = 0; i < n; i++) expr_add_child(lst, el_tree(b, &list->v[i])); }
     else lst = rkb_expr(b, list);
-    if (np > 1) { TL vars = { 0 }; for (int i = 0; i < np; i++) tl_add(&vars, sig->c[i]); return rk_loop_phasers(b, rk_for_multi(b, &vars, lst, blk), blk); }
+    if (np > 1) { TL vars = { 0 }; for (int i = 0; i < np; i++) tl_add(&vars, sig->c[i]); return rk_for_multi(b, &vars, lst, blk); }
     if (np == 1 && sig->c[0] && sig->c[0]->t == TT_VAR && sig->c[0]->v.sval && sig->c[0]->v.sval[0] == '(') {
         TL vars = { 0 };
-        if (rk_unpack_scalars(b, sig->c[0]->v.sval, &vars) >= 1) return rk_loop_phasers(b, rk_for_multi(b, &vars, lst, blk), blk);
+        if (rk_unpack_scalars(b, sig->c[0]->v.sval, &vars) >= 1) return rk_for_multi(b, &vars, lst, blk);
     }
     tree_t *gen = expr_unary(TT_ITERATE, lst);
     if (np == 1 && sig->c[0]) gen->v.sval = sig->c[0]->v.sval;
-    return rk_loop_phasers(b, expr_binary(TT_EVERY, gen, blk), blk);
+    return expr_binary(TT_EVERY, gen, blk);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_given(RkB *b, RkList *topic, tree_t *whens) {
@@ -1999,12 +1909,11 @@ static void mark_arrays(RkB *b, tree_t *t) {
 tree_t *rkb_program(RkB *b, tree_t *list) {
     TL l = { 0 };
     for (int i = 0; list && i < list->n; i++) tl_add(&l, list->c[i]);
-    TL *all = rk_phasers_place(&l, 1);
+    TL *all = &l;
     tree_t *prog = ast_stmt_new(TT_PROGRAM);
     for (int i = 0; i < all->n; i++) {
         tree_t *e = all->v[i];
         if (!e) continue;
-        rk_phaser_inline_tree(e);
         tree_t *st = ast_stmt_new(TT_STMT);
         expr_add_child(st, ast_attr_int(":line", 0));
         expr_add_child(st, ast_attr_int(":stno", 0));

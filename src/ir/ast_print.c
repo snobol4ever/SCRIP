@@ -29,7 +29,7 @@ static void print_indent(int depth, FILE * f) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int value_is_text(const tree_t * e) {
     switch (e->t) { case TT_QLIT: case TT_CSET: case TT_CLAUSE: case TT_SUB_DECL: case TT_REGEX_DECL: case TT_AUGOP: case TT_VLIST: return 0; default: break; }
-    return e->v.sval && (uintptr_t)e->v.sval >= 4096;
+    return e->v.sval && (uintptr_t)e->v.sval >= 4096 && e->v.sval[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int flat_length(const tree_t *e, int budget) {

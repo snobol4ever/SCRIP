@@ -21,7 +21,14 @@ if [ ! -x "$BIN" ] || [ "$B/parser_$L.sc" -nt "$BIN" ] || [ "$W/scrip" -nt "$BIN
     "$W/scrip" --compile "$OUT/$L.sno" -o "$OUT/$L.s" < /dev/null > "$OUT/$L.cc.err" 2>&1 || { echo "PARSER-SC ⛔ REFUSE(2): compile failed: $(grep -m3 -i 'error' "$OUT/$L.cc.err" | cut -c1-300)"; exit 2; }
     gcc -m64 -no-pie -rdynamic "$OUT/$L.s" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$BIN" 2>> "$OUT/$L.cc.err" || { echo "PARSER-SC ⛔ REFUSE(2): link failed: $(tail -3 "$OUT/$L.cc.err" | cut -c1-300)"; exit 2; }
 fi
-( cd "$CORPUS" && PARSER_FILES="$LIST" PARSER_TREE_HASH=0 SCRIP_DIAG=0 timeout 600 "$BIN" -s2000m -d8000m -i64m < /dev/null > "$OUT/$L.sc.dump" 2> "$OUT/$L.sc.err" ); rc=$?
+# CHUNK files per process (default 100): the tree gate runs each file alone (Lon 2026-09-28), and a long single run of the mode-4
+# binary dies in emitted code once its dead trees pass ~2 GB (the 2026-09-30 witness, any collector window) -- a runtime defect rowed apart
+CHUNK="${CHUNK:-1}"; : > "$OUT/$L.sc.dump"; : > "$OUT/$L.sc.err"; rc=0; split -l "$CHUNK" -d -a 3 "$LIST" "$OUT/$L.chunk."
+for ck in "$OUT/$L.chunk."*; do
+    ( cd "$CORPUS" && PARSER_FILES="$ck" PARSER_TREE_HASH=0 SCRIP_DIAG=0 timeout 600 "$BIN" -s2000m -d8000m -i64m < /dev/null >> "$OUT/$L.sc.dump" 2>> "$OUT/$L.sc.err" ); r=$?; [ "$r" -gt "$rc" ] && rc=$r
+    echo >> "$OUT/$L.sc.dump"
+done
+rm -f "$OUT/$L.chunk."*
 python3 - "$L" "$LIST" "$CDUMP" "$OUT/$L.sc.dump" "$SHOW" "$rc" <<'PYEOF'
 import sys, re, os
 L, LIST, CDUMP, SCDUMP, SHOW, rc = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5]), sys.argv[6]
@@ -32,14 +39,18 @@ def sections(path):
     return d
 c = sections(CDUMP); s = sections(SCDUMP)
 files = [os.path.basename(x.strip()) for x in open(LIST) if x.strip()]
-match = []; diff = []; fail = []
+match = []; diff = []; fail = []; crefused = []
 for f in files:
     cs = c.get(f); ss = s.get(f)
-    if ss is None or "Parse Error" in (ss or ""): fail.append(f); continue
-    if cs is None: fail.append(f); continue
+    cbad = cs is None or "Parse Error" in cs
+    sbad = ss is None or "Parse Error" in (ss or "")
+    if cbad and sbad: match.append(f); continue
+    if cbad: crefused.append(f); continue
+    if sbad: fail.append(f); continue
     (match if cs == ss else diff).append(f)
-print(f"PARSER-SC lang={L} files={len(files)} match={len(match)} diff={len(diff)} fail={len(fail)} run_rc={rc}")
+print(f"PARSER-SC lang={L} files={len(files)} match={len(match)} diff={len(diff)} fail={len(fail)} c_refused={len(crefused)} run_rc={rc}")
 if fail: print("FAIL (Parse Error or unparsed): " + " ".join(fail[:40]) + (" ..." if len(fail) > 40 else ""))
+if crefused: print("C-REFUSED (the C parser prints Parse Error, the .sc a tree): " + " ".join(crefused[:20]))
 def flat(x): return re.sub(r'\n\s*', ' ', x).replace("(TT_STMT (TT_ATTR :subj ", "(S ")
 def toks(x): return flat(x).replace("(", " ( ").replace(")", " ) ").split()
 srcdir = os.path.dirname(open(LIST).readline().strip())
