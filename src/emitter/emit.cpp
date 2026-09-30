@@ -2633,12 +2633,19 @@ static void blob_layout_slot(const IR_t * m, int k, int units) {
 static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
 static int blob_layout_plant(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_BLOB_LAYOUT_PLANT"); v = e ? atoi(e) : 0; } return v; }
 int blob_cont_copy(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_CONT_COPY"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static int blob_zf_gc_only(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_ZF_GC_ONLY"), * d = getenv("SCRIP_DIAG"); v = e ? (*e == '1') : (d && *d == '0'); } return v; }
 static int blob_zf_rep(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_ZF_REP"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static int blob_omega_ret(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_OMEGA_RET"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static std::string blob_zero_fill(int bfb) {
     int top = sn4_blob_casmark() ? -32 : -24, o = -bfb;
     if (top - o <= 0) return std::string();
     if (blob_zf_rep() || top - o > 1200) return x86("lea", "rdi", RDQ("rbp", o)) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(top - o)) + x86("rep_stosb");
+    if (blob_zf_gc_only()) { std::string t; int any = 0;
+        for (uint32_t i = 0; i < g_blob_lay.len; i++) { uint64_t q = CV_AT(g_blob_lay, uint64_t, i); unsigned k = GC_LAY_KIND(q); int lo = GC_LAY_OFF(q), sz = GC_LAY_SIZE(q);
+            if ((k != GC_LAY_DESCR && k != GC_LAY_PTR_GC) || lo < o || lo + sz > top) continue;
+            if (!any) { t += x86("xorps", "xmm0", "xmm0") + x86("xor", "eax", "eax"); any = 1; }
+            if (sz == 16) t += x86("movups", RDQ("rbp", lo), "xmm0"); else for (int w = lo; w + 8 <= lo + sz; w += 8) t += x86("mov", RDQ("rbp", w), "rax"); }
+        return t; }
     std::string s = x86("xorps", "xmm0", "xmm0");
     for (; o + 16 <= top; o += 16) s += x86("movups", RDQ("rbp", o), "xmm0");
     if (o < top) s += x86("xor", "eax", "eax") + x86("mov", RDQ("rbp", o), "rax");
