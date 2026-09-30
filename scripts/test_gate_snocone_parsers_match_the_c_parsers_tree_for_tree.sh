@@ -22,12 +22,18 @@
 # the one number per-test for comparison. It shows only how many do not match, not in what ay do they not match."): each side runs
 # under PARSER_TREE_HASH=1 and prints ONE NUMBER per file instead of its tree -- h = (h * 256 + byte) mod (2^55 - 55) over every
 # byte its dump would print (C: ir_dump_tree into a hashing stream, src/tools/parser_main.c; .sc: TreeDumpPut/TreeDumpEnd,
-# bootstrap/tdump.sc) -- and the gate compares the numbers. THE CANARY: the first file of each language is also dumped in full on
+# bootstrap/tdump.sc) -- and the gate compares the numbers. THE CANARY: the first compared file of each language is also dumped in full on
 # both sides and each number is re-derived from its dump here, so a hash that stopped folding cannot read as MATCH (rc 2).
 # GATE_DETAIL=1 dumps the first DIFF file of each language in full and prints its first differing line pair.
-# VERDICT per language: files, hashes compared, MATCH, DIFF, REFUSED (by C, by .sc, by both), COULD-NOT-MEASURE (a timeout),
-# and the first DIFF file. rc 0 = every file of every graded language MATCHes; rc 1 = a DIFF or a one-sided refusal; rc 2 =
-# could not measure. A file BOTH parsers refuse counts as agreement (neither built a tree), printed apart.
+# THE C SIDE DUMPS WHAT ITS PARSER BUILT (the ceo's row, CEO-1364: "the C side dumps the parse tree the .sc reproduces"): Icon
+# before link resolution, Pascal before its semantic check, Rebus before rebus_lower, Prolog each clause's tree before
+# prolog_lower (a clause list with a parse error is refused), Snocone code_to_ast of the statements its parser builds, SNOBOL4
+# its parse -- never a FINISH step.
+# VERDICT per language: files, hashes compared, MATCH, DIFF, REFUSED (by C, by .sc, by both), CRASH (by C: a signal; by .sc: a
+# nonzero exit without Parse Error), COULD-NOT-MEASURE (a timeout), and the first red file. A C refusal is "Parse Error" or a
+# nonzero exit below 128 (icon_compile_parse exits 1 on a syntax error). rc 0 = every file of every graded language MATCHes;
+# rc 1 = a DIFF, a one-sided refusal or a crash on either side; rc 2 = could not measure. A file BOTH parsers refuse counts as
+# agreement (neither built a tree), printed apart; a crash is never agreement.
 # RED BY MEASUREMENT on 2026-09-28: the .sc and C trees differ in five shape classes (GOAL-SNOCONE-100.md cursor 2026-09-28b)
 # until Lon's canonical forms land in the .sc parsers.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -64,12 +70,14 @@ for L in snobol4 snocone icon prolog rebus pascal; do
     cat $CHAIN "$B/parser_$L.sc" > "$T/$L.chain.sc"
     "$SCRIP" --compile "$T/$L.chain.sc" -o "$T/$L.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$L.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/$L.bin" 2>/dev/null \
         || { echo "  $L: ⛔ REFUSE(2) the .sc chain did not compile or link to a mode-4 binary"; RC=2; continue; }
-    m=0; d=0; rc_=0; rs=0; rb=0; u=0; hc=0; first=""; firstf=""; canary=""
+    m=0; d=0; rc_=0; rs=0; rb=0; u=0; hc=0; kc=0; ks=0; first=""; firstf=""; canary=""
     while IFS= read -r f; do
         ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" PARSER_TREE_HASH=1 timeout "$TMO" "$exe" - < "$f" > "$T/c.hash" 2>/dev/null ); crc=$?
         PARSER_TREE_HASH=1 timeout "$TMO" "$T/$L.bin" -s4096m -d16384m < "$f" > "$T/s.hash" 2>/dev/null; src=$?
         if [ $crc -eq 124 ] || [ $src -eq 124 ]; then u=$((u + 1)); continue; fi
-        cr=0; sr=0; { refused "$T/c.hash" || [ $crc -ge 2 ]; } && cr=1; refused "$T/s.hash" && sr=1
+        if [ $crc -ge 128 ]; then kc=$((kc + 1)); [ -n "$first" ] || first="C crashed rc=$crc ${f#$CORPUS/}"; continue; fi
+        if [ $src -ne 0 ] && ! refused "$T/s.hash"; then ks=$((ks + 1)); [ -n "$first" ] || first=".sc crashed rc=$src ${f#$CORPUS/}"; continue; fi
+        cr=0; sr=0; { refused "$T/c.hash" || [ $crc -ne 0 ]; } && cr=1; refused "$T/s.hash" && sr=1
         if [ $cr = 1 ] && [ $sr = 1 ]; then rb=$((rb + 1))
         elif [ $cr = 1 ]; then rc_=$((rc_ + 1)); [ -n "$first" ] || first="C refused ${f#$CORPUS/}"
         elif [ $sr = 1 ]; then rs=$((rs + 1)); [ -n "$first" ] || first=".sc refused ${f#$CORPUS/}"
@@ -84,8 +92,8 @@ for L in snobol4 snocone icon prolog rebus pascal; do
     fi
     [ "$canary" = LIVE ] || [ "$canary" = "" ] || { echo "  $L: ⛔ REFUSE(2) the hash canary: $canary"; RC=2; continue; }
     GRADED=$((GRADED + 1))
-    verdict=MATCH; [ $d -gt 0 ] || [ $rc_ -gt 0 ] || [ $rs -gt 0 ] && verdict=RED; [ $u -gt 0 ] && verdict="COULD-NOT-MEASURE($u)"
-    echo "  $L: $verdict files=$nf hashes-compared=$hc MATCH=$m DIFF=$d REFUSED-by-C=$rc_ REFUSED-by-.sc=$rs refused-by-both=$rb timeout=$u${first:+ -- first: $first}"
+    verdict=MATCH; [ $d -gt 0 ] || [ $rc_ -gt 0 ] || [ $rs -gt 0 ] || [ $kc -gt 0 ] || [ $ks -gt 0 ] && verdict=RED; [ $u -gt 0 ] && verdict="COULD-NOT-MEASURE($u)"
+    echo "  $L: $verdict files=$nf hashes-compared=$hc MATCH=$m DIFF=$d REFUSED-by-C=$rc_ REFUSED-by-.sc=$rs refused-by-both=$rb CRASH-C=$kc CRASH-.sc=$ks timeout=$u${first:+ -- first: $first}"
     case "$verdict" in MATCH) GREEN=$((GREEN + 1)) ;; RED) [ $RC -eq 2 ] || RC=1 ;; *) RC=2 ;; esac
 done
 echo "  raku: not graded (parser_raku.sc is a recognizer, frozen by Lon until hq_raku's parser is stable)"

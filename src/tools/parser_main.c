@@ -13,36 +13,37 @@
 #define PARSER_NAME "snobol4"
 #elif defined(PARSER_LANG_SNOCONE)
 #include "parsers/snocone/snocone_driver.h"
+#include "parsers/snobol4/scrip_cc.h"
 #define PARSER_NAME "snocone"
 #define PARSER_PARSE snocone_compile_parse
-#define PARSER_FINISH snocone_compile_finish
+#define PARSER_TREE(p) ((p) ? code_to_ast((CODE_t *)(p)) : NULL)
 #elif defined(PARSER_LANG_ICON)
 #include "parsers/icon/icon_driver.h"
 #define PARSER_NAME "icon"
 #define PARSER_PARSE icon_compile_parse
-#define PARSER_FINISH icon_compile_finish
+#define PARSER_TREE(p) ((tree_t *)(p))
 #elif defined(PARSER_LANG_PROLOG)
 #include "parsers/prolog/prolog_driver.h"
+#include "parsers/prolog/prolog_parse.h"
 #define PARSER_NAME "prolog"
 #define PARSER_PARSE prolog_compile_parse
-#define PARSER_FINISH prolog_compile_finish
 #elif defined(PARSER_LANG_REBUS)
 #include "parsers/rebus/rebus_lower.h"
+#include "parsers/rebus/rebus.h"
 #define PARSER_NAME "rebus"
 #define PARSER_PARSE rebus_compile_parse
-#define PARSER_FINISH rebus_compile_finish
+#define PARSER_TREE(p) (rebus_nerrors > 0 ? NULL : (tree_t *)(p))
 #elif defined(PARSER_LANG_RAKU)
 #include "parsers/raku/raku_driver.h"
 #define PARSER_NAME "raku"
 static void * raku_compile_whole(const char * src, const char * name) { tree_t * ast = NULL; raku_compile(src, name, &ast); return ast; }
-static void raku_compile_done(void * parsed, const char * name, tree_t ** out_ast) { (void)name; *out_ast = (tree_t *)parsed; }
 #define PARSER_PARSE raku_compile_whole
-#define PARSER_FINISH raku_compile_done
+#define PARSER_TREE(p) ((tree_t *)(p))
 #elif defined(PARSER_LANG_PASCAL)
 #include "parsers/pascal/pascal_driver.h"
 #define PARSER_NAME "pascal"
 #define PARSER_PARSE pascal_compile_parse
-#define PARSER_FINISH pascal_compile_finish
+#define PARSER_TREE(p) ((tree_t *)(p))
 #else
 #error "parser_main.c is compiled once per frontend: -DPARSER_LANG_<SNOBOL4|SNOCONE|ICON|PROLOG|REBUS|RAKU|PASCAL>"
 #endif
@@ -124,13 +125,20 @@ static int parse_and_dump(char * src, size_t len, const char * name, int64_t * p
     return parse_snobol4_program(src, len, name, pns, hash);
 #else
     (void)len;
-    tree_t * ast = NULL;
     int64_t a = mono_ns();
     void * parsed = PARSER_PARSE(src, name);
     *pns += mono_ns() - a;
-    { int64_t ln = g_lex_ns, lc = g_lex_calls; PARSER_FINISH(parsed, name, &ast); g_lex_ns = ln; g_lex_calls = lc; }
+#if defined(PARSER_LANG_PROLOG)
+    PlProgram * pl = (PlProgram *) parsed;
+    if (!pl || pl->nerrors > 0) { puts("Parse Error"); return 1; }
+    tree_t * kids[pl->nclauses > 0 ? pl->nclauses : 1]; tree_t prog = { .t = TT_PROGRAM, .n = 0, .c = kids };
+    for (PlClause * cl = pl->head; cl && prog.n < pl->nclauses; cl = cl->next) kids[prog.n++] = cl->tr;
+    dump_program(&prog, hash);
+#else
+    int64_t ln = g_lex_ns, lc = g_lex_calls; tree_t * ast = PARSER_TREE(parsed); g_lex_ns = ln; g_lex_calls = lc;
     if (!ast) { puts("Parse Error"); return 1; }
     dump_program(ast, hash);
+#endif
     return 0;
 #endif
 }
