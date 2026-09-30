@@ -38,6 +38,10 @@ trap '[ -n "${WORK:-}" ] && rm -rf "$WORK"' EXIT INT TERM
 cc=$(git -C "$GH" log --format=%h -1 -S'went DARK' -- scripts/util_progress_flips.py)
 if [ -z "$cc" ]; then echo "GATE UNPROVEN(2) [$GATE_NAME]: the rule's commit is not in $GH's history -- pull .github"; gate_stamp; exit 2; fi
 git -C "$GH" show "$cc^:scripts/util_progress_flips.py" > "$WORK/old.py" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot read the old reader at $cc^"; gate_stamp; exit 2; }
+# The seven rung suites were renamed after this cure (Lon 2026-09-29: sno-master -> sno-rungs, snobol4-master -> snobol4-rungs,
+# class master -> rungs): the old reader gets the same names, so the fail-once compares algorithms, never spellings (the
+# normalisation test_gate_progress_readers_stream_and_answer_the_same.sh applies to its own two historical readers).
+perl -pi -e 's/\b(sno|icn|pl|pas|raku|snc|reb|snobol4|icon|prolog|pascal|snocone|rebus)-master\b/$1-rungs/g; s/(["\x27])master\1/$1rungs$1/g; s/board_icon_master/board_icon_rungs/g' "$WORK/old.py"
 echo "  old reader: util_progress_flips.py at $cc^ (.github history)"
 
 H=$(date -u -d '10 hours ago' +%FT%T); W1=$(date -u -d '2 hours ago' +%FT%T)
