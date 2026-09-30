@@ -38,6 +38,11 @@
 # not match, not in what ay do they not match."; the details come from the full dump of a mismatching file). THE CANARY: the first
 # file that printed a number is dumped in full by SCRIP and by SPITBOL, and each number must be an independent fold of its own
 # dump, so a hash that stopped folding REFUSES rc=2 instead of reading SCRIP==SBL (the tree gate's canary, the same fold).
+# THE HASH-OFF CONTROL (the ceo's ruling of 2026-09-29 20:4x CDT, on its measurement at 20:38: PARSER_TREE_HASH=1 read SCRIP's
+# Snocone parse_us 58 -> 83 ms on the 2536a296c runtime although the fold runs outside the clock; 59 -> 60 at 8c610af38; C and
+# SPITBOL not inflated): after the timed runs SCRIP runs the list once more with PARSER_TREE_HASH=0, printing its trees in full, and
+# that clock is printed beside the hash-on median; a hash-on clock more than ten percent off it either way is named on the
+# language's row as HASH GAP. The trees still compare by hash, and the hash-on median stays the grid's SCRIP column.
 # THE RUNTIME MEASURED IS A CHECKOUT'S OWN: GRID_ROOT=<a SCRIP checkout> (default: this one) names the scrip, out/libscrip_rt.so,
 # out/parser_<lang> and bootstrap/ measured, each refused when older than that checkout's src/. RT_OPT IS READ BACK, NEVER ASSUMED:
 # the linked runtime's tag (Makefile: RT_TAG, an md5 of RT_OPT|ZCFLAGS) against the tag of the checkout's default RT_OPT and, when
@@ -140,12 +145,14 @@ for L in $LANGS; do
     done
     [ -z "$short" ] || { echo "$L ⛔ REFUSE(2): a timed run did not reach PARSER-METRICS over all $nf files:$short"; RC=2; continue; }
     c=$(med "${tc[@]}"); s=$(med "${ts[@]}"); b=$(med "${tb[@]}")
+    H=0 run SCRIP "$T/$L.list" "$T/$L.SCRIPoff"; so=""; whole "$T/$L.SCRIPoff" "$T/$L.list" && so=$(metric "$T/$L.SCRIPoff.err" parse_us)
+    gap=$(awk -v s="$s" -v o="$so" 'BEGIN { if (o == "" || o == 0) print " | HASH-OFF RUN SHORT"; else if (s / o > 1.10 || s / o < 0.90) printf " | HASH GAP %+.0f%% (hash-off %.1f ms)", (s / o - 1) * 100, o / 1000 }')
     k="$(canary)"; [ "$k" = LIVE ] || { echo "$L ⛔ REFUSE(2): the tree-hash canary: $k"; RC=2; continue; }
     nd=$(awk 'FNR == 1 { k++ } /^== / { nm = substr($0, 4); if (k == 1) a[nm] = ""; else b[nm] = ""; next } k == 1 { a[nm] = a[nm] $0 "\n"; next } { b[nm] = b[nm] $0 "\n" }
               END { for (n in a) if (!(n in b) || a[n] != b[n]) d++; for (n in b) if (!(n in a)) d++; print d + 0 }' "$T/$L.SCRIP.out" "$T/$L.SBL.out")
     t=SCRIP==SBL; [ "$nd" = 0 ] || t="DIFFER $nd/$nf"
-    printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' "$L" "$nf" "$(metric "$T/$L.SCRIP.err" bytes)" "$(ms "$c")" "$(ms "$s")" "$(ms "$b")" "$(x "$b" "$s")" "$(x "$c" "$s")" "$t$via"
-    echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL") (each engine over all $np); runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
+    printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' "$L" "$nf" "$(metric "$T/$L.SCRIP.err" bytes)" "$(ms "$c")" "$(ms "$s")" "$(ms "$b")" "$(x "$b" "$s")" "$(x "$c" "$s")" "$t$via$gap"
+    echo "   $L list: $nf of $np corpus programs; dropped because the file ended or outlasted the run -- C $(wc -l < "$T/$L.gone.C"), SCRIP $(wc -l < "$T/$L.gone.SCRIP"), SBL $(wc -l < "$T/$L.gone.SBL") (each engine over all $np); runs C ${tc[*]} SCRIP ${ts[*]} SBL ${tb[*]} us; SCRIP hash-off ${so:--} us${via:+; SCRIP compiled the transpiled chain}$([ "$L" = raku ] && echo "; the C clock is rk_parse_tree, parse and tree, as the .sc driver's")"
     NL=$((NL + 1)); awk -v c="$c" -v s="$s" 'BEGIN { exit !(s > 0 && c / s >= 1.0) }' && NC=$((NC + 1)); awk -v b="$b" -v s="$s" 'BEGIN { exit !(s > 0 && b / s >= 2.0) }' && N2=$((N2 + 1))
 done
 echo "BAR [$G]: $NC of $NL parsers at C's parse clock (C/SCRIP >= 1.00), $N2 of $NL at SPITBOL/SCRIP >= 2.00; load at end $(cut -d' ' -f1-3 /proc/loadavg)${GRID_OUT:+; lists, dropped names and dumps kept under $GRID_OUT}"
