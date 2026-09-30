@@ -2686,13 +2686,13 @@ static void blob_fg_from(const IR_t * n, const IR_t * stop, const blob_fg_t * co
     memset(out, 0, sizeof *out);
     if (!n || depth > 64) { out->unknown = 1; return; }
     if (n == stop) { *out = *cont; return; }
-    if (n->seal) { out->unknown = 1; return; }
+    if (n->seal || (n->ω.node && n->ω.node->op == IR_MATCH_ABORT)) { out->unknown = 1; return; }
     const char * s = IR_LIT(n).sval; int lit = (n->n_operands == 0 && !n->pat_static && s);
     switch ((int)n->op) {
     case IR_MATCH_LIT: if (!lit) { out->unknown = 1; return; } if (!s[0]) { blob_fg_from(n->γ.node, stop, cont, out, depth + 1, deps); return; } out->set[(unsigned char)s[0]] = 1; return;
     case IR_MATCH_ANY: case IR_MATCH_SPAN: if (!lit) { out->unknown = 1; return; } for (const char * p = s; *p; p++) out->set[(unsigned char)*p] = 1; return;
     case IR_MATCH_NOTANY: if (!lit) { out->unknown = 1; return; } for (int i = 0; i < 256; i++) out->set[i] = 1; for (const char * p = s; *p; p++) out->set[(unsigned char)*p] = 0; return;
-    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_FENCE0:
+    case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND:
         blob_fg_from(n->γ.node, stop, cont, out, depth + 1, deps); if (out->nempty) out->impure = 1; return;
     case IR_MATCH_ALTERNATE: { blob_fg_t after, a; if (n->n_operands < 2 || (n->n_operands & 1)) { out->unknown = 1; return; } blob_fg_from(n->γ.node, stop, cont, &after, depth + 1, deps);
         for (int k = 0; k + 1 < n->n_operands; k += 2) { blob_fg_from(n->operands[k], n, &after, &a, depth + 1, deps); for (int i = 0; i < 256; i++) out->set[i] |= a.set[i]; out->nempty = out->nempty + a.nempty > 2 ? 2 : out->nempty + a.nempty; out->impure |= a.impure; out->unknown |= a.unknown; } return; }
