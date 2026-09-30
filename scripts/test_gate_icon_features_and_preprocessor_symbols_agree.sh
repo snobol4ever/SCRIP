@@ -29,15 +29,20 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_gate.sh"
 GATE_NAME=icon_features_and_preprocessor_symbols_agree
 FEATS_SRC="${ICON_FEATS_SRC:-$HERE/../src/runtime/keywords.c}"
-PRE_SRC="${ICON_PRE_SRC:-$HERE/../src/parsers/icon/icon_lex.c}"
+PRE_SRC="${ICON_PRE_SRC:-$HERE/../src/tools/ipp.icn}"   # the IPP pre-step, JCON's preprocessor in Icon (Lon 2026-09-30, CEO-1366); icon_lex.c carries a twin list until its pass is deleted
+PRE_SRC2="${ICON_PRE_SRC2:-$HERE/../src/parsers/icon/icon_lex.c}"
 [ -f "$FEATS_SRC" ] || { echo "GATE REFUSE(2) [$GATE_NAME]: no feature source at $FEATS_SRC -- cannot measure"; exit 2; }
 [ -f "$PRE_SRC" ]   || { echo "GATE REFUSE(2) [$GATE_NAME]: no preprocessor source at $PRE_SRC -- cannot measure"; exit 2; }
+if [ -f "$PRE_SRC2" ] && grep -q 'pre\[\] = {' "$PRE_SRC2"; then a="$(tr -d '\n' < "$PRE_SRC" | grep -o 'every t\[!\[[^]]*\]\]' | grep -o '"[^"]*"' | tr -d '\n')"; b="$(grep -o 'pre\[\] = {[^}]*}' "$PRE_SRC2" | grep -o '"[^"]*"' | tr -d '\n')"; [ "$a" = "$b" ] || { echo "GATE FAIL(1) [$GATE_NAME]: the pre-step and the lexer twin disagree on the predefined symbols -- $PRE_SRC vs $PRE_SRC2"; exit 1; }; fi
 out="$(python3 - "$FEATS_SRC" "$PRE_SRC" <<'PY'
 import re, sys
 feats_src, pre_src = sys.argv[1], sys.argv[2]
 def arr(path, decl):
     txt = open(path, encoding="utf-8", errors="replace").read()
-    m = re.search(re.escape(decl) + r"[^{]*\{(.*?)\}", txt, re.S)
+    if path.endswith(".icn"):
+        m = re.search(r"every t\[!\[(.*?)\]\] := \"1\"", txt, re.S)
+    else:
+        m = re.search(re.escape(decl) + r"[^{]*\{(.*?)\}", txt, re.S)
     if not m: return None
     return re.findall(r'"([^"]*)"', m.group(1))
 feats = arr(feats_src, "feats[]")
@@ -47,7 +52,9 @@ if pre   is None: print("REFUSE|no pre[] initialiser found in %s"   % pre_src); 
 def norm(s): return re.sub(r"[^A-Z0-9]+", "_", s.upper()).strip("_")
 fset = {norm(f): f for f in feats}
 orphans, matched = [], []
+VERSION_SYMBOLS = {"_V9"}   # Arizona h/features.h: Feature(1, "_V9", 0) -- the version symbol, defined unconditionally, names no feature
 for s in pre:
+    if s in VERSION_SYMBOLS: continue
     key = norm(s.lstrip("_"))
     (matched if key in fset else orphans).append(s)
 missing = [f for k, f in fset.items() if k not in {norm(s.lstrip("_")) for s in pre}]
@@ -69,7 +76,7 @@ if [ -n "$orphans" ]; then
     bad="$(printf '%s\n' "$orphans" | grep -c .)"
     echo "  ⛔ preprocessor symbol(s) naming NO feature -- \$ifdef would define a symbol &features denies:"
     printf '%s\n' "$orphans" | sed 's/^/      /'
-    echo "  Cure: add the feature to feats[] in src/runtime/keywords.c, or drop the symbol from pre[] in src/parsers/icon/icon_lex.c."
+    echo "  Cure: add the feature to feats[] in src/runtime/keywords.c, or drop the symbol from the table in src/tools/ipp.icn (and its twin pre[] in src/parsers/icon/icon_lex.c while that pass exists)."
     echo "  Icon's own suite cross-checks these (precheck(_JAVA, \"Java\")), so a disagreement surfaces as a corpus red far from its cause."
 fi
 GATE_EXAMINED="$np symbol(s) against $nf feature(s)"
