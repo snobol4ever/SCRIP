@@ -29,3 +29,4 @@ scripts/util_fix_folding_dialect.py	an oracle-probing tool: runs sbl at a fixed 
 scripts/profile_callgrind.sh	a profiler, not a runner: ulimit -s unlimited gives the profiled process room under valgrind; it publishes no verdict
 scripts/profile_pcsample.sh	a profiler, not a runner: ulimit -s unlimited gives the sampled process room; it publishes no verdict
 scripts/util_pl_rung9_gamma_fence_witness_set.sh	a stack-depth instrument (hq_prolog's): it PINS the stack to PIN_KB to measure the depth a witness reaches -- the pinned stack is the measurement, and it refuses rc 2 when the pin cannot be taken
+scripts/util_parser_phase_profile.sh	a profiler, not a runner: it profiles the parser grid's own run of each bootstrap chain under the grid's switches (-s2000m -d8000m -i64m) so its instructions are the grid's parse clock's; it publishes no verdict
