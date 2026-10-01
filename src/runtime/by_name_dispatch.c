@@ -10530,8 +10530,9 @@ PL_CX_LEAF_HEAD(cutcall, 2) {
     pl_ctv_t vt; int cuts = 0; tree_t *body; vt.n = 0; ok = 0;
     body = pl_cutcall_body(&args[0], &vt, &cuts);
     if (body && cuts && vt.n < 256) {
-        char nm[32], key[48]; int n = vt.n, seq = rt_proc_enum_count();
-        do { snprintf(nm, sizeof nm, "$cc%d", seq++); snprintf(key, sizeof key, "%s/%d", nm, n); } while (rt_proc_is_registered(key));
+        int n = vt.n, seq = rt_proc_enum_count(), nl, kl;
+        for (;; seq++) { kl = snprintf(NULL, 0, "$cc%d/%d", seq, n) + 1; char probe[kl]; snprintf(probe, (size_t)kl, "$cc%d/%d", seq, n); if (!rt_proc_is_registered(probe)) break; }
+        nl = snprintf(NULL, 0, "$cc%d", seq) + 1; char nm[nl], key[kl]; snprintf(nm, (size_t)nl, "$cc%d", seq); snprintf(key, (size_t)kl, "%s/%d", nm, n);
         { tree_t *hd = ast_node_new(n ? TT_FNC : TT_QLIT), *raw = ast_node_new(TT_FNC), *cl; void *ch;
           hd->v.sval = pl_tree_name(nm);
           for (int i = 0; i < n; i++) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt.nm[i]; ast_push(hd, v); }
