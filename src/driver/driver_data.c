@@ -401,7 +401,7 @@ static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     for (int i = 0; i < t->nfields; i++) {
         if ((t->sigil[i] == '@' || t->sigil[i] == '%') && inst->fields[i].v == DT_SNUL && !t->required[i]) inst->fields[i] = STRVAL(rt_heap_strdup_c(""));
     }
-    DESCR_t r; r.v = DT_DATA; r.slen = DATA_INST_SLEN; r.u = inst; return r;
+    return (DESCR_t){ .v = DT_DATA, .slen = DATA_INST_SLEN, .u = inst };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dat_check_required(DatType *t, DESCR_t self) {
