@@ -41,12 +41,13 @@ static std::string to_int_operand_guard(int slot) {
          + x86_rt_gc_poll();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define TO_BOMB1() (x86_fb_pinned() && (_.op_zres || _.op_num_real))
 std::string bb_to() {
     x86_begin();
-    if (x86_fb_pinned() && (_.op_zres || _.op_num_real))
-        return x86_alpha() + x86_bomb("IR_TO: a Prolog generator reached the zd/real arm, where op_off+24 is to.limit and the rung-7 trail mark would alias the loop bound -- grant IR_TO a fourth word before enabling this path");
-        if (_.op_zres)
-            return x86("comment", "IR_TO zd")
+    return IF(TO_BOMB1(),
+               x86_alpha() + x86_bomb("IR_TO: a Prolog generator reached the zd/real arm, where op_off+24 is to.limit and the rung-7 trail mark would alias the loop bound -- grant IR_TO a fourth word before enabling this path"))
+         + IF(!TO_BOMB1() && _.op_zres,
+               x86("comment", "IR_TO zd")
                  + x86_alpha()
                  + x86("note",  ZOPN(0))
                  + x86("mov", "rdi", ZOPQ(0, 0))
@@ -75,8 +76,9 @@ std::string bb_to() {
                  + x86_beta()
                  + x86("inc",   FRQ(_.op_off + 16))
                  + x86_omega(  "jo")
-                 + x86("jmp",   L(0));
-        return !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
+                 + x86("jmp",   L(0)))
+         + IF(!TO_BOMB1() && !_.op_zres,
+               !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
                _.op_num_real ?
                x86("comment", "IR_TO")
              + x86_alpha()
@@ -145,5 +147,5 @@ std::string bb_to() {
              + to_trail_unwind()
              + x86("inc",     FRQ(_.op_off + 16))
              + x86_omega("jo")
-             + x86("jmp",     L(0));
+             + x86("jmp",     L(0)));
 }
