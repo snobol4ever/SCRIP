@@ -5789,16 +5789,23 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *gname = VARVAL_fn(args[0]);
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
         }
-        if (nargs >= 2 && args[0].v != DT_DATA && rt_str_method(mname0, args[0], &args[2], nargs - 2, out)) return 1;
-        if (args[0].v != DT_DATA && mname0) {
-            const char *rtn = VARVAL_fn(args[0]);
+        DESCR_t _recv0 = args[0]; int _was_list_recv = 0;
+        { DESCR_t *_lva = 0; int _lvn = 0;
+          if (_recv0.v == DT_DATA && rt_lv_is_list(_recv0, &_lva, &_lvn)) {
+              extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
+              _recv0 = rt_make_nested_agg(_lva, _lvn); _was_list_recv = 1;
+          }
+        }
+        if (nargs >= 2 && _recv0.v != DT_DATA && rt_str_method(mname0, _recv0, &args[2], nargs - 2, out)) return 1;
+        if (_recv0.v != DT_DATA && mname0) {
+            const char *rtn = VARVAL_fn(_recv0);
             int is_dat_recv = (rtn && dat_find_type(rtn));
             if (!is_dat_recv && rtn && strchr(rtn, '\x02')) {
                 int is_hashm = !strcmp(mname0, "keys") || !strcmp(mname0, "values") || !strcmp(mname0, "pairs") || !strcmp(mname0, "kv");
                 if (is_hashm) {
                     const char *hfn = !strcmp(mname0, "keys") ? "hash_keys" : !strcmp(mname0, "values") ? "hash_values"
                                     : !strcmp(mname0, "pairs") ? "hash_pairs" : "hash_kv";
-                    DESCR_t fa[1]; fa[0] = args[0];
+                    DESCR_t fa[1]; fa[0] = _recv0;
                     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
                     if (script_try_call_builtin_by_name(hfn, fa, 1, out)) return 1;
                 }
@@ -5820,8 +5827,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                                     : !strcmp(mname0, "end") ? "elems" : mname0;
                     int total = 1 + (nargs - 2);
                     DESCR_t *fa = rt_ws_alloc_descr((size_t)total);
-                    if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = args[0]; }
-                    else { fa[0] = args[0]; for (int k = 0; k < nargs - 2; k++) fa[1 + k] = args[2 + k]; }
+                    if (!strcmp(mname0, "join")) { for (int k = 0; k < nargs - 2; k++) fa[k] = args[2 + k]; fa[nargs - 2] = _recv0; }
+                    else { fa[0] = _recv0; for (int k = 0; k < nargs - 2; k++) fa[1 + k] = args[2 + k]; }
                     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
                     if (script_try_call_builtin_by_name(afn, fa, total, out)) {
                         if (!strcmp(mname0, "end") && IS_INT_fn(*out)) *out = INTVAL(out->i - 1);
@@ -5851,7 +5858,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 }
             }
         }
-        if (!IS_DATA_INST_fn(args[0]) || !args[0].u) { *out = FAILDESCR; return 1; }
+        if (_was_list_recv || !IS_DATA_INST_fn(args[0]) || !args[0].u) { *out = FAILDESCR; return 1; }
         DATINST_t *inst = (DATINST_t *)args[0].u;
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;
         if (!cname) { *out = FAILDESCR; return 1; }
