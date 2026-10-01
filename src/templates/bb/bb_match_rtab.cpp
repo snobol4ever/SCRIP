@@ -7,8 +7,8 @@ extern "C" {
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_rtab() {
-    if (_.op_sval != NULL) {
-        return x86("comment", "IR_MATCH_RTAB defer")
+    return IF(_.op_sval != NULL,
+               x86("comment", "IR_MATCH_RTAB defer")
              + x86_alpha()
              + x86("mov",  LFC(0), "r14d")
              + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval + 1), x86_strtab_lbl(_.op_sval + 1).c_str())
@@ -23,10 +23,9 @@ std::string bb_match_rtab() {
              + x86_gamma()
              + x86_beta()
              + x86("mov",  "r14d", LFC(0))
-             + x86_omega();
-    }
-    if (_.op_zres)
-        return x86("comment", "IR_MATCH_RTAB zd")
+             + x86_omega())
+         + IF(_.op_sval == NULL && _.op_zres,
+               x86("comment", "IR_MATCH_RTAB zd")
              + x86_alpha()
              + x86("mov",  LFC(0), "r14d")
              + IF(_.op_sa >= 0, x86("note", ZOPN(0))
@@ -40,8 +39,9 @@ std::string bb_match_rtab() {
              + x86_gamma()
              + x86_beta()
              + x86("mov",  "r14d", LFC(0))
-             + x86_omega();
-    return x86("comment", "IR_MATCH_RTAB")
+             + x86_omega())
+         + IF(_.op_sval == NULL && !_.op_zres,
+               x86("comment", "IR_MATCH_RTAB")
          + x86_alpha()
          + x86("mov",  LFC(0), "r14d")
          + IF(_.op_sa >= 0, x86("mov", "rax", XSAQ(8)))
@@ -54,5 +54,5 @@ std::string bb_match_rtab() {
          + x86_gamma()
          + x86_beta()
          + x86("mov",  "r14d", LFC(0))
-         + x86_omega();
+         + x86_omega());
 }
