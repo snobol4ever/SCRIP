@@ -55,7 +55,7 @@ run_witness() {
         echo "  arm 3 [$lang]: m3 frames=${f3:-0} m4 frames=${f4:-0} rc=$r0"
     else echo "  arm 3 RED [$lang m4]: the witness did not build"; bad=1; fi
 }
-printf 'procedure q(n)\n  local i\n  every i := 1 to n do write(i * i)\nend\nprocedure main()\n  q(3)\nend\n' > "$W/w.icn"; run_witness icon "$W/w.icn"
+printf 'procedure q(n)\n  local i;\n  every i := 1 to n do write(i * i);\nend\nprocedure main()\n  q(3);\nend\n' > "$W/w.icn"; run_witness icon "$W/w.icn"
 printf 'p(1).\np(2).\nq(X, Y) :- p(X), Y is X * 2.\n:- q(X, Y), write(Y), nl, fail.\n:- true.\n' > "$W/w.pl"; run_witness prolog "$W/w.pl"
 printf '        DEFINE("F(X)")             :(START)\nF       F = X * 2                   :(RETURN)\nSTART   OUTPUT = F(21)\n        S = "abc" ; S "b" = "B"\n        OUTPUT = S\nEND\n' > "$W/w.sno"; run_witness snobol4 "$W/w.sno"
 cp "$CORPUS/snocone/$(ls "$CORPUS/snocone" | grep '\.sc$' | head -1)" "$W/w.sc" 2>/dev/null && run_witness snocone "$W/w.sc"
