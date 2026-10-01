@@ -1649,10 +1649,43 @@ static void gc_spine_lost_check(void)
     g_gc_spine_recn = 0; g_gc_spine_seen = 0;
 }
 #endif
+#if RT_DIAG
+static void gc_s16_census(const char *lo0, const char *hi0, const char *pop)
+{
+    const char *e = getenv("SCRIP_GC_SWEEP16"), *lo = (const char *)(((uintptr_t)lo0 + 15u) & ~(uintptr_t)15u), *slo = lo0 - (1L << 20), *shi = hi0 + (1L << 20);
+    int lvl = (e && *e >= '1' && *e <= '9') ? *e - '0' : 0; long n = 0, cell = 0, code = 0, stack = 0, heap = 0, other = 0, nf = 0, k8 = 0;
+    if (!lvl) return;
+    int dump = lvl >= 2 && (lvl == 9 || rt_gc_runs_count() <= (8L << (3 * (lvl - 2))));
+    if (dump) for (const char *c = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u); c + 16 <= hi0; c += 8) { const gc_frame_map_t *m; if (gc_walk_cell(c, hi0, &m)) nf++; }
+    if (nf > 4096) nf = 4096;
+    const char *fc[nf > 0 ? nf : 1]; const gc_frame_map_t *fm[nf > 0 ? nf : 1];
+    if (dump) for (const char *c = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u); c + 16 <= hi0 && k8 < nf; c += 8) {
+        const gc_frame_map_t *m; if (gc_walk_cell(c, hi0, &m)) { fc[k8] = c; fm[k8] = m; k8++; } }
+    for (const char *p = lo; p + 16 <= hi0; p += 16) { const char *w0 = *(const char *const *)p, *w1 = *(const char *const *)(p + 8), *k; n++;
+        if (gc_blk_of(w0)) { heap++; k = "heap"; }
+        else if (gc_code_range(w0)) { code++; k = "code"; }
+        else if (w0 >= slo && w0 < shi) { stack++; k = "stack"; }
+        else if (gc_tag_known(*(const uint8_t *)p)) { cell++; continue; }
+        else { other++; k = "other"; }
+        if (!dump) continue;
+        { const char *where = "SPINE", *graph = "-"; long off = 0; int i;
+          for (i = 0; i < k8; i++) { const gc_frame_map_t *m = fm[i]; const char *c = fc[i];
+              if (m->flags & GC_FRAME_MAP_BLOB) { const char *rbp = c + (long)m->frame_bytes;
+                  if (p >= c && p < rbp + (long)m->header_bytes) { where = "BLOB"; off = (long)(p - rbp); break; } }
+              else { const char *base = c - (long)m->map_off;
+                  if (p >= base && p < c + 16 + (long)m->header_bytes) { where = (m->flags & GC_FRAME_MAP_ROOT) ? "ROOT" : "FRAME"; off = (long)(p - base); break; } } }
+          if (i < k8) graph = fm[i]->graph_name ? fm[i]->graph_name : "?";
+          else { for (i = 0; i < k8 && fc[i] <= p; i++) ; if (i < k8) { graph = fm[i]->graph_name ? fm[i]->graph_name : "?"; off = (long)(fc[i] - p); } else where = "TOP"; }
+          fprintf(stderr, "[GC-S16] pop=%s where=%s graph=%s off=%ld k=%s w0=%p w1=%p\n", pop, where, graph, off, k, (const void *)w0, (const void *)w1); } }
+    if (n) fprintf(stderr, "[GC-S16-SUM] pop=%s units=%ld cell=%ld raw=%ld code=%ld stack=%ld heap=%ld other=%ld frames=%ld\n", pop,
+            n, cell, n - cell, code, stack, heap, other, nf);
+}
+#endif
 static long gc_visit_segment(const char *lo0, const char *hi0)
 {
 #if RT_DIAG
     if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
+    gc_s16_census(lo0, hi0, g_gc_rep_popname[g_gc_rep_pop]);
 #endif
     gc_walk_range(lo0, hi0);
     return 0;
@@ -1676,6 +1709,9 @@ static void gc_root_gva(void)
 {
     DESCR_t *gv = (DESCR_t *)RT_GVA_VA;
     for (int k = 0; k < g_sxt_gva_n; k++) rt_gc_visit_descr(&gv[k]);
+#if RT_DIAG
+    gc_s16_census((const char *)gv, (const char *)(gv + g_sxt_gva_n), "gva");
+#endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG

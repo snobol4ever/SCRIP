@@ -173,6 +173,7 @@ test_gate_gc_mark_worklist_visits_typed_layouts_not_words.sh	WIRED	-	-	-
 test_gate_gc_no_collection_inside_a_runtime_call.sh	WIRED	-	-	-
 test_gate_gc_no_pinned_lifetime_class.sh	WIRED	-	-	-
 test_gate_gc_nv_cell_caches_honour_the_memo_generation.sh	WIRED	-	-	-
+test_gate_gc_one_stack_the_walker_sweeps_tagged_cells.sh	WIRED	-	-	-
 test_gate_gc_pacing_bounds_a_churning_program.sh	WIRED	-	-	-
 test_gate_gc_pas_every_frame_slot_has_a_kind.sh	WIRED	-	-	-
 test_gate_gc_pas_heap_cells_survive_forced_movement.sh	WIRED	-	-	-
@@ -486,13 +487,13 @@ test_gate_pl_a_big_integer_past_the_double_range_raises_float_overflow.sh	WIRED	
 test_gate_pl_a_binary_stream_has_no_encoding_property.sh	WIRED	-	-	-
 test_gate_pl_a_body_less_procedure_returns_a_defined_result.sh	WIRED	-	-	-
 test_gate_pl_a_closed_stream_is_not_a_current_stream_argument.sh	WIRED	-	-	-
+test_gate_pl_a_cut_inside_a_control_goal_held_in_a_variable_cuts_to_the_call.sh	WIRED	-	-	-
 test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh	WIRED	-	-	-
 test_gate_pl_a_meta_called_format_reads_its_empty_argument_list.sh	WIRED	-	-	-
 test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRED	-	-	-
 test_gate_pl_a_predicate_with_more_than_64_clauses_keeps_every_clause.sh	WIRED	-	-	-
 test_gate_pl_a_prefix_operator_wins_the_write_over_a_postfix_one.sh	WIRED	-	-	-
 test_gate_pl_a_prelude_dcg_rule_reaches_the_program_that_calls_it.sh	WIRED	-	-	-
-test_gate_pl_a_cut_inside_a_control_goal_held_in_a_variable_cuts_to_the_call.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_a_shift_outside_the_int64_window_is_computed_not_wrapped.sh	WIRED	-	-	-
 test_gate_pl_a_syntax_error_costs_its_own_clause_and_not_the_file.sh	WIRED	-	-	-
