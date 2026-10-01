@@ -35,6 +35,11 @@ mkpo() {
 baton() { # baton <po> <topic> <first-line> <done-when> <extra-body>
     { printf '# TASK %s\n' "$2"; printf 'GOAL: %s\n' "$3"; printf 'DONE-WHEN: %s\n' "$4"; printf '%s\n' "$5"; } > "$1/tasks/$2.task.md"
 }
+# ⛔⭐ A ROW EXISTS ONLY WHILE A MEASUREMENT SAYS THE PROBLEM EXISTS (Lon 2026-10-01, CEO-1386/1387): class P reads only
+# LIVE rows, so every baton the arms below plant sits on a QUEUE.tsv row (rank, topic, owner, state) unless the arm
+# is proving the opposite -- ARM 1b plants the same placeholder baton on a RETIRED row and wants it NOT counted.
+row()  { printf '0\t%s\thq_X\tFREE\n' "$2" >> "$1/QUEUE.tsv"; }           # row <po> <topic>  -- a live FREE row
+rrow() { printf '0\t%s\thq_X\tRETIRED\n' "$2" >> "$1/QUEUE.retired.tsv"; } # rrow <po> <topic> -- a retired row
 pcount() { # pcount <po> — the number class P reports, or 'REFUSED'
     local out; out=$(S4E_PO="$1" python3 "$CENSUS" 2>&1); local rc=$?
     [ "$rc" = 2 ] && { echo REFUSED; return; }
@@ -45,12 +50,16 @@ T=$(mktemp -d) || exit 2
 trap 'rm -rf "$T"' EXIT
 echo "--- ARM 1 (fail once): a baton whose DONE-WHEN IS the placeholder is COUNTED ---"
 mkpo "$T/a" || exit 2
-baton "$T/a" synth_placeholder 'a synthetic row' "$PLACE" '## LEDGER'
-n=$(pcount "$T/a"); ck "$([ "$n" = 1 ] && echo ok || echo no)" "class P counts the placeholder baton (got '$n', want 1)"
+baton "$T/a" synth_placeholder 'a synthetic row' "$PLACE" '## LEDGER'; row "$T/a" synth_placeholder
+n=$(pcount "$T/a"); ck "$([ "$n" = 1 ] && echo ok || echo no)" "class P counts the placeholder baton on a LIVE row (got '$n', want 1)"
+echo "--- ARM 1b (CEO-1386/1387): the SAME placeholder baton on a RETIRED row is history, NOT counted ---"
+mkpo "$T/r" || exit 2
+baton "$T/r" synth_retired 'a synthetic row' "$PLACE" '## LEDGER'; rrow "$T/r" synth_retired
+n=$(pcount "$T/r"); ck "$([ "$n" = 0 ] && echo ok || echo no)" "class P does NOT count a placeholder baton whose row is retired (got '$n', want 0)"
 echo "--- ARM 2 (pass once, THE LOAD-BEARING ARM): a REAL DONE-WHEN whose PROSE mentions the placeholder is NOT counted ---"
 mkpo "$T/b" || exit 2
 baton "$T/b" synth_cured 'a synthetic row' 'echo GREEN' "## LEDGER
-- [hq_X] Replaced the ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS line with a real criterion."
+- [hq_X] Replaced the ⛔ MUST BE MADE RUNNABLE BEFORE done CAN EVER PASS line with a real criterion."; row "$T/b" synth_cured
 n=$(pcount "$T/b"); ck "$([ "$n" = 0 ] && echo ok || echo no)" "class P does NOT count a cured baton that mentions the placeholder in prose (got '$n', want 0)"
 echo "--- ARM 3 (the control that makes ARM 2 mean something): the whole-file grep DOES count that same baton ---"
 if grep -q 'MUST BE MADE RUNNABLE' "$T/b/tasks/synth_cured.task.md"; then
@@ -60,7 +69,7 @@ else
 fi
 echo "--- ARM 4: a TOMBSTONE baton (SUPERSEDED header) carrying the placeholder is NOT counted ---"
 mkpo "$T/c" || exit 2
-baton "$T/c" synth_tomb 'a synthetic row' "$PLACE" '## LEDGER'
+baton "$T/c" synth_tomb 'a synthetic row' "$PLACE" '## LEDGER'; row "$T/c" synth_tomb
 sed -i '1s/.*/# TASK synth_tomb — SUPERSEDED by another topic/' "$T/c/tasks/synth_tomb.task.md"
 n=$(pcount "$T/c"); ck "$([ "$n" = 0 ] && echo ok || echo no)" "a redirect stub needs no runnable criterion (got '$n', want 0)"
 echo "--- ARM 5: an unreadable postoffice REFUSES rc=2, never a silent green ---"
