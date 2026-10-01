@@ -20,7 +20,7 @@ std::string bb_var_global() {
              : vs >= 0 ?
                x86("comment", "IR_VAR patv-slot: the snapshot the pattern's constructor passed, read from its own header")
              + x86_alpha()
-             + x86("mov",    "rdi", RDQ("rbp", -24))
+             + (_.op_head_spine && _.op_head_rsp < 0 ? x86_bomb("bb_var_global: a frameless thunk reads its head from a box with no spine depth") : x86("mov", "rdi", _.op_head_spine ? RDQ("rsp", _.op_head_rsp) : RDQ("rbp", -24)))
              + x86("test",   "rdi", "rdi")
              + x86("je",     L(1))
              + x86("mov",    "rsi", RDQ("rdi", 32))

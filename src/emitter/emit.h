@@ -502,6 +502,8 @@ typedef struct {
     int                          zop_seen;
     int                          op_zdepth;
     int                          op_zres;
+    int                          op_head_spine;
+    int                          op_head_rsp;
     int                          op_strict;
     int                          op_zgpop;
     int *                        op_zread;
