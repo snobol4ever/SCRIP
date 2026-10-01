@@ -152,6 +152,7 @@ static int pas_array_is_param(const char *name);
 static const char *pas_selector_base_name(tree_t *e);
 extern int g_pas_iso_errors;
 extern int g_pas_seen_mode_directive;
+extern int g_pas_mode_iso;
 extern int pascal_seen_decl_start;
 extern int g_pas_min_enum_size;
 extern int g_pas_pack_set_size;
@@ -186,6 +187,7 @@ static int pas_is_boolexpr(tree_t *e);
 static int pas_is_filevar(const char *name);
 static int pas_is_filevar_elem(tree_t *e);
 static int pas_is_stdstream(const char *name);
+static int pas_is_hdrfile(const char *name);
 static int pas_proc_param_is_var(const char *name, int idx);
 static void pas_filevar_add(const char *name);
 static int pas_is_chararr(const char *name);
@@ -595,7 +597,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "rewrite") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
-        return mk_assign(fv, (fv && fv->t == TT_VAR && fv->v.sval) ? mk_set_bin("__pas_rewrite", pas_tree_clone(fv), leaf_s(TT_QLIT, fv->v.sval)) : mk_fnc1("__pas_rewrite", pas_tree_clone(fv)));
+        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ? ((g_pas_mode_iso && pas_is_hdrfile(fv->v.sval)) ? ilit(1) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
+        return mk_assign(fv, dflt ? mk_set_bin("__pas_rewrite", pas_tree_clone(fv), dflt) : mk_fnc1("__pas_rewrite", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "append") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
@@ -603,7 +606,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "reset") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
-        return mk_assign(fv, (fv && fv->t == TT_VAR && fv->v.sval) ? mk_set_bin("__pas_reset", pas_tree_clone(fv), leaf_s(TT_QLIT, fv->v.sval)) : mk_fnc1("__pas_reset", pas_tree_clone(fv)));
+        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ? ((g_pas_mode_iso && pas_is_hdrfile(fv->v.sval)) ? ilit(0) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
+        return mk_assign(fv, dflt ? mk_set_bin("__pas_reset", pas_tree_clone(fv), dflt) : mk_fnc1("__pas_reset", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "close") && args && args->count >= 1) {
         return mk_fnc1("__pas_fclose", args->items[0]);
@@ -1887,7 +1891,6 @@ program:
         { tree_t *body = $5;
           if (g_pas_narray > 0 || g_pas_nhdrfile > 0 || g_pas_nscalarvartype > 0) {
               tree_t *combined = ast_node_new(TT_PROGRAM);
-              for (int i = 0; i < g_pas_nhdrfile; i++) if (g_pas_hdrfiles[i]) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, g_pas_hdrfiles[i]), leaf_s(TT_QLIT, g_pas_hdrfiles[i])));
               for (int i = 0; i < g_pas_narray; i++) if (!g_pas_arrays[i].is_param && !g_pas_arrays[i].is_local) ast_push(combined, bin(TT_ASSIGN, leaf_s(TT_VAR, g_pas_arrays[i].name), mk_array_init(g_pas_arrays[i].name, g_pas_arrays[i].high)));
               for (int i = 0; i < g_pas_nscalarvartype; i++) { const char *vn = g_pas_scalarvartype[i].vname; long long _ah;
                   if (!vn || !g_pas_scalarvartype[i].is_global || pas_is_func(vn) || pas_is_proc(vn) || pas_array_high_get(vn, &_ah)) continue;
@@ -2274,7 +2277,7 @@ extern void *pascal_yy_scan_string(const char *);
 extern void  pascal_yy_delete_buffer(void *);
 tree_t *pascal_parse_string(const char *src) {
     pascal_prog_result = NULL;
-    g_pas_seen_mode_directive = 0; pascal_seen_decl_start = 0; g_pas_align_mac68k = 0;
+    g_pas_seen_mode_directive = 0; g_pas_mode_iso = 0; pascal_seen_decl_start = 0; g_pas_align_mac68k = 0;
     memset(&g_pascal_procs, 0, sizeof g_pascal_procs); memset(&g_pas_scope, 0, sizeof g_pas_scope);
     g_pas_nconst = 0; g_pas_narray = 0; g_pas_nfunc = 0; g_pas_ncaparm = 0; g_pas_pend_arr_ncols = -1;
     g_pas_nrectype = 0; g_pas_nrecvar = 0; g_pas_pend_nf = 0; g_pas_nsetvar = 0; g_pas_nsettype = 0; g_pas_ncharvar = 0;

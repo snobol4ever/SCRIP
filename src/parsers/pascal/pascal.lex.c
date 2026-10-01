@@ -1051,6 +1051,7 @@ static int pascal_if_eval(const char *expr) {
     return neg ? !result : result;
 }
 int g_pas_seen_mode_directive = 0;
+int g_pas_mode_iso = 0;
 int pascal_seen_decl_start = 0;
 static char pascal_modebuf[64];
 static int  pascal_modepos;
@@ -1580,7 +1581,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-{ if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; BEGIN INITIAL; }
+{ if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; if (strcasecmp(pascal_modebuf, "iso") == 0) g_pas_mode_iso = 1; BEGIN INITIAL; }
 	YY_BREAK
 case 46:
 YY_RULE_SETUP

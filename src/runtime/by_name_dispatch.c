@@ -4571,6 +4571,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
+        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) {
+            extern void fh_ensure_init(void); fh_ensure_init();
+            *out = FHVAL(args[1].i == 1 ? 1 : 0); return 1;
+        }
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
         FILE *fp;
@@ -4614,8 +4618,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (ofp) { rewind(ofp); *out = args[0]; return 1; }
             if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
-        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]); if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]); if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
-        FILE *fp = fopen(nm, "r"); if (!fp) { *out = FAILDESCR; return 1; }
+        const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
+        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) {
+            extern void fh_ensure_init(void); fh_ensure_init();
+            *out = FHVAL(args[1].i == 1 ? 1 : 0); return 1;
+        }
+        if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
+        if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
+        FILE *fp = fopen(nm, "r");
+        if (!fp) { fflush(stdout); fprintf(stderr, "Runtime error 2 at $0\n"); exit(2); }
         int idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; }
         g_fh[idx].name = rt_heap_strdup_c(nm);
         *out = FHVAL(idx); return 1;

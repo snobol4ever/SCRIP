@@ -62,6 +62,7 @@ static int pascal_if_eval(const char *expr) {
     return neg ? !result : result;
 }
 int g_pas_seen_mode_directive = 0;
+int g_pas_mode_iso = 0;
 int pascal_seen_decl_start = 0;
 static char pascal_modebuf[64];
 static int  pascal_modepos;
@@ -163,7 +164,7 @@ ALNUM    [A-Za-z0-9_]
 "{$"[Rr]"+}"             { g_pas_range_check_on = 1; }
 "{$"[Rr]"-}"             { g_pas_range_check_on = 0; }
 "{$mode"                { pascal_modebuf[0] = '\0'; pascal_modepos = 0; BEGIN MODE_HDR; }
-<MODE_HDR>"}"           { if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; BEGIN INITIAL; }
+<MODE_HDR>"}"           { if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; if (strcasecmp(pascal_modebuf, "iso") == 0) g_pas_mode_iso = 1; BEGIN INITIAL; }
 <MODE_HDR>[ \t]         { }
 <MODE_HDR>.             { if (pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = pascal_yytext[0]; pascal_modebuf[pascal_modepos] = '\0'; } }
 <MODE_HDR>\n            { }
