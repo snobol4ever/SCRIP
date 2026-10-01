@@ -36,12 +36,13 @@ static inline std::string mon_var_trace_tap() {
          + x86("pop", "rax") + x86("pop", "rax") + x86_rt_gc_poll_res();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define AG_HAS_SLOT() (_.op_zres || (_.op_a_slot >= 0 && _.op_off >= 0))
 std::string bb_assign_global() {
-    if (!((_.op_zres || (_.op_a_slot >= 0 && _.op_off >= 0))))
-        return x86_alpha()
-             + x86_bomb((std::string("bb_assign_global: unhandled (needs descr flat-chain + rhs slot + own slot) var=") + (_.op_sval ? _.op_sval : "?")).c_str());
-    if (_.op_zres)
-        return IF(g_gva_active && _.op_gva_k >= 0,
+    return IF(!AG_HAS_SLOT(),
+               x86_alpha()
+             + x86_bomb((std::string("bb_assign_global: unhandled (needs descr flat-chain + rhs slot + own slot) var=") + (_.op_sval ? _.op_sval : "?")).c_str()))
+         + IF(AG_HAS_SLOT() && _.op_zres,
+               IF(g_gva_active && _.op_gva_k >= 0,
                   x86("comment", "IR_ASSIGN gva zd")
                 + x86_alpha()
                 + x86("note", ZOPN(0))
@@ -79,8 +80,9 @@ std::string bb_assign_global() {
                 + x86("def",    L(0))
                 + x86(".quad",  LS(0), _.op_sval)
                 + x86("label",  LS(0))
-                + x86(".string", _.op_sval));
-    return IF(g_gva_active && _.op_gva_k >= 0,
+                + x86(".string", _.op_sval)))
+         + IF(AG_HAS_SLOT() && !_.op_zres,
+               IF(g_gva_active && _.op_gva_k >= 0,
               x86("comment", "IR_ASSIGN gva")
             + x86_alpha()
             + x86("mov", "rax", FRQ(_.op_a_slot))
@@ -120,5 +122,5 @@ std::string bb_assign_global() {
             + x86("def",    L(0))
             + x86(".quad",  LS(0), _.op_sval)
             + x86("label",  LS(0))
-            + x86(".string", _.op_sval));
+            + x86(".string", _.op_sval)));
 }
