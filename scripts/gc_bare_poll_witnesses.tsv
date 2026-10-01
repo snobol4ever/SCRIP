@@ -113,10 +113,10 @@ src/templates/bb/bb_rev_assign_global.cpp:117:NV_SET_fn	src/templates/bb/bb_rev_
 src/templates/bb/bb_rev_assign_global.cpp:130:NV_SET_fn	src/templates/bb/bb_rev_assign_global.cpp:132	UNWITNESSED
 src/templates/bb/bb_rev_assign_var.cpp:19:rt_deref	src/templates/bb/bb_rev_assign_var.cpp:22	hb_table_elem_ref_across_collections.icn
 src/templates/bb/bb_rev_assign_var.cpp:27:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_rev_assign_var.cpp:32	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_scan_any.cpp:45:rt_icn_cset_member	src/templates/bb/bb_scan_any.cpp:53	UNWITNESSED
-src/templates/bb/bb_scan_any.cpp:67:rt_icn_cset_member_n	src/templates/bb/bb_scan_any.cpp:75	UNWITNESSED
-src/templates/bb/bb_scan_bal.cpp:50:rt_icn_cset_member	src/templates/bb/bb_scan_bal.cpp:58	UNWITNESSED
-src/templates/bb/bb_scan_bal.cpp:97:rt_icn_cset_member	src/templates/bb/bb_scan_bal.cpp:105	UNWITNESSED
+src/templates/bb/bb_scan_any.cpp:44:rt_icn_cset_member	src/templates/bb/bb_scan_any.cpp:52	UNWITNESSED
+src/templates/bb/bb_scan_any.cpp:66:rt_icn_cset_member_n	src/templates/bb/bb_scan_any.cpp:74	UNWITNESSED
+src/templates/bb/bb_scan_bal.cpp:49:rt_icn_cset_member	src/templates/bb/bb_scan_bal.cpp:57	UNWITNESSED
+src/templates/bb/bb_scan_bal.cpp:96:rt_icn_cset_member	src/templates/bb/bb_scan_bal.cpp:104	UNWITNESSED
 src/templates/bb/bb_scan_match.cpp:32:rt_scan_needle	src/templates/bb/bb_scan_match.cpp:37	UNWITNESSED
 src/templates/bb/bb_section.cpp:28:rt_section_var_strict/rt_section_var	src/templates/bb/bb_section.cpp:33	hb_concat_augmented_then_subscript.icn
 src/templates/bb/bb_section.cpp:45:subscript_get2_ext_strict/subscript_get2_ext	src/templates/bb/bb_section.cpp:50	UNWITNESSED
