@@ -1325,6 +1325,9 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                              : bb_section()); return 0;
     case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
     case IR_UNIFY_CONST:          bb_emit_x86(bb_unify_const());    return 0;
+    case IR_UNIFY_STRUCT:         bb_emit_x86(bb_unify_struct());   return 0;
+    case IR_UNIFY_FIRST:          bb_emit_x86(bb_unify_first());    return 0;
+    case IR_UNIFY_VALUE:          bb_emit_x86(bb_unify_value());    return 0;
     case IR_RANDOM:               bb_emit_x86(bb_random());         return 0;
     case IR_ASSIGN_VAR:           bb_emit_x86(nd->n_operands == 3 ? bb_assign_var_sub() : bb_assign_var());     return 0;
     case IR_REV_ASSIGN: {
@@ -2070,7 +2073,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_a_slot = sa; g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
-    case IR_UNIFY_CONST:
+    case IR_UNIFY_CONST: case IR_UNIFY_STRUCT: case IR_UNIFY_FIRST: case IR_UNIFY_VALUE:
         g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     case IR_DEREF: {
         IR_t * v = nd->n_operands > 0 ? nd->operands[0] : NULL;
@@ -3460,7 +3463,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if ((c)->op == IR_GATE_ARM && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
         if ((c)->op == IR_CREATE && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
         if ((c)->op == IR_SUSPEND && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
-        if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_UNIFY_CONST || (c)->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KW_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c)->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR || (c)->op == IR_KW_ICON) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
+        if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_UNIFY_CONST || (c)->op == IR_UNIFY_STRUCT || (c)->op == IR_UNIFY_FIRST || (c)->op == IR_UNIFY_VALUE || (c)->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KW_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c)->op == IR_SCAN_ANY || (c)->op == IR_SWAP_VAR || (c)->op == IR_CALL_VALUE || (c)->op == IR_VAR || (c)->op == IR_KW_ICON) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if (((c)->op == IR_CALL || ir_is_call_kind((c)->op) || (c)->op == IR_PROC_GEN || (c)->op == IR_ACTIVATE || (c)->op == IR_TO || (c)->op == IR_TO_BY || (c)->op == IR_GATE || (c)->op == IR_GOTO_DEFERRED) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
         if ((c)->op == IR_STATEMENT_BEGIN && (c)->ω.node) RPO_PUSH((c)->ω.node);  \
         if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELOP_VAL || (c)->op == IR_UNOP || (c)->op == IR_UNOP_TEST || (c)->op == IR_NULLTEST_VAR || (c)->op == IR_COERCE_STRING || (c)->op == IR_COERCE_INTEGER || (c)->op == IR_COERCE_NUMERIC || (c)->op == IR_COERCE_REAL || (c)->op == IR_CMP_TEST || (c)->op == IR_IDENT || (c)->op == IR_DIFFER) && (c)->ω.node) RPO_PUSH((c)->ω.node); \
@@ -4262,7 +4265,7 @@ static void emit_chain_operand_refs(IR_t *entry) {
         ocr_add(c); ocr_push(&g_ocr_chain, &nc, c);
         if ((c->op == IR_BINOP) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_UNIFY_CONST || c->op == IR_UNIFY_STRUCT || c->op == IR_UNIFY_FIRST || c->op == IR_UNIFY_VALUE || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node)
             ocr_push(&g_ocr_stkv, &sv, c->ω.node);
         if (c->γ.node) ocr_push(&g_ocr_stkv, &sv, c->γ.node);
@@ -4278,7 +4281,7 @@ static void emit_chain_operand_refs(IR_t *entry) {
         ocr_add(c); ocr_push(&g_ocr_chain, &nc, c);
         if ((c->op == IR_BINOP) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
         if ((c->op == IR_CALL || ir_is_call_kind(c->op)) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);
-        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
+        if ((c->op == IR_SUBSCRIPT || c->op == IR_RANDOM || c->op == IR_DEREF || c->op == IR_UNIFY_CONST || c->op == IR_UNIFY_STRUCT || c->op == IR_UNIFY_FIRST || c->op == IR_UNIFY_VALUE || c->op == IR_ASSIGN_VAR || c->op == IR_REV_ASSIGN_VAR || c->op == IR_KW_ASSIGN || c->op == IR_SCAN_TAB || c->op == IR_SCAN_MOVE || c->op == IR_SCAN_POS || c->op == IR_SCAN_MATCH || c->op == IR_SCAN_ANY
              || c->op == IR_SWAP_VAR || c->op == IR_CALL_VALUE || c->op == IR_VAR) && c->ω.node)
             ocr_push(&g_ocr_stkv, &sv, c->ω.node);
         if (ir_is_generator_kind(c->op) && c->ω.node) ocr_push(&g_ocr_stkv, &sv, c->ω.node);

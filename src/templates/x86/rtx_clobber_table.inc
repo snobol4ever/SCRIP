@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 257
+#define RTX_CLOB_TAB_N 258
 #define RTX_CLOB_TAB_N_CLOBBERING 0
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -241,6 +241,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_quad_seed", 0 },
     { "rt_pl_throw_raise", 0 },
     { "rt_pl_type_cold", 0 },
+    { "rt_pl_unify_value", 0 },
     { "rt_pl_zguard_cold", 0 },
     { "rt_proc_value", 0 },
     { "rt_size_d", 0 },

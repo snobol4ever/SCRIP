@@ -287,7 +287,7 @@ static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int of
     return 1 + zls_grant_locals(g, nd, scope_id, off + 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zls_elide_ok(IR_e op) { return op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN; }
+static int zls_elide_ok(IR_e op) { return op == IR_UNIFY_CONST || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_LEN || op == IR_MATCH_LIT || op == IR_LIT_INTEGER || op == IR_LIT_STRING || op == IR_CMP_TEST || op == IR_ASSIGN; }
 static int zls_s4_ok(IR_e op) { return op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_BAL || op == IR_MATCH_ALTERNATE || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const IR_t ** k; int * v; size_t cap; } zls_nidx_t;
@@ -299,11 +299,13 @@ static void zls_nidx_build(zls_nidx_t * m, const IR_graph_t * g) {
         if (!m->k[h]) { m->k[h] = nd; m->v[h] = i; } }
 }
 static int zls_reuse_index(const zls_nidx_t * m, const IR_t * nd) { size_t h = ((size_t)(uintptr_t)nd >> 4) & (m->cap - 1); while (m->k[h]) { if (m->k[h] == nd) return m->v[h]; h = (h + 1) & (m->cap - 1); } return -1; }
-static void zls_mark_value_refs(const IR_graph_t * g, char * live) {
+static int zls_unify_kind(IR_e op) { return op == IR_UNIFY_CONST || op == IR_UNIFY_STRUCT || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE; }
+static void zls_mark_value_refs(const IR_graph_t * g, char * live, char * uonly) {
     zls_nidx_t nx; zls_nidx_build(&nx, g);
     for (int k = 0; k < g->n; k++) { const IR_t * c = g->all[k]; if (!c) continue;
         if (c->op == IR_MATCH_ALTERNATE || c->op == IR_MATCH_FENCE0 || c->op == IR_MATCH_FENCE1 || c->op == IR_GATE_ARM || c->op == IR_GATE) continue;
-        for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue; { int i = zls_reuse_index(&nx, p); if (i >= 0) live[i] = 1; } } }
+        for (int j = 0; j < c->n_operands; j++) { const IR_t * p = c->operands[j]; if (!p) continue; if (j == 0 && (c->op == IR_MATCH_ASSIGN_COND || c->op == IR_MATCH_ASSIGN_IMM)) continue;
+            if (uonly) { int i = zls_reuse_index(&nx, p); if (i >= 0) { if (zls_unify_kind(c->op) && p->op != IR_UNIFY_STRUCT) { if (!uonly[i]) uonly[i] = 1; } else uonly[i] = 2; } } { int i = zls_reuse_index(&nx, p); if (i >= 0) live[i] = 1; } } }
     ct_drop(nx.k); ct_drop(nx.v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -525,7 +527,8 @@ void zls_build(IR_graph_t * g) {
     { static int eon = -1; if (eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); eon = (e && *e == '0') ? 0 : 1; }
       char lv_sbuf[1024]; char * lv = (g->n <= (int)sizeof lv_sbuf) ? lv_sbuf : (char *)ct_alloc((size_t)g->n);
       memset(lv, 0, (size_t)g->n);
-      if (eon) zls_mark_value_refs(g, lv);
+      char uo[g->n > 0 ? g->n : 1]; memset(uo, 0, sizeof uo);
+      if (eon) zls_mark_value_refs(g, lv, uo);
       int scratch_off = -1;
       zls_reuse_t * rec = (zls_reuse_t *)ct_alloc(sizeof(zls_reuse_t) * (size_t)g->n);
       int nloop = 0; zls_reuse_plan(g, rec, (int *)0, &nloop);
@@ -559,6 +562,7 @@ void zls_build(IR_graph_t * g) {
         if (!rb[i]) continue;
         int sc = (cur > 0) ? mfirst[cur - 1] : root;
         if (rec[i].pooled >= 0) { zls_entry(nd, sc, rec[i].pooled); if (dl_base >= 0 && zls_reuse_detleaf(nd)) ze[ze_n - 1].aoff = dl_base; continue; }
+        if (eon && uo[i] == 1 && rec[i].w < 0 && (nd->op == IR_VAR_REF || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_STRING || nd->op == IR_LIT_REAL)) continue;
         if (dl_base >= 0 && zls_reuse_detleaf(nd) && sc == root) {
             if (eon && !lv[i]) {
                 if (scratch_off < 0) { scratch_off = base + k * 16; zls_entry(nd, sc, scratch_off); ze[ze_n - 1].live = 0; ze[ze_n - 1].aoff = dl_base; zls_field(sc, scratch_off, 16, ZK_DESCR, 0, "result (SLOT-ELIDE shared dead-result scratch — every later dead leaf in this graph aliases here)", nd); k += 1; continue; }
@@ -595,7 +599,7 @@ void zls_build(IR_graph_t * g) {
         if (nd->op == IR_ASSIGN) vns[nvn++] = IR_LIT(nd).sval;
         else if (nd->op == IR_REV_ASSIGN && nd->n_operands > 1 && nd->operands[1]) vns[nvn++] = IR_LIT(nd->operands[1]).sval;
         else if (nd->op == IR_REV_SWAP) { vns[nvn++] = IR_LIT(nd).sval; if (nd->n_operands > 0 && nd->operands[0]) vns[nvn++] = IR_LIT(nd->operands[0]).sval; }
-        else if (nd->op == IR_VAR || nd->op == IR_VAR_REF) vns[nvn++] = IR_LIT(nd).sval;
+        else if (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE) vns[nvn++] = IR_LIT(nd).sval;
         for (int q = 0; q < nvn; q++) {
             const char * vn = vns[q];
             if (!vn || vn[0] == '&' || (is_global(vn) && !graph_has_local(g, vn))) continue;
@@ -924,7 +928,7 @@ static int zls_direct_slot(const IR_graph_t * g, const zls_reuse_t * rec, const 
         if (rec[k].direct == j && 2 * rec[k].w + 1 <= hi && 2 * rec[k].last >= lo) return -1; }
     return j;
 }
-static int zls_reuse_reader_ok(IR_e op) { return zls_reuse_straight(op) || op == IR_CALL || op == IR_CALL_PROC_STAGED; }
+static int zls_reuse_reader_ok(IR_e op) { return zls_reuse_straight(op) || op == IR_CALL || op == IR_CALL_PROC_STAGED || op == IR_UNIFY_CONST || op == IR_UNIFY_STRUCT || op == IR_UNIFY_FIRST || op == IR_UNIFY_VALUE; }
 static int zls_reuse_dynamic(const IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { const IR_t * d = g->all[i]; if (!d) continue;
         if (d->op == IR_GOTO_DEFERRED || d->op == IR_GATE || d->op == IR_MATCH_DEFER || d->op == IR_MATCH_FENCE1) return 1;

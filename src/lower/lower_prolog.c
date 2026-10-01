@@ -224,11 +224,85 @@ static IR_t * pl_const_lit(lcx_t * cx, const tree_t * t) {
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * pl_unify_const_node(lcx_t * cx, const char * vname, IR_t * klit, IR_t * γ, IR_t * ω) {
-    IR_t * u = build(cx, IR_UNIFY_CONST, γ, ω);
-    IR_t * v = build(cx, IR_VAR_REF, NULL, NULL); IR_LIT(v).sval = vname;
-    ir_operand_push(u, v); ir_operand_push(u, klit);
+static IR_t * pl_unify_node3(lcx_t * cx, IR_e op, IR_t * src, long idx, IR_t * payload, IR_t * γ, IR_t * ω) {
+    IR_t * u = build(cx, op, γ, ω);
+    IR_t * ix = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ix).ival = (int64_t) idx;
+    ir_operand_push(u, src); ir_operand_push(u, ix); if (payload) ir_operand_push(u, payload);
     return u;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_unify_const_node(lcx_t * cx, const char * vname, IR_t * klit, IR_t * γ, IR_t * ω) {
+    IR_t * v = build(cx, IR_VAR_REF, NULL, NULL); IR_LIT(v).sval = vname;
+    return pl_unify_node3(cx, IR_UNIFY_CONST, v, 0, klit, γ, ω);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_var_count(const tree_t * t, int slot) {
+    if (!t) return 0;
+    if (t->t == TT_VAR) return (int) t->v.ival == slot;
+    { int n = 0; for (int i = 0; i < t->n; i++) n += pl_var_count(t->c[i], slot); return n; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_head_first_walk(const tree_t * t, const tree_t * occ, int slot, int * found) {
+    if (!t || *found) return 0;
+    if (t->t == TT_VAR) { if ((int) t->v.ival == slot) { *found = 1; return t == occ; } return 0; }
+    for (int i = 0; i < t->n; i++) { int r = pl_head_first_walk(t->c[i], occ, slot, found); if (*found) return r; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_head_is_first(const tree_t * cl, int ar, const tree_t * occ, int slot) {
+    int found = 0;
+    for (int i = 0; i < ar; i++) { int r = pl_head_first_walk(cl->c[i], occ, slot, &found); if (found) return r; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_head_boxable(const tree_t * t) {
+    if (!t) return 0;
+    switch (t->t) {
+    case TT_VAR: case TT_QLIT: case TT_ILIT: case TT_CUT: return 1;
+    case TT_MAKELIST: for (int i = 0; i < t->n; i++) if (!pl_head_boxable(t->c[i])) return 0; return 1;
+    case TT_FNC: if (pl_tree_is_big(t)) return 0; for (int i = 0; i < t->n; i++) if (!pl_head_boxable(t->c[i])) return 0; return 1;
+    default: return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_head_term(lcx_t * cx, const tree_t * cl, int ar, IR_t * src, long idx, const tree_t * t, IR_t * next, IR_t * step);
+static IR_t * pl_head_list(lcx_t * cx, const tree_t * cl, int ar, IR_t * src, long idx, const tree_t * t, int i, IR_t * next, IR_t * step) {
+    int bar = (t->v.ival == 1 && t->n > 0); int last = bar ? t->n - 1 : t->n;
+    if (i >= last) {
+        if (bar) return pl_head_term(cx, cl, ar, src, idx, t->c[t->n - 1], next, step);
+        { IR_t * nil = build(cx, IR_LIT_ATOM, NULL, NULL); IR_LIT(nil).sval = "[]"; return pl_unify_node3(cx, IR_UNIFY_CONST, src, idx, nil, next, step); }
+    }
+    { extern int prolog_atom_intern(const char *); extern int prolog_functor_intern(int, int);
+      IR_t * st = build(cx, IR_UNIFY_STRUCT, NULL, step);
+      IR_t * nx = pl_head_list(cx, cl, ar, st, 1, t, i + 1, next, step);
+      nx = pl_head_term(cx, cl, ar, st, 0, t->c[i], nx, step);
+      lc_γ_to(st, nx);
+      { IR_t * f = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(f).ival = (int64_t) prolog_functor_intern(prolog_atom_intern("."), 2);
+        IR_t * ix = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ix).ival = (int64_t) idx;
+        ir_operand_push(st, src); ir_operand_push(st, ix); ir_operand_push(st, f); }
+      return st; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_head_term(lcx_t * cx, const tree_t * cl, int ar, IR_t * src, long idx, const tree_t * t, IR_t * next, IR_t * step) {
+    if (t->t == TT_VAR) {
+        int sl = (int) t->v.ival; if (sl < 0) return next;
+        { int n = 0; for (int i = 0; i < cl->n; i++) n += pl_var_count(cl->c[i], sl); if (n <= 1) return next; }
+        { IR_t * u = pl_unify_node3(cx, pl_head_is_first(cl, ar, t, sl) ? IR_UNIFY_FIRST : IR_UNIFY_VALUE, src, idx, NULL, next, step); IR_LIT(u).sval = pl_vname(cx, sl); return u; }
+    }
+    { IR_t * klit = pl_const_lit(cx, t); if (klit) return pl_unify_node3(cx, IR_UNIFY_CONST, src, idx, klit, next, step); }
+    if (t->t == TT_MAKELIST) return pl_head_list(cx, cl, ar, src, idx, t, 0, next, step);
+    if (t->t == TT_FNC && t->n > 0) {
+        extern int prolog_atom_intern(const char *); extern int prolog_functor_intern(int, int);
+        IR_t * st = build(cx, IR_UNIFY_STRUCT, NULL, step); IR_t * nx = next;
+        for (int j = t->n - 1; j >= 0; j--) nx = pl_head_term(cx, cl, ar, st, j, t->c[j], nx, step);
+        lc_γ_to(st, nx);
+        { IR_t * f = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(f).ival = (int64_t) prolog_functor_intern(prolog_atom_intern(t->v.sval ? t->v.sval : "?"), t->n);
+          IR_t * ix = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ix).ival = (int64_t) idx;
+          ir_operand_push(st, src); ir_operand_push(st, ix); ir_operand_push(st, f); }
+        return st;
+    }
+    pl_refuse("head term shape the boxes do not cover in", t->v.sval ? t->v.sval : "?", 2);
+    return next;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
@@ -1765,7 +1839,7 @@ static void pl_graph_stamp(IR_graph_t * g, int arity, int maxlocal, const unsign
     int nl = 0;
     if (maxlocal >= 0) { g->lnames = (const char **) ct_zalloc((size_t)(maxlocal + 1), sizeof(const char *));
         for (int k = 0; k <= maxlocal; k++) { const char * nm = pl_var_name(k); int used = !(aliased && k < 1024 && aliased[k]);
-            for (int i = 0; i < g->n && !used; i++) { const IR_t * nd = g->all[i]; if (nd && (nd->op == IR_VAR || nd->op == IR_VAR_REF) && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, nm)) used = 1; }
+            for (int i = 0; i < g->n && !used; i++) { const IR_t * nd = g->all[i]; if (nd && (nd->op == IR_VAR || nd->op == IR_VAR_REF || nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE) && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, nm)) used = 1; }
             if (used) g->lnames[nl++] = nm; }
         g->nlocals = nl; }
     g->nslots = arity + nl + 8;
@@ -1840,6 +1914,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         for (int i = ar - 1; i >= 0; i--) {
             if (cl->c[i] && cl->c[i]->t == TT_VAR && (int) cl->c[i]->v.ival >= 0 && (int) cl->c[i]->v.ival < 1024 && cx.valias[(int) cl->c[i]->v.ival] == i + 1) continue;
             { IR_t * klit = pl_const_lit(&cx, cl->c[i]); if (klit) { next = pl_unify_const_node(&cx, pl_param_name(i), klit, next, step); continue; } }
+            if (pl_head_boxable(cl->c[i])) { IR_t * srcv = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(srcv).sval = pl_param_name(i); next = pl_head_term(&cx, cl, ar, srcv, 0, cl->c[i], next, step); continue; }
             IR_t * u = build(&cx, IR_CALL, next, step); IR_LIT(u).sval = "$unify";
             IR_t * lhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
             IR_t * he = NULL; IR_t * rhs = term_lval_e(&cx, cl->c[i], &he);

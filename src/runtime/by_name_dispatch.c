@@ -2620,6 +2620,23 @@ int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) {
     { extern int rt_descr_equal(DESCR_t, DESCR_t); DESCR_t w; memset(&w, 0, sizeof w); w.v = DT_I; w.i = k; return rt_descr_equal(*c, w) ? 1 : 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_unify_struct_fresh(long fid) {
+    extern int prolog_functor_arity(int);
+    int ar = prolog_functor_arity((int)fid); DESCR_t c;
+    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
+    for (int i = 0; i < ar; i++) { kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i]; }
+    c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)fid; c.p = (void *)kids;
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unify_value_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
+    int ok;
+    rt_pl_tr_gc_sync(cx->tr);
+    { char *tr0 = cx->tr; ok = plw_unify_cells(a, b, cx); if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
+    rt_pl_tr_gc_sync(cx->tr);
+    return ok;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_mkc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     if (nargs < 1) return FAILDESCR;
     rt_pl_tr_gc_sync(cx->tr);

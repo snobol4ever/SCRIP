@@ -51,6 +51,9 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_LIMIT_GATE] = "IR_LIMIT_GATE",
     [IR_LIT_ATOM] = "IR_LIT_ATOM",
     [IR_UNIFY_CONST] = "IR_UNIFY_CONST",
+    [IR_UNIFY_STRUCT] = "IR_UNIFY_STRUCT",
+    [IR_UNIFY_FIRST] = "IR_UNIFY_FIRST",
+    [IR_UNIFY_VALUE] = "IR_UNIFY_VALUE",
     [IR_REPALT] = "IR_REPALT",
     [IR_REV_ASSIGN] = "IR_REV_ASSIGN",
     [IR_REV_ASSIGN_VAR] = "IR_REV_ASSIGN_VAR",
@@ -250,6 +253,7 @@ int ir_node_produces_value(IR_e op) {
         || op == IR_FIELD_GET || op == IR_FIELD_VAR || op == IR_NULLTEST_VAR || op == IR_SCAN_TAB || op == IR_SCAN_MOVE || op == IR_SCAN_MATCH
         || op == IR_SCAN_POS || op == IR_SCAN_UPTO || op == IR_SCAN_ANY || op == IR_SCAN_MANY || op == IR_SCAN_FIND || op == IR_SCAN_BAL
         || op == IR_SCAN_SEQUENCE || op == IR_SCAN_ALTERNATE || op == IR_DISJUNCTION
+        || op == IR_UNIFY_STRUCT
         || op == IR_CREATE || op == IR_ACTIVATE || op == IR_REV_ASSIGN || op == IR_REV_ASSIGN_VAR || op == IR_REV_SWAP || op == IR_KW_ASSIGN || op == IR_KW_ASSIGN_SNOBOL4;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

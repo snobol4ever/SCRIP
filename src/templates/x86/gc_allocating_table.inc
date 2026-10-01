@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1946
+#define GC_ALLOC_TAB_N 1951
 #define GC_ALLOC_TAB_N_VOID 226
-#define GC_ALLOC_TAB_N_DESCR 1064
-#define GC_ALLOC_TAB_N_OTHER 649
+#define GC_ALLOC_TAB_N_DESCR 1065
+#define GC_ALLOC_TAB_N_OTHER 653
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -800,6 +800,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_gnu_position", GC_RET_OTHER },
     { "pl_goal_body_conv_ball", GC_RET_OTHER },
     { "pl_goal_key_live", GC_RET_OTHER },
+    { "pl_head_list", GC_RET_OTHER },
+    { "pl_head_term", GC_RET_OTHER },
     { "pl_include_expand", GC_RET_OTHER },
     { "pl_is_pair", GC_RET_OTHER },
     { "pl_leaf", GC_RET_OTHER },
@@ -1713,6 +1715,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_unify_cell_float", GC_RET_OTHER },
     { "rt_pl_unify_const_cold", GC_RET_OTHER },
     { "rt_pl_unify_struct", GC_RET_OTHER },
+    { "rt_pl_unify_struct_fresh", GC_RET_DESCR },
+    { "rt_pl_unify_value", GC_RET_OTHER },
+    { "rt_pl_unify_value_c", GC_RET_OTHER },
     { "rt_pl_univ_cell", GC_RET_OTHER },
     { "rt_pl_variant_cells", GC_RET_OTHER },
     { "rt_pl_wall_clock_cell", GC_RET_OTHER },
