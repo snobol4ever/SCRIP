@@ -1922,7 +1922,7 @@ static long gc_collect_ex(void)
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
             if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; }
 #if RT_DIAG
-            if (h->type < HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;
+            if (h->type <= HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;
             interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
 #endif
             }
