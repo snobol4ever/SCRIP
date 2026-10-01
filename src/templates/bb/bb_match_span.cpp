@@ -50,8 +50,8 @@ static std::string sp_memb(long u, long i) {
 std::string bb_match_span() {
     x86_begin();
     if (sp_tablep()) x86_csettab_ptr(_.op_sval ? _.op_sval : "");
-    if (_.op_zres && _.op_sa >= 0)
-             return x86("comment", "IR_MATCH_SPAN zd")
+    return IF(_.op_zres && _.op_sa >= 0,
+               x86("comment", "IR_MATCH_SPAN zd")
              + x86_alpha()
              + x86("mov",    LFC(0), "r14d")
              + x86("def",    L(0))
@@ -80,9 +80,9 @@ std::string bb_match_span() {
              + x86_gamma()
              + x86_beta()
              + x86("mov",    "r14d", LFC(0))
-             + x86_omega();
-    if (_.op_pat_static && _.op_sval)
-        return x86("comment", "IR_MATCH_SPAN defer")
+             + x86_omega())
+         + IF(!(_.op_zres && _.op_sa >= 0) && _.op_pat_static && _.op_sval,
+               x86("comment", "IR_MATCH_SPAN defer")
              + x86_alpha()
              + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval), x86_strtab_lbl(_.op_sval).c_str())
              + bb_glue_prim_str(50, 0, 0, 8, 8)
@@ -121,8 +121,9 @@ std::string bb_match_span() {
              + x86_gamma()
              + x86_beta()
              + x86("mov",    "r14d", LFC(4))
-             + x86_omega();
-    return x86("comment", "IR_MATCH_SPAN")
+             + x86_omega())
+         + IF(!(_.op_zres && _.op_sa >= 0) && !(_.op_pat_static && _.op_sval),
+               x86("comment", "IR_MATCH_SPAN")
          + x86_alpha()
          + IF(sp_gi(),
               x86("mov",    LFC(0), (long)0)
@@ -169,5 +170,5 @@ std::string bb_match_span() {
          + x86_gamma()
          + x86_beta()
          + x86("mov",    "r14d", LFC(4))
-         + x86_omega();
+         + x86_omega());
 }
