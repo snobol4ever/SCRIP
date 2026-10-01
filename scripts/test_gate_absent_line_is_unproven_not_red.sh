@@ -82,28 +82,21 @@ if [ "$rc" -eq 2 ] && [ -z "$line" ] && grep -qi "never printed" "$ERRTMP/a6"; t
 echo ""
 echo "--- PART B: structural census of real consumers ---"
 
-# THE CENSUS: the six call-sites this row actually landed a cure for. A reverted or weakened cure must
+# THE CENSUS: the call-sites this row actually landed a cure for (six; three since 2026-10-01, when the zd gate's arm 4 was retired). A reverted or weakened cure must
 # red HERE, not be silently missing from every other board.
+# (test_gate_zd_omega_head_acceptance.sh's three consumers left with its arm 4, retired 2026-10-01 by the coo: the five boards that
+# arm ran as a fixture are the coo's SUITE TABLE's under CEO-1342, so no reader of a sub-runner's summary line is left there.)
 declare -a CENSUS_FILE=(
-    test_gate_zd_omega_head_acceptance.sh
-    test_gate_zd_omega_head_acceptance.sh
-    test_gate_zd_omega_head_acceptance.sh
     test_gate_nreturn_by_name_value_broken.sh
     test_gate_snocone_returns_codegen.sh
     test_snobol4_all_modes.sh
 )
 declare -a CENSUS_DESC=(
-    "snobol4-blocking arm (consumes test_corpus_snobol4.sh)"
-    "icon-floor arm (consumes test_icon_rung_suite.sh)"
-    "polyglot-demos-floor arm (consumes test_gate_polyglot_demos.sh)"
     "SNOBOL4 corpus-gate arm (consumes test_corpus_snobol4.sh)"
     "SNOBOL4 corpus-gate arm (consumes test_corpus_snobol4.sh)"
     "run_suite() (consumes smoke/pat_rung/corpus runners)"
 )
 declare -a CENSUS_NEEDLE=(
-    'gate_three_way "test_corpus_snobol4.sh"'
-    'gate_three_way "test_icon_rung_suite.sh'
-    'gate_three_way "test_gate_polyglot_demos.sh"'
     'gate_three_way "test_corpus_snobol4.sh"'
     'gate_three_way "test_corpus_snobol4.sh"'
     'why="TIMED OUT (rc=124)"'

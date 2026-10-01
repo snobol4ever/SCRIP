@@ -1,5 +1,4 @@
 #!/bin/bash
-export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrument fixture, not a board (CEO-523)"
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_zd_omega_head_acceptance.sh — acceptance gate for the row
@@ -18,7 +17,9 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #                      zd_omega_head. A regression witness, not a proof the replacement is correct.
 #   2. NAMED WITNESSES -- boolptr + boolidx byte-match their .ref in BOTH m3 and m4 (surgical: this row is
 #                      about these two names, not the whole Pascal board -- deep5/pb34 are separate,
-#                      already-tracked defects and must not gate this row either way).
+#                      already-tracked defects and must not gate this row either way). Since corpus efb71c7a9
+#                      (2026-09-06) both live in corpus/tests/pascal/ALL.pas; the arm extracts them by origin
+#                      through corpus_suite_harness.py, the one reader, byte-identical to the files they were.
 #   2b. REGRESSION DETECTOR -- a_plainvar + f_const_then_relop (hq_B's FINDING, inline, not corpus fixtures):
 #                      the naive 2-line candidate cure passes boolptr/boolidx while silently regressing
 #                      a_plainvar, so checking only the two named failures would wave a wrong fix through.
@@ -26,9 +27,11 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 #                      rc=0 and output byte-matches the checked-in .ref every time. A real per-iteration
 #                      $rsp leak crashes before a full-size sort completes, so 5/5 clean full-size runs is
 #                      sufficient behavioural evidence without re-deriving seat12/seat02's instruction trace.
-#   4. SHARED-NODE CONTROL BATTERY -- zd_plan + x86_asm.h serve all seven languages (RULES.md SHARED-NODE
-#                      VERDICT SCOPE): SNOBOL4 must be FAIL=0 over its printed denominator; every other
-#                      frontend must not have fallen under its own standing floor.
+#   4. RETIRED 2026-10-01 (the coo): the shared-node control battery ran five boards as a fixture -- the
+#                      SNOBOL4 master, the Icon rungs (floor 232), the Raku smoke, the Prolog crosscheck (a
+#                      fail-set pinned 09-02) and the polyglot demos. Under ONE TESTING OFFICER (CEO-1342)
+#                      the coo's SUITE TABLE is that verdict and a fixture may not grade the shared corpus,
+#                      so the arm could only refuse once arm 2 read again.
 #
 # ⛔ THIS GATE DOES NOT BUILD. Run `make pristine` yourself first for a real verdict (HQ-27) -- running a
 # board and a build in the same tree is independently forbidden (RULES.md s268), and this row's own history
@@ -46,7 +49,7 @@ PASCAL_BENCH="${PASCAL_BENCH:-$S4E/corpus/benchmarks/pascal}"
 
 [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no executable $SCRIP -- build first (make pristine)" >&2; exit 2; }
 [ -f "$RT" ] || { echo "⛔ REFUSE(2): no $RT -- run make libscrip_rt first" >&2; exit 2; }
-for f in "$PASCAL_TESTS/boolptr.pas" "$PASCAL_TESTS/boolptr.ref" "$PASCAL_TESTS/boolidx.pas" "$PASCAL_TESTS/boolidx.ref" \
+for f in "$PASCAL_TESTS/ALL.pas" "$PASCAL_TESTS/ALL.ref" "$PASCAL_TESTS/ALL.csv" \
          "$PASCAL_BENCH/bubble.pas" "$PASCAL_BENCH/bubble.ref" "$PASCAL_BENCH/quick.pas" "$PASCAL_BENCH/quick.ref"; do
     [ -f "$f" ] || { echo "⛔ REFUSE(2): missing witness file $f" >&2; exit 2; }
 done
@@ -55,6 +58,11 @@ command -v setarch >/dev/null || { echo "⛔ REFUSE(2): setarch not on PATH -- n
 
 TMP=$(mktemp -d)
 trap "rm -rf $TMP" EXIT
+for name in boolptr boolidx; do   # arm 2's witnesses, by origin, from the master they were absorbed into
+    python3 scripts/corpus_suite_harness.py extract "$PASCAL_TESTS/ALL.pas" "$PASCAL_TESTS/ALL.ref" --origin "$name" "$TMP/$name.pas" \
+        --out-ref "$TMP/$name.ref" --out-in "$TMP/$name.in" > /dev/null 2>&1 && [ -s "$TMP/$name.pas" ] && [ -s "$TMP/$name.ref" ] \
+        || { echo "⛔ REFUSE(2): the harness could not extract origin $name from $PASCAL_TESTS/ALL.pas" >&2; exit 2; }
+done
 FAIL=0
 UNPROVEN=0
 report() { # report <name> <ok:0|1> <detail>
@@ -95,7 +103,7 @@ compile_link() { # compile_link <pas> <exe-out> -> rc 0 on success
 
 # --- 2. Named Pascal witnesses: boolptr + boolidx, BOTH modes -----------------------------------------------
 for name in boolptr boolidx; do
-    pas="$PASCAL_TESTS/$name.pas"; ref="$PASCAL_TESTS/$name.ref"; inp="$PASCAL_TESTS/$name.in"; [ -f "$inp" ] || inp=/dev/null
+    pas="$TMP/$name.pas"; ref="$TMP/$name.ref"; inp="$TMP/$name.in"; [ -s "$inp" ] || inp=/dev/null
     out3=$(timeout 8s "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); rc3=$?
     if [ "$rc3" -eq 0 ] && [ "$out3" = "$(cat "$ref")" ]; then report "pascal-$name-m3" 0 "byte-matches .ref"; else report "pascal-$name-m3" 1 "rc=$rc3, does not match .ref"; fi
     exe="$TMP/$name.exe"
@@ -166,109 +174,7 @@ for name in bubble quick; do
     fi
 done
 
-# --- 4. SHARED-NODE CONTROL BATTERY: every other frontend must not have regressed ---------------------------
-echo "--- shared-node control battery (SNOBOL4 must be FAIL=0; others must not fall under their standing floor) ---"
-
-# ⛔ NOT rc ALONE: test_corpus_snobol4.sh's own exit code hard-fails on mode-4 FAIL only (mode-3 FAIL is
-# printed as "informational" by that script's own design, confirmed 2026-08-29 -- a run here reported
-# rc=0 "GATE OK" with m3 FAIL=1, m4 FAIL=0). This row's DONE-WHEN wants BOTH modes FAIL=0, so parse both
-# counts explicitly rather than trust a exit code that is scoped to one mode only.
-# ⛔ AND rc==2 (the sub-gate's own honest refusal -- e.g. programs KILLED at its per-program timeout under
-# fleet load) is NOT this row's business either: an absent summary line reads UNPROVEN, never a
-# zd_omega_head regression (row a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-read-as-
-# unparseable, seat15/hq_T 2026-09-05). Uses the two UNCONDITIONAL per-mode lines
-# (`mode-3 (--run): PASS=.. FAIL=..` / `mode-4 (--compile): PASS=.. FAIL=..`), printed by that script
-# before either its OK or its FAIL closing line, so genuinely both are reachable on any completed run.
-out=$(bash scripts/test_corpus_snobol4.sh 2>&1); rc=$?
-line3=$(gate_three_way "test_corpus_snobol4.sh" "$rc" "$out" '^mode-3 \(--run\):[[:space:]]+PASS=[0-9]+ FAIL=[0-9]+'); grc=$?
-if [ "$grc" -eq 2 ]; then
-    report_unproven snobol4-blocking "test_corpus_snobol4.sh could not be measured (rc=$rc) -- see stderr for the real cause; not a zd_omega_head verdict"
-else
-    line4=$(printf '%s\n' "$out" | grep -m1 -E '^mode-4 \(--compile\):[[:space:]]+PASS=[0-9]+ FAIL=[0-9]+')
-    f3=$(printf '%s' "$line3" | grep -oP 'FAIL=\K[0-9]+')
-    f4=$(printf '%s' "$line4" | grep -oP 'FAIL=\K[0-9]+')
-    if [ "$f3" -eq 0 ] && [ "$f4" -eq 0 ]; then
-        report snobol4-blocking 0 "$(printf '%s\n' "$out" | tail -1)"
-    else
-        report snobol4-blocking 1 "m3 FAIL=$f3 m4 FAIL=$f4 -- both modes must read 0 (an m3 FAIL is never informational for this row)"
-    fi
-fi
-
-out=$(bash scripts/test_icon_rung_suite.sh --mode interp 2>&1); rc=$?
-line=$(gate_three_way "test_icon_rung_suite.sh --mode interp" "$rc" "$out" '^--- Icon \(interp\): PASS=[0-9]+'); grc=$?
-if [ "$grc" -eq 2 ]; then
-    report_unproven icon-floor "test_icon_rung_suite.sh --mode interp could not be measured (rc=$rc) -- see stderr for the real cause; not a zd_omega_head verdict"
-else
-    icon_pass=$(printf '%s' "$line" | grep -oP 'PASS=\K[0-9]+')
-    if [ "$icon_pass" -ge 232 ]; then report icon-floor 0 "PASS=$icon_pass (>=232 standing floor)"; else report icon-floor 1 "PASS=$icon_pass (<232 floor)"; fi
-fi
-
-out=$(bash scripts/test_smoke_raku.sh 2>&1)
-if printf '%s\n' "$out" | grep -qE '^mode-3 .*FAIL=0 ' && printf '%s\n' "$out" | grep -qE '^mode-4 .*FAIL=0 '; then
-    report raku-smoke 0 "both modes FAIL=0"
-else
-    report raku-smoke 1 "$(printf '%s\n' "$out" | grep '^mode-' | tr '\n' ' ')"
-fi
-
-# ⭐⭐ RE-PINNED seat15 2026-09-01 UNDER hq_P'S EXPLICIT RULING (reply to ask q-prolog-instruments-were-blind:
-# "test_gate_zd_omega_head_acceptance.sh:166 is MY gate ... re-pin its crosscheck consumption to the CURRENT
-# measured state as a FLOOR WITH THE FAIL-SET BY NAME ... so the gate grades omega-head regressions and not
-# Prolog's pre-existing correctness debt (which is the umbrella's)").
-# ⛔ WHY NOT A BARE rc: this line consumed test_crosscheck_prolog.sh's exit code. That script was BLIND until
-# 2026-09-01 -- it captured --run into both sides and branched on X != X (mode 4 never invoked), read .ref
-# where the corpus stores .expected (oracle never consulted), and pre-skipped crashers -- so it reported
-# PASS=13 FAIL=0 exit 0 and this gate read a manufactured green. Cured, it honestly reports m3 3/15 m4 3/15,
-# and a bare rc would now pin THIS gate permanently red: a criterion that can never say YES, which is as
-# useless as one that can never say NO. See FINDING-2026-09-01-seat15-prolog-both-mode-instruments-were-blind.md.
-# ⭐ THE FLOOR: the twelve stems below are the measured fail-set at SCRIP 3ce7a526 (pristine -O0, corpus
-# ad1fdaa71) -- IDENTICAL for m3 and m4. A stem LEAVING the set is a red (omega-head regression, this gate's
-# business); a stem ENTERING it is a red. The set shrinking is good news that must still be acknowledged by
-# hand, so it reports red until someone re-pins it deliberately -- that is the point of a floor.
-# ⭐ RE-PINNED hq_P 2026-09-02 at SCRIP 48b09e04 (-O0), measured on TWO binaries -- the pushed tree and a scratch worktree of the same tree
-# plus one Pascal-only statement -- both reading the identical 12-stem set, m3 == m4: rung15_abolish_abolish_one_of_two LEFT the set (cured
-# upstream between 3ce7a526 and 48b09e04; acknowledged here, as the floor's own text asks) and rung22_write_canonical_write_canonical_list
-# ENTERED it (a Prolog correctness regression in the same window; routed to hq_C, the umbrella's, not this gate's). DIVERGE reads 1 or 2
-# run to run on the same binary (the flapping class) and is deliberately not part of the pin.
-PL_XC_KNOWN="rung11_findall_findall_arith rung11_findall_findall_filter rung14_retract_retract_basic rung14_retract_retract_mixed rung15_abolish_abolish_then_reassert rung22_write_canonical_write_canonical_list rung44_setof_group rung45_reflect_clause_facts rung45_reflect_clause_findall rung50_between_enum rung50_for_alias rung66_current_stream"
-out=$(bash scripts/test_crosscheck_prolog.sh 2>&1)
-xc_got=$(printf '%s\n' "$out" | grep -oE 'm3 FAIL [a-z0-9_]+' | sed 's/m3 FAIL //' | sort | tr '\n' ' ')
-xc_want=$(printf '%s\n' $PL_XC_KNOWN | sort | tr '\n' ' ')
-xc_sum=$(printf '%s\n' "$out" | grep '^PL-CROSSCHECK')
-if [ "$xc_got" = "$xc_want" ]; then
-    report prolog-crosscheck 0 "fail-set matches the pinned floor (12 stems, m3==m4) — $xc_sum"
-else
-    report prolog-crosscheck 1 "FAIL-SET MOVED vs pinned floor — left:[$(comm -23 <(printf '%s\n' $xc_want) <(printf '%s\n' $xc_got) | tr '\n' ' ')] entered:[$(comm -13 <(printf '%s\n' $xc_want) <(printf '%s\n' $xc_got) | tr '\n' ' ')] — $xc_sum"
-fi
-
-out=$(bash scripts/test_smoke_snocone.sh 2>&1); rc=$?
-if [ "$rc" -eq 0 ]; then report snocone-smoke 0 "$(printf '%s\n' "$out" | tail -1)"; else report snocone-smoke 1 "$(printf '%s\n' "$out" | tail -1)"; fi
-
-out=$(bash scripts/test_smoke_rebus.sh 2>&1); rc=$?
-if [ "$rc" -eq 0 ]; then report rebus-smoke 0 "$(printf '%s\n' "$out" | tail -1)"; else report rebus-smoke 1 "$(printf '%s\n' "$out" | tail -1)"; fi
-
-# ⛔ NOT A FAIL=0 BAR, DELIBERATELY: polyglot demos carry pre-existing, already-owned failures with NO
-# relation to zd_omega_head/IR_BINOP_TEST -- confirmed 2026-08-29 by running this exact check against an
-# UNCHANGED tree (structural check above still FAILs, i.e. zero code has moved) and seeing FAIL>0 anyway.
-# Attributed, not just excused: polyglot-main-selector-ignores-main-mod-registry (driver main-selection,
-# names this exact script as ITS OWN before/after instrument) + polyglot-define-entry-address-wrong-in-
-# merged-program (SNOBOL4 DEFINE entry-address, demo03/demo08) + polyglot-demo-empty-output-rc0 (live claim)
-# together account for the standing red. Floor pattern matches icon-floor above: assert no NEW regression
-# below today's watermark, never a bar this row cannot itself clear. Re-measure before trusting the floor
-# after any polyglot-lane row lands -- do not carry it forward uncritically (FACT RULE: re-measured, not copied).
-out=$(bash scripts/test_gate_polyglot_demos.sh 2>&1); rc=$?
-line3=$(gate_three_way "test_gate_polyglot_demos.sh" "$rc" "$out" '^m3 PASS=[0-9]+'); grc=$?
-if [ "$grc" -eq 2 ]; then
-    report_unproven polyglot-demos-floor "test_gate_polyglot_demos.sh could not be measured (rc=$rc) -- see stderr for the real cause; not a zd_omega_head verdict"
-else
-    line4=$(printf '%s\n' "$out" | grep -m1 -E '^m4 PASS=[0-9]+')
-    p3=$(printf '%s' "$line3" | grep -oP 'PASS=\K[0-9]+')
-    p4=$(printf '%s' "$line4" | grep -oP 'PASS=\K[0-9]+')
-    if [ "$p3" -ge 7 ] && [ "$p4" -ge 3 ]; then
-        report polyglot-demos-floor 0 "m3 PASS=$p3 (>=7) m4 PASS=$p4 (>=3) -- 2026-08-29 pre-existing floor, owned by other rows"
-    else
-        report polyglot-demos-floor 1 "m3 PASS=$p3 m4 PASS=$p4 -- fell BELOW the pre-existing floor: a NEW regression, unlike the standing polyglot reds"
-    fi
-fi
+# --- 4. retired 2026-10-01 (see the header): the cross-language verdict is the coo's SUITE TABLE, never a fixture's board run.
 
 # ⛔ UNPROVEN OUTRANKS BOTH: checked-and-clean and checked-and-bad are exit 0/1 as always, but "could not
 # check" must never collapse into either (row a-refusal-reported-in-the-vocabulary-of-a-red-absent-line-
