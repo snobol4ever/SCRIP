@@ -1094,7 +1094,7 @@ int main(int argc, char **argv)
     }
     while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthekE0123456789", argv[argi][1])) {
         char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
-        if (sw == 'o' && *rest == '=') { fprintf(stderr, "scrip: -o=%s: SPITBOL's -o=file names a compilation LISTING file and SCRIP produces no listing; the switch is refused, not ignored (SCRIP's assembly output is -o FILE until it moves to --out=FILE)\n", rest + 1); return 2; }
+        if (sw == 'o' && *rest == '=') { setenv("SCRIP_SNO_LIST_SINK", rest + 1, 1); argi++; continue; }
         if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }
         if (sw == 'E' && *rest == '\0') { opt_pp_only = 1; argi++; continue; }
         if (sw == 'n') { opt_no_exec = 1; argi++; continue; }
@@ -1191,7 +1191,8 @@ int main(int argc, char **argv)
             "  -x               execution statistics (SCRIP's --bench)\n"
             "  -E               Icon: preprocess only, as icont -E -- the text on stdout, each file's name, its diagnostics and the error count on stderr\n"
             "  -F -y -k         REFUSED with a stated reason (case folding; save files; running with compilation errors)\n"
-            "  -c -a -l -p -z -g# -t# -h -e -o=file   listing and compiler-statistics switches: SCRIP produces no listing, REFUSED with the reason\n"
+            "  -c -a -l -p -z -g# -t# -h -e   compiler-statistics switches: SCRIP produces none of these, REFUSED with the reason\n"
+            "  -o=file          SPITBOL's listing-sink switch: -LIST/-NOLIST output goes to file instead of stdout (SCRIP_SNO_LIST_SINK=file is the same switch)\n"
             "\n"
             "Frontend inferred from file extension; an extension not in this list is REFUSED (rc=2), never guessed at:\n"
         );

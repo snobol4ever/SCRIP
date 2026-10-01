@@ -88,6 +88,13 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 [ "$ARM_SBL" = "1" ] || { echo "⛔ REFUSE(rc=2): ARM_SBL=0 but the verdict IS the oracle since CEO-251 -- without sbl there is nothing to grade against, and an ungraded run must never print a board"; exit 2; }
 SBL_SINK=""
 [ -n "$SBL" ] && { SBL_SINK="$(sbl_listing_sink_flag "$W")" || { echo "⛔ REFUSE(rc=2): no writable listing sink for the oracle -- SPITBOL FAILS OPEN on -o= and would dump its listing back into the compared stream"; exit 2; }; }
+# ⭐ SCRIP'S OWN SINK, A SEPARATE FILE FROM THE ORACLE'S (coo-2026-10-01 regression, row snobol4-the-list-control-line-
+# prints-no-source-listing...): since SCRIP's -LIST/-NOLIST now produces a listing too (rt_sno_list_d), it has to be
+# diverted off the compared stream exactly where the oracle's is, or every fixture with a control line in SUITE
+# fails on line 1 of its own listing banner. Never the SAME path as $SBL_SINK -- that file is deleted and re-read
+# by the sbl arm's &DUMP recovery (above) and must hold only SPITBOL's own content.
+SCRIP_LIST_SINK=""
+[ -n "$SBL_SINK" ] && SCRIP_LIST_SINK="$W/scrip_listing.lst"
 GIMPEL="$SUITE/gimpel"
 # ⛔ ALL ARMS RUN WITH cwd IN SCRATCH, never in a repo tree: OUTPUT unit-I/O associations create
 # files named by their third argument (SPITBOL dialect: a FILE SPEC, e.g. '(121A1)') in the cwd,
@@ -278,8 +285,8 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
         # Identical class to the Arizona runner's cure (SCRIP 3bb0a210c).
         m3)  ln -sf "$2" "$RUN/f.sno"
              local ca; ca="$(declared_compile_args_from_table "$DECL" "$(basename "$2" .sno)")" || exit 2
-             GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$SCRIP" --run $ca f.sno < "$inp" 2>&1)"; RC=$?;;
-        m4)  GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
+             GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" ${SCRIP_LIST_SINK:+SCRIP_SNO_LIST_SINK="$SCRIP_LIST_SINK"} timeout "$TIMEOUT" "$SCRIP" --run $ca f.sno < "$inp" 2>&1)"; RC=$?;;
+        m4)  GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" ${SCRIP_LIST_SINK:+SCRIP_SNO_LIST_SINK="$SCRIP_LIST_SINK"} timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
         # ⛔⭐ THE ORACLE IS HANDED A SHORT NAME, NEVER THE ABSOLUTE PATH, AND IT IS A GRADING BUG IF YOU
         # "TIDY" THIS BACK (hq_B 2026-09-04, measured). SPITBOL formats its diagnostic as
         # `<path>(<line>) : ERROR <n> -- <text>`, wraps it at column 119 into the LISTING, and spills only
