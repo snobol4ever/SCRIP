@@ -2977,7 +2977,7 @@ static void zrm_build(IR_t ** nodes, const int * run, int rl) {
 }
 static int zrm_maxk(const IR_t * nd) { zrm_slot_t * t = zrm_probe(nd); return t->gen == g_zrm_gen ? t->maxk : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm) {
+static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgpop, int *zwpop, int *zarm, const unsigned char *walls) {
     extern const char * bb_src_of(const IR_t *);
     static int _dg = -1, _zoh = -1, _zbe = -1, _zvd = -1; static const char * _zo; static const char * _zs;
     if (_dg < 0) { const char * d = getenv("SCRIP_ZD_DIAG"); _dg = (d && *d == '1') ? 1 : 0; _zo = getenv("SCRIP_ZD_ONLY"); _zs = getenv("SCRIP_ZD_SKIP"); }
@@ -3017,7 +3017,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
         while (cur && guard++ <= n) {
             int ci = -1; { int k = nidx(nodes, n, cur); if (k >= 0) { ci = k; } }
             if (ci < 0 || claim[ci] >= 0) break;
-            if (rl > 0 && bb_src_of(nodes[ci])) break;
+            if (rl > 0 && bb_src_of(nodes[ci])) break; if (rl > 0 && walls && walls[ci]) break;
             { static int _fl = -1; if (_fl < 0) { const char * e = getenv("SCRIP_ZD_FLOATER_CUT"); _fl = (e && *e == '0') ? 0 : 1; } if (_fl && rl > 0 && emit_floater_kind(nodes[ci])) break; }
             run[rl] = ci; rpos[ci] = rl; claim[ci] = hi; rl++;
             cur = zd_chase(cur->γ.node);
@@ -3479,7 +3479,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     unsigned char *zd_on = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int *zd_out = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_gp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_wp = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1)); int *zd_arm = (int *)alloca(sizeof(int) * (size_t)(n > 0 ? n : 1));
     if (!g_emit.flat_jmp_entry) g_emit.flat_pat = 0;
     nidx_build(nodes, n);
-    zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm); int _sph = 0, _spgd = 0, _spf = 0, _wpn = 0; bb_label_t ** _wpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); int * _wpd = (int *)alloca(sizeof(int) * (size_t)(n + 1));
+    zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, (const unsigned char *)0); { static int _jc = -1; if (_jc < 0) { const char * e = getenv("SCRIP_ZD_JOIN_CUT"); _jc = (e && *e == '0') ? 0 : 1; } unsigned char * _zw = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); unsigned char * _zarm = (unsigned char *)alloca((size_t)(n > 0 ? n : 1)); int * _zst = (int *)alloca(sizeof(int) * (size_t)(3 * n + 3)); for (int _q = 0; _q < n; _q++) _zw[_q] = 0; auto _in_arms = [&](int t, int k) -> int { int sp = 0; for (int q = 0; q < n; q++) _zarm[q] = 0; for (int a = 0; a < nodes[t]->n_operands; a++) { int q = nidx(nodes, n, nodes[t]->operands[a]); if (q >= 0 && !_zarm[q]) { _zarm[q] = 1; _zst[sp++] = q; } } while (sp > 0) { IR_t * x = nodes[_zst[--sp]]; IR_t * nx[2] = { zd_chase(x->γ.node), zd_chase(x->ω.node) }; for (int e = 0; e < 2 + x->n_operands; e++) { IR_t * y = e < 2 ? nx[e] : x->operands[e - 2]; int q = (y && y != nodes[t]) ? nidx(nodes, n, y) : -1; if (q >= 0 && !_zarm[q] && sp < 3 * n + 3) { _zarm[q] = 1; _zst[sp++] = q; } } } return _zarm[k]; }; for (int _it = 0; _jc && _it < n; _it++) { int _add = 0; for (int k = 0; k < n; k++) { if (nodes[k]->op == IR_GOTO) continue; for (int v = 0; v < 2; v++) { IR_t * tt = zd_chase(v == 0 ? nodes[k]->γ.node : nodes[k]->ω.node); if (!tt || (v == 1 && port_sz_beta(nodes[k]->ω.sz))) continue; int t = nidx(nodes, n, tt); if (t < 0 || t == k || _zw[t] || !zd_on[t] || zd_arm[t] >= 0) continue; int ad = zd_out[t] - zd_k(nodes[t]) + fence0_release_bytes(nodes[t]); int d = 0; if (zd_on[k] || ad <= 0 || !strncmp(bb_op_name(nodes[k]->op), "IR_MATCH_", 9) || !strncmp(bb_op_name(nodes[t]->op), "IR_MATCH_", 9) || _in_arms(t, k)) continue; _zw[t] = 1; _add++; if (getenv("SCRIP_ZD_DIAG")) fprintf(stderr, "[ZD] JOIN-WALL i=%d (%s) alpha depth %d entered at depth %d by i=%d (%s)\n", t, bb_op_name(nodes[t]->op), ad, d, k, bb_op_name(nodes[k]->op)); } } if (!_add) break; zd_plan(nodes, n, zd_on, zd_out, zd_gp, zd_wp, zd_arm, _zw); } } int _sph = 0, _spgd = 0, _spf = 0, _wpn = 0; bb_label_t ** _wpl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(n + 1)); int * _wpd = (int *)alloca(sizeof(int) * (size_t)(n + 1));
     zd_depth_census(nodes, n, zd_on, zd_out, zd_gp, zd_wp, prefix);
     {
     static int _zk0_on = -1;

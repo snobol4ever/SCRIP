@@ -22,8 +22,17 @@
 #      operand still pushed; the planner's zero-K rule counted that exit as staying inside the run (the statement's begin is
 #      earlier in the run), planned no pop, and the function's return popped the wrong word. The rule now excludes a
 #      statement-landing target, as the two rules beside it already did (killswitch SCRIP_ZD_OMEGA_STMTLAND=0).
+# (D) A JOIN AT DEPTH (cto 2026-10-01, from hq_snocone's FINDING-2026-10-01-hq_snocone-beauty-sigsegv-zd-plan-assign-cond-depth-mismatch):
+#      a conditional assignment with an alternative -- if (~(B = B ' ' DUPL(' ', n))) B = B ' '; in corpus/library/Gen.sc GenTab --
+#      lowers to a main chain whose every omega unwinds to depth 0 and goes to the alternative statement, which zd_plan leaves
+#      unplanned; both paths join at the statement end, which the run builder had pulled into the main chain's run with a fixed
+#      release of 192 bytes. The failure arm released 192 it never carved and the det-arm signature epilogue jumped through 0
+#      (SncDemo beauty, rc 139 both modes). Cured: after planning, a node an unplanned non-pattern node enters at its alpha while
+#      the run has carved depth there is a WALL, the run stops before it (its last node then pops the whole depth on gamma) and
+#      the graph is planned again until no wall is added. Witness w6; killswitch SCRIP_ZD_JOIN_CUT=0.
 # EVERY ARM IS GRADED AGAINST THE ORACLE: the witness's --transpile run on sbl -bf (a Snocone program's oracle), both modes, stdout.
-# FAIL-ONCE, BUILT IN: witness 1 must go red under SCRIP_ZD_BLOBBACK=0 and witness 3 under SCRIP_ZD_5B=1 -- a gate that cannot see
+# FAIL-ONCE, BUILT IN: witness 1 must go red under SCRIP_ZD_BLOBBACK=0, witness 3 under SCRIP_ZD_5B=1 and witness 6 under
+# SCRIP_ZD_JOIN_CUT=0 -- a gate that cannot see
 # its own defect is not measuring it.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -90,6 +99,23 @@ OUTPUT = F('hi');
 OUTPUT = F('zzz');
 OUTPUT = 'after';
 EOF
+cat > "$T/w6.sc" <<'EOF'
+function GenTab(pos) {
+    GenTab = .dummy;
+    pos = IDENT(pos) 4;
+    B = IDENT(B) X;
+    if (~(B = B ' ' DUPL(' ', pos - SIZE(B) - 1)))
+        B = B ' ';
+    nreturn;
+}
+function Show(s) { Show = '[' s ']'; return; }
+B = 'ab'; X = '';
+GenTab(10); OUTPUT = Show(B);
+B = 'abcdefghijkl'; X = '';
+GenTab(3); OUTPUT = Show(B);
+GenTab(); OUTPUT = Show(B);
+OUTPUT = 'done';
+EOF
 run_mode() {  # run_mode <m3|m4> <prog> [ENV=V...] -> stdout on fd 1
   local m="$1" p="$2"; shift 2
   if [ "$m" = m3 ]; then env "$@" timeout 20 "$SCRIP" "$p" </dev/null 2>/dev/null; return; fi
@@ -97,7 +123,7 @@ run_mode() {  # run_mode <m3|m4> <prog> [ENV=V...] -> stdout on fd 1
   gcc -no-pie -o "$p.x" "$p.s" -L"$RT" -Wl,-rpath,"$RT" -lscrip_rt -lm >/dev/null 2>&1 || { echo "LINK-FAIL"; return; }
   timeout 20 "$p.x" </dev/null 2>/dev/null; }
 RC=0; N=0
-for w in w1 w2 w3 w4 w5; do
+for w in w1 w2 w3 w4 w5 w6; do
   "$SCRIP" --transpile "$T/$w.sc" > "$T/$w.sno" 2>/dev/null || { echo "⛔ GATE REFUSE(2) [$G]: $w does not transpile"; exit 2; }
   want=$("$SBL" -bf "$T/$w.sno" </dev/null 2>/dev/null)
   [ -n "$want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for $w"; exit 2; }
@@ -117,11 +143,12 @@ fo() {  # fo <witness> <ENV=V...> -- the killswitch must make the witness differ
   if [ "$got" != "$want" ]; then echo "  fail-once $w under $*: RED as it must be"; else echo "  fail-once $w under $*: STILL GREEN -- this gate cannot see the defect it names"; RC=1; fi; }
 fo w1 SCRIP_ZD_BLOBBACK=0
 fo w3 SCRIP_ZD_5B=1
+fo w6 SCRIP_ZD_JOIN_CUT=0
 fos() {  # fos <witness> <ENV=V...> -- the same, on the witness's TRANSPILED form
   local w="$1"; shift; local want got; want=$("$SBL" -bf "$T/$w.sno" </dev/null 2>/dev/null); got=$(run_mode m3 "$T/$w.sno" "$@")
   if [ "$got" != "$want" ]; then echo "  fail-once $w.sno under $*: RED as it must be"; else echo "  fail-once $w.sno under $*: STILL GREEN -- this gate cannot see the defect it names"; RC=1; fi; }
 fos w5 SCRIP_ZD_OMEGA_STMTLAND=0
-if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N arms (5 witnesses x m3+m4, plus w5's transpiled form x m3+m4) print the SPITBOL oracle's output, and all three killswitches red their witness"
+if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N arms (6 witnesses x m3+m4, plus w5's transpiled form x m3+m4) print the SPITBOL oracle's output, and all four killswitches red their witness"
 else echo "GATE FAIL(1) [$G]: see the arms above"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  oracle: $SBL -bf  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC
