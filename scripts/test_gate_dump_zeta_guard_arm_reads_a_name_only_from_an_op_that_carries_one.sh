@@ -19,7 +19,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="${S4E_HOME:-$(cd "$HERE/.." && pwd)
 cd "$ROOT" || exit 2
 CORPUS="$ROOT/../corpus"; [ -d "$CORPUS/benchmarks/icon" ] || { echo "⛔ REFUSE(2): no corpus/benchmarks/icon beside SCRIP"; exit 2; }
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
-printf 'procedure main()\n  local s, t;\n  s := 0;\n  t := s + 1\nend\n' > "$T/zw.icn"
+printf 'procedure main()\n  local s, t;\n  s := 0;\n  t := s + 1;\nend\n' > "$T/zw.icn"
 bad=0
 timeout 20s ./scrip --dump-zeta "$T/zw.icn" </dev/null > "$T/zw.dump" 2>/dev/null; rc=$?
 echo "witness --dump-zeta rc=$rc (want 0; 139 before the cure)"

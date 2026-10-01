@@ -29,7 +29,7 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp scripts/fixtures/frame_r1_witness.pl "$T/w.pl"
 cat > "$T/w.icn" <<'ICEOF'
 procedure main()
-   every write(1, 1 to 3)
+   every write(1, 1 to 3);
 end
 ICEOF
 cat > "$T/w.sno" <<'SNEOF'

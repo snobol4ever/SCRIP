@@ -2462,9 +2462,9 @@ int cap_fail_retreat(void) {
     static int _cf = -1; if (_cf < 0) { const char * e = getenv("SCRIP_CAP_FAIL_RETREAT"); _cf = (e && *e == '0') ? 0 : 1; } return _cf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int leaf_frame_env(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_LEAF_FRAME"); v = (e && *e == '1') ? 1 : 0; } return v; }
-static int leaf_frame_member(const IR_t * nd) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); int blob_frame_scope(void); extern int fc_arm_member(const IR_t *); return nd && zdp_scratch_cell(nd) && (leaf_frame_env() || zdp_seam_tier(nd) == 1 || (zdp_seam_tier(nd) != 0 && (!blob_frame_scope() || alt_arm_member(nd, (const IR_t *)0) || fc_arm_member(nd)))) && (alt_arm_member(nd, (const IR_t *)0) || blob_frame_scope()); }
-static int blob_arm_leaf_fc(const IR_t * nd, long * k) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); extern int fc_arm_member(const IR_t *); if (!nd || leaf_frame_env() || zdp_seam_tier(nd) != 0 || !zdp_scratch_cell(nd) || !fc_arm_member(nd)) return 0; if (k) *k = 16; return 1; }
+static int leaf_frame_member(const IR_t * nd) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); int blob_frame_scope(void); extern int fc_arm_member(const IR_t *);
+    return nd && zdp_scratch_cell(nd) && (zdp_seam_tier(nd) == 1 || (zdp_seam_tier(nd) != 0 && (!blob_frame_scope() || alt_arm_member(nd, (const IR_t *)0) || fc_arm_member(nd)))) && (alt_arm_member(nd, (const IR_t *)0) || blob_frame_scope()); }
+static int blob_arm_leaf_fc(const IR_t * nd, long * k) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); extern int fc_arm_member(const IR_t *); if (!nd || zdp_seam_tier(nd) != 0 || !zdp_scratch_cell(nd) || !fc_arm_member(nd)) return 0; if (k) *k = 16; return 1; }
 static int blob_patv_reader(const IR_t * nd) { const char * sv = (nd && nd->op == IR_VAR) ? IR_LIT(nd).sval : (const char *)0; const char * d = sv ? strstr(sv, "$V") : (const char *)0; if (!d || strncmp(sv, "PAT$", 4)) return 0; char * e = (char *)0; (void) strtol(d + 2, &e, 10); return (e && e != d + 2 && !*e) ? 1 : 0; }
 static int xop_hazard_kind(int op) { return op == IR_MATCH_DEFER || op == IR_MATCH_ARBNO || op == IR_MATCH_VALUE; }
 static int zd_k(IR_t * nd);
@@ -2675,12 +2675,12 @@ static int blob_choice_rbp_scan(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int blob_carve_pad(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_CARVE_PAD"); v = e ? 16 * atoi(e) : 0; } return v; }
-static int blob_spine_only(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_SPINE"); v = (e && *e == '1') ? 1 : 0; } return v; }
 int blob_frame_bytes(void) {
     if (!blob_frame_scope() || !g_emit_cfg) return 0;
     int count = 0; if (frame_slot_scan((const IR_t *)0, (int *)0, &count) != 2) { count = 0; }
     int _pend = 0; if (sn4_blob_casmark()) for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _m = g_emit_cfg->all[_i]; if (_m && _m->op == IR_MATCH_ASSIGN_COND) { _pend = 1; break; } }
-    if (count == 0 && !_pend && !blob_wire_clobber_scan() && !blob_choice_rbp_scan()) return blob_spine_only() ? 0 : blob_head_bytes();
+    if (count == 0 && !_pend && !blob_wire_clobber_scan() && !blob_choice_rbp_scan())
+        return 0;
     return blob_head_bytes() + 16 * count + (blob_choice_rbp_scan() ? 32 : 0);
 }
 extern "C" int sn4_choice_rbp_off(void);

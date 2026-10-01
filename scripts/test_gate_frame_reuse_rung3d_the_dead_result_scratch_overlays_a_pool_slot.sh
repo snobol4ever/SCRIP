@@ -32,7 +32,7 @@ printf '3\n[h,i]\nfoo/2\n' > "$T/guard.pl.ref"
 printf 'q(X, Y) :- Y is X - 1.\np(X, Z) :- Z is (X - 1) * (X + 2).\nu(X) :- 1 = X.\nv(X) :- X = 1.\n:- initialization(main).\nmain :- q(5, Y), write(Y), nl, p(5, Z), write(Z), nl, ( u(1) -> write(u_ok) ; write(u_bad) ), nl, ( v(1) -> write(v_ok) ; write(v_bad) ), nl, ( u(2) -> write(u2_bad) ; write(u2_ok) ), nl.\n' > "$T/nest.pl"
 printf '4\n28\nu_ok\nv_ok\nu2_ok\n' > "$T/nest.pl.ref"
 printf 'p(X) :- q(X), s(X).\nq(1).\nq(2).\nq(3).\ns(3).\n:- initialization(main).\nmain :- p(X), write(X), nl, halt.\n' > "$T/bt.pl"; echo "3" > "$T/bt.pl.ref"
-printf 'procedure main()\n   every write(image(1), 1 to 3)\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
+printf 'procedure main()\n   every write(image(1), 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
 timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"

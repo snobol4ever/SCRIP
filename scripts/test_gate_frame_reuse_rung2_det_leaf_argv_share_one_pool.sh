@@ -24,7 +24,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="${S4E_HOME:-$(cd "$HERE/.." && pwd)
 cd "$ROOT" || exit 2
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp scripts/fixtures/frame_r1_witness.pl "$T/w.pl"; echo "ok" > "$T/w.pl.ref"
-printf 'procedure main()\n   every write(image(1), 1 to 3)\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
+printf 'procedure main()\n   every write(image(1), 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
 timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"
@@ -37,7 +37,7 @@ awk "/^; graph [0-9]+ 'r\/1'/{p=1} /^; graph [0-9]+ 'q\/1'/{p=0} p" "$T/pl.dump"
 ablk="$(grep -c 'call.argv (pooled' "$T/r1.dump")"; sealed="$(grep -c 'det leaf .*argv@+[0-9]* pooled' "$T/r1.dump")"; own="$(grep -c 'det leaf .*argv@+[0-9]* own' "$T/r1.dump")"; ownargv="$(grep -E '^;     \+[0-9]+ +16 +DESCR +call.argv +IR_CALL$' "$T/r1.dump" | wc -l)"
 echo "r/1 pooled argv block slots=$ablk sealed calls pooled=$sealed sealed calls own=$own unsealed IR_CALL argv slots=$ownargv"
 [ "$ablk" -ge 1 ] || { echo "  ⛔ r/1 grants no pooled argv block"; bad=$((bad+1)); }
-[ "$sealed" -ge 4 ] || { echo "  ⛔ fewer than the four sealed calls of r/1 (five before rung 3(f) removed the head unify) marshal into the pooled block ($sealed)"; bad=$((bad+1)); }
+[ "$sealed" -ge 3 ] || { echo "  ⛔ fewer than the three sealed calls of r/1 (five before rung 3(f) removed the head unify, four before R4.1 734797863 made r(0)'s head constant an IR_UNIFY_CONST box) marshal into the pooled block ($sealed)"; bad=$((bad+1)); }
 [ "$own" -eq 0 ] || { echo "  ⛔ $own sealed call(s) of r/1 still hold their own argv"; bad=$((bad+1)); }
 [ "$ownargv" -eq 0 ] || { echo "  ⛔ $ownargv per-call argv slot(s) survive in r/1 (every IR_CALL of r/1 is sealed)"; bad=$((bad+1)); }
 timeout 20s ./scrip --dump-zeta "$T/w.icn" </dev/null 2>/dev/null > "$T/icn.dump"
