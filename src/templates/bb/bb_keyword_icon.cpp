@@ -13,10 +13,12 @@ DESCR_t rt_keyword_var(const char *name);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define KI_BOMB() (!(_.op_off >= 0) && !_.op_zres)
+#define KI_VARFORM() (_.op_var_form && _.op_sval && _.op_sval[0] == '&')
 std::string bb_keyword_icon() {
-    if (!(_.op_off >= 0) && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword: no slot");
-    if (_.op_var_form && _.op_sval && _.op_sval[0] == '&')
-        return  x86_alpha()
+    return IF(KI_BOMB(), x86_alpha() + x86_bomb("bb_keyword: no slot"))
+         + IF(!KI_BOMB() && KI_VARFORM(),
+               x86_alpha()
              + x86("mov",     "rdi", ROQ(0))
              + x86("call",    "rt_keyword_var", (uint64_t)(uintptr_t)(void *)rt_keyword_var)
              + x86("mov",     FRQ(_.op_off),     "rax")
@@ -26,8 +28,9 @@ std::string bb_keyword_icon() {
              + x86("def",     L(0))
              + x86(".quad",   LS(0), _.op_sval)
              + x86("label",   LS(0))
-             + x86(".string", _.op_sval);
-    return _.op_zres
+             + x86(".string", _.op_sval))
+         + IF(!KI_BOMB() && !KI_VARFORM(),
+               _.op_zres
          ? (!strcmp(_.op_name2, "subject")
             ? (g_scan_regs_live
                ?  x86_alpha()
@@ -129,5 +132,5 @@ std::string bb_keyword_icon() {
             + x86("def",     L(0))
             + x86(".quad",   LS(0), _.op_sval)
             + x86("label",   LS(0))
-            + x86(".string", _.op_sval));
+            + x86(".string", _.op_sval)));
 }
