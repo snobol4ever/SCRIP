@@ -73,7 +73,7 @@ set -uo pipefail
 GATE_NAME=test_gate_pl_atom_name_survives_a_collect_mid_operation
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT_DIR="${RT_DIR:-$ROOT/out}"; SWIPL="${SWIPL:-/usr/bin/swipl}"
-ATOMC="$ROOT/src/parsers/prolog/prolog_atom.c"
+ATOMC="$ROOT/src/runtime/rt/prolog_atom.c"
 QUICK=0; for a in "$@"; do case "$a" in --quick) QUICK=1 ;; esac; done
 ITERS="${ITERS:-$([ "$QUICK" = 1 ] && echo 2 || echo 20)}"; STRESS="${SCRIP_GC_STRESS_VALUE:-1}"; CHURN="${WITNESS_CHURN:-300}"; MODES="${MODES:-m3,m4}"
 # ⛔ A STRESSED RUN THAT DOES NOT FINISH IS NOT A DIVERGENCE (hq_prolog 2026-09-24, row prolog-an-atom-name-does-not-survive-a-
@@ -107,8 +107,14 @@ NAMEALLOC="$(grep -oE "\\b$NAMEVAR[[:space:]]*=[[:space:]]*[A-Za-z_][A-Za-z0-9_]
 case "$NAMEALLOC" in
     ct_strdup|ct_alloc|strdup|malloc|calloc)
         ck ok "the atom name is allocated by $NAMEALLOC, which is off the collected heap -- a name pointer held in a raw C local cannot be invalidated by a slide" ;;
+    pool_strdup)
+        # pool_strdup (this file) bump-allocates out of a chunk from rt_slab_region(), which gets its chunks from
+        # rt_slab_get() -> ct_alloc() (src/runtime/rt/rt_slab.c) -- a manually-managed, recycled slab pool, never
+        # the collected heap. Confirmed 2026-10-01: CLAUSE 2 (byte-equal under SCRIP_GC_STRESS=1 SCRIP_GC_POISON=1,
+        # both modes) is green on this same tree, which a dangling-pointer class could not pass by chance.
+        ck ok "the atom name is allocated by $NAMEALLOC, which bump-allocates out of rt_slab_region()/ct_alloc() -- off the collected heap, never slid or poisoned" ;;
     *)
-        ck no "the atom name is allocated by $NAMEALLOC, which is not on the off-heap allowlist (ct_strdup ct_alloc strdup malloc calloc) -- if $NAMEALLOC is genuinely off-heap, ADD IT HERE with the reason; if it is the collected heap, this row's cure has been reverted" ;;
+        ck no "the atom name is allocated by $NAMEALLOC, which is not on the off-heap allowlist (ct_strdup ct_alloc strdup malloc calloc pool_strdup) -- if $NAMEALLOC is genuinely off-heap, ADD IT HERE with the reason; if it is the collected heap, this row's cure has been reverted" ;;
 esac
 KEYSRC="$(grep -oE 'ht\[[A-Za-z_][A-Za-z0-9_]*\]\.key[[:space:]]*=[[:space:]]*[A-Za-z_][A-Za-z0-9_]*' "$ATOMC" | head -1 | sed -E 's/.*=[[:space:]]*//')"
 if [ "$KEYSRC" = "$NAMEVAR" ]; then
