@@ -102,6 +102,19 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     __asm__ volatile(
         "push %%r12\n\t"
         "sub $8, %%rsp\n\t"
+        "mov %%rsp, %%r12\n\t"
+        "push %%rax\n\t"
+        "push %%rdi\n\t"
+        "push %%rcx\n\t"
+        "push %%rdx\n\t"
+        "mov %%r12, %%rdi\n\t"
+        "and $-16, %%rsp\n\t"
+        "call rt_gc_emit_ceiling_adopt_top@PLT\n\t"
+        "lea -32(%%r12), %%rsp\n\t"
+        "pop %%rdx\n\t"
+        "pop %%rcx\n\t"
+        "pop %%rdi\n\t"
+        "pop %%rax\n\t"
         "mov $0x70000000, %%r12\n\t"
         "mov (%%r12), %%r12\n\t"
         "movq g_rtcc_on@GOTPCREL(%%rip), %%r10\n\t"
@@ -1667,7 +1680,7 @@ int main(int argc, char **argv)
             emit_textf("  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage_argv@PLT\n"); if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
             int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             if (!_pinned_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
-            if (bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n");
+            if (bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  mov rdi, rsp\n  call rt_gc_emit_ceiling_adopt_top@PLT\n");
             { extern unsigned char g_rtcc_on; if (g_rtcc_on) emit_textf("  call rtcc_load_all@PLT\n"); }
             emit_textf("  xor esi, esi\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) {
