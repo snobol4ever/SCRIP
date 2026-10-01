@@ -36,6 +36,7 @@ int             g_use_sm_macros = 0;
 int             g_use_bb_macros = 0;
 sm_emit_t g_emit;
 IR_graph_t * g_emit_cfg = (IR_graph_t *)0;
+static void emit_stno_mark(int32_t stno);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::unordered_set<std::string> g_port_exit_promoting_labels;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -314,6 +315,26 @@ void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
     va_end(ap);
     bb_label_name_set(lbl->name, nb);
     lbl->offset = BB_LABEL_UNRESOLVED;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void emit_stno_mark(int32_t stno) {
+    if (g_is_text) {
+        int seq = ++g_emit.stno_text_seq;
+        emit_textf(".Lstno%d:\n  .pushsection scrip_stno_map,\"a\",@progbits\n  .quad .Lstno%d\n  .long %d\n  .long 0\n  .popsection\n", seq, seq, (int)stno);
+    } else {
+        stno_rec_push((uint64_t)(uintptr_t)(bb_emit_buf + bb_emit_pos), stno);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" const sno_stno_rec_t * scrip_emit_stno_table(uint32_t * out_count) {
+    *out_count = (uint32_t)g_emit.stno_map_n;
+    return (const sno_stno_rec_t *)g_emit.stno_map.p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void g_emit_stno_drop_above(uint64_t addr) {
+    int lo = 0, hi = g_emit.stno_map_n;
+    while (lo < hi) { int mid = (lo + hi) / 2; if (STNO_REC(mid).pc < addr) lo = mid + 1; else hi = mid; }
+    g_emit.stno_map_n = lo;
 }
 #include "IR.h"
 #include "emit_ir.h"
@@ -1126,7 +1147,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
       g_emit.op_gva_k = (g_gva_active && (nm_op || defer_op) && IR_LIT(nd).sval && !graph_has_local(g_emit_cfg, IR_LIT(nd).sval)) ? gva_index_of(IR_LIT(nd).sval) : -1; }
     { extern int g_proc_direct_active; extern int proc_slot_of(const char *); extern int proc_direct_eligible(const char *); int nm_op = (ir_norm_call_kind(nd->op) == IR_CALL);
       g_emit.op_proc_k = (g_proc_direct_active && nm_op && IR_LIT(nd).sval && proc_direct_eligible(IR_LIT(nd).sval)) ? proc_slot_of(IR_LIT(nd).sval) : -1; }
-    if (nd->op == IR_STATEMENT_BEGIN || nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT || nd->op == IR_STMT_MARK) g_emit.op_stno = (int32_t)IR_LIT(nd).ival;
+    if (nd->op == IR_STATEMENT_BEGIN || nd->op == IR_STATEMENT_END || nd->op == IR_STATEMENT || nd->op == IR_STMT_MARK) { int32_t _stno = (int32_t)IR_LIT(nd).ival; if (_stno != g_emit.stno_last) { emit_stno_mark(_stno); g_emit.stno_last = _stno; } g_emit.op_stno = _stno; }
     g_emit.op_ival = (ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_PROC_GEN) ? (int64_t)nd->n_operands : (nd->op == IR_GOTO_DEFERRED ? (int64_t)nd->seal : IR_LIT(nd).ival);
     if (nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) { int64_t r = (int64_t)zd_sr_role(nd); g_emit.op_ival = r; g_emit.op_sval = r ? (const char *)0 : IR_LIT(nd).sval; }
     g_emit.op_node_kind = (int)nd->op;
@@ -4387,6 +4408,7 @@ extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
     g_xci_epoch++;
+    g_emit.stno_last = -1;
     emit_chain_mark_entry_emitted(entry);
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);

@@ -36,16 +36,29 @@ echo "weak-abort-stub gate -- recomputed live, $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 s4e_subject_announce "$REPO" || true
 echo "src: $SRC"
 
-# ── HALF 1: no weak definition may reappear. ──────────────────────────────────────────────────────────────────────
-WEAK=$(grep -rn '__attribute__((weak))' "$SRC" --include=*.c --include=*.h 2>/dev/null || true)
-WN=$(printf '%s' "$WEAK" | grep -c . || true)
+# ── HALF 1: no weak definition may reappear, except a named, reviewed allowlist. ─────────────────────────────────
+# ⭐ NAMED DELIBERATELY (per this gate's own instruction above), TASK error-voice-statement-number-from-a-code-map-
+# no-per-statement-store, cto ruling 2026-10-01: each entry below is checked to NOT share the landmine's shape (a
+# weak symbol whose only body is an unconditional abort) -- scrip_emit_stno_table is a weak DECLARATION whose one
+# definition (src/emitter/emit.cpp) is a plain strong function, never a stub; __start_/__stop_scrip_stno_map are
+# linker section-boundary DATA symbols (no body to call at all) and every reader null-checks both before any
+# dereference, falling back to "no statement number" -- today's own pre-existing behaviour -- never aborting.
+WEAK_ALLOWLIST='scrip_emit_stno_table|__start_scrip_stno_map|__stop_scrip_stno_map'
+WEAK_RAW=$(grep -rn '__attribute__((weak))' "$SRC" --include=*.c --include=*.h 2>/dev/null || true)
+ALLOWED=$(printf '%s\n' "$WEAK_RAW" | grep -E "$WEAK_ALLOWLIST" || true)
+UNALLOWED=$(printf '%s\n' "$WEAK_RAW" | grep -vE "$WEAK_ALLOWLIST" || true)
+WN=$(printf '%s' "$UNALLOWED" | grep -c . || true)
+if [ -n "$ALLOWED" ]; then
+    echo "  ⭐ half 1: $(printf '%s\n' "$ALLOWED" | grep -c .) allowlisted weak symbol(s) (reviewed, never an abort stub):"
+    printf '%s\n' "$ALLOWED" | sed 's|^|     |'
+fi
 if [ "$WN" -ne 0 ]; then
     echo "⛔ WEAK DEFINITION(S) PRESENT -- each is a call that type-checks, links, and may kill the process:"
-    printf '%s\n' "$WEAK" | sed 's|^|     |'
+    printf '%s\n' "$UNALLOWED" | sed 's|^|     |'
     echo "     -> give it a strong definition, or delete the path. If one must stay, name it here deliberately."
     FAIL=1
 else
-    echo "  ✅ half 1: zero __attribute__((weak)) definitions in src/"
+    echo "  ✅ half 1: zero UNREVIEWED __attribute__((weak)) definitions in src/"
 fi
 
 # ── HALF 2: the entry_pc invariant. Every proc allocation must set entry_pc = -1. ─────────────────────────────────

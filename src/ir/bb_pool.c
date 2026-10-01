@@ -69,11 +69,13 @@ void bb_free(bb_buf_t buf, size_t size) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t bb_pool_mark(void) { return pool_base ? (size_t)(pool_top - pool_base) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern void g_emit_stno_drop_above(uint64_t addr);
 void bb_pool_release(size_t mark) {
     uint8_t * want;
     if (!pool_base) return;
     want = pool_base + mark;
     if (want < pool_base || want > pool_top) return;
     if (want < pool_top) { size_t len = (size_t)(pool_top - want); if (mprotect(want, len, PROT_READ | PROT_WRITE) != 0) { perror("bb_pool_release: mprotect RX→RW"); abort(); } }
+    g_emit_stno_drop_above((uint64_t)(uintptr_t)want);
     pool_top = want;
 }

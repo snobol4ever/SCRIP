@@ -10,6 +10,7 @@ extern "C" {
 #include "bb_pool.h"
 #include "IR.h"
 #include "ct_vec.h"
+#include "stno_map.h"
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -471,6 +472,10 @@ typedef struct {
     int                          xa_pat_blob_invariant_n;
     cv_t                         xa_bb_emit_pair;
     int                          xa_bb_emit_pair_n;
+    cv_t                         stno_map;
+    int                          stno_map_n;
+    int32_t                      stno_last;
+    int                          stno_text_seq;
     int                          x86_uid;
     const char *                 x86_uid_kind;
     char                         x86_uid_kind_buf[48];
@@ -573,6 +578,8 @@ typedef struct {
 extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))
 static inline void xa_pair_push(struct bb_label_t * d, struct bb_label_t * j) { cv_reserve(&g_emit.xa_bb_emit_pair, (uint32_t)sizeof(xa_pair_t), (uint64_t)g_emit.xa_bb_emit_pair_n + 1, "xa_bb_emit_pair"); xa_pair_t * e = &XA_PAIR(g_emit.xa_bb_emit_pair_n); e->define = d; e->jmp = j; g_emit.xa_bb_emit_pair_n++; }
+#define STNO_REC(i) CV_AT(g_emit.stno_map, sno_stno_rec_t, (i))
+static inline void stno_rec_push(uint64_t pc, int32_t stno) { cv_reserve(&g_emit.stno_map, (uint32_t)sizeof(sno_stno_rec_t), (uint64_t)g_emit.stno_map_n + 1, "stno_map"); sno_stno_rec_t * e = &STNO_REC(g_emit.stno_map_n); e->pc = pc; e->stno = stno; e->_pad = 0; g_emit.stno_map_n++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph; }
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }
