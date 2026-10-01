@@ -2897,8 +2897,9 @@ static int alt_arm_complex(const IR_t * nd) {
     for (int j = 0; j + 1 < nd->n_operands; j += 2) { int s0 = -1, s1 = -1;
         for (int k = 0; k < g_emit_cfg->n; k++) { if (g_emit_cfg->all[k] == nd->operands[j]) s0 = k; if (g_emit_cfg->all[k] == nd->operands[j + 1]) s1 = k; }
         if (s0 > s1) { int t = s0; s0 = s1; s1 = t; }
+        if (getenv("SCRIP_ALTC_DIAG")) fprintf(stderr, "[ALTC] nd=%p n_operands=%d arm=%d op0=%p op1=%p s0=%d s1=%d cfg_n=%d\n", (const void *)nd, nd->n_operands, j / 2, (const void *)nd->operands[j], (const void *)nd->operands[j + 1], s0, s1, g_emit_cfg->n);
         if (s0 < 0) continue;
-        for (int k = s0; k <= s1; k++) { IR_t * m = g_emit_cfg->all[k]; if (m && m != nd && fence_body_kk_complex((int)m->op)) return 1; } }
+        for (int k = s0; k <= s1; k++) { IR_t * m = g_emit_cfg->all[k]; if (m && m != nd && fence_body_kk_complex((int)m->op)) { if (getenv("SCRIP_ALTC_DIAG")) fprintf(stderr, "[ALTC]   -> complex at k=%d op=%d\n", k, (int)m->op); return 1; } } }
     return 0;
 }
 static int alt_flat_live_bytes(const IR_t * nd) { if (!nd || nd->op != IR_MATCH_ALTERNATE) return 0; if (choice_frame_slot(nd)) return 0; return sn4_choice_rbp_off() ? 0 : (alt_arm_complex(nd) ? 48 : 32); }

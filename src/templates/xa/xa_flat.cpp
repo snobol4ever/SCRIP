@@ -421,6 +421,7 @@ static std::string xa_flat_chain_epilogue_str(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fname) {
     if (!xa_flat_class_c()) return std::string();
+    if (getenv("SCRIP_SIGEPI_DIAG")) { int nf2=0,nsave2=0,res2=-1; int gk2[29]; int have2 = xa_flat_sig_names(fname,&nf2,&nsave2,gk2,&res2); fprintf(stderr, "[SIGEPI] fname=%s is_gamma=%d kt=%d sig_names_have=%d nf=%d nsave=%d\n", fname?fname:"(null)", is_gamma, g_emit.flat_frame_bytes, have2, nf2, nsave2); }
     int kt = g_emit.flat_frame_bytes;
     std::string pre;
     { int nf = 0, nsave = 0, res_gk = -1; int gk[29];
