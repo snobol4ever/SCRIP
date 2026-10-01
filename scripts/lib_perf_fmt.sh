@@ -210,6 +210,20 @@ perf_load_stamp() {
     awk -v l="$la" -v c="$cores" 'BEGIN{ printf "load %s on %s cores (%.2f/core)", l, c, l/c }'
 }
 #-----------------------------------------------------------------------------------------------------
+# perf_build_stamp [LIB] -- the build a reading was taken on, RT_OPT beside RT_DIAG, READ BACK and never assumed (ceo CEO-1390,
+# 2026-10-01: every bar line and grid header names RT_DIAG beside RT_OPT -- a LABEL, not a configuration; the bars keep grading
+# the shipped library). RT_OPT is the RT_OPT this run was handed, else the checkout's own `make buildinfo`. RT_DIAG is read
+# from the library's bytes: an RT_DIAG=1 build carries the collector's [ZGC-WALK] telemetry string, and -DRT_DIAG=0 compiles
+# it out (measured on both builds of one tree, 2026-10-01). A library that cannot be read stamps RT_DIAG=UNKNOWN, never a guess.
+perf_build_stamp() {
+    local root lib opt diag
+    root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    lib="${1:-$root/out/libscrip_rt.so}"
+    opt="${RT_OPT:-$(make -s -C "$root" buildinfo 2>/dev/null | sed -n 's/^RT_OPT *: *//p' | sed 's/ *$//')}"
+    if [ -r "$lib" ]; then if grep -q -a 'ZGC-WALK' "$lib"; then diag=1; else diag=0; fi; else diag=UNKNOWN; fi
+    printf 'RT_OPT=%s RT_DIAG=%s' "${opt:-UNKNOWN}" "$diag"
+}
+#-----------------------------------------------------------------------------------------------------
 # perf_grid_begin AXIS-LINE -- open a grid.  Emits the shared-axes line the FACT RULE requires ONCE,
 # with the load stamp welded to it, and resets the dark-cell counter.
 perf_grid_begin() {

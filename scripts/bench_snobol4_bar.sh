@@ -24,7 +24,8 @@ SCRIP="$ROOT/scrip"; [ -x "$SCRIP" ] || refuse "no ./scrip (make first)"
 SBL="$(sbl_clean_bin)"; [ -x "$SBL" ] || refuse "clean SPITBOL oracle missing ($SBL)"
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || refuse "bench_rusage did not build"
 T=$(mktemp -d) || refuse "mktemp"; trap 'rm -rf "$T"' EXIT
-verdict() { awk -v x="$1" -v bar="$BAR" -v what="$2" 'BEGIN{printf "%s reads %.2fx SPITBOL in mode 4 (bar %.2fx): %s\n", what, x, bar, (x>=bar)?"GREEN":"RED"; exit (x>=bar)?0:1}'; }
+. "$HERE/lib_perf_fmt.sh"
+verdict() { awk -v x="$1" -v bar="$BAR" -v what="$2" -v st="$(perf_build_stamp)" 'BEGIN{printf "%s reads %.2fx SPITBOL in mode 4 (bar %.2fx): %s · %s\n", what, x, bar, (x>=bar)?"GREEN":"RED", st; exit (x>=bar)?0:1}'; }
 case "$KIND" in
   kernel)
     BD="$S4E/corpus/benchmarks/snobol4"; [ -f "$BD/$NAME.sno" ] || refuse "no kernel $BD/$NAME.sno"

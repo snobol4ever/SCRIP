@@ -15,6 +15,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # EXIT 0 at or above the bar (GREEN), 1 below it (RED, the row is open), 2 REFUSED (no binary, no oracle, no citable reading).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+. "$HERE/lib_perf_fmt.sh"
 refuse() { echo "⛔ bench_icon_bar REFUSE(2): $*"; exit 2; }
 [ $# -ge 3 ] && { [ "$1" = kernel ] || [ "$1" = demo ]; } || { echo "usage: $0 kernel <stem> <bar> | demo jtran <bar>"; exit 2; }
 KIND=$1; NAME=$2; BAR=$3; [ -x "$ROOT/scrip" ] || refuse "no ./scrip (make first)"
@@ -32,7 +33,7 @@ if [ "$KIND" = demo ]; then
   if [ "$MODE" = m3 ]; then sm=$(best m3 "$D" "$ROOT/scrip" jtran.icn -- preproc "$T/gen_bc.icn" : stdout); cmp -s "$T/oracle.out" "$T/m3.out" || refuse "jtran preproc: mode-3 output differs from the oracle's"
   else sm=$(best m4 "$T" "$T/jtran.m4" preproc "$T/gen_bc.icn" : stdout); cmp -s "$T/oracle.out" "$T/m4.out" || refuse "jtran preproc: mode-4 output differs from the oracle's"; fi
   [ -s "$T/oracle.out" ] || refuse "the oracle printed nothing"
-  awk -v s="$so" -v m="$sm" -v bar="$BAR" -v mode="$MODE" 'BEGIN{x=s/m; printf "demo jtran (preproc gen_bc.icn, best of %s): iconx %.1f ms, %s %.1f ms; reads %.2fx iconx in mode %s (bar %.2fx): %s\n", "'"${BAR_REPS:-5}"'", s/1e6, mode, m/1e6, x, substr(mode,2), bar, (x>=bar)?"GREEN":"RED"; exit (x>=bar)?0:1}'
+  awk -v st="$(perf_build_stamp)" -v s="$so" -v m="$sm" -v bar="$BAR" -v mode="$MODE" 'BEGIN{x=s/m; printf "demo jtran (preproc gen_bc.icn, best of %s): iconx %.1f ms, %s %.1f ms; reads %.2fx iconx in mode %s (bar %.2fx): %s · %s\n", "'"${BAR_REPS:-5}"'", s/1e6, mode, m/1e6, x, substr(mode,2), bar, (x>=bar)?"GREEN":"RED", st; exit (x>=bar)?0:1}'
   exit $?
 fi
 ( cd "$ROOT" && BUDGET_MS="${BAR_BUD_MS:-500}" BENCH_N_DEFAULT="${BAR_N:-5}" bash scripts/bench_triangulate_icon.sh --out "$T/t.tsv" "$NAME" ) > "$T/log" 2>&1
@@ -44,4 +45,4 @@ if [ "$loop" = PROC ] && [ "$ix" = 0 ]; then
   BASIS="one process per iteration: process elapsed per iteration, the fixed-time angle"
 fi
 [ "$ix" != 0 ] && [ "$m4" != 0 ] || { grep -E "^$NAME" "$T/log" | cut -c1-160; refuse "$NAME has no citable reading on iconx and m4 (a DISAGREE or a non-PASS angle; raise BAR_N for a sub-millisecond kernel)"; }
-awk -v ix="$ix" -v m4="$m4" -v bar="$BAR" -v k="$NAME" -v basis="$BASIS" 'BEGIN{x=ix/m4; printf "kernel %s: iconx %.1f us/it, m4 %.1f us/it (%s); reads %.2fx iconx in mode 4 (bar %.2fx): %s\n", k, ix, m4, basis, x, bar, (x>=bar)?"GREEN":"RED"; exit (x>=bar)?0:1}'
+awk -v st="$(perf_build_stamp)" -v ix="$ix" -v m4="$m4" -v bar="$BAR" -v k="$NAME" -v basis="$BASIS" 'BEGIN{x=ix/m4; printf "kernel %s: iconx %.1f us/it, m4 %.1f us/it (%s); reads %.2fx iconx in mode 4 (bar %.2fx): %s · %s\n", k, ix, m4, basis, x, bar, (x>=bar)?"GREEN":"RED", st; exit (x>=bar)?0:1}'
