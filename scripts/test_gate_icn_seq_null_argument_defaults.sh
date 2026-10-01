@@ -15,8 +15,9 @@
 # call that omits an interior one -- which is exactly the call a comma makes visible.
 #
 # ⛔ REFUSES rc=2 rather than skipping: no scrip, no RT, no icont/iconx, or zero forms graded. Both modes,
-# graded against a FRESH icont cut of an equivalent oracle source -- never against a stored ref. The oracle
-# source omits the semicolons SCRIP requires, because icont rejects them (see the rung36 oracle FINDING).
+# graded against a FRESH icont cut of the SAME source -- never against a stored ref. Since the CEO-1393 oracle swap
+# (2026-10-01) icont requires semicolons and reads a newline as whitespace, as SCRIP does, so the one witness carries
+# them for both engines; the sed that derived SCRIP's copy from a semicolon-free oracle copy is retired with the swap.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SD="$HERE/.."
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
@@ -26,20 +27,18 @@ ICONT="${ICONT_BIN:-/home/resources/icon-master/bin/icont}"; ICONX="${ICONX_BIN:
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "⛔ REFUSE(rc=2): no $RT_DIR/libscrip_rt.so"; exit 2; }
 [ -x "$ICONT" ] && [ -x "$ICONX" ] || { echo "⛔ REFUSE(rc=2): no icont/iconx -- a missing oracle prints a plausible all-FAIL table, it does not blank one"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-cat > "$W/o.icn" <<'EOF'
+cat > "$W/s.icn" <<'EOF'
 procedure main()
-   every write("A:", seq(,4) \ 3)
-   every write("B:", seq(10,) \ 3)
-   every write("C:", seq(,) \ 3)
-   every write("D:", seq(&null, 4) \ 3)
-   every write("E:", seq(3, -2) \ 3)
-   every write("F:", seq() \ 3)
-   every write("G:", seq(4) \ 3)
+   every write("A:", seq(,4) \ 3);
+   every write("B:", seq(10,) \ 3);
+   every write("C:", seq(,) \ 3);
+   every write("D:", seq(&null, 4) \ 3);
+   every write("E:", seq(3, -2) \ 3);
+   every write("F:", seq() \ 3);
+   every write("G:", seq(4) \ 3);
 end
 EOF
-sed 's/[[:space:]]*$//; /^procedure main()$/!{ /^end$/!s/$/;/ }' "$W/o.icn" > "$W/s.icn"
-sed -i '1s/procedure main()/procedure main();/' "$W/s.icn"
-( cd "$W" && "$ICONT" -s -o o.ico o.icn >/dev/null 2>&1 ) || { echo "⛔ REFUSE(rc=2): the oracle would not compile its own witness"; exit 2; }
+( cd "$W" && "$ICONT" -s -o o.ico s.icn >/dev/null 2>&1 ) || { echo "⛔ REFUSE(rc=2): the oracle would not compile its own witness"; exit 2; }
 ora="$( cd "$W" && timeout 20s "$ICONX" ./o.ico < /dev/null 2>&1 )"
 [ -n "$ora" ] || { echo "⛔ REFUSE(rc=2): the oracle produced no output -- nothing to grade against"; exit 2; }
 forms=$(printf '%s\n' "$ora" | grep -c '^[A-G]:') || true
