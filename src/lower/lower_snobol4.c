@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include "lower.h"
 #include "bb_program.h"
 #include "parsers/icon/icon_lex.h"
@@ -2890,6 +2891,89 @@ static int sno_rsv_program(const tree_t * prog, int quiet) {
     return bad;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern int snobol4_list_event_count(void);
+extern int snobol4_list_event_line(int);
+extern int snobol4_list_event_on(int);
+extern const char *snobol4_list_event_text(int);
+typedef struct { char *buf; size_t len; size_t cap; } sno_list_sb_t;
+static void sno_list_sb_append(sno_list_sb_t * sb, const char * s, size_t n) {
+    if (sb->len + n + 1 > sb->cap) {
+        size_t newcap = sb->cap ? sb->cap * 2 : 1024;
+        while (newcap < sb->len + n + 1) newcap *= 2;
+        char * g = ct_grow(sb->buf, newcap);
+        if (!g) return;
+        sb->buf = g; sb->cap = newcap;
+    }
+    memcpy(sb->buf + sb->len, s, n);
+    sb->len += n;
+    sb->buf[sb->len] = '\0';
+}
+static void sno_list_sb_puts(sno_list_sb_t * sb, const char * s) { sno_list_sb_append(sb, s, strlen(s)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * sno_list_build_listing(const tree_t * prog) {
+    int nev = snobol4_list_event_count();
+    if (nev == 0 || !prog) return NULL;
+    sno_list_sb_t sb = {0};
+    int ei = 0, list_on = 0, banner_done = 0, si = 0;
+    for (;;) {
+        int have_ev = (ei < nev);
+        int ev_line = have_ev ? snobol4_list_event_line(ei) : 0;
+        const tree_t * snode = NULL; int s_line = 0;
+        for (int j = si; j < prog->n; j++) {
+            if (prog->c[j] && (prog->c[j]->t == TT_STMT || prog->c[j]->t == TT_END)) { snode = prog->c[j]; s_line = lp_s_int(snode, ":line"); si = j; break; }
+            si = j + 1;
+        }
+        int have_st = (snode != NULL);
+        if (!have_ev && !have_st) break;
+        if (have_ev && (!have_st || ev_line < s_line)) {
+            if (snobol4_list_event_on(ei)) {
+                if (!banner_done) {
+                    time_t now = time(NULL); const char * ct = ctime(&now);
+                    char tb[64]; size_t cl = ct ? strlen(ct) : 0; if (cl && ct[cl - 1] == '\n') cl--; if (cl >= sizeof tb) cl = sizeof(tb) - 1;
+                    memcpy(tb, ct ? ct : "", cl); tb[cl] = '\0';
+                    sno_list_sb_puts(&sb, "\n\n\nmacro spitbol version 1.0\nx86-64  ");
+                    sno_list_sb_puts(&sb, tb);
+                    sno_list_sb_puts(&sb, "\n\n\n\n");
+                    { const char * hdr = "page 1"; int pad = 118 - (int) strlen(hdr); if (pad < 0) pad = 0;
+                      for (int k = 0; k < pad; k++) sno_list_sb_append(&sb, " ", 1);
+                      sno_list_sb_puts(&sb, hdr); }
+                    sno_list_sb_append(&sb, "\n", 1);
+                    sno_list_sb_append(&sb, "\n", 1);
+                    banner_done = 1;
+                }
+                sno_list_sb_puts(&sb, "        ");
+                sno_list_sb_puts(&sb, snobol4_list_event_text(ei));
+                sno_list_sb_append(&sb, "\n", 1);
+                list_on = 1;
+            } else {
+                list_on = 0;
+            }
+            ei++;
+        } else {
+            if (list_on) {
+                char endbuf[256]; const char * txt;
+                if (snode->t == TT_END) {
+                    const char * ent = sfind_str(snode, ":entry");
+                    if (ent && ent[0]) snprintf(endbuf, sizeof endbuf, "END %s", ent); else snprintf(endbuf, sizeof endbuf, "END");
+                    txt = endbuf;
+                } else {
+                    txt = sfind_str(snode, ":src");
+                    if (!txt) txt = "";
+                }
+                int stno = lp_s_int(snode, ":stno");
+                char numbuf[24]; int nn = snprintf(numbuf, sizeof numbuf, "%-8d", stno); if (nn < 0) nn = 0; if (nn >= (int) sizeof(numbuf)) nn = (int) sizeof(numbuf) - 1;
+                sno_list_sb_append(&sb, numbuf, (size_t) nn);
+                sno_list_sb_puts(&sb, txt);
+                sno_list_sb_append(&sb, "\n", 1);
+            }
+            si++;
+        }
+    }
+    if (sb.len > 0 && sb.buf[sb.len - 1] == '\n') { sb.len--; sb.buf[sb.len] = '\0'; }
+    return sb.buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t * lower_sno_stage2(const tree_t * prog) {
     { extern void gva_keyword_refuse_seed_snobol4(void); gva_keyword_refuse_seed_snobol4(); }
     g_sno_expr_define_seen = 0; g_sno_prescan_top = NULL;
@@ -2979,6 +3063,15 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         if (prelude_head) { lc_γ_to(prelude_tail, g->entry); g->entry = prelude_head; }
         { IR_t * qt = lc_build(g, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_320"; g->entry = qt; }
         { IR_t * fpm = lc_build(g, IR_CALL, g->entry, g->entry); IR_LIT(fpm).sval = (char *) "$fp_model_spitbol"; g->entry = fpm; }
+        { char * listing = sno_list_build_listing(prog);
+          if (listing && listing[0]) {
+              IR_t * lit = lc_build(g, IR_LIT_STRING, g->entry, g->entry); IR_LIT(lit).sval = listing;
+              IR_t * call = lc_build(g, IR_CALL, g->entry, g->entry); IR_LIT(call).sval = (char *) "SNO$LIST";
+              lc_γ_to(lit, call);
+              ir_operand_push(call, lit);
+              g->entry = lit;
+          }
+        }
     }
     int pi = stage2_proc_grow(&g_stage2);
     g_stage2.proc_table[pi].name = "main";

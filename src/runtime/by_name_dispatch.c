@@ -7388,6 +7388,7 @@ DESCR_t rt_sno_stmt_d(DESCR_t *args, int nargs) {
     return NULVCL;
 }
 DESCR_t rt_sno_nofail_d(DESCR_t *args, int nargs) { extern void rt_nofail_abort(void); RT_HOOK_GUARD("SNO$NOFAIL"); rt_nofail_abort(); return FAILDESCR; }
+DESCR_t rt_sno_list_d(DESCR_t *args, int nargs) { extern void output_val(DESCR_t v); RT_HOOK_GUARD("SNO$LIST"); if (nargs == 1) output_val(args[0]); return NULVCL; }
 static int bn_prototype(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern DESCR_t agg_prototype(DESCR_t); (void)op; *out = agg_prototype(nargs >= 1 ? args[0] : NULVCL); return 1; }
 static int bn_wantnm(DESCR_t *args, int nargs, DESCR_t *out, int op) { extern int rt_g_want_name; (void)args; (void)nargs; (void)op; rt_g_want_name = 1; *out = NULVCL; return 1; }
 static int bn_array(DESCR_t *args, int nargs, DESCR_t *out, int op) {

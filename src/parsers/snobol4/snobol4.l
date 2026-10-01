@@ -34,6 +34,26 @@ static int   strpos;
 static int   gt_depth;
 static int   gt_angle;
 static int   gt_have_operand;
+typedef struct { int lineno; int on; char *text; } sno_list_ev_t;
+static sno_list_ev_t *g_list_events = NULL;
+static int g_list_nevents = 0;
+static int g_list_cap = 0;
+static void sno_list_record(int ln, int on, const char *text) {
+    if (g_list_nevents >= g_list_cap) {
+        int newcap = g_list_cap ? g_list_cap * 2 : 8;
+        sno_list_ev_t *g = ct_grow(g_list_events, (size_t) newcap * sizeof(sno_list_ev_t));
+        if (!g) return;
+        g_list_events = g; g_list_cap = newcap;
+    }
+    g_list_events[g_list_nevents].lineno = ln;
+    g_list_events[g_list_nevents].on = on;
+    g_list_events[g_list_nevents].text = text ? ct_strdup(text) : (char *)0;
+    g_list_nevents++;
+}
+int snobol4_list_event_count(void) { return g_list_nevents; }
+int snobol4_list_event_line(int idx) { return g_list_events[idx].lineno; }
+int snobol4_list_event_on(int idx) { return g_list_events[idx].on; }
+const char *snobol4_list_event_text(int idx) { return g_list_events[idx].text ? g_list_events[idx].text : ""; }
 int snobol4_get_stmt_lineno(void) { return g_stmt_pos.lineno; }
 int snobol4_get_stmt_lline(void) { return g_stmt_pos.lline; }
 const char *snobol4_get_stmt_file(void) { return g_stmt_pos.fname ? g_stmt_pos.fname : ""; }
@@ -198,6 +218,18 @@ G       ({WS}|{CONT})*
         const char *_p = yytext + 5; while (*_p == ' ' || *_p == '\t') _p++;
         g_case_fold = (*_p >= '0' && *_p <= '9') ? (atoi(_p) != 0) : 0;
     }
+}
+ /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+<INITIAL>"-"[Ll][Ii][Ss][Tt]([ \t][^\n]*)?\n    {
+    { int _tl = yyleng; while (_tl > 0 && (yytext[_tl-1] == '\n' || yytext[_tl-1] == '\r' || yytext[_tl-1] == ' ' || yytext[_tl-1] == '\t')) _tl--;
+      char _tb[256]; int _tn = _tl < (int)sizeof(_tb)-1 ? _tl : (int)sizeof(_tb)-1; memcpy(_tb, yytext, (size_t)_tn); _tb[_tn] = '\0';
+      sno_list_record(lineno, 1, _tb); }
+    lineno++;
+}
+ /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+<INITIAL>"-"[Nn][Oo][Ll][Ii][Ss][Tt]([ \t][^\n]*)?\n    {
+    sno_list_record(lineno, 0, (const char *)0);
+    lineno++;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <INITIAL>"-"[^\n]*\n    {
