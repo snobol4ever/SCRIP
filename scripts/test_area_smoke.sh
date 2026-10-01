@@ -47,8 +47,14 @@ expand_features() {
 
 if [ ${#FEATS[@]} -eq 0 ]; then
   git -C "$ROOT" rev-parse --verify -q "$BASE^{commit}" >/dev/null || { echo "AREA_SMOKE REFUSE(2): base $BASE is not a commit in $ROOT (set AREA_SMOKE_BASE, or fetch origin)"; exit 2; }
-  files="$( { git -C "$ROOT" diff --name-only "$BASE" -- . ; git -C "$ROOT" ls-files --others --exclude-standard -- . ; } 2>/dev/null | sort -u)"
-  if [ -z "$files" ]; then echo "AREA_SMOKE NO-DIFF: the tree equals $BASE ($(git -C "$ROOT" rev-parse --short "$BASE")) -- nothing to smoke"; exit 0; fi
+  # ⛔ THE LANDING'S DIFF IS AGAINST THE MERGE BASE, NEVER AGAINST THE BASE'S TIP (the coo 2026-10-01, measured): `git diff $BASE` on a
+  # checkout BEHIND origin -- a pass pinned to a tree while the fleet lands, a scratch worktree not yet rebased -- reads every landing
+  # since as this tree's own change, reversed, and the smoke selected 351 features from other seats' commits (preflight's arm timed
+  # out at 30 s inside the coo's blocking-set pass at ba10ba29f). The merge base of HEAD and the base is where this tree's own work
+  # begins: behind origin it is HEAD itself (only the working tree's edits are smoked), ahead of it the tip (only the local commits).
+  MB="$(git -C "$ROOT" merge-base HEAD "$BASE" 2>/dev/null)" || { echo "AREA_SMOKE REFUSE(2): HEAD and $BASE share no merge base in $ROOT"; exit 2; }
+  files="$( { git -C "$ROOT" diff --name-only "$MB" -- . ; git -C "$ROOT" ls-files --others --exclude-standard -- . ; } 2>/dev/null | sort -u)"
+  if [ -z "$files" ]; then echo "AREA_SMOKE NO-DIFF: the tree equals its merge base with $BASE ($(git -C "$ROOT" rev-parse --short "$MB")) -- nothing to smoke"; exit 0; fi
   raw=""; unmapped=""; noarea=""; outside=""
   while IFS= read -r f; do
     [ -n "$f" ] || continue
@@ -63,8 +69,8 @@ if [ ${#FEATS[@]} -eq 0 ]; then
       esac
     done < "$MAP"
     # symbol rows: the functions the -U0 hunk headers name (a new file has no hunk names; a row for the file is owed then)
-    if [ -z "$hit" ] && git -C "$ROOT" cat-file -e "$BASE:$f" 2>/dev/null; then
-      funcs="$(git -C "$ROOT" diff -U0 "$BASE" -- "$f" | sed -n 's/^@@[^@]*@@ *//p' | sed -n 's/.*[^A-Za-z0-9_]\([A-Za-z_][A-Za-z0-9_]*\) *(.*/\1/p;s/^\([A-Za-z_][A-Za-z0-9_]*\) *(.*/\1/p' | sort -u)"
+    if [ -z "$hit" ] && git -C "$ROOT" cat-file -e "$MB:$f" 2>/dev/null; then
+      funcs="$(git -C "$ROOT" diff -U0 "$MB" -- "$f" | sed -n 's/^@@[^@]*@@ *//p' | sed -n 's/.*[^A-Za-z0-9_]\([A-Za-z_][A-Za-z0-9_]*\) *(.*/\1/p;s/^\([A-Za-z_][A-Za-z0-9_]*\) *(.*/\1/p' | sort -u)"
       all_named=1; any=0
       for fn in $funcs; do any=1; r="$(awk -F'\t' -v s="$fn" '$1 !~ /^#/ && $2==s {print $1}' "$MAP")"; [ -n "$r" ] && hit="$hit $r" || all_named=0; done
       [ "$any" = 1 ] && [ "$all_named" = 1 ] || hit=""
