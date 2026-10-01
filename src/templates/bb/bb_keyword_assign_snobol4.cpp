@@ -8,11 +8,13 @@ DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define KAS_BOMB1() (_.op_a_slot < 0 && !_.op_zres)
+#define KAS_BOMB2() (_.op_imm_a < 0)
 std::string bb_keyword_assign_snobol4() {
-    if (_.op_a_slot < 0 && !_.op_zres) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: rhs operand slot unresolved");
-    if (_.op_imm_a < 0) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: keyword not named by the block");
-    if (_.op_zres)
-        return x86("comment", "IR_KW_ASSIGN_SNOBOL4 zd [KW-3b static idx]")
+    return IF(KAS_BOMB1(), x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: rhs operand slot unresolved"))
+         + IF(!KAS_BOMB1() && KAS_BOMB2(), x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: keyword not named by the block"))
+         + IF(!KAS_BOMB1() && !KAS_BOMB2() && _.op_zres,
+               x86("comment", "IR_KW_ASSIGN_SNOBOL4 zd [KW-3b static idx]")
              + x86_alpha()
              + x86_ro_load_q("rdi", 0)
              + x86("mov",     "rsi", ZOPQ(0, 0))
@@ -27,9 +29,11 @@ std::string bb_keyword_assign_snobol4() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
-             + x86_ro_seal_q(0, (uint64_t)(int64_t)_.op_imm_a);
-    if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: no result slot");
-    return x86("comment", "IR_KW_ASSIGN_SNOBOL4 [KW-3b static idx]")
+             + x86_ro_seal_q(0, (uint64_t)(int64_t)_.op_imm_a))
+         + IF(!KAS_BOMB1() && !KAS_BOMB2() && !_.op_zres && !(_.op_off >= 0),
+               x86_alpha() + x86_bomb("bb_keyword_assign_snobol4: no result slot"))
+         + IF(!KAS_BOMB1() && !KAS_BOMB2() && !_.op_zres && (_.op_off >= 0),
+               x86("comment", "IR_KW_ASSIGN_SNOBOL4 [KW-3b static idx]")
          + x86_alpha()
          + x86_ro_load_q("rdi", 0)
          + x86("mov",     "rsi", FRQ(_.op_a_slot))
@@ -42,5 +46,5 @@ std::string bb_keyword_assign_snobol4() {
          + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta_trampoline()
-         + x86_ro_seal_q(0, (uint64_t)(int64_t)_.op_imm_a);
+         + x86_ro_seal_q(0, (uint64_t)(int64_t)_.op_imm_a));
 }
