@@ -56,6 +56,8 @@ def fix(path, check):
             e = code_end(before); lines[L - 1] = before[:e] + ';' + before[e:]
         added.append((L, e))
         if not check: open(path, 'w', encoding='utf-8', newline='').write('\n'.join(lines))
+    else:
+        return added, 'gave up after 500 insertions (a container of many programs is converted with --master)'
     return added, None
 def write_tmp(path, lines):
     t = path + '.semi.tmp'; open(t, 'w', encoding='utf-8', newline='').write('\n'.join(lines)); return t
