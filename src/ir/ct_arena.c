@@ -137,6 +137,40 @@ size_t ct_arena_bytes(void) { return ct_taken; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t ct_arena_mapped(void) { return ct_mapped; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int ct_head_ok(const ct_head_t *h, const char *hi) {
+    int cls;
+    if (h->magic != CT_MAGIC_BIN && h->magic != 0) return 0;
+    cls = ct_class_of((size_t)h->size);
+    if (cls < 0 || ct_cap_of(cls) != (size_t)h->size) return 0;
+    return (const char *)h + CT_ALIGN + h->size <= hi;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int ct_chunk_start(const ct_head_t *h, const char *hi) {
+    const ct_head_t *n;
+    if (!ct_head_ok(h, hi)) return 0;
+    if (h->magic == CT_MAGIC_BIN) return 1;
+    n = (const ct_head_t *)((const char *)h + CT_ALIGN + h->size);
+    return (const char *)n + CT_ALIGN <= hi && n->magic == CT_MAGIC_BIN && ct_head_ok(n, hi);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long ct_arena_scan(const char *lo, const char *hi, void (*fn)(void *ctx, const char *plo, const char *phi), void *ctx) {
+    size_t pg = ct_page();
+    long n = 0;
+    const char *p = (const char *)(((uintptr_t)lo + pg - 1) & ~(uintptr_t)(pg - 1));
+    while (p + CT_ALIGN <= hi) {
+        const ct_head_t *h = (const ct_head_t *)p;
+        if (h->magic == CT_MAGIC_BIG && h->size >= CT_ALIGN && h->size % pg == 0 && p + h->size <= hi) { fn(ctx, p + CT_ALIGN, p + h->size); n++; p += h->size; continue; }
+        if (!ct_chunk_start(h, hi)) { p += pg; continue; }
+        while (p + CT_ALIGN <= hi && ct_head_ok((const ct_head_t *)p, hi)) {
+            h = (const ct_head_t *)p;
+            if (h->magic == CT_MAGIC_BIN) { fn(ctx, p + CT_ALIGN, p + CT_ALIGN + h->size); n++; }
+            p += CT_ALIGN + h->size;
+        }
+        p = (const char *)(((uintptr_t)p + pg - 1) & ~(uintptr_t)(pg - 1));
+    }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int vfmt_len(const char *fmt, va_list ap) {
     va_list aq;
     int n;

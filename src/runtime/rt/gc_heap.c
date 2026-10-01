@@ -1775,6 +1775,7 @@ static long gc_audit_b_shim(char *floor)
     v.blk_of = gc_audit_b_blk_of; v.blk_at = gc_audit_b_blk_at; v.birth_of = gc_birth_on() ? gc_audit_b_birth_of : (long (*)(const char *, char *, long))0;
     v.alo = g_hp_arena; v.ahi = g_hp_top; v.run = g_gc_runs + 1; v.nblk = g_gc_nblk; v.rgn = rg; v.nrgn = n; v.skip = sk; v.nskip = k;
     { extern const char *core_gc_audit_nonref(const char *p); v.owner_nonref = core_gc_audit_nonref; }
+    v.hlo = g_hp_arena; v.hhi = g_hp_cap_end;
     { long r = gc_audit_b_collect(&v); if (xr) gcbk_drop((void *)xr); return r; }
 }
 #endif

@@ -26,6 +26,19 @@
 #       deletion is graded by row gc-the-conservative-auditor-retires-on-six-hq-receipts-each-master-under-the-auditor-build-at-stress-1-and-3-reads-zero-findings
 #       (six receipts, one per language HQ: its rungs under this auditor build at stress 1 and 3 at the shipped
 #       arena, zero findings), whose own landing deletes everything (f1) lists.
+# ⛔⭐ PASS B WAS BLIND TO THE COMPILE-TIME ARENA FROM 2026-09-27 TO 2026-10-01, AND (d3)/(e2) WERE RED ON ORIGIN FOR IT (cfo,
+# 2026-10-01). 9d3f8a061 (no-more-whack-a-mole, CEO-1332) moved g_fh into a cv_t, g_fhv, grown in the compile-time arena by
+# ct_grow, and pass B scanned only static, stack and heapint. The plant still bit: with drv_gc_roots skipped the program
+# printed "B file(file(tmp3))", the name string reclaimed and its bytes re-issued. But pass B named nothing, on the cure and
+# on a clean origin worktree alike. Every runtime table the conversion moved into that arena went invisible the same way.
+# THE CURE: a fourth population, ctarena, in the default set. It reads /proc/self/maps for private anonymous rw mappings,
+# clips out the heap reservation, and hands each range to ct_arena_scan (src/ir/ct_arena.c). That walker validates every
+# header it trusts, skips freed blocks (magic 0) and calls back once per live payload, so no list of chunks is kept and no
+# new storage exists. A finding inside a payload is named by the STATIC WORD THAT POINTS AT THE PAYLOAD. A word in the
+# runtime library is preferred, because a stale compiler static (g_emit_cfg) can point at the same recycled block, and every
+# owner is listed: in=libscrip_rt.so+0x...<g_fhv>[ct+0x110,owners=g_emit_cfg,g_fhv]. So nm still resolves the holder to a
+# symbol, now g_fhv. Unplanted, the witness reads 0 findings over 344 live arena blocks and 9.7M words; planted, 1, the
+# tmp3 string.
 # ⛔⭐ (d3) AND (e2) STAND ON A PLANT SINCE 2026-09-26 (cfo, the CEO-1274 board row; CEO-554).  Both were keyed on a holder the
 # sweep FOUND, and when 957efcc7c took the lc_vec class off the collected heap the sweep found none and both went red on a
 # correct tree: a proof that needs a live defect dies of the cure.  SCRIP_GC_PLANT_UNROOT=1 exists ONLY in the auditor build
@@ -150,13 +163,13 @@ for ln in open(decl):
 P = resolve(plantf); U = resolve(unpl)
 named = sorted(set(n for h, n in P))
 opn = sorted(set(n for h, n in U if state.get(n) == 'OPEN'))
-print("%d %s %s %s %s" % (len(P), ','.join(named) or '-', 'nm_g_fh' if ('nm','g_fh') in P else 'no_nm_g_fh', ','.join(opn) or '-', 'g_fh' if any(n == 'g_fh' for h, n in U) else 'no_g_fh'))
+print("%d %s %s %s %s" % (len(P), ','.join(named) or '-', 'nm_g_fhv' if ('nm','g_fhv') in P else 'no_nm_g_fhv', ','.join(opn) or '-', 'g_fhv' if any(n == 'g_fhv' for h, n in U) else 'no_g_fhv'))
 PYD3
 )
 read -r p_n p_names p_nmfh u_open d3fh <<< "$d3"
-ck $([ "${p_n:-0}" -ge 1 ] && printf ',%s,' "$p_names" | grep -q ',g_fh,' && echo ok || echo no) "(d3) the detector FIRES on a PLANTED lost root: with drv_gc_roots skipped (SCRIP_GC_PLANT_UNROOT=1) pass B names ${p_n:-0} candidate(s) on hb_file_name_unrooted.icn, holder(s): ${p_names:--}"
+ck $([ "${p_n:-0}" -ge 1 ] && printf ',%s,' "$p_names" | grep -q ',g_fhv,' && echo ok || echo no) "(d3) the detector FIRES on a PLANTED lost root: with drv_gc_roots skipped (SCRIP_GC_PLANT_UNROOT=1) pass B names ${p_n:-0} candidate(s) on hb_file_name_unrooted.icn, holder(s): ${p_names:--}"
 echo "     REPORTED, not graded: holders the UNPLANTED run names that the ledger lists OPEN: ${u_open:--}"
-ck $([ "$d3fh" = no_g_fh ] && echo ok || echo no) "(d4a) and g_fh -- this arm's named proof until the cfo rooted the FH table -- is GONE from that same sweep (saw $d3fh)"
+ck $([ "$d3fh" = no_g_fhv ] && echo ok || echo no) "(d4a) and g_fhv -- the vector that holds the FH table since 9d3f8a061 moved it into the compile-time arena, named through the ctarena population -- is GONE from that same sweep (saw $d3fh)"
 ck $(diff -q "$T/fh.out" "$ROOT/scripts/gc_witnesses/hb_file_name_unrooted.ref" >/dev/null 2>&1 && echo ok || echo no) "(d4b) and the witness that was g_fh's RED witness now ANSWERS ITS ORACLE -- the cure and the detector agreeing is what retires a holder, not either one alone"
 
 echo "-- (e) EVERY HOLDER IS CURED OR DECLARED"
@@ -170,7 +183,7 @@ sed 's/^/     /' "$T/holders.txt"
 undecl=$(grep "^HOLDER" "$T/holders.txt" | grep -c "UNDECLARED" || true)
 nh=$(awk '/^TOTALHOLDERS/{print $2}' "$T/holders.txt"); nopen=$(awk '/^OPENROWS/{print $2}' "$T/holders.txt")
 ck $([ "$undecl" = 0 ] && echo ok || echo no) "(e1) every holder pass B named over the declared witness set is CURED or DECLARED in $DECL ($undecl undeclared)"
-ck $([ "${p_nmfh:-}" = nm_g_fh ] && echo ok || echo no) "(e2) the PLANTED holder's offset resolves through nm -S to the SYMBOL g_fh (${p_nmfh:-none}) -- a declaration keyed on a symbol survives the next build, an offset does not; the unplanted sweep named ${nh:-0} holder(s), a reading of the tree and not of the instrument"
+ck $([ "${p_nmfh:-}" = nm_g_fhv ] && echo ok || echo no) "(e2) the PLANTED holder's offset resolves through nm -S to the SYMBOL g_fhv (${p_nmfh:-none}) -- a declaration keyed on a symbol survives the next build, an offset does not; the unplanted sweep named ${nh:-0} holder(s), a reading of the tree and not of the instrument"
 
 echo "-- (f) THE EXPIRY IS STRUCTURAL"
 if [ "${nopen:-0}" = 0 ] && [ "${nh:-0}" = 0 ]; then

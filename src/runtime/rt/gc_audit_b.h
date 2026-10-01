@@ -20,6 +20,8 @@ typedef struct gc_audit_b_t {
     const gc_audit_b_skip_t *skip;
     long nskip;
     const char *(*owner_nonref)(const char *p);
+    const char *hlo;
+    const char *hhi;
 } gc_audit_b_t;
 long gc_audit_b_collect(const gc_audit_b_t *v);
 #endif

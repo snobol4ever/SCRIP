@@ -46,6 +46,18 @@ static const char *gc_audit_b_excluded(const gc_audit_b_t *v, const char *w)
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *gc_audit_b_ct_owner(const gc_audit_b_t *v, const char *blk, char *also, long cap)
+{
+    Dl_info me, di; const char *first = (const char *)0, *mine = (const char *)0; long i, used = 0; int have_me = dladdr((void *)gc_audit_b_collect, &me) && me.dli_fbase;
+    also[0] = 0;
+    for (i = 0; i < v->nrgn; i++) { const char *q; if (strcmp(v->rgn[i].pop, "static")) continue;
+        for (q = (const char *)(((uintptr_t)v->rgn[i].lo + 7u) & ~(uintptr_t)7u); q + 8 <= v->rgn[i].hi; q += 8) { if (*(const char *const *)q != blk) continue;
+            if (!first) first = q;
+            if (!mine && have_me && dladdr((void *)q, &di) && di.dli_fbase == me.dli_fbase) mine = q;
+            if (dladdr((void *)q, &di) && di.dli_sname && used + (long)strlen(di.dli_sname) + 2 < cap) used += snprintf(also + used, (size_t)(cap - used), "%s%s", used ? "," : "", di.dli_sname); } }
+    return mine ? mine : first;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *hi, const char *pop, const char *nm, gc_audit_b_ctr_t *c, long cap, const gc_audit_b_xr_t *xr, long nxr)
 {
     const char *p = (const char *)(((uintptr_t)lo + 7u) & ~(uintptr_t)7u); long nw = 0, xi = 0;
@@ -71,20 +83,55 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
           for (j = 0; j < 24 && j < tn; j++) tx[j] = (tb[j] >= 32 && tb[j] < 127) ? (char)tb[j] : '.';
           tx[j] = 0; bb[0] = 0;
           if (v->birth_of) v->birth_of((const char *)h, bb, (long)sizeof bb);
-          dl = dladdr((void *)p, &di) && di.dli_fbase; sn = (dl && di.dli_sname) ? di.dli_sname : (nm ? nm : "-");
-          df = (dl && di.dli_fname) ? di.dli_fname : "?"; dof = dl ? (unsigned long)((const char *)p - (const char *)di.dli_fbase) : 0;
-          hl = dl ? snprintf((char *)0, 0, "%s+0x%lx/%s", df, dof, sn) : 0;
-          { char hn[hl + 1]; if (dl) snprintf(hn, (size_t)hl + 1, "%s+0x%lx/%s", df, dof, sn);
+          { char also[256]; const char *ow = strcmp(pop, "ctarena") ? (const char *)0 : gc_audit_b_ct_owner(v, lo, also, (long)sizeof also); const char *at = ow ? ow : p; long co = ow ? (long)(p - lo) : -1;
+          dl = dladdr((void *)at, &di) && di.dli_fbase; sn = (dl && di.dli_sname) ? di.dli_sname : (nm ? nm : "-");
+          df = (dl && di.dli_fname) ? di.dli_fname : "?"; dof = dl ? (unsigned long)((const char *)at - (const char *)di.dli_fbase) : 0;
+          hl = dl ? snprintf((char *)0, 0, co >= 0 ? "%s+0x%lx/%s[ct+0x%lx,owners=%s]" : "%s+0x%lx/%s", df, dof, sn, (unsigned long)co, also) : 0;
+          { char hn[hl + 1]; if (dl) snprintf(hn, (size_t)hl + 1, co >= 0 ? "%s+0x%lx/%s[ct+0x%lx,owners=%s]" : "%s+0x%lx/%s", df, dof, sn, (unsigned long)co, also);
             gc_audit_b_say("[GC-AUDIT-B] run=%ld pop=%s CANDIDATE-LOST-ROOT at=%p in=%s word=%p blk=%p type=%u size=%u off=%ld text=%s%s%s\n",
-              v->run, pop, (const void *)p, dl ? hn : sn, (const void *)w, (const void *)h, (unsigned)h->type, (unsigned)h->size, (long)(w - (const char *)h), tx, bb[0] ? " " : "", bb); } } }
+              v->run, pop, (const void *)p, dl ? hn : sn, (const void *)w, (const void *)h, (unsigned)h->type, (unsigned)h->size, (long)(w - (const char *)h), tx, bb[0] ? " " : "", bb); } } } }
     return nw;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct gc_audit_b_ctx_t { const gc_audit_b_t *v; gc_audit_b_ctr_t *c; long cap; long nblk; long nw; } gc_audit_b_ctx_t;
+static void gc_audit_b_ct_one(void *x, const char *lo, const char *hi)
+{
+    gc_audit_b_ctx_t *k = (gc_audit_b_ctx_t *)x;
+    k->nblk++; k->nw += gc_audit_b_words(k->v, lo, hi, "ctarena", "ct", k->c, k->cap, (const gc_audit_b_xr_t *)0, 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void gc_audit_b_ct_vma(gc_audit_b_ctx_t *k, const char *lo, const char *hi)
+{
+    extern long ct_arena_scan(const char *lo, const char *hi, void (*fn)(void *ctx, const char *plo, const char *phi), void *ctx);
+    const char *hl = k->v->hlo, *hh = k->v->hhi;
+    if (hl && hh && lo < hh && hi > hl) { if (lo < hl) ct_arena_scan(lo, hl, gc_audit_b_ct_one, k); if (hi > hh) ct_arena_scan(hh, hi, gc_audit_b_ct_one, k); return; }
+    ct_arena_scan(lo, hi, gc_audit_b_ct_one, k);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long gc_audit_b_ctarena(gc_audit_b_ctx_t *k)
+{
+    char buf[16384]; long have = 0, nvma = 0; ssize_t r; int fd = open("/proc/self/maps", O_RDONLY | O_CLOEXEC);
+    if (fd < 0) { fprintf(stderr, "[GC-AUDIT-B] ctarena: /proc/self/maps cannot be opened (errno %d) -- the compile-time arena was NOT audited this run\n", errno); return -1; }
+    while ((r = read(fd, buf + have, sizeof buf - 1 - (size_t)have)) > 0 || have > 0) {
+        char *ln, *nl; have += r > 0 ? (long)r : 0; buf[have] = 0;
+        if (r <= 0 && !strchr(buf, '\n')) { buf[have++] = '\n'; buf[have] = 0; }
+        for (ln = buf; (nl = strchr(ln, '\n')) != (char *)0; ln = nl + 1) {
+            unsigned long a, b, off, ino; char perm[8]; int n = 0; *nl = 0;
+            if (sscanf(ln, "%lx-%lx %7s %lx %*s %lu %n", &a, &b, perm, &off, &ino, &n) < 5) continue;
+            if (strcmp(perm, "rw-p") || ino != 0 || (n > 0 && ln[n])) continue;
+            nvma++; gc_audit_b_ct_vma(k, (const char *)a, (const char *)b); }
+        { long j, k0 = (long)(ln - buf); have -= k0; for (j = 0; j < have; j++) buf[j] = buf[k0 + j]; }
+        if (r <= 0) break;
+        if (have >= (long)sizeof buf - 1) have = 0; }
+    close(fd);
+    return nvma;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long gc_audit_b_collect(const gc_audit_b_t *v)
 {
     gc_audit_b_ctr_t c; long i, cap, nop = 0, nhw = 0; const char *e = getenv("SCRIP_GC_AUDIT_B"); const char *ps = getenv("SCRIP_GC_AUDIT_B_POPS");
     if (!e || !*e || *e == '0') return -1;
-    if (!ps || !*ps) ps = "static,stack,heapint";
+    if (!ps || !*ps) ps = "static,stack,heapint,ctarena";
     memset(&c, 0, sizeof c);
     cap = atol(e); if (cap <= 1) cap = 64; if (cap > 100000) cap = 100000;
     if (v->run <= 1) fprintf(stderr, "[GC-AUDIT-B] PASS B IS AN AUDITOR AND NEVER A COLLECTOR: pass A (the exact typed walk) has already decided this collection and pass B cannot mark, forward, free or influence it -- it is handed a const block lookup and nothing else. IT NAMES CANDIDATES, NEVER DEFECTS: a dead word that looks like a heap pointer reads identically to a live root, so every line below is a CANDIDATE to be cured or declared. WHAT IT CANNOT SEE, DECLARED IN THREE PARTS BECAUSE THE THIRD IS THE ONE THAT BITES: (1) a pointer that at the instant of collection lives only in a REGISTER; (2) the C stack above the emitted-stack ceiling SCRIP_GC_CEILING draws (98.4%% of mode 3's stack, dead compiler frames by measurement, CEO-1030) -- set SCRIP_GC_CEILING=0 and pass B scans that too; and (3) ⛔ ANY REGION PASS A DOES NOT ENUMERATE, because pass B's territory IS pass A's territory: the libc malloc heap, the compile-time arena and the collector's own mmap'd bookkeeping are NOT scanned, so THIS AUDITOR FINDS AN UNVISITED WORD INSIDE A VISITED REGION AND CANNOT FIND AN UNVISITED REGION. A findings=0 therefore bounds the probe and never clears the collector. SUCCESS IS SILENCE, and the findings=0 line is PRINTED so its silence is a statement rather than an absence.\n");
@@ -94,6 +141,9 @@ long gc_audit_b_collect(const gc_audit_b_t *v)
     for (i = 0; strstr(ps, "heapint") && i < v->nblk; i++) { const rt_hblk_t *h = v->blk_at(i);
         if (!h || !(h->flags & HBF_MARK) || !gc_audit_b_opaque(h->type)) continue;
         nop++; nhw += gc_audit_b_words(v, (const char *)(h + 1), (const char *)h + h->size, "heapint", "-", &c, cap, (const gc_audit_b_xr_t *)0, 0); }
+    { gc_audit_b_ctx_t k; long nv = -2; k.v = v; k.c = &c; k.cap = cap; k.nblk = 0; k.nw = 0;
+      if (strstr(ps, "ctarena")) nv = gc_audit_b_ctarena(&k);
+      if (v->run <= 1) fprintf(stderr, "[GC-AUDIT-B] ctarena vmas=%ld blocks=%ld words=%ld -- the compile-time arena's live blocks, which neither the exact walk nor the static scan reads (-2 = not in pops, -1 = maps unreadable)\n", nv, k.nblk, k.nw); }
     gc_audit_b_say("[GC-AUDIT-B] run=%ld audited=1 findings=%ld shown=%ld suppressed=%ld words=%ld inheap=%ld marked=%ld fill=%ld excluded=%ld regions=%ld "
                    "heapint_words=%ld opaque_blocks=%ld of %ld opaque_set=ZCOL,ZBLK,WSC,AGGB,WSB pops=%s excluded_frame_header_raw=%ld excluded_owner_declared=%ld\n",
         v->run, c.found, c.shown, c.suppressed, c.words, c.inheap, c.marked, c.fill, c.excl, v->nrgn, nhw, nop, v->nblk, ps, c.xframe, c.xowner);
