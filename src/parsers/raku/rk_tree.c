@@ -528,6 +528,18 @@ static const char *named_rule_class(const char *n, int len) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int re_is_meta(char c) { return c && strchr("\\()[]{}<>|*+?.^$", c) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rx_named_bracket_quantified(const char *r, size_t n, size_t m) {
+    int depth = 1;
+    while (m < n && depth > 0) {
+        char d = r[m];
+        if (d == '\\' && m + 1 < n) { m += 2; continue; }
+        if (d == '\'' || d == '"') { char q = d; m++; while (m < n && r[m] != q) { if (r[m] == '\\' && m + 1 < n) m++; m++; } if (m < n) m++; continue; }
+        if (d == '(' || d == '[') depth++; else if (d == ')' || d == ']') depth--;
+        m++;
+    }
+    return depth == 0 && m < n && (r[m] == '*' || r[m] == '+' || r[m] == '?');
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *regex_to_engine(const char *r) {
     size_t n = strlen(r); char *o = (char *) ct_alloc(n * 4 + 16); size_t k = 0; int sp = 0;
     for (size_t i = 0; i < n; ) {
@@ -541,6 +553,8 @@ static char *regex_to_engine(const char *r) {
         if (c == '$' && i + 1 < n && r[i + 1] == '<') {
             size_t j = i + 2; while (j < n && (isalnum((unsigned char) r[j]) || r[j] == '_' || r[j] == '-')) j++;
             if (j < n && r[j] == '>' && j + 2 < n && r[j + 1] == '=' && r[j + 2] == '(') { o[k++] = '<'; memcpy(o + k, r + i + 2, j - i - 2); k += j - i - 2; o[k++] = '>'; o[k++] = '('; sp++;
+                i = j + 3; continue; }
+            if (j < n && r[j] == '>' && j + 2 < n && r[j + 1] == '=' && r[j + 2] == '[' && !rx_named_bracket_quantified(r, n, j + 3)) { o[k++] = '<'; memcpy(o + k, r + i + 2, j - i - 2); k += j - i - 2; o[k++] = '>'; o[k++] = '('; sp++;
                 i = j + 3; continue; }
         }
         if (c == '<' && i + 1 < n && (r[i + 1] == '[' || (r[i + 1] == '-' && i + 2 < n && r[i + 2] == '['))) {
