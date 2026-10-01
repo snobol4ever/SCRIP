@@ -10,8 +10,8 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_make_list() {
     x86_begin();
-    if (_.op_zres)
-        return x86("comment", "IR_MAKE_LIST zd: elements from ZOPQ -> rt_make_list -> ZRES")
+    return IF(_.op_zres,
+               x86("comment", "IR_MAKE_LIST zd: elements from ZOPQ -> rt_make_list -> ZRES")
              + x86_alpha()
              + IF(_.op_arg_slot_n > 0,
                   x86("sub", "rsp", (long)(_.op_arg_slot_n * 16))
@@ -32,8 +32,9 @@ std::string bb_make_list() {
              + x86("mov", ZRES(8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    return _.op_off < 0
+             + x86_beta_trampoline())
+         + IF(!_.op_zres,
+               _.op_off < 0
              ? x86_alpha() + x86_bomb("bb_make_list: unhandled (needs result slot, descr flat-chain)")
          : ![&]() { for (int i = 0; i < _.op_arg_slot_n; i++) if (_.op_arg_slot[i] < 0) return 0; return 1; }()
              ? x86_alpha() + x86_bomb("bb_make_list: element slot unfilled")
@@ -51,5 +52,5 @@ std::string bb_make_list() {
              + x86("mov",   FRQ(_.op_off + 8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
+             + x86_beta_trampoline());
 }
