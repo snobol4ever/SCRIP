@@ -7,8 +7,20 @@ def run(args):
 def mangle(nm):
     out = []
     for ch in nm:
-        out.append(ch if (ch.isalnum() and ord(ch) < 128) or ch in "_$." else "$%02X" % ord(ch))
-    return "".join(out)
+        if (ch.isalnum() and ord(ch) < 128) or ch in "_$.":
+            out.append(ch)
+        else:
+            out.extend("$%02X" % b for b in ch.encode("utf-8"))
+    if sum(len(u) for u in out) <= 48:
+        return "".join(out)
+    h, keep = 1469598103934665603, ""
+    for b in nm.encode("utf-8"):
+        h = ((h ^ b) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+    for u in out:
+        if len(keep) + len(u) > 31:
+            break
+        keep += u
+    return "%s$%016x" % (keep, h)
 GH = re.compile(r"^;\s*graph\s+(\d+)\s+'([^']*)'\s+—\s+slots=(\d+)\s+region_end=(\d+)")
 FLD = re.compile(r"^;\s+\+(\d+)\s+(\d+)\s+(\S+)\s+(.*?)\s+(\S+)\s*$")
 REF = re.compile(r"\[(rbp|rsp)\s*\+\s*(\d+)\]")

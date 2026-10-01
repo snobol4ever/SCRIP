@@ -151,7 +151,21 @@ def mangle(name):
         else:
             for b in ch.encode("utf-8"):
                 out.append("$%02X" % b)
-    return "".join(out)
+    return shorten(out, name.encode("utf-8"))
+
+
+def shorten(units, raw):
+    """past 48 bytes the symbol is its whole units up to 31 bytes, a dollar and the FNV-1a of the raw name (bb_ab_sym_name)"""
+    if sum(len(u) for u in units) <= 48:
+        return "".join(units)
+    h, keep = 1469598103934665603, ""
+    for b in raw:
+        h = ((h ^ b) * 1099511628211) & 0xFFFFFFFFFFFFFFFF
+    for u in units:
+        if len(keep) + len(u) > 31:
+            break
+        keep += u
+    return "%s$%016x" % (keep, h)
 
 
 def rsp_move(ins):

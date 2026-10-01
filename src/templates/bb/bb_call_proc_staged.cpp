@@ -6,7 +6,7 @@ extern "C" {
 #include "stage2.h"
 #include "bb_templates.h"
 long    rt_proc_call_open(const char *name, int nargs);
-void   *rt_proc_fn(const char *name);
+void   *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm);
 void   *rt_proc_call_open_det(long idx, int nargs);
 void   *rt_proc_call_open_det0(long idx);
 void   *rt_proc_call_open_det1(long idx, DESCR_t *a0);
@@ -241,7 +241,7 @@ static std::string bcps_det_arm() {
         int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[280]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
             void **sl = rt_pl_dc_slot(det_idx_z); if (sl) { dc_z = 1; dc_slot_z = (uint64_t)(uintptr_t)sl;
-                { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char)*nm; if ((u>='A'&&u<='Z')||(u>='a'&&u<='z')||(u>='0'&&u<='9')||u=='_'||u=='$'||u=='.') mang[mi++]=(char)u; else mi+=snprintf(mang+mi,(size_t)(256-mi),"$%02X",u); } mang[mi]=0; snprintf(dc_name_z,sizeof dc_name_z,"%s_dc\xce\xb1",mang); } } }
+                snprintf(dc_name_z, sizeof dc_name_z, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
         static const char *detN_argreg_z[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t detN_fp_z[5];
         { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp_z[0] = (uint64_t)(uintptr_t)(void*)f0; }
@@ -385,7 +385,7 @@ static std::string bcps_det_arm() {
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
     uint64_t dc_slot = 0; char dc_name[280]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
-        { char mang[256]; int mi = 0; const char *nm = _.op_sval; for (; *nm && mi < 250; nm++) { unsigned char u = (unsigned char) *nm; if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') mang[mi++] = (char) u; else mi += snprintf(mang + mi, (size_t) (256 - mi), "$%02X", u); } mang[mi] = 0; snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", mang); } } }
+        snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
     { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc); }

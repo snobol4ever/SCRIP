@@ -42,11 +42,11 @@ extern "C" { extern int g_rt_fragment_emit; int xa_flat_class_c_pred(void); }
 #define AB_TC_REG_D "r8d"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const char * bb_ab_sym_name(const char * nm) {
-    static char b[256]; int j = 0;
-    for (const char * c = nm ? nm : ""; *c && j < 250; c++) { unsigned char u = (unsigned char) *c;
-        if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') b[j++] = (char) u;
-        else j += snprintf(b + j, (size_t)(256 - j), "$%02X", u); }
-    b[j] = 0; return b;
+    enum { MAXN = 48, KEEP = 31 }; static_assert(KEEP + 17 <= MAXN, "a long name is its kept units, a dollar and 16 hex"); static char b[MAXN + 1]; int j = 0, bnd = 0, over = 0;
+    unsigned long long h = 1469598103934665603ULL; for (const char * c = nm ? nm : ""; *c; c++) { unsigned char u = (unsigned char) *c; char e[4]; int k; h = (h ^ u) * 1099511628211ULL;
+        if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') { e[0] = (char) u; k = 1; } else k = snprintf(e, sizeof e, "$%02X", u);
+        if (!over && j + k <= MAXN) { memcpy(b + j, e, (size_t) k); j += k; if (j <= KEEP) bnd = j; } else over = 1; }
+    if (over) j = bnd + snprintf(b + bnd, sizeof b - (size_t) bnd, "$%016llx", h); b[j] = 0; return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int alpha_face) {
