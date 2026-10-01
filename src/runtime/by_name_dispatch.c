@@ -8732,7 +8732,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         }
         fputc('\n', dest); fflush(stdout); fflush(dest); exit(1);
     }
-    if ((_bid == BID_exit)) { long long _st = (nargs >= 1 && IS_INT_fn(args[0])) ? (long long)args[0].i : 0; exit((int)_st); }
+    if ((_bid == BID_exit)) { extern int64_t core_icn_to_int_d(DESCR_t); long long _st = (nargs >= 1 && args[0].v != DT_SNUL && args[0].v != 0) ? (long long)core_icn_to_int_d(args[0]) : 0; exit((int)_st); }
     if (!strcmp(fn, "chdir") && nargs == 1) { const char *_d = VARVAL_fn(args[0]); if (!_d || chdir(_d) != 0) { *out = FAILDESCR; return 1; } *out = NULVCL; return 1; }
     if (!strcmp(fn, "delay") && nargs >= 1) { long long _ms = IS_INT_fn(args[0]) ? (long long)args[0].i : 0; if (_ms > 0) usleep((useconds_t)(_ms * 1000)); *out = NULVCL; return 1; }
     if (!strcmp(fn, "getch") || !strcmp(fn, "getche")) {

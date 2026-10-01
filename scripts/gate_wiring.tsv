@@ -264,6 +264,7 @@ test_gate_icn_cset_operations_and_a_substring_assignment_follow_iconx.sh	WIRED	-
 test_gate_icn_display_reads_every_activations_locals.sh	WIRED	-	-	-
 test_gate_icn_dump_ast_shows_the_parsed_program_and_pruning_stays_a_lowering_step.sh	WIRED	-	-	-
 test_gate_icn_errorvalue_is_absent_when_the_error_carries_none.sh	WIRED	-	-	-
+test_gate_icn_exit_converts_its_argument_as_integer_does.sh	WIRED	-	-	-
 test_gate_icn_field_access_on_a_non_record_raises_107.sh	WIRED	-	-	-
 test_gate_icn_find_takes_negative_positions.sh	WIRED	-	-	-
 test_gate_icn_function_builtin_names_dispatchable.sh	WIRED	-	-	-
