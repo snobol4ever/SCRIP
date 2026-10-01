@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1944
+#define GC_ALLOC_TAB_N 1946
 #define GC_ALLOC_TAB_N_VOID 226
-#define GC_ALLOC_TAB_N_DESCR 1065
-#define GC_ALLOC_TAB_N_OTHER 647
+#define GC_ALLOC_TAB_N_DESCR 1066
+#define GC_ALLOC_TAB_N_OTHER 648
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -946,6 +946,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_av_minmax", GC_RET_DESCR },
     { "rk_av_text", GC_RET_OTHER },
     { "rk_block_cmp", GC_RET_OTHER },
+    { "rk_capture_list", GC_RET_DESCR },
     { "rk_case_str", GC_RET_OTHER },
     { "rk_cplx_str", GC_RET_OTHER },
     { "rk_cstr", GC_RET_OTHER },
@@ -1287,6 +1288,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_db_seed", GC_RET_OTHER },
     { "rt_pl_db_term_key", GC_RET_OTHER },
     { "rt_pl_display_cell", GC_RET_VOID },
+    { "rt_pl_display_cell_ball", GC_RET_OTHER },
     { "rt_pl_dop_aggregate_reduce", GC_RET_DESCR },
     { "rt_pl_dop_aggregate_reduce_c", GC_RET_DESCR },
     { "rt_pl_dop_append1", GC_RET_DESCR },

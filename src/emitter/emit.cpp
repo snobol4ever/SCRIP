@@ -2436,8 +2436,8 @@ int cap_fail_retreat(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int leaf_frame_env(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_LEAF_FRAME"); v = (e && *e == '1') ? 1 : 0; } return v; }
-static int leaf_frame_member(const IR_t * nd) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); int blob_frame_scope(void); return nd && zdp_scratch_cell(nd) && (leaf_frame_env() || zdp_seam_tier(nd)) && (alt_arm_member(nd, (const IR_t *)0) || blob_frame_scope()); }
-static int blob_arm_leaf_fc(const IR_t * nd, long * k) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); extern int fc_arm_member(const IR_t *); if (!nd || leaf_frame_env() || zdp_seam_tier(nd) || !zdp_scratch_cell(nd) || !fc_arm_member(nd)) return 0; if (k) *k = 16; return 1; }
+static int leaf_frame_member(const IR_t * nd) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); int blob_frame_scope(void); return nd && zdp_scratch_cell(nd) && (leaf_frame_env() || zdp_seam_tier(nd) == 1) && (alt_arm_member(nd, (const IR_t *)0) || blob_frame_scope()); }
+static int blob_arm_leaf_fc(const IR_t * nd, long * k) { extern int zdp_scratch_cell(const IR_t *); extern int zdp_seam_tier(const IR_t *); extern int fc_arm_member(const IR_t *); if (!nd || leaf_frame_env() || zdp_seam_tier(nd) == 1 || !zdp_scratch_cell(nd) || !fc_arm_member(nd)) return 0; if (k) *k = 16; return 1; }
 int blob_spine_depth_gamma(void) { extern int zdp_scratch_cell(const IR_t *); int blob_frame_scope(void); if (!blob_frame_scope() || !g_emit_cfg) return 0; int d = 0; for (int j = 0; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && zdp_scratch_cell(m)) d += 16; } return d; }
 static int xop_hazard_kind(int op) { return op == IR_MATCH_DEFER || op == IR_MATCH_ARBNO || op == IR_MATCH_VALUE; }
 static int zd_k(IR_t * nd);
