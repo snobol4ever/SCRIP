@@ -13,7 +13,7 @@ Atom       = (*Atom_first FENCE(*Atom_rest | epsilon));
 Var_first  = ANY(&UCASE '_');
 Var_rest   = SPAN('0123456789' &UCASE &LCASE '_');
 Var        = (*Var_first FENCE(*Var_rest | epsilon));
-Float      = (SPAN('0123456789') ('.' SPAN('0123456789') FENCE(ANY('eE') FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon) | ANY('eE') FENCE(ANY('+-') | epsilon) SPAN('0123456789')));
+Float      = (SPAN('0123456789') ('.' SPAN('0123456789') FENCE(ANY('eE') FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon) FENCE('NaN' | 'Inf' | epsilon) | ANY('eE') FENCE(ANY('+-') | epsilon) SPAN('0123456789')));
 Char_code  = ("0'" NOTANY(CHAR(10)));
 Int        = SPAN('0123456789') FENCE(('_' FENCE(SPAN(' ' CHAR(9) CHAR(10)) | epsilon) | ' ') *Int | epsilon);
 $'('   =       '('  *$' ';  $')'  = *$' ' ')';
@@ -156,26 +156,38 @@ BqIn    = FENCE( ( (NOTANY('`\' CHAR(10) CHAR(9)) . sch) . *Shift('TT_ILIT', asc
 BqStr   = ( '`' . *PushCounter() *BqIn '`' . *Reduce('TT_MAKELIST', nTop()) . *PopCounter() );
 /* integer literals: the value is accumulated while scanning and held in rval under the literal's text; a char code is a table */
 /* lookup on its text; a minus and blanks before a number make a negative literal, as the C reads them                        */
-IntVal  = ( ( '0x' (SPAN(HexDigits) $ rd) *DIFFER((rb = 16) 'x') *RadixLoop
-            | '0o' (SPAN('01234567') $ rd) *DIFFER((rb = 8) 'x') *RadixLoop
-            | '0b' (SPAN('01') $ rd) *DIFFER((rb = 2) 'x') *RadixLoop
-            | (SPAN('0123456789') $ rbs) "'" (SPAN('0123456789' &LCASE &UCASE) $ rd) *DIFFER((rb = rbs + 0) 'x') *RadixLoop
+HexGroups = SPAN(HexDigits) FENCE(ANY('_ ') *HexGroups | epsilon);
+OctGroups = SPAN('01234567') FENCE(ANY('_ ') *OctGroups | epsilon);
+BinGroups = SPAN('01') FENCE(ANY('_ ') *BinGroups | epsilon);
+RadixVal = ( ( '0x' (*HexGroups $ rd) *DIFFER((rb = 16) 'x') *RadixLoop
+             | '0o' (*OctGroups $ rd) *DIFFER((rb = 8) 'x') *RadixLoop
+             | '0b' (*BinGroups $ rd) *DIFFER((rb = 2) 'x') *RadixLoop
+             ) $ i_raw . i_txt *DIFFER((rval[i_raw] = rv) 'x') );
+IntVal  = ( ( (SPAN('0123456789') $ rbs) "'" (SPAN('0123456789' &LCASE &UCASE) $ rd) *DIFFER((rb = rbs + 0) 'x') *RadixLoop
             | (*Int $ rd) *DIFFER((rb = 10) 'x') *RadixLoop
             ) $ i_raw . i_txt *DIFFER((rval[i_raw] = rv) 'x') );
 CharCode = ( "0'" ( (('\' *Escape) $ ec . ech *DIFFER((eval_[ec] = rv) 'x')) . *Shift('TT_ILIT', eval_[ech])
                   | ( "''" | NOTANY(CHAR(10)) ) . p_cc . *Shift('TT_ILIT', ascii_table[p_cc]) ) );
 /* an integer beyond 64 bits (the accumulation overflows and the alternative fails) is the C's (TT_FNC $pl_big (TT_QLIT digits)), */
-/* the digit groups' marks stripped while scanning and the clean digits held under the literal's text                             */
+/* the digit groups' marks stripped while scanning and the clean digits held under the literal's text; a radix literal beyond */
+/* 64 bits carries its text (0x, 0o, 0b and the digits, the group marks stripped) and the runtime's $pl_big reads it in its radix */
 bigclean = TABLE(64);
-BigStrip = *DIFFER((bigc = '') 'x') *DIFFER((bigraw ? (POS(0) ARBNO((SPAN('0123456789') $ dch) *DIFFER((bigc = bigc dch) 'x') | ANY('_ ' CHAR(9) CHAR(10))) RPOS(0))) 'x') *DIFFER((bigclean[bigraw] = bigc) 'x');
+BigStrip = *DIFFER((bigc = '') 'x') *DIFFER((bigraw ? (POS(0) ARBNO((SPAN(HexDigits 'xo') $ dch) *DIFFER((bigc = bigc dch) 'x') | ANY('_ ' CHAR(9) CHAR(10))) RPOS(0))) 'x') *DIFFER((bigclean[bigraw] = bigc) 'x');
+BigRadix = ( '0x' *HexGroups | '0o' *OctGroups | '0b' *BinGroups );
+RadixBig = ( (*BigRadix) $ bigraw . bigtx *BigStrip . *Shift('TT_QLIT', bigclean[bigtx]) . *Reduce('TT_FNC', 1, '$pl_big') );
+NegRadixBig = ( (*BigRadix) $ bigraw . bigtx *BigStrip . *Shift('TT_QLIT', '-' bigclean[bigtx]) . *Reduce('TT_FNC', 1, '$pl_big') );
 BigInt  = ( (*Int) $ bigraw . bigtx *BigStrip . *Shift('TT_QLIT', bigclean[bigtx]) . *Reduce('TT_FNC', 1, '$pl_big') );
 NegBigInt = ( (*Int) $ bigraw . bigtx *BigStrip . *Shift('TT_QLIT', '-' bigclean[bigtx]) . *Reduce('TT_FNC', 1, '$pl_big') );
 Number  = ( *CharCode
           | (*Float) . thx . *Shift('TT_FLIT', thx)
+          | *RadixVal . *Shift('TT_ILIT', rval[i_txt])
+          | *RadixBig
           | *IntVal . *Shift('TT_ILIT', rval[i_txt])
           | *BigInt
           );
 NegNumber = ( '-' *$' ' ( (*Float) . thx . *Shift('TT_FLIT', '-' thx)
+                        | *RadixVal . *Shift('TT_ILIT', -rval[i_txt])
+                        | *NegRadixBig
                         | *IntVal . *Shift('TT_ILIT', -rval[i_txt])
                         | *NegBigInt ) );
 /* ==================================================================================================================== */

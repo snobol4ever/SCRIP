@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1940
-#define GC_ALLOC_TAB_N_VOID 223
+#define GC_ALLOC_TAB_N 1943
+#define GC_ALLOC_TAB_N_VOID 226
 #define GC_ALLOC_TAB_N_DESCR 1064
 #define GC_ALLOC_TAB_N_OTHER 647
 #define GC_ALLOC_TAB_N_UNKNOWN 6
@@ -799,7 +799,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_gnu_position", GC_RET_OTHER },
     { "pl_goal_body_conv_ball", GC_RET_OTHER },
     { "pl_goal_key_live", GC_RET_OTHER },
-    { "pl_include_directive", GC_RET_OTHER },
+    { "pl_include_expand", GC_RET_OTHER },
     { "pl_is_pair", GC_RET_OTHER },
     { "pl_leaf", GC_RET_OTHER },
     { "pl_leaf_guarded1", GC_RET_OTHER },
@@ -834,6 +834,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_past_eos_ball", GC_RET_OTHER },
     { "pl_pred_graph", GC_RET_OTHER },
     { "pl_prelude_defines", GC_RET_OTHER },
+    { "pl_preprocess_list", GC_RET_VOID },
     { "pl_read_opts_ball", GC_RET_OTHER },
     { "pl_read_term_options_cell", GC_RET_OTHER },
     { "pl_runtime_clause_tree", GC_RET_OTHER },
@@ -910,6 +911,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "prolog_compile", GC_RET_VOID },
     { "prolog_compile_finish", GC_RET_VOID },
     { "prolog_compile_parse", GC_RET_OTHER },
+    { "prolog_dcg_expand", GC_RET_VOID },
     { "prolog_functor_intern", GC_RET_OTHER },
     { "prolog_inject_prelude", GC_RET_VOID },
     { "prolog_lower", GC_RET_OTHER },
@@ -919,6 +921,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "prolog_op_table_add", GC_RET_OTHER },
     { "prolog_parse", GC_RET_OTHER },
     { "prolog_parse_ex", GC_RET_OTHER },
+    { "prolog_preprocess", GC_RET_VOID },
     { "raku_register_program", GC_RET_VOID },
     { "rcp_bin", GC_RET_OTHER },
     { "rcp_lit", GC_RET_OTHER },

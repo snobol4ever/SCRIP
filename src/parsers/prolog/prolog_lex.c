@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #define PEEK(n)  ((unsigned char)p[(n)])
 #define ADV(n)   (p += (n))
 #define NL()     (lx->line++)
@@ -132,22 +133,6 @@ static int decode_escape(Lexer *lx, const char **pp, int *code) {
     *pp = p; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *lex_radix_to_decimal(const char *digs, int radix) {
-    size_t nd = strlen(digs), cap = nd * 2 + 2, n = 1; unsigned char *dec = (unsigned char *)ct_alloc(cap); char *out;
-    if (!dec) return NULL;
-    dec[0] = 0;
-    for (const char *q = digs; *q; q++) {
-        int carry = hexval(*q);
-        if (carry < 0 || carry >= radix) { ct_drop(dec); return NULL; }
-        for (size_t i = 0; i < n; i++) { int v = dec[i] * radix + carry; dec[i] = (unsigned char)(v % 10); carry = v / 10; }
-        while (carry) { if (n >= cap) { ct_drop(dec); return NULL; } dec[n++] = (unsigned char)(carry % 10); carry /= 10; }
-    }
-    out = (char *)ct_alloc(n + 1);
-    if (!out) { ct_drop(dec); return NULL; }
-    for (size_t i = 0; i < n; i++) out[i] = (char)('0' + dec[n - 1 - i]);
-    out[n] = 0; ct_drop(dec); return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_u_letter(const char *s, int *adv) {
     const unsigned char *u = (const unsigned char *)s; int cp, n;
     if (u[0] < 0x80) { *adv = 1; return 0; }
@@ -266,7 +251,7 @@ S_FRAC_EXP_DIG:
                                                                                                                                                goto S_FRAC_END;
 S_FRAC_END:
     if ((PEEK(0) == 'N' && PEEK(1) == 'a' && PEEK(2) == 'N') || (PEEK(0) == 'I' && PEEK(1) == 'n' && PEEK(2) == 'f')) {
-                                                                        t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = atof(t.text); ADV(3); SYNC(); return t; }
+                                                                        { double fv = PEEK(0) == 'N' ? NAN : INFINITY; ADV(3); t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = fv; } SYNC(); return t; }
                                                                                                                                                goto LX_FLOAT;
 S_RADIX:
     c = hexval(PEEK(0)); if (c >= 0 && c < radix)                    {  ndig++; ADV(1);                                                        goto S_RADIX;       }
@@ -277,7 +262,7 @@ S_RADIX_END:
     if (!ndig || hexval(PEEK(0)) >= 0 || is_alnum(PEEK(0)))          {  SYNC(); return err_tok(line, "malformed radix integer");                                   }
     t = tok(TK_INT, span_text(s, p, seps), line); errno = 0;
     { unsigned long long uv = strtoull(t.text + 2, NULL, radix);
-      if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { char *dec = lex_radix_to_decimal(t.text + 2, radix); if (dec) { t.text = dec; t.big = 1; SYNC(); return t; } }
+      if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { t.big = 1; SYNC(); return t; }
       t.ival = (long)uv; }
     SYNC(); return t;
 S_CHARCODE:
