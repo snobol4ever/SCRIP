@@ -23,6 +23,15 @@ DEMO="${DEMO:-$S4E/corpus/demos/snobol4/json}"
 PROBE="${PROBE:-$S4E/corpus/tests/snobol4}"
 JFJC_JSON_REF="probe_loose_json_fence_jstrbody_cas_citm_catalog_json.ref"
 JFJC_MF_REF="probe_loose_json_fence_jstrbody_cas_citm_catalog_match_fence.ref"
+# ⛔ EACH WORKLOAD RUNS AT THE STACK AND HEAP IT DECLARES (clause 8 (f); the coo 2026-10-01, the ceo's yes to the instrument row): the
+# unit is a program ON AN INPUT, so its .heap/.stack sidecars sit beside its ref under the ref's stem and are read by the one reader,
+# declared_switches_beside. MEASURED at SCRIP 4cfd7e0f4, two readings each: json-match-fence.sno on citm_catalog.json overflows (ERROR
+# 246) at -s8192k, -s16384k and -s32768k and matches the ref at -s65536k; sbl -bf overflows at its default and matches from -s16384k.
+# The gate ran every arm at the runtime's defaults until this, so the two match-fence arms read FAIL on a stack, not on FENCE.
+# json.sno on the same input matches at the defaults and declares nothing.
+. "$(dirname "${BASH_SOURCE[0]}")/lib_declared_arena.sh" || { echo "  REFUSED TO GRADE: lib_declared_arena.sh unloadable"; exit 2; }
+JSON_SW="$(declared_switches_beside "$PROBE/${JFJC_JSON_REF%.ref}.sno")" || { echo "  REFUSED TO GRADE: a sidecar of ${JFJC_JSON_REF%.ref} is refused (the reader said why above)"; exit 2; }
+MF_SW="$(declared_switches_beside "$PROBE/${JFJC_MF_REF%.ref}.sno")" || { echo "  REFUSED TO GRADE: a sidecar of ${JFJC_MF_REF%.ref} is refused (the reader said why above)"; exit 2; }
 pass=0; fail=0
 chk() { if [ "$1" = 0 ]; then pass=$((pass+1)); else fail=$((fail+1)); echo "  FAIL: $2"; fi; }
 
@@ -37,22 +46,23 @@ if [ ! -f "$DEMO/citm_catalog.json" ] || [ ! -f "$PROBE/$JFJC_JSON_REF" ] || [ !
   exit 2
 fi
 
-"$SCRIP" --compile "$DEMO/json.sno" -o /tmp/gate_jfjc_json.s < /dev/null > /dev/null 2>&1
-gcc -no-pie /tmp/gate_jfjc_json.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o /tmp/gate_jfjc_json.bin 2>/dev/null
-"$SCRIP" --compile "$DEMO/json-match-fence.sno" -o /tmp/gate_jfjc_jmf.s < /dev/null > /dev/null 2>&1
-gcc -no-pie /tmp/gate_jfjc_jmf.s -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o /tmp/gate_jfjc_jmf.bin 2>/dev/null
+T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
+"$SCRIP" --compile "$DEMO/json.sno" -o "$T/json.s" < /dev/null > /dev/null 2>&1
+gcc -no-pie "$T/json.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "$T/json.bin" 2>/dev/null
+"$SCRIP" --compile "$DEMO/json-match-fence.sno" -o "$T/jmf.s" < /dev/null > /dev/null 2>&1
+gcc -no-pie "$T/jmf.s" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm -lpthread -o "$T/jmf.bin" 2>/dev/null
 
-timeout 60 "$SCRIP" --run "$DEMO/json.sno" < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m3_json.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m3_json.txt "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m3 json.sno matches oracle on citm_catalog.json"
+timeout 60 "$SCRIP" $JSON_SW --run "$DEMO/json.sno" < "$DEMO/citm_catalog.json" > "$T/m3_json.txt" 2>/dev/null
+diff -q "$T/m3_json.txt" "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m3 json.sno matches oracle on citm_catalog.json"
 
-timeout 60 /tmp/gate_jfjc_json.bin < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m4_json.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m4_json.txt "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m4 json.sno matches oracle on citm_catalog.json"
+timeout 60 "$T/json.bin" $JSON_SW < "$DEMO/citm_catalog.json" > "$T/m4_json.txt" 2>/dev/null
+diff -q "$T/m4_json.txt" "$PROBE/$JFJC_JSON_REF" > /dev/null 2>&1; chk $? "m4 json.sno matches oracle on citm_catalog.json"
 
-timeout 60 "$SCRIP" --run "$DEMO/json-match-fence.sno" < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m3_jmf.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m3_jmf.txt "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m3 json-match-fence.sno matches oracle on citm_catalog.json"
+timeout 60 "$SCRIP" $MF_SW --run "$DEMO/json-match-fence.sno" < "$DEMO/citm_catalog.json" > "$T/m3_jmf.txt" 2>/dev/null
+diff -q "$T/m3_jmf.txt" "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m3 json-match-fence.sno matches oracle on citm_catalog.json (at ${MF_SW:-the defaults})"
 
-timeout 60 /tmp/gate_jfjc_jmf.bin < "$DEMO/citm_catalog.json" > /tmp/gate_jfjc_m4_jmf.txt 2>/dev/null
-diff -q /tmp/gate_jfjc_m4_jmf.txt "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m4 json-match-fence.sno matches oracle on citm_catalog.json"
+timeout 60 "$T/jmf.bin" $MF_SW < "$DEMO/citm_catalog.json" > "$T/m4_jmf.txt" 2>/dev/null
+diff -q "$T/m4_jmf.txt" "$PROBE/$JFJC_MF_REF" > /dev/null 2>&1; chk $? "m4 json-match-fence.sno matches oracle on citm_catalog.json (at ${MF_SW:-the defaults})"
 
 # ⭐ REGRESSION LOCK, NOT JUST A CORRECTNESS CHECK: jstrbody's FENCE must still be textually present at both
 # sites -- a future edit that silently drops it would still pass the byte-identical checks above (small/no
