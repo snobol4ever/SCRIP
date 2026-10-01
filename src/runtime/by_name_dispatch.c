@@ -3700,7 +3700,7 @@ PL_CX_LEAF_HEAD(wot_discard, 3) {
 } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_TEXTOP_display 1
-PL_CX_LEAF_HEAD(display, 1) { extern void rt_pl_display_cell(void *); rt_pl_display_cell(&args[0]); ok = 1; } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(display, 1) { extern void *rt_pl_display_cell_ball(void *); void *b = rt_pl_display_cell_ball(&args[0]); if (b) { cx->ball = b; ok = 0; } else ok = 1; } PL_CX_LEAF_TAIL
 PL_OUT_CX_LEAF(display, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(aggregate_reduce, 3) {
