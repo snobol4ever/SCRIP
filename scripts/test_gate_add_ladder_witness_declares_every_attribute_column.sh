@@ -53,6 +53,8 @@ D="$(fresh b)"; python3 "$TOOL" --lang snobol4 --rungs-dir "$D" --origin "$ORIGI
   && [ "$(col "$D/ALL.csv" "$ORIGIN" compile_args)" = '' ] && [ "$(col "$D/ALL.csv" "$ORIGIN" run_args)" = '-x' ] \
   && ck ok "(3) explicit --heap-kb/--stack-kb/--compile-args/--run-args override the convention on the row" || ck no "(3) the overrides (rc=$rc): heap=$(col "$D/ALL.csv" "$ORIGIN" heap_kb) stack=$(col "$D/ALL.csv" "$ORIGIN" stack_kb)"
 # (4) a rung suite whose ladder rows disagree on heap_kb REFUSES rc 2 (nothing written), and --heap-kb resolves it
+# (the tool says "the rungs' heap_kb convention" since 645ecc909 renamed master -> rungs; this arm grepped 'rungs.s', which a
+#  plural possessive cannot match, and read the right refusal as red -- the coo 2026-10-01, a fixed string now)
 D="$(fresh c)"; python3 - "$D/ALL.csv" <<'PY'
 import csv, sys
 p = sys.argv[1]; rows = list(csv.DictReader(open(p, newline=""))); f = list(rows[0].keys())
@@ -60,7 +62,7 @@ lad = [r for r in rows if r["origin"].startswith("ladder__")]; lad[0]["heap_kb"]
 w = csv.DictWriter(open(p, "w", newline=""), fieldnames=f, lineterminator="\n"); w.writeheader(); [w.writerow(r) for r in rows]
 PY
 out="$(python3 "$TOOL" --lang snobol4 --rungs-dir "$D" --origin "$ORIGIN" --source "$T/w.sno" --apply 2>&1)"; rc=$?
-{ [ "$rc" = 2 ] && grep -q 'cannot determine the rungs.s heap_kb convention' <<<"$out" && ! grep -q "$ORIGIN" "$D/ALL.csv"; } \
+{ [ "$rc" = 2 ] && grep -qF "cannot determine the rungs' heap_kb convention" <<<"$out" && ! grep -q "$ORIGIN" "$D/ALL.csv"; } \
   && ck ok "(4) ladder rows disagreeing on heap_kb REFUSE rc 2 by name, nothing written" || ck no "(4) the disagreeing rungs: rc=$rc $(printf '%s\n' "$out" | grep -m1 REFUSED)"
 python3 "$TOOL" --lang snobol4 --rungs-dir "$D" --origin "$ORIGIN" --source "$T/w.sno" --heap-kb 131072 --apply > /dev/null 2>&1; rc=$?
 [ "$rc" = 0 ] && [ "$(col "$D/ALL.csv" "$ORIGIN" heap_kb)" = 131072 ] && ck ok "(5) --heap-kb resolves the disagreement and the row is minted with it" || ck no "(5) --heap-kb on the disagreeing rungs: rc=$rc"
