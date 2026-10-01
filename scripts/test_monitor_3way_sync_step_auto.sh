@@ -328,20 +328,17 @@ if [[ "${want_icx:-0}" = "1" ]]; then
     # ⭐ icx LINKS WHAT SCRIP LINKS (hq_icon 2026-09-25, ceo CEO-1272 (b)). icont links ucode, never source, so a program whose
     # `link` names a library shipped beside it (every CEO-1269 NAME_driver, io_lib, lists_lib ...) failed to compile here with
     # "cannot resolve reference to file 'io_lib.u1'" and the bracket refused. Every library the program reaches is now found in
-    # SCRIP's OWN search order (src/parsers/icon/icon_driver.c icn_link_open: IPATH first, as icont's; then the linking
-    # file's own directory -- each library's own, so a transitive link resolves beside its library, never beside the
-    # program; then ICONPATH; then the IPL procs beside the scrip binary),
-    # translated into $TMP/icxlib, and icont links from there -- so both participants
+    # SCRIP's OWN search order (src/parsers/icon/icon_driver.c icn_link_open: IPATH, ICONPATH, the IPL procs beside the scrip
+    # binary, then the linking file's directory), translated into $TMP/icxlib, and icont links from there -- so both participants
     # run the same library source, and nothing is written beside the program. Measured on the 24 linked Arizona programs: icx
     # builds all 24 and each answers as SCRIP does, under the IPATH the runner gives a driver.
     ICX_LIB="$TMP/icxlib"; mkdir -p "$ICX_LIB"
     ICX_PROCS="$(cd "$(dirname "$(realpath "$SCRIP")")" && pwd)/../corpus/packages/icon/ipl/procs"
     icx_links() { sed -E 's/#.*//' "$1" | grep -E '^[[:space:]]*link[[:space:]]' | sed -E 's/^[[:space:]]*link[[:space:]]+//; s/[;,"]/ /g' | tr -s ' \t' '\n' | sed '/^$/d'; }
     icx_find() { local nm="$1" from="$2" d; local IFS=':'
-        for d in ${IPATH:-}; do [ -n "$d" ] && [ -f "$d/$nm.icn" ] && { realpath "$d/$nm.icn"; return; }; done
-        [ -f "$(dirname "$from")/$nm.icn" ] && { realpath "$(dirname "$from")/$nm.icn"; return; }
-        for d in ${ICONPATH:-}; do [ -n "$d" ] && [ -f "$d/$nm.icn" ] && { realpath "$d/$nm.icn"; return; }; done
-        [ -f "$ICX_PROCS/$nm.icn" ] && realpath "$ICX_PROCS/$nm.icn"; }
+        for d in ${IPATH:-} ${ICONPATH:-}; do [ -n "$d" ] && [ -f "$d/$nm.icn" ] && { realpath "$d/$nm.icn"; return; }; done
+        [ -f "$ICX_PROCS/$nm.icn" ] && { realpath "$ICX_PROCS/$nm.icn"; return; }
+        [ -f "$(dirname "$from")/$nm.icn" ] && realpath "$(dirname "$from")/$nm.icn"; }
     icx_todo="$(icx_links "$ICX_SRC" | sed "s|^|$ICX_SRC\t|")"; icx_seen=" "
     while [ -n "$icx_todo" ]; do
         icx_next=""

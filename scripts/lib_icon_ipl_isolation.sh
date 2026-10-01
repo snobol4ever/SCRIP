@@ -135,7 +135,11 @@ ipl_isolation_env() {
     echo "⛔ ipl_isolation_env: NO ICON ORACLE BIN -- the PATH handed to every isolated run omits it, so a program that shells out to \`icont\` (progs/qei) answers \`icont: not found\` INSIDE its graded output and reads as a wrong answer, not as a missing tool. Refs cut elsewhere with the oracle on PATH will false-FAIL against this run." >&2
   fi
   eval "$arr=()"
-  eval "$arr+=(\"ICONPATH=\$work/progs:\$work/gprogs:\$work/procs:\$work/gprocs:\$work/incl:\$work/gincl\")"
+  # ⛔ LIBRARIES BEFORE PROGRAMS (ceo ruling 2026-10-01 on hq_icon's ask): icont links the distribution's library ucode, where
+  # only procs/gprocs live, so a `link gener` in a library means procs/gener.icn, never the progs/gener.icn program of the same
+  # name. SCRIP's link search is flat (icn_link_open: IPATH, ICONPATH, ...), so the order of this path IS the answer; with
+  # progs: first, procs/codeobj.icn's `link gener` reached progs/gener.icn and huffstuf died with error 106 through &null.
+  eval "$arr+=(\"ICONPATH=\$work/procs:\$work/gprocs:\$work/progs:\$work/gprogs:\$work/incl:\$work/gincl\")"
   # ⛔ A MISSING ORACLE MUST NOT SILENTLY PRODUCE A PLAUSIBLE PATH. If icont_bin is unavailable the oracle
   # segment is simply absent, which reproduces outcome 1 above -- loud (`icont: not found`) rather than wrong.
   if [ -n "$_ob" ]; then eval "$arr+=(\"PATH=\$_ob:/usr/bin:/bin:.\")"; else eval "$arr+=(\"PATH=/usr/bin:/bin:.\")"; fi

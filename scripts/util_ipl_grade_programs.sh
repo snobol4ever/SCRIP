@@ -36,7 +36,7 @@ SCRIP="${SCRIP:-$ROOT/scrip}"
 . "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || { echo "⛔ REFUSES(2): lib_icon_ipl_isolation.sh unloadable" >&2; exit 2; }
 PKG="$ROOT/../corpus/packages/icon/ipl"
 [ -d "$PKG/progs" ] || { echo "⛔ REFUSES(2): no ipl package at $PKG" >&2; exit 2; }
-export ICONPATH="$PKG/progs:$PKG/gprogs:$PKG/procs:$PKG/gprocs:$PKG/incl:$PKG/gincl"
+export ICONPATH="$PKG/procs:$PKG/gprocs:$PKG/progs:$PKG/gprogs:$PKG/incl:$PKG/gincl"   # libraries before programs: lib_icon_ipl_isolation.sh says why
 ipl_isolation_init "$PKG" || { echo "⛔ REFUSES(2): ipl_isolation_init failed" >&2; exit 2; }
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"; ipl_isolation_cleanup' EXIT
 GRADED=0; BAD=0

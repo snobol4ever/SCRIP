@@ -101,7 +101,7 @@ TIMEOUT="${IPL_SUITE_TIMEOUT:-30}"
 # and it did, 354 times, which was 85% of every IPL compile failure and 41% of the whole package. The
 # resolver was single-directory-only (cured in icon_driver.c the same sitting); this is the other half,
 # and neither half does anything alone. Exported once here so both tiers agree on the search path.
-IPL_PATH="$PKG/progs:$PKG/procs:$PKG/gprocs:$PKG/incl:$PKG/gincl"
+IPL_PATH="$PKG/procs:$PKG/gprocs:$PKG/progs:$PKG/incl:$PKG/gincl"   # libraries before programs: lib_icon_ipl_isolation.sh says why
 export ICONPATH="${ICONPATH:-$IPL_PATH}"
 VERBOSE=0; [ "${1:-}" = "-v" ] && VERBOSE=1
 
