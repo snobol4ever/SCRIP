@@ -1317,14 +1317,32 @@ static const char *PL_PRELUDE_SRC =
     "'$emit_list'([],_,_,_,_)-->[].\n"
     "'$emit_list'([H|T],Templ,STempl,OnElem,OnSep)-->{copy_term(t(Templ,STempl,OnElem,OnSep),t(H,STempl,OnElemC,OnSepC))},phrase(OnElemC),({T==[]}->[];phrase(OnSepC),'$emit_list'(T,Templ,STempl,OnElem,OnSep)).\n";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_clause_dcg(const PlClause *cl) {
+    tree_t *r;
+    if (!cl || !cl->tr || cl->tr->n != 1 || !(r = cl->tr->c[0]) || r->t != TT_FNC || r->n != 2 || !r->v.sval || strcmp(r->v.sval, "-->")) return (tree_t *)0;
+    return r;
+}
 static int pl_clause_key(PlClause *cl, const char **name_out, int *ar_out) {
+    tree_t *dcg = pl_clause_dcg(cl);
     if (!cl) return 0;
+    if (dcg) {
+        tree_t *hd = dcg->c[0];
+        if (hd && hd->t == TT_FNC && hd->n == 2 && hd->v.sval && !strcmp(hd->v.sval, ",")) hd = hd->c[0];
+        if (hd && hd->t == TT_QLIT && hd->v.sval) { *name_out = hd->v.sval; *ar_out = 2;          return 1; }
+        if (hd && hd->t == TT_FNC  && hd->v.sval) { *name_out = hd->v.sval; *ar_out = hd->n + 2;  return 1; }
+        return 0;
+    }
     if (cl->tr && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL) {
         tree_t *hd = cl->tr->c[0];
         if (hd->t == TT_QLIT && hd->v.sval) { *name_out = hd->v.sval; *ar_out = 0;      return 1; }
         if (hd->t == TT_FNC  && hd->v.sval) { *name_out = hd->v.sval; *ar_out = hd->n;  return 1; }
     }
     return 0;
+}
+static tree_t *pl_clause_body(PlClause *cl) {
+    tree_t *dcg = pl_clause_dcg(cl);
+    if (dcg) return dcg->c[1];
+    return (cl && cl->tr && cl->tr->n > 1) ? cl->tr->c[1] : (tree_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_word_referenced(const char *src, const char *w) {
@@ -1379,7 +1397,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
             if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
             if (!pl_cv_has(&wanted, pl_pred_key(nm, ar))) continue;
             cv_t calls = { 0 };
-            if (cl->tr && cl->tr->n > 1 && cl->tr->c[1]) pl_tree_collect_calls(cl->tr->c[1], &calls);
+            pl_tree_collect_calls(pl_clause_body(cl), &calls);
             for (uint32_t ci = 0; ci < calls.len; ci++) {
                 for (PlClause *d = pre->head; d; d = d->next) {
                     const char *dn; int dar;
