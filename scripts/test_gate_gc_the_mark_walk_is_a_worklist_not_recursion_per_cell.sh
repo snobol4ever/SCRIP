@@ -16,9 +16,17 @@
 # the collector has one behaviour.
 #
 # ⭐ ARM 3 IS THE ONE THAT CANNOT BE FAKED. A cure that simply stopped walking the chain would pass arms 1 and 2 (rc=0,
-# right answer) while silently collecting live data. Arm 3 reads wl_depth_max out of the [ZGC] telemetry and requires it
-# to SCALE WITH THE CHAIN: a 1.5M-cell chain must put more than a million entries on the heap worklist. That number is
-# the walk itself, so the arm is vacuous only if the collector is doing the work.
+# right answer) while silently collecting live data. Arm 3 reads marked= out of the [ZGC] telemetry and requires it to
+# SCALE WITH THE CHAIN: a 1.5M-cell chain must mark at least two blocks per cell (the record and its field vector), so
+# 3000000. That number is the walk itself, so the arm is vacuous only if the collector is doing the work.
+# ⛔ RE-KEYED 2026-10-01 BY THE cfo, AND THE OLD KEY WAS MEASURING WASTE, NOT THE WALK: arm 3 used to require
+# wl_depth_max > 1000000. That depth came from a SECOND visit of every cell -- the mark loop drained each record's
+# field vector whole and gc_visit_datinst had already pushed the same fields, so every CDR went on the worklist twice
+# and the second pass piled 1500000 of them up at once. With the double push gone (row gc-speed-the-mark-phase-...)
+# the walk alternates record and vector and the depth reads 2 on the cure, 1500000 on its parent, while marked= reads
+# 2796003 then 3000451 on BOTH -- the same blocks marked, the same 1500000 cells walked back. A depth that a correct
+# cure drives toward zero is a key that refuses the cure; the marked count cannot fall unless the walk does. The depth
+# is still printed beside it, and a C-recursive walk still dies at the 4 MB stack long before 1500000 frames.
 #
 # FAIL-ONCE IS MEASURED, NOT ASSERTED: on origin b12714737 (this cure stashed, runtime rebuilt, this gate left in place)
 # arms 1, 2 and 3 all read red -- rc=1, ERROR 246, empty output, collections=0.
@@ -76,10 +84,10 @@ echo "    ceilings: chain arms ${CEIL_CHAIN}s, scaling arm ${CEIL_SCALE}s -- $CE
 # refusal, because "the property held and the clock ran out" and "the chain never came back" are different readings.
 refuse_on_clock() {  # <rc> <arm> <ceiling> <errfile>
   [ "$1" = 124 ] || return 0
-  local d; d=$(grep -oE 'wl_depth_max=[0-9]+' "$4" 2>/dev/null | cut -d= -f2 | sort -n | tail -1)
+  local d; d=$(grep -oE 'marked=[0-9]+' "$4" 2>/dev/null | cut -d= -f2 | sort -n | tail -1)
   echo "⛔ GATE REFUSE(2) [$G]: the $2 arm hit its ${3}s CEILING (rc=124, a timeout firing) at $CEIL_WHY."
-  echo "    COULD NOT MEASURE -- this is not a collector verdict: wl_depth_max=${d:-absent} at the moment the clock ran out"
-  echo "    (a depth past 1000000 means the mark walk WAS an explicit worklist and the chain WAS being walked; raise the"
+  echo "    COULD NOT MEASURE -- this is not a collector verdict: marked=${d:-absent} at the moment the clock ran out"
+  echo "    (a marked count of two blocks per cell means the chain WAS being walked; raise the"
   echo "     ceiling for this arena or run this arm at the shipped arena, and do NOT open a collector row on this line)."
   echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
   exit 2
@@ -100,9 +108,9 @@ else echo "  m4 FAIL (rc=$r4 out=[$(cat "$T/o4")] collections=$c4 -- $(head -1 "
 examined=$((examined+1))
 SCRIP_ZETA_TELEM=1 timeout "$CEIL_SCALE" "$SCRIP" "$T/big.sno" </dev/null >"$T/ob" 2>"$T/eb"; rb=$?; cb=$(grep -c regeneration "$T/eb")
 refuse_on_clock "$rb" "scaling 1500000-cell" "$CEIL_SCALE" "$T/eb"
-d=$(grep -oE 'wl_depth_max=[0-9]+' "$T/eb" | cut -d= -f2 | sort -n | tail -1)
-if [ "$rb" = 0 ] && [ "$(cat "$T/ob")" = 1500000 ] && [ "$cb" -ge 1 ] && [ -n "$d" ] && [ "$d" -gt 1000000 ]; then echo "  scaling PASS (1500000-cell chain: rc=0, $cb collection(s), wl_depth_max=$d entries on the HEAP worklist -- the walk is not on the C stack, and it really walked)"
-else echo "  scaling FAIL (rc=$rb out=[$(cat "$T/ob")] collections=$cb wl_depth_max=[${d:-absent}] -- either the chain did not survive, or the depth instrument is gone, or the collector stopped walking the chain and only looks cured)"; RC=1; fi
+d=$(grep -oE 'wl_depth_max=[0-9]+' "$T/eb" | cut -d= -f2 | sort -n | tail -1); mk=$(grep -oE 'marked=[0-9]+' "$T/eb" | cut -d= -f2 | sort -n | tail -1)
+if [ "$rb" = 0 ] && [ "$(cat "$T/ob")" = 1500000 ] && [ "$cb" -ge 1 ] && [ -n "$mk" ] && [ "$mk" -ge 3000000 ]; then echo "  scaling PASS (1500000-cell chain: rc=0, $cb collection(s), marked=$mk blocks, two per cell, wl_depth_max=${d:-absent} -- the walk is not on the C stack, and it really walked)"
+else echo "  scaling FAIL (rc=$rb out=[$(cat "$T/ob")] collections=$cb marked=[${mk:-absent}] wl_depth_max=[${d:-absent}] -- either the chain did not survive, or the marked instrument is gone, or the collector stopped walking the chain and only looks cured)"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the mark walk is an explicit worklist; a 1.5M-cell DATA chain is collected and walked on a bounded C stack in both modes (examined $examined arms)"
 else echo "GATE FAIL(1) [$G]: the descriptor walk recurses per cell again, or the chain no longer survives a collection (examined $examined arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"

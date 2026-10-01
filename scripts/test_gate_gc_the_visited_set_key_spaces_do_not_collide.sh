@@ -14,7 +14,7 @@
 # marked, was reclaimed, and the collection after next walked an integer cell as a bucket.  Ordinary compaction had left
 # the table and its buckets in place, so the assignment seam's removal only changed WHEN the collision started to matter.
 #
-# THE CURE: three key spaces by construction -- bit 0 = a registered slot (gc_slot_reg, unchanged), bit 1 = a name-
+# THE CURE: distinct key spaces by construction -- bit 0 was a registered slot (RETIRED 2026-10-01 by the cfo: the slot record carries its target offset and the fixup is idempotent), bit 1 = a name-
 # referenced cell (the DT_N slen=1 case), an even key = an aggregate whose contents were visited.  The plant
 # The key-collision PLANT (SCRIP_GC_PLANT_KEY_COLLISION, which restored the shared key so the crash could be seen to return) was RETIRED 2026-09-26 (cto, row gc-the-key-collision-plant-has-no-witness-today): no producer of a slen-1 name cell into a block whose key is that cell exists on the tree, so arm (b) now grades the one producer of the shape that does exist, a record field used as a name, and FAIL_ONCE grades arm (a) against an empty ref.
 #

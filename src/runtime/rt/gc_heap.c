@@ -560,7 +560,7 @@ static long g_gc_nblk = 0;
 static uint32_t *g_gc_pmap = (uint32_t *)0;
 static void **g_gc_hs = (void **)0;
 static long g_gc_hcap = 0, g_gc_hn = 0;
-typedef struct gc_slot_t { rt_hblk_t *hloc; uintptr_t off; rt_hblk_t *tgt; } gc_slot_t;
+typedef struct gc_slot_t { const char **loc; rt_hblk_t *tgt; uintptr_t toff; } gc_slot_t;
 static gc_slot_t *g_gc_slots = (gc_slot_t *)0;
 static long g_gc_nslot = 0, g_gc_scap = 0;
 static int g_gc_in = 0;
@@ -836,7 +836,7 @@ void rt_gc_point(DESCR_t *d0, const char **r0)
     rt_gc_point_arr(d0, d0 ? 1 : 0, r0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-_Static_assert(sizeof(void *) == 8, "THE VISITED SET HAS THREE KEY SPACES IN ONE TABLE AND THEY MUST NOT COLLIDE (cto 2026-09-23, CTO-153; procedure_every_scan_replace_9 CRASH at every stress point once the assignment seam was gone): bit 0 marks a REGISTERED SLOT (gc_slot_reg), bit 1 marks a NAME-REFERENCED CELL (DT_N slen=1, the 16 bytes at d->ptr pushed to the worklist once), and an even key marks an AGGREGATE WHOSE CONTENTS WERE VISITED (table, array, record instance, variable cell). A DT_N cell reference whose ptr lands on a table's first word inserted the table's own address, every later DT_T visit read it as already visited, the buckets array was never marked, and the collection after next walked reclaimed ground -- the key spaces are distinct by construction now, and gc_visit_one's DT_N slen=1 case is the only writer of bit 1");
+_Static_assert(sizeof(void *) == 8, "THE VISITED SET HAS TWO KEY SPACES IN ONE TABLE AND THEY MUST NOT COLLIDE (cto 2026-09-23, CTO-153; procedure_every_scan_replace_9 CRASH at every stress point once the assignment seam was gone): bit 0 is RETIRED (cfo 2026-10-01: a registered slot is no longer a key -- each slot record carries its target offset, so the fixup writes the same word however often a slot is registered, and the per-slot probe was a cache miss per pointer), bit 1 marks a NAME-REFERENCED CELL (DT_N slen=1, the 16 bytes at d->ptr pushed to the worklist once), and an even key marks an AGGREGATE WHOSE CONTENTS WERE VISITED (table, array, record instance, variable cell). A DT_N cell reference whose ptr lands on a table's first word inserted the table's own address, every later DT_T visit read it as already visited, the buckets array was never marked, and the collection after next walked reclaimed ground -- the key spaces are distinct by construction now, and gc_visit_one's DT_N slen=1 case is the only writer of bit 1");
 static inline int gc_hins(void *p) __attribute__((always_inline));
 static inline int gc_hins(void *p) {
     if (g_gc_hn * 10 >= g_gc_hcap * 7) {
@@ -874,30 +874,19 @@ static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long gc_visit_segment(const char *lo0, const char *hi0);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void gc_slot_reg_in(void *loc, rt_hblk_t *hl, rt_hblk_t *tgt) __attribute__((always_inline));
-static inline void gc_slot_reg_in(void *loc, rt_hblk_t *hl, rt_hblk_t *tgt) {
-    if (!gc_hins((void *)((uintptr_t)loc | 1))) return;
+static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) __attribute__((always_inline));
+static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) {
     if (g_gc_nslot == g_gc_scap) { g_gc_scap = g_gc_scap ? g_gc_scap * 2 : 4096; g_gc_slots = (gc_slot_t *)gcbk_grow((void *)g_gc_slots, (size_t)g_gc_scap * sizeof(*g_gc_slots)); if (!g_gc_slots) abort(); }
-    if (hl) { g_gc_slots[g_gc_nslot].hloc = hl; g_gc_slots[g_gc_nslot].off = (uintptr_t)((char *)loc - (char *)(hl + 1)); }
-    else { g_gc_slots[g_gc_nslot].hloc = (rt_hblk_t *)0; g_gc_slots[g_gc_nslot].off = (uintptr_t)loc; }
+    g_gc_slots[g_gc_nslot].loc = (const char **)loc;
     g_gc_slots[g_gc_nslot].tgt = tgt;
+    g_gc_slots[g_gc_nslot].toff = (uintptr_t)(*(const char *const *)loc - (const char *)(tgt + 1));
     g_gc_nslot++;
 }
-static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) __attribute__((always_inline));
-static inline void gc_slot_reg_tgt(void *loc, rt_hblk_t *tgt) { gc_slot_reg_in(loc, gc_blk_of((const char *)loc), tgt); }
-static inline void gc_slot_reg_known(void *loc) __attribute__((always_inline));
-static inline void gc_slot_reg_known(void *loc) { gc_slot_reg_in(loc, gc_blk_of((const char *)loc), gc_blk_of(*(const char *const *)loc)); }
 static inline void gc_slot_reg(void *loc) __attribute__((always_inline));
 static inline void gc_slot_reg(void *loc) {
     const char *v = *(const char *const *)loc; rt_hblk_t *t = gc_blk_of(v);
     if (!t) return;
     gc_slot_reg_tgt(loc, t);
-}
-static inline rt_hblk_t *gc_holder_of(const void *loc, const void *holder) __attribute__((always_inline));
-static inline rt_hblk_t *gc_holder_of(const void *loc, const void *holder) {
-    rt_hblk_t *hl = (rt_hblk_t *)holder - 1;
-    if (holder && (const char *)hl >= g_hp_arena && (const char *)hl < g_hp_top && (hl->flags & HBF_TTL) && (const char *)loc >= (const char *)holder && (const char *)loc + 8 <= (const char *)hl + hl->size) return hl;
-    return gc_blk_of((const char *)loc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_visit_raw(const char **loc)
@@ -909,10 +898,8 @@ void rt_gc_visit_raw(const char **loc)
 }
 void rt_gc_visit_raw_in(const char **loc, const void *holder)
 {
-    rt_hblk_t *h = gc_blk_of(*loc);
-    if (!h) return;
-    gc_mark_blk(h, 0);
-    gc_slot_reg_in((void *)loc, gc_holder_of((const void *)loc, holder), h);
+    (void)holder;
+    rt_gc_visit_raw(loc);
 }
 int rt_gc_weak_keep(const char **loc)
 {
@@ -926,11 +913,8 @@ int rt_gc_ptr_in_heap_slot(const char *p) { return gc_blk_of(p) != (rt_hblk_t *)
 int rt_gc_in_arena(const char *p) { return (g_hp_arena && p >= g_hp_arena && p < g_hp_top) ? 1 : 0; }
 int rt_gc_slot_registered(const void *loc)
 {
-    void *k = (void *)((uintptr_t)loc | 1);
-    if (!g_gc_hs || !g_gc_hcap) return 0;
-    { uint64_t h = ((uint64_t)k >> 4) * 0x9E3779B97F4A7C15ull; long sl = (long)(h & (uint64_t)(g_gc_hcap - 1));
-      while (g_gc_hs[sl]) { if (g_gc_hs[sl] == k) return 1; sl = (sl + 1) & (g_gc_hcap - 1); }
-      return 0; }
+    for (long i = 0; i < g_gc_nslot; i++) if ((const void *)g_gc_slots[i].loc == loc) return 1;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_mark_agg(const void *p) { rt_hblk_t *h = gc_blk_of((const char *)p); if (h) gc_mark_blk(h, 0); }
@@ -963,7 +947,7 @@ static void gc_visit_arblk(ARBLK_t *a)
 {
     if (a->proto) rt_gc_visit_raw((const char **)&a->proto);
     if (!a->data) return;
-    rt_gc_visit_raw((const char **)&a->data);
+    { rt_hblk_t *dh = gc_blk_of((const char *)a->data); if (dh) { gc_mark_blk(dh, 0); gc_slot_reg_tgt((void *)&a->data, dh); if (dh->type == HB_DVEC) return; } }
     { long n = (long)(a->hi - a->lo + 1); if (a->ndim == 2) n *= (long)(a->hi2 - a->lo2 + 1); if (n < 0) n = 0; for (long i = 0; i < n; i++) gc_wl_push(&a->data[i]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -971,7 +955,7 @@ static void gc_visit_datinst(DATINST_t *u)
 {
     if (!u->fields || !u->type) return;
     rt_gc_visit_raw((const char **)&u->type);
-    rt_gc_visit_raw((const char **)&u->fields);
+    { rt_hblk_t *fh = gc_blk_of((const char *)u->fields); if (fh) { gc_mark_blk(fh, 0); gc_slot_reg_tgt((void *)&u->fields, fh); if (fh->type == HB_DVEC) return; } }
     for (int i = 0; i < u->type->nfields; i++) gc_wl_push(&u->fields[i]);
 }
 static void gc_visit_vcell(VCELL_t *vc)
@@ -1997,8 +1981,7 @@ static long gc_collect_ex(void)
     for (int z = 0; z < st_n; z++) st_fwd[z] = st_blk[z]->fwd;
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
 #endif
-    for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; const char **loc = sl->hloc ? (const char **)((char *)(sl->hloc + 1) + sl->off) : (const char **)sl->off;
-        rt_hblk_t *h = sl->tgt; if (h && h->fwd && h->fwd != (uint64_t)h) *loc = (const char *)((rt_hblk_t *)h->fwd + 1) + (*loc - (const char *)(h + 1)); }
+    for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; rt_hblk_t *h = sl->tgt; if (h->fwd && h->fwd != (uint64_t)h) *sl->loc = (const char *)((rt_hblk_t *)h->fwd + 1) + sl->toff; }
 #if RT_DIAG
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
