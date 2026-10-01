@@ -256,6 +256,7 @@ static void rt_gcheap_init(void)
     if (g_hp_sw_cap_kb > 0) { if (g_hp_sw_cap_kb < kb) { fprintf(stderr, "[ZHP] -d%ldk is BELOW the %ld KB initial window (-i) and is REFUSED\n", g_hp_sw_cap_kb, kb); abort(); } cap_kb = g_hp_sw_cap_kb; }
     cap_mb = (cap_kb + 1023L) / 1024L; if (cap_mb < 1) cap_mb = 1;
     { size_t rsv = (((size_t)cap_kb << 10) + 0xFFFu) & ~(size_t)0xFFFu;
+      if ((rsv >> 3) > (size_t)UINT32_MAX) { fprintf(stderr, "[ZHP] a %ld KB hard cap is REFUSED: the collector's page map holds each block's offset in 8-byte units in 32 bits, so the heap reservation stops at 32 GB\n", cap_kb); abort(); }
       void *rv = mmap((void *)0, rsv, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
       if (rv == MAP_FAILED) { fprintf(stderr, "[ZHP] heap mmap failed at the %ld KB hard cap\n", cap_kb); abort(); }
       g_hp_arena = (char *)rv; g_hp_cap_end = g_hp_arena + rsv; }
@@ -836,7 +837,7 @@ void rt_gc_point(DESCR_t *d0, const char **r0)
     rt_gc_point_arr(d0, d0 ? 1 : 0, r0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-_Static_assert(sizeof(void *) == 8, "THE VISITED SET HAS TWO KEY SPACES IN ONE TABLE AND THEY MUST NOT COLLIDE (cto 2026-09-23, CTO-153; procedure_every_scan_replace_9 CRASH at every stress point once the assignment seam was gone): bit 0 is RETIRED (cfo 2026-10-01: a registered slot is no longer a key -- each slot record carries its target offset, so the fixup writes the same word however often a slot is registered, and the per-slot probe was a cache miss per pointer), bit 1 marks a NAME-REFERENCED CELL (DT_N slen=1, the 16 bytes at d->ptr pushed to the worklist once), and an even key marks an AGGREGATE WHOSE CONTENTS WERE VISITED (table, array, record instance, variable cell). A DT_N cell reference whose ptr lands on a table's first word inserted the table's own address, every later DT_T visit read it as already visited, the buckets array was never marked, and the collection after next walked reclaimed ground -- the key spaces are distinct by construction now, and gc_visit_one's DT_N slen=1 case is the only writer of bit 1");
+_Static_assert(sizeof(void *) == 8, "THE VISITED SET HAS TWO KEY SPACES IN ONE TABLE AND THEY MUST NOT COLLIDE (cto 2026-09-23, CTO-153; procedure_every_scan_replace_9 CRASH at every stress point once the assignment seam was gone): bit 0 is RETIRED (cfo 2026-10-01: a registered slot is no longer a key -- each slot record carries its target offset, so the fixup writes the same word however often a slot is registered, and the per-slot probe was a cache miss per pointer), bit 1 marks a NAME-REFERENCED CELL (DT_N slen=1, the 16 bytes at d->ptr pushed to the worklist once), and an even key now marks only a TABLE REACHED FROM A VARIABLE CELL, the cheap first filter of gc_visit_vcell (cfo 2026-10-01: every heap aggregate whose contents were visited -- table, array, record instance, variable cell -- carries HBF_VIS in its own header instead, cleared with HBF_MARK at the index phase). A DT_N cell reference whose ptr lands on a table's first word inserted the table's own address, every later DT_T visit read it as already visited, the buckets array was never marked, and the collection after next walked reclaimed ground -- the key spaces are distinct by construction now, and gc_visit_one's DT_N slen=1 case is the only writer of bit 1");
 static inline int gc_hins(void *p) __attribute__((always_inline));
 static inline int gc_hins(void *p) {
     if (g_gc_hn * 10 >= g_gc_hcap * 7) {
@@ -858,7 +859,9 @@ static long g_gc_dvec_nondvec = 0;
 static inline rt_hblk_t *gc_blk_of(const char *p) __attribute__((always_inline));
 static inline rt_hblk_t *gc_blk_of(const char *p) {
     if (!p || p < g_hp_arena || p >= g_hp_top || !g_gc_idx) return (rt_hblk_t *)0;
-    if (g_gc_pmap && p < g_gc_pmap_top) { long i = (long)g_gc_pmap[(size_t)(p - g_hp_arena) >> 6]; if (i < g_gc_nblk) { rt_hblk_t *h = g_gc_idx[i]; while (i + 1 < g_gc_nblk && (char *)h + h->size <= p) h = g_gc_idx[++i]; if ((char *)h <= p && p < (char *)h + h->size) return h; } }
+    if (p < g_gc_pmap_top) { rt_hblk_t *h = (rt_hblk_t *)(g_hp_arena + ((size_t)g_gc_pmap[(size_t)(p - g_hp_arena) >> 6] << 3));
+        while (h->size && (char *)h + h->size <= p) h = (rt_hblk_t *)((char *)h + h->size);
+        if (h->size) return h; }
     { long lo = 0, hi = g_gc_nblk - 1; while (lo <= hi) { long m = (lo + hi) >> 1; char *b = (char *)g_gc_idx[m]; if (p < b) hi = m - 1; else if (p >= b + g_gc_idx[m]->size) lo = m + 1; else return g_gc_idx[m]; } return (rt_hblk_t *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -966,7 +969,7 @@ static void gc_visit_vcell(VCELL_t *vc)
     gc_slot_reg((void *)&vc->tbl);
     gc_slot_reg((void *)&vc->cellp);
     if (vc->cellp) gc_mark_agg((const void *)vc->cellp);
-    if (vc->tbl && gc_hins((void *)vc->tbl)) gc_visit_tbblk(vc->tbl);
+    if (vc->tbl && gc_hins((void *)vc->tbl)) { rt_hblk_t *tb = gc_block_exact_h((const char *)vc->tbl, HB_AGGT); if (!tb || !(tb->flags & HBF_VIS)) { if (tb) tb->flags |= HBF_VIS; gc_visit_tbblk(vc->tbl); } }
     rt_gc_visit_descr(&vc->key_d); rt_gc_visit_descr(&vc->sv);
     if (vc->cellp) rt_gc_visit_descr(vc->cellp);
 }
@@ -1009,14 +1012,16 @@ static void gc_visit_one(DESCR_t *d)
         if (!ah) return;
         gc_mark_blk(ah, 0);
         gc_slot_reg_tgt((void *)&d->arr, ah);
-        if (!gc_hins((void *)a)) return;
+        if (ah->flags & HBF_VIS) return;
+        ah->flags |= HBF_VIS;
         gc_visit_arblk(a);
         return; }
     case DT_T: {
         TBBLK_t *t = d->tbl; rt_hblk_t *th = gc_block_exact_h((const char *)t, HB_AGGT);
         if (!th) return;
         gc_slot_reg_tgt((void *)&d->tbl, th);
-        if (!gc_hins((void *)t)) return;
+        if (th->flags & HBF_VIS) return;
+        th->flags |= HBF_VIS;
         gc_visit_tbblk(t);
         return; }
     case DT_DATA: {
@@ -1031,11 +1036,12 @@ static void gc_visit_one(DESCR_t *d)
           if (!uh) return;
           gc_mark_blk(uh, 0);
           gc_slot_reg_tgt((void *)&d->u, uh);
-          if (!gc_hins((void *)u)) return;
+          if (uh->flags & HBF_VIS) return;
+          uh->flags |= HBF_VIS;
           gc_visit_datinst(u); }
         return; }
     case DT_N: {
-        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; rt_hblk_t *vh = gc_block_exact_h((const char *)vc, HB_AGGV); if (!vh) return; gc_slot_reg_tgt((void *)&d->p, vh); if (!gc_hins((void *)vc)) return; gc_visit_vcell(vc); return; }
+        if (d->slen == 2) { VCELL_t *vc = (VCELL_t *)d->p; rt_hblk_t *vh = gc_block_exact_h((const char *)vc, HB_AGGV); if (!vh) return; gc_slot_reg_tgt((void *)&d->p, vh); if (vh->flags & HBF_VIS) return; vh->flags |= HBF_VIS; gc_visit_vcell(vc); return; }
         if (d->slen == 1) { DESCR_t *tc = (DESCR_t *)d->ptr; rt_hblk_t *th = gc_blk_of((const char *)tc); if (!th || (const char *)tc < (const char *)(th + 1) || (const char *)tc + 16 > (const char *)th + th->size) return; gc_slot_reg_tgt((void *)&d->ptr, th); gc_mark_agg((const void *)tc); if (gc_hins((void *)((uintptr_t)tc | 2u))) gc_wl_push(tc); return; }
         { rt_hblk_t *h = gc_blk_of(d->s); if (h) { gc_mark_blk(h, 0); gc_slot_reg_tgt((void *)&d->s, h); } }
         return; }
@@ -1828,7 +1834,7 @@ static long gc_collect_ex(void)
     g_gc_idx = g_gc_idxbuf;
     { char *p = g_hp_arena; long i = 0; int fold = 1; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)gcbk_alloc((((size_t)(g_hp_cap_end - g_hp_arena)) >> 6) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
         if (fold && i >= g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096; g_gc_idxbuf = (rt_hblk_t **)gcbk_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); g_gc_idx = g_gc_idxbuf; }
-        h->flags &= (uint16_t)~HBF_MARK;
+        h->flags &= (uint16_t)~(HBF_MARK | HBF_VIS);
 #if RT_DIAG
         if (h->type == HB_ZBLK) nforeign++;
 #endif
@@ -1836,7 +1842,7 @@ static long gc_collect_ex(void)
 #if RT_DIAG
         if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 63) >> 6);
 #endif
-            for (char *gs = gs0; gs < e; gs += 64) g_gc_pmap[(size_t)(gs - g_hp_arena) >> 6] = (uint32_t)i; } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
+            { uint32_t off = (uint32_t)((size_t)(p - g_hp_arena) >> 3); uint32_t *pm = g_gc_pmap + ((size_t)(gs0 - g_hp_arena) >> 6); for (char *gs = gs0; gs < e; gs += 64) *pm++ = off; } } i++; p += h->size; } if (fold) g_gc_nblk = i; g_gc_pmap_top = g_hp_top; }
 #if RT_DIAG
     if (w_tel) { w_idx = g_gc_nblk; n_idx = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     g_gc_mhead = (rt_hblk_t *)0; g_gc_spine_recn = 0; g_gc_top_graph = (const char *)0;
@@ -1896,16 +1902,16 @@ static long gc_collect_ex(void)
         walked++; nscan++;
 #endif
             if (h->type == HB_DVEC) { DESCR_t *v = (DESCR_t *)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(DESCR_t)); for (long i = 0; i < n; i++) gc_wl_push(&v[i]); continue; }
-            if (h->type == HB_ARR) { ARBLK_t *a = (ARBLK_t *)(h + 1); if (gc_hins((void *)a)) gc_visit_arblk(a); continue; }
-            if (h->type == HB_DINST) { DATINST_t *u = (DATINST_t *)(h + 1); if (gc_hins((void *)u)) gc_visit_datinst(u); continue; }
+            if (h->type == HB_ARR) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_arblk((ARBLK_t *)(h + 1)); } continue; }
+            if (h->type == HB_DINST) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_datinst((DATINST_t *)(h + 1)); } continue; }
                         if (h->type >= HB_PLDB && h->type <= HB_PLDBK) { extern void pl_db_gc_visit(uint16_t, void *, size_t); pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); continue; }
             if (h->type == HB_DTP || h->type == HB_DTPRCP) { extern void pm_struct_gc_visit(uint16_t, void *, size_t); pm_struct_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t)); continue; }
             if (h->type == HB_PVEC) { const char **v = (const char **)(h + 1); long n = (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *)); for (long i = 0; i < n; i++) if (v[i]) rt_gc_visit_raw(&v[i]); continue; }
-            if (h->type == HB_AGGV) { gc_visit_vcell((VCELL_t *)(h + 1)); continue; }
+            if (h->type == HB_AGGV) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_vcell((VCELL_t *)(h + 1)); } continue; }
             if (h->type == HB_AGGB) continue;
             if (h->type == HB_AGGP) { TBPAIR_t *e = (TBPAIR_t *)(h + 1);
                 rt_gc_visit_descr(&e->key_descr); rt_gc_visit_descr(&e->val); continue; }
-            if (h->type == HB_AGGT) { struct _TBBLK_t *t = (struct _TBBLK_t *)(h + 1); if (gc_hins((void *)t)) gc_visit_tbblk(t); continue; }
+            if (h->type == HB_AGGT) { if (!(h->flags & HBF_VIS)) { h->flags |= HBF_VIS; gc_visit_tbblk((struct _TBBLK_t *)(h + 1)); } continue; }
 #if RT_DIAG
             if (h->type <= HB_ZCOL || h->type == HB_FILL || h->type == HB_ZBLK || h->type == HB_WSC || h->type == HB_WSB) continue;
             interior += (long)(((size_t)h->size - sizeof(rt_hblk_t)) / sizeof(void *));
@@ -1982,7 +1988,7 @@ static long gc_collect_ex(void)
     for (int z = 0; z < st_n; z++) st_fwd[z] = st_blk[z]->fwd;
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
 #endif
-    for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; rt_hblk_t *h = sl->tgt; if (h->fwd && h->fwd != (uint64_t)h) *sl->loc = (const char *)((rt_hblk_t *)h->fwd + 1) + sl->toff; }
+    for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; rt_hblk_t *h = sl->tgt; if (i + 16 < g_gc_nslot) { __builtin_prefetch((const void *)g_gc_slots[i + 16].tgt, 0); __builtin_prefetch((const void *)g_gc_slots[i + 16].loc, 1); } if (h->fwd && h->fwd != (uint64_t)h) *sl->loc = (const char *)((rt_hblk_t *)h->fwd + 1) + sl->toff; }
 #if RT_DIAG
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
@@ -2038,7 +2044,7 @@ static long gc_collect_ex(void)
 #else
     g_hp_top = dest; g_hp_live = (long)(dest - g_hp_arena); rt_gcheap_line_reset();
 #endif
-    for (long i = 0; i < li; i++) { rt_hblk_t *nh = (rt_hblk_t *)livef[i]; nh->fwd = 0; nh->flags = (uint16_t)((nh->flags | HBF_TTL) & ~HBF_MARK); }
+    for (long i = 0; i < li; i++) { rt_hblk_t *nh = (rt_hblk_t *)livef[i]; nh->fwd = 0; nh->flags = (uint16_t)((nh->flags | HBF_TTL) & ~(HBF_MARK | HBF_VIS)); }
     after_b = (long)(g_hp_top - g_hp_arena);
 #if RT_DIAG
     if (st_n) { static int said_stale = 0; long mv = 0, un = 0, sw = 0;

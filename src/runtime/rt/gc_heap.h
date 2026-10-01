@@ -29,6 +29,7 @@
 #define HBF_MARK 0x0002
 #define HBF_ASSERT_DEAD 0x0004
 #define HBF_ASSERT_INST 0x0008
+#define HBF_VIS  0x0010
 typedef struct rt_hblk_t { uint64_t fwd; uint32_t size; uint16_t type; uint16_t flags; } rt_hblk_t;
 struct DESCR_t;
 void *rt_gcheap_alloc(uint16_t type, uint64_t payload_bytes);
