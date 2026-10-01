@@ -705,6 +705,7 @@ test_gate_sno_deferred_pattern_primitive_arg.sh	WIRED	-	-	-
 test_gate_sno_deferred_replacement_keeps_its_capture_mark.sh	WIRED	-	-	-
 test_gate_sno_define_entry_label_rebinds_at_runtime.sh	WIRED	-	-	-
 test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
+test_gate_sno_error_voice_statement_number_from_a_code_map_no_per_statement_store.sh	WIRED	-	-	-
 test_gate_sno_errtype_and_errtext_are_set_before_a_fatal_error_exits.sh	WIRED	-	-	-
 test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
