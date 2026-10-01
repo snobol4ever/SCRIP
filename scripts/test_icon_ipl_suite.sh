@@ -344,7 +344,12 @@ for std in "${STDFILES[@]}"; do
         [ -f "$(dirname "$std")/$id.ref" ] && { echo "⛔ REFUSED TO GRADE rc=2: $id has its own .ref AND a driver $base -- two grading vehicles for one library (CEO-1269)" >&2; exit 2; }
         export IPL_ISO_DRIVER=1; _drvpath=(env "IPATH=$(dirname "$icn")${IPATH:+:$IPATH}") ;;
     esac
-    exp="$(cat "$std")"
+    # ⛔ NO $exp VARIABLE (hq_icon 2026-10-01): both PASS checks below cmp the rendered run output FILE
+    # directly against $std -- the ref file itself, never a `"$(cat "$std")"` capture. Measured on
+    # progs/huffstuf.icn (a real Huffman encoder, genuinely binary output): command substitution silently
+    # drops embedded NUL bytes ("ignored null byte in input"), which is the ONE comparison every run-graded
+    # IPL program's PASS/FAIL goes through -- a wrong verdict here is silent in both directions, for any
+    # program whose correct output is not plain text.
     # ⭐ NAME.rc, THE PROGRAM'S DECLARED EXIT STATUS (seat07's sidecar, which the cutter mints under): a program whose every exit is
     # stop() is graded on its status as well as its output, so a run that prints the right text and exits 0 is not a pass
     # (hq_icon 2026-09-27, ceo CEO-1315). Absent, the status is not graded, exactly as before.
@@ -410,7 +415,7 @@ for std in "${STDFILES[@]}"; do
     elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1)); M3_RUN_CRASH_NAMES+=("$id(sig$((rc3-128)))"); ipl_progress "$id" m3 CRASH
     elif [ "$by3" -gt "$MAX_BYTES" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id(oversized:$by3)"); ipl_progress "$id" m3 FAIL
     elif [ -n "$want_rc" ] && [ "$rc3" -ne "$want_rc" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id(rc$rc3-not-$want_rc)"); ipl_progress "$id" m3 FAIL
-    elif [ "$(python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m3.out" 2>/dev/null)" = "$exp" ]; then M3_RUN_PASS=$((M3_RUN_PASS+1)); ipl_progress "$id" m3 PASS
+    elif { python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m3.out" > "$TMP/${base}.m3.voice" 2>/dev/null; cmp -s "$TMP/${base}.m3.voice" "$std"; }; then M3_RUN_PASS=$((M3_RUN_PASS+1)); ipl_progress "$id" m3 PASS
     else M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id"); ipl_progress "$id" m3 FAIL; fi
 
     # -- m4 (--compile): emitting .s does not execute the target program, so THAT step is unisolated,
@@ -430,7 +435,7 @@ for std in "${STDFILES[@]}"; do
         elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1)); M4_RUN_CRASH_NAMES+=("$id(sig$((rc4-128)))"); ipl_progress "$id" m4 CRASH
         elif [ "$by4" -gt "$MAX_BYTES" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(oversized:$by4)"); ipl_progress "$id" m4 FAIL
         elif [ -n "$want_rc" ] && [ "$rc4" -ne "$want_rc" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(rc$rc4-not-$want_rc)"); ipl_progress "$id" m4 FAIL
-        elif [ "$(python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m4.out" 2>/dev/null)" = "$exp" ]; then M4_RUN_PASS=$((M4_RUN_PASS+1)); ipl_progress "$id" m4 PASS
+        elif { python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m4.out" > "$TMP/${base}.m4.voice" 2>/dev/null; cmp -s "$TMP/${base}.m4.voice" "$std"; }; then M4_RUN_PASS=$((M4_RUN_PASS+1)); ipl_progress "$id" m4 PASS
         else M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id"); ipl_progress "$id" m4 FAIL; fi
     else
         M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(compile/link)"); ipl_progress "$id" m4 FAIL

@@ -467,14 +467,22 @@ for f in "${FILES[@]}"; do
   # ⛔ IT IS A REFUSAL TO MINT, NOT A RULING ABOUT THE PROGRAM. The row says "a human decides", because
   # the honest reading is "this candidate's body is indistinguishable from the oracle complaining" --
   # which is a reason not to pin it, never a reason to declare the program ungradable.
-  if [ "$(printf '%s' "$out1" | grep -cvE '^[[:space:]]*$')" -gt 0 ] \
-     && [ "$(printf '%s' "$out1" | grep -vE '^[[:space:]]*$' | grep -cvE '^([^ :]+\.icn:|File [^;]+; Line [0-9]+ #|Run-time error [0-9]+)')" -eq 0 ]; then
-    n_diagnostic=$((n_diagnostic+1)); printf 'ALL_ORACLE_DIAGNOSTIC\t%s\t0\t%s\tNOT MINTED -- every non-blank line is the ORACLE talking about the program, not the program: %s\n' "$f" "$by1" "$(printf '%s' "$out1" | grep -vE '^[[:space:]]*$' | head -1)"
+  # ⛔⭐⭐ BINARY-SAFE, READ FROM THE FILE, NEVER FROM $out1 (hq_icon 2026-10-01, measured on progs/huffstuf.icn,
+  # a real Huffman encoder whose correct output is genuinely binary). `out1="$(cat "$OUT1")"` above goes through
+  # bash command substitution, which SILENTLY DROPS embedded NUL bytes (measured: "command substitution: ignored
+  # null byte in input", twice, on this exact program) -- the survivors then coincidentally split into chunks
+  # that `grep -c` reads as "lines", and for a 429-byte compressed fixture enough of those chunks happened to
+  # match the diagnostic-shaped patterns below that a real, byte-correct, deterministic LIVE candidate was
+  # misclassified ALL_ORACLE_DIAGNOSTIC and permanently refused minting. `grep -a`/`head` read the FILE directly,
+  # 8-bit clean, NUL bytes included as ordinary bytes between `\n` delimiters -- no shell variable in between.
+  if [ "$(grep -acvE '^[[:space:]]*$' "$OUT1")" -gt 0 ] \
+     && [ "$(grep -avE '^[[:space:]]*$' "$OUT1" | grep -acvE '^([^ :]+\.icn:|File [^;]+; Line [0-9]+ #|Run-time error [0-9]+)')" -eq 0 ]; then
+    n_diagnostic=$((n_diagnostic+1)); printf 'ALL_ORACLE_DIAGNOSTIC\t%s\t0\t%s\tNOT MINTED -- every non-blank line is the ORACLE talking about the program, not the program: %s\n' "$f" "$by1" "$(first_diag "$(grep -am1 -vE '^[[:space:]]*$' "$OUT1")")"
     continue
   fi
-  if printf '%s' "$out1" | head -1 | grep -qiE '^(usage|error)[: ]'; then
+  if head -1 "$OUT1" | grep -aqiE '^(usage|error)[: ]'; then
     n_suspect=$((n_suspect+1)); printf 'SUSPECT_USAGE\t%s\t0\t%s\tNOT MINTED -- first line reads like a usage/error banner on a clean exit\n' "$f" "$by1"
-    [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(printf '%s' "$out1" | head -1)"
+    [ "$VERBOSE" -eq 1 ] && printf '   %s\n' "$(first_diag "$(head -1 "$OUT1")")"
     continue
   fi
   # ── determinism check: THREE MORE independent runs (four total), fresh scratch copy each, ALL must
@@ -507,8 +515,10 @@ for f in "${FILES[@]}"; do
       n_oversized=$((n_oversized+1)); printf 'OVERSIZED\t%s\t%s\t%s\tNOT MINTED -- a confirmation run exceeds %s-byte cap, never slurped into memory\n' "$f" "$rc2" "$by2" "$MAX_BYTES"
       continue 2
     fi
-    out2="$(cat "$OUT2")"
-    if [ "$rc2" -ne "$rc1" ] || [ "$out1" != "$out2" ]; then
+    # ⛔ BINARY-SAFE: cmp on the two FILES, never a string equality on $out1/$out2 -- same NUL-dropping hazard
+    # as the content-assertion fix above, measured on this exact confirmation loop for progs/huffstuf.icn
+    # ("ignored null byte in input" on this line, twice, before this fix). cmp reads both files byte-for-byte.
+    if [ "$rc2" -ne "$rc1" ] || ! cmp -s "$OUT1" "$OUT2"; then
       n_nondet=$((n_nondet+1)); printf 'NONDETERMINISTIC\t%s\t%s/%s\t-\tNOT MINTED -- disagreed on confirmation run %s/3\n' "$f" "$rc1" "$rc2" "$_confirm"
       continue 2
     fi
