@@ -13,11 +13,12 @@ std::string xa_coexpr_body_lea(const char * dst);
 #define CR_REG(k) ((k) == 0 ? "r12" : (k) == 1 ? "r13" : (k) == 2 ? "r14" : (k) == 3 ? "r15" : (k) == 4 ? "rbx" : (k) == 5 ? (CR_PINNED() ? "rbp" : "rsp") : "r9")
 std::string bb_create() {
     x86_begin();
-    if (_.op_off < 0) return x86_alpha() + x86_bomb("bb_create: op_off < 0 (no slot assigned -- IR_CREATE missing from ir_node_produces_value?)");
-    if (!_.lbl_t0)
-        return x86_alpha() + x86_bomb("bb_create: body-entry target (t0 port) is NULL -- codegen_flat_chain_body's IR_CREATE resolution did not thread g_create_body_entry "
-                         "(operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)");
-    return x86("comment", "IR_CREATE")
+    return IF(_.op_off < 0, x86_alpha() + x86_bomb("bb_create: op_off < 0 (no slot assigned -- IR_CREATE missing from ir_node_produces_value?)"))
+         + IF(_.op_off >= 0 && !_.lbl_t0,
+               x86_alpha() + x86_bomb("bb_create: body-entry target (t0 port) is NULL -- codegen_flat_chain_body's IR_CREATE resolution did not thread g_create_body_entry "
+                         "(operand[0] not found in this chain's nodes[]? the BFS operand[0] enqueue may be missing)"))
+         + IF(_.op_off >= 0 && _.lbl_t0,
+               x86("comment", "IR_CREATE")
          + x86_alpha()
          + FOR(0, 7, [&](int k) { return x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 16 + k * 8) + "]", CR_REG(k)); })
          + xa_coexpr_body_lea("rdi")
@@ -29,5 +30,5 @@ std::string bb_create() {
          + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", (long)DT_CO)
          + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 8) + "]", "rax")
          + x86_gamma()
-         + x86_beta_trampoline();
+         + x86_beta_trampoline());
 }
