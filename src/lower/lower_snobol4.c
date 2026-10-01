@@ -1847,7 +1847,8 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                     ir_operand_push(F, p_tail);
                     { extern void fc_pair_extent_register(const IR_t *, int); fc_pair_extent_register(F, g->n); }
                     if (first_seg) rtail = F;
-                    cur_succ = F; right_tail = F; right_tail_idx = f_idx;
+                    if (right_tail && !right_sealed) sno_resume_ω_to(g, right_tail_idx, right_tail, F);
+                    cur_succ = F; right_tail = F; right_tail_idx = f_idx; right_sealed = 0;
                 }
                 else if (inner && !sno_in_arbno) {
                     IR_t * fail_p = (i > first_f0) ? cx->pat_seal : fail;
