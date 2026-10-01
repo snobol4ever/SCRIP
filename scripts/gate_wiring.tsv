@@ -447,6 +447,7 @@ test_gate_pas_an_ordinal_function_result_exists_in_its_type.sh	WIRED	-	-	-
 test_gate_pas_and_or_short_circuit_as_the_oracle_does.sh	WIRED	-	-	-
 test_gate_pas_array_field_elements_keep_their_declared_width.sh	WIRED	-	-	-
 test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
+test_gate_pas_bytebool_wordbool_longbool_store_the_oracles_all_bits_value.sh	WIRED	-	-	-
 test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
 test_gate_pas_declared_locals_get_frame_slots.sh	WIRED	-	-	-
 test_gate_pas_eoln_needs_a_defined_file_not_at_its_end.sh	WIRED	-	-	-

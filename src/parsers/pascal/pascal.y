@@ -200,6 +200,7 @@ static const char *pas_enumarr_get(const char *a);
 static tree_t *pas_tree_clone(tree_t *e);
 static const char *pas_scalarvartype_get(const char *vn);
 static const char *pas_typealias_get(const char *n);
+static int pas_var_is_boolfam(const char *name);
 static const char *pas_curfunc_name(void);
 static int pas_enumnames_idx(const char *tn);
 static const char *pas_trace_enum_names_of_var(const char *vn) {
@@ -263,7 +264,7 @@ static tree_t *pas_trace_wrap_value(tree_t *val) {
         if (_et) _enm = pas_enumnames_by_idx(pas_enumnames_idx(_et)); }
     if (_enm) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, _enm)); return _w; }
     if (pas_is_charexpr(val)) return mk_chr_wrap(val);
-    if (pas_is_boolexpr(val)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, "false,true")); return _w; }
+    if (pas_is_boolexpr(val) || (val && val->t == TT_VAR && val->v.sval && pas_var_is_boolfam(val->v.sval))) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, bin(TT_NE, val, ilit(0))); ast_push(_w, leaf_s(TT_QLIT, "false,true")); return _w; }
     if (val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) return pas_alpha_wrap(val);
     if (pas_ca_is_read(val)) return pas_alpha_wrap(val);
     if (val->t == TT_IDX && val->n >= 2 && val->c[0] && val->c[0]->t == TT_VAR && val->c[0]->v.sval && pas_is_strarr(val->c[0]->v.sval)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(_w, val); ast_push(_w, ilit(pas_strarr_lo(val->c[0]->v.sval))); return _w; }
@@ -322,6 +323,7 @@ static tree_t *pas_ord_check(tree_t *v, long long lo, long long hi, const char *
     ast_push(e, v); ast_push(e, ilit(lo)); ast_push(e, ilit(hi)); ast_push(e, leaf_s(TT_QLIT, what));
     return e;
 }
+static int pas_is_unsigned_inttypename(const char *n) { if (!n) return 0; static const char *U[] = {"byte","word","cardinal","longword","qword","uint8","uint16","uint32","uint64","nativeuint","pointer","ptruint","codepointer"}; for (size_t i = 0; i < sizeof(U) / sizeof(U[0]); i++) if (!strcmp(n, U[i])) return 1; return 0; }
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
@@ -452,7 +454,15 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         int _isboolfam = !strcmp(name, "bytebool") || !strcmp(name, "wordbool") || !strcmp(name, "longbool") || !strcmp(name, "qwordbool");
         const char *_tcn = name;
         { const char *_al = pas_typealias_get(_tcn); int _guard = 0; while (_al && strcmp(_al, _tcn) && _guard++ < 8) { _tcn = _al; _al = pas_typealias_get(_tcn); } }
-        if ((!_isboolfam || pas_is_boolexpr(args->items[0])) && pas_sizeof_builtin_size(_tcn, &_tsz)) return args->items[0];
+        if ((!_isboolfam || pas_is_boolexpr(args->items[0])) && pas_sizeof_builtin_size(_tcn, &_tsz)) {
+            if (_isboolfam || (_tsz != 1 && _tsz != 2 && _tsz != 4)) {
+                tree_t *_a0 = args->items[0];
+                return (_a0 && _a0->t == TT_VAR && _a0->v.sval && pas_var_is_boolfam(_a0->v.sval)) ? bin(TT_ADD, _a0, ilit(0)) : _a0;
+            }
+            long long _full = 1LL << (_tsz * 8); tree_t *_m = mk_fnc2("iand", args->items[0], ilit(_full - 1));
+            if (pas_is_unsigned_inttypename(_tcn)) return _m;
+            long long _half = _full / 2; return bin(TT_SUB, bin(TT_MOD, bin(TT_ADD, _m, ilit(_half)), ilit(_full)), ilit(_half));
+        }
     }
     if (name && !strcmp(name, "swapendian") && args && args->count >= 1) {
         tree_t *a = args->items[0];
@@ -637,7 +647,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 const char *_enm = (val && val->t == TT_IDX && val->v.ival > 0) ? pas_enumnames_by_idx((int)(val->v.ival - 1)) : NULL;
                 if (_enm) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, _enm)); val = _w; }
                 else if (is_char) { val = mk_chr_wrap(val); if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-2); }
-                else if (pas_is_boolexpr(val)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, val); ast_push(_w, leaf_s(TT_QLIT, "false,true")); val = _w; if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(5); }
+                else if (pas_is_boolexpr(val) || (val && val->t == TT_VAR && val->v.sval && pas_var_is_boolfam(val->v.sval))) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, bin(TT_NE, val, ilit(0))); ast_push(_w, leaf_s(TT_QLIT, "false,true")); val = _w; if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(5); }
                 else if (val && val->t == TT_VAR && val->v.sval && pas_is_singlevar(val->v.sval)) { if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-5); }
                 else if (val && val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) { val = pas_alpha_wrap(val); }
                 else if (pas_ca_is_read(val)) { val = pas_alpha_wrap(val); }
@@ -1377,9 +1387,17 @@ static void pas_value_compat(const char *vn, tree_t *rhs, const char *clause, co
             clause, what, vn, pas_class_name(from), pas_class_name(to));
     g_pas_iso_errors++;
 }
+static int pas_boolfam_width(const char *tn0) { const char *tn = tn0; int guard = 0; while (tn) { if (!strcmp(tn, "bytebool")) return 1; if (!strcmp(tn, "wordbool")) return 2; if (!strcmp(tn, "longbool")) return 4; if (!strcmp(tn, "qwordbool")) return 8; const char *al = pas_typealias_get(tn); if (!al || !strcmp(al, tn) || guard++ >= 8) break; tn = al; } return 0; }
+static int pas_var_is_boolfam(const char *name) { return name ? pas_boolfam_width(pas_scalarvartype_get(name)) > 0 : 0; }
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     { const char *_abn = pas_selector_base_name(sel); if (_abn) pas_assigned_add(_abn); }
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
+    if (sel && sel->t == TT_VAR && sel->v.sval && rhs) {
+        int _dbf = pas_var_is_boolfam(sel->v.sval);
+        int _sbf = (rhs->t == TT_VAR && rhs->v.sval) ? pas_var_is_boolfam(rhs->v.sval) : 0;
+        if (_dbf && !_sbf && pas_is_boolexpr(rhs)) rhs = bin(TT_SUB, ilit(0), rhs);
+        else if (!_dbf && _sbf) rhs = bin(TT_NE, rhs, ilit(0));
+    }
     if (pas_is_aggregate_designator(rhs)) rhs = mk_fnc1("__pas_arr_copy", rhs);
     if (sel && sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && pas_is_cafield(sel->c[0]) && sel->c[0]->t == TT_IDX && sel->c[0]->n >= 2
         && sel->c[0]->c[0] && sel->c[0]->c[0]->t == TT_FNC && sel->c[0]->c[0]->n >= 2
