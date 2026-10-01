@@ -5165,13 +5165,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__rk_arr_reduce") && nargs >= 2 && args[1].v == DT_BLK && args[1].s && *args[1].s) {
         const char *bn = args[1].s;
         extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-        char scratch0[64];
-        const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0);
-        const char **els; size_t *lens; int nel = rk_a_split(cs0, &els, &lens);
-        if (nel == 0) { *out = NULVCL; return 1; }
-        DESCR_t acc = rk_elem_descr(els[0], lens[0]);
-        for (int i = 1; i < nel; i++) {
-            DESCR_t ed = rk_elem_descr(els[i], lens[i]);
+        rk_av_t a = rk_av(args[0]);
+        if (a.n == 0) { *out = NULVCL; return 1; }
+        DESCR_t acc = rk_av_elem(a, 0);
+        for (int i = 1; i < a.n; i++) {
+            DESCR_t ed = rk_av_elem(a, i);
             rt_call_args_need(2); CALL_ARGS[0] = acc; CALL_ARGS[1] = ed; acc = RT_GC_CALLBACK(rt_call_proc_descr(bn, 2));
         }
         *out = acc; return 1;
@@ -5202,21 +5200,15 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = (DESCR_t){ .v = DT_BOOL, .i = hit }; return 1;
     }
     if (!strcmp(fn, "__rk_hyper_meth") && nargs >= 2) {
-        char scratch[64]; const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        const char **els; size_t *lens; int nel = rk_a_split(cs, &els, &lens);
+        rk_av_t a = rk_av(args[0]);
         DESCR_t *fa = rt_ws_alloc_descr((size_t)nargs);
-        size_t cap = 64, p = 0; char *buf = rt_wsb_alloc(cap + 1);
-        for (int i = 0; i < nel; i++) {
-            char *el = rt_wsb_alloc(lens[i] + 1); memcpy(el, els[i], lens[i]); el[lens[i]] = '\0';
-            fa[0] = rk_elem_descr(el, lens[i]); for (int k = 1; k < nargs; k++) fa[k] = args[k];
+        DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL;
+        for (int i = 0; i < a.n; i++) {
+            fa[0] = rk_av_elem(a, i); for (int k = 1; k < nargs; k++) fa[k] = args[k];
             DESCR_t rd = FAILDESCR; if (!script_try_call_builtin_by_name("meth_call", fa, nargs, &rd)) rd = FAILDESCR;
-            char rscratch[64]; const char *keep = to_cstring(rd, rscratch, sizeof rscratch); size_t KL = strlen(keep);
-            if (p + KL + 2 > cap) { size_t ncap = (p + KL + 2) * 2; char *nb = rt_wsb_alloc(ncap + 1); memcpy(nb, buf, p); buf = nb; cap = ncap; }
-            if (i) buf[p++] = SOH;
-            memcpy(buf + p, keep, KL); p += KL;
+            r[i] = rd;
         }
-        buf[p] = '\0';
-        *out = rk_a_seal(buf, nel > 0); return 1;
+        *out = rk_mk_arr(r, a.n); return 1;
     }
     if (!strcmp(fn, "__rk_iter_src") && nargs <= 1) {
         if (nargs && args[0].v == DT_A && args[0].arr) { *out = args[0]; return 1; }
@@ -5254,62 +5246,36 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int want_map = (fn[9] == 'm');
         const char *bn = (args[1].v == DT_BLK) ? args[1].s : NULL;
         if (!bn || !*bn) { *out = FAILDESCR; return 1; }
-        char scratch[64];
-        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
+        rk_av_t a = rk_av(args[0]);
         extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
-        const char **srcels; size_t *srclens; int srcnel = rk_a_split(cs, &srcels, &srclens);
-        size_t cap = (cs ? strlen(cs) : 0) * 4 + 64; char *buf = rt_wsb_alloc(cap + 1); size_t p = 0; int nout = 0;
-        for (int si = 0; si < srcnel; si++) {
-            size_t L = srclens[si]; const char *el = srcels[si];
-            char *ep; long long ev = strtoll(el, &ep, 10);
-            DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL((char *)el);
+        DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL; int nout = 0;
+        for (int si = 0; si < a.n; si++) {
+            DESCR_t ed = rk_av_elem(a, si);
             rt_call_args_need(2); CALL_ARGS[0] = ed;
             DESCR_t rd = RT_GC_CALLBACK(rt_call_proc_descr(bn, 1));
-            const char *keep = NULL; char rscratch[64];
-            if (want_map) keep = to_cstring(rd, rscratch, sizeof rscratch);
-            else keep = rt_is_truthy(rd) ? el : NULL;
-            if (keep) {
-                size_t KL = strlen(keep);
-                if (p + KL + 2 > cap) { size_t ncap = (p + KL + 2) * 2; char *nb = rt_wsb_alloc(ncap + 1); memcpy(nb, buf, p); buf = nb; cap = ncap; }
-                if (nout) buf[p++] = SOH;
-                memcpy(buf + p, keep, KL); p += KL; nout++;
-            }
+            if (want_map) r[nout++] = rd;
+            else if (rt_is_truthy(rd)) r[nout++] = ed;
         }
-        buf[p] = '\0';
-        *out = rk_a_seal(buf, nout > 0); return 1;
+        *out = rk_mk_arr(r, nout); return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_first") && nargs >= 2) {
         const char *bn = (args[1].v == DT_BLK) ? args[1].s : NULL;
         if (bn && *bn) {
-            char scratch0[64];
-            const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0); if (!cs0) cs0 = "";
+            rk_av_t a = rk_av(args[0]);
             extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
-            const char *seg = cs0;
-            while (*cs0) {
-                const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-                char *el = rt_wsb_alloc(L + 1); memcpy(el, seg, L); el[L] = '\0';
-                char *ep; long long ev = strtoll(el, &ep, 10);
-                DESCR_t ed = (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
+            for (int i = 0; i < a.n; i++) {
+                DESCR_t ed = rk_av_elem(a, i);
                 rt_call_args_need(2); CALL_ARGS[0] = ed;
                 if (rt_is_truthy(RT_GC_CALLBACK(rt_call_proc_descr(bn, 1)))) { *out = ed; return 1; }
-                if (!nx) break;
-                seg = nx + 1;
             }
             *out = NULVCL; return 1;
         }
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_first") && nargs >= 1) {
-        char scratch[64];
-        const char *cs = to_cstring(args[0], scratch, sizeof scratch);
-        if (rk_a_empty1(cs)) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
-        const char *nx = strchr(cs, SOH);
-        size_t L = nx ? (size_t)(nx - cs) : strlen(cs);
-        if (L == 0 && !nx && (!cs || !*cs)) { *out = NULVCL; return 1; }
-        char *cp = rt_wsb_alloc(L + 1); memcpy(cp, cs, L); cp[L] = '\0';
-        char *ep; long long v = strtoll(cp, &ep, 10);
-        *out = (*ep == '\0' && ep != cp) ? INTVAL(v) : STRVAL(cp); return 1;
+        rk_av_t a = rk_av(args[0]);
+        *out = a.n > 0 ? rk_av_elem(a, 0) : NULVCL; return 1;
     }
     if (!strcmp(fn, "__rk_arr_values") && nargs >= 1) {
         rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1;
@@ -6098,19 +6064,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = STRVAL(o); return 1;
     }
     if (!strcmp(fn, "__rk_arr_set") && nargs >= 3) {
-        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
+        rk_av_t a = rk_av(args[0]);
         char ib[64]; long idx = IS_INT_fn(args[1]) ? (long)args[1].i : IS_REAL_fn(args[1]) ? (long)args[1].r : strtol(to_cstring(args[1], ib, sizeof ib), NULL, 10);
         if (idx < 0) { *out = FAILDESCR; return 1; }
-        char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb); size_t rvl = strlen(rv);
-        const char **els; size_t *lens; int nel = rk_a_split(cur, &els, &lens);
-        long n = idx + 1 > nel ? idx + 1 : nel; size_t total = rvl + (size_t)n;
-        for (int i = 0; i < nel; i++) if (i != idx) total += lens[i];
-        char *o = rt_str_alloc((long)total); size_t p = 0;
-        for (long i = 0; i < n; i++) {
-            if (i) o[p++] = SOH;
-            if (i == idx) { memcpy(o + p, rv, rvl); p += rvl; } else if (i < nel) { memcpy(o + p, els[i], lens[i]); p += lens[i]; }
-        }
-        o[p] = '\0'; *out = rk_a_seal(o, 1); return 1;
+        long n = idx + 1 > a.n ? idx + 1 : a.n;
+        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
+        for (long i = 0; i < n; i++) r[i] = (i == idx) ? args[2] : (i < a.n ? rk_av_elem(a, (int) i) : NULVCL);
+        *out = rk_mk_arr(r, (int) n); return 1;
     }
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
         if (args[0].v == DT_A && args[0].arr) {

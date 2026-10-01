@@ -930,7 +930,12 @@ tree_t *rkb_elem_incdec(RkB *b, tree_t *g, int add, int post) {
         expr_add_child(seq, leaf_sval(TT_VAR, tmp));
         return seq;
     }
-    return rk_elem_store(g, expr_binary(add ? TT_ADD : TT_SUB, rk_tree_clone(g), rk_ilit(1)));
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    const char *tmp = fmt("__pre_%d", b->post_uid++);
+    expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), expr_binary(add ? TT_ADD : TT_SUB, rk_tree_clone(g), rk_ilit(1))));
+    expr_add_child(seq, rk_elem_store(g, leaf_sval(TT_VAR, tmp)));
+    expr_add_child(seq, leaf_sval(TT_VAR, tmp));
+    return seq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_prefix_apply(RkB *b, const char *op, tree_t *x) {
