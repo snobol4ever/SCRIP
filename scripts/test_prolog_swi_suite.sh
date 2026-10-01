@@ -38,7 +38,7 @@ RT="${RT_DIR:-$HERE/../out}"
 SWIT="${S4E_CORPUS:-$S4E/corpus}/packages/prolog/swi_tests"   # the expression line 2 hands the guard, so it judges the suite graded here
 PLUNIT="$S4E/corpus/tests/prolog/plunit.pl"
 MATCH_PY="$HERE/util_swi_match.py"
-MODES="m3,m4"; JOBS="${SWI_JOBS:-12}"; ONLY_FILE=""; NAME_REDS=0; VERBOSE=0
+MODES="m3,m4"; JOBS="${SWI_JOBS:-}"; ONLY_FILE=""; NAME_REDS=0; VERBOSE=0
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -50,6 +50,16 @@ while [ $# -gt 0 ]; do
         *) refuse "unknown argument '$1' -- this runner has no silent fall-through" ;;
     esac
 done
+# ⛔ THE FAN-OUT CEILING (ceo CEO-1333; the ceo's word to the coo 2026-10-01 12:1x CDT, a Logtalk pass at 12 jobs put load1 at 18 on a
+# shared box): the default width is lib_fanout.sh's fanout_width, max(2, min(4, cores - load1)), read at launch; a --jobs or SWI_JOBS above
+# it is CLAMPED and the clamp is printed, never silent -- the shape run_blocking_set.sh gives --shards. This runner defaulted to 12.
+. "$HERE/lib_fanout.sh" || refuse "scripts/lib_fanout.sh is missing -- the fan-out ceiling has no instrument"
+_fw=$(fanout_width)
+case "$JOBS" in
+    '') JOBS=$_fw ;;
+    *[!0-9]*|0) refuse "--jobs takes a count of 1 or more (got '$JOBS')" ;;
+    *) if [ "$JOBS" -gt "$_fw" ]; then echo "fanout: --jobs $JOBS clamped to $_fw at load1 $(fanout_load1) on $(fanout_cores) cores (CEO-1333: max(2, min(4, cores - load1)))"; JOBS=$_fw; fi ;;
+esac
 [ -d "$SWIT" ] || refuse "no vendored package at $SWIT -- a package that is absent is not a package that is failing"
 [ -f "$PLUNIT" ] || refuse "$PLUNIT missing"
 [ -x "$SCRIP" ] || refuse "scrip not built"

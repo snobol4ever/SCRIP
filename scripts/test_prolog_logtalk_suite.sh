@@ -38,7 +38,7 @@ ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 SUITE="${S4E_CORPUS:-$ROOT/corpus}/packages/prolog/logtalk_iso"
 SCRIP="$HERE/../scrip"
 MODES="${LOGTALK_MODES:-m3,m4}"
-JOBS="${LOGTALK_JOBS:-12}"
+JOBS="${LOGTALK_JOBS:-}"
 NAME_REDS=""
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 while [ $# -gt 0 ]; do
@@ -49,6 +49,16 @@ while [ $# -gt 0 ]; do
         *) refuse "unknown argument '$1' -- this runner has no silent fall-through" ;;
     esac
 done
+# ⛔ THE FAN-OUT CEILING (ceo CEO-1333; the ceo's word to the coo 2026-10-01 12:1x CDT, a Logtalk pass at 12 jobs put load1 at 18 on a
+# shared box): the default width is lib_fanout.sh's fanout_width, max(2, min(4, cores - load1)), read at launch; a --jobs or LOGTALK_JOBS above
+# it is CLAMPED and the clamp is printed, never silent -- the shape run_blocking_set.sh gives --shards. This runner defaulted to 12.
+. "$HERE/lib_fanout.sh" || refuse "scripts/lib_fanout.sh is missing -- the fan-out ceiling has no instrument"
+_fw=$(fanout_width)
+case "$JOBS" in
+    '') JOBS=$_fw ;;
+    *[!0-9]*|0) refuse "--jobs takes a count of 1 or more (got '$JOBS')" ;;
+    *) if [ "$JOBS" -gt "$_fw" ]; then echo "fanout: --jobs $JOBS clamped to $_fw at load1 $(fanout_load1) on $(fanout_cores) cores (CEO-1333: max(2, min(4, cores - load1)))"; JOBS=$_fw; fi ;;
+esac
 
 [ -d "$SUITE" ] || refuse "no vendored suite at $SUITE -- a suite that is absent is not a suite that is failing"
 [ -x "$SCRIP" ] || refuse "no scrip binary at $SCRIP -- run make first; a missing binary prints a full, plausible, entirely false board"
