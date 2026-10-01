@@ -119,6 +119,28 @@ static int parse_charclass(Re_parser *p) {
     return id;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void wire_quantifier(Nfa *nfa, int a_start, int a_acc, char q, int *out_start, int *out_accept) {
+    if (q == '*') {
+        int split = nfa_alloc(nfa), acc = nfa_alloc(nfa);
+        nfa->states[split].kind = NK_SPLIT; nfa->states[split].out1 = a_start; nfa->states[split].out2 = acc;
+        nfa->states[a_acc].out1 = split;
+        nfa->states[acc].kind = NK_EPS; nfa->states[acc].out1 = NFA_NULL; nfa->states[acc].out2 = NFA_NULL;
+        *out_start = split; *out_accept = acc;
+    } else if (q == '+') {
+        int split = nfa_alloc(nfa), acc = nfa_alloc(nfa);
+        nfa->states[split].kind = NK_SPLIT; nfa->states[split].out1 = a_start; nfa->states[split].out2 = acc;
+        nfa->states[a_acc].out1 = split;
+        nfa->states[acc].kind = NK_EPS; nfa->states[acc].out1 = NFA_NULL; nfa->states[acc].out2 = NFA_NULL;
+        *out_start = a_start; *out_accept = acc;
+    } else {
+        int split = nfa_alloc(nfa), acc = nfa_alloc(nfa);
+        nfa->states[split].kind = NK_SPLIT; nfa->states[split].out1 = a_start; nfa->states[split].out2 = acc;
+        nfa->states[a_acc].out1 = acc;
+        nfa->states[acc].kind = NK_EPS; nfa->states[acc].out1 = NFA_NULL; nfa->states[acc].out2 = NFA_NULL;
+        *out_start = split; *out_accept = acc;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
     if (at_end(p)) { re_err(p,"unexpected end of pattern"); return 0; }
     char c = peek(p);
@@ -165,7 +187,34 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         capname[nlen]='\0';
         if (nlen==0||peek(p)!='>') { re_err(p,"bad named capture <n>"); return 0; }
         consume(p);
-        if (peek(p)!='(') { re_err(p,"<n> must be followed by (...)"); return 0; }
+        if (peek(p)=='[') {
+            consume(p);
+            int gidx=p->group_counter++;
+            if (gidx>=MAX_GROUPS) { re_err(p,"too many groups"); return 0; }
+            snprintf(p->nfa->group_name[gidx],64,"%s",capname);
+            int inner_start,inner_acc;
+            if (!parse_alt(p,&inner_start,&inner_acc)) return 0;
+            if (peek(p)!=']') { re_err(p,"missing ] in <n>[...]"); return 0; }
+            consume(p);
+            int q_start=inner_start, q_acc=inner_acc;
+            char q=peek(p);
+            if (q=='*'||q=='+'||q=='?') { consume(p); wire_quantifier(p->nfa,inner_start,inner_acc,q,&q_start,&q_acc); }
+            int cap_open=nfa_alloc(p->nfa);
+            p->nfa->states[cap_open].kind=NK_CAP_OPEN;
+            p->nfa->states[cap_open].cap_idx=gidx;
+            p->nfa->states[cap_open].out1=q_start;
+            p->nfa->states[cap_open].out2=NFA_NULL;
+            int cap_close=nfa_alloc(p->nfa);
+            p->nfa->states[cap_close].kind=NK_CAP_CLOSE;
+            p->nfa->states[cap_close].cap_idx=gidx;
+            p->nfa->states[cap_close].out1=NFA_NULL;
+            p->nfa->states[cap_close].out2=NFA_NULL;
+            p->nfa->states[q_acc].out1=cap_close;
+            *out_start=cap_open; *out_accept=cap_close;
+            if (gidx+1>p->nfa->ngroups) p->nfa->ngroups=gidx+1;
+            return 1;
+        }
+        if (peek(p)!='(') { re_err(p,"<n> must be followed by (...) or [...]"); return 0; }
         consume(p);
         int gidx=p->group_counter++;
         if (gidx>=MAX_GROUPS) { re_err(p,"too many groups"); return 0; }
@@ -231,7 +280,7 @@ static int parse_atom(Re_parser *p, int *out_start, int *out_accept) {
         }
         *out_start=*out_accept=id; return 1;
     }
-    if (c==')' || c=='|' || c=='*' || c=='+' || c=='?') {
+    if (c==')' || c==']' || c=='|' || c=='*' || c=='+' || c=='?') {
         re_err(p,"unexpected meta"); return 0;
     }
     consume(p);
@@ -248,32 +297,14 @@ static int parse_quantified(Re_parser *p, int *out_start, int *out_accept) {
         consume(p);
         Nfa *nfa=p->nfa;
         if ((q=='*'||q=='+') && nfa->states[a_start].kind==NK_CAP_OPEN) nfa->group_repeatable[nfa->states[a_start].cap_idx]=1;
-        if (q=='*') {
-            int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
-            nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
-            nfa->states[a_acc].out1=split;
-            nfa->states[acc].kind=NK_EPS; nfa->states[acc].out1=NFA_NULL; nfa->states[acc].out2=NFA_NULL;
-            *out_start=split; *out_accept=acc;
-        } else if (q=='+') {
-            int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
-            nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
-            nfa->states[a_acc].out1=split;
-            nfa->states[acc].kind=NK_EPS; nfa->states[acc].out1=NFA_NULL; nfa->states[acc].out2=NFA_NULL;
-            *out_start=a_start; *out_accept=acc;
-        } else {
-            int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
-            nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
-            nfa->states[a_acc].out1=acc;
-            nfa->states[acc].kind=NK_EPS; nfa->states[acc].out1=NFA_NULL; nfa->states[acc].out2=NFA_NULL;
-            *out_start=split; *out_accept=acc;
-        }
+        wire_quantifier(nfa,a_start,a_acc,q,out_start,out_accept);
     } else { *out_start=a_start; *out_accept=a_acc; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int parse_concat(Re_parser *p, int *out_start, int *out_accept) {
     int started=0, c_start=NFA_NULL, c_acc=NFA_NULL;
-    while (!at_end(p) && peek(p)!='|' && peek(p)!=')') {
+    while (!at_end(p) && peek(p)!='|' && peek(p)!=')' && peek(p)!=']') {
         int q_start, q_acc;
         if (!parse_quantified(p,&q_start,&q_acc)) return 0;
         if (!started) { c_start=q_start; c_acc=q_acc; started=1; }

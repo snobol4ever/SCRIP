@@ -528,20 +528,21 @@ static const char *named_rule_class(const char *n, int len) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int re_is_meta(char c) { return c && strchr("\\()[]{}<>|*+?.^$", c) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rx_named_bracket_quantified(const char *r, size_t n, size_t m) {
+static size_t rx_matching_close(const char *r, size_t n, size_t m) {
     int depth = 1;
-    while (m < n && depth > 0) {
+    while (m < n) {
         char d = r[m];
         if (d == '\\' && m + 1 < n) { m += 2; continue; }
         if (d == '\'' || d == '"') { char q = d; m++; while (m < n && r[m] != q) { if (r[m] == '\\' && m + 1 < n) m++; m++; } if (m < n) m++; continue; }
-        if (d == '(' || d == '[') depth++; else if (d == ')' || d == ']') depth--;
+        if (d == '(' || d == '[') { depth++; m++; continue; }
+        if (d == ')' || d == ']') { depth--; if (depth == 0) return m; m++; continue; }
         m++;
     }
-    return depth == 0 && m < n && (r[m] == '*' || r[m] == '+' || r[m] == '?');
+    return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *regex_to_engine(const char *r) {
-    size_t n = strlen(r); char *o = (char *) ct_alloc(n * 4 + 16); size_t k = 0; int sp = 0;
+    size_t n = strlen(r); char *o = (char *) ct_alloc(n * 6 + 64); size_t k = 0; int sp = 0;
     for (size_t i = 0; i < n; ) {
         char c = r[i];
         if (c == ' ' || c == '\t' || c == '\n' || c == '\r') { i++; continue; }
@@ -554,8 +555,19 @@ static char *regex_to_engine(const char *r) {
             size_t j = i + 2; while (j < n && (isalnum((unsigned char) r[j]) || r[j] == '_' || r[j] == '-')) j++;
             if (j < n && r[j] == '>' && j + 2 < n && r[j + 1] == '=' && r[j + 2] == '(') { o[k++] = '<'; memcpy(o + k, r + i + 2, j - i - 2); k += j - i - 2; o[k++] = '>'; o[k++] = '('; sp++;
                 i = j + 3; continue; }
-            if (j < n && r[j] == '>' && j + 2 < n && r[j + 1] == '=' && r[j + 2] == '[' && !rx_named_bracket_quantified(r, n, j + 3)) { o[k++] = '<'; memcpy(o + k, r + i + 2, j - i - 2); k += j - i - 2; o[k++] = '>'; o[k++] = '('; sp++;
-                i = j + 3; continue; }
+            if (j < n && r[j] == '>' && j + 2 < n && r[j + 1] == '=' && r[j + 2] == '[') {
+                size_t close = rx_matching_close(r, n, j + 3);
+                if (close < n) {
+                    size_t ilen = close - (j + 3); char *inner_src = (char *) ct_alloc(ilen + 1);
+                    memcpy(inner_src, r + j + 3, ilen); inner_src[ilen] = '\0';
+                    char *inner_out = regex_to_engine(inner_src); size_t olen = strlen(inner_out);
+                    o[k++] = '<'; memcpy(o + k, r + i + 2, j - i - 2); k += j - i - 2; o[k++] = '>'; o[k++] = '[';
+                    memcpy(o + k, inner_out, olen); k += olen; o[k++] = ']';
+                    i = close + 1;
+                    if (i < n && (r[i] == '*' || r[i] == '+' || r[i] == '?')) o[k++] = r[i++];
+                    continue;
+                }
+            }
         }
         if (c == '<' && i + 1 < n && (r[i + 1] == '[' || (r[i + 1] == '-' && i + 2 < n && r[i + 2] == '['))) {
             int neg = r[i + 1] == '-'; i += neg ? 3 : 2; o[k++] = '['; if (neg) o[k++] = '^';
