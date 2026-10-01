@@ -553,8 +553,10 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("jmp", "rcx");
     if (x86_fb_pinned() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
         int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
-        return  x86("mov", "rdi", "rax")
-             + x86("mov", "rsi", "rdx")
+        return  x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
+             + x86("comment", "(a bound integer payload 104 = DT_FAIL read as failure at the caller's al test; a {small int, cell address} pair in the caller's result slot is no DESCR to the collector)")
+             + x86("mov32", "edi", (long)DT_I)
+             + x86("mov32", "esi", 1L)
              + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
              + IF(_plretain,
                    x86("mov", "rax", RDQ(x86_fb(), kt - 40))

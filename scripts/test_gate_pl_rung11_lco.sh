@@ -36,8 +36,11 @@ SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 echo "--- part 1: ladder --only 11 ---"
 LOUT="$(bash "$HERE/test_prolog_ladder.sh" --only 11 2>&1)"; LRC=$?
 printf '%s\n' "$LOUT"
-echo "$LOUT" | grep -q '^rung 11 summary: PASS=2 FAIL=0 '
+echo "$LOUT" | grep -qE '^rung 11 summary: PASS=[1-9][0-9]* FAIL=0 '
 P1=$?
+# ⭐ PASS=N, not PASS=2 (hq_prolog 2026-10-01): the pattern was pinned to one witness x two modes when rung 11 had one witness;
+# rung 11 now carries four (the ladder's own verdict read PASS=8 FAIL=0 while this grep read it red), so the pin reads the
+# ladder's FAIL=0 with any non-zero PASS -- the population is the ladder's to declare, never this gate's to count.
 [ "$LRC" -ne 2 ] || { echo "GATE UNPROVEN(2) [pl_rung11_lco]: part 1 (ladder) could not measure"; exit 2; }
 
 echo "--- part 2: port-trace --only 11 ---"

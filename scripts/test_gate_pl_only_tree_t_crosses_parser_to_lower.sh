@@ -44,7 +44,12 @@ OPEN = {
     'prolog_op_table_count': 'crossing 3, the operator table', 'prolog_op_table_get': 'crossing 3, the operator table',
     'prolog_op_user_count': 'crossing 3, the operator table', 'prolog_op_user_get': 'crossing 3, the operator table',
 }
-SANCTIONED = {'prolog_compile', 'prolog_parse_ex', 'prolog_u_letter'}
+SANCTIONED = {'prolog_compile', 'prolog_parse_ex', 'prolog_u_letter', 'prolog_fold_pieces'}
+# prolog_fold_pieces (hq_prolog 2026-10-01, the cto's f6f4d0197 made a quoted atom its pieces -- TT_QLIT/TT_CAT/TT_ESC -- and
+# left the fold to the lowerer): the term reader the runtime's read/1 family calls (prolog_parse_ex) now hands back pieces, and
+# the fold that turns them into the atom's text is the READER'S COMPANION -- the runtime's '$rd' road in by_name_dispatch.c
+# calls it on the term it just read, the same use of the parser as a library that prolog_parse_ex and prolog_u_letter are.
+# It defines no structure lower reads and reads none the parser writes; it stays out of OPEN because it is not a crossing.
 DETOUR = {'code_to_ast', 'stmt_to_ast'}
 def group(src):
     if '/src/parsers/prolog/' in src: return 'parser'
