@@ -20,6 +20,12 @@
 #   5  a CONTRACT.tsv row the builder does not admit (stderr=split) refuses rc=2, and so does a row with no evidence
 #   6  a rebuild keeps Q's row (shipped, prints nothing, so not absorbed) with its declared heap_kb and blank features, and drops
 #      GONE's row (no GONE.sno is shipped)
+# AND A SCRATCH ICON PACKAGE (CONTRACT.tsv stderr=merged, units=ref-beside; the oracle icont/iconx, two-step as upstream's harness):
+#   7  the builder's refs: T (a run-time error) is iconx's merged report with its traceback; W (an undeclared identifier) is its
+#      output alone, no translator warning (the one-step icon driver prints one, 17 of 78 jcon refs); L, which links M shipped
+#      beside it, and M, which has no M.ref, are excluded and named
+#   8  m3 and m4 grade T and W PASS -- T through the Icon equivalence list, as test_icon_jcon_suite.sh renders its capture
+#   9  with the render off (S4E_FATAL_RENDER=0) T reads FAIL in m3 -- the render, not a loose ref, is what passes it
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
@@ -88,5 +94,26 @@ print("Q=%s heap=%s feats=%s GONE=%s" % ("row" if q else "none", q and q["heap_k
 PY
 )"
 arm "a rebuild keeps Q's settings row (heap_kb 262144, no feature marked) and drops GONE's" "$([ "$kept" = "Q=row heap=262144 feats=blank GONE=none" ] && echo ok || echo "$kept")"
+# ---- the Icon package -------------------------------------------------------------------------------------------------
+LIB="$HERE/lib_oracle_flags.sh"
+( . "$LIB" && icont_bin && iconx_bin ) > /dev/null 2>&1 || refuse "no icont/iconx oracle (lib_oracle_flags.sh) -- the builder cannot cut an Icon ref"
+I="$T/ipkg"; mkdir -p "$I"
+printf '%s\n' 'procedure main();' '   write("before");' '   foo(2);' 'end' 'procedure foo(n);' '   if n = 0 then return 1 / n;' '   return foo(n - 1);' 'end' > "$I/T.icn"
+printf '%s\n' 'procedure main();' '   x := 3;' '   write("x=", x);' 'end' > "$I/W.icn"
+printf '%s\n' 'link M' 'procedure main();' '   write(m());' 'end' > "$I/L.icn"
+printf '%s\n' 'procedure m();' '   return "from M";' 'end' > "$I/M.icn"
+printf '%s\n' 'before' '' 'Run-time error 201' 'File T.icn; Line 6' 'division by zero' 'Traceback:' 'main()' 'foo(2) from line 3 in T.icn' \
+    'foo(1) from line 7 in T.icn' 'foo(0) from line 7 in T.icn' '{1 / 0} from line 6 in T.icn' > "$I/T.ref"
+printf 'x=3\n' > "$I/W.ref"; printf 'from M\n' > "$I/L.ref"
+printf '%s\n' "stderr	merged	the fixture's own harness runs ./prog <in >out 2>&1" "units	ref-beside	the fixture grades a source with a .ref beside it" > "$I/CONTRACT.tsv"
+( cd "$ROOT" && python3 scripts/util_build_package_suite.py "$I" --lang icon > "$T/ibuild.log" 2>&1 ) || refuse "the builder did not build the scratch Icon package: $(tail -3 "$T/ibuild.log" | tr '\n' '|')"
+iref() { awk -v e="$1" '$0 ~ "^#-+ [0-9]+ "e"$" {f=1; next} /^#-+ [0-9]+ /{f=0} f' "$I/ALL.ref"; }
+ex_l="$(grep -c '^L: links M shipped beside it' "$I/ALL.excluded.txt" 2>/dev/null)"; ex_m="$(grep -c '^M: no M.ref beside it' "$I/ALL.excluded.txt" 2>/dev/null)"
+arm "the Icon refs: T is iconx's merged report, W carries no translator warning, L (links M) and M (no ref) are excluded" "$([ "$(iref T)" = "$(cat "$I/T.ref")" ] && [ "$(iref W)" = 'x=3' ] && [ "$ex_l" = 1 ] && [ "$ex_m" = 1 ] && echo ok || echo "T [$(iref T | tr '\n' '|')] W [$(iref W | tr '\n' '|')] L-excluded=$ex_l M-excluded=$ex_m")"
+irun() { ( cd "$ROOT" && python3 scripts/corpus_suite_harness.py run "$I/ALL.icn" "$I/ALL.ref" --lang icon --modes "$1" 2>&1 ) }
+I3="$(S4E_PROGRESS_OFF=1 irun m3)"; I4="$(S4E_PROGRESS_OFF=1 irun m4)"
+arm "m3 and m4 grade T (through the Icon equivalence list) and W PASS" "$([ "$(verdict "$I3" m3 T)" = green ] && [ "$(verdict "$I4" m4 T)" = green ] && printf '%s\n' "$I3" | grep -q 'm3_pass=2 ' && printf '%s\n' "$I4" | grep -q 'm4_pass=2 ' && echo ok || echo "$(printf '%s\n%s\n' "$I3" "$I4" | grep -E '^  FAIL|SUITE_BOARD' | cut -c1-160 | tr '\n' '|')")"
+I3b="$(S4E_PROGRESS_OFF=1 S4E_FATAL_RENDER=0 irun m3)"
+arm "with the render off, T reads FAIL in m3" "$([ "$(verdict "$I3b" m3 T)" = red ] && echo ok || echo "m3 read $(verdict "$I3b" m3 T)")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

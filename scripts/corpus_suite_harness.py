@@ -500,6 +500,37 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=
     return out.decode("utf-8", "replace").rstrip("\n"), rc, kind
 
 
+def run_icon_built_oracle(paths, src_path, timeout, stdin_text=None, prog_args=None, out_files=None):
+    """THE ICON ORACLE AS THE ICON PACKAGES' OWN HARNESS RUNS IT, for a package whose CONTRACT.tsv merges stderr (the coo
+    2026-10-01, measured on jcon_tests): `icont -s -o <stem> <name>` in the file's own directory, its stderr kept apart, then
+    `iconx <stem> args < in > out 2>&1` (iconx handed the bare icode name, so &progname reads the stem; exec'd through PATH
+    it read the full path). The one-step `icon` driver run_oracle() uses for Icon is
+    right for a stdout-only ref and wrong for a merged one in two measured ways: its translator's warnings ("checkfpx.icn: "i":
+    undeclared identifier") land in the merged stream, 17 of 78 jcon refs; and it names the program kwds.icn where upstream's
+    harness ran the built kwds, so &progname read kwds.icn against a shipped ref reading kwds. Returns (text, rc, kind) as
+    run_oracle does; a translation that fails returns kind "TRANSLATE" and the translator's first line as text."""
+    src_path = Path(src_path)
+    d, stem = src_path.parent, src_path.stem
+    lib = paths["scrip_root"] / "scripts" / "lib_oracle_flags.sh"
+    r = subprocess.run(["bash", "-c", f". '{lib}' && icont_bin"], capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        refuse(f"lib_oracle_flags.sh refused (icont_bin): {r.stderr.strip()}")
+    kind, out, err, rc = _run_raw([r.stdout.strip(), "-s", "-o", stem, src_path.name], timeout, cwd=str(d))
+    if kind != "RAN" or rc != 0:
+        first = ((err or b"") + (out or b"")).decode("utf-8", "replace").strip().split("\n")[0]
+        return first, rc, ("TRANSLATE" if kind == "RAN" else kind)
+    r = subprocess.run(["bash", "-c", f". '{lib}' && iconx_bin"], capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        refuse(f"lib_oracle_flags.sh refused (iconx_bin): {r.stderr.strip()}")
+    _out_files_clear(d, out_files)
+    kind, out, _err, rc = _run_raw([r.stdout.strip(), stem] + [str(a) for a in (prog_args or [])], timeout, cwd=str(d),
+                                   stdin_text=stdin_text, merge_stderr=True)
+    out = _out_files_append(out, d, out_files) if out_files else out
+    if kind == "RAN" and rc is not None and rc < 0:
+        kind = "CRASH"
+    return out.decode("utf-8", "replace").rstrip("\n"), rc, kind
+
+
 # ==================================================================== exec ===
 # ⭐⭐ OOM IS ITS OWN OUTCOME (ceo CEO-1229 (2), 2026-09-23 20:2x, on the coo's row
 # instruments-suite-attribute-files-declare-stack-and-heap-per-program-and-every-runner-honours-both, verbatim: "THE PROGRESS WORD IS
@@ -751,6 +782,29 @@ def _fatal_render_voice_for(lang):
     return "spitbol" if lang in ("", "snobol4", "snocone") else None
 
 
+# ⭐ A MERGED ENTRY IS RENDERED AS ITS BOARD RENDERS IT (the coo 2026-10-01, measured on jcon traceback and loadfunc): an entry whose
+# stderr cell reads "merged" carries SCRIP's ONE error voice inside the graded stream itself, and its ref pins the oracle's shape;
+# test_icon_jcon_suite.sh pipes the merged capture through util_render_error_voice.py icon before its diff, so the harness renders
+# the same stream through the same list -- icon: render(), every SCRIP block in the oracle's shape; the SNOBOL4 family:
+# replace_fatal_in_text(merged=True), as a merged 2>&1 capture of sbl -bf reads. Unrendered, both programs read FAIL here while
+# the board read them PASS. Set beside the fatal voice from the suite's language; S4E_FATAL_RENDER=0 turns both off.
+def _merged_render_voice_for(lang):
+    return "icon" if lang == "icon" else ("spitbol" if lang in ("", "snobol4", "snocone") else None)
+
+
+def _render_merged_stream(got):
+    voice = FATAL_RENDER.get("merged_voice")
+    if not voice or os.environ.get("S4E_FATAL_RENDER") == "0":
+        return got
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import util_render_error_voice as _rv
+    except Exception as e:
+        refuse(f"util_render_error_voice.py is not importable ({e}) -- the equivalence list is the ONE renderer, never reimplemented here")
+    lines = got.split("\n")
+    return "\n".join(_rv.replace_fatal_in_text(lines, voice, True) if voice == "spitbol" else _rv.render(lines, voice))
+
+
 def _render_fatal_into_stdout(got, err_bytes):
     """Append SCRIP's rendered error block (if stderr holds one) to the graded stdout text. Returns (text, n_lines_appended)."""
     voice = FATAL_RENDER.get("voice")
@@ -791,6 +845,8 @@ def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, 
     if rc is not None and rc < 0:
         return Verdict("CRASH", out, err, rc, detail=f"signal {-rc}")
     got = out.decode("utf-8", "replace").rstrip("\n")
+    if merge_stderr:
+        got = _render_merged_stream(got)
     # ⛔ RENDER ONLY WHAT THE REF CARRIES: the block is appended when the oracle's ref itself holds a fatal line (`<file>(<n>) : ERROR
     # nnn -- ...`). A ref cut without one (snocone ladder__rung23_..._stlimit_halts_a_loop_body: ref `before`, want_rc 1, the halt
     # graded by rc alone) must not gain a block it never had -- the first rung suites pass after the render landed read that entry
@@ -2814,6 +2870,7 @@ def cmd_run(args):
                              x_path=sidecar_xfail_path(args.sno), w_path=sidecar_wantrc_path(args.sno),
                              a_path=sidecar_argv_path(args.sno), modes=modes)
     FATAL_RENDER["voice"] = _fatal_render_voice_for(args.lang)
+    FATAL_RENDER["merged_voice"] = _merged_render_voice_for(args.lang)
     _masks = read_mask_sidecar(args.ref)
     if _masks:
         _seen = set()
@@ -4204,6 +4261,7 @@ def cmd_smoke(args):
     try:
         for key, s, suite, lang, ext, by_name, wanted, skipped_outside, ref in plans:
             FATAL_RENDER["voice"] = _fatal_render_voice_for(lang if lang in LANG_CONFIGS else "")
+            FATAL_RENDER["merged_voice"] = _merged_render_voice_for(lang if lang in LANG_CONFIGS else "")
             masks = read_mask_sidecar(str(ref))
             heap, _ = heap_declarations(str(suite))
             stack, _ = stack_declarations(str(suite))

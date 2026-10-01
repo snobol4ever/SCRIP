@@ -205,8 +205,11 @@ def read_contract(pkg_dir):
     package's OWN harness does to produce its refs, declared once with the package and read here, never typed by a runner.
     Admitted today: `stderr<TAB>merged` -- the package cut its refs as `prog < in > out 2>&1`, so the oracle's ref is stdout and
     stderr as one stream and every absorbed entry's ALL.csv stderr cell reads "merged" (corpus_suite_harness.py grades m3 and
-    m4 the same way). Absent file = stdout alone, as every package before the file existed. Any other key or value refuses."""
-    out = {"stderr": ""}
+    m4 the same way). And `units<TAB>ref-beside` -- the package's own harness grades a source only when a <stem>.ref sits beside
+    it (the Icon packages' boards), so a source without one (a library graded through its driver, a spliced include) is no unit
+    here either. Absent file = stdout alone and every source a unit, as every package before the file existed. Any other key or
+    value refuses."""
+    out = {"stderr": "", "units": ""}
     cf = pkg_dir / "CONTRACT.tsv"
     if not cf.is_file():
         return out
@@ -218,8 +221,10 @@ def read_contract(pkg_dir):
             h.refuse(f"{cf}:{n}: a contract row is key<TAB>value<TAB>evidence, and the evidence is not optional")
         if f[0] == "stderr" and f[1] == "merged":
             out["stderr"] = "merged"
+        elif f[0] == "units" and f[1] == "ref-beside":
+            out["units"] = "ref-beside"
         else:
-            h.refuse(f"{cf}:{n}: contract {f[0]!r}={f[1]!r} -- this builder admits stderr=merged only")
+            h.refuse(f"{cf}:{n}: contract {f[0]!r}={f[1]!r} -- this builder admits stderr=merged and units=ref-beside only")
     return out
 
 
@@ -233,6 +238,9 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     merged = contract["stderr"] == "merged"
     if merged:
         print("contract: stderr merged (CONTRACT.tsv) -- every ref is cut from stdout and stderr as one stream", file=sys.stderr)
+    ref_beside = contract["units"] == "ref-beside"
+    if ref_beside:
+        print("contract: units ref-beside (CONTRACT.tsv) -- a source is a unit only with its <stem>.ref beside it", file=sys.stderr)
     # ⭐ ONE LEVEL OF SUBDIRS, MATCHING THE TASK'S OWN DONE-WHEN EXACTLY (`find "$d" -maxdepth 2 ...`,
     # seat15 2026-09-04, measured on corpus/packages/prolog/gnu_prolog: all 62 shipped .pl files sit one
     # level down, in BipsPl/ and Pl2Wam/, zero directly in gnu_prolog/ itself -- a bare `pkg_dir.glob`
@@ -251,6 +259,11 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         # kind of collision THE RUNGS SUITE's CSV manifest exists to make queryable by name; a name that
         # means two different things defeats that).
         name = f"{src.parent.name}/{src.stem}" if src.parent != pkg_dir else src.stem
+        if ref_beside and not src.with_suffix(".ref").is_file():
+            excluded.append((name, f"no {src.stem}.ref beside it -- the package grades it through another unit (a library through its "
+                                   f"driver, an include through its includer) or not at all (CONTRACT.tsv units=ref-beside)"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (no .ref beside it, units=ref-beside)", file=sys.stderr)
+            continue
         text, non_utf8 = read_text_tolerant(src)
         if non_utf8:
             excluded.append((name, "source is not valid UTF-8 (genuine 8-bit content, e.g. accented bytes) -- "
@@ -260,6 +273,19 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                                         "itself grows byte-faithful output (shared machinery, out of this tool's lane)"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (non-UTF-8 8-bit source)", file=sys.stderr)
             continue
+        # ⛔ A PROGRAM THAT LINKS A MODULE SHIPPED BESIDE IT IS NOT ONE FILE (the coo 2026-10-01, measured on jcon_tests): the board
+        # builds it multi-file in both modes (`scrip --run link1.icn link2.icn`, test_icon_jcon_suite.sh), the one-step oracle
+        # driver takes one source, and a container entry is one file -- so cut in isolation its "ref" was the linker's complaint
+        # ("icont: cannot resolve reference to file 'link2.u1'"). Excluded and named until an entry can carry its modules.
+        if lang == "icon":
+            _mods = sorted({w for _ln in text.splitlines() for w in re.findall(r"[A-Za-z_][A-Za-z0-9_]*",
+                            (re.match(r"\s*link\s+(.*)$", _ln.split("#", 1)[0]) or [None, ""])[1])
+                            if (src.parent / f"{w}.icn").is_file() and w != src.stem})
+            if _mods:
+                excluded.append((name, f"links {', '.join(_mods)} shipped beside it -- the package's board builds it multi-file and a "
+                                       f"container entry is one file; graded by the board, not here"))
+                print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (links package-local {', '.join(_mods)})", file=sys.stderr)
+                continue
         gap, gap_dirs = find_include_gap(text, pkg_dir, src.parent)
         if gap:
             _where = ", ".join(str(d) for d in gap_dirs)
@@ -320,12 +346,30 @@ def build(pkg_dir, lang, out_prefix="ALL"):
             # the files beside it. Every regular file of the package's own directory is copied into the
             # throwaway cwd (a fresh copy per program, so the rename hazard the isolation exists for cannot
             # leak back), the container's own ALL.* excepted; the source itself is written last, verbatim.
-            for _cf in src.parent.iterdir():
-                if _cf.is_file() and not _cf.name.startswith("ALL.") and _cf.name != src.name:
-                    (Path(_iso_dir) / _cf.name).write_bytes(_cf.read_bytes())
+            if lang == "icon" and merged:
+                # ⛔ STAGED AS THE GRADER STAGES (the coo 2026-10-01, measured on jcon recent, which reports the files it finds:
+                # beside the whole package it printed "found file: recogn.dat", a line the shipped ref and the board's
+                # one-program run directory do not have). The ref and the grade must see the same directory, so this path
+                # stages through the harness's own _copy_companions plus the argv companions, as run_suite_entry does.
+                h._copy_companions(src.read_text(errors="replace"), src.parent, Path(_iso_dir))
+                for _tok in (prog_args or []):
+                    if _tok and "/" not in _tok and (src.parent / _tok).is_file() and not (Path(_iso_dir) / _tok).exists():
+                        (Path(_iso_dir) / _tok).write_bytes((src.parent / _tok).read_bytes())
+            else:
+                for _cf in src.parent.iterdir():
+                    if _cf.is_file() and not _cf.name.startswith("ALL.") and _cf.name != src.name:
+                        (Path(_iso_dir) / _cf.name).write_bytes(_cf.read_bytes())
             _iso_src.write_bytes(src.read_bytes())
-            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text, prog_args=prog_args, out_files=out_files,
-                                                      merge_stderr=merged)
+            if lang == "icon" and merged:
+                ora_text, ora_rc, ora_kind = h.run_icon_built_oracle(paths, _iso_src, paths["timeout"], stdin_text=stdin_text,
+                                                                     prog_args=prog_args, out_files=out_files)
+            else:
+                ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text,
+                                                          prog_args=prog_args, out_files=out_files, merge_stderr=merged)
+        if ora_kind == "TRANSLATE":
+            excluded.append((name, f"the oracle's translator refused it: {ora_text}"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle translation failed)", file=sys.stderr)
+            continue
         if ora_kind == "HANG":
             excluded.append((name, "oracle timed out -- non-terminating or too slow for the grading timeout"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle HANG)", file=sys.stderr)
