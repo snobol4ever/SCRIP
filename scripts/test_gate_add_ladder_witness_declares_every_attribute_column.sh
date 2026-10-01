@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_add_ladder_witness_declares_every_attribute_column.sh -- util_add_ladder_witness.py WRITES EVERY ATTRIBUTE COLUMN
 # (heap_kb, stack_kb, compile_args, run_args) on the ALL.csv row it adds (ceo CEO-1323, on hq_snocone's entry 1994 filled by
 # hand; RULES.md hard-cap rule clause 8 (f), Lon 2026-09-26: every test unit stores the command line its compile and run

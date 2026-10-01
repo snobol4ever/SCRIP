@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_gc_acceptance_never_prints_a_number_over_a_refusal.sh -- the coo, 2026-09-22, MODE DECTET.
 # RULES.md THE INSTRUMENT LAWS: an instrument that reports success while doing nothing is THE recurring failure;
 # a missing prerequisite is rc=2, never green.  util_gc_acceptance.py's own docstring says it of itself:

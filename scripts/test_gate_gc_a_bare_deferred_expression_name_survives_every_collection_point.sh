@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_gc_a_bare_deferred_expression_name_survives_every_collection_point.sh
 #   hq_snobol4 2026-09-20, row `snobol4-the-pattern-replacement-class-prints-a-wrong-answer-under-collection-
 #   and-changes-its-fingerprint-per-poll-set` (ceo CEO-979 GC-only, MODE TENET condition 1).

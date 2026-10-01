@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_rungs_banner_seq_is_position.sh — the invariant gate for `banner number == entry position`
 # in a language rungs, and for the two instruments that depend on it (hq_T 2026-09-13, on the cfo's
 # routed brief "the-sanctioned-add-a-witness-path-is-refusing-on-five-of-seven-masters").

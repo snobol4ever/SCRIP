@@ -2953,6 +2953,27 @@ case "$cmd" in
          # picker's refusal to dispatch, the hidden-criterion gate, the multiple-contracts scanner -- keeps working
          # with no second spelling of the rule anywhere.
          dw_block="DONE-WHEN: echo \"⛔ NOT MEASURED: this row was minted with no acceptance criterion. Replace this line with a command that MEASURES the GOAL above; until then the row is RED and can never close.\"; exit 1"
+         # ⛔⭐⭐ A ROW EXISTS ONLY WHILE A MEASUREMENT SAYS THE PROBLEM EXISTS (Lon 2026-10-01, in-chat to the ceo:
+         # "So get your findings=0 or whatever you need to get your act together and the fleet working real needed
+         # work."; CEO-1386; RULES.md § FACT RULES). A mint that supplies NO DONE-WHEN used to write the placeholder
+         # above and leave a row with no finish line; 80 such rows were live at the zero-base. Now it is REFUSED rc=2
+         # with nothing written: a Lon word is minted with its WITNESS as the criterion. The one sanctioned exception
+         # is a bus gate's fixture row, which names itself in S4E_MINT_NO_CRITERION; the baton carries the reason on
+         # a MINTED-WITHOUT-CRITERION: line and the sweep retires such a row on sight.
+         if ! printf '%s\n' "$goal" | grep -q '^DONE-WHEN:'; then
+             if [ -n "${S4E_MINT_NO_CRITERION:-}" ]; then
+                 dw_block="$dw_block
+MINTED-WITHOUT-CRITERION: ${S4E_MINT_NO_CRITERION} (S4E_MINT_NO_CRITERION; CEO-1386 -- the sweep retires this row unless a real DONE-WHEN replaces the placeholder)"
+             else
+                 printf '⛔ REFUSED: no DONE-WHEN was supplied -- a row exists only while a measurement says the problem exists (CEO-1386).\n' >&2
+                 printf '   Nothing was written: no QUEUE.tsv row, no baton. Mint again with the WITNESS as the criterion:\n' >&2
+                 printf '      DONE-WHEN: bash scripts/test_gate_<thing>.sh\n' >&2
+                 printf '      DONE-WHEN: out=$(./scrip w.sno 2>&1); [ "$out" = "want" ] || exit 1; echo PASS\n' >&2
+                 printf '   The failing program, the gate that reds, the SUITE TABLE row that is not 100%% -- never a sentence.\n' >&2
+                 printf '   (A bus gate minting a FIXTURE row sets S4E_MINT_NO_CRITERION="why"; the baton records it.)\n' >&2
+                 exit 2
+             fi
+         fi
          if printf '%s\n' "$goal" | grep -q '^DONE-WHEN:'; then
              dw_block="$(printf '%s\n' "$goal" | sed -n '/^DONE-WHEN:/,$p')"
              goal="$(printf '%s\n' "$goal" | sed '/^DONE-WHEN:/,$d')"

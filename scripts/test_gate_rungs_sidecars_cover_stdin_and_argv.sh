@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # scripts/test_gate_rungs_sidecars_cover_stdin_and_argv.sh -- EVERY RUNGS ENTRY THAT READS STDIN OR TAKES
 # ARGUMENTS DECLARES THEM IN A SIDECAR, AND THE NUMBER THAT DO NOT ONLY EVER GOES DOWN.
 # AUTHORS: Lon Jones Cherryholmes · Claude Opus 5   DATE: 2026-09-08

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_mint_op_is_one_numbering.sh -- THE DESCRIPTOR'S PROVENANCE BYTE IS ONE NUMBERING, IT IS CALLED
 # mint_op, AND THE ONLY THING THAT CAN OVERFLOW IT IS ASSERTED AT COMPILE TIME
 # (row mint-op-is-one-numbering-from-1-the-123-rt-ids-go-and-the-field-is-renamed, hq_R 2026-09-13,

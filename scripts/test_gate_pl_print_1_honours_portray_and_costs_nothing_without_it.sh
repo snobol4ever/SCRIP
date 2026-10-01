@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh
 # Row prolog-logtalk-write-term-print-and-write-canonical-family (hq_R, CEO-650); design approved by the
 # cto 2026-09-13: the LOWERER MINTS A WRAPPER CLAUSE and the existing goal dispatch finds it -- no new goal

@@ -103,23 +103,27 @@ arms() {   # arms <label> <script> -> 0 iff all seven contracts hold on <script>
         | FIX bash "$s" mint t-heredoc 5 --owner hq_T --stdin 2>&1)"; rc=$?
   if [ "$rc" != 0 ]; then echo "    ✗ t-heredoc: rc=$rc, expected 0 -- the encouraged multi-line witness shape was REFUSED:"; printf '%s\n' "$out" | head -3 | sed 's/^/        /'; ok=0
   elif [ ! -f "$PO/tasks/t-heredoc.task.md" ]; then echo "    ✗ t-heredoc: reported success but wrote no baton"; ok=0; fi
-  # ⛔ ARM 7: the no-DONE-WHEN path is UNCHANGED. This cure refuses a BAD criterion; it does not make
-  # supplying one mandatory. That is a separate ruling (see the row's ## QA), and a gate that quietly
-  # asserted the wider rule would land it without anyone having made it.
-  out="$(printf 'GOAL: fixture with no criterion at all.\n' | FIX bash "$s" mint t-none 5 --owner hq_T --stdin 2>&1)"; rc=$?
-  if [ "$rc" != 0 ]; then echo "    ✗ t-none: rc=$rc, expected 0 -- a mint supplying NO DONE-WHEN must still work"; ok=0
-  # ⛔⭐ THE PLACEHOLDER IS RUNNABLE AND ALWAYS RED SINCE 2026-09-17 (coo, ceo CEO-829): it used to be PROSE, which
-  # made every freshly minted row PERMANENTLY UNCLOSEABLE and red the whole fleet's `make test` for the sanctioned
-  # act of minting. This arm is STRONGER than the string match it replaces -- it runs what mint wrote and requires
-  # BOTH properties: it PARSES as shell (so the row is closeable once someone writes the real criterion) and it
-  # EXITS NON-ZERO (so `done` can never close a row still wearing it). A placeholder that exits 0 would be worse
-  # than the prose ever was.
-  elif ! _dw="$(sed -n 's/^DONE-WHEN: //p' "$PO/tasks/t-none.task.md" 2>/dev/null | head -1)" || [ -z "$_dw" ]; then
-      echo "    ✗ t-none: the placeholder baton was not written at all"; ok=0
+  # ⛔⭐ ARM 7 (rewritten 2026-10-01, CEO-1386 -- Lon: "a row exists only while a measurement says the problem exists"):
+  # a mint supplying NO DONE-WHEN is REFUSED rc=2 with nothing written. The old arm asserted the opposite (rc=0 and a
+  # placeholder baton); that ruling is RETIRED: 80 placeholder rows were live at the zero-base, none of them work.
+  out="$(printf 'GOAL: fixture with no criterion at all.\n' | S4E_MINT_NO_CRITERION= FIX bash "$s" mint t-none 5 --owner hq_T --stdin 2>&1)"; rc=$?
+  if [ "$rc" != 2 ]; then echo "    ✗ t-none: rc=$rc, expected 2 -- a mint supplying NO DONE-WHEN must be REFUSED (CEO-1386)"; ok=0
+  elif [ -f "$PO/tasks/t-none.task.md" ]; then echo "    ✗ t-none: REFUSED but wrote a baton anyway"; ok=0
+  elif [ "$(rowcount t-none)" != 0 ]; then echo "    ✗ t-none: REFUSED but appended a QUEUE.tsv row anyway"; ok=0
+  elif ! printf '%s' "$out" | grep -q 'DONE-WHEN'; then echo "    ✗ t-none: refused but never names DONE-WHEN, so the author cannot tell what to fix"; ok=0; fi
+  # ⭐ ARM 8: the ONE sanctioned exception -- a bus gate's FIXTURE row names itself in S4E_MINT_NO_CRITERION. The mint
+  # then writes the placeholder (which must PARSE as shell and EXIT NON-ZERO, so the row is closeable once a real
+  # criterion replaces it and can never close while wearing it) and a MINTED-WITHOUT-CRITERION: line naming the reason.
+  out="$(printf 'GOAL: fixture with no criterion, named as such.\n' | S4E_MINT_NO_CRITERION="gate fixture" FIX bash "$s" mint t-fixture 5 --owner hq_T --stdin 2>&1)"; rc=$?
+  if [ "$rc" != 0 ]; then echo "    ✗ t-fixture: rc=$rc, expected 0 -- a named fixture mint must still work:"; printf '%s\n' "$out" | head -3 | sed 's/^/        /'; ok=0
+  elif ! _dw="$(sed -n 's/^DONE-WHEN: //p' "$PO/tasks/t-fixture.task.md" 2>/dev/null | head -1)" || [ -z "$_dw" ]; then
+      echo "    ✗ t-fixture: the placeholder baton was not written at all"; ok=0
   elif ! bash -n -c "$_dw" 2>/dev/null; then
-      echo "    ✗ t-none: mint's placeholder does not PARSE as shell -- a fresh row would be permanently uncloseable: $_dw"; ok=0
+      echo "    ✗ t-fixture: mint's placeholder does not PARSE as shell -- a fresh row would be permanently uncloseable: $_dw"; ok=0
   elif bash -c "$_dw" >/dev/null 2>&1; then
-      echo "    ✗ t-none: mint's placeholder EXITS 0 -- a fresh row would close VACUOUSLY, worse than the prose it replaced: $_dw"; ok=0
+      echo "    ✗ t-fixture: mint's placeholder EXITS 0 -- a fresh row would close VACUOUSLY, worse than the prose it replaced: $_dw"; ok=0
+  elif ! grep -q '^MINTED-WITHOUT-CRITERION: gate fixture' "$PO/tasks/t-fixture.task.md"; then
+      echo "    ✗ t-fixture: the baton does not record WHY it was minted without a criterion"; ok=0
   fi
   [ "$ok" = 1 ]; }
 
@@ -149,7 +153,16 @@ refuses "$MUT" t-noop  'true'                                                   
 refuses "$MUT" t-stub  'echo "⛔ no computable DONE-WHEN yet — write one"; false' >/dev/null 2>&1 || MUT_RED=$((MUT_RED+1))
 if [ "$MUT_RED" = 3 ]; then echo "    ✓ mutant red on all 3 refusal arms -- the guard is load-bearing"
 else echo "    ✗ mutant stayed green on $((3-MUT_RED)) of 3 refusal arms -- this gate cannot tell the cure from its absence"; RC=1; fi
+MUT2="$MUTD/s4e_msg_nocrit.sh"
+sed "s/^\( *\)if ! printf '%s\\\\n' \"\$goal\" | grep -q '^DONE-WHEN:'; then/\1if false; then/" "$MSG" > "$MUT2"
+if ! bash -n "$MUT2" 2>/dev/null; then echo "⛔ REFUSED(2): the no-criterion mutant does not parse -- the sed no longer matches the call site"; exit 2; fi
+if cmp -s "$MSG" "$MUT2"; then echo "⛔ REFUSED(2): the no-criterion mutant is byte-identical to the real script -- the guard moved and ARM 7 would pass vacuously"; exit 2; fi
+echo "  -- MUTANT 2 (the missing-criterion refusal unwired; ARM 7 MUST go red)"
+mk_po || exit 2
+out="$(printf 'GOAL: fixture with no criterion at all.\n' | S4E_MINT_NO_CRITERION= FIX bash "$MUT2" mint t-none 5 --owner hq_T --stdin 2>&1)"; rc=$?
+if [ "$rc" = 2 ]; then echo "    ✗ mutant 2 still refused the no-criterion mint -- ARM 7 cannot tell the cure from its absence"; RC=1
+else echo "    ✓ mutant 2 accepted the no-criterion mint (rc=$rc) -- the CEO-1386 guard is load-bearing"; fi
 echo ""
-if [ "$RC" = 0 ]; then echo "✅ GATE PASS [mint_refuses_a_prose_donewhen]: mint refuses prose, true and the self-refusing stub (rc=2, nothing written); mints real, heredoc, unresolvable-word and no-criterion rows unchanged; mutant reds"
+if [ "$RC" = 0 ]; then echo "✅ GATE PASS [mint_refuses_a_prose_donewhen]: mint refuses prose, true, the self-refusing stub AND a missing criterion (rc=2, nothing written); mints real, heredoc, unresolvable-word and no-criterion rows unchanged; mutant reds"
 else echo "⛔ GATE FAIL [mint_refuses_a_prose_donewhen]: see the arms above"; fi
 exit $RC

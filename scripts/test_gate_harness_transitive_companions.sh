@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_harness_transitive_companions.sh -- THE ACCEPTANCE GATE for row
 # harness-copies-companions-to-closure-not-just-the-first-level (hq_T -> seat06, 2026-09-05,
 # minted on seat06's own FINDING-2026-09-04-seat06-corpus-suite-harness-transitive-include-

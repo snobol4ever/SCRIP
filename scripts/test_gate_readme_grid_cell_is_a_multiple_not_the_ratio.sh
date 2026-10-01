@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus, not work (CEO-1386)"
 # test_gate_readme_grid_cell_is_a_multiple_not_the_ratio.sh -- A PUBLISHED GRID CELL IS THE MULTIPLE ITS CITED TSV GIVES, NEVER
 # THE TSV's SELF-AGREEMENT RATIO (coo 2026-09-16; cfo's mint from hq_pascal's measurement; row perf-a-published-grid-cell-must-
 # come-from-the-grid-printer-a-gate-reads-each-cited-tsv-and-refuses-a-cell-equal-to-the-ratio-field-not-the-multiple).
