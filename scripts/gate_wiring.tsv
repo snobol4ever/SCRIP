@@ -745,6 +745,7 @@ test_gate_sno_setexit_resume_matches_oracle.sh	WIRED	-	-	-
 test_gate_sno_sort_and_rsort_answer_as_spitbol_does.sh	WIRED	-	-	-
 test_gate_sno_statement_mark_mode_releases_the_hook_residue_before_the_statement.sh	WIRED	-	-	-
 test_gate_sno_stcount_counts_statements_inside_code_fragments.sh	WIRED	-	-	-
+test_gate_sno_stored_pattern_alternation_capture_keeps_its_start.sh	WIRED	-	-	-
 test_gate_sno_stored_pattern_first_guard_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_subscripted_replacement_does_not_leak_the_spine.sh	WIRED	-	-	-
 test_gate_sno_substr_indexes_bytes_as_the_pattern_cursor_does.sh	WIRED	-	-	-
