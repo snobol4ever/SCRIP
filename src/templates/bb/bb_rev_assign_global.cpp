@@ -16,11 +16,12 @@ RevKwSubjRegs_t rt_keyword_subject_set_strict(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define RAG_BAD() (!(_.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0))
+#define RAG_KW() ((_.op_sval && !strcmp(_.op_sval, "&pos")) || (_.op_sval && !strcmp(_.op_sval, "&subject")))
 std::string bb_rev_assign_global() {
-    if (!(_.op_a_slot >= 0 && _.op_sc >= 0 && _.op_off >= 0))
-        return x86_alpha() + x86_bomb("bb_rev_assign_global: g<-v needs rhs slot + save slot + own slot");
-    if ((_.op_sval && !strcmp(_.op_sval, "&pos")) || (_.op_sval && !strcmp(_.op_sval, "&subject"))) {
-        return x86("comment", "IR_REV_ASSIGN &pos/&subject <- v: the keyword is set through its setter (the cursor and subject registers follow, an out-of-range &pos fails) and restored on recede")
+    return IF(RAG_BAD(), x86_alpha() + x86_bomb("bb_rev_assign_global: g<-v needs rhs slot + save slot + own slot"))
+         + IF(!RAG_BAD() && RAG_KW(),
+               x86("comment", "IR_REV_ASSIGN &pos/&subject <- v: the keyword is set through its setter (the cursor and subject registers follow, an out-of-range &pos fails) and restored on recede")
              + x86_alpha()
              + IF((_.op_sval && !strcmp(_.op_sval, "&pos")), x86("mov", FRQ(_.op_sc), (long)DT_I)
                       + x86("mov", "rax", "r14")
@@ -73,9 +74,9 @@ std::string bb_rev_assign_global() {
              + IF((_.op_sval && !strcmp(_.op_sval, "&subject")), x86("def", L(0))
                        + x86(".quad", LS(0), _.op_sval)
                        + x86("label", LS(0))
-                       + x86(".string", _.op_sval));
-    }
-    return IF(g_gva_active && _.op_gva_k >= 0,
+                       + x86(".string", _.op_sval)))
+         + IF(!RAG_BAD() && !RAG_KW(),
+               IF(g_gva_active && _.op_gva_k >= 0,
               x86("comment", "IR_REV_ASSIGN g<-v gva: save the global into the frame save slot, store the rhs, restore on recede")
             + x86_alpha()
             + x86("note", gva_name(_.op_gva_k))
@@ -133,5 +134,5 @@ std::string bb_rev_assign_global() {
             + x86("def", L(0))
             + x86(".quad", LS(0), _.op_sval)
             + x86("label", LS(0))
-            + x86(".string", _.op_sval));
+            + x86(".string", _.op_sval)));
 }
