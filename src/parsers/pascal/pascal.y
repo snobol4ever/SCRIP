@@ -424,6 +424,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         tree_e op = !strcmp(name, "inc") ? TT_ADD : TT_SUB;
         return mk_assign(v, bin(op, pas_tree_clone(v), delta));
     }
+    if (name && !strcmp(name, "setlength") && args && args->count >= 4) {
+        tree_t *v = args->items[0]; tree_t *n = args->items[2];
+        return mk_assign(v, mk_fnc2("__pas_setlength", pas_tree_clone(v), n));
+    }
     if (name && (!strcmp(name, "low") || !strcmp(name, "high")) && args && args->count >= 1) {
         tree_t *v = args->items[0];
         long long hi;

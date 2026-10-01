@@ -4499,6 +4499,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) {
         *out = pas_chars_of(args[0], IS_INT_fn(args[1]) ? (long)args[1].i : 0); return 1;
     }
+    if (!strcmp(fn, "__pas_setlength") && nargs == 2) {
+        const char *s = VARVAL_fn(args[0]); if (!s) s = "";
+        long oldlen = (long)strlen(s);
+        long newlen = IS_INT_fn(args[1]) ? (long)args[1].i : 0; if (newlen < 0) newlen = 0;
+        long copy = oldlen < newlen ? oldlen : newlen;
+        char *o = rt_wsb_alloc((size_t)newlen + 1);
+        if (copy > 0) memcpy(o, s, (size_t)copy);
+        if (newlen > copy) memset(o + copy, ' ', (size_t)(newlen - copy));
+        o[newlen] = '\0';
+        *out = STRVAL(o); return 1;
+    }
     if (!strcmp(fn, "__pas_strcmp") && nargs == 2) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
         const char *sb = VARVAL_fn(args[1]); if (!sb) sb = "";
