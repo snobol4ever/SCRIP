@@ -26,7 +26,7 @@ for pl in "$B"/*.pl; do
   # Capture via REDIRECT-TO-TEMP (not command-substitution): a shell pipe `$(...)` can truncate bursty multi-KB asm
   # under load — the documented transient empty-emit. Redirecting straight to a file is the robust sibling pattern
   # (util_regen_benchmark/feature/demo all do this) and removes the flap at the source.
-  timeout 30 "$SCRIP" --compile --target=x86 "$pl" </dev/null >"$tmp" 2>"$TMPD/cerr"; rc=$?
+  (cd "$B" && timeout 30 "$SCRIP" --compile --target=x86 "$base.pl" </dev/null >"$tmp" 2>"$TMPD/cerr"); rc=$?   # from the bench dir by bare name: the .file directive stays "zebra.pl", never this seat's root (a second seat's regen would churn every file)
   if grep -qE '^\s*\.(intel_syntax|text|globl)' "$tmp"; then
     emitted=$((emitted+1))
     if as --64 -o /dev/null "$tmp" 2>"$TMPD/aserr"; then
