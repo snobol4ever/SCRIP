@@ -479,17 +479,22 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "addr") && args && args->count >= 1) return pas_addr_of_proc(args->items[0]);
     if (name && !strcmp(name, "fillchar") && args && args->count >= 5) {
         tree_t *dst = args->items[0]; tree_t *val = args->items[4];
-        if (dst && dst->t == TT_VAR && dst->v.sval) {
-            long long fhi;
-            if (pas_array_high_get(dst->v.sval, &fhi)) {
-                long long flo = pas_array_low(dst->v.sval);
-                static int _fcn = 0; char _fcb[24]; snprintf(_fcb, sizeof _fcb, "__pas_fc%d", _fcn++); const char *_fcv = ct_strdup(_fcb);
-                tree_t *fidx = ast_node_new(TT_IDX); ast_push(fidx, leaf_s(TT_VAR, dst->v.sval)); ast_push(fidx, leaf_s(TT_VAR, _fcv));
-                tree_t *fbody = mk_assign(fidx, val);
-                tree_t *floop = ast_node_new(TT_FOR); ast_push(floop, leaf_s(TT_VAR, _fcv)); ast_push(floop, ilit(flo)); ast_push(floop, ilit(fhi));
-                ast_push(floop, fbody);
-                return floop;
-            }
+        long long fhi = -1, flo = 0; tree_t *fdst = NULL;
+        if (dst && dst->t == TT_VAR && dst->v.sval && pas_array_high_get(dst->v.sval, &fhi)) {
+            flo = pas_array_low(dst->v.sval);
+            fdst = leaf_s(TT_VAR, dst->v.sval);
+        } else if (dst && dst->t == TT_FNC && dst->n >= 2 && dst->c[0] && dst->c[0]->v.sval && !strcmp(dst->c[0]->v.sval, "__pas_deref")) {
+            const char *ptn = pas_ptrexpr_target(dst->c[1]);
+            long long phi = ptn ? pas_arrtype_high(ptn) : -1;
+            if (phi >= 0) { fhi = phi; flo = pas_arrtype_lo(ptn); fdst = mk_deref(pas_tree_clone(dst->c[1])); }
+        }
+        if (fdst) {
+            static int _fcn = 0; char _fcb[24]; snprintf(_fcb, sizeof _fcb, "__pas_fc%d", _fcn++); const char *_fcv = ct_strdup(_fcb);
+            tree_t *fidx = ast_node_new(TT_IDX); ast_push(fidx, fdst); ast_push(fidx, leaf_s(TT_VAR, _fcv));
+            tree_t *fbody = mk_assign(fidx, val);
+            tree_t *floop = ast_node_new(TT_FOR); ast_push(floop, leaf_s(TT_VAR, _fcv)); ast_push(floop, ilit(flo)); ast_push(floop, ilit(fhi));
+            ast_push(floop, fbody);
+            return floop;
         }
     }
     if (name && !strcmp(name, "trunc") && args && args->count >= 1) return mk_fnc2("__pas_trunc", args->items[0], ilit(1));

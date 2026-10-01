@@ -457,6 +457,7 @@ test_gate_pas_declared_locals_get_frame_slots.sh	WIRED	-	-	-
 test_gate_pas_eoln_needs_a_defined_file_not_at_its_end.sh	WIRED	-	-	-
 test_gate_pas_every_identifier_has_a_defining_point.sh	WIRED	-	-	-
 test_gate_pas_exit_leaves_the_routine_it_names.sh	WIRED	-	-	-
+test_gate_pas_fillchar_of_a_dereferenced_pointer_array_fills_the_pointee_bounds.sh	WIRED	-	-	-
 test_gate_pas_five_or_more_parameters_arrive.sh	WIRED	-	-	-
 test_gate_pas_heap_table_is_a_movable_root.sh	WIRED	-	-	-
 test_gate_pas_inline_record_char_fields_print_as_chars.sh	WIRED	-	-	-
