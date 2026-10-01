@@ -31,6 +31,7 @@ printf "        OUTPUT = INPUT\n        OUTPUT = INPUT\nEND\nfirst line after en
 printf "        TERMINAL = 'to terminal'\n        OUTPUT = 'to output'\nEND\n" > t.sno
 printf "        INPUT(.IN, 1)                          :F(ERR)\n        OUTPUT = 'read: ' IN\nEND\nERR     OUTPUT = 'channel 1 did not open'\nEND\n" > c.sno
 printf "channel one text\n" > chan1.txt
+printf -- "-LIST\n        OUTPUT = 'ran'\nEND\n" > list.sno
 fails=0; arms=0
 pair() {   # $1 label, $2 sbl switches, $3 scrip switches, $4 file
     arms=$((arms+1))
@@ -56,7 +57,25 @@ refused() {   # $1 label, $2 switch, $3 word the reason must carry
 refused "-F case folding" "-F" "case"
 refused "-y save file" "-y" "save"
 refused "-k run with errors" "-k" "compilation error"
-for sw in -c -a -l -p -z -g60 -t80 -h -e -o=l.lst; do refused "$sw listing/statistics" "$sw" "listing"; done
+for sw in -c -a -l -p -z -g60 -t80 -h -e; do refused "$sw listing/statistics" "$sw" "listing"; done
+# ⭐ aac5d0f5d made -o=file the -LIST SINK, not a refusal (CEO-1389 (2)) -- m3 takes it as a driver switch (it
+# setenv's SCRIP_SNO_LIST_SINK and parses the program in the same process); a standalone m4 binary has no such
+# switch parsing of its own, so the SAME env var goes straight to its environment instead (test_snoflake_suite.sh's
+# own fix uses this exact split). Both must land the listing in the file and keep stdout to just the program's OUTPUT.
+arms=$((arms+1)); o3=$("$C" --run -o=list3.lst list.sno < /dev/null 2>/dev/null); r3=$?
+if [ "$r3" = 0 ] && [ "$o3" = "ran" ] && [ -s list3.lst ] && grep -q "macro spitbol version" list3.lst; then
+    echo "  ok   -o=file under -LIST (m3): listing sunk to file, stdout clean"
+else
+    echo "  FAIL -o=file under -LIST (m3): rc=$r3 stdout='$o3' sink=$([ -s list3.lst ] && echo present || echo MISSING-OR-EMPTY)"; fails=$((fails+1))
+fi
+arms=$((arms+1))
+"$C" --compile -o list4.s list.sno < /dev/null > /dev/null 2>&1 && gcc -no-pie -o list4.bin list4.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" 2>/dev/null
+o4=$(SCRIP_SNO_LIST_SINK="$d/list4.lst" ./list4.bin < /dev/null 2>/dev/null); r4=$?
+if [ "$r4" = 0 ] && [ "$o4" = "ran" ] && [ -s "$d/list4.lst" ] && grep -q "macro spitbol version" "$d/list4.lst"; then
+    echo "  ok   SCRIP_SNO_LIST_SINK under -LIST (m4): listing sunk to file, stdout clean"
+else
+    echo "  FAIL SCRIP_SNO_LIST_SINK under -LIST (m4): rc=$r4 stdout='$o4' sink=$([ -s "$d/list4.lst" ] && echo present || echo MISSING-OR-EMPTY)"; fails=$((fails+1))
+fi
 arms=$((arms+1)); acc=; for a in -d64m -i1m -m16m -s4m -x "-T=tt.txt" "-1=c1.txt" "-u x" -n -r -b -f; do "$C" $a n.sno < /dev/null > /dev/null 2> acc.err; grep -q "cannot open '-" acc.err && acc="$acc $a"; done
 if [ -z "$acc" ]; then echo "  ok   no sbl -h switch is read as a file name"; else echo "  FAIL read as a file name:$acc"; fails=$((fails+1)); fi
 arms=$((arms+1)); "$C" -Q n.sno < /dev/null > /dev/null 2> q.err; if grep -q "cannot open '-Q'" q.err; then echo "  ok   negative control: an invented switch (-Q) still shows the file-name shape this gate forbids for real ones"; else echo "  FAIL negative control: -Q did not take the file-name path ($(head -c 100 q.err))"; fails=$((fails+1)); fi
