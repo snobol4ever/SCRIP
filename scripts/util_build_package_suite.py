@@ -273,19 +273,11 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                                         "itself grows byte-faithful output (shared machinery, out of this tool's lane)"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (non-UTF-8 8-bit source)", file=sys.stderr)
             continue
-        # ⛔ A PROGRAM THAT LINKS A MODULE SHIPPED BESIDE IT IS NOT ONE FILE (the coo 2026-10-01, measured on jcon_tests): the board
-        # builds it multi-file in both modes (`scrip --run link1.icn link2.icn`, test_icon_jcon_suite.sh), the one-step oracle
-        # driver takes one source, and a container entry is one file -- so cut in isolation its "ref" was the linker's complaint
-        # ("icont: cannot resolve reference to file 'link2.u1'"). Excluded and named until an entry can carry its modules.
-        if lang == "icon":
-            _mods = sorted({w for _ln in text.splitlines() for w in re.findall(r"[A-Za-z_][A-Za-z0-9_]*",
-                            (re.match(r"\s*link\s+(.*)$", _ln.split("#", 1)[0]) or [None, ""])[1])
-                            if (src.parent / f"{w}.icn").is_file() and w != src.stem})
-            if _mods:
-                excluded.append((name, f"links {', '.join(_mods)} shipped beside it -- the package's board builds it multi-file and a "
-                                       f"container entry is one file; graded by the board, not here"))
-                print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (links package-local {', '.join(_mods)})", file=sys.stderr)
-                continue
+        # ⛔ A PROGRAM THAT LINKS A MODULE SHIPPED BESIDE IT IS DECIDED BY THE ORACLE'S OWN TRANSLATOR, NEVER BY A SIBLING FILE'S NAME (the
+        # coo 2026-10-01, measured on arizona_tests): icont links ucode, never an untranslated .icn beside the program, so Arizona's
+        # `link options` / `link io` mean the IPL library even where general/options.icn is shipped -- a name test excluded 31 such
+        # programs the oracle builds single-file. A genuinely local link (jcon link1 -> link2, the three drivers) fails the
+        # two-step oracle's icont ("cannot resolve reference to file 'link2.u1'") and is excluded below as a translation failure.
         gap, gap_dirs = find_include_gap(text, pkg_dir, src.parent)
         if gap:
             _where = ", ".join(str(d) for d in gap_dirs)

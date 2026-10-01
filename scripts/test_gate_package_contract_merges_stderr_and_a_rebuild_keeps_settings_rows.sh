@@ -23,7 +23,9 @@
 # AND A SCRATCH ICON PACKAGE (CONTRACT.tsv stderr=merged, units=ref-beside; the oracle icont/iconx, two-step as upstream's harness):
 #   7  the builder's refs: T (a run-time error) is iconx's merged report with its traceback; W (an undeclared identifier) is its
 #      output alone, no translator warning (the one-step icon driver prints one, 17 of 78 jcon refs); L, which links M shipped
-#      beside it, and M, which has no M.ref, are excluded and named
+#      beside it, is excluded by the oracle's translator (icont cannot resolve M.u1) and M, which has no M.ref, by units; O,
+#      which links the IPL's options with an options.icn shipped beside it, is ABSORBED (icont links ucode, never the sibling
+#      .icn: Arizona's shape, 31 programs a sibling-name rule wrongly excluded)
 #   8  m3 and m4 grade T and W PASS -- T through the Icon equivalence list, as test_icon_jcon_suite.sh renders its capture
 #   9  with the render off (S4E_FATAL_RENDER=0) T reads FAIL in m3 -- the render, not a loose ref, is what passes it
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle).
@@ -102,17 +104,23 @@ printf '%s\n' 'procedure main();' '   write("before");' '   foo(2);' 'end' 'proc
 printf '%s\n' 'procedure main();' '   x := 3;' '   write("x=", x);' 'end' > "$I/W.icn"
 printf '%s\n' 'link M' 'procedure main();' '   write(m());' 'end' > "$I/L.icn"
 printf '%s\n' 'procedure m();' '   return "from M";' 'end' > "$I/M.icn"
+printf '%s\n' 'link options' 'procedure main();' '   write("ok");' 'end' > "$I/O.icn"; printf 'ok\n' > "$I/O.ref"
+printf '%s\n' 'procedure options();' 'end' > "$I/options.icn"
 printf '%s\n' 'before' '' 'Run-time error 201' 'File T.icn; Line 6' 'division by zero' 'Traceback:' 'main()' 'foo(2) from line 3 in T.icn' \
     'foo(1) from line 7 in T.icn' 'foo(0) from line 7 in T.icn' '{1 / 0} from line 6 in T.icn' > "$I/T.ref"
 printf 'x=3\n' > "$I/W.ref"; printf 'from M\n' > "$I/L.ref"
 printf '%s\n' "stderr	merged	the fixture's own harness runs ./prog <in >out 2>&1" "units	ref-beside	the fixture grades a source with a .ref beside it" > "$I/CONTRACT.tsv"
 ( cd "$ROOT" && python3 scripts/util_build_package_suite.py "$I" --lang icon > "$T/ibuild.log" 2>&1 ) || refuse "the builder did not build the scratch Icon package: $(tail -3 "$T/ibuild.log" | tr '\n' '|')"
 iref() { awk -v e="$1" '$0 ~ "^#-+ [0-9]+ "e"$" {f=1; next} /^#-+ [0-9]+ /{f=0} f' "$I/ALL.ref"; }
-ex_l="$(grep -c '^L: links M shipped beside it' "$I/ALL.excluded.txt" 2>/dev/null)"; ex_m="$(grep -c '^M: no M.ref beside it' "$I/ALL.excluded.txt" 2>/dev/null)"
-arm "the Icon refs: T is iconx's merged report, W carries no translator warning, L (links M) and M (no ref) are excluded" "$([ "$(iref T)" = "$(cat "$I/T.ref")" ] && [ "$(iref W)" = 'x=3' ] && [ "$ex_l" = 1 ] && [ "$ex_m" = 1 ] && echo ok || echo "T [$(iref T | tr '\n' '|')] W [$(iref W | tr '\n' '|')] L-excluded=$ex_l M-excluded=$ex_m")"
-irun() { ( cd "$ROOT" && python3 scripts/corpus_suite_harness.py run "$I/ALL.icn" "$I/ALL.ref" --lang icon --modes "$1" 2>&1 ) }
+ex_l="$(grep -c "^L: the oracle's translator refused it: icont: cannot resolve reference to file 'M.u1'" "$I/ALL.excluded.txt" 2>/dev/null)"; ex_m="$(grep -c '^M: no M.ref beside it' "$I/ALL.excluded.txt" 2>/dev/null)"
+arm "the Icon refs: T is iconx's merged report, W carries no translator warning, O (links the IPL beside a sibling) absorbed, L (local link, the translator) and M (no ref) excluded" "$([ "$(iref T)" = "$(cat "$I/T.ref")" ] && [ "$(iref W)" = 'x=3' ] && [ "$(iref O)" = 'ok' ] && [ "$ex_l" = 1 ] && [ "$ex_m" = 1 ] && echo ok || echo "T [$(iref T | tr '\n' '|')] W [$(iref W | tr '\n' '|')] O [$(iref O | tr '\n' '|')] L-excluded=$ex_l M-excluded=$ex_m")"
+# O links the IPL's options: SCRIP finds the IPL beside its own binary (../corpus/packages/icon/ipl/procs), which a scratch worktree
+# does not have, so the fixture names it on IPATH from the seat root -- the same library either way.
+IPL_PROCS="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}/corpus/packages/icon/ipl/procs"
+[ -f "$IPL_PROCS/options.icn" ] || refuse "no IPL options.icn at $IPL_PROCS -- O cannot link"
+irun() { ( cd "$ROOT" && IPATH="$IPL_PROCS" python3 scripts/corpus_suite_harness.py run "$I/ALL.icn" "$I/ALL.ref" --lang icon --modes "$1" 2>&1 ) }
 I3="$(S4E_PROGRESS_OFF=1 irun m3)"; I4="$(S4E_PROGRESS_OFF=1 irun m4)"
-arm "m3 and m4 grade T (through the Icon equivalence list) and W PASS" "$([ "$(verdict "$I3" m3 T)" = green ] && [ "$(verdict "$I4" m4 T)" = green ] && printf '%s\n' "$I3" | grep -q 'm3_pass=2 ' && printf '%s\n' "$I4" | grep -q 'm4_pass=2 ' && echo ok || echo "$(printf '%s\n%s\n' "$I3" "$I4" | grep -E '^  FAIL|SUITE_BOARD' | cut -c1-160 | tr '\n' '|')")"
+arm "m3 and m4 grade T (through the Icon equivalence list), W and O PASS" "$([ "$(verdict "$I3" m3 T)" = green ] && [ "$(verdict "$I4" m4 T)" = green ] && printf '%s\n' "$I3" | grep -q 'm3_pass=3 ' && printf '%s\n' "$I4" | grep -q 'm4_pass=3 ' && echo ok || echo "$(printf '%s\n%s\n' "$I3" "$I4" | grep -E '^  FAIL|SUITE_BOARD' | cut -c1-160 | tr '\n' '|')")"
 I3b="$(S4E_PROGRESS_OFF=1 S4E_FATAL_RENDER=0 irun m3)"
 arm "with the render off, T reads FAIL in m3" "$([ "$(verdict "$I3b" m3 T)" = red ] && echo ok || echo "m3 read $(verdict "$I3b" m3 T)")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
