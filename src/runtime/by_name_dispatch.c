@@ -5092,16 +5092,17 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         char scratch0[64];
         const char *cs0 = to_cstring(args[0], scratch0, sizeof scratch0); if (!cs0) cs0 = "";
         if (rk_a_empty1(cs0)) { *out = STRVAL(rt_heap_strdup_c(cs0)); return 1; }
-        const char *els[64];
-        size_t lens[64];
-        int nel = 0, cap = 64;
         size_t cs0_len = strlen(cs0);
+        int cap = 1; for (size_t i = 0; i < cs0_len; i++) if (cs0[i] == SOH) cap++;
+        const char *els[cap];
+        size_t lens[cap];
+        int nel = 0;
         char seg_store[cs0_len + 1];
         size_t sp = 0;
         const char *seg = cs0;
         while (*cs0) {
             const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-            if (nel < cap) { char *cp = seg_store + sp; memcpy(cp, seg, L); cp[L] = '\0'; sp += L + 1; els[nel] = cp; lens[nel] = L; nel++; }
+            char *cp = seg_store + sp; memcpy(cp, seg, L); cp[L] = '\0'; sp += L + 1; els[nel] = cp; lens[nel] = L; nel++;
             if (!nx) break;
             seg = nx + 1;
         }
