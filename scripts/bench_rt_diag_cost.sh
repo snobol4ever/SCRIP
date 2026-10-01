@@ -8,7 +8,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off (Lon 2026-09-25
 # "turn off all diagnostic code for benchmarks", is read by CEO-1390 as: the shipped library carries no diagnostic code that costs
 # instructions while the diagnostic is off. The bars keep grading the shipped library, which is the point of this arm.
 #
-# THE ARM. treebank x1024 in mode 4 (-d512m -i1m -s256m, the speed row's own demo and switches), ONE binary run twice: once against
+# THE ARM. treebank x1024 in mode 4 (the sizes the unit declares in fixtures/rt_diag_cost/treebank_x1024.heap and .stack: 131072 KB heap, 8192 KB stack -- the x1024 input overflows treebank's own 4096 KB stack, measured twice at 4096 and 8192), ONE binary run twice: once against
 # the shipped out/libscrip_rt.so, once against the same tree built with RT_OPT plus -DRT_DIAG=0. The second is built in THIS
 # checkout under its own RT_TAG (out/libscrip_rt-<tag>.so, objects cached under out/rt_pic-<tag>), the way the auditor gate builds
 # its knob-on library. It compiles exactly the sources of the shipped one with one define added, so it is "the same tree" and costs
@@ -52,7 +52,9 @@ D="$S4E/corpus/demos/snobol4/treebank"; P="$D/treebank.sno"; IN="$D/treebank.inp
 : > "$T/in"; for ((i = 0; i < 1024; i++)); do cat "$IN" >> "$T/in"; done
 "$ROOT/scrip" --compile -o "$T/d.s" "$P" < /dev/null 2> "$T/cc.err" && gcc "$T/d.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/d.prog" 2>> "$T/cc.err" || { head -3 "$T/cc.err"; refuse "treebank did not build in mode 4"; }
 mkdir -p "$T/ship" "$T/d0"; ln -s "$SHIP" "$T/ship/libscrip_rt.so"; ln -s "$D0LIB" "$T/d0/libscrip_rt.so"
-run() { ( cd "$S4E/corpus/include" && ulimit -s 262144 && LD_LIBRARY_PATH="$T/$1" "$PERF" stat -x, -e instructions:u -o "$T/$1.stat" "$T/d.prog" -d512m -i1m -s256m < "$T/in" > "$T/$1.out" 2> /dev/null ) || return 1
+. "$HERE/lib_declared_arena.sh" || refuse "no lib_declared_arena.sh"
+SW="$(declared_switches_beside "$HERE/fixtures/rt_diag_cost/treebank_x1024.sno")" || refuse "the treebank x1024 unit's .heap/.stack sidecars are refused"; [ -n "$SW" ] || refuse "the treebank x1024 unit declares no size (fixtures/rt_diag_cost/treebank_x1024.heap/.stack)"
+run() { ( cd "$S4E/corpus/include" && LD_LIBRARY_PATH="$T/$1" "$PERF" stat -x, -e instructions:u -o "$T/$1.stat" "$T/d.prog" $SW < "$T/in" > "$T/$1.out" 2> /dev/null ) || return 1
         grep -E ',instructions' "$T/$1.stat" | head -1 | cut -d, -f1; }
 s=$(run ship) || refuse "the shipped run failed"; d=$(run d0) || refuse "the -DRT_DIAG=0 run failed"
 case "$s$d" in ''|*[!0-9]*) refuse "perf printed no instruction count (shipped='$s' scouting='$d')";; esac
