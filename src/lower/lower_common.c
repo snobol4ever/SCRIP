@@ -107,7 +107,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
     double rd = IS_REAL_fn(rv) ? rv.r : (double)(IS_INT_fn(rv) ? rv.i : 0);
     long   li = IS_INT_fn(lv) ? lv.i : (long)lv.r;
     long   ri = IS_INT_fn(rv) ? rv.i : (long)rv.r;
-    DESCR_t real_result;
+    DESCR_t real_result = {0};
     switch (op) {
         case BINOP_ADD: if (either_real) { real_result.v=DT_R; real_result.r=ld+rd; return real_result; } return INTVAL(li + ri);
         case BINOP_SUB: if (either_real) { real_result.v=DT_R; real_result.r=ld-rd; return real_result; } return INTVAL(li - ri);
@@ -135,7 +135,7 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             size_t rl = rs_d.slen > 0 ? (size_t)rs_d.slen : strlen(rs);
             char *buf = rt_wsb_alloc(ll + rl + 1);
             memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
-            { DESCR_t r2; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
+            { DESCR_t r2 = {0}; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
         }
         case BINOP_XREP: {
             DESCR_t ls_d; ls_d = descr_to_str(lv);
@@ -143,12 +143,12 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             const char *ls = ls_d.s ? ls_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
             long cnt = IS_INT_fn(rv) ? rv.i : (IS_REAL_fn(rv) ? (long)rv.r : 0);
-            if (cnt < 1 || ll == 0) { DESCR_t re; re.v = DT_S; re.slen = 0; re.s = rt_wsb_alloc(1); re.s[0] = '\0'; return re; }
+            if (cnt < 1 || ll == 0) { DESCR_t re = {0}; re.v = DT_S; re.slen = 0; re.s = rt_wsb_alloc(1); re.s[0] = '\0'; return re; }
             size_t total = ll * (size_t)cnt;
             char *buf = rt_wsb_alloc(total + 1);
             for (long k = 0; k < cnt; k++) memcpy(buf + (size_t)k * ll, ls, ll);
             buf[total] = '\0';
-            { DESCR_t r2; r2.v = DT_S; r2.slen = (int)total; r2.s = buf; return r2; }
+            { DESCR_t r2 = {0}; r2.v = DT_S; r2.slen = (int)total; r2.s = buf; return r2; }
         }
         case BINOP_SLT: case BINOP_SLE: case BINOP_SGT:
         case BINOP_SGE: case BINOP_SEQ: case BINOP_SNE: {

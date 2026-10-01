@@ -7,7 +7,7 @@
 DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
 extern int g_gc_pending;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t S(const char *s, uint32_t n) { DESCR_t d; d.v = DT_S; d.slen = n; d.s = (char *)s; return d; }
+static DESCR_t S(const char *s, uint32_t n) { DESCR_t d = {0}; d.v = DT_S; d.slen = n; d.s = (char *)s; return d; }
 static double now_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (double)t.tv_sec * 1e9 + (double)t.tv_nsec; }
 static volatile uint64_t sink = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

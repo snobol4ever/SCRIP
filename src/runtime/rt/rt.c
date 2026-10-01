@@ -106,7 +106,7 @@ const char *rt_nv_cstr(const char *name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_str(const char *name, const char *str)
 {
-    DESCR_t d;
+    DESCR_t d = {0};
     d.v    = DT_S;
     d.s    = (char *)(str ? str : "");
     d.slen = descr_cstrlen(d.s);
@@ -134,7 +134,7 @@ void rt_indirect_assign_var(const char *holder, const char *val_name)
 void rt_gvar_assign_pat(const char *name, void *head)
 {
     extern void *dtp_wrap_fn(void *);
-    DESCR_t d;
+    DESCR_t d = {0};
     d.v    = DT_P;
     d.slen = 0;
     d.p    = dtp_wrap_fn(head);
@@ -144,7 +144,7 @@ void rt_gvar_assign_pat(const char *name, void *head)
 void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zstatic)
 {
     extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t);
-    DESCR_t d;
+    DESCR_t d = {0};
     d.v    = DT_P;
     d.slen = 0;
     d.p    = dtp_wrap_fn_sz(fn, zsz, zstatic);
@@ -165,7 +165,7 @@ int64_t rt_gvar_arith(const char *a, const char *b, int op)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int64_t rt_relop_descr2(int64_t l_lo, int64_t l_hi, int64_t r_lo, int64_t r_hi, int op)
 {
-    DESCR_t lv; DESCR_t rv;
+    DESCR_t lv = {0}; DESCR_t rv = {0};
     union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ul; union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ur;
     ul.q = l_lo; lv.v = ul.f.v; lv.slen = ul.f.slen; lv.i = l_hi;
     ur.q = r_lo; rv.v = ur.f.v; rv.slen = ur.f.slen; rv.i = r_hi;
@@ -190,7 +190,7 @@ DESCR_t rt_gvar_get_descr(const char *name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
 {
-    DESCR_t d;
+    DESCR_t d = {0};
     union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } u;
     u.q    = lo;
     d.v    = u.f.v;
@@ -501,7 +501,7 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
       for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0;
         if (!nm || !rt_is_reassigned_builtin(nm)) continue;
         if (rt_proc_is_registered(nm)) cells[k] = rt_proc_value(nm);
-        else { DESCR_t bv; bv.v = DT_E; bv.slen = PROCVAL_SLEN; bv.s = (char *)nm; cells[k] = bv; } } }
+        else { DESCR_t bv = {0}; bv.v = DT_E; bv.slen = PROCVAL_SLEN; bv.s = (char *)nm; cells[k] = bv; } } }
     { static int _b1cg = -1; if (_b1cg < 0) { const char *_e = getenv("SCRIP_B1C_PARITY"); _b1cg = (_e && *_e == '0') ? 0 : 1; }
       extern int gva_count(void); extern int gva_collect_var(const char *); extern int g_gva_active;
       if (_b1cg && n > 0 && gva_count() == 0) { for (int k = 0; k < n; k++) if (names && names[k]) (void)gva_collect_var(names[k]); g_gva_active = (gva_count() > 0) ? 1 : 0; } }
@@ -2120,32 +2120,32 @@ extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
 {
-    DESCR_t v;
+    DESCR_t v = {0};
     v.v    = (DTYPE_t)(uint32_t)(lo & 0xFFFFFFFFu);
     v.slen = (uint32_t)(lo >> 32);
     v.i    = (int64_t)hi;
     if (IS_FAIL_fn(v)) return FAILDESCR;
     if (v.v == DT_SNUL || IS_PROCVAL_fn(v)) { extern int core_icn_error(int code, DESCR_t val); core_icn_op_ctx("*", 1, v, v); core_icn_error(112, v); core_icn_op_ctx_clear(); return FAILDESCR; }
-    if (v.v == DT_T) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
-    if (v.v == DT_CO) { extern long scrip_coexpr_activations_of(void *); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)scrip_coexpr_activations_of(v.p); return r; }
-    if (IS_CSET_fn(v)) { extern int kw_cset_len(const char *); int kn = v.s ? kw_cset_len(v.s) : -1; size_t n = (kn >= 0) ? (size_t)kn : (v.s ? strlen(v.s) : 0); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
+    if (v.v == DT_T) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
+    if (v.v == DT_CO) { extern long scrip_coexpr_activations_of(void *); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)scrip_coexpr_activations_of(v.p); return r; }
+    if (IS_CSET_fn(v)) { extern int kw_cset_len(const char *); int kn = v.s ? kw_cset_len(v.s) : -1; size_t n = (kn >= 0) ? (size_t)kn : (v.s ? strlen(v.s) : 0); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
     if (v.v == DT_S) {
         size_t n = descr_slen(v);
-        DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;
+        DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;
     }
     if (IS_DATA_INST_fn(v) && v.u) {
         DESCR_t tag = FIELD_GET_fn(v, "gen_type");
-        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)FIELD_GET_fn(v, "frame_size").i; return r; }
-        if (v.u->type) { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)v.u->type->nfields; return r; }
-        { DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
+        if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)FIELD_GET_fn(v, "frame_size").i; return r; }
+        if (v.u->type) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)v.u->type->nfields; return r; }
+        { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = 0; return r; }
     }
     if (v.v == DT_R) {
         extern const char *icon_real_str(double r, char *buf, int bufsz);
         char buf[64];
         icon_real_str(v.r, buf, sizeof(buf));
-        DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)strlen(buf); return r;
+        DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)strlen(buf); return r;
     }
-    { const char *s = VARVAL_fn(v); long n = s ? (long)strlen(s) : 0; DESCR_t r; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
+    { const char *s = VARVAL_fn(v); long n = s ? (long)strlen(s) : 0; DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
 }
 extern int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t *out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

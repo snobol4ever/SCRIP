@@ -228,11 +228,11 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
         char probe; char *floor_ = &probe;
         if (plw_vvb_on() && (char *)A > floor_ && (char *)B > floor_) {
             DESCR_t *lo = A < B ? A : B; DESCR_t *hi = A < B ? B : A;
-            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)hi;
-            if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u, cx); }
+            DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)hi;
+            if (hi->v != (DTYPE_t)DT_PLVAR || hi->p != (void *)hi) { DESCR_t u = {0}; u.v = (DTYPE_t)DT_PLVAR; u.slen = 0; u.p = (void *)hi; plw_bind(hi, u, cx); }
             plw_bind(lo, r, cx); return 1;
         }
-        { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; } }
+        { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; } }
     if (av) { plw_bind(A, *B, cx); return 1; }
     if (bv) { plw_bind(B, *A, cx); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -270,7 +270,7 @@ static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     if (A == B) return 1;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
     if (av && bv) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
-        DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; }
+        DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; }
     if (av) { if (plw_occurs_in(A, B)) return 0; plw_bind(A, *B, cx); return 1; }
     if (bv) { if (plw_occurs_in(B, A)) return 0; plw_bind(B, *A, cx); return 1; }
     if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
@@ -325,7 +325,7 @@ static DESCR_t *plw_det_cell(DESCR_t *tmp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_deref_val(DESCR_t v) { DESCR_t t = v; return *plw_cell_deref(plw_entry(&t)); }
-DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
+DESCR_t rt_pl_fresh_var_ref(void) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_known(const char *name)
 {
@@ -793,7 +793,7 @@ static DESCR_t rk_mk_arr(const DESCR_t *el, int n) {
     extern ARBLK_t *array_new(int lo, int hi);
     ARBLK_t *b = array_new(0, n - 1);
     for (int i = 0; i < n; i++) b->data[i] = el[i];
-    DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; return d;
+    DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; return d;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_arr_append(ARBLK_t *b, DESCR_t v) {
@@ -1157,7 +1157,7 @@ static DESCR_t pas_read_number(FILE *f, int real, const char *fn) {
         while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); k++; c = fgetc(f); } bad = !k; }
     if (c != EOF) ungetc(c, f);
     if (bad) pas_file_err("6.9.1", real ? "the characters read do not form a signed-number" : "the characters read do not form a signed-integer", fn);
-    DESCR_t r; errno = 0; if (real) { r.v = DT_R; r.r = strtod(b, NULL); } else r = INTVAL(strtoll(b, NULL, 10));
+    DESCR_t r = {0}; errno = 0; if (real) { r.v = DT_R; r.r = strtod(b, NULL); } else r = INTVAL(strtoll(b, NULL, 10));
     if (!real && errno == ERANGE) pas_file_err("6.9.1", "the signed-integer read is outside the range of the integer type", fn);
     return r;
 }
@@ -1213,7 +1213,7 @@ static DESCR_t pas_agg_copy(DESCR_t v) {
     b->lo = s->lo; b->hi = s->hi; b->ndim = s->ndim; b->lo2 = s->lo2; b->hi2 = s->hi2; b->proto_bare = s->proto_bare; b->proto = s->proto;
     b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
     for (long long k = 0; k < n; k++) b->data[k] = pas_agg_copy(s->data[k]);
-    DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; return d;
+    DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; return d;
 }
 static DESCR_t pas_chars_of(DESCR_t v, long lo) {
     if (IS_STR_fn(v)) return v;
@@ -1432,7 +1432,7 @@ long rk_iter_open(DESCR_t *args, int nargs, DESCR_t *cur)
           a->data[RKIT_STATE] = INTVAL(kind);
           a->data[RKIT_CUR] = NULVCL;
           a->data[RKIT_NOUT] = INTVAL(0);
-          { DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = a; *cur = d; }
+          { DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = a; *cur = d; }
           return 1; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2121,20 +2121,20 @@ static const char *pl_atom_str(DESCR_t v) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t pl_mk_atom(const char *s) { extern int prolog_atom_intern(const char *); DESCR_t d; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_intern(s); return d; }
-static DESCR_t pl_nil(void) { extern int ATOM_NIL; DESCR_t d; d.v = DT_PLATOM; d.slen = 0; d.i = ATOM_NIL; return d; }
+static DESCR_t pl_mk_atom(const char *s) { extern int prolog_atom_intern(const char *); DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_intern(s); return d; }
+static DESCR_t pl_nil(void) { extern int ATOM_NIL; DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = ATOM_NIL; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_cons(DESCR_t head, DESCR_t tail) {
     extern int prolog_atom_intern(const char *);
     DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(2); kids[0] = head; kids[1] = tail;
-    extern int FUNCTOR_DOT2; DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)FUNCTOR_DOT2; c.p = (void *)kids;
+    extern int FUNCTOR_DOT2; DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)FUNCTOR_DOT2; c.p = (void *)kids;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_list_from_arr(DESCR_t *elems, int n) { DESCR_t acc = pl_nil(); for (int i = n - 1; i >= 0; i--) acc = pl_cons(elems[i], acc); return acc; }
 static void *pl_var_cell_ptr(DESCR_t v) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(v); return (d.v == (DTYPE_t)DT_PLVAR) ? d.p : (void *)0; }
 static void pl_count_var_occ(DESCR_t t, void *target, int *cnt) { extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t d = rt_pl_deref_val(t); if (d.v == (DTYPE_t)DT_PLVAR) { if (d.p == target) (*cnt)++; return; } if (d.v == (DTYPE_t)DT_PLREF) { int ar = plc_fid_arity(d.slen); DESCR_t *kids = (DESCR_t *)d.p; for (int i = 0; i < ar; i++) pl_count_var_occ(kids[i], target, cnt); } }
-static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern_n(const char *, size_t); DESCR_t d; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_intern_n(s, n); return d; }
+static DESCR_t pl_mk_atom_dup(const char *s, size_t n) { extern int prolog_atom_intern_n(const char *, size_t); DESCR_t d = {0}; d.v = DT_PLATOM; d.slen = 0; d.i = prolog_atom_intern_n(s, n); return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_sink_kind(DESCR_t a) {
     extern DESCR_t rt_pl_deref_val(DESCR_t); extern const char *prolog_atom_name(int);
@@ -2539,7 +2539,7 @@ static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar, pl_tr_ctx_t *cx) {
         DESCR_t *F = plw_cell_deref(plw_entry(&t));
         if (plw_unbound_tag(F)) {
             kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i];
-            DESCR_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)&kids[i];
+            DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)&kids[i];
             plw_bind(F, r, cx);
         } else kids[i] = *F;
     }
@@ -2553,7 +2553,7 @@ static DESCR_t plw_mkc_build(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     else if (args[0].v == (DTYPE_t)DT_PLATOM) fid = prolog_functor_intern((int)args[0].i, ar);
     else { const char *fname = VARVAL_fn(args[0]); fid = prolog_functor_intern(prolog_atom_intern(fname ? fname : "?"), ar); }
     DESCR_t *kids = plw_mkc_kids(args + 1, ar, cx);
-    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)fid; c.p = (void *)kids;
+    DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)fid; c.p = (void *)kids;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2596,7 +2596,7 @@ DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
       if (rc.v != (DTYPE_t)DT_PLREF || plc_fid_arity(rc.slen) != 2 || tc.v != (DTYPE_t)DT_PLREF || plc_fid_arity(tc.slen) != 2) out = FAILDESCR;
       else { DESCR_t *ra = (DESCR_t *)rc.p; DESCR_t *ta = (DESCR_t *)tc.p;
         if (!plw_unify_vals(ra[0], ta[0], cx)) out = FAILDESCR;
-        else { DESCR_t bt = ra[1]; DESCR_t *rbp = plw_cell_deref(plw_entry(&bt)); DESCR_t bodyv;
+        else { DESCR_t bt = ra[1]; DESCR_t *rbp = plw_cell_deref(plw_entry(&bt)); DESCR_t bodyv = {0};
           if (plw_unbound_tag(rbp)) { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = *rbp;
             bodyv.v = (DTYPE_t)DT_PLREF; bodyv.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("call"), 1); bodyv.p = (void *)kids; }
           else bodyv = *rbp;
@@ -2622,7 +2622,7 @@ int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_unify_struct_fresh(long fid) {
     extern int prolog_functor_arity(int);
-    int ar = prolog_functor_arity((int)fid); DESCR_t c;
+    int ar = prolog_functor_arity((int)fid); DESCR_t c = {0};
     DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
     for (int i = 0; i < ar; i++) { kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i]; }
     c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)fid; c.p = (void *)kids;
@@ -2688,14 +2688,14 @@ DESCR_t dop_write(DESCR_t *args, int nargs) {
       if (pl_val_unbound(v)) { extern void rt_pl_write_cell_fp(void *, FILE *); rt_pl_write_cell_fp((void *)&args[0], wd); }
       else if (v.v == DT_R) { char fb[64]; fputs(pl_real_iso_str(v.r, fb, sizeof fb), wd); }
       else out_write_descr(wd, v, 0); }
-    { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dop_nl(DESCR_t *args, int nargs) {
     extern FILE *fh_cur_out_fp(void);
     (void)args; (void)nargs;
     fputc('\n', fh_cur_out_fp());
-    { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+    { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "../parsers/prolog/prolog_parse.h"
@@ -2706,7 +2706,7 @@ void rt_pl_format_cell(const char *, void *);int rt_pl_char_type_cell(void *, vo
     int rt_pl_copy_term_cell(void *, void *, pl_tr_ctx_t *);
 int rt_pl_term_variables_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_numbervars_cell(void *, void *, void *, pl_tr_ctx_t *); int rt_pl_numbervars1_cell(void *, pl_tr_ctx_t *); int rt_pl_sort_cell(int, void *, void *, pl_tr_ctx_t *);
-static DESCR_t pl_ok(void) { DESCR_t r; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
+static DESCR_t pl_ok(void) { DESCR_t r = {0}; r.v = (DTYPE_t)DT_I; r.slen = 0; r.i = 1; return r; }
 static void pl_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom_init(void); if (ATOM_DOT < 0) prolog_atom_init(); }
 static int pl_is_cons(DESCR_t d) { extern int ATOM_DOT; return d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == ATOM_DOT && plc_fid_arity(d.slen) == 2; }
 static int pl_val_unbound(DESCR_t d) { return d.v == (DTYPE_t)DT_PLVAR || d.v == DT_SNUL || d.v == DT_FAIL; }
@@ -2830,7 +2830,7 @@ static int pl_stream_idx(DESCR_t s, int out) {
 static DESCR_t pl_mk_stream(int idx) {
     extern int prolog_atom_intern(const char *);
     DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = INTVAL((long long)idx);
-    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("$stream"), 1); c.p = (void *)kids; return c;
+    DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("$stream"), 1); c.p = (void *)kids; return c;
 }
 static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
 {
@@ -2882,7 +2882,7 @@ DESCR_t dop_pl_set_input(DESCR_t *args, int nargs) { extern void fh_set_input(in
 static DESCR_t pl_mk_cmp1(const char *f, DESCR_t a0) {
     extern int prolog_atom_intern(const char *);
     DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(1); kids[0] = a0;
-    DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(f), 1); c.p = (void *)kids; return c;
+    DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(f), 1); c.p = (void *)kids; return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_SP_NPROP 12
@@ -2913,7 +2913,7 @@ int pas_tf_read(FILE *fp, DESCR_t *o) {
         ARBLK_t *b = (ARBLK_t *)rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = lo; b->hi = hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0;
         b->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n)); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0);
         for (int k = 0; k <= hi - lo; k++) if (!pas_tf_read(fp, &b->data[k])) return 0;
-        DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *o = d; return 1; }
+        DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; *o = d; return 1; }
     *o = NULVCL; return 1;
 }
 static int pl_sp_stream_live(int i) { extern FILE *fh_get(int); return fh_get(i) != (FILE *)0; }
@@ -3402,7 +3402,7 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
         if (t->n == 0) return pl_mk_atom_dup(nm, strlen(nm));
         if (t->t == TT_FNC && t->n == 1 && !strcmp(nm, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) { DESCR_t a = STRVAL(t->c[0]->v.sval); return rt_pl_dop_big(&a, 1); }
         { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)t->n); for (int i = 0; i < t->n; i++) kids[i] = pl_tree_cell(t->c[i], vt);
-          DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), t->n); c.p = (void *)kids; return c; } }
+          DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), t->n); c.p = (void *)kids; return c; } }
     default: return pl_mk_atom("?");
     }
 }
@@ -3506,7 +3506,7 @@ PL_CX_LEAF_HEAD(atom_to_term, 3) { char b[65536]; const char *txt; DESCR_t t; pl
     else if (!pl_parse_term_text(txt, &t, &vt, (PlProgram **)0)) { extern void *rt_pl_ball_kind1(const char *, const char *); cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; }
     else { DESCR_t el[256]; int n = 0; extern int prolog_atom_intern(const char *);
         for (int i = 0; i < vt.n; i++) { if (!vt.nm[i]) continue; DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(2); kids[0] = pl_mk_atom_dup(vt.nm[i], strlen(vt.nm[i])); kids[1] = vt.v[i];
-            { DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("="), 2); c.p = (void *)kids; el[n++] = c; } }
+            { DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("="), 2); c.p = (void *)kids; el[n++] = c; } }
         ok = plw_unify_vals(args[1], t, cx) && plw_unify_vals(args[2], pl_list_from_arr(el, n), cx); } } PL_CX_LEAF_TAIL
 static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *cx) { extern int prolog_atom_intern(const char *);
     DESCR_t o = rt_pl_deref_val(opts);
@@ -3517,7 +3517,7 @@ static int pl_read_term_options_cell(DESCR_t opts, pl_vtab_t *vt, pl_tr_ctx_t *c
                 for (int i = 0; i < vt->n; i++) { if (is_vars) { *(DESCR_t *)gv_push(&el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "read_term_vars") = vt->v[i]; n++; continue; }
                     if (!vt->nm[i] || (is_sing && vt->cnt[i] != 1)) continue;
                     { DESCR_t *k2 = (DESCR_t *)rt_ws_alloc_descr(2); k2[0] = pl_mk_atom_dup(vt->nm[i], strlen(vt->nm[i])); k2[1] = vt->v[i];
-                      DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("="), 2); c.p = (void *)k2; *(DESCR_t *)gv_push(&el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "read_term_vars") = c; n++; } }
+                      DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("="), 2); c.p = (void *)k2; *(DESCR_t *)gv_push(&el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "read_term_vars") = c; n++; } }
                 if (!plw_unify_vals(oa[0], pl_list_from_arr((DESCR_t *)el.p, n), cx)) return 0; } }
         o = rt_pl_deref_val(kids[1]); }
     return 1; }
@@ -3838,7 +3838,7 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *
     else { int good = !fl->ok[0]; for (int i = 0; fl->ok[i]; i++) if (!strcmp(vn, fl->ok[i])) good = 1;
         if (!good) { DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(2); extern int prolog_atom_intern(const char *);
             kk[0] = pl_mk_atom_dup(fl->nm, strlen(fl->nm)); kk[1] = rt_pl_deref_val(args[1]);
-            { DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("+"), 2); c.p = (void *)kk;
+            { DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("+"), 2); c.p = (void *)kk;
               cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", c); } }
         else { snprintf(fl->val, sizeof fl->val, "%s", vn); ok = 1; } } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4452,7 +4452,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = RT_GC_CALLBACK(rt_call_proc_descr(wname, na)); return 1;
     }
     if (!strcmp(fn, "__blk_ref") && nargs == 1) {
-        const char *bn = VARVAL_fn(args[0]); DESCR_t b; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : "");
+        const char *bn = VARVAL_fn(args[0]); DESCR_t b = {0}; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : "");
         *out = b; return 1;
     }
     if (!strcmp(fn, "__blk_invoke") && nargs >= 1) {
@@ -4472,7 +4472,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = args[1]; return 1;
     }
     if (!strcmp(fn, "__pas_sqr") && nargs == 1) {
-        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d * d; *out = r; return 1; }
+        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r = {0}; r.v = DT_R; r.r = d * d; *out = r; return 1; }
         long v = IS_INT_fn(args[0]) ? args[0].i : 0;
         if (v > 46340 || v < -46340) pas_file_err("6.6.6.2", "sqr(x) of an integer whose square exceeds maxint, so no such value exists", NULL);
         *out = INTVAL(v * v); return 1;
@@ -4534,7 +4534,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next();
         b->lo = (int) lo; b->hi = (int) hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
         for (long long k = 0; k < n; k++) b->data[k] = pas_agg_copy(args[2]);
-        DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
+        DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
     }
     if (!strcmp(fn, "__pas_stdfile") && nargs == 1) {
         extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(IS_INT_fn(args[0]) && args[0].i == 1 ? 1 : 0); return 1;
@@ -4547,7 +4547,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next();
         b->lo = (int) lo; b->hi = (int) hi; b->ndim = 1; b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *) rt_ws_alloc_descr((size_t) (hi - lo + 1));
         for (long k = lo; k <= hi; k++) b->data[k - lo] = INTVAL(k - lo < sl ? (unsigned char) sa[k - lo] : 32);
-        DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
+        DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
     }
     if (!strcmp(fn, "__pas_field_set") && nargs == 3) {
         DESCR_t *hc = pas_heap_ref(args[0], fn);
@@ -5223,7 +5223,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern ARBLK_t *array_new(int lo, int hi);
         rk_av_t a = { 0, NULL, 1 }; if (nargs) a = rk_av(args[0]); ARBLK_t *b = array_new(0, a.n - 1);
         for (int i = 0; i < a.n; i++) b->data[i] = rk_elem_descr(a.el[i].s ? a.el[i].s : "", a.el[i].s ? strlen(a.el[i].s) : 0);
-        DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
+        DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
     }
     if ((!strcmp(fn, "__rk_map_append") || !strcmp(fn, "__rk_grep_append")) && nargs == 2 && args[0].v == DT_A && args[0].arr) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;
@@ -5342,7 +5342,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         ARBLK_t *b = (ARBLK_t *) rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t)); b->id = rt_agg_serial_list(); b->dumpno = rt_sno_dumpno_next(); b->lo = (int) lo; b->hi = (int) hi;
         b->ndim = 1;
         b->ndim = 1;
-        b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n)); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d; d.v = DT_A;
+        b->lo2 = 0; b->hi2 = 0; b->proto_bare = 0; b->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n)); for (long long k = 0; k < n; k++) b->data[k] = INTVAL(0); DESCR_t d = {0}; d.v = DT_A;
         d.slen = 0; d.arr = b; *out = d; return 1;
     }
     if (!strcmp(fn, "arr_get") && nargs == 2) {
@@ -5450,7 +5450,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             r->id = rt_agg_serial_list(); r->dumpno = rt_sno_dumpno_next(); r->lo = b->lo; r->hi = b->hi; r->ndim = 1; r->lo2 = 0; r->hi2 = 0; r->proto_bare = 0;
             r->data = (DESCR_t *)rt_ws_alloc_descr((size_t)(n ? n : 1));
             for (int i = 0; i < n; i++) r->data[i] = b->data[n - 1 - i];
-            DESCR_t d; d.v = DT_A; d.slen = 0; d.arr = r; *out = d; return 1;
+            DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = r; *out = d; return 1;
         }
         rk_av_t a = rk_av(args[0]);
         DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL;
@@ -6559,7 +6559,7 @@ DESCR_t rt_make_list(DESCR_t *args, int nargs) {
     if (!list_reg3) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg3 = 1; }
     DESCR_t *elems = rt_ws_alloc_descr((size_t)(nargs>0?nargs:1));
     for (int _j=0;_j<nargs;_j++) elems[_j]=args[_j];
-    DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
+    DESCR_t eptr = {0}; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
     return DATCON_fn("list", eptr, INTVAL(nargs), STRVAL("list"), INTVAL(nargs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6718,7 +6718,7 @@ DESCR_t proc_as_value(const char *name) {
     if (!name || name[0] == '&') return FAILDESCR;
     for (int i = 0; i < g_stage2.proc_count; i++) {
         if (g_stage2.proc_table[i].name && strcmp(g_stage2.proc_table[i].name, name) == 0) {
-            DESCR_t pv; pv.v = DT_E;
+            DESCR_t pv = {0}; pv.v = DT_E;
             pv.slen = (uint32_t)i;
             pv.i    = g_stage2.proc_table[i].entry_pc;
             return pv;
@@ -7410,7 +7410,7 @@ DESCR_t rt_sno_mkexpr_of(DESCR_t a) {
     extern void *bb_dstar_rec_intern(const char *, uint32_t);
     sno_dstar_rec_t *rec = (a.v == DT_I) ? (sno_dstar_rec_t *)(uintptr_t)a.i : (sno_dstar_rec_t *)0;
     if (!rec) { const char *nm = VARVAL_fn(a); if (!nm) nm = ""; size_t nl = strlen(nm); char key[nl + 2]; key[0] = '*'; memcpy(key + 1, nm, nl + 1); rec = (sno_dstar_rec_t *)bb_dstar_rec_intern(key, 0u); }
-    DESCR_t xd; xd.v = DT_X; xd.slen = 0; xd.p = rec; return xd;
+    DESCR_t xd = {0}; xd.v = DT_X; xd.slen = 0; xd.p = rec; return xd;
 }
 DESCR_t rt_sno_mkexpr_d(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
@@ -7488,7 +7488,7 @@ static int bn_mkpat(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     { const char *nm = VARVAL_fn(args[0]); if (!nm) nm = "";
       { void *pf = rt_proc_get_fn(nm);
         if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
-        { DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));
+        { DESCR_t pd = {0}; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));
           if (nargs >= 2) { long _n = 0; if (IS_INT_fn(args[1])) _n = (long)args[1].i; else { const char *cs = VARVAL_fn(args[1]); _n = cs ? atol(cs) : 0; } rt_patv_freeze(pd.p, nm, _n); }
           *out = pd; return 1; } } }
 }
@@ -7804,7 +7804,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     L_bidjmp_5156: ;
     if ((_bid == BID___pas_abs) && nargs == 1) {
-        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r; r.v = DT_R; r.r = d < 0 ? -d : d; *out = r; return 1; }
+        if (IS_REAL_fn(args[0])) { double d = args[0].r; DESCR_t r = {0}; r.v = DT_R; r.r = d < 0 ? -d : d; *out = r; return 1; }
         long long v = IS_INT_fn(args[0]) ? args[0].i : 0; *out = INTVAL(v < 0 ? -v : v); return 1;
     }
     if (nargs == 1 && ((_bid == BID___pas_sin)||(_bid == BID___pas_cos)||(_bid == BID___pas_exp)||(_bid == BID___pas_sqrt)||(_bid == BID___pas_ln)||(_bid == BID___pas_arctan))) {
@@ -7816,7 +7816,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         else if ((_bid == BID___pas_sqrt))   { if (d < 0) pas_file_err("6.6.6.2", "sqrt(x) of a negative x", NULL); r = sqrt(d); }
         else if ((_bid == BID___pas_ln))     { if (!(d > 0)) pas_file_err("6.6.6.2", "ln(x) of an x that is not greater than zero", NULL); r = log(d); }
         else                                 r = atan(d);
-        DESCR_t rv; rv.v = DT_R; rv.r = r; *out = rv; return 1;
+        DESCR_t rv = {0}; rv.v = DT_R; rv.r = r; *out = rv; return 1;
     }
     if ((_bid == BID___pas_round) && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
@@ -7829,7 +7829,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     }
     if ((_bid == BID___pas_frac) && nargs == 1) {
         double d = IS_REAL_fn(args[0]) ? args[0].r : (double)(IS_INT_fn(args[0]) ? args[0].i : 0);
-        DESCR_t r; r.v = DT_R; r.r = d - trunc(d); *out = r; return 1;
+        DESCR_t r = {0}; r.v = DT_R; r.r = d - trunc(d); *out = r; return 1;
     }
     if ((_bid == BID___pas_assert) && nargs == 1) {
         long long cond = IS_INT_fn(args[0]) ? args[0].i : (IS_REAL_fn(args[0]) ? (args[0].r != 0.0) : 0);
@@ -8125,9 +8125,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
           if (rt_proc_is_registered(pname)) { int np = rt_proc_nparams(pname);
               if (arity < 0 || np == arity || np <= 0) { extern DESCR_t rt_proc_value(const char *); *out = rt_proc_value(rt_heap_strdup_c(pname)); return 1; } } }
         if (!_icn_field_only && (icn_builtin_is_known(pname) || (strict ? dat_find_type(pname) != 0 : rt_builtin_is_known(pname)) || icn_builtin_arity(pname) != ICN_ARITY_UNKNOWN)) {
-            DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_heap_strdup_c(pname); *out = bv; return 1;
+            DESCR_t bv = {0}; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = rt_heap_strdup_c(pname); *out = bv; return 1;
         }
-        { const char *op = icn_opproc_find(pname, arity < 0 ? 1 : arity); if (op) { DESCR_t bv; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = (char *)op; *out = bv; return 1; } }
+        { const char *op = icn_opproc_find(pname, arity < 0 ? 1 : arity); if (op) { DESCR_t bv = {0}; bv.v = DT_E; bv.slen = 0xFFFFFFFEu; bv.s = (char *)op; *out = bv; return 1; } }
         *out = FAILDESCR; return 1;
     }
     if ((_bid == BID_image) && nargs == 1) {
@@ -8621,7 +8621,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             nt->init = src.tbl->init;
             nt->inc  = src.tbl->inc;
             table_copy_in_order(nt, src.tbl);
-            DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = nt;
+            DESCR_t d = {0}; d.v = DT_T; d.slen = 0; d.tbl = nt;
             *out = d; return 1;
         }
         if (src.v == DT_DATA) {
@@ -8632,7 +8632,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 DESCR_t *src_elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : NULL;
                 DESCR_t *new_elems = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
                 if (src_elems && n > 0) memcpy(new_elems, src_elems, (size_t)n * sizeof(DESCR_t));
-                DESCR_t eptr; eptr.v = DT_DATA; eptr.slen = DATA_ELEMS_SLEN; eptr.ptr = (void *)new_elems;
+                DESCR_t eptr = {0}; eptr.v = DT_DATA; eptr.slen = DATA_ELEMS_SLEN; eptr.ptr = (void *)new_elems;
                 *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
                 return 1;
             }
@@ -8691,7 +8691,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (!list_reg2) { DEFDAT_fn("list(frame_elems,frame_size,gen_type,frame_cap)"); list_reg2 = 1; }
         DESCR_t *elems = rt_ws_alloc_descr((size_t)(n>0?n:1));
         for (int i = 0; i < n; i++) elems[i] = init;
-        DESCR_t eptr; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
+        DESCR_t eptr = {0}; eptr.v=DT_DATA; eptr.slen=DATA_ELEMS_SLEN; eptr.ptr=(void*)elems;
         *out = DATCON_fn("list", eptr, INTVAL(n), STRVAL("list"), INTVAL(n));
         return 1;
     }
@@ -8703,7 +8703,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         } else {
             tbl->dflt = NULVCL;
         }
-        DESCR_t d; d.v = DT_T; d.slen = 0; d.tbl = tbl;
+        DESCR_t d = {0}; d.v = DT_T; d.slen = 0; d.tbl = tbl;
         *out = d; return 1;
     }
     L_bidjmp_5874: ;
@@ -8715,7 +8715,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (len > 0 && ln[len-1] == '\n') ln[--len] = '\0';
         if (len > 0 && ln[len-1] == '\r') ln[--len] = '\0';
         char *r = rt_wsb_alloc(len + 1); memcpy(r, ln, len + 1); ct_drop(ln);
-        DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
+        DESCR_t rs = {0}; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     L_bidjmp_5883: ;
     L_bidjmp_5894: ;
@@ -9262,7 +9262,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         }
         if (!any) { ct_drop(ln); *out = FAILDESCR; return 1; }
         char *r = rt_wsb_alloc(len + 1); memcpy(r, ln, len); r[len] = '\0'; ct_drop(ln);
-        DESCR_t rs; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
+        DESCR_t rs = {0}; rs.v = DT_S; rs.slen = (uint32_t)len; rs.s = r; *out = rs; return 1;
     }
     if ((_bid == BID_reads) && nargs >= 1) {
         { int _ri = (args[0].v == DT_SNUL) ? 0 : (IS_FH_fn(args[0]) || IS_INT_fn(args[0])) ? (int)args[0].i : -1;
@@ -9277,12 +9277,12 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
               while ((dc = fgetc(fp)) != EOF) { saw = 1; if (dc == '\n') break; if (dl < n) db[dl++] = (char)dc; }
               if (!saw) { *out = FAILDESCR; return 1; }
               db[dl] = '\0';
-              DESCR_t dr; dr.v = DT_S; dr.slen = (uint32_t)dl; dr.s = db; *out = dr; return 1; } }
+              DESCR_t dr = {0}; dr.v = DT_S; dr.slen = (uint32_t)dl; dr.s = db; *out = dr; return 1; } }
         char *buf = rt_wsb_alloc(n + 1);
         int got = (int)fread(buf, 1, (size_t)n, fp);
         if (got <= 0) { *out = FAILDESCR; return 1; }
         buf[got] = '\0';
-        DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
+        DESCR_t r = {0}; r.v = DT_S; r.slen = (uint32_t)got; r.s = buf;
         *out = r; return 1;
     }
     L_bidjmp_6411: ;
@@ -9497,7 +9497,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         void *pf = rt_proc_get_fn(nm);
         if (!pf) { fprintf(stderr, "[SNO] SNO$MKPAT: compiled pattern blob '%s' not registered\n", nm); *out = FAILDESCR; return 1; }
         extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t); extern long rt_fn_frame_bytes_known(void *); extern long rt_fn_zstatic_known(void *);
-        DESCR_t pd; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));
+        DESCR_t pd = {0}; pd.v = DT_P; pd.slen = 0; pd.p = dtp_wrap_fn_sz(pf, (int64_t)rt_fn_frame_bytes_known(pf), (int32_t)rt_fn_zstatic_known(pf));
         if (nargs >= 2) { extern void rt_patv_freeze(void *, const char *, long); long _n = 0; if (IS_INT_fn(args[1])) _n = (long)args[1].i; else { const char *cs = VARVAL_fn(args[1]); _n = cs ? atol(cs) : 0; } if (_n > 0) rt_patv_freeze(pd.p, nm, _n); }
         *out = pd; return 1;
     }

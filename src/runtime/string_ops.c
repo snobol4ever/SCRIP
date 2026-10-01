@@ -31,7 +31,7 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
         DESCR_t *ne = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
         for (int64_t i = 0; i < an; i++) ne[i] = ae ? ae[i] : NULVCL;
         for (int64_t i = 0; i < bn; i++) ne[an + i] = be ? be[i] : NULVCL;
-        DESCR_t ep; ep.v = DT_DATA; ep.slen = DATA_ELEMS_SLEN; ep.ptr = (void *)ne;
+        DESCR_t ep = {0}; ep.v = DT_DATA; ep.slen = DATA_ELEMS_SLEN; ep.ptr = (void *)ne;
         return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(n));
     }
     const char *asp, *bsp;

@@ -35,11 +35,11 @@ static void both(const char *what, DESCR_t a, DESCR_t b) {
     obs_t c2 = take(c_str_concat_d, a, b); cmp(what, take(str_concat_d, a, b), c2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t S(const char *s) { DESCR_t d; d.v = DT_S; d.slen = (uint32_t)strlen(s); d.s = (char *)s; return d; }
-static DESCR_t Sraw(const char *s, uint32_t slen) { DESCR_t d; d.v = DT_S; d.slen = slen; d.s = (char *)s; return d; }
+static DESCR_t S(const char *s) { DESCR_t d = {0}; d.v = DT_S; d.slen = (uint32_t)strlen(s); d.s = (char *)s; return d; }
+static DESCR_t Sraw(const char *s, uint32_t slen) { DESCR_t d = {0}; d.v = DT_S; d.slen = slen; d.s = (char *)s; return d; }
 static DESCR_t I(int64_t i) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_I; d.i = i; return d; }
 static DESCR_t R(double r) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_R; d.r = r; return d; }
-static DESCR_t NUL(void) { DESCR_t d; d.v = DT_SNUL; d.slen = 0; d.s = (char *)""; return d; }
+static DESCR_t NUL(void) { DESCR_t d = {0}; d.v = DT_SNUL; d.slen = 0; d.s = (char *)""; return d; }
 static DESCR_t FL(void) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_FAIL; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(void) {

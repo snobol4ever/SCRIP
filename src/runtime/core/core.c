@@ -2050,7 +2050,7 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
         inst->type = blk; inst->id = blk ? blk->serial_next++ : 0; inst->dumpno = rt_sno_dumpno_next();
         inst->fields = rt_ws_alloc_descr((size_t)(nf > 0 ? nf : 1));
         for (int i = 0; i < nf; i++) inst->fields[i] = src->fields[i];
-        DESCR_t r; r.v = DT_DATA; r.slen = DATA_INST_SLEN; r.u = inst; return r;
+        DESCR_t r = {0}; r.v = DT_DATA; r.slen = DATA_INST_SLEN; r.u = inst; return r;
     }
     if (IS_TBL(v)) {
         if (!v.tbl) return v;
@@ -3519,7 +3519,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
             if (!rt_line_cap(&_io_chan[ch].buf, &_io_chan[ch].cap, (size_t)_io_chan[ch].rlen + 1)) return FAILDESCR;
             size_t got = fread(_io_chan[ch].buf, 1, (size_t)_io_chan[ch].rlen, _io_chan[ch].fp);
             if (got == 0) return FAILDESCR;
-            { char *b = rt_str_alloc((long)got); memcpy(b, _io_chan[ch].buf, got); b[got] = '\0'; DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; }
+            { char *b = rt_str_alloc((long)got); memcpy(b, _io_chan[ch].buf, got); b[got] = '\0'; DESCR_t r = {0}; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; }
         }
         ssize_t nread = rt_line_read(&_io_chan[ch].buf, &_io_chan[ch].cap, _io_chan[ch].fp);
         if (nread < 0) return FAILDESCR;
@@ -4329,7 +4329,7 @@ gtn35:
     goto gtn11;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_fp_model_spitbol(DESCR_t *a, int n) { (void)a; (void)n; _mm_setcsr(_mm_getcsr() | 0x8040u); DESCR_t r; r.v = DT_I; r.slen = 0; r.i = 1; return r; }
+DESCR_t rt_fp_model_spitbol(DESCR_t *a, int n) { (void)a; (void)n; _mm_setcsr(_mm_getcsr() | 0x8040u); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = 1; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_gtn_real(const char *s, long n, double *out) {
     DESCR_t d;
@@ -4672,7 +4672,7 @@ DESCR_t input_read(void) {
         { char *b = rt_str_alloc((long)got);
           memcpy(b, _input_buf, got);
           b[got] = '\0';
-          { DESCR_t r; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; } }
+          { DESCR_t r = {0}; r.v = DT_S; r.slen = (uint32_t)got; r.s = b; return r; } }
     }
     ssize_t nread = rt_line_read(&_input_buf, &_input_cap, _input_fp);
     if (nread < 0) return FAILDESCR;

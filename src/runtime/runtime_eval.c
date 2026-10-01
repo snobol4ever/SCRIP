@@ -645,7 +645,7 @@ DESCR_t code_at(const char *src, long base)
       if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
     g_sno_stmt_compiled += (long)k + 1;
     if (!first) return FAILDESCR;
-    DESCR_t d;
+    DESCR_t d = {0};
     d.v    = DT_C;
     d.slen = 3;
     d.ptr  = (void *)first;
@@ -715,12 +715,12 @@ DESCR_t CONVE_fn(DESCR_t str_d)
     if (conve_is_bare_name(s)) {
         extern void *bb_dstar_rec_intern(const char *, uint32_t);
         size_t nl = strlen(s); char key[nl + 2]; key[0] = '='; memcpy(key + 1, s, nl + 1);
-        DESCR_t xd; xd.v = DT_X; xd.slen = 0; xd.p = bb_dstar_rec_intern(key, SNO_DSTAR_VARREF);
+        DESCR_t xd = {0}; xd.v = DT_X; xd.slen = 0; xd.p = bb_dstar_rec_intern(key, SNO_DSTAR_VARREF);
         return xd;
     }
     eval_chain_fn fn = eval_build_chain(s);
     if (!fn) return FAILDESCR;
-    DESCR_t d;
+    DESCR_t d = {0};
     d.v    = DT_E;
     d.slen = RT_CONVE_CHAIN_MARK;
     d.ptr  = (void *)fn;
