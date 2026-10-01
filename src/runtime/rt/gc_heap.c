@@ -201,10 +201,12 @@ static void gc_huge_advise(char *a0, char *e0)
 static void rt_gcheap_cap_hit(uint64_t need);
 #endif
 _Static_assert(sizeof(long) == 8, "THE LINE FOLLOWS THE TOP AND THE WINDOW FOLLOWS THE LIVE SET (cto, 2026-09-23, row gc-heap-growth-...; hq_icon's geddump measured 128 KB timing out past 15 s against 0.115 s at the 4096 KB cap): the collection line is recomputed as top plus min(SCRIP_GC_LINE_MB, fifteen sixteenths of what is free -- half until CEO-1264) at init, after every grow and after every collection -- a line fixed at half the STARTING window made every poll collect once the live set outgrew it -- and a grow commits the larger of the request and the committed size whenever the last collection left the window more than half live, else the request alone; still lazy, still one mprotect per grow, still nothing past the cap");
-static void rt_gcheap_line_reset(void)
+static void rt_gcheap_line_reset(long head)
 {
-    long fr = (long)(g_hp_end - g_hp_top);
-    g_hp_gcline = g_hp_top + gc_line_span(fr - (fr >> 4));
+    long fr = (long)(g_hp_end - g_hp_top), h = fr >> 4;
+    if (head > fr >> 1) head = fr >> 1;
+    if (head > h) h = head;
+    g_hp_gcline = g_hp_top + gc_line_span(fr - h);
     gc_fr_line_sync();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -226,7 +228,7 @@ static int rt_gcheap_grow(uint64_t need)
 #if RT_DIAG
       g_hp_grown += (long)want; g_hp_grows++;
 #endif
-      rt_gcheap_line_reset();
+      rt_gcheap_line_reset(0);
 #if RT_DIAG
       if (getenv("SCRIP_ZETA_TELEM")) fprintf(stderr, "[ZHP] lazy commit -> %ld KB of a %ld KB hard cap (committed %ld KB total)\n", (long)((g_hp_end - g_hp_arena) >> 10), (long)((g_hp_cap_end - g_hp_arena) >> 10), (long)(g_hp_grown >> 10));
 #endif
@@ -265,7 +267,7 @@ static void rt_gcheap_init(void)
     g_hp_top = g_hp_arena; g_hp_end = g_hp_arena + g_hp_chunk;
     gc_huge_advise(g_hp_arena, g_hp_end);
     g_hp_virgin = g_hp_arena;
-    rt_gcheap_line_reset();
+    rt_gcheap_line_reset(0);
     gc_static_segs_init();
 #if RT_DIAG
     { const char *b = getenv("SCRIP_GC_BIRTH_LEDGER"); if (b && *b && *b != '0') (void)gc_vac_ledger(); }
@@ -1873,7 +1875,7 @@ static long gc_collect_ex(void)
 #else
     char anchor; long before_b, after_b; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0;
 #endif
-    rt_hblk_t *lomove = (rt_hblk_t *)0;
+    rt_hblk_t *lomove = (rt_hblk_t *)0; uint32_t mxs = 0;
     g_sxt_owner = (char *)0;
     if (g_gc_in || !g_hp_arena) return 0;
     g_gc_in = 1; before_b = (long)(g_hp_top - g_hp_arena);
@@ -2052,7 +2054,7 @@ static long gc_collect_ex(void)
     dest = g_hp_arena;
 #if RT_DIAG
     if (g_gc_flip_to) {
-        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; memcpy((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
+        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if (sz > mxs) mxs = sz; memcpy((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; }
         dest = g_gc_flip_to + g_gc_flip_live;
         if (g_gc_flip_to > g_hp_arena) { rt_hblk_t *fl = (rt_hblk_t *)g_hp_arena; fl->fwd = 0; fl->size = (uint32_t)(g_gc_flip_to - g_hp_arena); fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++; }
         g_gc_flips++;
@@ -2061,7 +2063,7 @@ static long gc_collect_ex(void)
               fprintf(stderr, "[GC-FLIP] plant: every live block copied to ground disjoint from its old address (%ld live bytes to arena+%ld) and ALL of the old ground poisoned and PROT_NONE until the next collection, so a stale copy of ANY heap address faults at the instruction that uses it. THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS with nothing asked for.\n", g_gc_flip_live, (long)(g_gc_flip_to - g_hp_arena)); } }
     } else if (g_gc_shift_now) {
         if (li > 0) gc_quar_release((char *)livef[li - 1] + liveo[li - 1]->size);
-        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] == (char *)h) w_unm++; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
+        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if (sz > mxs) mxs = sz; if ((char *)livef[i] == (char *)h) w_unm++; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
         for (long i = li - 1; i >= 0; i--) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
         { rt_hblk_t *fl = (rt_hblk_t *)(g_hp_arena + g_gc_shift_prefix); fl->fwd = 0; fl->size = (uint32_t)g_gc_shift_now; fl->type = HB_FILL; fl->flags = HBF_TTL; nfill++;
           for (char *q = g_hp_arena; q < g_hp_arena + g_gc_shift_prefix; q += ((rt_hblk_t *)q)->size) nfill++; }
@@ -2070,7 +2072,7 @@ static long gc_collect_ex(void)
           if (w_tel || gc_maps_on() || !said_applied) { said_applied = 1;
               fprintf(stderr, "[GC-SHIFT] plant: every live block forwarded %ld bytes up, over %ld bytes of kept fill at the arena start -- a stale copy of any heap address is wrong after every collection. THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS with nothing asked for, and once per collection under SCRIP_ZETA_TELEM or SCRIP_GC_MAPS. It was telemetry-gated until 2026-09-21, so a reader following the decline line's own advice without telemetry counted ZERO applications on EVERY run and could conclude the plant never fires when it fires at every collection: measured by the cto on the coo's flag, hb_coexpr_create.icn at SCRIP_HEAP_MB=1 stress 3 shift 4096 applies 199 times and showed 0 of them.\n", g_gc_shift_now, g_gc_shift_prefix + g_gc_shift_now); } }
     } else if (reloc) {
-        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] == (char *)h) w_unm++; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
+        for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if (sz > mxs) mxs = sz; if ((char *)livef[i] == (char *)h) w_unm++; if ((char *)livef[i] < (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
         for (long i = li - 1; i >= 0; i--) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if ((char *)livef[i] > (char *)h) { memmove((void *)livef[i], (void *)h, (size_t)sz); if (w_tel) w_mov += (long)sz; } }
         { char *q = g_hp_arena;
           for (long i = 0; i < li; i++) { char *nb = (char *)livef[i];
@@ -2080,7 +2082,7 @@ static long gc_collect_ex(void)
           dest = q; }
     } else
 #endif
-    for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size;
+    for (long i = 0; i < li; i++) { rt_hblk_t *h = liveo[i]; uint32_t sz = h->size; if (sz > mxs) mxs = sz;
         if ((char *)livef[i] == (char *)h) {
 #if RT_DIAG
             w_unm++;
@@ -2096,9 +2098,9 @@ static long gc_collect_ex(void)
 #endif
             } }
 #if RT_DIAG
-    g_hp_top = dest; g_hp_blocks = nlive + nfill; g_hp_live = g_gc_flip_to ? g_gc_flip_live : (long)(dest - g_hp_arena); if (g_gc_flip_to && g_hp_top > g_hp_virgin) g_hp_virgin = g_hp_top; rt_gcheap_line_reset();
+    g_hp_top = dest; g_hp_blocks = nlive + nfill; g_hp_live = g_gc_flip_to ? g_gc_flip_live : (long)(dest - g_hp_arena); if (g_gc_flip_to && g_hp_top > g_hp_virgin) g_hp_virgin = g_hp_top; rt_gcheap_line_reset((long)mxs);
 #else
-    g_hp_top = dest; g_hp_live = (long)(dest - g_hp_arena); rt_gcheap_line_reset();
+    g_hp_top = dest; g_hp_live = (long)(dest - g_hp_arena); rt_gcheap_line_reset((long)mxs);
 #endif
     { extern void rt_gc_reset_run(uint64_t *, long); rt_gc_reset_run(livef, li); }
     after_b = (long)(g_hp_top - g_hp_arena);
@@ -2133,7 +2135,7 @@ static long gc_collect_ex(void)
     if (w_tel) fprintf(stderr, "[ZGC] regeneration #%ld (%s): blocks %ld->%ld (fill %ld) bytes %ld->%ld reclaimed %ld win=%ld slots=%ld interior=%ld wl_depth_max=%ld marked=%ld forwarded=%ld\n", g_gc_runs, "E", g_gc_nblk, nlive, nfill, before_b, after_b, before_b - after_b, (long)(g_hp_wend - g_hp_win), g_gc_nslot, g_gc_interior, g_gc_wlmax, n_mk, n_fw);
 #endif
     if (g_hp_cap_end > g_hp_end && (long)(g_hp_end - g_hp_arena - g_hp_live) * 100L < (long)(g_hp_end - g_hp_arena) * (long)GC_FREE_PCT) (void)rt_gcheap_grow(0);
-    rt_gcheap_line_reset();
+    rt_gcheap_line_reset((long)mxs);
 #if RT_DIAG
     if (g_gc_flip_to && g_gc_flip_to > g_hp_arena + sizeof(rt_hblk_t)) { size_t pg = gc_pg(); char *a = (char *)(((uintptr_t)g_hp_arena + sizeof(rt_hblk_t) + pg - 1) & ~(uintptr_t)(pg - 1)), *b = (char *)((uintptr_t)g_gc_flip_to & ~(uintptr_t)(pg - 1));
         memset(g_hp_arena + sizeof(rt_hblk_t), 0xDB, (size_t)(g_gc_flip_to - g_hp_arena - (long)sizeof(rt_hblk_t)));
