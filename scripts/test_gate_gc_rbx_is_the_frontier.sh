@@ -49,7 +49,7 @@ echo "  HOLDS: rbx carries no scratch in any emitted template, the six blob pins
 examined=$((examined + 1))
 DECLARED="src/templates/bb/bb_glue_flat.cpp:x86_rsp_store64(48, \"rbx\")
 src/templates/bb/bb_glue_flat.cpp:x86_rsp_load64(\"rbx\", 48)
-src/templates/bb/bb_create.cpp:contract_regs"
+src/templates/bb/bb_create.cpp:CR_REG"
 found=$( { grep -rn '"rbx"' "$ROOT/src/templates" "$ROOT/src/emitter" --include=*.cpp --include=*.h 2>/dev/null | grep -v 'x86("comment"' | grep -v 'PIN_FRONTIER_REG' | grep -v 'x86_rtcc_streq' | grep -v '"ebx"' | grep -v 'static const char \* regs\[\]' | grep -v '!strcmp(r, "rbx")'; } | sed "s|$ROOT/||")
 [ "${FAIL_ONCE:-0}" = 1 ] && found="$found
 src/templates/bb/bb_planted_by_fail_once.cpp:42:         + x86(\"mov\", \"rbx\", \"rax\")"
@@ -63,7 +63,7 @@ while IFS= read -r ln; do
         [ -n "$d" ] || continue
         df=${d%%:*}; dt=${d#*:}
         case "$f" in "$df") case "$rest" in *"$dt"*) hit=1 ;; esac ;; esac
-        [ "$f" = "$df" ] && [ "$dt" = "contract_regs" ] && case "$rest" in *contract_regs*) hit=1 ;; esac
+        [ "$f" = "$df" ] && [ "$dt" = "CR_REG" ] && case "$rest" in *"#define CR_REG"*) hit=1 ;; esac
     done <<< "$DECLARED"
     [ "$hit" = 1 ] || { echo "  arm 1 RED: an rbx spelling outside the declared set -- $ln"; ok=0; }
 done <<< "$found"
