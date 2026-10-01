@@ -108,7 +108,7 @@ run1() {
     #   real_time/1 prelude), compiled here with --no-top-level so the binary exits after its initialization goals and prints no banner.
     #   MEASURED at the arm's birth: nrev at 65536 iterations, gplc 371 ms of work against 911-930 ms consulted -- about 2.5x.
     gplc) local gb="$W/$$.gplc"; rm -f "$gb"
-         if ! (cd "$W" && timeout -k 5 "$T" gplc --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- GPLC-BUILD-ERR"; return; fi
+         if ! (cd "$W" && timeout -k 5 "$T" gplc --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- - GPLC-BUILD-ERR"; return; fi
          out=$("$WRAP" timeout -k 5 "$T" "$gb" >"$W/o.$$" 2>"$W/e.$$") ;;
     swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
