@@ -214,7 +214,27 @@ static int pl_same_functor(const tree_t * a, const tree_t * b) {
     return a && b && a->t == TT_FNC && b->t == TT_FNC && a->n == b->n && a->n > 0 && a->v.sval && b->v.sval && !strcmp(a->v.sval, b->v.sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_const_lit(lcx_t * cx, const tree_t * t) {
+    IR_t * nd = (IR_t *)0;
+    if (!t) return nd;
+    if (t->t == TT_QLIT || (t->t == TT_FNC && t->n == 0)) { nd = build(cx, IR_LIT_ATOM, NULL, NULL); IR_LIT(nd).sval = t->v.sval ? t->v.sval : "?"; }
+    else if (t->t == TT_MAKELIST && t->n == 0) { nd = build(cx, IR_LIT_ATOM, NULL, NULL); IR_LIT(nd).sval = "[]"; }
+    else if (t->t == TT_CUT) { nd = build(cx, IR_LIT_ATOM, NULL, NULL); IR_LIT(nd).sval = "!"; }
+    else if (t->t == TT_ILIT) { nd = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(nd).ival = t->v.ival; }
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_unify_const_node(lcx_t * cx, const char * vname, IR_t * klit, IR_t * γ, IR_t * ω) {
+    IR_t * u = build(cx, IR_UNIFY_CONST, γ, ω);
+    IR_t * v = build(cx, IR_VAR_REF, NULL, NULL); IR_LIT(v).sval = vname;
+    ir_operand_push(u, v); ir_operand_push(u, klit);
+    return u;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * unify_pair(lcx_t * cx, const tree_t * lt, const tree_t * rt, IR_t * γ, IR_t * ω, IR_t ** entry_out) {
+    if (entry_out) *entry_out = NULL;
+    { const tree_t * vt = (lt && lt->t == TT_VAR) ? lt : (rt && rt->t == TT_VAR) ? rt : (const tree_t *)0; const tree_t * kt = (vt == lt) ? rt : lt;
+      if (vt && (int) vt->v.ival >= 0) { IR_t * klit = pl_const_lit(cx, kt); if (klit) return pl_unify_const_node(cx, pl_vname(cx, (int) vt->v.ival), klit, γ, ω); } }
     if (pl_same_functor(lt, rt)) {
         IR_t * next = γ; IR_t * first_entry = γ; IR_t * head = NULL;
         for (int i = lt->n - 1; i >= 0; i--) { IR_t * e = NULL; IR_t * u = unify_pair(cx, lt->c[i], rt->c[i], next, ω, &e); next = e ? e : u; head = u; if (i == 0) first_entry = next; }
@@ -1819,6 +1839,7 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         IR_t * next = bentry ? bentry : (first ? first : succeed);
         for (int i = ar - 1; i >= 0; i--) {
             if (cl->c[i] && cl->c[i]->t == TT_VAR && (int) cl->c[i]->v.ival >= 0 && (int) cl->c[i]->v.ival < 1024 && cx.valias[(int) cl->c[i]->v.ival] == i + 1) continue;
+            { IR_t * klit = pl_const_lit(&cx, cl->c[i]); if (klit) { next = pl_unify_const_node(&cx, pl_param_name(i), klit, next, step); continue; } }
             IR_t * u = build(&cx, IR_CALL, next, step); IR_LIT(u).sval = "$unify";
             IR_t * lhs = build(&cx, IR_VAR_REF, NULL, NULL); IR_LIT(lhs).sval = pl_param_name(i);
             IR_t * he = NULL; IR_t * rhs = term_lval_e(&cx, cl->c[i], &he);

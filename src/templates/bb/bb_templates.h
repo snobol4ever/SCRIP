@@ -51,6 +51,7 @@ std::string bb_conjunction();
 std::string bb_subscript();
 std::string bb_subscript2();
 std::string bb_deref();
+std::string bb_unify_const();
 std::string bb_random();
 std::string bb_var_ref();
 std::string bb_var_ref_frame();

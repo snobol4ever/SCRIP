@@ -45,7 +45,11 @@ TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
 # 60 formals (beaf84b26), and the plant over the corpus sources, the rungs entries compiled and the dyn-scope rungs entries run in mode 3 read
 # both slim sites at 0 with a forced-positive control (SCRIP_NO_TINY=1) firing them (scripts/gc_rungs_entry_plant_receipt.tsv); the two
 # UNWITNESSED rt_proc_call_open_slim sites leave the table with their roads, and nothing arrives, so the ceiling only falls.
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-54}"
+# 53 over 159 on R4.1 (hq_prolog 2026-10-01, IR_UNIFY_CONST): the PL-REGAIN-5 const arm and its two witnessed rt_pl_dop_unify_ca/ci sites leave
+# the table with the C entries; the box's cold rt_pl_unify_const_cold site arrives WITNESSED by the same .pl witness; and the det-leaf row the
+# $cutcall landing (db4be5bb6) had left UNDECLARED beside its RETIRED twin is re-cut under its new key and read witnessed, so nothing arrives
+# unwitnessed and the ceiling only falls.
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-53}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

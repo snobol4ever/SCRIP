@@ -2612,30 +2612,9 @@ DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
       rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_unify_ci_c(DESCR_t *args, long long imm, pl_tr_ctx_t *cx) {
-    DESCR_t out;
-    rt_pl_tr_gc_sync(cx->tr);
-    { char *tr0 = cx->tr; DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
-      if (plw_unbound_tag(c)) { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; plw_bind(c, w, cx); out = w; }
-      else if (c->v == DT_I && !c->slen) out = (c->i == imm) ? *c : FAILDESCR;
-      else if (c->v == (DTYPE_t)DT_PLREF) out = FAILDESCR;
-      else { DESCR_t w; w.v = DT_I; w.slen = 0; w.i = imm; out = plw_unify_vals(args[0], w, cx) ? rt_pl_deref_val(args[0]) : FAILDESCR; }
-      if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
-    rt_pl_tr_gc_sync(cx->tr);
-    return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_unify_ca_c(DESCR_t *args, long long id, pl_tr_ctx_t *cx) {
-    DESCR_t out;
-    rt_pl_tr_gc_sync(cx->tr);
-    { char *tr0 = cx->tr; DESCR_t t = args[0]; DESCR_t *c = plw_cell_deref(plw_entry(&t));
-      if (plw_unbound_tag(c)) { DESCR_t w; w.v = (DTYPE_t)DT_PLATOM; w.slen = 0; w.i = id; plw_bind(c, w, cx); out = w; }
-      else if (c->v == (DTYPE_t)DT_PLATOM) out = (c->i == id) ? *c : FAILDESCR;
-      else if (c->v == DT_S) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)id); out = (nm && !strcmp(nm, c->s ? c->s : "")) ? *c : FAILDESCR; }
-      else out = FAILDESCR;
-      if (out.v == DT_FAIL) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
-    rt_pl_tr_gc_sync(cx->tr);
-    return out;
+int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) {
+    if (atom) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)k); return c->v == DT_S && nm && !strcmp(nm, c->s ? c->s : ""); }
+    { extern int rt_descr_equal(DESCR_t, DESCR_t); DESCR_t w; memset(&w, 0, sizeof w); w.v = DT_I; w.i = k; return rt_descr_equal(*c, w) ? 1 : 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_mkc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {

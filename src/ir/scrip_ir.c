@@ -50,6 +50,7 @@ static const char * kind_names[IR_OP_COUNT] = {
     [IR_LIMIT]  = "IR_LIMIT",
     [IR_LIMIT_GATE] = "IR_LIMIT_GATE",
     [IR_LIT_ATOM] = "IR_LIT_ATOM",
+    [IR_UNIFY_CONST] = "IR_UNIFY_CONST",
     [IR_REPALT] = "IR_REPALT",
     [IR_REV_ASSIGN] = "IR_REV_ASSIGN",
     [IR_REV_ASSIGN_VAR] = "IR_REV_ASSIGN_VAR",

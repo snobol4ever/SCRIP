@@ -1,10 +1,10 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1948
+#define GC_ALLOC_TAB_N 1946
 #define GC_ALLOC_TAB_N_VOID 226
-#define GC_ALLOC_TAB_N_DESCR 1068
-#define GC_ALLOC_TAB_N_OTHER 648
-#define GC_ALLOC_TAB_N_UNKNOWN 6
+#define GC_ALLOC_TAB_N_DESCR 1064
+#define GC_ALLOC_TAB_N_OTHER 649
+#define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "ASGNIC_fn", GC_RET_OTHER },
@@ -128,6 +128,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_VALUE_", GC_RET_DESCR },
     { "_Z13bb_lit_scalarB5cxx11v", GC_RET_UNKNOWN },
     { "_Z14bb_call_fn_strB5cxx11P4IR_t", GC_RET_UNKNOWN },
+    { "_Z14bb_unify_constB5cxx11v", GC_RET_UNKNOWN },
     { "_Z16marshal_call_argB5cxx11P4IR_tP10IR_graph_tiS0_i", GC_RET_UNKNOWN },
     { "_Z7bb_callB5cxx11P4IR_t", GC_RET_UNKNOWN },
     { "_ZL18bb_call_byname_strP4IR_t", GC_RET_UNKNOWN },
@@ -1635,10 +1636,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_unget_code_s_c", GC_RET_DESCR },
     { "rt_pl_dop_unify", GC_RET_DESCR },
     { "rt_pl_dop_unify_c", GC_RET_DESCR },
-    { "rt_pl_dop_unify_ca", GC_RET_DESCR },
-    { "rt_pl_dop_unify_ca_c", GC_RET_DESCR },
-    { "rt_pl_dop_unify_ci", GC_RET_DESCR },
-    { "rt_pl_dop_unify_ci_c", GC_RET_DESCR },
     { "rt_pl_dop_unify_oc", GC_RET_DESCR },
     { "rt_pl_dop_unify_oc_c", GC_RET_DESCR },
     { "rt_pl_dop_univ", GC_RET_DESCR },
@@ -1714,6 +1711,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_type_cold_c", GC_RET_DESCR },
     { "rt_pl_type_test_cell", GC_RET_OTHER },
     { "rt_pl_unify_cell_float", GC_RET_OTHER },
+    { "rt_pl_unify_const_cold", GC_RET_OTHER },
     { "rt_pl_unify_struct", GC_RET_OTHER },
     { "rt_pl_univ_cell", GC_RET_OTHER },
     { "rt_pl_variant_cells", GC_RET_OTHER },

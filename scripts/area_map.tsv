@@ -90,6 +90,7 @@ lang:prolog	src/parsers/prolog/
 lang:prolog	src/lower/lower_prolog.c
 lang:prolog	src/lower/pl_arith_names.h
 lang:prolog	src/lower/pl_control_names.h
+lang:prolog	src/templates/bb/bb_unify.cpp
 lang:raku	src/parsers/raku/
 lang:raku	src/lower/lower_raku.c
 lang:pascal	src/parsers/pascal/

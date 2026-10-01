@@ -155,6 +155,7 @@ typedef enum {
     IR_ASSIGN_FRAME,
     IR_LIMIT_GATE,
     IR_LIT_ATOM,
+    IR_UNIFY_CONST,
     IR_OP_COUNT
 } IR_e;
 typedef enum { SNO_FENCE_LIT_BARE = 0, SNO_FENCE_LIT_ARG = 1, SNO_FENCE_LIT_ARG_IN_ARBNO = 2, SNO_FENCE_LIT_FLUSH = 3 } sno_fence_lit_e;
