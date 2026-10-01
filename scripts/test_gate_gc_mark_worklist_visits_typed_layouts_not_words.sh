@@ -72,7 +72,8 @@ if [ $nbad -eq 0 ]; then echo "  arm 4 PASS: every collection of those runs read
 else echo "  arm 4 FAIL: $nbad collection(s) word-scanned a heap interior"; RC=1; fi
 dv=$(sed -nE 's/^#define[[:space:]]+HB_DINST[[:space:]]+([0-9]+).*/\1/p' "$H")
 [ -n "$dv" ] || { echo "⛔ GATE REFUSE(2) [$G]: HB_DINST has no value in gc_heap.h"; exit 2; }
-blind=0; for m in 3 4; do run "$m" SCRIP_GC_PLANT_PIN_TYPE="$dv" SCRIP_GC_PLANT_PIN_SKIP=1 SCRIP_GC_STRESS=1 > "$T/p.txt" 2>/dev/null; cmp -s "$T/p.txt" "$R" && blind=1; done
+blind=0; for m in 3 4; do run "$m" SCRIP_GC_PLANT_PIN_TYPE="$dv" SCRIP_GC_PLANT_PIN_SKIP=1 SCRIP_GC_STRESS=1 > "$T/p.txt" 2> "$T/p.err"; cmp -s "$T/p.txt" "$R" && blind=1
+    grep -q 'ZGC-PIN. VIOLATION' "$T/p.err" || { echo "⛔ GATE REFUSE(2) [$G]: the PIN plant printed no [ZGC-PIN] VIOLATION banner in mode $m -- it did not apply, so a failing witness would prove nothing about a lost record instance"; exit 2; }; done
 [ $blind -eq 0 ] || { echo "⛔ GATE REFUSE(2) [$G]: the witness still answered with a live HB_DINST block freed -- it cannot see a lost record instance"; exit 2; }
 echo "  arm 5 PASS: freeing the first live HB_DINST block ($dv) makes the witness fail in both modes -- it sees a lost record instance"
 [ $RC -eq 0 ] && { echo "GATE PASS(0) [$G]: the mark worklist visits every heap kind by its layout; no interior is word-scanned"; exit 0; }

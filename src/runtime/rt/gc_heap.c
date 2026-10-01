@@ -1512,10 +1512,11 @@ static int gc_cell_visit(DESCR_t *d)
 }
 #if RT_DIAG
 static int gc_nospine_cell(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_NO_SPINE_CELL"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static int gc_walk_census_on(void) { return gc_diag_on() || gc_maps_on() || gc_nospine_cell(); }
 #endif
-static void gc_walk_words(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base)
-{
 #if RT_DIAG
+static void gc_walk_words_census(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base)
+{
     gc_walk_t *g = &g_gw[g_gc_rep_pop];
     for (const char *p = lo; p + 8 <= hi; p += 8) { const char **w = (const char **)p; rt_hblk_t *h = gc_blk_of(*w);
         if (cls == 0) g->s_words++; else if (cls == 1) g->h_words++; else g->a_words++;
@@ -1524,43 +1525,47 @@ static void gc_walk_words(const char *lo, const char *hi, int cls, const char *r
         if (cls == 2) { g->a_heap++; gc_walk_site("ABOVE", graph, (long)(p - base), w, h); continue; }
         if (p - 8 >= rlo && gc_tag_bears_ptr(*(const uint8_t *)(p - 8))) { if (cls == 0) g->s_cell_heap++; else g->h_cell_heap++; continue; }
         if (cls == 0) { g->s_raw_heap++; gc_walk_site("SPINE", graph, (long)(p - base), w, h); gc_spine_record(graph, (long)(p - base), w, h); } else { g->h_raw_heap++; gc_walk_site("HEADER", graph, (long)(p - base), w, h); } }
-#else
+}
+#endif
+static void gc_walk_words(const char *lo, const char *hi, int cls, const char *rlo, const char *graph, const char *base)
+{
     (void)rlo; (void)graph; (void)base;
     if (cls == 2) return;
     for (const char *p = lo; p + 16 <= hi; p += 8) if (gc_cell_visit((DESCR_t *)p)) p += 8;
-#endif
 }
 #if RT_DIAG
 static long g_gc_blob_frames, g_gc_blob_entries, g_gc_blob_descr, g_gc_blob_ptr, g_gc_blob_raw, g_gc_blob_code, g_gc_blob_raw_in_heap;
 #endif
-static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi)
-{
 #if RT_DIAG
+static void gc_walk_interior_census(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi)
+{
     gc_walk_t *g = &g_gw[g_gc_rep_pop]; const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0]; long covered = 0; int blob = (m->flags & GC_FRAME_MAP_BLOB) ? 1 : 0;
     if (blob) g_gc_blob_frames++;
     long span = (m->flags & GC_FRAME_MAP_BLOB) ? (long)m->frame_bytes + 8 : (long)m->map_off;
-#else
-    const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0];
-#endif
     for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); const char *w = anchor + off, *e = w + size;
         if (w < lo) w = (kind == GC_LAY_DESCR) ? w + (((lo - w) + 15) & ~15L) : lo;
         if (e > hi) e = hi;
         if (w >= e) continue;
-#if RT_DIAG
         covered += e - w;
         if (blob) { g_gc_blob_entries++; if (kind == GC_LAY_DESCR) g_gc_blob_descr++; else if (kind == GC_LAY_PTR_GC) g_gc_blob_ptr++; else if (kind == GC_LAY_RAW) g_gc_blob_raw++; else g_gc_blob_code++; }
         if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; g->i_descr++; if (!gc_tag_known(d->v)) { g->i_badtag++; if (gc_tag_known((uint8_t)(uintptr_t)d->p)) g->i_phase++; gc_walk_badtag(m->graph_name, (long)(c - anchor), d); } else { if (gc_tag_bears_ptr(d->v) && gc_blk_of((const char *)d->p)) g->i_heap++; rt_gc_visit_descr(d); } } continue; }
         for (const char *c = w; c + 8 <= e; c += 8) { const char **pw = (const char **)c; rt_hblk_t *h = gc_blk_of(*pw);
             if (kind == GC_LAY_PTR_GC) { g->i_ptr++; if (h) { g->i_ptr_heap++; rt_gc_visit_raw(pw); } continue; }
             g->i_raw++; if (h) { g->i_raw_heap++; gc_walk_site("RAW", m->graph_name, (long)(c - anchor), pw, h); if (blob && gc_type_moves(h->type)) { g_gc_blob_raw_in_heap++; if (gc_maps_on()) fprintf(stderr, "[GC-BLOB-RAW] graph=%s off=%ld kind=%u word=%p blk=%p type=%u\n", m->graph_name ? m->graph_name : "?", (long)(c - anchor), kind, (const void *)*pw, (const void *)h, (unsigned)h->type); } } }
-#else
+    }
+    if (span > covered) g->i_gap += (span - covered) / 8;
+}
+#endif
+static void gc_walk_interior(const char *anchor, const gc_frame_map_t *m, const char *lo, const char *hi)
+{
+    const uint64_t *t = (const uint64_t *)(m + 1); long n = (long)t[0];
+    for (long i = 0; i < n; i++) { uint64_t q = t[1 + i]; int off = GC_LAY_OFF(q), size = GC_LAY_SIZE(q); unsigned kind = GC_LAY_KIND(q); const char *w = anchor + off, *e = w + size;
+        if (w < lo) w = (kind == GC_LAY_DESCR) ? w + (((lo - w) + 15) & ~15L) : lo;
+        if (e > hi) e = hi;
+        if (w >= e) continue;
         if (kind == GC_LAY_DESCR) { for (const char *c = w; c + 16 <= e; c += 16) { DESCR_t *d = (DESCR_t *)c; if (gc_tag_known(d->v)) rt_gc_visit_descr(d); } continue; }
         if (kind == GC_LAY_PTR_GC) for (const char *c = w; c + 8 <= e; c += 8) rt_gc_visit_raw((const char **)c);
-#endif
     }
-#if RT_DIAG
-    if (span > covered) g->i_gap += (span - covered) / 8;
-#endif
 }
 static int gc_ceiling_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_CEILING"); v = (e && *e) ? (*e != '0') : 1; } return v; }
 static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo)
@@ -1571,42 +1576,51 @@ static int gc_walk_cell(const char *p, const char *hi, const gc_frame_map_t **mo
     if (!m || !gc_frame_map_registered(m) || m->magic != GC_FRAME_MAP_MAGIC || m->frame_bytes != d->slen) return 0;
     *mo = m; return 1;
 }
-static void gc_walk_range(const char *lo0, const char *hi0)
-{
 #if RT_DIAG
+static void gc_walk_range_census(const char *lo0, const char *hi0)
+{
     const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = hi0, *p = lo; int k = g_gc_rep_pop, nf = 0, above = 0; const char *last = "-"; gc_walk_t *g = &g_gw[k];
-#else
-    const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = hi0, *p = lo; int above = 0; const char *last = "-";
-#endif
     while (p + 8 <= hi) {
         const char *c = p; const gc_frame_map_t *m = (const gc_frame_map_t *)0;
         while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
-#if RT_DIAG
-        if (!m) { if (nf == 0) g->nomap++; if (above && g_gc_seg_main && gc_ceiling_on() && !gc_maps_on()) { g_gc_ceil_bytes += (long)(hi - p); return; } gc_walk_words(p, hi, above ? 2 : 0, lo, last, p); return; }
+        if (!m) { if (nf == 0) g->nomap++; if (above && g_gc_seg_main && gc_ceiling_on() && !gc_maps_on()) { g_gc_ceil_bytes += (long)(hi - p); return; } gc_walk_words_census(p, hi, above ? 2 : 0, lo, last, p); return; }
         nf++; g->frames++; if (nf == 1 && !above && !g_gc_top_graph) g_gc_top_graph = m->graph_name ? m->graph_name : "?";
         if (gc_maps_on() && (m->flags & GC_FRAME_MAP_BLOB) && c + (long)m->frame_bytes + 24 <= hi) { const char *an = c + (long)m->frame_bytes, *const *h = (const char *const *)an;
             int up = h[0] > an && h[0] < hi, r1 = gc_code_range(h[1]), r2 = gc_code_range(h[2]); if (!(up && r1 && r2)) g->ghost++;
             if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d hdr=%p,%p,%p rbp_up=%d code=%d,%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above, (const void *)h[0], (const void *)h[1], (const void *)h[2], up, r1, r2); }
         else if (gc_maps_verbose()) fprintf(gc_maps_log(), "[GC-WALK-CELL] pop=%s cell=%p graph=%s frame_bytes=%u header_bytes=%u map_off=%lu flags=%u above=%d\n", g_gc_rep_popname[k], (const void *)c, m->graph_name ? m->graph_name : "?", m->frame_bytes, m->header_bytes, (unsigned long)m->map_off, m->flags, above);
-#else
-        if (!m) { if (!above) gc_walk_words(p, hi, 0, lo, last, p); return; }
+        if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
+            gc_walk_words_census(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior_census(c + (long)m->frame_bytes, m, lo, hi); p = top; }
+        else { const char *base = c - (long)m->map_off, *slo = (base < p) ? p : base, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (hhi > hi) hhi = hi;
+            { long before = g->s_raw_heap; gc_walk_words_census(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base); if (nf == 1 && !above && g->s_raw_heap > before) gc_walk_dump(p, slo, m->graph_name); }
+            if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior_census(base, m, lo, hi); else g->notab++;
+            gc_walk_words_census(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
+        last = m->graph_name;
+        if (m->flags & GC_FRAME_MAP_ROOT) {
+            g->roots++;
+            { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; }
+            if (above && gc_ceiling_on() && g_gc_seg_main && (!g_gc_emit_ceiling || (char *)p < g_gc_emit_ceiling)) g_gc_emit_ceiling = (char *)p; }
+    }
+}
 #endif
+static void gc_walk_range(const char *lo0, const char *hi0)
+{
+#if RT_DIAG
+    if (gc_walk_census_on()) { gc_walk_range_census(lo0, hi0); return; }
+#endif
+    const char *lo = (const char *)(((uintptr_t)lo0 + 7u) & ~(uintptr_t)7u), *hi = hi0, *p = lo; int above = 0; const char *last = "-";
+    while (p + 8 <= hi) {
+        const char *c = p; const gc_frame_map_t *m = (const gc_frame_map_t *)0;
+        while (c + 16 <= hi && !gc_walk_cell(c, hi, &m)) c += 8;
+        if (!m) { if (!above) gc_walk_words(p, hi, 0, lo, last, p); return; }
         if (m->flags & GC_FRAME_MAP_BLOB) { const char *top = c + (long)m->frame_bytes + (long)m->header_bytes; if (top > hi) top = hi;
             gc_walk_words(p, c, above ? 2 : 0, lo, above ? last : m->graph_name, c); gc_walk_interior(c + (long)m->frame_bytes, m, lo, hi); p = top; }
         else { const char *base = c - (long)m->map_off, *slo = (base < p) ? p : base, *hlo = c + 16, *hhi = hlo + (long)m->header_bytes; if (hhi > hi) hhi = hi;
-#if RT_DIAG
-            { long before = g->s_raw_heap; gc_walk_words(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base); if (nf == 1 && !above && g->s_raw_heap > before) gc_walk_dump(p, slo, m->graph_name); }
-            if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi); else g->notab++;
-#else
             gc_walk_words(p, slo, above ? 2 : 0, lo, above ? last : m->graph_name, base);
             if (m->flags & GC_FRAME_MAP_LAYOUT) gc_walk_interior(base, m, lo, hi);
-#endif
             gc_walk_words(hlo, hhi, 1, lo, m->graph_name, base); p = hhi; }
         last = m->graph_name;
         if (m->flags & GC_FRAME_MAP_ROOT) {
-#if RT_DIAG
-            g->roots++;
-#endif
             { const char *q = p; const gc_frame_map_t *mn = (const gc_frame_map_t *)0; while (q + 16 <= hi && !gc_walk_cell(q, hi, &mn)) q += 8; above = mn ? 0 : 1; }
             if (above && gc_ceiling_on() && g_gc_seg_main && (!g_gc_emit_ceiling || (char *)p < g_gc_emit_ceiling)) g_gc_emit_ceiling = (char *)p; }
     }
@@ -1805,7 +1819,7 @@ static long gc_collect_ex(void)
 {
     extern void kw_cset_gc_roots(void); extern void core_gc_roots(void); extern void dat_gc_roots(void); extern void gen_gc_roots(void); extern void pas_gc_roots(void); extern void pl_gc_roots(void); extern void rt_gc_root_args(void); extern void rt_gc_ws_roots(void); extern void eval_gc_roots(void); extern void lower_gc_roots(void); extern void bnd_gc_roots(void); extern void drv_gc_roots(void); extern int rt_scan_active(void);
 #if RT_DIAG
-    char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0; long nforeign = 0;
+    char anchor; long words = 0, interior = 0; long nlive = 0, nfill = 0, before_b, after_b, n_mk = 0, n_fw = 0, n_plant = 0; char *dest; rt_hblk_t **liveo; uint64_t *livef; long li = 0;
     long w_cnt = 0, w_idx = 0, w_pmg = 0, w_fwd = 0, w_liv = 0, w_sld = 0, w_vfy = 0, w_cel = 0, w_raw = 0, w_mov = 0, w_unm = 0; int w_tel = gc_telem_on();
     long n_rfz = 0; int reloc = gc_reloc_forced();
     int st_n = 0, st_slot[32]; uint64_t st_word[32], st_fwd[32]; rt_hblk_t *st_blk[32];
@@ -1835,9 +1849,6 @@ static long gc_collect_ex(void)
     { char *p = g_hp_arena; long i = 0; int fold = 1; if (!g_gc_pmap) { g_gc_pmap = (uint32_t *)gcbk_alloc((((size_t)(g_hp_cap_end - g_hp_arena)) >> 6) * sizeof(uint32_t)); if (!g_gc_pmap) abort(); } while (p < g_hp_top) { rt_hblk_t *h = (rt_hblk_t *)p;
         if (fold && i >= g_gc_icap) { g_gc_icap = g_gc_icap ? g_gc_icap * 2 : 4096; g_gc_idxbuf = (rt_hblk_t **)gcbk_grow((void *)g_gc_idxbuf, (size_t)g_gc_icap * sizeof(*g_gc_idxbuf)); if (!g_gc_idxbuf) abort(); g_gc_idx = g_gc_idxbuf; }
         h->flags &= (uint16_t)~(HBF_MARK | HBF_VIS);
-#if RT_DIAG
-        if (h->type == HB_ZBLK) nforeign++;
-#endif
         h->fwd = 0; g_gc_idx[i] = h; { char *e = p + h->size; char *gs0 = g_hp_arena + (((size_t)(p - g_hp_arena) + 63u) & ~(size_t)63u);
 #if RT_DIAG
         if (w_tel && e > gs0) w_pmg += (long)((e - gs0 + 63) >> 6);
@@ -1934,7 +1945,7 @@ static long gc_collect_ex(void)
 #endif
 #if RT_DIAG
     gc_spine_lost_check();
-    gc_assert_check();
+    if (gc_diag_on()) gc_assert_check();
     { static int cov = -1; if (cov < 0) { const char *e = getenv("SCRIP_GC_COVERAGE"); cov = (e && *e && *e != '0') ? 1 : 0; }
       if (cov) fprintf(stderr, "[GC-COV] ranges=%ld cas_scanned_bytes=%ld words_scanned=%ld interior_words=%ld ceiling_bytes_skipped=%ld ceiling=%p\n", g_gc_rrng_n, g_gc_cas_bytes, words, interior, g_gc_ceil_bytes, (void *)g_gc_emit_ceiling); }
     { long shift = gc_plant_shift_bytes(); long prefix = shift ? gc_plant_shift_prefix() : 0;
@@ -1962,19 +1973,17 @@ static long gc_collect_ex(void)
     if (fold) { gc_live_grow(0); liveo = g_gc_liveo; livef = g_gc_livef; }
     {
 #if RT_DIAG
-    const long ppt = gc_plant_pin_type(), pps = gc_plant_pin_skip();
+    const long ppt = gc_plant_pin_type(), pps = gc_plant_pin_skip(); const int fcen = gc_diag_on() || reloc || ppt >= 0 || w_tel;
 #endif
     for (long i = 0; i < g_gc_nblk; i++) { rt_hblk_t *h = g_gc_idx[i];
 #if RT_DIAG
+        if (fcen) {
         if (h->flags & HBF_MARK) { n_mk++; { int _pt = (ppt < 0 || (long)h->type == ppt) ? 1 : 0; if (_pt) n_plant++; if (n_plant == pps && _pt) { h->fwd = 0; dest += h->size; }
             else { if (reloc && !g_gc_flip_to && (char *)dest == (char *)h) { if (dest + 2 * (long)sizeof(rt_hblk_t) + rel_rem <= g_hp_end) dest += 2 * (long)sizeof(rt_hblk_t); else n_rfz++; } if (reloc) rel_rem -= (long)h->size; h->fwd = (uint64_t)dest; dest += h->size; nlive++; } } }
-#else
-        if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; }
-#endif
         else h->fwd = 0;
-#if RT_DIAG
-        if (h->fwd) n_fw++;
+        if (h->fwd) n_fw++; } else
 #endif
+        { if (h->flags & HBF_MARK) { h->fwd = (uint64_t)dest; dest += h->size; } else h->fwd = 0; }
         if (fold && h->fwd) { if (li >= g_gc_lcap) { gc_live_grow(li); liveo = g_gc_liveo; livef = g_gc_livef; } liveo[li] = h; livef[li] = h->fwd; li++; } } }
 #if RT_DIAG
     if (w_tel) { w_fwd = g_gc_nblk; n_fwd = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
@@ -2192,7 +2201,7 @@ __asm__(
 long rt_gcheap_free(void) { if (!g_hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-long rt_gc_cb_open(void) { return rt_gc_runs_count(); }
+long rt_gc_cb_open(void) { return gc_diag_on() ? rt_gc_runs_count() : -1L; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gc_cb_close(long mark, const char *file, int line, void *lo, void *hi)
 {
