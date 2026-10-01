@@ -1002,13 +1002,18 @@ s4e_lane_owner_of_language() {
        # ⛔⭐ MODE QUARTET (CEO-1364, 2026-09-29 18:3x, Lon in-chat to the ceo: "WIll we not benefit from having CFO and COO at work?" then "The goal is parser.sc same as C and 2x faster than SPITBOL."): the four officers,
        # split by layer as DUO was -- the cto bakes the calls, the coo is the testing officer again (LANES: names the coo), the cfo takes the collector and allocation under the parsers, the ceo keeps the
        # parsers and the stored-pattern thunks. Rows are assigned, not picked by language, so this table stays the MODE CEO table unchanged; the QUARTET guard arms above already admit cto, cfo and coo.
-       icon)     printf 'ceo';;
-       prolog)   printf 'ceo';;
-       snobol4)  printf 'ceo';;
-       pascal)   printf 'ceo';;
-       snocone)  printf 'ceo';;
+      # ⛔ MODE TENET (CEO-1383, 2026-10-01 09:0x CDT, Lon in-chat to the ceo, verbatim: "Let's get all test suites for all
+      # languages to 100%. Go to TENET mode, 4 officers, and 7 HQ's."): every language goes back to its own HQ, the eleventh seat
+      # hq_templates owns no language, rebus stays the ceo's keep-green as under the 2026-09-25 TENET (CEO-1266). Written out per
+      # language, never collapsed to a default, for the reason every table above gives: the gate beside this compares it to MODE
+      # line 2 LANGUAGE BY LANGUAGE. THIS TABLE IS MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
+       icon)     printf 'hq_icon';;
+       prolog)   printf 'hq_prolog';;
+       snobol4)  printf 'hq_snobol4';;
+       pascal)   printf 'hq_pascal';;
+       snocone)  printf 'hq_snocone';;
        rebus)    printf 'ceo';;
-       raku)     printf 'ceo';;
+       raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
