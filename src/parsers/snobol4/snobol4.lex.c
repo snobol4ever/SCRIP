@@ -1586,7 +1586,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 62:
 YY_RULE_SETUP
-{ strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcasecmp(strbuf,"END")==0?T_END:T_IDENT; }
+{ strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 	YY_BREAK
 case 63:
 case 64:
@@ -3171,7 +3171,7 @@ Token flex_lex_next(Lex *lx) {
             t.kind = T_EOF; return t;
         case T_LABEL:
             t.sval = intern(strbuf);
-            t.ival = strcasecmp(strbuf,"END")==0 ? 1 : 0;
+            t.ival = strcmp(strbuf,"END")==0 ? 1 : 0;
             t.lineno = g_stmt_pos.lineno;
             if (t.ival) lx->_extra = SNO_END_ARMED;
             return t;

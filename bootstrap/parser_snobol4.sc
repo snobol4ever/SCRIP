@@ -246,8 +246,9 @@ Stmt        =  epsilon . *PushCounter()
                . *Reduce('TT_STMT', nTop())
                . *PopCounter()
                *$' ';
-/* END in any case, as SPITBOL reads it (end, End, eNd all end the program) and the C lexer since this landing */
-EndStmt     =  ( (ANY('Ee') ANY('Nn') ANY('Dd')) . thx . *PushCounter() . *Shift('TT_QLIT', REPLACE(thx, SnLT[SnCase], SnUT[SnCase])) . *Reduce('TT_ATTR', 1, ':lbl') . *IncCounter()
+/* END after the case map in force, as sbl -bf reads it: upper-case END ends the program and end or End is an ordinary label */
+/* unless -CASE folding is on (the C lexer's strcmp after sno_fold; the coo's bisect of 2026-10-01 against ae0a91289)      */
+EndStmt     =  ( ((ANY('Ee') ANY('Nn') ANY('Dd')) $ etx *IDENT(REPLACE(etx, SnLT[SnCaseNow], SnUT[SnCaseNow]), 'END')) . thx . *PushCounter() . *Shift('TT_QLIT', REPLACE(thx, SnLT[SnCase], SnUT[SnCase])) . *Reduce('TT_ATTR', 1, ':lbl') . *IncCounter()
                  FENCE(*$'  ' (*Id) . thx . *Shift('TT_QLIT', thx) . *Reduce('TT_ATTR', 1, ':entry') . *IncCounter() | epsilon)
                ) . *Reduce('TT_END', nTop()) . *PopCounter();
 Commands    =  *Command FENCE(*Commands | epsilon);

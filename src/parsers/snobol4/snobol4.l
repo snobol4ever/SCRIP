@@ -304,7 +304,7 @@ G       ({WS}|{CONT})*
 <BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
 <BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
 <BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return T_FUNCTION; }
-<BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcasecmp(strbuf,"END")==0?T_END:T_IDENT; }
+<BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
 <BODY>{DIGIT}+"."{DIGIT}*{EXP}? |
 <BODY>{DIGIT}+{EXP}         { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); for (char *_e = strbuf; *_e; _e++) if (*_e == 'd' || *_e == 'D') *_e = 'e'; return T_REAL; }
 <BODY>{DIGIT}+                { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); return T_INT;  }
@@ -476,7 +476,7 @@ Token flex_lex_next(Lex *lx) {
             t.kind = T_EOF; return t;
         case T_LABEL:
             t.sval = intern(strbuf);
-            t.ival = strcasecmp(strbuf,"END")==0 ? 1 : 0;
+            t.ival = strcmp(strbuf,"END")==0 ? 1 : 0;
             t.lineno = g_stmt_pos.lineno;
             if (t.ival) lx->_extra = SNO_END_ARMED;
             return t;
