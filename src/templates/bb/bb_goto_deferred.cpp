@@ -16,10 +16,12 @@ static std::string bb_goto_deferred_frame_release() {
     return  x86("add", "rsp", (long)_.flat_frame_bytes);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define GD_SPECIAL() (_.op_sval && _.op_sval[0] == '^')
+#define GD_DEFFOLD() (sn4_define_fold() && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$')
 std::string bb_goto_deferred() {
     x86_begin();
-    if (_.op_sval && _.op_sval[0] == '^') {
-        return x86("comment", "IR_GOTO_DEFERRED (SPECIAL-TRANSFER TEST: gamma = this graph's own RETURN/FRETURN/NRETURN landing, omega = the next test then the ordinary resolve)")
+    return IF(GD_SPECIAL(),
+               x86("comment", "IR_GOTO_DEFERRED (SPECIAL-TRANSFER TEST: gamma = this graph's own RETURN/FRETURN/NRETURN landing, omega = the next test then the ordinary resolve)")
              + x86_alpha()
              + x86_align_enter()
              + x86_ro_load_q("rdi", 0)
@@ -29,19 +31,17 @@ std::string bb_goto_deferred() {
              + x86("test", "rax", "rax")
              + x86_omega("jz")
              + x86_gamma()
-             + x86_ro_seal_str(0, _.op_sval);
-    }
-    {
-    if (sn4_define_fold() && _.op_ival == 1 && _.op_sval && _.op_sval[0] && _.op_sval[0] != '$') {
-        return x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp the function's alpha, no chain, no reserve)")
+             + x86_ro_seal_str(0, _.op_sval))
+         + IF(!GD_SPECIAL() && GD_DEFFOLD(),
+               x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp the function's alpha, no chain, no reserve)")
              + x86_alpha()
              + bb_goto_deferred_frame_release()
              + x86("jmp", "[rip@cell + __]",
                    (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("entry$") + _.op_sval).c_str()),
                    (std::string("LBL__") + _.op_sval).c_str())
-             + x86_gamma();
-    } }
-    return  x86_alpha()
+             + x86_gamma())
+         + IF(!GD_SPECIAL() && !GD_DEFFOLD(),
+               x86_alpha()
          + x86_align_enter()
          + x86_ro_load_q("rdi", 0)
          + x86("call", "rt_goto_resolve", (uint64_t)(uintptr_t)(void *)rt_goto_resolve)
@@ -54,5 +54,5 @@ std::string bb_goto_deferred() {
          + x86("jmp", "rax")
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
-         + x86_gamma();
+         + x86_gamma());
 }
