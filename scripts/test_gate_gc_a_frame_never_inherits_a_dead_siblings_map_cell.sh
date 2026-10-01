@@ -21,7 +21,9 @@
 # ARMS: (a) THE PROPERTY: the witness (the census entry, ref cut from iconx) answers its ref at SCRIP_GC_STRESS=1 and 3, under
 # SCRIP_GC_RELOC=1 and under the flip plant, mode 3 and mode 4; (b) THE PLANT: SCRIP_GC_PLANT_STALE_FRAME=1 loses the answer
 # at stress 1 and prints the GC-STALEFRAME banner; (c) THE EMISSION: every procedure prologue of the witness that writes a map
-# cell at [rsp + R] clears R bytes from rsp.  FAIL_ONCE=1 grades arm (a) under the plant and requires it to red.
+# cell at [rsp + R] clears at least R bytes from rsp BEFORE it stores the cell (since the one-stack row's header seed, cto 2026-10-01,
+# the clear runs through the header up to the saved rbp, so it covers the cell and must come first).  FAIL_ONCE=1 grades arm (a)
+# under the plant and requires it to red.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
@@ -46,7 +48,8 @@ miss=0; seen=0
 if [ -s "$T/w.s" ]; then
   while IFS= read -r fn; do n=$(grep -n "^$fn:" "$T/w.s" | head -1 | cut -d: -f1); [ -n "$n" ] || continue
     blk=$(sed -n "$n,$((n+16))p" "$T/w.s"); R=$(printf '%s\n' "$blk" | grep -oE 'dword ptr \[rsp \+ [0-9]+\], 160' | head -1 | grep -oE '[0-9]+\]' | tr -d ']'); [ -n "$R" ] && [ "$R" -gt 0 ] || continue
-    seen=$((seen+1)); printf '%s\n' "$blk" | grep -q "mov  *ecx, $R\$" || { miss=$((miss+1)); echo "      prologue $fn writes its map cell at [rsp + $R] and does not clear $R bytes"; }
+    seen=$((seen+1)); N=$(printf '%s\n' "$blk" | grep -oE 'mov +ecx, [0-9]+$' | head -1 | grep -oE '[0-9]+$'); lc=$(printf '%s\n' "$blk" | grep -nE 'rep +stosb' | head -1 | cut -d: -f1); lm=$(printf '%s\n' "$blk" | grep -nE "dword ptr \[rsp \+ $R\], 160" | head -1 | cut -d: -f1)
+    { [ -n "$N" ] && [ "$N" -ge "$R" ] && [ -n "$lc" ] && [ "$lc" -lt "$lm" ] && printf '%s\n' "$blk" | grep -qE 'add +rdi, 0$'; } || { miss=$((miss+1)); echo "      prologue $fn writes its map cell at [rsp + $R] and does not clear [rsp, rsp + $R) before storing it (clear ${N:-none} bytes)"; }
   done < <(grep -oE '^FN__[A-Za-z0-9_]+' "$T/w.s" | sort -u)
 fi
 if [ "$seen" -ge 10 ] && [ "$miss" = 0 ]; then echo "  ok   (c) THE EMISSION: all $seen procedure prologues of the witness with a non-empty value region clear it whole before any value is stored"
