@@ -22,9 +22,9 @@ procedure main()
    &trace := -1;
    f();
    &trace := 0;
-   write("done")
+   write("done");
 end
 
 procedure f()
-   return 1
+   return 1;
 end

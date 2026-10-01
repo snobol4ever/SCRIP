@@ -21,7 +21,7 @@ procedure main()
    every 1 to 3 do {
       f := p1;
       every x := f() do n := n + 1;
-      }
+      };
    write("repeat count ", n);
    f := p1;
    write("sum ", f() + f());

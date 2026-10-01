@@ -9,10 +9,10 @@ procedure main()
       move(1);
       every i := 1 to 400 do junk := repl("q", 512);
       f()
-      }
+      };
 end
 procedure f()
    write(*&subject, " ", &pos, " ", image(&subject));
    write(image(move(2)), " ", &pos, " ", pos(4) | "pos fails");
-   write(image(tab(0)), " ", &pos)
+   write(image(tab(0)), " ", &pos);
 end

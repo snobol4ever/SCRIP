@@ -14,5 +14,5 @@ procedure main();
       close(g);
       remove("hb_icn_seventy_" || i || ".tmp")
    };
-   write(total)
+   write(total);
 end

@@ -1,26 +1,26 @@
 procedure p0()
-   return 1
+   return 1;
 end
 procedure p1(a)
-   return a + 1
+   return a + 1;
 end
 procedure p2(a, b)
-   return a + b
+   return a + b;
 end
 procedure p3(a, b, c)
-   return a + b + c
+   return a + b + c;
 end
 procedure p4(a, b, c, d)
-   return a + b + c + d
+   return a + b + c + d;
 end
 procedure gen(n)
    local i;
-   every i := 1 to n do suspend i
+   every i := 1 to n do suspend i;
 end
 procedure big(a, b, c, d, e, f)
    local x, y;
    x := a + b; y := c + d;
-   return x + y + e + f
+   return x + y + e + f;
 end
 procedure main()
    local s, i;

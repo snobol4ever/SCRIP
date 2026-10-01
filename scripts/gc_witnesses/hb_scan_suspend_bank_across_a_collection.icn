@@ -19,5 +19,5 @@ procedure main()
       s := "";
       every s ||:= !L || ":";
       write(s);
-      }
+      };
 end

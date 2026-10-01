@@ -462,17 +462,17 @@ Expr        = ( epsilon . *PushCounter()
                 . *IncCounter() *ExprSeqStar . *Reduce('TT_CONJ', *(GT(nTop(), 1) nTop())) . *PopCounter()
               );
 Blank     = ( *$' ' );
-ReturnStmt = ( *$'return' *$' ' *Expr *$' ' *semi_opt *$' ' . *Reduce('TT_RETURN', 1)
-             | *$'return' *$' '  *semi_opt *$' '             . *Reduce('TT_RETURN', 0)
+ReturnStmt = ( *$'return' *$' ' *Expr *$' ' *$';' *$' ' . *Reduce('TT_RETURN', 1)
+             | *$'return' *$' '  *$';' *$' '             . *Reduce('TT_RETURN', 0)
              );
 DeclFirst  = ( *$' ' (*id_pat) . thx . *Shift('TT_VAR', thx) . *IncCounter() );
 DeclRest   = ( *$','  (*id_pat) . thx . *Shift('TT_VAR', thx) . *IncCounter() );
 DeclStar   = FENCE(*DeclRest *DeclStar | epsilon);
 DeclIds    = ( *DeclFirst *DeclStar );
 /* LocalDecl: collect var names, reduce to TT_LOCAL node, push bare (no STMT wrap). */
-LocalDecl  = ( epsilon . *PushCounter() *$'local'  *$'  ' *DeclIds *$' ' *semi_opt *$' ' . *Reduce('TT_LOCAL', nTop()) . *PopCounter() );
-StaticDecl = ( epsilon . *PushCounter() *$'static' *$'  ' *DeclIds *$' ' *semi_opt *$' ' . *Reduce('TT_STATIC_DECL', nTop()) . *PopCounter() );
-InitialStmt = ( epsilon . *PushCounter() *$'initial' *$' ' *Expr . *IncCounter() *$' ' *semi_opt *$' '
+LocalDecl  = ( epsilon . *PushCounter() *$'local'  *$'  ' *DeclIds *$' ' *$';' *$' ' . *Reduce('TT_LOCAL', nTop()) . *PopCounter() );
+StaticDecl = ( epsilon . *PushCounter() *$'static' *$'  ' *DeclIds *$' ' *$';' *$' ' . *Reduce('TT_STATIC_DECL', nTop()) . *PopCounter() );
+InitialStmt = ( epsilon . *PushCounter() *$'initial' *$' ' *Expr . *IncCounter() *$' ' *$';' *$' '
                 . *Reduce('TT_INITIAL', nTop())
                 . *PopCounter()
               );
@@ -481,17 +481,17 @@ SuspendStmt = ( epsilon . *PushCounter()
                   FENCE( *$'do' *$'  ' *Expr . *IncCounter() | epsilon )
                 | *$'suspend' *$' ' . *Shift('TT_VAR', '&null') . *IncCounter()
                 )
-                *$' ' *semi_opt *$' '
+                *$' ' *$';' *$' '
                 . *Reduce('TT_SUSPEND', nTop()) . *PopCounter()
               );
-FailStmt    = ( *$'fail'    *$' '         *semi_opt *$' '      . *Reduce('TT_PROC_FAIL', 0) );
+FailStmt    = ( *$'fail'    *$' '         *$';' *$' '      . *Reduce('TT_PROC_FAIL', 0) );
 StmtBody  = ( *LocalDecl . *IncCounter()
             | *StaticDecl . *IncCounter()
             | *InitialStmt . *IncCounter()
             | *ReturnStmt . *IncCounter()
             | *SuspendStmt . *IncCounter()
             | *FailStmt . *IncCounter()
-            | *$' ' *Expr *$' ' *semi_opt *$' ' . *IncCounter()
+            | *$' ' *Expr *$' ' *$';' *$' ' . *IncCounter()
             );
 ParamFirst = ( *$' ' (*id_pat) . thx . *Shift('TT_VAR', thx)  . *IncCounter() );
 ParamRest  = ( *$',' (*id_pat) . thx . *Shift('TT_VAR', thx)  . *IncCounter() );

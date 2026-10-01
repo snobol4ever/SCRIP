@@ -3,13 +3,13 @@
 #   the emitter's [GC-MAP] cells in BOTH media, and the .s's .Lgcmap_* labels, leas and counted table
 #   against each other -- one graph would prove nothing about "exactly one".
 procedure f(x)
-  return x || "z"
+  return x || "z";
 end
 procedure g(y)
-  local t
-  t := [y, y, y]
-  return t[1]
+  local t;
+  t := [y, y, y];
+  return t[1];
 end
 procedure main()
-  write(f("a"), " ", g("b"))
+  write(f("a"), " ", g("b"));
 end

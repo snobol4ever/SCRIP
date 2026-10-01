@@ -12,6 +12,6 @@ procedure main();
    T := table();
    every i := 1 to 6 do T[i] := 3 ^ (300 + i);
    every i := 1 to 600 do churn := repl("q", 200);
-   every i := 1 to 6 do { s := string(L[i]); write("L", i, " ", *s, " ", s[1:10], " ", s[-10:0]); }
-   every i := 1 to 6 do { s := string(T[i]); write("T", i, " ", *s, " ", s[1:10], " ", s[-10:0]); }
+   every i := 1 to 6 do { s := string(L[i]); write("L", i, " ", *s, " ", s[1:10], " ", s[-10:0]); };
+   every i := 1 to 6 do { s := string(T[i]); write("T", i, " ", *s, " ", s[1:10], " ", s[-10:0]); };
 end

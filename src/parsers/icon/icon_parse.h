@@ -8,6 +8,8 @@ typedef struct {
     IcnToken    cur;
     IcnToken    peek;
     IcnTkKind   prev_kind;
+    int         tb_line;
+    int         tb_col;
     int         had_error;
     char        errmsg[512];
 } IcnParser;

@@ -5,10 +5,10 @@
 # then reads the first word of the subject through that inherited register. Correct output: alpha, then done.
 global G, L
 procedure junk_maker()
-   return list(2000, 7)
+   return list(2000, 7);
 end
 procedure main()
-   local line, letters, junk, i, s, e
+   local line, letters, junk, i, s, e;
    every i := 1 to 2 do { L := junk_maker(); if i = 1 then G := L };
    every i := 1 to 400 do junk := repl("w", 60);
    letters := &lcase ++ &ucase;

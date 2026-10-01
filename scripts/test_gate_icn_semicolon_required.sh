@@ -95,6 +95,29 @@ else
   rm -rf "$tmpd"
 fi
 
+echo "  LOCK 4 (Lon 2026-10-01, CEO-1392): EVERY STATEMENT IN A PROCEDURE BODY ENDS IN ';' -- the last one before end included; only the last expression of a { } block is bare (a ';' there nulls the block's value under iconx too)"
+L4T=$(mktemp -d); trap 'rm -rf "$L4T"' EXIT; trap 'rm -rf "$L4T"; exit 143' TERM; trap 'rm -rf "$L4T"; exit 130' INT
+l4() { # l4 <want ACCEPT|REFUSE> <source>
+  printf '%b' "$2" > "$L4T/p.icn"
+  if timeout 5 "$SCRIP" "$L4T/p.icn" </dev/null >/dev/null 2>"$L4T/err"; then got=ACCEPT; else got=REFUSE; fi
+  if [ "$got" = "$1" ]; then echo "    ok   $1  $(printf '%s' "$2" | tr '\n' '~' | cut -c1-70)"; else echo "    BREACH want $1 got $got  $(printf '%s' "$2" | tr '\n' '~' | cut -c1-70)  $(head -1 "$L4T/err" | cut -c1-80)"; fail=1; fi
+}
+l4 REFUSE 'procedure main(); write(1); write(2) end\n'
+l4 REFUSE 'procedure main(); write(1)\nwrite(2); end\n'
+l4 REFUSE 'procedure main(); write(1) write(2); end\n'
+l4 ACCEPT 'procedure main(); write(1); write(2); end\n'
+l4 REFUSE 'procedure main(); if 1 < 2 then write(1) else write(2)\nend\n'
+l4 ACCEPT 'procedure main(); repeat { write(1); break }; end\n'
+l4 ACCEPT 'procedure main(); local x; x := 1; write(x); end\n'
+l4 REFUSE 'procedure main(); local x\nend\n'
+l4 REFUSE 'procedure main(); if 1 < 2 then write(1) write(2); end\n'
+l4 ACCEPT 'procedure main(); x := {1; 2}; write(x); end\n'
+l4 ACCEPT 'procedure main(); every i := 1 to 2 do { write(i) }; end\n'
+l4 REFUSE 'procedure main(); every i := 1 to 2 do { write(i) }\nend\n'
+l4 REFUSE 'procedure main(); return\nend\n'
+l4 ACCEPT 'procedure main(); return; end\n'
+l4 REFUSE 'procedure main(); suspend 1\nend\n'
+l4 ACCEPT 'procedure main(); suspend 1; end\n'
 echo "---"
 if [ "$fail" -ne 0 ]; then
   echo "FAIL: ICON SEMICOLON-REQUIRED PRISON breached. Icon does NO newline processing; semicolons are mandatory."

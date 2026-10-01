@@ -11,5 +11,5 @@ procedure main()
    write("A ", image(f));
    every i := 1 to 8 do s := repl("a", 65536);
    write("B ", image(f));
-   close(f)
+   close(f);
 end

@@ -13,7 +13,7 @@ procedure t()
    suspend (="d" || s() || ="d") | ="e" | ="f";
 end
 procedure main()
-   local line
+   local line;
    every line := !["ac", "acx", "eb", "xx"] do
       if recogn(s, line) then write("accepted") else write("rejected");
 end

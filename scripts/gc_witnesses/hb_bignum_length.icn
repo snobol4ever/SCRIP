@@ -79,7 +79,7 @@ procedure fib(n);			# fibonacci
       t := a + b;
       a := b;
       b := t
-      }
+      };
    write("F(", n, ") = ", t);
    return;
 end
@@ -134,7 +134,7 @@ procedure tmul(x);			# test multiply, divide, real(I)
       err := abs(e / x - 1);
       if not (d = x & err < 1.0e-14) then	# 1e-15 for most, 1e-14 for IBM
          write(x, " ^ ", n, " = ", p, "\td=", d, "\te=", e, "\terr=", err)
-   }
+   };
    write(x, " ^ ", n, " = ", p);
    return;
 end
@@ -147,7 +147,7 @@ procedure conv(n);			# test conversion to/from real & string
    if in ~= n then {
       write("str conv err: n=", n, " sn=", sn, " in=", in);
       return
-   }
+   };
    rn := real(n);
    in := integer(rn);
    d := n - in;
@@ -193,7 +193,7 @@ procedure radix();		# radix conversions
    every b := 2 to 35 do {
       n := (min < integer(s := b || "R" || repl(d[b], 1 to 100)));
       write(s, " = ", n)
-      }
+      };
    every s := "36r" || repl("Z", 10 to 20) do
       write(s, " = ", integer(s));
    return;

@@ -1,6 +1,6 @@
 procedure main()
-   every i := 1 to 400 do junk := repl("y", 32 + i)
-   while line := trim(read()) do { write(braces(line)); every i := 1 to 400 do junk := repl("z", 32 + i) }
+   every i := 1 to 400 do junk := repl("y", 32 + i);
+   while line := trim(read()) do { write(braces(line)); every i := 1 to 400 do junk := repl("z", 32 + i) };
 end
 procedure braces(line)
    line ? {
@@ -10,8 +10,8 @@ procedure braces(line)
          s ||:= newtag()
          };
       return s ||:= tab(0)
-      }
+      };
 end
 procedure newtag()
-   tab(many(&letters))
+   tab(many(&letters));
 end

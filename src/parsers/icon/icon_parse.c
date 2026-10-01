@@ -31,7 +31,7 @@ static void parser_error(IcnParser *p, const char *msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IcnToken advance(IcnParser *p) {
-    p->prev_kind = p->cur.kind;
+    p->prev_kind = p->cur.kind; p->tb_line = p->cur.line; p->tb_col = p->cur.col;
     p->cur  = p->peek;
     p->peek = icn_lex_next(p->lex);
     return p->cur;
@@ -712,6 +712,13 @@ static tree_t *parse_do_clause(IcnParser *p) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void stmt_end(IcnParser *p, const char *what) {
+    if (check(p, TK_RBRACE)) { match(p, TK_SEMICOL); return; }
+    if (check(p, TK_SEMICOL)) { advance(p); return; }
+    char m[256]; snprintf(m, sizeof m, "%s: expected ';' after the token at line %d col %d (SCRIP Icon: every statement ends in ';', a newline is whitespace, only the last expression of a { } block is bare)", what, p->tb_line, p->tb_col);
+    parser_error(p, m);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_stmt(IcnParser *p) {
     if (check(p, TK_EVERY)) {
         advance(p);
@@ -719,7 +726,7 @@ static tree_t *parse_stmt(IcnParser *p) {
         push_child(e, parse_expr(p));
         tree_t *body = parse_do_clause(p);
         if (body) push_child(e, body);
-        match(p, TK_SEMICOL);
+        stmt_end(p, "every statement");
         return e;
     }
     if (check(p, TK_IF)) {
@@ -729,7 +736,7 @@ static tree_t *parse_stmt(IcnParser *p) {
         expect(p, TK_THEN, "if/then");
         push_child(e, parse_expr(p));
         if (match(p, TK_ELSE)) push_child(e, parse_expr(p));
-        match(p, TK_SEMICOL);
+        stmt_end(p, "if statement");
         return e;
     }
     if (check(p, TK_WHILE)) {
@@ -738,7 +745,7 @@ static tree_t *parse_stmt(IcnParser *p) {
         push_child(e, parse_expr(p));
         tree_t *body = parse_do_clause(p);
         if (body) push_child(e, body);
-        match(p, TK_SEMICOL);
+        stmt_end(p, "while statement");
         return e;
     }
     if (check(p, TK_UNTIL)) {
@@ -747,14 +754,14 @@ static tree_t *parse_stmt(IcnParser *p) {
         push_child(e, parse_expr(p));
         tree_t *body = parse_do_clause(p);
         if (body) push_child(e, body);
-        match(p, TK_SEMICOL);
+        stmt_end(p, "until statement");
         return e;
     }
     if (check(p, TK_REPEAT)) {
         advance(p);
         tree_t *e = ast_node_new(TT_REPEAT);
         push_child(e, parse_expr(p));
-        match(p, TK_SEMICOL);
+        stmt_end(p, "repeat statement");
         return e;
     }
     if (check(p, TK_RETURN)) {
@@ -763,10 +770,7 @@ static tree_t *parse_stmt(IcnParser *p) {
         if (!check(p, TK_SEMICOL) && !check(p, TK_RBRACE) && !check(p, TK_END) &&
             !check(p, TK_EOF) && !check(p, TK_ELSE))
             push_child(e, parse_expr(p));
-        if (!check(p, TK_RBRACE) && !check(p, TK_END) && !check(p, TK_EOF))
-            expect(p, TK_SEMICOL, "return statement");
-        else
-            match(p, TK_SEMICOL);
+        stmt_end(p, "return statement");
         return e;
     }
     if (check(p, TK_SUSPEND)) {
@@ -778,30 +782,24 @@ static tree_t *parse_stmt(IcnParser *p) {
         else push_child(e, e_leaf_sval(TT_VAR, "&null", -1));
         tree_t *body = parse_do_clause(p);
         if (body) push_child(e, body);
-        if (!check(p, TK_RBRACE) && !check(p, TK_END) && !check(p, TK_EOF))
-            expect(p, TK_SEMICOL, "suspend statement");
-        else
-            match(p, TK_SEMICOL);
+        stmt_end(p, "suspend statement");
         return e;
     }
     if (check(p, TK_FAIL)) {
         advance(p);
-        if (!check(p, TK_RBRACE) && !check(p, TK_END) && !check(p, TK_EOF))
-            expect(p, TK_SEMICOL, "fail statement");
-        else
-            match(p, TK_SEMICOL);
+        stmt_end(p, "fail statement");
         return ast_node_new(TT_PROC_FAIL);
     }
     if (check(p, TK_INITIAL)) {
         advance(p);
         tree_t *e = ast_node_new(TT_INITIAL);
         push_child(e, parse_expr(p));
-        match(p, TK_SEMICOL);
+        stmt_end(p, "initial statement");
         return e;
     }
     if (check(p, TK_CASE)) {
         tree_t *e = parse_expr(p);
-        match(p, TK_SEMICOL);
+        stmt_end(p, "case statement");
         return e;
     }
     if (check(p, TK_LOCAL) || check(p, TK_STATIC)) {
@@ -815,17 +813,12 @@ static tree_t *parse_stmt(IcnParser *p) {
             }
             if (!match(p, TK_COMMA)) break;
         }
-        match(p, TK_SEMICOL);
+        stmt_end(p, "local or static declaration");
         return e;
     }
     tree_t *e = parse_expr(p);
-    if (!check(p, TK_RBRACE) && !check(p, TK_EOF) &&
-        !check(p, TK_END)    && !check(p, TK_ELSE) && !check(p, TK_THEN) &&
-        !check(p, TK_RETURN) && !check(p, TK_SUSPEND) &&
-        p->prev_kind != TK_RBRACE)
-        expect(p, TK_SEMICOL, "expression statement");
-    else
-        match(p, TK_SEMICOL);
+    if (check(p, TK_ELSE) || check(p, TK_THEN)) { match(p, TK_SEMICOL); return e; }
+    stmt_end(p, "expression statement");
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

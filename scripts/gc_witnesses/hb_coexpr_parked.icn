@@ -4,14 +4,14 @@
 # (Newline-terminated suspend is refused by our parser -- an Icon frontend gap, not this witness's -- so every
 # statement carries its semicolon; icont accepts both spellings.)
 procedure gen()
-   local held, i, junk
+   local held, i, junk;
    held := "HELD-" || repl("k", 40) || "-END";
    suspend 1;
    every i := 1 to 50 do junk := repl("q", 90);
    suspend held;
 end
 procedure main()
-   local e, i, junk, v
+   local e, i, junk, v;
    e := create gen();
    v := @e;
    every i := 1 to 300 do junk := repl("z", 100);

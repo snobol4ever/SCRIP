@@ -9,5 +9,5 @@ procedure main()
    L.x;
    every i := 1 to 200000 do M := [i, i, i];
    &error := 0;
-   repl("a", -1)
+   repl("a", -1);
 end

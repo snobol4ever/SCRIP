@@ -10,5 +10,5 @@ procedure main()
    L.x;
    every i := 1 to 200000 do M := [i, i, i];
    &error := 0;
-   every i := 1 to 3 by 0 do M := i
+   every i := 1 to 3 by 0 do M := i;
 end
