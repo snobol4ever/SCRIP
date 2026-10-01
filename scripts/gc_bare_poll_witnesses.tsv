@@ -152,7 +152,7 @@ src/templates/bb/bb_unop.cpp:96:rt_cset_compl	src/templates/bb/bb_unop.cpp:99	UN
 src/templates/bb/bb_unop.cpp:107:rt_size_d	src/templates/bb/bb_unop.cpp:110	hb_size_result_polled.icn
 src/templates/bb/bb_unop.cpp:117:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg	src/templates/bb/bb_unop.cpp:122	hb_bignum_length.icn
 src/templates/bb/bb_unop.cpp:119:rt_num_pos	src/templates/bb/bb_unop.cpp:122	hb_bignum_length.icn
-src/templates/bb/bb_var_global.cpp:60:NV_GET_fn	src/templates/bb/bb_var_global.cpp:67	hb_protected_pattern_value_read.sno
+src/templates/bb/bb_var_global.cpp:61:NV_GET_fn	src/templates/bb/bb_var_global.cpp:68	hb_protected_pattern_value_read.sno
 src/templates/bb/bb_var_ref.cpp:51:rt_pl_fresh_var_ref	src/templates/bb/bb_var_ref.cpp:54	UNWITNESSED
 src/templates/bb/bb_var_ref.cpp:64:rt_var_ref_cell_named	src/templates/bb/bb_var_ref.cpp:73	UNWITNESSED
 src/templates/xa/xa_flat.cpp:81:rt_arg_stage	src/templates/xa/xa_flat.cpp:82	hb_wsb_rk_iter_grep.raku
