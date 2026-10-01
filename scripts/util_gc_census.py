@@ -459,6 +459,10 @@ def resolve_computed(expr, own_text, all_text):
         d = re.search(DEF_RX_FMT % re.escape(m.group(1)), own_text, re.M)
         if d:
             return _chooser_literals_nested(own_text, d.end() - 1), f"chooser {m.group(1)}(...)"
+        if re.search(r"^[ \t]*extern\b[^;{\n]*\b" + re.escape(m.group(1)) + r"\s*\([^;{\n]*\)\s*;", own_text, re.M):
+            ds = list(re.finditer(DEF_RX_FMT % re.escape(m.group(1)), all_text, re.M))
+            if len(ds) == 1:
+                return _chooser_literals_nested(all_text, ds[0].end() - 1), f"chooser {m.group(1)}(...) [extern, defined once in the set]"
     m = re.match(r"([A-Za-z_]\w*)\s*$", e)
     if m:
         for rv in SYM_RESOLVERS:
@@ -2076,6 +2080,19 @@ def selftest():
        "safe-points: the four decidable computed-target shapes (array, macro, chooser, resolver out-parameter) each resolve and NAME their rule")
     ck(rc == 1 and any("UNRESOLVED" in l for l in buf),
        "safe-points: a computed target of no decidable shape stays UNRESOLVED beside the four that resolved -- the census does not guess")
+    tpl_xd, tpl_xu = os.path.join(w, "extdef.cpp"), os.path.join(w, "extuse.cpp")
+    open(tpl_xd, "w").write('const char * baked_sym(int k) { return k == 2 ? "rt_concat" : "rt_pure_cmp"; }\n')
+    open(tpl_xu, "w").write('extern "C++" const char * baked_sym(int k);\n'
+                            'std::string a(){ return x86("call", baked_sym(_bk), fp); }\n')
+    buf.clear(); rc = census_safe_points("", [tpl_xd, tpl_xu], out=buf.append, allocating=alloc)
+    txt = "\n".join(buf)
+    ck(rc == 1 and _sp_has(buf, allocating_call_sites=1, unpolled=1, unresolved=0) and "via chooser baked_sym(...) [extern, defined once in the set]" in txt,
+       "safe-points: a chooser DECLARED extern in the site's file and DEFINED ONCE in the template set resolves at that definition and names the rule")
+    tpl_x2 = os.path.join(w, "extdef2.cpp")
+    open(tpl_x2, "w").write('const char * baked_sym(int k) { return "rt_nope"; }\n')
+    buf.clear(); rc = census_safe_points("", [tpl_xd, tpl_x2, tpl_xu], out=buf.append, allocating=alloc)
+    ck(rc == 1 and _sp_has(buf, unresolved=1),
+       "safe-points: an extern chooser DEFINED TWICE in the set stays UNRESOLVED -- two candidate sets are a guess, and the census does not guess")
     tpl_tr = os.path.join(w, "macrotrap.cpp")
     open(tpl_tr, "w").write(
         '#define pick_sym() (flag ? "rt_pure_cmp" : "rt_nope")\n'
