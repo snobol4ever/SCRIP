@@ -81,8 +81,8 @@ src/templates/bb/bb_iterate.cpp:28:rt_list_bang_at	src/templates/bb/bb_iterate.c
 src/templates/bb/bb_keyword_assign.cpp:33:rt_keyword_pos_set_strict	src/templates/bb/bb_keyword_assign.cpp:38	UNWITNESSED
 src/templates/bb/bb_keyword_assign.cpp:48:rt_keyword_subject_set_strict/rt_keyword_subject_set	src/templates/bb/bb_keyword_assign.cpp:53	UNWITNESSED
 src/templates/bb/bb_keyword_assign.cpp:89:rt_keyword_trace_set	src/templates/bb/bb_keyword_assign.cpp:94	hb_trace_wildcard_registry_root.icn
-src/templates/bb/bb_keyword_assign_snobol4.cpp:20:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:27	hb_errtext_keyword.sno
-src/templates/bb/bb_keyword_assign_snobol4.cpp:37:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:42	UNWITNESSED
+src/templates/bb/bb_keyword_assign_snobol4.cpp:22:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:29	hb_errtext_keyword.sno
+src/templates/bb/bb_keyword_assign_snobol4.cpp:41:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:46	UNWITNESSED
 src/templates/bb/bb_keyword_icon.cpp:23:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:26	hb_icn_reversible_assignment_to_pos_and_subject.icn
 src/templates/bb/bb_keyword_icon.cpp:125:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:130	hb_icn_errorvalue_keyword.icn
 src/templates/bb/bb_keyword_snobol4.cpp:45:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:50	UNWITNESSED
