@@ -19,11 +19,14 @@ struct DESCR_t rt_keyword_dump_set(struct DESCR_t v);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define KA_OFFBAD() (!(_.op_off >= 0))
+#define KA_SLOTBAD() (_.op_a_slot < 0)
+#define KA_IS(s) (!strcmp(_.op_name2, s))
 std::string bb_keyword_assign() {
-    if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_keyword_assign: no result slot");
-    if (_.op_a_slot < 0) return x86_alpha() + x86_bomb("bb_keyword_assign: rhs operand slot unresolved");
-    if (!strcmp(_.op_name2, "pos")) {
-        return x86("comment", "BOX ICN IR_KW_ASSIGN pos [unconditional two-world sync: scan_pos global + r14 delta; fail->omega; result {DT_I,pos}]")
+    return IF(KA_OFFBAD(), x86_alpha() + x86_bomb("bb_keyword_assign: no result slot"))
+         + IF(!KA_OFFBAD() && KA_SLOTBAD(), x86_alpha() + x86_bomb("bb_keyword_assign: rhs operand slot unresolved"))
+         + IF(!KA_OFFBAD() && !KA_SLOTBAD() && KA_IS("pos"),
+               x86("comment", "BOX ICN IR_KW_ASSIGN pos [unconditional two-world sync: scan_pos global + r14 delta; fail->omega; result {DT_I,pos}]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
@@ -36,10 +39,9 @@ std::string bb_keyword_assign() {
              + x86("mov",  "r14", "rdx")
              + x86("sub",  "r14", (long)1)
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    if (!strcmp(_.op_name2, "subject")) {
-        return x86("comment", "BOX ICN IR_KW_ASSIGN subject [oasgn.r kywdsubj: cnv:str fail->omega; scan_subj=s, &pos=1; in-scan also r13=ptr r15=len r14=0; result {DT_S,ptr}]")
+             + x86_beta_trampoline())
+         + IF(!KA_OFFBAD() && !KA_SLOTBAD() && !KA_IS("pos") && KA_IS("subject"),
+               x86("comment", "BOX ICN IR_KW_ASSIGN subject [oasgn.r kywdsubj: cnv:str fail->omega; scan_subj=s, &pos=1; in-scan also r13=ptr r15=len r14=0; result {DT_S,ptr}]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
@@ -54,10 +56,9 @@ std::string bb_keyword_assign() {
              + x86("mov", "r15", "rdx")
              + x86("mov", "r14", (long)0)
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    if (!strcmp(_.op_name2, "random")) {
-        return x86("comment", "BOX ICN IR_KW_ASSIGN random [data.r kywdint: coerce int, store g_random seed, result {DT_I,n}; non-numeric->omega]")
+             + x86_beta_trampoline())
+         + IF(!KA_OFFBAD() && !KA_SLOTBAD() && !KA_IS("pos") && !KA_IS("subject") && KA_IS("random"),
+               x86("comment", "BOX ICN IR_KW_ASSIGN random [data.r kywdint: coerce int, store g_random seed, result {DT_I,n}; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
@@ -67,10 +68,9 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    if (!strcmp(_.op_name2, "error")) {
-        return x86("comment", "BOX ICN IR_KW_ASSIGN error [coerce int, store g_error; non-numeric->omega]")
+             + x86_beta_trampoline())
+         + IF(!KA_OFFBAD() && !KA_SLOTBAD() && !KA_IS("pos") && !KA_IS("subject") && !KA_IS("random") && KA_IS("error"),
+               x86("comment", "BOX ICN IR_KW_ASSIGN error [coerce int, store g_error; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
@@ -80,10 +80,9 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    if (!strcmp(_.op_name2, "trace")) {
-        return x86("comment", "BOX ICN IR_KW_ASSIGN trace [coerce int, store g_trace; non-numeric->omega]")
+             + x86_beta_trampoline())
+         + IF(!KA_OFFBAD() && !KA_SLOTBAD() && !KA_IS("pos") && !KA_IS("subject") && !KA_IS("random") && !KA_IS("error") && KA_IS("trace"),
+               x86("comment", "BOX ICN IR_KW_ASSIGN trace [coerce int, store g_trace; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
@@ -94,10 +93,9 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    if (!strcmp(_.op_name2, "dump")) {
-        return x86("comment", "BOX ICN IR_KW_ASSIGN dump [coerce int, store g_dump; non-numeric->omega]")
+             + x86_beta_trampoline())
+         + IF(!KA_OFFBAD() && !KA_SLOTBAD() && !KA_IS("pos") && !KA_IS("subject") && !KA_IS("random") && !KA_IS("error") && !KA_IS("trace") && KA_IS("dump"),
+               x86("comment", "BOX ICN IR_KW_ASSIGN dump [coerce int, store g_dump; non-numeric->omega]")
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
@@ -107,7 +105,7 @@ std::string bb_keyword_assign() {
              + x86("mov",  FRQ(_.op_off),     "rax")
              + x86("mov",  FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-        return x86_alpha() + x86_bomb("bb_keyword_assign: only &pos/&random assignment implemented (KEYWORD-LVALUE rung; &subject/:=:/<-> are follow-ons)");
+             + x86_beta_trampoline())
+         + IF(!KA_OFFBAD() && !KA_SLOTBAD() && !KA_IS("pos") && !KA_IS("subject") && !KA_IS("random") && !KA_IS("error") && !KA_IS("trace") && !KA_IS("dump"),
+               x86_alpha() + x86_bomb("bb_keyword_assign: only &pos/&random assignment implemented (KEYWORD-LVALUE rung; &subject/:=:/<-> are follow-ons)"));
 }
