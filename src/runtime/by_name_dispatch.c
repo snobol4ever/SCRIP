@@ -1795,7 +1795,7 @@ static DESCR_t icn_opgen_start(ICN_OPGEN_t *g, DESCR_t *argv, int n, void **hslo
     if (!g) return FAILDESCR;
     DESCR_t first = icn_opgen_pump(g, argv, n);
     if (IS_FAIL_fn(first) || !hslot) { ct_drop(g); return first; }
-    *hslot = (void *)g;
+    rt_hslot_set(hslot, (void *)g);
     return first;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1903,7 +1903,7 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
         extern int scan_pos; int64_t at = scan_pos;
         DESCR_t v = RT_GC_CALLBACK(rt_call_value(callee, argv, n));
         if (IS_FAIL_fn(v)) return v;
-        ICN_OPGEN_t *g = icn_opgen_new(ICN_OPGEN_CURSOR, 0); if (g) { g->cur = at; *hslot = (void *)g; }
+        ICN_OPGEN_t *g = icn_opgen_new(ICN_OPGEN_CURSOR, 0); if (g) { g->cur = at; rt_hslot_set(hslot, (void *)g); }
         return v;
     }
     if (!icn_call_value_name_invocable(callee, nm, n)) return icn_call_value_not_invocable(callee, argv, n);
@@ -2054,16 +2054,16 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_resume_h(void **hslot, int n) {
     extern DESCR_t rt_proc_resume_frame_h(void **hslot);
-    if (!hslot || !*hslot) return FAILDESCR;
+    if (!hslot || !rt_hslot_get(hslot)) return FAILDESCR;
     DESCR_t *argv = (DESCR_t *)hslot - (n < 0 ? 1 : n);
-    { ICN_OPGEN_t *g = (ICN_OPGEN_t *)*hslot;
+    { ICN_OPGEN_t *g = (ICN_OPGEN_t *)rt_hslot_get(hslot);
       if (g->magic == ICN_OPGEN_MAGIC) {
           if (n < 0) {
               extern void *rt_ws_alloc_descr(size_t);
               int ln = argv ? rt_apply_unpack(argv[0], (DESCR_t *)0, 0) : -1;
               DESCR_t *buf = (ln > 0) ? (DESCR_t *)rt_ws_alloc_descr((size_t)ln) : (DESCR_t *)0;
               n = buf ? rt_apply_unpack(argv[0], buf, ln) : 0; if (n < 0) n = 0; argv = buf; icn_call_value_deref_args(g->nm, argv, n); }
-          DESCR_t v = icn_opgen_pump(g, argv, n); if (IS_FAIL_fn(v)) { ct_drop(g); *hslot = (void *)0; } return v; } }
+          DESCR_t v = icn_opgen_pump(g, argv, n); if (IS_FAIL_fn(v)) { ct_drop(g); rt_hslot_set(hslot, (void *)0); } return v; } }
 #if RT_DIAG
     rt_c2bb_hit("gen_h.resume_frame", "?");
 #endif

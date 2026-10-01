@@ -87,6 +87,8 @@ void rt_call_proc(const char *name, int nargs);
 DESCR_t rt_call_proc_descr(const char *name, int nargs);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
 void rt_proc_drop_frame_h(void **hslot);
+static inline void *rt_hslot_get(void *const *h) { return (void *)((uintptr_t)*h >> 8); }
+static inline void rt_hslot_set(void **h, void *v) { *h = (void *)(((uintptr_t)v << 8) | DT_RAW); }
 void rt_proc_set_gen_region_ft(const char *name, int ft);
 int rt_proc_gen_region_ft(const char *name);
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);

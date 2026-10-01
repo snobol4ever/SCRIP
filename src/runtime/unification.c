@@ -304,7 +304,7 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m)
       r = rt_pl_goal_gen_h_c(g, &a, 1, &h, &b);
       if (!b && IS_FAIL_fn(r)) { extern void *rt_pl_ball_take(void); b = rt_pl_ball_take(); }
       fflush(m->fp); fh_set_output(sv); fh_free(slot);
-      if (h) { extern void rt_proc_drop_frame_h(void **hslot); m->pheld++; rt_proc_drop_frame_h(&h); }
+      if (rt_hslot_get(&h)) { extern void rt_proc_drop_frame_h(void **hslot); m->pheld++; rt_proc_drop_frame_h(&h); }
       if (b) { m->pthrown = b; return 0; }
       return !IS_FAIL_fn(r); }
 }
