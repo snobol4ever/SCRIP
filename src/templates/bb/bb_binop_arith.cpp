@@ -141,9 +141,11 @@ static inline int rtop_row(long long op, int strict, int i) {
 #define BA_IA() ((_.op_imm_a_ok && _.op_imm_b_ok) || sn4_opt_binimm_off() ? 0 : _.op_imm_a_ok)
 #define BA_IB() ((_.op_imm_a_ok && _.op_imm_b_ok) || sn4_opt_binimm_off() ? 0 : _.op_imm_b_ok)
 #define BA_FOLD() (BA_IB() && !BA_IA() && (binop_base((long long)_.op_ival) == BINOP_ADD || binop_base((long long)_.op_ival) == BINOP_SUB))
+#define BAR_FUSE1() (_.op_zres && fuse_on() && fuse_op_ok())
+#define BAR_FUSE2() (!_.op_zres && fuse_on() && inl2_ok() && _.op_off >= 0)
 std::string bb_binop_arith() {
-    if (_.op_zres && fuse_on() && fuse_op_ok()) {
-        return x86("comment", "IR_BINOP_ARITH zd fuse")
+    return IF(BAR_FUSE1(),
+               x86("comment", "IR_BINOP_ARITH zd fuse")
              + x86_alpha()
              + IF(!BA_IA() && !BA_IB(), x86("note", ZOPN(0))
                             + x86("mov", "eax", ZOPD(0, 0))
@@ -237,10 +239,9 @@ std::string bb_binop_arith() {
              + x86("mov", ZRES(8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    if (!_.op_zres && fuse_on() && inl2_ok() && _.op_off >= 0) {
-        return x86("comment", "IR_BINOP_ARITH inl fuse")
+             + x86_beta_trampoline())
+         + IF(!BAR_FUSE1() && BAR_FUSE2(),
+               x86("comment", "IR_BINOP_ARITH inl fuse")
              + x86_alpha()
              + IF(!_.op_imm_a_ok, x86("mov", "eax", FR(_.op_sa)))
              + IF( _.op_imm_a_ok, x86("mov", "eax", (long)DT_I))
@@ -292,10 +293,9 @@ std::string bb_binop_arith() {
              + x86("def", L(0))
              + inl_tail()
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    if (_.op_zres)
-        return x86("comment", "IR_BINOP_ARITH zd")
+             + x86_beta_trampoline())
+         + IF(!BAR_FUSE1() && !BAR_FUSE2() && _.op_zres,
+               x86("comment", "IR_BINOP_ARITH zd")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("mov", "rdi", ZOPQ(0, 0))
@@ -315,8 +315,9 @@ std::string bb_binop_arith() {
              + x86("mov", ZRES(8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    return IF(_.op_off >= 0 && inl_ok(),
+             + x86_beta_trampoline())
+         + IF(!BAR_FUSE1() && !BAR_FUSE2() && !_.op_zres,
+               IF(_.op_off >= 0 && inl_ok(),
            x86_alpha()
          + x86("comment", "IR_BINOP_ARITH inl")
          + IF(!_.op_imm_a_ok, x86("mov", "eax", FR(_.op_sa))
@@ -345,5 +346,5 @@ std::string bb_binop_arith() {
          + x86("comment", "IR_BINOP_ARITH")
          + inl_tail()
          + x86_gamma()
-         + x86_beta_trampoline());
+         + x86_beta_trampoline()));
 }
