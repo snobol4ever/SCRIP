@@ -30,8 +30,8 @@ static std::string an_memb(long i) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_any() {
     x86_begin();
-    if (_.op_pat_static && _.op_sval)
-        return x86("comment", "IR_MATCH_ANY defer")
+    return IF(_.op_pat_static && _.op_sval,
+               x86("comment", "IR_MATCH_ANY defer")
              + x86_alpha()
              + x86("mov",    "eax", "r14d")
              + x86("cmp",    "eax", "r15d")
@@ -51,9 +51,9 @@ std::string bb_match_any() {
              + x86_gamma()
              + x86_beta()
              + x86("sub",    "r14d", (long)1)
-             + x86_omega();
-    if (_.op_zres && _.op_sa >= 0)
-        return x86("comment", "IR_MATCH_ANY zd")
+             + x86_omega())
+         + IF(!(_.op_pat_static && _.op_sval) && _.op_zres && _.op_sa >= 0,
+               x86("comment", "IR_MATCH_ANY zd")
              + x86_alpha()
              + x86("mov",    "eax", "r14d")
              + x86("cmp",    "eax", "r15d")
@@ -72,8 +72,9 @@ std::string bb_match_any() {
              + x86_gamma()
              + x86_beta()
              + x86("sub",    "r14d", (long)1)
-             + x86_omega();
-    return x86("comment", "IR_MATCH_ANY")
+             + x86_omega())
+         + IF(!(_.op_pat_static && _.op_sval) && !(_.op_zres && _.op_sa >= 0),
+               x86("comment", "IR_MATCH_ANY")
          + x86_alpha()
          + x86("mov",    "eax", "r14d")
          + x86("cmp",    "eax", "r15d")
@@ -105,5 +106,5 @@ std::string bb_match_any() {
          + x86_gamma()
          + x86_beta()
          + x86("sub",    "r14d", (long)1)
-         + x86_omega();
+         + x86_omega());
 }
