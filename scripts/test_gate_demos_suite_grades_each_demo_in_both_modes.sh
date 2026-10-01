@@ -7,7 +7,7 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: test_demos_suite.sh invoked on
 #   a/hello.sno   PASS both modes, a .workhorse sidecar            b/echo.sno   reads its SAMPLE stdin from echo.in (a symlink to a shared
 #   c/bad.sno     a wrong ref: FAIL, named                                        file, the shape shared demo inputs take), PASS both modes
 #   d/noref.sno   no .ref: FAIL, counted and named, never skipped  lib/util.sno declared in CONTAINERS.tsv: out of the population
-#   e/linked.icn  a link manifest into the mirrored packages root  f/chained.sno  a .chain sidecar: concatenated after library/gate_unit.sno
+#   e/linked.icn  a link manifest into the mirrored packages root (its statements end in ';', as SCRIP Icon requires since c299b8a03)  f/chained.sno  a .chain sidecar: concatenated after library/gate_unit.sno
 # ARMS: (1) the board line reads total=6 all_pass=4 m3_pass=4 m4_pass=4 containers=1 workhorse_declared=1 chained=1; (2) the reds are named,
 # the no-ref one as no-ref; (3) the progress rows land in a scratch table as class benchmark, suite snobol4-demos, keyed demos/snobol4/<r>,
 # one per program and mode (12 rows, the container none); (4) the fixture tree is never written as a suite row; (5)-(8) the workhorse
@@ -34,8 +34,8 @@ printf "\tDEFINE('U()')\t:(U_END)\nU\t:(RETURN)\nU_END\n" > "$F/lib/util.sno"
 # (e) a link manifest naming a module OUTSIDE the demo tree by a source-relative path, as the JCON demos do
 #     (link "../../../packages/icon/jcon-compiler/dump"): the scratch copy must keep the program's depth or this reads
 #     "link: cannot open" in both modes (coo COO-209)
-mkdir -p "$F/e" "$T/packages/gate"; printf 'procedure greet()\n   write("linked")\nend\n' > "$T/packages/gate/mod.icn"
-printf 'link "../../../packages/gate/mod"\nprocedure main()\n   greet()\nend\n' > "$F/e/linked.icn"; printf 'linked\n' > "$F/e/linked.ref"
+mkdir -p "$F/e" "$T/packages/gate"; printf 'procedure greet();\n   write("linked");\nend\n' > "$T/packages/gate/mod.icn"
+printf 'link "../../../packages/gate/mod"\nprocedure main();\n   greet();\nend\n' > "$F/e/linked.icn"; printf 'linked\n' > "$F/e/linked.ref"
 # (f) a CHAINED demo: f/chained.chain names a unit under the root's library/ that the program is concatenated after (the beauty.sc
 #     shape, hq_snocone + coo 2026-09-27); the unit defines the function the program calls, so the program alone would not run
 mkdir -p "$F/f" "$T/library"; printf "\tDEFINE('CH()')\t:(CH_END)\nCH\tCH = 'chained'\t:(RETURN)\nCH_END\n" > "$T/library/gate_unit.sno"
