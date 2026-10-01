@@ -1059,6 +1059,33 @@ inline std::string x86_reg_disp32_cmp_imm(const char * base, int disp, long imm)
     return x86_rec("cmp") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_cmp_r64(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x3B; x86_rd32_modrm(c, g, b);
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return x86_rec("cmp") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_and_r64(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x23; x86_rd32_modrm(c, g, b);
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return x86_rec("and") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_reg_disp32_or_r64(const char * dst, const char * base, int disp) {
+    int g = x86_rnum(dst), b = x86_rnum(base);
+    if (MEDIUM_BINARY) {
+        std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (b >= 8) rex |= 0x01; c += (char)rex; c += (char)0x0B; x86_rd32_modrm(c, g, b);
+        c += u32le((uint32_t)disp); return x86_Lrec(c);
+    }
+    return x86_rec("or") + dst + ", qword ptr [" + base + " + " + std::to_string(disp) + "]\n";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_inc_r(const char * reg) {
     int m = x86_rnum(reg); int w64 = !(reg && (reg[0] == 'e' || (reg[0] && reg[strlen(reg) - 1] == 'd')));
     if (MEDIUM_BINARY) {
@@ -1739,8 +1766,30 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         return std::string();
     }
     if (X86_MEQ(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }
-    if (X86_MEQ(mnem, "and"))    { if (b.kind == XK_IMM) return x86_and(a.txt, b.imm); if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("and", 0x21, a.txt, b.txt); return std::string(); }
-    if (X86_MEQ(mnem, "or"))     { if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("or", 0x09, a.txt, b.txt); if (a.kind == XK_REG && b.kind == XK_IMM) return x86_or_imm(a.txt, b.imm); return std::string(); }
+    if (X86_MEQ(mnem, "and")) {
+        if (b.kind == XK_IMM) return x86_and(a.txt, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("and", 0x21, a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_and_r64(a.txt, b.base, b.off);
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 ||
+            b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
+            fprintf(stderr, "FATAL x86(\"and\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  An and that emits nothing leaves a following branch testing STALE FLAGS — the ZB-FC-1 silent-drop class; add the encoder + dispatch case here (R7).\n",
+                    a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+            abort();
+        }
+        return std::string();
+    }
+    if (X86_MEQ(mnem, "or")) {
+        if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("or", 0x09, a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_IMM) return x86_or_imm(a.txt, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_or_r64(a.txt, b.base, b.off);
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 ||
+            b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
+            fprintf(stderr, "FATAL x86(\"or\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  An or that emits nothing leaves a following branch testing STALE FLAGS — the ZB-FC-1 silent-drop class; add the encoder + dispatch case here (R7).\n",
+                    a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
+            abort();
+        }
+        return std::string();
+    }
     if (X86_MEQ(mnem, "shl") && a.kind == XK_REG && b.kind == XK_IMM) return x86_shift_imm("shl", 4, a.txt, b.imm);
     if (X86_MEQ(mnem, "shr") && a.kind == XK_REG && b.kind == XK_IMM) return x86_shift_imm("shr", 5, a.txt, b.imm);
     if (X86_MEQ(mnem, "cmp")) {
@@ -1748,8 +1797,10 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_cmp_imm(a.txt, b.imm);
         if (a.kind == XK_REG && b.kind == XK_ABS64) return x86_cmp_reg_abs64(a.txt, b.imm);
         if (a.kind == XK_REGDISP && b.kind == XK_IMM) return x86_reg_disp32_cmp_imm(a.base, a.off, b.imm);
-        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32) {
-            fprintf(stderr, "FATAL x86(\"cmp\"): no dispatch arm for frame/cell operand kinds (%d, %d) — dest '%s', src '%s'.  A cmp that emits nothing leaves the following jcc testing STALE FLAGS — the ZB-FC-1 silent-drop class (measured s23o: SPD-2's guard cmps vanished when RDQ(\"___\",·) collided with the pinned fr64 prefix and parsed XK_FR64; only the .s region diff caught it, the probes stayed green on garbage flags).  Add the encoder + dispatch case here (R7).\n",
+        if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_cmp_r64(a.txt, b.base, b.off);
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 ||
+            b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
+            fprintf(stderr, "FATAL x86(\"cmp\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A cmp that emits nothing leaves the following jcc testing STALE FLAGS — the ZB-FC-1 silent-drop class (measured s23o: SPD-2's guard cmps vanished when RDQ(\"___\",·) collided with the pinned fr64 prefix and parsed XK_FR64; only the .s region diff caught it, the probes stayed green on garbage flags).  Add the encoder + dispatch case here (R7).\n",
                     a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
         }
