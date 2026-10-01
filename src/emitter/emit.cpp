@@ -2513,6 +2513,7 @@ static int frame_slot_is_candidate(const IR_t * nd) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int frame_slot_units(const IR_t * m) { extern int zdp_scratch_cell(const IR_t *); return (m->op == IR_MATCH_ALTERNATE || m->op == IR_MATCH_FENCE1 || zdp_scratch_cell(m)) ? 2 : 1; }
 static void (*g_frame_slot_visitor)(const IR_t *, int, int) = (void (*)(const IR_t *, int, int))0;
 static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count) {
     if (out_index) *out_index = -1; if (out_count) *out_count = 0;
@@ -2522,9 +2523,9 @@ static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count)
     int blob = (mb < 0 && blob_frame_scope()) ? 1 : 0;
     if (mb < 0 && !blob) return 0;
     int hi = g_emit_cfg->n; if (!blob) for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
-    int k = 0, found = -1; extern int zdp_scratch_cell(const IR_t *);
+    int k = 0, found = -1;
     for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || !frame_slot_is_candidate(m)) continue;
-        if (j == qi) found = k; { int u = (m->op == IR_MATCH_ALTERNATE) ? 2 : (zdp_scratch_cell(m) ? 2 : 1); if (g_frame_slot_visitor) g_frame_slot_visitor(m, k, u); k += u; } }
+        if (j == qi) found = k; { int u = frame_slot_units(m); if (g_frame_slot_visitor) g_frame_slot_visitor(m, k, u); k += u; } }
     if (out_index) *out_index = found; if (out_count) *out_count = k;
     return blob ? 2 : 1;
 }
@@ -2545,9 +2546,9 @@ static int arbno_body_slot_window(const IR_t * nd, int * out_lo, int * out_bytes
     int blob = (mb < 0 && blob_frame_scope()) ? 1 : 0;
     if (mb < 0 && !blob) return 0;
     int hi = g_emit_cfg->n; if (!blob) for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
-    int rc = blob ? 2 : 1, k = 0, lo = 0, top = 0, any = 0; extern int zdp_scratch_cell(const IR_t *);
+    int rc = blob ? 2 : 1, k = 0, lo = 0, top = 0, any = 0;
     for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || !frame_slot_is_candidate(m)) continue;
-        int u = (m->op == IR_MATCH_ALTERNATE) ? 2 : (zdp_scratch_cell(m) ? 2 : 1);
+        int u = frame_slot_units(m);
         if (j >= s0 && j <= s1 && m != nd) { int a = frame_slot_off(rc, k + u - 1), b = frame_slot_off(rc, k) + 16; if (!any || a < lo) lo = a; if (!any || b > top) top = b; any = 1; }
         k += u; }
     for (int j = s0; j <= s1; j++) { IR_t * m = g_emit_cfg->all[j]; if (!m || m == nd || m->op != IR_MATCH_ALTERNATE || frame_slot_is_candidate(m)) continue;
@@ -2662,7 +2663,8 @@ static void blob_layout_slot(const IR_t * m, int k, int units) {
     extern int zdp_scratch_cell(const IR_t *); int o0 = frame_slot_off(2, k); (void)units;
     if (m->op == IR_MATCH_ALTERNATE) { int r = frame_slot_off(2, k + 1); blob_lay_push(r, GC_LAY_RAW, 8); blob_lay_push(r + 8, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 16, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 24, GC_LAY_RAW, 8); return; }
     if (zdp_scratch_cell(m)) { blob_lay_push(o0, GC_LAY_PTR_GC, 8); blob_lay_push(o0 + 8, GC_LAY_RAW, 8); blob_lay_push(frame_slot_off(2, k + 1), GC_LAY_RAW, 16); return; }
-    if (m->op == IR_MATCH_ARBNO || m->op == IR_MATCH_ASSIGN_SAVE || m->op == IR_MATCH_FENCE1) { blob_lay_push(o0, GC_LAY_RAW, 16); return; }
+    if (m->op == IR_MATCH_FENCE1) { blob_lay_push(frame_slot_off(2, k + 1), GC_LAY_RAW, 16); blob_lay_push(o0, GC_LAY_RAW, 16); return; }
+    if (m->op == IR_MATCH_ARBNO || m->op == IR_MATCH_ASSIGN_SAVE) { blob_lay_push(o0, GC_LAY_RAW, 16); return; }
     blob_lay_push(o0, GC_LAY_DESCR, 16);
 }
 static int blob_lay_cmp(const void * a, const void * b) { int x = GC_LAY_OFF(*(const uint64_t *)a), y = GC_LAY_OFF(*(const uint64_t *)b); return x < y ? -1 : (x > y ? 1 : 0); }
@@ -2847,7 +2849,7 @@ int arbno_frame_slot(const IR_t * arbno_nd) {
 int fence_frame_slot(const IR_t * fence_nd) {
     if (!fence_frame_candidate(fence_nd)) return -1;
     int idx = -1, rc = frame_slot_scan(fence_nd, &idx, NULL); if (!rc || idx < 0) return -1;
-    return frame_slot_off(rc, idx);
+    return frame_slot_off(rc, idx + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int leaf_frame_slot(const IR_t * leaf_nd) {
@@ -2875,7 +2877,7 @@ int emit_match_begin_frame_extra(const IR_t * match_begin_nd) {
     int mb = -1; for (int j = 0; j < g_emit_cfg->n; j++) if (g_emit_cfg->all[j] == match_begin_nd) { mb = j; break; }
     if (mb < 0) return MATCH_CTX_CELL_BYTES;
     int hi = g_emit_cfg->n; for (int j = mb + 1; j < g_emit_cfg->n; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && m->op == IR_MATCH_BEGIN) { hi = j; break; } }
-    int count = 0; for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && frame_slot_is_candidate(m)) count++; }
+    int count = 0; for (int j = mb + 1; j < hi; j++) { IR_t * m = g_emit_cfg->all[j]; if (m && frame_slot_is_candidate(m)) count += frame_slot_units(m); }
     return MATCH_CTX_CELL_BYTES + 16 * count;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

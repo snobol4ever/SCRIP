@@ -21,6 +21,14 @@ static const char * fence_cap_top(int off) {
     return _.op_fence_frame_off != -1 ? FFCQ(8) : FRQ(off+8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * fence_cursor_tag(int off) {
+    return _.op_fence_frame_off != -1 ? FFCQ(16) : FRQ(off+16);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * fence_cursor(int off) {
+    return _.op_fence_frame_off != -1 ? FFC(20) : FR(off+20);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence1() {
     x86_begin();
     if (_.op_ival == SNO_FENCE_LIT_BARE)
@@ -38,6 +46,8 @@ std::string bb_match_fence1() {
                                       + x86("mov", FRQ(_.op_off+32), "rsp")
                                         : x86("mov", FRQ(_.op_off), "rsp"))
          + x86("mov", fence_cap_top(_.op_off), "r12")
+         + x86("mov", fence_cursor_tag(_.op_off), 0L)
+         + x86("mov", fence_cursor(_.op_off), "r14d")
          + IF(fence_u2_frame(), bb_glue_framed_enter())
          + x86("jmp", PAIR(0))
          + x86("def", PAIR(2))
@@ -49,6 +59,7 @@ std::string bb_match_fence1() {
          + IF(fence_u2_frame(), bb_glue_framed_leave())
          + x86_beta()
          + x86("mov", "r12", fence_cap_top(_.op_off))
+         + x86("mov", "r14d", fence_cursor(_.op_off))
          + fence_release(_.op_off)
          + x86_omega();
 }
