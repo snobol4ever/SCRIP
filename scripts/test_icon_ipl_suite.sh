@@ -288,6 +288,7 @@ BOARD_LINE="IPL_SUITE_BOARD total=$TOTAL compile_graded=$COMPILE_GRADED compile_
 . "$HERE/lib_declared_arena.sh"
 PKG_CSV="$PKG/ALL.csv"
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+PROGRESS_CONFIG="$(progress_config_of_env)"   # every row declares what it ran under: the GC axis in this environment, else shipped (the board sets none per child)
 # ⛔ ipl DOES NOT RECORD AUTOMATICALLY, whatever the ALL.icn pair suggests. CEO-331 lists ipl among the
 # packages that "now record automatically" because they have an ALL.<ext> pair -- but this package's
 # ALL.icn/ALL.ref are consumed by NO runner (measured 2026-09-06: this script opens ALL.csv only for its

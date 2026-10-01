@@ -305,8 +305,8 @@ c_flr_kb=$((c_def * 1024))
   || ck bad "A4 stack drift: rt_stack_overflow.c ${c_flr_kb} KB, lib least $DECLARED_STACK_FLOOR_KB -- a copied runtime constant moved"
 STK_KB=262144; DEPTH=200000
 mkdir -p "$T/stk"
-printf 'procedure f(n)\n   if n = 0 then return 0\n   return 1 + f(n - 1)\nend\nprocedure main()\n   write(f(%d))\nend\n' "$DEPTH" > "$T/stk/deep.icn"
-printf 'procedure f(n)\n   if n = 0 then return 0\n   return 1 + f(n - 1)\nend\nprocedure main()\n   write(f(%d))\nend\n' $((DEPTH / 25)) > "$T/stk/shallow.icn"
+printf 'procedure f(n);\n   if n = 0 then return 0;\n   return 1 + f(n - 1);\nend\nprocedure main();\n   write(f(%d));\nend\n' "$DEPTH" > "$T/stk/deep.icn"
+printf 'procedure f(n);\n   if n = 0 then return 0;\n   return 1 + f(n - 1);\nend\nprocedure main();\n   write(f(%d));\nend\n' $((DEPTH / 25)) > "$T/stk/shallow.icn"
 printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb\n1,deep,p__deep,p,7,0,0,,%s\n2,shallow,p__shallow,p,7,0,0,,\n' "$STK_KB" > "$T/stk/ALL.csv"
 runstk() { ( cd "$T/stk" && env -u SCRIP_STACK -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB "$@" timeout 60s "$ROOT/scrip" --run "$STK_PROG" </dev/null >/dev/null 2>"$T/stk/err" ); }
 STK_PROG=deep.icn; runstk; s_base=$?; grep -q 'ERROR 246' "$T/stk/err"; s_base246=$?

@@ -50,6 +50,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSED TO GRADE: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+PROGRESS_CONFIG="$(progress_config_of_env)"   # every row declares what it ran under: the GC axis in this environment, else shipped (the board sets none per child)
 # ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL EITHER. lib_progress.sh's header is explicit that it never hides
 # the writer's rc and that the caller decides. Neither `|| true` nor `|| exit` is right here: swallowing
 # turns "the table was never written" into silence, and aborting mid-loop would let one bookkeeping failure

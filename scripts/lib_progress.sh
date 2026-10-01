@@ -18,9 +18,17 @@ _progress_run() {
     [ -f "$_PROGRESS_PY" ] || { echo "⛔ PROGRESS APPEND REFUSES(2): writer missing at $_PROGRESS_PY" >&2; return 2; }
     python3 "$_PROGRESS_PY" "$@"
 }
+# progress_config_of_env -- the configuration this process's runs exercise: the GC axis set in its own environment, read through
+# util_progress_append.gc_axis_env (the ONE definition), else `shipped`. THE WRITER GUESSES NOTHING (CEO-812 on the record), so a
+# runner that sets no axis per child says so itself: PROGRESS_CONFIG="$(progress_config_of_env)" once, and every progress_append
+# below declares it. Without it a board's rows read `undeclared` -- measured: the coo's Arizona board of 2026-10-01T19:04Z wrote 238
+# undeclared rows after the lane had declared `shipped`, and test_gate_progress_configuration_declarations_do_not_regress read red.
+progress_config_of_env() {
+    python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import util_progress_append as p; a = p.gc_axis_env(); print(",".join("%s=%s" % kv for kv in a.items()) if a else "shipped")' "$(dirname "$_PROGRESS_PY")"
+}
 progress_append() {
     [ $# -ge 6 ] || { echo "⛔ PROGRESS APPEND REFUSES(2): progress_append needs class suite lang program mode outcome [secs] [note], got $# arg(s)" >&2; return 2; }
-    _progress_run append --class "$1" --suite "$2" --lang "$3" --program "$4" --mode "$5" --outcome "$6" --secs "${7:-0}" --note "${8:-}"
+    _progress_run append --class "$1" --suite "$2" --lang "$3" --program "$4" --mode "$5" --outcome "$6" --secs "${7:-0}" --note "${8:-}" ${PROGRESS_CONFIG:+--config "$PROGRESS_CONFIG"}
 }
 progress_append_rows_tsv() { _progress_run rows-tsv "$1"; }
 progress_append_results_tsv() { _progress_run results-tsv --suite "$1" --lang "$2" "$3"; }

@@ -55,6 +55,7 @@ mask_apply() { # $1=std_path $2=name $3=text -> echoes the masked text; count la
 . "$HERE/lib_flag_gate.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_flag_gate.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_inventory.sh unloadable" >&2; exit 2; }
 . "$HERE/lib_progress.sh" 2>/dev/null || { echo "⛔ GATE REFUSES: lib_progress.sh unloadable -- a run that records nothing is a defect of that run (CEO-331)" >&2; exit 2; }
+PROGRESS_CONFIG="$(progress_config_of_env)"   # every row declares what it ran under: the GC axis in this environment, else shipped (the board sets none per child)
 # ⛔ COUNTED, NOT SWALLOWED, AND NOT FATAL. See lib_progress.sh's header: it never hides the writer's rc and
 # the caller decides. Aborting mid-loop would let one bookkeeping failure destroy a real measurement of 90
 # programs (the reason gate_score_row is non-fatal); `|| true` would turn "never written" into silence.
