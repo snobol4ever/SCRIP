@@ -22,8 +22,8 @@ static const char * sub_open_sym(void) { return sub_vctx() ? "rt_subscript_val" 
                       : (uint64_t)(uintptr_t)(void *)(sub_conly() ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) \
                                                                    : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var)))
 std::string bb_subscript() {
-    if (_.op_zres)
-        return x86("comment", "IR_SUBSCRIPT x[i] variable zd")
+    return IF(_.op_zres,
+               x86("comment", "IR_SUBSCRIPT x[i] variable zd")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("mov",     "rdi", ZOPQ(0, 0))
@@ -42,21 +42,22 @@ std::string bb_subscript() {
              + x86("mov", ZRES(8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0)
-         ? x86_alpha() + x86_bomb("bb_subscript: needs own slot + base/index operand slots")
-         : x86("comment", "IR_SUBSCRIPT x[i] variable")
-         + x86_alpha()
-         + x86("mov",     "rdi", FRQ(_.op_a_slot))
-         + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
-         + x86("mov",     "rdx", FRQ(_.op_sa))
-         + x86("mov",     "rcx", FRQ(_.op_sa + 8))
-         + x86("call",    sub_open_sym(), SUB_OPEN_FN())
-         + x86("cmp",     "al", (long)DT_FAIL)
-         + x86_omega("je")
-         + x86("mov",     FRQ(_.op_off),     "rax")
-         + x86("mov",     FRQ(_.op_off + 8), "rdx")
-         + x86_rt_gc_poll()
-         + x86_gamma()
-         + x86_beta_trampoline();
+             + x86_beta_trampoline())
+         + IF(!_.op_zres && (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0),
+               x86_alpha() + x86_bomb("bb_subscript: needs own slot + base/index operand slots"))
+         + IF(!_.op_zres && !(_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0),
+               x86("comment", "IR_SUBSCRIPT x[i] variable")
+             + x86_alpha()
+             + x86("mov",     "rdi", FRQ(_.op_a_slot))
+             + x86("mov",     "rsi", FRQ(_.op_a_slot + 8))
+             + x86("mov",     "rdx", FRQ(_.op_sa))
+             + x86("mov",     "rcx", FRQ(_.op_sa + 8))
+             + x86("call",    sub_open_sym(), SUB_OPEN_FN())
+             + x86("cmp",     "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("mov",     FRQ(_.op_off),     "rax")
+             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
+             + x86_gamma()
+             + x86_beta_trampoline());
 }
