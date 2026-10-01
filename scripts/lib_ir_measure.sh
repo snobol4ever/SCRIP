@@ -61,10 +61,22 @@ ir_measure() {
     timeout "${IR_TMO:-600}" valgrind --tool=callgrind ${IR_VG_FLAGS:-} --callgrind-out-file="$cg" "$@" >"${IR_PROG_OUT:-$d/prog.out}" 2>"${IR_PROG_ERR:-$d/vg.log}"
     rc=$?
     if [ "$rc" -ne 0 ]; then rm -rf "$d"; echo "RC:$rc"; return 0; fi
-    ir="$(callgrind_annotate "$cg" 2>/dev/null | awk '/PROGRAM TOTALS/{gsub(/,/,"",$1); print $1; exit}')"
+    ir="$(ir_reading 0 "$cg")"
     [ -n "${IR_OUT:-}" ] || rm -rf "$d"
-    case "$ir" in ''|*[!0-9]*) echo "NOMEASURE:no-totals"; return 0 ;; esac
     echo "$ir"
+}
+# ir_reading RC CG -- the reading of a callgrind run the CALLER made and watched itself (a background run under an RSS watchdog, which
+#   ir_measure's foreground timeout cannot be): RC is the client's exit status as the caller's own `wait` returned it, CG the
+#   --callgrind-out-file. One line in the grammar above, the same one ir_measure prints after its own run -- ir_measure calls this --
+#   so a watched run and a plain one can never be read two ways (the coo 2026-10-01, util_parser_phase_profile.sh, named by ARM 2 of
+#   test_gate_ir_reading_voids_a_dead_run.sh for dropping the status its `wait` returned).
+ir_reading() {
+    local rc="${1:-}" cg="${2:-}" ir
+    case "$rc" in ''|*[!0-9]*) echo "NOMEASURE:no-status"; return 0 ;; esac
+    [ "$rc" -eq 0 ] || { echo "RC:$rc"; return 0; }
+    command -v callgrind_annotate >/dev/null 2>&1 || { echo "NOMEASURE:annotate-absent"; return 0; }
+    ir="$(callgrind_annotate "$cg" 2>/dev/null | awk '/PROGRAM TOTALS/{gsub(/,/,"",$1); print $1; exit}')"
+    case "$ir" in ''|*[!0-9]*) echo "NOMEASURE:no-totals" ;; *) echo "$ir" ;; esac
 }
 # ir_is_number VALUE -- rc 0 only for a reading a caller may grade, ratio or ratchet against.
 ir_is_number() { case "${1:-}" in ''|*[!0-9]*) return 1 ;; *) return 0 ;; esac; }

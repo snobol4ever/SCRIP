@@ -55,6 +55,7 @@ S4E="${S4E_HOME:-$(cd "$SELF/.." && pwd)}"; CORPUS="${CORPUS:-$S4E/corpus}"
 "$W/scripts/util_require_fresh.sh" --gate "$G" "$W/scrip" "$W/out/libscrip_rt.so" || exit 2
 PY="$HERE/util_parser_phase_profile.py"; [ -f "$PY" ] || refuse "the classifier $PY is missing"
 command -v valgrind > /dev/null || refuse "no valgrind on PATH -- the profile is callgrind's"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_ir_measure.sh" 2> /dev/null || refuse "lib_ir_measure.sh unloadable -- the one reader of a callgrind run's status and total"
 [ -f /usr/include/valgrind/callgrind.h ] || refuse "no valgrind/callgrind.h -- the shim's toggle is a callgrind client request"
 B="$W/bootstrap"; CHAIN="global.sc case.sc assign.sc match.sc counter.sc stack.sc tree.sc ShiftReduce.sc tdump.sc gen.sc qize.sc semantic.sc omega.sc trace.sc"
 for f in $CHAIN; do [ -f "$B/$f" ] || refuse "chain file missing: $B/$f"; done
@@ -114,7 +115,7 @@ build() {  # $1 the .s, $2 the binary
     gcc -m64 -no-pie -rdynamic "$1" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$2" 2>> "$T/$L.cc.err"
 }
 profile() {  # $1 list, $2 stem, $3 binary: the callgrind run of the parse clock, checked; prints why it cannot be trusted, else nothing
-    local n pid rss peak=0 t0=$SECONDS killed=""; n=$(wc -l < "$1"); rm -f "$2.cg"
+    local n pid rss peak=0 t0=$SECONDS killed="" vrc v; n=$(wc -l < "$1"); rm -f "$2.cg"
     PARSER_FILES="$1" PARSER_TREE_HASH=1 LD_PRELOAD="$T/shim.so" valgrind --tool=callgrind --collect-atstart=no "--pop-on-jump=*" \
         --callgrind-out-file="$2.cg" "$3" $SW < /dev/null > "$2.out" 2> "$2.err" &
     pid=$!
@@ -124,8 +125,9 @@ profile() {  # $1 list, $2 stem, $3 binary: the callgrind run of the parse clock
         [ $((SECONDS - t0)) -gt "$TMO" ] && { kill -9 "$pid" 2> /dev/null; killed="it outlasted PHASE_TIMEOUT=$TMO s"; }
         sleep 0.5
     done
-    wait "$pid" 2> /dev/null; echo "$peak" > "$2.peak"
+    wait "$pid" 2> /dev/null; vrc=$?; echo "$peak" > "$2.peak"
     [ -z "$killed" ] || { echo "the callgrind run was killed: $killed (peak $peak MB)"; return; }
+    v="$(ir_reading "$vrc" "$2.cg")"; ir_is_number "$v" || { echo "the callgrind reading is voided, $(ir_cell "$v"): $(ir_reason "$v")"; return; }
     [ "$(metric "$2.err" files)" = "$n" ] || { echo "the callgrind run did not reach PARSER-METRICS over all $n files"; return; }
     [ "$(sed -n 's/^PHASE-TOGGLES //p' "$2.err")" = "$((2 * n))" ] || { echo "the shim toggled $(sed -n 's/^PHASE-TOGGLES //p' "$2.err") times, not twice per file ($((2 * n))) -- the region is not the clock"; return; }
     cmp -s <(grep -v '^PARSER-METRICS' "$2.out") <(grep -v '^PARSER-METRICS' "$T/$L.plain.out") || { echo "the callgrind run printed other trees than the plain run"; return; }
