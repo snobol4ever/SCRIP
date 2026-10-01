@@ -284,9 +284,19 @@ for std in "$SUITE"/*.ref; do
   # <stem>.clib sidecar names the vendored sources; declared_clib_beside (lib_declared_arena.sh, the one reader) builds them and the run
   # gets FPATH=". <that directory>" in both modes -- the same search iconx makes. No sidecar, no FPATH: every other program runs as before.
   _fp=(); _clib="$(declared_clib_beside "$SUITE/$name.icn" "$PKG")" || exit 2; [ -n "$_clib" ] && _fp=(env "FPATH=. $_clib")
-  m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
-  # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
-  m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
+  # ⛔⭐ special/keyboard IS PTY-GRADED, NOT STDIN-GRADED (coo's ask, CEO-1354, hq_icon 2026-10-01): a redirected
+  # stdin cannot supply getch()/kbhit() a real terminal, and `script(1)` cannot pace the Quit key to land while
+  # the program polls in test 3 (^\ raises SIGQUIT the instant the pty sees it, not when the subject reads it).
+  # icn_keyboard_pty_drive.py drives the program's own fixed 3-phase keystroke protocol over a real pty and
+  # already applies the ONE error voice itself (same renderer, called from inside it) -- proven byte-stable
+  # against the oracle over 8 m3 + 8 m4 runs before landing (see the script's own header).
+  if [ "$sub/$name" = "special/keyboard" ]; then
+    m3out=$(cd "$SUITE" && timeout $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$SUITE" "$TIMEOUT" -- "$SCRIP" --run $_ca $_sw "$name.icn"); m3rc=$?
+  else
+    m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+    # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
+    m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
+  fi
   # CEO-409: an implementation-defined line is masked to the SAME marker in both streams before compare.
   m3out="$(mask_apply "$std" "$name" "$m3out")"; exp3="$(mask_apply "$std" "$name" "$exp3")"
   if printf '%s' "$m3out" | grep -q 'parse error'; then
@@ -323,8 +333,13 @@ for std in "$SUITE"/*.ref; do
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
-      m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
-      m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
+      if [ "$sub/$name" = "special/keyboard" ]; then
+        # ⛔⭐ PTY-GRADED, see the m3 arm above for the reasoning -- the compiled binary, not the stdin path.
+        m4out=$(cd "$SUITE" && timeout $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$SUITE" "$TIMEOUT" -- "$bin4" $_sw); m4rc=$?
+      else
+        m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
+        m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
+      fi
     fi
   fi
   # CEO-409: same marker, same reasoning as the m3 arm above.

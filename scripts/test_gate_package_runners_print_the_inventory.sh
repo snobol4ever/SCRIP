@@ -758,7 +758,14 @@ fi
 # zero rows since corpus 51d7c84ec (hq_snobol4, 09-27 17:10) graded BUILDLIB.sno, the eighth program, on its out_files answer (SUITES.tsv AIS
 # 8/8 on 321a8ec4f); the data the pin was taken over was emptied by the grading work, not by a wording edit, and this arm read red on origin
 # from that landing until this one (coo loop pass on 547e46e90). It re-enters with its next declared row. Ten pinned.
-PKGINV_PINNED="icon/arizona_tests icon/ipl pascal/pat prolog/gnu_prolog prolog/logtalk_iso prolog/swi_tests snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite"
+# ⭐ RE-PINNED 2026-10-01 (hq_icon, the same reading again): icon/arizona_tests LEAVES the set -- its UNGRADABLE.tsv and UNGRADED.tsv declare
+# zero rows because special/keyboard (NEEDS_RUNNER_WIRING, the last row) is now graded: icn_keyboard_pty_drive.py wires a pty-timed 3-phase
+# keystroke driver into test_icon_arizona_suite.sh's special-case (a redirected stdin cannot supply getch()/kbhit() a terminal, and
+# script(1) cannot pace the Quit key to land inside test 3's poll -- CEO-1354, the coo's ask), special/keyboard.ref cut from the oracle
+# (icont -s ... -x), special/keyboard.mask covers the two Quit-timing traceback lines (L28/L32, OS-scheduling-dependent, proven stable over
+# 16 driver runs). The data the pin was taken over was emptied by the grading work, not by a wording edit. It re-enters with its next
+# declared row. Nine pinned.
+PKGINV_PINNED="icon/ipl pascal/pat prolog/gnu_prolog prolog/logtalk_iso prolog/swi_tests snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite"
 _a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0; _a20_empty=""; _a20_graded=0
 for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv -o -name UNGRADED.tsv \) 2>/dev/null \
              | while IFS= read -r _f; do dirname "$_f"; done | sort -u); do
