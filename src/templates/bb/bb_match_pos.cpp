@@ -19,8 +19,8 @@ static std::string bb_match_pos_body() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_pos() {
-    if (_.op_sval != NULL) {
-        return x86("comment", "IR_MATCH_POS defer")
+    return IF(_.op_sval != NULL,
+               x86("comment", "IR_MATCH_POS defer")
              + x86_alpha()
              + x86("lea",  "rdi", "[rip + __]",
                    (uint64_t)(uintptr_t)(const void *)(_.op_sval + 1), x86_strtab_lbl(_.op_sval + 1).c_str())
@@ -30,7 +30,6 @@ std::string bb_match_pos() {
              + x86("cmp",  "r14d", "eax")
              + x86_omega("jne")
              + x86_gamma()
-             + x86_beta_trampoline();
-    }
-    return bb_match_pos_body();
+             + x86_beta_trampoline())
+         + IF(_.op_sval == NULL, bb_match_pos_body());
 }
