@@ -10,7 +10,7 @@
 # SELF-PROOF first, on fixtures under mktemp: a planted bare mkdtemp reads 1 offender, a planted registering line reads 0.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
-CEIL=74   # measured 2026-10-01 at SCRIP 270cfc43b; lower it when you cure one, never raise it
+CEIL=73   # measured 2026-10-01 at SCRIP c798131e2 after two cures; lower it when you cure one, never raise it
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; trap 'rm -rf "$W"; exit 143' TERM; trap 'rm -rf "$W"; exit 130' INT
 fail=0; ck() { if [ "$1" = ok ]; then echo "  ✅ $2"; else echo "  ⛔ $2"; fail=$((fail+1)); fi; }
 py_offenders() { # py_offenders <dir> -> prints "file:line" per offending creation

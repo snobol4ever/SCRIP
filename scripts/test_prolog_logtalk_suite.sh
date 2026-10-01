@@ -97,6 +97,7 @@ esac
 _decl="$(mktemp "${TMPDIR:-/tmp}/lgt_decl.XXXXXX")"
 declared_memory_begin "$SUITE/ALL.csv" "$_decl" || { rm -f "$_decl"; refuse "a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; }
 _out="$(mktemp "${TMPDIR:-/tmp}/lgt_board.XXXXXX")"
+trap 'rm -f ${_decl:+"$_decl"} ${_out:+"$_out"}' EXIT; trap 'rm -f ${_decl:+"$_decl"} ${_out:+"$_out"}; exit 143' TERM; trap 'rm -f ${_decl:+"$_decl"} ${_out:+"$_out"}; exit 130' INT
 python3 "$HERE/util_logtalk_grade.py" --suite "$SUITE" --scrip "$SCRIP" --modes "$MODES" --jobs "$JOBS" --decl "$_decl" $NAME_REDS | tee "$_out"
 # ⛔ PIPESTATUS[0], NEVER $? -- the pipeline ends in `tee`, so $? reports the pager and a python that died
 # reads as a clean run (CLAUDE.md, measured live on this box).

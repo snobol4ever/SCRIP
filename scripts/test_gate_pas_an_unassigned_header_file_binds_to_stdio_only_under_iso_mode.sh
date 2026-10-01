@@ -39,6 +39,7 @@ run() { local m="$1" p="$2" w="$3"
 
 # --- arm (a): hdrstdio, {$mode iso}, graded live against fpc -Miso ---
 Ta=$(mktemp -d) || exit 2
+trap 'rm -rf ${Ta:+"$Ta"} ${Tb:+"$Tb"}' EXIT; trap 'rm -rf ${Ta:+"$Ta"} ${Tb:+"$Tb"}; exit 143' TERM; trap 'rm -rf ${Ta:+"$Ta"} ${Tb:+"$Tb"}; exit 130' INT
 cat > "$Ta/hdrstdio.pas" <<'PAS'
 {$mode iso}
 program hdrstdio(input, output, extra);
