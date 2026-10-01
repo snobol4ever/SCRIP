@@ -264,6 +264,15 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                                    f"driver, an include through its includer) or not at all (CONTRACT.tsv units=ref-beside)"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (no .ref beside it, units=ref-beside)", file=sys.stderr)
             continue
+        if src.with_suffix(".clib").is_file():
+            # ⛔ A PROGRAM THAT LOADS C IS GRADED WHERE ITS LIBRARY IS BUILT (the coo 2026-10-01, measured on arizona_tests: cfuncs,
+            # cfunc_driver, extlvals): its <stem>.clib names the vendored C sources, which test_icon_arizona_suite.sh builds through
+            # declared_clib_beside and hands to both modes as FPATH; a container entry carries no FPATH contract, so cut here it
+            # loaded nothing and its graded run could only fail. Excluded and named until an entry can carry its library.
+            excluded.append((name, f"loads C through {src.stem}.clib -- the package's board builds that library and runs it with FPATH; "
+                                   f"a container entry carries no FPATH contract yet, so it is graded by the board, not here"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (loads C through {src.stem}.clib)", file=sys.stderr)
+            continue
         text, non_utf8 = read_text_tolerant(src)
         if non_utf8:
             excluded.append((name, "source is not valid UTF-8 (genuine 8-bit content, e.g. accented bytes) -- "
@@ -516,6 +525,41 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     if _old_cmd:
         print("    compile_args/run_args: %d declaration(s) carried forward across this rebuild: %s"
               % (len(_old_cmd), ", ".join("%s=[%s|%s]" % (k, v["compile_args"], v["run_args"]) for k, v in sorted(_old_cmd.items()))), file=sys.stderr)
+
+    # ⭐ A PROGRAM'S <stem>.mask TRAVELS INTO ALL.mask UNDER ITS ENTRY NAME (the coo 2026-10-01, measured on arizona_tests: general/env
+    # prints the host, the date and the clock, and its env.mask -- read by test_icon_arizona_suite.sh beside env.ref -- masks those
+    # lines; the harness reads ONE ALL.mask beside ALL.ref, keyed by the entry, and a container cut without it graded env against
+    # the hour its ref was cut). Each absorbed entry's sidecar rows are written with the entry's own name in column 1 (env ->
+    # general/env). Rows an existing ALL.mask holds for entries no sidecar covers are kept as they stand (the SNOBOL4 packages'
+    # masks are written there by hand); with no sidecar at all ALL.mask is not touched.
+    out_mask = pkg_dir / f"{out_prefix}.mask"
+    _mask_rows = []
+    _src_of = {f"{src.parent.name}/{src.stem}" if src.parent != pkg_dir else src.stem: src for src in srcs}
+    for e in entries:
+        _mp = _src_of[e.name].with_suffix(".mask") if e.name in _src_of else None
+        if _mp is None or not _mp.is_file():
+            continue
+        for _ln in _mp.read_text(encoding="utf-8").splitlines():
+            if not _ln.strip() or _ln.lstrip().startswith("#"):
+                continue
+            _f = _ln.split("\t")
+            if len(_f) < 3 or not _f[1].strip() or not _f[2].strip():
+                h.refuse(f"{_mp}: a mask row is entry<TAB>regex-or-L<n><TAB>reason -- got {_ln!r}")
+            _mask_rows.append("\t".join([e.name] + _f[1:]))
+    if _mask_rows:
+        _covered = {r.split("\t", 1)[0] for r in _mask_rows}
+        _kept = []
+        if out_mask.exists():
+            for _ln in out_mask.read_text(encoding="utf-8").splitlines():
+                if _ln.strip() and not _ln.lstrip().startswith("#") and _ln.split("\t", 1)[0] in _covered:
+                    continue
+                _kept.append(_ln)
+        if not _kept:
+            _kept = ["# ALL.mask -- CEO-409 line masks for this container (entry<TAB>L<n>-or-python-regex<TAB>reason); the rows of an entry",
+                     "# whose program ships a <stem>.mask are written from it by util_build_package_suite.py under the entry's name."]
+        out_mask.write_text("\n".join(_kept + _mask_rows) + "\n", encoding="utf-8")
+        print("    masks: %d row(s) from %d <stem>.mask sidecar(s) written into %s under the entry names"
+              % (len(_mask_rows), len(_covered), out_mask.name), file=sys.stderr)
 
     if excluded:
         out_excl.write_text("\n".join(f"{name}: {reason}" for name, reason in sorted(excluded)) + "\n")

@@ -28,6 +28,10 @@
 #      .icn: Arizona's shape, 31 programs a sibling-name rule wrongly excluded)
 #   8  m3 and m4 grade T and W PASS -- T through the Icon equivalence list, as test_icon_jcon_suite.sh renders its capture
 #   9  with the render off (S4E_FATAL_RENDER=0) T reads FAIL in m3 -- the render, not a loose ref, is what passes it
+#  10  C, which loads C through a C.clib sidecar, is excluded and named (its board builds the library and sets FPATH)
+#  11  sub/K's K.mask travels into ALL.mask under the entry's name (sub/K<TAB>L1), the line that prints &clock
+#  12  m3 and m4 grade the nested sub/R PASS -- its R.dat lands beside it where it runs (it was copied to the scratch root and
+#      looked up in the package root, so open("R.dat") failed) -- and sub/K PASS through its mask
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
@@ -106,6 +110,12 @@ printf '%s\n' 'link M' 'procedure main();' '   write(m());' 'end' > "$I/L.icn"
 printf '%s\n' 'procedure m();' '   return "from M";' 'end' > "$I/M.icn"
 printf '%s\n' 'link options' 'procedure main();' '   write("ok");' 'end' > "$I/O.icn"; printf 'ok\n' > "$I/O.ref"
 printf '%s\n' 'procedure options();' 'end' > "$I/options.icn"
+mkdir -p "$I/sub"
+printf '%s\n' 'procedure main();' '   local f;' '   f := open("R.dat") | stop("no R.dat");' '   write(read(f));' 'end' > "$I/sub/R.icn"
+printf 'a data line\n' > "$I/sub/R.dat"; printf 'a data line\n' > "$I/sub/R.ref"
+printf '%s\n' 'procedure main();' '   write(&clock);' '   write("fixed one");' '   write("fixed two");' '   write("fixed three");' 'end' > "$I/sub/K.icn"
+printf '00:00:00\nfixed one\nfixed two\nfixed three\n' > "$I/sub/K.ref"; printf 'K\tL1\tthe clock moves (gate fixture)\n' > "$I/sub/K.mask"
+printf '%s\n' 'procedure main();' '   write("c");' 'end' > "$I/C.icn"; printf 'c\n' > "$I/C.ref"; printf 'c.c\n' > "$I/C.clib"
 printf '%s\n' 'before' '' 'Run-time error 201' 'File T.icn; Line 6' 'division by zero' 'Traceback:' 'main()' 'foo(2) from line 3 in T.icn' \
     'foo(1) from line 7 in T.icn' 'foo(0) from line 7 in T.icn' '{1 / 0} from line 6 in T.icn' > "$I/T.ref"
 printf 'x=3\n' > "$I/W.ref"; printf 'from M\n' > "$I/L.ref"
@@ -120,8 +130,11 @@ IPL_PROCS="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}/corpus/packages/icon/ipl/procs"
 [ -f "$IPL_PROCS/options.icn" ] || refuse "no IPL options.icn at $IPL_PROCS -- O cannot link"
 irun() { ( cd "$ROOT" && IPATH="$IPL_PROCS" python3 scripts/corpus_suite_harness.py run "$I/ALL.icn" "$I/ALL.ref" --lang icon --modes "$1" 2>&1 ) }
 I3="$(S4E_PROGRESS_OFF=1 irun m3)"; I4="$(S4E_PROGRESS_OFF=1 irun m4)"
-arm "m3 and m4 grade T (through the Icon equivalence list), W and O PASS" "$([ "$(verdict "$I3" m3 T)" = green ] && [ "$(verdict "$I4" m4 T)" = green ] && printf '%s\n' "$I3" | grep -q 'm3_pass=3 ' && printf '%s\n' "$I4" | grep -q 'm4_pass=3 ' && echo ok || echo "$(printf '%s\n%s\n' "$I3" "$I4" | grep -E '^  FAIL|SUITE_BOARD' | cut -c1-160 | tr '\n' '|')")"
+arm "m3 and m4 grade T (through the Icon equivalence list), W and O PASS" "$(ok=1; for e in T W O; do [ "$(verdict "$I3" m3 $e)" = green ] && [ "$(verdict "$I4" m4 $e)" = green ] || ok=0; done; [ $ok = 1 ] && printf '%s\n' "$I3" | grep -q 'm3_pass=5 ' && printf '%s\n' "$I4" | grep -q 'm4_pass=5 ' && echo ok || echo "$(printf '%s\n%s\n' "$I3" "$I4" | grep -E '^  FAIL|SUITE_BOARD' | cut -c1-160 | tr '\n' '|')")"
 I3b="$(S4E_PROGRESS_OFF=1 S4E_FATAL_RENDER=0 irun m3)"
 arm "with the render off, T reads FAIL in m3" "$([ "$(verdict "$I3b" m3 T)" = red ] && echo ok || echo "m3 read $(verdict "$I3b" m3 T)")"
+arm "C (a C.clib sidecar) is excluded and named" "$(grep -q '^C: loads C through C.clib' "$I/ALL.excluded.txt" 2>/dev/null && echo ok || echo "ALL.excluded.txt: $(grep '^C:' "$I/ALL.excluded.txt" 2>/dev/null | cut -c1-120)")"
+arm "sub/K's K.mask is in ALL.mask under its entry name" "$(grep -qP '^sub/K\tL1\t' "$I/ALL.mask" 2>/dev/null && echo ok || echo "ALL.mask: $(head -5 "$I/ALL.mask" 2>/dev/null | tr '\n' '|' | cut -c1-160)")"
+arm "m3 and m4 grade the nested sub/R (its R.dat beside it) and sub/K (masked) PASS" "$([ "$(verdict "$I3" m3 sub/R)" = green ] && [ "$(verdict "$I4" m4 sub/R)" = green ] && [ "$(verdict "$I3" m3 sub/K)" = green ] && [ "$(verdict "$I4" m4 sub/K)" = green ] && echo ok || echo "$(printf '%s\n%s\n' "$I3" "$I4" | grep -E '^  (FAIL|CRASH|HANG) m[34] sub/' | cut -c1-140 | tr '\n' '|')")"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

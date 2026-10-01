@@ -2121,12 +2121,22 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
         # can regress.
         cand.parent.mkdir(parents=True, exist_ok=True)
         cand.write_text(text)
-        _copy_companions(text, companion_dir, Path(td))
+        # ⛔⭐ A NESTED ENTRY'S COMPANIONS LIVE BESIDE IT, AND LAND BESIDE IT (the coo 2026-10-01, measured on the regenerated arizona_tests
+        # container): the entry runs in cand.parent (td/general for "general/fncs1"), but its companions were looked up in the suite's
+        # own directory and copied into td -- so fncs1's open("gc1.icn"), prepro's prepro.dat and recent's data files were never
+        # there, and three programs that match their refs when staged beside the source read FAIL here. The lookup directory is the
+        # suite directory plus the entry's own subdirectory (the subdirectory's copy wins, the suite directory's is kept as a fallback),
+        # and the copy lands where the program runs; a flat entry is unchanged.
+        _sub = Path(entry.name).parent
+        _cdir = (Path(companion_dir) / _sub) if (companion_dir and str(_sub) not in ("", ".")) else companion_dir
+        if _cdir != companion_dir:
+            _copy_companions(text, companion_dir, cand.parent)   # the suite directory first, as before, so nothing a nested entry found there is lost
+        _copy_companions(text, _cdir, cand.parent)               # then the entry's own directory, which wins where both hold the name
         # PROGRAM ARGUMENTS THAT NAME A COMPANION (AIS HSORT: its input file name arrives in HOST(0)): an argv token
         # that is a file beside the suite travels with the entry the same way a named include does.
         for _tok in (getattr(entry, 'argv', None) or []):
-            if companion_dir and _tok and '/' not in _tok and (Path(companion_dir) / _tok).is_file() and not (Path(td) / _tok).exists():
-                (Path(td) / _tok).write_bytes((Path(companion_dir) / _tok).read_bytes())
+            if _cdir and _tok and '/' not in _tok and (Path(_cdir) / _tok).is_file() and not (cand.parent / _tok).exists():
+                (cand.parent / _tok).write_bytes((Path(_cdir) / _tok).read_bytes())
         return run_all_modes(paths, cand, expected, Path(td), modes, stdin_text=entry.stdin,
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
                              mask=getattr(entry, 'mask', None),
