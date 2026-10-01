@@ -43,7 +43,7 @@ typedef struct { FILE *fp; char *name; char *alias; char *enc; char mode; char t
 extern cv_t g_fhv;
 void fh_ensure_init(void);
 #define g_fh (fh_ensure_init(), (fh_slot_t *)g_fhv.p)
-#define FH_N ((int)g_fhv.len)
+#define FH_N (fh_ensure_init(), (int)g_fhv.len)
 void  drv_gc_roots(void);
 extern int   fh_init;
 int   fh_alias_idx(const char *nm);
