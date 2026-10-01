@@ -10506,3 +10506,42 @@ void * rt_pl_choice_new(const char *key) { tree_t *c = ast_node_new(TT_CHOICE); 
 void rt_pl_choice_add(void *choice, void *clause_tree) { if (choice && clause_tree) ast_push((tree_t *)choice, (tree_t *)clause_tree); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_choice_n(void *choice) { return choice ? ((tree_t *)choice)->n : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_cutcall_ctrl(const char *nm) { return nm && (!strcmp(nm, ",") || !strcmp(nm, ";") || !strcmp(nm, "->") || !strcmp(nm, "*->") || !strcmp(nm, "|")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_cutcall_body(DESCR_t *c, pl_ctv_t *vt, int *cuts) {
+    extern const char *prolog_atom_name(int);
+    DESCR_t *d = (DESCR_t *)pl_deref((pl_cell_t *)c);
+    if (pl_cell_unbound(d)) { tree_t *t = ast_node_new(TT_FNC); t->v.sval = pl_tree_name("call"); ast_push(t, pl_cell_tree(c, vt)); return t; }
+    if ((int)d->v == DT_PLATOM) { const char *s = prolog_atom_name((int)d->i); if (s && !strcmp(s, "!")) { (*cuts)++; return ast_node_new(TT_CUT); } }
+    if ((int)d->v == DT_PLREF && pl_arity((pl_cell_t *)d) == 2) {
+        const char *nm = prolog_atom_name(plc_functor((pl_cell_t *)d));
+        if (pl_cutcall_ctrl(nm)) {
+            DESCR_t *aa = (DESCR_t *)d->p; tree_t *l = pl_cutcall_body(&aa[0], vt, cuts), *r = l ? pl_cutcall_body(&aa[1], vt, cuts) : (tree_t *)0, *t;
+            if (!r) return (tree_t *)0;
+            t = ast_node_new(TT_FNC); t->v.sval = pl_tree_name(nm); ast_push(t, l); ast_push(t, r); return t; } }
+    if ((int)d->v != DT_PLATOM && (int)d->v != DT_PLREF) return (tree_t *)0;
+    return pl_cell_tree(c, vt);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(cutcall, 2) {
+    extern tree_t *pl_runtime_clause_tree(tree_t *); extern void *pl_runtime_define_pred(const char *, const void *, int);
+    extern int rt_proc_enum_count(void); extern int prolog_atom_intern(const char *);
+    pl_ctv_t vt; int cuts = 0; tree_t *body; vt.n = 0; ok = 0;
+    body = pl_cutcall_body(&args[0], &vt, &cuts);
+    if (body && cuts && vt.n < 256) {
+        char nm[32], key[48]; int n = vt.n, seq = rt_proc_enum_count();
+        do { snprintf(nm, sizeof nm, "$cc%d", seq++); snprintf(key, sizeof key, "%s/%d", nm, n); } while (rt_proc_is_registered(key));
+        { tree_t *hd = ast_node_new(n ? TT_FNC : TT_QLIT), *raw = ast_node_new(TT_FNC), *cl; void *ch;
+          hd->v.sval = pl_tree_name(nm);
+          for (int i = 0; i < n; i++) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt.nm[i]; ast_push(hd, v); }
+          raw->v.sval = pl_tree_name(":-"); ast_push(raw, hd); ast_push(raw, body);
+          cl = pl_runtime_clause_tree(raw); ch = cl ? rt_pl_choice_new(key) : (void *)0;
+          if (ch) { rt_pl_choice_add(ch, cl);
+              if (pl_runtime_define_pred(key, ch, n)) {
+                  DESCR_t g = pl_mk_atom(nm);
+                  if (n) { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
+                      for (int i = 0; i < n; i++) kids[i] = pl_make_ref((pl_cell_t *)vt.addr[i], 0);
+                      g.v = (DTYPE_t)DT_PLREF; g.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), n); g.p = (void *)kids; }
+                  ok = plw_unify_vals(args[1], g, cx); } } } }
+} PL_CX_LEAF_TAIL

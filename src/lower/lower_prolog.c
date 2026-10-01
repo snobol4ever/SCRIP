@@ -725,7 +725,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },
     { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" },
     { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3, "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" },
-    { "$db_decl", 3, "$db_decl" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
+    { "$db_decl", 3, "$db_decl" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$cutcall", 2, "$cutcall" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
     { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
     { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$write_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" },
     { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" },
@@ -2110,11 +2110,13 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (pl_bb_lookup(key, 2)) continue;
         if (resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key)) continue;
         nclause = !strcmp(wn, ";") ? 6 : !strcmp(wn, ",") ? 2 : 1;
-        { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(key); int nb = 0;
-          for (int bi = 0; bi < nclause; bi++) {
-            tree_t * hd = ast_node_new(TT_FNC); tree_t * body = (tree_t *) 0; tree_t * raw; tree_t * cl;
+        { tree_t * ch = ast_node_new(TT_CHOICE); ch->v.sval = ct_strdup(key); int nb = 0; int cc = !strcmp(wn, ",") ? 1 : 0;
+          for (int bk = 0; bk <= nclause; bk++) {
+            tree_t * hd = ast_node_new(TT_FNC); tree_t * body = (tree_t *) 0; tree_t * raw; tree_t * cl; int bi = bk - (bk > cc);
             hd->v.sval = ct_strdup(wn); ast_push(hd, pl_meta_var("A")); ast_push(hd, pl_meta_var("B"));
-            if (!strcmp(wn, ",")) { tree_t * f1 = pl_cc_fnc3("$fc", pl_cc_fnc2(",", pl_meta_var("A"), pl_meta_var("B")), pl_meta_var("Pre"), pl_meta_var("Post"));
+            if (bk == cc) body = pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc2("$cutcall", pl_cc_fnc2(wn, pl_meta_var("A"), pl_meta_var("B")), pl_meta_var("NG")),
+                                                           (tree_t *) pl_atom_goal("!")), pl_cc_fnc1("call", pl_meta_var("NG")));
+            else if (!strcmp(wn, ",")) { tree_t * f1 = pl_cc_fnc3("$fc", pl_cc_fnc2(",", pl_meta_var("A"), pl_meta_var("B")), pl_meta_var("Pre"), pl_meta_var("Post"));
               tree_t * f2 = pl_cc_fnc2(",", pl_cc_fnc2(",", f1, (tree_t *) pl_atom_goal("!")), pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("Pre")), (tree_t *) pl_atom_goal("!")));
               body = bi == 0 ? pl_cc_fnc2(",", f2, pl_cc_fnc1("call", pl_meta_var("Post"))) : pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), pl_cc_fnc1("call", pl_meta_var("B"))); }
             else if (!strcmp(wn, "->")) body = pl_cc_fnc2(",", pl_cc_fnc2(",", pl_cc_fnc1("call", pl_meta_var("A")), (tree_t *) pl_atom_goal("!")), pl_cc_fnc1("call", pl_meta_var("B")));

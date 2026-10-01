@@ -492,6 +492,7 @@ test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRE
 test_gate_pl_a_predicate_with_more_than_64_clauses_keeps_every_clause.sh	WIRED	-	-	-
 test_gate_pl_a_prefix_operator_wins_the_write_over_a_postfix_one.sh	WIRED	-	-	-
 test_gate_pl_a_prelude_dcg_rule_reaches_the_program_that_calls_it.sh	WIRED	-	-	-
+test_gate_pl_a_cut_inside_a_control_goal_held_in_a_variable_cuts_to_the_call.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_a_shift_outside_the_int64_window_is_computed_not_wrapped.sh	WIRED	-	-	-
 test_gate_pl_a_syntax_error_costs_its_own_clause_and_not_the_file.sh	WIRED	-	-	-
