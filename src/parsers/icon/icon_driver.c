@@ -33,31 +33,34 @@ static void icn_link_note(char * tried, size_t triedsz, const char * cand) {
     memcpy(tried + have, cand, strlen(cand)); tried[have + strlen(cand)] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * icn_link_try_list(const char * p, const char * nm, char * out, size_t outsz, char * tried, size_t triedsz) {
+    while (p && *p) {
+        const char * colon = strchr(p, ':'); size_t seg = colon ? (size_t)(colon - p) : strlen(p);
+        if (seg > 0 && seg < 1000) {
+            char d[1024]; memcpy(d, p, seg); d[seg] = '\0';
+            snprintf(out, outsz, "%s/%s.icn", d, nm);
+            icn_link_note(tried, triedsz, out);
+            char * src = icn_read_file(out);
+            if (src) return src;
+        }
+        if (!colon) break;
+        p = colon + 1;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * icn_link_open(const char * dir, const char * nm, char * out, size_t outsz, char * tried, size_t triedsz) {
     if (triedsz) tried[0] = '\0';
-    char * src = NULL;
+    char * src = icn_link_try_list(getenv("IPATH"), nm, out, outsz, tried, triedsz);
+    if (src) return src;
     if (dir && dir[0]) {
         snprintf(out, outsz, "%s/%s.icn", dir, nm);
         icn_link_note(tried, triedsz, out);
         src = icn_read_file(out);
         if (src) return src;
     }
-    const char * vars[2]; vars[0] = getenv("IPATH"); vars[1] = getenv("ICONPATH");
-    for (int v = 0; v < 2; v++) {
-        const char * p = vars[v];
-        while (p && *p) {
-            const char * colon = strchr(p, ':'); size_t seg = colon ? (size_t)(colon - p) : strlen(p);
-            if (seg > 0 && seg < 1000) {
-                char d[1024]; memcpy(d, p, seg); d[seg] = '\0';
-                snprintf(out, outsz, "%s/%s.icn", d, nm);
-                icn_link_note(tried, triedsz, out);
-                src = icn_read_file(out);
-                if (src) return src;
-            }
-            if (!colon) break;
-            p = colon + 1;
-        }
-    }
+    src = icn_link_try_list(getenv("ICONPATH"), nm, out, outsz, tried, triedsz);
+    if (src) return src;
     { char exe[1024]; ssize_t el = readlink("/proc/self/exe", exe, sizeof exe - 1);
       if (el > 0) { exe[el] = '\0'; char * sl = strrchr(exe, '/'); if (sl) { *sl = '\0';
           snprintf(out, outsz, "%s/../corpus/packages/icon/ipl/procs/%s.icn", exe, nm);

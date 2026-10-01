@@ -28,10 +28,10 @@ W="$(mktemp -d "${TMPDIR:-/tmp}/gate_azlib.XXXXXX")" || { echo "⛔ GATE REFUSE(
 trap 'rm -rf "$W"' EXIT
 RC=0
 A="$W/az/corpus/packages/icon/arizona_tests"; S="$A/general"; X="$W/real"; mkdir -p "$S" "$A/special" "$X"
-printf 'link helper\nprocedure run();\n   write("helper(3) = ", helper(3));\n   return\nend\n' > "$S/lib.icn"
-printf 'procedure main();\n   write("i am a test program")\nend\n' > "$S/helper.icn"
-printf 'link lib\nprocedure main();\n   run()\nend\n' > "$S/lib_driver.icn"
-printf 'procedure helper(x);\n   return x * 7\nend\n' > "$X/helper.icn"
+printf 'link helper\nprocedure run();\n   write("helper(3) = ", helper(3));\n   return;\nend\n' > "$S/lib.icn"
+printf 'procedure main();\n   write("i am a test program");\nend\n' > "$S/helper.icn"
+printf 'link lib\nprocedure main();\n   run();\nend\n' > "$S/lib_driver.icn"
+printf 'procedure helper(x);\n   return x * 7;\nend\n' > "$X/helper.icn"
 printf '%s\n1,general/lib,arizona_tests__general/lib,arizona_tests,3,0,0,131072,4096,,\n2,general/helper,arizona_tests__general/helper,arizona_tests,3,0,0,131072,4096,,\n' \
     'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args' > "$A/ALL.csv"
 # the refs are iconx's: icont links ucode, so the library and the real helper are translated first and their ucode leaves after the cut
