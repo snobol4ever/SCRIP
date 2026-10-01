@@ -24,8 +24,8 @@ extern "C" long rt_sg_member(void);
 static std::string na_memb(long i) { return i >= CSK() ? std::string() : x86("cmp", "esi", (long)(unsigned char)_.op_sval[i]) + x86_omega("je") + na_memb(i + 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_notany() {
-    if (_.op_pat_static && _.op_sval)
-        return x86("comment", "IR_MATCH_NOTANY defer")
+    return IF(_.op_pat_static && _.op_sval,
+               x86("comment", "IR_MATCH_NOTANY defer")
              + x86_alpha()
              + x86("mov",    "eax", "r14d")
              + x86("cmp",    "eax", "r15d")
@@ -45,9 +45,9 @@ std::string bb_match_notany() {
              + x86_gamma()
              + x86_beta()
              + x86("sub",    "r14d", (long)1)
-             + x86_omega();
-    if (_.op_zres && _.op_sa >= 0)
-        return x86("comment", "IR_MATCH_NOTANY zd")
+             + x86_omega())
+         + IF(!(_.op_pat_static && _.op_sval) && _.op_zres && _.op_sa >= 0,
+               x86("comment", "IR_MATCH_NOTANY zd")
              + x86_alpha()
              + x86("mov",    "eax", "r14d")
              + x86("cmp",    "eax", "r15d")
@@ -66,8 +66,9 @@ std::string bb_match_notany() {
              + x86_gamma()
              + x86_beta()
              + x86("sub",    "r14d", (long)1)
-             + x86_omega();
-    return x86("comment", "IR_MATCH_NOTANY")
+             + x86_omega())
+         + IF(!(_.op_pat_static && _.op_sval) && !(_.op_zres && _.op_sa >= 0),
+               x86("comment", "IR_MATCH_NOTANY")
          + x86_alpha()
          + x86("mov",    "eax", "r14d")
          + x86("cmp",    "eax", "r15d")
@@ -99,5 +100,5 @@ std::string bb_match_notany() {
          + x86_gamma()
          + x86_beta()
          + x86("sub",    "r14d", (long)1)
-         + x86_omega();
+         + x86_omega());
 }
