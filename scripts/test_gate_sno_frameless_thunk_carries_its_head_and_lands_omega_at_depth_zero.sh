@@ -16,6 +16,9 @@
 #       that pops exactly the rest -- its depth less its own carve, the collapsed beta carves and the staged pop.
 # Measured on 270cfc43b over the 757-entry pattern-feature slice of the SNOBOL4 master, both modes: 48 entries red under the flag
 # that pass on defaults (33 SIGSEGV, 15 rc 1) before; after, the flag arm reads the defaults' 1484 of 1514 entry for entry.
+# THE FLAG ARM IS THE WHOLE SPINE ROAD: SCRIP_BLOB_SPINE=1 and SCRIP_LEAF_FRAME=0 together. Since 60d66b63a (CEO-1389) the shipped
+# default puts every scratch leaf back on the frame road, and a thunk holding a framed SPAN or BREAK leaf keeps its frame, so the
+# blob switch alone no longer reaches a frameless thunk; the arm read "no frameless thunk" on origin until both switches were set.
 # THE WITNESS has one statement per class; the oracle is sbl (lib_oracle_flags.sh). The gate grades both modes under the flag and
 # on defaults, and checks the .s: a frameless thunk exists and every frameless thunk that reads its head carves it tagged.
 set -uo pipefail
@@ -49,7 +52,7 @@ SNO
 (cd "$T" && timeout 20 "$SBL" $(sbl_lang_flags) w.sno < /dev/null > ref 2>&1); [ -s "$T/ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for the witness"; exit 2; }
 RC=0
 for arm in flag dfl; do
-    if [ "$arm" = flag ]; then E="env SCRIP_BLOB_SPINE=1"; else E="env -u SCRIP_BLOB_SPINE"; fi
+    if [ "$arm" = flag ]; then E="env SCRIP_BLOB_SPINE=1 SCRIP_LEAF_FRAME=0"; else E="env -u SCRIP_BLOB_SPINE -u SCRIP_LEAF_FRAME"; fi
     (cd "$T" && $E timeout 20 "$SCRIP" w.sno < /dev/null > "m3.$arm" 2>&1)
     (cd "$T" && $E timeout 20 "$SCRIP" --compile -o "w.$arm.s" w.sno < /dev/null > "cc.$arm" 2>&1) || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile failed ($arm): $(head -1 "$T/cc.$arm" | cut -c1-120)"; exit 2; }
     gcc -m64 "$T/w.$arm.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -lpthread -o "$T/w.$arm.bin" 2>> "$T/cc.$arm" || { echo "⛔ GATE REFUSE(2) [$G]: mode-4 link failed ($arm)"; exit 2; }
