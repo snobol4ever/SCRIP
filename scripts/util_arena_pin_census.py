@@ -94,6 +94,21 @@ def strip_comment(line):
         out.append(ch); prev = ch
     return "".join(out)
 
+def sq_embedded(line):
+    """True when every MB=1 match on the line sits INSIDE a single-quoted shell string AFTER other text in that same
+    string -- a fixture's content (printf '\"\"\"a docstring that mentions SCRIP_HEAP_MB=1\"\"\"' > f.py), which no
+    shell reading of the line can turn into an assignment.  A quoted WORD that starts with the knob
+    (env 'SCRIP_HEAP_MB=1' cmd) is NOT embedded: env takes NAME=VALUE quoted or not, so it stays a pin."""
+    ms = list(MB1.finditer(line))
+    if not ms: return False
+    for m in ms:
+        sq, dq, open_at = False, False, -1
+        for i, ch in enumerate(line[:m.start()]):
+            if ch == "'" and not dq: sq = not sq; open_at = i if sq else -1
+            elif ch == '"' and not sq: dq = not dq
+        if not sq or not line[open_at + 1:m.start()].strip(): return False
+    return True
+
 def heredoc_spans(lines):
     """1-based line numbers that sit INSIDE a heredoc body, where `#` is data and stripping would be wrong."""
     inside, tag, spans = False, None, set()
@@ -132,13 +147,15 @@ def scan(gatedir):
         hits_code, hits_comment, hits_ambig = [], [], []
         for i, ln in enumerate(lines, 1):
             if not MB1.search(ln): continue
+            code = strip_comment(ln)
             if i in hd: hits_ambig.append((i, ln.strip()))
-            elif MB1.search(strip_comment(ln)): hits_code.append((i, ln.strip()))
-            else: hits_comment.append((i, ln.strip()))
-        if hits_code or hits_ambig:
+            elif not MB1.search(code): hits_comment.append((i, ln.strip()))
+            elif sq_embedded(code): hits_ambig.append((i, ln.strip()))
+            else: hits_code.append((i, ln.strip()))
+        if hits_code:
             kb = bool(ANYKB.search(body)); unset = bool(UNSET.search(body))
             rows.append((g, hits_code, hits_ambig, hits_comment, kb, unset))
-            if hits_ambig and not hits_code: ambiguous.append(g)
+        elif hits_ambig: ambiguous.append(g)
         elif hits_comment:
             mentions_only.append((g, hits_comment))
     return gates, rows, ambiguous, mentions_only
@@ -292,6 +309,8 @@ SELFTEST_WITNESSES = [
     ("test_gate_zz_comment_only.sh",           '# once pinned at SCRIP_HEAP_MB=1, converted 2026-09-22\n', "comment"),
     ("test_gate_zz_heredoc_interior.sh",       'cat <<EOF\nSCRIP_HEAP_MB=1\nEOF\n',                    "ambiguous"),
     ("test_gate_zz_pin_safe.sh",               'env -u SCRIP_HEAP_KB SCRIP_HEAP_MB=1 ./scrip w.sno\n', "pinned-safe"),
+    ("test_gate_zz_printf_fixture_content.sh", "printf '\"\"\"mentions SCRIP_HEAP_MB=1\"\"\"\\n' > f.py\n",  "ambiguous"),
+    ("test_gate_zz_quoted_env_word.sh",        "env -u SCRIP_HEAP_KB 'SCRIP_HEAP_MB=1' ./scrip w.sno\n", "pinned"),
 ]
 
 
