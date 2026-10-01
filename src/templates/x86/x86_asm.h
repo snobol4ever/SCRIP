@@ -760,6 +760,23 @@ inline std::string x86_and(const char * reg, long imm) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("and") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_or_imm(const char * reg, long imm) {
+    int m = x86_rnum(reg); bool w = x86_is64(reg);
+    std::string code;
+    uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
+    if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (1 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
+    else { code += (char)0x81; code += (char)(0xC0 | (1 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("or") + reg + ", " + std::to_string(imm) + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_shift_imm(const char * mnem, int ext, const char * reg, long imm) {
+    int m = x86_rnum(reg); bool w = x86_is64(reg);
+    std::string code;
+    uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
+    code += (char)0xC1; code += (char)(0xC0 | (ext << 3) | (m & 7)); code += (char)(uint8_t)imm;
+    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec(mnem) + reg + ", " + std::to_string(imm) + "\n");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_cmp_imm(const char * reg, long imm) {
     int m = x86_rnum(reg);
     std::string code;
@@ -1176,6 +1193,9 @@ inline std::string x86_rsp_store64_imm(int off, long imm) {
 inline std::string x86_rsp_raw_cell(void) {
     return x86_sub("rsp", 16) + x86_rsp_store64_imm(0, (long)DT_RAW) + x86_rsp_store64_imm(8, 0L);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_raw_pack(const char * reg) { return x86_shift_imm("shl", 4, reg, 8) + x86_or_imm(reg, (long)DT_RAW); }
+inline std::string x86_raw_unpack(const char * reg) { return x86_shift_imm("shr", 5, reg, 8); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store32(int off, const char * reg) {
     int g = x86_rnum(reg);
@@ -1720,7 +1740,9 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     }
     if (X86_MEQ(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }
     if (X86_MEQ(mnem, "and"))    { if (b.kind == XK_IMM) return x86_and(a.txt, b.imm); if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("and", 0x21, a.txt, b.txt); return std::string(); }
-    if (X86_MEQ(mnem, "or"))     { if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("or", 0x09, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "or"))     { if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("or", 0x09, a.txt, b.txt); if (a.kind == XK_REG && b.kind == XK_IMM) return x86_or_imm(a.txt, b.imm); return std::string(); }
+    if (X86_MEQ(mnem, "shl") && a.kind == XK_REG && b.kind == XK_IMM) return x86_shift_imm("shl", 4, a.txt, b.imm);
+    if (X86_MEQ(mnem, "shr") && a.kind == XK_REG && b.kind == XK_IMM) return x86_shift_imm("shr", 5, a.txt, b.imm);
     if (X86_MEQ(mnem, "cmp")) {
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_cmp(a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_IMM) return x86_cmp_imm(a.txt, b.imm);

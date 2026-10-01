@@ -561,7 +561,7 @@ static std::string bcps_spine_gen_arm() {
             + x86("cmp", "r10", "rbp")
             + x86("jne", L(99))
          + x86("mov", "rcx", RDQ("rbp", g_emit.flat_frame_bytes - 24))
-            + x86("mov", "rdx", RDQ("rbp", g_emit.flat_frame_bytes - 16))
+            + x86("mov", "rdx", RDQ("rbp", g_emit.flat_frame_bytes - 16)) + x86_raw_unpack("rdx")
             + x86("lea", "rsp", RDQ("rbp", g_emit.flat_frame_bytes))
             + x86("mov", "rbp", RDQ("rbp", g_emit.flat_frame_bytes - 8))
             + x86_jmp_reg("rax")
