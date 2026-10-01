@@ -28,8 +28,8 @@ static inline const char * ct_fail_int() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cmp_test() {
     x86_begin();
-    if (_.op_zres)
-        return x86("comment", "IR_CMP_TEST zd")
+    return IF(_.op_zres,
+               x86("comment", "IR_CMP_TEST zd")
              + x86_alpha()
              + x86("note",   ZOPN(0))
              + x86("mov",    "eax", ZOPD(0, 0))
@@ -65,8 +65,9 @@ std::string bb_cmp_test() {
                  + x86("note", ZRESN())
                  + x86("mov",  ZRES(8), (long)0))
              + x86_gamma()
-             + x86_beta_trampoline();
-    return (_.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0)
+             + x86_beta_trampoline())
+         + IF(!_.op_zres,
+               (_.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0)
              ? x86("comment", "IR_CMP_TEST")
              + x86_alpha()
              + x86("lea",  "rdi", FRQ(_.op_sa))
@@ -78,5 +79,5 @@ std::string bb_cmp_test() {
                                + x86("mov",  FRQ(_.op_off + 8), (long)0))
              + x86_gamma()
              + x86_beta_trampoline()
-         : x86_bomb("bb_cmp_test: needs two coerced operand slots (op_sa/op_sb) + own value slot (op_off)");
+         : x86_bomb("bb_cmp_test: needs two coerced operand slots (op_sa/op_sb) + own value slot (op_off)"));
 }
