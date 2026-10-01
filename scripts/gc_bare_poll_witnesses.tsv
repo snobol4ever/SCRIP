@@ -22,8 +22,8 @@ src/templates/bb/bb_binop_relop.cpp:51:rt_relop_overload	src/templates/bb/bb_bin
 src/templates/bb/bb_binop_relop.cpp:78:rt_relop_val_coerce	src/templates/bb/bb_binop_relop.cpp:79	hb_raku_nextsame_seventy_method_frames_deep_reaches_the_parent_with_its_own_argument.raku
 src/templates/bb/bb_binop_relop.cpp:98:rt_str_coerce	src/templates/bb/bb_binop_relop.cpp:110	hb_icn_errorvalue_keyword.icn
 src/templates/bb/bb_binop_relop.cpp:109:rt_relop_val_coerce	src/templates/bb/bb_binop_relop.cpp:110	hb_icn_errorvalue_keyword.icn
-src/templates/bb/bb_binop_relop_val.cpp:57:rt_relop_val_coerce	src/templates/bb/bb_binop_relop_val.cpp:58	hb_pas_a_three_argument_and_a_nine_argument_call_take_the_det_roads.pas
-src/templates/bb/bb_binop_relop_val.cpp:138:rt_binop_overload	src/templates/bb/bb_binop_relop_val.cpp:141	hb_wsb_rk_iter_grep.raku
+src/templates/bb/bb_binop_relop_val.cpp:59:rt_relop_val_coerce	src/templates/bb/bb_binop_relop_val.cpp:60	hb_pas_a_three_argument_and_a_nine_argument_call_take_the_det_roads.pas
+src/templates/bb/bb_binop_relop_val.cpp:141:rt_binop_overload	src/templates/bb/bb_binop_relop_val.cpp:144	hb_wsb_rk_iter_grep.raku
 src/templates/bb/bb_binop_xrep_slot.cpp:24:str_repeat_d	src/templates/bb/bb_binop_xrep_slot.cpp:25	UNWITNESSED
 src/templates/bb/bb_call.cpp:379:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr_bl_sn4/rt_call_arr_bl_strict/rt_call_arr_bl	src/templates/bb/bb_call.cpp:386	hb_pas_a_three_argument_and_a_nine_argument_call_take_the_det_roads.pas
 src/templates/bb/bb_call_fn.cpp:197:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr_bl_sn4/rt_call_arr_bl_strict/rt_call_arr_bl	src/templates/bb/bb_call_fn.cpp:208	hb_deferexpr_a_dupl.sno
@@ -57,7 +57,7 @@ src/templates/bb/bb_coerce_numeric.cpp:44:rt_coerce_num2_d	src/templates/bb/bb_c
 src/templates/bb/bb_coerce_numeric.cpp:75:rt_coerce_num2_d	src/templates/bb/bb_coerce_numeric.cpp:76	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/bb/bb_coerce_real.cpp:20:rt_coerce_real_d	src/templates/bb/bb_coerce_real.cpp:21	UNWITNESSED
 src/templates/bb/bb_coerce_string.cpp:40:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:41	UNWITNESSED
-src/templates/bb/bb_coerce_string.cpp:53:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:54	UNWITNESSED
+src/templates/bb/bb_coerce_string.cpp:54:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:55	UNWITNESSED
 src/templates/bb/bb_cofail.cpp:15:scrip_cofail	src/templates/bb/bb_cofail.cpp:16	hb_coexpr_refresh.icn
 src/templates/bb/bb_coret.cpp:28:scrip_coret	src/templates/bb/bb_coret.cpp:32	hb_coexpr_refresh.icn
 src/templates/bb/bb_define.cpp:156:rt_define_site	src/templates/bb/bb_define.cpp:157	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
@@ -68,8 +68,8 @@ src/templates/bb/bb_deref.cpp:19:rt_deref	src/templates/bb/bb_deref.cpp:26	hb_sn
 src/templates/bb/bb_deref.cpp:35:rt_deref	src/templates/bb/bb_deref.cpp:40	stack_top_under_valgrind.icn
 src/templates/bb/bb_field_get.cpp:21:rt_field_var_strict/rt_field_var	src/templates/bb/bb_field_get.cpp:29	hb_sno_data_field_name_held_across_collections.sno
 src/templates/bb/bb_field_get.cpp:22:icn_field_get	src/templates/bb/bb_field_get.cpp:29	hb_sno_data_field_name_held_across_collections.sno
-src/templates/bb/bb_field_get.cpp:39:rt_field_var_strict/rt_field_var	src/templates/bb/bb_field_get.cpp:45	hb_frame_map_anchor_recursive_marklists_mode4.icn
-src/templates/bb/bb_field_get.cpp:40:icn_field_get	src/templates/bb/bb_field_get.cpp:45	hb_frame_map_anchor_recursive_marklists_mode4.icn
+src/templates/bb/bb_field_get.cpp:40:rt_field_var_strict/rt_field_var	src/templates/bb/bb_field_get.cpp:46	hb_frame_map_anchor_recursive_marklists_mode4.icn
+src/templates/bb/bb_field_get.cpp:41:icn_field_get	src/templates/bb/bb_field_get.cpp:46	hb_frame_map_anchor_recursive_marklists_mode4.icn
 src/templates/bb/bb_gcc.cpp:24:rt_icn_cset_member	src/templates/bb/bb_gcc.cpp:25	UNWITNESSED
 src/templates/bb/bb_glue_flat.cpp:47:sno_setexit_fire_on_end	src/templates/bb/bb_glue_flat.cpp:48	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_goto_deferred.cpp:28:rt_sno_goto_special_is	src/templates/bb/bb_goto_deferred.cpp:30	UNWITNESSED
@@ -83,8 +83,8 @@ src/templates/bb/bb_keyword_assign.cpp:48:rt_keyword_subject_set_strict/rt_keywo
 src/templates/bb/bb_keyword_assign.cpp:89:rt_keyword_trace_set	src/templates/bb/bb_keyword_assign.cpp:94	hb_trace_wildcard_registry_root.icn
 src/templates/bb/bb_keyword_assign_snobol4.cpp:20:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:27	hb_errtext_keyword.sno
 src/templates/bb/bb_keyword_assign_snobol4.cpp:37:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:42	UNWITNESSED
-src/templates/bb/bb_keyword_icon.cpp:21:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:24	hb_icn_reversible_assignment_to_pos_and_subject.icn
-src/templates/bb/bb_keyword_icon.cpp:122:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:127	hb_icn_errorvalue_keyword.icn
+src/templates/bb/bb_keyword_icon.cpp:23:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:26	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_keyword_icon.cpp:125:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:130	hb_icn_errorvalue_keyword.icn
 src/templates/bb/bb_keyword_snobol4.cpp:45:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:50	UNWITNESSED
 src/templates/bb/bb_keyword_snobol4.cpp:83:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:86	UNWITNESSED
 src/templates/bb/bb_limit.cpp:25:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:35	hb_sibling_frames_leave_no_dead_map_cell.icn
@@ -92,7 +92,7 @@ src/templates/bb/bb_limit.cpp:40:core_icn_limit_count_check	src/templates/bb/bb_
 src/templates/bb/bb_limit.cpp:62:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:65	hb_sibling_frames_leave_no_dead_map_cell.icn
 src/templates/bb/bb_lit_scalar.cpp:125:rt_icn_cset_register	src/templates/bb/bb_lit_scalar.cpp:128	hb_scan_subject_across_a_failing_callee.icn
 src/templates/bb/bb_make_list.cpp:26:rt_make_list	src/templates/bb/bb_make_list.cpp:33	UNWITNESSED
-src/templates/bb/bb_make_list.cpp:49:rt_make_list	src/templates/bb/bb_make_list.cpp:52	hb_size_result_polled.icn
+src/templates/bb/bb_make_list.cpp:50:rt_make_list	src/templates/bb/bb_make_list.cpp:53	hb_size_result_polled.icn
 src/templates/bb/bb_match_atp.cpp:16:rt_at_cursor	src/templates/bb/bb_match_atp.cpp:17	UNWITNESSED
 src/templates/bb/bb_match_capture.cpp:43:rt_cap_open_gva	src/templates/bb/bb_match_capture.cpp:44	hb_immediate_capture_into_a_gva_cell_polled.sno
 src/templates/bb/bb_match_capture.cpp:151:rt_cap_open_plain/rt_cap_open	src/templates/bb/bb_match_capture.cpp:152	UNWITNESSED
