@@ -3137,6 +3137,9 @@ DESCR_t rt_pl_dop_big(DESCR_t *args, int nargs) {
     if (nargs != 1) return FAILDESCR;
     { extern DESCR_t rt_big_from_str(const char *); DESCR_t d = rt_pl_deref_val(args[0]);
       if (!IS_STR_fn(d) || !d.s) return FAILDESCR;
+      { const char *q = d.s + (*d.s == '-'); extern DESCR_t rt_big_from_str_base(const char *, int); extern DESCR_t rt_big_neg(DESCR_t);
+        if (q[0] == '0' && (q[1] == 'x' || q[1] == 'o' || q[1] == 'b')) { DESCR_t r = rt_big_from_str_base(q + 2, q[1] == 'x' ? 16 : q[1] == 'o' ? 8 : 2);
+            return (IS_FAIL_fn(r) || q == d.s) ? r : rt_big_neg(r); } }
       return rt_big_from_str(d.s); }
 }
 static DESCR_t pl_fa_handle(void *a) { DESCR_t d; memset(&d, 0, sizeof d); d.v = (DTYPE_t)DT_DATA; d.slen = DATA_ELEMS_SLEN; d.ptr = a; return d; }
@@ -3398,6 +3401,7 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
     case TT_FNC: case TT_UNIFY: case TT_IF: {
         const char *nm = t->t == TT_UNIFY ? "=" : t->t == TT_IF ? "->" : (t->v.sval ? t->v.sval : "?");
         if (t->n == 0) return pl_mk_atom_dup(nm, strlen(nm));
+        if (t->t == TT_FNC && t->n == 1 && !strcmp(nm, "$pl_big") && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval) { DESCR_t a = STRVAL(t->c[0]->v.sval); return rt_pl_dop_big(&a, 1); }
         { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)t->n); for (int i = 0; i < t->n; i++) kids[i] = pl_tree_cell(t->c[i], vt);
           DESCR_t c; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(nm), t->n); c.p = (void *)kids; return c; } }
     default: return pl_mk_atom("?");

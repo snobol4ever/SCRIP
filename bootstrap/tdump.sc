@@ -186,11 +186,12 @@ function TreeDumpG(r, sg, a, t, x, m, ds, ip, fp) {
     if (GE(x, 6)) { TreeDumpG = TreeDumpG 'e+' (LT(x, 10) '0', '') x; return; }
     return;
 }
-function TreeDumpValue(x, t, v, fval, zeros, pre) {
+function TreeDumpValue(x, t, v, fval, zeros, pre, fsg, fwd) {
     t = t(x); v = v(x);
     if (t ? (POS(0) ('TT_QLIT' | 'TT_CSET') RPOS(0))) { v ? (BREAK(nul) . v); TreeDumpValue = ' "' CQize(v) '"'; return; }
     if (~DIFFER(v)) { TreeDumpValue = ; return; }
-    if (IDENT(t, 'TT_FLIT')) { TreeDumpValue = ' ' TreeDumpG(CONVERT(v, 'REAL')); return; }
+    if (IDENT(t, 'TT_FLIT')) { if (v ? (POS(0) (('-' | '') . fsg) BREAK('NI') (('NaN' | 'Inf') . fwd) RPOS(0))) { TreeDumpValue = ' ' fsg REPLACE(fwd, 'NaIf', 'naif'); return; } }
+    if (IDENT(t, 'TT_FLIT')) { TreeDumpValue = ' ' TreeDumpG(CONVERT(v, 'REAL')); if (EQ(CONVERT(v, 'REAL'), 0) (v ? POS(0) '-')) { TreeDumpValue = ' -0'; } return; }
     TreeDumpValue = ' ' v;
     return;
 }

@@ -10,7 +10,6 @@
 #include <ctype.h>
 extern void *rt_wsb_alloc(size_t);
 extern int rt_pl_double_quotes_mode(void);
-#define IF_STACK_MAX 32
 typedef struct {
     int active;
     int taken;
@@ -28,16 +27,15 @@ typedef struct {
     int         quiet;
     int         dq;
     int         prec;
-    IfFrame     ifst[IF_STACK_MAX];
-    int         ifst_top;
+    cv_t        ifst;
     TreeScope   ts;
     int         incl_depth;
     int         iso;
 } Parser;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int if_currently_active(const Parser *p) {
-    if (p->ifst_top == 0) return 1;
-    return p->ifst[p->ifst_top - 1].active;
+    if (p->ifst.len == 0) return 1;
+    return CV_AT(p->ifst, IfFrame, p->ifst.len - 1).active;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void resync_past_clause_end(Parser *p) {
@@ -476,7 +474,8 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
         case TK_BQSTRING: {
             tree_t *n = ast_node_new(TT_MAKELIST);
             n->v.ival = 0;
-            for (const unsigned char *q = (const unsigned char *)tk.text; *q; q++) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)*q; ast_push(n, e); }
+            { const unsigned char *q0 = (const unsigned char *)tk.text; size_t qn = tk.len >= 0 ? (size_t)tk.len : strlen(tk.text);
+            for (const unsigned char *q = q0; q < q0 + qn; q++) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)*q; ast_push(n, e); } }
             return pt_stamp(n, ln);
         }
         case TK_STRING: {
@@ -488,17 +487,18 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             }
             tree_t *n = ast_node_new(TT_MAKELIST);
             n->v.ival = 0;
-            for (const unsigned char *q = (const unsigned char *)tk.text; *q; q++) {
+            { const unsigned char *q0 = (const unsigned char *)tk.text; size_t qn = tk.len >= 0 ? (size_t)tk.len : strlen(tk.text);
+            for (const unsigned char *q = q0; q < q0 + qn; q++) {
                 tree_t *e;
                 if (dqm == 2) { e = ast_node_new(TT_ILIT); e->v.ival = (long long)*q; }
                 else { char one[2]; one[0] = (char)*q; one[1] = 0; e = ast_node_new(TT_QLIT); e->v.sval = ct_strdup(one); }
                 ast_push(n, e);
-            }
+            } }
             return pt_stamp(n, ln);
         }
         case TK_ATOM: {
             Token pk = lexer_peek(&p->lx);
-            if (pk.kind == TK_LPAREN) {
+            if (pk.kind == TK_LPAREN && pk.adj) {
                 lexer_next(&p->lx);
                 tree_t *fnc = ast_node_new(TT_FNC);
                 fnc->v.sval = ct_strdup(tk.text);
@@ -608,6 +608,16 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             return pt_stamp(NULL, ln);
         }
         case TK_OP: {
+            { Token pk0 = lexer_peek(&p->lx);
+              if (pk0.kind == TK_LPAREN && pk0.adj) {
+                  lexer_next(&p->lx);
+                  tree_t *fnc = ast_node_new(TT_FNC);
+                  fnc->v.sval = ct_strdup(tk.text);
+                  pt_args(p, ts, fnc);
+                  Token rp = lexer_peek(&p->lx);
+                  if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                  else perror_at(p, rp.line, "expected ) to close argument list");
+                  return pt_stamp(fnc, ln); } }
             if ((strcmp(tk.text, "\\+") == 0 || strcmp(tk.text, "not") == 0) && prefix_arg_starts(lexer_peek(&p->lx))) {
                 tree_t *arg = pt_term(p, ts, 900);
                 tree_t *fnc = ast_node_new(TT_FNC);
@@ -672,7 +682,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             }
             {
                 Token pk3 = lexer_peek(&p->lx);
-                if (pk3.kind == TK_LPAREN) {
+                if (pk3.kind == TK_LPAREN && pk3.adj) {
                     lexer_next(&p->lx);
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup(tk.text);
@@ -926,6 +936,18 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     cl->tr = _cl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void prolog_dcg_expand(PlClause *cl) {
+    if (!cl || !cl->tr || cl->tr->t != TT_CLAUSE || cl->tr->n != 1) return;
+    tree_t *arrow = cl->tr->c[0];
+    if (!arrow || arrow->t != TT_FNC || !arrow->v.sval || strcmp(arrow->v.sval, "-->") != 0 || arrow->n != 2) return;
+    TreeScope ts; memset(&ts, 0, sizeof ts);
+    tree_t *dcg_body = rls(arrow->c[1]);
+    tree_t *head_reshaped = rls(arrow->c[0]);
+    tree_t *pushback = NULL;
+    if (head_reshaped->t == TT_FNC && head_reshaped->v.sval && strcmp(head_reshaped->v.sval, ",") == 0 && head_reshaped->n == 2) { pushback = head_reshaped->c[1]; head_reshaped = head_reshaped->c[0]; }
+    dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, &ts);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_if_condition_tree(tree_t *cond) {
     if (!cond) return -1;
     if (cond->t == TT_QLIT) {
@@ -981,14 +1003,11 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
     }
     if (!fn) return 0;
     if (strcmp(fn, "if") == 0 && arity == 1) {
-        if (p->ifst_top >= IF_STACK_MAX) {
-            perror_at(p, lineno, ":- if/1 nesting too deep");
-            return 1;
-        }
         int parent_active = if_currently_active(p);
         int verdict = parent_active ? eval_if_condition_tree(arg0) : 0;
         int active = parent_active && (verdict != 0);
-        IfFrame *f = &p->ifst[p->ifst_top++];
+        IfFrame nf; nf.active = 0; nf.taken = 0; nf.parent_active = 0; nf.line = 0; CV_PUSH(p->ifst, IfFrame) = nf;
+        IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst.len - 1);
         f->active = active;
         f->taken  = active;
         f->parent_active = parent_active;
@@ -996,11 +1015,11 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
         return 1;
     }
     if (strcmp(fn, "elif") == 0 && arity == 1) {
-        if (p->ifst_top == 0) {
+        if (p->ifst.len == 0) {
             perror_at(p, lineno, ":- elif without matching :- if");
             return 1;
         }
-        IfFrame *f = &p->ifst[p->ifst_top - 1];
+        IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst.len - 1);
         if (!f->parent_active || f->taken) {
             f->active = 0;
         } else {
@@ -1012,11 +1031,11 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
         return 1;
     }
     if (strcmp(fn, "else") == 0 && arity == 0) {
-        if (p->ifst_top == 0) {
+        if (p->ifst.len == 0) {
             perror_at(p, lineno, ":- else without matching :- if");
             return 1;
         }
-        IfFrame *f = &p->ifst[p->ifst_top - 1];
+        IfFrame *f = &CV_AT(p->ifst, IfFrame, p->ifst.len - 1);
         if (!f->parent_active || f->taken) {
             f->active = 0;
         } else {
@@ -1026,11 +1045,11 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
         return 1;
     }
     if (strcmp(fn, "endif") == 0 && arity == 0) {
-        if (p->ifst_top == 0) {
+        if (p->ifst.len == 0) {
             perror_at(p, lineno, ":- endif without matching :- if");
             return 1;
         }
-        p->ifst_top--;
+        p->ifst.len--;
         return 1;
     }
     return 0;
@@ -1062,11 +1081,7 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . after directive");
-        if (if_currently_active(p)) { register_op_directive(body_tr); dq_directive(p, body_tr); iso_directive(p, body_tr); }
-        if (try_handle_if_directive_tree(p, body_tr, cl->lineno)) {
-            cl->nbody = 0; cl->tr = NULL;
-            return cl;
-        }
+        register_op_directive(body_tr); dq_directive(p, body_tr); iso_directive(p, body_tr);
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));
@@ -1087,16 +1102,11 @@ static PlClause *parse_clause(Parser *p) {
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . at end of clause");
     } else if (pk.kind == TK_OP && strcmp(pk.text, "-->") == 0) {
-        lexer_next(&p->lx);
-        tree_t *dcg_body = rls(pt_term(p, ts, 1200));
-        tree_t *head_reshaped = rls(head_tr);
-        tree_t *pushback = NULL;
-        if (head_reshaped->t == TT_FNC && head_reshaped->v.sval &&
-            strcmp(head_reshaped->v.sval, ",") == 0 && head_reshaped->n == 2) {
-            pushback = head_reshaped->c[1];
-            head_reshaped = head_reshaped->c[0];
-        }
-        dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, ts);
+        Token arrow_tk = lexer_next(&p->lx);
+        tree_t *body_tr = pt_term(p, ts, 1200);
+        { tree_t *_cl = ast_node_new(TT_CLAUSE);
+          ast_push(_cl, pt_stamp(pt_binop("-->", head_tr, body_tr), arrow_tk.line));
+          cl->tr = _cl; }
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . at end of DCG clause");
@@ -1342,7 +1352,7 @@ static void pl_tree_collect_calls(const tree_t *t, cv_t *names) {
     for (int i = 0; i < t->n; i++) pl_tree_collect_calls(t->c[i], names);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
+void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     cv_t user_defined = { 0 }, referenced = { 0 }, wanted = { 0 };
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
@@ -1431,20 +1441,56 @@ static char *pl_include_read(const Parser *pp, const char *spec, char **path_out
     src[n] = 0; fclose(f); *path_out = cand; return src;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_include_directive(Parser *pp, PlProgram *prog, const PlClause *cl) {
-    const tree_t *t = cl ? cl->tr : (const tree_t *)0; const tree_t *g; const char *spec; char *path = (char *)0; char *src; Parser q;
-    if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return 0;
+static void pl_preprocess_list(PlProgram *prog, int depth);
+static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, int *is_include) {
+    const tree_t *t = cl ? cl->tr : (const tree_t *)0; const tree_t *g; const char *spec; char *path = (char *)0; char *src; PlProgram *sub;
+    *is_include = 0;
+    if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return (PlProgram *)0;
     g = t->c[1];
-    if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "include") || g->n != 1 || !g->c[0] || (g->c[0]->t != TT_QLIT && g->c[0]->t != TT_NAME) || !g->c[0]->v.sval) return 0;
+    if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "include") || g->n != 1 || !g->c[0] || (g->c[0]->t != TT_QLIT && g->c[0]->t != TT_NAME) || !g->c[0]->v.sval) return (PlProgram *)0;
+    *is_include = 1;
     spec = g->c[0]->v.sval;
-    if (pp->incl_depth >= 16 || !(src = pl_include_read(pp, spec, &path))) {
+    if (depth >= 16 || !(src = pl_include_read(pp, spec, &path))) {
         if (!pp->quiet) fprintf(stderr, "%s:%d: include: cannot read '%s'\n", pp->filename, cl->lineno, spec);
-        pp->nerrors++; return 1; }
-    memset(&q, 0, sizeof q); lexer_init(&q.lx, src); q.filename = path; q.quiet = pp->quiet; q.dq = pp->dq; q.iso = pp->iso; q.incl_depth = pp->incl_depth + 1;
-    pl_parse_loop(&q, prog);
-    pp->nerrors += q.nerrors; pp->dq = q.dq;
-    return 1;
+        pp->nerrors++; return (PlProgram *)0; }
+    sub = prolog_parse_ex(src, path, pp->quiet);
+    if (!sub) { pp->nerrors++; return (PlProgram *)0; }
+    pl_preprocess_list(sub, depth + 1);
+    pp->nerrors += sub->nerrors;
+    return sub;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_preprocess_list(PlProgram *prog, int depth) {
+    Parser q; PlClause *prev = (PlClause *)0, *cl;
+    if (!prog) return;
+    memset(&q, 0, sizeof q); q.filename = prog->filename ? prog->filename : "<stdin>"; q.quiet = prog->quiet; q.incl_depth = depth;
+    cl = prog->head;
+    while (cl) {
+        PlClause *next = cl->next; int drop = 0, is_include = 0; const tree_t *t = cl->tr;
+        if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL && t->c[1] && try_handle_if_directive_tree(&q, t->c[1], cl->lineno)) drop = 1;
+        else if (!if_currently_active(&q)) drop = 1;
+        else {
+            PlProgram *sub = pl_include_expand(&q, cl, depth, &is_include);
+            if (is_include) {
+                drop = 1;
+                if (sub && sub->head) {
+                    if (prev) prev->next = sub->head; else prog->head = sub->head;
+                    sub->tail->next = next; prev = sub->tail; prog->nclauses += sub->nclauses;
+                }
+            }
+        }
+        if (drop) {
+            if (!is_include || !prev || prev->next != next) { if (prev) prev->next = next; else prog->head = next; }
+            prog->nclauses--;
+        } else prev = cl;
+        cl = next;
+    }
+    prog->tail = prev;
+    if (q.ifst.len != 0) { fprintf(stderr, "%s: parse error: unmatched :- if (opened at line %d)\n", q.filename, CV_AT(q.ifst, IfFrame, q.ifst.len - 1).line); q.nerrors++; }
+    prog->nerrors += q.nerrors;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void prolog_preprocess(PlProgram *prog) { pl_preprocess_list(prog, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_parse_loop(Parser *pp, PlProgram *prog) {
     for (;;) {
@@ -1471,20 +1517,10 @@ static void pl_parse_loop(Parser *pp, PlProgram *prog) {
             ct_drop(cl);
             continue;
         }
-        if (!if_currently_active(pp)) {
-            ct_drop(cl);
-            continue;
-        }
-        if (pl_include_directive(pp, prog, cl)) { ct_drop(cl); continue; }
         if (!prog->head) prog->head = cl;
         else             prog->tail->next = cl;
         prog->tail = cl;
         prog->nclauses++;
-    }
-    if (pp->ifst_top != 0) {
-        fprintf(stderr, "%s: parse error: unmatched :- if (opened at line %d)\n",
-                pp->filename, pp->ifst[pp->ifst_top - 1].line);
-        pp->nerrors++;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1495,7 +1531,6 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.filename = filename ? filename : "<input>";
     p.nerrors  = 0;
     p.clause_errs = 0;
-    p.ifst_top = 0;
     p.in_args  = 0;
     p.quiet    = quiet;
     p.dq       = rt_pl_double_quotes_mode();
@@ -1506,7 +1541,9 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);
     prog->nerrors = p.nerrors;
-    if (!filename || strcmp(filename, "<prelude>") != 0) prolog_inject_prelude(prog, src);
+    prog->src = src;
+    prog->filename = filename;
+    prog->quiet = quiet;
     return prog;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

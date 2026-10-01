@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <limits.h>
+#include <math.h>
 #define PEEK(n)  ((unsigned char)p[(n)])
 #define ADV(n)   (p += (n))
 #define NL()     (lx->line++)
@@ -50,7 +51,7 @@ static int hexval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a
 static int digval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'z') return c - 'a' + 10; if (c >= 'A' && c <= 'Z') return c - 'A' + 10; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline Token tok(TkKind kind, char *text, int line) {
-    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0;
+    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.len = -1;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -79,7 +80,10 @@ static void sb_utf8(Lexer *lx, int cp) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *sb_text(Lexer *lx) {
-    return lx->slen ? ct_strndup(lx->sbuf, (size_t)lx->slen) : ct_strdup("");
+    char *b = (char *)ct_alloc((size_t)lx->slen + 1);
+    if (!b) return ct_strdup("");
+    memcpy(b, lx->sbuf, (size_t)lx->slen); b[lx->slen] = 0;
+    return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int u8_decode(const unsigned char *u, int *cp) {
@@ -129,22 +133,6 @@ static int decode_escape(Lexer *lx, const char **pp, int *code) {
     *pp = p; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static char *lex_radix_to_decimal(const char *digs, int radix) {
-    size_t nd = strlen(digs), cap = nd * 2 + 2, n = 1; unsigned char *dec = (unsigned char *)ct_alloc(cap); char *out;
-    if (!dec) return NULL;
-    dec[0] = 0;
-    for (const char *q = digs; *q; q++) {
-        int carry = hexval(*q);
-        if (carry < 0 || carry >= radix) { ct_drop(dec); return NULL; }
-        for (size_t i = 0; i < n; i++) { int v = dec[i] * radix + carry; dec[i] = (unsigned char)(v % 10); carry = v / 10; }
-        while (carry) { if (n >= cap) { ct_drop(dec); return NULL; } dec[n++] = (unsigned char)(carry % 10); carry /= 10; }
-    }
-    out = (char *)ct_alloc(n + 1);
-    if (!out) { ct_drop(dec); return NULL; }
-    for (size_t i = 0; i < n; i++) out[i] = (char)('0' + dec[n - 1 - i]);
-    out[n] = 0; ct_drop(dec); return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_u_letter(const char *s, int *adv) {
     const unsigned char *u = (const unsigned char *)s; int cp, n;
     if (u[0] < 0x80) { *adv = 1; return 0; }
@@ -190,7 +178,7 @@ S_START:
                                                                      {  ADV(1);                                                                goto S_INT;         }
     case D_DIGIT:                                                    {  ADV(1);                                                                goto S_INT;         }
     case D_LOWER:                                                    {  ADV(1);                                                                goto S_WORD;        }
-    case D_LPAREN:                                                   {  ADV(1); SYNC(); return tok(TK_LPAREN,   (char *)"(",  line);                               }
+    case D_LPAREN:                                                   {  t = tok(TK_LPAREN, (char *)"(", line); t.adj = (p > lx->src && !is_layout((unsigned char)p[-1])); ADV(1); SYNC(); return t;                               }
     case D_RPAREN:                                                   {  ADV(1); SYNC(); return tok(TK_RPAREN,   (char *)")",  line);                               }
     case D_LBRACK:  if (PEEK(1) == ']')                              {  ADV(2); SYNC(); return tok(TK_ATOM,     (char *)"[]", line);                               }
                                                                      {  ADV(1); SYNC(); return tok(TK_LBRACKET, (char *)"[",  line);                               }
@@ -263,7 +251,7 @@ S_FRAC_EXP_DIG:
                                                                                                                                                goto S_FRAC_END;
 S_FRAC_END:
     if ((PEEK(0) == 'N' && PEEK(1) == 'a' && PEEK(2) == 'N') || (PEEK(0) == 'I' && PEEK(1) == 'n' && PEEK(2) == 'f')) {
-                                                                        t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = atof(t.text); ADV(3); SYNC(); return t; }
+                                                                        { double fv = PEEK(0) == 'N' ? NAN : INFINITY; ADV(3); t = tok(TK_FLOAT, span_text(s, p, seps), line); t.fval = fv; } SYNC(); return t; }
                                                                                                                                                goto LX_FLOAT;
 S_RADIX:
     c = hexval(PEEK(0)); if (c >= 0 && c < radix)                    {  ndig++; ADV(1);                                                        goto S_RADIX;       }
@@ -274,7 +262,7 @@ S_RADIX_END:
     if (!ndig || hexval(PEEK(0)) >= 0 || is_alnum(PEEK(0)))          {  SYNC(); return err_tok(line, "malformed radix integer");                                   }
     t = tok(TK_INT, span_text(s, p, seps), line); errno = 0;
     { unsigned long long uv = strtoull(t.text + 2, NULL, radix);
-      if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { char *dec = lex_radix_to_decimal(t.text + 2, radix); if (dec) { t.text = dec; t.big = 1; SYNC(); return t; } }
+      if (errno == ERANGE || uv > (unsigned long long)LLONG_MAX) { t.big = 1; SYNC(); return t; }
       t.ival = (long)uv; }
     SYNC(); return t;
 S_CHARCODE:
@@ -287,7 +275,7 @@ S_CHARCODE:
 S_QUOTED:
     if (PEEK(0) == '\0')                                             {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unterminated quoted atom" : "unterminated string"); }
     if (PEEK(0) == q && PEEK(1) == q)                                {  sb_put(lx, q); ADV(2);                                                 goto S_QUOTED;      }
-    if (PEEK(0) == q)                                                {  ADV(1); SYNC(); return tok(kind, sb_text(lx), line);                                       }
+    if (PEEK(0) == q)                                                {  ADV(1); SYNC(); t = tok(kind, sb_text(lx), line); t.len = lx->slen; return t;                                       }
     if (PEEK(0) == '\\')                                             {  ADV(1); st = decode_escape(lx, &p, &code); if (st == 1) sb_utf8(lx, code);
                                                                         else if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
                                                                                                                                          : "invalid escape sequence in double-quoted token"); }

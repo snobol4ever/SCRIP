@@ -19,8 +19,14 @@ typedef struct {
     PlClause *tail;
     int       nclauses;
     int       nerrors;
+    const char *src;
+    const char *filename;
+    int       quiet;
 } PlProgram;
+void prolog_preprocess(PlProgram *prog);
 PlProgram *prolog_parse(const char *src, const char *filename);
+void prolog_inject_prelude(PlProgram *prog, const char *user_src);
+void prolog_dcg_expand(PlClause *cl);
 PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet);
 int pl_prelude_defines(const char *nm, int ar);
 void prolog_program_free(PlProgram *prog);
