@@ -461,7 +461,7 @@ def oracle_diagnostic(oracle_bin, flags, sno_path, timeout, stdin_text=None, pro
     return ""
 
 
-def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None, out_files=None):
+def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=None, out_files=None, merge_stderr=False):
     """One live oracle invocation. stdin is `/dev/null` unless the caller passes stdin_text -- the
     one caller that does is cmd_capture_oracle_refs, feeding a loose companion resolved by
     loose_stdin_companion(); every other oracle/scrip call in this file
@@ -477,7 +477,7 @@ def run_oracle(oracle_bin, flags, sno_path, timeout, stdin_text=None, prog_args=
     sno_path = Path(sno_path)
     argv = [oracle_bin] + flags.split() + _host_u_switch(sno_path, prog_args) + [sno_path.name] + (list(prog_args) if prog_args else [])
     _out_files_clear(sno_path.parent, out_files)
-    kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text)
+    kind, out, _err, rc = _run_raw(argv, timeout, cwd=str(sno_path.parent), stdin_text=stdin_text, merge_stderr=merge_stderr)
     out = _out_files_append(out, sno_path.parent, out_files) if out_files else out
     # ⛔⭐ AN ORACLE KILLED BY A SIGNAL IS A CRASH, NOT A RUN -- and until 2026-09-04 this returned "RAN" for one
     # (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on seat07's finding that
@@ -587,19 +587,22 @@ def _mem_scope():
             _m = _NoMemScope
         _MEM_SCOPE_MOD = _m
     return _MEM_SCOPE_MOD
-def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
+def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None, merge_stderr=False):
     # ⛔ A PROGRAM THE CGROUP MEMORY CAP KILLED IS UNPROVEN, NEVER A CRASH (row instrument-698-runners-..., the ceo's clause): a
     # SIGKILL alone cannot say who sent it, so the enclosing scope's own oom_kill count is read on both sides of the run and only
     # a rise converts the kill. Outside any s4e-mem scope the count is None and nothing changes.
     _ms = _mem_scope()
     _k0 = _ms.oom_kills()
+    # ⭐ merge_stderr: the unit's answer is stdout and stderr as ONE stream, interleaved as the shell's `> out 2>&1` writes it --
+    # the contract of a package whose own harness cut its refs that way (ALL.csv's stderr column, read_command_line_columns).
+    _io = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT) if merge_stderr else dict(capture_output=True)
     try:
         if stdin_text is None:
-            r = subprocess.run(argv, stdin=subprocess.DEVNULL, capture_output=True,
-                                timeout=timeout, cwd=cwd, env=env)
+            r = subprocess.run(argv, stdin=subprocess.DEVNULL,
+                                timeout=timeout, cwd=cwd, env=env, **_io)
         else:
-            r = subprocess.run(argv, input=stdin_text.encode(), capture_output=True,
-                                timeout=timeout, cwd=cwd, env=env)
+            r = subprocess.run(argv, input=stdin_text.encode(),
+                                timeout=timeout, cwd=cwd, env=env, **_io)
     except subprocess.TimeoutExpired as e:
         return "HANG", (e.stdout or b""), (e.stderr or b""), None
     except FileNotFoundError as e:
@@ -608,7 +611,7 @@ def _run_raw(argv, timeout, cwd=None, env=None, stdin_text=None):
         _k1 = _ms.oom_kills()
         if _k1 is not None and _k1 > _k0:
             return "UNPROVEN", r.stdout, _ms.kill_detail(_k1 - _k0).encode(), None
-    return "RAN", r.stdout, r.stderr, r.returncode
+    return "RAN", r.stdout, (r.stderr or b""), r.returncode
 
 
 # ============================================================ CEO-409 line masks ===
@@ -777,9 +780,9 @@ def _render_fatal_into_stdout(got, err_bytes):
     return text, len(rendered)
 
 
-def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None, out_files=None):
+def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None, out_files=None, merge_stderr=False):
     _out_files_clear(cwd, out_files)
-    kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text)
+    kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text, merge_stderr=merge_stderr)
     out = _out_files_append(out, cwd, out_files) if out_files else out
     if kind == "HANG":
         return Verdict("HANG", out, err, None, detail=f"exceeded {timeout}s")
@@ -846,7 +849,7 @@ def stdbuf_wrap(paths, argv):
     return argv
 
 
-def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None):
+def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None, merge_stderr=False):
     timeout = timeout or paths["timeout"]
     # ⛔⭐ ARGV IS THE BARE NAME, NOT THE FULL PATH (row suite-harness-argv-echoes-a-mktemp-path-so-
     # diagnostic-programs-cannot-be-graded) -- a diagnostic that echoes its own argv (e.g. a SPITBOL
@@ -881,7 +884,7 @@ def run_m3(paths, sno_path, expected_text, timeout=None, stdin_text=None, want_r
     # byte-identical to its .ref when run from its own directory in BOTH modes, FAIL in both from
     # anywhere else. Consistent for suite entries too: run_suite_entry materializes the entry into a
     # temp dir and passes THAT path, so parent is the temp dir -- exactly where it copies companions.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask, out_files=out_files)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask, out_files=out_files, merge_stderr=merge_stderr)
 
 
 def compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=None):
@@ -922,7 +925,7 @@ def compile_m4(paths, sno_path, out_bin, tmp_dir, compile_args=None):
     return None
 
 
-def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None):
+def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=None, want_rc=0, prog_argv=None, mask=None, bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None, merge_stderr=False):
     timeout = timeout or paths["timeout"]
     if not (paths["rt_dir"] / "libscrip_rt.so").is_file():
         return Verdict("SKIP", detail="libscrip_rt.so not built")
@@ -974,7 +977,7 @@ def run_m4(paths, sno_path, expected_text, tmp_dir, timeout=None, stdin_text=Non
     # the declared heap and stack ride the binary's command line as -d -i -s (see _size_switches), read at its first allocation
     # Same rule as run_m3 above: the compiled binary's relative opens must resolve against the
     # SOURCE's directory, not the harness's cwd. out_bin is an absolute path, so moving cwd is safe.
-    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask, out_files=out_files)
+    return classify(argv, timeout, expected_text, cwd=str(Path(sno_path).parent), env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask, out_files=out_files, merge_stderr=merge_stderr)
 
 
 # ⛔⭐ run_ast TAKES NO prog_argv AND MUST NOT -- NOT AN OVERSIGHT. `--dump-ast` never executes the
@@ -1135,6 +1138,9 @@ class Entry:
                                    # hq_snobol4, picking "Out-file attribute" for aisnobol BUILDLIB.sno, which prints nothing and writes
                                    # spitlib.idx): ALL.csv's out_files column. Each is deleted before every run (oracle, m3, m4) and its
                                    # bytes appended to the graded output after it, so a staged copy can never answer for the program.
+        self.merge_stderr = False # True when the entry's answer is stdout and stderr as ONE stream (ALL.csv's stderr column reads
+                                   # "merged"): the contract of a package whose own harness cut its refs as `prog < in > out 2>&1`
+                                   # (the Icon packages, CEO-445), applied alike to the oracle's ref cut and to m3 and m4.
         self.stack_kb = None      # int KB of STACK this entry declares (CEO-1225), or None = the runtime's 64 MB floor.
         self.heap_kb = None       # int KB this entry DECLARES it needs, or None = the shipped default.
                                    # Lon 2026-09-23 / CEO-1167. DECLARED in ALL.csv's heap_kb column (or a
@@ -1254,14 +1260,14 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
     return None, {"ok": False, "reason": f"NEITHER form reproduced the original's behavior: orig={orig_verdicts}"}
 
 
-def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None):
+def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None, merge_stderr=False):
     """Every mode is graded against the ONE ref: the two modes are one machine in two media (Lon 2026-09-23, CEO-1218/1230)."""
     out = {}
     if "m3" in modes:
-        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files)
+        out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files, merge_stderr=merge_stderr)
     if "m4" in modes:
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
-            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files)
+            out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files, merge_stderr=merge_stderr)
     return out
 
 
@@ -2069,7 +2075,8 @@ def run_suite_entry(paths, entry, tmp_root, modes, ext=".sno", companion_dir=Non
                              want_rc=getattr(entry, 'want_rc', 0), prog_argv=getattr(entry, 'argv', None),
                              mask=getattr(entry, 'mask', None),
                              where=entry.name, bin_dir=Path(td), heap_kb=getattr(entry, 'heap_kb', None), stack_kb=getattr(entry, 'stack_kb', None),
-                             compile_args=getattr(entry, 'compile_args', None), out_files=getattr(entry, 'out_files', None))
+                             compile_args=getattr(entry, 'compile_args', None), out_files=getattr(entry, 'out_files', None),
+                             merge_stderr=getattr(entry, 'merge_stderr', False))
 
 
 # ================================================================== CLI ===
@@ -3690,6 +3697,17 @@ def validate_out_files_cell(raw, where):
     return words
 
 
+def validate_stderr_cell(raw, where):
+    """ONE stderr cell: empty = stdout alone is the answer (every table before the column existed); "merged" = stdout and stderr
+    as one stream. Anything else refuses rc=2 naming the cell -- a contract word the reader does not know is never guessed."""
+    v = (raw or "").strip()
+    if v == "":
+        return False
+    if v == "merged":
+        return True
+    refuse(f"{where}: stderr cell {v!r} -- the column admits the empty cell or 'merged' only")
+
+
 def _out_files_clear(cwd, names):
     for n in names or []:
         (Path(cwd) / n).unlink(missing_ok=True)
@@ -3797,7 +3815,7 @@ def read_command_line_columns(src_path, entries, modes=None):
     import csv as _csvm
     with open(csv_path, newline="") as f:
         rdr = _csvm.DictReader(f)
-        cols = [c for c in ("compile_args", "run_args", "out_files") if rdr.fieldnames and c in rdr.fieldnames]
+        cols = [c for c in ("compile_args", "run_args", "out_files", "stderr") if rdr.fieldnames and c in rdr.fieldnames]
         if not cols:
             return
         rows = [(n, r) for n, r in enumerate(rdr, 2)]
@@ -3823,6 +3841,8 @@ def read_command_line_columns(src_path, entries, modes=None):
         of = validate_out_files_cell(row.get("out_files"), where)
         if of:
             e.out_files = of
+        if validate_stderr_cell(row.get("stderr"), where):
+            e.merge_stderr = True
 
 
 def cmd_extract_family(args):
@@ -3989,7 +4009,7 @@ def _write_extracted_unit_sidecars(suite_sno, entry_name, out_sno):
 # not a verdict); a table with feature columns but no suite file beside them is PRINTED as not runnable, never silently
 # skipped. An xfail entry and an entry on the sibling ALL.outside.tsv are excluded from the run and named as excluded.
 _SMOKE_ATTRIBUTE_COLUMNS = frozenset(("rank", "entry", "origin", "family", "kind", "xfail", "n_lines", "package", "stdin",
-                                      "want_rc", "heap_kb", "stack_kb", "compile_args", "run_args", "out_files"))
+                                      "want_rc", "heap_kb", "stack_kb", "compile_args", "run_args", "out_files", "stderr"))
 
 
 def smoke_tables(corpus_root):

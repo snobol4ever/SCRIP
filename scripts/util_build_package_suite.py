@@ -200,12 +200,39 @@ def stdin_for(stem, pkg_dir):
     return None
 
 
+def read_contract(pkg_dir):
+    """The package's own run contract, CONTRACT.tsv beside its sources: key<TAB>value<TAB>evidence, '#' comments. What the
+    package's OWN harness does to produce its refs, declared once with the package and read here, never typed by a runner.
+    Admitted today: `stderr<TAB>merged` -- the package cut its refs as `prog < in > out 2>&1`, so the oracle's ref is stdout and
+    stderr as one stream and every absorbed entry's ALL.csv stderr cell reads "merged" (corpus_suite_harness.py grades m3 and
+    m4 the same way). Absent file = stdout alone, as every package before the file existed. Any other key or value refuses."""
+    out = {"stderr": ""}
+    cf = pkg_dir / "CONTRACT.tsv"
+    if not cf.is_file():
+        return out
+    for n, line in enumerate(cf.read_text().splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        f = line.split("\t")
+        if len(f) < 3 or not f[2].strip():
+            h.refuse(f"{cf}:{n}: a contract row is key<TAB>value<TAB>evidence, and the evidence is not optional")
+        if f[0] == "stderr" and f[1] == "merged":
+            out["stderr"] = "merged"
+        else:
+            h.refuse(f"{cf}:{n}: contract {f[0]!r}={f[1]!r} -- this builder admits stderr=merged only")
+    return out
+
+
 def build(pkg_dir, lang, out_prefix="ALL"):
     ext = LANG_EXT[lang]
     paths = h.resolve_paths()
     h.check_scrip(paths)
     oracle_bin, flags = h.resolve_oracle_bin(paths, lang)
     print(f"oracle: {oracle_bin} {flags}", file=sys.stderr)
+    contract = read_contract(pkg_dir)
+    merged = contract["stderr"] == "merged"
+    if merged:
+        print("contract: stderr merged (CONTRACT.tsv) -- every ref is cut from stdout and stderr as one stream", file=sys.stderr)
     # ⭐ ONE LEVEL OF SUBDIRS, MATCHING THE TASK'S OWN DONE-WHEN EXACTLY (`find "$d" -maxdepth 2 ...`,
     # seat15 2026-09-04, measured on corpus/packages/prolog/gnu_prolog: all 62 shipped .pl files sit one
     # level down, in BipsPl/ and Pl2Wam/, zero directly in gnu_prolog/ itself -- a bare `pkg_dir.glob`
@@ -297,7 +324,8 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                 if _cf.is_file() and not _cf.name.startswith("ALL.") and _cf.name != src.name:
                     (Path(_iso_dir) / _cf.name).write_bytes(_cf.read_bytes())
             _iso_src.write_bytes(src.read_bytes())
-            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text, prog_args=prog_args, out_files=out_files)
+            ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text, prog_args=prog_args, out_files=out_files,
+                                                      merge_stderr=merged)
         if ora_kind == "HANG":
             excluded.append((name, "oracle timed out -- non-terminating or too slow for the grading timeout"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle HANG)", file=sys.stderr)
@@ -398,11 +426,24 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     _old_cmd = {}     # compile_args and run_args: the unit's command line, carried forward the same way (clause 8 (f), CEO-1281)
     _cmd_cols = ["compile_args", "run_args"]   # a new table gets both; a rebuild keeps the ones the table has, never imposes one
     _of_col = ["out_files"] if any(getattr(e, "out_files", None) for e in entries) else []   # derived from <stem>.outfiles, every build
+    _se_col = ["stderr"] if merged else []   # derived from CONTRACT.tsv, every build
+    # ⛔⭐ A ROW THE BOARD LOOKS UP IS NOT THE BUILDER'S TO DROP (the coo 2026-10-01, measured on jcon_tests): this table is ALSO the
+    # settings table the package's own runner reads each unit's heap_kb/stack_kb/compile_args from (RULES.md 8 (f); f8282e09c added
+    # 657 such rows), and a unit this build does not absorb -- a library graded through its driver, a program whose oracle output
+    # is empty here -- still has a row there. A rebuild that wrote only the absorbed entries dropped 11 of jcon_tests' 85 (cxtrace,
+    # lgint, link1, link2, load1, load2, loadfunc, proto, toby, traceback, tracing), and the board would have graded those at the
+    # runtime's defaults. So every old row whose unit is still SHIPPED and not absorbed now is carried forward as a settings row:
+    # its declarations kept, its feature cells blank (it has no block, so it marks no feature for the area smoke).
+    _shipped_names = {f"{src.parent.name}/{src.stem}" if src.parent != pkg_dir else src.stem for src in srcs}
+    _absorbed_names = {e.name for e in entries}
+    _carried = []
     if out_csv.exists():
         with open(out_csv, newline="") as _f:
             _rdr = csv.DictReader(_f)
             _cmd_cols = [c for c in _cmd_cols if c in (_rdr.fieldnames or [])]
             for _row in _rdr:
+                if _row.get("entry") in _shipped_names and _row.get("entry") not in _absorbed_names:
+                    _carried.append(_row)
                 _v = (_row.get("heap_kb") or "").strip()
                 if _v:
                     _old_heap[_row.get("entry")] = _v
@@ -414,12 +455,22 @@ def build(pkg_dir, lang, out_prefix="ALL"):
                     _old_cmd[_row.get("entry")] = _c
     with open(out_csv, "w", newline="") as f:
         w = csv.writer(f, lineterminator="\n")
-        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "heap_kb", "stack_kb"] + _cmd_cols + _of_col + [c for c, _fn in cols])
+        w.writerow(["rank", "entry", "origin", "package", "n_lines", "stdin", "want_rc", "heap_kb", "stack_kb"] + _cmd_cols + _of_col + _se_col + [c for c, _fn in cols])
         for e in entries:
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [_old_cmd.get(e.name, {}).get(c, "") for c in _cmd_cols] + [" ".join(getattr(e, "out_files", None) or []) for c in _of_col] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [_old_cmd.get(e.name, {}).get(c, "") for c in _cmd_cols] + [" ".join(getattr(e, "out_files", None) or []) for c in _of_col] + ["merged" for c in _se_col] + [flags_row[c] for c, _fn in cols])
+        _rank = max([e.seq for e in entries] or [0])
+        for _row in sorted(_carried, key=lambda r: r.get("entry") or ""):
+            _rank += 1
+            w.writerow([_rank, _row.get("entry"), _row.get("origin") or f"{pkg_dir.name}__{_row.get('entry')}", _row.get("package") or pkg_dir.name,
+                        _row.get("n_lines") or "", _row.get("stdin") or "0", _row.get("want_rc") or "0",
+                        (_row.get("heap_kb") or "").strip(), (_row.get("stack_kb") or "").strip()] + [(_row.get(c) or "").strip() for c in _cmd_cols]
+                       + ["" for c in _of_col] + ["" for c in _se_col] + ["" for c, _fn in cols])
+    if _carried:
+        print("    settings rows: %d unit(s) still shipped and not absorbed by this build carried forward, declarations kept, no block: %s"
+              % (len(_carried), ", ".join(sorted(r.get("entry") or "" for r in _carried))), file=sys.stderr)
     if _old_heap:
         print("    heap_kb: %d declaration(s) carried forward across this rebuild: %s"
               % (len(_old_heap), ", ".join("%s=%sKB" % kv for kv in sorted(_old_heap.items()))), file=sys.stderr)
