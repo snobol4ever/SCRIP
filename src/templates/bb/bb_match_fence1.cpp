@@ -31,15 +31,16 @@ static const char * fence_cursor(int off) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence1() {
     x86_begin();
-    if (_.op_ival == SNO_FENCE_LIT_BARE)
-        return x86("comment", "IR_MATCH_FENCE1")
+    return IF(_.op_ival == SNO_FENCE_LIT_BARE,
+               x86("comment", "IR_MATCH_FENCE1")
              + x86_alpha()
              + x86_gamma()
              + x86_beta()
-             + x86_omega();
-    return _.op_off < 0
-         ? x86_alpha() + x86_bomb("IR_MATCH_FENCE1: watermark slot not granted (zls)")
-         : x86("comment", "IR_MATCH_FENCE1")
+             + x86_omega())
+         + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_off < 0,
+               x86_alpha() + x86_bomb("IR_MATCH_FENCE1: watermark slot not granted (zls)"))
+         + IF(_.op_ival != SNO_FENCE_LIT_BARE && _.op_off >= 0,
+               x86("comment", "IR_MATCH_FENCE1")
          + x86_alpha()
          + (_.op_fence_frame_off != -1 ? x86("mov", FFCQ(0), "rsp")
           : fence_u2_frame()           ? x86("mov", FRQ(_.op_off), "rsp")
@@ -61,5 +62,5 @@ std::string bb_match_fence1() {
          + x86("mov", "r12", fence_cap_top(_.op_off))
          + x86("mov", "r14d", fence_cursor(_.op_off))
          + fence_release(_.op_off)
-         + x86_omega();
+         + x86_omega());
 }
