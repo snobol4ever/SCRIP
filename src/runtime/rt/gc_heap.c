@@ -1988,7 +1988,7 @@ static long gc_collect_ex(void)
     for (int z = 0; z < st_n; z++) st_fwd[z] = st_blk[z]->fwd;
     if (n_mk != n_fw) fprintf(stderr, "[ZGC-PIN] VIOLATION marked=%ld forwarded=%ld skipped=%ld -- a marked block was not given a forwarding address, so it keeps its address while the heap slides around it: that is PINNING under another name, and no pinning mechanism returns in any form (Lon 2026-09-17, CEO-831)\n", n_mk, n_fw, n_mk - n_fw);
 #endif
-    for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; rt_hblk_t *h = sl->tgt; if (i + 16 < g_gc_nslot) { __builtin_prefetch((const void *)g_gc_slots[i + 16].tgt, 0); __builtin_prefetch((const void *)g_gc_slots[i + 16].loc, 1); } if (h->fwd && h->fwd != (uint64_t)h) *sl->loc = (const char *)((rt_hblk_t *)h->fwd + 1) + sl->toff; }
+    for (long i = 0; i < g_gc_nslot; i++) { gc_slot_t *sl = &g_gc_slots[i]; rt_hblk_t *h = sl->tgt; if (h->fwd && h->fwd != (uint64_t)h) *sl->loc = (const char *)((rt_hblk_t *)h->fwd + 1) + sl->toff; }
 #if RT_DIAG
     if (w_tel) { w_cel = g_gc_nslot; w_raw = 0; n_fix = gc_walk_ns() - n_t0; n_t0 = gc_walk_ns(); }
     if (w_tel) n_t0 = gc_walk_ns();
