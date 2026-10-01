@@ -802,6 +802,14 @@ static int fence_frame_candidate(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
     if (IR_LIT(nd).ival == 2) return 1;
     if (IR_LIT(nd).ival != 0) { int blob_frame_scope(void); if ((blob_slots_mask() & 2) && blob_frame_scope()) return 1; }
+    { int blob_frame_scope(void); IR_t ** all = g_emit_cfg->all; int n = g_emit_cfg->n, qi = -1, mb = -1, hi = n; for (int j = 0; j < n; j++) if (all[j] == nd) { qi = j; break; }
+      for (int j = qi; j >= 0; j--) if (all[j] && all[j]->op == IR_MATCH_BEGIN) { mb = j; break; }
+      if (mb >= 0) for (int j = mb + 1; j < n; j++) if (all[j] && all[j]->op == IR_MATCH_BEGIN) { hi = j; break; }
+      if (qi >= 0 && (mb >= 0 || blob_frame_scope())) { int w = hi - mb; unsigned char * seen = (unsigned char *)alloca((size_t)w); int * stk = (int *)alloca(sizeof(int) * (size_t)w);
+          for (int d = mb + 1; d < hi; d++) { if (!all[d] || all[d]->op != IR_MATCH_DEFER) continue; memset(seen, 0, (size_t)w); int sp = 0; stk[sp++] = d; seen[d - mb] = 1;
+              while (sp > 0) { IR_t * c = all[stk[--sp]];
+                  for (int e = 0; e <= c->n_operands; e++) { IR_t * t = zd_chase(e == 0 ? c->γ.node : c->operands[e - 1]); if (!t) continue; if (t == nd) return 1;
+                      for (int k = mb + 1; k < hi; k++) if (all[k] == t) { if (!seen[k - mb]) { seen[k - mb] = 1; stk[sp++] = k; } break; } } } } } }
     { IR_t * cur = zd_chase(nd->operands[0]); int guard = 0;
       while (cur && guard++ <= g_emit_cfg->n) {
           if (cur != nd && fence_body_kk_complex((int)cur->op)) return 1;

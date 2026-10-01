@@ -8,6 +8,9 @@
 # THE LAYOUT IS THE WITNESS: one statement fewer and the misplaced stores fall on dead slots and the program answers. The parent of
 # the cursor cure (b1cde82b2) hangs 8 of 8; the cure hangs 4 of 6 with ASLR and 3 of 3 without -- so both arms run under
 # setarch -R, where the reading is deterministic.
+# THE CURE (cfo 2026-10-01, emit.cpp fence_frame_candidate): a FENCE1 that a DEFER of the same match can reach (a walk over gamma and
+# operand edges from the DEFER, inside the match's node range) takes its frame cell in the match frame, [rbp - 64 - 16k], which no
+# live thunk below it can move; a FENCE1 before every DEFER keeps its zls slots. RED (HANG, both modes) on the parent 4cfd7e0f4.
 # ARMS: (1) mode 3 and (2) mode 4 print the ref cut from sbl -bf (scripts/fixtures/pattern/deferred_pattern_then_fence.{sno,ref})
 # within 10 s. rc 0 both agree · 1 a hang or a diff · 2 no binary, no fixture, no setarch.
 set -u
