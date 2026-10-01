@@ -14,9 +14,11 @@ DESCR_t rt_str_coerce(DESCR_t d);
 void rt_relop_val_coerce(DESCR_t a, DESCR_t b, DESCR_t *out);
 }
 #include "x86_asm.h"
+#define BRV_TEST_ZD() (_.op_zres && _.op_node_kind == IR_BINOP_TEST && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
+#define BRV_VAL_ZD() (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
 std::string bb_binop_relop_val() {
-    if (_.op_zres && _.op_node_kind == IR_BINOP_TEST && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
-        return x86_alpha()
+    return IF(BRV_TEST_ZD(),
+               x86_alpha()
              + x86("comment", "IR_BINOP_TEST zd")
              + x86("mov", "eax", ZOPD(0, 0))
              + x86("cmp", "al", (long)DT_I)
@@ -57,9 +59,9 @@ std::string bb_binop_relop_val() {
                  + x86("call", "rt_relop_val_coerce", (uint64_t)(uintptr_t)(void*)rt_relop_val_coerce))
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    if (_.op_zres && _.op_node_kind == IR_BINOP_RELOP_VAL && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE)
-        return x86_alpha()
+             + x86_beta_trampoline())
+         + IF(!BRV_TEST_ZD() && BRV_VAL_ZD(),
+               x86_alpha()
              + x86("comment", "IR_BINOP_RELOP_VAL zd")
              + x86("mov", "eax", ZOPD(0, 0))
              + x86("cmp", "al", (long)DT_I)
@@ -95,8 +97,9 @@ std::string bb_binop_relop_val() {
              + x86("mov", "rcx", (long)0)
              + x86("mov", ZRES(8), "rcx")
              + x86_gamma()
-             + x86_beta_trampoline();
-    return (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
+             + x86_beta_trampoline())
+         + IF(!BRV_TEST_ZD() && !BRV_VAL_ZD(),
+               (!_.op_num_real && _.op_off >= 0 && _.op_ival >= BINOP_LT && _.op_ival <= BINOP_NE && _.op_sa >= 0 && _.op_sb >= 0)
              ? x86_alpha()
              + x86("comment", "IR_BINOP_RELOP_VAL")
              + x86("mov", "eax", FR(_.op_sa))
@@ -178,5 +181,5 @@ std::string bb_binop_relop_val() {
              + x86("mov", FRQ(_.op_off + 8), "rcx")
              + x86_gamma()
              + x86_beta_trampoline()
-         : x86_bomb("bb_binop_relop_val: shape mismatch");
+         : x86_bomb("bb_binop_relop_val: shape mismatch"));
 }
