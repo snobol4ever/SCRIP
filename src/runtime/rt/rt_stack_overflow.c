@@ -48,7 +48,7 @@ static void rt_stack_overflow_sig(int sig, siginfo_t *si, void *uctx)
     if (have) { uintptr_t lo = (uintptr_t)lo_p, hi = lo + (uintptr_t)sz, guard = 16UL * 1024 * 1024;
         if (fault < lo && fault + guard >= lo && rsp + guard >= lo && rsp <= hi) {
             static const char msg[] = "scrip: runtime error: ERROR 246 -- stack overflow (unbounded or too-deep recursion exhausted the call stack)\n";
-            write(2, msg, sizeof msg - 1); _exit(1); } }
+            fflush(stdout); write(2, msg, sizeof msg - 1); _exit(1); } }
 #if RT_DIAG
     rt_fault_say(sig, si, uc);
 #endif
