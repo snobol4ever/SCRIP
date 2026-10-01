@@ -35,6 +35,11 @@ export SCRIP_SNO_STMTKW=1   # this grader asks for the instrumentation switch (-
 # for. Instead each arm was mutation-proved: one byte perturbed in each cut want reds that arm in both
 # modes (measured, 4 of 4), so no arm is comparing empty to empty or empty to itself. The want-sanity block
 # below makes that structural: an arm whose cut want is short or missing its discriminating token REFUSES.
+# ⭐ A3 (hq_icon 2026-10-01, the cfo's carried witness): an ASSIGNMENT is a variable, so a section or element of one is
+# assignable -- (s := "abcde")[2:5] := "x" is "axe" under iconx. lower_lvalue_var had no assignment case, so the base was
+# lowered as a value and the outer store died "error 111: variable expected" in both modes; it now lowers the assignment and
+# yields a reference to its variable (through a chain: ((s := "ab") ||:= "cd")[1:3]). A generator on the right-hand side
+# backtracks through it. RED on the parent 170172244: a3 died at its first line, error 111, both modes.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ REFUSE(2): no scrip at $SCRIP"; exit 2; }
@@ -84,16 +89,33 @@ procedure main();
    write("resubject: ", &subject, " pos: ", &pos);
 end
 ICN
-for w in a1 a2; do
+cat > "$T/a3.icn" <<'ICN'
+global g
+procedure main();
+   local s, t, L;
+   (s := "abcde")[2:5] := "x"; write("assign-section: ", s);
+   (s := "hello")[1] := "J"; write("assign-element: ", s);
+   ((s := "ab") ||:= "cd")[1:3] := "Z"; write("augop-chain: ", s);
+   (g := "global")[1+:3] := "GLO"; write("global: ", g);
+   L := ["one", "two", "three"];
+   every (t := !L)[1] := "*" do writes(t, " ");
+   write();
+   if (s := "ab")[5:6] := "q" then write("bad") else write("out-of-range fails: ", s);
+   (s := "xyz")[-1] := "Q"; write("negative: ", s);
+end
+ICN
+for w in a1 a2 a3; do
   ( cd "$T" && "$ICONT" -s -o "$w.icx" "$w.icn" >/dev/null 2>&1 ) || { echo "⛔ REFUSE(2): icont would not translate $w.icn -- cannot cut a want"; exit 2; }
   ( cd "$T" && timeout 20 "./$w.icx" </dev/null > "$w.want" 2>&1 ) || { echo "⛔ REFUSE(2): the oracle's own run of $w failed -- cannot cut a want"; exit 2; }
 done
 [ "$(wc -l < "$T/a1.want")" -eq 7 ] || { echo "⛔ REFUSE(2): a1 want is $(wc -l < "$T/a1.want") lines, expected 7"; exit 2; }
 [ "$(wc -l < "$T/a2.want")" -eq 6 ] || { echo "⛔ REFUSE(2): a2 want is $(wc -l < "$T/a2.want") lines, expected 6"; exit 2; }
+[ "$(wc -l < "$T/a3.want")" -eq 7 ] || { echo "⛔ REFUSE(2): a3 want is $(wc -l < "$T/a3.want") lines, expected 7"; exit 2; }
 grep -q 'section-grows: aLONGERdef' "$T/a1.want" || { echo "⛔ REFUSE(2): a1 want lost its discriminating token"; exit 2; }
 grep -q 'resubject: second pos: 1' "$T/a2.want" || { echo "⛔ REFUSE(2): a2 want lost its discriminating token"; exit 2; }
+grep -q 'augop-chain: Zcd' "$T/a3.want" || { echo "⛔ REFUSE(2): a3 want lost its discriminating token"; exit 2; }
 graded=0; fail=0
-for w in a1 a2; do
+for w in a1 a2 a3; do
   ( cd "$T" && timeout 30 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?
   graded=$((graded+1))
   if cmp -s "$T/$w.m3" "$T/$w.want"; then echo "  PASS  m3 $w (rc=$rc3)"; else echo "  FAIL  m3 $w rc=$rc3"; diff "$T/$w.want" "$T/$w.m3" | head -10; fail=1; fi
@@ -103,6 +125,6 @@ for w in a1 a2; do
     if cmp -s "$T/$w.m4" "$T/$w.want"; then echo "  PASS  m4 $w (rc=$rc4)"; else echo "  FAIL  m4 $w rc=$rc4"; diff "$T/$w.want" "$T/$w.m4" | head -10; fail=1; fi
   else echo "  FAIL  m4 $w: would not compile or link (this is the emitter abort the row named)"; fail=1; graded=$((graded+1)); fi
 done
-[ "$graded" -eq 4 ] || { echo "⛔ REFUSE(2): graded $graded arms, expected 4"; exit 2; }
-if [ "$fail" = 0 ]; then echo "✅ PASS: 4/4 -- a section, an element and a generated element are lvalues that store, and a keyword beyond &pos/&random accepts a value and reads it back, byte-exact against icont in BOTH modes"; exit 0; fi
+[ "$graded" -eq 6 ] || { echo "⛔ REFUSE(2): graded $graded arms, expected 6"; exit 2; }
+if [ "$fail" = 0 ]; then echo "✅ PASS: 6/6 -- a section, an element and a generated element are lvalues that store, a keyword beyond &pos/&random accepts a value and reads it back, and an assignment is a variable a section or element of which is assignable, byte-exact against icont in BOTH modes"; exit 0; fi
 echo "⛔ FAIL: assignment through a section, an element or a keyword no longer stores like icont (see the FAIL rows)"; exit 1

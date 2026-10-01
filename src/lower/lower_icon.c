@@ -384,6 +384,14 @@ static IR_t * icn_scan_seq_nary(icx_t * cx, const tree_t ** elems, int ne, IR_t 
     return S;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * icn_assign_var_name(const tree_t * t) {
+    while (t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && t->n >= 2) t = t->c[0];
+    return (t && t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') ? t->v.sval : NULL;
+}
+static int icn_assign_names_var(const tree_t * t) {
+    return t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && icn_assign_var_name(t) != NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
     IR_t * br = NULL; IR_t * entry;
@@ -392,7 +400,7 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; br = vr; entry = vr;
     } else if (b0->t == TT_IDX) {
         entry = lower_idx_var(cx, b0, ω, &br);
-    } else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) {
+    } else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD || icn_assign_names_var(b0)) {
         IR_t * e2 = lower_lvalue_var(cx, b0, ω, &br);
         entry = e2 ? e2 : lower(cx, b0, NULL, ω, &br);
     } else entry = lower(cx, b0, NULL, ω, &br);
@@ -422,6 +430,11 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
     }
     if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') {
         IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr;
+    }
+    if (icn_assign_names_var(t)) {
+        IR_t * ar = NULL; IR_t * ae = lower(cx, t, NULL, ω, &ar);
+        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = (char *) icn_assign_var_name(t);
+        lc_γ_to(ar, vr); *var_res = vr; return ae;
     }
     if (t->t == TT_FNC && t->n > 0 && t->c[0] && icn_callee_is_name(cx, t->c[0]) && t->c[0]->t == TT_VAR && icn_call_yields_a_variable(cx, t->c[0]->v.sval) && !icn_variable_lit(cx, t)) {
         IR_t * cr = NULL; IR_t * ce = lower_call(cx, t->c[0]->v.sval, t, 1, t->n - 1, NULL, ω, &cr);
@@ -453,7 +466,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
         IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω); IR_LIT(sec).ival = 0; IR_LIT(sec).sval = "lv";
         IR_t * ar = NULL; IR_t * ae; const tree_t * b0 = t->c[0];
         if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-        else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX || b0->t == TT_FIELD) ae = lower_lvalue_var(cx, b0, ω, &ar);
+        else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX || b0->t == TT_FIELD || icn_assign_names_var(b0)) ae = lower_lvalue_var(cx, b0, ω, &ar);
         else ae = lower(cx, b0, NULL, ω, &ar);
         IR_t * aβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : cx->beta;
         IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
