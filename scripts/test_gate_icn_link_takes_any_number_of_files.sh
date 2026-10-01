@@ -22,9 +22,9 @@ SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2)
 ICONT="$(icont_bin)" || { echo "⛔ GATE REFUSE(2) [$G]: the Icon oracle is missing"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 N=70
-for i in $(seq 1 $N); do printf 'procedure p%d()\n   return %d\nend\n' "$i" "$i" > "$T/l$i.icn"; done
+for i in $(seq 1 $N); do printf 'procedure p%d()\n   return %d;\nend\n' "$i" "$i" > "$T/l$i.icn"; done
 { printf 'link '; for i in $(seq 1 $N); do printf 'l%d' "$i"; [ "$i" -lt "$N" ] && printf ', '; done
-  printf '\nprocedure main()\n   local s;\n   s := 0;\n'; for i in $(seq 1 $N); do printf '   s +:= p%d();\n' "$i"; done; printf '   write(s)\nend\n'; } > "$T/main.icn"
+  printf '\nprocedure main()\n   local s;\n   s := 0;\n'; for i in $(seq 1 $N); do printf '   s +:= p%d();\n' "$i"; done; printf '   write(s);\nend\n'; } > "$T/main.icn"
 ( cd "$T" && for i in $(seq 1 $N); do "$ICONT" -s -c "l$i.icn" || exit 1; done && "$ICONT" -s -o main.x main.icn ) >/dev/null 2>&1 \
   || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses the $N-file link witness"; exit 2; }
 want="$( cd "$T" && ./main.x </dev/null 2>/dev/null )"; wrc=$?

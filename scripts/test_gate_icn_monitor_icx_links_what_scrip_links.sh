@@ -5,9 +5,9 @@
 # icont links ucode, never source. test_monitor_3way_sync_step_auto.sh compiled the icx participant with `icont -s` alone, so a
 # program whose `link` names a library beside it -- every CEO-1269 NAME_driver, io_lib, lists_lib -- died in the icx compile with
 # "cannot resolve reference to file 'NAME.u1'" and monitor_run.sh --oracle REFUSED: no bracket was possible on a linked program.
-# The harness now finds every library the program reaches in SCRIP's own search order (icon_driver.c icn_link_open: IPATH,
-# ICONPATH, the IPL procs beside the scrip binary, the linking file's directory), translates it into its scratch directory, and
-# icont links from there, so both participants run the same library source.
+# The harness now finds every library the program reaches in SCRIP's own search order (icon_driver.c icn_link_open: the linking
+# file's own directory first, then IPATH, ICONPATH, the IPL procs beside the scrip binary), translates it into its scratch
+# directory, and icont links from there, so both participants run the same library source.
 #
 # THE WITNESS: a scratch main that links a scratch library, which links a second one -- a two-deep closure, one statement per
 # line so the bracket grades linking and nothing else -- must read AGREE under monitor_run.sh --oracle. On the harness before
@@ -23,7 +23,7 @@ T="$(mktemp -d "${TMPDIR:-/tmp}/icxlink_gate.XXXXXX")" || { echo "⛔ GATE REFUS
 trap 'rm -rf "$T"' EXIT
 cat > "$T/gate_icx_lib2.icn" <<'EOF'
 procedure inc(x)
-   return x + 1
+   return x + 1;
 end
 EOF
 cat > "$T/gate_icx_lib1.icn" <<'EOF'
@@ -31,7 +31,7 @@ link gate_icx_lib2
 procedure twice(x)
    local y;
    y := 2 * x;
-   return inc(y) - 1
+   return inc(y) - 1;
 end
 EOF
 cat > "$T/gate_icx_main.icn" <<'EOF'
@@ -40,7 +40,7 @@ procedure main()
    local n;
    n := twice(21);
    write(n);
-   write(twice(n))
+   write(twice(n));
 end
 EOF
 out="$(cd "$T" && timeout 600 bash "$HERE/monitor_run.sh" gate_icx_main.icn --oracle 2>&1)"; rc=$?

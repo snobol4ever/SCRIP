@@ -23,10 +23,10 @@ trap 'rm -rf "$T"' EXIT
 cat > "$T/lib1.icn" <<'ICN'
 procedure p(x)
    write("in p ", &file, " ", &line);
-   return x + 1
+   return x + 1;
 end
 procedure q(x)
-   return x + "abc"
+   return x + "abc";
 end
 ICN
 cat > "$T/traced.icn" <<'ICN'
@@ -36,7 +36,7 @@ procedure main()
    write(p(1));
    write(&file, " ", &line);
    &trace := 0;
-   write(q(2))
+   write(q(2));
 end
 ICN
 cat > "$T/plain.icn" <<'ICN'
@@ -44,7 +44,7 @@ link lib1
 procedure main()
    write(p(1));
    write(&file, " ", &line);
-   write(q(2))
+   write(q(2));
 end
 ICN
 ( cd "$T" && "$IC" -s -c lib1.icn >/dev/null 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: icont did not translate the linked file"; exit 2; }
