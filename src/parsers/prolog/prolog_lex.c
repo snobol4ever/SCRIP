@@ -1,5 +1,6 @@
 #include "prolog_lex.h"
 #include "ct_arena.h"
+#include "ast.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -51,7 +52,7 @@ static int hexval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a
 static int digval(int c) { if (c >= '0' && c <= '9') return c - '0'; if (c >= 'a' && c <= 'z') return c - 'a' + 10; if (c >= 'A' && c <= 'Z') return c - 'A' + 10; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline Token tok(TkKind kind, char *text, int line) {
-    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.len = -1;
+    Token t; t.kind = kind; t.text = text; t.ival = 0; t.fval = 0.0; t.line = line; t.big = 0; t.adj = 0; t.len = -1; t.pc = (struct tree_t *)0;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -78,6 +79,13 @@ static void sb_utf8(Lexer *lx, int cp) {
     if (cp < 0x10000) { sb_put(lx, 0xE0 | (cp >> 12)); sb_put(lx, 0x80 | ((cp >> 6) & 0x3F)); sb_put(lx, 0x80 | (cp & 0x3F)); return; }
     sb_put(lx, 0xF0 | (cp >> 18)); sb_put(lx, 0x80 | ((cp >> 12) & 0x3F)); sb_put(lx, 0x80 | ((cp >> 6) & 0x3F)); sb_put(lx, 0x80 | (cp & 0x3F));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pc_add(Lexer *lx, tree_t *piece) {
+    if (!lx->pc) { lx->pc = piece; return; }
+    tree_t *c = ast_node_new(TT_CAT); ast_push(c, lx->pc); ast_push(c, piece); lx->pc = c;
+}
+static tree_t *pc_piece(tree_e k, const char *s, int n) { tree_t *e = ast_node_new(k); e->v.sval = ct_strndup(s, (size_t)n); return e; }
+static void pc_flush(Lexer *lx) { if (lx->slen > lx->run0) pc_add(lx, pc_piece(TT_QLIT, lx->sbuf + lx->run0, lx->slen - lx->run0)); lx->run0 = lx->slen; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *sb_text(Lexer *lx) {
     char *b = (char *)ct_alloc((size_t)lx->slen + 1);
@@ -133,6 +141,14 @@ static int decode_escape(Lexer *lx, const char **pp, int *code) {
     *pp = p; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_escape_bytes(const char *raw, char *out, int cap) {
+    char buf[8]; Lexer lx; const char *p; int code = 0, n;
+    if (!raw || raw[0] != '\\') return 0;
+    memset(&lx, 0, sizeof lx); lx.sbuf = buf; lx.scap = (int)sizeof buf; p = raw + 1;
+    if (decode_escape(&lx, &p, &code) != 1) return 0;
+    sb_utf8(&lx, code); n = lx.slen < cap ? lx.slen : cap; memcpy(out, buf, (size_t)n); return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int prolog_u_letter(const char *s, int *adv) {
     const unsigned char *u = (const unsigned char *)s; int cp, n;
     if (u[0] < 0x80) { *adv = 1; return 0; }
@@ -168,8 +184,8 @@ S_START:
     case D_SLASH:   if (PEEK(1) == '*')                              {  ADV(2);                                                                goto S_BCOMMENT;    }
                                                                      {  ADV(1);                                                                goto S_GRAPHIC;     }
     case D_EOF:                                                      {  SYNC(); return tok(TK_EOF, (char *)"", line);                                              }
-    case D_SQUOTE:                                                   {  ADV(1); q = '\''; kind = TK_ATOM;     lx->slen = 0;                    goto S_QUOTED;      }
-    case D_DQUOTE:                                                   {  ADV(1); q = '"';  kind = TK_STRING;   lx->slen = 0;                    goto S_QUOTED;      }
+    case D_SQUOTE:                                                   {  ADV(1); q = '\''; kind = TK_ATOM;     lx->slen = 0; lx->run0 = 0; lx->pc = (tree_t *)0; goto S_QUOTED; }
+    case D_DQUOTE:                                                   {  ADV(1); q = '"';  kind = TK_STRING;   lx->slen = 0; lx->run0 = 0; lx->pc = (tree_t *)0; goto S_QUOTED; }
     case D_BQUOTE:                                                   {  ADV(1); q = '`';  kind = TK_BQSTRING; lx->slen = 0;                    goto S_QUOTED;      }
     case D_UPPER:                                                    {  ADV(1);                                                                goto S_VAR;         }
     case D_USCORE:                                                   {  ADV(1);                                                                goto S_UNDERSCORE;  }
@@ -274,10 +290,14 @@ S_CHARCODE:
                                                                         t = tok(TK_INT, (char *)"0'c", line); t.ival = (long)code; SYNC(); return t;                }
 S_QUOTED:
     if (PEEK(0) == '\0')                                             {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unterminated quoted atom" : "unterminated string"); }
-    if (PEEK(0) == q && PEEK(1) == q)                                {  sb_put(lx, q); ADV(2);                                                 goto S_QUOTED;      }
-    if (PEEK(0) == q)                                                {  ADV(1); SYNC(); t = tok(kind, sb_text(lx), line); t.len = lx->slen; return t;                                       }
-    if (PEEK(0) == '\\')                                             {  ADV(1); st = decode_escape(lx, &p, &code); if (st == 1) sb_utf8(lx, code);
-                                                                        else if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
+    if (PEEK(0) == q && PEEK(1) == q)                                {  pc_flush(lx); sb_put(lx, q); pc_flush(lx); ADV(2);                     goto S_QUOTED;      }
+    if (PEEK(0) == q)                                                {  ADV(1); SYNC(); pc_flush(lx); if (!lx->pc) lx->pc = pc_piece(TT_QLIT, "", 0);
+                                                                        t = tok(kind, sb_text(lx), line); t.len = lx->slen; t.pc = lx->pc; lx->pc = (tree_t *)0; return t;       }
+    if (PEEK(0) == '\\')                                             {  const char *e0 = p; pc_flush(lx); ADV(1); st = decode_escape(lx, &p, &code);
+                                                                        if (st == 1 && strchr("abfnrtvesd\\'\"`", e0[1])) { sb_utf8(lx, code); pc_flush(lx); }
+                                                                        else if (st == 1) { pc_add(lx, pc_piece(TT_ESC, e0, (int)(p - e0))); sb_utf8(lx, code); }
+                                                                        lx->run0 = lx->slen;
+                                                                        if (st < 0) { SYNC(); return err_tok(line, kind == TK_ATOM ? "invalid escape sequence in quoted atom"
                                                                                                                                          : "invalid escape sequence in double-quoted token"); }
                                                                                                                                                goto S_QUOTED;      }
     if (PEEK(0) == '\n' || PEEK(0) == '\t')                          {  SYNC(); return err_tok(line, kind == TK_ATOM ? "unescaped layout character in quoted atom"

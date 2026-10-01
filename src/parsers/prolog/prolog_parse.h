@@ -24,6 +24,7 @@ typedef struct {
     int       quiet;
 } PlProgram;
 void prolog_preprocess(PlProgram *prog);
+void prolog_fold_pieces(tree_t *t);
 PlProgram *prolog_parse(const char *src, const char *filename);
 void prolog_inject_prelude(PlProgram *prog, const char *user_src);
 void prolog_dcg_expand(PlClause *cl);

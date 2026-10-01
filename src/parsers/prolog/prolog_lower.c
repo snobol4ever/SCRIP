@@ -342,6 +342,31 @@ tree_t *pl_runtime_clause_tree(tree_t *raw) {
     { TRSlotMap sm; trslot_reset(&sm); return lower_clause_from_tree(syn, k, 0, &sm); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pf_pieces(const tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_CAT) return t->n == 2 && pf_pieces(t->c[0]) && pf_pieces(t->c[1]);
+    return t->t == TT_ESC || t->t == TT_QLIT;
+}
+static int pf_len(const tree_t *t) {
+    if (t->t == TT_CAT) return pf_len(t->c[0]) + pf_len(t->c[1]);
+    if (t->t == TT_ESC) return 4;
+    return t->v.sval ? (int)strlen(t->v.sval) : 0;
+}
+static int pf_put(const tree_t *t, char *o) {
+    extern int prolog_escape_bytes(const char *, char *, int); int n;
+    if (t->t == TT_CAT) { n = pf_put(t->c[0], o); return n + pf_put(t->c[1], o + n); }
+    if (t->t == TT_ESC) return prolog_escape_bytes(t->v.sval, o, 4);
+    n = t->v.sval ? (int)strlen(t->v.sval) : 0; memcpy(o, t->v.sval, (size_t)n); return n;
+}
+void prolog_fold_pieces(tree_t *t) {
+    if (!t) return;
+    if ((t->t == TT_CAT || t->t == TT_ESC) && pf_pieces(t)) {
+        char *b = (char *)ct_alloc((size_t)pf_len(t) + 1); int n = pf_put(t, b); b[n] = 0;
+        t->t = TT_QLIT; t->v.sval = b; t->n = 0; return;
+    }
+    for (int i = 0; i < t->n; i++) prolog_fold_pieces(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno) {
     tree_t *st = ast_node_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", lineno)); ast_push(st, ast_attr_int(":lline", lineno)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", subj));
@@ -349,6 +374,7 @@ static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *prolog_lower(PlProgram *pl_prog) {
+    for (PlClause *fcl = pl_prog->head; fcl; fcl = fcl->next) prolog_fold_pieces(fcl->tr);
     for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
     pl_dyn_mark(ct_strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }

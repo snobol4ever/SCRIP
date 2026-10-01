@@ -481,6 +481,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
         case TK_STRING: {
             int dqm = p->dq;
             if (dqm == 0) {
+                if (tk.pc) return pt_stamp(tk.pc, ln);
                 tree_t *n = ast_node_new(TT_QLIT);
                 n->v.sval = ct_strdup(tk.text);
                 return pt_stamp(n, ln);
@@ -542,6 +543,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 p->prec = pre_a->prec;
                 return pt_stamp(fnc, ln);
             }
+            if (tk.pc) return pt_stamp(tk.pc, ln);
             tree_t *n = ast_node_new(TT_QLIT);
             n->v.sval = ct_strdup(tk.text);
             return pt_stamp(n, ln);
@@ -1467,6 +1469,7 @@ static void pl_preprocess_list(PlProgram *prog, int depth) {
     cl = prog->head;
     while (cl) {
         PlClause *next = cl->next; int drop = 0, is_include = 0; const tree_t *t = cl->tr;
+        prolog_fold_pieces(cl->tr);
         if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL && t->c[1] && try_handle_if_directive_tree(&q, t->c[1], cl->lineno)) drop = 1;
         else if (!if_currently_active(&q)) drop = 1;
         else {

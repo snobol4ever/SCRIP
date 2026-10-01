@@ -118,6 +118,28 @@ QatomIn = FENCE( ( "''" *DIFFER((qacc = qacc "'") 'x')
                  | ((NOTANY("'\" CHAR(10) CHAR(9)) FENCE(BREAK("'\" CHAR(10) CHAR(9)) | epsilon)) $ qc) *DIFFER((qacc = qacc qc) 'x')
                  ) *QatomIn | epsilon );
 Qatom   = ( "'" *DIFFER((qacc = '') 'x') ((*QatomIn) $ q_raw . q_txt *DIFFER((qesc[q_raw] = qacc) 'x')) "'" );
+/* a quoted atom as a term, and a double-quoted text under double_quotes atom, are what the pattern reads (the ceo 2026-09-30 */
+/* 18:3x on Lon's law, CEO-1378; parser_raku.sc's shape): each literal run and each single-character escape (decoded by a     */
+/* table) is Shifted as TT_QLIT, a doubled quote is one such piece, every piece after the first is joined by Reduce TT_CAT 2  */
+/* as it is read, a numeric escape is Shifted raw as TT_ESC, \c and a backslash-newline are no piece; the lowerer folds the   */
+/* pieces into one literal. A quoted name before ( stays the decoded name the compound carries as its value (Qatom above).   */
+esc_chr = TABLE(20);
+esc_chr['a'] = CHAR(7); esc_chr['b'] = CHAR(8); esc_chr['f'] = CHAR(12); esc_chr['n'] = CHAR(10); esc_chr['r'] = CHAR(13); esc_chr['t'] = CHAR(9); esc_chr['v'] = CHAR(11);
+esc_chr['e'] = CHAR(27); esc_chr['s'] = ' '; esc_chr['d'] = CHAR(127); esc_chr['\'] = '\'; esc_chr["'"] = "'"; esc_chr['"'] = '"'; esc_chr['`'] = '`';
+qa_skip  = FENCE( '\' *EscNone *qa_skip | epsilon );
+qa_piece = FENCE( "''" . *Shift('TT_QLIT', "'")
+                | '\' (ANY('abfnrtvesd\' "'" '"`')) . thx . *Shift('TT_QLIT', esc_chr[thx])
+                | ('\' *Escape) . thx . *Shift('TT_ESC', thx)
+                | (NOTANY("'\" CHAR(10) CHAR(9)) FENCE(BREAK("'\" CHAR(10) CHAR(9)) | epsilon)) . thx . *Shift('TT_QLIT', thx)
+                );
+qa_more  = FENCE( *qa_skip *qa_piece . *Reduce('TT_CAT', 2) *qa_more | *qa_skip );
+QatomP   = "'" *qa_skip FENCE( *qa_piece *qa_more | epsilon . *Shift('TT_QLIT', '') ) "'";
+sa_piece = FENCE( '""' . *Shift('TT_QLIT', '"')
+                | '\' (ANY('abfnrtvesd\' "'" '"`')) . thx . *Shift('TT_QLIT', esc_chr[thx])
+                | ('\' *Escape) . thx . *Shift('TT_ESC', thx)
+                | (NOTANY('"\' CHAR(10) CHAR(9)) FENCE(BREAK('"\' CHAR(10) CHAR(9)) | epsilon)) . thx . *Shift('TT_QLIT', thx)
+                );
+sa_more  = FENCE( *qa_skip *sa_piece . *Reduce('TT_CAT', 2) *sa_more | *qa_skip );
 /* a double-quoted string as the C reads it under the double_quotes flag: codes (the default) a list of byte codes, one       */
 /* Shift per byte at replay; chars a list of one-character atoms; atom one atom. A set_prolog_flag directive moves the flag. */
 dq_mode = 2;
@@ -141,12 +163,8 @@ StrCharsIn = FENCE( ( (NOTANY('"\' CHAR(10) CHAR(9)) . sch) . *Shift('TT_QLIT', 
                     | '\' *EscNone
                     ) *StrCharsIn | epsilon );
 StrChars = ( '"' . *PushCounter() *StrCharsIn '"' . *Reduce('TT_MAKELIST', nTop()) . *PopCounter() );
-StrIn   = FENCE( ( '""' *DIFFER((qacc = qacc '"') 'x')
-                 | '\' ( *Escape *Utf8App | *EscNone )
-                 | ((NOTANY('"\' CHAR(10) CHAR(9)) FENCE(BREAK('"\' CHAR(10) CHAR(9)) | epsilon)) $ qc) *DIFFER((qacc = qacc qc) 'x')
-                 ) *StrIn | epsilon );
 /* a Shift with a null value takes the matched text as the value (ShiftReduce.sc), so an empty atom's Shift sits on an empty match */
-StrAtom = ( '"' *DIFFER((qacc = '') 'x') ((*StrIn) $ q_raw . q_txt *DIFFER((qesc[q_raw] = qacc) 'x')) '"' (epsilon . *Shift('TT_QLIT', qesc[q_txt])) );
+StrAtom = '"' *qa_skip FENCE( *sa_piece *sa_more | epsilon . *Shift('TT_QLIT', '') ) '"';
 Str     = ( *IDENT(dq_mode, 2) *StrCodes | *IDENT(dq_mode, 1) *StrChars | *StrAtom );
 BqIn    = FENCE( ( (NOTANY('`\' CHAR(10) CHAR(9)) . sch) . *Shift('TT_ILIT', ascii_table[sch]) . *IncCounter()
                  | '``' . *Shift('TT_ILIT', 96) . *IncCounter()
@@ -268,7 +286,7 @@ primary = (   *BqStr
           |   (*Atom) . thx . *Shift('TT_QLIT', thx)
           |   *Qatom *$'(' . *PushVal(qesc[q_txt]) *compound_args
           |   *Qatom *IDENT(qacc, '[]') . *Reduce('TT_MAKELIST', 0)
-          |   *Qatom (epsilon . *Shift('TT_QLIT', qesc[q_txt]))
+          |   *QatomP
           |   *Var . p_text . *Shift('TT_VAR', p_text)
           |   *$'(' *term_top *$')'
           |   *$'(' (*Graphic_atom | ';') . b_name *$')' . *Shift('TT_QLIT', b_name)

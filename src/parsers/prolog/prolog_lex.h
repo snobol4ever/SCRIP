@@ -36,6 +36,7 @@ typedef struct {
     int     big;
     int     adj;
     int     len;
+    struct tree_t *pc;
 } Token;
 typedef struct {
     const char *src;
@@ -48,11 +49,14 @@ typedef struct {
     char       *sbuf;
     int         slen;
     int         scap;
+    struct tree_t *pc;
+    int         run0;
 } Lexer;
 void lexer_init(Lexer *lx, const char *src);
 Token lexer_next(Lexer *lx);
 Token lexer_peek(Lexer *lx);
 Token lexer_expect(Lexer *lx, TkKind kind, const char *context);
 void token_free(Token *t);
+int prolog_escape_bytes(const char *raw, char *out, int cap);
 const char *tk_name(TkKind kind);
 #endif
