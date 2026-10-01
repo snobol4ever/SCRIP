@@ -31,7 +31,14 @@ TWO_NUMBER=0; RULECHECK=; for a in "$@"; do [ "$a" = --two-number ] && TWO_NUMBE
 # demanding a compiler and two rival engines to answer a question about a text file is how a cheap check becomes one
 # nobody runs.
 for i in $(seq $#); do [ "${!i}" = --measured-from ] && { j=$((i+1)); RULECHECK="${!j}"; }; done
-ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
+# THE SCRIP ROWS RUN AT EACH KERNEL'S DECLARED HEAP AND STACK: TN_DECL holds lib_declared_arena.sh's -d<kb>k -s<kb>k for the kernel
+#   in hand, set by tn_decl before every SCRIP run (RULES.md clause 8 (g), CEO-1353). Until 2026-10-01 this line was ulimit -s unlimited
+#   and SCRIP got nothing, so tak (declared 65536 KB) overflowed at the 4 MB default. MEASURED 2026-10-01 at c1c899df3: all 23 kernels
+#   read the same on gprolog, swipl, m3 and m4 at the shell's soft 8 MB stack and at unlimited.
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE (rc=2): cannot source lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars"; exit 2; }
+declare -a TN_DECL=()
+tn_decl() { TN_DECL=(); local dw; dw=$(declared_switches_beside "$1") || { echo "⛔ REFUSED-TO-GRADE (rc=2): $(basename "$1"): a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }
+  [ -n "$dw" ] && read -r -a TN_DECL <<<"$dw"; [ "${2:-}" = --quiet ] || undeclared_beside_named "$1" || true; }
 if [ -z "$RULECHECK" ]; then
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
@@ -70,7 +77,7 @@ tn_measured_kernels() { awk -F'\t' -v nriv="$2" 'NR>2 && $2!~/^m[0-9]+$/ && $6==
 tn_work_us() {   # tn_work_us <engine> <src> -> work_us, or "-" when the kernel did not report one
   local eng="$1" src="$2" out=""
   case "$eng" in
-    scrip) out=$( (cd "$W" && timeout "$TN_T" "$SCRIP" --run "$src" </dev/null 2>&1 >/dev/null) ) ;;
+    scrip) out=$( (cd "$W" && timeout "$TN_T" "$SCRIP" --run "${TN_DECL[@]}" "$src" </dev/null 2>&1 >/dev/null) ) ;;
     gnu)   out=$( (cd "$W" && timeout "$TN_T" "$TN_GP" --consult-file "$TN_PRO/prelude_gplc.pl" --consult-file "$src" --query-goal halt </dev/null 2>&1 >/dev/null) ) ;;
     swi)   out=$( (cd "$W" && timeout "$TN_T" "$TN_SW" -g true "$TN_PRO/prelude_swipl.pl" "$src" </dev/null 2>&1 >/dev/null) ) ;;
   esac
@@ -102,7 +109,7 @@ tn_total_ms() { local t0 t1; t0=$(now_ms); ( "$@" </dev/null >/dev/null 2>&1 ); 
 tn_overhead_line() {
   local label="$1" eng="$2" src="$3" tot w
   case "$eng" in
-    scrip) tot=$(tn_total_ms "$SCRIP" --run "$src") ;;
+    scrip) tot=$(tn_total_ms "$SCRIP" --run "${TN_DECL[@]}" "$src") ;;
     gnu)   tot=$(tn_total_ms "$TN_GP" --consult-file "$TN_PRO/prelude_gplc.pl" --consult-file "$src" --query-goal halt) ;;
     swi)   tot=$(tn_total_ms "$TN_SW" -g true "$TN_PRO/prelude_swipl.pl" "$src") ;;
   esac
@@ -171,12 +178,12 @@ two_number_board() {
   printf '%-9s %-13s %-6s %11s %11s %11s   %s\n' BUCKET KERNEL BASIS SCRIP_us GNU_us SWI_us NOTE
   local k src bucket basis note rc us_s us_g us_w n_meas=0 n_decl=0 n_ref=0 n_rows=0
   for k in $KERNELS; do
-    src="$TN_BENCH/$k.pl"
+    src="$TN_BENCH/$k.pl"; tn_decl "$src"
     if grep -q 'wall_us' "$src" 2>/dev/null; then basis=SELF; else basis=FLOOR; fi
     # ⛔ `2>/dev/null` on the subshell does NOT silence this: the "Segmentation fault"/"Aborted" line is printed by
     # THIS shell's job reporting about the dead child, not by the child. Wrapping the compound is what suppresses it
     # -- measured on the first run, where 11 crash notices interleaved with the rows and broke the grid's alignment.
-    { ( cd "$W" && timeout "$TN_T" "$SCRIP" --run "$src" </dev/null >/dev/null 2>&1 ); rc=$?; } 2>/dev/null
+    { ( cd "$W" && timeout "$TN_T" "$SCRIP" --run "${TN_DECL[@]}" "$src" </dev/null >/dev/null 2>&1 ); rc=$?; } 2>/dev/null
     us_s=-; us_g=-; us_w=-
     if printf '%s\n' "$MEAS" | grep -qx "$k"; then
       bucket=MEASURED; n_meas=$((n_meas+1)); note="AGREE from all $NRIV rivals in $(basename "$TRI")"
@@ -204,7 +211,7 @@ two_number_board() {
   echo
   echo "ANGLES 1+2 -- x vs each rival on WORK (axis named once: reference/ours; above 1.00x SCRIP is ahead):"
   for k in $(printf '%s\n' "$MEAS"); do
-    src="$TN_BENCH/$k.pl"; [ -f "$src" ] || continue
+    src="$TN_BENCH/$k.pl"; [ -f "$src" ] || continue; tn_decl "$src" --quiet
     us_s=$(tn_work_us scrip "$src"); us_g=$(tn_work_us gnu "$src"); us_w=$(tn_work_us swi "$src")
     [ "$us_s" = - ] && continue
     tn_angle "$k" gprolog "$us_g" "$us_s"; tn_angle "$k" swipl "$us_w" "$us_s"
@@ -213,7 +220,7 @@ two_number_board() {
   echo "ANGLE 3 -- OVERHEAD, one line per engine (startup+teardown only, never mixed into a WORK column):"
   local ov_src="$TN_BENCH/fib.pl"; [ -f "$ov_src" ] || ov_src="$(ls -1 "$TN_BENCH"/*.pl | head -1)"
   echo "  (witness: $(basename "$ov_src") -- overhead is per-ENGINE and near-constant, so one kernel states it)"
-  tn_overhead_line "SCRIP m3" scrip "$ov_src"; tn_overhead_line "gprolog" gnu "$ov_src"; tn_overhead_line "swipl" swi "$ov_src"
+  tn_decl "$ov_src" --quiet; tn_overhead_line "SCRIP m3" scrip "$ov_src"; tn_overhead_line "gprolog" gnu "$ov_src"; tn_overhead_line "swipl" swi "$ov_src"
   echo
   echo "CONTROL ARM: re-run on the same binary; every bucket assignment and every multiple must reproduce within the"
   echo "             spread recorded in the row's LEDGER. ⛔ An unstated spread is not a control arm."

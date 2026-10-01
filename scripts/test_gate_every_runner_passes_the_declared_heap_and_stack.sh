@@ -17,7 +17,10 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # FAMILIES: H the harness (the rung suites' and package tables' one reader), D test_demos_suite.sh (a standalone unit's .heap/.stack
 # sidecars), P1 test_snobol4_dotnet_suite.sh, P2 test_snobol4_csnobol4_suite.sh (the SNOBOL4 package runners through
 # run_at_declared_table), L lib_ladder.sh -- the one body of all seven test_<lang>_ladder.sh, driven through test_snobol4_ladder.sh
-# over a scratch S4E_HOME whose rungs table carries the four units as ladder__rung00_* origins (the coo, 2026-09-30). EVERY OTHER RUNNER FAMILY IS NAMED BELOW AS NOT YET FIXTURED AND COUNTED RED -- the DONE-WHEN cannot pass while
+# over a scratch S4E_HOME whose rungs table carries the four units as ladder__rung00_* origins (the coo, 2026-09-30). PBS PBM PB4 the Prolog bench
+# family's row runner and its two correctness scripts over a scratch kernel dir of four Prolog units (the coo, 2026-10-01; FAIL_ONCE reds
+# PBM and PB4 through the stubbed declared_switches_beside; PBS runs from scripts/ itself, since it finds its binary beside its own script and
+# reads the sidecars through declared_arena_kb_beside, which the plant leaves alone, so it stays green). EVERY OTHER RUNNER FAMILY IS NAMED BELOW AS NOT YET FIXTURED AND COUNTED RED -- the DONE-WHEN cannot pass while
 # a family is unproven; each is added here as its lane cures its runner (the HQ asks of 2026-09-28).
 # FAIL_ONCE=1: the harness family runs from a scratch copy of scripts/ whose _size_switches returns nothing (the reader removed) -- H reds;
 # the ladder family runs from a scratch copy whose lib_declared_arena.sh declared_switches_beside prints nothing -- L reds.
@@ -147,13 +150,40 @@ ol=$(S4E_HOME="$W/l" SCRIP="$SCRIP" RT_DIR="$RT" timeout 600 bash "$LSCRIPTS/tes
     v=$(sed -n "s/.* $m=\([A-Z]*\).*/\1/p" <<<"$ln"); printf 'x\tx\tx\tx\tx\tl\tsnobol4\t%s\t%s\t%s\n' "$u" "$m" "$v"; done; done; } > "$W/l.tsv"
 quad L "$W/l.tsv" "test_snobol4_ladder.sh (lib_ladder.sh) over a scratch rungs table (rc $rl)"
 
+echo "--- PB: the Prolog bench family over a scratch kernel dir -- test_prolog_bench_suite.sh (the row runner), test_bench_prolog_modes.sh, test_bench_prolog_4way.sh ---"
+# Prolog units, since the SNOBOL4 witnesses cannot run here. MEASURED 2026-10-01 at c1c899df3, m3 and m4: d/2 300000 deep overflows the 4 MB
+# default and passes at -s262144k; a findall of 30000 x/2 terms reaches the HARD CAP at -d2048k and passes at the default cap. Both live units
+# declare -s65536k because findall and length over 30000 elements also need more than 4 MB of stack, so the live pair differs in heap alone.
+declare -A PHEAP=([deepdecl]=131072 [deepnodecl]=131072 [livedecl]=2048 [livenodecl]=131072)
+declare -A PSTACK=([deepdecl]=262144 [deepnodecl]=4096 [livedecl]=65536 [livenodecl]=65536)
+mkdir -p "$W/pb"
+for u in $UNITS; do
+  case "$u" in deep*) body=$'bench_work(R) :- d(300000, R).\nd(0, 0) :- !.\nd(N, R) :- M is N - 1, d(M, R0), R is R0 + 1.'; r=300000 ;;
+               *) body='bench_work(N) :- findall(x(I, abcdefgh), between(1, 30000, I), L), length(L, N).'; r=30000 ;; esac
+  printf '%% *BENCH kernel=%s\n:- initialization(main).\n%s\nmain :- bench_work(Res), write(Res), nl.\n' "$u" "$body" > "$W/pb/$u.pl"
+  echo "$r" > "$W/pb/$u.ref"; printf '%s\t%s\n' "$u" "${PHEAP[$u]}" > "$W/pb/$u.heap"; printf '%s\t%s\n' "$u" "${PSTACK[$u]}" > "$W/pb/$u.stack"
+done
+pbtab() {  # <runner output> <awk program printing the verdict of unit u in mode m> -- the quad table from a runner's printed rows
+  local u m; printf 'ts\tscrip\tcorpus\tmeasurer\tclass\tsuite\tlang\tprogram\tmode\toutcome\n'
+  for u in $UNITS; do for m in m3 m4; do printf 'x\tx\tx\tx\tx\tpb\tprolog\t%s\t%s\t%s\n' "$u" "$m" "$(awk -v u="$u" -v m="$m" "$2" <<<"$1")"; done; done; }
+os=$(BENCH_PROLOG_DIR="$W/pb" S4E_PROGRESS_DB="$W/pbs.db" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_prolog_bench_suite.sh" 2>&1); rs=$?
+[ "$rs" = 2 ] && echo "      $(grep -m1 -E 'REFUS' <<<"$os" | cut -c1-200)"
+pbtab "$os" '$1==u && $2==m {print $6; exit}' > "$W/pbs.tsv"
+quad PBS "$W/pbs.tsv" "test_prolog_bench_suite.sh over a scratch kernel dir, SCRIP_HEAP_CAP_KB and SCRIP_STACK (rc $rs)"
+om=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$LSCRIPTS/test_bench_prolog_modes.sh" 2>&1); rmo=$?
+pbtab "$om" '$1==u {print (m=="m3" ? $2 : $3); exit}' > "$W/pbm.tsv"
+quad PBM "$W/pbm.tsv" "test_bench_prolog_modes.sh over a scratch kernel dir, -d/-s switches (rc $rmo)"
+o4=$(BENCH_DIR="$W/pb" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$LSCRIPTS/test_bench_prolog_4way.sh" 2>&1); r4=$?
+pbtab "$o4" '$1==u {print (m=="m3" ? $4 : $5); exit}' > "$W/pb4.tsv"
+quad PB4 "$W/pb4.tsv" "test_bench_prolog_4way.sh over a scratch kernel dir, -d/-s switches (rc $r4)"
+
 echo "--- PENDING: runner families not yet fixtured here -- RED by declaration until each is added as its lane cures its runner ---"
-PENDING="snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench family, the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_rungs.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
+PENDING="snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench timing angles (bench_prolog_fixed_iter, test_bench_prolog_timed, bench_prolog_perf, bench_prolog_vanroy --two-number), the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_rungs.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
 n_pend=$(tr '|' '\n' <<<"$PENDING" | grep -c .)
 echo "  PENDING ($n_pend groups): $PENDING"
 FAIL=$((FAIL+n_pend))
 
 echo "------------------------------------------------------------"
-echo "population: $((PASS+FAIL)) verdict(s): the premise, 5 families (H D P1 P2 L) x 4 units x 2 modes, and $n_pend pending family group(s) counted red"
+echo "population: $((PASS+FAIL)) verdict(s): the premise, 8 families (H D P1 P2 L PBS PBM PB4) x 4 units x 2 modes, and $n_pend pending family group(s) counted red"
 if [ "$FAIL" -eq 0 ]; then echo "GATE PASS [$GATE_NAME]: every runner family passes each unit's declared heap and stack in both modes"; gate_stamp; exit 0; fi
 echo "⛔ GATE FAIL [$GATE_NAME]: $FAIL red (pairs that failed, and $n_pend family group(s) not yet fixtured)"; gate_stamp; exit 1

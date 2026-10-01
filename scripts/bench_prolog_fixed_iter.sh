@@ -75,7 +75,9 @@ WRAP="$ROOT/tools/bench_rusage"
 # under `timeout 60` with the whole triangulation behind it. A bound that the bounded process can decline is not a bound; -k makes
 # the kill unconditional five seconds after the deadline, and the run then reads CRASH(signal 9), never a rate (the exit= gate).
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
+# No ulimit here: SCRIP's stack is DECL_SW's -s, and the rivals' own stacks are theirs. Until 2026-10-01 this line was ulimit -s unlimited.
+#   MEASURED 2026-10-01 at c1c899df3: all 23 kernels read the same on gprolog, swipl, m3 and m4 at the shell's soft 8 MB stack and at
+#   unlimited, and the generated loop is failure-driven (between/3 then fail), so N never deepens a stack (RULES.md clause 8 (g), CEO-1353).
 
 # ⛔ THE TABLE IS THE ONLY SOURCE OF N HERE. It is read once, up front, so an unreadable or orphaned row
 # REFUSES before a single engine is launched rather than printing a board that is quietly smaller.

@@ -59,7 +59,12 @@ B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"; T="${TIMEOUT:-60}"; N="${
 PRO="${PROLOG_DIR:-$S4E/corpus/benchmarks/prolog}"
 GEN="${GEN:-$HERE/bench_prolog_wrap.sh}"
 FLOOR_TICKS="${FLOOR_TICKS:-10}"
-ulimit -s unlimited 2>/dev/null || ulimit -s 1048576 2>/dev/null || true
+# THE SCRIP ARMS RUN AT EACH KERNEL'S DECLARED HEAP AND STACK (lib_declared_arena.sh's -d<kb>k -s<kb>k, after --run and at the head of
+#   the mode-4 binary's argv; RULES.md clause 8 (g), CEO-1353). Until 2026-10-01 this line was ulimit -s unlimited and SCRIP got
+#   nothing, so tak (declared 65536 KB) failed the pre-flight at the 4 MB default and its row read SKIP. MEASURED 2026-10-01 at
+#   c1c899df3: all 23 kernels read the same on gprolog, swipl, m3 and m4 at the shell's soft 8 MB stack and at unlimited.
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: cannot load lib_declared_arena.sh -- the ONE reader of a program's declared stack and heap sidecars (CEO-1281)"; exit 2; }
+declare -a DECL_SW=()
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
@@ -97,8 +102,8 @@ basis1() {
   case "$eng" in
     gnu) "$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/b.out" 2>"$W/b.err" </dev/null ;;
     swi) "$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
-    m3)  "$WRAP" timeout -k 5 "$T" "$SCRIP" --run "$pl" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
-    m4r) "$WRAP" timeout -k 5 "$T" "$W/wrapped.bin" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
+    m3)  "$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
+    m4r) "$WRAP" timeout -k 5 "$T" "$W/wrapped.bin" "${DECL_SW[@]}" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/b.err" 2>/dev/null | tail -1)
   [ -n "$rl" ] || { echo "- - DNF"; return; }
@@ -138,10 +143,12 @@ for pl in "$B"/*.pl; do
   s=$(basename "${pl%.pl}"); exp="${pl%.pl}.ref"
   [ -f "$exp" ] || continue
   want=$(cat "$exp")
+  DECL_SW=(); dw=$(declared_switches_beside "$pl") || { echo "⛔ REFUSED-TO-GRADE: $s: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }
+  [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$pl" || true
   # correctness pre-flight (one run per engine); any FAIL => SKIP row
   go=$(cd "$W" && timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
   so=$(cd "$W" && timeout -k 5 "$T" swipl -q -g halt "$pl" 2>/dev/null </dev/null | head -200)
-  m3o=$(cd "$W" && timeout -k 5 "$T" "$SCRIP" --run "$pl" </dev/null 2>/dev/null | head -200)
+  m3o=$(cd "$W" && timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>/dev/null | head -200)
   if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
     printf "%-20s %8s %8s %8s %8s %8s\n" "$s" SKIP SKIP SKIP SKIP SKIP; tot_skip=$((tot_skip+1)); continue
   fi
@@ -152,14 +159,14 @@ for pl in "$B"/*.pl; do
   (cd "$W" && as --64 -o "$s.o" "$s.s" 2>/dev/null) \
     && gcc -no-pie -o "$W/$s.bin" "$W/$s.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null
   c1=$(now_ms); m4c=$((c1 - c0))
-  m4o=$(cd "$W" && timeout -k 5 "$T" ./$s.bin </dev/null 2>/dev/null | head -200)
+  m4o=$(cd "$W" && timeout -k 5 "$T" ./$s.bin "${DECL_SW[@]}" </dev/null 2>/dev/null | head -200)
   if [ "$m4o" != "$want" ]; then
     printf "%-20s %8s %8s %8s %8s %8s\n" "$s" SKIP SKIP SKIP SKIP SKIP; tot_skip=$((tot_skip+1)); continue
   fi
   gnu=$(median_ms gprolog --consult-file "$pl" --query-goal halt)
   swi=$(median_ms swipl -q -g halt "$pl")
-  m3=$(median_ms "$SCRIP" --run "$pl")
-  m4r=$(median_ms ./$s.bin)
+  m3=$(median_ms "$SCRIP" --run "${DECL_SW[@]}" "$pl")
+  m4r=$(median_ms ./$s.bin "${DECL_SW[@]}")
   printf "%-20s %8s %8s %8s %8s %8s\n" "$s" "$gnu" "$swi" "$m3" "$m4r" "$m4c"
   tot_ok=$((tot_ok+1))
   # ---- basis (B): the SAME kernel through the generator, measured from outside and from inside ----
