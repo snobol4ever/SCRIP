@@ -4152,6 +4152,20 @@ static int rk_positional_group(int n) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_capture_list(int g, int wrap) {
+    int n = 0; for (int k = 0; k < g_match.ncaplog; k++) if (g_match.caplog_group[k] == g) n++;
+    DESCR_t *elems = rt_ws_alloc_descr((size_t)(n > 0 ? n : 1)); int j = 0;
+    for (int k = 0; k < g_match.ncaplog; k++) {
+        if (g_match.caplog_group[k] != g) continue;
+        int cs = g_match.caplog_start[k], ce = g_match.caplog_end[k], len = ce > cs ? ce - cs : 0;
+        char *o = rt_wsb_alloc((size_t)len + (wrap ? 7 : 1));
+        if (wrap) { memcpy(o, "\xef\xbd\xa2", 3); if (len) memcpy(o + 3, g_subject + cs, (size_t)len); memcpy(o + 3 + len, "\xef\xbd\xa3", 3); o[len + 6] = '\0'; }
+        else { if (len) memcpy(o, g_subject + cs, (size_t)len); o[len] = '\0'; }
+        elems[j++] = STRVAL(o);
+    }
+    extern DESCR_t rt_make_list(DESCR_t *args, int nargs); return rt_make_list(elems, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_list_coercion_meth(const char *m, int nargs) {
     static const char *const names[] = { "list", "flat", "Array", "List", "Slip", "Seq", "eager", "cache", NULL };
     if (nargs != 2 || !m) return 0; for (int i = 0; names[i]; i++) if (!strcmp(m, names[i])) return 1; return 0;
@@ -5994,6 +6008,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int g = -1;
         if (g_match.matched && fn[9] == 'c') g = rk_positional_group(IS_INT_fn(args[0]) ? (int) args[0].i : -1);
         else if (g_match.matched) { const char *name = VARVAL_fn(args[0]); for (int i = 0; name && i < g_match.ngroups; i++) if (!strcmp(g_match.group_name[i], name)) { g = i; break; } }
+        if (g >= 0 && g < g_match.ngroups && g_match.group_repeatable[g]) {
+            DESCR_t l = rk_capture_list(g, 1); DESCR_t ea = FIELD_GET_fn(l, "frame_elems"); int ln = (int) FIELD_GET_fn(l, "frame_size").i;
+            rk_av_t av = { ln, IS_DATA_ELEMS_fn(ea) ? (DESCR_t *) ea.ptr : NULL, 0 };
+            DESCR_t s2 = STRVAL(rk_av_joined(av, " ", "[", "]")); *out = RT_GC_CALLBACK(rt_call_arr("write", &s2, 1)); return 1;
+        }
         DESCR_t s;
         if (g < 0 || g >= g_match.ngroups || g_match.group_start[g] < 0 || g_match.group_end[g] < g_match.group_start[g]) s = STRVAL(rt_heap_strdup_c("Nil"));
         else { int gs = g_match.group_start[g], len = g_match.group_end[g] - gs; char *o = rt_wsb_alloc((size_t) len + 7);
@@ -6002,6 +6021,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "re_capture") && nargs == 1) {
         int n = rk_positional_group((int)(IS_INT_fn(args[0]) ? args[0].i : 0));
+        if (g_match.matched && n >= 0 && n < g_match.ngroups && g_match.group_repeatable[n]) { *out = rk_capture_list(n, 0); return 1; }
         if (!g_match.matched || n < 0 || n >= g_match.ngroups || g_match.group_start[n] < 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int gs = g_match.group_start[n], ge = g_match.group_end[n];
         if (ge < gs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
@@ -6014,6 +6034,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!g_match.matched) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int g = -1;
         for (int i = 0; i < g_match.ngroups; i++) if (strcmp(g_match.group_name[i], name) == 0) { g = i; break; }
+        if (g >= 0 && g_match.group_repeatable[g]) { *out = rk_capture_list(g, 0); return 1; }
         if (g < 0 || g_match.group_start[g] < 0) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int gs = g_match.group_start[g], ge = g_match.group_end[g];
         if (ge < gs) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }

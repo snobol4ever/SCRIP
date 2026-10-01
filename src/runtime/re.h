@@ -42,6 +42,7 @@ typedef struct {
     int  group_start[MAX_GROUPS];
     int  group_end[MAX_GROUPS];
     char group_name[MAX_GROUPS][64];
+    char group_repeatable[MAX_GROUPS];
     int  ngroups;
     int  ncaplog;
     int  caplog_group[MAX_CAPLOG];

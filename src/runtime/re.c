@@ -29,6 +29,7 @@ struct Nfa {
     int        accept;
     int        ngroups;
     char       group_name[MAX_GROUPS][64];
+    char       group_repeatable[MAX_GROUPS];
     Code_fn code_fn;
     void        *code_ud;
     int          has_code;
@@ -246,6 +247,7 @@ static int parse_quantified(Re_parser *p, int *out_start, int *out_accept) {
     if (q=='*'||q=='+'||q=='?') {
         consume(p);
         Nfa *nfa=p->nfa;
+        if ((q=='*'||q=='+') && nfa->states[a_start].kind==NK_CAP_OPEN) nfa->group_repeatable[nfa->states[a_start].cap_idx]=1;
         if (q=='*') {
             int split=nfa_alloc(nfa), acc=nfa_alloc(nfa);
             nfa->states[split].kind=NK_SPLIT; nfa->states[split].out1=a_start; nfa->states[split].out2=acc;
@@ -302,6 +304,7 @@ Nfa *nfa_build(const char *pattern) {
     Nfa *nfa = ct_alloc(sizeof *nfa);
     nfa->cap=NFA_INIT_CAP; nfa->n=0; nfa->ngroups=0;
     memset(nfa->group_name,0,sizeof nfa->group_name);
+    memset(nfa->group_repeatable,0,sizeof nfa->group_repeatable);
     nfa->states=ct_alloc((size_t)nfa->cap*sizeof(Nfa_state));
     nfa->start=NFA_NULL; nfa->accept=NFA_NULL;
     Re_parser p;
@@ -427,6 +430,7 @@ void nfa_exec(const Nfa *nfa, const char *subject, Match *result) {
                 result->group_start[g] = best_snap.gs[g];
                 result->group_end[g]   = best_snap.ge[g];
                 memcpy(result->group_name[g], nfa->group_name[g], 64);
+                result->group_repeatable[g] = nfa->group_repeatable[g];
             }
             result->ncaplog = (best_snap.nlog<0) ? 0 : ((best_snap.nlog>MAX_CAPLOG) ? MAX_CAPLOG : best_snap.nlog);
             for (int k=0;k<result->ncaplog;k++) { result->caplog_group[k]=best_snap.lg[k]; result->caplog_start[k]=best_snap.ls[k]; result->caplog_end[k]=best_snap.le[k]; }
