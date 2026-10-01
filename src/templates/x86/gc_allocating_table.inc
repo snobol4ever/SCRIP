@@ -946,7 +946,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_av_joined", GC_RET_OTHER },
     { "rk_av_minmax", GC_RET_DESCR },
     { "rk_av_text", GC_RET_OTHER },
-    { "rk_block_cmp", GC_RET_OTHER },
+    { "rk_block_cmp_d", GC_RET_OTHER },
     { "rk_capture_list", GC_RET_DESCR },
     { "rk_case_str", GC_RET_OTHER },
     { "rk_cplx_str", GC_RET_OTHER },
