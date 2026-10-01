@@ -29,6 +29,7 @@ PO = os.environ.get("S4E_PO", "/home/resources/postoffice")
 try:
     qlines = open(os.path.join(PO, "QUEUE.tsv")).readlines()
     dlines = open(os.path.join(PO, "QUEUE.done.tsv")).readlines()
+    rpath = os.path.join(PO, "QUEUE.retired.tsv"); rlines = open(rpath).readlines() if os.path.exists(rpath) else []
     claims_dir = os.path.join(PO, "claims"); tasks_dir = os.path.join(PO, "tasks")
     claim_files = os.listdir(claims_dir); task_files = os.listdir(tasks_dir)
 except OSError as e:
@@ -41,7 +42,7 @@ def rows_of(lines):
         if len(p) >= 4: out[p[1]] = {'rank': p[0], 'owner': p[2], 'state': p[3]}
         elif len(p) >= 2: out[p[1]] = {'rank': p[0], 'owner': '?', 'state': '?'}
     return out
-rows = rows_of(qlines); done_rows = rows_of(dlines)
+rows = rows_of(qlines); done_rows = rows_of(dlines); retired_rows = rows_of(rlines)
 claims = {}
 for f in claim_files:
     if not f.endswith('.claim'): continue
@@ -75,8 +76,13 @@ def _tombstone(t):
     # its defect was independently fixed before anyone claimed it — deliberately de-indexed so it cannot be
     # picked up (witness: conform-opsyn-alias-..., flagged as C! four census runs in a row before this line).
     return t.startswith('RETIRED') or 'SUPERSEDED' in h or 'RENAMED' in h or 'RESOLVED' in h
-Cx = sorted(tasks - set(rows) - set(done_rows) - {t for t in tasks if _tombstone(t)})
-E  = sorted(t for t in tasks if not _tombstone(t) and 'DONE-WHEN:' not in open(os.path.join(tasks_dir, t + '.task.md')).read())
+# ⛔⭐ A RETIRED ROW IS ACCOUNTED FOR, NOT LOST (ceo 2026-10-01, CEO-1386/1387 -- the queue zero-base moved 539 rows to
+# QUEUE.retired.tsv and every one of their batons read C! on the next census, 539 false findings). A row in the retired
+# file is the law's own tombstone: nothing is deleted, the baton stays under tasks/, and the row comes back only by a
+# re-mint from a current red. E and P likewise read only the LIVE rows: a placeholder on a done or retired baton is
+# history, not an unclosable row; a live claim or umbrella still wearing one is the finding.
+Cx = sorted(tasks - set(rows) - set(done_rows) - set(retired_rows) - {t for t in tasks if _tombstone(t)})
+E  = sorted(t for t in tasks if t in rows and not _tombstone(t) and 'DONE-WHEN:' not in open(os.path.join(tasks_dir, t + '.task.md')).read())
 PLACEHOLDER = 'MUST BE MADE RUNNABLE'
 def _donewhen_line(t):
     try:
@@ -84,7 +90,7 @@ def _donewhen_line(t):
             if ln.startswith('DONE-WHEN:'): return ln
     except OSError: pass
     return ''
-P  = sorted(t for t in tasks if not _tombstone(t) and PLACEHOLDER in _donewhen_line(t))
+P  = sorted(t for t in tasks if t in rows and not _tombstone(t) and PLACEHOLDER in _donewhen_line(t))
 F  = sorted(t for t, r in rows.items() if ('PARKED' in r['state'] or r['state'] == 'BLOCKED') and r['owner'] == 'unassigned')
 # ⛔⭐ R: a DONE row with NO COMPUTED RECEIPT (coo 2026-09-16, ceo CEO-790/793) -- the state column says DONE but no claims/<topic>.claim
 # carries DONE, so it reached DONE by a path outside `done` (the verb that COMPUTES completion and, since today, writes a
