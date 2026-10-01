@@ -28,8 +28,8 @@ static std::string coerce_string_fast(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_string() {
     x86_begin();
-    if (_.op_zres)
-        return x86("comment", "IR_COERCE_STRING zd")
+    return IF(_.op_zres,
+               x86("comment", "IR_COERCE_STRING zd")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("lea",  "rdi", ZOPQ(0, 0))
@@ -41,9 +41,10 @@ std::string bb_coerce_string() {
              + x86_rt_gc_poll()
              + x86("def",  L(22))
              + x86_gamma()
-             + x86_beta_trampoline();
-    return IF(_.op_sa < 0 || _.op_off < 0, x86_bomb("bb_coerce_string: needs operand slot (op_sa) + own value slot (op_off)"))
-         + IF(!(_.op_sa < 0 || _.op_off < 0),
+             + x86_beta_trampoline())
+         + IF(!_.op_zres,
+               IF(_.op_sa < 0 || _.op_off < 0, x86_bomb("bb_coerce_string: needs operand slot (op_sa) + own value slot (op_off)"))
+             + IF(!(_.op_sa < 0 || _.op_off < 0),
              x86("comment", "IR_COERCE_STRING")
            + x86_alpha()
            + x86("lea",  "rdi", FRQ(_.op_sa))
@@ -54,5 +55,5 @@ std::string bb_coerce_string() {
            + x86_rt_gc_poll()
            + x86("def",  L(22))
            + x86_gamma()
-           + x86_beta_trampoline());
+           + x86_beta_trampoline()));
 }
