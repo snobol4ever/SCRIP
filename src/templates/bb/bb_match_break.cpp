@@ -47,8 +47,8 @@ static std::string bk_memb(long i) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_break() {
     x86_begin();
-    if (_.op_pat_static && _.op_sval)
-        return x86("comment", "IR_MATCH_BREAK defer")
+    return IF(_.op_pat_static && _.op_sval,
+               x86("comment", "IR_MATCH_BREAK defer")
              + x86_alpha()
              + x86("lea",   "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
              + bb_glue_prim_str(50, 0, 4, 8, 12)
@@ -65,9 +65,9 @@ std::string bb_match_break() {
              + x86_gamma()
              + x86_beta()
              + x86("mov",   "r14d", LFC(0))
-             + x86_omega();
-    if (_.op_zres && _.op_sa >= 0)
-        return x86("comment", "IR_MATCH_BREAK zd")
+             + x86_omega())
+         + IF(!(_.op_pat_static && _.op_sval) && _.op_zres && _.op_sa >= 0,
+               x86("comment", "IR_MATCH_BREAK zd")
              + x86_alpha()
              + x86("mov",    "edi", "r14d")
              + x86("note",   ZOPN(0))
@@ -82,8 +82,9 @@ std::string bb_match_break() {
              + x86_gamma()
              + x86_beta()
              + x86("mov",    "r14d", LFC(0))
-             + x86_omega();
-    return x86("comment", "IR_MATCH_BREAK")
+             + x86_omega())
+         + IF(!(_.op_pat_static && _.op_sval) && !(_.op_zres && _.op_sa >= 0),
+               x86("comment", "IR_MATCH_BREAK")
          + x86_alpha()
          + IF(bk_gi(),
               x86("mov",    LFC(0), (long)0)
@@ -125,5 +126,5 @@ std::string bb_match_break() {
          + x86_gamma()
          + x86_beta()
          + x86("mov",    "r14d", LFC(0))
-         + x86_omega();
+         + x86_omega());
 }
