@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|rungs] [--declared TSV] [--jobs N (default: the fan-out ceiling of lib_fanout.py, max(2, min(4, cores - load1)), CEO-1333)] [--timeout S] [--list TSV]
+"""util_parser_sc_census.py [--lang L[,L]] [--population corpus|ladder|rungs] [--declared TSV] [--jobs N (default: the fan-out ceiling of lib_fanout.py, max(2, min(4, cores - demand)), CEO-1333)] [--timeout S] [--list TSV]
 
 DOES EACH BOOTSTRAP PARSER WORK? (Lon 2026-09-23 15:2x, in-chat to the ceo: hq_snocone "to get all the SCRIP bootstrap
 parsers working".) For every language, the Snocone-hosted parser SCRIP/bootstrap/parser_<lang>.sc -- loaded behind the

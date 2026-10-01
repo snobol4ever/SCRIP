@@ -33,7 +33,7 @@
 #   rc 0  no rule class rose on any template file in BASE..HEAD
 #   rc 1  some class rose: each such file is printed with its raising commit(s)
 #   rc 2  BASE or HEAD is not a readable commit, or the population is under the floor
-# Env: TEMPLATE_WATCH_JOBS (parallel audits; the default is the fan-out ceiling of scripts/lib_fanout.sh, max(2, min(4, cores - load1)), CEO-1333); TEMPLATE_WATCH_CACHE (a directory to keep per-blob
+# Env: TEMPLATE_WATCH_JOBS (parallel audits; the default is the fan-out ceiling of scripts/lib_fanout.sh, max(2, min(4, cores - demand)), CEO-1333); TEMPLATE_WATCH_CACHE (a directory to keep per-blob
 # counts across runs, keyed by the audit's own blob so an edited audit never reads a stale count, and per-commit
 # form censuses keyed by the census script's blob and the commit).
 # ⭐ AND THE FORMS (Lon, same sitting: "...to consider having other IR/BB broken out properly by form/pattern"):

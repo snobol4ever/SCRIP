@@ -50,14 +50,14 @@ while [ $# -gt 0 ]; do
     esac
 done
 # ⛔ THE FAN-OUT CEILING (ceo CEO-1333; the ceo's word to the coo 2026-10-01 12:1x CDT, a Logtalk pass at 12 jobs put load1 at 18 on a
-# shared box): the default width is lib_fanout.sh's fanout_width, max(2, min(4, cores - load1)), read at launch; a --jobs or LOGTALK_JOBS above
+# shared box): the default width is lib_fanout.sh's fanout_width, max(2, min(4, cores - demand)), read at launch; a --jobs or LOGTALK_JOBS above
 # it is CLAMPED and the clamp is printed, never silent -- the shape run_blocking_set.sh gives --shards. This runner defaulted to 12.
 . "$HERE/lib_fanout.sh" || refuse "scripts/lib_fanout.sh is missing -- the fan-out ceiling has no instrument"
 _fw=$(fanout_width)
 case "$JOBS" in
     '') JOBS=$_fw ;;
     *[!0-9]*|0) refuse "--jobs takes a count of 1 or more (got '$JOBS')" ;;
-    *) if [ "$JOBS" -gt "$_fw" ]; then echo "fanout: --jobs $JOBS clamped to $_fw at load1 $(fanout_load1) on $(fanout_cores) cores (CEO-1333: max(2, min(4, cores - load1)))"; JOBS=$_fw; fi ;;
+    *) if [ "$JOBS" -gt "$_fw" ]; then echo "fanout: --jobs $JOBS clamped to $_fw at CPU demand $(fanout_demand) ($(fanout_source)) on $(fanout_cores) cores (CEO-1333/1394: max(2, min(4, cores - demand)), never load1)"; JOBS=$_fw; fi ;;
 esac
 
 [ -d "$SUITE" ] || refuse "no vendored suite at $SUITE -- a suite that is absent is not a suite that is failing"
