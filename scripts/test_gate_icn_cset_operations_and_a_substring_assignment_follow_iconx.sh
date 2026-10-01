@@ -66,7 +66,7 @@ procedure main()
    c := "" -- 'abc';
    write(*c, " ", image(c));
    c := 3.5 ++ 'x';
-   write(*c, " ", image(c))
+   write(*c, " ", image(c));
 end
 EOF
 cat > "$T/w2.icn" <<'EOF'
@@ -80,7 +80,7 @@ procedure main()
    write(*c, " ", image(c));
    c := 'abc' -- 'abc';
    write(*c, " ", image(c), " ", image(c ++ 'q'));
-   every c := ("xyz" | "\x00\x00" | 'pq') ** ('zq\x00') do write(*c, " ", image(c))
+   every c := ("xyz" | "\x00\x00" | 'pq') ** ('zq\x00') do write(*c, " ", image(c));
 end
 EOF
 cat > "$T/w3.icn" <<'EOF'
@@ -106,7 +106,7 @@ procedure main()
    write(s, " ", image(r));
    s := "abcd";
    r := (s[1:3] :=: s[2:4]);
-   write(s, " ", image(r))
+   write(s, " ", image(r));
 end
 EOF
 cat > "$T/w4.icn" <<'EOF'
@@ -123,7 +123,7 @@ procedure main()
    write(image(s), " ", image(r));
    s := "abc";
    r := (s[2] := &digits);
-   write(image(s), " ", image(r), " ", type(r))
+   write(image(s), " ", image(r), " ", type(r));
 end
 EOF
 cat > "$T/w5.icn" <<'EOF'
@@ -133,7 +133,7 @@ procedure main()
    r := s[2];
    write(image(r));
    s[1] := "x";
-   write(image(s))
+   write(image(s));
 end
 EOF
 beh=""; bad=0

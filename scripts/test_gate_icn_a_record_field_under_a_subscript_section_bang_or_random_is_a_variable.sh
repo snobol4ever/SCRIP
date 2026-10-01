@@ -56,7 +56,7 @@ procedure main()
    ?r.g := "zz";
    write(r.g[1], r.g[2]);
    x := r.f[3];
-   write(x)
+   write(x);
 end
 EOF
 ( cd "$T" && "$ICONT" -s -o w.x w.icn ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses the witness"; exit 2; }

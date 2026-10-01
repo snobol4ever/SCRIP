@@ -25,7 +25,7 @@ procedure main()
    write(&errout, "err part B");
    writes("line three ");
    writes(&errout, "err part C");
-   write(" end")
+   write(" end");
 end
 ICN
 ( cd "$T" && "$IC" -s -o w.ox w.icn >/dev/null 2>&1 && ./w.ox > oracle.txt 2>&1 ) || { echo "⛔ GATE REFUSE(2) [$G]: icont/iconx did not run the witness"; exit 2; }
@@ -43,7 +43,7 @@ procedure main()
    writes("prompt :");
    write("line");
    writes("tail:");
-   stop("Game Over.")
+   stop("Game Over.");
 end
 ICN
 ( cd "$T" && "$IC" -s -o s.ox s.icn >/dev/null 2>&1 && ./s.ox > soracle.txt 2>&1 ); [ -s "$T/soracle.txt" ] || { echo "⛔ GATE REFUSE(2) [$G]: icont/iconx did not run the stop witness"; exit 2; }

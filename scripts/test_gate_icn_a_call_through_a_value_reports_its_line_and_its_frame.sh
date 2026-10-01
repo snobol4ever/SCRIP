@@ -24,11 +24,11 @@ IC=/home/resources/icon-master/bin/icont
 T="$(mktemp -d "${TMPDIR:-/tmp}/callvalue_gate.XXXXXX")" || { echo "⛔ GATE REFUSE(2) [$G]: mktemp failed"; exit 2; }
 trap 'rm -rf "$T"' EXIT
 printf 'procedure main()\n   local f, line;\n   every line := !["a"] do\n\twrite(f(line));\nend\n' > "$T/w_do.icn"
-printf 'procedure main()\n   local f;\n   if 1 then\n\tf(1, "b")\nend\n' > "$T/w_then.icn"
-printf 'procedure main()\n   local f;\n   case 1 of {\n1:\n\tf(1)}\nend\n' > "$T/w_case.icn"
-printf 'procedure main()\n   local f;\n   1 &\n\tf(1)\nend\n' > "$T/w_conj.icn"
-printf 'procedure main()\n   local f;\n   {write(1);\n\tf([])}\nend\n' > "$T/w_compound.icn"
-printf 'procedure main()\n   local f;\n   write(1,\n\tf(1))\nend\n' > "$T/w_lastarg.icn"
+printf 'procedure main()\n   local f;\n   if 1 then\n\tf(1, "b");\nend\n' > "$T/w_then.icn"
+printf 'procedure main()\n   local f;\n   case 1 of {\n1:\n\tf(1)};\nend\n' > "$T/w_case.icn"
+printf 'procedure main()\n   local f;\n   1 &\n\tf(1);\nend\n' > "$T/w_conj.icn"
+printf 'procedure main()\n   local f;\n   {write(1);\n\tf([])};\nend\n' > "$T/w_compound.icn"
+printf 'procedure main()\n   local f;\n   write(1,\n\tf(1));\nend\n' > "$T/w_lastarg.icn"
 red=0; n=0
 for w in w_do w_then w_case w_conj w_compound w_lastarg; do
     n=$((n+1))

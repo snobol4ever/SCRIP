@@ -58,57 +58,57 @@ procedure main()
    write("swap: ", t, " ", y);
    write("local string subscript: ", fsl());
    write(image(floc()));
-   write("done")
+   write("done");
 end
 procedure f()
-   return t
+   return t;
 end
 procedure s()
-   suspend t
+   suspend t;
 end
 procedure fr(r)
-   return r.a
+   return r.a;
 end
 procedure fg(i)
-   return G[i]
+   return G[i];
 end
 procedure fl(L)
-   return L[1]
+   return L[1];
 end
 procedure fs()
-   return S[3]
+   return S[3];
 end
 procedure fsl()
    local z;
    z := "hello";
-   return z[2]
+   return z[2];
 end
 procedure floc()
    local z;
    z := 1;
-   return z
+   return z;
 end
 EOF
 cat > "$T/e1.icn" <<'EOF'
 procedure main()
    fsl() := "no";
-   write("not reached")
+   write("not reached");
 end
 procedure fsl()
    local z;
    z := "hello";
-   return z[2]
+   return z[2];
 end
 EOF
 cat > "$T/e2.icn" <<'EOF'
 procedure main()
    floc() := 2;
-   write("not reached")
+   write("not reached");
 end
 procedure floc()
    local z;
    z := 1;
-   return z
+   return z;
 end
 EOF
 cat > "$T/cv.icn" <<'EOF'
@@ -123,13 +123,13 @@ procedure main()
    every write(g());
    every write(q := !(["a", "b"]));
    write(*p(), " ", p() || "!", " ", image(p()));
-   write("done")
+   write("done");
 end
 procedure f()
-   return t
+   return t;
 end
 procedure g()
-   suspend t | "lit"
+   suspend t | "lit";
 end
 EOF
 cat > "$T/sh.icn" <<'EOF'
@@ -138,10 +138,10 @@ procedure main()
    s := "g";
    write(foo("p"));
    (foo("p") := "x") | write("failed");
-   write(s)
+   write(s);
 end
 procedure foo(s)
-   return s
+   return s;
 end
 EOF
 cat > "$T/tr.icn" <<'EOF'
@@ -155,16 +155,16 @@ procedure main()
    f();
    fr(r);
    every g();
-   write("done")
+   write("done");
 end
 procedure f()
-   return t
+   return t;
 end
 procedure fr(r)
-   return r.a
+   return r.a;
 end
 procedure g()
-   suspend t
+   suspend t;
 end
 EOF
 fail=0; pass=0; names=""

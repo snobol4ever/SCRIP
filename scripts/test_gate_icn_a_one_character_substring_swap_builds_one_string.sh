@@ -41,7 +41,7 @@ cat > "$T/w.icn" <<'EOF'
 global G
 procedure sw(x)
    every !x :=: ?x;
-   return x
+   return x;
 end
 procedure main()
    local s, t, L, T, i, v;
@@ -75,7 +75,7 @@ procedure main()
    s := "abc";
    v := s;
    s[1] :=: s[3];
-   write(s, " ", v)
+   write(s, " ", v);
 end
 EOF
 ( cd "$T" && "$ICONT" -s -o w.x w.icn ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses the witness"; exit 2; }
@@ -87,7 +87,7 @@ o3="$( cd "$T" && timeout 20 "$SCRIP" w.icn </dev/null 2>/dev/null )"; o4="$( cd
 if [ "$o3" = "$want" ] && [ "$o4" = "$want" ]; then echo "  arm 2 PASS: $(printf '%s\n' "$want" | wc -l) lines of swaps match iconx byte for byte in both media"
 else echo "  arm 2 FAIL: the swaps differ from iconx -- m3 $( [ "$o3" = "$want" ] && echo same || echo DIFF ), m4 $( [ "$o4" = "$want" ] && echo same || echo DIFF )"
   diff <(printf '%s\n' "$want") <(printf '%s\n' "$o3") | head -8 | sed 's/^/      m3 /'; RC=1; fi
-for n in 1000 3000; do printf 'procedure main()\n   local s;\n   s := repl("ab", 50);\n   every 1 to %s do ?s :=: ?s;\n   write(*s)\nend\n' "$n" > "$T/n$n.icn"; build4 "n$n" || { echo "⛔ GATE REFUSE(2) [$G]: the allocation witness does not build in mode 4"; exit 2; }; done
+for n in 1000 3000; do printf 'procedure main()\n   local s;\n   s := repl("ab", 50);\n   every 1 to %s do ?s :=: ?s;\n   write(*s);\nend\n' "$n" > "$T/n$n.icn"; build4 "n$n" || { echo "⛔ GATE REFUSE(2) [$G]: the allocation witness does not build in mode 4"; exit 2; }; done
 blocks() { grep -oE 'collections=[0-9]+ blocks=[0-9]+' "$1" | head -1; }
 al=""; abad=0
 for md in m3 m4; do

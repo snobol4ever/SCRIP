@@ -37,13 +37,13 @@ T="$(mktemp -d "${TMPDIR:-/tmp}/valname_gate.XXXXXX")" || { echo "⛔ GATE REFUS
 trap 'rm -rf "$T"' EXIT
 cat > "$T/valname.icn" <<'EOF'
 procedure span(c)
-   suspend tab(many(c))
+   suspend tab(many(c));
 end
 procedure f()
    static k;
    initial k := 3;
    k +:= 2;
-   write(k)
+   write(k);
 end
 global g
 procedure main()
@@ -66,7 +66,7 @@ procedure main()
    "5H1" ? ((n <- span('0123456789')) || ="H");
    (&subject <- "xy") & (&pos <- 2) & (n <- 4);
    n := *s;
-   p(n, " ", *&progname > 0, " ", q(2, 3))
+   p(n, " ", *&progname > 0, " ", q(2, 3));
 end
 EOF
 out="$(cd "$T" && timeout 300 bash "$HERE/monitor_run.sh" valname.icn --oracle 2>&1)"; rc=$?

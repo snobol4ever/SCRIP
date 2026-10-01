@@ -63,7 +63,7 @@ procedure main()
    write("D ", image([1] ||| [2]), image([] ||| [1]));
    write("E ", image(trim("ab ")), image(right("ab")), image(trim("ab ", 5)), image(right("ab", 2.9)));
    write("F ", image(?"abc"), image(?5), image(L[2]), image(L[-1]));
-   write("G ", &errornumber)
+   write("G ", &errornumber);
 end
 ICN
 cat > "$T/w2.want" <<'WANT'

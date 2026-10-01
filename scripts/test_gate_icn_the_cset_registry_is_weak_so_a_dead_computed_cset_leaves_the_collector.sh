@@ -85,7 +85,7 @@ procedure main()
    n := ~'abc';
    every i := 1 to 90 do c := cset(string(i));
    write("complement ", *n, " ", (any(n, char(0)) & "nul") | "no", " ", *(n -- &ascii), " ", image(n ** 'abcdef'));
-   write("done")
+   write("done");
 end
 EOF
 ( cd "$T" && "$ICONT" -s -o w.x w.icn ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses the flip witness"; exit 2; }

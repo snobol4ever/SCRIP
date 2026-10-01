@@ -59,7 +59,7 @@ fi
 
 echo "CLAUSE 2 -- the live round trip: both modes answer the bare stem, and the unpinned invocation is still observable"
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
-printf 'procedure main()\n   write("&progname: ", &progname)\nend\n' > "$W/pinwitness.icn"
+printf 'procedure main()\n   write("&progname: ", &progname);\nend\n' > "$W/pinwitness.icn"
 GOT3="$( cd "$W" && SNO_LIB="$S4E/corpus/include" "$SCRIP" --run pinwitness.icn </dev/null 2>&1 )"
 if [ "$GOT3" = "&progname: pinwitness" ]; then say_ok "mode 3: scrip --run pinwitness.icn answers pinwitness (the extension stripped, the path form kept)"
 else say_fail "mode 3: expected '&progname: pinwitness', got '$GOT3'"; fi
@@ -78,7 +78,7 @@ else say_fail "fail-once arm: the absolute invocation answered '$GOTABS' -- this
 
 echo "CLAUSE 3 -- measured through the grading path itself: a one-entry rungs whose ref says <stem> passes BOTH modes"
 PW="$W/livepin"; mkdir -p "$PW"
-printf '#%s 1 pinwitness\nprocedure main()\n   write("&progname: ",&progname)\nend\n' "-----------------" > "$PW/ALL.icn"
+printf '#%s 1 pinwitness\nprocedure main()\n   write("&progname: ",&progname);\nend\n' "-----------------" > "$PW/ALL.icn"
 printf '#%s 1 pinwitness\n&progname: pinwitness\n' "-----------------" > "$PW/ALL.ref"
 LIVE="$(timeout 120s python3 "$HARNESS" run --lang icon --modes m3,m4 "$PW/ALL.icn" "$PW/ALL.ref" 2>&1)"
 # fields read BY NAME, never by adjacency: 'm3_n=1 m3_pass=1' asserted the board's LAYOUT, and the board
@@ -93,7 +93,7 @@ fi
 
 echo "CLAUSE 4 -- the oracle, re-measured: iconx <stem> answers <stem>, and the shipped refs say exactly that"
 ICONT="$(icont_bin)" || { echo "REFUSED rc=2: Arizona icont is unreachable, so the earning measurement cannot be re-taken -- an instrument that cannot measure refuses"; exit 2; }
-OD="$W/oracle"; mkdir -p "$OD"; printf 'procedure main()\n   write("   &progname: ",&progname)\nend\n' > "$OD/pn.icn"
+OD="$W/oracle"; mkdir -p "$OD"; printf 'procedure main()\n   write("   &progname: ",&progname);\nend\n' > "$OD/pn.icn"
 ( cd "$OD" && "$ICONT" -s pn.icn >/dev/null 2>&1 ) || { echo "REFUSED rc=2: icont could not build the oracle witness -- cannot measure"; exit 2; }
 O_BARE="$( cd "$OD" && "$(dirname "$ICONT")/iconx" pn 2>&1 )"; O_DOT="$( cd "$OD" && ./pn 2>&1 )"
 if [ "$O_BARE" = "   &progname: pn" ] && [ "$O_DOT" = "   &progname: ./pn" ]; then

@@ -23,7 +23,7 @@ procedure main();
     ga := 1; gb := 2;
     write("global<->global: ", image(ga <-> gb) | "none");
     write("  ga=", image(ga), " gb=", image(gb));
-    every 1 to 2 do { if (ga <-> gb) & &fail then write("unreachable"); write("  recede: ga=", image(ga), " gb=", image(gb)); }
+    every 1 to 2 do { if (ga <-> gb) & &fail then write("unreachable"); write("  recede: ga=", image(ga), " gb=", image(gb)); };
     write("reached the end", "");
 end
 ICNEOF

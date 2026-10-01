@@ -54,7 +54,7 @@ procedure main()
       e := create (&subject || "|" || &pos);
       write(@e);
       write(&subject || "|" || &pos);
-   }
+   };
 end
 EOF
 EXP_direct='accepted'

@@ -25,7 +25,7 @@ procedure main()
    local x, n;
    x := 'a1b2c3';
    n := *x;
-   write(n)
+   write(n);
 end
 EOF
 out="$(cd "$T" && timeout 300 bash "$HERE/monitor_run.sh" csetwire.icn --oracle 2>&1)"; rc=$?

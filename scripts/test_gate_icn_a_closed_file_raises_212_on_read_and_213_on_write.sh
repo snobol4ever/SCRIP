@@ -35,7 +35,7 @@ cat > "$T/w1.icn" <<'EOF'
 procedure main()
    write(read(&input));
    close(&input);
-   write(read(&input) | "failed")
+   write(read(&input) | "failed");
 end
 EOF
 cat > "$T/w2.icn" <<'EOF'
@@ -45,14 +45,14 @@ procedure main()
    write(image(close(f)));
    write(image(close(f)) | "close again failed");
    r := reads(f) | "reads failed";
-   write(r)
+   write(r);
 end
 EOF
 cat > "$T/w3.icn" <<'EOF'
 procedure main()
    close(&output);
    write(&errout, "after close");
-   write("to closed output")
+   write("to closed output");
 end
 EOF
 cat > "$T/w4.icn" <<'EOF'
@@ -62,7 +62,7 @@ procedure main()
    close(f);
    &error := -1;
    write(image(read(f)) | "read failed");
-   write(&errornumber, " ", &errortext)
+   write(&errornumber, " ", &errortext);
 end
 EOF
 cat > "$T/w5.icn" <<'EOF'
@@ -71,7 +71,7 @@ procedure main()
    f := open("w5.icn") | stop("no open");
    write(!f);
    close(f);
-   every write(!f)
+   every write(!f);
 end
 EOF
 beh=""; bad=0

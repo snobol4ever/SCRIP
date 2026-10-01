@@ -50,7 +50,7 @@ procedure main();
    while insert(fset, read(f)) do {
       insert(fset, !f);
       insert(fset, reads(f, 25));
-      }
+      };
    close(f);
    write("entries=", *fset);
    every s := !sort(fset) do write("entry: ", s);
@@ -64,7 +64,7 @@ procedure main();
    while s := reads(f, 25) do {
       n := n + 1;
       if find("\n", s) then write("EMBEDDED NEWLINE in chunk ", n, ": ", image(s));
-      }
+      };
    close(f);
    write("chunks=", n);
 end

@@ -27,7 +27,7 @@ cat > "$T/r1.icn" <<'ICN'
 record array(a,b,c,d,e,f,g)
 record pt(x,y)
 procedure main()
-   local r, q
+   local r, q;
    &error := 200;
    write("01 proc a 3   ", image(proc("a",3)) | "fails");
    write("02 proc a 0   ", image(proc("a",0)) | "fails");

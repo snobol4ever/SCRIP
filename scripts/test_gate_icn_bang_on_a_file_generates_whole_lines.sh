@@ -28,7 +28,7 @@ procedure main()
    every write(*!f);
    close(f);
    f := open("long.txt") | stop("no open");
-   while write(*read(f))
+   while write(*read(f));
 end
 EOF
 ( cd "$T" && "$ICONT" -s -o w.x w.icn ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses the witness"; exit 2; }

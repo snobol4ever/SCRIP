@@ -29,7 +29,7 @@ procedure main()
    local s;
    s := "abcdef";
    (s[5] := (s := "ab", "z")) | write("failed");
-   write(s)
+   write(s);
 end
 EOF
 cat > "$T/swp.icn" <<'EOF'
@@ -38,7 +38,7 @@ procedure main()
    s := "abcdef";
    t := "x";
    (s[5] :=: (s := "ab", t)) | write("failed");
-   write(s, " ", t)
+   write(s, " ", t);
 end
 EOF
 cat > "$T/lst.icn" <<'EOF'
@@ -47,7 +47,7 @@ procedure main()
    s := "abcdef";
    L := ["x"];
    (s[5] :=: L[(s := "ab", 1)]) | write("failed");
-   write(s, " ", L[1])
+   write(s, " ", L[1]);
 end
 EOF
 cat > "$T/lit.icn" <<'EOF'
@@ -55,7 +55,7 @@ procedure main()
    local s;
    s := "abc";
    (s :=: "lit") | write("failed");
-   write(s)
+   write(s);
 end
 EOF
 cat > "$T/err.icn" <<'EOF'
@@ -67,7 +67,7 @@ procedure main()
    s := "abcdef";
    t := "x";
    (s[5] :=: (s := "ab", t)) | write("swap failed ", &errornumber);
-   write(s, " ", t)
+   write(s, " ", t);
 end
 EOF
 cat > "$T/mut.icn" <<'EOF'
@@ -75,7 +75,7 @@ procedure main()
    local s, t;
    t := "x";
    (s := "ab", t) := "q";
-   write(t)
+   write(t);
 end
 EOF
 pass=0; fail=0; lines=""

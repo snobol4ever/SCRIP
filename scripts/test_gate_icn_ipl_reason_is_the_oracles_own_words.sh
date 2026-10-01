@@ -65,13 +65,13 @@ SCRATCH="$WORK/root"; mkdir -p "$SCRATCH/corpus/packages/icon/ipl/progs"
 SP="$SCRATCH/corpus/packages/icon/ipl/progs"
 cat > "$SP/gatefix_undeclared.icn" <<'ICN'
 procedure main()
-   write("this line runs first")
-   gate_fixture_no_such_procedure()
+   write("this line runs first");
+   gate_fixture_no_such_procedure();
 end
 ICN
 cat > "$SP/gatefix_plainfail.icn" <<'ICN'
 procedure main()
-   stop("gate fixture: a refusal with every identifier resolved")
+   stop("gate fixture: a refusal with every identifier resolved");
 end
 ICN
 census="$WORK/census.txt"
@@ -113,7 +113,7 @@ fi
 feat="$WORK/feat"; mkdir -p "$feat"
 cat > "$feat/feat.icn" <<'ICN'
 procedure main()
-   every write(&features)
+   every write(&features);
 end
 ICN
 ( cd "$feat" && "$ICONT" -s feat.icn >/dev/null 2>&1 && ./feat > "$feat/out.txt" 2>&1 )

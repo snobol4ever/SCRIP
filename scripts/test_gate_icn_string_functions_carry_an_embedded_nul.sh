@@ -59,7 +59,7 @@ procedure main()
    s ? every x := upto('d\x00') do writes(x, " ");
    write();
    write(image(s ? tab(upto('e'))) | "upto-e fails");
-   write(image(s ? tab(many('ab')) ) | "many-ab fails")
+   write(image(s ? tab(many('ab')) ) | "many-ab fails");
 end
 EOF
 res=""; bad=0

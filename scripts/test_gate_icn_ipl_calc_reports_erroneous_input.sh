@@ -17,11 +17,11 @@ procedure main()
    lv := 7; gv := 9; s := "the quick brown fox";
    every s2 := "gv" | "&pi" | "nosuchname" | "" | "helper" | "write" do {
       if r := variable(s2) then write("variable(", image(s2), ") -> ", image(r)) else write("variable(", image(s2), ") -> FAILED");
-      }
+      };
    if r := variable(s) then write("variable(via local) -> ", image(r)) else write("variable(via local) -> FAILED");
    every s3 := "12 7 93 7 12" | "1 2" | "0x1f" | "12 " | " 12 " | "12" | "3.5" | "3.5.6" | "1e3" | "+5" | "-5" | "12abc" | "" | "  " | "16r1f" do {
       if r := numeric(s3) then write("numeric(", image(s3), ") -> ", image(r)) else write("numeric(", image(s3), ") -> FAILED");
-      }
+      };
 end
 ICN
 ( cd "$T" && "$ICONT" -s contract.icn -x ) >"$T/contract.ref" 2>&1 || { echo "⛔ REFUSE(2): the oracle itself did not run the contract witness"; exit 2; }
