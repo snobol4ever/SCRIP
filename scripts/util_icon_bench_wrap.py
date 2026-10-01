@@ -39,7 +39,7 @@ procedure main(args)
       bench_kernel__(copy(args));
       k +:= 1
    };
-   write(&errout, "BENCH iters=", k, " work_ms=", &time - t0)
+   write(&errout, "BENCH iters=", k, " work_ms=", &time - t0);
 end
 '''
 
