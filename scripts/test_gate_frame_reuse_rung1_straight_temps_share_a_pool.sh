@@ -26,7 +26,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="${S4E_HOME:-$(cd "$HERE/.." && pwd)
 cd "$ROOT" || exit 2
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp scripts/fixtures/frame_r1_witness.pl "$T/w.pl"; echo "ok" > "$T/w.pl.ref"
-printf 'procedure main()\n   every write(1, 1 to 3)\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
+printf 'procedure main()\n   every write(1, 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
 line="$(timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null | grep -E "^; graph [0-9]+ 'r/1'")"

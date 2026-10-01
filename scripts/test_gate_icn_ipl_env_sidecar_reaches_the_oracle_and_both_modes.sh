@@ -16,7 +16,7 @@ procedure main()
    local h;
    write("greeting: ", \getenv("GREETING") | "unset");
    h := getenv("HOME") | "";
-   write("home is the run directory: ", if h[-6:0] == "/progs" then "yes" else "no")
+   write("home is the run directory: ", if h[-6:0] == "/progs" then "yes" else "no");
 end
 ICN
   printf '# a greeting and HOME at the run directory\nGREETING=hello there\nHOME=@RUNDIR\n' > "$SG_PKG/progs/envw.env"
@@ -28,7 +28,7 @@ printf '%s' "$gref" | grep -q 'greeting: hello there' && printf '%s' "$gref" | g
 d="$(sg_doctor "s = s.replace('if [ -f \"\$side\" ]; then\n    while IFS= read -r kv; do', 'if false; then\n    while IFS= read -r kv; do', 1)")" || exit 2
 r="$(sg_verdict "$d" envw plant)"; rref="$(cat "$(sg_ref "$d" envw)" 2>/dev/null)"
 printf '%s' "$rref" | grep -q 'greeting: hello there' && { echo "  FAIL red: with NAME.env ignored the ref still carries its values ($r) -- the gate cannot see the sidecar"; red=1; }
-sg_fresh_pkg refuse; printf 'procedure main()\n   write(1)\nend\n' > "$SG_PKG/progs/envp.icn"; printf 'PATH=/nowhere\n' > "$SG_PKG/progs/envp.env"
+sg_fresh_pkg refuse; printf 'procedure main()\n   write(1);\nend\n' > "$SG_PKG/progs/envp.icn"; printf 'PATH=/nowhere\n' > "$SG_PKG/progs/envp.env"
 ( . "$SG_HERE/lib_icon_ipl_isolation.sh"; declare -a E=(); ipl_env_apply "$SG_PKG/progs/envp.icn" /tmp E 2>/dev/null ); [ $? -eq 2 ] || { echo "  FAIL: a NAME.env setting PATH was accepted"; red=1; }
 [ "$red" -eq 0 ] && { echo "✅ GATE PASS [$G]: NAME.env reaches iconx in the cutter and SCRIP in m3 and m4 ($g); ignored, the ref loses it ($r); PATH refuses"; exit 0; }
 echo "⛔ GATE FAIL [$G]"; exit 1

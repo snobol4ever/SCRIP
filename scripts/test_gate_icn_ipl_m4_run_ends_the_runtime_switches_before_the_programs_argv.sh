@@ -12,7 +12,7 @@ set -uo pipefail
 G=test_gate_icn_ipl_m4_run_ends_the_runtime_switches_before_the_programs_argv
 sg_init
 plant() {
-  printf 'procedure main(a)\n   every write("arg ", image(!a))\nend\n' > "$SG_PKG/progs/argw.icn"
+  printf 'procedure main(a)\n   every write("arg ", image(!a));\nend\n' > "$SG_PKG/progs/argw.icn"
   printf 'argw\t-i\t5000\t-x\n' > "$SG_PKG/progs/argw.argv"
 }
 red=0

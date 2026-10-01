@@ -39,7 +39,7 @@ cp scripts/fixtures/frame_r1_witness.pl "$T/w.pl"; echo "ok" > "$T/w.pl.ref"
 cp scripts/fixtures/frame_head_alias_witness.pl "$T/alias.pl"; cp scripts/fixtures/frame_head_alias_witness.pl.ref "$T/alias.pl.ref"
 printf ':- initialization(main).\nmain :- atom_length(abc, N), write(N), nl, atom_chars(hi, L), write(L), nl, functor(foo(a,b), F, A), write(F/A), nl.\n' > "$T/guard.pl"
 printf '3\n[h,i]\nfoo/2\n' > "$T/guard.pl.ref"
-printf 'procedure main()\n   every write(image(1), 1 to 3)\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
+printf 'procedure main()\n   every write(image(1), 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
 timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"

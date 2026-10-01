@@ -30,7 +30,7 @@ d="$(mktemp -d)"; trap 'rm -rf "$d"' EXIT; cd "$d" || exit 2
 clean() { env -u SCRIP_HEAP_KB -u SCRIP_HEAP_MB -u SCRIP_HEAP_MAX_MB -u SCRIP_HEAP_CAP_KB "$@"; }
 printf "        T = TABLE()\n        I = 0\nLOOP    I = I + 1\n        T<I> = DUPL('x', 1000)\n        LE(I, 20000)    :S(LOOP)\n        OUTPUT = 'done ' I\nEND\n" > w.sno
 printf "        &ERRLIMIT = 1\n        SETEXIT(.TRAP)\n        T = TABLE()\n        I = 0\nLOOP    I = I + 1\n        T<I> = DUPL('x', 1000)\n        LE(I, 20000)    :S(LOOP)\n        OUTPUT = 'done ' I               :(END)\nTRAP    OUTPUT = 'trapped ' &ERRTYPE\nEND\n" > t.sno
-printf "procedure main()\n  L := []; every i := 1 to 20000 do put(L, repl(\"x\", 1000))\n  write(\"done \", *L)\nend\n" > w.icn
+printf "procedure main()\n  L := []; every i := 1 to 20000 do put(L, repl(\"x\", 1000));\n  write(\"done \", *L);\nend\n" > w.icn
 fails=0; arms=0
 ck() { arms=$((arms+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else echo "  FAIL $2"; fails=$((fails+1)); fi; }
 clean timeout 60 "$C" -d8m w.sno < /dev/null > o1 2> e1; r1=$?

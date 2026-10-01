@@ -27,7 +27,7 @@ cd "$ROOT" || exit 2
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 cp scripts/fixtures/frame_r1_witness.pl "$T/w.pl"; echo "ok" > "$T/w.pl.ref"
 printf 'p(X) :- q(X), s(X).\nq(1).\nq(2).\nq(3).\ns(3).\n:- initialization(main).\nmain :- p(X), write(X), nl, halt.\n' > "$T/bt.pl"; echo "3" > "$T/bt.pl.ref"
-printf 'procedure main()\n   every write(image(1), 1 to 3)\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
+printf 'procedure main()\n   every write(image(1), 1 to 3);\nend\n' > "$T/w.icn"; printf '11\n12\n13\n' > "$T/w.icn.ref"
 printf "        S = 'abcabc'\n        S BREAK('c') . T\n        OUTPUT = T\nEND\n" > "$T/w.sno"; echo "ab" > "$T/w.sno.ref"
 bad=0
 timeout 20s ./scrip --dump-zeta "$T/w.pl" </dev/null 2>/dev/null > "$T/pl.dump"

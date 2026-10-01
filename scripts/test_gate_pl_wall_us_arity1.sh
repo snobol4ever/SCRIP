@@ -54,7 +54,7 @@ else echo "  FAIL  the arity-0 form stopped answering in RAKU, the frontend that
 cat > "$W/a0.icn" <<'EOF'
 procedure main()
 	a := wall_us(); b := wall_us(); m := wall_ms();
-	if (a > 0) & (b >= a) & (m > 0) & (a > m) then write("ic_arity0_ok") else write("ic_arity0_bad")
+	if (a > 0) & (b >= a) & (m > 0) & (a > m) then write("ic_arity0_ok") else write("ic_arity0_bad");
 end
 EOF
 examined=$((examined+1))
@@ -64,7 +64,7 @@ else echo "  FAIL  the arity-0 form stopped answering in ICON -- got: $(printf '
 
 cat > "$W/plant.icn" <<'EOF'
 procedure main()
-	write(wall_us_absent())
+	write(wall_us_absent());
 end
 EOF
 examined=$((examined+1))

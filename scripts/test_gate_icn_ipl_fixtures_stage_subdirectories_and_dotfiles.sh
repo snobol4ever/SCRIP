@@ -15,7 +15,7 @@ plant() {
 procedure main()
    local f;
    if f := open("tree/sub/leaf.txt") then { write("leaf: ", read(f)); close(f) } else write("leaf: missing");
-   if f := open(".dotrc") then { write("dotrc: ", read(f)); close(f) } else write("dotrc: missing")
+   if f := open(".dotrc") then { write("dotrc: ", read(f)); close(f) } else write("dotrc: missing");
 end
 ICN
   mkdir -p "$SG_PKG/progs/fxw.fixtures/tree/sub"; printf 'deep in the tree\n' > "$SG_PKG/progs/fxw.fixtures/tree/sub/leaf.txt"; printf 'a dotfile\n' > "$SG_PKG/progs/fxw.fixtures/.dotrc"

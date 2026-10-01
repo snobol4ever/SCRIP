@@ -16,19 +16,19 @@ set -uo pipefail
 G=test_gate_icn_ipl_declared_status_and_empty_output_are_graded
 sg_init
 plant_rc() {
-  printf 'procedure main()\n   writes("prompt: ");\n   write("a line");\n   stop("Game Over.")\nend\n' > "$SG_PKG/progs/rcw.icn"
+  printf 'procedure main()\n   writes("prompt: ");\n   write("a line");\n   stop("Game Over.");\nend\n' > "$SG_PKG/progs/rcw.icn"
   printf '# every exit is stop()\n1\n' > "$SG_PKG/progs/rcw.rc"
 }
 plant_rc_wrong() {
-  printf 'procedure main()\n   writes("prompt: ");\n   write("a line");\n   stop("Game Over.")\nend\n' > "$SG_PKG/progs/rcw.icn"
+  printf 'procedure main()\n   writes("prompt: ");\n   write("a line");\n   stop("Game Over.");\nend\n' > "$SG_PKG/progs/rcw.icn"
   printf '# a wrong declaration: the unit exits 1\n0\n' > "$SG_PKG/progs/rcw.rc"
 }
 plant_rc_bad() {
-  printf 'procedure main()\n   writes("prompt: ");\n   write("a line");\n   stop("Game Over.")\nend\n' > "$SG_PKG/progs/rcw.icn"
+  printf 'procedure main()\n   writes("prompt: ");\n   write("a line");\n   stop("Game Over.");\nend\n' > "$SG_PKG/progs/rcw.icn"
   printf '1 2\n' > "$SG_PKG/progs/rcw.rc"
 }
 plant_empty() {
-  printf 'procedure main()\n   exit();\n   write("never")\nend\n' > "$SG_PKG/progs/emw.icn"
+  printf 'procedure main()\n   exit();\n   write("never");\nend\n' > "$SG_PKG/progs/emw.icn"
   printf 'exit() is the first statement, so the program prints nothing by design\n' > "$SG_PKG/progs/emw.empty"
 }
 red=0

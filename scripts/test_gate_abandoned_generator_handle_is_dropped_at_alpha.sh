@@ -9,38 +9,38 @@ fail=0; pass=0
 note() { echo "  $*"; }
 cat > "$T/abandon.icn" <<'EOF'
 procedure gen()
-   suspend 1 | 2 | 3
+   suspend 1 | 2 | 3;
 end
 procedure main(a)
-   local i, x, p, n
+   local i, x, p, n;
    n := integer(a[1]);
    p := gen;
    every i := 1 to n do x := p();
-   write(x)
+   write(x);
 end
 EOF
 cat > "$T/exhaust.icn" <<'EOF'
 procedure gen()
-   suspend 1 | 2 | 3
+   suspend 1 | 2 | 3;
 end
 procedure main(a)
-   local i, x, p, n
+   local i, x, p, n;
    n := integer(a[1]);
    p := gen;
    every i := 1 to n do every x := p();
-   write(x)
+   write(x);
 end
 EOF
 cat > "$T/det.icn" <<'EOF'
 procedure gen()
-   return 1
+   return 1;
 end
 procedure main(a)
-   local i, x, p, n
+   local i, x, p, n;
    n := integer(a[1]);
    p := gen;
    every i := 1 to n do x := p();
-   write(x)
+   write(x);
 end
 EOF
 build_m4() {
