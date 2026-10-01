@@ -1173,6 +1173,10 @@ inline std::string x86_rsp_store64_imm(int off, long imm) {
     return x86_rec("mov") + "qword ptr [rsp + " + std::to_string(off) + "], " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_rsp_raw_cell(void) {
+    return x86_sub("rsp", 16) + x86_rsp_store64_imm(0, (long)DT_RAW) + x86_rsp_store64_imm(8, 0L);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rsp_store32(int off, const char * reg) {
     int g = x86_rnum(reg);
     if (MEDIUM_BINARY) { std::string c; if (g >= 8) c += (char)0x44; c += (char)0x89; c += x86_rsp_modrm(g, off); return x86_Lrec(c); }
