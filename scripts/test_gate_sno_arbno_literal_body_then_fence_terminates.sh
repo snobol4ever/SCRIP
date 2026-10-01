@@ -11,11 +11,13 @@
 # gamma: a literal subtracts its width from it, and a frameless ARBNO re-enters its body there and recedes until r14 equals its
 # start -- from 2 against a start of 1, by steps of 2, so 0, -2, -4 ... and never back (the hang). The same stale cursor gives a
 # wrong answer where the recede does land (C1, C2 below: SCRIP no, sbl yes). The literal-first body was the reported trigger,
-# not the cause: ARBNO(LEN(2)), FENCE(LEN(1)), *P and a literal between ARBNO and FENCE all hung the same way.
+# not the cause: ARBNO(LEN(2)), FENCE(LEN(1)) and a literal between ARBNO and FENCE all hung the same way.
 # THE CURE: FENCE1 saves r14d at alpha beside its watermark and restores it at beta before the release (bb_match_fence1.cpp).
 # ARM 2: scripts/fixtures/pattern/arbno_then_fence_cursor_class.{sno,ref}, the class -- the stale cursor's wrong answers, ARBNO
-# through *P and through a literal, a FENCE body on the frame route (an alternation inside), and controls that never depended on
-# the cursor. RED on the parent of the cure (b1cde82b2): both fixtures HANG in m3 and m4; the class prints C1 no, C2 no, then hangs at C3.
+# reached through a literal, a FENCE body on the frame route (an alternation inside), and controls that never depended on the
+# cursor. NOT ARMED: *P (a stored ARBNO) left of the FENCE still hangs alone -- a FENCE after a deferred pattern whose thunk stays
+# live addresses its zls slots 144-16 bytes off (gdb: rsp falls 0x90 from defer alpha to fence alpha, the depth tracker counts
+# 16), its own row; inside this fixture that arm passed only because the misplaced stores fell on dead slots, so it is not here. RED on the parent of the cure (b1cde82b2): both fixtures HANG in m3 and m4; the class prints C1 no, C2 no, then hangs at C3.
 set -u
 here=$(cd "$(dirname "$0")" && pwd); W=$(cd "$here/.." && pwd); G=sno_arbno_literal_body_then_fence_terminates
 [ -x "$W/scrip" ] || { echo "GATE REFUSE(2) [$G]: no $W/scrip"; exit 2; }
