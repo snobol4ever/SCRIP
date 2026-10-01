@@ -58,8 +58,8 @@ static std::string bx_guts_scan(long t, long f, long e, long inr, long adv) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_breakx() {
     x86_begin();
-    if (_.op_pat_static && _.op_sval)
-        return x86("comment", "IR_MATCH_BREAKX defer")
+    return IF(_.op_pat_static && _.op_sval,
+               x86("comment", "IR_MATCH_BREAKX defer")
              + x86_alpha()
              + x86("mov",   LFC(4), "r14d")
              + x86("sub",   "rsp", (long)16)
@@ -98,8 +98,9 @@ std::string bb_match_breakx() {
              + x86_gamma()
              + x86("def",   L(4))
              + x86("mov",   "r14d", LFC(4))
-             + x86_omega();
-    return (_.op_zres && _.op_sa >= 0)
+             + x86_omega())
+         + IF(!(_.op_pat_static && _.op_sval),
+               (_.op_zres && _.op_sa >= 0)
          ? x86("comment", "IR_MATCH_BREAKX zd")
          + x86_alpha()
          + x86("mov",    LFC(4), "r14d")
@@ -170,5 +171,5 @@ std::string bb_match_breakx() {
          + x86_gamma()
          + x86("def",    L(4))
          + x86("mov",    "r14d", LFC(4))
-         + x86_omega();
+         + x86_omega());
 }
