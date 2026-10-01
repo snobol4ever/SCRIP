@@ -5,6 +5,7 @@
 # unnamed rewrite ever run (ceo, Lon: "find out why /tmp keeps filling and fix the root problem"). The witness rewrites,
 # writes, resets and reads back an unnamed text file in BOTH modes; the gate counts /tmp/scrip_pas_* before and after and
 # wants the count unchanged, and wants the program's answer, so a runtime that stopped creating the file cannot pass either.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; SCRIP="$ROOT/scrip"; RT="$ROOT/out"
 [ -x "$SCRIP" ] && [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSE(2): no ./scrip or out/libscrip_rt.so -- build first"; exit 2; }

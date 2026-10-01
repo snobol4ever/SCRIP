@@ -18,6 +18,7 @@
 #   (d) NO MAP IS READ: the census finds 0 DT_MAP cells at every dumped collection -- RED until L3 deletes the maps and the scan
 # REPORTED in make test (the leading -) until the row's last layer: a red here is the row's distance to done, printed by class and by
 # the most frequent (frame, offset, kind) of the dumped units, so each layer's landing reads its own effect.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; SCRIP="$ROOT/scrip"; RT="$ROOT/out"; CORPUS="$(cd "$ROOT/../corpus" 2>/dev/null && pwd)"
 NAME=test_gate_gc_one_stack_the_walker_sweeps_tagged_cells

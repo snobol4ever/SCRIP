@@ -8,6 +8,7 @@
 # SCRIP's non-ASCII identifier letters are KEPT (Lon 2026-09-28: "keep the extension"; src/parsers/snobol4/unicode_alpha_ranges.h): an
 # expression holding a byte >= 0x80 outside a literal is graded as valid whatever sbl -bf says, so both parsers must accept it alike.
 # rc 0 all agree · rc 1 a disagreement not named as open · rc 2 cannot measure (no oracle, no scrip, empty deck).
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SCRIP="$HERE/../scrip"
 SBL="${SBL:-/home/resources/x64/bin/sbl}"

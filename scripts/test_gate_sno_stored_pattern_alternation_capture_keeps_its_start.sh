@@ -10,6 +10,7 @@
 # default is the spine road again, and the SCRIP_LEAF_FRAME switch is deleted (no env chooses a frame placement, RULES.md
 # ZETA TIER IS DERIVED; test_gate_no_zeta_frame_switches read it red). ARMS 1-2 grade the one road in both modes against
 # sbl -bf and BLOCK.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; SCRIP="$ROOT/scrip"; RT="$ROOT/out"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || true
