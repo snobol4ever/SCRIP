@@ -48,7 +48,7 @@ def main():
     a = ap.parse_args()
     asm = list(a.asm); tmp = None
     if a.files:
-        tmp = tempfile.mkdtemp()
+        tmp = tempfile.mkdtemp(prefix="gc_derived."); __import__("atexit").register(__import__("shutil").rmtree, tmp, True)
         for src in a.files:
             o = os.path.join(tmp, os.path.basename(src) + '.s')
             if subprocess.call([os.path.join(ROOT, 'scrip'), '--compile', '-o', o, src],

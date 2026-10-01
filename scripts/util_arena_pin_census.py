@@ -301,7 +301,7 @@ def selftest():
     if fail_once:
         global MB1
         MB1 = re.compile(r'SCRIP_HEAP_MB\s*=\s*"?\'?1"?\'?(?![0-9])')   # the narrow regex THAT SHIPPED, restored on purpose
-    d = tempfile.mkdtemp(prefix="arena_pin_selftest.")
+    d = tempfile.mkdtemp(prefix="arena_pin_selftest."); __import__("atexit").register(__import__("shutil").rmtree, d, True)
     for name, text, _ in SELFTEST_WITNESSES:
         open(os.path.join(d, name), "w", encoding="utf-8").write("#!/usr/bin/env bash\n" + text)
     try: _g, rows, ambiguous, mentions = scan(d)

@@ -4438,4 +4438,5 @@ def main():
 
 
 if __name__ == "__main__":
+    import signal as _sg; _sg.signal(_sg.SIGTERM, lambda *_: sys.exit(143)); _sg.signal(_sg.SIGHUP, lambda *_: sys.exit(129))
     main()

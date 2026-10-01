@@ -471,6 +471,7 @@ s4e_pid_live() { [ -n "${1:-}" ] && [ -n "${2:-}" ] && [ -d "/proc/$1" ] || retu
 # process that legitimately took it next -- worse than never locking, because it fails in the direction of
 # pretending the identity is free.
 s4e_pid_release() { local _f="$PO/$ME/.pid" _p _t
+    [ -n "${_cl_out:-}" ] && rm -f "$_cl_out"
     [ -f "$_f" ] || return 0; read -r _p _t _ < "$_f" 2>/dev/null || true
     [ "${_p:-}" = "$$" ] && rm -f "$_f"; return 0; }
 s4e_pid_arm() { trap 's4e_pid_release' EXIT; trap 's4e_pid_release; exit 130' INT; trap 's4e_pid_release; exit 143' TERM HUP; }

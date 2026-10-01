@@ -1932,7 +1932,7 @@ def selftest():
         print(("  ok    " if ok else "  FAIL  ") + label)
         if not ok:
             fails += 1
-    w = tempfile.mkdtemp(prefix="gc_census_selftest.")
+    w = tempfile.mkdtemp(prefix="gc_census_selftest."); __import__("atexit").register(__import__("shutil").rmtree, w, True)
     buf = []
     # THE FOURTH-SPECIES RULE, BOTH SHAPES PLANTED (cto 2026-09-22, CEO-1160): a guard ABOVE the call that lands
     # below the poll skips the PAIR and is WHOLE; a jump emitted BETWEEN the call and the poll is the PARTIAL shape.
@@ -2137,7 +2137,7 @@ def selftest():
        "makes the cto's sed round-trip visible, which a polled/unpolled count could not see at all")
     # ⛔ ITEM (iii): THE BUILD-CURRENCY REFUSAL, exercised through main() against a FABRICATED root, so the arm is
     # hermetic and never touches this tree's own mtimes.  rc=2 is "could not measure", never red and never green.
-    fake = tempfile.mkdtemp(prefix="gc_census_stale.")
+    fake = tempfile.mkdtemp(prefix="gc_census_stale."); __import__("atexit").register(__import__("shutil").rmtree, fake, True)
     os.makedirs(os.path.join(fake, "scripts")); os.makedirs(os.path.join(fake, "src")); os.makedirs(os.path.join(fake, "out"))
     import shutil
     shutil.copy(os.path.join(ROOT, "scripts", "lib_build_currency.sh"), os.path.join(fake, "scripts"))
@@ -2461,7 +2461,7 @@ def main(argv):
         elif c == "coverage":
             prog = a.witness
             if not prog:
-                prog = os.path.join(tempfile.mkdtemp(prefix="gc_cov."), "w.sno")
+                _covd = tempfile.mkdtemp(prefix="gc_cov."); __import__("atexit").register(__import__("shutil").rmtree, _covd, True); prog = os.path.join(_covd, "w.sno")
                 open(prog, "w").write("        T = TABLE()\n        I = 0\nLOOP    I = I + 1\n        T[I] = DUPL('x', I) 'y' I\n        S = S T[I]\n        LT(I, 300)   :S(LOOP)\n        OUTPUT = SIZE(S)\nEND\n")
             rcs.append(census_coverage(scrip, prog))
         elif c == "callbacks":

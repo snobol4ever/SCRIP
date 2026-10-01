@@ -106,7 +106,13 @@ port_trace_main() {
       if [ -n "$ONLY" ]; then [ "$nn" -eq "$ONLY" ] && kept="$kept $o"; else [ "$nn" -le "$TO" ] && kept="$kept $o"; fi; done; origins="$kept"
     # ⛔ AN EMPTY SELECTION IS UNMEASURED, NEVER A PASS -- a rung with no witness must refuse exactly as the ladder runner does.
     [ -n "${origins// /}" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no ladder origins $SELDESC in $RUNGS_DIR/ALL.csv"; gate_stamp; exit 2; }; fi
-  W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
+  W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; trap 'rm -rf "$W"; exit 143' TERM; trap 'rm -rf "$W"; exit 130' INT; trap 'rm -rf "$W"; exit 129' HUP
+  # ⛔⭐ THE WORK DIR IS RELEASED PER ORIGIN, NOT PER RUN (ceo 2026-10-01, Lon: "find out why /tmp keeps filling and fix the root
+  # problem"): every origin leaves two asm files, two objects, two linked binaries and six outputs, and a master of ~2000 entries
+  # held 3.7 GB in one $W until the run ended -- several seats' sets in flight filled a 63 GB /tmp to 90%. Only the normalised
+  # trace and a diff survive an origin; and a TERM/INT/HUP (an arm timeout, a seat's kill) now runs the release too, since bash
+  # does not run an EXIT trap when a signal it does not trap kills it -- the 10:00 runs left 6 GB that way.
+  porttrace_release() { rm -f "$W/$1.s0" "$W/$1.s0b" "$W/$1.s1" "$W/$1.s0.o" "$W/$1.s1.o" "$W/$1.bin0" "$W/$1.bin1" "$W/$1.m3.out0" "$W/$1.m3.out1" "$W/$1.m4.out0" "$W/$1.m4.out1" "$W/$1.m3.raw" "$W/$1.m4.raw" "$W/$1.cc.err"; }
   # ⛔⭐⭐ THE SOURCE FILENAME IS NORMALISED OUT, AND WITHOUT IT A SELF-PIN CANNOT BE RE-CUT AT ALL
   # (hq_T 2026-09-13, on hq_S's ask; reproduced here before landing). The SNO$STMT/stmt_mark startup
   # preamble minted at lower_snobol4.c:927 carries THE SOURCE FILE NAME as a lit_string operand, so
@@ -171,6 +177,7 @@ port_trace_main() {
       bad=$((bad+1)); ccmsg="$(grep -v '^$' "$W/$o.cc.err" | head -1 | cut -c1-140)"
       if [ "$crc" -eq 124 ]; then lines+=("$(printf '%-40s REFUSES AT COMPILE TIME: --compile did not finish within %ss (rc=124) -- nothing was emitted, so there is nothing to trace: a red witness, not a tracer that is not firing' "$o" "$T")")
       else lines+=("$(printf '%-40s REFUSES AT COMPILE TIME (--compile rc=%s: %s) -- nothing was emitted, so there is nothing to trace: a red witness (cure the refusal, or move it out of the graded population with a named reason), not a tracer that is not firing; neither mode is measured for it' "$o" "$crc" "${ccmsg:-no diagnostic on stderr}")"); fi
+      porttrace_release "$o"
       continue
     fi
     (cd "$W" && env "$PORT_TRACE_ENV=1" timeout "$T" "$SCRIP" --compile -o "$o.s1" "$srcbn" </dev/null >/dev/null 2>&1)
@@ -233,6 +240,7 @@ port_trace_main() {
     done
     lines+=("$(printf '%-40s killswitch=%-4s perturb m3=%-4s m4=%-7s trace m3=%-22s m4=%-22s answer=%s' "$o" "$ks" "$pert3" "$pert4" "$tr3" "$tr4" "$ans")")
     for m in m3 m4; do [ -f "$W/$o.$m.diff" ] && lines+=("$(cat "$W/$o.$m.diff")"); done
+    porttrace_release "$o"
   done
   printf '%s\n' "${lines[@]}"
   if [ "$CUT" = 1 ]; then

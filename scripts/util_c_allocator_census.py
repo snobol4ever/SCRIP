@@ -1066,7 +1066,7 @@ def selftest():
         print(("  ok    " if ok else "  FAIL  ") + label)
         if not ok:
             fails += 1
-    w = tempfile.mkdtemp(prefix="c_alloc_census.")
+    w = tempfile.mkdtemp(prefix="c_alloc_census."); __import__("atexit").register(__import__("shutil").rmtree, w, True)
     sd = os.path.join(w, "src", "runtime"); os.makedirs(sd)
     ld = os.path.join(w, "src", "lower"); os.makedirs(ld)
     gd = os.path.join(w, "src", "runtime", "rt"); os.makedirs(gd)
@@ -1153,11 +1153,11 @@ def selftest():
     ck("MMAP-OUTSIDE-GC_HEAP=1" in j and "src/lower/elsewhere.c" in j,
        "mmap in gc_heap.c is the collector's own bookkeeping and passes; mmap elsewhere is NAMED, not silently allowed")
 
-    empty = tempfile.mkdtemp(prefix="c_alloc_empty.")
+    empty = tempfile.mkdtemp(prefix="c_alloc_empty."); __import__("atexit").register(__import__("shutil").rmtree, empty, True)
     buf.clear(); rc = census(empty, out=buf.append)
     ck(rc == 2 and "REFUSED(2)" in "\n".join(buf), "a tree with no source files REFUSES rc=2 -- it does not report a clean zero")
 
-    vac = tempfile.mkdtemp(prefix="c_alloc_vac."); os.makedirs(os.path.join(vac, "src"))
+    vac = tempfile.mkdtemp(prefix="c_alloc_vac."); __import__("atexit").register(__import__("shutil").rmtree, vac, True); os.makedirs(os.path.join(vac, "src"))
     open(os.path.join(vac, "src", "a.c"), "w").write("int main(void){return 0;}\n")
     buf.clear(); rc = census(vac, out=buf.append)
     ck(rc == 2 and "A vacuous zero is not a pass" in "\n".join(buf),
@@ -1295,7 +1295,7 @@ def selftest():
     # because the reader's whole job is to NOT read zero over a population it never opened -- so it is planted
     # with a real git checkout carrying a malloc outside src/, and separately with a root that is not a checkout
     # at all, and both answers are asserted.  An instrument added to cure a vacuous population must not ship one.
-    gw = tempfile.mkdtemp(prefix="c_alloc_git.")
+    gw = tempfile.mkdtemp(prefix="c_alloc_git."); __import__("atexit").register(__import__("shutil").rmtree, gw, True)
     os.makedirs(os.path.join(gw, "src", "runtime"))
     os.makedirs(os.path.join(gw, "tools"))
     open(os.path.join(gw, "src", "runtime", "ok.c"), "w").write("void *f(void){ return ct_alloc(8); }\n")
@@ -1309,7 +1309,8 @@ def selftest():
     n_out, hits_out = tracked_sources_outside_src(gw)
     ck(n_out == 1 and len(hits_out) == 1 and hits_out[0][0] == "tools/outside.c",
        "A TRACKED malloc OUTSIDE src/ IS FOUND AND NAMED -- the population Lon's acceptance test greps is the source base, and a census scoped to src/ reads ZERO over it while his grep does not")
-    n_na, _ = tracked_sources_outside_src(tempfile.mkdtemp(prefix="c_alloc_nogit."))
+    _nogit = tempfile.mkdtemp(prefix="c_alloc_nogit."); __import__("atexit").register(__import__("shutil").rmtree, _nogit, True)
+    n_na, _ = tracked_sources_outside_src(_nogit)
     ck(n_na == -1,
        "and a root that is NOT a git checkout answers NOT-APPLICABLE rather than refusing -- a fixture tree has no tracked source base to be missing, and refusing there would make every hermetic fixture unmeasurable to prove a point about the real tree")
 

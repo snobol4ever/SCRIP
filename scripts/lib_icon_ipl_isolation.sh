@@ -47,7 +47,7 @@ ipl_isolation_init() {
   done
 }
 
-ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEMPLATE"; }
+ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEMPLATE"; [ -n "${IPL_ISO_BASELINE:-}" ] && rm -f "$IPL_ISO_BASELINE"; return 0; }
 
 # ⛔⭐ THE CWD SUBDIRECTORY IS A PARAMETER, defaulting to progs/ (hq_I 2026-09-06, CEO-316). ipl refs
 # are no longer progs-only: gprogs/ now carries .ref files too, and this helper hardcoded BOTH the cwd
@@ -214,7 +214,7 @@ ipl_isolation_verify_clean() {
     changed="$(grep -v '^?? .*\.ref$' "$now")"
     scope="against HEAD -- NO BASELINE WAS CAPTURED, so a fixture that was already untracked before this run reads as a breach here; call ipl_isolation_baseline before the first program runs to get the real answer"
   fi
-  rm -f "$now"
+  rm -f "$now"; [ -n "${IPL_ISO_BASELINE:-}" ] && { rm -f "$IPL_ISO_BASELINE"; IPL_ISO_BASELINE=""; }
   [ -z "$changed" ] && return 0
   echo "⛔⛔⛔ THE TRACKED IPL TREE CHANGED DURING THIS RUN ($scope) -- isolation was breached, investigate before trusting anything above ⛔⛔⛔" >&2
   printf '%s\n' "$changed" | head -20 >&2

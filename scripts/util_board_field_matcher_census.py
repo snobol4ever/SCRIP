@@ -223,7 +223,7 @@ def selftest():
        "classify: a presence-only matcher names no field and is not in either population")
     ck(classify("total=2", names, suffixes)[1] == "SINGLE",
        "classify: one field is identity already -- nothing to anchor against")
-    w = tempfile.mkdtemp(prefix="board_matcher_census.")
+    w = tempfile.mkdtemp(prefix="board_matcher_census."); __import__("atexit").register(__import__("shutil").rmtree, w, True)
     f1 = os.path.join(w, "t.sh")
     open(f1, "w").write("echo \"SUITE_BOARD total=2 m3_n=2\"\n"
                         "grep -q '^SUITE_BOARD total=2 m3_n=2 ' <<<\"$out\"\n")

@@ -634,7 +634,7 @@ def main(argv):
         import tempfile, glob
         limit = 0
         if "--limit" in argv: limit = int(argv[argv.index("--limit") + 1])
-        d = tempfile.mkdtemp()
+        d = tempfile.mkdtemp(prefix="gc_callee_saved."); __import__("atexit").register(__import__("shutil").rmtree, d, True)
         srcs = []
         for ext in ("sno", "sc", "icn", "pl", "reb", "raku", "pas"):
             srcs += sorted(glob.glob(os.path.join(ROOT, "..", "corpus", "benchmarks", "*", "*." + ext)))
@@ -665,7 +665,7 @@ def selftest():
         ok[1] += 1
         if c: ok[0] += 1
         else: print(f"  SELFTEST RED: {what}")
-    d = tempfile.mkdtemp()
+    d = tempfile.mkdtemp(prefix="gc_callee_saved_selftest."); __import__("atexit").register(__import__("shutil").rmtree, d, True)
     p = os.path.join(d, "t.s")
     open(p, "w").write(
         " .text\n"

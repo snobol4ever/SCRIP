@@ -203,7 +203,7 @@ def selftest():
        "the gate, never in the generated text")
     ck(render(sorted(rows), "x.so") == render(sorted(rows, reverse=True) and sorted(rows), "x.so"),
        "the rendering is a pure function of the sorted rows -- a regenerated table cannot differ by ordering alone")
-    d = tempfile.mkdtemp()
+    d = tempfile.mkdtemp(prefix="gc_allocating_selftest."); __import__("atexit").register(__import__("shutil").rmtree, d, True)
     p = os.path.join(d, "t.inc"); open(p, "w").write(txt)
     ck(open(p).read() == txt, "a written table reads back byte-identical, which is what --check compares")
     planted = txt.replace('{ "c_other", GC_RET_OTHER },\n', "")

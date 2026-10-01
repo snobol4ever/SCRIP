@@ -4579,6 +4579,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         } else {
             char tmpl[] = "/tmp/scrip_pas_XXXXXX";
             int fd = mkstemp(tmpl);
+            if (fd >= 0) unlink(tmpl);
             fp = (fd >= 0) ? fdopen(fd, "w+") : (FILE *)0;
         }
         if (!fp) { *out = FAILDESCR; return 1; }
@@ -4721,7 +4722,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             if (!fp) { const char *nm = IS_FH_fn(args[0]) ? (const char *)0 : VARVAL_fn(args[0]);
                 if ((!nm || !nm[0]) && nargs == 2) nm = VARVAL_fn(args[1]);
                 if (nm && nm[0]) fp = fopen(nm, "w+b");
-                else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
+                else { char tmpl[] = "/tmp/scrip_pas_XXXXXX"; int fd = mkstemp(tmpl); if (fd >= 0) unlink(tmpl); fp = (fd >= 0) ? fdopen(fd, "w+b") : (FILE *)0; }
                 if (!fp) { *out = FAILDESCR; return 1; }
                 idx = fh_alloc(fp); if (idx < 0) { fclose(fp); *out = FAILDESCR; return 1; } }
             if (idx >= 0) pas_tf_set(idx, INTVAL(0), 0, 1);

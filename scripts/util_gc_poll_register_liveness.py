@@ -325,7 +325,7 @@ def grade_asm(text, regs, budget=WALK_BUDGET, hops=2):
 
 def emit_asm(prog_path, scrip=None):
     scrip = scrip or os.path.join(ROOT, "scrip")
-    fd, out = tempfile.mkstemp(suffix=".s")
+    fd, out = tempfile.mkstemp(suffix=".s"); __import__("atexit").register(lambda p=out: os.path.exists(p) and os.unlink(p))
     os.close(fd)
     r = subprocess.run([scrip, "--compile", "-o", out, prog_path], stdin=subprocess.DEVNULL,
                        capture_output=True, text=True, timeout=120)

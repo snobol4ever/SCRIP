@@ -205,7 +205,7 @@ def report(d, sites, defs, tables, exempt, stale, top, baseline):
 
 
 def selftest():
-    d = tempfile.mkdtemp(prefix="delim_census_selftest.")
+    d = tempfile.mkdtemp(prefix="delim_census_selftest."); __import__("atexit").register(__import__("shutil").rmtree, d, True)
     src = os.path.join(d, "src"); os.makedirs(os.path.join(src, "runtime")); os.makedirs(os.path.join(src, "parsers", "pascal")); os.makedirs(os.path.join(src, "templates", "x86"))
     with open(os.path.join(src, "runtime", "by_name_dispatch.c"), "w") as f:
         f.write("#define SOH '\\x01'\n"

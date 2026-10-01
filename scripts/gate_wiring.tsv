@@ -444,6 +444,7 @@ test_gate_pas_an_if_while_or_until_condition_must_be_boolean.sh	WIRED	-	-	-
 test_gate_pas_an_index_outside_its_type_is_a_diagnosed_error.sh	WIRED	-	-	-
 test_gate_pas_an_ordinal_function_never_takes_a_real.sh	WIRED	-	-	-
 test_gate_pas_an_ordinal_function_result_exists_in_its_type.sh	WIRED	-	-	-
+test_gate_pas_an_unnamed_file_leaves_no_tmp_entry.sh	WIRED	-	-	-
 test_gate_pas_and_or_short_circuit_as_the_oracle_does.sh	WIRED	-	-	-
 test_gate_pas_array_field_elements_keep_their_declared_width.sh	WIRED	-	-	-
 test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
@@ -785,6 +786,7 @@ test_gate_term_wordref_ratchet.sh	WIRED	-	-	-
 test_gate_testpgms_grades_a_spitbol_post_mortem_through_the_one_error_voice.sh	WIRED	-	-	-
 test_gate_the_default_stack_and_heap_are_spitbols.sh	WIRED	-	-	-
 test_gate_the_tiny_open_protocol_and_its_glue_record_agree.sh	WIRED	-	-	-
+test_gate_tmp_scratch_is_released.sh	WIRED	-	-	-
 test_gate_triangulate_parsers_read_only_the_first_grid.sh	WIRED	-	-	-
 test_gate_two_region.sh	WIRED	-	-	-
 test_gate_umbrella_done_whens_anchor_on_the_board_line.sh	WIRED	-	-	-

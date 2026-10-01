@@ -187,7 +187,7 @@ def selftest():
         if not ok:
             fails += 1
 
-    w = tempfile.mkdtemp(prefix="suite_pop_diff.")
+    w = tempfile.mkdtemp(prefix="suite_pop_diff."); __import__("atexit").register(__import__("shutil").rmtree, w, True)
 
     def put(name, text):
         p = os.path.join(w, name)
