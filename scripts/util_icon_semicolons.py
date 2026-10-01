@@ -9,7 +9,7 @@
 #   still refuses for another reason (named), 2 no parser binary. --check rewrites nothing and reports what it would add.
 import os, re, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE); PARSER = os.path.join(ROOT, 'out', 'parser_icon')
-ERR = re.compile(r"expected ';' after the token at line (\d+) col (\d+)")
+ERR = re.compile(r"expected ';'.*?after the token at line (\d+) col (\d+)")
 def token_end(line, col):
     i = col - 1
     if i >= len(line): return len(line)

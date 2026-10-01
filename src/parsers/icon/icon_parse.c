@@ -30,6 +30,7 @@ static void parser_error(IcnParser *p, const char *msg) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void case_sep(IcnParser *p);
 static IcnToken advance(IcnParser *p) {
     p->prev_kind = p->cur.kind; p->tb_line = p->cur.line; p->tb_col = p->cur.col;
     p->cur  = p->peek;
@@ -673,18 +674,25 @@ static tree_t *parse_ctrl(IcnParser *p) {
                 if (ndflt++) parser_error(p, "case default: duplicate default clause");
                 push_child(e, ast_node_new(TT_NUL));
                 push_child(e, parse_expr(p));
-                if (match(p, TK_SEMICOL) && check(p, TK_RBRACE)) parser_error(p, "case body: a semicolon separates case clauses and may not follow the last one");
+                case_sep(p);
                 continue;
             }
             push_child(e, parse_expr(p));
             expect(p, TK_COLON, "case clause");
             push_child(e, parse_expr(p));
-            if (match(p, TK_SEMICOL) && check(p, TK_RBRACE)) parser_error(p, "case body: a semicolon separates case clauses and may not follow the last one");
+            case_sep(p);
         }
         expect(p, TK_RBRACE, "case body end");
         return e;
     }
     return parse_and(p);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void case_sep(IcnParser *p) {
+    if (check(p, TK_RBRACE)) return;
+    if (match(p, TK_SEMICOL)) { if (check(p, TK_RBRACE)) parser_error(p, "case body: a semicolon separates case clauses and may not follow the last one"); return; }
+    char m[256]; snprintf(m, sizeof m, "case body: expected ';' between case clauses after the token at line %d col %d (SCRIP Icon: a newline is whitespace)", p->tb_line, p->tb_col);
+    parser_error(p, m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *parse_block_or_expr(IcnParser *p) {

@@ -311,13 +311,14 @@ Expr11tail  = ( epsilon . *PushCounter() *$'(' *CallArgs *$')' . *Reduce('TT_FNC
 /* the blanks inside a case take the greedy form too: each clause sits in a FENCE, so a shortest-first  */
 /* CaseGray that stopped before ` ;` could never be re-entered to take it                                */
 CaseGray     = (*White | epsilon);
-CaseClause   = ( *CaseGray *Expr *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() . *IncCounter() );
-CaseDefault  = ( *CaseGray *$'default' . *Reduce('TT_NUL', 0) . *IncCounter() *CaseGray *$':' *Expr *CaseGray *semi_opt . *IncCounter() );
+CaseClause   = ( *CaseGray *Expr *CaseGray *$':' *Expr *CaseGray . *IncCounter() . *IncCounter() );
+CaseDefault  = ( *CaseGray *$'default' . *Reduce('TT_NUL', 0) . *IncCounter() *CaseGray *$':' *Expr *CaseGray . *IncCounter() );
+CaseItem     = FENCE(*CaseDefault | *CaseClause);
 Case         = ( *$'case' *Case_rest );
 Case_rest        = ( epsilon . *PushCounter()
                   *$' ' *Expr  . *IncCounter()
                  *$'of' *CaseGray *$'{' *CaseGray
-                 ARBNO( FENCE(*CaseDefault | *CaseClause) )
+                 FENCE( *CaseItem ARBNO( *$';' *CaseItem ) | epsilon )
                  *CaseGray *$'}'
                  . *Reduce('TT_CASE', nTop())
                  . *PopCounter()
