@@ -235,7 +235,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
                                   "them in one slot. ⛔ ZEROED HERE BECAUSE A CARVE IS NOT AN INITIALISATION: the bytes are whatever the C stack left, and the runtime reads a "
                                   "NULL cell as \"this predicate has no store yet\" -- an unzeroed cell is a garbage pointer the first assertz would follow.")
                  + pl_standing_cells_zero(kt, g_emit_cfg->standing_cells))
-         + x86("lea", "rax", RDQ("rsp", kt))
+         + x86("lea", "rax", RDQ("rsp", kt)) + x86_raw_pack("rax")
              + x86("mov", RDQ("rsp", kt - 32), "rax")
              + x86("mov", RDQ("rsp", kt - 40), "r13")
              + x86("mov", RDQ("rsp", kt - 48), 0L)

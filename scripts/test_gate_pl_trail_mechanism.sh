@@ -37,9 +37,9 @@ static DESCR_t ival(long long i) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_
 static DESCR_t sval(const char *s) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_S; d.slen = (uint32_t)strlen(s); d.s = (char *)s; return d; }
 static char hdr_older[64], hdr_young[64];
 /* RUNG 3: B no longer implies its own threshold. A binder logs a cell at or above F.HI, the WORD at [B+32] that the
-   pinned prologue seeds to the frame top and a disjunction lowers while a branch is untried -- so a synthetic B here
-   must carry a synthetic header, exactly as a real frame does. */
-static char *synth_b(char *hdr, void *hi) { memset(hdr, 0, 64); *(char **)(hdr + PL_TR_FRAME_HI_OFF) = (char *)hi; return hdr; }
+   pinned prologue seeds to the frame top and a disjunction lowers while a branch is untried, stored packed as
+   (bound << 8) | DT_RAW (pl_tr_frame_hi_set) -- so a synthetic B here must carry a synthetic header, exactly as a real frame does. */
+static char *synth_b(char *hdr, void *hi) { memset(hdr, 0, 64); pl_tr_frame_hi_set(hdr, hi); return hdr; }
 static int fails = 0;
 #define CHECK(c, msg) do { if (c) printf("  ok   %s\n", msg); else { printf("  FAIL %s\n", msg); fails++; } } while (0)
 int main(void) {
@@ -62,7 +62,7 @@ int main(void) {
       CHECK(cx.tr == before && cells[1].v == DT_SNUL, "unwind restores the cell to unbound and pops the entry"); }
     { DESCR_t young; memset(&young, 0, sizeof young); cx.b = synth_b(hdr_young, (char *)&young + 16); DESCR_t a[2]; a[0] = nametrap(&young); a[1] = ival(9); char *before = cx.tr; rt_pl_dop_unify_c(a, 2, &cx);
       CHECK(young.v == DT_I && cx.tr == before, "a cell younger than the youngest choice is bound but NOT logged");
-      memset(&young, 0, sizeof young); *(char **)(hdr_young + PL_TR_FRAME_HI_OFF) = (char *)&young;
+      memset(&young, 0, sizeof young); pl_tr_frame_hi_set(hdr_young, &young);
       { DESCR_t b2[2]; b2[0] = nametrap(&young); b2[1] = ival(9); char *bf2 = cx.tr; rt_pl_dop_unify_c(b2, 2, &cx);
         CHECK(young.v == DT_I && cx.tr == bf2 + PL_TR_ENTRY_BYTES, "rung 3: the SAME cell IS logged once F.HI at [B+32] is lowered onto it (a disjunction opening a choice inside the frame)");
         cx.tr = rt_pl_tr_unwind_to(cx.tr, bf2); }

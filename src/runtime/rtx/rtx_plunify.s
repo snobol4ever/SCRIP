@@ -106,6 +106,8 @@ RTX_FUNC(rt_pl_dop_ball_pending)
     RTX_CTAIL(rt_pl_dop_ball_pending_c)
 RTX_ENDF(rt_pl_dop_ball_pending)
 RTX_FUNC(rt_pl_disj_open)
+    shl     rsi, 8
+    or      rsi, DT_RAW
     mov     qword ptr [rdi + 32], rsi
     test    r13, r13
     jz      .Ldo_take

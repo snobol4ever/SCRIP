@@ -19,10 +19,13 @@ char *rt_pl_tr_unwind_to(char *tr, char *mark);
 static inline char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)tr & ~(PL_TR_ARENA_BYTES - 1)); }
 static inline void **pl_tr_ball_slot(const char *base) { return (void **)((char *)base + PL_TR_BALL_OFF); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline uintptr_t pl_tr_frame_hi(const char *b) { return *(const uintptr_t *)(b + PL_TR_FRAME_HI_OFF) >> 8; }
+static inline void pl_tr_frame_hi_set(char *b, const void *hi) { *(uintptr_t *)(b + PL_TR_FRAME_HI_OFF) = ((uintptr_t)hi << 8) | DT_RAW; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int pl_tr_needs_log(const pl_tr_ctx_t *cx, const DESCR_t *cell, const char *floor_) {
     if (!cx || !cx->b) return 0;
     if ((const char *)cell <= floor_) return 1;
-    return (const char *)cell >= *(const char * const *)(cx->b + PL_TR_FRAME_HI_OFF);
+    return (uintptr_t)cell >= pl_tr_frame_hi(cx->b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {

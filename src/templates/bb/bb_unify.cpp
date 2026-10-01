@@ -16,7 +16,7 @@ int bb_slot_get(IR_t * nd);
 #include "x86_asm.h"
 static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "pl_bind_rdi spells the trail entry size as a literal");
 static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "pl_bind_rdi spells the trail arena mask as a literal");
-static_assert(PL_TR_FRAME_HI_OFF == 32, "pl_bind_rdi reads the youngest choice's frame top at [B + 32]");
+static_assert(PL_TR_FRAME_HI_OFF == 32, "pl_bind_rdi reads the youngest choice's frame bound at [B + 32], stored packed as (bound << 8) | DT_RAW");
 static_assert(offsetof(pl_tr_entry_t, cell) == 0 && offsetof(pl_tr_entry_t, pad) == 8 && offsetof(pl_tr_entry_t, old) == 16, "pl_bind_rdi writes the trail entry as {cell, pad, old}");
 static_assert(offsetof(VCELL_t, cellp) == 0, "pl_deref_rdi follows a DT_N slen 2 name through the VCELL's first word");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -63,7 +63,7 @@ static std::string pl_trail_rdi(int lstore, int lrefuse) {
          + x86("jz", L(lstore))
          + x86("cmp", "rdi", "rsp")
          + x86("jbe", L(lstore + 1))
-         + x86("mov", "rax", RDQ("r13", PL_TR_FRAME_HI_OFF))
+         + x86("mov", "rax", RDQ("r13", PL_TR_FRAME_HI_OFF)) + x86_raw_unpack("rax")
          + x86("cmp", "rdi", "rax")
          + x86("jb", L(lstore))
          + x86("def", L(lstore + 1))
