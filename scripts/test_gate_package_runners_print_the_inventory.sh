@@ -765,7 +765,12 @@ fi
 # (icont -s ... -x), special/keyboard.mask covers the two Quit-timing traceback lines (L28/L32, OS-scheduling-dependent, proven stable over
 # 16 driver runs). The data the pin was taken over was emptied by the grading work, not by a wording edit. It re-enters with its next
 # declared row. Nine pinned.
-PKGINV_PINNED="icon/ipl pascal/pat prolog/gnu_prolog prolog/logtalk_iso prolog/swi_tests snobol4/csnobol4_suite snobol4/dotnet snobol4/gimpel snobol4/snoflake_suite"
+# ⭐ RE-PINNED 2026-10-02 (the coo, the same reading again): snobol4/gimpel LEAVES the set -- its UNGRADABLE.tsv and UNGRADED.tsv declare
+# zero rows since corpus f2ae706da (the ceo, CEO-1412: sbl -bf answers all 145 drivers, balx and floorcei given drivers, refs cut for the 29
+# drivers that had none; the Gimpel board reads scored=145 unscr=0 OUTSIDE 0). The data the pin was taken over was emptied by the grading work,
+# not by a wording edit; this arm read red in the coo's blocking set at 7ff503611 from that landing until this one. It re-enters with its next
+# declared row. Eight pinned.
+PKGINV_PINNED="icon/ipl pascal/pat prolog/gnu_prolog prolog/logtalk_iso prolog/swi_tests snobol4/csnobol4_suite snobol4/dotnet snobol4/snoflake_suite"
 _a20_bad=""; _a20_work=""; _a20_gain=""; _a20_n=0; _a20_empty=""; _a20_graded=0
 for _sd in $(find "$PKGINV_CORPUS/packages" -maxdepth 3 \( -name UNGRADABLE.tsv -o -name UNGRADED.tsv \) 2>/dev/null \
              | while IFS= read -r _f; do dirname "$_f"; done | sort -u); do
