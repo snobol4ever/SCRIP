@@ -18,6 +18,11 @@
 #   4    MONITOR: the witness agrees with the SPITBOL fork event for event to its end (DIVERGE=0); a monitor refusal is this arm's
 #        FAIL when an earlier arm already failed (the pre-cure error cascade is itself what makes the witness not monitor-safe)
 #   5    CONTROL: a CODE-built function calling a DEFINEd function through the zd arm, as before
+# ⛔ ARM 4 SKIPS VALUE EVENTS ON THE THREE RESERVED CONSTANTS (cto 2026-10-02, ceo CEO-1409): RULES.md FACT RULE (Lon 2026-09-29)
+# makes epsilon, NULL and null reserved constants, and SPITCORE's NULL predicate, built as NULL NULL = ?(...) through CODE, keeps its
+# right side as a bare statement and stores nothing -- the rule names this program. SPITBOL stores and reports VALUE NULL = '';
+# SCRIP by law does not, so without the skip the bracket stopped at step 2561 on a difference the law requires. The skip
+# (MONITOR_SKIP_VALUE_NAMES, both streams, cadence kept) drops only those three names; every other event is still compared.
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle, no aisnobol package, the monitor could not measure).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -u
@@ -62,7 +67,7 @@ rc=$(m3 ur); arm "m3: UNREAD(READ('(X Y)')) is the STRING (X Y)" "$(same "$rc" u
 rc=$( cd "$T" && timeout 60 "$SCRIP" --compile -o u.s ur.sno < /dev/null > /dev/null 2>&1 && gcc u.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o u.bin > /dev/null 2>&1 && timeout 20 ./u.bin < /dev/null > ur.m4 2>&1; echo $? )
 arm "m4: UNREAD(READ('(X Y)')) is the STRING (X Y)" "$(same "$rc" ur.m4 ur.oracle)"
 rc=$(m3 ur2); arm "m3: a nested list round-trips through READ and UNREAD" "$(same "$rc" ur2.m3 ur2.oracle)"
-mout=$( cd "$T" && S4E_HOME="$S4E" timeout 400 bash "$MON" "$T/ur.sno" --oracle 2>&1 ); mrc=$?
+mout=$( cd "$T" && MONITOR_SKIP_VALUE_NAMES=NULL,null,epsilon S4E_HOME="$S4E" timeout 400 bash "$MON" "$T/ur.sno" --oracle 2>&1 ); mrc=$?
 [ "$mrc" = 2 ] && [ "$fail" = 0 ] && refuse "the monitor could not measure: $(printf '%s\n' "$mout" | grep -m1 REFUSE | cut -c1-140)"
 arm "MONITOR: the witness agrees with the SPITBOL fork to its end" "$([ "$mrc" = 0 ] && printf '%s\n' "$mout" | grep -q 'DIVERGE=0' && echo ok || echo "rc=$mrc: $(printf '%s\n' "$mout" | grep -aE '^\| \*\*>' | head -1 | cut -c1-150)")"
 rc=$(m3 ctl); arm "CONTROL: a CODE-built function calling a DEFINEd function" "$(same "$rc" ctl.m3 ctl.oracle)"
