@@ -10,6 +10,7 @@
 #include <ctype.h>
 extern void *rt_wsb_alloc(size_t);
 extern int rt_pl_double_quotes_mode(void);
+extern void rt_pl_double_quotes_set(const char *);
 typedef struct {
     int active;
     int taken;
@@ -1061,7 +1062,8 @@ static void dq_directive(Parser *p, const tree_t *goal) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval || strcmp(goal->v.sval, "set_prolog_flag") || goal->n != 2) return;
     const tree_t *f = goal->c[0], *v = goal->c[1];
     if (!f || !v || f->t != TT_QLIT || v->t != TT_QLIT || !f->v.sval || !v->v.sval || strcmp(f->v.sval, "double_quotes")) return;
-    if (!strcmp(v->v.sval, "atom")) p->dq = 0; else if (!strcmp(v->v.sval, "chars")) p->dq = 1; else if (!strcmp(v->v.sval, "codes")) p->dq = 2;
+    if (!strcmp(v->v.sval, "atom") || !strcmp(v->v.sval, "string")) p->dq = 0; else if (!strcmp(v->v.sval, "chars")) p->dq = 1; else if (!strcmp(v->v.sval, "codes")) p->dq = 2; else return;
+    rt_pl_double_quotes_set(v->v.sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void iso_directive(Parser *p, const tree_t *goal) {

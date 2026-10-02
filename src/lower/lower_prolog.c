@@ -374,12 +374,6 @@ static int pl_flag_directive_is_advisory(const tree_t * subj) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_flag_directive_is_default(const tree_t * subj) {
-    const tree_t * f = subj->c[0]; const tree_t * v = subj->c[1];
-    if (!f || !v || !(f->t == TT_QLIT || f->t == TT_NAME) || !(v->t == TT_QLIT || v->t == TT_NAME) || !f->v.sval || !v->v.sval) return 0;
-    return !strcmp(f->v.sval, "double_quotes") && !strcmp(v->v.sval, "string");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_cmp_op_suffix(const char * s) {
     if (!s) return NULL;
     if (!strcmp(s, "<")) return "lt"; if (!strcmp(s, ">")) return "gt"; if (!strcmp(s, "=<")) return "le";
@@ -2124,7 +2118,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { if (ninit < PL_INIT_GOALS_MAX) init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) subj, dvn, &dvc); continue; }
         { tree_t * dirgoal = (tree_t *) subj;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "set_prolog_flag") && subj->n == 2) {
-            if (pl_flag_directive_is_default(subj) || pl_flag_directive_is_advisory(subj)) continue;
+            if (pl_flag_directive_is_advisory(subj)) continue;
             dirgoal = pl_cc_fnc2("$set_prolog_flag_declare", subj->c[0], subj->c[1]); }
         if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = pl_dir_catch_wrap(dirgoal, dvn, &dvc); continue; }
     }

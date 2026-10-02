@@ -3763,7 +3763,8 @@ static const pl_flag_t pl_flags_init[] = {
     { "char_conversion", "off", 1, { "on", "off", 0 } },
     { "debug", "off", 1, { "on", "off", 0 } },
     { "unknown", "error", 1, { "error", "fail", "warning", 0 } },
-    { "double_quotes", "codes", 1, { "atom", "chars", "codes", 0 } },
+    { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string", 0 } },
+    { "protect_static_code", "true", 1, { "true", "false", 0 } },
     { "iso", "false", 1, { "true", "false", 0 } },
     { "encoding", "UTF-8", 1, { "UTF-8", 0 } },
     { "argv", "[]", 0, { 0 } },
@@ -3799,12 +3800,21 @@ static pl_flag_t * pl_flag_find_or_create(const char *nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_iso_mode(void) { pl_flag_t *fl = pl_flag_find("iso"); return fl && !strcmp(fl->val, "true"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_protect_static_code(void) { pl_flag_t *fl = pl_flag_find("protect_static_code"); return !fl || strcmp(fl->val, "false") != 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_double_quotes_mode(void) {
     pl_flag_t *fl = pl_flag_find("double_quotes");
     if (!fl) return 0;
     if (!strcmp(fl->val, "chars")) return 1;
     if (!strcmp(fl->val, "codes")) return 2;
     return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_pl_double_quotes_set(const char *v) {
+    pl_flag_t *fl = pl_flag_find("double_quotes"); int good = 0;
+    if (!fl || !v) return;
+    for (int i = 0; fl->ok[i]; i++) if (!strcmp(v, fl->ok[i])) good = 1;
+    if (good) snprintf(fl->val, sizeof fl->val, "%s", v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unknown_suppress(const char *key) {
@@ -9930,7 +9940,8 @@ static int pl_db_body_ill_typed(DESCR_t b) {
 static void *pl_db_static_ball(void *root, const char *op, const char *nm, int ar) {
     char key[264]; snprintf(key, sizeof key, "%s/%d", nm, ar);
     if (!pl_pi_is_control(nm, ar) && (rt_pl_db_key_is_dynamic(root, key) || !rt_proc_is_registered(key))) return (void *)0;
-    if (!strcmp(op, "clause")) return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar);
+    if (!strcmp(op, "clause")) { extern int rt_pl_protect_static_code(void); if (!pl_pi_is_control(nm, ar) && !rt_pl_protect_static_code()) return (void *)0;
+        return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar); }
     return rt_pl_ball_permission_pi("modify", "static_procedure", nm, ar);
 }
 static int pl_cell_is_clref(DESCR_t t) {
