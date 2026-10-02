@@ -71,7 +71,7 @@ EOF
 
 cat > "$TMP/hello.icn" << 'EOF'
 procedure main()
-    write("Hello, World!")
+    write("Hello, World!");
 end
 EOF
 
