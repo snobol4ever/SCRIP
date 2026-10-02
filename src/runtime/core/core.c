@@ -3530,7 +3530,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
     if (!name) return NULVCL;
     if (is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { NV_t *pe = _var_bucket_find(name); if (pe) pe->touched = 1; }
     if (name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0) && (name[0] != 'T' || strcmp(name, "TERMINAL") != 0)) { NV_t *e = _var_find_cached(name); if (e && !e->is_io) return e->is_gva ? *e->cell : e->val; }
-    if (strcmp(name, "INPUT") == 0) { extern int rt_kw_input_on(void); if (!rt_kw_input_on()) return NULVCL; return input_read(); }
+    if (strcmp(name, "INPUT") == 0) { extern int rt_kw_input_on(void); if (!rt_kw_input_on()) return NULVCL; DESCR_t r = input_read(); if (r.v != DT_FAIL) _var_assoc_set("_INPUT", r); return r; }
     if (strcmp(name, "TERMINAL") == 0) return terminal_read();
     if (strcmp(name, "OUTPUT") == 0) { NV_t *e = _var_bucket_find("_OUTPUT"); return e ? (e->is_gva ? *e->cell : e->val) : NULVCL; }
     _io_chan_setup();
