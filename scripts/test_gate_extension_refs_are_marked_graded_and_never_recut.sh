@@ -52,11 +52,12 @@ rc=$(run "$S")
 [ "$rc" = 2 ] && { echo "⛔ GATE REFUSE(2) [$GATE_NAME]: the harness refused the clean fixture:"; tail -5 "$T/run.out"; exit 2; }
 arm "run grades the extension entry" "rc=$rc $(graded)" "rc=0 m3_pass=2 m3_fail=0"
 arm "run prints the mark" "$(grep -c '^EXTENSION_REF ord_entry ref_oracle=csnobol4_bin feature=ORD' "$T/run.out") $(grep -oE '^EXTENSION_REF_COUNT [0-9]+' "$T/run.out")" "1 EXTENSION_REF_COUNT 1"
+arm "the board line carries extension=" "$(grep '^SUITE_BOARD ' "$T/run.out" | grep -oE '(^| )extension=[0-9]+' | sed 's/^ //')" "extension=1"
 
 # (3) fail-once: the pre-cure shape, the entry OUTSIDE and no ledger, grades one entry, not two
 P="$T/pre"; suite "$P" "65"; printf 'ord_entry\tORACLE_REFUSES\tsbl -bf ERROR 022\n' > "$P/ALL.outside.tsv"
 run "$P" >/dev/null
-arm "fail-once: OUTSIDE leaves the graded denominator" "$(graded)" "m3_pass=1 m3_fail=0"
+arm "fail-once: OUTSIDE leaves the graded denominator" "$(graded) $(grep '^SUITE_BOARD ' "$T/run.out" | grep -oE '(^| )extension=[0-9]+' | sed 's/^ //')" "m3_pass=1 m3_fail=0 extension=0"
 
 # (4) the refusals
 X="$T/stale"; cp -r "$S" "$X"; sed -i 's/^65$/66/' "$X/ALL.ref"

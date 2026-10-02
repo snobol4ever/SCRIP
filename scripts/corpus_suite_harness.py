@@ -3054,8 +3054,9 @@ def cmd_run(args):
         _out_run = []
         if not _outside_none:
             print("OUTSIDE_BASELINE_LIST NONE (no ALL.outside.tsv beside this suite, and --outside was not given)")
+    _ext_rows = {}
     if Path(args.sno).name.startswith("ALL."):
-        report_extension_refs(args.sno, _all_entries, set(outside))
+        _ext_rows = report_extension_refs(args.sno, _all_entries, set(outside))
     # ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): a suite row's single number states the entries green in
     # EVERY mode they were graded in -- never one mode alone, and never min(m3_pass, m4_pass), which is not a count
     # of anything: two entries, one red only in m3 and one red only in m4, give min()=1 while the AND is 0, so the
@@ -3152,6 +3153,9 @@ def cmd_run(args):
     # ⭐ <m>_fail_oom: how many of <m>_fail were a properly reported out-of-memory (CEO-1229 (2)) -- INSIDE fail, never beside it
     # (see _OOMK), and at the end of the line, after every field a reader already knows, so none meets a new one between two it knows.
     fields.append(" ".join(f"{m}_fail_oom={counts[m][_OOMK]}" for m in modes))
+    # ⭐ extension= (CEO-1416): the graded entries of THIS run whose ref an extension oracle cut, not the suite's -- counted over the
+    # run's own entries so shards sum to the ledger's count, last on the line so no reader meets it between two fields it knows.
+    fields.append(f"extension={sum(1 for e in run_entries if e.name in _ext_rows)}")
     _bin_unmoved_or_refuse()
     print("SUITE_BOARD " + " ".join(fields))
     # ⭐⭐ THE HARNESS LISTS EVERY OOM PROGRAM BY NAME (CEO-1229 (2): "so each one gets its heap declaration, or a leak cure if its

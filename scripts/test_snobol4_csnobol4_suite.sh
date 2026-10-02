@@ -302,7 +302,7 @@ TOTAL=0
 M3_PASS=0; M3_FAIL=0; M3_REJECT=0; M3_CRASH=0; M3_HANG=0; RED3=""
 M4_PASS=0; M4_FAIL=0; M4_REJECT=0; M4_CRASH=0; M4_HANG=0; RED4=""
 BOTH_PASS=0   # programs PASS in m3 AND m4 -- the suite table's reading (ceo-372), what util_score_row's --suite-pass names
-CSN_PASS=0; CSN_FAIL=0
+CSN_PASS=0; CSN_FAIL=0; CSN_EXT=0
 REGEN=0; REGEN_LIST=""
 EXCLUDED_LIST=""
 OUTSIDE_LIST=""; RECUT_OK=0; RECUT_OUT=0
@@ -394,6 +394,8 @@ for sno in "$SUITE"/*.sno; do
         M4_REJECT=$((M4_REJECT+1)); RED4="$RED4 $name(CC)"
     fi
 
+    # an EXTENSION program's ref was cut by the oracle its EXTENSIONS.tsv row names, so sbl is not asked to reproduce it (CEO-1416)
+    if is_extension "$name"; then CSN_EXT=$((CSN_EXT+1)); continue; fi
     gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$relprog" $xargs_extra < "$inp" 2>&1)"
     gotc="$(normalize "$name" "$gotc")"
     if [ "$gotc" = "$exp" ]; then CSN_PASS=$((CSN_PASS+1))
@@ -410,7 +412,7 @@ echo "── csnobol4_suite: $TOTAL pairs · SCRIP $SCRIP_HASH · corpus $CORP_H
 # binary guard is: a refusal that fires after the row is published is an annotation, not a refusal.
 GATE_NAME=test_snobol4_csnobol4_suite gate_tree_unmoved
 echo "CSNOBOL4_SUITE_BOARD total=$TOTAL m3_PASS=$M3_PASS m3_FAIL=$M3_FAIL m3_REJECT=$M3_REJECT m3_CRASH=$M3_CRASH m3_HANG=$M3_HANG m4_PASS=$M4_PASS m4_FAIL=$M4_FAIL m4_REJECT=$M4_REJECT m4_CRASH=$M4_CRASH m4_HANG=$M4_HANG"
-echo "sbl -bf re-read against the refs (staleness check, informational): PASS=$CSN_PASS FAIL=$CSN_FAIL"
+echo "sbl -bf re-read against the refs (staleness check, informational): PASS=$CSN_PASS FAIL=$CSN_FAIL EXTENSION=$CSN_EXT (an extension ref is not sbl's to reproduce, CEO-1416)"
 # ⛔ GUARDRAIL 3 -- PRINTED WHETHER OR NOT ANY MASK EXISTS. A line that appears only when masks are in play tells
 # the reader nothing on the day one is added and everything on the day one is removed; masked_lines=0 is the
 # reading that says "this board declined to grade nothing", and it is the one worth having by default.

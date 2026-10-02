@@ -719,15 +719,16 @@ _sn4_killed=""
 # shipped= and outside= beside total= (graded); this runner quotes all_pass/shipped and REFUSES rather than publish the graded
 # population as the row's denominator -- 1961/1972 was seven outside passes leaving the numerator and eight entries leaving
 # the denominator, read once as engine movement (COO-82). A denominator move needs its stamp: S4E_CRITERION_CHANGED is forwarded.
-_sn4_shipped=$(field shipped); _sn4_outside=$(field outside)
+_sn4_shipped=$(field shipped); _sn4_outside=$(field outside); _sn4_extension=$(field extension)
+[ -n "$_sn4_extension" ] || { echo "⛔ GATE REFUSES: the rungs SUITE_BOARD carries no extension= field -- an entry graded against a ref the SPITBOL oracle did not cut would publish unnamed (CEO-1416)" >&2; exit 2; }
 [ -n "$_sn4_shipped" ] && [ -n "$_sn4_outside" ] || { echo "⛔ GATE REFUSES: the rungs SUITE_BOARD carries no shipped=/outside= fields -- the row would publish the graded population and drop OUTSIDE silently (CEO-749); the harness beside this runner must print them." >&2; exit 2; }
 _sn4_outside=$((_sn4_outside - _sn4_excluded)); _sn4_shipped=$((_sn4_shipped - _sn4_excluded))
-_sn4_board="rungs both-modes $m_all/$_sn4_shipped EXCLUDED=$_sn4_excluded OUTSIDE=$_sn4_outside (graded $mt) · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp MISSING=0$_sn4_killed · runner-wide (rungs + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
+_sn4_board="rungs both-modes $m_all/$_sn4_shipped EXCLUDED=$_sn4_excluded OUTSIDE=$_sn4_outside EXTENSION=$_sn4_extension (graded $mt) · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp MISSING=0$_sn4_killed · runner-wide (rungs + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
 # ⛔⭐ THE CELL IS NAMED sno-rungs AND MUST RECEIVE THE RUNGS'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
 # $BOTH/$TOTAL spans the rungs PLUS the loop programs, so publishing it put a rung suite+loop number in a rung suite cell --
 # the second half of why this row kept re-flipping. The combined figure stays on the terminal, labelled, and the
 # published pair is printed beside it so the board everyone quotes and the terminal cannot silently disagree.
-echo "sno-rungs ROW PUBLISHED: $m_all/$_sn4_shipped EXCLUDED=$_sn4_excluded OUTSIDE=$_sn4_outside (graded $mt)  (rungs only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
+echo "sno-rungs ROW PUBLISHED: $m_all/$_sn4_shipped EXCLUDED=$_sn4_excluded OUTSIDE=$_sn4_outside EXTENSION=$_sn4_extension (graded $mt)  (rungs only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
 echo "runner-wide population (rungs + loop, NOT the published row): $BOTH/$TOTAL"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
