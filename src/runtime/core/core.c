@@ -2906,7 +2906,7 @@ char *c_VARVAL_fn(DESCR_t v) {
         case DT_SNUL:    return rt_heap_strdup_c("");
         case DT_BOOL:    return rt_heap_strdup_c(v.i ? "True" : "False");
         case DT_ORDER:   return rt_heap_strdup_c(v.i < 0 ? "Less" : (v.i > 0 ? "More" : "Same"));
-        case DT_S:     return v.s ? v.s : rt_heap_strdup_c("");
+        case DT_S:     return v.s ? (char *)rt_cstr_d(v) : rt_heap_strdup_c("");
         case DT_PLATOM: { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)v.i); return nm ? (char *)nm : rt_heap_strdup_c(""); }
         case DT_I: {
             int64_t _x = v.i; int _p = (int)sizeof(buf);

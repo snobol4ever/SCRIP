@@ -18,6 +18,11 @@ static void pointer_is_identity(const char *what, DESCR_t v) {
     if (c != v.s) { fails++; printf("  FAIL %-22s C did not return the caller's pointer (%p vs %p)\n", what, (void *)c, (void *)v.s); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void slice_is_terminated(const char *what, DESCR_t v) {
+    char *a = VARVAL_fn(v), *c = c_VARVAL_fn(v); n++;
+    if (!a || !c || a == v.s || c == v.s || strlen(a) != v.slen || strlen(c) != v.slen || memcmp(a, v.s, v.slen) || memcmp(c, v.s, v.slen)) { fails++; printf("  FAIL %-22s a slice did not come back as its own %u bytes, terminated\n", what, v.slen); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t ds(char *s)    { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_S;  d.s = s; d.slen = s ? (unsigned)strlen(s) : 0u; return d; }
 static DESCR_t di(int64_t i)  { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_I;  d.i = i; return d; }
 static DESCR_t dr(double r)   { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_R;  d.r = r; return d; }
@@ -29,6 +34,7 @@ int main(void) {
     pointer_is_identity("DT_S abc",        ds(abc));
     pointer_is_identity("DT_S empty",      ds(empty));
     pointer_is_identity("DT_S long",       ds(longs));
+    { DESCR_t sl = ds(longs); sl.slen = 3; slice_is_terminated("DT_S slice head", sl); sl.s = longs + 4; sl.slen = 5; slice_is_terminated("DT_S slice middle", sl); }
     bytes_agree("DT_S NULL .s",            ds(NULL));
     bytes_agree("DT_SNUL",                 dtag(DT_SNUL));
     bytes_agree("DT_I zero",               di(0));

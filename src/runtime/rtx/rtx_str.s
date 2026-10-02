@@ -159,6 +159,14 @@ RTX_FUNC(VARVAL_fn)
     jne     .Lvv_c
     test    rsi, rsi
     jz      .Lvv_c
+    mov     rax, rdi
+    shr     rax, 32
+    je      .Lvv_raw
+    cmp     eax, -1
+    je      .Lvv_raw
+    cmp     byte ptr [rsi + rax], 0
+    jne     .Lvv_c
+.Lvv_raw:
     mov     rax, rsi
     ret
 .Lvv_c:
