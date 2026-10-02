@@ -709,7 +709,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * vv = NULL; IR_t * e2 = sx_lower(cx, R, NULL, ω, &vv);
             IR_t * asn;
             if (fb) {
-                lc_γ_to(fi, e2);
+                lc_γ_to(fb, e2);
                 asn = lc_build(cx->g, IR_ASSIGN_VAR, γ, ω);
                 lc_γ_to(vv, asn);
                 ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
@@ -1195,7 +1195,11 @@ static IR_t * sx_subscript_lv_fused(scx_t * cx, const tree_t * base, const tree_
     IR_t * br = NULL; IR_t * entry = sx_lower(cx, base, NULL, ω, &br);
     IR_t * ir = NULL; IR_t * ie = sx_lower(cx, idxs[0], NULL, ω, &ir);
     lc_γ_to(br, ie);
-    *fuse_base = br; *fuse_idx = ir;
+    IR_t * ck = lc_build(cx->g, IR_SUBSCRIPT, NULL, ω);
+    { const char * a = getenv("SCRIP_SUB_AGG"); IR_LIT(ck).sval = (a && *a == '0') ? "lv-check" : "lv-check-container-only"; }
+    lc_γ_to(ir, ck);
+    ir_operand_push(ck, br); ir_operand_push(ck, ir);
+    *fuse_base = ck; *fuse_idx = ir;
     if (var_res) *var_res = NULL;
     return entry;
 }
@@ -2431,7 +2435,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             IR_t * asn;
             if (fb) {
-                lc_γ_to(fi, e2);
+                lc_γ_to(fb, e2);
                 asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
                 lc_γ_to(vv, asn);
                 ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
@@ -2451,7 +2455,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * vv = NULL; IR_t * e2 = sx_lower(&cx, repl, NULL, fA, &vv);
             IR_t * asn;
             if (fb) {
-                lc_γ_to(fi, e2);
+                lc_γ_to(fb, e2);
                 asn = lc_build(g, IR_ASSIGN_VAR, sJ, fA);
                 lc_γ_to(vv, asn);
                 ir_operand_push(asn, fb); ir_operand_push(asn, fi); ir_operand_push(asn, vv);
