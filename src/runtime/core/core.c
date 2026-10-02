@@ -3426,6 +3426,7 @@ typedef struct _VarEntry {
     uint32_t nlen;
     int      has_nul;
     unsigned long serial;
+    int      std_detached;
     DESCR_t  val;
     DESCR_t *cell;
     int      is_gva;
@@ -3493,7 +3494,7 @@ static inline __attribute__((always_inline)) int nv_key_c(const NV_t *e, const c
 static inline __attribute__((always_inline)) int nv_key_n(const NV_t *e, const char *s, size_t n) { return e->nlen == n && memcmp(e->name, s, n) == 0; }
 static NV_t *nv_entry_name(NV_t *e, const char *s, size_t n) {
     char *q = (char *)rt_heap_alloc_c(n + 1); memcpy(q, s, n); q[n] = '\0';
-    e->name = q; e->nlen = (uint32_t)n; e->has_nul = memchr(s, 0, n) ? 1 : 0; e->serial = _var_count;
+    e->name = q; e->nlen = (uint32_t)n; e->has_nul = memchr(s, 0, n) ? 1 : 0; e->serial = _var_count; e->std_detached = 0;
     return e;
 }
 static NV_t *_var_bucket_find(const char *name) {
@@ -3519,7 +3520,7 @@ static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _io_var_refresh(const char *name) { extern void rt_defer_pairs_forget(void); if (!name) return; NV_t *e = _var_bucket_find(name); if (e) e->is_io = (_io_chan_find_by_var(name) >= 0); g_nv_memo_gen++; rt_defer_pairs_forget(); }
+static void _io_var_refresh(const char *name) { extern void rt_defer_pairs_forget(void); if (!name) return; NV_t *e = _var_bucket_find(name); if (e) e->is_io = (_io_chan_find_by_var(name) >= 0) || (!strcmp(name, "OUTPUT") && !e->std_detached); g_nv_memo_gen++; rt_defer_pairs_forget(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_nv_memo_invalidate(void) { g_nv_memo_gen++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4861,7 +4862,13 @@ static DESCR_t _DETACH_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     _io_chan_setup();
     { const char *vn = _io_varname(a[0]);
-      if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) { _io_chan[ch].varname = NULL; _io_var_refresh(vn); } } }
+      if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) { _io_chan[ch].varname = NULL; _io_var_refresh(vn); }
+        if (!strcmp(vn, "OUTPUT")) {
+            NV_t *oe = _var_bucket_find("OUTPUT");
+            if (!oe) { NV_t *se = _var_bucket_find("_OUTPUT"); DESCR_t cur = se ? (se->is_gva ? *se->cell : se->val) : NULVCL;
+                if (se && !se->is_gva) se->val = NULVCL;
+                _var_assoc_set("OUTPUT", cur); oe = _var_bucket_find("OUTPUT"); }
+            if (oe) { oe->std_detached = 1; _io_var_refresh("OUTPUT"); } } } }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4949,6 +4956,12 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void _io_output_reattach_std(void) {
+    NV_t *oe = _var_bucket_find("OUTPUT");
+    if (!oe || !oe->std_detached) return;
+    { DESCR_t cur = oe->is_gva ? *oe->cell : oe->val; oe->std_detached = 0; if (!oe->is_gva) oe->val = NULVCL; _var_assoc_set("_OUTPUT", cur); }
+    _io_var_refresh("OUTPUT");
+}
 static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
     char fname_buf[4096];
@@ -4964,14 +4977,14 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     } else if (n >= 1) {
         const char *vn = (n == 1 || _io_assoc_pair_state(a, n) == 0) ? _io_varname(a[0]) : NULL;
-        if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1);
+        if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1); else if (vn) _io_output_reattach_std();
         return NULVCL;
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
     if (!fname || !fname[0]) {
         extern int dup(int);
         long fd = -1, rlen = 0;
-        if (_io_assoc_pair_state(a, n) == 0) { const char *vn = _io_varname(a[0]); if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1); return NULVCL; }
+        if (_io_assoc_pair_state(a, n) == 0) { const char *vn = _io_varname(a[0]); if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1); else if (vn) _io_output_reattach_std(); return NULVCL; }
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
         if (fd < 0 || ch < 0 || ch >= IO_CHAN_MAX) return FAILDESCR;
         { FILE *nf = fdopen(dup((int)fd), "w");

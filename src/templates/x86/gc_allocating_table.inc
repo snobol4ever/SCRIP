@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1959
-#define GC_ALLOC_TAB_N_VOID 228
-#define GC_ALLOC_TAB_N_DESCR 1065
+#define GC_ALLOC_TAB_N 1961
+#define GC_ALLOC_TAB_N_VOID 229
+#define GC_ALLOC_TAB_N_DESCR 1066
 #define GC_ALLOC_TAB_N_OTHER 659
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -51,6 +51,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_DATA_", GC_RET_DESCR },
     { "_DATE_", GC_RET_DESCR },
     { "_DEFINE_", GC_RET_DESCR },
+    { "_DETACH_", GC_RET_DESCR },
     { "_DIFFER_", GC_RET_DESCR },
     { "_DUMP_", GC_RET_DESCR },
     { "_DUPL_", GC_RET_DESCR },
@@ -347,6 +348,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_icn_succ", GC_RET_OTHER },
     { "_io_assoc_pair_state", GC_RET_OTHER },
     { "_io_assoc_std", GC_RET_OTHER },
+    { "_io_output_reattach_std", GC_RET_VOID },
     { "_make_ctor", GC_RET_DESCR },
     { "_make_fget", GC_RET_DESCR },
     { "_parse_define_spec", GC_RET_OTHER },
