@@ -722,6 +722,7 @@ test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
 test_gate_sno_every_real_overflow_in_the_family_raises.sh	WIRED	-	-	-
 test_gate_sno_every_unused_operator_opsyn_names_calls_its_function.sh	WIRED	-	-	-
+test_gate_sno_every_variable_keeps_its_own_standard_stream_association.sh	WIRED	-	-	-
 test_gate_sno_fence_body_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_field_function_with_no_argument_raises_041_not_022.sh	WIRED	-	-	-
 test_gate_sno_flush_runs_the_recorded_conditional_assignments_then_cuts.sh	WIRED	-	-	-

@@ -7,9 +7,15 @@
 # return address through it -- never a per-statement store on the execution path (TRACE's existing --stlimit-gated
 # store, bb_stmt_mark/rt_stmt_enter, is UNCHANGED and stays off by default; --stlimit/TRACE are CEO-1243's business,
 # not this row's).
-# FOUR READY WITNESSES (the coo, 2026-09-30 19:22; re-measured here against sbl -bf at run time, never a frozen
-# number): packages/snobol4/spitbol_testpgms test4/test5/test7/test8 each end in a SPITBOL post-mortem; "in line"/
-# "in statement" are read from the oracle's own post-mortem through util_spitbol_post_mortem.py, never hardcoded.
+# FOUR WITNESSES, INLINE (re-measured here against sbl -bf at run time, never a frozen number): until 2026-10-02 they
+# were packages/snobol4/spitbol_testpgms test4/test5/test7/test8 themselves (the coo, 2026-09-30 19:22), which ended in a
+# SPITBOL post-mortem because each opened with a Macro SPITBOL 360/370 statement SPITBOL x64 refuses. Lon modernized
+# those four on 2026-10-02 (ceo CEO-1401: "fix the I/O associations to be modern", "Change the CHAR to CHR") and they
+# now run to completion, so the gate carries the four refused statements itself, each a few statements deep -- two
+# INPUT(.INPUT,,72) (ERROR 116), the DATA field CHAR (ERROR 248), an OUTPUT with a FORTRAN format (ERROR 160) -- the
+# same error classes the vendored programs raised, and a gate anchored on a found witness dies when the witness is
+# cured (ceo CEO-554). "in line"/"in statement" are read from the oracle's own post-mortem through
+# util_spitbol_post_mortem.py, never hardcoded.
 # ARM shape per witness per mode: run SCRIP with NO --stlimit, render its stderr through util_render_error_voice.py
 # spitbol (the one renderer, RULES.md SS ONE ERROR VOICE) and read "in statement <n>" from the rendered text -- the
 # renderer prints stno 0 when SCRIP's voice carried none, so arm `loc` is RED on today's tree by construction.
@@ -29,10 +35,13 @@ gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so"
 PM="$HERE/util_spitbol_post_mortem.py"; RV="$HERE/util_render_error_voice.py"
 [ -f "$PM" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $PM missing"; exit 2; }
 [ -f "$RV" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $RV missing"; exit 2; }
-TPGM="$(cd "$ROOT/.." && pwd)/corpus/packages/snobol4/spitbol_testpgms"
-[ -d "$TPGM" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $TPGM does not resolve"; exit 2; }
 T="$(mktemp -d)" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mktemp failed"; exit 2; }
 trap 'rm -rf "$T"' EXIT
+TPGM="$T/w"; mkdir -p "$TPGM" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: could not make the witness directory"; exit 2; }
+printf '         &FULLSCAN = 1\n         EOF =\n         N = 3\n         INPUT(.INPUT,,72)\n         OUTPUT = N\nEND\n' > "$TPGM/test4.spt"
+printf '         DATA = ARRAY(24)\n         J = 1\n         INPUT(.INPUT,,72)\n         OUTPUT = J\nEND\n' > "$TPGM/test5.spt"
+printf '         X = 1\n         DATA(\047SYMB(CHAR,LINK,ALT,ASSOC,SUCC)\047)\n         OUTPUT = X\nEND\n' > "$TPGM/test7.spt"
+printf '         DATA(\047CARD(NUM,NEXT)\047)\n         OUTPUT(\047TITLE\047,6,\047(14H1THIS IS HAND ,110A1)\047)\n         TITLE = 1\nEND\n' > "$TPGM/test8.spt"
 red=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  RED  $1 -- $3"; red=$((red+1)); fi; }
 

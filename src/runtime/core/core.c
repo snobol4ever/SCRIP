@@ -4836,6 +4836,23 @@ static int _io_assoc_pair_state(DESCR_t *a, int n) {
     if (have_chan != have_spec) return 1;
     return 2;
 }
+static int _io_assoc_std(const char *vn, int base, FILE *fp, int is_output) {
+    int c = -1;
+    for (int i = 0; i < IO_CHAN_MAX; i++) {
+        if (!_io_chan[i].varname || strcmp(_io_chan[i].varname, vn) != 0) continue;
+        if (_io_chan[i].fp == stdin || _io_chan[i].fp == stdout || !_io_chan[i].fp) _io_chan_close(i);
+        else { _io_chan[i].varname = NULL; _io_var_refresh(vn); }
+    }
+    if (!_io_chan[base].varname) c = base;
+    for (int i = IO_CHAN_MAX - 1; c < 0 && i > 7; i--)
+        if (!_io_chan[i].varname && !_io_chan[i].prebind && !_io_chan[i].is_popen && (!_io_chan[i].fp || _io_chan[i].fp == stdin || _io_chan[i].fp == stdout)) c = i;
+    if (c < 0) c = base;
+    _io_chan_close(c);
+    _io_chan[c].fp = fp; _io_chan[c].is_output = is_output; _io_chan[c].is_popen = 0;
+    _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1; _io_var_refresh(vn);
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _INPUT_(DESCR_t *a, int n) {
     _io_chan_setup();
     char fname_buf[4096];
@@ -4853,18 +4870,19 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
     if (!fname || !fname[0]) {
         extern int dup(int);
         long fd = -1, rlen = 0;
-        if (_io_assoc_pair_state(a, n) == 0) return NULVCL;
+        int ps = _io_assoc_pair_state(a, n);
+        const char *vn = (n == 1 || ps == 0) ? _io_varname(a[0]) : NULL;
+        if (ps == 0 && !vn) return NULVCL;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
+        if (vn && strcmp(vn, "INPUT") != 0) {
+            FILE *fp = stdin;
+            if (fd >= 0) { fp = fdopen(dup((int)fd), "r"); if (!fp) return FAILDESCR; }
+            _io_chan[_io_assoc_std(vn, 5, fp, 0)].rlen = rlen;
+            return NULVCL;
+        }
         _input_fp_release();
         if (fd >= 0) { FILE *nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR; _input_fp = nf; }
         _input_rlen = rlen;
-        { const char *vn = (n == 1) ? _io_varname(a[0]) : NULL;
-          if (vn && strcmp(vn, "INPUT") != 0) {
-              int c = 5;
-              _io_chan_close(c);
-              _io_chan[c].fp = _input_fp; _io_chan[c].is_output = 0; _io_chan[c].is_popen = 0;
-              _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1; _io_var_refresh(vn);
-          } }
         return NULVCL;
     }
     int is_pipe = (fname[0] == '|');
@@ -4906,20 +4924,15 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     } else if (n >= 3) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     } else if (n >= 1) {
-        const char *vn = (n == 1) ? _io_varname(a[0]) : NULL;
-        if (vn && strcmp(vn, "OUTPUT") != 0) {
-            int c = 6;
-            _io_chan_close(c);
-            _io_chan[c].fp = stdout; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
-            _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1; _io_var_refresh(vn);
-        }
+        const char *vn = (n == 1 || _io_assoc_pair_state(a, n) == 0) ? _io_varname(a[0]) : NULL;
+        if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1);
         return NULVCL;
     }
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
     if (!fname || !fname[0]) {
         extern int dup(int);
         long fd = -1, rlen = 0;
-        if (_io_assoc_pair_state(a, n) == 0) return NULVCL;
+        if (_io_assoc_pair_state(a, n) == 0) { const char *vn = _io_varname(a[0]); if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1); return NULVCL; }
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
         if (fd < 0 || ch < 0 || ch >= IO_CHAN_MAX) return FAILDESCR;
         { FILE *nf = fdopen(dup((int)fd), "w");
