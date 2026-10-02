@@ -1738,7 +1738,7 @@ static DESCR_t _ORD_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
     const char *s = VARVAL_fn(a[0]);
     size_t len = (a[0].v == DT_S) ? descr_slen(a[0]) : (s ? strlen(s) : 0);
-    if (!s || len != 1) return FAILDESCR;
+    if (!s || len == 0) return FAILDESCR;
     return INTVAL((int64_t)(unsigned char)s[0]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
