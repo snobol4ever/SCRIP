@@ -37,15 +37,6 @@ static int g_sno_calls_code = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_setexit_on(void) { const char * e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_scan_stmtkw_use(const tree_t * t) {
-    if (!t || g_sno_uses_stmtkw) return;
-    if (t->t == TT_KEYWORD && t->v.sval) {
-        static const char * kw[6] = { "STNO", "LASTNO", "LINE", "LASTLINE", "FILE", "LASTFILE" };
-        const char * kn = t->v.sval[0] == '&' ? t->v.sval + 1 : t->v.sval;
-        for (int k = 0; k < 6; k++) if (!strcasecmp(kn, kw[k])) { g_sno_uses_stmtkw = 1; return; }
-    }
-    for (int i = 0; i < t->n; i++) sno_scan_stmtkw_use(t->c[i]);
-}
 static void sno_scan_code_use(const tree_t * t) {
     if (!t || g_sno_uses_code) return;
     if (t->t == TT_FNC) {
@@ -3003,7 +2994,6 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     g_sno_uses_stmtkw = 0; g_sno_traces_a_label = 0;
     g_sno_uses_code = 0; g_sno_calls_code = 0; g_sno_multiproto.len = 0; g_sno_proto_fn.len = 0; g_sno_proto_enc.len = 0;
     for (int i = 0; i < prog->n; i++) if (prog->c[i]) sno_scan_code_use(prog->c[i]);
-    for (int i = 0; i < prog->n; i++) if (prog->c[i]) sno_scan_stmtkw_use(prog->c[i]);
     { const char * _sk = getenv("SCRIP_SNO_STMTKW"); if (_sk && *_sk == '1') { g_sno_uses_stmtkw = 1; g_sno_traces_a_label = 1; } }
     sno_register_program(&g_stage2, prog);
     int nst = 0;
