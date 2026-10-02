@@ -120,7 +120,7 @@ if [ -f "$DR" ]; then
   sed 's|then if \[ -n "\$1" \]; then printf .%s\\n%s. "\$1" "\$r"; else printf .%s. "\$r"; fi; else|then printf '"'"'%s\\n%s'"'"' "$1" "$r"; else|' "$DR" > "$W/pre/scripts/test_snobol4_dotnet_suite.sh"
   if cmp -s "$DR" "$W/pre/scripts/test_snobol4_dotnet_suite.sh"; then ck "6e fail-once: the pre-1957d1d0f join is plantable" 'false'
   else
-    (cd "$ROOT" && DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6e.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the pre-cure Dotnet runner over a scratch suite, not a board" timeout 300 bash "$W/pre/scripts/test_snobol4_dotnet_suite.sh" > /dev/null 2>&1)
+    (cd "$ROOT" && S4E_HOME="$S4E" DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6e.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the pre-cure Dotnet runner over a scratch suite, not a board" timeout 300 bash "$W/pre/scripts/test_snobol4_dotnet_suite.sh" > /dev/null 2>&1)
     p6em3=$(awk -F'\t' '$8=="silent_fatal_witness" && $9=="m3" {print $10}' "$W/p6e.tsv" 2>/dev/null | tail -1)
     ck "6e fail-once: the pre-1957d1d0f join reads the silent fatal red in m3 (got ${p6em3:-nothing})" '[ -n "$p6em3" ] && [ "$p6em3" != PASS ]'
   fi
