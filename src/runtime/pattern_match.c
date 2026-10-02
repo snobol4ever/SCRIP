@@ -510,8 +510,9 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     }
     const char *s = VARVAL_fn(expr);
     if (!s || !*s) return NULVCL;
-    { const char *c = s; while (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\v' || *c == '\f' || *c == '\r') c++;
+    { const char *c = s; while (*c == ' ' || *c == '\t') c++;
       if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) goto eval_str; }
+    if (strpbrk(s, " \t\n\v\f\r")) goto eval_str;
     {
         char *endp = NULL;
         int64_t iv = (int64_t)strtoll(s, &endp, 10);

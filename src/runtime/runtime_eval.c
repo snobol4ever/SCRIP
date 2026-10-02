@@ -264,9 +264,22 @@ static void eval_thunks_emit_from(int pc0)
     g_gen_proc_active = ga; g_frame_active = fa; g_emit_cfg = cfg_sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long sno_text_illegal_at(const char *s)
+{
+    char q = 0;
+    for (long i = 0; s && s[i]; i++) {
+        char c = s[i];
+        if (q) { if (c == q) q = 0; continue; }
+        if (c == '\'' || c == '"') { q = c; continue; }
+        if (c == '\n' || c == '\v' || c == '\f' || c == '\r') return i;
+    }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
+    if (sno_text_illegal_at(s) >= 0) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: illegal character"; return NULL; }
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     size_t n = strlen(s);
@@ -277,7 +290,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     sno_error_quiet_begin();
     tree_t *e = parse_expr_pat_from_str(src);
     sno_error_quiet_end();
-    if (!e) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return NULL; }
+    if (!e || sno_error_captured()) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return NULL; }
     tree_t *var = ast_stmt_new(TT_VAR);
     var->v.sval = (char *)EVAL_TMP;
     tree_t *st = ast_stmt_new(TT_STMT);
@@ -593,6 +606,12 @@ DESCR_t code_at(const char *src, long base)
 {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (!src || !*src) return FAILDESCR;
+    const char *illegal = NULL;
+    { long bad = sno_text_illegal_at(src);
+      if (bad >= 0) { long cut = -1; char q = 0; for (long i = 0; i < bad; i++) { char c = src[i]; if (q) { if (c == q) q = 0; continue; } if (c == '\'' || c == '"') q = c; else if (c == ';') cut = i; }
+        illegal = "syntax error: illegal character";
+        if (cut < 0) { extern const char *g_sno_errtext; g_sno_errtext = illegal; return FAILDESCR; }
+        char *pre = (char *)rt_wsb_alloc((size_t)cut + 1); if (!pre) return FAILDESCR; memcpy(pre, src, (size_t)cut); pre[cut] = '\0'; src = pre; } }
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
     extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
@@ -645,7 +664,7 @@ DESCR_t code_at(const char *src, long base)
       if (patn > pat0) sno_pat_thunks_build(pat0);
       if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
     g_sno_stmt_compiled += (long)k + 1;
-    if (parse_err) { g_sno_errtext = parse_err; return FAILDESCR; }
+    if (parse_err || illegal) { g_sno_errtext = parse_err ? parse_err : illegal; return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};
     d.v    = DT_C;
