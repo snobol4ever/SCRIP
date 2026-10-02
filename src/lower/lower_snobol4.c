@@ -2645,10 +2645,12 @@ static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t 
             const char * an = sno_litname(t->c[argbase]);
             const char * on = sno_litname(t->c[argbase + 1]);
             if (an && on) {
-                int fo = -1;
+                int fo = -1, fa = -1;
                 for (uint32_t k = 0; k < defs->len; k++) if (!strcmp(CV_AT(*defs, sno_def_t, k).fname, on)) { fo = (int) k; break; }
+                for (uint32_t k = 0; k < defs->len; k++) if (!strcmp(CV_AT(*defs, sno_def_t, k).fname, an)) { fa = (int) k; break; }
+                if (fa >= 0 && !CV_AT(*defs, sno_def_t, fa).result_name) fo = -2;
                 if (fo >= 0) { sno_def_t d = CV_AT(*defs, sno_def_t, fo); d.result_name = d.result_name ? d.result_name : d.fname; d.fname = lp_strdup(an); sno_reg_var(d.fname); sno_def_put(defs, bodies, &d, NULL); }
-                else { extern void rt_builtin_synonym_add(const char *, const char *); rt_builtin_synonym_add(lp_strdup(an), lp_strdup(on)); }
+                else if (fo == -1) { extern void rt_builtin_synonym_add(const char *, const char *); rt_builtin_synonym_add(lp_strdup(an), lp_strdup(on)); }
             }
         }
         if (name && !strcmp(name, "DEFINE") && t->n > argbase && t->c[argbase] && t->c[argbase]->t == TT_QLIT && t->c[argbase]->v.sval && !sno_define_entry_computed(t, argbase)) {
