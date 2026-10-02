@@ -135,7 +135,19 @@ TOL_PCT="${TOL_PCT:-2}"
 # ⛔ Re-pinning it down would freeze a BROKEN program's cost as the target, and the eventual real FIX would then
 # read as a ~6x REGRESSION and fail this gate. The budget stays where it is until the fixed point is restored;
 # the arm's own FAIL line is the correct signal in the meantime. Routed as its own finding.
-ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-8225814}"
+# ⛔⭐ ALL FOUR WATERMARKS REBASED 2026-10-02 (the coo, on the ceo's ask; row instruments-test-gate-instr-budget-watermarks-are-
+# stale-...): measured RT_OPT=-O0, mode-4, `make` at SCRIP 496798c3b, corpus 3e9976d2b, all four correctness arms OK, one run
+# (Ir is an instruction count: load cannot move it, see DETERMINISM above). The gate is wired into no recipe; it read FAIL on
+# every tree since some landing nobody re-based for (CEO-803), which taught readers to ignore it. Each move, with its cause:
+#     roman          8225814 -> 12872014  (+56.5%)  SAME PROGRAM (roman.sno unchanged since the pin but for the 08-29 demos rename):
+#                    a real compiler/runtime cost accrued since the a9defbae-era pin, NOT ATTRIBUTED here -- reported to the
+#                    ceo, who holds the speed concern. The new pin is a fresh basis so the NEXT regression reds; it blesses nothing.
+#     beauty      1897159187 -> 1430567872  (-24.6%)  SAME beauty.sno and still the FIXED POINT; the drop is unattributed
+#                    (compiler, runtime or its -INCLUDE set) -- quote it as no win until decomposed the way hq_P did on 08-24.
+#     table_access  10249870 -> 15480433  (+51.0%)  DIFFERENT PROGRAM: the kernel was rewritten (corpus 723e5aa08, cb366317c,
+#     array_sum      9287873 ->  8989531   (-3.2%)  2026-09-24/25, simple snippets with no TABLE_ACCESS(1)/(20) MAIN), so neither
+#                    delta is a compiler reading and no comparison across this line may be made.
+ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-12872014}"
 # ⛔⭐ BEAUTY RE-PINNED 2026-08-24 hq_P s272 as a WORKLOAD REBASE, NOT A WIN: 2,215,545,392 -> 1,897,159,187 (SCRIP `22971235`).
 # The gate reported -14.4% "improved; consider re-pinning down" and that invitation was a TRAP: beauty.sno was HAND-EDITED by
 # Lon the same day (corpus b131a913d, the DECLARED_CONSTANT beauty.sno deleted; then e63689fae, Lon's 4-line edit), 630 -> 618
@@ -160,13 +172,13 @@ ROMAN_IR_WATERMARK="${ROMAN_IR_WATERMARK:-8225814}"
 # ⛔ So the honest reading of a -14.4% NOTE here was: -1.35% earned, -13.2% is a different program.  The new pin is a fresh
 # basis, and NO cross-workload comparison may be made against the old one (RULES.md: a SLOPE is not a TOTAL; a number carried
 # into a new column must be re-measured).  Beauty remains the Milestone-1 self-host fixed point under the new source.
-BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1897159187}"
+BEAUTY_IR_WATERMARK="${BEAUTY_IR_WATERMARK:-1430567872}"
 # Watermarks: RT_OPT=-O0, `make pristine`, SCRIP `eca52780`, 2026-08-24 (seat04).  Re-pin with the FINDING that changed them.
 # TABLE_ACCESS re-pinned 2026-08-24 (seat01, post RTX-31 + RTX-NEW-ICNVAR): 15267937 -> 12986443.
 # TABLE_ACCESS re-pinned 2026-08-27 (seat12, row perf-table-subscript-fastpath lever 2, post subscript+assign fusion
 # for T[I]=v -- bb_assign_var_sub.cpp/c_rt_table_assign_fast): 12986443 -> 11879659.  Reproduced twice, identical.
-TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-10249870}"
-ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-9287873}"
+TABLE_ACCESS_IR_WATERMARK="${TABLE_ACCESS_IR_WATERMARK:-15480433}"
+ARRAY_SUM_IR_WATERMARK="${ARRAY_SUM_IR_WATERMARK:-8989531}"
 
 [ -x "$SCRIP_BIN" ] || { echo "GATE FAIL(2): scrip not built at $SCRIP_BIN"; exit 2; }
 [ -f "$RT_DIR/libscrip_rt.so" ] || { echo "GATE FAIL(2): libscrip_rt.so not built at $RT_DIR"; exit 2; }
