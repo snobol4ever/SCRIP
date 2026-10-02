@@ -37,6 +37,13 @@
 #      joins the test family beside BINOP_TEST (SCRIP_ZD_TESTFAM, its killswitch), so its omega target heads its own run at the
 #      run base the call's omega exit pops to. Witness w7. This also reaches the joins (D) cut: w6 stays green under
 #      SCRIP_ZD_JOIN_CUT=0 alone, so its fail-once now turns both killswitches off.
+#      w7's FAIL-ONCE IS STRUCTURAL SINCE fc306f22a (cfo, CEO-1422 shape B): every SNOBOL4 statement's failure exits now
+#      pass an IR_SETEXIT_TEST, which carries infinip's run past the negated call, so w7 prints the oracle's 3,2,1,ok even
+#      under SCRIP_ZD_TESTFAM=0 -- the output can no longer show the defect (measured by the cto on fc306f22a alone; an EVAL'd
+#      form, which the cfo's lowering leaves without the node, is green too because an EVAL chain's carve reserves its slots).
+#      The property (E) cures is still the planner's: the negated call's omega target heads a run. So w7's control counts
+#      the nodes SCRIP_ZD_DIAG reports claimed ([ZD-FINAL] rows) over w7's compile: the killswitch must claim FEWER (Q's
+#      i=25 VAR and i=26 CALL drop out of every run under SCRIP_ZD_TESTFAM=0 on fc306f22a), never the same.
 # EVERY ARM IS GRADED AGAINST THE ORACLE: the witness's --transpile run on sbl -bf (a Snocone program's oracle), both modes, stdout.
 # FAIL-ONCE, BUILT IN: witness 1 must go red under SCRIP_ZD_BLOBBACK=0, witness 3 under SCRIP_ZD_5B=1 and witness 6 under
 # SCRIP_ZD_JOIN_CUT=0 -- a gate that cannot see
@@ -167,7 +174,13 @@ fos() {  # fos <witness> <ENV=V...> -- the same, on the witness's TRANSPILED for
   local w="$1"; shift; local want got; want=$("$SBL" -bf "$T/$w.sno" </dev/null 2>/dev/null); got=$(run_mode m3 "$T/$w.sno" "$@")
   if [ "$got" != "$want" ]; then echo "  fail-once $w.sno under $*: RED as it must be"; else echo "  fail-once $w.sno under $*: STILL GREEN -- this gate cannot see the defect it names"; RC=1; fi; }
 fos w5 SCRIP_ZD_OMEGA_STMTLAND=0
-fos w7 SCRIP_ZD_TESTFAM=0
+fzd() {  # fzd <witness> <ENV=V...> -- the killswitch must leave nodes of the witness's plan unclaimed (structural fail-once)
+  local w="$1"; shift; local on off
+  on=$(SCRIP_ZD_DIAG=1 "$SCRIP" --compile "$T/$w.sno" </dev/null 2>&1 >/dev/null | grep -c '^\[ZD-FINAL\]')
+  off=$(env "$@" SCRIP_ZD_DIAG=1 "$SCRIP" --compile "$T/$w.sno" </dev/null 2>&1 >/dev/null | grep -c '^\[ZD-FINAL\]')
+  if [ "$on" -gt 0 ] && [ "$off" -lt "$on" ]; then echo "  fail-once $w.sno under $* (structural): RED as it must be -- $off claimed nodes against $on shipped"
+  else echo "  fail-once $w.sno under $* (structural): STILL GREEN -- $off claimed nodes against $on shipped, this gate cannot see the defect it names"; RC=1; fi; }
+fzd w7 SCRIP_ZD_TESTFAM=0
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N arms (6 witnesses x m3+m4, plus w5's transpiled form x m3+m4) print the SPITBOL oracle's output, and all four killswitches red their witness"
 else echo "GATE FAIL(1) [$G]: see the arms above"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  oracle: $SBL -bf  measured $(date -u +%Y-%m-%dT%H:%MZ)"
