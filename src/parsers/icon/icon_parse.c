@@ -723,7 +723,9 @@ static tree_t *parse_do_clause(IcnParser *p) {
 static void stmt_end(IcnParser *p, const char *what) {
     if (check(p, TK_RBRACE)) { match(p, TK_SEMICOL); return; }
     if (check(p, TK_SEMICOL)) { advance(p); return; }
-    char m[256]; snprintf(m, sizeof m, "%s: expected ';' after the token at line %d col %d (SCRIP Icon: every statement ends in ';', a newline is whitespace, only the last expression of a { } block is bare)", what, p->tb_line, p->tb_col);
+    const char *f = "%s: expected ';' after the token at line %d col %d (SCRIP Icon: every statement ends in ';', a newline is whitespace, only the last expression of a { } block is bare)";
+    int ml = snprintf((char *)0, 0, f, what, p->tb_line, p->tb_col);
+    char m[ml + 1]; snprintf(m, (size_t)ml + 1, f, what, p->tb_line, p->tb_col);
     parser_error(p, m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -46,15 +46,16 @@ static const char *gc_audit_b_excluded(const gc_audit_b_t *v, const char *w)
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *gc_audit_b_ct_owner(const gc_audit_b_t *v, const char *blk, char *also, long cap)
+static const char *gc_audit_b_ct_owner(const gc_audit_b_t *v, const char *blk, char *also, long cap, long *need)
 {
     Dl_info me, di; const char *first = (const char *)0, *mine = (const char *)0; long i, used = 0; int have_me = dladdr((void *)gc_audit_b_collect, &me) && me.dli_fbase;
-    also[0] = 0;
+    if (also && cap > 0) also[0] = 0;
     for (i = 0; i < v->nrgn; i++) { const char *q; if (strcmp(v->rgn[i].pop, "static")) continue;
         for (q = (const char *)(((uintptr_t)v->rgn[i].lo + 7u) & ~(uintptr_t)7u); q + 8 <= v->rgn[i].hi; q += 8) { if (*(const char *const *)q != blk) continue;
             if (!first) first = q;
             if (!mine && have_me && dladdr((void *)q, &di) && di.dli_fbase == me.dli_fbase) mine = q;
-            if (dladdr((void *)q, &di) && di.dli_sname && used + (long)strlen(di.dli_sname) + 2 < cap) used += snprintf(also + used, (size_t)(cap - used), "%s%s", used ? "," : "", di.dli_sname); } }
+            if (dladdr((void *)q, &di) && di.dli_sname) { char *at = (also && used < cap) ? also + used : (char *)0; used += snprintf(at, at ? (size_t)(cap - used) : 0, "%s%s", used ? "," : "", di.dli_sname); } } }
+    *need = used;
     return mine ? mine : first;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -83,7 +84,9 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
           for (j = 0; j < 24 && j < tn; j++) tx[j] = (tb[j] >= 32 && tb[j] < 127) ? (char)tb[j] : '.';
           tx[j] = 0; bb[0] = 0;
           if (v->birth_of) v->birth_of((const char *)h, bb, (long)sizeof bb);
-          { char also[256]; const char *ow = strcmp(pop, "ctarena") ? (const char *)0 : gc_audit_b_ct_owner(v, lo, also, (long)sizeof also); const char *at = ow ? ow : p; long co = ow ? (long)(p - lo) : -1;
+          { long an = 0; const char *ow = strcmp(pop, "ctarena") ? (const char *)0 : gc_audit_b_ct_owner(v, lo, (char *)0, 0, &an); char also[an + 1]; also[0] = 0;
+          if (ow) gc_audit_b_ct_owner(v, lo, also, an + 1, &an);
+          const char *at = ow ? ow : p; long co = ow ? (long)(p - lo) : -1;
           dl = dladdr((void *)at, &di) && di.dli_fbase; sn = (dl && di.dli_sname) ? di.dli_sname : (nm ? nm : "-");
           df = (dl && di.dli_fname) ? di.dli_fname : "?"; dof = dl ? (unsigned long)((const char *)at - (const char *)di.dli_fbase) : 0;
           hl = dl ? snprintf((char *)0, 0, co >= 0 ? "%s+0x%lx/%s[ct+0x%lx,owners=%s]" : "%s+0x%lx/%s", df, dof, sn, (unsigned long)co, also) : 0;
