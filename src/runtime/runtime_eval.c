@@ -604,6 +604,7 @@ DESCR_t code_at(const char *src, long base)
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
     if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return FAILDESCR; }
+    const char *parse_err = sno_error_captured(); if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
     if (g_sno_stmt_compiled < base) g_sno_stmt_compiled = base;
     long stno_base = g_sno_stmt_compiled;
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
@@ -644,6 +645,7 @@ DESCR_t code_at(const char *src, long base)
       if (patn > pat0) sno_pat_thunks_build(pat0);
       if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
     g_sno_stmt_compiled += (long)k + 1;
+    if (parse_err) { g_sno_errtext = parse_err; return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};
     d.v    = DT_C;
