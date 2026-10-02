@@ -21,12 +21,7 @@ int g_glue_entered = 0;
 int g_glue_o_sup = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bool bb_glue_outer_whack() {
-    extern int g_glue_o_sup;
-    if (g_glue_o_sup) return false;
-    static int s = -1;
-    if (s < 0)
-        { const char * e = getenv("SCRIP_GLUE_SYM"); s = (e && *e == '1') ? 1 : 0; }
-    return s ? (g_glue_entered != 0) : true;
+    return g_glue_entered != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline bool bb_glue_outer_needs_ret() {

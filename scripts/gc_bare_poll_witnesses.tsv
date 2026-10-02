@@ -69,7 +69,7 @@ src/templates/bb/bb_field_get.cpp:22:icn_field_get	src/templates/bb/bb_field_get
 src/templates/bb/bb_field_get.cpp:40:rt_field_var_strict/rt_field_var	src/templates/bb/bb_field_get.cpp:46	hb_frame_map_anchor_recursive_marklists_mode4.icn
 src/templates/bb/bb_field_get.cpp:41:icn_field_get	src/templates/bb/bb_field_get.cpp:46	hb_frame_map_anchor_recursive_marklists_mode4.icn
 src/templates/bb/bb_gcc.cpp:24:rt_icn_cset_member	src/templates/bb/bb_gcc.cpp:25	UNWITNESSED
-src/templates/bb/bb_glue_flat.cpp:47:sno_setexit_fire_on_end	src/templates/bb/bb_glue_flat.cpp:48	hb_deferexpr_a_dupl.sno
+src/templates/bb/bb_glue_flat.cpp:42:sno_setexit_fire_on_end	src/templates/bb/bb_glue_flat.cpp:43	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_goto_deferred.cpp:28:rt_sno_goto_special_is	src/templates/bb/bb_goto_deferred.cpp:30	UNWITNESSED
 src/templates/bb/bb_goto_deferred.cpp:47:rt_goto_resolve	src/templates/bb/bb_goto_deferred.cpp:49	UNWITNESSED
 src/templates/bb/bb_iterate.cpp:25:rt_list_bang_key_at	src/templates/bb/bb_iterate.cpp:33	hb_table_elem_ref_across_collections.icn
