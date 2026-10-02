@@ -5,7 +5,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # that they have a small input (a sample of the larger work horse input) and a ref file. All demos are benchmarks since they can be run at
 # wall clock and perf values extracted. They are not run in loops."; ceo CEO-1312/1313; coo COO-206).
 # THE TEST ROLE, graded here: every program under corpus/demos/<lang> (the DONE-WHEN's own census: *.sno *.icn *.pl *.sc *.pas *.raku
-# *.reb *.scrip, three levels deep) that its CONTAINERS.tsv does not declare a container or library block is run on its SAMPLE input --
+# *.reb, and for scriptix the *.md documents but never a README.md, three levels deep) that its CONTAINERS.tsv does not declare a container or library block is run on its SAMPLE input --
 # stdin from <stem>.in (else <stem>.input), arguments from its <stem>.cmdline run_args (or an Icon <stem>.argv), its heap, stack and
 # compile_args from its sidecars (RULES.md clause 8 (f): the runner types none of its own) -- in mode 3 and in mode 4, in a scratch copy
 # of its directory with SNO_LIB its own directory then corpus/include (the scorecard's SELFDIR:include), and its stdout is compared byte for byte with <stem>.ref, cut from the language's oracle. A program with no ref
@@ -21,7 +21,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 S4E="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 G=test_demos_suite
 refuse() { echo "⛔ REFUSED(2) [$G $L]: $*" >&2; exit 2; }
-case "$L" in icon|prolog|snobol4|snocone|scrip|pascal|raku|rebus) ;; *) refuse "usage: test_demos_suite.sh <lang> [--no-write] -- lang one of icon prolog snobol4 snocone scrip pascal raku rebus (got '${L}')";; esac
+case "$L" in icon|prolog|snobol4|snocone|scriptix|pascal|raku|rebus) ;; *) refuse "usage: test_demos_suite.sh <lang> [--no-write] -- lang one of icon prolog snobol4 snocone scriptix pascal raku rebus (got '${L}'; the SCRIPtix documents left demos/scrip and .scrip for demos/scriptix and .md on 2026-10-02, ceo CEO-1421)";; esac
 DD="${DEMOS_DIR:-$S4E/corpus/demos/$L}"
 SCRIP="$HERE/../scrip"; RT_DIR="${RT_DIR:-$HERE/../out}"; TMO="${DEMO_TIMEOUT:-60}"
 [ -d "$DD" ] || refuse "no demo tree at $DD"
@@ -33,7 +33,8 @@ DEMOS_PARENT="$(cd "$DD/.." && pwd)"; ROOT="$(cd "$DD/../.." && pwd)"   # <root>
 . "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || refuse "lib_icon_ipl_isolation.sh unloadable -- the one reader of an Icon .argv"
 IS_BOARD=0; one_runner_suite_is_a_board "$DD" && IS_BOARD=1
 CONT="$DD/CONTAINERS.tsv"
-mapfile -t PROGS < <(cd "$DD" && find . -maxdepth 3 -type f \( -name '*.sno' -o -name '*.icn' -o -name '*.pl' -o -name '*.sc' -o -name '*.pas' -o -name '*.raku' -o -name '*.reb' -o -name '*.scrip' \) | sed 's|^\./||' | LC_ALL=C sort)
+MDX=(); [ "$L" = scriptix ] && MDX=(-o \( -name '*.md' ! -name 'README.md' \))
+mapfile -t PROGS < <(cd "$DD" && find . -maxdepth 3 -type f \( -name '*.sno' -o -name '*.icn' -o -name '*.pl' -o -name '*.sc' -o -name '*.pas' -o -name '*.raku' -o -name '*.reb' "${MDX[@]}" \) | sed 's|^\./||' | LC_ALL=C sort)
 bash "$HERE/util_require_population.sh" --gate "$G" "${#PROGS[@]}" 1 "demo programs under $DD (a population of zero is not a green board; the ONE floor authority, lib_gate.sh gate_floor)" || exit 2
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 PROG_ROWS="$T/progress.tsv"; : > "$PROG_ROWS"

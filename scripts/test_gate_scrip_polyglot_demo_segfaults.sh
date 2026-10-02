@@ -2,7 +2,7 @@
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_scrip_polyglot_demo_segfaults.sh -- DONE-WHEN for scrip-polyglot-demo-3-segfaults.
-# The three named polyglot demos under corpus/demos/scrip/demoNN/ must not crash the compiler.
+# The three named polyglot demos under corpus/demos/scriptix/demoNN/ must not crash the compiler.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
 set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
@@ -20,7 +20,7 @@ trap 'rm -f "$ERRF"' EXIT
 [ -x "$SCRIP" ] || fail "scrip not built at $SCRIP -- run 'make pristine' in SCRIP/ first"
 
 for f in demo02/wordcount demo04/palindrome demo06/sieve; do
-    src="$CORPUS/demos/scrip/$f.scrip"
+    src="$CORPUS/demos/scriptix/$f.md"
     [ -f "$src" ] || fail "witness not found: $src"
     timeout 8 "$SCRIP" --run "$src" < /dev/null > /dev/null 2>"$ERRF"
     rc=$?

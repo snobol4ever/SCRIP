@@ -2,12 +2,14 @@
 # stale-binary preflight (row test-gate-scripts-that-grade-scrip-refuse-on-a-stale-binary-census-widened, hq_T 2026-09-05)
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 # test_gate_polyglot_demos.sh -- DONE-WHEN for polyglot-scrip-demos-10-working.
-# Sweeps all 10 corpus/demos/scrip/demoNN/*.scrip polyglot demos in BOTH modes (m3 --run, m4
+# Sweeps all 10 corpus/demos/scriptix/demoNN/*.md polyglot demos in BOTH modes (m3 --run, m4
 # --compile) against their .ref files. Prints "m3 PASS=N" / "m4 PASS=N" lines (the
 # umbrella's own DONE-WHEN greps for these verbatim) and exits 0 only when both read 10.
 #
 # rc=0 both modes 10/10 (CLEAN); rc=1 examined all 10 in both modes, at least one FAIL (VIOLATION);
 # rc=2 scrip unbuilt or the demo corpus absent -- cannot measure (UNPROVEN, never a silent pass).
+# RENAMED 2026-10-02 (Lon, in-chat to the ceo: "Rename the folder to be corpus/demos/scriptix since *.scrip will be its own
+# language. And rename the *.scrip sources to be *.md, plain markdown files"; ceo CEO-1421): corpus/demos/scriptix/demoNN/*.md.
 # PATH NOTE (corrected AGAIN 2026-08-29, seat10) -- THIS PATH HAS NOW ROUND-TRIPPED: demo/scrip ->
 # scrip -> demo/scrip, all within about one day. seat15 (earlier 2026-08-29) verified corpus/scrip/
 # was current and pointed DEMO_DIR there; a later same-day Lon-ordered move (corpus commit
@@ -24,7 +26,7 @@ set -u
 SCRIP="${SCRIP:-$S4E/SCRIP/scrip}"
 OUTDIR="${OUTDIR:-$S4E/SCRIP/out}"
 CORPUS="${CORPUS:-$S4E/corpus}"
-DEMO_DIR="$CORPUS/demos/scrip"
+DEMO_DIR="$CORPUS/demos/scriptix"
 TIMEOUT=8
 
 if [ ! -x "$SCRIP" ]; then
@@ -68,7 +70,7 @@ tag_rc() { local rc="$1"; [ "$rc" -ge 128 ] && echo " CRASH(rc=$rc, sig=$((rc-12
 for demo_dir in "$DEMO_DIR"/demo*/; do
     [ -d "$demo_dir" ] || continue
     dname=$(basename "$demo_dir")
-    src=$(ls "$demo_dir"*.scrip 2>/dev/null | head -1)
+    src=$(ls "$demo_dir"*.md 2>/dev/null | head -1)
     exp=$(ls "$demo_dir"*.ref 2>/dev/null | head -1)
     [ -n "$src" ] && [ -n "$exp" ] || continue
     n_demos=$((n_demos+1))

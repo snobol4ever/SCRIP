@@ -4,7 +4,7 @@
 
 One compiler, seven languages — and an eighth, hybrid one — native code. SCRIP compiles
 **SNOBOL4/SPITBOL, Snocone, Icon, Prolog, Rebus, Raku, and Pascal**, and the polyglot
-**`.scrip`** document that mixes them, to x86-64 through a single engine: every
+SCRIPtix **`.md`** document that mixes them, to x86-64 through a single engine: every
 construct in every language lowers to the same IR of four-port **Byrd boxes**, and every
 machine instruction is produced by one encoder. x86-64 is the shipping target; **JVM,
 .NET, JavaScript, and WebAssembly backends are the near-term roadmap** on the same engine.
@@ -115,9 +115,9 @@ snippet lands here once that is fixed.
 > even co-exist in the same translation unit — one compiland.
 > — Lon Jones Cherryholmes
 
-Today that shows up as the polyglot `.scrip` format: one document, one fenced section
+Today that shows up as the polyglot SCRIPtix format, a plain Markdown `.md` file: one document, one fenced section
 per language, compiled and run together from a single `scrip --run` invocation — see
-[`test/cross_lang.scrip`](test/cross_lang.scrip) for three languages sharing one
+[`corpus/tests/scrip_test/cross_lang.md`](https://github.com/snobol4ever/corpus/blob/main/tests/scrip_test/cross_lang.md) for three languages sharing one
 process and one box-driving runtime. Full cross-language data sharing — one language
 reading or writing a value another language set — is the active work, not yet
 uniformly proven; x86-64 ships today, and JVM, .NET, JavaScript, and WebAssembly are
@@ -487,9 +487,9 @@ outside the ISO baseline with its measurement and kept in the denominator.
 
 Geometric mean against `fpc -O2`: **0.0016x** in mode 4 over the 8 kernels whose `fpc` and m4 slopes both agree (SCRIP ahead on 0), **0.0016x** in mode 3 over 8 (ahead on 0). **Why SCRIP is three orders of magnitude from `fpc`, measured the same sitting (callgrind, exclusive share of all instructions, mode 4 at -O0, `SCRIP_DIAG=0`, the kernels at 1-200 reps):** two runtime roads carry almost every instruction. **(1) An array element is fetched and stored by a builtin looked up by its name on every access:** the Pascal lowerer emits `a[i]` as a call to the runtime's `arr_get`, `a[i] := v` as `arr_set_pure` and `odd(i)` as `iand`, each through `rt_call_arr_bl` with the builtin's NAME as a string (37 such sites in queens' emitted asm), and the runtime resolves that name by comparing it against its builtin table with `strcmp` on every call: `__strcmp_avx2` is 46% of queens, 51% of bubble, 52% of sieve and 49% of whet, and the two dispatch functions `script_try_call_builtin_by_name` and `try_call_builtin_by_name_bl_s` another 33-37% -- 85-90% of every instruction these kernels execute is the lookup of a name the compiler already knew, before the element is touched at all, where `fpc` emits the indexed load. **(2) The procedure call is a C protocol:** towers (the recursive Hanoi mover, a call per move) spends 18.5% in `rt_icn_zframe_args_install`, 14.7% in `rt_proc_call_prologue_lex`, 13.9% in `rt_proc_call_open_det4`, 10.5% in `memset` clearing the frame, 5.6% in `rt_proc_call_epilogue_γ` and 2.9% in `rt_jmp_frame_lexprep2` -- two thirds of the kernel in the frame's carve, fill and release in C, the road the Prolog call census names (`rt_icn_zframe_args_install` and its five siblings at 9,881 sites there) and the Byrd-box rewrite rows exist for. Where neither road is on the path, the kernel's own emitted boxes are 1-6% each (towers' `n26_return_bx`, `n13_call_bx`, `n2_binop_test_bx`). Both roads are rows on hq_pascal: the element addressed by the compiler, whose criterion is the census of by-name array calls in the eight kernels' emitted asm reading zero, and the call as an emitted prologue. The 2026-09-04 grid that stood here was retracted on 2026-09-16 (CEO-798) because its cells were the instrument's self-agreement ratio; this run is the first the harness signed -- exit 0, every angle agreeing on every kernel -- and it carries the retraction's own prediction, three orders from `fpc` on the WORK basis at `-O0`.
 
-### SCRIP — the hybrid `.scrip` document
+### SCRIPtix — the hybrid `.md` document
 
-The eighth language is the other seven together: a `.scrip` file is a Markdown document with one fenced section per language, compiled into one program and run from a single `scrip --run` (see [§ Seven languages, one compiland](#seven-languages-one-compiland)). Its programs are the polyglot demos under `corpus/demos/scrip/`, each graded as a test in both modes against its ref on a sample input — the ScrDemo row of the suite table above. The programs, and what works today:
+The eighth language is the other seven together: a SCRIPtix file is a plain Markdown `.md` document with one fenced section per language, compiled into one program and run from a single `scrip --run` (see [§ Seven languages, one compiland](#seven-languages-one-compiland)). Its programs are the polyglot demos under `corpus/demos/scrip/`, each graded as a test in both modes against its ref on a sample input — the ScrDemo row of the suite table above. The programs, and what works today:
 
 <!-- SCRIP-PROGRAMS:BEGIN generated by .github/scripts/util_readme_scrip_programs.py --write from the progress DB's newest scrip-demos pass (SCRIP 4ff9addec, corpus fb0900573, measured 2026-09-27) -- do not edit by hand -->
 

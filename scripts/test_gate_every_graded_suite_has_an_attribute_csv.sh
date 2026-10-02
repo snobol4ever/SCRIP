@@ -23,7 +23,7 @@ declare -A DIR=(
   [prolog-bench-ref]=corpus/benchmarks/prolog [pascal-bench-ref]=corpus/benchmarks/pascal [raku-bench-ref]=corpus/benchmarks/raku
   [rebus-bench-ref]=corpus/benchmarks/rebus
   [snobol4-demos]=corpus/demos/snobol4 [snocone-demos]=corpus/demos/snocone [icon-demos]=corpus/demos/icon [prolog-demos]=corpus/demos/prolog
-  [scrip-demos]=corpus/demos/scrip
+  [scriptix-demos]=corpus/demos/scriptix
 )
 rows=0; ok=0; okb=0; missing=(); unknown=()
 while IFS=$'\t' read -r key rest; do

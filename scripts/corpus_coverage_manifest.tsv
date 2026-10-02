@@ -22,7 +22,7 @@ EXCLUDE	programs	EXCLUDED	Lon 2026-08-27 RULES.md:55 -- "all the corpus/programs
 # 2026-10-01 (the coo, round 3): four ROWD subtrees named rows the CEO-1386 zero-base sweep retired (no QUEUE.tsv row, so no seat could
 # pick them and the gate read UNDISPATCHABLE). Each is graded today by a board row of THE SUITE TABLE, so each is GATED by that runner:
 # packages/prolog by test_prolog_swi_suite.sh (SWI; INRIA, GNU and Logtalk by their own), benchmarks/raku by test_raku_bench_suite.sh
-# (RakBench), demos/scrip by test_demos_suite.sh (ScrDemo), benchmarks/rebus by test_rebus_bench_suite.sh (RebBench).
+# (RakBench), demos/scriptix by test_demos_suite.sh (TixDemo), benchmarks/rebus by test_rebus_bench_suite.sh (RebBench).
 SUBTREE	packages/snobol4	GATED	test_csnobol4_budne_suite.sh
 SUBTREE	tests/icon	GATED	test_icon_all_rungs.sh
 SUBTREE	tests/prolog	GATED	test_corpus_prolog_parser.sh
@@ -59,7 +59,7 @@ SUBTREE	demos/icon	GATED	test_demo_icon_jcon.sh
 # moved to tests/snobol4/coverage/ (KEEP.md fixture -- IR-node-coverage witness, not runtime-gradeable; see that KEEP.md).
 # corpus/crosscheck/ now holds nothing at all -- this was its last SUBTREE entry. tests/snobol4 (below) already covers
 # the new location; no new line needed.
-SUBTREE	demos/scrip	GATED	test_demos_suite.sh
+SUBTREE	demos/scriptix	GATED	test_demos_suite.sh
 SUBTREE	benchmarks/snocone	ROWD	snocone-demo-trailing-comma-locals-parse-gap
 SUBTREE	benchmarks/rebus	GATED	test_rebus_bench_suite.sh
 # tests/scrip_test is TRANSIENT STAGING, not a stable corpus location: SCRIP/test was moved here wholesale

@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 CORPUS="$(cd "$ROOT/.." && pwd)/corpus"
 SCRIP="${SCRIP:-$ROOT/scrip}"
-DEMO_DIR="$CORPUS/demos/scrip"
+DEMO_DIR="$CORPUS/demos/scriptix"
 TIMEOUT=8
 PASS=0; FAIL=0; SKIP=0
 
@@ -43,11 +43,11 @@ echo ""
 
 for demo_dir in "$DEMO_DIR"/demo*/; do
     dname=$(basename "$demo_dir")
-    md=$(ls "$demo_dir"*.scrip 2>/dev/null | head -1)
+    md=$(ls "$demo_dir"*.md 2>/dev/null | head -1)
     exp_file=$(ls "$demo_dir"*.ref 2>/dev/null | head -1)
 
     if [ -z "$md" ]; then
-        echo "  SKIP $dname (no .scrip file)"
+        echo "  SKIP $dname (no .md file)"
         SKIP=$((SKIP+1))
         continue
     fi

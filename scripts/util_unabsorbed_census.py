@@ -208,7 +208,7 @@ for root, dirs, files in os.walk(C):
     # .expected, silently pinning a new program to a ref cut for a deleted one.
     # ⛔ THE PREDICATE IS EXACT ON PURPOSE -- "no file in this directory shares the ref's basename", never a
     # prefix or fuzzy match. A first pass asked "is there a partner with one of the SEVEN source extensions"
-    # and over-reported 25 where the truth is 10: demos/scrip/*.expected sit beside `.scrip` sources, which
+    # and over-reported 25 where the truth is 10: demos/scriptix/*.expected sit beside `.md` sources (`.scrip` until 2026-10-02), which
     # is a polyglot extension EXT has no reason to carry. An instrument answering a NARROWER question than
     # you think you asked never says so -- this file's own header carries that lesson twice already.
     _partners = set(os.path.splitext(x)[0] for x in files if not x.endswith(_REF_EXTS))

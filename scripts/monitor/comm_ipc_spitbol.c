@@ -1,5 +1,5 @@
 /*
- * comm_ipc_spitbol.c -- the COMM channel of demos/scrip/infinite_snobol4, cloned from the sync-step monitor's IPC
+ * comm_ipc_spitbol.c -- the COMM channel of demos/scriptix/infinite_snobol4, cloned from the sync-step monitor's IPC
  * (Lon 2026-10-02: "So, clone the code for the IPC sync-step monitor and use it for this COMM as well."; ceo CEO-1419).
  * Same two named pipes and RS-terminated records as monitor_ipc_sync.c and the fork's monitor_ipc_spitbol.c, turned into
  * request/reply: the parent writes one request record to the request pipe, this side reads it, answers with one reply
