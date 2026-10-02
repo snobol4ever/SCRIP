@@ -52,7 +52,14 @@ QUEUE="${S4E_QUEUE:-/home/resources/postoffice/QUEUE.tsv}"
 # ⛔ REFUSE rc=2 rather than skip-as-success: an instrument that cannot measure must say so. A missing
 # ALL.xfail is NOT "zero unattributed markers" -- it is a gate that graded nothing and must not print
 # the same string as one that passed.
-[ -f "$RUNGS_XFAIL" ] || { echo "⛔ GATE REFUSES: no $RUNGS_XFAIL -- cannot grade marker attribution"; exit 2; }
+# ⭐ AMENDED 2026-10-02 (ceo CEO-1408): the POPULATION is ALL.csv's xfail column (below), so an ABSENT ALL.xfail is MEASURABLE -- it is
+# zero reason blocks. util_build_rungs_suite.py --resort deletes an empty ALL.xfail, which is exactly the state of a rungs with no
+# markers left (SnoRungs on 2026-10-02). Read as empty: zero marked entries grade CLEAN, and any marked entry grades NO REASON AT
+# ALL (RED) -- never a skip. The refusal stays for a missing QUEUE.tsv or ALL.csv, which ARE the population and the routes.
+if [ ! -f "$RUNGS_XFAIL" ]; then
+    _xf_empty="$(mktemp)" || { echo "⛔ GATE REFUSES: mktemp failed"; exit 2; }; trap 'rm -f "$_xf_empty"' EXIT
+    echo "  ALL.xfail absent -- read as ZERO reason blocks (the population is ALL.csv's xfail column)"; RUNGS_XFAIL="$_xf_empty"
+fi
 [ -f "$QUEUE" ]        || { echo "⛔ GATE REFUSES: no QUEUE.tsv at $QUEUE -- cannot tell a live row from a dead one"; exit 2; }
 [ -f "$RUNGS_CSV" ]   || { echo "⛔ GATE REFUSES: no $RUNGS_CSV -- ALL.csv is the POPULATION; without it this gate can only see xfails that already have a reason, which is the blind spot it exists to close"; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "⛔ GATE REFUSES: no python3"; exit 2; }
@@ -77,7 +84,7 @@ for ln in open(xf, encoding="utf-8", errors="replace"):
         cur = m.group("name"); marks[cur] = ""
     elif cur and ln.strip():
         marks[cur] += ln
-if not marks:
+if not marks and open(xf, encoding="utf-8", errors="replace").read().strip():
     print("⛔ GATE REFUSES: %s parsed as zero markers -- banner format moved, or the file is a stub" % xf)
     sys.exit(2)
 # ⛔⭐ THE POPULATION IS ALL.csv's xfail COLUMN, NEVER ALL.xfail. Reading the reason file as the

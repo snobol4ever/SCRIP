@@ -338,6 +338,22 @@ RUNGS_OUTSIDE="$CORPUS/tests/snobol4/ALL.outside.tsv"
 # REFUSES a list naming an entry that is not in the suite, so a stale row cannot quietly shrink the board.
 _outside_arg=""
 [ -f "$RUNGS_OUTSIDE" ] && _outside_arg="--outside $RUNGS_OUTSIDE"
+# ⛔⭐ THE RUNGS' EXCLUDED.tsv (ceo CEO-1408; Lon 2026-10-02, in-chat to the ceo, verbatim: "Let's move the identifier which
+# starts with a nul-character into the exclude column; we'll solve that later."): entries Lon takes OUT of the published
+# denominator, the shape every SNOBOL4 package's EXCLUDED.tsv already has (CEO-1286). Its rows ride into the harness WITH the
+# outside list (one --outside file, merged here), so they are not graded; the row then publishes pass / (shipped - EXCLUDED) and
+# util_score_row.py --excluded fills the SUITE TABLE's Excl column. A row of it naming no entry REFUSES in the harness, as
+# ALL.outside.tsv's do, so a stale exclusion cannot quietly shrink the board.
+RUNGS_EXCLUDED="$CORPUS/tests/snobol4/EXCLUDED.tsv"
+_sn4_excluded=0
+if [ -f "$RUNGS_EXCLUDED" ]; then
+    _sn4_excluded=$(grep -cvE '^[[:space:]]*(#|$)' "$RUNGS_EXCLUDED")
+    if [ "$_sn4_excluded" -gt 0 ]; then
+        _rungs_merged_outside="$WORKDIR/rungs_outside_merged.tsv"
+        { [ -f "$RUNGS_OUTSIDE" ] && grep -vE '^[[:space:]]*(#|$)' "$RUNGS_OUTSIDE"; grep -vE '^[[:space:]]*(#|$)' "$RUNGS_EXCLUDED"; } > "$_rungs_merged_outside"
+        _outside_arg="--outside $_rungs_merged_outside"
+    fi
+fi
 RUNGS_ENTRY_FLOOR="${RUNGS_ENTRY_FLOOR:-1576}"   # FLOOR, not a pinned total (RULES.md): growth needs no re-pin; only an attributed retirement may lower it, in the commit that shrinks the rungs
 if [ ! -f "$HARNESS" ]; then
     echo "⛔ GATE REFUSES: corpus_suite_harness.py missing at $HARNESS"; exit 2
@@ -705,12 +721,13 @@ _sn4_killed=""
 # the denominator, read once as engine movement (COO-82). A denominator move needs its stamp: S4E_CRITERION_CHANGED is forwarded.
 _sn4_shipped=$(field shipped); _sn4_outside=$(field outside)
 [ -n "$_sn4_shipped" ] && [ -n "$_sn4_outside" ] || { echo "⛔ GATE REFUSES: the rungs SUITE_BOARD carries no shipped=/outside= fields -- the row would publish the graded population and drop OUTSIDE silently (CEO-749); the harness beside this runner must print them." >&2; exit 2; }
-_sn4_board="rungs both-modes $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt) · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp MISSING=0$_sn4_killed · runner-wide (rungs + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
+_sn4_outside=$((_sn4_outside - _sn4_excluded)); _sn4_shipped=$((_sn4_shipped - _sn4_excluded))
+_sn4_board="rungs both-modes $m_all/$_sn4_shipped EXCLUDED=$_sn4_excluded OUTSIDE=$_sn4_outside (graded $mt) · m3 $m3p/$mt FAIL=$((m3f+m3c)) xfail=$m3x ($m3xs) xpass=$m3xp · m4 $m4p/$mt FAIL=$((m4f+m4c)) SKIP=$m4s xfail=$m4x ($m4xs) xpass=$m4xp MISSING=0$_sn4_killed · runner-wide (rungs + loop programs, NOT this row) both-modes $BOTH/$TOTAL (\`test_corpus_snobol4.sh\`)"
 # ⛔⭐ THE CELL IS NAMED sno-rungs AND MUST RECEIVE THE RUNGS'S OWN PAIR ($m_all/$mt), NOT THE RUNNER'S WIDER ONE.
 # $BOTH/$TOTAL spans the rungs PLUS the loop programs, so publishing it put a rung suite+loop number in a rung suite cell --
 # the second half of why this row kept re-flipping. The combined figure stays on the terminal, labelled, and the
 # published pair is printed beside it so the board everyone quotes and the terminal cannot silently disagree.
-echo "sno-rungs ROW PUBLISHED: $m_all/$_sn4_shipped OUTSIDE=$_sn4_outside (graded $mt)  (rungs only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
+echo "sno-rungs ROW PUBLISHED: $m_all/$_sn4_shipped EXCLUDED=$_sn4_excluded OUTSIDE=$_sn4_outside (graded $mt)  (rungs only; m3 xfail=$m3x xpass=$m3xp · m4 xfail=$m4x xpass=$m4xp — xfails counted in the denominator, not the numerator; a nonzero XPASS is a stale marker and is as actionable as a failure, in the opposite direction)"
 echo "runner-wide population (rungs + loop, NOT the published row): $BOTH/$TOTAL"
 echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_snobol4.sh; skipped with a notice if the tree is dirty)"
 # ⛔⭐ THE SUITE ROW'S PAIR IS DECLARED, NEVER PARSED OUT OF THE LINE ABOVE (hq_T 2026-09-06, ceo CEO-363).
@@ -725,7 +742,7 @@ echo "ONE LEADERBOARD: recording this board into .github/SCORE.md (test_corpus_s
 # worse; the row started counting what it always claimed to count. The cell keeps the per-mode counts beside
 # the number so nobody loses the split, which is the other half of the same ruling.
 python3 "$HERE/util_score_row.py" write --lang snobol4 --column board --modes m3,m4 \
-    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$m_all" --suite-total "$_sn4_shipped" \
+    --measurer "${S4E_SEAT:-}" --text "$_sn4_board" --suite-pass "$m_all" --suite-total "$_sn4_shipped" --excluded "$_sn4_excluded" \
     ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why; a denominator move wants S4E_CRITERION_CHANGED='YYYY-MM-DD:reason' on this runner's call)"
 # ⭐ THE PROGRESS LINE, after the rewrite (see board_icon_rungs.sh for the same call and why it is here
