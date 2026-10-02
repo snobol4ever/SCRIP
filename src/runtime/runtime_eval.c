@@ -383,7 +383,7 @@ static int eval_chain_run_guarded(eval_chain_fn fn) {
 #else
     if (!_ef) { eval_chain_enter_only(fn); return 1; }
 #endif
-    int my = g_core_errjmp_n++; long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = -1;
+    int my = g_core_errjmp_n++; long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = G_ERROR_EVAL_STAGE;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
 #if RT_DIAG
     rt_c2bb_hit("chain.eval.guarded", "?");

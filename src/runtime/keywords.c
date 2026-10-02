@@ -602,9 +602,9 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     DESCR_t kv = canon ? kw_read(lk) : FAILDESCR;
     if (!IS_FAIL(kv)) return kv;
     if (canon && (!strcmp(lk,"arb") || !strcmp(lk,"bal") || !strcmp(lk,"rem") || !strcmp(lk,"fail") || !strcmp(lk,"fence") || !strcmp(lk,"abort") || !strcmp(lk,"succeed"))) { const char *bn = sval[0] == '&' ? sval + 1 : sval; return NV_GET_fn(bn); }
-    if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", sval[0] == '&' ? sval : lk); core_runtime_error(251, eb); return NULVCL; }
+    if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", sval[0] == '&' ? sval : lk); core_runtime_error(251, eb); return FAILDESCR; }
     {
-      if (!NV_CONST_ASSIGNED_fn(ck)) { char eb[192]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return NULVCL; }
+      if (!NV_CONST_ASSIGNED_fn(ck)) { char eb[192]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return FAILDESCR; }
       return NV_KW_GET_fn(ck); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

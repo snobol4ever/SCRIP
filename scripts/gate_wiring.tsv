@@ -695,6 +695,7 @@ test_gate_sno_a_value_list_in_a_function_with_a_local_yields_its_arm.sh	WIRED	-	
 test_gate_sno_a_variable_name_is_a_counted_string_and_a_nul_byte_is_part_of_it.sh	WIRED	-	-	-
 test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_an_element_after_a_fence_inside_an_arbno_body_backs_into_the_fence.sh	WIRED	-	-	-
+test_gate_sno_an_error_inside_eval_of_a_string_fails_the_eval_and_counts_against_errlimit.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-
 test_gate_sno_an_error_while_an_unevaluated_expression_is_evaluated_fails_the_innermost_statement.sh	WIRED	-	-	-
 test_gate_sno_an_immediate_assignment_to_a_global_stores_into_its_gva_cell.sh	WIRED	-	-	-
@@ -734,7 +735,6 @@ test_gate_sno_frameless_thunk_carries_its_head_and_lands_omega_at_depth_zero.sh	
 test_gate_sno_goto_with_no_preceding_error.sh	WIRED	-	-	-
 test_gate_sno_host_1_runs_the_command_and_returns_its_wait_status.sh	WIRED	-	-	-
 test_gate_sno_host_minus_one_answers_the_memory_statistics.sh	WIRED	-	-	-
-test_gate_sno_ord_reads_the_first_character_and_fails_only_on_null.sh	WIRED	-	-	-
 test_gate_sno_ident_and_the_fused_table_store_take_the_asm_entries.sh	WIRED	-	-	-
 test_gate_sno_input_keeps_the_last_record_it_read.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
@@ -746,6 +746,7 @@ test_gate_sno_lex_compare_binary_safe.sh	WIRED	-	-	-
 test_gate_sno_match_operator_composes_in_value_position.sh	WIRED	-	-	-
 test_gate_sno_match_region_watermark_is_spent_on_every_exit_edge.sh	WIRED	-	-	-
 test_gate_sno_mode4_code_call_inherits_the_scc_taint.sh	WIRED	-	-	-
+test_gate_sno_ord_reads_the_first_character_and_fails_only_on_null.sh	WIRED	-	-	-
 test_gate_sno_package_runners_append_progress_rows.sh	WIRED	-	-	-
 test_gate_sno_parser_refuses_at_compile_time_what_spitbol_refuses.sh	WIRED	-	-	-
 test_gate_sno_pattern_concatenation_with_null_preserves_identity.sh	WIRED	-	-	-
