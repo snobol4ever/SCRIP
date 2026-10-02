@@ -729,6 +729,7 @@ test_gate_sno_fnclevel_is_mirrored_at_every_level_move_not_only_in_the_gva_shim.
 test_gate_sno_frameless_thunk_carries_its_head_and_lands_omega_at_depth_zero.sh	WIRED	-	-	-
 test_gate_sno_goto_with_no_preceding_error.sh	WIRED	-	-	-
 test_gate_sno_host_1_runs_the_command_and_returns_its_wait_status.sh	WIRED	-	-	-
+test_gate_sno_host_minus_one_answers_the_memory_statistics.sh	WIRED	-	-	-
 test_gate_sno_ident_and_the_fused_table_store_take_the_asm_entries.sh	WIRED	-	-	-
 test_gate_sno_io_assoc_channel_and_filespec.sh	WIRED	-	-	-
 test_gate_sno_keyword_spelling_is_case_sensitive.sh	WIRED	-	-	-

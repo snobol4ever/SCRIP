@@ -1563,9 +1563,31 @@ void rt_cmdline_switches_apply(void) {
     if (mxl >= 0) { extern long g_maxlngth; g_maxlngth = mxl; }
     if (win_kb > 0 || cap_kb > 0) { extern void rt_heap_size_set(long, long); rt_heap_size_set(win_kb, cap_kb); }
 }
+static int host_selector_int(DESCR_t d, int64_t *out) {
+    if (d.v == DT_SNUL || (d.v == DT_S && (!d.s || d.slen == 0))) { *out = 0; return 1; }
+    if (IS_INT_fn(d)) { *out = d.i; return 1; }
+    if (d.v != DT_S) return 0;
+    { const char *p = d.s, *e = d.s + d.slen; int neg = 0, dg = 0; int64_t v = 0;
+      while (p < e && *p == ' ') p++;
+      if (p < e && (*p == '+' || *p == '-')) { neg = (*p == '-'); p++; }
+      while (p < e && *p >= '0' && *p <= '9') { if (v > (INT64_MAX - 9) / 10) return 0; v = v * 10 + (*p - '0'); p++; dg = 1; }
+      if (!dg || p != e) return 0;
+      *out = neg ? -v : v; return 1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
     int64_t selector = to_int(a[0]);
+    if (selector == -1) {
+        extern long rt_gcheap_stat(int); extern long rt_stack_stat(int, const char *);
+        char here = 0; long v = -1; int64_t k = 0;
+        if (!host_selector_int(n >= 2 ? a[1] : NULVCL, &k) || k < 0 || k > 7) { core_runtime_error(254, "erroneous argument for host"); return FAILDESCR; }
+        if (k <= 3) v = rt_gcheap_stat((int)k);
+        else if (k == 6) v = (long)sizeof(long);
+        else v = rt_stack_stat((int)k, &here);
+        if (v < 0) { core_runtime_error(254, "erroneous argument for host"); return FAILDESCR; }
+        return INTVAL((int64_t)v);
+    }
     if (selector == 0) {
         if (_host_u) return *_host_u ? STRVAL(rt_heap_strdup_c(_host_u)) : NULVCL;
         { char ub[4096]; int has_u = 0, bad = 0; (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, ub, (int)sizeof(ub), &has_u, &bad, 0);

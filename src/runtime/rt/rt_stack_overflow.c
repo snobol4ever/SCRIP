@@ -78,6 +78,19 @@ void rt_stack_budget_apply(long budget, long extra)
       rl.rlim_cur = (rlim_t)want; (void)setrlimit(RLIMIT_STACK, &rl); (void)here; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_stack_stat(int which, const char *sp)
+{
+    extern char *rt_gc_program_stack_top(void); extern long rt_sw_stack_bytes(void);
+    const char *top = rt_gc_program_stack_top(); long size = rt_stack_budget_bytes(rt_sw_stack_bytes()), pg = sysconf(_SC_PAGESIZE);
+    if (which == 4) return size;
+    if (!top || !sp || sp > top) return -1;
+    if (which == 5) return (long)(top - sp);
+    if (which == 7) { const char *floor = top - size, *p = (const char *)((uintptr_t)sp & ~(uintptr_t)(pg - 1)); unsigned char vec = 0;
+      while (p - pg >= floor && mincore((void *)(p - pg), (size_t)pg, &vec) == 0 && (vec & 1)) p -= pg;
+      return (long)(top - (p < sp ? p : sp)); }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_STACK_HUGE (2UL * 1024UL * 1024UL)
 _Static_assert(RT_STACK_HUGE == 2097152UL, "A COMPILED PROGRAM RUNS ON A STACK IT MAPS ITSELF (ceo 2026-09-25, CEO-1265; Lon 2026-09-25 10:06, in-chat to the ceo: \"continue getting all demos and benchmarks running faster than SPITBOL\"): the process stack grows down a 4 KB page at a time, each first touch a fault of about 11 K kernel cycles, and a growsdown mapping can never take a transparent huge page because its lower end is never 2 MB aligned -- the calculator demo touched 48 MB of stack in 12,312 faults, two thirds of its whole run. The emitted main calls rt_main_stack_adopt first: it maps the -s budget (SPITBOL's -s4m unless the command line or SCRIP_STACK says otherwise) rounded up to 2 MB at a 2 MB boundary, MADV_HUGEPAGE, one PROT_NONE guard page below it, and main moves rsp to its top and never returns to the old stack. The collector finds the region from its own cached stack top (rt_gc_stack_top_adopt), the overflow handler from the mapping holding that top, and core_lib_init no longer raises RLIMIT_STACK for a program that adopted. Measured: calculator-1 58 ms -> 33 ms, 13,675 faults -> 1,459, output unchanged. A failed map returns 0 and the program stays on the stack it was given");
 char *rt_main_stack_adopt(void)
