@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1953
+#define GC_ALLOC_TAB_N 1955
 #define GC_ALLOC_TAB_N_VOID 226
 #define GC_ALLOC_TAB_N_DESCR 1065
-#define GC_ALLOC_TAB_N_OTHER 655
+#define GC_ALLOC_TAB_N_OTHER 657
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -23,6 +23,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "NV_KW_GET_fn", GC_RET_DESCR },
     { "NV_KW_SET_fn", GC_RET_DESCR },
     { "NV_PTR_fn", GC_RET_OTHER },
+    { "NV_PTR_n", GC_RET_OTHER },
     { "NV_SET_fn", GC_RET_DESCR },
     { "NV_bind_gva", GC_RET_OTHER },
     { "NV_intern_name_fn", GC_RET_OTHER },
@@ -672,6 +673,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "mon_tap_cell_store", GC_RET_VOID },
     { "mul", GC_RET_DESCR },
     { "neg", GC_RET_DESCR },
+    { "nv_entry_name", GC_RET_OTHER },
     { "op_cols_fill", GC_RET_VOID },
     { "opsyn", GC_RET_DESCR },
     { "optimizer_run", GC_RET_VOID },

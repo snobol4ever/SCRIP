@@ -3421,6 +3421,8 @@ void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val) {
 }
 typedef struct _VarEntry {
     char   *name;
+    uint32_t nlen;
+    int      has_nul;
     DESCR_t  val;
     DESCR_t *cell;
     int      is_gva;
@@ -3437,7 +3439,7 @@ static inline __attribute__((always_inline)) uint64_t nv_hash_raw(const char *s,
 static void _var_grow(unsigned nb) {
     gv_t nv = { 0, 0, 0, 0, 0, 0 };
     gv_reserve(&nv, (uint16_t)HB_PVEC, (uint32_t)sizeof(NV_t *), (uint64_t)nb, "g_var_buckets"); memset(nv.p, 0, (size_t)nb * sizeof(NV_t *));
-    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VB(h), *nx; e; e = nx) { unsigned k = (unsigned)(nv_hash_raw(e->name, __builtin_strlen(e->name)) & (uint64_t)(nb - 1)); nx = e->next;
+    for (unsigned h = 0; h < _var_nbuckets; h++) for (NV_t *e = VB(h), *nx; e; e = nx) { unsigned k = (unsigned)(nv_hash_raw(e->name, (size_t)e->nlen) & (uint64_t)(nb - 1)); nx = e->next;
         e->next = ((NV_t **)nv.p)[k]; ((NV_t **)nv.p)[k] = e; }
     g_var_buckets = nv; _var_nbuckets = nb;
 }
@@ -3484,9 +3486,16 @@ static unsigned _var_hash(const char *name) {
     return nv_hash_n(name, __builtin_strlen(name));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline __attribute__((always_inline)) int nv_key_c(const NV_t *e, const char *name) { return !e->has_nul && strcmp(e->name, name) == 0; }
+static inline __attribute__((always_inline)) int nv_key_n(const NV_t *e, const char *s, size_t n) { return e->nlen == n && memcmp(e->name, s, n) == 0; }
+static NV_t *nv_entry_name(NV_t *e, const char *s, size_t n) {
+    char *q = (char *)rt_heap_alloc_c(n + 1); memcpy(q, s, n); q[n] = '\0';
+    e->name = q; e->nlen = (uint32_t)n; e->has_nul = memchr(s, 0, n) ? 1 : 0;
+    return e;
+}
 static NV_t *_var_bucket_find(const char *name) {
     for (NV_t *e = VBR(_var_hash(name)); e; e = e->next)
-        if (strcmp(e->name, name) == 0) return e;
+        if (nv_key_c(e, name)) return e;
     return (NV_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3500,7 +3509,7 @@ static inline __attribute__((always_inline)) NV_t *_var_find_cached(const char *
     unsigned i = (unsigned)((((uintptr_t)name >> 3) ^ ((uintptr_t)name >> 13)) & (NV_MEMO_N - 1));
     if (g_nv_memo_key[i] == name && g_nv_memo_seen[i] == g_nv_memo_gen) {
         NV_t *c = g_nv_memo_val[i];
-        if (c && strcmp(c->name, name) == 0) return c;
+        if (c && nv_key_c(c, name)) return c;
     }
     NV_t *e = _var_bucket_find(name);
     if (e && !_nv_memo_off_get()) { g_nv_memo_key[i] = name; g_nv_memo_val[i] = e; g_nv_memo_seen[i] = g_nv_memo_gen; }
@@ -3518,8 +3527,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
     NV_t *e = _var_bucket_find(key);
     if (e) { e->val = val; return val; }
     unsigned h = _var_hash(key);
-    e = rt_wsb_alloc(sizeof(NV_t));
-    e->name = rt_heap_strdup_c(key); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0; e->is_io = (_io_chan_find_by_var(key) >= 0);
+    e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), key, __builtin_strlen(key)); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 0; e->is_io = (_io_chan_find_by_var(key) >= 0);
     if (!_var_nbuckets) { _var_grow(8); h = _var_hash(key); }
     e->next = VB(h); VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
     return val;
@@ -3564,7 +3572,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
     }
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next)
-        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? *e->cell : e->val;
+        if (nv_key_c(e, name) && _nv_ordinary(e)) return e->is_gva ? *e->cell : e->val;
     { extern DESCR_t rt_proc_value(const char *);
       if (name && (!strcmp(name, "write") || !strcmp(name, "writes"))) return rt_proc_value(name); }
     return NULVCL;
@@ -3650,7 +3658,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
 nv_store: ;
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next) {
-        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) {
+        if (nv_key_c(e, name) && _nv_ordinary(e)) {
             if (e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
             if (e->is_gva) *e->cell = val; else e->val = val;
             if (name[0] == '&' && !_nv_kwsplit()) e->is_const = 1;
@@ -3663,8 +3671,7 @@ nv_store: ;
 #if RT_DIAG
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] SET %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
 #endif
-    NV_t *e = rt_wsb_alloc(sizeof(NV_t));
-    e->name = rt_heap_strdup_c(name);
+    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
     e->val  = val;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
@@ -3679,18 +3686,18 @@ nv_store: ;
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return 1; return 0; }
-int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return 1; return 0; }
-DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
+int NV_EXISTS_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (nv_key_c(e, name) && _nv_ordinary(e)) return 1; return 0; }
+int NV_CONST_ASSIGNED_fn(const char *name) { _var_init(); if (!name) return 0; unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (nv_key_c(e, name) && e->is_const) return 1; return 0; }
+DESCR_t NV_KW_GET_fn(const char *name) { _var_init(); if (!name) return NULVCL; if (!_nv_kwsplit()) return NV_GET_fn(name); unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (nv_key_c(e, name) && e->is_const) return e->is_gva ? *e->cell : e->val; return NULVCL; }
 #if RT_DIAG
-DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = VB(h); VB(h) = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
+DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) { _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); } unsigned h = _var_hash(name); for (NV_t *e = VBR(h); e; e = e->next) if (nv_key_c(e, name) && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; } NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name)); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = VB(h); VB(h) = e; g_nv_memo_gen++; comm_var(name, val, stmt_src_get_file(), 0, 0); return val; }
 #else
 DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
     _var_init(); if (!name) return val; if (!_nv_kwsplit()) return NV_SET_fn(name, val); { extern void rt_sxt_break(const char *); if (val.v == DT_S) rt_sxt_break(val.s); }
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next)
-        if (strcmp(e->name, name) == 0 && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
-    NV_t *e = rt_wsb_alloc(sizeof(NV_t)); e->name = rt_heap_strdup_c(name); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = VB(h); VB(h) = e; g_nv_memo_gen++;
+        if (nv_key_c(e, name) && e->is_const) { char eb[192]; snprintf(eb, sizeof eb, "re-assignment of a sealed &constant: %s", e->name); core_runtime_error(341, eb); return val; }
+    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name)); e->val = val; e->cell = (DESCR_t *)0; e->is_gva = 0; e->is_const = 1; e->next = VB(h); VB(h) = e; g_nv_memo_gen++;
     return val;
 }
 #endif
@@ -3698,7 +3705,7 @@ DESCR_t NV_KW_SET_fn(const char *name, DESCR_t val) {
 const char *NV_intern_name_n(const char *s, size_t n) {
     if (!s || n == 0 || n >= 0xFFFFFFFFu || memchr(s, 0, n)) return (const char *)0;
     for (NV_t *e = VBR(nv_hash_n(s, n)); e; e = e->next)
-        if (e->name[0] == s[0] && strncmp(e->name, s, n) == 0 && e->name[n] == '\0') return e->name;
+        if (nv_key_n(e, s, n)) return e->name;
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3728,18 +3735,37 @@ DESCR_t *NV_PTR_fn(const char *name) {
     if (strcmp(name, "RTNTYPE")  == 0) return NULL;
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next)
-        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
+        if (nv_key_c(e, name) && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
 #if RT_DIAG
     { static long _nvc = -1; if (_nvc == -1) { const char *ev = getenv("SCRIP_NV_TRACE"); _nvc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_nvc >= 0) { _nvc++; fprintf(stderr, "[NVC] PTR %ld new-var '%s' h=%u\n", _nvc, name, h); fflush(stderr); } }
 #endif
-    NV_t *e = rt_wsb_alloc(sizeof(NV_t));
-    e->name = rt_heap_strdup_c(name);
+    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), name, __builtin_strlen(name));
     e->val  = NULVCL;
     e->cell = (DESCR_t *)0;
     e->is_gva = 0;
     e->is_const = 0;
     e->is_io = (_io_chan_find_by_var(name) >= 0);
     if (!_var_nbuckets) { _var_grow(8); h = _var_hash(name); }
+    e->next = VB(h);
+    VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
+    return &e->val;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *NV_PTR_n(const char *s, size_t n) {
+    _var_init();
+    if (!s || n == 0 || n >= 0xFFFFFFFFu) return NULL;
+    unsigned h = nv_hash_n(s, n);
+    for (NV_t *e = VBR(h); e; e = e->next)
+        if (nv_key_n(e, s, n) && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
+    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), s, n);
+    e->val  = NULVCL;
+    e->cell = (DESCR_t *)0;
+    e->is_gva = 0;
+    e->is_const = 0;
+    e->touched = 0;
+    e->is_io = 0;
+    if (!_var_nbuckets) _var_grow(8);
+    h = nv_hash_n(s, n);
     e->next = VB(h);
     VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
     return &e->val;
@@ -3753,7 +3779,7 @@ int NV_bind_gva(const char *name, DESCR_t *cell) {
     _var_init();
     unsigned h = _var_hash(name);
     for (NV_t *e = VBR(h); e; e = e->next)
-        if (strcmp(e->name, name) == 0 && _nv_ordinary(e)) { e->cell = cell; e->is_gva = 1; return 1; }
+        if (nv_key_c(e, name) && _nv_ordinary(e)) { e->cell = cell; e->is_gva = 1; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

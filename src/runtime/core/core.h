@@ -409,6 +409,7 @@ DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t c_rt_assign_var(DESCR_t var, DESCR_t val);
 DESCR_t rt_cset_compl(DESCR_t a);
 DESCR_t *NV_PTR_fn(const char *name);
+DESCR_t *NV_PTR_n(const char *s, size_t n);
 __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name);
 int NV_bind_gva(const char *name, DESCR_t *cell);
 int NV_EXISTS_fn(const char *name);

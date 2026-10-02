@@ -691,6 +691,7 @@ test_gate_sno_a_table_keyed_by_a_name_finds_it_through_any_name_of_that_variable
 test_gate_sno_a_traced_call_keeps_its_procedure_and_its_value_across_a_collection.sh	WIRED	-	-	-
 test_gate_sno_a_unary_and_a_binary_opsyn_of_one_operator_are_two_functions.sh	WIRED	-	-	-
 test_gate_sno_a_value_list_in_a_function_with_a_local_yields_its_arm.sh	WIRED	-	-	-
+test_gate_sno_a_variable_name_is_a_counted_string_and_a_nul_byte_is_part_of_it.sh	WIRED	-	-	-
 test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_an_element_after_a_fence_inside_an_arbno_body_backs_into_the_fence.sh	WIRED	-	-	-
 test_gate_sno_an_error_inside_eval_publishes_its_own_text.sh	WIRED	-	-	-

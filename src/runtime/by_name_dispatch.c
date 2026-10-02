@@ -7134,6 +7134,10 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     const char *sv;
     (void)nargs;
     if (IS_VARREF_fn(args[0])) { *out = args[0]; return 1; }
+    if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].slen != 0xFFFFFFFFu && memchr(args[0].s, 0, (size_t)args[0].slen)) {
+        DESCR_t *cell = NV_PTR_n(args[0].s, (size_t)args[0].slen);
+        *out = cell ? (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell } : FAILDESCR;
+        return 1; }
     if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].slen != 0xFFFFFFFFu) {
         extern const char *NV_intern_name_n(const char *, size_t);
         const char *in = NV_intern_name_n(args[0].s, (size_t)args[0].slen);
