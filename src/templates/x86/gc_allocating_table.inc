@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1970
-#define GC_ALLOC_TAB_N_VOID 229
+#define GC_ALLOC_TAB_N 1971
+#define GC_ALLOC_TAB_N_VOID 230
 #define GC_ALLOC_TAB_N_DESCR 1072
 #define GC_ALLOC_TAB_N_OTHER 662
 #define GC_ALLOC_TAB_N_UNKNOWN 7
@@ -1114,6 +1114,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_div_sno", GC_RET_DESCR },
     { "rt_div_strict", GC_RET_DESCR },
     { "rt_div_zero", GC_RET_VOID },
+    { "rt_eval_syntax_raise", GC_RET_VOID },
     { "rt_extfn_invoke", GC_RET_DESCR },
     { "rt_extfn_mint", GC_RET_DESCR },
     { "rt_extl_cmp", GC_RET_OTHER },
