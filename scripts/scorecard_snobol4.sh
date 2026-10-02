@@ -284,6 +284,16 @@ sc_sampler() {  # $1 = out dir  $2 = owner pid -- appends `epoch load1 runnable 
     printf '%s\t%s\t%s\t%s\t%s\n' "$(date +%s)" "$L" "$n" "$np" "$pp" >> "$o/load.tsv"; sleep "${S4E_SAMPLE:-5}"; done
 }
 # ---------------------------------------------------------------- one program, one line
+# ⛔⭐ THE PACKAGE'S ALL.mask IS READ BEFORE ANY COMPARE (the coo 2026-10-02, row instruments-the-gimpel-runner-reads-all-mask-so-timer-and-
+# timegc-grade-their-pinned-lines, ceo CEO-1412): grade() was a plain cmp, so a CEO-409 mask row declared beside the suite -- gimpel's
+# timer_driver and timegc_driver engine-clock and storage-unit lines since corpus f2ae706da -- was never applied and those two read
+# DIFF forever.  The same masker the dotnet runner calls (util_apply_ceo409_mask.py, the harness's own reader): the ref and the
+# oracle's live answer with --side=oracle, each SCRIP mode with --side=scrip, keyed by the program's own name; the masked line
+# counts travel in the note column.  A suite with no ALL.mask beside its program is compared exactly as before.
+sc_mask() {  # $1 = ALL.mask, $2 = entry name, $3 = oracle|scrip, $4 = file masked in place -> prints the masked line count; rc 2 = the masker refused
+  python3 "$SC/scripts/util_apply_ceo409_mask.py" "$1" "$2" "$4.maskn" "--side=$3" < "$4" > "$4.masked" 2>"$4.maskerr" || return 2
+  mv "$4.masked" "$4"; cat "$4.maskn" 2>/dev/null || echo 0
+}
 run_one() {  # suite lib prog norm run_to
   local suite="$1" lib="$2" prog="$3" norm="$4" rto="$5"
   local d n in ref_pin ref_live have_pin=0 have_live=0 W st3 st4 t0 t3 t4 rc out note=""
@@ -327,11 +337,20 @@ run_one() {  # suite lib prog norm run_to
   if [ $rc -eq 0 ]; then if sbl_died "$W/live"; then ordead=" fatal-report"; else have_live=1; fi; fi
   if [ $have_pin -eq 0 ] && [ $have_live -eq 0 ]; then
     echo -e "$suite\t${prog#$CORPUS/}\tORACLE_FAIL\tORACLE_FAIL\t0\t0\tsbl rc=$rc$ordead"; rm -rf "$W"; return; fi
+  local mfile="" mnote="" mk
+  if [ -f "$d/ALL.mask" ]; then mfile="$d/ALL.mask"
+    for mk in pin live; do
+      [ -f "$W/$mk" ] || continue
+      mn="$(sc_mask "$mfile" "$n" oracle "$W/$mk")" || { echo -e "$suite\t${prog#$CORPUS/}\tMASK_REFUSED\tMASK_REFUSED\t0\t0\tthe CEO-409 masker refused on $n ($mk): $(head -1 "$W/$mk.maskerr")"; rm -rf "$W"; return; }
+      [ "${mn:-0}" -gt 0 ] && mnote="$mnote masked:$mk=$mn"
+    done
+  fi
   grade() {  # $1 = output file, $2 = rc  -> status
     local o="$1" r="$2"
     [ $r -eq 124 ] && { echo TIMEOUT; return; }
     [ $r -ge 128 ] && { echo "SIG$((r-128))"; return; }
     if [ "$norm" = ms ]; then sed -i '/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$o"; [ $have_pin = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/pin"; [ $have_live = 1 ] && sed -i '/^iters: [0-9][0-9]*$/d; /^ns: [0-9][0-9]*$/d; /^ms: [0-9][0-9]*$/d' "$W/live"; fi  # BM-ONE (s153): measurement lines are DELETED both sides (refs hold only the check: line -- the live oracle); rewrite-to-N was for the retired stamped family
+    if [ -n "$mfile" ]; then local sn; sn="$(sc_mask "$mfile" "$n" scrip "$o")" || { echo MASK_REFUSED; return; }; [ "${sn:-0}" -gt 0 ] && echo "${o##*/}=$sn" >> "$W/mask_scrip"; fi
     { [ $have_pin = 1 ] && cmp -s "$o" "$W/pin"; } && { echo PASS; return; }
     { [ $have_live = 1 ] && cmp -s "$o" "$W/live"; } && { echo PASS; return; }
     [ $r -ne 0 ] && { echo "RC$r"; return; }
@@ -353,10 +372,12 @@ run_one() {  # suite lib prog norm run_to
   t4=$((SECONDS-t0))
   [ $have_pin = 1 ] && [ $have_live = 1 ] && ! cmp -s "$W/pin" "$W/live" && note="pin!=live"
   [ $have_live = 0 ] && note="pin-only$ordead"
+  [ -s "$W/mask_scrip" ] && mnote="$mnote masked:$(tr '\n' ' ' < "$W/mask_scrip" | sed 's/ $//; s/ /,/g')"
+  [ -n "$mnote" ] && note="${note:+$note }${mnote# }"
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run run_at_declared_table declared_compile_args_from_table; export CORPUS SBL SCRIP SC DEMO
+export -f run_one sc_mask stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run run_at_declared_table declared_compile_args_from_table; export CORPUS SBL SCRIP SC DEMO
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f
