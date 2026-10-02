@@ -128,7 +128,7 @@ fatal_render() { # $1=stdout text $2=stderr file -> the text with SCRIP's error 
     local blk r; blk="$(awk '/^scrip: error /{p=1; print; next} p && /^  /{print; next} {p=0}' "$2")"
     [ -n "$blk" ] || { printf '%s' "$1"; return 0; }
     r="$(printf '%s\n' "$blk" | python3 "$HERE/util_render_error_voice.py" spitbol --fatal-stdout)"
-    if [ -n "$r" ] && [ "$r" != "$blk" ]; then printf '%s\n%s' "$1" "$r"; else printf '%s' "$1"; fi
+    if [ -n "$r" ] && [ "$r" != "$blk" ]; then if [ -n "$1" ]; then printf '%s\n%s' "$1" "$r"; else printf '%s' "$r"; fi; else printf '%s' "$1"; fi
 }
 mask_dot() { # $1=text $2=name $3=side -> the text masked per ALL.mask (the harness's own reader through the shim), unchanged without one
     [ -f "$SUITE/ALL.mask" ] || { printf '%s' "$1"; return 0; }
