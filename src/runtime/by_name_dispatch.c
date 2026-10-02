@@ -6386,7 +6386,10 @@ DESCR_t rt_call_callee_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
 DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     if (nargs == 1 && fn && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; int fi = rt_field_index_cached_i(fn, idb);
-        if (fi >= 0 && args[0].u->fields) return args[0].u->fields[fi];
+        if (fi >= 0 && args[0].u->fields) {
+            extern int rt_g_want_name; extern DESCR_t rt_field_var(const char *field, DESCR_t obj);
+            if (rt_g_want_name) { rt_g_want_name = 0; return rt_field_var(fn, args[0]); }
+            return args[0].u->fields[fi]; }
     }
     if (fn) { int h = rt_ctor_ic_find(fn, rt_ctor_gen());
       if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt;
