@@ -17,6 +17,7 @@ SRC="${CORPUS:-$(cd "$ROOT/.." && pwd)/corpus}/packages/snobol4/gimpel"
 SCORE="$HERE/scorecard_snobol4.sh"
 [ -f "$SCORE" ] || { echo "⛔ GATE REFUSE(2) [$GATE_NAME]: $SCORE is missing"; exit 2; }
 [ -x "$ROOT/scrip" ] || { echo "⛔ GATE REFUSE(2) [$GATE_NAME]: no ./scrip -- run make"; exit 2; }
+gate_require_fresh "$ROOT" src "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" || exit 2
 for f in timegc_driver.sno timegc_driver.ref timegc.inc resoluti.inc system.inc ALL.mask ALL.csv; do
     [ -f "$SRC/$f" ] || { echo "⛔ GATE REFUSE(2) [$GATE_NAME]: $SRC/$f is missing -- the fixture cannot be built"; exit 2; }
 done
