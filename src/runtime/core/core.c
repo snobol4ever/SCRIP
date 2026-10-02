@@ -3425,6 +3425,7 @@ typedef struct _VarEntry {
     char   *name;
     uint32_t nlen;
     int      has_nul;
+    unsigned long serial;
     DESCR_t  val;
     DESCR_t *cell;
     int      is_gva;
@@ -3492,7 +3493,7 @@ static inline __attribute__((always_inline)) int nv_key_c(const NV_t *e, const c
 static inline __attribute__((always_inline)) int nv_key_n(const NV_t *e, const char *s, size_t n) { return e->nlen == n && memcmp(e->name, s, n) == 0; }
 static NV_t *nv_entry_name(NV_t *e, const char *s, size_t n) {
     char *q = (char *)rt_heap_alloc_c(n + 1); memcpy(q, s, n); q[n] = '\0';
-    e->name = q; e->nlen = (uint32_t)n; e->has_nul = memchr(s, 0, n) ? 1 : 0;
+    e->name = q; e->nlen = (uint32_t)n; e->has_nul = memchr(s, 0, n) ? 1 : 0; e->serial = _var_count;
     return e;
 }
 static NV_t *_var_bucket_find(const char *name) {
@@ -3962,22 +3963,30 @@ static void kw_dump_emit(const char *name, DESCR_t v) { dump_putc('&'); dump_put
 #if RT_DIAG
 static int etrace_var_name_ok(const char *nm) { return nm && nm[0] && nm[0] != '&' && nm[0] != '_' && !strchr(nm, '$'); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned etrace_spitbol_bucket(const NV_t *e) {
+    uint64_t h = (uint64_t)e->nlen; size_t lim = e->nlen < 48 ? e->nlen : 48;
+    for (size_t i = 0; i < lim; i += 8) { uint64_t w = 0; for (size_t j = 0; j < 8 && i + j < e->nlen; j++) w |= (uint64_t)(unsigned char)e->name[i + j] << (8 * j); h ^= w; }
+    return (unsigned)((h & 0x7FFFFFFFFFFFFFFFull) % 257u);
+}
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) {
     if (!vc || !out || n < 4) return 0;
     char kb[160];
     if (vc->tbl) {
+        NV_t *best = (NV_t *)0; unsigned bb = 0;
         for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
             if (!etrace_var_name_ok(e->name)) continue;
             DESCR_t d = e->is_gva ? *e->cell : e->val;
             if (d.v != DT_T || d.tbl != vc->tbl) continue;
-            trace_spell_value(vc->key_d, kb, sizeof kb);
-            snprintf(out, n, "%s<%s>", e->name, kb);
-            if (id_out) *id_out = d.tbl->id;
-            return 1;
+            unsigned b = etrace_spitbol_bucket(e); if (!best || b < bb || (b == bb && e->serial < best->serial)) { best = e; bb = b; }
         }
-        return 0;
+        if (!best) return 0;
+        trace_spell_value(vc->key_d, kb, sizeof kb);
+        snprintf(out, n, "%s<%s>", best->name, kb);
+        if (id_out) *id_out = vc->tbl->id;
+        return 1;
     }
     if (!vc->cellp) return 0;
+    NV_t *best = (NV_t *)0; unsigned bb = 0; ARBLK_t *ba = (ARBLK_t *)0;
     for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
         if (!etrace_var_name_ok(e->name)) continue;
         DESCR_t d = e->is_gva ? *e->cell : e->val;
@@ -3988,14 +3997,15 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
         if (cols < 0) cols = 0;
         long total = rows * cols;
         if (vc->cellp < a->data || vc->cellp >= a->data + total) continue;
-        long off = (long)(vc->cellp - a->data);
-        if (a->ndim == 2 && cols > 0) snprintf(kb, sizeof kb, "%ld,%ld", (long)a->lo + off / cols, (long)a->lo2 + off % cols);
-        else trace_spell_value(vc->key_d, kb, sizeof kb);
-        snprintf(out, n, "%s<%s>", e->name, kb);
-        if (id_out) *id_out = a->id;
-        return 1;
+        unsigned b = etrace_spitbol_bucket(e); if (!best || b < bb || (b == bb && e->serial < best->serial)) { best = e; bb = b; ba = a; }
     }
-    return 0;
+    if (!best) return 0;
+    { long rows = (long)ba->hi - (long)ba->lo + 1, cols = (ba->ndim == 2) ? ((long)ba->hi2 - (long)ba->lo2 + 1) : 1; long off = (long)(vc->cellp - ba->data);
+      if (ba->ndim == 2 && cols > 0 && rows > 0) snprintf(kb, sizeof kb, "%ld,%ld", (long)ba->lo + off / cols, (long)ba->lo2 + off % cols);
+      else trace_spell_value(vc->key_d, kb, sizeof kb); }
+    snprintf(out, n, "%s<%s>", best->name, kb);
+    if (id_out) *id_out = ba->id;
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void etrace_recount(void) {
