@@ -1008,13 +1008,17 @@ s4e_lane_owner_of_language() {
       # hq_templates owns no language, rebus stays the ceo's keep-green as under the 2026-09-25 TENET (CEO-1266). Written out per
       # language, never collapsed to a default, for the reason every table above gives: the gate beside this compares it to MODE
       # line 2 LANGUAGE BY LANGUAGE. THIS TABLE IS MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
-       icon)     printf 'hq_icon';;
-       prolog)   printf 'hq_prolog';;
-       snobol4)  printf 'hq_snobol4';;
-       pascal)   printf 'hq_pascal';;
-       snocone)  printf 'hq_snocone';;
+      # ⛔ MODE CEO (SOLO) (CEO-1396, 2026-10-02 09:1x CDT, Lon in-chat to the ceo, verbatim: "The fleet is idle. Go to CEO solo
+      # mode."): one working seat, the ceo, every language the ceo's; the officers and the seven HQs stood down with their claims
+      # parked in place (no re-lane, the CEO-1357/1372 precedent). The TENET table above is the flip-back template. THIS TABLE IS
+      # MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
+       icon)     printf 'ceo';;
+       prolog)   printf 'ceo';;
+       snobol4)  printf 'ceo';;
+       pascal)   printf 'ceo';;
+       snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'hq_raku';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
