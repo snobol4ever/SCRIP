@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1957
+#define GC_ALLOC_TAB_N 1959
 #define GC_ALLOC_TAB_N_VOID 228
 #define GC_ALLOC_TAB_N_DESCR 1065
-#define GC_ALLOC_TAB_N_OTHER 657
+#define GC_ALLOC_TAB_N_OTHER 659
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -27,6 +27,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "NV_SET_fn", GC_RET_DESCR },
     { "NV_bind_gva", GC_RET_OTHER },
     { "NV_intern_name_fn", GC_RET_OTHER },
+    { "NV_nul_key", GC_RET_OTHER },
     { "POWER_fn", GC_RET_DESCR },
     { "REPLACE_fn", GC_RET_DESCR },
     { "REVERS_fn", GC_RET_DESCR },
@@ -1816,6 +1817,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_sno_pow", GC_RET_DESCR },
     { "rt_sno_runtime_define", GC_RET_VOID },
     { "rt_sno_stmt_d", GC_RET_DESCR },
+    { "rt_sno_target_name", GC_RET_OTHER },
     { "rt_stmt_enter", GC_RET_VOID },
     { "rt_str_alloc", GC_RET_OTHER },
     { "rt_str_coerce", GC_RET_DESCR },

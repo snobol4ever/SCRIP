@@ -7134,7 +7134,7 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out)
     const char *sv;
     (void)nargs;
     if (IS_VARREF_fn(args[0])) { *out = args[0]; return 1; }
-    if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].slen != 0xFFFFFFFFu && memchr(args[0].s, 0, (size_t)args[0].slen)) {
+    if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].slen != 0xFFFFFFFFu && NV_name_needs_key(args[0].s, (size_t)args[0].slen)) {
         DESCR_t *cell = NV_PTR_n(args[0].s, (size_t)args[0].slen);
         *out = cell ? (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell } : FAILDESCR;
         return 1; }
@@ -7365,15 +7365,16 @@ static int bn_sno_name_d(DESCR_t *args, int nargs, DESCR_t *out, int op) { (void
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define RT_HOOK_GUARD(nm) do { extern long g_error; extern int64_t kw_errlimit; if (g_error != 0 || kw_errlimit != 0) return c_rt_call_bid_sn4((nm), args, nargs, -1); } while (0)
 DESCR_t rt_sno_name_dl(DESCR_t *args, int nargs) { RT_HOOK_GUARD("SNO$NAME"); DESCR_t out = FAILDESCR; if (nargs == 1) bn_sno_name(args, nargs, &out); return out; }
+static const char *rt_sno_target_name(DESCR_t d) { return (d.v == DT_S && d.s && d.slen != 0xFFFFFFFFu && NV_name_needs_key(d.s, (size_t)d.slen)) ? NV_nul_key(d.s, (size_t)d.slen) : rt_cstr_d(d); }
 DESCR_t rt_sno_pbk_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_cset(int, const char *); RT_HOOK_GUARD("SNO$PBK"); return nargs == 2 ? pat_mk_cset((int)to_int(args[0]), rt_cstr_d(args[1])) : FAILDESCR; }
 DESCR_t rt_sno_pbn_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_num(int, int64_t); RT_HOOK_GUARD("SNO$PBN"); return nargs == 2 ? pat_mk_num((int)to_int(args[0]), to_int(args[1])) : FAILDESCR; }
 DESCR_t rt_sno_pb0_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_nil(int); RT_HOOK_GUARD("SNO$PB0"); return nargs == 1 ? pat_mk_nil((int)to_int(args[0])) : FAILDESCR; }
-DESCR_t rt_sno_pbc_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); RT_HOOK_GUARD("SNO$PBC"); return nargs == 3 ? pat_mk_capt((int)to_int(args[0]), rt_cstr_d(args[1]), args[2]) : FAILDESCR; }
-DESCR_t rt_sno_pcur_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_cursor(const char *); RT_HOOK_GUARD("SNO$PCUR"); return nargs == 1 ? pat_mk_cursor(rt_cstr_d(args[0])) : FAILDESCR; }
+DESCR_t rt_sno_pbc_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); RT_HOOK_GUARD("SNO$PBC"); return nargs == 3 ? pat_mk_capt((int)to_int(args[0]), rt_sno_target_name(args[1]), args[2]) : FAILDESCR; }
+DESCR_t rt_sno_pcur_d(DESCR_t *args, int nargs) { extern DESCR_t pat_mk_cursor(const char *); RT_HOOK_GUARD("SNO$PCUR"); return nargs == 1 ? pat_mk_cursor(rt_sno_target_name(args[0])) : FAILDESCR; }
 DESCR_t rt_sno_pbalt_d(DESCR_t *args, int nargs) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); RT_HOOK_GUARD("SNO$PBALT"); return nargs == 2 ? pat_alt(args[0], args[1]) : FAILDESCR; }
 DESCR_t rt_sno_parb_d(DESCR_t *args, int nargs) { extern DESCR_t pat_arbno(DESCR_t); RT_HOOK_GUARD("SNO$PARB"); return nargs == 1 ? pat_arbno(args[0]) : FAILDESCR; }
 DESCR_t rt_sno_pfen_d(DESCR_t *args, int nargs) { extern DESCR_t pat_fence_p(DESCR_t); RT_HOOK_GUARD("SNO$PFEN"); return nargs == 1 ? pat_fence_p(args[0]) : FAILDESCR; }
-DESCR_t rt_sno_pdef_d(DESCR_t *args, int nargs) { extern DESCR_t pat_defer(const char *); RT_HOOK_GUARD("SNO$PDEF"); return nargs == 1 ? pat_defer(rt_cstr_d(args[0])) : FAILDESCR; }
+DESCR_t rt_sno_pdef_d(DESCR_t *args, int nargs) { extern DESCR_t pat_defer(const char *); RT_HOOK_GUARD("SNO$PDEF"); return nargs == 1 ? pat_defer(rt_sno_target_name(args[0])) : FAILDESCR; }
 DESCR_t rt_sno_kwset_d(DESCR_t *args, int nargs) {
     extern int rt_keyword_write_snobol4(const char *sval, DESCR_t v); RT_HOOK_GUARD("SNO$KWSET");
     if (nargs != 2) return FAILDESCR;
@@ -9453,9 +9454,9 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_6547: ;
     if ((_bid == BID_SNOx24PB0) && nargs == 1) { extern DESCR_t pat_mk_nil(int); *out = pat_mk_nil((int)to_int(args[0])); return 1; }
     L_bidjmp_6548: ;
-    if ((_bid == BID_SNOx24PBC) && nargs == 3) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); *out = pat_mk_capt((int)to_int(args[0]), rt_cstr_d(args[1]), args[2]); return 1; }
+    if ((_bid == BID_SNOx24PBC) && nargs == 3) { extern DESCR_t pat_mk_capt(int, const char *, DESCR_t); *out = pat_mk_capt((int)to_int(args[0]), rt_sno_target_name(args[1]), args[2]); return 1; }
     L_bidjmp_6549: ;
-    if ((_bid == BID_SNOx24PCUR) && nargs == 1) { extern DESCR_t pat_mk_cursor(const char *); *out = pat_mk_cursor(rt_cstr_d(args[0])); return 1; }
+    if ((_bid == BID_SNOx24PCUR) && nargs == 1) { extern DESCR_t pat_mk_cursor(const char *); *out = pat_mk_cursor(rt_sno_target_name(args[0])); return 1; }
     L_bidjmp_6550: ;
     if ((_bid == BID_SNOx24PBALT) && nargs == 2) { extern DESCR_t pat_alt(DESCR_t, DESCR_t); *out = pat_alt(args[0], args[1]); return 1; }
     L_bidjmp_6551: ;
@@ -9463,7 +9464,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_6552: ;
     if ((_bid == BID_SNOx24PFEN) && nargs == 1) { extern DESCR_t pat_fence_p(DESCR_t); *out = pat_fence_p(args[0]); return 1; }
     L_bidjmp_6553: ;
-    if ((_bid == BID_SNOx24PDEF) && nargs == 1) { extern DESCR_t pat_defer(const char *); *out = pat_defer(rt_cstr_d(args[0])); return 1; }
+    if ((_bid == BID_SNOx24PDEF) && nargs == 1) { extern DESCR_t pat_defer(const char *); *out = pat_defer(rt_sno_target_name(args[0])); return 1; }
     L_bidjmp_6554: ;
     if ((_bid == BID_SNOx24MKPAT) && nargs >= 1) {
         extern void *rt_proc_get_fn(const char *name);

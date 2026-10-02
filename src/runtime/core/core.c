@@ -3754,24 +3754,17 @@ DESCR_t *NV_PTR_fn(const char *name) {
     return &e->val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *NV_nul_key(const char *s, size_t n) {
+    static const char hx[] = "0123456789ABCDEF";
+    char *k = (char *)rt_heap_alloc_c(2 * n + 2); k[0] = '\x01';
+    for (size_t i = 0; i < n; i++) { k[1 + 2 * i] = hx[((unsigned char)s[i]) >> 4]; k[2 + 2 * i] = hx[((unsigned char)s[i]) & 15]; }
+    k[1 + 2 * n] = '\0';
+    return k;
+}
+int NV_name_needs_key(const char *s, size_t n) { return s && n > 0 && n < 0x7FFFFFFFu && (s[0] == '\x01' || memchr(s, 0, n) != (void *)0); }
 DESCR_t *NV_PTR_n(const char *s, size_t n) {
-    _var_init();
-    if (!s || n == 0 || n >= 0xFFFFFFFFu) return NULL;
-    unsigned h = nv_hash_n(s, n);
-    for (NV_t *e = VBR(h); e; e = e->next)
-        if (nv_key_n(e, s, n) && _nv_ordinary(e)) return e->is_gva ? e->cell : &e->val;
-    NV_t *e = nv_entry_name(rt_wsb_alloc(sizeof(NV_t)), s, n);
-    e->val  = NULVCL;
-    e->cell = (DESCR_t *)0;
-    e->is_gva = 0;
-    e->is_const = 0;
-    e->touched = 0;
-    e->is_io = 0;
-    if (!_var_nbuckets) _var_grow(8);
-    h = nv_hash_n(s, n);
-    e->next = VB(h);
-    VB(h) = e; g_nv_memo_gen++; if (++_var_count > _var_nbuckets) _var_grow(_var_nbuckets * 2);
-    return &e->val;
+    if (!s || n == 0 || n >= 0x7FFFFFFFu) return NULL;
+    return NV_PTR_fn(NV_nul_key(s, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int NV_bind_gva(const char *name, DESCR_t *cell) {

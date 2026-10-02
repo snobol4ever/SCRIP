@@ -10,6 +10,11 @@
 # THE CURE (src/runtime/core/core.c, src/runtime/by_name_dispatch.c): every namespace entry carries its length and whether it holds
 # a NUL; a C-string lookup matches only a NUL-free entry, a counted lookup compares length and bytes, the rehash reads the stored
 # length, and NV_PTR_n finds or creates a counted name, which $ hands on as the cell itself so the name is never spelled again.
+# 2026-10-02 later (row snobol4-a-pattern-capture-into-a-nul-named-variable-aborts-..., ceo CEO-1412): a CAPTURE into such a
+# name ('abc' 'b' . $Z with Z = CHAR(0) 'Q') aborted rc=134 in the runtime pattern compiler, because SNO$PBC/PCUR/PDEF spelled the
+# target as a C string. A name holding a NUL, or beginning with byte 1, now has ONE key everywhere: byte 1 followed by the hex of
+# its bytes (NV_nul_key), which no source identifier can spell and which escapes its own lead byte, so $, the namespace and the
+# pattern builders reach one variable. Witness c.sno pins the captures (. $ and a stored pattern) and the escape's collision case.
 # ARMS: (a) the witness against the live sbl -bf oracle in m3 and m4, at the default arena and under SCRIP_GC_STRESS=1 (which must
 # report collections>0); (b) the comparison can say no: the witness with each NUL-bearing name replaced by its C-string truncation
 # must differ from the oracle in both modes -- which is what the defect printed.
@@ -43,6 +48,21 @@ cat > "$T/w.sno" <<'EOW'
         OUTPUT = '9 ' $(CHAR(0) 'X')
 END
 EOW
+cat > "$T/c.sno" <<'EOW'
+        Z = CHAR(0) 'Q'
+        'abc' 'b' . $Z
+        OUTPUT = '1 ' $Z
+        'xyz' 'y' $ $Z
+        OUTPUT = '2 ' $Z
+        P = 'k' . $(CHAR(0) 'R')
+        'mkn' P
+        OUTPUT = '3 ' $(CHAR(0) 'R')
+        W = CHAR(1) '0051'
+        $W = 'one'
+        'pqr' 'q' . $W
+        OUTPUT = '4 ' $Z ' ' $W ' [' Q ']'
+END
+EOW
 sed "s/\$('X' CHAR(0) 'Y')/\$('X')/g" "$T/w.sno" > "$T/t.sno"
 cmp -s "$T/w.sno" "$T/t.sno" && { echo "⛔ GATE REFUSE(2) [$G]: the truncation plant changed nothing in the witness"; exit 2; }
 want=$("$SBL" -bf "$T/w.sno" </dev/null 2>/dev/null); [ -n "$want" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing"; exit 2; }
@@ -56,6 +76,14 @@ run() {
     env SCRIP_GC_STRESS="$st" SCRIP_GC_EXERCISE=1 timeout 60 "$x.bin" </dev/null >"$x.out" 2>"$x.err"
   fi
 }
+cwant=$("$SBL" -bf "$T/c.sno" </dev/null 2>/dev/null); [ -n "$cwant" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle printed nothing for c.sno"; exit 2; }
+for st in 0 1; do
+  for m in m3 m4; do
+    N=$((N+1)); run $m c $st; got=$(grep -av '^\[GC-' "$T/c.$m.$st.out" | tr '\0' '@')
+    if [ "$got" = "$cwant" ]; then echo "  (c) captures into NUL-bearing names, c.sno $m stress=$st vs oracle PASS"
+    else echo "  (c) c.sno $m stress=$st vs oracle FAIL: got [$(printf '%s' "$got" | tr '\n' ' ' | cut -c1-140)] want [$(printf '%s' "$cwant" | tr '\n' ' ' | cut -c1-140)]"; RC=1; fi
+  done
+done
 for st in 0 1; do
   for m in m3 m4; do
     N=$((N+1)); run $m w $st; x="$T/w.$m.$st"
