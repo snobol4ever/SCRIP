@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1951
+#define GC_ALLOC_TAB_N 1953
 #define GC_ALLOC_TAB_N_VOID 226
 #define GC_ALLOC_TAB_N_DESCR 1065
-#define GC_ALLOC_TAB_N_OTHER 653
+#define GC_ALLOC_TAB_N_OTHER 655
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -344,6 +344,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_icn_hash", GC_RET_OTHER },
     { "_icn_succ", GC_RET_OTHER },
     { "_io_assoc_pair_state", GC_RET_OTHER },
+    { "_io_assoc_std", GC_RET_OTHER },
     { "_make_ctor", GC_RET_DESCR },
     { "_make_fget", GC_RET_DESCR },
     { "_parse_define_spec", GC_RET_OTHER },
@@ -1752,6 +1753,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_proc_call_open_det4", GC_RET_OTHER },
     { "rt_proc_call_open_fnret", GC_RET_OTHER },
     { "rt_proc_call_open_p", GC_RET_OTHER },
+    { "rt_proc_call_open_pn", GC_RET_OTHER },
     { "rt_proc_call_prologue", GC_RET_OTHER },
     { "rt_proc_call_prologue_lex", GC_RET_OTHER },
     { "rt_proc_enter_barrier", GC_RET_DESCR },

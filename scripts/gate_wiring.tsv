@@ -688,6 +688,7 @@ test_gate_sno_a_runtime_error_sbl_raises_is_raised_by_number_in_both_modes.sh	WI
 test_gate_sno_a_stored_fenced_pattern_retries_an_alternation_that_an_operand_follows.sh	WIRED	-	-	-
 test_gate_sno_a_stored_pattern_with_a_fence_is_reentered_at_its_rightmost_segment.sh	WIRED	-	-	-
 test_gate_sno_a_table_keyed_by_a_name_finds_it_through_any_name_of_that_variable.sh	WIRED	-	-	-
+test_gate_sno_a_traced_call_keeps_its_procedure_and_its_value_across_a_collection.sh	WIRED	-	-	-
 test_gate_sno_a_unary_and_a_binary_opsyn_of_one_operator_are_two_functions.sh	WIRED	-	-	-
 test_gate_sno_a_value_list_in_a_function_with_a_local_yields_its_arm.sh	WIRED	-	-	-
 test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-

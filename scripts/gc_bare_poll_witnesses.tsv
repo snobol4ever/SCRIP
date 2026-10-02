@@ -61,7 +61,7 @@ src/templates/bb/bb_coret.cpp:28:scrip_coret	src/templates/bb/bb_coret.cpp:32	hb
 src/templates/bb/bb_define.cpp:156:rt_define_site	src/templates/bb/bb_define.cpp:157	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:401:rt_trace_call_hook	src/templates/bb/bb_define.cpp:402	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:453:rt_trace_return_hook	src/templates/bb/bb_define.cpp:454	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:505:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:506	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:508:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:509	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_deref.cpp:19:rt_deref	src/templates/bb/bb_deref.cpp:26	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_deref.cpp:35:rt_deref	src/templates/bb/bb_deref.cpp:40	stack_top_under_valgrind.icn
 src/templates/bb/bb_field_get.cpp:21:rt_field_var_strict/rt_field_var	src/templates/bb/bb_field_get.cpp:29	hb_sno_data_field_name_held_across_collections.sno

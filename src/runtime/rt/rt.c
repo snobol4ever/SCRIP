@@ -893,7 +893,7 @@ void   *rt_proc_open_fn(void);
 DESCR_t rt_proc_enter(void *fn);
 DESCR_t rt_proc_enter_named(void *fn, long idx);
 DESCR_t rt_proc_enter_frag(void *fn, long idx);
-int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn);
+int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 __asm__(
@@ -1083,7 +1083,8 @@ static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
       return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long rt_proc_call_open_p(rt_proc_t *p, int nargs);
+static long rt_proc_call_open_p(rt_proc_t **pp, int nargs);
+static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs);
 static int proc_open_p_on(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs) { return rt_call_proc_descr_p(rt_proc_find(name), name, nargs); }
@@ -1091,7 +1092,7 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
 {
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
-        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn); }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(&p, CALL_ARGS, nargs, wn); }
 #if RT_DIAG
         rt_c2bb_hit(frag ? "descr.frag" : "descr.named", name);
 #endif
@@ -1110,7 +1111,7 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
         return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
     int _nsb = rt_name_save_mark();
-    long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
+    long fbytes = rt_proc_call_open_pn(&p, name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
 #if RT_DIAG
@@ -1144,7 +1145,7 @@ static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int
 {
     if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
       if (el) { void *efn = rt_entry_resolve(el, &frag); if (!efn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
-        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn); }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(&p, CALL_ARGS, nargs, wn); }
         return rt_c2bb_word(p, (long)(uintptr_t)efn, 1, 0); } }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
@@ -1156,7 +1157,7 @@ static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int
     if (!p->dyn_scope && !p->jmp_entry) { fprintf(stderr, "FATAL rt_call_open_by_name: target '%s' is a call-regime C-frame procedure; a box may only enter a jmp-entry procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
     { int _wn_gen = rt_g_want_name;
       int nsb = rt_name_save_mark();
-      long fbytes = proc_open_p_on() ? rt_proc_call_open_p(p, nargs) : rt_proc_call_open(name, nargs);
+      long fbytes = rt_proc_call_open_pn(&p, name, nargs);
       if (!fbytes) return (rt_call_next_t){ 0, 0 };
       rt_g_want_name = _wn_gen;
       return rt_c2bb_word(p, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, nsb); }
@@ -1525,8 +1526,9 @@ static inline __attribute__((always_inline)) void rt_lvl_close(void) { int L = r
 static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
 static inline __attribute__((always_inline)) void rt_lvl_park_wn(int wn) { int L = rt_k_level; { unsigned char *c = rt_lvl_cell(L); if (c) *c = (unsigned char)((*c & 1) | (wn ? 2 : 0)); } }
 static inline __attribute__((always_inline)) int rt_lvl_parked_wn(void) { int L = rt_k_level; return (L >= 0 && (uint32_t)L < g_lvl_own.cap && (LVL_OWN(L) & 2)) ? 1 : 0; }
-int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
+int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn)
 {
+    rt_proc_t *p = *pp; long ix = (long)(p - g_rt_gen_procs); int slot = ix >= 0 && ix < g_rt_gen_proc_count;
     rt_proc_resolve_cells(p);
     int np = p->nparams;
     { int nf = p->nformals > 0 ? p->nformals : np; if (nargs > nf) nargs = nf; }
@@ -1542,6 +1544,7 @@ int rt_proc_call_prologue(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
     if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
     if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_stno); }
 #endif
+    if (slot) *pp = &g_rt_gen_procs[ix];
     rt_lvl_open(0);
     if (rt_wn_park_on()) { rt_lvl_park_wn(wn); rt_g_want_name = 0; } else rt_g_want_name = wn;
     return fbytes;
@@ -1603,7 +1606,7 @@ DESCR_t rt_proc_call_epilogue_idx_γ(long idx) { return rt_proc_epilogue_idx(idx
 DESCR_t rt_proc_call_epilogue_idx_ω(long idx) { return rt_proc_epilogue_idx(idx, 1); }
 _Static_assert(sizeof(long) == 8, "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place -- so the idx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
 _Static_assert(sizeof(long) == 8, "rt_proc_enter_named and rt_proc_enter_frag park the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; parking the name POINTER raw on the C stack left it stale after a collection that slid the block (cto 2026-09-23, user_function_opsyn_8 under the association tap's poll; row 867's holder)");
-static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn);
+static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn);
 #define RT_DC_CHUNK 64
 static cv_t g_rt_dc_chunks;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1817,8 +1820,9 @@ void *rt_proc_open_fn(void)
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
+static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn)
 {
+    rt_proc_t *p = *pp; long ix = (long)(p - g_rt_gen_procs); int slot = ix >= 0 && ix < g_rt_gen_proc_count;
     int fbytes = (int)(PROC_FRAME_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
@@ -1836,6 +1840,7 @@ static int rt_proc_call_prologue_lex(rt_proc_t *p, int nargs, int wn)
 #else
     { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); }
 #endif
+    if (slot) *pp = &g_rt_gen_procs[ix];
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1844,39 +1849,47 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
     if (nargs < 0) nargs = 0; rt_call_args_need(nargs);
     for (int i = 0; i < nargs; i++) CALL_ARGS[i] = args ? args[i] : NULVCL;
     if (p->jmp_entry) {
-        (void)rt_proc_call_prologue_lex(p, nargs, wn);
+        (void)rt_proc_call_prologue_lex(&p, nargs, wn);
 #if RT_DIAG
         rt_c2bb_hit("c_lex.enter", p->name);
 #endif
         return rt_proc_enter((void *)p->fn);
     }
-    (void)rt_proc_call_prologue_lex(p, nargs, wn);
+    (void)rt_proc_call_prologue_lex(&p, nargs, wn);
     core_runtime_error(287, "named lexical procedure has no jmp_entry: the c_lex callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). Identical shape to the descr.callregime.lex arm deleted above -- alloca the frame on the C STACK, call the box, then choose omega-vs-gamma IN C through rt_proc_call_epilogue_ret. Both halves are forbidden: C survives the transition, and the port selection is runtime logic where the law requires BB logic.");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int proc_open_p_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PROC_OPEN_P"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long rt_proc_call_open_p(rt_proc_t *p, int nargs)
+static long rt_proc_call_open_p(rt_proc_t **pp, int nargs)
 {
+    rt_proc_t *p = *pp;
     if (!p || !p->fn) return 0;
     int wn = rt_g_want_name; rt_g_want_name = 0;
-    if (p->dyn_scope) return (long)rt_proc_call_prologue(p, CALL_ARGS, nargs, wn);
-    return (long)rt_proc_call_prologue_lex(p, nargs, wn);
+    if (p->dyn_scope) return (long)rt_proc_call_prologue(pp, CALL_ARGS, nargs, wn);
+    return (long)rt_proc_call_prologue_lex(pp, nargs, wn);
+}
+static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs)
+{
+    if (proc_open_p_on()) return rt_proc_call_open_p(pp, nargs);
+    long ix = (long)(*pp - g_rt_gen_procs); long fb = rt_proc_call_open(name, nargs);
+    if (ix >= 0 && ix < g_rt_gen_proc_count) *pp = &g_rt_gen_procs[ix];
+    return fb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_proc_call_open(const char *name, int nargs)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p && name) p = rt_proc_find_alias(name);
-    return rt_proc_call_open_p(p, nargs);
+    return rt_proc_call_open_p(&p, nargs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_call_open_fnret(const char *name, int nargs)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p || !p->fn) return (void *)0;
-    return rt_proc_call_open(name, nargs) ? (void *)p->fn : (void *)0;
+    return rt_proc_call_open_p(&p, nargs) ? (void *)p->fn : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_proc_call_open_det(long idx, int nargs)
@@ -1885,7 +1898,7 @@ void *rt_proc_call_open_det(long idx, int nargs)
     { rt_proc_t *p = &g_rt_gen_procs[idx];
       if (!p->fn || p->dyn_scope) return (void *)0;
       { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(p, nargs, wn);
+        (void)rt_proc_call_prologue_lex(&p, nargs, wn);
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1896,7 +1909,7 @@ void *rt_proc_call_open_det0(long idx)
       if (!p->fn || p->dyn_scope) return (void *)0;
       { int _np = p->nparams; rt_call_args_need(_np); for (int i = 0; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(p, 0, wn);
+        (void)rt_proc_call_prologue_lex(&p, 0, wn);
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1907,7 +1920,7 @@ void *rt_proc_call_open_det1(long idx, DESCR_t *a0)
       if (!p->fn || p->dyn_scope) return (void *)0;
       { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; for (int i = 1; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(p, 1, wn);
+        (void)rt_proc_call_prologue_lex(&p, 1, wn);
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1918,7 +1931,7 @@ void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1)
       if (!p->fn || p->dyn_scope) return (void *)0;
       { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; for (int i = 2; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(p, 2, wn);
+        (void)rt_proc_call_prologue_lex(&p, 2, wn);
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1929,7 +1942,7 @@ void *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2)
       if (!p->fn || p->dyn_scope) return (void *)0;
       { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; for (int i = 3; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(p, 3, wn);
+        (void)rt_proc_call_prologue_lex(&p, 3, wn);
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1940,7 +1953,7 @@ void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DE
       if (!p->fn || p->dyn_scope) return (void *)0;
       { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; CALL_ARGS[3] = *a3; for (int i = 4; i < _np; i++) CALL_ARGS[i] = NULVCL; }
       { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(p, 4, wn);
+        (void)rt_proc_call_prologue_lex(&p, 4, wn);
         return (void *)p->fn; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1981,7 +1994,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
                  rt_c2bb_hit("named.tiny", name);
 #endif
                  return rt_tiny_record_enter(afn, (long)_n); } }
-    (void)rt_proc_call_prologue(p, args, nargs, _wn);
+    (void)rt_proc_call_prologue(&p, args, nargs, _wn);
 #if RT_DIAG
     rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
 #endif
