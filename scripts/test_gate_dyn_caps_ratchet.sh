@@ -28,9 +28,10 @@
 #   5 THE SECOND POPULATION (CEO-1231 (1), stage 2): the locals a program's data fills -- the census's fill column -- read EXACTLY
 #     scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE, with the same rule: above it a new fixed local landed, below it a conversion
 #     lowers the baseline in the same landing
-#   6 FAIL-ONCE BUILT IN FOR IT: two planted locals, one filled by a list walk with no guard and one the digits of a number (class B by
-#     construction, a radix loop), raise the function-scope population by exactly ONE -- the radix buffer stays out -- and the
-#     unguarded count by one, and the census names the growth RED
+#   6 FAIL-ONCE BUILT IN FOR IT: three planted locals, two filled by a list walk with no guard and one the digits of a number (class B
+#     by construction, a radix loop), raise the function-scope population by exactly TWO -- the radix buffer stays out -- and the
+#     census names the growth RED; one list walk is declared on the scratch CLASS_AB.tsv, so the unguarded count rises by ONE and the
+#     declared term by one, and its row is not stale (ceo 2026-10-02, ruling (a) on the coo's arm-5 ask: a local may be declared A/B)
 #   7 THE CLASS A/B FIXTURE (ceo CEO-1234 (1)): scripts/fixtures/dyn_caps/CLASS_AB.tsv names the tables that stay fixed, each with the
 #     measurement that earned its class; the scratch copy declares a third planted table (which must leave the no-guard line: arm 4's
 #     +1 holds with two never-compared plants) and one table the tree does not declare, which must read RED by name
@@ -46,6 +47,10 @@
 #     them declared on a scratch CLASS_AB.tsv it reads 0 of 0, says no LOUD guard remains, and exits 0
 # The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
 # (CEO-1231), not this gate's.
+# ⛔ BASELINE_FUNCTION_SCOPE 410 -> 409, 2026-10-02 (the coo, ceo ruling (a) on the coo's COO-254 arm-5 ask): the cfo's ce5de7180 grew
+# three locals with their data (icon_parse.c m, gc_audit_b.c also, xa_flat.cpp gk2), and gc_audit_b.c buf[16384] is DECLARED class A
+# in CLASS_AB.tsv with its measurement (the longest /proc/*/maps line on this box 206 bytes vs 16384), so it stays in the count and
+# leaves the unguarded term; the tree reads 409.
 # ⛔ BASELINE_FUNCTION_SCOPE 393 -> 408, THE CLAMP RULE, RE-DERIVED LIKE-FOR-LIKE 2026-09-28 (the coo, on the cto's finding): the fill
 # reader read a for loop as B:trip when ONE conjunct bounded its variable by a literal no larger than the array, even when another
 # conjunct let the program's data decide the trip -- `fi < dt->nfields && fi < 64` (a Raku class of 70 attributes lost every named
@@ -135,7 +140,7 @@ mkdir -p "$WORK/r/scripts/fixtures/dyn_caps" && cp -rL "$ROOT/src" "$WORK/r/src"
   && printf '%s\n' "$n" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE" && printf '%s\n' "$fn" > "$WORK/r/scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE" \
   && cp "$HERE/fixtures/dyn_caps/CLASS_AB.tsv" "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
   && cp "$NSF" "$WORK/r/scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv" && cp "$ROOT/Makefile" "$WORK/r/Makefile" \
-  && printf 'src/planted_by_the_ratchet_gate.c\tg_planted_classab_by_the_ratchet_gate\tA\tthe gate plants it never compared and declares it\nsrc/planted_by_the_ratchet_gate.c\tg_no_such_table_by_the_ratchet_gate\tA\ta stale row the gate plants\n' >> "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
+  && printf 'src/planted_by_the_ratchet_gate.c\tg_planted_classab_by_the_ratchet_gate\tA\tthe gate plants it never compared and declares it\nsrc/planted_by_the_ratchet_gate.c\tg_no_such_table_by_the_ratchet_gate\tA\ta stale row the gate plants\nsrc/planted_by_the_ratchet_gate.c\tplanted_local_classab_by_the_ratchet_gate\tA\tthe gate plants a list-walk local and declares it\n' >> "$WORK/r/scripts/fixtures/dyn_caps/CLASS_AB.tsv" \
   || { echo "REFUSING(2) [$GATE_NAME]: cannot stage the scratch tree"; exit 2; }
 cat > "$WORK/r/src/planted_by_the_ratchet_gate.c" <<'PLANT'
 #define PLANTED_BY_THE_RATCHET_GATE_MAX 8
@@ -150,6 +155,10 @@ void planted_local_by_the_ratchet_gate(struct planted_node_by_the_ratchet_gate *
     int planted_local_by_the_ratchet_gate[16]; int n = 0;
     for (; h; h = h->next) planted_local_by_the_ratchet_gate[n++] = h->v;
 }
+void planted_local_classab_by_the_ratchet_gate(struct planted_node_by_the_ratchet_gate *h) {
+    int planted_local_classab_by_the_ratchet_gate[16]; int n = 0;
+    for (; h; h = h->next) planted_local_classab_by_the_ratchet_gate[n++] = h->v;
+}
 void planted_radix_by_the_ratchet_gate(unsigned long u) {
     char planted_radix_by_the_ratchet_gate[24]; int n = 0;
     do { planted_radix_by_the_ratchet_gate[n++] = (char)('0' + u % 10); u /= 10; } while (u);
@@ -163,7 +172,8 @@ ck "5 the function-scope population reads EXACTLY its baseline ($fn vs $fb)" '[ 
 [ "$fn" -gt "$fb" ] && echo "      a new fixed local that a program fills landed ($fb -> $fn): make it grow -- list them: python3 scripts/audit_fixed_caps_census.py --tsv FILE, column fill"
 [ "$fn" -lt "$fb" ] && echo "      the function-scope population FELL ($fb -> $fn): lower scripts/fixtures/dyn_caps/BASELINE_FUNCTION_SCOPE to $fn in this landing"
 pfn=$(sed -n 's/^function-scope arrays a program fills: \([0-9]*\) (baseline.*/\1/p' <<<"$po"); pfu=$(sed -n 's/^function-scope arrays a program fills, unguarded: \([0-9]*\)$/\1/p' <<<"$po")
-ck "6 FAIL-ONCE for the second population: the list-walk local reads RED, grown by exactly one ($fn -> ${pfn:-?}, the radix buffer out), unguarded $fu -> ${pfu:-?}" '[ "$pfn" = "$((fn + 1))" ] && [ "$pfu" = "$((fu + 1))" ] && grep -q "function-scope population grew from $fn to $((fn + 1))" <<<"$po"'
+pfa=$(sed -n 's/^function-scope arrays a program fills: .* declared class A or B by [^ ]* \([0-9]*\); fixed by construction.*/\1/p' <<<"$po"); fa=$(sed -n 's/^function-scope arrays a program fills: .* declared class A or B by [^ ]* \([0-9]*\); fixed by construction.*/\1/p' <<<"$out")
+ck "6 FAIL-ONCE for the second population: the two list-walk locals read RED, grown by exactly two ($fn -> ${pfn:-?}, the radix buffer out), and the declared one leaves the unguarded line (unguarded $fu -> ${pfu:-?}, declared ${fa:-?} -> ${pfa:-?}) and is not stale" '[ "$pfn" = "$((fn + 2))" ] && [ "$pfu" = "$((fu + 1))" ] && [ -n "$fa" ] && [ "$pfa" = "$((fa + 1))" ] && grep -q "function-scope population grew from $fn to $((fn + 2))" <<<"$po" && ! grep -q "^  src/planted_by_the_ratchet_gate.c:planted_local_classab_by_the_ratchet_gate$" <<<"$po"'
 nab=$(sed -n 's/^declared class A or B by .*: \([0-9]*\) table(s); stale declarations: \([0-9]*\)$/\1/p' <<<"$out"); pnab=$(sed -n 's/^declared class A or B by .*: \([0-9]*\) table(s); stale declarations: \([0-9]*\)$/\1 \2/p' <<<"$po")
 ck "7 THE CLASS A/B FIXTURE (CEO-1234 (1)): the planted declaration counts ($nab -> ${pnab%% *}) and a row naming a table the tree does not declare reads RED by name (stale ${pnab##* })" '[ -n "$nab" ] && [ "$pnab" = "$((nab + 1)) 1" ] && grep -q "^  src/planted_by_the_ratchet_gate.c:g_no_such_table_by_the_ratchet_gate$" <<<"$po"'
 printf 'main :- write(hello), nl.\n:- initialization(main).\n' > "$WORK/silent.pl"

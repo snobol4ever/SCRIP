@@ -97,7 +97,7 @@ census)
   # the TABLES a row declares, not the rows: a row is (file, name), and one name can declare several tables in one file
   # (bb_match_capture.cpp's three b buffers, CEO-1269) -- counting rows printed 23 over 25 declared tables
   nab=$(awk -F'\t' 'FILENAME==ARGV[1] {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next} FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena") && (($1 SUBSEP $4) in ab)' "$AB" "$T/c.tsv" | wc -l)
-  stale=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena")) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && !(($1 SUBSEP $2) in have) {print "  " $1 ":" $2}' "$T/c.tsv" "$AB")
+  stale=$(awk -F'\t' 'FNR==NR {if (FNR>1 && ($3=="file"||$3=="static"||$3=="field"||$3=="arena"||($3=="local" && $9=="" && $11!="" && $11 !~ /^B:/))) have[$1 SUBSEP $4] = 1; next} !/^#/ && NF >= 4 && !(($1 SUBSEP $2) in have) {print "  " $1 ":" $2}' "$T/c.tsv" "$AB")
   echo "fixed-bound declarations at file, static or field scope and fixed-size arenas: $n (baseline $base); with no capacity guard at a fill, by a macro or a literal bound -- compared only as an index or an iteration, or never compared in its file: $u"
   echo "guards that drop or truncate at the cap: $d"
   echo "declared class A or B by $AB (out of the two lines above, in the count): $nab table(s); stale declarations: $(printf '%s' "$stale" | grep -c .)"
@@ -107,11 +107,15 @@ census)
   # CALLEE:f, FORMAT:f, COPY:f, READ:f, PATH:f); B:<why> is fixed by construction and out; const is read-only and out. Unguarded is DROP
   # and NONE together (CEO-1231 (2): a drop is not a guard); guarded is LOUD, which the reader also gives a GROW (the at-cap path
   # allocates). The population is ratcheted like the file-scope one, against its own BASELINE_FUNCTION_SCOPE.
+  # ⭐ A LOCAL MAY BE DECLARED (ceo 2026-10-02, the coo's arm-5 ask, ruling (a): gc_audit_b.c's /proc/self/maps buffer buf[16384] is
+  # class A): a CLASS_AB.tsv row naming a local a program fills keeps it IN the count, as a declared table stays in its count, and takes
+  # it OUT of the guarded, dropping and no-guard terms, printed apart; a row naming a local the tree no longer declares is stale above.
   bf=$(cat "$BF")
-  read -r fn fl fd fx <<<"$(awk -F'\t' 'NR>1 && $3=="local" && $9=="" && $11!="" && $11 !~ /^B:/ {n++; if ($8=="LOUD" || $8=="GROW") l++; else if ($8=="DROP") d++; else x++}
-                                    END {print n+0, l+0, d+0, x+0}' "$T/c.tsv")"
+  read -r fn fl fd fx fa <<<"$(awk -F'\t' 'FILENAME==ARGV[1] {if ($0 !~ /^#/ && NF >= 4) ab[$1 SUBSEP $2] = 1; next}
+                                    FNR>1 && $3=="local" && $9=="" && $11!="" && $11 !~ /^B:/ {n++; if (($1 SUBSEP $4) in ab) a++; else if ($8=="LOUD" || $8=="GROW") l++; else if ($8=="DROP") d++; else x++}
+                                    END {print n+0, l+0, d+0, x+0, a+0}' "$AB" "$T/c.tsv")"
   fk=$(awk -F'\t' 'NR>1 && $3=="local" && $11 ~ /^B:/' "$T/c.tsv" | wc -l)
-  echo "function-scope arrays a program fills: $fn (baseline $bf) -- guarded by a loud refusal or a growth $fl, dropping at the cap $fd, with no guard $fx; fixed by construction and out (class B, read by machine): $fk"
+  echo "function-scope arrays a program fills: $fn (baseline $bf) -- guarded by a loud refusal or a growth $fl, dropping at the cap $fd, with no guard $fx, declared class A or B by $AB $fa; fixed by construction and out (class B, read by machine): $fk"
   echo "function-scope arrays a program fills, unguarded: $((fd + fx))"
   if [ "$n" -gt "$base" ]; then echo "RED: the population of fixed tables grew from $base to $n -- a new fixed limit landed; make it dynamic or declare it class A/B on the page and lower nothing"; red=1; elif [ "$n" -lt "$base" ]; then echo "NOTE: $n is below the baseline $base -- lower BASELINE in the same landing (the ratchet only tightens)"; fi
   if [ "$fn" -gt "$bf" ]; then echo "RED: the function-scope population grew from $bf to $fn -- a new fixed local that a program fills landed; make it grow, and list it: python3 scripts/audit_fixed_caps_census.py --tsv FILE (column fill)"; red=1; elif [ "$fn" -lt "$bf" ]; then echo "NOTE: the function-scope population $fn is below its baseline $bf -- lower BASELINE_FUNCTION_SCOPE in the same landing"; fi
