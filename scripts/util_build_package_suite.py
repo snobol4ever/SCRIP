@@ -466,6 +466,10 @@ def build(pkg_dir, lang, out_prefix="ALL"):
     # so without this read a routine rebuild would silently return a declared 65536 KB program to the
     # shipped default -- a capacity red reappearing with no diff naming the cause, which is precisely the
     # failure the rungs builder's own MERGE-NEVER-OVERWRITE note was written about one file over.
+    # ⛔⭐ AN ENTRY WITH NO DECLARATION OF ITS OWN GETS THE SHIPPED DEFAULTS WRITTEN OUT (the coo 2026-10-02, measured: corpus 239502c47's
+    # arizona_tests rebuild absorbed 18 drivers under names no old row carried, wrote their heap_kb/stack_kb blank, and
+    # test_gate_the_default_stack_and_heap_are_spitbols arm 4 went red, blocking; ceo CEO-1409): the rungs builder's DEFAULT_HEAP_KB /
+    # DEFAULT_STACK_KB (SPITBOL's -d128m -s4m, the harness constants), never a blank cell -- a carried-forward measurement still wins.
     _old_heap = {}
     _old_stack = {}   # stack_kb: the same kind of paid-for measurement, carried forward the same way (CEO-1225)
     _old_cmd = {}     # compile_args and run_args: the unit's command line, carried forward the same way (clause 8 (f), CEO-1281)
@@ -505,13 +509,13 @@ def build(pkg_dir, lang, out_prefix="ALL"):
             joined = "\n".join(e.sno_lines)
             flags_row = m.attrs_for_text(joined, table_lang)
             w.writerow([e.seq, e.name, f"{pkg_dir.name}__{e.name}", pkg_dir.name, len(e.sno_lines),
-                        1 if e.stdin else 0, e.want_rc, _old_heap.get(e.name, ""), _old_stack.get(e.name, "")] + [_old_cmd.get(e.name, {}).get(c, "") for c in _cmd_cols] + [" ".join(getattr(e, "out_files", None) or []) for c in _of_col] + ["merged" for c in _se_col] + [flags_row[c] for c, _fn in cols])
+                        1 if e.stdin else 0, e.want_rc, _old_heap.get(e.name, m.DEFAULT_HEAP_KB), _old_stack.get(e.name, m.DEFAULT_STACK_KB)] + [_old_cmd.get(e.name, {}).get(c, "") for c in _cmd_cols] + [" ".join(getattr(e, "out_files", None) or []) for c in _of_col] + ["merged" for c in _se_col] + [flags_row[c] for c, _fn in cols])
         _rank = max([e.seq for e in entries] or [0])
         for _row in sorted(_carried, key=lambda r: r.get("entry") or ""):
             _rank += 1
             w.writerow([_rank, _row.get("entry"), _row.get("origin") or f"{pkg_dir.name}__{_row.get('entry')}", _row.get("package") or pkg_dir.name,
                         _row.get("n_lines") or "", _row.get("stdin") or "0", _row.get("want_rc") or "0",
-                        (_row.get("heap_kb") or "").strip(), (_row.get("stack_kb") or "").strip()] + [(_row.get(c) or "").strip() for c in _cmd_cols]
+                        (_row.get("heap_kb") or "").strip() or m.DEFAULT_HEAP_KB, (_row.get("stack_kb") or "").strip() or m.DEFAULT_STACK_KB] + [(_row.get(c) or "").strip() for c in _cmd_cols]
                        + ["" for c in _of_col] + ["" for c in _se_col] + ["" for c, _fn in cols])
     if _carried:
         print("    settings rows: %d unit(s) still shipped and not absorbed by this build carried forward, declarations kept, no block: %s"
