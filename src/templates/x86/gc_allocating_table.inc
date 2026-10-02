@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1955
-#define GC_ALLOC_TAB_N_VOID 226
+#define GC_ALLOC_TAB_N 1957
+#define GC_ALLOC_TAB_N_VOID 228
 #define GC_ALLOC_TAB_N_DESCR 1065
 #define GC_ALLOC_TAB_N_OTHER 657
 #define GC_ALLOC_TAB_N_UNKNOWN 7
@@ -462,6 +462,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "core_DATA_register", GC_RET_DESCR },
     { "core_apply_runtime_proc", GC_RET_OTHER },
     { "core_error_voice", GC_RET_VOID },
+    { "core_fn_entry_label_set", GC_RET_VOID },
     { "core_icn_argtype_check", GC_RET_OTHER },
     { "core_icn_builtin_argcheck", GC_RET_OTHER },
     { "core_icn_by_zero_check", GC_RET_OTHER },
@@ -1765,6 +1766,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_proc_epilogue_named", GC_RET_DESCR },
     { "rt_proc_epilogue_p", GC_RET_DESCR },
     { "rt_proc_hash_insert", GC_RET_VOID },
+    { "rt_proc_opsyn_bind", GC_RET_VOID },
     { "rt_proc_register", GC_RET_VOID },
     { "rt_proc_register_rec", GC_RET_VOID },
     { "rt_proc_resolve_cells", GC_RET_VOID },

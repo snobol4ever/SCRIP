@@ -559,6 +559,7 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type) {
     if (!nm || !old || !*old) return FAILDESCR;
     if (to_int(type) == 1) nm = sn4_unary_op_key(nm);
     register_fn_alias(nm, old);
+    { extern void rt_proc_opsyn_bind(const char *, const char *); rt_proc_opsyn_bind(nm, old); }
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

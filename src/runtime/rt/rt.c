@@ -2050,7 +2050,34 @@ void rt_define_bind_entry(const char *fname, const char *entry)
     if (!fname || !*fname || !entry || !*entry) return;
     { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); if (!fn) return;
       { void **c = (void **)bb_ab_cell_addr(fname); if (c) *c = fn; }
-      { char cell[300]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } } }
+      { char cell[300]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } }
+      if (!frag) { rt_proc_t *p = rt_proc_find(fname); if (p && p->dyn_scope) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_opsyn_bind(const char *nm, const char *old)
+{
+    extern char *rt_heap_strdup_c(const char *); extern void *rt_heap_alloc_c(size_t); extern void *bb_ab_fn_cell_ptr(const char *); extern void *bb_ab_cell_addr(const char *);
+    extern const char *FUNC_ENTRY_fn(const char *); extern void core_fn_entry_label_set(const char *, const char *);
+    if (!nm || !old || !*nm || !strcmp(nm, old)) return;
+    int io = rt_proc_hash_lookup(old);
+    if (io < 0) { const char *ent = FUNC_ENTRY_fn(old); if (ent && ent[0] == '\001') io = rt_proc_hash_lookup(ent); }
+    if (io < 0) return;
+    rt_proc_t o = g_rt_gen_procs[io];
+    if (!o.fn || !o.dyn_scope) return;
+    int np = o.nparams > 0 ? o.nparams : 0;
+    const char **pn = (const char **)rt_heap_alloc_c((size_t)(np + 1) * sizeof(char *)); if (!pn) return;
+    for (int k = 0; k < np; k++) pn[k] = (o.pnames && o.pnames[k]) ? rt_heap_strdup_c(o.pnames[k]) : (const char *)0;
+    pn[np] = (const char *)0;
+    const char *rn = rt_heap_strdup_c(o.result_name ? o.result_name : o.name);
+    const char *key = nm;
+    if (rt_proc_hash_lookup(nm) < 0) { char kb[strlen(nm) + 8]; snprintf(kb, sizeof kb, "\001OPSYN%s", nm); key = rt_heap_strdup_c(kb); core_fn_entry_label_set(nm, key); }
+    rt_proc_register(key == nm ? rt_heap_strdup_c(nm) : key, pn, np);
+    { rt_proc_t *p = rt_proc_find(key); if (!p) return;
+      int fresh = key != nm;
+      p->pnames = pn; p->nparams = np; p->nformals = o.nformals; p->fn = o.fn; p->jmp_entry = o.jmp_entry; p->dyn_scope = 1; p->frame_bytes = o.frame_bytes; p->frame_nslots = o.frame_nslots;
+      p->result_name = rn; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->pnames_owned = 1; p->redefined = fresh; }
+    { void **c = (void **)bb_ab_cell_addr(nm); if (c) *c = (void *)o.fn; }
+    { char cn[strlen(nm) + 8]; snprintf(cn, sizeof cn, "entry$%s", nm); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = (void *)o.fn; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)

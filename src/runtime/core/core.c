@@ -4666,6 +4666,14 @@ const char *FUNC_LOCAL_fn(const char *fname, int i) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void core_fn_entry_label_set(const char *fname, const char *entry) {
+    _func_init();
+    if (!fname || !entry) return;
+    unsigned h = _func_hash(fname);
+    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+        if (strcmp(e->name, fname) == 0) { e->entry_label = rt_heap_strdup_c(entry); return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *FUNC_ENTRY_fn(const char *fname) {
     _func_init();
     if (!fname) return NULL;
