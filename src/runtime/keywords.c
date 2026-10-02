@@ -624,7 +624,7 @@ void rt_stmt_enter(long stno, long line) {
 #if RT_DIAG
     { extern void rt_trace_keyword_write(const char *, int64_t, long long); rt_trace_keyword_write("STCOUNT", (int64_t)g_stcount, (long long)stno); }
 #endif
-    if (g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
+    if (kw_stlimit > 0 && g_stcount > kw_stlimit) kwb_error(244, "statement count exceeds value of stlimit keyword");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_gen(const char *sval, long idx) {
