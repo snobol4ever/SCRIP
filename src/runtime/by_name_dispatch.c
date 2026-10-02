@@ -4523,8 +4523,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__pas_strcmp") && nargs == 2) {
         const char *sa = VARVAL_fn(args[0]); if (!sa) sa = "";
         const char *sb = VARVAL_fn(args[1]); if (!sb) sb = "";
-        size_t la = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu && sa == args[0].s) ? (size_t)args[0].slen : strlen(sa);
-        size_t lb = (args[1].v == DT_S && args[1].slen != 0xFFFFFFFFu && sb == args[1].s) ? (size_t)args[1].slen : strlen(sb);
+        size_t la = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (size_t)args[0].slen : strlen(sa);
+        size_t lb = (args[1].v == DT_S && args[1].slen != 0xFFFFFFFFu) ? (size_t)args[1].slen : strlen(sb);
         size_t lm = la < lb ? la : lb;
         int c = lm ? memcmp(sa, sb, lm) : 0;
         if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
@@ -6662,8 +6662,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
         return 0;
     }
     { const char *a = VARVAL_fn(lhs), *b = VARVAL_fn(rhs); if (!a) a=""; if (!b) b="";
-      size_t la = IS_CSET_fn(lhs) ? (size_t)(kw_cset_len(a) >= 0 ? kw_cset_len(a) : (int)strlen(a)) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu && a == lhs.s) ? (size_t)lhs.slen : strlen(a);
-      size_t lb = IS_CSET_fn(rhs) ? (size_t)(kw_cset_len(b) >= 0 ? kw_cset_len(b) : (int)strlen(b)) : (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu && b == rhs.s) ? (size_t)rhs.slen : strlen(b);
+      size_t la = IS_CSET_fn(lhs) ? (size_t)(kw_cset_len(a) >= 0 ? kw_cset_len(a) : (int)strlen(a)) : (lhs.v == DT_S && lhs.slen != 0xFFFFFFFFu) ? (size_t)lhs.slen : strlen(a);
+      size_t lb = IS_CSET_fn(rhs) ? (size_t)(kw_cset_len(b) >= 0 ? kw_cset_len(b) : (int)strlen(b)) : (rhs.v == DT_S && rhs.slen != 0xFFFFFFFFu) ? (size_t)rhs.slen : strlen(b);
       size_t lm = la < lb ? la : lb;
       int c = lm ? memcmp(a, b, lm) : 0;
       if (c == 0) c = (la < lb) ? -1 : (la > lb) ? 1 : 0;
@@ -8721,7 +8721,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     if ((_bid == BID_ICN_SCAN_PUSH) && nargs == 1) {
         const char *s; long n;
         if (IS_REAL_fn(args[0])) { char _rb[64]; icon_real_str(args[0].r,_rb,sizeof _rb); s = rt_heap_strdup_c(_rb); n = (long)strlen(_rb); }
-        else { s = VARVAL_fn(args[0]); if (!s) s = ""; n = (args[0].v == DT_S && args[0].s == s && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : (long)strlen(s); }
+        else { s = VARVAL_fn(args[0]); if (!s) s = ""; n = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : (long)strlen(s); }
         scan_depth++;
         { char *c = rt_wsb_alloc(n + 1); memcpy(c, s, (size_t)n); c[n] = '\0'; scan_subj = c; } scan_pos = 1;
         { extern void rt_scan_subj_len_set(const char *, long); rt_scan_subj_len_set(scan_subj, n); }
@@ -8735,7 +8735,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5920: ;
     if ((_bid == BID_any) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
-        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu && args[0].s == cv) ? (long)args[0].slen : -1;
+        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
         const char *s; int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
         if (i1 >= i2) { *out = FAILDESCR; return 1; }
@@ -8745,7 +8745,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5938: ;
     if ((_bid == BID_many) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
-        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu && args[0].s == cv) ? (long)args[0].slen : -1;
+        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
         const char *s; int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
         int p = i1;
@@ -8756,7 +8756,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_5958: ;
     if ((_bid == BID_upto) && nargs >= 1 && (scan_pos > 0 || nargs >= 2)) {
         const char *cv = VARVAL_fn(args[0]); if (!cv) { *out = FAILDESCR; return 1; }
-        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu && args[0].s == cv) ? (long)args[0].slen : -1;
+        long cvn = (args[0].v == DT_S && args[0].slen != 0xFFFFFFFFu) ? (long)args[0].slen : -1;
         const char *s; int i1, i2;
         if (!bn_str_anal(args, nargs, 1, &s, &i1, &i2)) { *out = FAILDESCR; return 1; }
         int p = i1;

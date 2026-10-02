@@ -1271,7 +1271,7 @@ int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
     } else {
         cv = VARVAL_fn(arg);
         if (!cv) return 0;
-        clen = (cv == arg.s && arg.slen && arg.slen != 0xFFFFFFFFu) ? (int)arg.slen : (int)strlen(cv);
+        clen = (arg.v == DT_S && arg.slen && arg.slen != 0xFFFFFFFFu) ? (int)arg.slen : (int)strlen(cv);
     }
     *out_ptr = cv;
     *out_len = clen;

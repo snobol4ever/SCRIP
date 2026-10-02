@@ -95,7 +95,7 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     scan_pos  = 1;
     uint64_t L;
     if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = sv.s ? kw_cset_len(sv.s) : -1; L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
-    else L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    else L = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
     g_scan_subj_ptr = s; g_scan_subj_len = (long)L;
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
@@ -109,7 +109,7 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
     if (!s) s = "";
     uint64_t L;
     if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = sv.s ? kw_cset_len(sv.s) : -1; L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
-    else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
     g_scan_needle_ptr = s; g_scan_needle_len = (long)L;
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
@@ -176,7 +176,7 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
-    uint64_t L = (sv.v == DT_S && sv.slen && s == sv.s) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    uint64_t L = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
     Σ = s; Σlen = (int)L;
     ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
     return r;
@@ -192,11 +192,11 @@ void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int6
     uint64_t w[2]; w[0] = sub_lo; w[1] = sub_hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv); if (!s) s = "";
-    int64_t slen = (sv.v == DT_S && s == sv.s && sv.slen != 0xFFFFFFFFu) ? (int64_t)sv.slen : (int64_t)strlen(s);
+    int64_t slen = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (int64_t)sv.slen : (int64_t)strlen(s);
     DESCR_t rv = replp ? *replp : sv;
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
     const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
-    int64_t rlen = (rv.v == DT_S && rs == rv.s && rv.slen != 0xFFFFFFFFu) ? (int64_t)rv.slen : (int64_t)strlen(rs);
+    int64_t rlen = (rv.v == DT_S && rv.slen != 0xFFFFFFFFu) ? (int64_t)rv.slen : (int64_t)strlen(rs);
 #if RT_DIAG
     int64_t raw_start = start, raw_end = end;
 #endif

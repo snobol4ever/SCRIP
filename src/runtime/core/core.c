@@ -3630,7 +3630,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         extern const char *scan_subj;
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
         { extern void rt_scan_subj_len_set(const char *, long);
-          long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu && s == val.s) ? (long)val.slen : (s ? (long)strlen(s) : 0);
+          long n = (val.v == DT_S && val.slen != 0xFFFFFFFFu) ? (long)val.slen : (s ? (long)strlen(s) : 0);
           if (!s) { scan_subj = ""; rt_scan_subj_len_set("", 0); return val; }
           { char *c = (char *)rt_heap_alloc_c((size_t)n + 1); memcpy(c, s, (size_t)n); c[n] = 0; scan_subj = c; rt_scan_subj_len_set(c, n); } }
         return val;
