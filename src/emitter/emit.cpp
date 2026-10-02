@@ -2977,7 +2977,8 @@ static int zdo_first(IR_t **nodes, int n, IR_t *t) {
 }
 static int zd_omega_head(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t) >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout) { int k = zdo_first(nodes, n, t); return k >= 0 ? (zon[k] ? zout[k] : 0) : 0; }
+static int zd_omega_seed(IR_t **nodes, int n, IR_t *t, unsigned char *zon, int *zout, const int *claim) { int k = zdo_first(nodes, n, t); if (k < 0) return 0; int s = zon[k] ? zout[k] : 0;
+    for (int j = k + 1; j < n; j++) if (zon[j] && claim[j] == claim[k] && zout[j] > s && zd_omega_test_kind(nodes[j]->op) && zd_chase(nodes[j]->ω.node) == t) s = zout[j]; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zd_omega_test_idx(IR_t **nodes, int n, IR_t *t) { return zdo_first(nodes, n, t); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3126,7 +3127,7 @@ static void zd_plan(IR_t **nodes, int n, unsigned char *zon, int *zout, int *zgp
                 if (!(_curi >= 0 && claim[_curi] == claim[vd_tidx])) vd_tidx = -1; }
             else vd_tidx = -1; }
         if (vd_tidx >= 0) zvd_ok[vd_tidx] = 1;
-        if (ok) { int zd = (vd_tidx >= 0) ? zd_omega_seed(nodes, n, nodes[hi], zon, zout) : 0; int arm_zd = 0; int zdh_match = -1; int zdh_stmt = -1; int zdh_mafter = -1; int zwt = 0;
+        if (ok) { int zd = (vd_tidx >= 0) ? zd_omega_seed(nodes, n, nodes[hi], zon, zout, claim) : 0; int arm_zd = 0; int zdh_match = -1; int zdh_stmt = -1; int zdh_mafter = -1; int zwt = 0;
             if (nblob <= 0) zrm_build(nodes, run, rl);
             for (int r = 0; r < rl; r++) { int i = run[r];
                 int REL = fence0_release_bytes(nodes[i]);
