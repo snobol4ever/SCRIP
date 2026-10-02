@@ -726,6 +726,7 @@ test_gate_sno_error_voice_statement_number_from_a_code_map_no_per_statement_stor
 test_gate_sno_errtype_and_errtext_are_set_before_a_fatal_error_exits.sh	WIRED	-	-	-
 test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
+test_gate_sno_eval_of_text_that_does_not_compile_raises_spitbols_syntax_error.sh	WIRED	-	-	-
 test_gate_sno_every_real_overflow_in_the_family_raises.sh	WIRED	-	-	-
 test_gate_sno_every_unused_operator_opsyn_names_calls_its_function.sh	WIRED	-	-	-
 test_gate_sno_every_variable_keeps_its_own_standard_stream_association.sh	WIRED	-	-	-

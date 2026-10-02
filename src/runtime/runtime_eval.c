@@ -3,6 +3,7 @@
 #include "rt/gc_heap.h"
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <math.h>
 #include "core.h"
 #include "dtp.h"
@@ -408,6 +409,97 @@ static int eval_frame_push(DESCR_t saved, const char *key_src) {
     return g_eval_frames_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_sb_numok(const char *t, long len) {
+    long i = 0, nd = 0, ne = 0; int64_t iv = 0; int ov = 0; char ex = 0;
+    while (i < len && t[i] >= '0' && t[i] <= '9') { if (__builtin_mul_overflow(iv, 10, &iv) || __builtin_add_overflow(iv, (int64_t)(t[i] - '0'), &iv)) ov = 1; i++; nd++; }
+    if (!nd) return 0;
+    if (i == len) return !ov;
+    if (t[i] == '.') { i++; while (i < len && t[i] >= '0' && t[i] <= '9') i++; }
+    if (i < len && (t[i] == 'e' || t[i] == 'E' || t[i] == 'd' || t[i] == 'D')) { ex = t[i]; i++; if (i < len && (t[i] == '+' || t[i] == '-')) i++; while (i < len && t[i] >= '0' && t[i] <= '9') { i++; ne++; } if (!ne) return 0; }
+    if (i != len) return 0;
+    if (ex != 'd' && ex != 'D') return isfinite(strtod(t, (char **)0)) ? 1 : 0;
+    { const char *e = t; while (*e != 'd' && *e != 'D') e++; return isfinite(strtod(t, (char **)0) * pow(10.0, strtod(e + 1, (char **)0))) ? 1 : 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_sb_fail(int c, int *code, const char **msg) {
+    *code = c;
+    switch (c) {
+    case 220: *msg = "syntax error: missing operator"; break;
+    case 221: *msg = "syntax error: missing operand"; break;
+    case 222: *msg = "syntax error: invalid use of left bracket"; break;
+    case 223: *msg = "syntax error: invalid use of comma"; break;
+    case 224: *msg = "syntax error: unbalanced right parenthesis"; break;
+    case 225: *msg = "syntax error: unbalanced right bracket"; break;
+    case 226: *msg = "syntax error: missing right paren"; break;
+    case 229: *msg = "syntax error: missing right array bracket"; break;
+    case 230: *msg = "syntax error: illegal character"; break;
+    case 231: *msg = "syntax error: invalid numeric item"; break;
+    case 232: *msg = "syntax error: unmatched string quote"; break;
+    default: *msg = "syntax error: invalid use of operator"; break;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_sb_syntax(const char *s, int *code, const char **msg) {
+    long n = (long)strlen(s), p = 0, nopen = 0, depth = 0, k;
+    for (k = 0; k < n; k++) if (s[k] == '(' || s[k] == '[' || s[k] == '<') nopen++;
+    char lev[nopen + 1];
+    int prev = 0, st = 0;
+    for (;;) {
+        int blank = 0, el; char c, nx;
+        while (p < n && (s[p] == ' ' || s[p] == '\t')) { p++; blank = 1; }
+        c = p < n ? s[p] : 0;
+        if (!c) el = 36;
+        else if (c >= '0' && c <= '9') {
+            long q = p; while (q < n && (isalnum((unsigned char)s[q]) || s[q] == '.' || s[q] == '_' || s[q] == '+' || s[q] == '-')) q++;
+            if (!eval_sb_numok(s + p, q - p)) return eval_sb_fail(231, code, msg);
+            el = 18; p = q; }
+        else if (isalpha((unsigned char)c)) {
+            long q = p + 1; while (q < n && (isalnum((unsigned char)s[q]) || s[q] == '.' || s[q] == '_')) q++;
+            if (q < n && (s[q] == '+' || s[q] == '-')) return eval_sb_fail(233, code, msg);
+            if (q < n && s[q] == '(') { el = 12; p = q + 1; } else { el = 15; p = q; } }
+        else if (c == '\'' || c == '"') {
+            long q = p + 1; while (q < n && s[q] != c) q++;
+            if (q >= n) return eval_sb_fail(232, code, msg);
+            el = 18; p = q + 1; }
+        else if (c == '(') { el = 3; p++; }
+        else if (c == ')') { el = 24; p++; }
+        else if (c == '[' || c == '<') { el = 6; p++; }
+        else if (c == ']' || c == '>') { el = 27; p++; }
+        else if (c == ',') { el = 9; p++; }
+        else if (c == ':' || c == ';') { el = 33; p++; }
+        else if (strchr("+-.$!%*/#@|&?=~^", c)) {
+            long len = (c == '*' && p + 1 < n && s[p + 1] == '*' && (p + 2 >= n || s[p + 2] == ' ' || s[p + 2] == '\t')) ? 2 : 1;
+            nx = p + len < n ? s[p + len] : 0;
+            if (!nx || nx == ' ' || nx == '\t' || nx == ';' || nx == ':' || nx == ')' || nx == ']' || nx == '>') {
+                if (!blank) return eval_sb_fail(233, code, msg);
+                if (c == '=') return 0;
+                el = 21; }
+            else if (prev <= 12 || blank) el = 0;
+            else return eval_sb_fail(233, code, msg);
+            p += len; }
+        else return eval_sb_fail(230, code, msg);
+        prev = el;
+        switch (el) {
+        case 15: case 18: if (st == 2 && !blank) return eval_sb_fail(220, code, msg); st = 2; break;
+        case 3: case 12: if (st == 2 && !blank) return eval_sb_fail(220, code, msg); lev[depth++] = el == 3 ? 4 : 5; st = 0; break;
+        case 0: if (st == 2 && !blank) return eval_sb_fail(220, code, msg); st = 1; break;
+        case 21: if (st != 2) return eval_sb_fail(221, code, msg); st = 1; break;
+        case 6: if (st != 2) return eval_sb_fail(222, code, msg); lev[depth++] = 3; st = 0; break;
+        case 24: if (st == 1) return eval_sb_fail(221, code, msg); if (depth && lev[depth - 1] > 3) { depth--; st = 2; break; } return eval_sb_fail(224, code, msg);
+        case 27: if (st == 1) return eval_sb_fail(221, code, msg); if (depth && lev[depth - 1] == 3) { depth--; st = 2; break; } return eval_sb_fail(225, code, msg);
+        case 9: if (st == 1) return eval_sb_fail(221, code, msg); if (depth) { st = 0; break; } return eval_sb_fail(223, code, msg);
+        default: if (el == 33 && (st != 2 || !depth)) return 0; if (st == 1) return eval_sb_fail(221, code, msg); if (depth) return eval_sb_fail(lev[depth - 1] == 3 ? 229 : 226, code, msg); return 0;
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_eval_syntax_raise(const char *s) {
+    int code = 0; const char *msg = (const char *)0;
+    if (!s || !eval_sb_syntax(s, &code, &msg)) return;
+    { long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; if (!esv) g_error = G_ERROR_EVAL_STAGE; core_runtime_error(code, msg); g_error = esv; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
     eval_chain_fn cached = eval_cache_get(s);
@@ -426,7 +518,7 @@ DESCR_t eval_string_transient(const char *s) {
     }
     size_t mark = bb_pool_mark();
     eval_chain_fn fn = eval_build_chain(s);
-    if (!fn) { bb_pool_release(mark); return FAILDESCR; }
+    if (!fn) { bb_pool_release(mark); rt_eval_syntax_raise(s); return FAILDESCR; }
     int keep = mark < eval_retain_budget();
     int my = eval_frame_push(NV_GET_fn(EVAL_TMP), keep ? s : NULL);
     if (my < 0) { bb_pool_release(mark); return FAILDESCR; }

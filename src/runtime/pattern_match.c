@@ -522,7 +522,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
         extern int rt_str_to_real(const char *, double *);
         double rv;
         if (rt_str_to_real(s, &rv)) return REALVAL(rv);
-        { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') return FAILDESCR; }
+        { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') { extern void rt_eval_syntax_raise(const char *); rt_eval_syntax_raise(s); return FAILDESCR; } }
     }
 eval_str:
     if (g_eval_str_hook) return g_eval_str_hook(s);
