@@ -4773,6 +4773,33 @@ static const char *_io_varname(DESCR_t d) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int _io_bang_cmd(const char *s, char *cmd, const char **opts) {
+    if (!s || s[0] != '!') return 0;
+    size_t len = strlen(s);
+    if (len && s[len - 1] == ']') { const char *q = s + len - 1; while (q > s) { q--; if (*q == ']') break; if (*q == '[') { len = (size_t)(q - s); break; } } }
+    if (len < 3 || s[2] == s[1]) return -1;
+    char d = s[1]; size_t i = 2;
+    while (i < len && s[i] != d) i++;
+    memcpy(cmd, s + 2, i - 2); cmd[i - 2] = '\0';
+    *opts = s + (i < len ? i + 1 : len);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void _io_shell_quote(char **p, const char *s) {
+    *(*p)++ = '\'';
+    for (; *s; s++) { if (*s == '\'') { memcpy(*p, "'\\''", 4); *p += 4; } else *(*p)++ = *s; }
+    *(*p)++ = '\'';
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static FILE *_io_spawn(const char *cmd, const char *mode) {
+    const char *sh = getenv("SHELL");
+    fflush(NULL);
+    if (!sh || !sh[0] || !strcmp(sh, "/bin/sh")) return popen(cmd, mode);
+    char w[4 * (strlen(sh) + strlen(cmd)) + 16], *p = w;
+    memcpy(p, "exec ", 5); p += 5; _io_shell_quote(&p, sh); memcpy(p, " -c ", 4); p += 4; _io_shell_quote(&p, cmd); *p = '\0';
+    return popen(w, mode);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
     const char *p = spec ? strchr(spec, '[') : NULL;
     if (!p) return;
@@ -4908,6 +4935,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
     } else if (n >= 3) {
         fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     }
+    if (n == 3 && VARVAL_fn(a[2])[0] == '!') fname = VARVAL_fn(a[2]);
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
     int from_prebind = 0;
     if ((!fname || !fname[0]) && ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].prebind) { fname = _io_chan[ch].prebind; from_prebind = 1; }
@@ -4931,13 +4959,16 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         _input_rlen = rlen;
         return NULVCL;
     }
-    int is_pipe = (fname[0] == '|');
+    char pcmd[strlen(fname) + 1]; const char *popts = NULL;
+    int bang = _io_bang_cmd(fname, pcmd, &popts);
+    if (bang < 0) { core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
+    int is_pipe = bang > 0;
     if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) return NULVCL;
     if (!from_prebind && _io_chan_in_use(ch)) { core_runtime_error(289, "input channel currently in use"); return FAILDESCR; }
-    FILE *f = is_pipe ? popen(fname + 1, "r") : fopen(fname, "r");
+    FILE *f = bang > 0 ? _io_spawn(pcmd, "r") : fopen(fname, "r");
     if (!f) return FAILDESCR;
     long fopt = -1, frlen = 0;
-    _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fopt, &frlen);
+    _io_parse_opts(bang > 0 ? popts : n >= 3 ? VARVAL_fn(a[2]) : NULL, &fopt, &frlen);
     if (ch >= 0 && ch < IO_CHAN_MAX) {
         _io_chan_close(ch);
         _io_chan[ch].fp = f;
@@ -4974,7 +5005,7 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     } else if (n >= 4) {
         fname = VARVAL_fn(a[3]);
     } else if (n >= 3) {
-        fname = _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
+        fname = VARVAL_fn(a[2])[0] == '!' ? VARVAL_fn(a[2]) : _io_extract_fname(VARVAL_fn(a[2]), fname_buf, sizeof(fname_buf));
     } else if (n >= 1) {
         const char *vn = (n == 1 || _io_assoc_pair_state(a, n) == 0) ? _io_varname(a[0]) : NULL;
         if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1); else if (vn) _io_output_reattach_std();
@@ -4997,12 +5028,15 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
             _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); } } }
         return NULVCL;
     }
-    int is_pipe = (fname[0] == '|');
+    char pcmd[strlen(fname) + 1]; const char *popts = NULL;
+    int bang = _io_bang_cmd(fname, pcmd, &popts);
+    if (bang < 0) { core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
+    int is_pipe = bang > 0;
     if (!is_pipe && !core_io_assoc_legacy() && (ch < 0 || strchr(fname, ' '))) {
         core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR;
     }
     if (!from_prebind && _io_chan_in_use(ch)) { core_runtime_error(290, "output channel currently in use"); return FAILDESCR; }
-    FILE *f = is_pipe ? popen(fname + 1, "w") : fopen(fname, "w");
+    FILE *f = bang > 0 ? _io_spawn(pcmd, "w") : fopen(fname, "w");
     if (!f) return FAILDESCR;
     if (ch >= 0 && ch < IO_CHAN_MAX) {
         _io_chan_close(ch);
