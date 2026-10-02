@@ -97,8 +97,9 @@ DR="$HERE/test_snobol4_dotnet_suite.sh"
 if [ -f "$DR" ]; then
   mkdir -p "$W/dot"; cp "$W/fatal_witness.sno" "$W/dot/fatal_witness.sno"; cp "$W/ALL.mask" "$W/dot/ALL.mask"
   cp "$W/fatal_witness.sno" "$W/dot/excluded_witness.sno"
+  printf '\tY = 0\n\tX = 1 / Y\nEND\n' > "$W/dot/silent_fatal_witness.sno"
   printf 'excluded_witness.sno\tNOT_SPITBOL_DIALECT\tgate fixture: a program whose fatal under sbl -bf is the CSNOBOL4 feature it uses, excluded by CEO-1286\n' > "$W/dot/EXCLUDED.tsv"
-  printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,dotnet,5,0,0,131072,4096,,\n2,excluded_witness,excluded_witness,dotnet,5,0,0,131072,4096,,\n' > "$W/dot/ALL.csv"
+  printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,dotnet,5,0,0,131072,4096,,\n2,excluded_witness,excluded_witness,dotnet,5,0,0,131072,4096,,\n3,silent_fatal_witness,silent_fatal_witness,dotnet,3,0,0,131072,4096,,\n' > "$W/dot/ALL.csv"
   mkdir -p "$W/dbg"
   o6=$(cd "$ROOT" && DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Dotnet runner over a one-program scratch suite, not a board" timeout 300 bash "$DR" 2>&1); r6=$?
   p6m3=$(awk -F'\t' '$8=="fatal_witness" && $9=="m3" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1); p6m4=$(awk -F'\t' '$8=="fatal_witness" && $9=="m4" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1)
@@ -108,6 +109,21 @@ if [ -f "$DR" ]; then
   ck "6c a program EXCLUDED.tsv names keeps its fatal as the dialect refusal: UNGRADED, never graded through the rendered block (the d6c775c13 defect)" '[ "$p6x" = UNGRADED ] && ! grep -q "FATAL_GRADED.* excluded_witness" <<<"$o6"'
   md5_after6=$(md5sum "$SUITES" 2>/dev/null | cut -c1-32)
   ck "6b and wrote no score row either" '[ "$md5_before" = "$md5_after6" ]'
+  # ⭐ A FATAL WITH NOTHING PRINTED BEFORE IT (the cto 1957d1d0f, reviewed by the coo 2026-10-02): Dotnet asgn1 printed nothing before
+  # its ERROR 038, and the render joined the empty stdout to the block with a newline -- a fourth leading empty line where sbl prints
+  # three -- so it read FAIL in both modes on that line alone. The separator follows non-empty stdout only.
+  p6sm3=$(awk -F'\t' '$8=="silent_fatal_witness" && $9=="m3" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1); p6sm4=$(awk -F'\t' '$8=="silent_fatal_witness" && $9=="m4" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1)
+  ck "6d a fatal with no output before it reads PASS in m3 and m4 (got $p6sm3 $p6sm4): no separator line after an empty stdout" '[ "$p6sm3" = PASS ] && [ "$p6sm4" = PASS ]'
+  mkdir -p "$W/pre/scripts"; for f in "$HERE"/*; do ln -s "$f" "$W/pre/scripts/"; done
+  for f in scrip out src Makefile; do [ -e "$ROOT/$f" ] && ln -s "$ROOT/$f" "$W/pre/$f"; done
+  rm -f "$W/pre/scripts/test_snobol4_dotnet_suite.sh"
+  sed 's|then if \[ -n "\$1" \]; then printf .%s\\n%s. "\$1" "\$r"; else printf .%s. "\$r"; fi; else|then printf '"'"'%s\\n%s'"'"' "$1" "$r"; else|' "$DR" > "$W/pre/scripts/test_snobol4_dotnet_suite.sh"
+  if cmp -s "$DR" "$W/pre/scripts/test_snobol4_dotnet_suite.sh"; then ck "6e fail-once: the pre-1957d1d0f join is plantable" 'false'
+  else
+    (cd "$ROOT" && DOTNET_SUITE="$W/dot" DOTNET_DEBUG_DIR="$W/dbg" S4E_PROGRESS_DB="$W/p6e.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the pre-cure Dotnet runner over a scratch suite, not a board" timeout 300 bash "$W/pre/scripts/test_snobol4_dotnet_suite.sh" > /dev/null 2>&1)
+    p6em3=$(awk -F'\t' '$8=="silent_fatal_witness" && $9=="m3" {print $10}' "$W/p6e.tsv" 2>/dev/null | tail -1)
+    ck "6e fail-once: the pre-1957d1d0f join reads the silent fatal red in m3 (got ${p6em3:-nothing})" '[ -n "$p6em3" ] && [ "$p6em3" != PASS ]'
+  fi
 else
   echo "  (no Dotnet runner beside this gate: arm 6 not built)"
 fi
