@@ -296,6 +296,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     var->v.sval = (char *)EVAL_TMP;
     tree_t *st = ast_stmt_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", 1));
+    ast_push(st, ast_attr_int(":evalstmt", 1));
 #if RT_DIAG
     { static int _cs = -1; if (_cs < 0) { const char * e = getenv("SCRIP_MON_CHAIN_STNO"); _cs = (e && e[0] == '1') ? 1 : 0; }
       ast_push(st, ast_attr_int(":stno", _cs ? 1 : 0)); }
@@ -628,8 +629,10 @@ static void *rt_goto_resolve_x(const char *name, int *undef)
         return cv.ptr;
     }
     if (!strcmp(name, "END")) return NULL;
-    if (!strcmp(name, "CONTINUE") || !strcmp(name, "SCONTINUE") || !strcmp(name, "ABORT"))
-        { extern void sno_setexit_resume(const char *which); sno_setexit_resume(name); return NULL; }
+    if (!strcmp(name, "CONTINUE") || !strcmp(name, "SCONTINUE") || !strcmp(name, "ABORT")) {
+        extern uint64_t rtccb[32];
+        if (rtccb[26]) { if (name[0] == 'A') { extern void rt_setexit_abort(void); rt_setexit_abort(); } extern void rt_setexit_continue_tramp(void); return (void *)rt_setexit_continue_tramp; }
+        { extern void sno_setexit_resume(const char *which); sno_setexit_resume(name); return NULL; } }
     { eval_chain_fn fn = rt_label_get_fn(name); if (fn) return (void *)fn; }
     {
         extern void *rt_proc_get_fn(const char *);
@@ -667,28 +670,16 @@ int rt_goto_transfer(const char *name)
 void *rt_goto_resolve_ck(const char *name, int *undef) { return rt_goto_resolve_x(name, undef); }
 __asm__(
 ".text\n"
-".globl rt_goto_transfer_checked\n"
-"rt_goto_transfer_checked:\n"
-"  pushq %rbp\n"
-"  movq %rsp, %rbp\n"
-"  subq $16, %rsp\n"
-"  movl $0, -4(%rbp)\n"
-"  leaq -4(%rbp), %rsi\n"
-"  call rt_goto_resolve_ck\n"
-"  cmpl $0, -4(%rbp)\n"
-"  jne 2f\n"
-"  testq %rax, %rax\n"
-"  jz 1f\n"
-"  movq %rax, %rdi\n"
-"  call rt_chain_enter\n"
-"1:\n"
-"  movl $1, %eax\n"
-"  leave\n"
-"  ret\n"
-"2:\n"
-"  xorl %eax, %eax\n"
-"  leave\n"
-"  ret\n"
+".globl rt_setexit_continue_tramp\n"
+"rt_setexit_continue_tramp:\n"
+"  movq rtccb@GOTPCREL(%rip), %rax\n"
+"  movq 208(%rax), %rcx\n"
+"  movq $0, 208(%rax)\n"
+"  movq 216(%rax), %rdx\n"
+"  movq 224(%rax), %rbp\n"
+"  movq 232(%rax), %r12\n"
+"  movq %rdx, %rsp\n"
+"  jmp *%rcx\n"
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code_at(const char *src, long base);

@@ -54,5 +54,7 @@ std::string bb_goto_deferred() {
          + x86("jmp", "rax")
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
+         + bb_setexit_take(2)
+         + x86_deflabel_id(2)
          + x86_gamma());
 }

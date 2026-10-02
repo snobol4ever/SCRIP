@@ -256,7 +256,7 @@ std::string bb_match_defer() {
                x86("mov", "rsp", "rbp")
              + x86("pop", "rbp"))
          + rspd_snap(&g_rspd_g5, "g_rspd_g5")
-         + IF(_.lbl_t1_p, x86("cmp", "r14d", -2L) + x86_jcc_tgt("je", X86T_TGT1))
+         + IF(_.lbl_t1_p, x86("cmp", "r14d", -2L) + x86_jcc_tgt("je", X86T_TGT1) + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb") + x86("mov", "rcx", RDQ("rcx", 200)) + x86("test", "rcx", "rcx") + x86_jcc_tgt("jne", X86T_TGT1))
          + x86_omega()
          + x86("def",  "L0")
          + IF(merged && !star, x86("comment", "IR_MATCH_DEFER probe-str")
@@ -308,7 +308,7 @@ std::string bb_match_defer() {
          + x86("call", "rt_defer_close", (uint64_t)(uintptr_t)(void *)(int (*)(int))rt_defer_close)
          + x86_rt_gc_poll_rec_sigma(1)
          + x86("def",  L(49))
-         + IF(_.lbl_t1_p, x86("cmp", "r14d", -2L) + x86_jcc_tgt("je", X86T_TGT1))
+         + IF(_.lbl_t1_p, x86("cmp", "r14d", -2L) + x86_jcc_tgt("je", X86T_TGT1) + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb") + x86("mov", "rcx", RDQ("rcx", 200)) + x86("test", "rcx", "rcx") + x86_jcc_tgt("jne", X86T_TGT1))
          + x86("test", "eax", "eax")
          + x86_omega("js")
          + IF(sn4_alt_carrier(),

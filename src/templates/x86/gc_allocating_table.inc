@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1971
-#define GC_ALLOC_TAB_N_VOID 230
+#define GC_ALLOC_TAB_N 1973
+#define GC_ALLOC_TAB_N_VOID 233
 #define GC_ALLOC_TAB_N_DESCR 1072
-#define GC_ALLOC_TAB_N_OTHER 662
+#define GC_ALLOC_TAB_N_OTHER 661
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -987,6 +987,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rpad_fn", GC_RET_DESCR },
     { "rsort_fn", GC_RET_DESCR },
     { "rt_ab_leave_env", GC_RET_DESCR },
+    { "rt_ab_undef_fn_fail", GC_RET_VOID },
     { "rt_ab_undef_fn_stub", GC_RET_VOID },
     { "rt_add", GC_RET_DESCR },
     { "rt_add_big", GC_RET_DESCR },
@@ -1144,7 +1145,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_goto_resolve_ck", GC_RET_OTHER },
     { "rt_goto_resolve_x", GC_RET_OTHER },
     { "rt_goto_transfer", GC_RET_OTHER },
-    { "rt_goto_transfer_checked", GC_RET_OTHER },
     { "rt_grammar_register", GC_RET_VOID },
     { "rt_gvar_arith", GC_RET_OTHER },
     { "rt_gvar_assign_concat_parts", GC_RET_VOID },
@@ -1803,6 +1803,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_section_var", GC_RET_DESCR },
     { "rt_section_var_s", GC_RET_DESCR },
     { "rt_section_var_strict", GC_RET_DESCR },
+    { "rt_setexit_abort", GC_RET_VOID },
+    { "rt_setexit_fire_now", GC_RET_VOID },
     { "rt_size_d", GC_RET_DESCR },
     { "rt_sno_cnv_num", GC_RET_DESCR },
     { "rt_sno_dtx_value_rec", GC_RET_DESCR },

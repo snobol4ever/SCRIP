@@ -33,6 +33,7 @@
 *	src/templates/bb/bb_section.cpp
 *	src/templates/bb/bb_statement.cpp
 *	src/templates/bb/bb_stmt_mark.cpp
+*	src/templates/bb/bb_setexit_test.cpp
 *	src/templates/bb/bb_enter_init.cpp
 *	src/templates/bb/bb_call.cpp
 *	src/templates/bb/bb_call_bool.cpp

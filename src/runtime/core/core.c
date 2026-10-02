@@ -2243,6 +2243,22 @@ void sno_setexit_fire_on_end(void) {
     core_unwind_pending();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_setexit_fire_now(void) {
+    extern uint64_t rtccb[32]; void (*fn)(void) = (void (*)(void))(uintptr_t)rtccb[25];
+    if (!fn) return;
+    rtccb[25] = 0;
+    { extern void rt_chain_enter(void (*)(void)); rt_chain_enter(fn); }
+    exit(0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_setexit_abort(void) {
+    extern uint64_t rtccb[32]; extern const char *g_sno_errtext; int code = (int)(int64_t)rtccb[30]; const char *msg = g_sno_errtext;
+    rtccb[26] = 0;
+    { extern void core_error_voice(int, const char *, int, DESCR_t); core_error_voice(code, msg, 0, FAILDESCR); }
+    { extern void rt_kw_publish_error_at_exit(int code, const char *msg); rt_kw_publish_error_at_exit(code, msg); }
+    exit(1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_resume(const char *which) {
     extern jmp_buf g_core_errjmp_stk[64];
     if (_setexit_resume >= 0) longjmp(g_core_errjmp_stk[_setexit_resume], (which && which[0] == 'A') ? 2 : 1);
@@ -3066,26 +3082,19 @@ void core_runtime_error(int code, const char *msg) {
           rt_kw_publish_error(code, msg);
           longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
       } }
-    { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg); extern int rt_goto_transfer_checked(const char *name);
+    { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg);
       extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
-      volatile int vcode = code; const char * volatile vmsg = msg; volatile int aborting = 0;
-      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0 && g_core_errjmp_n < 64) {
+      int aborting = 0;
+      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0) {
           char lbl[sizeof _setexit_label]; strncpy(lbl, _setexit_label, sizeof lbl - 1); lbl[sizeof lbl - 1] = '\0';
           _setexit_label[0] = '\0';
           if (kw_errlimit > 0) kw_errlimit--;
           rt_kw_publish_error(code, msg);
-          int my = g_core_errjmp_n; int outer = _setexit_resume; int how = setjmp(g_core_errjmp_stk[my]);
-          if (how == 0) {
-              g_core_errjmp_n = my + 1; _setexit_resume = my;
-              int resolved = rt_goto_transfer_checked(lbl);
-              g_core_errjmp_n = my; _setexit_resume = outer;
-              if (!resolved) return;
-              exit(0);
+          if (strcmp(lbl, "ABORT")) {
+              extern uint64_t rtccb[32]; extern void *rt_goto_resolve_ck(const char *, int *);
+              if (strcmp(lbl, "CONTINUE") && strcmp(lbl, "SCONTINUE")) { int undef = 0; void *fn = rt_goto_resolve_ck(lbl, &undef); if (fn) { rtccb[25] = (uint64_t)(uintptr_t)fn; rtccb[30] = (uint64_t)(int64_t)code; } }
+              return;
           }
-          g_core_errjmp_n = my; _setexit_resume = outer;
-          core_unwind_pending();
-          code = vcode; msg = vmsg;
-          if (how == 1) return;
           aborting = 1;
       }
       if (!aborting && (kw_errlimit != 0 || g_error == G_ERROR_EVAL_STAGE) && core_err_survives_errlimit(code) && !core_err_is_fatal(code)) {
@@ -3107,6 +3116,7 @@ void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_k
     char mb[320];
     snprintf(mb, sizeof mb, "%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload);
     core_runtime_error(code, mb);
+    { extern void rt_setexit_fire_now(void); rt_setexit_fire_now(); }
     fprintf(stderr, "scrip: the out-of-memory error handler returned and the allocation cannot proceed\n");
     exit(1);
 }

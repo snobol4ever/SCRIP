@@ -22,6 +22,7 @@ DESCR_t rt_proc_call_epilogue_named_γ(const char *name);
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
 DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
+void    rt_ab_undef_fn_fail(void);
 void    rt_pl_iso_throw_existence_key(const char *key); DESCR_t rt_pl_exist_key_raise(const char *key);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
@@ -226,7 +227,7 @@ static std::string bcps_undef_fallback(uint64_t undef_fp) {
              + x86_rt_gc_poll()
              + x86_omega();
     }
-    return x86("call", "rt_ab_undef_fn_stub", undef_fp);
+    (void)undef_fp; return x86("call", "rt_ab_undef_fn_fail", (uint64_t)(uintptr_t)(void *)rt_ab_undef_fn_fail) + x86_rt_gc_poll() + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_det_arm() {

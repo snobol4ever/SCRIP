@@ -232,6 +232,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
     case IR_STATEMENT_BEGIN:
     case IR_STATEMENT_END:
     case IR_STMT_MARK:
+    case IR_SETEXIT_TEST:
     case IR_LINE_MARK:
     case IR_STATEMENT:
         return 0;
@@ -349,7 +350,7 @@ static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
         int op = (int)x->op;
         if (op == IR_ASSIGN || op == IR_GOTO || op == IR_GOTO_DEFERRED || (op == IR_DEFINE && ir_define_sr_citizen(x)) ||
             op == IR_MATCH_BEGIN || op == IR_MATCH_END || op == IR_MATCH_REPLACE ||
-            op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_LINE_MARK ||
+            op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_SETEXIT_TEST || op == IR_LINE_MARK ||
             op == IR_MATCH_LIT || op == IR_MATCH_LEN || op == IR_MATCH_ANY || op == IR_MATCH_NOTANY ||
             op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND ||
             op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE || op == IR_MATCH_ALTERNATE ||
@@ -1122,7 +1123,7 @@ void fl_derive_tier(IR_graph_t * g) {
     for (int i = 0; i < g->n; i++) { const IR_t * c = g->all[i]; if (!c) continue;
         { int o = (int)c->op; if (o >= IR_MATCH && o <= IR_MATCH_VALUE) matchers++; else if (o != IR_SUCCEED && o != IR_FAIL && o != IR_GOTO && o != IR_LIT_STRING && o != IR_LIT_ATOM && o != IR_LIT_INTEGER && o != IR_LIT_REAL && o != IR_LIT_CHARSET && o != IR_LIT_NAME) others++; }
         switch ((int)c->op) {
-            case IR_STATEMENT: case IR_STATEMENT_BEGIN: case IR_STATEMENT_END: case IR_STMT_MARK: case IR_DEFINE: case IR_GOTO_DEFERRED: case IR_CALL_SNOBOL4: case IR_KW_SNOBOL4: case IR_KW_ASSIGN_SNOBOL4: case IR_DTP_ASSIGN: statements = 1; break;
+            case IR_STATEMENT: case IR_STATEMENT_BEGIN: case IR_STATEMENT_END: case IR_STMT_MARK: case IR_SETEXIT_TEST: case IR_DEFINE: case IR_GOTO_DEFERRED: case IR_CALL_SNOBOL4: case IR_KW_SNOBOL4: case IR_KW_ASSIGN_SNOBOL4: case IR_DTP_ASSIGN: statements = 1; break;
             case IR_MATCH_BEGIN: case IR_MATCH_END: case IR_MATCH_LIT: case IR_MATCH_LEN: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: case IR_MATCH_BREAK: case IR_MATCH_BREAKX: case IR_MATCH_TAB: case IR_MATCH_RTAB: case IR_MATCH_POS: case IR_MATCH_RPOS: case IR_MATCH_REM: case IR_MATCH_ARB: case IR_MATCH_BAL: case IR_MATCH_ATP: case IR_MATCH_LAMBDA: case IR_MATCH_RETRY: case IR_MATCH_REPLACE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_SPAN_VAR: statements = 1; break;
             case IR_PATTERN_ALT: case IR_PATTERN_CAT: case IR_PATTERN_CAPTURE: case IR_PATTERN_DEFER: window = 1; break;
             case IR_SUSPEND: case IR_PROC_GEN: case IR_CREATE: case IR_ACTIVATE: case IR_CORET: case IR_COFAIL: resumed = 1; window = 1; break;

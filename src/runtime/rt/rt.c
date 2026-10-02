@@ -286,7 +286,7 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
             else if (codes & COERCE_OP_UNARY_POS) core_icn_op_ctx("+", 1, *self, *self);
             else if (COERCE_OP_OF(codes) >= 0) { int _r = (codes & COERCE_OP_SELF_RIGHT) != 0; core_icn_op_ctx(core_icn_binop_sym(COERCE_OP_OF(codes)), 2, _r ? *other : *self, _r ? *self : *other); }
             core_icn_error(ec, *self); core_icn_op_ctx_clear(); *out = FAILDESCR; return; }
-        if (ec) core_runtime_error(ec, rt_coerce_errmsg(ec)); si = 0; sreal = 0; }
+        if (ec) { core_runtime_error(ec, rt_coerce_errmsg(ec)); *out = FAILDESCR; return; } si = 0; sreal = 0; }
     int ook = rt_parse_num_d(other, &oi, &orr, &oreal);
     (void)ook; (void)oi; (void)orr;
     if (sreal || (oreal && !(codes & COERCE_KEEP_INT))) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; }
@@ -492,6 +492,7 @@ int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
 const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
 void rt_proc_reset(void) { extern void bnd_tweak_cache_clear(void); g_rt_gen_proc_count = 0; rt_proc_cache_clear(); bnd_tweak_cache_clear(); if (g_proc_hsl) memset(g_proc_hsl, 0, (size_t)g_proc_hcap * sizeof(int)); }
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void) { core_runtime_error(22, "Undefined function called"); __builtin_unreachable(); }
+void rt_ab_undef_fn_fail(void) { core_runtime_error(22, "Undefined function called"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
