@@ -13,6 +13,10 @@
 #              RESERVED_UPPER  every changed token differs from the form's only by case, is a SPITBOL reserved word or &keyword, and
 #                              is upper-case in the vendored file; string literals and every other byte are unchanged
 #              LINUX           the lines that differ are EXACTLY the declared line numbers (vendored numbering), reason mandatory
+#              COMMENTED_OUT   each declared line is EXACTLY the form's line behind a leading '*', and no other line differs
+#                              for it: Catspaw's own unfinished commenting-out completed where SPITBOL rejects the file (Lon
+#                              2026-10-02, in-chat to the ceo, verbatim: "Find out why and fix why SPITBOL rejects these
+#                              programs."; ceo CEO-1413)
 #   NOTHING  every other vendored file is a driver's own (NAME_driver.sno/.ref/.input/.in), a sidecar the runner or the
 #            inventory reads (ALL.*, *.tsv, README.md, PROVENANCE.md), or declared in LOCAL.tsv (name<TAB>reason)
 #   NAMES    no library or program is named *.sno or with an upper-case extension: *.inc exclusively, a program *.spt
@@ -45,7 +49,7 @@ if os.path.isfile(et):
     for l in open(et, encoding='utf-8'):
         if not l.strip() or l.startswith('#'): continue
         c = l.rstrip('\n').split('\t')
-        if len(c) < 4 or c[1] not in ('RESERVED_UPPER', 'LINUX') or not c[3].strip(): bad['FORM'].append('EDITS.tsv row malformed or reasonless: ' + l.strip()[:60]); continue
+        if len(c) < 4 or c[1] not in ('RESERVED_UPPER', 'LINUX', 'COMMENTED_OUT') or not c[3].strip(): bad['FORM'].append('EDITS.tsv row malformed or reasonless: ' + l.strip()[:60]); continue
         edits.setdefault(c[0], []).append((c[1], {int(x) for x in c[2].split(',') if x.strip().isdigit()}))
 def upper_ok(a, b):
     ta, tb = tok.findall(a), tok.findall(b)
@@ -65,12 +69,15 @@ for f in form:
     ed = edits.get(v)
     if not ed: bad['FORM'].append(v + ' differs, no EDITS.tsv row'); continue
     linux = set().union(*[s for k, s in ed if k == 'LINUX']); upper = any(k == 'RESERVED_UPPER' for k, s in ed)
+    cmt = set().union(*[s for k, s in ed if k == 'COMMENTED_OUT']); seen_cmt = set()
     changed = set()
     for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, A, B, autojunk=False).get_opcodes():
         if op == 'equal': continue
         if op == 'replace' and i2 - i1 == j2 - j1 and upper and all(upper_ok(A[i1 + k], B[j1 + k]) for k in range(i2 - i1)): continue
+        if op == 'replace' and i2 - i1 == j2 - j1 and all(j1 + k + 1 in cmt and B[j1 + k] == '*' + A[i1 + k] for k in range(i2 - i1)): seen_cmt |= set(range(j1 + 1, j2 + 1)); continue
         changed |= set(range(j1 + 1, max(j2, j1 + 1) + 1)) if op != 'delete' else {j1 + 1}
     if changed != linux: bad['FORM'].append('%s LINUX lines %s declared, %s differ' % (v, sorted(linux), sorted(changed)))
+    if seen_cmt != cmt: bad['FORM'].append('%s COMMENTED_OUT lines %s declared, %s are the form\'s line behind a * ' % (v, sorted(cmt), sorted(seen_cmt)))
 local = set()
 lt = os.path.join(V, 'LOCAL.tsv')
 if os.path.isfile(lt):
