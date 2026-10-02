@@ -471,7 +471,7 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
     if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
-    if (!is_numeric_like(a) || !is_numeric_like(b)) { if (strict == 2) rt_sno_operand_error(op, !is_numeric_like(a)); return FAILDESCR; }
+    if (!is_numeric_like(a) || !is_numeric_like(b)) { if (strict == 2) rt_sno_operand_error(op, is_numeric_like(b)); return FAILDESCR; }
     int lf = IS_REAL_fn(a), rf = IS_REAL_fn(b);
     int anyf = lf || rf || operand_is_real_str(a) || operand_is_real_str(b);
     double ld = to_real(a), rd = to_real(b);
