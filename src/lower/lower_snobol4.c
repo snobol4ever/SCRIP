@@ -37,14 +37,27 @@ static int g_sno_calls_code = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_setexit_on(void) { const char * e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_define_entry_computed(const tree_t * t, int argbase) {
+    const tree_t * en = (t && t->n > argbase + 1) ? t->c[argbase + 1] : NULL;
+    return en && en->t != TT_QLIT && !(en->t == TT_NAME && en->n > 0 && en->c[0] && en->c[0]->t == TT_VAR);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_scan_code_use(const tree_t * t) {
     if (!t || g_sno_uses_code) return;
+    if (t->t == TT_DEFINE) {
+        const tree_t * pr = t->n > 1 ? t->c[1] : NULL;
+        if (!pr || pr->t != TT_QLIT || sno_define_entry_computed(t, 1)) { g_sno_uses_code = 1; return; }
+    }
     if (t->t == TT_FNC) {
         const char * fn = t->v.sval;
         if (!fn && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) fn = t->c[0]->v.sval;
         if (fn && !strcmp(fn, "CODE")) { g_sno_uses_code = 1; g_sno_calls_code = 1; return; }
         if (fn && sno_setexit_on() && !strcmp(fn, "SETEXIT")) { g_sno_uses_code = 1; return; }
-        if (fn && !strcmp(fn, "DEFINE")) { int ab = t->v.sval ? 0 : 1; if (t->n <= ab || !t->c[ab] || t->c[ab]->t != TT_QLIT) { g_sno_uses_code = 1; return; } }
+        if (fn && !strcmp(fn, "DEFINE")) { int ab = t->v.sval ? 0 : 1; if (t->n <= ab || !t->c[ab] || t->c[ab]->t != TT_QLIT) { g_sno_uses_code = 1; return; }
+            if (sno_define_entry_computed(t, ab)) { g_sno_uses_code = 1; return; } }
+        if (fn && (!strcmp(fn, "OPSYN") || !strcmp(fn, "APPLY"))) { int ab = t->v.sval ? 0 : 1, k = ab + (fn[0] == 'O' ? 1 : 0); const tree_t * src = t->n > k ? t->c[k] : NULL;
+            if (src && (fn[0] == 'O' ? src->t != TT_QLIT : 0)) { g_sno_uses_code = 1; return; }
+            if (src && src->t == TT_QLIT && src->v.sval && !strcmp(src->v.sval, "DEFINE")) { g_sno_uses_code = 1; return; } }
     }
     if ((t->t == TT_GOTO_U || t->t == TT_GOTO_S || t->t == TT_GOTO_F) && t->n > 0 && t->c[0]) {
         const tree_t * g0 = t->c[0];
@@ -533,6 +546,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 for (; sp[k] && sp[k] != '(' && sp[k] != ' ' && k < 127; k++) fnb[k] = sp[k];
                 fnb[k] = 0;
             }
+            if (sno_define_entry_computed(t, argbase)) fnb[0] = 0;
             if (fnb[0] && sno_predef_registered(fnb) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
             if (fnb[0] && !({ extern int g_rt_fragment_emit; g_rt_fragment_emit; }) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase)) sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
         }
@@ -1097,6 +1111,7 @@ static const tree_t * sno_stmt_define(const tree_t * s, int * out_argbase) {
     if (sfind(s, ":eq") || sfind_expr(s, ":pat")) sno_fatal("DEFINE with a pattern or replacement field is outside the landed subset", NULL);
     if (subj->n <= argbase || !subj->c[argbase] || !sno_qlit_fold(subj->c[argbase]))
         return NULL;
+    if (sno_define_entry_computed(subj, argbase)) return NULL;
     if (out_argbase) *out_argbase = argbase;
     return subj;
 }
@@ -2636,7 +2651,7 @@ static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t 
                 else { extern void rt_builtin_synonym_add(const char *, const char *); rt_builtin_synonym_add(lp_strdup(an), lp_strdup(on)); }
             }
         }
-        if (name && !strcmp(name, "DEFINE") && t->n > argbase && t->c[argbase] && t->c[argbase]->t == TT_QLIT && t->c[argbase]->v.sval) {
+        if (name && !strcmp(name, "DEFINE") && t->n > argbase && t->c[argbase] && t->c[argbase]->t == TT_QLIT && t->c[argbase]->v.sval && !sno_define_entry_computed(t, argbase)) {
             const char * entry_opt = NULL;
             if (t->n > argbase + 1 && t->c[argbase + 1]) {
                 const tree_t * ea = t->c[argbase + 1];
