@@ -9914,6 +9914,36 @@ DESCR_t rt_pl_dop_pl_cp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
           ok = plw_unify_vals(args[1], pl_mk_atom_dup(key, (size_t)(sl - key)), cx) && plw_unify_vals(args[2], INTVAL((long long)ar), cx); }
     rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR;
 }
+static const char *pl_pp_prop(DESCR_t h, void *root, int64_t i) {
+    extern int rt_pl_db_key_kind(void *, const char *); extern int pl_pi_is_builtin(const char *, int); extern const char *prolog_atom_name(int);
+    const char *nm; int ar = 0, kind;
+    if (h.v == (DTYPE_t)DT_PLREF) { nm = prolog_atom_name(plc_fid_name(h.slen)); ar = plc_fid_arity(h.slen); } else nm = pl_atom_str(h);
+    if (!nm || i < 1 || i > 2) return (const char *)0;
+    { size_t nl = strlen(nm); char key[nl + 24]; snprintf(key, sizeof key, "%s/%d", nm, ar); kind = rt_pl_db_key_kind(root, key); }
+    if (kind) return i == 1 ? (kind == 2 ? "dynamic" : "static") : "defined";
+    if (pl_pi_is_builtin(nm, ar)) return i == 1 ? "built_in" : "defined";
+    return (const char *)0;
+}
+DESCR_t rt_pl_dop_pl_pp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    int ok = 0;
+    if (nargs != 2) return FAILDESCR;
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
+    { DESCR_t h = rt_pl_deref_val(args[0]); long long n = 0;
+      while (pl_pp_prop(h, root, n + 1)) n++; ok = plw_unify_vals(args[1], INTVAL(n), cx); }
+    rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR;
+}
+DESCR_t rt_pl_dop_pl_pp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
+    int ok = 0;
+    if (nargs != 3) return FAILDESCR;
+    pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
+    { DESCR_t iv = rt_pl_deref_val(args[0]); const char *pr = iv.v == DT_I ? pl_pp_prop(rt_pl_deref_val(args[1]), root, iv.i) : (const char *)0;
+      if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx); }
+    rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR;
+}
+PL_CX_LEAF_HEAD(pl_pp_guard, 1) { extern void *rt_pl_ball_kind2_pi(const char *, const char *, DESCR_t, const char *, int);
+    DESCR_t h = rt_pl_deref_val(args[0]); ok = 1;
+    if (pl_iso_unbound(h)) { fprintf(stderr, "scrip: prolog: predicate_property/2 whose head is unbound when it runs -- ISO's backtracking-over-every-predicate mode needs a proc-table generator design, not yet built\n"); exit(2); }
+    if (h.v == DT_I || h.v == DT_R) { cx->ball = rt_pl_ball_kind2_pi("type_error", "callable", h, "predicate_property", 2); ok = 0; } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_cp_guard, 1) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern int prolog_atom_intern(const char *);
     DESCR_t s = rt_pl_deref_val(args[0]); ok = 1;
     if (!pl_iso_unbound(s)) {

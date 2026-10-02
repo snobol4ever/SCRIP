@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1961
+#define GC_ALLOC_TAB_N 1970
 #define GC_ALLOC_TAB_N_VOID 229
-#define GC_ALLOC_TAB_N_DESCR 1066
-#define GC_ALLOC_TAB_N_OTHER 659
+#define GC_ALLOC_TAB_N_DESCR 1072
+#define GC_ALLOC_TAB_N_OTHER 662
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -842,6 +842,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_parse_number_radix", GC_RET_OTHER },
     { "pl_parse_term_text", GC_RET_OTHER },
     { "pl_past_eos_ball", GC_RET_OTHER },
+    { "pl_pp_prop", GC_RET_OTHER },
     { "pl_pred_graph", GC_RET_OTHER },
     { "pl_prelude_defines", GC_RET_OTHER },
     { "pl_preprocess_list", GC_RET_VOID },
@@ -1263,6 +1264,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_ball_instantiation", GC_RET_OTHER },
     { "rt_pl_ball_kind1", GC_RET_OTHER },
     { "rt_pl_ball_kind2", GC_RET_OTHER },
+    { "rt_pl_ball_kind2_pi", GC_RET_OTHER },
     { "rt_pl_ball_make", GC_RET_OTHER },
     { "rt_pl_ball_permission3", GC_RET_OTHER },
     { "rt_pl_ball_permission_pi", GC_RET_OTHER },
@@ -1293,6 +1295,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_db_get_by_key", GC_RET_OTHER },
     { "rt_pl_db_key_is_declared", GC_RET_OTHER },
     { "rt_pl_db_key_is_dynamic", GC_RET_OTHER },
+    { "rt_pl_db_key_kind", GC_RET_OTHER },
     { "rt_pl_db_match_erase", GC_RET_OTHER },
     { "rt_pl_db_recompile", GC_RET_OTHER },
     { "rt_pl_db_seed", GC_RET_OTHER },
@@ -1548,6 +1551,12 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_pl_op_count_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_op_nth", GC_RET_DESCR },
     { "rt_pl_dop_pl_op_nth_c", GC_RET_DESCR },
+    { "rt_pl_dop_pl_pp_count", GC_RET_DESCR },
+    { "rt_pl_dop_pl_pp_count_c", GC_RET_DESCR },
+    { "rt_pl_dop_pl_pp_guard", GC_RET_DESCR },
+    { "rt_pl_dop_pl_pp_guard_c", GC_RET_DESCR },
+    { "rt_pl_dop_pl_pp_nth", GC_RET_DESCR },
+    { "rt_pl_dop_pl_pp_nth_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_sp_check", GC_RET_DESCR },
     { "rt_pl_dop_pl_sp_check_c", GC_RET_DESCR },
     { "rt_pl_dop_pl_sp_count", GC_RET_DESCR },

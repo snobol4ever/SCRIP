@@ -1896,6 +1896,20 @@ void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_kind2_pi(const char *kind, const char *arg0_atom, DESCR_t culprit, const char *nm, int ar)
+{
+    pl_cell_t fe[2]; pl_cell_t *fec; pl_cell_t pi[2]; pl_cell_t *pic; pl_cell_t er[2];
+    fe[0] = pl_make_atom(prolog_atom_intern(arg0_atom ? arg0_atom : "term"));
+    fe[1] = rt_pl_cell_snapshot(&culprit);
+    fec = (pl_cell_t *)rt_pl_compound_cell(kind, 2, (void *)fe);
+    if (!fec) return (void *)0;
+    pi[0] = pl_make_atom(prolog_atom_intern(nm ? nm : "?")); pi[1] = pl_make_int(ar);
+    pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    if (!pic) return (void *)0;
+    er[0] = *fec; er[1] = *pic;
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit)
 {
     extern DESCR_t rt_pl_fresh_var_ref(void);
@@ -2264,6 +2278,13 @@ int rt_pl_db_key_is_declared(void *root, const char *key)
 {
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
     return (e && e->decl) ? 1 : 0;
+}
+static int pl_db_key_current(void *root, pl_db_key_t *e);
+int rt_pl_db_key_kind(void *root, const char *key)
+{
+    pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
+    if (!e || !pl_db_key_current(root, e)) return 0;
+    return e->stat ? 1 : 2;
 }
 int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind)
 {
