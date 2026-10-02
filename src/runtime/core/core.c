@@ -3568,6 +3568,7 @@ static DESCR_t NV_GET_untapped(const char *name) {
         ssize_t nread = rt_line_read(&_io_chan[ch].buf, &_io_chan[ch].cap, _io_chan[ch].fp);
         if (nread < 0) return FAILDESCR;
         if (nread > 0 && _io_chan[ch].buf[nread-1] == '\n') { _io_chan[ch].buf[nread-1] = '\0'; nread--; }
+        if (_io_chan[ch].rlen < 0 && nread > -_io_chan[ch].rlen) { nread = -_io_chan[ch].rlen; _io_chan[ch].buf[nread] = '\0'; }
         if (kw_trim) {
             while (nread > 0 && (_io_chan[ch].buf[nread-1] == ' ' || _io_chan[ch].buf[nread-1] == '\t')) {
                 _io_chan[ch].buf[--nread] = '\0';
@@ -4750,6 +4751,7 @@ DESCR_t input_read(void) {
     if (nread < 0) return FAILDESCR;
     if (nread > 0 && _input_buf[nread-1] == '\n') { _input_buf[nread-1] = '\0'; nread--; }
     if (nread > RT_INPUT_DEFAULT_RECLEN) { nread = RT_INPUT_DEFAULT_RECLEN; _input_buf[nread] = '\0'; }
+    if (_input_rlen < 0 && nread > -_input_rlen) { nread = -_input_rlen; _input_buf[nread] = '\0'; }
     if (kw_trim) {
         while (nread > 0 && (_input_buf[nread-1] == ' ' || _input_buf[nread-1] == '\t')) {
             _input_buf[--nread] = '\0';
@@ -4814,9 +4816,9 @@ static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
     const char *p = spec ? strchr(spec, '[') : NULL;
     if (!p) return;
     for (p++; *p && *p != ']'; p++) {
-        if (*p == '-' && (p[1] == 'f' || p[1] == 'r' || p[1] == 'q')) {
+        if (*p == '-' && (p[1] == 'f' || p[1] == 'r' || p[1] == 'q' || p[1] == 'l')) {
             char k = p[1]; char *e = NULL; long v = strtol(p + 2, &e, 10);
-            if (e && e > p + 2) { if (k == 'f') *fd = v; else *rlen = v; p = e - 1; }
+            if (e && e > p + 2) { if (k == 'f') *fd = v; else if (k == 'l') *rlen = -v; else *rlen = v; p = e - 1; }
         }
     }
 }
@@ -4958,6 +4960,15 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         const char *vn = (n == 1 || ps == 0) ? _io_varname(a[0]) : NULL;
         if (ps == 0 && !vn) return NULVCL;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
+        if (ps == 2 && fd >= 0 && ch >= 0 && ch < IO_CHAN_MAX) {
+            const char *cv = _io_varname(a[0]); FILE *nf;
+            if (_io_chan_in_use(ch)) { core_runtime_error(289, "input channel currently in use"); return FAILDESCR; }
+            nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR;
+            _io_chan_close(ch); _io_chan[ch].fp = nf; _io_chan[ch].is_output = 0; _io_chan[ch].is_popen = 0; _io_chan[ch].rlen = rlen;
+            _io_chan[ch].varname = cv ? rt_heap_strdup_c(cv) : NULL; if (cv) { g_call_fastpath_off = 1; _io_var_refresh(cv); }
+            if (cv && !strcmp(cv, "INPUT")) { _input_fp_release(); _input_fp = nf; _input_fp_is_popen = 0; _input_rlen = rlen; }
+            return NULVCL;
+        }
         if (vn && strcmp(vn, "INPUT") != 0) {
             FILE *fp = stdin;
             if (fd >= 0) { fp = fdopen(dup((int)fd), "r"); if (!fp) return FAILDESCR; }
