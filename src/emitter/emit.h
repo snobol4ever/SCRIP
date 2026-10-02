@@ -476,6 +476,10 @@ typedef struct {
     int                          stno_map_n;
     int32_t                      stno_last;
     int                          stno_text_seq;
+    cv_t                         stno_src;
+    int64_t                      stno_src_n;
+    const char *                 stno_file_last;
+    int                          stno_file_lbl;
     int                          x86_uid;
     const char *                 x86_uid_kind;
     char                         x86_uid_kind_buf[48];
@@ -579,7 +583,7 @@ extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))
 static inline void xa_pair_push(struct bb_label_t * d, struct bb_label_t * j) { cv_reserve(&g_emit.xa_bb_emit_pair, (uint32_t)sizeof(xa_pair_t), (uint64_t)g_emit.xa_bb_emit_pair_n + 1, "xa_bb_emit_pair"); xa_pair_t * e = &XA_PAIR(g_emit.xa_bb_emit_pair_n); e->define = d; e->jmp = j; g_emit.xa_bb_emit_pair_n++; }
 #define STNO_REC(i) CV_AT(g_emit.stno_map, sno_stno_rec_t, (i))
-static inline void stno_rec_push(uint64_t pc, int32_t stno) { cv_reserve(&g_emit.stno_map, (uint32_t)sizeof(sno_stno_rec_t), (uint64_t)g_emit.stno_map_n + 1, "stno_map"); sno_stno_rec_t * e = &STNO_REC(g_emit.stno_map_n); e->pc = pc; e->stno = stno; e->_pad = 0; g_emit.stno_map_n++; }
+static inline void stno_rec_push(uint64_t pc, int32_t stno, int32_t line, const char * file) { cv_reserve(&g_emit.stno_map, (uint32_t)sizeof(sno_stno_rec_t), (uint64_t)g_emit.stno_map_n + 1, "stno_map"); sno_stno_rec_t * e = &STNO_REC(g_emit.stno_map_n); e->pc = pc; e->stno = stno; e->line = line; e->file = file; g_emit.stno_map_n++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int emit_jmp_pin_legacy(void) { return g_emit.flat_deep_arrival || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph; }
 static inline int emit_heap_fb_adopt(void) { extern int g_gen_proc_active; extern int g_resumable_callable_active; return g_gen_proc_active || g_resumable_callable_active; }

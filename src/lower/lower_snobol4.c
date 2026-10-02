@@ -2524,7 +2524,11 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
             IR_t * fb = anchor[i] ? anchor[i]->γ.node : NULL;
             if (!fb) continue;
             IR_t * sbeg = lc_build(g, IR_STATEMENT_BEGIN, fb, fail_tgt[i]);
-            { int _null_stmt = !lc_stmt_subj(st[i]) && !sfind_str(st[i],":lbl") && !sgoto(st[i],TT_GOTO_U) && !sgoto_expr(st[i],TT_GOTO_U) && !sgoto_direct(st[i],TT_GOTO_U) && !sgoto(st[i],TT_GOTO_S) && !sgoto_expr(st[i],TT_GOTO_S) && !sgoto_direct(st[i],TT_GOTO_S) && !sgoto(st[i],TT_GOTO_F) && !sgoto_expr(st[i],TT_GOTO_F) && !sgoto_direct(st[i],TT_GOTO_F) && !sfind(st[i],":eq"); const tree_t * _sa = _null_stmt ? NULL : sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = stno_base + ((_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0)); } }
+            { int _null_stmt = !lc_stmt_subj(st[i]) && !sfind_str(st[i],":lbl") && !sgoto(st[i],TT_GOTO_U) && !sgoto_expr(st[i],TT_GOTO_U) && !sgoto_direct(st[i],TT_GOTO_U) && !sgoto(st[i],TT_GOTO_S) && !sgoto_expr(st[i],TT_GOTO_S) && !sgoto_direct(st[i],TT_GOTO_S) && !sgoto(st[i],TT_GOTO_F) && !sgoto_expr(st[i],TT_GOTO_F) && !sgoto_direct(st[i],TT_GOTO_F) && !sfind(st[i],":eq"); const tree_t * _sa = _null_stmt ? NULL : sfind(st[i], ":stno"); if (_sa && _sa->n > 0 && _sa->c[0]) { const tree_t * _c = _sa->c[0]; IR_LIT(sbeg).ival = stno_base + ((_c->t == TT_ILIT) ? _c->v.ival : (_c->v.sval ? (int64_t)atoll(_c->v.sval) : 0));
+                  { extern void emit_stno_src_note(long long, int, const char *); extern const char * stmt_src_get_file(void);
+                    int _lln = lp_s_int(st[i], ":lline"); if (!_lln) _lln = lp_s_int(st[i], ":line");
+                    const char * _sf = sfind_str(st[i], ":file"); if (!_sf || !*_sf) _sf = stmt_src_get_file();
+                    emit_stno_src_note((long long)IR_LIT(sbeg).ival, _lln, _sf); } } }
             lc_γ_to(anchor[i], sbeg);
             if (match_land[i]) lc_γ_tag_β(match_land[i]);
             if (asgn_land[i]) { lc_γ_to(asgn_land[i], sbeg); lc_γ_tag_β(asgn_land[i]); }

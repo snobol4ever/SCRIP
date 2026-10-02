@@ -317,12 +317,37 @@ void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
     lbl->offset = BB_LABEL_UNRESOLVED;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int32_t line; int32_t _r; const char * file; } sno_stno_src_t;
+#define STNO_SRC(i) CV_AT(g_emit.stno_src, sno_stno_src_t, (i))
+static const char * icn_trace_intern(const char * s);
+extern "C" void emit_stno_src_note(long long stno, int line, const char * file) {
+    if (stno <= 0 || stno >= 0x7FFFFFFFLL) return;
+    if (stno >= g_emit.stno_src_n) { cv_reserve(&g_emit.stno_src, (uint32_t)sizeof(sno_stno_src_t), (uint64_t)stno + 1, "stno_src");
+        for (int64_t k = g_emit.stno_src_n; k <= stno; k++) { STNO_SRC(k).line = 0; STNO_SRC(k).file = (const char *)0; }
+        g_emit.stno_src_n = stno + 1; }
+    STNO_SRC(stno).line = line > 0 ? line : 0;
+    STNO_SRC(stno).file = (file && *file) ? file : (const char *)0;
+}
+static void emit_stno_file_label(const char * file) {
+    if (g_emit.stno_file_last && !strcmp(g_emit.stno_file_last, file)) return;
+    g_emit.stno_file_last = file; int lb = ++g_emit.stno_file_lbl;
+    std::string q;
+    for (const unsigned char * c = (const unsigned char *)file; *c; c++) {
+        if (*c == '"' || *c == '\\') { q += '\\'; q += (char)*c; }
+        else if (*c < 32 || *c > 126) { char ob[8]; snprintf(ob, sizeof ob, "\\%03o", (unsigned)*c); q += ob; }
+        else q += (char)*c; }
+    emit_textf("  .pushsection .rodata\n.Lstnof%d:\n  .string \"%s\"\n  .popsection\n", lb, q.c_str());
+}
 static void emit_stno_mark(int32_t stno) {
+    int32_t line = 0; const char * file = (const char *)0;
+    if (stno > 0 && stno < g_emit.stno_src_n) { line = STNO_SRC(stno).line; file = STNO_SRC(stno).file; }
     if (g_is_text) {
         int seq = ++g_emit.stno_text_seq;
-        emit_textf(".Lstno%d:\n  .pushsection scrip_stno_map,\"a\",@progbits\n  .quad .Lstno%d\n  .long %d\n  .long 0\n  .popsection\n", seq, seq, (int)stno);
+        if (file) emit_stno_file_label(file);
+        if (file) emit_textf(".Lstno%d:\n  .pushsection scrip_stno_map,\"a\",@progbits\n  .quad .Lstno%d\n  .long %d\n  .long %d\n  .quad .Lstnof%d\n  .popsection\n", seq, seq, (int)stno, (int)line, g_emit.stno_file_lbl);
+        else emit_textf(".Lstno%d:\n  .pushsection scrip_stno_map,\"a\",@progbits\n  .quad .Lstno%d\n  .long %d\n  .long %d\n  .quad 0\n  .popsection\n", seq, seq, (int)stno, (int)line);
     } else {
-        stno_rec_push((uint64_t)(uintptr_t)(bb_emit_buf + bb_emit_pos), stno);
+        stno_rec_push((uint64_t)(uintptr_t)(bb_emit_buf + bb_emit_pos), stno, line, file ? icn_trace_intern(file) : (const char *)0);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

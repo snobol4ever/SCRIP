@@ -552,7 +552,7 @@ void core_icn_traceback(void) {
 }
 #define SCRIP_STNO_WALK_MAX_FRAMES 64
 #define SCRIP_STNO_MAX_STMT_SPAN   (1 << 20)
-static long scrip_stno_from_return_addrs(void) {
+static const sno_stno_rec_t * scrip_stno_from_return_addrs(void) {
     const sno_stno_rec_t * base = 0; uint32_t n = 0;
     if (scrip_emit_stno_table) base = scrip_emit_stno_table(&n);
     if (!base || n == 0) {
@@ -563,9 +563,9 @@ static long scrip_stno_from_return_addrs(void) {
             n = (uint32_t)((size_t)(__stop_scrip_stno_map - __start_scrip_stno_map) / sizeof(sno_stno_rec_t));
         }
     }
-    if (!base || n == 0) return 0;
+    if (!base || n == 0) return (const sno_stno_rec_t *)0;
     void ** rbp = (void **)__builtin_frame_address(0);
-    if (!rbp) return 0;
+    if (!rbp) return (const sno_stno_rec_t *)0;
     rbp = (void **)rbp[0];
     for (int depth = 0; depth < SCRIP_STNO_WALK_MAX_FRAMES && rbp; depth++) {
         uint64_t ra = (uint64_t)(uintptr_t)rbp[1];
@@ -574,13 +574,13 @@ static long scrip_stno_from_return_addrs(void) {
         if (lo > 0) {
             uint32_t idx = lo - 1;
             uint64_t span_end = (idx + 1 < n) ? base[idx + 1].pc : base[idx].pc + SCRIP_STNO_MAX_STMT_SPAN;
-            if (ra < span_end) return (long)base[idx].stno;
+            if (ra < span_end) return &base[idx];
         }
         void ** next = (void **)rbp[0];
         if (!next || next <= rbp) break;
         rbp = next;
     }
-    return 0;
+    return (const sno_stno_rec_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_error_voice_at(int code, const char *msg, const char *file, long line, long stno) {
@@ -594,8 +594,10 @@ void core_error_voice_at(int code, const char *msg, const char *file, long line,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
     extern long g_line; extern const char *g_file; extern long g_stno; extern int rt_k_level;
-    long voice_stno = g_stno > 0 ? g_stno : scrip_stno_from_return_addrs();
-    core_error_voice_at(code, msg, g_file, g_line, voice_stno);
+    const sno_stno_rec_t * rec = (g_stno > 0 && g_line > 0 && g_file && *g_file) ? (const sno_stno_rec_t *)0 : scrip_stno_from_return_addrs();
+    long voice_stno = g_stno > 0 ? g_stno : (rec ? (long)rec->stno : 0);
+    int from_map = (!(g_file && *g_file) && g_line <= 0 && rec && rec->line > 0 && (g_stno <= 0 || g_stno == (long)rec->stno));
+    core_error_voice_at(code, msg, from_map ? rec->file : g_file, from_map ? (long)rec->line : g_line, voice_stno);
     if (has_val && val.v != DT_FAIL) {
         extern FILE *fh_memsink_open(char **, size_t *); char *vb = (char *)0; size_t vn = 0; FILE *vf = fh_memsink_open(&vb, &vn);
         if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); }
