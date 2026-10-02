@@ -684,6 +684,7 @@ test_gate_sno_a_fence_before_a_run_or_inside_an_arbno_body_retries_what_follows_
 test_gate_sno_a_fence_or_abort_backtracked_into_fails_the_whole_match.sh	WIRED	-	-	-
 test_gate_sno_a_field_function_call_takes_the_name_entry.sh	WIRED	-	-	-
 test_gate_sno_a_label_hook_on_a_failure_edge_rides_the_spine.sh	WIRED	-	-	-
+test_gate_sno_a_match_inside_eval_that_fails_after_a_backtrack_point_returns_from_its_chain.sh	WIRED	-	-	-
 test_gate_sno_a_misplaced_continuation_line_is_error_214_and_testpgms_grades_a_compile_refusal.sh	WIRED	-	-	-
 test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
 test_gate_sno_a_return_trace_function_sees_the_returning_functions_names_still_bound.sh	WIRED	-	-	-
