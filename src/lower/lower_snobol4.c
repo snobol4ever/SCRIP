@@ -2101,12 +2101,12 @@ static IR_t * sno_lower_match(scx_t * cx, const tree_t * subj, const tree_t * re
     { IR_t * sealJ = lc_build(g, IR_GOTO, head, NULL); memcpy(sealJ->γ.sz, "φ", 3); sealJ->γ.sz[3] = 0; cx->pat_seal = sealJ; }
     IR_t * splice = NULL;
     IR_t * lv_pro = NULL; IR_t * lv_entry = NULL; const char * lv_tmp = NULL;
-    if (has_repl && svt && svt->t != TT_VAR && (svt->t == TT_IDX || svt->t == TT_INDIRECT)) {
+    if (has_repl && svt && svt->t != TT_VAR && (svt->t == TT_IDX || svt->t == TT_INDIRECT || svt->t == TT_FNC)) {
         char nb[64], vb[64]; snprintf(nb, sizeof nb, "SN4$RPLN%d", g->n); snprintf(vb, sizeof vb, "SN4$RPLV%d", g->n);
         const char * nn = lp_strdup(nb); lv_tmp = lp_strdup(vb);
         sno_reg_var(nn); sno_reg_var(lv_tmp);
         tree_t * nmx;
-        if (svt->t == TT_IDX) { nmx = ast_node_new(TT_NAME); ast_push(nmx, (tree_t *) svt); }
+        if (svt->t == TT_IDX || svt->t == TT_FNC) { nmx = ast_node_new(TT_NAME); ast_push(nmx, (tree_t *) svt); }
         else { nmx = (tree_t *) ((svt->n > 0) ? svt->c[0] : NULL); }
         if (!nmx) sno_fatal("SN4-REPL slice 2: indirect replacement subject has no operand", NULL);
         lv_pro = lc_build(g, IR_ASSIGN, NULL, fJ); IR_LIT(lv_pro).sval = (char *) nn;
