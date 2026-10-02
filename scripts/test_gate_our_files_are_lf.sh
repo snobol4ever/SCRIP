@@ -2,9 +2,12 @@
 # test_gate_our_files_are_lf.sh -- OUR FILES ARE LF (Lon 2026-09-03, in-chat to hq_P, verbatim: "Do not use CRLF, use LF.";
 # 2026-09-04, in-chat to ceo, verbatim: "Fix the CRLF to LF problem. Why am I still hearing about that?").
 #
-# POPULATION: every git-tracked file in the sibling repos SCRIP, corpus and .github, MINUS corpus/packages/ (third-party
-# vendor fixtures: their CRLF is the oracle's own input format -- FINDING-2026-08-20-s183 measured that curing gimpel's
-# CRLF LOWERS its score; they convert only on Lon's word, in a commit of their own) and MINUS generated flex/bison outputs.
+# POPULATION: every git-tracked file in the sibling repos SCRIP, corpus and .github, corpus/packages/ INCLUDED since Lon's
+# word of 2026-10-02 (in-chat to the ceo, verbatim: "Get rid of all DOS line-endings; just say no to CR-LF."; ceo CEO-1414: 59
+# vendored files converted in one corpus commit, two Gimpel oracle rejections cured by it), MINUS generated flex/bison outputs
+# and MINUS the files lf_gate_crlf_is_the_subject.tsv declares -- files whose carriage returns ARE what a test measures, each
+# with its reason; a declared file that is gone or holds no CR reds as STALE. (Until 2026-10-02 corpus/packages/ was excluded
+# whole, on FINDING-2026-08-20-s183's measurement that curing gimpel's CRLF lowered its score then.)
 # WHAT IT COUNTS: a CR at END OF LINE (\r$). A CR byte inside a string literal (benchmarks/icon/geddump.s carries
 # "\t\n\r " as DATA in a .string directive) is not a line ending and is not counted.
 # WHY IT EXISTS: Python's csv.writer defaults lineterminator to "\r\n", so util_build_rungs_suite.py re-minted every
@@ -19,12 +22,19 @@ GATE_NAME=test_gate_our_files_are_lf
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 REPOS="${LF_GATE_REPOS:-$ROOT/SCRIP $ROOT/corpus $ROOT/.github}"
+EXC="${LF_GATE_EXCEPTIONS:-$HERE/lf_gate_crlf_is_the_subject.tsv}"
 refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 command -v git >/dev/null 2>&1 || refuse "git not on PATH"
+[ -f "$EXC" ] || refuse "no exception list at $EXC -- the gate cannot tell a declared CR subject from a DOS file"
+awk -F'\t' '!/^#/ && NF && (NF < 3 || $3 ~ /^[[:space:]]*$/) {exit 1}' "$EXC" || refuse "$EXC has a row with no reason -- every exception names why its CRs are a test's subject"
+stale=""
 total=0; bad=0; badlist=""
 for r in $REPOS; do
     [ -d "$r/.git" ] || refuse "$r is not a git repo -- a census that cannot see its population is not a zero"
-    list="$(git -C "$r" ls-files | grep -v '^packages/' | grep -vE '\.tab\.[ch]$|lex\.yy\.c$|\.yy\.c$')" || true
+    rn="$(basename "$r")"; excl="$(awk -F'\t' -v r="$rn" '!/^#/ && $1==r {print $2}' "$EXC")"
+    while IFS= read -r e; do [ -n "$e" ] || continue; { git -C "$r" ls-files --error-unmatch -- "$e" >/dev/null 2>&1 && grep -q $'\r' "$r/$e"; } || stale="$stale
+    $r/$e"; done <<< "$excl"
+    list="$(git -C "$r" ls-files | grep -vE '\.tab\.[ch]$|lex\.yy\.c$|\.yy\.c$' | { if [ -n "$excl" ]; then grep -vxF -f <(printf '%s\n' "$excl"); else cat; fi; })" || true
     n="$(printf '%s\n' "$list" | grep -c .)"
     [ "$n" -gt 0 ] || refuse "$r: git ls-files listed nothing after the exclusions"
     hits="$(cd "$r" && printf '%s\n' "$list" | xargs -d '\n' grep -lI $'\r$' -- 2>/dev/null)" || true
@@ -34,7 +44,8 @@ for r in $REPOS; do
     fi
     total=$((total+n))
 done
-echo "LF_CENSUS repos=$(printf '%s\n' $REPOS | wc -l) tracked_text_files=$total crlf_files=$bad (corpus/packages/ and generated flex/bison outputs excluded)"
+echo "LF_CENSUS repos=$(printf '%s\n' $REPOS | wc -l) tracked_text_files=$total crlf_files=$bad (generated flex/bison outputs and the $(grep -cvE '^#|^$' "$EXC") declared CR subjects of $(basename "$EXC") excluded)"
+if [ -n "$stale" ]; then echo "⛔ GATE RED [$GATE_NAME]: STALE exception(s) in $(basename "$EXC") -- the file is gone or holds no CR, so its reason no longer holds:$stale"; exit 1; fi
 if [ "$bad" -gt 0 ]; then
     echo "⛔ GATE RED [$GATE_NAME]: $bad tracked file(s) carry CR at end of line -- OUR FILES ARE LF (RULES.md FACT RULE, Lon 2026-09-03/04). Convert each in a commit of its own (prove: HEAD's bytes with CRs stripped == new bytes):$badlist"
     exit 1
