@@ -747,7 +747,10 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            cto)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
-                      DUO-STUPID|QUARTET|QUINTET|NONET|TENET) : ;; esac;;
+                      TRIO|DUO-STUPID|QUARTET|QUINTET|NONET|TENET) : ;; esac;;
+           # ⛔⭐ MODE TRIO REDEFINED BY LON AS THE ceo, THE cto AND THE coo (Lon 2026-10-02, in-chat to the ceo, verbatim: "Let's get CTO to fix
+           # our hard bugs. Goto TRIO mode: CEO, CTO, and COO."; ceo CEO-1403): the cto and the coo are admitted BY NAME (the cto used to be
+           # admitted under TRIO only by falling out of its case, CEO-755b's class), the cfo is refused; the CEO-910 roster below is history.
            # ⛔ MODE TRIO (Lon 2026-09-19, in-chat to ceo: "Go to TRIO mode" ... "I did not mean to say COO, I meant CFO"; CEO-910): the ceo, the cto and
            # the cfo work rows; the coo stays stood down. The cfo arm is split from the coo arm for CEO-755's reason again: under TRIO one of
            # the two is admitted, and a shared pattern would have to fall out of the case for it, which returns success for the other too.
@@ -755,18 +758,18 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
+                      TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the coo work rows -- the cto fixes the hard bugs, the coo runs the suites, and the cfo is stood down (Lon 2026-10-02, CEO-1403).";;
                       QUARTET|QUINTET|NONET|TENET) : ;; esac;;
            coo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) : ;;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
-                      TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the cfo work rows -- the coo is stood down (Lon 2026-09-19, CEO-910).";;
-                      QUARTET|QUINTET|NONET|TENET) : ;; esac;;
+                      TRIO|QUARTET|QUINTET|NONET|TENET) : ;; esac;;
            hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO) _dr "an HQ" "Under DUO no HQ is standing -- the coo runs the suites and the ceo cures (Lon 2026-10-02, CEO-1398).";;
                       DUO-STUPID) _dr "an HQ" "Under DUO-STUPID no HQ is standing -- the ceo and the cto work the rows (Lon 2026-09-21, CEO-1087).";;
-                      TRIO) _dr "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the cfo work the rows (Lon 2026-09-19, CEO-910).";;
+                      TRIO) _dr "an HQ" "Under TRIO no HQ is standing -- the ceo, the cto and the coo work the rows (Lon 2026-10-02, CEO-1403).";;
                       QUARTET) _dr "an HQ" "Under QUARTET no HQ is standing -- the four officers work the rows (Lon 2026-09-19, CEO-911).";;
                       # ⛔⭐ MODE QUINTET (Lon 2026-09-28 17:2x, in-chat to the ceo, verbatim: "Bring the fleet into QUARTET mode: CEO, CTO, CFO, and COO. Leave HQ-SNOCONE alone. So QUNTET mode."; ceo CEO-1356).
                       # The four officers and ONE language HQ, hq_snocone, named here so that no other hq_* seat is admitted by falling out of the case (CEO-755b).
