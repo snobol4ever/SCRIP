@@ -23,6 +23,10 @@ CLASSES (every entry lands in exactly one; the summary REFUSES rc=2 if they do n
   RULED_PIN           the ref disagrees with the oracle ON A STATED RULING recorded in ALL.refpins.tsv (pin-ref
                       --ruling).  Not a self-pin: a decision with a ledger.
   DECLARED_OUTSIDE    the entry is named in ALL.outside.tsv with the oracle's refusal recorded.
+  EXTENSION_REF       the entry is named in ALL.extensions.tsv (Lon 2026-10-02: a test of an extension the one oracle lacks takes
+                      its ref from a NAMED other oracle) and THAT oracle, re-run here, prints the ref.
+  EXTENSION_DIFFERS   ⛔ the extension ledger names the entry and its named oracle does NOT print the ref: re-cut it with
+                      `corpus_suite_harness.py extension-ref`, never by hand.
   ORACLE_REFUSES      the oracle ran and printed NOTHING with a non-zero rc, or was killed/hung/absent: there is
                       no oracle answer, so the ref cannot be the oracle's -- it belongs in ALL.outside.tsv with
                       that refusal named, never in the graded denominator.
@@ -114,6 +118,8 @@ def main():
     masks = h.read_mask_sidecar(str(ref))
     pins = h.read_refpins(str(src))
     outside = read_outside(str(src))
+    extrefs = h.read_extension_refs(h.extension_refs_path(str(src)))
+    ext_bins = {}
     if args.limit:
         entries = entries[: args.limit]
     if not entries:
@@ -121,8 +127,8 @@ def main():
     print(f"oracle: {oracle_bin} {flags}".rstrip(), file=sys.stderr)
     print(f"rungs: {src} ({len(entries)} entries) timeout={paths['timeout']}s", file=sys.stderr)
     rows = []
-    counts = {k: 0 for k in ("ORACLE_REPRODUCES", "RULED_PIN", "DECLARED_OUTSIDE", "ORACLE_REFUSES",
-                             "NONDETERMINISTIC", "ORACLE_DIFFERS")}
+    counts = {k: 0 for k in ("ORACLE_REPRODUCES", "RULED_PIN", "DECLARED_OUTSIDE", "EXTENSION_REF", "EXTENSION_DIFFERS",
+                             "ORACLE_REFUSES", "NONDETERMINISTIC", "ORACLE_DIFFERS")}
     with tempfile.TemporaryDirectory(prefix="mrefprov.") as td:
         for i, e in enumerate(entries, 1):
             name = e.name
@@ -132,6 +138,20 @@ def main():
                 cls, detail = "RULED_PIN", f"{pins[name]['measurer']} {pins[name]['date']}: {pins[name]['ruling'][:80]}"
             elif name in outside:
                 cls, detail = "DECLARED_OUTSIDE", outside[name]
+            elif name in extrefs:
+                xr = extrefs[name]
+                if xr["oracle"] not in ext_bins:
+                    ext_bins[xr["oracle"]] = h.resolve_extension_oracle(paths, xr["oracle"])
+                xb, xf = ext_bins[xr["oracle"]]
+                d = Path(td) / f"x{i}"
+                d.mkdir()
+                sp = d / f"{name}{cfg['ext']}"
+                sp.write_text("\n".join(e.sno_lines) + "\n", encoding="utf-8")
+                xt, xrc, xk, xerr = run_oracle_with_err(xb, xf, sp, paths["timeout"], e.stdin, list(getattr(e, "argv", None) or []))
+                if xk == "RAN" and xt.rstrip("\n") == ref_text:
+                    cls, detail = "EXTENSION_REF", f"{xr['oracle']} reproduces the ref ({xr['feature']}; {xr['measurer']} {xr['date']})"
+                else:
+                    cls, detail = "EXTENSION_DIFFERS", f"{xr['oracle']} {xk} rc={xrc} does not print the ruled ref; stderr: {xerr[:100]}"
             else:
                 d = Path(td) / f"e{i}"
                 d.mkdir()
@@ -172,7 +192,7 @@ def main():
             rows.append((cls, name, detail))
             if not args.names:
                 print(f"{cls}\t{name}\t{detail}")
-            elif cls in ("ORACLE_DIFFERS", "ORACLE_REFUSES", "NONDETERMINISTIC"):
+            elif cls in ("ORACLE_DIFFERS", "ORACLE_REFUSES", "NONDETERMINISTIC", "EXTENSION_DIFFERS"):
                 print(f"{cls}\t{name}\t{detail}")
     if args.tsv:
         Path(args.tsv).write_text("".join(f"{c}\t{n}\t{d}\n" for c, n, d in rows), encoding="utf-8")

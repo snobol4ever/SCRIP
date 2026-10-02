@@ -111,6 +111,7 @@ test_gate_every_graded_suite_has_an_attribute_csv.sh	WIRED	-	-	-
 test_gate_every_runner_passes_the_declared_heap_and_stack.sh	WIRED	-	-	-
 test_gate_every_tree_kind_has_a_dump_name.sh	WIRED	-	-	-
 test_gate_excluded_not_spitbol_dialect_named_and_out_of_the_denominator.sh	WIRED	-	-	-
+test_gate_extension_refs_are_marked_graded_and_never_recut.sh	WIRED	-	-	-
 test_gate_fanout_ceiling.sh	WIRED	-	-	-
 test_gate_fanout_width_reads_cpu_pressure_not_load1.sh	WIRED	-	-	-
 test_gate_fc_side_tables_are_reset_at_every_runtime_compile_entry.sh	WIRED	-	-	-
