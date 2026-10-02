@@ -4395,6 +4395,38 @@ def _smoke_outside_names(suite):
     return out
 
 
+# ⭐ A TABLE WHOSE BOARD GRADES EACH PROGRAM UNDER PER-PROGRAM SIDECARS IS SMOKED THROUGH THAT BOARD'S RUNNER (the coo 2026-10-02, row
+# instruments-the-area-smoke-grades-ipl-entries-without-their-sidecars-and-reads-nine-false-reds): the IPL board runs each program
+# under its NAME.pin clock-and-entropy shim, NAME.dat stdin, NAME.argv, NAME.outfiles and fixtures, in an isolation directory, against
+# its own NAME.ref; the generated ALL.icn/ALL.ref pair carries none of them and no runner maintains it, so grading the container read
+# nine false reds (webimage based cwd declchck farb hebcalen parens puzz xtable) against board PASS readings. The runner's smoke mode
+# (S4E_AREA_SMOKE_ENTRIES) grades the named entries by the board's own loop and writes no progress row and no score row.
+SMOKE_DELEGATES = {"packages/icon/ipl": "test_icon_ipl_suite.sh"}
+_SMOKE_DELEGATE_KIND = {"PASS": "PASS", "FAIL": "FAIL", "CRASH": "CRASH", "HANG": "HANG", "REFUSE": "UNPROVEN", "NONE": "SKIP"}
+
+
+def _smoke_delegate(paths, runner, names):
+    """{entry: {"m3": kind, "m4": kind}} from the board runner's smoke mode; an entry the board does not run-grade maps to None.
+    Refuses rc=2 when the runner refuses or answers for fewer entries than it was asked."""
+    env = dict(os.environ, S4E_AREA_SMOKE_ENTRIES=" ".join(names), S4E_PROGRESS_OFF="1")
+    r = subprocess.run(["bash", str(paths["scrip_root"] / "scripts" / runner)], capture_output=True, text=True, env=env,
+                       timeout=180 + 90 * len(names), stdin=subprocess.DEVNULL)
+    out = {}
+    for ln in r.stdout.splitlines():
+        m = re.match(r"IPL_SMOKE_ENTRY (\S+) (.*)$", ln)
+        if not m:
+            continue
+        if "NOT_RUN-GRADED" in m.group(2):
+            out[m.group(1)] = None
+            continue
+        out[m.group(1)] = {k: _SMOKE_DELEGATE_KIND.get(v, "UNPROVEN") for k, v in re.findall(r"(m[34])=(\S+)", m.group(2))}
+    if r.returncode != 0 or set(out) != set(names):
+        tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-6:])
+        refuse(f"smoke: {runner}'s smoke mode answered rc={r.returncode} for {len(out)} of {len(names)} entr(ies) -- the table cannot be "
+               f"graded the board's way and is never graded another way:\n{tail}")
+    return out
+
+
 def _smoke_names(names, cap):
     if len(names) <= cap:
         return " ".join(names)
@@ -4428,6 +4460,14 @@ def cmd_smoke(args):
     sel, unknown = smoke_select(paths["corpus"], features, only)
     if not sel:
         refuse("smoke: no attribute table found under %s%s" % (paths["corpus"], f" matching {only}" if only else ""))
+    only_entries = [t for t in (getattr(args, "entries", "") or "").replace(",", " ").split() if t]
+    if only_entries:
+        # a gate's witness set: the feature selection narrowed to these names, and a name the selection did not reach refuses
+        for s_ in sel.values():
+            s_["entries"] = [n for n in s_["entries"] if n in only_entries]
+        _reached = {n for s_ in sel.values() for n in s_["entries"]}
+        if set(only_entries) - _reached:
+            refuse("smoke --entries: %s not selected by the feature(s) %s in the table(s) read" % (sorted(set(only_entries) - _reached), " ".join(features)))
     if unknown:
         vocab = sorted({c for s in sel.values() for c in s["columns"]})
         refuse("smoke: feature(s) no attribute table knows: %s -- the vocabulary is the tables' own column names (%d known: %s)"
@@ -4500,7 +4540,14 @@ def cmd_smoke(args):
             heap, _ = heap_declarations(str(suite))
             stack, _ = stack_declarations(str(suite))
             t_pass, t_red = 0, []
+            delegated = _smoke_delegate(paths, SMOKE_DELEGATES[key], wanted) if key in SMOKE_DELEGATES and wanted else None
+            if delegated is not None:
+                print(f"AREA_SMOKE_DELEGATED table={key} runner={SMOKE_DELEGATES[key]} entries={len(wanted)}: graded by the board's own loop "
+                      f"and sidecars, not the generated container")
             for n in wanted:
+                if delegated is not None and delegated[n] is None:
+                    print(f"AREA_SMOKE_ENTRY table={key} entry={n} NOT RUN-GRADED by its board (no NAME.ref): not graded here either")
+                    continue
                 e = by_name[n]
                 if masks:
                     pm = masks_for(masks, e.name)
@@ -4510,9 +4557,13 @@ def cmd_smoke(args):
                     e.heap_kb = heap[n]
                 if n in stack:
                     e.stack_kb = stack[n]
-                verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=suite.parent)
+                if delegated is not None:
+                    verdicts = None
+                    kinds = {m: delegated[n].get(m, "SKIP") for m in modes}
+                else:
+                    verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=suite.parent)
+                    kinds = {m: verdicts[m].kind for m in modes}
                 graded += 1
-                kinds = {m: verdicts[m].kind for m in modes}
                 # a SKIP (mode 4 could not compile or link) is a could-not-measure for that mode, never a red (the cfo 2026-09-28):
                 # the entry is green when every MEASURED mode passed and at least one was measured; it is named as skipped
                 measured = {m: k for m, k in kinds.items() if k != "SKIP"}
@@ -4552,7 +4603,7 @@ def cmd_smoke(args):
                                else " NEW RED (this table maps to no progress suite, so no reading can exist)")
                 print("AREA_SMOKE_ENTRY table=%s entry=%s %s%s" % (key, n, " ".join(f"{m}={kinds[m]}" for m in modes), tag))
                 for m in modes:
-                    if kinds[m] != "PASS" and verdicts[m].detail:
+                    if kinds[m] != "PASS" and verdicts is not None and verdicts[m].detail:
                         print(f"    {m}: {verdicts[m].detail[:300]}")
             per_table.append((key, len(wanted), t_pass, t_red, skipped_outside))
     finally:
@@ -4747,6 +4798,7 @@ def main():
     sm = sub.add_parser("smoke", help="THE AREA SMOKE (CEO-1342 clause 4): run, in both modes, every rung suite and package entry whose ALL.csv attribute row marks any named feature column; population printed by name; appends no progress row and writes no score cell -- not a board")
     sm.add_argument("features", nargs="*", help="feature column names as the tables spell them (FENCE SPAN scan suspend cut ...); a name no table knows REFUSES rc=2")
     sm.add_argument("--modes", default="", help="default m3,m4")
+    sm.add_argument("--entries", default="", help="narrow the feature selection to these entry names (a gate's witness set); a name it does not reach refuses")
     sm.add_argument("--tables", default="", help="restrict to tables whose key (tests/<lang>, packages/<lang>/<pkg>) contains any of these tokens")
     sm.add_argument("--list-only", action="store_true", dest="list_only", help="print the selection per table and run nothing")
     sm.add_argument("--vocabulary", action="store_true", help="print each table's feature columns (AREA_SMOKE_VOCAB lines) and exit; no feature needed")

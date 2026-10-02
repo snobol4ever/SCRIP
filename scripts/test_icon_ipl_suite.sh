@@ -104,6 +104,14 @@ TIMEOUT="${IPL_SUITE_TIMEOUT:-30}"
 IPL_PATH="$PKG/procs:$PKG/gprocs:$PKG/progs:$PKG/incl:$PKG/gincl"   # libraries before programs: lib_icon_ipl_isolation.sh says why
 export ICONPATH="${ICONPATH:-$IPL_PATH}"
 VERBOSE=0; [ "${1:-}" = "-v" ] && VERBOSE=1
+# ⭐ AREA SMOKE MODE (the coo 2026-10-02, row instruments-the-area-smoke-grades-ipl-entries-without-their-sidecars-and-reads-nine-false-
+# reds): S4E_AREA_SMOKE_ENTRIES="progs/puzz gprogs/webimage ..." -- ALL.csv entry keys -- grades those programs exactly as the board does
+# (this loop, its sidecars, its isolation) and nothing else: no population identity check, no progress row, no score row; one line per
+# key, IPL_SMOKE_ENTRY <key> m3=<V> m4=<V>, then exit 0. The harness smoke delegates the ipl table here because ALL.icn/ALL.ref is
+# consumed by no runner (see the progress note below) and grading it read nine false reds on 2026-10-02 (the cfo's area smoke).
+SMOKE_KEYS="${S4E_AREA_SMOKE_ENTRIES:-}"
+smoke_wants() { [ -z "$SMOKE_KEYS" ] || case " $SMOKE_KEYS " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+declare -A SMOKE_V=()
 
 [ -d "$PKG" ]   || { echo "⛔ GATE REFUSES: corpus subtree missing: $PKG" >&2; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSES: scrip not built at $SCRIP" >&2; exit 2; }
@@ -141,13 +149,16 @@ trap 'rm -rf "$TMP"' EXIT; trap 'rm -rf "$TMP"; exit 143' TERM; trap 'rm -rf "$T
 # ⛔ AND A DRIVER IS NOT A PROGRAM (CEO-1269): NAME_driver.icn is its library's grading vehicle, never one of the shipped programs this
 # tier compiles or the container accounts for -- lib_inventory.sh drops it from shipped by the same name.
 mapfile -t FILES < <(find "$PKG" -name "*.icn" ! -name "ALL.icn" ! -name "*_driver.icn" ! -path "*.fixtures/*" | sort)
+if [ -n "$SMOKE_KEYS" ]; then
+    _sf=(); for f in "${FILES[@]}"; do smoke_wants "$(basename "$(dirname "$f")")/$(basename "$f" .icn)" && _sf+=("$f"); done; FILES=(${_sf[@]+"${_sf[@]}"})
+fi
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ GATE REFUSES: zero .icn files found under $PKG" >&2; exit 2; }
 # ⛔⭐ CROSS-INSTRUMENT IDENTITY -- the check whose absence let 851 be "corrected" to 852 for a whole session.
 # The container machinery accounts for every upstream file exactly once: graded entries + named exclusions.
 # If that disagrees with what this runner walks, the two instruments in ONE package disagree and NEITHER
 # number can be published, so we REFUSE rather than print a plausible one (rc=2 = could not measure).
-if [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt" ]; then
+if [ -z "$SMOKE_KEYS" ] && [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt" ]; then
     # ⛔ A ROW IS A CONTAINER ENTRY ONLY WHEN ALL.excluded.txt DOES NOT NAME IT (ceo CEO-1261): since Lon's word of 2026-09-25 every
     # graded program carries its settings in ALL.csv, so an excluded program the runner still RUNS has a settings row too, and
     # counting it as a container entry would count it twice.
@@ -163,6 +174,9 @@ if [ -f "$PKG/ALL.csv" ] && [ -f "$PKG/ALL.excluded.txt" ]; then
 fi
 
 mapfile -t STDFILES < <(find "$PKG" -name "*.ref" ! -name ALL.ref)
+if [ -n "$SMOKE_KEYS" ]; then
+    _ss=(); for f in "${STDFILES[@]}"; do _b="$(basename "$f" .ref)"; smoke_wants "$(basename "$(dirname "$f")")/${_b%_driver}" && _ss+=("$f"); done; STDFILES=(${_ss[@]+"${_ss[@]}"})
+fi
 RUN_GRADED=${#STDFILES[@]}
 
 COMPILE_PASS=0; COMPILE_FAIL=0
@@ -301,7 +315,7 @@ PROGRESS_FAILED=0
 # bare stem: the IPL ships gener and morse both as a procs/ library graded through its driver and as a progs/ program, so stem keys
 # collapsed 550 graded programs into 548 DB names, two passes vanished from the DB's count, and util_score_row's cross-check refused
 # the row (hq_icon 2026-09-26 18:2x: AND 513 of 550 against 511 PASS over 841). gimpel, gnu, roast and swi key by path already.
-ipl_progress() { progress_append package ipl icon "$IPL_ISO_SUBDIR/$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
+ipl_progress() { if [ -n "$SMOKE_KEYS" ]; then SMOKE_V["$IPL_ISO_SUBDIR/$1 $2"]="$3"; return 0; fi; progress_append package ipl icon "$IPL_ISO_SUBDIR/$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
 ipl_isolation_init "$PKG" || { echo "⛔ GATE REFUSES: could not build IPL isolation template" >&2; exit 2; }
 # ⛔ Snapshot the subtree BEFORE any graded program runs -- ipl_isolation_verify_clean at the end reports
 # what moved SINCE HERE, not what differs from HEAD; the fixtures a sitting is authoring are untracked by
@@ -444,6 +458,14 @@ for std in "${STDFILES[@]}"; do
     rm -f "$s4" "$bin4" "$TMP/${base}.m3.out" "$TMP/${base}.m4.out"
 done
 unset IPL_ISO_DRIVER
+if [ -n "$SMOKE_KEYS" ]; then
+    ipl_isolation_verify_clean "$S4E/corpus" || true
+    for k in $SMOKE_KEYS; do
+        if [ -n "${SMOKE_V["$k m3"]:-}${SMOKE_V["$k m4"]:-}" ]; then echo "IPL_SMOKE_ENTRY $k m3=${SMOKE_V["$k m3"]:-NONE} m4=${SMOKE_V["$k m4"]:-NONE}"
+        else echo "IPL_SMOKE_ENTRY $k NOT_RUN-GRADED (no NAME.ref or driver ref beside it: the board grades it on the compile tier only)"; fi
+    done
+    exit 0
+fi
 
 echo ""
 echo "-- RUN tier: $RUN_GRADED progs/ programs graded against a .ref cut from the real Icon oracle (util_cut_icon_ipl_refs.sh --apply) --"

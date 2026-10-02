@@ -176,6 +176,7 @@ one_runner_population_of() {
   while [ $# -gt 0 ]; do [ "$1" = --corpus ] && [ -n "${2:-}" ] && { printf '%s' "$2"; return 0; }; shift; done
   printf '%s' "${CORPUS:-}"
 }
+ONE_RUNNER_SMOKE_MODE_RUNNERS="test_icon_ipl_suite.sh"   # runners with an area-smoke mode that writes nothing (see one_runner_guard)
 one_runner_guard() {
   if [ -z "${S4E_BIN_AT_START:-}" ]; then S4E_BIN_AT_START="$(one_runner_bin_fingerprint)" && export S4E_BIN_AT_START; fi
   local board="${1:-${0##*/}}" suite="${2:-}" seat who lang
@@ -198,6 +199,14 @@ one_runner_guard() {
   # -- which is a fixture only when it lies inside no checkout of the shared corpus (one_runner_in_a_shared_checkout, the test a suite
   # outside the configured root already gets: a gate's mktemp root, git-initialised or not, is outside; a worktree of the corpus is
   # inside). Not admitted, the run falls through to the checks below, which end in the refusal.
+  # ⭐ THE AREA SMOKE'S DELEGATED GRADE (the coo 2026-10-02, row instruments-the-area-smoke-grades-ipl-entries-without-their-sidecars-
+  # and-reads-nine-false-reds): a package whose board grades each program under per-program sidecars the harness cannot apply (the IPL's
+  # .pin shim, .dat stdin, .argv, .outfiles, fixtures) is smoked THROUGH ITS OWN RUNNER in that runner's smoke mode -- the named entries
+  # only, no progress row, no score row (CEO-1342: every seat runs the area smoke; a smoke is not a board). Admitted only for a runner
+  # in ONE_RUNNER_SMOKE_MODE_RUNNERS, which honours S4E_AREA_SMOKE_ENTRIES and writes nothing, and only with no suite path named.
+  if [ -n "${S4E_AREA_SMOKE_ENTRIES:-}" ] && [ -z "$suite" ] && case " $ONE_RUNNER_SMOKE_MODE_RUNNERS " in *" $board "*) true ;; *) false ;; esac; then
+    printf 'ONE-RUNNER AREA SMOKE by %s on %s: %s named entr(ies), no progress row and no score row\n' "${seat:-?}" "$board" "$(printf '%s\n' $S4E_AREA_SMOKE_ENTRIES | grep -c .)"; return 0
+  fi
   if [ -n "${S4E_ONE_RUNNER_FIXTURE:-}" ]; then
     local _fxpop="${S4E_CORPUS:-${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/corpus}"
     if [ -z "$suite" ] && ! one_runner_in_a_shared_checkout "$_fxpop"; then printf 'ONE-RUNNER FIXTURE by %s on %s: %s\n' "${seat:-?}" "$board" "$S4E_ONE_RUNNER_FIXTURE"; return 0; fi
