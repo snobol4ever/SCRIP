@@ -115,7 +115,7 @@ EOF
 { cmp -s "$T/scora" "$T/scm3" && cmp -s "$T/scora" "$T/scm4"; } && arm "6 Snocone m3+m4 == sbl on the transpiled form" ok || arm 6 red "m3: $(tr '\n' '|' < "$T/scm3") m4: $(tr '\n' '|' < "$T/scm4") sbl: $(tr '\n' '|' < "$T/scora")"
 IT="$(icont_bin 2>/dev/null)"; IX="$(iconx_bin 2>/dev/null)"
 [ -x "$IT" ] && [ -x "$IX" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no Icon oracle for the containment arm"; exit 2; }
-printf 'procedure main()\n   write(1.0e-300 / 1.0e10)\nend\n' > "$T/c.icn"
+printf 'procedure main()\n   write(1.0e-300 / 1.0e10);\nend\n' > "$T/c.icn"
 ( cd "$T" && "$IT" -s c.icn >/dev/null 2>&1 && timeout 30 "$IX" c > cora 2>/dev/null ) || { echo "GATE UNPROVEN(2) [$GATE_NAME]: iconx did not run the containment witness"; exit 2; }
 grep -q 'e-310' "$T/cora" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: iconx no longer prints the subnormal quotient -- the containment premise moved"; exit 2; }
 ( cd "$T" && timeout 30 "$ROOT/scrip" c.icn < /dev/null > cm3 2>/dev/null )

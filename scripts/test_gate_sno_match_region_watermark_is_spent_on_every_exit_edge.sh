@@ -54,7 +54,7 @@ emit while_back_edge    'function f(s) { while (s ? "h") { s = "xx"; } return "d
 OUTPUT = f("hi");'
 emit nested_return      'function f(s) { if (s ? "h") { if (s ? "i") { return "yy"; } } return "done"; }
 OUTPUT = f("hi");'
-emit ctl_numeric_while  'function f(s) { i = 0; while (i < 2) { i = i + 1; } return "done"; }
+emit ctl_numeric_while  'function f(s) { i = 0; while (LT(i, 2)) { i = i + 1; } return "done"; }
 OUTPUT = f("hi");'
 emit ctl_bare_then_ret  'function f(s) { s ? "h"; return "Y"; }
 OUTPUT = f("hi");'
