@@ -5,10 +5,14 @@
 # inline marker is what a DEFAULT build (no --stlimit) actually runs. So on a default build &LASTNO/&LASTLINE never move off
 # 0 (or whatever a CALL boundary's APPLY_fn save-restore, core.c:4195, last left there) no matter how many plain statements run.
 #
-# ⛔ THIS IS DEFAULT-BUILD ONLY -- under --stlimit (SCRIP_SNO_STMTKW=1) the lowerer takes a different, already-correct road
-# (lower_snobol4.c's g_sno_uses_stmtkw arm), so this gate must NOT set that switch or export SCRIP_SNO_STMTKW, or the very
-# mechanism under test is bypassed and the gate reads green on the broken code (found the hard way: copying the sibling
-# gate test_gate_sno_lastno_across_call_return.sh's `export SCRIP_SNO_STMTKW=1` header masked this exact bug).
+# ⛔ GRADED UNDER --stlimit ON LON'S WORD (2026-10-02, in-chat to the cto, choosing how this gate grades: "Grade under
+# --stlimit"; ceo CEO-1243, Lon 2026-09-24: "It is invalid to trigger off source content, since an EVAL or CODE can do
+# the same without you knowing." and "The &STLIMIT feature with trace instrumentation should be controlled by a
+# command-line switch."): &STNO/&LASTNO/&LINE/&LASTLINE are the instrumentation switch's, a default build carries no
+# per-statement store and none is inferred from the source, so the witness is graded with --stlimit in both modes, and a
+# CONTROL arm runs it without the switch, where &LASTNO must NOT match the oracle -- the switch is what supplies it, and
+# the comparison can say no. The default-build premise this header first carried (an inline bb_stmt_mark in every
+# default build) no longer holds: no statement marker is emitted without --stlimit.
 #
 # hq_snobol4, CEO-1295(ii) follow-on: found bisecting spitbol_testpgms/test1.spt under THE MONITOR (once
 # test_gate_monitor_run_accepts_spt_and_sbl_extensions.sh unblocked it) -- run plain (no --stlimit; the package's own
@@ -40,8 +44,9 @@ W="$T/lastno_plain.sno"
   printf 'END\n'; } > "$W"
 ORA="$( cd "$T" && timeout 30s "$O" -bf lastno_plain.sno </dev/null 2>/dev/null )"; orc=$?
 case "$ORA" in *lastno1=*) : ;; *) echo "GATE UNPROVEN(2) [$GATE_NAME]: oracle produced no lastno1= line (rc=$orc)"; exit 2;; esac
-M3="$( cd "$T" && timeout 30s "$ROOT/scrip" lastno_plain.sno </dev/null 2>/dev/null )"
-( cd "$T" && timeout 30s "$ROOT/scrip" --compile -o lastno_plain.s lastno_plain.sno </dev/null >/dev/null 2>&1 ) \
+M3="$( cd "$T" && timeout 30s "$ROOT/scrip" --stlimit lastno_plain.sno </dev/null 2>/dev/null )"
+C3="$( cd "$T" && timeout 30s "$ROOT/scrip" lastno_plain.sno </dev/null 2>/dev/null )"
+( cd "$T" && timeout 30s "$ROOT/scrip" --compile --stlimit -o lastno_plain.s lastno_plain.sno </dev/null >/dev/null 2>&1 ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 compile failed"; exit 2; }
 ( cd "$T" && gcc -no-pie lastno_plain.s -o lastno_plain.bin -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" >/dev/null 2>&1 ) \
   || { echo "GATE UNPROVEN(2) [$GATE_NAME]: mode-4 link failed"; exit 2; }
@@ -53,5 +58,8 @@ for tag in m3 m4; do
     if [ "$got" = "$ORA" ]; then echo "PASS $tag: $got (oracle: $ORA)"
     else echo "RED  $tag: got [$got] oracle [$ORA]"; red=$((red+1)); fi
 done
-gate_floor "$examined" 2 "modes graded"
+examined=$((examined+1))
+if [ "$C3" != "$ORA" ]; then echo "PASS control m3 without --stlimit: $C3 differs from the oracle -- the switch supplies the keywords"
+else echo "RED  control m3 without --stlimit EQUALS the oracle -- either the default build infers instrumentation from the source (ruled out) or the witness grades nothing"; red=$((red+1)); fi
+gate_floor "$examined" 3 "arms graded"
 gate_verdict "$red" "mode(s) whose &LASTNO/&LASTLINE do not advance across plain statements with no call between them"
