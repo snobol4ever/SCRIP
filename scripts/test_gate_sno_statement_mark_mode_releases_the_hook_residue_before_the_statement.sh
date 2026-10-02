@@ -26,7 +26,8 @@ export SCRIP_SNO_STMTKW=1   # this grader asks for the SNOBOL4 statement instrum
 # THE CURE: at IR_STATEMENT_BEGIN the planner releases the dispatch's bytes (the CALL's gamma pop grows by the
 # depth so far and the depth restarts at zero) and resets the per-statement watermarks. Mark mode is then
 # byte-for-byte the plain lowering from STATEMENT_BEGIN on, in both media. SCRIP_ZD_HOOK_RELEASE=0 restores the
-# pre-cure planner and is this gate's fail-once control.
+# pre-cure planner and is this gate's fail-once control. Since 2026-10-02 (cto, gimpel infinip) a call's omega target heads its
+# own zd run, which also carries a1's call past the residue, so the control turns that off too: SCRIP_ZD_TESTFAM=0.
 #
 # ARMS (each graded against the live sbl -bf oracle, in BOTH modes):
 #   a1  the row's shape: a function statement `(~ATOM(L) ATOM(CDR(L))) :F(FRETURN)` under &STCOUNT
@@ -100,8 +101,8 @@ if [ -f "$ROMAN" ] && [ -f "${ROMAN%.sno}.ref" ]; then
     done
 else echo "  SKIP roman -- csnobol4_suite/roman.sno or its ref not present at $ROMAN (the eight minted arms still bind)"; fi
 ctl_fail=0
-w1="$(timeout 60s "$ORACLE" -bf "$T/a1.sno" < /dev/null 2>&1 | tr '\n' '/')"; g1="$(SCRIP_ZD_HOOK_RELEASE=0 run_m3 a1)"; [ "$g1" = "$w1" ] || ctl_fail=1
-echo "  control: with SCRIP_ZD_HOOK_RELEASE=0, k1 m3 got [$g1] want [$w1] -- $([ "$ctl_fail" -eq 1 ] && echo 'pre-cure planner FAILS (the switch is live)' || echo 'pre-cure planner PASSED (inert switch?)')"
+w1="$(timeout 60s "$ORACLE" -bf "$T/a1.sno" < /dev/null 2>&1 | tr '\n' '/')"; g1="$(SCRIP_ZD_HOOK_RELEASE=0 SCRIP_ZD_TESTFAM=0 run_m3 a1)"; [ "$g1" = "$w1" ] || ctl_fail=1
+echo "  control: with SCRIP_ZD_HOOK_RELEASE=0 SCRIP_ZD_TESTFAM=0, k1 m3 got [$g1] want [$w1] -- $([ "$ctl_fail" -eq 1 ] && echo 'pre-cure planner FAILS (the switch is live)' || echo 'pre-cure planner PASSED (inert switch?)')"
 echo "STATEMENT-MARK-HOOK-RELEASE graded=$graded bad=$bad control_failed=$ctl_fail"
 [ "$graded" -eq 8 ] || { echo "UNPROVEN(2): expected 8 graded arms, got $graded -- a runner that cannot measure never prints the success shape"; exit 2; }
 [ "$ctl_fail" -eq 1 ] || { echo "UNPROVEN(2): the control arm matched SPITBOL with the cure switched off -- SCRIP_ZD_HOOK_RELEASE is inert or the pre-cure planner changed; this gate cannot tell a cure from a coincidence"; exit 2; }

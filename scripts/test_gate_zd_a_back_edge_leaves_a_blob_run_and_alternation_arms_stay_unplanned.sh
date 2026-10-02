@@ -30,6 +30,13 @@
 #      (SncDemo beauty, rc 139 both modes). Cured: after planning, a node an unplanned non-pattern node enters at its alpha while
 #      the run has carved depth there is a WALL, the run stops before it (its last node then pops the whole depth on gamma) and
 #      the graph is planned again until no wall is added. Witness w6; killswitch SCRIP_ZD_JOIN_CUT=0.
+#  (E) A NEGATED USER CALL LEFT ITS OMEGA GATE TO THE LEGACY ROAD (cto 2026-10-02, row snobol4-the-operand-after-a-negated-
+#      user-call-..., gimpel infinip): in Q (~P(X) P(X)) the call P's omega edge reaches the negation's gate, which no run
+#      claimed -- zd_omega_test_kind counted only tests -- so the second operand was emitted on legacy frame slots ([rsp+288])
+#      that nothing reserved inside a called function, clobbering the caller's frame (3,2,1,ok printed nothing). A call now
+#      joins the test family beside BINOP_TEST (SCRIP_ZD_TESTFAM, its killswitch), so its omega target heads its own run at the
+#      run base the call's omega exit pops to. Witness w7. This also reaches the joins (D) cut: w6 stays green under
+#      SCRIP_ZD_JOIN_CUT=0 alone, so its fail-once now turns both killswitches off.
 # EVERY ARM IS GRADED AGAINST THE ORACLE: the witness's --transpile run on sbl -bf (a Snocone program's oracle), both modes, stdout.
 # FAIL-ONCE, BUILT IN: witness 1 must go red under SCRIP_ZD_BLOBBACK=0, witness 3 under SCRIP_ZD_5B=1 and witness 6 under
 # SCRIP_ZD_JOIN_CUT=0 -- a gate that cannot see
@@ -134,7 +141,19 @@ done
 # (omega to statement_end, which pops), so the .sc form never reaches defect (C); the SNOBOL4 frontend lowers the transpiled
 # `((str ? (POS(0) 'zz')) = '')` as an expression-position match (omega to the statement's beta landing) -- the form every
 # bootstrap parser runs as, and the one that leaked. Both frontends are graded, against the same oracle output.
-for w in w5; do want=$("$SBL" -bf "$T/$w.sno" </dev/null 2>/dev/null)
+cat > "$T/w7.sno" <<'EOF'
+        DEFINE('P(X)')
+        DEFINE('Q(X)')
+        DEFINE('R(N)')                          :(E1)
+P       LT(X,0)                                 :S(RETURN)F(FRETURN)
+Q       (~P(X)  P(X))                           :S(RETURN)F(FRETURN)
+R       R  =  EQ(N,0)  'ok'                     :S(RETURN)
+        Q(1)
+        R  =  N  ','  R(N - 1)                  :(RETURN)
+E1      OUTPUT  =  R(3)
+END
+EOF
+for w in w5 w7; do want=$("$SBL" -bf "$T/$w.sno" </dev/null 2>/dev/null)
   for m in m3 m4; do N=$((N+1)); got=$(run_mode "$m" "$T/$w.sno")
     if [ "$got" = "$want" ]; then echo "  $w.sno $m PASS"; else echo "  $w.sno $m FAIL: got [$(printf '%s' "$got" | tr '\n' ' ' | cut -c1-60)] want [$(printf '%s' "$want" | tr '\n' ' ')]"; RC=1; fi; done
 done
@@ -143,11 +162,12 @@ fo() {  # fo <witness> <ENV=V...> -- the killswitch must make the witness differ
   if [ "$got" != "$want" ]; then echo "  fail-once $w under $*: RED as it must be"; else echo "  fail-once $w under $*: STILL GREEN -- this gate cannot see the defect it names"; RC=1; fi; }
 fo w1 SCRIP_ZD_BLOBBACK=0
 fo w3 SCRIP_ZD_5B=1
-fo w6 SCRIP_ZD_JOIN_CUT=0
+fo w6 SCRIP_ZD_JOIN_CUT=0 SCRIP_ZD_TESTFAM=0
 fos() {  # fos <witness> <ENV=V...> -- the same, on the witness's TRANSPILED form
   local w="$1"; shift; local want got; want=$("$SBL" -bf "$T/$w.sno" </dev/null 2>/dev/null); got=$(run_mode m3 "$T/$w.sno" "$@")
   if [ "$got" != "$want" ]; then echo "  fail-once $w.sno under $*: RED as it must be"; else echo "  fail-once $w.sno under $*: STILL GREEN -- this gate cannot see the defect it names"; RC=1; fi; }
 fos w5 SCRIP_ZD_OMEGA_STMTLAND=0
+fos w7 SCRIP_ZD_TESTFAM=0
 if [ "$RC" = 0 ]; then echo "GATE PASS [$G]: $N arms (6 witnesses x m3+m4, plus w5's transpiled form x m3+m4) print the SPITBOL oracle's output, and all four killswitches red their witness"
 else echo "GATE FAIL(1) [$G]: see the arms above"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  oracle: $SBL -bf  measured $(date -u +%Y-%m-%dT%H:%MZ)"
