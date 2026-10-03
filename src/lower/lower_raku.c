@@ -118,6 +118,21 @@ static int64_t rk_binop_code(tree_e tt) {
     switch (tt) { case TT_ADD: return BINOP_ADD_BIG; case TT_SUB: return BINOP_SUB_BIG; case TT_MUL: return BINOP_MUL_BIG; default: return lc_binop_code(tt); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_user_proc_exists(const char * nm) {
+    for (int i = 0; i < g_stage2.proc_count; i++) { const char * pn = g_stage2.proc_table[i].name; if (pn && (!strcmp(pn, nm) || (pn[0] == '&' && !strcmp(pn + 1, nm)))) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_predeclared(const char * nm, int bare) {
+    if (!nm || !*nm) return 0;
+    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", NULL };
+    for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
+    if (!bare) return 0;
+    static const char * const terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
+    for (int i = 0; terms[i]; i++) if (!strcmp(nm, terms[i]) && !rk_is_class_name(nm) && !rk_user_proc_exists(nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_to_array_call(const tree_t * rhs) {
     tree_t * f = ast_node_new(TT_FNC); f->v.sval = (char *) "__rk_to_array"; ast_push(f, leaf_sval2(TT_VAR, "__rk_to_array")); ast_push(f, (tree_t *) rhs); return f;
 }
@@ -536,6 +551,21 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "NaN") && !rk_is_class_name("NaN")) {
             IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = (double) NAN; *res = nd; return nd;
+        }
+        if ((t->slen & 1) && t->v.sval && (!strcmp(t->v.sval, "\xcf\x80") || !strcmp(t->v.sval, "\xcf\x84") || !strcmp(t->v.sval, "\xe2\x88\x9e"))) {
+            IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.sval[0] == '\xe2' ? (double) INFINITY : t->v.sval[1] == '\x80' ? 3.141592653589793 : 6.283185307179586; *res = nd; return nd;
+        }
+        if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "die") && !rk_user_proc_exists("die") && !rk_is_class_name("die")) {
+            tree_t * df = ast_node_new(TT_DIE); ast_push(df, leaf_sval2(TT_QLIT, "Died"));
+            return lower_rv(cx, df, γ, ω, res);
+        }
+        if ((t->slen & 1) && t->v.sval && rk_user_proc_exists(t->v.sval) && !rk_is_class_name(t->v.sval)) {
+            tree_t * cf = ast_node_new(TT_FNC); cf->v.sval = t->v.sval; ast_push(cf, leaf_sval2(TT_VAR, t->v.sval));
+            return lower_rv(cx, cf, γ, ω, res);
+        }
+        if (rk_predeclared(t->v.sval, (t->slen & 1) != 0)) {
+            tree_t * pf = ast_node_new(TT_FNC); pf->v.sval = (char *) "__rk_pre"; ast_push(pf, leaf_sval2(TT_VAR, "__rk_pre")); ast_push(pf, leaf_sval2(TT_QLIT, t->v.sval));
+            return lower_rv(cx, pf, γ, ω, res);
         }
         if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "i") && !rk_is_class_name("i")) {
             IR_t * nd = build(cx, IR_CALL, γ, ω); IR_LIT(nd).sval = "__rk_mkcplx_i"; *res = nd; return nd;

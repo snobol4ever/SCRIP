@@ -353,7 +353,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
@@ -4292,6 +4292,40 @@ int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
     return hits == 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_pre_env(void) {
+    extern char **environ; DESCR_t h = TABLE_VAL(table_new());
+    for (char **e = environ; e && *e; e++) { const char *eq = strchr(*e, '='); if (!eq) continue; size_t kl = (size_t) (eq - *e); char *k = rt_wsb_alloc(kl + 1); memcpy(k, *e, kl); k[kl] = '\0'; h = rk_hash_store(h, STRVAL(k), STRVAL(rt_heap_strdup_c(eq + 1))); }
+    return h;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_pre_args(void) {
+    extern int rt_main_args_count(void); extern const char *rt_main_arg_at(int);
+    int n = rt_main_args_count(); DESCR_t *r = n > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) n) : NULL;
+    for (int i = 0; i < n; i++) { const char *a = rt_main_arg_at(i); r[i] = rk_txt_elem(a ? a : "", a ? strlen(a) : 0); }
+    return rk_unmark(rk_mk_arr(r, n));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_pre_value(const char *nm, DESCR_t *out) {
+    extern const char *rt_main_progname(void);
+    if (!strcmp(nm, "Less")) { *out = (DESCR_t){ .v = DT_ORDER, .i = -1 }; return 1; }
+    if (!strcmp(nm, "Same")) { *out = (DESCR_t){ .v = DT_ORDER, .i = 0 }; return 1; }
+    if (!strcmp(nm, "More")) { *out = (DESCR_t){ .v = DT_ORDER, .i = 1 }; return 1; }
+    if (!strcmp(nm, "Empty")) { *out = rk_mk_arr(NULL, 0); return 1; }
+    if (!strcmp(nm, "time")) { *out = INTVAL((long) time(NULL)); return 1; }
+    if (!strcmp(nm, "now")) { struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts); *out = REALVAL((double) ts.tv_sec + (double) ts.tv_nsec / 1e9); return 1; }
+    if (!strcmp(nm, "rand")) { *out = REALVAL((double) random() / ((double) RAND_MAX + 1.0)); return 1; }
+    if (!strcmp(nm, "*PID")) { *out = INTVAL((long) getpid()); return 1; }
+    if (!strcmp(nm, "*PROGRAM-NAME") || !strcmp(nm, "*PROGRAM") || !strcmp(nm, "?FILE")) { const char *p = rt_main_progname(); *out = STRVAL(rt_heap_strdup_c(p && *p ? p : "-e")); return 1; }
+    if (!strcmp(nm, "*CWD")) { char *b = rt_wsb_alloc(4096); *out = STRVAL(rt_heap_strdup_c(getcwd(b, 4096) ? b : "")); return 1; }
+    if (!strcmp(nm, "*EXECUTABLE") || !strcmp(nm, "*EXECUTABLE-NAME")) { char *b = rt_wsb_alloc(4096); ssize_t n = readlink("/proc/self/exe", b, 4095); if (n < 0) n = 0; b[n] = '\0'; *out = STRVAL(rt_heap_strdup_c(b)); return 1; }
+    if (!strcmp(nm, "*HOME")) { const char *h = getenv("HOME"); *out = STRVAL(rt_heap_strdup_c(h ? h : "")); return 1; }
+    if (!strcmp(nm, "*TMPDIR")) { const char *h = getenv("TMPDIR"); *out = STRVAL(rt_heap_strdup_c(h && *h ? h : "/tmp")); return 1; }
+    if (!strcmp(nm, "*USER")) { const char *h = getenv("USER"); *out = STRVAL(rt_heap_strdup_c(h ? h : "")); return 1; }
+    if (!strcmp(nm, "%*ENV")) { *out = rk_pre_env(); return 1; }
+    if (!strcmp(nm, "@*ARGS")) { *out = rk_pre_args(); return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_item_agg(DESCR_t *args, int nargs) {
     int cap = 0; for (int i = 0; i < nargs; i++) cap += rk_item_count(args[i]);
     DESCR_t *r = cap > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) cap) : NULL; int k = 0;
@@ -5232,6 +5266,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t hh = TABLE_VAL(table_new());
         for (int i = 0; i + 1 < nargs; i += 2) hh = rk_hash_store(hh, args[i], args[i + 1]);
         *out = hh; return 1;
+    }
+    if (!strcmp(fn, "__rk_pre") && nargs == 1) {
+        if (!rk_pre_value(rk_cstr(args[0]), out)) *out = NULVCL;
+        return 1;
     }
     if (!strcmp(fn, "__rk_to_hash") && nargs == 1) {
         if (args[0].v == DT_T && args[0].tbl) *out = rk_hash_copy(args[0]);
