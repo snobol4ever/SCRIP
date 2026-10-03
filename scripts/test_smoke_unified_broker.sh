@@ -194,78 +194,78 @@ sub main() {
 EOF
 
 # RK-7: polyglot gather smoke test (ref-file based)
-RAKU_SCRIP="$ROOT/../corpus/tests/scrip_test/raku_gather.scrip"
+RAKU_SCRIP="$ROOT/../corpus/tests/scrip_test/raku_gather.md"
 RAKU_REF="$ROOT/../corpus/tests/scrip_test/raku_gather.ref"
 if [ -f "$RAKU_SCRIP" ] && [ -f "$RAKU_REF" ]; then
     actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$RAKU_SCRIP" < /dev/null 2>/dev/null)
     expected=$(cat "$RAKU_REF")
     if [ "$actual" = "$expected" ]; then
-        echo "  PASS raku_gather.scrip (SNO+RAKU polyglot, BB_PUMP via while loop)"
+        echo "  PASS raku_gather.md (SNO+RAKU polyglot, BB_PUMP via while loop)"
         PASS=$((PASS+1))
     else
-        echo "  FAIL raku_gather.scrip"
+        echo "  FAIL raku_gather.md"
         printf "       exp: %s\n" "$(printf '%s' "$expected" | head -3)"
         printf "       got: %s\n" "$(printf '%s' "$actual"   | head -3)"
         FAIL=$((FAIL+1))
     fi
 else
-    echo "  SKIP raku_gather.scrip (file not found)"
+    echo "  SKIP raku_gather.md (file not found)"
 fi
 
 # ── Cross-language polyglot (U-19) ───────────────────────────────────────────
 echo "=== Cross-language polyglot (U-19) ==="
 
-CROSS="$ROOT/../corpus/tests/scrip_test/cross_lang.scrip"
+CROSS="$ROOT/../corpus/tests/scrip_test/cross_lang.md"
 REF="$ROOT/../corpus/tests/scrip_test/cross_lang.ref"
 if [ -f "$CROSS" ] && [ -f "$REF" ]; then
     actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$CROSS" < /dev/null 2>/dev/null)
     expected=$(cat "$REF")
     if [ "$actual" = "$expected" ]; then
-        echo "  PASS cross_lang.scrip (SNO+ICN+PL all three bb_broker modes)"
+        echo "  PASS cross_lang.md (SNO+ICN+PL all three bb_broker modes)"
         PASS=$((PASS+1))
     else
-        echo "  FAIL cross_lang.scrip"
+        echo "  FAIL cross_lang.md"
         printf "       exp: %s\n" "$(printf '%s' "$expected" | head -3)"
         printf "       got: %s\n" "$(printf '%s' "$actual"   | head -3)"
         FAIL=$((FAIL+1))
     fi
 else
-    echo "  SKIP cross_lang.scrip (file not found)"
+    echo "  SKIP cross_lang.md (file not found)"
 fi
 
 # ── Shared NV store (U-23) ───────────────────────────────────────────────────
 echo "=== Shared NV store (U-23) ==="
 
-SHARED="$ROOT/../corpus/tests/scrip_test/test_shared_nv.scrip"
+SHARED="$ROOT/../corpus/tests/scrip_test/test_shared_nv.md"
 SREF="$ROOT/../corpus/tests/scrip_test/test_shared_nv.ref"
 if [ -f "$SHARED" ] && [ -f "$SREF" ]; then
     actual=$(timeout "$TIMEOUT" "$SCRIP" --run "$SHARED" < /dev/null 2>/dev/null)
     expected=$(cat "$SREF")
     if [ "$actual" = "$expected" ]; then
-        echo "  PASS test_shared_nv.scrip (SNO+ICN+PL shared NV store)"
+        echo "  PASS test_shared_nv.md (SNO+ICN+PL shared NV store)"
         PASS=$((PASS+1))
     else
-        echo "  FAIL test_shared_nv.scrip"
+        echo "  FAIL test_shared_nv.md"
         printf "       exp: %s\n" "$(printf '%s' "$expected" | head -6)"
         printf "       got: %s\n" "$(printf '%s' "$actual"   | head -6)"
         FAIL=$((FAIL+1))
     fi
 else
-    echo "  SKIP test_shared_nv.scrip (file not found)"
+    echo "  SKIP test_shared_nv.md (file not found)"
 fi
 
 # ── OE-12: --run polyglot smoke test ──────────────────────────────────────
 echo "=== --run polyglot (OE-12) ==="
-SMRUN_FILE="$ROOT/../corpus/tests/scrip_test/test_shared_nv.scrip"
+SMRUN_FILE="$ROOT/../corpus/tests/scrip_test/test_shared_nv.md"
 SMRUN_REF="$ROOT/../corpus/tests/scrip_test/test_shared_nv.ref"
 if [ -f "$SMRUN_FILE" ] && [ -f "$SMRUN_REF" ]; then
     actual=$(timeout 8 "$SCRIP" --run "$SMRUN_FILE" 2>/dev/null)
     expected=$(cat "$SMRUN_REF")
     if [ "$actual" = "$expected" ]; then
-        echo "  PASS --run test_shared_nv.scrip (polyglot routes to polyglot_execute)"
+        echo "  PASS --run test_shared_nv.md (polyglot routes to polyglot_execute)"
         PASS=$((PASS+1))
     else
-        echo "  FAIL --run test_shared_nv.scrip"
+        echo "  FAIL --run test_shared_nv.md"
         printf "       exp: %s\n" "$(printf '%s' "$expected" | head -6)"
         printf "       got: %s\n" "$(printf '%s' "$actual"   | head -6)"
         FAIL=$((FAIL+1))

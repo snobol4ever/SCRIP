@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test_smoke_polyglot.sh — POLYGLOT smoke: SNOBOL4 + Icon + Prolog loaded and run TOGETHER, modes 3 + 4.
-# Covers BOTH polyglot forms: (a) three separate files fed at once, (b) one .scrip file with three fences.
+# Covers BOTH polyglot forms: (a) three separate files fed at once, (b) one SCRIPtix .md file with three fences.
 # Proves: per-file/per-fence first dispatch, init-all-unconditional, shared g_stage2, cross-language sno→icon call.
 # Gate: both modes HARD (this capability is a Lon directive, 2026-07-04).
 # AUTHORS: Lon Jones Cherryholmes · Jeffrey Cooper M.D. · Claude Fable 5  DATE: 2026-07-04
@@ -48,8 +48,8 @@ run_m4() {
 echo "=== POLYGLOT smoke (modes 3+4) — both HARD ==="
 run_m3 "tri-file  (sno+icn+pl)" "$TESTD/polyglot_tri_main.sno" "$TESTD/polyglot_tri_lib.icn" "$TESTD/polyglot_tri_rules.pl"
 run_m4 "tri-file  (sno+icn+pl)" "$TESTD/polyglot_tri_main.sno" "$TESTD/polyglot_tri_lib.icn" "$TESTD/polyglot_tri_rules.pl"
-run_m3 "tri-fence (.scrip)"     "$TESTD/polyglot_tri.scrip"
-run_m4 "tri-fence (.scrip)"     "$TESTD/polyglot_tri.scrip"
+run_m3 "tri-fence (.md)"        "$TESTD/polyglot_tri.md"
+run_m4 "tri-fence (.md)"        "$TESTD/polyglot_tri.md"
 
 echo ""
 echo "mode-3 (--run):     PASS=$P3 FAIL=$F3   (HARD GATE)"
