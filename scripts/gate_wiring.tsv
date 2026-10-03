@@ -675,6 +675,7 @@ test_gate_sno_a_builtin_called_short_or_over_its_arity_pads_with_null_and_drops_
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_call_saves_binds_and_restores_an_io_associated_name_without_io.sh	WIRED	-	-	-
 test_gate_sno_a_call_through_an_opsyn_alias_is_the_functions_own_call.sh	WIRED	-	-	-
+test_gate_sno_a_capture_over_succeed_or_a_bare_fence_reads_its_own_saved_cursor.sh	WIRED	-	-	-
 test_gate_sno_a_capture_slices_the_subject_and_table_convert_mkpat_take_the_direct_table.sh	WIRED	-	-	-
 test_gate_sno_a_captured_deferred_pattern_resumes_at_its_tail.sh	WIRED	-	-	-
 test_gate_sno_a_captured_number_is_numeric_in_every_coercion_path.sh	WIRED	-	-	-
