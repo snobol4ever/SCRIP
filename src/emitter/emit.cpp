@@ -1357,10 +1357,10 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
                                              : (nd->n_operands == 3 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "nd2") || !strcmp(IR_LIT(nd).sval, "nd2-lv"))) ? bb_subscript2()
                                              : bb_section()); return 0;
     case IR_DEREF:                bb_emit_x86(bb_deref());          return 0;
-    case IR_UNIFY_CONST:          bb_emit_x86(bb_unify_const());    return 0;
-    case IR_UNIFY_STRUCT:         bb_emit_x86(bb_unify_struct());   return 0;
-    case IR_UNIFY_FIRST:          bb_emit_x86(bb_unify_first());    return 0;
-    case IR_UNIFY_VALUE:          bb_emit_x86(bb_unify_value());    return 0;
+    case IR_UNIFY_CONST:          { extern void unify_prepare(IR_t *); unify_prepare(nd); bb_emit_x86(bb_unify_const()); } return 0;
+    case IR_UNIFY_STRUCT:         { extern void unify_prepare(IR_t *); unify_prepare(nd); bb_emit_x86(bb_unify_struct()); } return 0;
+    case IR_UNIFY_FIRST:          { extern void unify_prepare(IR_t *); unify_prepare(nd); bb_emit_x86(bb_unify_first()); } return 0;
+    case IR_UNIFY_VALUE:          { extern void unify_prepare(IR_t *); unify_prepare(nd); bb_emit_x86(bb_unify_value()); } return 0;
     case IR_RANDOM:               bb_emit_x86(bb_random());         return 0;
     case IR_ASSIGN_VAR:           bb_emit_x86(nd->n_operands == 3 ? bb_assign_var_sub() : bb_assign_var());     return 0;
     case IR_REV_ASSIGN: {
@@ -4610,4 +4610,37 @@ void kw_snobol4_prepare(void) {
     g_emit.op_name1 = (g_emit.op_imm_a >= 0) ? rt_kw_direct_sym((int)g_emit.op_imm_a, &soff, &cbase) : (const char *)0;
     g_emit.op_imm_b = soff;
     g_emit.op_addr  = (uint64_t)(uintptr_t)cbase;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int prolog_atom_intern(const char *);
+extern "C" int prolog_functor_arity(int);
+void unify_prepare(IR_t *nd) {
+    IR_t * src = (nd && nd->n_operands >= 2) ? nd->operands[0] : (IR_t *)0;
+    IR_t * ix  = (nd && nd->n_operands >= 2) ? nd->operands[1] : (IR_t *)0;
+    IR_t * k   = (nd && nd->n_operands > 2) ? nd->operands[2] : (IR_t *)0;
+    const char * vn = nd ? IR_LIT(nd).sval : (const char *)0;
+    int ok = 0, kid = 0, slot = -1; long idx = 0;
+    if (nd && nd->n_operands >= 2 && src && ix && ix->op == IR_LIT_INTEGER && (long)IR_LIT(ix).ival >= 0) {
+        idx = (long)IR_LIT(ix).ival;
+        if (src->op == IR_VAR_REF) { slot = IR_LIT(src).sval ? bb_varslot_peek(IR_LIT(src).sval) : -1; ok = slot >= 0; }
+        else if (src->op == IR_UNIFY_STRUCT) { slot = bb_slot_get(src); ok = slot >= 0; kid = 1; }
+    }
+    g_emit.op_u_kid = kid; g_emit.op_u_slot = slot; g_emit.op_u_idx = idx;
+    g_emit.op_u_why = 0; g_emit.op_u_atom = 0; g_emit.op_u_ktag = 0; g_emit.op_u_kval = 0; g_emit.op_u_fid = 0; g_emit.op_u_vo = -1;
+    if (nd && nd->op == IR_UNIFY_CONST) {
+        g_emit.op_u_why = (ok && k && (k->op == IR_LIT_ATOM || k->op == IR_LIT_INTEGER)) ? 0 : 1;
+        if (!g_emit.op_zres && g_emit.op_u_why == 0) {
+            g_emit.op_u_atom = (k->op == IR_LIT_ATOM);
+            g_emit.op_u_ktag = g_emit.op_u_atom ? (long)DT_PLATOM : (long)DT_I;
+            g_emit.op_u_kval = g_emit.op_u_atom ? (uint64_t)(unsigned)prolog_atom_intern(IR_LIT(k).sval ? IR_LIT(k).sval : "") : (uint64_t)IR_LIT(k).ival;
+        }
+    }
+    if (nd && nd->op == IR_UNIFY_STRUCT) {
+        g_emit.op_u_fid = (k && k->op == IR_LIT_INTEGER) ? (long)IR_LIT(k).ival : 0;
+        g_emit.op_u_why = !(ok && k && k->op == IR_LIT_INTEGER) ? 1 : g_emit.op_off < 0 ? 2 : prolog_functor_arity((int)g_emit.op_u_fid) < 1 ? 3 : 0;
+    }
+    if (nd && (nd->op == IR_UNIFY_FIRST || nd->op == IR_UNIFY_VALUE)) {
+        g_emit.op_u_vo = (ok && vn) ? bb_varslot_peek(vn) : -1;
+        g_emit.op_u_why = !(ok && vn) ? 1 : g_emit.op_u_vo < 0 ? 4 : 0;
+    }
 }

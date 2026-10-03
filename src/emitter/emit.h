@@ -578,6 +578,15 @@ typedef struct {
     int                          dstar_n;
     cv_t                         fg_bind;
     int                          fg_bind_built;
+    int                          op_u_why;
+    int                          op_u_kid;
+    int                          op_u_slot;
+    long                         op_u_idx;
+    long                         op_u_fid;
+    int                          op_u_atom;
+    long                         op_u_ktag;
+    uint64_t                     op_u_kval;
+    int                          op_u_vo;
 } sm_emit_t;
 extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))

@@ -93,7 +93,10 @@ lang:prolog	src/parsers/prolog/
 lang:prolog	src/lower/lower_prolog.c
 lang:prolog	src/lower/pl_arith_names.h
 lang:prolog	src/lower/pl_control_names.h
-lang:prolog	src/templates/bb/bb_unify.cpp
+lang:prolog	src/templates/bb/bb_unify_const.cpp
+lang:prolog	src/templates/bb/bb_unify_struct.cpp
+lang:prolog	src/templates/bb/bb_unify_first.cpp
+lang:prolog	src/templates/bb/bb_unify_value.cpp
 lang:raku	src/parsers/raku/
 lang:raku	src/lower/lower_raku.c
 lang:pascal	src/parsers/pascal/
