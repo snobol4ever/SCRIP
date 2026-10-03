@@ -251,6 +251,7 @@ test_gate_icn_a_suspended_variable_survives_the_procedure_boundary.sh	WIRED	-	-	
 test_gate_icn_a_trapped_substring_past_its_shrunk_subject_raises_205.sh	WIRED	-	-	-
 test_gate_icn_a_variable_operand_derefs_at_the_operation.sh	WIRED	-	-	-
 test_gate_icn_alternation_beyond_32_arms.sh	WIRED	-	-	-
+test_gate_icn_an_error_after_a_return_reports_the_callers_line.sh	WIRED	-	-	-
 test_gate_icn_an_external_value_answers_type_image_copy_identity_and_sort_as_iconx.sh	WIRED	-	-	-
 test_gate_icn_apply_invocation_of_a_generator_opens_one_level_not_two.sh	WIRED	-	-	-
 test_gate_icn_argcheck_filter_admits_every_table_row.sh	WIRED	-	-	-
@@ -336,7 +337,6 @@ test_gate_icn_the_cset_registry_is_weak_so_a_dead_computed_cset_leaves_the_colle
 test_gate_icn_traceback_corpus_pairs_are_oracle_exact.sh	WIRED	-	-	-
 test_gate_icn_traceback_names_the_source_file_not_the_last_argv.sh	WIRED	-	-	-
 test_gate_icn_traced_call_reports_its_own_call_site_line.sh	WIRED	-	-	-
-test_gate_icn_an_error_after_a_return_reports_the_callers_line.sh	WIRED	-	-	-
 test_gate_icn_unreferenced_linked_procedures_are_not_emitted.sh	WIRED	-	-	-
 test_gate_icn_version_keyword_is_the_oracles.sh	WIRED	-	-	-
 test_gate_icn_write_is_byte_exact_through_an_embedded_nul.sh	WIRED	-	-	-
@@ -439,6 +439,7 @@ test_gate_pas_a_nil_or_undefined_pointer_is_never_dereferenced.sh	WIRED	-	-	-
 test_gate_pas_a_number_never_touches_a_following_word.sh	WIRED	-	-	-
 test_gate_pas_a_number_read_from_a_textfile_is_an_iso_signed_number.sh	WIRED	-	-	-
 test_gate_pas_a_numeric_literal_fits_what_scrip_represents.sh	WIRED	-	-	-
+test_gate_pas_a_pack_records_directive_sets_the_field_alignment_of_the_records_after_it.sh	WIRED	-	-	-
 test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
 test_gate_pas_a_required_procedure_is_activated_with_its_parameters.sh	WIRED	-	-	-
 test_gate_pas_a_set_held_in_a_record_field_combines_as_a_set.sh	WIRED	-	-	-
@@ -495,15 +496,15 @@ test_gate_pas_read_at_end_of_line_yields_a_space.sh	WIRED	-	-	-
 test_gate_pas_readln_and_writeln_require_a_textfile.sh	WIRED	-	-	-
 test_gate_pas_real_record_fields_read_back_as_reals.sh	WIRED	-	-	-
 test_gate_pas_record_variables_are_scoped_to_their_procedure.sh	WIRED	-	-	-
-test_gate_pas_a_pack_records_directive_sets_the_field_alignment_of_the_records_after_it.sh	WIRED	-	-	-
-test_gate_pas_sizeof_of_an_array_or_an_empty_record_is_its_byte_count.sh	WIRED	-	-	-
 test_gate_pas_set_constructor_takes_a_subrange_member.sh	WIRED	-	-	-
 test_gate_pas_setlength_resizes_a_string_to_the_new_length.sh	WIRED	-	-	-
+test_gate_pas_sizeof_of_an_array_or_an_empty_record_is_its_byte_count.sh	WIRED	-	-	-
 test_gate_pas_succ_and_pred_keep_their_arguments_type.sh	WIRED	-	-	-
 test_gate_pas_the_input_buffer_variable_is_the_next_character.sh	WIRED	-	-	-
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
 test_gate_pas_variant_arms_overlay_the_same_storage.sh	WIRED	-	-	-
+test_gate_pas_zero_based_strings_make_low_zero_and_index_from_zero_after_the_directive.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
 test_gate_perf_fmt_refuses_a_dark_cell.sh	WIRED	-	-	-
 test_gate_picker_autounblock.sh	WIRED	-	-	-
@@ -618,11 +619,11 @@ test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_raku_parse_census_measures_over_a_printed_denominator.sh	WIRED	-	-	-
 test_gate_raku_port_trace.sh	WIRED	-	-	-
 test_gate_raku_predeclared_names_agree_with_rakudo.sh	WIRED	-	-	-
-test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
 test_gate_raku_reversed_meta_operator_agrees_with_rakudo.sh	WIRED	-	-	-
-test_gate_raku_whatevercode_curries_as_rakudo_does.sh	WIRED	-	-	-
+test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
 test_gate_raku_roast_bucket_names_the_stage_the_file_died_in.sh	WIRED	-	-	-
 test_gate_raku_unicode_lexemes.sh	WIRED	-	-	-
+test_gate_raku_whatevercode_curries_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_rc8a_gc_coverage.sh	WIRED	-	-	-
 test_gate_readme_grid_cell_is_a_multiple_not_the_ratio.sh	WIRED	-	-	-
 test_gate_readme_suite_table_matches_suites_tsv.sh	WIRED	-	-	-
@@ -710,6 +711,7 @@ test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh	
 test_gate_sno_a_define_call_on_a_default_build_never_enters_the_trace_layer.sh	WIRED	-	-	-
 test_gate_sno_a_define_inside_a_code_fragment_defines_the_function.sh	WIRED	-	-	-
 test_gate_sno_a_define_used_as_a_value_rebinds_the_function_as_a_statement_define_does.sh	WIRED	-	-	-
+test_gate_sno_a_distinct_eval_text_leaves_no_residue_once_its_chain_is_released.sh	WIRED	-	-	-
 test_gate_sno_a_dynamic_function_called_from_a_code_built_function_returns_its_value.sh	WIRED	-	-	-
 test_gate_sno_a_failed_unary_minus_or_plus_takes_its_boxs_failure_exit.sh	WIRED	-	-	-
 test_gate_sno_a_fence_after_a_live_deferred_thunk_finds_its_own_slots.sh	WIRED	-	-	-
@@ -771,7 +773,6 @@ test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_error_voice_statement_number_from_a_code_map_no_per_statement_store.sh	WIRED	-	-	-
 test_gate_sno_errtype_and_errtext_are_set_before_a_fatal_error_exits.sh	WIRED	-	-	-
 test_gate_sno_eval_chains_nothing_references_are_reclaimed_and_a_full_code_pool_is_loud.sh	WIRED	-	-	-
-test_gate_sno_a_distinct_eval_text_leaves_no_residue_once_its_chain_is_released.sh	WIRED	-	-	-
 test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_string_opens_its_chain_from_the_box_and_lands_with_no_c_frame.sh	WIRED	-	-	-
@@ -860,8 +861,8 @@ test_gate_swi_runner_grades_a_signal_death_crash_never_fail.sh	WIRED	-	-	-
 test_gate_table_convert_creation_order.sh	WIRED	-	-	-
 test_gate_template_form_census_names_a_planted_two_form_box.sh	WIRED	-	-	-
 test_gate_template_medium_invisible.sh	WIRED	-	-	-
-test_gate_template_watch_names_a_planted_violation_by_commit.sh	WIRED	-	-	-
 test_gate_template_returns_count_per_function.sh	WIRED	-	-	-
+test_gate_template_watch_names_a_planted_violation_by_commit.sh	WIRED	-	-	-
 test_gate_term_wordref_ratchet.sh	WIRED	-	-	-
 test_gate_testpgms_grades_a_spitbol_post_mortem_through_the_one_error_voice.sh	WIRED	-	-	-
 test_gate_the_default_stack_and_heap_are_spitbols.sh	WIRED	-	-	-
@@ -890,7 +891,6 @@ test_gate_queue_is_an_index.sh	RULING	reads the LIVE postoffice: grades rows six
 test_gate_raku_monitor_agrees_with_rkx_on_use_blocks_and_stores.sh	RULING	needs the instrumented Rakudo fork (rkx) built at /home/resources/rakudo-mon; it is the Raku lane's monitor-alignment proof, run by hq_raku per landing that touches lower_raku.c's trace hooks, and refuses rc=2 where rkx is absent -- wiring it is the officers' call (CEO-1270)	hq_raku	2026-09-25T22:21Z
 test_gate_raku_rungs_is_clean_at_the_tiny_arena.sh	RULING	DELIBERATELY OUT OF THE BLOCKING SET ON COST, NOT ON DOUBT -- same shape as the Prolog sibling gate (46f348488): it runs the Raku rungs ONCE PER ARM (control + tiny arena + one arm per declared stress point), each a full corpus_suite_harness pass, against a single-board cost well under a full rungs run. TENET condition 2 (ceo CEO-1011) holds make test to a shared serial resource on one 16-core box across ten seats, and wiring a multi-arm rungs sweep into that recipe caps every seat's preflight to buy one lane's GC-item-4 verdict. This row (raku-gc-zero-gradings-lost-to-the-collector-across-the-arena-and-stress-axes-named-not-counted) is the owner; it is currently RUNNING, not DONE, so the gate's own population is not yet final. Any landing that claims raku GC-item-4 (zero gradings lost across arena/stress) clean cites this gate's own output directly. Re-examine if the blocking set ever gets cheap enough, or if this is re-cut to a witness subset.	hq_raku	2026-09-21T18:33Z
 test_gate_s4e_release_verbs_mark_last_row.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
-test_gate_sno_code_pool_exhaustion_is_a_numbered_error.sh	RULING	REFUSES rc=2 by design until the executable pool can be sized from SCRIP_BB_POOL_MB and its exhaustion is a numbered error (row snobol4-executable-pool-exhaustion-is-silent-and-fragments-are-never-freed, cfo 2026-09-12); wired in the commit that makes it green	cfo	2026-09-12T23:53Z
 test_gate_sno_define_prototype_follows_the_executed_define.sh	RULING	RED by design until the prototype cure lands (row snobol4-gimpel-recursive-list-functions-overflow-the-call-stack-where-spitbol-completes, cfo 2026-09-12): one activation per distinct prototype; a red DONE-WHEN is not an invariant and gets wired in the commit that makes it green	cfo	2026-09-12T19:34Z
 test_gate_snocone_a_failed_call_entering_an_if_branch_keeps_the_spine.sh	RULING	RED BY DESIGN: 9 SIGSEGV witnesses (a failed out-of-line call whose omega enters an if branch runs off the zeta spine) wait on the cto's cure in the emitter's zeta-depth runs; the cure's landing wires it into make test in the same commit, and its 4 controls are green today	hq_snocone	2026-09-27T22:27Z
 test_gate_snocone_gc_share_named_and_rungs_clean_under_forced_collection.sh	RULING	The DONE-WHEN of row snocone-gc-the-snocone-share-of-the-unmapped-slot-population-censused-by-name-and-the-master-clean-under-forced-collection, WHICH CLOSED GREEN 2026-09-20 on SCRIP 81c00a5be: NO-MAP=0, decidable at every band point, rungs 336/336 both modes at arena_mb=1 across the default band "1 16" and re-swept clean across "1 5 16 25 64 100" with an empty NAME SET at all six. DELIBERATELY STAYS OUT OF `make test`: ~3 min PER BAND POINT is exactly the arm CONDITION 2 says not to add to a serial blocking set that ten seats queue through. It stays a LANE gate run by hq_snocone per landing. Wiring it is the coo's call and this lane is not asking for it -- the cheap 1.03s witness gate beside it is the one worth the blocking set's time.	hq_snocone	2026-09-20T22:1xZ
@@ -974,7 +974,6 @@ test_gate_oracle_bf_capable.sh	TASK	-	-	-
 test_gate_out_sweep_flaky.sh	TASK	-	-	-
 test_gate_p7_prolog_setjmp_gone.sh	TASK	-	-	-
 test_gate_pas_frame_pairing.sh	TASK	-	-	-
-test_gate_pas_zero_based_strings_make_low_zero_and_index_from_zero_after_the_directive.sh	WIRED	-	-	-
 test_gate_pascal_empty_corpus_refusal.sh	TASK	-	-	-
 test_gate_pascal_m3.sh	TASK	-	-	-
 test_gate_pascal_m4.sh	TASK	-	-	-
