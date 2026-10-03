@@ -777,7 +777,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       # ⛔⭐ MODE NONET (Lon 2026-09-25, in-chat to the ceo: "Go now to NONET mode." and, asked which five HQs stand: "SNO, PL, PAS, SNOCONE, and ICON"; ceo CEO-1266).
                       # Written by name for CEO-755b's reason: before this arm every hq_* seat -- hq_raku and the lettered legacy names included -- was admitted under NONET by FALLING OUT of the case.
                       NONET) case "$_seat" in hq_icon|hq_prolog|hq_snobol4|hq_snocone|hq_pascal) : ;; *) _dr "an HQ" "Under NONET five LANGUAGE HQs stand -- hq_icon hq_prolog hq_snobol4 hq_snocone hq_pascal -- and $_seat is not one of them: RAKU is the cto's and REBUS the ceo's (Lon 2026-09-25, CEO-1266).";; esac;;
-                      # ⛔⭐ MODE SEXTET REDEFINED (Lon 2026-10-02 19:5x, in-chat to the ceo: "Do it yourself." and "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."; ceo CEO-1433): the four officers and hq_icon and hq_snobol4; the CEO-912 SEXTET (hq_prolog and hq_icon) is history.
+                      # ⛔⭐ MODE SEXTET REDEFINED (Lon 2026-10-02 19:2x, in-chat to the ceo: "Do it yourself." and "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."; ceo CEO-1433): the four officers and hq_icon and hq_snobol4; the CEO-912 SEXTET (hq_prolog and hq_icon) is history.
                       SEXTET) case "$_seat" in hq_icon|hq_snobol4) : ;; *) _dr "an HQ" "Under SEXTET only hq_icon and hq_snobol4 stand among the HQs -- the four officers and those two work rows, and $_seat is stood down (Lon 2026-10-02, CEO-1433).";; esac;;
                       # ⛔⭐ MODE DECTET, EXPLICIT AND NOT A FALLTHROUGH (ceo CEO-979, 2026-09-20, on Lon's "Can you add some seats to fix bugs alongside the GC work?"). Before this arm existed an HQ under DECTET was
                       # admitted by FALLING OUT of this case, which returns success -- the admission was correct and nothing in the file said it was INTENDED, which is CEO-755b's class exactly: the hazard is not that
@@ -1023,7 +1023,7 @@ s4e_lane_owner_of_language() {
       # mode."): one working seat, the ceo, every language the ceo's; the officers and the seven HQs stood down with their claims
       # parked in place (no re-lane, the CEO-1357/1372 precedent). The TENET table above is the flip-back template. THIS TABLE IS
       # MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
-      # ⛔⭐ MODE SEXTET (CEO-1433, 2026-10-02 19:5x, Lon in-chat to the ceo: "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."): ICON to hq_icon, SNOBOL4 to hq_snobol4, the other five to the ceo; rows with an owner cell keep their owner.
+      # ⛔⭐ MODE SEXTET (CEO-1433, 2026-10-02 19:2x, Lon in-chat to the ceo: "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."): ICON to hq_icon, SNOBOL4 to hq_snobol4, the other five to the ceo; rows with an owner cell keep their owner.
        icon)     printf 'hq_icon';;
        prolog)   printf 'ceo';;
        snobol4)  printf 'hq_snobol4';;
