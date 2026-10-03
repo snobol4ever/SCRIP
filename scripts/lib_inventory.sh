@@ -253,22 +253,25 @@ inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
 # class NEEDS_TERMINAL, a unit whose function is to drive an interactive terminal (cursor addressing, termcap, ANSI control, single-key reads, /dev/tty), and class
 # NEEDS_NETWORK, a unit whose function is to talk to a network peer (HTTP); a graded run has neither a terminal nor a peer, so they leave the denominator named,
 # exactly as the graphics units do. Each row's evidence is the unit's own purpose and the oracle's verdict, never a failure of ours.
+# ⭐ AND THE UNITS THAT REACH LOADFUNC (Lon 2026-10-03 13:0x CDT, in-chat to the ceo, verbatim: "Move the loadfunc feature until later, so exclude those tests."; CEO-1470):
+# class NEEDS_LOADFUNC, a unit whose own run loads a C function through loadfunc -- measured, never read, by the dynamic loader's trace of the oracle's run opening libcfunc.so
+# (the units that link cfunc: vhttp, htget, and weblinks through vhttp). A unit whose source mentions loadfunc but whose run never reaches the call stays in the denominator.
 # ⭐ AND THE PROGRAMS LON DEFERRED PAST THE ANNOUNCEMENT (Lon 2026-09-27 19:3x CDT, in-chat to the ceo, verbatim: "The EXIT() feaure to
 # save/resume executables will be done but after the announcement"; ceo CEO-1345): class DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27, a
 # program the oracle RUNS but that needs a feature Lon scheduled after the announcement (EXIT(3,file)'s resumable load module). The
 # runner still grades it and names its verdicts; it leaves pass, fail, rc and the denominator, and returns to them the day the row lands.
 # inventory_excluded_names [<pkgdir>] -- echo column 1 of <pkgdir>/EXCLUDED.tsv (default $INV_DIR); nothing when the file is absent;
 # rc 2 on a row that is not name<TAB>CLASS<TAB>evidence with CLASS one of NOT_SPITBOL_DIALECT (Lon's SPITBOL test, one outcome),
-# NEEDS_GRAPHICS_FACILITY (Lon's graphics word), NEEDS_TERMINAL or NEEDS_NETWORK (Lon's word below) or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 (Lon's EXIT() word, CEO-1345).
+# NEEDS_GRAPHICS_FACILITY (Lon's graphics word), NEEDS_TERMINAL, NEEDS_NETWORK or NEEDS_LOADFUNC (Lon's words below) or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 (Lon's EXIT() word, CEO-1345).
 inventory_excluded_names() {
     local d="${1:-${INV_DIR:-}}" f
     f="$d/EXCLUDED.tsv"
     [ -f "$f" ] || return 0
     awk -F'\t' '
         $0 ~ /^#/ || NF == 0 { next }
-        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY" && $2 != "NEEDS_TERMINAL" && $2 != "NEEDS_NETWORK" && $2 != "DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
+        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY" && $2 != "NEEDS_TERMINAL" && $2 != "NEEDS_NETWORK" && $2 != "NEEDS_LOADFUNC" && $2 != "DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
         { print $1 }
-        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT, NEEDS_GRAPHICS_FACILITY, NEEDS_TERMINAL, NEEDS_NETWORK or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
+        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT, NEEDS_GRAPHICS_FACILITY, NEEDS_TERMINAL, NEEDS_NETWORK, NEEDS_LOADFUNC or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
 }
 # inventory_is_excluded <pkgdir> <name> -- 0 when EXCLUDED.tsv names <name> (bare or package-relative), 1 otherwise.
 inventory_is_excluded() {
