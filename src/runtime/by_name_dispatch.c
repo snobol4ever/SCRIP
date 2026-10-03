@@ -2506,31 +2506,6 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_ax_eval_val(DESCR_t t, DESCR_t *out, void **ball) { return pl_ax_eval(t, out, ball); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t *plw_mkc_kids(DESCR_t *srcs, int ar, pl_tr_ctx_t *cx) {
-    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
-    for (int i = 0; i < ar; i++) {
-        DESCR_t t = srcs[i];
-        DESCR_t *F = plw_cell_deref(plw_entry(&t));
-        if (plw_unbound_tag(F)) {
-            kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i];
-            DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)&kids[i];
-            plw_bind(F, r, cx);
-        } else kids[i] = *F;
-    }
-    return kids;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t plw_mkc_build(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    int ar = nargs - 1, fid;
-    extern int prolog_atom_intern(const char *);
-    if (args[0].v == (DTYPE_t)DT_I) fid = (int)args[0].i;
-    else if (args[0].v == (DTYPE_t)DT_PLATOM) fid = prolog_functor_intern((int)args[0].i, ar);
-    else { const char *fname = VARVAL_fn(args[0]); fid = prolog_functor_intern(prolog_atom_intern(fname ? fname : "?"), ar); }
-    DESCR_t *kids = plw_mkc_kids(args + 1, ar, cx);
-    DESCR_t c = {0}; c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)fid; c.p = (void *)kids;
-    return c;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dop_cmp(const char *op, DESCR_t *args, int nargs, DESCR_t *out) {
     (void)nargs;
     extern DESCR_t rt_pl_deref_val(DESCR_t); DESCR_t a = rt_pl_deref_val(args[0]); DESCR_t b = rt_pl_deref_val(args[1]);
@@ -2609,12 +2584,6 @@ int rt_pl_unify_value_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     { char *tr0 = cx->tr; ok = plw_unify_cells(a, b, cx); if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
     rt_pl_tr_gc_sync(cx->tr);
     return ok;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_mkc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    if (nargs < 1) return FAILDESCR;
-    rt_pl_tr_gc_sync(cx->tr);
-    { DESCR_t out = plw_mkc_build(args, nargs, cx); rt_pl_tr_gc_sync(cx->tr); return out; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_is_cold_c(DESCR_t *args, int nargs, void **ball) {

@@ -124,16 +124,6 @@ RTX_FUNC(rt_pl_unify_value)
     add     rsp, CTX_FRAME
     ret
 RTX_ENDF(rt_pl_unify_value)
-RTX_FUNC(rt_pl_dop_mkc)
-    sub     rsp, CTX_FRAME
-    mov     qword ptr [rsp + CTX_TR], r12
-    mov     qword ptr [rsp + CTX_B], r13
-    mov     rdx, rsp
-    RTX_CCALL(rt_pl_dop_mkc_c)
-    mov     r12, qword ptr [rsp + CTX_TR]
-    add     rsp, CTX_FRAME
-    ret
-RTX_ENDF(rt_pl_dop_mkc)
 #define PL_COLD_BALL_OP(nm) RTX_FUNC(rt_pl_##nm##_cold); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rcx, [rsp + 8]; RTX_CCALL(rt_pl_##nm##_cold_c); mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
     test rcx, rcx; jz 9f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL; xor edx, edx; 9: ret; RTX_ENDF(rt_pl_##nm##_cold)
 PL_COLD_BALL_OP(ax)

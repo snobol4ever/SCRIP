@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 266
+#define RTX_CLOB_TAB_N 265
 #define RTX_CLOB_TAB_N_CLOBBERING 0
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -147,7 +147,6 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_halt", 0 },
     { "rt_pl_dop_keysort", 0 },
     { "rt_pl_dop_list_guard", 0 },
-    { "rt_pl_dop_mkc", 0 },
     { "rt_pl_dop_msort", 0 },
     { "rt_pl_dop_name", 0 },
     { "rt_pl_dop_nb_getval", 0 },

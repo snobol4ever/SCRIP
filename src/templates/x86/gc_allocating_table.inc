@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2028
+#define GC_ALLOC_TAB_N 2024
 #define GC_ALLOC_TAB_N_VOID 234
-#define GC_ALLOC_TAB_N_DESCR 1107
-#define GC_ALLOC_TAB_N_OTHER 681
+#define GC_ALLOC_TAB_N_DESCR 1104
+#define GC_ALLOC_TAB_N_OTHER 680
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -911,8 +911,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plw_bind", GC_RET_VOID },
     { "plw_bind_x", GC_RET_VOID },
     { "plw_det_cell", GC_RET_OTHER },
-    { "plw_mkc_build", GC_RET_DESCR },
-    { "plw_mkc_kids", GC_RET_OTHER },
     { "plw_unify_cell_val", GC_RET_OTHER },
     { "plw_unify_cells", GC_RET_OTHER },
     { "plw_unify_cells_oc", GC_RET_OTHER },
@@ -1544,8 +1542,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_keysort_c", GC_RET_DESCR },
     { "rt_pl_dop_list_guard", GC_RET_DESCR },
     { "rt_pl_dop_list_guard_c", GC_RET_OTHER },
-    { "rt_pl_dop_mkc", GC_RET_DESCR },
-    { "rt_pl_dop_mkc_c", GC_RET_DESCR },
     { "rt_pl_dop_msort", GC_RET_DESCR },
     { "rt_pl_dop_msort_c", GC_RET_DESCR },
     { "rt_pl_dop_name", GC_RET_DESCR },

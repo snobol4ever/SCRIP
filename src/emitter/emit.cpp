@@ -1056,6 +1056,7 @@ extern "C" int icn_builtin_is_known(const char *);
 extern "C" int icn_builtin_is_generator(const char *);
 extern "C" int rt_proc_entry_pending(const char *);
 extern "C++" void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
+extern "C" int dop_direct_leaf_known(const char * fn, int narg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bb_call_route_classify(IR_t * nd) {
     const char * fn = g_emit.op_sval ? g_emit.op_sval : ""; int64_t narg = g_emit.op_ival; IR_t * a0 = ir_call_arg(nd, 0); double dv = g_emit.op_dval;
@@ -1063,7 +1064,7 @@ int bb_call_route_classify(IR_t * nd) {
     if (k == IR_CALL_BUILTIN_GEN) return CALL_ROUTE_BYNAME_GEN;
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_PROC_STAGED) return CALL_ROUTE_PROC_STAGED;
-    if (k == IR_CALL && fn[0]) { const char * _ds = 0; if (dop_direct_fp(fn, narg, &_ds)) return CALL_ROUTE_FN; }
+    if (k == IR_CALL && fn[0] && dop_direct_leaf_known(fn, (int)narg)) return CALL_ROUTE_FN;
     if (k == IR_CALL_BUILTIN && fn[0] && rt_builtin_is_known(fn)) return CALL_ROUTE_FN;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_generator(fn)) return CALL_ROUTE_BYNAME;
     if (k == IR_CALL_ICON && fn[0] && icn_builtin_is_known(fn)) return CALL_ROUTE_FN;

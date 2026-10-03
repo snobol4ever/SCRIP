@@ -14,10 +14,14 @@ DESCR_t rt_pl_anum_cold(DESCR_t *, int);
 DESCR_t rt_pl_type_cold(DESCR_t *, int, const char *);
 DESCR_t rt_pl_atop_cold(DESCR_t *, int, const char *);
 DESCR_t rt_pl_dop_unify(DESCR_t *, int);
+void rt_pl_tr_refuse(const char *);
+#include "rt/gc_heap.h"
 }
+#include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
+#include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-enum { PLK_NONE = 0, PLK_AX, PLK_CMP, PLK_IS, PLK_TYPE, PLK_ATOP, PLK_ZGUARD, PLK_ANUM };
+enum { PLK_NONE = 0, PLK_AX, PLK_CMP, PLK_IS, PLK_TYPE, PLK_ATOP, PLK_ZGUARD, PLK_ANUM, PLK_MKC };
 enum { PLR_ANY = 0, PLR_TEXT, PLR_NUM, PLR_INT0, PLR_UNB, PLR_UNB_OR_INT0, PLR_UNB_OR_TEXT, PLR_COMP, PLR_NONVAR, PLR_TEXT_OR_NUM, PLR_INTCODE };
 static const int PL_L_COLD = 190, PL_L_OK = 180, PL_L_FAIL = 195;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -36,6 +40,7 @@ static int pl_leaf_kind(const char * fn, int narg, const char ** op) {
     static const char * const types[] = { "var", "nonvar", "atom", "number", "integer", "float", "atomic", "compound", "callable", 0 };
     *op = 0;
     if (!fn || fn[0] != '$') return PLK_NONE;
+    if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
     if (!strcmp(fn, "$ax_zguard")) return narg == 2 ? PLK_ZGUARD : PLK_NONE;
     if (!strcmp(fn, "$ax_eguard")) return PLK_NONE;
     if (!strncmp(fn, "$ax_", 4)) { *op = fn + 4; return pl_ax_arity(*op) == narg ? PLK_AX : PLK_NONE; }
@@ -221,9 +226,62 @@ static std::string pl_arm_anum(int narg, int argbase, int resoff, IR_t * name_no
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string pl_arm_mkc(int narg, int argbase, int resoff, IR_t * fnode) {
+    return IF(!fnode || fnode->op != IR_LIT_INTEGER,
+               x86_bomb("PL-MKC: the functor operand of a $mkc is the id the lowerer interned (an IR_LIT_INTEGER); the R1.3 re-intern fallback is deleted (the cto's check 4, 2026-10-03)"))
+         + IF(fnode && fnode->op == IR_LIT_INTEGER,
+               x86("comment", "PL-MKC (ARCH-PROLOG-C-OUT-OF-THE-BOX 3.2): the box builds the compound -- one allocating call for the argument block (HB_DVEC; the allocator's own zero-fill is what types the "
+                              "cells before the poll, both arms), the result cell {DT_PLREF, functor id, block} stored before the poll, then the kids by an inline deref/copy loop with no call in it; an "
+                              "unbound kid gets a fresh self-reference in the block and its cell is bound to it under the trail test. No rt_pl_dop_mkc, no plw_mkc_kids.")
+         + x86("mov32", "edi", (long)HB_DVEC)
+         + x86("mov32", "esi", (long)(16 * (narg - 1)))
+         + x86("call", "rt_gcheap_alloc", (uint64_t)(uintptr_t)(void *)rt_gcheap_alloc)
+         + x86_movabs_r64("rcx", (uint64_t)DT_PLREF | ((uint64_t)(uint32_t)IR_LIT(fnode).ival << 32))
+         + x86("note", "the result cell is parked in argv[0] (the functor literal's cell, dead once its id is baked above) across the poll and the kid loop: the box's result slot may be one of the kids' argv cells")
+         + x86("mov", FRQ(argbase), "rcx")
+         + x86("mov", FRQ(argbase + 8), "rax")
+         + x86_rt_gc_poll()
+         + x86("mov", "r10", FRQ(argbase + 8))
+         + x86("lea", "r9", FRQ(argbase + 16))
+         + x86("mov", "r11", (long)(narg - 1))
+         + x86("def", L(100))
+         + x86("test", "r11", "r11")
+         + x86("jz", L(102))
+         + x86("mov", "rdi", "r9")
+         + PL_DEREF(103, 104, 105, 106)
+         + PL_UNBOUND(107, 108)
+         + x86("mov", "rax", RDQ("rdi", 0))
+         + x86("mov", "rdx", RDQ("rdi", 8))
+         + x86("mov", RDQ("r10", 0), "rax")
+         + x86("mov", RDQ("r10", 8), "rdx")
+         + x86("jmp", L(101))
+         + x86("def", L(107))
+         + x86("mov", RDQ("r10", 0), (long)DT_PLVAR)
+         + x86("mov", RDQ("r10", 8), "r10")
+         + PL_TRAIL(109, 111)
+         + x86("mov", RDQ("rdi", 0), (long)DT_PLVAR)
+         + x86("mov", RDQ("rdi", 8), "r10")
+         + x86("def", L(101))
+         + x86("add", "r9", 16L)
+         + x86("add", "r10", 16L)
+         + x86("sub", "r11", 1L)
+         + x86("jmp", L(100))
+         + x86("def", L(102))
+         + x86("mov", "rax", FRQ(argbase))
+         + x86("mov", "rdx", FRQ(argbase + 8))
+         + x86("mov", FRQ(resoff), "rax")
+         + x86("mov", FRQ(resoff + 8), "rdx")
+         + x86_gamma()
+         + x86("def", L(111))
+         + x86("mov", "rdi", "r12")
+         + x86("call", "rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse)
+         + x86_beta_trampoline());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand) {
     const char * op = 0;
     switch (pl_leaf_kind(fn, narg, &op)) {
+        case PLK_MKC:    return pl_arm_mkc(narg, argbase, resoff, first_operand);
         case PLK_AX:     return pl_arm_ax(op, narg, argbase, resoff);
         case PLK_CMP:    return pl_arm_cmp(op, argbase, resoff);
         case PLK_IS:     return pl_arm_is(argbase, resoff);
@@ -240,6 +298,8 @@ std::string pl_leaf_zd_cold(const char * fn, int narg) {
     std::string s = x86("comment", (std::string("PL-R7 ") + fn + " under ZD: the cold value service alone (no Prolog graph takes this route today)").c_str());
     s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)narg);
     switch (k) {
+        case PLK_MKC:
+            return x86_bomb("PL-MKC under ZD: a Prolog body term is a flat-frame box; no ZD arm exists");
         case PLK_AX:
             s += pl_opstr("rdx", op) + x86("call", "rt_pl_ax_cold", (uint64_t)(uintptr_t)(void *)rt_pl_ax_cold);
             return s + x86_rt_gc_poll_res();

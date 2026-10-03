@@ -9,58 +9,7 @@ extern "C" {
 #include "x86_asm.h"
 static_assert(offsetof(VCELL_t, cellp) == 0, "the deref follows a DT_N slen 2 name through the VCELL's first word");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_SRC_RDI() (IF(!_.op_u_kid, x86("lea", "rdi", FRQ(_.op_u_slot))) \
-                    + IF(_.op_u_kid, \
-                          x86("note", "the cell is child " + std::to_string((long long)_.op_u_idx) + " of the parent box's compound: [parent.p + 16j]") \
-                        + x86("mov", "rax", FRQ(_.op_u_slot + 8)) \
-                        + x86("lea", "rdi", RDQ("rax", 16 * _.op_u_idx))))
-#define PL_DEREF(l0, lvar, ln2, ldone) (x86("note", "deref: follow a name (slen 1: the cell; slen 2: the VCELL's cell) or a bound PLVAR to the cell that holds the value; eax = its tag word") \
-                    + x86("def", L(l0)) \
-                    + x86("mov", "eax", RDD("rdi", 0)) \
-                    + x86("cmp", "al", (long)DT_PLVAR) \
-                    + x86("je", L(lvar)) \
-                    + x86("cmp", "al", (long)DT_N) \
-                    + x86("jne", L(ldone)) \
-                    + x86("mov", "rsi", RDQ("rdi", 8)) \
-                    + x86("test", "rsi", "rsi") \
-                    + x86("jz", L(ldone)) \
-                    + x86("mov", "ecx", RDD("rdi", 4)) \
-                    + x86("cmp", "ecx", 1L) \
-                    + x86("jne", L(ln2)) \
-                    + x86("cmp", "rsi", "rdi") \
-                    + x86("je", L(ldone)) \
-                    + x86("mov", "rdi", "rsi") \
-                    + x86("jmp", L(l0)) \
-                    + x86("def", L(ln2)) \
-                    + x86("cmp", "ecx", 2L) \
-                    + x86("jne", L(ldone)) \
-                    + x86("mov", "rsi", RDQ("rsi", 0)) \
-                    + x86("test", "rsi", "rsi") \
-                    + x86("jz", L(ldone)) \
-                    + x86("mov", "rdi", "rsi") \
-                    + x86("jmp", L(l0)) \
-                    + x86("def", L(lvar)) \
-                    + x86("mov", "rsi", RDQ("rdi", 8)) \
-                    + x86("test", "rsi", "rsi") \
-                    + x86("jz", L(ldone)) \
-                    + x86("cmp", "rsi", "rdi") \
-                    + x86("je", L(ldone)) \
-                    + x86("mov", "rdi", "rsi") \
-                    + x86("jmp", L(l0)) \
-                    + x86("def", L(ldone)))
-#define PL_UNBOUND(lbind, lbound) (x86("note", "unbound after the deref: the zero DESCR, DT_FAIL, a self PLVAR (the deref stopped on it) or a self name") \
-                    + x86("cmp", "al", 0L) \
-                    + x86("je", L(lbind)) \
-                    + x86("cmp", "al", (long)DT_FAIL) \
-                    + x86("je", L(lbind)) \
-                    + x86("cmp", "al", (long)DT_PLVAR) \
-                    + x86("je", L(lbind)) \
-                    + x86("cmp", "al", (long)DT_N) \
-                    + x86("jne", L(lbound)) \
-                    + x86("mov", "rsi", RDQ("rdi", 8)) \
-                    + x86("cmp", "rsi", "rdi") \
-                    + x86("je", L(lbind)) \
-                    + x86("def", L(lbound)))
+#include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unify_first() {
     x86_begin();
