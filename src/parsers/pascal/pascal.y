@@ -180,6 +180,7 @@ static int pas_is_charvar(const char *name);
 static int pas_var_is_real(const char *name);
 static int pas_is_setvar(const char *name);
 static int pas_is_singlevar(const char *name);
+static int pas_is_currencyexpr(tree_t *e);
 static int pas_is_pcharvar(const char *name);
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b);
 static int g_pas_pend_isbool;
@@ -676,6 +677,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 else if (is_char) { val = mk_chr_wrap(val); if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-2); }
                 else if (pas_is_boolexpr(val) || (val && val->t == TT_VAR && val->v.sval && pas_var_is_boolfam(val->v.sval))) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, bin(TT_NE, val, ilit(0))); ast_push(_w, leaf_s(TT_QLIT, "false,true")); val = _w; if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(5); }
                 else if (val && val->t == TT_VAR && val->v.sval && pas_is_singlevar(val->v.sval)) { if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-5); }
+                else if (pas_is_currencyexpr(val)) { if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-6); }
                 else if (val && val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) { val = pas_alpha_wrap(val); }
                 else if (pas_ca_is_read(val)) { val = pas_alpha_wrap(val); }
                 else if (val && val->t == TT_IDX && val->n >= 2 && val->c[0] && val->c[0]->t == TT_VAR && val->c[0]->v.sval && pas_is_strarr(val->c[0]->v.sval)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(_w, val); ast_push(_w, ilit(pas_strarr_lo(val->c[0]->v.sval))); val = _w; }
@@ -1128,6 +1130,8 @@ static void pas_charvar_add(const char *name) { if (g_pas_ncharvar < 256 && name
 static struct { char *name; } g_pas_singlevars[256]; static int g_pas_nsinglevar;
 static void pas_singlevar_add(const char *name) { if (g_pas_nsinglevar < 256 && name) { g_pas_singlevars[g_pas_nsinglevar++].name = ct_strdup(name); } }
 static int pas_is_singlevar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_nsinglevar; i++) if (g_pas_singlevars[i].name && !strcmp(g_pas_singlevars[i].name, name)) return 1; return 0; }
+static int pas_is_currencyvar(const char *name) { int u = pas_scope_uid(name); for (int i = g_pas_nscalarvartype - 1; name && i >= 0; i--) if (g_pas_scalarvartype[i].vname && g_pas_scalarvartype[i].uid == u && !strcmp(g_pas_scalarvartype[i].vname, name)) return !strcmp(g_pas_scalarvartype[i].tname, "currency"); return 0; }
+static int pas_is_currencyexpr(tree_t *e) { if (!e) return 0; if (e->t == TT_VAR) return e->v.sval && pas_is_currencyvar(e->v.sval); if (e->t == TT_ADD || e->t == TT_SUB || e->t == TT_MUL || e->t == TT_DIV || e->t == TT_MNS) { for (int i = 0; i < e->n; i++) if (pas_is_currencyexpr(e->c[i])) return 1; } return 0; }
 static struct { char *name; } g_pas_pcharvars[256]; static int g_pas_npcharvar;
 static void pas_pcharvar_add(const char *name) { if (g_pas_npcharvar < 256 && name) { g_pas_pcharvars[g_pas_npcharvar++].name = ct_strdup(name); } }
 static int pas_is_pcharvar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_npcharvar; i++) if (g_pas_pcharvars[i].name && !strcmp(g_pas_pcharvars[i].name, name)) return 1; return 0; }
@@ -1771,7 +1775,7 @@ static void pas_formal_chararrs(const char *sig, PNodeList *params) {
 }
 static void pas_formal_strtypes(const char *sig, PNodeList *params) {
     for (int i = 0, fi = 0; params && i < params->count; i++) { tree_t *id = params->items[i]; if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
-        const char *t = pas_sig_value_type(sig, fi++, 1); if (t && pas_string_type_kind(t)) pas_scalarvartype_add(id->v.sval, t); }
+        const char *t = pas_sig_value_type(sig, fi++, 1); if (t && (pas_string_type_kind(t) || !strcmp(t, "currency"))) pas_scalarvartype_add(id->v.sval, t); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_value_actuals_check(const char *callee, const PasDef *cd, PNodeList *args) {
