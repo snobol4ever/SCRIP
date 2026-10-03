@@ -57,10 +57,12 @@ for c in b: h=(h*256+c)%(2**55-55)
 print(h)' "$1"; }
 tree_canary() {
     ( cd "$(dirname "$1")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$2" - < "$1" > "$T/k.cdump" 2>/dev/null )
-    timeout "$TMO" "$3" -s4096m -d16384m < "$1" > "$T/k.sdump" 2>/dev/null
+    timeout "$TMO" "$3" -s4096m -d16384m < "${4:-$1}" > "$T/k.sdump" 2>/dev/null
     refused "$T/k.cdump" || [ "$(tree_fold "$T/k.cdump")" = "$(cat "$T/c.hash")" ] || { echo "C hash $(cat "$T/c.hash") is not the fold of its dump (${1#$CORPUS/})"; return; }
     refused "$T/k.sdump" || [ "$(tree_fold "$T/k.sdump")" = "$(cat "$T/s.hash")" ] || { echo ".sc hash $(cat "$T/s.hash") is not the fold of its dump (${1#$CORPUS/})"; return; }
     echo LIVE; }
+# CEO-1483: the .sc parser carries its own Preprocess pattern (text to text) ahead of its Compiland pattern, so it reads the RAW file; only the C parser reads the pre-step's twin. LPATH names the $include directories for both.
+export LPATH="$CORPUS/packages/icon/ipl/procs"
 # CEO-1366: macro processing is a pre-step; Icon sources go through out/scrip-ipp and BOTH parsers read the same preprocessed twin (prints the twin's path; rc 1 = the pre-step refused)
 pp_twin() { [ "$1" = icon ] || { echo "$2"; return 0; }; LPATH="$CORPUS/packages/icon/ipl/procs" "$ROOT/out/scrip-ipp" "$2" > "$T/pp.icn" 2>/dev/null || return 1; echo "$T/pp.icn"; }
 RC=0; GRADED=0; GREEN=0
@@ -78,7 +80,7 @@ for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
     while IFS= read -r f; do
         g=$(pp_twin "$L" "$f") || { rb=$((rb + 1)); continue; }
         ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" PARSER_TREE_HASH=1 timeout "$TMO" "$exe" - < "$g" > "$T/c.hash" 2>/dev/null ); crc=$?
-        PARSER_TREE_HASH=1 timeout "$TMO" "$T/$L.bin" -s4096m -d16384m < "$g" > "$T/s.hash" 2>/dev/null; src=$?
+        PARSER_TREE_HASH=1 timeout "$TMO" "$T/$L.bin" -s4096m -d16384m < "$f" > "$T/s.hash" 2>/dev/null; src=$?
         if [ $crc -eq 124 ] || [ $src -eq 124 ]; then u=$((u + 1)); continue; fi
         if [ $crc -ge 128 ]; then kc=$((kc + 1)); [ -n "$first" ] || first="C crashed rc=$crc ${f#$CORPUS/}"; continue; fi
         if [ $src -ne 0 ] && ! refused "$T/s.hash"; then ks=$((ks + 1)); [ -n "$first" ] || first=".sc crashed rc=$src ${f#$CORPUS/}"; continue; fi
@@ -86,14 +88,14 @@ for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
         if [ $cr = 1 ] && [ $sr = 1 ]; then rb=$((rb + 1))
         elif [ $cr = 1 ]; then rc_=$((rc_ + 1)); [ -n "$first" ] || first="C refused ${f#$CORPUS/}"
         elif [ $sr = 1 ]; then rs=$((rs + 1)); [ -n "$first" ] || first=".sc refused ${f#$CORPUS/}"
-        else hc=$((hc + 1)); [ -n "$canary" ] || canary=$(tree_canary "$g" "$exe" "$T/$L.bin")
+        else hc=$((hc + 1)); [ -n "$canary" ] || canary=$(tree_canary "$g" "$exe" "$T/$L.bin" "$f")
             if cmp -s "$T/c.hash" "$T/s.hash"; then m=$((m + 1))
         else d=$((d + 1)); [ -n "$first" ] || { first="DIFF ${f#$CORPUS/}"; firstf="$f"; }; fi; fi
     done < "$T/$L.files"
     if [ "${GATE_DETAIL:-}" = 1 ] && [ -n "$firstf" ]; then
         g=$(pp_twin "$L" "$firstf")
         ( cd "$(dirname "$firstf")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$exe" - < "$g" > "$T/c.dump" 2>/dev/null )
-        timeout "$TMO" "$T/$L.bin" -s4096m -d16384m < "$g" > "$T/s.dump" 2>/dev/null
+        timeout "$TMO" "$T/$L.bin" -s4096m -d16384m < "$firstf" > "$T/s.dump" 2>/dev/null
         first="$first: $(diff "$T/c.dump" "$T/s.dump" | grep -m2 '^[<>]' | cut -c1-60 | tr '\n' ' ')"
     fi
     [ "$canary" = LIVE ] || [ "$canary" = "" ] || { echo "  $L: ⛔ REFUSE(2) the hash canary: $canary"; RC=2; continue; }

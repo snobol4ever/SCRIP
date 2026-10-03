@@ -49,15 +49,16 @@ if [ $rebuild = 1 ] || [ ! -s "$twin" ] || [ "$parser" -nt "$twin" ] || [ "$SCRI
     python3 - "$plain" "$twin" <<'PY' || exit 2
 import sys
 src=open(sys.argv[1]).read()
-a='(Gray = (White | epsilon))'
-if src.count(a)!=1: print("REFUSE the transpiled parser has no unique Gray rule to hook", file=sys.stderr); sys.exit(2)
-src=src.replace(a,'(Gray = ((White | epsilon) @FARC *FarSet()))')
+import re
+m=re.findall(r'^\tGray = (.*)$', src, re.M)
+if len(m)!=1: print("REFUSE the transpiled parser has no unique Gray rule to hook", file=sys.stderr); sys.exit(2)
+src=src.replace('\tGray = '+m[0]+'\n','\tGray = ('+m[0]+' @FARC *FarSet())\n')
 b="\tInitCounter()\n"
 if src.count(b)!=1: print("REFUSE the transpiled driver has no unique InitCounter() call to hook", file=sys.stderr); sys.exit(2)
 src=src.replace(b,"\tDEFINE('FarSet()')\t:(FarSet_end)\nFarSet\t(FAR = GT(FARC,FAR) FARC)\n\t:(RETURN)\nFarSet_end\n\t(FAR = 0)\n"+b)
-cs=["(OUTPUT = 'Parse Error')", "(OUTPUT = 'Parse Error.')"]
+cs=["OUTPUT = 'Parse Error.'", "OUTPUT = 'Parse Error'"]
 if not any(src.count(c) for c in cs): print("REFUSE the transpiled driver prints no Parse Error", file=sys.stderr); sys.exit(2)
-for c in cs: src=src.replace(c,"(OUTPUT = 'Parse Error at ' FAR)")
+for c in cs: src=src.replace(c,"OUTPUT = 'Parse Error at ' FAR")
 open(sys.argv[2],'w').write(src)
 PY
 fi

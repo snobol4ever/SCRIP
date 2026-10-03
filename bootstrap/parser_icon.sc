@@ -543,7 +543,215 @@ Compiland = ( epsilon . *PushCounter()
               . *Reduce('Parse', nTop())
               . *PopCounter()
             );
+/* ==================================================================================================================== */
+/* Preprocess: text to text. The macro pre-pass of the language (Icon: $define $undef $ifdef $ifndef $else $endif $include $line $error, */
+/* the table of ipp.icn, JCON's preprocessor) generates the compiland text; the Compiland pattern above parses ONLY that text (Lon 2026-10-03, CEO-1483). */
+struct ppdef { pv }
+/* ==================================================================================================================== */
+/* the patterns are built the first time a source carries a directive: a program with none runs the Compiland alone, as before */
+function PPPat() {
+    pp_spc   = ' ' CHAR(9) CHAR(12) CHAR(13);
+    pp_nl    = CHAR(10);
+    pp_bs    = CHAR(92);
+    pp_sp    = '"' "'" '#' CHAR(10);
+    pp_lit   = ( '"' ARBNO(pp_bs LEN(1) | '_' pp_nl | NOTANY('"' pp_bs pp_nl)) '"'
+               | "'" ARBNO(pp_bs LEN(1) | '_' pp_nl | NOTANY("'" pp_bs pp_nl)) "'" );
+    pp_cmt   = '#' FENCE(BREAK(pp_nl) | REM);
+    pp_tok   = ( pp_lit | pp_cmt | NOTANY(pp_sp) FENCE(BREAK(pp_sp) | REM) | ANY('"' "'") );
+    pp_end   = ( FENCE(SPAN(pp_spc) | epsilon) ( RPOS(0) | '#' ) );
+    pp_dir   = ( FENCE(SPAN(pp_spc) | epsilon) '$' ( ANY(&UCASE &LCASE '0123456789' pp_spc) FENCE(BREAK(pp_nl) | REM) ) . pp_dl ( pp_nl | RPOS(0) ) . pp_nc
+                 . *PPDir(pp_dl, pp_nc) );
+    pp_txt   = ( ( pp_tok ARBNO(pp_tok) ) . pp_tl ( pp_nl | RPOS(0) ) . pp_nc . *PPTxt(pp_tl, pp_nc)
+               | pp_nl . pp_nc . *PPTxt('', pp_nc) );
+    pp_need  = ( ( POS(0) | CHAR(10) ) FENCE(SPAN(pp_spc) | epsilon) '$' ANY(&UCASE &LCASE '0123456789' pp_spc)
+               | '_V9' | '_UNIX' | '_ASCII' | '_CO_EXPRESSIONS' | '_DYNAMIC_LOADING' | '_EXTERNAL_VALUES' | '_KEYBOARD_FUNCTIONS' | '_LARGE_INTEGERS' | '_PIPES' | '_SYSTEM_FUNCTION' );
+    Preprocess = ( POS(0) ARBNO(FENCE(pp_dir | pp_txt)) RPOS(0) );
+    pp_ready = 1;
+    return;
+}
+/* ==================================================================================================================== */
+function PPInit(w, s) {
+    if (IDENT(pp_ready)) { PPPat(); }
+    pp_sym = TABLE(31);
+    pp_gd = TABLE(31);
+    pp_inc = TABLE(31);
+    pp_stk = TABLE(31);
+    pp_n = 0;
+    pp_sn = 0;
+    pp_base = 0;
+    pp_skip = '';
+    pp_err = '';
+    pp_out = '';
+    pp_buf = '';
+    s = '_V9 _UNIX _ASCII _CO_EXPRESSIONS _DYNAMIC_LOADING _EXTERNAL_VALUES _KEYBOARD_FUNCTIONS _LARGE_INTEGERS _PIPES _SYSTEM_FUNCTION ';
+    while (s ? (POS(0) BREAK(' ') . w ' ') = ) {
+        pp_sym[w] = ppdef('1');
+        pp_n = pp_n + 1;
+    }
+    return;
+}
+/* ==================================================================================================================== */
+function PPErr(msg) {
+    TERMINAL = 'Preprocess: $' pp_cmd ': ' msg;
+    pp_err = 1;
+    return;
+}
+/* ==================================================================================================================== */
+function PPEmit(s) {
+    pp_buf = pp_buf s;
+    if (GT(SIZE(pp_buf), 2048)) { pp_out = pp_out pp_buf; pp_buf = ''; }
+    return;
+}
+/* ==================================================================================================================== */
+function PPTxt(tl, nc) {
+    PPTxt = .dummy;
+    if (IDENT(pp_skip)) {
+        if (GT(pp_n, 0)) { PPEmit(PPSubst(tl) nc); } else { PPEmit(tl nc); }
+    } else { PPEmit(nc); }
+    nreturn;
+}
+/* ==================================================================================================================== */
+function PPSubst(s, w, d, out, r) {
+    out = '';
+    while (DIFFER(s)) {
+        if (s ? (POS(0) (pp_lit | pp_cmt) . w) = ) {
+            out = out w;
+        } else if (s ? (POS(0) Id . w) = ) {
+            d = pp_sym[w];
+            if (DIFFER(d)) {
+                if (IDENT(pp_gd[w])) {
+                    pp_gd[w] = 1;
+                    r = PPSubst(pv(d));
+                    pp_gd[w] = ;
+                    out = out r;
+                } else { out = out w; }
+            } else { out = out w; }
+        } else if (s ? (POS(0) (ANY('0123456789') FENCE(SPAN('0123456789' &UCASE &LCASE '_') | epsilon)) . w) = ) {
+            out = out w;
+        } else if (s ? (POS(0) (LEN(1) FENCE(BREAK('0123456789' &UCASE &LCASE '_' pp_sp) | REM)) . w) = ) {
+            out = out w;
+        }
+    }
+    PPSubst = out;
+    return;
+}
+/* ==================================================================================================================== */
+function PPRead(nm, t, lp, dir) {
+    PPRead = ;
+    if (INPUT(.PPIN, 10, nm '[-r16777215]')) {
+        t = '';
+        t = PPIN;
+        ENDFILE(10);
+        PPRead = t;
+        return;
+    }
+    lp = HOST(4, 'LPATH');
+    while (DIFFER(lp)) {
+        if (lp ? (POS(0) BREAK(': ') . dir ANY(': ')) = ) { ; } else { dir = lp; lp = ''; }
+        if (INPUT(.PPIN, 10, dir '/' nm '[-r16777215]')) {
+            t = '';
+            t = PPIN;
+            ENDFILE(10);
+            PPRead = t;
+            return;
+        }
+    }
+    freturn;
+}
+/* ==================================================================================================================== */
+function PPDir(dl, nc, cmd, rest, sym, r2, dv, nm, t, sv, d, st) {
+    PPDir = .dummy;
+    dl ? (POS(0) FENCE(SPAN(pp_spc) | epsilon) FENCE(Id . cmd | epsilon) FENCE(SPAN(pp_spc) | epsilon) REM . rest);
+    pp_cmd = cmd;
+    PPEmit(nc);
+    if (DIFFER(pp_skip)) { if (cmd ? (POS(0) 'if')) { cmd = '$if'; } }
+    if (IDENT(cmd, 'define')) {
+        if (IDENT(pp_skip)) {
+            if (rest ? (POS(0) Id . sym REM . r2)) {
+                if (r2 ? (POS(0) '(')) { PPErr('syntax error'); }
+                else {
+                    r2 ? (POS(0) SPAN(pp_spc)) = ;
+                    if (r2 ? (POS(0) ARBNO(NOTANY('#"' "'") | pp_lit) . dv ( '#' | RPOS(0) ))) {
+                        dv ? (SPAN(pp_spc) RPOS(0)) = ;
+                        d = pp_sym[sym];
+                        if (DIFFER(d)) {
+                            if (DIFFER(pv(d), dv)) { PPErr('redefinition of ' sym); }
+                        } else { pp_sym[sym] = ppdef(dv); pp_n = pp_n + 1; }
+                    } else { PPErr('syntax error'); }
+                }
+            } else { PPErr('syntax error'); }
+        }
+    } else if (IDENT(cmd, 'undef')) {
+        if (IDENT(pp_skip)) {
+            if (rest ? (POS(0) Id . sym REM . r2)) {
+                if (r2 ? (POS(0) pp_end)) {
+                    if (DIFFER(pp_sym[sym])) { pp_sym[sym] = ; pp_n = pp_n - 1; }
+                } else { PPErr('syntax error'); }
+            } else { PPErr('syntax error'); }
+        }
+    } else if (cmd ? (POS(0) ('ifdef' | 'ifndef') RPOS(0))) {
+        pp_sn = pp_sn + 1;
+        pp_stk[pp_sn] = pp_skip;
+        if (rest ? (POS(0) Id . sym REM . r2)) {
+            if (r2 ? (POS(0) pp_end)) {
+                if (IDENT(pp_skip)) {
+                    st = 'false';
+                    if (DIFFER(pp_sym[sym])) { st = ''; }
+                    if (IDENT(cmd, 'ifndef')) { if (IDENT(st)) { st = 'false'; } else { st = ''; } }
+                    pp_skip = st;
+                } else { pp_skip = 'off'; }
+            } else { pp_skip = 'off'; PPErr('syntax error'); }
+        } else { pp_skip = 'off'; PPErr('syntax error'); }
+    } else if (IDENT(cmd, '$if')) {
+        pp_sn = pp_sn + 1;
+        pp_stk[pp_sn] = pp_skip;
+        pp_skip = 'off';
+    } else if (IDENT(cmd, 'else')) {
+        if (rest ? (POS(0) pp_end)) {
+            if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+            else if (IDENT(pp_skip, 'false')) { pp_skip = ''; }
+            else if (IDENT(pp_skip)) { pp_skip = 'false'; }
+        } else { PPErr('syntax error'); }
+    } else if (IDENT(cmd, 'endif')) {
+        if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+        else { pp_skip = pp_stk[pp_sn]; pp_sn = pp_sn - 1; }
+        if (rest ? (POS(0) pp_end)) { ; } else { PPErr('syntax error'); }
+    } else if (IDENT(cmd, 'include')) {
+        if (IDENT(pp_skip)) {
+            if (rest ? (POS(0) ( '"' BREAK('"') . nm '"' | Id . nm ) REM . r2)) {
+                if (r2 ? (POS(0) pp_end)) {
+                    if (DIFFER(pp_inc[nm])) { PPErr('circular reference to ' nm); }
+                    else if (t = PPRead(nm)) {
+                        pp_inc[nm] = 1;
+                        sv = pp_base;
+                        pp_base = pp_sn;
+                        t ? *Preprocess;
+                        if (NE(pp_sn, pp_base)) { PPErr('$if(s) without $endif(s)'); pp_skip = pp_stk[pp_base + 1]; pp_sn = pp_base; }
+                        pp_base = sv;
+                        pp_inc[nm] = ;
+                    } else { PPErr('cannot open ' nm); }
+                } else { PPErr('syntax error'); }
+            } else { PPErr('syntax error'); }
+        }
+    } else if (IDENT(cmd, 'line')) {
+        ;
+    } else if (IDENT(cmd, 'error')) {
+        if (IDENT(pp_skip)) { PPErr(rest); }
+    } else {
+        if (IDENT(pp_skip)) { PPErr('unknown preprocessor directive'); }
+    }
+    nreturn;
+}
 function ParseOne(ptree, i, n_kids) {
+    if (Src ? '$') {
+        PPInit();
+        if (Src ? *pp_need) {
+            if (Src ? *Preprocess) { ; } else { pp_err = 1; }
+            if (NE(pp_sn, 0)) { PPErr('$if(s) without $endif(s)'); }
+            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; return; }
+            Src = pp_out pp_buf;
+        }
+    }
     pf_a = TIME();
     InitCounter();
     InitStack();
