@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2030
+#define GC_ALLOC_TAB_N 2028
 #define GC_ALLOC_TAB_N_VOID 234
-#define GC_ALLOC_TAB_N_DESCR 1108
-#define GC_ALLOC_TAB_N_OTHER 682
+#define GC_ALLOC_TAB_N_DESCR 1107
+#define GC_ALLOC_TAB_N_OTHER 681
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1737,7 +1737,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_writeln_sb_c", GC_RET_DESCR },
     { "rt_pl_dop_writeq_sb", GC_RET_DESCR },
     { "rt_pl_dop_writeq_sb_c", GC_RET_DESCR },
-    { "rt_pl_exist_key_raise", GC_RET_DESCR },
     { "rt_pl_exist_raise", GC_RET_DESCR },
     { "rt_pl_findall_begin", GC_RET_OTHER },
     { "rt_pl_findall_collect", GC_RET_VOID },
@@ -1776,7 +1775,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_sub_atom_at_cell", GC_RET_OTHER },
     { "rt_pl_subsumes_cell", GC_RET_OTHER },
     { "rt_pl_succ_plus_cell", GC_RET_OTHER },
-    { "rt_pl_tail_args_safe", GC_RET_OTHER },
     { "rt_pl_term_string_cell", GC_RET_OTHER },
     { "rt_pl_term_variables_cell", GC_RET_OTHER },
     { "rt_pl_throw_raise", GC_RET_DESCR },

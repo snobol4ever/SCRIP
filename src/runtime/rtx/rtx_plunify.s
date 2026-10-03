@@ -37,15 +37,6 @@ RTX_FUNC(rt_pl_exist_raise)
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_raise)
-RTX_FUNC(rt_pl_exist_key_raise)
-    sub     rsp, 8
-    RTX_CCALL(rt_pl_ball_existence_key)
-    PL_BALL_ARM(rax, rcx)
-    add     rsp, 8
-    mov     eax, DT_FAIL
-    xor     edx, edx
-    ret
-RTX_ENDF(rt_pl_exist_key_raise)
 RTX_FUNC(rt_pl_goal_gen_h)
     RTX_SAVE
     sub     rsp, 24

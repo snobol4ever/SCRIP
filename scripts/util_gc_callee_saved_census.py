@@ -159,9 +159,9 @@ def allocating_entries(so):
     return mod.allocating_entries_from_binary(so, out=lambda *a, **k: None)
 """----------------------------------------------------------------------------------------------------------"""
 class Insn:
-    __slots__ = ("line", "text", "mnem", "ops", "labels")
-    def __init__(self, line, text, labels):
-        self.line = line; self.text = text; self.labels = labels
+    __slots__ = ("line", "text", "mnem", "ops", "labels", "note")
+    def __init__(self, line, text, labels, note=""):
+        self.line = line; self.text = text; self.labels = labels; self.note = note
         t = text.split(None, 1)
         self.mnem = t[0].lower()
         self.ops = split_ops(t[1]) if len(t) > 1 else []
@@ -198,7 +198,7 @@ def parse(path):
     """statements in order, each carrying the labels that immediately precede it"""
     insns, pending, in_text = [], [], True
     for ln, raw in enumerate(open(path, encoding="utf-8", errors="replace"), 1):
-        s = raw.split("#")[0]
+        s, _hash, note = raw.partition("#")
         if not s.strip(): continue
         for part in split_stmts(s):
             p = part.strip()
@@ -214,7 +214,7 @@ def parse(path):
                     in_text = ".text" in p
                 continue
             if not in_text: continue
-            insns.append(Insn(ln, p, tuple(pending))); pending = []
+            insns.append(Insn(ln, p, tuple(pending), note.strip())); pending = []; note = ""
     return insns
 """----------------------------------------------------------------------------------------------------------"""
 MEM_RE = re.compile(r'\[([^\]]*)\]')
@@ -316,9 +316,34 @@ def liveness(insns, succ, top):
                 live[i] = new; changed = True
     return live, ud
 """----------------------------------------------------------------------------------------------------------"""
+CHOICE_NOTE = re.compile(r'\bpl_(choice_open|cut_barrier|fence_commit|disj_open) inline\b')
+def _choice_word_def(insns, i, reg):
+    """THE FOUR INLINE CHOICE-WORD DEFINITIONS OF r13 (hq_prolog, SCRIP 35ed4e649, ARCH-PROLOG-C-OUT-OF-THE-BOX section 2.2;
+    the cto's reading of 2026-10-03: r13 is B, the youngest choice's frame-header address, a STACK address, never a heap
+    pointer). The emission DECLARES each one by name in the note it carries -- choice_open `lea r13, [rsp + kt-64]`,
+    cut_barrier `mov r13, qword ptr [rbp + kt-40]` (F.B0, the saved caller's B), fence_commit `mov r13, qword ptr [frame
+    slot]` (the B banked at the bound), disj_open `mov r13, rcx` where rcx is `lea rcx, [rbp + kt-64]` eight instructions
+    under the sequence's note -- and this reader takes the declaration ONLY when the instruction has the declared SHAPE:
+    a note on a different shape, or the shape without a note (arm 7's planted form), stays UNCLASSIFIED."""
+    if reg != "r13": return False
+    ins = insns[i]; mn = ins.mnem; ops = ins.ops
+    if len(ops) != 2 or reg_of(ops[0]) != "r13": return False
+    shape = (mn == "lea" and re.fullmatch(r'\[\s*(rsp|rbp)\s*[+-]\s*\d+\s*\]', ops[1].strip()) is not None) \
+         or (mn == "mov" and re.fullmatch(r'qword ptr \[\s*(rsp|rbp)\s*[+-]\s*\d+\s*\]', ops[1].strip()) is not None) \
+         or (mn == "mov" and ops[1].strip() == "rcx")
+    if not shape: return False
+    if CHOICE_NOTE.search(ins.note or ""): return True
+    if mn == "mov" and ops[1].strip() == "rcx":
+        for k in range(i - 1, max(-1, i - 10), -1):
+            sj = insns[k]
+            if sj.mnem in ("call", "jmp", "ret") or (sj.ops and reg_of(sj.ops[0]) == "r13" and sj.mnem not in ("cmp", "test")): return False
+            if CHOICE_NOTE.search(sj.note or "") and "disj_open" in sj.note: return True
+    return False
+
 def classify_def(insns, i, reg, depth=0):
     """the form of the instruction at i that defines reg, as a class name"""
     ins = insns[i]; mn = ins.mnem; ops = ins.ops
+    if _choice_word_def(insns, i, reg): return "CHOICE"
     if mn == "pop": return "POP"
     if mn == "mov" and len(ops) == 2:
         dst, src = ops[0], ops[1]
@@ -453,7 +478,7 @@ def graph_of(insns, i):
     ga = CTX["graph_at"]
     return ga[i] if i < len(ga) else None
 
-PROVABLY_RAW = {"RSP", "IMM", "D32", "RIP", "LENGTH"}
+PROVABLY_RAW = {"RSP", "IMM", "D32", "RIP", "LENGTH", "CHOICE"}
 COPY = {"CELL", "POP", "REG", "ARITH", "LEA", "CALLERS"}
 CELL_PREFIX = "CELL:"
 HEAP = {"SUBJECT"}

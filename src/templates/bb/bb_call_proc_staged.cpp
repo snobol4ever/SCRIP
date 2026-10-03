@@ -23,7 +23,7 @@ DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
 DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
 void    rt_ab_undef_fn_fail(void);
-void    rt_pl_iso_throw_existence_key(const char *key); DESCR_t rt_pl_exist_key_raise(const char *key);
+void    rt_pl_iso_throw_existence_key(const char *key);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
@@ -33,7 +33,6 @@ int     zls_g_resume_by_name(const char *name);
 int  rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
-int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_wire_pair_consumed(const char *fname) {
     return (fname && rt_define_returns_by_frame(fname)) ? 0 : 1;
@@ -209,21 +208,7 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
     if (!(nf >= 0 && nf <= np)) return 0;
     return 1;
 }
-static bool bcps_is_pl_pi(const char * s) {
-    if (!s || s[0] == '$') return false;
-    const char * sl = strrchr(s, '/');
-    if (!sl || sl == s || !sl[1]) return false;
-    for (const char * d = sl + 1; *d; d++) if (*d < '0' || *d > '9') return false;
-    return true;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_undef_fallback(uint64_t undef_fp) {
-    if (bcps_is_pl_pi(_.op_sval)) {
-        uint64_t pl_fp; { DESCR_t (*fp)(const char *) = rt_pl_exist_key_raise; pl_fp = (uint64_t)(uintptr_t)(void*)fp; }
-        return x86_ro_load_q("rdi", 0) + x86("call", "rt_pl_exist_key_raise", pl_fp)
-             + x86_rt_gc_poll()
-             + x86_omega();
-    }
     (void)undef_fp; return x86("call", "rt_ab_undef_fn_fail", (uint64_t)(uintptr_t)(void *)rt_ab_undef_fn_fail) + x86_rt_gc_poll() + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -640,8 +625,6 @@ static std::string bcps_spine_gen_arm() {
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx);
     uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t tailsafe_fp; { int (*fp)(int, void *, void *) = rt_pl_tail_args_safe; tailsafe_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    int pl_lco_armed = bcps_pl() && _.node && _.node->seal == 1 && !(g_emit_cfg && g_emit_cfg->root_graph);
     int n2_fb = -1;
     if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
     if (icn_gen_regime() && n2_fb <= 0) return x86_alpha() + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta() + x86_bomb("N-3: beta re-entry into a refused generator call site");
@@ -669,31 +652,6 @@ static std::string bcps_spine_gen_arm() {
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
          + IF(gi_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), act + 8, 61, 62, 60))
          + IF(icn_gen_regime(),  x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0))
-         + IF(pl_lco_armed,
-               x86("sub", "rsp", 8L)
-            + x86("push", "rax")
-            + x86("mov32", "edi", (long)_.op_ival)
-            + x86("mov", "rsi", "rbp")
-            + x86("lea", "rdx", RDQ("rbp", g_emit.flat_frame_bytes))
-            + x86("call", "rt_pl_tail_args_safe", tailsafe_fp)
-            + x86("mov", "r10d", "eax")
-            + x86("pop", "rax")
-            + x86("add", "rsp", 8L)
-            + x86_rt_gc_poll()
-            + x86("test", "r10", "r10")
-            + x86("je", L(99))
-            + x86("mov", "r10", RDQ("rbp", g_emit.flat_frame_bytes - 40))
-            + x86("cmp", "r13", "r10")
-            + x86("jne", L(99))
-         + x86("lea", "r10", RDQ("rsp", 16))
-            + x86("cmp", "r10", "rbp")
-            + x86("jne", L(99))
-         + x86("mov", "rcx", RDQ("rbp", g_emit.flat_frame_bytes - 24))
-            + x86("mov", "rdx", RDQ("rbp", g_emit.flat_frame_bytes - 16)) + x86_raw_unpack("rdx")
-            + x86("lea", "rsp", RDQ("rbp", g_emit.flat_frame_bytes))
-            + x86("mov", "rbp", RDQ("rbp", g_emit.flat_frame_bytes - 8))
-            + x86_jmp_reg("rax")
-            + x86("def", L(99)))
          + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
          + (bcps_pl()

@@ -870,25 +870,6 @@ void rt_arg_stage(int idx, DESCR_t v)
     CALL_ARGS[idx] = v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_tail_args_safe(int nargs, void *frame_lo, void *frame_hi)
-{
-    extern DESCR_t rt_deref(DESCR_t d);
-    int r = 1;
-    if (nargs <= 0) r = 1;
-    else if ((uint32_t)nargs > g_call_args.cap) r = 0;
-    else for (int i = 0; i < nargs; i++) {
-        DESCR_t v = CALL_ARGS[i];
-        DESCR_t chain[5]; int nch = 0;
-        chain[nch++] = v;
-        for (int hop = 0; hop < 4 && v.v == DT_N; hop++) { v = rt_deref(v); if (nch < 5) chain[nch++] = v; }
-        if (v.v == DT_I || v.v == DT_R || (v.v == DT_SNUL && nch == 1)) { CALL_ARGS[i] = v; continue; }
-        if (v.v == DT_SNUL) { void * cell = chain[nch - 2].ptr; if (cell && cell >= frame_lo && cell < frame_hi) { r = 0; break; } CALL_ARGS[i] = chain[nch - 2]; continue; }
-        int unsafe = 0;
-        for (int k = 0; k < nch; k++) { void *cp = chain[k].ptr; if (cp && cp >= frame_lo && cp < frame_hi) { unsafe = 1; break; } }
-        if (unsafe) { r = 0; break; }
-    }
-    return r;
-}
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
