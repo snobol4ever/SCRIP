@@ -496,8 +496,7 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
             nx = p + len < n ? s[p + len] : 0;
             if (!nx || nx == ' ' || nx == '\t' || nx == ';' || nx == ':' || nx == ')' || nx == ']' || nx == '>') {
                 if (!blank) return eval_sb_fail(233, code, msg);
-                if (c == '=') return 0;
-                el = 21; }
+                el = c == '=' ? 22 : 21; }
             else if (prev <= 12 || blank) el = 0;
             else return eval_sb_fail(233, code, msg);
             p += len; }
@@ -508,6 +507,7 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
         case 3: case 12: if (st == 2 && !blank) return eval_sb_fail(220, code, msg); lev[depth++] = el == 3 ? 4 : 5; st = 0; break;
         case 0: if (st == 2 && !blank) return eval_sb_fail(220, code, msg); st = 1; break;
         case 21: if (st != 2) return eval_sb_fail(221, code, msg); st = 1; break;
+        case 22: if (st != 2) return eval_sb_fail(221, code, msg); st = 0; break;
         case 6: if (st != 2) return eval_sb_fail(222, code, msg); lev[depth++] = 3; st = 0; break;
         case 24: if (st == 1) return eval_sb_fail(221, code, msg); if (depth && lev[depth - 1] > 3) { depth--; st = 2; break; } return eval_sb_fail(224, code, msg);
         case 27: if (st == 1) return eval_sb_fail(221, code, msg); if (depth && lev[depth - 1] == 3) { depth--; st = 2; break; } return eval_sb_fail(225, code, msg);

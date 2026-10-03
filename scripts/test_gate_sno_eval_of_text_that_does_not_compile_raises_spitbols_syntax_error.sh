@@ -11,7 +11,12 @@
 # THE CURE (runtime_eval.c rt_eval_syntax_raise): when SCRIP's own parser has REJECTED the text, eval_sb_syntax runs
 # SPITBOL's element rules and three-state expression machine over it and names the first error SPITBOL would raise.
 # Text SCRIP accepts is never classified, so no EVAL that works today changes. A position the port does not model (a
-# ';' or ':' outside an open paren, a binary '=') is declined, and the EVAL fails as before.
+# ';' or ':' outside an open paren) is declined, and the EVAL fails as before. A BINARY '=' IS MODELED since the cfo's row
+# snobol4-a-syntax-error-inside-an-eval-assignment-reads-fail-where-spitbol-raises-233 (CEO-1448): it needs a left operand
+# (221) and its right side is classified like any expression, except that it may be EMPTY -- (X =) is the null string in sbl.
+# Its sixteen arms run as a second evaluator pass (lines2.txt), so each pass stays under the 32-trap ceiling below.
+# FAIL-ONCE, MEASURED with this gate on the parent (runtime_eval.c stashed, SCRIP c07aa9bd2): the eleven raising lines read FAIL
+# in both modes, 22 arms RED; the five valid ones agreed already. On the cure 92/92.
 # NOT COVERED, AND WHY: text SCRIP's parser ACCEPTS where SPITBOL rejects it (1/TAB(2), &BAL** '0', 1.5- 10,
 # 99999999999999999999) is a different class: the parser's leniency, not this raise. A name operator or assignment
 # whose target is not a name (1 . 2, 1 = 2, sbl 212) is a lowering FATAL in SCRIP, another class.
@@ -73,6 +78,24 @@ x[1;2
 1 'a'
 1e5
 TXT
+cat > "$D/lines2.txt" <<'TXT'
+(b = ANY('ab')^ POS(2))
+(u = ')'?&OUTPUT FENCE(LEN(1)))
+(x = * FENCE(LEN(1)))
+(x = + 5)
+'a' ? (x = '[' - + TAB(2))
+(X = (1 +))
+(X = 'abc)
+(X = 1 2 ))
+X = (1
+( = 1)
+(X = = 1)
+(X =)
+(X = Y =)
+(X = ())
+(X = 1)
+X = 1
+TXT
 cat > "$D/lim.sno" <<'SNO'
         X = EVAL('1 +')                                         :S(A)
         OUTPUT = 'zero: the EVAL failed and the run goes on, ERRLIMIT=' &ERRLIMIT
@@ -90,6 +113,8 @@ run_scrip() {  # $1 program $2 mode $3 stdin -> stdout
          (cd "$D" && timeout 30 "./$1.bin" < "$3" 2>/dev/null); fi
 }
 (cd "$D" && timeout 30 "$SBL" -bf ev.sno < lines.txt > ev.sbl 2>/dev/null)
+(cd "$D" && timeout 30 "$SBL" -bf ev.sno < lines2.txt > ev2.sbl 2>/dev/null)
+[ "$(wc -l < "$D/ev2.sbl")" = "$(wc -l < "$D/lines2.txt")" ] || refuse "the oracle answered $(wc -l < "$D/ev2.sbl") of the assignment lines -- the witness is not measuring"
 (cd "$D" && timeout 30 "$SBL" -bf lim.sno < /dev/null > lim.sbl 2>/dev/null)
 nl=$(wc -l < "$D/lines.txt")
 [ "$(wc -l < "$D/ev.sbl")" = "$nl" ] || refuse "the oracle answered $(wc -l < "$D/ev.sbl") of $nl lines -- the witness is not measuring"
@@ -97,13 +122,15 @@ grep -qx "ERROR 221 syntax error: missing operand" "$D/ev.sbl" || refuse "the or
 grep -q "^zero: the EVAL failed and the run goes on, ERRLIMIT=0$" "$D/lim.sbl" || refuse "the oracle's &ERRLIMIT 0 control did not print -- re-read sbl"
 fails=0; arms=0
 for m in m3 m4; do
-    run_scrip ev "$m" "$D/lines.txt" > "$D/ev.$m"
+    for pass in "lines.txt ev.sbl ev" "lines2.txt ev2.sbl ev2"; do set -- $pass
+    run_scrip ev "$m" "$D/$1" > "$D/$3.$m"
     i=0
     while IFS= read -r txt; do
-        i=$((i+1)); arms=$((arms+1)); want=$(sed -n "${i}p" "$D/ev.sbl"); got=$(sed -n "${i}p" "$D/ev.$m")
+        i=$((i+1)); arms=$((arms+1)); want=$(sed -n "${i}p" "$D/$2"); got=$(sed -n "${i}p" "$D/$3.$m")
         if [ "$want" = "$got" ]; then printf '  ok    %s %-12s %s\n' "$m" "[$txt]" "$want"
         else printf '  FAIL  %s %-12s sbl: %s   scrip: %s\n' "$m" "[$txt]" "$want" "${got:-<no line>}"; fails=$((fails+1)); fi
-    done < "$D/lines.txt"
+    done < "$D/$1"
+    done
     run_scrip lim "$m" /dev/null > "$D/lim.$m"; arms=$((arms+1))
     if cmp -s "$D/lim.sbl" "$D/lim.$m"; then echo "  ok    $m &ERRLIMIT 0 fails the EVAL quietly; &ERRLIMIT 5 counts it: $(tr '\n' '|' < "$D/lim.sbl")"
     else echo "  FAIL  $m &ERRLIMIT arm: sbl [$(tr '\n' '|' < "$D/lim.sbl")] scrip [$(tr '\n' '|' < "$D/lim.$m")]"; fails=$((fails+1)); fi
