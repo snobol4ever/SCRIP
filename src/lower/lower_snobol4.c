@@ -1691,6 +1691,7 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
             { extern void fc_pair_extent_register(const IR_t *, int); fc_pair_extent_register(F, g->n); }
             return F;
         }
+        if (t->n == 0) { IR_t * F = lc_build(g, IR_MATCH_FENCE0, succ, NULL); sno_ω_to(F, cx->pat_seal ? cx->pat_seal : fail); IR_LIT(F).ival = SNO_FENCE_LIT_BARE; return F; }
         return (t->n > 0 && t->c[0]) ? sno_pat_node(cx, t->c[0], succ, fail) : succ;
     case TT_DEFER: {
         const tree_t * in = (t->n > 0) ? t->c[0] : NULL;
