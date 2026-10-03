@@ -2175,6 +2175,7 @@ static void core_unwind_next(void) {
     if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], 3);
     long wire = (rec[SNO_LVL_UNWIND / 8] == 2) ? 8 : 0;
     rec[SNO_LVL_UNWIND / 8] = 0;
+    { extern void eval_frames_unwind(const void *); eval_frames_unwind((const void *)rec[SNO_LVL_ACT_RSP / 8]); }
     rt_unwind_to_activation((void *)rec[SNO_LVL_ACT_RSP / 8], (void *)rec[SNO_LVL_ACT_R12 / 8], wire);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

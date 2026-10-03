@@ -496,6 +496,17 @@ void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, i
     { extern void core_fn_set_arity(const char *name, int min_args, int max_args); core_fn_set_arity(name, min_args, max_args); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int eval_text_takes_chain(const char *s) {
+    if (!s || !*s) return 0;
+    { const char *c = s; while (*c == ' ' || *c == '\t') c++;
+      if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) return 1; }
+    if (strpbrk(s, " \t\n\v\f\r")) return 1;
+    { char *endp = NULL; errno = 0; (void)strtoll(s, &endp, 10); if (endp && *endp == '\0') return 0; }
+    { extern int rt_str_to_real(const char *, double *); double rv; if (rt_str_to_real(s, &rv)) return 0; }
+    { char *endp = NULL; (void)strtod(s, &endp); if (endp && *endp == '\0') return 0; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t EVAL_fn(DESCR_t expr) {
     if (expr.v == DT_E) {
         return EXPVAL_fn(expr);
@@ -510,9 +521,7 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     }
     const char *s = VARVAL_fn(expr);
     if (!s || !*s) return NULVCL;
-    { const char *c = s; while (*c == ' ' || *c == '\t') c++;
-      if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z')) goto eval_str; }
-    if (strpbrk(s, " \t\n\v\f\r")) goto eval_str;
+    if (eval_text_takes_chain(s)) goto eval_str;
     {
         char *endp = NULL;
         errno = 0;

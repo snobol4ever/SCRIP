@@ -38,7 +38,7 @@ typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
-typedef struct { DESCR_t saved; DESCR_t res; char *key; int depth; } eval_frame_t;
+typedef struct { DESCR_t saved; DESCR_t res; char *key; int depth; int made; int keep; int thunks; int opened; long esv; size_t mark; size_t built; eval_chain_fn fn; const char *sp; } eval_frame_t;
 static eval_frame_t     *g_eval_frames = NULL;
 static int               g_eval_frames_n = 0;
 static int               g_eval_frames_cap = 0;
@@ -414,13 +414,16 @@ __asm__(
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_guard_on(void) { static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; } return _ef; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_open_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_OPEN"); v = (e && *e == '0') ? 0 : 1; } return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_chain_run_guarded(eval_chain_fn fn) {
     extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
-    static int _ef = -1; if (_ef < 0) { const char *e = getenv("SCRIP_EVAL_FAILS"); _ef = (e && *e == '0') ? 0 : 1; }
 #if RT_DIAG
-    if (!_ef) { rt_c2bb_hit("chain.eval.unguarded", "?"); eval_chain_enter_only(fn); return 1; }
+    if (!eval_guard_on()) { rt_c2bb_hit("chain.eval.unguarded", "?"); eval_chain_enter_only(fn); return 1; }
 #else
-    if (!_ef) { eval_chain_enter_only(fn); return 1; }
+    if (!eval_guard_on()) { eval_chain_enter_only(fn); return 1; }
 #endif
     int my = g_core_errjmp_n++; long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = G_ERROR_EVAL_STAGE;
     if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
@@ -444,6 +447,7 @@ static int eval_frame_push(DESCR_t saved, const char *key_src) {
     if (key_src && !key) return -1;
     eval_frame_t *f = &g_eval_frames[g_eval_frames_n];
     f->saved = saved; f->res = FAILDESCR; f->key = key; f->depth = g_core_errjmp_n;
+    f->made = 0; f->keep = 0; f->thunks = 0; f->opened = 0; f->esv = 0; f->mark = 0; f->built = 0; f->fn = NULL; f->sp = NULL;
     return g_eval_frames_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -609,40 +613,75 @@ static void eval_chain_settle(char *key, eval_chain_fn fn, DESCR_t res, size_t m
     else eval_cache_put(key, fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_frame_open(const char *s, int raise) {
+    eval_chain_fn fn = eval_cache_get(s);
+    size_t mark = 0, built = 0; int made = 0, keep = 0, thunks = 0;
+    if (!fn) {
+        mark = bb_pool_mark();
+        int pe = 0; const char *pm = (const char *)0;
+        fn = eval_build_chain(s, &pe, &pm, &thunks);
+        if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s); } return -1; }
+        built = bb_pool_mark(); made = 1; keep = mark < eval_retain_budget();
+    }
+    int my = eval_frame_push(NV_GET_fn(EVAL_TMP), made ? s : NULL);
+    if (my < 0) { if (made) bb_pool_release(mark); return -1; }
+    eval_frame_t *f = &g_eval_frames[my];
+    f->fn = fn; f->mark = mark; f->built = built; f->made = made; f->keep = keep; f->thunks = thunks;
+    NV_SET_fn(EVAL_TMP, FAILDESCR);
+    return my;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t eval_frame_land(int my, int ok) {
+    eval_frame_t *f = &g_eval_frames[my];
+    DESCR_t got = NV_GET_fn(EVAL_TMP);
+    f->res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
+    NV_SET_fn(EVAL_TMP, f->saved);
+    if (f->made) eval_chain_settle(f->key, f->fn, f->res, f->mark, f->built, f->thunks, f->keep);
+    DESCR_t result = f->res;
+    g_eval_frames_n = my;
+    return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
-    eval_chain_fn cached = eval_cache_get(s);
-    if (cached) {
-        int my = eval_frame_push(NV_GET_fn(EVAL_TMP), NULL);
-        if (my < 0) return FAILDESCR;
-        NV_SET_fn(EVAL_TMP, FAILDESCR);
-        int ok = eval_chain_run_guarded(cached);
-        DESCR_t got = NV_GET_fn(EVAL_TMP);
-        g_eval_frames[my].res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
-        NV_SET_fn(EVAL_TMP, g_eval_frames[my].saved);
-        DESCR_t result = g_eval_frames[my].res;
-        g_eval_frames_n = my;
-        if (!ok) core_unwind_pending();
-        return result;
-    }
-    size_t mark = bb_pool_mark();
-    int pe = 0, thunks = 0; const char *pm = (const char *)0;
-    eval_chain_fn fn = eval_build_chain(s, &pe, &pm, &thunks);
-    if (!fn) { if (!pe) rt_code_pool_check(); bb_pool_release(mark); if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s); return FAILDESCR; }
-    size_t built = bb_pool_mark();
-    int keep = mark < eval_retain_budget();
-    int my = eval_frame_push(NV_GET_fn(EVAL_TMP), s);
-    if (my < 0) { bb_pool_release(mark); return FAILDESCR; }
-    NV_SET_fn(EVAL_TMP, FAILDESCR);
-    int ok = eval_chain_run_guarded(fn);
-    DESCR_t got = NV_GET_fn(EVAL_TMP);
-    g_eval_frames[my].res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
-    NV_SET_fn(EVAL_TMP, g_eval_frames[my].saved);
-    eval_chain_settle(g_eval_frames[my].key, fn, g_eval_frames[my].res, mark, built, thunks, keep);
-    DESCR_t result = g_eval_frames[my].res;
-    g_eval_frames_n = my;
+    int my = eval_frame_open(s, 1);
+    if (my < 0) return FAILDESCR;
+    int ok = eval_chain_run_guarded(g_eval_frames[my].fn);
+    DESCR_t result = eval_frame_land(my, ok);
     if (!ok) core_unwind_pending();
     return result;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { long fn; long how; } rt_eval_next_t;
+rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs) {
+    extern int eval_text_takes_chain(const char *); extern void rt_eval_stage_leave(const char *);
+    rt_eval_next_t none = { 0, 0 };
+    if (!args || nargs != 1 || args[0].v != DT_S || !eval_guard_on() || !eval_open_on()) return none;
+    const char *s = VARVAL_fn(args[0]);
+    if (!s || !*s || !eval_text_takes_chain(s)) return none;
+    rt_eval_stage_leave((const char *)0);
+    int my = eval_frame_open(s, 0);
+    if (my < 0) return none;
+    eval_frame_t *f = &g_eval_frames[my];
+    f->opened = 1; f->sp = (const char *)__builtin_frame_address(0);
+    f->esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = G_ERROR_EVAL_STAGE;
+    return (rt_eval_next_t){ (long)(uintptr_t)f->fn, (long)my };
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_eval_land(long word) {
+    int my = (int)word;
+    if (my < 0 || my >= g_eval_frames_n || !g_eval_frames[my].opened) { fprintf(stderr, "rt_eval_land: frame %d is not an opened EVAL frame (%d live)\n", my, g_eval_frames_n); abort(); }
+    g_error = g_eval_frames[my].esv;
+    return eval_frame_land(my, 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void eval_frames_unwind(const void *act) {
+    int k = g_eval_frames_n;
+    while (k > 0 && g_eval_frames[k - 1].opened && g_eval_frames[k - 1].sp < (const char *)act) k--;
+    if (k == g_eval_frames_n) return;
+    long esv = g_eval_frames[k].esv;
+    while (g_eval_frames_n > k) eval_frame_land(g_eval_frames_n - 1, 0);
+    g_error = esv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_node(tree_t *e)
