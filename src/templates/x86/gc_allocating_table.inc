@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1990
-#define GC_ALLOC_TAB_N_VOID 238
+#define GC_ALLOC_TAB_N 1985
+#define GC_ALLOC_TAB_N_VOID 233
 #define GC_ALLOC_TAB_N_DESCR 1075
 #define GC_ALLOC_TAB_N_OTHER 670
 #define GC_ALLOC_TAB_N_UNKNOWN 7
@@ -485,9 +485,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "core_quit_trap_300_sig", GC_RET_VOID },
     { "core_quit_trap_320_sig", GC_RET_VOID },
     { "core_runtime_error", GC_RET_VOID },
-    { "core_setexit_handler_return", GC_RET_VOID },
-    { "core_unwind_next", GC_RET_VOID },
-    { "core_unwind_pending", GC_RET_VOID },
     { "cset_bits_of", GC_RET_VOID },
     { "cset_canonical", GC_RET_OTHER },
     { "cset_diff", GC_RET_OTHER },
@@ -556,7 +553,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "eval_frame_land", GC_RET_DESCR },
     { "eval_frame_open", GC_RET_OTHER },
     { "eval_frame_push", GC_RET_OTHER },
-    { "eval_frames_unwind", GC_RET_VOID },
     { "eval_string_transient", GC_RET_DESCR },
     { "eval_thunks_emit_from", GC_RET_OTHER },
     { "fh_capture_begin", GC_RET_OTHER },
@@ -1885,7 +1881,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_trace_value", GC_RET_VOID },
     { "rt_trace_value_sigil", GC_RET_VOID },
     { "rt_unify_terms", GC_RET_OTHER },
-    { "rt_unwind_to_activation", GC_RET_VOID },
     { "rt_var_ref_cell", GC_RET_DESCR },
     { "rt_var_ref_cell_named", GC_RET_DESCR },
     { "rt_write_any_nl", GC_RET_VOID },

@@ -2165,7 +2165,6 @@ extern jmp_buf g_core_errjmp_stk[64];
 extern int g_core_errjmp_n;
 extern long rt_stno_stack[];
 extern int * const rt_k_level_p;
-extern void rt_unwind_to_activation(void *act, void *r12, long wire) __attribute__((noreturn));
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long *core_lvl_rec(void) { return &rt_stno_stack[(long)(*rt_k_level_p & SNO_LVL_MASK) * SNO_LVL_LONGS]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2173,10 +2172,8 @@ static void core_unwind_next(void) __attribute__((noreturn));
 static void core_unwind_next(void) {
     long *rec = core_lvl_rec();
     if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], 3);
-    long wire = (rec[SNO_LVL_UNWIND / 8] == 2) ? 8 : 0;
-    rec[SNO_LVL_UNWIND / 8] = 0;
-    { extern void eval_frames_unwind(const void *); eval_frames_unwind((const void *)rec[SNO_LVL_ACT_RSP / 8]); }
-    rt_unwind_to_activation((void *)rec[SNO_LVL_ACT_RSP / 8], (void *)rec[SNO_LVL_ACT_R12 / 8], wire);
+    fprintf(stderr, "scrip: a level unwind reached its activation, but the C-to-BB jump that finished it (rt_unwind_to_activation) was deleted by CEO-1468 when no path set SNO_LVL_UNWIND\n");
+    abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_unwind_pending(void) { if (rt_k_level_p && core_lvl_rec()[SNO_LVL_UNWIND / 8]) core_unwind_next(); }

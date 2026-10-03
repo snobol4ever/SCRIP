@@ -4,8 +4,9 @@
 # so a RETURN or FRETURN out of it has to get back to the activation that raised the error. core_setexit_handler_return does
 # that by unwinding g_core_errjmp_stk TOP-DOWN: it longjmps to the innermost guard, that guard runs ITS OWN cleanup (restoring
 # g_core_errjmp_n, g_error, _setexit_resume, the Icon op context, the builtin mark, EVAL_TMP), and then calls
-# core_unwind_pending(), which longjmps to the next guard down, until the activation's recorded floor is reached and
-# rt_unwind_to_activation jumps through the activation's own wire.
+# core_unwind_pending(), which longjmps to the next guard down, until the activation's recorded floor is reached (where
+# rt_unwind_to_activation used to jump through the activation's own wire; CEO-1468 deleted that C-to-BB jump, no path
+# setting SNO_LVL_UNWIND, and core_unwind_next now aborts there by name).
 #
 # ⛔ THE CHAIN IS ONLY AS STRONG AS ITS WEAKEST GUARD, AND A MISSING LINK IS SILENT. A guard whose catch path does not call
 # core_unwind_pending() swallows the unwind: its caller sees an ordinary FAIL, the program runs on in a frame that should have

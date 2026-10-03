@@ -14,7 +14,8 @@
 # CURE: every activation entry that pushes a wire pair records its base, r12, the guard floor and the gamma wire in
 # rt_stno_stack[level]; rt_kw_return_level_zero, reached from a nested handler at level >= 1 with a record that validates,
 # unwinds g_core_errjmp_stk top-down (each guard runs its own cleanup, test_gate_setexit_unwind_every_errjmp_guard_continues
-# _the_unwind.sh) and jumps through the activation's real wire (rt_unwind_to_activation). And the const-fold trial is
+# _the_unwind.sh) and jumped through the activation's real wire (rt_unwind_to_activation, deleted by CEO-1468 once SETEXIT's
+# shape B left no path to it; the handler now runs on the statement's failure path). And the const-fold trial is
 # speculative (g_error = -2): an armed SETEXIT no longer steals it, and a failed trial is not folded, so EVAL('1 / 0')
 # raises its error when the EVAL'd code runs -- the trap used to fire from INSIDE the optimizer, which is what made
 # :(CONTINUE) re-trap once (arm 4).

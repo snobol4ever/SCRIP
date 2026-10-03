@@ -38,7 +38,7 @@ typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
-typedef struct { DESCR_t saved; DESCR_t res; char *key; int depth; int made; int keep; int thunks; int opened; long esv; size_t mark; size_t built; eval_chain_fn fn; const char *sp; } eval_frame_t;
+typedef struct { DESCR_t saved; DESCR_t res; char *key; int depth; int made; int keep; int thunks; int opened; long esv; size_t mark; size_t built; eval_chain_fn fn; } eval_frame_t;
 static eval_frame_t     *g_eval_frames = NULL;
 static int               g_eval_frames_n = 0;
 static int               g_eval_frames_cap = 0;
@@ -121,7 +121,6 @@ __asm__(
 "5:\n"
 "  movq 0x70000000, %r12\n"
 "6:\n"
-".Lrt_chain_seed:\n"
 "  movq Σ@GOTPCREL(%rip), %r10\n"
 "  movq (%r10), %r13\n"
 "  movq Σlen@GOTPCREL(%rip), %r10\n"
@@ -207,15 +206,6 @@ __asm__(
 );
 void rt_chain_enter_v(eval_chain_fn fn);
 void rt_chain_enter(eval_chain_fn fn);
-__asm__(
-".text\n"
-".globl rt_unwind_to_activation\n"
-"rt_unwind_to_activation:\n"
-"  movq (%rdi,%rdx), %rax\n"
-"  leaq 16(%rdi), %rsp\n"
-"  movq %rsi, %r12\n"
-"  jmp .Lrt_chain_seed\n"
-);
 int g_rt_fragment_emit = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_thunks_emit_from(int pc0)
@@ -447,7 +437,7 @@ static int eval_frame_push(DESCR_t saved, const char *key_src) {
     if (key_src && !key) return -1;
     eval_frame_t *f = &g_eval_frames[g_eval_frames_n];
     f->saved = saved; f->res = FAILDESCR; f->key = key; f->depth = g_core_errjmp_n;
-    f->made = 0; f->keep = 0; f->thunks = 0; f->opened = 0; f->esv = 0; f->mark = 0; f->built = 0; f->fn = NULL; f->sp = NULL;
+    f->made = 0; f->keep = 0; f->thunks = 0; f->opened = 0; f->esv = 0; f->mark = 0; f->built = 0; f->fn = NULL;
     return g_eval_frames_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -663,7 +653,7 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs) {
     int my = eval_frame_open(s, 0);
     if (my < 0) return none;
     eval_frame_t *f = &g_eval_frames[my];
-    f->opened = 1; f->sp = (const char *)__builtin_frame_address(0);
+    f->opened = 1;
     f->esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = G_ERROR_EVAL_STAGE;
     return (rt_eval_next_t){ (long)(uintptr_t)f->fn, (long)my };
 }
@@ -673,15 +663,6 @@ DESCR_t rt_eval_land(long word) {
     if (my < 0 || my >= g_eval_frames_n || !g_eval_frames[my].opened) { fprintf(stderr, "rt_eval_land: frame %d is not an opened EVAL frame (%d live)\n", my, g_eval_frames_n); abort(); }
     g_error = g_eval_frames[my].esv;
     return eval_frame_land(my, 1);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void eval_frames_unwind(const void *act) {
-    int k = g_eval_frames_n;
-    while (k > 0 && g_eval_frames[k - 1].opened && g_eval_frames[k - 1].sp < (const char *)act) k--;
-    if (k == g_eval_frames_n) return;
-    long esv = g_eval_frames[k].esv;
-    while (g_eval_frames_n > k) eval_frame_land(g_eval_frames_n - 1, 0);
-    g_error = esv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_node(tree_t *e)
