@@ -726,6 +726,7 @@ test_gate_sno_by_name_paths_find_once_dollar_apply_eval.sh	WIRED	-	-	-
 test_gate_sno_byname_goto_zeta_unwind_in_a_loop.sh	WIRED	-	-	-
 test_gate_sno_captured_substring_compares_by_its_own_length.sh	WIRED	-	-	-
 test_gate_sno_chain_entry_establishes_the_pend_top_cold_and_preserves_it_mid_match.sh	WIRED	-	-	-
+test_gate_sno_code_of_text_that_does_not_compile_raises_spitbols_compile_error.sh	WIRED	-	-	-
 test_gate_sno_code_statements_are_numbered_after_every_statement_compiled_before_them.sh	WIRED	-	-	-
 test_gate_sno_convert_of_a_matched_substring_is_that_substring.sh	WIRED	-	-	-
 test_gate_sno_convert_reads_a_numeric_string_as_spitbol_gtnum_does.sh	WIRED	-	-	-

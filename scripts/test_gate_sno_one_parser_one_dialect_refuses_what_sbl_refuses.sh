@@ -17,9 +17,10 @@
 # numeric item" as T_REAL already did; eval_build_chain refuses a comma at depth 0 before wrapping; EVAL_fn's fast path
 # raises on ERANGE or INT64_MIN. EVAL's refusal is then classified by eval_sb_syntax (e9213711a), so each reads sbl's
 # number. 1/TAB(2), &BAL** '0' and 1.5- 10, cured earlier, stay in as guards.
-# NOT COVERED, AND WHY: CODE of a text that does not compile FAILS SILENTLY in SCRIP where sbl raises the compile error
-# (CODE(' X = (1') is 226 in sbl, &ERRTYPE 0 in SCRIP, on origin before this landing too) -- a class of its own, reported;
-# so the CODE arm grades only that both refuse. The static arm grades refusal (exit status), not the error voice.
+# CODE of a text that does not compile used to FAIL SILENTLY where sbl raises the compile error (CODE(' X = (1') is 226); it
+# raises since the CODE row's cure and test_gate_sno_code_of_text_that_does_not_compile_raises_spitbols_compile_error grades
+# the numbers, so the CODE arm here still grades only that both refuse. The static arm grades refusal (exit status), not the
+# error voice.
 #
 # Expectations are cut from sbl -bf AT RUN TIME, both modes. rc=0 clean · rc=1 a divergence · rc=2 REFUSAL.
 set -u

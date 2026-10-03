@@ -451,6 +451,13 @@ static int eval_sb_fail(int c, int *code, const char **msg) {
     case 230: *msg = "syntax error: illegal character"; break;
     case 231: *msg = "syntax error: invalid numeric item"; break;
     case 232: *msg = "syntax error: unmatched string quote"; break;
+    case 212: *msg = "syntax error: value used where name is required"; break;
+    case 214: *msg = "bad label or misplaced continuation line"; break;
+    case 218: *msg = "syntax error: duplicated goto field"; break;
+    case 219: *msg = "syntax error: empty goto field"; break;
+    case 227: *msg = "syntax error: right paren missing from goto"; break;
+    case 228: *msg = "syntax error: right bracket missing from goto"; break;
+    case 234: *msg = "syntax error: goto field incorrect"; break;
     default: *msg = "syntax error: invalid use of operator"; break;
     }
     return 1;
@@ -510,8 +517,62 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int code_sb_field(const char *s, long a, long b, char *buf, int *code, const char **msg) {
+    memcpy(buf, s + a, (size_t)(b - a)); buf[b - a] = '\0';
+    return eval_sb_syntax(buf, code, msg);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int code_sb_goto(const char *s, long i, long q, char *buf, int *code, const char **msg) {
+    int sg = 0, fg = 0, any = 0;
+    for (;;) {
+        while (i < q && (s[i] == ' ' || s[i] == '\t')) i++;
+        if (i >= q) return any ? 0 : eval_sb_fail(219, code, msg);
+        char kind = 0; long j = i, k, d = 0; char qt = 0;
+        if (s[i] == 'S' || s[i] == 'F') { j = i + 1; while (j < q && (s[j] == ' ' || s[j] == '\t')) j++; if (j < q && (s[j] == '(' || s[j] == '<')) kind = s[i]; else j = i; }
+        if (s[j] != '(' && s[j] != '<') return eval_sb_fail(234, code, msg);
+        char close = s[j] == '(' ? ')' : '>';
+        for (k = j + 1; k < q; k++) { char c = s[k]; if (qt) { if (c == qt) qt = 0; continue; }
+            if (c == '\'' || c == '"') qt = c; else if (c == '(' || c == '[' || c == '<') d++; else if (c == ')' || c == ']' || c == '>') { if (!d && c == close) break; if (d) d--; } }
+        if (code_sb_field(s, j + 1, k, buf, code, msg)) return 1;
+        if (k >= q) return eval_sb_fail(close == ')' ? 227 : 228, code, msg);
+        { long e = j + 1; while (e < k && (s[e] == ' ' || s[e] == '\t')) e++; if (e == k) return eval_sb_fail(212, code, msg); }
+        if (kind == 'S' || !kind) { if (sg) return eval_sb_fail(218, code, msg); }
+        if (kind == 'F' || !kind) { if (fg) return eval_sb_fail(218, code, msg); }
+        if (kind == 'S') sg = 1; else if (kind == 'F') fg = 1; else sg = fg = 1;
+        any = 1; i = k + 1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int code_sb_syntax(const char *s, int *code, const char **msg) {
+    long n = (long)strlen(s), p = 0;
+    char buf[n + 1];
+    while (p < n) {
+        long b = p, q, d = 0, eq = -1, col = -1, k; char qt = 0;
+        if (s[b] != ' ' && s[b] != '\t' && s[b] != ';') {
+            if (s[b] == '*' || s[b] == '-') return 0;
+            if (!isalnum((unsigned char)s[b])) return eval_sb_fail(214, code, msg);
+            while (b < n && s[b] != ' ' && s[b] != '\t' && s[b] != ';') b++; }
+        for (q = b; q < n; q++) { char c = s[q]; if (qt) { if (c == qt) qt = 0; continue; }
+            if (c == '\'' || c == '"') qt = c; else if (c == ';') break; else if (c == '(' || c == '[' || c == '<') d++; else if ((c == ')' || c == ']' || c == '>') && d) d--;
+            else if (!d && c == ':' && col < 0) col = q; else if (!d && c == '=' && eq < 0 && col < 0 && q > b && (s[q - 1] == ' ' || s[q - 1] == '\t')) eq = q; }
+        long be = col >= 0 ? col : q;
+        if (eq >= 0) { for (k = b; k < eq && (s[k] == ' ' || s[k] == '\t'); k++) ; if (k == eq) return eval_sb_fail(221, code, msg); }
+        if (code_sb_field(s, b, eq >= 0 ? eq : be, buf, code, msg)) return 1;
+        if (eq >= 0 && code_sb_field(s, eq + 1, be, buf, code, msg)) return 1;
+        if (col >= 0 && code_sb_goto(s, col + 1, q, buf, code, msg)) return 1;
+        p = q + 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_eval_raise(int code, const char *msg) {
     long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; if (!esv) g_error = G_ERROR_EVAL_STAGE; core_runtime_error(code, msg); g_error = esv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void code_compile_raise(const char *src, int pe, const char *pm) {
+    int code = pe; const char *msg = pm;
+    if (!code && (!src || !code_sb_syntax(src, &code, &msg))) return;
+    rt_eval_raise(code, msg ? msg : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_eval_syntax_raise(const char *s) {
@@ -720,11 +781,11 @@ DESCR_t code_at(const char *src, long base)
 {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
     if (!src || !*src) return FAILDESCR;
-    const char *illegal = NULL;
+    const char *illegal = NULL, *orig = src;
     { long bad = sno_text_illegal_at(src);
       if (bad >= 0) { long cut = -1; char q = 0; for (long i = 0; i < bad; i++) { char c = src[i]; if (q) { if (c == q) q = 0; continue; } if (c == '\'' || c == '"') q = c; else if (c == ';') cut = i; }
         illegal = "syntax error: illegal character";
-        if (cut < 0) { extern const char *g_sno_errtext; g_sno_errtext = illegal; return FAILDESCR; }
+        if (cut < 0) { extern const char *g_sno_errtext; g_sno_errtext = illegal; code_compile_raise(orig, 0, NULL); return FAILDESCR; }
         char *pre = (char *)rt_wsb_alloc((size_t)cut + 1); if (!pre) return FAILDESCR; memcpy(pre, src, (size_t)cut); pre[cut] = '\0'; src = pre; } }
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
@@ -736,10 +797,11 @@ DESCR_t code_at(const char *src, long base)
     sno_error_quiet_begin();
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
-    if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return FAILDESCR; }
+    if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); code_compile_raise(orig, 0, NULL); return FAILDESCR; }
     const char *parse_err = sno_error_captured(); if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
-    { extern int sno_preeval_stmt(const tree_t *, const char **); const char *pm;
-      for (int i = 0; i < prog->n && !parse_err; i++) { pm = (const char *)0; if (sno_preeval_stmt(prog->c[i], &pm)) parse_err = pm ? pm : ""; } }
+    int pe = 0; const char *pm = (const char *)0;
+    { extern int sno_preeval_stmt(const tree_t *, const char **);
+      for (int i = 0; i < prog->n && !parse_err; i++) if ((pe = sno_preeval_stmt(prog->c[i], &pm))) parse_err = pm ? pm : ""; }
     if (g_sno_stmt_compiled < base) g_sno_stmt_compiled = base;
     long stno_base = g_sno_stmt_compiled;
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
@@ -780,7 +842,7 @@ DESCR_t code_at(const char *src, long base)
       if (patn > pat0) sno_pat_thunks_build(pat0);
       if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
     g_sno_stmt_compiled += (long)k + 1;
-    if (parse_err || illegal) { g_sno_errtext = parse_err ? parse_err : illegal; return FAILDESCR; }
+    if (parse_err || illegal) { g_sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};
     d.v    = DT_C;
