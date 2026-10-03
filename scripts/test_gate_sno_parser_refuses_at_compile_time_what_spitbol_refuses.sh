@@ -8,12 +8,16 @@
 # which SPITBOL folds and refuses at compile time ('a' + 1); a keyword name carrying a trailing dot, one name to the
 # oracle's lexer and a parse refusal in SCRIP (&ANCHOR. X). Each arm wants the two verdicts EQUAL; the arm is red today.
 #   bash scripts/test_gate_sno_parser_refuses_at_compile_time_what_spitbol_refuses.sh [ARM]   -- one class arm alone (a row's DONE-WHEN)
+# ⛔ `make` never builds out/parser_* (all: is scrip and scrip-ipp); `make parsers` does. A parser binary older than
+# src/tools/parser_main.c is REFUSED rc=2: one built before ae0a91289 returned 0 on a SNOBOL4 parse error, so the self-proof's
+# control-refuse read ACCEPT and the gate red for a reason that was not SCRIP's parser (the cto and the cfo, 2026-10-03).
 set -u
 ONLY="${1:-}"
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; PS="$ROOT/out/parser_snobol4"
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || true
 SBL="${SBL:-$(sbl_correctness_bin 2>/dev/null || echo /home/resources/x64/bin/sbl)}"
 [ -x "$PS" ] || { echo "⛔ REFUSE(2): no out/parser_snobol4 -- make parsers first"; exit 2; }
+[ "$PS" -nt "$ROOT/src/tools/parser_main.c" ] || { echo "⛔ REFUSE(2): out/parser_snobol4 is older than src/tools/parser_main.c -- make parsers (make never builds the parser binaries; one built before ae0a91289 exits 0 on a parse error and reads every arm ACCEPT)"; exit 2; }
 [ -x "$SBL" ] || { echo "⛔ REFUSE(2): no SPITBOL oracle at $SBL"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; trap 'rm -rf "$W"; exit 143' TERM; trap 'rm -rf "$W"; exit 130' INT
 fail=0

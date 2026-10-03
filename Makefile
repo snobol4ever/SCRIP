@@ -1371,6 +1371,7 @@ scrip: libscrip_rt
 # Snocone TreeDump twin prints. The frontend is chosen by the build, never by a runtime switch.
 PARSER_LANGS := snobol4 snocone icon prolog rebus raku pascal
 parsers: $(PARSER_LANGS:%=out/parser_%)
+	@echo "Built: $(PARSER_LANGS:%=out/parser_%)"
 # ── scrip-ipp: the Icon Pre-Processor as SCRIP's own pre-step beside scrip (Lon 2026-09-30, RULES.md FACT RULE SCRIP DOES NOT PREPROCESS, CEO-1366):
 # src/tools/ipp.icn is JCON's complete Icon preprocessor written in Icon, compiled by scrip itself in mode 4 and linked against the runtime.
 # $define $undef $include $ifdef $ifndef $else $endif $line $error resolved to plain text on stdout, LPATH for includes; it inserts no semicolon, ever.
@@ -1378,7 +1379,6 @@ out/scrip-ipp: $(SRC)/tools/ipp.icn scrip libscrip_rt
 	@mkdir -p $(OBJ) out
 	./scrip --compile -o $(OBJ)/ipp.s $(SRC)/tools/ipp.icn < /dev/null
 	$(CC) -m64 -no-pie $(OBJ)/ipp.s -Wl,-rpath,$(abspath out) -L$(abspath out) -lscrip_rt -lm -lpthread -o $@
-	@echo "Built: $(PARSER_LANGS:%=out/parser_%)"
 out/parser_%: $(SRC)/tools/parser_main.c libscrip_rt
 	@mkdir -p $(OBJ) out
 	$(CC) $(CRT) -DPARSER_LANG_$(shell echo $* | tr a-z A-Z) -c $(SRC)/tools/parser_main.c -o $(OBJ)/parser_$*.o

@@ -25,6 +25,10 @@
 # instead (rip in a non-executable page, caller 0x0). Measured hq_S 2026-09-11 and reproduced at 01eb996ca, so
 # it predates this gate; it is row snobol4-a-return-inside-a-setexit-handler-at-level-zero-jumps-to-a-non-code
 # -site and is NOT this gate's subject -- an arm that reds on another row's bug teaches runners to stop calling it.
+# ⛔ The live-handler witness divides by a VARIABLE holding 0 ON PURPOSE: sbl -bf folds 1 / 0 when the statement compiles and
+# refuses the program with ERROR 014 before SETEXIT ever runs (measured by the cfo 2026-10-03, rc=231, no 'caught'), and SCRIP does
+# the same since its compile-time pre-evaluation (ddf5c1a60) -- a literal divisor never reaches a handler in either. With Z = 0 the
+# division is a run-time error: 'caught 14' then 'tail' in sbl and in both modes.
 # Exit: 0 = every arm as specified; 1 = a divergence; 2 = cannot measure.
 set -uo pipefail
 SCRIP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,7 +38,7 @@ W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 printf "\tOUTPUT = 'a'\t:(ABORT)\nEND\n"     > "$W/g_abort.sno"
 printf "\tOUTPUT = 'a'\t:(CONTINUE)\nEND\n"  > "$W/g_continue.sno"
 printf "\tOUTPUT = 'a'\t:(SCONTINUE)\nEND\n" > "$W/g_scontinue.sno"
-printf "\tSETEXIT(.f)\n\t&ERRLIMIT = 4\n\tX = 1 / 0\n\tOUTPUT = 'tail'\t:(END)\nf\tOUTPUT = 'caught ' &ERRTYPE\t:(CONTINUE)\nEND\n" > "$W/g_handler.sno"
+printf "\tSETEXIT(.f)\n\t&ERRLIMIT = 4\n\tZ = 0\n\tX = 1 / Z\n\tOUTPUT = 'tail'\t:(END)\nf\tOUTPUT = 'caught ' &ERRTYPE\t:(CONTINUE)\nEND\n" > "$W/g_handler.sno"
 run_mode() {   # $1 = program, $2 = 3|4 -- prints the program's own stdout+stderr
     if [ "$2" = "3" ]; then timeout 15 "$SCRIP_BIN" "$1" < /dev/null 2>&1; return 0; fi
     timeout 15 "$SCRIP_BIN" --compile -o "$W/m4.s" "$1" < /dev/null > /dev/null 2>&1 || { echo "<compile-failed>"; return 0; }
