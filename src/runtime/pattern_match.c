@@ -491,9 +491,8 @@ int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val) { return subs
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args) {
-    (void)max_args;
     DEFINE_fn(name, fn);
-    { extern void core_fn_set_min_args(const char *name, int min_args); core_fn_set_min_args(name, min_args); }
+    { extern void core_fn_set_arity(const char *name, int min_args, int max_args); core_fn_set_arity(name, min_args, max_args); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t EVAL_fn(DESCR_t expr) {

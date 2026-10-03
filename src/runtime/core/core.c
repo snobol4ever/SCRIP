@@ -1962,6 +1962,7 @@ static DESCR_t _TABLE_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _CONVERT_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;
+    if (!(a[1].v == DT_I || a[1].v == DT_R || a[1].v == DT_N || (a[1].v == DT_S && a[1].s && rt_cstr_d(a[1])[0]))) { core_runtime_error(74, "convert second argument is not a string"); return FAILDESCR; }
     DESCR_t val  = a[0];
     if (val.v == DT_S && val.s) val.s = (char *)rt_cstr_d(val);
     const char *type = VARVAL_fn(a[1]);
@@ -2794,14 +2795,14 @@ void core_lib_init(void) {
     register_fn("LLE",      _LLE_,      2, 2);
     register_fn("LEQ",      _LEQ_,      2, 2);
     register_fn("LNE",      _LNE_,      2, 2);
-    register_fn("HOST",     _HOST_,     1, 4);
+    register_fn("HOST",     _HOST_,     1, 5);
     register_fn("ENDFILE",  _ENDFILE_,  1, 1);
     register_fn("BACKSPACE", _BACKSPACE_, 1, 1);
     register_fn("DETACH",   _DETACH_,   1, 1);
     register_fn("EJECT",    _EJECT_,    1, 1);
     register_fn("REWIND",   _REWIND_,   1, 1);
     register_fn("SET",      _SET_,      1, 3);
-    register_fn("APPLY",    _APPLY_,    1, 9);
+    register_fn("APPLY",    _APPLY_,    1, -1);
     register_fn("LPAD",     _LPAD_,     2, 3);
     register_fn("RPAD",     _RPAD_,     2, 3);
     register_fn("CHAR",     _CHAR_,     1, 1);
@@ -2825,10 +2826,10 @@ void core_lib_init(void) {
     register_fn("UCASE",    _UCASE__fn, 1, 1);
     register_fn("DATA",        _DATA_,     1, 1);
     register_fn("ARRAY",   _ARRAY_,   1, 2);
-    register_fn("TABLE",   _TABLE_,   0, 2);
+    register_fn("TABLE",   _TABLE_,   0, 3);
     register_fn("CONVERT", _CONVERT_, 2, 2);
     register_fn("PROTOTYPE", _PROTOTYPE_, 1, 1);
-    register_fn("ITEM",    _ITEM_,    2, 9);
+    register_fn("ITEM",    _ITEM_,    2, -1);
     register_fn("VALUE",   _VALUE_,   1, 1);
     register_fn("COPY",    _COPY_,    1, 1);
     register_fn("EVAL",  _EVAL_,  1, 1);
@@ -2851,7 +2852,7 @@ void core_lib_init(void) {
     register_fn("t",        _b_tree_t,      1, 1);
     register_fn("v",        _b_tree_v,      1, 1);
     register_fn("c",        _b_tree_c,      1, 1);
-    register_fn("DATE",     _DATE_,        0, 0);
+    register_fn("DATE",     _DATE_,        0, 1);
     register_fn("TIME",     _TIME_,        0, 0);
     register_fn("DUMP",     _DUMP_,        0, 1);
     register_fn("TRACE",    _TRACE_,       1, 4);
@@ -2869,7 +2870,7 @@ void core_lib_init(void) {
     register_fn("MON_PUT_O_RETURN",_b_MON_PUT_O_RETURN, 2, 2);
     register_fn("MON_PUT_CALL",    _b_MON_PUT_CALL,     1, 1);
     register_fn("MON_CLOSE",       _b_MON_CLOSE,        0, 0);
-    register_fn("DATE",     _DATE_,        0, 0);
+    register_fn("DATE",     _DATE_,        0, 1);
     register_fn("TIME",     _TIME_,        0, 0);
     register_fn("RSORT",    _RSORT_,       1, 2);
     register_fn("CLEAR",    _CLEAR_,       0, 1);
@@ -4116,6 +4117,8 @@ typedef struct _FNCBLK_t {
     int     nlocals;
     char  **locals;
     int     min_args;
+    int     max_args;
+    int     max_set;
     struct _FNCBLK_t *next;
 } FNCBLK_t;
 #define CORE_FN_PAD_MAX 8
@@ -4137,6 +4140,7 @@ static unsigned _func_hash(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
     FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
+    fe->min_args = 0; fe->max_args = 0; fe->max_set = 0;
     char *s = rt_heap_strdup_c(spec);
     fe->spec = rt_heap_strdup_c(spec);
     char *paren = strchr(s, '(');
@@ -4214,11 +4218,20 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
     return fe;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void core_fn_set_min_args(const char *name, int min_args) {
+void core_fn_set_arity(const char *name, int min_args, int max_args) {
     _func_init();
-    if (!name || !*name || min_args <= 0) return;
+    if (!name || !*name) return;
     unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) { e->min_args = min_args; return; }
+    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) { e->min_args = min_args > 0 ? min_args : 0; e->max_args = max_args; e->max_set = max_args >= 0; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int core_fn_arity_norm(const char *name, int nargs) {
+    if (!name || !*name) return nargs;
+    _func_init();
+    unsigned h = _func_hash(name);
+    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+        if (strcmp(e->name, name) == 0) return !e->fn ? nargs : e->min_args > nargs ? e->min_args : (e->max_set && nargs > e->max_args) ? e->max_args : nargs;
+    return nargs;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFINE_fn(const char *spec, FNCPTR_t fn) {
@@ -4231,6 +4244,7 @@ void DEFINE_fn(const char *spec, FNCPTR_t fn) {
         if (strcmp(e->name, fe->name) == 0) {
             e->spec    = fe->spec;
             e->fn      = fe->fn;
+            e->min_args = 0; e->max_set = 0;
             e->nparams = fe->nparams;
             e->params  = fe->params;
             e->nlocals = fe->nlocals;
@@ -4469,7 +4483,9 @@ void register_fn_alias(const char *newname, const char *oldname) {
         fe->params  = old_entry->params;
         fe->nlocals = old_entry->nlocals;
         fe->locals  = old_entry->locals;
+        fe->min_args = old_entry->min_args; fe->max_args = old_entry->max_args; fe->max_set = old_entry->max_set;
     } else {
+        fe->min_args = 0; fe->max_args = 0; fe->max_set = 0;
         fe->spec = rt_heap_strdup_c(newname); fe->fn = NULL;
         fe->entry_label = on;
         fe->nparams = 0; fe->params = NULL;
@@ -4483,6 +4499,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
             e->entry_label = fe->entry_label;
             e->nparams = fe->nparams; e->params = fe->params;
             e->nlocals = fe->nlocals; e->locals = fe->locals;
+            e->min_args = fe->min_args; e->max_args = fe->max_args; e->max_set = fe->max_set;
             return;
         }
     }

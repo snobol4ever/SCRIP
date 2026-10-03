@@ -6401,6 +6401,7 @@ DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) 
     extern long g_error; extern int64_t kw_errlimit;
     if (g_error != 0 || kw_errlimit != 0 || bidlen < 0 || !(bidlen & BID_BAKE_LEAF)) return RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen));
     { DESCR_t out = FAILDESCR; if (try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, 0)) return out; }
+    { extern int core_fn_arity_norm(const char *, int); int na = core_fn_arity_norm(fn, nargs); if (na != nargs) { DESCR_t pad[na > 0 ? na : 1]; for (int k = 0; k < na; k++) pad[k] = k < nargs ? args[k] : NULVCL; return c_rt_call_bid_sn4(fn, pad, na, bidlen); } }
     return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6499,6 +6500,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs);
       if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
       int hit = try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, strict); core_icn_bi_pop(&bi); if (hit) return out; }
+    if (sn4) { extern int core_fn_arity_norm(const char *, int); int na = core_fn_arity_norm(fn, nargs); if (na != nargs) { DESCR_t pad[na > 0 ? na : 1]; for (int k = 0; k < na; k++) pad[k] = k < nargs ? args[k] : NULVCL; return rt_call_arr_impl(fn, pad, na, bidlen, strict, sn4); } }
     if (strict && !rt_proc_name_exists(fn) && !icn_builtin_is_known(fn) && icn_builtin_arity(fn) == ICN_ARITY_UNKNOWN) {
         DESCR_t cal = NV_GET_fn(fn);
         if (!IS_PROCVAL_fn(cal)) { core_icn_op_ctx(fn, 1, cal, cal); core_icn_error(106, cal); core_icn_op_ctx_clear(); return FAILDESCR; }
@@ -7600,21 +7602,23 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         if (g_bidprof_on < 0) bidprof_init();
         if (g_bidprof_on && _fb >= 0 && _fb < 1024) g_bidprof[_fb]++;
 #endif
-        if (_fb == BID_SIZE)    return bn_size(args, nargs, out);
-        if (_fb == BID_REPLACE) return bn_replace(args, nargs, out);
-        if (_fb == BID_TRIM)    return bn_trim(args, nargs, out);
-        if (_fb == BID_SUBSTR)  return bn_substr(args, nargs, out);
-        if (_fb == BID_REVERSE) return bn_reverse(args, nargs, out);
-        if (_fb == BID_INTEGER) return bn_integer(args, nargs, out);
-        if (_fb == BID_DUPL)    return bn_dupl(args, nargs, out);
-        if (_fb == BID_LPAD)    return bn_lpad(args, nargs, out);
-        if (_fb == BID_RPAD)    return bn_rpad(args, nargs, out);
-        if (_fb == BID_REMDR)   return bn_remdr(args, nargs, out);
-        if (_fb == BID_DATE)    return bn_date(args, nargs, out);
-        if (_fb == BID_TIME)    return bn_time(args, nargs, out);
-        if (_fb == BID_IDENT)   return bn_identdiffer(args, nargs, out, 1);
-        if (_fb == BID_DIFFER)  return bn_identdiffer(args, nargs, out, 0);
-        if (_fb == BID_SNOx24NAME && nargs == 1) return bn_sno_name(args, nargs, out);
+        int _fr = -1;
+        if (_fb == BID_SIZE)    _fr = bn_size(args, nargs, out);
+        else if (_fb == BID_REPLACE) _fr = bn_replace(args, nargs, out);
+        else if (_fb == BID_TRIM)    _fr = bn_trim(args, nargs, out);
+        else if (_fb == BID_SUBSTR)  _fr = bn_substr(args, nargs, out);
+        else if (_fb == BID_REVERSE) _fr = bn_reverse(args, nargs, out);
+        else if (_fb == BID_INTEGER) _fr = bn_integer(args, nargs, out);
+        else if (_fb == BID_DUPL)    _fr = bn_dupl(args, nargs, out);
+        else if (_fb == BID_LPAD)    _fr = bn_lpad(args, nargs, out);
+        else if (_fb == BID_RPAD)    _fr = bn_rpad(args, nargs, out);
+        else if (_fb == BID_REMDR)   _fr = bn_remdr(args, nargs, out);
+        else if (_fb == BID_DATE)    _fr = bn_date(args, nargs, out);
+        else if (_fb == BID_TIME)    _fr = bn_time(args, nargs, out);
+        else if (_fb == BID_IDENT)   _fr = bn_identdiffer(args, nargs, out, 1);
+        else if (_fb == BID_DIFFER)  _fr = bn_identdiffer(args, nargs, out, 0);
+        else if (_fb == BID_SNOx24NAME && nargs == 1) _fr = bn_sno_name(args, nargs, out);
+        if (_fr >= 0) return _fr;
     }
     const size_t _fnlen = (bidlen >= 0) ? (size_t)((unsigned)bidlen >> 16) : strlen(fn);
     const int _bid = (bidlen >= 0) ? (int)(bidlen & BID_BAKE_MASK) : bid_of(fn, (unsigned)_fnlen);

@@ -670,6 +670,7 @@ test_gate_sn4_replacement_releases_its_post_match_spine.sh	WIRED	-	-	-
 test_gate_snc_a_label_at_end_of_file_is_a_statement.sh	WIRED	-	-	-
 test_gate_snc_two_nreturn_functions_link_in_m4.sh	WIRED	-	-	-
 test_gate_sno_a_bare_fence_as_an_alternation_arm_matches_null_and_seals_its_backtrack.sh	WIRED	-	-	-
+test_gate_sno_a_builtin_called_short_or_over_its_arity_pads_with_null_and_drops_extras.sh	WIRED	-	-	-
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_call_saves_binds_and_restores_an_io_associated_name_without_io.sh	WIRED	-	-	-
 test_gate_sno_a_call_through_an_opsyn_alias_is_the_functions_own_call.sh	WIRED	-	-	-
