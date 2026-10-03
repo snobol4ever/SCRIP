@@ -230,8 +230,11 @@ else
     printf 'M4-BUILD-FAILED\n' > "$T/m4"; m4="M4-BUILD-FAILED"
 fi
 ok3=0; ok4=0
-cmp -s "$T/ref" "$T/m3" && ok3=1
-cmp -s "$T/ref" "$T/m4" && ok4=1
+# ONE ERROR VOICE (RULES.md, CEO-623/625): SCRIP prints its own error shape, so each mode is graded THROUGH the renderer against the oracle's text
+python3 "$HERE/util_render_error_voice.py" icon < "$T/m3" > "$T/m3r" || { echo "UNPROVEN(2) [$SLUG]: the error-voice renderer refused the m3 output"; exit 2; }
+python3 "$HERE/util_render_error_voice.py" icon < "$T/m4" > "$T/m4r" || { echo "UNPROVEN(2) [$SLUG]: the error-voice renderer refused the m4 output"; exit 2; }
+cmp -s "$T/ref" "$T/m3r" && ok3=1
+cmp -s "$T/ref" "$T/m4r" && ok4=1
 printf 'class  : %s\n' "$SLUG"
 printf 'oracle : %s\n' "$(tr '\n' '|' < "$T/ref")"
 printf 'scrip m3: %s\n' "$(tr '\n' '|' < "$T/m3")"
