@@ -532,8 +532,8 @@ eval_str:
 _Static_assert(sizeof(char) == 1, "EVAL OF A STRING THAT CANNOT BE A NUMBER SKIPS THE NUMBER PARSES (ceo CEO-1263): a string whose first non-blank character is a letter is an expression, never a number literal, so it goes straight to the compiled-expression cache: three parses of 'X + 1' were 8% of the eval_fixed kernel, and strtod's inf/nan spellings made EVAL('INF') a real where SPITBOL evaluates the variable INF");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *sn4_unary_op_key(const char *op) {
-    static const char set[] = "!#%/=|";
-    static const char *const key[] = { "unary!", "unary#", "unary%", "unary/", "unary=", "unary|" };
+    static const char set[] = "!#%/=|^";
+    static const char *const key[] = { "unary!", "unary#", "unary%", "unary/", "unary=", "unary|", "unary^" };
     const char *p = (op && op[0] && !op[1]) ? strchr(set, op[0]) : (const char *)0;
     return p ? key[p - set] : op;
 }

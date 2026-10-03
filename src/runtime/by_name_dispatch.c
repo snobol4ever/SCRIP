@@ -6451,7 +6451,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
             if (!strcmp(fn, "*"))  { extern DESCR_t rt_call_arr(const char *, DESCR_t *, int); DESCR_t _a = a; return try_call_builtin_by_name("*", &_a, 1, &out) ? out : FAILDESCR; }
             if (!strcmp(fn, "\\")) return (a.v == DT_SNUL || a.v == 0) ? FAILDESCR : a;
             if (!strcmp(fn, "?"))  return rt_deref((strict ? rt_random_var_strict : rt_random_var)(a));
-            if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|") || !strcmp(fn, "!") || !strcmp(fn, "=")) {
+            if (!strcmp(fn, "/") || !strcmp(fn, "%") || !strcmp(fn, "#") || !strcmp(fn, "|") || !strcmp(fn, "!") || !strcmp(fn, "=") || !strcmp(fn, "^")) {
                 extern int core_call_registered_fn(const char *, DESCR_t *, int, DESCR_t *); extern int FNCEX_fn(const char *); extern const char *sn4_unary_op_key(const char *);
                 const char *uk = sn4_unary_op_key(fn);
                 if (core_call_registered_fn(uk, args, nargs, &out)) return out;
