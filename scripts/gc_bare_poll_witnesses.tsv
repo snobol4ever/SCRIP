@@ -5,7 +5,7 @@
 # is poll_at, the template line the emitted note names.  A witness is the smallest ref-carrying program whose
 # emission reaches the site; UNWITNESSED is a site no program in the set reaches, NAMED and never counted green.
 # COLUMNS: site  poll_at  witness
-src/templates/bb/bb_activate.cpp:37:scrip_coexpr_activate	src/templates/bb/bb_activate.cpp:43	hb_coexpr_refresh.icn
+src/templates/bb/bb_activate.cpp:38:scrip_coexpr_activate	src/templates/bb/bb_activate.cpp:44	hb_coexpr_refresh.icn
 src/templates/bb/bb_assign_global.cpp:129:NV_SET_fn	src/templates/bb/bb_assign_global.cpp:132	UNWITNESSED
 src/templates/bb/bb_assign_var.cpp:24:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:31	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_assign_var.cpp:42:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:47	hb_concat_augmented_then_subscript.icn
