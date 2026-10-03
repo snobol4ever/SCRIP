@@ -503,6 +503,7 @@ test_gate_picker_lane_table_agrees_with_mode.sh	WIRED	-	-	-
 test_gate_pl_a_big_integer_past_the_double_range_raises_float_overflow.sh	WIRED	-	-	-
 test_gate_pl_a_binary_stream_has_no_encoding_property.sh	WIRED	-	-	-
 test_gate_pl_a_body_less_procedure_returns_a_defined_result.sh	WIRED	-	-	-
+test_gate_pl_a_bounded_conditional_runs_assert_2_exists_and_a_huge_length_is_a_resource_error.sh	WIRED	-	-	-
 test_gate_pl_a_closed_stream_is_not_a_current_stream_argument.sh	WIRED	-	-	-
 test_gate_pl_a_cut_inside_a_control_goal_held_in_a_variable_cuts_to_the_call.sh	WIRED	-	-	-
 test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh	WIRED	-	-	-

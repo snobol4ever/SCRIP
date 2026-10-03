@@ -12,10 +12,8 @@
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
 #include "ct_vec.h"
-#define PL_BB_TABLE_MAX 256
 typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
-static pl_bb_ent_t * pl_bb_tab = NULL;
-static int           pl_bb_n   = 0;
+static cv_t pl_bb_cv;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_SEAL_TAIL 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -38,8 +36,8 @@ tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_bb_ent_t * pl_bb_lookup(const char * name, int arity) {
-    if (!name || !pl_bb_tab) return NULL;
-    for (int i = 0; i < pl_bb_n; i++) if (pl_bb_tab[i].arity == arity && pl_bb_tab[i].name && strcmp(pl_bb_tab[i].name, name) == 0) return &pl_bb_tab[i];
+    if (!name) return NULL;
+    for (uint32_t i = 0; i < pl_bb_cv.len; i++) { pl_bb_ent_t * e = &CV_AT(pl_bb_cv, pl_bb_ent_t, i); if (e->arity == arity && e->name && strcmp(e->name, name) == 0) return e; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -47,9 +45,7 @@ static pl_bb_ent_t * pl_bb_register(const char * name, int arity, int bb_idx) {
     if (!name) return NULL;
     pl_bb_ent_t * existing = pl_bb_lookup(name, arity);
     if (existing) { existing->bb_idx = bb_idx; return existing; }
-    if (pl_bb_n >= PL_BB_TABLE_MAX) return NULL;
-    if (!pl_bb_tab) { pl_bb_tab = (pl_bb_ent_t *)ct_zalloc(PL_BB_TABLE_MAX, sizeof *pl_bb_tab); if (!pl_bb_tab) return NULL; }
-    pl_bb_ent_t * e = &pl_bb_tab[pl_bb_n++];
+    pl_bb_ent_t * e = &CV_PUSH(pl_bb_cv, pl_bb_ent_t);
     e->name = ct_strdup(name); e->arity = arity; e->bb_idx = bb_idx;
     return e;
 }
@@ -1626,7 +1622,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     IR_t * ge = NULL; pl_db_leaf2_tree(cx, "$db_t_guard", t->c[0], pl_atom_goal("assert"), first, ωfail, &ge); if (ge) first = ge; }
                 if (entry_out) *entry_out = first; }
               return nd; } }
-        if ((!strcmp(nm, "asserta") || !strcmp(nm, "assertz")) && t->n == 2) {
+        if ((!strcmp(nm, "asserta") || !strcmp(nm, "assertz") || !strcmp(nm, "assert")) && t->n == 2) {
             { const tree_t * bad = pl_clause_ill_typed(t->c[0]); if (bad) return goal(cx, pl_cc_type_error("callable", bad, nm, 2), γnext, ωfail, entry_out); }
             return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[1], (tree_t *) pl_atom_goal("clref_out")),
                           pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("assert")),

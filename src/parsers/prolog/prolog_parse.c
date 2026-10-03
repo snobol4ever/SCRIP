@@ -975,8 +975,8 @@ static int eval_if_condition_tree(tree_t *cond) {
         const char *val  = (val_t->t  == TT_QLIT) ? val_t->v.sval  : NULL;
         if (!flag || !val) return -1;
         if (strcmp(flag, "bounded") == 0) {
-            if (strcmp(val, "true")  == 0) return 1;
-            if (strcmp(val, "false") == 0) return 0;
+            if (strcmp(val, "true")  == 0) return 0;
+            if (strcmp(val, "false") == 0) return 1;
             return -1;
         }
         if (strcmp(flag, "prefer_rationals") == 0) {
@@ -1139,6 +1139,7 @@ static const char *PL_PRELUDE_SRC =
     "'$len_tail'(T,L,_,_):-nonvar(T),T\\==[],!,throw(error(type_error(list,L),length/2)).\n"
     "'$len_tail'(_,_,_,N):-nonvar(N),\\+ integer(N),!,throw(error(type_error(integer,N),length/2)).\n"
     "'$len_tail'(_,_,_,N):-integer(N),N<0,!,throw(error(domain_error(not_less_than_zero,N),length/2)).\n"
+    "'$len_tail'(_,_,_,N):-integer(N),N>=4294967296,!,throw(error(resource_error(stack),length/2)).\n"
     "'$len_tail'(T,_,K,N):-T==[],!,N=K.\n"
     "'$len_tail'(T,_,K,N):-var(N),!,'$len_gen'(T,K,N).\n"
     "'$len_tail'(T,_,K,N):-N>=K,D is N-K,'$len_mk'(D,T).\n"
