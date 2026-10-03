@@ -24,6 +24,9 @@ set -u
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+# The oracle cuts each ref at the size the kernel declares for it, <stem>.oracle_args (ceo CEO-1353, RULES.md clause 8 (g)(3)), never a size
+# typed here: MEASURED 2026-10-03 (the coo, sbl fd9b552b) every corpus/benchmarks/snobol4 kernel answers its ref at sbl's own defaults, two readings.
+. "$HERE/lib_declared_arena.sh" || { echo "REFUSE(2): cannot load lib_declared_arena.sh"; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200)." >&2; exit 3; }
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"; SBL="${SBL:-$S4A/x64/bin/sbl}"
 T="${TIMEOUT:-60}"; WRITE=0; DIRS=""
@@ -58,7 +61,8 @@ for d in $DIRS; do
     # the sentence explaining it was, which is the shape that survives review indefinitely because the behaviour
     # under it is correct (row every-ref-cutting-path-refuses-when-the-oracle-dies-mid-cut, ceo -> hq_T, on
     # seat07's finding that `sbl -bf` SIGSEGVs on ~half its ERROR 212 runs while still printing a diagnostic).
-    timeout "$T" "$SBL" $(sbl_lang_flags) -s16m "$sno" >"$orc" 2>"$W/$b.orcerr" <"$in"; orc_rc=$?
+    oa="$(declared_oracle_args_beside "$sno")" || { printf '%-26s ⛔ ORACLE-FAIL %s\n' "$b" "its .oracle_args is refused"; orfail=$((orfail+1)); ORF="$ORF $b"; continue; }
+    timeout "$T" "$SBL" $(sbl_lang_flags) $oa "$sno" >"$orc" 2>"$W/$b.orcerr" <"$in"; orc_rc=$?
     if [ "$orc_rc" -ne 0 ]; then
       orc_why="rc=$orc_rc"; [ "$orc_rc" -ge 128 ] && orc_why="KILLED BY SIGNAL $((orc_rc-128)) (rc=$orc_rc) -- output is TRUNCATED, never a ref"
       printf '%-26s ⛔ ORACLE-FAIL %s  %s\n' "$b" "$orc_why" "$(head -1 "$W/$b.orcerr")"; orfail=$((orfail+1)); ORF="$ORF $b"; continue

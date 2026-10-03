@@ -132,7 +132,12 @@ sc_libpath() {  # $1 = lib spec  $2 = program dir -> colon list of real dirs
 # SIGSEGV workaround (CLAUDE.md) when the SIGSEGV is the ERROR-217 report path that folding's PHANTOM duplicate
 # labels walk into -- a genuine duplicate label SIGSEGVs under `-bf` too (measured s189).
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200). A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm). Fix the checkout; do not work around this." >&2; exit 3; }
-sbl_flags() { echo "$(sbl_lang_flags) -d512m -i64m"; }   # ⭐ LANGUAGE ARM from the ONE authority (lib_oracle_flags.sh); ONLY the sizing is local
+sbl_flags() { echo "$(sbl_lang_flags)"; }   # ⭐ LANGUAGE ARM from the ONE authority (lib_oracle_flags.sh); the SIZE is the program's own <stem>.oracle_args, which sc_oracle_run passes
+# ⛔ NO SIZE IS TYPED FOR THE ORACLE (ceo CEO-1353, RULES.md clause 8 (g)(3)-(4)): a program whose oracle needs more than sbl's defaults declares
+# <stem>.oracle_args beside itself and sc_oracle_run passes it through lib_declared_arena.sh's declared_oracle_args_beside. MEASURED 2026-10-03
+# (the coo, sbl fd9b552b): every program of every suite below, 324, through this file's own `oracle` verb at the -d512m -i64m it typed under
+# ulimit -s unlimited and at sbl's defaults: 287 byte-identical; the other 36 differ only in sbl's timing lines and the "memory left"
+# figure of its own fatal report, which grading masks -- no program's answer moved.
 # ⭐ THE DECLARED HEAP AND STACK, PER PROGRAM (Lon 2026-09-23 18:3x; CEO-1167, CEO-1225; wired by the coo on CEO-1229 -- the
 # gimpel runner grades through run_one below, and so do csnobol4_suite and the dotnet and aisnobol programs under misc). A program
 # runs in BOTH modes at what it declares -- its row in the ALL.csv beside it (heap_kb, stack_kb), else its NAME.heap / NAME.stack
@@ -187,7 +192,8 @@ sbl_died() { grep -aqE ' : ERROR [0-9][0-9][0-9] -- ' "$1" && grep -aqE '^in sta
 sc_oracle_run() {  # $1 = program  $2 = RESOLVED lib path  $3 = stdin file  $4 = output file -> echoes the oracle rc
   local prog="$1" lib="$2" in="$3" out="$4" d ocwd rc
   d="$(dirname "$prog")"; ocwd="$d"; [ "$lib" = "$CORPUS" ] && ocwd="$CORPUS"
-  (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $(sbl_flags) "$prog" < "$in" > "$out" 2>/dev/null); rc=$?
+  local oa; oa="$(declared_oracle_args_beside "$prog")" || { echo 2; return; }
+  (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $(sbl_flags) $oa "$prog" < "$in" > "$out" 2>/dev/null); rc=$?
   echo "$rc"
 }
 # The WEIGHTS table has a RAGGED tail (find-args are variable-length, with lib/rto/norm as the last three), so parsing a row is a
@@ -328,7 +334,7 @@ run_one() {  # suite lib prog norm run_to
   # committed file a reader can ls, and an unknown dialect REFUSES rather than silently grading in the default.
   local cflag=""
   local ca; ca="$(declared_compile_args_from_table "$SC_DECL" "$prog")" || ca=""   # the program's own compile_args (sc_decl_build), after --run and --compile
-  W="$(mktemp -d)"; ulimit -s unlimited 2>/dev/null
+  W="$(mktemp -d)"
   if [ "$suite" = beauty_self ]; then in="$prog"; fi
   # ---- ground truth
   [ -f "$d/$n.ref" ] && { cp "$d/$n.ref" "$W/pin"; have_pin=1; }
@@ -377,7 +383,7 @@ run_one() {  # suite lib prog norm run_to
   echo -e "$suite\t${prog#$CORPUS/}\t$st3\t$st4\t$t3\t$t4\t$note"
   rm -rf "$W"
 }
-export -f run_one sc_mask stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run run_at_declared_table declared_compile_args_from_table; export CORPUS SBL SCRIP SC DEMO
+export -f run_one sc_mask stdin_for sc_libpath sbl_flags sbl_died sc_oracle_run run_at_declared_table declared_compile_args_from_table declared_oracle_args_beside; export CORPUS SBL SCRIP SC DEMO _LDA_HERE
 # ---------------------------------------------------------------- run
 cmd_run() {
   set -f

@@ -15,7 +15,7 @@ OUT="${2:-${TMPDIR:-/tmp}/parser_sc_recognition_$(id -u)/$L}"; mkdir -p "$OUT/ma
 declare -A EXT=([snobol4]=sno [snocone]=sc [icon]=icn [prolog]=pl [rebus]=reb [raku]=raku [pascal]=pas)
 [ -n "$L" ] && [ -n "${EXT[$L]:-}" ] || { echo "PARSER-SC-RECOGNITION ⛔ REFUSE(2): lang must be one of ${!EXT[*]}"; exit 2; }
 e=${EXT[$L]}; X="$W/out/parser_$L"; M="$C/tests/$L"
-[ -x "$X" ] || { echo "PARSER-SC-RECOGNITION ⛔ REFUSE(2): no $X -- make parsers"; exit 2; }
+( . "$here/lib_build_currency.sh" && assert_parser_current "$L" "$W" ) || { echo "PARSER-SC-RECOGNITION ⛔ REFUSE(2): $X is missing or older than a source it was compiled from (named above) -- make parsers"; exit 2; }
 [ -f "$M/ALL.$e" ] && [ -f "$M/ALL.csv" ] || { echo "PARSER-SC-RECOGNITION ⛔ REFUSE(2): no master under $M"; exit 2; }
 LIST="$OUT/list.txt"
 if [ ! -s "$LIST" ] || [ "$M/ALL.$e" -nt "$LIST" ] || [ "$M/ALL.csv" -nt "$LIST" ]; then

@@ -14,6 +14,9 @@
 #   W      the eight tools that run the chain read the chain's declaration -- each calls the reader on the chain -- and a doctored copy
 #          of util_parser_furthest_cursor.sh that types sbl's size again instead of passing it reads RED here (fail once). That no tool
 #          types a size is test_gate_no_runner_types_a_size_or_sets_the_window.sh's census.
+#   W2     the four SNOBOL4 tools that run sbl on a unit -- the scorecard (the Gimpel, Budne, AIS and Dotnet engine), the bench-ref
+#          minter and the two demo identity boards -- pass that unit's declared switches to sbl, and SCRIP's declared sizes where they run
+#          it (the coo 2026-10-03: treebank's full input dies ERROR 246 at sbl's default stack; demos/snobol4/treebank/treebank.oracle_args).
 # EXIT: 0 every arm holds; 1 an arm is red; 2 could not measure.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -88,6 +91,19 @@ sed 's/"\$SBL" -bf \$OARGS "\$twin"/"$SBL" -bf -s2000m -d4000m "$twin"/' "$FC" >
 cmp -s "$FC" "$W/doctored.sh" && { echo "⛔ GATE REFUSE(2) [$G]: the doctoring edit did not apply"; exit 2; }
 IFS='|' read -r -a parts <<<"${TOOLS[2]}"
 if wired "$W/doctored.sh" "${parts[@]:1}"; then bad "W' a copy that types sbl's size again still reads as wired"; else ok "W' a copy of util_parser_furthest_cursor.sh that types sbl's size again reads RED (fail once)"; fi
-echo "population: $N check(s): 7 reader shapes, one oracle recursion, $nl chain declarations, ${#TOOLS[@]} tools and one doctored copy"
-if [ "$RED" = 0 ]; then echo "✅ GATE PASS [$G]: the oracle's declared switches are read by the one reader, refused when malformed, needed by the oracle, declared by every parser chain and passed by every tool that runs it"; exit 0; fi
+SNO_TOOLS=(
+  "scorecard_snobol4.sh|oa=\"\$(declared_oracle_args_beside \"\$prog\")\"|\"\$SBL\" \$(sbl_flags) \$oa \"\$prog\"|declared_oracle_args_beside; export"
+  "util_mint_bench_refs.sh|oa=\"\$(declared_oracle_args_beside \"\$sno\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa \"\$sno\""
+  "test_demo_full_3way.sh|sw=\"\$(declared_switches_beside \"\$src\")\" && oa=\"\$(declared_oracle_args_beside \"\$src\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa|--run \$sw \"\$src\"|\"\$W/\$nm.prog\" \$sw"
+  "board_sno15_ident.sh|sw=\"\$(declared_switches_beside \"\$src\")\" && oa=\"\$(declared_oracle_args_beside \"\$src\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa|--run \$sw \"\$src\"|\"\$W/\$nm.prog\" \$sw"
+)
+unwired=""
+for t in "${SNO_TOOLS[@]}"; do
+  IFS='|' read -r -a parts <<<"$t"; f="$HERE/${parts[0]}"
+  [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: ${parts[0]} absent"; exit 2; }
+  wired "$f" "${parts[@]:1}" || unwired="$unwired ${parts[0]}"
+done
+[ -z "$unwired" ] && ok "W2 all ${#SNO_TOOLS[@]} SNOBOL4 tools that run sbl on a unit pass its declared switches (and SCRIP's declared sizes where they run it)" || bad "W2 a SNOBOL4 tool no longer passes the unit's declaration:$unwired"
+echo "population: $N check(s): 7 reader shapes, one oracle recursion, $nl chain declarations, ${#TOOLS[@]} chain tools, one doctored copy, ${#SNO_TOOLS[@]} SNOBOL4 tools"
+if [ "$RED" = 0 ]; then echo "✅ GATE PASS [$G]: the oracle's declared switches are read by the one reader, refused when malformed, needed by the oracle, declared by every parser chain and passed by every tool that runs it and by the SNOBOL4 tools"; exit 0; fi
 echo "⛔ GATE FAIL [$G]"; exit 1

@@ -53,6 +53,31 @@ s4e_bc_assert_current() {   # $1 = artifact path, $2 = human label, $3 = repo ro
     echo "  build-currency OK: $label [$at] is at or after the newest src/ change [$newest]"
     return 0
 }
+# assert_parser_current <lang> [root] -- out/parser_<lang> is at or after every source its object was compiled from: the prerequisites
+# make itself recorded in $(OBJ)/parser_<lang>.d (-MMD), or src/tools/parser_main.c alone when there is no .d -- so the cure the refusal
+# names, make parsers, is always the one that clears it. ⭐ THE PARSE CODE IS NOT IN THAT BINARY (the coo, measured 2026-10-03 on the
+# cfo's report that make never rebuilds out/parser_<lang>): nm reads prolog_compile_parse and its six siblings U there, and ldd binds
+# them to out/libscrip_rt.so, so a frontend edit reaches the parser through make and the runtime check; what can go stale is the driver
+# parser_main.c and the headers it was compiled against, whose layouts it shares with the runtime.
+assert_parser_current() {
+    local lang="$1" root="${2:-}" art d deps f at newest=0 nf="" m
+    [ -n "$root" ] || root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    art="$root/out/parser_$lang"
+    [ -x "$art" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): out/parser_$lang not built: $art -- cure: cd $root && make parsers" >&2; return 2; }
+    d="${OBJ:-/tmp/si_objs$(printf '%s' "$root" | tr / -)}/parser_$lang.d"
+    [ -f "$d" ] && deps="$(awk '{ c = /\\$/; sub(/\\$/, ""); print; if (!c) exit }' "$d" | tr ' ' '\n' | grep -v ':$' | grep .)"
+    [ -n "${deps:-}" ] || deps="$root/src/tools/parser_main.c"
+    at="$(stat -Lc %Y "$art" 2>/dev/null || echo 0)"
+    for f in $deps; do
+        [ -e "$f" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): out/parser_$lang was compiled from $f, which no longer exists -- cure: cd $root && make parsers" >&2; return 2; }
+        m="$(stat -Lc %Y "$f")"; [ "$m" -gt "$newest" ] && { newest="$m"; nf="$f"; }
+    done
+    if [ "$at" -lt "$newest" ]; then
+        echo "⛔ REFUSED-TO-GRADE (rc=2): out/parser_$lang PREDATES ITS SOURCE -- built $(s4e_bc_stamp "$at"), $nf changed $(s4e_bc_stamp "$newest") -- cure: cd $root && make parsers" >&2
+        return 2
+    fi
+    return 0
+}
 # The two named entry points every caller uses. Keep the names; they are cited in batons and DONE-WHENs.
 assert_so_current()     { s4e_bc_assert_current "${1:-out/libscrip_rt.so}" "RUNTIME out/libscrip_rt.so" "${2:-}"; }
 assert_binary_current() { s4e_bc_assert_current "${1:-./scrip}"            "BINARY scrip"                "${2:-}"; }

@@ -88,7 +88,8 @@ def main(argv):
     if '--master' in argv:
         return fix_master(argv[argv.index('--master') + 1], check)
     files = [a for a in argv if a != '--check']
-    if not os.access(PARSER, os.X_OK): print('REFUSE(2): no out/parser_icon -- make first'); return 2
+    if subprocess.run(['bash', '-c', '. "$1/lib_build_currency.sh" && assert_parser_current icon "$2"', '-', HERE, ROOT]).returncode != 0:
+        print('REFUSE(2): out/parser_icon is missing or older than a source it was compiled from (named above) -- make parsers'); return 2
     bad = 0; changed = 0
     for f in files:
         added, err = fix(f, check)

@@ -125,7 +125,7 @@ x() { awk -v r="$1" -v s="$2" 'BEGIN { if (r == "" || s == "" || s == 0) printf 
 for L in $LANGS; do
     ext="${EXT[$L]:-}"; [ -n "$ext" ] || { echo "$L ⛔ REFUSE(2): not a parser language (${!EXT[*]})"; RC=2; continue; }
     grep -q "PARSER_FILES" "$B/parser_$L.sc" 2>/dev/null || { echo "$L ⛔ REFUSE(2): bootstrap/parser_$L.sc reads no PARSER_FILES list"; RC=2; continue; }
-    [ -x "$W/out/parser_$L" ] && [ "$W/out/parser_$L" -nt "$W/src/tools/parser_main.c" ] || { echo "$L ⛔ REFUSE(2): out/parser_$L missing or older than src/tools/parser_main.c -- make parsers"; RC=2; continue; }
+    ( . "$HERE/lib_build_currency.sh" && assert_parser_current "$L" "$W" ) || { echo "$L ⛔ REFUSE(2): out/parser_$L missing or older than a source it was compiled from (named above) -- make parsers"; RC=2; continue; }
     cat $CHAIN "$B/parser_$L.sc" > "$T/$L.sc"
     "$W/scrip" --transpile "$T/$L.sc" > "$T/$L.sno" 2> "$T/$L.tr.err" && [ -s "$T/$L.sno" ] || { echo "$L ⛔ REFUSE(2): scrip --transpile of the chain failed"; RC=2; continue; }
     src="$T/$L.sc"; via=""; case "$VIA" in *" $L "*) src="$T/$L.sno"; via=" | via transpile" ;; esac

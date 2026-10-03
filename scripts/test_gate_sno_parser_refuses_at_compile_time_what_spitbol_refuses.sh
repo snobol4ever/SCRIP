@@ -17,7 +17,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; PS="$ROOT
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || true
 SBL="${SBL:-$(sbl_correctness_bin 2>/dev/null || echo /home/resources/x64/bin/sbl)}"
 [ -x "$PS" ] || { echo "⛔ REFUSE(2): no out/parser_snobol4 -- make parsers first"; exit 2; }
-[ "$PS" -nt "$ROOT/src/tools/parser_main.c" ] || { echo "⛔ REFUSE(2): out/parser_snobol4 is older than src/tools/parser_main.c -- make parsers (make never builds the parser binaries; one built before ae0a91289 exits 0 on a parse error and reads every arm ACCEPT)"; exit 2; }
+( . "$HERE/lib_build_currency.sh" && assert_parser_current snobol4 "$ROOT" ) || { echo "⛔ REFUSE(2): out/parser_snobol4 is older than a source it was compiled from (named above) -- make parsers (make never builds the parser binaries)"; exit 2; }
 [ -x "$SBL" ] || { echo "⛔ REFUSE(2): no SPITBOL oracle at $SBL"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; trap 'rm -rf "$W"; exit 143' TERM; trap 'rm -rf "$W"; exit 130' INT
 fail=0

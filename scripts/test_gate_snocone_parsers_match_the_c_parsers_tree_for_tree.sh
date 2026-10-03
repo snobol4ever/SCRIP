@@ -46,6 +46,7 @@ SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2)
 CORPUS="${CORPUS:-$S4E/corpus}"; [ -d "$CORPUS/tests" ] || { echo "⛔ GATE REFUSE(2) [$G]: no corpus at $CORPUS"; exit 2; }
 B="$ROOT/bootstrap"; CHAIN="$B/global.sc $B/case.sc $B/assign.sc $B/match.sc $B/counter.sc $B/stack.sc $B/tree.sc $B/ShiftReduce.sc $B/tdump.sc $B/gen.sc $B/qize.sc $B/semantic.sc $B/omega.sc $B/trace.sc"
 for f in $CHAIN; do [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: chain file missing: $f"; exit 2; }; done
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ GATE REFUSE(2) [$G]: cannot load lib_declared_arena.sh"; exit 2; }
 POP="${GATE_POPULATION:-sample}"; [ "${S4E_DONE_WHEN_RUN:-}" = 1 ] && POP=corpus
 TMO="${GATE_TIMEOUT:-300}"
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
@@ -57,7 +58,7 @@ for c in b: h=(h*256+c)%(2**55-55)
 print(h)' "$1"; }
 tree_canary() {
     ( cd "$(dirname "$1")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$2" - < "$1" > "$T/k.cdump" 2>/dev/null )
-    sc_run "${4:-$1}" timeout "$TMO" "$3" -s4096m -d16384m > "$T/k.sdump" 2>/dev/null
+    sc_run "${4:-$1}" timeout "$TMO" "$3" $SW > "$T/k.sdump" 2>/dev/null
     refused "$T/k.cdump" || [ "$(tree_fold "$T/k.cdump")" = "$(cat "$T/c.hash")" ] || { echo "C hash $(cat "$T/c.hash") is not the fold of its dump (${1#$CORPUS/})"; return; }
     refused "$T/k.sdump" || [ "$(tree_fold "$T/k.sdump")" = "$(cat "$T/s.hash")" ] || { echo ".sc hash $(cat "$T/s.hash") is not the fold of its dump (${1#$CORPUS/})"; return; }
     echo LIVE; }
@@ -72,10 +73,11 @@ pp_twin() { case "$1" in
     *) echo "$2" ;; esac; }
 sc_run() { local f="$1"; shift; ( [ "$L" = snobol4 ] && cd "$(dirname "$f")"; "$@" < "$f" ); }
 RC=0; GRADED=0; GREEN=0
-echo "TREE-FOR-TREE [$G]: population=$POP, EACH FILE ALONE through out/parser_<lang> and the .sc chain compiled once to a mode-4 binary (-s4096m -d16384m), one tree hash per file per side (PARSER_TREE_HASH=1), timeout ${TMO}s per run"
+echo "TREE-FOR-TREE [$G]: population=$POP, EACH FILE ALONE through out/parser_<lang> and the .sc chain compiled once to a mode-4 binary at the chain's declared heap and stack (bootstrap/parser_<lang>.heap, .stack), one tree hash per file per side (PARSER_TREE_HASH=1), timeout ${TMO}s per run"
 for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
     ext=${EXT[$L]}; exe="$ROOT/out/parser_$L"
-    [ -x "$exe" ] || { echo "  $L: ⛔ REFUSE(2) no $exe -- make parsers"; RC=2; continue; }
+    ( . "$HERE/lib_build_currency.sh" && assert_parser_current "$L" "$ROOT" ) || { echo "  $L: ⛔ REFUSE(2) $exe is missing or older than a source it was compiled from (named above) -- make parsers"; RC=2; continue; }
+    SW="$(declared_switches_beside "$B/parser_$L.sc")" && [ -n "$SW" ] || { echo "  $L: ⛔ REFUSE(2) bootstrap/parser_$L.sc declares no heap or stack, or the declaration is refused"; RC=2; continue; }
     if [ "$POP" = corpus ]; then find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/$L.files"
     else ls "$CORPUS/benchmarks/$L"/*."$ext" 2>/dev/null | sort > "$T/$L.files"; fi
     nf=$(wc -l < "$T/$L.files"); [ "$nf" -gt 0 ] || { echo "  $L: ⛔ REFUSE(2) empty population ($POP)"; RC=2; continue; }
@@ -86,7 +88,7 @@ for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
     while IFS= read -r f; do
         g=$(pp_twin "$L" "$f") || { rb=$((rb + 1)); continue; }
         ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" PARSER_TREE_HASH=1 timeout "$TMO" "$exe" - < "$g" > "$T/c.hash" 2>/dev/null ); crc=$?
-        sc_run "$f" env PARSER_TREE_HASH=1 timeout "$TMO" "$T/$L.bin" -s4096m -d16384m > "$T/s.hash" 2>/dev/null; src=$?
+        sc_run "$f" env PARSER_TREE_HASH=1 timeout "$TMO" "$T/$L.bin" $SW > "$T/s.hash" 2>/dev/null; src=$?
         if [ $crc -eq 124 ] || [ $src -eq 124 ]; then u=$((u + 1)); continue; fi
         if [ $crc -ge 128 ]; then kc=$((kc + 1)); [ -n "$first" ] || first="C crashed rc=$crc ${f#$CORPUS/}"; continue; fi
         if [ $src -ne 0 ] && ! refused "$T/s.hash"; then ks=$((ks + 1)); [ -n "$first" ] || first=".sc crashed rc=$src ${f#$CORPUS/}"; continue; fi
@@ -101,7 +103,7 @@ for L in ${GATE_LANGS:-snobol4 snocone icon prolog rebus pascal}; do
     if [ "${GATE_DETAIL:-}" = 1 ] && [ -n "$firstf" ]; then
         g=$(pp_twin "$L" "$firstf")
         ( cd "$(dirname "$firstf")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$exe" - < "$g" > "$T/c.dump" 2>/dev/null )
-        L=$L sc_run "$firstf" timeout "$TMO" "$T/$L.bin" -s4096m -d16384m > "$T/s.dump" 2>/dev/null
+        L=$L sc_run "$firstf" timeout "$TMO" "$T/$L.bin" $SW > "$T/s.dump" 2>/dev/null
         first="$first: $(diff "$T/c.dump" "$T/s.dump" | grep -m2 '^[<>]' | cut -c1-60 | tr '\n' ' ')"
     fi
     [ "$canary" = LIVE ] || [ "$canary" = "" ] || { echo "  $L: ⛔ REFUSE(2) the hash canary: $canary"; RC=2; continue; }

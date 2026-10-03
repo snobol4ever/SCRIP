@@ -26,7 +26,7 @@ tally() { if [ "$1" -eq 124 ]; then echo T; elif grep -q '^Parse Error' "$2" || 
 echo "PARSER SPEED C vs .sc, EACH FILE ALONE -- population=$POP, RT_OPT=$(grep -m1 '^RT_OPT' "$ROOT/Makefile" | sed 's/#.*//' | cut -d= -f2- | xargs), tree $(git -C "$ROOT" rev-parse --short HEAD), load $(cut -d' ' -f1-3 /proc/loadavg)"
 printf '%-8s %6s %10s | %10s %-12s | %10s %-12s | %8s\n' lang files bytes "C s" "C P/R/T" "sc-m4 s" "m4 P/R/T" "m4/C"
 for L in $LANGS; do
-    ext=${EXT[$L]}; exe="$ROOT/out/parser_$L"; [ -x "$exe" ] || { echo "$L: no $exe -- make parsers"; continue; }
+    ext=${EXT[$L]}; exe="$ROOT/out/parser_$L"; ( . "$HERE/lib_build_currency.sh" && assert_parser_current "$L" "$ROOT" ) || { echo "$L: $exe is missing or older than a source it was compiled from (named above) -- make parsers"; continue; }
     if [ "$POP" = corpus ]; then find "$CORPUS" -type f -name "*.$ext" -not -name 'ALL.*' -not -path '*/.git/*' -not -path "$CORPUS/library/*" | sort > "$T/$L.files"
     else ls "$CORPUS/benchmarks/$L"/*."$ext" 2>/dev/null | sort > "$T/$L.files"; fi
     nf=$(wc -l < "$T/$L.files"); nb=$(xargs -d '\n' cat < "$T/$L.files" | wc -c)
