@@ -100,6 +100,8 @@
 # same underlying property as the UNGRADED test wearing its other face. ORACLE_REFUSES stays for rulings that
 # can only ever be revisited one program at a time. Note NEEDS_INTERACTIVE_TTY was already this family; naming
 # the principle that admitted it means the next such class needs no HQ round trip.
+# NEEDS_NETWORK ADMITTED 2026-10-03 (hq_icon, on Lon's word that terminal and network test programs may be excluded) BY THAT TEST: a unit whose function is to
+# talk to a network peer (HTTP) is overturned for the whole class at once by one reachable peer, so it is a handle somebody can grab, and it needed no round trip.
 # ⭐⭐ TWO REASONS ADMITTED 2026-09-06 (hq_T ruling, asked for by hq_I off four ipl rows), AND THEY ARE THE
 # FIRST TWO WHERE THE LIMIT IS THE INSTRUMENT OR THE BOX RATHER THAN THE PROGRAM OR THE ORACLE. The test they
 # had to pass is hq_I's and it is the one to apply to a third: UNGRADABLE MEANS NOBODY OWES WORK, SO EVERY
@@ -161,7 +163,7 @@
 # ⛔ CONTAINER_OR_LIBRARY IS RETIRED (ceo CEO-1272, 2026-09-25): it conflated a library owed its driver with a file that is not a
 # program. Every one of its 738 rows was split by measurement (corpus 84dadbe33) -- a LIBRARY to UNGRADED NEEDS_DRIVER, a CONTAINER to
 # CONTAINERS.tsv -- and the class is no longer a word this vocabulary knows, so a new row using it refuses.
-INV_CLASS_UNGRADABLE="NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT ORACLE_ACCOUNTING_IN_OUTPUT"
+INV_CLASS_UNGRADABLE="NO_ORACLE_SHIPPED ORACLE_REFUSES ORACLE_CONTRACT_NOT_IMPLEMENTED NEEDS_INPUT NEEDS_INTERACTIVE_TTY NEEDS_NETWORK NEEDS_DISPLAY NONDETERMINISTIC RESULT_NOT_ON_STDOUT ENVIRONMENT_IDENTITY_IN_OUTPUT ORACLE_ACCOUNTING_IN_OUTPUT"
 # THE TIE-BREAK, AND IT IS THE MOST LOAD-BEARING SENTENCE IN THIS FILE (hq_T, ruling hq_P's three gimpel
 # ERROR-285 drivers, 2026-09-06). hq_P found three rows whose bucket turns on ONE UNMEASURED FACT: FRSORT,
 # TIMEGC and TIMER die "include file cannot be opened" because the include chain wants stringout.sno,
@@ -247,22 +249,26 @@ inventory_refuse() { echo "⛔ INVENTORY REFUSES(2): $*" >&2; return 2; }
 # names a graphics-built iconx 9.5.25a's function() lists beyond the installed NoGraphics oracle's -- or opens a window. SCRIP has no
 # Icon graphics facility yet and the oracle has none, so neither side can run them; they leave the denominator named, and a program
 # that merely links a graphics library without reaching it stays in as fixture work.
+# ⭐ AND THE TERMINAL AND NETWORK PROGRAMS (Lon 2026-10-03, in-chat to hq_icon, verbatim: "You can have terminal and network test programs marked as excluded."):
+# class NEEDS_TERMINAL, a unit whose function is to drive an interactive terminal (cursor addressing, termcap, ANSI control, single-key reads, /dev/tty), and class
+# NEEDS_NETWORK, a unit whose function is to talk to a network peer (HTTP); a graded run has neither a terminal nor a peer, so they leave the denominator named,
+# exactly as the graphics units do. Each row's evidence is the unit's own purpose and the oracle's verdict, never a failure of ours.
 # ⭐ AND THE PROGRAMS LON DEFERRED PAST THE ANNOUNCEMENT (Lon 2026-09-27 19:3x CDT, in-chat to the ceo, verbatim: "The EXIT() feaure to
 # save/resume executables will be done but after the announcement"; ceo CEO-1345): class DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27, a
 # program the oracle RUNS but that needs a feature Lon scheduled after the announcement (EXIT(3,file)'s resumable load module). The
 # runner still grades it and names its verdicts; it leaves pass, fail, rc and the denominator, and returns to them the day the row lands.
 # inventory_excluded_names [<pkgdir>] -- echo column 1 of <pkgdir>/EXCLUDED.tsv (default $INV_DIR); nothing when the file is absent;
 # rc 2 on a row that is not name<TAB>CLASS<TAB>evidence with CLASS one of NOT_SPITBOL_DIALECT (Lon's SPITBOL test, one outcome),
-# NEEDS_GRAPHICS_FACILITY (Lon's graphics word) or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 (Lon's EXIT() word, CEO-1345).
+# NEEDS_GRAPHICS_FACILITY (Lon's graphics word), NEEDS_TERMINAL or NEEDS_NETWORK (Lon's word below) or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27 (Lon's EXIT() word, CEO-1345).
 inventory_excluded_names() {
     local d="${1:-${INV_DIR:-}}" f
     f="$d/EXCLUDED.tsv"
     [ -f "$f" ] || return 0
     awk -F'\t' '
         $0 ~ /^#/ || NF == 0 { next }
-        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY" && $2 != "DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
+        NF < 3 || ($2 != "NOT_SPITBOL_DIALECT" && $2 != "NEEDS_GRAPHICS_FACILITY" && $2 != "NEEDS_TERMINAL" && $2 != "NEEDS_NETWORK" && $2 != "DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27") || length($3) < 60 { bad = bad " " $1 "(" NF " fields, class " $2 ")"; next }
         { print $1 }
-        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT, NEEDS_GRAPHICS_FACILITY or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
+        END { if (bad != "") { print "MALFORMED:" bad > "/dev/stderr"; exit 2 } }' "$f" || { inventory_refuse "$f carries a malformed row (name<TAB>NOT_SPITBOL_DIALECT, NEEDS_GRAPHICS_FACILITY, NEEDS_TERMINAL, NEEDS_NETWORK or DEFERRED-AFTER-ANNOUNCEMENT-LON-2026-09-27<TAB>evidence of 60+ chars naming the feature and the oracle's verdict)"; return 2; }
 }
 # inventory_is_excluded <pkgdir> <name> -- 0 when EXCLUDED.tsv names <name> (bare or package-relative), 1 otherwise.
 inventory_is_excluded() {
