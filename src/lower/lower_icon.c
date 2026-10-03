@@ -156,12 +156,32 @@ static int icn_callee_is_a_value(const char * nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
     switch (aop) {
-    case AUGOP_ADD: return 0; case AUGOP_SUB: return 1; case AUGOP_MUL: return 2; case AUGOP_DIV: return 3; case AUGOP_MOD: return 4;
-    case AUGOP_POW: return 18; case AUGOP_CONCAT: return 11; case AUGOP_EQ: return 9; case AUGOP_SEQ: return 16;
-    case AUGOP_LT: return 5; case AUGOP_LE: return 6; case AUGOP_GT: return 7; case AUGOP_GE: return 8; case AUGOP_NE: return 10;
-    case AUGOP_SLT: return 12; case AUGOP_SLE: return 13; case AUGOP_SGT: return 14; case AUGOP_SGE: return 15; case AUGOP_SNE: return 17;
-    case AUGOP_CSET_UNION: return 19; case AUGOP_CSET_DIFF: return 20; case AUGOP_CSET_INTER: return 21;
-    default: return 0; }
+    case AUGOP_ADD: return BINOP_ADD; case AUGOP_SUB: return BINOP_SUB; case AUGOP_MUL: return BINOP_MUL; case AUGOP_DIV: return BINOP_DIV; case AUGOP_MOD: return BINOP_MOD;
+    case AUGOP_POW: return BINOP_POW; case AUGOP_CONCAT: return BINOP_CONCAT; case AUGOP_LCONCAT: return BINOP_LCONCAT; case AUGOP_EQ: return BINOP_EQ; case AUGOP_SEQ: return BINOP_SEQ;
+    case AUGOP_LT: return BINOP_LT; case AUGOP_LE: return BINOP_LE; case AUGOP_GT: return BINOP_GT; case AUGOP_GE: return BINOP_GE; case AUGOP_NE: return BINOP_NE;
+    case AUGOP_SLT: return BINOP_SLT; case AUGOP_SLE: return BINOP_SLE; case AUGOP_SGT: return BINOP_SGT; case AUGOP_SGE: return BINOP_SGE; case AUGOP_SNE: return BINOP_SNE;
+    case AUGOP_CSET_UNION: return BINOP_CUNION; case AUGOP_CSET_DIFF: return BINOP_CDIFF; case AUGOP_CSET_INTER: return BINOP_CINTER;
+    case AUGOP_IDENTICAL: return BINOP_EQV; case AUGOP_NIDENTICAL: return BINOP_NEQV;
+    default: return -1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * icn_augop_build(icx_t * cx, int aop, IR_t * asn, IR_t * ω, IR_t ** op, IR_t ** ca, IR_t ** cb) {
+    int bc = augop_code(aop); int ar = (bc >= BINOP_ADD && bc <= BINOP_MOD) || bc == BINOP_POW;
+    *op = build(cx, (aop == AUGOP_ACTIVATE) ? IR_ACTIVATE : IR_BINOP, asn, ω);
+    if (aop == AUGOP_ACTIVATE) IR_LIT(*op).sval = cx->pname;
+    else IR_LIT(*op).ival = (bc == BINOP_ADD) ? BINOP_ADD_BIG : (bc == BINOP_SUB) ? BINOP_SUB_BIG : (bc == BINOP_MUL) ? BINOP_MUL_BIG : (bc == BINOP_CONCAT) ? BINOP_CONCAT_FRACDIGIT : bc;
+    *cb = ar ? build(cx, IR_COERCE_NUMERIC, *op, ω) : NULL;
+    if (*cb) IR_LIT(*cb).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bc == BINOP_POW) ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bc) | COERCE_OP_SELF_RIGHT;
+    *ca = ar ? build(cx, IR_COERCE_NUMERIC, *cb, ω) : NULL; if (*ca) IR_LIT(*ca).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bc);
+    return *ca ? *ca : *op;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void icn_augop_operands(int aop, IR_t * op, IR_t * ca, IR_t * cb, IR_t * lval, IR_t * rval) {
+    if (aop == AUGOP_ACTIVATE) { ir_operand_push(op, rval); ir_operand_push(op, lval); }
+    else {
+        if (ca) { ir_operand_push(ca, lval); ir_operand_push(ca, rval); ir_operand_push(cb, rval); ir_operand_push(cb, lval); }
+        ir_operand_push(op, ca ? ca : lval); ir_operand_push(op, cb ? cb : rval);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_unop_tt(tree_e tt) {
@@ -777,7 +797,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
           tree_t * seq = ast_node_new(TT_CONJ); ast_push(seq, (tree_t *) rhs); ast_push(seq, call); return lower(cx, seq, γ, ω, res); }
     }
     case TT_AUGOP: {
-        const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1]; int bc = augop_code((int) t->v.ival);
+        const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
         if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs && (lhs->t == TT_ALTERNATE || lhs->t == TT_IDX || lhs->t == TT_FIELD)) {
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω); IR_t * sres = NULL; IR_t * lv = NULL;
             IR_t * entry = lower_scan_impl(cx, NULL, lhs, rhs, asn, ω, &sres, &lv);
@@ -793,18 +813,22 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, bo);
             return lower(cx, as, γ, ω, res);
         }
+        if ((int) t->v.ival == AUGOP_CONJ && lhs && rhs) {
+            tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, (tree_t *) rhs);
+            return lower(cx, as, γ, ω, res);
+        }
+        int aop = (int) t->v.ival;
         { IR_t * b4 = cx->beta;
           IR_t * lv = NULL; IR_t * lve = (lhs && rhs) ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
           if (lve && lv) {
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
-            IR_t * dr = build(cx, IR_DEREF, op, ω);
+            IR_t * op = NULL, * ca = NULL, * cb = NULL; IR_t * dr = build(cx, IR_DEREF, icn_augop_build(cx, aop, asn, ω, &op, &ca, &cb), ω);
             ir_operand_push(dr, lv);
             IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL; IR_t * rω = lvbeta ? lvbeta : ω;
             IR_t * rr = NULL; IR_t * re = lower(cx, rhs, dr, rω, &rr);
             lc_γ_to(lv, re);
             { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
-            ir_operand_push(op, dr); ir_operand_push(op, rr);
+            icn_augop_operands(aop, op, ca, cb, dr, rr);
             ir_operand_push(asn, lv); ir_operand_push(asn, op);
             *res = asn; return lve;
           }
@@ -814,13 +838,12 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
           if (ea && lr) {
             IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
             IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * op = build(cx, IR_BINOP, asn, ω); IR_LIT(op).ival = bc;
-            IR_t * dr = build(cx, IR_DEREF, op, ω);
+            IR_t * op = NULL, * ca = NULL, * cb = NULL; IR_t * dr = build(cx, IR_DEREF, icn_augop_build(cx, aop, asn, ω, &op, &ca, &cb), ω);
             ir_operand_push(dr, lr); IR_t * rω = lvbeta ? lvbeta : ω;
             IR_t * rr = NULL; IR_t * re = lower(cx, rhs, dr, rω, &rr);
             lc_γ_to(lr, re);
             { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
-            ir_operand_push(op, dr); ir_operand_push(op, rr);
+            icn_augop_operands(aop, op, ca, cb, dr, rr);
             ir_operand_push(asn, lr); ir_operand_push(asn, op);
             *res = asn; return ea;
           }
