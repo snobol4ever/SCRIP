@@ -91,6 +91,7 @@ std::string bb_glue_pass_wires_blob_regs(int gid, int wid);
 std::string bb_glue_enter_c2bb(int base, int lg, int lw);
 std::string bb_glue_enter_chain_ret(int lid);
 std::string bb_glue_prim_int(int base);
+std::string bb_glue_prim_member(int base, int code);
 std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code);
 std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off, int code);
 std::string bb_disjunction();

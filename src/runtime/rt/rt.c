@@ -344,6 +344,17 @@ long rt_pat_prim_int_take(void) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_pat_prim_member(int ch, long codes) {
+    extern int IS_FAIL_fn(DESCR_t);
+    DESCR_t v = g_prim_val, s;
+    if (IS_FAIL_fn(v)) return -1;
+    if (rt_coerce_str_d(&v, &s, codes)) { extern uint64_t rtccb[32]; extern void rt_setexit_continue_tramp(void);
+        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp; return -1; }
+    if (s.v != DT_S) return -1;
+    if (ch < 0) return 2;
+    return (s.s && s.slen && memchr(s.s, ch, (size_t)s.slen)) ? 1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes) {
     extern int IS_FAIL_fn(DESCR_t);
     DESCR_t v = g_prim_val;

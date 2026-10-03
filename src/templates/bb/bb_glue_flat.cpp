@@ -132,6 +132,7 @@ extern "C" void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 extern "C" void rt_pat_prim_land_ω(long word);
 extern "C" long rt_pat_prim_int_take(void);
 extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes);
+extern "C" long rt_pat_prim_member(int ch, long codes);
 std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
     std::string save =  x86("sub", "rsp", 64L)
          + x86_rsp_store64(56, "r12")
@@ -234,6 +235,20 @@ static std::string bb_glue_prim_open_enter(int base) {
 std::string bb_glue_prim_int(int base) {
     return bb_glue_prim_open_enter(base)
          + x86("call", "rt_pat_prim_int_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_int_take)
+         + x86_rt_gc_poll_rec_sigma(1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_prim_member(int base, int code) {
+    return bb_glue_prim_open_enter(base)
+         + x86("mov32", "edi", -1L)
+         + x86("mov",  "eax", "r14d")
+         + x86("cmp",  "eax", "r15d")
+         + x86_jcc_id("jge", base + 9)
+         + x86("movsxd", "rcx", "r14d")
+         + x86("movzx", "edi", "[r13+rcx]")
+         + x86_deflabel_id(base + 9)
+         + x86("mov",  "rsi", (long)code | ((long)code << 16))
+         + x86("call", "rt_pat_prim_member", (uint64_t)(uintptr_t)(void *)rt_pat_prim_member)
          + x86_rt_gc_poll_rec_sigma(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
