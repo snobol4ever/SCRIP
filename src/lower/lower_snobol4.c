@@ -573,7 +573,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         int is_until = (t->t == TT_UNTIL);
         IR_t * gate = lc_build(cx->g, IR_GOTO, NULL, NULL);
         IR_t * cr = NULL;
-        IR_t * ce = is_until ? sx_lower(cx, C, γ, gate, &cr) : sx_lower(cx, C, gate, γ, &cr);
+        IR_t * ce = is_until ? sx_lower(cx, C, γ, lc_build(cx->g, IR_SETEXIT_TEST, gate, gate), &cr) : sx_lower(cx, C, gate, lc_build(cx->g, IR_SETEXIT_TEST, γ, γ), &cr);
         IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
         cx->loop_exit = γ; cx->loop_next = ce;
         IR_t * be = B ? sco_branch(cx, B, ce, ω) : ce;
@@ -587,7 +587,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!C) sno_fatal("do-while without condition outside the landed subset", NULL);
         IR_t * gate = lc_build(cx->g, IR_GOTO, NULL, NULL);
         IR_t * cr = NULL;
-        IR_t * ce = sx_lower(cx, C, gate, γ, &cr);
+        IR_t * ce = sx_lower(cx, C, gate, lc_build(cx->g, IR_SETEXIT_TEST, γ, γ), &cr);
         IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
         cx->loop_exit = γ; cx->loop_next = ce;
         IR_t * be = B ? sco_branch(cx, B, ce, ω) : ce;
@@ -602,7 +602,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!C) sno_fatal("for-loop without condition outside the landed subset", NULL);
         IR_t * gate = lc_build(cx->g, IR_GOTO, NULL, NULL);
         IR_t * cr = NULL;
-        IR_t * ce = sx_lower(cx, C, gate, γ, &cr);
+        IR_t * ce = sx_lower(cx, C, gate, lc_build(cx->g, IR_SETEXIT_TEST, γ, γ), &cr);
         IR_t * se = STEP ? sx_lower(cx, STEP, ce, ω, NULL) : ce;
         IR_t * sv_exit = cx->loop_exit; IR_t * sv_next = cx->loop_next;
         cx->loop_exit = γ; cx->loop_next = se;
@@ -797,7 +797,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (!C) sno_fatal("TT_IF with no condition", NULL);
         IR_t * th_entry = TH ? sco_branch(cx, TH, γ, ω) : γ;
         IR_t * el_entry = EL ? sco_branch(cx, EL, γ, ω) : γ;
-        IR_t * cr = NULL; IR_t * ce = sx_lower(cx, C, th_entry, el_entry, &cr);
+        IR_t * cr = NULL; IR_t * ce = sx_lower(cx, C, th_entry, lc_build(cx->g, IR_SETEXIT_TEST, el_entry, el_entry), &cr);
         if (res) *res = NULL;
         return ce;
     }
