@@ -10,6 +10,11 @@ extern int g_rt_fragment_emit;
 int xa_flat_class_c_pred(void);
 }
 #include "x86_asm.h"
+#define RO_SEAL_STR(n, s) \
+    (x86("def", L(n)) \
+   + x86(".quad", LS(n), (s)) \
+   + x86("label", LS(n)) \
+   + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_goto_deferred_frame_release() {
     if (!g_rt_fragment_emit || !xa_flat_class_c_pred()) return std::string();
@@ -24,14 +29,14 @@ std::string bb_goto_deferred() {
                x86("comment", "IR_GOTO_DEFERRED (SPECIAL-TRANSFER TEST: gamma = this graph's own RETURN/FRETURN/NRETURN landing, omega = the next test then the ordinary resolve)")
              + x86_alpha()
              + x86_align_enter()
-             + x86_ro_load_q("rdi", 0)
+             + x86("mov", "rdi", ROQ(0))
              + x86("call", "rt_sno_goto_special_is", (uint64_t)(uintptr_t)(void *)rt_sno_goto_special_is)
              + x86_align_leave()
              + x86_rt_gc_poll()
              + x86("test", "rax", "rax")
              + x86_omega("jz")
              + x86_gamma()
-             + x86_ro_seal_str(0, _.op_sval))
+             + RO_SEAL_STR(0, _.op_sval))
          + IF(!GD_SPECIAL() && GD_DEFFOLD(),
                x86("comment", "IR_GOTO_DEFERRED (DEFINE-FOLD s55 ONE-SHOT: jmp the function's alpha, no chain, no reserve)")
              + x86_alpha()
@@ -43,7 +48,7 @@ std::string bb_goto_deferred() {
          + IF(!GD_SPECIAL() && !GD_DEFFOLD(),
                x86_alpha()
          + x86_align_enter()
-         + x86_ro_load_q("rdi", 0)
+         + x86("mov", "rdi", ROQ(0))
          + x86("call", "rt_goto_resolve", (uint64_t)(uintptr_t)(void *)rt_goto_resolve)
          + x86_align_leave()
          + x86_rt_gc_poll()
@@ -52,7 +57,7 @@ std::string bb_goto_deferred() {
          + IF(_.op_zgpop > 0, x86("add", "rsp", (long)_.op_zgpop))
          + bb_goto_deferred_frame_release()
          + x86("jmp", "rax")
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "")
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "")
          + x86_deflabel_id(1)
          + bb_setexit_take(2, 0L)
          + x86_deflabel_id(2)

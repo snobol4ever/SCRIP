@@ -11,6 +11,11 @@ extern const char *g_file;
 extern long g_stcount;
 }
 #include "x86_asm.h"
+#define RO_SEAL_STR(n, s) \
+    (x86("def", L(n)) \
+   + x86(".quad", LS(n), (s)) \
+   + x86("label", LS(n)) \
+   + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_stmt_mark(long stno, long line) {
     x86_begin();
@@ -39,9 +44,9 @@ std::string bb_line_mark(long line, const char * file) {
          + IF(file != (const char *)0,
              x86("comment", "IR_LINE_MARK with the source file: g_file <- the read-only string, the ICN$LINE dispatcher call this replaces set exactly g_line and g_file")
            + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
-           + x86_ro_load_q("rcx", 0)
+           + x86("mov", "rcx", ROQ(0))
            + x86("mov", RDQ("rax", 0), "rcx"))
          + x86_gamma()
          + x86_beta_trampoline()
-         + IF(file != (const char *)0, x86_ro_seal_str(0, file));
+         + IF(file != (const char *)0, RO_SEAL_STR(0, file));
 }

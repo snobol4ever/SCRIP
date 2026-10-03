@@ -22,7 +22,7 @@ std::string bb_create() {
          + x86_alpha()
          + FOR(0, 7, [&](int k) { return x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 16 + k * 8) + "]", CR_REG(k)); })
          + xa_coexpr_body_lea("rdi")
-         + x86_frame_lea("rsi", _.op_off + 16)
+         + x86("lea", "rsi", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 16) + "]")
          + x86("mov", "edx", std::to_string(_.flat_carve_total > _.frame_region ? _.flat_carve_total : (_.frame_region > 0 ? _.frame_region : 0)))
          + x86("mov", "ecx", std::to_string(CR_PINNED() ? _.flat_carve_total : 0))
          + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")

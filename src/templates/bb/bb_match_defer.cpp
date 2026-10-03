@@ -383,7 +383,7 @@ std::string bb_match_defer() {
                       + x86_jmp_reg("rax"))
                    : (rspd_snap(&g_rspd_beta, "g_rspd_beta")
                       + (({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; })
-                          ? (x86_reg_disp32_cmp_imm("rsp", 0, 0L)
+                          ? (x86("cmp", RDQ("rsp", 0), 0L)
                            + x86("jne",  L(12))
                            + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
                            + x86("mov", "rax", RDQ("rcx", 248))

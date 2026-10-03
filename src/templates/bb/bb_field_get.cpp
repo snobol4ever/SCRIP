@@ -8,12 +8,17 @@ extern DESCR_t rt_field_var(const char *fname, DESCR_t obj);
 extern DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj);
 }
 #include "x86_asm.h"
+#define RO_SEAL_STR(n, s) \
+    (x86("def", L(n)) \
+   + x86(".quad", LS(n), (s)) \
+   + x86("label", LS(n)) \
+   + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_field_get() {
     return IF(_.op_zres,
                x86("comment", (_.op_node_kind == IR_FIELD_VAR) ? "IR_FIELD_GET lv zd" : "IR_FIELD_GET zd")
              + x86_alpha()
-             + x86_ro_load_q("rdi", 0)
+             + x86("mov", "rdi", ROQ(0))
              + x86("note", ZOPN(0))
              + x86("mov",     "rsi", ZOPQ(0, 0))
              + x86("note", ZOPN(0))
@@ -30,12 +35,12 @@ std::string bb_field_get() {
              + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
-             + x86_ro_seal_str(0, _.op_sval ? _.op_sval : ""))
+             + RO_SEAL_STR(0, _.op_sval ? _.op_sval : ""))
          + IF(!_.op_zres && (_.op_off < 0 || _.op_a_slot < 0), x86_alpha() + x86_bomb("bb_field_get: needs own slot + object operand slot"))
          + IF(!_.op_zres && !(_.op_off < 0 || _.op_a_slot < 0),
                x86("comment", (_.op_node_kind == IR_FIELD_VAR) ? "IR_FIELD_GET lv" : "IR_FIELD_GET")
          + x86_alpha()
-         + x86_ro_load_q("rdi", 0)
+         + x86("mov", "rdi", ROQ(0))
          + x86("mov",     "rsi", FRQ(_.op_a_slot))
          + x86("mov",     "rdx", FRQ(_.op_a_slot + 8))
          + ((_.op_node_kind == IR_FIELD_VAR) ? (_.op_strict ? x86("call", "rt_field_var_strict", (uint64_t)(uintptr_t)(void *)rt_field_var_strict) :
@@ -48,5 +53,5 @@ std::string bb_field_get() {
          + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta_trampoline()
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : ""));
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : ""));
 }

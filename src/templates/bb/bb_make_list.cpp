@@ -19,7 +19,7 @@ std::string bb_make_list() {
                            + x86("mov", x86_zref(i * 16 + 0, 1), "rax")
                            + x86("mov", "rax", ZOPQ(i, _.op_arg_slot_n * 16 + 8))
                            + x86("mov", x86_zref(i * 16 + 8, 1), "rax"); })
-                + x86_reg_disp32_lea64("rdi", "rsp", 0))
+                + x86("lea", "rdi", RDQ("rsp", 0)))
              + IF(!(_.op_arg_slot_n > 0),
                   x86("xor", "edi", "edi"))
              + x86("mov32", "esi", (long)_.op_arg_slot_n)

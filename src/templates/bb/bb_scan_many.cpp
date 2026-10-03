@@ -11,6 +11,9 @@ ScanSubjRegs_needle_t rt_scan_needle(uint64_t lo, uint64_t hi);
 int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 }
 #include "x86_asm.h"
+#define RO_SEAL_Q(n, v) \
+    (x86("def", L(n)) \
+   + x86(".quad", (uint64_t)(v)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_many() {
     x86_begin();
@@ -85,6 +88,6 @@ std::string bb_scan_many() {
          + x86(".quad",   LS(2), _.op_name1)
          + x86("label",   LS(2))
          + x86(".string", _.op_name1, (unsigned long)_.op_ival)
-         + x86_ro_seal_q(3, x86_cset_word(_.op_name1, _.op_ival, 0)) + x86_ro_seal_q(4, x86_cset_word(_.op_name1, _.op_ival, 1)) + x86_ro_seal_q(5, x86_cset_word(_.op_name1, _.op_ival, 2))
-             + x86_ro_seal_q(6, x86_cset_word(_.op_name1, _.op_ival, 3));
+         + RO_SEAL_Q(3, x86_cset_word(_.op_name1, _.op_ival, 0)) + RO_SEAL_Q(4, x86_cset_word(_.op_name1, _.op_ival, 1)) + RO_SEAL_Q(5, x86_cset_word(_.op_name1, _.op_ival, 2))
+             + RO_SEAL_Q(6, x86_cset_word(_.op_name1, _.op_ival, 3));
 }
