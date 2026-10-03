@@ -484,6 +484,15 @@ static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_locals(const char *pname, IR_graph_t *g);
+static void bind_arity_calls(stage2_t * s2) {
+    extern int rt_proc_is_registered(const char *); extern int rt_builtin_is_known(const char *);
+    for (int b = 0; b < s2->bbp.count; b++) { IR_graph_t * g = s2->bbp.table[b]; if (!g) continue;
+        for (int i = 0; i < g->n; i++) { IR_t * nd = g->all[i]; const char * nm = nd ? IR_LIT(nd).sval : (const char *)0;
+            if (!nd || nd->op != IR_CALL || !nm || !nm[0] || strchr(nm, '/') || strchr(nm, '$') || rt_proc_is_registered(nm) || rt_builtin_is_known(nm)) continue;
+            char key[strlen(nm) + 24]; snprintf(key, sizeof key, "%s/%d", nm, nd->n_operands);
+            if (rt_proc_is_registered(key)) { IR_LIT(nd).sval = ct_strdup(key); nd->op = IR_CALL_PROC_STAGED; } } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void register_procs_all(stage2_t * s2) {
     extern void rt_proc_register(const char *name, const char **pnames, int nparams);
     for (int _pi = 0; _pi < s2->proc_count; _pi++) {
@@ -509,6 +518,7 @@ static void register_procs_all(stage2_t * s2) {
         { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
         { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
     }
+    bind_arity_calls(s2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_slots_all(stage2_t * s2) {
