@@ -7,3 +7,5 @@ corpus	packages/icon/ipl/progs/mszip.fixtures/msroot/DOS.TXT	the CR-LF fixture o
 corpus	packages/icon/ipl/progs/oldicon.ref	the captured output of a program that drives vim through a terminal: its CRs are the program's output bytes
 corpus	packages/icon/ipl/ALL.ref	one line of captured program output in the IPL master ref ends in a CR the program writes
 corpus	packages/icon/ipl/progs/literat.dat	classic Mac data with bare CR line endings, not DOS CR-LF, read as data by IPL literat
+corpus	packages/icon/ipl/progs/nocr.fixtures/nocr_dos.txt	the CR-LF input of IPL nocr, whose whole job is to strip carriage returns from the files named on its command line: the unit's fixture must carry them
+corpus	packages/icon/ipl/progs/yescr.ref	the oracle's captured output of IPL yescr, which adds a carriage return to every line of its file: those CRs are the program's output bytes
