@@ -125,6 +125,7 @@ std::string bb_glue_pass_wires_blob_regs(int gid, int wid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long fn; long how; } rt_prim_next_t;
 extern "C" rt_prim_next_t rt_pat_prim_open(const char *varname);
+extern "C" void rt_tiny_glue_enter(void);
 extern "C" void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 extern "C" void rt_pat_prim_land_ω(long word);
 extern "C" long rt_pat_prim_int_take(void);
@@ -169,8 +170,8 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + x86("mov",  RDQ("rsp", 16), "rcx")
          + x86("mov",  RDQ("rsp", 24), 0L)
          + x86("mov",  RDQ("rsp", 32), 16L)
-         + x86("lea",  "rcx", RDQ("rsp", 0))
-         + x86_jmp_reg("rax")
+         + x86_load_got("rcx", "rt_tiny_glue_enter", (uint64_t)(uintptr_t)(void *)rt_tiny_glue_enter)
+         + x86_jmp_reg("rcx")
          + x86_deflabel_id(base + 3)
          + land_γ(48L)
          + x86_deflabel_id(base + 4)

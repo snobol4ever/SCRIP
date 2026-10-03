@@ -1,10 +1,10 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 1986
-#define GC_ALLOC_TAB_N_VOID 233
+#define GC_ALLOC_TAB_N_VOID 234
 #define GC_ALLOC_TAB_N_DESCR 1078
 #define GC_ALLOC_TAB_N_OTHER 668
-#define GC_ALLOC_TAB_N_UNKNOWN 7
+#define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "ASGNIC_fn", GC_RET_OTHER },
@@ -131,7 +131,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_VALUE_", GC_RET_DESCR },
     { "_Z13bb_lit_scalarB5cxx11v", GC_RET_UNKNOWN },
     { "_Z14bb_call_fn_strB5cxx11P4IR_t", GC_RET_UNKNOWN },
-    { "_Z14bb_unify_constB5cxx11v", GC_RET_UNKNOWN },
     { "_Z16marshal_call_argB5cxx11P4IR_tP10IR_graph_tiS0_i", GC_RET_UNKNOWN },
     { "_Z7bb_callB5cxx11P4IR_t", GC_RET_UNKNOWN },
     { "_ZL18bb_call_byname_strP4IR_t", GC_RET_UNKNOWN },
@@ -1987,6 +1986,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "try_call_builtin_by_name_bl", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl_s", GC_RET_OTHER },
     { "unify_pair", GC_RET_OTHER },
+    { "unify_prepare", GC_RET_VOID },
     { "user_op_add", GC_RET_VOID },
     { "var_dump", GC_RET_VOID },
     { "var_dump_at_exit", GC_RET_VOID },

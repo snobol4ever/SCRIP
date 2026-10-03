@@ -125,3 +125,57 @@ rt_gc_collect:
     ret
     .size  rt_gc_collect, .-rt_gc_collect
     .section .note.GNU-stack,"",@progbits
+    .text
+    .globl rt_tiny_glue_enter
+    .type  rt_tiny_glue_enter, @function
+rt_tiny_glue_enter:
+    movq   %rdx, %rsi
+    shrq   $8, %rsi
+    movl   %esi, %esi
+    leaq   39(,%rsi,8), %rcx
+    andq   $-16, %rcx
+    movq   %rsi, %rdx
+    shlq   $4, %rdx
+    addq   %rcx, %rdx
+    subq   %rdx, %rsp
+    movq   %rsi, 0(%rsp)
+    leaq   .Ltge_gamma(%rip), %rbx
+    movq   %rbx, 8(%rsp)
+    leaq   .Ltge_omega(%rip), %rbx
+    movq   %rbx, 16(%rsp)
+    movq   g_call_args@GOTPCREL(%rip), %rdi
+    movq   (%rdi), %rdi
+    xorl   %edx, %edx
+    testq  %rsi, %rsi
+    jz     .Ltge_go
+.Ltge_copy:
+    movq   %rcx, 24(%rsp,%rdx,8)
+    movq   0(%rdi), %rbx
+    movq   %rbx, 0(%rsp,%rcx,1)
+    movq   8(%rdi), %rbx
+    movq   %rbx, 8(%rsp,%rcx,1)
+    addq   $16, %rdi
+    addq   $16, %rcx
+    addq   $1, %rdx
+    cmpq   %rsi, %rdx
+    jb     .Ltge_copy
+.Ltge_go:
+    movq   %rsp, %rcx
+    jmp    *%rax
+.Ltge_gamma:
+    movq   0(%rsp), %rcx
+    leaq   39(,%rcx,8), %rbx
+    andq   $-16, %rbx
+    shlq   $4, %rcx
+    addq   %rcx, %rbx
+    addq   %rbx, %rsp
+    jmp    *8(%rsp)
+.Ltge_omega:
+    movq   0(%rsp), %rcx
+    leaq   39(,%rcx,8), %rbx
+    andq   $-16, %rbx
+    shlq   $4, %rcx
+    addq   %rcx, %rbx
+    addq   %rbx, %rsp
+    jmp    *16(%rsp)
+    .size  rt_tiny_glue_enter, .-rt_tiny_glue_enter
