@@ -93,7 +93,14 @@ for ref in "${REFS[@]}"; do
     stdin_src=/dev/null; [ -f "$dir/$base.dat" ] && stdin_src="$dir/$base.dat"
     # ⛔ RUN UNDER `iconx <stem>`, THE INVOCATION EVERY REF WAS CUT UNDER (CEO-624): &progname is a function of the
     # invocation, so `./kwds` answers `./kwds` against a ref reading `kwds` -- a divergence of the gate, not of the ref.
-    got="$(cd "$dir" && timeout "$TIMEOUT" "$ICONX" "$base" < "$stdin_src" 2>&1)"; exp="$(cat "$ref")"
+    # ⛔⭐ special/keyboard IS PTY-GRADED, NOT STDIN-GRADED, by the suite that owns it (test_icon_arizona_suite.sh, CEO-1354): a redirected stdin cannot supply getch() and
+    # kbhit() a terminal, so the oracle's run here must go through the SAME icn_keyboard_pty_drive.py, or this arm reads a stdin run against a ref cut over a pty and cries
+    # ref_diverged on every tree (the coo's loop and every seat's preflight-adjacent run read it red for a day, 2026-10-03). The driver renders the one error voice itself.
+    if [ "$base" = keyboard ] && [ "${dir##*/}" = special ]; then
+        got="$(cd "$dir" && timeout $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$dir" "$TIMEOUT" -- "$ICONX" "$base" 2>&1)"; exp="$(cat "$ref")"
+    else
+        got="$(cd "$dir" && timeout "$TIMEOUT" "$ICONX" "$base" < "$stdin_src" 2>&1)"; exp="$(cat "$ref")"
+    fi
     # a CEO-409 mask beside the ref (env: the clock, the machine, the user) is applied to BOTH streams through the runner's own shim
     if [ -f "$dir/$base.mask" ]; then
         got="$(printf '%s' "$got" | python3 "$HERE/util_apply_ceo409_mask.py" "$ref" "$base" "$WORK/.mask_n" 2>/dev/null)" \
