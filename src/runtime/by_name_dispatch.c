@@ -3552,17 +3552,32 @@ static void *pl_read_opts_ball(DESCR_t opts) { extern void *rt_pl_ball_kind2(con
         for (i = 0; fn && vk[i]; i++) if (!strcmp(fn, vk[i])) break;
         if (fn && vk[i]) { for (a = rt_pl_deref_val(((DESCR_t *)e.p)[0]); pl_is_cons(a); a = rt_pl_deref_val(((DESCR_t *)a.p)[1])) ;
             if (!pl_val_unbound(a) && !pl_is_nil(a)) return rt_pl_ball_kind2("domain_error", "read_option", e); continue; }
+        if (fn && !strcmp(fn, "syntax_error")) { const char *as; a = rt_pl_deref_val(((DESCR_t *)e.p)[0]); if (pl_val_unbound(a)) return rt_pl_ball_instantiation();
+            as = pl_atom_str(a); if (!as || (strcmp(as, "error") && strcmp(as, "fail") && strcmp(as, "warning"))) return rt_pl_ball_kind2("domain_error", "read_option", e); continue; }
         for (i = 0; fn && ok1[i]; i++) if (!strcmp(fn, ok1[i])) break;
         if (!fn || !ok1[i]) return rt_pl_ball_kind2("domain_error", "read_option", e); }
     return (void *)0; }
-PL_CX_LEAF_HEAD(read_term_opts, 2) { static char text[65536]; int got; DESCR_t t; pl_vtab_t vt; void *ob = pl_read_opts_ball(args[1]);
+static int pl_read_syntax_mode(DESCR_t opts) { extern const char *prolog_atom_name(int); DESCR_t cur, e; const char *fn, *as; int m = 0;
+    for (cur = rt_pl_deref_val(opts); pl_is_cons(cur); cur = rt_pl_deref_val(((DESCR_t *)cur.p)[1])) { e = rt_pl_deref_val(((DESCR_t *)cur.p)[0]);
+        if (e.v != (DTYPE_t)DT_PLREF || plc_fid_arity(e.slen) != 1) continue;
+        fn = prolog_atom_name(plc_fid_name(e.slen)); as = pl_atom_str(rt_pl_deref_val(((DESCR_t *)e.p)[0])); if (!fn || !as) continue;
+        if (!strcmp(fn, "syntax_error")) m = !strcmp(as, "fail") ? 1 : !strcmp(as, "warning") ? 2 : 0;
+        else if (!strcmp(fn, "syntax_errors")) m = (!strcmp(as, "fail") || !strcmp(as, "quiet")) ? 1 : !strcmp(as, "dec10") ? 3 : 0; }
+    return m; }
+PL_CX_LEAF_HEAD(read_term_opts, 2) { static char text[65536]; int got, sm; const char *se; DESCR_t t; pl_vtab_t vt; void *ob = pl_read_opts_ball(args[1]);
     extern void *rt_pl_ball_kind1(const char *, const char *);
     if (ob || (ob = pl_text_cur_ball())) { cx->ball = ob; ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-    got = pl_read_term_text(text, sizeof text - 8);
-    if (got == 0) { vt.n = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); }
-    else if (got != 1) { cx->ball = rt_pl_ball_kind1("syntax_error", got < 0 ? "term_too_long" : "end_of_file"); ok = 0; }
-    else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) { cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; }
-    else ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx); } PL_CX_LEAF_TAIL
+    sm = pl_read_syntax_mode(args[1]);
+    for (;;) { got = pl_read_term_text(text, sizeof text - 8); se = (const char *)0;
+        if (got == 0) { vt.n = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
+        if (got < 0) { cx->ball = rt_pl_ball_kind1("syntax_error", "term_too_long"); ok = 0; break; }
+        if (got != 1) se = "end_of_file";
+        else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) se = "cannot_start_term";
+        if (!se) { ok = plw_unify_vals(args[0], t, cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
+        if (sm == 2) printf("warning: syntax error: %s\n", se);
+        if (sm == 3) { fprintf(stderr, "warning: syntax error: %s\n", se); continue; }
+        if (!sm) cx->ball = rt_pl_ball_kind1("syntax_error", se);
+        ok = 0; break; } } PL_CX_LEAF_TAIL
 #define PL_TEXTOP_read_term_opts 1
 #define PL_TEXTOP_read 1
 #define PL_TEXTOP_get_char 1
