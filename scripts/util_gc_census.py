@@ -602,6 +602,33 @@ def expansion_lines(unit, own_file, texts):
     return sorted(set(hits))
 
 
+# ⛔⭐ THE POLL WINDOW IS MEASURED IN EMITTED x86 CALLS, NEVER IN PHYSICAL LINES (the cto's ruling on the cfo's report, 2026-10-03; the
+# coo's landing). A whitespace-only reformat of a template -- hq_templates' R4 hygiene, one x86() per line -- splits one source line into
+# several and moved three bb_call-family polls out of a 12-LINE window with byte-identical emission (bb_call_fn.cpp unpolled +1,
+# bb_call_value.cpp rt_call_apply_gen_h +1, bb_call_pl_leaf.cpp unresolved 0 -> 1). The window after a site is now the source lines that
+# together hold POLL_WINDOW_X86 x86-prefixed calls (x86(...), x86_rt_gc_poll(), x86_omega(...) and kin -- operand helpers counted too,
+# which is harmless: the count is invariant under any line reflow, which is the whole requirement), capped at WINDOW_LINE_CAP lines;
+# the routine and intervening-call stops are unchanged. SCRIP_GC_CENSUS_WINDOW_UNIT=lines reproduces the 12-line reading for an auditor
+# comparing across the change; it is an escape hatch, never the default.
+X86_TOKEN_RX = re.compile(r"\bx86(?:_[A-Za-z0-9_]+)?\s*\(")
+POLL_WINDOW_X86 = int(os.environ.get("SCRIP_GC_CENSUS_WINDOW_X86", "14"))
+WINDOW_LINE_CAP = 80
+
+
+def _window_lines(lines, start, poll_window):
+    """The source lines a poll window covers after 0-based index `start`: `poll_window` lines in the legacy unit, else the lines that
+    hold POLL_WINDOW_X86 x86 calls (the line that reaches the budget included), never more than WINDOW_LINE_CAP."""
+    if os.environ.get("SCRIP_GC_CENSUS_WINDOW_UNIT", "x86") == "lines":
+        return lines[start:start + poll_window]
+    out, n = [], 0
+    for wl in lines[start:start + WINDOW_LINE_CAP]:
+        out.append(wl)
+        n += len(X86_TOKEN_RX.findall(wl))
+        if n >= POLL_WINDOW_X86:
+            break
+    return out
+
+
 def _window_after(lines, line_no, poll_window):
     """The window after an EXPANSION site, stopped at the first column-0 closing brace or /*--- separator (the coo's
     2026-09-17 rule: a poll belongs to the call's own routine) AND at the first intervening emitted call.
@@ -611,7 +638,7 @@ def _window_after(lines, line_no, poll_window):
     the call it follows, so crediting NV_SET_fn's safe point to the comm_var tap spliced in above it is the very
     source-proximity error this row exists to cure, committed one level up.  The cto's own account -- that they left
     the tap UNPOLLED -- is what the census now reads."""
-    w = lines[line_no:line_no + poll_window]
+    w = _window_lines(lines, line_no, poll_window)
     stop = len(w)
     for k, wl in enumerate(w):
         if wl.startswith("}") or wl.startswith("/*---") or CALL_RX.search(wl):
@@ -1196,7 +1223,7 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         # POLLED off the g_gc_pending lea in stage_arg_inline, seven lines below and two functions away -- a false
         # green, the worst direction for this census.  The window stops at the first line that starts a new routine in
         # this tree's style: a column-0 closing brace or a column-0 /*---- separator.
-        window_lines = lines[i:i + poll_window]
+        window_lines = _window_lines(lines, i, poll_window)
         stop = len(window_lines)
         # ⛔ THE SIBLING-ARM REGION, COMPUTED ONCE PER SITE (the blind spot COO-143 named; see
         # _ternary_sibling_offsets).  Offsets here are ALTERNATIVES to the site, not successors, so a call on one of
@@ -2047,6 +2074,27 @@ def selftest():
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc)
     ck(rc == 1 and _sp_has(buf, unpolled=1, unresolved=1) and any("UNPOLLED" in l and "rt_concat" in l for l in buf) and any("UNRESOLVED" in l for l in buf),
        "safe-points: a planted unpolled allocating call and a computed call target are each named and RED")
+    # THE WINDOW IS MEASURED IN x86 CALLS (the cto's ruling, 2026-10-03): ONE call, thirteen moves and a poll, written as hq_templates'
+    # R4 hygiene writes them (one x86() per line, the poll on line 14) and as the older two-per-line form (7 lines). The x86-unit window
+    # reads POLLED on BOTH; the legacy 12-LINE window reads the reflowed form UNPOLLED, which is the move a whitespace-only reformat
+    # made on the bb_call family (the cfo's report) -- the control arm proving the unit, not the fixture, decides.
+    mv = ['    + x86("mov", "rax", "rbx")'] * 13
+    tpl_r4 = os.path.join(w, "reflow_r4.cpp"); tpl_r2 = os.path.join(w, "reflow_r2.cpp")
+    open(tpl_r4, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n' + "\n".join(mv) + '\n    + x86_rt_gc_poll(); }\n')
+    open(tpl_r2, "w").write('std::string a(){ return x86("call", "rt_concat", fp)\n'
+                            + "\n".join(mv[k] + (" " + mv[k + 1].strip() if k + 1 < 13 else "") for k in range(0, 13, 2))
+                            + '\n    + x86_rt_gc_poll(); }\n')
+    r4 = []; r2 = []; l4 = []
+    census_safe_points("", [tpl_r4], out=r4.append, allocating=alloc); census_safe_points("", [tpl_r2], out=r2.append, allocating=alloc)
+    _u = os.environ.get("SCRIP_GC_CENSUS_WINDOW_UNIT"); os.environ["SCRIP_GC_CENSUS_WINDOW_UNIT"] = "lines"
+    try:
+        census_safe_points("", [tpl_r4], out=l4.append, allocating=alloc)
+    finally:
+        os.environ.pop("SCRIP_GC_CENSUS_WINDOW_UNIT") if _u is None else os.environ.__setitem__("SCRIP_GC_CENSUS_WINDOW_UNIT", _u)
+    ck(_sp_has(r4, allocating_call_sites=1, polled=1, unpolled=0) and _sp_has(r2, allocating_call_sites=1, polled=1, unpolled=0),
+       "safe-points WINDOW IN x86 CALLS: one call, thirteen moves and a poll read POLLED both one-x86-per-line (14 lines) and two-per-line (7 lines)")
+    ck(_sp_has(l4, allocating_call_sites=1, polled=0, unpolled=1),
+       "safe-points WINDOW control: the legacy 12-LINE window reads the one-x86-per-line form UNPOLLED -- the move a whitespace-only reformat made")
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc, poll_helper="gc_poll_here")
     ck(rc == 1, "safe-points: naming a poll helper does not excuse a call that has neither")
     tpl_gk = os.path.join(w, "greek.cpp")
@@ -2417,7 +2465,8 @@ def main(argv):
     ap.add_argument("--ratchet", default="", help="a baseline TSV (census<TAB>key<TAB>count<TAB>note); refuse an increase, and a fall the baseline has not recorded")
     ap.add_argument("--write-baseline", default="", help="write today's counts as a baseline TSV (the landing that earned the fall runs this)")
     ap.add_argument("--root", default=ROOT)
-    ap.add_argument("--poll-window", type=int, default=12)
+    ap.add_argument("--poll-window", type=int, default=12,
+                    help="lines, read ONLY under SCRIP_GC_CENSUS_WINDOW_UNIT=lines; the default window is SCRIP_GC_CENSUS_WINDOW_X86 x86 calls (14)")
     ap.add_argument("--poll-helper", default="")
     ap.add_argument("--list-polled", action="store_true", help="print one `  POLLED <site> form=<form> poll_at=<template:line>` line per credited site, the join key the bare-poll re-screen (util_gc_safe_point_contract.py --bare-poll) reads")
     ap.add_argument("--zls-langs", default="fast", help="fast (rebus,snocone,pascal ~2.7s), all (the seven, ~32s), or a comma list")
