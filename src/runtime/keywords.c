@@ -46,29 +46,28 @@ static unsigned kw_cset_hash(const char *p) {
     uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ull; x ^= x >> 29; return (unsigned)x;
 }
 static int *g_kw_cset_cidx = NULL;
-static unsigned kw_cset_chash(const char *p, size_t *outlen) {
-    unsigned h = 5381u; size_t n = 0;
-    for (const unsigned char *q = (const unsigned char *)p; *q; q++, n++) h = h * 33u + *q;
-    if (outlen) *outlen = n; return h;
+static unsigned kw_cset_chash(const char *p, int len) {
+    unsigned h = 5381u;
+    for (int i = 0; i < len; i++) h = h * 33u + (unsigned char)p[i];
+    return h;
 }
+static int kw_cset_same(const kw_cset_ent_t *e, const char *p, int len) { return e->ptr && e->len == len && !memcmp(e->ptr, p, (size_t)len); }
 static void kw_cset_cindex_insert(int idx) {
-    const char *p = g_kw_cset_names[idx].ptr; if (!p || !p[0]) return;
+    const kw_cset_ent_t *e = &g_kw_cset_names[idx]; if (!e->ptr || e->len < 0) return;
     int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_chash(p, NULL) & (unsigned)m);; sl = (sl + 1) & m) {
+    for (int sl = (int)(kw_cset_chash(e->ptr, e->len) & (unsigned)m);; sl = (sl + 1) & m) {
         int v = g_kw_cset_cidx[sl];
         if (!v) { g_kw_cset_cidx[sl] = idx + 1; return; }
-        const char *q = g_kw_cset_names[v - 1].ptr;
-        if (q && q[0] != '\0' && !strcmp(q, p)) return;
+        if (kw_cset_same(&g_kw_cset_names[v - 1], e->ptr, e->len)) return;
     }
 }
-static int kw_cset_find_content(const char *p) {
-    if (!g_kw_cset_cidx || !p || !p[0]) return -1;
+static int kw_cset_find_content(const char *p, int len) {
+    if (!g_kw_cset_cidx || !p || len < 0) return -1;
     int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_chash(p, NULL) & (unsigned)m);; sl = (sl + 1) & m) {
+    for (int sl = (int)(kw_cset_chash(p, len) & (unsigned)m);; sl = (sl + 1) & m) {
         int v = g_kw_cset_cidx[sl];
         if (!v) return -1;
-        const char *q = g_kw_cset_names[v - 1].ptr;
-        if (q && q[0] != '\0' && !strcmp(q, p)) return v - 1;
+        if (kw_cset_same(&g_kw_cset_names[v - 1], p, len)) return v - 1;
     }
 }
 static void kw_cset_hindex_insert(int idx) {
@@ -213,18 +212,17 @@ static const char *g_kw_cset_regc_ptr[64]; static int g_kw_cset_regc_len[64];
 void kw_cset_gc_weak(void)
 {
     extern int rt_gc_weak_keep(const char **loc);
-    int dead = 0;
     for (int i = 0; i < g_kw_cset_count; i++) {
         kw_cset_ent_t *e = &g_kw_cset_names[i];
         if (e->name || !e->ptr || rt_gc_weak_keep(&e->ptr)) continue;
-        e->ptr = (const char *)0; e->len = -1; dead++;
+        e->ptr = (const char *)0; e->len = -1;
     }
-    if (dead) memset(g_kw_cset_regc_ptr, 0, sizeof g_kw_cset_regc_ptr);
+    memset(g_kw_cset_regc_ptr, 0, sizeof g_kw_cset_regc_ptr);
 }
 const char *kw_cset_intern(const char *canon, int len) {
     kw_cset_prime();
-    if (!canon) canon = "";
-    if (len >= 0 && (int)strlen(canon) == len) { int hit = kw_cset_find_content(canon); if (hit >= 0 && g_kw_cset_names[hit].len == len) return g_kw_cset_names[hit].ptr; }
+    if (!canon) { canon = ""; if (len > 0) len = 0; }
+    if (len >= 0) { int hit = kw_cset_find_content(canon, len); if (hit >= 0) return g_kw_cset_names[hit].ptr; }
     { extern void *rt_wsb_alloc(size_t); char *stable = (char *)rt_wsb_alloc((size_t)len + 1); memcpy(stable, canon, (size_t)len); stable[len] = '\0'; kw_cset_append(stable, NULL, len); return stable; }
 }
 void rt_icn_cset_register(const char *ptr, int len) {
@@ -249,7 +247,7 @@ const char *kw_cset_name(const char *ptr) {
 int kw_cset_len(const char *ptr) {
     kw_cset_prime();
     { int hit = kw_cset_find_ptr(ptr); if (hit >= 0) return g_kw_cset_names[hit].len; }
-    { int hit = kw_cset_find_content(ptr); if (hit >= 0) return g_kw_cset_names[hit].len; }
+    if (ptr && ptr[0]) { int hit = kw_cset_find_content(ptr, (int)strlen(ptr)); if (hit >= 0) return g_kw_cset_names[hit].len; }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
