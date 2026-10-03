@@ -81,7 +81,7 @@ static const tree_t * sfind(const tree_t * s, const char * tag) {
 static int zw5_on(void) { const char * e = getenv("SCRIP_ZW5"); return (e && *e == '0') ? 0 : 1; }
 static const char * sfind_str(const tree_t * s, const char * tag) { const tree_t * a = sfind(s, tag); return (a && a->n > 0 && a->c[0]) ? a->c[0]->v.sval : NULL; }
 static tree_t * sfind_expr(const tree_t * s, const char * tag) { const tree_t * a = sfind(s, tag); return (a && a->n > 0) ? a->c[0] : NULL; }
-static void sno_reg_var(const char * nm) { if (nm && nm[0] && nm[0] != '&') global_register(lp_strdup(nm)); }
+static void sno_reg_var(const char * nm) { extern void global_register_copy(const char *); if (nm && nm[0] && nm[0] != '&') global_register_copy(nm); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_expr_eq(const tree_t * a, const tree_t * b) {
     if (a == b) return 1; if (!a || !b) return 0; if (a->t != b->t || a->n != b->n) return 0; if (a->v.ival != b->v.ival) return 0;

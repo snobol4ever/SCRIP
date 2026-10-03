@@ -194,8 +194,11 @@ void IR_free(IR_graph_t * bbg) {
     for (int i = 0; i < bbg->n; i++) {
         IR_t * bb = bbg->all[i];
         if (!bb) continue;
+        ct_drop(bb->operands);
         ct_drop(bb);
     }
+    for (int i = 0; i < bbg->n_dead; i++) { ct_drop(bbg->dead[i]->operands); ct_drop(bbg->dead[i]); }
+    ct_drop(bbg->dead);
     ct_drop(bbg->all);
     ct_drop(bbg->vslots);
     ct_drop((void *)bbg->pnames);

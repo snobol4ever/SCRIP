@@ -769,6 +769,7 @@ test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_error_voice_statement_number_from_a_code_map_no_per_statement_store.sh	WIRED	-	-	-
 test_gate_sno_errtype_and_errtext_are_set_before_a_fatal_error_exits.sh	WIRED	-	-	-
 test_gate_sno_eval_chains_nothing_references_are_reclaimed_and_a_full_code_pool_is_loud.sh	WIRED	-	-	-
+test_gate_sno_a_distinct_eval_text_leaves_no_residue_once_its_chain_is_released.sh	WIRED	-	-	-
 test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_string_opens_its_chain_from_the_box_and_lands_with_no_c_frame.sh	WIRED	-	-	-

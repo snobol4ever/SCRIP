@@ -282,7 +282,11 @@ CODE_t *parse_program_tokens_ast(Lex *stream, tree_t **ast_out){
 }
 CODE_t *parse_program(LineArray *lines){(void)lines;return ct_zalloc(1,sizeof(CODE_t));}
 tree_t *parse_expr_from_str(const char *src){
-    if(!src||!*src) return NULL;Lex lx={0};lex_open_str(&lx,src,(int)strlen(src),0);return parse_expr(&lx);
+    if(!src||!*src) return NULL;Lex lx={0};lex_open_str(&lx,src,(int)strlen(src),0);tree_t *r=parse_expr(&lx);flex_lex_destroy(&lx);return r;
+}
+static void sno4_stmt_shells_drop(CODE_t *prog){
+    for(STMT_t *s=prog->head,*n;s;s=n){n=s->next;ct_drop(s->file);ct_drop(s->label);ct_drop(s);}
+    ct_drop(prog);
 }
 tree_t *parse_expr_pat_from_str(const char *src) {
     if (!src || !*src) return NULL;
@@ -298,6 +302,7 @@ tree_t *parse_expr_pat_from_str(const char *src) {
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
     snobol4_parse(&p);
+    flex_lex_destroy(&lx);
     ct_drop(buf);
     if (p.ast_prog && p.ast_prog->n > 0) {
         const tree_t *s = p.ast_prog->c[0];
@@ -310,7 +315,7 @@ tree_t *parse_expr_pat_from_str(const char *src) {
     if (!prog->head) { ct_drop(prog); return NULL; }
     STMT_t *s = prog->head;
     tree_t *res = s->pattern ? s->pattern : s->subject;
-    ct_drop(prog);
+    sno4_stmt_shells_drop(prog);
     return res;
 }
 CODE_t *sno_parse_string(const char *src) {
@@ -327,6 +332,7 @@ CODE_t *sno_parse_string(const char *src) {
     PP p = {prog, NULL, NULL};
     g_lx = &lx;
     snobol4_parse(&p);
+    flex_lex_destroy(&lx);
     ct_drop(buf);
     return prog;
 }
@@ -345,6 +351,7 @@ tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out) {
     PP p = {prog, NULL, ast};
     g_lx = &lx;
     snobol4_parse(&p);
+    flex_lex_destroy(&lx);
     ast = p.ast_prog;
     ct_drop(buf);
     if (code_out) *code_out = prog; else ct_drop(prog);

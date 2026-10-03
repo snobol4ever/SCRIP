@@ -18,7 +18,7 @@ extern int junction_mirror_op(int op);
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
 static lc_vec g_bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_label_registry_reset(void) { g_bb_labels.n = 0; }
+void bb_label_registry_reset(void) { for (int i = 0; i < g_bb_labels.n; i++) ct_drop((void *) LC_AT(&g_bb_labels, bb_label_entry_t, i).name); g_bb_labels.n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void lower_gc_roots(void)
 {
@@ -222,6 +222,7 @@ static void gset_reset(gname_set_t * g) { g->v.len = 0; if (g->ix.p) memset(g->i
 int is_global(const char * name) { return gset_has(&g_gnames, name); }
 void global_register(const char * name) { if (gset_add(&g_gnames, name)) { global_names = (const char **) g_gnames.v.p; global_count = (int) g_gnames.v.len; } }
 void global_reset(void) { gset_reset(&g_gnames); global_count = 0; }
+void global_register_copy(const char * name) { if (name && !gset_has(&g_gnames, name)) global_register(lp_strdup(name)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_icn_global_note(const char * name) { if (name && name[0]) gset_add(&g_icn_gnames, name); }
 int rt_icn_global_count(void) { return (int) g_icn_gnames.v.len; }

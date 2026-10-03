@@ -34,7 +34,7 @@ extern void           bb_pool_release(size_t mark);
 #define EVAL_TMP_MARKED "EVAL$"
 #define EVAL_TMP_LEGACY "ZZEVALZZ"
 #define EVAL_TMP eval_tmp_name()
-typedef struct { char *key; eval_chain_fn fn; } eval_cache_ent_t;
+typedef struct { char *key; eval_chain_fn fn; long gen; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
@@ -71,25 +71,29 @@ static eval_cache_ent_t *eval_cache_slot(const char *s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_cache_get(const char *s) { eval_cache_ent_t *e = eval_cache_slot(s); return e ? e->fn : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eval_chain_fn fn) {
+static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eval_chain_fn fn, long gen) {
     unsigned long m = (unsigned long)cap - 1;
     unsigned long i = eval_cache_hash(key) & m;
     while (tab[i].key) i = (i + 1) & m;
-    tab[i].key = key; tab[i].fn = fn;
+    tab[i].key = key; tab[i].fn = fn; tab[i].gen = gen;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_cache_put(char *key, eval_chain_fn fn) {
     eval_cache_ent_t *have = eval_cache_slot(key);
     if (have) { if (fn) have->fn = fn; return; }
+    extern long rt_gc_runs_count(void);
+    long now = rt_gc_runs_count();
     if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
-        int ncap = g_eval_cache_cap ? g_eval_cache_cap * 2 : 16;
+        int keep = 0, ncap = 16;
+        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || g_eval_cache[k].gen == now)) keep++;
+        while ((keep + 1) * 4 > ncap) ncap *= 2;
         eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         memset(ntab, 0, (size_t)ncap * sizeof(eval_cache_ent_t));
-        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key) eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn);
-        g_eval_cache = ntab; g_eval_cache_cap = ncap;
+        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || g_eval_cache[k].gen == now)) eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn, g_eval_cache[k].gen);
+        g_eval_cache = ntab; g_eval_cache_cap = ncap; g_eval_cache_n = keep;
     }
-    eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn);
+    eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn, now);
     g_eval_cache_n++;
 }
 __asm__(
@@ -300,6 +304,11 @@ static int eval_top_comma(const char *s)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void eval_stmt_strings_drop(tree_t *st) {
+    extern void ast_attr_strings_drop(tree_t *a, int leaf);
+    for (int i = 0; st && i < st->n; i++) { tree_t *a = st->c[i]; if (a && a->t == TT_ATTR && a->v.sval) ast_attr_strings_drop(a, strcmp(a->v.sval, ":subj") && strcmp(a->v.sval, ":repl")); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, int *thunks)
 {
     *thunks = 0;
@@ -344,7 +353,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     int pat0 = sno_pat_count();
     int pc0 = g_stage2.proc_count;
     void *g = lower_snobol4(prog);
-    if (!g) { ast_tree_free_dyn(prog); return NULL; }
+    if (!g) { eval_stmt_strings_drop(st); ast_tree_free_dyn(prog); return NULL; }
     sno_expr_thunks_build(xm);
     if (sno_pat_count() > pat0) sno_pat_thunks_build(pat0);
     extern int g_frame_active;
@@ -361,6 +370,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     *thunks = sno_pat_count() > pat0 || sno_expr_mark() > xm || g_stage2.proc_count > pc0;
     if (eval_thunks_emit_from(pc0)) fn = NULL;
     IR_free_dyn(g);
+    eval_stmt_strings_drop(st);
     ast_tree_free_dyn(prog);
     return fn;
 }
