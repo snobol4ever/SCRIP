@@ -603,6 +603,12 @@ void rt_eval_syntax_raise(const char *s) {
     rt_eval_raise(code, msg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void eval_chain_settle(char *key, eval_chain_fn fn, DESCR_t res, size_t mark, size_t built, int thunks, int keep) {
+    if (!keep) { bb_pool_release(mark); return; }
+    if (!thunks && bb_pool_mark() == built && eval_result_is_plain(res) && !eval_cache_slot(key)) { eval_cache_put(key, NULL); bb_pool_release(mark); }
+    else eval_cache_put(key, fn);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
     eval_chain_fn cached = eval_cache_get(s);
@@ -632,12 +638,7 @@ DESCR_t eval_string_transient(const char *s) {
     DESCR_t got = NV_GET_fn(EVAL_TMP);
     g_eval_frames[my].res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
     NV_SET_fn(EVAL_TMP, g_eval_frames[my].saved);
-    if (keep) {
-        char *key = g_eval_frames[my].key;
-        if (!thunks && bb_pool_mark() == built && eval_result_is_plain(g_eval_frames[my].res) && !eval_cache_slot(key)) { eval_cache_put(key, NULL); bb_pool_release(mark); }
-        else eval_cache_put(key, fn);
-    }
-    else bb_pool_release(mark);
+    eval_chain_settle(g_eval_frames[my].key, fn, g_eval_frames[my].res, mark, built, thunks, keep);
     DESCR_t result = g_eval_frames[my].res;
     g_eval_frames_n = my;
     if (!ok) core_unwind_pending();
