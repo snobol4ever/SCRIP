@@ -2228,7 +2228,7 @@ void rt_setexit_fire_now(void) {
     extern uint64_t rtccb[32]; void (*fn)(void) = (void (*)(void))(uintptr_t)rtccb[25];
     if (!fn) return;
     rtccb[25] = 0;
-    { extern void rt_chain_enter(void (*)(void)); rt_chain_enter(fn); }
+    { extern void rt_chain_enter(void (*)(void)); RT_GC_CALLBACK_V(rt_chain_enter(fn)); }
     exit(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

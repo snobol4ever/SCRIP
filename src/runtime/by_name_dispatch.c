@@ -6432,7 +6432,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs);
       if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
       int hit = try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, strict); core_icn_bi_pop(&bi); if (hit) return out; }
-    if (sn4) { extern int core_fn_arity_norm(const char *, int); int na = core_fn_arity_norm(fn, nargs); if (na != nargs) { DESCR_t pad[na > 0 ? na : 1]; for (int k = 0; k < na; k++) pad[k] = k < nargs ? args[k] : NULVCL; return rt_call_arr_impl(fn, pad, na, bidlen, strict, sn4); } }
+    if (sn4) { extern int core_fn_arity_norm(const char *, int); int na = core_fn_arity_norm(fn, nargs); if (na != nargs) { DESCR_t pad[na > 0 ? na : 1]; for (int k = 0; k < na; k++) pad[k] = k < nargs ? args[k] : NULVCL; return RT_GC_CALLBACK(rt_call_arr_impl(fn, pad, na, bidlen, strict, sn4)); } }
     if (strict && !rt_proc_name_exists(fn) && !icn_builtin_is_known(fn) && icn_builtin_arity(fn) == ICN_ARITY_UNKNOWN) {
         DESCR_t cal = NV_GET_fn(fn);
         if (!IS_PROCVAL_fn(cal)) { core_icn_op_ctx(fn, 1, cal, cal); core_icn_error(106, cal); core_icn_op_ctx_clear(); return FAILDESCR; }
