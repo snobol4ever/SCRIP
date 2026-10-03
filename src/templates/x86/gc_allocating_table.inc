@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1981
-#define GC_ALLOC_TAB_N_VOID 236
+#define GC_ALLOC_TAB_N 1984
+#define GC_ALLOC_TAB_N_VOID 238
 #define GC_ALLOC_TAB_N_DESCR 1073
-#define GC_ALLOC_TAB_N_OTHER 665
+#define GC_ALLOC_TAB_N_OTHER 666
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -552,9 +552,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "eval_cache_put", GC_RET_VOID },
     { "eval_chain_enter_only", GC_RET_VOID },
     { "eval_chain_run_guarded", GC_RET_OTHER },
+    { "eval_chain_settle", GC_RET_VOID },
     { "eval_frame_push", GC_RET_OTHER },
     { "eval_string_transient", GC_RET_DESCR },
-    { "eval_thunks_emit_from", GC_RET_VOID },
+    { "eval_thunks_emit_from", GC_RET_OTHER },
     { "fh_capture_begin", GC_RET_OTHER },
     { "fh_memsink_open", GC_RET_OTHER },
     { "fh_memsink_open_slot", GC_RET_OTHER },
@@ -1071,6 +1072,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_cinter", GC_RET_DESCR },
     { "rt_cinter_sno", GC_RET_DESCR },
     { "rt_cinter_strict", GC_RET_DESCR },
+    { "rt_code_pool_check", GC_RET_VOID },
+    { "rt_code_pool_overflow", GC_RET_VOID },
     { "rt_coerce_int_d", GC_RET_VOID },
     { "rt_coerce_num2_d", GC_RET_VOID },
     { "rt_coerce_real_d", GC_RET_VOID },
