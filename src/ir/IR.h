@@ -288,6 +288,7 @@ struct IR_graph_t {
     int            rest_kind;
     IR_t        ** dead;
     int            n_dead;
+    int            block_args;
 };
 IR_graph_t * IR_alloc(int max_nodes);
 int ir_varslot_of(const IR_graph_t * g, const char * name);

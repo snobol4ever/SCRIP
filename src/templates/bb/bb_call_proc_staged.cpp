@@ -30,6 +30,7 @@ DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 int     zls_g_resume_by_name(const char *name);
+int     zls_g_block_args(const IR_graph_t * g);
 int  rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
@@ -183,6 +184,7 @@ static void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, co
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->multi_proto : 0; } return 0; }
 extern "C" int bb_proc_target_pinned_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && cg->zframe_pinned_base && cg->zframe_graph && !cg->icn_cells_graph) ? 1 : 0; } return 0; }
+extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !cg->zframe_pinned_base && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
 extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->zframe_graph : 0; } return 0; }
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
@@ -338,7 +340,7 @@ static std::string bcps_det_arm() {
              + x86("def", L(2))
              + x86_anchor_leave()
              + x86_scan_sync_in_rr()
-             + bcps_nret_consult(std::string(ZRES(0)), std::string(ZRES(8)))
+             + IF(!bb_proc_target_block_graph(_.op_sval), bcps_nret_consult(std::string(ZRES(0)), std::string(ZRES(8))))
              + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
              + x86("cmp", "al", (long)DT_FAIL)
@@ -470,7 +472,7 @@ static std::string bcps_det_arm() {
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
-         + bcps_nret_consult(std::string(FRQ(off)), std::string(FRQ(off + 8)))
+         + IF(!bb_proc_target_block_graph(_.op_sval), bcps_nret_consult(std::string(FRQ(off)), std::string(FRQ(off + 8))))
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
          + x86("cmp", "al", (long)DT_FAIL)

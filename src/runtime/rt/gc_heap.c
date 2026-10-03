@@ -95,6 +95,7 @@ _Static_assert(__builtin_offsetof(rt_sxt_fr_t, owner) ==  0, "rtx_str.s bakes g_
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, len)   ==  8, "rtx_str.s bakes g_sxt_fr.len @8");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, gva_n) == 16, "rtx_str.s bakes g_sxt_fr.gva_n @16");
 _Static_assert(__builtin_offsetof(rt_sxt_fr_t, off)   == 20, "rtx_str.s bakes g_sxt_fr.off @20");
+rt_sxt_fr_t * const rt_sxt_fr_p = &g_sxt_fr;
 #define g_sxt_len   (g_sxt_fr.len)
 #define g_sxt_gva_n (g_sxt_fr.gva_n)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -61,6 +61,9 @@ extern "C" void rt_pl_dc_prep(void *, long, long, long, long, long);
 extern "C" DESCR_t rt_pl_dc_leave_γ(DESCR_t, long, void *);
 extern "C" DESCR_t rt_pl_dc_leave_ω(long, void *);
 extern "C" void rt_arg_stage(int idx, DESCR_t v);
+extern "C" int zls_g_block_args(const IR_graph_t *);
+extern "C" { struct rt_sxt_fr_s; extern struct rt_sxt_fr_s * const rt_sxt_fr_p; }
+extern "C" struct gv_s g_call_args;
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_dc_stub_str(void) {
@@ -74,6 +77,35 @@ static std::string xa_flat_dc_stub_str(void) {
     uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
     static const char *argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+    if (!x86_fb_pinned() && g_emit_cfg && zls_g_block_args(g_emit_cfg)) {
+        int nb = g_emit_cfg->nparams;
+        if (np > nb || nb > 12) return x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters");
+        std::string zs = x86("comment", "the block protocol, Raku regime: the direct-call stub builds the callee's argument block on the spine from the caller's cells and jumps past the staged entry; no rt_arg_stage, no poll (nothing can allocate between here and the callee's first safe point)")
+            + x86("pop", "rax")
+            + x86("push", "rax")
+            + x86("push", "rax")
+            + IF(nb > 0, x86("sub", "rsp", (long)(16 * nb)));
+        for (int i = 0; i < np; i++)
+            zs += x86("mov", "rax", "[" + std::string(argreg[i]) + " + 0]")
+                + x86("mov", "rdi", "[" + std::string(argreg[i]) + " + 8]")
+                + x86("mov", RDQ("rsp", 16 * i), "rax")
+                + x86("mov", RDQ("rsp", 16 * i + 8), "rdi");
+        for (int i = np; i < nb; i++)
+            zs += x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
+                + x86("mov", RDQ("rsp", 16 * i + 8), 0L);
+        zs += x86_lea_id("rcx", 2)
+            + x86_lea_id("rdx", 3)
+            + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_dc_body_p ? g_emit.flat_dc_body_p->name : "?")
+            + x86_deflabel_id(2)
+            + x86("add", "rsp", 8L)
+            + x86("ret")
+            + x86_deflabel_id(3)
+            + x86("add", "rsp", 8L)
+            + x86("mov32", "eax", 104L)
+            + x86("xor", "edx", "edx")
+            + x86("ret");
+        return zs;
+    }
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) {
         static const char *dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t stg_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stg_fp = (uint64_t)(uintptr_t)(void *)fp; }
@@ -161,6 +193,32 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86_jmpfn("rt_pl_dc_leave_ω", lvw_fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_flat_block_staged_entry_str(void) {
+    x86_begin();
+    int nb = g_emit_cfg ? g_emit_cfg->nparams : 0;
+    if (nb <= 0) return std::string();
+    if (nb > 12) return x86_bomb("xa_flat_block_staged_entry: more than 12 parameters");
+    std::string s = x86("comment", "the staged entry of a block-protocol graph (every by-name road, glue and C entry stages g_call_args and jumps here): build the argument block on the spine from the staged cells, a cell beyond the medium's capacity a null DESCR, then fall into the block entry; a direct call (the dc stub) jumps past this")
+        + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_call_args, "g_call_args")
+        + x86("mov", "rdi", "[rsi + 0]")
+        + x86("mov", "r9d", RDD("rsi", 12))
+        + x86("sub", "rsp", (long)(16 * nb));
+    for (int i = 0; i < nb; i++) {
+        s += x86("cmp", "r9d", (long)(i + 1))
+           + x86_jcc_id("jb", 2 * i)
+           + x86("mov", "rax", "[rdi + " + std::to_string(16 * i) + "]")
+           + x86("mov", RDQ("rsp", 16 * i), "rax")
+           + x86("mov", "rax", "[rdi + " + std::to_string(16 * i + 8) + "]")
+           + x86("mov", RDQ("rsp", 16 * i + 8), "rax")
+           + x86_jmp_id(2 * i + 1)
+           + x86_deflabel_id(2 * i)
+           + x86("mov", RDQ("rsp", 16 * i), (long)DT_SNUL)
+           + x86("mov", RDQ("rsp", 16 * i + 8), 0L)
+           + x86_deflabel_id(2 * i + 1);
+    }
+    return s;
+}
+extern "C" void xa_flat_block_staged_entry(void) { bb_emit_x86(xa_flat_block_staged_entry_str()); }
 extern "C" void xa_flat_dc_stub(void) { bb_emit_x86(xa_flat_dc_stub_str()); }
 extern "C" void rt_lcl_proc_args_install(void *, int, int);
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
@@ -214,8 +272,8 @@ static std::string zf_pin_restore(int kt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string zf_release(int kt) {
-    if (!x86_fb_pinned()) return x86("add", "rsp", (long)kt);
-    { int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
+    if (!x86_fb_pinned()) { int np = (g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0; return x86("add", "rsp", (long)(kt + 16 * np)); }
+    { int np = (g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0;
       return x86("comment", "PZ-4 PL-ZA-2: exact release off the pin, not off wherever rsp happens to be; the block protocol releases the caller's argument block with the frame")
            + x86("lea", "rsp", RDQ(x86_fb(), kt + 16 * np)); }
 }
@@ -273,6 +331,20 @@ static std::string xa_flat_zframe_prologue_str(void) {
                         + x86("xor", "eax", "eax")
                         + x86("mov32", "ecx", (long)(zb / 8))
                         + x86("rep_stosq"));
+    } else if (zls_g_block_args(g_emit_cfg)) {
+        int zb = kt - 32;
+        s += x86("comment",
+            "the block protocol, Raku regime (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2 as landed for Prolog at e95282e39): the arguments are the caller's block at [rsp+kt+16i], "
+                "never copied; the value region [0, kt-32) is zeroed inline; the string-extension table is invalidated inline, as rt_icn_zframe_args_install did (c8701b17e)")
+           + (zb <= 128 ? FOR(0, zb / 8, [&](int q) { return x86("mov", RDQ("rsp", 8 * q), 0L); })
+                        : x86("mov", "rdi", "rsp")
+                        + x86("xor", "eax", "eax")
+                        + x86("mov32", "ecx", (long)(zb / 8))
+                        + x86("rep_stosq"))
+           + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_sxt_fr_p, "rt_sxt_fr_p")
+           + x86("mov", "rax", RDQ("rax", 0))
+           + x86("mov", RDD("rax", 20), 1L)
+           + x86("mov", RDQ("rax", 0), 0L);
     } else if (g_emit.flat_lex) {
         extern int g_flat_dc_np;
         if (g_flat_dc_np >= 0) {
