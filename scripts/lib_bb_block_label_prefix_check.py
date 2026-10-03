@@ -86,7 +86,16 @@ def exempt(name):
     return False
 
 
-SECTION_DIRECTIVE = re.compile(r'^\s*\.(?:section\s+(\S+)|(text|data|rodata|bss|previous|popsection))\b')
+# .pushsection is a section switch like .section, and .popsection returns to whatever section was pushed from, so the
+# walk keeps a stack (cfo 2026-10-02): the statement code map's file-name string .Lstnof<N> sits in a .pushsection .rodata
+# interlude inside a box, and before the stack it read as a text label of that box -- one false violation per SNOBOL4 file.
+SECTION_DIRECTIVE = re.compile(r'^\s*\.(?:(push)?section\s+(\S+)|(text|data|rodata|bss|previous|popsection))\b')
+# The box-span marker "n<uid>_<kind>_bx:" (emit.cpp, the ".type %s, @function" line the flat loop writes ahead of each box)
+# opens its box: everything up to its .size is that box's output. A label a box defines AHEAD of its own α port -- the
+# statement code map's anchor ".L<kind>_α_<uid>_stno" (emit.cpp emit_stno_mark, written before the template's α) -- is
+# read against its own box, not the box before it (cfo 2026-10-02: 59 programs in seven languages, the only labels whose
+# verdict moved were the code-map anchors). Still exempt from the naming check: a range marker, never a jump target.
+BOX_SPAN = re.compile(r'^n\d+_(.+)_bx$')
 
 
 def classify(name):
@@ -115,40 +124,59 @@ def check(path):
     owner = None
     n_checked = 0
     in_text = True
+    pushed = []
+
+    def section(sm):
+        # A label defined in a non-text section is a MODULE DATUM (the thunk record .Lthk_<pat> and the frame map
+        # .Lgcmap_<pat> in .data.rel.ro, the label-name table .Llbln<N>, the Icon startup tables .Lstartup_*): it has no
+        # owning box, so the Greek infix would be false, not redundant -- the header's own mechanism test. The emitter
+        # returns to .text and continues the block it was in, so the owner is kept across the interlude (ceo 2026-09-30,
+        # CEO-1380: 59 such labels read as violations after the stored-pattern landings moved the data emission).
+        nonlocal in_text
+        if sm.group(1):
+            pushed.append(in_text)
+        if sm.group(3) == 'popsection':
+            in_text = pushed.pop() if pushed else True
+            return
+        sec = (sm.group(2) or sm.group(3) or '').strip()
+        in_text = sec in ('text', '.text', 'previous') or sec.startswith('.text')
+
+    def visit(lineno, name):
+        nonlocal owner
+        if FAMILY_SUFFIX.search(name) and not (GREEK_SET & set(name)):
+            greek_missing.append((lineno, name))
+        if exempt(name):
+            if ENTRY.match(name):
+                owner = None
+            bm = BOX_SPAN.match(name)
+            if bm:
+                owner = bm.group(1)
+            return
+        kind, new_owner = classify(name)
+        if kind == 'anchor':
+            owner = new_owner
+        elif kind == 'reset':
+            owner = None
+        elif kind == 'data':
+            if owner is not None and owner not in name:
+                violations.append((lineno, name, owner))
+        # 'preserve': owner unchanged, not checked
     with open(path, encoding='utf-8') as f:
         for lineno, line in enumerate(f, 1):
+            line = line.rstrip('\n')
             sm = SECTION_DIRECTIVE.match(line)
             if sm:
-                # A label defined in a non-text section is a MODULE DATUM (the thunk record .Lthk_<pat> and the frame map
-                # .Lgcmap_<pat> in .data.rel.ro, the label-name table .Llbln<N>, the Icon startup tables .Lstartup_*): it has no
-                # owning box, so the Greek infix would be false, not redundant -- the header's own mechanism test. The emitter
-                # returns to .text and continues the block it was in, so the owner is kept across the interlude (ceo 2026-09-30,
-                # CEO-1380: 59 such labels read as violations after the stored-pattern landings moved the data emission).
-                sec = (sm.group(1) or sm.group(2) or '').strip()
-                in_text = sec in ('text', '.text', 'previous', 'popsection') or sec.startswith('.text')
+                section(sm)
                 continue
-            m = LABEL_DEF.match(line.rstrip('\n'))
+            m = LABEL_DEF.match(line)
             if not m:
                 continue
-            name = m.group(1)
             n_checked += 1
-            if not in_text:
-                continue
-            if FAMILY_SUFFIX.search(name) and not (GREEK_SET & set(name)):
-                greek_missing.append((lineno, name))
-            if exempt(name):
-                if ENTRY.match(name):
-                    owner = None
-                continue
-            kind, new_owner = classify(name)
-            if kind == 'anchor':
-                owner = new_owner
-            elif kind == 'reset':
-                owner = None
-            elif kind == 'data':
-                if owner is not None and owner not in name:
-                    violations.append((lineno, name, owner))
-            # 'preserve': owner unchanged, not checked
+            if in_text:
+                visit(lineno, m.group(1))
+            sm = SECTION_DIRECTIVE.match(line[m.end():])
+            if sm:
+                section(sm)                 # "label: .pushsection X" defines the label where it stands, THEN switches
     return violations, greek_missing, n_checked
 
 

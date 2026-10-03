@@ -342,10 +342,10 @@ static void emit_stno_mark(int32_t stno) {
     int32_t line = 0; const char * file = (const char *)0;
     if (stno > 0 && stno < g_emit.stno_src_n) { line = STNO_SRC(stno).line; file = STNO_SRC(stno).file; }
     if (g_is_text) {
-        int seq = ++g_emit.stno_text_seq;
-        if (file) emit_stno_file_label(file);
-        if (file) emit_textf(".Lstno%d:\n  .pushsection scrip_stno_map,\"a\",@progbits\n  .quad .Lstno%d\n  .long %d\n  .long %d\n  .quad .Lstnof%d\n  .popsection\n", seq, seq, (int)stno, (int)line, g_emit.stno_file_lbl);
-        else emit_textf(".Lstno%d:\n  .pushsection scrip_stno_map,\"a\",@progbits\n  .quad .Lstno%d\n  .long %d\n  .long %d\n  .quad 0\n  .popsection\n", seq, seq, (int)stno, (int)line);
+        char fq[32]; if (file) { emit_stno_file_label(file); snprintf(fq, sizeof fq, ".Lstnof%d", g_emit.stno_file_lbl); } else snprintf(fq, sizeof fq, "0");
+        const char * kn = flat_label_kind(g_emit.node->op); int uid = g_emit.x86_uid;
+        emit_textf(".L%s_α_%d_stno:\n  .pushsection scrip_stno_map,\"a\",@progbits\n", kn, uid);
+        emit_textf("  .quad .L%s_α_%d_stno\n  .long %d\n  .long %d\n  .quad %s\n  .popsection\n", kn, uid, (int)stno, (int)line, fq);
     } else {
         stno_rec_push((uint64_t)(uintptr_t)(bb_emit_buf + bb_emit_pos), stno, line, file ? icn_trace_intern(file) : (const char *)0);
     }

@@ -475,7 +475,6 @@ typedef struct {
     cv_t                         stno_map;
     int                          stno_map_n;
     int32_t                      stno_last;
-    int                          stno_text_seq;
     cv_t                         stno_src;
     int64_t                      stno_src_n;
     const char *                 stno_file_last;

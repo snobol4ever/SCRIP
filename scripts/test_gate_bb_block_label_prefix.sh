@@ -39,6 +39,14 @@ export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus
 # proof), with seat05's Greek-letter requirement for the _as/_af/_ry/_rt/_sN families layered on as an
 # independent second check exactly as ruled -- see that file's own header for the merge detail.
 #
+# ⭐ A BOX'S SPAN MARKER OPENS IT (cfo 2026-10-02, row snobol4-the-setexit-test-block-carries-stno-labels-without-its-
+# own-block-prefix): the statement code map (04c3109f8, 688098382) writes an anchor at the head of each statement box,
+# AHEAD of the template's α port, so "the last port label seen" was the box before it (a setexit_test, a call) and every
+# anchor read as that box's violation. The anchor now carries its own box's prefix (.L<kind>_α_<uid>_stno, emit.cpp
+# emit_stno_mark), the walk opens a box at its n<uid>_<kind>_bx span marker as well as at its ports, and .pushsection is
+# a section switch (the map's file-name string .Lstnof<N> is .rodata, a module datum). On 59 programs in seven languages
+# the only verdicts that moved were the anchors'. The span marker exists only when SCRIP_ASM_SYMSIZE is not 0.
+#
 # KNOWN STILL-OPEN, DELIBERATELY NOT ALLOWLISTED (this gate correctly FAILS on this until fixed --
 # see task bb-label-prefix-uniform.task.md LEDGER for the full ruling and code citations):
 #   - n<N>_<kind>_af (emit.cpp na_f) -- na_s/fc_sig/ra_y/ra_t (the other four REAL gamma/omega transition
