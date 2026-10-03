@@ -805,6 +805,7 @@ test_gate_sno_tracing_does_not_change_a_match_result.sh	WIRED	-	-	-
 test_gate_sno_unary_caret_is_an_undefined_operator_error_29.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
+test_gate_snocone_a_setexit_trap_is_taken_from_a_function_body_a_nested_block_and_a_condition.sh	WIRED	-	-	-
 test_gate_snocone_beauty_suite_reads_every_test_in_both_modes_with_no_xfail.sh	WIRED	-	-	-
 test_gate_snocone_expressions_are_snobol4_expressions.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-

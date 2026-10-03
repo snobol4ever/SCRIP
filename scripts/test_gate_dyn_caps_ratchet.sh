@@ -47,6 +47,9 @@
 #     them declared on a scratch CLASS_AB.tsv it reads 0 of 0, says no LOUD guard remains, and exits 0
 # The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
 # (CEO-1231), not this gate's.
+# ⛔ BASELINE_FUNCTION_SCOPE 404 -> 401, 2026-10-02 (the cto, ceo rank-1 row snocone-a-setexit-trap-is-not-taken-...): the
+# three char _ab[300] locals that spelled an LBL__ alias in src/driver/scrip.c (the mode-4 and mode-3 main-chain alias builders and
+# the mode-3 alias registration) are gone -- one helper spells each alias in a stack array sized to its need (the lifetime rule).
 # ⛔ BASELINE_FUNCTION_SCOPE 409 -> 404, 2026-10-02 (the cfo, ceo CEO-1419 ticket snobol4-real-to-string-differs-in-the-last-digit-...):
 # real_str (string_ops.c) is SPITBOL's gts10-gts28 and fills its caller's buffer only through literal formats with no %s (B:fmt by
 # construction, at most 23 bytes), where it used to fill two COUNTER work buffers and copy them in with "%s". Out: string_ops.c

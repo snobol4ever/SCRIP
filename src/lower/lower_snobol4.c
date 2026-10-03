@@ -239,8 +239,8 @@ static IR_t * sco_branch(scx_t * cx, const tree_t * pg, IR_t * γ, IR_t * ω) {
         const tree_t * subj = lc_stmt_subj(s);
         if (!subj) continue;
         if (sfind(s, ":eq") && !sfind(s, ":pat")) { tree_t * a = ast_node_new(TT_ASSIGN); ast_push(a, (tree_t *) subj); ast_push(a, sfind_expr(s, ":repl")); subj = a; }
-        IR_t * r = NULL;
-        entry = sco_stmt_hook(cx, s, sx_lower(cx, subj, entry, entry, &r));
+        IR_t * r = NULL; IR_t * tj = lc_build(cx->g, IR_SETEXIT_TEST, entry, entry);
+        entry = sco_stmt_hook(cx, s, sx_lower(cx, subj, tj, tj, &r));
     }
     return entry;
 }
@@ -936,7 +936,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * body_entry = sco_branch(cx, b, γ, ω);
             cx->loop_exit = sv_exit;
             tree_t * idc = ast_node_new(TT_FNC); idc->v.sval = (char *) "IDENT"; ast_push(idc, (tree_t *) subj); ast_push(idc, (tree_t *) v);
-            IR_t * ir = NULL; IR_t * te = sx_lower(cx, idc, body_entry, chain, &ir);
+            IR_t * ir = NULL; IR_t * te = sx_lower(cx, idc, body_entry, lc_build(cx->g, IR_SETEXIT_TEST, chain, chain), &ir);
             chain = te;
         }
         cx->loop_exit = sv_exit; cx->loop_next = sv_next;
@@ -980,6 +980,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         const char * nm = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : t->v.sval;
         if (!nm || !nm[0]) sno_fatal("goto with no resolvable label", NULL);
         IR_t * land = bb_label_landing(nm);
+        if (!land && (!strcmp(nm, "CONTINUE") || !strcmp(nm, "SCONTINUE") || !strcmp(nm, "ABORT"))) {
+            land = lc_build(cx->g, IR_GOTO_DEFERRED, bb_label_landing("END"), NULL); IR_LIT(land).sval = lp_strdup(nm); }
         if (!land) sno_fatal("goto to unknown label", nm);
         IR_t * taken = lc_build(cx->g, IR_GOTO, land, NULL);
         if (res) *res = NULL;
@@ -2913,7 +2915,7 @@ void sno_pat_thunks_build(int p0) {
     g_sno_in_patproc = sv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_register_entry_label(const char * el, int main_bb_idx) {
+static void sno_register_entry_label(const char * el, int bb_idx) {
     if (!el || !el[0]) return;
     IR_t * anchor = bb_label_landing(el);
     if (!anchor) return;
@@ -2929,7 +2931,7 @@ static void sno_register_entry_label(const char * el, int main_bb_idx) {
     g_stage2.proc_table[lpi].dyn_scope = 0;
     g_stage2.proc_table[lpi].result_name = NULL;
     g_stage2.proc_table[lpi].proc_entry_node = anchor;
-    g_stage2.proc_table[lpi].bb_idx = main_bb_idx;
+    g_stage2.proc_table[lpi].bb_idx = bb_idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_entry_seen_push(cv_t * seen, const char * el) {
@@ -3280,6 +3282,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
         g_stage2.proc_table[fpi].result_name = rn;
         gf->multi_proto = sno_fname_is_multiproto(d0.fname);
         g_stage2.proc_table[fpi].bb_idx = bb_program_add(&g_stage2.bbp, gf);
+        if (dbody && g_sno_uses_code) { int fbi = g_stage2.proc_table[fpi].bb_idx;
+            for (int i = 0; i < dbody->n; i++) if (dbody->c[i] && dbody->c[i]->t == TT_STMT) sno_register_entry_label(sfind_str(dbody->c[i], ":lbl"), fbi); }
     }
     sno_expr_thunks_build(0);
     { int xdone = sno_expr_mark(); int pdone = 0;

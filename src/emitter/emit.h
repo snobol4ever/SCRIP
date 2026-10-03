@@ -330,6 +330,7 @@ typedef struct {
     int                          op_own_mark;
     int                          op_own_ci;
     long                         op_fc_bytes;
+    long                         op_trap_drop;
     int                          op_fc_base;
     long                         op_fc_fpmax;
     int                          op_fc_arm_fp[16];

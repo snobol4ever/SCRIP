@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1974
-#define GC_ALLOC_TAB_N_VOID 233
+#define GC_ALLOC_TAB_N 1981
+#define GC_ALLOC_TAB_N_VOID 236
 #define GC_ALLOC_TAB_N_DESCR 1073
-#define GC_ALLOC_TAB_N_OTHER 661
+#define GC_ALLOC_TAB_N_OTHER 665
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -456,6 +456,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "cnv_str", GC_RET_OTHER },
     { "code", GC_RET_DESCR },
     { "code_at", GC_RET_DESCR },
+    { "code_compile_raise", GC_RET_VOID },
     { "codegen_flat_chain_body", GC_RET_OTHER },
     { "coerce_numeric", GC_RET_DESCR },
     { "comm_call", GC_RET_VOID },
@@ -1115,6 +1116,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_div_sno", GC_RET_DESCR },
     { "rt_div_strict", GC_RET_DESCR },
     { "rt_div_zero", GC_RET_VOID },
+    { "rt_eval_raise", GC_RET_VOID },
     { "rt_eval_syntax_raise", GC_RET_VOID },
     { "rt_extfn_invoke", GC_RET_DESCR },
     { "rt_extfn_mint", GC_RET_DESCR },
@@ -1902,6 +1904,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "sno_array_from_proto", GC_RET_DESCR },
     { "sno_array_from_proto_d", GC_RET_DESCR },
     { "sno_lower_fragment_at", GC_RET_OTHER },
+    { "sno_pe_op", GC_RET_OTHER },
+    { "sno_pe_walk", GC_RET_OTHER },
+    { "sno_preeval_expr", GC_RET_OTHER },
+    { "sno_preeval_program", GC_RET_VOID },
+    { "sno_preeval_stmt", GC_RET_OTHER },
     { "sno_setexit_fire_on_end", GC_RET_VOID },
     { "sno_setexit_resume", GC_RET_VOID },
     { "sno_trace_call", GC_RET_VOID },

@@ -580,6 +580,39 @@ static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const 
 static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFINE_LBL_ALIAS"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sn4_lbl_owners(const stage2_t *s2, unsigned char *own) {
+    int any = 0; for (int b = 0; b < s2->bbp.count; b++) own[b] = 0;
+    for (int r = 0; r < s2->proc_count; r++) { const char *rn = s2->proc_table[r].name; int b = s2->proc_table[r].bb_idx;
+        if (rn && strncmp(rn, "LBL__", 5) != 0 && strcmp(rn, "main") != 0 && b >= 0 && b < s2->bbp.count) own[b] = 1; }
+    for (int q = 0; q < s2->proc_count; q++) { const char *qn = s2->proc_table[q].name; int b = s2->proc_table[q].bb_idx;
+        if (qn && strncmp(qn, "LBL__", 5) == 0 && b >= 0 && b < s2->bbp.count && own[b]) any = 1; }
+    return any;
+}
+static int sn4_lbl_pick(const stage2_t *s2, const unsigned char *own, int idx, int q) {
+    const char *n = s2->proc_table[q].name; int b = s2->proc_table[q].bb_idx;
+    if (!n || strncmp(n, "LBL__", 5) != 0 || !s2->proc_table[q].proc_entry_node) return 0;
+    return (idx >= 0) ? (b == idx) : !(b >= 0 && b < s2->bbp.count && own[b]);
+}
+static void sn4_balias_fill(IR_graph_t *g, const stage2_t *s2, const unsigned char *own, int idx, int dentry_skip) {
+    int na = 0; for (int q = 0; q < s2->proc_count; q++) if (sn4_lbl_pick(s2, own, idx, q)) na++;
+    if (na == 0 || g->n_balias != 0) return;
+    g->balias_node = (IR_t **)ct_zalloc((size_t)na, sizeof(IR_t *)); g->balias_name = (const char **)ct_zalloc((size_t)na, sizeof(char *));
+    if (!g->balias_node || !g->balias_name) return;
+    for (int q = 0; q < s2->proc_count && g->n_balias < na; q++) { if (!sn4_lbl_pick(s2, own, idx, q)) continue;
+        IR_t *bn = s2->proc_table[q].proc_entry_node; int bgg = 0; while (bn && (bn->op == IR_SUCCEED || bn->op == IR_FAIL || bn->op == IR_GOTO) && bn->γ.node && bgg++ < 65536) bn = bn->γ.node;
+        if (dentry_skip) { int dl = 0; for (int dq = 0; dq < g->n_dentry; dq++) if (g->dentry_entry[dq] == bn) { dl = 1; break; } if (dl && !sn4_define_lbl_alias()) continue; }
+        const char *sym = asm_sym_name(s2->proc_table[q].name + 5); char ab[strlen(sym) + 6]; snprintf(ab, sizeof ab, "LBL__%s", sym);
+        g->balias_node[g->n_balias] = bn; g->balias_name[g->n_balias] = ct_strdup(ab); if (g->balias_name[g->n_balias]) g->n_balias++; }
+}
+static void sn4_balias_register(const stage2_t *s2, const unsigned char *own, int idx, void *base, int fb) {
+    extern int emit_label_lookup_offset(const char *); extern void rt_proc_set_frame_bytes(const char *, int); extern void rt_proc_set_fn(const char *, bb_box_fn);
+    for (int q = 0; q < s2->proc_count; q++) { if (!sn4_lbl_pick(s2, own, idx, q)) continue; const char *ln = s2->proc_table[q].name;
+        const char *sym = asm_sym_name(ln + 5); char ab[strlen(sym) + 6]; snprintf(ab, sizeof ab, "LBL__%s", sym); int off = emit_label_lookup_offset(ab);
+        if (off < 0) { const char *e = getenv("SCRIP_M3_UNIFY_DIAG"); if (e && *e == '1') fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in its chain\n", ln, ab); continue; }
+        rt_proc_set_fn(ln, (bb_box_fn)((char *)base + off)); if (fb > 0) rt_proc_set_frame_bytes(ln, fb);
+        m3_seal_entry_cells(ln + 5, base, 0); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int m4_program_has_prolog_terms(stage2_t *s2, IR_graph_t *bbg) {
     for (int gi = -1; gi < (s2 ? s2->bbp.count : 0); gi++) { IR_graph_t *g = gi < 0 ? bbg : s2->bbp.table[gi]; if (!g) continue;
         for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue;
@@ -1644,6 +1677,7 @@ int main(int argc, char **argv)
             int *proc_ispat_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
             int *proc_zstatic_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
             { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
+            unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1]; int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -1664,6 +1698,7 @@ int main(int argc, char **argv)
                   g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }
                 { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
+                if (_lbl_owned && strncmp(pname, "LBL__", 5) != 0) sn4_balias_fill(s2->bbp.table[idx], s2, _lbl_own, idx, 0);
                 { char _pfx[256]; snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
@@ -1678,6 +1713,11 @@ int main(int argc, char **argv)
                 proc_names_buf[n_procs++] = pname ? ct_strdup(pname) : NULL;
                 ct_drop(pn);
             }
+            if (_lbl_owned) for (int _q = 0; _q < n_procs; _q++) { int _pq = proc_pidx_buf[_q], _b = (_pq >= 0 && _pq < s2->proc_count) ? s2->proc_table[_pq].bb_idx : -1;
+                if (_b < 0 || _b >= s2->bbp.count || !_lbl_own[_b] || !proc_names_buf[_q] || strncmp(proc_names_buf[_q], "LBL__", 5) != 0) continue;
+                for (int _r = 0; _r < n_procs; _r++) { int _pr = proc_pidx_buf[_r];
+                    if (_pr < 0 || _pr >= s2->proc_count || s2->proc_table[_pr].bb_idx != _b || !proc_names_buf[_r] || strncmp(proc_names_buf[_r], "LBL__", 5) == 0) continue;
+                    proc_fb_buf[_q] = proc_fb_buf[_r]; break; } }
             int n_cls_emit = 0;
             { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
             int n_gram_emit = 0;
@@ -1748,13 +1788,7 @@ int main(int argc, char **argv)
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 sn4_dentry_table_build(bbg, s2);
-                { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
-                  if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)ct_zalloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)ct_zalloc((size_t)_na, sizeof(char *));
-                      if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
-                          if (bbg->n_balias >= _na) break;
-                          IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
-                          { int _dl = 0; for (int _dq = 0; _dq < bbg->n_dentry; _dq++) if (bbg->dentry_entry[_dq] == _bn) { _dl = 1; break; } if (_dl && !sn4_define_lbl_alias()) continue; }
-                          char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
+                sn4_balias_fill(bbg, s2, _lbl_own, -1, 1);
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
                 emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
@@ -1828,6 +1862,7 @@ int main(int argc, char **argv)
                 return 1;
             }
             { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
+            unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1]; int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -1857,8 +1892,10 @@ int main(int argc, char **argv)
                 { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
                 char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
+                if (_lbl_owned && !_islbl3) sn4_balias_fill(s2->bbp.table[idx], s2, _lbl_own, idx, 0);
                 if (getenv("SCRIP_PL_RTASM") && !_islbl3) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stderr, _m3pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
                 bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
+                if (pfn && _lbl_owned) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, idx, (void *)pfn, g_last_flat_frame_bytes); }
                 { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
@@ -1889,20 +1926,10 @@ int main(int argc, char **argv)
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
             sn4_dentry_table_build(bbg, s2);
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
-            { int _na = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && strncmp(s2->proc_table[_q].name, "LBL__", 5) == 0 && s2->proc_table[_q].proc_entry_node) _na++;
-              if (_na > 0 && bbg->n_balias == 0) { bbg->balias_node = (IR_t **)ct_zalloc((size_t)_na, sizeof(IR_t *)); bbg->balias_name = (const char **)ct_zalloc((size_t)_na, sizeof(char *));
-                  if (bbg->balias_node && bbg->balias_name) for (int _q = 0; _q < s2->proc_count; _q++) { if (!s2->proc_table[_q].name || strncmp(s2->proc_table[_q].name, "LBL__", 5) != 0 || !s2->proc_table[_q].proc_entry_node) continue;
-                      if (bbg->n_balias >= _na) break;
-                      IR_t * _bn = s2->proc_table[_q].proc_entry_node; int _bgg = 0; while (_bn && (_bn->op == IR_SUCCEED || _bn->op == IR_FAIL || _bn->op == IR_GOTO) && _bn->γ.node && _bgg++ < 65536) _bn = _bn->γ.node;
-                      char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(s2->proc_table[_q].name + 5)); bbg->balias_node[bbg->n_balias] = _bn; bbg->balias_name[bbg->n_balias] = ct_strdup(_ab); if (bbg->balias_name[bbg->n_balias]) bbg->n_balias++; } } }
+            sn4_balias_fill(bbg, s2, _lbl_own, -1, 0);
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
             { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
-            if (fn) { extern int emit_label_lookup_offset(const char *); extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); int _mfb = g_last_flat_frame_bytes;
-              for (int _q = 0; _q < s2->proc_count; _q++) { const char * _ln = s2->proc_table[_q].name; if (!_ln || strncmp(_ln, "LBL__", 5) != 0) continue;
-                char _ab[300]; snprintf(_ab, sizeof _ab, "LBL__%s", asm_sym_name(_ln + 5)); int _off = emit_label_lookup_offset(_ab);
-                if (_off < 0) { static int _lw = -1; if (_lw < 0) { const char * e = getenv("SCRIP_M3_UNIFY_DIAG"); _lw = (e && *e == '1') ? 1 : 0; } if (_lw) fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in main chain\n", _ln, _ab); continue; }
-                rt_proc_set_fn(_ln, (bb_box_fn)((char *)fn + _off)); if (_mfb > 0) rt_proc_set_frame_bytes(_ln, _mfb);
-                m3_seal_entry_cells(_ln + 5, (void *)fn, 0); } }
+            if (fn) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, -1, (void *)fn, g_last_flat_frame_bytes); }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
             if (!fn) {
