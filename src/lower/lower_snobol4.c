@@ -394,6 +394,9 @@ static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int
     if (res) *res = call; return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_cursor_target(const tree_t * tgt);
+static const char * sno_lead_name(char lead, const char * nm);
+static const char * sno_capt_name(const tree_t * tgt);
 static IR_t * sx_nameval(scx_t * cx, const tree_t * inner, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$NAME";
     IR_t * nr = NULL; IR_t * ne = sx_lower(cx, inner, mk, ω, &nr);
@@ -532,6 +535,12 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             lc_γ_to(mk, e1);
             if (res) *res = cv; return wl;
         }
+        if (t->c[0]->t == TT_KEYWORD && t->c[0]->v.sval) {
+            const char * kn = t->c[0]->v.sval; const char * cb = sno_lead_name('&', kn[0] == '&' ? kn + 1 : kn);
+            IR_t * nl = lc_build(cx->g, IR_LIT_NAME, γ, ω); IR_LIT(nl).sval = (char *) cb;
+            if (res) *res = nl; return nl;
+        }
+        if (t->c[0]->t == TT_INDIRECT && t->c[0]->n > 0 && t->c[0]->c[0]) return sx_nameval(cx, t->c[0]->c[0], γ, ω, res);
         sno_fatal("name operator over this form is outside the landed subset", NULL);
     }
     case TT_ANY: case TT_NOTANY: case TT_SPAN: case TT_BREAK: case TT_BREAKX: {
@@ -561,7 +570,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     }
     case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN: {
         const tree_t * tgt = (t->n > 1) ? t->c[1] : NULL;
-        const char * vn = (tgt && tgt->t == TT_VAR) ? tgt->v.sval : NULL;
+        const char * vn = (tgt && tgt->t == TT_VAR) ? tgt->v.sval : sno_capt_name(tgt);
         if (vn) sno_reg_var(vn);
         if (!vn && tgt && tgt->t == TT_DEFER) { const char * bn = sno_expr_collect((tgt->n > 0) ? tgt->c[0] : NULL); char pb[40]; snprintf(pb, sizeof pb, "*%s", bn); vn = lp_strdup(pb); }
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PBC";
@@ -1003,11 +1012,10 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return lc_build(cx->g, IR_GOTO, (t->t == TT_GOTO_S) ? taken : γ, (t->t == TT_GOTO_S) ? γ : taken);
     }
     case TT_CAPT_CURSOR: {
-        const tree_t * tgt = (t->n > 0) ? t->c[0] : NULL;
-        if (!tgt || tgt->t != TT_VAR || !tgt->v.sval) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
-        sno_reg_var(tgt->v.sval);
+        const char * cvn = sno_cursor_target((t->n > 0) ? t->c[0] : NULL);
+        if (!cvn) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
         IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$PCUR";
-        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = (char *) tgt->v.sval;
+        IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω); IR_LIT(nl).sval = (char *) cvn;
         ir_operand_push(mk, nl);
         if (res) *res = mk; return nl;
     }
@@ -1678,8 +1686,25 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
 static const char * sno_capt_name(const tree_t * tgt) {
     if (!tgt) return NULL;
     if (tgt->t == TT_VAR) return tgt->v.sval;
+    if (tgt->t == TT_KEYWORD && tgt->v.sval && tgt->v.sval[0]) { const char * kn = tgt->v.sval; return sno_lead_name('&', kn[0] == '&' ? kn + 1 : kn); }
     if (tgt->t == TT_INDIRECT && tgt->n > 0 && tgt->c[0] && tgt->c[0]->t == TT_QLIT) return tgt->c[0]->v.sval;
     return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_lead_name(char lead, const char * nm) {
+    size_t n = strlen(nm); char tmp[n + 2]; tmp[0] = lead; memcpy(tmp + 1, nm, n + 1);
+    return lp_strdup(tmp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * sno_cursor_target(const tree_t * tgt) {
+    const char * vn = sno_capt_name(tgt);
+    if (vn) { sno_reg_var(vn); return vn; }
+    if (!tgt || tgt->t != TT_DEFER) return NULL;
+    const tree_t * di = (tgt->n > 0) ? tgt->c[0] : NULL;
+    if (!di) return NULL;
+    if (di->t == TT_VAR && di->v.sval && di->v.sval[0]) { sno_reg_var(di->v.sval); return di->v.sval; }
+    const char * bn = (di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : ((di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di->t == TT_IDX && di->n > 0)) ? sno_expr_collect_nm(di) : (di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect_nm(di);
+    return sno_lead_name('*', bn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_kw_chase(const char * nm, int op) { static const char * stk[24]; static int top = 0; if (op == 1) { if (nm && top < 24) { stk[top++] = nm; return 1; } return 0; } if (op == 2) { if (top > 0) top--; return 1; } if (op == 3) return top != 0; if (!nm) return 0; for (int i = 0; i < top; i++) if (!strcmp(stk[i], nm)) return 1; return 0; }
@@ -1853,11 +1878,10 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
         return nd;
     }
     case TT_CAPT_CURSOR: {
-        const tree_t * tgt = (t->n > 0) ? t->c[0] : NULL;
-        if (!tgt || tgt->t != TT_VAR || !tgt->v.sval) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
-        sno_reg_var(tgt->v.sval);
+        const char * cvn = sno_cursor_target((t->n > 0) ? t->c[0] : NULL);
+        if (!cvn) sno_fatal("@ cursor-position capture target is not a simple variable", NULL);
         IR_t * nd = lc_build(g, IR_MATCH_ATP, succ, NULL);
-        IR_LIT(nd).sval = (char *) tgt->v.sval;
+        IR_LIT(nd).sval = (char *) cvn;
         sno_ω_to(nd, fail);
         return nd;
     }

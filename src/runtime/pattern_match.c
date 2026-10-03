@@ -1135,6 +1135,14 @@ void rt_at_cursor(const char *varname, int cur_delta)
 {
     if (!varname || !*varname) return;
     DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
+    if (varname[0] == '*') {
+        extern int rt_proc_is_registered(const char *); extern DESCR_t rt_call_proc_descr(const char *, int); extern int rt_g_want_name; extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
+        const char * pn = varname + 1; if (!rt_proc_is_registered(pn)) return;
+        int wsv = rt_g_want_name; rt_g_want_name = 1; DESCR_t nm = rt_call_proc_descr(pn, 0); rt_g_want_name = wsv;
+        if (IS_FAIL_fn(nm)) return;
+        if (IS_VARREF_fn(nm)) rt_assign_var(nm, pos); else if (nm.v == DT_S && nm.s && *nm.s) NV_SET_fn(nm.s, pos);
+        return;
+    }
     NV_SET_fn(varname, pos);
 }
 extern const char *Σ;

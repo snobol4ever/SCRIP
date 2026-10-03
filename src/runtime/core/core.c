@@ -3529,6 +3529,7 @@ static DESCR_t _var_assoc_set(const char *key, DESCR_t val) {
 static DESCR_t NV_GET_untapped(const char *name) {
     _var_init();
     if (!name) return NULVCL;
+    if (name[0] == '&') { extern int rt_kw_index(const char *); extern DESCR_t rt_kw_read_idx(int64_t); int ki = rt_kw_index(name + 1); if (ki >= 0) return rt_kw_read_idx(ki); }
     if (is_protected_pat_lead(name[0]) && is_protected_pat_name(name)) { NV_t *pe = _var_bucket_find(name); if (pe) pe->touched = 1; }
     if (name[0] != '&' && (name[0] != 'I' || strcmp(name, "INPUT") != 0) && (name[0] != 'T' || strcmp(name, "TERMINAL") != 0)) { NV_t *e = _var_find_cached(name); if (e && !e->is_io) return e->is_gva ? *e->cell : e->val; }
     if (strcmp(name, "INPUT") == 0) { extern int rt_kw_input_on(void); if (!rt_kw_input_on()) return NULVCL; DESCR_t r = input_read(); if (r.v != DT_FAIL) _var_assoc_set("_INPUT", r); return r; }
@@ -3600,6 +3601,7 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
         return val;
     }
     if (!name) return val;
+    if (name[0] == '&') { extern int rt_kw_index(const char *); extern DESCR_t rt_kw_write_idx(int64_t, DESCR_t); int ki = rt_kw_index(name + 1); if (ki >= 0) return rt_kw_write_idx(ki, val); }
 #if RT_DIAG
     { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; if (g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0) comm_var_hook(name, val, stmt_src_get_file(), 0, 0, 2); return val; } }
 #else

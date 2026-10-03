@@ -102,6 +102,7 @@ test_gate_donewhen_exemption_census_names_every_row.sh	WIRED	-	-	-
 test_gate_driver_extension_table_lives_once.sh	WIRED	-	-	-
 test_gate_dump_zeta_guard_arm_reads_a_name_only_from_an_op_that_carries_one.sh	WIRED	-	-	-
 test_gate_dump_zeta_is_the_emitted_frame.sh	WIRED	-	-	-
+test_gate_dyn_caps_a_long_label_or_procedure_name_passes_every_old_name_buffer.sh	WIRED	-	-	-
 test_gate_dyn_caps_ratchet.sh	WIRED	-	-	-
 test_gate_emit_a_shared_omega_leaf_stores_an_rsp_vslot_at_the_depth_its_successor_reads.sh	WIRED	-	-	-
 test_gate_emit_fields_read_by_a_template_have_a_writer.sh	WIRED	-	-	-
@@ -512,6 +513,7 @@ test_gate_picker_lane_table_agrees_with_mode.sh	WIRED	-	-	-
 test_gate_pl_a_big_integer_past_the_double_range_raises_float_overflow.sh	WIRED	-	-	-
 test_gate_pl_a_binary_stream_has_no_encoding_property.sh	WIRED	-	-	-
 test_gate_pl_a_body_less_procedure_returns_a_defined_result.sh	WIRED	-	-	-
+test_gate_pl_a_body_term_is_built_by_the_emitted_allocation_sequence.sh	WIRED	-	-	-
 test_gate_pl_a_bounded_conditional_runs_assert_2_exists_and_a_huge_length_is_a_resource_error.sh	WIRED	-	-	-
 test_gate_pl_a_closed_stream_is_not_a_current_stream_argument.sh	WIRED	-	-	-
 test_gate_pl_a_cut_inside_a_control_goal_held_in_a_variable_cuts_to_the_call.sh	WIRED	-	-	-
@@ -615,15 +617,15 @@ test_gate_prolog_dynamic_predicate_with_file_clauses.sh	WIRED	-	-	-
 test_gate_queue_census_names_the_sweep_rows.sh	WIRED	-	-	-
 test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
+test_gate_raku_map_keeps_each_result_as_an_item_and_a_brace_of_pairs_using_the_topic_is_a_block.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_raku_parse_census_measures_over_a_printed_denominator.sh	WIRED	-	-	-
 test_gate_raku_port_trace.sh	WIRED	-	-	-
 test_gate_raku_predeclared_names_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_reversed_meta_operator_agrees_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
-test_gate_raku_map_keeps_each_result_as_an_item_and_a_brace_of_pairs_using_the_topic_is_a_block.sh	WIRED	-	-	-
-test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
 test_gate_raku_roast_bucket_names_the_stage_the_file_died_in.sh	WIRED	-	-	-
+test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
 test_gate_raku_unicode_lexemes.sh	WIRED	-	-	-
 test_gate_raku_whatevercode_curries_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_rc8a_gc_coverage.sh	WIRED	-	-	-
@@ -732,6 +734,7 @@ test_gate_sno_a_real_that_overflows_is_not_a_value.sh	WIRED	-	-	-
 test_gate_sno_a_return_trace_function_sees_the_returning_functions_names_still_bound.sh	WIRED	-	-	-
 test_gate_sno_a_runtime_error_sbl_raises_is_raised_by_number_in_both_modes.sh	WIRED	-	-	-
 test_gate_sno_a_setexit_trap_enters_its_handler_on_the_statements_failure_path_without_nesting.sh	WIRED	-	-	-
+test_gate_sno_a_stale_nreturn_mark_never_reaches_the_next_call.sh	WIRED	-	-	-
 test_gate_sno_a_stored_fenced_pattern_retries_an_alternation_that_an_operand_follows.sh	WIRED	-	-	-
 test_gate_sno_a_stored_pattern_with_a_fence_is_reentered_at_its_rightmost_segment.sh	WIRED	-	-	-
 test_gate_sno_a_table_keyed_by_a_name_finds_it_through_any_name_of_that_variable.sh	WIRED	-	-	-
@@ -776,8 +779,6 @@ test_gate_sno_dump_matches_spitbol.sh	WIRED	-	-	-
 test_gate_sno_error_voice_statement_number_from_a_code_map_no_per_statement_store.sh	WIRED	-	-	-
 test_gate_sno_errtype_and_errtext_are_set_before_a_fatal_error_exits.sh	WIRED	-	-	-
 test_gate_sno_eval_chains_nothing_references_are_reclaimed_and_a_full_code_pool_is_loud.sh	WIRED	-	-	-
-test_gate_sno_a_stale_nreturn_mark_never_reaches_the_next_call.sh	WIRED	-	-	-
-test_gate_dyn_caps_a_long_label_or_procedure_name_passes_every_old_name_buffer.sh	WIRED	-	-	-
 test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_string_opens_its_chain_from_the_box_and_lands_with_no_c_frame.sh	WIRED	-	-	-
@@ -832,6 +833,7 @@ test_gate_sno_substr_indexes_bytes_as_the_pattern_cursor_does.sh	WIRED	-	-	-
 test_gate_sno_system_fn_table_is_sorted.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
 test_gate_sno_the_bid_entry_calls_the_builtin_body_through_the_direct_table.sh	WIRED	-	-	-
+test_gate_sno_the_name_operator_takes_an_indirect_or_a_keyword_and_a_cursor_capture_takes_any_target.sh	WIRED	-	-	-
 test_gate_sno_the_null_string_is_one_table_key.sh	WIRED	-	-	-
 test_gate_sno_the_real_model_is_spitbols_gtnum_reading_and_ftz_daz_arithmetic.sh	WIRED	-	-	-
 test_gate_sno_trace_access_fires_on_a_plain_global_read_via_compile_time_gva_demotion.sh	WIRED	-	-	-
@@ -1062,4 +1064,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pl_a_body_term_is_built_by_the_emitted_allocation_sequence.sh	WIRED	-	-	-
