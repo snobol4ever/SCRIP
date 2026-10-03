@@ -622,7 +622,7 @@ static int m4_proc_startup_skip(stage2_t *s2, ProcEntry *pe, int ispat) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void m4_emit_proc_slot_keep(int i, const char *name) {
-    extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char esc[1024]; x86_asm_str_escape_c(name ? name : "", esc, sizeof esc);
+    extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char *nm = name ? name : ""; size_t cap = 4 * strlen(nm) + 1; char esc[cap]; x86_asm_str_escape_c(nm, esc, cap);
     emit_textf("  .section .rodata\n  .Lstartup_pkeep%d: .string \"\\001<slot>%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, esc);
     emit_textf("  lea rdi, [rip + .Lstartup_pkeep%d]\n  xor esi, esi\n  xor edx, edx\n  call rt_proc_register@PLT\n", i);
 }
