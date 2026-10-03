@@ -557,8 +557,10 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", "rsp")
              + x86("jmp", "rcx");
     }
+    extern std::string xa_icn_act_restore_call_line(int lbl);
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
         return  xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0)
+             + xa_icn_act_restore_call_line(243)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
          + x86("push", "rax")
@@ -618,8 +620,10 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
+    extern std::string xa_icn_act_restore_call_line(int lbl);
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
         return   xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0)
+             + xa_icn_act_restore_call_line(244)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
              + x86("mov", "rax", RDQ("rax", 0))

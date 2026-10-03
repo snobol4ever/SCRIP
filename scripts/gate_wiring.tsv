@@ -336,6 +336,7 @@ test_gate_icn_the_cset_registry_is_weak_so_a_dead_computed_cset_leaves_the_colle
 test_gate_icn_traceback_corpus_pairs_are_oracle_exact.sh	WIRED	-	-	-
 test_gate_icn_traceback_names_the_source_file_not_the_last_argv.sh	WIRED	-	-	-
 test_gate_icn_traced_call_reports_its_own_call_site_line.sh	WIRED	-	-	-
+test_gate_icn_an_error_after_a_return_reports_the_callers_line.sh	WIRED	-	-	-
 test_gate_icn_unreferenced_linked_procedures_are_not_emitted.sh	WIRED	-	-	-
 test_gate_icn_version_keyword_is_the_oracles.sh	WIRED	-	-	-
 test_gate_icn_write_is_byte_exact_through_an_embedded_nul.sh	WIRED	-	-	-
