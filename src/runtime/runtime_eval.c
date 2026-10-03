@@ -780,7 +780,7 @@ long g_sno_stmt_compiled = 0;
 DESCR_t code_at(const char *src, long base)
 {
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
-    if (!src || !*src) return FAILDESCR;
+    if (!src) return FAILDESCR;
     const char *illegal = NULL, *orig = src;
     { long bad = sno_text_illegal_at(src);
       if (bad >= 0) { long cut = -1; char q = 0; for (long i = 0; i < bad; i++) { char c = src[i]; if (q) { if (c == q) q = 0; continue; } if (c == '\'' || c == '"') q = c; else if (c == ';') cut = i; }
@@ -797,7 +797,15 @@ DESCR_t code_at(const char *src, long base)
     sno_error_quiet_begin();
     tree_t *prog = sno_parse_string_ast(src, NULL);
     sno_error_quiet_end();
-    if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); code_compile_raise(orig, 0, NULL); return FAILDESCR; }
+    int empty = 0;
+    if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) { g_sno_errtext = rt_heap_strdup_c(cap); code_compile_raise(orig, 0, NULL); return FAILDESCR; }
+      if (!prog) prog = ast_stmt_new(TT_PROGRAM);
+      tree_t *st = ast_stmt_new(TT_STMT); ast_push(st, ast_attr_int(":line", 1)); ast_push(prog, st); empty = 1; }
+    else { int nst = 0, nmt = 0;
+      for (int i = 0; i < prog->n; i++) { const tree_t *c = prog->c[i]; if (!c || c->t != TT_STMT) continue; nst++;
+          nmt += !stmt_attr_find(c, ":lbl") && !stmt_attr_find(c, ":subj") && !stmt_attr_find(c, ":pat") && !stmt_attr_find(c, ":eq")
+               && !stmt_goto_find(c, TT_GOTO_S) && !stmt_goto_find(c, TT_GOTO_F) && !stmt_goto_find(c, TT_GOTO_U); }
+      if (nst && nmt == nst) empty = nst; }
     const char *parse_err = sno_error_captured(); if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
     int pe = 0; const char *pm = (const char *)0;
     { extern int sno_preeval_stmt(const tree_t *, const char **);
@@ -841,7 +849,7 @@ DESCR_t code_at(const char *src, long base)
       if (!(ks && *ks == '0')) sno_expr_thunks_build(expr0);
       if (patn > pat0) sno_pat_thunks_build(pat0);
       if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
-    g_sno_stmt_compiled += (long)k + 1;
+    g_sno_stmt_compiled += (long)(k - empty) + 1;
     if (parse_err || illegal) { g_sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
     DESCR_t d = {0};

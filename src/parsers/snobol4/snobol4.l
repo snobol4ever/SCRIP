@@ -333,7 +333,7 @@ G       ({WS}|{CONT})*
 <BODY>"<"{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle) gt_angle++; return T_LANGLE; }
 <BODY>{G}")"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RPAREN; }
 <BODY>{G}"]"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; return T_RBRACK; }
-<BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
+<BODY>{G}">"  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; if (gt_angle && --gt_angle == 0) { gt_have_operand=1; BEGIN(GT); return T_GOTO_RANGLE; } return T_RANGLE; }
 <BODY>{G}","{G}  { for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=="\n") lineno++; return T_COMMA; }
 <BODY>{ALPHA}{IDCONT}*/"("  { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return T_FUNCTION; }
 <BODY>{ALPHA}{IDCONT}*      { strbuf[0]='\0'; strncat(strbuf,yytext,sizeof(strbuf)-1); sno_fold(strbuf); return strcmp(strbuf,"END")==0?T_END:T_IDENT; }
@@ -393,10 +393,10 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>[ \t]+/[)>;\n]      { }
 <GT>[ \t]+              { if (gt_depth > 0 && gt_have_operand) return T_CONCAT; }
-<GT>[Ss]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_S; }
-<GT>[Ss]/"<"            { return T_GOTO_S; }
-<GT>[Ff]/"("            { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
-<GT>[Ff]/"<"            { return T_GOTO_F; }
+<GT>[Ss]/[ \t]*"("      { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_S; }
+<GT>[Ss]/[ \t]*"<"      { return T_GOTO_S; }
+<GT>[Ff]/[ \t]*"("      { if (gt_depth > 0) { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); sno_fold(strbuf); return T_IDENT; } return T_GOTO_F; }
+<GT>[Ff]/[ \t]*"<"      { return T_GOTO_F; }
 <GT>"("                 { gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; }
 <GT>")"                 { if (gt_depth > 0) gt_depth--; gt_have_operand=1; return T_GOTO_RPAREN; }
 <GT>"<"{G}              { if (gt_depth > 0) { yyless(1); gt_depth++; gt_have_operand=0; return T_GOTO_LPAREN; } for(int _i=0;_i<yyleng;_i++) if(yytext[_i]=='\n') lineno++; gt_angle=1; BEGIN(BODY); return T_GOTO_LANGLE; }
@@ -419,9 +419,9 @@ G       ({WS}|{CONT})*
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <GT>","                 { gt_have_operand=0; return T_COMMA; }
 <GT>{DIGIT}+            { gt_have_operand=1; strbuf[0]='\0'; strncat(strbuf, yytext, sizeof(strbuf)-1); return T_INT; }
-<GT>";"                 { gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
+<GT>";"                 { if (!gt_have_operand) sno_error_voice(219, "syntax error: empty goto field", lineno); gt_angle=0; BEGIN(AFTER_SEMI); return T_STMT_END; }
 <GT>{CONT}              { lineno++; }
-<GT>\n                  { lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
+<GT>\n                  { if (!gt_have_operand) sno_error_voice(219, "syntax error: empty goto field", lineno); lineno++; gt_angle=0; BEGIN(INITIAL); return T_STMT_END; }
 <GT>.                   { }
 <SKIP>[^\n]*            { }
 <SKIP>\n                { lineno++; BEGIN(INITIAL); }
