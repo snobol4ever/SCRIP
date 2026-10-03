@@ -4126,10 +4126,14 @@ static int pl_read_src_from_fp(FILE *f, char *rb, int cap) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs) {
     if (nargs <= 0 || !args) { char *e = rt_wsb_alloc(1); e[0] = '\0'; return STRVAL(e); }
-    size_t total = 0;
-    for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); total += strlen(cs) + 1; }
+    int ne = 0; for (int i = 0; i < nargs; i++) ne += (args[i].v == DT_A && args[i].arr) ? rk_av(args[i]).n : 1;
+    const char **tx = (const char **) rt_pvec_alloc((size_t) (ne ? ne : 1)); size_t total = 1; int k = 0;
+    for (int i = 0; i < nargs; i++) {
+        if (args[i].v == DT_A && args[i].arr) { rk_av_t a = rk_av(args[i]); for (int j = 0; j < a.n; j++) { tx[k] = rk_av_text(a, j); total += strlen(tx[k]) + 1; k++; } continue; }
+        char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); size_t L = strlen(cs); char *cp = rt_wsb_alloc(L + 1); memcpy(cp, cs, L + 1); tx[k++] = cp; total += L + 1;
+    }
     char *buf = rt_wsb_alloc(total + 1); size_t p = 0;
-    for (int i = 0; i < nargs; i++) { char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); size_t L = strlen(cs); if (p > 0) buf[p++] = SOH; memcpy(buf + p, cs, L); p += L; }
+    for (int i = 0; i < k; i++) { size_t L = strlen(tx[i]); if (p > 0) buf[p++] = SOH; memcpy(buf + p, tx[i], L); p += L; }
     buf[p] = '\0';
     return STRVAL(buf);
 }
