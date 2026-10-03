@@ -144,6 +144,7 @@ test_gate_gc_a_nested_match_restores_a_moved_outer_subject.sh	WIRED	-	-	-
 test_gate_gc_a_no_layout_entry_names_which_of_the_two_populations_it_is_in.sh	WIRED	-	-	-
 test_gate_gc_a_poll_site_tests_the_pending_flag_before_calling_the_leaf.sh	WIRED	-	-	-
 test_gate_gc_a_procedure_value_held_only_in_a_heap_aggregate_survives.sh	WIRED	-	-	-
+test_gate_gc_a_raku_list_array_marker_survives_a_collection_and_snobol4_never_sees_it.sh	WIRED	-	-	-
 test_gate_gc_a_register_resident_box_result_is_spilled_as_a_descr_across_its_poll.sh	WIRED	-	-	-
 test_gate_gc_a_safe_point_stores_into_a_mapped_slot.sh	WIRED	-	-	-
 test_gate_gc_a_shared_concat_slot_capture_survives_a_collection.sh	WIRED	-	-	-

@@ -349,16 +349,16 @@ int rt_builtin_is_known(const char *name)
         "[]",
         "__apply__",
         "MAKELIST",
-        "__rk_arr", "__rk_arr_lit", "__rk_arr_lit_item", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
+        "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
         "__rk_hash",
-        "elems", "push_pure", "unshift_pure", "arr_tail",
-        "hash_get", "hash_set_pure", "hash_delete_pure", "hash_exists",
+        "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail",
+        "hash_get", "hash_set_pure", "hash_delete", "hash_exists",
         "hash_keys", "hash_values", "hash_pairs", "hash_kv",
         "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
         "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
@@ -386,46 +386,10 @@ int rt_builtin_is_known(const char *name)
     { extern const char *rt_builtin_synonym(const char *); if (rt_builtin_synonym(name)) return 1; }
     return 0;
 }
-#define SOH '\x01'
-#define RK_A1 '\x02'
 #define RK_RX '\x06'
-static int rk_a_empty1(const char *s) { return s && s[0] == RK_A1 && s[1] == '\0'; }
 static const char *rk_rx_pat(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_RX) ? v.s + 1 : NULL; }
 #define RK_TY '\x07'
 static const char *rk_typeobj_name(DESCR_t v) { return (IS_STR_fn(v) && v.s && v.s[0] == RK_TY) ? v.s + 1 : NULL; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_a_seal(char *buf, int nonzero) {
-    if (nonzero && !buf[0]) { char *e = rt_wsb_alloc(2); e[0] = RK_A1; e[1] = '\0'; return STRVAL(e); }
-    return STRVAL(buf);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_a_body(const char *s) { return (!s || rk_a_empty1(s)) ? "" : s; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_a_count(const char *s) {
-    if (!s || !s[0]) return 0;
-    if (rk_a_empty1(s)) return 1;
-    int c = 1; for (const char *p = s; *p; p++) if (*p == SOH) c++;
-    return c;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_a_split(const char *cur, const char ***out_els, size_t **out_lens) {
-    if (rk_a_empty1(cur)) {
-        const char **els = rt_pvec_alloc(1); size_t *lens = rt_wsb_alloc(sizeof(size_t));
-        char *e0 = rt_wsb_alloc(1); e0[0] = '\0'; els[0] = e0; lens[0] = 0;
-        *out_els = els; *out_lens = lens; return 1;
-    }
-    if (!cur || !cur[0]) { *out_els = NULL; *out_lens = NULL; return 0; }
-    size_t cap = 1; for (const char *p = cur; *p; p++) if (*p == SOH) cap++;
-    const char **els = rt_pvec_alloc(cap); size_t *lens = rt_wsb_alloc(cap * sizeof(size_t));
-    int nel = 0; const char *seg = cur;
-    for (;;) {
-        const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-        els[nel] = seg; lens[nel] = L; nel++;
-        if (!nx) break;
-        seg = nx + 1;
-    }
-    *out_els = els; *out_lens = lens; return nel;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *itos(long long v, char *buf, size_t cap) {
     if (cap < 2) { buf[0] = '\0'; return buf; }
@@ -443,11 +407,6 @@ static char *rtos(double r, char *buf, size_t cap) {
     if (isnan(r)) { snprintf(buf, cap, "%s", "NaN"); return buf; }
     if (isinf(r)) { snprintf(buf, cap, "%s", r < 0 ? "-Inf" : "Inf"); return buf; }
     gcvt(r, 14, buf); (void)cap; return buf;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_elem_descr(const char *el, size_t L) {
-    char *ep; long long ev = strtoll(el, &ep, 10);
-    return (*ep == '\0' && ep != el && L > 0) ? INTVAL(ev) : STRVAL(el);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_block_cmp_d(const char *bn, DESCR_t x, DESCR_t y) {
@@ -515,9 +474,8 @@ static DESCR_t elem_to_descr(const char *s, size_t slen) {
     { char *o = rt_str_alloc((long)slen); memcpy(o, s, slen); o[slen] = '\0'; if (buf != stk) ct_drop(buf); return STRVAL(o); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int junction_is(DESCR_t v) {
-    return (IS_STR_fn(v) || v.v == DT_SNUL) && v.s && v.s[0] == '\x03';
-}
+int junction_is(DESCR_t v);
+int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int jct_one_cmp_num(double a, double b, int op) {
     switch (op) { case TT_EQ: return a == b; case TT_NE: return a != b; case TT_LT: return a < b;
@@ -536,33 +494,6 @@ int junction_mirror_op(int op) {
     switch (op) { case TT_LT: return TT_GT; case TT_GT: return TT_LT; case TT_LE: return TT_GE; case TT_GE: return TT_LE; default: return op; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
-    const char *s = jct.s; if (!s || s[0] != '\x03' || !s[1]) return 0;
-    char flav = s[1];
-    double sx = numeric ? to_real(scalar) : 0.0;
-    const char *sstr = numeric ? NULL : VARVAL_fn(scalar); if (!sstr) sstr = "";
-    int total = 0, hits = 0;
-    const char *p = s + 2;
-    while (*p == SOH) {
-        p++; const char *start = p;
-        int hit;
-        if (*p == '\x03') {
-            int depth = 1; p++;
-            while (*p && depth > 0) { if (*p == '\x03') depth++; else if (*p == '\x04') depth--; p++; }
-            size_t L = (size_t)(p - start);
-            char *mb = rt_wsb_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
-            hit = junction_collapse(scalar, STRVAL(mb), op, numeric);
-        } else {
-            while (*p && *p != SOH && *p != '\x04') p++;
-            size_t L = (size_t)(p - start);
-            char mb[64]; size_t cl = L < 63 ? L : 63; memcpy(mb, start, cl); mb[cl] = '\0';
-            hit = numeric ? jct_one_cmp_num(sx, strtod(mb, NULL), op) : jct_one_cmp_str(sstr, mb, op);
-        }
-        total++; if (hit) hits++;
-    }
-    switch (flav) { case 'a': return hits >= 1; case 'l': return total > 0 && hits == total;
-                    case 'o': return hits == 1; case 'n': return hits == 0; default: return 0; }
-}
 #define RK_NAMED_MAX 32
 typedef struct { const char *qname; const char *body; int flavor; } gram_ent_t;
 static cv_t g_gram;
@@ -696,12 +627,6 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     *out = rk_match_make(ok ? subj : "", caps, ok); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_list_as_str(const char *s) {
-    if (rk_a_empty1(s)) return "";
-    if (!strchr(s, SOH) || strchr(s, RK_A1)) return s;
-    size_t n = strlen(s); char *r = (char *)rt_str_alloc(n); for (size_t i = 0; i < n; i++) r[i] = s[i] == SOH ? ' ' : s[i]; r[n] = '\0'; return r;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned rk_utf8_cp(const unsigned char *p, size_t n, size_t *len) {
     if (p[0] < 0xC0 || n < 2) { *len = 1; return p[0]; }
     size_t k = p[0] >= 0xF0 ? 4 : p[0] >= 0xE0 ? 3 : 2; if (k > n) { *len = 1; return p[0]; }
@@ -750,50 +675,69 @@ static char *rk_case_str(const char *s, size_t n, int mfirst, int mrest, int wor
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz);
+static const char *rk_arr_text(DESCR_t v);
+static const char *rk_tbl_text(DESCR_t v);
 static const char *rk_cstr(DESCR_t v) {
     if (IS_REAL_fn(v)) { char *b = rt_wsb_alloc(64); return rk_real_str(v.r, b, 64); }
+    if (v.v == DT_A && v.arr) return rk_arr_text(v);
+    if (v.v == DT_T && v.tbl) return rk_tbl_text(v);
     if (IS_INT_fn(v) || v.v == DT_BOOL || v.v == DT_ORDER) { char *b = rt_wsb_alloc(32); return to_cstring(v, b, 32); }
     const char *s = to_cstring(v, NULL, 0); return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { int n; const DESCR_t *el; int legacy; } rk_av_t;
+typedef struct { int n; const DESCR_t *el; } rk_av_t;
 static rk_av_t rk_av(DESCR_t v) {
-    rk_av_t a = { 0, NULL, 0 };
+    rk_av_t a = { 0, NULL };
     if (v.v == DT_A && v.arr) { ARBLK_t *b = (ARBLK_t *) v.arr; a.n = b->hi - b->lo + 1; if (a.n < 0) a.n = 0; a.el = b->data; return a; }
-    a.legacy = 1;
-    const char **els; size_t *lens; int n = rk_a_split(rk_cstr(v), &els, &lens);
-    if (n <= 0) return a;
-    DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
-    for (int i = 0; i < n; i++) { char *e = rt_wsb_alloc(lens[i] + 1); memcpy(e, els[i], lens[i]); e[lens[i]] = '\0'; d[i] = BSTRVAL(e, lens[i]); }
-    a.n = n; a.el = d; return a;
+    if (v.v == DT_SNUL || v.v == DT_FAIL || (IS_STR_fn(v) && !*rk_cstr(v))) return a;
+    DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr(1); d[0] = v; a.n = 1; a.el = d; return a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_av_text(rk_av_t a, int i) { return (i < 0 || i >= a.n) ? "" : rk_cstr(a.el[i]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_av_elem(rk_av_t a, int i) {
-    if (i < 0 || i >= a.n) return NULVCL;
-    if (!a.legacy) return a.el[i];
-    const char *t = a.el[i].s ? a.el[i].s : ""; size_t L = strlen(t);
-    return L ? elem_to_descr(t, L) : STRVAL(rt_heap_strdup_c(""));
-}
+static DESCR_t rk_av_elem(rk_av_t a, int i) { return (i < 0 || i >= a.n) ? NULVCL : a.el[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rk_av_t rk_av_args(DESCR_t *args, int from, int to) {
     int tot = 0, m = to > from ? to - from : 0; rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) (m ? m : 1));
     for (int i = 0; i < m; i++) {
-        DESCR_t v = args[from + i];
-        if (v.v != DT_A && rk_a_empty1(rk_cstr(v))) { vs[i].n = 0; vs[i].el = NULL; vs[i].legacy = 1; continue; }
-        vs[i] = rk_av(v); tot += vs[i].n;
+        vs[i] = rk_av(args[from + i]); tot += vs[i].n;
     }
-    DESCR_t *all = tot ? (DESCR_t *) rt_ws_alloc_descr((size_t) tot) : NULL; int k = 0, leg = 0;
-    for (int i = 0; i < m; i++) { leg |= vs[i].legacy; for (int j = 0; j < vs[i].n; j++) all[k++] = vs[i].el[j]; }
-    rk_av_t a = { tot, all, leg }; return a;
+    DESCR_t *all = tot ? (DESCR_t *) rt_ws_alloc_descr((size_t) tot) : NULL; int k = 0;
+    for (int i = 0; i < m; i++) for (int j = 0; j < vs[i].n; j++) all[k++] = vs[i].el[j];
+    rk_av_t a = { tot, all }; return a;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char rk_proto_slip[] = "Slip";
+static const char rk_proto_list[] = "List";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mk_arr(const DESCR_t *el, int n) {
     extern ARBLK_t *array_new(int lo, int hi);
     ARBLK_t *b = array_new(0, n - 1);
     for (int i = 0; i < n; i++) b->data[i] = el[i];
+    b->proto = rk_proto_list;
     DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; return d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_slip(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_slip; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_list(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_list; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_mark_list(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = rk_proto_list; return d; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_unmark(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = (const char *) 0; return d; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char rk_proto_pair[] = "Pair";
+static const char rk_proto_jct_any[] = "any";
+static const char rk_proto_jct_all[] = "all";
+static const char rk_proto_jct_one[] = "one";
+static const char rk_proto_jct_none[] = "none";
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_pair(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_pair; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_jct(DESCR_t v) {
+    if (!(v.v == DT_A && v.arr)) return 0;
+    const char *p = ((ARBLK_t *) v.arr)->proto;
+    return p == rk_proto_jct_any || p == rk_proto_jct_all || p == rk_proto_jct_one || p == rk_proto_jct_none;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_arr_append(ARBLK_t *b, DESCR_t v) {
@@ -859,6 +803,128 @@ static char *rk_av_joined(rk_av_t a, const char *sep, const char *open, const ch
     memcpy(buf + p, close, cl); p += cl; buf[p] = '\0'; return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_jct_text(DESCR_t v) {
+    rk_av_t a = rk_av(v); const char *fl = ((ARBLK_t *) v.arr)->proto; size_t fln = strlen(fl);
+    const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL; size_t tot = fln + 3;
+    for (int i = 0; i < a.n; i++) { tx[i] = rk_av_text(a, i); tot += strlen(tx[i]) + 2; }
+    char *buf = rt_wsb_alloc(tot); size_t p = 0; memcpy(buf, fl, fln); p = fln; buf[p++] = '(';
+    for (int i = 0; i < a.n; i++) { if (i) { buf[p++] = ','; buf[p++] = ' '; } size_t L = strlen(tx[i]); memcpy(buf + p, tx[i], L); p += L; }
+    buf[p++] = ')'; buf[p] = '\0'; return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_pair_text(DESCR_t v) {
+    rk_av_t a = rk_av(v); const char *k = rk_av_text(a, 0), *w = rk_av_text(a, 1); size_t kl = strlen(k), wl = strlen(w);
+    char *b = rt_wsb_alloc(kl + wl + 2); memcpy(b, k, kl); b[kl] = '\t'; memcpy(b + kl + 1, w, wl); b[kl + 1 + wl] = '\0'; return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_tbl_text(DESCR_t v) {
+    TBBLK_t *t = (v.v == DT_T) ? v.tbl : NULL; size_t cap = 1;
+    const char **tx = (t && t->size) ? (const char **) rt_pvec_alloc((size_t) t->size) : NULL; int c = 0;
+    for (unsigned i = 0; t && i < t->ord_len; i++) {
+        DESCR_t key = t->ord[i]; if (key.v == DT_RAW) continue;
+        TBPAIR_t *e = table_find_pair_d(t, key); if (!e) continue;
+        const char *kt = rk_cstr(key), *vt = rk_cstr(e->val); size_t kl = strlen(kt), vl = strlen(vt);
+        char *ln = rt_wsb_alloc(kl + vl + 2); memcpy(ln, kt, kl); ln[kl] = '\t'; memcpy(ln + kl + 1, vt, vl); ln[kl + 1 + vl] = '\0'; tx[c++] = ln; cap += kl + vl + 2;
+    }
+    char *buf = rt_wsb_alloc(cap); size_t p = 0;
+    for (int i = 0; i < c; i++) { if (i) buf[p++] = '\n'; size_t L = strlen(tx[i]); memcpy(buf + p, tx[i], L); p += L; }
+    buf[p] = '\0'; return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_arr_text(DESCR_t v) {
+    if (rk_is_pair(v)) return rk_pair_text(v);
+    if (rk_is_jct(v)) return rk_jct_text(v);
+    return rk_av_joined(rk_av(v), " ", "", "");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_join_gists(const char **tx, int n, const char *sep, const char *open, const char *close) {
+    size_t sl = strlen(sep), ol = strlen(open), cl = strlen(close), tot = ol + cl + 1;
+    for (int i = 0; i < n; i++) tot += strlen(tx[i]) + sl;
+    char *buf = rt_wsb_alloc(tot); size_t p = 0; memcpy(buf, open, ol); p = ol;
+    for (int i = 0; i < n; i++) { if (i) { memcpy(buf + p, sep, sl); p += sl; } size_t L = strlen(tx[i]); memcpy(buf + p, tx[i], L); p += L; }
+    memcpy(buf + p, close, cl); p += cl; buf[p] = '\0'; return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_gist_str(DESCR_t v) {
+    if (v.v == DT_T && v.tbl) {
+        TBBLK_t *t = v.tbl; const char **tx = t->size ? (const char **) rt_pvec_alloc((size_t) t->size) : NULL; int c = 0;
+        for (unsigned i = 0; i < t->ord_len; i++) {
+            DESCR_t key = t->ord[i]; if (key.v == DT_RAW) continue;
+            TBPAIR_t *e = table_find_pair_d(t, key); if (!e) continue;
+            const char *kt = rk_cstr(key), *vt = rk_gist_str(e->val); size_t kl = strlen(kt), vl = strlen(vt);
+            char *ln = rt_wsb_alloc(kl + vl + 5); memcpy(ln, kt, kl); memcpy(ln + kl, " => ", 4); memcpy(ln + kl + 4, vt, vl); ln[kl + 4 + vl] = '\0'; tx[c++] = ln;
+        }
+        return rk_join_gists(tx, c, ", ", "{", "}");
+    }
+    if (rk_is_pair(v)) {
+        rk_av_t a = rk_av(v); const char *kt = rk_av_text(a, 0), *vt = rk_gist_str(a.el[1]); size_t kl = strlen(kt), vl = strlen(vt);
+        char *ln = rt_wsb_alloc(kl + vl + 5); memcpy(ln, kt, kl); memcpy(ln + kl, " => ", 4); memcpy(ln + kl + 4, vt, vl); ln[kl + 4 + vl] = '\0'; return ln;
+    }
+    if (rk_is_jct(v)) return rk_jct_text(v);
+    if (v.v == DT_A && v.arr) {
+        rk_av_t a = rk_av(v); const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
+        for (int i = 0; i < a.n; i++) tx[i] = rk_gist_str(a.el[i]);
+        int lst = rk_is_list(v) || rk_is_slip(v);
+        return rk_join_gists(tx, a.n, " ", lst ? "(" : "[", lst ? ")" : "]");
+    }
+    return rk_cstr(v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_gist_text(DESCR_t v, char open, char close) {
+    rk_av_t a = rk_av(v); const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
+    for (int i = 0; i < a.n; i++) tx[i] = rk_gist_str(a.el[i]);
+    char op[2] = { open, 0 }, cl[2] = { close, 0 };
+    return rk_join_gists(tx, a.n, " ", op, cl);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_raku_scalar(DESCR_t v) {
+    if (v.v == DT_SNUL) return "Nil";
+    if (v.v == DT_BOOL) return v.i ? "Bool::True" : "Bool::False";
+    if (IS_INT_fn(v) || IS_REAL_fn(v) || v.v == DT_BIG) return rk_cstr(v);
+    const char *s = rk_cstr(v); size_t n = strlen(s); char *r = (char *) rt_wsb_alloc(2 * n + 3); size_t p = 0; r[p++] = '"';
+    for (size_t i = 0; i < n; i++) { if (s[i] == '\n') { r[p++] = '\\'; r[p++] = 'n'; continue; } if (s[i] == '\t') { r[p++] = '\\'; r[p++] = 't'; continue; } if (s[i] == '"' || s[i] == '\\' || s[i] == '$' || s[i] == '@' || s[i] == '%' || s[i] == '&' || s[i] == '{') r[p++] = '\\'; r[p++] = s[i]; }
+    r[p++] = '"'; r[p] = '\0'; return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_ident_key(const char *k) { if (!*k) return 0; if (!(isalpha((unsigned char) *k) || *k == '_')) return 0; for (const char *p = k; *p; p++) if (!(isalnum((unsigned char) *p) || *p == '_' || *p == '-')) return 0; return 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_raku_str(DESCR_t v, int in_hash) {
+    if (v.v == DT_T && v.tbl) {
+        TBBLK_t *t = v.tbl; const char **tx = t->size ? (const char **) rt_pvec_alloc((size_t) t->size) : NULL; int c = 0;
+        for (unsigned i = 0; i < t->ord_len; i++) {
+            DESCR_t key = t->ord[i]; if (key.v == DT_RAW) continue;
+            TBPAIR_t *e = table_find_pair_d(t, key); if (!e) continue;
+            const char *kt = rk_cstr(key), *vt = rk_raku_str(e->val, 1); size_t kl = strlen(kt), vl = strlen(vt);
+            char *ln;
+            if (rk_ident_key(kt)) { ln = rt_wsb_alloc(kl + vl + 4); ln[0] = ':'; memcpy(ln + 1, kt, kl); ln[1 + kl] = '('; memcpy(ln + 2 + kl, vt, vl); ln[2 + kl + vl] = ')'; ln[3 + kl + vl] = '\0'; }
+            else { const char *kq = rk_raku_scalar(key); size_t ql = strlen(kq); ln = rt_wsb_alloc(ql + vl + 5); memcpy(ln, kq, ql); memcpy(ln + ql, " => ", 4); memcpy(ln + ql + 4, vt, vl); ln[ql + 4 + vl] = '\0'; }
+            tx[c++] = ln;
+        }
+        return rk_join_gists(tx, c, ", ", "{", "}");
+    }
+    if (rk_is_pair(v)) {
+        rk_av_t a = rk_av(v); const char *kt = rk_av_text(a, 0), *vt = rk_raku_str(a.el[1], 0); size_t kl = strlen(kt), vl = strlen(vt);
+        if (rk_ident_key(kt)) { char *ln = rt_wsb_alloc(kl + vl + 4); ln[0] = ':'; memcpy(ln + 1, kt, kl); ln[1 + kl] = '('; memcpy(ln + 2 + kl, vt, vl); ln[2 + kl + vl] = ')'; ln[3 + kl + vl] = '\0'; return ln; }
+        const char *kq = rk_raku_scalar(a.el[0]); size_t ql = strlen(kq); char *ln = rt_wsb_alloc(ql + vl + 5); memcpy(ln, kq, ql); memcpy(ln + ql, " => ", 4); memcpy(ln + ql + 4, vt, vl); ln[ql + 4 + vl] = '\0'; return ln;
+    }
+    if (rk_is_jct(v)) {
+        rk_av_t a = rk_av(v); const char *fl = ((ARBLK_t *) v.arr)->proto; const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
+        for (int i = 0; i < a.n; i++) tx[i] = rk_raku_str(a.el[i], 0);
+        size_t fln = strlen(fl); char *op = rt_wsb_alloc(fln + 2); memcpy(op, fl, fln); op[fln] = '('; op[fln + 1] = '\0';
+        return rk_join_gists(tx, a.n, ", ", op, ")");
+    }
+    if (v.v == DT_A && v.arr) {
+        rk_av_t a = rk_av(v); const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
+        for (int i = 0; i < a.n; i++) tx[i] = rk_raku_str(a.el[i], 0);
+        int lst = rk_is_list(v) || rk_is_slip(v);
+        if (lst && a.n == 1) { const char *one = tx[0]; size_t L = strlen(one); char *b = rt_wsb_alloc(L + 4); b[0] = '('; memcpy(b + 1, one, L); b[1 + L] = ','; b[2 + L] = ')'; b[3 + L] = '\0'; return b; }
+        const char *body = rk_join_gists(tx, a.n, ", ", lst ? "(" : "[", lst ? ")" : "]");
+        if (in_hash && !lst) { size_t L = strlen(body); char *b = rt_wsb_alloc(L + 2); b[0] = '$'; memcpy(b + 1, body, L + 1); return b; }
+        return body;
+    }
+    return rk_raku_scalar(v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_typeobj(const char *nm) {
     size_t l = strlen(nm ? nm : ""); char *r = (char *)rt_str_alloc(l + 1); r[0] = RK_TY; memcpy(r + 1, nm ? nm : "", l); r[l + 1] = '\0'; return STRVAL(r);
 }
@@ -870,10 +936,9 @@ static const char *rk_value_type(DESCR_t v) {
     if (IS_INT_fn(v) || v.v == DT_BIG) return "Int";
     if (IS_REAL_fn(v)) return "Num";
     if (v.v == DT_SNUL) return "Nil";
-    if (v.v == DT_A) return "Array";
+    if (v.v == DT_T) return "Hash";
+    if (v.v == DT_A) return rk_is_pair(v) ? "Pair" : rk_is_jct(v) ? "Junction" : ((ARBLK_t *) v.arr)->proto == rk_proto_list ? "List" : ((ARBLK_t *) v.arr)->proto == rk_proto_slip ? "Slip" : "Array";
     if (IS_DATA_INST_fn(v) && v.u) { DATINST_t *di = (DATINST_t *)v.u; return (di && di->type) ? di->type->name : "Any"; }
-    const char *s = VARVAL_fn(v);
-    if (s && (strchr(s, SOH) || (s[0] == '\x02' && !s[1]))) return "List";
     return "Str";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -907,11 +972,19 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
           if (!strcmp(meth, "WHAT")) { *out = recv; return 1; }
       } }
     if (recv.v == DT_A) {
+        if (rk_is_pair(recv)) {
+            rk_av_t pa = rk_av(recv);
+            if (!strcmp(meth, "key")) { *out = pa.el[0]; return 1; }
+            if (!strcmp(meth, "value")) { *out = pa.el[1]; return 1; }
+            if (!strcmp(meth, "kv")) { DESCR_t kv2[2]; kv2[0] = pa.el[0]; kv2[1] = pa.el[1]; *out = rk_mark_list(rk_mk_arr(kv2, 2)); return 1; }
+        }
+        if (!strcmp(meth, "gist")) { *out = STRVAL((char *) rk_gist_str(recv)); return 1; }
+        if (!strcmp(meth, "Str")) { *out = STRVAL((char *) rk_arr_text(recv)); return 1; }
+        if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) { *out = STRVAL((char *) rk_raku_str(recv, 0)); return 1; }
         if (!strcmp(meth, "elems")) { *out = INTVAL(rk_av(recv).n); return 1; }
         if (!strcmp(meth, "join")) { char jb[64]; const char *sep = ""; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } *out = STRVAL(rk_av_joined(rk_av(recv), sep, "", "")); return 1; }
     }
     char sb[64]; const char *s = recv.v == DT_A ? rk_av_joined(rk_av(recv), " ", "", "") : IS_REAL_fn(recv) ? rk_real_str(recv.r, sb, (int)sizeof sb) : to_cstring(recv, sb, sizeof sb); if (!s) s = "";
-    if (!strcmp(meth, "comb") || !strcmp(meth, "chars") || !strcmp(meth, "words") || !strcmp(meth, "split")) s = rk_list_as_str(s);
     size_t n = strlen(s);
     if ((!strcmp(meth, "split") || !strcmp(meth, "comb")) && nmargs >= 1 && rk_rx_pat(margs[0])) {
         Nfa *nfa = nfa_build(rk_rx_pat(margs[0])); if (!nfa) { *out = FAILDESCR; return 1; }
@@ -1068,20 +1141,15 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         for (size_t i = 0; i < n; i++) { if (isspace((unsigned char)r[i])) start = 1; else { if (start) r[i] = (char)toupper((unsigned char)r[i]); start = 0; } } *out = STRVAL(r); return 1;
     }
     if (!strcmp(meth, "lines")) { *out = rk_lines_arr(s, n); return 1; }
-    if (!strcmp(meth, "elems")) { *out = INTVAL(rk_a_count(s)); return 1; }
+    if (!strcmp(meth, "elems")) { *out = INTVAL(s[0] ? 1 : 0); return 1; }
     if (!strcmp(meth, "trans") && nmargs >= 1) {
-        const char *lst = VARVAL_fn(margs[0]); if (!lst) lst = "";
-        int total = lst[0] ? 1 : 0; for (const char *p = lst; *p; p++) if (*p == SOH) total++;
-        if (total < 2 || (total % 2) != 0) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
-        int half = total / 2; if (half > 128) half = 128;
-        const char *from[128]; size_t fromlen[128]; const char *to[128]; size_t tolen[128];
-        size_t maxto = 1; int idx = 0; const char *seg = lst;
-        for (;;) {
-            const char *nx = strchr(seg, SOH); size_t L = nx ? (size_t)(nx - seg) : strlen(seg);
-            if (idx < half) { from[idx] = seg; fromlen[idx] = L; }
-            else if (idx - half < 128) { to[idx - half] = seg; tolen[idx - half] = L; if (L > maxto) maxto = L; }
-            idx++; if (!nx) break; seg = nx + 1;
-        }
+        rk_av_t fa = { 0, NULL, 0 }, ta = { 0, NULL, 0 };
+        if (rk_is_pair(margs[0])) { rk_av_t pp = rk_av(margs[0]); fa = rk_av(pp.el[0]); ta = rk_av(pp.el[1]); }
+        int half = fa.n;
+        if (half < 1 || ta.n != half) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
+        const char **from = (const char **) rt_pvec_alloc((size_t) half), **to = (const char **) rt_pvec_alloc((size_t) half);
+        size_t *fromlen = (size_t *) rt_wsb_alloc(sizeof(size_t) * (size_t) half), *tolen = (size_t *) rt_wsb_alloc(sizeof(size_t) * (size_t) half), maxto = 1;
+        for (int k = 0; k < half; k++) { from[k] = rk_av_text(fa, k); fromlen[k] = strlen(from[k]); to[k] = rk_av_text(ta, k); tolen[k] = strlen(to[k]); if (tolen[k] > maxto) maxto = tolen[k]; }
         char *r = (char *)rt_str_alloc(n * maxto + n); size_t op = 0, i = 0;
         while (i < n) {
             int matched = -1;
@@ -1091,11 +1159,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         }
         r[op] = '\0'; *out = STRVAL(r); return 1;
     }
-    if (!strcmp(meth, "join")) {
-        const char *sep = ""; char jb[64]; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } size_t sl = strlen(sep); int nsep = 0;
-        for (size_t i = 0; i < n; i++) if (s[i] == SOH) nsep++; char *r = (char *)rt_str_alloc(n + (size_t)nsep * sl); int op = 0;
-        for (size_t i = 0; i < n; i++) { if (s[i] == SOH) { memcpy(r + op, sep, sl); op += (int)sl; } else r[op++] = s[i]; } r[op] = '\0'; *out = STRVAL(r); return 1;
-    }
+    if (!strcmp(meth, "join")) { char *r = (char *)rt_str_alloc(n); memcpy(r, s, n + 1); *out = STRVAL(r); return 1; }
     if (!strcmp(meth, "fmt")) {
         extern void rk_sprintf_core(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen);
         char fb[256]; const char *fmt = (nmargs >= 1) ? to_cstring(margs[0], fb, sizeof fb) : "%s"; if (!fmt) fmt = "%s";
@@ -4034,20 +4098,6 @@ static int pl_read_src_from_fp(FILE *f, char *rb, int cap) {
     rb[rn] = 0; return rn;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs) {
-    if (nargs <= 0 || !args) { char *e = rt_wsb_alloc(1); e[0] = '\0'; return STRVAL(e); }
-    int ne = 0; for (int i = 0; i < nargs; i++) ne += (args[i].v == DT_A && args[i].arr) ? rk_av(args[i]).n : 1;
-    const char **tx = (const char **) rt_pvec_alloc((size_t) (ne ? ne : 1)); size_t total = 1; int k = 0;
-    for (int i = 0; i < nargs; i++) {
-        if (args[i].v == DT_A && args[i].arr) { rk_av_t a = rk_av(args[i]); for (int j = 0; j < a.n; j++) { tx[k] = rk_av_text(a, j); total += strlen(tx[k]) + 1; k++; } continue; }
-        char scratch[64]; const char *cs = to_cstring(args[i], scratch, sizeof scratch); size_t L = strlen(cs); char *cp = rt_wsb_alloc(L + 1); memcpy(cp, cs, L + 1); tx[k++] = cp; total += L + 1;
-    }
-    char *buf = rt_wsb_alloc(total + 1); size_t p = 0;
-    for (int i = 0; i < k; i++) { size_t L = strlen(tx[i]); if (p > 0) buf[p++] = SOH; memcpy(buf + p, tx[i], L); p += L; }
-    buf[p] = '\0';
-    return STRVAL(buf);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spill_count(DESCR_t v) {
     DESCR_t *la = 0; int ln = 0;
     if (v.v == DT_A && v.arr) return rk_av(v).n;
@@ -4060,6 +4110,17 @@ static int rk_spill_scalar(DESCR_t *r, int k, DESCR_t v) {
     r[k++] = v; return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_spill(DESCR_t *r, int k, DESCR_t v);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_item_count(DESCR_t v) { return rk_is_slip(v) ? rk_av(v).n : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_item(DESCR_t *r, int k, DESCR_t v) {
+    DESCR_t *la = 0; int ln = 0;
+    if (rk_is_slip(v)) return rk_spill(r, k, v);
+    if (!(v.v == DT_A && v.arr) && rt_lv_is_list(v, &la, &ln)) { DESCR_t *e = ln ? (DESCR_t *) rt_ws_alloc_descr((size_t) ln) : NULL; int c = 0; for (int j = 0; j < ln; j++) c = rk_item(e, c, la[j]); r[k++] = rk_mk_arr(e, c); return k; }
+    return rk_spill_scalar(r, k, v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spill(DESCR_t *r, int k, DESCR_t v) {
     DESCR_t *la = 0; int ln = 0;
     if (v.v == DT_A && v.arr) { rk_av_t s = rk_av(v); for (int j = 0; j < s.n; j++) r[k++] = s.el[j]; return k; }
@@ -4067,11 +4128,114 @@ static int rk_spill(DESCR_t *r, int k, DESCR_t v) {
     return rk_spill_scalar(r, k, v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_one(DESCR_t v) { DESCR_t t[1]; if (rk_is_slip(v)) return v; rk_item(t, 0, v); return t[0]; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v) {
+    DESCR_t kv[2]; kv[0] = rk_one(k); kv[1] = rk_one(v);
+    DESCR_t p = rk_mk_arr(kv, 2); ((ARBLK_t *) p.arr)->proto = rk_proto_pair; return p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_mk_jct(const char *flavor, DESCR_t *args, int nargs) {
+    DESCR_t *src = args; int ns = nargs;
+    if (nargs == 1 && args[0].v == DT_A && args[0].arr && !rk_is_jct(args[0]) && !rk_is_pair(args[0])) { rk_av_t a = rk_av(args[0]); src = (DESCR_t *) a.el; ns = a.n; }
+    DESCR_t *r = ns > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) ns) : NULL;
+    for (int i = 0; i < ns; i++) r[i] = rk_one(src[i]);
+    DESCR_t j = rk_mk_arr(r, ns); ((ARBLK_t *) j.arr)->proto = flavor; return j;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_key_tmp(DESCR_t k) { const char *t = rk_cstr(k); return STRVAL((char *) t); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_key_own(DESCR_t k) { const char *t = rk_cstr(k); return STRVAL(rt_heap_strdup_c(t)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_hash_store(DESCR_t h, DESCR_t k, DESCR_t v) {
+    TBBLK_t *t = (h.v == DT_T && h.tbl) ? h.tbl : table_new();
+    DESCR_t val = rk_one(v); TBPAIR_t *e = table_find_pair_d(t, rk_key_tmp(k));
+    if (e) e->val = val; else table_set_descr_d(t, rk_key_own(k), val);
+    return TABLE_VAL(t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_hash_count_of(DESCR_t h) { return (h.v == DT_T && h.tbl) ? h.tbl->size : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_hash_copy(DESCR_t h) {
+    TBBLK_t *t = table_new();
+    if (h.v == DT_T && h.tbl) { TBBLK_t *s = h.tbl; for (unsigned i = 0; i < s->ord_len; i++) { DESCR_t key = s->ord[i]; if (key.v == DT_RAW) continue; TBPAIR_t *e = table_find_pair_d(s, key); if (e) table_set_descr_d(t, key, e->val); } }
+    return TABLE_VAL(t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_hash_from_list(const DESCR_t *el, int n) {
+    DESCR_t h = TABLE_VAL(table_new());
+    for (int i = 0; i < n; ) {
+        if (rk_is_pair(el[i])) { rk_av_t p = rk_av(el[i]); h = rk_hash_store(h, p.el[0], p.n > 1 ? p.el[1] : NULVCL); i++; }
+        else { h = rk_hash_store(h, el[i], i + 1 < n ? el[i + 1] : NULVCL); i += 2; }
+    }
+    return h;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_hash_list(DESCR_t h, int what) {
+    TBBLK_t *t = (h.v == DT_T && h.tbl) ? h.tbl : NULL; int n = t ? t->size : 0, per = what == 'w' ? 2 : 1, c = 0;
+    DESCR_t *r = n ? (DESCR_t *) rt_ws_alloc_descr((size_t) n * (size_t) per) : NULL;
+    for (unsigned i = 0; t && i < t->ord_len; i++) {
+        DESCR_t key = t->ord[i]; if (key.v == DT_RAW) continue;
+        TBPAIR_t *e = table_find_pair_d(t, key); if (!e) continue;
+        const char *kt = rk_cstr(key); DESCR_t kd = rk_txt_elem(kt, strlen(kt));
+        if (what == 'k') r[c++] = kd; else if (what == 'v') r[c++] = e->val; else if (what == 'p') r[c++] = rk_mk_pair(kd, e->val); else { r[c++] = kd; r[c++] = e->val; }
+    }
+    return rk_mark_list(rk_mk_arr(r, c));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int junction_is(DESCR_t v) { return rk_is_jct(v); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric) {
+    if (!rk_is_jct(jct)) return 0;
+    const char *fl = ((ARBLK_t *) jct.arr)->proto; rk_av_t a = rk_av(jct);
+    double sx = numeric ? to_real(scalar) : 0.0;
+    const char *sstr = numeric ? NULL : VARVAL_fn(scalar); if (!sstr) sstr = "";
+    int total = 0, hits = 0;
+    for (int i = 0; i < a.n; i++) {
+        DESCR_t e = a.el[i]; int hit;
+        if (rk_is_jct(e)) hit = junction_collapse(scalar, e, op, numeric);
+        else { const char *t = rk_cstr(e); char mb[64]; size_t cl = strlen(t) < 63 ? strlen(t) : 63; memcpy(mb, t, cl); mb[cl] = '\0'; hit = numeric ? jct_one_cmp_num(sx, strtod(mb, NULL), op) : jct_one_cmp_str(sstr, mb, op); }
+        total++; if (hit) hits++;
+    }
+    if (fl == rk_proto_jct_any) return hits >= 1;
+    if (fl == rk_proto_jct_all) return total > 0 && hits == total;
+    if (fl == rk_proto_jct_one) return hits == 1;
+    return hits == 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_make_item_agg(DESCR_t *args, int nargs) {
+    int cap = 0; for (int i = 0; i < nargs; i++) cap += rk_item_count(args[i]);
+    DESCR_t *r = cap > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) cap) : NULL; int k = 0;
+    for (int i = 0; i < nargs; i++) k = rk_item(r, k, args[i]);
+    return rk_mk_arr(r, k);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_flat_count(DESCR_t v) {
+    DESCR_t *la = 0; int ln = 0, c = 0;
+    if (v.v == DT_A && v.arr) { rk_av_t a = rk_av(v); if (rk_is_list(v) || rk_is_slip(v)) { for (int i = 0; i < a.n; i++) c += rk_flat_count(a.el[i]); return c; } return a.n; }
+    if (rt_lv_is_list(v, &la, &ln)) { for (int j = 0; j < ln; j++) c += rk_flat_count(la[j]); return c; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_flat_into(DESCR_t *r, int k, DESCR_t v) {
+    DESCR_t *la = 0; int ln = 0;
+    if (v.v == DT_A && v.arr) { rk_av_t a = rk_av(v); if (rk_is_list(v) || rk_is_slip(v)) { for (int i = 0; i < a.n; i++) k = rk_flat_into(r, k, a.el[i]); return k; } for (int i = 0; i < a.n; i++) r[k++] = a.el[i]; return k; }
+    if (rt_lv_is_list(v, &la, &ln)) { for (int j = 0; j < ln; j++) k = rk_flat_into(r, k, la[j]); return k; }
+    return rk_spill_scalar(r, k, v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_flat_agg(DESCR_t *args, int nargs) {
+    int cap = 0; for (int i = 0; i < nargs; i++) cap += rk_flat_count(args[i]);
+    DESCR_t *r = cap > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) cap) : NULL; int k = 0;
+    for (int i = 0; i < nargs; i++) k = rk_flat_into(r, k, args[i]);
+    return rk_mk_arr(r, k);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs) {
     int cap = 0; for (int i = 0; i < nargs; i++) cap += rk_spill_count(args[i]);
     DESCR_t *r = cap ? (DESCR_t *) rt_ws_alloc_descr((size_t) cap) : NULL; int k = 0;
     for (int i = 0; i < nargs; i++) k = rk_spill(r, k, args[i]);
-    return rk_mk_arr(r, k);
+    return rk_unmark(rk_mk_arr(r, k));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long pas_ord_of(DESCR_t v) { if (IS_INT_fn(v)) return (long)v.i; if (IS_STR_fn(v)) { const char *s = VARVAL_fn(v); return (s && s[0]) ? (long)(unsigned char)s[0] : -1L; } return -1L; }
@@ -4218,18 +4382,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = NULVCL; return 1; } *out = b->data[i - b->lo]; return 1;
         }
-        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
-        long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
-        if (idx < 0) { *out = NULVCL; return 1; }
-        if (rk_a_empty1(cur)) { *out = (idx == 0) ? STRVAL(rt_heap_strdup_c("")) : NULVCL; return 1; }
-        if (idx == 0 && !*cur) { *out = NULVCL; return 1; }
-        const char *seg = cur; long k = 0;
-        for (;;) {
-            const char *nx = strchr(seg, SOH);
-            if (k == idx) { size_t elen = nx ? (size_t)(nx - seg) : strlen(seg); *out = elem_to_descr(seg, elen); return 1; }
-            if (!nx) { *out = NULVCL; return 1; }
-            seg = nx + 1; k++;
-        }
+        rk_av_t sc = rk_av(args[0]); long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
+        *out = (idx >= 0 && idx < sc.n) ? sc.el[idx] : NULVCL; return 1;
     }
     if (!strncmp(fn, "__rk_test_", 10)) {
         const char *op = fn + 10; char sb1[512]; char sb2[512]; char msg[1024];
@@ -4282,10 +4436,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else if (rk_typeobj_name(g) || rk_typeobj_name(e)) c = rk_typeobj_name(g) && rk_typeobj_name(e) && !strcmp(rk_typeobj_name(g), rk_typeobj_name(e));
             else if (g.v == DT_SNUL || e.v == DT_SNUL) c = g.v == e.v;
             else if (g.v == DT_A || e.v == DT_A) { rk_av_t x = rk_av(g), y = rk_av(e); c = x.n == y.n; for (int i = 0; c && i < x.n; i++) c = !strcmp(rk_av_text(x, i), rk_av_text(y, i)); }
-            else { const char *x = to_cstring(g, sb1, sizeof sb1), *y = to_cstring(e, sb2, sizeof sb2); c = !strcmp(rk_a_body(x ? x : ""), rk_a_body(y ? y : "")); }
+            else { const char *x = to_cstring(g, sb1, sizeof sb1), *y = to_cstring(e, sb2, sizeof sb2); c = !strcmp(x ? x : "", y ? y : ""); }
             const char *d = nargs > 2 ? to_cstring(args[2], msg, sizeof msg) : "";
             rk_tap_proclaim(c, d, "");
-            if (!c) { const char *ex = e.v == DT_A ? rk_av_joined(rk_av(e), " ", "", "") : rk_list_as_str(rk_cstr(e)), *go = g.v == DT_A ? rk_av_joined(rk_av(g), " ", "", "") : rk_list_as_str(rk_cstr(g));
+            if (!c) { const char *ex = rk_cstr(e), *go = rk_cstr(g);
                       size_t l = strlen(ex) + strlen(go) + 16; char *b = rt_wsb_alloc(l);
                       snprintf(b, l, "expected: %s", ex); rk_tap_diag(b); snprintf(b, l, "     got: %s", go); rk_tap_diag(b); }
             *out = INTVAL(c); return 1; }
@@ -4767,53 +4921,22 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = BSTRVAL((char *)r, PAS_SET_BYTES); return 1;
     }
-    if (nargs >= 1 && (!strcmp(fn, "__rk_jct_any") || !strcmp(fn, "__rk_jct_all")
-                    || !strcmp(fn, "__rk_jct_one") || !strcmp(fn, "__rk_jct_none"))) {
-        char flav = !strcmp(fn, "__rk_jct_any") ? 'a'
-                  : !strcmp(fn, "__rk_jct_all") ? 'l'
-                  : !strcmp(fn, "__rk_jct_one") ? 'o' : 'n';
-        size_t total = 2;
-        char **ms = rt_pvec_alloc((size_t)nargs);
-        size_t *mlen = rt_wsb_alloc((size_t)nargs * sizeof(size_t));
-        for (int i = 0; i < nargs; i++) {
-            char scratch[64];
-            const char *cs = to_cstring(args[i], scratch, sizeof scratch);
-            size_t L = strlen(cs);
-            char *cp = rt_wsb_alloc(L + 1); memcpy(cp, cs, L + 1);
-            ms[i] = cp; mlen[i] = L; total += 1 + L;
-        }
-        char *buf = rt_wsb_alloc(total + 2);
-        size_t p = 0; buf[p++] = '\x03'; buf[p++] = flav;
-        for (int i = 0; i < nargs; i++) { buf[p++] = SOH; memcpy(buf + p, ms[i], mlen[i]); p += mlen[i]; }
-        buf[p++] = '\x04'; buf[p] = '\0';
-        *out = STRVAL(buf); return 1;
+    if (nargs >= 1 && (!strcmp(fn, "__rk_jct_any") || !strcmp(fn, "__rk_jct_all") || !strcmp(fn, "__rk_jct_one") || !strcmp(fn, "__rk_jct_none"))) {
+        const char *fl = !strcmp(fn, "__rk_jct_any") ? rk_proto_jct_any : !strcmp(fn, "__rk_jct_all") ? rk_proto_jct_all : !strcmp(fn, "__rk_jct_one") ? rk_proto_jct_one : rk_proto_jct_none;
+        *out = rk_mk_jct(fl, args, nargs); return 1;
     }
     if (!strcmp(fn, "elems") && nargs == 1) {
-        *out = INTVAL(args[0].v == DT_A ? rk_av(args[0]).n : rk_a_count(VARVAL_fn(args[0]))); return 1;
+        *out = INTVAL(args[0].v == DT_T ? rk_hash_count_of(args[0]) : rk_av(args[0]).n); return 1;
     }
     if ((!strcmp(fn, "__rk_arr") || !strcmp(fn, "__rk_arr_lit")) && nargs >= 0) {
-        extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
-        *out = rt_make_flat_agg(args, nargs); return 1;
-    }
-    if (!strcmp(fn, "__rk_arr_lit_item") && nargs >= 0) {
-        extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
-        DESCR_t inner = rt_make_flat_agg(args, nargs);
-        const char *cur = rk_a_body(VARVAL_fn(inner));
-        size_t n = strlen(cur); char *buf = rt_wsb_alloc(n + 3); size_t p = 0;
-        buf[p++] = '[';
-        for (size_t i = 0; i < n; i++) buf[p++] = (cur[i] == SOH) ? ' ' : cur[i];
-        buf[p++] = ']'; buf[p] = '\0';
-        *out = STRVAL(buf); return 1;
+        DESCR_t ag = rt_make_item_agg(args, nargs); *out = !strcmp(fn, "__rk_arr") ? rk_mark_list(ag) : rk_unmark(ag); return 1;
     }
     if (!strcmp(fn, "__rk_materialize") && nargs == 1) {
         DESCR_t *a = 0; int n = 0;
         if (!rt_lv_is_list(args[0], &a, &n)) return 0;
-        extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
-        *out = rt_make_flat_agg(a, n); return 1;
+        *out = rk_mark_list(rt_make_item_agg(a, n)); return 1;
     }
-    if (!strcmp(fn, "__rk_pair") && nargs == 2) {
-        *out = rt_make_nested_agg(args, 2); return 1;
-    }
+    if (!strcmp(fn, "__rk_pair") && nargs == 2) { *out = rk_mk_pair(args[0], args[1]); return 1; }
     if (!strcmp(fn, "__rk_named_call") && nargs >= 2) {
         extern const char *rt_proc_pname(const char *name, int k);
         char pb[256]; const char *pname = to_cstring(args[0], pb, sizeof pb);
@@ -4826,8 +4949,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         int maxslot = 0;
         extern int rt_proc_named_rest(const char *name);
         int nrest = rt_proc_named_rest(pname); int nrx = nrest > 0 ? nrest - 1 : -1;
-        size_t hcap = 1; for (int i = 2 + npos; i + 1 < nargs; i += 2) { char kb0[128], vb0[256]; const char *k0 = to_cstring(args[i], kb0, sizeof kb0); const char *v0 = to_cstring(args[i + 1], vb0, sizeof vb0); hcap += (k0 ? strlen(k0) : 0) + (v0 ? strlen(v0) : 0) + 2; }
-        char *hbuf = rt_wsb_alloc(hcap); size_t hp = 0; hbuf[0] = '\0';
+        DESCR_t hh = NULVCL;
         for (int i = 0; i < npos && (2 + i) < nargs; i++) { slots[i] = args[2 + i]; if (i + 1 > maxslot) maxslot = i + 1; }
         for (int i = 2 + npos; i + 1 < nargs; i += 2) {
             char kb[128]; const char *k = to_cstring(args[i], kb, sizeof kb);
@@ -4835,15 +4957,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             for (int s = 0; s < np; s++) { if (s == nrx) continue; const char *pn = rt_proc_pname(pname, s); if (pn && k && !strcmp(pn, k)) { found = s; break; } }
             if (found < 0) {
                 if (nrx < 0) continue;
-                char vb2[256]; const char *v = to_cstring(args[i + 1], vb2, sizeof vb2); if (!k) k = ""; if (!v) v = "";
-                if (hp > 0) hbuf[hp++] = SOH;
-                size_t kl = strlen(k); memcpy(hbuf + hp, k, kl); hp += kl; hbuf[hp++] = '\x02';
-                size_t vl = strlen(v); memcpy(hbuf + hp, v, vl); hp += vl; hbuf[hp] = '\0';
+                hh = rk_hash_store(hh, args[i], args[i + 1]);
                 continue;
             }
             slots[found] = args[i + 1]; if (found + 1 > maxslot) maxslot = found + 1;
         }
-        if (nrx >= 0 && nrx < RK_NAMED_MAX) { slots[nrx] = STRVAL(hbuf); if (nrx + 1 > maxslot) maxslot = nrx + 1; }
+        if (nrx >= 0 && nrx < RK_NAMED_MAX) { slots[nrx] = hh.v == DT_T ? hh : TABLE_VAL(table_new()); if (nrx + 1 > maxslot) maxslot = nrx + 1; }
         int total = np > maxslot ? np : maxslot;
         if (total > RK_NAMED_MAX) total = RK_NAMED_MAX;
         *out = invoke_method_proc(pname, slots, total); return 1;
@@ -4888,7 +5007,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         else if (an) t = IS_INT_fn(a) && IS_INT_fn(b) ? a.i == b.i : IS_REAL_fn(a) && IS_REAL_fn(b) ? a.r == b.r : 0;
         else if (a.v == DT_BOOL || b.v == DT_BOOL) t = a.v == b.v && a.i == b.i;
         else if (a.v == DT_A || b.v == DT_A) { rk_av_t x = rk_av(a), y = rk_av(b); t = x.n == y.n; for (int i = 0; t && i < x.n; i++) t = !strcmp(rk_av_text(x, i), rk_av_text(y, i)); }
-        else { const char *x = rk_cstr(a), *y = rk_cstr(b); t = !strcmp(rk_a_body(x), rk_a_body(y)); }
+        else { const char *x = rk_cstr(a), *y = rk_cstr(b); t = !strcmp(x, y); }
         *out = (DESCR_t){ .v = DT_BOOL, .i = t }; return 1;
     }
     if ((!strcmp(fn, "__rk_min") || !strcmp(fn, "__rk_max")) && nargs == 2) {
@@ -4949,12 +5068,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = INTVAL(1); return 1;
     }
     if (!strcmp(fn, "rk_write_list") && nargs == 1) {
-        DESCR_t tmp1 = STRVAL(rk_av_joined(rk_av(args[0]), " ", "(", ")"));
+        DESCR_t tmp1 = STRVAL((char *) rk_gist_text(args[0], '(', ')'));
         *out = RT_GC_CALLBACK(rt_call_arr("write", &tmp1, 1)); return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "rk_write_arr") && nargs == 1) {
-        DESCR_t tmp1 = STRVAL(rk_av_joined(rk_av(args[0]), " ", "[", "]"));
+        DESCR_t tmp1 = STRVAL((char *) rk_gist_text(args[0], '[', ']'));
         *out = RT_GC_CALLBACK(rt_call_arr("write", &tmp1, 1)); return 1;
     }
     if (!strcmp(fn, "__rk_div") && nargs == 2) {
@@ -5021,12 +5140,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = rk_mk_arr(r, (int) (a.n * cnt)); return 1;
     }
     if (!strcmp(fn, "__rk_hash")) {
-        size_t total = 1; char kb[256]; char vb[256];
-        for (int i = 0; i + 1 < nargs; i += 2) { total += strlen(to_cstring(args[i], kb, sizeof kb)) + strlen(to_cstring(args[i + 1], vb, sizeof vb)) + 2; }
-        char *buf = rt_wsb_alloc(total + 1); size_t p = 0;
-        for (int i = 0; i + 1 < nargs; i += 2) { const char *k = to_cstring(args[i], kb, sizeof kb); const char *v = to_cstring(args[i + 1], vb, sizeof vb);
-            if (p > 0) buf[p++] = '\x01'; size_t kl = strlen(k); memcpy(buf + p, k, kl); p += kl; buf[p++] = '\x02'; size_t vl = strlen(v); memcpy(buf + p, v, vl); p += vl; }
-        buf[p] = '\0'; *out = STRVAL(buf); return 1;
+        DESCR_t hh = TABLE_VAL(table_new());
+        for (int i = 0; i + 1 < nargs; i += 2) hh = rk_hash_store(hh, args[i], args[i + 1]);
+        *out = hh; return 1;
+    }
+    if (!strcmp(fn, "__rk_to_hash") && nargs == 1) {
+        if (args[0].v == DT_T && args[0].tbl) *out = rk_hash_copy(args[0]);
+        else if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_hash_from_list(a.el, a.n); }
+        else if (args[0].v == DT_SNUL) *out = TABLE_VAL(table_new());
+        else *out = args[0];
+        return 1;
     }
     if (!strcmp(fn, "reverse") && nargs >= 1) {
         rk_av_t a = rk_av_args(args, 0, nargs);
@@ -5062,7 +5185,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *bn = args[1].s;
         rk_av_t a = rk_av(args[0]); int nel = a.n; if (nel <= 0) { *out = rk_mk_arr(NULL, 0); return 1; }
         DESCR_t els[nel];
-        for (int i = 0; i < nel; i++) els[i] = a.legacy ? rk_elem_descr(a.el[i].s ? a.el[i].s : "", a.el[i].s ? strlen(a.el[i].s) : 0) : a.el[i];
+        for (int i = 0; i < nel; i++) els[i] = a.el[i];
         for (int i = 1; i < nel; i++) {
             DESCR_t key = els[i]; int b = i - 1;
             while (b >= 0 && rk_block_cmp_d(bn, els[b], key) > 0) { els[b + 1] = els[b]; b--; }
@@ -5136,9 +5259,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "__rk_iter_src") && nargs <= 1) {
         if (nargs && args[0].v == DT_A && args[0].arr) { *out = args[0]; return 1; }
+        if (nargs && args[0].v == DT_T && args[0].tbl) { *out = rk_hash_list(args[0], 'p'); return 1; }
         extern ARBLK_t *array_new(int lo, int hi);
-        rk_av_t a = { 0, NULL, 1 }; if (nargs) a = rk_av(args[0]); ARBLK_t *b = array_new(0, a.n - 1);
-        for (int i = 0; i < a.n; i++) b->data[i] = rk_elem_descr(a.el[i].s ? a.el[i].s : "", a.el[i].s ? strlen(a.el[i].s) : 0);
+        rk_av_t a = { 0, NULL }; if (nargs) a = rk_av(args[0]); ARBLK_t *b = array_new(0, a.n - 1);
+        for (int i = 0; i < a.n; i++) b->data[i] = a.el[i];
         DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = b; *out = d; return 1;
     }
     if ((!strcmp(fn, "__rk_map_append") || !strcmp(fn, "__rk_grep_append")) && nargs == 2 && args[0].v == DT_A && args[0].arr) {
@@ -5204,6 +5328,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     if (!strcmp(fn, "__rk_arr_values") && nargs >= 1) {
         rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1;
     }
+    if ((!strcmp(fn, "__rk_flat") || !strcmp(fn, "__rk_arr_flat")) && nargs >= 0) { *out = rk_flat_agg(args, nargs); return 1; }
+    if (!strcmp(fn, "__rk_to_array") && nargs == 1) {
+        if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_unmark(rk_mk_arr(a.el, a.n)); } else *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_arr_slip") && nargs >= 1) {
+        rk_av_t a = rk_av(args[0]); DESCR_t s = rk_mk_arr(a.el, a.n); ((ARBLK_t *) s.arr)->proto = rk_proto_slip; *out = s; return 1;
+    }
     if ((!strcmp(fn, "__rk_arr_kv") || !strcmp(fn, "__rk_arr_keys")) && nargs >= 1) {
         rk_av_t a = rk_av(args[0]); int kv = fn[9] == 'k' && fn[10] == 'v', m = kv ? 2 * a.n : a.n;
         DESCR_t *r = m ? (DESCR_t *) rt_ws_alloc_descr((size_t) m) : NULL;
@@ -5242,7 +5374,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         if (idx < 0) { *out = FAILDESCR; return 1; }
-        if (rk_a_empty1(cur)) { *out = (idx == 0) ? STRVAL(rt_heap_strdup_c("")) : FAILDESCR; return 1; }
         if (!*cur) { *out = FAILDESCR; return 1; }
         if (idx >= 1 && (size_t)idx <= strlen(cur)) { *out = INTVAL((long long)(unsigned char)cur[idx - 1]); return 1; }
         *out = (idx == 0) ? elem_to_descr(cur, strlen(cur)) : FAILDESCR; return 1;
@@ -5322,7 +5453,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "array_sort") && nargs == 1) {
         rk_av_t a = rk_av(args[0]);
-        if (!a.n) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        if (!a.n) { *out = rk_mk_arr(NULL, 0); return 1; }
         const char **tx = (const char **) rt_pvec_alloc((size_t) a.n); DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) a.n); long long *kv = (long long *) rt_wsb_alloc(sizeof(long long) * (size_t) a.n);
         int all_int = 1;
         for (int i = 0; i < a.n; i++) { char *ep; tx[i] = rk_av_text(a, i); r[i] = a.el[i]; kv[i] = strtoll(tx[i], &ep, 10); if (*ep) all_int = 0; }
@@ -5496,7 +5627,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             rk_arr_append(la, rk_txt_elem(line, ll));
         }
         if (need_close) fclose(fp);
-        { DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = la; *out = d; } return 1;
+        { DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = la; *out = rk_mark_list(d); } return 1;
     }
     if (!strcmp(fn, "spurt") && nargs == 2) {
         const char *path = VARVAL_fn(args[0]); if (!path || !*path) { *out = FAILDESCR; return 1; }
@@ -5692,24 +5823,40 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         DESCR_t _recv0 = args[0]; int _was_list_recv = 0;
         { DESCR_t *_lva = 0; int _lvn = 0;
           if (_recv0.v == DT_DATA && rt_lv_is_list(_recv0, &_lva, &_lvn)) {
-              extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
-              _recv0 = rt_make_nested_agg(_lva, _lvn); _was_list_recv = 1;
+              _recv0 = rk_mark_list(rt_make_item_agg(_lva, _lvn)); _was_list_recv = 1;
           }
+        }
+        if (_recv0.v == DT_A && _recv0.arr && mname0 && nargs >= 2 && !rk_is_pair(_recv0) && !rk_is_jct(_recv0)
+            && (!strcmp(mname0, "push") || !strcmp(mname0, "append") || !strcmp(mname0, "unshift") || !strcmp(mname0, "prepend") || !strcmp(mname0, "pop") || !strcmp(mname0, "shift"))) {
+            ARBLK_t *mb = (ARBLK_t *) _recv0.arr; int n0 = mb->hi - mb->lo + 1; if (n0 < 0) n0 = 0;
+            if (mname0[0] == 'p' && mname0[1] == 'o') { if (!n0) { *out = FAILDESCR; return 1; } *out = mb->data[n0 - 1]; mb->data[n0 - 1] = NULVCL; mb->hi--; return 1; }
+            if (mname0[0] == 's') { if (!n0) { *out = FAILDESCR; return 1; } *out = mb->data[0]; memmove(mb->data, mb->data + 1, (size_t) (n0 - 1) * sizeof(DESCR_t)); mb->data[n0 - 1] = NULVCL; mb->hi--; return 1; }
+            int pre = mname0[0] == 'u' || (mname0[0] == 'p' && mname0[1] == 'r'), flat = mname0[0] == 'a' || (mname0[0] == 'p' && mname0[1] == 'r');
+            int add = 0; for (int k = 2; k < nargs; k++) add += flat ? rk_spill_count(args[k]) : rk_item_count(args[k]);
+            DESCR_t *nw = add ? (DESCR_t *) rt_ws_alloc_descr((size_t) add) : NULL; int c = 0;
+            for (int k = 2; k < nargs; k++) c = flat ? rk_spill(nw, c, args[k]) : rk_item(nw, c, args[k]);
+            if (!pre) { for (int k = 0; k < c; k++) rk_arr_append(mb, nw[k]); }
+            else { for (int k = 0; k < c; k++) rk_arr_append(mb, NULVCL); memmove(mb->data + c, mb->data, (size_t) n0 * sizeof(DESCR_t)); for (int k = 0; k < c; k++) mb->data[k] = nw[k]; }
+            *out = _recv0; return 1;
+        }
+        if (_recv0.v == DT_T && _recv0.tbl && mname0) {
+            if (!strcmp(mname0, "elems")) { *out = INTVAL(_recv0.tbl->size); return 1; }
+            if (!strcmp(mname0, "keys")) { *out = rk_hash_list(_recv0, 'k'); return 1; }
+            if (!strcmp(mname0, "values")) { *out = rk_hash_list(_recv0, 'v'); return 1; }
+            if (!strcmp(mname0, "pairs")) { *out = rk_hash_list(_recv0, 'p'); return 1; }
+            if (!strcmp(mname0, "kv")) { *out = rk_hash_list(_recv0, 'w'); return 1; }
+            if (!strcmp(mname0, "Bool") || !strcmp(mname0, "so") || !strcmp(mname0, "defined")) { *out = (DESCR_t){ .v = DT_BOOL, .i = _recv0.tbl->size > 0 || mname0[0] == 'd' }; return 1; }
+            if (!strcmp(mname0, "not")) { *out = (DESCR_t){ .v = DT_BOOL, .i = _recv0.tbl->size == 0 }; return 1; }
+            if (!strcmp(mname0, "gist")) { *out = STRVAL((char *) rk_gist_str(_recv0)); return 1; }
+            if (!strcmp(mname0, "Str")) { *out = STRVAL((char *) rk_tbl_text(_recv0)); return 1; }
+            if (!strcmp(mname0, "raku") || !strcmp(mname0, "perl")) { *out = STRVAL((char *) rk_raku_str(_recv0, 0)); return 1; }
+            if (!strcmp(mname0, "WHAT")) { *out = rk_typeobj("Hash"); return 1; }
+            _recv0 = rk_hash_list(_recv0, 'p');
         }
         if (nargs >= 2 && _recv0.v != DT_DATA && rt_str_method(mname0, _recv0, &args[2], nargs - 2, out)) return 1;
         if (_recv0.v != DT_DATA && mname0) {
             const char *rtn = VARVAL_fn(_recv0);
             int is_dat_recv = (rtn && dat_find_type(rtn));
-            if (!is_dat_recv && rtn && strchr(rtn, '\x02')) {
-                int is_hashm = !strcmp(mname0, "keys") || !strcmp(mname0, "values") || !strcmp(mname0, "pairs") || !strcmp(mname0, "kv");
-                if (is_hashm) {
-                    const char *hfn = !strcmp(mname0, "keys") ? "hash_keys" : !strcmp(mname0, "values") ? "hash_values"
-                                    : !strcmp(mname0, "pairs") ? "hash_pairs" : "hash_kv";
-                    DESCR_t fa[1]; fa[0] = _recv0;
-                    extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-                    if (script_try_call_builtin_by_name(hfn, fa, 1, out)) return 1;
-                }
-            }
             if (!is_dat_recv) {
                 int is_arrm = !strcmp(mname0, "kv") || !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
                            || ((!strcmp(mname0, "map") || !strcmp(mname0, "grep")) && nargs == 3 && args[2].v == DT_BLK)
@@ -5723,7 +5870,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                                     : !strcmp(mname0, "kv") ? "__rk_arr_kv" : !strcmp(mname0, "sort") ? "__rk_arr_sort" : !strcmp(mname0, "min") ? "__rk_arr_min"
                                     : !strcmp(mname0, "max") ? "__rk_arr_max" : !strcmp(mname0, "first") ? "__rk_arr_first"
                                     : !strcmp(mname0, "reduce") ? "__rk_arr_reduce"
-                                    : !strcmp(mname0, "keys") ? "__rk_arr_keys" : (!strcmp(mname0, "values") || rk_list_coercion_meth(mname0, nargs)) ? "__rk_arr_values"
+                                    : !strcmp(mname0, "keys") ? "__rk_arr_keys" : !strcmp(mname0, "Array") ? "__rk_to_array" : !strcmp(mname0, "flat") ? "__rk_arr_flat" : !strcmp(mname0, "Slip") ? "__rk_arr_slip" : (!strcmp(mname0, "values") || rk_list_coercion_meth(mname0, nargs)) ? "__rk_arr_values"
                                     : !strcmp(mname0, "end") ? "elems" : mname0;
                     int total = 1 + (nargs - 2);
                     DESCR_t *fa = rt_ws_alloc_descr((size_t)total);
@@ -5872,36 +6019,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         nfa_free(nfa);
         *out = count > 0 ? rk_mk_arr(mr, count) : FAILDESCR; return 1;
     }
-    if (!strcmp(fn, "re_subst") && nargs == 2) {
-        const char *subj = VARVAL_fn(args[0]); if (!subj) subj = "";
-        const char *tok  = VARVAL_fn(args[1]); if (!tok)  tok  = "";
-        const char *sep1 = strchr(tok, SOH);
-        if (!sep1) { *out = args[0]; return 1; }
-        const char *sep2 = strchr(sep1 + 1, SOH);
-        if (!sep2) { *out = args[0]; return 1; }
-        int plen = (int)(sep1 - tok);
-        int rlen = (int)(sep2 - (sep1 + 1));
-        char *pat  = rt_wsb_alloc((size_t)plen + 1); memcpy(pat, tok, (size_t)plen); pat[plen] = '\0';
-        char *repl = rt_wsb_alloc((size_t)rlen + 1); memcpy(repl, sep1 + 1, (size_t)rlen); repl[rlen] = '\0';
-        int global = (*(sep2 + 1) == 'g');
-        Nfa *nfa = nfa_build(pat);
-        if (!nfa) { *out = args[0]; return 1; }
-        int slen = (int)strlen(subj);
-        char *res = rt_wsb_alloc((size_t)slen * 4 + (size_t)rlen * 8 + 4); res[0] = '\0';
-        int pos = 0, did_one = 0;
-        while (pos <= slen) {
-            Match m; nfa_exec(nfa, subj + pos, &m);
-            if (!m.matched) { strncat(res, subj + pos, (size_t)(slen - pos)); break; }
-            strncat(res, subj + pos, (size_t)m.full_start);
-            strcat(res, repl);
-            g_match = m; g_subject = subj;
-            int advance = m.full_start + (m.full_end - m.full_start > 0 ? m.full_end - m.full_start : 1);
-            pos += advance; did_one = 1;
-            if (!global) { strncat(res, subj + pos, (size_t)(slen - pos)); break; }
-        }
-        nfa_free(nfa);
-        *out = did_one ? STRVAL(res) : args[0]; return 1;
-    }
     if (!strcmp(fn, "nfa_compile") && nargs == 1) {
         const char *pat = VARVAL_fn(args[0]); if (!pat) pat = "";
         Nfa *nfa = nfa_build(pat);
@@ -5948,13 +6065,14 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         memcpy(o, g_subject + gs, (size_t)len); o[len] = '\0';
         *out = STRVAL(o); return 1;
     }
-    if ((!strcmp(fn, "push_pure") || !strcmp(fn, "unshift_pure")) && nargs >= 2) {
-        rk_av_t a = rk_av(args[0]); int add = 0; for (int i = 1; i < nargs; i++) add += rk_spill_count(args[i]);
-        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) (a.n + add)); int k = 0, back = fn[0] == 'p';
+    if ((!strcmp(fn, "push_pure") || !strcmp(fn, "unshift_pure") || !strcmp(fn, "append_pure") || !strcmp(fn, "prepend_pure")) && nargs >= 2) {
+        int is_app = fn[0] == 'a', is_pre = fn[0] == 'p' && fn[1] == 'r', is_push = fn[0] == 'p' && fn[1] == 'u'; int back = is_push || is_app, flat = is_app || is_pre;
+        rk_av_t a = rk_av(args[0]); int add = 0; for (int i = 1; i < nargs; i++) add += flat ? rk_spill_count(args[i]) : rk_item_count(args[i]);
+        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) (a.n + add)); int k = 0;
         if (back) for (int i = 0; i < a.n; i++) r[k++] = rk_av_elem(a, i);
-        for (int i = 1; i < nargs; i++) k = rk_spill(r, k, args[i]);
+        for (int i = 1; i < nargs; i++) k = flat ? rk_spill(r, k, args[i]) : rk_item(r, k, args[i]);
         if (!back) for (int i = 0; i < a.n; i++) r[k++] = rk_av_elem(a, i);
-        *out = rk_mk_arr(r, k); return 1;
+        *out = rk_unmark(rk_mk_arr(r, k)); return 1;
     }
     if (!strcmp(fn, "__rk_arr_set") && nargs >= 3) {
         rk_av_t a = rk_av(args[0]);
@@ -5963,7 +6081,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         long n = idx + 1 > a.n ? idx + 1 : a.n;
         DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) n);
         for (long i = 0; i < n; i++) r[i] = (i == idx) ? args[2] : (i < a.n ? rk_av_elem(a, (int) i) : NULVCL);
-        *out = rk_mk_arr(r, (int) n); return 1;
+        *out = rk_unmark(rk_mk_arr(r, (int) n)); return 1;
     }
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
         if (args[0].v == DT_A && args[0].arr) {
@@ -5974,10 +6092,6 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
         char rb[64]; const char *rv = to_cstring(args[2], rb, sizeof rb);
         size_t rvl = strlen(rv);
-        if (rk_a_empty1(cur)) {
-            if (idx == 0) { char *e0 = rt_wsb_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; *out = STRVAL(e0); return 1; }
-            *out = FAILDESCR; return 1;
-        }
         if (idx == 0) { char *e0 = rt_wsb_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; *out = STRVAL(e0); return 1; }
         if (idx < 1 || (size_t)idx > strlen(cur)) { *out = FAILDESCR; return 1; }
         *out = pas_str_setch(STRVAL((char *) cur), idx, pas_ch_of(args[2])); return 1;
@@ -5988,140 +6102,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if ((!strcmp(fn, "arr_init") || !strcmp(fn, "arr_tail")) && nargs == 1) {
         rk_av_t a = rk_av(args[0]);
-        *out = a.n > 1 ? rk_mk_arr(a.el + (fn[4] == 't' ? 1 : 0), a.n - 1) : STRVAL(rt_heap_strdup_c("")); return 1;
+        *out = rk_unmark(a.n > 1 ? rk_mk_arr(a.el + (fn[4] == 't' ? 1 : 0), a.n - 1) : rk_mk_arr(NULL, 0)); return 1;
     }
-    if (!strcmp(fn, "hash_set_pure") && nargs >= 3) {
-        extern char *script_hash_set_str(const char *h, const char *key, const char *val);
-        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
-        char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
-        char vb[64]; const char *val = to_cstring(args[2], vb, sizeof vb);
-        *out = STRVAL(script_hash_set_str(cur, key, val)); return 1;
-    }
-    if (!strcmp(fn, "hash_delete_pure") && nargs >= 2) {
-        extern char *script_hash_delete_str(const char *h, const char *key);
-        const char *cur = VARVAL_fn(args[0]); if (!cur) cur = "";
-        char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
-        *out = STRVAL(script_hash_delete_str(cur, key)); return 1;
-    }
-    extern int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-    if (script_try_hash_builtin(fn, args, nargs, out)) return 1;
-    return 0;
-}
-#define STX '\x02'
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *hash_find(const char *h, const char *key, const char **p_pair_start) {
-    if (!h || !key) return NULL;
-    size_t klen = strlen(key);
-    const char *seg = h;
-    while (*seg) {
-        const char *nx   = strchr(seg, SOH);
-        size_t      plen = nx ? (size_t)(nx - seg) : strlen(seg);
-        const char *stx  = (const char *)memchr(seg, STX, plen);
-        if (stx) {
-            size_t this_klen = (size_t)(stx - seg);
-            if (this_klen == klen && memcmp(seg, key, klen) == 0) {
-                if (p_pair_start) *p_pair_start = seg;
-                return stx + 1;
-            }
-        }
-        if (!nx) break;
-        seg = nx + 1;
-    }
-    return NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *script_hash_set_str(const char *h, const char *key, const char *val) {
-    if (!h) h = "";
-    size_t klen = strlen(key), vlen = strlen(val);
-    const char *pair_start = NULL;
-    hash_find(h, key, &pair_start);
-    if (pair_start) {
-        const char *nx = strchr(pair_start, SOH);
-        size_t pre  = (size_t)(pair_start - h);
-        size_t post = nx ? strlen(nx) : 0;
-        size_t total = pre + klen + 1 + vlen + post;
-        char *o = rt_wsb_alloc(total + 1);
-        memcpy(o, h, pre);
-        memcpy(o + pre, key, klen);
-        o[pre + klen] = STX;
-        memcpy(o + pre + klen + 1, val, vlen);
-        if (nx) memcpy(o + pre + klen + 1 + vlen, nx, post);
-        o[total] = '\0'; return o;
-    }
-    size_t hlen = strlen(h);
-    int need_sep = (hlen > 0);
-    size_t total = hlen + (need_sep ? 1 : 0) + klen + 1 + vlen;
-    char *o = rt_wsb_alloc(total + 1);
-    memcpy(o, h, hlen);
-    if (need_sep) o[hlen] = SOH;
-    memcpy(o + hlen + (need_sep ? 1 : 0), key, klen);
-    o[hlen + (need_sep ? 1 : 0) + klen] = STX;
-    memcpy(o + hlen + (need_sep ? 1 : 0) + klen + 1, val, vlen);
-    o[total] = '\0'; return o;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *script_hash_delete_str(const char *h, const char *key) {
-    if (!h || !*h) return rt_heap_strdup_c("");
-    const char *pair_start = NULL;
-    hash_find(h, key, &pair_start);
-    if (!pair_start) return rt_heap_strdup_c(h);
-    const char *nx = strchr(pair_start, SOH);
-    size_t pre = (size_t)(pair_start - h);
-    size_t trim_pre = pre;
-    if (pre > 0) trim_pre = pre - 1;
-    else if (nx) { nx++; }
-    size_t post = nx ? strlen(nx) : 0;
-    size_t total = trim_pre + post;
-    char *o = rt_wsb_alloc(total + 1);
-    if (pre > 0) { memcpy(o, h, trim_pre); if (nx) memcpy(o + trim_pre, nx, post); }
-    else if (nx) memcpy(o, nx, post);
-    o[total] = '\0'; return o;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int script_try_hash_builtin(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
-    if (!fn || nargs < 1) return 0;
-    if (args[0].v != DT_S && args[0].v != DT_SNUL) return 0;
-    const char *h = VARVAL_fn(args[0]); if (!h) h = "";
     if (!strcmp(fn, "hash_get") && nargs >= 2) {
-        char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
-        const char *vstart = hash_find(h, key, NULL);
-        if (!vstart) { *out = NULVCL; return 1; }
-        const char *vend = strchr(vstart, SOH);
-        size_t vlen = vend ? (size_t)(vend - vstart) : strlen(vstart);
-        char *v = rt_wsb_alloc(vlen + 1); memcpy(v, vstart, vlen); v[vlen] = '\0';
-        char *ep; long iv = strtol(v, &ep, 10);
-        if (*ep == '\0' && ep > v) { *out = INTVAL(iv); return 1; }
-        *out = STRVAL(v); return 1;
+        int found = 0; DESCR_t v = (args[0].v == DT_T && args[0].tbl) ? table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found) : NULVCL;
+        *out = found ? v : NULVCL; return 1;
     }
-    if (!strcmp(fn, "hash_exists") && nargs >= 2) {
-        char kb[64]; const char *key = to_cstring(args[1], kb, sizeof kb);
-        *out = hash_find(h, key, NULL) ? INTVAL(1) : INTVAL(0); return 1;
+    if (!strcmp(fn, "hash_exists") && nargs >= 2) { *out = INTVAL((args[0].v == DT_T && args[0].tbl && table_has_d(args[0].tbl, rk_key_tmp(args[1]))) ? 1 : 0); return 1; }
+    if (!strcmp(fn, "hash_set_pure") && nargs >= 3) { *out = rk_hash_store(args[0], args[1], args[2]); return 1; }
+    if (!strcmp(fn, "hash_delete") && nargs >= 2) {
+        DESCR_t dk = rk_key_tmp(args[1]); int found = 0; DESCR_t dv = NULVCL;
+        if (args[0].v == DT_T && args[0].tbl) { dv = table_get_found_d(args[0].tbl, dk, &found); if (found) table_delete_d(args[0].tbl, dk); }
+        *out = found ? dv : NULVCL; return 1;
     }
     if ((!strcmp(fn, "hash_keys") || !strcmp(fn, "hash_values") || !strcmp(fn, "hash_pairs") || !strcmp(fn, "hash_kv")) && nargs >= 1) {
-        char what = fn[5] == 'k' ? 'k' : fn[5] == 'v' ? 'v' : fn[5] == 'p' ? 'p' : 'w';
-        if (fn[5] == 'k' && fn[6] == 'v') what = 'w';
-        size_t np = 1; for (const char *p = h; *p; p++) if (*p == SOH) np++;
-        size_t cap = np * 2; const char **tx = (const char **) rt_pvec_alloc(cap); size_t *ln = (size_t *) rt_wsb_alloc(cap * sizeof(size_t)); int c = 0;
-        const char *seg = h;
-        while (*seg) {
-            const char *nx   = strchr(seg, SOH);
-            size_t      plen = nx ? (size_t)(nx - seg) : strlen(seg);
-            const char *stx  = (const char *)memchr(seg, STX, plen);
-            if (stx) {
-                size_t klen = (size_t)(stx - seg); const char *vstart = stx + 1; size_t vlen = plen - klen - 1;
-                if (what == 'k' || what == 'w') { tx[c] = seg; ln[c] = klen; c++; }
-                if (what == 'v' || what == 'w') { tx[c] = vstart; ln[c] = vlen; c++; }
-                if (what == 'p') { char *pair = rt_wsb_alloc(klen + 1 + vlen + 1); memcpy(pair, seg, klen); pair[klen] = ':'; memcpy(pair + klen + 1, vstart, vlen); pair[klen + 1 + vlen] = '\0'; tx[c] = pair; ln[c] = klen + 1 + vlen; c++; }
-            }
-            if (!nx) break;
-            seg = nx + 1;
-        }
-        *out = rk_arr_of_texts(tx, ln, c); return 1;
+        int what = fn[5] == 'k' ? 'k' : fn[5] == 'v' ? 'v' : 'p'; if (fn[5] == 'k' && fn[6] == 'v') what = 'w';
+        *out = rk_hash_list(args[0], what); return 1;
     }
     return 0;
 }
-#undef STX
-#undef SOH
 static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
@@ -6527,38 +6526,6 @@ DESCR_t proc_as_value(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void out_write_str(FILE *dest, const char *s) {
     if (!s || !*s) return;
-    if (s[0] == '\x03') {
-        char flav = s[1];
-        const char *tname = (flav == 'a') ? "any" : (flav == 'l') ? "all" : (flav == 'o') ? "one" : "none";
-        fputs(tname, dest); fputc('(', dest);
-        const char *p = s + 2; int first = 1;
-        while (*p == '\x01') {
-            p++;
-            if (!first) fputs(", ", dest); first = 0;
-            if (*p == '\x03') {
-                int depth = 1; const char *start = p; p++;
-                while (*p && depth > 0) { if (*p == '\x03') depth++; else if (*p == '\x04') depth--; p++; }
-                size_t L = (size_t)(p - start);
-                char *mb = rt_wsb_alloc(L + 1); memcpy(mb, start, L); mb[L] = '\0';
-                out_write_str(dest, mb);
-            } else {
-                while (*p && *p != '\x01' && *p != '\x04') { fputc((unsigned char)*p, dest); p++; }
-            }
-        }
-        fputc(')', dest); return;
-    }
-    if (strchr(s, '\x01')) {
-        const char *p = s; int first = 1;
-        while (*p) {
-            const char *seg = p;
-            while (*p && *p != '\x01') p++;
-            if (!first) fputc(' ', dest);
-            fwrite(seg, 1, (size_t)(p - seg), dest);
-            first = 0;
-            if (*p == '\x01') p++;
-        }
-        return;
-    }
     fputs(s, dest);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6603,7 +6570,8 @@ static void out_write_descr(FILE *dest, DESCR_t av, int use_gist) {
     if (IS_CSET_fn(av)) { if (av.s) { int _kl = kw_cset_len(av.s); fwrite(av.s, 1, (_kl >= 0) ? (size_t)_kl : strlen(av.s), dest); } return; }
     if (av.v == (DTYPE_t)DT_PLREF || av.v == (DTYPE_t)DT_PLVAR) { extern void rt_pl_write_cell_fp(void *, FILE *); DESCR_t _pt = av; fflush(dest); rt_pl_write_cell_fp(plw_entry(&_pt), dest); return; }
     if (av.v == DT_DATA) { const char *s = rk_obj_stringify(av, use_gist); if (s) out_write_str(dest, s); return; }
-    if (av.v == DT_A && av.arr) { out_write_str(dest, rk_av_joined(rk_av(av), " ", "", "")); return; }
+    if (av.v == DT_A && av.arr) { out_write_str(dest, use_gist ? rk_gist_str(av) : rk_arr_text(av)); return; }
+    if (av.v == DT_T && av.tbl) { out_write_str(dest, use_gist ? rk_gist_str(av) : rk_tbl_text(av)); return; }
     const char *s = VARVAL_fn(av); if (s) out_write_str(dest, s);
 }
 #define _OPCOERCE(d) do { \

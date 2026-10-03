@@ -6,7 +6,8 @@
 # 2026-10-02 cfo: RAKU 94 -> 89, the census's own reading on origin 8fcebe744 as COO-272 reported it and on 302976d18 (not attributed by commit; the ratchet keeps the fall, CEO-1444's row). OTHER stays 0: the five SOH sites COO-272 attributed are ruled non-members with their reasons in NON_MEMBERS.tsv.
 # 2026-10-03 hq_raku: RAKU 89 -> 60, earned by the array-producer landing (row raku-arrays-lists-and-hashes-are-typed-storage-..., L2b: split/comb/words/lines, ranges, match-global, polymod, hash keys/values/pairs/kv and rt_make_flat_agg/push/unshift all build typed DT_A storage; the SOH reads of rk_iter and the hash string stay for their own steps).
 # 2026-10-03 hq_raku: RAKU 60 -> 57, earned by deleting the whole rk_iter mechanism (the C map/grep/reduce callback fallback: rk_iter_open, rk_iter_step, rk_iter_acc_append and the six functions around them, with bb_call_fn.cpp's bcfn_iter_open_enter arm; never opened across the ladder and 860 Raku area entries in both modes; the cto, CEO-985/CEO-1086).
+# 2026-10-03 hq_raku: RAKU 57 -> 4, earned by the whole-mechanism landing (row raku-arrays-lists-and-hashes-are-typed-storage-..., CEO-1479): a Hash is a typed table, a Pair and a Junction are marked DT_A, the List/Array/Slip marker rides in ARBLK.proto by address, the legacy rk_a_* readers, SOH and RK_A1 and rt_make_nested_agg and re_subst are DELETED, and the parser hands class traits and the substitution parts to the lowerer as tree children. The 4 that remain are RK_RX and RK_TY, in-band TYPE TAGS on a scalar (Regex and type objects), a different mechanism and its own row.
 PASCAL	0
-RAKU	57
+RAKU	4
 REGISTRY_KEY	0
 OTHER	0

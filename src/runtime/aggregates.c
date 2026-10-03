@@ -134,7 +134,7 @@ DESCR_t agg_prototype(DESCR_t v) {
     if (!(IS_ARR(v) && v.arr)) { core_runtime_error(164, "prototype argument is not valid object"); return FAILDESCR; }
     ARBLK_t *a = v.arr;
     char pb[64];
-    const char *p = a->proto;
+    const char *p = (a->proto && (a->proto[0] == '-' || (a->proto[0] >= '0' && a->proto[0] <= '9'))) ? a->proto : (const char *) 0;
     if (!p) {
         if (a->ndim > 1) snprintf(pb, sizeof pb, "%d,%d", a->hi - a->lo + 1, a->hi2 - a->lo2 + 1);
         else if (a->lo == 1) snprintf(pb, sizeof pb, "%d", a->hi);

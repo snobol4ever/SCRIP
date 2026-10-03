@@ -3854,7 +3854,7 @@ static void dump_puts(const char *s) { while (*s) dump_putc(*s++); }
 static void dump_putn(const char *s, long n) { for (long i = 0; i < n; i++) dump_putc(s[i]); }
 static int dump_is_null(DESCR_t d) { if (d.v == DT_SNUL || d.v == DT_FAIL) return 1; if (d.v == DT_S) return !d.s || (d.slen == 0 && d.s[0] == 0); return 0; }
 static const char *dump_arr_proto(const ARBLK_t *a, char *pb, int n) {
-    if (a->proto) return a->proto;
+    if (a->proto && (a->proto[0] == '-' || (a->proto[0] >= '0' && a->proto[0] <= '9'))) return a->proto;
     if (a->ndim > 1) snprintf(pb, (size_t)n, "%d,%d", a->hi - a->lo + 1, a->hi2 - a->lo2 + 1);
     else if (a->lo == 1) snprintf(pb, (size_t)n, "%d", a->hi);
     else snprintf(pb, (size_t)n, "%d:%d", a->lo, a->hi);

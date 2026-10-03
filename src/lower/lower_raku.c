@@ -118,6 +118,20 @@ static int64_t rk_binop_code(tree_e tt) {
     switch (tt) { case TT_ADD: return BINOP_ADD_BIG; case TT_SUB: return BINOP_SUB_BIG; case TT_MUL: return BINOP_MUL_BIG; default: return lc_binop_code(tt); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_to_array_call(const tree_t * rhs) {
+    tree_t * f = ast_node_new(TT_FNC); f->v.sval = (char *) "__rk_to_array"; ast_push(f, leaf_sval2(TT_VAR, "__rk_to_array")); ast_push(f, (tree_t *) rhs); return f;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_to_hash_call(const tree_t * rhs) {
+    tree_t * f = ast_node_new(TT_FNC); f->v.sval = (char *) "__rk_to_hash"; ast_push(f, leaf_sval2(TT_VAR, "__rk_to_hash")); ast_push(f, (tree_t *) rhs); return f;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * rk_assign_rhs(const char * vn, const tree_t * rhs) {
+    if (!vn || !rhs) return rhs;
+    if (vn[0] == '@') return rk_to_array_call(rhs);
+    if (vn[0] == '%') { if (rhs->t == TT_FNC && rhs->n > 0 && rhs->c[0] && rhs->c[0]->v.sval && !strcmp(rhs->c[0]->v.sval, "__rk_hash")) return rhs; return rk_to_hash_call(rhs); }
+    return rhs;
+}/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_yields_list(const tree_t * t) {
     if (!t) return 0;
     if (t->t == TT_FNC && t->n > 0 && t->c[0] && t->c[0]->v.sval) {
@@ -554,14 +568,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         int decl_only = t->c[1] && t->c[1]->t == TT_NUL && t->c[1]->v.ival == 1;
         IR_t * vtrace_call = NULL; IR_t * vtrace = (decl_only || t->v.ival == 1) ? NULL : trace_value_prep(cx, t->c[0]->v.sval, γ, ω, &vtrace_call);
         IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω); IR_LIT(nd).sval = t->c[0]->v.sval;
-        IR_t * rr = NULL; IR_t * e = lower_rv(cx, t->c[1], nd, ω, &rr); if (rr) ir_operand_push(nd, rr); if (rr && vtrace_call) ir_operand_push(vtrace_call, rr); *res = nd; return e; }
+        IR_t * rr = NULL; IR_t * e = lower_rv(cx, decl_only ? t->c[1] : rk_assign_rhs(t->c[0]->v.sval, t->c[1]), nd, ω, &rr); if (rr) ir_operand_push(nd, rr); if (rr && vtrace_call) ir_operand_push(vtrace_call, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_DECL: if (t->n > 1 && t->c[1] && t->c[1]->t == TT_VAR) {
         int loop_bind = t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "__decl");
         IR_t * vtrace_call = NULL; IR_t * vtrace = (t->n > 2 && t->c[2] && !loop_bind) ? trace_value_prep(cx, t->c[1]->v.sval, γ, ω, &vtrace_call) : NULL;
         IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω); IR_LIT(nd).sval = t->c[1]->v.sval;
-        IR_t * rr = NULL; IR_t * e; if (t->n > 2 && t->c[2]) { e = lower_rv(cx, t->c[2], nd, ω, &rr); }
-        else { IR_t * u = build(cx, IR_CALL, nd, ω); IR_LIT(u).sval = "__rk_undef"; rr = u; e = u; }
+        IR_t * rr = NULL; IR_t * e; if (t->n > 2 && t->c[2]) { e = lower_rv(cx, rk_assign_rhs(t->c[1]->v.sval, t->c[2]), nd, ω, &rr); }
+        else { IR_t * u = build(cx, IR_CALL, nd, ω); IR_LIT(u).sval = (t->c[1]->v.sval && t->c[1]->v.sval[0] == '%') ? "__rk_hash" : "__rk_undef"; rr = u; e = u; }
         if (rr) ir_operand_push(nd, rr); if (rr && vtrace_call) ir_operand_push(vtrace_call, rr); *res = nd; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_ARR_SET: if (t->n > 2 && t->c[0] && t->c[0]->t == TT_VAR) {
@@ -644,10 +658,6 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             const char * vn = t->c[1]->v.sval;
             IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
             IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_set_pure", 1, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
-        if (nm && !strcmp(nm, "hash_delete") && t->n > 1 && t->c[1] && (t->c[1]->t == TT_VAR || t->c[1]->t == TT_TWIGIL_FIELD)) {
-            const char * vn = t->c[1]->v.sval;
-            IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
-            IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_delete_pure", 1, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
         return lower_rcall(cx, t, nm, 1, γ, ω, res); }
     case TT_STMT: { const tree_t * sub = stmt_subj(t); return sub ? lower_rv(cx, sub, γ, ω, res) : (build(cx, IR_SUCCEED, γ, ω)); }
     case TT_IF: case TT_UNLESS: {
@@ -791,11 +801,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_set_pure", 0, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_HASH_EXISTS: return lower_rcall_bool(cx, t, "hash_exists", 0, γ, ω, res);
-    case TT_HASH_DELETE: if (t->n > 0 && t->c[0] && (t->c[0]->t == TT_VAR || t->c[0]->t == TT_TWIGIL_FIELD)) {
-        const char * vn = t->c[0]->t == TT_TWIGIL_FIELD ? t->c[0]->v.sval : (t->c[0]->n > 0 && t->c[0]->c[0] ? t->c[0]->c[0]->v.sval : t->c[0]->v.sval);
-        IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = vn;
-        IR_t * r2 = NULL; IR_t * e = lower_rcall(cx, t, "hash_delete_pure", 0, as, ω, &r2); if (r2) ir_operand_push(as, r2); *res = as; return e; }
-        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    case TT_HASH_DELETE: return lower_rcall(cx, t, "hash_delete", 0, γ, ω, res);
     case TT_TO: if (t->n > 1) { IR_t * to = build(cx, IR_TO, γ, ω); IR_LIT(to).sval = "ag";
         IR_t * rlo = NULL, * rhi = NULL;
         IR_t * elo = lower_rv(cx, t->c[0], NULL, ω, &rlo);
@@ -821,7 +827,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (mname) { IR_t * ie = rk_lower_iter_meth(cx, t, mname, γ, ω, res); if (ie) return ie; }
         if (mname && t->c[0] && t->c[0]->t == TT_VAR) {
             if (!strcmp(mname, "push") || !strcmp(mname, "unshift") || !strcmp(mname, "append") || !strcmp(mname, "prepend")) {
-                const char * fn = (!strcmp(mname, "push") || !strcmp(mname, "append")) ? "push_pure" : "unshift_pure";
+                const char * fn = !strcmp(mname, "push") ? "push_pure" : !strcmp(mname, "append") ? "append_pure" : !strcmp(mname, "unshift") ? "unshift_pure" : "prepend_pure";
                 IR_t * as = build(cx, IR_ASSIGN, γ, ω); IR_LIT(as).sval = t->c[0]->v.sval;
                 IR_t * r2 = NULL; IR_t * e = lower_rcall_skip1(cx, t, fn, as, ω, &r2); if (r2) ir_operand_push(as, r2);
                 *res = as; return e;
@@ -1054,30 +1060,30 @@ static void rk_register_classes(const tree_t * prog) {
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
         if (!d || d->t != TT_CLASS_DECL) continue;
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
-        const char * pname = d->v.sval;
-        if (cname && pname && *pname) {
-            char pbuf[8][64]; const char * pl[8]; int np = 0; char rbuf[8][64]; int nr = 0; const char * s = pname;
-            while (*s) { const char * nx = strchr(s, '\x01'); size_t L = nx ? (size_t)(nx - s) : strlen(s);
-                if (L >= 1) { char tag = s[0]; const char * nm = s + 1; size_t NL = L - 1; if (NL > 63) NL = 63;
-                    if (tag == 'i' && np < 8) { memcpy(pbuf[np], nm, NL); pbuf[np][NL] = '\0'; pl[np] = pbuf[np]; np++; }
-                    else if (tag == 'd' && nr < 8) { memcpy(rbuf[nr], nm, NL); rbuf[nr][NL] = '\0'; nr++; } }
-                if (!nx) break; s = nx + 1; }
+        const tree_t * tn = (d->n > 0) ? d->c[0] : NULL;
+        if (cname && tn && tn->n > 0) {
+            const char * pl[tn->n]; int np = 0; const char * rls[tn->n]; int nr = 0;
+            for (int ti = 0; ti < tn->n; ti++) {
+                const char * s = tn->c[ti] ? tn->c[ti]->v.sval : NULL;
+                if (!s || !s[0]) continue;
+                if (s[0] == 'i') pl[np++] = s + 1; else if (s[0] == 'd') rls[nr++] = s + 1;
+            }
             if (np > 0) class_inherit_multi(cname, pl, np);
             extern void class_compose_role(const char *child, const char *role);
-            for (int ri = 0; ri < nr; ri++) class_compose_role(cname, rbuf[ri]);
+            for (int ri = 0; ri < nr; ri++) class_compose_role(cname, rls[ri]);
             extern void rt_script_die_surface(const char *msg);
             const tree_t * cdecl = rk_find_type_decl(prog, cname);
             for (int ri = 0; ri < nr; ri++) {
-                const tree_t * rdecl = rk_find_type_decl(prog, rbuf[ri]); if (!rdecl) continue;
+                const tree_t * rdecl = rk_find_type_decl(prog, rls[ri]); if (!rdecl) continue;
                 for (int j = 1; j < rdecl->n; j++) {
                     const tree_t * ch = rdecl->c[j];
                     if (!ch || ch->t != TT_SUB_DECL || !rk_method_is_stub(ch)) continue;
                     const char * rm = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
                     if (!rm) continue;
                     int sat = rk_type_provides_real_method(cdecl, rm);
-                    for (int rj = 0; rj < nr && !sat; rj++) { const tree_t * od = rk_find_type_decl(prog, rbuf[rj]); if (rk_type_provides_real_method(od, rm)) sat = 1; }
+                    for (int rj = 0; rj < nr && !sat; rj++) { const tree_t * od = rk_find_type_decl(prog, rls[rj]); if (rk_type_provides_real_method(od, rm)) sat = 1; }
                     if (!sat) {
-                        char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rbuf[ri]); rt_script_die_surface(_m);
+                        char _m[256]; snprintf(_m, sizeof _m, "Method '%s' must be implemented by class %s because it is required by role %s", rm, cname, rls[ri]); rt_script_die_surface(_m);
                     }
                 }
             }

@@ -872,14 +872,14 @@ static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
 {
     extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
-    extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
+    extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
     int npc = p->nparams; rt_call_args_need(npc > nargs ? npc : nargs);
     if (p->is_variadic && npc > 0) {
         int fixed = npc - 1;
         for (int i = 0; i < fixed; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = (i < nargs) ? CALL_ARGS[i] : NULVCL;
         int rest = nargs - fixed; if (rest < 0) rest = 0;
         DESCR_t *tail = rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0;
-        *(DESCR_t *)(fb + 16 * (fixed + 1)) = (p->rest_kind == 2) ? rt_make_nested_agg(tail, rest) : p->rest_kind ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
+        *(DESCR_t *)(fb + 16 * (fixed + 1)) = (p->rest_kind == 2) ? rt_make_item_agg(tail, rest) : p->rest_kind ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
         return;
     }
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = CALL_ARGS[i];
@@ -1834,11 +1834,11 @@ static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn)
     { int _np = p->nparams; rt_call_args_need(_np > nargs ? _np : nargs); for (int i = nargs; i < _np; i++) CALL_ARGS[i] = NULVCL; }
     { static int _va = -1; if (_va < 0) { const char *_e = getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
       if (_va && p->is_variadic && p->jmp_entry) {
-        extern DESCR_t rt_make_list(DESCR_t *args, int nargs); extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs); extern DESCR_t rt_make_nested_agg(DESCR_t *args, int nargs);
+        extern DESCR_t rt_make_list(DESCR_t *args, int nargs); extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs); extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
         int npc = p->nparams;
         if (npc > 0) { int fixed = npc - 1; int rest = nargs - fixed; if (rest < 0) rest = 0;
             for (int i = nargs; i < fixed; i++) CALL_ARGS[i] = NULVCL;
-            DESCR_t _tail = (p->rest_kind == 2) ? rt_make_nested_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
+            DESCR_t _tail = (p->rest_kind == 2) ? rt_make_item_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
             CALL_ARGS[fixed] = _tail; } } }
 #if RT_DIAG
     { int own = p->is_generator ? 0 : 1; rt_lvl_open(own); if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_stno); } }
