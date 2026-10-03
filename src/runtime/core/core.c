@@ -2665,11 +2665,12 @@ extern DESCR_t pat_fence_p(DESCR_t);
 extern DESCR_t pat_flush(void);
 extern int pat_is_bare_flush(DESCR_t d);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _PAT_SPAN_(DESCR_t *a, int n)    { return n>=1 ? pat_span(rt_cstr_d(a[0]))    : FAILDESCR; }
-static DESCR_t _PAT_BREAK_(DESCR_t *a, int n)   { return n>=1 ? pat_break_(rt_cstr_d(a[0]))  : FAILDESCR; }
-static DESCR_t _PAT_BREAKX_(DESCR_t *a, int n)  { return n>=1 ? pat_breakx(rt_cstr_d(a[0]))  : FAILDESCR; }
-static DESCR_t _PAT_ANY_(DESCR_t *a, int n)     { return n>=1 ? pat_any_cs(rt_cstr_d(a[0]))  : FAILDESCR; }
-static DESCR_t _PAT_NOTANY_(DESCR_t *a, int n)  { return n>=1 ? pat_notany(rt_cstr_d(a[0]))  : FAILDESCR; }
+int pat_cset_arg_ok(int code, DESCR_t a);
+static DESCR_t _PAT_SPAN_(DESCR_t *a, int n)    { return n>=1 && pat_cset_arg_ok(188, a[0]) ? pat_span(rt_cstr_d(a[0]))    : FAILDESCR; }
+static DESCR_t _PAT_BREAK_(DESCR_t *a, int n)   { return n>=1 && pat_cset_arg_ok(69, a[0])  ? pat_break_(rt_cstr_d(a[0]))  : FAILDESCR; }
+static DESCR_t _PAT_BREAKX_(DESCR_t *a, int n)  { return n>=1 && pat_cset_arg_ok(70, a[0])  ? pat_breakx(rt_cstr_d(a[0]))  : FAILDESCR; }
+static DESCR_t _PAT_ANY_(DESCR_t *a, int n)     { return n>=1 && pat_cset_arg_ok(59, a[0])  ? pat_any_cs(rt_cstr_d(a[0]))  : FAILDESCR; }
+static DESCR_t _PAT_NOTANY_(DESCR_t *a, int n)  { return n>=1 && pat_cset_arg_ok(151, a[0]) ? pat_notany(rt_cstr_d(a[0]))  : FAILDESCR; }
 static DESCR_t _PAT_LEN_(DESCR_t *a, int n)     { return n>=1 ? pat_len(to_int(a[0]))   : FAILDESCR; }
 static DESCR_t _PAT_POS_(DESCR_t *a, int n)     { return n>=1 ? pat_pos(to_int(a[0]))   : FAILDESCR; }
 static DESCR_t _PAT_RPOS_(DESCR_t *a, int n)    { return n>=1 ? pat_rpos(to_int(a[0]))  : FAILDESCR; }

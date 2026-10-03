@@ -239,6 +239,11 @@ DESCR_t pat_epsilon(void) {
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pat_cset_code(int tt) { return tt == TT_ANY ? 59 : tt == TT_NOTANY ? 151 : tt == TT_SPAN ? 188 : tt == TT_BREAK ? 69 : tt == TT_BREAKX ? 70 : 0; }
+int pat_cset_arg_ok(int code, DESCR_t a) {
+    extern int rt_coerce_str_d(const DESCR_t *, DESCR_t *, long); DESCR_t o;
+    if (!code || a.v == DT_E) return 1;
+    return !rt_coerce_str_d(&a, &o, (long)code | ((long)code << 16)); }
 DESCR_t pat_mk_cset(int tt, const char *cs) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, cs ? cs : "", cs ? (uint32_t)strlen(cs) : 0, 0, 0, 0)); return v; }
 DESCR_t pat_mk_num(int tt, int64_t n) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, n, 0, 0)); return v; }
 DESCR_t pat_mk_nil(int tt) { DESCR_t v = {0}; v.v = DT_P; v.slen = 0; v.p = (void *)dtp_new((void *)0, rcp_node(tt, 0, 0, 0, 0, 0)); return v; }

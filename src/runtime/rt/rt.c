@@ -234,20 +234,21 @@ static const char * rt_coerce_errmsg(int code) {
     default:  return "pattern primitive argument coercion failed"; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
+const char * rt_coerce_errtext(int code) { return rt_coerce_errmsg(code); }
+int rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int tc = (int)(codes & 0xffff);
     int nc = (int)((codes >> 16) & 0xffff);
     DESCR_t v = *in;
-    if (v.v == DT_S && v.s) { uint32_t n = (v.slen != 0xFFFFFFFFu) ? v.slen : (uint32_t)__builtin_strlen(v.s); if (n) { *out = v; out->slen = n; return; } }
-    if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return; }
-    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = descr_cstrlen(v.s); return; }
+    if (v.v == DT_S && v.s) { uint32_t n = (v.slen != 0xFFFFFFFFu) ? v.slen : (uint32_t)__builtin_strlen(v.s); if (n) { *out = v; out->slen = n; return 0; } }
+    if (v.v == DT_S || v.v == DT_SNUL) { if (nc) core_runtime_error(nc, rt_coerce_errmsg(nc)); out->v = DT_S; out->s = (char *)""; out->slen = 0; return nc != 0; }
+    if (v.v == DT_N && v.slen == 0 && v.s) { out->v = DT_S; out->s = v.s; out->slen = descr_cstrlen(v.s); return 0; }
     if (v.v == DT_I || v.v == DT_R) {
         char *s = VARVAL_fn(v);
         if ((!s || !s[0]) && nc) core_runtime_error(nc, rt_coerce_errmsg(nc));
-        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = descr_cstrlen(out->s); return; }
+        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = descr_cstrlen(out->s); return (!s || !s[0]) && nc; }
     if (tc) core_runtime_error(tc, rt_coerce_errmsg(tc));
-    out->v = DT_S; out->s = (char *)""; out->slen = 0;
+    out->v = DT_S; out->s = (char *)""; out->slen = 0; return tc != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal) {

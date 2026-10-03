@@ -121,6 +121,7 @@ static int sno_pe_patname(const char * s) {
     return s && (!strcmp(s, "ARB") || !strcmp(s, "BAL") || !strcmp(s, "REM") || !strcmp(s, "FAIL") || !strcmp(s, "SUCCEED") || !strcmp(s, "ABORT") || !strcmp(s, "FENCE"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pe_csetcode(tree_e k) { return k == TT_ANY ? 59 : k == TT_NOTANY ? 151 : k == TT_SPAN ? 188 : k == TT_BREAK ? 69 : k == TT_BREAKX ? 70 : 0; }
 static int sno_pe_patfn(tree_e k) {
     return k == TT_ANY || k == TT_NOTANY || k == TT_SPAN || k == TT_BREAK || k == TT_BREAKX || k == TT_LEN || k == TT_POS || k == TT_RPOS || k == TT_TAB || k == TT_RTAB || k == TT_ARBNO
         || k == TT_FENCE;
@@ -196,7 +197,10 @@ static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
     default:
         if (t->t != TT_ALT && !sno_pe_patfn(t->t)) break;
         for (k = 0, all = 1; k < t->n; k++) all = sno_pe_walk(t->c[k], &a, e) && all;
-        if (!all || e->code) return 0; *v = (DESCR_t){ .v = DT_P }; return 1;
+        if (!all || e->code) return 0;
+        { int pc = sno_pe_csetcode(t->t); extern const char * rt_coerce_errtext(int);
+          if (pc && t->n == 1 && (IS_NULL_fn(a) || a.v == DT_P)) { e->code = pc; e->msg = rt_coerce_errtext(pc); return 0; } }
+        *v = (DESCR_t){ .v = DT_P }; return 1;
     }
     for (k = 0; k < t->n; k++) sno_pe_walk(t->c[k], &a, e);
     return 0;
@@ -2194,7 +2198,10 @@ static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * �
     IR_t * last = nl;
     for (int api = 0; api < tx.npre; api++) {
         IR_t * av = NULL; IR_t * ae = sx_lower(cx, tx.pre[api].arg, NULL, ω, &av);
-        lc_γ_to(last, ae); ir_operand_push(mk, av); last = av;
+        lc_γ_to(last, ae); last = av;
+        if (tx.pre[api].str && tx.pre[api].codes) { IR_t * co = lc_build(g, IR_COERCE_STRING, NULL, ω); IR_LIT(co).ival = tx.pre[api].codes;
+            lc_γ_to(av, co); ir_operand_push(co, av); last = co; }
+        ir_operand_push(mk, last);
     }
     lc_γ_to(last, mk);
     if (res) *res = mk;
