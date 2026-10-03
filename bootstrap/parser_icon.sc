@@ -314,11 +314,12 @@ CaseGray     = (*White | epsilon);
 CaseClause   = ( *CaseGray *Expr *CaseGray *$':' *Expr *CaseGray . *IncCounter() . *IncCounter() );
 CaseDefault  = ( *CaseGray *$'default' . *Reduce('TT_NUL', 0) . *IncCounter() *CaseGray *$':' *Expr *CaseGray . *IncCounter() );
 CaseItem     = FENCE(*CaseDefault | *CaseClause);
+CaseTail     = ( *$';' *CaseItem *CaseTail | epsilon );
 Case         = ( *$'case' *Case_rest );
 Case_rest        = ( epsilon . *PushCounter()
                   *$' ' *Expr  . *IncCounter()
                  *$'of' *CaseGray *$'{' *CaseGray
-                 FENCE( *CaseItem ARBNO( *$';' *CaseItem ) | epsilon )
+                 FENCE( *CaseItem *CaseTail | epsilon )
                  *CaseGray *$'}'
                  . *Reduce('TT_CASE', nTop())
                  . *PopCounter()
