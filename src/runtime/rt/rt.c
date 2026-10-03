@@ -544,7 +544,7 @@ int rt_ab_enter_env(void *frame)
     char *fb = (char *)frame;
     *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
     *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
-    *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0;
+    *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0; rt_g_ret_by_name = 0;
     rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
     return 0;
 }

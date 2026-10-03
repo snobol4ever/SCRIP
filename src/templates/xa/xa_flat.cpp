@@ -376,9 +376,9 @@ static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, 
 static int xa_flat_wn_park(const char * fname) { return !g_rt_fragment_emit && fname && fname[0] && !strchr(fname, '$') && strncmp(fname, "LBL__", 5) != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_wn_park_str(int kt, const char * fname) {
-    extern int rt_g_want_name;
+    extern int rt_g_want_name; extern int rt_g_ret_by_name;
     if (!xa_flat_wn_park(fname)) return std::string();
-    return x86("comment", "name request rides THIS activation (HQV-12 protocol): park rt_g_want_name in write-only [kt-16], zero it")
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name") + x86("mov", RDD("rax", 0), (long)0)
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", "edx", RDD("rax", 0))
          + x86("mov", RDQ("rsp", kt - 16), "rdx")
