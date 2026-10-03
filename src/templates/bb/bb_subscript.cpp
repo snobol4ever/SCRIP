@@ -34,6 +34,10 @@ static std::string sub_lvck_res(void) {
          + sub_lvck_ld("rax", 0, 8)
          + (_.op_zres ? x86("note", ZRESN()) + x86("mov", ZRES(8), "rax") : x86("mov", FRQ(_.op_off + 8), "rax"));
 }
+static std::string sub_lvck_keep(void) {
+    return (_.op_zres ? x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") : x86("mov", FRQ(_.op_off), "rax"))
+         + (_.op_zres ? x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx") : x86("mov", FRQ(_.op_off + 8), "rdx"));
+}
 static std::string bb_subscript_lv_check(void) {
     if (!_.op_zres && (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0)) return x86_alpha() + x86_bomb("bb_subscript lv-check: needs own slot + base/index operand slots");
     return x86("comment", "IR_SUBSCRIPT x[i] lv-check: the subject's subscript fails or errs before the object runs; passes the base through")
@@ -77,6 +81,7 @@ static std::string bb_subscript_lv_check(void) {
          + x86("call",    sub_lvck_sym(), SUB_LVCK_FN())
          + x86("cmp",     "al", (long)DT_FAIL)
          + x86_omega("je")
+         + sub_lvck_keep()
          + x86_rt_gc_poll()
          + x86("def", L(2))
          + sub_lvck_res()

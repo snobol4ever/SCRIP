@@ -121,9 +121,9 @@ src/templates/bb/bb_scan_match.cpp:32:rt_scan_needle	src/templates/bb/bb_scan_ma
 src/templates/bb/bb_section.cpp:28:rt_section_var_strict/rt_section_var	src/templates/bb/bb_section.cpp:33	hb_concat_augmented_then_subscript.icn
 src/templates/bb/bb_section.cpp:45:subscript_get2_ext_strict/subscript_get2_ext	src/templates/bb/bb_section.cpp:50	UNWITNESSED
 src/templates/bb/bb_section.cpp:61:subscript_get2_strict/subscript_get2	src/templates/bb/bb_section.cpp:66	hb_dvec_list_slice.icn
-src/templates/bb/bb_subscript.cpp:77:rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:80	hb_arena_grow.sno
-src/templates/bb/bb_subscript.cpp:99:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:106	hb_arena_grow.sno
-src/templates/bb/bb_subscript.cpp:118:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:123	hb_icn_errorvalue_keyword.icn
+src/templates/bb/bb_subscript.cpp:81:rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:85	hb_arena_grow.sno
+src/templates/bb/bb_subscript.cpp:104:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:111	hb_arena_grow.sno
+src/templates/bb/bb_subscript.cpp:123:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:128	hb_icn_errorvalue_keyword.icn
 src/templates/bb/bb_subscript2.cpp:31:c_rt_subscript_var2_lv/c_rt_subscript_var2	src/templates/bb/bb_subscript2.cpp:38	hb_dvec_data_convert.sno
 src/templates/bb/bb_subscript2.cpp:51:c_rt_subscript_var2_lv/c_rt_subscript_var2	src/templates/bb/bb_subscript2.cpp:56	UNWITNESSED
 src/templates/bb/bb_suspend.cpp:34:rt_trace_suspend_hook	src/templates/bb/bb_suspend.cpp:36	hb_icn_a_suspended_scan_reenters_twenty_four_levels_deep.icn
