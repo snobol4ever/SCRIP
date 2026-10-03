@@ -828,17 +828,6 @@ __asm__(
 "  movq 232(%rax), %r12\n"
 "  movq %rdx, %rsp\n"
 "  jmp *%rcx\n"
-".globl rt_setexit_take\n"
-"rt_setexit_take:\n"
-"  popq %rdx\n"
-"  movq rtccb@GOTPCREL(%rip), %rcx\n"
-"  movq 200(%rcx), %rax\n"
-"  movq $0, 200(%rcx)\n"
-"  movq %rdx, 208(%rcx)\n"
-"  movq %rsp, 216(%rcx)\n"
-"  movq %rbp, 224(%rcx)\n"
-"  movq %r12, 232(%rcx)\n"
-"  jmp *%rax\n"
 );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t code_at(const char *src, long base);

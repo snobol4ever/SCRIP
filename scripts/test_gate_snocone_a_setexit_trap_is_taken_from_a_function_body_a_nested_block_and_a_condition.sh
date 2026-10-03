@@ -14,7 +14,7 @@
 #   (4) a test inside a planned spine run sits above the statement base -- zd_k counted the test as a 16-byte push, and a
 #       nested test sits over its enclosing statement's records -- so the trap entered a statement-level handler label with
 #       rsp too deep; inside a function, whose frame is rsp-relative, the handler's return jumped through a wrong slot. The
-#       test now drops to the statement base before rt_setexit_take and restores its depth on the CONTINUE return.
+#       test now drops to the statement base before the take sequence and restores its depth on the CONTINUE return.
 # A Snocone goto CONTINUE / SCONTINUE / ABORT compiles to the deferred goto SNOBOL4 uses (it was a compile-time fatal).
 # A block statement's test sits where its success and failure edges join, ahead of the next statement: on the failure edge
 # alone it was reached only from non-test ops, so zd_plan gave it no run and the join cut walled the block there, leaving the

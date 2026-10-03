@@ -14,7 +14,7 @@ JUMPS INDIRECTLY (jmp *%reg) -- that instruction IS the entry into the box.  A b
 symbol is a trampoline and is not a member (eval_chain_enter_only is the live example).  A hard-coded roster of
 seven would be a criterion keyed on a list, and the list would drift the first time a shim was added.
 ⛔ AN INDIRECT JUMP THAT SAVES NOTHING IS A TRAMPOLINE TOO (cfo 2026-10-02, on the coo's red at 408a3f0c0): the
-SETEXIT continuation (rt_setexit_continue_tramp) and the trap stub (rt_setexit_take) jump indirectly into emitted
+SETEXIT continuation (rt_setexit_continue_tramp) and, until CEO-1468 put it back inline, the trap stub (rt_setexit_take) jump indirectly into emitted
 code from state recorded in rtccb, but push no register and carve no stack, so they leave no word for the walker
 to read, tagged or raw.  A block with an indirect jmp and no pushq, no rsp adjustment and no store of a callee-saved
 register through rsp or rbp (the cto's review: a mov of r13 into an existing frame slot is a save too) is printed as a
