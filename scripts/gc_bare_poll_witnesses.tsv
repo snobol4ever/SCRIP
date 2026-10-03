@@ -54,8 +54,8 @@ src/templates/bb/bb_coerce_integer.cpp:32:rt_coerce_int_d	src/templates/bb/bb_co
 src/templates/bb/bb_coerce_numeric.cpp:44:rt_coerce_num2_d	src/templates/bb/bb_coerce_numeric.cpp:45	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_coerce_numeric.cpp:75:rt_coerce_num2_d	src/templates/bb/bb_coerce_numeric.cpp:76	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/bb/bb_coerce_real.cpp:20:rt_coerce_real_d	src/templates/bb/bb_coerce_real.cpp:21	UNWITNESSED
-src/templates/bb/bb_coerce_string.cpp:40:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:41	UNWITNESSED
-src/templates/bb/bb_coerce_string.cpp:54:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:55	UNWITNESSED
+src/templates/bb/bb_coerce_string.cpp:47:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:49	UNWITNESSED
+src/templates/bb/bb_coerce_string.cpp:62:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:64	UNWITNESSED
 src/templates/bb/bb_cofail.cpp:15:scrip_cofail	src/templates/bb/bb_cofail.cpp:16	hb_coexpr_refresh.icn
 src/templates/bb/bb_coret.cpp:28:scrip_coret	src/templates/bb/bb_coret.cpp:32	hb_coexpr_refresh.icn
 src/templates/bb/bb_define.cpp:156:rt_define_site	src/templates/bb/bb_define.cpp:157	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno

@@ -26,14 +26,12 @@ static std::string coerce_string_fast(void) {
          + x86("def",  L(21));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string coerce_string_raised(void) {
-    return IF(_.op_ival != 0,
-               x86("test", "eax", "eax")
-             + x86("jz",   L(24))
-             + x86_rt_gc_poll()
-             + x86_omega()
-             + x86("def",  L(24)));
-}
+#define COERCE_RAISED() IF(_.op_ival != 0, \
+                            x86("test", "eax", "eax") \
+                          + x86("jz",   L(24)) \
+                          + x86_rt_gc_poll() \
+                          + x86_omega() \
+                          + x86("def",  L(24)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_string() {
     x86_begin();
@@ -47,7 +45,7 @@ std::string bb_coerce_string() {
              + coerce_string_fast()
              + x86("mov",  "rdx", (long)_.op_ival)
              + x86("call", "rt_coerce_str_d", (uint64_t)(uintptr_t)(void *)rt_coerce_str_d)
-             + coerce_string_raised()
+             + COERCE_RAISED()
              + x86_rt_gc_poll()
              + x86("def",  L(22))
              + x86_gamma()
@@ -62,7 +60,7 @@ std::string bb_coerce_string() {
            + coerce_string_fast()
            + x86("mov",  "rdx", (long)_.op_ival)
            + x86("call", "rt_coerce_str_d", (uint64_t)(uintptr_t)(void *)rt_coerce_str_d)
-           + coerce_string_raised()
+           + COERCE_RAISED()
            + x86_rt_gc_poll()
            + x86("def",  L(22))
            + x86_gamma()
