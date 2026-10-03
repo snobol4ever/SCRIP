@@ -1335,22 +1335,22 @@ static void rt_genp_destroy(rt_genp_s *g)
 static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t out2[2], void **hout)
 {
     DESCR_t r;
-    if (!ok || g->done == 2) { if (hout) rt_hslot_set(hout, (void *)0); rt_genp_destroy(g); return FAILDESCR; }
+    if (!ok || g->done == 2) { if (hout) *hout = (void *)0; rt_genp_destroy(g); return FAILDESCR; }
     memcpy(&r, out2, 16);
-    if (g->done == 1) { if (hout) rt_hslot_set(hout, (void *)0); rt_genp_destroy(g); return r; }
-    if (hout) rt_hslot_set(hout, (void *)g);
+    if (g->done == 1) { if (hout) *hout = (void *)0; rt_genp_destroy(g); return r; }
+    if (hout) *hout = (void *)g;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 {
     rt_proc_t *p = rt_proc_find(name);
-    if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) rt_hslot_set(hout, (void *)0); return FAILDESCR; }
+    if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
     if (p->is_generator) {
         uint64_t cregs[5];
         __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
         rt_genp_s *g = (rt_genp_s *)ct_zalloc(1, sizeof *g);
-        if (!g) { if (hout) rt_hslot_set(hout, (void *)0); return FAILDESCR; }
+        if (!g) { if (hout) *hout = (void *)0; return FAILDESCR; }
         memcpy(g->regs, cregs, sizeof cregs);
         g->nargs = nargs < 0 ? 0 : nargs; rt_call_args_need(g->nargs);
         g->args = (DESCR_t *)rt_ws_alloc_descr((size_t)(g->nargs > 0 ? g->nargs : 1));
@@ -1370,29 +1370,29 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
     }
     if (p->jmp_entry) {
         long fb2 = rt_proc_call_open(name, nargs);
-        if (!fb2) { if (hout) rt_hslot_set(hout, (void *)0); return FAILDESCR; }
-        if (hout) rt_hslot_set(hout, (void *)0);
+        if (!fb2) { if (hout) *hout = (void *)0; return FAILDESCR; }
+        if (hout) *hout = (void *)0;
 #if RT_DIAG
         rt_c2bb_hit("gen_h.enter", name);
 #endif
         return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L);
     }
-    if (hout) rt_hslot_set(hout, (void *)0);
+    if (hout) *hout = (void *)0;
     core_runtime_error(287, "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, then delete the C code NOW'; CEO-1086 deleted the identical shape from rt_call_proc_descr; CEO-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile-time frame map describes). It alloca'd the frame on the C STACK, called p->fn through a member function pointer, and read the result back out of the C frame after the box returned -- so C survived the transition and the answer came back through C. It cannot become return-the-target while written that way: a C-stack frame cannot outlive a tail jump. TRACED ZERO IN ALL SEVEN LANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by the ceo's own SnoRungs sweep; the 1039 transitions those control arms did raise were all genp.spine.n2, the sanctioned coroutine start. Reachability is ALSO analytic: this arm needs fn set AND jmp_entry clear, and jmp_entry is cleared only for a caller_frame graph or a gram__ name, and gram__ procedures are never registered at all. This error is the row, not a regression.");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_drop_frame_h(void **hslot)
 {
-    void *frame = hslot ? rt_hslot_get(hslot) : (void *)0;
+    void *frame = hslot ? *hslot : (void *)0;
     if (!frame) return;
     { rt_genp_s *g = rt_genp_lookup(frame); if (g) rt_genp_destroy(g); }
-    rt_hslot_set(hslot, (void *)0);
+    *hslot = (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_resume_frame_h(void **hslot)
 {
-    void *frame = hslot ? rt_hslot_get(hslot) : (void *)0;
+    void *frame = hslot ? *hslot : (void *)0;
     if (!frame) return FAILDESCR;
     { rt_genp_s *g = rt_genp_lookup(frame);
       if (g) {
@@ -1405,7 +1405,7 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
           rt_k_level--; rt_k_level_mirror();
           return rt_genp_triage(g, ok, out2, hslot);
       } }
-    if (hslot) rt_hslot_set(hslot, (void *)0);
+    if (hslot) *hslot = (void *)0;
     return FAILDESCR;
 }
 typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;

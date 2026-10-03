@@ -130,7 +130,7 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86_lea_id("rax", 2)
          + x86("mov", FRQ(kt - 24), "rax")
          + x86_lea_id("rax", 3)
-         + x86_raw_pack("rax") + x86("mov", FRQ(kt - 16), "rax")
+         + x86("mov", FRQ(kt - 16), "rax")
          + IF(anchor >= 0, x86("mov", FRQ(anchor), "rsp"))
          + FOR(0, np, [&](int i) { return x86("mov", FRQ(16 + 8 * i), argreg[i]); })
          + x86("mov", "rdi", "rsp")
@@ -237,7 +237,7 @@ static std::string xa_flat_zframe_prologue_str(void) {
     std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller____ + pin ___=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
-         + x86_raw_pack("rdx") + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx") + x86_raw_unpack("rdx")
+         + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
          + (x86_fb_pinned()
             ? ( x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
              + x86("mov", x86_fb(), "rsp")
@@ -381,7 +381,7 @@ static std::string xa_flat_wn_park_str(int kt, const char * fname) {
     return x86("comment", "name request rides THIS activation (HQV-12 protocol): park rt_g_want_name in write-only [kt-16], zero it")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", "edx", RDD("rax", 0))
-         + x86_raw_pack("rdx") + x86("mov", RDQ("rsp", kt - 16), "rdx")
+         + x86("mov", RDQ("rsp", kt - 16), "rdx")
          + x86("mov", RDD("rax", 0), (long)0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -391,7 +391,7 @@ static std::string xa_flat_wn_restore_str(int kt, const char * fname) {
     return x86("comment", "name request: put the parked request back so the call site's by-name consult reads THIS call's")
          + x86("push", "rax")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
-         + x86("mov", "rcx", RDQ("rsp", kt - 16 + 8)) + x86_raw_unpack("rcx")
+         + x86("mov", "rcx", RDQ("rsp", kt - 16 + 8))
          + x86("mov", RDD("rax", 0), "ecx")
          + x86("pop", "rax");
 }
@@ -410,7 +410,7 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
     std::string s = x86("comment", "CLASS-C chain prologue (s114): carve kt + park {γ,ω} at [kt-24]/[kt-16] + save caller ___ at [kt-8]; ___ NOT pinned")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
-         + x86_raw_pack("rdx") + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx") + x86_raw_unpack("rdx")
+         + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
          + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
          + xa_flat_wn_park_str(kt, fname);
     int nf = 0, nsave = 0; int gk[29];
@@ -645,14 +645,14 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("pop", "rcx")
              + x86("jmp", "rcx");
     if (x86_fb_pinned())
-        return  x86("mov", "rcx", RDQ(x86_fb(), kt - 16)) + x86_raw_unpack("rcx")
+        return  x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_fb(), kt - 40))
              + zf_release(kt)
              + zf_pin_restore(kt)
              + x86("jmp", "rcx");
     return x86("comment", "ICN-FR-2 zframe epilogue-ω: load ω wire from [kt-16]; unwind to flat base; jmp. NOTE: no caller-base restore happens here — the [kt-8] slot is "
                           "WRITE-ONLY on every arm that fills it (s247)")
-         + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]") + x86_raw_unpack("rcx")
+         + x86("mov", "rcx", "qword ptr [rsp# + " + std::to_string(kt - 16) + "]")
          + zf_display_restore(kt)
          + zf_release(kt)
          + zf_pin_restore(kt)
