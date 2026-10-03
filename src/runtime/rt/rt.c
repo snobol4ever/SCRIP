@@ -1703,6 +1703,23 @@ __asm__(
 "  movq %rsi, %r9\n"
 "  leaq 2f(%rip), %rcx\n"
 "  leaq 3f(%rip), %rdx\n"
+"  pushq %rdx\n"
+"  pushq %rcx\n"
+RT_ACT_RECORD_ASM
+"  testq %r9, %r9\n"
+"  jz 6f\n"
+"  movq %r9, %rcx\n"
+"  shlq $4, %rcx\n"
+"  subq %rcx, %rsp\n"
+"  pushq %rcx\n"
+"  leaq 8(%rsp), %rdi\n"
+"  movq g_call_args@GOTPCREL(%rip), %rsi\n"
+"  movq (%rsi), %rsi\n"
+"  shrq $3, %rcx\n"
+"  rep movsq\n"
+"  popq %rcx\n"
+"  leaq 2f(%rip), %rcx\n"
+"6:\n"
 "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
 "  cmpb $0, (%r10)\n"
 "  je 4f\n"
@@ -1714,27 +1731,6 @@ __asm__(
 "  movq 48(%r10), %r9\n"
 "  movq 56(%r10), %r10\n"
 "4:\n"
-"  pushq %rdx\n"
-"  pushq %rcx\n"
-RT_ACT_RECORD_ASM
-"  testq %r9, %r9\n"
-"  jz 6f\n"
-"  movq %r9, %rcx\n"
-"  shlq $4, %rcx\n"
-"  subq %rcx, %rsp\n"
-"  pushq %rcx\n"
-"  pushq %rdi\n"
-"  pushq %rsi\n"
-"  leaq 24(%rsp), %rdi\n"
-"  movq g_call_args@GOTPCREL(%rip), %rsi\n"
-"  movq (%rsi), %rsi\n"
-"  shrq $3, %rcx\n"
-"  rep movsq\n"
-"  popq %rsi\n"
-"  popq %rdi\n"
-"  popq %rcx\n"
-"  leaq 2f(%rip), %rcx\n"
-"6:\n"
 "  jmp *%rax\n"
 "2:\n"
 "  addq $16, %rsp\n"
@@ -2047,7 +2043,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 #if RT_DIAG
     rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
 #endif
-    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn, 0L) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
+    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name)

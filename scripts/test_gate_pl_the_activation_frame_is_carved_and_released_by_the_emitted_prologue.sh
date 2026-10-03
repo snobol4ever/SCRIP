@@ -113,6 +113,17 @@ for w in w_det w_nondet w_tail w_refused w_meta; do
         else echo "  RED $w $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-200)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')] want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-120)]"; red=$((red+1)); fi
     done
 done
+printf 'my $f = -> $x { $x + 1 }; say $f(1);\n' > "$TMPD/w_blk.raku"
+for mode in m3 m4; do
+    if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" w_blk.raku </dev/null 2>"$TMPD/err")"; rc=$?
+    else
+        timeout 120 "$SCRIP" --compile -o "$TMPD/w_blk.s" "$TMPD/w_blk.raku" </dev/null 2>"$TMPD/err" || { echo "  RED w_blk $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
+        gcc -m64 -no-pie "$TMPD/w_blk.s" -o "$TMPD/w_blk.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  RED w_blk $mode: the assembler or linker refused"; red=$((red+1)); continue; }
+        got="$(cd "$TMPD" && timeout 60 ./w_blk.bin </dev/null 2>"$TMPD/err")"; rc=$?
+    fi
+    if [ "$rc" = 0 ] && [ "$got" = 2 ]; then echo "  ok  w_blk $mode: a non-pinned callee entered by name through rt_proc_enter (hq_raku's stored-block witness, 2026-10-03)"
+    else echo "  RED w_blk $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-120)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')] want [2] -- rt_proc_enter's nargs must survive the rtcc register loads"; red=$((red+1)); fi
+done
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }
 echo "GATE PASS [$GATE_NAME]: nrev.pl's mode-4 text calls none of the six frame helpers, and the five witnesses (det chain, nondet resume, inline tail path, refused tail, meta-call) match swipl in both modes"
 exit 0
