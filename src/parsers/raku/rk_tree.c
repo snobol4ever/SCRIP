@@ -827,6 +827,12 @@ static const char *const *const lv_ops[] = { lv_mul, lv_addsub, lv_repl, lv_cat,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rkb_op_index(int lv, const char *op) { if (!op) return -1; for (int i = 0; lv_ops[lv][i]; i++) if (!strcmp(lv_ops[lv][i], op)) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rkb_op_index_rev(int lv, const char *op, int *rev) {
+    int k = rkb_op_index(lv, op); *rev = 0;
+    if (k < 0 && op && op[0] == 'R' && op[1]) { k = rkb_op_index(lv, op + 1); if (k >= 0) *rev = 1; }
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rkb_compound_base(const char *op, int *lv, int *k) {
     static const int lvs[] = { LV_MUL, LV_ADDSUB, LV_REPL, LV_CAT, LV_DOR, LV_JCT, LV_DIVIS, LV_AND, LV_OR, LV_POW };
     size_t n = op ? strlen(op) : 0;

@@ -44,6 +44,7 @@ RkEl    *rkb_list_el(RkList *L);
 void     rkb_list_end(RkList *L);
 void     rkb_pend(RkEl *e, tree_t *ph, RkDecl *d);
 int      rkb_op_index(int lv, const char *op);
+int      rkb_op_index_rev(int lv, const char *op, int *rev);
 tree_t  *rkb_binop(RkB *b, int lv, int k, tree_t *l, tree_t *r);
 int      rkb_nocurry(RkB *b, int v);
 tree_t  *rkb_ternary(RkB *b, tree_t *l, tree_t *mid, tree_t *r);
