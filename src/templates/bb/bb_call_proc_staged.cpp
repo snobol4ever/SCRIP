@@ -208,9 +208,9 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
     if (!(nf >= 0 && nf <= np)) return 0;
     return 1;
 }
-static std::string bcps_undef_fallback(uint64_t undef_fp) {
-    (void)undef_fp; return x86("call", "rt_ab_undef_fn_fail", (uint64_t)(uintptr_t)(void *)rt_ab_undef_fn_fail) + x86_rt_gc_poll() + x86_omega();
-}
+static std::string bcps_undef_fallback(uint64_t) {
+    return x86("call", "rt_ab_undef_fn_fail", (uint64_t)(uintptr_t)(void *)rt_ab_undef_fn_fail)
+         + x86_rt_gc_poll() + x86_omega(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_block_build(IR_graph_t ** argblks, int n);
 static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int lγ, int lω, int lskip);
