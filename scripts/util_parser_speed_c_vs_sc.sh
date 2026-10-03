@@ -16,6 +16,9 @@ POP="${1:-sample}"; shift || true; LANGS="${*:-snobol4 snocone icon prolog rebus
 B="$ROOT/bootstrap"; CHAIN="$B/global.sc $B/case.sc $B/assign.sc $B/match.sc $B/counter.sc $B/stack.sc $B/tree.sc $B/ShiftReduce.sc $B/tdump.sc $B/gen.sc $B/qize.sc $B/semantic.sc $B/omega.sc $B/trace.sc"
 declare -A EXT=([snobol4]=sno [snocone]=sc [icon]=icn [prolog]=pl [rebus]=reb [raku]=raku [pascal]=pas)
 TMO="${SPEED_TIMEOUT:-300}"
+# The sc-m4 binary runs at the CHAIN's declared heap and stack (ceo CEO-1353, RULES.md clause 8 (g)(4)), never typed here:
+# bootstrap/parser_<lang>.heap and .stack, read by lib_declared_arena.sh, leading the binary's own command line.
+. "$HERE/lib_declared_arena.sh" || { echo "REFUSE(2): cannot load lib_declared_arena.sh"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 now() { date +%s.%N; }
 add() { awk -v a="$1" -v b="$2" -v c="$3" 'BEGIN { printf "%.3f", a + (c - b) }'; }
@@ -28,11 +31,12 @@ for L in $LANGS; do
     else ls "$CORPUS/benchmarks/$L"/*."$ext" 2>/dev/null | sort > "$T/$L.files"; fi
     nf=$(wc -l < "$T/$L.files"); nb=$(xargs -d '\n' cat < "$T/$L.files" | wc -c)
     cat $CHAIN "$B/parser_$L.sc" > "$T/$L.chain.sc"
+    SW="$(declared_switches_beside "$B/parser_$L.sc")" && [ -n "$SW" ] || { echo "$L: bootstrap/parser_$L.sc declares no heap or stack (parser_$L.heap, .stack), or the declaration is refused"; continue; }
     m4=0; "$SCRIP" --compile "$T/$L.chain.sc" -o "$T/$L.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/$L.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/$L.bin" 2>/dev/null && m4=1
     tc=0; t4=0; declare -A K=([cP]=0 [cR]=0 [cT]=0 [4P]=0 [4R]=0 [4T]=0)
     while IFS= read -r f; do
         a=$(now); ( cd "$(dirname "$f")"; SNO_LIB="$CORPUS/include" timeout "$TMO" "$exe" - < "$f" > "$T/o" 2>/dev/null ); r=$?; tc=$(add "$tc" "$a" "$(now)"); k=$(tally $r "$T/o"); K[c$k]=$((K[c$k] + 1))
-        if [ $m4 = 1 ]; then a=$(now); timeout "$TMO" "$T/$L.bin" -s4096m -d16384m < "$f" > "$T/o" 2>/dev/null; r=$?; t4=$(add "$t4" "$a" "$(now)"); k=$(tally $r "$T/o"); K[4$k]=$((K[4$k] + 1)); fi
+        if [ $m4 = 1 ]; then a=$(now); timeout "$TMO" "$T/$L.bin" $SW < "$f" > "$T/o" 2>/dev/null; r=$?; t4=$(add "$t4" "$a" "$(now)"); k=$(tally $r "$T/o"); K[4$k]=$((K[4$k] + 1)); fi
     done < "$T/$L.files"
     [ $m4 = 1 ] || t4="no-m4"
     note=

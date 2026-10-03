@@ -53,8 +53,20 @@ SEQ = re.compile(r"^SEQ[0-9]")
 # language a CRASH named START-UP, none run (each would only time out later). --timeout S still fixes one limit for all.
 TMIN, TMAX, TBOOT = 10, 300, 120
 # HUGE HEAP AND HUGE STACK, ALWAYS (Lon 2026-09-26, in-chat to hq_snocone, verbatim: "You should run with huge heap and huge stack
-# always to avoid limits."): the largest values the driver accepts (m-suffixed; no g), committed lazily (RSS 45 MB either way).
-ARENA = ["-s4096m", "-d16384m"]
+# always to avoid limits."), committed lazily (RSS 45 MB either way) -- and the size is the CHAIN's declaration, never typed here (ceo
+# CEO-1353, RULES.md clause 8 (g)(4)): bootstrap/parser_<lang>.heap and .stack, read through corpus_suite_harness, the one reader.
+import corpus_suite_harness as _harness
+
+
+def arena(lang):
+    """scrip's -d/-s switches for the chain of `lang`, from bootstrap/parser_<lang>.heap and .stack; refuses an undeclared chain."""
+    drv = os.path.join(SCRIP, "bootstrap", "parser_%s.sc" % lang)
+    heap, _ = _harness.heap_declarations(drv)
+    stack, _ = _harness.stack_declarations(drv)
+    sw = _harness._size_switches(heap.get("parser_" + lang), stack.get("parser_" + lang))
+    if not sw:
+        refuse("%s declares no heap or stack (bootstrap/parser_%s.heap, .stack) -- the chain's sizes are its declaration" % (drv, lang))
+    return sw
 
 
 def refuse(msg):
@@ -74,10 +86,10 @@ def extract(src, ref, key, by_origin, out):
     return r.returncode == 0 and os.path.isfile(out), (r.stdout + r.stderr).strip().splitlines()[-1:] or [""]
 
 
-def parse_one(scrip, chain, prog, timeout):
+def parse_one(scrip, chain, lang, prog, timeout):
     try:
         with open(prog, "rb") as f:
-            r = subprocess.run([scrip] + ARENA + [chain], stdin=f, capture_output=True, timeout=timeout)
+            r = subprocess.run([scrip] + arena(lang) + [chain], stdin=f, capture_output=True, timeout=timeout)
         text = (r.stdout + r.stderr).decode("utf-8", "replace")
         tag = ""
     except subprocess.TimeoutExpired as e:
@@ -125,7 +137,7 @@ def task(scrip, chain, lang, ext, src, ref, key, by_origin, d, timeout):
         ok, why = extract(src, ref, key, by_origin, prog)
         if not ok:
             return lang, key, "UNEXTRACTED", why[0]
-    cls, first = parse_one(scrip, chain, prog, timeout)
+    cls, first = parse_one(scrip, chain, lang, prog, timeout)
     return lang, key, cls, first
 
 
@@ -198,7 +210,7 @@ def main(argv):
             os.makedirs(d, exist_ok=True)
             for key, by_origin in keys:
                 work.append((scrip, chain, lang, ext, src, ref, key, by_origin, d, timeout))
-        print("PARSER-SC CENSUS, population %s, arena %s, tree %s, timeout %s, jobs %d, declared refusals %d from %s" % (pop, " ".join(ARENA), subprocess.run(["git", "-C", SCRIP, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(), ("%ss per program (--timeout)" % timeout) if timeout else "per language, 10 x its start-up on an empty input, %d..%d s" % (TMIN, TMAX), jobs, len(declared), decl_path if os.path.isfile(decl_path) else "(none)"), flush=True)
+        print("PARSER-SC CENSUS, population %s, arena %s, tree %s, timeout %s, jobs %d, declared refusals %d from %s" % (pop, "; ".join("%s %s" % (l, " ".join(arena(l))) for l, _ in langs), subprocess.run(["git", "-C", SCRIP, "rev-parse", "--short", "HEAD"], capture_output=True, text=True).stdout.strip(), ("%ss per program (--timeout)" % timeout) if timeout else "per language, 10 x its start-up on an empty input, %d..%d s" % (TMIN, TMAX), jobs, len(declared), decl_path if os.path.isfile(decl_path) else "(none)"), flush=True)
         print("%-8s %6s %7s %6s %8s %8s %6s %6s %6s  %s" % ("lang", "pop", "PARSED", "RECOG", "REFUSED", "DECLARED", "CRASH", "EMPTY", "UNEXT", "first undeclared refusal / first crash / first empty"), flush=True)
         red = unext = tp = tn = 0
         for lang, _ in langs:
@@ -208,7 +220,7 @@ def main(argv):
             if not timeout:
                 t0 = time.time()
                 try:
-                    subprocess.run([scrip] + ARENA + [mine[0][1] if mine else os.devnull], stdin=subprocess.DEVNULL, capture_output=True, timeout=TBOOT)
+                    subprocess.run([scrip] + arena(lang) + [mine[0][1] if mine else os.devnull], stdin=subprocess.DEVNULL, capture_output=True, timeout=TBOOT)
                     boot_s = time.time() - t0
                     tl = int(max(TMIN, min(TMAX, 10 * boot_s)))
                 except subprocess.TimeoutExpired:

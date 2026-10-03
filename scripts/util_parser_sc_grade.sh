@@ -21,11 +21,16 @@ if [ ! -x "$BIN" ] || [ "$B/parser_$L.sc" -nt "$BIN" ] || [ "$W/scrip" -nt "$BIN
     "$W/scrip" --compile "$OUT/$L.sno" -o "$OUT/$L.s" < /dev/null > "$OUT/$L.cc.err" 2>&1 || { echo "PARSER-SC ⛔ REFUSE(2): compile failed: $(grep -m3 -i 'error' "$OUT/$L.cc.err" | cut -c1-300)"; exit 2; }
     gcc -m64 -no-pie -rdynamic "$OUT/$L.s" -Wl,-rpath,"$W/out" -L"$W/out" -lscrip_rt -lm -lpthread -o "$BIN" 2>> "$OUT/$L.cc.err" || { echo "PARSER-SC ⛔ REFUSE(2): link failed: $(tail -3 "$OUT/$L.cc.err" | cut -c1-300)"; exit 2; }
 fi
+# The binary runs at the CHAIN's declared heap and stack (ceo CEO-1353, RULES.md clause 8 (g)(4)), never typed here:
+# bootstrap/parser_<lang>.heap and .stack, read by lib_declared_arena.sh and leading the binary's own command line.
+. "$here/lib_declared_arena.sh" || { echo "PARSER-SC ⛔ REFUSE(2): cannot load lib_declared_arena.sh"; exit 2; }
+SW="$(declared_switches_beside "$B/parser_$L.sc")" || { echo "PARSER-SC ⛔ REFUSE(2): bootstrap/parser_$L's declaration is refused"; exit 2; }
+[ -n "$SW" ] || { echo "PARSER-SC ⛔ REFUSE(2): bootstrap/parser_$L.sc declares no heap or stack (parser_$L.heap, .stack)"; exit 2; }
 # CHUNK files per process (default 100): the tree gate runs each file alone (Lon 2026-09-28), and a long single run of the mode-4
 # binary dies in emitted code once its dead trees pass ~2 GB (the 2026-09-30 witness, any collector window) -- a runtime defect rowed apart
 CHUNK="${CHUNK:-1}"; : > "$OUT/$L.sc.dump"; : > "$OUT/$L.sc.err"; rc=0; split -l "$CHUNK" -d -a 4 "$LIST" "$OUT/$L.chunk."
 for ck in "$OUT/$L.chunk."*; do
-    ( cd "$CORPUS" && PARSER_FILES="$ck" PARSER_TREE_HASH=0 SCRIP_DIAG=0 timeout 600 "$BIN" -s2000m -d8000m -i64m < /dev/null >> "$OUT/$L.sc.dump" 2>> "$OUT/$L.sc.err" ); r=$?; [ "$r" -gt "$rc" ] && rc=$r
+    ( cd "$CORPUS" && PARSER_FILES="$ck" PARSER_TREE_HASH=0 SCRIP_DIAG=0 timeout 600 "$BIN" $SW < /dev/null >> "$OUT/$L.sc.dump" 2>> "$OUT/$L.sc.err" ); r=$?; [ "$r" -gt "$rc" ] && rc=$r
     # the tree gate's classes, per process: a signal is a CRASH, any other nonzero exit a refusal (with CHUNK=1 the process is the file)
     if [ "$r" -ge 128 ]; then echo "CRASH rc=$r" >> "$OUT/$L.sc.dump"; elif [ "$r" -ne 0 ]; then echo "Parse Error (rc=$r)" >> "$OUT/$L.sc.dump"; fi
     echo >> "$OUT/$L.sc.dump"

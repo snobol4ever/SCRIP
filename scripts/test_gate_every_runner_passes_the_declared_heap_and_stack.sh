@@ -21,7 +21,10 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # family's row runner and its two correctness scripts over a scratch kernel dir of four Prolog units (the coo, 2026-10-01; FAIL_ONCE reds
 # PBM and PB4 through the stubbed declared_switches_beside; PBS runs from scripts/ itself, since it finds its binary beside its own script and
 # reads the sidecars through declared_arena_kb_beside, which the plant leaves alone, so it stays green). EVERY OTHER RUNNER FAMILY IS NAMED BELOW AS NOT YET FIXTURED AND COUNTED RED -- the DONE-WHEN cannot pass while
-# a family is unproven; each is added here as its lane cures its runner (the HQ asks of 2026-09-28).
+# a family is unproven; each is added here as its lane cures its runner (the HQ asks of 2026-09-28). THE EIGHT BOOTSTRAP PARSER TOOLS
+# grade no test unit -- each runs one fixed program per language, the chain -- so they are not a family here: their chain declares its
+# sizes beside bootstrap/parser_<lang>.sc and test_gate_oracle_args_sidecar_is_declared_and_reaches_the_oracle.sh holds every tool to it
+# (arms C and W, the coo 2026-10-03).
 # FAIL_ONCE=1: the harness family runs from a scratch copy of scripts/ whose _size_switches returns nothing (the reader removed) -- H reds;
 # the ladder family runs from a scratch copy whose lib_declared_arena.sh declared_switches_beside prints nothing -- L reds.
 # EXIT 0 every family's pair holds and none is pending; 1 a pair failed or a family is pending; 2 could not measure.
@@ -178,7 +181,7 @@ pbtab "$o4" '$1==u {print (m=="m3" ? $4 : $5); exit}' > "$W/pb4.tsv"
 quad PB4 "$W/pb4.tsv" "test_bench_prolog_4way.sh over a scratch kernel dir, -d/-s switches (rc $r4)"
 
 echo "--- PENDING: runner families not yet fixtured here -- RED by declaration until each is added as its lane cures its runner ---"
-PENDING="snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench timing angles (bench_prolog_fixed_iter, test_bench_prolog_timed, bench_prolog_perf, bench_prolog_vanroy --two-number), the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches, the bootstrap parser tools (hq_snocone) | board_icon_rungs.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
+PENDING="snoflake, spitbol_x64, spitbol_x32, testpgms, aisnobol, gimpel/scorecard (hq_snobol4) | arizona, jcon, ipl, the icon bench suite and triangulator, the icon rung suites (hq_icon) | inria, swi, gnu, logtalk, the prolog bench timing angles (bench_prolog_fixed_iter, test_bench_prolog_timed, bench_prolog_perf, bench_prolog_vanroy --two-number), the prolog rung suite (hq_prolog) | fpc, pat, the pascal benches (hq_pascal) | roast, the raku benches (hq_raku) | the snocone and rebus benches (hq_snocone) | board_icon_rungs.sh, the smokes, monitor_run.sh, lib_port_trace.sh (the coo)"
 n_pend=$(tr '|' '\n' <<<"$PENDING" | grep -c .)
 echo "  PENDING ($n_pend groups): $PENDING"
 FAIL=$((FAIL+n_pend))

@@ -229,6 +229,22 @@ print(" ".join(h.oracle_env_declarations(prog)))
 PY
 }
 
+# declared_oracle_args_beside <program> -- the ORACLE's declared command-line sizes for a standalone unit (ceo CEO-1353, clause 8 (g)(3)),
+#   from its <stem>.oracle_args sidecar (one line NAME<TAB>SWITCH[ SWITCH]), read by corpus_suite_harness.oracle_args_declarations --
+#   CALLED, never copied. Echoes the switches for `oracle SWITCHES program`, nothing when there is no sidecar (the oracle's own defaults);
+#   rc 2 with nothing echoed on another unit's name, a switch outside ORACLE_ARGS_ADMITTED, a malformed size or a switch named twice.
+declared_oracle_args_beside() {
+  local prog="$1"
+  [ -n "$prog" ] && [ -f "${prog%.*}.oracle_args" ] || return 0
+  python3 - "$prog" "$_LDA_HERE" <<'PY'
+import sys
+prog, here = sys.argv[1], sys.argv[2]
+sys.path.insert(0, here)
+import corpus_suite_harness as h
+print(" ".join(h.oracle_args_declarations(prog)))
+PY
+}
+
 # declared_arena_receipt <all_csv> -- one line naming every declaration a board is about to honour, so the
 # published row says at which arena it was graded. A board that silently honours a declaration is a board
 # whose number cannot be reproduced from its own output (RULES.md THE INSTRUMENT LAWS: a number is not

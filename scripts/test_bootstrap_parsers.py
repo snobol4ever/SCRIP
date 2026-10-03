@@ -51,13 +51,28 @@ LANGS = {
 }
 SPITBOL_ERR = re.compile(r"\bERROR \d+ --")
 # SPITBOL's default stack (-s4m) is too small for a recursive grammar on a 1000-line source (ERROR 246 on beauty.sc and
-# beauty_modules.sc, both clean at -s16m); 64m is the knob, printed on the board line. -s256m exceeds this box's limit.
-# HUGE HEAP AND HUGE STACK, ALWAYS (Lon 2026-09-26, in-chat to hq_snocone, verbatim: "You should run with huge heap and huge stack
-# always to avoid limits."): the largest values each engine accepts -- sbl -s2000m -d4000m (-s1g dumps core, -d1g "Workspace memory
-# unavailable", -s needs -d above it); scrip -s4096m -d16384m (m-suffixed, no g), lazily committed, RSS 45 MB either way.
-SBL_STACK = os.environ.get("SBL_STACK") or "2000m"
-SBL_HEAP = os.environ.get("SBL_HEAP") or "4000m"
-SCRIP_ARENA = ["-s4096m", "-d16384m"]
+# beauty_modules.sc, both clean at -s16m). HUGE HEAP AND HUGE STACK, ALWAYS (Lon 2026-09-26, in-chat to hq_snocone, verbatim: "You
+# should run with huge heap and huge stack always to avoid limits."). Both engines' sizes are the CHAIN's declaration, never typed
+# here (ceo CEO-1353, RULES.md clause 8 (g)(3)-(4)): bootstrap/parser_<lang>.heap and .stack for scrip, bootstrap/parser_<lang>.oracle_args
+# for sbl, read through corpus_suite_harness -- the one reader -- and printed on the board line.
+sys.path.insert(0, str(HERE))
+import corpus_suite_harness as _harness
+
+
+def scrip_arena(lang):
+    """scrip's -d/-s switches for the chain of `lang`, from bootstrap/parser_<lang>.heap and .stack; refuses an undeclared chain."""
+    drv = BOOT / f"parser_{lang}.sc"
+    heap, _ = _harness.heap_declarations(str(drv))
+    stack, _ = _harness.stack_declarations(str(drv))
+    sw = _harness._size_switches(heap.get(drv.stem), stack.get(drv.stem))
+    if not sw:
+        refuse(f"{drv} declares no heap or stack (bootstrap/parser_{lang}.heap, .stack) -- the chain's sizes are its declaration")
+    return sw
+
+
+def sbl_args(lang):
+    """sbl's size switches for the chain of `lang`, from bootstrap/parser_<lang>.oracle_args; [] runs the oracle at its defaults."""
+    return _harness.oracle_args_declarations(str(BOOT / f"parser_{lang}.sc"))
 SCRIP_ERR = re.compile(r"^(?:\S+:\d+: )?(?:Error \d+|error:|FATAL|scrip: )", re.M)
 
 
@@ -143,9 +158,9 @@ def build_arm(lang, arm, work):
     if arm == "sbl":
         if not SBL.is_file():
             refuse(f"no SPITBOL oracle at {SBL}")
-        return [str(SBL), "-bf", "-s" + SBL_STACK, "-d" + SBL_HEAP, str(prog)], d
+        return [str(SBL), "-bf"] + sbl_args(lang) + [str(prog)], d
     if arm in ("m3", "sc3"):
-        return [str(SCRIP)] + SCRIP_ARENA + [str(prog)], d
+        return [str(SCRIP)] + scrip_arena(lang) + [str(prog)], d
     exe = d / f"{prog.stem}.{arm}.bin"
     asm = d / f"{prog.stem}.{arm}.s"
     obj = d / f"{prog.stem}.{arm}.o"
@@ -155,7 +170,7 @@ def build_arm(lang, arm, work):
         r = subprocess.run(cmd, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=600)
         if r.returncode != 0:
             refuse(f"{arm} build step failed rc={r.returncode}: {' '.join(cmd[:3])} ... {(r.stderr or r.stdout)[:300]}")
-    return [str(exe)] + SCRIP_ARENA, d
+    return [str(exe)] + scrip_arena(lang), d
 
 
 def classify(arm, rc, text, timed_out):
@@ -237,7 +252,7 @@ def main():
         for c, _, _ in results.values():
             counts[c] += 1
         nfile = sum(1 for n, _ in pop if not n.startswith("rungs:"))
-        print(f"bootstrap parser {lang} arm={a.arm}" + (f" sbl -s{SBL_STACK} -d{SBL_HEAP}" if a.arm == "sbl" else f" scrip {' '.join(SCRIP_ARENA)}")
+        print(f"bootstrap parser {lang} arm={a.arm}" + (f" sbl {' '.join(sbl_args(lang))}" if a.arm == "sbl" else f" scrip {' '.join(scrip_arena(lang))}")
               + f" SCRIP {git_head(SCRIP_DIR)} corpus {git_head(CORPUS)} work={work / lang}")
         print(f"POPULATION {lang}: files={nfile} rungs={len(pop) - nfile} total={len(pop)}")
         print(f"BOARD {lang} {a.arm}: PARSED={counts['PARSED']} REFUSED={counts['REFUSED']} CRASH={counts['CRASH']} "

@@ -3970,6 +3970,53 @@ def oracle_env_declarations(src_path):
     return words
 
 
+# ⛔ A CLOSED ENUMERATION: the ORACLE's own size SWITCHES a unit may declare beside itself -- oracle_env's twin for an oracle sized on its
+# command line (ceo CEO-1353, RULES.md clause 8 (g)(3): "oracle_args for sbl -d/-s, swipl --stack-limit, fpc -Cs/-Ch"). A switch joins
+# when an oracle is measured needing it, as a knob joins ORACLE_ENV_ADMITTED. MEASURED 2026-10-03 (the coo, sbl md5 fd9b552b): the
+# transpiled bootstrap parser chain dies ERROR 246 under sbl -bf at its default stack on the snocone, icon and pascal workhorse
+# inputs and answers at -s8m, -s12m and -s12m; and sbl refuses -s128m and above alone ("Stack memory unavailable") and runs it beside a
+# larger -d, so -d is the stack's room as well as the heap. sbl reads a size as digits with an optional k or m.
+ORACLE_ARGS_ADMITTED = (("-s", "sbl stack"), ("-d", "sbl heap"))
+
+
+def oracle_args_sidecar_path(src_path):
+    """<stem>.oracle_args beside a standalone unit: one line NAME<TAB>SWITCH[ SWITCH] -- the oracle's command-line sizes for that unit."""
+    return str(Path(src_path).with_suffix(".oracle_args"))
+
+
+def oracle_args_declarations(src_path):
+    """The switches the unit at `src_path` declares for its ORACLE's command line, placed before the program, [] when it declares none
+    (the oracle runs at its own defaults). Refuses rc=2 on a line naming another unit, a switch outside ORACLE_ARGS_ADMITTED, a size
+    that is not digits with an optional k or m, a switch named twice, or a sidecar that declares nothing for this unit."""
+    _p = Path(oracle_args_sidecar_path(src_path))
+    if not _p.is_file():
+        return []
+    stem = Path(src_path).stem
+    words, seen, named = [], False, set()
+    for ln, line in enumerate(_p.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        name, _, rest = line.partition("\t")
+        if name.strip() != stem:
+            refuse(f"{_p}:{ln}: names {name.strip()!r}, not {stem!r} -- the sidecar's format is one line NAME<TAB>SWITCH with "
+                   f"NAME the unit's stem; another unit's line is not a declaration for this one")
+        seen = True
+        for w in rest.split():
+            sw = next((p for p, _ in ORACLE_ARGS_ADMITTED if w.startswith(p)), None)
+            if sw is None:
+                refuse(f"{_p}:{ln}: {w!r} is not one of the oracle switches a unit may declare "
+                       f"({' '.join(p for p, _ in ORACLE_ARGS_ADMITTED)}) -- a switch joins the list when an oracle is measured needing it")
+            if not re.fullmatch(r"[1-9][0-9]*[km]?", w[len(sw):]):
+                refuse(f"{_p}:{ln}: {w!r} -- the size must be a positive integer with an optional k or m, as the oracle reads it")
+            if sw in named:
+                refuse(f"{_p}:{ln}: {w!r} names {sw} a second time -- one size per switch")
+            named.add(sw)
+            words.append(w)
+    if not seen or not words:
+        refuse(f"{_p}: declares no oracle switches for {stem!r} -- an empty declaration is not one")
+    return words
+
+
 # ⛔ A CLOSED ENUMERATION: the compile switches a unit may declare. A switch joins it when a unit needs it and the switch is
 # proven honoured at the COMPILE step in both modes (hq_snobol4 2026-09-26 on 6974ab821: scrip --compile --stlimit and
 # SCRIP_SNO_STMTKW=1 scrip --compile emit byte-identical .s, and neither turns counting on at a mode-4 binary's run).
