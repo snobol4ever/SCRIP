@@ -67,7 +67,7 @@ sbl_assert_bf "$SBL" 2>/dev/null || { echo "⛔ REFUSE(rc=2): oracle at $SBL fai
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 SCRIP_HASH="$(git -C "$SD" rev-parse --short HEAD 2>/dev/null || echo '?')"
 CORP_HASH="$(git -C "$ROOT/corpus" rev-parse --short HEAD 2>/dev/null || echo '?')"
-TOTAL=0; UNSCR=0; P3=0; F3=0; P4=0; F4=0; S4=0
+TOTAL=0; UNSCR=0; UNGR=0; FLG=""; P3=0; F3=0; P4=0; F4=0; S4=0
 FL3=""; FL4=""; FLU=""
 sbl_died() { printf '%s' "$1" | grep -qE ' : ERROR [0-9][0-9][0-9] -- ' && printf '%s' "$1" | grep -qE '^in statement +[0-9]+$'; }
 has_bom() { [ "$(head -c3 "$1" | xxd -p 2>/dev/null)" = "efbbbf" ]; }
@@ -113,6 +113,11 @@ prog_row() { printf 'package\tdotnet\tsnobol4\t%s\t%s\t%s\t0\t%s\n' "$1" "$2" "$
 # so one hook cannot fall out of step with a fifth arm somebody adds later.
 OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"; OUTSIDE_LIST=""
 prog_unscr() { prog_row "$1" m3 UNGRADED "$2"; prog_row "$1" m4 UNGRADED "$2"; OUTSIDE_LIST="${OUTSIDE_LIST}$1\t$2\n"; }
+# ⭐ UNGRADABLE.tsv IS AN UNSCORED SET (ceo CEO-1460, 2026-10-03): a row whose class is not ORACLE_REFUSES (those rows mirror the
+# measured outside set below) names a program the oracle runs but whose answer cannot be graded here -- NEEDS_INPUT,
+# NEEDS_INTERACTIVE_TTY and the rest of lib_inventory.sh's closed vocabulary. It is not run, it leaves SCORED and the denominator,
+# and its progress rows say UNGRADED with the class -- the csnobol4 runner's reading, where an UNGRADABLE program has no ref.
+ungradable_class_of() { [ -f "$MIRROR_TSV" ] || return 0; awk -F'\t' -v n="$1.sno" 'NF>2 && $1 !~ /^#/ && $1==n && $2!="ORACLE_REFUSES"{print $2; exit}' "$MIRROR_TSV"; }
 verdict_of() { if [ "$1" -eq 124 ]; then echo HANG; elif [ "$1" -ge 128 ]; then echo CRASH; else echo FAIL; fi; }
 # ⛔⭐ A SPITBOL FATAL IS GRADABLE (ceo CEO-1344 on hq_snobol4's measurement; the coo's row instruments-a-spitbol-fatal-is-gradable-...):
 # the oracle prints its fatal block on stdout and exits 0, so a program that ends in a run-time fatal (1brc.sno, asgn1.sno) has an
@@ -142,6 +147,10 @@ for sno in "$SUITE"/*.sno; do
     # file, and CONTAINERS.tsv names it MULTI_PROGRAM with that measurement -- it is neither graded nor outside the baseline.
     inventory_is_container "$SUITE" "$name.sno" && continue
     TOTAL=$((TOTAL+1))
+    ugc="$(ungradable_class_of "$name")"
+    if [ -n "$ugc" ]; then
+        UNGR=$((UNGR+1)); FLG="$FLG $name($ugc)"; prog_row "$name" m3 UNGRADED "unscored: UNGRADABLE.tsv $ugc"; prog_row "$name" m4 UNGRADED "unscored: UNGRADABLE.tsv $ugc"; continue
+    fi
     inc="$(grep -ohE "^[[:space:]]*-INCLUDE ['\"][^'\"]+['\"]" "$sno" | sed -E "s/.*-INCLUDE ['\"]([^'\"]+)['\"]/\1/" | head -1)"
     if [ -n "$inc" ] && [ ! -f "$SUITE/$inc" ]; then
         UNSCR=$((UNSCR+1)); FLU="$FLU $name(missing-include:$inc)"; prog_unscr "$name" "unscored: missing include $inc"; continue
@@ -191,9 +200,10 @@ for sno in "$SUITE"/*.sno; do
     N4="vs live sbl -bf${rc4:+, rc=$rc4}"; [ "$OUT4" = HANG ] && N4="SCRIP hit the ${TIMEOUT} timeout (rc=124) while the oracle exited rc=$rcS; streams equal at the cut"
     prog_row "$name" m3 "$OUT3" "$N3"; prog_row "$name" m4 "$OUT4" "$N4"
 done
-SCORED=$((TOTAL-UNSCR))
-echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_skip=$S4 -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=$TIMEOUT"
+SCORED=$((TOTAL-UNSCR-UNGR))
+echo "DOTNET_BOARD total=$TOTAL scored=$SCORED unscr=$UNSCR ungradable=$UNGR m3_pass=$P3 m3_fail=$F3 m4_pass=$P4 m4_fail=$F4 m4_skip=$S4 -- SCRIP $SCRIP_HASH corpus $CORP_HASH RT_OPT=-O0 oracle=sbl-bf timeout=$TIMEOUT"
 [ -n "$FLU" ] && echo "UNSCR (missing corpus dependency, not a SCRIP defect):$FLU"
+[ -n "$FLG" ] && echo "UNGRADABLE ($UNGR, named in UNGRADABLE.tsv with the oracle's own measurement, out of the denominator, CEO-1460):$FLG"
 [ -n "${FATAL_GRADED:-}" ] && echo "FATAL_GRADED (the oracle ended these in a run-time fatal block; graded through the rendered block and ALL.mask, CEO-1344):$FATAL_GRADED"
 echo "DOTNET_AND both_modes_pass=$BOTH/$SCORED -- the suite table states this reading (ceo-372: the AND per program; a timed-out run is HANG, never PASS, whatever its stream)"
 echo "DOTNET_BASELINE baseline=$SCORED both_modes_pass=$BOTH outside_spitbol_baseline=$UNSCR of $TOTAL -- THE SUITE TABLE STATES both_modes_pass/baseline (a program SPITBOL itself cannot run is outside the baseline and out of the denominator; Lon 2026-09-08)"
@@ -207,7 +217,7 @@ if [ -f "$OUTSIDE_TSV" ]; then
     [ -n "$unrec" ] && echo "⚠ OUTSIDE_SPITBOL_BASELINE.tsv UNRECORDED -- the oracle gave no answer for these and the record does not name them; record each with its error and a source check: $unrec"
     [ -z "$stale$unrec" ] && echo "OUTSIDE_SPITBOL_BASELINE.tsv agrees with the measured outside set ($UNSCR)"
     if [ -f "$MIRROR_TSV" ]; then
-        mir="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$MIRROR_TSV" | sort)"; recn="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$OUTSIDE_TSV" | sort)"
+        mir="$(awk -F'\t' 'NF>2 && $1 !~ /^#/ && $2=="ORACLE_REFUSES"{print $1}' "$MIRROR_TSV" | sort)"; recn="$(awk -F'\t' 'NF>2 && $1 !~ /^#/{print $1}' "$OUTSIDE_TSV" | sort)"
         [ "$mir" = "$recn" ] || echo "⚠ UNGRADABLE.tsv does not mirror OUTSIDE_SPITBOL_BASELINE.tsv row for row -- the lockdown bucket and the record have drifted; edit them together"
     fi
 else echo "⚠ no OUTSIDE_SPITBOL_BASELINE.tsv beside the suite -- the outside-baseline set above is measured, not yet recorded"; fi
@@ -237,8 +247,8 @@ if [ "$SUITE" = "$CANON_SUITE" ]; then
 # PASS over SHIPPED ($TOTAL = graded plus the $UNSCR outside the SPITBOL baseline), OUTSIDE=$UNSCR named and stamped
 # through lib_outside_shape.sh; the outside programs stay in the denominator as debt to cure.
 . "$HERE/lib_outside_shape.sh" || exit 2
-EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "$OUTSIDE_LIST" | cut -f1)")" || exit 2; DENOM=$((TOTAL - EXCL_D_N))
-echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM"
+EXCL_D_N="$(excluded_in_outside "$SUITE" "$(printf '%b' "$OUTSIDE_LIST" | cut -f1)")" || exit 2; DENOM=$((TOTAL - EXCL_D_N - UNGR))
+echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the denominator ($(excluded_names_count "$SUITE") named in $SUITE/EXCLUDED.tsv; Lon 2026-09-26, CEO-1286): pass over $DENOM (UNGRADABLE=$UNGR also out, named above)"
 # ⭐ THE ROW'S Excl IS EVERY SHIPPED UNIT THE DENOMINATOR LEAVES OUT (Lon 2026-09-26, "use the Excl column to properly classify
 # the exclusions for good reasons only"; CEO-1288): its include fragments of CONTAINERS.tsv (CEO-1272), read off the inventory
 # line, plus the EXCLUDED.tsv programs of this run's outside set -- the denominator does not move, only its classification.
