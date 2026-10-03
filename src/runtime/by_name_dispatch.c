@@ -3038,6 +3038,19 @@ PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_L
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(plus, 3) ok = rt_pl_succ_plus_cell(3, &args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(nv_get, 2) { extern DESCR_t NV_GET_fn(const char *); extern void *rt_pl_ball_instantiation(void);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t k = rt_pl_deref_val(args[0]); ok = 0;
+    if (pl_val_unbound(k)) cx->ball = rt_pl_ball_instantiation(); else if (k.v != (DTYPE_t)DT_PLATOM) cx->ball = rt_pl_ball_kind2("type_error", "atom", k);
+    else { DESCR_t v = NV_GET_fn(pl_atom_str(k)); ok = plw_unify_vals(args[1], IS_STR_fn(v) ? pl_mk_atom_dup(v.s ? v.s : "", (size_t)v.slen) : v, cx); } }
+PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(nv_set, 2) { extern DESCR_t NV_SET_fn(const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t k = rt_pl_deref_val(args[0]), d = rt_pl_deref_val(args[1]); ok = 0;
+    if (pl_val_unbound(k) || pl_val_unbound(d)) cx->ball = rt_pl_ball_instantiation();
+    else if (k.v != (DTYPE_t)DT_PLATOM) cx->ball = rt_pl_ball_kind2("type_error", "atom", k);
+    else if (d.v == DT_S || d.v == DT_I || d.v == DT_R || d.v == DT_BIG) { NV_SET_fn(pl_atom_str(k), d); ok = 1; }
+    else if (d.v == (DTYPE_t)DT_PLATOM) { NV_SET_fn(pl_atom_str(k), STRVAL(rt_heap_strdup_c(pl_atom_str(d)))); ok = 1; }
+    else cx->ball = rt_pl_ball_kind2("type_error", "atomic", d); }
+PL_CX_LEAF_TAIL
 static int pl_is_pair(DESCR_t d) { extern int prolog_atom_intern(const char *); return d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == prolog_atom_intern("-") && plc_fid_arity(d.slen) == 2; }
 static void *pl_sort_list_ball(DESCR_t orig, int pairs) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
