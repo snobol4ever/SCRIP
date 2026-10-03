@@ -65,7 +65,8 @@ std::string bb_keyword_icon() {
           : x86_alpha() + x86_bomb("bb_keyword_icon: unhandled keyword in ZD arm"))
          : (!strcmp(_.op_name2, "subject")
             ? (g_scan_regs_live
-               ? x86("comment", "KEYWORD_subject_reg: same word0 packing fix as the ZRES arm above -- v/slen share one qword, so this needs a dword pair, not a single clobbering qword store of the bare tag.")
+               ? x86("comment",
+                   "KEYWORD_subject_reg: same word0 packing fix as the ZRES arm above -- v/slen share one qword, so this needs a dword pair, not a single clobbering qword store of the bare tag.")
                + x86_alpha()
                + x86("mov", FR(_.op_off),      (long)DT_S)
                + x86("mov", FR(_.op_off + 4),  "r15d")

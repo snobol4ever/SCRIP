@@ -23,14 +23,38 @@ extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_r
 #include "x86_asm.h"
 extern "C" int sn4_alt_carrier(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }
-static int defer_inline(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_INLINE"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int dw_cell(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_DEFER_CELL");
+        v = e ? (atoi(e) != 0) : 1;
+    } return v;
+}
+static int defer_inline(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_DEFER_INLINE");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dfrm(void) { return (_.op_seal == 1); }
 #define rspd()  (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int patv_fast_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_PATV_FAST"); v = (e && *e == '0') ? 0 : 1; } return v; }
-static int defer_ic_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFER_IC"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int patv_fast_on() {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_PATV_FAST");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
+static int defer_ic_on(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("SCRIP_DEFER_IC");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
 #define T1_TRAP_TEST() IF(_.lbl_t1_p, \
@@ -243,7 +267,8 @@ std::string bb_match_defer() {
              + x86_xfer_leave())
          + IF(merged && msite >= 0 && defer_ic_on(), x86("comment", "IR_MATCH_DEFER ic-hit")
                                                    + x86("def", L(23)))
-         + IF(!star, x86("test", "rax", "rax") + x86("jz", "L0"))
+         + IF(!star, x86("test", "rax", "rax")
+         + x86("jz", "L0"))
          + IF(star,  x86("jmp", "L0"))
          + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86("def",  L(48))
@@ -287,7 +312,8 @@ std::string bb_match_defer() {
              + x86("mov",  "esi", (long)vslot)
              + x86("xor",  "edx", "edx")
              + x86("xor",  "ecx", "ecx")
-             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *, int))rt_patv_defer_open_entry))
+             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *,
+                 int))rt_patv_defer_open_entry))
          + x86_rt_gc_poll_rec_sigma_pair(1, 51)
          + x86("def",  "L2")
          + x86("test", "rax", "rax")

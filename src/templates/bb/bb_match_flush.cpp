@@ -66,7 +66,11 @@ static std::string flush_pump() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_flush() {
     x86_begin();
-    return x86("comment", "IR_MATCH_FENCE0 as FLUSH (Lon 2026-09-27; the node's literal is 3): alpha runs the conditional assignments recorded since the match's CAS begin marker [rbp-8] up to the live top r12 -- bb_match_end's pump loop, run mid-match, the rax spill kept off x86_xfer_enter's typed cells -- drops them (r12 := the marker, the pinned top refreshed before and after), then cuts exactly as the bare FENCE box: release, gamma; beta abandons to omega; a refused target abandons to omega")
+    return x86("comment",
+        "IR_MATCH_FENCE0 as FLUSH (Lon 2026-09-27; the node's literal is 3): alpha runs the conditional assignments "
+            "recorded since the match's CAS begin marker [rbp-8] up to the live top r12 -- bb_match_end's pump loop, run "
+                "mid-match, the rax spill kept off x86_xfer_enter's typed cells -- drops them (r12 := the marker, the pinned "
+                    "top refreshed before and after), then cuts exactly as the bare FENCE box: release, gamma; beta abandons to omega; a refused target abandons to omega")
          + x86_alpha()
          + flush_pump()
          + IF(_.op_fence0_floor > 0, x86("mov", "rsp", "rbp")

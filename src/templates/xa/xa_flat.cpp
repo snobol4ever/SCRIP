@@ -19,7 +19,13 @@ extern int g_rt_fragment_emit;
 extern int * const rt_k_level_p;
 extern int64_t kw_fnclevel;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const char *e = getenv("SCRIP_ICN_WIRE_STACK"); _v = (e && *e == (char)48) ? 0 : 1; } return _v; }
+static int icn_wire_stack_on(void) {
+    static int _v = -1;
+    if (_v < 0) {
+        const char *e = getenv("SCRIP_ICN_WIRE_STACK");
+        _v = (e && *e == (char)48) ? 0 : 1;
+    } return _v;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
@@ -43,8 +49,14 @@ static std::string xa_flat_data_section_str(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void xa_entry_dispatch(void)    { auto s = xa_entry_dispatch_str();    if (!s.empty()) emit_text_n(s.data(), s.size()); }
-extern "C" void xa_flat_data_section(void) { auto s = xa_flat_data_section_str(); if (!s.empty()) emit_text_n(s.data(), s.size()); }
+extern "C" void xa_entry_dispatch(void)    {
+    auto s = xa_entry_dispatch_str();
+    if (!s.empty()) emit_text_n(s.data(), s.size());
+}
+extern "C" void xa_flat_data_section(void) {
+    auto s = xa_flat_data_section_str();
+    if (!s.empty()) emit_text_n(s.data(), s.size());
+}
 extern "C" void rt_pl_dc_prep(void *, long, long, long, long, long);
 extern "C" DESCR_t rt_pl_dc_leave_γ(DESCR_t, long, void *);
 extern "C" DESCR_t rt_pl_dc_leave_ω(long, void *);
@@ -154,7 +166,13 @@ extern "C" void rt_lcl_proc_args_install(void *, int, int);
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
 extern "C" void rt_arg_stage(int idx, DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_zanchor_poison(void) { static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_PL_ZANCHOR_POISON"); on = (e && *e == '1') ? 1 : 0; } return on; }
+static int xa_flat_zanchor_poison(void) {
+    static int on = -1;
+    if (on < 0) {
+        const char * e = getenv("SCRIP_PL_ZANCHOR_POISON");
+        on = (e && *e == '1') ? 1 : 0;
+    } return on;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zf_display_level(void) {
     if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
@@ -178,7 +196,8 @@ static int zf_display_mem_off(int dl) {
 static std::string zf_display_restore(int kt) {
     int dl = zf_display_level();
     if (!dl) return std::string();
-    if (dl <= 3) { const char * dr = dl == 1 ? "r13" : dl == 2 ? "r14" : "r15";
+    if (dl <= 3) {
+    const char * dr = dl == 1 ? "r13" : dl == 2 ? "r14" : "r15";
         return x86("comment", "PAS-DISPLAY-1: restore caller display[L] from [kt-40]")
              + x86("mov", dr, FRQ(kt - 40)); }
     int off = zf_display_mem_off(dl);
@@ -292,11 +311,13 @@ static std::string xa_flat_zframe_prologue_str(void) {
         }
     }
     { int _dl = zf_display_level();
-      if (_dl && _dl <= 3) { const char * _dr = _dl == 1 ? "r13" : _dl == 2 ? "r14" : "r15";
+      if (_dl && _dl <= 3) {
+    const char * _dr = _dl == 1 ? "r13" : _dl == 2 ? "r14" : "r15";
           s += x86("comment", "PAS-DISPLAY-1: save caller display[L] into [kt-40]; display[L] = this frame")
              + x86("mov", FRQ(kt - 40), _dr)
              + x86("mov", _dr, "rsp"); }
-      else if (_dl > 3) { int _off = zf_display_mem_off(_dl);
+      else if (_dl > 3) {
+    int _off = zf_display_mem_off(_dl);
           if (_off < 0) { s += x86_bomb("PAS-DISPLAY-N: level>3 ancestor slot unresolved (save)"); }
           else { s += x86("comment", "PAS-DISPLAY-N: save [r15+off] into [kt-40]; [r15+off] = this frame")
                     + x86("mov", "rax", RDQ("r15", _off))
@@ -368,7 +389,8 @@ static std::string xa_flat_wn_restore_str(int kt, const char * fname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_chain_prologue_str(const char * fname) {
     if (!xa_flat_class_c()) return std::string();
-    { static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; }
+    {
+    static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; }
       if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n",
                                                 bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
     int kt = g_emit.flat_frame_bytes;
@@ -551,7 +573,8 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (x86_fb_pinned() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
         int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
         return  x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
-             + x86("comment", "(a bound integer payload 104 = DT_FAIL read as failure at the caller's al test; a {small int, cell address} pair in the caller's result slot is no DESCR to the collector)")
+             + x86("comment",
+                 "(a bound integer payload 104 = DT_FAIL read as failure at the caller's al test; a {small int, cell address} pair in the caller's result slot is no DESCR to the collector)")
              + x86("mov32", "edi", (long)DT_I)
              + x86("mov32", "esi", 1L)
              + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))

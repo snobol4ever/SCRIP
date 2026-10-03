@@ -18,9 +18,16 @@ static inline int stf() { return _.flat_stmt_frame; }
 static inline int mon_vars_on() { return x86_trace_hooks_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string mon_var_trace_tap() {
-    return x86("push", "rax") + x86("push", "rax") + x86("push", "rdi") + x86("push", "rsi")
-         + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9")
-         + x86("push", "r10") + x86("push", "r11")
+    return x86("push", "rax")
+         + x86("push", "rax")
+         + x86("push", "rdi")
+         + x86("push", "rsi")
+         + x86("push", "rdx")
+         + x86("push", "rcx")
+         + x86("push", "r8")
+         + x86("push", "r9")
+         + x86("push", "r10")
+         + x86("push", "r11")
          + x86("mov", "rsi", "rax")
          + x86("mov", "rdi", ROQ(0))
          + x86("directive", ".section .rodata")
@@ -31,9 +38,16 @@ static inline std::string mon_var_trace_tap() {
          + x86("mov", "r8", (long)_.op_line)
          + x86("mov", "r9", (long)_.op_stno)
          + x86("call", "comm_var", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, DESCR_t, const char *, long, long long))comm_var)
-         + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
-         + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
-         + x86("pop", "rax") + x86("pop", "rax") + x86_rt_gc_poll_res();
+         + x86("pop", "r11")
+         + x86("pop", "r10")
+         + x86("pop", "r9")
+         + x86("pop", "r8")
+         + x86("pop", "rcx")
+         + x86("pop", "rdx")
+         + x86("pop", "rsi")
+         + x86("pop", "rdi")
+         + x86("pop", "rax")
+         + x86("pop", "rax") + x86_rt_gc_poll_res();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define AG_HAS_SLOT() (_.op_zres || (_.op_a_slot >= 0 && _.op_off >= 0))

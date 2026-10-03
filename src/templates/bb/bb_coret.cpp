@@ -8,7 +8,10 @@ extern "C" {
 #include "../runtime/rt/rt_coexpr.h"
 }
 #include "x86_asm.h"
-static inline bool xa_switch_record_planted() { const char * e = getenv("SCRIP_GC_SWITCH_RECORD_PLANT"); return e && *e == '1'; }
+static inline bool xa_switch_record_planted() {
+    const char * e = getenv("SCRIP_GC_SWITCH_RECORD_PLANT");
+    return e && *e == '1';
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coret() {
     x86_begin();

@@ -30,7 +30,8 @@ static std::string bb_match_arbno_frameless_k() {
          + x86("mov", RDD("rsp", 0), "eax")
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
-         + x86("def", PAIR(3)) + x86("def", PAIR(5))
+         + x86("def", PAIR(3))
+         + x86("def", PAIR(5))
          + x86("mov", "eax", RDD("rsp", 0))
          + x86("cmp", "r14d", "eax")
          + x86("jne", L(3))
@@ -57,7 +58,8 @@ static std::string bb_match_arbno_frameless() {
          + x86("je",  bodybeta)
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
-         + x86("def", PAIR(3)) + x86("def", PAIR(5))
+         + x86("def", PAIR(3))
+         + x86("def", PAIR(5))
          + x86("mov", "eax", RDD("rsp", 0))
          + x86("cmp", "r14d", "eax")
          + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("jne", bodybeta))
@@ -65,8 +67,18 @@ static std::string bb_match_arbno_frameless() {
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string arbno_win_save(int dst) { std::string r; for (int i = 0; i < _.op_arbno_win_bytes; i += 8) r += x86("mov", "rax", RDQ("rbp", _.op_arbno_win_lo + i)) + x86("mov", RDQ("rsp", dst + i), "rax"); return r; }
-static std::string arbno_win_restore(const char * cell, int src) { std::string r; for (int i = 0; i < _.op_arbno_win_bytes; i += 8) r += x86("mov", "rax", RDQ(cell, src + i)) + x86("mov", RDQ("rbp", _.op_arbno_win_lo + i), "rax"); return r; }
+static std::string arbno_win_save(int dst) {
+    std::string r;
+    for (int i = 0; i < _.op_arbno_win_bytes; i += 8) r += x86("mov", "rax", RDQ("rbp", _.op_arbno_win_lo + i))
+                                                         + x86("mov", RDQ("rsp", dst + i), "rax");
+    return r;
+}
+static std::string arbno_win_restore(const char * cell, int src) {
+    std::string r;
+    for (int i = 0; i < _.op_arbno_win_bytes; i += 8) r += x86("mov", "rax", RDQ(cell, src + i))
+                                                         + x86("mov", RDQ("rbp", _.op_arbno_win_lo + i), "rax");
+    return r;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frame() {
     const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);
@@ -101,7 +113,8 @@ static std::string bb_match_arbno_frame() {
          + arbno_win_save(32)
          + x86("mov", AFCQ(0), "rsp")
          + x86_gamma()
-         + x86("def", PAIR(3)) + x86("def", PAIR(5))
+         + x86("def", PAIR(3))
+         + x86("def", PAIR(5))
          + x86("mov", "rcx", AFCQ(0))
          + x86("mov", "eax", RDD("rcx", 0))
          + x86("mov", "r14d", RDD("rcx", 4))
@@ -109,7 +122,9 @@ static std::string bb_match_arbno_frame() {
          + x86("mov", AFCQ(0), "rdx")
          + x86("cmp", "r14d", "eax")
          + IF(!(_.op_tail_seal && sn4_arbno_seal_omega()), x86("je", L(3))
-              + x86("comment", "RECEDE into the instance below's body beta.  r12 is left where the body's own beta expects it: the body rolls back its own pend entries, and a second rollback here emptied a deferred capture (COO-62)")
+              + x86("comment",
+                  "RECEDE into the instance below's body beta.  r12 is left where the body's own beta expects it: the body rolls "
+                      "back its own pend entries, and a second rollback here emptied a deferred capture (COO-62)")
               + arbno_win_restore("rcx", 32)
               + x86("lea", "rsp", RDQ("rcx", (int)cs))
               + x86("jmp", bodybeta)
@@ -118,11 +133,18 @@ static std::string bb_match_arbno_frame() {
          + x86_omega();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void arbno_arm_diag(const char * arm) { static int d = -1; if (d < 0) { const char * e = getenv("SCRIP_ARBNO_DIAG"); d = (e && *e == '1') ? 1 : 0; } if (d) fprintf(stderr, "[ARBNO-ARM] %s\n", arm); }
+static void arbno_arm_diag(const char * arm) {
+    static int d = -1;
+    if (d < 0) {
+        const char * e = getenv("SCRIP_ARBNO_DIAG");
+        d = (e && *e == '1') ? 1 : 0;
+    } if (d) fprintf(stderr, "[ARBNO-ARM] %s\n", arm);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_arbno() {
     x86_begin();
-    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0) ? (_.op_arbno_frame_off == -1 ? "bomb-defer-unframed" : "ARBNO-FRAME") : "FRAMELESS");
+    arbno_arm_diag(_.op_arbno_body_kk > 0 ? "FRAMELESS_K" : _.op_off < 0 ? "bomb-slot" : (_.op_sa < 0 || _.op_sb <= 0) ? "bomb-geom" : (_.op_arbno_body_defer_unsafe
+        || !_.op_arbno_body_k0) ? (_.op_arbno_frame_off == -1 ? "bomb-defer-unframed" : "ARBNO-FRAME") : "FRAMELESS");
     return _.op_arbno_body_kk > 0
              ? bb_match_arbno_frameless_k()
          : _.op_off < 0
@@ -134,7 +156,9 @@ std::string bb_match_arbno() {
          : (_.op_arbno_body_defer_unsafe || !_.op_arbno_body_k0)
              ? x86_alpha() + x86_bomb("IR_MATCH_ARBNO: body contains a DEFER unsafe for the plain-frameless arm, and no ARBNO-FRAME slot was granted")
                             + x86_beta() + x86_bomb("IR_MATCH_ARBNO: unreachable beta (defer-unsafe refuse)")
-                            + x86("def", PAIR(2)) + x86("def", PAIR(3)) + x86("def", PAIR(5))
+                            + x86("def", PAIR(2))
+                            + x86("def", PAIR(3))
+                            + x86("def", PAIR(5))
              : bb_match_arbno_frameless();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

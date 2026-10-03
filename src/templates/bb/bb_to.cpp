@@ -45,7 +45,9 @@ static std::string to_int_operand_guard(int slot) {
 std::string bb_to() {
     x86_begin();
     return IF(TO_BOMB1(),
-               x86_alpha() + x86_bomb("IR_TO: a Prolog generator reached the zd/real arm, where op_off+24 is to.limit and the rung-7 trail mark would alias the loop bound -- grant IR_TO a fourth word before enabling this path"))
+               x86_alpha()
+                   + x86_bomb("IR_TO: a Prolog generator reached the zd/real arm, where op_off+24 is to.limit and the rung-7 trail mark "
+                       "would alias the loop bound -- grant IR_TO a fourth word before enabling this path"))
          + IF(!TO_BOMB1() && _.op_zres,
                x86("comment", "IR_TO zd")
                  + x86_alpha()
@@ -53,14 +55,16 @@ std::string bb_to() {
                  + x86("mov", "rdi", ZOPQ(0, 0))
                  + x86("note",  ZOPN(0))
                  + x86("mov", "rsi", ZOPQ(0, 8))
-                 + x86("call",  _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
+                 + x86("call",  _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
+                     _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
                  + x86("mov",   FRQ(_.op_off + 16), "rax")
                  + x86_rt_gc_poll()
                  + x86("note",  ZOPN(1))
                  + x86("mov", "rdi", ZOPQ(1, 0))
                  + x86("note",  ZOPN(1))
                  + x86("mov", "rsi", ZOPQ(1, 8))
-                 + x86("call",  _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
+                 + x86("call",  _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
+                     _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
                  + x86("mov",   FRQ(_.op_off + 24), "rax")
                  + x86("def",   L(0))
                  + x86("mov",   "rax",   FRQ(_.op_off + 16))
@@ -121,14 +125,16 @@ std::string bb_to() {
              + to_int_operand_guard(_.op_sa)
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
-             + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
+             + x86("call", _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
+                 _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sa),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sa + 8), "rax")
              + x86_rt_gc_poll()
              + to_int_operand_guard(_.op_sb)
              + x86("mov",     "rdi", FRQ(_.op_sb))
              + x86("mov",     "rsi", FRQ(_.op_sb + 8))
-             + x86("call",    _.op_range_int_operands ? "core_icn_to_int_check" : "to_int", _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
+             + x86("call", _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
+                 _.op_range_int_operands ? (uint64_t)(uintptr_t)(void*)core_icn_to_int_check : (uint64_t)(uintptr_t)(void*)to_int)
              + x86("mov",     FRQ(_.op_sb),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sb + 8), "rax")
              + x86_rt_gc_poll()

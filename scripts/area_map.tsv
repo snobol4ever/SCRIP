@@ -104,6 +104,7 @@ lang:pascal	src/lower/lower_pascal.c
 # ---- SNOBOL4 / Snocone / Rebus pattern features: the match boxes ----
 FENCE	src/templates/bb/bb_match_fence0.cpp
 FENCE	src/templates/bb/bb_match_fence1.cpp
+FENCE	src/templates/bb/bb_match_flush.cpp
 fence_guarded_fail	src/templates/bb/bb_match_fence0.cpp
 fence_guarded_fail	src/templates/bb/bb_match_fence1.cpp
 ARB	src/templates/bb/bb_match_arb.cpp

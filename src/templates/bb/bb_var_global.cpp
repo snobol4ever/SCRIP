@@ -12,7 +12,13 @@ DESCR_t NV_GET_fn(const char * name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * vg_res(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }
-static inline int vg_patv_slot(const char * sv) { const char * d = sv ? strstr(sv, "$V") : 0; if (!d || strncmp(sv, "PAT$", 4)) return -1; char * e = 0; long k = strtol(d + 2, &e, 10); return (e && e != d + 2 && !*e) ? (int) k : -1; }
+static inline int vg_patv_slot(const char * sv) {
+    const char * d = sv ? strstr(sv, "$V") : 0;
+    if (!d || strncmp(sv, "PAT$", 4)) return -1;
+    char * e = 0;
+    long k = strtol(d + 2, &e, 10);
+    return (e && e != d + 2 && !*e) ? (int) k : -1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_global() {
         const int vs = vg_patv_slot(_.op_sval);

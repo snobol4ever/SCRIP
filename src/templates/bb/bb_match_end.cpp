@@ -15,7 +15,13 @@ extern "C" long zvo_owner_dout(int cur_head);
 #include "x86_asm.h"
 #define rfc() (_.op_fc_disp >= 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int cap_name_strict(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int cap_name_strict(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_CAP_NAME_STRICT");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string mend_bank_cursors() {
     return IF(sn4_defer_beta_guard(),
@@ -70,7 +76,9 @@ static std::string release_pump() {
          + x86_anchor_leave()
          + x86_xfer_leave()
          + IF(cap_name_strict(),
-               x86("comment", "SN4-CAP-NAME-STRICT: rax != 0 = a deferred capture target resolved to a VALUE, not a NAME -- the terminus fails instead of committing an indirect assignment (oracle: sbl retreats)")
+               x86("comment",
+                   "SN4-CAP-NAME-STRICT: rax != 0 = a deferred capture target resolved to a VALUE, not a NAME -- the terminus "
+                       "fails instead of committing an indirect assignment (oracle: sbl retreats)")
              + x86("test", "rax", "rax")
              + x86("je",   L(13))
              + x86_omega()
@@ -106,10 +114,14 @@ std::string bb_match_end() {
     return _.op_off < 0
          ? x86_alpha() + x86_bomb("IR_MATCH_END: head slot not resolved (operand[0] missing or unowned)")
          : _.op_tail && rfc()
-         ?  x86_alpha() + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb") + x86("mov", "rcx", RDQ("rcx", 200)) + x86("test", "rcx", "rcx") + x86_omega("jne") + mend_bank_cursors()
+         ?  x86_alpha() + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+         + x86("mov", "rcx", RDQ("rcx", 200))
+         + x86("test", "rcx", "rcx") + x86_omega("jne") + mend_bank_cursors()
          + release_pump()
          : x86("comment", "IR_MATCH_END")
-         + x86_alpha() + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb") + x86("mov", "rcx", RDQ("rcx", 200)) + x86("test", "rcx", "rcx") + x86_omega("jne") + mend_bank_cursors()
+         + x86_alpha() + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
+         + x86("mov", "rcx", RDQ("rcx", 200))
+         + x86("test", "rcx", "rcx") + x86_omega("jne") + mend_bank_cursors()
          + x86_align_leave()
          + release_pump();
 }

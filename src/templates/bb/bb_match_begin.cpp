@@ -49,7 +49,8 @@ std::string bb_match_begin() {
          + x86_rt_gc_poll_rec_subject_new()
          + x86("mov", "r13", "rax")
          + x86("mov", "r15", "rdx")
-         + x86("comment", "CAS begin marker (FLUSH, Lon 2026-09-27): one null entry above the saved mark; rt_dcap_pump skips it, bb_match_flush scans down r12 to it from any frame, the exits pop it with the mark")
+         + x86("comment",
+             "CAS begin marker (FLUSH, Lon 2026-09-27): one null entry above the saved mark; rt_dcap_pump skips it, bb_match_flush scans down r12 to it from any frame, the exits pop it with the mark")
          + x86("note", "cas_mark")
          + x86("mov", RDQ("r12", 0), 0L)
          + x86("mov", RDQ("r12", 8), 0L)

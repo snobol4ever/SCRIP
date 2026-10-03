@@ -58,7 +58,8 @@ std::string bb_var_ref() {
                x86("comment", "IR_VAR_REF named: a value-call argument carries its identifier so name() through a value can answer -> rt_var_ref_cell_named(&cell, \"id\")")
              + x86_alpha()
              + (_.op_gva_k >= 0
-                 ? x86("note", gva_name(_.op_gva_k)) + x86("mov", "rdi", (long)(RT_GVA_VA + _.op_gva_k * 16))
+                 ? x86("note", gva_name(_.op_gva_k))
+                 + x86("mov", "rdi", (long)(RT_GVA_VA + _.op_gva_k * 16))
                  : x86("lea", "rdi", FRQ(_.op_sa)))
              + x86_rodata_str_lea("rsi", _.op_sval, "_vrnm")
              + x86("call", "rt_var_ref_cell_named", (uint64_t)(uintptr_t)(void *)rt_var_ref_cell_named)

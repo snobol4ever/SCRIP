@@ -17,7 +17,8 @@ int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
 std::string bb_scan_any() {
     x86_begin();
     return (_.op_off >= 0 && !_.op_name1 && _.op_sa >= 0) ?
-           x86("comment", "IR_SCAN_ANY (var cset) [rt_scan_needle coerces (int/real->string), mirroring bb_scan_match.cpp -- FINDING-2026-09-03-seat02-icon-jcon-suite-census-and-level-cure.md class fix]")
+           x86("comment",
+               "IR_SCAN_ANY (var cset) [rt_scan_needle coerces (int/real->string), mirroring bb_scan_match.cpp -- FINDING-2026-09-03-seat02-icon-jcon-suite-census-and-level-cure.md class fix]")
              + x86_alpha()
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))

@@ -83,6 +83,7 @@ std::string bb_scan_upto() {
              + x86(".quad",   LS(2), _.op_name1)
              + x86("label",   LS(2))
              + x86(".string", _.op_name1, (unsigned long)_.op_ival)
-             + x86_ro_seal_q(3, x86_cset_word(_.op_name1, _.op_ival, 0)) + x86_ro_seal_q(4, x86_cset_word(_.op_name1, _.op_ival, 1)) + x86_ro_seal_q(5, x86_cset_word(_.op_name1, _.op_ival, 2)) + x86_ro_seal_q(6, x86_cset_word(_.op_name1, _.op_ival, 3)) :
+             + x86_ro_seal_q(3, x86_cset_word(_.op_name1, _.op_ival, 0)) + x86_ro_seal_q(4, x86_cset_word(_.op_name1, _.op_ival, 1)) + x86_ro_seal_q(5, x86_cset_word(_.op_name1, _.op_ival,
+                 2)) + x86_ro_seal_q(6, x86_cset_word(_.op_name1, _.op_ival, 3)) :
                x86_bomb("bb_scan_upto: unhandled (needs literal cset arg + descr flat-chain slot)");
 }

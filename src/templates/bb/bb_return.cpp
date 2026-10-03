@@ -40,12 +40,15 @@ std::string bb_return() {
              + x86("mov", "rax", FRQ(0))
              + x86("mov", "rdx", FRQ(8)))
          + IF(_.op_dval != 2.0 && _.flat_gen && x86_trace_hooks_on(),
-               x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
-             + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main")) + x86("mov", "rsi", FRQ(0)) + x86("mov", "rdx", FRQ(8))
+               x86("push", "rax")
+             + x86("push", "rdx") + x86_align_call_enter()
+             + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main")) + x86("mov", "rsi", FRQ(0))
+             + x86("mov", "rdx", FRQ(8))
          + x86("mov", "rcx", "rbp")
              + x86("call", "rt_trace_gen_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_return_hook)
              + x86_rt_gc_poll()
-             + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax"))
+             + x86_align_call_leave() + x86("pop", "rdx")
+             + x86("pop", "rax"))
          + IF(_.op_dval == 2.0, x86_omega())
          + IF(_.op_dval != 2.0, x86_gamma());
 }

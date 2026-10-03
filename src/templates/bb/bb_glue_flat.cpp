@@ -87,7 +87,9 @@ std::string bb_glue_lvl_slot_rcx(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_act_record(int keep_rax) {
     int k = keep_rax ? 8 : 0;
-    return x86("comment", "ACTIVATION RECORD (row snobol4-a-setexit-handler-runs-at-top-level-so-freturn-from-it-is-error-242): the wire pair just pushed IS the activation base; a SETEXIT handler that RETURNs resumes here")
+    return x86("comment",
+        "ACTIVATION RECORD (row snobol4-a-setexit-handler-runs-at-top-level-so-freturn-from-it-is-error-242): the wire "
+            "pair just pushed IS the activation base; a SETEXIT handler that RETURNs resumes here")
          + IF(keep_rax, x86("push", "rax"))
          + bb_glue_lvl_slot_rcx()
          + x86("lea", "rax", RDQ("rsp", k))

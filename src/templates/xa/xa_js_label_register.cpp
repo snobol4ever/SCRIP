@@ -13,4 +13,7 @@ static std::string xa_js_label_register_str(void) {
     return r + "});\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void xa_js_label_register(void) { auto s = xa_js_label_register_str(); if (!s.empty()) emit_text_n(s.data(), s.size()); }
+extern "C" void xa_js_label_register(void) {
+    auto s = xa_js_label_register_str();
+    if (!s.empty()) emit_text_n(s.data(), s.size());
+}

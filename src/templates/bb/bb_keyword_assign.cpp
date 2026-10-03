@@ -45,7 +45,8 @@ std::string bb_keyword_assign() {
              + x86_alpha()
              + x86("mov",  "rdi", FRQ(_.op_a_slot))
              + x86("mov",  "rsi", FRQ(_.op_a_slot + 8))
-             + x86("call", (_.op_strict ? "rt_keyword_subject_set_strict" : "rt_keyword_subject_set"), (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_keyword_subject_set_strict : rt_keyword_subject_set))
+             + x86("call", (_.op_strict ? "rt_keyword_subject_set_strict" : "rt_keyword_subject_set"),
+                 (uint64_t)(uintptr_t)(void *)(_.op_strict ? rt_keyword_subject_set_strict : rt_keyword_subject_set))
              + x86("test", "rax", "rax")
              + x86_omega("je")
              + x86("mov",  FRQ(_.op_off),     (long)DT_S)

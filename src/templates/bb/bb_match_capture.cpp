@@ -36,7 +36,8 @@ static std::string cap_imm_gva(const std::string & homeop) {
          + x86("mov",  "eax", homeop.c_str())
          + x86_anchor_enter()
          + x86("note", gva_name(_.op_gva_k))
-         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k).c_str()) : x86("mov", "rdi", (long)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
+         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k).c_str()) :
+         x86("mov", "rdi", (long)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
          + x86("mov",  "esi", "eax")
          + x86("mov",  "edx", "r14d")
          + x86("lea",  "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
@@ -50,7 +51,8 @@ static std::string cap_cond_target_rcx() {
     if (cap_gva() && gva_name_hidden(_.op_sval)) return x86("note", gva_name(_.op_gva_k))
                         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str())
                                                             : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)));
-    if (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]) { std::string lbl = std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval);
+    if (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]) {
+    std::string lbl = std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval);
         return x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), lbl.c_str()); }
     return x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str());
 }
@@ -168,7 +170,8 @@ std::string bb_match_capture() {
            + x86_rt_gc_poll()
            + x86("pop",  "rax")
            + x86("pop",  "rax")
-           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1) + x86("je", L(4))) : std::string())
+           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1)
+           + x86("je", L(4))) : std::string())
            + x86("def",  L(1))
            + x86_anchor_leave()
            + x86_gamma()
@@ -210,7 +213,8 @@ std::string bb_match_capture() {
            + x86_rt_gc_poll()
            + x86("pop",  "rax")
            + x86("pop",  "rax")
-           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1) + x86("je", L(4))) : std::string())
+           + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1)
+           + x86("je", L(4))) : std::string())
            + x86("def",  L(1))
            + x86_anchor_leave()
            + x86_gamma()

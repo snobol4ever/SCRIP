@@ -154,7 +154,8 @@ static std::string bb_define_bind() {
          + x86("call", "rt_define_site", _site_fp)
          + x86_rt_gc_poll()
          + x86_scan_sync_in_rr();
-    { static int _m4seal = -1; if (_m4seal < 0) { const char * _e = getenv("SCRIP_M4_ALPHA_SEAL"); _m4seal = (_e && *_e == '0') ? 0 : 1; }
+    {
+    static int _m4seal = -1; if (_m4seal < 0) { const char * _e = getenv("SCRIP_M4_ALPHA_SEAL"); _m4seal = (_e && *_e == '0') ? 0 : 1; }
       if (_m4seal && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
         uint64_t _seal_fp; { void (*fp)(const char *, void *) = bb_ab_seal_alpha; _seal_fp = (uint64_t)(uintptr_t)(void *)fp; }
         reg = reg + x86("comment", "M4-ALPHA-SEAL: alpha$<FN> <- &<FN>_α, the m4 twin of the driver seal")
@@ -212,7 +213,13 @@ static std::string bb_define_bind() {
 #include <cstdint>
 #include "emit.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int fnsig(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_FN_SIG");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"

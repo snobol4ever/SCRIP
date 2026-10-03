@@ -10,7 +10,11 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_fence0() {
     x86_begin();
-    return x86("comment", _.op_fence0_floor > 0 ? "IR_MATCH_FENCE0 (bare FENCE cut box, BLOB DYNAMIC RELEASE: alpha commits and restores rsp to the blob activation floor rbp-K, freeing every left-context backtrack record the static chase cannot size — the unbounded-leak class of FINDING-2026-08-23-seat04-json-fence0; then gamma; beta abandons to omega)"
+    return x86("comment",
+        _.op_fence0_floor > 0
+            ? "IR_MATCH_FENCE0 (bare FENCE cut box, BLOB DYNAMIC RELEASE: alpha commits and restores rsp to the blob "
+                "activation floor rbp-K, freeing every left-context backtrack record the static chase cannot size — the "
+                    "unbounded-leak class of FINDING-2026-08-23-seat04-json-fence0; then gamma; beta abandons to omega)"
                         : _.op_fence0_release > 0
                               ? "IR_MATCH_FENCE0 (bare FENCE cut box: alpha commits, FZ-1 releases the contiguous backtrack-only spine at the frontier, then gamma; beta abandons to omega)"
                                   : "IR_MATCH_FENCE0 (bare FENCE cut box: alpha commits — match null — then gamma; beta abandons to omega; nothing releasable here)")
