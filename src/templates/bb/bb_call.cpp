@@ -67,6 +67,10 @@ DESCR_t rt_pl_dop_gnu_sort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_msort1(DESCR_
 DESCR_t rt_pl_dop_gnu_line_position(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_character_count(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_stream_line_column(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_last_read_start(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_absolute_file_name(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_prolog_file_name(DESCR_t *, int);
 DESCR_t rt_pl_dop_gnu_builtin(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_working_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_change_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_make_directory(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_delete_file(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_exists(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_directory_files(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_environ_list(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_props(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_term_hash(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_prolog_pid(DESCR_t *, int);
 DESCR_t rt_pl_dop_number_chars(DESCR_t *, int); DESCR_t rt_pl_dop_name(DESCR_t *, int); DESCR_t rt_pl_dop_get_char(DESCR_t *, int); DESCR_t rt_pl_dop_peek_char(DESCR_t *, int);
 DESCR_t rt_pl_dop_read(DESCR_t *, int); DESCR_t rt_pl_dop_atom_to_term(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_atom(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_chars(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_codes(DESCR_t *, int);DESCR_t rt_pl_dop_display(DESCR_t *, int); DESCR_t rt_pl_dop_display_s(DESCR_t *, int); DESCR_t rt_pl_dop_unify_oc(DESCR_t *, int); DESCR_t rt_pl_dop_aggregate_reduce(DESCR_t *, int);
 DESCR_t rt_pl_dop_read_term_opts(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_opts_s(DESCR_t *, int);
@@ -289,6 +293,16 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$gnu_last_read_start", 2, "rt_pl_dop_gnu_last_read_start", rt_pl_dop_gnu_last_read_start },
         { "$gnu_absolute_file_name", 2, "rt_pl_dop_gnu_absolute_file_name", rt_pl_dop_gnu_absolute_file_name },
         { "$gnu_prolog_file_name", 2, "rt_pl_dop_gnu_prolog_file_name", rt_pl_dop_gnu_prolog_file_name }, { "$gnu_builtin", 2, "rt_pl_dop_gnu_builtin", rt_pl_dop_gnu_builtin },
+        { "$gnu_working_directory", 1, "rt_pl_dop_gnu_working_directory", rt_pl_dop_gnu_working_directory },
+        { "$gnu_change_directory", 1, "rt_pl_dop_gnu_change_directory", rt_pl_dop_gnu_change_directory },
+        { "$gnu_make_directory", 1, "rt_pl_dop_gnu_make_directory", rt_pl_dop_gnu_make_directory },
+        { "$gnu_delete_file", 1, "rt_pl_dop_gnu_delete_file", rt_pl_dop_gnu_delete_file },
+        { "$gnu_file_exists", 1, "rt_pl_dop_gnu_file_exists", rt_pl_dop_gnu_file_exists },
+        { "$gnu_directory_files", 2, "rt_pl_dop_gnu_directory_files", rt_pl_dop_gnu_directory_files },
+        { "$gnu_environ_list", 1, "rt_pl_dop_gnu_environ_list", rt_pl_dop_gnu_environ_list },
+        { "$gnu_file_props", 2, "rt_pl_dop_gnu_file_props", rt_pl_dop_gnu_file_props },
+        { "$gnu_term_hash", 2, "rt_pl_dop_gnu_term_hash", rt_pl_dop_gnu_term_hash },
+        { "$gnu_prolog_pid", 1, "rt_pl_dop_gnu_prolog_pid", rt_pl_dop_gnu_prolog_pid },
         { "$number_codes", 2, "rt_pl_dop_number_codes", rt_pl_dop_number_codes }, { "$number_chars", 2, "rt_pl_dop_number_chars", rt_pl_dop_number_chars },
         { "$name", 2, "rt_pl_dop_name", rt_pl_dop_name }, { "$get_char", 1, "rt_pl_dop_get_char", rt_pl_dop_get_char }, { "$peek_char", 1, "rt_pl_dop_peek_char", rt_pl_dop_peek_char },
         { "$get_code", 1, "rt_pl_dop_get_code", rt_pl_dop_get_code }, { "$peek_code", 1, "rt_pl_dop_peek_code", rt_pl_dop_peek_code },

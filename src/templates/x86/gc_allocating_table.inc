@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2000
-#define GC_ALLOC_TAB_N_VOID 233
-#define GC_ALLOC_TAB_N_DESCR 1086
-#define GC_ALLOC_TAB_N_OTHER 675
+#define GC_ALLOC_TAB_N 2029
+#define GC_ALLOC_TAB_N_VOID 234
+#define GC_ALLOC_TAB_N_DESCR 1109
+#define GC_ALLOC_TAB_N_OTHER 680
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -803,8 +803,16 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_format_body", GC_RET_OTHER },
     { "pl_gnu_abs_path", GC_RET_OTHER },
     { "pl_gnu_cat3", GC_RET_OTHER },
+    { "pl_gnu_ctx", GC_RET_VOID },
     { "pl_gnu_cwd", GC_RET_OTHER },
+    { "pl_gnu_dt", GC_RET_DESCR },
+    { "pl_gnu_fn", GC_RET_DESCR },
+    { "pl_gnu_fn1", GC_RET_DESCR },
+    { "pl_gnu_hash_walk", GC_RET_OTHER },
+    { "pl_gnu_os_fail", GC_RET_OTHER },
+    { "pl_gnu_path_arg", GC_RET_OTHER },
     { "pl_gnu_position", GC_RET_OTHER },
+    { "pl_gnu_vec_push", GC_RET_OTHER },
     { "pl_goal_body_conv_ball", GC_RET_OTHER },
     { "pl_goal_key_live", GC_RET_OTHER },
     { "pl_head_list", GC_RET_OTHER },
@@ -1293,6 +1301,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_ball_permission3", GC_RET_OTHER },
     { "rt_pl_ball_permission_pi", GC_RET_OTHER },
     { "rt_pl_ball_report", GC_RET_VOID },
+    { "rt_pl_ball_set_pi", GC_RET_OTHER },
     { "rt_pl_ball_type_pi", GC_RET_OTHER },
     { "rt_pl_bind_variables_cell", GC_RET_OTHER },
     { "rt_pl_catch_handle", GC_RET_DESCR },
@@ -1488,8 +1497,20 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_gnu_absolute_file_name_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_builtin", GC_RET_DESCR },
     { "rt_pl_dop_gnu_builtin_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_change_directory", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_change_directory_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_character_count", GC_RET_DESCR },
     { "rt_pl_dop_gnu_character_count_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_delete_file", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_delete_file_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_directory_files", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_directory_files_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_environ_list", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_environ_list_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_file_exists", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_file_exists_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_file_props", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_file_props_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_keysort1", GC_RET_DESCR },
     { "rt_pl_dop_gnu_keysort1_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_last_read_start", GC_RET_DESCR },
@@ -1498,14 +1519,22 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_gnu_line_count_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_line_position", GC_RET_DESCR },
     { "rt_pl_dop_gnu_line_position_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_make_directory", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_make_directory_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_msort1", GC_RET_DESCR },
     { "rt_pl_dop_gnu_msort1_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_prolog_file_name", GC_RET_DESCR },
     { "rt_pl_dop_gnu_prolog_file_name_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_prolog_pid", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_prolog_pid_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_sort1", GC_RET_DESCR },
     { "rt_pl_dop_gnu_sort1_c", GC_RET_DESCR },
     { "rt_pl_dop_gnu_stream_line_column", GC_RET_DESCR },
     { "rt_pl_dop_gnu_stream_line_column_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_term_hash", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_term_hash_c", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_working_directory", GC_RET_DESCR },
+    { "rt_pl_dop_gnu_working_directory_c", GC_RET_DESCR },
     { "rt_pl_dop_goal_guard", GC_RET_DESCR },
     { "rt_pl_dop_goal_guard_c", GC_RET_OTHER },
     { "rt_pl_dop_halt", GC_RET_DESCR },

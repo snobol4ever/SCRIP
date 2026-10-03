@@ -12,3 +12,7 @@ FILE *rt_dir_snapshot(const char *path) {
     rewind(fp);
     return fp;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_dir_open(const char *path) { return (void *)opendir(path); }
+const char *rt_dir_next(void *dh) { struct dirent *de = readdir((DIR *)dh); return de ? de->d_name : (const char *)0; }
+void rt_dir_close(void *dh) { closedir((DIR *)dh); }

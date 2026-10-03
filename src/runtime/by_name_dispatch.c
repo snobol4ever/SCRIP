@@ -112,6 +112,7 @@ void rt_call_args_clear_from(int n);
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
+#include <time.h>
 #include <stdlib.h>
 #include <time.h>
 #include <ctype.h>
@@ -3975,6 +3976,94 @@ PL_CX_LEAF_HEAD(gnu_prolog_file_name, 2) { extern void *rt_pl_ball_kind2(const c
         cand = pl_gnu_cat3(nm, use, ""); ok = plw_unify_vals(args[1], pl_mk_atom_dup(cand, strlen(cand)), cx); } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_builtin, 2) { extern int pl_pi_is_builtin(const char *, int); DESCR_t a = rt_pl_deref_val(args[1]); const char *nm = pl_atom_str(rt_pl_deref_val(args[0]));
     ok = a.v == (DTYPE_t)DT_I && nm && pl_pi_is_builtin(nm, (int)a.i); } PL_CX_LEAF_TAIL
+static const char *pl_gnu_path_arg(DESCR_t a, pl_tr_ctx_t *cx) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern void *rt_pl_ball_instantiation(void);
+    DESCR_t f = rt_pl_deref_val(a); const char *nm = pl_atom_str(f), *ab;
+    if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); return (const char *)0; }
+    if (!nm) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); return (const char *)0; }
+    if (!(ab = pl_gnu_abs_path(nm))) { cx->ball = rt_pl_ball_kind2("domain_error", "os_path", f); return (const char *)0; }
+    return ab; }
+static int pl_gnu_os_fail(pl_tr_ctx_t *cx) { extern void *rt_pl_ball_kind1(const char *, const char *); cx->ball = rt_pl_ball_kind1("system_error", strerror(errno)); return 0; }
+static void pl_gnu_ctx(pl_tr_ctx_t *cx, const char *nm, int ar) { extern void *rt_pl_ball_set_pi(void *, const char *, int); if (cx->ball) cx->ball = rt_pl_ball_set_pi(cx->ball, nm, ar); }
+static DESCR_t pl_gnu_fn(const char *f, int ar, const DESCR_t *a) { extern int prolog_atom_intern(const char *); DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr(ar); DESCR_t c = {0};
+    for (int i = 0; i < ar; i++) kids[i] = a[i];
+    c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(f), ar); c.p = (void *)kids; return c; }
+static DESCR_t pl_gnu_fn1(const char *f, DESCR_t a) { return pl_gnu_fn(f, 1, &a); }
+static DESCR_t pl_gnu_dt(time_t t) { struct tm tm; DESCR_t a[6]; localtime_r(&t, &tm);
+    a[0] = INTVAL(tm.tm_year + 1900); a[1] = INTVAL(tm.tm_mon + 1); a[2] = INTVAL(tm.tm_mday); a[3] = INTVAL(tm.tm_hour); a[4] = INTVAL(tm.tm_min); a[5] = INTVAL(tm.tm_sec);
+    return pl_gnu_fn("dt", 6, a); }
+static DESCR_t *pl_gnu_vec_push(gv_t *el) { return (DESCR_t *)gv_push(el, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), "gnu_os_list"); }
+PL_CX_LEAF_HEAD(gnu_working_directory, 1) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t d = rt_pl_deref_val(args[0]); char *w; ok = 0;
+    if (!pl_val_unbound(d) && !pl_atom_str(d)) cx->ball = rt_pl_ball_kind2("type_error", "atom", d);
+    else if (!(w = pl_gnu_cwd())) ok = pl_gnu_os_fail(cx);
+    else ok = plw_unify_vals(args[0], pl_mk_atom_dup(w, strlen(w)), cx); pl_gnu_ctx(cx, "working_directory", 1); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_change_directory, 1) { const char *p = pl_gnu_path_arg(args[0], cx); ok = 0;
+    if (p) ok = chdir(p) == 0 ? 1 : pl_gnu_os_fail(cx); pl_gnu_ctx(cx, "change_directory", 1); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_make_directory, 1) { const char *p = pl_gnu_path_arg(args[0], cx); ok = 0;
+    if (p) ok = mkdir(p, 0777) == 0 ? 1 : pl_gnu_os_fail(cx); pl_gnu_ctx(cx, "make_directory", 1); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_delete_file, 1) { const char *p = pl_gnu_path_arg(args[0], cx); ok = 0; if (p) ok = unlink(p) == 0 ? 1 : pl_gnu_os_fail(cx); pl_gnu_ctx(cx, "delete_file", 2); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_file_exists, 1) { const char *p = pl_gnu_path_arg(args[0], cx); ok = p && access(p, F_OK) == 0; pl_gnu_ctx(cx, "file_exists", 1); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_directory_files, 2) { extern void *rt_dir_open(const char *); extern const char *rt_dir_next(void *); extern void rt_dir_close(void *);
+    const char *p = pl_gnu_path_arg(args[0], cx), *e; void *dh = (void *)0; gv_t el; int n = 0; ok = 0;
+    el.p = 0; el.len = 0; el.cap = 0; el.esz = 0; el.kind = 0; el.pad = 0;
+    if (p && !(dh = rt_dir_open(p))) ok = pl_gnu_os_fail(cx);
+    else if (p) { while ((e = rt_dir_next(dh))) { *pl_gnu_vec_push(&el) = pl_mk_atom_dup(e, strlen(e)); n++; }
+        rt_dir_close(dh); ok = plw_unify_vals(args[1], pl_list_from_arr((DESCR_t *)el.p, n), cx); } pl_gnu_ctx(cx, "directory_files", 2); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_environ_list, 1) { extern char **environ; gv_t el; int n = 0;
+    el.p = 0; el.len = 0; el.cap = 0; el.esz = 0; el.kind = 0; el.pad = 0;
+    for (char **ep = environ; ep && *ep; ep++) { const char *eq = strchr(*ep, '='); DESCR_t kv[2]; if (!eq) continue;
+        kv[0] = pl_mk_atom_dup(*ep, (size_t)(eq - *ep)); kv[1] = pl_mk_atom_dup(eq + 1, strlen(eq + 1)); *pl_gnu_vec_push(&el) = pl_gnu_fn("=", 2, kv); n++; }
+    ok = plw_unify_vals(args[0], pl_list_from_arr((DESCR_t *)el.p, n), cx); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_file_props, 2) { const char *p = pl_gnu_path_arg(args[0], cx), *ty; struct stat st; char *rp; DESCR_t el[12]; int n = 0; ok = 0;
+    if (p && stat(p, &st) != 0) ok = pl_gnu_os_fail(cx);
+    else if (p) { rp = (char *)rt_wsb_alloc(PATH_MAX + 1);
+        ty = S_ISREG(st.st_mode) ? "regular" : S_ISDIR(st.st_mode) ? "directory" : S_ISFIFO(st.st_mode) ? "fifo" : S_ISSOCK(st.st_mode) ? "socket"
+           : S_ISCHR(st.st_mode) ? "character_device" : S_ISBLK(st.st_mode) ? "block_device" : "unknown";
+        el[n++] = pl_gnu_fn1("absolute_file_name", pl_mk_atom_dup(p, strlen(p)));
+        if (realpath(p, rp)) el[n++] = pl_gnu_fn1("real_file_name", pl_mk_atom_dup(rp, strlen(rp)));
+        el[n++] = pl_gnu_fn1("type", pl_mk_atom(ty)); el[n++] = pl_gnu_fn1("size", INTVAL(st.st_size));
+        if (access(p, R_OK) == 0) el[n++] = pl_gnu_fn1("permission", pl_mk_atom("read"));
+        if (access(p, W_OK) == 0) el[n++] = pl_gnu_fn1("permission", pl_mk_atom("write"));
+        if (access(p, X_OK) == 0) el[n++] = pl_gnu_fn1("permission", pl_mk_atom(S_ISDIR(st.st_mode) ? "search" : "execute"));
+        el[n++] = pl_gnu_fn1("creation", pl_gnu_dt(st.st_ctime)); el[n++] = pl_gnu_fn1("last_access", pl_gnu_dt(st.st_atime));
+        el[n++] = pl_gnu_fn1("last_modification", pl_gnu_dt(st.st_mtime));
+        ok = plw_unify_vals(args[1], pl_list_from_arr(el, n), cx); } pl_gnu_ctx(cx, "file_property", 2); } PL_CX_LEAF_TAIL
+static uint32_t pl_gnu_rotl(uint32_t x, int r) { return (x << r) | (x >> (32 - r)); }
+static uint32_t pl_gnu_hblock(uint32_t k, uint32_t h) { k *= 0xcc9e2d51u; k = pl_gnu_rotl(k, 15); k *= 0x1b873593u; h ^= k; h = pl_gnu_rotl(h, 13); return h * 5 + 0xe6546b64u; }
+static uint32_t pl_gnu_hfinal(uint32_t h, uint32_t len) { h ^= len; h ^= h >> 16; h *= 0x85ebca6bu; h ^= h >> 13; h *= 0xc2b2ae35u; h ^= h >> 16; return h; }
+static uint32_t pl_gnu_atom_hash(const char *s) { size_t n = strlen(s), i = 0; uint32_t h = 1688943522u, k;
+    if (n == 0) return 0;
+    if (n == 1) return (uint32_t)(unsigned char)s[0];
+    if (n == 2 && s[0] == '[' && s[1] == ']') return 256;
+    for (; i + 4 <= n; i += 4) { memcpy(&k, s + i, 4); h = pl_gnu_hblock(k, h); }
+    k = 0;
+    switch (n & 3) { case 3: k ^= (uint32_t)(unsigned char)s[i + 2] << 16; case 2: k ^= (uint32_t)(unsigned char)s[i + 1] << 8;
+        case 1: k ^= (uint32_t)(unsigned char)s[i]; k *= 0xcc9e2d51u; k = pl_gnu_rotl(k, 15); k *= 0x1b873593u; h ^= k; }
+    return pl_gnu_hfinal(h, (uint32_t)n); }
+static void pl_gnu_h32(uint32_t *h, uint32_t *len, uint32_t x) { *len += 4; *h = pl_gnu_hblock(x, *h); }
+static void pl_gnu_h64(uint32_t *h, uint32_t *len, uint64_t x) { pl_gnu_h32(h, len, (uint32_t)x); pl_gnu_h32(h, len, (uint32_t)(x >> 32)); }
+static void pl_gnu_hdbl(uint32_t *h, uint32_t *len, double x) { int e; uint64_t m; x = frexp(x, &e); if (x < 0.0) x = -(x + 0.5);
+    x *= (double)((uint64_t)1 << 63); m = (uint64_t)(int64_t)x; m = m + (((uint64_t)1 << 63) / 1024) * (uint64_t)(int64_t)e; pl_gnu_h64(h, len, m); }
+static int pl_gnu_hash_walk(DESCR_t t, uint32_t *h, uint32_t *len) { extern const char *prolog_atom_name(int); extern char *rt_big_str(DESCR_t);
+    for (;;) { DESCR_t d = rt_pl_deref_val(t); const char *s;
+        if (pl_val_unbound(d)) return 0;
+        if (pl_is_cons(d)) { DESCR_t *kids = (DESCR_t *)d.p; if (!pl_gnu_hash_walk(kids[0], h, len)) return 0; t = kids[1]; continue; }
+        if (d.v == (DTYPE_t)DT_PLREF) { int ar = plc_fid_arity(d.slen); const char *fn = prolog_atom_name(plc_fid_name(d.slen)); DESCR_t *kids = (DESCR_t *)d.p;
+            pl_gnu_h32(h, len, pl_gnu_atom_hash(fn ? fn : "")); pl_gnu_h32(h, len, (uint32_t)ar);
+            if (ar == 0) return 1;
+            for (int i = 0; i < ar - 1; i++) if (!pl_gnu_hash_walk(kids[i], h, len)) return 0;
+            t = kids[ar - 1]; continue; }
+        if ((s = pl_atom_str(d))) { pl_gnu_h32(h, len, pl_gnu_atom_hash(s)); return 1; }
+        if (d.v == DT_I) { pl_gnu_h64(h, len, (uint64_t)d.i); return 1; }
+        if (d.v == DT_R) { pl_gnu_hdbl(h, len, d.r); return 1; }
+        if (d.v == DT_BIG) { pl_gnu_h32(h, len, pl_gnu_atom_hash(rt_big_str(d))); return 1; }
+        pl_gnu_h64(h, len, (uint64_t)d.i); return 1; } }
+PL_CX_LEAF_HEAD(gnu_term_hash, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t hv = rt_pl_deref_val(args[1]); uint32_t h = 1688943522u, len = 0; ok = 0;
+    if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
+    else if (!pl_gnu_hash_walk(args[0], &h, &len)) ok = 1;
+    else ok = plw_unify_vals(args[1], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % (1u << 28))), cx); pl_gnu_ctx(cx, "term_hash", 2); } PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(gnu_prolog_pid, 1) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t d = rt_pl_deref_val(args[0]); ok = 0;
+    if (!pl_val_unbound(d) && d.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", d);
+    else ok = plw_unify_vals(args[0], INTVAL((int64_t)getpid()), cx); pl_gnu_ctx(cx, "prolog_pid", 1); } PL_CX_LEAF_TAIL
 static int pl_op_spec_ok(const char *t) { static const char *const k[] = { "xfx", "xfy", "yfx", "fy", "fx", "yf", "xf", 0 }; for (int i = 0; k[i]; i++) if (!strcmp(t, k[i])) return 1; return 0; }
 static const char *pl_op_name(DESCR_t d) { return pl_is_nil(d) ? "[]" : pl_atom_str(d); }
 PL_CX_LEAF_HEAD(op, 3) { extern int prolog_op_table_add(const char *, int, const char *); extern int prolog_op_permission(const char *, int, const char *);

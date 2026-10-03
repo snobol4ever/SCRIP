@@ -1910,6 +1910,16 @@ void *rt_pl_ball_kind2_pi(const char *kind, const char *arg0_atom, DESCR_t culpr
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_set_pi(void *ball, const char *nm, int ar)
+{
+    pl_cell_t pi[2]; pl_cell_t *pic; pl_cell_t *b = (pl_cell_t *)ball;
+    if (!b || (int)b->v != DT_PLREF || !b->p) return ball;
+    pi[0] = pl_make_atom(prolog_atom_intern(nm ? nm : "?")); pi[1] = pl_make_int(ar);
+    pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
+    if (pic) ((pl_cell_t *)b->p)[1] = *pic;
+    return ball;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_culprit1(const char *kind, DESCR_t culprit)
 {
     extern DESCR_t rt_pl_fresh_var_ref(void);

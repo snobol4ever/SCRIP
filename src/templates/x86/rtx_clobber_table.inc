@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 261
+#define RTX_CLOB_TAB_N 271
 #define RTX_CLOB_TAB_N_CLOBBERING 0
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -127,15 +127,25 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_get_edin", 0 },
     { "rt_pl_dop_gnu_absolute_file_name", 0 },
     { "rt_pl_dop_gnu_builtin", 0 },
+    { "rt_pl_dop_gnu_change_directory", 0 },
     { "rt_pl_dop_gnu_character_count", 0 },
+    { "rt_pl_dop_gnu_delete_file", 0 },
+    { "rt_pl_dop_gnu_directory_files", 0 },
+    { "rt_pl_dop_gnu_environ_list", 0 },
+    { "rt_pl_dop_gnu_file_exists", 0 },
+    { "rt_pl_dop_gnu_file_props", 0 },
     { "rt_pl_dop_gnu_keysort1", 0 },
     { "rt_pl_dop_gnu_last_read_start", 0 },
     { "rt_pl_dop_gnu_line_count", 0 },
     { "rt_pl_dop_gnu_line_position", 0 },
+    { "rt_pl_dop_gnu_make_directory", 0 },
     { "rt_pl_dop_gnu_msort1", 0 },
     { "rt_pl_dop_gnu_prolog_file_name", 0 },
+    { "rt_pl_dop_gnu_prolog_pid", 0 },
     { "rt_pl_dop_gnu_sort1", 0 },
     { "rt_pl_dop_gnu_stream_line_column", 0 },
+    { "rt_pl_dop_gnu_term_hash", 0 },
+    { "rt_pl_dop_gnu_working_directory", 0 },
     { "rt_pl_dop_goal_guard", 0 },
     { "rt_pl_dop_halt", 0 },
     { "rt_pl_dop_keysort", 0 },
