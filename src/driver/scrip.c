@@ -606,6 +606,27 @@ static void m4_emit_atom_table(void) {
     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int m4_proc_startup_skip(stage2_t *s2, ProcEntry *pe, int ispat) {
+    if (ispat) return 1;
+    if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) return 2;
+    if (!pe->name || strncmp(pe->name, "LBL__", 5) != 0 || sn4_define_lbl_alias()) return 0;
+    for (int z = 0; z < s2->proc_count; z++) { ProcEntry *dr = &s2->proc_table[z];
+        if (!dr->name || strncmp(dr->name, "LBL__", 5) == 0 || !dr->dyn_scope) continue;
+        IR_t *dn = bb_proc_entry(dr); if (!dn) continue;
+        int dg = 0; while (dn && (dn->op == IR_SUCCEED || dn->op == IR_FAIL || dn->op == IR_GOTO) && dn->γ.node && dg++ < 64) dn = dn->γ.node;
+        IR_t *dd = (dn && dn->op == IR_DEFINE && ir_define_sr_citizen(dn)) ? dn->γ.node : dn;
+        if (!dd || dd->op != IR_GOTO_DEFERRED || !IR_LIT(dd).sval) continue;
+        const char *de = IR_LIT(dd).sval; if (strncmp(de, "LBL__", 5) == 0) de += 5;
+        if (!strcmp(de, pe->name + 5)) return 3; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void m4_emit_proc_slot_keep(int i, const char *name) {
+    extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char esc[1024]; x86_asm_str_escape_c(name ? name : "", esc, sizeof esc);
+    emit_textf("  .section .rodata\n  .Lstartup_pkeep%d: .string \"\\001<slot>%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, esc);
+    emit_textf("  lea rdi, [rip + .Lstartup_pkeep%d]\n  xor esi, esi\n  xor edx, edx\n  call rt_proc_register@PLT\n", i);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, const char *mi_name) {
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) {
         emit_textf("%s:\n", mi_name);
@@ -847,11 +868,17 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
               emit_textf("  .section .text\n  .intel_syntax noprefix\n");
               m4_icn_name_tables_calls(9000, ".Lstartup_rootnm", _rg);
           } }
+        int last_static = -1;
+        for (int i = 0; i < n_procs; i++) if (!m4_proc_startup_skip(s2, &s2->proc_table[proc_pidx_buf[i]], proc_ispat_buf ? proc_ispat_buf[i] : 0)) last_static = i;
         for (int i = 0; i < n_procs; i++) {
             ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
-            if (proc_ispat_buf && proc_ispat_buf[i]) continue;
-            if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) { if (sn4_m4_alpha_seal() && pe->name && strncmp(pe->name, "LBL__", 5) != 0 && !strchr(pe->name, '$')) { emit_textf("  .section .rodata\n  .Lseala%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, proc_names_buf[i]); emit_textf("  .weak %s_\xce\xb1\n  lea rdi, [rip + .Lseala%d]\n  mov rsi, qword ptr [rip + %s_\xce\xb1@GOTPCREL]\n  call rt_proc_seal_alpha@PLT\n", asm_sym_name(proc_names_buf[i]), i, asm_sym_name(proc_names_buf[i])); } continue; }
-            if (pe->name && strncmp(pe->name, "LBL__", 5) == 0) { int _dfl = 0; for (int _z = 0; _z < s2->proc_count; _z++) { ProcEntry *_dr = &s2->proc_table[_z]; if (!_dr->name || strncmp(_dr->name, "LBL__", 5) == 0 || !_dr->dyn_scope) continue; IR_t *_dn = bb_proc_entry(_dr); if (!_dn) continue; int _dg = 0; while (_dn && (_dn->op == IR_SUCCEED || _dn->op == IR_FAIL || _dn->op == IR_GOTO) && _dn->γ.node && _dg++ < 64) _dn = _dn->γ.node; IR_t *_dd = (_dn && _dn->op == IR_DEFINE && ir_define_sr_citizen(_dn)) ? _dn->γ.node : _dn; if (!_dd || _dd->op != IR_GOTO_DEFERRED || !IR_LIT(_dd).sval) continue; const char *_de = IR_LIT(_dd).sval; if (strncmp(_de, "LBL__", 5) == 0) _de += 5; if (!strcmp(_de, pe->name + 5)) { _dfl = 1; break; } } if (_dfl && !sn4_define_lbl_alias()) continue; }
+            int skip = m4_proc_startup_skip(s2, pe, proc_ispat_buf ? proc_ispat_buf[i] : 0);
+            if (skip && i < last_static) m4_emit_proc_slot_keep(i, proc_names_buf[i]);
+            if (skip == 2 && sn4_m4_alpha_seal() && pe->name && strncmp(pe->name, "LBL__", 5) != 0 && !strchr(pe->name, '$')) {
+                emit_textf("  .section .rodata\n  .Lseala%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, proc_names_buf[i]);
+                emit_textf("  .weak %s_\xce\xb1\n  lea rdi, [rip + .Lseala%d]\n", asm_sym_name(proc_names_buf[i]), i);
+                emit_textf("  mov rsi, qword ptr [rip + %s_\xce\xb1@GOTPCREL]\n  call rt_proc_seal_alpha@PLT\n", asm_sym_name(proc_names_buf[i])); }
+            if (skip) continue;
             { static int _onereg = -1; if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }
             if (_onereg) {
                 extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));
