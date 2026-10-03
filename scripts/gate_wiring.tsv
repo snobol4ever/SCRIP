@@ -969,6 +969,7 @@ test_gate_oracle_bf_capable.sh	TASK	-	-	-
 test_gate_out_sweep_flaky.sh	TASK	-	-	-
 test_gate_p7_prolog_setjmp_gone.sh	TASK	-	-	-
 test_gate_pas_frame_pairing.sh	TASK	-	-	-
+test_gate_pas_zero_based_strings_make_low_zero_and_index_from_zero_after_the_directive.sh	WIRED	-	-	-
 test_gate_pascal_empty_corpus_refusal.sh	TASK	-	-	-
 test_gate_pascal_m3.sh	TASK	-	-	-
 test_gate_pascal_m4.sh	TASK	-	-	-
