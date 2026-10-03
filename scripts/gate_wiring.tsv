@@ -735,6 +735,7 @@ test_gate_sno_code_of_text_that_does_not_compile_raises_spitbols_compile_error.s
 test_gate_sno_code_statements_are_numbered_after_every_statement_compiled_before_them.sh	WIRED	-	-	-
 test_gate_sno_convert_of_a_matched_substring_is_that_substring.sh	WIRED	-	-	-
 test_gate_sno_convert_reads_a_numeric_string_as_spitbol_gtnum_does.sh	WIRED	-	-	-
+test_gate_sno_convert_takes_its_datatype_name_exactly_as_spitbol_does.sh	WIRED	-	-	-
 test_gate_sno_cset_from_a_string_view_uses_its_length.sh	WIRED	-	-	-
 test_gate_sno_data_type_named_list_is_a_record.sh	WIRED	-	-	-
 test_gate_sno_deferred_capture_keeps_the_name_save_stack_balanced.sh	WIRED	-	-	-

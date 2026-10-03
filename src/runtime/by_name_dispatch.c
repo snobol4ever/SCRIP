@@ -7454,7 +7454,7 @@ static int bn_convert(DESCR_t *args, int nargs, DESCR_t *out, int op) {
     (void)op;
     if (nargs != 2) return 0;
     { char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
-      char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
+      const char * tu = ts;
       { DESCR_t a = args[0]; extern DESCR_t rt_sno_cnv_num(DESCR_t, int);
         if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
         if (!strcmp(tu, "INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
@@ -9395,7 +9395,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
     L_bidjmp_6499: ;
     if ((_bid == BID_CONVERT) && nargs == 2) {
         char tb[32]; const char *ts = to_cstring(args[1], tb, sizeof tb); if (!ts) ts = "";
-        char tu[32]; { int k = 0; for (; ts[k] && k < 31; k++) tu[k] = (ts[k] >= 'a' && ts[k] <= 'z') ? (char)(ts[k] - 32) : ts[k]; tu[k] = 0; }
+        const char * tu = ts;
         DESCR_t a = args[0]; extern DESCR_t rt_sno_cnv_num(DESCR_t, int);
         if (a.v == DT_S && a.s) a.s = (char *)rt_cstr_d(a);
         if (!strcmp(tu,"INTEGER")) { *out = rt_sno_cnv_num(a, 'I'); return 1; }
