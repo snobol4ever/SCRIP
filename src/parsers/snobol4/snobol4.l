@@ -365,10 +365,6 @@ G       ({WS}|{CONT})*
     memcpy(strbuf+strpos, yytext, take); strpos += take;
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-<STR1>\'\'              {
-    if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '\'';
-}
- /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR1>\'                {
     strbuf[strpos] = '\0';
     BEGIN(BODY);
@@ -383,10 +379,6 @@ G       ({WS}|{CONT})*
     int take = yyleng < (int)sizeof(strbuf)-strpos-1
                ? yyleng : (int)sizeof(strbuf)-strpos-1;
     memcpy(strbuf+strpos, yytext, take); strpos += take;
-}
- /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-<STR2>\"\"              {
-    if (strpos < (int)sizeof(strbuf)-1) strbuf[strpos++] = '"';
 }
  /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 <STR2>\"                {
@@ -521,7 +513,10 @@ Token flex_lex_next(Lex *lx) {
             t.sval = intern(strbuf);
             return t;
         case T_INT:
-            t.ival = atol(strbuf);
+            { long _iv = 0; int _ov = 0;
+              for (const char *_q = strbuf; *_q >= '0' && *_q <= '9'; _q++) if (__builtin_mul_overflow(_iv, 10L, &_iv) || __builtin_add_overflow(_iv, (long)(*_q - '0'), &_iv)) _ov = 1;
+              if (_ov) { sno_error(lineno, "syntax error: invalid numeric item"); _iv = 0; }
+              t.ival = _iv; }
             return t;
         case T_REAL:
             t.sval = intern(strbuf);

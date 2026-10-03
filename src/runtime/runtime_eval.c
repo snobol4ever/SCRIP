@@ -277,9 +277,23 @@ static long sno_text_illegal_at(const char *s)
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_top_comma(const char *s)
+{
+    int d = 0; char q = 0;
+    for (; *s; s++) {
+        if (q) { if (*s == q) q = 0; continue; }
+        if (*s == '\'' || *s == '"') q = *s;
+        else if (*s == '(' || *s == '<' || *s == '[') d++;
+        else if ((*s == ')' || *s == '>' || *s == ']') && d > 0) d--;
+        else if (*s == ',' && d == 0) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static eval_chain_fn eval_build_chain(const char *s)
 {
     if (!s || !*s) return NULL;
+    if (eval_top_comma(s)) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: invalid use of comma"; return NULL; }
     if (sno_text_illegal_at(s) >= 0) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: illegal character"; return NULL; }
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }

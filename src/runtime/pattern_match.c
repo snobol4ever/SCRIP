@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 #include "ct_arena.h"
 #include <stdlib.h>
 #include <string.h>
@@ -514,8 +515,9 @@ DESCR_t EVAL_fn(DESCR_t expr) {
     if (strpbrk(s, " \t\n\v\f\r")) goto eval_str;
     {
         char *endp = NULL;
+        errno = 0;
         int64_t iv = (int64_t)strtoll(s, &endp, 10);
-        if (endp && *endp == '\0') return INTVAL(iv);
+        if (endp && *endp == '\0') { if (errno == ERANGE || iv == INT64_MIN) { extern void rt_eval_syntax_raise(const char *); rt_eval_syntax_raise(s); return FAILDESCR; } return INTVAL(iv); }
     }
     {
         extern int rt_str_to_real(const char *, double *);
