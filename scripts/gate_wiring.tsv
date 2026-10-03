@@ -656,6 +656,7 @@ test_gate_score_tables_agree.sh	WIRED	-	-	-
 test_gate_score_unreadable_package_is_marked.sh	WIRED	-	-	-
 test_gate_scrip_sizes_the_heap_with_d_and_i.sh	WIRED	-	-	-
 test_gate_scrip_switches_are_spitbols.sh	WIRED	-	-	-
+test_gate_scriptix_a_call_into_the_icon_section_returns_with_the_callers_r12.sh	WIRED	-	-	-
 test_gate_seat_identity_one_map.sh	WIRED	-	-	-
 test_gate_send_prose_requires_stdin.sh	WIRED	-	-	-
 test_gate_setexit_handler_return_resumes_the_raising_activation.sh	WIRED	-	-	-

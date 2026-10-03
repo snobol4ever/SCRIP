@@ -67,10 +67,10 @@ static std::string xa_flat_dc_stub_str(void) {
         uint64_t stg_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stg_fp = (uint64_t)(uintptr_t)(void *)fp; }
         bool need_align_pad = (np > 0) && (np % 2 == 1);
         std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
-            + x86("pop", "r12")
-            + x86("push", "r12")
-            + x86("push", "r12");
-        if (need_align_pad) zs += x86("push", "r12");
+            + x86("pop", "rax")
+            + x86("push", "rax")
+            + x86("push", "rax");
+        if (need_align_pad) zs += x86("push", "rax");
         for (int i = np - 1; i >= 0; i--) zs += x86("push", dcarg4[i]);
         int push_bytes = np * 8 + (need_align_pad ? 8 : 0);
         for (int i = 0; i < np; i++) {
@@ -88,37 +88,33 @@ static std::string xa_flat_dc_stub_str(void) {
                 + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
                 + x86_deflabel_id(2)
                 + x86("add", "rsp", 24L)
-                + x86("pop", "r12")
-                + x86("jmp", "r12")
+                + x86("ret")
                 + x86_deflabel_id(3)
                 + x86("add", "rsp", 24L)
-                + x86("pop", "r12")
                 + x86("mov32", "eax", 104L)
                 + x86("xor", "edx", "edx")
-                + x86("jmp", "r12");
+                + x86("ret");
             return zs;
         }
         zs += x86_lea_id("rcx", 2)
             + x86_lea_id("rdx", 3)
             + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
             + x86_deflabel_id(2)
-            + x86("pop", "r12")
-            + x86("pop", "r12")
-            + x86("jmp", "r12")
+            + x86("add", "rsp", 8L)
+            + x86("ret")
             + x86_deflabel_id(3)
-            + x86("pop", "r12")
-            + x86("pop", "r12")
+            + x86("add", "rsp", 8L)
             + x86("mov32", "eax", 104L)
             + x86("xor", "edx", "edx")
-            + x86("jmp", "r12");
+            + x86("ret");
         return zs;
     }
     return x86("comment", "PL-DC direct-call entry: retaddr -> kt-32 pad, wires -> local ret-shims, one prep crossing, shared body")
-         + x86("pop", "r12")
+         + x86("pop", "rax")
          + x86("sub", "rsp", (long)(kt + 16))
          + x86_rsp_store64(kt - 8, "rsp")
          + std::string("")
-         + x86("mov", FRQ(kt - 32), "r12")
+         + x86("mov", FRQ(kt - 32), "rax")
          + x86_lea_id("rax", 2)
          + x86("mov", FRQ(kt - 24), "rax")
          + x86_lea_id("rax", 3)
@@ -137,19 +133,19 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86_rsp_load64("rdx", 0)
          + x86("mov", "rcx", "rsp")
          + x86("add", "rcx", (long)(-kt))
-         + x86_rsp_load64("r12", -32)
+         + x86_rsp_load64("r11", -32)
          + x86_rsp_load64("rsp", -8)
          + x86("add", "rsp", 16L)
-         + x86("push", "r12")
+         + x86("push", "r11")
          + x86_jmpfn("rt_pl_dc_leave_γ", lvg_fp)
          + x86_deflabel_id(3)
          + x86_rsp_load64("rdi", 0)
          + x86("mov", "rsi", "rsp")
          + x86("add", "rsi", (long)(-kt))
-         + x86_rsp_load64("r12", -32)
+         + x86_rsp_load64("r11", -32)
          + x86_rsp_load64("rsp", -8)
          + x86("add", "rsp", 16L)
-         + x86("push", "r12")
+         + x86("push", "r11")
          + x86_jmpfn("rt_pl_dc_leave_ω", lvw_fp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
