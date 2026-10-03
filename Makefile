@@ -1061,6 +1061,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_conjunction.cpp \
     $(SRC)/templates/bb/bb_subscript.cpp \
     $(SRC)/templates/bb/bb_subscript2.cpp \
+    $(SRC)/templates/bb/bb_subscript_lvck.cpp \
     $(SRC)/templates/bb/bb_deref.cpp \
     $(SRC)/templates/bb/bb_unify.cpp \
     $(SRC)/templates/bb/bb_random.cpp \

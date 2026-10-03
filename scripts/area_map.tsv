@@ -75,6 +75,7 @@
 *	src/templates/bb/bb_gate_arm.cpp
 *	src/templates/bb/bb_subscript.cpp
 *	src/templates/bb/bb_subscript2.cpp
+*	src/templates/bb/bb_subscript_lvck.cpp
 *	src/templates/bb/bb_keyword_assign.cpp
 # ---- NO AREA: helpers no graded program runs through ----
 -	src/tools/

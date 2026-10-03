@@ -21,75 +21,7 @@ static const char * sub_open_sym(void) { return sub_vctx() ? "rt_subscript_val" 
 #define SUB_OPEN_FN() (sub_vctx() ? (uint64_t)(uintptr_t)(void *)rt_subscript_val \
                       : (uint64_t)(uintptr_t)(void *)(sub_conly() ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) \
                                                                    : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var)))
-enum { ARBLK_LO = 0, ARBLK_HI = 4, ARBLK_NDIM = 8, ARBLK_DATA = 32 };
-static int sub_lvck(void) { return _.op_sval && !strncmp(_.op_sval, "lv-check", 8); }
-static int sub_lvck_conly(void) { return _.op_sval && !strcmp(_.op_sval, "lv-check-container-only"); }
-static const char * sub_lvck_sym(void) { return sub_lvck_conly() ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only") : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var"); }
-#define SUB_LVCK_FN() ((uint64_t)(uintptr_t)(void *)(sub_lvck_conly() ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) \
-                                                                       : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var)))
-static std::string sub_lvck_ld(const char * r, int k, int w) { return _.op_zres ? x86("note", ZOPN(k)) + x86("mov", r, ZOPQ(k, w)) : x86("mov", r, FRQ((k ? _.op_sa : _.op_a_slot) + w)); }
-static std::string sub_lvck_res(void) {
-    return sub_lvck_ld("rax", 0, 0)
-         + (_.op_zres ? x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") : x86("mov", FRQ(_.op_off), "rax"))
-         + sub_lvck_ld("rax", 0, 8)
-         + (_.op_zres ? x86("note", ZRESN()) + x86("mov", ZRES(8), "rax") : x86("mov", FRQ(_.op_off + 8), "rax"));
-}
-static std::string sub_lvck_keep(void) {
-    return (_.op_zres ? x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") : x86("mov", FRQ(_.op_off), "rax"))
-         + (_.op_zres ? x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx") : x86("mov", FRQ(_.op_off + 8), "rdx"));
-}
-static std::string bb_subscript_lv_check(void) {
-    if (!_.op_zres && (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0)) return x86_alpha() + x86_bomb("bb_subscript lv-check: needs own slot + base/index operand slots");
-    return x86("comment", "IR_SUBSCRIPT x[i] lv-check: the subject's subscript fails or errs before the object runs; passes the base through")
-         + x86_alpha()
-         + sub_lvck_ld("rdi", 0, 0)
-         + sub_lvck_ld("rsi", 0, 8)
-         + x86("cmp",     "dil", (long)DT_T)
-         + x86("jne", L(0))
-         + x86("test",    "rsi", "rsi")
-         + x86("jne", L(2))
-         + x86("jmp", L(1))
-         + x86("def", L(0))
-         + x86("cmp",     "dil", (long)DT_A)
-         + x86("jne", L(1))
-         + x86("test",    "rsi", "rsi")
-         + x86("je", L(1))
-         + sub_lvck_ld("rdx", 1, 0)
-         + x86("cmp",     "dl", (long)DT_I)
-         + x86("jne", L(1))
-         + x86("mov",     "eax", RDD("rsi", ARBLK_NDIM))
-         + x86("cmp",     "eax", (long)1)
-         + x86("jne", L(1))
-         + x86("mov",     "rax", RDQ("rsi", ARBLK_DATA))
-         + x86("test",    "rax", "rax")
-         + x86("je", L(1))
-         + sub_lvck_ld("rcx", 1, 8)
-         + x86("mov",     "eax", RDD("rsi", ARBLK_LO))
-         + x86("movsxd",  "rax", "eax")
-         + x86("cmp",     "rcx", "rax")
-         + x86("jl", L(1))
-         + x86("mov",     "eax", RDD("rsi", ARBLK_HI))
-         + x86("movsxd",  "rax", "eax")
-         + x86("cmp",     "rcx", "rax")
-         + x86("jg", L(1))
-         + x86("jmp", L(2))
-         + x86("def", L(1))
-         + sub_lvck_ld("rdi", 0, 0)
-         + sub_lvck_ld("rsi", 0, 8)
-         + sub_lvck_ld("rdx", 1, 0)
-         + sub_lvck_ld("rcx", 1, 8)
-         + x86("call",    sub_lvck_sym(), SUB_LVCK_FN())
-         + x86("cmp",     "al", (long)DT_FAIL)
-         + x86_omega("je")
-         + sub_lvck_keep()
-         + x86_rt_gc_poll()
-         + x86("def", L(2))
-         + sub_lvck_res()
-         + x86_gamma()
-         + x86_beta_trampoline();
-}
 std::string bb_subscript() {
-    if (sub_lvck()) return bb_subscript_lv_check();
     return IF(_.op_zres,
                x86("comment", "IR_SUBSCRIPT x[i] variable zd")
              + x86_alpha()

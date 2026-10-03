@@ -49,6 +49,7 @@ std::string bb_match_replace();
 std::string bb_match_capture();
 std::string bb_conjunction();
 std::string bb_subscript();
+std::string bb_subscript_lvck();
 std::string bb_subscript2();
 std::string bb_deref();
 std::string bb_unify_const();
