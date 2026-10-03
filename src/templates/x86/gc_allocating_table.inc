@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1991
-#define GC_ALLOC_TAB_N_VOID 233
+#define GC_ALLOC_TAB_N 1993
+#define GC_ALLOC_TAB_N_VOID 234
 #define GC_ALLOC_TAB_N_DESCR 1078
-#define GC_ALLOC_TAB_N_OTHER 673
+#define GC_ALLOC_TAB_N_OTHER 674
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -860,6 +860,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_sp_prop", GC_RET_OTHER },
     { "pl_splice_consults", GC_RET_VOID },
     { "pl_split_text", GC_RET_OTHER },
+    { "pl_static_seed_pred", GC_RET_VOID },
     { "pl_stream_idx", GC_RET_OTHER },
     { "pl_stream_idx_ball", GC_RET_OTHER },
     { "pl_stream_resolve", GC_RET_OTHER },
@@ -1309,6 +1310,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_db_get_by_key", GC_RET_OTHER },
     { "rt_pl_db_key_is_declared", GC_RET_OTHER },
     { "rt_pl_db_key_is_dynamic", GC_RET_OTHER },
+    { "rt_pl_db_key_is_static", GC_RET_OTHER },
     { "rt_pl_db_key_kind", GC_RET_OTHER },
     { "rt_pl_db_match_erase", GC_RET_OTHER },
     { "rt_pl_db_recompile", GC_RET_OTHER },
