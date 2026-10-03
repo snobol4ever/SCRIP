@@ -48,6 +48,10 @@ emit_one() {   # $1 = source path RELATIVE TO $DEMO (cwd), $2 = committed .s pat
     fi
     if [ "$rc" -ne 0 ]; then echo "  SKIP  $label — --compile failed rc=$rc (committed .s untouched)"; return 0; fi
     if [ ! -s "$tmp" ];  then echo "  SKIP  $label — empty emit (committed .s untouched)"; return 0; fi
+    local sz; sz=$(stat -c %s "$tmp" 2>/dev/null || echo 0)
+    if [ "$sz" -gt 52428800 ]; then   # Lon: "we do not want the huge ones"; GitHub refuses a file over 100 MB and warns over 50 MB
+        echo "  SKIP  $label — $((sz / 1048576)) MB of asm, over the 50 MB a corpus artifact may be (committed .s untouched)"; return 0
+    fi
     if ! gcc -c "$tmp" -o "$TMPD/emit.o" 2>"$TMPD/demo_as_err.txt"; then
         echo "  SKIP  $label — assembler-rejected (committed .s untouched)"; return 0
     fi
