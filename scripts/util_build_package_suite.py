@@ -107,7 +107,10 @@ def has_bom(src_text):
     return src_text.startswith(_BOM)
 
 
-_INCLUDE_RE = re.compile(r"-INCLUDE\s+['\"]([^'\"]+)['\"]")
+# a CONTROL LINE only: -INCLUDE starts in column 1, so a comment that quotes one (gimpel frsort_driver.sno line 4, "* Catspaw's
+# frsort.inc says -INCLUDE \"stringout.inc\" ...") names no dependency (the coo 2026-10-03: that comment excluded frsort_driver from
+# the container as a missing dependency while the board graded it green)
+_INCLUDE_RE = re.compile(r"^-INCLUDE\s+['\"]([^'\"]+)['\"]", re.M)
 
 
 def find_include_gap(src_text, pkg_dir, src_dir=None):
