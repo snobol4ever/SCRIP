@@ -9,8 +9,8 @@ extern "C" {
 extern "C" void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_return() {
-    if (_.op_zres && _.op_dval != 2.0)
-        return x86("comment", "IR_RETURN ZD (ZK-4 cells arm): ZOPQ -> FRQ(result) -> gamma+release")
+    return IF(_.op_zres && _.op_dval != 2.0,
+               x86("comment", "IR_RETURN ZD (ZK-4 cells arm): ZOPQ -> FRQ(result) -> gamma+release")
              + x86_alpha()
              + IF(_.op_zread[0] >= 0,
                   x86("note", ZOPN(0))
@@ -25,8 +25,9 @@ std::string bb_return() {
              + IF(_.op_zread[0] < 0,
                   x86("mov", "rax", FRQ(0))
                 + x86("mov", "rdx", FRQ(8)))
-             + x86_gamma();
-    return x86("comment", "IR_RETURN")
+             + x86_gamma())
+         + IF(!(_.op_zres && _.op_dval != 2.0),
+               x86("comment", "IR_RETURN")
          + x86_alpha()
          + (_.op_dval != 2.0 && _.flat_gen && _.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
          + IF(_.op_sa >= 0,
@@ -50,5 +51,5 @@ std::string bb_return() {
              + x86_align_call_leave() + x86("pop", "rdx")
              + x86("pop", "rax"))
          + IF(_.op_dval == 2.0, x86_omega())
-         + IF(_.op_dval != 2.0, x86_gamma());
+         + IF(_.op_dval != 2.0, x86_gamma()));
 }

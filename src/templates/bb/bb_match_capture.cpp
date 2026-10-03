@@ -48,13 +48,14 @@ static std::string cap_imm_gva(const std::string & homeop) {
          + x86_beta_trampoline();
 }
 static std::string cap_cond_target_rcx() {
-    if (cap_gva() && gva_name_hidden(_.op_sval)) return x86("note", gva_name(_.op_gva_k))
+    return IF(cap_gva() && gva_name_hidden(_.op_sval),
+               x86("note", gva_name(_.op_gva_k))
                         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str())
-                                                            : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)));
-    if (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]) {
-    std::string lbl = std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval);
-        return x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), lbl.c_str()); }
-    return x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str());
+                                                            : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16))))
+         + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]),
+               x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), (std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval)).c_str()))
+         + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && !(_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]),
+               x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str()));
 }
 #define writehome() (_.op_zres ? ZRESD(0) : FR(_.op_off))
 #define readhome() (_.op_zres ? ZOPD(1, 0) : FR(_.op_off))

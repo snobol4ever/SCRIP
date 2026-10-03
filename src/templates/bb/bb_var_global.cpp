@@ -12,12 +12,10 @@ DESCR_t NV_GET_fn(const char * name);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char * vg_res(int w) { return _.op_zres ? ZRES(w) : FRQ(_.op_off + w); }
+#define VG_PATV_DIGITS(sv) (strstr((sv), "$V") + 2)
 static inline int vg_patv_slot(const char * sv) {
-    const char * d = sv ? strstr(sv, "$V") : 0;
-    if (!d || strncmp(sv, "PAT$", 4)) return -1;
-    char * e = 0;
-    long k = strtol(d + 2, &e, 10);
-    return (e && e != d + 2 && !*e) ? (int) k : -1;
+    return (sv && strstr(sv, "$V") && !strncmp(sv, "PAT$", 4) && strspn(VG_PATV_DIGITS(sv), "0123456789") > 0 && !VG_PATV_DIGITS(sv)[strspn(VG_PATV_DIGITS(sv), "0123456789")])
+         ? atoi(VG_PATV_DIGITS(sv)) : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_global() {

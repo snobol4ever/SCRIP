@@ -10,8 +10,8 @@ int descr_identical(DESCR_t a, DESCR_t b);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_ident() {
     x86_begin();
-    if (_.op_zres)
-        return x86("comment", "IR_IDENT zd -> descr_identical (direct call, no by-name dispatch)")
+    return IF(_.op_zres,
+               x86("comment", "IR_IDENT zd -> descr_identical (direct call, no by-name dispatch)")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("mov", "rdi", ZOPQ(0, 0))
@@ -29,8 +29,9 @@ std::string bb_ident() {
                                + x86("note", ZRESN())
                                + x86("mov", ZRES(8), (long)0))
              + x86_gamma()
-             + x86_beta_trampoline();
-    return (_.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0)
+             + x86_beta_trampoline())
+         + IF(!(_.op_zres),
+               (_.op_sa >= 0 && _.op_sb >= 0 && _.op_off >= 0)
              ? x86("comment", "IR_IDENT -> descr_identical (direct call, no by-name dispatch)")
              + x86_alpha()
              + x86("mov", "rdi", FRQ(_.op_sa))
@@ -44,5 +45,5 @@ std::string bb_ident() {
                                + x86("mov", FRQ(_.op_off + 8), (long)0))
              + x86_gamma()
              + x86_beta_trampoline()
-         : x86_bomb("bb_ident: needs two operand slots (op_sa/op_sb) + own value slot (op_off)");
+         : x86_bomb("bb_ident: needs two operand slots (op_sa/op_sb) + own value slot (op_off)"));
 }

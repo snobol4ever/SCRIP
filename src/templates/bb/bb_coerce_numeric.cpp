@@ -10,8 +10,8 @@ void rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out, l
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_numeric() {
     x86_begin();
-    if (_.op_zres)
-        return x86("comment", "IR_COERCE_NUMERIC zd")
+    return IF(_.op_zres,
+               x86("comment", "IR_COERCE_NUMERIC zd")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("mov", "eax", ZOPD(0, 0))
@@ -48,8 +48,9 @@ std::string bb_coerce_numeric() {
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je"))
              + x86_gamma()
-             + x86_beta_trampoline();
-    return IF(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0, x86_bomb("bb_coerce_numeric: needs self slot (op_sa) + other slot (op_sb) + own value slot (op_off)"))
+             + x86_beta_trampoline())
+         + IF(!(_.op_zres),
+               IF(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0, x86_bomb("bb_coerce_numeric: needs self slot (op_sa) + other slot (op_sb) + own value slot (op_off)"))
          + IF(!(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0),
              x86("comment", "IR_COERCE_NUMERIC")
            + x86_alpha()
@@ -78,5 +79,5 @@ std::string bb_coerce_numeric() {
            + x86("cmp", "al", (long)DT_FAIL)
            + x86_omega("je"))
            + x86_gamma()
-           + x86_beta_trampoline());
+           + x86_beta_trampoline()));
 }

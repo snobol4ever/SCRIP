@@ -16,13 +16,15 @@ int     core_icn_by_zero_check(int64_t by);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_by_int_operand_guard(int slot) {
-    if (!_.op_range_int_operands) return std::string();
-    return  x86("mov",  "rdi", FRQ(slot))
+    return IF(!_.op_range_int_operands,
+               std::string())
+         + IF(!(!_.op_range_int_operands),
+               x86("mov",  "rdi", FRQ(slot))
          + x86("mov",  "rsi", FRQ(slot + 8))
          + x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void *)(int (*)(uint64_t, uint64_t))core_icn_int_operand_ok)
          + x86("test", "eax", "eax")
          + x86_omega("jz")
-         + x86_rt_gc_poll();
+         + x86_rt_gc_poll());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_to_by() {

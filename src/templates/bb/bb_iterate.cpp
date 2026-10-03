@@ -14,8 +14,10 @@ DESCR_t rt_list_bang_elem_at(DESCR_t obj, int64_t idx);
 #define IT_IS(k) (_.op_sval && std::string(_.op_sval) == k)
 std::string bb_iterate() {
     x86_begin();
-    if (_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0) return x86_alpha() + x86_bomb("bb_iterate: IR_LIST_BANG — operand/idx/out slot missing");
-    return x86("comment", IT_IS("key") ? "IR_ITERATE(key)" : "IR_LIST_BANG")
+    return IF(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0,
+               x86_alpha() + x86_bomb("bb_iterate: IR_LIST_BANG — operand/idx/out slot missing"))
+         + IF(!(_.op_sa < 0 || _.op_sb < 0 || _.op_off < 0),
+               x86("comment", IT_IS("key") ? "IR_ITERATE(key)" : "IR_LIST_BANG")
          + x86_alpha()
          + x86("mov",  FRQ(_.op_sb), 0L)
          + x86("def",  L(0))
@@ -34,5 +36,5 @@ std::string bb_iterate() {
          + x86_gamma()
          + x86_beta()
          + x86("inc",  FRQ(_.op_sb))
-         + x86("jmp",  L(0));
+         + x86("jmp",  L(0)));
 }

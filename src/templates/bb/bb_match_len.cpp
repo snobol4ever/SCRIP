@@ -42,6 +42,8 @@ static std::string bb_match_len_body() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_len() {
-    if (_.op_zres) return bb_match_len_body();
-    return bb_match_len_body();
+    return IF(_.op_zres,
+               bb_match_len_body())
+         + IF(!(_.op_zres),
+               bb_match_len_body());
 }

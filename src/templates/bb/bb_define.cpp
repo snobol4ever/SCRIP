@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string>
 #include <cstdint>
 #include <cstdio>
@@ -65,14 +66,13 @@ extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_entry_cell_data(const std::string & lbl, const std::string & init) {
     static std::vector<std::string> seen;
-    for (size_t i = 0; i < seen.size(); i++) if (seen[i] == lbl) return std::string();
-    seen.push_back(lbl);
-    return x86("directive", std::string(".section .data"))
-         + x86("directive", std::string(".align 8"))
-         + x86("directive", lbl + std::string(":"))
-         + x86("directive", std::string(".quad ") + init)
-         + x86("directive", std::string(".section .text"))
-         + x86("directive", std::string(".intel_syntax noprefix"));
+    return IF(std::count(seen.begin(), seen.end(), lbl) == 0 && (seen.push_back(lbl), true),
+               x86("directive", std::string(".section .data"))
+             + x86("directive", std::string(".align 8"))
+             + x86("directive", lbl + std::string(":"))
+             + x86("directive", std::string(".quad ") + init)
+             + x86("directive", std::string(".section .text"))
+             + x86("directive", std::string(".intel_syntax noprefix")));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_fnclevel_enter() {

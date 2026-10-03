@@ -17,8 +17,10 @@ int xa_flat_class_c_pred(void);
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_goto_deferred_frame_release() {
-    if (!g_rt_fragment_emit || !xa_flat_class_c_pred()) return std::string();
-    return  x86("add", "rsp", (long)_.flat_frame_bytes);
+    return IF(!g_rt_fragment_emit || !xa_flat_class_c_pred(),
+               std::string())
+         + IF(!(!g_rt_fragment_emit || !xa_flat_class_c_pred()),
+               x86("add", "rsp", (long)_.flat_frame_bytes));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define GD_SPECIAL() (_.op_sval && _.op_sval[0] == '^')

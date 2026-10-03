@@ -12,8 +12,10 @@ int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_scan_move() {
     x86_begin();
-    if (!(_.op_off >= 0)) return x86_alpha() + x86_bomb("bb_scan_move: no result slot (op_off)");
-    return x86("comment", "IR_SCAN_MOVE [fscan.r move: j=&pos+i; fail unless 1<=j<=Delta+1; result substr; data-backtrack restores r14 on beta]")
+    return IF(!(_.op_off >= 0),
+               x86_alpha() + x86_bomb("bb_scan_move: no result slot (op_off)"))
+         + IF(!(!(_.op_off >= 0)),
+               x86("comment", "IR_SCAN_MOVE [fscan.r move: j=&pos+i; fail unless 1<=j<=Delta+1; result substr; data-backtrack restores r14 on beta]")
          + x86_alpha()
          + IF(_.op_sa >= 0, x86("mov", "rdi", FRQ(_.op_sa)))
          + IF(_.op_sa >= 0, x86("mov", "rsi", FRQ(_.op_sa + 8)))
@@ -53,5 +55,5 @@ std::string bb_scan_move() {
          + x86_gamma()
          + x86_beta()
          + x86("mov",     "r14", FRQ(_.op_off + 16))
-         + x86_omega();
+         + x86_omega());
 }

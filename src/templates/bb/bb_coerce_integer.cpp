@@ -10,8 +10,8 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_coerce_integer() {
     x86_begin();
-    if (_.op_zres)
-        return x86("comment", "IR_COERCE_INTEGER zd")
+    return IF(_.op_zres,
+               x86("comment", "IR_COERCE_INTEGER zd")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("lea",  "rdi", ZOPQ(0, 0))
@@ -21,8 +21,9 @@ std::string bb_coerce_integer() {
              + x86("call", "rt_coerce_int_d", (uint64_t)(uintptr_t)(void *)rt_coerce_int_d)
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    return IF(_.op_sa < 0 || _.op_off < 0, x86_bomb("bb_coerce_integer: needs operand slot (op_sa) + own value slot (op_off)"))
+             + x86_beta_trampoline())
+         + IF(!(_.op_zres),
+               IF(_.op_sa < 0 || _.op_off < 0, x86_bomb("bb_coerce_integer: needs operand slot (op_sa) + own value slot (op_off)"))
          + IF(!(_.op_sa < 0 || _.op_off < 0),
              x86("comment", "IR_COERCE_INTEGER")
            + x86_alpha()
@@ -32,5 +33,5 @@ std::string bb_coerce_integer() {
            + x86("call", "rt_coerce_int_d", (uint64_t)(uintptr_t)(void *)rt_coerce_int_d)
            + x86_rt_gc_poll()
            + x86_gamma()
-           + x86_beta_trampoline());
+           + x86_beta_trampoline()));
 }

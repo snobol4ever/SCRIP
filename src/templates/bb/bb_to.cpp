@@ -15,26 +15,26 @@ int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_trail_mark() {
-    if (!x86_fb_pinned()) return std::string();
-    int kt = g_emit.flat_frame_bytes;
-    return  x86("mov", FRQ(_.op_off + 24), "r12")
-         + x86_pl_disj_open(x86_fb(), kt, 240, 241);
+    return IF(x86_fb_pinned(),
+               x86("mov", FRQ(_.op_off + 24), "r12")
+             + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 240, 241));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_trail_unwind() {
-    if (!x86_fb_pinned()) return std::string();
-    return x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201) + x86("test", "r15", "r15") + x86_omega("jne");
+    return IF(!x86_fb_pinned(),
+               std::string())
+         + IF(!(!x86_fb_pinned()),
+               x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201) + x86("test", "r15", "r15") + x86_omega("jne"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_int_operand_guard(int slot) {
-    if (!_.op_range_int_operands) return std::string();
-    uint64_t fp; { int (*f)(uint64_t, uint64_t) = core_icn_int_operand_ok; fp = (uint64_t)(uintptr_t)(void *)f; }
-    return  x86("mov",  "rdi", FRQ(slot))
-         + x86("mov",  "rsi", FRQ(slot + 8))
-         + x86("call", "core_icn_int_operand_ok", fp)
-         + x86("test", "eax", "eax")
-         + x86_omega("jz")
-         + x86_rt_gc_poll();
+    return IF(_.op_range_int_operands,
+               x86("mov",  "rdi", FRQ(slot))
+             + x86("mov",  "rsi", FRQ(slot + 8))
+             + x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void *)(int (*)(uint64_t, uint64_t))core_icn_int_operand_ok)
+             + x86("test", "eax", "eax")
+             + x86_omega("jz")
+             + x86_rt_gc_poll());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define TO_BOMB1() (x86_fb_pinned() && (_.op_zres || _.op_num_real))

@@ -11,8 +11,10 @@ extern "C" void rt_trace_resume_hook(const char *pname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_suspend() {
     x86_begin();
-    if (_.op_sa < 0 && !_.op_zres) return x86_alpha() + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)");
-    return x86("comment", _.op_zres ? "IR_SUSPEND yield+resume [PL-ZK-2 ZD: ZOPQ->ZRES]" : "IR_SUSPEND yield+resume")
+    return IF(_.op_sa < 0 && !_.op_zres,
+               x86_alpha() + x86_bomb("bb_suspend: no expr-value slot (needs descr flat-chain producer)"))
+         + IF(!(_.op_sa < 0 && !_.op_zres),
+               x86("comment", _.op_zres ? "IR_SUSPEND yield+resume [PL-ZK-2 ZD: ZOPQ->ZRES]" : "IR_SUSPEND yield+resume")
          + x86_alpha()
          + (_.op_sb >= 0 && _.lbl_t1_p ? x86_lea_tgt("rax", X86T_TGT1) + x86("mov", FRQ(_.op_sb), "rax") : std::string())
          + (_.op_zres ?
@@ -48,5 +50,5 @@ std::string bb_suspend() {
          + x86("pop", "rax"))
          + x86_scan_sync_in_rr()
          + (_.lbl_t0 && _.op_suspend_stmt_uclaim > 0 ? x86_sub("rsp", _.op_suspend_stmt_uclaim) : std::string())
-         + (_.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega());
+         + (_.lbl_t0 ? x86_jmp_tgt(X86T_TGT0) : x86_omega()));
 }

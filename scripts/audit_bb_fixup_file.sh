@@ -41,9 +41,7 @@ line_comments=$(grep -cE '^\s*//' "$f" || true)
 blank_lines=$(grep -c '^[[:space:]]*$' "$f" || true)
 port_english=$(strip "$f"  | grep -cE 'PORT_ALPHA|PORT_BETA|PORT_GAMMA|PORT_OMEGA' || true)
 local_vars=$(python3 "$HERE/audit_template_locals.py" "$f")
-ret_all=$(strip "$f"       | grep -cE '\breturn\b' || true)
-ret_lam=$(strip "$f"       | grep -E '\breturn\b' | grep -cE '\[[&=][^]]*\][[:space:]]*\([^)]*\)[[:space:]]*\{' || true)
-ret=$(( ret_all - ret_lam )); rp=$(( ret > 2 ? ret - 2 : 0 ))
+rp=$(python3 "$HERE/audit_template_returns.py" "$f")
 st=$(grep -cE '^static' "$f" || true); hc=$(( st > 2 ? st - 2 : 0 ))
 sig_decls=$(strip "$f"     | grep -cE '\)[[:space:]]*\{[[:space:]]*(std::string|int |long |const char|auto |bool |double |char |uint64_t|size_t|IR_t)' || true)
 over_col=$(awk 'length>200' "$f" | wc -l)
@@ -68,7 +66,7 @@ printf "  line_comments (// ...):               %d\n" "$line_comments"
 printf "  blank_lines   (empty lines):          %d\n" "$blank_lines"
 printf "  port_english  (PORT_ALPHA/etc):       %d\n" "$port_english"
 printf "  local_vars    (lines declaring one):  %d\n" "$local_vars"
-printf "  returns_plus  (returns beyond 2):     %d\n" "$rp"
+printf "  returns_plus  (returns beyond 1 per fn): %d\n" "$rp"
 printf "  helper_count  (statics beyond 2):     %d\n" "$hc"
 printf "  sig_decls     (decls on sig line):    %d\n" "$sig_decls"
 printf "  over_col      (lines > 200 chars):    %d\n" "$over_col"

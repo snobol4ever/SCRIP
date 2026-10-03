@@ -19,8 +19,9 @@ static inline int bcs_ok() { return _.op_off >= 0 && binop_is_concat((long)_.op_
 static inline const char *bcs_rt_name() { return _.op_ival == BINOP_LCONCAT ? "rt_icn_lconcat_d" : _.op_ival == BINOP_CONCAT_FRACDIGIT ? "str_concat_fracdigit_d" : "str_concat_d"; }
 static inline void *bcs_rt_addr() { return _.op_ival == BINOP_LCONCAT ? (void*)rt_icn_lconcat_d : _.op_ival == BINOP_CONCAT_FRACDIGIT ? (void*)str_concat_fracdigit_d : (void*)str_concat_d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int bcs_null_side() { if (getenv("SCRIP_OPT_NULLCAT") && getenv("SCRIP_OPT_NULLCAT")[0] == '0') return -1;
-    return (_.op_ival == BINOP_CONCAT_FRACDIGIT || _.op_ival == BINOP_LCONCAT) ? -1 : _.op_snul_a_ok ? 1 : _.op_snul_b_ok ? 0 : -1; }
+static inline int bcs_null_side() {
+    return (getenv("SCRIP_OPT_NULLCAT") && getenv("SCRIP_OPT_NULLCAT")[0] == '0') ? -1
+         : (_.op_ival == BINOP_CONCAT_FRACDIGIT || _.op_ival == BINOP_LCONCAT) ? -1 : _.op_snul_a_ok ? 1 : _.op_snul_b_ok ? 0 : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BCS_NI()  (_.op_zres && bcs_null_side() >= 0)
 #define BCS_NI2() (!_.op_zres && bcs_ok() && bcs_null_side() >= 0)

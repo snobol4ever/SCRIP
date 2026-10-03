@@ -6,19 +6,16 @@ extern "C" {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_strtab_rodata_str(void) {
-    if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_STRTAB_RODATA");
-    if (MEDIUM_BINARY)    return std::string();
-    if (MEDIUM_TEXT) {
-        if (g_emit.xa_strtab_n <= 0) return std::string();
-        return std::string(".section .rodata\n")
-            + emit_for(0, g_emit.xa_strtab_n, [](int i) {
+    return IF(MEDIUM_MACRO_DEF, x86("comment", "# no macro form — XA_STRTAB_RODATA"))
+         + IF(!MEDIUM_MACRO_DEF && !MEDIUM_BINARY && MEDIUM_TEXT && g_emit.xa_strtab_n > 0,
+               std::string(".section .rodata\n")
+             + emit_for(0, g_emit.xa_strtab_n, [](int i) {
                 return std::string(g_emit.xa_strtab_labels[i])
                      + " .string "
                      + g_emit.xa_strtab_escaped[i]
                      + "\n";
               })
-            + ".text\n";
-    }
+             + ".text\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void xa_strtab_rodata(void) {

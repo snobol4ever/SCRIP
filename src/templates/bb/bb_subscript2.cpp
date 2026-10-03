@@ -13,8 +13,8 @@ extern DESCR_t c_rt_subscript_var2_lv(DESCR_t base, DESCR_t idx1, DESCR_t idx2);
 #define SUB2_LV() (_.op_sval && !strcmp(_.op_sval, "nd2-lv"))
 #define SUB2_FN() (SUB2_LV() ? (uint64_t)(uintptr_t)(void *)c_rt_subscript_var2_lv : (uint64_t)(uintptr_t)(void *)c_rt_subscript_var2)
 std::string bb_subscript2() {
-    if (_.op_zres)
-        return x86("comment", "IR_SUBSCRIPT a[i,j] combined 2-D dispatch zd (row table-int-keys-and-nd-subscript)")
+    return IF(_.op_zres,
+               x86("comment", "IR_SUBSCRIPT a[i,j] combined 2-D dispatch zd (row table-int-keys-and-nd-subscript)")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("mov",     "rdi", ZOPQ(0, 0))
@@ -37,8 +37,9 @@ std::string bb_subscript2() {
              + x86("mov", ZRES(8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
-             + x86_beta_trampoline();
-    return (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0)
+             + x86_beta_trampoline())
+         + IF(!(_.op_zres),
+               (_.op_off < 0 || _.op_a_slot < 0 || _.op_sa < 0 || _.op_sb < 0)
          ? x86_alpha() + x86_bomb("bb_subscript2: needs own slot + base/idx1/idx2 operand slots")
          : x86("comment", "IR_SUBSCRIPT a[i,j] combined 2-D dispatch (row table-int-keys-and-nd-subscript)")
          + x86_alpha()
@@ -55,5 +56,5 @@ std::string bb_subscript2() {
          + x86("mov",     FRQ(_.op_off + 8), "rdx")
          + x86_rt_gc_poll()
          + x86_gamma()
-         + x86_beta_trampoline();
+         + x86_beta_trampoline());
 }

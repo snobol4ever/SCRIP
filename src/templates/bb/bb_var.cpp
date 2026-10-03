@@ -8,8 +8,8 @@ extern "C" {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var() {
     x86_begin();
-    if (_.op_zres)
-        return x86("comment", "IR_VAR local -> ZRES (ZK-2 cells arm)")
+    return IF(_.op_zres,
+               x86("comment", "IR_VAR local -> ZRES (ZK-2 cells arm)")
              + x86_alpha()
              + x86("mov",  "rax", FRQ(_.op_sa))
              + x86("mov",  "rdx", FRQ(_.op_sa + 8))
@@ -18,8 +18,9 @@ std::string bb_var() {
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
              + x86_gamma()
-             + x86_beta_trampoline();
-    return _.op_off != -1 && _.op_sa != -1 ?
+             + x86_beta_trampoline())
+         + IF(!(_.op_zres),
+               _.op_off != -1 && _.op_sa != -1 ?
            x86("comment", "IR_VAR")
          + x86_alpha()
          + x86("mov",     "rax", FRQ(_.op_sa))
@@ -28,5 +29,5 @@ std::string bb_var() {
          + x86("mov",     FRQ(_.op_off + 8), "rax")
          + x86_gamma()
          + x86_beta_trampoline() :
-           x86_bomb("bb_var: unhandled arm (no flat-chain mode or missing slot)");
+           x86_bomb("bb_var: unhandled arm (no flat-chain mode or missing slot)"));
 }

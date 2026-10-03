@@ -17,8 +17,8 @@ struct DESCR_t rt_deref(struct DESCR_t d);
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unop() {
-    if (_.op_zres && (_.op_node_kind == IR_UNOP))
-        return x86("comment", "IR_UNOP zd")
+    return IF(_.op_zres && (_.op_node_kind == IR_UNOP),
+               x86("comment", "IR_UNOP zd")
              + x86_alpha()
              + x86("note", ZOPN(0))
              + x86("mov", "rdi", ZOPQ(0, 0))
@@ -40,8 +40,9 @@ std::string bb_unop() {
                  + x86("cmp", "al", (long)DT_FAIL)
                  + x86_omega("je"))
              + x86_gamma()
-             + x86_beta_trampoline();
-        return !(_.op_off >= 0) ? std::string() :
+             + x86_beta_trampoline())
+         + IF(!(_.op_zres && (_.op_node_kind == IR_UNOP)),
+               !(_.op_off >= 0) ? std::string() :
                _.op_node_kind == IR_NULLTEST_VAR ?
                (_.op_sa < 0 ? x86_bomb("bb_unop lv: operand slot unresolved") :
                x86("comment", "IR_NULLTEST_VAR")
@@ -130,5 +131,5 @@ std::string bb_unop() {
                  + x86("cmp", "al", (long)DT_FAIL)
                  + x86_omega("je"))
              + x86_gamma()
-             + x86_beta_trampoline();
+             + x86_beta_trampoline());
 }
