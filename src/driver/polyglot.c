@@ -7,6 +7,8 @@
 #include "runtime/rt/prolog_atom.h"
 #include "parsers/icon/icon_driver.h"
 #include "parsers/raku/raku_driver.h"
+#include "parsers/snocone/snocone_driver.h"
+#include "parsers/pascal/pascal_driver.h"
 #include "parsers/rebus/rebus_lower.h"
 #include "runtime/builtins/gen_runtime.h"
 #include "driver/driver.h"
@@ -98,6 +100,11 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
             fence_fn = lower_raku_stage2;
         } else if (tag_len == 5 && strncmp(tag_start, "Rebus", 5) == 0) {
             rebus_compile(block, filename, &sub_ast);
+        } else if (tag_len == 7 && strncmp(tag_start, "Snocone", 7) == 0) {
+            snocone_compile(block, filename, &sub_ast);
+        } else if (tag_len == 6 && strncmp(tag_start, "Pascal", 6) == 0) {
+            pascal_compile(block, filename, &sub_ast);
+            fence_fn = lower_pascal_stage2;
         } else { ct_drop(block); continue; }
         ct_drop(block);
         if (!sub_ast || sub_ast->n == 0) { ct_drop(sub_ast); continue; }
