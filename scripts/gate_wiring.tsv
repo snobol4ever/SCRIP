@@ -496,6 +496,7 @@ test_gate_pas_succ_and_pred_keep_their_arguments_type.sh	WIRED	-	-	-
 test_gate_pas_the_input_buffer_variable_is_the_next_character.sh	WIRED	-	-	-
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
+test_gate_pas_variant_arms_overlay_the_same_storage.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
 test_gate_perf_fmt_refuses_a_dark_cell.sh	WIRED	-	-	-
 test_gate_picker_autounblock.sh	WIRED	-	-	-
