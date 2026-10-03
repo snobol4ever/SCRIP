@@ -3764,7 +3764,7 @@ static const pl_flag_t pl_flags_init[] = {
     { "debug", "off", 1, { "on", "off", 0 } },
     { "unknown", "error", 1, { "error", "fail", "warning", 0 } },
     { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string", 0 } },
-    { "protect_static_code", "true", 1, { "true", "false", 0 } },
+    { "protect_static_code", "false", 1, { "true", "false", 0 } },
     { "iso", "false", 1, { "true", "false", 0 } },
     { "encoding", "UTF-8", 1, { "UTF-8", 0 } },
     { "argv", "[]", 0, { 0 } },
@@ -3800,7 +3800,7 @@ static pl_flag_t * pl_flag_find_or_create(const char *nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_iso_mode(void) { pl_flag_t *fl = pl_flag_find("iso"); return fl && !strcmp(fl->val, "true"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_protect_static_code(void) { pl_flag_t *fl = pl_flag_find("protect_static_code"); return !fl || strcmp(fl->val, "false") != 0; }
+int rt_pl_protect_static_code(void) { pl_flag_t *fl = pl_flag_find("protect_static_code"); return fl && !strcmp(fl->val, "true"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_double_quotes_mode(void) {
     pl_flag_t *fl = pl_flag_find("double_quotes");
@@ -9823,7 +9823,8 @@ extern int rt_pl_db_seed(void *, void *);
 DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 3) return FAILDESCR;
     pl_atoms_ready();
-    { void *db = pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]);
+    { extern void *rt_pl_db_get_by_key(void *, const char *, int); DESCR_t kv = rt_pl_deref_val(args[0]); const char *ks = kv.v == DT_I ? (const char *)0 : pl_atom_str(kv);
+      void *db = ks ? rt_pl_db_get_by_key(root, ks, 1) : pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]);
       if (!db || iv.v != DT_I) return FAILDESCR;
       if (rt_pl_db_count(db) > (int)iv.i) return pl_ok();
       return rt_pl_db_seed(db, (void *)&args[2]) ? pl_ok() : FAILDESCR; }
@@ -9982,9 +9983,12 @@ static int pl_db_body_ill_typed(DESCR_t b) {
     return 0;
 }
 static void *pl_db_static_ball(void *root, const char *op, const char *nm, int ar) {
-    char key[264]; snprintf(key, sizeof key, "%s/%d", nm, ar);
-    if (!pl_pi_is_control(nm, ar) && (rt_pl_db_key_is_dynamic(root, key) || !rt_proc_is_registered(key))) return (void *)0;
-    if (!strcmp(op, "clause")) { extern int rt_pl_protect_static_code(void); if (!pl_pi_is_control(nm, ar) && !rt_pl_protect_static_code()) return (void *)0;
+    extern int rt_pl_db_key_is_static(void *, const char *); extern int rt_pl_iso_mode(void); extern int rt_pl_protect_static_code(void); extern int pl_pi_is_builtin(const char *, int);
+    char key[264]; int isclause = !strcmp(op, "clause"); int bi;
+    snprintf(key, sizeof key, "%s/%d", nm, ar);
+    bi = pl_pi_is_control(nm, ar) || (isclause && pl_pi_is_builtin(nm, ar) && !rt_pl_db_key_is_static(root, key));
+    if (!bi && (rt_pl_db_key_is_dynamic(root, key) || !(rt_proc_is_registered(key) || (isclause && rt_pl_db_key_is_static(root, key))))) return (void *)0;
+    if (isclause) { if (!bi && !rt_pl_iso_mode() && !rt_pl_protect_static_code()) return (void *)0;
         return rt_pl_ball_permission_pi("access", "private_procedure", nm, ar); }
     return rt_pl_ball_permission_pi("modify", "static_procedure", nm, ar);
 }

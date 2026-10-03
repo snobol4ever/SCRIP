@@ -11,6 +11,7 @@
 #include "ir_query.h"
 #include "pl_arith_names.h"
 #include "pl_control_names.h"
+#include "ct_vec.h"
 #define PL_BB_TABLE_MAX 256
 typedef struct { const char * name; int arity; int bb_idx; } pl_bb_ent_t;
 static pl_bb_ent_t * pl_bb_tab = NULL;
@@ -1701,7 +1702,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
               { IR_t * enum_entry = NULL; IR_t * to = pl_db_enum(cx, k, pl_clause_target(t->c[0], t->c[1]), 0, γnext, ωfail, &enum_entry);
                 IR_t * next = enum_entry; IR_t * first = NULL; int n = (ch->t == TT_CHOICE) ? ch->n : 1;
                 for (int i = n - 1; i >= 0; i--) { const tree_t * cl = (ch->t == TT_CHOICE) ? ch->c[i] : ch; IR_t * se = NULL; pl_db_leaf_seed(cx, k, i, pl_static_clause_term(cl, pn, ar), next, ωfail, &se); next = se; first = se; }
-                if (entry_out) *entry_out = first ? first : enum_entry; return to; } } }
+                { IR_t * body_first = first ? first : enum_entry; IR_t * ge = NULL;
+                  pl_db_leaf2_tree(cx, "$db_t_guard", pl_clause_target(t->c[0], t->c[1]), pl_atom_goal("clause"), body_first, ωfail, &ge);
+                  if (entry_out) *entry_out = ge ? ge : body_first; return to; } } } }
         { static const struct { const char * n; int a; const char * k; const char * leaf; } io[] = { { "put_code", 1, "put_code1", "$put_code" }, { "put_code", 2, "put_code2", "$put_code_s" }, { "put_char", 1, "put_char1", "$put_char" }, { "put_char", 2, "put_char2", "$put_char_c_s" }, { "get_code", 1, "in_code1", "$get_code" }, { "get_code", 2, "in_code2", "$get_code_s" }, { "peek_code", 1, "in_code1", "$peek_code" }, { "peek_code", 2, "in_code2", "$peek_code_s" }, { "get_char", 1, "in_char1", "$get_char" }, { "get_char", 2, "in_char2", "$get_char_s" }, { "peek_char", 1, "in_char1", "$peek_char" }, { "peek_char", 2, "in_char2", "$peek_char_s" },
             { "get_byte", 1, "in_byte1", "$get_byte" }, { "get_byte", 2, "in_byte2", "$get_byte_s" }, { "peek_byte", 1, "in_byte1", "$peek_byte" }, { "peek_byte", 2, "in_byte2", "$peek_byte_s" }, { NULL, 0, NULL, NULL } };
           for (int i = 0; io[i].n; i++) if (t->n == io[i].a && !strcmp(nm, io[i].n) && !pl_file_defines(nm, t->n)) {
@@ -2092,6 +2095,50 @@ static tree_t * pl_dir_catch_wrap(tree_t * dirgoal, const char ** dvn, int * dvc
     return ig;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+enum { PL_SEED_CHUNK = 24, PL_SEED_PROCS_MAX = 900 };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char * pl_pi_text(const char * nm, int ar, int tail) {
+    int n = snprintf(NULL, 0, tail ? "%s/%d" : "%s%d", nm, ar); char * r = (char *) ct_alloc((size_t) n + 1);
+    snprintf(r, (size_t) n + 1, tail ? "%s/%d" : "%s%d", nm, ar); return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_clause_term_key(const tree_t * h, cv_t * keys, int * all) {
+    char * key; int ar = 0; const char * pn;
+    while (h && h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2) h = h->c[1];
+    if (!h) return;
+    pn = pl_head_key(h, &ar);
+    if (!pn) { if (!pl_tree_number(h)) *all = 1; return; }
+    key = pl_pi_text(pn, ar, 1);
+    for (uint32_t i = 0; i < keys->len; i++) if (!strcmp(CV_AT(*keys, const char *, i), key)) { ct_drop(key); return; }
+    CV_PUSH(*keys, const char *) = key;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_clause_term_walk(const tree_t * t, cv_t * keys, int * all) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "clause") && (t->n == 2 || t->n == 3) && t->c[0]) pl_clause_term_key(t->c[0], keys, all);
+    for (int i = 0; i < t->n; i++) pl_clause_term_walk(t->c[i], keys, all);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * procs) {
+    const char * slash = strrchr(key, '/'); char * nm; size_t nl; int ar, n; const char * kn;
+    if (!slash || key[0] == '$' || !ch || ch->t != TT_CHOICE || ch->n < 1) return;
+    ar = atoi(slash + 1); nl = (size_t) (slash - key); nm = (char *) ct_alloc(nl + 1); memcpy(nm, key, nl); nm[nl] = 0;
+    if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) { ct_drop(nm); return; }
+    n = ch->n; kn = ct_strdup(key);
+    for (int lo = 0; lo < n && procs->len < PL_SEED_PROCS_MAX; lo += PL_SEED_CHUNK) {
+        int hi = lo + PL_SEED_CHUNK < n ? lo + PL_SEED_CHUNK : n, m = 0, save_base = g_pl_seed_var_base;
+        const tree_t ** sg = (const tree_t **) ct_zalloc((size_t) (hi - lo), sizeof(const tree_t *));
+        g_pl_seed_var_base = 0;
+        for (int i = lo; i < hi; i++) sg[m++] = pl_cc_fnc3("$db_seed_once", (tree_t *) pl_atom_goal(kn), pl_cc_ilit(i), pl_static_clause_term(ch->c[i], nm, ar));
+        g_pl_seed_var_base = save_base;
+        { IR_graph_t * g = pl_body_graph(sg, m); int bb_idx = bb_program_add(&g_stage2.bbp, g);
+          if (bb_idx >= 0) { char * pn = pl_pi_text("$db_seedS", (int) procs->len, 0); char * rk = pl_pi_text(pn, 0, 1);
+            pl_bb_register(rk, 0, bb_idx); pl_new_proc(rk, 0, bb_idx); CV_PUSH(*procs, const char *) = pn; } }
+        ct_drop(sg);
+    }
+    ct_drop(nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     int _pl_bb0 = g_stage2.bbp.count;
     pl_register_program(&g_stage2, prog);
@@ -2151,9 +2198,22 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         for (int di = 0; di < g_stage2.pl_dyn_n && decls && ndecl < PL_DECL_GOALS_MAX; di++)
           if (g_stage2.pl_dyn_name[di] && g_stage2.pl_dyn_name[di][0] != '$' && pl_decl_dyn_is(g_stage2.pl_dyn_name[di], g_stage2.pl_dyn_arity[di]))
             decls[ndecl++] = pl_cc_fnc3("$db_decl", (tree_t *) pl_atom_goal(g_stage2.pl_dyn_name[di]), pl_cc_ilit(g_stage2.pl_dyn_arity[di]), pl_cc_ilit(2));
+        for (int di = 0; di < g_stage2.pl_dyn_n && decls && ndecl < PL_DECL_GOALS_MAX; di++)
+          if (g_stage2.pl_dyn_name[di] && g_stage2.pl_dyn_name[di][0] != '$' && !pl_decl_dyn_is(g_stage2.pl_dyn_name[di], g_stage2.pl_dyn_arity[di]) && pl_file_defines(g_stage2.pl_dyn_name[di], g_stage2.pl_dyn_arity[di]))
+            decls[ndecl++] = pl_cc_fnc3("$db_decl", (tree_t *) pl_atom_goal(g_stage2.pl_dyn_name[di]), pl_cc_ilit(g_stage2.pl_dyn_arity[di]), pl_cc_ilit(3));
         if (ndecl > 0) { IR_graph_t * dg = pl_body_graph(decls, ndecl); int bb_idx = bb_program_add(&g_stage2.bbp, dg);
           if (bb_idx >= 0) { pl_bb_register("$db_decl/0", 0, bb_idx); pl_new_proc("$db_decl/0", 0, bb_idx); if (nall < PL_INIT_GOALS_MAX) all_goals[nall++] = pl_atom_goal("$db_decl"); } }
         ct_drop(decls); }
+      { cv_t sk = { 0 }; cv_t sp = { 0 }; int sall = 0;
+        for (int i = 0; i < prog->n; i++) { const tree_t * st = prog->c[i]; if (st && st->t == TT_STMT) pl_clause_term_walk(lp_s_expr(st, ":subj"), &sk, &sall); }
+        if (sall) { for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++) for (Resolve_PredEntry * pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) if (pe->key) pl_static_seed_pred(pe->key, pe->choice, &sp); }
+        else for (uint32_t i = 0; i < sk.len; i++) { const char * kk = CV_AT(sk, const char *, i); pl_static_seed_pred(kk, resolve_pred_table_lookup(&g_stage2.resolve_pred_table, kk), &sp); }
+        if (sp.len > 0) { const tree_t ** dg = (const tree_t **) ct_zalloc(sp.len, sizeof(const tree_t *));
+          for (uint32_t i = 0; i < sp.len; i++) dg[i] = pl_atom_goal(CV_AT(sp, const char *, i));
+          { IR_graph_t * g = pl_body_graph(dg, (int) sp.len); int bb_idx = bb_program_add(&g_stage2.bbp, g);
+            if (bb_idx >= 0) { pl_bb_register("$db_seedS/0", 0, bb_idx); pl_new_proc("$db_seedS/0", 0, bb_idx); if (nall < PL_INIT_GOALS_MAX) all_goals[nall++] = pl_atom_goal("$db_seedS"); } }
+          ct_drop(dg); }
+        ct_drop(sk.p); ct_drop(sp.p); }
       for (int i = 0; i < ndir && nall < PL_INIT_GOALS_MAX * 2; i++) all_goals[nall++] = dir_goals[i];
       for (int i = 0; i < ninit && nall < PL_INIT_GOALS_MAX * 2; i++) all_goals[nall++] = init_goals[i];
       ninit = nall; for (int i = 0; i < nall; i++) init_goals[i < PL_INIT_GOALS_MAX ? i : PL_INIT_GOALS_MAX - 1] = all_goals[i]; }

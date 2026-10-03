@@ -2274,6 +2274,11 @@ int rt_pl_db_key_is_dynamic(void *root, const char *key)
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
     return (e && !e->stat) ? 1 : 0;
 }
+int rt_pl_db_key_is_static(void *root, const char *key)
+{
+    pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
+    return (e && e->stat) ? 1 : 0;
+}
 int rt_pl_db_key_is_declared(void *root, const char *key)
 {
     pl_db_key_t *e = pl_db_reg_find(pl_db_registry(root, 0), key);
@@ -2294,7 +2299,7 @@ int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind)
     { pl_db_reg_t *r = pl_db_registry(root, 1); pl_db_key_t *e = pl_db_reg_find(r, key);
       if (!e) e = pl_db_reg_add(r, key);
       if (!e) return 0;
-      if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else e->decl = 1;
+      if (kind == 1) { if (e->k < 0 && !e->db) e->stat = 1; } else if (kind == 3) e->stat = 1; else e->decl = 1;
       return 1; }
 }
 static pl_db_t * pl_db_cell_peek(void *root, int k)
