@@ -19,18 +19,6 @@ RTX_FUNC(rt_pl_quad_seed)
     add     rsp, 8
     ret
 RTX_ENDF(rt_pl_quad_seed)
-RTX_FUNC(rt_pl_choice_open)
-    mov     r13, rdi
-    ret
-RTX_ENDF(rt_pl_choice_open)
-RTX_FUNC(rt_pl_cut_barrier)
-    mov     r13, qword ptr [rdi + 24]
-    ret
-RTX_ENDF(rt_pl_cut_barrier)
-RTX_FUNC(rt_pl_fence_commit)
-    mov     r13, rdi
-    ret
-RTX_ENDF(rt_pl_fence_commit)
 RTX_FUNC(rt_pl_throw_raise)
     sub     rsp, 8
     RTX_CCALL(rt_pl_ball_make)
@@ -105,19 +93,6 @@ RTX_FUNC(rt_pl_dop_ball_pending)
     PL_BALL_GET(rdi)
     RTX_CTAIL(rt_pl_dop_ball_pending_c)
 RTX_ENDF(rt_pl_dop_ball_pending)
-RTX_FUNC(rt_pl_disj_open)
-    shl     rsi, 8
-    or      rsi, DT_RAW
-    mov     qword ptr [rdi + 32], rsi
-    test    r13, r13
-    jz      .Ldo_take
-    cmp     r13, rdi
-    jb      .Ldo_done
-.Ldo_take:
-    mov     r13, rdi
-.Ldo_done:
-    ret
-RTX_ENDF(rt_pl_disj_open)
 RTX_FUNC(rt_pl_dop_unify)
     sub     rsp, CTX_FRAME
     mov     qword ptr [rsp + CTX_TR], r12

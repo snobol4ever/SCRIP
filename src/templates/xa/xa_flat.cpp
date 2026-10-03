@@ -221,7 +221,6 @@ static std::string zf_release(int kt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_pl_quad_seed(void *);
-extern "C" void rt_pl_choice_open(void *);
 static std::string pl_standing_cells_zero(int kt, int n) {
     std::string s;
     for (int k = 0; k < n; k++) s += x86("mov", RDQ("rsp", kt - 64 - 24 - 8 * k), 0L);
@@ -235,7 +234,6 @@ static std::string xa_flat_zframe_prologue_str(void) {
     int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
     int nl = g_emit_cfg ? g_emit_cfg->nlocals : 0;
     uint64_t _seed_fp; { void (*_f)(void *) = rt_pl_quad_seed; _seed_fp = (uint64_t)(uintptr_t)(void *)_f; }
-    uint64_t _open_fp; { void (*_f)(void *) = rt_pl_choice_open; _open_fp = (uint64_t)(uintptr_t)(void *)_f; }
     std::string s = x86("comment", "ICN-FR-2 zframe prologue: sub rsp,kt + wire header [kt-24]=γ [kt-16]=ω [kt-8]=caller____ + pin ___=rsp")
          + x86("sub", "rsp", (long)kt)
          + x86("mov", "[rsp + " + std::to_string(kt - 24) + "]", "rcx")
@@ -260,8 +258,8 @@ static std::string xa_flat_zframe_prologue_str(void) {
              + IF(g_emit_cfg && g_emit_cfg->n_alts > 1 && g_emit.flat_alt1_p,
                     x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_alt1_p)
                  + x86("mov", RDQ("rsp", kt - 56), "rax")
-                 + x86("lea", "rdi", RDQ("rsp", kt - 64))
-                 + x86("call_bare", "rt_pl_choice_open", _open_fp)))
+                 + x86("note", "pl_choice_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): B := this frame's header H = rsp+kt-64")
+                 + x86("lea", "r13", RDQ("rsp", kt - 64))))
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));

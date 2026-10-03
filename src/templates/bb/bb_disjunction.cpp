@@ -5,7 +5,6 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-extern "C" void rt_pl_disj_open(void *, void *);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_dispatch_chain(long N, int base, int lo)
@@ -33,11 +32,8 @@ static std::string disj_sigma_copy() {
 static std::string disj_choice_open() {
     if (!x86_fb_pinned()) return std::string();
     int kt = g_emit.flat_frame_bytes;
-    uint64_t fp; { void (*f)(void *, void *) = rt_pl_disj_open; fp = (uint64_t)(uintptr_t)(void *)f; }
     return  x86("mov", FRQ(_.op_off + 24), "r12")
-         + x86("lea", "rdi", RDQ(x86_fb(), kt - 64))
-         + x86("mov", "rsi", x86_fb())
-         + x86("call_bare", "rt_pl_disj_open", fp);
+         + x86_pl_disj_open(x86_fb(), kt, 240, 241);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string disj_step_unwind() {
