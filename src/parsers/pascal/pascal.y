@@ -62,6 +62,7 @@ static const PasFwd *pas_scope_fwd_of(const char *name, PNodeList *params) {
 static PNodeList *pas_scope_fwd_params(const char *name, PNodeList *params) { const PasFwd *f = pas_scope_fwd_of(name, params); return f ? f->params : params; }
 static void pas_formal_subranges(const char *sig, PNodeList *params);
 static void pas_formal_chararrs(const char *sig, PNodeList *params);
+static void pas_formal_strtypes(const char *sig, PNodeList *params);
 static void pas_scope_enter(const char *name, PNodeList *params) {
     if (g_pas_scope.depth >= g_pas_scope.mcap) { g_pas_scope.mcap = g_pas_scope.mcap ? g_pas_scope.mcap * 2 : 16; g_pas_scope.marks = (int *)ct_grow(g_pas_scope.marks, (size_t)g_pas_scope.mcap * sizeof(int)); }
     g_pas_scope.marks[g_pas_scope.depth++] = g_pas_scope.n;
@@ -71,7 +72,7 @@ static void pas_scope_enter(const char *name, PNodeList *params) {
         if (!strcmp(g_pas_scope.fsig[j].owner, name) && !strcmp(g_pas_scope.fsig[j].name, g_pas_scope.defs[i].name)) {
             g_pas_scope.defs[i].sig = g_pas_scope.fsig[j].sig; g_pas_scope.defs[i].formal = 1; break; }
     if (first > 0 && g_pas_scope.defs[first - 1].rid && name && !strcmp(g_pas_scope.defs[first - 1].name, name)) {
-        const char *sig = (fwd && fwd->sig) ? fwd->sig : g_pas_scope.defs[first - 1].sig; pas_formal_subranges(sig, params); pas_formal_chararrs(sig, params); }
+        const char *sig = (fwd && fwd->sig) ? fwd->sig : g_pas_scope.defs[first - 1].sig; pas_formal_subranges(sig, params); pas_formal_chararrs(sig, params); pas_formal_strtypes(sig, params); }
 }
 static int pas_pf_is_formal(const char *name);
 static const PasDef *pas_pf_lookup(const char *name);
@@ -143,6 +144,7 @@ static int pas_subvar_get(const char *n, long long *lo, long long *hi);
 static int pas_sizeof_lookup(const char *name, long long *out);
 static int pas_sizeof_builtin_size(const char *n, long long *out);
 static int pas_ordinal_bound_lookup(const char *name, long long *lo, long long *hi);
+static int pas_var_string_kind(const char *name);
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi);
 static int pas_tfcomp_nonchar(const char *n);
 static int pas_is_hdrfile(const char *n);
@@ -437,6 +439,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         if (v && v->t == TT_VAR && v->v.sval) {
             long long lo2, hi2;
             if (pas_ordinal_bound_lookup(v->v.sval, &lo2, &hi2)) return ilit(!strcmp(name, "low") ? lo2 : hi2);
+        }
+        if (v && v->t == TT_VAR && v->v.sval) {
+            int sk = pas_var_string_kind(v->v.sval);
+            if (sk) return !strcmp(name, "low") ? ilit(sk == 2 ? 0 : 1) : (sk == 2 ? ilit(255) : mk_fnc1("length", pas_tree_clone(v)));
         }
     }
     if (name && !strcmp(name, "sizeof") && args && args->count >= 1) {
@@ -895,9 +901,24 @@ static struct { char *name; char *target; } g_pas_typealias[64]; static int g_pa
 static void pas_typealias_add(const char *n, const char *t) { if (g_pas_ntypealias < 64 && n && t && strcmp(n, t)) { g_pas_typealias[g_pas_ntypealias].name = ct_strdup(n); g_pas_typealias[g_pas_ntypealias].target = ct_strdup(t); g_pas_ntypealias++; } }
 static const char *pas_typealias_get(const char *n) { if (!n) return NULL; for (int i = g_pas_ntypealias - 1; i >= 0; i--) if (g_pas_typealias[i].name && !strcmp(g_pas_typealias[i].name, n)) return g_pas_typealias[i].target; return NULL; }
 static int g_pas_ldepth;
-static struct { char *vname; char *tname; int is_global; } g_pas_scalarvartype[512]; static int g_pas_nscalarvartype;
-static void pas_scalarvartype_add(const char *vn, const char *tn) { if (g_pas_nscalarvartype < 512 && vn && tn) { g_pas_scalarvartype[g_pas_nscalarvartype].vname = ct_strdup(vn); g_pas_scalarvartype[g_pas_nscalarvartype].tname = ct_strdup(tn); g_pas_scalarvartype[g_pas_nscalarvartype].is_global = (g_pas_ldepth == 0); g_pas_nscalarvartype++; } }
+static struct { char *vname; char *tname; int is_global; int uid; } g_pas_scalarvartype[512]; static int g_pas_nscalarvartype;
+static void pas_scalarvartype_add(const char *vn, const char *tn) { if (g_pas_nscalarvartype < 512 && vn && tn) { g_pas_scalarvartype[g_pas_nscalarvartype].vname = ct_strdup(vn); g_pas_scalarvartype[g_pas_nscalarvartype].tname = ct_strdup(tn); g_pas_scalarvartype[g_pas_nscalarvartype].is_global = (g_pas_ldepth == 0); g_pas_scalarvartype[g_pas_nscalarvartype].uid = pas_scope_uid(vn); g_pas_nscalarvartype++; } }
 static const char *pas_scalarvartype_get(const char *vn) { if (!vn) return NULL; for (int i = g_pas_nscalarvartype - 1; i >= 0; i--) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, vn)) return g_pas_scalarvartype[i].tname; return NULL; }
+static int pas_string_type_kind(const char *t) {
+    for (int guard = 0; t && guard < 8; guard++) {
+        if (!strcmp(t, "shortstring") || !strcmp(t, "openstring")) return 2;
+        if (!strcmp(t, "string") || !strcmp(t, "ansistring") || !strcmp(t, "widestring") || !strcmp(t, "unicodestring")) return 1;
+        const char *al = pas_typealias_get(t);
+        if (!al || !strcmp(al, t)) break;
+        t = al;
+    }
+    return 0;
+}
+static int pas_var_string_kind(const char *name) {
+    int u = pas_scope_uid(name);
+    for (int i = g_pas_nscalarvartype - 1; name && i >= 0; i--) if (g_pas_scalarvartype[i].vname && g_pas_scalarvartype[i].uid == u && !strcmp(g_pas_scalarvartype[i].vname, name)) return pas_string_type_kind(g_pas_scalarvartype[i].tname);
+    return 0;
+}
 static struct { char *name; long long low; long long high; int ischar; } g_pas_tfcomp[128]; static int g_pas_ntfcomp;
 static void pas_tfcomp_add(const char *n, long long lo, long long hi, int ischar) { if (g_pas_ntfcomp < 128 && n) { g_pas_tfcomp[g_pas_ntfcomp].name = ct_strdup(n); g_pas_tfcomp[g_pas_ntfcomp].low = lo; g_pas_tfcomp[g_pas_ntfcomp].high = hi; g_pas_tfcomp[g_pas_ntfcomp].ischar = ischar; g_pas_ntfcomp++; } }
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi) { if (!n) return 0; for (int i = g_pas_ntfcomp - 1; i >= 0; i--) if (g_pas_tfcomp[i].name && !strcmp(g_pas_tfcomp[i].name, n) && g_pas_tfcomp[i].high >= g_pas_tfcomp[i].low) { *lo = g_pas_tfcomp[i].low; *hi = g_pas_tfcomp[i].high; return 1; } return 0; }
@@ -1726,6 +1747,10 @@ static void pas_formal_subranges(const char *sig, PNodeList *params) {
 static void pas_formal_chararrs(const char *sig, PNodeList *params) {
     for (int i = 0, fi = 0; params && i < params->count; i++) { tree_t *id = params->items[i]; if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
         const char *t = pas_sig_value_type(sig, fi++, 0); if (t && pas_arrtype_ischar(t)) pas_chararr_add2(id->v.sval, pas_arrtype_lo(t)); }
+}
+static void pas_formal_strtypes(const char *sig, PNodeList *params) {
+    for (int i = 0, fi = 0; params && i < params->count; i++) { tree_t *id = params->items[i]; if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
+        const char *t = pas_sig_value_type(sig, fi++, 1); if (t && pas_string_type_kind(t)) pas_scalarvartype_add(id->v.sval, t); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_value_actuals_check(const char *callee, const PasDef *cd, PNodeList *args) {
