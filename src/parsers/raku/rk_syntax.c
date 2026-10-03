@@ -2365,7 +2365,9 @@ static int r_EXPR(RkP *p, int pos, int preclim) {
     x.L = rkb_list_new();
     x.star = p->x_star; x.subst = p->x_subst; x.subst_len = p->x_subst_len;
     p->x_star = 0; p->x_subst = NULL;
+    int ncur = p->build ? rkb_nocurry(p->B, x.star) : 0;
     x_list(p, &x);
+    if (p->build) rkb_nocurry(p->B, ncur);
     p->nops = x.base; p->lst = x.L;
     if (x.fail) { p->leftsigil = x.sl; return -1; }
     p->leftsigil = x.sl ? x.sl : p->leftsigil;
