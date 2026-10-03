@@ -77,7 +77,7 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
     if (d.v == DT_X) { sno_dstar_rec_t *rec = SNO_DTX_REC(d); const char *nm = !rec ? "*" : (rec->flags & SNO_DSTAR_VARREF) ? rec->star + 1 : rec->star; return rcp_node(TT_DEFER, nm, (uint32_t)strlen(nm), 0, 0, 0); }
     if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
     if (IS_INT_fn(d)) { char *b = rt_str_alloc(31); snprintf(b, 32, "%lld", (long long)d.i); return rcp_lit(b, (uint32_t)strlen(b)); }
-    if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); gcvt(d.r, 14, b); return rcp_lit(b, (uint32_t)strlen(b)); }
+    if (IS_REAL_fn(d)) { char *b = rt_str_alloc(39); real_str(d.r, b, 40); return rcp_lit(b, (uint32_t)strlen(b)); }
     { const char *s = VARVAL_fn(d); return rcp_lit(s ? s : "", s ? (uint32_t)strlen(s) : 0); }
 }
 extern tree_t *ast_stmt_new(tree_e kind);

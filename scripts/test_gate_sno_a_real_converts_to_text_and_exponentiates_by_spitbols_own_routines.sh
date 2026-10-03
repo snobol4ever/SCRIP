@@ -12,10 +12,14 @@
 #   a non-negative integer power is the base multiplied in sequence (oex14), not squaring; a negative integer exponent becomes a
 #   real one. 0 ** 0 and 0.0 ** 0.0 are 018, an overflow is 266.
 #   A REAL IN A MATCH OR AS A STRING: every conversion is gtstg's, so a real pattern is '0.' and '2.', SIZE(2.5) is 3, and a TRACE
-#   line spells the value the same way.
+#   line spells the value the same way. So is a real BUILT INTO A PATTERN at run time: an alternation or concatenation arm, ARBNO,
+#   FENCE, a stored or an EVAL'd pattern -- (0.0 | 'q') fails on '0' and its capture reads 0.
 # WHAT SCRIP DID BEFORE: real_str rounded by "%.14e" (6125 of this gate's 174,600-line sweep differed, measured on the parent);
 # rt_sno_pow used pow() and squaring (6050 of 19,200 differed); a deferred real pattern converted by "%g" ('0' ? R matched, sbl
-# fails); bn_size returned 0 for every real; the trace voice spelled a real by "%g" (F(3) where sbl prints F(3.)).
+# fails); bn_size returned 0 for every real; the trace voice spelled a real by "%g" (F(3) where sbl prints F(3.)). A real built into
+# a pattern at run time (pattern_match.c rcp_of, under SNO$PBALT, pat_cat, ARBNO, FENCE and every EVAL) converted by gcvt, so
+# '0' ? (0.0 | 'q') matched (ceo's row snobol4-a-whole-number-real-as-an-alternation-arm-converts-without-its-point, from Lon's
+# infinite_snobol4 demo): the build arm read 13 of its 18 lines differing on the parent c59242660, both modes, and 0 on the cure.
 # NOT COVERED: a subnormal result, which sbl zeroes through its MXCSR underflow test on every real operation (0. both sides here
 # only by the conversion's own scaling), and Pascal's real writer, which has its own formatter and its own row.
 #
@@ -115,6 +119,67 @@ C5      OUTPUT = 'concat ' R 'z'
         OUTPUT = 'dupl ' DUPL(T, 2)
 END
 SNO
+cat > "$D/build.sno" <<'SNO'
+        &ANCHOR = 1
+        '0' ? (0.0 | 'q')                                :S(A1)F(B1)
+A1      OUTPUT = 'alt 0.0 on 0 matches'                  :(C1)
+B1      OUTPUT = 'alt 0.0 on 0 fails'
+C1      '2' ? ('q' | 2.0)                                :S(A2)F(B2)
+A2      OUTPUT = 'ralt 2.0 on 2 matches'                 :(C2)
+B2      OUTPUT = 'ralt 2.0 on 2 fails'
+C2      '0.z' ? (0.0 POS(2)) 'z'                         :S(A3)F(B3)
+A3      OUTPUT = 'cat 0.0 POS(2) on 0.z matches'         :(C3)
+B3      OUTPUT = 'cat 0.0 POS(2) on 0.z fails'
+C3      '0.0.' ? ARBNO(0.0) RPOS(0)                      :S(A4)F(B4)
+A4      OUTPUT = 'arbno 0.0 on 0.0. matches'             :(C4)
+B4      OUTPUT = 'arbno 0.0 on 0.0. fails'
+C4      '0' ? FENCE(0.0)                                 :S(A5)F(B5)
+A5      OUTPUT = 'fence 0.0 on 0 matches'                :(C5)
+B5      OUTPUT = 'fence 0.0 on 0 fails'
+C5      '0.' ? (0.0 | 'q') . W                           :S(A6)F(B6)
+A6      OUTPUT = 'capture ' W                            :(C6)
+B6      OUTPUT = 'capture fails'
+C6      '-3.' ? (-3.0 | 'q') . W                         :S(A7)F(B7)
+A7      OUTPUT = 'neg capture ' W                        :(C7)
+B7      OUTPUT = 'neg capture fails'
+C7      S = '' 1.0E20
+        OUTPUT = 'big ' S
+        S ? (1.0E20 | 'q') . W                           :S(A8)F(B8)
+A8      OUTPUT = 'big capture ' W                        :(C8)
+B8      OUTPUT = 'big capture fails'
+C8      S = '' 1.0E-5
+        OUTPUT = 'small ' S
+        S ? (1.0E-5 | 'q') . W                           :S(A9)F(B9)
+A9      OUTPUT = 'small capture ' W                      :(C9)
+B9      OUTPUT = 'small capture fails'
+C9      P = 0.0 | 'q'
+        OUTPUT = 'datatype ' DATATYPE(P)
+        '0' ? P                                          :S(AA)F(BA)
+AA      OUTPUT = 'stored alt on 0 matches'               :(CA)
+BA      OUTPUT = 'stored alt on 0 fails'
+CA      P = EVAL("0.0 | 'q'")
+        '0' ? P                                          :S(AB)F(BB)
+AB      OUTPUT = 'eval alt on 0 matches'                 :(CB)
+BB      OUTPUT = 'eval alt on 0 fails'
+CB      P = EVAL("2.0 LEN(1)")
+        '2.x' ? P . W                                    :S(AC)F(BC)
+AC      OUTPUT = 'eval cat ' W                           :(CC)
+BC      OUTPUT = 'eval cat fails'
+CC      R = 2.0
+        P = R | 'q'
+        '2' ? P                                          :S(AD)F(BD)
+AD      OUTPUT = 'var alt on 2 matches'                  :(CD)
+BD      OUTPUT = 'var alt on 2 fails'
+CD      P = ARBNO(R) RPOS(0)
+        '2.2.' ? P                                       :S(AE)F(BE)
+AE      OUTPUT = 'var arbno matches'                     :(CE)
+BE      OUTPUT = 'var arbno fails'
+CE      X = 'a0b'
+        X 0.0 = 'Z'                                      :S(AF)F(BF)
+AF      OUTPUT = 'replace ' X                            :(END)
+BF      OUTPUT = 'replace fails ' X
+END
+SNO
 cat > "$D/trace.sno" <<'SNO'
         DEFINE('F(A)')
         TRACE('X','VALUE')
@@ -127,7 +192,7 @@ cat > "$D/trace.sno" <<'SNO'
 F       F = A * 2.0                   :(RETURN)
 END
 SNO
-ARMS="conv pow powerr match trace"
+ARMS="conv pow powerr match build trace"
 run_scrip() {  # $1 name $2 mode -> stdout
     if [ "$2" = m3 ]; then (cd "$D" && timeout 60 "$B/scrip" --stlimit "$1.sno" < /dev/null 2>/dev/null)
     else "$B/scrip" --stlimit --compile -o "$D/$1.s" "$D/$1.sno" </dev/null >/dev/null 2>&1 \
@@ -141,6 +206,7 @@ for a in $ARMS; do (cd "$D" && timeout 60 "$SBL" -bf "$a.sno" < /dev/null 2>/dev
 grep -qx "0.694444444444445e+18" "$D/conv.sbl" || refuse "the oracle no longer prints (1/12)**2 * 10**20 as 0.694444444444445e+18 (C's rounding says ...444) -- re-read sbl.min gts10-gts28"
 grep -qx "99516432313703.9" "$D/powerr.sbl" && grep -qx "b 311" "$D/powerr.sbl" || refuse "the oracle's exp(y * ln x) witness or its 311 changed -- re-read sbl.min o_exp"
 grep -qx "var real pattern fails on 0" "$D/match.sbl" || refuse "the oracle no longer fails '0' ? R for R = 0.0 -- re-read sbl"
+grep -qx "alt 0.0 on 0 fails" "$D/build.sbl" && grep -qx "eval cat 2.x" "$D/build.sbl" || refuse "the oracle no longer fails '0' ? (0.0 | 'q') or reads EVAL(\"2.0 LEN(1)\") as 2.x -- re-read sbl"
 grep -q "F(3\.)" "$D/trace.sbl" || refuse "the oracle's trace no longer spells F(3.) -- re-read sbl"
 fails=0; arms=0
 for m in m3 m4; do
@@ -153,6 +219,7 @@ done
 [ "$fails" -eq 0 ] || { echo "⛔ GATE FAILED: $fails of $arms arm(s) red."
     echo "   conv: string_ops.c real_str is no longer sbl.min's gts10-gts28; pow/powerr: arithmetic.c rt_sno_pow is no longer o_exp;"
     echo "   match: a real reached a match through a conversion other than real_str (pattern_match.c rt_defer_close, bn_size);"
+    echo "   build: a real built into a pattern at run time converted other than by real_str (pattern_match.c rcp_of);"
     echo "   trace: core.c trace_spell_value."; exit 1; }
-echo "✅ GATE OK: $arms arm(s) -- a real converts to text by sbl's gts routine (34,920 values) and exponentiates by o_exp (6,400 values and its errors), in a match, SIZE and TRACE too, both modes"
+echo "✅ GATE OK: $arms arm(s) -- a real converts to text by sbl's gts routine (34,920 values) and exponentiates by o_exp (6,400 values and its errors), in a match, a pattern built at run time, SIZE and TRACE too, both modes"
 exit 0
