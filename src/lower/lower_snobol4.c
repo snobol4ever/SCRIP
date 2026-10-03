@@ -301,6 +301,12 @@ static IR_t * sx_binop(scx_t * cx, const tree_t * t, int code, IR_t * γ, IR_t *
     if (res) *res = op; return ea;
 }
 static int sno_def_entry_absent(const tree_t * subj, int argbase);
+static const char * sno_qlit_fold(const tree_t * t);
+static void sno_entry_seen_push(cv_t * seen, const char * el);
+static void sno_parse_define(const char * spec, const char * entry_opt, sno_def_t * d);
+static const char * sno_define_entry_opt(const tree_t * dsub, int argbase);
+static void sno_bind_attach_proto(IR_graph_t * g, IR_t * bind, const sno_def_t * d, IR_t * fail);
+static void sno_bind_attach_entry(IR_graph_t * g, IR_t * bind, const char * entry, IR_t * fail);
 static cv_t g_sno_predef;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_predef_note(const char * fname) { for (uint32_t k = 0; k < g_sno_predef.len; k++) if (!strcmp(CV_AT(g_sno_predef, const char *, k), fname)) return; CV_PUSH(g_sno_predef, const char *) = fname; }
@@ -660,6 +666,11 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 fnb[k] = 0;
             }
             if (sno_define_entry_computed(t, argbase)) fnb[0] = 0;
+            if (fnb[0] && sno_predef_registered(fnb) && !sno_def_entry_absent(t, argbase) && t->c[argbase] && sno_qlit_fold(t->c[argbase])) {
+                sno_def_t d; sno_parse_define(sno_qlit_fold(t->c[argbase]), sno_define_entry_opt(t, argbase), &d);
+                IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) "";
+                IR_t * bind = lc_build(cx->g, IR_DEFINE, nd, ω); IR_LIT(bind).sval = lp_strdup(d.fname); sno_bind_attach_entry(cx->g, bind, d.entry, ω); sno_bind_attach_proto(cx->g, bind, &d, ω);
+                if (res) *res = nd; return bind; }
             if (fnb[0] && sno_predef_registered(fnb) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase)) { IR_t * nd = lc_build(cx->g, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) ""; if (res) *res = nd; return nd; }
             if (fnb[0] && !({ extern int g_rt_fragment_emit; g_rt_fragment_emit; }) && !sno_fname_is_multiproto(fnb) && !sno_def_entry_absent(t, argbase)) sno_fatal("DEFINE in this expression position is outside the landed subset (literal-prototype DEFINE in a statement subject only; pattern/replacement-field and fragment DEFINE pending)", NULL);
         }
@@ -2737,7 +2748,7 @@ static const char * sno_litname(const tree_t * a) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_def_put(cv_t * defs, cv_t * bodies, const sno_def_t * d, const tree_t * body) { sno_def_t c = *d; CV_PUSH(*defs, sno_def_t) = c; CV_PUSH(*bodies, const tree_t *) = body; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t * exprdef_names) {
+static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t * exprdef_names, cv_t * entries) {
     if (!t) return;
     if (t->t == TT_FNC) {
         const char * name = t->v.sval; int argbase = 0;
@@ -2782,6 +2793,7 @@ static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t 
             sno_def_t d; sno_parse_define(t->c[argbase]->v.sval, entry_opt, &d);
             if (sn4_sysfn_protected(d.fname)) return;
             sno_proto_note(&d);
+            sno_entry_seen_push(entries, d.entry);
             if (t != g_sno_prescan_top) { g_sno_expr_define_seen = 1; sno_exprdef_note(exprdef_names, d.fname); }
             sno_predef_note(d.fname);
             int fo = -1;
@@ -2790,7 +2802,18 @@ static void sno_prescan_expr(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t 
             else sno_def_put(defs, bodies, &d, NULL);
         }
     }
-    for (int i = 0; i < t->n; i++) sno_prescan_expr(t->c[i], defs, bodies, exprdef_names);
+    for (int i = 0; i < t->n; i++) sno_prescan_expr(t->c[i], defs, bodies, exprdef_names, entries);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void sno_prescan_repl_defines(const tree_t * t, cv_t * defs, cv_t * bodies, cv_t * exprdef_names, cv_t * entries) {
+    if (!t) return;
+    if (t->t == TT_FNC) {
+        const char * name = t->v.sval; int argbase = 0;
+        if (!name && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) { name = t->c[0]->v.sval; argbase = 1; }
+        (void) argbase;
+        if (name && !strcmp(name, "DEFINE")) { const tree_t * top = g_sno_prescan_top; g_sno_prescan_top = NULL; sno_prescan_expr(t, defs, bodies, exprdef_names, entries); g_sno_prescan_top = top; return; }
+    }
+    for (int i = 0; i < t->n; i++) sno_prescan_repl_defines(t->c[i], defs, bodies, exprdef_names, entries);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sno_expr_mark(void) { return (int) g_sno_exprs.len; }
@@ -3144,7 +3167,8 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     cv_t exprdef_names = {0};
     for (int i = 0; i < nst; i++) {
         g_sno_prescan_top = lc_stmt_subj(st[i]);
-        sno_prescan_expr(g_sno_prescan_top, &defs, &def_body, &exprdef_names);
+        sno_prescan_expr(g_sno_prescan_top, &defs, &def_body, &exprdef_names, &def_entry_all);
+        { const tree_t * rp = sfind_expr(st[i], ":repl"); if (rp) sno_prescan_repl_defines(rp, &defs, &def_body, &exprdef_names, &def_entry_all); }
         const tree_t * dfn = lc_stmt_subj(st[i]);
         if (dfn && dfn->t == TT_DEFINE) {
             is_def[i] = 1;

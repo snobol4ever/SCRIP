@@ -79,7 +79,7 @@ DESCR_t SUBSTR_bytes_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
 DESCR_t TRIM_fn(DESCR_t s) {
     const char *STRVAL_fn = VARVAL_fn(s);
     int len = (int)strlen(STRVAL_fn);
-    while (len > 0 && STRVAL_fn[len-1] == ' ') len--;
+    while (len > 0 && (STRVAL_fn[len-1] == ' ' || STRVAL_fn[len-1] == '\t')) len--;
     char *r = rt_str_alloc(len);
     memcpy(r, STRVAL_fn, (size_t)len);
     r[len] = '\0';

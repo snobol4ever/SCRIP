@@ -709,6 +709,7 @@ test_gate_sno_a_deferred_cset_argument_that_evaluates_to_null_or_a_pattern_raise
 test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh	WIRED	-	-	-
 test_gate_sno_a_define_call_on_a_default_build_never_enters_the_trace_layer.sh	WIRED	-	-	-
 test_gate_sno_a_define_inside_a_code_fragment_defines_the_function.sh	WIRED	-	-	-
+test_gate_sno_a_define_used_as_a_value_rebinds_the_function_as_a_statement_define_does.sh	WIRED	-	-	-
 test_gate_sno_a_dynamic_function_called_from_a_code_built_function_returns_its_value.sh	WIRED	-	-	-
 test_gate_sno_a_failed_unary_minus_or_plus_takes_its_boxs_failure_exit.sh	WIRED	-	-	-
 test_gate_sno_a_fence_after_a_live_deferred_thunk_finds_its_own_slots.sh	WIRED	-	-	-
@@ -834,6 +835,7 @@ test_gate_sno_trace_keyword_name_is_validated.sh	WIRED	-	-	-
 test_gate_sno_trace_of_an_array_or_table_element_fires_and_spells_it_like_the_oracle.sh	WIRED	-	-	-
 test_gate_sno_trace_value_fires_at_every_sink_with_the_sinks_statement_number.sh	WIRED	-	-	-
 test_gate_sno_tracing_does_not_change_a_match_result.sh	WIRED	-	-	-
+test_gate_sno_trim_drops_a_trailing_tab_and_scrips_own_builtins_are_undefined.sh	WIRED	-	-	-
 test_gate_sno_unary_caret_is_an_undefined_operator_error_29.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-

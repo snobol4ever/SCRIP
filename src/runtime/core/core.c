@@ -1842,24 +1842,6 @@ static DESCR_t _DATATYPE_(DESCR_t *a, int n) {
     if (n < 1) return STRVAL("STRING");
     return STRVAL((char*)datatype(a[0]));
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _LCASE_(DESCR_t *a, int n) {
-    if (n < 1) return NULVCL;
-    const char *s = VARVAL_fn(a[0]);
-    if (!s) return NULVCL;
-    char *r = rt_heap_strdup_c(s);
-    for (int i = 0; r[i]; i++) r[i] = (char)tolower((unsigned char)r[i]);
-    return STRVAL(r);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _UCASE__fn(DESCR_t *a, int n) {
-    if (n < 1) return NULVCL;
-    const char *s = VARVAL_fn(a[0]);
-    if (!s) return NULVCL;
-    char *r = rt_heap_strdup_c(s);
-    for (int i = 0; r[i]; i++) r[i] = (char)toupper((unsigned char)r[i]);
-    return STRVAL(r);
-}
 extern DESCR_t EVAL_fn(DESCR_t);
 extern DESCR_t code(const char *src);
 extern DESCR_t opsyn(DESCR_t, DESCR_t, DESCR_t);
@@ -2700,14 +2682,6 @@ static DESCR_t _ITEM_(DESCR_t *a, int n) {
     }
     return FAILDESCR;
 }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _VALUE_(DESCR_t *a, int n) {
-    if (n < 1) return FAILDESCR;
-    const char *name = VARVAL_fn(a[0]);
-    if (!name) return FAILDESCR;
-    char *fname = rt_heap_strdup_c(name);
-    return NV_GET_fn(fname);
-}
 int core_stack_floor_raised = 0;
 long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return _sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2821,15 +2795,12 @@ void core_lib_init(void) {
     register_fn("SUBSTR",      _SUBSTR_,   2, 3);
     register_fn("REVERSE",  _REVERSE_,  1, 1);
     register_fn("DATATYPE", _DATATYPE_, 1, 1);
-    register_fn("LCASE",    _LCASE_,    1, 1);
-    register_fn("UCASE",    _UCASE__fn, 1, 1);
     register_fn("DATA",        _DATA_,     1, 1);
     register_fn("ARRAY",   _ARRAY_,   1, 2);
     register_fn("TABLE",   _TABLE_,   0, 3);
     register_fn("CONVERT", _CONVERT_, 2, 2);
     register_fn("PROTOTYPE", _PROTOTYPE_, 1, 1);
     register_fn("ITEM",    _ITEM_,    2, -1);
-    register_fn("VALUE",   _VALUE_,   1, 1);
     register_fn("COPY",    _COPY_,    1, 1);
     register_fn("EVAL",  _EVAL_,  1, 1);
     register_fn("CODE",  _CODE_,  1, 1);
@@ -4558,7 +4529,7 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
     if (getenv("SCRIP_DEBUG_APPLY"))
         fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
 #endif
-    core_runtime_error(22, "Undefined function called");
+    core_runtime_error(22, "undefined function called");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

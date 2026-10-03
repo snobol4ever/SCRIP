@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2033
+#define GC_ALLOC_TAB_N 2030
 #define GC_ALLOC_TAB_N_VOID 234
-#define GC_ALLOC_TAB_N_DESCR 1111
+#define GC_ALLOC_TAB_N_DESCR 1108
 #define GC_ALLOC_TAB_N_OTHER 682
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -69,7 +69,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_ITEM_", GC_RET_DESCR },
     { "_LABELCODE_", GC_RET_DESCR },
     { "_LABEL_", GC_RET_DESCR },
-    { "_LCASE_", GC_RET_DESCR },
     { "_LEQ_", GC_RET_DESCR },
     { "_LE_", GC_RET_DESCR },
     { "_LGE_", GC_RET_DESCR },
@@ -126,9 +125,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_TAN_", GC_RET_DESCR },
     { "_TRACE_", GC_RET_DESCR },
     { "_TRIM_", GC_RET_DESCR },
-    { "_UCASE__fn", GC_RET_DESCR },
     { "_UNLOAD_", GC_RET_DESCR },
-    { "_VALUE_", GC_RET_DESCR },
     { "_Z13bb_lit_scalarB5cxx11v", GC_RET_UNKNOWN },
     { "_Z14bb_call_fn_strB5cxx11P4IR_t", GC_RET_UNKNOWN },
     { "_Z16marshal_call_argB5cxx11P4IR_tP10IR_graph_tiS0_i", GC_RET_UNKNOWN },
