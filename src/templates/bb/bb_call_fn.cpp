@@ -155,6 +155,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("mov32", "esi", (long)nargs);
             s += bb_callee_rdx(fn);
             s += x86("call", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
+            s += x86_rt_gc_poll_res();
         } else {
         {
             std::string fl = std::string(".L") + x86_boxkind() + "_rkfnzd" + std::to_string(g_flat_node_id++);
@@ -169,8 +170,9 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
+        if (!(_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict))) s += x86_rt_gc_poll_res();
         }
-        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29);
+        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
         { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }
@@ -179,7 +181,6 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
         if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }
-        if (!polled_in_arm) s += x86_rt_gc_poll();
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
@@ -225,6 +226,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("rtcc_wb");
             s += x86("call_bare", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
             s += x86("rtcc_rl");
+            s += x86_rt_gc_poll_res();
         } else {
         std::string fl = std::string(".L") + x86_boxkind() + "_rkfn" + std::to_string(g_flat_node_id++);
         s += x86("directive", ".section .rodata");
@@ -238,13 +240,13 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call_bare", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         s += x86("rtcc_rl");
+        if (!(_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict))) s += x86_rt_gc_poll_res();
         }
-        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29);
+        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
     }
     if (!polled_in_arm) { s += x86("mov", FRQ(resoff), "rax"); s += x86("mov", FRQ(resoff + 8), "rdx"); }
     s += x86("cmp", "al", (long)DT_FAIL);
     s += x86_omega("je");
-    if (!polled_in_arm) s += x86_rt_gc_poll();
     s += x86_gamma();
     s += x86_beta();
     s += x86_omega();

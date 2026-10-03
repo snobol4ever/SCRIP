@@ -375,6 +375,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             s += x86("mov32", "esi", (long)narg);
             s += bb_callee_rdx(fn);
             s += x86("call", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
+            s += x86_rt_gc_poll_res();
         } else {
         {
             std::string fl = std::string(".L") + x86_boxkind() + "_bynamefnzd" + std::to_string((long long)_.nid);
@@ -391,13 +392,13 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86("mov32", "edx", (long)narg);
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
+        s += x86_rt_gc_poll_res();
         }
         if (narg > 0) s += x86("add", "rsp", (long)(narg * 16));
         s += x86("cmp", "al", (long)DT_FAIL);
         s += x86_omega("je");
         s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
         s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
-        s += x86_rt_gc_poll();
         s += x86_gamma();
         s += x86_beta_trampoline();
         return s;
@@ -425,6 +426,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += bb_callee_rdx(fn);
     s += x86("rtcc_wb");
     s += x86("call_bare", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
+    s += x86_rt_gc_poll_res();
     } else {
     { bb_label_t * _dm = emit_label_intern((fl + "$def").c_str());
       if (!_dm || !bb_label_defined(_dm)) { if (_dm) _dm->offset = 0;
@@ -438,8 +440,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += x86("rtcc_wb");
     s += x86("mov32", "ecx", bid_bake_of(fn));
     s += x86("call_bare", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
-    }
     s += x86_rt_gc_poll_res();
+    }
     s += x86("rtcc_rl");
     s += x86("mov", FRQ(resoff), "rax"); s += x86("mov", FRQ(resoff + 8), "rdx");
     if (scansync) s += x86_scan_sync_in_rr_force();
