@@ -713,6 +713,7 @@ test_gate_sno_a_unary_and_a_binary_opsyn_of_one_operator_are_two_functions.sh	WI
 test_gate_sno_a_value_list_in_a_function_with_a_local_yields_its_arm.sh	WIRED	-	-	-
 test_gate_sno_a_variable_name_is_a_counted_string_and_a_nul_byte_is_part_of_it.sh	WIRED	-	-	-
 test_gate_sno_an_abort_inside_a_pattern_thunk_fails_the_match_without_a_crash.sh	WIRED	-	-	-
+test_gate_sno_an_argument_evaluated_before_a_match_in_a_later_argument_reads_its_own_slot.sh	WIRED	-	-	-
 test_gate_sno_an_array_element_read_or_store_allocates_nothing.sh	WIRED	-	-	-
 test_gate_sno_an_assignment_whose_value_is_a_match_assigns_and_returns_the_matched_substring.sh	WIRED	-	-	-
 test_gate_sno_an_element_after_a_fence_inside_an_arbno_body_backs_into_the_fence.sh	WIRED	-	-	-
