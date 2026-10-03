@@ -747,7 +747,7 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
            cto)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
-                      TRIO|DUO-STUPID|QUARTET|QUINTET|NONET|TENET) : ;; esac;;
+                      TRIO|DUO-STUPID|QUARTET|SEXTET|QUINTET|NONET|TENET) : ;; esac;;
            # ⛔⭐ MODE TRIO REDEFINED BY LON AS THE ceo, THE cto AND THE coo (Lon 2026-10-02, in-chat to the ceo, verbatim: "Let's get CTO to fix
            # our hard bugs. Goto TRIO mode: CEO, CTO, and COO."; ceo CEO-1403): the cto and the coo are admitted BY NAME (the cto used to be
            # admitted under TRIO only by falling out of its case, CEO-755b's class), the cfo is refused; the CEO-910 roster below is history.
@@ -759,12 +759,12 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       DUO) _dr "an officer" "Under DUO only the ceo and the coo work rows -- the coo runs the suites, the ceo cures, and the cto and the cfo are stood down (Lon 2026-10-02, CEO-1398).";;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
                       TRIO) _dr "an officer" "Under TRIO the ceo, the cto and the coo work rows -- the cto fixes the hard bugs, the coo runs the suites, and the cfo is stood down (Lon 2026-10-02, CEO-1403).";;
-                      QUARTET|QUINTET|NONET|TENET) : ;; esac;;
+                      QUARTET|SEXTET|QUINTET|NONET|TENET) : ;; esac;;
            coo)     case "$_m" in
                       CEO) _dr "an officer" "Under CEO only the ceo works rows -- the cto, the cfo and the coo are stood down.";;
                       DUO) : ;;
                       DUO-STUPID) _dr "an officer" "Under DUO-STUPID only the ceo and the cto work rows -- the cfo and the coo are stood down (Lon 2026-09-21, CEO-1087).";;
-                      TRIO|QUARTET|QUINTET|NONET|TENET) : ;; esac;;
+                      TRIO|QUARTET|SEXTET|QUINTET|NONET|TENET) : ;; esac;;
            hq|hq_*) case "$_m" in   # hq_* not hq_?: a language HQ is hq_prolog, and a pattern that misses it falls out of the case, which returns success (CEO-755b's class)
                       CEO) _dr "an HQ" "Under CEO no HQ is standing -- the ceo works the rows itself.";;
                       DUO) _dr "an HQ" "Under DUO no HQ is standing -- the coo runs the suites and the ceo cures (Lon 2026-10-02, CEO-1398).";;
@@ -777,7 +777,8 @@ s4e_mode_stands() {   # <seat> <mode> -> rc 0 stands, rc 1 refused (reason in _R
                       # ⛔⭐ MODE NONET (Lon 2026-09-25, in-chat to the ceo: "Go now to NONET mode." and, asked which five HQs stand: "SNO, PL, PAS, SNOCONE, and ICON"; ceo CEO-1266).
                       # Written by name for CEO-755b's reason: before this arm every hq_* seat -- hq_raku and the lettered legacy names included -- was admitted under NONET by FALLING OUT of the case.
                       NONET) case "$_seat" in hq_icon|hq_prolog|hq_snobol4|hq_snocone|hq_pascal) : ;; *) _dr "an HQ" "Under NONET five LANGUAGE HQs stand -- hq_icon hq_prolog hq_snobol4 hq_snocone hq_pascal -- and $_seat is not one of them: RAKU is the cto's and REBUS the ceo's (Lon 2026-09-25, CEO-1266).";; esac;;
-                      SEXTET) case "$_seat" in hq_prolog|hq_icon) : ;; *) _dr "an HQ" "Under SEXTET only hq_prolog and hq_icon stand among the HQs, each on its by_name_dispatch.c region (Lon 2026-09-19, CEO-912).";; esac;;
+                      # ⛔⭐ MODE SEXTET REDEFINED (Lon 2026-10-02 19:5x, in-chat to the ceo: "Do it yourself." and "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."; ceo CEO-1433): the four officers and hq_icon and hq_snobol4; the CEO-912 SEXTET (hq_prolog and hq_icon) is history.
+                      SEXTET) case "$_seat" in hq_icon|hq_snobol4) : ;; *) _dr "an HQ" "Under SEXTET only hq_icon and hq_snobol4 stand among the HQs -- the four officers and those two work rows, and $_seat is stood down (Lon 2026-10-02, CEO-1433).";; esac;;
                       # ⛔⭐ MODE DECTET, EXPLICIT AND NOT A FALLTHROUGH (ceo CEO-979, 2026-09-20, on Lon's "Can you add some seats to fix bugs alongside the GC work?"). Before this arm existed an HQ under DECTET was
                       # admitted by FALLING OUT of this case, which returns success -- the admission was correct and nothing in the file said it was INTENDED, which is CEO-755b's class exactly: the hazard is not that
                       # the wrong seat is admitted, it is that no reader can tell an intended admission from a missing arm. The six LANGUAGE HQs are named; every other hq_* name, the lettered hq_B..hq_V included, is refused.
@@ -1022,9 +1023,10 @@ s4e_lane_owner_of_language() {
       # mode."): one working seat, the ceo, every language the ceo's; the officers and the seven HQs stood down with their claims
       # parked in place (no re-lane, the CEO-1357/1372 precedent). The TENET table above is the flip-back template. THIS TABLE IS
       # MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
-       icon)     printf 'ceo';;
+      # ⛔⭐ MODE SEXTET (CEO-1433, 2026-10-02 19:5x, Lon in-chat to the ceo: "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."): ICON to hq_icon, SNOBOL4 to hq_snobol4, the other five to the ceo; rows with an owner cell keep their owner.
+       icon)     printf 'hq_icon';;
        prolog)   printf 'ceo';;
-       snobol4)  printf 'ceo';;
+       snobol4)  printf 'hq_snobol4';;
        pascal)   printf 'ceo';;
        snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
