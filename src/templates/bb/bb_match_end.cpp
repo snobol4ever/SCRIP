@@ -14,15 +14,7 @@ extern "C" void rt_dcap_end_ok_close(void);
 extern "C" long zvo_owner_dout(int cur_head);
 #include "x86_asm.h"
 #define rfc() (_.op_fc_disp >= 0)
-#define hfc() (_.op_fc_wbytes > 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int oscap_l(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_OS_CAP"); v = (e && *e == '0') ? 0 : 1; } return v; }
-static int has_replace_l(void) { if (!g_emit_cfg) return 0; for (int _i = 0; _i < g_emit_cfg->n; _i++) { IR_t * _nd = g_emit_cfg->all[_i]; if (_nd && (_nd->op == IR_MATCH_REPLACE || _nd->op == IR_MATCH_FENCE0 || _nd->op == IR_MATCH_FENCE1 || _nd->op == IR_MATCH_ABORT || _nd->op == IR_MATCH_ARBNO)) return 1; } return 0; }
-#define stfh() (_.flat_stmt_frame || (oscap_l() && _.flat_deep_arrival && !_.flat_jmp_entry && !_.flat_lcl_proc && !_.zframe_graph && !_.flat_pat && !_.flat_gen && !has_replace_l()))
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * HKQ(int k) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rsp# + %d]", 16 + 8 * k); return b[i]; }
-static const char * HKM() { return "qword ptr [rsp# + 8]"; }
-static const char * HKD() { return "dword ptr [rsp# + 0]"; }
 static int cap_name_strict(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_NAME_STRICT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string mend_bank_cursors() {

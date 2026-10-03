@@ -38,8 +38,6 @@ int bb_tiny_shim_ok(const char *, int);
 }
 extern "C" { extern int g_rt_fragment_emit; int xa_flat_class_c_pred(void); }
 #include "x86_asm.h"
-#define AB_TC_REG   "r8"
-#define AB_TC_REG_D "r8d"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const char * bb_ab_sym_name(const char * nm) {
     enum { MAXN = 48, KEEP = 31 }; static_assert(KEEP + 17 <= MAXN, "a long name is its kept units, a dollar and 16 hex"); static char b[MAXN + 1]; int j = 0, bnd = 0, over = 0;

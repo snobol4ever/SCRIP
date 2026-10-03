@@ -481,33 +481,6 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_call_bool_truthy_cond_str(IR_t * pBB) {
-    IR_graph_t ** blks = (IR_graph_t **)(intptr_t) _.op_counter;
-    IR_graph_t * cond = blks ? blks[0] : NULL;
-    IR_t * e = cond ? cond->entry : NULL;
-    if (!e) return x86_alpha() + x86_bomb("bb_call_bool_truthy: empty cond sub-graph");
-    std::string s = x86_alpha()
-                  + x86("comment", "BOX __rk_bool [dval=2 truthy condition -> rk_is_truthy -> branch true=γ / false=ω]");
-    if (e->op == IR_LIT_INTEGER) {
-        s += x86("mov32", "edi", (long)DT_I) + x86_movabs_r64("rsi", (uint64_t)IR_LIT(e).ival);
-    } else if (e->op == IR_LIT_STRING) {
-        s += x86("mov32", "edi", (long)DT_S)
-           + x86("mov", "rsi", ROQ(0))
-           + x86_jmp_id(1)
-           + x86_ro_seal_str(0, IR_LIT(e).sval ? IR_LIT(e).sval : "")
-           + x86_deflabel_id(1);
-    } else if (e->op == IR_VAR && IR_LIT(e).sval) {
-        int voff = bb_varslot_peek(IR_LIT(e).sval);
-        if (voff < 0) return x86_alpha() + x86_bomb("bb_call_bool_truthy: IR_VAR cond names a local with no LOWER-granted varslot (TE-4: grant in ir_drive_slot_assign)");
-        s += x86("mov", "rdi", FRQ(voff));
-        s += x86("mov", "rsi", FRQ(voff + 8));
-    } else {
-        return x86_alpha() + x86_bomb("bb_call_bool_truthy: unhandled cond entry kind");
-    }
-    return s + x86("call", "rk_is_truthy", (uint64_t)(uintptr_t)(void *)rk_is_truthy)
-             + x86("test", "eax", "eax") + x86_omega("je") + x86_gamma() + x86_beta() + x86_omega();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {
     switch (_.op_call_route) {
         case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);

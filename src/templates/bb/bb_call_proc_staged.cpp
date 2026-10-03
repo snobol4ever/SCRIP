@@ -118,13 +118,6 @@ static IR_t * bb_chain_terminal_staged(IR_t * entry) { IR_t * n = entry; int gua
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static bb_label_t * bb_call_staged_beta_target() {
-    for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
-        if (XA_PAIR(i).define == _.lbl_β_p && XA_PAIR(i).jmp)
-            return XA_PAIR(i).jmp;
-    return _.lbl_ω_p;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_beta_pair_idx() {
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
         if (XA_PAIR(i).define == _.lbl_β_p && XA_PAIR(i).jmp) return i;

@@ -22,7 +22,6 @@ extern int g_gva_active;
 extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_rspd_beta;
 #include "x86_asm.h"
 extern "C" int sn4_alt_carrier(void);
-#define dswap() (1)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dw_cell(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_CELL"); v = e ? (atoi(e) != 0) : 1; } return v; }
 static int defer_inline(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DEFER_INLINE"); v = (e && *e == '0') ? 0 : 1; } return v; }
