@@ -102,45 +102,31 @@ DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {
 const char *real_str(double r, char *buf, int bufsz) {
     if (isnan(r)) { snprintf(buf, bufsz, "%s", "nan"); return buf; }
     if (isinf(r)) { snprintf(buf, bufsz, "%s", r < 0 ? "-inf" : "inf"); return buf; }
-    int neg = (r < 0.0);
-    double ar = fabs(r);
-    if (ar == 0.0) { snprintf(buf, bufsz, "%s", "0."); return buf; }
-    char sci[64];
-    snprintf(sci, sizeof sci, "%.14e", ar);
-    char digits[40]; int nd = 0; int E = 0;
-    const char *p = sci;
-    if (*p >= '0' && *p <= '9') digits[nd++] = *p++;
-    if (*p == '.') { p++; while (*p >= '0' && *p <= '9' && nd < (int)sizeof digits - 1) digits[nd++] = *p++; }
-    if (*p == 'e' || *p == 'E') { p++; E = (int)strtol(p, (char **)0, 10); }
-    while (nd > 1 && digits[nd - 1] == '0') nd--;
-    digits[nd] = '\0';
-    int lo = -1;
-    char out[80]; int o = 0;
-    if (neg) out[o++] = '-';
-    if (E >= lo && E <= 14) {
-        if (E >= 0) {
-            int intdigits = E + 1;
-            if (nd <= intdigits) {
-                for (int i = 0; i < nd; i++)          out[o++] = digits[i];
-                for (int i = nd; i < intdigits; i++)  out[o++] = '0';
-                out[o++] = '.';
-            } else {
-                for (int i = 0; i < intdigits; i++)   out[o++] = digits[i];
-                out[o++] = '.';
-                for (int i = intdigits; i < nd; i++)  out[o++] = digits[i];
-            }
-        } else {
-            out[o++] = '0'; out[o++] = '.';
-            for (int i = 0; i < nd; i++) out[o++] = digits[i];
-        }
-    } else {
-        out[o++] = '0'; out[o++] = '.';
-        for (int i = 0; i < nd; i++) out[o++] = digits[i];
-        out[o++] = 'e';
-        o += snprintf(out + o, sizeof out - (size_t)o, "%+d", E + 1);
+    if (r == 0.0) { snprintf(buf, bufsz, "%s", "0."); return buf; }
+    int neg = (r < 0.0); double x = fabs(r); long e = 0;
+    while (x - 0.1 < 0) { x = x * 1e10; e -= 10; }
+    if (!(x - 1.0 < 0)) {
+        while (!(x - 1e10 < 0)) { x = x / 1e10; e += 10; }
+        double pk = 1.0;
+        do { e++; pk = pk * 10.0; } while (!(x - pk < 0));
+        x = x / pk;
     }
-    out[o] = '\0';
-    snprintf(buf, bufsz, "%s", out);
+    double sc = 1.0;
+    for (int i = 0; i < 15; i++) sc = sc * 10.0;
+    x = x + 0.5 / sc;
+    if (!(x - 1.0 < 0)) { e++; x = x / 10.0; }
+    int xl = 15;
+    if (e >= 0 && e <= 15) xl = 15 - (int)e;
+    long long iv = (long long)(x * sc), p10 = 1;
+    for (int i = 0; i < xl; i++) p10 = p10 * 10;
+    long long ip = iv / p10, fr = iv % p10;
+    int fd = xl;
+    while (fd > 0 && fr % 10 == 0) { fr = fr / 10; fd--; }
+    int o = 0;
+    if (neg && bufsz > 1) buf[o++] = '-';
+    if (e < 0 || e > 15) snprintf(buf + o, (size_t)(bufsz - o), "%lld.%0*llde%c%ld", ip, fd, fr, e < 0 ? '-' : '+', e < 0 ? -e : e);
+    else if (fd > 0) snprintf(buf + o, (size_t)(bufsz - o), "%lld.%0*lld", ip, fd, fr);
+    else snprintf(buf + o, (size_t)(bufsz - o), "%lld.", ip);
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

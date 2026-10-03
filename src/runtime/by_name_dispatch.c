@@ -6933,7 +6933,7 @@ static __attribute__((noinline)) int bn_size(DESCR_t *args, int nargs, DESCR_t *
         }
     }
     if (v.v == DT_I) { const char *is = VARVAL_fn(v); *out = INTVAL(is ? (long)strlen(is) : 0); return 1; }
-    if (v.v == DT_R) { *out = INTVAL(0); return 1; }
+    if (v.v == DT_R) { char rb[40]; real_str(v.r, rb, (int)sizeof rb); *out = INTVAL((long)strlen(rb)); return 1; }
     if (v.v == DT_S && v.slen == 0xFFFFFFFFu) {
         int klen = kw_cset_len(v.s);
         *out = INTVAL(klen >= 0 ? klen : (v.s ? (long)strlen(v.s) : 0));

@@ -438,18 +438,36 @@ static DESCR_t rt_int_neg_div(int64_t li, int strict) {
     { extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); return rt_big_mul(INTVAL(li), INTVAL(-1)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rt_sno_pow_real(double x, double y) {
+    if (x == 0.0) { if (y == 0.0) { core_runtime_error(18, "exponentiation result is undefined"); return FAILDESCR; } return REALVAL(0.0); }
+    int odd = 0;
+    if (x < 0.0) {
+        x = -x;
+        if (!(fabs(y) < 9223372036854775808.0)) { core_runtime_error(266, "exponentiation caused real overflow"); return FAILDESCR; }
+        double c = trunc(y);
+        if (c - y != 0.0) { core_runtime_error(311, "exponentiation of negative base to non-integral power"); return FAILDESCR; }
+        odd = (int)((int64_t)c & 1);
+    }
+    double r = exp(log(x) * y);
+    if (!isfinite(r)) { core_runtime_error(266, "exponentiation caused real overflow"); return FAILDESCR; }
+    return REALVAL(odd ? -r : r);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_sno_pow(int anyf, int rreal, int64_t li, int64_t ri, double ld, double rd) {
     if (!anyf) {
+        if (ri < 0) return rt_sno_pow_real((double)li, (double)ri);
         if (li == 0 && ri == 0) { core_runtime_error(18, "exponentiation result is undefined"); return FAILDESCR; }
-        if (ri < 0) return li == 0 ? REALVAL(0.0) : REALVAL(pow((double)li, (double)ri));
         if (li == 0 || li == 1) return INTVAL(li);
         if (li == -1) return INTVAL((ri & 1) ? -1 : 1);
         { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { core_runtime_error(17, "exponentiation caused integer overflow"); return FAILDESCR; } return INTVAL(acc); }
     }
-    if (ld == 0.0 && rd == 0.0) { core_runtime_error(18, "exponentiation result is undefined"); return FAILDESCR; }
-    if (ld == 0.0 && rd < 0.0) return REALVAL(0.0);
-    if (ld < 0.0 && rreal && rd != floor(rd)) { core_runtime_error(311, "exponentiation of negative base to non-integral power"); return FAILDESCR; }
-    { double r = rreal ? pow(ld, rd) : rt_ripow(ld, ri); if (!isfinite(r)) { core_runtime_error(266, "exponentiation caused real overflow"); return FAILDESCR; } return REALVAL(r); }
+    if (rreal) return rt_sno_pow_real(ld, rd);
+    if (ri < 0) return rt_sno_pow_real(ld, (double)ri);
+    if (ri == 0) { if (ld == 0.0) { core_runtime_error(18, "exponentiation result is undefined"); return FAILDESCR; } return REALVAL(1.0); }
+    double r = ld;
+    for (int64_t k = 1; k < ri && isfinite(r); k++) r = r * ld;
+    if (!isfinite(r)) { core_runtime_error(266, "exponentiation caused real overflow"); return FAILDESCR; }
+    return REALVAL(r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_sno_operand_error(int op, int left) {

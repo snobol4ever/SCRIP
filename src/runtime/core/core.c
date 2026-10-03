@@ -141,7 +141,7 @@ static void dump_obj_head(DESCR_t d, char *out, int n);
 static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
     switch (val.v) {
         case DT_I: snprintf(buf, bufsz, "%lld", (long long)val.i); return;
-        case DT_R: snprintf(buf, bufsz, "%g", val.r); return;
+        case DT_R: { extern const char *real_str(double r, char *b, int bufsz); real_str(val.r, buf, (int)bufsz); return; }
         case DT_N: snprintf(buf, bufsz, ".%s", val.s ? val.s : ""); return;
         case DT_FAIL: buf[0] = '\0'; return;
         case DT_S: case DT_SNUL: case DT_PLATOM: {

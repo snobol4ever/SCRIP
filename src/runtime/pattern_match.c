@@ -1177,7 +1177,7 @@ int c_rt_defer_close(int cur_delta)
     val = rt_defer_expr_value(val);
     char nb[40];
     if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
-    else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
+    else if (val.v == DT_R) { real_str(val.r, nb, (int)sizeof nb); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
     if (val.v == DT_S || val.v == DT_SNUL) {
         const char *lit = val.s ? val.s : "";
         int llen = (val.v == DT_SNUL || !val.s) ? 0 : (val.slen == 0xFFFFFFFFu ? (int)strlen(lit) : (int)val.slen);
@@ -1326,7 +1326,7 @@ static int rt_defer_close_v(int cur_delta, DESCR_t val)
     if (IS_FAIL_fn(val)) return -1;
     char nb[40];
     if (val.v == DT_I) { snprintf(nb, sizeof nb, "%lld", (long long)val.i); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
-    else if (val.v == DT_R) { snprintf(nb, sizeof nb, "%g", val.r); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
+    else if (val.v == DT_R) { real_str(val.r, nb, (int)sizeof nb); val.v = DT_S; val.slen = (uint32_t)strlen(nb); val.s = nb; }
     if (val.v == DT_S || val.v == DT_SNUL) {
         const char *lit = val.s ? val.s : "";
         int llen = val.slen ? (int)val.slen : (int)strlen(lit);

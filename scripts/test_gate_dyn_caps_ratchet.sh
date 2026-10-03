@@ -47,6 +47,11 @@
 #     them declared on a scratch CLASS_AB.tsv it reads 0 of 0, says no LOUD guard remains, and exits 0
 # The no-guard, drop and function-scope unguarded counts are PRINTED, not graded here: bringing each to zero is the row's criterion
 # (CEO-1231), not this gate's.
+# ⛔ BASELINE_FUNCTION_SCOPE 409 -> 404, 2026-10-02 (the cfo, ceo CEO-1419 ticket snobol4-real-to-string-differs-in-the-last-digit-...):
+# real_str (string_ops.c) is SPITBOL's gts10-gts28 and fills its caller's buffer only through literal formats with no %s (B:fmt by
+# construction, at most 23 bytes), where it used to fill two COUNTER work buffers and copy them in with "%s". Out: string_ops.c
+# digits and out (gone), core.c b and buf and io_format.c b (each handed to real_str). The two pattern_match.c nb[40] the cure moved
+# from "%g" to real_str and bn_size's new rb[40] stay out as B:fmt@real_str.
 # ⛔ BASELINE_FUNCTION_SCOPE 410 -> 409, 2026-10-02 (the coo, ceo ruling (a) on the coo's COO-254 arm-5 ask): the cfo's ce5de7180 grew
 # three locals with their data (icon_parse.c m, gc_audit_b.c also, xa_flat.cpp gk2), and gc_audit_b.c buf[16384] is DECLARED class A
 # in CLASS_AB.tsv with its measurement (the longest /proc/*/maps line on this box 206 bytes vs 16384), so it stays in the count and
