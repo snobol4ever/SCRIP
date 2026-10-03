@@ -1023,15 +1023,15 @@ s4e_lane_owner_of_language() {
       # mode."): one working seat, the ceo, every language the ceo's; the officers and the seven HQs stood down with their claims
       # parked in place (no re-lane, the CEO-1357/1372 precedent). The TENET table above is the flip-back template. THIS TABLE IS
       # MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
-      # ⛔⭐ MODE TENET (CEO-1435, 2026-10-02 19:4x, Lon in-chat to the ceo: "The entire fleet is running."): each language to its HQ -- SNOBOL4 hq_snobol4, ICON hq_icon, PROLOG hq_prolog, PASCAL hq_pascal, SNOCONE hq_snocone, RAKU hq_raku -- and REBUS to the ceo; rows with an owner cell keep their owner.
+      # ⛔ MODE TENET (CEO-1435) was a misreading, reverted to SEXTET the same sitting (CEO-1436, Lon: "Only HQ-ICON and HQ-SNOBOL4 and 4 officers are running.").
       # ⛔⭐ MODE SEXTET (CEO-1433, 2026-10-02 19:2x, Lon in-chat to the ceo: "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."): ICON to hq_icon, SNOBOL4 to hq_snobol4, the other five to the ceo; rows with an owner cell keep their owner.
        icon)     printf 'hq_icon';;
-       prolog)   printf 'hq_prolog';;
+       prolog)   printf 'ceo';;
        snobol4)  printf 'hq_snobol4';;
-       pascal)   printf 'hq_pascal';;
-       snocone)  printf 'hq_snocone';;
+       pascal)   printf 'ceo';;
+       snocone)  printf 'ceo';;
        rebus)    printf 'ceo';;
-       raku)     printf 'hq_raku';;
+       raku)     printf 'ceo';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
