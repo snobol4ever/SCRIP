@@ -85,6 +85,7 @@ void  rt_gc_visit_raw_in(const char **loc, const void *holder);
 void  rt_gc_root_range_add(const char *lo, const char *hi);
 struct gc_frame_map_t;
 void  rt_gc_frame_maps_add(const struct gc_frame_map_t *m);
+void  rt_gc_frame_maps_drop_range(const void *lo, const void *hi);
 void  rt_gc_frame_maps_install(const struct gc_frame_map_t *const *maps, int n);
 void  rt_gc_frame_maps_install_counted(const void *tab);
 const struct gc_frame_map_t *const *rt_gc_frame_maps(int *n);

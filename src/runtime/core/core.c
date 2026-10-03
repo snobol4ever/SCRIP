@@ -3121,6 +3121,14 @@ void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_k
     fprintf(stderr, "scrip: the out-of-memory error handler returned and the allocation cannot proceed\n");
     exit(1);
 }
+void rt_code_pool_overflow(unsigned long long used_kb, unsigned long long cap_kb) {
+    char mb[320];
+    snprintf(mb, sizeof mb, "memory overflow (the compiled-code pool is full: %llu of %llu KB in use, every distinct EVAL, pattern or CODE chain still referenced holds pages in it)", used_kb, cap_kb);
+    core_runtime_error(204, mb);
+    { extern void rt_setexit_fire_now(void); rt_setexit_fire_now(); }
+    fprintf(stderr, "scrip: the out-of-memory error handler returned and the compiled-code pool cannot grow\n");
+    exit(1);
+}
 void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
 jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
 #ifdef SCRIP_GC_AUDIT_B

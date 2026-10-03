@@ -15,6 +15,7 @@ void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zsta
 void lc_γ_to(IR_t *nd, IR_t *t);
 void lc_ω_to(IR_t *nd, IR_t *t);
 bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
+extern "C" void rt_code_pool_check(void);
 void optimizer_run(IR_graph_t * g);
 void ir_drive_slot_assign(IR_graph_t * g);
 void zls_reset(void);
@@ -124,6 +125,7 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
     g_gva_active = saved_gva;
+    if (!fn) rt_code_pool_check();
     if (zsz) *zsz = (int64_t)(fn ? kt : 0);
     if (zstatic) *zstatic = (fn && zls_g_region(g) > 0) ? bb_graph_zstatic(g) : 0;
     return (void *)fn;

@@ -46,15 +46,30 @@ static int               g_eval_frames_cap = 0;
 static const char *eval_tmp_name(void)
     { static int m = -1; if (m < 0) { const char *e = getenv("SCRIP_EVAL_TMP_MARK"); m = (e && e[0] == '0') ? 0 : 1; } return m ? EVAL_TMP_MARKED : EVAL_TMP_LEGACY; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern size_t bb_pool_used(void);
+extern size_t bb_pool_free(void);
+extern void   rt_code_pool_overflow(unsigned long long used_kb, unsigned long long cap_kb);
+void rt_code_pool_check(void) {
+    size_t fr = bb_pool_free(), cap = bb_pool_used() + fr;
+    if (cap && fr < (4UL << 20)) rt_code_pool_overflow((unsigned long long)(bb_pool_used() >> 10), (unsigned long long)(cap >> 10));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_result_is_plain(DESCR_t d) {
+    if (IS_FAIL(d)) return 1;
+    switch ((int) d.v) { case DT_SNUL: case DT_S: case DT_I: case DT_R: case DT_BIG: case DT_A: case DT_T: case DT_N: case DT_K: case DT_DATA: case DT_FAIL: return 1; default: return 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned long eval_cache_hash(const char *s) { unsigned long h = 1469598103934665603UL; while (*s) { h ^= (unsigned char)*s++; h *= 1099511628211UL; } return h; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static eval_chain_fn eval_cache_get(const char *s) {
+static eval_cache_ent_t *eval_cache_slot(const char *s) {
     if (g_eval_cache_cap == 0) return NULL;
     unsigned long m = (unsigned long)g_eval_cache_cap - 1;
     for (unsigned long i = eval_cache_hash(s) & m, p = 0; p < (unsigned long)g_eval_cache_cap; p++, i = (i + 1) & m)
-        if (!g_eval_cache[i].key) return NULL; else if (strcmp(g_eval_cache[i].key, s) == 0) return g_eval_cache[i].fn;
+        if (!g_eval_cache[i].key) return NULL; else if (strcmp(g_eval_cache[i].key, s) == 0) return &g_eval_cache[i];
     return NULL;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static eval_chain_fn eval_cache_get(const char *s) { eval_cache_ent_t *e = eval_cache_slot(s); return e ? e->fn : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eval_chain_fn fn) {
     unsigned long m = (unsigned long)cap - 1;
@@ -64,6 +79,8 @@ static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eva
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void eval_cache_put(char *key, eval_chain_fn fn) {
+    eval_cache_ent_t *have = eval_cache_slot(key);
+    if (have) { if (fn) have->fn = fn; return; }
     if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
         int ncap = g_eval_cache_cap ? g_eval_cache_cap * 2 : 16;
         eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
@@ -201,8 +218,9 @@ __asm__(
 );
 int g_rt_fragment_emit = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void eval_thunks_emit_from(int pc0)
+static int eval_thunks_emit_from(int pc0)
 {
+    int emit_failed = 0;
     extern void rt_proc_register(const char *name, const char **pnames, int nparams);
     extern void rt_proc_set_fn(const char *name, eval_chain_fn fn);
     extern void rt_proc_set_generator(const char *name, int is_gen);
@@ -251,6 +269,7 @@ static void eval_thunks_emit_from(int pc0)
           if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; _ispe = _isp; }
         char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
+        if (!pfn) emit_failed = 1;
         { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
         if (pfn) rt_proc_set_fn(pname, pfn);
         { extern int g_last_flat_frame_bytes, g_last_flat_zstatic; extern void bb_thunk_rec_fill(const char *, void *, int32_t, int32_t); if (pfn && _ispe) bb_thunk_rec_fill(pname, (void *)pfn, b1c ? g_last_flat_frame_bytes : 0, b1c ? g_last_flat_zstatic : 0); }
@@ -263,6 +282,7 @@ static void eval_thunks_emit_from(int pc0)
     }
     g_rt_fragment_emit = 0;
     g_gen_proc_active = ga; g_frame_active = fa; g_emit_cfg = cfg_sv;
+    return emit_failed;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long sno_text_illegal_at(const char *s)
@@ -290,8 +310,9 @@ static int eval_top_comma(const char *s)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm)
+static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, int *thunks)
 {
+    *thunks = 0;
     if (!s || !*s) return NULL;
     if (eval_top_comma(s)) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: invalid use of comma"; return NULL; }
     if (sno_text_illegal_at(s) >= 0) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: illegal character"; return NULL; }
@@ -347,7 +368,8 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm)
     g_rt_fragment_emit = 0;
     emit_jmp_entry_clear();
     g_frame_active = fa; g_emit_cfg = cfg_sv;
-    eval_thunks_emit_from(pc0);
+    *thunks = sno_pat_count() > pat0 || sno_expr_mark() > xm || g_stage2.proc_count > pc0;
+    if (eval_thunks_emit_from(pc0)) fn = NULL;
     IR_free_dyn(g);
     ast_tree_free_dyn(prog);
     return fn;
@@ -598,18 +620,23 @@ DESCR_t eval_string_transient(const char *s) {
         return result;
     }
     size_t mark = bb_pool_mark();
-    int pe = 0; const char *pm = (const char *)0;
-    eval_chain_fn fn = eval_build_chain(s, &pe, &pm);
-    if (!fn) { bb_pool_release(mark); if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s); return FAILDESCR; }
+    int pe = 0, thunks = 0; const char *pm = (const char *)0;
+    eval_chain_fn fn = eval_build_chain(s, &pe, &pm, &thunks);
+    if (!fn) { if (!pe) rt_code_pool_check(); bb_pool_release(mark); if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s); return FAILDESCR; }
+    size_t built = bb_pool_mark();
     int keep = mark < eval_retain_budget();
-    int my = eval_frame_push(NV_GET_fn(EVAL_TMP), keep ? s : NULL);
+    int my = eval_frame_push(NV_GET_fn(EVAL_TMP), s);
     if (my < 0) { bb_pool_release(mark); return FAILDESCR; }
     NV_SET_fn(EVAL_TMP, FAILDESCR);
     int ok = eval_chain_run_guarded(fn);
     DESCR_t got = NV_GET_fn(EVAL_TMP);
     g_eval_frames[my].res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
     NV_SET_fn(EVAL_TMP, g_eval_frames[my].saved);
-    if (keep) eval_cache_put(g_eval_frames[my].key, fn);
+    if (keep) {
+        char *key = g_eval_frames[my].key;
+        if (!thunks && bb_pool_mark() == built && eval_result_is_plain(g_eval_frames[my].res) && !eval_cache_slot(key)) { eval_cache_put(key, NULL); bb_pool_release(mark); }
+        else eval_cache_put(key, fn);
+    }
     else bb_pool_release(mark);
     DESCR_t result = g_eval_frames[my].res;
     g_eval_frames_n = my;
@@ -839,7 +866,7 @@ DESCR_t code_at(const char *src, long base)
             emit_jmp_entry_clear();
             g_rt_fragment_emit = rfe_sv;
             g_frame_active = fa; g_emit_cfg = cfg_sv;
-            if (!fn) return FAILDESCR;
+            if (!fn) { rt_code_pool_check(); return FAILDESCR; }
             if (k == 0) first = fn;
             if (lbl && lbl[0]) rt_label_set_fn(lbl, (void *)fn);
         }
@@ -848,7 +875,7 @@ DESCR_t code_at(const char *src, long base)
     { int patn = sno_pat_count(); const char *ks = getenv("SCRIP_CODE_THUNKS");
       if (!(ks && *ks == '0')) sno_expr_thunks_build(expr0);
       if (patn > pat0) sno_pat_thunks_build(pat0);
-      if ((ks && *ks == '0') ? (patn > pat0) : 1) eval_thunks_emit_from(proc0); }
+      if (((ks && *ks == '0') ? (patn > pat0) : 1) && eval_thunks_emit_from(proc0)) { rt_code_pool_check(); return FAILDESCR; } }
     g_sno_stmt_compiled += (long)(k - empty) + 1;
     if (parse_err || illegal) { g_sno_errtext = parse_err ? parse_err : illegal; code_compile_raise(orig, pe, pm); return FAILDESCR; }
     if (!first) return FAILDESCR;
@@ -925,9 +952,9 @@ DESCR_t CONVE_fn(DESCR_t str_d)
         DESCR_t xd = {0}; xd.v = DT_X; xd.slen = 0; xd.p = bb_dstar_rec_intern(key, SNO_DSTAR_VARREF);
         return xd;
     }
-    int pe = 0; const char *pm = (const char *)0;
-    eval_chain_fn fn = eval_build_chain(s, &pe, &pm);
-    if (!fn) return FAILDESCR;
+    int pe = 0, thunks = 0; const char *pm = (const char *)0;
+    eval_chain_fn fn = eval_build_chain(s, &pe, &pm, &thunks);
+    if (!fn) { rt_code_pool_check(); return FAILDESCR; }
     DESCR_t d = {0};
     d.v    = DT_E;
     d.slen = RT_CONVE_CHAIN_MARK;

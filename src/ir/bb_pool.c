@@ -19,7 +19,9 @@ void bb_pool_init(void) {
     pool_base = mmap(NULL, BB_POOL_SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
     if (pool_base == MAP_FAILED) { perror("bb_pool_init: mmap"); abort(); }
     pool_top   = pool_base;
-    pool_limit = pool_base + BB_POOL_SIZE;
+    { const char * e = getenv("SCRIP_CODE_POOL_MB"); unsigned long mb = (e && *e) ? strtoul(e, NULL, 10) : 0; size_t sz = BB_POOL_SIZE;
+      if (mb >= 8 && (mb << 20) < sz) sz = (size_t)mb << 20;
+      pool_limit = pool_base + sz; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 bb_buf_t bb_alloc(size_t size) {
@@ -70,6 +72,7 @@ void bb_free(bb_buf_t buf, size_t size) {
 size_t bb_pool_mark(void) { return pool_base ? (size_t)(pool_top - pool_base) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void g_emit_stno_drop_above(uint64_t addr);
+extern void rt_gc_frame_maps_drop_range(const void * lo, const void * hi);
 void bb_pool_release(size_t mark) {
     uint8_t * want;
     if (!pool_base) return;
@@ -77,5 +80,9 @@ void bb_pool_release(size_t mark) {
     if (want < pool_base || want > pool_top) return;
     if (want < pool_top) { size_t len = (size_t)(pool_top - want); if (mprotect(want, len, PROT_READ | PROT_WRITE) != 0) { perror("bb_pool_release: mprotect RX→RW"); abort(); } }
     g_emit_stno_drop_above((uint64_t)(uintptr_t)want);
+    rt_gc_frame_maps_drop_range(want, pool_top);
     pool_top = want;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+size_t bb_pool_used(void) { return pool_base ? (size_t)(pool_top - pool_base) : 0; }
+size_t bb_pool_free(void) { return pool_base ? (size_t)(pool_limit - page_ceil(pool_top)) : 0; }
