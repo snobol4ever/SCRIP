@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <setjmp.h>
 #include "lower.h"
 #include "bb_program.h"
 #include "parsers/icon/icon_lex.h"
@@ -113,6 +114,114 @@ static int sno_binop_code(tree_e tt) {
     switch (tt) {
     case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_POW: return (int)BINOP_POW_PROMOTE; case TT_SEQ: return 11; case TT_CAT: return 11;
     default: return -1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { int code; const char * msg; } sno_pe_t;
+static int sno_pe_patname(const char * s) {
+    return s && (!strcmp(s, "ARB") || !strcmp(s, "BAL") || !strcmp(s, "REM") || !strcmp(s, "FAIL") || !strcmp(s, "SUCCEED") || !strcmp(s, "ABORT") || !strcmp(s, "FENCE"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pe_patfn(tree_e k) {
+    return k == TT_ANY || k == TT_NOTANY || k == TT_SPAN || k == TT_BREAK || k == TT_BREAKX || k == TT_LEN || k == TT_POS || k == TT_RPOS || k == TT_TAB || k == TT_RTAB || k == TT_ARBNO
+        || k == TT_FENCE;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pe_valfn(const char * s) {
+    extern int core_fn_is_c(const char *);
+    return s && (!strcmp(s, "LN") || !strcmp(s, "OR") || !strcmp(s, "ABS") || !strcmp(s, "AND") || !strcmp(s, "COS") || !strcmp(s, "EXP") || !strcmp(s, "SIN") || !strcmp(s, "TAN")
+        || !strcmp(s, "XOR") || !strcmp(s, "ATAN") || !strcmp(s, "CHAR") || !strcmp(s, "CHOP") || !strcmp(s, "LPAD") || !strcmp(s, "RPAD") || !strcmp(s, "SQRT") || !strcmp(s, "COMPL")
+        || !strcmp(s, "REMDR") || !strcmp(s, "REPLACE") || !strcmp(s, "REVERSE") || !strcmp(s, "DATATYPE")) && core_fn_is_c(s);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * out, sno_pe_t * e) {
+    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; extern long g_error; extern void core_icn_op_ctx_clear(void); extern void core_unwind_pending(void);
+    extern long g_icn_errnumber; extern const char * g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
+    extern DESCR_t rt_num_neg_sno(DESCR_t); extern DESCR_t rt_num_pos(DESCR_t); extern DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int); extern DESCR_t str_concat_d(DESCR_t, DESCR_t);
+    extern DESCR_t rt_call_arr_bl_sn4(const char *, DESCR_t *, int, int);
+    long snum = g_icn_errnumber; const char * stxt = g_icn_errtext; DESCR_t sval = g_icn_errvalue; int svalid = g_icn_err_valid;
+    long esv = g_error; int my = g_core_errjmp_n; DESCR_t r = FAILDESCR;
+    if (my >= 64) { e->code = -1; return 0; }
+    g_error = -2; g_icn_err_valid = 0;
+    int jc = setjmp(g_core_errjmp_stk[my]);
+    if (!jc) { g_core_errjmp_n = my + 1;
+        r = op == TT_FNC ? rt_call_arr_bl_sn4(fn, av, n, -1) : op == TT_MNS ? rt_num_neg_sno(av[0]) : op == TT_PLS ? rt_num_pos(av[0]) : op == TT_SEQ ? str_concat_d(av[0], av[1])
+          : rt_num_arith_sno(av[0], av[1], sno_binop_code(op)); }
+    g_core_errjmp_n = my; g_error = esv; core_icn_op_ctx_clear();
+    if (g_icn_err_valid) { e->code = (int)g_icn_errnumber; e->msg = g_icn_errtext; } else if (jc) { e->code = jc; e->msg = ""; }
+    g_icn_errnumber = snum; g_icn_errtext = stxt; g_icn_errvalue = sval; g_icn_err_valid = svalid;
+    core_unwind_pending();
+    if (jc || e->code || r.v == DT_FAIL) return 0;
+    *out = r; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_pe_walk(const tree_t * t, DESCR_t * v, sno_pe_t * e) {
+    extern char alphabet[257];
+    DESCR_t a, b, av[2]; int k, all;
+    if (!t || e->code) return 0;
+    switch (t->t) {
+    case TT_ILIT: *v = INTVAL(t->v.ival); return 1;
+    case TT_FLIT: *v = REALVAL(t->v.dval); return 1;
+    case TT_QLIT: *v = t->v.sval ? STRVAL(t->v.sval) : NULVCL; return 1;
+    case TT_NUL: *v = NULVCL; return 1;
+    case TT_VAR: if (!sno_pe_patname(t->v.sval)) return 0; *v = (DESCR_t){ .v = DT_P }; return 1;
+    case TT_KEYWORD:
+        if (sno_pe_patname(t->v.sval)) { *v = (DESCR_t){ .v = DT_P }; return 1; }
+        if (t->v.sval && !strcmp(t->v.sval, "ALPHABET")) { *v = BSTRVAL(alphabet, 256); return 1; }
+        if (t->v.sval && !strcmp(t->v.sval, "LCASE")) { *v = STRVAL("abcdefghijklmnopqrstuvwxyz"); return 1; }
+        if (t->v.sval && !strcmp(t->v.sval, "UCASE")) { *v = STRVAL("ABCDEFGHIJKLMNOPQRSTUVWXYZ"); return 1; }
+        return 0;
+    case TT_NAME: if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR) { *v = NAMEVAL(t->c[0]->v.sval); return 1; } break;
+    case TT_CAPT_CURSOR: if (t->n == 1 && t->c[0] && t->c[0]->t == TT_VAR) { *v = (DESCR_t){ .v = DT_P }; return 1; } break;
+    case TT_DEFER: for (k = 0; k < t->n; k++) sno_pe_walk(t->c[k], &a, e); if (e->code) return 0; *v = (DESCR_t){ .v = DT_E }; return 1;
+    case TT_MNS: case TT_PLS: if (t->n != 1) break; if (!sno_pe_walk(t->c[0], &av[0], e)) return 0; return sno_pe_op(t->t, NULL, av, 1, v, e);
+    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_POW:
+        if (t->n != 2) break; all = sno_pe_walk(t->c[0], &av[0], e); all = sno_pe_walk(t->c[1], &av[1], e) && all; if (!all || e->code) return 0;
+        return sno_pe_op(t->t, NULL, av, 2, v, e);
+    case TT_SEQ: case TT_CAT:
+        for (k = 0, all = 1; k < t->n; k++) {
+            if (!sno_pe_walk(t->c[k], &b, e)) { all = 0; continue; }
+            if (!all) continue;
+            if (!k) { a = b; continue; }
+            if (a.v == DT_P || a.v == DT_E || b.v == DT_P || b.v == DT_E) { a = (DESCR_t){ .v = DT_P }; continue; }
+            av[0] = a; av[1] = b; if (!sno_pe_op(TT_SEQ, NULL, av, 2, &a, e)) all = 0; }
+        if (!all || !t->n || e->code) return 0; *v = a; return 1;
+    case TT_CAPT_COND_ASGN: case TT_CAPT_IMMED_ASGN:
+        if (t->n != 2) break; all = sno_pe_walk(t->c[0], &a, e); if (!t->c[1] || t->c[1]->t != TT_VAR) { sno_pe_walk(t->c[1], &b, e); all = 0; }
+        if (!all || e->code) return 0; *v = (DESCR_t){ .v = DT_P }; return 1;
+    case TT_FNC: {
+        DESCR_t fa[t->n > 0 ? t->n : 1];
+        for (k = 0, all = sno_pe_valfn(t->v.sval); k < t->n; k++) all = sno_pe_walk(t->c[k], &fa[k], e) && fa[k].v != DT_P && fa[k].v != DT_E && all;
+        if (!all || e->code) return 0;
+        return sno_pe_op(TT_FNC, t->v.sval, fa, t->n, v, e); }
+    default:
+        if (t->t != TT_ALT && !sno_pe_patfn(t->t)) break;
+        for (k = 0, all = 1; k < t->n; k++) all = sno_pe_walk(t->c[k], &a, e) && all;
+        if (!all || e->code) return 0; *v = (DESCR_t){ .v = DT_P }; return 1;
+    }
+    for (k = 0; k < t->n; k++) sno_pe_walk(t->c[k], &a, e);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sno_preeval_expr(const tree_t * t, const char ** msg) {
+    sno_pe_t e = { 0, (const char *)0 }; DESCR_t v;
+    sno_pe_walk(t, &v, &e);
+    if (msg) *msg = e.msg;
+    return e.code > 0 ? e.code : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int sno_preeval_stmt(const tree_t * s, const char ** msg) {
+    const tree_t * part[6] = { 0 }; int k, c = 0;
+    if (!s || s->t != TT_STMT) return 0;
+    part[0] = stmt_attr_expr(stmt_attr_find(s, ":subj")); part[1] = stmt_attr_expr(stmt_attr_find(s, ":pat")); part[2] = stmt_attr_expr(stmt_attr_find(s, ":repl"));
+    part[3] = goto_node_expr(stmt_goto_find(s, TT_GOTO_S)); part[4] = goto_node_expr(stmt_goto_find(s, TT_GOTO_F)); part[5] = goto_node_expr(stmt_goto_find(s, TT_GOTO_U));
+    for (k = 0; k < 6 && !c; k++) if (part[k]) c = sno_preeval_expr(part[k], msg);
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void sno_preeval_program(const tree_t * prog) {
+    extern void sno_error_voice(int, const char *, int);
+    const char * m; int c;
+    for (int i = 0; prog && i < prog->n; i++) { m = (const char *)0; c = sno_preeval_stmt(prog->c[i], &m); if (c) sno_error_voice(c, m ? m : "", lp_s_int(prog->c[i], ":line")); }
 }
 static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 static IR_t * sno_mkpat_emit(scx_t * cx, const tree_t * pat, IR_t * γ, IR_t * ω, IR_t ** res);

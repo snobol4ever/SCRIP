@@ -4555,6 +4555,13 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int core_fn_is_c(const char *name) {
+    _func_init();
+    if (!name) return 0;
+    for (FNCBLK_t *e = _func_buckets[_func_hash(name)]; e; e = e->next) if (strcmp(e->name, name) == 0) return e->fn != NULL;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
     extern long g_stno, g_line, g_lastno, g_lastline;
     long sv_stno = g_stno, sv_line = g_line;

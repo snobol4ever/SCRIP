@@ -1458,6 +1458,9 @@ int main(int argc, char **argv)
     register_fn("print",  _builtin_print,  0, 99);
     extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
     g_user_call_hook = _usercall_hook;
+    { extern void sno_preeval_program(const tree_t *); extern int sno_nerrors;
+      for (int _p = 0; _p < nsegs; _p++) if (segs[_p].fn == lower_sno_stage2) sno_preeval_program((const tree_t *)segs[_p].prog);
+      if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d compile error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; } }
     {
         extern void core_set_label_exists_hook(int (*fn)(const char *));
         core_set_label_exists_hook(_label_exists_fn);

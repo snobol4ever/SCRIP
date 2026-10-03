@@ -18,6 +18,9 @@
 # string, so every overflow case compared "" against "division caused real overflow". math_div was 1984
 # failures of ONE shape and math_prod the same; both are 15376/0 and 14400/0 after the cure.
 #
+# ⛔ THE DIRECT ARM MULTIPLIES A VARIABLE (cfo 2026-10-02): `Y = 1.0e300 * 1.0e300` has constant operands, which sbl -bf
+# evaluates WHEN IT COMPILES the statement -- ERROR 263 at compile time and the program never ran -- and SCRIP does the
+# same since the compile-time pre-evaluation landed; `A = 1.0e300` then `Y = A * A` overflows at run time, as meant.
 # The expectation is the oracle's: sbl -bf publishes the text in both positions. rc=0 clean · rc=1 the text
 # or the type differs between the two positions · rc=2 REFUSAL (cannot measure).
 set -u
@@ -32,7 +35,8 @@ cat > "$D/w.sno" <<'SNO'
         X = EVAL('1.0e300 * 1.0e300')           :F(E1)
         OUTPUT = 'in-eval=NO-FAIL'              :(N1)
 E1      OUTPUT = 'in-eval=[' &ERRTEXT '] type=' &ERRTYPE
-N1      Y = 1.0e300 * 1.0e300                   :F(E2)
+N1      A = 1.0e300
+        Y = A * A                               :F(E2)
         OUTPUT = 'direct=NO-FAIL'               :(N2)
 E2      OUTPUT = 'direct=[' &ERRTEXT '] type=' &ERRTYPE
 N2      Z = EVAL('1.0586114708425298e+03 / 1.3244474893716128e-307')  :F(E3)

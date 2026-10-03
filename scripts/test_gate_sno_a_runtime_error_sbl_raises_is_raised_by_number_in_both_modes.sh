@@ -15,8 +15,12 @@
 # the prototype parser, REPLACE raises 171, negation 010, affirmation 004, and integer division by zero 014 (it said 2).
 #
 # EACH ARM is a one-statement program run by sbl -bf (the EXPECTED number is read live from the oracle, never typed) and by
-# scrip in mode 3 and mode 4: the arm passes when scrip prints 'before', never reaches 'success' or 'failure', and names the
-# same error number. A witness sbl does not raise on is a wrong witness and REFUSES rc=2.
+# scrip in mode 3 and mode 4: the arm passes when scrip prints 'before' exactly when sbl does, never reaches 'success' or
+# 'failure', and names the same error number. A witness sbl does not raise on is a wrong witness and REFUSES rc=2.
+# ⛔ A CONSTANT ARM NEVER RUNS (cfo 2026-10-02): sbl -bf evaluates an operation on constant operands WHEN IT COMPILES the
+# statement (1 / 0, 9223372036854775807 + 1, 4611686018427387904 * 4, 0.0 ** 0.0, 2.0 ** 2000 are compile-time errors: no
+# 'before', the program never runs), and SCRIP does the same since its compile-time pre-evaluation; so 'before' is read from
+# sbl's own output, and mode 4 reads the number from the refused compile (M4-COMPILE-REFUSED) where no binary is built.
 # CONTROL ARMS: a numeric string operand ('12' + 1) raises nothing and prints 13 in both; ATAN('abc') raises 301 in both.
 # ERRLIMIT ARM: with &ERRLIMIT = 5 the same x + 1 is counted, the statement FAILS, and &ERRTYPE reads 1, as sbl gives it.
 # FAIL-ONCE, MEASURED: SCRIP_BIN at a scrip built on origin bc96cf1b2 (before the cure) reads 0 of 38 raising arms and the
@@ -50,7 +54,8 @@ prog() {
 runm() {
     if [ "$1" = m3 ]; then timeout 20 "$SCRIP" "$T/w.sno" < /dev/null 2>&1
     else rm -f "$T/w" "$T/w.s"
-        "$SCRIP" --compile -o "$T/w.s" "$T/w.sno" < /dev/null > /dev/null 2>&1 && gcc -o "$T/w" "$T/w.s" -L "$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm 2> /dev/null || { echo "M4-BUILD-FAILED"; return; }
+        "$SCRIP" --compile -o "$T/w.s" "$T/w.sno" < /dev/null > "$T/c.out" 2>&1 || { cat "$T/c.out"; echo "M4-COMPILE-REFUSED"; return; }
+        gcc -o "$T/w" "$T/w.s" -L "$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm 2> /dev/null || { echo "M4-BUILD-FAILED"; return; }
         (cd "$T" && timeout 20 ./w < /dev/null 2>&1); fi
 }
 errno_of() { grep -io 'error [0-9]*' | head -1 | awk '{print $2+0}'; }
@@ -60,11 +65,11 @@ for ex in "x + 1" "1 + x" "x - 1" "2 - x" "x * 2" "2 * x" "x / 2" "2 / x" "x ** 
           "i + 1" "(0 - i) - 2" "m * 4" "m * t" "9223372036854775807 + 1" "4611686018427387904 * 4" "z ** z" "0.0 ** 0.0" "t ** 63" \
           "(z - 8) ** 0.5" "2.0 ** 2000" "r * r" "REMDR(5, z)" "REMDR(5.0, 0.0)" "REMDR(x, 2)" "REMDR(5, x)" "-(0 - i - 1)"; do
     prog "$ex"
-    want=$("$SBL" -bf "$T/w.sno" < /dev/null 2>/dev/null | errno_of)
+    sout=$("$SBL" -bf "$T/w.sno" < /dev/null 2>/dev/null); want=$(printf '%s\n' "$sout" | errno_of); wb=$(printf '%s\n' "$sout" | grep -cx 'before')
     [ -n "$want" ] || refuse "sbl -bf raised no error for [$ex] -- the witness is wrong"
     for m in m3 m4; do n=$((n+1))
         out=$(runm $m); got=$(printf '%s\n' "$out" | errno_of)
-        if printf '%s\n' "$out" | grep -qx 'before' && ! printf '%s\n' "$out" | grep -qx 'failure\|success' && [ "$got" = "$want" ]; then ok=$((ok+1))
+        if [ "$(printf '%s\n' "$out" | grep -cx 'before')" = "$wb" ] && ! printf '%s\n' "$out" | grep -qx 'failure\|success' && [ "$got" = "$want" ]; then ok=$((ok+1))
         else RC=1; echo "  RED $m [$ex]: sbl -bf raises ERROR $want and terminates; scrip: $(printf '%s' "$out" | tr '\n' ' ' | cut -c1-120)"; fi
     done
 done

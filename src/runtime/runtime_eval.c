@@ -290,7 +290,7 @@ static int eval_top_comma(const char *s)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static eval_chain_fn eval_build_chain(const char *s)
+static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm)
 {
     if (!s || !*s) return NULL;
     if (eval_top_comma(s)) { extern const char *g_sno_errtext; g_sno_errtext = "syntax error: invalid use of comma"; return NULL; }
@@ -306,6 +306,7 @@ static eval_chain_fn eval_build_chain(const char *s)
     tree_t *e = parse_expr_pat_from_str(src);
     sno_error_quiet_end();
     if (!e || sno_error_captured()) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return NULL; }
+    { extern int sno_preeval_expr(const tree_t *, const char **); *pe = sno_preeval_expr(e, pm); if (*pe) return NULL; }
     tree_t *var = ast_stmt_new(TT_VAR);
     var->v.sval = (char *)EVAL_TMP;
     tree_t *st = ast_stmt_new(TT_STMT);
@@ -509,10 +510,14 @@ static int eval_sb_syntax(const char *s, int *code, const char **msg) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_eval_raise(int code, const char *msg) {
+    long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; if (!esv) g_error = G_ERROR_EVAL_STAGE; core_runtime_error(code, msg); g_error = esv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_eval_syntax_raise(const char *s) {
     int code = 0; const char *msg = (const char *)0;
     if (!s || !eval_sb_syntax(s, &code, &msg)) return;
-    { long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; if (!esv) g_error = G_ERROR_EVAL_STAGE; core_runtime_error(code, msg); g_error = esv; }
+    rt_eval_raise(code, msg);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
@@ -532,8 +537,9 @@ DESCR_t eval_string_transient(const char *s) {
         return result;
     }
     size_t mark = bb_pool_mark();
-    eval_chain_fn fn = eval_build_chain(s);
-    if (!fn) { bb_pool_release(mark); rt_eval_syntax_raise(s); return FAILDESCR; }
+    int pe = 0; const char *pm = (const char *)0;
+    eval_chain_fn fn = eval_build_chain(s, &pe, &pm);
+    if (!fn) { bb_pool_release(mark); if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s); return FAILDESCR; }
     int keep = mark < eval_retain_budget();
     int my = eval_frame_push(NV_GET_fn(EVAL_TMP), keep ? s : NULL);
     if (my < 0) { bb_pool_release(mark); return FAILDESCR; }
@@ -732,6 +738,8 @@ DESCR_t code_at(const char *src, long base)
     sno_error_quiet_end();
     if (!prog || prog->n == 0) { const char *cap = sno_error_captured(); if (cap) g_sno_errtext = rt_heap_strdup_c(cap); return FAILDESCR; }
     const char *parse_err = sno_error_captured(); if (parse_err) parse_err = rt_heap_strdup_c(parse_err);
+    { extern int sno_preeval_stmt(const tree_t *, const char **); const char *pm;
+      for (int i = 0; i < prog->n && !parse_err; i++) { pm = (const char *)0; if (sno_preeval_stmt(prog->c[i], &pm)) parse_err = pm ? pm : ""; } }
     if (g_sno_stmt_compiled < base) g_sno_stmt_compiled = base;
     long stno_base = g_sno_stmt_compiled;
     extern int sno_pat_count(void); extern void sno_pat_thunks_build(int p0);
@@ -847,7 +855,8 @@ DESCR_t CONVE_fn(DESCR_t str_d)
         DESCR_t xd = {0}; xd.v = DT_X; xd.slen = 0; xd.p = bb_dstar_rec_intern(key, SNO_DSTAR_VARREF);
         return xd;
     }
-    eval_chain_fn fn = eval_build_chain(s);
+    int pe = 0; const char *pm = (const char *)0;
+    eval_chain_fn fn = eval_build_chain(s, &pe, &pm);
     if (!fn) return FAILDESCR;
     DESCR_t d = {0};
     d.v    = DT_E;
