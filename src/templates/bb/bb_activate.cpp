@@ -30,6 +30,7 @@ std::string bb_activate() {
                  + x86("xor", "edx", "edx"))
              + x86("lea",  "rcx", FRQ(_.op_off))
              + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")
+             + x86("mov",  "r9", FRQ(_.op_sa))
          + IF(!xa_switch_record_planted(), x86("sub", "rsp", (long)16)
              + x86_rsp_store32_imm(0, (long)DT_S)
              + x86_rsp_store32(4, "r15d")

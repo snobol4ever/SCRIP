@@ -324,7 +324,8 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->image_span ? (uint64_t)orig->image_span - orig->image_below : 0, orig->image_below, orig->create_proc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname) {
+int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw) {
+    if ((uint8_t)tagw != DT_CO) { extern int core_icn_error(int code, DESCR_t val); DESCR_t d; memcpy(&d, &tagw, sizeof tagw); d.p = target; core_icn_error(118, d); return 0; }
     if (!target) scrip_co_uerror("scrip_coexpr: activate of NULL coexpression (operand slot held garbage -- LOWER/driver wiring bug)");
     scrip_coctx_t *self = scrip_co_current ? scrip_co_current : &g_root_ctx;
 #if RT_DIAG

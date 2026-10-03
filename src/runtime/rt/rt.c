@@ -1359,7 +1359,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
         rt_c2bb_hit("gen_h.coro", name);
 #endif
         uint64_t out2[2] = { 0, 0 };
-        int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0);
+        int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
         return rt_genp_triage(g, ok, out2, hout);
     }
     if (p->jmp_entry) {
@@ -1395,7 +1395,7 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
 #endif
           uint64_t out2[2] = { 0, 0 };
           rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
-          int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0);
+          int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
           rt_k_level--; rt_k_level_mirror();
           return rt_genp_triage(g, ok, out2, hslot);
       } }

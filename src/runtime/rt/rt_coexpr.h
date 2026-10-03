@@ -40,7 +40,7 @@ extern scrip_coctx_t *scrip_co_current;
 void scrip_coret(uint64_t d0, uint64_t d1, void *resume_addr);
 void scrip_cofail(void);
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname);
-int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname);
+int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw);
 scrip_coctx_t *scrip_co_gc_head(void);
 scrip_coctx_t *scrip_co_gc_root(void);
 void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry_arg);
