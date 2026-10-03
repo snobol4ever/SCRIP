@@ -55,10 +55,13 @@ if [ ${#FEATS[@]} -eq 0 ]; then
   MB="$(git -C "$ROOT" merge-base HEAD "$BASE" 2>/dev/null)" || { echo "AREA_SMOKE REFUSE(2): HEAD and $BASE share no merge base in $ROOT"; exit 2; }
   files="$( { git -C "$ROOT" diff --name-only "$MB" -- . ; git -C "$ROOT" ls-files --others --exclude-standard -- . ; } 2>/dev/null | sort -u)"
   if [ -z "$files" ]; then echo "AREA_SMOKE NO-DIFF: the tree equals its merge base with $BASE ($(git -C "$ROOT" rev-parse --short "$MB")) -- nothing to smoke"; exit 0; fi
-  raw=""; unmapped=""; noarea=""; outside=""
+  raw=""; unmapped=""; noarea=""; outside=""; deleted=""
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     case "$f" in src/*) ;; *) outside="$outside $f"; continue;; esac
+    # a src/ file the landing DELETES has no carrier left to map: the map's own gate (arm 7b) requires every carrier to exist, so its row went with it,
+    # and the files that replace it carry their own rows -- it is named, not refused (hq_templates 2026-10-03, the bb_unify.cpp split into four boxes)
+    [ -e "$ROOT/$f" ] || { deleted="$deleted $f"; continue; }
     hit=""
     # rows whose carrier is this file, or a directory prefix of it
     while IFS=$'\t' read -r feat car; do
@@ -86,6 +89,7 @@ if [ ${#FEATS[@]} -eq 0 ]; then
   done <<< "$files"
   [ -z "$outside" ] || echo "AREA_SMOKE no area (outside src/):$outside -- the gates such a diff touched are the other half of the verdict"
   [ -z "$noarea" ] || echo "AREA_SMOKE no area (mapped to -):$noarea"
+  [ -z "$deleted" ] || echo "AREA_SMOKE no area (deleted by this landing, the files that replace it carry the rows):$deleted"
   if [ -n "$unmapped" ]; then
     echo "AREA_SMOKE REFUSE(2): touched src/ file(s) with NO ROW in scripts/area_map.tsv:$unmapped -- add feature<TAB>carrier rows with this landing (a shared node maps to *, a frontend to lang:<x>, a helper to -)"
     exit 2

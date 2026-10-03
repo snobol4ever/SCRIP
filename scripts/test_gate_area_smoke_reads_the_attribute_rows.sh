@@ -109,6 +109,10 @@ ck "6d a touched src/ file with no map row refuses rc 2 naming it" '[ "$r6d" = 2
 rm -f "$R/src/zzz_unmapped.c"; ( cd "$R" && git checkout -q -- src/templates/bb/bb_match_fence0.cpp ); printf 'tool moved\n' > "$R/src/tools/zz.c"
 o6e=$(cd "$R" && AREA_SMOKE_ROOT="$R" AREA_SMOKE_BASE=HEAD S4E_HOME="$WORK" bash "$SMOKE" --list-only 2>&1); r6e=$?
 ck "6e a file mapped to - alone prints NO-AREA, rc 0" '[ "$r6e" = 0 ] && grep -q "AREA_SMOKE NO-AREA" <<<"$o6e"'
+( cd "$R" && git checkout -q -- src/tools/zz.c ) ; rm -f "$R/src/templates/bb/bb_match_fence0.cpp"
+o6f=$(cd "$R" && AREA_SMOKE_ROOT="$R" AREA_SMOKE_BASE=HEAD S4E_HOME="$WORK" bash "$SMOKE" --list-only 2>&1); r6f=$?
+ck "6f a src/ file the landing deletes is named as deleted and does not refuse (its row left with it, its successors carry theirs)" '[ "$r6f" = 0 ] && grep -q "AREA_SMOKE no area (deleted by this landing.*): src/templates/bb/bb_match_fence0.cpp" <<<"$o6f" && grep -q "AREA_SMOKE NO-AREA" <<<"$o6f"'
+( cd "$R" && git checkout -q -- src/templates/bb/bb_match_fence0.cpp )
 
 echo "--- ARM 7: the map covers the vocabulary and every carrier exists (real corpus, read only) ---"
 vocab=$(python3 "$H" smoke --vocabulary 2>&1); rv=$?
