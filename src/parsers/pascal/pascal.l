@@ -70,6 +70,10 @@ int g_pas_min_enum_size = 4;
 int g_pas_pack_set_size = 0;
 int g_pas_range_check_on = 2;
 int g_pas_align_mac68k = 0;
+int g_pas_pack_records = 0;
+static int g_pas_pack_records_stack[64];
+static char pascal_packrecbuf[16];
+static int  pascal_packrecpos;
 static char pascal_alignbuf[32];
 static int  pascal_alignpos;
 int g_pas_codepage = 0;
@@ -92,8 +96,8 @@ static char pascal_packsetbuf[16];
 static int  pascal_packsetpos;
 static void pas_min_enum_size_set(int n) { if (n > 0) g_pas_min_enum_size = n; }
 static void pas_pack_set_size_set(int n) { if (n > 0) g_pas_pack_set_size = n; }
-static void pas_min_enum_size_push(void) { if (g_pas_min_enum_sp < (int)(sizeof(g_pas_min_enum_stack) / sizeof(g_pas_min_enum_stack[0]))) { g_pas_min_enum_stack[g_pas_min_enum_sp] = g_pas_min_enum_size; g_pas_pack_set_stack[g_pas_min_enum_sp] = g_pas_pack_set_size; g_pas_min_enum_sp++; } }
-static void pas_min_enum_size_pop(void) { if (g_pas_min_enum_sp > 0) { g_pas_min_enum_sp--; g_pas_min_enum_size = g_pas_min_enum_stack[g_pas_min_enum_sp]; g_pas_pack_set_size = g_pas_pack_set_stack[g_pas_min_enum_sp]; } }
+static void pas_min_enum_size_push(void) { if (g_pas_min_enum_sp < (int)(sizeof(g_pas_min_enum_stack) / sizeof(g_pas_min_enum_stack[0]))) { g_pas_min_enum_stack[g_pas_min_enum_sp] = g_pas_min_enum_size; g_pas_pack_set_stack[g_pas_min_enum_sp] = g_pas_pack_set_size; g_pas_pack_records_stack[g_pas_min_enum_sp] = g_pas_pack_records; g_pas_min_enum_sp++; } }
+static void pas_min_enum_size_pop(void) { if (g_pas_min_enum_sp > 0) { g_pas_min_enum_sp--; g_pas_min_enum_size = g_pas_min_enum_stack[g_pas_min_enum_sp]; g_pas_pack_set_size = g_pas_pack_set_stack[g_pas_min_enum_sp]; g_pas_pack_records = g_pas_pack_records_stack[g_pas_min_enum_sp]; } }
 static int pascal_mode_is_known(const char *m) {
     static const char *K[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
     for (size_t i = 0; i < sizeof(K) / sizeof(K[0]); i++) if (!strcasecmp(m, K[i])) return 1;
@@ -114,7 +118,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR CODEPAGE_HDR
+%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR PACKREC_HDR CODEPAGE_HDR
 %s IFDEF_TRUE
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
@@ -168,6 +172,11 @@ ALNUM    [A-Za-z0-9_]
 <MODE_HDR>[ \t]         { }
 <MODE_HDR>.             { if (pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = pascal_yytext[0]; pascal_modebuf[pascal_modepos] = '\0'; } }
 <MODE_HDR>\n            { }
+"{$PackRecords"         { pascal_packrecbuf[0] = '\0'; pascal_packrecpos = 0; BEGIN PACKREC_HDR; }
+<PACKREC_HDR>"}"        { g_pas_pack_records = atoi(pascal_packrecbuf); BEGIN INITIAL; }
+<PACKREC_HDR>[ \t]      { }
+<PACKREC_HDR>.          { if (pascal_packrecpos < (int)sizeof(pascal_packrecbuf) - 1) { pascal_packrecbuf[pascal_packrecpos++] = pascal_yytext[0]; pascal_packrecbuf[pascal_packrecpos] = '\0'; } }
+<PACKREC_HDR>\n         { }
 "{$align"               { pascal_alignbuf[0] = '\0'; pascal_alignpos = 0; BEGIN ALIGN_HDR; }
 <ALIGN_HDR>"}"          { g_pas_align_mac68k = (strcasecmp(pascal_alignbuf, "mac68k") == 0); BEGIN INITIAL; }
 <ALIGN_HDR>[ \t]        { }
