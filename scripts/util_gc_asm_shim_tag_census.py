@@ -16,8 +16,9 @@ seven would be a criterion keyed on a list, and the list would drift the first t
 ⛔ AN INDIRECT JUMP THAT SAVES NOTHING IS A TRAMPOLINE TOO (cfo 2026-10-02, on the coo's red at 408a3f0c0): the
 SETEXIT continuation (rt_setexit_continue_tramp) and the trap stub (rt_setexit_take) jump indirectly into emitted
 code from state recorded in rtccb, but push no register and carve no stack, so they leave no word for the walker
-to read, tagged or raw.  A block with an indirect jmp and no pushq and no rsp adjustment is printed as a NAMED
-NOSAVE row and is not a member; the day such a block saves a register it becomes a member again by this rule.
+to read, tagged or raw.  A block with an indirect jmp and no pushq, no rsp adjustment and no store of a callee-saved
+register through rsp or rbp (the cto's review: a mov of r13 into an existing frame slot is a save too) is printed as a
+NAMED NOSAVE row and is not a member; the day such a block saves a register it becomes a member again by this rule.
 
 ⭐ WHAT COUNTS AS A DEFECT HERE IS NARROWER THAN "A RAW PUSH", AND THE NARROWING IS THE MEASUREMENT.  Of the five
 callee-saved registers these shims save, exactly ONE is heap-bearing by the tree's own convention: r13 holds the
@@ -60,7 +61,7 @@ def main():
                     and re.search(r'movl\s+%r15d,\s*4\(%rsp\)', b) is not None
                     and re.search(r'movq\s+%r13,\s*8\(%rsp\)', b) is not None)
             rawconv = [r for r in CONV if re.search(r'pushq\s+%' + r + r'\b', b)]
-            if not raw13 and not cell and not re.search(r'pushq\s', b) and not re.search(r'(subq|addq|leaq)\s+[^\n]*%rsp\b', b):
+            if not raw13 and not cell and not re.search(r'pushq\s', b) and not re.search(r'(subq|addq|leaq)\s+[^\n]*%rsp\b', b) and not re.search(r'movq?\s+%(rbx|rbp|r12|r13|r14|r15)\w*,\s*-?(0x)?[0-9a-f]*\(%(rsp|rbp)\b', b):
                 nosave.append((rel, ln, nm)); continue
             verdict = 'TAGGED' if (cell and not raw13) else 'RAW'
             rows.append((rel, ln, nm, verdict, raw13, cell, rawconv))
