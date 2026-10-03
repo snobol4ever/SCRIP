@@ -680,6 +680,7 @@ test_gate_sno_a_deferred_name_call_in_a_wide_alternation_survives_the_switch.sh	
 test_gate_sno_a_define_call_on_a_default_build_never_enters_the_trace_layer.sh	WIRED	-	-	-
 test_gate_sno_a_define_inside_a_code_fragment_defines_the_function.sh	WIRED	-	-	-
 test_gate_sno_a_dynamic_function_called_from_a_code_built_function_returns_its_value.sh	WIRED	-	-	-
+test_gate_sno_a_failed_unary_minus_or_plus_takes_its_boxs_failure_exit.sh	WIRED	-	-	-
 test_gate_sno_a_fence_after_a_live_deferred_thunk_finds_its_own_slots.sh	WIRED	-	-	-
 test_gate_sno_a_fence_backtracked_into_drops_its_bodys_conditional_captures.sh	WIRED	-	-	-
 test_gate_sno_a_fence_before_a_run_or_inside_an_arbno_body_retries_what_follows_it.sh	WIRED	-	-	-
