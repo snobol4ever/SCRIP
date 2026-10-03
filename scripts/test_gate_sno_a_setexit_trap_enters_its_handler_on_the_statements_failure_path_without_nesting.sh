@@ -11,7 +11,8 @@
 # raising-after-32; the ceo's ruling CEO-1422 chose shape B).
 # SHAPE B, AS LANDED: core_runtime_error records the handler's resolved code address in rtccb[25] and returns, so the
 # operation fails and its statement fails. The statement's failure path carries an IR_SETEXIT_TEST box: if rtccb[25]
-# is set, it clears it, keeps the path, rsp, rbp and r12 in rtccb[26..29], and jumps to the handler.
+# is set, it calls rt_setexit_take (runtime_eval.c, out of line since CEO-1428), which clears it, keeps the path (its own
+# return address), rsp, rbp and r12 in rtccb[26..29], and jumps to the handler.
 # :(CONTINUE)/:(SCONTINUE) resolve to rt_setexit_continue_tramp, which restores them and resumes that failure path,
 # and :(ABORT) makes the original error fatal. Inside a match a pending trap takes the deferred element's ABORT exit,
 # so no alternative runs after the error (the ceo's condition 1). A computed goto's unresolved exit tests the same
