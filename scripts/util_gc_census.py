@@ -207,6 +207,34 @@ def allocating_entries_from_binary(so, out=print):
 
 CALL_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,(.*)$')
 
+
+CALL_HEAD_RX = re.compile(r'x86\(\s*"call(?:_rt|_bare)?"\s*,')
+
+
+def _call_close(line, m):
+    """Index of the ')' that closes the x86( call CALL_RX matched at `m`, or None when the call runs past this line. Quotes are
+    honoured. ⛔ WHY (the coo 2026-10-03): CALL_RX's group runs to the END OF THE LINE, so on a line that chains the call with more
+    x86() calls the 'arguments' included theirs -- bb_call_pl_leaf.cpp's computed x86("call", sym, ...) "resolved" to mov/rax/rdx/
+    cmp/al/je and left the census silently, and a poll later on the call's OWN line was never read."""
+    depth, q, k = 1, None, m.start() + line[m.start():].index("(") + 1
+    while k < len(line):
+        ch = line[k]
+        if q:
+            if ch == "\\":
+                k += 1
+            elif ch == q:
+                q = None
+        elif ch in "\"'":
+            q = ch
+        elif ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return k
+        k += 1
+    return None
+
 # A COUNT IS NOT COMPARABLE ACROSS A CHANGE OF ITS CRITERION.  Every line here names a sitting in which the census
 # started counting something it could not see before, so a reader never reads the step as a regression or a win
 # (SUITES.tsv's criterion_changed column, the same rule).  The baseline writer prints them into the file it writes.
@@ -434,7 +462,58 @@ def _first_arg(expr):
     return expr
 
 
-def resolve_computed(expr, own_text, all_text):
+def _top_args(s, k):
+    """The comma-separated arguments of the call whose '(' ends at index k-1 of s, at depth 0, quotes honoured; [] when unclosed."""
+    out, depth, q, start = [], 0, None, k
+    while k < len(s):
+        ch = s[k]
+        if q:
+            if ch == "\\":
+                k += 1
+            elif ch == q:
+                q = None
+        elif ch in "\"'":
+            q = ch
+        elif ch in "([":
+            depth += 1
+        elif ch in ")]":
+            if depth == 0:
+                out.append(s[start:k]); return out
+            depth -= 1
+        elif ch == "," and depth == 0:
+            out.append(s[start:k]); start = k + 1
+        k += 1
+    return []
+
+
+def _param_literals(own_text, site_line, ident):
+    """A call target that is a PARAMETER of the function enclosing the site (bb_call_pl_leaf.cpp's pl_cold_call(const char * sym,
+    ...) emitting x86("call", sym, ...)): the string literals passed in that position at every call of the function in the same
+    file. ([], "") when the site is not in a function, `ident` is not one of its parameters, or no call passes a literal there --
+    UNRESOLVED stays the answer, never a guess (the coo 2026-10-03: the site used to 'resolve' to the mnemonics of the x86() calls
+    chained after it on its line, and so left the census silently)."""
+    for kind, name, first, last in emission_units(own_text):
+        if kind != "func" or not (first <= site_line <= last):
+            continue
+        hd = re.search(r"\b" + re.escape(name) + r"\s*\(", own_text.split("\n")[first - 1])
+        if not hd:
+            return [], ""
+        params = _top_args(own_text.split("\n")[first - 1], hd.end())
+        idx = next((k for k, pa in enumerate(params) if re.search(r"\b" + re.escape(ident) + r"\s*$", pa.strip())), None)
+        if idx is None:
+            return [], ""
+        lits = []
+        for c in re.finditer(r"\b" + re.escape(name) + r"\s*\(", own_text):
+            if own_text.count("\n", 0, c.start()) + 1 == first:
+                continue
+            args = _top_args(own_text, c.end())
+            if idx < len(args):
+                lits += LIT_RX.findall(args[idx])
+        return (sorted(set(lits)), f"parameter {ident} of {name}()") if lits else ([], "")
+    return [], ""
+
+
+def resolve_computed(expr, own_text, all_text, site_line=None):
     """(candidates, rule) for a computed call target the census has been told how to read; ([], "") otherwise"""
     e = _first_arg(expr).strip()
     m = re.match(r"([A-Za-z_]\w*)\s*\[", e)
@@ -464,6 +543,10 @@ def resolve_computed(expr, own_text, all_text):
             if len(ds) == 1:
                 return _chooser_literals_nested(all_text, ds[0].end() - 1), f"chooser {m.group(1)}(...) [extern, defined once in the set]"
     m = re.match(r"([A-Za-z_]\w*)\s*$", e)
+    if m and site_line is not None:
+        lits, rule = _param_literals(own_text, site_line, m.group(1))
+        if lits:
+            return lits, rule
     if m:
         for rv in SYM_RESOLVERS:
             if re.search(re.escape(rv) + r"\s*\([^;]*&\s*" + m.group(1) + r"\b", own_text):
@@ -491,10 +574,18 @@ def emitter_call_sites(files):
             m = CALL_RX.search(line)
             if not m:
                 continue
-            syms = SYM_RX.findall(m.group(1))
+            # the OWN arguments of every x86("call") on the line, never the chain of other x86() after them: a line may hold two
+            # calls as the arms of one ternary (bb_call_value.cpp:81 and :143 -- exclusive alternatives with one safe point), and
+            # both arms' targets are this site's candidates
+            parts = []
+            for mm in CALL_HEAD_RX.finditer(line):
+                _e = _call_close(line, mm)
+                parts.append(line[mm.end():_e] if _e is not None else line[mm.end():])
+            args = " , ".join(parts)
+            syms = SYM_RX.findall(args)
             rule = ""
             if not syms:
-                syms, rule = resolve_computed(m.group(1), text, joined)
+                syms, rule = resolve_computed(args, text, joined, site_line=i)
             sites.append((f, i, syms, lines, rule))
     return sites
 
@@ -1275,6 +1366,19 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
                     poll_abs = i + _k
                     break
         guard = _emitted_guard_skips_poll(lines, i, poll_abs) if poll_abs is not None else None
+        # ⛔ THE CALL'S OWN LINE, AFTER THE CALL (the coo 2026-10-03): every window starts on the NEXT line, so `x86("call", X) +
+        # x86_rt_gc_poll() + x86_omega()` written on one line read UNPOLLED though it emits call -> poll, and the same text split
+        # across lines read POLLED -- a reading that moved with layout. The text after the call's closing paren, cut at a later call
+        # on the line, is read first; a poll there with no x86("j..") before it is the call's safe point.
+        _m0 = CALL_RX.search(lines[i - 1])
+        _e0 = _call_close(lines[i - 1], _m0) if _m0 else None
+        own = lines[i - 1][_e0 + 1:] if _e0 is not None else ""
+        _n0 = CALL_RX.search(own)
+        if _n0 and not stop_poll_rx.search(own[_n0.start():]):
+            own = own[:_n0.start()]
+        own_hit = poll_rx.search(own)
+        if own_hit and not re.search(r'x86\(\s*"j', own[:own_hit.start()]):
+            hit, poll_abs, guard = own_hit, i - 1, None
         # ⛔ HOW MANY PATHS DOES THIS ONE SOURCE LINE EMIT?  A site inside a unit that expands more than once is
         # spliced into every one of those paths, and a poll in the shared body is not evidence that all of them
         # carry it.  See the block above emission_units for what this bound does and does not claim.
@@ -2095,6 +2199,34 @@ def selftest():
        "safe-points WINDOW IN x86 CALLS: one call, thirteen moves and a poll read POLLED both one-x86-per-line (14 lines) and two-per-line (7 lines)")
     ck(_sp_has(l4, allocating_call_sites=1, polled=0, unpolled=1),
        "safe-points WINDOW control: the legacy 12-LINE window reads the one-x86-per-line form UNPOLLED -- the move a whitespace-only reformat made")
+    # THE CALL'S OWN LINE, ITS OWN ARGUMENTS, AND A PARAMETER TARGET (the coo 2026-10-03, measured on bb_call_proc_staged.cpp:212 and
+    # bb_call_pl_leaf.cpp:72): a poll after the call on the call's own line is its safe point unless a jump stands between; the
+    # arguments of x86("call", ...) end at its own closing paren, so a computed target never borrows the mnemonics chained after it;
+    # a target that is a parameter of the enclosing function resolves to the literals its callers pass there; and the two arms of a
+    # ternary of calls on one line are both the site's candidates.
+    t_own = os.path.join(w, "own.cpp"); t_ownj = os.path.join(w, "ownj.cpp"); t_arg = os.path.join(w, "arg.cpp")
+    t_par = os.path.join(w, "par.cpp"); t_ter = os.path.join(w, "ter.cpp")
+    open(t_own, "w").write('std::string a(){\n    return x86("call", "rt_concat", fp) + x86_rt_gc_poll() + x86_omega();\n}\n')
+    open(t_ownj, "w").write('std::string a(){\n    return x86("call", "rt_concat", fp) + x86("je", L) + x86_rt_gc_poll();\n}\n')
+    open(t_arg, "w").write('std::string a(){\n    std::string s = x86("call", sym, fp) + x86("mov", "rt_concat", "rbx");\n    return s;\n}\n')
+    open(t_par, "w").write('static std::string h(const char * sym, void * fp) {\n    std::string s = x86("call", sym, fp) + x86_rt_gc_poll();\n'
+                           '    return s;\n}\nstd::string a(){ return h("rt_concat", fp) + h("rt_gcheap_alloc", fp); }\n')
+    open(t_ter, "w").write('std::string a(){\n    return (c ? x86("call", "rt_concat", fp) : x86("call", "rt_gcheap_alloc", fp))\n'
+                           '        + x86_rt_gc_poll();\n}\n')
+    o1 = []; o2 = []; o3 = []; o4 = []; o5 = []
+    census_safe_points("", [t_own], out=o1.append, allocating=alloc); census_safe_points("", [t_ownj], out=o2.append, allocating=alloc)
+    census_safe_points("", [t_arg], out=o3.append, allocating=alloc); census_safe_points("", [t_par], out=o4.append, allocating=alloc, list_polled=True)
+    census_safe_points("", [t_ter], out=o5.append, allocating=alloc, list_polled=True)
+    ck(_sp_has(o1, allocating_call_sites=1, polled=1, unpolled=0),
+       "safe-points OWN LINE: call + x86_rt_gc_poll() + omega on ONE line reads POLLED (bb_call_proc_staged.cpp's rt_ab_undef_fn_fail shape)")
+    ck(_sp_has(o2, allocating_call_sites=1, polled=0, unpolled=1),
+       "safe-points OWN LINE FAIL-ONCE: a jump between the call and the poll on the same line is not credited -- UNPOLLED")
+    ck(_sp_has(o3, allocating_call_sites=0, unresolved=1),
+       "safe-points OWN ARGUMENTS: x86(\"call\", sym, ...) chained with x86(\"mov\", \"rt_concat\", ...) is UNRESOLVED, never the mov's string")
+    ck(_sp_has(o4, allocating_call_sites=1, polled=1, unresolved=0) and any("parameter sym of h()" in x for x in o4),
+       "safe-points PARAMETER TARGET: a call on a parameter of its helper resolves to the literals the helper's callers pass there")
+    ck(_sp_has(o5, allocating_call_sites=1, polled=1) and any("rt_concat" in x and "rt_gcheap_alloc" in x for x in o5),
+       "safe-points TERNARY OF CALLS: both arms of a ternary of x86(\"call\") on one line are the site's candidates")
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc, poll_helper="gc_poll_here")
     ck(rc == 1, "safe-points: naming a poll helper does not excuse a call that has neither")
     tpl_gk = os.path.join(w, "greek.cpp")
