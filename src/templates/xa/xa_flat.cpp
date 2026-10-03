@@ -215,8 +215,9 @@ static std::string zf_pin_restore(int kt) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string zf_release(int kt) {
     if (!x86_fb_pinned()) return x86("add", "rsp", (long)kt);
-    return x86("comment", "PZ-4 PL-ZA-2: exact release off the pin, not off wherever rsp happens to be")
-         + x86("lea", "rsp", RDQ(x86_fb(), kt));
+    { int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
+      return x86("comment", "PZ-4 PL-ZA-2: exact release off the pin, not off wherever rsp happens to be; the block protocol releases the caller's argument block with the frame")
+           + x86("lea", "rsp", RDQ(x86_fb(), kt + 16 * np)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_pl_quad_seed(void *);
@@ -264,7 +265,17 @@ static std::string xa_flat_zframe_prologue_str(void) {
             : (emit_jmp_pin_legacy() ? (xa_flat_zanchor_poison() ? std::string() : x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rsp"))
                                 + std::string("")
                                : std::string()));
-    if (g_emit.flat_lex) {
+    if (x86_fb_pinned()) {
+        int zb = kt - 64;
+        s += x86("comment",
+            "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the arguments are the caller's block at [rbp+kt+16i], "
+                "never copied; the value region [0, kt-64) is zeroed inline so every mapped slot is a null DESCR at the first poll")
+           + (zb <= 128 ? FOR(0, zb / 8, [&](int q) { return x86("mov", RDQ("rsp", 8 * q), 0L); })
+                        : x86("mov", "rdi", "rsp")
+                        + x86("xor", "eax", "eax")
+                        + x86("mov32", "ecx", (long)(zb / 8))
+                        + x86("rep_stosq"));
+    } else if (g_emit.flat_lex) {
         extern int g_flat_dc_np;
         if (g_flat_dc_np >= 0) {
             if (kt > 48) {
@@ -390,7 +401,10 @@ static std::string xa_flat_wn_restore_str(int kt, const char * fname) {
 static std::string xa_flat_chain_prologue_str(const char * fname) {
     if (!xa_flat_class_c()) return std::string();
     {
-    static int _d = -1; if (_d < 0) { const char * e = getenv("SCRIP_CHAIN_DIAG"); _d = (e && *e == '1') ? 1 : 0; }
+    static int _d = -1; if (_d < 0) {
+    const char * e = getenv("SCRIP_CHAIN_DIAG");
+    _d = (e && *e == '1') ? 1 : 0;
+}
       if (_d) { extern int bb_emit_pos; fprintf(stderr, "[CHAINFRAME] pos=%d kt=%d text=%d jmp=%d pat=%d\n",
                                                 bb_emit_pos, g_emit.flat_frame_bytes, g_is_text ? 1 : 0, g_emit.flat_jmp_entry, g_emit.flat_pat); } }
     int kt = g_emit.flat_frame_bytes;

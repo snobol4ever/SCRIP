@@ -1989,16 +1989,18 @@ static void *pl_goal_body_conv_ball(DESCR_t goal, const char *key, int n) {
     return rt_pl_dop_goal_guard_c(&gg, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n) {
-    extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
-    char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0;
-    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) return (void *)0;
-    if (pl_goal_body_conv_ball(goal, key, n)) return (void *)0;
-    if (!pl_goal_key_live(key, sizeof key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key)) return (void *)0;
-    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(key) > 0) return (void *)0; }
-    rt_pl_goal_stage(kids, ar, argv, n);
-    if (!rt_proc_call_open(key, ar + n)) return (void *)0;
-    return rt_proc_fn(key);
+CVSPINE_t rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n, void **hslot) {
+    extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern int rt_proc_pinned(const char *name); extern void rt_proc_drop_frame_h(void **hslot);
+    char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0; CVSPINE_t no = { 0, 0 }; CVSPINE_t r;
+    if (hslot) rt_proc_drop_frame_h(hslot);
+    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) return no;
+    if (pl_goal_body_conv_ball(goal, key, n)) return no;
+    if (!pl_goal_key_live(key, sizeof key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key) || !rt_proc_pinned(key)) return no;
+    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(key) > 0) return no; }
+    r.act0 = (long)rt_pl_goal_stage(kids, ar, argv, n);
+    { extern int rt_k_level; rt_k_level++; }
+    r.fn = (long)(uintptr_t)rt_proc_fn(key);
+    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball) {

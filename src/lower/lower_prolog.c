@@ -1964,7 +1964,7 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
     cfg_sv = g_emit_cfg; g_emit_cfg = g;
     fa = g_frame_active; g_frame_active = 1;
     rfe_sv = g_rt_fragment_emit; g_rt_fragment_emit = 1;
-    rt_proc_set_generator(key, 1); rt_proc_set_jmpentry(key, 1); rt_proc_set_dyn_scope(key, 0);
+    rt_proc_set_generator(key, 1); rt_proc_set_jmpentry(key, 1); rt_proc_set_dyn_scope(key, 0); { extern void rt_proc_set_pinned(const char *, int); rt_proc_set_pinned(key, (g->zframe_pinned_base && g->zframe_graph && !g->icn_cells_graph) ? 1 : 0); }
     gpa_sv = g_gen_proc_active; g_gen_proc_active = 1;
     { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); g_flat_frame_floor = 0;
       if (g->entry && ((g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) || g->entry->op == IR_GOTO_DEFERRED)) {

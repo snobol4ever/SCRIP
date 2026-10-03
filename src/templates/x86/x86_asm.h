@@ -116,6 +116,12 @@ inline std::string x86_cqo() {
 inline std::string x86_rep_stosb() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b2(0xF3, 0xAA)) : x86_rec("rep") + "stosb\n";
 }
+inline std::string x86_rep_stosq() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b3(0xF3, 0x48, 0xAB)) : x86_rec("rep") + "stosq\n";
+}
+inline std::string x86_rep_movsq() {
+    return MEDIUM_BINARY ? x86_Lrec(x86_b3(0xF3, 0x48, 0xA5)) : x86_rec("rep") + "movsq\n";
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_xorps_xmm0() {
     return MEDIUM_BINARY ? x86_Lrec(x86_b3(0x0F, 0x57, 0xC0)) : x86_rec("xorps") + "xmm0, xmm0\n";
@@ -1588,6 +1594,8 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     if (X86_MEQ(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
     if (X86_MEQ(mnem, "cqo")) return x86_cqo();
     if (X86_MEQ(mnem, "rep_stosb")) return x86_rep_stosb();
+    if (X86_MEQ(mnem, "rep_stosq")) return x86_rep_stosq();
+    if (X86_MEQ(mnem, "rep_movsq")) return x86_rep_movsq();
     if (X86_MEQ(mnem, "def")) {
         if (a.kind == XK_PORT) return x86_deflabel(a.port);
         if (a.kind == XK_ILBL) return x86_deflabel_id(a.lbl);

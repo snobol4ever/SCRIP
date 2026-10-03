@@ -503,6 +503,7 @@ static void register_procs_all(stage2_t * s2) {
         { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
         { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
         { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
+        { extern void rt_proc_set_pinned(const char *, int); IR_graph_t *_pg2 = s2->bbp.table[idx]; rt_proc_set_pinned(pname, (_pg2 && _pg2->zframe_pinned_base && _pg2->zframe_graph && !_pg2->icn_cells_graph) ? 1 : 0); }
         { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
         { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
         { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
@@ -917,6 +918,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));
                 int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
                 int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
+                { IR_graph_t *_pg4 = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0; if (_pg4 && _pg4->zframe_pinned_base && _pg4->zframe_graph && !_pg4->icn_cells_graph) _rkflags |= 32; }
                 int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
                 emit_textf("  .section .rodata\n");
                 { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[1024]; x86_asm_str_escape_c(proc_names_buf[i], _esc, sizeof _esc);
@@ -1877,6 +1879,7 @@ int main(int argc, char **argv)
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
+        { extern void rt_proc_set_pinned(const char *, int); IR_graph_t *_pg2 = s2->bbp.table[idx]; rt_proc_set_pinned(pname, (_pg2 && _pg2->zframe_pinned_base && _pg2->zframe_graph && !_pg2->icn_cells_graph) ? 1 : 0); }
                 { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
                 { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
                 { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }

@@ -416,7 +416,7 @@ static inline __attribute__((always_inline)) void rt_lvl_retire(void) { rt_stno_
 #define PROC_FRAME_QWORDS 512
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
-    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; int stage_var; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; int redefined; int zstatic; int pnames_owned; int nformals;
+    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; int stage_var; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; unsigned int redefined : 16; unsigned int pinned : 16; int zstatic; int pnames_owned; int nformals;
 } rt_proc_t;
 static int rt_eval_stage_is_var(const char *name);
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
@@ -424,7 +424,7 @@ _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt
 _Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128, "RTX-1-PL: rtx_plcall.S baked PROC_DYN_SCOPE and the shl 7 index stride. THAT FILE IS GONE -- added ff6947e52, DELETED f3565287f 2026-08-13 (GLOBALS ERADICATED s55, whose own message says g_pcall* went REGARDLESS OF CONSUMERS). The offset is TRUE and NO LIVE ASM READS THIS TABLE: grep of src/runtime/rtx/*.s and *.inc for rt_proc_t or PROC_DYN_SCOPE returns nothing. Do not read this assert as evidence of an asm consumer. \u26d4 AND IT IS NOT THE C->BB DISPATCHER: rtx_plcall.S ported rt_proc_call_open_det, the PROLOG deterministic predicate-call open, and mentions rt_call_proc_descr ZERO times; the SNOBOL4 procedure dispatcher that carries the C->BB population was never ported (ceo CEO-1085, correcting CEO-1085a)");
 _Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48, "RTX-1-PL: rtx_plcall.S recorded this in its offset table and the fbytes computation was elided, not baked. THAT FILE WAS DELETED AT f3565287f -- no live consumer (ceo CEO-1085)");
 _Static_assert(__builtin_offsetof(rt_proc_t, byref_mask) == 40 && __builtin_offsetof(rt_proc_t, alpha_slot) == 36, "alpha_slot occupies the 4-byte alignment HOLE that already sat between decl_level and byref_mask -- it must not push any later field, or every baked offset above moves and rtx_call.s/rtx_plcall.s read the wrong words");
-__attribute__((visibility("hidden"))) rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
+rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
 __attribute__((visibility("hidden"))) int           g_rt_gen_proc_count = 0;
 static int           g_rt_gen_proc_cap = 0;
 static int          *g_proc_hsl = (int *)0;
@@ -781,6 +781,18 @@ long rt_fn_zstatic_known(void *fn)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_pinned(const char *name, int v)
+{
+    if (!name) return;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].pinned = v ? 1 : 0; if (v && g_rt_gen_procs[i].fn) { extern void rt_proc_seal_alpha(const char *, void *); rt_proc_seal_alpha(name, (void *)g_rt_gen_procs[i].fn); } return; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_pinned(const char *name)
+{
+    if (!name) return 0;
+    { int i = rt_proc_hash_lookup(name); return (i >= 0) ? g_rt_gen_procs[i].pinned : 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_generator(const char *name, int is_gen)
 {
     if (!name) return;
@@ -833,7 +845,7 @@ int rt_proc_is_generator(const char *name)
 void rt_proc_set_fn(const char *name, bb_box_fn fn)
 {
     if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].fn = fn; return; } }
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].fn = fn; if (g_rt_gen_procs[i].pinned && fn) { extern void rt_proc_seal_alpha(const char *, void *); rt_proc_seal_alpha(name, (void *)fn); } return; } }
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
@@ -906,7 +918,8 @@ DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn =
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_frame_prep(void *fb, long fbytes);
 void   *rt_proc_open_fn(void);
-DESCR_t rt_proc_enter(void *fn);
+DESCR_t rt_pl_enter(void *fn, long nargs);
+DESCR_t rt_proc_enter(void *fn, long nargs);
 DESCR_t rt_proc_enter_named(void *fn, long idx);
 DESCR_t rt_proc_enter_frag(void *fn, long idx);
 int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn);
@@ -1131,9 +1144,9 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
 #if RT_DIAG
-        if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn); }
+        if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L); }
 #else
-        if (p->jmp_entry) { return rt_proc_enter((void *)p->fn); }
+        if (p->jmp_entry) { return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L); }
 #endif
         core_runtime_error(287, "lexical procedure has no jmp_entry: the callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). It alloca'd the frame on the C STACK, called the box, and then chose omega-vs-gamma IN C via rt_proc_call_epilogue_ret -- runtime logic where the law requires BB logic. It cannot be converted to return-the-target because a C-stack frame cannot outlive a tail jump; the frame must come from the zeta-spine first. Traced ZERO times over 486 programs (336 snocone rungs + 150 snobol4 package), so this error is the row, not a regression.");
         return FAILDESCR;
@@ -1282,7 +1295,7 @@ __asm__(
 "  jmp rt_genp_entry_c\n"
 );
 static __thread rt_genp_s *g_genp_self = (rt_genp_s *)0;
-extern void rt_genp_spine_enter(void *fn);
+extern void rt_genp_spine_enter(void *fn, long nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_deliver_γ(DESCR_t v)
 {
@@ -1313,6 +1326,7 @@ uint64_t rt_genp_deliver_n2_γ(uint64_t H)
     return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_pinned(const char *name);
 void rt_genp_entry_c(rt_genp_s *g)
 {
     g_genp_self = g;
@@ -1322,7 +1336,7 @@ void rt_genp_entry_c(rt_genp_s *g)
 #if RT_DIAG
     rt_c2bb_hit(g->region_ft > 0 ? "genp.spine.n2" : "genp.spine", g->name);
 #endif
-    if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0); else rt_genp_spine_enter(g->fn);
+    if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0); else rt_genp_spine_enter(g->fn, rt_proc_pinned(g->name) ? (long)g->nargs : 0L);
     g->done = 2; scrip_cofail();
     for (;;) pause();
 }
@@ -1380,7 +1394,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 #if RT_DIAG
         rt_c2bb_hit("gen_h.enter", name);
 #endif
-        return rt_proc_enter((void *)p->fn);
+        return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L);
     }
     if (hout) rt_hslot_set(hout, (void *)0);
     core_runtime_error(287, "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, then delete the C code NOW'; CEO-1086 deleted the identical shape from rt_call_proc_descr; CEO-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile-time frame map describes). It alloca'd the frame on the C STACK, called p->fn through a member function pointer, and read the result back out of the C frame after the box returned -- so C survived the transition and the answer came back through C. It cannot become return-the-target while written that way: a C-stack frame cannot outlive a tail jump. TRACED ZERO IN ALL SEVEN LANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by the ceo's own SnoRungs sweep; the 1039 transitions those control arms did raise were all genp.spine.n2, the sanctioned coroutine start. Reachability is ALSO analytic: this arm needs fn set AND jmp_entry clear, and jmp_entry is cleared only for a caller_frame graph or a gram__ name, and gram__ procedures are never registered at all. This error is the row, not a regression.");
@@ -1686,6 +1700,7 @@ __asm__(
 "  movl %r15d, 4(%rsp)\n"
 "  movq %r13, 8(%rsp)\n"
 "  movq %rdi, %rax\n"
+"  movq %rsi, %r9\n"
 "  leaq 2f(%rip), %rcx\n"
 "  leaq 3f(%rip), %rdx\n"
 "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
@@ -1702,6 +1717,24 @@ __asm__(
 "  pushq %rdx\n"
 "  pushq %rcx\n"
 RT_ACT_RECORD_ASM
+"  testq %r9, %r9\n"
+"  jz 6f\n"
+"  movq %r9, %rcx\n"
+"  shlq $4, %rcx\n"
+"  subq %rcx, %rsp\n"
+"  pushq %rcx\n"
+"  pushq %rdi\n"
+"  pushq %rsi\n"
+"  leaq 24(%rsp), %rdi\n"
+"  movq g_call_args@GOTPCREL(%rip), %rsi\n"
+"  movq (%rsi), %rsi\n"
+"  shrq $3, %rcx\n"
+"  rep movsq\n"
+"  popq %rsi\n"
+"  popq %rdi\n"
+"  popq %rcx\n"
+"  leaq 2f(%rip), %rcx\n"
+"6:\n"
 "  jmp *%rax\n"
 "2:\n"
 "  addq $16, %rsp\n"
@@ -1724,7 +1757,7 @@ RT_ACT_RECORD_ASM
 "  popq %rbx\n"
 "  jmp rt_proc_call_epilogue_ω\n"
 );
-DESCR_t rt_proc_enter(void *fn);
+DESCR_t rt_proc_enter(void *fn, long nargs);
 __asm__(
 ".text\n"
 ".globl rt_proc_enter_named\n"
@@ -1869,7 +1902,7 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
 #if RT_DIAG
         rt_c2bb_hit("c_lex.enter", p->name);
 #endif
-        return rt_proc_enter((void *)p->fn);
+        return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L);
     }
     (void)rt_proc_call_prologue_lex(&p, nargs, wn);
     core_runtime_error(287, "named lexical procedure has no jmp_entry: the c_lex callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). Identical shape to the descr.callregime.lex arm deleted above -- alloca the frame on the C STACK, call the box, then choose omega-vs-gamma IN C through rt_proc_call_epilogue_ret. Both halves are forbidden: C survives the transition, and the port selection is runtime logic where the law requires BB logic.");
@@ -2014,7 +2047,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
 #if RT_DIAG
     rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
 #endif
-    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
+    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn, 0L) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name)
@@ -2277,4 +2310,5 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r)
     rt_proc_set_jmpentry(r->name, (r->flags >> 4) & 1);
     if (r->dcfn) rt_proc_set_dcfn(r->name, r->dcfn);
     if (r->flags & 8) rt_proc_set_generator(r->name, 1);
+    if (r->flags & 32) rt_proc_set_pinned(r->name, 1);
 }

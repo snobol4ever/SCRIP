@@ -9,6 +9,8 @@ extern const char * bb_op_name(IR_e k);
 extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
+int zls_g_block_args(const IR_graph_t * g);
+int zls_g_frame_bytes(const IR_graph_t * g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
 #define FL_FC_SYNTH    0x7F000
@@ -515,14 +517,15 @@ void zls_build(IR_graph_t * g) {
       ct_drop(hk); ct_drop(hv); ct_drop(wl); }
     int s0 = (g->nparams > 0 || g->resumable_callable) ? 1 : 0;
     for (int i = 0; !s0 && i < g->n; i++) if (g->all[i] && rb[i] && (g->all[i]->op == IR_RETURN || g->all[i]->op == IR_SUSPEND)) s0 = 1;
-    int base = s0 ? 16 + (g->nparams > 0 ? g->nparams * 16 : 0) : 0;
+    int blk = zls_g_block_args(g);
+    int base = s0 ? 16 + ((g->nparams > 0 && !blk) ? g->nparams * 16 : 0) : 0;
     if (s0) zls_field(root, 0, 16, ZK_DESCR, 0, "return value (IR_RETURN stores the graph result DESCR at frame +0 and the graph gamma loads it into rdi:rsi; zeroed by the prologue, a valid null DESCR until then)", (const IR_t *)0);
     int k = 0;
     r->first_vslot = zv_n;
     for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) {
         cv_reserve(&zv_v, (uint32_t)sizeof(zls_vslot_t), (uint64_t)zv_n + 1, "zv");
-        zv[zv_n++] = (zls_vslot_t){ g->pnames[i], 16 + i * 16 }; r->n_vslots++;
-        zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
+        zv[zv_n++] = (zls_vslot_t){ g->pnames[i], blk ? -1 : 16 + i * 16 }; r->n_vslots++;
+        if (!blk) zls_field(root, 16 + i * 16, 16, ZK_DESCR, 0, "param", (const IR_t *)0);
     }
     int cur = 0;
     { static int eon = -1; if (eon < 0) { const char * e = getenv("SCRIP_SLOT_ELIDE"); eon = (e && *e == '0') ? 0 : 1; }
@@ -635,6 +638,7 @@ void zls_build(IR_graph_t * g) {
     }
     r->nslots = k;
     r->region = base + k * 16;
+    if (blk) { int kt = zls_g_frame_bytes(g), j = r->first_vslot; for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) zv[j++].off = kt + i * 16; }
     for (int f = 0; f < zf_n; f++) {
         int sid = zf[f].scope_id;
         if (sid < root || sid >= zs_n) continue;
@@ -851,6 +855,12 @@ int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
+int zls_g_block_args(const IR_graph_t * g) { return (g && g->zframe_pinned_base && g->zframe_graph && !g->icn_cells_graph) ? 1 : 0; }
+int zls_g_frame_bytes(const IR_graph_t * g) {
+    zls_graph_t * r = zls_g_find(g); int region = r ? r->region : 0;
+    int allowance = zls_g_block_args(g) ? (g->root_graph ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE;
+    return (allowance + region + (g ? 8 * g->standing_cells : 0) + 15) & ~15;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_forget_graph_nodes(const IR_graph_t * g) {
     if (!g) return;
