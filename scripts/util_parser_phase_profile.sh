@@ -9,7 +9,7 @@
 #
 # THE CHAIN AND THE LIST ARE THE GRID'S: bootstrap/<chain> + parser_<lang>.sc compiled once to a mode-4 binary (a language named
 # in PHASE_VIA_TRANSPILE, default raku, compiles the transpiled chain as the grid does), run over every corpus program of the
-# language less each file that ends SCRIP's own run (the grid's scan, SCRIP's arm only), -s2000m -d8000m -i64m, SCRIP_DIAG=0,
+# language less each file that ends SCRIP's own run (the grid's scan, SCRIP's arm only), at the chain's declared heap and stack (bootstrap/parser_<lang>.heap, .stack -- the grid's own since CEO-1485; CRITERION CHANGED 2026-10-03, earlier profiles ran -s2000m -d8000m -i64m), SCRIP_DIAG=0,
 # PARSER_TREE_HASH=1. PHASE_FILES=<n> keeps the first n files of the list (default all).
 # ⛔ THE BOX IS SHARED: CALLGRIND RUNS WITH --pop-on-jump=* AND UNDER A WATCHDOG. Measured 2026-09-30 (the coo's own mistake): a
 # box's jump to a function's first instruction is a CALL to callgrind, and box-to-box jumps run at one rsp, so its call stack never
@@ -59,7 +59,8 @@ command -v valgrind > /dev/null || refuse "no valgrind on PATH -- the profile is
 [ -f /usr/include/valgrind/callgrind.h ] || refuse "no valgrind/callgrind.h -- the shim's toggle is a callgrind client request"
 B="$W/bootstrap"; CHAIN="global.sc case.sc assign.sc match.sc counter.sc stack.sc tree.sc ShiftReduce.sc tdump.sc gen.sc qize.sc semantic.sc omega.sc trace.sc"
 for f in $CHAIN; do [ -f "$B/$f" ] || refuse "chain file missing: $B/$f"; done
-SW="-s2000m -d8000m -i64m"; MAXRSS="${PHASE_MAX_RSS_MB:-4096}"; TMO="${PHASE_TIMEOUT:-3600}"; TMO1="${PHASE_ONE_TIMEOUT:-60}"; VIA=" ${PHASE_VIA_TRANSPILE-raku} "; TOPN="${PHASE_TOPN:-8}"; export SCRIP_DIAG=0
+. "$HERE/lib_declared_arena.sh" || { echo "REFUSE(2): cannot load lib_declared_arena.sh"; exit 2; }
+SW=""; MAXRSS="${PHASE_MAX_RSS_MB:-4096}"; TMO="${PHASE_TIMEOUT:-3600}"; TMO1="${PHASE_ONE_TIMEOUT:-60}"; VIA=" ${PHASE_VIA_TRANSPILE-raku} "; TOPN="${PHASE_TOPN:-8}"; export SCRIP_DIAG=0
 bi() { env -u RT_OPT make -s -C "$W" ${1:+"RT_OPT=$1"} buildinfo 2>/dev/null | sed -n "s/^$2 *: *//p" | sed 's/ *$//'; }
 lt="$(readlink "$W/out/libscrip_rt.so" | sed -n 's/^libscrip_rt-\([0-9a-f]*\)\.so$/\1/p')"
 [ -n "$lt" ] || refuse "$W/out/libscrip_rt.so names no tagged runtime -- make"
@@ -139,6 +140,7 @@ phase() { awk -v p="$2" '$1 == "PHASE" && $2 == p { print $3 }' "$1"; }
 PLANTED=""
 for L in $LANGS; do
     ext="${EXT[$L]:-}"; [ -n "$ext" ] || { echo "$L ⛔ REFUSE(2): not a parser language (${!EXT[*]})"; RC=2; continue; }
+    SW="$(declared_switches_beside "$B/parser_$L.sc")" && [ -n "$SW" ] || { echo "$L ⛔ REFUSE(2): bootstrap/parser_$L.sc declares no heap or stack, or the declaration is refused"; RC=2; continue; }
     grep -q "PARSER_FILES" "$B/parser_$L.sc" 2>/dev/null || { echo "$L ⛔ REFUSE(2): bootstrap/parser_$L.sc reads no PARSER_FILES list"; RC=2; continue; }
     : > "$T/$L.sc"; : > "$T/$L.map"; n=0
     for f in $CHAIN parser_$L.sc; do k=$(wc -l < "$B/$f"); echo "range $f $((n + 1)) $((n + k))" >> "$T/$L.map"; n=$((n + k)); cat "$B/$f" >> "$T/$L.sc"; done

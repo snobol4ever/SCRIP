@@ -49,11 +49,18 @@ TOL="${TOL_PCT:-15}"
 BUDGET_MS="${BUDGET_MS:-3000}"
 REPS_A2="${REPS_A2:-5}"
 ENGINES="${ENGINES:-sbl m3 m4}"
-NOHUGE="${SCRIP_NOHUGE:-1}"; HEAP="${SCRIP_HEAP_MB:-4096}"
+NOHUGE="${SCRIP_NOHUGE:-1}"
 OUT=""; CHECK_SHAPE=0
 while [ $# -gt 0 ]; do case "$1" in --check-shape) CHECK_SHAPE=1;; --out) OUT="$2"; shift;; esac; shift; done
 
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority (s200)." >&2; exit 2; }
+# ⛔ NO SIZE IS TYPED HERE (ceo CEO-1485 over the equal-arena arm, RULES.md clause 8 (g)(3)-(4)): each engine runs at its own shipped defaults
+# plus the PROGRAM's declaration, measured at its DEMO-SCALE.tsv scale -- its <stem>.oracle_args on sbl, its <stem>.heap/.stack as SCRIP's
+# -d/-s in both modes -- read once per row by lib_declared_arena.sh; the window is never typed. CRITERION CHANGED 2026-10-03: readings
+# before ran DEMO-SCALE.tsv's sbl_extra_flags (-d512m -i64m -s256m, now retired) on sbl, its -s as ulimit -s on all three engines, and
+# SCRIP under SCRIP_HEAP_MB=4096, a 4 GB WINDOW.
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED: cannot load lib_declared_arena.sh -- the one reader of a declared size." >&2; exit 2; }
+SWD=""; OAD=""
 . "$HERE/lib_perf_fmt.sh"    2>/dev/null || { echo "⛔ REFUSED: cannot load lib_perf_fmt.sh -- the ONE authority for printing a multiple (s266)." >&2; exit 2; }
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED: scrip not built ($SCRIP) -- a table printed without it would be plausible and false." >&2; exit 2; }
 SBL="$(sbl_clean_bin)" || { echo "⛔ REFUSED: clean SPITBOL benchmark oracle missing or not -bf-capable." >&2; exit 2; }
@@ -75,29 +82,17 @@ scaled_input() {                       # $1=name $2=srcfile $3=scale ; echoes pa
   if [ "$3" = 1 ]; then ln -sf "$2" "$f"; else local i; for ((i=0;i<$3;i++)); do cat "$2"; done > "$f"; fi
   echo "$f"
 }
-# ---- oracle's -sNNNsuffix (parse_mem_arg semantics, src/driver/scrip.c:428) -> ulimit -s KB ----
-stack_kb_from_sf() {                   # $1=sblflags e.g. "-d512m -i64m -s256m" ; echoes KB or ""
-  local tok val=""
-  for tok in $1; do case "$tok" in -s*) val="${tok#-s}";; esac; done
-  case "$val" in
-    '') ;;
-    *[kK]) echo "${val%[kK]}" ;;
-    *[mM]) echo $(( ${val%[mM]} * 1024 )) ;;
-    *)     echo $(( val / 1024 )) ;;
-  esac
-}
 # ---- ONE run. echoes: cpu_ms elapsed_ms inblock oublock rc <TAB> output-digest ----------------
 run1() {                               # $1=engine $2=prog $3=input $4=stem $5=sblflags
-  local eng="$1" prog="$2" in="$3" stem="$4" sf="$5" out rl u s el ib ob rc
-  local stkkb; stkkb=$(stack_kb_from_sf "$sf")  # ⛔ same -s the oracle gets, on all 3 arms -- m4 has
-  case "$eng" in                                #   no driver to hand a CLI flag to, so ulimit covers it
-    sbl) out=$([ -n "$stkkb" ] && ulimit -s "$stkkb"; "$WRAP" timeout 300 "$SBL" $(sbl_lang_flags) $sf "$prog" <"$in" 2>"$W/e.err") ;;
-    m3)  out=$([ -n "$stkkb" ] && ulimit -s "$stkkb"; SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 300 "$SCRIP" --run "$prog" <"$in" 2>"$W/e.err") ;;
+  local eng="$1" prog="$2" in="$3" stem="$4" out rl u s el ib ob rc
+  case "$eng" in                       # SWD and OAD: the row's program's declaration, read once per row
+    sbl) out=$("$WRAP" timeout 300 "$SBL" $(sbl_lang_flags) $OAD "$prog" <"$in" 2>"$W/e.err") ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 300 "$SCRIP" --run $SWD "$prog" <"$in" 2>"$W/e.err") ;;
     m4)  [ -x "$W/$stem.prog" ] || {
            "$SCRIP" --compile "$prog" > "$W/$stem.s" 2>/dev/null
            [ -s "$W/$stem.s" ] && gcc -no-pie "$W/$stem.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$W/$stem.prog" 2>/dev/null \
              || { echo "- - - - BUILD-ERR	BUILD-ERR"; return; }; }
-         out=$([ -n "$stkkb" ] && ulimit -s "$stkkb"; SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 300 "$W/$stem.prog" <"$in" 2>"$W/e.err") ;;
+         out=$(SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 300 "$W/$stem.prog" $SWD <"$in" 2>"$W/e.err") ;;
   esac
   rl=$(grep '^BENCH_RUSAGE:' "$W/e.err" | tail -1)
   [ -n "$rl" ] || { echo "- - - - CRASH	CRASH"; return; }
@@ -112,10 +107,10 @@ run1() {                               # $1=engine $2=prog $3=input $4=stem $5=s
 }
 # ---- ANGLE 1: fixed TIME budget, count completed runs ----------------------------------------
 angle1() {                             # echoes: runs_per_s runs cpu_ms_total digest
-  local eng="$1" prog="$2" in="$3" stem="$4" sf="$5" t0 now n=0 cpu=0 dg="" r
+  local eng="$1" prog="$2" in="$3" stem="$4" t0 now n=0 cpu=0 dg="" r
   t0=$(date +%s%N)
   while :; do
-    r=$(run1 "$eng" "$prog" "$in" "$stem" "$sf"); local c; c=$(awk '{print $1}' <<<"$r")
+    r=$(run1 "$eng" "$prog" "$in" "$stem"); local c; c=$(awk '{print $1}' <<<"$r")
     [ "$c" = "-" ] && { echo "- 0 - $(cut -f2 <<<"$r")"; return; }
     n=$((n+1)); cpu=$(awk -v a="$cpu" -v b="$c" 'BEGIN{print a+b}'); dg=$(cut -f2 <<<"$r")
     now=$(date +%s%N); [ $(( (now-t0)/1000000 )) -ge "$BUDGET_MS" ] && break
@@ -124,9 +119,9 @@ angle1() {                             # echoes: runs_per_s runs cpu_ms_total di
 }
 # ---- ANGLE 2: fixed RUN count, measure total CPU ----------------------------------------------
 angle2() {                             # echoes: runs_per_s runs cpu_ms_total digest ib ob el
-  local eng="$1" prog="$2" in="$3" stem="$4" sf="$5" i n=0 cpu=0 dg="" ib=0 ob=0 el=0 r
+  local eng="$1" prog="$2" in="$3" stem="$4" i n=0 cpu=0 dg="" ib=0 ob=0 el=0 r
   for ((i=0;i<REPS_A2;i++)); do
-    r=$(run1 "$eng" "$prog" "$in" "$stem" "$sf"); local c; c=$(awk '{print $1}' <<<"$r")
+    r=$(run1 "$eng" "$prog" "$in" "$stem"); local c; c=$(awk '{print $1}' <<<"$r")
     [ "$c" = "-" ] && { echo "- 0 - $(cut -f2 <<<"$r") 0 0 0"; return; }
     n=$((n+1)); cpu=$(awk -v a="$cpu" -v b="$c" 'BEGIN{print a+b}')
     el=$(awk -v a="$el" -v b="$(awk '{print $2}' <<<"$r")" 'BEGIN{print a+b}')
@@ -141,7 +136,7 @@ echo "THREE-ANGLE DEMO TRIANGULATION -- SNOBOL4 demo programs"
 echo "⛔ BASIS: one iteration = ONE WHOLE PROGRAM RUN. Every number is a TOTAL carrying process"
 echo "   startup AND compile -- NOT a kernel slope. Never share a column with benchmarks/snobol4."
 echo "instrument: tools/bench_rusage external cpu(user+sys); engines: $ENGINES; budget(a1)=${BUDGET_MS}ms; reps(a2)=$REPS_A2; tol=${TOL}%"
-echo "oracle: $SBL $(sbl_lang_flags) (+per-row size flags from DEMO-SCALE.tsv); RT_OPT=-O0; ulimit -s matched across sbl/m3/m4 per row"
+echo "oracle: $SBL $(sbl_lang_flags); RT_OPT=-O0; sizes: each program's own .oracle_args (sbl) and .heap/.stack (SCRIP -d/-s) over each engine's defaults -- CRITERION CHANGED 2026-10-03 (CEO-1485): earlier readings ran sbl -d512m -i64m -s256m, ulimit -s 262144 on all three engines and a 4 GB SCRIP window"
 echo "trees: SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)  corpus $(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)"
 # ⛔ THE GRID OPENS HERE so no multiple below can print without the load it ran under, and so a cell that
 # REFUSES is counted in THIS shell (perf_row is called directly, never inside $( ) -- arm G of the dark-cell gate).
@@ -154,16 +149,17 @@ printf '# demo-triangulation -- basis=WHOLE-PROGRAM-RUN (total, incl startup+com
 printf 'demo\tengine\tscale\ta1_runs_per_s\ta1_runs\ta2_runs_per_s\ta2_runs\ta2_cpu_ms_mean\tratio\tverdict\tinblock\toublock\tanswer_digest\n' >> "$OUT"
 
 RC=0; ROWS=0
-while IFS=$'\t' read -r fam prog input scale sf note; do
+while IFS=$'\t' read -r fam prog input scale _retired note; do   # column 5 (sbl_extra_flags) is retired, "declared"
   case "$fam" in ''|\#*) continue;; esac
   [ -n "${DEMOS:-}" ] && ! grep -qw "$fam" <<<"$DEMOS" && continue
   [ "$CHECK_SHAPE" = 1 ] && [ "$ROWS" -ge 1 ] && break
   P="$D/$prog"; SRC="$D/$input"
   [ -f "$P" ] && [ -f "$SRC" ] || { echo "⛔ UNPROVEN $fam -- missing program or input ($prog / $input); NAMED, not dropped."; RC=1; continue; }
   IN="$(scaled_input "$fam" "$SRC" "$scale")"
+  SWD="$(declared_switches_beside "$P")" && OAD="$(declared_oracle_args_beside "$P")" || { echo "⛔ UNPROVEN $fam -- its declared sizes are refused (named above); NAMED, not dropped."; RC=1; continue; }
   declare -A A1 A2 DG CPU IB OB
   for e in $ENGINES; do
-    r1=$(angle1 "$e" "$P" "$IN" "$fam" "$sf"); r2=$(angle2 "$e" "$P" "$IN" "$fam" "$sf")
+    r1=$(angle1 "$e" "$P" "$IN" "$fam"); r2=$(angle2 "$e" "$P" "$IN" "$fam")
     A1[$e]=$(awk '{print $1}' <<<"$r1"); A2[$e]=$(awk '{print $1}' <<<"$r2")
     DG[$e]=$(awk '{print $4}' <<<"$r2"); CPU[$e]=$(awk -v c="$(awk '{print $3}' <<<"$r2")" -v n="$(awk '{print $2}' <<<"$r2")" 'BEGIN{print (n>0)?c/n:0}')
     IB[$e]=$(awk '{print $5}' <<<"$r2"); OB[$e]=$(awk '{print $6}' <<<"$r2")

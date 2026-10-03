@@ -41,11 +41,18 @@ TARGET_MS="${TARGET_MS:-800}"     # bracket window we ramp toward
 TOL="${TOL:-8}"                   # % convergence tolerance between successive ramp steps
 MAXREPS="${MAXREPS:-4000000}"
 ENGINES="${ENGINES:-sbl m3 m4}"
-NOHUGE="${NOHUGE:-1}"; HEAP="${HEAP:-4096}"
+NOHUGE="${NOHUGE:-1}"
 STATIC="${STATIC:-0}"    # row m4-static-link-arm: opt-in m4 link arm, out/libscrip_rt.so stays canonical
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "⛔ REFUSING: cannot load lib_oracle_flags.sh -- the ONE oracle-flag authority. A private fallback would time a DIFFERENT LANGUAGE (s189: -bf is the only correct arm)." >&2; exit 3; }
 . "$HERE/lib_static_link_snobol4.sh" 2>/dev/null || { echo "⛔ REFUSING: cannot load lib_static_link_snobol4.sh -- the ONE static-link-arm authority." >&2; exit 3; }
-SBL="${SBL:-$(sbl_clean_bin)}"; SF="${SBLFLAGS:--d512m -i64m -s256m}"
+SBL="${SBL:-$(sbl_clean_bin)}"
+# ⛔ NO SIZE IS TYPED HERE (ceo CEO-1485, ruling RULES.md clause 8 (g)(4) over the equal-arena arm): each engine runs at its own shipped
+# defaults plus the PROGRAM's declaration -- SCRIP its .heap/.stack as -d/-s switches, sbl its .oracle_args -- read by lib_declared_arena.sh,
+# and the window is never typed. CRITERION CHANGED 2026-10-03: every reading before ran sbl -d512m -i64m -s256m and SCRIP under
+# SCRIP_HEAP_MB=4096, a 4 GB WINDOW (the collector never ran); the header line says so beside every reading from here on.
+. "$HERE/lib_declared_arena.sh" || { echo "⛔ REFUSING: cannot load lib_declared_arena.sh -- the one reader of a declared size" >&2; exit 3; }
+decl_of() { SWD="$(declared_switches_beside "$1")" && OAD="$(declared_oracle_args_beside "$1")"; }   # sets SWD (scrip) and OAD (sbl) from $1's sidecars
+SWD=""; OAD=""
 [ -x "$SCRIP" ] || { echo "⛔ REFUSING: scrip not built at $SCRIP" >&2; exit 3; }
 [ -x "$SBL" ]   || { echo "⛔ REFUSING: clean bench oracle missing at $SBL" >&2; exit 3; }
 [ -f "$MK" ]    || { echo "⛔ REFUSING: fixture generator missing at $MK" >&2; exit 3; }
@@ -75,11 +82,11 @@ brk() {  # $1=engine $2=variant.sno $3=input $4=reps $5=stem
   local eng="$2x" v="$2" in="$3" r="$4" stem="$5" out ns
   : > "$W/$stem.err"
   case "$1" in
-    sbl) out=$(timeout 600 "$SBL" $(sbl_lang_flags) $SF "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
-    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$SCRIP" "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
+    sbl) out=$(timeout 600 "$SBL" $(sbl_lang_flags) $OAD "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
+    m3)  out=$(SCRIP_NOHUGE="$NOHUGE" timeout 600 "$SCRIP" $SWD "$v" < "$in" 2>"$W/$stem.err" | tail -1) ;;
     m4)  [ -x "$W/$stem.bin" ] || m4_build "$v" "$W/$stem.bin" "$W/$stem"
          [ -x "$W/$stem.bin" ] || { echo ""; return; }
-         out=$(SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" timeout 600 "$W/$stem.bin" < "$in" 2>"$W/$stem.err" | tail -1) ;;
+         out=$(SCRIP_NOHUGE="$NOHUGE" timeout 600 "$W/$stem.bin" $SWD < "$in" 2>"$W/$stem.err" | tail -1) ;;
   esac
   ns=$(grep -oE 'TIME_ns=[0-9]+' "$W/$stem.err" 2>/dev/null | tail -1 | cut -d= -f2)
   case "$ns" in ''|*[!0-9]*) echo ""; return;; esac
@@ -89,6 +96,7 @@ brk() {  # $1=engine $2=variant.sno $3=input $4=reps $5=stem
 # ---- ASPECT 2 with convergence ramp ---------------------------------------------------------------
 aspect2() {  # $1=engine $2=prog $3=input $4=fam ; echoes "per_match_ns reps answer" or REFUSE reason
   local eng="$1" prog="$2" in="$3" fam="$4" r=1 prev="" cur="" ans="" v tot
+  decl_of "$prog" || { echo "REFUSE the program's declared sizes are refused"; return; }   # the variants run at the ORIGINAL's declaration
   while [ "$r" -le "$MAXREPS" ]; do
     v="$W/$fam.$eng.$r.sno"
     # ⛔ the bracket path MUST use the same reps-keyed stem brk() reads, or the generator writes one file
@@ -124,6 +132,7 @@ if [ "${1:-}" = "--selftest" ]; then
   # primitive works does not require spending the ramp's wall-clock budget on every selftest run.
   st_v="$W/selftest_pos.m3.8.sno"
   if python3 "$MK" "$D/calculator/calculator-1-match.sno" "$st_v" "$W/selftest_pos.brk" 8 >/dev/null 2>&1; then
+    decl_of "$D/calculator/calculator-1-match.sno" || st_ok=0   # brk() runs at the ORIGINAL's declaration, as aspect2() sets it
     st_res=$(brk m3 "$st_v" "$D/calculator/calculator.input" 8 "selftest_pos.m3.8")
     if [ -n "$st_res" ]; then
       echo "  PASS measures-a-real-demo (per-rep-ns + answer: $st_res)"
@@ -150,13 +159,14 @@ if [ "${1:-}" = "--selftest" ]; then
 fi
 printf '%s\n' "=== TWO-ASPECT tier-1 demo board (Lon's presentation law) ===" \
   "  ASPECT 1 = whole process, external elapsed, COMPILE INCLUDED   |  ASPECT 2 = in-program bracket, MATCH ONLY" \
-  "  oracle=$(basename "$(dirname "$SBL")")/$(basename "$SBL") -bf $SF | RT_OPT=-O0 | NOHUGE=$NOHUGE HEAP=${HEAP}MB | reps RAMPED to convergence (tol ${TOL}%) | m4 link=$([ "$STATIC" = 1 ] && echo STATIC || echo shared)" \
+  "  oracle=$(basename "$(dirname "$SBL")")/$(basename "$SBL") -bf | RT_OPT=-O0 | NOHUGE=$NOHUGE | sizes: each program's own .heap/.stack (scrip) and .oracle_args (sbl) over each engine's defaults -- CRITERION CHANGED 2026-10-03 (CEO-1485), earlier readings ran one typed equal arena and a 4 GB SCRIP window (this file's header) | reps RAMPED to convergence (tol ${TOL}%) | m4 link=$([ "$STATIC" = 1 ] && echo STATIC || echo shared)" \
   "  ⛔ aspect 1 is a TOTAL and aspect 2 is a SLOPE -- per the FACT RULE they may never share a column."
 printf '%-26s %-4s %12s %14s %8s %10s\n' demo eng "A1_total_ms" "A2_TIME_ns" "reps" "A2_mult"
 while IFS=$'\t' read -r fam prog inp; do
   case "$fam" in ''|\#*) continue;; esac
   P="$D/$prog"; IN="$D/$inp"
   [ -f "$P" ] && [ -f "$IN" ] || { echo "⛔ REFUSE $fam -- missing program or input ($prog / $inp); NAMED, not dropped."; RC=1; continue; }
+  decl_of "$P" || { echo "⛔ REFUSE $fam -- its declared sizes are refused (named above); NAMED, not dropped."; RC=1; continue; }
   declare -A A2 ANS
   for e in $ENGINES; do
     # ASPECT 1: the ORIGINAL program, whole process, best of 3, via tools/bench_rusage.
@@ -167,11 +177,11 @@ while IFS=$'\t' read -r fam prog inp; do
     b=""
     for i in 1 2 3; do
       case "$e" in
-        sbl) "$WRAP" timeout 600 "$SBL" $(sbl_lang_flags) $SF "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
-        m3)  SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 600 "$SCRIP" "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
+        sbl) "$WRAP" timeout 600 "$SBL" $(sbl_lang_flags) $OAD "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
+        m3)  SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 600 "$SCRIP" $SWD "$P" < "$IN" >/dev/null 2>"$W/ru" ;;
         m4)  [ -x "$W/$fam.a1.bin" ] || m4_build "$P" "$W/$fam.a1.bin" "$W/$fam.a1"
              [ -x "$W/$fam.a1.bin" ] || continue
-             SCRIP_NOHUGE="$NOHUGE" SCRIP_HEAP_MB="$HEAP" "$WRAP" timeout 600 "$W/$fam.a1.bin" < "$IN" >/dev/null 2>"$W/ru" ;;
+             SCRIP_NOHUGE="$NOHUGE" "$WRAP" timeout 600 "$W/$fam.a1.bin" $SWD < "$IN" >/dev/null 2>"$W/ru" ;;
       esac
       t=$(grep -oE 'elapsed_ns=[0-9]+' "$W/ru" 2>/dev/null | tail -1 | cut -d= -f2)
       case "$t" in ''|*[!0-9]*) continue;; esac

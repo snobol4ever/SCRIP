@@ -8,8 +8,10 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 #                       directory, so never a board (CEO-547) and no row is written -- BENCH_ORACLE_ARM=1, BAR_BUD_MS (500) per point, BAR_ITER_N (3)
 #                       iterations, both engines at SPITBOL's own defaults (-d128m -i1m -s4m, CEO-1261). The multiple is the harness's own two
 #                       time-twin readings, sbl and m4, taken in the same run.
-#   demo D BAR          D's whole program on the README's input scale, best of BAR_REPS (3) elapsed under tools/bench_rusage, BAR_SW
-#                       ("-d512m -i64m -s256m") on sbl -bf and on the mode-4 binary alike (RULES.md hard-cap rule clause 8(e)); stdout must be
+#   demo D BAR          D's whole program on the README's input scale, best of BAR_REPS (3) elapsed under tools/bench_rusage, each engine at
+#                       its own defaults plus the DEMO's declaration -- its .oracle_args on sbl -bf, its .heap/.stack as the mode-4 binary's
+#                       -d/-s (ceo CEO-1485, RULES.md clause 8 (g)(4); CRITERION CHANGED 2026-10-03: readings before ran BAR_SW
+#                       "-d512m -i64m -s256m" on both under ulimit -s 262144, the equal-arena arm the law overtook); stdout must be
 #                       byte-identical on both engines or the run REFUSES -- a speed number over a wrong answer is not a number.
 #
 # EXIT 0 at or above the bar (GREEN), 1 below it (RED, the row is open), 2 REFUSED (no binary, no oracle, no twin printed, outputs differ).
@@ -39,7 +41,8 @@ case "$KIND" in
     awk -v s="$s" -v m="$m" 'BEGIN{split(s,a," "); split(m,b," "); printf "kernel %s: SPITBOL %.2f us/rep, m4 %.2f us/rep (fixed-time twins, %s ms points)\n", "'"$NAME"'", a[1]/a[2]/1000, b[1]/b[2]/1000, "'"${BAR_BUD_MS:-500}"'"}'
     verdict "$x" "kernel $NAME" ;;
   demo)
-    D="$S4E/corpus/demos/snobol4"; SW="${BAR_SW:--d512m -i64m -s256m}"
+    D="$S4E/corpus/demos/snobol4"
+    . "$HERE/lib_declared_arena.sh" || refuse "cannot load lib_declared_arena.sh -- the one reader of a declared size"
     case "$NAME" in
       claws5) P=$D/claws5/claws5.sno; IN=$D/claws5/CLAWS5inTASA.dat; N=16;; treebank) P=$D/treebank/treebank.sno; IN=$D/treebank/treebank.input; N=1024;;
       json) P=$D/json/json.sno; IN=$D/json/citm_catalog.json; N=1;; porter) P=$D/porter/porter.sno; IN=$D/porter/porter.input; N=4;;
@@ -48,14 +51,15 @@ case "$KIND" in
       *) refuse "unknown demo $NAME (claws5 treebank json porter calculator-1 calculator-2 beauty)";;
     esac
     [ -f "$P" ] && [ -f "$IN" ] || refuse "missing $P or $IN"
+    SWD="$(declared_switches_beside "$P")" && OAD="$(declared_oracle_args_beside "$P")" || refuse "$NAME: its declared sizes are refused"
     : > "$T/in"; for ((i=0;i<N;i++)); do cat "$IN" >> "$T/in"; done
     "$SCRIP" --compile -o "$T/d.s" "$P" < /dev/null 2> "$T/cc.err" && gcc "$T/d.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/d.prog" 2>> "$T/cc.err" || { head -3 "$T/cc.err"; refuse "$NAME did not build in mode 4"; }
-    best() { local tag=$1 b=999999999999 i e; shift; for ((i=0;i<${BAR_REPS:-3};i++)); do ( ulimit -s 262144; cd "$S4E/corpus/include" && "$WRAP" timeout 600 "$@" < "$T/in" > "$T/$tag.out" 2> "$T/err" ); e=$(grep -oE 'elapsed_ns=[0-9]+' "$T/err" | tail -1 | cut -d= -f2); [ -n "$e" ] || { echo ""; return; }; [ "$e" -lt "$b" ] && b=$e; done; echo "$b"; }
-    s=$(best sbl "$SBL" -bf $SW "$P"); m=$(best m4 "$T/d.prog" $SW)
+    best() { local tag=$1 b=999999999999 i e; shift; for ((i=0;i<${BAR_REPS:-3};i++)); do ( cd "$S4E/corpus/include" && "$WRAP" timeout 600 "$@" < "$T/in" > "$T/$tag.out" 2> "$T/err" ); e=$(grep -oE 'elapsed_ns=[0-9]+' "$T/err" | tail -1 | cut -d= -f2); [ -n "$e" ] || { echo ""; return; }; [ "$e" -lt "$b" ] && b=$e; done; echo "$b"; }
+    s=$(best sbl "$SBL" -bf $OAD "$P"); m=$(best m4 "$T/d.prog" $SWD)
     [ -n "$s" ] && [ -n "$m" ] || refuse "a run printed no BENCH_RUSAGE line (sbl='$s' m4='$m')"
     cmp -s "$T/sbl.out" "$T/m4.out" && [ -s "$T/m4.out" ] || refuse "$NAME: outputs differ between sbl -bf and mode 4 (or are empty) -- no multiple over a wrong answer"
     x=$(awk -v s="$s" -v m="$m" 'BEGIN{printf "%.4f", s/m}')
-    awk -v s="$s" -v m="$m" 'BEGIN{printf "demo %s: SPITBOL %.1f ms, m4 %.1f ms (best of %s, %s)\n", "'"$NAME"'", s/1e6, m/1e6, "'"${BAR_REPS:-3}"'", "'"$SW"'"}'
+    awk -v s="$s" -v m="$m" 'BEGIN{printf "demo %s: SPITBOL %.1f ms, m4 %.1f ms (best of %s, %s)\n", "'"$NAME"'", s/1e6, m/1e6, "'"${BAR_REPS:-3}"'", "'"sbl [$OAD] m4 [$SWD], the declarations -- CRITERION CHANGED 2026-10-03, CEO-1485"'"}'
     verdict "$x" "demo $NAME" ;;
   *) refuse "kind must be kernel or demo";;
 esac

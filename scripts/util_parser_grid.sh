@@ -26,7 +26,11 @@
 #          Src ? Compiland + Pop() -- reading a file and printing its tree are outside the clock.
 #   SBL    sbl_clean_bin -bf (the clean benchmark oracle, never the monitor-hooked x64 fork: GOAL-SNOCONE-100 cursor 29k) running
 #          scrip --transpile of the same chain; the same driver, the same clock. TIME() reads nanoseconds in both, measured.
-#   SCRIP and SBL both run -s2000m -d8000m -i64m; SCRIP_DIAG=0 for the compile and every run. The median of GRID_RUNS (3) runs.
+#   SCRIP runs at the chain's declared heap and stack (bootstrap/parser_<lang>.heap, .stack) and SBL at its declared switches
+#   (bootstrap/parser_<lang>.oracle_args), each over its own shipped defaults, read by lib_declared_arena.sh (ceo CEO-1485, RULES.md
+#   clause 8 (g)(4): the window is never typed). CRITERION CHANGED 2026-10-03: every reading before ran BOTH at -s2000m -d8000m -i64m,
+#   one equal arena with a 64 MB initial window; the header line says so beside every reading from here on. SCRIP_DIAG=0 for the
+#   compile and every run. The median of GRID_RUNS (3) runs.
 #   VIA TRANSPILE: a language named in GRID_VIA_TRANSPILE (default: raku) has its SCRIP binary compiled from the same transpiled
 #   chain SPITBOL runs, through the SNOBOL4 frontend, and its row says "via transpile" -- the ceo's order of 2026-09-29 19:4x
 #   (da1b3a85a's rewritten parser_raku.sc hangs on a second statement when the chain is compiled directly as .sc, a Snocone-frontend
@@ -65,7 +69,8 @@ S4E="${S4E_HOME:-$(cd "$SELF/.." && pwd)}"; CORPUS="${CORPUS:-$S4E/corpus}"
 SBL="$(sbl_clean_bin)" || refuse "no clean benchmark oracle (sbl_clean_bin)"
 B="$W/bootstrap"; CHAIN="$B/global.sc $B/case.sc $B/assign.sc $B/match.sc $B/counter.sc $B/stack.sc $B/tree.sc $B/ShiftReduce.sc $B/tdump.sc $B/gen.sc $B/qize.sc $B/semantic.sc $B/omega.sc $B/trace.sc"
 for f in $CHAIN; do [ -f "$f" ] || refuse "chain file missing: $f"; done
-SW="-s2000m -d8000m -i64m"; RUNS="${GRID_RUNS:-3}"; TMO="${GRID_TIMEOUT:-600}"; TMO1="${GRID_ONE_TIMEOUT:-60}"; VIA=" ${GRID_VIA_TRANSPILE-raku} "; export SCRIP_DIAG=0
+. "$HERE/lib_declared_arena.sh" || refuse "cannot load lib_declared_arena.sh -- the one reader of a declared size"
+SWS=""; SWB=""; RUNS="${GRID_RUNS:-3}"; TMO="${GRID_TIMEOUT:-600}"; TMO1="${GRID_ONE_TIMEOUT:-60}"; VIA=" ${GRID_VIA_TRANSPILE-raku} "; export SCRIP_DIAG=0
 case "$RUNS" in ''|*[!0-9]*|0) refuse "GRID_RUNS=$RUNS is not a positive count" ;; esac
 bi() { env -u RT_OPT make -s -C "$W" ${1:+"RT_OPT=$1"} buildinfo 2>/dev/null | sed -n "s/^$2 *: *//p" | sed 's/ *$//'; }
 lt="$(readlink "$W/out/libscrip_rt.so" | sed -n 's/^libscrip_rt-\([0-9a-f]*\)\.so$/\1/p')"
@@ -78,14 +83,14 @@ declare -A EXT=([snobol4]=sno [snocone]=sc [icon]=icn [prolog]=pl [rebus]=reb [p
 LANGS="$*"; if [ -z "$LANGS" ]; then for L in snobol4 snocone icon prolog rebus pascal raku; do grep -q "PARSER_FILES" "$B/parser_$L.sc" 2>/dev/null && LANGS="$LANGS $L"; done; fi
 [ -n "$LANGS" ] || refuse "no bootstrap/parser_<lang>.sc reads PARSER_FILES"
 tree="$(git -C "$W" rev-parse --short HEAD 2>/dev/null)$(git -C "$W" diff --quiet 2>/dev/null || echo -dirty)"
-echo "PARSER GRID [$G]: tree $tree corpus $(git -C "$CORPUS" rev-parse --short HEAD 2>/dev/null) RT_OPT=$OPT runtime libscrip_rt-$lt.so sbl $(sbl_oracle_fingerprint "$SBL" | cut -d' ' -f1-2) switches $SW SCRIP_DIAG=0 median of $RUNS load $(cut -d' ' -f1-3 /proc/loadavg)"
+echo "PARSER GRID [$G]: tree $tree corpus $(git -C "$CORPUS" rev-parse --short HEAD 2>/dev/null) RT_OPT=$OPT runtime libscrip_rt-$lt.so sbl $(sbl_oracle_fingerprint "$SBL" | cut -d' ' -f1-2) sizes: each chain's declaration (CRITERION CHANGED 2026-10-03, CEO-1485 -- earlier grids ran both engines at -s2000m -d8000m -i64m) SCRIP_DIAG=0 median of $RUNS load $(cut -d' ' -f1-3 /proc/loadavg)"
 printf '%-8s %5s %9s | %9s | %9s | %9s | %9s | %7s | %s\n' lang files bytes "C ms" "SCRIP ms" "SBL ms" "SBL/SCRIP" "C/SCRIP" trees
 RC=0; NL=0; NC=0; N2=0
 run() {   # $1 engine, $2 list, $3 output stem: one run of that engine over the list
     case "$1" in
     C)     ( cd "$CORPUS" && PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" IPATH="$CORPUS/packages/icon/ipl/procs" timeout "${TM:-$TMO}" "$W/out/parser_$L" < /dev/null > "$3.out" 2> "$3.err" ) ;;
-    SCRIP) PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "${TM:-$TMO}" "$T/$L.bin" $SW < /dev/null > "$3.out" 2> "$3.err" ;;
-    SBL)   PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "${TM:-$TMO}" "$SBL" -bf $SW "$T/$L.sno" < /dev/null > "$3.out" 2> "$3.err" ;;
+    SCRIP) PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "${TM:-$TMO}" "$T/$L.bin" $SWS < /dev/null > "$3.out" 2> "$3.err" ;;
+    SBL)   PARSER_FILES="$2" PARSER_TREE_HASH="${H:-1}" timeout "${TM:-$TMO}" "$SBL" -bf $SWB "$T/$L.sno" < /dev/null > "$3.out" 2> "$3.err" ;;
     esac
 }
 section() { awk -v x="$2" '/^== / { f = (substr($0, 4) == x); next } f' "$1"; }   # the lines an output printed for file $2
@@ -126,6 +131,8 @@ for L in $LANGS; do
     ext="${EXT[$L]:-}"; [ -n "$ext" ] || { echo "$L ⛔ REFUSE(2): not a parser language (${!EXT[*]})"; RC=2; continue; }
     grep -q "PARSER_FILES" "$B/parser_$L.sc" 2>/dev/null || { echo "$L ⛔ REFUSE(2): bootstrap/parser_$L.sc reads no PARSER_FILES list"; RC=2; continue; }
     ( . "$HERE/lib_build_currency.sh" && assert_parser_current "$L" "$W" ) || { echo "$L ⛔ REFUSE(2): out/parser_$L missing or older than a source it was compiled from (named above) -- make parsers"; RC=2; continue; }
+    SWS="$(declared_switches_beside "$B/parser_$L.sc")" && [ -n "$SWS" ] && SWB="$(declared_oracle_args_beside "$B/parser_$L.sc")" || { echo "$L ⛔ REFUSE(2): bootstrap/parser_$L's declared sizes are missing or refused"; RC=2; continue; }
+    echo "  sizes[$L]: SCRIP $SWS | SBL ${SWB:-its defaults}"
     cat $CHAIN "$B/parser_$L.sc" > "$T/$L.sc"
     "$W/scrip" --transpile "$T/$L.sc" > "$T/$L.sno" 2> "$T/$L.tr.err" && [ -s "$T/$L.sno" ] || { echo "$L ⛔ REFUSE(2): scrip --transpile of the chain failed"; RC=2; continue; }
     src="$T/$L.sc"; via=""; case "$VIA" in *" $L "*) src="$T/$L.sno"; via=" | via transpile" ;; esac

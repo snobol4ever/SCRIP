@@ -11,11 +11,12 @@
 #   C      the bootstrap parser chain declares: every bootstrap/parser_<lang>.sc carries .heap and .stack the one reader turns into scrip's
 #          -d/-s switches and an .oracle_args it accepts (the coo 2026-10-03: the chain dies ERROR 246 under sbl at its default stack on
 #          the snocone, icon and pascal workhorse inputs).
-#   W      the eight tools that run the chain read the chain's declaration -- each calls the reader on the chain -- and a doctored copy
+#   W      the ten tools that run the chain (the parse grid and its phase profile since CEO-1485) read the chain's declaration -- each calls the reader on the chain -- and a doctored copy
 #          of util_parser_furthest_cursor.sh that types sbl's size again instead of passing it reads RED here (fail once). That no tool
 #          types a size is test_gate_no_runner_types_a_size_or_sets_the_window.sh's census.
-#   W2     the four SNOBOL4 tools that run sbl on a unit -- the scorecard (the Gimpel, Budne, AIS and Dotnet engine), the bench-ref
-#          minter and the two demo identity boards -- pass that unit's declared switches to sbl, and SCRIP's declared sizes where they run
+#   W2     the eight SNOBOL4 tools that run sbl on a unit -- the scorecard (the Gimpel, Budne, AIS and Dotnet engine), the bench-ref
+#          minter, the two demo identity boards and, since CEO-1485, the four timing benches (rep loop, bar, campaign probe, demo
+#          triangulation) -- pass that unit's declared switches to sbl, and SCRIP's declared sizes where they run
 #          it (the coo 2026-10-03: treebank's full input dies ERROR 246 at sbl's default stack; demos/snobol4/treebank/treebank.oracle_args).
 # EXIT: 0 every arm holds; 1 an arm is red; 2 could not measure.
 set -u
@@ -76,6 +77,8 @@ TOOLS=(
   "util_parser_speed_c_vs_sc.sh|declared_switches_beside \"\$B/parser_\$L.sc\"|\"\$T/\$L.bin\" \$SW < \"\$f\""
   "util_regen_parser_demos.sh|declared_oracle_args_beside \"\$B/parser_\$L.sc\"|\"\$SBL\" -bf \$OARGS"
   "util_parser_sc_census.py|_harness.heap_declarations(drv)|_harness.stack_declarations(drv)|[scrip] + arena(lang) + [chain]"
+  "util_parser_grid.sh|SWS=\"\$(declared_switches_beside \"\$B/parser_\$L.sc\")\"|SWB=\"\$(declared_oracle_args_beside \"\$B/parser_\$L.sc\")\"|\"\$T/\$L.bin\" \$SWS < /dev/null|\"\$SBL\" -bf \$SWB \"\$T/\$L.sno\""
+  "util_parser_phase_profile.sh|SW=\"\$(declared_switches_beside \"\$B/parser_\$L.sc\")\""
   "test_bootstrap_parsers.py|_harness.heap_declarations(str(drv))|_harness.oracle_args_declarations(|[str(SBL), \"-bf\"] + sbl_args(lang)|[str(SCRIP)] + scrip_arena(lang)|[str(exe)] + scrip_arena(lang)"
 )
 wired() { local f="$1"; shift; local p; for p in "$@"; do grep -qF -- "$p" "$f" || return 1; done; return 0; }
@@ -95,6 +98,10 @@ SNO_TOOLS=(
   "scorecard_snobol4.sh|oa=\"\$(declared_oracle_args_beside \"\$prog\")\"|\"\$SBL\" \$(sbl_flags) \$oa \"\$prog\"|declared_oracle_args_beside; export"
   "util_mint_bench_refs.sh|oa=\"\$(declared_oracle_args_beside \"\$sno\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa \"\$sno\""
   "test_demo_full_3way.sh|sw=\"\$(declared_switches_beside \"\$src\")\" && oa=\"\$(declared_oracle_args_beside \"\$src\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa|--run \$sw \"\$src\"|\"\$W/\$nm.prog\" \$sw"
+  "bench_rep_loop_demos_snobol4.sh|SWD=\"\$(declared_switches_beside \"\$1\")\" && OAD=\"\$(declared_oracle_args_beside \"\$1\")\"|\$(sbl_lang_flags) \$OAD \"\$v\"|\"\$SCRIP\" \$SWD \"\$v\"|\"\$W/\$stem.bin\" \$SWD|decl_of \"\$P\""
+  "bench_snobol4_bar.sh|SWD=\"\$(declared_switches_beside \"\$P\")\" && OAD=\"\$(declared_oracle_args_beside \"\$P\")\"|best sbl \"\$SBL\" -bf \$OAD \"\$P\"|best m4 \"\$T/d.prog\" \$SWD"
+  "bench_snobol4_campaign_probe.sh|ksw=\"\$(declared_switches_beside \"\$K/\$k.sno\")\"|\$(sbl_lang_flags) \$koa \"\$k.sno\"|\"\$W/\$k.bin\" \$ksw|\$(sbl_lang_flags) \$toa treebank.sno|\"\$W/tb.bin\" \$tsw"
+  "bench_triangulate_demos_snobol4.sh|SWD=\"\$(declared_switches_beside \"\$P\")\" && OAD=\"\$(declared_oracle_args_beside \"\$P\")\"|\$(sbl_lang_flags) \$OAD \"\$prog\"|--run \$SWD \"\$prog\"|\"\$W/\$stem.prog\" \$SWD"
   "board_sno15_ident.sh|sw=\"\$(declared_switches_beside \"\$src\")\" && oa=\"\$(declared_oracle_args_beside \"\$src\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa|--run \$sw \"\$src\"|\"\$W/\$nm.prog\" \$sw"
 )
 unwired=""
