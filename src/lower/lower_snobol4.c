@@ -787,7 +787,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (L->t == TT_VAR && L->v.sval) {
             sno_reg_var(L->v.sval);
             IR_t * asn = lc_build(cx->g, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = L->v.sval;
-            if (R->t == TT_SCAN && R->n == 2 && R->c[0] && R->c[1]) {
+            if (!res && R->t == TT_SCAN && R->n == 2 && R->c[0] && R->c[1]) {
                 extern tree_t * ast_stmt_new(tree_e kind);
                 IR_t * pent = NULL; IR_t * pasn = NULL; const tree_t * sbj = R->c[0]; const tree_t * pat = sno_pat_valued(cx, &sbj, 0, R->c[1], ω, &pent, &pasn);
                 tree_t * capt = ast_stmt_new(TT_CAPT_COND_ASGN);
@@ -798,7 +798,6 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 ast_push(sc, (tree_t *) sbj);
                 ast_push(sc, capt);
                 IR_t * e = sno_lower_match(cx, sc, NULL, 0, γ, ω, NULL);
-                if (res) *res = NULL;
                 if (pasn) { lc_γ_to(pasn, e); return pent; }
                 return e;
             }
