@@ -522,9 +522,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                 strcmp(tk.text, "public") == 0 ||
                 strcmp(tk.text, "record") == 0 ||
                 strcmp(tk.text, "mode") == 0) {
-                if (pk.kind == TK_ATOM || pk.kind == TK_VAR || pk.kind == TK_INT ||
-                    pk.kind == TK_FLOAT || pk.kind == TK_LPAREN || pk.kind == TK_LBRACKET ||
-                    pk.kind == TK_OP) {
+                if (prefix_arg_starts(pk)) {
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup(tk.text);
                     tree_t *arg = pt_term(p, ts, 1150);
