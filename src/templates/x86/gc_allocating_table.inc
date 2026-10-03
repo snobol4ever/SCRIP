@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1985
+#define GC_ALLOC_TAB_N 1991
 #define GC_ALLOC_TAB_N_VOID 233
-#define GC_ALLOC_TAB_N_DESCR 1075
-#define GC_ALLOC_TAB_N_OTHER 670
+#define GC_ALLOC_TAB_N_DESCR 1078
+#define GC_ALLOC_TAB_N_OTHER 673
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -951,6 +951,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_a_seal", GC_RET_DESCR },
     { "rk_a_split", GC_RET_OTHER },
     { "rk_arr_append", GC_RET_VOID },
+    { "rk_arr_of_texts", GC_RET_DESCR },
     { "rk_av", GC_RET_OTHER },
     { "rk_av_args", GC_RET_OTHER },
     { "rk_av_arith", GC_RET_DESCR },
@@ -970,6 +971,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_iter_land_ω", GC_RET_OTHER },
     { "rk_iter_open", GC_RET_OTHER },
     { "rk_iter_step", GC_RET_OTHER },
+    { "rk_lines_arr", GC_RET_DESCR },
     { "rk_list_as_str", GC_RET_OTHER },
     { "rk_match_make", GC_RET_DESCR },
     { "rk_match_render", GC_RET_OTHER },
@@ -982,7 +984,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_order_cmp_num", GC_RET_OTHER },
     { "rk_order_cmp_str", GC_RET_OTHER },
     { "rk_register_classes", GC_RET_VOID },
+    { "rk_spill", GC_RET_OTHER },
+    { "rk_spill_count", GC_RET_OTHER },
+    { "rk_spill_scalar", GC_RET_OTHER },
     { "rk_sprintf_core", GC_RET_VOID },
+    { "rk_txt_elem", GC_RET_DESCR },
     { "rk_typeobj", GC_RET_DESCR },
     { "rk_value_type", GC_RET_OTHER },
     { "rls", GC_RET_OTHER },
