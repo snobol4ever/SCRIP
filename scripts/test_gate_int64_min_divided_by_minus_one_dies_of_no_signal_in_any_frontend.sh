@@ -67,7 +67,7 @@ printf "$PLB" '/' > "$T/p.pl"; printf "$PLB" '//' > "$T/pref.pl"
 timeout 30 "$SWIPL" -q "$T/pref.pl" < /dev/null > "$T/p.ref" 2> /dev/null
 [ "$(head -1 "$T/p.ref")" = 9223372036854775808 ] || refuse "swipl did not print 9223372036854775808 for // -- the Prolog witness is wrong"
 same_as_ref "$T/p.pl" "$T/p.ref"
-printf 'procedure main()\n  local m\n  m := -9223372036854775807 - 1;\n  write(m / -1);\n  write(m %% -1);\n  write(-m)\nend\n' > "$T/i.icn"
+printf 'procedure main()\n  local m;\n  m := -9223372036854775807 - 1;\n  write(m / -1);\n  write(m %% -1);\n  write(-m);\nend\n' > "$T/i.icn"
 (cd "$T" && "$ICONT" -s -o iref i.icn > /dev/null 2>&1 && ./iref > i.ref 2> /dev/null) || refuse "icont/iconx could not run the Icon witness"
 same_as_ref "$T/i.icn" "$T/i.ref"
 printf 'my $m = -9223372036854775807 - 1;\nsay $m div -1;\nsay $m / -1;\nsay $m %% -1;\nsay $m mod -1;\n' > "$T/r.raku"

@@ -26,7 +26,7 @@ typedef long word;
 typedef struct { word dword, vword; } descriptor;
 int gtf(int argc, descriptor *argv) { argv[0].dword = (word)(0x8000000000000000UL | 0x2000000000000000UL | 1); argv[0].vword = 4242 + argc; return 0; }
 EOF
-printf 'link io\nprocedure main()\n   local f;\n   f := pathload("libgt.so", "gtf") | stop("no library");\n   write(f(1, 2))\nend\n' > "$P/general/w.icn"
+printf 'link io\nprocedure main()\n   local f;\n   f := pathload("libgt.so", "gtf") | stop("no library");\n   write(f(1, 2));\nend\n' > "$P/general/w.icn"
 red=0
 out="$(declared_clib_beside "$P/general/w.icn" "$P")"; rc=$?
 [ "$rc" = 0 ] && [ -z "$out" ] && echo "  arm 1 PASS: no sidecar, nothing echoed, rc 0" || { echo "  arm 1 RED: rc=$rc out=[$out]"; red=1; }

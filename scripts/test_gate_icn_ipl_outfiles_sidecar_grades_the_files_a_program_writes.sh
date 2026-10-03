@@ -18,7 +18,7 @@ procedure main()
    f := open("result.txt", "w");
    every write(f, "line ", 1 to 3);
    close(f);
-   write("wrote result.txt")
+   write("wrote result.txt");
 end
 ICN
   printf '# the program writes its result to result.txt\nresult.txt\nnever-written.txt\n' > "$SG_PKG/progs/outw.outfiles"
@@ -31,7 +31,7 @@ printf '%s' "$gref" | grep -q '=== OUTFILE result.txt ===' && printf '%s' "$gref
 d="$(sg_doctor "s = s.replace('local side=\"\${1%.icn}.outfiles\" run=\"\$2\" out=\"\$3\" rel\n', 'local side=\"\${1%.icn}.outfiles\" run=\"\$2\" out=\"\$3\" rel\n  return 0\n', 1)")" || exit 2
 r="$(sg_verdict "$d" outw plant)"; rref="$(cat "$(sg_ref "$d" outw)" 2>/dev/null)"
 printf '%s' "$rref" | grep -q 'OUTFILE' && { echo "  FAIL red: with NAME.outfiles ignored the ref still carries the file ($r)"; red=1; }
-sg_fresh_pkg refuse; printf 'procedure main()\n   write(1)\nend\n' > "$SG_PKG/progs/outp.icn"; printf '../escape.txt\n' > "$SG_PKG/progs/outp.outfiles"
+sg_fresh_pkg refuse; printf 'procedure main()\n   write(1);\nend\n' > "$SG_PKG/progs/outp.icn"; printf '../escape.txt\n' > "$SG_PKG/progs/outp.outfiles"
 ( . "$SG_HERE/lib_icon_ipl_isolation.sh"; ipl_outfiles_append "$SG_PKG/progs/outp.icn" "$SG_T" "$SG_T/o" 2>/dev/null ); [ $? -eq 2 ] || { echo "  FAIL: an outfile path leaving the run directory was accepted"; red=1; }
 [ "$red" -eq 0 ] && { echo "✅ GATE PASS [$G]: NAME.outfiles appends the written files for iconx in the cutter and SCRIP in m3 and m4 ($g); ignored, the ref loses them ($r); ../ refuses"; exit 0; }
 echo "⛔ GATE FAIL [$G]"; exit 1

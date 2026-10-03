@@ -36,7 +36,7 @@ reset_icon() {
   # its population keeps getting absorbed out from under it is not a gate, it is a coin flip on corpus churn.
   # A synthetic pair, planted fresh into the scratch tree on every reset, guarantees arm D always has exactly
   # one thing to scope --absorb-only against, independent of how much of the real corpus has been absorbed.
-  printf 'procedure main()\n    write("contract gate synthetic witness")\nend\n' >"$T/corpus/tests/icon/${SYNTH_ABS}.icn"
+  printf 'procedure main()\n    write("contract gate synthetic witness");\nend\n' >"$T/corpus/tests/icon/${SYNTH_ABS}.icn"
   printf 'contract gate synthetic witness\n' >"$T/corpus/tests/icon/${SYNTH_ABS}.ref"
 }
 F=0

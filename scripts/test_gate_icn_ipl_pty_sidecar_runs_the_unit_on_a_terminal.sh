@@ -11,7 +11,7 @@ G=test_gate_icn_ipl_pty_sidecar_runs_the_unit_on_a_terminal
 command -v script >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: script(1) is not installed"; exit 2; }
 sg_init
 plant() {
-  printf 'procedure main()\n   system("tty -s && echo terminal || echo no terminal");\n   write("done")\nend\n' > "$SG_PKG/progs/ptyw.icn"
+  printf 'procedure main()\n   system("tty -s && echo terminal || echo no terminal");\n   write("done");\nend\n' > "$SG_PKG/progs/ptyw.icn"
   printf 'the unit asks whether its standard input is a terminal\n' > "$SG_PKG/progs/ptyw.pty"
 }
 red=0

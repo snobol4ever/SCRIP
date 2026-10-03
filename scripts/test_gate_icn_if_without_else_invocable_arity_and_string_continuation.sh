@@ -78,7 +78,7 @@ run_case() { # name <<program
 echo "-- 1. if/then with no else, in expression position (and its if/then/else control) --"
 run_case if_noelse_taken <<'ICN'
 procedure main()
-   local x
+   local x;
    x := "unset";
    x := if 1 = 1 then "taken";
    write(x);
@@ -86,7 +86,7 @@ end
 ICN
 run_case if_noelse_failed <<'ICN'
 procedure main()
-   local x
+   local x;
    x := "unset";
    x := if 1 = 2 then "taken";
    write(x);
@@ -94,14 +94,14 @@ end
 ICN
 run_case if_withelse_control <<'ICN'
 procedure main()
-   local x
+   local x;
    x := if 1 = 2 then "taken" else "other";
    write(x);
 end
 ICN
 run_case if_noelse_nested_in_scan <<'ICN'
 procedure main()
-   local x
+   local x;
    x := "unset";
    "abcd" ? x := if ="ab" then "matched";
    write(x);
@@ -110,13 +110,13 @@ ICN
 
 run_case if_statement_position_control <<'ICN'
 procedure main()
-   local i, n
+   local i, n;
    n := 0;
    every i := 1 to 4 do {
       if i = 2 then write("two");
       if i = 3 then write("three") else write("not3");
       n +:= 1;
-   }
+   };
    write("n=", n);
    if n = 4 then write("four");
 end

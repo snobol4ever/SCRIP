@@ -44,7 +44,7 @@ graded=0; fail=0
 for k in 1 2 3 4 5 6 7 8; do
   ps=""; as=""; i=1
   while [ "$i" -le "$k" ]; do ps="$ps${ps:+,}p$i"; as="$as${as:+,}$i"; i=$((i+1)); done
-  printf 'procedure main()\n   &trace := -1;\n   f(%s)\nend\nprocedure f(%s)\n   return\nend\n' "$as" "$ps" > "$T/a$k.icn"
+  printf 'procedure main()\n   &trace := -1;\n   f(%s);\nend\nprocedure f(%s)\n   return;\nend\n' "$as" "$ps" > "$T/a$k.icn"
   ( cd "$T" && "$ICONT" -s -o "a$k" "a$k.icn" >/dev/null 2>&1 && timeout 30 "$ICONX" "./a$k" > "a$k.ora" 2>&1 ) || refuse "oracle could not build or run arity $k -- cannot measure"
   [ -s "$T/a$k.ora" ] || refuse "oracle produced ZERO BYTES for arity $k -- that is not a score"
   ( cd "$T" && timeout 30 "$SCRIP" "a$k.icn" < /dev/null > "a$k.m3" 2>&1 )

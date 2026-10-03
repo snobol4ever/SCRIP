@@ -26,7 +26,7 @@ procedure main()
    every writes(" ", ord(!s));
    write();
    &random := ord(s[1]);
-   write(?1000, " ", ?1000)
+   write(?1000, " ", ?1000);
 end
 ICN
   printf '# the clock and /dev/urandom are pinned for the oracle and both modes\n' > "$SG_PKG/progs/pinw.pin"

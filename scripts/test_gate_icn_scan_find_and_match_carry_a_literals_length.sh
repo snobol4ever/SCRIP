@@ -33,9 +33,9 @@ for kind in find match; do
     [ "$kind" = match ] && [ "$needle" = '"\x00a"' ] && continue
     i=$((i+1)); w="$T/w$i.icn"
     if [ "$kind" = find ]; then
-      printf 'procedure main()\n   local x, s, n;\n   n := "\\x00" || "a";\n   s := "ab\\x00a" || repl("q", 45);\n   s ? every x := find(%s) do writes(x, " ");\n   write()\nend\n' "$needle" > "$w"
+      printf 'procedure main()\n   local x, s, n;\n   n := "\\x00" || "a";\n   s := "ab\\x00a" || repl("q", 45);\n   s ? every x := find(%s) do writes(x, " ");\n   write();\nend\n' "$needle" > "$w"
     else
-      printf 'procedure main()\n   local s, n;\n   n := "ab" || "\\x00";\n   s := "ab\\x00a" || repl("q", 45);\n   s ? write(image(match(%s)) | "fails");\n   s ? { move(4); write(image(match("q")) | "fails2") }\nend\n' "$needle" > "$w"
+      printf 'procedure main()\n   local s, n;\n   n := "ab" || "\\x00";\n   s := "ab\\x00a" || repl("q", 45);\n   s ? write(image(match(%s)) | "fails");\n   s ? { move(4); write(image(match("q")) | "fails2") };\nend\n' "$needle" > "$w"
     fi
     ( cd "$T" && "$ICONT" -s -o "w$i.x" "w$i.icn" ) >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: icont refuses witness w$i ($kind $needle)"; exit 2; }
     want="$( cd "$T" && timeout 20 "./w$i.x" </dev/null 2>/dev/null )" || { echo "⛔ GATE REFUSE(2) [$G]: the oracle did not run witness w$i"; exit 2; }
