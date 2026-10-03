@@ -85,7 +85,7 @@ std::string bb_match_span() {
                x86("comment", "IR_MATCH_SPAN defer")
              + x86_alpha()
              + x86("lea",    "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval), x86_strtab_lbl(_.op_sval).c_str())
-             + bb_glue_prim_str(50, 0, 0, 8, 8)
+             + bb_glue_prim_str(50, 0, 0, 8, 8, 56)
              + x86("test",   "rax", "rax")
              + x86_omega("js")
              + x86("mov",    "r8",  LFDQ(0, 0))

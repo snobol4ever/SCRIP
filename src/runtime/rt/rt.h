@@ -183,7 +183,7 @@ rt_call_next_t rt_pat_prim_open(const char *varname);
 void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 void rt_pat_prim_land_ω(long word);
 long rt_pat_prim_int_take(void);
-long rt_pat_prim_str_take(const char **out_ptr, long *out_len);
+long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes);
 int  rt_defer_close(int cur_delta);
 int rt_is(int dst_slot, const char *op, int lk, long li, int rk, long ri);
 int rt_atom_length(int k0, long i0, const char *s0, int k1, long i1, const char *s1);

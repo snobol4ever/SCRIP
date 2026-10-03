@@ -128,7 +128,7 @@ extern "C" rt_prim_next_t rt_pat_prim_open(const char *varname);
 extern "C" void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 extern "C" void rt_pat_prim_land_ω(long word);
 extern "C" long rt_pat_prim_int_take(void);
-extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len);
+extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes);
 std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
     std::string save =  x86("sub", "rsp", 64L)
          + x86_rsp_store64(56, "r12")
@@ -234,19 +234,21 @@ std::string bb_glue_prim_int(int base) {
          + x86_rt_gc_poll_rec_sigma(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd) {
+std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code) {
     std::string s = bb_glue_prim_open_enter(base);
     s += x86("lea",  "rdi", LFDQ(ptr_d, ptr_sd));
     s += x86("lea",  "rsi", LFD(len_d, len_sd));
+    s += x86("mov",  "rdx", (long)code | ((long)code << 16));
     s += x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take);
     s += x86_rt_gc_poll_rec_sigma(1);
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off) {
+std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off, int code) {
     std::string s = bb_glue_prim_open_enter(base);
     s += x86("lea",  "rdi", RDQ("rsp", ptr_off));
     s += x86("lea",  "rsi", RDQ("rsp", len_off));
+    s += x86("mov",  "rdx", (long)code | ((long)code << 16));
     s += x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take);
     s += x86_rt_gc_poll_rec_sigma(1);
     return s;

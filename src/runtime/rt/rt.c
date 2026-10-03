@@ -209,6 +209,8 @@ static const char * rt_coerce_errmsg(int code) {
     case  70: return "breakx argument is not a string or expression";
     case 151: return "notany argument is not a string or expression";
     case 188: return "span argument is not a string or expression";
+    case  43: return "any evaluated argument is not a string"; case  49: return "notany evaluated argument is not a string"; case  56: return "span evaluated argument is not a string";
+    case  44: return "break evaluated argument is not a string"; case  45: return "breakx evaluated argument is not a string";
     case 120: return "len argument is not integer or expression";
     case 162: return "pos argument is not integer or expression";
     case 181: return "rtab argument is not integer or expression";
@@ -342,12 +344,13 @@ long rt_pat_prim_int_take(void) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_pat_prim_str_take(const char **out_ptr, long *out_len) {
+long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes) {
     extern int IS_FAIL_fn(DESCR_t);
     DESCR_t v = g_prim_val;
     DESCR_t s;
     if (IS_FAIL_fn(v)) return -1;
-    rt_coerce_str_d(&v, &s, 0);
+    if (rt_coerce_str_d(&v, &s, codes)) { extern uint64_t rtccb[32]; extern void rt_setexit_continue_tramp(void);
+        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp; return -1; }
     if (s.v != DT_S) return -1;
     *out_ptr = s.s ? s.s : "";
     *out_len = (long)s.slen;
