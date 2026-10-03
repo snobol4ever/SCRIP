@@ -444,6 +444,11 @@ cmd_run() {
       *)         find "$CORPUS/$root" $fargs 2>/dev/null | sort > "$list";;
     esac
     [ "$fargs" = "-" ] && true
+    # ⭐ THE AREA SMOKE'S NAMED SUBSET (the coo 2026-10-03, on hq_snobol4's report that gimpel's smoke selected 79 and ran 0): a runner in
+    # smoke mode names the programs, by basename without .sno, in SC_ONLY_PROGRAMS, and the suite's list keeps those alone.
+    if [ -n "${SC_ONLY_PROGRAMS:-}" ]; then
+      awk -v keep=" $SC_ONLY_PROGRAMS " '{ n = $0; sub(/.*\//, "", n); sub(/\.sno$/, "", n); if (index(keep, " " n " ")) print }' "$list" > "$list.only" && mv "$list.only" "$list"
+    fi
     echo "== $name: $(wc -l < "$list") programs (w=$w lib=$lib rto=$rto norm=$norm)  $(date +%H:%M:%S)"
     if ! sc_decl_build "$out/decl.$name" - < "$list" 2>"$out/decl.$name.err"; then
       { cat "$out/decl.$name.err"; echo "   suite $name: a declared-memory cell is refused (named above) -- this board does not grade around it"; } > "$out/declared_memory.refused"; break

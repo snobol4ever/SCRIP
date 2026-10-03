@@ -54,6 +54,7 @@ test_gate_add_ladder_witness_declares_every_attribute_column.sh	WIRED	-	-	-
 test_gate_aggregate_registry_keys_are_descrs.sh	WIRED	-	-	-
 test_gate_an_assignment_to_a_value_raises_111_at_run_time_instead_of_aborting.sh	WIRED	-	-	-
 test_gate_apply_reaches_every_formal_at_every_arity.sh	WIRED	-	-	-
+test_gate_area_smoke_grades_gimpel_drivers_the_boards_way.sh	WIRED	-	-	-
 test_gate_area_smoke_grades_ipl_entries_the_boards_way.sh	WIRED	-	-	-
 test_gate_area_smoke_reads_the_attribute_rows.sh	WIRED	-	-	-
 test_gate_banner_prints_a_verdict_word_and_a_ruled_grid.sh	WIRED	-	-	-

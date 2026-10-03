@@ -176,7 +176,7 @@ one_runner_population_of() {
   while [ $# -gt 0 ]; do [ "$1" = --corpus ] && [ -n "${2:-}" ] && { printf '%s' "$2"; return 0; }; shift; done
   printf '%s' "${CORPUS:-}"
 }
-ONE_RUNNER_SMOKE_MODE_RUNNERS="test_icon_ipl_suite.sh"   # runners with an area-smoke mode that writes nothing (see one_runner_guard)
+ONE_RUNNER_SMOKE_MODE_RUNNERS="test_icon_ipl_suite.sh test_snobol4_gimpel_suite.sh"   # runners with an area-smoke mode that writes nothing (see one_runner_guard)
 one_runner_guard() {
   if [ -z "${S4E_BIN_AT_START:-}" ]; then S4E_BIN_AT_START="$(one_runner_bin_fingerprint)" && export S4E_BIN_AT_START; fi
   local board="${1:-${0##*/}}" suite="${2:-}" seat who lang

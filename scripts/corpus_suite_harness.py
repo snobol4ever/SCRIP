@@ -4401,7 +4401,9 @@ def _smoke_outside_names(suite):
 # its own NAME.ref; the generated ALL.icn/ALL.ref pair carries none of them and no runner maintains it, so grading the container read
 # nine false reds (webimage based cwd declchck farb hebcalen parens puzz xtable) against board PASS readings. The runner's smoke mode
 # (S4E_AREA_SMOKE_ENTRIES) grades the named entries by the board's own loop and writes no progress row and no score row.
-SMOKE_DELEGATES = {"packages/icon/ipl": "test_icon_ipl_suite.sh"}
+# a table whose board grades shipped programs the generated container does not hold: gimpel's ALL.sno is the 120-entry cut from before
+# CEO-1269, its ALL.csv the 145 drivers the board grades, and the smoke selected 79 and ran 0 (hq_snobol4 to the coo, 2026-10-03)
+SMOKE_DELEGATES = {"packages/icon/ipl": "test_icon_ipl_suite.sh", "packages/snobol4/gimpel": "test_snobol4_gimpel_suite.sh"}
 _SMOKE_DELEGATE_KIND = {"PASS": "PASS", "FAIL": "FAIL", "CRASH": "CRASH", "HANG": "HANG", "REFUSE": "UNPROVEN", "NONE": "SKIP"}
 
 
@@ -4413,7 +4415,7 @@ def _smoke_delegate(paths, runner, names):
                        timeout=180 + 90 * len(names), stdin=subprocess.DEVNULL)
     out = {}
     for ln in r.stdout.splitlines():
-        m = re.match(r"IPL_SMOKE_ENTRY (\S+) (.*)$", ln)
+        m = re.match(r"(?:IPL|GIMPEL)_SMOKE_ENTRY (\S+) (.*)$", ln)
         if not m:
             continue
         if "NOT_RUN-GRADED" in m.group(2):
@@ -4513,7 +4515,8 @@ def cmd_smoke(args):
         outside = _smoke_outside_names(suite)
         wanted = [n for n in s["entries"] if n not in outside]
         skipped_outside = [n for n in s["entries"] if n in outside]
-        missing = [n for n in wanted if n not in by_name]
+        # a delegated table is graded by its board from the shipped programs, so the container's membership is not asked
+        missing = [] if key in SMOKE_DELEGATES else [n for n in wanted if n not in by_name]
         if missing:
             # ⛔ A TABLE THAT DISAGREES WITH ITS SUITE IS ITS BUILDER'S DEFECT, NOT EVERY SEAT'S PREFLIGHT (hq_pascal 2026-09-28: ipl's ALL.csv
             # named progs/kwic, procs/ichartp, progs/concord that ALL.icn lacks, and the smoke refused every template-touching landing
@@ -4548,19 +4551,19 @@ def cmd_smoke(args):
                 if delegated is not None and delegated[n] is None:
                     print(f"AREA_SMOKE_ENTRY table={key} entry={n} NOT RUN-GRADED by its board (no NAME.ref): not graded here either")
                     continue
-                e = by_name[n]
-                if masks:
-                    pm = masks_for(masks, e.name)
-                    if pm:
-                        e.mask = pm
-                if n in heap:
-                    e.heap_kb = heap[n]
-                if n in stack:
-                    e.stack_kb = stack[n]
                 if delegated is not None:
                     verdicts = None
                     kinds = {m: delegated[n].get(m, "SKIP") for m in modes}
                 else:
+                    e = by_name[n]
+                    if masks:
+                        pm = masks_for(masks, e.name)
+                        if pm:
+                            e.mask = pm
+                    if n in heap:
+                        e.heap_kb = heap[n]
+                    if n in stack:
+                        e.stack_kb = stack[n]
                     verdicts = run_suite_entry(paths, e, tmp_root, modes, ext=ext, companion_dir=suite.parent)
                     kinds = {m: verdicts[m].kind for m in modes}
                 graded += 1
@@ -4622,6 +4625,10 @@ def cmd_smoke(args):
     print(f"AREA_SMOKE_TOTAL features={' '.join(features)} modes={','.join(modes)} tables={len(per_table)} entries={graded} "
           f"all_pass={all_pass} red={len(reds)} standing={len(stand)} skipped_modes={len(skipped)} -- no progress row appended, no score cell written: an area smoke is not a board "
           f"(CEO-547, CEO-1342 clause 4); the suite number is the coo's SUITE TABLE row")
+    if graded == 0:
+        # the selection found runnable entries and the run graded none (gimpel's 79 of 145 against a stale container, exit 0)
+        refuse("smoke: %d entr(y/ies) selected and NONE graded -- a smoke that grades nothing is not a verdict; the lines above name "
+               "what was left out" % total)
     sys.exit(1 if reds else 0)
 
 

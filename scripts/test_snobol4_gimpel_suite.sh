@@ -59,7 +59,14 @@ for d in "$CORPUS_REAL"/*/; do
     b="$(basename "$d")"; [ "$b" = packages ] && continue
     ln -s "$d" "$W/corpus/$b" 2>/dev/null || true
 done
-CORPUS="$W/corpus" bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W" > "$W/run.log" 2>&1
+# ⭐ AREA SMOKE MODE (the coo 2026-10-03, on hq_snobol4's report: gimpel's area smoke selected 79 of 145 and ran 0, exiting 0, because the
+# harness graded the package's ALL.sno container, which still holds the 120 entries cut before CEO-1269 while ALL.csv names the 145
+# drivers this board grades): S4E_AREA_SMOKE_ENTRIES="agt_driver ai_driver ..." -- ALL.csv entry keys -- grades those drivers exactly as
+# the board does (scorecard_snobol4.sh, the overlay, the pins, ALL.mask) and nothing else: no census, no progress row, no score row; one
+# line per key, GIMPEL_SMOKE_ENTRY <key> m3=<V> m4=<V>, then exit 0. --force because a smoke is a correctness read, never a timing one.
+SMOKE_KEYS="${S4E_AREA_SMOKE_ENTRIES:-}"
+SMOKE_FORCE=""; [ -n "$SMOKE_KEYS" ] && SMOKE_FORCE="--force"
+SC_ONLY_PROGRAMS="$SMOKE_KEYS" CORPUS="$W/corpus" bash "$HERE/scorecard_snobol4.sh" run --suites gimpel --out "$W" $SMOKE_FORCE > "$W/run.log" 2>&1
 rc=$?
 TSV="$W/results.tsv"
 [ -f "$TSV" ] || { echo "⛔ REFUSE(rc=2): scorecard_snobol4.sh produced no results.tsv (rc=$rc) -- run.log:"; cat "$W/run.log"; exit 2; }
@@ -79,6 +86,17 @@ if [ "$TOTAL" -eq 0 ]; then
     echo "   not a failure -- wait for it and re-run):"
     sed 's/^/     /' "$W/run.log"
     exit 2
+fi
+if [ -n "$SMOKE_KEYS" ]; then
+    [ "$VEND_BEFORE" = "$(_vend_fingerprint)" ] || { echo "⛔ REFUSE(rc=2): the smoke run changed the vendored gimpel directory"; exit 2; }
+    _kind() { case "$1" in PASS) echo PASS ;; TIMEOUT) echo HANG ;; SIG*) echo CRASH ;; ASM_FAIL) echo NONE ;; *_REFUSED) echo REFUSE ;; *) echo FAIL ;; esac; }
+    for k in $SMOKE_KEYS; do
+        row="$(awk -F'\t' -v k="$k.sno" '{ n = $2; sub(/.*\//, "", n) } n == k { print $3 "\t" $4; exit }' "$TSV")"
+        if [ -z "$row" ]; then echo "GIMPEL_SMOKE_ENTRY $k NOT_RUN-GRADED (no such driver in the board's list)"
+        elif [ "${row%%$'\t'*}" = ORACLE_FAIL ]; then echo "GIMPEL_SMOKE_ENTRY $k NOT_RUN-GRADED (the oracle answered nothing: OUTSIDE)"
+        else echo "GIMPEL_SMOKE_ENTRY $k m3=$(_kind "${row%%$'\t'*}") m4=$(_kind "${row#*$'\t'}")"; fi
+    done
+    exit 0
 fi
 UNSCR=$(awk -F'\t' '$3=="ORACLE_FAIL"' "$TSV" | wc -l)
 M3P=$(awk -F'\t' '$3!="ORACLE_FAIL" && $3=="PASS"' "$TSV" | wc -l)
