@@ -831,7 +831,10 @@ static int fence0_release_bytes(const IR_t * nd) {
     for (int b = 0; b < n && ns < 0; b++) { IR_t * mb = g_emit_cfg->all[b]; if (!mb || mb->op != IR_MATCH_BEGIN) continue;
         int cnt = 0, guard = 0; IR_t * cur = zd_chase(mb->γ.node);
         while (cur && guard++ <= n) { if (cur == nd) { ns = cnt; break; } if (cnt >= n) break; seq[cnt++] = cur; cur = zd_chase(cur->γ.node); } }
-    if (ns < 0) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p not on any MATCH_BEGIN forward chain -- bill 0\n", (const void *)nd); return 0; }
+    { int has_mb = 0; for (int b = 0; b < n; b++) if (g_emit_cfg->all[b] && g_emit_cfg->all[b]->op == IR_MATCH_BEGIN) { has_mb = 1; break; }
+      if (ns < 0 && !has_mb && g_emit_cfg->entry) { int cnt = 0, guard = 0; IR_t * cur = zd_chase(g_emit_cfg->entry);
+        while (cur && guard++ <= n) { if (cur == nd) { ns = cnt; break; } if (cnt >= n) break; seq[cnt++] = cur; cur = zd_chase(cur->γ.node); } } }
+    if (ns < 0) { if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p not on any MATCH_BEGIN or thunk-entry forward chain -- bill 0\n", (const void *)nd); return 0; }
     if (_fzd) fprintf(stderr, "[FZ-DIAG] fence %p executed-prefix len=%d (cfg_n=%d)\n", (const void *)nd, ns, n);
     int total = 0;
     for (int j = ns - 1; j >= 0; j--) { IR_t * m = seq[j]; int mo = (int)m->op;
