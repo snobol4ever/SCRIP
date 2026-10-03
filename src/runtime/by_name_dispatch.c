@@ -6612,12 +6612,12 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_currency_str(double r, char *buf, int bufsz) {
     long long n = llround(r * 10000.0); int neg = n < 0; unsigned long long u = neg ? (unsigned long long)(-n) : (unsigned long long)n;
-    char d[24]; int L = snprintf(d, sizeof d, "%llu", u); int e = (u == 0) ? 0 : L - 1 - 4;
-    char m[32]; int k = 0; m[k++] = d[0];
-    m[k++] = '.';
-    for (int i = 1; i <= 18; i++) m[k++] = (i < L) ? d[i] : '0';
-    m[k] = '\0';
-    snprintf(buf, (size_t)bufsz, "%c%sE%c%02d", neg ? '-' : ' ', m, e < 0 ? '-' : '+', e < 0 ? -e : e);
+    int L = 1; for (unsigned long long t = u; t >= 10; t /= 10) L++;
+    int e = (u == 0) ? 0 : L - 1 - 4; unsigned long long p = 1; for (int i = 1; i < L; i++) p *= 10;
+    if (bufsz < 28) { if (bufsz > 0) buf[0] = '\0'; return; }
+    char *o = buf; *o++ = neg ? '-' : ' ';
+    for (int i = 0; i <= 18; i++) { if (i == 1) *o++ = '.'; if (i < L) { *o++ = (char)('0' + (int)((u / p) % 10ULL)); p /= 10; } else *o++ = '0'; }
+    *o++ = 'E'; *o++ = e < 0 ? '-' : '+'; if (e < 0) e = -e; *o++ = (char)('0' + e / 10); *o++ = (char)('0' + e % 10); *o = '\0';
 }
 static void pas_real_str_exp(double r, char *buf, int bufsz, int prec, int expdig) {
     if (prec < 1) prec = 1; if (prec > 16) prec = 16;
@@ -7763,7 +7763,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
             int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i >= 0 ? (int)aw.i : -1))))) : -1;
-            if (w == -6) { double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0); char _cb[48]; pas_currency_str(_cv, _cb, sizeof _cb); fputs(_cb, _dest); continue; }
+            if (w == -6) { double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0); int _cn = 32; char _cb[_cn]; pas_currency_str(_cv, _cb, _cn); fputs(_cb, _dest); continue; }
             if (w == -3) { double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
                 long _fw2 = 0, _fp2 = 0;
                 if (_pi + 3 < nargs) { if (IS_INT_fn(args[_pi+2])) _fw2 = (long)args[_pi+2].i; if (IS_INT_fn(args[_pi+3])) _fp2 = (long)args[_pi+3].i; }
