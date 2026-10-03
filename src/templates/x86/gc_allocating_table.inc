@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 1993
-#define GC_ALLOC_TAB_N_VOID 234
+#define GC_ALLOC_TAB_N 1986
+#define GC_ALLOC_TAB_N_VOID 233
 #define GC_ALLOC_TAB_N_DESCR 1078
-#define GC_ALLOC_TAB_N_OTHER 674
+#define GC_ALLOC_TAB_N_OTHER 668
 #define GC_ALLOC_TAB_N_UNKNOWN 7
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -966,17 +966,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_cplx_str", GC_RET_OTHER },
     { "rk_cstr", GC_RET_OTHER },
     { "rk_discover_grammars", GC_RET_VOID },
-    { "rk_iter_acc_append", GC_RET_VOID },
-    { "rk_iter_emit", GC_RET_OTHER },
-    { "rk_iter_land_γ", GC_RET_OTHER },
-    { "rk_iter_land_ω", GC_RET_OTHER },
-    { "rk_iter_open", GC_RET_OTHER },
-    { "rk_iter_step", GC_RET_OTHER },
     { "rk_lines_arr", GC_RET_DESCR },
     { "rk_list_as_str", GC_RET_OTHER },
     { "rk_match_make", GC_RET_DESCR },
     { "rk_match_render", GC_RET_OTHER },
-    { "rk_methcall_iter_kind", GC_RET_OTHER },
     { "rk_method_land_γ", GC_RET_DESCR },
     { "rk_method_land_ω", GC_RET_DESCR },
     { "rk_method_open", GC_RET_OTHER },

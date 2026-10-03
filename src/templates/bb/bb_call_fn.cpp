@@ -48,11 +48,6 @@ typedef struct { long fn; long how; } rk_next_t;
 extern rk_next_t rk_method_open(DESCR_t * args, int nargs);
 extern DESCR_t rk_method_land_γ(DESCR_t frame0, long word);
 extern DESCR_t rk_method_land_ω(long word);
-extern long rk_iter_open(DESCR_t * args, int nargs, DESCR_t * cur);
-extern rk_next_t rk_iter_step(DESCR_t * cur);
-extern long rk_iter_land_γ(DESCR_t frame0, long word, DESCR_t * cur);
-extern long rk_iter_land_ω(long word, DESCR_t * cur);
-extern DESCR_t rk_iter_finish(DESCR_t * cur);
 typedef struct { long fn; long how; } rt_call_next_t;
 extern rt_call_next_t rt_apply_open(DESCR_t * args, int nargs);
 extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word);
@@ -107,43 +102,6 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86("call", "rt_eval_land", (uint64_t)(uintptr_t)(void *)rt_eval_land) \
          + x86_rt_gc_poll_rec_res() \
          + x86_jmp_id((join_id)) )
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcfn_opens_as_iter(const char * fn, int nargs) { return (fn && nargs == 3 && !strcmp(fn, "meth_call")) ? 1 : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcfn_iter_open_enter(int base, const std::string & cellsq, const std::string & curq, int nargs, int decl_id, int join_id) {
-    return  x86("lea", "rdi", cellsq.c_str())
-         + x86("mov32", "esi", (long)nargs)
-         + x86("lea", "rdx", curq.c_str())
-         + x86("call", "rk_iter_open", (uint64_t)(uintptr_t)(void *)rk_iter_open)
-         + x86_rt_gc_poll_rec_sigma_word(1)
-         + x86("test", "rax", "rax")
-         + x86_jcc_id("jz", decl_id)
-         + x86_deflabel_id(base + 7)
-         + x86("lea", "rdi", curq.c_str())
-         + x86("call", "rk_iter_step", (uint64_t)(uintptr_t)(void *)rk_iter_step)
-         + x86_rt_gc_poll_rec_sigma_word(1)
-         + x86("test", "rax", "rax")
-         + x86_jcc_id("jz", base + 9)
-         + bb_glue_enter_c2bb(base, base + 5, base + 6)
-         + x86_deflabel_id(base + 5)
-         + x86("lea", "rcx", curq.c_str())
-         + x86("call", "rk_iter_land_γ", (uint64_t)(uintptr_t)(void *)rk_iter_land_γ)
-         + x86_rt_gc_poll_rec_sigma_word(1)
-         + x86("test", "rax", "rax")
-         + x86_jcc_id("jz", base + 7)
-         + x86_jmp_id(base + 9)
-         + x86_deflabel_id(base + 6)
-         + x86("lea", "rsi", curq.c_str())
-         + x86("call", "rk_iter_land_ω", (uint64_t)(uintptr_t)(void *)rk_iter_land_ω)
-         + x86_rt_gc_poll_rec_sigma_word(1)
-         + x86("test", "rax", "rax")
-         + x86_jcc_id("jz", base + 7)
-         + x86_deflabel_id(base + 9)
-         + x86("lea", "rdi", curq.c_str())
-         + x86("call", "rk_iter_finish", (uint64_t)(uintptr_t)(void *)rk_iter_finish)
-         + x86_rt_gc_poll_rec_res()
-         + x86_jmp_id(join_id);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_result_slot(IR_t * nd) {
     { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
@@ -249,9 +207,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         polled_in_arm = 1;
     } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);
-        int _iopen = bcfn_opens_as_iter(fn, nargs);
         if (_mopen) { s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
-        if (_iopen) { std::string _cq = FRQ(argbase); std::string _rq = FRQ(resoff); s += bcfn_iter_open_enter(40, _cq, _rq, nargs, 48, 29); s += x86_deflabel_id(48); }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
         if (_aopen) { s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
         if (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
@@ -261,7 +217,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86_deflabel_id(88);
         }
         int _bk = bb_callee_baked_kind(fn, _.op_strict);
-        if (_bk && !_mopen && !_iopen && !_aopen && !BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
+        if (_bk && !_mopen && !_aopen && !BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
             s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
             s += x86("lea", "rdi", FRQ(argbase));
             s += x86("mov32", "esi", (long)nargs);
@@ -283,7 +239,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("call_bare", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         s += x86("rtcc_rl");
         }
-        if (_mopen || _iopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29);
+        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29);
     }
     if (!polled_in_arm) { s += x86("mov", FRQ(resoff), "rax"); s += x86("mov", FRQ(resoff + 8), "rdx"); }
     s += x86("cmp", "al", (long)DT_FAIL);
