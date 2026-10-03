@@ -847,6 +847,7 @@ static int blob_slots_env(void) { return blob_slots_mask() != 0; }
 static int fence_frame_candidate(const IR_t * nd) {
     if (!nd || !g_emit_cfg || nd->op != IR_MATCH_FENCE1 || nd->n_operands < 2) return 0;
     if (IR_LIT(nd).ival == 2) return 1;
+    { IR_t ** all = g_emit_cfg->all; int n = g_emit_cfg->n, qi = -1; for (int j = 0; j < n; j++) if (all[j] == nd) { qi = j; break; } for (int j = qi; j >= 0; j--) if (all[j] && all[j]->op == IR_MATCH_BEGIN) return 1; }
     if (IR_LIT(nd).ival != 0) { int blob_frame_scope(void); if ((blob_slots_mask() & 2) && blob_frame_scope()) return 1; }
     { int blob_frame_scope(void); IR_t ** all = g_emit_cfg->all; int n = g_emit_cfg->n, qi = -1, mb = -1, hi = n; for (int j = 0; j < n; j++) if (all[j] == nd) { qi = j; break; }
       for (int j = qi; j >= 0; j--) if (all[j] && all[j]->op == IR_MATCH_BEGIN) { mb = j; break; }

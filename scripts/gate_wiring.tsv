@@ -683,6 +683,7 @@ test_gate_sno_a_dynamic_function_called_from_a_code_built_function_returns_its_v
 test_gate_sno_a_fence_after_a_live_deferred_thunk_finds_its_own_slots.sh	WIRED	-	-	-
 test_gate_sno_a_fence_backtracked_into_drops_its_bodys_conditional_captures.sh	WIRED	-	-	-
 test_gate_sno_a_fence_before_a_run_or_inside_an_arbno_body_retries_what_follows_it.sh	WIRED	-	-	-
+test_gate_sno_a_fence_inside_a_match_keeps_its_state_in_the_match_frame.sh	WIRED	-	-	-
 test_gate_sno_a_fence_or_abort_backtracked_into_fails_the_whole_match.sh	WIRED	-	-	-
 test_gate_sno_a_field_function_call_takes_the_name_entry.sh	WIRED	-	-	-
 test_gate_sno_a_label_hook_on_a_failure_edge_rides_the_spine.sh	WIRED	-	-	-
