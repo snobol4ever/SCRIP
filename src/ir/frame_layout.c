@@ -153,7 +153,9 @@ static void zls_entry(const IR_t * nd, int scope_id, int off) {
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (nd->op) {
     case IR_TO: case IR_TO_BY:
-        zls_field(scope_id, off, 8, ZK_RAW, 0, "to.I counter", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "to.limit", nd); return 1;
+        zls_field(scope_id, off, 8, ZK_RAW, 0, "to.I counter", nd); zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "to.limit", nd);
+        if (nd->op == IR_TO && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "db")) { zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "to.db G (the generation the enumeration took at alpha, ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B)", nd); zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "to.db pad (unused)", nd); return 2; }
+        return 1;
     case IR_MAKE_LIST: {
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "list.elem", nd);
         return 0 + nd->n_operands; }

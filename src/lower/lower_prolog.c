@@ -810,7 +810,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },
     { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" },
     { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3, "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" },
-    { "$db_decl", 3, "$db_decl" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$cutcall", 2, "$cutcall" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
+    { "$db_cells", 1, "$db_cells" }, { "$db_decl", 3, "$db_decl" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$cutcall", 2, "$cutcall" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
     { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
     { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$write_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" },
     { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" },
@@ -1041,31 +1041,21 @@ static IR_t * pl_db_leaf2(lcx_t * cx, const char * sym, int k, const tree_t * ar
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * er = NULL;
-    if (erase) { er = build(cx, IR_CALL, γnext, ωfail); IR_LIT(er).sval = k < 0 ? "$db_erase_t" : "$db_erase"; }
+    if (erase) { er = build(cx, IR_CALL, γnext, ωfail); IR_LIT(er).sval = "$db_erase"; }
     IR_t * uni = build(cx, IR_CALL, er ? er : γnext, ωfail); IR_LIT(uni).sval = erase ? "$unify" : "$clause_unify";
-    IR_t * at = build(cx, IR_CALL, uni, ωfail); IR_LIT(at).sval = k < 0 ? "$db_at_t" : "$db_at";
-    IR_t * to = build(cx, IR_TO, at, ωfail); IR_LIT(to).sval = (char *) "ag";
-    IR_t * gn = build(cx, IR_CALL, to, ωfail); IR_LIT(gn).sval = k < 0 ? "$db_gen_t" : "$db_gen";
-    IR_t * cnt = build(cx, IR_CALL, gn, ωfail); IR_LIT(cnt).sval = k < 0 ? "$db_n_t" : "$db_n";
-    IR_t * lo = build(cx, IR_LIT_INTEGER, cnt, ωfail); IR_LIT(lo).ival = 0;
+    IR_t * cp = build(cx, IR_CALL, uni, ωfail); IR_LIT(cp).sval = "$db_copy";
+    IR_t * to = build(cx, IR_TO, cp, ωfail); IR_LIT(to).sval = (char *) "db";
+    IR_t * z = build(cx, IR_LIT_INTEGER, to, ωfail); IR_LIT(z).ival = 0;
     IR_t * te = NULL; IR_t * tv = term_e(cx, target, &te);
     IR_t * kn;
-    if (k < 0) { kn = tv; lc_γ_to(tv, lo); lc_ω_to(tv, ωfail); ir_operand_push(cnt, kn); ir_operand_push(gn, kn); ir_operand_push(to, lo); ir_operand_push(to, cnt);
-        ir_operand_push(at, kn); ir_operand_push(at, to); ir_operand_push(at, gn); ir_operand_push(uni, at); ir_operand_push(uni, tv);
-        if (er) { ir_operand_push(er, kn); ir_operand_push(er, to); lc_ω_to_β(er, to); }
-        lc_ω_to_β(at, to); lc_ω_to_β(uni, to);
-        if (entry_out) *entry_out = te ? te : tv;
-        return to; }
-    kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k;
-    lc_γ_to(kn, te ? te : tv); lc_ω_to(kn, ωfail);
-    lc_γ_to(tv, lo); lc_ω_to(tv, ωfail);
-    ir_operand_push(cnt, kn); ir_operand_push(gn, kn);
-    ir_operand_push(to, lo); ir_operand_push(to, cnt);
-    ir_operand_push(at, kn); ir_operand_push(at, to); ir_operand_push(at, gn);
-    ir_operand_push(uni, at); ir_operand_push(uni, tv);
+    if (k < 0) { kn = build(cx, IR_CALL, z, ωfail); IR_LIT(kn).sval = "$db_store_k"; ir_operand_push(kn, tv); lc_γ_to(tv, kn); lc_ω_to(tv, ωfail); }
+    else { kn = build(cx, IR_LIT_INTEGER, NULL, ωfail); IR_LIT(kn).ival = k; lc_γ_to(kn, te ? te : tv); lc_ω_to(kn, ωfail); lc_γ_to(tv, z); lc_ω_to(tv, ωfail); }
+    ir_operand_push(to, kn); ir_operand_push(to, z);
+    ir_operand_push(cp, kn); ir_operand_push(cp, to);
+    ir_operand_push(uni, cp); ir_operand_push(uni, tv);
     if (er) { ir_operand_push(er, kn); ir_operand_push(er, to); lc_ω_to_β(er, to); }
-    lc_ω_to_β(at, to); lc_ω_to_β(uni, to);
-    if (entry_out) *entry_out = kn;
+    lc_ω_to_β(cp, to); lc_ω_to_β(uni, to);
+    if (entry_out) *entry_out = (k < 0) ? (te ? te : tv) : kn;
     return to;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1937,7 +1927,7 @@ static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
       return bb_program_add(&g_stage2.bbp, g); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout) {
+static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout, int pkt_cell, int pkt_slot, int * chain_off_out) {
     extern IR_graph_t * g_emit_cfg; extern int g_frame_active; extern int g_rt_fragment_emit; extern int g_gen_proc_active;
     extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void);
     extern void zls_graph_name(const IR_graph_t *, const char *);
@@ -1958,6 +1948,7 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
     if (!g) return (void *)0;
     if (gout) *gout = g;
     g->resumable_callable = 1;
+    if (pkt_slot >= 0) { g->pkt_fragment = 1; g->pkt_cell = pkt_cell; g->pkt_slot = pkt_slot; }
     { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); }
     { extern void fl_derive_tier(IR_graph_t *); fl_derive_tier(g); }
     { extern void ir_drive_slot_assign(IR_graph_t *); ir_drive_slot_assign(g); }
@@ -1972,7 +1963,7 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
               int _mx = g_stage2.proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]); break; }
           if (g_flat_frame_floor <= 0) g_flat_frame_floor = zls_g_region(g); } }
     emit_jmp_entry_for_proc(key, 0, 1, g);
-    { extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int); g_flat_dc_np = rt_pl_dc_ok(key, g->nparams) ? g->nparams : -1; }
+    { extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int); g_flat_dc_np = (pkt_slot < 0 && rt_pl_dc_ok(key, g->nparams)) ? g->nparams : -1; }
     zls_graph_name(g, key);
     { char pfx[300]; snprintf(pfx, sizeof pfx, "proc_%s", key);
       if (getenv("SCRIP_PL_RTASM")) { extern int zls_g_region(const IR_graph_t *); extern int zls_off(const IR_t *); int _mx = -1; for (int _i = 0; _i < g->n; _i++) if (g->all[_i]) { int _o = zls_off(g->all[_i]); if (_o > _mx) _mx = _o; }
@@ -1986,6 +1977,7 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
     g_gen_proc_active = gpa_sv;
     g_rt_fragment_emit = rfe_sv; g_frame_active = fa; g_emit_cfg = cfg_sv;
     if (!fn) return (void *)0;
+    if (chain_off_out) { extern long emit_last_pkt_chain_off(void); *chain_off_out = (int)emit_last_pkt_chain_off(); }
     rt_proc_set_frame_bytes(key, g_last_flat_frame_bytes);
     rt_proc_set_fn(key, fn);
     bb_ab_seal_entry_cells(key, (void *)fn, 1);
@@ -1995,7 +1987,33 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
     if (!gout) { extern void zls_reset(void); extern void IR_free(IR_graph_t *); zls_reset(); g_stage2.bbp.table[idx] = (IR_graph_t *)0; if (idx == g_stage2.bbp.count - 1) g_stage2.bbp.count--; IR_free(g); }
     return (void *)fn;
 }
-void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) { return pl_runtime_define_pred_g(key, choice, arity, NULL); }
+static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout) { return pl_runtime_define_pred_x(key, choice, arity, gout, -1, -1, (int *)0); }
+void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) { return pl_runtime_define_pred_x(key, choice, arity, NULL, -1, -1, (int *)0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void * pl_runtime_define_fragment(const char * fkey, void * clause_cell, int arity, int cell_k, int slot, int * ridx_out, int * chain_off_out) {
+    extern void * rt_pl_clause_tree(void *); extern tree_t * pl_runtime_clause_tree(tree_t *); extern void * rt_pl_choice_new(const char *); extern void rt_pl_choice_add(void *, void *); extern int rt_proc_index_of(const char *);
+    void * raw = clause_cell ? rt_pl_clause_tree(clause_cell) : (void *)0; void * cl = raw ? (void *) pl_runtime_clause_tree((tree_t *) raw) : (void *)0; void * ch; void * fn; int off = -1;
+    if (!fkey || !cl) return (void *)0;
+    ch = rt_pl_choice_new(fkey); rt_pl_choice_add(ch, cl);
+    fn = pl_runtime_define_pred_x(ct_strdup(fkey), (const tree_t *) ch, arity, NULL, cell_k, slot, &off);
+    if (!fn || off < 0) return (void *)0;
+    if (ridx_out) *ridx_out = rt_proc_index_of(fkey);
+    if (chain_off_out) *chain_off_out = off;
+    return fn;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_runtime_install_packet_entry(const char * key, int arity, const char * head_fkey) {
+    extern int rt_proc_is_registered(const char *); extern void rt_proc_register(const char *, const char **, int); extern void * rt_proc_fn(const char *);
+    extern void rt_proc_set_generator(const char *, int); extern void rt_proc_set_jmpentry(const char *, int); extern void rt_proc_set_dyn_scope(const char *, int); extern void rt_proc_set_pinned(const char *, int);
+    extern void rt_proc_set_fn(const char *, bb_box_fn); extern void bb_ab_seal_entry_cells(const char *, void *, int);
+    void * fn = head_fkey ? rt_proc_fn(head_fkey) : (void *)0;
+    if (!key || !fn) return 0;
+    if (!rt_proc_is_registered(key)) rt_proc_register(ct_strdup(key), (const char **) 0, arity);
+    rt_proc_set_generator(key, 1); rt_proc_set_jmpentry(key, 1); rt_proc_set_dyn_scope(key, 0); rt_proc_set_pinned(key, 1);
+    rt_proc_set_fn(key, (bb_box_fn) fn);
+    bb_ab_seal_entry_cells(key, fn, 1);
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_mkc_functor_is(const IR_t * f, const char * nm) {
     extern int prolog_functor_name(int); extern const char * prolog_atom_name(int);
@@ -2170,6 +2188,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (ndir < PL_INIT_GOALS_MAX) dir_goals[ndir++] = pl_dir_catch_wrap(dirgoal, dvn, &dvc); continue; }
     }
     { const tree_t * all_goals[PL_INIT_GOALS_MAX * 2]; int nall = 0;
+      all_goals[nall++] = pl_cc_fnc1("$db_cells", pl_cc_ilit(g_stage2.pl_dyn_n > 0 ? g_stage2.pl_dyn_n : 1));
       { const tree_t * seeds[PL_INIT_GOALS_MAX * 4]; int nseed = 0; int save_base = g_pl_seed_var_base; g_pl_seed_var_base = 0;
         for (int di = 0; di < g_stage2.pl_dyn_n && nall < PL_INIT_GOALS_MAX; di++) {
           const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di];
@@ -2346,6 +2365,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
               pl_new_proc(key, da, bb_idx); } } }
     }
     for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->resumable_callable = 1;
-    top->standing_cells = g_stage2.pl_dyn_n;
+    { extern int rt_pl_db_cells_max(void); top->standing_cells = rt_pl_db_cells_max(); }
     return &g_stage2;
 }

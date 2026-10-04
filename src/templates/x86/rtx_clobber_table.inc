@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 265
+#define RTX_CLOB_TAB_N 262
 #define RTX_CLOB_TAB_N_CLOBBERING 0
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -87,24 +87,21 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_db_assertz", 0 },
     { "rt_pl_dop_db_assertz_r", 0 },
     { "rt_pl_dop_db_assertz_t", 0 },
-    { "rt_pl_dop_db_at", 0 },
     { "rt_pl_dop_db_at_r", 0 },
-    { "rt_pl_dop_db_at_t", 0 },
     { "rt_pl_dop_db_bind", 0 },
+    { "rt_pl_dop_db_cells", 0 },
+    { "rt_pl_dop_db_copy", 0 },
     { "rt_pl_dop_db_decl", 0 },
     { "rt_pl_dop_db_erase", 0 },
     { "rt_pl_dop_db_erase_ref", 0 },
     { "rt_pl_dop_db_erase_t", 0 },
-    { "rt_pl_dop_db_gen", 0 },
-    { "rt_pl_dop_db_gen_t", 0 },
-    { "rt_pl_dop_db_n", 0 },
     { "rt_pl_dop_db_n_r", 0 },
-    { "rt_pl_dop_db_n_t", 0 },
     { "rt_pl_dop_db_nonempty", 0 },
     { "rt_pl_dop_db_ref_r", 0 },
     { "rt_pl_dop_db_retractall", 0 },
     { "rt_pl_dop_db_retractall_t", 0 },
     { "rt_pl_dop_db_seed_once", 0 },
+    { "rt_pl_dop_db_store_k", 0 },
     { "rt_pl_dop_db_t_guard", 0 },
     { "rt_pl_dop_display", 0 },
     { "rt_pl_dop_display_s", 0 },

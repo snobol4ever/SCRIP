@@ -363,6 +363,7 @@ typedef struct {
     int                          op_bounded;
     int                          op_relop_descr;
     int                          op_num_real;
+    int                          op_db_walk;
     int                          op_imm_a_ok;
     int                          op_imm_b_ok;
     long                         op_imm_a;
@@ -447,6 +448,12 @@ typedef struct {
     struct bb_label_t *          flat_β_p;
     struct bb_label_t *          flat_alt1_p;
     struct bb_label_t *          flat_altdet_p;
+    struct bb_label_t *          flat_pkt_walk_p;
+    struct bb_label_t *          flat_pkt_chainω_p;
+    int                          flat_pkt;
+    int                          flat_pkt_cell;
+    int                          flat_pkt_slot;
+    long                         flat_pkt_chain_off;
     struct bb_label_t *          flat_main_body_p;
     struct bb_label_t *          flat_main_ω_p;
     struct bb_label_t *          flat_dc_body_p;

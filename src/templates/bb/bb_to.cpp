@@ -38,8 +38,40 @@ static std::string to_int_operand_guard(int slot) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define TO_BOMB1() (x86_fb_pinned() && (_.op_zres || _.op_num_real))
+static std::string to_db_load_store() {
+    return x86("mov", "rax", FRQ(_.op_sa + 8)) + x86_shift_imm("shl", 4, "rax", 3) + x86("mov", "rcx", "r14") + x86("sub", "rcx", "rax") + x86("mov", "rax", RDQ("rcx", -24)) + x86("mov", "r9", RDQ("rax", 0));
+}
+static std::string to_db_slot_addr() {
+    return x86("mov", "r10", "rsi") + x86_shift_imm("shl", 4, "r10", 5) + x86("mov", "r11", "rsi") + x86_shift_imm("shl", 4, "r11", 3) + x86("add", "r10", "r11") + x86("add", "r10", "r9");
+}
+static std::string bb_to_db() {
+    return x86("comment", "IR_TO db (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B): the packet's slots in packet order, each visible at the generation G this enumeration took at alpha; the store is reloaded from its root cell at every step (a collected object moves)")
+         + x86_alpha()
+         + x86("mov", "rax", FRQ(_.op_sa + 8)) + x86_shift_imm("shl", 4, "rax", 3) + x86("mov", "rcx", "r14") + x86("sub", "rcx", "rax") + x86("mov", "rax", RDQ("rcx", -24))
+         + x86("test", "rax", "rax") + x86_omega("je")
+         + x86("mov", "r9", RDQ("rax", 0))
+         + x86("mov", "r8d", RDD("rax", 20)) + x86("mov", FRQ(_.op_off + 32), "r8")
+         + x86("mov", "esi", RDD("rax", 24)) + x86("movsxd", "rsi", "esi") + x86("mov", FRQ(_.op_off + 16), "rsi")
+         + to_trail_mark()
+         + x86("def", L(0))
+         + x86("mov", "rsi", FRQ(_.op_off + 16)) + x86("cmp", "esi", 0L) + x86_omega("jl")
+         + to_db_load_store() + to_db_slot_addr() + x86("mov", "r8", FRQ(_.op_off + 32))
+         + x86("mov", "r11d", RDD("r10", 20)) + x86("cmp", "r11d", "r8d") + x86("jge", L(3))
+         + x86("mov", "r11d", RDD("r10", 16)) + x86("test", "r11d", "r11d") + x86("je", L(1))
+         + x86("cmp", "r11d", "r8d") + x86("jl", L(3))
+         + x86("def", L(1))
+         + x86("mov", FRQ(_.op_off), (long)DT_I) + x86("mov", FRQ(_.op_off + 8), "rsi")
+         + x86_gamma()
+         + x86_beta()
+         + to_trail_unwind()
+         + x86("mov", "rsi", FRQ(_.op_off + 16)) + to_db_load_store() + to_db_slot_addr()
+         + x86("def", L(3))
+         + x86("mov", "esi", RDD("r10", 32)) + x86("movsxd", "rsi", "esi") + x86("mov", FRQ(_.op_off + 16), "rsi")
+         + x86("jmp", L(0));
+}
 std::string bb_to() {
     x86_begin();
+    if (_.op_db_walk) return (x86_fb_pinned() && _.op_off >= 0 && _.op_sa >= 0) ? bb_to_db() : x86_alpha() + x86_bomb("IR_TO db: a packet enumeration outside a pinned Prolog frame or without static operands");
     return IF(TO_BOMB1(),
                x86_alpha()
                    + x86_bomb("IR_TO: a Prolog generator reached the zd/real arm, where op_off+24 is to.limit and the rung-7 trail mark "

@@ -283,9 +283,35 @@ static std::string zf_release(int kt) {
 extern "C" void rt_pl_quad_seed(void *);
 static std::string pl_standing_cells_zero(int kt, int n) {
     std::string s;
+    if (n > 16) return x86("lea", "rdi", RDQ("rsp", kt - 64 - 24 - 8 * (n - 1))) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)n) + x86("rep_stosq");
     for (int k = 0; k < n; k++) s += x86("mov", RDQ("rsp", kt - 64 - 24 - 8 * k), 0L);
     return s;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void *g_rt_gen_procs;
+static std::string xa_flat_pkt_slot_addr(const char * idx64, const char * out, const char * tmp) {
+    return x86("mov", out, idx64) + x86_shift_imm("shl", 4, out, 5) + x86("mov", tmp, idx64) + x86_shift_imm("shl", 4, tmp, 3) + x86("add", out, tmp) + x86("add", out, "r9");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_flat_pkt_fresh_entry_str(void) {
+    int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot;
+    if (k < 0 || i < 0 || !g_emit.flat_pkt_walk_p) return x86_bomb("xa_flat_pkt_fresh_entry: a packet fragment without its cell, its slot or its walk label");
+    return x86("comment", "PACKET FRAGMENT fresh entry (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): the registry road -- the packet from root cell k, G = next_ref, this slot visible at G, else the walk from the head")
+         + x86("mov", "rax", RDQ("r14", -24 - 8 * k))
+         + x86("mov", "r8d", RDD("rax", 20))
+         + x86("mov", "r9", RDQ("rax", 0))
+         + x86("mov", "r11d", RDD("r9", 40 * i + 20))
+         + x86("cmp", "r11d", "r8d") + x86("jge", L(210))
+         + x86("mov", "r11d", RDD("r9", 40 * i + 16))
+         + x86("test", "r11d", "r11d") + x86("je", L(211))
+         + x86("cmp", "r11d", "r8d") + x86("jl", L(210))
+         + x86("def", L(211)) + x86("jmp", L(212))
+         + x86("def", L(210))
+         + x86("mov", "esi", RDD("rax", 24)) + x86("movsxd", "rsi", "esi")
+         + x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_walk_p)
+         + x86("def", L(212));
+}
+extern "C" void xa_flat_pkt_fresh_entry(void) { bb_emit_x86(xa_flat_pkt_fresh_entry_str()); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_prologue_str(void) {
     if (!g_emit.zframe_graph) return std::string();
@@ -407,6 +433,11 @@ static std::string xa_flat_zframe_prologue_str(void) {
                     + x86("mov", FRQ(kt - 40), "rax")
                     + x86("mov", "rax", "rsp")
                     + x86("mov", RDQ("r15", _off), "rax"); } } }
+    if (g_emit.flat_pkt) { if (!g_emit_cfg || kt - g_emit_cfg->jcon_value_region != FLAT_FRAME_ALLOWANCE_PINNED) return x86_bomb("packet fragment: the pinned allowance is not 96, the G word at [kt-80] has no home");
+        s += x86("comment", "PACKET FRAGMENT: G (the generation this call took) as a packed RAW word in the pinned allowance's spare cell [kt-80], read by the chain-omega and the gamma scan")
+           + x86("mov", "rax", "r8") + x86_shift_imm("shl", 4, "rax", 8) + x86_or_imm("rax", (long)DT_RAW) + x86("mov", FRQ(kt - 80), "rax") + x86("mov", FRQ(kt - 72), 0L)
+           + x86("note", "PACKET FRAGMENT: this frame is the youngest choice from its entry (B = its header, the floor word at its base), as a multi-clause chain's alternation is, so every binding of a caller cell is trailed and the chain-omega's unwind undoes it before the next clause")
+           + x86_pl_disj_open(x86_fb(), kt, 236, 237); }
     if (g_emit_cfg && g_emit_cfg->root_graph) s += emit_gc_map_cell(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0);
     else s += emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, 0u, 0);
     return s;
@@ -658,6 +689,30 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("pop", "rcx")
              + x86("add", "rsp", 8L)
              + x86("jmp", "rcx");
+    if (x86_fb_pinned() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) {
+        return  x86("comment", "PACKET FRAGMENT gamma (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): B == this frame's header -> no choice inside the clause: a later slot visible at G makes the token this frame with beta = the chain-omega, none pops the choice and exits det; B younger -> the clause's own beta; B older -> a cut ran, det")
+             + x86("mov32", "edi", (long)DT_I) + x86("mov32", "esi", 1L)
+             + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
+             + x86("lea", "rax", RDQ(x86_fb(), kt - 64))
+             + x86("cmp", "r13", "rax") + x86("jb", L(238)) + x86("ja", L(233))
+             + x86("mov", "r8", FRQ(kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
+             + x86("mov", "rax", RDQ("r14", -24 - 8 * g_emit.flat_pkt_cell)) + x86("mov", "r9", RDQ("rax", 0))
+             + x86("mov", "r10d", RDD("r9", 40 * g_emit.flat_pkt_slot + 32)) + x86("movsxd", "r10", "r10d")
+             + x86("def", L(230)) + x86("cmp", "r10d", 0L) + x86("jl", L(233))
+             + xa_flat_pkt_slot_addr("r10", "r11", "rax")
+             + x86("mov", "eax", RDD("r11", 20)) + x86("cmp", "eax", "r8d") + x86("jge", L(232))
+             + x86("mov", "eax", RDD("r11", 16)) + x86("test", "eax", "eax") + x86("je", L(231))
+             + x86("cmp", "eax", "r8d") + x86("jl", L(232))
+             + x86("def", L(231))
+             + x86("lea", "rdx", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_chainω_p)
+             + x86("mov", "rax", x86_fb()) + zf_pin_restore(kt) + x86("jmp", "rcx")
+             + x86("def", L(232)) + x86("mov", "r10d", RDD("r11", 32)) + x86("movsxd", "r10", "r10d") + x86("jmp", L(230))
+             + x86("def", L(238))
+             + x86("lea", "rdx", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_β_p)
+             + x86("mov", "rax", x86_fb()) + zf_pin_restore(kt) + x86("jmp", "rcx")
+             + x86("def", L(233))
+             + x86("mov", "r13", RDQ(x86_fb(), kt - 40))
+             + x86("xor", "eax", "eax") + zf_release(kt) + zf_pin_restore(kt) + x86("jmp", "rcx"); }
     if (x86_fb_pinned() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
         int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
         return  x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
@@ -718,6 +773,32 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("add", "rsp", 8L)
              + x86("pop", "rcx")
              + x86("jmp", "rcx");
+    if (x86_fb_pinned() && g_emit.flat_pkt) {
+        int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot; int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
+        if (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) return x86_bomb("packet fragment chain-omega without its labels");
+        return x86_def_ext(g_emit.flat_pkt_chainω_p)
+             + x86("comment", "PACKET FRAGMENT chain-omega (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): undo this clause's bindings, restore B and the caller's landings, release the frame but not the block, then walk next_idx to the next slot visible at G and enter its fragment's chain entry; none left -> the predicate's omega")
+             + x86_pl_tr_unwind_at(FRQ(kt - 64), 220, 221)
+             + x86("mov", "rcx", FRQ(kt - 24)) + x86("mov", "rdx", FRQ(kt - 16)) + x86("mov", "r13", FRQ(kt - 40))
+             + x86("mov", "r8", FRQ(kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
+             + x86("mov", "rax", RDQ("r14", -24 - 8 * k)) + x86("mov", "r9", RDQ("rax", 0))
+             + x86("mov", "esi", RDD("r9", 40 * i + 32)) + x86("movsxd", "rsi", "esi")
+             + x86("lea", "rsp", RDQ(x86_fb(), kt)) + x86("mov", x86_fb(), RDQ(x86_fb(), kt - 8))
+             + x86_def_ext(g_emit.flat_pkt_walk_p)
+             + x86("cmp", "esi", 0L) + x86("jl", L(225))
+             + xa_flat_pkt_slot_addr("rsi", "r10", "r11")
+             + x86("mov", "r11d", RDD("r10", 20)) + x86("cmp", "r11d", "r8d") + x86("jge", L(224))
+             + x86("mov", "r11d", RDD("r10", 16)) + x86("test", "r11d", "r11d") + x86("je", L(223))
+             + x86("cmp", "r11d", "r8d") + x86("jl", L(224))
+             + x86("def", L(223))
+             + x86("mov", "r11d", RDD("r10", 24))
+             + x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_rt_gen_procs, "g_rt_gen_procs") + x86("mov", "rdi", RDQ("rdi", 0))
+             + x86_shift_imm("shl", 4, "r11", 7) + x86("add", "rdi", "r11") + x86("mov", "rdi", RDQ("rdi", 8))
+             + x86("mov", "r11d", RDD("r10", 28)) + x86("movsxd", "r11", "r11d") + x86("add", "rdi", "r11")
+             + x86_jmp_reg("rdi")
+             + x86("def", L(224)) + x86("mov", "esi", RDD("r10", 32)) + x86("movsxd", "rsi", "esi") + x86("jmp", "extlbl", (uint64_t)(uintptr_t)g_emit.flat_pkt_walk_p)
+             + x86("def", L(225)) + IF(np > 0, x86("add", "rsp", (long)(16 * np))) + x86_jmp_reg("rdx");
+    }
     if (x86_fb_pinned())
         return  x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_fb(), kt - 40))

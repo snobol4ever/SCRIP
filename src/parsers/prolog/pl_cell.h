@@ -80,4 +80,5 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     }
     return 0;
 }
+#define PL_DB_CELLS_MAX 256
 #endif

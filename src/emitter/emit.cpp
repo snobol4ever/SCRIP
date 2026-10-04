@@ -1269,7 +1269,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
         }
     case IR_SUCCEED:              bb_emit_x86(bb_succeed());        return 0;
     case IR_SUSPEND:              { g_emit.op_activate_proc = IR_LIT(nd).sval; g_emit.op_var_form = nd->pat_static; bb_emit_x86(bb_suspend()); g_emit.op_var_form = 0; } return 0;
-    case IR_TO:                   { bb_prepare(nd); g_emit.op_range_int_operands = ir_range_operands_must_be_integers(nd); bb_emit_x86(bb_to()); } return 0;
+    case IR_TO:                   { bb_prepare(nd); g_emit.op_range_int_operands = ir_range_operands_must_be_integers(nd); g_emit.op_db_walk = (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "db")) ? 1 : 0; bb_emit_x86(bb_to()); } return 0;
     case IR_MATCH_LEN:            { bb_prepare(nd); { const char * _sv = (nd->n_operands == 0 && (uintptr_t)(uint64_t)IR_LIT(nd).ival > (uintptr_t)0xFFFFU) ? IR_LIT(nd).sval : (const char *)0; g_emit.op_sval = (_sv && _sv[0] == '*') ? _sv : (const char *)0; } bb_emit_x86(bb_match_len()); } return 0;
     case IR_MATCH_LIT:            { bb_prepare(nd); bb_emit_x86(bb_match_lit()); } return 0;
     case IR_MATCH_ANY:            { bb_prepare(nd); bb_emit_x86(bb_match_any()); } return 0;
@@ -1969,6 +1969,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         g_emit.op_sa = drive_value_slot(bb_child0(nd)); g_emit.op_sb = drive_value_slot(bb_child1(nd));
         g_emit.op_sc = -1;
         g_emit.op_num_real = (IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval, "ar") == 0) ? 1 : 0;
+        g_emit.op_db_walk = (IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "db")) ? 1 : 0;
         g_emit.op_off = drive_value_slot(nd);
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -3698,7 +3699,13 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _blk_graph = (g_emit.zframe_graph && !g_emit.zframe_pinned_base && g_emit_cfg && zls_g_block_args(g_emit_cfg) && !zls_g_det_block(g_emit_cfg)) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
     if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc && !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region; if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes) { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg, g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
+    g_emit.flat_pkt = (g_emit.zframe_graph && g_emit_cfg && g_emit_cfg->pkt_fragment) ? 1 : 0; g_emit.flat_pkt_cell = g_emit.flat_pkt ? g_emit_cfg->pkt_cell : -1; g_emit.flat_pkt_slot = g_emit.flat_pkt ? g_emit_cfg->pkt_slot : -1; g_emit.flat_pkt_chain_off = -1;
+    g_emit.flat_pkt_walk_p = (bb_label_t *)0; g_emit.flat_pkt_chainω_p = (bb_label_t *)0;
     if (g_emit.zframe_graph) {
+        if (g_emit.flat_pkt) {
+            g_emit.flat_pkt_walk_p = emit_label_alloc("%s_pkwalk", fam); g_emit.flat_pkt_chainω_p = emit_label_alloc("%s_pkchω", fam);
+            { extern void xa_flat_pkt_fresh_entry(void); xa_flat_pkt_fresh_entry(); }
+            { bb_label_t lbl_pc; emit_label_initf(&lbl_pc, "%s_pkα", fam); emit_sep_rule('-'); emit_label_define_bb(&lbl_pc); if (!g_is_text) g_emit.flat_pkt_chain_off = (long)lbl_pc.offset; } }
         { extern void xa_flat_zframe_prologue(void); xa_flat_zframe_prologue(); }
     } else if (icn_gen_regime() && g_emit.flat_gen) {
         int kt2 = g_emit.flat_frame_bytes;
@@ -4459,6 +4466,7 @@ extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
 int  g_flat_frame_floor = 0;
 int  g_flat_dc_np = -1;
 long g_last_dc_off = -1;
+extern "C" long emit_last_pkt_chain_off(void) { return g_emit.flat_pkt_chain_off; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zop_audit_seen(void) { return g_emit.zop_seen; }
 extern "C" void zop_audit_seen_clear(void) { g_emit.zop_seen = 0; }
