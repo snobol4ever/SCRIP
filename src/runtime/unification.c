@@ -324,15 +324,16 @@ static int plc_portray_hit(pl_cell_t *d, plc_vmap *m)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m);
+#define PLC_KID(cl, dp, mp) do { if (wx) plc_wt((cl), quoted, ignore_ops, numbervars, max_depth, (dp), (mp), m); else plc_wt_lv((cl), quoted, ignore_ops, numbervars, max_depth, (dp), (mp), m); } while (0)
 static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m)
 {
     extern int ATOM_DOT;
     FILE *fp = m->fp; const pl_tr_ctx_t *wx = m->portray ? m->cx : (const pl_tr_ctx_t *)0; plc_wsref rd = { -1, (pl_cell_t *)0 };
     if (!c) { plc_wt_atom(fp, "[]", quoted); return; }
     pl_cell_t *d = pl_deref(c);
-    plc_wsref_set(wx, &rd, d);
+    if (wx) plc_wsref_set(wx, &rd, d);
     if (m->portray && m->portray(d, m)) return;
-    d = plc_wsref_get(wx, &rd);
+    if (wx) d = plc_wsref_get(wx, &rd);
     if (max_depth > 0 && depth >= max_depth) { fprintf(fp, "..."); return; }
     int tg = (int)d->v;
     if (pl_cell_unbound(d)) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
@@ -357,29 +358,29 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     if (ignore_ops != 1 && fnid == ATOM_DOT && ar == 2) {
         extern void *rt_pl_ball_kind1(const char *, const char *);
         pl_cell_t *cur = d; long n = 0; pl_cell_t *tort = d; plc_wsref rc = { -1, (pl_cell_t *)0 }, rtt = { -1, (pl_cell_t *)0 };
-        plc_wsref_set(wx, &rc, cur); plc_wsref_set(wx, &rtt, tort);
+        if (wx) { plc_wsref_set(wx, &rc, cur); plc_wsref_set(wx, &rtt, tort); }
         fputc('[', fp);
         for (;;) {
             pl_cell_t *ca = (pl_cell_t *)cur->p; pl_cell_t *tl;
             if (max_depth > 0 && n >= max_depth) { fprintf(fp, "|..."); break; }
             if (n) fputc(',', fp);
-            plc_wt(&ca[0], quoted, ignore_ops, numbervars, max_depth, depth, 999, m);
+            PLC_KID(&ca[0], depth, 999);
             n++;
-            cur = plc_wsref_get(wx, &rc); tort = plc_wsref_get(wx, &rtt); ca = (pl_cell_t *)cur->p;
+            if (wx) { cur = plc_wsref_get(wx, &rc); tort = plc_wsref_get(wx, &rtt); ca = (pl_cell_t *)cur->p; }
             tl = pl_deref(&ca[1]);
             if ((int)tl->v == DT_PLREF && plc_fid_name(tl->slen) == ATOM_DOT && plc_fid_arity(tl->slen) == 2 && tl->p) {
                 cur = tl;
                 if (cur == tort) { fprintf(fp, "|..."); if (!m->pthrown) m->pthrown = rt_pl_ball_kind1("resource_error", "cyclic_term"); break; }
                 if ((n & (n - 1)) == 0) tort = cur;
-                plc_wsref_set(wx, &rc, cur); plc_wsref_set(wx, &rtt, tort);
+                if (wx) { plc_wsref_set(wx, &rc, cur); plc_wsref_set(wx, &rtt, tort); }
                 continue; }
-            if (!plc_is_nil(tl)) { fputc('|', fp); plc_wt(tl, quoted, ignore_ops, numbervars, max_depth, depth, 999, m); }
+            if (!plc_is_nil(tl)) { fputc('|', fp); PLC_KID(tl, depth, 999); }
             break;
         }
         fputc(']', fp); return;
     }
     if (!ignore_ops && ar == 1 && strcmp(fn, "{}") == 0) {
-        fprintf(fp, "{"); plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, 1200, m); fprintf(fp, "}"); return;
+        fprintf(fp, "{"); PLC_KID(&aa[0], depth+1, 1200); fprintf(fp, "}"); return;
     }
     { int op_prec = 0, lmax = 0, rmax = 0;
       if (!ignore_ops && (ar == 1 || ar == 2) && plc_op_info(fn, ar, &op_prec, &lmax, &rmax)) {
@@ -388,17 +389,17 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         if (ar == 2) {
             int lop = plc_is_op_atom(pl_deref(&aa[0])), rop = plc_is_op_atom(pl_deref(&aa[1]));
             if (lop) fputc('(', fp);
-            plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, lop ? 1200 : lmax, m);
-            d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p;
+            PLC_KID(&aa[0], depth+1, lop ? 1200 : lmax);
+            if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
             if (lop) fputc(')', fp);
             if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s ", fn);
             else if (!strcmp(fn, ",")) fputc(',', fp);
             else { plc_wt_atom(fp, fn, quoted); if (!rop && plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars))) fputc(' ', fp); }
             if (rop) fputc('(', fp);
-            plc_wt(&aa[1], quoted, ignore_ops, numbervars, max_depth, depth+1, rop ? 1200 : rmax, m);
+            PLC_KID(&aa[1], depth+1, rop ? 1200 : rmax);
             if (rop) fputc(')', fp);
         } else if (plc_op_is_postfix(fn)) {
-            plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, lmax, m);
+            PLC_KID(&aa[0], depth+1, lmax);
             if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s", fn); else plc_wt_atom(fp, fn, quoted);
         } else {
             { pl_cell_t *a0 = pl_deref(&aa[0]); int ap = plc_term_prio(a0, ignore_ops);
@@ -410,16 +411,18 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
               if (alnum_op) fprintf(fp, "%s ", fn); else plc_wt_atom(fp, fn, quoted);
               if (sep && !alnum_op) fputc(' ', fp);
               if (needp) fputc('(', fp);
-              plc_wt(&aa[0], quoted, ignore_ops, numbervars, max_depth, depth+1, needp ? 1200 : rmax, m);
+              PLC_KID(&aa[0], depth+1, needp ? 1200 : rmax);
               if (needp) fputc(')', fp); }
         }
         if (wrap) fputc(')', fp);
         return; } }
     plc_wt_atom(fp, fn, quoted || (fn[0] == '.' && fn[1] == 0));
     fprintf(fp, "(");
-    for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); plc_wt(&aa[i], quoted, ignore_ops, numbervars, max_depth, depth+1, 999, m); d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
+    for (int i = 0; i < ar; i++) { if (i) fprintf(fp, ","); PLC_KID(&aa[i], depth+1, 999); if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; } }
     fprintf(fp, ")");
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#undef PLC_KID
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, long max_depth, long depth, int maxp, plc_vmap *m)
 {
