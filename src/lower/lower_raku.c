@@ -106,7 +106,7 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_str_subform(const char * nm) {
-    static const char * const names[] = { "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", "substr", "substr-rw", "index", "rindex", NULL };
+    static const char * const names[] = { "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", "substr", "substr-rw", "index", "rindex", "floor", "ceiling", "round", "truncate", "sign", "log2", "log10", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "asin", "acos", "sec", "cosec", "cotan", "keys", "values", "kv", "pairs", "elems", "end", "ords", "atan2", "is-prime", NULL };
     for (int i = 0; names[i]; i++) if (!strcmp(nm, names[i])) return 1; return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -686,6 +686,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
             return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res); }
         if (nm && t->n > 1 && rk_is_str_subform(nm) && !rk_proc_known(nm)) {
+            tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, t->c[1]); ast_push(mc, leaf_sval2(TT_QLIT, nm));
+            for (int i = 2; i < t->n; i++) ast_push(mc, t->c[i]);
+            return lower_rv(cx, mc, γ, ω, res); }
+        if (nm && t->n > 2 && (!strcmp(nm, "map") || !strcmp(nm, "grep") || !strcmp(nm, "first")) && !rk_proc_known(nm) && t->c[1] && (t->c[1]->t == TT_ANON_BLOCK || (t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] == '&'))) {
+            tree_t * lst = ast_node_new(TT_FNC); lst->v.sval = (char *)"__rk_arr"; ast_push(lst, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 2; i < t->n; i++) ast_push(lst, t->c[i]);
+            tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, lst); ast_push(mc, leaf_sval2(TT_QLIT, nm)); ast_push(mc, t->c[1]);
+            return lower_rv(cx, mc, γ, ω, res); }
+        if (nm && t->n > 1 && (!strcmp(nm, "shift") || !strcmp(nm, "pop") || !strcmp(nm, "unshift")) && !rk_proc_known(nm) && t->c[1] && t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] == '@') {
             tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, t->c[1]); ast_push(mc, leaf_sval2(TT_QLIT, nm));
             for (int i = 2; i < t->n; i++) ast_push(mc, t->c[i]);
             return lower_rv(cx, mc, γ, ω, res); }
@@ -1584,7 +1592,9 @@ static void rk_listops_to_methcalls(tree_t * t, int is_iter_src) {
     if (is_iter_src || (t->t != TT_MAP && t->t != TT_GREP) || t->n < 2 || !t->c[0] || !t->c[1]) return;
     tree_t * body = ast_node_new(TT_SEQ_EXPR); ast_push(body, t->c[0]);
     tree_t * blk = ast_node_new(TT_ANON_BLOCK); ast_push(blk, body);
-    tree_t * m = ast_node_new(TT_METHCALL); m->line = t->line; ast_push(m, t->c[1]); ast_push(m, leaf_sval2(TT_QLIT, t->t == TT_MAP ? "map" : "grep")); ast_push(m, blk);
+    tree_t * src = t->c[1];
+    if (t->n > 2) { src = ast_node_new(TT_FNC); src->v.sval = (char *)"__rk_arr"; ast_push(src, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 1; i < t->n; i++) ast_push(src, t->c[i]); }
+    tree_t * m = ast_node_new(TT_METHCALL); m->line = t->line; ast_push(m, src); ast_push(m, leaf_sval2(TT_QLIT, t->t == TT_MAP ? "map" : "grep")); ast_push(m, blk);
     *t = *m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

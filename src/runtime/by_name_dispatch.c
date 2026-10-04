@@ -634,6 +634,7 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     *out = rk_match_make(ok ? subj : "", caps, ok); return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static double rk_atanh(double x) { return 0.5 * log((1.0 + x) / (1.0 - x)); }
 static unsigned rk_utf8_cp(const unsigned char *p, size_t n, size_t *len) {
     if (p[0] < 0xC0 || n < 2) { *len = 1; return p[0]; }
     size_t k = p[0] >= 0xF0 ? 4 : p[0] >= 0xE0 ? 3 : 2; if (k > n) { *len = 1; return p[0]; }
@@ -1085,6 +1086,29 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "sin")) { *out = REALVAL(sin(to_real(recv))); return 1; }
     if (!strcmp(meth, "cos")) { *out = REALVAL(cos(to_real(recv))); return 1; }
     if (!strcmp(meth, "tan")) { *out = REALVAL(tan(to_real(recv))); return 1; }
+    { static const struct { const char *nm; double (*f)(double); } rk_m1[] = { { "asin", asin }, { "acos", acos }, { "atan", atan }, { "sinh", sinh }, { "cosh", cosh }, { "tanh", tanh },
+          { "asinh", asinh }, { "acosh", acosh }, { "atanh", rk_atanh }, { "log2", log2 }, { "log10", log10 }, { (const char *) 0, (double (*)(double)) 0 } };
+      for (int mi = 0; rk_m1[mi].nm; mi++) if (!strcmp(meth, rk_m1[mi].nm) && nmargs == 0) { *out = REALVAL(rk_m1[mi].f(to_real(recv))); return 1; } }
+    if (!strcmp(meth, "sec") && nmargs == 0) { *out = REALVAL(1.0 / cos(to_real(recv))); return 1; }
+    if (!strcmp(meth, "cosec") && nmargs == 0) { *out = REALVAL(1.0 / sin(to_real(recv))); return 1; }
+    if (!strcmp(meth, "cotan") && nmargs == 0) { *out = REALVAL(1.0 / tan(to_real(recv))); return 1; }
+    if (!strcmp(meth, "atan2") && nmargs <= 1) { *out = REALVAL(atan2(to_real(recv), nmargs ? to_real(margs[0]) : 1.0)); return 1; }
+    if (!strcmp(meth, "sign") && nmargs == 0 && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { double d = to_real(recv); *out = INTVAL(d < 0 ? -1 : d > 0 ? 1 : 0); return 1; }
+    if (!strcmp(meth, "Num") && nmargs == 0 && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { *out = REALVAL(to_real(recv)); return 1; }
+    if (!strcmp(meth, "is-prime") && nmargs == 0 && IS_INT_fn(recv)) { long long v = recv.i; int pr = v >= 2; for (long long d = 2; pr && d * d <= v; d++) if (v % d == 0) pr = 0; *out = (DESCR_t){ .v = DT_BOOL, .i = pr }; return 1; }
+    if (!strcmp(meth, "base") && nmargs == 1 && IS_INT_fn(recv)) {
+        long long v = recv.i; int bs = IS_INT_fn(margs[0]) ? (int) margs[0].i : 10; char buf[80]; int k = 79; buf[k] = '\0'; int neg = v < 0; unsigned long long u = neg ? -(unsigned long long) v : (unsigned long long) v;
+        if (bs < 2 || bs > 36) return 0;
+        do { buf[--k] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[u % bs]; u /= bs; } while (u && k > 1);
+        if (neg) buf[--k] = '-'; *out = STRVAL(rt_heap_strdup_c(buf + k)); return 1;
+    }
+    if (!strcmp(meth, "parse-base") && nmargs == 1 && IS_INT_fn(margs[0])) { *out = INTVAL(strtoll(s, NULL, (int) margs[0].i)); return 1; }
+    if (!strcmp(meth, "ords") && nmargs == 0) {
+        size_t cnt = 0; { size_t ln; for (size_t i = 0; i < n; i += ln) { rk_utf8_cp((const unsigned char *) s + i, n - i, &ln); if (!ln) ln = 1; cnt++; } }
+        DESCR_t *r = cnt ? (DESCR_t *) rt_ws_alloc_descr(cnt) : NULL; size_t k = 0, ln;
+        for (size_t i = 0; i < n && k < cnt; i += ln) { unsigned cp = rk_utf8_cp((const unsigned char *) s + i, n - i, &ln); if (!ln) ln = 1; r[k++] = INTVAL(cp); }
+        *out = rk_mk_arr(r, (int) cnt); return 1;
+    }
     if (!strcmp(meth, "polymod") && IS_INT_fn(recv) && nmargs >= 1 && margs) {
         long long v = recv.i; rk_av_t dv = rk_av_args((DESCR_t *) margs, 0, nmargs);
         DESCR_t *pr = (DESCR_t *) rt_ws_alloc_descr((size_t) dv.n + 1); int q = 0;
