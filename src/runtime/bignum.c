@@ -7,10 +7,10 @@
 extern void *rt_wsb_alloc(size_t);
 extern char *rt_heap_strdup_c(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct BIG_t { int32_t sign; uint32_t n; uint32_t limb[1]; } BIG_t;
+typedef struct BIG_t { int32_t sign; uint32_t n; uint32_t limb[]; } BIG_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static BIG_t *big_alloc(uint32_t n) {
-    BIG_t *b = (BIG_t *) rt_wsb_alloc(sizeof(BIG_t) + (size_t)(n ? n - 1 : 0) * sizeof(uint32_t));
+    BIG_t *b = (BIG_t *) rt_wsb_alloc(sizeof(BIG_t) + (size_t)(n ? n : 1) * sizeof(uint32_t));
     if (!b) return 0;
     b->sign = 0; b->n = n;
     for (uint32_t i = 0; i < n; i++) b->limb[i] = 0;

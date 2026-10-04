@@ -1100,8 +1100,8 @@ void rt_subject_load_lit(const char *s, void *slot)
 DESCR_t rt_concat_parts_d(void *parts, int n)
 {
     struct part_t { int tag; int pad; const char *s; } *p = (struct part_t *)parts;
-    const char *vals[16]; int lens[16]; size_t total = 0;
-    if (n > 16) n = 16;
+    if (n < 0) n = 0;
+    const char *vals[n + 1]; int lens[n + 1]; size_t total = 0;
     for (int i = 0; i < n; i++) {
         const char *s = ""; int len = 0;
         if (p[i].tag == 0) { s = p[i].s ? p[i].s : ""; len = (int)strlen(s); }
@@ -1310,7 +1310,7 @@ void rt_patv_freeze(void *hv, const char *bn, long n)
     DTP_t *h = (DTP_t *)hv;
     if (!h || !bn || n <= 0) return;
     DESCR_t *v = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
-    for (long i = 0; i < n; i++) { char nb[64]; snprintf(nb, sizeof nb, "%s$V%ld", bn, i); v[i] = NV_GET_fn(nb); }
+    for (long i = 0; i < n; i++) { char nb[fmt_len("%s$V%ld", bn, i)]; snprintf(nb, sizeof nb, "%s$V%ld", bn, i); v[i] = NV_GET_fn(nb); }
     h->snap = v; h->nsnap = n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -1,4 +1,5 @@
 #include "rt/rt_arena.h"
+#include "ct_arena.h"
 #include "core.h"
 #include "coerce.h"
 #include <stdio.h>
@@ -27,7 +28,7 @@ static int icnx_is_string(const icnx_descr_t *d) { return d->dword >= 0; }
 static char *icnx_lrgint_str(const icnx_descr_t *d) { extern DESCR_t rt_big_from_icnx_block(const void *); extern char *rt_big_str(DESCR_t); return rt_big_str(rt_big_from_icnx_block((const void *)d->vword)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icnx_to_double(const icnx_descr_t *s, double *out) {
-    if (icnx_is_string(s)) { char buf[64]; icnx_word_t n = s->dword; if (n < 0 || n >= (icnx_word_t)sizeof buf) return 0; memcpy(buf, (const char *)s->vword, (size_t)n); buf[n] = 0;
+    if (icnx_is_string(s)) { icnx_word_t n = s->dword; if (n < 0) return 0; char buf[n + 1]; memcpy(buf, (const char *)s->vword, (size_t)n); buf[n] = 0;
         char *end = buf; double v = strtod(buf, &end); while (*end == ' ' || *end == '\t') end++; if (end == buf || *end) return 0; *out = v; return 1; }
     if (s->dword == ICNX_D_Integer) { *out = (double)s->vword; return 1; }
     if (s->dword == ICNX_D_Real) { *out = ((const icnx_realblock_t *)(const void *)s->vword)->rval; return 1; }
@@ -37,7 +38,11 @@ static int icnx_to_double(const icnx_descr_t *s, double *out) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 icnx_descr_t nulldesc;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_extfn_unprovided(const char *what) { char b[160]; snprintf(b, sizeof b, "external function facility not provided by this runtime: %s", what); core_runtime_error(216, b); }
+static void icn_extfn_unprovided(const char *what)
+{
+    char b[fmt_len("external function facility not provided by this runtime: %s", what)];
+    snprintf(b, sizeof b, "external function facility not provided by this runtime: %s", what); core_runtime_error(216, b);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *alcfile(void *fp, int stat, icnx_descr_t *name) { (void)fp; (void)stat; (void)name; icn_extfn_unprovided("alcfile"); return (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

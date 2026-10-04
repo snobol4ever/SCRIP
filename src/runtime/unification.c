@@ -1135,11 +1135,10 @@ void *rt_pl_format_run(const char *fmt, void *list_cell)
             if (!plc_fmt_int(h, &iv, &ball)) break; plc_fmt_dec(&f, (long long)iv, have_n ? nval : 0, *p == 'D'); }
           else if (*p == 'r' || *p == 'R') { long iv; long base = have_n ? nval : 8; if (base < 2 || base > 36) { ball = rt_pl_ball_kind2("domain_error", "radix", pl_make_int(base)); break; } if (!plc_fmt_int(h, &iv, &ball)) break; plc_fmt_radix(&f, (long long)iv, (int)base, *p == 'R'); }
           else if (*p == 'f' || *p == 'e' || *p == 'E' || *p == 'g' || *p == 'G') {
-              double dv; char spec[8], nb[512];
+              double dv; char spec[8];
               if (!plc_fmt_dbl(h, &dv, &ball)) break;
               spec[0] = '%'; spec[1] = '.'; spec[2] = '*'; spec[3] = (char)*p; spec[4] = '\0';
-              snprintf(nb, sizeof nb, spec, have_n ? (int)nval : 6, dv);
-              plc_fb_add(&f, nb, strlen(nb));
+              { int prec = have_n ? (int)nval : 6; char nb[fmt_len(spec, prec, dv)]; snprintf(nb, sizeof nb, spec, prec, dv); plc_fb_add(&f, nb, strlen(nb)); }
           }
           else if (*p == 's') {
               char *tx = (char *)0; size_t tn = 0;
@@ -1328,17 +1327,32 @@ int rt_pl_variant_cells(void *a_cell, void *b_cell) {
     return pl_variant_rec((pl_cell_t *)a_cell, (pl_cell_t *)b_cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_pl_tv_walk(pl_cell_t *c, pl_cell_t **pool, int *pool_n, int cap) {
+static int plc_var_occ(pl_cell_t *c) {
+    if (!c) return 0;
+    pl_cell_t *d = pl_deref(c); int k = 0;
+    if (pl_cell_unbound(d)) return 1;
+    if ((int)d->v == (int)DT_PLREF) { int ar = plc_fid_arity(d->slen); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) k += plc_var_occ(&aa[i]); }
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_list_len(void *list_cell, int dot_id) {
+    int n = 0;
+    pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
+    while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == dot_id && plc_fid_arity(cur->slen) == 2) { n++; cur = pl_deref(&((pl_cell_t *)cur->p)[1]); }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_pl_tv_walk(pl_cell_t *c, pl_cell_t **pool, int *pool_n) {
     if (!c) return;
     pl_cell_t *d = pl_deref(c);
-    if (pl_cell_unbound(d)) { for (int i = 0; i < *pool_n; i++) if (pool[i] == d) return; if (*pool_n < cap) pool[(*pool_n)++] = d; return; }
-    if ((int)d->v == (int)DT_PLREF) { int ar = plc_fid_arity(d->slen); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) rt_pl_tv_walk(&aa[i], pool, pool_n, cap); }
+    if (pl_cell_unbound(d)) { for (int i = 0; i < *pool_n; i++) if (pool[i] == d) return; pool[(*pool_n)++] = d; return; }
+    if ((int)d->v == (int)DT_PLREF) { int ar = plc_fid_arity(d->slen); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) rt_pl_tv_walk(&aa[i], pool, pool_n); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_term_variables_cell(void *term_cell, void *vars_cell, void *tail_cell, pl_tr_ctx_t *cx)
 {
-    pl_cell_t *pool[8192]; int pn = 0;
-    rt_pl_tv_walk((pl_cell_t *)term_cell, pool, &pn, 8192);
+    pl_cell_t *pool[plc_var_occ((pl_cell_t *)term_cell) + 1]; int pn = 0;
+    rt_pl_tv_walk((pl_cell_t *)term_cell, pool, &pn);
     int dot_id = prolog_atom_intern(".");
     pl_cell_t nil = pl_make_atom(ATOM_NIL);
     pl_cell_t result = tail_cell ? *(pl_cell_t *)tail_cell : nil;
@@ -1355,8 +1369,8 @@ int rt_pl_subsumes_cell(void *gen_cell, void *spec_cell)
 {
     pl_cell_t *g = (pl_cell_t *)gen_cell, *s = (pl_cell_t *)spec_cell;
     if (!g || !s) return 0;
-    pl_cell_t *svars[8192]; int sn = 0;
-    rt_pl_tv_walk(s, svars, &sn, 8192);
+    pl_cell_t *svars[plc_var_occ(s) + 1]; int sn = 0;
+    rt_pl_tv_walk(s, svars, &sn);
     int unified = pl_unify(g, s);
     int bound_spec = 0;
     if (unified) for (int i = 0; i < sn; i++) if (!pl_cell_unbound(pl_deref(svars[i]))) { bound_spec = 1; break; }
@@ -1365,10 +1379,10 @@ int rt_pl_subsumes_cell(void *gen_cell, void *spec_cell)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_t *cx)
 {
-    pl_cell_t *elems[4096]; int n = 0;
     int dot_id = prolog_atom_intern(".");
+    pl_cell_t *elems[plc_list_len(list_cell, dot_id) + 1]; int n = 0;
     pl_cell_t *cur = pl_deref((pl_cell_t *)list_cell);
-    while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == dot_id && plc_fid_arity(cur->slen) == 2 && n < 4096) {
+    while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == dot_id && plc_fid_arity(cur->slen) == 2) {
         pl_cell_t *aa = (pl_cell_t *)cur->p;
         elems[n++] = &aa[0];
         cur = pl_deref(&aa[1]);
@@ -1378,7 +1392,7 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_
         while (j >= 0 && rt_pl_cell_compare(elems[j], key) > 0) { elems[j + 1] = elems[j]; j--; }
         elems[j + 1] = key;
     }
-    int m = 0; int out_idx[4096];
+    int m = 0; int out_idx[n + 1];
     for (int i = 0; i < n; i++) {
         if (!do_msort && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
         out_idx[m++] = i;
@@ -1394,10 +1408,10 @@ int rt_pl_sort_cell(int do_msort, void *list_cell, void *result_cell, pl_tr_ctx_
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_pairs_extract(void *list_cell, pl_cell_t **elems, int cap, int dot_id, int dash_id) {
+static int plc_pairs_extract(void *list_cell, pl_cell_t **elems, int dot_id, int dash_id) {
     pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
     int n = 0;
-    while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == dot_id && plc_fid_arity(cur->slen) == 2 && n < cap) {
+    while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == dot_id && plc_fid_arity(cur->slen) == 2) {
         pl_cell_t *aa = (pl_cell_t *)cur->p;
         pl_cell_t *pr = pl_deref(&aa[0]);
         if (!(pr && (int)pr->v == DT_PLREF && plc_fid_name(pr->slen) == dash_id && plc_fid_arity(pr->slen) == 2)) return -1;
@@ -1407,10 +1421,10 @@ static int plc_pairs_extract(void *list_cell, pl_cell_t **elems, int cap, int do
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plc_plain_list_extract(void *list_cell, pl_cell_t **elems, int cap, int dot_id) {
+static int plc_plain_list_extract(void *list_cell, pl_cell_t **elems, int dot_id) {
     pl_cell_t *cur = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0;
     int n = 0;
-    while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == dot_id && plc_fid_arity(cur->slen) == 2 && n < cap) {
+    while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == dot_id && plc_fid_arity(cur->slen) == 2) {
         pl_cell_t *aa = (pl_cell_t *)cur->p;
         elems[n++] = pl_deref(&aa[0]);
         cur = pl_deref(&aa[1]);
@@ -1425,8 +1439,8 @@ static pl_cell_t plc_cons(int fid, pl_cell_t head, pl_cell_t tail) { pl_cell_t *
 int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
 {
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    pl_cell_t *elems[4096];
-    int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
+    pl_cell_t *elems[plc_list_len(list_cell, dot_id) + 1];
+    int n = plc_pairs_extract(list_cell, elems, dot_id, dash_id);
     if (n < 0) return 0;
     for (int i = 1; i < n; i++) {
         pl_cell_t *key = elems[i]; int j = i - 1;
@@ -1434,7 +1448,7 @@ int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
         else { while (j >= 0 && rt_pl_cell_compare((pl_cell_t *)elems[j]->p, (pl_cell_t *)key->p) > 0) { elems[j + 1] = elems[j]; j--; } }
         elems[j + 1] = key;
     }
-    int m = 0; int out_idx[4096];
+    int m = 0; int out_idx[n + 1];
     for (int i = 0; i < n; i++) {
         if (is_setof && m > 0 && rt_pl_cell_compare(elems[out_idx[m - 1]], elems[i]) == 0) continue;
         out_idx[m++] = i;
@@ -1453,8 +1467,8 @@ int rt_pl_bag_prep_cell(int is_setof, void *list_cell, void *result_cell)
 int rt_pl_keysort_cell(void *list_cell, void *result_cell, pl_tr_ctx_t *cx)
 {
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    pl_cell_t *elems[4096];
-    int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
+    pl_cell_t *elems[plc_list_len(list_cell, dot_id) + 1];
+    int n = plc_pairs_extract(list_cell, elems, dot_id, dash_id);
     if (n < 0) return 0;
     for (int i = 1; i < n; i++) {
         pl_cell_t *key = elems[i]; pl_cell_t *kkey = (pl_cell_t *)key->p; int j = i - 1;
@@ -1511,16 +1525,16 @@ int rt_pl_sort_in_place_cell(int mode, void *list_cell)
 int rt_pl_group_pairs_by_key_cell(void *list_cell, void *result_cell)
 {
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
-    pl_cell_t *elems[4096];
-    int n = plc_pairs_extract(list_cell, elems, 4096, dot_id, dash_id);
+    pl_cell_t *elems[plc_list_len(list_cell, dot_id) + 1];
+    int n = plc_pairs_extract(list_cell, elems, dot_id, dash_id);
     if (n < 0) return 0;
-    pl_cell_t groups[4096]; int ng = 0;
+    pl_cell_t groups[n + 1]; int ng = 0;
     pl_cell_t nil = plc_nil_cell();
     int i = 0;
     while (i < n) {
         pl_cell_t *key = pl_deref(&((pl_cell_t *)elems[i]->p)[0]);
-        pl_cell_t *vlist[4096]; int nv = 0; int j = i;
-        while (j < n && rt_pl_cell_compare(pl_deref(&((pl_cell_t *)elems[j]->p)[0]), key) == 0 && nv < 4096) { vlist[nv++] = &((pl_cell_t *)elems[j]->p)[1]; j++; }
+        pl_cell_t *vlist[n - i]; int nv = 0; int j = i;
+        while (j < n && rt_pl_cell_compare(pl_deref(&((pl_cell_t *)elems[j]->p)[0]), key) == 0) { vlist[nv++] = &((pl_cell_t *)elems[j]->p)[1]; j++; }
         pl_cell_t vals = nil;
         for (int k = nv - 1; k >= 0; k--) vals = plc_cons(dot_id, pl_make_ref(vlist[k], (int)vlist[k]->slen), vals);
         groups[ng++] = plc_cons(dash_id, pl_make_ref(key, (int)key->slen), vals);
@@ -1537,7 +1551,7 @@ int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values
     int dot_id = prolog_atom_intern("."); int dash_id = prolog_atom_intern("-");
     pl_cell_t *pd = pairs_cell ? pl_deref((pl_cell_t *)pairs_cell) : (pl_cell_t *)0;
     if (pd && !pl_cell_unbound(pd)) {
-        pl_cell_t *elems[4096]; int n = plc_pairs_extract(pairs_cell, elems, 4096, dot_id, dash_id);
+        pl_cell_t *elems[plc_list_len(pairs_cell, dot_id) + 1]; int n = plc_pairs_extract(pairs_cell, elems, dot_id, dash_id);
         if (n < 0) return 0;
         pl_cell_t keys = plc_nil_cell(), vals = plc_nil_cell();
         for (int i = n - 1; i >= 0; i--) {
@@ -1548,8 +1562,8 @@ int rt_pl_pairs_keys_values_cell(void *pairs_cell, void *keys_cell, void *values
         if (!pl_unify((pl_cell_t *)keys_cell, &keys) || !pl_unify((pl_cell_t *)values_cell, &vals)) { return 0; }
         return 1;
     }
-    pl_cell_t *kelems[4096]; int nk = plc_plain_list_extract(keys_cell, kelems, 4096, dot_id);
-    pl_cell_t *velems[4096]; int nv = plc_plain_list_extract(values_cell, velems, 4096, dot_id);
+    pl_cell_t *kelems[plc_list_len(keys_cell, dot_id) + 1]; int nk = plc_plain_list_extract(keys_cell, kelems, dot_id);
+    pl_cell_t *velems[plc_list_len(values_cell, dot_id) + 1]; int nv = plc_plain_list_extract(values_cell, velems, dot_id);
     if (nk != nv) return 0;
     pl_cell_t result = plc_nil_cell();
     for (int i = nk - 1; i >= 0; i--) {
@@ -1603,14 +1617,14 @@ int rt_pl_get_print_stream_cell(void *stream_cell) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_distinct_vars_walk(pl_cell_t *c, pl_cell_t **pool, int *counts, int *pool_n, int cap) {
+static void pl_distinct_vars_walk(pl_cell_t *c, pl_cell_t **pool, int *counts, int *pool_n) {
     pl_cell_t *d = pl_deref(c);
     if (pl_cell_unbound(d)) {
         for (int i = 0; i < *pool_n; i++) if (pool[i] == d) { counts[i]++; return; }
-        if (*pool_n < cap) { pool[*pool_n] = d; counts[*pool_n] = 1; (*pool_n)++; }
+        pool[*pool_n] = d; counts[*pool_n] = 1; (*pool_n)++;
         return;
     }
-    if ((int)d->v == DT_PLREF) { int ar = pl_arity(d); pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(d); for (int i = 0; i < ar; i++) pl_distinct_vars_walk(&aa[i], pool, counts, pool_n, cap); }
+    if ((int)d->v == DT_PLREF) { int ar = pl_arity(d); pl_cell_t *aa = (pl_cell_t *)pl_compound_heap(d); for (int i = 0; i < ar; i++) pl_distinct_vars_walk(&aa[i], pool, counts, pool_n); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *pl_atom_text(pl_cell_t *d) {
@@ -1623,8 +1637,8 @@ static int pl_is_nil(pl_cell_t *d) { const char *s = pl_atom_text(d); return s &
 static pl_cell_t pl_nil_cell(void) { return pl_make_atom(ATOM_NIL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_name_singleton_vars_cell(void *term_cell) {
-    pl_cell_t *pool[8192]; int counts[8192]; int pn = 0;
-    pl_distinct_vars_walk((pl_cell_t *)term_cell, pool, counts, &pn, 8192);
+    int occ = plc_var_occ((pl_cell_t *)term_cell) + 1; pl_cell_t *pool[occ]; int counts[occ]; int pn = 0;
+    pl_distinct_vars_walk((pl_cell_t *)term_cell, pool, counts, &pn);
     int varname_id = prolog_atom_intern("$VARNAME"); int underscore_id = prolog_atom_intern("_");
     for (int i = 0; i < pn; i++) {
         if (counts[i] != 1) continue;
@@ -1637,7 +1651,7 @@ int rt_pl_name_singleton_vars_cell(void *term_cell) {
 int rt_pl_name_query_vars_cell(void *list_cell, void *rest_cell) {
     extern void rt_pl_iso_throw_instantiation(void); extern void rt_pl_iso_throw_type(const char *, DESCR_t);
     int dot_id = prolog_atom_intern("."); int varname_id = prolog_atom_intern("$VARNAME");
-    pl_cell_t *rest_pairs[8192]; int nr = 0;
+    pl_cell_t *rest_pairs[plc_list_len(list_cell, dot_id) + 1]; int nr = 0;
     pl_cell_t *cur = (pl_cell_t *)list_cell;
     for (;;) {
         pl_cell_t *d = pl_deref(cur);
@@ -1660,7 +1674,7 @@ int rt_pl_name_query_vars_cell(void *list_cell, void *rest_cell) {
                 }
             }
         }
-        if (!bound_ok && nr < 8192) rest_pairs[nr++] = &kids[0];
+        if (!bound_ok) rest_pairs[nr++] = &kids[0];
         cur = &kids[1];
     }
     pl_cell_t result = pl_nil_cell();
@@ -1707,7 +1721,7 @@ int rt_pl_bind_variables_cell(void *term_cell, void *options_cell) {
         } else { rt_pl_iso_throw_domain("var_binding_option", *opt); return 0; }
         cur = &kids[1];
     }
-    long used[8192]; int nused = 0;
+    long used[exclude_list ? plc_list_len(exclude_list, dot_id) + 1 : 1]; int nused = 0;
     if (exclude_list) {
         pl_cell_t *ecur = exclude_list;
         for (;;) {
@@ -1718,13 +1732,13 @@ int rt_pl_bind_variables_cell(void *term_cell, void *options_cell) {
             pl_cell_t *el = pl_deref(&ekids[0]);
             if ((int)el->v == DT_PLREF && pl_arity(el) == 1 && plc_functor(el) == var_id) {
                 pl_cell_t *ea = (pl_cell_t *)pl_compound_heap(el); pl_cell_t *ev = pl_deref(&ea[0]);
-                if ((int)ev->v == DT_I && nused < 8192) used[nused++] = (long)ev->i;
+                if ((int)ev->v == DT_I) used[nused++] = (long)ev->i;
             }
             ecur = &ekids[1];
         }
     }
-    pl_cell_t *pool[8192]; int dummy_counts[8192]; int pn = 0;
-    pl_distinct_vars_walk((pl_cell_t *)term_cell, pool, dummy_counts, &pn, 8192);
+    int occ = plc_var_occ((pl_cell_t *)term_cell) + 1; pl_cell_t *pool[occ]; int dummy_counts[occ]; int pn = 0;
+    pl_distinct_vars_walk((pl_cell_t *)term_cell, pool, dummy_counts, &pn);
     long n = from_n;
     for (int i = 0; i < pn; i++) {
         for (;;) { int clash = 0; for (int k = 0; k < nused; k++) if (used[k] == n) { clash = 1; break; } if (!clash) break; n++; }
@@ -1777,7 +1791,7 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
+static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn)
 {
     pl_cell_t *d = pl_deref(c);
     if (pl_cell_unbound(d)) {
@@ -1785,7 +1799,7 @@ static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t *
         pl_cell_t *fresh = (pl_cell_t *)rt_ws_alloc_descr(1);
         if (!fresh) return *d;
         pl_init_var(fresh, -1);
-        if (*vn < cap) { vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++; }
+        vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++;
         return pl_make_ref(fresh, (int)fresh->slen);
     }
     if ((int)d->v == DT_PLREF) {
@@ -1793,7 +1807,7 @@ static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t *
         pl_cell_t *aa = (pl_cell_t *)d->p;
         pl_cell_t *na = (pl_cell_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
         if (!na) return *d;
-        for (int i = 0; i < ar; i++) na[i] = pl_cell_copy_cells(&aa[i], vaddr, vnew, vn, cap);
+        for (int i = 0; i < ar; i++) na[i] = pl_cell_copy_cells(&aa[i], vaddr, vnew, vn);
         return pl_make_compound(fn, ar, na);
     }
     return *d;
@@ -1801,8 +1815,8 @@ static pl_cell_t pl_cell_copy_cells(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t *
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 pl_cell_t rt_pl_cell_snapshot(void *cell)
 {
-    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
-    return pl_cell_copy_cells((pl_cell_t *)cell, vaddr, vnew, &vn, 256);
+    int occ = plc_var_occ((pl_cell_t *)cell) + 1; pl_cell_t *vaddr[occ]; pl_cell_t *vnew[occ]; int vn = 0;
+    return pl_cell_copy_cells((pl_cell_t *)cell, vaddr, vnew, &vn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_make(DESCR_t *a, int n)
@@ -1832,10 +1846,11 @@ void *rt_pl_ball_existence(DESCR_t *a, int n)
 void *rt_pl_ball_existence_key(const char *key)
 {
     extern int rt_pl_unknown_suppress(const char *);
-    char nm[200]; int ar = 0;
+    int ar = 0;
     if (rt_pl_unknown_suppress(key)) return (void *)0;
     const char *sl = key ? strrchr(key, '/') : (const char *)0;
-    if (sl) { size_t kl = (size_t)(sl - key); if (kl > sizeof nm - 1) kl = sizeof nm - 1; memcpy(nm, key, kl); nm[kl] = 0; ar = atoi(sl + 1); }
+    char nm[key ? strlen(key) + 1 : 2];
+    if (sl) { size_t kl = (size_t)(sl - key); memcpy(nm, key, kl); nm[kl] = 0; ar = atoi(sl + 1); }
     else { snprintf(nm, sizeof nm, "%s", key ? key : "?"); }
     pl_cell_t pi[2]; pi[0] = pl_make_atom(prolog_atom_intern(nm)); pi[1] = pl_make_int(ar);
     pl_cell_t *pic = (pl_cell_t *)rt_pl_compound_cell("/", 2, (void *)pi);
@@ -2009,8 +2024,8 @@ static int pl_cell_atom_id(pl_cell_t *c)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_copy_term_cell(void *term_cell, void *copy_cell, pl_tr_ctx_t *cx)
 {
-    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
-    pl_cell_t copy = pl_cell_copy_cells((pl_cell_t *)term_cell, vaddr, vnew, &vn, 256);
+    int occ = plc_var_occ((pl_cell_t *)term_cell) + 1; pl_cell_t *vaddr[occ]; pl_cell_t *vnew[occ]; int vn = 0;
+    pl_cell_t copy = pl_cell_copy_cells((pl_cell_t *)term_cell, vaddr, vnew, &vn);
     if (!plc_unify_cells_cx((pl_cell_t *)copy_cell, &copy, cx)) { return 0; }
     return 1;
 }
@@ -2036,8 +2051,8 @@ void rt_pl_findall_collect(void *acc_v, void *tmpl_term)
         int nc = fa_cap(a) * 2; pl_cell_t *ni = (pl_cell_t *)rt_ws_alloc_descr((size_t)nc); if (!ni) return;
         for (int i = 0; i < fa_n(a); i++) ni[i] = fa_items(a)[i]; fa_items_set(a, ni); fa_set(a, fa_n(a), nc);
     }
-    pl_cell_t *vaddr[256]; pl_cell_t *vnew[256]; int vn = 0;
-    { int n = fa_n(a); fa_items(a)[n] = pl_cell_copy_cells((pl_cell_t *)tmpl_term, vaddr, vnew, &vn, 256); fa_set(a, n + 1, fa_cap(a)); }
+    int occ = plc_var_occ((pl_cell_t *)tmpl_term) + 1; pl_cell_t *vaddr[occ]; pl_cell_t *vnew[occ]; int vn = 0;
+    { int n = fa_n(a); fa_items(a)[n] = pl_cell_copy_cells((pl_cell_t *)tmpl_term, vaddr, vnew, &vn); fa_set(a, n + 1, fa_cap(a)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_findall_count(void *acc_v)
@@ -2129,12 +2144,11 @@ typedef struct { const char *name; long arity; } pl_pi_cand_t;
 typedef struct { pl_pi_cand_t *v; int n; int i; int mark; } pl_curpred_it_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_cell_t pl_atom_cell(const char *a) { return pl_make_atom(prolog_atom_intern(a)); }
-typedef struct { const char *props[4]; int n; int i; int mark; } pl_predprop_it_t;
 typedef struct { const char *name; int prec; const char *type; } pl_op_cand_t;
 typedef struct { pl_op_cand_t *v; int n; int i; int mark; } pl_curop_it_t;
 typedef struct { int i; int mark; } pl_flagit_t;
 typedef struct { int si; int pi; int mark; } pl_spropit_t;
-static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn, int cap)
+static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t **vnew, int *vn)
 {
     extern void *rt_ws_alloc_descr(size_t);
     pl_cell_t *d = pl_deref(c);
@@ -2143,7 +2157,7 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
         pl_cell_t *fresh = (pl_cell_t *)rt_ws_alloc_descr(1);
         if (!fresh) return *d;
         pl_init_var(fresh, -1);
-        if (*vn < cap) { vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++; }
+        vaddr[*vn] = d; vnew[*vn] = fresh; (*vn)++;
         return pl_make_ref(fresh, (int)fresh->slen);
     }
     if ((int)d->v == DT_PLATOM) return *d;
@@ -2152,7 +2166,7 @@ static pl_cell_t pl_cell_copy_persist(pl_cell_t *c, pl_cell_t **vaddr, pl_cell_t
         pl_cell_t *aa = (pl_cell_t *)d->p;
         pl_cell_t *na = (pl_cell_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
         if (!na) return *d;
-        for (int i = 0; i < ar; i++) na[i] = pl_cell_copy_persist(&aa[i], vaddr, vnew, vn, cap);
+        for (int i = 0; i < ar; i++) na[i] = pl_cell_copy_persist(&aa[i], vaddr, vnew, vn);
         return pl_make_compound(fn, ar, na);
     }
     return *d;
@@ -2183,8 +2197,8 @@ int rt_pl_nb_set(void *root, int64_t k, void *val)
     if (!root || k < 0 || k >= PL_DB_CELLS_MAX || !val) return 0;
     { pl_cell_t **cell = (pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
       pl_cell_t *t = pl_deref((pl_cell_t *)val);
-      pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
-      pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn, 256);
+      int occ = plc_var_occ(t) + 1; pl_cell_t *va[occ]; pl_cell_t *vn2[occ]; int vn = 0;
+      pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn);
       pl_cell_t *box = (pl_cell_t *)rt_ws_alloc_descr(1);
       if (!box) return 0;
       *box = stored; *cell = box; return 1; }
@@ -2196,8 +2210,8 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx)
     if (!root || k < 0 || k >= PL_DB_CELLS_MAX || !val || !cx) return 0;
     { pl_cell_t **cell = (pl_cell_t **)((char *)root - PL_DB_CELL0 - 8 * (size_t)k);
       pl_cell_t *t = pl_deref((pl_cell_t *)val);
-      pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
-      pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn, 256);
+      int occ = plc_var_occ(t) + 1; pl_cell_t *va[occ]; pl_cell_t *vn2[occ]; int vn = 0;
+      pl_cell_t stored = pl_cell_copy_persist(t, va, vn2, &vn);
       if (*cell) {
           char probe; char *floor_ = &probe;
           if (pl_tr_needs_log(cx, *cell, floor_)) pl_tr_push(cx, *cell);
@@ -2226,7 +2240,8 @@ int rt_pl_nb_is_set(void *root, int64_t k)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_REGISTRY_CELL 0
-typedef struct { char key[264]; int k; pl_db_t *db; int stat; int decl; } pl_db_key_t;
+#define PL_DB_KEY_VLA(buf, nm, ar) char buf[fmt_len("%s/%d", (nm), (int)(ar))]; snprintf(buf, sizeof buf, "%s/%d", (nm), (int)(ar))
+typedef struct { char *key; int k; pl_db_t *db; int stat; int decl; } pl_db_key_t;
 typedef struct { pl_db_key_t *e; int n; int cap; } pl_db_reg_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_db_gc_visit(uint16_t type, void *p, size_t bytes)
@@ -2235,7 +2250,8 @@ void pl_db_gc_visit(uint16_t type, void *p, size_t bytes)
     if (type == HB_PLDB) { pl_db_t *d = (pl_db_t *)p; if (d->s) rt_gc_visit_raw((const char **)&d->s); return; }
     if (type == HB_PLDBS) { pl_db_slot_t *s = (pl_db_slot_t *)p; size_t n = bytes / sizeof(pl_db_slot_t); for (size_t i = 0; i < n; i++) rt_gc_visit_descr(&s[i].cl); return; }
     if (type == HB_PLDBR) { pl_db_reg_t *r = (pl_db_reg_t *)p; if (r->e) rt_gc_visit_raw((const char **)&r->e); return; }
-    if (type == HB_PLDBK) { pl_db_key_t *k = (pl_db_key_t *)p; size_t n = bytes / sizeof(pl_db_key_t); for (size_t i = 0; i < n; i++) if (k[i].db) rt_gc_visit_raw((const char **)&k[i].db); return; }
+    if (type == HB_PLDBK) { pl_db_key_t *k = (pl_db_key_t *)p; size_t n = bytes / sizeof(pl_db_key_t);
+        for (size_t i = 0; i < n; i++) { if (k[i].db) rt_gc_visit_raw((const char **)&k[i].db); if (k[i].key) rt_gc_visit_raw((const char **)&k[i].key); } return; }
     abort();
 }
 static pl_db_reg_t * pl_db_registry(void *root, int create)
@@ -2267,13 +2283,13 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key)
         for (int i = 0; i < r->n; i++) ne[i] = r->e[i];
         r->e = ne; r->cap = nc;
     }
-    { pl_db_key_t *e = &r->e[r->n++]; snprintf(e->key, sizeof e->key, "%s", key); e->k = -1; e->db = (pl_db_t *)0; e->stat = 0; e->decl = 0; return e; }
+    { char *ks = rt_str_dup(key); if (!ks) return (pl_db_key_t *)0;
+      pl_db_key_t *e = &r->e[r->n++]; e->key = ks; e->k = -1; e->db = (pl_db_t *)0; e->stat = 0; e->decl = 0; return e; }
 }
 int rt_pl_db_bind(void *root, int64_t k, const char *name, int64_t arity)
 {
-    char key[264];
     if (!root || !name || k <= PL_DB_REGISTRY_CELL || k >= PL_DB_CELLS_MAX) return 0;
-    snprintf(key, sizeof key, "%s/%d", name, (int)arity);
+    PL_DB_KEY_VLA(key, name, arity);
     { pl_db_reg_t *r = pl_db_registry(root, 1); pl_db_key_t *e = pl_db_reg_find(r, key);
       if (!e) e = pl_db_reg_add(r, key);
       if (!e) return 0;
@@ -2303,9 +2319,8 @@ int rt_pl_db_key_kind(void *root, const char *key)
 }
 int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind)
 {
-    char key[264];
     if (!root || !name) return 0;
-    snprintf(key, sizeof key, "%s/%d", name, (int)arity);
+    PL_DB_KEY_VLA(key, name, arity);
     { pl_db_reg_t *r = pl_db_registry(root, 1); pl_db_key_t *e = pl_db_reg_find(r, key);
       if (!e) e = pl_db_reg_add(r, key);
       if (!e) return 0;
@@ -2394,19 +2409,24 @@ int rt_pl_db_recompile(void *db_v, const char *key, int arity)
     return pl_runtime_define_pred(key, ch, arity) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar)
+static const char *pl_db_head_name(void *pair_cell, int *ar)
 {
     extern const char *prolog_atom_name(int);
     pl_cell_t *p = pl_deref((pl_cell_t *)pair_cell);
-    if ((int)p->v != DT_PLREF || pl_arity(p) != 2) return 0;
-    { pl_cell_t *h = pl_deref(&((pl_cell_t *)p->p)[0]); const char *nm;
-      if ((int)h->v == DT_PLREF) { nm = prolog_atom_name(plc_functor(h)); *ar = pl_arity(h); }
-      else if ((int)h->v == DT_PLATOM) { nm = prolog_atom_name((int)h->i); *ar = 0; }
-      else if ((int)h->v == DT_S) { nm = h->s; *ar = 0; }
-      else return 0;
-      if (!nm) return 0;
-      snprintf(out, n, "%s/%d", nm, *ar);
-      return 1; }
+    if ((int)p->v != DT_PLREF || pl_arity(p) != 2) return (const char *)0;
+    { pl_cell_t *h = pl_deref(&((pl_cell_t *)p->p)[0]);
+      if ((int)h->v == DT_PLREF) { *ar = pl_arity(h); return prolog_atom_name(plc_functor(h)); }
+      if ((int)h->v == DT_PLATOM) { *ar = 0; return prolog_atom_name((int)h->i); }
+      if ((int)h->v == DT_S) { *ar = 0; return h->s; }
+      return (const char *)0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_head_key(void *pair_cell, char *out, size_t n, int *ar)
+{
+    const char *nm = pl_db_head_name(pair_cell, ar);
+    if (!nm) return 0;
+    snprintf(out, n, "%s/%d", nm, *ar);
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile);
@@ -2450,17 +2470,18 @@ static int pl_db_store(void *db_v, void *clause_term, int prepend, int recompile
         db->s = ns; db->cap = nc;
     }
     { pl_cell_t *t = pl_deref((pl_cell_t *)clause_term);
-      pl_cell_t kids[2]; pl_cell_t pair; pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
+      pl_cell_t kids[2]; pl_cell_t pair; int vn = 0;
       if ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":-")) { pl_cell_t *aa = (pl_cell_t *)t->p; kids[0] = aa[0]; kids[1] = aa[1]; }
       else { kids[0] = *t; kids[1] = pl_make_atom(prolog_atom_intern("true")); }
       pair = pl_make_compound(prolog_atom_intern(":-"), 2, (void *)kids);
-      { pl_cell_t stored = pl_cell_copy_persist(&pair, va, vn2, &vn, 256);
+      int occ = plc_var_occ(&pair) + 1; pl_cell_t *va[occ]; pl_cell_t *vn2[occ];
+      { pl_cell_t stored = pl_cell_copy_persist(&pair, va, vn2, &vn);
         if (db->next_ref < 1) db->next_ref = 1;
         if (prepend) { for (int i = db->n; i > 0; i--) db->s[i] = db->s[i - 1]; db->s[0].cl = stored; db->s[0].erased = 0; db->s[0].ref = db->next_ref++; }
         else { db->s[db->n].cl = stored; db->s[db->n].erased = 0; db->s[db->n].ref = db->next_ref++; }
         db->n++; }
-      if (recompile) { char key[264]; int ar = 0;
-        if (rt_pl_db_head_key((void *)&db->s[prepend ? 0 : db->n - 1].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }
+      if (recompile) { int ar = 0; const char *nm = pl_db_head_name((void *)&db->s[prepend ? 0 : db->n - 1].cl, &ar);
+        if (nm) { PL_DB_KEY_VLA(key, nm, ar); rt_pl_db_recompile(db_v, key, ar); } }
       return 1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2469,8 +2490,8 @@ int rt_pl_db_erase(void *db_v, int i)
     pl_db_t *db = (pl_db_t *)db_v;
     if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0;
     db->s[i].erased = db->next_ref++;
-    { char key[264]; int ar = 0;
-      if (rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar)) rt_pl_db_recompile(db_v, key, ar); }
+    { int ar = 0; const char *nm = pl_db_head_name((void *)&db->s[i].cl, &ar);
+      if (nm) { PL_DB_KEY_VLA(key, nm, ar); rt_pl_db_recompile(db_v, key, ar); } }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2480,8 +2501,8 @@ int rt_pl_db_gen(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->ne
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_slot_copy(pl_db_t *db, int i, void *out_v)
 {
-    pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0;
-    *(pl_cell_t *)out_v = pl_cell_copy_persist(&db->s[i].cl, va, vn2, &vn, 256);
+    int occ = plc_var_occ(&db->s[i].cl) + 1; pl_cell_t *va[occ]; pl_cell_t *vn2[occ]; int vn = 0;
+    *(pl_cell_t *)out_v = pl_cell_copy_persist(&db->s[i].cl, va, vn2, &vn);
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2509,11 +2530,13 @@ static int pl_db_define_absent(const char *key, int arity)
     extern void * rt_pl_choice_new(const char *);
     extern void rt_pl_choice_add(void *, void *);
     extern int prolog_atom_intern(const char *);
-    char nm[264]; const char *sl; pl_cell_t *hargs; pl_cell_t head; pl_cell_t pi[2]; pl_cell_t pic; pl_cell_t ee[2]; pl_cell_t eec; pl_cell_t er[2]; pl_cell_t erc; pl_cell_t th[1]; pl_cell_t body; pl_cell_t kids[2]; pl_cell_t pair;
+    const char *sl; pl_cell_t *hargs; pl_cell_t head; pl_cell_t pi[2]; pl_cell_t pic;
+    pl_cell_t ee[2]; pl_cell_t eec; pl_cell_t er[2]; pl_cell_t erc; pl_cell_t th[1]; pl_cell_t body; pl_cell_t kids[2]; pl_cell_t pair;
     void *raw; void *cl; void *ch;
     if (!key) return 0;
     sl = strrchr(key, '/'); if (!sl) return 0;
-    { size_t kl = (size_t)(sl - key); if (kl > 263) kl = 263; memcpy(nm, key, kl); nm[kl] = 0; }
+    char nm[(size_t)(sl - key) + 1];
+    { size_t kl = (size_t)(sl - key); memcpy(nm, key, kl); nm[kl] = 0; }
     if (arity > 0) { hargs = (pl_cell_t *)PL_CELL_ALLOC((size_t)arity * sizeof(pl_cell_t)); if (!hargs) return 0; for (int i = 0; i < arity; i++) pl_init_var(&hargs[i], -1); head = pl_make_compound(prolog_atom_intern(nm), arity, hargs); }
     else head = pl_make_atom(prolog_atom_intern(nm));
     pi[0] = pl_make_atom(prolog_atom_intern(nm)); pi[1] = pl_make_int(arity); pic = pl_make_compound(prolog_atom_intern("/"), 2, (void *)pi);
@@ -2529,30 +2552,31 @@ static int pl_db_define_absent(const char *key, int arity)
 int rt_pl_db_abolish(void *db_v)
 {
     pl_db_t *db = (pl_db_t *)db_v;
-    char key[264]; int ar = 0; int have = 0;
+    int ar = 0; int hi = -1;
     if (!db) return 0;
-    for (int i = 0; i < db->n && !have; i++) if (rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar)) have = 1;
+    for (int i = 0; i < db->n && hi < 0; i++) if (pl_db_head_name((void *)&db->s[i].cl, &ar)) hi = i;
     { int st = db->next_ref++; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) db->s[i].erased = st; }
     db->killed = 1;
-    if (have) pl_db_define_absent(key, ar);
+    if (hi >= 0) { const char *nm = pl_db_head_name((void *)&db->s[hi].cl, &ar); PL_DB_KEY_VLA(key, nm, ar); pl_db_define_absent(key, ar); }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_match_erase(void *db_v, void *goal_term)
 {
     pl_db_t *db = (pl_db_t *)db_v;
-    int hit = 0; char key[264]; int ar = 0; int have_key = 0;
+    int hit = 0; int ar = 0; int key_i = -1;
     if (!db || !goal_term) return 0;
+    int gocc = plc_var_occ((pl_cell_t *)goal_term) + 1;
     for (int i = 0; i < db->n; i++) {
         if (db->s[i].erased) continue;
-        { pl_cell_t *va[256]; pl_cell_t *vn2[256]; int vn = 0; pl_cell_t pair = pl_cell_copy_cells(&db->s[i].cl, va, vn2, &vn, 256);
-          int vn3 = 0; pl_cell_t *va3[256]; pl_cell_t *vn4[256]; pl_cell_t g = pl_cell_copy_cells((pl_cell_t *)goal_term, va3, vn4, &vn3, 256);
+        { int occ = plc_var_occ(&db->s[i].cl) + 1; pl_cell_t *va[occ]; pl_cell_t *vn2[occ]; int vn = 0; pl_cell_t pair = pl_cell_copy_cells(&db->s[i].cl, va, vn2, &vn);
+          int vn3 = 0; pl_cell_t *va3[gocc]; pl_cell_t *vn4[gocc]; pl_cell_t g = pl_cell_copy_cells((pl_cell_t *)goal_term, va3, vn4, &vn3);
           pl_cell_t *h = (pl_cell_t *)pl_deref(&pair)->p;
           if (h && pl_unify(&h[0], &g)) {
-              if (!have_key) have_key = rt_pl_db_head_key((void *)&db->s[i].cl, key, sizeof key, &ar);
+              if (key_i < 0 && pl_db_head_name((void *)&db->s[i].cl, &ar)) key_i = i;
               db->s[i].erased = db->next_ref++; hit++; } }
     }
-    if (hit && have_key) rt_pl_db_recompile(db_v, key, ar);
+    if (hit && key_i >= 0) { const char *nm = pl_db_head_name((void *)&db->s[key_i].cl, &ar); PL_DB_KEY_VLA(key, nm, ar); rt_pl_db_recompile(db_v, key, ar); }
     return hit;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
