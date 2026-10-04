@@ -12,7 +12,8 @@
 # core_unwind_pending() swallows the unwind: its caller sees an ordinary FAIL, the program runs on in a frame that should have
 # returned, and the level record is left marked "unwinding" -- so the NEXT unrelated error caught at that level resumes the
 # abandoned unwind and jumps to an activation that may be long gone. Nothing crashes where the link is missing. This gate
-# holds every setjmp(g_core_errjmp_stk...) site in src/ to the protocol, so a guard added later cannot silently break it.
+# holds every guard site in src/ to the protocol (setjmp(g_core_errjmp_stk...) before 2026-10-04; since then setjmp(ej.jb) on a
+# core_errjmp_t local linked into g_core_errjmp_stk, the cfo's fixed-tables batch), so a guard added later cannot silently break it.
 #
 # THE ONE STRUCTURAL EXCEPTION, held rather than exempted: eval_chain_run_guarded's cleanup of EVAL_TMP and of the chain pool
 # lives in its CALLERS (eval_string_transient restores EVAL_TMP and releases or caches the chain after it returns 0), so the
@@ -37,7 +38,7 @@ for p in sorted(list(src.rglob("*.c")) + list(src.rglob("*.cpp"))):
     lines = p.read_text(encoding="utf-8", errors="replace").split("\n")
     rel = str(p.relative_to(src.parent))
     for i, ln in enumerate(lines):
-        if "setjmp(g_core_errjmp_stk" in ln:
+        if "setjmp(g_core_errjmp_stk" in ln or (re.search(r"\bsetjmp\(\s*\w+\.jb\s*\)", ln) and any("core_errjmp_t" in l for l in lines[max(0, i - 4):i + 1])):
             fn = enclosing_fn(lines, i)
             sites.append((rel, i + 1, fn))
             if fn == "eval_chain_run_guarded":

@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include "core/core_errjmp.h"
 #define STACKLESS_ABORT(fn) \
     do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
                          "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
@@ -258,7 +259,7 @@ static DESCR_t rt_cplx_arith(DESCR_t a, DESCR_t b, int op) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    extern int g_core_errjmp_n;
     if (a.v == DT_I && b.v == DT_I) {
         int64_t _z;
         switch (op) {
@@ -270,12 +271,12 @@ static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
             default: break;
         }
     }
-    if (g_core_errjmp_n >= 64) return rt_num_arith_impl_s(a, b, op, strict);
+    core_errjmp_t ej;
     int my = g_core_errjmp_n;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; }
-    g_core_errjmp_n = my + 1;
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; }
+    core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
     DESCR_t r = rt_num_arith_impl_s(a, b, op, strict);
-    g_core_errjmp_n = my;
+    core_errjmp_pop(&ej, my);
     return r;
 }
 static void rt_div_zero(int bcode, DESCR_t a, DESCR_t b, const char *msg, int strict) {
@@ -306,16 +307,16 @@ static inline int rt_int_str_operand(DESCR_t d, int64_t *out)
 }
 #define RT_BINOP_ENTRY_S(fn, code, fast, strict) \
 DESCR_t fn(DESCR_t a, DESCR_t b) { \
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n; \
+    extern int g_core_errjmp_n; \
     if (a.v == DT_I && b.v == DT_I) { fast } \
     { int64_t _x, _y; if (rt_int_str_operand(a, &_x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } \
     if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
-    if (g_core_errjmp_n >= 64) return rt_num_arith_impl_s(a, b, code, strict); \
+    core_errjmp_t ej; \
     int my = g_core_errjmp_n; \
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; } \
-    g_core_errjmp_n = my + 1; \
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; } \
+    core_errjmp_push(&ej); g_core_errjmp_n = my + 1; \
     DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); \
-    g_core_errjmp_n = my; \
+    core_errjmp_pop(&ej, my); \
     return r; \
 }
 #define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1) RT_BINOP_ENTRY_S(fn##_sno, code, fast, 2)

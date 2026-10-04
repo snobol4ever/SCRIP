@@ -15,6 +15,7 @@
 _Static_assert(RT_DCAP_TOP == 0x70000000UL, "rt_chain_enter/rt_chain_enter_v seed r12 from the absolute slot 0x70000000 written literally in their asm, exactly as rt_outer_call and main's prologue do; if pin_va.h moves the pin the trampolines read a DEAD page and hand generated code a zero pend top");
 _Static_assert(RT_DCAP_ISLAND_BYTES == 67108864UL, "rt_chain_enter/rt_chain_enter_v bound-test r12 against base+67108864 written literally in their asm to tell a LIVE pend top from C's own callee-saved value; if the island resizes the test admits or rejects the wrong halves of it");
 #include "stage2.h"
+#include "core/core_errjmp.h"
 extern void *rt_wsb_alloc(size_t n);
 extern const char *Σ;
 extern int         Ω;
@@ -419,19 +420,19 @@ static int eval_guard_on(void) { static int _ef = -1; if (_ef < 0) { const char 
 static int eval_open_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_OPEN"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_chain_run_guarded(eval_chain_fn fn) {
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    extern int g_core_errjmp_n;
 #if RT_DIAG
     if (!eval_guard_on()) { rt_c2bb_hit("chain.eval.unguarded", "?"); eval_chain_enter_only(fn); return 1; }
 #else
     if (!eval_guard_on()) { eval_chain_enter_only(fn); return 1; }
 #endif
-    int my = g_core_errjmp_n++; long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = G_ERROR_EVAL_STAGE;
-    if (setjmp(g_core_errjmp_stk[my])) { g_core_errjmp_n = my; g_error = esv; return 0; }
+    core_errjmp_t ej; int my = g_core_errjmp_n; core_errjmp_push(&ej); g_core_errjmp_n = my + 1; long esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = G_ERROR_EVAL_STAGE;
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); g_error = esv; return 0; }
 #if RT_DIAG
     rt_c2bb_hit("chain.eval.guarded", "?");
 #endif
     eval_chain_enter_only(fn);
-    g_core_errjmp_n = my; g_error = esv; return 1;
+    core_errjmp_pop(&ej, my); g_error = esv; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_frame_push(DESCR_t saved, const char *key_src) {

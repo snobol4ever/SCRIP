@@ -1,6 +1,7 @@
 #include "core.h"
 #include "dtp.h"
 #include "ct_arena.h"
+#include "core_errjmp.h"
 #include "../rtx/rtcc.h"
 #include "../rt/rt_arena.h"
 #include "../rt/rt_diag.h"
@@ -2182,7 +2183,6 @@ static gv_t g_setexit_label;
 #define SXL ((char *)g_setexit_label.p)
 static int sxl_set(void) { return g_setexit_label.p && SXL[0]; }
 static int _setexit_resume = -1;
-extern jmp_buf g_core_errjmp_stk[64];
 extern int g_core_errjmp_n;
 extern long rt_stno_stack[];
 extern int * const rt_k_level_p;
@@ -2192,7 +2192,7 @@ static long *core_lvl_rec(void) { return &rt_stno_stack[(long)(*rt_k_level_p & S
 static void core_unwind_next(void) __attribute__((noreturn));
 static void core_unwind_next(void) {
     long *rec = core_lvl_rec();
-    if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], 3);
+    if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(core_errjmp_at(g_core_errjmp_n - 1)->jb, 3);
     fprintf(stderr, "scrip: a level unwind reached its activation, but the C-to-BB jump that finished it (rt_unwind_to_activation) was deleted by CEO-1468 when no path set SNO_LVL_UNWIND\n");
     abort();
 }
@@ -2254,12 +2254,12 @@ void sno_setexit_fire_on_end(void) {
     if (!lbl) return;
     extern void rt_kw_publish_error(int code, const char *msg);
     extern int rt_goto_transfer(const char *name);
-    extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    extern int g_core_errjmp_n;
     rt_kw_publish_error(0, "");
-    if (g_core_errjmp_n >= 64) { rt_goto_transfer(lbl); return; }
+    core_errjmp_t ej;
     int my = g_core_errjmp_n; int outer = _setexit_resume;
-    if (setjmp(g_core_errjmp_stk[my]) == 0) { g_core_errjmp_n = my + 1; _setexit_resume = my; rt_goto_transfer(lbl); }
-    g_core_errjmp_n = my; _setexit_resume = outer;
+    if (setjmp(ej.jb) == 0) { core_errjmp_push(&ej); g_core_errjmp_n = my + 1; _setexit_resume = my; rt_goto_transfer(lbl); }
+    core_errjmp_pop(&ej, my); _setexit_resume = outer;
     core_unwind_pending();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2280,8 +2280,7 @@ void rt_setexit_abort(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_resume(const char *which) {
-    extern jmp_buf g_core_errjmp_stk[64];
-    if (_setexit_resume >= 0) longjmp(g_core_errjmp_stk[_setexit_resume], (which && which[0] == 'A') ? 2 : 1);
+    if (_setexit_resume >= 0) longjmp(core_errjmp_at(_setexit_resume)->jb, (which && which[0] == 'A') ? 2 : 1);
     char w0 = which ? which[0] : 'C'; char w1 = which ? which[1] : '\0';
     if (w0 == 'A') core_runtime_error(36, "goto abort with no preceding error");
     else if (w0 == 'S' && w1 == 'C') core_runtime_error(321, "goto scontinue with no preceding error");
@@ -3092,7 +3091,7 @@ void core_runtime_error(int code, const char *msg) {
     core_err_compat_map(&code, &msg);
     if (!msg && code >= 1 && code <= 39)
         msg = core_err_msgs[code];
-    { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+    { extern int g_core_errjmp_n;
       extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       extern long g_error;
       if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && sxl_set()))) {
@@ -3100,10 +3099,10 @@ void core_runtime_error(int code, const char *msg) {
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
           rt_kw_publish_error(code, msg);
-          longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+          longjmp(core_errjmp_at(g_core_errjmp_n - 1)->jb, code);
       } }
     { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg);
-      extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
+      extern int g_core_errjmp_n;
       int aborting = 0;
       if (core_setexit_on() && sxl_set() && kw_errlimit != 0) {
           char lbl[strlen(SXL) + 1]; memcpy(lbl, SXL, sizeof lbl);
@@ -3149,10 +3148,10 @@ void rt_code_pool_overflow(unsigned long long used_kb, unsigned long long cap_kb
     exit(1);
 }
 void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
-jmp_buf g_core_errjmp_stk[64]; int g_core_errjmp_n = 0;
+core_errjmp_t *g_core_errjmp_stk = (core_errjmp_t *)0; int g_core_errjmp_n = 0;
 #ifdef SCRIP_GC_AUDIT_B
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *core_gc_audit_nonref(const char *p) { const char *b = (const char *)g_core_errjmp_stk; if (p < b || p >= b + sizeof g_core_errjmp_stk) return (const char *)0; return ((size_t)(p - b) / sizeof(jmp_buf) >= (size_t)g_core_errjmp_n) ? "g_core_errjmp_stk-popped" : (const char *)0; }
+const char *core_gc_audit_nonref(const char *p) { (void)p; return (const char *)0; }
 #endif
 long g_icn_errnumber = 0; const char *g_icn_errtext = ""; DESCR_t g_icn_errvalue; int g_icn_err_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3190,7 +3189,7 @@ int core_icn_error(int code, DESCR_t val) {
     if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE) {
         g_error--;
         g_icn_errnumber = code; { const char *_em = icn_errmsg_known(code); g_icn_errtext = _em ? _em : ""; } g_icn_errvalue = val; g_icn_err_valid = 1;
-        if (g_core_errjmp_n > 0) longjmp(g_core_errjmp_stk[g_core_errjmp_n - 1], code);
+        if (g_core_errjmp_n > 0) longjmp(core_errjmp_at(g_core_errjmp_n - 1)->jb, code);
         return 1;
     }
     core_icn_report(code, val, (const char *)0);
