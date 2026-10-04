@@ -1253,8 +1253,7 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_seal_alpha(const char * name, void * fn) {
-    static int live = -1; if (live < 0) { const char * e = getenv("SCRIP_M4_ALPHA_SEAL"); live = e ? (e[0] != '0') : 1; }
-    if (!live || !name || !fn) return;
+    if (!name || !fn) return;
     { extern void * bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name);
       void ** cell = (void **) bb_ab_fn_cell_ptr(cn); if (cell) *cell = fn; }
 }

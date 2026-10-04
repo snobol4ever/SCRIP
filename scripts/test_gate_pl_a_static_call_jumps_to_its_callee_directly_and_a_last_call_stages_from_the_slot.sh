@@ -10,7 +10,15 @@
 # local bound by the previous goal, two locals aliased by =/2 then passed (the decline road); (3) a static clause whose last call is a
 # DYNAMIC predicate, extended by assertz and shrunk by retract between calls (the registry must be followed), and an asserted clause whose
 # last call is a static predicate.
-# RED BEFORE on origin ec631d327: arm 1 counts 586 loads (every call box, two arms each); the witnesses pass there.
+# (4) THE VAR-VAR LINK (the code review of ebbf79a70, 2026-10-04): A = B between two unbound locals writes a DT_PLVAR link into one slot, and the
+# tail-safe check followed only DT_N names, so the link was copied into the block VERBATIM -- a pointer into the frame the last call released
+# (t4 printed nothing where swipl prints 44; the 9-argument twin printed block[1]); the check now follows a bound link as the deref macro does,
+# a chain beyond four hops declines the tail arm (t8), an unbound link of this frame declines (t11), a link to a structure copies it (t12);
+# (5) assertz and retract on a file-defined static predicate raise permission_error in both modes -- the invariant that lets the text pin
+# FN__callee at assembly time while the slab reads the alpha cell at run time; (6) the mode-3 static jump does not depend on the mode-4
+# seal knob: SCRIP_M4_ALPHA_SEAL=0 answers as the default (it once silenced rt_proc_seal_alpha, the slab's only seal: error 22).
+# RED BEFORE on origin ec631d327: arm 1 counts 586 loads (every call box, two arms each); on ebbf79a70 w_link prints |||44||1|7|| for
+# 44|f(1)|hello|44|6|5|7|g(12)| in both modes and the knob-off arm reads error 22.
 set -u
 GATE_NAME=test_gate_pl_a_static_call_jumps_to_its_callee_directly_and_a_last_call_stages_from_the_slot
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -43,6 +51,27 @@ b(P, Q, R) :- P = 1, R = Q.
 main :- cnt(300000, 0, S), write(S), nl, t(V), write(V), nl, w(N), write(N), nl, a(Q), write(Q), nl.
 :- initialization(main).
 EOP
+mkw w_link <<'EOP'
+last(X, X).
+last9(X, _, _, _, _, _, _, _, X).
+lastb(X, Y, R) :- X = 7, R = Y.
+t4(R) :- A = B, B = 44, last(A, R).
+t5(R) :- A = B, B = f(1), last(A, R).
+t6(R) :- A = B, B = hello, last(A, R).
+t7(R) :- B = 44, A = B, last(A, R).
+t8(R) :- A = B, B = C, C = D, D = E, E = F, F = 6, last(A, R).
+t9(R) :- A = B, B = 5, last9(A, 1, 2, 3, 4, 5, 6, 7, R).
+t11(R) :- A = B, lastb(A, B, R).
+t12(R) :- A = B, B = g(C), C = 12, last(A, R).
+main :- t4(R4), write(R4), nl, t5(R5), write(R5), nl, t6(R6), write(R6), nl, t7(R7), write(R7), nl, t8(R8), write(R8), nl, t9(R9), write(R9), nl, t11(R11), write(R11), nl, t12(R12), write(R12), nl.
+:- initialization(main).
+EOP
+mkw w_perm <<'EOP'
+cnt(0, A, A) :- !.
+cnt(N, A, R) :- N1 is N - 1, A1 is A + N, cnt(N1, A1, R).
+main :- catch(assertz(cnt(0, 0, 0)), error(E, _), (write(E), nl)), catch(retract(cnt(0, _, _)), error(E2, _), (write(E2), nl)), cnt(3, 0, S), write(S), nl.
+:- initialization(main).
+EOP
 mkw w_dyn <<'EOP'
 :- dynamic(d/1).
 d(1).
@@ -56,11 +85,22 @@ want_w_lco='45000150000
 done
 3
 1'
+want_w_link='44
+f(1)
+hello
+44
+6
+5
+7
+g(12)'
+want_w_perm='permission_error(modify,static_procedure,cnt/3)
+permission_error(modify,static_procedure,cnt/3)
+6'
 want_w_dyn='[1]
 [1,2]
 55
 [2]'
-for w in w_lco w_dyn; do
+for w in w_lco w_link w_perm w_dyn; do
     eval "want=\$want_$w"
     for mode in m3 m4; do
         if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
@@ -74,6 +114,9 @@ for w in w_lco w_dyn; do
         else echo "  RED $w $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-200)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')] want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-120)]"; red=$((red+1)); fi
     done
 done
+got="$(cd "$TMPD" && SCRIP_M4_ALPHA_SEAL=0 timeout 60 "$SCRIP" w_lco.pl </dev/null 2>"$TMPD/err")"; rc=$?
+if [ "$rc" = 0 ] && [ "$got" = "$want_w_lco" ]; then echo "  ok  w_lco m3 with the seal knob off"
+else echo "  RED w_lco m3 with the seal knob off: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-120)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }
-echo "GATE PASS [$GATE_NAME]: no static call of the 23 kernels goes through the registry record, and the last-call witnesses answer swipl's text in both modes"
+echo "GATE PASS [$GATE_NAME]: no static call of the 23 kernels goes through the registry record, the last-call witnesses (the slot road, the var-var link, the static-permission invariant, the dynamic road) answer swipl's text in both modes, and the slab's static jump needs no knob"
 exit 0

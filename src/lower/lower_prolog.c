@@ -1209,23 +1209,25 @@ static int pl_tree_has_var(const tree_t * t) {
     for (int i = 0; i < t->n; i++) if (pl_tree_has_var(t->c[i])) return 1;
     return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_CALL_STATIC (1 << 30)
-static int pl_callee_static(lcx_t * cx, const char * nm, int ar) {
-    if (g_stage2.rt_lowering || pl_decl_dyn_is(nm, ar) || pl_db_owned(nm, ar)) return 0;
-    if (pl_file_defines(nm, ar)) return 1;
-    { char key[fmt_len("%s/%d", nm, ar)]; snprintf(key, sizeof key, "%s/%d", nm, ar);
-      if (pl_bb_lookup(key, ar)) return 1;
-      return (cx && cx->cur_key && strcmp(cx->cur_key, key) == 0) ? 1 : 0; }
+static int pl_callee_static(lcx_t * cx, const char * nm, int ar, const char * key, int db_live, int defined) {
+    if (g_stage2.rt_lowering || db_live || pl_decl_dyn_is(nm, ar)) return 0;
+    if (defined) return 1;
+    return (cx && cx->cur_key && strcmp(cx->cur_key, key) == 0) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int nargs, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
-    int pl_db_live = pl_db_owned(nm, nargs);
+    int pl_db_live = pl_db_owned(nm, nargs); int st = 0;
     { char key[fmt_len("%s/%d", nm, nargs)]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
       const tree_t * ch = pl_db_live ? (const tree_t *) 0 : resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
-      if (!ch && !pl_db_live && !pl_bb_lookup(key, nargs)) return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
-      if (ch && ch->t == TT_FNC && !g_stage2.rt_lowering) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; } }
+      int file_def = ch && ch->t == TT_CHOICE && ch->n > 0;
+      int bbhit = (pl_db_live || file_def) ? 0 : (pl_bb_lookup(key, nargs) != 0);
+      if (!ch && !pl_db_live && !bbhit) return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
+      if (ch && ch->t == TT_FNC && !g_stage2.rt_lowering) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; }
+      st = pl_callee_static(cx, nm, nargs, key, pl_db_live, file_def || bbhit); }
     IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, nargs);
-    nd->strict = pl_callee_static(cx, nm, nargs) ? PL_CALL_STATIC : 0;
+    nd->strict = st ? PL_CALL_STATIC : 0;
     IR_t * prev = NULL; IR_t * first = NULL;
     for (int i = 0; i < nargs; i++) {
         IR_t * ae = NULL; IR_t * a = term_lval_e(cx, t->c[i], &ae); IR_t * en = ae ? ae : a;
@@ -1890,7 +1892,7 @@ static void pl_alt_alloc(IR_graph_t * g, int nc) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * pl_body_graph(const tree_t * const * gl, int ng) {
     IR_graph_t * g = IR_alloc(4096);
-    lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.cur_key = (const char *)0; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0; cx.stmt_depth = 1;
+    lcx_t cx; memset(&cx, 0, sizeof cx); cx.g = g; cx.tω = NULL; cx.cutω = NULL; cx.clause_cutω = NULL; cx.cut_scope = 0; cx.scope_seq = 0; cx.meta_redo = NULL; cx.meta_redo_set = 0; cx.stmt_depth = 1;
     IR_t * succeed = build(&cx, IR_SUCCEED, NULL, NULL);
     IR_t * fail    = build(&cx, IR_FAIL, NULL, NULL);
     IR_t * step    = build(&cx, IR_FAIL, NULL, NULL);

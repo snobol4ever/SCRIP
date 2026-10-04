@@ -500,14 +500,6 @@ static std::string bcps_det_arm() {
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" const char * bb_ab_sym_name(const char * nm);
-static std::string bcps_jmp_proc_fn(long idx);
-static std::string bcps_jmp_callee(long idx) {
-    if (_.node && (_.node->strict & (1 << 30)) && _.op_sval) return x86("note", "a static callee (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.2): a direct jump to its entry label in the text, through its sealed alpha cell in the slab (x86_jmp_via_cell, both media); the registry record is for a fn re-sealed at run time, which a static predicate never is")
-                                                               + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), (std::string("FN__") + bb_ab_sym_name(_.op_sval)).c_str());
-    return bcps_jmp_proc_fn(idx);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_jmp_proc_fn(long idx) {
     extern void *g_rt_gen_procs;
     return x86("note", "the registry jump: the record's fn word (PROC_FN at +8, the 128-byte stride both asserted in rt.c), so a fn re-sealed at run time -- a dynamic predicate's enumerator, a redefinition -- is followed in both media")
@@ -515,6 +507,12 @@ static std::string bcps_jmp_proc_fn(long idx) {
          + x86("mov", "rax", RDQ("rax", 0))
          + x86("mov", "rax", RDQ("rax", (int)(8 + 128 * idx)))
          + x86_jmp_reg("rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_jmp_callee(long idx) {
+    if (_.node && (_.node->strict & (1 << 30)) && _.op_sval) return x86("note", "a static callee (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.3): a direct jump to its entry label in the text, through its alpha cell in the slab (x86_jmp_via_cell, both media; the cell is sealed by rt_proc_seal_alpha when the record's fn is set and pinned, under no knob); the registry record is for a fn re-sealed at run time, which a static predicate never is (assertz on it raises permission_error)")
+                                                               + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), (std::string("FN__") + bb_ab_sym_name(_.op_sval)).c_str());
+    return bcps_jmp_proc_fn(idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_lvl_add(long d);
@@ -554,69 +552,43 @@ static std::string bcps_block_build(IR_graph_t ** argblks, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx) {
     int ns = g_emit_cfg ? g_emit_cfg->nparams : 0;
-    extern int bb_varslot_peek(const char *);
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
-    auto cell_chk = [&](int i, int lb) -> std::string {
-        return x86("lea", "rsi", RDQ("rsp", 16 * i))
-             + x86("mov", "eax", RDD("rsi", 0)) + x86("cmp", "al", (long)DT_N) + x86("jne", L(lb + 7))
-             + x86("mov", "rdi", RDQ("rsi", 8)) + x86("mov32", "r9d", 4L)
-             + x86("def", L(lb + 2))
-             + x86("mov", "eax", RDD("rdi", 0)) + x86("cmp", "al", (long)DT_N) + x86("jne", L(lb + 4))
-             + x86("mov", "r8", RDQ("rdi", 8)) + x86("test", "r8", "r8") + x86("je", L(lb + 4))
-             + x86("mov", "ecx", RDD("rdi", 4)) + x86("cmp", "ecx", 2L) + x86("jne", L(lb + 3))
-             + x86("mov", "r8", RDQ("r8", 0)) + x86("test", "r8", "r8") + x86("je", L(lb + 4))
-             + x86("def", L(lb + 3))
-             + x86("mov", "rdi", "r8") + x86("sub", "r9d", 1L) + x86("jne", L(lb + 2))
-             + x86("def", L(lb + 4))
-             + x86("test", "al", "al") + x86("jne", L(lb + 6))
+    auto arms = [&](int lb) -> std::string {
+        return x86("def", L(lb + 3))
+             + x86("mov", "r8", RDQ("rdi", 8)) + x86("test", "r8", "r8") + x86("je", L(lb + 8))
+             + x86("mov", "ecx", RDD("rdi", 4)) + x86("cmp", "ecx", 2L) + x86("jne", L(lb + 6))
+             + x86("mov", "r8", RDQ("r8", 0)) + x86("test", "r8", "r8") + x86("je", L(lb + 8)) + x86("jmp", L(lb + 6))
+             + x86("def", L(lb + 5))
+             + x86("mov", "r8", RDQ("rdi", 8)) + x86("cmp", "r8", x86_fb()) + x86("jb", L(lb + 9))
+             + x86("mov", "rax", "r8") + x86("sub", "rax", x86_fb()) + x86("cmp", "rax", (long)(kt + 16 * ns)) + x86("jae", L(lb + 9))
+             + x86("def", L(lb + 6))
+             + x86("mov", "rdi", "r8") + x86("sub", "r9d", 1L) + x86("jne", L(lb + 2)) + x86("jmp", L(lsk + 99))
+             + x86("def", L(lb + 8))
              + x86("mov", "rax", "rdi") + x86("sub", "rax", x86_fb()) + x86("cmp", "rax", (long)(kt + 16 * ns)) + x86("jb", L(lsk + 99))
              + x86("mov", "rax", (long)((1L << 32) | (long)DT_N)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", RDQ("rsi", 8), "rdi")
-             + x86("jmp", L(lb + 7))
-             + x86("def", L(lb + 6))
+             + x86("jmp", L(lb + 7)); };
+    auto body = [&](int lb) -> std::string {
+        return x86("def", L(lb + 2))
+             + x86("mov", "eax", RDD("rdi", 0)) + x86("cmp", "al", (long)DT_N) + x86("je", L(lb + 3))
+             + x86("test", "al", "al") + x86("je", L(lb + 8)) + x86("cmp", "al", (long)DT_PLVAR) + x86("je", L(lb + 5))
+             + x86("def", L(lb + 9))
              + x86("mov", "rax", RDQ("rdi", 0)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", "rax", RDQ("rdi", 8)) + x86("mov", RDQ("rsi", 8), "rax")
              + x86("def", L(lb + 7)); };
-    auto cell_chk_slot = [&](int i, int vs, int lb) -> std::string {
-        return x86("lea", "rsi", RDQ("rsp", 16 * i)) + x86("lea", "rdi", FRQ(vs)) + x86("mov32", "r9d", 4L)
-             + x86("def", L(lb + 2))
-             + x86("mov", "eax", RDD("rdi", 0)) + x86("cmp", "al", (long)DT_N) + x86("jne", L(lb + 4))
-             + x86("mov", "r8", RDQ("rdi", 8)) + x86("test", "r8", "r8") + x86("je", L(lb + 4))
-             + x86("mov", "ecx", RDD("rdi", 4)) + x86("cmp", "ecx", 2L) + x86("jne", L(lb + 3))
-             + x86("mov", "r8", RDQ("r8", 0)) + x86("test", "r8", "r8") + x86("je", L(lb + 4))
-             + x86("def", L(lb + 3))
-             + x86("mov", "rdi", "r8") + x86("sub", "r9d", 1L) + x86("jne", L(lb + 2))
-             + x86("def", L(lb + 4))
-             + x86("test", "al", "al") + x86("jne", L(lb + 6))
-             + x86("mov", "rax", "rdi") + x86("sub", "rax", x86_fb()) + x86("cmp", "rax", (long)(kt + 16 * ns)) + x86("jb", L(lsk + 99))
-             + x86("mov", "rax", (long)((1L << 32) | (long)DT_N)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", RDQ("rsi", 8), "rdi")
-             + x86("jmp", L(lb + 7))
-             + x86("def", L(lb + 6))
-             + x86("mov", "rax", RDQ("rdi", 0)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", "rax", RDQ("rdi", 8)) + x86("mov", RDQ("rsi", 8), "rax")
-             + x86("def", L(lb + 7)); };
-    std::string chk = x86("note", "tail-safe, per cell (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.2): a variable argument is inspected from its own slot (one hop fewer than through its name cell), any other cell from the block; a name is followed to its cell (slen 1 the cell, slen 2 the VCELL's), at most four hops; a bound cell's VALUE is copied in, an unbound cell of this frame declines the tail arm, an unbound cell elsewhere becomes a one-hop name");
+    auto cell_entry = [&](int lb) -> std::string {
+        return x86("mov", "eax", RDD("rsi", 0)) + x86("cmp", "al", (long)DT_N) + x86("je", L(lb + 4)) + x86("cmp", "al", (long)DT_PLVAR) + x86("jne", L(lb + 7))
+             + x86("def", L(lb + 4)) + x86("mov", "rdi", RDQ("rsi", 8)) + x86("mov32", "r9d", 4L) + body(lb); };
+    std::string chk = x86("note", "tail-safe, per cell (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.3): a variable argument is inspected from its own slot (one hop fewer than through its name cell), any other cell from the block; ONE check body, its cold arms out of line after the callee jump: a name (slen 1 the cell, slen 2 the VCELL's) is followed to its cell; a PLVAR link INTO THIS FRAME (A = B between two locals) is followed too, a link elsewhere is a value (its pointer is absolute and its target outlives the frame); at most four hops, a longer chain or a self link of this frame DECLINES the tail arm; a bound cell's VALUE is copied in; an unbound cell (the zero DESCR, a null name) of this frame declines, elsewhere it becomes a one-hop name");
+    std::string ool;
     int wide = n > 8;
-    if (wide) chk += x86("mov", "rsi", "rsp") + x86("lea", "rdx", RDQ("rsp", 16 * n))
+    if (wide) { chk += x86("mov", "rsi", "rsp") + x86("lea", "rdx", RDQ("rsp", 16 * n))
          + x86("def", L(lsk + 1))
-         + x86("cmp", "rsi", "rdx") + x86("jae", L(lsk + 8))
-         + x86("mov", "eax", RDD("rsi", 0)) + x86("cmp", "al", (long)DT_N) + x86("jne", L(lsk + 7))
-         + x86("mov", "rdi", RDQ("rsi", 8)) + x86("mov32", "r9d", 4L)
-         + x86("def", L(lsk + 2))
-         + x86("mov", "eax", RDD("rdi", 0)) + x86("cmp", "al", (long)DT_N) + x86("jne", L(lsk + 4))
-         + x86("mov", "r8", RDQ("rdi", 8)) + x86("test", "r8", "r8") + x86("je", L(lsk + 4))
-         + x86("mov", "ecx", RDD("rdi", 4)) + x86("cmp", "ecx", 2L) + x86("jne", L(lsk + 3))
-         + x86("mov", "r8", RDQ("r8", 0)) + x86("test", "r8", "r8") + x86("je", L(lsk + 4))
-         + x86("def", L(lsk + 3))
-         + x86("mov", "rdi", "r8") + x86("sub", "r9d", 1L) + x86("jne", L(lsk + 2))
-         + x86("def", L(lsk + 4))
-         + x86("test", "al", "al") + x86("jne", L(lsk + 6))
-         + x86("mov", "rax", "rdi") + x86("sub", "rax", x86_fb()) + x86("cmp", "rax", (long)(kt + 16 * ns)) + x86("jb", L(lsk + 99))
-         + x86("mov", "rax", (long)((1L << 32) | (long)DT_N)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", RDQ("rsi", 8), "rdi")
-         + x86("jmp", L(lsk + 7))
-         + x86("def", L(lsk + 6))
-         + x86("mov", "rax", RDQ("rdi", 0)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", "rax", RDQ("rdi", 8)) + x86("mov", RDQ("rsi", 8), "rax")
-         + x86("def", L(lsk + 7))
+         + x86("cmp", "rsi", "rdx") + x86("jae", L(lsk + 10))
+         + cell_entry(lsk)
          + x86("add", "rsi", 16L) + x86("jmp", L(lsk + 1))
-         + x86("def", L(lsk + 8));
-    else for (int i = 0; i < n; i++) { int vs = var_slot(i); chk += vs < 0 ? cell_chk(i, lsk + 10 + 10 * i) : cell_chk_slot(i, vs, lsk + 10 + 10 * i); }
+         + x86("def", L(lsk + 10)); ool = arms(lsk); }
+    else for (int i = 0; i < n; i++) { int vs = var_slot(i); int lb = lsk + 10 + 10 * i;
+        chk += x86("lea", "rsi", RDQ("rsp", 16 * i));
+        chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", FRQ(vs)) + x86("mov32", "r9d", 4L) + body(lb); ool += arms(lb); }
     int nb = kt + 16 * (ns - n);
     std::string mv = x86("note", "the new block's TOP is the old block's top (rbp+kt+16*nparams): a longer block grows DOWN over this frame's dead header, never up into the caller's spine; copied descending so a long block never overruns its own source");
     for (int i = n - 1; i >= 0; i--) mv += x86("mov", "rax", RDQ("rsp", 16 * i + 8)) + x86("mov", RDQ(x86_fb(), nb + 16 * i + 8), "rax") + x86("mov", "rax", RDQ("rsp", 16 * i)) + x86("mov", RDQ(x86_fb(), nb + 16 * i), "rax");
@@ -628,6 +600,7 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx) {
          + mv
          + x86("lea", "rsp", RDQ(x86_fb(), nb)) + x86("mov", x86_fb(), "r8")
          + bcps_jmp_callee(idx)
+         + ool
          + x86("def", L(lsk + 99));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
