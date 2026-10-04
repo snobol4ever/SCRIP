@@ -1334,6 +1334,8 @@ static int plc_var_occ(pl_cell_t *c) {
     if ((int)d->v == (int)DT_PLREF) { int ar = plc_fid_arity(d->slen); pl_cell_t *aa = (pl_cell_t *)d->p; for (int i = 0; i < ar; i++) k += plc_var_occ(&aa[i]); }
     return k;
 }
+int rt_pl_var_occ(void *cell) { return plc_var_occ((pl_cell_t *)cell); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int plc_list_len(void *list_cell, int dot_id) {
     int n = 0;
@@ -2317,6 +2319,19 @@ int rt_pl_db_term_cell(void *root, void *term_cell)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cells_max(void) { return PL_DB_CELLS_MAX; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_decl(void *root, const char *name, int64_t arity, int64_t kind);
+int rt_pl_db_cells_base(void *root, int64_t n);
+void rt_pl_db_decls_install(const long *tab, void *root)
+{
+    extern const char *prolog_atom_name(int);
+    long cells; long n; const long *e;
+    if (!tab || !root) return;
+    n = tab[0] / 4; cells = tab[1]; e = tab + 2;
+    rt_pl_db_cells_base(root, cells);
+    for (long i = 0; i < n; i++) { const char *nm = prolog_atom_name((int)e[4 * i]); if (nm && e[4 * i + 3] >= 0) rt_pl_db_bind(root, e[4 * i + 3], nm, e[4 * i + 1]); }
+    for (long i = 0; i < n; i++) { const char *nm = prolog_atom_name((int)e[4 * i]); if (nm && e[4 * i + 2] > 0) rt_pl_db_decl(root, nm, e[4 * i + 1], e[4 * i + 2]); }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cells_base(void *root, int64_t n)
 {

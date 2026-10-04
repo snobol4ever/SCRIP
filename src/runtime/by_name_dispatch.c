@@ -9936,12 +9936,6 @@ DESCR_t rt_pl_dop_db_nonempty_c(DESCR_t *args, int nargs, void *root) {
     { void *db = pl_db_cell_of(args, root); return (db && rt_pl_db_live_count(db) > 0) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dop_db_cells_c(DESCR_t *args, int nargs, void *root) {
-    extern int rt_pl_db_cells_base(void *, int64_t);
-    if (nargs != 1) return FAILDESCR;
-    { DESCR_t n = rt_pl_deref_val(args[0]); if (n.v != DT_I) return FAILDESCR; return rt_pl_db_cells_base(root, n.i) ? pl_ok() : FAILDESCR; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_store_k_c(DESCR_t *args, int nargs, void *root) {
     extern int rt_pl_db_term_cell(void *, void *);
     int k;
@@ -9990,25 +9984,9 @@ extern void *rt_pl_ball_permission_pi(const char *, const char *, const char *, 
 static int pl_iso_unbound(DESCR_t d);
 static int pl_anum_is_text(DESCR_t d);
 static int pl_anum_is_compound(DESCR_t d);
-DESCR_t rt_pl_dop_db_bind_c(DESCR_t *args, int nargs, void *root) {
-    char nb[264]; const char *nm;
-    if (nargs != 3) return FAILDESCR;
-    pl_atoms_ready();
-    { DESCR_t k = rt_pl_deref_val(args[0]); DESCR_t a = rt_pl_deref_val(args[2]);
-      if (k.v != DT_I || a.v != DT_I || !pl_cell_text(args[1], nb, sizeof nb, &nm) || !nm) return FAILDESCR;
-      return rt_pl_db_bind(root, k.i, nm, a.i) ? pl_ok() : FAILDESCR; }
-}
 extern int rt_pl_db_decl(void *, const char *, int64_t, int64_t);
 extern int rt_pl_db_cp_count(void *);
 extern const char *rt_pl_db_cp_nth(void *, int64_t, int *);
-DESCR_t rt_pl_dop_db_decl_c(DESCR_t *args, int nargs, void *root) {
-    char nb[264]; const char *nm;
-    if (nargs != 3) return FAILDESCR;
-    pl_atoms_ready();
-    { DESCR_t a = rt_pl_deref_val(args[1]); DESCR_t k = rt_pl_deref_val(args[2]);
-      if (a.v != DT_I || k.v != DT_I || !pl_cell_text(args[0], nb, sizeof nb, &nm) || !nm) return FAILDESCR;
-      return rt_pl_db_decl(root, nm, a.i, k.i) ? pl_ok() : FAILDESCR; }
-}
 DESCR_t rt_pl_dop_pl_cp_count_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     int ok;
     if (nargs != 1) return FAILDESCR;
@@ -10575,7 +10553,7 @@ void * rt_pl_dop_curstream_guard_c(DESCR_t *args, int nargs) {
       return rt_pl_ball_kind2("domain_error", "stream", d); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { void *addr[256]; char *nm[256]; int n; } pl_ctv_t;
+typedef struct { void **addr; char **nm; int n; int cap; } pl_ctv_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * pl_tree_name(const char *s) {
     char *q = ct_strdup(s ? s : "");
@@ -10588,7 +10566,7 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
     if (pl_cell_unbound(d)) {
         for (int i = 0; i < vt->n; i++) if (vt->addr[i] == (void *)d) { tree_t *v = ast_node_new(TT_VAR); v->v.sval = vt->nm[i]; return v; }
         { char b[24]; tree_t *v = ast_node_new(TT_VAR); snprintf(b, sizeof b, "_A%d", vt->n);
-          if (vt->n < 256) { vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = pl_tree_name(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = pl_tree_name(b);
+          if (vt->n < vt->cap) { vt->addr[vt->n] = (void *)d; vt->nm[vt->n] = pl_tree_name(b); v->v.sval = vt->nm[vt->n]; vt->n++; } else v->v.sval = pl_tree_name(b);
           return v; }
     }
     if ((int)d->v == DT_I) { tree_t *t = ast_node_new(TT_ILIT); t->v.ival = d->i; return t; }
@@ -10619,7 +10597,8 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t * rt_pl_clause_tree(void *clause_cell) {
-    pl_ctv_t vt; vt.n = 0;
+    extern int rt_pl_var_occ(void *);
+    int occ = rt_pl_var_occ(clause_cell) + 1; void *ab[occ]; char *nb[occ]; pl_ctv_t vt; vt.addr = ab; vt.nm = nb; vt.n = 0; vt.cap = occ;
     return pl_cell_tree((DESCR_t *)clause_cell, &vt);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

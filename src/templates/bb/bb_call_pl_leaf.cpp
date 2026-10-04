@@ -21,7 +21,7 @@ void rt_pl_tr_refuse(const char *);
 #include "x86_asm.h"
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-enum { PLK_NONE = 0, PLK_AX, PLK_CMP, PLK_IS, PLK_TYPE, PLK_ATOP, PLK_ZGUARD, PLK_ANUM, PLK_MKC };
+enum { PLK_NONE = 0, PLK_AX, PLK_CMP, PLK_IS, PLK_TYPE, PLK_ATOP, PLK_ZGUARD, PLK_ANUM, PLK_MKC, PLK_DBDECLS };
 enum { PLR_ANY = 0, PLR_TEXT, PLR_NUM, PLR_INT0, PLR_UNB, PLR_UNB_OR_INT0, PLR_UNB_OR_TEXT, PLR_COMP, PLR_NONVAR, PLR_TEXT_OR_NUM, PLR_INTCODE };
 static const int PL_L_COLD = 190, PL_L_OK = 180, PL_L_FAIL = 195;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -41,6 +41,7 @@ static int pl_leaf_kind(const char * fn, int narg, const char ** op) {
     *op = 0;
     if (!fn || fn[0] != '$') return PLK_NONE;
     if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
+    if (!strcmp(fn, "$db_decls")) return narg >= 1 ? PLK_DBDECLS : PLK_NONE;
     if (!strcmp(fn, "$ax_zguard")) return narg == 2 ? PLK_ZGUARD : PLK_NONE;
     if (!strcmp(fn, "$ax_eguard")) return PLK_NONE;
     if (!strncmp(fn, "$ax_", 4)) { *op = fn + 4; return pl_ax_arity(*op) == narg ? PLK_AX : PLK_NONE; }
@@ -278,10 +279,27 @@ static std::string pl_arm_mkc(int narg, int argbase, int resoff, IR_t * fnode) {
          + x86_beta_trampoline());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void rt_pl_db_decls_install(const long *, void *);
+static std::string pl_arm_dbdecls(int narg, int resoff) {
+    IR_t * nd = _.node; std::string data;
+    if (!nd || nd->n_operands != narg) return x86_bomb("$db_decls: the declaration table box has no node or a wrong operand count");
+    for (int i = 0; i < narg; i++) { IR_t * o = nd->operands[i]; if (!o || o->op != IR_LIT_INTEGER) return x86_bomb("$db_decls: a declaration table entry that is not an integer literal"); data += x86(".quad", (uint64_t)(int64_t)IR_LIT(o).ival); }
+    return x86("comment", "the Prolog declaration table (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 C): one compile-time table of {atom id, arity, kind, cell} entries carried in the box and installed by ONE call once the root frame exists")
+         + x86_lea_id("rdi", 120) + x86("mov", "rsi", "r14")
+         + x86("call", "rt_pl_db_decls_install", (uint64_t)(uintptr_t)(void *)rt_pl_db_decls_install)
+         + x86_rt_gc_poll()
+         + x86("mov32", "eax", (long)DT_I) + x86("mov32", "edx", 1L)
+         + x86("mov", FRQ(resoff), "rax") + x86("mov", FRQ(resoff + 8), "rdx")
+         + x86_gamma()
+         + x86("def", L(120)) + x86(".quad", (uint64_t)(int64_t)(narg - 1)) + data
+         + x86_beta_trampoline();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand) {
     const char * op = 0;
     switch (pl_leaf_kind(fn, narg, &op)) {
         case PLK_MKC:    return pl_arm_mkc(narg, argbase, resoff, first_operand);
+        case PLK_DBDECLS: return pl_arm_dbdecls(narg, resoff);
         case PLK_AX:     return pl_arm_ax(op, narg, argbase, resoff);
         case PLK_CMP:    return pl_arm_cmp(op, argbase, resoff);
         case PLK_IS:     return pl_arm_is(argbase, resoff);

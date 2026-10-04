@@ -19,6 +19,10 @@ gen() { local n=$1 f=$2; : > "$f"; for ((k = 0; k < n; k++)); do echo ":- dynami
     printf 'main :- ' >> "$f"; for ((k = 0; k < n; k++)); do printf 'assertz(d%d(%d)), ' $k $k >> "$f"; done
     printf 'findall(X, d0(X), L0), write(L0), nl, findall(Y, d%d(Y), Ln), write(Ln), nl, d%d(Z), write(Z), nl.\n:- initialization(main).\n' $((n-1)) $((n/2)) >> "$f"; }
 gen 70 "$TMPD/w70.pl"; gen 300 "$TMPD/w300.pl"
+# the cfo's second witness (2026-10-04): a dynamic predicate whose FILE clause has 300 distinct variables must still match -- the seed road compiles the
+# stored term into a fragment, so the seed term's renumbering table and the term-to-tree variable table are sized by the clause, never capped at 256.
+genv() { local n=$1 f=$2 vs ns; vs=$(seq -s ", " 1 $n | sed "s/\([0-9]\+\)/V\1/g"); ns=$(seq -s ", " 1 $n); printf ':- dynamic(g/1).\ng(t(%s)).\nmain :- ( g(t(%s)) -> write(ok) ; write(no) ), nl.\n:- initialization(main).\n' "$vs" "$ns" > "$f"; }
+genv 300 "$TMPD/v300.pl"
 want="$(printf '[0]\n[69]\n35\n')"
 red=0
 got="$(cd "$TMPD" && timeout 30 "$SCRIP" w70.pl </dev/null 2>"$TMPD/err")"; rc=$?
@@ -27,6 +31,12 @@ if timeout 120 "$SCRIP" --compile -o "$TMPD/w70.s" "$TMPD/w70.pl" </dev/null 2>"
     got="$(cd "$TMPD" && timeout 30 ./w70.bin </dev/null 2>"$TMPD/err")"; rc=$?
     if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  70 declarations m4"; else echo "  RED 70 declarations m4: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-80)] err=[$(head -c 120 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
 else echo "  RED 70 declarations m4: the compile or link refused: $(head -c 160 "$TMPD/err" | tr '\n' '|')"; red=$((red+1)); fi
+got="$(cd "$TMPD" && timeout 30 "$SCRIP" v300.pl </dev/null 2>"$TMPD/err")"; rc=$?
+if [ "$rc" = 0 ] && [ "$got" = ok ]; then echo "  ok  a file clause with 300 variables matches m3"; else echo "  RED 300-variable file clause m3: rc=$rc out=[$(printf '%s' "$got" | cut -c1-40)]"; red=$((red+1)); fi
+if timeout 120 "$SCRIP" --compile -o "$TMPD/v300.s" "$TMPD/v300.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/v300.s" -o "$TMPD/v300.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
+    got="$(cd "$TMPD" && timeout 30 ./v300.bin </dev/null 2>"$TMPD/err")"; rc=$?
+    if [ "$rc" = 0 ] && [ "$got" = ok ]; then echo "  ok  a file clause with 300 variables matches m4"; else echo "  RED 300-variable file clause m4: rc=$rc out=[$(printf '%s' "$got" | cut -c1-40)]"; red=$((red+1)); fi
+else echo "  RED 300-variable file clause m4: the compile or link refused"; red=$((red+1)); fi
 for mode in m3 m4; do
     if [ "$mode" = m3 ]; then (cd "$TMPD" && timeout 30 "$SCRIP" w300.pl </dev/null >"$TMPD/out" 2>"$TMPD/err"); rc=$?
     else timeout 120 "$SCRIP" --compile -o "$TMPD/w300.s" "$TMPD/w300.pl" </dev/null >"$TMPD/out" 2>"$TMPD/err"; rc=$?; fi
@@ -34,5 +44,5 @@ for mode in m3 m4; do
     else echo "  RED 300 declarations $mode: rc=$rc (want 2 with the PL_DB_CELLS_MAX message) err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
 done
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }
-echo "GATE PASS [$GATE_NAME]: 70 dynamic declarations are all kept in both modes, and 300 refuse rc=2 naming the 256-cell limit"
+echo "GATE PASS [$GATE_NAME]: 70 dynamic declarations are all kept in both modes, a 300-variable file clause of a dynamic predicate matches in both modes, and 300 declarations refuse rc=2 naming the 256-cell limit"
 exit 0

@@ -620,7 +620,7 @@ static int m4_program_has_prolog_terms(stage2_t *s2, IR_graph_t *bbg) {
     for (int gi = -1; gi < (s2 ? s2->bbp.count : 0); gi++) { IR_graph_t *g = gi < 0 ? bbg : s2->bbp.table[gi]; if (!g) continue;
         for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue;
             if (nd->op == IR_LIT_ATOM) return 1;
-            if (nd->op == IR_CALL && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "$mkc")) return 1; } }
+            if (nd->op == IR_CALL && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "$mkc") || !strcmp(IR_LIT(nd).sval, "$db_decls"))) return 1; } }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
