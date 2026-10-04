@@ -858,7 +858,7 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm)
         fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", c->star); return 0; }
     if (strict && !by_name) { c->rc = 1; return 1; }
 #endif
-    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (ns && *ns) NV_SET_fn(ns, d); }
+    if (IS_STR_fn(nm)) { const char *ns = VARVAL_fn(nm); if (!ns || !*ns) { extern int kwb_error(int, const char *); kwb_error(239, "indirection operand is not name"); c->rc = 1; return 1; } NV_SET_fn(ns, d); }
     else rt_assign_var(nm, d);
     return 0;
 }
