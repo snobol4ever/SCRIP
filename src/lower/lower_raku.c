@@ -1908,6 +1908,22 @@ static tree_t * rk_tail_return(tree_t * st) {
     tree_t * r = ast_node_new(TT_RETURN); r->line = st->line; ast_push(r, st); return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_ph_rename(tree_t * t, const char * from, const char * to) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, from)) t->v.sval = (char *) to;
+    for (int i = 0; i < t->n; i++) rk_ph_rename(t->c[i], from, to);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_ph_alias(tree_t * t) {
+    if (!t) return;
+    if (t->t == TT_ANON_BLOCK && t->n == 1 && t->c[0]) {
+        int topic = 0, nph = 0, phmax = rk_tree_size(t->c[0]) + 1; const char ** ph = (const char **) ct_alloc(sizeof(const char *) * (size_t) phmax);
+        rk_scan_implicit_params(t->c[0], &topic, ph, &nph, phmax);
+        for (int k = 0; k < nph; k++) rk_ph_rename(t->c[0], intern(ph[k] + 1), ph[k]);
+    }
+    for (int i = 0; i < t->n; i++) rk_ph_alias(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_hoist_anon_blocks(tree_t * prog) {
     if (!prog) return;
     tree_t * blks[rk_count_blocks(prog) + 1]; int nb = 0; rk_collect_blocks(prog, blks, &nb, (int) (sizeof blks / sizeof blks[0]));
@@ -2128,6 +2144,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     rk_rename_user_main((tree_t *) prog);
     { int gseq = 0; rk_desugar_gather((tree_t *) prog, &gseq); }
     rk_listops_to_methcalls((tree_t *) prog, 0);
+    rk_ph_alias((tree_t *) prog);
     rk_cap_file_scope((tree_t *) prog);
     rk_hoist_anon_blocks((tree_t *) prog);
     raku_register_program(&g_stage2, prog);

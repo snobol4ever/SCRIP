@@ -22,7 +22,7 @@
 # closures sharing one box, an array and a hash box, a boxed parameter copy, a closure made inside an escaping block, and fifty closures alive at once; both modes, and under SCRIP_GC_STRESS 1 3 5
 # at a 128 KB window. Before this landing arm 2 expected the doors REFUSED at the guard (they were); counter printed 1 1 1 where Rakudo prints 1 2 3.
 # FAILED ONCE, measured on SCRIP 98fbc5031: arm 1 is refused at the guard at its first sub.
-# ARM 3, THE FILE-SCOPE OWNER (rk_cap_file_scope, 2026-10-04): the main body owns its loop variables, its per-iteration my variables and every file-scope variable a block writes; before it, for 1..3 -> $i { @s.push({ $i*10 }) } printed 30,30,30 where Rakudo prints 10,20,30, a block that writes a file-scope my was refused at the guard, and a block whose tail was a post-increment returned Nil (rk_tail_return).
+# ARM 3, THE FILE-SCOPE OWNER (rk_cap_file_scope, 2026-10-04): the main body owns its loop variables, its per-iteration my variables and every file-scope variable a block writes; before it, for 1..3 -> $i { @s.push({ $i*10 }) } printed 30,30,30 where Rakudo prints 10,20,30, a block that writes a file-scope my was refused at the guard, and a block whose tail was a post-increment returned Nil (rk_tail_return); the same arm carries $^k read back as $k in one block (rk_ph_alias) and a pointy block or an anonymous sub in statement position, the last statement of a block (rkb_block_term kept it a closure instead of inlining it as a bare block).
 # EXIT: 0 arms 1, 2 and 3 match Rakudo in both modes and under the collector; 1 otherwise; 2 REFUSED (stale binary, no gcc).
 # Usage: bash scripts/test_gate_raku_a_block_passed_to_a_synchronous_builtin_reads_its_enclosing_subs_locals_through_a_reference.sh   (~3s)
 set -uo pipefail
@@ -215,6 +215,15 @@ my $n2 = 5; my $h2 = { $n2 = $n2 + 1; $n2 };
 say $h2(); say $h2(); say $n2;
 my $tot = 5; my @r2 = (1, 2).map({ $tot += $_ });
 say @r2; say $tot;
+my %ph = a => 1, b => 2;
+say %ph.keys.sort.map({ $^k ~ ':' ~ %ph{$k} }).join(' ');
+say (1, 2, 3).map({ $^a + $a * 2 });
+my $adder = -> $b { -> $c { $b + $c } };
+say $adder(1)(2);
+my $inner = { -> $c { $c + 1 } };
+say $inner()(2);
+my $keep = { my $r = 7; sub { $r } };
+say $keep()();
 EOF
 cat > "$W/fscope.ref" <<'EOF'
 10,20,30
@@ -240,6 +249,11 @@ a!,b!,c!
 7
 [6 8]
 8
+a:1 b:2
+(3 6 9)
+3
+3
+7
 EOF
 for m in m3 m4; do ck fscope "$m"; done
 sf=0
