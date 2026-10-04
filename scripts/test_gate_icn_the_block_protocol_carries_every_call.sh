@@ -222,7 +222,24 @@ ICN
 cat > "$T/w6.want" <<'WANT'
  3 2 1
 WANT
-for w in w1 w2 w3 w5 w6 t1; do
+cat > "$T/w7.icn" <<'ICN'
+procedure main()
+   local c;
+   c := mk(5);
+   every write(@c | @c | @c);
+end
+procedure mk(n)
+   local k;
+   k := n * 10;
+   return create n to n + k / 25;
+end
+ICN
+cat > "$T/w7.want" <<'WANT'
+5
+6
+7
+WANT
+for w in w1 w2 w3 w5 w6 w7 t1; do
   sw=""; [ "$w" = t1 ] && sw="SCRIP_SNO_STMTKW=1"
   ( cd "$T" && env $sw timeout 60 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$w.m3" > "$T/$w.m3.r" && mv "$T/$w.m3.r" "$T/$w.m3"
   if cmp -s "$T/$w.m3" "$T/$w.want"; then echo "  PASS  m3 $w (rc=$rc3)"; else echo "  FAIL  m3 $w rc=$rc3"; diff "$T/$w.want" "$T/$w.m3" | head -10 | sed 's/^/        /'; fail=1; fi
@@ -231,5 +248,5 @@ for w in w1 w2 w3 w5 w6 t1; do
     if cmp -s "$T/$w.m4" "$T/$w.want"; then echo "  PASS  m4 $w (rc=$rc4)"; else echo "  FAIL  m4 $w rc=$rc4"; diff "$T/$w.want" "$T/$w.m4" | head -10 | sed 's/^/        /'; fail=1; fi
   else echo "  FAIL  m4 $w: no binary"; fail=1; fi
 done
-if [ "$fail" = 0 ]; then echo "✅ PASS: every Icon call carries its arguments in a block on the caller's spine -- no frame helper in the kernels' text, and arity mismatch, a variadic tail, generators resumed and called by value, a co-expression, string invocation, !, six arguments, deep recursion, a recursive generator fed by a generator and a six-argument call from a generator frame, a call through a procedure name reassigned inside the procedure, variable(), display(), tracebacks and &trace all agree with iconx, both modes"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "✅ PASS: every Icon call carries its arguments in a block on the caller's spine -- no frame helper in the kernels' text, and arity mismatch, a variadic tail, generators resumed and called by value, a co-expression, string invocation, !, six arguments, deep recursion, a recursive generator fed by a generator and a six-argument call from a generator frame, a call through a procedure name reassigned inside the procedure, a co-expression created inside a procedure reading its parameter, variable(), display(), tracebacks and &trace all agree with iconx, both modes"; exit 0; fi
 echo "⛔ FAIL: the Icon block protocol is broken (see the FAIL rows)"; exit 1
