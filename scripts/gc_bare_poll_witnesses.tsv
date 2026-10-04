@@ -33,7 +33,7 @@ src/templates/bb/bb_call_fn.cpp:243:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr
 src/templates/bb/bb_call_pl_leaf.cpp:79:rt_pl_anum_cold/rt_pl_atop_cold/rt_pl_ax_cold/rt_pl_cmp_cold/rt_pl_type_cold/rt_pl_zguard_cold	src/templates/bb/bb_call_pl_leaf.cpp:79	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_pl_leaf.cpp:128:rt_pl_is_cold	src/templates/bb/bb_call_pl_leaf.cpp:129	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_pl_leaf.cpp:241:rt_gcheap_alloc	src/templates/bb/bb_call_pl_leaf.cpp:246	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_pl_leaf.cpp:292:rt_pl_db_decls_install	src/templates/bb/bb_call_pl_leaf.cpp:293	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_pl_leaf.cpp:300:rt_pl_db_decls_install	src/templates/bb/bb_call_pl_leaf.cpp:301	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_proc_staged.cpp:102:rt_arg_stage	src/templates/bb/bb_call_proc_staged.cpp:103	UNWITNESSED
 src/templates/bb/bb_call_proc_staged.cpp:227:rt_ab_undef_fn_fail	src/templates/bb/bb_call_proc_staged.cpp:228	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_call_proc_staged.cpp:327:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4	src/templates/bb/bb_call_proc_staged.cpp:330	UNWITNESSED
@@ -170,7 +170,7 @@ src/templates/xa/xa_flat.cpp:639:rt_trace_return_hook	src/templates/xa/xa_flat.c
 src/templates/xa/xa_flat.cpp:640:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:642	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_flat.cpp:641:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:642	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_to_helpers.cpp:36:core_icn_int_operand_ok	src/templates/xa/xa_to_helpers.cpp:39	stack_top_under_valgrind.icn
-src/emitter/emit.cpp:3408:rt_trace_call_hook_f	src/emitter/emit.cpp:3412	hb_size_result_polled.icn
-src/emitter/emit.cpp:3409:rt_trace_return_hook	src/emitter/emit.cpp:3412	hb_size_result_polled.icn
-src/emitter/emit.cpp:3410:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3412	hb_size_result_polled.icn
-src/emitter/emit.cpp:3411:rt_trace_fail_hook	src/emitter/emit.cpp:3412	hb_size_result_polled.icn
+src/emitter/emit.cpp:3422:rt_trace_call_hook_f	src/emitter/emit.cpp:3426	hb_size_result_polled.icn
+src/emitter/emit.cpp:3423:rt_trace_return_hook	src/emitter/emit.cpp:3426	hb_size_result_polled.icn
+src/emitter/emit.cpp:3424:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3426	hb_size_result_polled.icn
+src/emitter/emit.cpp:3425:rt_trace_fail_hook	src/emitter/emit.cpp:3426	hb_size_result_polled.icn

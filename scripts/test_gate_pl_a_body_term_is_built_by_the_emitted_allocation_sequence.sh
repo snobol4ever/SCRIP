@@ -8,6 +8,10 @@
 # by failure, in a clause and in a disjunction), a 20000-cell list built tail-recursively (the allocator's slow path and the collector under
 # the box), a 16-argument compound with a late-bound kid read back through =.., and sharing (findall, one variable in two terms, nested terms,
 # copy_term). The expected text is the oracle's, cut with /usr/bin/swipl -q -t halt at gate-writing time.
+# ARM 8, w_order (row prolog-bb-a-term-built-over-an-unbound-heap-variable-links-to-it-never-rebinds-it-so-the-standard-order-of-variables-holds, re-minted per
+# CEO-1511): an unbound kid already on the heap is LINKED from the new block, never rebound, so two variables keep their standard order however many
+# terms are built over them (r(f(M,N),R1), r(f(N,M),R2) gives R1 \== R2; msort of the same two variables in either order is one list). RED on origin
+# a6b90f22e in both modes: two of its checks read no.
 # RED BEFORE on origin 35ed4e649: arm 1 names rt_pl_dop_mkc (zebra 38 sites, crypt 37); the witnesses pass there (they are the behaviour the
 # box must keep), so the gate's FAIL-ONCE is arm 1.
 set -u
@@ -62,6 +66,22 @@ mkw w_share <<'EOP'
 main :- findall(p(X,Y), (member(X,[1,2]), member(Y,[a,b])), L), write(L), nl, A = f(V), B = g(V), V = 7, write(A-B), nl, T = f(g(W), h(W)), W = k, write(T), nl, copy_term(T, C), write(C), nl.
 :- initialization(main).
 EOP
+mkw w_order <<'EOP'
+:- initialization(main).
+r(f(A, B), R) :- ( A @< B -> R = lt ; R = ge ).
+t(G) :- ( G -> write(ok) ; write(no) ), nl.
+build(0, _, _) :- !.
+build(K, M, N) :- _ = f(N, M), _ = g(M, N, M), K1 is K - 1, build(K1, M, N).
+main :- r(f(M, N), R1), r(f(N, M), R2), t(R1 \== R2),
+        build(100, M, N), r(f(M, N), R3), t(R3 == R1),
+        X = f(A, B), Y = g(B, A), msort([A, B], S1), msort([B, A], S2), t(S1 == S2), t(X \== Y),
+        T1 = h(A), T2 = h(A), t(T1 == T2), compare(O1, A, B), _ = k(B, A), compare(O2, A, B), t(O1 == O2),
+        copy_term(f(P, _Q, P), C), C = f(P1, Q1, R1c), t(P1 == R1c), t(P1 \== Q1),
+        U = w(Z), V = v(Z), Z = 1, write(U-V), nl,
+        K1 = k(X1), K2 = k(Y1), X1 = Y1, t(K1 == K2),
+        sort([B, A, B], SS), length(SS, LS), write(LS), nl,
+        findall(W-E, member(W-E, [1-_, 2-_]), FL), length(FL, LF), write(LF), nl.
+EOP
 want_w_bound='f(1,g(b,1),[a,b|1])'
 want_w_unbound='f(1,2,1)
 1-2-1
@@ -78,7 +98,19 @@ want_w_share='[p(1,a),p(1,b),p(2,a),p(2,b)]
 f(7)-g(7)
 f(g(k),h(k))
 f(g(k),h(k))'
-for w in w_bound w_unbound w_trail w_list w_big w_share; do
+want_w_order='ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+w(1)-v(1)
+ok
+2
+2'
+for w in w_bound w_unbound w_trail w_list w_big w_share w_order; do
     eval "want=\$want_$w"
     for mode in m3 m4; do
         if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
@@ -93,5 +125,5 @@ for w in w_bound w_unbound w_trail w_list w_big w_share; do
     done
 done
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }
-echo "GATE PASS [$GATE_NAME]: zebra.pl and crypt.pl's mode-4 text call rt_pl_dop_mkc nowhere, and the six witnesses (bound kids, unbound kids, the trail, a 20000-cell list, a 16-argument compound, sharing) match swipl in both modes"
+echo "GATE PASS [$GATE_NAME]: zebra.pl and crypt.pl's mode-4 text call rt_pl_dop_mkc nowhere, and the seven witnesses (bound kids, unbound kids, the trail, a 20000-cell list, a 16-argument compound, sharing, variable order across builds) match swipl in both modes"
 exit 0
