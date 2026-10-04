@@ -530,6 +530,7 @@ test_gate_pl_a_cut_inside_a_control_goal_held_in_a_variable_cuts_to_the_call.sh	
 test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh	WIRED	-	-	-
 test_gate_pl_a_cyclic_term_hashes_in_finite_time.sh	WIRED	-	-	-
 test_gate_pl_a_directive_name_before_an_infix_operator_is_an_atom.sh	WIRED	-	-	-
+test_gate_pl_a_head_structure_against_an_unbound_argument_is_built_by_the_box.sh	WIRED	-	-	-
 test_gate_pl_a_meta_call_of_a_compiled_predicate_jumps_to_it_and_resumes_through_its_token.sh	WIRED	-	-	-
 test_gate_pl_a_meta_called_format_reads_its_empty_argument_list.sh	WIRED	-	-	-
 test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRED	-	-	-

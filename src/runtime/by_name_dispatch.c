@@ -2683,16 +2683,7 @@ DESCR_t rt_pl_dop_unify_oc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) {
     if (atom) { extern const char *prolog_atom_name(int); const char *nm = prolog_atom_name((int)k); return c->v == DT_S && nm && !strcmp(nm, c->s ? c->s : ""); }
-    { extern int rt_descr_equal(DESCR_t, DESCR_t); DESCR_t w; memset(&w, 0, sizeof w); w.v = DT_I; w.i = k; return rt_descr_equal(*c, w) ? 1 : 0; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_unify_struct_fresh(long fid) {
-    extern int prolog_functor_arity(int);
-    int ar = prolog_functor_arity((int)fid); DESCR_t c = {0};
-    DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1));
-    for (int i = 0; i < ar; i++) { kids[i].v = (DTYPE_t)DT_PLVAR; kids[i].slen = 0; kids[i].p = (void *)&kids[i]; }
-    c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)fid; c.p = (void *)kids;
-    return c;
+    return c->v == DT_I && c->i == k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unify_atomic_cold(DESCR_t *A, DESCR_t *B) {

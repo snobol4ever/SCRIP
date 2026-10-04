@@ -5,15 +5,33 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 void rt_pl_tr_refuse(const char *);
-DESCR_t rt_pl_unify_struct_fresh(long);
+int prolog_functor_arity(int);
+#include "rt/gc_heap.h"
 }
 #include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string pl_fresh_cells(int ar) {
+    std::string s;
+    if (ar <= 8) {
+        for (int i = 0; i < ar; i++)
+            s += x86("mov", RDQ("r10", 16 * i), (long)DT_PLVAR) + x86("lea", "rcx", RDQ("r10", 16 * i)) + x86("mov", RDQ("r10", 16 * i + 8), "rcx");
+        return s;
+    }
+    return x86("mov", "r11", (long)ar)
+         + x86("def", L(40))
+         + x86("mov", RDQ("r10", 0), (long)DT_PLVAR)
+         + x86("mov", RDQ("r10", 8), "r10")
+         + x86("add", "r10", 16L)
+         + x86("sub", "r11", 1L)
+         + x86("jne", L(40));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unify_struct() {
     x86_begin();
+    const int ar = (!_.op_zres && _.op_u_why == 0) ? prolog_functor_arity((int)_.op_u_fid) : 1;
     return IF(_.op_zres,
                x86_alpha()
              + x86_bomb("bb_unify_struct: a Prolog head is a flat-frame graph; no ZD arm exists")
@@ -49,13 +67,18 @@ std::string bb_unify_struct() {
              + PL_UNBOUND(30, 25)
              + x86_omega()
              + x86("def", L(30))
-             + x86("note", "write mode: the fresh block of self-referencing cells comes from a value service (it allocates, so the DESCR is stored into the mapped slot and the poll follows)")
-             + x86("note", "the cell is re-derived after the poll and bound to the block")
-             + x86("mov32", "edi", _.op_u_fid)
-             + x86("call", "rt_pl_unify_struct_fresh", (uint64_t)(uintptr_t)(void *)rt_pl_unify_struct_fresh)
-             + x86("mov", FRQ(_.op_off), "rax")
-             + x86("mov", FRQ(_.op_off + 8), "rdx")
+             + x86("note", "write mode (ARCH-PROLOG-C-OUT-OF-THE-BOX 10): the box builds the fresh block -- one allocating call for the argument block (HB_DVEC, zero-filled by the allocator, "
+                           "so every cell is typed before the poll), the result cell {DT_PLREF, functor id, block} stored into the mapped slot before the poll, then each argument cell made a "
+                           "self-reference inline; the cell is re-derived after the poll and bound to the block. No C value service builds it.")
+             + x86("mov32", "edi", (long)HB_DVEC)
+             + x86("mov32", "esi", (long)(16 * ar))
+             + x86("call", "rt_gcheap_alloc", (uint64_t)(uintptr_t)(void *)rt_gcheap_alloc)
+             + x86_movabs_r64("rcx", (uint64_t)DT_PLREF | ((uint64_t)(uint32_t)_.op_u_fid << 32))
+             + x86("mov", FRQ(_.op_off), "rcx")
+             + x86("mov", FRQ(_.op_off + 8), "rax")
              + x86_rt_gc_poll()
+             + x86("mov", "r10", FRQ(_.op_off + 8))
+             + pl_fresh_cells(ar)
              + PL_SRC_RDI()
              + PL_DEREF(14, 15, 16, 17)
              + PL_TRAIL(31, 39)

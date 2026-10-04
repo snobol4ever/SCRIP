@@ -57,14 +57,6 @@ void rt_pl_gz_init(void *frame, int nslots)
     for (int i = 0; i < nslots; i++) pl_init_var((pl_cell_t *)(base + 8 + (size_t)16 * (size_t)i), i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_cell_float(void *cell, double dval)
-{
-    pl_cell_t *c = (pl_cell_t *)cell; if (!c) return 0;
-    pl_cell_t w = pl_make_float(dval);
-    if (!pl_unify(c, &w)) { return 0; }
-    return 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words)
 {
     pl_cell_t *src = (pl_cell_t *)arg_words;
@@ -74,24 +66,6 @@ void *rt_pl_compound_cell(const char *functor_name, int arity, void *arg_words)
     pl_cell_t *out = (pl_cell_t *)PL_CELL_ALLOC(sizeof(pl_cell_t));
     *out = pl_make_compound(fid, arity, blk);
     return out;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_struct(void *dst, const char *functor_name, int arity, void *arg_words)
-{
-    pl_cell_t *src = (pl_cell_t *)arg_words; if (!dst) return 0;
-    pl_cell_t *D = pl_deref((pl_cell_t *)dst);
-    int fid = prolog_atom_intern(functor_name ? functor_name : "[]");
-    if (pl_cell_unbound(D)) {
-        pl_cell_t *blk = (pl_cell_t *)PL_CELL_ALLOC((size_t)(arity > 0 ? arity : 1) * sizeof(pl_cell_t));
-        for (int i = 0; i < arity; i++) blk[i] = src[i];
-        pl_bind(D, pl_make_compound(fid, arity, blk)); return 1;
-    }
-    if ((int)D->v == (int)DT_PLREF) {
-        uint32_t want = (uint32_t)prolog_functor_intern(fid, arity); if (D->slen != want) return 0;
-        pl_cell_t *blk = (pl_cell_t *)D->p;        for (int i = 0; i < arity; i++) if (!pl_unify(&blk[i], &src[i])) { return 0; }
-        return 1;
-    }
-    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FILE *plc_out(void) { extern FILE *fh_cur_out_fp(void); FILE *f = fh_cur_out_fp(); return f ? f : stdout; }

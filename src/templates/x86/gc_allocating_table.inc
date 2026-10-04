@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2043
+#define GC_ALLOC_TAB_N 2039
 #define GC_ALLOC_TAB_N_VOID 237
-#define GC_ALLOC_TAB_N_DESCR 1096
-#define GC_ALLOC_TAB_N_OTHER 704
+#define GC_ALLOC_TAB_N_DESCR 1095
+#define GC_ALLOC_TAB_N_OTHER 701
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1797,10 +1797,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_type_cold", GC_RET_DESCR },
     { "rt_pl_type_cold_c", GC_RET_DESCR },
     { "rt_pl_type_test_cell", GC_RET_OTHER },
-    { "rt_pl_unify_cell_float", GC_RET_OTHER },
-    { "rt_pl_unify_const_cold", GC_RET_OTHER },
-    { "rt_pl_unify_struct", GC_RET_OTHER },
-    { "rt_pl_unify_struct_fresh", GC_RET_DESCR },
     { "rt_pl_univ_cell", GC_RET_OTHER },
     { "rt_pl_variant_cells", GC_RET_OTHER },
     { "rt_pl_wall_clock_cell", GC_RET_OTHER },
