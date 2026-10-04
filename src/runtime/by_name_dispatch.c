@@ -1922,12 +1922,12 @@ DESCR_t rt_call_value_gen_h(DESCR_t callee, DESCR_t *argv, int n, void **hslot) 
     icn_call_value_deref_args(nm, argv, n);
     if (IS_PROCVAL_EXTERNAL_fn(callee)) { extern DESCR_t rt_extfn_invoke(DESCR_t, DESCR_t *, int); return rt_extfn_invoke(callee, argv, n); }
     if (!IS_PROCVAL_BUILTIN_fn(callee) && rt_proc_is_registered(nm)) {
-        extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout);
+        extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint64_t *regs);
         rt_call_args_need(n); for (int k = 0; k < n; k++) CALL_ARGS[k] = argv[k]; rt_call_args_clear_from(n);
 #if RT_DIAG
         rt_c2bb_hit("gen_h.call_value", nm);
 #endif
-        return rt_proc_call_gen_h(nm, n, hslot);
+        return rt_proc_call_gen_h(nm, n, hslot, (const uint64_t *)0);
     }
     if (n == 3 && !strcmp(nm, "...")) {
         extern int core_icn_by_zero_check(int64_t);
@@ -2086,8 +2086,10 @@ CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball) {
-    extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
+DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball, pl_tr_ctx_t *cx) {
+    extern DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot, const uint64_t *regs); uint64_t regs[5];
+    if (!cx) core_runtime_error(288, "the Prolog generator road was entered without an emitted context: a writer reached portray/1 from a road that carries no veneer frame (ARCH-PROLOG-C-OUT-OF-THE-BOX 8)");
+    regs[0] = cx->rbx; regs[1] = (uint64_t)(uintptr_t)cx->tr; regs[2] = (uint64_t)(uintptr_t)cx->b; regs[3] = cx->r14; regs[4] = cx->r15;
     extern void *rt_pl_ball_existence_key(const char *key);
     extern void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar);
     DESCR_t *kids = (DESCR_t *)0; int ar = 0;
@@ -2108,7 +2110,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
 #if RT_DIAG
     rt_c2bb_hit("gen_h.pl_goal", key);
 #endif
-    return rt_proc_call_gen_h(key, ar + n, hslot);
+    return rt_proc_call_gen_h(key, ar + n, hslot, regs);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_value_resume_h(void **hslot, int n) {
@@ -2871,8 +2873,8 @@ DESCR_t dop_pl_put_code(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(v
       bl = rt_pl_u8_put(cb, (int)v.i); fwrite(cb, 1, (size_t)bl, fh_cur_out_fp()); return pl_ok(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t dop_pl_flush_output(DESCR_t *args, int nargs) { extern FILE *fh_cur_out_fp(void); (void)args; (void)nargs; fflush(fh_cur_out_fp()); return pl_ok(); }
-static void *pl_format_body(DESCR_t *args, int nargs) {
-    extern void *rt_pl_format_run(const char *, void *);
+static void *pl_format_body(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
+    extern void *rt_pl_format_run(const char *, void *, pl_tr_ctx_t *);
     extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     char fb[8192]; const char *fmt; DESCR_t lst, d0;
     if (nargs < 1 || nargs > 2) return (void *)0;
@@ -2888,10 +2890,10 @@ static void *pl_format_body(DESCR_t *args, int nargs) {
         if (pl_val_unbound(cur)) return rt_pl_ball_instantiation();
         if (!pl_is_nil(cur)) return rt_pl_ball_kind2("type_error", "list", rt_pl_deref_val(args[1]));
         lst = args[1]; }
-    return rt_pl_format_run(fmt, &lst);
+    return rt_pl_format_run(fmt, &lst, cx);
 }
 DESCR_t rt_pl_dop_format_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
-    void *b = pl_format_body(args, nargs);
+    void *b = pl_format_body(args, nargs, cx);
     if (b) { if (cx) cx->ball = b; return FAILDESCR; }
     return (nargs < 1 || nargs > 2) ? FAILDESCR : pl_ok();
 }

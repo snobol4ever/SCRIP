@@ -99,7 +99,7 @@ static FILE *plc_out(void) { extern FILE *fh_cur_out_fp(void); FILE *f = fh_cur_
 typedef struct plc_vmap plc_vmap;
 #define PLC_WQ_NOESC 2
 #define PLC_WQ_NONASCII 4
-struct plc_vmap { pl_cell_t *seen[1024]; int n; FILE *fp; pl_cell_t *vnv[256]; const char *vnn[256]; int vnc; int (*portray)(pl_cell_t *, plc_vmap *); void *pthrown; long pheld; };
+struct plc_vmap { pl_cell_t *seen[1024]; int n; FILE *fp; pl_cell_t *vnv[256]; const char *vnn[256]; int vnc; int (*portray)(pl_cell_t *, plc_vmap *); pl_tr_ctx_t *cx; void *pthrown; long pheld; };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *plc_vname(plc_vmap *m, pl_cell_t *d)
 {
@@ -294,14 +294,14 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
 static pl_cell_t plc_atom_id_cell(int id);
 static int plc_portray_hit(pl_cell_t *d, plc_vmap *m)
 {
-    extern DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball);
+    extern DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, void **ball, pl_tr_ctx_t *cx);
     extern int fh_alloc(FILE *); extern void fh_free(int); extern int fh_current_output(void); extern void fh_set_output(int);
     if (m->pthrown || !d) return 0;
     { pl_cell_t g = plc_atom_id_cell(prolog_atom_intern("portray")); DESCR_t a = *d; void *h = (void *)0; void *b = (void *)0;
       int sv = fh_current_output(); int slot = fh_alloc(m->fp); DESCR_t r;
       if (slot < 0) return 0;
       fflush(m->fp); fh_set_output(slot);
-      r = rt_pl_goal_gen_h_c(g, &a, 1, &h, &b);
+      r = rt_pl_goal_gen_h_c(g, &a, 1, &h, &b, m->cx);
       if (!b && IS_FAIL_fn(r)) { extern void *rt_pl_ball_take(void); b = rt_pl_ball_take(); }
       fflush(m->fp); fh_set_output(sv); fh_free(slot);
       if (h) { extern void rt_proc_drop_frame_h(void **hslot); m->pheld++; rt_proc_drop_frame_h(&h); }
@@ -411,35 +411,35 @@ static void plc_atoms_ready(void) { extern int ATOM_DOT; extern void prolog_atom
 void rt_pl_write_cell(void *cell)
 {
     plc_atoms_ready();
-    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
+    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     plc_write((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_cell_fp(void *cell, FILE *fp)
 {
     plc_atoms_ready();
-    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = fp ? fp : plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
+    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = fp ? fp : plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     plc_write((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_writeq_cell(void *cell)
 {
     plc_atoms_ready();
-    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
+    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     plc_writeq((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_write_canonical_cell(void *cell)
 {
     plc_atoms_ready();
-    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
+    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     plc_write_canonical((pl_cell_t *)cell, &m);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_display_cell_ball(void *cell)
 {
     plc_atoms_ready();
-    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
+    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     plc_wt((pl_cell_t *)cell, 0, 1, 0, 0, 0, 1200, &m);
     return m.pthrown;
 }
@@ -460,7 +460,7 @@ static int plc_opt_is_true(pl_cell_t *o)
 void rt_pl_write_term_cell(void *term_cell, void *opts_cell)
 {
     plc_atoms_ready();
-    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
+    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = plc_out(); m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     int quoted = 0, ignore_ops = 0, numbervars = 0, prio = 1200, noesc = 0, qna = 0; long max_depth = 0;
     pl_cell_t *lst = opts_cell ? pl_deref((pl_cell_t *)opts_cell) : (pl_cell_t *)0;
     while (lst && (int)lst->v == DT_PLREF && plc_fid_arity(lst->slen) == 2) {
@@ -956,7 +956,7 @@ static pl_cell_t *plc_fmt_next_arg(pl_cell_t **args) {
     return (pl_cell_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; int fchr[256]; int nf; } plc_fb;
+typedef struct { char *b; size_t n; size_t cap; size_t seg; size_t fpos[256]; int fchr[256]; int nf; pl_tr_ctx_t *cx; } plc_fb;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_fb_raw(plc_fb *f, const char *s, size_t n)
 {
@@ -1006,8 +1006,8 @@ static void *plc_fb_term(plc_fb *f, pl_cell_t *t, int kind, int quoted, int igno
 {
     extern FILE *fh_memsink_open(char **, size_t *); char *bp = (char *)0; size_t bn = 0; FILE *ms = fh_memsink_open(&bp, &bn); plc_vmap m;
     if (!ms) return (void *)0;
-    m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
-    if (kind == 4) { extern int rt_proc_is_registered(const char *); m.portray = rt_proc_is_registered("portray/1") ? plc_portray_hit : (int (*)(pl_cell_t *, plc_vmap *))0; plc_write(t, &m); }
+    m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
+    if (kind == 4) { extern int rt_proc_is_registered(const char *); m.portray = rt_proc_is_registered("portray/1") ? plc_portray_hit : (int (*)(pl_cell_t *, plc_vmap *))0; m.cx = f->cx; plc_write(t, &m); }
     else if (kind == 0) plc_write(t, &m);
     else if (kind == 1) plc_writeq(t, &m);
     else if (kind == 2) plc_write_canonical(t, &m);
@@ -1096,12 +1096,12 @@ static void plc_fmt_radix(plc_fb *f, long long iv, int base, int upper)
     plc_fb_add(f, outb, (size_t)oi);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_pl_format_run(const char *fmt, void *list_cell)
+void *rt_pl_format_run(const char *fmt, void *list_cell, pl_tr_ctx_t *cx)
 {
     extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     plc_fb f; void *ball = (void *)0; pl_cell_t *args = list_cell ? pl_deref((pl_cell_t *)list_cell) : (pl_cell_t *)0; pl_cell_t all = args ? *args : pl_make_int(0); const char *p; FILE *fd;
     plc_atoms_ready();
-    memset(&f, 0, sizeof f);
+    memset(&f, 0, sizeof f); f.cx = cx;
     if (!fmt) return (void *)0;
     for (p = fmt; *p && !ball; p++) {
         long nval = 0; int have_n = 0, fill = ' ';
@@ -1172,7 +1172,7 @@ void *rt_pl_format_run(const char *fmt, void *list_cell)
     return ball;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_format_cell(const char *fmt, void *list_cell) { (void)rt_pl_format_run(fmt, list_cell); }
+void rt_pl_format_cell(const char *fmt, void *list_cell) { (void)rt_pl_format_run(fmt, list_cell, (pl_tr_ctx_t *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr_ctx_t *cx)
 {
@@ -1785,7 +1785,7 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
     extern FILE *fh_memsink_open(char **, size_t *); char *buf = (char *)0; size_t len = 0;
     FILE *ms = fh_memsink_open(&buf, &len);
     if (!ms) { return 0; }
-    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.pheld = 0;
+    plc_vmap m; m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     plc_writeq((pl_cell_t *)term_cell, &m);
     if (fclose(ms) != 0) { return 0; }
     int ok = plc_unify_into_cell_cx((pl_cell_t *)str_cell, plc_make_atom_cell(buf ? buf : ""), cx);

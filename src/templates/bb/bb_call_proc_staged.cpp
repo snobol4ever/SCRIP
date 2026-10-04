@@ -25,7 +25,7 @@ DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
 void    rt_ab_undef_fn_fail(void);
 void    rt_pl_iso_throw_existence_key(const char *key);
-DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot);
+DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot, const uint64_t *regs);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);

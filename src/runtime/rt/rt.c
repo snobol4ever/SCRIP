@@ -1351,13 +1351,14 @@ static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t *out2, void **hout)
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
+DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint64_t *regs)
 {
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
     if (p->is_generator) {
         uint64_t cregs[5];
-        __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
+        if (regs) memcpy(cregs, regs, sizeof cregs);
+        else __asm__ volatile("movq %%rbx,%0\n\tmovq %%r12,%1\n\tmovq %%r13,%2\n\tmovq %%r14,%3\n\tmovq %%r15,%4" : "=m"(cregs[0]), "=m"(cregs[1]), "=m"(cregs[2]), "=m"(cregs[3]), "=m"(cregs[4]));
         rt_genp_s *g = (rt_genp_s *)ct_zalloc(1, sizeof *g);
         if (!g) { if (hout) *hout = (void *)0; return FAILDESCR; }
         memcpy(g->regs, cregs, sizeof cregs);

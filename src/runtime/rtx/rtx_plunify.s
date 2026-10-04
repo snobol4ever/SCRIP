@@ -3,7 +3,11 @@ RTX_GATE_DEF(plunify)
 #define CTX_TR            0
 #define CTX_B             8
 #define CTX_BALL         16
-#define CTX_FRAME        24
+#define CTX_RBX          24
+#define CTX_R14          32
+#define CTX_R15          40
+#define CTX_FRAME        56
+#define CTX_SAVE mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov qword ptr [rsp + CTX_RBX], rbx; mov qword ptr [rsp + CTX_R14], r14; mov qword ptr [rsp + CTX_R15], r15
 #define PL_TR_ARENA_MASK  -134217728
 #define PL_TR_BALL_SLOT   8
 #define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
@@ -57,8 +61,7 @@ RTX_FUNC(rt_pl_catch_handle)
     test    r15, r15
     jz      .Lch_fail
     sub     rsp, CTX_FRAME
-    mov     qword ptr [rsp + CTX_TR], r12
-    mov     qword ptr [rsp + CTX_B], r13
+    CTX_SAVE
     PL_BALL_GET(rdx)
     mov     rcx, rsp
     RTX_CCALL(rt_pl_catch_handle_c)
@@ -86,8 +89,7 @@ RTX_FUNC(rt_pl_dop_ball_pending)
 RTX_ENDF(rt_pl_dop_ball_pending)
 RTX_FUNC(rt_pl_dop_clause_unify)
     sub     rsp, CTX_FRAME
-    mov     qword ptr [rsp + CTX_TR], r12
-    mov     qword ptr [rsp + CTX_B], r13
+    CTX_SAVE
     mov     rdx, rsp
     RTX_CCALL(rt_pl_dop_clause_unify_c)
     mov     r12, qword ptr [rsp + CTX_TR]
@@ -110,8 +112,7 @@ RTX_ENDF(rt_pl_dop_clause_unify)
 #define PL_U_WORK_BYTES 696
 RTX_FUNC(rt_pl_unify_deep)
     sub     rsp, CTX_FRAME
-    mov     qword ptr [rsp + CTX_TR], r12
-    mov     qword ptr [rsp + CTX_B], r13
+    CTX_SAVE
     mov     rdx, rsp
     RTX_CCALL(rt_pl_unify_deep_c)
     mov     r12, qword ptr [rsp + CTX_TR]
@@ -316,9 +317,9 @@ PL_COLD_GUARD(anum)
 #define PL_COLD_PLAIN(nm) RTX_FUNC(rt_pl_##nm##_cold); sub rsp, 8; RTX_CCALL(rt_pl_##nm##_cold_c); add rsp, 8; ret; RTX_ENDF(rt_pl_##nm##_cold)
 PL_COLD_PLAIN(type)
 PL_COLD_PLAIN(atop)
-#define PL_CTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; \
+#define PL_CTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; CTX_SAVE; mov rdx, rsp; \
     RTX_CCALL(rt_pl_dop_##nm##_c); mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
-#define PL_CTX_LEAF_BALL(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; \
+#define PL_CTX_LEAF_BALL(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; CTX_SAVE; \
     mov qword ptr [rsp + CTX_BALL], 0; mov rdx, rsp; RTX_CCALL(rt_pl_dop_##nm##_c); mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; add rsp, CTX_FRAME; \
     test rcx, rcx; jz 99f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL ; xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_CTX_LEAF(sub_atom_at)
@@ -491,7 +492,7 @@ PL_ROOT_LEAF(db_abolish_t)
 PL_ROOT_LEAF(db_retractall_t)
 PL_ROOT_LEAF(db_store_k)
 PL_ROOT_LEAF(db_copy)
-#define PL_ROOTCTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov rdx, rsp; mov rcx, r14; \
+#define PL_ROOTCTX_LEAF(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; CTX_SAVE; mov rdx, rsp; mov rcx, r14; \
     RTX_CCALL(rt_pl_dop_##nm##_c); mov r12, qword ptr [rsp + CTX_TR]; add rsp, CTX_FRAME; ret; RTX_ENDF(rt_pl_dop_##nm)
 PL_ROOTCTX_LEAF(nb_getval)
 PL_ROOTCTX_LEAF(b_setval)
