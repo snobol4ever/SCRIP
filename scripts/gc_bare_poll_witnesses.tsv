@@ -40,8 +40,8 @@ src/templates/bb/bb_call_proc_staged.cpp:338:rt_proc_call_open	src/templates/bb/
 src/templates/bb/bb_call_proc_staged.cpp:463:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4	src/templates/bb/bb_call_proc_staged.cpp:471	UNWITNESSED
 src/templates/bb/bb_call_proc_staged.cpp:467:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:471	UNWITNESSED
 src/templates/bb/bb_call_proc_staged.cpp:470:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:471	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:796:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:800	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:799:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:800	UNWITNESSED
+src/templates/bb/bb_call_proc_staged.cpp:844:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:848	UNWITNESSED
+src/templates/bb/bb_call_proc_staged.cpp:847:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:848	UNWITNESSED
 src/templates/bb/bb_call_value.cpp:92:rt_call_apply_spine_prep_blk	src/templates/bb/bb_call_value.cpp:101	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_value.cpp:93:rt_call_apply_spine_prep	src/templates/bb/bb_call_value.cpp:101	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_value.cpp:96:rt_pl_goal_resolve	src/templates/bb/bb_call_value.cpp:101	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
