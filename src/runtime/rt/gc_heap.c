@@ -1190,7 +1190,7 @@ void rt_gc_frame_maps_install_counted(const void *tab)
     const uint64_t *t = (const uint64_t *)tab; int n; const gc_frame_map_t *const *maps;
     if (!t) return;
     n = (int)t[0]; maps = (const gc_frame_map_t *const *)(t + 1);
-    if (g_gc_maps_n != 0 || n <= 0) { rt_gc_frame_maps_install(maps, n); return; }
+    rt_gc_frame_maps_add((const gc_frame_map_t *)0); if (g_gc_maps_n != 0 || n <= 0) { rt_gc_frame_maps_install(maps, n); return; }
     { int nc = g_gc_maps_cap ? g_gc_maps_cap : 64; while (nc < n) nc *= 2;
       if (nc != g_gc_maps_cap) { g_gc_maps = (const gc_frame_map_t **)gcbk_grow((void *)g_gc_maps, (size_t)nc * sizeof(*g_gc_maps)); if (!g_gc_maps) abort(); g_gc_maps_cap = nc; } }
     for (int i = 0; i < n; i++) {
