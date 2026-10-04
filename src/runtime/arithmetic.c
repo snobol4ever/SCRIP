@@ -422,10 +422,11 @@ static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
         if (op == BINOP_CDIFF)  return TABLE_VAL(set_diff(a.tbl, b.tbl));
         return TABLE_VAL(set_inter(a.tbl, b.tbl));
     }
+    char _ab[64], _bb[64]; int aslen, bslen, outlen; const char *ur;
     { extern int core_icn_error(int code, DESCR_t val);
       if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
-      if (!icn_cset_operand_ok(b)) { core_icn_error(120, b); return FAILDESCR; } }
-    char _ab[64], _bb[64]; int aslen, bslen, outlen; const char *ur;
+      if (!icn_cset_operand_ok(b)) { const char *cs = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen); ur = cset_union(cs, aslen, "", 0, &outlen);
+          core_icn_op_ctx(core_icn_binop_sym(op), 2, CSETVAL(outlen > 0 ? ur : ""), b); core_icn_error(120, b); return FAILDESCR; } }
     const char *as = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen), *bs = rt_cset_operand_chars(b, _bb, sizeof _bb, &bslen);
     if (op == BINOP_CUNION)     ur = cset_union(as, aslen, bs, bslen, &outlen);
     else if (op == BINOP_CDIFF) ur = cset_diff(as, aslen, bs, bslen, &outlen);

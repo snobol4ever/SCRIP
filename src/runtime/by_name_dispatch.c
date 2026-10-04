@@ -6564,9 +6564,10 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op) {
             int64_t a = L.i, b = R.i;
             switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
                           case BINOP_LE: return a<=b; case BINOP_GT: return a>b;  case BINOP_GE: return a>=b; } return 0; }
-        core_icn_op_ctx(core_icn_binop_sym(op), 2, lhs, rhs); core_icn_error(102, _relop_lok ? rhs : lhs); core_icn_op_ctx_clear(); return 0; }
+        core_icn_op_ctx(core_icn_binop_sym(op), 2, _relop_lok ? L : lhs, rhs); core_icn_error(102, _relop_lok ? rhs : lhs); core_icn_op_ctx_clear(); return 0; }
     if (str_rel && !(core_icn_str_ok(lhs) && core_icn_str_ok(rhs))) {
-        core_icn_op_ctx(core_icn_binop_sym(op), 2, lhs, rhs); core_icn_error(103, core_icn_str_ok(lhs) ? rhs : lhs); core_icn_op_ctx_clear(); return 0; }
+        DESCR_t sl = lhs; if (core_icn_str_ok(lhs) && (lhs.v == DT_I || lhs.v == DT_R || lhs.v == DT_BIG)) { extern DESCR_t rt_str_coerce(DESCR_t); sl = rt_str_coerce(lhs); }
+        core_icn_op_ctx(core_icn_binop_sym(op), 2, sl, rhs); core_icn_error(103, core_icn_str_ok(lhs) ? rhs : lhs); core_icn_op_ctx_clear(); return 0; }
     if (num_rel && (IS_REAL_fn(lhs) || IS_REAL_fn(rhs)) && (IS_INT_fn(lhs) || IS_REAL_fn(lhs)) && (IS_INT_fn(rhs) || IS_REAL_fn(rhs))) {
         double a = to_real(lhs), b = to_real(rhs);
         switch (op) { case BINOP_EQ: return a==b; case BINOP_NE: return a!=b; case BINOP_LT: return a<b;
