@@ -266,6 +266,7 @@ static int eval_thunks_emit_from(int pc0)
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
         if (!pfn) emit_failed = 1;
         { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
+        { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (pfn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)pfn + emit_gc_sites_off(_sk))); }
         if (pfn) rt_proc_set_fn(pname, pfn);
         { extern int g_last_flat_frame_bytes, g_last_flat_zstatic; extern void bb_thunk_rec_fill(const char *, void *, int32_t, int32_t); if (pfn && _ispe) bb_thunk_rec_fill(pname, (void *)pfn, b1c ? g_last_flat_frame_bytes : 0, b1c ? g_last_flat_zstatic : 0); }
         { extern void bb_ab_seal_entry_cells(const char *, void *, int); if (pfn) bb_ab_seal_entry_cells(pname, (void *)pfn, 1); }
@@ -365,6 +366,7 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
     g_rt_fragment_emit = 1;
     eval_chain_fn fn = emit_chain(((IR_graph_t *)g)->entry, NULL, "pat_flat");
     { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
+    { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (fn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)fn + emit_gc_sites_off(_sk))); }
     g_rt_fragment_emit = 0;
     emit_jmp_entry_clear();
     g_frame_active = fa; g_emit_cfg = cfg_sv;
@@ -884,6 +886,7 @@ DESCR_t code_at(const char *src, long base)
             emit_jmp_entry_for_chain(g);
             eval_chain_fn fn = emit_chain(g->entry, NULL, "code_flat");
             { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
+            { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (fn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)fn + emit_gc_sites_off(_sk))); }
             emit_jmp_entry_clear();
             g_rt_fragment_emit = rfe_sv;
             g_frame_active = fa; g_emit_cfg = cfg_sv;

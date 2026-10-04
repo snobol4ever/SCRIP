@@ -937,6 +937,9 @@ def build_frames(asm_path, report_text, tag):
     property being measured, and inheriting the boundary while asking a different question is how a measurement
     becomes a fiction that reads like a five-alarm fire (the ceo's CEO-1019 lesson, one level over)."""
     insns = CS.parse(asm_path)
+    for ins in insns:
+        if ins.labels and any(str(L).startswith(".Lgcsite_") for L in ins.labels):
+            ins.labels = tuple(L for L in ins.labels if not str(L).startswith(".Lgcsite_"))
     if not insns:
         return None, None, None, None, None, f"{tag}: {asm_path} parsed to zero instructions -- not measured"
     succ, top, label_at = CS.build_cfg(insns)

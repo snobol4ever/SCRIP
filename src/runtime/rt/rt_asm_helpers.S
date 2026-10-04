@@ -162,6 +162,8 @@ rt_tiny_glue_enter:
 .Ltge_go:
     movq   %rsp, %rcx
     jmp    *%rax
+    .globl rt_tge_gamma_ret
+rt_tge_gamma_ret:
 .Ltge_gamma:
     movq   0(%rsp), %rcx
     leaq   39(,%rcx,8), %rbx
@@ -170,6 +172,8 @@ rt_tiny_glue_enter:
     addq   %rcx, %rbx
     addq   %rbx, %rsp
     jmp    *8(%rsp)
+    .globl rt_tge_omega_ret
+rt_tge_omega_ret:
 .Ltge_omega:
     movq   0(%rsp), %rcx
     leaq   39(,%rcx,8), %rbx

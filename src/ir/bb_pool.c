@@ -73,6 +73,7 @@ size_t bb_pool_mark(void) { return pool_base ? (size_t)(pool_top - pool_base) : 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void g_emit_stno_drop_above(uint64_t addr);
 extern void rt_gc_frame_maps_drop_range(const void * lo, const void * hi);
+extern void rt_gc_frame_sites_drop_range(const void * lo, const void * hi);
 void bb_pool_release(size_t mark) {
     uint8_t * want;
     if (!pool_base) return;
@@ -81,6 +82,7 @@ void bb_pool_release(size_t mark) {
     if (want < pool_top) { size_t len = (size_t)(pool_top - want); if (mprotect(want, len, PROT_READ | PROT_WRITE) != 0) { perror("bb_pool_release: mprotect RX→RW"); abort(); } }
     g_emit_stno_drop_above((uint64_t)(uintptr_t)want);
     rt_gc_frame_maps_drop_range(want, pool_top);
+    rt_gc_frame_sites_drop_range(want, pool_top);
     pool_top = want;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

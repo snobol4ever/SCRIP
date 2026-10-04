@@ -1759,7 +1759,7 @@ int main(int argc, char **argv)
             { extern int rt_is_reassigned_builtin(const char *); for (int k = 0; k < n_gva_icn; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k); }
             if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
-            emit_textf("  lea rdi, [rip + __gc_frame_maps]\n  call rt_gc_frame_maps_install_counted@PLT\n");
+            emit_textf("  lea rdi, [rip + __gc_frame_maps]\n  call rt_gc_frame_maps_install_counted@PLT\n  lea rdi, [rip + __gc_frame_sites]\n  call rt_gc_frame_sites_install_counted@PLT\n");
             { extern int scc_program_ok(void); if (!scc_program_ok()) emit_textf("  call rt_scc_taint_inherit@PLT\n"); }
             { extern int g_monitor_bin; extern long g_trace_budget; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
             { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
@@ -1812,7 +1812,7 @@ int main(int argc, char **argv)
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
                 { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }
                 if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "module_init");
-                { extern int emit_gc_map_names_n(void); extern const char *emit_gc_map_name(int); int _nm = emit_gc_map_names_n(); emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm); for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k)); emit_textf("  .section .text\n  .intel_syntax noprefix\n"); }
+                { extern int emit_gc_map_names_n(void); extern const char *emit_gc_map_name(int); int _nm = emit_gc_map_names_n(); emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm); for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k)); { extern int emit_gc_sites_names_n(void); extern const char *emit_gc_sites_name(int); int _ns = emit_gc_sites_names_n(); emit_textf("  .align 8\n__gc_frame_sites:\n  .quad %d\n", _ns); for (int _k = 0; _k < _ns; _k++) emit_textf("  .quad %s\n", emit_gc_sites_name(_k)); } emit_textf("  .section .text\n  .intel_syntax noprefix\n"); }
             }
             for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { ct_drop((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }
             ct_drop(proc_names_buf); ct_drop(proc_nparams_buf); ct_drop(proc_pidx_buf); ct_drop(proc_fb_buf); ct_drop(proc_zstatic_buf);
@@ -1919,6 +1919,7 @@ int main(int argc, char **argv)
                 bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
                 if (pfn && _lbl_owned) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, idx, (void *)pfn, g_last_flat_frame_bytes); }
                 { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
+                { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (pfn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)pfn + emit_gc_sites_off(_sk))); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1951,6 +1952,7 @@ int main(int argc, char **argv)
             sn4_balias_fill(bbg, s2, _lbl_own, -1, 0);
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
             { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
+            { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (fn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)fn + emit_gc_sites_off(_sk))); }
             if (fn) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, -1, (void *)fn, g_last_flat_frame_bytes); }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;

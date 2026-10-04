@@ -518,6 +518,7 @@ typedef struct {
     int                          op_subj_cell;
     int                          zop_seen;
     int                          op_zdepth;
+    int op_zrun;
     int                          op_zres;
     int                          op_head_spine;
     int                          op_head_rsp;

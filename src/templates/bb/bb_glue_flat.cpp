@@ -147,18 +147,23 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
              + x86_rsp_load64("rbx", 48) + x86_rsp_load64("r12", 56)
              + x86("add", "rsp", 64L); };
     auto land_γ = [&](long drop) {
-        return x86("add", "rsp", drop)
+        return x86_rsp_land(drop)
+             + x86_gc_site(X86_SITE_LANDING)
+             + x86("add", "rsp", drop)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + x86_rsp_load64("rdx", 40)
              + restore()
              + x86_jmp_id(lg); };
     auto land_ω = [&](long drop) {
-        return x86("add", "rsp", drop)
+        return x86_rsp_land(drop)
+             + x86_gc_site(X86_SITE_LANDING)
+             + x86("add", "rsp", drop)
              + x86_rsp_load64("rdi", 40)
              + restore()
              + x86_jmp_id(lw); };
     return save
+         + x86_rsp_mark_save()
          + x86("mov",  "rcx", "rdx")
          + x86("and",  "rcx", 255L)
          + x86("cmp",  "rcx", 2L)

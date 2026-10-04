@@ -13,6 +13,8 @@ extern "C" int prolog_functor_arity(int);
 #include "templates/x86/x86_asm.h"
 #include "templates/bb/bb_templates.h"
 #include <unordered_set>
+#include <vector>
+#include <algorithm>
 #endif
 #ifdef __cplusplus
 extern "C" {
@@ -221,6 +223,7 @@ void  bb_emit_i32(int32_t v)   { uint32_t u; memcpy(&u, &v, 4); bb_emit_u32(u); 
 int  g_is_text        = 0;
 int  g_emit_text_mode = TEXT_MODE_INVOCATION;
 int  g_emit_pos       = 0;
+static void emit_gc_rsp_reset(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emitter_init_binary(bb_buf_t buf, int size)
 {
@@ -1159,7 +1162,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
       (void)_ba; (void)_bo; (void)_bs; (void)_all; (void)_spine;
       { extern long zw_carve_k(const IR_t *); extern int zc_nofc(void); long _k = zc_nofc() ? 0 : zw_carve_k(nd);
         if (_k > 0) g_emit.op_fc_bytes = _k; } } }
-    g_emit.op_zdepth = x86_fc_on() ? (int)g_emit.op_fc_bytes : 0;
+    g_emit.op_zdepth = x86_fc_on() ? (int)g_emit.op_fc_bytes : 0; emit_gc_rsp_reset();
     { extern int zdp_alpha(const IR_t *); extern int zdp_beta(const IR_t *); extern int zdp_known_alpha(const IR_t *); extern int zdp_known_beta(const IR_t *); extern int zdp_mode(void);
       g_emit.op_zdp_ad = (nd && zdp_mode() && zdp_known_alpha(nd)) ? zdp_alpha(nd) : -1;
       g_emit.op_zdp_bd = (nd && zdp_mode() && zdp_known_beta(nd))  ? zdp_beta(nd)  : -1;
@@ -3424,6 +3427,64 @@ static bb_label_t g_gc_map_lbl;
 static int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
 static unsigned g_gc_map_flags = 0;
 static cv_t g_gc_map_names_v;
+typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
+static int gc_sites_report_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_SITES_REPORT"); v = (e && *e == '1') ? 1 : 0; } return v; }
+static cv_t g_gc_sites_v; static int g_gc_sites_armed = 0, g_gc_sites_last_off = -1, g_gc_sites_names_n = 0; static cv_t g_gc_sites_names_v;
+typedef struct { int enc_kind, enc_depth; } gc_match_lvl_t;
+static gc_match_lvl_t g_gc_match_out; static int g_gc_match_n = 0;
+extern "C++" int emit_gc_site_new(int kind, int adj) {
+    if (!g_gc_sites_armed) return -1;
+    int rule, depth;
+    if (g_emit.flat_pat && blob_frame_bytes() > 0) { rule = 3; depth = 0; }
+    else if (emit_zframe_pinned() || icn_host_pinned()) { rule = 1; depth = 0; }
+    else if (icn_gen_zeta_ft() > 0) { rule = 2; depth = icn_gen_zeta_ft(); }
+    else if (adj == X86_ADJ_ALIGNED) { rule = 4; depth = g_emit.op_zdepth; }
+    else { rule = 0; depth = g_emit.op_zrun + adj; }
+    gc_site_t * e = &CV_PUSH(g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = g_emit.op_zdepth; e->fcb = (int32_t)g_emit.op_fc_bytes; e->fcbase = (int32_t)g_emit.op_fc_base; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
+    return (int)g_gc_sites_v.len - 1;
+}
+static void emit_gc_rsp_reset(void) { x86_rsp_reset_all(); }
+extern "C++" int emit_gc_site_raw(int kind, int rule, int depth) {
+    if (!g_gc_sites_armed) return -1;
+    gc_site_t * e = &CV_PUSH(g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = 0; e->fcb = 0; e->fcbase = 0; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
+    return (int)g_gc_sites_v.len - 1;
+}
+extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int aligned, int unknown) {
+    if (idx < 0 || (uint32_t)idx >= g_gc_sites_v.len) return;
+    gc_site_t * e = &CV_AT(g_gc_sites_v, gc_site_t, idx);
+    if (pc) e->pc = (uint64_t)(uintptr_t)pc;
+    if (e->kind == X86_SITE_MATCH_ENTER) { int ek = e->rule == 3 ? 3 : (e->rule == 1 ? 1 : (e->rule == 0 && !aligned && !unknown ? 0 : 5)); int ed = e->rule == 0 ? e->depth + delta : 0;
+        if (g_gc_match_n == 0) { g_gc_match_out.enc_kind = ek; g_gc_match_out.enc_depth = ed; } g_gc_match_n++; e->depth = ed; return; }
+    if (e->kind == X86_SITE_MATCH_LEAVE) { if (g_gc_match_n > 0) g_gc_match_n--; return; }
+    if (e->rule == 0) { e->depth += delta; if (aligned) e->rule = 4; if (unknown) e->rule = 5; }
+    if (g_gc_match_n > 0 && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5)) { const gc_match_lvl_t & o = g_gc_match_out;
+        if (o.enc_kind == 5) e->rule = 5; else { e->rule = 6; e->kind = (uint16_t)((e->kind & 255) | ((g_gc_match_n & 15) << 8) | ((o.enc_kind & 15) << 12)); e->depth = o.enc_depth; } }
+    if (gc_sites_report_on()) fprintf(stderr, "[GC-SITE] %s #%d kind=%d rule=%d zdepth=%d fc=%d/%d zrun=%d delta=%d al=%d unk=%d -> depth=%d off=%ld buf=%p box=%s matchn=%d pc=%p nd_op=%d nd_idx=%d \n", g_emit.flat_fam ? g_emit.flat_fam : "chain", idx, (int)e->kind, (int)e->rule, (int)e->zdepth, (int)e->fcb, (int)e->fcbase, (int)e->demit, delta, aligned, unknown, (int)e->depth, pc ? (long)((const char *)pc - (const char *)bb_emit_buf) : -1L, (const void *)bb_emit_buf, e->bk ? e->bk : "?", e->mn, pc, e->nd ? (int)e->nd->op : -1, [&]() { if (!g_emit_cfg || !e->nd) return -1; for (int q = 0; q < g_emit_cfg->n; q++) if (g_emit_cfg->all[q] == e->nd) return q; return -2; }());
+}
+extern "C++" std::string emit_gc_site_label(int idx) { return std::string(".Lgcsite_") + (g_emit.flat_fam ? g_emit.flat_fam : "chain") + "_" + std::to_string(idx); }
+static cv_t g_gc_sites_offs_v;
+extern "C" int emit_gc_sites_last_off(void) { return g_gc_sites_last_off; }
+extern "C" int emit_gc_sites_offs_n(void) { return (int)g_gc_sites_offs_v.len; }
+extern "C" int emit_gc_sites_off(int k) { return (k >= 0 && (uint32_t)k < g_gc_sites_offs_v.len) ? CV_AT(g_gc_sites_offs_v, int, k) : -1; }
+extern "C" int emit_gc_sites_names_n(void) { return g_gc_sites_names_n; }
+extern "C" const char * emit_gc_sites_name(int k) { return (k >= 0 && k < g_gc_sites_names_n) ? CV_AT(g_gc_sites_names_v, char *, k) : "?"; }
+static void emit_gc_sites_data(const char * fam, int frameless) {
+    static int seq = 0; int n = (int)g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", seq++);
+    if (frameless && n == 0) { g_gc_sites_last_off = -1; return; }
+    if (g_is_text) {
+        std::string t = std::string(tl.name) + ":\n .quad " + std::to_string(n) + "\n .quad " + (frameless ? std::string("0") : std::string(g_gc_map_lbl.name)) + "\n"; emit_text_n(t.data(), t.size());
+        for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
+            t = " .quad " + emit_gc_site_label(i) + "\n .quad " + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
+        g_gc_sites_last_off = 0;
+    } else {
+        emit_label_define_bb(&tl); g_gc_sites_last_off = tl.offset; CV_PUSH(g_gc_sites_offs_v, int) = tl.offset;
+        bb_emit_u64((uint64_t)n); bb_emit_u64(frameless ? (uint64_t)0 : (uint64_t)(uintptr_t)(bb_emit_buf + g_gc_map_lbl.offset));
+        for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32); bb_emit_u64(e->pc); bb_emit_u64(w); }
+    }
+    CV_PUSH(g_gc_sites_names_v, char *) = ct_strdup(tl.name); g_gc_sites_names_n++;
+    g_gc_sites_v.len = 0;
+    (void)fam;
+}
 static const char * gc_map_entry_fam(const char * fam) { return (fam && !strcmp(fam, "pat_flat")) ? "main" : fam; }
 static int gc_maps_knob(const char * k) { const char * e = getenv(k); return (e && *e == '1') ? 1 : 0; }
 static int gc_maps_check_on(void) { static int v = -1; if (v < 0) v = gc_maps_knob("SCRIP_GC_MAPS_CHECK"); return v; }
@@ -3456,7 +3517,7 @@ static void emit_gc_map_data(const char * fam) {
     { extern const char * zls_graph_name_get(const IR_graph_t *); const char * ef = gc_map_entry_fam(fam);
       if (ef && !strcmp(ef, "main")) fam = ef;
       else { const char * gn = g_emit_cfg ? zls_graph_name_get(g_emit_cfg) : (const char *)0; fam = (gn && *gn) ? gn : fam; } }
-    if (!g_gc_map_pending) { g_gc_map_last_off = -1; return; }
+    if (!g_gc_map_pending) { g_gc_map_last_off = -1; emit_gc_sites_data(fam, 1); return; }
     g_gc_map_pending = 0;
     const uint64_t * lay = (const uint64_t *)0; int lay_n = 0; g_zls_lay_gaps = 0; g_zls_lay_conf = 0;
     if (g_gc_map_flags & GC_FRAME_MAP_BLOB) { lay = (const uint64_t *)g_blob_lay.p; lay_n = (int)g_blob_lay.len; }
@@ -3491,6 +3552,7 @@ static void emit_gc_map_data(const char * fam) {
     if (g_gc_map_flags & GC_FRAME_MAP_BLOB) g_blob_lay.len = 0;
     CV_PUSH(g_gc_map_names_v, char *) = ct_strdup(g_gc_map_lbl.name); g_gc_map_names_n++;
     if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
+    emit_gc_sites_data(fam, 0);
 }
 extern "C" int emit_gc_map_last_off(void) { return g_gc_map_last_off; }
 extern "C" int emit_gc_map_names_n(void) { return g_gc_map_names_n; }
@@ -3504,7 +3566,9 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _flt_uid_burn[4] = {0, 0, 0, 0};
     const char *fam = (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
     g_emit.flat_fam = fam;
+    g_gc_sites_v.len = 0; g_gc_sites_armed = 1; g_gc_sites_last_off = -1; g_gc_sites_offs_v.len = 0; g_gc_match_n = 0; emit_gc_rsp_reset();
     g_emit.op_zdepth = 0; g_emit.op_fc_bytes = 0;
+    if (gc_sites_report_on()) fprintf(stderr, "[GC-GRAPH] fam=%s prefix=%s buf=%p text=%d\n", fam ? fam : "?", prefix ? prefix : "?", (const void *)bb_emit_buf, g_is_text);
     g_flt_fam = (strncmp(prefix, "proc_", 5) == 0) ? fam : (const char *)0; g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;
     g_emit.x86_uid_kind = (const char *)0;
     emit_label_initf(&lbl_α,      "%s_α",      fam);
@@ -4147,6 +4211,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           { int _h = i;
           if (_zw5_on && !_endj_stolen && !_uw_stolen && nodes[i]->op != IR_STATEMENT && nodes[i]->op != IR_STATEMENT_END && zd_on[i] && zd_wp[i] > 0 && !omega_is_retry && !omega_is_phi) { int _lo = 0, _hi = zw5_pool_stmts; while (_lo < _hi) { int _m = (_lo + _hi) / 2; if (zw5_stmt[_m].idx > i) _hi = _m; else _lo = _m + 1; } if (_lo < zw5_pool_stmts) { int _sb = zw5_stmt[_lo].base; for (int _d = 0; _d < zw5_stmt[_lo].cnt; _d++) { if (zw5_depth[_sb + _d] == zd_wp[i]) { _zw5_saved_omega = node_ω; node_ω = &zw5_pool[_sb + _d]; _zw5_wpop_stolen = zd_wp[i]; break; } } } } }
           g_emit.op_trap_drop = (nodes[i]->op == IR_SETEXIT_TEST && zd_on[i]) ? (long)(zd_out[i] - zd_k(nodes[i])) : 0;
+          g_emit.op_zrun = zd_out[i] >= 0 ? (int)(zd_out[i] - (zd_on[i] ? zd_k(nodes[i]) : 0)) : 0;
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_zd_stage = 1; g_zd_arm = zd_on[i] ? 1 : 0; g_zd_gpop = zd_gp[i]; g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_zd_k = zd_on[i] ? zd_k(nodes[i]) : 0;
               { g_zd_zunder = 0; if (zd_on[i] && nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_END) break; if (zd_on[_zj]) _zu += zd_k(nodes[_zj]); } g_zd_zunder = _zu; int _zp = 0, _inpat = 0; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) break; if (nodes[_zj]->op == IR_MATCH_END) { _inpat = 1; continue; } if (_inpat && zd_on[_zj] && nodes[_zj]->op >= IR_MATCH && nodes[_zj]->op <= IR_MATCH_VALUE) _zp += zd_k(nodes[_zj]) - fence0_release_bytes(nodes[_zj]);    } g_zd_zpat = _zp; { extern int fc_head_fp(const IR_t *); IR_t * _mb = (IR_t *)0; int _jh = -1; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) { _mb = nodes[_zj]; _jh = _zj; break; } } int _fp = _mb ? fc_head_fp(_mb) : -1; g_zd_zfc = (_fp >= 0) ? _fp : 0; (void)_jh; } { static int _zpd = -1; if (_zpd < 0) { const char * _e = getenv("SCRIP_ZPAT_DIAG"); _zpd = (_e && *_e == '1') ? 1 : 0; } if (_zpd) fprintf(stderr, "[ZPAT] i=%d zunder=%d zpat=%d zfc=%d zout_repl=%d op=%s\n", i, g_zd_zunder, g_zd_zpat, g_zd_zfc, zd_out[i], bb_op_name(nodes[i]->op)); } } }       { g_zd_ztail = 0; if (zd_on[i] && (nodes[i]->op == IR_TO || nodes[i]->op == IR_TO_BY)) { int _zttail = 0; for (int _zt = i + 1; _zt < n; _zt++) { if (zd_on[_zt]) _zttail += zd_k(nodes[_zt]); } g_zd_ztail = _zttail; } }
@@ -4411,7 +4476,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           g_emit.flat_dc_body_p = (bb_label_t *)0;
           if (!g_is_text) g_last_dc_off = (long)lbl_dc.offset;
       } }
-    emit_gc_map_data(fam);
+    emit_gc_map_data(fam); g_gc_sites_armed = 0;
     if (text_externalise && g_is_text) {
         data_buf_flush_pending_label();
         xa_dispatch(XA_FLAT_DATA_SECTION);

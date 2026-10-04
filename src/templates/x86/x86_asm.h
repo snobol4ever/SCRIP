@@ -1,6 +1,7 @@
 #ifndef X86_ASM_H
 #define X86_ASM_H
 #include <string>
+#include <vector>
 #include "ct_arena.h"
 #include <cstdint>
 #include <cstring>
@@ -183,6 +184,32 @@ inline std::string x86_neg(const char * reg) {
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("neg") + reg + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline int x86_rsp_trace_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_RSP_TRACE"); v = (e && *e == '1') ? 1 : 0; } return v; }
+typedef struct { uint64_t key; int kind, delta; } x86_rsp_snap_t;
+struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead = 0, mark = 0, quiet = 0; std::vector<x86_rsp_snap_t> j, p; };
+inline x86_rsp_st_t & x86_rsp_S(void) { static x86_rsp_st_t v; return v; }
+inline int & x86_rsp_state(int k) { x86_rsp_st_t & S = x86_rsp_S(); return k == 0 ? S.delta : k == 1 ? S.before : k == 2 ? S.aligned : S.unknown; }
+inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.quiet = 0; }
+inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return; for (const x86_rsp_snap_t & q : S.j) if (q.kind == kind && q.key == key) return; S.j.push_back(x86_rsp_snap_t{ key, kind, S.delta }); }
+inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); int found = -1; for (size_t i = 0; i < S.j.size(); i++) if (S.j[i].kind == kind && S.j[i].key == key) { found = (int)i; break; }
+    if (S.aligned) { S.dead = 0; return; }
+    if (S.dead && found < 0) for (const x86_rsp_snap_t & q : S.p) if (q.kind == kind && q.key == key) { S.delta = q.delta; S.unknown = 0; S.dead = 0; return; }
+    if (S.dead) { if (found >= 0) { S.delta = S.j[found].delta; S.unknown = 0; } else { S.unknown = 1; if (!S.quiet && x86_rsp_trace_on()) fprintf(stderr, "[RSP-TRACE] %s dead define kind=%d key=%llu no jump recorded (delta %d)\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.delta); } }
+    else if (found >= 0 && S.j[found].delta != S.delta) { S.unknown = 1; if (!S.quiet && x86_rsp_trace_on()) fprintf(stderr, "[RSP-TRACE] %s live define kind=%d key=%llu jump delta %d vs fallthrough %d\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.j[found].delta, S.delta); }
+    S.dead = 0; }
+inline void x86_rsp_prepass_commit(const x86_rsp_st_t & before) { x86_rsp_st_t after = x86_rsp_S(); x86_rsp_st_t & S = x86_rsp_S(); S = before;
+    for (const x86_rsp_snap_t & a : after.j) { int have = 0; for (const x86_rsp_snap_t & q : S.p) if (q.kind == a.kind && q.key == a.key) { have = 1; break; }
+        if (!have) S.p.push_back(a); } }
+inline std::string x86_rsp_mark_save(void) { if (MEDIUM_BINARY) return std::string(1, 'K'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspK\n"); }
+inline std::string x86_rsp_land(long k) { if (MEDIUM_BINARY) { std::string r; r += (char)'k'; uint32_t u = (uint32_t)(int32_t)k; for (int j = 0; j < 4; j++) r += (char)((u >> (8 * j)) & 255); return r; } return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspk ") + std::to_string(k) + "\n"; }
+inline std::string x86_rsp_goto(void) { if (MEDIUM_BINARY) return std::string(1, 'G'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspG\n"); }
+#define g_x86_rsp_delta x86_rsp_state(0)
+#define g_x86_rsp_before x86_rsp_state(1)
+#define g_x86_rsp_aligned x86_rsp_state(2)
+#define g_x86_rsp_unknown x86_rsp_state(3)
+inline std::string x86_rsp_rec(long d) { if (MEDIUM_BINARY) { std::string r; r += (char)'R'; uint32_t u = (uint32_t)(int32_t)d; for (int j = 0; j < 4; j++) r += (char)((u >> (8 * j)) & 255); return r; } return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rsp ") + std::to_string(d) + "\n"; }
+inline std::string x86_rsp_mark(char k) { if (MEDIUM_BINARY) return std::string(1, k); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rsp") + k + "\n"; }
+inline std::string x86_rsp_unk(void) { return x86_rsp_mark('U'); }
 inline std::string x86_add(const char * reg, long imm) {
     int m = x86_rnum(reg); bool w = x86_is64(reg);
     std::string code;
@@ -190,7 +217,7 @@ inline std::string x86_add(const char * reg, long imm) {
     if (imm >= -128 && imm <= 127) { if (rex != 0x40) code += (char)rex; code += (char)0x83; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else if (m == 0 && !w)         { code += (char)0x05; code += u32le((uint32_t)imm); }
     else                           { if (rex != 0x40) code += (char)rex; code += (char)0x81; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
-    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("add") + reg + ", " + std::to_string(imm) + "\n");
+    return (!strcmp(reg, "rsp") ? x86_rsp_rec(-imm) : std::string()) + (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("add") + reg + ", " + std::to_string(imm) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_sub(const char * reg, long imm) {
@@ -199,7 +226,7 @@ inline std::string x86_sub(const char * reg, long imm) {
     uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
     if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
     else                           { code += (char)0x81; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
-    return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("sub") + reg + ", " + std::to_string(imm) + "\n");
+    return (!strcmp(reg, "rsp") ? x86_rsp_rec(imm) : std::string()) + (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("sub") + reg + ", " + std::to_string(imm) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movsxd(const char * dst64, const char * src32) {
@@ -263,11 +290,11 @@ inline std::string x86_cset_bt() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_push(const char * r) {
-    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("push") + r + "\n");
+    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x50 | (m & 7)); return (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("push") + r + "\n")) + x86_rsp_rec(8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pop (const char * r) {
-    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("pop")  + r + "\n");
+    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("pop")  + r + "\n")) + x86_rsp_rec(-8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movimm(const char * dst, long imm) {
@@ -304,14 +331,40 @@ inline std::string x86_rtx_after_bare(const char * sym) {
     if (!x86_rtx_plant_clobber() || !emit_rtx_entry_is(sym)) return std::string();
     return x86_movabs_r64("r10", ~(uint64_t)0) + x86_movabs_r64("r11", ~(uint64_t)0);
 }
-inline std::string x86_call_text(const char * sym, const char * sfx) {
-    if (emit_rtx_entry_is(sym)) return x86_rec("call") + "qword ptr [rip + " + sym + "@GOTPCREL]\n";
-    return x86_rec("call") + sym + sfx + "\n";
+extern "C++" int emit_gc_site_new(int kind, int adj);
+extern "C++" int emit_gc_site_raw(int kind, int rule, int depth);
+extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int aligned, int unknown);
+extern "C++" std::string emit_gc_site_label(int idx);
+#define X86_SITE_CALL 1
+#define X86_SITE_LANDING 2
+#define X86_SITE_RES 3
+#define X86_SITE_MATCH_ENTER 4
+#define X86_SITE_MATCH_LEAVE 5
+#define X86_SITE_FN_EXIT 6
+#define X86_ADJ_ALIGNED (-1)
+inline std::string x86_gc_site_adj(int kind, int adj) {
+    int idx = emit_gc_site_new(kind, adj);
+    if (idx < 0) return std::string();
+    if (MEDIUM_BINARY) { std::string r; r += (char)'S'; r += (char)(idx & 255); r += (char)((idx >> 8) & 255); r += (char)((idx >> 16) & 255); r += (char)((idx >> 24) & 255); return r; }
+    return x86_reclbl(emit_gc_site_label(idx)) + "\n";
 }
-inline std::string x86_call_ro(const char * sym, uint64_t ptr) {
-    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code) + x86_rtx_after_bare(sym); }
-    return x86_align_assert() + x86_call_text(sym, "@PLT") + x86_rtx_after_bare(sym);
+inline std::string x86_gc_site(int kind) { return x86_gc_site_adj(kind, 0); }
+inline std::string x86_gc_site_raw(int kind, int rule, int depth) {
+    int idx = emit_gc_site_raw(kind, rule, depth);
+    if (idx < 0) return std::string();
+    if (MEDIUM_BINARY) { std::string r; r += (char)'S'; r += (char)(idx & 255); r += (char)((idx >> 8) & 255); r += (char)((idx >> 16) & 255); r += (char)((idx >> 24) & 255); return r; }
+    return x86_reclbl(emit_gc_site_label(idx)) + "\n";
 }
+inline std::string x86_call_text_adj(const char * sym, const char * sfx, int adj) {
+    if (emit_rtx_entry_is(sym)) return x86_rec("call") + "qword ptr [rip + " + sym + "@GOTPCREL]\n" + x86_gc_site_adj(X86_SITE_CALL, adj);
+    return x86_rec("call") + sym + sfx + "\n" + x86_gc_site_adj(X86_SITE_CALL, adj);
+}
+inline std::string x86_call_text(const char * sym, const char * sfx) { return x86_call_text_adj(sym, sfx, 0); }
+inline std::string x86_call_ro_adj(const char * sym, uint64_t ptr, int adj) {
+    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code) + x86_gc_site_adj(X86_SITE_CALL, adj) + x86_rtx_after_bare(sym); }
+    return x86_align_assert() + x86_call_text_adj(sym, "@PLT", adj) + x86_rtx_after_bare(sym);
+}
+inline std::string x86_call_ro(const char * sym, uint64_t ptr) { return x86_call_ro_adj(sym, ptr, 0); }
 #define RTCC_C_R8   1u
 #define RTCC_C_R9   2u
 #define RTCC_C_R10  4u
@@ -420,17 +473,18 @@ inline std::string x86_rtx_reestablish(unsigned m) {
     if ((m & RTCC_C_R11) && x86_diag_regs_on()) s += x86_movabs_r64("r11", (uint64_t)_.nid);
     return s;
 }
-inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) {
+inline std::string x86_rtcc_call_adj(const char * sym, uint64_t ptr, int adj) {
     unsigned m = x86_rtcc_clob(sym);
-    if (m == 0) return x86_call_ro(sym, ptr);
-    if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro(sym, ptr) + x86_rtx_reestablish(m);
+    if (m == 0) return x86_call_ro_adj(sym, ptr, adj);
+    if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro_adj(sym, ptr, adj) + x86_rtx_reestablish(m);
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
         std::string call_b = x86_rtcc_call_b(ptr, m);
-        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_Lrec(x86_rtcc_rl_bin(block, m));
+        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_gc_site_adj(X86_SITE_CALL, adj) + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
-    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + x86_rtcc_rl_text(m);
+    return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text_adj(sym, "@PLT", adj) + x86_rtcc_rl_text(m);
 }
+inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) { return x86_rtcc_call_adj(sym, ptr, 0); }
 inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {
@@ -527,7 +581,7 @@ inline std::string x86_jmp(int port) {
          + x86_zdp_rbp_omega_at(port)
          + x86_zdp_rbp_gamma_at(port)
          + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(port))
-                          : (x86_rec("jmp") + x86_portname(port) + "\n"));
+                          : (x86_rec("jmp") + x86_portname(port) + "\n")) + x86_rsp_goto();
 }
 inline std::string x86_zdp_probe_at(int port);
 inline std::string x86_zdp_rbp_at(int port);
@@ -549,8 +603,8 @@ enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_tgt(int t) {
     const char * nm = (t == X86T_TGT0) ? _.lbl_t0 : _.lbl_t1;
-    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(t))
-                         : (x86_rec("jmp") + nm + "\n");
+    return (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(t))
+                         : (x86_rec("jmp") + nm + "\n")) + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_tgt(const char * mnem, int t) {
@@ -588,8 +642,8 @@ inline std::string LS(int n) { return x86_internal_name(n) + "_s"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_id(int n) {
     int id = x86_internal_id(n);
-    return MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(id))
-                         : (x86_rec("jmp") + x86_internal_name(n) + "\n");
+    return (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE9)) + x86_Jrec(id))
+                         : (x86_rec("jmp") + x86_internal_name(n) + "\n")) + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_id(const char * mnem, int n) {
@@ -610,8 +664,8 @@ inline std::string x86_lea_id(const char * dst, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_reg(const char * r) {
-    if (MEDIUM_BINARY) { int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)0xFF; code += (char)(0xE0 | (m & 7)); return x86_Lrec(code); }
-    return x86_rec("jmp") + r + "\n";
+    if (MEDIUM_BINARY) { int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)0xFF; code += (char)(0xE0 | (m & 7)); return x86_Lrec(code) + x86_rsp_goto(); }
+    return x86_rec("jmp") + r + "\n" + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_call_dc(const char * dcname, uint64_t slot) {
@@ -636,10 +690,10 @@ inline std::string x86_jmp_mem(const char * base, int disp) {
         if (disp == 0 && lo != 5) { code += (char)(0x20 | lo); if (sib) code += (char)0x24; }
         else if (disp >= -128 && disp <= 127) { code += (char)(0x60 | lo); if (sib) code += (char)0x24; code += (char)(disp & 0xFF); }
         else { code += (char)(0xA0 | lo); if (sib) code += (char)0x24; code += u32le((uint32_t)disp); }
-        return x86_Lrec(code);
+        return x86_Lrec(code) + x86_rsp_goto();
     }
     char b2[disp ? fmt_len("qword ptr [%s + %d]\n", base, disp) : fmt_len("qword ptr [%s]\n", base)]; if (disp) snprintf(b2, sizeof b2, "qword ptr [%s + %d]\n", base, disp); else snprintf(b2, sizeof b2, "qword ptr [%s]\n", base);
-    return x86_rec("jmp") + b2;
+    return x86_rec("jmp") + b2 + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_fc_jcc_omega(const char * mnem) {
@@ -666,8 +720,8 @@ inline std::string x86_def_ext(const struct bb_label_t * lbl) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_ext(const struct bb_label_t * lbl) {
-    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
-    return x86_rec("jmp") + (lbl ? lbl->name : "?") + "\n";
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r + x86_rsp_goto(); }
+    return x86_rec("jmp") + (lbl ? lbl->name : "?") + "\n" + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_ext(const char * mnem, const struct bb_label_t * lbl) {
@@ -1564,7 +1618,13 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc = xop(), xop xd = xop()) { return x86_core_(mnem, xa, xb, xc, xd); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
+    std::string r = x86_core_inner_(mnem, xa, xb, xc, xd);
+    if (xa.tag == 1 && xa.s && !strcmp(xa.s, "rsp") && (X86_MEQ(mnem, "mov") || X86_MEQ(mnem, "lea") || X86_MEQ(mnem, "and") || X86_MEQ(mnem, "or") || X86_MEQ(mnem, "xor") || ((X86_MEQ(mnem, "sub") || X86_MEQ(mnem, "add")) && xb.tag == 1))) r += x86_rsp_unk();
+    return r;
+}
+inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     if (X86_MEQ(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : x86_reclbl(std::string(xa.s ? xa.s : "")) + "\n";
     if (X86_MEQ(mnem, "comment"))   return std::string();
     if (X86_MEQ(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");
@@ -1587,7 +1647,7 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
              : (std::string(" .string \"") + x86_asm_str_escape(xa.s ? xa.s : "") + "\"\n");
     }
     opnd a, b, c; x86_parse(xa, a); x86_parse(xb, b); x86_parse(xc, c);
-    if (X86_MEQ(mnem, "ret")) return MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n";
+    if (X86_MEQ(mnem, "ret")) return (MEDIUM_BINARY ? x86_Lrec(std::string(1, (char)0xC3)) : x86_recn("ret") + "\n") + x86_rsp_goto();
     if (X86_MEQ(mnem, "cqo")) return x86_cqo();
     if (X86_MEQ(mnem, "rep_stosb")) return x86_rep_stosb();
     if (X86_MEQ(mnem, "rep_stosq")) return x86_rep_stosq();
@@ -1625,12 +1685,12 @@ inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) 
     }
     if (X86_MEQ(mnem, "call")) {
         if (a.kind == XK_PORT) return x86_align_assert() + (MEDIUM_BINARY ? (x86_Lrec(x86_b1(0xE8)) + x86_Jrec(a.port))
-                                                    : (x86_rec("call") + x86_portname(a.port) + "\n"));
+                                                    : (x86_rec("call") + x86_portname(a.port) + "\n")) + x86_gc_site(X86_SITE_CALL);
         if (a.kind == XK_SYM && xb.tag == 2) return x86_rtcc_call(a.sym, xb.u);
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_call_text(a.sym, "");
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
-            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("call") + a.txt + "\n"));
+            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("call") + a.txt + "\n")) + x86_gc_site(X86_SITE_CALL);
         }
         return std::string();
     }
@@ -2228,8 +2288,8 @@ inline int x86_pair_idx_read(const std::string & s, size_t & i) { unsigned v = 0
 inline bb_label_t * x86_pair_tgt(int idx) { return bb_label_fold(XA_PAIR(idx).jmp ? XA_PAIR(idx).jmp : XA_PAIR(idx).define); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pair_jmp(int idx) {
-    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(idx); return r; }
-    return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(idx); return r + x86_rsp_goto(); }
+    return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n" + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pair_loop() {
@@ -2253,8 +2313,8 @@ inline std::string x86_deflabel_pair(int idx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_pair(int idx) {
-    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(idx); return r; }
-    return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n";
+    if (MEDIUM_BINARY) { std::string r; r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(idx); return r + x86_rsp_goto(); }
+    return x86_rec("jmp") + (x86_pair_tgt(idx) ? x86_pair_tgt(idx)->name : "??") + "\n" + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jcc_pair(const char * mnem, int idx) {
@@ -2284,7 +2344,7 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
     std::string cap = x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     if (MEDIUM_BINARY) {
         std::string call_b = x86_rtcc_call_b(ptr, m);
-        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
+        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_gc_site(X86_SITE_CALL) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + cap + x86_rtcc_rl_text(m);
 }
@@ -2296,7 +2356,7 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
         std::string call_b = x86_rtcc_call_b(ptr, m);
-        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
+        return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_gc_site(X86_SITE_CALL) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + cap + x86_rtcc_rl_text(m);
 }
@@ -2352,21 +2412,77 @@ inline std::string x86_internal_resolve(const std::string & s) {
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+inline uint64_t x86_rsp_hash(const std::string & nm) { uint64_t h = 1469598103934665603ull; for (size_t k = 0; k < nm.size(); k++) { h ^= (unsigned char)nm[k]; h *= 1099511628211ull; } return h; }
+inline void x86_text_sites_scan(const std::string & r, bool real = true) {
+    size_t i = 0, n = r.size();
+    while (i < n) { size_t e = r.find('\n', i); if (e == std::string::npos) e = n; std::string line = r.substr(i, e - i); i = e + 1;
+        if (line.compare(0, 6, "#@rsp ") == 0) { if (!g_x86_rsp_aligned) g_x86_rsp_delta += atoi(line.c_str() + 6); continue; }
+        if (line.compare(0, 6, "#@rspU") == 0) { if (!g_x86_rsp_aligned) g_x86_rsp_unknown = 1; continue; }
+        if (line.compare(0, 6, "#@rspA") == 0) { g_x86_rsp_aligned = 1; g_x86_rsp_before = g_x86_rsp_delta; continue; }
+        if (line.compare(0, 6, "#@rspZ") == 0) { g_x86_rsp_aligned = 0; g_x86_rsp_delta = g_x86_rsp_before; continue; }
+        if (line.compare(0, 6, "#@rspG") == 0) { x86_rsp_S().dead = 1; continue; }
+        if (line.compare(0, 6, "#@rspK") == 0) { x86_rsp_S().mark = x86_rsp_S().delta; continue; }
+        if (line.compare(0, 7, "#@rspk ") == 0) { x86_rsp_S().delta = x86_rsp_S().mark + atoi(line.c_str() + 7); x86_rsp_S().dead = 0; continue; }
+        if (!line.empty() && line[0] == '#') continue;
+        size_t p = 0; while (p < line.size()) { size_t q = line.find(';', p); if (q == std::string::npos) q = line.size(); std::string ins = line.substr(p, q - p); p = q + 1;
+            size_t a = ins.find_first_not_of(" \t"); if (a == std::string::npos) continue; ins = ins.substr(a); while (!ins.empty() && (ins.back() == ' ' || ins.back() == '\t')) ins.pop_back();
+            if (ins.compare(0, 9, ".Lgcsite_") == 0) { size_t c = ins.find_first_of(": "); if (c != std::string::npos && real) { size_t u = ins.rfind('_', c); if (u != std::string::npos) emit_gc_site_play(atoi(ins.c_str() + u + 1), (const void *)0, g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown); } continue; }
+            if (!ins.empty() && ins.back() == ':') { std::string nm = ins.substr(0, ins.size() - 1); size_t sp = nm.find_first_of(" \t"); if (sp != std::string::npos) nm = nm.substr(0, sp); size_t L = nm.size();
+                int is_a = L >= 3 && nm.compare(L - 3, 3, "_\xce\xb1") == 0, is_b = L >= 3 && nm.compare(L - 3, 3, "_\xce\xb2") == 0;
+                if (is_a) { x86_rsp_S().delta = 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else if (is_b) { x86_rsp_S().delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else x86_rsp_define(4, x86_rsp_hash(nm));
+                continue; }
+            if (ins.size() > 2 && ins[0] == 'j') { size_t sp = ins.find_first_of(" \t"); if (sp != std::string::npos) { std::string mn = ins.substr(0, sp); size_t t0 = ins.find_first_not_of(" \t", sp); std::string tg = t0 != std::string::npos ? ins.substr(t0) : std::string(); size_t te = tg.find_first_of(" \t#"); if (te != std::string::npos) tg = tg.substr(0, te);
+                    if (!tg.empty() && tg.find('[') == std::string::npos && tg != "rax" && tg != "rcx" && tg != "rdx" && tg != "r11" && tg != "rdi" && tg != "rsi") x86_rsp_jump(4, x86_rsp_hash(tg));
+                    if (mn == "jmp") x86_rsp_S().dead = 1; } continue; }
+            if (ins.compare(0, 3, "ret") == 0) { x86_rsp_S().dead = 1; continue; }
+            if (!ins.empty() && ins[0] != '.') x86_rsp_S().dead = 0; }
+    }
+}
+inline void x86_text_rsp_notes_strip(std::string & r) {
+    std::string o; o.reserve(r.size()); size_t i = 0, n = r.size();
+    while (i < n) { size_t e = r.find('\n', i); if (e == std::string::npos) e = n; else e++; if (r.compare(i, 5, "#@rsp") != 0) o.append(r, i, e - i); i = e; }
+    r.swap(o);
+}
 inline void bb_emit_x86(const std::string & s) {
-    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); emit_text_n(r.data(), r.size()); } return; }
+    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); { x86_rsp_st_t before = x86_rsp_S(); x86_rsp_S().quiet = 1; x86_text_sites_scan(r, false); x86_rsp_prepass_commit(before); } x86_text_sites_scan(r, true); x86_text_rsp_notes_strip(r); emit_text_n(r.data(), r.size()); } return; }
+    { x86_rsp_st_t before = x86_rsp_S(); x86_rsp_st_t & S = x86_rsp_S(); S.quiet = 1; size_t i = 0, n = s.size();
+      while (i < n) { char tag = s[i++];
+        if (tag == 'L') { int k = (unsigned char)s[i++]; i += (size_t)k; if (k > 0) S.dead = 0; }
+        else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); }
+        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0; } else if (id == X86P_BETA) { S.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; S.dead = 0; S.unknown = 0; } else x86_rsp_define(1, (uint64_t)id); }
+        else if (tag == 'Q') { i++; }
+        else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); }
+        else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); }
+        else if (tag == 'X' || tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'X') x86_rsp_jump(3, v); else x86_rsp_define(3, v); }
+        else if (tag == 'G') { S.dead = 1; }
+        else if (tag == 'K') { S.mark = S.delta; }
+        else if (tag == 'k' || tag == 'R' || tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'k') { S.delta = S.mark + (int32_t)v; S.dead = 0; } else if (tag == 'R' && !S.aligned) S.delta += (int32_t)v; }
+        else if (tag == 'U') { if (!S.aligned) S.unknown = 1; }
+        else if (tag == 'A') { S.aligned = 1; S.before = S.delta; }
+        else if (tag == 'Z') { S.aligned = 0; S.delta = S.before; }
+        else break; }
+      x86_rsp_prepass_commit(before); }
     bb_label_t internal[X86_INTERNAL_MAX]; char inm[X86_INTERNAL_MAX][8];
     for (int k = 0; k < X86_INTERNAL_MAX; k++) { internal[k].offset = BB_LABEL_UNRESOLVED; internal[k].name = ""; internal[k].name_cap = 0; }
     size_t i = 0, n = s.size();
     while (i < n) {
         char tag = s[i++];
-        if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); }
-        else if (tag == 'J') { int id = (unsigned char)s[i++]; bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
-        else if (tag == 'D') { int id = (unsigned char)s[i++]; bb_label_define(x86_label_for(id, internal, inm)); }
+        if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); if (k > 0) x86_rsp_S().dead = 0; }
+        else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
+        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { x86_rsp_S().delta = 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else if (id == X86P_BETA) { x86_rsp_S().delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else x86_rsp_define(1, (uint64_t)id); bb_label_define(x86_label_for(id, internal, inm)); }
         else if (tag == 'Q') { int id = (unsigned char)s[i++]; bb_emit_patch_abs64(x86_label_for(id, internal, inm)); }
-        else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); if (XA_PAIR(idx).define) bb_label_define(XA_PAIR(idx).define); }
-        else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
-        else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
-        else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); bb_label_define((bb_label_t *)(uintptr_t)v); }
+        else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); if (XA_PAIR(idx).define) bb_label_define(XA_PAIR(idx).define); }
+        else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
+        else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_jump(3, v); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
+        else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_define(3, v); bb_label_define((bb_label_t *)(uintptr_t)v); }
+        else if (tag == 'G') { x86_rsp_S().dead = 1; }
+        else if (tag == 'K') { x86_rsp_S().mark = x86_rsp_S().delta; }
+        else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_S().delta = x86_rsp_S().mark + (int32_t)v; x86_rsp_S().dead = 0; }
+        else if (tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); extern bb_buf_t bb_emit_buf; extern int bb_emit_pos; emit_gc_site_play((int)v, (const void *)(bb_emit_buf + bb_emit_pos), g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown); }
+        else if (tag == 'R') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (!g_x86_rsp_aligned) g_x86_rsp_delta += (int32_t)v; }
+        else if (tag == 'U') { if (!g_x86_rsp_aligned) g_x86_rsp_unknown = 1; }
+        else if (tag == 'A') { g_x86_rsp_aligned = 1; g_x86_rsp_before = g_x86_rsp_delta; }
+        else if (tag == 'Z') { g_x86_rsp_aligned = 0; g_x86_rsp_delta = g_x86_rsp_before; }
         else break;
     }
 }
@@ -2375,7 +2491,7 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
 extern "C" void rt_gc_poll(void);
 extern "C" void rt_gc_poll_asm(void);
 extern "C" int g_gc_pending;
-inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k; } else if (t == 'J') { i += 1; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 1; } else if (t == 'E') { i += 4; } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else return -1; } return n; }
+inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k; } else if (t == 'J') { i += 1; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 1; } else if (t == 'E') { i += 4; } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else if (t == 'S') { i += 4; } else if (t == 'R') { i += 4; } else if (t == 'U' || t == 'A' || t == 'Z' || t == 'G' || t == 'K') { } else if (t == 'k') { i += 4; } else return -1; } return n; }
 inline std::string x86_gc_gate(const std::string & body) {
     std::string test = x86("push", "rax") + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(const void *)&g_gc_pending, "g_gc_pending") + x86("mov", "eax", RDD("rax", 0)) + x86("test", "eax", "eax") + x86("pop", "rax");
     if (!MEDIUM_BINARY) return test + x86("directive", "\tje 1f") + body + x86("directive", "1:");
@@ -2397,7 +2513,7 @@ return x86_gc_gate(x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx
          + x86("xor", "esi", "esi")
          + x86("mov", "rdx", "rsp")
          + x86_reg_disp32_lea64("rcx", "rsp", 16)
-         + x86("call", "rt_gc_point_arr_probe_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_probe_c)
+         + x86_rtcc_call_adj("rt_gc_point_arr_probe_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_probe_c, 0)
          + x86_reg_disp32_load64("r13", "rsp", 0)
          + x86_reg_disp32_load64("rax", "rsp", 16)
          + x86_reg_disp32_load64("rdx", "rsp", 24)
@@ -2406,13 +2522,13 @@ return x86_gc_gate(x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
 inline std::string x86_align_call_enter() {
-    return  x86("mov", "r11", "rsp")
+    return  x86_rsp_mark('A') + x86("mov", "r11", "rsp")
          + x86("and", "rsp", (long)-16)
          + x86("sub", "rsp", (long)16)
          + x86_rsp_store64(0, "r11");
 }
 inline std::string x86_align_call_leave() {
-    return  x86_rsp_load64("rsp", 0);
+    return  x86_rsp_load64("rsp", 0) + x86_rsp_mark('Z');
 }
 inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0) {
 return x86_gc_gate(x86("sub", "rsp", (long)32)
@@ -2426,7 +2542,7 @@ return x86_gc_gate(x86("sub", "rsp", (long)32)
          + x86("mov", "esi", (long)1)
          + x86("mov", "edx", (long)0)
          + x86_reg_disp32_lea64("rcx", "rsp", 32)
-         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
          + x86_rsp_load64(preg, 8)
          + IF(keep_rax, x86_rsp_load64("rax", 16))
          + IF(keep_rdx, x86_rsp_load64("rdx", 24))
@@ -2442,7 +2558,7 @@ return x86_gc_gate(x86("sub", "rsp", (long)16)
          + x86("mov", "esi", (long)1)
          + x86("mov", "edx", (long)0)
          + x86_reg_disp32_lea64("rcx", "rsp", 16)
-         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
          + x86_rsp_load64(preg, 8)
          + x86("add", "rsp", (long)16));
 }
@@ -2459,7 +2575,7 @@ return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a: two live string pointers 
          + x86("mov", "esi", (long)2)
          + x86("mov", "edx", (long)0)
          + x86_reg_disp32_lea64("rcx", "rsp", 32)
-         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
          + x86_rsp_load64(preg0, 8)
          + x86_rsp_load64(preg1, 24)
          + x86("add", "rsp", (long)32));
@@ -2477,7 +2593,7 @@ return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a, cell 1 RAW: a DESCR_t ret
          + x86("mov", "esi", (long)2)
          + x86("mov", "edx", (long)0)
          + x86_reg_disp32_lea64("rcx", "rsp", 32)
-         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
          + x86_rsp_load64(preg0, 8)
          + x86_rsp_load64("rax", 16)
          + x86_rsp_load64("rdx", 24)
@@ -2497,7 +2613,7 @@ return x86_gc_gate(x86("sub", "rsp", (long)48)
          + x86("mov", "esi", (long)3)
          + x86("mov", "edx", (long)0)
          + x86_reg_disp32_lea64("rcx", "rsp", 48)
-         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
          + x86_rsp_load64("r13", 8)
          + x86_rsp_load64("rax", 24)
          + x86_rsp_load64("rdx", 40)
@@ -2511,7 +2627,7 @@ return x86_gc_gate(x86("sub", "rsp", (long)16)
          + x86("mov", "esi", (long)1)
          + x86("mov", "edx", (long)0)
          + x86_reg_disp32_lea64("rcx", "rsp", 16)
-         + x86("call", "rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c)
+         + x86_rtcc_call_adj("rt_gc_point_arr_c", (uint64_t)(uintptr_t)(void *)rt_gc_point_arr_c, 0)
          + x86_rsp_load64("rax", 0)
          + x86_rsp_load64("rdx", 8)
          + x86("add", "rsp", (long)16));

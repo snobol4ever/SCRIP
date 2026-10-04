@@ -25,6 +25,7 @@ std::string bb_match_begin() {
                      + x86_zrelease(16))
          + IF(!_.op_zres && !subjc(), x86("mov", "rdi", FRQ(_.op_sa))
                       + x86("mov", "rsi", FRQ(_.op_sa + 8)))
+         + x86_gc_site(X86_SITE_MATCH_ENTER)
          + x86("push", "rbp")
          + x86("mov",  "rbp", "rsp")
          + x86("note", "cas_mark")
