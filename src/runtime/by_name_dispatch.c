@@ -369,7 +369,7 @@ int rt_builtin_is_known(const char *name)
         "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s",
         "die", "script_die", "srand",
         "callsame", "nextsame", "callwith",
-        "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke",
+        "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box",
         "TIME", "DATE",
         "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek",
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
@@ -4788,6 +4788,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
         if (args[0].v == DT_N) { DESCR_t rv = rt_assign_var(args[0], args[1]); *out = IS_FAIL_fn(rv) ? args[1] : rv; } else *out = args[1];
         return 1;
+    }
+    if (!strcmp(fn, "__rk_box") && nargs == 1) {
+        extern ARBLK_t *array_new(int lo, int hi);
+        ARBLK_t *bx = array_new(0, 0); bx->data[0] = args[0];
+        *out = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &bx->data[0] }; return 1;
     }
     if (!strcmp(fn, "__blk_close") && nargs >= 1) {
         DESCR_t cl = rk_mk_arr(args, nargs); ((ARBLK_t *) cl.arr)->proto = rk_proto_closure; *out = cl; return 1;

@@ -12,12 +12,17 @@
 # array through the same, a copy from one through __rk_deref. The closure value is a typed DT_A with the static marker rk_proto_closure in ARBLK.proto, as List and Pair are: no collector edit,
 # no descr tag. ONE function, by_name_dispatch.c rk_call_block, unwraps a closure and prepends its refs to the staged arguments, and every block callback (map, grep, first, sort, reduce, smartmatch
 # against a block, subtest, __blk_invoke) goes through it, so the no_c_to_bb count does not rise (the ratchet reads 0 rose) and the callbacks can move to the open road unchanged.
-# ARM 2, THE PROOF THAT THE STACK ROAD IS NEVER TAKEN FOR A BLOCK THAT MAY ESCAPE: a block that is assigned to a variable, returned or passed to a routine not in the table, and
-# that captures a local, is NOT closed over a stack slot. Until the box road (a heap cell reached by DT_N, the cto's road b) lands, each reads REFUSED at the driver guard (rc not 0 and
-# "never assigned" on stderr), never a program that would follow a dangling frame slot; when the box road lands these three arms flip to expecting Rakudo's answer. THE FOURTH DOOR
-# the cto named, start, is not a block here: start { ... } runs inline at the statement and await returns its value, so it is a plain witness in arm 1 (st), no closure and no frame slot involved.
+# ARM 2, THE ESCAPING ROAD (the cto's road b, 2026-10-04; row raku-every-suite-to-100-under-nonet-ceo-1266): a block that is assigned to a variable, returned, passed to a routine not in the table, or
+# nested in an escaping block is NEVER closed over a stack slot. Each local it captures is classified in the owning sub (rk_cap_proc, rk_cap_boxes): captured by VALUE (a plain hidden leading
+# parameter, the value read at the moment the closure is made) when nothing assigns it after its declaration, and BOXED when anything does -- an assignment, an element or hash store, a push or other
+# mutating method, an array or hash (a container), or a declaration whose own initializer is the closure (my $B := { ... $B() }): the declaration builds a one-slot heap cell reached by a DT_N
+# (__rk_box: array_new(0,0), a name over its element, which gc_visit_one's DT_N slen=1 case keeps alive and relocates), every read and write in the owner goes through the by-reference deref (the
+# TT_VAR node carries slen bit 8, RK_VF_BOXED, so lower_rv emits IR_DEREF; stores become __rk_byref_assign), a parameter is boxed by a prologue statement, and each closure holds the same DT_N so
+# the sub and every closure share one cell. THE FOUR DOORS the cto named are in the witness: assigned (f), returned (f2), unknown routine (f3), and start (arm 1, st); plus counter, adder, two
+# closures sharing one box, an array and a hash box, a boxed parameter copy, a closure made inside an escaping block, and fifty closures alive at once; both modes, and under SCRIP_GC_STRESS 1 3 5
+# at a 128 KB window. Before this landing arm 2 expected the doors REFUSED at the guard (they were); counter printed 1 1 1 where Rakudo prints 1 2 3.
 # FAILED ONCE, measured on SCRIP 98fbc5031: arm 1 is refused at the guard at its first sub.
-# EXIT: 0 arm 1 matches Rakudo in both modes and the three doors read refused; 1 otherwise; 2 REFUSED (stale binary, no gcc).
+# EXIT: 0 arms 1 and 2 match Rakudo in both modes and under the collector; 1 otherwise; 2 REFUSED (stale binary, no gcc).
 # Usage: bash scripts/test_gate_raku_a_block_passed_to_a_synchronous_builtin_reads_its_enclosing_subs_locals_through_a_reference.sh   (~3s)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -110,27 +115,58 @@ for s in 1 3 5; do for m in m3 m4; do
 done; done
 [ "$sf" -eq 0 ] && echo "  ok   capture x stress 1 3 5 x m3 m4"
 unset SCRIP_HEAP_KB SCRIP_HEAP_MAX_MB
-echo "arm 2: an escaping block that captures a local is refused, never closed over a stack slot"
-cat > "$W/door_assigned.raku" <<'EOF'
+echo "arm 2: a block that may escape (assigned, returned, passed to a routine outside the table, nested in an escaping block) closes over its enclosing sub's locals by VALUE when nothing assigns them after the declaration and over a heap BOX when something does, and outlives its frame"
+cat > "$W/escape.raku" <<'EOF'
 sub f($n) { my &g = { $n + 1 }; g() }
 say f(3);
-EOF
-cat > "$W/door_returned.raku" <<'EOF'
-sub f($n) { return { $n + 1 } }
-say f(3)();
-EOF
-cat > "$W/door_unknown.raku" <<'EOF'
+sub f2($n) { return { $n + 1 } }
+say f2(3)();
 sub callit(&c) { c() }
-sub f($n) { callit({ $n + 1 }) }
-say f(3);
+sub f3($n) { callit({ $n + 1 }) }
+say f3(3);
+sub counter() { my $n = 0; return sub { $n += 1; $n } }
+my $c = counter(); say $c(); say $c(); say $c(); my $d = counter(); say $d(); say $c();
+sub mk($k) { return -> $x { $x + $k } }
+my $f = mk(10); my $g = mk(20); say $f(1); say $g(1);
+sub two() { my $n = 0; return (sub { $n += 1 }, sub { $n }) }
+my ($inc, $get) = two(); $inc(); $inc(); say $get();
+sub arrc() { my @a; return { @a.push($_); @a.elems } }
+my $p = arrc(); $p(5); say $p(6);
+sub hashc() { my %h; return -> $k { %h{$k} = 1; %h.elems } }
+my $q = hashc(); $q('a'); say $q('b');
+sub mutparam($n) { my $v = $n; return sub { $v += 1; $v } }
+my $m = mutparam(10); $m(); say $m();
+sub nest($a) { my $t = 0; return -> $b { my $r = $a + $b; my $s = sub { $t += $r; $t }; $s } }
+my $nn = nest(1)(2); $nn(); say $nn();
+sub many() { my @fs; for 1..50 -> $i { @fs.push(mk($i)) }; @fs.map({ $_(1) }).sum }
+say many();
 EOF
-for d in assigned returned unknown; do
-    for m in m3 m4; do
-        GATE_EXAMINED=$((GATE_EXAMINED + 1))
-        if [ "$m" = m3 ]; then out="$(timeout 20 "$ROOT/scrip" --run "$W/door_$d.raku" 2>&1 </dev/null)"; rc=$?
-        else out="$(timeout 20 "$ROOT/scrip" --compile -o "$W/door_$d.s" "$W/door_$d.raku" 2>&1 </dev/null)"; rc=$?; fi
-        if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'never assigned'; then printf '  ok   door %-9s %s refused at the guard\n' "$d" "$m"
-        else printf '  FAIL door %-9s %s: rc=%s [%s] -- an escaping block must not take the stack road\n' "$d" "$m" "$rc" "$(printf '%s' "$out" | head -c 90 | tr '\n' ' ')"; fails=$((fails + 1)); fi
-    done
-done
-gate_verdict "$fails" "witness-mode pair(s) wrong: a captured local not read or written through its reference, or an escaping block closed over a stack slot"
+cat > "$W/escape.ref" <<'EOF'
+4
+4
+4
+1
+2
+3
+1
+4
+11
+21
+2
+2
+2
+12
+6
+1325
+EOF
+for m in m3 m4; do ck escape "$m"; done
+sf=0
+export SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-128}" SCRIP_HEAP_MAX_MB="${SCRIP_HEAP_MAX_MB:-512}"
+for s in 1 3 5; do for m in m3 m4; do
+    GATE_EXAMINED=$((GATE_EXAMINED + 1))
+    if [ "$m" = m3 ]; then out="$(SCRIP_GC_STRESS=$s timeout 120 "$ROOT/scrip" --run "$W/escape.raku" 2>/dev/null </dev/null)"; else out="$(SCRIP_GC_STRESS=$s timeout 120 "$W/escape.bin" 2>/dev/null </dev/null)"; fi
+    if [ "$out" != "$(cat "$W/escape.ref")" ]; then printf '  FAIL escape %s stress=%s: wrong answer under the collector\n' "$m" "$s"; fails=$((fails + 1)); sf=1; fi
+done; done
+[ "$sf" -eq 0 ] && echo "  ok   escape x stress 1 3 5 x m3 m4"
+unset SCRIP_HEAP_KB SCRIP_HEAP_MAX_MB
+gate_verdict "$fails" "witness-mode pair(s) wrong: a captured local not read or written through its reference, or an escaping block that lost or shared wrongly a captured variable"
