@@ -571,7 +571,7 @@ def frame_step(ins, rsp, rbp, regs, slots, aslots, fixed=False):
     return new_rsp, new_rbp, frozenset(rg.items()), frozenset(sl.items()), frozenset(asl.items())
 
 
-def shielded_stores(insns, i):
+def shielded_stores(insns, i, skip=frozenset()):
     """the stores in the basic block that ends at the poll -- the stores this safe point was placed after.
 
     TWO POPULATIONS ARE RETURNED AND THEY ARE NEVER SUMMED: the FRAME stores, which this census can grade against
@@ -595,8 +595,9 @@ def shielded_stores(insns, i):
             if insns[j + 1].labels:
                 break
             continue
-        frame.extend(_store_of(ins))
-        static.extend(_static_store_of(ins))
+        if j not in skip:
+            frame.extend(_store_of(ins))
+            static.extend(_static_store_of(ins))
         if ins.labels:
             break
         j -= 1
@@ -605,6 +606,58 @@ def shielded_stores(insns, i):
 
 GATE_PREAMBLE = ("push rax", "mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]", "mov eax, dword ptr [rax + 0]",
                  "test eax, eax", "pop rax", "je 1f")
+
+
+SPILL_65B_HEAD = ("sub rsp, 16", "mov qword ptr [rsp + 0], rax", "mov qword ptr [rsp + 8], rdx")
+SPILL_65B_TAIL = ("mov rax, qword ptr [rsp + 0]", "mov rdx, qword ptr [rsp + 8]", "add rsp, 16")
+RTCC_WRITEBACK = re.compile(r"^mov qword ptr \[rip \+ rtccb\+\d+\], r(?:8|9|10|11)$")
+RTCC_RELOAD = re.compile(r"^mov r(?:8|9|10|11), qword ptr \[rip \+ rtccb\+\d+\]$")
+
+
+def _norm(ins):
+    return " ".join(ins.text.split())
+
+
+def spill65b_at(insns, i):
+    """the positions of the two ARCH-GC 6.5b result-cell stores of the poll at insns[i], or None.
+
+    THE SHAPE, from x86_rt_gc_poll_res in x86_asm.h: `sub rsp, 16 / mov [rsp+0], rax / mov [rsp+8], rdx`, the
+    rtccb write-backs of r8-r11, `call rt_gc_poll`, the rtccb reloads, `mov rax, [rsp+0] / mov rdx, [rsp+8] /
+    add rsp, 16`.  The box's result lives in rax:rdx at the poll, so it is spilled as ONE DESCR cell under rsp,
+    swept by the collector's spine walk and relocated by its tag, and reloaded; the cell is below the frame's
+    region BY CONSTRUCTION and holds a well-formed DESCR on both outcomes (a FAIL-typed one on failure).
+    WHY IT IS COUNTED APART AND NEVER AS A MEMBER (the cfo's ruling of 2026-10-04 on the coo's bisect of the arm
+    (e) move to c869d57c1, which turned plain polls into this form at the baked call arms): a member is a store
+    whose safety rests on the recognizer rather than on the map, and so is this one -- but it is ONE known cell
+    whose content is the call's own result, and folding it into the members re-keyed 71 baseline rows at once,
+    which would have blessed any real below-region store that landed beside it.  So the census names it on its
+    own lines, counts it, and grades every OTHER below-region store against the per-witness baseline as before.
+    ALL SIX TEXTS ARE MATCHED EXACTLY and a label on any instruction of the head after its first, or anywhere in
+    the tail, refuses the shape (another path entering it is not this cell), exactly as gate_preamble_ending_at
+    refuses a reshaped gate; only the chain's own site labels (.Lgcsite_) are allowed on the reload after the call."""
+    j = i - 1
+    while j >= 0 and RTCC_WRITEBACK.match(_norm(insns[j])) and not insns[j].labels:
+        j -= 1
+    if j < 2:
+        return None
+    for k, want in enumerate(SPILL_65B_HEAD):
+        ins = insns[j - 2 + k]
+        if _norm(ins) != want or (k and ins.labels):
+            return None
+    t = i + 1
+    while t < len(insns) and RTCC_RELOAD.match(_norm(insns[t])):
+        if insns[t].labels and not all(str(l).startswith(".Lgcsite_") for l in insns[t].labels):
+            return None
+        t += 1
+    if t + 2 >= len(insns):
+        return None
+    for k, want in enumerate(SPILL_65B_TAIL):
+        ins = insns[t + k]
+        if _norm(ins) != want:
+            return None
+        if ins.labels and not (t + k == i + 1 and all(str(l).startswith(".Lgcsite_") for l in ins.labels)):
+            return None
+    return frozenset((j - 1, j))
 
 
 def gate_preamble_ending_at(insns, j):
@@ -910,14 +963,25 @@ def census_asm(asm_path, report_text, tag, out=print):
     if refusal:
         return None, None, 0, refusal, None, None, None
     members, undecidable, examined = [], [], 0
-    unread, sites = collections.Counter(), 0
+    unread, sites, spills, spill_cells = collections.Counter(), 0, 0, []
     shield_by_graph = collections.Counter()
     for i, ins in enumerate(insns):
         if not (ins.mnem == "call" and ins.ops and any(p in ins.ops[0] for p in POLL_NAMES)):
             continue
         lbl = site_label(insns, i)
         sites += 1
-        frame_st, static_st = shielded_stores(insns, i)
+        sp = spill65b_at(insns, i)
+        if sp:
+            spills += 1
+            for jj in sorted(sp):
+                for base, d, src in _store_of(insns[jj]):
+                    g, k, why = owner_of(base, d, i, frames)
+                    if why:
+                        spill_cells.append((tag, g or "-", lbl, ins.line, f"[{base}{d:+d}]", "UNDECIDABLE", why, src))
+                    else:
+                        f = frames[g]
+                        spill_cells.append((tag, g, lbl, ins.line, f"{k:+d}", classify(k, f["layout"], f["map_off"], f["blob"]), "", src))
+        frame_st, static_st = shielded_stores(insns, i, sp or frozenset())
         for sym, off, _src in static_st:
             unread[(sym, off)] += 1
         for base, d, src in frame_st:
@@ -945,7 +1009,7 @@ def census_asm(asm_path, report_text, tag, out=print):
             for g, i, k, why in graded]
     reached = {i for _, i, _, _ in graded}
     unreached = sum(1 for i, ins in enumerate(insns) if ins.mnem == "call" and i not in reached)
-    return members, undecidable, examined, None, (grid, unreached), (unread, sites), join
+    return members, undecidable, examined, None, (grid, unreached), (unread, sites, spills, spill_cells), join
 
 
 def emit_and_read(scrip, prog, workdir, env_extra=None):
@@ -1027,7 +1091,7 @@ def report(scrip, progs, workdir, out=print):
     all_join = []
     unreached_calls = 0
     per_witness = {}
-    all_unread, all_sites = collections.Counter(), 0
+    all_unread, all_sites, all_spills, spill_by, all_cells = collections.Counter(), 0, 0, {}, []
     for prog in progs:
         tag = os.path.basename(prog)
         if os.path.isdir(prog):
@@ -1047,6 +1111,7 @@ def report(scrip, progs, workdir, out=print):
         all_members += members; all_undec += undec; examined += ex
         all_grid += grid[0]; unreached_calls += grid[1]
         all_unread += reach[0]; all_sites += reach[1]; all_join += join
+        all_spills += reach[2]; spill_by[tag] = reach[2]; all_cells += reach[3]
         per_witness[tag] = (len(members), len(undec), ex, sum(reach[0].values()), reach[1])
     off = [r for r in all_grid if r[5] == "OFF-GRID"]
     on = [r for r in all_grid if r[5] == "ON-GRID"]
@@ -1088,7 +1153,7 @@ def report(scrip, progs, workdir, out=print):
             "census is not. A BENIGN graph shields nothing at a safe point and its empty map is correct. A "
             "NOT-REACHED graph was never examined by the anchor walk and IS NOT BENIGN: a zero over a graph "
             "nobody looked at is the fourth way a zero fails to be a zero, one graph at a time.")
-    if examined == 0:
+    if examined == 0 and not all_cells:
         out("CENSUS unmapped-store REFUSED(2): zero shielded stores examined over "
             f"{len(progs)} witness(es) -- a zero has to be a zero somebody could have failed"); return 2
     counts = collections.Counter(m[5] for m in all_members)
@@ -1130,6 +1195,21 @@ def report(scrip, progs, workdir, out=print):
     for tag in sorted(per_witness):
         mem, und, ex, unrd, sites = per_witness[tag]
         out(f"CENSUS unmapped-store WITNESS {tag} members={mem} undecidable={und} shielded={ex} unread_static={unrd}")
+    for tag in sorted(spill_by):
+        if spill_by[tag]:
+            out(f"CENSUS unmapped-store SPILL-6.5B-WITNESS witness={tag} polls={spill_by[tag]} stores={2 * spill_by[tag]}")
+    for tag, g, lbl, line, at, v, why, src in sorted(all_cells, key=lambda c: (c[0], c[3], c[4])):
+        out(f"CENSUS unmapped-store SPILL-6.5B {v}{(' ' + why) if why else ''} witness={tag} graph={g} site={lbl} line={line} off={at} src={src}")
+    cv = collections.Counter(c[5] for c in all_cells)
+    unmapped_cells = sum(n for v, n in cv.items() if v not in ("MAPPED", "UNDECIDABLE"))
+    out(f"CENSUS unmapped-store SPILL-6.5B-SUMMARY polls={all_spills} stores={2 * all_spills} cells_unmapped={unmapped_cells} "
+        f"cells_undecidable={cv['UNDECIDABLE']} cells_mapped={cv['MAPPED']} witnesses={sum(1 for v in spill_by.values() if v)} of {len(spill_by)} -- "
+        "the ARCH-GC 6.5b result cell (sub rsp,16 / two stores / call rt_gc_poll / two loads / add rsp,16): the box's result DESCR held "
+        "across the poll below the region base and visited by the spine sweep by its tag. GRADED AND NAMED ABOVE, KEPT OUT OF THE "
+        "PER-WITNESS COLUMNS the baseline ratchets (the cfo's ruling of 2026-10-04 on the c869d57c1 move: re-keying them as members "
+        "would bless any real below-region store landing beside them) and NEVER FOLDED INTO GREEN: an unmapped cell keeps this census "
+        "red and counts in the gate's arm (h) beside the members, because a call result held across a safe point outside the map is "
+        "the very class the planner cure exists to end.")
     for (sym, off), n in sorted(all_unread.items(), key=lambda kv: (kv[0][0], kv[0][1])):
         out(f"CENSUS unmapped-store UNREAD-ROAD symbol={sym}+{off} stores={n} -- shielded at a safe point into a "
             "FIXED SYMBOL, which no frame map can ever cover and no planner cure can reach; its safety rests "
@@ -1166,7 +1246,7 @@ def report(scrip, progs, workdir, out=print):
     out("CENSUS unmapped-store NOT MEASURED HERE AND NAMED: class 3 of ARCH-GC section 3c -- a raw heap pointer "
         "returned in a REGISTER PAIR (cfo CFO-134). A frame map describes memory, so the class presents no store "
         "target to classify; this census cannot see it and does not report zero for it.")
-    if named or all_undec:
+    if named or all_undec or any(c[5] != "MAPPED" for c in all_cells):
         return 1
     return 0
 
@@ -1345,6 +1425,26 @@ def selftest():
     joined = list(gated); joined[2] = CS.Insn(3, "push rax", (".Lpoll_entry",))
     arm("GATED POLL JOINED: a label on the preamble's own push is another path entering, so the walk stops after the gate and reads no store",
         shielded_stores(joined, 9) == ([], [("rtccb", 40, "r8")]))
+    res = [CS.Insn(1, "mov qword ptr [rsp + 0], rax", (".Lcall_b_1",)), CS.Insn(2, "mov qword ptr [rsp + 8], rdx", ()),
+           CS.Insn(3, "push rax", ()), CS.Insn(4, "mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]", ()),
+           CS.Insn(5, "mov eax, dword ptr [rax + 0]", ()), CS.Insn(6, "test eax, eax", ()), CS.Insn(7, "pop rax", ()),
+           CS.Insn(8, "je 1f", ()), CS.Insn(9, "sub rsp, 16", ()), CS.Insn(10, "mov qword ptr [rsp + 0], rax", ()),
+           CS.Insn(11, "mov qword ptr [rsp + 8], rdx", ()), CS.Insn(12, "mov qword ptr [rip + rtccb+40], r8", ()),
+           CS.Insn(13, "call rt_gc_poll@PLT", ()), CS.Insn(14, "mov r8,  qword ptr [rip + rtccb+40]", ()),
+           CS.Insn(15, "mov rax, qword ptr [rsp + 0]", ()), CS.Insn(16, "mov rdx, qword ptr [rsp + 8]", ()),
+           CS.Insn(17, "add rsp, 16", ()), CS.Insn(18, "mov qword ptr [rbp + 1280], rax", ("1",))]
+    arm("6.5b RESULT CELL: the exact shape names its two stores by POSITION, so the box's own identical result stores above the gate are still read",
+        spill65b_at(res, 12) == frozenset((9, 10)) and shielded_stores(res, 12, spill65b_at(res, 12)) == ([("rsp", 8, "rdx"), ("rsp", 0, "rax")], [("rtccb", 40, "r8")]))
+    res_l = list(res); res_l[10] = CS.Insn(11, "mov qword ptr [rsp + 8], rdx", (".Ljoin_9",))
+    arm("6.5b NEGATIVE: a label on the second store is another path entering the shape, so it is NOT the cell and both stores are graded",
+        spill65b_at(res_l, 12) is None)
+    res_r = list(res); res_r[10] = CS.Insn(11, "mov qword ptr [rsp + 8], rcx", ())
+    arm("6.5b NEGATIVE: a reshaped store (rcx, not rdx) is not the cell",
+        spill65b_at(res_r, 12) is None)
+    res_t = list(res); res_t[15] = CS.Insn(16, "mov rcx, qword ptr [rsp + 8]", ())
+    arm("6.5b NEGATIVE: a spill whose tail does not reload rax:rdx and release the 16 bytes is not the cell",
+        spill65b_at(res_t, 12) is None)
+    arm("6.5b NEGATIVE: the plain gated poll (no spill) is not the cell", spill65b_at(gated, 9) is None)
     arm("a rip-relative shield is NAMED with its symbol and offset, not dropped",
         _static_store_of(spill) == [("rtccb", 40, "r8")])
     arm("the frame reader still REFUSES that same store -- the reach boundary is counted, never graded",

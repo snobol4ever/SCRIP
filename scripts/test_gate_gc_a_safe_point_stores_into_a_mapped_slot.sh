@@ -66,8 +66,8 @@ fi
 
 # (b) the class is REAL and the instrument SEES it -- proven red on the row's witness before any cure
 w="$(timeout 300s python3 "$CENSUS" "$WIT" 2>&1)"; wrc=$?
-if [ "$wrc" = 1 ] && printf '%s\n' "$w" | grep -q 'MEMBER BELOW-REGION .* graph=main .* off=-24 '; then
-  ck ok "(b) the census NAMES the row's witness: $(printf '%s\n' "$w" | grep -m1 'off=-24 ' | sed 's/^CENSUS unmapped-store //' | cut -c1-110)"
+if [ "$wrc" = 1 ] && printf '%s\n' "$w" | grep -qE '(MEMBER|SPILL-6\.5B) BELOW-REGION .* graph=main .* off=-24 '; then
+  ck ok "(b) the census NAMES the row's witness (since 2026-10-04 as the 6.5b result cell it is, on its own SPILL-6.5B line): $(printf '%s\n' "$w" | grep -m1 'off=-24 ' | sed 's/^CENSUS unmapped-store //' | cut -c1-110)"
 else
   ck no "(b) the census did not name the witness at off=-24 on graph=main (rc=$wrc) -- SCRIP_GC_MAPS=1 prints [GC-WALK-SPINE] graph=main off=-24 at this very site, so an instrument that misses it is measuring something else"
 fi
@@ -139,6 +139,16 @@ elif [ "${rgone:-0}" != 0 ]; then
   ck no "(e) a witness left the population without its baseline line leaving with it -- a ratchet cannot grade what it cannot see: $(printf '%s\n' "$rat" | grep '^GONE ' | head -3 | tr '\n' ' ')"
 else
   ck no "(e) ${rnew:-?} WITNESS(ES) ARRIVED THAT THE BASELINE DOES NOT KNOW. ⛔ THIS IS A FILE ADDITION AND NOT A COMPILER REGRESSION, and the arm says so rather than naming a cause it did not measure (hq_snobol4 2026-09-20, who measured exactly this against this gate before landing). Add the line(s) to scripts/gc_unmapped_store_baseline.tsv in the same commit that lands the witness, or rewrite the file with --write-baseline: $(printf '%s\n' "$rat" | grep '^NEW ' | sed 's/^NEW //' | head -12 | tr '\n' ';')"
+fi
+
+# (e2) THE 6.5b RESULT CELLS ARE COUNTED APART AND NEVER DROPPED (the cfo's ruling of 2026-10-04 on the coo's bisect of
+# the arm (e) move to c869d57c1): the census no longer counts the two stores of the result-preserving poll as members
+# or as shielded stores, so this arm fails the day the census stops printing how many it set apart.
+sp="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store SPILL-6.5B-SUMMARY ')"
+if [ -n "$sp" ]; then
+  ck ok "(e2) the ARCH-GC 6.5b result cells are counted apart and printed, never folded into the members: $(printf '%s\n' "$sp" | cut -d' ' -f3-6)"
+else
+  ck no "(e2) the census printed no SPILL-6.5B-SUMMARY line -- the result cells the members no longer count would go uncounted"
 fi
 
 # (i) THE CENSUS'S OWN REACH IS A MEASUREMENT AND NOT AN ASSUMPTION.
@@ -239,10 +249,12 @@ else
 fi
 
 # (h) THE ROW'S OWN QUESTION, so this DONE-WHEN cannot go green on somebody else's cure
-if [ "${mem:-x}" = 0 ]; then
+cells="$(printf '%s\n' "$pop" | sed -n 's/^CENSUS unmapped-store SPILL-6.5B-SUMMARY .* cells_unmapped=\([0-9]*\) .*/\1/p' | head -1)"
+memh=$(( ${mem:-0} + ${cells:-0} ))
+if [ "${mem:-x}" = 0 ] && [ "${cells:-x}" = 0 ]; then
   ck ok "(h) NO safe point stores outside its graph's frame map -- ARCH-GC section 3's clause is TRUE of this emitter, not merely written down"
 else
-  ck no "(h) $mem safe point(s) still store outside their graph's frame map. ⛔ THIS ARM EXISTS BECAUSE ARM (f) ALONE WOULD LIE: the witness's band is closed by adding DT_X and DT_SNUL to gc_cell_visit (the cfo's file, measured 12/12 by the cto), and on that day (f) goes GREEN WITH THESE $mem STORES UNTOUCHED. A DONE-WHEN that a different seat's cure can satisfy is not this row's DONE-WHEN. ⭐ AND THE ROW'S SECOND CLAUSE IS REFUTED BY THIS VERY NUMBER (hq_snobol4 2026-09-20, confirmed here): 'the emitter REFUSES a safe point that stores outside the map' cannot be the enforcement floor, because storing outside the map is the ORDINARY CASE for the inter-frame gap population -- $mem of the shielded stores over the shared witness set do it, on programs that answer their oracles. A refusal keyed on that predicate does not fail narrowly, it fails BROADLY and on green programs. What is left is the PLANNER clause alone: give every call result that can be live across a safe point a slot the map covers."
+  ck no "(h) $memh safe point store(s) still land outside their graph's frame map ($mem member(s) + ${cells:-?} 6.5b result-cell store(s), counted apart from the per-witness ratchet and never apart from this arm). ⛔ THIS ARM EXISTS BECAUSE ARM (f) ALONE WOULD LIE: the witness's band is closed by adding DT_X and DT_SNUL to gc_cell_visit (the cfo's file, measured 12/12 by the cto), and on that day (f) goes GREEN WITH THESE $mem STORES UNTOUCHED. A DONE-WHEN that a different seat's cure can satisfy is not this row's DONE-WHEN. ⭐ AND THE ROW'S SECOND CLAUSE IS REFUTED BY THIS VERY NUMBER (hq_snobol4 2026-09-20, confirmed here): 'the emitter REFUSES a safe point that stores outside the map' cannot be the enforcement floor, because storing outside the map is the ORDINARY CASE for the inter-frame gap population -- $mem of the shielded stores over the shared witness set do it, on programs that answer their oracles. A refusal keyed on that predicate does not fail narrowly, it fails BROADLY and on green programs. What is left is the PLANNER clause alone: give every call result that can be live across a safe point a slot the map covers."
 fi
 
 # (g) an instrument nobody runs is not an instrument
