@@ -98,7 +98,7 @@ SNO_TOOLS=(
   "scorecard_snobol4.sh|oa=\"\$(declared_oracle_args_beside \"\$prog\")\"|\"\$SBL\" \$(sbl_flags) \$oa \"\$prog\"|declared_oracle_args_beside; export"
   "util_mint_bench_refs.sh|oa=\"\$(declared_oracle_args_beside \"\$sno\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa \"\$sno\""
   "test_demo_full_3way.sh|sw=\"\$(declared_switches_beside \"\$src\")\" && oa=\"\$(declared_oracle_args_beside \"\$src\")\"|\"\$SBL\" \$(sbl_lang_flags) \$oa|--run \$sw \"\$src\"|\"\$W/\$nm.prog\" \$sw"
-  "bench_rep_loop_demos_snobol4.sh|SWD=\"\$(declared_switches_beside \"\$1\")\" && OAD=\"\$(declared_oracle_args_beside \"\$1\")\"|\$(sbl_lang_flags) \$OAD \"\$v\"|\"\$SCRIP\" \$SWD \"\$v\"|\"\$W/\$stem.bin\" \$SWD|decl_of \"\$P\""
+  'bench_rep_loop_demos_snobol4.sh|SWD="$(declared_switches_beside "$1")" && OAD="$(declared_oracle_args_beside "$1")"|$(sbl_lang_flags) $OAD "$v"|"$SCRIP" $SWD "$v"|"$W/$stem.bin" $SWD|decl_of "$P"'
   "bench_snobol4_bar.sh|SWD=\"\$(declared_switches_beside \"\$P\")\" && OAD=\"\$(declared_oracle_args_beside \"\$P\")\"|best sbl \"\$SBL\" -bf \$OAD \"\$P\"|best m4 \"\$T/d.prog\" \$SWD"
   "bench_snobol4_campaign_probe.sh|ksw=\"\$(declared_switches_beside \"\$K/\$k.sno\")\"|\$(sbl_lang_flags) \$koa \"\$k.sno\"|\"\$W/\$k.bin\" \$ksw|\$(sbl_lang_flags) \$toa treebank.sno|\"\$W/tb.bin\" \$tsw"
   "bench_triangulate_demos_snobol4.sh|SWD=\"\$(declared_switches_beside \"\$P\")\" && OAD=\"\$(declared_oracle_args_beside \"\$P\")\"|\$(sbl_lang_flags) \$OAD \"\$prog\"|--run \$SWD \"\$prog\"|\"\$W/\$stem.prog\" \$SWD"
