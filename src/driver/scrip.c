@@ -95,8 +95,10 @@ static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
           emit_patzeta_register(pn, g->jcon_value_region, _fp, 0); } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void sno_setexit_fire_on_end(void);
-static void icn_zf_exit_γ(void) { sno_setexit_fire_on_end(); exit(0); }
-static void icn_zf_exit_ω(void) { exit(1); }
+__attribute__((used, noinline)) static void icn_zf_exit_g_body(void) { sno_setexit_fire_on_end(); exit(0); }
+__attribute__((used, noinline)) static void icn_zf_exit_w_body(void) { exit(1); }
+static __attribute__((naked)) void icn_zf_exit_γ(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_zf_exit_g_body"); }
+static __attribute__((naked)) void icn_zf_exit_ω(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_zf_exit_w_body"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     __asm__ volatile(
@@ -1760,9 +1762,9 @@ int main(int argc, char **argv)
                 emit_textf("  lea rcx, [rip + .Lmain_zf_γ]\n");
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");
-                emit_textf(".Lmain_zf_γ:\n  xor edi, edi\n  call exit@PLT\n");
+                emit_textf(".Lmain_zf_γ:\n  and rsp, -16\n  xor edi, edi\n  call exit@PLT\n");
                 if (_pinned_root) emit_textf(".Lmain_zf_ω:\n  call rt_pl_root_omega@PLT\n");
-                else emit_textf(".Lmain_zf_ω:\n  mov edi, 1\n  call exit@PLT\n");
+                else emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  mov edi, 1\n  call exit@PLT\n");
             } else {
             emit_textf("  xor r14d, r14d\n");
             emit_textf("  lea rax, [rip + .Llevel_zero_return]\n  push rax\n  push rax\n");

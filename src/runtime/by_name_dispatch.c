@@ -2316,7 +2316,7 @@ static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
     out[o] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static __attribute__((force_align_arg_pointer)) void rk_tap_exit(void) {
+static void rk_tap_exit(void) {
     int code = 0; char b[160];
     if (!g_tap_no_plan && g_tap_planned != g_tap_run) {
         if (!g_tap_done_run) { snprintf(b, sizeof b, "You planned %ld test%s, but ran %ld", g_tap_planned, g_tap_planned == 1 ? "" : "s", g_tap_run); fprintf(stderr, "# %s\n", b); }
