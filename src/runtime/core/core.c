@@ -9,6 +9,7 @@
 #include "../../parsers/snobol4/scrip_cc.h"
 #include "../rt/rt_protected.h"
 #include "../rt/gc_heap.h"
+#include "../rt/rt_slab.h"
 #include "../snobol4_system_fns.h"
 #include "../keywords.h"
 #include "../builtins/gen.h"
@@ -4155,19 +4156,31 @@ typedef struct _FNCBLK_t {
     int     max_set;
     struct _FNCBLK_t *next;
 } FNCBLK_t;
-#define FUNC_BUCKETS 128
-static FNCBLK_t *_func_buckets[FUNC_BUCKETS]; static const unsigned _func_nbuckets = FUNC_BUCKETS;
+static rt_slab_t *g_func_bslab;
+#define _func_bw ((unsigned long *)RT_SLAB_BASE(g_func_bslab))
+#define _func_buckets ((FNCBLK_t **)(_func_bw + 2))
+#define _func_nbuckets ((unsigned)(g_func_bslab ? _func_bw[0] : 0))
 static unsigned _func_hash_raw(const char *name) {
     unsigned h = 5381;
     while (*name) h = h * 33 ^ (unsigned char)*name++;
     return h;
 }
-static void _func_init(void) {
+static void _func_regrow(unsigned need) {
+    rt_slab_t *ns = rt_slab_get((size_t)(need + 2) * sizeof(void *)); unsigned long *w = (unsigned long *)RT_SLAB_BASE(ns); unsigned nb = 8;
+    while ((size_t)(nb * 2 + 2) * sizeof(void *) <= ns->cap) nb *= 2;
+    memset(w, 0, (size_t)(nb + 2) * sizeof(void *)); w[0] = nb; w[1] = g_func_bslab ? _func_bw[1] : 0;
+    for (unsigned h = 0; h < _func_nbuckets; h++) for (FNCBLK_t *e = _func_buckets[h], *nx; e; e = nx) { FNCBLK_t **t = &((FNCBLK_t **)(w + 2))[_func_hash_raw(e->name) & (nb - 1)]; nx = e->next;
+        while (*t) t = &(*t)->next;
+        e->next = (FNCBLK_t *)0; *t = e; }
+    { rt_slab_t *old = g_func_bslab; g_func_bslab = ns; if (old) rt_slab_put(old); }
 }
-static void _func_count_one(void) { }
+static void _func_init(void) {
+    if (!g_func_bslab) _func_regrow(8);
+}
+static void _func_count_one(void) { if (++_func_bw[1] > _func_nbuckets) _func_regrow(_func_nbuckets * 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_func_nbuckets - 1); }
-static FNCBLK_t *_func_head_at(unsigned h) { return _func_buckets[h]; }
+static FNCBLK_t *_func_head_at(unsigned h) { return g_func_bslab ? _func_buckets[h] : (FNCBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
     FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
@@ -4482,7 +4495,7 @@ int UNLOAD_fn(const char *name) {
     for (FNCBLK_t *e = _func_head_at(h); e; prev = e, e = (FNCBLK_t *)e->next) {
         if (strcmp(e->name, name) != 0) continue;
         if (e->fn) return 0;
-        if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
+        if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next; if (_func_bw[1]) _func_bw[1]--;
             rt_proc_unregister(name);
         return 1;
     }

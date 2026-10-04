@@ -3490,45 +3490,54 @@ static DESCR_t pl_tree_cell(const tree_t *t, pl_vtab_t *vt) {
 }
 static int pl_tok_is_graphic(int c) { return c && strchr("+-*/\\^<>=~:.?@#&$", c) != (char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_read_esc_body(FILE *in, char *buf, size_t n, size_t *kp) {
+static int pl_rb_room(char **bp, size_t *np, size_t need) {
+    size_t nn = *np ? *np : 256; char *q;
+    if (need < *np && *bp) return 1;
+    while (nn <= need) nn *= 2;
+    q = (char *)rt_gcheap_grow_block((void *)*bp, (uint16_t)HB_WSB, (uint64_t)nn); if (!q) return 0;
+    *bp = q; *np = nn; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_read_esc_body(FILE *in, char **bp, size_t *np, size_t *kp) {
     size_t k = *kp; int e = fgetc(in), d;
     if (e == EOF) { *kp = k; return 2; }
-    if (k + 2 >= n) return -1; buf[k++] = (char)e;
-    if (e >= '0' && e <= '7') { while ((d = fgetc(in)) != EOF && d >= '0' && d <= '7') { if (k + 2 >= n) return -1; buf[k++] = (char)d; } }
-    else if (e == 'x' || e == 'X') { while ((d = fgetc(in)) != EOF && isxdigit((unsigned char)d)) { if (k + 2 >= n) return -1; buf[k++] = (char)d; } }
+    if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = (char)e;
+    if (e >= '0' && e <= '7') { while ((d = fgetc(in)) != EOF && d >= '0' && d <= '7') { if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = (char)d; } }
+    else if (e == 'x' || e == 'X') { while ((d = fgetc(in)) != EOF && isxdigit((unsigned char)d)) { if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = (char)d; } }
     else { *kp = k; return 0; }
-    if (d == '\\') { if (k + 2 >= n) return -1; buf[k++] = (char)d; } else if (d != EOF) ungetc(d, in);
+    if (d == '\\') { if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = (char)d; } else if (d != EOF) ungetc(d, in);
     *kp = k; return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_read_term_text(char *buf, size_t n) {
+static int pl_read_term_text(char **bp, size_t *np) {
     extern FILE *fh_cur_in_fp(void); FILE *in = fh_cur_in_fp();
     size_t k = 0; int c, q = 0, seen = 0, lit = 0, wlit;
+    if (!pl_rb_room(bp, np, 2)) return -1;
     while ((c = fgetc(in)) != EOF) {
         if (!seen && (c == ' ' || c == '\t' || c == '\n' || c == '\r')) continue;
-        if (!q && c == '%') { while ((c = fgetc(in)) != EOF && c != '\n') ; if (seen) { if (k + 2 >= n) return -1; buf[k++] = '\n'; } continue; }
+        if (!q && c == '%') { while ((c = fgetc(in)) != EOF && c != '\n') ; if (seen) { if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = '\n'; } continue; }
         if (!q && c == '/') { int d = fgetc(in);
             if (d == '*') { int p = 0, e2, closed = 0;
                 while ((e2 = fgetc(in)) != EOF) { if (p == '*' && e2 == '/') { closed = 1; break; } p = e2; }
-                if (!closed) { buf[k] = 0; return 2; }
+                if (!closed) { (*bp)[k] = 0; return 2; }
                 continue; }
             if (d != EOF) ungetc(d, in); }
         if (!seen) { extern void fh_note_read_start(int); extern int fh_current_input(void); fh_note_read_start(fh_current_input()); }
-        seen = 1; if (k + 2 >= n) return -1; wlit = lit; lit = 0; buf[k++] = (char)c;
-        if (q) { if (c == '\\') { int r = pl_read_esc_body(in, buf, n, &k); if (r) { buf[k] = 0; return r; } }
+        seen = 1; if (!pl_rb_room(bp, np, k + 2)) return -1; wlit = lit; lit = 0; (*bp)[k++] = (char)c;
+        if (q) { if (c == '\\') { int r = pl_read_esc_body(in, bp, np, &k); if (r) { (*bp)[k] = 0; return r; } }
                  else if (c == q) { q = 0; lit = 1; }
                  continue; }
-            if (c == '\'' && k >= 2 && buf[k - 2] == '0' && (k < 3 || !(isalnum((unsigned char)buf[k - 3]) || buf[k - 3] == '_'))) {
-            int d = fgetc(in); if (d == EOF) { buf[k] = 0; return 2; }
-            if (k + 2 >= n) return -1; buf[k++] = (char)d;
-            if (d == '\\') { int r = pl_read_esc_body(in, buf, n, &k); if (r) { buf[k] = 0; return r; } }
-            else if (d == '\'') { int e2 = fgetc(in); if (e2 == '\'') { if (k + 2 >= n) return -1; buf[k++] = (char)e2; } else if (e2 != EOF) ungetc(e2, in); }
+            if (c == '\'' && k >= 2 && (*bp)[k - 2] == '0' && (k < 3 || !(isalnum((unsigned char)(*bp)[k - 3]) || (*bp)[k - 3] == '_'))) {
+            int d = fgetc(in); if (d == EOF) { (*bp)[k] = 0; return 2; }
+            if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = (char)d;
+            if (d == '\\') { int r = pl_read_esc_body(in, bp, np, &k); if (r) { (*bp)[k] = 0; return r; } }
+            else if (d == '\'') { int e2 = fgetc(in); if (e2 == '\'') { if (!pl_rb_room(bp, np, k + 2)) return -1; (*bp)[k++] = (char)e2; } else if (e2 != EOF) ungetc(e2, in); }
             lit = 1; continue; }
         if (c == '\'' || c == '"') { q = c; continue; }
-        if (c == '.' && (wlit || !(k >= 2 && pl_tok_is_graphic((unsigned char)buf[k - 2])))) {
-            int d = fgetc(in); if (d != EOF) ungetc(d, in); if (d == EOF || d == ' ' || d == '\t' || d == '\n' || d == '\r' || d == '%') { buf[k] = 0; return 1; } }
+        if (c == '.' && (wlit || !(k >= 2 && pl_tok_is_graphic((unsigned char)(*bp)[k - 2])))) {
+            int d = fgetc(in); if (d != EOF) ungetc(d, in); if (d == EOF || d == ' ' || d == '\t' || d == '\n' || d == '\r' || d == '%') { (*bp)[k] = 0; return 1; } }
     }
-    buf[k] = 0; return seen ? 2 : 0;
+    (*bp)[k] = 0; return seen ? 2 : 0;
 }
 static int pl_text_is_unbalanced(const char *s) {
     size_t nopen = 1; for (const char *q = s; *q; q++) if (*q == '(' || *q == '[' || *q == '{') nopen++;
@@ -3575,10 +3584,10 @@ static int pl_parse_term_text(const char *txt, DESCR_t *out, pl_vtab_t *vt, PlPr
       if (!pg || pg->nerrors || !tr || tr->t != TT_FNC || tr->n != 1) return 0;
       vt->n = 0; *out = pl_tree_cell(tr->c[0], vt); return 1; }
 }
-PL_CX_LEAF_HEAD(read, 1) { static char text[65536]; int got; DESCR_t t; pl_vtab_t vt;
+PL_CX_LEAF_HEAD(read, 1) { char *text = (char *)0; size_t tn = 0; int got; DESCR_t t; pl_vtab_t vt;
     extern void *rt_pl_ball_kind1(const char *, const char *);
     if ((cx->ball = pl_text_cur_ball())) { ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-    got = pl_read_term_text(text, sizeof text - 8);
+    got = pl_read_term_text(&text, &tn);
     if (got == 0) ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx);
     else if (got != 1) { cx->ball = rt_pl_ball_kind1("syntax_error", got < 0 ? "term_too_long" : "end_of_file"); ok = 0; }
     else if (!pl_parse_term_text(text, &t, &vt, (PlProgram **)0)) { cx->ball = rt_pl_ball_kind1("syntax_error", "cannot_start_term"); ok = 0; }
@@ -3635,11 +3644,11 @@ static int pl_read_syntax_mode(DESCR_t opts) { extern const char *prolog_atom_na
         if (!strcmp(fn, "syntax_error")) m = !strcmp(as, "fail") ? 1 : !strcmp(as, "warning") ? 2 : 0;
         else if (!strcmp(fn, "syntax_errors")) m = (!strcmp(as, "fail") || !strcmp(as, "quiet")) ? 1 : !strcmp(as, "dec10") ? 3 : 0; }
     return m; }
-PL_CX_LEAF_HEAD(read_term_opts, 2) { static char text[65536]; int got, sm; const char *se; DESCR_t t; pl_vtab_t vt; void *ob = pl_read_opts_ball(args[1]);
+PL_CX_LEAF_HEAD(read_term_opts, 2) { char *text = (char *)0; size_t tn = 0; int got, sm; const char *se; DESCR_t t; pl_vtab_t vt; void *ob = pl_read_opts_ball(args[1]);
     extern void *rt_pl_ball_kind1(const char *, const char *);
     if (ob || (ob = pl_text_cur_ball())) { cx->ball = ob; ok = 0; rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
     sm = pl_read_syntax_mode(args[1]);
-    for (;;) { got = pl_read_term_text(text, sizeof text - 8); se = (const char *)0;
+    for (;;) { got = pl_read_term_text(&text, &tn); se = (const char *)0;
         if (got == 0) { vt.n = 0; ok = plw_unify_vals(args[0], pl_mk_atom("end_of_file"), cx) && pl_read_term_options_cell(args[1], &vt, cx); break; }
         if (got < 0) { cx->ball = rt_pl_ball_kind1("syntax_error", "term_too_long"); ok = 0; break; }
         if (got != 1) se = "end_of_file";
@@ -5972,11 +5981,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         if (!fp) { *out = rk_mk_arr(NULL, 0); return 1; }
         ARBLK_t *la = array_new(0, -1);
-        char line[4096];
-        while (fgets(line, sizeof line, fp)) {
-            size_t ll = strlen(line);
-            while (ll > 0 && (line[ll-1] == '\n' || line[ll-1] == '\r')) line[--ll] = '\0';
-            rk_arr_append(la, rk_txt_elem(line, ll));
+        char *line = (char *)0; size_t lcap = 0;
+        for (;;) { size_t ll = 0; int ch, any = 0;
+            while ((ch = fgetc(fp)) != EOF) { any = 1; if (!pl_rb_room(&line, &lcap, ll + 2)) break; line[ll++] = (char)ch; if (ch == '\n') break; }
+            if (!any || !line) break;
+            while (ll > 0 && (line[ll-1] == '\n' || line[ll-1] == '\r')) ll--;
+            line[ll] = '\0'; rk_arr_append(la, rk_txt_elem(line, ll));
         }
         if (need_close) fclose(fp);
         { DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = la; *out = rk_mark_list(d); } return 1;
