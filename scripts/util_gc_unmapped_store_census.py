@@ -92,7 +92,7 @@ LEA_MAP_RX = re.compile(r"\[rip \+ (\.Lgcmap_[A-Za-z0-9_$]+)\]")
 MEM_RX = re.compile(r"\[\s*(rsp|rbp)\s*([+-]\s*-?\d+)?\s*\]")
 STATIC_RX = re.compile(r"\[\s*rip\s*\+\s*([A-Za-z_][A-Za-z0-9_.$]*?)\s*(?:\+\s*(\d+))?\s*\]")
 IMM_RX = re.compile(r"^-?\d+$")
-POLL_NAMES = ("rt_gc_poll",)
+POLL_NAMES = ("rt_gc_poll", "rt_gc_point_arr_probe_c")
 DELTA_CAP = 8
 
 
@@ -608,8 +608,10 @@ GATE_PREAMBLE = ("push rax", "mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]",
                  "test eax, eax", "pop rax", "je 1f")
 
 
-SPILL_65B_HEAD = ("sub rsp, 16", "mov qword ptr [rsp + 0], rax", "mov qword ptr [rsp + 8], rdx")
-SPILL_65B_TAIL = ("mov rax, qword ptr [rsp + 0]", "mov rdx, qword ptr [rsp + 8]", "add rsp, 16")
+SPILL_65B_HEAD = ("sub rsp, 32", "mov qword ptr [rsp + 0], r13", "mov qword ptr [rsp + 16], rax", "mov qword ptr [rsp + 24], rdx",
+                  "xor edi, edi", "xor esi, esi", "mov rdx, rsp", "lea rcx, [rsp + 16]")
+SPILL_65B_TAIL = ("mov r13, qword ptr [rsp + 0]", "mov rax, qword ptr [rsp + 16]", "mov rdx, qword ptr [rsp + 24]", "add rsp, 32")
+SPILL_65B_STORES = (1, 2, 3)
 RTCC_WRITEBACK = re.compile(r"^mov qword ptr \[rip \+ rtccb\+\d+\], r(?:8|9|10|11)$")
 RTCC_RELOAD = re.compile(r"^mov r(?:8|9|10|11), qword ptr \[rip \+ rtccb\+\d+\]$")
 
@@ -619,29 +621,34 @@ def _norm(ins):
 
 
 def spill65b_at(insns, i):
-    """the positions of the two ARCH-GC 6.5b result-cell stores of the poll at insns[i], or None.
+    """the positions of the three ARCH-GC 6.5b spill stores (r13 word, result cell) of the poll at insns[i], or None.
 
-    THE SHAPE, from x86_rt_gc_poll_res in x86_asm.h: `sub rsp, 16 / mov [rsp+0], rax / mov [rsp+8], rdx`, the
-    rtccb write-backs of r8-r11, `call rt_gc_poll`, the rtccb reloads, `mov rax, [rsp+0] / mov rdx, [rsp+8] /
-    add rsp, 16`.  The box's result lives in rax:rdx at the poll, so it is spilled as ONE DESCR cell under rsp,
-    swept by the collector's spine walk and relocated by its tag, and reloaded; the cell is below the frame's
-    region BY CONSTRUCTION and holds a well-formed DESCR on both outcomes (a FAIL-typed one on failure).
+    THE SHAPE, from x86_rt_gc_poll_res in x86_asm.h (the cfo's ruling of 2026-10-04, every result-preserving poll
+    shields r13 as the plain poll does): `sub rsp, 32 / mov [rsp+0], r13 / mov [rsp+16], rax / mov [rsp+24], rdx /
+    xor edi, edi / xor esi, esi / mov rdx, rsp / lea rcx, [rsp+16]`, the rtccb write-backs of r8-r11, `call
+    rt_gc_point_arr_probe_c`, the rtccb reloads, `mov r13, [rsp+0] / mov rax, [rsp+16] / mov rdx, [rsp+24] / add
+    rsp, 32`.  The box's result lives in rax:rdx at the poll, so it is spilled as ONE DESCR cell at the sweep floor,
+    swept by the collector's spine walk and relocated by its tag, and reloaded; the r13 word sits BELOW the floor
+    (never swept) and is handed to the probe entry as the saved subject, which rewrites it only when it aliases
+    Sigma or scan_subj.  The cell is below the frame's region BY CONSTRUCTION and holds a well-formed DESCR on
+    both outcomes (a FAIL-typed one on failure).
     WHY IT IS COUNTED APART AND NEVER AS A MEMBER (the cfo's ruling of 2026-10-04 on the coo's bisect of the arm
     (e) move to c869d57c1, which turned plain polls into this form at the baked call arms): a member is a store
     whose safety rests on the recognizer rather than on the map, and so is this one -- but it is ONE known cell
     whose content is the call's own result, and folding it into the members re-keyed 71 baseline rows at once,
     which would have blessed any real below-region store that landed beside it.  So the census names it on its
     own lines, counts it, and grades every OTHER below-region store against the per-witness baseline as before.
-    ALL SIX TEXTS ARE MATCHED EXACTLY and a label on any instruction of the head after its first, or anywhere in
+    EVERY TEXT OF THE HEAD AND THE TAIL IS MATCHED EXACTLY and a label on any instruction of the head after its first, or anywhere in
     the tail, refuses the shape (another path entering it is not this cell), exactly as gate_preamble_ending_at
     refuses a reshaped gate; only the chain's own site labels (.Lgcsite_) are allowed on the reload after the call."""
     j = i - 1
     while j >= 0 and RTCC_WRITEBACK.match(_norm(insns[j])) and not insns[j].labels:
         j -= 1
-    if j < 2:
+    hn = len(SPILL_65B_HEAD)
+    if j < hn - 1:
         return None
     for k, want in enumerate(SPILL_65B_HEAD):
-        ins = insns[j - 2 + k]
+        ins = insns[j - (hn - 1) + k]
         if _norm(ins) != want or (k and ins.labels):
             return None
     t = i + 1
@@ -649,7 +656,7 @@ def spill65b_at(insns, i):
         if insns[t].labels and not all(str(l).startswith(".Lgcsite_") for l in insns[t].labels):
             return None
         t += 1
-    if t + 2 >= len(insns):
+    if t + len(SPILL_65B_TAIL) > len(insns):
         return None
     for k, want in enumerate(SPILL_65B_TAIL):
         ins = insns[t + k]
@@ -657,7 +664,7 @@ def spill65b_at(insns, i):
             return None
         if ins.labels and not (t + k == i + 1 and all(str(l).startswith(".Lgcsite_") for l in ins.labels)):
             return None
-    return frozenset((j - 1, j))
+    return frozenset(j - (hn - 1) + k for k in SPILL_65B_STORES)
 
 
 def gate_preamble_ending_at(insns, j):
@@ -1197,14 +1204,14 @@ def report(scrip, progs, workdir, out=print):
         out(f"CENSUS unmapped-store WITNESS {tag} members={mem} undecidable={und} shielded={ex} unread_static={unrd}")
     for tag in sorted(spill_by):
         if spill_by[tag]:
-            out(f"CENSUS unmapped-store SPILL-6.5B-WITNESS witness={tag} polls={spill_by[tag]} stores={2 * spill_by[tag]}")
+            out(f"CENSUS unmapped-store SPILL-6.5B-WITNESS witness={tag} polls={spill_by[tag]} stores={3 * spill_by[tag]}")
     for tag, g, lbl, line, at, v, why, src in sorted(all_cells, key=lambda c: (c[0], c[3], c[4])):
         out(f"CENSUS unmapped-store SPILL-6.5B {v}{(' ' + why) if why else ''} witness={tag} graph={g} site={lbl} line={line} off={at} src={src}")
     cv = collections.Counter(c[5] for c in all_cells)
     unmapped_cells = sum(n for v, n in cv.items() if v not in ("MAPPED", "UNDECIDABLE"))
-    out(f"CENSUS unmapped-store SPILL-6.5B-SUMMARY polls={all_spills} stores={2 * all_spills} cells_unmapped={unmapped_cells} "
+    out(f"CENSUS unmapped-store SPILL-6.5B-SUMMARY polls={all_spills} stores={3 * all_spills} cells_unmapped={unmapped_cells} "
         f"cells_undecidable={cv['UNDECIDABLE']} cells_mapped={cv['MAPPED']} witnesses={sum(1 for v in spill_by.values() if v)} of {len(spill_by)} -- "
-        "the ARCH-GC 6.5b result cell (sub rsp,16 / two stores / call rt_gc_poll / two loads / add rsp,16): the box's result DESCR held "
+        "the ARCH-GC 6.5b spill (sub rsp,32 / the r13 word and the result cell / call rt_gc_point_arr_probe_c / three loads / add rsp,32): the box's result DESCR held "
         "across the poll below the region base and visited by the spine sweep by its tag. GRADED AND NAMED ABOVE, KEPT OUT OF THE "
         "PER-WITNESS COLUMNS the baseline ratchets (the cfo's ruling of 2026-10-04 on the c869d57c1 move: re-keying them as members "
         "would bless any real below-region store landing beside them) and NEVER FOLDED INTO GREEN: an unmapped cell keeps this census "
@@ -1428,22 +1435,28 @@ def selftest():
     res = [CS.Insn(1, "mov qword ptr [rsp + 0], rax", (".Lcall_b_1",)), CS.Insn(2, "mov qword ptr [rsp + 8], rdx", ()),
            CS.Insn(3, "push rax", ()), CS.Insn(4, "mov rax, qword ptr [rip + g_gc_pending@GOTPCREL]", ()),
            CS.Insn(5, "mov eax, dword ptr [rax + 0]", ()), CS.Insn(6, "test eax, eax", ()), CS.Insn(7, "pop rax", ()),
-           CS.Insn(8, "je 1f", ()), CS.Insn(9, "sub rsp, 16", ()), CS.Insn(10, "mov qword ptr [rsp + 0], rax", ()),
-           CS.Insn(11, "mov qword ptr [rsp + 8], rdx", ()), CS.Insn(12, "mov qword ptr [rip + rtccb+40], r8", ()),
-           CS.Insn(13, "call rt_gc_poll@PLT", ()), CS.Insn(14, "mov r8,  qword ptr [rip + rtccb+40]", ()),
-           CS.Insn(15, "mov rax, qword ptr [rsp + 0]", ()), CS.Insn(16, "mov rdx, qword ptr [rsp + 8]", ()),
-           CS.Insn(17, "add rsp, 16", ()), CS.Insn(18, "mov qword ptr [rbp + 1280], rax", ("1",))]
-    arm("6.5b RESULT CELL: the exact shape names its two stores by POSITION, so the box's own identical result stores above the gate are still read",
-        spill65b_at(res, 12) == frozenset((9, 10)) and shielded_stores(res, 12, spill65b_at(res, 12)) == ([("rsp", 8, "rdx"), ("rsp", 0, "rax")], [("rtccb", 40, "r8")]))
-    res_l = list(res); res_l[10] = CS.Insn(11, "mov qword ptr [rsp + 8], rdx", (".Ljoin_9",))
-    arm("6.5b NEGATIVE: a label on the second store is another path entering the shape, so it is NOT the cell and both stores are graded",
-        spill65b_at(res_l, 12) is None)
-    res_r = list(res); res_r[10] = CS.Insn(11, "mov qword ptr [rsp + 8], rcx", ())
+           CS.Insn(8, "je 1f", ()), CS.Insn(9, "sub rsp, 32", ()), CS.Insn(10, "mov qword ptr [rsp + 0], r13", ()),
+           CS.Insn(11, "mov qword ptr [rsp + 16], rax", ()), CS.Insn(12, "mov qword ptr [rsp + 24], rdx", ()),
+           CS.Insn(13, "xor edi, edi", ()), CS.Insn(14, "xor esi, esi", ()), CS.Insn(15, "mov rdx, rsp", ()),
+           CS.Insn(16, "lea rcx, [rsp + 16]", ()), CS.Insn(17, "mov qword ptr [rip + rtccb+40], r8", ()),
+           CS.Insn(18, "call rt_gc_point_arr_probe_c@PLT", ()), CS.Insn(19, "mov r8,  qword ptr [rip + rtccb+40]", ()),
+           CS.Insn(20, "mov r13, qword ptr [rsp + 0]", ()), CS.Insn(21, "mov rax, qword ptr [rsp + 16]", ()),
+           CS.Insn(22, "mov rdx, qword ptr [rsp + 24]", ()), CS.Insn(23, "add rsp, 32", ()),
+           CS.Insn(24, "mov qword ptr [rbp + 1280], rax", ("1",))]
+    arm("6.5b SPILL: the exact shape names its three stores by POSITION, so the box's own identical result stores above the gate are still read",
+        spill65b_at(res, 17) == frozenset((9, 10, 11)) and shielded_stores(res, 17, spill65b_at(res, 17)) == ([("rsp", 8, "rdx"), ("rsp", 0, "rax")], [("rtccb", 40, "r8")]))
+    res_l = list(res); res_l[10] = CS.Insn(11, "mov qword ptr [rsp + 16], rax", (".Ljoin_9",))
+    arm("6.5b NEGATIVE: a label on the result store is another path entering the shape, so it is NOT the cell and the stores are graded",
+        spill65b_at(res_l, 17) is None)
+    res_r = list(res); res_r[11] = CS.Insn(12, "mov qword ptr [rsp + 24], rcx", ())
     arm("6.5b NEGATIVE: a reshaped store (rcx, not rdx) is not the cell",
-        spill65b_at(res_r, 12) is None)
-    res_t = list(res); res_t[15] = CS.Insn(16, "mov rcx, qword ptr [rsp + 8]", ())
-    arm("6.5b NEGATIVE: a spill whose tail does not reload rax:rdx and release the 16 bytes is not the cell",
-        spill65b_at(res_t, 12) is None)
+        spill65b_at(res_r, 17) is None)
+    res_t = list(res); res_t[21] = CS.Insn(22, "mov rcx, qword ptr [rsp + 24]", ())
+    arm("6.5b NEGATIVE: a spill whose tail does not reload r13, rax and rdx and release the 32 bytes is not the cell",
+        spill65b_at(res_t, 17) is None)
+    res_o = list(res); res_o[9] = CS.Insn(10, "mov qword ptr [rsp + 0], r12", ())
+    arm("6.5b NEGATIVE: a spill that saves some other register for the subject word is not the cell",
+        spill65b_at(res_o, 17) is None)
     arm("6.5b NEGATIVE: the plain gated poll (no spill) is not the cell", spill65b_at(gated, 9) is None)
     arm("a rip-relative shield is NAMED with its symbol and offset, not dropped",
         _static_store_of(spill) == [("rtccb", 40, "r8")])

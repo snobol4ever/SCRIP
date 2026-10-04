@@ -79,7 +79,7 @@ import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_REGS = ["r8", "r12", "r13", "r14", "r15", "rbx"]
-POLL_RX = re.compile(r"\bcall\b.*\brt_gc_poll(?:_asm)?\b|\bcall\b.*\brt_gc_point_arr_c\b")
+POLL_RX = re.compile(r"\bcall\b.*\brt_gc_poll(?:_asm)?\b|\bcall\b.*\brt_gc_point_arr_c\b|\bcall\b.*\brt_gc_point_arr_probe_c\b")
 LABEL_RX = re.compile(r"^([A-Za-z_.$][\w.$]*):")
 JUMP_RX = re.compile(r"^\s*(jmp|je|jne|jz|jnz|jg|jge|jl|jle|ja|jae|jb|jbe|js|jns|jo|jno|jp|jnp)\s+([\w.$]+)")
 CALL_RX = re.compile(r"^\s*call\b")

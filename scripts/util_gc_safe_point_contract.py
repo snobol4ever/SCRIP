@@ -371,10 +371,11 @@ def spine_cell_pair_multi(multi, g, src, ks):
 
 
 def poll_res_tag(insns, n):
-    """' POLL-RES-ENVELOPE' when this store is one half of x86_rt_gc_poll_res's spill -- sub rsp,16 / [rsp+0]=rax /
-    [rsp+8]=rdx / call rt_gc_poll (ARCH-GC 6.5b) -- so a finding this reader cannot PLACE still NAMES the form it
-    is looking at.  The cfo's bc1092d8f put that form at the two by-name call sites and the reading moved from
-    eight to twenty-two without one word saying what had arrived (cto 2026-09-22)."""
+    """' POLL-RES-ENVELOPE' when this store is one of x86_rt_gc_poll_res's spill stores -- sub rsp,32 / [rsp+0]=r13 /
+    [rsp+16]=rax / [rsp+24]=rdx / call rt_gc_point_arr_probe_c (ARCH-GC 6.5b, the cfo's r13 ruling of 2026-10-04) --
+    so a finding this reader cannot PLACE still NAMES the form it is looking at.  The cfo's bc1092d8f put the earlier
+    sub rsp,16 / rax / rdx / call rt_gc_poll form at the two by-name call sites and the reading moved from eight to
+    twenty-two without one word saying what had arrived (cto 2026-09-22); both forms are named."""
     def is_store(j, disp, src):
         if j < 0 or j >= len(insns):
             return False
@@ -382,6 +383,15 @@ def poll_res_tag(insns, n):
             if b == "rsp" and d == disp and s.strip() == src:
                 return True
         return False
+    for j in (n, n - 1, n - 2):
+        if is_store(j, 0, "r13") and is_store(j + 1, 16, "rax") and is_store(j + 2, 24, "rdx") and j >= 1 \
+                and insns[j - 1].mnem == "sub" and len(insns[j - 1].ops) == 2 \
+                and insns[j - 1].ops[0].strip() == "rsp" and insns[j - 1].ops[1].strip() == "32":
+            for m in range(j + 3, min(len(insns), j + 16)):
+                if insns[m].mnem == "call" and insns[m].ops and "rt_gc_point_arr_probe_c" in insns[m].ops[0]:
+                    return " POLL-RES-ENVELOPE"
+                if insns[m].mnem in ("jmp", "je", "jne", "ret"):
+                    break
     for j in (n, n - 1):
         if is_store(j, 0, "rax") and is_store(j + 1, 8, "rdx") and j >= 1 \
                 and insns[j - 1].mnem == "sub" and len(insns[j - 1].ops) == 2 \

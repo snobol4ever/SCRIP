@@ -75,9 +75,9 @@ grep -qE '^  POLLED .*bb_assign_global\.cpp:'"$TAPLN"':comm_var form=x86_rt_gc_p
 python3 - "$D/src/templates/bb/bb_assign_global.cpp" <<'UNPLANT' || { echo "GATE safe-point-emitted-paths REFUSED(2): the unpoll doctoring failed"; exit 2; }
 import io,sys
 p=sys.argv[1]; s=io.open(p,encoding='utf-8').read()
-b='+ x86("pop", "rax") + x86("pop", "rax") + x86_rt_gc_poll_res();\n'
+b='+ x86("pop", "rax") + x86_rt_gc_poll_res();\n'
 assert b in s, "unpoll anchor missing"
-s=s.replace(b, '+ x86("pop", "rax") + x86("pop", "rax");\n', 1)
+s=s.replace(b, '+ x86("pop", "rax");\n', 1)
 io.open(p,'w',encoding='utf-8').write(s)
 UNPLANT
 unpolled=$(run_census "$D") || true
