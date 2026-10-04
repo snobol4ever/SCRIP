@@ -22,7 +22,8 @@
 # closures sharing one box, an array and a hash box, a boxed parameter copy, a closure made inside an escaping block, and fifty closures alive at once; both modes, and under SCRIP_GC_STRESS 1 3 5
 # at a 128 KB window. Before this landing arm 2 expected the doors REFUSED at the guard (they were); counter printed 1 1 1 where Rakudo prints 1 2 3.
 # FAILED ONCE, measured on SCRIP 98fbc5031: arm 1 is refused at the guard at its first sub.
-# EXIT: 0 arms 1 and 2 match Rakudo in both modes and under the collector; 1 otherwise; 2 REFUSED (stale binary, no gcc).
+# ARM 3, THE FILE-SCOPE OWNER (rk_cap_file_scope, 2026-10-04): the main body owns its loop variables, its per-iteration my variables and every file-scope variable a block writes; before it, for 1..3 -> $i { @s.push({ $i*10 }) } printed 30,30,30 where Rakudo prints 10,20,30, a block that writes a file-scope my was refused at the guard, and a block whose tail was a post-increment returned Nil (rk_tail_return).
+# EXIT: 0 arms 1, 2 and 3 match Rakudo in both modes and under the collector; 1 otherwise; 2 REFUSED (stale binary, no gcc).
 # Usage: bash scripts/test_gate_raku_a_block_passed_to_a_synchronous_builtin_reads_its_enclosing_subs_locals_through_a_reference.sh   (~3s)
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -168,5 +169,87 @@ for s in 1 3 5; do for m in m3 m4; do
     if [ "$out" != "$(cat "$W/escape.ref")" ]; then printf '  FAIL escape %s stress=%s: wrong answer under the collector\n' "$m" "$s"; fails=$((fails + 1)); sf=1; fi
 done; done
 [ "$sf" -eq 0 ] && echo "  ok   escape x stress 1 3 5 x m3 m4"
+unset SCRIP_HEAP_KB SCRIP_HEAP_MAX_MB
+echo "arm 3: the FILE SCOPE is an owner (rk_cap_file_scope): a block made in a loop at file scope closes over the loop variable and the per-iteration my variables by VALUE, or over a heap BOX when anything assigns them; a block that writes a file-scope variable shares it through a box (escaping) or a by-reference parameter (synchronous)"
+cat > "$W/fscope.raku" <<'EOF'
+my @a;
+for 1..3 -> $i { @a.push({ $i * 10 }) }
+say @a.map({ $_() }).join(",");
+my @b;
+for 1..3 { my $j = $_ * 2; @b.push(-> { $j }) }
+say @b.map({ $_() }).join(",");
+my $k = 0; my @u;
+while $k < 3 { my $m = $k; @u.push({ $m + 100 }); $k++ }
+say @u.map({ $_() }).join(",");
+my @c;
+for 1..3 -> $i { my $n = $i; @c.push({ $n++ }) }
+say @c.map({ $_() }).join(",");
+say @c.map({ $_() }).join(",");
+my @h;
+for 1..3 -> $i { my %m; %m<a> = $i; @h.push({ %m<a> * 2 }) }
+say @h.map({ $_() }).join(",");
+my @g;
+for 1..3 -> $i { my @r = $i, $i + 1; @g.push({ @r.push(9); @r.elems }) }
+say @g.map({ $_() }).join(",");
+say @g.map({ $_() }).join(",");
+my @n;
+for 1..3 -> $i { for 1..2 -> $j { @n.push(-> { $i * 10 + $j }) } }
+say @n.map({ $_() }).join(",");
+my @s;
+for 1..3 -> $i { my @r = (1, 2, 3).map({ $_ * $i }); @s.push({ @r.join("-") }) }
+say @s.map({ $_() }).join(",");
+my @t;
+for 1..2 -> $i { @t.push({ (1, 2).map({ $_ + $i }).join("+") }) }
+say @t.map({ $_() }).join(",");
+my @w;
+my $q = 0;
+while $q < 3 { my $z = $q * 3; $z += 1; @w.push({ "z=$z q=$q" }); $q++ }
+say @w.map({ $_() }).join(",");
+for 1..2 -> $i { my @l = (1, 2, 3).grep({ $_ > $i }); say @l.join(" ") }
+my @v;
+for <a b c> -> $s { @v.push({ $s ~ "!" }) }
+say @v.map({ $_() }).join(",");
+my $p = 0; my $f = { $p++ };
+say $f(); say $f(); say $p;
+my $n2 = 5; my $h2 = { $n2 = $n2 + 1; $n2 };
+say $h2(); say $h2(); say $n2;
+my $tot = 5; my @r2 = (1, 2).map({ $tot += $_ });
+say @r2; say $tot;
+EOF
+cat > "$W/fscope.ref" <<'EOF'
+10,20,30
+2,4,6
+100,101,102
+1,2,3
+2,3,4
+2,4,6
+3,3,3
+4,4,4
+11,12,21,22,31,32
+1-2-3,2-4-6,3-6-9
+2+3,3+4
+z=1 q=3,z=4 q=3,z=7 q=3
+2 3
+3
+a!,b!,c!
+0
+1
+2
+6
+7
+7
+[6 8]
+8
+EOF
+for m in m3 m4; do ck fscope "$m"; done
+sf=0
+export SCRIP_HEAP_KB="${SCRIP_HEAP_KB:-128}" SCRIP_HEAP_MAX_MB="${SCRIP_HEAP_MAX_MB:-512}"
+for s in 1 3 5; do for m in m3 m4; do
+    GATE_EXAMINED=$((GATE_EXAMINED + 1))
+    if [ "$m" = m3 ]; then out="$(SCRIP_GC_STRESS=$s timeout 120 "$ROOT/scrip" --run "$W/fscope.raku" 2>/dev/null </dev/null)"; else out="$(SCRIP_GC_STRESS=$s timeout 120 "$W/fscope.bin" 2>/dev/null </dev/null)"; fi
+    if [ "$out" != "$(cat "$W/fscope.ref")" ]; then printf '  FAIL fscope %s stress=%s: wrong answer under the collector
+' "$m" "$s"; fails=$((fails + 1)); sf=1; fi
+done; done
+[ "$sf" -eq 0 ] && echo "  ok   fscope x stress 1 3 5 x m3 m4"
 unset SCRIP_HEAP_KB SCRIP_HEAP_MAX_MB
 gate_verdict "$fails" "witness-mode pair(s) wrong: a captured local not read or written through its reference, or an escaping block that lost or shared wrongly a captured variable"
