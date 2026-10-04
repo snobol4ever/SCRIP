@@ -29,7 +29,12 @@ cat > "$W/h.c" <<'CEOF'
 #include "descr.h"
 #include "rt/rt_pl_trail.h"
 extern DESCR_t rt_pl_dop_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx);
-extern DESCR_t rt_pl_unify_struct_fresh(long fid);
+extern void *rt_ws_alloc_descr(size_t n);
+extern int prolog_functor_arity(int);
+/* a fresh f/N skeleton as a clause head's write mode builds it since 405215caf (ARCH-PROLOG-C-OUT-OF-THE-BOX 10: the box allocates the argument block and makes
+   every argument cell a self-reference; the C value service rt_pl_unify_struct_fresh it replaced is deleted) -- built here the same way for the harness. */
+static DESCR_t fresh_struct(int fid) { int ar = prolog_functor_arity(fid); DESCR_t *k = (DESCR_t *)rt_ws_alloc_descr((size_t)(ar > 0 ? ar : 1)); DESCR_t c; memset(&c, 0, sizeof c);
+    for (int i = 0; i < ar; i++) { k[i].v = (DTYPE_t)DT_PLVAR; k[i].slen = 0; k[i].p = (void *)&k[i]; } c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)fid; c.p = (void *)k; return c; }
 extern int prolog_atom_intern(const char *);
 extern int prolog_functor_intern(int, int);
 extern DESCR_t rt_pl_deref_val(DESCR_t v);
@@ -72,7 +77,7 @@ int main(void) {
     /* f(X,1) and f(2,3): rt_pl_dop_mkc_c left the runtime with the body-term landing (c89f9447b: the emitted $mkc box builds compound terms), so the harness
        builds them the way a clause head does -- a fresh f/2 skeleton, its kids bound through the unifier (each binding trailed and kept below `before`). */
     { int f2 = prolog_functor_intern(prolog_atom_intern("f"), 2);
-      DESCR_t t1 = rt_pl_unify_struct_fresh(f2); DESCR_t t2 = rt_pl_unify_struct_fresh(f2);
+      DESCR_t t1 = fresh_struct(f2); DESCR_t t2 = fresh_struct(f2);
       { DESCR_t u[2]; u[0] = ((DESCR_t *)t1.p)[0]; u[1] = nametrap(&cells[2]); rt_pl_dop_unify_c(u, 2, &cx); u[0] = ((DESCR_t *)t1.p)[1]; u[1] = ival(1); rt_pl_dop_unify_c(u, 2, &cx);
         u[0] = ((DESCR_t *)t2.p)[0]; u[1] = ival(2); rt_pl_dop_unify_c(u, 2, &cx); u[0] = ((DESCR_t *)t2.p)[1]; u[1] = ival(3); rt_pl_dop_unify_c(u, 2, &cx); }
       char *before = cx.tr; DESCR_t a[2]; a[0] = t1; a[1] = t2; DESCR_t r = rt_pl_dop_unify_c(a, 2, &cx);
