@@ -1480,6 +1480,13 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
         it->t = c; return; }
 }
 /*====================================================================================================================================================================================================*/
+static int rk_reads_var(const tree_t *t, const char *name) {
+    if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return 0;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, name)) return 1;
+    for (int i = 0; i < t->n; i++) if (rk_reads_var(t->c[i], name)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_pcv_release(RkB *b, tree_t *sig) {
     for (int i = 0; sig && i < sig->n; i++) {
         const tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0];
@@ -1823,6 +1830,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     for (int i = 0; sig && i < sig->n; i++) tl_add(&params, sig->c[i]);
     rk_pcv_release(b, sig);
     if (!body) body = ast_node_new(TT_SEQ_EXPR);
+    if (params.n == 0 && !has_parens && rk_reads_var(body, "@_")) { tree_t *ap = var_node(b, "@_"); expr_add_child(ap, leaf_sval(TT_QLIT, intern("*@"))); tl_add(&params, ap); }
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
     const char *lt = strstr(nm, ":<");

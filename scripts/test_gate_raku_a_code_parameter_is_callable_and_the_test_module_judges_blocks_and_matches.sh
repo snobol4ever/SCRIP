@@ -11,6 +11,8 @@
 #    dies-ok run the block under try and judge the outcome through ok; like and unlike are ok and nok of a smartmatch (the match, a goal failure when it does not
 #    match, is turned into a boolean by a ternary, which also cures ok "abc" ~~ /z/ losing its whole call). throws-like and the eval forms stay honestly unimplemented
 #    (a throws-like with no exception types would be a false green).
+# 3. @_ IN A SUB WITH NO SIGNATURE is its argument list: rkb_routine gives a sub that has no parameter list and reads @_ an implicit slurpy @_ (the argsunder witness; 18 Roast
+#    files first-refused on the unresolved variable @_).
 # FAILED ONCE, measured on SCRIP a24fe1546: hof dies "undefined function", testfns is refused or loses its failing-match lines.
 #
 # EXIT: 0 both witnesses match Rakudo in both modes; 1 a mismatch or a crash; 2 REFUSED (stale binary, no gcc).
@@ -116,6 +118,24 @@ ok 15 - nok no match
 not ok 16 - contains should fail
 ok 17 - contains
 EOF
+cat > "$W/argsunder.raku" <<'EOF'
+sub f { @_.elems }
+say f(1, 2, 3);
+sub g { say @_; }
+g(4, 5);
+sub h { my $n = 0; for @_ -> $x { $n += $x }; $n }
+say h(1, 2, 3);
+say h();
+sub k($a) { $a }
+say k(7);
+EOF
+cat > "$W/argsunder.ref" <<'EOF'
+3
+[4 5]
+6
+0
+7
+EOF
 fails=0; GATE_EXAMINED=0
 ck() {
     local w="$1" m="$2" out rc
@@ -131,5 +151,5 @@ ck() {
     if [ "$out" = "$(cat "$W/$w.ref")" ]; then printf '  ok   %-7s %s\n' "$w" "$m"
     else printf '  FAIL %-7s %s: got [%s] want [%s]\n' "$w" "$m" "$(printf '%s' "$out" | tr '\n' ' ' | cut -c1-110)" "$(tr '\n' ' ' < "$W/$w.ref" | cut -c1-110)"; fails=$((fails + 1)); fi
 }
-for w in hof testfns; do for m in m3 m4; do ck "$w" "$m"; done; done
-gate_verdict "$fails" "witness-mode pair(s) wrong: a code parameter that is not callable, or a Test function that does not judge as Rakudo's does"
+for w in hof testfns argsunder; do for m in m3 m4; do ck "$w" "$m"; done; done
+gate_verdict "$fails" "witness-mode pair(s) wrong: a code parameter that is not callable, @_ that is not the argument list, or a Test function that does not judge as Rakudo's does"
