@@ -129,11 +129,13 @@ static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
         "movq 56(%%r10), %%r10\n\t"
         "1:\n\t"
         "xor %%esi, %%esi\n\t"
+        "xor %%r13d, %%r13d\n\t"
         "xor %%r14d, %%r14d\n\t"
+        "xor %%r15d, %%r15d\n\t"
         "jmp *%%rax\n\t"
         :
         : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω)
-        : "memory", "rsi", "r8", "r9", "r10", "r11"
+        : "memory", "rsi", "r8", "r9", "r10", "r11", "r13", "r15"
     );
 }
 #define RT_OUTER_RESERVE 4194304L
@@ -169,6 +171,8 @@ __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
         "  leaq 2f(%rip), %rcx\n"
         "  push %rcx\n"
         "  push %rcx\n"
+        "  xor %r13d, %r13d\n"
+        "  xor %r15d, %r15d\n"
         "  jmp *%rax\n"
         "  add $" RT_OUTER_RESERVE_S ", %rsp\n"
         "  add $16, %rsp\n"
