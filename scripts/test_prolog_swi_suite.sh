@@ -96,7 +96,11 @@ rc=0
 if [ "$mode" = "m4" ]; then
     if timeout 60 "$SCRIP" --compile "$PLUNIT" "$f" "$WORK/wrap.pl" > "$od/m4.s" 2>"$od/m4.err" && [ -s "$od/m4.s" ] \
        && gcc -no-pie "$od/m4.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$od/m4.bin" 2>>"$od/m4.err"; then
-        run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"; rc=$?
+        # ⛔ UNBUFFERED, AS THE HARNESS RUNS EVERY MODE-4 BINARY (stdbuf -o0 -e0; the coo 2026-10-04, on hq_prolog's measurement): a mode-4
+        # binary block-buffers stdout to the pipe, so a file killed at the timeout lost EVERY case it had printed and read HANG throughout,
+        # while mode 3 writes as it goes and kept them -- core/test_acyclic read 41 m3-PASS and 0 m4-PASS for one hang in both modes, a
+        # per-mode split made by the flush, not the program (measured: a print-then-loop witness keeps its two lines under stdbuf, none bare).
+        run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 ${STDBUF:+$STDBUF -o0 -e0} "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"; rc=$?
     fi
     rm -f "$od/m4.s" "$od/m4.bin"
 else
@@ -109,7 +113,8 @@ chmod +x "$WORK/grade_one.sh"
 for m in ${MODES//,/ }; do while IFS= read -r f; do printf '%s %s\n' "$f" "$m" >> "$WORK/jobs.txt"; done < "$FILES"; done
 echo "grading $NFILES file(s) x modes=$MODES with $JOBS job(s), oracle refs beside the sources"
 LIB_DECL="$HERE/lib_declared_arena.sh"
-export SCRIP RT PLUNIT WORK SWIT MATCH_PY LIB_DECL
+STDBUF="$(command -v stdbuf 2>/dev/null)"   # the mode-4 binary runs unbuffered when stdbuf exists, as the harness's do (grade_one.sh)
+export SCRIP RT PLUNIT WORK SWIT MATCH_PY LIB_DECL STDBUF
 xargs -P "$JOBS" -n 2 -a "$WORK/jobs.txt" bash "$WORK/grade_one.sh"
 python3 - "$WORK" "$FILES" "$MODES" "$SWIT" "$NAME_REDS" <<'PY'
 import sys, os, collections
