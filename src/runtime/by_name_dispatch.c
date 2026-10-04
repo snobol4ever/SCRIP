@@ -9938,12 +9938,11 @@ DESCR_t rt_pl_dop_db_cells_c(DESCR_t *args, int nargs, void *root) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_store_k_c(DESCR_t *args, int nargs, void *root) {
-    extern int rt_pl_db_key_cell(void *, const char *);
-    char key[264]; int ar = 0; int k;
+    extern int rt_pl_db_term_cell(void *, void *);
+    int k;
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
-    if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) return FAILDESCR;
-    k = rt_pl_db_key_cell(root, key);
+    k = rt_pl_db_term_cell(root, (void *)&args[0]);
     return k >= 0 ? INTVAL(k) : FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

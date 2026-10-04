@@ -55,7 +55,8 @@ void pl_dyn_mark(const char *name, int arity) {
     if (!name) return;
     if (pl_pi_is_static_builtin(name, arity)) return;
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return;
-    if (g_stage2.pl_dyn_n >= 64) return;
+    { extern int rt_pl_db_cells_max(void); if (g_stage2.pl_dyn_n >= rt_pl_db_cells_max()) { fprintf(stderr, "scrip: refuse: more dynamic predicates and global variables than the %d root cells a Prolog frame carries (PL_DB_CELLS_MAX, ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A) -- at %s/%d\n", rt_pl_db_cells_max(), name, arity); exit(2); } }
+    if (g_stage2.pl_dyn_n >= g_stage2.pl_dyn_cap) { int nc = g_stage2.pl_dyn_cap > 0 ? g_stage2.pl_dyn_cap * 2 : 64; g_stage2.pl_dyn_name = (const char **) ct_grow((void *) g_stage2.pl_dyn_name, (size_t) nc * sizeof(const char *)); g_stage2.pl_dyn_arity = (int *) ct_grow((void *) g_stage2.pl_dyn_arity, (size_t) nc * sizeof(int)); g_stage2.pl_dyn_cap = nc; }
     g_stage2.pl_dyn_name[g_stage2.pl_dyn_n] = name; g_stage2.pl_dyn_arity[g_stage2.pl_dyn_n] = arity; g_stage2.pl_dyn_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -64,11 +65,11 @@ int pl_dyn_is_marked(const char *name, int arity) {
     for (int i = 0; i < g_stage2.pl_dyn_n; i++) if (g_stage2.pl_dyn_name[i] && !strcmp(g_stage2.pl_dyn_name[i], name) && g_stage2.pl_dyn_arity[i] == arity) return 1;
     return 0;
 }
-static const char * g_pl_decl_dyn_name[64]; static int g_pl_decl_dyn_arity[64]; static int g_pl_decl_dyn_n = 0;
+static const char ** g_pl_decl_dyn_name; static int * g_pl_decl_dyn_arity; static int g_pl_decl_dyn_n = 0; static int g_pl_decl_dyn_cap = 0;
 static void pl_decl_dyn_mark(const char * name, int arity) {
     if (!name) return;
     for (int i = 0; i < g_pl_decl_dyn_n; i++) if (g_pl_decl_dyn_name[i] && !strcmp(g_pl_decl_dyn_name[i], name) && g_pl_decl_dyn_arity[i] == arity) return;
-    if (g_pl_decl_dyn_n >= 64) return;
+    if (g_pl_decl_dyn_n >= g_pl_decl_dyn_cap) { int nc = g_pl_decl_dyn_cap > 0 ? g_pl_decl_dyn_cap * 2 : 64; g_pl_decl_dyn_name = (const char **) ct_grow((void *) g_pl_decl_dyn_name, (size_t) nc * sizeof(const char *)); g_pl_decl_dyn_arity = (int *) ct_grow((void *) g_pl_decl_dyn_arity, (size_t) nc * sizeof(int)); g_pl_decl_dyn_cap = nc; }
     g_pl_decl_dyn_name[g_pl_decl_dyn_n] = ct_strdup(name); g_pl_decl_dyn_arity[g_pl_decl_dyn_n] = arity; g_pl_decl_dyn_n++;
 }
 static int pl_decl_dyn_is(const char * name, int arity) {
@@ -76,13 +77,14 @@ static int pl_decl_dyn_is(const char * name, int arity) {
     for (int i = 0; i < g_pl_decl_dyn_n; i++) if (g_pl_decl_dyn_name[i] && !strcmp(g_pl_decl_dyn_name[i], name) && g_pl_decl_dyn_arity[i] == arity) return 1;
     return 0;
 }
-static const char * g_pl_decl_other_name[256]; static int g_pl_decl_other_arity[256]; static int g_pl_decl_other_n = 0;
+static const char ** g_pl_decl_other_name; static int * g_pl_decl_other_arity; static int g_pl_decl_other_n = 0; static int g_pl_decl_other_cap = 0;
 static void pl_decl_other_record(const tree_t * spec) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_other_record(spec->c[0]); pl_decl_other_record(spec->c[1]); return; }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_other_record(spec->c[i]); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME)
-        && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT && g_pl_decl_other_n < 256) {
+        && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT) {
+        if (g_pl_decl_other_n >= g_pl_decl_other_cap) { int nc = g_pl_decl_other_cap > 0 ? g_pl_decl_other_cap * 2 : 256; g_pl_decl_other_name = (const char **) ct_grow((void *) g_pl_decl_other_name, (size_t) nc * sizeof(const char *)); g_pl_decl_other_arity = (int *) ct_grow((void *) g_pl_decl_other_arity, (size_t) nc * sizeof(int)); g_pl_decl_other_cap = nc; }
         g_pl_decl_other_name[g_pl_decl_other_n] = spec->c[0]->v.sval; g_pl_decl_other_arity[g_pl_decl_other_n] = (int) spec->c[1]->v.ival; g_pl_decl_other_n++; }
 }
 typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; int cut_scope; int scope_seq; IR_t * meta_redo; int meta_redo_set; int stmt_depth; unsigned char valias[1024]; } lcx_t;

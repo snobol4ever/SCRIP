@@ -2303,6 +2303,19 @@ int rt_pl_db_key_cell(void *root, const char *key)
     return (e && e->k >= 0) ? e->k : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_term_cell(void *root, void *term_cell)
+{
+    extern const char *prolog_atom_name(int); extern int prolog_atom_intern(const char *);
+    pl_cell_t *t = pl_deref((pl_cell_t *)term_cell); pl_cell_t *h = t; const char *nm; int ar = 0;
+    if ((int)t->v == DT_PLREF && pl_arity(t) == 2 && plc_functor(t) == prolog_atom_intern(":-")) h = pl_deref(&((pl_cell_t *)t->p)[0]);
+    if ((int)h->v == DT_PLREF) { nm = prolog_atom_name(plc_functor(h)); ar = pl_arity(h); }
+    else if ((int)h->v == DT_PLATOM) nm = prolog_atom_name((int)h->i);
+    else if ((int)h->v == DT_S) nm = h->s;
+    else return -1;
+    if (!nm) return -1;
+    { PL_DB_KEY_VLA(key, nm, ar); return rt_pl_db_key_cell(root, key); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cells_max(void) { return PL_DB_CELLS_MAX; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_cells_base(void *root, int64_t n)

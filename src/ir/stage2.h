@@ -69,9 +69,10 @@ typedef struct stage2_t {
     int                  proc_cap;
     Resolve_PredTable         resolve_pred_table;
     ScripModuleRegistry  module_registry;
-    const char          *pl_dyn_name[64];
-    int                  pl_dyn_arity[64];
+    const char         **pl_dyn_name;
+    int                 *pl_dyn_arity;
     int                  pl_dyn_n;
+    int                  pl_dyn_cap;
     cv_t                 pl_prelude_keys;
 } stage2_t;
 typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
