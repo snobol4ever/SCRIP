@@ -37,22 +37,22 @@ RTX_FUNC(rt_pl_exist_raise)
     xor     edx, edx
     ret
 RTX_ENDF(rt_pl_exist_raise)
-RTX_FUNC(rt_pl_goal_gen_h)
+RTX_FUNC(rt_pl_goal_resolve)
     RTX_SAVE
     sub     rsp, 24
     mov     qword ptr [rsp + 8], 0
-    lea     r9, [rsp + 8]
-    call    rt_pl_goal_gen_h_c
+    lea     rcx, [rsp + 8]
+    call    rt_pl_goal_resolve_c
     mov     rcx, qword ptr [rsp + 8]
     add     rsp, 24
     test    rcx, rcx
-    jz      .Lggh_ret
+    jz      .Lgr_ret
     PL_BALL_ARM(rcx, rax)
-    mov     eax, DT_FAIL
+    xor     eax, eax
     xor     edx, edx
-.Lggh_ret:
+.Lgr_ret:
     RTX_RET
-RTX_ENDF(rt_pl_goal_gen_h)
+RTX_ENDF(rt_pl_goal_resolve)
 RTX_FUNC(rt_pl_catch_handle)
     test    r15, r15
     jz      .Lch_fail

@@ -16,21 +16,27 @@ extern CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n);
 extern CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv);
 extern CVSPINE_t rt_call_value_spine_prep_blk(DESCR_t callee, DESCR_t *argv, int n, void **hslot);
 extern CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot);
-extern CVSPINE_t rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n, void **hslot);
-extern DESCR_t rt_pl_goal_gen_h(DESCR_t goal, DESCR_t *argv, int n, void **hslot);
+extern CVSPINE_t rt_pl_goal_resolve(DESCR_t goal, int n);
+extern int * const rt_k_level_p;
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
 }
+#include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
+#include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static bool cv_is_apply() { return _.op_sval && strcmp(_.op_sval, "apply") == 0 && _.op_arg_slot_n == 1; }
 static bool cv_is_goal() { return _.op_sval && strcmp(_.op_sval, "goal") == 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static bool cv_pl_proto() { return cv_is_goal() && x86_fb_pinned(); }
 static bool cv_icn() { return !cv_is_goal() && g_emit_cfg && g_emit_cfg->icn_cells_graph; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string cv_lvl_add(long d) {
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p") + x86("mov", "rax", RDQ("rax", 0)) + x86("add", RDD("rax", 0), d);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cv_sync_out() { return cv_is_goal() ? x86_scan_sync_out() : x86_scan_sync_out_force(); }
 static std::string cv_sync_in() { return cv_is_goal() ? x86_scan_sync_in_rr() : x86_scan_sync_in_rr_force(); }
@@ -47,7 +53,7 @@ std::string bb_call_value() {
     uint64_t aprep_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t) = rt_call_apply_spine_prep; aprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t vprepb_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t *, int, void **) = rt_call_value_spine_prep_blk; vprepb_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t aprepb_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t, void **) = rt_call_apply_spine_prep_blk; aprepb_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    uint64_t gprep_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t *, int, void **) = rt_pl_goal_spine_prep; gprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t gres_fp; { CVSPINE_t (*fp)(DESCR_t, int) = rt_pl_goal_resolve; gres_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void *)fp; }
@@ -87,7 +93,8 @@ std::string bb_call_value() {
                         : x86("call",  "rt_call_apply_spine_prep", aprep_fp))
             : x86("lea",   "rdx", FRQ(_.op_off + 16))
             + x86("mov32", "ecx", (long)n)
-            + (cv_is_goal() ? x86("lea", "r8", FRQ(H)) + x86("call", "rt_pl_goal_spine_prep", gprep_fp)
+            + (cv_pl_proto() ? x86("mov32", "edx", (long)n) + x86("call", "rt_pl_goal_resolve", gres_fp)
+               : cv_is_goal() ? x86_bomb("bb_call_value: a Prolog goal box in a frame that is not pinned has no road (every Prolog graph is pinned)")
                : cv_icn() ? x86("lea", "r8", FRQ(H))
                           + x86("call", "rt_call_value_spine_prep_blk", vprepb_fp)
                : x86("call", "rt_call_value_spine_prep", vprep_fp)))
@@ -98,10 +105,16 @@ std::string bb_call_value() {
                                        + x86("shr", "rsi", 8L)
                                        + x86("and", "edx", 255L))
                           + x86("mov", FRQ(H), "rdx"))
-       + IF(cv_pl_proto(),  x86("note", "the block protocol: the goal's n cells (rdx) are copied from the staged medium onto this spine as the callee's argument block, then the wires and the jump")
-                          + x86("mov", "rcx", "rdx") + x86("shl", "rcx", 4L) + x86("sub", "rsp", "rcx")
-                          + x86("mov", "rsi", "[rip + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args") + x86("mov", "rsi", RDQ("rsi", 0))
-                          + x86("mov", "rdi", "rsp") + x86("mov", "rcx", "rdx") + x86("add", "rcx", "rcx") + x86("rep_movsq")
+       + IF(cv_pl_proto(),  x86("note", "ARCH-PROLOG-C-OUT-OF-THE-BOX 4.2: rax = the callee's fn, rdx = the goal's own arity; the goal is dereferenced AGAIN after the poll (the compound may have moved) and its cells are copied onto this spine as the block, the n extra arguments after them; the level bumps inline; the wires and the jump")
+                          + x86("mov", "r10", "rax") + x86("mov", "r11", "rdx")
+                          + x86("lea", "rdi", FRQ(_.op_sa))
+                          + PL_DEREF(40, 41, 42, 43)
+                          + x86("cmp", "al", (long)DT_PLREF) + x86("jne", L(44)) + x86("mov", "r8", RDQ("rdi", 8)) + x86("jmp", L(45)) + x86("def", L(44)) + x86("xor", "r8d", "r8d") + x86("def", L(45))
+                          + x86("lea", "rcx", RDQ("r11", (int)n)) + x86("shl", "rcx", 4L) + x86("sub", "rsp", "rcx")
+                          + x86("mov", "rdi", "rsp") + x86("mov", "rsi", "r8") + x86("mov", "rcx", "r11") + x86("add", "rcx", "rcx") + x86("rep_movsq")
+                          + FOR(0, n, [&](int i) { return x86("mov", "rax", FRQ(_.op_off + 16 + i * 16)) + x86("mov", RDQ("rdi", 0), "rax") + x86("mov", "rax", FRQ(_.op_off + 16 + i * 16 + 8)) + x86("mov", RDQ("rdi", 8), "rax") + x86("add", "rdi", 16L); })
+                          + cv_lvl_add(1L)
+                          + x86("mov", "rax", "r10")
                           + bb_glue_pass_wires(3, 4))
        + IF(!cv_pl_proto() && !cv_icn(), bb_glue_pass_wires_blob_regs(3, 4))
        + IF(cv_icn(), x86("note", "the block protocol: the prep answered the callee's block cell count in rdx>>8 (rsi here); the wires go first, "
@@ -126,7 +139,8 @@ std::string bb_call_value() {
        + (cv_pl_proto()
             ?  x86("mov",  FRQ(H), "rax")
               + x86("mov",  FRQ(H + 8), "rdx")
-              + x86("call", "rt_gen_spine_pass_γ", pasg_fp)
+              + cv_lvl_add(-1L)
+              + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi")
               + x86("jmp",  L(2))
             : bb_glue_wire_land()
               + x86("mov",  FRQ(H + 8), "rsp")
@@ -146,7 +160,8 @@ std::string bb_call_value() {
        + (cv_pl_proto()
             ?  x86("mov",  FRQ(H), 0L)
               + x86("mov",  FRQ(H + 8), 0L)
-              + x86("call", "rt_gen_spine_pass_ω", pasw_fp)
+              + cv_lvl_add(-1L)
+              + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
               + x86("jmp",  L(2))
             : bb_glue_wire_land()
               + x86("mov",  FRQ(H + 8), "rsp")
@@ -173,7 +188,7 @@ std::string bb_call_value() {
             : x86("lea",   "rdx", FRQ(_.op_off + 16))
             + x86("mov32", "ecx", (long)n)
             + x86("lea",   "r8",  FRQ(H))
-            + (cv_is_goal() ? x86("call", "rt_pl_goal_gen_h", (uint64_t)(uintptr_t)(void *)rt_pl_goal_gen_h) : x86("call", "rt_call_value_gen_h", (uint64_t)(uintptr_t)(void *)rt_call_value_gen_h)))
+            + (cv_is_goal() ? x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx") : x86("call", "rt_call_value_gen_h", (uint64_t)(uintptr_t)(void *)rt_call_value_gen_h)))
        + x86("def", L(2))
        + x86_anchor_leave()
        + cv_sync_in()
@@ -192,10 +207,9 @@ std::string bb_call_value() {
               + x86("je",   L(12))
               + x86("mov",  "rcx", FRQ(H + 8))
               + x86("test", "rcx", "rcx")
-              + x86("je",   L(8))
-              + x86_scan_sync_out()
+              + x86("je",   L(12))
               + x86("mov",  x86_fb(), "rax")
-              + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
+              + cv_lvl_add(1L)
               + x86_jmp_reg("rcx")
               + x86("def",  L(12))
               + x86_omega()
@@ -208,18 +222,19 @@ std::string bb_call_value() {
               + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
               + x86("mov",  "rsp", FRQ(H + 8))
               + x86_jmp_mem("rsp", 0))
-       + x86("def", L(8))
-       + cv_sync_out()
-       + x86("lea",   "rdi", FRQ(H))
-       + x86("mov32", "esi", cv_is_apply() ? -1L : (long)n)
-       + x86("call",  "rt_call_value_resume_h", (uint64_t)(uintptr_t)(void *)rt_call_value_resume_h)
-       + cv_sync_in()
-       + x86("cmp",   "al", (long)DT_FAIL)
-       + x86_omega("je")
-       + x86("mov",   FRQ(_.op_off),     "rax")
-       + x86("mov",   FRQ(_.op_off + 8), "rdx")
-       + x86_rt_gc_poll()
-       + x86_gamma()
+       + IF(!cv_pl_proto(),
+               x86("def", L(8))
+             + cv_sync_out()
+             + x86("lea",   "rdi", FRQ(H))
+             + x86("mov32", "esi", cv_is_apply() ? -1L : (long)n)
+             + x86("call",  "rt_call_value_resume_h", (uint64_t)(uintptr_t)(void *)rt_call_value_resume_h)
+             + cv_sync_in()
+             + x86("cmp",   "al", (long)DT_FAIL)
+             + x86_omega("je")
+             + x86("mov",   FRQ(_.op_off),     "rax")
+             + x86("mov",   FRQ(_.op_off + 8), "rdx")
+             + x86_rt_gc_poll()
+             + x86_gamma())
        + x86_omega();
     return s;
 }

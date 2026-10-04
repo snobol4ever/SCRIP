@@ -1983,15 +1983,6 @@ static int pl_goal_key_live(char *key, size_t cap) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
-    int k = 0;
-    rt_call_args_need((ar > 0 ? ar : 0) + (n > 0 ? n : 0));
-    for (int i = 0; i < ar; i++) CALL_ARGS[k++] = kids[i];
-    for (int i = 0; i < n; i++) CALL_ARGS[k++] = argv[i];
-    rt_call_args_clear_from(k);
-    return k;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_goal_key_is_control(const char *key) { return !strcmp(key, ",/2") || !strcmp(key, ";/2") || !strcmp(key, "->/2") || !strcmp(key, "*->/2") || !strcmp(key, "|/2"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *pl_goal_body_conv_ball(DESCR_t goal, const char *key, int n) {
@@ -2001,17 +1992,23 @@ static void *pl_goal_body_conv_ball(DESCR_t goal, const char *key, int n) {
     return rt_pl_dop_goal_guard_c(&gg, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-CVSPINE_t rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n, void **hslot) {
-    extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern int rt_proc_pinned(const char *name); extern void rt_proc_drop_frame_h(void **hslot);
+static int rt_pl_goal_stage(DESCR_t *kids, int ar, DESCR_t *argv, int n) {
+    int k = 0;
+    rt_call_args_need((ar > 0 ? ar : 0) + (n > 0 ? n : 0));
+    for (int i = 0; i < ar; i++) CALL_ARGS[k++] = kids[i];
+    for (int i = 0; i < n; i++) CALL_ARGS[k++] = argv[i];
+    rt_call_args_clear_from(k);
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+CVSPINE_t rt_pl_goal_resolve_c(DESCR_t goal, int n, void **ball) {
+    extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern int rt_proc_pinned(const char *name); extern int rt_proc_gen_region_ft(const char *);
+    extern void *rt_pl_ball_existence_key(const char *key); extern void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar); extern void *rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs);
     char key[288]; DESCR_t *kids = (DESCR_t *)0; int ar = 0; CVSPINE_t no = { 0, 0 }; CVSPINE_t r;
-    if (hslot) rt_proc_drop_frame_h(hslot);
-    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) return no;
-    if (pl_goal_body_conv_ball(goal, key, n)) return no;
-    if (!pl_goal_key_live(key, sizeof key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key) || !rt_proc_pinned(key)) return no;
-    { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(key) > 0) return no; }
-    r.act0 = (long)rt_pl_goal_stage(kids, ar, argv, n);
-    { extern int rt_k_level; rt_k_level++; }
-    r.fn = (long)(uintptr_t)rt_proc_fn(key);
+    if (!rt_pl_goal_key(goal, n, key, sizeof key, &kids, &ar)) { DESCR_t gg = goal; void *gb = rt_pl_dop_goal_guard_c(&gg, 1); if (ball) *ball = gb ? gb : rt_pl_ball_type_pi("type_error", "callable", "?", 0); return no; }
+    { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb) { if (ball) *ball = cb; return no; } }
+    if (!pl_goal_key_live(key, sizeof key) || !rt_proc_jmp_entry(key) || !rt_proc_is_generator(key) || !rt_proc_pinned(key) || rt_proc_gen_region_ft(key) > 0) { if (ball) *ball = rt_pl_ball_existence_key(key); return no; }
+    r.fn = (long)(uintptr_t)rt_proc_fn(key); r.act0 = (long)ar;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2025,7 +2022,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
         extern void *rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs);
         DESCR_t gg = goal; void *gb = rt_pl_dop_goal_guard_c(&gg, 1);
         if (ball) { *ball = gb ? gb : rt_pl_ball_type_pi("type_error", "callable", "?", 0); return FAILDESCR; }
-        { extern void rt_bomb(const char *msg); rt_bomb("rt_pl_goal_gen_h_c: the no-ball path is UNREACHABLE BY CONSTRUCTION and has no classifier. Its one caller, RTX_FUNC(rt_pl_goal_gen_h) in rtx_plunify.s, always passes a ball slot (sub rsp,24 then lea r9,[rsp+8]), so nothing has ever reached this arm and no test can grade it. It used to throw type_error(callable, ?/0) unconditionally, which is the WRONG ISO CLASS whenever the goal is unbound (7.6.2 orders instantiation_error) -- a future caller reading it would inherit that silently. Give this arm a real classifier before giving it a caller: pl_goal_conv_scan already distinguishes the two cases and is static in this file. Refusing rather than guessing a class, which is what a test that cannot measure does."); }
+        { extern void rt_bomb(const char *msg); rt_bomb("rt_pl_goal_gen_h_c: the no-ball path is UNREACHABLE BY CONSTRUCTION -- its one caller (unification.c, the C meta-call road) always passes a ball slot; since the meta-call row this is a C-only road, never emitted."); }
         return FAILDESCR; }
     { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb && ball) { *ball = cb; return FAILDESCR; } }
     if (!pl_goal_key_live(key, sizeof key)) {
