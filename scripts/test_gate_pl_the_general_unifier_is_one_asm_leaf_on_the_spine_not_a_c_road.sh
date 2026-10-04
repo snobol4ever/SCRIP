@@ -9,8 +9,14 @@
 # rules), var-var binding in the three age cases (callee var to caller var, frame var to a heap var from an asserted clause, both heap), atomicity
 # of a failed unification in the middle of a structure under a choice point, mixed atomics (an integer never unifies with its atom or its float,
 # big integers by value, atoms by text whatever their cell), a 100,000-element list unified in constant stack, and body =/2 answering its left
-# cell. The expected text is the oracle's, cut with /usr/bin/swipl -q -t halt at gate-writing time; 0.0 = -0.0 is ORACLE-DIVERGENT (swipl no,
-# gprolog and the value compare yes) and is left out of the witness on purpose.
+# cell. The expected text is the oracle's, cut with /usr/bin/swipl -q -t halt at gate-writing time.
+# ARM 8, w_zero -- THE CONSISTENCY ARM (the cto's ruling, 2026-10-04): for two ground terms unification succeeds exactly when they are identical,
+# so = agrees with ==, \==, @<, compare/3, msort/2 and sort/2 on signed zeros, in a head constant, inside a compound and under the occurs check.
+# SCRIP answers swipl's way throughout: 0.0 = -0.0 no, 0.0 == -0.0 no, 0.0 \== -0.0 yes, -0.0 @< 0.0 yes, 0.0 =:= -0.0 yes, compare > and <,
+# msort [-0.0,0.0,0.0], sort [-0.0,0.0]. ORACLE-DIVERGENT, recorded so a gprolog-cut entry that meets it is read against this note: gprolog 1.4.5
+# answers the opposite on all but =:= -- = yes, == yes, \== no, @< no, =:= yes, compare = and =, msort [0.0,-0.0,0.0], sort [0.0] (ARCH-PROLOG-
+# C-OUT-OF-THE-BOX section 6.3's table). RED BEFORE on origin 405215caf: w_zero's first line reads yes in both modes (the unifier compared reals by
+# value while the order distinguished the sign).
 # RED BEFORE on origin 9380158bb: arm 1 names rt_pl_dop_unify (zebra 11, qsort 9 -- measured by SCRIP_BIN on that build), and w_long reds in both
 # modes with ERROR 246 (the C road recursed once per list cell on the C stack); the other witnesses pass there (the behaviour the leaf must keep).
 set -u
@@ -99,6 +105,17 @@ main :- X = f(Y), Y = 1, write(X), nl, Z = g(_), Z = g(2), write(Z), nl, ( A = 1
         f(Q, Q) = f(R, S), R = 4, write(S), nl.
 :- initialization(main).
 EOP
+mkw w_zero <<'EOP'
+:- initialization(main).
+z(0.0).
+nz(-0.0).
+p(G) :- ( catch(G, E, (write(err(E)), nl, fail)) -> write(yes) ; write(no) ), nl.
+main :- p(0.0 = -0.0), p(0.0 == -0.0), p(0.0 \== -0.0), p(-0.0 @< 0.0), p(0.0 =:= -0.0),
+        compare(O, 0.0, -0.0), write(O), nl, compare(O2, -0.0, 0.0), write(O2), nl,
+        msort([0.0, -0.0, 0.0], L), write(L), nl, sort([0.0, -0.0], S), write(S), nl,
+        p(z(-0.0)), p(nz(0.0)), p(nz(-0.0)), X = -0.0, p(z(X)), p(f(0.0) = f(-0.0)), p(unify_with_occurs_check(0.0, -0.0)),
+        p(0.5 = 0.5), Y is 1.0 * 2, p(Y = 2.0), p(Y = 2).
+EOP
 want_w_deep='eq
 ne2
 a
@@ -147,7 +164,25 @@ ok
 done
 ok2
 4'
-for w in w_deep w_age w_atomic w_mixed w_long w_body; do
+want_w_zero='no
+no
+yes
+yes
+yes
+>
+<
+[-0.0,0.0,0.0]
+[-0.0,0.0]
+no
+no
+yes
+no
+no
+no
+yes
+yes
+no'
+for w in w_deep w_age w_atomic w_mixed w_long w_body w_zero; do
     eval "want=\$want_$w"
     for mode in m3 m4; do
         if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
@@ -162,5 +197,5 @@ for w in w_deep w_age w_atomic w_mixed w_long w_body; do
     done
 done
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }
-echo "GATE PASS [$GATE_NAME]: zebra.pl's and qsort.pl's mode-4 text call neither rt_pl_unify_value nor rt_pl_dop_unify, and the six witnesses (deep nesting, the three var-var ages, atomicity, mixed atomics, a 100,000-element list, body =/2) match swipl in both modes"
+echo "GATE PASS [$GATE_NAME]: zebra.pl's and qsort.pl's mode-4 text call neither rt_pl_unify_value nor rt_pl_dop_unify, and the seven witnesses (deep nesting, the three var-var ages, atomicity, mixed atomics, a 100,000-element list, body =/2, signed zeros consistent across =, ==, compare and the sorts) match swipl in both modes"
 exit 0

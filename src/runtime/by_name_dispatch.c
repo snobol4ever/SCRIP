@@ -253,6 +253,7 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
         const char *y = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
         return x && y && strcmp(x, y) == 0; }
       if (aa || ba) return 0; }
+    if (A->v == DT_R && B->v == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -291,6 +292,7 @@ static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
         const char *y = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
         return x && y && strcmp(x, y) == 0; }
       if (aa || ba) return 0; }
+    if (A->v == DT_R && B->v == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2689,7 +2691,7 @@ int rt_pl_unify_const_cold(const DESCR_t *c, int64_t k, int atom) {
 int rt_pl_unify_atomic_cold(DESCR_t *A, DESCR_t *B) {
     int av = (int)A->v, bv = (int)B->v;
     if (av == DT_I && bv == DT_I) return A->i == B->i;
-    if (av == DT_R && bv == DT_R) return A->r == B->r;
+    if (av == DT_R && bv == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
     if (av == DT_BIG || bv == DT_BIG) { extern int rt_big_eq(DESCR_t, DESCR_t); return rt_big_eq(*A, *B); }
     { int as = av == DT_S || av == DT_PLATOM, bs = bv == DT_S || bv == DT_PLATOM;
       if (as && bs) {
