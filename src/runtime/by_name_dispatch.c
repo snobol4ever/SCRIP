@@ -355,7 +355,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail",
@@ -367,7 +367,7 @@ int rt_builtin_is_known(const char *name)
         "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s",
         "die", "script_die", "srand",
         "callsame", "nextsame", "callwith",
-        "__multi_call", "__param_check", "__blk_ref", "__blk_invoke",
+        "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke",
         "TIME", "DATE",
         "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek",
         "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
@@ -410,10 +410,36 @@ static char *rtos(double r, char *buf, size_t cap) {
     gcvt(r, 14, buf); (void)cap; return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_block_cmp_d(const char *bn, DESCR_t x, DESCR_t y) {
+static const char rk_proto_closure[] = "Closure";
+static int rk_is_closure(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_closure; }
+static int rk_is_code(DESCR_t v) { return (v.v == DT_BLK && v.s && *v.s) || rk_is_closure(v); }
+static const char *rk_code_name(DESCR_t v) { return v.v == DT_BLK ? v.s : (rk_is_closure(v) && ((ARBLK_t *) v.arr)->hi >= ((ARBLK_t *) v.arr)->lo) ? ((ARBLK_t *) v.arr)->data[0].s : (const char *) 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_cb_mark(void); int rt_cb_hold(DESCR_t d); DESCR_t rt_cb_get(int i); void rt_cb_set(int i, DESCR_t d); void rt_cb_release(int mark);
+typedef struct { const char *name; int nref; } rk_cb_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_blk_nref(DESCR_t blk) { return rk_is_closure(blk) ? ((ARBLK_t *) blk.arr)->hi - ((ARBLK_t *) blk.arr)->lo : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rk_cb_t rk_blk_snap(DESCR_t blk, DESCR_t *refs) {
+    rk_cb_t c = { rk_code_name(blk), rk_blk_nref(blk) };
+    for (int i = 0; i < c.nref; i++) refs[i] = ((ARBLK_t *) blk.arr)->data[1 + i];
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_call_snap(rk_cb_t c, const DESCR_t *refs, int na) {
     extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    if (c.nref) { rt_call_args_need(na + c.nref); for (int i = na - 1; i >= 0; i--) CALL_ARGS[i + c.nref] = CALL_ARGS[i]; for (int i = 0; i < c.nref; i++) CALL_ARGS[i] = refs[i]; }
+    return RT_GC_CALLBACK(rt_call_proc_descr(c.name, na + c.nref));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_call_block(DESCR_t blk, int na) {
+    int nr = rk_blk_nref(blk); DESCR_t refs[nr ? nr : 1]; rk_cb_t c = rk_blk_snap(blk, refs);
+    return rk_call_snap(c, refs, na);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_block_cmp_d(rk_cb_t cb, const DESCR_t *refs, DESCR_t x, DESCR_t y) {
     rt_call_args_need(2); CALL_ARGS[0] = x; CALL_ARGS[1] = y;
-    double d = to_real(RT_GC_CALLBACK(rt_call_proc_descr(bn, 2)));
+    double d = to_real(rk_call_snap(cb, refs, 2));
     return d < 0 ? -1 : (d > 0 ? 1 : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4644,9 +4670,8 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
               *out = INTVAL(0); return 1; } }
         if (!strcmp(op, "subtest")) {
             const char *nm = ""; DESCR_t blk; int haveblk = 0; int havenm = 0; memset(&blk, 0, sizeof blk);
-            for (int i = 0; i < nargs; i++) { if (args[i].v == DT_BLK) { blk = args[i]; haveblk = 1; } else if (!havenm) { nm = to_cstring(args[i], sb1, sizeof sb1); havenm = 1; } }
-            const char *bn = haveblk ? blk.s : (const char *)0;
-            if (!bn || !*bn) { rk_tap_proclaim(0, nm, ""); *out = INTVAL(0); return 1; }
+            for (int i = 0; i < nargs; i++) { if (rk_is_code(args[i])) { blk = args[i]; haveblk = 1; } else if (!havenm) { nm = to_cstring(args[i], sb1, sizeof sb1); havenm = 1; } }
+            if (!haveblk) { rk_tap_proclaim(0, nm, ""); *out = INTVAL(0); return 1; }
             if (nm && *nm) printf("# Subtest: %s\n", nm); else printf("# Subtest\n");
             fflush(stdout);
             long o_planned = g_tap_planned, o_run = g_tap_run, o_failed = g_tap_failed, o_todo = g_tap_todo_upto; int o_noplan = g_tap_no_plan, o_done = g_tap_done_run;
@@ -4654,7 +4679,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             g_tap_planned = 0; g_tap_run = 0; g_tap_failed = 0; g_tap_no_plan = 1; g_tap_todo_upto = 0; g_tap_todo_reason = ""; g_tap_done_run = 0;
             fflush(stdout); int saved = dup(fileno(stdout)); FILE *cap = tmpfile();
             if (saved >= 0 && cap) fflush(stdout), dup2(fileno(cap), fileno(stdout));
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); (void)RT_GC_CALLBACK(rt_call_proc_descr(bn, 0));
+            (void) rk_call_block(blk, 0);
             if (g_tap_no_plan) { printf("1..%ld\n", g_tap_run); }
             fflush(stdout);
             if (saved >= 0 && cap) { dup2(saved, fileno(stdout)); close(saved); rewind(cap); long lmax = 0, lcur = 0; int lc;
@@ -4720,15 +4745,25 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         rt_call_args_need(na); for (int k = 0; k < na; k++) CALL_ARGS[k] = aa[k];
         *out = RT_GC_CALLBACK(rt_call_proc_descr(wname, na)); return 1;
     }
+    if (!strcmp(fn, "__rk_deref") && nargs == 1) { extern DESCR_t rt_deref(DESCR_t d); *out = rt_deref(args[0]); return 1; }
+    if (!strcmp(fn, "__rk_byref_assign") && nargs == 2) {
+        extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
+        if (args[0].v == DT_N) { DESCR_t rv = rt_assign_var(args[0], args[1]); *out = IS_FAIL_fn(rv) ? args[1] : rv; } else *out = args[1];
+        return 1;
+    }
+    if (!strcmp(fn, "__blk_close") && nargs >= 1) {
+        DESCR_t cl = rk_mk_arr(args, nargs); ((ARBLK_t *) cl.arr)->proto = rk_proto_closure; *out = cl; return 1;
+    }
     if (!strcmp(fn, "__blk_ref") && nargs == 1) {
         const char *bn = VARVAL_fn(args[0]); DESCR_t b = {0}; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : "");
         *out = b; return 1;
     }
     if (!strcmp(fn, "__blk_invoke") && nargs >= 1) {
-        const char *bn = (args[0].v == DT_BLK) ? args[0].s : VARVAL_fn(args[0]); if (!bn || !*bn) { *out = FAILDESCR; return 1; }
-        int na = nargs - 1; extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        DESCR_t blk = args[0];
+        if (!rk_is_code(blk)) { const char *vn = VARVAL_fn(blk); if (!vn || !*vn) { *out = FAILDESCR; return 1; } blk = (DESCR_t){ 0 }; blk.v = DT_BLK; blk.s = (char *) vn; }
+        int na = nargs - 1;
         rt_call_args_need(na); for (int k = 0; k < na; k++) CALL_ARGS[k] = args[k + 1];
-        *out = RT_GC_CALLBACK(rt_call_proc_descr(bn, na)); return 1;
+        *out = rk_call_block(blk, na); return 1;
     }
     if (!strcmp(fn, "__param_check") && nargs >= 2) {
         const char *ptype = VARVAL_fn(args[0]); if (!ptype) ptype = "Any";
@@ -5391,17 +5426,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = rk_mk_arr(r, k); return 1;
     }
-    if (!strcmp(fn, "__rk_arr_sort") && nargs >= 2 && args[1].v == DT_BLK && args[1].s && *args[1].s) {
-        const char *bn = args[1].s;
+    if (!strcmp(fn, "__rk_arr_sort") && nargs >= 2 && rk_is_code(args[1])) {
+        int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
         rk_av_t a = rk_av(args[0]); int nel = a.n; if (nel <= 0) { *out = rk_mk_arr(NULL, 0); return 1; }
-        DESCR_t els[nel];
-        for (int i = 0; i < nel; i++) els[i] = a.el[i];
+        int hm = rt_cb_mark(), hw = rt_cb_hold(rk_mk_arr(a.el, nel)), hk = rt_cb_hold(NULVCL);
         for (int i = 1; i < nel; i++) {
-            DESCR_t key = els[i]; int b = i - 1;
-            while (b >= 0 && rk_block_cmp_d(bn, els[b], key) > 0) { els[b + 1] = els[b]; b--; }
-            els[b + 1] = key;
+            DESCR_t *w = ((ARBLK_t *) rt_cb_get(hw).arr)->data; rt_cb_set(hk, w[i]); int b = i - 1;
+            while (b >= 0) {
+                w = ((ARBLK_t *) rt_cb_get(hw).arr)->data;
+                if (rk_block_cmp_d(cb, rfs, w[b], rt_cb_get(hk)) <= 0) break;
+                w = ((ARBLK_t *) rt_cb_get(hw).arr)->data; w[b + 1] = w[b]; b--;
+            }
+            w = ((ARBLK_t *) rt_cb_get(hw).arr)->data; w[b + 1] = rt_cb_get(hk);
         }
-        *out = rk_mk_arr(els, nel); return 1;
+        *out = rt_cb_get(hw); rt_cb_release(hm); return 1;
     }
     if (!strcmp(fn, "__rk_arr_sort") && nargs >= 1) {
         rk_av_t a = rk_av_args(args, 0, nargs);
@@ -5419,17 +5457,16 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         *out = rk_mk_arr(r, a.n); return 1;
     }
-    if (!strcmp(fn, "__rk_arr_reduce") && nargs >= 2 && args[1].v == DT_BLK && args[1].s && *args[1].s) {
-        const char *bn = args[1].s;
-        extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-        rk_av_t a = rk_av(args[0]);
-        if (a.n == 0) { *out = NULVCL; return 1; }
-        DESCR_t acc = rk_av_elem(a, 0);
-        for (int i = 1; i < a.n; i++) {
-            DESCR_t ed = rk_av_elem(a, i);
-            rt_call_args_need(2); CALL_ARGS[0] = acc; CALL_ARGS[1] = ed; acc = RT_GC_CALLBACK(rt_call_proc_descr(bn, 2));
+    if (!strcmp(fn, "__rk_arr_reduce") && nargs >= 2 && rk_is_code(args[1])) {
+        int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
+        int an = rk_av(args[0]).n;
+        if (an == 0) { *out = NULVCL; return 1; }
+        int hm = rt_cb_mark(), hs = rt_cb_hold(args[0]), ha = rt_cb_hold(rk_av_elem(rk_av(args[0]), 0));
+        for (int i = 1; i < an; i++) {
+            DESCR_t ed = rk_av_elem(rk_av(rt_cb_get(hs)), i);
+            rt_call_args_need(2); CALL_ARGS[0] = rt_cb_get(ha); CALL_ARGS[1] = ed; rt_cb_set(ha, rk_call_snap(cb, rfs, 2));
         }
-        *out = acc; return 1;
+        *out = rt_cb_get(ha); rt_cb_release(hm); return 1;
     }
     if ((!strcmp(fn, "__rk_arr_min") || !strcmp(fn, "__rk_arr_max")) && nargs >= 1) {
         int tot = 0; rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) nargs);
@@ -5509,10 +5546,9 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         }
         long long hit;
         if (rk_typeobj_name(args[1])) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_type_isa(rk_value_type(args[0]), rk_typeobj_name(args[1])) ? 1 : 0 }; return 1; }
-        if (args[1].v == DT_BLK && args[1].s && *args[1].s) {
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+        if (rk_is_code(args[1])) {
             rt_call_args_need(2); CALL_ARGS[0] = args[0];
-            DESCR_t rr = RT_GC_CALLBACK(rt_call_proc_descr(args[1].s, 1));
+            DESCR_t rr = rk_call_block(args[1], 1);
             *out = (DESCR_t){ .v = DT_BOOL, .i = (!IS_FAIL_fn(rr) && rk_is_truthy(rr)) ? 1 : 0 }; return 1;
         }
         if (args[1].v == DT_BOOL) hit = args[1].i != 0;
@@ -5566,32 +5602,31 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if ((!strcmp(fn, "__rk_arr_map") || !strcmp(fn, "__rk_arr_grep")) && nargs >= 2) {
         int want_map = (fn[9] == 'm');
-        const char *bn = (args[1].v == DT_BLK) ? args[1].s : NULL;
-        if (!bn || !*bn) { *out = FAILDESCR; return 1; }
-        rk_av_t a = rk_av(args[0]);
-        extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
-        DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL; int nout = 0;
-        for (int si = 0; si < a.n; si++) {
-            DESCR_t ed = rk_av_elem(a, si);
+        if (!rk_is_code(args[1])) { *out = FAILDESCR; return 1; }
+        int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
+        int hm = rt_cb_mark(), hs = rt_cb_hold(args[0]), hr = rt_cb_hold(rk_mk_arr(NULL, 0)); int an = rk_av(args[0]).n;
+        extern int rt_is_truthy(DESCR_t v);
+        for (int si = 0; si < an; si++) {
+            DESCR_t ed = rk_av_elem(rk_av(rt_cb_get(hs)), si);
             rt_call_args_need(2); CALL_ARGS[0] = ed;
-            DESCR_t rd = RT_GC_CALLBACK(rt_call_proc_descr(bn, 1));
-            if (want_map) r[nout++] = rd;
-            else if (rt_is_truthy(rd)) r[nout++] = ed;
+            DESCR_t rd = rk_call_snap(cb, rfs, 1);
+            if (want_map) { DESCR_t cur = rt_cb_get(hr); rk_arr_append((ARBLK_t *) cur.arr, rd); }
+            else if (rt_is_truthy(rd)) { DESCR_t cur = rt_cb_get(hr); rk_arr_append((ARBLK_t *) cur.arr, rk_av_elem(rk_av(rt_cb_get(hs)), si)); }
         }
-        *out = rk_mk_arr(r, nout); return 1;
+        *out = rt_cb_get(hr); rt_cb_release(hm); return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_first") && nargs >= 2) {
-        const char *bn = (args[1].v == DT_BLK) ? args[1].s : NULL;
-        if (bn && *bn) {
-            rk_av_t a = rk_av(args[0]);
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_is_truthy(DESCR_t v);
-            for (int i = 0; i < a.n; i++) {
-                DESCR_t ed = rk_av_elem(a, i);
+        if (rk_is_code(args[1])) {
+            int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
+            int hm = rt_cb_mark(), hs = rt_cb_hold(args[0]); int an = rk_av(args[0]).n;
+            extern int rt_is_truthy(DESCR_t v);
+            for (int i = 0; i < an; i++) {
+                DESCR_t ed = rk_av_elem(rk_av(rt_cb_get(hs)), i);
                 rt_call_args_need(2); CALL_ARGS[0] = ed;
-                if (rt_is_truthy(RT_GC_CALLBACK(rt_call_proc_descr(bn, 1)))) { *out = ed; return 1; }
+                if (rt_is_truthy(rk_call_snap(cb, rfs, 1))) { *out = rk_av_elem(rk_av(rt_cb_get(hs)), i); rt_cb_release(hm); return 1; }
             }
-            *out = NULVCL; return 1;
+            rt_cb_release(hm); *out = NULVCL; return 1;
         }
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6139,11 +6174,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             int is_dat_recv = (rtn && dat_find_type(rtn));
             if (!is_dat_recv) {
                 int is_arrm = !strcmp(mname0, "kv") || !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
-                           || ((!strcmp(mname0, "map") || !strcmp(mname0, "grep")) && nargs == 3 && args[2].v == DT_BLK)
+                           || ((!strcmp(mname0, "map") || !strcmp(mname0, "grep")) && nargs == 3 && rk_is_code(args[2]))
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "end") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
                            || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "pick") || !strcmp(mname0, "min")
                            || !strcmp(mname0, "max") || !strcmp(mname0, "first")
-                           || (!strcmp(mname0, "reduce") && nargs == 3 && args[2].v == DT_BLK)
+                           || (!strcmp(mname0, "reduce") && nargs == 3 && rk_is_code(args[2]))
                            || !strcmp(mname0, "keys") || !strcmp(mname0, "values") || rk_list_coercion_meth(mname0, nargs);
                 if (is_arrm) {
                     const char *afn = !strcmp(mname0, "map") ? "__rk_arr_map" : !strcmp(mname0, "grep") ? "__rk_arr_grep"

@@ -638,6 +638,7 @@ test_gate_raku_the_infix_operators_the_front_end_names_have_a_runtime_as_rakudos
 test_gate_raku_a_bare_whatever_is_a_value_and_pick_head_and_tail_take_it.sh	WIRED	-	-	-
 test_gate_raku_the_math_and_list_routines_answer_in_function_form_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
+test_gate_raku_a_block_passed_to_a_synchronous_builtin_reads_its_enclosing_subs_locals_through_a_reference.sh	WIRED	-	-	-
 test_gate_raku_unicode_lexemes.sh	WIRED	-	-	-
 test_gate_raku_whatevercode_curries_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_rc8a_gc_coverage.sh	WIRED	-	-	-

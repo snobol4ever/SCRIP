@@ -322,6 +322,7 @@ static tree_t *rk_for_multi(RkB *b, TL *vars, tree_t *list, tree_t *body) {
         tree_t *idx = leaf_sval(TT_VAR, intern(iv));
         if (i) idx = expr_binary(TT_ADD, idx, rk_ilit(i));
         tree_t *get = make_call("__rk_arr_at"); expr_add_child(get, leaf_sval(TT_VAR, intern(av))); expr_add_child(get, idx);
+        if (vars->v[i] && vars->v[i]->t == TT_VAR) vars->v[i]->slen |= 4;
         expr_add_child(seq, expr_binary(TT_ASSIGN, vars->v[i], get));
     }
     expr_add_child(seq, body);
@@ -1555,7 +1556,7 @@ static tree_t *decl_node(RkB *b, const char *type, tree_t *var, tree_t *val) {
     tree_t *e = ast_node_new(TT_DECL); ast_push(e, leaf_sval(TT_VAR, type)); ast_push(e, var); if (val) ast_push(e, val); (void) b; return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *build_decl(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
+static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
     if (d->scope == 6 && d->sigil != '(' && d->name && d->name[0]) {
         d->scope = 0; tree_t *once = build_decl(b, d, outer, ofirst); d->scope = 6;
         tree_t *flag = var_node(b, fmt("$%s_init", d->name + 1));
@@ -1607,6 +1608,14 @@ static tree_t *build_decl(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
     mark_arrlit(b, strip_sigil(name), e);
     return expr_binary(TT_ASSIGN, var_node(b, name), rk_scalar_rhs(e));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_mark_declared(tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_ASSIGN && t->n && t->c[0] && t->c[0]->t == TT_VAR) { t->c[0]->slen |= 4; return; }
+    if (t->t == TT_SEQ_EXPR || t->t == TT_UNLESS) for (int i = 0; i < t->n; i++) rk_mark_declared(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *build_decl(RkB *b, RkDecl *d, RkList *outer, int ofirst) { tree_t *t = build_decl_raw(b, d, outer, ofirst); rk_mark_declared(t); return t; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_decl(RkB *b, RkTerm *it, int from, int to, RkDecl *d) { (void) b; memset(it, 0, sizeof *it); it->kind = TK_DECL; it->from = from; it->to = it->core_to = to; it->decl = d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
