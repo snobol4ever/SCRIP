@@ -12,10 +12,12 @@
 #       now answers a live field and otherwise raises 22.
 #   (C) the error-22 text was 'Undefined function called'; SPITBOL's is 'undefined function called' and &ERRTEXT is program-visible (diag1 dumps it).
 #
+#   CEO-1507 (Lon's CEO-1293 word stands): VALUE is restored as a function and no longer undefined; UCASE and LCASE stay deleted. VALUE's own gate is test_gate_sno_value_is_restored_and_diag1_test1_grade_under_ceo1293_rows.sh.
+#
 # THE ARMS (expectations cut from sbl -bf AT RUN TIME):
 #   1-2  m3 / m4 TRIM: direct, through APPLY(.TRIM,...) and through a name; a tab, two tabs, blank-tab-blank dropped; a leading tab, CR, LF, VT, FF and an
 #        inner blank kept                                                                                               -- RED on base
-#   3-4  m3 / m4 UNDEFINED: VALUE, UCASE, LCASE and their lower-case spellings each trap error 22 with the lower-case text  -- RED on base
+#   3-4  m3 / m4 UNDEFINED: UCASE, LCASE and their lower-case spellings (and lower-case value) each trap error 22 with the lower-case text  -- RED on base
 #   5-6  CONTROL m3 / m4: a DATA field named VALUE is read and assigned through its accessor; LPAD, RPAD, REVERSE, REPLACE, DUPL and the
 #        &UCASE and &LCASE keywords answer as before
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle, no tmpdir, the oracle's answer moved).
@@ -53,7 +55,6 @@ EOF
 cat > "$T/un.sno" <<'EOF'
         &ERRLIMIT = 100
         SETEXIT('E')
-        X = VALUE('abc')
         X = UCASE('abc')
         X = LCASE('ABC')
         X = value('abc')
@@ -90,9 +91,9 @@ m4() { : > "$T/$1.m4"
        then timeout 30 "$T/$1.bin" < /dev/null > "$T/$1.m4" 2>/dev/null; else echo COMPILE-FAILED > "$T/$1.m4"; fi; }
 m3 tr; arm 1 "m3 TRIM strips trailing blanks and tabs, nothing else" "$T/tr.m3" "$T/tr.want"
 m4 tr; arm 2 "m4 TRIM: the same" "$T/tr.m4" "$T/tr.want"
-m3 un; arm 3 "m3 VALUE/UCASE/LCASE are undefined functions (error 22, lower-case text)" "$T/un.m3" "$T/un.want"
+m3 un; arm 3 "m3 UCASE/LCASE and the lower-case value are undefined functions (error 22, lower-case text; VALUE is restored, CEO-1507)" "$T/un.m3" "$T/un.want"
 m4 un; arm 4 "m4 undefined functions: the same" "$T/un.m4" "$T/un.want"
 m3 ct; arm 5 "CONTROL m3: a DATA field VALUE, LPAD/RPAD/REVERSE/REPLACE/DUPL, &UCASE/&LCASE" "$T/ct.m3" "$T/ct.want"
 m4 ct; arm 6 "CONTROL m4: the same" "$T/ct.m4" "$T/ct.want"
-if [ "$fail" -eq 0 ]; then echo "GATE PASS(0) [$NAME]: $pass arms -- TRIM drops a trailing tab, VALUE/UCASE/LCASE are undefined, both modes"; exit 0; fi
+if [ "$fail" -eq 0 ]; then echo "GATE PASS(0) [$NAME]: $pass arms -- TRIM drops a trailing tab, UCASE/LCASE are undefined, both modes"; exit 0; fi
 echo "GATE FAIL(1) [$NAME]: $fail of $((pass + fail)) arms red"; exit 1

@@ -2719,6 +2719,14 @@ static DESCR_t _ITEM_(DESCR_t *a, int n) {
     }
     return FAILDESCR;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t _VALUE_(DESCR_t *a, int n) {
+    if (n < 1) return FAILDESCR;
+    const char *name = VARVAL_fn(a[0]);
+    if (!name) return FAILDESCR;
+    char *fname = rt_heap_strdup_c(name);
+    return NV_GET_fn(fname);
+}
 int core_stack_floor_raised = 0;
 long rt_sw_stack_bytes(void) { rt_cmdline_switches_apply(); return _sw_stack_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2838,6 +2846,7 @@ void core_lib_init(void) {
     register_fn("CONVERT", _CONVERT_, 2, 2);
     register_fn("PROTOTYPE", _PROTOTYPE_, 1, 1);
     register_fn("ITEM",    _ITEM_,    2, -1);
+    register_fn("VALUE",   _VALUE_,   1, 1);
     register_fn("COPY",    _COPY_,    1, 1);
     register_fn("EVAL",  _EVAL_,  1, 1);
     register_fn("CODE",  _CODE_,  1, 1);

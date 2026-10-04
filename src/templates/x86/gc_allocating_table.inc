@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2039
+#define GC_ALLOC_TAB_N 2040
 #define GC_ALLOC_TAB_N_VOID 237
-#define GC_ALLOC_TAB_N_DESCR 1095
+#define GC_ALLOC_TAB_N_DESCR 1096
 #define GC_ALLOC_TAB_N_OTHER 701
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -129,6 +129,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_TRACE_", GC_RET_DESCR },
     { "_TRIM_", GC_RET_DESCR },
     { "_UNLOAD_", GC_RET_DESCR },
+    { "_VALUE_", GC_RET_DESCR },
     { "_Z13bb_lit_scalarB5cxx11v", GC_RET_UNKNOWN },
     { "_Z14bb_call_fn_strB5cxx11P4IR_t", GC_RET_UNKNOWN },
     { "_Z16marshal_call_argB5cxx11P4IR_tP10IR_graph_tiS0_i", GC_RET_UNKNOWN },

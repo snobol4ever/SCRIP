@@ -878,6 +878,7 @@ test_gate_sno_traced_run_honours_the_declared_stack_limit_and_the_slim_road_trac
 test_gate_sno_tracing_does_not_change_a_match_result.sh	WIRED	-	-	-
 test_gate_sno_trim_drops_a_trailing_tab_and_scrips_own_builtins_are_undefined.sh	WIRED	-	-	-
 test_gate_sno_unary_caret_is_an_undefined_operator_error_29.sh	WIRED	-	-	-
+test_gate_sno_value_is_restored_and_diag1_test1_grade_under_ceo1293_rows.sh	WIRED	-	-	-
 test_gate_sno_want_name_request_is_consumed_not_left_standing.sh	WIRED	-	-	-
 test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_a_setexit_trap_is_taken_from_a_function_body_a_nested_block_and_a_condition.sh	WIRED	-	-	-
