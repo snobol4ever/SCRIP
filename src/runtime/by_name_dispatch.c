@@ -4036,23 +4036,29 @@ static void pl_gnu_h32(uint32_t *h, uint32_t *len, uint32_t x) { *len += 4; *h =
 static void pl_gnu_h64(uint32_t *h, uint32_t *len, uint64_t x) { pl_gnu_h32(h, len, (uint32_t)x); pl_gnu_h32(h, len, (uint32_t)(x >> 32)); }
 static void pl_gnu_hdbl(uint32_t *h, uint32_t *len, double x) { int e; uint64_t m; x = frexp(x, &e); if (x < 0.0) x = -(x + 0.5);
     x *= (double)((uint64_t)1 << 63); m = (uint64_t)(int64_t)x; m = m + (((uint64_t)1 << 63) / 1024) * (uint64_t)(int64_t)e; pl_gnu_h64(h, len, m); }
-static int pl_gnu_hash_walk(DESCR_t t, uint32_t *h, uint32_t *len) { extern const char *prolog_atom_name(int); extern char *rt_big_str(DESCR_t);
-    for (;;) { DESCR_t d = rt_pl_deref_val(t); const char *s;
-        if (pl_val_unbound(d)) return 0;
-        if (pl_is_cons(d)) { DESCR_t *kids = (DESCR_t *)d.p; if (!pl_gnu_hash_walk(kids[0], h, len)) return 0; t = kids[1]; continue; }
-        if (d.v == (DTYPE_t)DT_PLREF) { int ar = plc_fid_arity(d.slen); const char *fn = prolog_atom_name(plc_fid_name(d.slen)); DESCR_t *kids = (DESCR_t *)d.p;
-            pl_gnu_h32(h, len, pl_gnu_atom_hash(fn ? fn : "")); pl_gnu_h32(h, len, (uint32_t)ar);
-            if (ar == 0) return 1;
-            for (int i = 0; i < ar - 1; i++) if (!pl_gnu_hash_walk(kids[i], h, len)) return 0;
-            t = kids[ar - 1]; continue; }
-        if ((s = pl_atom_str(d))) { pl_gnu_h32(h, len, pl_gnu_atom_hash(s)); return 1; }
-        if (d.v == DT_I) { pl_gnu_h64(h, len, (uint64_t)d.i); return 1; }
-        if (d.v == DT_R) { pl_gnu_hdbl(h, len, d.r); return 1; }
-        if (d.v == DT_BIG) { pl_gnu_h32(h, len, pl_gnu_atom_hash(rt_big_str(d))); return 1; }
-        pl_gnu_h64(h, len, (uint64_t)d.i); return 1; } }
+#define PL_HASH_ON_PATH ((DTYPE_t)(DT_PLREF + 1))
+static int pl_gnu_hash_walk(DESCR_t *c, uint32_t *h, uint32_t *len) { extern const char *prolog_atom_name(int); extern char *rt_big_str(DESCR_t);
+    DESCR_t *first = (DESCR_t *)0; long nmarked = 0; int ret = 1;
+    for (;;) { DESCR_t *d = plw_cell_deref(plw_entry(c)); const char *s;
+        if (d->v == PL_HASH_ON_PATH) { pl_gnu_h32(h, len, 0x9e3779b9u); break; }
+        if (plw_unbound_tag(d)) { ret = 0; break; }
+        if (d->v == (DTYPE_t)DT_PLREF) { int ar = plc_fid_arity(d->slen); DESCR_t *kids = (DESCR_t *)d->p;
+            if (!pl_is_cons(*d)) { const char *fn = prolog_atom_name(plc_fid_name(d->slen)); pl_gnu_h32(h, len, pl_gnu_atom_hash(fn ? fn : "")); pl_gnu_h32(h, len, (uint32_t)ar); }
+            if (ar == 0) break;
+            d->v = PL_HASH_ON_PATH; if (!nmarked++) first = d;
+            int bad = 0; for (int i = 0; i < ar - 1; i++) if (!pl_gnu_hash_walk(&kids[i], h, len)) { bad = 1; break; }
+            if (bad) { ret = 0; break; }
+            c = &kids[ar - 1]; continue; }
+        if ((s = pl_atom_str(*d))) { pl_gnu_h32(h, len, pl_gnu_atom_hash(s)); break; }
+        if (d->v == DT_I) { pl_gnu_h64(h, len, (uint64_t)d->i); break; }
+        if (d->v == DT_R) { pl_gnu_hdbl(h, len, d->r); break; }
+        if (d->v == DT_BIG) { pl_gnu_h32(h, len, pl_gnu_atom_hash(rt_big_str(*d))); break; }
+        pl_gnu_h64(h, len, (uint64_t)d->i); break; }
+    for (DESCR_t *d = first; nmarked > 0; nmarked--) { d->v = (DTYPE_t)DT_PLREF; if (nmarked > 1) d = plw_cell_deref(plw_entry(&((DESCR_t *)d->p)[plc_fid_arity(d->slen) - 1])); }
+    return ret; }
 PL_CX_LEAF_HEAD(gnu_term_hash, 2) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t hv = rt_pl_deref_val(args[1]); uint32_t h = 1688943522u, len = 0; ok = 0;
     if (!pl_val_unbound(hv) && hv.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", hv);
-    else if (!pl_gnu_hash_walk(args[0], &h, &len)) ok = 1;
+    else if (!pl_gnu_hash_walk(&args[0], &h, &len)) ok = 1;
     else ok = plw_unify_vals(args[1], INTVAL((int64_t)(pl_gnu_hfinal(h, len) % (1u << 28))), cx); pl_gnu_ctx(cx, "term_hash", 2); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(gnu_prolog_pid, 1) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t d = rt_pl_deref_val(args[0]); ok = 0;
     if (!pl_val_unbound(d) && d.v != DT_I) cx->ball = rt_pl_ball_kind2("type_error", "integer", d);
