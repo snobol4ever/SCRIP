@@ -2092,8 +2092,8 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
     extern void *rt_pl_ball_type_pi(const char *kind, const char *what, const char *nm, int ar);
     DESCR_t *kids = (DESCR_t *)0; int ar = 0;
     { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
-    const char *gnm = rt_pl_goal_key(goal, n, &kids, &ar); char key[gnm ? fmt_len("$mc:%s/%d", gnm, ar + n) : 1];
-    if (gnm) snprintf(key, sizeof key, "%s/%d", gnm, ar + n);
+    const char *gnm = rt_pl_goal_key(goal, n, &kids, &ar); size_t kcap = gnm ? (size_t)fmt_len("$mc:%s/%d", gnm, ar + n) : 1; char kfix[288];
+    char *key = kcap <= sizeof kfix ? kfix : (char *)rt_wsb_alloc(kcap); if (kcap < sizeof kfix) kcap = sizeof kfix; if (gnm) snprintf(key, kcap, "%s/%d", gnm, ar + n);
     if (!gnm) {
         extern void *rt_pl_dop_goal_guard_c(DESCR_t *args, int nargs);
         DESCR_t gg = goal; void *gb = rt_pl_dop_goal_guard_c(&gg, 1);
@@ -2101,7 +2101,7 @@ DESCR_t rt_pl_goal_gen_h_c(DESCR_t goal, DESCR_t *argv, int n, void **hslot, voi
         { extern void rt_bomb(const char *msg); rt_bomb("rt_pl_goal_gen_h_c: the no-ball path is UNREACHABLE BY CONSTRUCTION -- its one caller (unification.c, the C meta-call road) always passes a ball slot; since the meta-call row this is a C-only road, never emitted."); }
         return FAILDESCR; }
     { void *cb = pl_goal_body_conv_ball(goal, key, n); if (cb && ball) { *ball = cb; return FAILDESCR; } }
-    if (!pl_goal_key_live(key, sizeof key)) {
+    if (!pl_goal_key_live(key, kcap)) {
         if (ball) { *ball = rt_pl_ball_existence_key(key); return FAILDESCR; }
         rt_pl_iso_throw_existence_key(key); return FAILDESCR; }
     rt_pl_goal_stage(kids, ar, argv, n);
