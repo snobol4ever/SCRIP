@@ -430,7 +430,7 @@ for std in "${STDFILES[@]}"; do
     elif [ "$rc3" -ge 128 ]; then M3_RUN_CRASH=$((M3_RUN_CRASH+1)); M3_RUN_CRASH_NAMES+=("$id(sig$((rc3-128)))"); ipl_progress "$id" m3 CRASH
     elif [ "$by3" -gt "$MAX_BYTES" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id(oversized:$by3)"); ipl_progress "$id" m3 FAIL
     elif [ -n "$want_rc" ] && [ "$rc3" -ne "$want_rc" ]; then M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id(rc$rc3-not-$want_rc)"); ipl_progress "$id" m3 FAIL
-    elif { python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m3.out" > "$TMP/${base}.m3.voice" 2>/dev/null; cmp -s "$TMP/${base}.m3.voice" "$std"; }; then M3_RUN_PASS=$((M3_RUN_PASS+1)); ipl_progress "$id" m3 PASS
+    elif { python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m3.out" > "$TMP/${base}.m3.voice" 2>/dev/null; ipl_graded_cmp "$IPL_ISO_FIXTURES" "$TMP/${base}.m3.voice" "$std"; }; then M3_RUN_PASS=$((M3_RUN_PASS+1)); ipl_progress "$id" m3 PASS
     else M3_RUN_FAIL=$((M3_RUN_FAIL+1)); M3_RUN_FAIL_NAMES+=("$id"); ipl_progress "$id" m3 FAIL; fi
 
     # -- m4 (--compile): emitting .s does not execute the target program, so THAT step is unisolated,
@@ -450,7 +450,7 @@ for std in "${STDFILES[@]}"; do
         elif [ "$rc4" -ge 128 ]; then M4_RUN_CRASH=$((M4_RUN_CRASH+1)); M4_RUN_CRASH_NAMES+=("$id(sig$((rc4-128)))"); ipl_progress "$id" m4 CRASH
         elif [ "$by4" -gt "$MAX_BYTES" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(oversized:$by4)"); ipl_progress "$id" m4 FAIL
         elif [ -n "$want_rc" ] && [ "$rc4" -ne "$want_rc" ]; then M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(rc$rc4-not-$want_rc)"); ipl_progress "$id" m4 FAIL
-        elif { python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m4.out" > "$TMP/${base}.m4.voice" 2>/dev/null; cmp -s "$TMP/${base}.m4.voice" "$std"; }; then M4_RUN_PASS=$((M4_RUN_PASS+1)); ipl_progress "$id" m4 PASS
+        elif { python3 "$HERE/util_render_error_voice.py" icon < "$TMP/${base}.m4.out" > "$TMP/${base}.m4.voice" 2>/dev/null; ipl_graded_cmp "$IPL_ISO_FIXTURES" "$TMP/${base}.m4.voice" "$std"; }; then M4_RUN_PASS=$((M4_RUN_PASS+1)); ipl_progress "$id" m4 PASS
         else M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id"); ipl_progress "$id" m4 FAIL; fi
     else
         M4_RUN_FAIL=$((M4_RUN_FAIL+1)); M4_RUN_FAIL_NAMES+=("$id(compile/link)"); ipl_progress "$id" m4 FAIL

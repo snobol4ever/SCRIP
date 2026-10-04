@@ -132,7 +132,11 @@ run_isolated() {
   [ "$ac" -eq 2 ] && return 126
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_ref_run.XXXXXX")" || return 127
   cp -r "$TEMPLATE"/. "$work"/
-  ipl_fixtures_stage "$PROGS/$f" "$work/$SUBDIR"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
+  local rd="$work/$SUBDIR" cap=""
+  ipl_alone_declared "$PROGS/$f"; case $? in 0) rd="$work/.alone"; mkdir -p "$rd" ;; 2) rm -rf "$work"; return 125 ;; esac
+  ipl_fixtures_stage "$PROGS/$f" "$rd"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
+  ipl_mask_check "$PROGS/$f" || { rm -rf "$work"; return 125; }
+  cap="$(ipl_head_declared "$PROGS/$f")" || { rm -rf "$work"; return 125; }
   stdin_src=/dev/null
   [ -f "$PROGS/${f%.icn}.dat" ] && stdin_src="$PROGS/${f%.icn}.dat"
   # ⛔⭐ THE ENVIRONMENT COMES FROM ipl_isolation_env, THE GRADER'S OWN DEFINITION, AND IS NEVER SPELLED OUT
@@ -157,12 +161,14 @@ run_isolated() {
   fi
   # ⭐ THE UNIT'S RUN SIDECARS (lib_icon_ipl_isolation.sh: NAME.env, NAME.pin, NAME.pty, NAME.outfiles), applied to iconx here exactly
   # as ipl_isolation_run applies them to both SCRIP modes -- the pin shim wraps the oracle too, or the ref comes from another world.
-  local -a _runenv=("${_isoenv[@]}") _runcmd=("$ICONX" "$bx" ${argv[@]+"${argv[@]}"})
-  ipl_env_apply "$PROGS/$f" "$work/$SUBDIR" _runenv || { rm -rf "$work"; return 125; }
+  # NAME.alone runs the linked executable from the subdirectory it was linked in, with the unit's own directory as the cwd.
+  local bxr="$bx"; [ "$rd" != "$work/$SUBDIR" ] && bxr="$work/$SUBDIR/$bx"
+  local -a _runenv=("${_isoenv[@]}") _runcmd=("$ICONX" "$bxr" ${argv[@]+"${argv[@]}"})
+  ipl_env_apply "$PROGS/$f" "$rd" _runenv || { rm -rf "$work"; return 125; }
   ipl_pty_declared "$PROGS/$f"; case $? in 0) ipl_pty_cmd _runcmd "${_runcmd[@]}" ;; 2) rm -rf "$work"; return 125 ;; esac
-  ( cd "$work/$SUBDIR" && timeout "$TIMEOUT" env "${_runenv[@]}" "${_runcmd[@]}" < "$stdin_src" > "$outfile" 2>&1 )
+  ipl_capped_run "$cap" "$rd" "$TIMEOUT" "$stdin_src" "$outfile" _runenv "${_runcmd[@]}"
   rc=$?
-  ipl_outfiles_append "$PROGS/$f" "$work/$SUBDIR" "$outfile" || { rm -rf "$work"; return 125; }
+  ipl_outfiles_append "$PROGS/$f" "$rd" "$outfile" || { rm -rf "$work"; return 125; }
   rm -rf "$work"
   return "$rc"
 }
@@ -518,7 +524,7 @@ for f in "${FILES[@]}"; do
     # ⛔ BINARY-SAFE: cmp on the two FILES, never a string equality on $out1/$out2 -- same NUL-dropping hazard
     # as the content-assertion fix above, measured on this exact confirmation loop for progs/huffstuf.icn
     # ("ignored null byte in input" on this line, twice, before this fix). cmp reads both files byte-for-byte.
-    if [ "$rc2" -ne "$rc1" ] || ! cmp -s "$OUT1" "$OUT2"; then
+    if [ "$rc2" -ne "$rc1" ] || ! ipl_graded_cmp "$PROGS/$f" "$OUT2" "$OUT1" oracle; then
       n_nondet=$((n_nondet+1)); printf 'NONDETERMINISTIC\t%s\t%s/%s\t-\tNOT MINTED -- disagreed on confirmation run %s/3\n' "$f" "$rc1" "$rc2" "$_confirm"
       continue 2
     fi
@@ -598,7 +604,7 @@ if [ "${#CANDS[@]}" -gt 0 ]; then
     cb="$(basename "$cand" .cand)"
     exp_rc="$(ipl_rc_declared "$PROGS/$cb.icn")"; [ -n "$exp_rc" ] || exp_rc=0
     run_isolated "$cb.icn" "$OUT2"; rc2=$?
-    if [ "$rc2" -ne "$exp_rc" ] || ! cmp -s "$cand" "$OUT2"; then
+    if [ "$rc2" -ne "$exp_rc" ] || ! ipl_graded_cmp "$PROGS/$cb.icn" "$OUT2" "$cand" oracle; then
       n_live=$((n_live-1)); n_nondet=$((n_nondet+1)); n_minute_reject=$((n_minute_reject+1))
       printf 'NONDETERMINISTIC\t%s.icn\t%s\t-\tNOT MINTED -- agreed across four sub-second runs and DIFFERED across a minute boundary (clock-granularity dependence, e.g. &dateline)\n' "$cb" "$rc2"
       continue

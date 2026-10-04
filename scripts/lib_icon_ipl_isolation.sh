@@ -165,8 +165,12 @@ ipl_isolation_run() {
   work="$(mktemp -d "${TMPDIR:-/tmp}/ipl_iso_run.XXXXXX")" || return 127
   cp -r "$IPL_ISO_TEMPLATE"/. "$work"/
   [ -d "$work/$sub" ] || { echo "⛔ ipl_isolation_run: no such package subdirectory: $sub" >&2; rm -rf "$work"; return 127; }
+  local rd="$work/$sub" cap=""
   if [ -n "${IPL_ISO_FIXTURES:-}" ]; then
-    ipl_fixtures_stage "$IPL_ISO_FIXTURES" "$work/$sub"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
+    ipl_alone_declared "$IPL_ISO_FIXTURES"; case $? in 0) rd="$work/.alone"; mkdir -p "$rd" ;; 2) rm -rf "$work"; return 125 ;; esac
+    ipl_fixtures_stage "$IPL_ISO_FIXTURES" "$rd"; [ $? -eq 2 ] && { rm -rf "$work"; return 125; }
+    ipl_mask_check "$IPL_ISO_FIXTURES" || { rm -rf "$work"; return 125; }
+    cap="$(ipl_head_declared "$IPL_ISO_FIXTURES")" || { rm -rf "$work"; return 125; }
   fi
   local -a _isoenv=(); ipl_isolation_env "$work" _isoenv
   # ⛔ A DRIVER RUN LINKS THE LIBRARY SHIPPED BESIDE IT (CEO-1269; coo 2026-09-25, hq_icon's ask): ICONPATH above names progs/ first,
@@ -174,15 +178,15 @@ ipl_isolation_run() {
   # the driver's own isolated directory first on IPATH, which SCRIP and icont read before ICONPATH -- as the Arizona and Jcon runners
   # give a NAME_driver run (09ee9fb91). Any other program runs exactly as before.
   [ -n "${IPL_ISO_DRIVER:-}" ] && _isoenv+=("IPATH=$work/$sub")
-  # ⭐ THE UNIT'S RUN SIDECARS (NAME.env, NAME.pin, NAME.pty, NAME.outfiles), applied exactly as the cutter applies them.
+  # ⭐ THE UNIT'S RUN SIDECARS (NAME.env, NAME.pin, NAME.shims/, NAME.pty, NAME.alone, NAME.head, NAME.outfiles), applied exactly as the cutter applies them.
   local -a _cmd=("$@")
   if [ -n "${IPL_ISO_FIXTURES:-}" ]; then
-    ipl_env_apply "$IPL_ISO_FIXTURES" "$work/$sub" _isoenv || { rm -rf "$work"; return 125; }
+    ipl_env_apply "$IPL_ISO_FIXTURES" "$rd" _isoenv || { rm -rf "$work"; return 125; }
     ipl_pty_declared "$IPL_ISO_FIXTURES"; case $? in 0) ipl_pty_cmd _cmd "$@" ;; 2) rm -rf "$work"; return 125 ;; esac
   fi
-  ( cd "$work/$sub" && timeout "$to" env "${_isoenv[@]}" "${_cmd[@]}" < "$stdin_src" > "$outfile" 2>&1 )
+  ipl_capped_run "$cap" "$rd" "$to" "$stdin_src" "$outfile" _isoenv "${_cmd[@]}"
   rc=$?
-  if [ -n "${IPL_ISO_FIXTURES:-}" ]; then ipl_outfiles_append "$IPL_ISO_FIXTURES" "$work/$sub" "$outfile" || { rm -rf "$work"; return 125; }; fi
+  if [ -n "${IPL_ISO_FIXTURES:-}" ]; then ipl_outfiles_append "$IPL_ISO_FIXTURES" "$rd" "$outfile" || { rm -rf "$work"; return 125; }; fi
   rm -rf "$work"
   return "$rc"
 }
@@ -360,6 +364,7 @@ ipl_env_apply() {
     so="$(ipl_pin_shim_path)" || return 2
     eval "$arr+=(\"LD_PRELOAD=\$so\")"
   fi
+  ipl_shims_apply "$icn" "$run" "$arr" || return 2
   return 0
 }
 # ipl_pin_shim_path -- echoes the built shim, compiling scripts/ipl_pin_shim.c once per source hash into a cache directory.
@@ -411,4 +416,79 @@ ipl_pty_cmd() {
   local arr="$1"; shift; local q="" a
   for a in "$@"; do q="$q $(printf '%q' "$a")"; done
   eval "$arr=(script -qefc \"\${q# }\" /dev/null)"
+}
+# ⭐⭐ THE RUN- AND ENVIRONMENT-DEPENDENT UNITS RUN AND ARE GRADED (Lon CEO-1474, in-chat to hq_icon 2026-10-04, verbatim: "The answer is the test
+# harness needs a mechanism for masking to allow these tests which are run-dependent, or environment dependent so that these tests can actually
+# run and be graded."). Four more per-unit sidecars beside NAME.icn, read here and applied by the cutter and both modes alike:
+#   NAME.mask     what varies with the run or the box: the CEO-409 rows (entry<TAB>python-regex-or-L<n><TAB>measured reason, ceo CEO-1504), read
+#                 through util_apply_ceo409_mask.py on BOTH sides of every comparison; the ref on disk stays the oracle's raw output.
+#   NAME.shims/   stand-in host commands (an MS-DOS dir, an ULTRIX ls, a fixed nm), put first on PATH for the unit's run alone.
+#   NAME.alone    one line of reason: the unit runs in a directory of its own holding only its NAME.fixtures/ (a program that lists its cwd).
+#   NAME.head     one integer: the run's output is cut at that many bytes and the cut ends the run (a program that never stops writing).
+# ipl_mask_check <icn> -- 0 when there is no NAME.mask or the harness's own reader accepts it, 2 when it refuses (CEO-1504: the IPL mask IS the
+# CEO-409 mask -- rows entry<TAB>python-regex-or-L<n><TAB>measured reason, read through util_apply_ceo409_mask.py, never a second masker).
+ipl_mask_check() {
+  local side="${1%.icn}.mask" c rc
+  [ -f "$side" ] || return 0
+  c="$(mktemp "${TMPDIR:-/tmp}/ipl_mask_n.XXXXXX")" || return 2
+  python3 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_apply_ceo409_mask.py" "${1%.icn}.ref" "$(basename "${1%.icn}")" "$c" < /dev/null > /dev/null; rc=$?
+  rm -f "$c" "$c.major"; [ "$rc" -eq 0 ] || return 2
+}
+# ipl_graded_cmp <icn> <got> <ref> [scrip|oracle] -- 0 when the two streams agree after the unit's CEO-409 rows mask both (a plain cmp without a
+# NAME.mask). <got> is SCRIP's rendered output (the default) or a second oracle run (the cutter's determinism arms); <ref> is always the oracle's.
+# A mask guardrail 4 rules a majority of either stream refuses (rc 2): a fixture mostly masked is ungradable, never graded (CEO-409, CEO-1504).
+ipl_graded_cmp() {
+  local side="${1%.icn}.mask" m e a b c rc
+  [ -f "$side" ] || { cmp -s "$2" "$3"; return; }
+  m="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_apply_ceo409_mask.py"; e="$(basename "${1%.icn}")"
+  a="$(mktemp "${TMPDIR:-/tmp}/ipl_mask_a.XXXXXX")" && b="$(mktemp "${TMPDIR:-/tmp}/ipl_mask_b.XXXXXX")" && c="$(mktemp "${TMPDIR:-/tmp}/ipl_mask_n.XXXXXX")" || return 2
+  rc=0
+  python3 "$m" "${1%.icn}.ref" "$e" "$c" "--side=${4:-scrip}" < "$2" > "$a" || rc=2
+  [ "$rc" -eq 0 ] && [ "$(cat "$c.major" 2>/dev/null)" = 1 ] && { echo "⛔ MASK SIDECAR REFUSES(2): $side masks a majority of $2 (guardrail 4)" >&2; rc=2; }
+  [ "$rc" -eq 0 ] && { python3 "$m" "${1%.icn}.ref" "$e" "$c" --side=oracle < "$3" > "$b" || rc=2; }
+  [ "$rc" -eq 0 ] && [ "$(cat "$c.major" 2>/dev/null)" = 1 ] && { echo "⛔ MASK SIDECAR REFUSES(2): $side masks a majority of $3 (guardrail 4)" >&2; rc=2; }
+  [ "$rc" -eq 0 ] && { cmp -s "$a" "$b" || rc=1; }
+  rm -f "$a" "$b" "$c" "$c.major"; return "$rc"
+}
+# ipl_shims_apply <icn> <rundir> <arrname> -- when NAME.shims/ exists, copies it beside the run directory and appends a PATH that puts it
+# first ahead of the PATH the array already holds; refuses (2) a shim that is not a regular executable file.
+ipl_shims_apply() {
+  local src="${1%.icn}.shims" run="$2" arr="$3" dst p="" e f
+  [ -d "$src" ] || return 0
+  dst="$(dirname "$run")/.ipl_shims"; rm -rf "$dst"; mkdir -p "$dst" || return 2
+  for f in "$src"/*; do
+    [ -f "$f" ] || { echo "⛔ SHIMS SIDECAR REFUSES(2): $f is not a regular file" >&2; return 2; }
+    [ -x "$f" ] || { echo "⛔ SHIMS SIDECAR REFUSES(2): $f is not executable -- a stand-in command must run (git add --chmod=+x)" >&2; return 2; }
+    cp "$f" "$dst"/ || return 2
+  done
+  eval 'for e in "${'"$arr"'[@]}"; do case "$e" in PATH=*) p="${e#PATH=}";; esac; done'
+  eval "$arr+=(\"PATH=\$dst:\$p\")"
+}
+# ipl_alone_declared <icn> -- 0 when NAME.alone asks for a run directory of its own (a reason of 20+ characters), 1 absent, 2 malformed.
+ipl_alone_declared() {
+  local side="${1%.icn}.alone" r
+  [ -f "$side" ] || return 1
+  r="$(_ipl_side_lines "$side")"
+  [ "${#r}" -ge 20 ] || { echo "⛔ ALONE SIDECAR REFUSES(2): $side must say WHY the unit needs a directory of its own (20+ characters)" >&2; return 2; }
+  return 0
+}
+# ipl_head_declared <icn> -- echoes the byte cap NAME.head declares (nothing when absent); refuses (2) anything but one integer 1..67108864.
+ipl_head_declared() {
+  local side="${1%.icn}.head" v
+  [ -f "$side" ] || return 0
+  v="$(_ipl_side_lines "$side")"
+  if [ "$(printf '%s\n' "$v" | grep -c .)" -ne 1 ] || ! [[ "$v" =~ ^[[:space:]]*([0-9]{1,8})[[:space:]]*$ ]] || [ "$((10#${BASH_REMATCH[1]}))" -lt 1 ] || [ "$((10#${BASH_REMATCH[1]}))" -gt 67108864 ]; then
+    echo "⛔ HEAD SIDECAR REFUSES(2): $side must hold one byte count 1..67108864 on its only non-comment line" >&2; return 2
+  fi
+  echo "$((10#${BASH_REMATCH[1]}))"
+}
+# ipl_capped_run <cap> <dir> <to> <stdin> <outfile> <envarr> cmd... -- runs cmd in dir with stdout+stderr to outfile; with a cap the output is
+# cut at <cap> bytes and a run the cut ends (the program reached the cap) reads as status 0, so the cap is the run's declared end.
+ipl_capped_run() {
+  local cap="$1" dir="$2" to="$3" in="$4" out="$5" arr="$6" rc; shift 6
+  local -a _e; eval '_e=("${'"$arr"'[@]}")'
+  if [ -z "$cap" ]; then ( cd "$dir" && timeout "$to" env "${_e[@]}" "$@" < "$in" > "$out" 2>&1 ); return; fi
+  ( cd "$dir" && timeout "$to" env "${_e[@]}" "$@" < "$in" 2>&1 | head -c "$cap" > "$out"; exit "${PIPESTATUS[0]}" ); rc=$?
+  [ "$rc" -ne 124 ] && [ "$(wc -c < "$out")" -ge "$cap" ] && rc=0
+  return "$rc"
 }

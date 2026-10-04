@@ -26,6 +26,7 @@ sg_fresh_pkg() {
 sg_doctor() {
   local code="$1" file="${2:-lib_icon_ipl_isolation.sh}" d="$SG_T/doctored.$RANDOM"
   mkdir -p "$d"; cp "$SG_HERE"/util_cut_icon_ipl_refs.sh "$SG_HERE"/lib_oracle_flags.sh "$SG_HERE"/lib_icon_ipl_isolation.sh "$SG_HERE"/ipl_pin_shim.c "$SG_HERE"/test_icon_ipl_suite.sh "$d"/
+  cp "$SG_HERE"/util_apply_ceo409_mask.py "$SG_HERE"/corpus_suite_harness.py "$SG_HERE"/util_render_error_voice.py "$d"/
   python3 - "$d/$file" "$code" <<'PY' || { echo "⛔ GATE REFUSE(2): the doctoring edit did not apply" >&2; return 2; }
 import sys
 p, code = sys.argv[1], sys.argv[2]
@@ -62,8 +63,9 @@ sg_verdict() {
       if [ -x "$bin" ]; then ipl_isolation_run "$out4" 60 "$stdin" "$bin" -- "${A[@]}"; echo $? > "$out4.rc"; else echo 99 > "$out4.rc"; : > "$out4"; fi
       ipl_isolation_cleanup )
     rc3="$(cat "$out3.rc" 2>/dev/null || echo 99)"; rc4="$(cat "$out4.rc" 2>/dev/null || echo 99)"
-    python3 "$SG_HERE/util_render_error_voice.py" icon < "$out3" 2>/dev/null | cmp -s - "$SG_REF" && { [ -z "$want" ] || [ "$rc3" = "$want" ]; } && v3=PASS
-    python3 "$SG_HERE/util_render_error_voice.py" icon < "$out4" 2>/dev/null | cmp -s - "$SG_REF" && { [ -z "$want" ] || [ "$rc4" = "$want" ]; } && v4=PASS
+    python3 "$SG_HERE/util_render_error_voice.py" icon < "$out3" > "$out3.v" 2>/dev/null; python3 "$SG_HERE/util_render_error_voice.py" icon < "$out4" > "$out4.v" 2>/dev/null
+    ( . "$sd/lib_icon_ipl_isolation.sh"; ipl_graded_cmp "$SG_PKG/progs/$n.icn" "$out3.v" "$SG_REF" ) && { [ -z "$want" ] || [ "$rc3" = "$want" ]; } && v3=PASS
+    ( . "$sd/lib_icon_ipl_isolation.sh"; ipl_graded_cmp "$SG_PKG/progs/$n.icn" "$out4.v" "$SG_REF" ) && { [ -z "$want" ] || [ "$rc4" = "$want" ]; } && v4=PASS
   fi
   echo "MINTED=$minted M3=$v3 M4=$v4 REF=$( [ -f "$SG_REF" ] && wc -c < "$SG_REF" || echo -)"
 }

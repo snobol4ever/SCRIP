@@ -11,3 +11,4 @@ corpus	packages/icon/ipl/ALL.ref	one line of captured program output in the IPL 
 corpus	packages/icon/ipl/progs/literat.dat	classic Mac data with bare CR line endings, not DOS CR-LF, read as data by IPL literat
 corpus	packages/icon/ipl/progs/nocr.fixtures/nocr_dos.txt	the CR-LF input of IPL nocr, whose whole job is to strip carriage returns from the files named on its command line: the unit's fixture must carry them
 corpus	packages/icon/ipl/progs/yescr.ref	the oracle's captured output of IPL yescr, which adds a carriage return to every line of its file: those CRs are the program's output bytes
+corpus	packages/icon/ipl/progs/filexref.ref	the oracle ref of IPL filexref, an MS-DOS report writer that ends its heading line with "\r\n" itself (filexref.icn:131 writes _q, "\r\n"): that CR is the program's output byte, graded in both modes (Lon CEO-1474)
