@@ -11,7 +11,7 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct {
     IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln; const char ** gn; int ngn; const char * pname;
     IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;     IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line; int after_line;
+    IR_t * loop_stk_exit[64]; IR_t * loop_stk_next[64]; IR_t * loop_stk_fail[64]; IR_t * loop_fail; int loop_sp; IR_t * scan_stk_enter[16]; int scan_sp; int loop_next_ssp; int want_lines; int end_line; int after_line; const tree_t * discard;
     int ret_lv; const char * file; int links;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
@@ -1248,8 +1248,39 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long icn_first_line(const tree_t * t) {
+    if (!t) return 0;
+    if (t->line > 0) return t->line;
+    for (int i = 0; i < t->n; i++) { long l = icn_first_line(t->c[i]); if (l > 0) return l; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_has_rec(const tree_t * t) {
+    if (!t) return 0;
+    switch (t->t) {
+    case TT_VAR: if (t->v.sval && t->v.sval[0] == '&') return 1; break;
+    case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET: case TT_NUL: case TT_ALTERNATE: case TT_REPALT: case TT_LOOP_BREAK: case TT_LOOP_NEXT: case TT_CASE:
+    case TT_IF: case TT_UNLESS: case TT_BANG_BINARY: case TT_NOT: case TT_SEQ_EXPR: case TT_EVERY: case TT_WHILE: case TT_UNTIL: case TT_REPEAT: case TT_STMT: break;
+    default: return 1;
+    }
+    for (int i = 0; i < t->n; i++) if (icn_has_rec(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long icn_part_line(const tree_t * t) { return icn_has_rec(t) ? icn_first_line(t) : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_parts_split(long a, long b) { return a > 0 && b > 0 && a != b; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * icn_part_mark(icx_t * cx, long line, IR_t * next, int back) {
+    IR_t * m = build(cx, IR_LINE_MARK, NULL, NULL); m->pat_static = line;
+    if (back) { γ_to(m, next); ω_to(m, next); } else { lc_γ_to_α(m, next); lc_ω_to_α(m, next); }
+    if (cx->links || cx->want_lines) IR_LIT(m).sval = (char *) cx->file;
+    return m;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    long cl = icn_first_line(C), bl = icn_part_line(B); int split = icn_parts_split(cl, bl);
     IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres;
@@ -1258,10 +1289,12 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, BENT, W, &cval);
     IR_t * mark = build(cx, IR_BOUND, NULL, NULL); lc_γ_to_α(mark, centry); lc_ω_to_α(mark, centry);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, mark); lc_ω_to_α(CENT, mark);
-    IR_t * unmk = build(cx, IR_UNMARK, CENT, CENT); ir_operand_push(unmk, mark);
+    IR_t * back = split ? icn_part_mark(cx, cl, CENT, 0) : CENT;
+    IR_t * unmk = build(cx, IR_UNMARK, back, back); ir_operand_push(unmk, mark);
     cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
     if (cx->loop_sp - 1 >= 0 && cx->loop_sp - 1 < ICN_LOOP_STK_MAX) cx->loop_stk_next[cx->loop_sp - 1] = unmk;
-    IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
+    IR_t * bval = NULL; cx->discard = B; IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
+    if (split) b_entry = icn_part_mark(cx, bl, b_entry, 0);
     cx->loop_sp--;
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
@@ -1271,6 +1304,7 @@ static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    long cl = icn_first_line(C), bl = icn_part_line(B); int split = icn_parts_split(cl, bl);
     IR_t * U = build(cx, IR_GOTO, ω, ω); γ_to(U, ω); ω_to(U, ω);
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
@@ -1278,9 +1312,11 @@ static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
     IR_t * mark = build(cx, IR_BOUND, NULL, NULL); lc_γ_to_α(mark, centry); lc_ω_to_α(mark, centry);
     IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, mark); lc_ω_to_α(CENT, mark);
-    IR_t * unmk = build(cx, IR_UNMARK, CENT, CENT); ir_operand_push(unmk, mark);
+    IR_t * back = split ? icn_part_mark(cx, cl, CENT, 0) : CENT;
+    IR_t * unmk = build(cx, IR_UNMARK, back, back); ir_operand_push(unmk, mark);
     cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
-    IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++; IR_t * bval = NULL; b_entry = lower(cx, B, unmk, unmk, &bval); cx->loop_sp--; } else b_entry = unmk;
+    IR_t * b_entry; if (B) { if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++; IR_t * bval = NULL; cx->discard = B; b_entry = lower(cx, B, unmk, unmk, &bval); cx->loop_sp--; } else b_entry = unmk;
+    if (split && B) b_entry = icn_part_mark(cx, bl, b_entry, 0);
     lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return CENT; } }
@@ -1296,8 +1332,9 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres; cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
     if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
-    IR_t * bval = NULL; IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
+    IR_t * bval = NULL; cx->discard = B; IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
     cx->loop_sp--;
+    if (icn_parts_split(t->line, icn_part_line(B))) b_entry = icn_part_mark(cx, icn_part_line(B), b_entry, 0);
     lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);
     lc_γ_to(H, mark); lc_ω_to(H, mark);
     cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
@@ -1407,7 +1444,7 @@ static IR_t * lower_result_operand(icx_t * cx, const tree_t * t, IR_t * γ, IR_t
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
     IR_graph_t * g = cx->g;
-    int n = EL ? 2 : 1;
+    int n = EL ? 2 : 1; long cl = (t->line > 0 || cx->discard == t) ? icn_first_line(C) : 0;
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
     γ_to(dj, γ); ω_to(dj, ω);
     IR_t * fs = IR_node_alloc(g, IR_FAIL);
@@ -1415,10 +1452,11 @@ static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     for (int j = 0; j < n; j++) {
         const tree_t * ARM = j ? EL : TH;
         int before = g->n;
-        IR_t * ar = NULL; cx->beta = dj;
+        IR_t * ar = NULL; cx->beta = dj; if (cl > 0) cx->discard = ARM;
         IR_t * aent = lower(cx, ARM, dj, ω, &ar);
         IR_t * ab = cx->beta; int arm_end = g->n;
         int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        if (aent && aent != dj && icn_parts_split(cl, icn_part_line(ARM))) aent = icn_part_mark(cx, icn_part_line(ARM), aent, 0);
         if (j == 0) {
             IR_t * aent0 = aent; int cbefore = g->n;
             IR_t * cval = NULL; aent = lower(cx, C, aent, dj, &cval); (void) cval;
@@ -1455,7 +1493,7 @@ static IR_t * lower_case(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     int nc = t->n - 1, npairs = nc / 2, n = npairs + (nc % 2 == 1), dk = -1;
     for (int j = 0; j < npairs; j++) if (t->c[1 + 2 * j] && t->c[1 + 2 * j]->t == TT_NUL) { dk = j; break; }
-    IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
+    long sl = (t->line > 0 || cx->discard == t) ? icn_first_line(t->c[0]) : 0; IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
     if (n == 0) { γ_to(sr, ω); cx->beta = ω; *res = sr; return se; }
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
     γ_to(dj, γ); ω_to(dj, ω);
@@ -1466,10 +1504,11 @@ static IR_t * lower_case(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
         const tree_t * SEL = (pj < npairs && pj != dk) ? t->c[1 + 2 * pj] : NULL;
         const tree_t * BODY = (pj < npairs) ? t->c[2 + 2 * pj] : t->c[t->n - 1];
         int before = g->n;
-        IR_t * ar = NULL; cx->beta = dj;
+        IR_t * ar = NULL; cx->beta = dj; if (sl > 0) cx->discard = BODY;
         IR_t * aent = lower(cx, BODY, dj, ω, &ar);
         IR_t * ab = cx->beta; int arm_end = g->n;
         int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        if (aent && aent != dj && icn_parts_split(sl, icn_part_line(BODY))) aent = icn_part_mark(cx, icn_part_line(BODY), aent, 0);
         if (SEL) {
             IR_t * aent0 = aent; cx->beta = dj;
             IR_t * kn = NULL; IR_t * ke = lower(cx, SEL, NULL, dj, &kn);
@@ -1653,6 +1692,7 @@ static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     const tree_t * E = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    long el = icn_first_line(E), bl = icn_part_line(B); int split = icn_parts_split(el, bl);
     IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL;
     IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
     IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; int slns = cx->loop_next_ssp; cx->loop_exit = bres; cx->loop_fail = ω; cx->loop_next_ssp = cx->scan_sp;
@@ -1664,12 +1704,14 @@ static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR
     IR_t * bval = NULL; (void) bval; IR_t * b_entry;
     if (B) {
         IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
-        IR_t * unmk = build(cx, IR_UNMARK, gen_beta, gen_beta);
+        IR_t * back = split ? icn_part_mark(cx, el, gen_beta, 1) : gen_beta;
+        IR_t * unmk = build(cx, IR_UNMARK, back, back);
         ir_operand_push(unmk, mark);
         cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
         if (cx->loop_sp < ICN_LOOP_STK_MAX) { cx->loop_stk_exit[cx->loop_sp] = cx->loop_exit; cx->loop_stk_next[cx->loop_sp] = cx->loop_next; cx->loop_stk_fail[cx->loop_sp] = cx->loop_fail; } cx->loop_sp++;
-        b_entry = lower(cx, B, unmk, unmk, &bval);
+        cx->discard = B; b_entry = lower(cx, B, unmk, unmk, &bval);
         cx->loop_sp--;
+        if (split) b_entry = icn_part_mark(cx, bl, b_entry, 0);
         lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);
         b_entry = mark;
     }
