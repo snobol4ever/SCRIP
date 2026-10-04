@@ -355,7 +355,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
         "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
-        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
+        "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
         "__rk_hash",
         "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail",
@@ -5328,6 +5328,20 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         for (int i = 0; i < a.n; i++) r[i] = a.el[a.n - 1 - i];
         *out = rk_mk_arr(r, a.n); return 1;
     }
+    if (!strcmp(fn, "pick") && nargs >= 1) {
+        int listargs = nargs, noarg = 1; long long n = 1;
+        if (nargs >= 2 && (IS_INT_fn(args[nargs - 1]) || (rk_typeobj_name(args[nargs - 1]) && !strcmp(rk_typeobj_name(args[nargs - 1]), "Whatever")))) {
+            listargs = nargs - 1; noarg = 0; n = IS_INT_fn(args[nargs - 1]) ? args[nargs - 1].i : 0x7fffffff;
+        }
+        rk_av_t a = rk_av_args(args, 0, listargs);
+        int m = a.n; DESCR_t *r = m ? (DESCR_t *) rt_ws_alloc_descr((size_t) m) : NULL;
+        for (int i = 0; i < m; i++) r[i] = rk_av_elem(a, i);
+        if (n > m) n = m;
+        if (n < 0) n = 0;
+        for (int i = 0; i < n; i++) { int j = i + (int) (random() % (m - i)); DESCR_t t = r[i]; r[i] = r[j]; r[j] = t; }
+        if (noarg) { *out = m ? r[0] : NULVCL; return 1; }
+        *out = rk_mk_arr(r, (int) n); return 1;
+    }
     if ((!strcmp(fn, "head") || !strcmp(fn, "tail")) && nargs >= 1) {
         int is_tail = (fn[0] == 't');
         long long n = 1; int listargs = nargs;
@@ -5335,6 +5349,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             char nb[64]; const char *ns = to_cstring(args[nargs - 1], nb, sizeof nb);
             char *ep; long long v = strtoll(ns ? ns : "", &ep, 10);
             if (ns && ep > ns) n = v;
+            if (rk_typeobj_name(args[nargs - 1]) && !strcmp(rk_typeobj_name(args[nargs - 1]), "Whatever")) n = 0x7fffffff;
             listargs = nargs - 1;
         }
         rk_av_t a = rk_av_args(args, 0, listargs);
@@ -6102,7 +6117,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
                 int is_arrm = !strcmp(mname0, "kv") || !strcmp(mname0, "reverse") || !strcmp(mname0, "unique") || !strcmp(mname0, "sort")
                            || ((!strcmp(mname0, "map") || !strcmp(mname0, "grep")) && nargs == 3 && args[2].v == DT_BLK)
                            || !strcmp(mname0, "elems") || !strcmp(mname0, "end") || !strcmp(mname0, "join") || !strcmp(mname0, "sum")
-                           || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "min")
+                           || !strcmp(mname0, "head") || !strcmp(mname0, "tail") || !strcmp(mname0, "pick") || !strcmp(mname0, "min")
                            || !strcmp(mname0, "max") || !strcmp(mname0, "first")
                            || (!strcmp(mname0, "reduce") && nargs == 3 && args[2].v == DT_BLK)
                            || !strcmp(mname0, "keys") || !strcmp(mname0, "values") || rk_list_coercion_meth(mname0, nargs);

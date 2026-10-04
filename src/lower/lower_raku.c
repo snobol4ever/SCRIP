@@ -563,6 +563,12 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             tree_t * cf = ast_node_new(TT_FNC); cf->v.sval = t->v.sval; ast_push(cf, leaf_sval2(TT_VAR, t->v.sval));
             return lower_rv(cx, cf, γ, ω, res);
         }
+        if (t->v.sval && !strcmp(t->v.sval, "*") && !t->n) {
+            tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__rk_typeobj";
+            tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__rk_typeobj"; ast_push(mc, nmv);
+            tree_t * bq = ast_node_new(TT_QLIT); bq->v.sval = (char *)"Whatever"; ast_push(mc, bq);
+            return lower_rcall(cx, mc, "__rk_typeobj", 1, γ, ω, res);
+        }
         if ((t->slen & 1) && t->v.sval && t->v.sval[0] == '&' && t->v.sval[1] && rk_proc_known(t->v.sval + 1)) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__blk_ref";
             tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__blk_ref"; ast_push(mc, nmv);
