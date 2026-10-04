@@ -127,7 +127,7 @@ static std::string pl_arm_is(int argbase, int resoff) {
        + x86("test", "eax", "eax") + x86_omega("jz") + x86_gamma()
        + x86("def", L(PL_L_COLD)) + x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)2) + x86("call", "rt_pl_is_cold", (uint64_t)(uintptr_t)(void *)rt_pl_is_cold)
        + x86("mov", FRQ(argbase + 16), "rax") + x86("mov", FRQ(argbase + 24), "rdx") + x86("mov", FRQ(resoff), "rax") + x86("mov", FRQ(resoff + 8), "rdx") + x86_rt_gc_poll()
-       + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je") + x86("jmp", L(120)) + pl_tail();
+       + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je") + x86("lea", "rdi", FRQ(argbase + 16)) + x86("jmp", L(120)) + pl_tail();
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -282,10 +282,11 @@ static std::string pl_arm_mkc(int narg, int argbase, int resoff, IR_t * fnode) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_pl_db_decls_install(const long *, void *);
+extern "C" int pl_db_decls_words(long long ** out);
 static std::string pl_arm_dbdecls(int narg, int resoff) {
-    IR_t * nd = _.node; std::string data;
-    if (!nd || nd->n_operands != narg) return x86_bomb("$db_decls: the declaration table box has no node or a wrong operand count");
-    for (int i = 0; i < narg; i++) { IR_t * o = nd->operands[i]; if (!o || o->op != IR_LIT_INTEGER) return x86_bomb("$db_decls: a declaration table entry that is not an integer literal"); data += x86(".quad", (uint64_t)(int64_t)IR_LIT(o).ival); }
+    long long * w = (long long *) 0; int n = pl_db_decls_words(&w); std::string data; (void)narg;
+    if (n < 2 || !w) return x86_bomb("$db_decls: the declaration table could not be read from the lowerer at emit time");
+    for (int i = 1; i < n; i++) data += x86(".quad", (uint64_t)(int64_t)w[i]);
     return x86("comment", "the Prolog declaration table (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 C): one compile-time table of {atom id, arity, kind, cell} entries carried in the box and installed by ONE call once the root frame exists")
          + x86_lea_id("rdi", 120) + x86("mov", "rsi", "r14")
          + x86("call", "rt_pl_db_decls_install", (uint64_t)(uintptr_t)(void *)rt_pl_db_decls_install)
@@ -293,7 +294,7 @@ static std::string pl_arm_dbdecls(int narg, int resoff) {
          + x86("mov32", "eax", (long)DT_I) + x86("mov32", "edx", 1L)
          + x86("mov", FRQ(resoff), "rax") + x86("mov", FRQ(resoff + 8), "rdx")
          + x86_gamma()
-         + x86("def", L(120)) + x86(".quad", (uint64_t)(int64_t)(narg - 1)) + data
+         + x86("def", L(120)) + x86(".quad", (uint64_t)(int64_t)w[0]) + data
          + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

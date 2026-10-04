@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2034
-#define GC_ALLOC_TAB_N_VOID 236
+#define GC_ALLOC_TAB_N 2043
+#define GC_ALLOC_TAB_N_VOID 237
 #define GC_ALLOC_TAB_N_DESCR 1096
-#define GC_ALLOC_TAB_N_OTHER 696
+#define GC_ALLOC_TAB_N_OTHER 704
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -789,6 +789,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_add_t", GC_RET_DESCR },
     { "pl_db_and_key", GC_RET_OTHER },
     { "pl_db_cell_of", GC_RET_OTHER },
+    { "pl_db_decls_capture", GC_RET_VOID },
     { "pl_db_define_absent", GC_RET_OTHER },
     { "pl_db_enum", GC_RET_OTHER },
     { "pl_db_enum_ref", GC_RET_OTHER },
@@ -798,12 +799,14 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_db_leaf_seed", GC_RET_OTHER },
     { "pl_db_of_clref", GC_RET_OTHER },
     { "pl_db_of_term", GC_RET_OTHER },
+    { "pl_db_owned", GC_RET_OTHER },
     { "pl_db_reg_add", GC_RET_OTHER },
     { "pl_db_registry", GC_RET_OTHER },
     { "pl_db_seed_file", GC_RET_OTHER },
     { "pl_db_slot_copy", GC_RET_OTHER },
     { "pl_db_static_ball", GC_RET_OTHER },
     { "pl_db_store", GC_RET_OTHER },
+    { "pl_dyn_index_or_add", GC_RET_OTHER },
     { "pl_edin_switch", GC_RET_OTHER },
     { "pl_flag_find_or_create", GC_RET_OTHER },
     { "pl_format_body", GC_RET_OTHER },
@@ -845,7 +848,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_mk_atom_dup", GC_RET_DESCR },
     { "pl_mk_cmp1", GC_RET_DESCR },
     { "pl_mk_stream", GC_RET_DESCR },
+    { "pl_nb_cell_k", GC_RET_OTHER },
     { "pl_nb_leaf_lv", GC_RET_OTHER },
+    { "pl_nb_leaf_lv_tree", GC_RET_OTHER },
     { "pl_num_cmp", GC_RET_OTHER },
     { "pl_number_text_leaf", GC_RET_OTHER },
     { "pl_numbervars_walk", GC_RET_OTHER },
@@ -862,6 +867,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_preprocess_list", GC_RET_VOID },
     { "pl_read_opts_ball", GC_RET_OTHER },
     { "pl_read_term_options_cell", GC_RET_OTHER },
+    { "pl_rt_is_dynamic", GC_RET_OTHER },
     { "pl_runtime_clause_tree", GC_RET_OTHER },
     { "pl_runtime_define_fragment", GC_RET_OTHER },
     { "pl_runtime_define_goal_wrapper", GC_RET_OTHER },
@@ -1338,6 +1344,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_db_assert", GC_RET_OTHER },
     { "rt_pl_db_assert_ref", GC_RET_OTHER },
     { "rt_pl_db_bind", GC_RET_OTHER },
+    { "rt_pl_db_cell_for", GC_RET_OTHER },
     { "rt_pl_db_cells_base", GC_RET_OTHER },
     { "rt_pl_db_clause_as_of", GC_RET_OTHER },
     { "rt_pl_db_clause_at", GC_RET_OTHER },
@@ -1349,8 +1356,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_db_get", GC_RET_OTHER },
     { "rt_pl_db_get_by_key", GC_RET_OTHER },
     { "rt_pl_db_key_cell", GC_RET_OTHER },
+    { "rt_pl_db_key_cell_na", GC_RET_OTHER },
     { "rt_pl_db_key_is_declared", GC_RET_OTHER },
     { "rt_pl_db_key_is_dynamic", GC_RET_OTHER },
+    { "rt_pl_db_key_is_dynamic_na", GC_RET_OTHER },
     { "rt_pl_db_key_is_static", GC_RET_OTHER },
     { "rt_pl_db_key_kind", GC_RET_OTHER },
     { "rt_pl_db_match_erase", GC_RET_OTHER },

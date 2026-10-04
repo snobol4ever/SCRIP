@@ -9886,28 +9886,36 @@ static DESCR_t sno_array_from_proto_d(const char *proto, DESCR_t init, int depth
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void * rt_pl_db_get(void *, int64_t);
-extern int rt_pl_db_assert(void *, void *, int);
+extern int rt_pl_db_assert(void *, void *, void *, int);
 extern int rt_pl_db_erase(void *, int);
-extern int rt_pl_db_abolish(void *);
+extern int rt_pl_db_abolish(void *, void *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_db_cell_of(DESCR_t *args, void *root) { DESCR_t k = rt_pl_deref_val(args[0]); if (k.v != DT_I) return (void *)0; return rt_pl_db_get(root, k.i); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern int rt_pl_nb_set(void *, int64_t, void *);
 extern int rt_pl_nb_get_cell(void *, int64_t, void *, pl_tr_ctx_t *);
+static int64_t pl_nb_cell_k(DESCR_t k, void *root) {
+    extern int rt_pl_db_cell_for(void *, const char *, int); extern const char *prolog_atom_name(int);
+    if (k.v == DT_I) return k.i;
+    if (k.v == (DTYPE_t)DT_PLATOM) { const char *nm = prolog_atom_name((int)k.i); return nm ? (int64_t)rt_pl_db_cell_for(root, nm, -1) : -1; }
+    if (k.v == DT_S && k.s) return (int64_t)rt_pl_db_cell_for(root, k.s, -1);
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_nb_setval_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
     { DESCR_t k = rt_pl_deref_val(args[0]);
-      if (k.v != DT_I) return FAILDESCR;
-      return rt_pl_nb_set(root, k.i, (void *)&args[1]) ? pl_ok() : FAILDESCR; }
+      int64_t kk = pl_nb_cell_k(k, root); if (kk < 0) return FAILDESCR;
+      return rt_pl_nb_set(root, kk, (void *)&args[1]) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_nb_getval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready(); rt_pl_tr_gc_sync(cx->tr);
     { DESCR_t k = rt_pl_deref_val(args[0]); int ok;
-      if (k.v != DT_I) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-      ok = rt_pl_nb_get_cell(root, k.i, (void *)&args[1], cx);
+      int64_t kk = pl_nb_cell_k(k, root); if (kk < 0) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
+      ok = rt_pl_nb_get_cell(root, kk, (void *)&args[1], cx);
       rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9917,8 +9925,8 @@ void * rt_pl_dop_nb_getval_guard_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 2) return (void *)0;
     pl_atoms_ready();
     { DESCR_t k = rt_pl_deref_val(args[0]);
-      if (k.v != DT_I) return (void *)0;
-      if (rt_pl_nb_is_set(root, k.i)) return (void *)0;
+      int64_t kk = pl_nb_cell_k(k, root); if (kk < 0) return (void *)0;
+      if (rt_pl_nb_is_set(root, kk)) return (void *)0;
       return rt_pl_ball_kind2("existence_error", "variable", args[1]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9927,15 +9935,15 @@ DESCR_t rt_pl_dop_b_setval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *ro
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
     { DESCR_t k = rt_pl_deref_val(args[0]);
-      if (k.v != DT_I) return FAILDESCR;
-      return rt_pl_b_set(root, k.i, (void *)&args[1], cx) ? pl_ok() : FAILDESCR; }
+      int64_t kk = pl_nb_cell_k(k, root); if (kk < 0) return FAILDESCR;
+      return rt_pl_b_set(root, kk, (void *)&args[1], cx) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_db_add(DESCR_t *args, int nargs, void *root, int prepend) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
     { void *db = pl_db_cell_of(args, root); if (!db) return FAILDESCR;
-      return rt_pl_db_assert(db, (void *)&args[1], prepend) ? pl_ok() : FAILDESCR; }
+      return rt_pl_db_assert(root, db, (void *)&args[1], prepend) ? pl_ok() : FAILDESCR; }
 }
 DESCR_t rt_pl_dop_db_assertz_c(DESCR_t *args, int nargs, void *root) { return pl_db_add(args, nargs, root, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -9951,7 +9959,7 @@ DESCR_t rt_pl_dop_db_erase_c(DESCR_t *args, int nargs, void *root) {
 extern int rt_pl_db_count(void *); extern int rt_pl_db_clause_at(void *, int, void *); extern int rt_pl_db_live_count(void *);
 DESCR_t rt_pl_dop_ball_pending_c(void *ball) { return ball ? FAILDESCR : pl_ok(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern int rt_pl_db_seed(void *, void *);
+extern int rt_pl_db_seed(void *, void *, void *);
 DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 3) return FAILDESCR;
     pl_atoms_ready();
@@ -9959,7 +9967,7 @@ DESCR_t rt_pl_dop_db_seed_once_c(DESCR_t *args, int nargs, void *root) {
       void *db = ks ? rt_pl_db_get_by_key(root, ks, 1) : pl_db_cell_of(args, root); DESCR_t iv = rt_pl_deref_val(args[1]);
       if (!db || iv.v != DT_I) return FAILDESCR;
       if (rt_pl_db_count(db) > (int)iv.i) return pl_ok();
-      return rt_pl_db_seed(db, (void *)&args[2]) ? pl_ok() : FAILDESCR; }
+      return rt_pl_db_seed(root, db, (void *)&args[2]) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_db_nonempty_c(DESCR_t *args, int nargs, void *root) {
@@ -9987,7 +9995,7 @@ DESCR_t rt_pl_dop_db_copy_c(DESCR_t *args, int nargs, void *root) {
 DESCR_t rt_pl_dop_db_abolish_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
     { void *db = pl_db_cell_of(args, root); if (!db) return pl_ok();
-      return rt_pl_db_abolish(db) ? pl_ok() : FAILDESCR; }
+      return rt_pl_db_abolish(root, db) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_pair_parts(DESCR_t *p, DESCR_t *h, DESCR_t *b) {
@@ -10173,7 +10181,7 @@ static void *pl_db_of_clref(DESCR_t r, void *root, int *ref_out) {
 }
 static DESCR_t pl_db_add_r(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root, int prepend) {
     extern void *rt_pl_compound_cell(const char *, int, void *);
-    extern int rt_pl_db_assert_ref(void *, void *, int);
+    extern int rt_pl_db_assert_ref(void *, void *, void *, int);
     extern int rt_pl_db_term_key(void *, char *, size_t, int *);
     extern void *rt_pl_db_get_by_key(void *, const char *, int);
     char key[nargs == 2 ? bnd_db_key_need((void *)&args[0]) : 1]; int ar = 0; int ref; int ok;
@@ -10182,7 +10190,7 @@ static DESCR_t pl_db_add_r(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root
     if (!rt_pl_db_term_key((void *)&args[0], key, sizeof key, &ar)) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
     { void *db = rt_pl_db_get_by_key(root, key, 1);
       if (!db) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; }
-      ref = rt_pl_db_assert_ref(db, (void *)&args[0], prepend);
+      ref = rt_pl_db_assert_ref(root, db, (void *)&args[0], prepend);
       if (ref < 1) { rt_pl_tr_gc_sync(cx->tr); return FAILDESCR; } }
     { DESCR_t kids[2]; DESCR_t *rc; kids[0] = pl_mk_atom_dup(key, strlen(key)); kids[1] = INTVAL((long long)ref);
       rc = (DESCR_t *)rt_pl_compound_cell("$clref", 2, (void *)kids);
@@ -10252,7 +10260,7 @@ static DESCR_t pl_db_add_t(DESCR_t *args, int nargs, void *root, int prepend) {
     if (nargs != 1) return FAILDESCR;
     pl_atoms_ready();
     { void *db = pl_db_of_term(&args[0], root, 1); if (!db) return FAILDESCR;
-      return rt_pl_db_assert(db, (void *)&args[0], prepend) ? pl_ok() : FAILDESCR; }
+      return rt_pl_db_assert(root, db, (void *)&args[0], prepend) ? pl_ok() : FAILDESCR; }
 }
 DESCR_t rt_pl_dop_db_assertz_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 0); }
 DESCR_t rt_pl_dop_db_asserta_t_c(DESCR_t *args, int nargs, void *root) { return pl_db_add_t(args, nargs, root, 1); }
@@ -10273,7 +10281,7 @@ DESCR_t rt_pl_dop_db_abolish_t_c(DESCR_t *args, int nargs, void *root) {
         if (!ns || a.v != DT_I) return FAILDESCR;
         char key[fmt_len("%s/%d", ns, (int)a.i)]; snprintf(key, sizeof key, "%s/%d", ns, (int)a.i);
         { void *db = rt_pl_db_get_by_key(root, key, 0); if (!db) return pl_ok();
-          return rt_pl_db_abolish(db) ? pl_ok() : FAILDESCR; } } }
+          return rt_pl_db_abolish(root, db) ? pl_ok() : FAILDESCR; } } }
 }
 DESCR_t rt_pl_dop_db_retractall_t_c(DESCR_t *args, int nargs, void *root) {
     if (nargs != 1) return FAILDESCR;
@@ -10665,7 +10673,7 @@ static int pl_cutcall_walk(DESCR_t *c, char *sk, size_t *len, DESCR_t **leaves, 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(cutcall, 2) {
-    extern tree_t *pl_runtime_clause_tree(tree_t *); extern void *pl_runtime_define_pred(const char *, const void *, int); extern int prolog_atom_intern(const char *);
+    extern tree_t *pl_runtime_clause_tree(tree_t *); extern void *pl_runtime_define_pred(const char *, const void *, int, void *); extern int prolog_atom_intern(const char *);
     size_t len = 0; int nleaf = 0, cuts = 0; ok = 0;
     if (pl_cutcall_walk(&args[0], (char *)0, &len, (DESCR_t **)0, &nleaf, &cuts, 0, (tree_t **)0) && cuts) {
         char sk[len + 1]; DESCR_t *leaves[nleaf > 0 ? nleaf : 1]; size_t l2 = 0; int n = 0, c2 = 0;
@@ -10681,7 +10689,7 @@ PL_CX_LEAF_HEAD(cutcall, 2) {
                           snprintf(vn, (size_t)vl, "_L%d", i); v->v.sval = pl_tree_name(vn); ast_push(hd, v); }
                       raw->v.sval = pl_tree_name(":-"); ast_push(raw, hd); ast_push(raw, body);
                       cl = pl_runtime_clause_tree(raw); ch = cl ? rt_pl_choice_new(key) : (void *)0;
-                      if (ch) { rt_pl_choice_add(ch, cl); have = pl_runtime_define_pred(key, ch, n) != (void *)0; } } }
+                      if (ch) { rt_pl_choice_add(ch, cl); have = pl_runtime_define_pred(key, ch, n, (void *)0) != (void *)0; } } }
               if (have) { DESCR_t g = pl_mk_atom(nm);
                   if (n) { DESCR_t *kids = (DESCR_t *)rt_ws_alloc_descr((size_t)n);
                       for (int i = 0; i < n; i++) kids[i] = pl_cell_unbound(leaves[i]) ? pl_make_ref((pl_cell_t *)leaves[i], 0) : *leaves[i];

@@ -911,11 +911,18 @@ static int pl_dyn_index(const char * name, int arity) {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_rt_is_dynamic(const char * nm, int ar) { extern int rt_pl_db_key_is_dynamic_na(void *, const char *, int); extern int rt_pl_db_key_cell_na(void *, const char *, int); return g_stage2.rt_lowering && g_stage2.rt_root && (rt_pl_db_key_cell_na(g_stage2.rt_root, nm, ar) >= 0 || rt_pl_db_key_is_dynamic_na(g_stage2.rt_root, nm, ar)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_dyn_index_or_add(const char * name, int arity) {
-    int k = pl_dyn_index(name, arity);
-    if (k >= 0) return k;
-    pl_dyn_mark(ct_strdup(name), arity);
-    return pl_dyn_index(name, arity);
+    if (g_stage2.rt_lowering) { extern int rt_pl_db_cell_for(void *, const char *, int); int rk;
+        if (!g_stage2.rt_root) pl_refuse("a clause compiled at run time names a root cell but its compile carries no root -- the registry road needs the standing frame (ARCH-PROLOG-C-OUT-OF-THE-BOX 5) --", name, 10);
+        rk = rt_pl_db_cell_for(g_stage2.rt_root, name, arity);
+        if (rk < 0) pl_refuse("a clause compiled at run time names a root cell but the root's registry has no cell left (PL_DB_CELLS_MAX) --", name, 10);
+        return rk; }
+    { int k = pl_dyn_index(name, arity);
+      if (k >= 0) return k;
+      pl_dyn_mark(ct_strdup(name), arity);
+      return pl_dyn_index(name, arity); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_db_leaf1(lcx_t * cx, const char * sym, int k, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -934,6 +941,7 @@ static int pl_file_defines(const char * nm, int ar) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_owned(const char * nm, int ar) {
+    if (pl_rt_is_dynamic(nm, ar)) return 1;
     if (pl_decl_dyn_is(nm, ar)) return 1;
     if (pl_dyn_index(nm, ar) < 0) return 0;
     return pl_file_defines(nm, ar) ? 0 : 1;
@@ -1183,6 +1191,17 @@ static IR_t * pl_nb_leaf_lv(lcx_t * cx, const char * sym, int k, const tree_t * 
     return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * pl_nb_leaf_lv_tree(lcx_t * cx, const char * sym, const tree_t * keyt, const tree_t * arg, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
+    IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = (char *) sym;
+    IR_t * ke = NULL; IR_t * kn = term_e(cx, keyt, &ke);
+    IR_t * te = NULL; IR_t * tv = term_lval_e(cx, arg, &te);
+    lc_γ_to(kn, te ? te : tv); lc_ω_to(kn, ωfail);
+    lc_γ_to(tv, nd); lc_ω_to(tv, ωfail);
+    ir_operand_push(nd, kn); ir_operand_push(nd, tv);
+    if (entry_out) *entry_out = ke ? ke : kn;
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_meta_call_dyn(lcx_t * cx, const tree_t * g, const tree_t * const * extra, int nextra, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static int pl_tree_has_var(const tree_t * t) {
     if (!t) return 0;
@@ -1195,7 +1214,7 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
     { char key[fmt_len("%s/%d", nm, nargs)]; snprintf(key, sizeof key, "%s/%d", nm, nargs);
       const tree_t * ch = pl_db_live ? (const tree_t *) 0 : resolve_pred_table_lookup(&g_stage2.resolve_pred_table, key);
       if (!ch && !pl_db_live && !pl_bb_lookup(key, nargs)) return pl_meta_call_dyn(cx, t, NULL, 0, γnext, ωfail, entry_out);
-      if (ch && ch->t == TT_FNC) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; } }
+      if (ch && ch->t == TT_FNC && !g_stage2.rt_lowering) { IR_t * nd = build(cx, IR_GOTO, ωfail, ωfail); if (entry_out) *entry_out = nd; return nd; } }
     IR_t * nd = build(cx, IR_CALL_PROC_STAGED, γnext, ωfail); IR_LIT(nd).sval = pl_pi_name(nm, nargs);
     IR_t * prev = NULL; IR_t * first = NULL;
     for (int i = 0; i < nargs; i++) {
@@ -1209,7 +1228,8 @@ static IR_t * pl_user_call(lcx_t * cx, const char * nm, const tree_t * t, int na
     if (pl_db_live) { tree_t * pit = ast_node_new(TT_QLIT); pit->v.sval = (char *) pl_pi_name(nm, nargs);
         IR_t * ne = NULL; pl_db_leaf1(cx, "$db_nonempty", pl_dyn_index_or_add(nm, nargs), body_entry, ωfail, &ne);
         IR_t * guard_entry = NULL; pl_db_leaf2(cx, "$db_alive", pl_dyn_index_or_add(nm, nargs), pit, ne, ωfail, &guard_entry);
-        { IR_t * se = NULL; pl_db_seed_file(cx, nm, nargs, guard_entry, ωfail, &se); if (entry_out) *entry_out = se ? se : guard_entry; }
+        if (g_stage2.rt_lowering) { if (entry_out) *entry_out = guard_entry; }
+        else { IR_t * se = NULL; pl_db_seed_file(cx, nm, nargs, guard_entry, ωfail, &se); if (entry_out) *entry_out = se ? se : guard_entry; }
         return nd; }
     if (entry_out) *entry_out = body_entry;
     return nd;
@@ -1673,7 +1693,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se); if (entry_out) *entry_out = se ? se : le; return nd; } }
         if ((!strcmp(nm, "nb_setval") || !strcmp(nm, "nb_getval") || !strcmp(nm, "b_setval") || !strcmp(nm, "b_getval")) && t->n == 2) {
             const char * kk = pl_nb_key(t->c[0]);
-            if (!kk) pl_refuse("global-variable key that is not an atom known at compile time -- a computed key goes through the runtime compiler (ARCH sec C); there is no key map --", nm, 10);
+            if (!kk) {
+              if (!strcmp(nm, "nb_setval")) return pl_db_leaf2_tree(cx, "$nb_setval", t->c[0], t->c[1], γnext, ωfail, entry_out);
+              if (!strcmp(nm, "b_setval")) return pl_db_leaf2_tree(cx, "$b_setval", t->c[0], t->c[1], γnext, ωfail, entry_out);
+              { IR_t * body_entry = NULL; IR_t * nd = pl_nb_leaf_lv_tree(cx, "$nb_getval", t->c[0], t->c[1], γnext, ωfail, &body_entry);
+                IR_t * guard_entry = NULL; pl_db_leaf2_tree(cx, "$pl_nb_getval_guard", t->c[0], t->c[0], body_entry, ωfail, &guard_entry);
+                if (entry_out) *entry_out = guard_entry; return nd; } }
             { int k = pl_dyn_index_or_add(kk, -1);
               if (k < 0) pl_refuse("global variable needs a root cell but the 64 compile-time root cells are exhausted --", kk, 10);
               if (!strcmp(nm, "nb_setval")) return pl_db_leaf2(cx, "$nb_setval", k, t->c[1], γnext, ωfail, entry_out);
@@ -1733,7 +1758,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
             if (!pn) { tree_t * cv = pl_cc_freshvar(); tree_t * cv2 = pl_cc_freshvar(); tree_t * iv = pl_cc_freshvar(); tree_t * iv2 = pl_cc_freshvar(); cv2->v.ival = cv->v.ival; iv2->v.ival = iv->v.ival;
                 return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h), pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp)))), γnext, ωfail, entry_out); }
-            { int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar); int def = dyn || pl_file_defines(pn, ar);
+            { int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar); int def = dyn || pl_file_defines(pn, ar);
               const char * meta = def ? (const char *) 0 : pl_meta_template(pn, ar);
               int bi = !def && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
               const tree_t * props[5]; int np = 0;
@@ -1941,7 +1966,7 @@ static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
       return bb_program_add(&g_stage2.bbp, g); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout, int pkt_cell, int pkt_slot, int * chain_off_out) {
+static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout, int pkt_cell, int pkt_slot, int * chain_off_out, void * rt_root) {
     extern IR_graph_t * g_emit_cfg; extern int g_frame_active; extern int g_rt_fragment_emit; extern int g_gen_proc_active;
     extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void);
     extern void zls_graph_name(const IR_graph_t *, const char *);
@@ -1956,7 +1981,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
       if (!rt_proc_is_registered(key)) rt_proc_register(ct_strdup(key), (const char **) 0, arity); }
     { extern void bb_pool_init(void); bb_pool_init(); }
     { extern void zls_reset(void); zls_reset(); }
-    idx = lower_pl_pred_graph(key, choice);
+    { void * rsv = g_stage2.rt_root; int lsv = g_stage2.rt_lowering; g_stage2.rt_root = rt_root; g_stage2.rt_lowering = 1; idx = lower_pl_pred_graph(key, choice); g_stage2.rt_root = rsv; g_stage2.rt_lowering = lsv; }
     if (idx < 0) return (void *)0;
     g = g_stage2.bbp.table[idx];
     if (!g) return (void *)0;
@@ -2001,15 +2026,15 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     if (!gout) { extern void zls_reset(void); extern void IR_free(IR_graph_t *); zls_reset(); g_stage2.bbp.table[idx] = (IR_graph_t *)0; if (idx == g_stage2.bbp.count - 1) g_stage2.bbp.count--; IR_free(g); }
     return (void *)fn;
 }
-static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout) { return pl_runtime_define_pred_x(key, choice, arity, gout, -1, -1, (int *)0); }
-void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity) { return pl_runtime_define_pred_x(key, choice, arity, NULL, -1, -1, (int *)0); }
+static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout) { return pl_runtime_define_pred_x(key, choice, arity, gout, -1, -1, (int *)0, (void *)0); }
+void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity, void * rt_root) { return pl_runtime_define_pred_x(key, choice, arity, NULL, -1, -1, (int *)0, rt_root); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void * pl_runtime_define_fragment(const char * fkey, void * clause_cell, int arity, int cell_k, int slot, int * ridx_out, int * chain_off_out) {
+void * pl_runtime_define_fragment(const char * fkey, void * clause_cell, int arity, int cell_k, int slot, int * ridx_out, int * chain_off_out, void * rt_root) {
     extern void * rt_pl_clause_tree(void *); extern tree_t * pl_runtime_clause_tree(tree_t *); extern void * rt_pl_choice_new(const char *); extern void rt_pl_choice_add(void *, void *); extern int rt_proc_index_of(const char *);
     void * raw = clause_cell ? rt_pl_clause_tree(clause_cell) : (void *)0; void * cl = raw ? (void *) pl_runtime_clause_tree((tree_t *) raw) : (void *)0; void * ch; void * fn; int off = -1;
     if (!fkey || !cl) return (void *)0;
     ch = rt_pl_choice_new(fkey); rt_pl_choice_add(ch, cl);
-    fn = pl_runtime_define_pred_x(ct_strdup(fkey), (const tree_t *) ch, arity, NULL, cell_k, slot, &off);
+    fn = pl_runtime_define_pred_x(ct_strdup(fkey), (const tree_t *) ch, arity, NULL, cell_k, slot, &off, rt_root);
     if (!fn || off < 0) return (void *)0;
     if (ridx_out) *ridx_out = rt_proc_index_of(fkey);
     if (chain_off_out) *chain_off_out = off;
@@ -2169,6 +2194,32 @@ static void pl_static_seed_pred(const char * key, const tree_t * ch, cv_t * proc
     ct_drop(nm);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_decls_capture(void) {
+    extern int prolog_atom_intern(const char *); extern void * ct_grow(void *, size_t);
+    long long * w = (long long *) 0; int n = 0, cap = 0;
+#define PL_DW(v) do { if (n >= cap) { cap = cap ? cap * 2 : 64; w = (long long *) ct_grow((void *) w, (size_t) cap * sizeof(long long)); } w[n++] = (long long) (v); } while (0)
+    PL_DW(0); PL_DW(g_stage2.pl_dyn_n > 0 ? g_stage2.pl_dyn_n : 1);
+    for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
+      const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di]; int kind = 0;
+      if (!dn || dn[0] == '$') continue;
+      if (da >= 0) { if (pl_decl_dyn_is(dn, da)) kind = 2; else if (pl_file_defines(dn, da)) kind = 3; }
+      PL_DW(prolog_atom_intern(dn)); PL_DW(da); PL_DW(kind); PL_DW(di); }
+    for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++)
+      for (Resolve_PredEntry * pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
+        const char * slash; int ar; size_t nl;
+        if (!pe->key || pe->key[0] == '$' || !pe->choice || pe->choice->t != TT_CHOICE || pe->choice->n < 1) continue;
+        slash = strrchr(pe->key, '/'); if (!slash) continue;
+        ar = atoi(slash + 1); nl = (size_t) (slash - pe->key); { char nm[nl + 1]; memcpy(nm, pe->key, nl); nm[nl] = 0;
+        if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) continue;
+        PL_DW(prolog_atom_intern(nm)); PL_DW(ar); PL_DW(1); PL_DW(-1); } }
+    for (int i = 0; i < g_pl_decl_other_n; i++)
+      if (g_pl_decl_other_name[i][0] != '$') { PL_DW(prolog_atom_intern(g_pl_decl_other_name[i])); PL_DW(g_pl_decl_other_arity[i]); PL_DW(2); PL_DW(-1); }
+#undef PL_DW
+    w[0] = n - 2; g_stage2.db_decls_words = w; g_stage2.db_decls_n = n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int pl_db_decls_words(long long ** out) { *out = g_stage2.db_decls_words; return g_stage2.db_decls_words ? g_stage2.db_decls_n : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     int _pl_bb0 = g_stage2.bbp.count;
     pl_register_program(&g_stage2, prog);
@@ -2204,22 +2255,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     IR_graph_t * top;
     { const tree_t * all_goals[ndir + ninit + 3]; int nall = 0; int nseedv = 1;
-      { extern int prolog_atom_intern(const char *); tree_t * dt = ast_node_new(TT_FNC); dt->v.sval = (char *) "$db_decls"; ast_push(dt, pl_cc_ilit(g_stage2.pl_dyn_n > 0 ? g_stage2.pl_dyn_n : 1));
-        for (int di = 0; di < g_stage2.pl_dyn_n; di++) {
-          const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di]; int kind = 0;
-          if (!dn || da < 0 || dn[0] == '$') continue;
-          if (pl_decl_dyn_is(dn, da)) kind = 2; else if (pl_file_defines(dn, da)) kind = 3;
-          ast_push(dt, pl_cc_ilit(prolog_atom_intern(dn))); ast_push(dt, pl_cc_ilit(da)); ast_push(dt, pl_cc_ilit(kind)); ast_push(dt, pl_cc_ilit(di)); }
-        for (int bi = 0; bi < STAGE2_PL_PRED_TABLE_SIZE; bi++)
-          for (Resolve_PredEntry * pe = g_stage2.resolve_pred_table.buckets[bi]; pe; pe = pe->next) {
-            const char * slash; int ar; size_t nl;
-            if (!pe->key || pe->key[0] == '$' || !pe->choice || pe->choice->t != TT_CHOICE || pe->choice->n < 1) continue;
-            slash = strrchr(pe->key, '/'); if (!slash) continue;
-            ar = atoi(slash + 1); nl = (size_t) (slash - pe->key); char nm[nl + 1]; memcpy(nm, pe->key, nl); nm[nl] = 0;
-            if (pl_dyn_index(nm, ar) >= 0 || pl_decl_dyn_is(nm, ar)) continue;
-            ast_push(dt, pl_cc_ilit(prolog_atom_intern(nm))); ast_push(dt, pl_cc_ilit(ar)); ast_push(dt, pl_cc_ilit(1)); ast_push(dt, pl_cc_ilit(-1)); }
-        for (int i = 0; i < g_pl_decl_other_n; i++)
-          if (g_pl_decl_other_name[i][0] != '$') { ast_push(dt, pl_cc_ilit(prolog_atom_intern(g_pl_decl_other_name[i]))); ast_push(dt, pl_cc_ilit(g_pl_decl_other_arity[i])); ast_push(dt, pl_cc_ilit(2)); ast_push(dt, pl_cc_ilit(-1)); }
+      { tree_t * dt = ast_node_new(TT_FNC); dt->v.sval = (char *) "$db_decls"; ast_push(dt, pl_cc_ilit(0));
         all_goals[nall++] = dt; }
       for (int di = 0; di < g_stage2.pl_dyn_n; di++) { const char * dn = g_stage2.pl_dyn_name[di]; int da = g_stage2.pl_dyn_arity[di];
         if (!dn || da < 0 || dn[0] == '$' || !pl_file_defines(dn, da)) continue;
@@ -2380,5 +2416,6 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     for (int _gi = _pl_bb0; _gi < g_stage2.bbp.count; _gi++) if (g_stage2.bbp.table[_gi]) g_stage2.bbp.table[_gi]->resumable_callable = 1;
     { extern int rt_pl_db_cells_max(void); top->standing_cells = rt_pl_db_cells_max(); }
+    pl_db_decls_capture();
     return &g_stage2;
 }

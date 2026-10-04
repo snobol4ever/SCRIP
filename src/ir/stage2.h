@@ -73,6 +73,10 @@ typedef struct stage2_t {
     int                 *pl_dyn_arity;
     int                  pl_dyn_n;
     int                  pl_dyn_cap;
+    void *               rt_root;
+    int                  rt_lowering;
+    long long *          db_decls_words;
+    int                  db_decls_n;
     cv_t                 pl_prelude_keys;
 } stage2_t;
 typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
