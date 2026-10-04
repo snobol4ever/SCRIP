@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # util_ladder_walk.py — THE LADDER WALK (ceo instrument, Lon 2026-09-01: "Make a master plan and being CEO ensure the fleet walks along the ladders").
 # Reads the rung tables of .github/MASTER-PLAN.md (### LADDER <ID> — <name> ... | rung | row | lane | gate |) and joins each rung's ROW
-# with the postoffice (QUEUE.tsv rank/owner/state · claims/<row>.claim holder+DONE · QUEUE.done.tsv · tasks/<row>.task.md) to print,
+# with the postoffice (QUEUE.tsv rank/owner/state · claims/<row>.claim holder+DONE · QUEUE.done.tsv · QUEUE.retired.tsv · tasks/<row>.task.md) to print,
 # per ladder, where every rung stands, then the VIOLATIONS the ceo must act on:
-#   V1 RUNG-WITHOUT-ROW   a rung whose row is TO-MINT or has no QUEUE row (the lane named owes the mint)
+#   V1 RUNG-WITHOUT-ROW   a rung whose row is TO-MINT or has no QUEUE row (the lane named owes the mint) -- a row the zero-base sweep RETIRED
+#                         is no violation: it returns only by re-mint from a current red (ceo CEO-1386), so the rung prints RETIRED (CEO-1510)
 #   V2 OFF-LADDER SEAT    a seat holding a live claim on a row that is no rung while a rung is FREE (finish or park, then step onto a rung)
 #   V3 STALE PARK         a rung PARKED-AWAITING:x / BLOCKED-ON:x whose blocker x is DONE (un-park owed)
 #   V4 RANK INVERSION     an off-ladder FREE row at rank 0/1 (ranks 0/1 are the rungs' — the picker would serve it before a rung)
@@ -35,6 +36,12 @@ for line in open(os.path.join(PO, 'QUEUE.done.tsv'), encoding='utf-8', errors='r
     if line.startswith('#') or not line.strip(): continue
     f = line.rstrip('\n').split('\t')
     if len(f) >= 2 and f[0].isdigit(): done_rows.add(f[1])
+retired_rows = set()
+if os.path.exists(os.path.join(PO, 'QUEUE.retired.tsv')):
+    for line in open(os.path.join(PO, 'QUEUE.retired.tsv'), encoding='utf-8', errors='replace'):
+        if line.startswith('#') or not line.strip(): continue
+        f = line.rstrip('\n').split('\t')
+        if len(f) >= 2 and f[0].isdigit(): retired_rows.add(f[1])
 claims = {}
 for c in glob.glob(os.path.join(PO, 'claims', '*.claim')):
     t = os.path.basename(c)[:-6]
@@ -81,7 +88,7 @@ V = []
 def viol(code, text): V.append('%s %s' % (code, text))
 any_free_rung = False
 for l in ladders:
-    counts = {'DONE': 0, 'CLAIMED': 0, 'FREE': 0, 'BLOCKED': 0, 'TO-MINT': 0, 'MISSING': 0}
+    counts = {'DONE': 0, 'CLAIMED': 0, 'FREE': 0, 'BLOCKED': 0, 'TO-MINT': 0, 'MISSING': 0, 'RETIRED': 0}
     lines = []
     for r in l['rungs']:
         t = r['row']
@@ -99,10 +106,11 @@ for l in ladders:
                 mb = re.match(r'^(PARKED-AWAITING|BLOCKED-ON):(.+)$', s)
                 if mb and is_done(mb.group(2)): viol('V3 STALE PARK', '%s/%s: %s is %s but %s is DONE — un-park owed' % (l['id'], r['rung'], t, s, mb.group(2)))
                 if s in ('PARKED', 'BLOCKED') and q['owner'] == 'unassigned': viol('V5 UNOWNED BLOCK', '%s/%s: %s is %s with owner unassigned' % (l['id'], r['rung'], t, s))
+        elif t in retired_rows: st = 'RETIRED (CEO-1386: returns only by re-mint from a current red)'; counts['RETIRED'] += 1
         elif t in tasks: st = 'ROWLESS (task file only)'; counts['MISSING'] += 1; viol('V1 RUNG-WITHOUT-ROW', '%s/%s: %s has a task file but no QUEUE row — lane %s' % (l['id'], r['rung'], t, r['lane']))
         else: st = 'MISSING'; counts['MISSING'] += 1; viol('V1 RUNG-WITHOUT-ROW', '%s/%s: %s exists nowhere — lane %s owes the mint' % (l['id'], r['rung'], t, r['lane']))
         lines.append('  %-5s %-64s %s' % (r['rung'], t[:64], st))
-    print('LADDER %s — %s: rungs=%d done=%d claimed=%d free=%d blocked=%d to-mint=%d missing=%d' % (l['id'], l['name'], len(l['rungs']), counts['DONE'], counts['CLAIMED'], counts['FREE'], counts['BLOCKED'], counts['TO-MINT'], counts['MISSING']))
+    print('LADDER %s — %s: rungs=%d done=%d claimed=%d free=%d blocked=%d to-mint=%d missing=%d retired=%d' % (l['id'], l['name'], len(l['rungs']), counts['DONE'], counts['CLAIMED'], counts['FREE'], counts['BLOCKED'], counts['TO-MINT'], counts['MISSING'], counts['RETIRED']))
     if not a.quiet: print('\n'.join(lines))
 # per-language rollup — the 7-way view I22 asks for; PL aggregates ladders T/C/P since Prolog has no single table of its own
 for L in ('SNO', 'SC', 'ICN', 'PAS', 'RAKU', 'REB', 'PL'):
