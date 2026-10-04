@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2029
-#define GC_ALLOC_TAB_N_VOID 234
-#define GC_ALLOC_TAB_N_DESCR 1104
-#define GC_ALLOC_TAB_N_OTHER 685
+#define GC_ALLOC_TAB_N 2042
+#define GC_ALLOC_TAB_N_VOID 238
+#define GC_ALLOC_TAB_N_DESCR 1107
+#define GC_ALLOC_TAB_N_OTHER 691
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -40,6 +40,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_ARG_", GC_RET_DESCR },
     { "_ARRAY_", GC_RET_DESCR },
     { "_ATAN_", GC_RET_DESCR },
+    { "_BACKSPACE_", GC_RET_DESCR },
     { "_CHAR_", GC_RET_DESCR },
     { "_CHOP_", GC_RET_DESCR },
     { "_CLEAR_", GC_RET_DESCR },
@@ -55,6 +56,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_DIFFER_", GC_RET_DESCR },
     { "_DUMP_", GC_RET_DESCR },
     { "_DUPL_", GC_RET_DESCR },
+    { "_EJECT_", GC_RET_DESCR },
+    { "_ENDFILE_", GC_RET_DESCR },
     { "_EQ_", GC_RET_DESCR },
     { "_EVAL_", GC_RET_DESCR },
     { "_EXP_", GC_RET_DESCR },
@@ -340,11 +343,19 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_facc_get_97", GC_RET_DESCR },
     { "_facc_get_98", GC_RET_DESCR },
     { "_facc_get_99", GC_RET_DESCR },
+    { "_func_count_one", GC_RET_VOID },
+    { "_func_init", GC_RET_VOID },
+    { "_func_regrow", GC_RET_VOID },
     { "_icn_hash", GC_RET_OTHER },
     { "_icn_succ", GC_RET_OTHER },
     { "_io_assoc_pair_state", GC_RET_OTHER },
     { "_io_assoc_std", GC_RET_OTHER },
+    { "_io_chan_fp_or_std", GC_RET_OTHER },
+    { "_io_chan_in_use", GC_RET_OTHER },
     { "_io_output_reattach_std", GC_RET_VOID },
+    { "_io_prebind", GC_RET_OTHER },
+    { "_io_prebind_take", GC_RET_VOID },
+    { "_io_slot", GC_RET_OTHER },
     { "_make_ctor", GC_RET_DESCR },
     { "_make_fget", GC_RET_DESCR },
     { "_parse_define_spec", GC_RET_OTHER },
@@ -1161,6 +1172,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_field_var_strict", GC_RET_DESCR },
     { "rt_fire_build", GC_RET_VOID },
     { "rt_fire_buildplan_tweak", GC_RET_VOID },
+    { "rt_fn_frame_bytes_register", GC_RET_VOID },
     { "rt_frame_bind_args", GC_RET_VOID },
     { "rt_gc_assert_instances", GC_RET_OTHER },
     { "rt_gcheap_alloc", GC_RET_OTHER },
@@ -2024,7 +2036,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "trace_print_banner_args", GC_RET_VOID },
     { "trace_print_icon", GC_RET_VOID },
     { "trace_register", GC_RET_VOID },
-    { "trace_spell_value", GC_RET_VOID },
+    { "trace_spell_args", GC_RET_OTHER },
+    { "trace_spell_value", GC_RET_OTHER },
     { "try_call_builtin_by_name", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl_s", GC_RET_OTHER },

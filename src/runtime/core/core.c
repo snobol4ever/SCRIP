@@ -1657,6 +1657,7 @@ typedef struct {
     size_t cap;
     long   rlen;
     int    unit;
+    char  *prebind;
 } io_chan_t;
 static gv_t g_io_chan;
 #define _io_chan ((io_chan_t *)g_io_chan.p)
@@ -1670,10 +1671,20 @@ static int _io_slot(int unit, int create) {
     ((io_chan_t *)gv_push(&g_io_chan, (uint16_t)HB_WSB, (uint32_t)sizeof(io_chan_t), "_io_chan"))->unit = unit;
     return IO_CHAN_N - 1;
 }
+static void _io_prebind_take(void) {
+    extern char **environ;
+    for (char **e = environ; e && *e; e++) {
+        if (strncmp(*e, "SCRIP_IO_PREBIND_", 17) != 0) continue;
+        const char *eq = strchr(*e, '='); if (!eq) continue;
+        size_t kl = (size_t)(eq - *e); char k[kl + 1]; memcpy(k, *e, kl); k[kl] = 0;
+        int unit = atoi(k + 17); char *path = rt_heap_strdup_c(eq + 1); int i = _io_slot(unit, 1); _io_chan[i].prebind = path;
+        unsetenv(k); e = environ - 1;
+    }
+}
 static const char *_io_prebind(int unit) {
     if (unit < 0) return (const char *)0;
-    char k[fmt_len("SCRIP_IO_PREBIND_%d", unit)]; snprintf(k, sizeof k, "SCRIP_IO_PREBIND_%d", unit);
-    return getenv(k);
+    _io_prebind_take();
+    int i = _io_slot(unit, 0); return i >= 0 ? _io_chan[i].prebind : (const char *)0;
 }
 void rt_io_chan_prebind(int ch, const char *path) {
     if (ch < 0 || ch == 5 || ch == 6 || !path) return;
@@ -3065,7 +3076,7 @@ void core_err_compat_map(int *code, const char **msg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n);
-int core_setexit_armed(void) { return core_setexit_on() && _setexit_label[0] != '\0'; }
+int core_setexit_armed(void) { return core_setexit_on() && sxl_set(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_runtime_error(int code, const char *msg) {
     core_err_compat_map(&code, &msg);
@@ -4157,6 +4168,7 @@ static void _func_init(void) {
 static void _func_count_one(void) { if (++_func_count > _func_nbuckets) _func_regrow(_func_nbuckets * 2); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_func_nbuckets - 1); }
+static FNCBLK_t *_func_head_at(unsigned h) { return _func_nbuckets ? _func_buckets[h] : (FNCBLK_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
     FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
@@ -4239,17 +4251,15 @@ static FNCBLK_t *_parse_define_spec(const char *spec) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_fn_set_arity(const char *name, int min_args, int max_args) {
-    _func_init();
     if (!name || !*name) return;
     unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) { e->min_args = min_args > 0 ? min_args : 0; e->max_args = max_args; e->max_set = max_args >= 0; return; }
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, name) == 0) { e->min_args = min_args > 0 ? min_args : 0; e->max_args = max_args; e->max_set = max_args >= 0; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_fn_arity_norm(const char *name, int nargs) {
     if (!name || !*name) return nargs;
-    _func_init();
     unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, name) == 0) return !e->fn ? nargs : e->min_args > nargs ? e->min_args : (e->max_set && nargs > e->max_args) ? e->max_args : nargs;
     return nargs;
 }
@@ -4449,16 +4459,14 @@ DESCR_t rt_sno_cnv_num(DESCR_t v, int want) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *core_define_entry_label(const char *name) {
     if (!name || !*name) return (const char *)0;
-    _func_init();
-    { unsigned h = _func_hash(name); for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) if (strcmp(e->name, name) == 0) return e->entry_label ? e->entry_label : e->name; }
+    { unsigned h = _func_hash(name); for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) if (strcmp(e->name, name) == 0) return e->entry_label ? e->entry_label : e->name; }
     return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
     if (!name || !*name) return 0;
-    _func_init();
     unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, name) == 0) {
             if (!e->fn) return 0;
             *out = e->fn(args, nargs);
@@ -4469,11 +4477,10 @@ int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int UNLOAD_fn(const char *name) {
     extern int rt_proc_unregister(const char *name);
-    _func_init();
     if (!name || !*name) return -1;
     unsigned h = _func_hash(name);
     FNCBLK_t *prev = (FNCBLK_t *)0;
-    for (FNCBLK_t *e = _func_buckets[h]; e; prev = e, e = (FNCBLK_t *)e->next) {
+    for (FNCBLK_t *e = _func_head_at(h); e; prev = e, e = (FNCBLK_t *)e->next) {
         if (strcmp(e->name, name) != 0) continue;
         if (e->fn) return 0;
         if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
@@ -4542,10 +4549,9 @@ static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, D
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
-    _func_init();
     if (!name) return NULVCL;
     unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) {
         if (strcmp(e->name, name) == 0) {
             { extern int rt_dat_field_of_any_live(const char *); extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
               const char *_tgt = e->entry_label ? e->entry_label : (const char *)0;
@@ -4579,9 +4585,8 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_fn_is_c(const char *name) {
-    _func_init();
     if (!name) return 0;
-    for (FNCBLK_t *e = _func_buckets[_func_hash(name)]; e; e = e->next) if (strcmp(e->name, name) == 0) return e->fn != NULL;
+    for (FNCBLK_t *e = _func_head_at(_func_hash(name)); e; e = e->next) if (strcmp(e->name, name) == 0) return e->fn != NULL;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4598,9 +4603,8 @@ static DESCR_t _ARG_(DESCR_t *a, int n) {
     const char *fname = VARVAL_fn(a[0]);
     if (!fname) return FAILDESCR;
     int64_t idx = to_int(a[1]);
-    _func_init();
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nparams) return FAILDESCR;
             return NAMEVAL(rt_heap_strdup_c(e->params[idx - 1]));
@@ -4620,9 +4624,8 @@ static DESCR_t _LOCAL_(DESCR_t *a, int n) {
     const char *fname = VARVAL_fn(a[0]);
     if (!fname) return FAILDESCR;
     int64_t idx = to_int(a[1]);
-    _func_init();
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next) {
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) {
         if (strcmp(e->name, fname) == 0) {
             if (idx < 1 || idx > (int64_t)e->nlocals) return FAILDESCR;
             return NAMEVAL(rt_heap_strdup_c(e->locals[idx - 1]));
@@ -4682,65 +4685,58 @@ static DESCR_t _FIELD_(DESCR_t *a, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int FNCEX_fn(const char *name) {
-    _func_init();
     if (!name) return 0;
     unsigned h = _func_hash(name);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, name) == 0) return 1;
     { extern int rt_proc_name_exists(const char *); return rt_proc_name_exists(name); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int FUNC_NPARAMS_fn(const char *fname) {
-    _func_init();
     if (!fname) return 0;
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, fname) == 0) return e->nparams;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int FUNC_NLOCALS_fn(const char *fname) {
-    _func_init();
     if (!fname) return 0;
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, fname) == 0) return e->nlocals;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *FUNC_PARAM_fn(const char *fname, int i) {
-    _func_init();
     if (!fname) return NULL;
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, fname) == 0)
             return (i >= 0 && i < e->nparams) ? e->params[i] : NULL;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *FUNC_LOCAL_fn(const char *fname, int i) {
-    _func_init();
     if (!fname) return NULL;
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, fname) == 0)
             return (i >= 0 && i < e->nlocals) ? e->locals[i] : NULL;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_fn_entry_label_set(const char *fname, const char *entry) {
-    _func_init();
     if (!fname || !entry) return;
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, fname) == 0) { e->entry_label = rt_heap_strdup_c(entry); return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *FUNC_ENTRY_fn(const char *fname) {
-    _func_init();
     if (!fname) return NULL;
     unsigned h = _func_hash(fname);
-    for (FNCBLK_t *e = _func_buckets[h]; e; e = e->next)
+    for (FNCBLK_t *e = _func_head_at(h); e; e = e->next)
         if (strcmp(e->name, fname) == 0)
             return e->entry_label ? e->entry_label : e->name;
     return NULL;
@@ -5132,7 +5128,7 @@ void core_gc_roots(void)
         for (int i = 0; i < g_bin_n_names; i++) if (g_bin_names[i]) rt_gc_visit_raw_in((const char **)&g_bin_names[i], g_bin_names); }
 #endif
     gv_gc_root(&g_io_chan); gv_gc_root(&g_setexit_label);
-    for (int i = 0; i < IO_CHAN_N; i++) if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
+    for (int i = 0; i < IO_CHAN_N; i++) { if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname); if (_io_chan[i].prebind) rt_gc_visit_raw((const char **)&_io_chan[i].prebind); }
     gv_gc_root(&g_var_buckets);
     for (unsigned b = 0; b < _var_nbuckets; b++) {
         for (NV_t *e = VBR(b); e; e = e->next) {
