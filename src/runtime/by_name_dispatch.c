@@ -1282,9 +1282,18 @@ static DESCR_t pas_read_number(FILE *f, int real, const char *fn) {
     while (c != EOF && isspace(c)) c = fgetc(f);
     if (c == EOF) pas_file_err("6.9.1", "end-of-file is true when a number is to be read", fn);
     if (c == '+' || c == '-') { b = pas_numeral_put(b, &n, &cap, c); c = fgetc(f); }
+    if (!real) { int base = 0; if (c == '$' || c == 'x' || c == 'X') base = 16; else if (c == '%') base = 2; else if (c == '&') base = 8;
+        else if (c == '0') { int c2 = fgetc(f); if (c2 == 'x' || c2 == 'X') base = 16; else if (c2 != EOF) ungetc(c2, f); }
+        if (base) { unsigned long long v = 0; int k = 0, ovf = 0; c = fgetc(f);
+            for (;; c = fgetc(f)) { int d = (c >= '0' && c <= '9') ? c - '0' : (c >= 'a' && c <= 'f') ? c - 'a' + 10 : (c >= 'A' && c <= 'F') ? c - 'A' + 10 : 99; if (d >= base) break;
+                if (v > (~0ULL - (unsigned long long)d) / (unsigned long long)base) ovf = 1; else v = v * (unsigned long long)base + (unsigned long long)d; k++; }
+            if (c != EOF) ungetc(c, f);
+            if (!k) pas_file_err("6.9.1", "the characters read do not form a signed-integer", fn);
+            if (ovf || v > 0x7FFFFFFFFFFFFFFFULL) pas_file_err("6.9.1", "the signed-integer read is outside the range of the integer type", fn);
+            return INTVAL((b && b[0] == '-') ? -(long long)v : (long long)v); } }
     while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); nd++; c = fgetc(f); }
     bad = !nd;
-    if (real && !bad && c == '.') { int k = 0; b = pas_numeral_put(b, &n, &cap, '.'); c = fgetc(f); while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); k++; c = fgetc(f); } bad = !k; }
+    if (real && c == '.') { int k = 0; b = pas_numeral_put(b, &n, &cap, '.'); c = fgetc(f); while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); k++; c = fgetc(f); } bad = !nd && !k; }
     if (real && !bad && (c == 'e' || c == 'E')) { int k = 0; b = pas_numeral_put(b, &n, &cap, 'e'); c = fgetc(f);
         if (c == '+' || c == '-') { b = pas_numeral_put(b, &n, &cap, c); c = fgetc(f); }
         while (c != EOF && isdigit(c)) { b = pas_numeral_put(b, &n, &cap, c); k++; c = fgetc(f); } bad = !k; }
