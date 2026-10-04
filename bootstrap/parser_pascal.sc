@@ -363,7 +363,353 @@ Compiland       =   epsilon . *PushCounter() POS(0) *$' ' *program_head
 CmdT['begin'] = compound_cmd_rest; CmdT['if'] = if_cmd_rest; CmdT['while'] = while_cmd_rest; CmdT['repeat'] = repeat_cmd_rest;
 CmdT['for'] = for_cmd_rest; CmdT['case'] = case_cmd_rest; CmdT['with'] = with_cmd_rest; CmdT['goto'] = goto_cmd_rest;
 /* ==================================================================================================================== */
+/* Preprocess: text to text. The conditional-compilation pass of FPC (define undef setc, ifdef ifndef if ifc ifopt elseif else elsec endif ifend endc, */
+/* include) generates the compiland text; the Compiland pattern above parses ONLY that text (Lon 2026-10-03, CEO-1483; semantics answered by hq_pascal). */
+/* Every other directive passes through as the comment it is. A dropped or consumed span keeps its newlines, so line numbers hold.               */
+struct ppdef { pv }
+/* ==================================================================================================================== */
+/* the patterns are built the first time a source carries a conditional directive: a program with none runs the Compiland alone, as before */
+function PPPat() {
+    pp_spc   = ' ' CHAR(9) CHAR(10) CHAR(13);
+    pp_nl    = CHAR(10);
+    pp_sp    = "'{(/";
+    pp_num   = ( POS(0) FENCE('-' | epsilon) SPAN('0123456789') FENCE('.' SPAN('0123456789') | epsilon)
+                 FENCE(ANY('eE') FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon) RPOS(0) );
+    pp_dir   = ( ( '{$' BREAK('}') '}' | '(*$' BREAKX('*') '*)' ) . pp_t . *PPDir(pp_t) );
+    pp_cmt   = ( '{' BREAK('}') '}' | '(*' FENCE(BREAKX('*') '*)') | '//' FENCE(BREAK(pp_nl) | REM) );
+    pp_str   = ( "'" ARBNO(NOTANY("'" pp_nl) | "''") "'" );
+    pp_oth   = ( NOTANY(pp_sp) FENCE(BREAK(pp_sp) | REM) | ANY(pp_sp) );
+    pp_txt   = ( ( pp_cmt | pp_str | pp_oth ) . pp_t . *PPTxt(pp_t) );
+    Preprocess = ( POS(0) ARBNO(FENCE(pp_dir | pp_txt)) RPOS(0) );
+    pp_ready = 1;
+    return;
+}
+/* ==================================================================================================================== */
+function PPInit(w, s) {
+    if (IDENT(pp_ready)) { PPPat(); }
+    pp_sym = TABLE(31);
+    pp_inc = TABLE(31);
+    pp_stk = TABLE(31);
+    pp_sn = 0;
+    pp_base = 0;
+    pp_skip = '';
+    pp_err = '';
+    pp_out = '';
+    pp_buf = '';
+    s = 'fpc unix linux cpu64 cpux86_64 endian_little ';
+    while (s ? (POS(0) BREAK(' ') . w ' ') = ) { pp_sym[w] = ppdef('1'); }
+    return;
+}
+/* ==================================================================================================================== */
+function PPErr(msg) {
+    TERMINAL = 'Preprocess: ' pp_t ': ' msg;
+    pp_err = 1;
+    return;
+}
+/* ==================================================================================================================== */
+function PPEmit(s) {
+    pp_buf = pp_buf s;
+    if (GT(SIZE(pp_buf), 2048)) { pp_out = pp_out pp_buf; pp_buf = ''; }
+    return;
+}
+/* ==================================================================================================================== */
+function PPNls(s, out) {
+    out = '';
+    if (s ? pp_nl) { while (s ? (BREAK(pp_nl) pp_nl) = ) { out = out pp_nl; } }
+    PPNls = out;
+    return;
+}
+/* ==================================================================================================================== */
+function PPTxt(tl) {
+    PPTxt = .dummy;
+    if (IDENT(pp_skip)) { PPEmit(tl); } else { PPEmit(PPNls(tl)); }
+    nreturn;
+}
+/* ==================================================================================================================== */
+function PPDirOf(f, d, p) {
+    d = '';
+    while (f ? (POS(0) BREAK('/') . p '/') = ) { d = d p '/'; }
+    PPDirOf = d;
+    return;
+}
+/* ==================================================================================================================== */
+function PPOpen(path, t) {
+    PPOpen = ;
+    if (INPUT(.PPIN, 10, path '[-r16777215]')) {
+        t = '';
+        t = PPIN;
+        ENDFILE(10);
+        PPOpen = t;
+        return;
+    }
+    freturn;
+}
+/* ==================================================================================================================== */
+function PPFind(nm, t, lp, dir) {
+    PPFind = ;
+    if (t = PPOpen(nm)) { PPFind = t; return; }
+    if (DIFFER(pp_cur)) { if (t = PPOpen(pp_cur nm)) { PPFind = t; return; } }
+    lp = HOST(4, 'LPATH');
+    while (DIFFER(lp)) {
+        if (lp ? (POS(0) BREAK(': ') . dir ANY(': ')) = ) { ; } else { dir = lp; lp = ''; }
+        if (t = PPOpen(dir '/' nm)) { PPFind = t; return; }
+    }
+    freturn;
+}
+/* ==================================================================================================================== */
+function PPRead(nm, t) {
+    PPRead = ;
+    if (t = PPFind(nm)) { PPRead = t; return; }
+    if (nm ? '.') { freturn; }
+    if (t = PPFind(nm '.inc')) { PPRead = t; return; }
+    freturn;
+}
+/* ==================================================================================================================== */
+/* the arm's expression: defined/undefined, not, and, or, comparison, integer/real/boolean literals, symbols that carry a value (define X := v, setc);  */
+/* declared() sizeof() option() `in` and an unknown identifier are not decided here: the arm is taken as false and one line names the directive         */
+function PPWs() {
+    pp_e ? (POS(0) SPAN(pp_spc)) = ;
+    return;
+}
+/* ==================================================================================================================== */
+function PPKw(k, w) {
+    PPWs();
+    w = '';
+    pp_e ? (POS(0) Id . w);
+    if (IDENT(w, k)) { pp_e ? (POS(0) Id) = ; return; }
+    freturn;
+}
+/* ==================================================================================================================== */
+function PPTruth(v) {
+    PPTruth = 'false';
+    if (IDENT(v, 'true')) { PPTruth = 'true'; }
+    else if (v ? pp_num) { if (NE(v, 0)) { PPTruth = 'true'; } }
+    return;
+}
+/* ==================================================================================================================== */
+function PPAtom(w, v, q) {
+    PPWs();
+    if (pp_e ? (POS(0) '(') = ) {
+        v = PPOr();
+        PPWs();
+        if (pp_e ? (POS(0) ')') = ) { ; } else { pp_bad = 'expression'; }
+        PPAtom = v;
+        return;
+    }
+    if (pp_e ? (POS(0) (SPAN('0123456789') FENCE('.' SPAN('0123456789') | epsilon) FENCE(ANY('eE') FENCE(ANY('+-') | epsilon) SPAN('0123456789') | epsilon)) . w) = ) {
+        PPAtom = w;
+        return;
+    }
+    if (pp_e ? (POS(0) Id . w) = ) {
+        if (w ? (POS(0) ('defined' | 'undefined') RPOS(0))) {
+            q = '';
+            if (pp_e ? (POS(0) FENCE(SPAN(pp_spc) | epsilon) '(' FENCE(SPAN(pp_spc) | epsilon) Id . q FENCE(SPAN(pp_spc) | epsilon) ')') = ) { ; }
+            else if (pp_e ? (POS(0) SPAN(pp_spc) Id . q) = ) { ; }
+            else { pp_bad = w; }
+            v = 'false';
+            if (DIFFER(pp_sym[q])) { v = 'true'; }
+            if (IDENT(w, 'undefined')) { if (IDENT(v, 'true')) { v = 'false'; } else { v = 'true'; } }
+            PPAtom = v;
+            return;
+        }
+        if (w ? (POS(0) ('declared' | 'sizeof' | 'option') RPOS(0))) {
+            pp_e ? (POS(0) FENCE(SPAN(pp_spc) | epsilon) '(' BREAK(')') ')') = ;
+            pp_bad = w;
+            PPAtom = 'false';
+            return;
+        }
+        if (w ? (POS(0) ('true' | 'false') RPOS(0))) { PPAtom = w; return; }
+        if (DIFFER(pp_sym[w])) { PPAtom = pv(pp_sym[w]); return; }
+        pp_bad = 'identifier ' w;
+        PPAtom = 'false';
+        return;
+    }
+    pp_bad = 'expression';
+    pp_e = '';
+    PPAtom = 'false';
+    return;
+}
+/* ==================================================================================================================== */
+function PPCmp(a, b, op, n, r) {
+    a = PPAtom();
+    PPWs();
+    if (pp_e ? (POS(0) 'in' ANY(pp_spc '['))) { pp_bad = 'in'; pp_e = ''; PPCmp = 'false'; return; }
+    if (pp_e ? (POS(0) ('<>' | '<=' | '>=' | '<' | '>' | '=') . op) = ) {
+        b = PPAtom();
+        n = '';
+        if (a ? pp_num) { if (b ? pp_num) { n = 1; } }
+        r = 'false';
+        if (DIFFER(n)) {
+            if (IDENT(op, '<>')) { if (NE(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '<=')) { if (LE(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '>=')) { if (GE(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '<')) { if (LT(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '>')) { if (GT(a, b)) { r = 'true'; } }
+            else { if (EQ(a, b)) { r = 'true'; } }
+        } else {
+            if (IDENT(op, '<>')) { if (DIFFER(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '<=')) { if (LLE(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '>=')) { if (LGE(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '<')) { if (LLT(a, b)) { r = 'true'; } }
+            else if (IDENT(op, '>')) { if (LGT(a, b)) { r = 'true'; } }
+            else { if (IDENT(a, b)) { r = 'true'; } }
+        }
+        PPCmp = r;
+        return;
+    }
+    PPCmp = a;
+    return;
+}
+/* ==================================================================================================================== */
+function PPNot(w, v) {
+    PPWs();
+    w = '';
+    pp_e ? (POS(0) Id . w);
+    if (IDENT(w, 'not')) {
+        pp_e ? (POS(0) Id) = ;
+        v = PPNot();
+        if (IDENT(PPTruth(v), 'true')) { PPNot = 'false'; } else { PPNot = 'true'; }
+        return;
+    }
+    PPNot = PPCmp();
+    return;
+}
+/* ==================================================================================================================== */
+function PPAnd(v, b) {
+    v = PPNot();
+    while (PPKw('and')) {
+        b = PPNot();
+        if (IDENT(PPTruth(v), 'true')) { v = PPTruth(b); } else { v = 'false'; }
+    }
+    PPAnd = v;
+    return;
+}
+/* ==================================================================================================================== */
+function PPOr(v, b) {
+    v = PPAnd();
+    while (PPKw('or')) {
+        b = PPAnd();
+        if (IDENT(PPTruth(v), 'true')) { v = 'true'; } else { v = PPTruth(b); }
+    }
+    PPOr = v;
+    return;
+}
+/* ==================================================================================================================== */
+function PPCond(e, v) {
+    pp_e = lwr(e);
+    pp_bad = '';
+    v = PPOr();
+    PPWs();
+    if (DIFFER(pp_e)) { if (IDENT(pp_bad)) { pp_bad = 'expression'; } }
+    if (DIFFER(pp_bad)) {
+        TERMINAL = 'Preprocess: ' pp_t ': unsupported ' pp_bad ', the arm is taken as false';
+        PPCond = 'wait';
+        return;
+    }
+    if (IDENT(PPTruth(v), 'true')) { PPCond = ''; } else { PPCond = 'wait'; }
+    return;
+}
+/* ==================================================================================================================== */
+/* pp_skip: '' emitting; 'wait' skipping, no arm taken yet; 'done' skipping, an arm was taken; 'off' inside a skipped arm of an outer conditional */
+function PPDir(tx, b, cmd, rest, sym, val, nm, t, sv, st, md, inc) {
+    PPDir = .dummy;
+    pp_t = tx;
+    if (tx ? (POS(0) '{$' REM . b)) { b ? (ANY('}') RPOS(0)) = ; } else { tx ? (POS(0) '(*$' REM . b); b ? ('*)' RPOS(0)) = ; }
+    b ? (POS(0) FENCE(SPAN(pp_spc) | epsilon) FENCE(Id . cmd | epsilon) FENCE(SPAN(pp_spc) | epsilon) REM . rest);
+    cmd = lwr(cmd);
+    rest ? (SPAN(pp_spc) RPOS(0)) = ;
+    inc = '';
+    if (cmd ? (POS(0) ('i' | 'include') RPOS(0))) { if (DIFFER(rest)) { if (~(rest ? (POS(0) ANY('+-,')))) { inc = 1; } } }
+    if (cmd ? (POS(0) ('ifdef' | 'ifndef') RPOS(0))) {
+        pp_sn = pp_sn + 1;
+        pp_stk[pp_sn] = pp_skip;
+        if (DIFFER(pp_skip)) { pp_skip = 'off'; }
+        else {
+            sym = '';
+            rest ? (POS(0) Id . sym);
+            st = 'wait';
+            if (DIFFER(pp_sym[lwr(sym)])) { st = ''; }
+            if (IDENT(cmd, 'ifndef')) { if (IDENT(st)) { st = 'wait'; } else { st = ''; } }
+            pp_skip = st;
+        }
+        PPEmit(PPNls(tx));
+    } else if (cmd ? (POS(0) ('if' | 'ifc' | 'ifopt') RPOS(0))) {
+        pp_sn = pp_sn + 1;
+        pp_stk[pp_sn] = pp_skip;
+        if (DIFFER(pp_skip)) { pp_skip = 'off'; }
+        else if (IDENT(cmd, 'ifopt')) { TERMINAL = 'Preprocess: ' tx ': unsupported ifopt, the arm is taken as false'; pp_skip = 'wait'; }
+        else { pp_skip = PPCond(rest); }
+        PPEmit(PPNls(tx));
+    } else if (IDENT(cmd, 'elseif')) {
+        if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+        else if (IDENT(pp_skip)) { pp_skip = 'done'; }
+        else if (IDENT(pp_skip, 'wait')) { pp_skip = PPCond(rest); }
+        PPEmit(PPNls(tx));
+    } else if (cmd ? (POS(0) ('else' | 'elsec') RPOS(0))) {
+        if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+        else if (IDENT(pp_skip)) { pp_skip = 'done'; }
+        else if (IDENT(pp_skip, 'wait')) { pp_skip = ''; }
+        PPEmit(PPNls(tx));
+    } else if (cmd ? (POS(0) ('endif' | 'ifend' | 'endc') RPOS(0))) {
+        if (LE(pp_sn, pp_base)) { PPErr('no corresponding $if...'); }
+        else { pp_skip = pp_stk[pp_sn]; pp_sn = pp_sn - 1; }
+        PPEmit(PPNls(tx));
+    } else if (DIFFER(pp_skip)) {
+        PPEmit(PPNls(tx));
+    } else if (cmd ? (POS(0) ('define' | 'definec' | 'setc') RPOS(0))) {
+        if (rest ? (POS(0) Id . sym FENCE(SPAN(pp_spc) | epsilon) FENCE((':=' | '=') FENCE(SPAN(pp_spc) | epsilon) REM . val | epsilon))) {
+            if (IDENT(val)) { val = '1'; }
+            pp_sym[lwr(sym)] = ppdef(lwr(val));
+        } else { PPErr('syntax error'); }
+        PPEmit(PPNls(tx));
+    } else if (cmd ? (POS(0) ('undef' | 'undefc') RPOS(0))) {
+        if (rest ? (POS(0) Id . sym)) { pp_sym[lwr(sym)] = ; } else { PPErr('syntax error'); }
+        PPEmit(PPNls(tx));
+    } else if (DIFFER(inc)) {
+        PPEmit(PPNls(tx));
+        if (rest ? (POS(0) "'" BREAK("'") . nm "'")) { ; }
+        else if (rest ? (POS(0) (NOTANY(pp_spc "'") FENCE(BREAK(pp_spc) | REM)) . nm)) { ; }
+        else { nm = ''; }
+        if (IDENT(nm)) { PPErr('syntax error'); }
+        else if (DIFFER(pp_inc[nm])) { PPErr('circular reference to ' nm); }
+        else if (t = PPRead(nm)) {
+            pp_inc[nm] = 1;
+            sv = pp_base;
+            pp_base = pp_sn;
+            t ? *Preprocess;
+            if (NE(pp_sn, pp_base)) { PPErr('$if(s) without $endif(s)'); pp_skip = pp_stk[pp_base + 1]; pp_sn = pp_base; }
+            pp_base = sv;
+            pp_inc[nm] = ;
+        } else { TERMINAL = 'Preprocess: ' tx ': cannot open ' nm ', the include is dropped'; }
+    } else if (IDENT(cmd, 'mode')) {
+        md = '';
+        rest ? (POS(0) Id . md);
+        md = lwr(md);
+        pp_sym['fpc_iso'] = ;
+        pp_sym['fpc_objfpc'] = ;
+        pp_sym['fpc_delphi'] = ;
+        pp_sym['fpc_tp'] = ;
+        pp_sym['fpc_macpas'] = ;
+        if (md ? (POS(0) ('iso' | 'objfpc' | 'delphi' | 'tp' | 'macpas') RPOS(0))) { pp_sym['fpc_' md] = ppdef('1'); }
+        PPEmit(tx);
+    } else {
+        PPEmit(tx);
+    }
+    nreturn;
+}
+/* ==================================================================================================================== */
 function ParseOne(ptree, i, n_kids) {
+    if (Src ? ('{$' | '(*$')) {
+        if (lwr(Src) ? (('{$' | '(*$') ('if' | 'else' | 'endif' | 'endc' | 'define' | 'undef' | 'setc' | 'include' | 'i' ANY(' ' CHAR(9) CHAR(10) CHAR(13))))) {
+            PPInit();
+            pp_cur = '';
+            if (DIFFER(pf_name)) { pp_cur = PPDirOf(pf_name); }
+            if (Src ? *Preprocess) { ; } else { pp_err = 1; }
+            if (NE(pp_sn, 0)) { PPErr('$if(s) without $endif(s)'); }
+            if (DIFFER(pp_err)) { OUTPUT = 'Parse Error'; return; }
+            Src = pp_out pp_buf;
+        }
+    }
     pf_a = TIME();
     InitCounter();
     InitStack();
