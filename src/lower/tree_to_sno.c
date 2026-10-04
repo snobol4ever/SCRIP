@@ -15,7 +15,7 @@ typedef struct {
     cv_t  cont_lbl;
     int   loop_top;
     int   if_seq;
-    char  linebuf[16384];
+    cv_t  linebuf;
     int   linelen;
     int   last_was_return;
 } core_ctx_t;
@@ -33,19 +33,15 @@ static void emit_node(core_ctx_t *c, const tree_t *n);
 static void emit_stmt(core_ctx_t *c, const tree_t *stmt);
 static void codegen_program(core_ctx_t *c, const tree_t *prog);
 #include <stdarg.h>
-#define SNO_LINEBUF       16384
 #define SNO_LINE_SPLIT_AT   900
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit(core_ctx_t *c, const char *fmt, ...) {
     va_list ap; va_start(ap, fmt);
-    int remaining = SNO_LINEBUF - c->linelen - 1;
-    if (remaining < 0) remaining = 0;
-    int n = vsnprintf(c->linebuf + c->linelen, remaining, fmt, ap);
+    int need = vfmt_len(fmt, ap);
+    cv_reserve(&c->linebuf, 1, (uint64_t) c->linelen + (uint64_t) need, "linebuf");
+    int n = vsnprintf((char *) c->linebuf.p + c->linelen, (size_t) need, fmt, ap);
     va_end(ap);
-    if (n > 0) {
-        if (n > remaining) n = remaining;
-        c->linelen += n;
-    }
+    if (n > 0) c->linelen += n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_in_quoted(const char *buf, int upto) {
@@ -79,7 +75,7 @@ static int core_find_split(const char *buf, int len, int target) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_nl(core_ctx_t *c) {
     int len = c->linelen;
-    const char *buf = c->linebuf;
+    const char *buf = (const char *) c->linebuf.p;
     {
         int newflag = 0;
         if (len >= 9) {
@@ -122,7 +118,7 @@ static void emit_nl(core_ctx_t *c) {
         c->lines++;
     }
     c->linelen = 0;
-    c->linebuf[0] = '\0';
+    if (c->linebuf.p) ((char *) c->linebuf.p)[0] = '\0';
     c->in_stmt = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -142,23 +138,13 @@ static const char *label_of(const tree_t *n, const char *fallback) {
 static const char *label_sanitize(const char *raw) {
     if (!raw || !*raw) return raw;
     if (raw[0] != '_') return raw;
-    static char ring[4][256];
-    static int  idx = 0;
-    char *buf = ring[idx]; idx = (idx + 1) & 3;
     const char *rest = raw;
     while (*rest == '_') rest++;
-    if (!*rest) {
-        snprintf(buf, 256, "L_");
-        return buf;
-    }
+    if (!*rest) return ct_fmt("L_");
     if (((*rest >= 'A' && *rest <= 'Z') ||
          (*rest >= 'a' && *rest <= 'z') ||
-         (*rest >= '0' && *rest <= '9'))) {
-        snprintf(buf, 256, "%s_", rest);
-    } else {
-        snprintf(buf, 256, "L%s_", rest);
-    }
-    return buf;
+         (*rest >= '0' && *rest <= '9'))) return ct_fmt("%s_", rest);
+    return ct_fmt("L%s_", rest);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void emit_expr(core_ctx_t *c, const tree_t *e) {
@@ -368,15 +354,15 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
     if (subj && subj->t == TT_DEFINE && subj->n >= 3) {
         const char *fname = (subj->c[0] && subj->c[0]->v.sval) ? subj->c[0]->v.sval : "_fn";
         const char *proto = (subj->c[1] && subj->c[1]->v.sval) ? subj->c[1]->v.sval : "_fn()";
-        char sproto[1024]; int sp = 0;
+        char sproto[3 * strlen(proto) + 4]; int sp = 0;
         {
-            char nm[256]; int nl = 0;
+            char nm[strlen(proto) + 1]; int nl = 0;
             for (const char *q = proto; ; q++) {
-                if (*q && *q != '(' && *q != ')' && *q != ',') { if (nl < (int)sizeof nm - 1) nm[nl++] = *q; continue; }
+                if (*q && *q != '(' && *q != ')' && *q != ',') { nm[nl++] = *q; continue; }
                 nm[nl] = '\0';
                 sp += snprintf(sproto + sp, sizeof sproto - (size_t)sp, "%s", nl ? label_sanitize(nm) : "");
                 nl = 0;
-                if (!*q || sp >= (int)sizeof sproto - 2) break;
+                if (!*q) break;
                 sproto[sp++] = *q; sproto[sp] = '\0';
             }
         }
@@ -593,10 +579,10 @@ static void emit_stmt(core_ctx_t *c, const tree_t *s) {
             int seq = ++c->if_seq;
             int npairs = (subj->n - 1) / 2;
             int k, default_idx = -1;
-            char swd_raw[32], swd[40], Lend[32];
+            char swd_raw[32], Lend[32]; const char * swd;
             char (*Lcase)[32] = NULL;
             snprintf(swd_raw, sizeof swd_raw, "_swd_%04d", seq);
-            snprintf(swd, sizeof swd, "%s", label_sanitize(swd_raw));
+            swd = label_sanitize(swd_raw);
             snprintf(Lend, sizeof Lend, "_Lswend_%04d", seq);
             Lcase = (char (*)[32])ct_alloc((size_t)(npairs > 0 ? npairs : 1) * 32);
             for (k = 0; k < npairs; k++) snprintf(Lcase[k], 32, "_Lswc_%04d_%02d", seq, k);
