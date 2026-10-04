@@ -567,7 +567,8 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
                 tree_t *idx = rk_interp_subexpr(b, s, &i, len);
                 while (i < len && s[i] != ']') i++;
                 if (i < len && s[i] == ']') i++;
-                arrpart = idx ? rk_arr_index(b, vname, idx) : leaf_sval(TT_VAR, vname);
+                if (idx) arrpart = rk_arr_index(b, vname, idx);
+                else { arrpart = ast_node_new(TT_METHCALL); ast_push(arrpart, leaf_sval(TT_VAR, vname)); ast_push(arrpart, leaf_sval(TT_QLIT, "join")); ast_push(arrpart, leaf_sval(TT_QLIT, " ")); }
             }
             else arrpart = leaf_sval(TT_VAR, vname);
             result = result ? expr_binary(TT_CAT, result, arrpart) : arrpart;
