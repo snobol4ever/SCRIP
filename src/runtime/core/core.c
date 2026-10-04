@@ -4146,29 +4146,19 @@ typedef struct _FNCBLK_t {
     int     max_set;
     struct _FNCBLK_t *next;
 } FNCBLK_t;
-static gv_t g_func_buckets; static unsigned _func_nbuckets = 0; static unsigned long _func_count = 0;
-#define _func_buckets ((FNCBLK_t **)g_func_buckets.p)
+#define FUNC_BUCKETS 128
+static FNCBLK_t *_func_buckets[FUNC_BUCKETS]; static const unsigned _func_nbuckets = FUNC_BUCKETS;
 static unsigned _func_hash_raw(const char *name) {
     unsigned h = 5381;
     while (*name) h = h * 33 ^ (unsigned char)*name++;
     return h;
 }
-static void _func_regrow(unsigned nb) {
-    gv_t nv = { 0, 0, 0, 0, 0, 0 };
-    gv_reserve(&nv, (uint16_t)HB_PVEC, (uint32_t)sizeof(FNCBLK_t *), (uint64_t)nb, "g_func_buckets"); memset(nv.p, 0, (size_t)nb * sizeof(FNCBLK_t *));
-    for (unsigned h = 0; h < _func_nbuckets; h++) for (FNCBLK_t *e = _func_buckets[h], *nx; e; e = nx) { FNCBLK_t **t = &((FNCBLK_t **)nv.p)[_func_hash_raw(e->name) & (nb - 1)]; nx = e->next;
-        while (*t) t = &(*t)->next;
-        e->next = (FNCBLK_t *)0; *t = e; }
-    g_func_buckets = nv; _func_nbuckets = nb;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _func_init(void) {
-    if (!_func_nbuckets) _func_regrow(8);
 }
-static void _func_count_one(void) { if (++_func_count > _func_nbuckets) _func_regrow(_func_nbuckets * 2); }
+static void _func_count_one(void) { }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_func_nbuckets - 1); }
-static FNCBLK_t *_func_head_at(unsigned h) { return _func_nbuckets ? _func_buckets[h] : (FNCBLK_t *)0; }
+static FNCBLK_t *_func_head_at(unsigned h) { return _func_buckets[h]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
     FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
@@ -4484,8 +4474,7 @@ int UNLOAD_fn(const char *name) {
         if (strcmp(e->name, name) != 0) continue;
         if (e->fn) return 0;
         if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
-        if (_func_count) _func_count--;
-        rt_proc_unregister(name);
+            rt_proc_unregister(name);
         return 1;
     }
     rt_proc_unregister(name);
@@ -5136,7 +5125,6 @@ void core_gc_roots(void)
             if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e);
             rt_gc_visit_descr(&e->val);
             if (e->cell) rt_gc_visit_raw_in((const char **)&e->cell, e); } }
-    gv_gc_root(&g_func_buckets);
     for (unsigned b = 0; b < _func_nbuckets; b++) {
         if (_func_buckets[b]) rt_gc_visit_raw((const char **)&_func_buckets[b]);
         for (FNCBLK_t *e = _func_buckets[b]; e; e = (FNCBLK_t *)e->next) {

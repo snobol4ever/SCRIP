@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2040
-#define GC_ALLOC_TAB_N_VOID 239
+#define GC_ALLOC_TAB_N 2037
+#define GC_ALLOC_TAB_N_VOID 236
 #define GC_ALLOC_TAB_N_DESCR 1097
 #define GC_ALLOC_TAB_N_OTHER 698
 #define GC_ALLOC_TAB_N_UNKNOWN 6
@@ -343,9 +343,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_facc_get_97", GC_RET_DESCR },
     { "_facc_get_98", GC_RET_DESCR },
     { "_facc_get_99", GC_RET_DESCR },
-    { "_func_count_one", GC_RET_VOID },
-    { "_func_init", GC_RET_VOID },
-    { "_func_regrow", GC_RET_VOID },
     { "_icn_hash", GC_RET_OTHER },
     { "_icn_succ", GC_RET_OTHER },
     { "_io_assoc_pair_state", GC_RET_OTHER },
