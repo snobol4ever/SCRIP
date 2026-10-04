@@ -11,6 +11,11 @@ PL="${1:?Usage: run_prolog_via_x86_backend.sh <file.pl>}"
 [ -x "$SCRIP" ] || { echo "FAIL scrip not built: $SCRIP"; exit 1; }
 [ -f "$LIBRT" ] || { echo "FAIL libscrip_rt.so not built: $LIBRT (run 'make libscrip_rt' first)"; exit 1; }
 [ -f "$PL"    ] || { echo "FAIL no such file: $PL"; exit 1; }
+# The compiled binary runs at the heap and stack the program declares beside itself (<stem>.heap / <stem>.stack), leading its own argv
+# as -d<kb>k -s<kb>k (ceo CEO-1353, RULES.md clause 8 (g)); an undeclared program runs at the shipped default and a sidecar the reader
+# refuses is could-not-measure, rc 2 -- so every caller (the rung runner, the crosscheck, the parity gate, the SWI probes) carries it.
+. "$HERE/lib_declared_arena.sh" || { echo "FAIL cannot load lib_declared_arena.sh"; exit 2; }
+SW="$(declared_switches_beside "$PL")" || exit 2
 WORK="$(mktemp -d /tmp/pl_x86_XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 PLABS="$(realpath "$PL")"
@@ -27,4 +32,4 @@ ASM="$WORK/$PLBASE.s"
 gcc -no-pie -o "$WORK/prog_bin" "$WORK/prog.o" "$LIBRT" -lm -lstdc++ -Wl,-rpath,"$(dirname "$LIBRT")" 2>"$WORK/ld.err" || {
     echo "FAIL link:"; cat "$WORK/ld.err" | head -20; exit 1
 }
-timeout 8 "$WORK/prog_bin" < /dev/null
+timeout 8 "$WORK/prog_bin" $SW < /dev/null

@@ -42,9 +42,13 @@ ipl_isolation_init() {
   local pkg="$1"
   IPL_ISO_TEMPLATE="$(mktemp -d "${TMPDIR:-/tmp}/ipl_iso_template.XXXXXX")" || return 1
   local sub
+  # A subdirectory the package does not ship is skipped, not a failure (the coo 2026-10-03): the loop's last test was the function's
+  # status, so a package without gincl/ read "could not build IPL isolation template" and the board refused; only a failed copy refuses.
   for sub in progs gprogs procs gprocs incl gincl; do
-    [ -d "$pkg/$sub" ] && cp -r "$pkg/$sub" "$IPL_ISO_TEMPLATE/$sub"
+    [ -d "$pkg/$sub" ] || continue
+    cp -r "$pkg/$sub" "$IPL_ISO_TEMPLATE/$sub" || return 1
   done
+  return 0
 }
 
 ipl_isolation_cleanup() { [ -n "${IPL_ISO_TEMPLATE:-}" ] && rm -rf "$IPL_ISO_TEMPLATE"; [ -n "${IPL_ISO_BASELINE:-}" ] && rm -f "$IPL_ISO_BASELINE"; return 0; }

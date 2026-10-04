@@ -25,7 +25,9 @@
 # the wrong code with no warning. --oracle's default "scr" participant runs mode-3 (already covered above); only
 # --modes needs scr4, so the check below runs only for that path.
 set -u
-S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"; SD="$S4E/SCRIP"; SCRIP="$SD/scrip"
+# THE BINARY IS THIS REPOSITORY'S OWN (the coo 2026-10-03, CEO-1496): SD was $S4E/SCRIP, the sibling checkout beside the root, so from a
+# worktree every run below -- and the harness it calls -- graded a different checkout's build than the one the caller stood in.
+SD="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; SCRIP="$SD/scrip"
 src="${1:-}"; [ -n "$src" ] && [ -f "$src" ] || { echo "REFUSE(2): usage: monitor_run.sh <source> [--modes|--trace|--oracle] [--input FILE]"; exit 2; }
 shift; mode=modes; input=""
 while [ $# -gt 0 ]; do case "$1" in --modes) mode=modes;; --trace) mode=trace;; --oracle) mode=oracle;; --input) input="$2"; shift;; *) echo "REFUSE(2): unknown option $1"; exit 2;; esac; shift; done
@@ -34,6 +36,10 @@ src="$(realpath "$src")"; base="${src%.*}"; ext="${src##*.}"
 [ -z "$input" ] && [ -f "$base.input" ] && input="$base.input"; [ -z "$input" ] && input=/dev/null
 [ "$input" = /dev/null ] || { [ -f "$input" ] || { echo "REFUSE(2): --input $input is not a file"; exit 2; }; input="$(realpath "$input")"; }   # absolute before the cd into the scratch mirror below
 case "$ext" in sno|spt|sbl|icn|pl|pas|raku|sc|reb) ;; *) echo "REFUSE(2): $ext is not a SCRIP source extension"; exit 2;; esac
+# every run below at the heap and stack the source declares beside itself (<base>.heap / <base>.stack, which extract writes for a suite entry):
+# -d/-s after --run, leading each compiled binary's arguments (ceo CEO-1353, RULES.md clause 8 (g)); the participants read the same sidecars
+. "$SD/scripts/lib_declared_arena.sh" || { echo "REFUSE(2): cannot load lib_declared_arena.sh"; exit 2; }
+SW="$(declared_switches_beside "$src")" || { echo "REFUSE(2): $src: a .heap or .stack sidecar the reader refuses (it said why above)"; exit 2; }
 W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 # ⛔⭐ THE SUBJECT RUNS IN A SCRATCH MIRROR OF ITS OWN DIRECTORY, NEVER IN THE CALLER'S CWD (coo 2026-09-25, on hq_pascal's
 # measurement). Every run below -- the traced and untraced mode 3, both mode-4 binaries and the participants -- inherited
@@ -46,12 +52,12 @@ RUNDIR="$W/cwd"; mkdir -p "$RUNDIR" || { echo "REFUSE(2): no scratch cwd under $
 for _e in "$(dirname "$src")"/* "$(dirname "$src")"/.[!.]*; do [ -e "$_e" ] && ln -s "$_e" "$RUNDIR/" 2>/dev/null; done
 cd "$RUNDIR" || { echo "REFUSE(2): cannot enter the scratch cwd $RUNDIR"; exit 2; }
 if [ "$mode" = trace ]; then
-    timeout 60 "$SCRIP" --trace --run "$src" < "$input"; rc=$?
+    timeout 60 "$SCRIP" --trace --run $SW "$src" < "$input"; rc=$?
     [ "$rc" = 124 ] && { echo "REFUSE(2): the traced run did not finish in 60 s -- this is not a verdict"; exit 2; }
     exit 0
 fi
-timeout 60 "$SCRIP" --run "$src" < "$input" > "$W/plain.out" 2> "$W/plain.err"; prc=$?
-timeout 60 "$SCRIP" --trace --run "$src" < "$input" > "$W/traced.out" 2> "$W/traced.err"; trc=$?
+timeout 60 "$SCRIP" --run $SW "$src" < "$input" > "$W/plain.out" 2> "$W/plain.err"; prc=$?
+timeout 60 "$SCRIP" --trace --run $SW "$src" < "$input" > "$W/traced.out" 2> "$W/traced.err"; trc=$?
 if [ "$prc" = 124 ] || [ "$trc" = 124 ]; then echo "REFUSE(2): the witness did not finish in 60 s (plain rc=$prc, traced rc=$trc) -- pick a shorter witness"; exit 2; fi
 perl -0pe 's/\*\*\*\*[0-9]+[^\n]*\n//g' "$W/traced.out" > "$W/traced.stripped"
 if ! cmp -s "$W/plain.out" "$W/traced.stripped" || [ "$prc" != "$trc" ]; then
@@ -64,7 +70,7 @@ if [ "$mode" = modes ]; then
     [ "$pcc" = 0 ] || { echo "REFUSE(2): mode-4 plain compile failed (rc=$pcc): $(tail -2 "$W/plain4.cc.out")"; exit 2; }
     gcc "$W/plain4.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$W/plain4.bin" > "$W/plain4.link.out" 2>&1
     [ -x "$W/plain4.bin" ] || { echo "REFUSE(2): mode-4 plain link failed: $(tail -2 "$W/plain4.link.out")"; exit 2; }
-    timeout 60 "$W/plain4.bin" < "$input" > "$W/plain4.out" 2> "$W/plain4.err"; prc4=$?
+    timeout 60 "$W/plain4.bin" $SW < "$input" > "$W/plain4.out" 2> "$W/plain4.err"; prc4=$?
 
     ( cd "$(dirname "$src")" && timeout 60 "$SCRIP" --trace --compile --monitor -o "$W/traced4.s" "$src" < /dev/null ) > "$W/traced4.cc.out" 2>&1; tcc=$?
     [ "$tcc" = 0 ] || { echo "REFUSE(2): mode-4 traced compile failed (rc=$tcc): $(tail -2 "$W/traced4.cc.out")"; exit 2; }
@@ -74,7 +80,7 @@ if [ "$mode" = modes ]; then
     # harness's -- core.c only opens the IPC pipe when MONITOR_READY_PIPE is present, so a lone traced binary run
     # without it never blocks on an ack partner and its trace hook calls execute as (intended) no-ops. That is
     # exactly the property under test: does the mere PRESENCE of the instrumentation change real behavior.
-    timeout 60 "$W/traced4.bin" < "$input" > "$W/traced4.out" 2> "$W/traced4.err"; trc4=$?
+    timeout 60 "$W/traced4.bin" $SW < "$input" > "$W/traced4.out" 2> "$W/traced4.err"; trc4=$?
 
     if [ "$prc4" = 124 ] || [ "$trc4" = 124 ]; then echo "REFUSE(2): the mode-4 witness did not finish in 60 s (plain rc=$prc4, traced rc=$trc4) -- pick a shorter witness"; exit 2; fi
     if ! cmp -s "$W/plain4.out" "$W/traced4.out" || [ "$prc4" != "$trc4" ]; then
@@ -96,7 +102,9 @@ else
     parts="scr3 scr4"
 fi
 [ "$input" = /dev/null ] || export MONITOR_STDIN="$input"
-PARTICIPANTS="$parts" timeout 300 bash "$SD/scripts/test_monitor_3way_sync_step_auto.sh" "$src" > "$W/harness.out" 2>&1; hrc=$?
+# MONITOR_HARNESS names a stand-in harness for a gate that must make the controller say something a real run cannot be made to (a
+# PROTOCOL ERR); it is never set by a seat. Until SD became this repository (CEO-1496) such a gate swapped the harness through S4E_HOME.
+PARTICIPANTS="$parts" timeout 300 bash "${MONITOR_HARNESS:-$SD/scripts/test_monitor_3way_sync_step_auto.sh}" "$src" > "$W/harness.out" 2>&1; hrc=$?
 steps=$(grep -oE 'all reached END after [0-9]+ steps' "$W/harness.out" | grep -oE '[0-9]+' | head -1)
 verdict=$(grep -aoE 'VERDICT AGREE=[0-9]+ DIVERGE=[0-9]+ UNGRADED=[0-9]+' "$W/harness.out" | head -1 | sed 's/^VERDICT //')
 ungraded=$(printf '%s' "$verdict" | sed -n 's/.*UNGRADED=\([0-9]*\).*/\1/p')

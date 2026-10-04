@@ -53,9 +53,15 @@ one_runner_seat() {
 # still the shared population. ⛔ UNREADABLE ANSWERS BOARD: a guard that cannot tell must refuse, never wave through.
 ONE_RUNNER_SHARED_CORPUS_REMOTE='snobol4ever/corpus'
 ONE_RUNNER_LIVE_PROGRESS_DB='/home/resources/progress/results.tsv'
-one_runner_corpus_is_the_shared_population() {
-  local cr="$1" out
-  out="$(git -C "$cr" remote -v 2>/dev/null)" || return 0
+one_runner_corpus_is_the_shared_population() {  # rc 0 = a checkout of the shared corpus; git that cannot run at all (127) answers yes
+  # ⛔ A DIRECTORY THAT IS NO GIT REPOSITORY IS NOT THE SHARED POPULATION (the coo 2026-10-03): this answered yes on ANY git failure, so a
+  # gate's scratch S4E_CORPUS (a mktemp tree, git-initialised or not, per the guard's own rule below) read as the shared corpus and a
+  # runner whose population comes from S4E_CORPUS -- test_prolog_swi_suite.sh -- could never run as a fixture; it now answers as
+  # one_runner_in_a_shared_checkout does (127 yes, any other failure no).
+  local cr="$1" out rc
+  out="$(git -C "$cr" remote -v 2>/dev/null)"; rc=$?
+  [ "$rc" = 127 ] && return 0
+  [ "$rc" = 0 ] || return 1
   case "$out" in *"$ONE_RUNNER_SHARED_CORPUS_REMOTE"*) return 0;; *) return 1;; esac
 }
 one_runner_writes_the_live_progress_table() {

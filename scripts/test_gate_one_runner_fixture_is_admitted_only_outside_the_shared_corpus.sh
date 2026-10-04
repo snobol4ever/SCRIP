@@ -71,6 +71,15 @@ o1="$(gb "$L" S4E_HOME="$W/bare" -- test_x_suite.sh)"; r1=$?; o2="$(gb "$L" S4E_
 [ "$r1" = 0 ] && [ "$r2" = 0 ] && grep -q 'ONE-RUNNER FIXTURE by' <<<"$o1$o2" && ok B4 "a no-suite runner under a mktemp root is admitted as a fixture, bare and git-initialised" || red B4 "rc bare=$r1 init=$r2: $(head -1 <<<"$o1") | $(head -1 <<<"$o2")"
 o="$(gb "$L" S4E_HOME="$W/shared" -- test_x_suite.sh)"; r=$?
 [ "$r" = 2 ] && ok B5 "a root whose corpus carries the shared remote is refused rc 2 -- the remote is the fact" || red B5 "rc=$r: $(head -2 <<<"$o" | tr '\n' ' ')"
+# B6: a suite UNDER the configured S4E_CORPUS when that corpus is a scratch tree (no git repository at all) and the run appends to a scratch
+# progress table is a fixture, not a board; the same suite under the corpus carrying the shared remote is refused (the coo 2026-10-03:
+# one_runner_corpus_is_the_shared_population read "not a git repository" as shared, so test_prolog_swi_suite.sh -- whose population is
+# S4E_CORPUS itself -- could never run as a gate fixture outside the coo's own root)
+mkdir -p "$W/bare/corpus/packages/x" "$W/shared/corpus/packages/x"
+o1="$(gb "$L" S4E_CORPUS="$W/bare/corpus" S4E_PROGRESS_DB="$W/b6.tsv" -- test_x_suite.sh "$W/bare/corpus/packages/x")"; r1=$?
+o2="$(gb "$L" S4E_CORPUS="$W/shared/corpus" S4E_PROGRESS_DB="$W/b6.tsv" -- test_x_suite.sh "$W/shared/corpus/packages/x")"; r2=$?
+[ "$r1" = 0 ] && grep -q 'FIXTURE, not a board' <<<"$o1" && [ "$r2" = 2 ] && ok B6 "a suite under a non-git scratch S4E_CORPUS with a scratch progress table is a fixture; under the shared-remote corpus it is refused" \
+    || red B6 "bare rc=$r1 shared rc=$r2: $(head -1 <<<"$o1" | cut -c1-120) | $(head -1 <<<"$o2" | cut -c1-120)"
 p1="$(bash -c 'source "$1"; one_runner_population_of run --out x --corpus /pop/a' _ "$L")"; p2="$(CORPUS=/pop/b bash -c 'source "$1"; one_runner_population_of run' _ "$L")"
 p3="$(env -u CORPUS bash -c 'source "$1"; one_runner_population_of run' _ "$L")"; p4="$(CORPUS=/pop/b bash -c 'source "$1"; one_runner_population_of --corpus /pop/a' _ "$L")"
 [ "$p1" = /pop/a ] && [ "$p2" = /pop/b ] && [ -z "$p3" ] && [ "$p4" = /pop/a ] && ok P "--corpus answers first, then CORPUS, else nothing" || red P "got [$p1] [$p2] [$p3] [$p4] (want /pop/a /pop/b '' /pop/a)"

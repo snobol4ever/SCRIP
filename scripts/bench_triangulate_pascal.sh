@@ -39,8 +39,10 @@ echo "old single-point rate=reps/cpu (SLOPE CURE, see test_bench_pascal_timed.sh
 echo "tolerance: flat TOL_PCT=$TOL% (UNBAKED -- no NOISE-FLOOR.tsv for pascal yet)"
 echo
 
-A1_OUT="$(bash "$HERE/test_bench_pascal_timed.sh" 2>/dev/null)"
-A2_OUT="$(bash "$HERE/bench_pascal_fixed_iter.sh" 2>/dev/null)"
+# Both angles grade THIS population (the coo 2026-10-03): they were called bare, so each read its own default corpus while the disk
+# telemetry below read PASCAL_DIR -- a scratch PASCAL_DIR triangulated the real kernels' angles against its own sidecars.
+A1_OUT="$(BENCH_DIR="$PDIR" bash "$HERE/test_bench_pascal_timed.sh" 2>/dev/null)"
+A2_OUT="$(BENCH_DIR="$PDIR" bash "$HERE/bench_pascal_fixed_iter.sh" 2>/dev/null)"
 
 # state-machine parse, same shape as bench_triangulate_snobol4.sh/bench_triangulate_prolog.sh's own
 # parse_angle1/2: start on the dashes separator line, stop on the first blank line after.
@@ -67,7 +69,9 @@ any_disagree=0
 for k in $kernels; do
   ib=""; ob=""
   if [ -f "$PDIR/$k.pas" ]; then
-    dsw=$(declared_switches_beside "$PDIR/$k.pas" 2>/dev/null) || dsw=""
+    # a sidecar the reader refuses is could-not-measure, never the default (the coo 2026-10-03: this read `|| dsw=""` with the
+    # reader's reason sent to /dev/null, so a malformed .heap or .stack ran the kernel at the shipped size and said nothing)
+    dsw=$(declared_switches_beside "$PDIR/$k.pas") || { echo "⛔ REFUSED: $k: a .heap or .stack sidecar the reader refuses (it said why above)" >&2; exit 2; }
     dline=$(printf '1\n' | "$WRAP" "$SCRIP" --run $dsw "$PDIR/$k.pas" 2>&1 >/dev/null | grep '^BENCH_RUSAGE:' | tail -1)
     ib=$(echo "$dline" | grep -oE 'inblock=[0-9]+' | cut -d= -f2); ob=$(echo "$dline" | grep -oE 'oublock=[0-9]+' | cut -d= -f2)
   fi

@@ -320,11 +320,14 @@ echo "rerun a single mode: python3 $HARNESS run $RUNGS_ICN $RUNGS_REF --lang ico
 # `grep -c` exits 1 on zero matches, so the bare assignment aborted the board silently right after the "rerun a
 # single mode" line -- measured by the strip row's `done` 20 minutes later. `|| true` keeps grep's own "0" and its
 # failing status out of set -e; the empty-case default stays for a missing file.
-_nfail=$(grep -cE '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null || true); _nfail=${_nfail:-0}
+# OOM is a red the harness names on its own line (CEO-1229 (2): every out-of-memory program by name, so each gets its heap declaration);
+# it is counted inside FAIL on SUITE_BOARD, and this filter dropped it until 2026-10-03 (the coo, gate (b)'s Icon arm: a 2 MB-capped
+# entry read FAIL=2 per mode with one name printed) -- so a board's OOM reds were counted and never named.
+_nfail=$(grep -cE '^[[:space:]]*(FAIL|OOM|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" 2>/dev/null || true); _nfail=${_nfail:-0}
 if [ "${_nfail:-0}" -gt 0 ]; then
     echo ""
     echo "--- the $_nfail non-PASS entries by name (showing up to 40; stderr of the run above) ---"
-    grep -E '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" | head -40
+    grep -E '^[[:space:]]*(FAIL|OOM|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" | head -40
     [ "$_nfail" -gt 40 ] && echo "    ... and $((_nfail - 40)) more (rerun and keep stderr to see them all)"
 fi
 
@@ -381,10 +384,10 @@ fi
 # paste a census into a markdown table, and the overflow is stated rather than silently dropped.
 _named=""
 if [ "${_nfail:-0}" -gt 0 ]; then
-    _names=$(grep -E '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" \
+    _names=$(grep -E '^[[:space:]]*(FAIL|OOM|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" \
              | sed -E 's/^[[:space:]]*([A-Z]+) [a-z0-9]+ ([^:]+):.*/\1 \2/' | sort -u | head -6 | paste -sd'; ' -)
     _named=" — reds by name: $_names"
-    _uniq=$(grep -E '^[[:space:]]*(FAIL|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" \
+    _uniq=$(grep -E '^[[:space:]]*(FAIL|OOM|CRASH|HANG|XPASS|UNPROVEN) ' "$_errf" \
             | sed -E 's/^[[:space:]]*[A-Z]+ [a-z0-9]+ ([^:]+):.*/\1/' | sort -u | wc -l)
     [ "${_uniq:-0}" -gt 6 ] && _named="$_named (and $((_uniq - 6)) more entries)"
 fi

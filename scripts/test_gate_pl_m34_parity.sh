@@ -17,6 +17,7 @@ PASS=0; FAIL=0; REFUSED=0; SKIP=0
 TMP3=$(mktemp /tmp/plm3_XXXXXX); TMP4=$(mktemp /tmp/plm4_XXXXXX)
 # ⭐ V2-5 GATE HONESTY: examining nothing must exit UNPROVEN(2), never read as a pass.
 . "$(dirname "$0")/lib_gate.sh"
+. "$HERE/lib_declared_arena.sh" || { echo "GATE UNPROVEN(2): cannot load lib_declared_arena.sh"; exit 2; }   # m3 runs at the declared size (CEO-1353)
 gate_require_exec "${SCRIP:-${SCRIP_BIN:-$(dirname "$0")/../scrip}}" "the scrip compiler"
 gate_require "${RT_DIR:-$(dirname "$0")/../out}/libscrip_rt.so" "the runtime shared object out/libscrip_rt.so"
 gate_floor "$(find "${CORPUS:-$(dirname "$0")/../../corpus}" -name '*.pl' 2>/dev/null | wc -l)" 1 "corpus .pl programs"   # ⛔ WAS '*.sno' (seat15 2026-09-01): a copy-paste from a SNOBOL4 gate floored this PROLOG gate on an extension its corpus does not contain -- corpus/tests/prolog holds 0 .sno and 45 .pl, so gate_floor saw 0 < 1 and exited UNPROVEN(2) BEFORE the first comparison. The gate never compared m3 against m4 once. Honest-dead, not false-green (V2-5 refused rather than passing), but zero coverage either way.
@@ -29,7 +30,8 @@ for pl in "$CORPUS"/rung0[1-9]_*.pl \
     [ -f "$pl" ] || continue
     [ -f "${pl%.pl}.expected" ] || { SKIP=$((SKIP+1)); continue; }
     name=$(basename "$pl" .pl)
-    timeout 8 "$SCRIP" --run "$pl" < /dev/null > "$TMP3" 2>/dev/null; m3_rc=$?
+    sw="$(declared_switches_beside "$pl")" || { echo "GATE UNPROVEN(2): $name: a .heap or .stack sidecar the reader refuses"; exit 2; }
+    timeout 8 "$SCRIP" --run $sw "$pl" < /dev/null > "$TMP3" 2>/dev/null; m3_rc=$?
     timeout 8 bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null > "$TMP4" 2>/dev/null; m4_rc=$?
     m3_abort=0; [ $m3_rc -eq 134 ] && m3_abort=1
     m4_abort=0; [ $m4_rc -ne 0  ] && m4_abort=1

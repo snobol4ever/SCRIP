@@ -125,7 +125,9 @@ two_number_board() {
   TN_SW="$(swipl_bin)"   || { echo "⛔ REFUSED-TO-GRADE (rc=2): swipl rival absent";   return 2; }
   [ -x "$SCRIP" ]             || { echo "⛔ REFUSED-TO-GRADE (rc=2): scrip not built";        return 2; }
   [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): libscrip_rt.so missing"; return 2; }
-  TN_PRO="$S4E/corpus/benchmarks/prolog"; TN_BENCH="$TN_PRO/bench"; TN_T="${TN_T:-25}"
+  # The population is PROLOG_DIR and BENCH_DIR, as in the three sibling angles (the coo 2026-10-03: this read $S4E's corpus alone while
+  # NTSV was honoured, so a scratch kernel set named its kernels from one tree and their sources from another).
+  TN_PRO="${PROLOG_DIR:-$S4E/corpus/benchmarks/prolog}"; TN_BENCH="${BENCH_DIR:-$TN_PRO/bench}"; TN_T="${TN_T:-25}"
   local TRI EXC; TRI="$(ls -1t "$TN_PRO"/triangulation-*.tsv 2>/dev/null | head -1)"; EXC="$TN_PRO/EXCLUDED.tsv"
   [ -s "$NTSV" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): committed-N table missing or empty: $NTSV -- the 21-kernel universe has no source"; return 2; }
   [ -n "$TRI" ] || { echo "⛔ REFUSED-TO-GRADE (rc=2): no triangulation-*.tsv -- MEASURED has no source"; return 2; }

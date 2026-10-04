@@ -37,7 +37,7 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 161
+# TASK-CEILING: 160
 # 166 -> 165 (coo 2026-09-25): test_gate_diag_regs_survive.sh retired -- its r10 statement number was removed by design at 2a81a02db, and r11 cannot stand in, because a later box stamp masks a planted clobber; the survival property is test_gate_rtx_entries_keep_the_rtcc_four.sh's.
 test_gate_a_blocking_set_death_names_its_killer.sh	WIRED	-	-	-
 test_gate_a_cgroup_kill_is_a_refusal_not_a_red.sh	WIRED	-	-	-
@@ -231,6 +231,7 @@ test_gate_gc_the_visited_set_key_spaces_do_not_collide.sh	WIRED	-	-	-
 test_gate_gimpel_runner_masks_the_engine_clock_lines.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
 test_gate_harness_containers_break_lines_on_lf_only.sh	WIRED	-	-	-
+test_gate_harness_extract_refuses_before_it_writes.sh	WIRED	-	-	-
 test_gate_harness_red_carries_a_fingerprint_and_a_shard_run_says_so.sh	WIRED	-	-	-
 test_gate_harness_refusal_is_rc2.sh	WIRED	-	-	-
 test_gate_harness_renders_a_spitbol_fatal_into_stdout.sh	WIRED	-	-	-
@@ -336,11 +337,11 @@ test_gate_icn_string_functions_carry_an_embedded_nul.sh	WIRED	-	-	-
 test_gate_icn_string_invoked_to_by_is_a_generator.sh	WIRED	-	-	-
 test_gate_icn_subscript_index_is_checked_and_the_account_is_written.sh	WIRED	-	-	-
 test_gate_icn_tag_single_source.sh	WIRED	-	-	-
+test_gate_icn_the_block_protocol_carries_every_call.sh	WIRED	-	-	-
 test_gate_icn_the_cset_registry_is_weak_so_a_dead_computed_cset_leaves_the_collector.sh	WIRED	-	-	-
 test_gate_icn_traceback_corpus_pairs_are_oracle_exact.sh	WIRED	-	-	-
 test_gate_icn_traceback_names_the_source_file_not_the_last_argv.sh	WIRED	-	-	-
 test_gate_icn_traced_call_reports_its_own_call_site_line.sh	WIRED	-	-	-
-test_gate_icn_the_block_protocol_carries_every_call.sh	WIRED	-	-	-
 test_gate_icn_unreferenced_linked_procedures_are_not_emitted.sh	WIRED	-	-	-
 test_gate_icn_version_keyword_is_the_oracles.sh	WIRED	-	-	-
 test_gate_icn_write_is_byte_exact_through_an_embedded_nul.sh	WIRED	-	-	-
@@ -826,6 +827,7 @@ test_gate_sno_package_runners_append_progress_rows.sh	WIRED	-	-	-
 test_gate_sno_parser_refuses_at_compile_time_what_spitbol_refuses.sh	WIRED	-	-	-
 test_gate_sno_pattern_concatenation_with_null_preserves_identity.sh	WIRED	-	-	-
 test_gate_sno_pattern_position_expression.sh	WIRED	-	-	-
+test_gate_sno_port_trace.sh	WIRED	-	-	-
 test_gate_sno_port_trace_oracle_diff.sh	WIRED	-	-	-
 test_gate_sno_pos_rpos_dynamic_operand.sh	WIRED	-	-	-
 test_gate_sno_real_literal_overflow_is_a_parse_error.sh	WIRED	-	-	-
@@ -1060,7 +1062,6 @@ test_gate_sno_goto_special_transfer_target.sh	TASK	-	-	-
 test_gate_sno_immediate_capture_non_name_target.sh	TASK	-	-	-
 test_gate_sno_lastno_across_call_return.sh	TASK	-	-	-
 test_gate_sno_pat_reg.sh	TASK	-	-	-
-test_gate_sno_port_trace.sh	TASK	-	-	-
 test_gate_sno_proc_own_name_byname_mid_return.sh	TASK	-	-	-
 test_gate_sno_system_fn_protection_matches_spitbol.sh	TASK	-	-	-
 test_gate_snobol4_rungs_named_set_equality.sh	TASK	-	-	-

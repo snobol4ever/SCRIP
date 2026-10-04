@@ -3726,21 +3726,24 @@ def cmd_extract(args):
     for e in entries:
         if e.name != args.name:
             continue
+        # ⛔ REFUSE, never silently drop: an entry that needs stdin and is materialized without it is not
+        # the witness the suite graded -- it is a DIFFERENT program that happens to share source text. A
+        # stdin-starved SNOBOL4 program typically still exits rc=0 (INPUT read failure is not fatal by
+        # default), so the caller gets a clean-looking run of the wrong thing, not a loud error.
+        # The refusal comes BEFORE any write (the coo 2026-10-03, on the ceo's report that SncM's
+        # trim_size_keyword_replace_1 would not extract): it wrote the program and its .ref first, so an rc=2
+        # left exactly that stdin-starved witness on disk for a caller that read the files and not the rc.
+        if e.stdin is not None and not args.out_in:
+            refuse(f"{args.name!r} carries stdin ({len(e.stdin)} byte(s)) but --out-in was not given -- "
+                   f"materializing it without stdin would silently grade a DIFFERENT witness than the "
+                   f"one the suite actually graded (a stdin-starved run commonly still exits rc=0). "
+                   f"Pass --out-in <path> and feed it to whatever runs {args.out_sno!r}.")
         text = e.sno_lines[0] if e.kind == "line" else "\n".join(e.sno_lines)
         Path(args.out_sno).write_text(text + "\n")
         if args.out_ref:
             ref_text = e.ref if e.kind == "line" else "\n".join(e.ref)
             Path(args.out_ref).write_text(ref_text + "\n")
-        # ⛔ REFUSE, never silently drop: an entry that needs stdin and is materialized without it is not
-        # the witness the suite graded -- it is a DIFFERENT program that happens to share source text. A
-        # stdin-starved SNOBOL4 program typically still exits rc=0 (INPUT read failure is not fatal by
-        # default), so the caller gets a clean-looking run of the wrong thing, not a loud error.
         if e.stdin is not None:
-            if not args.out_in:
-                refuse(f"{args.name!r} carries stdin ({len(e.stdin)} byte(s)) but --out-in was not given -- "
-                       f"materializing it without stdin would silently grade a DIFFERENT witness than the "
-                       f"one the suite actually graded (a stdin-starved run commonly still exits rc=0). "
-                       f"Pass --out-in <path> and feed it to whatever runs {args.out_sno!r}.")
             Path(args.out_in).write_text(e.stdin)
         if args.out_xfail and e.xfail_reason:
             Path(args.out_xfail).write_text(e.xfail_reason + "\n")

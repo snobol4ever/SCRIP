@@ -86,25 +86,29 @@ PASS=0; P3=0; P4=0; REFLESS=0; DRIFT=0; WSENS=0; LIN=0; LPROC=0; HEAPD=0; PREFUS
 for f in "${POP[@]}"; do
   rel="${f#"$BD"/}"; NM="$(basename "$f" .icn)"; KD="$(dirname "$f")"; ref="${f%.icn}.ref"; IN="$(stdin_of "$f")"; K="$W/k"; rm -rf "$K"; mkdir -p "$K"
   HEAPENV=(-u SCRIP_HEAP_MB); kb="$(declared_switches_beside "$f")"; krc=$?; declare -a SWA=(); [ -n "$kb" ] && read -r -a SWA <<<"$kb"
+  # the ORACLE's declared environment, NAME.oracle_env (ceo CEO-1353 clause 8 (g)(3)): iconx's own knobs (MSTKSIZE, BLKSIZE, ...) for a
+  # kernel that needs more than iconx's default, on every oracle run below and on no SCRIP run (the coo 2026-10-03: until now iconx ran
+  # every kernel at its default, so a kernel that declared its oracle's need read REF DRIFT here).
+  oe="$(declared_oracle_env_beside "$f")" || krc=2; declare -a OENV=(); [ -n "$oe" ] && read -r -a OENV <<<"$oe"
   declare -a AV=(); arc=0; [ -f "${f%.icn}.argv" ] && { ipl_argv_read "$f" AV || arc=$?; }
   if [ ! -s "$ref" ]; then REFLESS=$((REFLESS + 1)); printf '  %-40s REFLESS -- no non-empty .ref, not a pass\n' "$rel"
     record "$rel" m3 UNGRADED 0 "no .ref"; record "$rel" m4 UNGRADED 0 "no .ref"; continue; fi
-  if [ "$krc" != 0 ] || [ "$arc" != 0 ]; then why="a malformed ${NM}.heap or ${NM}.stack (the reader said why above)"; [ "$arc" != 0 ] && why="a malformed ${NM}.argv (the reader said why above)"
+  if [ "$krc" != 0 ] || [ "$arc" != 0 ]; then why="a malformed ${NM}.heap, ${NM}.stack or ${NM}.oracle_env (the reader said why above)"; [ "$arc" != 0 ] && why="a malformed ${NM}.argv (the reader said why above)"
     printf '  %-40s UNPROVEN -- %s\n' "$rel" "$why"; record "$rel" m3 UNPROVEN 0 "$why"; record "$rel" m4 UNPROVEN 0 "$why"; continue; fi
   # ⭐ THE DECLARATION RIDES THE COMMAND LINE AS SWITCHES (ceo CEO-1353): after scrip in m3, leading the binary's arguments in m4 (a --
   # before the kernel's argv), never SCRIP_HEAP_KB -- gc_heap.c reads that as the collector's WINDOW, so every declared kernel ran at
-  # window = cap. The oracle runs get none.
+  # window = cap. The oracle runs get none of these switches; they get NAME.oracle_env (OENV above).
   [ -n "$kb" ] && HEAPD=$((HEAPD + 1))
   python3 "$GEN" "$f" >"$K/$NM.icn" 2>"$K/gen.err" || { printf '  %-40s UNPROVEN -- the wrapper generator refused: %s\n' "$rel" "$(head -1 "$K/gen.err")"
     record "$rel" m3 UNPROVEN 0 "unwrappable"; record "$rel" m4 UNPROVEN 0 "unwrappable"; continue; }
   # ---- the oracle: the REF's own check (the PRISTINE kernel), then the loop shape both modes are held to (the WRAPPED one)
-  ENVP=(); SHAPE=""; why=""
+  ENVP=(${OENV[@]+"${OENV[@]}"}); SHAPE=""; why=""
   if ! ( cd "$K" && "$ICONT" -s -o op "$f" && "$ICONT" -s -o ox "$NM.icn" ) >"$K/icont.log" 2>&1; then why="REF DRIFT: icont refuses the kernel or its wrapper -- $(grep -v '^$' "$K/icont.log" | head -1 | cut -c1-100)"
   else go "$K/op" ${AV[@]+"${AV[@]}"}
     if [ "$RC" != 0 ] || ! cmp -s "$W/o" "$ref"; then why="REF DRIFT: the oracle's own run of the pristine kernel (stdout, from its directory) is not this REF (exit=$RC) -- $(diff "$W/o" "$ref" | head -2 | tr '\n' ' ' | cut -c1-100)"
-    else ENVP=(BENCH_MODE=iter BENCH_N=2); go "$K/ox" ${AV[@]+"${AV[@]}"}; refx "$ref" "$W/r2" 2
+    else ENVP=(${OENV[@]+"${OENV[@]}"} BENCH_MODE=iter BENCH_N=2); go "$K/ox" ${AV[@]+"${AV[@]}"}; refx "$ref" "$W/r2" 2
       if [ "$RC" = 0 ] && cmp -s "$W/o" "$W/r2"; then SHAPE=IN
-      else ENVP=(BENCH_MODE=iter BENCH_N=1); go "$K/ox" ${AV[@]+"${AV[@]}"}
+      else ENVP=(${OENV[@]+"${OENV[@]}"} BENCH_MODE=iter BENCH_N=1); go "$K/ox" ${AV[@]+"${AV[@]}"}
         if [ "$RC" = 0 ] && cmp -s "$W/o" "$ref"; then SHAPE=PROC
         else why="WRAPPER-SENSITIVE: the oracle prints the REF for the pristine kernel but not for the wrapped one (exit=$RC) -- its output depends on what the wrapper adds (&allocated, &progname, ...) -- $(diff "$W/o" "$ref" | head -2 | tr '\n' ' ' | cut -c1-80)"; fi
       fi

@@ -69,11 +69,15 @@ if [ ! -d "$CORPUS" ]; then
 fi
 
 # run a single program in a given mode, echoing its stdout
+# A loose program runs at the heap and stack it declares beside itself, read by lib_declared_arena.sh (ceo CEO-1353, RULES.md clause 8 (g));
+# m4's switches are carried by run_prolog_via_x86_backend.sh, which reads the same sidecars. A sidecar the reader refuses is rc 2 here.
+. "$HERE/lib_declared_arena.sh" || { echo "REFUSE(2): cannot load lib_declared_arena.sh" >&2; exit 2; }
 run_prog() {
-    local mode="$1" pl="$2" tmo="$3"
+    local mode="$1" pl="$2" tmo="$3" sw
+    sw="$(declared_switches_beside "$pl" 2>"$ERRF")" || return 2
     case "$mode" in
-        interp)  timeout "$tmo" "$SCRIP" --run "$pl" < /dev/null 2>"$ERRF" ;;
-        run)     timeout "$tmo" "$SCRIP" --run    "$pl" < /dev/null 2>"$ERRF" ;;
+        interp)  timeout "$tmo" "$SCRIP" --run $sw "$pl" < /dev/null 2>"$ERRF" ;;
+        run)     timeout "$tmo" "$SCRIP" --run $sw "$pl" < /dev/null 2>"$ERRF" ;;
         compile) timeout "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>"$ERRF" ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
     esac

@@ -164,6 +164,20 @@ base="$(basename "$SNO")"; base="${base%.*}"
 STDIN_SRC="${STDIN_SRC:-/dev/null}"
 [[ -n "${MONITOR_STDIN:-}" && -f "${MONITOR_STDIN}" ]] && STDIN_SRC="$MONITOR_STDIN"
 [[ "$STDIN_SRC" = "/dev/null" && -f "${SNO%.*}.input" ]] && STDIN_SRC="${SNO%.*}.input"
+# ⭐ THE UNIT'S DECLARATION REACHES EVERY PARTICIPANT (ceo CEO-1353, RULES.md clause 8 (g); the coo 2026-10-03): the SCRIP participants run
+# at the heap and stack <stem>.heap / <stem>.stack declare (-d/-s after --run, leading a compiled participant's arguments), and the oracle
+# participants at the knobs the reader admits for them -- <stem>.oracle_args for spl (sbl -s/-d), <stem>.oracle_env for icx and gpx. Until
+# this every participant ran at its default, so a unit that needs its declared stack died in the monitor where it passes on its board.
+. "$HERE/lib_declared_arena.sh" || { echo "FAIL cannot load lib_declared_arena.sh -- the one reader of a declared heap and stack"; exit 2; }
+_mon_sw="$(declared_switches_beside "$SNO")" || { echo "FAIL $SNO: a .heap or .stack sidecar the reader refuses"; exit 2; }
+_mon_oa="$(declared_oracle_args_beside "$SNO")" || { echo "FAIL $SNO: a .oracle_args sidecar the reader refuses"; exit 2; }
+_mon_oe="$(declared_oracle_env_beside "$SNO")" || { echo "FAIL $SNO: a .oracle_env sidecar the reader refuses"; exit 2; }
+SSW=(); [[ -n "$_mon_sw" ]] && read -r -a SSW <<<"$_mon_sw"
+OARGS=(); [[ -n "$_mon_oa" ]] && read -r -a OARGS <<<"$_mon_oa"
+OENV=(); [[ -n "$_mon_oe" ]] && read -r -a OENV <<<"$_mon_oe"
+# the runtime this harness links against is its own repository's (the coo 2026-10-03, CEO-1496): $S4E/SCRIP/out is a sibling checkout's
+# when the harness runs from a worktree, so a worktree's participant linked a runtime the worktree never built
+SD="$(cd "$HERE/.." && pwd)"
 
 echo "[auto] program:    $base"
 echo "[auto] tmp:        $TMP"
@@ -205,7 +219,7 @@ if [[ "$want_spl" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/spl.names" \
     SETL4PATH=".:$INC" \
     ${MONITOR_PM:+SPL_PM_TRACE=1} \
-        timeout "$((TIMEOUT*2))" "$SPITBOL" -bf "$SNO" \
+        timeout "$((TIMEOUT*2))" "$SPITBOL" -bf ${OARGS[@]+"${OARGS[@]}"} "$SNO" \
         < "$STDIN_SRC" > "$TMP/spl.out" 2> "$TMP/spl.err" &
     PIDS+=($!)
 fi
@@ -228,7 +242,7 @@ if [[ "$want_scr" = "1" ]]; then
         # (whose core init reads MONITOR_READY_PIPE at run time), run the binary.
         ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr.cc.out" 2>&1 \
             || { echo "FAIL m4 compile: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
-        gcc -no-pie "$TMP/scr.s" -L"$S4E/SCRIP/out" -lscrip_rt -Wl,-rpath,"$S4E/SCRIP/out" -lm -o "$TMP/scr.bin" >> "$TMP/scr.cc.out" 2>&1 \
+        gcc -no-pie "$TMP/scr.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$TMP/scr.bin" >> "$TMP/scr.cc.out" 2>&1 \
             || { echo "FAIL m4 link: $(tail -2 "$TMP/scr.cc.out")"; exit 2; }
         MONITOR_BIN=1 \
         MONITOR_READY_PIPE="$TMP/scr.ready" \
@@ -236,7 +250,7 @@ if [[ "$want_scr" = "1" ]]; then
         MONITOR_NAMES_OUT="$TMP/scr.names" \
         SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
         SNO_LIB="$INC" \
-            timeout "$((TIMEOUT*2))" "$TMP/scr.bin" \
+            timeout "$((TIMEOUT*2))" "$TMP/scr.bin" ${SSW[@]+"${SSW[@]}"} \
             < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
         PIDS+=($!)
     else
@@ -246,7 +260,7 @@ if [[ "$want_scr" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/scr.names" \
     SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
     SNO_LIB="$INC" \
-        timeout "$((TIMEOUT*2))" "$SCRIP" --trace "$SCR_RUN_FLAG" "$SNO" \
+        timeout "$((TIMEOUT*2))" "$SCRIP" --trace "$SCR_RUN_FLAG" ${SSW[@]+"${SSW[@]}"} "$SNO" \
         < "$STDIN_SRC" > "$TMP/scr.out" 2> "$TMP/scr.err" &
     PIDS+=($!)
     fi
@@ -273,14 +287,14 @@ if [[ "${want_scr3:-0}" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/scr3.names" \
     SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
     SNO_LIB="$INC" \
-        timeout "$((TIMEOUT*2))" "$SCRIP" --trace --run "$SNO" \
+        timeout "$((TIMEOUT*2))" "$SCRIP" --trace --run ${SSW[@]+"${SSW[@]}"} "$SNO" \
         < "$STDIN_SRC" > "$TMP/scr3.out" 2> "$TMP/scr3.err" &
     PIDS+=($!)
 fi
 if [[ "${want_scr4:-0}" = "1" ]]; then
     ( cd "$(dirname "$(realpath "$SNO")")" && timeout "$TIMEOUT" "$SCRIP" --trace --compile --monitor -o "$TMP/scr4.s" "$(realpath "$SNO")" </dev/null ) > "$TMP/scr4.cc.out" 2>&1 \
         || { echo "FAIL scr4 compile: $(tail -2 "$TMP/scr4.cc.out")"; exit 2; }
-    gcc "$TMP/scr4.s" -L"$S4E/SCRIP/out" -lscrip_rt -Wl,-rpath,"$S4E/SCRIP/out" -lm -o "$TMP/scr4.bin" >> "$TMP/scr4.cc.out" 2>&1 \
+    gcc "$TMP/scr4.s" -L"$SD/out" -lscrip_rt -Wl,-rpath,"$SD/out" -lm -o "$TMP/scr4.bin" >> "$TMP/scr4.cc.out" 2>&1 \
         || { echo "FAIL scr4 link: $(tail -2 "$TMP/scr4.cc.out")"; exit 2; }
     MONITOR_BIN=1 \
     MONITOR_READY_PIPE="$TMP/scr4.ready" \
@@ -288,7 +302,7 @@ if [[ "${want_scr4:-0}" = "1" ]]; then
     MONITOR_NAMES_OUT="$TMP/scr4.names" \
     SCRIP_TRACE="${SCRIP_TRACE:-2000000000}" \
     SNO_LIB="$INC" \
-        timeout "$((TIMEOUT*2))" "$TMP/scr4.bin" \
+        timeout "$((TIMEOUT*2))" "$TMP/scr4.bin" ${SSW[@]+"${SSW[@]}"} \
         < "$STDIN_SRC" > "$TMP/scr4.out" 2> "$TMP/scr4.err" &
     PIDS+=($!)
 fi
@@ -356,7 +370,7 @@ if [[ "${want_icx:-0}" = "1" ]]; then
     MONITOR_READY_PIPE="$TMP/icx.ready" \
     MONITOR_GO_PIPE="$TMP/icx.go" \
     MONITOR_NAMES_OUT="$TMP/icx.names" \
-        timeout "$((TIMEOUT*2))" "$ICON_MON/bin/iconx" "$TMP/icx.bin" \
+        env ${OENV[@]+"${OENV[@]}"} timeout "$((TIMEOUT*2))" "$ICON_MON/bin/iconx" "$TMP/icx.bin" \
         < "$STDIN_SRC" > "$TMP/icx.out" 2> "$TMP/icx.err" &
     PIDS+=($!)
 fi
@@ -374,7 +388,7 @@ if [[ "${want_gpx:-0}" = "1" ]]; then
     MONITOR_READY_PIPE="$TMP/gpx.ready" \
     MONITOR_GO_PIPE="$TMP/gpx.go" \
     MONITOR_NAMES_OUT="$TMP/gpx.names" \
-        timeout "$((TIMEOUT*2))" "$TMP/gpx.bin" \
+        env ${OENV[@]+"${OENV[@]}"} timeout "$((TIMEOUT*2))" "$TMP/gpx.bin" \
         < "$STDIN_SRC" > "$TMP/gpx.out" 2> "$TMP/gpx.err" &
     PIDS+=($!)
 fi

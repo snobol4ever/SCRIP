@@ -36,7 +36,9 @@ done
 S="$T/home"; mkdir -p "$S/SCRIP/scripts" && ln -s "$ROOT/scrip" "$S/SCRIP/scrip" && ln -s "$ROOT/out" "$S/SCRIP/out"
 printf '#!/usr/bin/env bash\necho "[ctrl] PROTOCOL ERR step 100000 on scr: insane value_len 858993459 (>16777216) -- torn/garbage header"\necho "[ctrl] VERDICT AGREE=99999 DIVERGE=0 UNGRADED=0 of 99999 compared step(s) -- PROTOCOL ERR at step 100000"\nexit 3\n' > "$S/SCRIP/scripts/test_monitor_3way_sync_step_auto.sh"
 printf '        OUTPUT = 1\nEND\n' > "$T/one.sno"
-S4E_HOME="$S" SCRIP_SNO_STMTKW=1 timeout 300 bash "$HERE/monitor_run.sh" "$T/one.sno" --oracle > "$T/stub.out" 2>&1; rc=$?
+# the stub enters through MONITOR_HARNESS: monitor_run.sh runs its own repository's binary and harness since CEO-1496 (the coo 2026-10-04),
+# so a scratch S4E_HOME no longer reaches it
+MONITOR_HARNESS="$S/SCRIP/scripts/test_monitor_3way_sync_step_auto.sh" SCRIP_SNO_STMTKW=1 timeout 300 bash "$HERE/monitor_run.sh" "$T/one.sno" --oracle > "$T/stub.out" 2>&1; rc=$?
 [ "$rc" = 2 ] && grep -q 'REFUSE(2): THE WIRE BROKE, NOT THE PROGRAM' "$T/stub.out" && grep -q 'AGREE=99999' "$T/stub.out" && ! grep -q 'DIVERGE (rc' "$T/stub.out" \
   && ck ok "(3) a controller PROTOCOL ERR reads REFUSE(2), the wire named and the agreement up to it kept -- never DIVERGE" \
   || ck no "(3) a PROTOCOL ERR read rc=$rc: $(grep -m1 'REFUSE\|DIVERGE' "$T/stub.out" | cut -c1-200)"

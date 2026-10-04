@@ -26,10 +26,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # whose SHA the board stamps on the verdict. NO LOGIC HERE -- util_require_fresh.sh sources gate_require_fresh
 # from lib_gate.sh, the ONE authority (hq_B 4c7253e99), never a second copy.
 "$HERE/util_require_fresh.sh" --gate test_swi_suite "$SCRIP" "${RT_DIR:-$HERE/../out}/libscrip_rt.so" || exit 2
+. "$HERE/lib_declared_arena.sh" || { echo "REFUSE(2): cannot load lib_declared_arena.sh"; exit 2; }   # m3 runs at the declared size (CEO-1353)
 clean() { grep -E '^(ok|fail)$' | head -1; }   # probes print exactly ok|fail; strip banners/warnings
 run_scrip() {  # $1=mode(run/compile) $2=file  -> ok|fail
     case "$1" in
-      run)     timeout "$TIMEOUT" "$SCRIP" --run "$2" < /dev/null 2>/dev/null | clean ;;
+      run)     local sw; sw="$(declared_switches_beside "$2")" || { echo "REFUSE(2) $2: a .heap or .stack sidecar the reader refuses" >&2; exit 2; }
+               timeout "$TIMEOUT" "$SCRIP" --run $sw "$2" < /dev/null 2>/dev/null | clean ;;
       compile) timeout "$TIMEOUT" bash "$HERE/run_prolog_via_x86_backend.sh" "$2" < /dev/null 2>/dev/null | clean ;;
     esac
 }

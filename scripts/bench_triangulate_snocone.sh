@@ -24,7 +24,7 @@ SC_DIR="$S4E/corpus/benchmarks/snocone"
 SNO_DIR="$S4E/corpus/benchmarks/snobol4"
 # kernel:twin-sno-basename pairs -- string_concat's SNOBOL4 twin is named _twin to avoid colliding
 # with the pre-existing string_concat.sno kernel (a different, unrelated benchmark).
-KERNELS="fib_recur:fib_recur arith_loop:arith_loop_twin string_concat:string_concat_twin"
+KERNELS="${KERNELS:-fib_recur:fib_recur arith_loop:arith_loop_twin string_concat:string_concat_twin}"
 
 if [ ! -x "$SCRIP_BIN" ]; then echo "⛔ REFUSED (rc=2): scrip not built at $SCRIP_BIN"; exit 2; fi
 if ! command -v valgrind >/dev/null 2>&1; then echo "⛔ REFUSED (rc=2): valgrind not on PATH"; exit 2; fi
@@ -40,6 +40,9 @@ SBL_FLAGS="$(sbl_lang_flags)"
 # hole; the lib is the ONE place that rule lives, for every Ir cell in the tree.  A caller that cannot load
 # it REFUSES rather than re-deriving a private extraction (same law as lib_perf_fmt.sh / lib_oracle_flags.sh).
 . "$HERE/lib_ir_measure.sh" 2>/dev/null || { echo "⛔ REFUSED (rc=2): cannot load lib_ir_measure.sh -- this board will not read Ir by hand"; exit 2; }
+# each Snocone kernel runs at its declared heap and stack (-d/-s after --run in mode 3, leading the binary's arguments in mode 4) and the
+# SPITBOL twin at the sizes its .oracle_args declares (ceo CEO-1353, RULES.md clause 8 (g); the coo 2026-10-03: all three arms ran bare)
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || { echo "⛔ REFUSED (rc=2): cannot load lib_declared_arena.sh -- the one reader of a declared heap and stack"; exit 2; }
 
 echo "SNOCONE_TRIANGULATE -- callgrind Ir vs SPITBOL (clean oracle $SBL_FLAGS), RT_OPT=-O0, tree $(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null || echo '?')"
 echo "kernel               m3_Ir(compile+run)   m4_Ir(run only)      SPITBOL_Ir      × (m4 vs SPITBOL)"
@@ -49,13 +52,23 @@ for pair in $KERNELS; do
   scf="$SC_DIR/$k.sc"; snf="$SNO_DIR/$twin.sno"
   [ -f "$scf" ] || { echo "⛔ REFUSED (rc=2): kernel missing: $scf"; exit 2; }
   [ -f "$snf" ] || { echo "⛔ REFUSED (rc=2): twin missing: $snf"; exit 2; }
-  m3ir="$(ir_measure "$SCRIP_BIN" --run "$scf" < /dev/null)"
+  sw="$(declared_switches_beside "$scf")" || { echo "⛔ REFUSED (rc=2): $k: a .heap or .stack sidecar the reader refuses (it said why above)"; exit 2; }
+  oa="$(declared_oracle_args_beside "$snf")" || { echo "⛔ REFUSED (rc=2): $twin: a .oracle_args sidecar the reader refuses (it said why above)"; exit 2; }
+  # valgrind fixes the client's main stack at start (--main-stacksize, default the shell's ulimit -s) and mode 3's -s grows the main
+  # stack in place, so the declared stack reaches valgrind too or mode 3 dies "can't grow stack" at 8 MB (the coo 2026-10-03, measured:
+  # a 50000-deep Rebus recursion at -s262144k reads rc 139 under callgrind without the flag, depth=50000 with it). The declared stack
+  # PLUS 1 MB, no more: valgrind's own frames sit on the client stack (a 30000-entry table that runs natively at -s4096k tripped SCRIP's
+  # overflow handler at exactly 4 MB and ran at 5), and mode 3's limit IS this size under valgrind, so more headroom grades a different
+  # program (at +8 MB a recursion that overflows its declared 4 MB natively ran to its answer).
+  skb="$(declared_stack_kb_beside "$scf")" || { echo "⛔ REFUSED (rc=2): $k: a .stack sidecar the reader refuses"; exit 2; }
+  vgs="${IR_VG_FLAGS:-}"; [ -n "$skb" ] && vgs="$vgs --main-stacksize=$(( (skb + 1024) * 1024 ))"
+  m3ir="$(IR_VG_FLAGS="$vgs" ir_measure "$SCRIP_BIN" --run $sw "$scf" < /dev/null)"
   s="$(mktemp -d)"
   "$SCRIP_BIN" --compile "$scf" -o "$s/p.s" < /dev/null 2>/dev/null || { echo "⛔ REFUSED (rc=2): $k failed to compile mode-4"; exit 2; }
   gcc "$s/p.s" -o "$s/p.bin" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" 2>/dev/null || { echo "⛔ REFUSED (rc=2): $k failed to link mode-4"; exit 2; }
-  m4ir="$(ir_measure "$s/p.bin" < /dev/null)"
+  m4ir="$(IR_VG_FLAGS="$vgs" ir_measure "$s/p.bin" $sw < /dev/null)"
   rm -rf "$s"
-  sblir="$(ir_measure "$SBL" $SBL_FLAGS "$snf" < /dev/null)"
+  sblir="$(ir_measure "$SBL" $SBL_FLAGS $oa "$snf" < /dev/null)"
   # ⛔ THE MULTIPLE IS COMPUTED ONLY FROM TWO READINGS THAT ARE ACTUALLY READINGS.  A voided cell must
   # never reach the arithmetic -- a ratio built on a crashed arm is the crash wearing the board's format.
   for v in "$m3ir" "$m4ir" "$sblir"; do r="$(ir_reason "$v")"; [ -z "$r" ] || echo "⚠ $k: $(ir_cell "$v") -- $r" >&2; done

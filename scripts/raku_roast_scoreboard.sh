@@ -87,7 +87,9 @@ TMP=$(mktemp -d)
 # read through lib_declared_arena.sh, as -d<kb>k -s<kb>k after --run in mode 3 and at the head of the binary's arguments in mode 4 --
 # never SCRIP_HEAP_KB (the collector's window), never a ulimit. A test with no row is NAMED (ROAST_UNDECLARED), never run silently at a default.
 . "$(dirname "$0")/lib_declared_arena.sh" || { echo "⛔ REFUSING (rc=2): cannot load lib_declared_arena.sh -- the ONE reader of a test's declared heap and stack" >&2; exit 2; }
-DCSV="$ROOT/../corpus/packages/raku/roast/ALL.csv"; DTBL="$TMP/declared.tsv"
+# RAKU_ROAST_DCSV names the attribute table of a scratch population, beside RAKU_ROAST_TREE and RAKU_ROAST_MANIFEST (the coo 2026-10-03,
+# gate (b)): the tree and the manifest could be pointed at a fixture and the sizes could not, so no fixture could grade the declaration.
+DCSV="${RAKU_ROAST_DCSV:-$ROOT/../corpus/packages/raku/roast/ALL.csv}"; DTBL="$TMP/declared.tsv"
 [ -f "$DCSV" ] || { echo "⛔ REFUSING (rc=2): no roast attribute table at $DCSV -- every test's heap and stack are read from it (CEO-1353)" >&2; exit 2; }
 declared_memory_begin "$DCSV" "$DTBL" >/dev/null || { echo "⛔ REFUSING (rc=2): $DCSV carries a cell the reader refuses (it said why above)" >&2; exit 2; }
 ROAST_UNDECL=""; RSW=()
