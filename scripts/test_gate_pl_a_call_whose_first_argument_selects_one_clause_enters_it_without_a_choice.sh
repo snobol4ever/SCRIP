@@ -13,6 +13,9 @@
 # text is the oracle's, cut with /usr/bin/swipl -q -t halt at gate-writing time; no witness prints an unbound variable.
 # RED BEFORE on origin 7be988e89: arm 1 reads 3 head failures inside app/3 in both modes (two of clause 1 on a list, one of clause 2 on [] after the redo),
 # arm 2 finds no switch; the witnesses pass there (they are the behaviour the switch must keep).
+# ARM 1b, V2 (ARCH section 11.4): a key with two or more candidates walks ONLY its own set -- the traced w_v2 (q/2 with a variable clause and
+# duplicate keys interleaved, cut in a selected clause) shows no head failure inside q/2 in either mode (origin 2aaf9a2db's V1: 19 in m3 -- every
+# multi-candidate key took the full chain); w_v2 also joins the swipl witnesses.
 set -u
 GATE_NAME=test_gate_pl_a_call_whose_first_argument_selects_one_clause_enters_it_without_a_choice
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,6 +43,30 @@ if (cd "$TMPD" && SCRIP_PL_TRACE=1 timeout 120 "$SCRIP" --compile -o w_trace.s w
     n4=$(cd "$TMPD" && SCRIP_PL_TRACE=1 timeout 60 ./w_trace.bin </dev/null 2>&1 | grep -cE "$RX"); fi
 if [ "$n3" = 0 ] && [ "$n4" = 0 ]; then echo "  ok  arm 1: the traced app([1,2],[3],L), fail shows no head failure inside app/3 in either mode"
 else echo "  RED arm 1: head failures inside app/3 in the trace: m3=$n3 m4=$n4 (clause 1 tried on a list, or clause 2 on [] after a redo)"; red=$((red+1)); fi
+mkw w_v2 <<'EOP'
+q(a, 1).
+q(b, 2).
+q(c, 3).
+q(X, 4) :- X == b.
+q(b, 5).
+q(f(_), 6).
+q(b, 7) :- !.
+q(b, 8).
+p([], 0).
+p([X|_], X) :- X > 5, !.
+p([_|T], Y) :- p(T, Y).
+main :- findall(V, q(b, V), L), write(L), nl, findall(V, q(c, V), C), write(C), nl, findall(V, q(zz, V), Z), write(Z), nl,
+        findall(V, q(f(1), V), F), write(F), nl, findall(K-V, q(K, V), A), length(A, N), write(N), nl, p([1,2,9,3], P), write(P), nl,
+        ( q(b, 2) -> write(yes) ; write(no) ), nl, findall(V, (q(b, V), V > 3), G), write(G), nl.
+:- initialization(main).
+EOP
+RX2='Fail: n[0-9]+_unify_(const|struct) -> q(/|.2F)2_step'
+m3=$(cd "$TMPD" && SCRIP_PL_TRACE=1 timeout 60 "$SCRIP" w_v2.pl </dev/null 2>&1 | grep -cE "$RX2")
+m4=REFUSED
+if (cd "$TMPD" && SCRIP_PL_TRACE=1 timeout 120 "$SCRIP" --compile -o w_v2t.s w_v2.pl </dev/null >/dev/null 2>&1) && gcc -m64 -no-pie "$TMPD/w_v2t.s" -o "$TMPD/w_v2t.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null; then
+    m4=$(cd "$TMPD" && SCRIP_PL_TRACE=1 timeout 60 ./w_v2t.bin </dev/null 2>&1 | grep -cE "$RX2"); fi
+if [ "$m3" = 0 ] && [ "$m4" = 0 ]; then echo "  ok  arm 1b: V2 -- the traced q/2 calls show no head failure of a clause outside the key's set in either mode"
+else echo "  RED arm 1b: head failures inside q/2 in the trace: m3=$m3 m4=$m4 (a multi-candidate key walked clauses outside its set)"; red=$((red+1)); fi
 timeout 120 "$SCRIP" --compile -o "$TMPD/nrev.s" "$B/nrev.pl" </dev/null 2>"$TMPD/err" || refuse "nrev.pl did not compile: $(head -c 200 "$TMPD/err")"
 sa=$(grep -cE '^app\$2F3_switch:' "$TMPD/nrev.s"); sn=$(grep -cE '^nrev\$2F2_switch:' "$TMPD/nrev.s")
 if [ "$sa" -ge 1 ] && [ "$sn" -ge 1 ]; then echo "  ok  arm 2: nrev.pl's mode-4 text carries the switch for app/3 and nrev/2"
@@ -116,6 +143,14 @@ main :- assertz(d(a, 1)), assertz(d(b, 2)), assertz(d(a, 3)), findall(V, d(a, V)
         findall(W, c(120, W), C), write(C), nl.
 :- initialization(main).
 EOP
+want_w_v2='[2,4,5,7]
+[3]
+[]
+[6]
+6
+9
+yes
+[4,5,7]'
 want_w_keys='7
 [1,2,3,4,5,6,7]
 [1,7]
@@ -160,7 +195,7 @@ big
 pair
 fails_ok
 [code,other]'
-for w in w_keys w_var w_cut w_lists w_misc; do
+for w in w_keys w_var w_cut w_lists w_misc w_v2; do
     eval "want=\$want_$w"
     for mode in m3 m4; do
         if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?

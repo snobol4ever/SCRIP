@@ -3524,6 +3524,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_label_initf(&lbl_res,     "%s_res",     fam);
     static bb_label_t **alt_tr = 0; static bb_label_t **ret_tr = 0; static int alt_tr_cap = 0; bb_label_t * pl_step_lbl = (bb_label_t *)0; int n_alt = 0;
     bb_label_t * ix_switch = (bb_label_t *)0; int * ix_code = (int *)0; int ix_n = 0; int ix_fbr = -2, ix_fba = -2, ix_fbi = -2; int ix_slot = -1; int * ix_tag = (int *)0; int64_t * ix_val = (int64_t *)0;
+    int * ix_sets = (int *)0; int * ix_set_beg = (int *)0; int * ix_set_len = (int *)0; int ix_nset = 0;
     g_emit.flat_alt1_p = (bb_label_t *)0; g_emit.flat_altdet_p = (bb_label_t *)0;
     if (g_emit_cfg && g_emit_cfg->n_alts > 0) {
         n_alt = g_emit_cfg->n_alts;
@@ -3938,15 +3939,25 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                 else if (_e->op == IR_UNIFY_CONST && _k->op == IR_LIT_INTEGER) { _ktag[_ak] = DT_I; _kval[_ak] = (int64_t)IR_LIT(_k).ival; }
                 else if (_e->op == IR_UNIFY_STRUCT && _k->op == IR_LIT_INTEGER && prolog_functor_arity((int)IR_LIT(_k).ival) >= 1) { _ktag[_ak] = DT_PLREF; _kval[_ak] = (int64_t)IR_LIT(_k).ival; } }
             if (!_ktag[_ak]) { _nvar++; _nvc = _ak; } }
-        if (ix_slot >= 0 && _nvar <= 1 && _nvar < n_alt) {
+        if (ix_slot >= 0 && _nvar < n_alt) {
             ix_tag = (int *)alloca(sizeof(int) * (size_t)n_alt); ix_val = (int64_t *)alloca(sizeof(int64_t) * (size_t)n_alt); ix_code = (int *)alloca(sizeof(int) * (size_t)n_alt);
-            for (int _c = 0; _c < 3; _c++) { int _nk = 0, _n0 = ix_n; const int _ct = _c == 0 ? (int)DT_PLREF : _c == 1 ? (int)DT_PLATOM : (int)DT_I;
+            const int _scap = n_alt * 8 + 64; int _nsi = 0, _vset = -9;
+            ix_sets = (int *)alloca(sizeof(int) * (size_t)_scap); ix_set_beg = (int *)alloca(sizeof(int) * (size_t)(n_alt + 2)); ix_set_len = (int *)alloca(sizeof(int) * (size_t)(n_alt + 2));
+            auto _setcode = [&](int ct, int64_t kv, int keyed) -> int {
+                int _m = 0, _who = -1, _b0 = _nsi;
+                for (int _b = 0; _b < n_alt; _b++) if (!_ktag[_b] || (keyed && _ktag[_b] == ct && _kval[_b] == kv)) { _m++; _who = _b; }
+                if (_m == 0) return -1;
+                if (_m == 1) return _who;
+                if (_m == n_alt || _nsi + _m > _scap || ix_nset >= n_alt + 2) return -2;
+                for (int _b = 0; _b < n_alt; _b++) if (!_ktag[_b] || (keyed && _ktag[_b] == ct && _kval[_b] == kv)) ix_sets[_nsi++] = _b;
+                ix_set_beg[ix_nset] = _b0; ix_set_len[ix_nset] = _m; return -3 - ix_nset++; };
+            for (int _c = 0; _c < 3; _c++) { int _nk = 0, _n0 = ix_n, _ns0 = ix_nset, _si0 = _nsi; const int _ct = _c == 0 ? (int)DT_PLREF : _c == 1 ? (int)DT_PLATOM : (int)DT_I;
                 for (int _ak = 0; _ak < n_alt; _ak++) { if (_ktag[_ak] != _ct) continue; int _dup = 0;
                     for (int _q = _n0; _q < ix_n && !_dup; _q++) if (ix_val[_q] == _kval[_ak]) _dup = 1;
-                    if (_dup) continue; int _cand = _nvar, _who = _nvc;
-                    for (int _b = 0; _b < n_alt; _b++) if (_ktag[_b] == _ct && _kval[_b] == _kval[_ak]) { _cand++; _who = _b; }
-                    ix_tag[ix_n] = _ct; ix_val[ix_n] = _kval[_ak]; ix_code[ix_n] = _cand == 1 ? _who : -2; ix_n++; _nk++; }
-                { int _fb = _nk > 64 ? -2 : (_nvar == 0 ? -1 : _nvc); if (_nk > 64) ix_n = _n0; if (_c == 0) ix_fbr = _fb; else if (_c == 1) ix_fba = _fb; else ix_fbi = _fb; } }
+                    if (_dup) continue;
+                    ix_tag[ix_n] = _ct; ix_val[ix_n] = _kval[_ak]; ix_code[ix_n] = _setcode(_ct, _kval[_ak], 1); ix_n++; _nk++; }
+                { int _fb; if (_nk > 64) { ix_n = _n0; ix_nset = _ns0; _nsi = _si0; _fb = -2; } else { if (_vset == -9) _vset = _setcode(0, 0, 0); _fb = _vset; }
+                  if (_c == 0) ix_fbr = _fb; else if (_c == 1) ix_fba = _fb; else ix_fbi = _fb; } }
             ix_switch = emit_label_alloc("%s_switch", fam); } }
     if (ix_switch) emit_jmp_label(ix_switch, JMP_JMP);
     int _bx_open = -1;
@@ -4233,8 +4244,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             int _kt = g_emit.flat_frame_bytes; bb_label_t * _chain = pl_alt_target(0);
             bb_label_t ** _det = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)n_alt); for (int _ak = 0; _ak < n_alt; _ak++) _det[_ak] = (bb_label_t *)0;
             bb_label_t * _fail = (bb_label_t *)0;
+            bb_label_t ** _sent = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)(ix_nset + 1)); for (int _s = 0; _s < ix_nset; _s++) _sent[_s] = (bb_label_t *)0;
             auto _to = [&](int code) -> bb_label_t * {
                 if (code == -2) return _chain;
+                if (code <= -3) { int _s = -3 - code; if (!_sent[_s]) _sent[_s] = emit_label_alloc("%s_ixset%d", fam, _s); return _sent[_s]; }
                 if (code == -1) { if (!_fail) _fail = emit_label_alloc("%s_ixfail", fam); return _fail; }
                 if (!_det[code]) _det[code] = (code == n_alt - 1) ? alt_tr[code] : emit_label_alloc("%s_ixdet%d", fam, code); return _det[code]; };
             pl_ix_arm_t * _arms = (pl_ix_arm_t *)alloca(sizeof(pl_ix_arm_t) * (size_t)(ix_n > 0 ? ix_n : 1));
@@ -4256,6 +4269,25 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                           + x86("mov", RDQ("rbp", _kt - 56), 0L)
                           + x86("mov", "r13", RDQ("rbp", _kt - 40)));
                 emit_jmp_label(pl_step_lbl, JMP_JMP);
+            }
+            for (int _s = 0; _s < ix_nset; _s++) {
+                if (!_sent[_s]) continue;
+                const int _m = ix_set_len[_s]; const int * _it = ix_sets + ix_set_beg[_s];
+                bb_label_t ** _tl = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)_m);
+                for (int _j = 1; _j < _m; _j++) _tl[_j] = emit_label_alloc("%s_ixset%d_%d", fam, _s, _j);
+                emit_sep_rule('-'); emit_label_define_bb(_sent[_s]);
+                bb_emit_x86(x86("comment", "PL SWITCH V2 (ARCH-PROLOG-C-OUT-OF-THE-BOX 11.4): the first argument's key leaves two or more candidate clauses -- the choice stays open (B is this "
+                                           "frame's header) and the step walks ONLY this set, in source order, through its own trampolines")
+                          + x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_tl[1])
+                          + x86("mov", RDQ("rbp", _kt - 56), "rax"));
+                emit_jmp_label(pl_alt_target(_it[0]), JMP_JMP);
+                for (int _j = 1; _j < _m; _j++) {
+                    emit_sep_rule('-'); emit_label_define_bb(_tl[_j]);
+                    bb_emit_x86((_j + 1 < _m ? x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)_tl[_j + 1]) : x86("xor", "eax", "eax"))
+                              + x86("mov", RDQ("rbp", _kt - 56), "rax")
+                              + IF(_j + 1 >= _m, x86("mov", "r13", RDQ("rbp", _kt - 40))));
+                    emit_jmp_label(pl_alt_target(_it[_j]), JMP_JMP);
+                }
             }
         }
     }
