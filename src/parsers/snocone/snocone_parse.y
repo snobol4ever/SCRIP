@@ -5,6 +5,7 @@
 }
 %code requires {
 #include "scrip_cc.h"
+#include "ct_vec.h"
 struct LexCtx;
 struct IfHead;
 struct WhileHead;
@@ -25,6 +26,7 @@ typedef struct ScParseState {
     char          *cur_func_name;
     LoopFrame    *loop_top;
     struct SwitchHead *cur_switch;
+    cv_t           labels;
 } ScParseState;
 }
 %code {
@@ -599,10 +601,12 @@ static void sc_finalize_function_pst(ScParseState *st, struct FuncHead *h)
     sc_append_stmt(st, def);
 }
 static void sc_append_label_node(ScParseState *st, const char *name) {
+    for (uint32_t i = 0; i < st->labels.len; i++) if (!strcmp(CV_AT(st->labels, char *, i), name)) { sc_error(st, ct_fmt("duplicate label '%s'", name)); return; }
     STMT_t *s = stmt_new();
     s->lineno = st->ctx ? st->ctx->line : 0;
     s->stno   = ++st->code->nstmts;
     s->label  = ct_strdup(name);
+    CV_PUSH(st->labels, char *) = s->label;
     sc_append_chain(st, s, s);
 }
 static void sc_append_chain(ScParseState *st, STMT_t *chain_head, STMT_t *chain_tail) {

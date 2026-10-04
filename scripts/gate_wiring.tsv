@@ -664,6 +664,7 @@ test_gate_s4e_picker_v2.sh	WIRED	-	-	-
 test_gate_s4e_unclaim_keeps_park.sh	WIRED	-	-	-
 test_gate_s_artifact_drift_ignores_the_build_path.sh	WIRED	-	-	-
 test_gate_same_suite_ref_agreement.sh	WIRED	-	-	-
+test_gate_sc_duplicate_label_is_refused_at_parse.sh	WIRED	-	-	-
 test_gate_sc_port_trace.sh	WIRED	-	-	-
 test_gate_score_column_semantics.sh	WIRED	-	-	-
 test_gate_score_inventory_clauses_never_vanish.sh	WIRED	-	-	-

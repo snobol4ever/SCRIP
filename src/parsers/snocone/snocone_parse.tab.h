@@ -56,6 +56,7 @@ extern int sc_debug;
 #line 6 "snocone_parse.y"
 
 #include "scrip_cc.h"
+#include "ct_vec.h"
 struct LexCtx;
 struct IfHead;
 struct WhileHead;
@@ -76,9 +77,10 @@ typedef struct ScParseState {
     char          *cur_func_name;
     LoopFrame    *loop_top;
     struct SwitchHead *cur_switch;
+    cv_t           labels;
 } ScParseState;
 
-#line 82 "snocone_parse.tab.h"
+#line 84 "snocone_parse.tab.h"
 
 /* Token kinds.  */
 #ifndef SC_TOKENTYPE
@@ -165,7 +167,7 @@ typedef struct ScParseState {
 #if ! defined SC_STYPE && ! defined SC_STYPE_IS_DECLARED
 union SC_STYPE
 {
-#line 163 "snocone_parse.y"
+#line 165 "snocone_parse.y"
 
     tree_t *expr;
     char   *str;
@@ -179,7 +181,7 @@ union SC_STYPE
     struct SwitchHead *switchhead;
     STMT_t           *stmt_ptr;
 
-#line 183 "snocone_parse.tab.h"
+#line 185 "snocone_parse.tab.h"
 
 };
 typedef union SC_STYPE SC_STYPE;
