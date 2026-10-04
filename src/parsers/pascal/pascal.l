@@ -174,10 +174,14 @@ ALNUM    [A-Za-z0-9_]
 <MODE_HDR>[ \t]         { }
 <MODE_HDR>.             { if (pascal_modepos < (int)sizeof(pascal_modebuf) - 1) { pascal_modebuf[pascal_modepos++] = pascal_yytext[0]; pascal_modebuf[pascal_modepos] = '\0'; } }
 <MODE_HDR>\n            { }
-"{$zerobasedstrings"[ \t]+"on"[ \t]*"}"   { g_pas_zerobased_strings = 1; }
-"{$zerobasedstrings"[ \t]+"off"[ \t]*"}"  { g_pas_zerobased_strings = 0; }
-"{$zerobasedstrings+}"  { g_pas_zerobased_strings = 1; }
-"{$zerobasedstrings-}"  { g_pas_zerobased_strings = 0; }
+"{$zerobasedstrings"[ \t]+"on"[ \t]*"}"   { g_pas_zerobased_strings |= 1; }
+"{$zerobasedstrings"[ \t]+"off"[ \t]*"}"  { g_pas_zerobased_strings &= ~1; }
+"{$zerobasedstrings+}"  { g_pas_zerobased_strings |= 1; }
+"{$Q+}"  { g_pas_zerobased_strings |= 2; }
+"{$Q-}"  { g_pas_zerobased_strings &= ~2; }
+"{$overflowchecks"[ \t]+"on"[ \t]*"}"  { g_pas_zerobased_strings |= 2; }
+"{$overflowchecks"[ \t]+"off"[ \t]*"}"  { g_pas_zerobased_strings &= ~2; }
+"{$zerobasedstrings-}"  { g_pas_zerobased_strings &= ~1; }
 "{$PackRecords"         { pascal_packrecbuf[0] = '\0'; pascal_packrecpos = 0; BEGIN PACKREC_HDR; }
 <PACKREC_HDR>"}"        { g_pas_pack_records = atoi(pascal_packrecbuf); BEGIN INITIAL; }
 <PACKREC_HDR>[ \t]      { }

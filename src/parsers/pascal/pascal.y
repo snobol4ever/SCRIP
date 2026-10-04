@@ -465,7 +465,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         }
         if (v && v->t == TT_VAR && v->v.sval) {
             int sk = pas_var_string_kind(v->v.sval);
-            if (sk) { int _zb = sk == 1 && g_pas_zerobased_strings; return !strcmp(name, "low") ? ilit(sk == 2 || _zb ? 0 : 1) : (sk == 2 ? ilit(255) : (_zb ? bin(TT_SUB, mk_fnc1("length", pas_tree_clone(v)), ilit(1)) : mk_fnc1("length", pas_tree_clone(v)))); }
+            if (sk) { int _zb = sk == 1 && (g_pas_zerobased_strings & 1); return !strcmp(name, "low") ? ilit(sk == 2 || _zb ? 0 : 1) : (sk == 2 ? ilit(255) : (_zb ? bin(TT_SUB, mk_fnc1("length", pas_tree_clone(v)), ilit(1)) : mk_fnc1("length", pas_tree_clone(v)))); }
         }
     }
     if (name && !strcmp(name, "sizeof") && args && args->count >= 1) {
@@ -1319,7 +1319,13 @@ static int pas_is_setexpr(tree_t *e) { if (!e) return 0;
     return 0; }
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, name)); ast_push(e, a); ast_push(e, b); return e; }
 static tree_t *pas_rdiv(tree_t *a, tree_t *b) { return bin(TT_DIV, bin(TT_MUL, a, flit(1.0)), b); }
-static tree_t *pas_arith_or_set(tree_e ak, const char *setfn, tree_t *a, tree_t *b) { return (pas_is_setexpr(a) || pas_is_setexpr(b)) ? mk_set_bin(setfn, a, b) : bin(ak, a, b); }
+static int pas_var_unsigned(const char *name) { if (!name) return 0; const char *tn = pas_scalarvartype_get(name); long long lo, hi; if (tn && (pas_is_unsigned_inttypename(tn) || (pas_subtype_high(tn) >= 0 && pas_subtype_low(tn) >= 0))) return 1; return pas_subvar_get(name, &lo, &hi) && lo >= 0; }
+static int pas_unsigned_sum(tree_t *e, int *nv) { if (!e) return 0; if (e->t == TT_ILIT) return e->v.ival >= 0; if (e->t == TT_VAR) { if (!pas_var_unsigned(e->v.sval)) return 0; (*nv)++; return 1; } return e->t == TT_ADD && e->n == 2 && pas_unsigned_sum(e->c[0], nv) && pas_unsigned_sum(e->c[1], nv); }
+static tree_t *pas_arith_or_set(tree_e ak, const char *setfn, tree_t *a, tree_t *b) {
+    if (pas_is_setexpr(a) || pas_is_setexpr(b)) return mk_set_bin(setfn, a, b);
+    if (ak == TT_SUB && (g_pas_zerobased_strings & 2) && a && a->t == TT_ADD) { int nv = 0; if (pas_unsigned_sum(a, &nv) && nv >= 2) return mk_fnc1("__pas_qchk", bin(ak, a, b)); }
+    return bin(ak, a, b);
+}
 static struct pas_vt *pas_vt_find_name(const char *nm) { if (!nm) return NULL; for (int i = g_pas_nvt - 1; i >= 0; i--) if (g_pas_vt[i]->state == 2 && g_pas_vt[i]->name && !strcmp(g_pas_vt[i]->name, nm)) return g_pas_vt[i]; return NULL; }
 static void pas_vt_mark(tree_t *e, tree_t *base, const char *rt, int fi) {
     if (!e || !base || fi < 0 || fi >= PAS_FIELD_MAX) return;
@@ -2251,7 +2257,7 @@ selector:
         long long _nc2 = pas_array_ncols($1->c[0]->v.sval);
         if (_nc2 > 0) { tree_t *flat2 = bin(TT_ADD, bin(TT_MUL, $1->c[1], ilit(_nc2)), $3->items[0]);
           e = ast_node_new(TT_IDX); ast_push(e, $1->c[0]); ast_push(e, flat2); } }
-      if (!e) { e = ast_node_new(TT_IDX); ast_push(e, $1); if ($3) for (int i = 0; i < $3->count; i++) ast_push(e, ($3->count == 1 && g_pas_zerobased_strings && $1 && $1->t == TT_VAR && $1->v.sval && pas_var_string_kind($1->v.sval) == 1) ? bin(TT_ADD, $3->items[i], ilit(1)) : $3->items[i]); } if (e && $1 && $1->t == TT_VAR && $1->v.sval) { const char *_et = pas_enumarr_get($1->v.sval); if (_et) { int _ei = pas_enumnames_idx(_et); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } } $$ = e; }
+      if (!e) { e = ast_node_new(TT_IDX); ast_push(e, $1); if ($3) for (int i = 0; i < $3->count; i++) ast_push(e, ($3->count == 1 && (g_pas_zerobased_strings & 1) && $1 && $1->t == TT_VAR && $1->v.sval && pas_var_string_kind($1->v.sval) == 1) ? bin(TT_ADD, $3->items[i], ilit(1)) : $3->items[i]); } if (e && $1 && $1->t == TT_VAR && $1->v.sval) { const char *_et = pas_enumarr_get($1->v.sval); if (_et) { int _ei = pas_enumnames_idx(_et); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } } $$ = e; }
     | selector PERIOD IDENT { int _fi = -1; const char *_rt = pas_selector_rectype($1); if (_rt) _fi = pas_rectype_field_index(_rt, $3); else if ($1 && $1->t == TT_VAR && $1->v.sval) _fi = pas_recvar_field_index($1->v.sval, $3);
         if (_fi < 0 && $1 && $1->t == TT_IDX && $1->n == 2 && $1->c[0] && $1->c[0]->t == TT_VAR) { const char *_arn = NULL; int _anf = pas_arrrec_find($1->c[0]->v.sval, &_arn); if (_anf > 0) { int _afi = _arn ? pas_rectype_field_index(_arn, $3) : -1; if (_afi < 0) { _afi = pas_arrrec_field_index($1->c[0]->v.sval, $3); } if (_afi < 0) { for (int _ri = 0; _ri < g_pas_nrectype; _ri++) { int _t = pas_rectype_field_index(g_pas_rectypes[_ri].tname, $3); if (_t >= 0 && g_pas_rectypes[_ri].nf == _anf) { _afi = _t; break; } } } if (_afi >= 0) { $$ = pas_arrrec_flatten($1, _afi); if (pas_arrrec_field_is_char($1->c[0]->v.sval, _afi) || (_arn && pas_rectype_field_is_char(_arn, _afi))) pas_cvfield_mark_add($$); const char *_fe = pas_arrrec_field_enum($1->c[0]->v.sval, _afi); if (!_fe && _arn) _fe = pas_rectype_field_enum_by_index(_arn, _afi); if (_fe && $$) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) $$->v.ival = (long long)(_ei + 1); } } else { $$ = bin(TT_FIELD, $1, leaf_s(TT_VAR, $3)); } } else { $$ = pas_nested_field_resolve($1, $3); } }
         else if (_fi >= 0) { tree_t *e = ast_node_new(TT_IDX); ast_push(e, $1); ast_push(e, ilit(_rt ? pas_rectype_slot(_rt, _fi) : ($1 && $1->t == TT_VAR && $1->v.sval) ? pas_recvar_slot($1->v.sval, _fi) : _fi)); if (_rt) { const char *_fe = pas_rectype_field_enum_by_index(_rt, _fi); if (_fe) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) e->v.ival = (long long)(_ei + 1); } } { const char *_mrt = _rt ? _rt : pas_with_sel_rtype($1); if (_mrt && pas_rectype_field_is_ca(_mrt, _fi)) pas_cafield_mark_add(e, pas_rectype_field_ca_lo(_mrt, _fi), pas_rectype_field_ca_hi(_mrt, _fi)); if (_mrt && pas_rectype_field_is_char(_mrt, _fi)) pas_cvfield_mark_add(e);

@@ -4868,6 +4868,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
         *out = NULVCL; return 1;
     }
+    if (!strcmp(fn, "__pas_qchk") && nargs == 1) {
+        if (IS_INT_fn(args[0]) && args[0].i < 0) { fflush(NULL); fprintf(stderr, "Runtime error 215 at $0\n"); exit(215); }
+        *out = args[0]; return 1;
+    }
     if (!strcmp(fn, "__pas_vcheck") && nargs == 2) {
         long long tv = IS_INT_fn(args[0]) ? args[0].i : -2, m = IS_INT_fn(args[1]) ? args[1].i : 0; if (tv == -1) tv = 1;
         if (tv >= 0 && tv <= 62 && !((m >> tv) & 1)) pas_file_err("6.5.3.3", "a component of a variant is accessed while the tag-field selects a different variant", NULL);
