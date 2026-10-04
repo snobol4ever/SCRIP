@@ -28,6 +28,17 @@ SUITE="${FPC_SUITE:-$S4E/corpus/packages/pascal/fpc_tests}"   # line 2 sets it t
 WANTRC="${WANTRC:-$SUITE/ALL.wantrc}"
 RUN_TIMEOUT="${FPC_SUITE_RUN_TIMEOUT:-10}"
 VERBOSE="${FPC_SUITE_VERBOSE:-0}"
+# ⭐ A DECLARED RUN TIMEOUT, BESIDE THE DATA (hq_pascal 2026-10-04, the heap/stack declaration's shape, Lon's rule that a test unit carries its own run
+# arguments): ALL.timeout.tsv names, per program, the seconds its run needs where the shipped default is not enough, with the measurement as the reason.
+# A name absent from the file runs at RUN_TIMEOUT. The file is a RECORD, printed with its reasons on every run, never a mask: a name that is not in the
+# suite REFUSES the board, so a stale row cannot sit there. FIRST ROW: webtbs_tw15203 (2^30 calls; fpc's own suite marks it %norun).
+TIMEOUT_TSV="$SUITE/ALL.timeout.tsv"; declare -A TMO_OF=()
+if [ -f "$TIMEOUT_TSV" ]; then
+    while IFS=$'\t' read -r _tn _ts _tr; do case "$_tn" in ''|'#'*) continue;; esac
+        [ -f "$SUITE/$_tn.pas" ] || { echo "⛔ REFUSED-TO-GRADE: ALL.timeout.tsv names $_tn, which is not in $SUITE"; exit 2; }
+        case "$_ts" in ''|*[!0-9]*) echo "⛔ REFUSED-TO-GRADE: ALL.timeout.tsv gives $_tn the non-numeric timeout '$_ts'"; exit 2;; esac
+        TMO_OF[$_tn]="$_ts"; echo "-- declared run timeout: $_tn ${_ts}s ($_tr)"; done < "$TIMEOUT_TSV"
+fi
 # ⛔⭐ ISO IS THE ORACLE, SO A PROGRAM ISO REFUSES IS GRADED AS AN EXPECTED REFUSAL (Lon 2026-09-23, in-chat to the ceo, verbatim:
 # "use ISO as oracle", CEO-1225; the grading ruled by the ceo as CEO-1228). This suite's refs were cut from fpc -Miso, and where fpc -Miso
 # and ISO 7185 disagree ISO wins. ISO_EXPECTED_REFUSALS.tsv beside the package names each program fpc -Miso runs but ISO 7185 refuses,
@@ -112,6 +123,7 @@ for name in "${PAIRS[@]}"; do
         continue
     fi
     exp="$(cat "$ref")"
+    T_RUN="${TMO_OF[$name]:-$RUN_TIMEOUT}"
 
     m3ok=0
     # ⛔⭐⭐ THE OUTPUT ALONE IS NOT THE VERDICT -- rc IS GRADED BESIDE IT (hq_pascal 2026-09-16, INSTRUMENT
@@ -123,7 +135,7 @@ for name in "${PAIRS[@]}"; do
     # ⛔ THE EXPECTED rc IS CUT FROM THE ORACLE, NEVER FROM US: corpus/packages/pascal/fpc_tests/ALL.wantrc
     # carries fpc's own exit status for every entry that is not 0, same filename and format as the Icon
     # rungs'. An entry absent from that file expects 0. A line there is the oracle's answer, not a waiver.
-    m3out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
+    m3out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$T_RUN" "$SCRIP" --run "$pas" < "$inp" 2>/dev/null); m3rc=$?
     wantrc=$(awk -F'\t' -v n="$name" '$1==n{print $2; exit}' "$WANTRC" 2>/dev/null); [ -n "$wantrc" ] || wantrc=0
     if [ "$m3out" = "$exp" ] && [ "$m3rc" = "$wantrc" ]; then
         M3_PASS=$((M3_PASS+1)); m3ok=1
@@ -137,9 +149,9 @@ for name in "${PAIRS[@]}"; do
     fi
 
     m4bin="$TMP/${name}.bin"; m4s="$TMP/${name}.s"
-    if timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$pas" -o "$m4s" < /dev/null 2>/dev/null \
+    if timeout "$T_RUN" "$SCRIP" --compile "$pas" -o "$m4s" < /dev/null 2>/dev/null \
         && gcc -no-pie "$m4s" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$m4bin" 2>/dev/null; then
-        m4out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$RUN_TIMEOUT" "$m4bin" < "$inp" 2>/dev/null); m4rc=$?
+        m4out=$(cd "$TMP" && run_at_declared_table "$DECL" "$name" -- timeout "$T_RUN" "$m4bin" < "$inp" 2>/dev/null); m4rc=$?
         if [ "$m4out" = "$exp" ] && [ "$m4rc" = "$wantrc" ]; then
             M4_PASS=$((M4_PASS+1)); [ "$m3ok" -eq 1 ] && BOTH_PASS=$((BOTH_PASS+1))
             printf 'package\tfpc\tpascal\t%s\tm4\tPASS\t0\t\n' "$name" >>"$PROG_ROWS"
