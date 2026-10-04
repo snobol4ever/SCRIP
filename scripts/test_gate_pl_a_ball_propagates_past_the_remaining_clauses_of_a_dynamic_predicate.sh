@@ -9,6 +9,9 @@
 # ARM 1 (both modes): a dynamic p/1 whose first clause throws -- catch sees boom and the second clause never runs (RED on origin 275162cd9: prints
 # "second"); ARM 2 (both modes): bignums in asserted clauses (RED on origin: caught(type_error(evaluable,?/0)), dyn_no, ?); ARM 3 (mode 3, under plunit):
 # after assert/2 + clause/3, length(_, -1) raises its domain error (RED on origin: ERROR 246). Expected text cut from swipl -q -t halt.
+# ARMS cut, cut2 (both modes; the same road, found next): a CUT in a packet clause commits the predicate -- r(a) :- !, fail. r(_). makes r(a) fail
+# (RED on c7dda478d: the chain-omega walked to r(_)), while a LOCAL cut (if-then-else, \+, call/1) does not: the chain-omega concedes only
+# when B is older than the fragment's header (the gamma's own rule); the call/1 case reds if it concedes on any B != H.
 set -u
 GATE_NAME=test_gate_pl_a_ball_propagates_past_the_remaining_clauses_of_a_dynamic_predicate
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -86,15 +89,52 @@ test(t1) :- Clause = (gmp_clause(X,Y) :- X is Y + 3), assert(Clause, Ref), claus
 test(probe) :- catch(length(_, -1), E, true), E = error(domain_error(not_less_than_zero, -1), _).
 :- end_tests(bigint).
 EOP
+cat > "$TMPD/cut.pl" <<'EOP'
+:- initialization(main).
+:- dynamic(r/1).
+:- dynamic(s/1).
+r(a) :- !, fail.
+r(_).
+s(X) :- X == a, !, \+ true.
+s(_) :- true.
+main :- ( r(a) -> write(wrong) ; write(cut_ok) ), nl, ( s(a) -> write(wrong) ; write(cut_ok) ), nl, assertz((t(X) :- X == a, !, fail)), assertz(t(_)), ( t(a) -> write(wrong) ; write(cut_ok) ), nl, ( t(b) -> write(ok_b) ; write(wrong_b) ), nl.
+EOP
+cat > "$TMPD/cut2.pl" <<'EOP'
+:- initialization(main).
+:- dynamic(p/1). :- dynamic(q/1). :- dynamic(u/1). :- dynamic(v/2). :- dynamic(w/1).
+p(X) :- member(X, [1,2,3]), X > 1, !.
+p(9).
+q(X) :- ( X > 0 -> true ; fail ).
+q(_) :- true.
+u(X) :- \+ X = a.
+u(b).
+v(X, Y) :- call((member(Y, [x, y]), !)), X = 1.
+v(2, z).
+w(1). w(2) :- !. w(3).
+main :- findall(X, p(X), L1), write(L1), nl, findall(a, q(1), L2), length(L2, N2), write(N2), nl,
+        findall(X, u(X), L3), write(L3), nl, findall(X-Y, v(X, Y), L4), write(L4), nl, findall(X, w(X), L5), write(L5), nl,
+        assertz(w(4)), findall(X, (w(X), X > 1), L6), write(L6), nl, ( w(2) -> write(w2) ; write(no) ), nl.
+EOP
 printf 'main :- run_tests.\n:- initialization(main).\n' > "$TMPD/wrap.pl"
 want_ball='caught(boom)
 caught(qq)
 [a,c]'
+want_cut='cut_ok
+cut_ok
+cut_ok
+ok_b'
+want_cut2='[2]
+2
+[b]
+[1-x,2-z]
+[1,2]
+[2]
+w2'
 want_big='static_ok
 dyn_ok
 9223372036854775808
 -9223372036854775810'
-for w in ball big; do eval "want=\$want_$w"
+for w in ball big cut cut2; do eval "want=\$want_$w"
     for mode in m3 m4; do
         if [ "$mode" = m3 ]; then got=$(cd "$TMPD" && timeout 30 "$SCRIP" "$w.pl" </dev/null 2>/dev/null)
         else got=$( (cd "$TMPD" && timeout 120 "$SCRIP" --compile -o "$w.s" "$w.pl" </dev/null >/dev/null 2>&1) && gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>/dev/null && cd "$TMPD" && timeout 30 "./$w.bin" </dev/null 2>/dev/null); fi

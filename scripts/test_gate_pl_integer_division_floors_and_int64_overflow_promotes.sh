@@ -6,6 +6,7 @@ export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus
 # a CPU trap (SIGFPE, rc=136) that killed the program -- core/test_arith.pl lost every case after it (0/220 on the SWI board).
 # FLOOR RAISED 2026-10-04 (hq_prolog, the coo's pass-36 red: 175 -> 74 of 220 since 9f6049d47 read GREEN against the old floor of 55): the per-mode
 # floor is the measured reading after the cure (ball propagation past packet clauses, bignums in asserted clauses) -- m3 hit 167, m4 hit 174 --
+# then 174 in both modes once a cut commits a packet predicate (the m3 deficit was the shim's condition check taking a later clause after its cut) --
 # so a loss of the thirteen units after bigint, or any one case, reds here instead of passing a floor 120 cases below it.
 # ARMS, both modes: (1) a witness prints [-3,2,-1,-4] for // mod rem div of -10 by 3 and catches
 # evaluation_error(int_overflow) (or prints the promoted 9223372036854775808) for INT64_MIN // -1, INT64_MIN mod -1,
@@ -61,7 +62,7 @@ for mode in ${MODES//,/ }; do
     run "$mode" "$PLUNIT" "$SWIT/core/test_arith.pl" "$T/wrap.pl" > "$T/act"; rc=$?
     line="$(python3 "$HERE/util_swi_match.py" "$SWIT/core/test_arith.pl" "$SWIT/core/test_arith.ref" "$T/act" | tail -1)"
     h="$(printf '%s' "$line" | sed -n 's/.* hit=\([0-9]*\).*/\1/p')"
-    fl=167; [ "$mode" = m4 ] && fl=174
+    fl=174
     if [ "$rc" -lt 128 ] && [ "${h:-0}" -ge "$fl" ]; then echo "  ok  test_arith $mode: rc=$rc $line (floor hit>=$fl, exit by rc)"; else echo "  RED test_arith $mode: rc=$rc $line (floor hit>=$fl, exit by rc never by signal)"; red=$((red+1)); fi
 done
 echo "$GATE_NAME: arms=$total red=$red modes=$MODES"

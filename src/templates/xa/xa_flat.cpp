@@ -779,6 +779,8 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
         if (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) return x86_bomb("packet fragment chain-omega without its labels");
         return x86_def_ext(g_emit.flat_pkt_chainω_p)
              + x86("comment", "PACKET FRAGMENT chain-omega (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): undo this clause's bindings, restore B and the caller's landings, release the frame but not the block, then walk next_idx to the next slot visible at G and enter its fragment's chain entry; none left -> the predicate's omega")
+             + x86("note", "a cut in this clause left B at an OLDER choice than this frame's header H (B > H, the gamma's own rule): the predicate is committed and concedes -- no later clause runs; a younger B (a retained inner choice, a local cut's barrier) walks on; r11 = H - B carries it past the unwind")
+             + x86("lea", "r11", FRQ(kt - 64)) + x86("sub", "r11", "r13")
              + x86_pl_tr_unwind_at(FRQ(kt - 64), 220, 221)
              + x86("mov", "rcx", FRQ(kt - 24)) + x86("mov", "rdx", FRQ(kt - 16)) + x86("mov", "r13", FRQ(kt - 40))
              + x86("mov", "r8", FRQ(kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
@@ -787,6 +789,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("lea", "rsp", RDQ(x86_fb(), kt)) + x86("mov", x86_fb(), RDQ(x86_fb(), kt - 8))
              + x86("note", "a ball in flight (r15 armed) propagates past every remaining clause, never retries one -- the static chain's step does the same (its _step_ball arm)")
              + x86("test", "r15", "r15") + x86("jne", L(225))
+             + x86("cmp", "r11", 0L) + x86("jl", L(225))
              + x86_def_ext(g_emit.flat_pkt_walk_p)
              + x86("cmp", "esi", 0L) + x86("jl", L(225))
              + xa_flat_pkt_slot_addr("rsi", "r10", "r11")
