@@ -437,6 +437,15 @@ static int          *g_proc_hsl = (int *)0;
 static unsigned      g_proc_hcap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned rt_proc_fnv(const char *s) { unsigned h = 2166136261u; while (*s) { h ^= (unsigned char)*s++; h *= 16777619u; } return h; }
+static int rt_proc_hash_lookup_h(const char *name, unsigned h0) {
+    if (!name || !g_proc_hcap) return -1;
+    { unsigned m = g_proc_hcap - 1, h = h0 & m;
+      while (g_proc_hsl[h]) { int ix = g_proc_hsl[h] - 1; if (ix < g_rt_gen_proc_count && g_rt_gen_procs[ix].name && strcmp(g_rt_gen_procs[ix].name, name) == 0) return ix; h = (h + 1) & m; }
+      return -1; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_proc_hash_seed_h(int idx, unsigned h0) { unsigned m = g_proc_hcap - 1, h = h0 & m; while (g_proc_hsl[h]) h = (h + 1) & m; g_proc_hsl[h] = idx + 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_proc_hash_seed(int idx) { unsigned m = g_proc_hcap - 1, h = rt_proc_fnv(g_rt_gen_procs[idx].name) & m; while (g_proc_hsl[h]) h = (h + 1) & m; g_proc_hsl[h] = idx + 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_proc_hash_insert(int idx) {
@@ -2294,21 +2303,26 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r)
 {
     _Static_assert(sizeof(rt_proc_reg_rec_t) == 64, "ONE-REG record is 64 bytes");
     _Static_assert(__builtin_offsetof(rt_proc_reg_rec_t, pnames) == 32 && __builtin_offsetof(rt_proc_reg_rec_t, nparams) == 40 && __builtin_offsetof(rt_proc_reg_rec_t, flags) == 52, "ONE-REG field offsets are law");
+    extern void **rt_pl_dc_slot(long idx);
     if (!r || !r->name) return;
-    extern void rt_proc_set_dyn_scope(const char *, int); extern void rt_proc_set_result_name(const char *, const char *); extern void rt_proc_set_nparams(const char *, int); extern void rt_proc_set_nformals(const char *, int);
-    extern void rt_proc_set_pname(const char *, int, const char *); extern void rt_proc_set_jmpentry(const char *, int); extern void rt_proc_set_dcfn(const char *, void *);
-    if (r->flags & 1) { rt_proc_register(r->name, (const char **)r->pnames, r->nparams); rt_proc_set_dyn_scope(r->name, 1); if (r->result_name) rt_proc_set_result_name(r->name, r->result_name); }
-    if (r->fn) rt_proc_set_fn(r->name, (bb_box_fn)r->fn);
-    rt_proc_set_nparams(r->name, r->nparams);
-    rt_proc_set_nformals(r->name, r->nformals);
-    if (!(r->flags & 1) && r->pnames) for (int k = 0; k < r->nparams && r->pnames[k]; k++) rt_proc_set_pname(r->name, k, r->pnames[k]);
-    if (r->frame_bytes > 0) rt_proc_set_frame_bytes(r->name, r->frame_bytes);
-    if (r->flags & 2) rt_proc_set_zstatic(r->name, 1);
-    if (r->flags & 4) rt_proc_set_variadic(r->name, 1);
-    if (r->rest_kind) rt_proc_set_rest_kind(r->name, r->rest_kind);
-    if (r->named_rest) rt_proc_set_named_rest(r->name, r->named_rest);
-    rt_proc_set_jmpentry(r->name, (r->flags >> 4) & 1);
-    if (r->dcfn) rt_proc_set_dcfn(r->name, r->dcfn);
-    if (r->flags & 8) rt_proc_set_generator(r->name, 1);
-    if (r->flags & 32) rt_proc_set_pinned(r->name, 1);
+    { unsigned h = rt_proc_fnv(r->name); int i = rt_proc_hash_lookup_h(r->name, h); rt_proc_t *p;
+      if (i < 0) {
+          rt_gen_proc_grow(); if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
+          i = g_rt_gen_proc_count++; p = &g_rt_gen_procs[i];
+          p->name = r->name; p->stage_var = rt_eval_stage_is_var(r->name); p->fn = NULL; p->pnames = (const char **)r->pnames; p->nparams = r->nparams; p->frame_nslots = -1; p->decl_level = 0; p->alpha_slot = -1; p->byref_mask = 0;
+          p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; p->gen_region_ft = 0; p->redefined = 0; p->pinned = 0;
+          if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) rt_proc_hash_insert(i); else rt_proc_hash_seed_h(i, h); }
+      else { p = &g_rt_gen_procs[i]; if (r->flags & 1) { if (r->pnames) p->pnames = (const char **)r->pnames; if (r->nparams) p->nparams = r->nparams; p->cells_done = 0; p->nformals = 0; p->redefined = 1; } else if (r->pnames && !p->pnames) { p->pnames = (const char **)r->pnames; p->pnames_owned = 0; } }
+      if (r->flags & 1) { p->dyn_scope = 1; if (r->result_name) { p->result_name = r->result_name; p->cells_done = 0; } }
+      if (r->fn) p->fn = (bb_box_fn)r->fn;
+      p->nparams = r->nparams; p->nformals = r->nformals;
+      if (r->frame_bytes > p->frame_bytes) p->frame_bytes = r->frame_bytes;
+      if (r->flags & 2) p->zstatic = 1;
+      if (r->flags & 4) p->is_variadic = 1;
+      if (r->rest_kind) p->rest_kind = r->rest_kind;
+      if (r->named_rest) p->named_rest = r->named_rest;
+      p->jmp_entry = (r->flags >> 4) & 1;
+      if (r->dcfn) { void **sl = rt_pl_dc_slot(i); if (sl) *sl = r->dcfn; }
+      if (r->flags & 8) p->is_generator = 1;
+      if (r->flags & 32) p->pinned = 1; }
 }

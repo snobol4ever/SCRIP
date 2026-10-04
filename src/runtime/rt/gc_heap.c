@@ -1185,7 +1185,20 @@ void rt_gc_frame_maps_drop_range(const void *lo, const void *hi)
     g_gc_maps_n = w;
 }
 void rt_gc_frame_maps_install(const gc_frame_map_t *const *maps, int n) { for (int i = 0; i < n; i++) rt_gc_frame_maps_add(maps[i]); }
-void rt_gc_frame_maps_install_counted(const void *tab) { const uint64_t *t = (const uint64_t *)tab; if (!t) return; rt_gc_frame_maps_install((const gc_frame_map_t *const *)(t + 1), (int)t[0]); }
+void rt_gc_frame_maps_install_counted(const void *tab)
+{
+    const uint64_t *t = (const uint64_t *)tab; int n; const gc_frame_map_t *const *maps;
+    if (!t) return;
+    n = (int)t[0]; maps = (const gc_frame_map_t *const *)(t + 1);
+    if (g_gc_maps_n != 0 || n <= 0) { rt_gc_frame_maps_install(maps, n); return; }
+    { int nc = g_gc_maps_cap ? g_gc_maps_cap : 64; while (nc < n) nc *= 2;
+      if (nc != g_gc_maps_cap) { g_gc_maps = (const gc_frame_map_t **)gcbk_grow((void *)g_gc_maps, (size_t)nc * sizeof(*g_gc_maps)); if (!g_gc_maps) abort(); g_gc_maps_cap = nc; } }
+    for (int i = 0; i < n; i++) {
+        const gc_frame_map_t *m = maps[i];
+        if (!m) continue;
+        if (m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-MAP] rt_gc_frame_maps_install_counted: %p is not a frame map (magic %08x)\n", (const void *)m, m->magic); abort(); }
+        g_gc_maps[g_gc_maps_n++] = m; }
+}
 const gc_frame_map_t *const *rt_gc_frame_maps(int *n) { if (n) *n = g_gc_maps_n; return g_gc_maps; }
 #if RT_DIAG
 void rt_gc_frame_maps_dump(void)
