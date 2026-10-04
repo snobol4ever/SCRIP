@@ -535,10 +535,12 @@ test_gate_pl_a_negative_unbounded_integer_literal_reads_as_its_own_value.sh	WIRE
 test_gate_pl_a_predicate_with_more_than_64_clauses_keeps_every_clause.sh	WIRED	-	-	-
 test_gate_pl_a_prefix_operator_wins_the_write_over_a_postfix_one.sh	WIRED	-	-	-
 test_gate_pl_a_prelude_dcg_rule_reaches_the_program_that_calls_it.sh	WIRED	-	-	-
+test_gate_pl_a_program_with_more_than_64_dynamic_declarations_keeps_every_one.sh	WIRED	-	-	-
 test_gate_pl_a_quoted_atom_doubles_its_apostrophe.sh	WIRED	-	-	-
 test_gate_pl_a_shift_outside_the_int64_window_is_computed_not_wrapped.sh	WIRED	-	-	-
 test_gate_pl_a_syntax_error_costs_its_own_clause_and_not_the_file.sh	WIRED	-	-	-
 test_gate_pl_a_text_stream_reads_characters_not_bytes.sh	WIRED	-	-	-
+test_gate_pl_a_thousand_asserted_clauses_cost_a_thousand_clause_compilations_not_a_million.sh	WIRED	-	-	-
 test_gate_pl_a_thrown_ball_never_redoes_a_builtin_generator.sh	WIRED	-	-	-
 test_gate_pl_a_write_to_a_binary_current_output_raises_permission_error.sh	WIRED	-	-	-
 test_gate_pl_a_zero_arity_term_is_the_atom_in_both_modes.sh	WIRED	-	-	-
@@ -602,6 +604,8 @@ test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-
 test_gate_pl_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
 test_gate_pl_the_colon_operator_is_600_xfy.sh	WIRED	-	-	-
+test_gate_pl_the_general_unifier_is_one_asm_leaf_on_the_spine_not_a_c_road.sh	WIRED	-	-	-
+test_gate_pl_the_generator_road_takes_the_emitted_context_from_the_veneer_not_live_registers.sh	WIRED	-	-	-
 test_gate_pl_the_gnu_file_and_os_builtins_answer_as_gnu_prolog.sh	WIRED	-	-	-
 test_gate_pl_the_iso_flag_makes_reads_strict_and_integer_division_a_float.sh	WIRED	-	-	-
 test_gate_pl_the_prelude_sees_every_clause_of_the_program.sh	WIRED	-	-	-
@@ -630,8 +634,11 @@ test_gate_queue_census_placeholder_arm.sh	WIRED	-	-	-
 test_gate_raku_a_bare_whatever_is_a_value_and_pick_head_and_tail_take_it.sh	WIRED	-	-	-
 test_gate_raku_a_block_passed_to_a_synchronous_builtin_reads_its_enclosing_subs_locals_through_a_reference.sh	WIRED	-	-	-
 test_gate_raku_a_code_parameter_is_callable_and_the_test_module_judges_blocks_and_matches.sh	WIRED	-	-	-
+test_gate_raku_a_named_sub_nested_in_a_sub_reads_and_writes_the_enclosing_locals_through_a_reference.sh	WIRED	-	-	-
 test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
+test_gate_raku_an_array_subscript_slices_by_an_array_of_indexes_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
+test_gate_raku_gather_and_take_collect_what_the_body_takes_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_map_keeps_each_result_as_an_item_and_a_brace_of_pairs_using_the_topic_is_a_block.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_raku_parse_census_measures_over_a_printed_denominator.sh	WIRED	-	-	-
@@ -644,9 +651,6 @@ test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prolog
 test_gate_raku_the_infix_operators_the_front_end_names_have_a_runtime_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_the_math_and_list_routines_answer_in_function_form_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_the_test_module_exits_as_rakudos_does_when_the_plan_is_not_met_or_a_test_fails.sh	WIRED	-	-	-
-test_gate_raku_a_named_sub_nested_in_a_sub_reads_and_writes_the_enclosing_locals_through_a_reference.sh	WIRED	-	-	-
-test_gate_raku_gather_and_take_collect_what_the_body_takes_as_rakudos_do.sh	WIRED	-	-	-
-test_gate_raku_an_array_subscript_slices_by_an_array_of_indexes_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_raku_unicode_lexemes.sh	WIRED	-	-	-
 test_gate_raku_whatevercode_curries_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_rc8a_gc_coverage.sh	WIRED	-	-	-
@@ -865,6 +869,7 @@ test_gate_sno_trace_banner_spells_an_object_like_dump.sh	WIRED	-	-	-
 test_gate_sno_trace_keyword_name_is_validated.sh	WIRED	-	-	-
 test_gate_sno_trace_of_an_array_or_table_element_fires_and_spells_it_like_the_oracle.sh	WIRED	-	-	-
 test_gate_sno_trace_value_fires_at_every_sink_with_the_sinks_statement_number.sh	WIRED	-	-	-
+test_gate_sno_traced_run_honours_the_declared_stack_limit_and_the_slim_road_traces.sh	WIRED	-	-	-
 test_gate_sno_tracing_does_not_change_a_match_result.sh	WIRED	-	-	-
 test_gate_sno_trim_drops_a_trailing_tab_and_scrips_own_builtins_are_undefined.sh	WIRED	-	-	-
 test_gate_sno_unary_caret_is_an_undefined_operator_error_29.sh	WIRED	-	-	-
@@ -915,6 +920,7 @@ test_gate_icon_gc_share_named_and_rungs_clean_under_forced_collection.sh	RULING	
 test_gate_icon_rungs_per_entry_identity.sh	RULING	CEO-547 (ceo, 2026-09-11, on the cfo ECONOMY finding), EXECUTED by hq_V 2026-09-12: it runs the corpus Icon rungs, so ONE RUNNER, ONE BOARD (CEO-523) correctly refuses it rc=2 to every seat but the coo -- wired, it asserted nothing for two days and made make test unrunnable for twelve of thirteen seats. Moved to the coo pass (make test-boards). The comparison is UNWEAKENED and proven on the coo own recorded board of this tree: examined=1669 regressions=0, and FAIL_ONCE rc=1.	hq_V	2026-09-12T13:39Z
 test_gate_pas_whole_array_into_a_record_field_round_trips.sh	RULING	Proven RED before any cure exists (rc=1: localrec and ptrrec read 09899 where fpc -Miso reads bcdefghi, both modes, shipped arena, no stress) and therefore held OUT of the blocking set while red: wiring it would redden the landing verdict for all ten TENET seats over a defect none of them caused and only hq_pascal can cure, which is a fleet-wide cost this seat will not impose unilaterally. It is a reproducer, not an xfail -- the defect is rowed rank 0 as pascal-a-whole-array-assigned-into-a-record-field-reads-back-wrong-collapse-pack-and-the-dense-field-interior-to-one-authority, and the cure is a three-layer representation ruling handed to the ceo under CEO-1021. WHO WIRES IT: hq_pascal, in the same landing as the cure, at which point this RULING is deleted rather than amended; or the ceo sooner if they want the blocking set to carry the red now. NOTE it is named test_gate_pas_* so the make test-arena test_gate_gc_*.sh glob does NOT sweep it -- it genuinely runs nowhere until then, and that is the declared state rather than an accident.	hq_pascal	2026-09-20T20:54Z
 test_gate_pl_iso_rung9_a_backtrackable_recursion_reaches_the_depth_the_oracle_reaches.sh	RULING	PROLOG ISO LADDER RUNG 9, deliberately out of every recipe while RED: 4 arms red, 2 controls green, both modes. The rung is a FRAME-CAPACITY defect -- a frame behind a choicepoint is never reclaimed, ~289 B/frame on the toy witness and ~3.1 KB/frame over tak(18,12,6)'s ~63,609 calls. Its cure is ROUTED TO hq_U and RAISED TO LON by ceo CEO-683, because the obvious fix is forbidden by RULES.md BB FRAME-PLACEMENT CRITERION. It wires when the rung is met, not before. cto 2026-09-13.	cto	2026-09-13T19:39Z
+test_gate_pl_mode_4_startup_registers_a_predicate_in_one_lookup_not_ten.sh	RULING	the DONE-WHEN of row prolog-bb-mode-4-startup-registers-a-predicate-in-one-lookup-not-ten-by-name-services-per-record: RED by design until that row lands (3,767 Ir per record today, ceiling 400); it moves to WIRED in that landing	hq_prolog	2026-10-04
 test_gate_pl_rungs_is_clean_at_the_tiny_arena.sh	RULING	DELIBERATELY OUT OF THE BLOCKING SET ON COST, NOT ON DOUBT -- it runs the Prolog rungs ONCE PER ARM (control + tiny arena + one arm per stress-band point), which is hours, against a single-board cost of ~15 minutes. TENET condition 2 (ceo CEO-1011, measured 2026-09-20) is that the landing gate is the shared resource that does NOT scale with seats: make test is ~372 essentially-serial arms on one 16-core box with ten seats queueing through it, and wiring an hours-long gate into that recipe would cap every seat in the fleet to buy one language's verdict. It is a DELIBERATE gate: the owning row (prolog-gc-the-prolog-share-of-the-unmapped-slot-population-censused-by-name-and-the-master-clean-at-one-megabyte) runs it and any landing that claims Prolog GC share is clean cites its output. Re-examine if the blocking set is ever cheap enough that an hours-long arm is affordable, or if the gate is re-cut to a witness subset rather than the whole rung suite.	hq_prolog	2026-09-20T20:49Z
 test_gate_polyglot_demos.sh	RULING	CEO-1389 (the ceo 2026-10-01): a board of the polyglot demos, which the coo's scriptix-demos (scrip-demos until 2026-10-02) SUITE TABLE row grades in both modes (CEO-1342); it read WIRED only because test_gate_zd_omega_head_acceptance.sh's retired arm 4 named it, and make test never ran it.	coo	2026-10-01T16:57Z
 test_gate_preflight_complete.sh	RULING	reads the LIVE postoffice: grades rows sixteen seats are editing right now, so it reds on a dirty fleet BY DESIGN (ceo ruling 2026-09-03, stated verbatim in the Makefile test-postoffice header)	ceo	2026-09-03
@@ -1087,8 +1093,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pl_a_thousand_asserted_clauses_cost_a_thousand_clause_compilations_not_a_million.sh	WIRED	-	-	-
-test_gate_pl_the_general_unifier_is_one_asm_leaf_on_the_spine_not_a_c_road.sh	WIRED	-	-	-
-test_gate_pl_the_generator_road_takes_the_emitted_context_from_the_veneer_not_live_registers.sh	WIRED	-	-	-
-test_gate_pl_mode_4_startup_registers_a_predicate_in_one_lookup_not_ten.sh	RULING	the DONE-WHEN of row prolog-bb-mode-4-startup-registers-a-predicate-in-one-lookup-not-ten-by-name-services-per-record: RED by design until that row lands (3,767 Ir per record today, ceiling 400); it moves to WIRED in that landing	hq_prolog	2026-10-04
-test_gate_pl_a_program_with_more_than_64_dynamic_declarations_keeps_every_one.sh	WIRED	-	-	-
