@@ -269,6 +269,29 @@ EOF
 python3 "$CENSUS" "$T/plant.s" > "$T/plant.txt" 2>&1; prc=$?
 if [ "$prc" -ne 0 ] && grep -q 'UNCLASSIFIED' "$T/plant.txt"; then echo "  arm 7 PASS: a planted register defined by an un-whitelisted form, live across an allocating return, makes the census RED end to end (rc=$prc) -- the arms above are not an inert seam"
 else echo "  arm 7 RED: the planted unclassifiable definition read GREEN (rc=$prc) -- the census has stopped discriminating and arms 3 to 5 are measuring nothing"; RC=1; fi
+cat > "$T/plant2.s" <<'EOF'
+ .text
+q_α:
+ push r13
+ mov rax, rbp                                      # pl_disj_open inline (planted: the note without its lea as the last rcx writer)
+ shl rax, 8
+ lea rcx, [rbp + 128]
+ mov rcx, qword ptr [rbp + 48]
+ test r13, r13
+ je 1f
+ cmp r13, rcx
+ jb 2f
+1:
+ mov r13, rcx
+2:
+ call rt_gcheap_alloc
+ mov rdi, r13
+ pop r13
+ ret
+EOF
+python3 "$CENSUS" "$T/plant2.s" > "$T/plant2.txt" 2>&1; prc2=$?
+if [ "$prc2" -ne 0 ] && grep -q 'UNCLASSIFIED' "$T/plant2.txt"; then echo "  arm 7b PASS: the CHOICE class (hq_prolog 2026-10-03, the cfo's tightening): a disj_open note with a memory load into rcx between its lea and the mov r13, rcx reads UNCLASSIFIED and red -- the class takes the declared lea only, never a comment's word for what rcx holds"
+else echo "  arm 7b RED: a mov r13, rcx whose last rcx writer is a memory load read as CHOICE under a disj_open note (rc=$prc2) -- the census is taking the note's word for a form it cannot see"; RC=1; fi
 
 if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: what a callee-saved register holds at an allocating return is read off the emitted code, nothing is unclassified, and the per-graph map carries no register mask (examined 8 arms)"
 else echo "GATE FAIL(1) [$G]: a callee-saved register at an allocating return is unnamed, unmodelled, or the map has taken on a register mask it cannot honestly carry (examined 8 arms)"; fi

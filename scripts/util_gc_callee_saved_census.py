@@ -334,10 +334,14 @@ def _choice_word_def(insns, i, reg):
     if not shape: return False
     if CHOICE_NOTE.search(ins.note or ""): return True
     if mn == "mov" and ops[1].strip() == "rcx":
+        rcx_writer = None
         for k in range(i - 1, max(-1, i - 10), -1):
             sj = insns[k]
             if sj.mnem in ("call", "jmp", "ret") or (sj.ops and reg_of(sj.ops[0]) == "r13" and sj.mnem not in ("cmp", "test")): return False
-            if CHOICE_NOTE.search(sj.note or "") and "disj_open" in sj.note: return True
+            if rcx_writer is None and sj.ops and sj.ops[0].strip() in ("rcx", "ecx", "cx", "cl") and sj.mnem not in ("cmp", "test", "push"): rcx_writer = sj
+            if CHOICE_NOTE.search(sj.note or "") and "disj_open" in sj.note:
+                return bool(rcx_writer is not None and rcx_writer.mnem == "lea" and len(rcx_writer.ops) == 2
+                            and re.fullmatch(r'\[\s*(rsp|rbp)\s*[+-]\s*\d+\s*\]', rcx_writer.ops[1].strip()) is not None)
     return False
 
 def classify_def(insns, i, reg, depth=0):

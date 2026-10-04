@@ -113,6 +113,24 @@ for w in w_det w_nondet w_tail w_refused w_meta; do
         else echo "  RED $w $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-200)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')] want [$(printf '%s' "$want" | tr '\n' '|' | cut -c1-120)]"; red=$((red+1)); fi
     done
 done
+mkw w_dyn <<'EOP'
+g(A,A).
+main :- assertz((f(N,R):-g(N,R))), f(5,Y), write(Y), nl, assertz((d(0,0):-!)), assertz((d(N,R):-M is N-1, d(M,R0), R is R0+1)), d(5,X), write(X), nl.
+:- initialization(main).
+EOP
+want_w_dyn='5
+5'
+for mode in m3 m4; do
+    want="$want_w_dyn"
+    if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" w_dyn.pl </dev/null 2>"$TMPD/err")"; rc=$?
+    else
+        timeout 120 "$SCRIP" --compile -o "$TMPD/w_dyn.s" "$TMPD/w_dyn.pl" </dev/null 2>"$TMPD/err" || { echo "  RED w_dyn $mode: the compile refused: $(head -c 160 "$TMPD/err")"; red=$((red+1)); continue; }
+        gcc -m64 -no-pie "$TMPD/w_dyn.s" -o "$TMPD/w_dyn.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  RED w_dyn $mode: the assembler or linker refused"; red=$((red+1)); continue; }
+        got="$(cd "$TMPD" && timeout 60 ./w_dyn.bin </dev/null 2>"$TMPD/err")"; rc=$?
+    fi
+    if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  w_dyn $mode: a runtime-asserted clause calls a static pinned predicate with a variable argument (the coo's witness, 2026-10-03: the call site asks the registry when the stage-2 table does not know the callee)"
+    else echo "  RED w_dyn $mode: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-120)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')] want [5|5] -- a call inside a runtime fragment must take the block arm for a pinned callee"; red=$((red+1)); fi
+done
 printf 'my $f = -> $x { $x + 1 }; say $f(1);\n' > "$TMPD/w_blk.raku"
 for mode in m3 m4; do
     if [ "$mode" = m3 ]; then got="$(cd "$TMPD" && timeout 60 "$SCRIP" w_blk.raku </dev/null 2>"$TMPD/err")"; rc=$?
