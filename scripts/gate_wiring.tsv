@@ -1094,3 +1094,4 @@ test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
 test_gate_pl_a_run_time_compile_indexes_the_root_cells_through_the_roots_registry.sh	WIRED	-	-	-
+test_gate_pl_a_traced_run_answers_as_the_untraced_run_in_both_modes.sh	WIRED	-	-	-

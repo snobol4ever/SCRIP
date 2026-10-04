@@ -17,7 +17,7 @@ int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 static std::string to_trail_mark() {
     return IF(x86_fb_pinned(),
                x86("mov", FRQ(_.op_off + 24), "r12")
-             + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 240, 241));
+             + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string to_trail_unwind() {

@@ -27,7 +27,7 @@ std::string bb_bound() {
          + IF(emit_pl_fence_on(), x86("mov", FRQ(_.op_off + 8), "rsp"))
          + IF(emit_pl_fence_on(), x86("mov", "rax", "r13")
          + x86("mov", FRQ(_.op_off + 16), "rax"))
-         + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 240, 241)
+         + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227)
                + x86_gamma() + x86_beta_trampoline()
              : (_.op_ival & 2)
              ?  x86_alpha()
