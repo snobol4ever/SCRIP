@@ -414,15 +414,15 @@ int fc_vbinop_active(const IR_t * nd); int fc_vlit_active(const IR_t * nd); int 
 static int fc_vunop_ok(const IR_t * nd) { return nd->op == IR_UNOP && nd->n_operands == 1 && ((int)IR_LIT(nd).ival == TT_MNS || (int)IR_LIT(nd).ival == TT_PLS); }
 static int g_fcc_gfence = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_call_ok(const IR_t * nd) { (void)nd; return 0; }
+static int fc_call_ok(const IR_t * nd) { (void)nd; return 0; } static void fc_vpost_push(cv_t * pv, int * pn, const IR_t * nd) { cv_reserve(pv, (uint32_t)sizeof(const IR_t *), (uint64_t)*pn + 1, "post"); CV_AT(*pv, const IR_t *, *pn) = nd; (*pn)++; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, const IR_t ** post, int * pn, int cap, int depth) {
-    if (!nd || depth > 24 || *pn >= cap) return 0;
-    if (nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || (nd->op == IR_VAR && fc_vvar_ok(g, nd))) { post[(*pn)++] = nd; return 1; }
-    if (fc_vunop_ok(nd) && fc_vtree_scan(g, nd->operands[0], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
-    if (fc_call_ok(nd) && g_fcc_gfence && nd->operands[0] && (nd->operands[0]->op == IR_LIT_INTEGER || nd->operands[0]->op == IR_LIT_STRING || (nd->operands[0]->op == IR_VAR && fc_vvar_ok(g, nd->operands[0]))) && *pn + 2 <= cap) { post[(*pn)++] = nd->operands[0]; post[(*pn)++] = nd; return 1; }
+static int fc_vtree_scan(const IR_graph_t * g, const IR_t * nd, cv_t * pv, int * pn, int depth) {
+    if (!nd || depth > 24) return 0;
+    if (nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || (nd->op == IR_VAR && fc_vvar_ok(g, nd))) { fc_vpost_push(pv, pn, nd); return 1; }
+    if (fc_vunop_ok(nd) && fc_vtree_scan(g, nd->operands[0], pv, pn, depth + 1)) { fc_vpost_push(pv, pn, nd); return 1; }
+    if (fc_call_ok(nd) && g_fcc_gfence && nd->operands[0] && (nd->operands[0]->op == IR_LIT_INTEGER || nd->operands[0]->op == IR_LIT_STRING || (nd->operands[0]->op == IR_VAR && fc_vvar_ok(g, nd->operands[0])))) { fc_vpost_push(pv, pn, nd->operands[0]); fc_vpost_push(pv, pn, nd); return 1; }
     if (nd->op == IR_BINOP && nd->n_operands == 2 && fc_vbinop_ok((long long)IR_LIT(nd).ival)
-        && fc_vtree_scan(g, nd->operands[0], post, pn, cap, depth + 1) && fc_vtree_scan(g, nd->operands[1], post, pn, cap, depth + 1) && *pn < cap) { post[(*pn)++] = nd; return 1; }
+        && fc_vtree_scan(g, nd->operands[0], pv, pn, depth + 1) && fc_vtree_scan(g, nd->operands[1], pv, pn, depth + 1)) { fc_vpost_push(pv, pn, nd); return 1; }
     return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * zls_pas_display_name(int lvl) {
@@ -441,8 +441,8 @@ void zls_build(IR_graph_t * g) {
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
             && r->γ.node == a) { fc_vlit_register(r); fc_vread_register(a, 0); continue; }
         if ((r->op == IR_BINOP || fc_vunop_ok(r) || fc_call_ok(r)) && r->γ.node == a) {
-            const IR_t * post[49]; int pn = 0;
-            int _ts = fc_vtree_scan(g, r, post, &pn, 49, 0);
+            cv_t _pv = { 0, 0, 0, 0 }; int pn = 0;
+            int _ts = fc_vtree_scan(g, r, &_pv, &pn, 0); const IR_t ** post = (const IR_t **)_pv.p;
             { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg && _ts && pn > 0) fprintf(stderr, "[FCC] tree ts=%d pn=%d tail_is_r=%d\n", _ts, pn, (post[pn-1] == r) ? 1 : 0); }
             if (_ts && post[pn - 1] == r) {
                 int ok = 1, L = 0, B = 0;
@@ -457,7 +457,7 @@ void zls_build(IR_graph_t * g) {
                         else if (x->op == IR_CALL || x->op == IR_CALL_PROC_STAGED) { fc_call_register(x); fc_vwpop_register(x, (long)d * 16); }
                         else { fc_vlit_register(x); if (x->op == IR_VAR && d > 0) fc_vwpop_register(x, (long)d * 16); d += 1; } }
                     { static int dbg = -1; if (dbg < 0) { const char * e = getenv("SCRIP_FCC_DEBUG"); dbg = (e && *e == '1') ? 1 : 0; } if (dbg) fprintf(stderr, "[FCC] REGISTERED pn=%d\n", pn); }
-                    fc_vread_register(a, 0); } } } }
+                    fc_vread_register(a, 0); } } ct_drop(_pv.p); } }
     { static int subj_on = -1; if (subj_on < 0) { const char * b = getenv("SCRIP_SUBJ_CELL"); subj_on = (b && *b == '0') ? 0 : 1; }
       if (subj_on) for (int vi = 0; vi < g->n; vi++) { IR_t * h = g->all[vi]; if (!(h && h->op == IR_MATCH_BEGIN && h->n_operands > 0 && h->operands[0])) continue;
         { static int dyn_on = -1; if (dyn_on < 0) { const char * b = getenv("SCRIP_SUBJ_DYN"); dyn_on = (b && *b == '0') ? 0 : 1; }
@@ -474,8 +474,8 @@ void zls_build(IR_graph_t * g) {
              || (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&' && ((is_global(IR_LIT(r).sval) && !graph_has_local(g, IR_LIT(r).sval)) || !strcmp(IR_LIT(r).sval, "write") || !strcmp(IR_LIT(r).sval, "writes"))))
             && _pb1s_adj) { fc_vlit_register(r); fc_subj_register(r); fc_vread_register(h, 0); continue; } }
         if ((r->op == IR_BINOP || fc_vunop_ok(r)) && r->γ.node == h && !zc_nofc()) {
-            const IR_t * post[49]; int pn = 0;
-            int _ts = fc_vtree_scan(g, r, post, &pn, 49, 0);
+            cv_t _pv = { 0, 0, 0, 0 }; int pn = 0;
+            int _ts = fc_vtree_scan(g, r, &_pv, &pn, 0); const IR_t ** post = (const IR_t **)_pv.p;
             if (_ts && post[pn - 1] == r) {
                 int ok = 1, L = 0, B = 0;
                 for (int i = 0; i + 1 < pn; i++) if (post[i]->γ.node != post[i + 1]) { ok = 0; break; }
@@ -486,7 +486,7 @@ void zls_build(IR_graph_t * g) {
                         if (x->op == IR_BINOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); d -= 1; }
                         else if (x->op == IR_UNOP) { fc_vbinop_register(x); fc_vwpop_register(x, (long)d * 16); }
                         else { fc_vlit_register(x); if (x->op == IR_VAR && d > 0) fc_vwpop_register(x, (long)d * 16); d += 1; } }
-                    fc_vread_register(h, 0); } } } } }
+                    fc_vread_register(h, 0); } } ct_drop(_pv.p); } } }
     zls_graph_t * r = zls_g_find(g);
     if (r && r->first_scope >= 0) return;
     if (!r) {

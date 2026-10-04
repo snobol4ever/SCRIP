@@ -499,7 +499,7 @@ typedef struct {
     const int *                  op_arbno_zq;
     int                          op_arbno_nzq;
     int                          sn4_defer_cell_n;
-    int                          flat_cap_off[48];
+    cv_t                         flat_cap_off;
     int                          flat_cap_n;
     int                          op_arbno_dt;
     int                          op_arbno_dt_susp;
