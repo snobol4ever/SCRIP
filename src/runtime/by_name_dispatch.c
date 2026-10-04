@@ -1269,7 +1269,7 @@ static DESCR_t *pas_heap_ref(DESCR_t p, const char *fn) {
     if (p.i == 0) pas_file_err("6.5.4", "the pointer-variable of an identified-variable denotes nil", fn);
     DESCR_t *hc = pas_heap_cell(p.i, 0);
     if (!hc || p.i > g_pas_heap_ctr) pas_file_err("6.5.4", "the pointer-variable of an identified-variable is undefined (it denotes no variable ever created)", fn);
-    if (g_pas_heap_dead[p.i]) pas_file_err("6.6.5.3", "the identified-variable was disposed, so no variable stands behind this reference", fn);
+    if (g_pas_heap_dead[p.i] & 1) pas_file_err("6.6.5.3", "the identified-variable was disposed, so no variable stands behind this reference", fn);
     return hc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1306,13 +1306,14 @@ static DESCR_t pas_read_number(FILE *f, int real, const char *fn) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_tag_ne(long long a, long long b) { if (a >= -1 && a <= 1 && b >= -1 && b <= 1) return (a != 0) != (b != 0); return a != b; }
 static long pas_heap_take(void) {
     if (g_pas_heap_nfree > 0) { long n = g_pas_heap_free[--g_pas_heap_nfree]; if (n < g_pas_heap_cap) g_pas_heap_dead[n] = 0; return n; }
     return ++g_pas_heap_ctr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_heap_give(long n) {
-    if (n <= 0 || n > g_pas_heap_ctr || n >= g_pas_heap_cap || g_pas_heap_dead[n]) return;
+    if (n <= 0 || n > g_pas_heap_ctr || n >= g_pas_heap_cap || (g_pas_heap_dead[n] & 1)) return;
     g_pas_heap[n] = INTVAL(0); g_pas_heap_dead[n] = 1;
     if (g_pas_heap_nfree == g_pas_heap_freecap) {
         long nc = g_pas_heap_freecap ? g_pas_heap_freecap * 2 : 256;
@@ -4844,7 +4845,31 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (c) *c = (args[0].v == DT_A && args[0].arr) ? args[0] : STRVAL(rt_heap_strdup_c("0")); *out = INTVAL(n); return 1;
     }
     if (!strcmp(fn, "__pas_dispose") && nargs == 1) {
-        if (IS_INT_fn(args[0])) pas_heap_give(args[0].i);
+        if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
+        if (args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2)) pas_file_err("6.6.5.3", "dispose(p) of a variable created with new(p, c1, ..., cn) must name the same variant constants", NULL);
+        pas_heap_give(args[0].i);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__pas_dispose_k") && nargs == 3) {
+        if (!IS_INT_fn(args[0]) || args[0].i <= 0) pas_file_err("6.6.5.3", "dispose of a pointer that is nil or undefined, so it identifies no variable", NULL);
+        long long n = args[0].i; int tagged = n < g_pas_heap_cap && (g_pas_heap_dead[n] & 2);
+        if (!tagged) pas_file_err("6.6.5.3", "dispose(p, k1, ..., kn) names variants for a variable not created with new(p, c1, ..., cn)", NULL);
+        if (IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i)) pas_file_err("6.6.5.3", "the variant constants of dispose are not those of the new that created the variable", NULL);
+        pas_heap_give(n);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__pas_tagmark") && nargs == 1) {
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap) g_pas_heap_dead[args[0].i] |= 2;
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__pas_tagset_chk") && nargs == 3) {
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2) && IS_INT_fn(args[1]) && IS_INT_fn(args[2]) && pas_tag_ne(args[1].i, args[2].i))
+            pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__pas_vcheck") && nargs == 2) {
+        long long tv = IS_INT_fn(args[0]) ? args[0].i : -2, m = IS_INT_fn(args[1]) ? args[1].i : 0; if (tv == -1) tv = 1;
+        if (tv >= 0 && tv <= 62 && !((m >> tv) & 1)) pas_file_err("6.5.3.3", "a component of a variant is accessed while the tag-field selects a different variant", NULL);
         *out = NULVCL; return 1;
     }
     if (!strcmp(fn, "__pas_mark") && nargs == 0) {
