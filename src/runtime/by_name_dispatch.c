@@ -4873,6 +4873,24 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!y) pas_file_err("6.7.2.2", "the divisor of div or mod is zero", NULL);
         *out = INTVAL((long long)(fn[7] == 'd' ? x / y : x % y)); return 1;
     }
+    if (!strcmp(fn, "__pas_s2wide") && nargs == 4) {
+        const char *src = VARVAL_fn(args[0]); if (!src) src = "";
+        if (args[1].v == DT_A && args[1].arr && IS_INT_fn(args[2]) && IS_INT_fn(args[3])) {
+            ARBLK_t *b = (ARBLK_t *)args[1].arr; long k = (long)args[2].i, n = (long)args[3].i, l = (long)strlen(src), m = n > 0 ? (l < n - 1 ? l : n - 1) : 0;
+            for (long i = 0; i < m; i++) if (k + i >= b->lo && k + i <= b->hi) b->data[k + i - b->lo] = INTVAL((long long)(unsigned char)src[i]);
+            if (n > 0 && k + m >= b->lo && k + m <= b->hi) b->data[k + m - b->lo] = INTVAL(0);
+        }
+        *out = NULVCL; return 1;
+    }
+    if (!strcmp(fn, "__pas_wide2s") && nargs == 2) {
+        if (args[0].v == DT_A && args[0].arr && IS_INT_fn(args[1])) {
+            ARBLK_t *b = (ARBLK_t *)args[0].arr; long k = (long)args[1].i; long l = 0;
+            for (long i = k; i <= b->hi && i >= b->lo && IS_INT_fn(b->data[i - b->lo]) && b->data[i - b->lo].i != 0; i++) l++;
+            char *o = (char *)rt_wsb_alloc((size_t)l + 1); for (long i = 0; i < l; i++) o[i] = (char)b->data[k + i - b->lo].i; o[l] = '\0';
+            *out = (DESCR_t){ .v = DT_S, .s = o, .slen = (uint32_t)l }; return 1;
+        }
+        *out = STRVAL((char *)""); return 1;
+    }
     if (!strcmp(fn, "__pas_qchk") && nargs == 1) {
         if (IS_INT_fn(args[0]) && args[0].i < 0) { fflush(NULL); fprintf(stderr, "Runtime error 215 at $0\n"); exit(215); }
         *out = args[0]; return 1;
