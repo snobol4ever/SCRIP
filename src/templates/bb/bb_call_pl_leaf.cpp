@@ -13,7 +13,7 @@ DESCR_t rt_pl_zguard_cold(DESCR_t *, int);
 DESCR_t rt_pl_anum_cold(DESCR_t *, int);
 DESCR_t rt_pl_type_cold(DESCR_t *, int, const char *);
 DESCR_t rt_pl_atop_cold(DESCR_t *, int, const char *);
-DESCR_t rt_pl_dop_unify(DESCR_t *, int);
+int rtx_pl_unify(DESCR_t *, DESCR_t *);
 void rt_pl_tr_refuse(const char *);
 #include "rt/gc_heap.h"
 }
@@ -21,7 +21,7 @@ void rt_pl_tr_refuse(const char *);
 #include "x86_asm.h"
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-enum { PLK_NONE = 0, PLK_AX, PLK_CMP, PLK_IS, PLK_TYPE, PLK_ATOP, PLK_ZGUARD, PLK_ANUM, PLK_MKC, PLK_DBDECLS };
+enum { PLK_NONE = 0, PLK_AX, PLK_CMP, PLK_IS, PLK_TYPE, PLK_ATOP, PLK_ZGUARD, PLK_ANUM, PLK_MKC, PLK_DBDECLS, PLK_UNIFY };
 enum { PLR_ANY = 0, PLR_TEXT, PLR_NUM, PLR_INT0, PLR_UNB, PLR_UNB_OR_INT0, PLR_UNB_OR_TEXT, PLR_COMP, PLR_NONVAR, PLR_TEXT_OR_NUM, PLR_INTCODE };
 static const int PL_L_COLD = 190, PL_L_OK = 180, PL_L_FAIL = 195;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -42,6 +42,7 @@ static int pl_leaf_kind(const char * fn, int narg, const char ** op) {
     if (!fn || fn[0] != '$') return PLK_NONE;
     if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
     if (!strcmp(fn, "$db_decls")) return narg >= 1 ? PLK_DBDECLS : PLK_NONE;
+    if (!strcmp(fn, "$unify")) return narg == 2 ? PLK_UNIFY : PLK_NONE;
     if (!strcmp(fn, "$ax_zguard")) return narg == 2 ? PLK_ZGUARD : PLK_NONE;
     if (!strcmp(fn, "$ax_eguard")) return PLK_NONE;
     if (!strncmp(fn, "$ax_", 4)) { *op = fn + 4; return pl_ax_arity(*op) == narg ? PLK_AX : PLK_NONE; }
@@ -118,11 +119,12 @@ static std::string pl_arm_cmp(const char * op, int argbase, int resoff) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_arm_is(int argbase, int resoff) {
-    std::string s = x86("comment", "PL-R7 $is_v: a numeric value skips the evaluator, rt_pl_is_cold evaluates the rest, the bind is rt_pl_dop_unify's until R4");
+    std::string s = x86("comment", "PL-R7 $is_v: a numeric value skips the evaluator, rt_pl_is_cold evaluates the rest, the bind is the general-unify leaf's");
     s += x86("lea", "rdi", FRQ(argbase + 16)) + pl_deref("rdi", 100, PL_L_COLD, PL_L_COLD, 0)
        + x86("cmp", "al", (long)DT_I) + x86("je", L(120)) + x86("cmp", "al", (long)DT_R) + x86("je", L(120)) + x86("cmp", "al", (long)DT_BIG) + x86("je", L(120)) + x86("jmp", L(PL_L_COLD))
-       + x86("def", L(120)) + x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)2) + x86("call", "rt_pl_dop_unify", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify)
-       + x86("mov", FRQ(resoff), "rax") + x86("mov", FRQ(resoff + 8), "rdx") + x86_rt_gc_poll() + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je") + x86_gamma()
+       + x86("def", L(120)) + x86("mov", "rax", RDQ("rdi", 0)) + x86("mov", "rdx", RDQ("rdi", 8)) + x86("mov", FRQ(resoff), "rax") + x86("mov", FRQ(resoff + 8), "rdx")
+       + x86("lea", "rdi", FRQ(argbase)) + x86("lea", "rsi", FRQ(argbase + 16)) + x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify)
+       + x86("test", "eax", "eax") + x86_omega("jz") + x86_gamma()
        + x86("def", L(PL_L_COLD)) + x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)2) + x86("call", "rt_pl_is_cold", (uint64_t)(uintptr_t)(void *)rt_pl_is_cold)
        + x86("mov", FRQ(argbase + 16), "rax") + x86("mov", FRQ(argbase + 24), "rdx") + x86("mov", FRQ(resoff), "rax") + x86("mov", FRQ(resoff + 8), "rdx") + x86_rt_gc_poll()
        + x86("cmp", "al", (long)DT_FAIL) + x86_omega("je") + x86("jmp", L(120)) + pl_tail();
@@ -295,11 +297,22 @@ static std::string pl_arm_dbdecls(int narg, int resoff) {
          + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int rtx_pl_unify(DESCR_t *, DESCR_t *);
+static std::string pl_arm_unify(int argbase, int resoff) {
+    return x86("comment", "body =/2 (ARCH-PROLOG-C-OUT-OF-THE-BOX 6.2): the two argv cells to the general-unify leaf on the spine; the result is the leaf's verdict")
+         + x86("lea", "rdi", FRQ(argbase)) + x86("lea", "rsi", FRQ(argbase + 16))
+         + x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify)
+         + x86("test", "eax", "eax") + x86("jz", L(PL_L_FAIL))
+         + x86("mov", FRQ(resoff), (long)DT_I) + x86("mov", FRQ(resoff + 8), 1L) + x86_gamma()
+         + pl_fail_store(resoff) + pl_tail();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand) {
     const char * op = 0;
     switch (pl_leaf_kind(fn, narg, &op)) {
         case PLK_MKC:    return pl_arm_mkc(narg, argbase, resoff, first_operand);
         case PLK_DBDECLS: return pl_arm_dbdecls(narg, resoff);
+        case PLK_UNIFY:  return pl_arm_unify(argbase, resoff);
         case PLK_AX:     return pl_arm_ax(op, narg, argbase, resoff);
         case PLK_CMP:    return pl_arm_cmp(op, argbase, resoff);
         case PLK_IS:     return pl_arm_is(argbase, resoff);
@@ -340,9 +353,10 @@ std::string pl_leaf_zd_cold(const char * fn, int narg) {
             s += x86("call", "rt_pl_is_cold", (uint64_t)(uintptr_t)(void *)rt_pl_is_cold);
             s += x86_rt_gc_poll_res();
             s += x86("cmp", "al", (long)DT_FAIL) + x86("je", L(150));
-            s += x86("mov", RDQ("rsp", 16), "rax") + x86("mov", RDQ("rsp", 24), "rdx") + x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)2);
-            s += x86("call", "rt_pl_dop_unify", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify);
-            s += x86_rt_gc_poll_res();
+            s += x86("mov", RDQ("rsp", 16), "rax") + x86("mov", RDQ("rsp", 24), "rdx") + x86_reg_disp32_lea64("rdi", "rsp", 0) + x86_reg_disp32_lea64("rsi", "rsp", 16);
+            s += x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify);
+            s += x86("test", "eax", "eax") + x86("jz", L(151)) + x86("mov", "rax", RDQ("rsp", 16)) + x86("mov", "rdx", RDQ("rsp", 24)) + x86("jmp", L(150));
+            s += x86("def", L(151)) + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx");
             return s + x86("def", L(150));
         default:         return std::string();
     }

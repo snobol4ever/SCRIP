@@ -84,21 +84,6 @@ RTX_FUNC(rt_pl_dop_ball_pending)
     PL_BALL_GET(rdi)
     RTX_CTAIL(rt_pl_dop_ball_pending_c)
 RTX_ENDF(rt_pl_dop_ball_pending)
-RTX_FUNC(rt_pl_dop_unify)
-    sub     rsp, CTX_FRAME
-    mov     qword ptr [rsp + CTX_TR], r12
-    mov     qword ptr [rsp + CTX_B], r13
-    mov     rdx, rsp
-    RTX_CCALL(rt_pl_dop_unify_c)
-    mov     r12, qword ptr [rsp + CTX_TR]
-    add     rsp, CTX_FRAME
-    cmp     al, DT_FAIL
-    jne     .Lpu_ret
-    mov     eax, DT_FAIL
-    xor     edx, edx
-.Lpu_ret:
-    ret
-RTX_ENDF(rt_pl_dop_unify)
 RTX_FUNC(rt_pl_dop_clause_unify)
     sub     rsp, CTX_FRAME
     mov     qword ptr [rsp + CTX_TR], r12
@@ -114,16 +99,209 @@ RTX_FUNC(rt_pl_dop_clause_unify)
 .Lpcu_ret:
     ret
 RTX_ENDF(rt_pl_dop_clause_unify)
-RTX_FUNC(rt_pl_unify_value)
+#define PL_U_DEREF(l) .l##0: mov eax, dword ptr [rdi]; cmp al, DT_PLVAR; je .l##3; cmp al, DT_N; jne .l##9; mov rcx, qword ptr [rdi + 8]; test rcx, rcx; jz .l##9; mov edx, dword ptr [rdi + 4]; cmp edx, 1; jne .l##2; cmp rcx, rdi; je .l##9; mov rdi, rcx; jmp .l##0; \
+    .l##2: cmp edx, 2; jne .l##9; mov rcx, qword ptr [rcx]; test rcx, rcx; jz .l##9; mov rdi, rcx; jmp .l##0; \
+    .l##3: mov rcx, qword ptr [rdi + 8]; test rcx, rcx; jz .l##9; cmp rcx, rdi; je .l##9; mov rdi, rcx; jmp .l##0; \
+    .l##9:
+#define PL_U_UNB(c, lyes, lno) cmp al, 0; je lyes; cmp al, DT_FAIL; je lyes; cmp al, DT_PLVAR; je lyes; cmp al, DT_N; jne lno; cmp qword ptr [c + 8], c; jne lno; jmp lyes
+#define PL_U_TRAIL(c, l) test r13, r13; jz .l##9; cmp c, rsp; jbe .l##5; mov rax, qword ptr [r13 + 32]; shr rax, 8; cmp c, rax; jb .l##9; \
+    .l##5: mov rax, r12; and rax, 134217727; cmp rax, 134217696; jae .Lun_refuse; mov rax, qword ptr [c]; mov rcx, qword ptr [c + 8]; mov qword ptr [r12], c; mov qword ptr [r12 + 8], 0; mov qword ptr [r12 + 16], rax; mov qword ptr [r12 + 24], rcx; add r12, 32; \
+    .l##9:
+#define PL_U_WORK_BYTES 696
+RTX_FUNC(rt_pl_unify_deep)
     sub     rsp, CTX_FRAME
     mov     qword ptr [rsp + CTX_TR], r12
     mov     qword ptr [rsp + CTX_B], r13
     mov     rdx, rsp
-    RTX_CCALL(rt_pl_unify_value_c)
+    RTX_CCALL(rt_pl_unify_deep_c)
     mov     r12, qword ptr [rsp + CTX_TR]
     add     rsp, CTX_FRAME
     ret
-RTX_ENDF(rt_pl_unify_value)
+RTX_ENDF(rt_pl_unify_deep)
+RTX_FUNC(rtx_pl_unify)
+    RTX_SAVE
+    sub     rsp, PL_U_WORK_BYTES
+    mov     r8, r12
+    mov     qword ptr [rsp], 0
+    lea     r9, [rsp + 16]
+.Lun_pair:
+    PL_U_DEREF(Lun_da)
+    mov     r10, rdi
+    mov     rdi, rsi
+    PL_U_DEREF(Lun_db)
+    mov     r11, rdi
+    cmp     r10, r11
+    je      .Lun_next
+    mov     eax, dword ptr [r10]
+    PL_U_UNB(r10, .Lun_a_unb, .Lun_a_bnd)
+.Lun_a_unb:
+    mov     eax, dword ptr [r11]
+    PL_U_UNB(r11, .Lun_both_unb, .Lun_a_unb_b_bnd)
+.Lun_a_unb_b_bnd:
+    PL_U_TRAIL(r10, Lun_t1)
+    mov     rax, qword ptr [r11]
+    mov     rdx, qword ptr [r11 + 8]
+    mov     qword ptr [r10], rax
+    mov     qword ptr [r10 + 8], rdx
+    jmp     .Lun_next
+.Lun_both_unb:
+    cmp     r10, rsp
+    jbe     .Lun_a_heap
+    cmp     r11, rsp
+    jbe     .Lun_ref_a_to_b
+    cmp     r10, r11
+    jb      .Lun_ref_a_to_b
+    jmp     .Lun_ref_b_to_a
+.Lun_a_heap:
+    cmp     r11, rsp
+    ja      .Lun_ref_b_to_a
+    cmp     r10, r11
+    ja      .Lun_ref_a_to_b
+.Lun_ref_b_to_a:
+    xchg    r10, r11
+.Lun_ref_a_to_b:
+    cmp     byte ptr [r11], DT_PLVAR
+    jne     .Lun_norm
+    cmp     qword ptr [r11 + 8], r11
+    je      .Lun_refstore
+.Lun_norm:
+    PL_U_TRAIL(r11, Lun_t2)
+    mov     qword ptr [r11], DT_PLVAR
+    mov     qword ptr [r11 + 8], r11
+.Lun_refstore:
+    PL_U_TRAIL(r10, Lun_t3)
+    mov     qword ptr [r10], DT_PLVAR
+    mov     qword ptr [r10 + 8], r11
+    jmp     .Lun_next
+.Lun_a_bnd:
+    mov     eax, dword ptr [r11]
+    PL_U_UNB(r11, .Lun_b_unb_a_bnd, .Lun_both_bnd)
+.Lun_b_unb_a_bnd:
+    PL_U_TRAIL(r11, Lun_t4)
+    mov     rax, qword ptr [r10]
+    mov     rdx, qword ptr [r10 + 8]
+    mov     qword ptr [r11], rax
+    mov     qword ptr [r11 + 8], rdx
+    jmp     .Lun_next
+.Lun_both_bnd:
+    mov     al, byte ptr [r10]
+    cmp     al, DT_PLREF
+    jne     .Lun_atomic
+    cmp     byte ptr [r11], DT_PLREF
+    jne     .Lun_fail
+    mov     eax, dword ptr [r10 + 4]
+    cmp     eax, dword ptr [r11 + 4]
+    jne     .Lun_fail
+    mov     rcx, qword ptr [rsp]
+    test    rcx, rcx
+    jnz     .Lun_tab
+    RTX_CCALL(rt_pl_functor_entries)
+    mov     qword ptr [rsp], rax
+    mov     rcx, rax
+.Lun_tab:
+    mov     eax, dword ptr [r10 + 4]
+    mov     eax, dword ptr [rcx + rax*8 + 4]
+    test    eax, eax
+    jz      .Lun_next
+    mov     rdi, qword ptr [r10 + 8]
+    mov     rsi, qword ptr [r11 + 8]
+    dec     eax
+    jz      .Lun_pair
+    lea     rcx, [rsp + PL_U_WORK_BYTES - 24]
+    cmp     r9, rcx
+    ja      .Lun_deep
+    lea     rcx, [rdi + 16]
+    mov     qword ptr [r9], rcx
+    lea     rcx, [rsi + 16]
+    mov     qword ptr [r9 + 8], rcx
+    mov     qword ptr [r9 + 16], rax
+    add     r9, 24
+    jmp     .Lun_pair
+.Lun_atomic:
+    cmp     byte ptr [r11], DT_PLREF
+    je      .Lun_fail
+    cmp     al, DT_I
+    jne     .Lun_atom
+    cmp     byte ptr [r11], DT_I
+    jne     .Lun_cold
+    cmp     dword ptr [r10 + 4], 0
+    jne     .Lun_cold
+    cmp     dword ptr [r11 + 4], 0
+    jne     .Lun_cold
+    mov     rax, qword ptr [r10 + 8]
+    cmp     rax, qword ptr [r11 + 8]
+    jne     .Lun_fail
+    jmp     .Lun_next
+.Lun_atom:
+    cmp     al, DT_PLATOM
+    jne     .Lun_cold
+    cmp     byte ptr [r11], DT_PLATOM
+    jne     .Lun_cold
+    mov     rax, qword ptr [r10 + 8]
+    cmp     rax, qword ptr [r11 + 8]
+    jne     .Lun_fail
+    jmp     .Lun_next
+.Lun_cold:
+    mov     rdi, r10
+    mov     rsi, r11
+    RTX_CCALL(rt_pl_unify_atomic_cold)
+    test    eax, eax
+    jz      .Lun_fail
+.Lun_next:
+    lea     rcx, [rsp + 16]
+    cmp     r9, rcx
+    jbe     .Lun_ok
+    sub     r9, 24
+    mov     rdi, qword ptr [r9]
+    mov     rsi, qword ptr [r9 + 8]
+    mov     rdx, qword ptr [r9 + 16]
+    dec     rdx
+    jz      .Lun_pair
+    lea     rcx, [rdi + 16]
+    mov     qword ptr [r9], rcx
+    lea     rcx, [rsi + 16]
+    mov     qword ptr [r9 + 8], rcx
+    mov     qword ptr [r9 + 16], rdx
+    add     r9, 24
+    jmp     .Lun_pair
+.Lun_ok:
+    mov     rax, r12
+    and     rax, PL_TR_ARENA_MASK
+    mov     qword ptr [rax], r12
+    add     rsp, PL_U_WORK_BYTES
+    mov     eax, 1
+    RTX_RET
+.Lun_fail:
+    cmp     r12, r8
+    jbe     .Lun_unw_done
+    sub     r12, 32
+    mov     rdi, qword ptr [r12]
+    mov     rax, qword ptr [r12 + 16]
+    mov     rdx, qword ptr [r12 + 24]
+    mov     qword ptr [rdi], rax
+    mov     qword ptr [rdi + 8], rdx
+    jmp     .Lun_fail
+.Lun_unw_done:
+    mov     rax, r12
+    and     rax, PL_TR_ARENA_MASK
+    mov     qword ptr [rax], r12
+    add     rsp, PL_U_WORK_BYTES
+    xor     eax, eax
+    RTX_RET
+.Lun_refuse:
+    mov     rdi, r12
+    RTX_CCALL(rt_pl_tr_refuse)
+    add     rsp, PL_U_WORK_BYTES
+    xor     eax, eax
+    RTX_RET
+.Lun_deep:
+    mov     rdi, r10
+    mov     rsi, r11
+    RTX_CCALL(rt_pl_unify_deep)
+    test    eax, eax
+    jz      .Lun_fail
+    jmp     .Lun_next
+RTX_ENDF(rtx_pl_unify)
 #define PL_COLD_BALL_OP(nm) RTX_FUNC(rt_pl_##nm##_cold); sub rsp, 24; mov qword ptr [rsp + 8], 0; lea rcx, [rsp + 8]; RTX_CCALL(rt_pl_##nm##_cold_c); mov rcx, qword ptr [rsp + 8]; add rsp, 24; \
     test rcx, rcx; jz 9f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL; xor edx, edx; 9: ret; RTX_ENDF(rt_pl_##nm##_cold)
 PL_COLD_BALL_OP(ax)

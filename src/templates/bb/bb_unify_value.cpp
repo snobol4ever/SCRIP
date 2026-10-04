@@ -5,7 +5,7 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 void rt_pl_tr_refuse(const char *);
-int rt_pl_unify_value(DESCR_t *, DESCR_t *);
+int rtx_pl_unify(DESCR_t *, DESCR_t *);
 }
 #include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
@@ -98,9 +98,8 @@ std::string bb_unify_value() {
              + x86("mov", RDQ("rdi", 8), "rdx")
              + x86_gamma()
              + x86("def", L(60))
-             + x86("note", "the general-unify leaf: rtx_pl_unify in R4.3; today the ctx veneer over plw_unify_cells, which can allocate through plw_bind's boxing, so it is polled")
-             + x86("call", "rt_pl_unify_value", (uint64_t)(uintptr_t)(void *)rt_pl_unify_value)
-             + x86_rt_gc_poll()
+             + x86("note", "the general-unify leaf (ARCH-PROLOG-C-OUT-OF-THE-BOX 6.2): rtx_pl_unify on the spine, allocating nothing and polling nothing")
+             + x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify)
              + x86("test", "eax", "eax")
              + x86_omega("je")
              + x86_gamma()

@@ -156,6 +156,11 @@ DESCR_t rt_big_mul(DESCR_t x, DESCR_t y) {
     r->sign = (a->sign == b->sign) ? 1 : -1; big_trim(r); return rt_big_norm(r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_big_eq(DESCR_t x, DESCR_t y) {
+    if (x.v != DT_BIG || y.v != DT_BIG) return 0;
+    { const BIG_t *a = (const BIG_t *)x.p, *b = (const BIG_t *)y.p; if (!a || !b) return 0; return a->sign == b->sign && big_ucmp(a, b) == 0; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_big_cmp(DESCR_t x, DESCR_t y) {
     BIG_t *a = big_of(x), *b = big_of(y); if (!a || !b) return 0;
     if (a->sign != b->sign) return a->sign < b->sign ? -1 : 1;

@@ -2684,13 +2684,42 @@ DESCR_t rt_pl_unify_struct_fresh(long fid) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_value_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
-    int ok;
-    rt_pl_tr_gc_sync(cx->tr);
-    { char *tr0 = cx->tr; ok = plw_unify_cells(a, b, cx); if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0); }
-    rt_pl_tr_gc_sync(cx->tr);
-    return ok;
+int rt_pl_unify_atomic_cold(DESCR_t *A, DESCR_t *B) {
+    int av = (int)A->v, bv = (int)B->v;
+    if (av == DT_I && bv == DT_I) return A->i == B->i;
+    if (av == DT_R && bv == DT_R) return A->r == B->r;
+    if (av == DT_BIG || bv == DT_BIG) { extern int rt_big_eq(DESCR_t, DESCR_t); return rt_big_eq(*A, *B); }
+    { int as = av == DT_S || av == DT_PLATOM, bs = bv == DT_S || bv == DT_PLATOM;
+      if (as && bs) {
+        extern const char *prolog_atom_name(int);
+        const char *x = (av == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
+        const char *y = (bv == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
+        return x && y && strcmp(x, y) == 0; } }
+    return 0;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plu_deep(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx, const char *floor_) {
+    DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
+    if (A == B) return 1;
+    { int au = plw_unbound_tag(A), bu = plw_unbound_tag(B);
+      if (au && bu) {
+        int ah = (const char *)A <= floor_, bh = (const char *)B <= floor_; DESCR_t *from, *to;
+        if (!ah && !bh) { from = A < B ? A : B; to = A < B ? B : A; } else if (ah != bh) { from = ah ? B : A; to = ah ? A : B; } else { from = A > B ? A : B; to = A > B ? B : A; }
+        if (to->v != (DTYPE_t)DT_PLVAR || to->p != (void *)to) { DESCR_t u = {0}; u.v = (DTYPE_t)DT_PLVAR; u.p = (void *)to; if (pl_tr_needs_log(cx, to, floor_)) pl_tr_push(cx, to); *to = u; }
+        { DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.p = (void *)to; if (pl_tr_needs_log(cx, from, floor_)) pl_tr_push(cx, from); *from = r; return 1; } }
+      if (au) { if (pl_tr_needs_log(cx, A, floor_)) pl_tr_push(cx, A); *A = *B; return 1; }
+      if (bu) { if (pl_tr_needs_log(cx, B, floor_)) pl_tr_push(cx, B); *B = *A; return 1; } }
+    if (A->v == (DTYPE_t)DT_PLREF) {
+        int n, i; DESCR_t *ka, *kb;
+        if (B->v != (DTYPE_t)DT_PLREF || A->slen != B->slen) return 0;
+        n = prolog_functor_arity((int)A->slen); ka = (DESCR_t *)A->p; kb = (DESCR_t *)B->p;
+        for (i = 0; i < n; i++) if (!plu_deep(ka + i, kb + i, cx, floor_)) return 0;
+        return 1; }
+    if (B->v == (DTYPE_t)DT_PLREF) return 0;
+    return rt_pl_unify_atomic_cold(A, B);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_unify_deep_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { char probe; return plu_deep(a, b, cx, &probe); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_is_cold_c(DESCR_t *args, int nargs, void **ball) {
     if (nargs != 2) return FAILDESCR;
