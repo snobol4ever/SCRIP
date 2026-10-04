@@ -1459,7 +1459,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             lc_γ_to(av, gnl); lc_ω_to(av, ωfail);
             lc_γ_to(lo, av2e ? av2e : av2); lc_ω_to(lo, ωfail);
             lc_γ_to(av2, cnt); lc_ω_to(av2, ωfail);
-            ir_operand_push(cnt, av2);
+            ir_operand_push(cnt, av2); ir_operand_push(cnt, bl); ir_operand_push(cnt, ll); ir_operand_push(cnt, al); ir_operand_push(cnt, sl);
             ir_operand_push(to, lo); ir_operand_push(to, cnt);
             ir_operand_push(nd, av); ir_operand_push(nd, to);
             ir_operand_push(nd, bl); ir_operand_push(nd, ll); ir_operand_push(nd, al); ir_operand_push(nd, sl);

@@ -3147,34 +3147,80 @@ static void *pl_sort_args_ball(DESCR_t *args, int pairs) {
 PL_CX_LEAF_HEAD(sort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(0, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(msort, 2) { void *b = pl_sort_args_ball(args, 0); if (b) { cx->ball = b; ok = 0; } else ok = rt_pl_sort_cell(1, &args[0], &args[1], cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(char_type, 2) ok = rt_pl_char_type_cell(&args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
-static long pl_sub_atom_count(DESCR_t a) {
-    char sb[8192]; DESCR_t av = rt_pl_deref_val(a);
-    if (av.v != DT_S && av.v != (DTYPE_t)DT_PLATOM) return -1;
-    { const char *s = av.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(av) : to_cstring(av, sb, sizeof sb); if (!s) return -1; return (long)utf8_strlen(s); }
+typedef struct { const char *s; size_t blen; long n; int mode; long k0, k1; const char *sub; size_t sublen; long subn; long count; } pl_sa_t;
+static const char *pl_sa_text(DESCR_t v, char *buf, size_t cap) {
+    DESCR_t d = rt_pl_deref_val(v);
+    if (d.v != DT_S && d.v != (DTYPE_t)DT_PLATOM) return (const char *)0;
+    return d.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(d) : to_cstring(d, buf, cap);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_sa_int(DESCR_t v, long *out) { DESCR_t d = rt_pl_deref_val(v); if (d.v != DT_I) return 0; *out = (long)d.i; return 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long pl_sa_next(const pl_sa_t *p, long b, size_t *off) {
+    while (b <= p->n && *off + p->sublen <= p->blen) {
+        if (!p->sublen || !memcmp(p->s + *off, p->sub, p->sublen)) return b;
+        *off += utf8_char_bytes(p->s, p->blen, *off, 1); b++; }
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_sa_plan(DESCR_t *bla, const char *s, pl_sa_t *p) {
+    long B = 0, L = 0, A = 0; int hb = pl_sa_int(bla[0], &B), hl = pl_sa_int(bla[1], &L), ha = pl_sa_int(bla[2], &A);
+    DESCR_t sd = rt_pl_deref_val(bla[3]);
+    p->s = s; p->blen = strlen(s); p->n = (long)utf8_strlen(s); p->count = 0; p->k0 = p->k1 = 0;
+    p->sub = sd.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(sd) : (const char *)0; p->sublen = p->sub ? strlen(p->sub) : 0; p->subn = p->sub ? (long)utf8_strlen(p->sub) : 0;
+    if (hb + hl + ha >= 2) { long b = hb ? B : p->n - L - A, l = hl ? L : p->n - B - A;
+        p->mode = 1; p->k0 = b; p->k1 = l; p->count = (b >= 0 && l >= 0 && b + l <= p->n) ? 1 : 0; return; }
+    if (p->sub && hb) { p->mode = 1; p->k0 = B; p->k1 = p->subn; p->count = (B >= 0 && B + p->subn <= p->n) ? 1 : 0; return; }
+    if (p->sub) { size_t off = 0; long b = 0, c = 0, hit; p->mode = 2;
+        while ((hit = pl_sa_next(p, b, &off)) >= 0) { c++; if (off >= p->blen) break; off += utf8_char_bytes(p->s, p->blen, off, 1); b = hit + 1; }
+        p->count = c; return; }
+    if (hb) { p->mode = 3; p->k0 = B; p->count = (B >= 0 && B <= p->n) ? p->n - B + 1 : 0; return; }
+    if (hl) { p->mode = 4; p->k0 = L; p->count = (L >= 0 && L <= p->n) ? p->n - L + 1 : 0; return; }
+    if (ha) { p->mode = 5; p->k0 = A; p->count = (A >= 0 && A <= p->n) ? p->n - A + 1 : 0; return; }
+    p->mode = 0; p->count = (p->n + 1) * (p->n + 2) / 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_sa_pick(const pl_sa_t *p, long idx, long *bo, long *lo) {
+    long n = p->n, b = 0, l = 0;
+    if (idx < 0 || idx >= p->count) return 0;
+    if (p->mode == 1) { b = p->k0; l = p->k1; }
+    else if (p->mode == 2) { size_t off = 0; long at = 0, hit = -1;
+        for (long k = 0; k <= idx; k++) { hit = pl_sa_next(p, at, &off); if (hit < 0) return 0; if (k < idx) { if (off >= p->blen) return 0; off += utf8_char_bytes(p->s, p->blen, off, 1); at = hit + 1; } }
+        b = hit; l = p->subn; }
+    else if (p->mode == 3) { b = p->k0; l = idx; }
+    else if (p->mode == 4) { b = idx; l = p->k0; }
+    else if (p->mode == 5) { b = idx; l = n - p->k0 - idx; }
+    else { double m = (double)(2 * n + 3); b = (long)((m - sqrt(m * m - 8.0 * (double)idx)) / 2.0); if (b < 0) b = 0;
+        while (b > 0 && b * (2 * n + 3 - b) / 2 > idx) b--;
+        while ((b + 1) * (2 * n + 3 - (b + 1)) / 2 <= idx) b++;
+        l = idx - b * (2 * n + 3 - b) / 2; }
+    if (b < 0 || l < 0 || b + l > n) return 0;
+    *bo = b; *lo = l; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *args, int nargs) {
-    if (nargs != 1) return FAILDESCR;
+    char sb[8192]; const char *s; pl_sa_t p;
+    if (nargs != 5) return FAILDESCR;
     pl_atoms_ready();
-    { long n = pl_sub_atom_count(args[0]);
-      if (n < 0) return FAILDESCR;
-      return INTVAL((n + 1) * (n + 2) / 2 - 1); }
+    s = pl_sa_text(args[0], sb, sizeof sb);
+    if (!s) return FAILDESCR;
+    pl_sa_plan(args + 1, s, &p);
+    return INTVAL(p.count - 1);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_sub_atom_at_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
-    char sb[8192]; DESCR_t av = rt_pl_deref_val(args[0]); DESCR_t iv = rt_pl_deref_val(args[1]);
-    if ((av.v != DT_S && av.v != (DTYPE_t)DT_PLATOM) || iv.v != DT_I) return 0;
-    { const char *s = av.v == (DTYPE_t)DT_PLATOM ? pl_atom_str(av) : to_cstring(av, sb, sizeof sb);
-      size_t blen = s ? strlen(s) : 0, boff, bspan;
-      long n = s ? (long)utf8_strlen(s) : -1, idx = (long)iv.i, b = 0, l, a;
-      if (!s || n < 0 || idx < 0) return 0;
-      while (b <= n) { long w = n - b + 1; if (idx < w) break; idx -= w; b++; }
-      if (b > n) return 0;
-      l = idx; a = n - b - l;
-      boff = utf8_char_offset(s, blen, (size_t)b + 1); bspan = utf8_char_bytes(s, blen, boff, (size_t)l);
-      { char *tr0 = cx->tr;
-        int ok = plw_unify_vals(args[2], INTVAL(b), cx) && plw_unify_vals(args[3], INTVAL(l), cx)
-              && plw_unify_vals(args[4], INTVAL(a), cx) && plw_unify_vals(args[5], pl_mk_atom_dup(s + boff, bspan), cx);
-        if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
-        return ok; } }
+    char sb[8192]; DESCR_t iv = rt_pl_deref_val(args[1]); const char *s = pl_sa_text(args[0], sb, sizeof sb); pl_sa_t p; long b, l, a; size_t boff, bspan;
+    if (!s || iv.v != DT_I) return 0;
+    pl_sa_plan(args + 2, s, &p);
+    if (!pl_sa_pick(&p, (long)iv.i, &b, &l)) return 0;
+    a = p.n - b - l;
+    if ((size_t)p.n == p.blen) { boff = (size_t)b; bspan = (size_t)l; }
+    else { boff = utf8_char_offset(s, p.blen, (size_t)b + 1); bspan = utf8_char_bytes(s, p.blen, boff, (size_t)l); }
+    { char *tr0 = cx->tr;
+      int ok = plw_unify_vals(args[2], INTVAL(b), cx) && plw_unify_vals(args[3], INTVAL(l), cx)
+            && plw_unify_vals(args[4], INTVAL(a), cx) && plw_unify_vals(args[5], pl_mk_atom_dup(s + boff, bspan), cx);
+      if (!ok) cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+      return ok; }
 }
 PL_CX_LEAF_HEAD(sub_atom_at, 6) ok = rt_pl_sub_atom_at_cell(args, cx); PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

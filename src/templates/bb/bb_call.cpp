@@ -257,7 +257,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },
         { "$findall_result", 2, "rt_pl_dop_findall_result", rt_pl_dop_findall_result }, { "$findall_result4", 3, "rt_pl_dop_findall_result4", rt_pl_dop_findall_result4 }, { "$bagof_result", 2, "rt_pl_dop_bagof_result", rt_pl_dop_bagof_result },
         { "$setof_result", 2, "rt_pl_dop_setof_result", rt_pl_dop_setof_result },
-        { "$sub_atom_n", 1, "rt_pl_dop_sub_atom_n", rt_pl_dop_sub_atom_n }, { "$sub_atom_at", 6, "rt_pl_dop_sub_atom_at", rt_pl_dop_sub_atom_at },
+        { "$sub_atom_n", 5, "rt_pl_dop_sub_atom_n", rt_pl_dop_sub_atom_n }, { "$sub_atom_at", 6, "rt_pl_dop_sub_atom_at", rt_pl_dop_sub_atom_at },
         { "$atom_concat_n", 3, "rt_pl_dop_atom_concat_n", rt_pl_dop_atom_concat_n }, { "$atom_concat_at", 4, "rt_pl_dop_atom_concat_at", rt_pl_dop_atom_concat_at },
         { "$bagof_group_n", 1, "rt_pl_dop_bagof_group_n", rt_pl_dop_bagof_group_n }, { "$bagof_group_at", 4, "rt_pl_dop_bagof_group_at", rt_pl_dop_bagof_group_at }, { "$setof_group_at", 4, "rt_pl_dop_setof_group_at", rt_pl_dop_setof_group_at },
         { "$db_assertz", 2, "rt_pl_dop_db_assertz", rt_pl_dop_db_assertz }, { "$db_asserta", 2, "rt_pl_dop_db_asserta", rt_pl_dop_db_asserta },
