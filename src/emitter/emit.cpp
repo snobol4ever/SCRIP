@@ -764,9 +764,23 @@ static int alt_branch_has_nested_alt(const IR_t * a) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zd_k(IR_t * nd);
+static int alt_arms_push(const IR_t * a) {
+    if (!a || a->op != IR_MATCH_ALTERNATE || !g_emit_cfg) return 0;
+    int lo = -1, hi = -1;
+    for (int j = 0; j < a->n_operands; j++) { IR_t * o = a->operands[j]; if (!o) continue;
+        for (int i = 0; i < g_emit_cfg->n; i++) if (g_emit_cfg->all[i] == o) { if (lo < 0 || i < lo) lo = i; if (i > hi) hi = i; } }
+    if (lo < 0) return 0;
+    for (int i = lo; i <= hi; i++) { IR_t * m = g_emit_cfg->all[i]; if (m && m != a && zd_k(m) != 0) return 1; }
+    return 0;
+}
 static int cap_save_cond_gap_has_alt(const IR_t * nd) {
     if (!nd || nd->n_operands < 1 || !nd->operands[0]) return 0;
-    return nd->operands[0]->op == IR_MATCH_ALTERNATE;
+    if (nd->operands[0]->op == IR_MATCH_ALTERNATE) return 1;
+    if (!g_emit_cfg) return 0;
+    IR_t * cur = zd_chase(nd->operands[0]); int guard = 0;
+    while (cur && cur != nd && guard++ <= g_emit_cfg->n) { if (cur->op == IR_MATCH_ALTERNATE && alt_arms_push(cur)) return 1; cur = zd_chase(cur->γ.node); }
+    return 0;
 }
 static int zd_k(IR_t * nd);
 static int alt_arm_complex(const IR_t * nd);
