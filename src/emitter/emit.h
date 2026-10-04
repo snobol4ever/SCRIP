@@ -292,6 +292,7 @@ enum {
     CALL_ROUTE_RK_BOOL_SLOT = 6, CALL_ROUTE_FN = 11, CALL_ROUTE_BYNAME_GEN = 12
 };
 struct SrcLines;
+typedef struct { int tag; int64_t val; struct bb_label_t * to; } pl_ix_arm_t;
 typedef struct {
     int                          backend;
     int                          is_binary;

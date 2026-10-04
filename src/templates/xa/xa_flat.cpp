@@ -10,6 +10,7 @@ extern "C" {
 #include "xa_template_common.h"
 }
 #include "../bb/bb_templates.h"
+#include "../bb/bb_pl_cell.h"
 extern "C" void rt_jmp_frame_lexprep(void *, long);
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
 extern "C" void rt_main_args_fetch(void);
@@ -815,6 +816,40 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
          + x86("jmp", "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {
+    x86_begin();
+    auto ext = [](const char * op, bb_label_t * l) { return x86(op, "extlbl", (uint64_t)(uintptr_t)l); };
+    auto has = [&](int tag) { for (int i = 0; i < narms; i++) if (arms[i].tag == tag) return 1; return 0; };
+    int dref = has(DT_PLREF) || fb_ref != chain, datom = has(DT_PLATOM) || fb_atom != chain, dint = has(DT_I) || fb_int != chain;
+    std::string s = x86("comment", "PL SWITCH (ARCH-PROLOG-C-OUT-OF-THE-BOX 11; the design of record's section 7.2, V1): the first argument's key -- a functor id, an atom id or a small integer -- "
+                                   "selects the clauses whose first head argument can match it; ONE candidate is entered in last-alternative form (no next alternative, B back to the outer choice), "
+                                   "NONE concedes through the step, two or more take the full chain; an unbound, float, bignum or text first argument takes the chain")
+                  + x86("lea", "rdi", FRQ(a0_off))
+                  + PL_DEREF(10, 11, 12, 13);
+    if (dref)  s += x86("cmp", "al", (long)DT_PLREF) + x86("je", L(20));
+    if (datom) s += x86("cmp", "al", (long)DT_PLATOM) + x86("je", L(30));
+    if (dint)  s += x86("cmp", "al", (long)DT_I) + x86("je", L(40));
+    s += ext("jmp", chain);
+    if (dref) {
+        s += x86("def", L(20)) + x86("mov", "ecx", RDD("rdi", 4));
+        for (int i = 0; i < narms; i++) if (arms[i].tag == DT_PLREF) s += x86("cmp", "ecx", (long)arms[i].val) + ext("je", arms[i].to);
+        s += ext("jmp", fb_ref);
+    }
+    if (datom) {
+        s += x86("def", L(30)) + x86("mov", "rsi", RDQ("rdi", 8));
+        for (int i = 0; i < narms; i++) if (arms[i].tag == DT_PLATOM) s += x86_movabs_r64("rax", (uint64_t)arms[i].val) + x86("cmp", "rsi", "rax") + ext("je", arms[i].to);
+        s += ext("jmp", fb_atom);
+    }
+    if (dint) {
+        s += x86("def", L(40)) + x86("mov", "ecx", RDD("rdi", 4)) + x86("test", "ecx", "ecx") + ext("jne", chain) + x86("mov", "rsi", RDQ("rdi", 8));
+        for (int i = 0; i < narms; i++) if (arms[i].tag == DT_I) s += x86_movabs_r64("rax", (uint64_t)arms[i].val) + x86("cmp", "rsi", "rax") + ext("je", arms[i].to);
+        s += ext("jmp", fb_int);
+    }
+    return s;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void xa_pl_switch(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {
+    bb_emit_x86(xa_pl_switch_str(a0_off, arms, narms, fb_ref, fb_atom, fb_int, chain)); }
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
 extern "C" void xa_flat_chain_prologue(const char * fname) { bb_emit_x86(xa_flat_chain_prologue_str(fname)); }
 extern "C" int xa_flat_class_c_pred(void) { return xa_flat_class_c(); }

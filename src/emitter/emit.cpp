@@ -2,6 +2,8 @@
 #include <unordered_map>
 #include "ct_arena.h"
 #include "ct_vec.h"
+extern "C" int prolog_atom_intern(const char *);
+extern "C" int prolog_functor_arity(int);
 #include <string>
 #include "emit.h"
 #include "gc_frame_map.h"
@@ -3506,6 +3508,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     emit_label_initf(&lbl_β,       "%s_β",       fam);
     emit_label_initf(&lbl_res,     "%s_res",     fam);
     static bb_label_t **alt_tr = 0; static bb_label_t **ret_tr = 0; static int alt_tr_cap = 0; bb_label_t * pl_step_lbl = (bb_label_t *)0; int n_alt = 0;
+    bb_label_t * ix_switch = (bb_label_t *)0; int * ix_code = (int *)0; int ix_n = 0; int ix_fbr = -2, ix_fba = -2, ix_fbi = -2; int ix_slot = -1; int * ix_tag = (int *)0; int64_t * ix_val = (int64_t *)0;
     g_emit.flat_alt1_p = (bb_label_t *)0; g_emit.flat_altdet_p = (bb_label_t *)0;
     if (g_emit_cfg && g_emit_cfg->n_alts > 0) {
         n_alt = g_emit_cfg->n_alts;
@@ -3909,6 +3912,28 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         g_emit.op_off = drive_value_slot(nodes[_li]);
         bb_emit_x86(bb_limit_init());
     }
+    if (g_emit_cfg && n_alt > 1 && n_alt <= 4096 && emit_zframe_pinned() && !g_emit_cfg->root_graph && !g_emit.flat_pkt && g_emit_cfg->nparams >= 1 && g_emit_cfg->pnames && g_emit_cfg->pnames[0] && g_emit_cfg->alt_entry) {
+        const char * _p0 = g_emit_cfg->pnames[0]; ix_slot = bb_varslot_peek(_p0);
+        int * _ktag = (int *)alloca(sizeof(int) * (size_t)n_alt); int64_t * _kval = (int64_t *)alloca(sizeof(int64_t) * (size_t)n_alt); int _nvar = 0, _nvc = -1;
+        for (int _ak = 0; _ak < n_alt; _ak++) { IR_t * _e = g_emit_cfg->alt_entry[_ak]; _ktag[_ak] = 0; _kval[_ak] = 0;
+            { int _sg = 0; while (_e && _e->op == IR_SUCCEED && _e->γ.node && _sg++ < 4096) _e = _e->γ.node; }
+            if (_e && (_e->op == IR_UNIFY_CONST || _e->op == IR_UNIFY_STRUCT) && _e->n_operands >= 3 && _e->operands[0] && _e->operands[0]->op == IR_VAR_REF && IR_LIT(_e->operands[0]).sval && !strcmp(IR_LIT(_e->operands[0]).sval, _p0) && _e->operands[2]) {
+                IR_t * _k = _e->operands[2];
+                if (_e->op == IR_UNIFY_CONST && _k->op == IR_LIT_ATOM) { _ktag[_ak] = DT_PLATOM; _kval[_ak] = (int64_t)(unsigned)prolog_atom_intern(IR_LIT(_k).sval ? IR_LIT(_k).sval : ""); }
+                else if (_e->op == IR_UNIFY_CONST && _k->op == IR_LIT_INTEGER) { _ktag[_ak] = DT_I; _kval[_ak] = (int64_t)IR_LIT(_k).ival; }
+                else if (_e->op == IR_UNIFY_STRUCT && _k->op == IR_LIT_INTEGER && prolog_functor_arity((int)IR_LIT(_k).ival) >= 1) { _ktag[_ak] = DT_PLREF; _kval[_ak] = (int64_t)IR_LIT(_k).ival; } }
+            if (!_ktag[_ak]) { _nvar++; _nvc = _ak; } }
+        if (ix_slot >= 0 && _nvar <= 1 && _nvar < n_alt) {
+            ix_tag = (int *)alloca(sizeof(int) * (size_t)n_alt); ix_val = (int64_t *)alloca(sizeof(int64_t) * (size_t)n_alt); ix_code = (int *)alloca(sizeof(int) * (size_t)n_alt);
+            for (int _c = 0; _c < 3; _c++) { int _nk = 0, _n0 = ix_n; const int _ct = _c == 0 ? (int)DT_PLREF : _c == 1 ? (int)DT_PLATOM : (int)DT_I;
+                for (int _ak = 0; _ak < n_alt; _ak++) { if (_ktag[_ak] != _ct) continue; int _dup = 0;
+                    for (int _q = _n0; _q < ix_n && !_dup; _q++) if (ix_val[_q] == _kval[_ak]) _dup = 1;
+                    if (_dup) continue; int _cand = _nvar, _who = _nvc;
+                    for (int _b = 0; _b < n_alt; _b++) if (_ktag[_b] == _ct && _kval[_b] == _kval[_ak]) { _cand++; _who = _b; }
+                    ix_tag[ix_n] = _ct; ix_val[ix_n] = _kval[_ak]; ix_code[ix_n] = _cand == 1 ? _who : -2; ix_n++; _nk++; }
+                { int _fb = _nk > 64 ? -2 : (_nvar == 0 ? -1 : _nvc); if (_nk > 64) ix_n = _n0; if (_c == 0) ix_fbr = _fb; else if (_c == 1) ix_fba = _fb; else ix_fbi = _fb; } }
+            ix_switch = emit_label_alloc("%s_switch", fam); } }
+    if (ix_switch) emit_jmp_label(ix_switch, JMP_JMP);
     int _bx_open = -1;
     int *repalt_of = (int *)alloca(sizeof(int) * (n > 0 ? n : 1)); for (int _q = 0; _q < n; _q++) repalt_of[_q] = -1;
     for (int _r = 0; _r < n; _r++) if (nodes[_r]->op == IR_REPALT && nodes[_r]->n_operands > 0) { int _k = nidx(nodes, n, nodes[_r]->operands[0]); if (_k >= 0 && repalt_of[_k] < 0) repalt_of[_k] = _r; }
@@ -4188,6 +4213,35 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                       + IF(_ak + 1 >= n_alt,
                             x86("mov", "r13", RDQ("rbp", _kt - 40))));
             emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
+        }
+        if (ix_switch) {
+            int _kt = g_emit.flat_frame_bytes; bb_label_t * _chain = pl_alt_target(0);
+            bb_label_t ** _det = (bb_label_t **)alloca(sizeof(bb_label_t *) * (size_t)n_alt); for (int _ak = 0; _ak < n_alt; _ak++) _det[_ak] = (bb_label_t *)0;
+            bb_label_t * _fail = (bb_label_t *)0;
+            auto _to = [&](int code) -> bb_label_t * {
+                if (code == -2) return _chain;
+                if (code == -1) { if (!_fail) _fail = emit_label_alloc("%s_ixfail", fam); return _fail; }
+                if (!_det[code]) _det[code] = (code == n_alt - 1) ? alt_tr[code] : emit_label_alloc("%s_ixdet%d", fam, code); return _det[code]; };
+            pl_ix_arm_t * _arms = (pl_ix_arm_t *)alloca(sizeof(pl_ix_arm_t) * (size_t)(ix_n > 0 ? ix_n : 1));
+            for (int _q = 0; _q < ix_n; _q++) { _arms[_q].tag = ix_tag[_q]; _arms[_q].val = ix_val[_q]; _arms[_q].to = _to(ix_code[_q]); }
+            bb_label_t * _fbr = _to(ix_fbr), * _fba = _to(ix_fba), * _fbi = _to(ix_fbi);
+            emit_sep_rule('-'); emit_label_define_bb(ix_switch);
+            { extern void xa_pl_switch(int, const pl_ix_arm_t *, int, bb_label_t *, bb_label_t *, bb_label_t *, bb_label_t *); xa_pl_switch(ix_slot, _arms, ix_n, _fbr, _fba, _fbi, _chain); }
+            for (int _ak = 0; _ak < n_alt - 1; _ak++) {
+                if (!_det[_ak]) continue;
+                emit_sep_rule('-'); emit_label_define_bb(_det[_ak]);
+                bb_emit_x86(x86("comment", "PL SWITCH: this clause is the only one the first argument's key can match -- entered as the chain's last alternative is: no next alternative, B back to the outer choice")
+                          + x86("mov", RDQ("rbp", _kt - 56), 0L)
+                          + x86("mov", "r13", RDQ("rbp", _kt - 40)));
+                emit_jmp_label(pl_alt_target(_ak), JMP_JMP);
+            }
+            if (_fail) {
+                emit_sep_rule('-'); emit_label_define_bb(_fail);
+                bb_emit_x86(x86("comment", "PL SWITCH: no clause's first head argument can match the first argument's key -- concede through the step with no next alternative and B back to the outer choice")
+                          + x86("mov", RDQ("rbp", _kt - 56), 0L)
+                          + x86("mov", "r13", RDQ("rbp", _kt - 40)));
+                emit_jmp_label(pl_step_lbl, JMP_JMP);
+            }
         }
     }
     if (g_emit.flat_jmp_entry) {
