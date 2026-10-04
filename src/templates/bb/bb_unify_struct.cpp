@@ -13,25 +13,29 @@ int prolog_functor_arity(int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string pl_fresh_cells(int ar) {
-    std::string s;
-    if (ar <= 8) {
-        for (int i = 0; i < ar; i++)
-            s += x86("mov", RDQ("r10", 16 * i), (long)DT_PLVAR) + x86("lea", "rcx", RDQ("r10", 16 * i)) + x86("mov", RDQ("r10", 16 * i + 8), "rcx");
-        return s;
-    }
-    return x86("mov", "r11", (long)ar)
-         + x86("def", L(40))
-         + x86("mov", RDQ("r10", 0), (long)DT_PLVAR)
-         + x86("mov", RDQ("r10", 8), "r10")
-         + x86("add", "r10", 16L)
-         + x86("sub", "r11", 1L)
-         + x86("jne", L(40));
+static int pl_struct_arity() {
+    return (!_.op_zres && _.op_u_why == 0) ? prolog_functor_arity((int)_.op_u_fid) : 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string pl_fresh_cells(int i) {
+    return IF(i == 0 && pl_struct_arity() > 8,
+               x86("mov", "r11", (long)pl_struct_arity())
+             + x86("def", L(40))
+             + x86("mov", RDQ("r10", 0), (long)DT_PLVAR)
+             + x86("mov", RDQ("r10", 8), "r10")
+             + x86("add", "r10", 16L)
+             + x86("sub", "r11", 1L)
+             + x86("jne", L(40)))
+         + (pl_struct_arity() <= 8 && i < pl_struct_arity()
+             ? x86("mov", RDQ("r10", 16 * i), (long)DT_PLVAR)
+             + x86("lea", "rcx", RDQ("r10", 16 * i))
+             + x86("mov", RDQ("r10", 16 * i + 8), "rcx")
+             + pl_fresh_cells(i + 1)
+             : std::string());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unify_struct() {
     x86_begin();
-    const int ar = (!_.op_zres && _.op_u_why == 0) ? prolog_functor_arity((int)_.op_u_fid) : 1;
     return IF(_.op_zres,
                x86_alpha()
              + x86_bomb("bb_unify_struct: a Prolog head is a flat-frame graph; no ZD arm exists")
@@ -71,14 +75,14 @@ std::string bb_unify_struct() {
                            "so every cell is typed before the poll), the result cell {DT_PLREF, functor id, block} stored into the mapped slot before the poll, then each argument cell made a "
                            "self-reference inline; the cell is re-derived after the poll and bound to the block. No C value service builds it.")
              + x86("mov32", "edi", (long)HB_DVEC)
-             + x86("mov32", "esi", (long)(16 * ar))
+             + x86("mov32", "esi", (long)(16 * pl_struct_arity()))
              + x86("call", "rt_gcheap_alloc", (uint64_t)(uintptr_t)(void *)rt_gcheap_alloc)
              + x86_movabs_r64("rcx", (uint64_t)DT_PLREF | ((uint64_t)(uint32_t)_.op_u_fid << 32))
              + x86("mov", FRQ(_.op_off), "rcx")
              + x86("mov", FRQ(_.op_off + 8), "rax")
              + x86_rt_gc_poll()
              + x86("mov", "r10", FRQ(_.op_off + 8))
-             + pl_fresh_cells(ar)
+             + pl_fresh_cells(0)
              + PL_SRC_RDI()
              + PL_DEREF(14, 15, 16, 17)
              + PL_TRAIL(31, 39)

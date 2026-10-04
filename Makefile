@@ -1260,6 +1260,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/xa/xa_bb_ptr_slot.cpp \
     $(SRC)/templates/xa/xa_flat.cpp \
     $(SRC)/templates/xa/xa_icn_act_restore.cpp \
+    $(SRC)/templates/xa/xa_to_helpers.cpp \
     $(SRC)/templates/xa/xa_prologue.cpp \
     $(SRC)/templates/xa/xa_epilogue.cpp \
     $(SRC)/templates/xa/xa_wasm_main.cpp \

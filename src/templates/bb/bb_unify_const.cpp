@@ -75,7 +75,8 @@ std::string bb_unify_const() {
              + x86("mov", RDQ("rdi", 8), "rax")
              + x86_gamma()
              + x86("def", L(40))
-             + x86("note", "cold: a legacy DT_S atom text, or a number of another kind, compared strictly by class by the value service; it never binds and never allocates, so no poll follows (ARCH-PROLOG-C-OUT-OF-THE-BOX 10)")
+             + x86("note", "cold: a legacy DT_S atom text, or a number of another kind, compared strictly by class by the value service; "
+                           "it never binds and never allocates, so no poll follows (ARCH-PROLOG-C-OUT-OF-THE-BOX 10)")
              + x86_movabs_r64("rsi", _.op_u_kval)
              + x86("mov", "edx", (long)_.op_u_atom)
              + x86("call", "rt_pl_unify_const_cold", (uint64_t)(uintptr_t)(void *)rt_pl_unify_const_cold)

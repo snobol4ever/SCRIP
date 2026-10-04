@@ -207,7 +207,10 @@ static std::string bb_define_bind() {
         + x86(".string", (_csv ? _csv : ""))
         + bind_seal
         + entry_seal;
-    return x86_alpha() + reg + x86_pair_loop() + seals;
+    return x86_alpha()
+           + reg
+           + x86_pair_loop()
+           + seals;
 }
 #include <string>
 #include <cstdint>
@@ -263,10 +266,12 @@ static std::string bb_define_sr() {
         long WNOFF = 16L * xt4 + 24;
         auto WNSAVE = [&]() {
             return  x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
-                 + x86("mov", "edx", RDD("rax", 0)) + x86("movsxd", "rdx", "edx")
+                 + x86("mov", "edx", RDD("rax", 0))
+                 + x86("movsxd", "rdx", "edx")
                  + x86_rsp_store64((int)WNOFF, "rdx")
                  + x86("mov", RDD("rax", 0), (long)0)
-                 + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name") + x86("mov", RDD("rax", 0), (long)0); };
+                 + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+                 + x86("mov", RDD("rax", 0), (long)0); };
         auto WNRESTORE = [&]() {
             return  x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
                  + x86_rsp_load64("rdx", (int)WNOFF)
@@ -688,7 +693,8 @@ static std::string bb_define_sr() {
                                 + x86("add", "rsp", (long)8))
                  + x86("jmp", "rcx");
     }
-    return x86_alpha() + x86_bomb("IR_DEFINE role 0 (the CALL2BB slice-2 producer) retired 2026-09-26 on a plant proof: "
+    return x86_alpha()
+           + x86_bomb("IR_DEFINE role 0 (the CALL2BB slice-2 producer) retired 2026-09-26 on a plant proof: "
                                   "no lowerer builds an SR-citizen DEFINE outside roles 1..5 (0 of 4693 corpus sources reached this arm or armed a handoff)");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

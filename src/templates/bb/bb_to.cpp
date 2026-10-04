@@ -14,69 +14,68 @@ int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string to_trail_mark() {
-    return IF(x86_fb_pinned(),
-               x86("mov", FRQ(_.op_off + 24), "r12")
-             + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string to_trail_unwind() {
-    return IF(!x86_fb_pinned(),
-               std::string())
-         + IF(!(!x86_fb_pinned()),
-               x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201) + x86("test", "r15", "r15") + x86_omega("jne"));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string to_int_operand_guard(int slot) {
-    return IF(_.op_range_int_operands,
-               x86("mov",  "rdi", FRQ(slot))
-             + x86("mov",  "rsi", FRQ(slot + 8))
-             + x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void *)(int (*)(uint64_t, uint64_t))core_icn_int_operand_ok)
-             + x86("test", "eax", "eax")
-             + x86_omega("jz")
-             + x86_rt_gc_poll());
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string xa_to_trail_mark();
+std::string xa_to_trail_unwind();
+std::string xa_to_int_operand_guard(int slot);
+std::string xa_to_db_load_store();
+std::string xa_to_db_slot_addr();
 #define TO_BOMB1() (x86_fb_pinned() && (_.op_zres || _.op_num_real))
-static std::string to_db_load_store() {
-    return x86("mov", "rax", FRQ(_.op_sa + 8)) + x86_shift_imm("shl", 4, "rax", 3) + x86("mov", "rcx", "r14") + x86("sub", "rcx", "rax") + x86("mov", "rax", RDQ("rcx", -24)) + x86("mov", "r9", RDQ("rax", 0));
-}
-static std::string to_db_slot_addr() {
-    return x86("mov", "r10", "rsi") + x86_shift_imm("shl", 4, "r10", 5) + x86("mov", "r11", "rsi") + x86_shift_imm("shl", 4, "r11", 3) + x86("add", "r10", "r11") + x86("add", "r10", "r9");
-}
 static std::string bb_to_db() {
-    return x86("comment", "IR_TO db (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B): the packet's slots in packet order, each visible at the generation G this enumeration took at alpha; the store is reloaded from its root cell at every step (a collected object moves)")
+    return x86("comment", "IR_TO db (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B): the packet's slots in packet order, each visible at the generation G this enumeration took at alpha; "
+                          "the store is reloaded from its root cell at every step (a collected object moves)")
          + x86_alpha()
-         + x86("mov", "rax", FRQ(_.op_sa + 8)) + x86_shift_imm("shl", 4, "rax", 3) + x86("mov", "rcx", "r14") + x86("sub", "rcx", "rax") + x86("mov", "rax", RDQ("rcx", -24))
-         + x86("test", "rax", "rax") + x86_omega("je")
+         + x86("mov", "rax", FRQ(_.op_sa + 8))
+         + x86_shift_imm("shl", 4, "rax", 3)
+         + x86("mov", "rcx", "r14")
+         + x86("sub", "rcx", "rax")
+         + x86("mov", "rax", RDQ("rcx", -24))
+         + x86("test", "rax", "rax")
+         + x86_omega("je")
          + x86("mov", "r9", RDQ("rax", 0))
-         + x86("mov", "r8d", RDD("rax", 20)) + x86("mov", FRQ(_.op_off + 32), "r8")
-         + x86("mov", "esi", RDD("rax", 24)) + x86("movsxd", "rsi", "esi") + x86("mov", FRQ(_.op_off + 16), "rsi")
-         + to_trail_mark()
+         + x86("mov", "r8d", RDD("rax", 20))
+         + x86("mov", FRQ(_.op_off + 32), "r8")
+         + x86("mov", "esi", RDD("rax", 24))
+         + x86("movsxd", "rsi", "esi")
+         + x86("mov", FRQ(_.op_off + 16), "rsi")
+         + xa_to_trail_mark()
          + x86("def", L(0))
-         + x86("mov", "rsi", FRQ(_.op_off + 16)) + x86("cmp", "esi", 0L) + x86_omega("jl")
-         + to_db_load_store() + to_db_slot_addr() + x86("mov", "r8", FRQ(_.op_off + 32))
-         + x86("mov", "r11d", RDD("r10", 20)) + x86("cmp", "r11d", "r8d") + x86("jge", L(3))
-         + x86("mov", "r11d", RDD("r10", 16)) + x86("test", "r11d", "r11d") + x86("je", L(1))
-         + x86("cmp", "r11d", "r8d") + x86("jl", L(3))
+         + x86("mov", "rsi", FRQ(_.op_off + 16))
+         + x86("cmp", "esi", 0L)
+         + x86_omega("jl")
+         + xa_to_db_load_store() + xa_to_db_slot_addr() + x86("mov", "r8", FRQ(_.op_off + 32))
+         + x86("mov", "r11d", RDD("r10", 20))
+         + x86("cmp", "r11d", "r8d")
+         + x86("jge", L(3))
+         + x86("mov", "r11d", RDD("r10", 16))
+         + x86("test", "r11d", "r11d")
+         + x86("je", L(1))
+         + x86("cmp", "r11d", "r8d")
+         + x86("jl", L(3))
          + x86("def", L(1))
-         + x86("mov", FRQ(_.op_off), (long)DT_I) + x86("mov", FRQ(_.op_off + 8), "rsi")
+         + x86("mov", FRQ(_.op_off), (long)DT_I)
+         + x86("mov", FRQ(_.op_off + 8), "rsi")
          + x86_gamma()
          + x86_beta()
-         + to_trail_unwind()
-         + x86("mov", "rsi", FRQ(_.op_off + 16)) + to_db_load_store() + to_db_slot_addr()
+         + xa_to_trail_unwind()
+         + x86("mov", "rsi", FRQ(_.op_off + 16)) + xa_to_db_load_store() + xa_to_db_slot_addr()
          + x86("def", L(3))
-         + x86("mov", "esi", RDD("r10", 32)) + x86("movsxd", "rsi", "esi") + x86("mov", FRQ(_.op_off + 16), "rsi")
+         + x86("mov", "esi", RDD("r10", 32))
+         + x86("movsxd", "rsi", "esi")
+         + x86("mov", FRQ(_.op_off + 16), "rsi")
          + x86("jmp", L(0));
 }
 std::string bb_to() {
     x86_begin();
-    if (_.op_db_walk) return (x86_fb_pinned() && _.op_off >= 0 && _.op_sa >= 0) ? bb_to_db() : x86_alpha() + x86_bomb("IR_TO db: a packet enumeration outside a pinned Prolog frame or without static operands");
-    return IF(TO_BOMB1(),
+    return IF(_.op_db_walk,
+               (x86_fb_pinned() && _.op_off >= 0 && _.op_sa >= 0)
+                   ? bb_to_db()
+                   : x86_alpha()
+                   + x86_bomb("IR_TO db: a packet enumeration outside a pinned Prolog frame or without static operands"))
+         + IF(!_.op_db_walk && TO_BOMB1(),
                x86_alpha()
                    + x86_bomb("IR_TO: a Prolog generator reached the zd/real arm, where op_off+24 is to.limit and the rung-7 trail mark "
                        "would alias the loop bound -- grant IR_TO a fourth word before enabling this path"))
-         + IF(!TO_BOMB1() && _.op_zres,
+         + IF(!_.op_db_walk && !TO_BOMB1() && _.op_zres,
                x86("comment", "IR_TO zd")
                  + x86_alpha()
                  + x86("note",  ZOPN(0))
@@ -109,8 +108,9 @@ std::string bb_to() {
                  + x86("inc",   FRQ(_.op_off + 16))
                  + x86_omega(  "jo")
                  + x86("jmp",   L(0)))
-         + IF(!TO_BOMB1() && !_.op_zres,
-               !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha() + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
+         + IF(!_.op_db_walk && !TO_BOMB1() && !_.op_zres,
+               !(_.op_off >= 0 && _.op_sa >= 0 && _.op_sb >= 0) ? x86_alpha()
+               + x86_bomb("bb_to: unhandled (needs static operands, descr flat-chain)") :
                _.op_num_real ?
                x86("comment", "IR_TO")
              + x86_alpha()
@@ -150,7 +150,7 @@ std::string bb_to() {
              + x86(".quad",   (uint64_t)(int64_t)1) :
                x86("comment", "IR_TO")
              + x86_alpha()
-             + to_int_operand_guard(_.op_sa)
+             + xa_to_int_operand_guard(_.op_sa)
              + x86("mov",     "rdi", FRQ(_.op_sa))
              + x86("mov",     "rsi", FRQ(_.op_sa + 8))
              + x86("call", _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
@@ -158,7 +158,7 @@ std::string bb_to() {
              + x86("mov",     FRQ(_.op_sa),     (long)DT_I)
              + x86("mov",     FRQ(_.op_sa + 8), "rax")
              + x86_rt_gc_poll()
-             + to_int_operand_guard(_.op_sb)
+             + xa_to_int_operand_guard(_.op_sb)
              + x86("mov",     "rdi", FRQ(_.op_sb))
              + x86("mov",     "rsi", FRQ(_.op_sb + 8))
              + x86("call", _.op_range_int_operands ? "core_icn_to_int_check" : "to_int",
@@ -168,7 +168,7 @@ std::string bb_to() {
              + x86_rt_gc_poll()
              + x86("mov",     "rax", FRQ(_.op_sa + 8))
              + x86("mov",     FRQ(_.op_off + 16), "rax")
-             + to_trail_mark()
+             + xa_to_trail_mark()
              + x86("def",     L(0))
              + x86("mov",     "rax", FRQ(_.op_off + 16))
              + x86("mov",     "rcx", FRQ(_.op_sb + 8))
@@ -178,7 +178,7 @@ std::string bb_to() {
              + x86("mov",     FRQ(_.op_off + 8), "rax")
              + x86_gamma()
              + x86_beta()
-             + to_trail_unwind()
+             + xa_to_trail_unwind()
              + x86("inc",     FRQ(_.op_off + 16))
              + x86_omega("jo")
              + x86("jmp",     L(0)));
