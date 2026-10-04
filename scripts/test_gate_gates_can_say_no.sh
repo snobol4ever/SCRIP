@@ -25,7 +25,7 @@ gate_parse_args "$@"
 GATES_T1="test_gate_rtcc_claimed_regs test_gate_omega_own_k test_gate_no_c_to_bb test_gate_no_vstack test_gate_pl_coupling"
 GATES_T2="test_gate_zeta_no_arena test_gate_rbp_census_ratchet test_gate_sn7_beauty_self_host"
 GATES_T3="test_gate_bb_emit_blind test_gate_fb_predicate_tripwire test_gate_icn_zk5_gva test_gate_fc_no_residual_rbp test_gate_no_handencoded_bytes test_gate_no_hidden_global_in_emitted test_gate_argnote_sweep test_gate_asm_tabs_identity test_gate_clobarm test_gate_emit_no_ir_mutation test_gate_emit_no_lang test_gate_emit_no_slot_alloc test_gate_s130_behav test_gate_s130_blast"
-GATES_T4="test_gate_em_template_byte_identity test_gate_const_graph test_gate_rtx_inventory_live test_gate_pl_m34_parity test_gate_pas_frame_pairing audit_bb_fixup_rank audit_jcon_wholesale bench_min_of_n bench_prolog_ix_ab"
+GATES_T4="test_gate_em_template_byte_identity test_gate_const_graph test_gate_rtx_inventory_live test_gate_pas_frame_pairing audit_bb_fixup_rank audit_jcon_wholesale bench_min_of_n bench_prolog_ix_ab"
 # ⛔⭐ SEAT10'S LIST, PINNED AT LAST (coo 2026-09-18, on the cto's CTO-74).  seat16's 31 above were cured by hq_P
 # and pinned here, which is why they have held.  seat10 then audited the scripts that pin never covered and named
 # about 23 more on 2026-08-23 -- AND THAT SECOND LIST WAS NEVER PINNED, and the file naming it was deleted three
@@ -103,5 +103,5 @@ echo "  canary: caught (a planted always-vacuous script is detected, so REFUSED 
 echo ""
 echo "examined $N gate script(s): REFUSED=$REFUSED  VACUOUS=$VACUOUS"
 [ -n "$VACUOUS_LIST" ] && { echo "still vacuous:"; for v in $VACUOUS_LIST; do echo "    $v"; done; }
-gate_floor "$N" 41 "gate scripts (seat16's pinned 31 + seat10's 10, cured and pinned 2026-09-18)"
+gate_floor "$N" 40 "gate scripts (seat16's pinned 31 + seat10's 10, cured and pinned 2026-09-18, less test_gate_pl_m34_parity, deleted 2026-10-04 with the .expected population it graded)"
 gate_verdict "$VACUOUS" "gate(s) still return 0 on an empty tree"
