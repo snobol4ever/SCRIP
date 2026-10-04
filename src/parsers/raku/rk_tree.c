@@ -847,7 +847,7 @@ static tree_t *el_t0(RkB *b, RkEl *e) {
 static int plain(RkTerm *t, int cls) { return t && t->kind == TK_VAR && t->cls == cls && !t->npost && !t->npre; }
 /*====================================================================================================================================================================================================*/
 static const char *const lv_mul[] = { "*", "\xc3\xb7", "\xc3\x97", "~&", "mod", "lcm", "/", "%", "div", "gcd", "+&", "+<", "%%", 0 };
-static const char *const lv_addsub[] = { "+", "\xe2\x88\x92", "?^", "?|", "~|", "+|", "-", 0 };
+static const char *const lv_addsub[] = { "+", "\xe2\x88\x92", "?^", "?|", "~|", "+|", "-", "+^", 0 };
 static const char *const lv_repl[] = { "x", "xx", 0 };
 static const char *const lv_cat[] = { "~", "\xe2\x88\x98", "o", 0 };
 static const char *const lv_range1[] = { "..", "...", "..^", 0 };
@@ -908,6 +908,7 @@ static tree_t *b_addsub(RkB *b, int k, tree_t *l, tree_t *r) {
     case 3: return call2("__rk_lbor", l, r);
     case 4: return call2("__rk_sbor", l, r);
     case 5: return call2("__rk_bor", l, r);
+    case 7: return call2("__rk_bxor", l, r);
     default: return expr_binary(TT_SUB, nctx(b, l), nctx(b, r));
     }
 }
