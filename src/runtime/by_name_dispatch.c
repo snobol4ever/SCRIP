@@ -6190,6 +6190,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if ((!strcmp(fn, "push_pure") || !strcmp(fn, "unshift_pure") || !strcmp(fn, "append_pure") || !strcmp(fn, "prepend_pure")) && nargs >= 2) {
         int is_app = fn[0] == 'a', is_pre = fn[0] == 'p' && fn[1] == 'r', is_push = fn[0] == 'p' && fn[1] == 'u'; int back = is_push || is_app, flat = is_app || is_pre;
+        if (back && args[0].v == DT_A && args[0].arr && ((ARBLK_t *) args[0].arr)->proto == NULL) {
+            int add = 0; for (int i = 1; i < nargs; i++) add += flat ? rk_spill_count(args[i]) : rk_item_count(args[i]);
+            DESCR_t *t = (DESCR_t *) rt_ws_alloc_descr((size_t) (add ? add : 1)); int k = 0;
+            for (int i = 1; i < nargs; i++) k = flat ? rk_spill(t, k, args[i]) : rk_item(t, k, args[i]);
+            for (int i = 0; i < k; i++) rk_arr_append((ARBLK_t *) args[0].arr, t[i]);
+            *out = args[0]; return 1;
+        }
         rk_av_t a = rk_av(args[0]); int add = 0; for (int i = 1; i < nargs; i++) add += flat ? rk_spill_count(args[i]) : rk_item_count(args[i]);
         DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) (a.n + add)); int k = 0;
         if (back) for (int i = 0; i < a.n; i++) r[k++] = rk_av_elem(a, i);
