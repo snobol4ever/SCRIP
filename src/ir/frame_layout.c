@@ -10,6 +10,7 @@ extern int is_global(const char *);
 extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 int zls_g_block_args(const IR_graph_t * g);
+int zls_g_det_block(const IR_graph_t * g);
 int zls_g_frame_bytes(const IR_graph_t * g);
 int zls_g_block_base(const IR_graph_t * g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -858,10 +859,12 @@ int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return 
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
 static int zls_g_pinned_frame(const IR_graph_t * g) { return (g && g->zframe_pinned_base && g->zframe_graph && !g->icn_cells_graph) ? 1 : 0; }
+int zls_g_det_block(const IR_graph_t * g) { return (g && g->static_calls && g->zframe_graph && !g->zframe_pinned_base && !g->icn_cells_graph && !g->root_graph) ? 1 : 0; }
 int zls_g_block_args(const IR_graph_t * g) {
     if (g && g->icn_cells_graph && !g->root_graph) return 1;
     if (!g || !g->zframe_graph || g->icn_cells_graph) return 0;
     if (g->zframe_pinned_base) return 1;
+    if (zls_g_det_block(g)) return 1;
     return (g->block_args && !g->root_graph && g->nlocals == 0 && g->nparams <= 12) ? 1 : 0;
 }
 int zls_g_entry_block(const IR_graph_t * g) { return (zls_g_pinned_frame(g) || (g && g->icn_cells_graph && !g->root_graph)) ? 1 : 0; }

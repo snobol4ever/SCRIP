@@ -143,6 +143,8 @@ def holes_of(graph):
         out.append(("region-gap", None, pos, graph["region_end"], "tail of the region"))
     allf = [f for sc in graph["scopes"] for f in sc["fields"]]
     for v in graph["vslots"]:
+        if v["off"] >= graph["region_end"]:
+            continue  # a block-protocol argument (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2): the caller's typed cell above the frame, not this frame's field
         n = sum(1 for f in allf if f["off"] <= v["off"] and v["off"] + v["size"] <= f["off"] + f["size"])
         if n != 1:
             out.append(("vslot-unmapped", None, v["off"], v["off"] + v["size"], f"vslot {v['name']} covered by {n} field(s)"))

@@ -49,7 +49,11 @@ TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
 # the table with the C entries; the box's cold rt_pl_unify_const_cold site arrives WITNESSED by the same .pl witness; and the det-leaf row the
 # $cutcall landing (db4be5bb6) had left UNDECLARED beside its RETIRED twin is re-cut under its new key and read witnessed, so nothing arrives
 # unwitnessed and the ceiling only falls.
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-53}"
+# 54 over 164 on the Pascal block-protocol landing (hq_pascal 2026-10-03, CEO-1491): a deterministic Pascal call no longer takes the bcps_det_arm zres det road, so the two sites
+# there (bb_call_proc_staged.cpp:308 rt_proc_call_open_detN and :310 rt_arg_stage, both polled at :311) lose the Pascal witness that was their only reader and no Icon, Raku or SNOBOL4
+# program reaches the zres arm (tried: a 3- and a 9-argument call in each); they return UNWITNESSED, one more than the 53 -- the arrival this ceiling names.
+# 61 over 165 with the Icon and Pascal block-protocol landings together (hq_pascal 2026-10-04, merging onto hq_icon's b1bee0c53): the det/open roads in bb_call_proc_staged.cpp (:102 rt_arg_stage, :327/:329 the zres det arm, :463/:467/:470 the Icon det arm, :796/:799 the pinned by-name road) and xa_flat.cpp:125 rt_arg_stage lost the Icon and Pascal witnesses that were their readers -- both languages' calls now build a block and cross none of them; no program in the set reaches them. They are dead roads pending their retirement when the six helpers leave nm -D, so the ceiling names them as arrivals rather than hiding them.
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-61}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }

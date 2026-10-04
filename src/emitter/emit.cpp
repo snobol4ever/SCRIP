@@ -551,7 +551,7 @@ int g_last_flat_fp = 0;
 int g_last_flat_uniform = 0;
 extern "C" int zls_g_fp_total(IR_graph_t *);
 extern "C" int zls_node_has_fields(const IR_t *);
-extern "C" int zls_g_block_args(const IR_graph_t *);
+extern "C" int zls_g_block_args(const IR_graph_t *); extern "C" int zls_g_det_block(const IR_graph_t *);
 extern "C" int emit_patzeta_lookup(const char *, int *);
 extern "C" void zls_fct_finalize(IR_graph_t *, int);
 extern "C" int fc_tail_defer_susp_g(IR_graph_t *, const IR_t *);
@@ -3658,7 +3658,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.flat_stmt_frame) { emit_label_initf(&lbl_stcγ, "%s_stγ", fam); emit_label_initf(&lbl_stcω, "%s_stω", fam); }
     g_emit.flat_carve_total = 0;
     bb_label_t lbl_αblk; emit_label_initf(&lbl_αblk, "%s_αblk", fam);
-    int _blk_graph = (g_emit.zframe_graph && !g_emit.zframe_pinned_base && g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? 1 : 0;
+    int _blk_graph = (g_emit.zframe_graph && !g_emit.zframe_pinned_base && g_emit_cfg && zls_g_block_args(g_emit_cfg) && !zls_g_det_block(g_emit_cfg)) ? 1 : 0;
     if (_blk_graph) { extern void xa_flat_block_staged_entry(void); xa_flat_block_staged_entry(); emit_label_define_bb(&lbl_αblk); }
     if (prefix && !strcmp(gc_map_entry_fam(prefix), "main") && !g_rt_fragment_emit && g_emit_cfg && !g_emit.zframe_graph && !(icn_gen_regime() && g_emit.flat_gen) && !g_emit.flat_lcl_proc && !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region; if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes) { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg, g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
     if (g_emit.zframe_graph) {
