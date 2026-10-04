@@ -295,25 +295,25 @@ std::string bb_match_defer() {
                     + x86("cmp",  "eax", -2L)
                     + x86("jne",  L(49)))
          + x86_xfer_enter()
-         + (vslot < 0 && star
-             ? x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), dlbl.c_str())
-             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_rec", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *))rt_defer_open_rec)
-             : vslot < 0 && gva_road
+         + (vslot >= 0
+             ? x86("mov",  "rdi", RDQ("rbp", -24))
+             + x86("mov",  "esi", (long)vslot)
+             + x86("xor",  "edx", "edx")
+             + x86("xor",  "ecx", "ecx")
+             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *,
+                 int))rt_patv_defer_open_entry)
+             : !star && gva_road
              ? x86("note", gva_name(_.op_gva_k))
              + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", (std::string("[" RTCC_GVA_REG " + ") + std::to_string(_.op_gva_k * 16) + "]").c_str())
                                                      : x86_movabs_r64("rdi", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
              + x86("xor",  "esi", "esi")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_cell", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t *, int))rt_defer_open_cell)
-             : vslot < 0
+             : !star
              ? x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
              + x86("xor",  "esi", "esi")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, int))rt_defer_open_entry)
-             : x86("mov",  "rdi", RDQ("rbp", -24))
-             + x86("mov",  "esi", (long)vslot)
-             + x86("xor",  "edx", "edx")
-             + x86("xor",  "ecx", "ecx")
-             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *,
-                 int))rt_patv_defer_open_entry))
+             : x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), dlbl.c_str())
+             + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_rec", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *))rt_defer_open_rec))
          + x86_rt_gc_poll_rec_sigma_pair(1, 51)
          + x86("def",  "L2")
          + x86("test", "rax", "rax")
