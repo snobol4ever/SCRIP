@@ -137,6 +137,35 @@ if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/fp.s" "$D/fp.pl" >/dev/null 
   got=$(cd "$D" && timeout 20 "$D/fp.bin" 2>/dev/null)
   if [ "$got" = "$want4" ]; then PASS=$((PASS+1)); else printf '  m4 RED  format ~~p: got [%s]\n       want [%s]\n' "$got" "$want4"; FAIL=$((FAIL+1)); fi
 else echo "  m4 RED  the ~~p program failed to compile or link"; FAIL=$((FAIL+1)); fi
+echo "=== ARM 7: A COLLECTING portray/1 -- the hook allocates enough to collect several times inside ONE print, and every level re-reads its cell (the cfo's arm) -- both modes ==="
+cat > "$D/fc.pl" <<'PLEOF'
+:- initialization(main).
+portray(x) :- numlist(1, 20000, L), sum_list(L, S), S > 0, write(xx).
+main :- T = f(x, g(x, h(x)), k(x, x), x), format("~p~n", [T]), format("~p ~w ~p~n", [g(x), x, f(x, x)]),
+        L = [x, f(x), x], format("~p~n", [L]), length(L, N), write(N), nl.
+PLEOF
+want7='f(xx,g(xx,h(xx)),k(xx,xx),xx)
+g(xx) x f(xx,xx)
+[xx,f(xx),xx]
+3'
+echo "=== ARM 8: A NESTED print INSIDE portray/1 -- the inner write's slots stack above the outer's and are popped before the outer re-reads (the cfo's arm) -- both modes ==="
+cat > "$D/fn.pl" <<'PLEOF'
+:- initialization(main).
+portray(p(X)) :- format("<~p>", [X]).
+portray(x) :- numlist(1, 5000, L), length(L, _), write(ex).
+main :- format("~p~n", [f(p(x), p(g(x, p(x))), x)]), format("~p|~p~n", [p(p(x)), q(x)]).
+PLEOF
+want8='f(<ex>,<g(ex,<ex>)>,ex)
+<<ex>>|q(ex)'
+for a in fc:want7 fn:want8; do w=${a%%:*}; eval "want=\$${a#*:}"
+  N=$((N+1)); got=$(cd "$D" && timeout 60 "$SCRIP" "$D/$w.pl" </dev/null 2>/dev/null)
+  if [ "$got" = "$want" ]; then PASS=$((PASS+1)); else printf '  m3 RED  %s: got [%s]\n       want [%s]\n' "$w" "$got" "$want"; FAIL=$((FAIL+1)); fi
+  N=$((N+1))
+  if (cd "$D" && timeout 60 "$SCRIP" --compile -o "$D/$w.s" "$D/$w.pl" >/dev/null 2>&1) && gcc -m64 -no-pie "$D/$w.s" -o "$D/$w.bin" -L"$ROOT/out" -lscrip_rt -Wl,-rpath,"$ROOT/out" -lm >/dev/null 2>&1; then
+    got=$(cd "$D" && timeout 60 "$D/$w.bin" </dev/null 2>/dev/null)
+    if [ "$got" = "$want" ]; then PASS=$((PASS+1)); else printf '  m4 RED  %s: got [%s]\n       want [%s]\n' "$w" "$got" "$want"; FAIL=$((FAIL+1)); fi
+  else printf '  m4 RED  %s failed to compile or link\n' "$w"; FAIL=$((FAIL+1)); fi
+done
 echo "=== ARM 6: A THROWING portray/1 -- print/1 PROPAGATES, and format ~p's swallow is NAMED, not hidden ==="
 cat > "$D/thr.pl" <<'PLEOF'
 :- dynamic(portray/1).
