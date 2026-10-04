@@ -29,7 +29,9 @@ cat > "$W/h.c" <<'CEOF'
 #include "descr.h"
 #include "rt/rt_pl_trail.h"
 extern DESCR_t rt_pl_dop_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx);
-extern DESCR_t rt_pl_dop_mkc_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx);
+extern DESCR_t rt_pl_unify_struct_fresh(long fid);
+extern int prolog_atom_intern(const char *);
+extern int prolog_functor_intern(int, int);
 extern DESCR_t rt_pl_deref_val(DESCR_t v);
 extern void core_lib_init(void);
 static DESCR_t nametrap(DESCR_t *cell) { DESCR_t d; memset(&d, 0, sizeof d); d.v = DT_N; d.slen = 1; d.p = (void *)cell; return d; }
@@ -67,8 +69,12 @@ int main(void) {
         CHECK(young.v == DT_I && cx.tr == bf2 + PL_TR_ENTRY_BYTES, "rung 3: the SAME cell IS logged once F.HI at [B+32] is lowered onto it (a disjunction opening a choice inside the frame)");
         cx.tr = rt_pl_tr_unwind_to(cx.tr, bf2); }
       cx.b = synth_b(hdr_older, (char *)cells); }
-    { DESCR_t m1[3]; m1[0] = sval("f"); m1[1] = nametrap(&cells[2]); m1[2] = ival(1); DESCR_t t1 = rt_pl_dop_mkc_c(m1, 3, &cx);
-      DESCR_t m2[3]; m2[0] = sval("f"); m2[1] = ival(2); m2[2] = ival(3); DESCR_t t2 = rt_pl_dop_mkc_c(m2, 3, &cx);
+    /* f(X,1) and f(2,3): rt_pl_dop_mkc_c left the runtime with the body-term landing (c89f9447b: the emitted $mkc box builds compound terms), so the harness
+       builds them the way a clause head does -- a fresh f/2 skeleton, its kids bound through the unifier (each binding trailed and kept below `before`). */
+    { int f2 = prolog_functor_intern(prolog_atom_intern("f"), 2);
+      DESCR_t t1 = rt_pl_unify_struct_fresh(f2); DESCR_t t2 = rt_pl_unify_struct_fresh(f2);
+      { DESCR_t u[2]; u[0] = ((DESCR_t *)t1.p)[0]; u[1] = nametrap(&cells[2]); rt_pl_dop_unify_c(u, 2, &cx); u[0] = ((DESCR_t *)t1.p)[1]; u[1] = ival(1); rt_pl_dop_unify_c(u, 2, &cx);
+        u[0] = ((DESCR_t *)t2.p)[0]; u[1] = ival(2); rt_pl_dop_unify_c(u, 2, &cx); u[0] = ((DESCR_t *)t2.p)[1]; u[1] = ival(3); rt_pl_dop_unify_c(u, 2, &cx); }
       char *before = cx.tr; DESCR_t a[2]; a[0] = t1; a[1] = t2; DESCR_t r = rt_pl_dop_unify_c(a, 2, &cx);
       CHECK(r.v == DT_FAIL, "f(X,1) = f(2,3) fails");
       CHECK(cx.tr == before, "the failing unify unwound its own suffix (B.11 atomicity)");
