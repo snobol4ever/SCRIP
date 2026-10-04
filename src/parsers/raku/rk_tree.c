@@ -22,6 +22,7 @@ struct RkB {
     tree_t *tail_list, *tail_tree;
     int nonwhen;
     int nocurry, wc_uid;
+    const char **pcv; int npcv, cpcv; int use_test;
 };
 #define GROW(arr, n, cap, type) do { if ((n) >= (cap)) { (cap) = (cap) ? (cap) * 2 : 8; (arr) = (type *) ct_grow((arr), sizeof(type) * (size_t) (cap)); } } while (0)
 /*====================================================================================================================================================================================================*/
@@ -95,6 +96,13 @@ static void ns_add(NS *t, const char *s) {
     ns_put(t, intern(s));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void ns_remove(NS *t, const char *s) {
+    if (!s || !t->cap || !ns_has(t, s)) return;
+    NS g = { (const char **) ct_zalloc((size_t) t->cap, sizeof(const char *)), 0, t->cap };
+    for (int i = 0; i < t->cap; i++) if (t->k[i] && strcmp(t->k[i], s)) ns_put(&g, t->k[i]);
+    *t = g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void mark_arr(RkB *b, const char *bare) { ns_add(&b->arrn, bare); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_arr(RkB *b, const char *bare) { return ns_has(&b->arrn, bare); }
@@ -132,14 +140,14 @@ static const char *testop_rt(const char *s) {
         { "done-testing", "__rk_test_done" }, { "skip-rest", "__rk_test_skip_rest" }, { "skip", "__rk_test_skip" }, { "todo", "__rk_test_todo" }, { "diag", "__rk_test_diag" },
         { "pass", "__rk_test_pass" }, { "flunk", "__rk_test_flunk" }, { "subtest", "__rk_test_subtest" }, { "is-deeply", "__rk_test_is_deeply" }, { "is-approx", "__rk_test_is_approx" },
         { "isa-ok", "__rk_test_isa_ok" }, { "does-ok", "__rk_test_does_ok" }, { "cmp-ok", "__rk_test_cmp_ok" }, { "lives-ok", "__rk_test_lives_ok" }, { "dies-ok", "__rk_test_dies_ok" },
-        { "throws-like", "__rk_test_throws_like" }, { "eval-lives-ok", "__rk_test_eval_lives_ok" }, { "eval-dies-ok", "__rk_test_eval_dies_ok" }, { NULL, NULL } };
+        { "throws-like", "__rk_test_throws_like" }, { "eval-lives-ok", "__rk_test_eval_lives_ok" }, { "eval-dies-ok", "__rk_test_eval_dies_ok" }, { "like", "__rk_test_like" }, { "unlike", "__rk_test_unlike" }, { NULL, NULL } };
     for (int i = 0; map[i][0]; i++) if (!strcmp(map[i][0], s)) return map[i][1];
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_testop(const char *s) { return s && testop_rt(s) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *rk_testop_call(const char *name, TL *a) {
+static tree_t *rk_testop_build(const char *name, TL *a) {
     tree_t *c = make_call(name);
     if (!a) return c;
     if (a->n == 1 && a->v[0] && a->v[0]->t == TT_FNC && a->v[0]->v.sval && !strcmp(a->v[0]->v.sval, "__rk_arr")) {
@@ -155,6 +163,38 @@ static tree_t *rk_testop_call(const char *name, TL *a) {
     for (int i = 0; i < a->n; i++) expr_add_child(c, a->v[i]);
     return c;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *mkbool_lit(int v);
+static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
+    const char *nm = c->c[0]->v.sval;
+    int lives = !strcmp(nm, "__rk_test_lives_ok"), dies = !strcmp(nm, "__rk_test_dies_ok"), like = !strcmp(nm, "__rk_test_like"), unlike = !strcmp(nm, "__rk_test_unlike");
+    if ((lives || dies) && c->n >= 2) {
+        const char *fv = fmt("__tl%d", b->post_uid++);
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+        tree_t *init = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(init->c[1], rk_ilit(1)); expr_add_child(seq, init);
+        tree_t *body = ast_node_new(TT_SEQ_EXPR), *inv = ast_node_new(TT_INVOKE); expr_add_child(inv, c->c[1]); expr_add_child(body, inv);
+        if (lives) {
+            tree_t *fl = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(fl->c[1], rk_ilit(0));
+            tree_t *cs = ast_node_new(TT_CASE), *cb = ast_node_new(TT_SEQ_EXPR), *ct = ast_node_new(TT_CATCH), *cq = ast_node_new(TT_SEQ_EXPR);
+            expr_add_child(cb, fl); expr_add_child(cs, leaf_sval(TT_VAR, "_")); expr_add_child(cs, ast_node_new(TT_NUL)); expr_add_child(cs, cb); expr_add_child(cq, cs); expr_add_child(ct, cq); expr_add_child(body, ct);
+        } else {
+            tree_t *fl = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(fl->c[1], rk_ilit(0)); expr_add_child(body, fl);
+        }
+        tree_t *tr = ast_node_new(TT_TRY); expr_add_child(tr, body); expr_add_child(seq, tr);
+        tree_t *ok = make_call("__rk_test_ok"); expr_add_child(ok, leaf_sval(TT_VAR, fv)); if (c->n >= 3) expr_add_child(ok, c->c[2]);
+        expr_add_child(seq, ok);
+        return seq;
+    }
+    if ((like || unlike) && c->n >= 3) {
+        tree_t *ok = make_call(like ? "__rk_test_ok" : "__rk_test_nok");
+        expr_add_child(ok, rkb_ternary(b, rkb_smartmatch(b, c->c[1], c->c[2]), mkbool_lit(1), mkbool_lit(0))); if (c->n >= 4) expr_add_child(ok, c->c[3]);
+        return ok;
+    }
+    if ((!strcmp(nm, "__rk_test_ok") || !strcmp(nm, "__rk_test_nok")) && c->n >= 2) c->c[1] = rkb_ternary(b, c->c[1], mkbool_lit(1), mkbool_lit(0));
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_testop_call(RkB *b, const char *name, TL *a) { return rk_testop_shape(b, rk_testop_build(name, a)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
     tree_t *e = make_call(flav);
@@ -1246,6 +1286,7 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     char *nm = spn(b, from, from + namelen); it->name = nm;
     if (!args || !args->nitem) args = NULL;
     const char *rt = testop_rt(nm);
+    if (rt && (!strcmp(nm, "like") || !strcmp(nm, "unlike")) && !b->use_test) rt = NULL;
     if (!rt && ns_has(&b->codev, nm)) {
         tree_t *c = ast_node_new(TT_INVOKE); expr_add_child(c, leaf_sval(TT_VAR, fmt("%s__code", nm)));
         if (args) { TL cp = { 0 }; arglist(b, args, 0, &cp, NULL); for (int i = 0; i < cp.n; i++) expr_add_child(c, cp.v[i]); }
@@ -1262,7 +1303,7 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
         it->t = make_call(nm); return;
     }
     TL pos = { 0 }, named = { 0 };
-    if (rt) { arglist(b, args, 0, &pos, NULL); it->t = rk_testop_call(rt, &pos); return; }
+    if (rt) { arglist(b, args, 0, &pos, NULL); it->t = rk_testop_call(b, rt, &pos); return; }
     if (!strcmp(nm, "say") || !strcmp(nm, "print")) {
         arglist(b, args, 0, &pos, NULL); flatten_paren_args(args, &pos);
         tree_t *c = ast_node_new(nm[0] == 's' ? TT_SAY : TT_PRINT); for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]); it->t = c; return;
@@ -1438,10 +1479,21 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
         it->t = c; return; }
 }
 /*====================================================================================================================================================================================================*/
+static void rk_pcv_release(RkB *b, tree_t *sig) {
+    for (int i = 0; sig && i < sig->n; i++) {
+        const tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0];
+        if (!p || p->t != TT_VAR || !p->v.sval) continue;
+        size_t n = strlen(p->v.sval); if (n < 7 || strcmp(p->v.sval + n - 6, "__code")) continue;
+        char *bare = trimdup(p->v.sval, (int) (n - 6)); const char *ib = intern(bare);
+        for (int k = b->npcv - 1; k >= 0; k--) if (!strcmp(b->pcv[k], ib)) { ns_remove(&b->codev, ib); b->pcv[k] = b->pcv[--b->npcv]; break; }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_param(RkB *b, int prefix, const char *var, int varlen, int *tf, int *tt, int ntypes, RkList *dflt, int suffix, int named) {
     (void) suffix; (void) named;
     char *v = trimdup(var ? var : "", var ? varlen : 0);
     tree_t *p;
+    if (v[0] == '&' && v[1] && prefix != '*' && prefix != 'L') { const char *bare = intern(v + 1); if (!ns_has(&b->codev, bare)) { GROW(b->pcv, b->npcv, b->cpcv, const char *); b->pcv[b->npcv++] = bare; } rkb_codevar(b, v); }
     if (prefix == '*' || prefix == 'L') p = var_node(b, v), expr_add_child(p, leaf_sval(TT_QLIT, intern(prefix == 'L' ? "**@" : v[0] == '%' ? "*%" : "*@")));
     else if (v[0] == '@' && !ntypes) { p = var_node(b, v); expr_add_child(p, leaf_sval(TT_QLIT, "@")); }
     else if (ntypes) p = rk_typed_param(b, spn(b, tf[0], tt[0]), v);
@@ -1758,6 +1810,7 @@ void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *s
     (void) sub;
     memset(it, 0, sizeof *it); it->kind = TK_BLOCK; it->from = from; it->to = it->core_to = to; it->val = seq; it->lop = rkb_paren(b, last, nstmts);
     if (!sig && nstmts == 1 && last && last->n >= 1) { tree_t *h = paren_hash(b, last); if (h && !rk_uses_topic(h)) { it->kind = TK_TREE; it->t = h; return; } }
+    rk_pcv_release(b, sig);
     tree_t *a = ast_node_new(TT_ANON_BLOCK); expr_add_child(a, seq);
     for (int i = 0; sig && i < sig->n; i++) { tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0]; expr_add_child(a, p); }
     it->t = a;
@@ -1767,6 +1820,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     (void) prefix; (void) has_parens; (void) tr; (void) ntr;
     TL params = { 0 };
     for (int i = 0; sig && i < sig->n; i++) tl_add(&params, sig->c[i]);
+    rk_pcv_release(b, sig);
     if (!body) body = ast_node_new(TT_SEQ_EXPR);
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
@@ -1841,6 +1895,7 @@ tree_t *rkb_constant(RkB *b, const char *name, int namelen, RkList *init) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_use(RkB *b, const char *name, int namelen, RkList *args) {
     char *nm = trimdup(name, namelen);
+    if (!strcmp(nm, "Test")) b->use_test = 1;
     tree_t *u = ast_node_new(TT_USE_DECL);
     char *dot = nm[0] == 'v' && isdigit((unsigned char) nm[1]) ? strchr(nm, '.') : NULL;
     if (dot) {
