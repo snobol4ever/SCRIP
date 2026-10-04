@@ -16,7 +16,7 @@ classify() {
   # $1=stdout file  $2=stderr file  $3=rc  -> echoes one of PASS/FAIL/PARSE-FAIL/CRASH/NO-TAP
   local so="$1" se="$2" rc="$3"
   if grep -q "parse error" "$se" 2>/dev/null; then echo "PARSE-FAIL"; return; fi
-  if [ "$rc" -ge 124 ]; then echo "CRASH"; return; fi
+  if [ "$rc" -ge 124 ] && [ "$rc" -ne 255 ]; then echo "CRASH"; return; fi
   local plan ok notok
   plan=$(grep -cE '^1\.\.[0-9]+' "$so" 2>/dev/null)
   ok=$(grep -cE '^ok [0-9]+' "$so" 2>/dev/null)
@@ -89,7 +89,9 @@ roast_bucket() {
   # also made classify()'s CRASH arm dead code on the roast path. When two layers classify the same fact,
   # the outer one silently wins, so they must not both decide.
   if [ "$rc" -eq 124 ]; then echo UNGRADABLE-TIMEOUT; return; fi
-  if [ "$rc" -ge 128 ]; then echo UNGRADED-CRASH; return; fi
+  # ⛔ 255 IS NOT A SIGNAL DEATH: Rakudo's Test exits 255 when the plan is not met, and SCRIP's Test emulation now does the same (hq_raku 2026-10-04, found when the
+  # honest exit status moved 315 files into UNGRADED-CRASH). A signal death is 128 plus the signal (at most 159 here); 255 falls through to classify, which reads the TAP.
+  if [ "$rc" -ge 128 ] && [ "$rc" -ne 255 ]; then echo UNGRADED-CRASH; return; fi
   if [ "$rc" -ge 125 ] && [ "$rc" -le 127 ]; then echo UNGRADED-OTHER; return; fi
   case "$(classify "$so" "$se" "$rc")" in
     PASS)   echo GRADED-PASS ;;

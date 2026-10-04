@@ -66,6 +66,11 @@ arm "clean TAP is GRADED-PASS" GRADED-PASS "1..1
 ok 1 - x" "" 0
 arm "a not-ok is GRADED-FAIL" GRADED-FAIL "1..1
 not ok 1 - x" "" 1
+# ⛔ EXIT 255 IS RAKUDO'S TEST STATUS FOR AN UNMET PLAN, NOT A SIGNAL DEATH (hq_raku 2026-10-04): a plan with fewer tests run is a FAIL the TAP shows, and 134 or 139 stay crashes.
+arm "an unmet plan (rc 255) with TAP is GRADED-FAIL" GRADED-FAIL "1..3
+ok 1 - x" "# You planned 3 tests, but ran 1" 255
+arm "a SIGSEGV (rc 139) is still UNGRADED-CRASH" UNGRADED-CRASH "1..3
+ok 1 - x" "" 139
 # ⛔ UNGRADED-LEX MUST CARRY THE UNGRADED- PREFIX. The inventory computes graded/ungraded/ungradable by
 # prefix and REFUSES if the three do not sum to the population, so a bucket named `LEX-FAIL` would not
 # merely read oddly -- it would break the census identity and refuse the whole board.
