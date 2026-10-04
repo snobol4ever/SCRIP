@@ -31,11 +31,11 @@ static inline bool bb_glue_outer_needs_ret() {
 extern "C" void sno_setexit_fire_on_end(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_icn_root_tap(int kind) {
-    extern std::string xa_icn_trace_tap(const char * pname, int kind, int np); extern const char * xa_icn_trace_pname(void);
+    extern std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d); extern const char * xa_icn_trace_pname(void);
     return IF(!(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->icn_cells_graph),
                std::string())
          + IF(!(!(g_emit_cfg && g_emit_cfg->root_graph && g_emit_cfg->icn_cells_graph)),
-               xa_icn_trace_tap(xa_icn_trace_pname(), kind, 0));
+               xa_icn_trace_tap(xa_icn_trace_pname(), kind, 0, 16));
 }
 std::string bb_glue_outer_γ() {
     return bb_glue_icn_root_tap(2)

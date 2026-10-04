@@ -307,6 +307,7 @@ void core_icn_bi_reset(void *mark);
 void core_icn_traceback(void);
 void core_icn_display_image(FILE *fp, DESCR_t v);
 int  core_icn_act_np(int lv);
+DESCR_t *core_icn_act_arg(int lv, int k);
 int  core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_gen_fail_hook(const char *fname, void *h);

@@ -576,7 +576,7 @@ static const char * xa_icn_trace_intern(const char * s) {
     return pool.insert(std::string(s)).first->c_str();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
+std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
     extern int g_flat_node_id;
@@ -597,7 +597,7 @@ std::string xa_icn_trace_tap(const char * pname, int kind, int np) {
         + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
     if (kind == 1) s += x86("mov32", "esi", (long)np)
-                      + x86("lea", "rdx", RDQ("r11", 16));
+                      + x86("lea", "rdx", RDQ("r11", r11d));
     else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8))
                            + x86("mov", "rdx", RDQ("r11", 0));
     else if (kind == 5) s += x86("mov", "rsi", "rbp");
@@ -627,9 +627,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", "rsp")
              + x86("jmp", "rcx");
     }
-    extern std::string xa_icn_act_restore_call_line(int lbl);
+    extern std::string xa_icn_act_restore_call_line(int lbl); extern int xa_icn_block_size(void);
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
-        return  xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0)
+        return  xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
              + xa_icn_act_restore_call_line(243)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
@@ -644,9 +644,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
-             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt))
+             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt + xa_icn_block_size()))
                                   + x86("mov", "rbp", RDQ("rbp", kt - 8))
-                                  : x86("add", "rsp", (long)kt))
+                                  : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_γ();
     if (zf_pas_nest_graph())
         return  x86("mov", "rdi", "rax")
@@ -690,9 +690,9 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
 static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
-    extern std::string xa_icn_act_restore_call_line(int lbl);
+    extern std::string xa_icn_act_restore_call_line(int lbl); extern int xa_icn_block_size(void);
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
-        return   xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0)
+        return   xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
              + xa_icn_act_restore_call_line(244)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
@@ -705,9 +705,9 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
              + x86("mov", RDQ("rax", 0), "rcx")
              + x86("pop", "rax")
-             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt))
+             + (icn_host_pinned() ? x86("lea", "rsp", RDQ("rbp", kt + xa_icn_block_size()))
                                   + x86("mov", "rbp", RDQ("rbp", kt - 8))
-                                  : x86("add", "rsp", (long)kt))
+                                  : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_ω();
     if (zf_pas_nest_graph())
         return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")

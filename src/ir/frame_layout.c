@@ -11,6 +11,7 @@ extern int rt_proc_is_registered(const char *);
 extern int rt_proc_is_generator(const char *);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_frame_bytes(const IR_graph_t * g);
+int zls_g_block_base(const IR_graph_t * g);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_callee_is_gen(const IR_t * nd) { const char * fn = IR_LIT(nd).sval; return fn && fn[0] && rt_proc_is_registered(fn) && rt_proc_is_generator(fn); }
 #define FL_FC_SYNTH    0x7F000
@@ -638,7 +639,7 @@ void zls_build(IR_graph_t * g) {
     }
     r->nslots = k;
     r->region = base + k * 16;
-    if (blk) { int kt = zls_g_frame_bytes(g), j = r->first_vslot; for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) zv[j++].off = kt + i * 16; }
+    if (blk) { int ab = zls_g_block_base(g), j = r->first_vslot; for (int i = 0; i < g->nparams && g->pnames; i++) if (g->pnames[i]) zv[j++].off = ab + i * 16; }
     for (int f = 0; f < zf_n; f++) {
         int sid = zf[f].scope_id;
         if (sid < root || sid >= zs_n) continue;
@@ -856,15 +857,25 @@ int zls_node_bytes(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); if (!
 int zls_scope_of(const IR_t * nd) { const zls_entry_t * e = zx_find(nd); return e ? e->scope_id : -1; }
 int zls_g_nslots(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->nslots : -1; }
 int zls_g_region(const IR_graph_t * g) { zls_graph_t * r = zls_g_find(g); return r ? r->region : -1; }
+static int zls_g_pinned_frame(const IR_graph_t * g) { return (g && g->zframe_pinned_base && g->zframe_graph && !g->icn_cells_graph) ? 1 : 0; }
 int zls_g_block_args(const IR_graph_t * g) {
+    if (g && g->icn_cells_graph && !g->root_graph) return 1;
     if (!g || !g->zframe_graph || g->icn_cells_graph) return 0;
     if (g->zframe_pinned_base) return 1;
     return (g->block_args && !g->root_graph && g->nlocals == 0 && g->nparams <= 12) ? 1 : 0;
 }
+int zls_g_entry_block(const IR_graph_t * g) { return (zls_g_pinned_frame(g) || (g && g->icn_cells_graph && !g->root_graph)) ? 1 : 0; }
 int zls_g_frame_bytes(const IR_graph_t * g) {
     zls_graph_t * r = zls_g_find(g); int region = r ? r->region : 0;
-    int allowance = (g && g->zframe_pinned_base && zls_g_block_args(g)) ? (g->root_graph ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE;
+    int allowance = zls_g_pinned_frame(g) ? (g->root_graph ? FLAT_FRAME_ALLOWANCE_ROOT : FLAT_FRAME_ALLOWANCE_PINNED) : FLAT_FRAME_ALLOWANCE;
     return (allowance + region + (g ? 8 * g->standing_cells : 0) + 15) & ~15;
+}
+int zls_g_has_suspend(const IR_graph_t * g) { if (!g) return 0; for (int i = 0; i < g->n; i++) if (g->all[i] && g->all[i]->op == IR_SUSPEND) return 1; return 0; }
+int zls_g_block_base(const IR_graph_t * g) {
+    if (!zls_g_block_args(g)) return -1;
+    if (!g->icn_cells_graph) return zls_g_frame_bytes(g);
+    { int ft = zls_g_frame_bytes(g) + (g->nparams + g->nlocals) * 16;
+      return zls_g_has_suspend(g) ? ((ft + 15) & ~15) + 56 : ft; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_forget_graph_nodes(const IR_graph_t * g) {

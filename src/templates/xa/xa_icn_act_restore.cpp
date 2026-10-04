@@ -10,6 +10,7 @@ extern "C" {
 extern int * const rt_k_level_p;
 extern long g_line;
 extern const char * g_file;
+extern "C" int zls_g_block_args(const IR_graph_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_icn_act_restore_call_line(int lbl) {
     return x86("comment", "the caller's line and file come back at the callee's return or failure, traced or not: g_icn_act[level] holds what the call site's statement set")
@@ -37,4 +38,8 @@ std::string xa_icn_act_restore_call_line(int lbl) {
          + x86("def", L(lbl))
          + x86("pop", "rdx")
          + x86("pop", "rax");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int xa_icn_block_size(void) {
+    return (g_emit_cfg && g_emit_cfg->icn_cells_graph && zls_g_block_args(g_emit_cfg)) ? 16 * g_emit_cfg->nparams : 0;
 }

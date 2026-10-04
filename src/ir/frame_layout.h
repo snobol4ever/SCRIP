@@ -47,3 +47,6 @@ int  fc_frameless_fpr_rsp(const IR_t * nd);
 int  fc_cells_active(void);
 int zls_g_block_args(const IR_graph_t * g);
 int zls_g_frame_bytes(const IR_graph_t * g);
+int zls_g_block_base(const IR_graph_t * g);
+int zls_g_entry_block(const IR_graph_t * g);
+int zls_g_has_suspend(const IR_graph_t * g);

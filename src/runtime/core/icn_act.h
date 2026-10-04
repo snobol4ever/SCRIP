@@ -1,6 +1,6 @@
 #ifndef ICN_ACT_H
 #define ICN_ACT_H
-typedef struct icn_act_rec { const char *name; void *base; int np; long line; const char *file; } icn_act_rec_t;
+typedef struct icn_act_rec { const char *name; void *base; int np; long line; const char *file; void *args; } icn_act_rec_t;
 #define ICN_ACT_CAP (1 << 16)
 #ifdef __cplusplus
 extern "C" {

@@ -525,6 +525,7 @@ int core_icn_act_top(void) { extern int rt_k_level; int t = rt_k_level; if (t >=
 const char *core_icn_act_name(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].name : (const char *)0; }
 void *core_icn_act_base(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].base : (void *)0; }
 int core_icn_act_np(int lv) { return (lv >= 1 && lv < ICN_ACT_CAP) ? g_icn_act[lv].np : 0; }
+DESCR_t *core_icn_act_arg(int lv, int k) { return (lv >= 1 && lv < ICN_ACT_CAP && g_icn_act[lv].args) ? (DESCR_t *)((char *)g_icn_act[lv].args + 16 * k) : (DESCR_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_traceback(void) {
     extern int rt_k_level; extern long g_line; extern const char *g_file;
@@ -533,7 +534,7 @@ void core_icn_traceback(void) {
         icn_act_rec_t *r = &g_icn_act[lv];
         if (r->name) {
             fputs("  in ", stderr); fputs(r->name, stderr); fputc('(', stderr);
-            for (int i = 0; i < r->np; i++) { if (i) fputc(',', stderr); icn_tb_image(*(DESCR_t *)((char *)r->base + (i + 1) * 16)); }
+            for (int i = 0; i < r->np; i++) { if (i) fputc(',', stderr); icn_tb_image(r->args ? *(DESCR_t *)((char *)r->args + i * 16) : NULVCL); }
             fputc(')', stderr);
             if (lv > 1) fprintf(stderr, " from line %ld in %s", r->line, icn_basename(r->file));
             fputc('\n', stderr);

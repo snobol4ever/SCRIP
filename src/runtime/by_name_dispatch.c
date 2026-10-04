@@ -1922,7 +1922,7 @@ static CVSPINE_t cvprep_decline(const char *why, const char *nm) { cvprep_say("d
 #define cvprep_say(what, why, nm) ((void)0)
 #define cvprep_decline(why, nm) ((CVSPINE_t){ 0, 0 })
 #endif
-CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
+static CVSPINE_t rt_call_value_spine_prep_x(DESCR_t callee, DESCR_t *argv, int n, int blk_ok) {
     extern int rt_proc_jmp_entry(const char *name); extern void *rt_proc_fn(const char *name); extern long rt_proc_call_open(const char *name, int nargs);
     const char *nm = procval_name(callee);
     if (!nm && IS_STR_fn(callee) && callee.s) nm = callee.s;
@@ -1932,16 +1932,28 @@ CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) {
     if (IS_PROCVAL_EXTERNAL_fn(callee)) return cvprep_decline("external", nm);
     if (!rt_proc_is_registered(nm)) return cvprep_decline("unregistered", nm);
     if (!rt_proc_jmp_entry(nm)) return cvprep_decline("nojmpentry", nm);
+    { extern int rt_proc_pinned(const char *); if (!blk_ok && rt_proc_pinned(nm)) return cvprep_decline("block", nm); }
     { extern int rt_proc_gen_region_ft(const char *); if (rt_proc_gen_region_ft(nm) > 0) return cvprep_decline("genregionft", nm); }
     { rt_call_args_need(n); for (int k = 0; k < n; k++) CALL_ARGS[k] = argv[k]; rt_call_args_clear_from(n); }
     if (!rt_proc_call_open(nm, n)) return cvprep_decline("openfailed", nm);
-    { int gen = rt_proc_is_generator(nm); cvprep_say("open", gen ? "spine" : "spinedet", nm); return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), gen ? 0 : 2 }; }
+    { extern int rt_proc_pinned(const char *); int gen = rt_proc_is_generator(nm), blk = rt_proc_pinned(nm) ? rt_proc_nparams(nm) : 0; cvprep_say("open", gen ? "spine" : "spinedet", nm);
+      return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), (gen ? 0 : 2) | ((long)(blk > 0 ? blk : 0) << 8) }; }
+}
+CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) { return rt_call_value_spine_prep_x(callee, argv, n, 0); }
+CVSPINE_t rt_call_value_spine_prep_blk(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
+    { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
+    return rt_call_value_spine_prep_x(callee, argv, n, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) {
+static CVSPINE_t rt_call_apply_spine_prep_x(DESCR_t callee, DESCR_t lv, int blk_ok) {
     DESCR_t buf[64]; int n = rt_apply_unpack(lv, buf, 64);
     if (n < 0) return (CVSPINE_t){ 0, 0 };
-    return RT_GC_CALLBACK(rt_call_value_spine_prep(callee, buf, n));
+    return RT_GC_CALLBACK(rt_call_value_spine_prep_x(callee, buf, n, blk_ok));
+}
+CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv) { return rt_call_apply_spine_prep_x(callee, lv, 0); }
+CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot) {
+    { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
+    return rt_call_apply_spine_prep_x(callee, lv, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_goal_key(DESCR_t goal, int extra, char *out, size_t cap, DESCR_t **args_out, int *ar_out) {
@@ -7386,7 +7398,7 @@ static DESCR_t *icn_variable_frame_cell(DESCR_t nm, char *stat, size_t statsz) {
     int lv = core_icn_act_top(); const char *pn = core_icn_act_name(lv); char *base = (char *)core_icn_act_base(lv); size_t L = nm.slen;
     if (!pn || !base) return (DESCR_t *)0;
     int nt = core_icn_act_np(lv); if (nt <= 0) nt = rt_proc_nparams(pn); if (nt < 0) nt = 0;
-    for (int k = 0; k < nt; k++) { const char *vn = rt_proc_pname(pn, k); if (!vn) vn = rt_proc_loc_pname(pn, k); if (vn && strlen(vn) == L && !memcmp(vn, nm.s, L)) return (DESCR_t *)(base + (k + 1) * 16); }
+    for (int k = 0; k < nt; k++) { const char *vn = rt_proc_pname(pn, k); if (!vn) vn = rt_proc_loc_pname(pn, k); if (vn && strlen(vn) == L && !memcmp(vn, nm.s, L)) { extern DESCR_t *core_icn_act_arg(int, int); return core_icn_act_arg(lv, k); } }
     for (int k = 0, nl = rt_proc_nlocals(pn); k < nl; k++) { const char *vn = rt_proc_lname(pn, k); int off = rt_proc_loff(pn, k); if (vn && off >= 0 && strlen(vn) == L && !memcmp(vn, nm.s, L)) return (DESCR_t *)(base + off); }
     if (stat && snprintf(stat, statsz, "%s__STATIC__%.*s", pn, (int)L, nm.s) < (int)statsz && !NV_EXISTS_fn(stat)) stat[0] = 0;
     return (DESCR_t *)0;
@@ -7444,7 +7456,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 const char *vn = (k < nt) ? (rt_proc_pname(pn, k) ? rt_proc_pname(pn, k) : rt_proc_loc_pname(pn, k)) : rt_proc_lname(pn, k - nt); if (!vn) continue;
                 if (vn[0] == 38) continue;
                 DESCR_t v; { extern int rt_proc_loff(const char *, int); int off = (k < nt) ? -1 : rt_proc_loff(pn, k - nt);
-                  if (k < nt) v = base ? *(DESCR_t *)((char *)base + (k + 1) * 16) : NULVCL;
+                  if (k < nt) { extern DESCR_t *core_icn_act_arg(int, int); DESCR_t *ap = core_icn_act_arg(lv, k); v = ap ? *ap : NULVCL; }
                   else if (base && off >= 0) v = *(DESCR_t *)((char *)base + off);
                   else v = NV_GET_fn(vn); }
                 fprintf(fp, "   %s = ", vn);

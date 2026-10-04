@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2024
+#define GC_ALLOC_TAB_N 2028
 #define GC_ALLOC_TAB_N_VOID 234
 #define GC_ALLOC_TAB_N_DESCR 1104
-#define GC_ALLOC_TAB_N_OTHER 680
+#define GC_ALLOC_TAB_N_OTHER 684
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1049,6 +1049,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_bitop_operand", GC_RET_DESCR },
     { "rt_call_apply_gen_h", GC_RET_DESCR },
     { "rt_call_apply_spine_prep", GC_RET_OTHER },
+    { "rt_call_apply_spine_prep_blk", GC_RET_OTHER },
+    { "rt_call_apply_spine_prep_x", GC_RET_OTHER },
     { "rt_call_args_need", GC_RET_VOID },
     { "rt_call_arr", GC_RET_DESCR },
     { "rt_call_arr_bl", GC_RET_DESCR },
@@ -1078,6 +1080,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_value_gen_h", GC_RET_DESCR },
     { "rt_call_value_resume_h", GC_RET_DESCR },
     { "rt_call_value_spine_prep", GC_RET_OTHER },
+    { "rt_call_value_spine_prep_blk", GC_RET_OTHER },
+    { "rt_call_value_spine_prep_x", GC_RET_OTHER },
     { "rt_cap_land_γ", GC_RET_OTHER },
     { "rt_cap_land_ω", GC_RET_OTHER },
     { "rt_cap_open", GC_RET_OTHER },

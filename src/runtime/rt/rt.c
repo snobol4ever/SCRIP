@@ -1125,9 +1125,9 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
 #if RT_DIAG
-        if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L); }
+        if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L); }
 #else
-        if (p->jmp_entry) { return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L); }
+        if (p->jmp_entry) { return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L); }
 #endif
         core_runtime_error(287, "lexical procedure has no jmp_entry: the callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). It alloca'd the frame on the C STACK, called the box, and then chose omega-vs-gamma IN C via rt_proc_call_epilogue_ret -- runtime logic where the law requires BB logic. It cannot be converted to return-the-target because a C-stack frame cannot outlive a tail jump; the frame must come from the zeta-spine first. Traced ZERO times over 486 programs (336 snocone rungs + 150 snobol4 package), so this error is the row, not a regression.");
         return FAILDESCR;
@@ -1294,7 +1294,7 @@ void rt_genp_deliver_ω(void)
     for (;;) pause();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern void rt_genp_spine_enter_n2(void *fn, void *region);
+extern void rt_genp_spine_enter_n2(void *fn, void *region, long nblk);
 extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t rt_genp_deliver_n2_γ(uint64_t H)
@@ -1317,7 +1317,7 @@ void rt_genp_entry_c(rt_genp_s *g)
 #if RT_DIAG
     rt_c2bb_hit(g->region_ft > 0 ? "genp.spine.n2" : "genp.spine", g->name);
 #endif
-    if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0); else rt_genp_spine_enter(g->fn, rt_proc_pinned(g->name) ? (long)g->nargs : 0L);
+    { long nb = rt_proc_pinned(g->name) ? (long)rt_proc_nparams(g->name) : 0L; if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0, nb); else rt_genp_spine_enter(g->fn, nb); }
     g->done = 2; scrip_cofail();
     for (;;) pause();
 }
@@ -1375,7 +1375,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout)
 #if RT_DIAG
         rt_c2bb_hit("gen_h.enter", name);
 #endif
-        return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L);
+        return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L);
     }
     if (hout) *hout = (void *)0;
     core_runtime_error(287, "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, then delete the C code NOW'; CEO-1086 deleted the identical shape from rt_call_proc_descr; CEO-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile-time frame map describes). It alloca'd the frame on the C STACK, called p->fn through a member function pointer, and read the result back out of the C frame after the box returned -- so C survived the transition and the answer came back through C. It cannot become return-the-target while written that way: a C-stack frame cannot outlive a tail jump. TRACED ZERO IN ALL SEVEN LANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by the ceo's own SnoRungs sweep; the 1039 transitions those control arms did raise were all genp.spine.n2, the sanctioned coroutine start. Reachability is ALSO analytic: this arm needs fn set AND jmp_entry clear, and jmp_entry is cleared only for a caller_frame graph or a gram__ name, and gram__ procedures are never registered at all. This error is the row, not a regression.");
@@ -1638,7 +1638,7 @@ int rt_pl_dc_ok(const char *name, int nargs)
     { int i = name ? rt_proc_hash_lookup(name) : -1;
       if (i < 0) return 0;
       { rt_proc_t *p = &g_rt_gen_procs[i];
-        return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && (p->nformals > 0 ? p->nformals : p->nparams) == nargs && nargs >= 0 && nargs <= 4) ? 1 : 0; } }
+        return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && !p->pinned && (p->nformals > 0 ? p->nformals : p->nparams) == nargs && nargs >= 0 && nargs <= 4) ? 1 : 0; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long nargs, long idx)
@@ -1879,7 +1879,7 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
 #if RT_DIAG
         rt_c2bb_hit("c_lex.enter", p->name);
 #endif
-        return rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L);
+        return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L);
     }
     (void)rt_proc_call_prologue_lex(&p, nargs, wn);
     core_runtime_error(287, "named lexical procedure has no jmp_entry: the c_lex callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). Identical shape to the descr.callregime.lex arm deleted above -- alloca the frame on the C STACK, call the box, then choose omega-vs-gamma IN C through rt_proc_call_epilogue_ret. Both halves are forbidden: C survives the transition, and the port selection is runtime logic where the law requires BB logic.");

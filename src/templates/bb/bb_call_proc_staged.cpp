@@ -4,6 +4,7 @@
 extern "C" {
 #include "bb_template_common.h"
 #include "stage2.h"
+#include "ab_abi.h"
 #include "bb_templates.h"
 long    rt_proc_call_open(const char *name, int nargs);
 void   *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm);
@@ -62,6 +63,10 @@ int  bb_proc_target_zframe_graph(const char *fname);
 int  bb_proc_target_pinned_graph(const char *fname);
 int  rt_proc_pinned(const char *name);
 void *bb_ab_fn_cell_ptr(const char *fname);
+int  bb_proc_target_icn_block(const char *fname, int *np, int *vari);
+DESCR_t rt_make_list(DESCR_t *args, int nargs);
+void rt_trace_call_hook_f(const char *fname, int np, void *base);
+int  zls_g_block_args(const IR_graph_t * g);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -185,6 +190,14 @@ static void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, co
 extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->multi_proto : 0; } return 0; }
 extern "C" int bb_proc_target_pinned_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (cg) return (cg->zframe_pinned_base && cg->zframe_graph && !cg->icn_cells_graph) ? 1 : 0; break; } return rt_proc_pinned(fname); }
 extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !cg->zframe_pinned_base && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
+extern "C" int bb_proc_target_icn_block(const char *fname, int *np, int *vari) {
+    int i = 0;
+    while (fname && i < g_stage2.proc_count && (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname))) i++;
+    IR_graph_t * cg = (fname && i < g_stage2.proc_count && g_stage2.proc_table[i].bb_idx >= 0 && g_stage2.proc_table[i].bb_idx < g_stage2.bbp.count)
+                    ? g_stage2.bbp.table[g_stage2.proc_table[i].bb_idx] : (IR_graph_t *)0;
+    if (cg && cg->icn_cells_graph && zls_g_block_args(cg)) { if (np) *np = cg->nparams; if (vari) *vari = g_stage2.proc_table[i].is_variadic; }
+    return (cg && cg->icn_cells_graph && zls_g_block_args(cg)) ? 1 : 0;
+}
 extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->zframe_graph : 0; } return 0; }
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
@@ -215,10 +228,13 @@ static std::string bcps_undef_fallback(uint64_t) {
          + x86_rt_gc_poll() + x86_omega(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_block_build(IR_graph_t ** argblks, int n);
+static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t ** argblks, long idx, int np, int vari, int n2_ftc);
 static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int lγ, int lω, int lskip);
 static std::string bcps_det_arm() {
     x86_begin();
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
+    { int ibnp = 0, ibva = 0; long ibidx = (_.op_sval && !rt_proc_dyn_scope(_.op_sval)) ? (long)rt_proc_index_of(_.op_sval) : -1L;
+      if (ibidx >= 0 && bb_proc_target_icn_block(_.op_sval, &ibnp, &ibva)) return bcps_icn_block_arm(0, off, 0, (IR_graph_t **)(intptr_t)_.op_counter, ibidx, ibnp, ibva, 0); }
     if (_.op_zres) {
         int bidx_z = bcps_beta_pair_idx(); IR_graph_t ** argblks_z = (IR_graph_t **)(intptr_t)_.op_counter;
         int is_dyn_z = _.op_sval && rt_proc_dyn_scope(_.op_sval);
@@ -607,6 +623,139 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_icn_lvl(long d) {
+    extern int * const rt_k_level_p; extern int64_t kw_fnclevel;
+    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("add", RDD("rax", 0), d)
+         + x86("mov", "ecx", RDD("rax", 0))
+         + x86("movsxd", "rcx", "ecx")
+         + x86("sub", "rcx", 1L)
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
+         + x86("mov", RDQ("rax", 0), "rcx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_icn_opnd(IR_graph_t ** argblks, int i, int w, long d) {
+    std::string u = _.op_zres ? x86_zref((i < _.op_zcap ? _.op_zread[i] : 0) + w, 1) : FRQ(bcps_arg_slot(_.node, argblks, i) + w);
+    return (u.find("rbp") != std::string::npos || (u.find("rsp$") != std::string::npos && x86_fb_num() == 5)) ? u
+         : _.op_zres ? std::string(x86_zref((i < _.op_zcap ? _.op_zread[i] : 0) + w + (int)d, 1))
+         : std::string(FRQB(bcps_arg_slot(_.node, argblks, i) + w, (int)d));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_icn_src(IR_graph_t ** argblks, int i, int w, long d) {
+    return (_.op_zres && i < _.op_zcap && _.op_zread_xf[i] != -1) ? x86("mov", "rcx", RDQ("rbp", _.op_zread_xf[i] + w))
+         : (!_.op_zres && x86_fc_hit(bcps_arg_slot(_.node, argblks, i) + w))
+         ? x86_rsp_load64("rcx", bcps_arg_slot(_.node, argblks, i) + w - _.op_fc_base + (int)d)
+         : x86("mov", "rcx", bcps_icn_opnd(argblks, i, w, d).c_str());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t ** argblks, long idx, int np, int vari, int n2_ftc) {
+    extern std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d);
+    int nargs = (int)_.op_ival, nfix = vari ? np - 1 : np, ncp = nargs < nfix ? nargs : nfix, rest = (vari && nargs > nfix) ? nargs - nfix : 0;
+    long K = (is_gen ? 40L : 16L) + 16L * np, pad = is_gen ? 8L : 0L;
+    return x86_alpha()
+         + x86("note", "the block protocol (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.2, Icon): the wires and entry words first, then the argument block at the callee's entry rsp, "
+                       "then a jump through the registry -- no staged medium, no C open, no C epilogue, no NRETURN consult")
+         + x86_scan_sync_out()
+         + x86_anchor_enter()
+         + IF(is_gen, x86("mov", FRQ(act), (long)DT_RAW)
+                    + bcps_icn_lvl(1L)
+                    + bb_glue_lvl_slot_rcx()
+                    + x86("mov", RDQ("rcx", SNO_LVL_ACT_RSP), 0L)
+                    + x86("sub", "rsp", 24L)
+                    + x86_rsp_store64_imm(16, 0L)
+                    + x86_rsp_store64_imm(8, 0L)
+                    + x86_rsp_store64_imm(0, 0L))
+         + x86_lea_id("rcx", 4)
+         + x86("push", "rcx")
+         + x86_lea_id("rcx", 3)
+         + x86("push", "rcx")
+         + IF(!is_gen, bb_glue_act_record(0))
+         + x86("sub", "rsp", 16L * np)
+         + FOR(0, ncp, [&](int i) { return bcps_icn_src(argblks, i, 0, K)
+                                         + x86_rsp_store64(16 * i, "rcx")
+                                         + bcps_icn_src(argblks, i, 8, K)
+                                         + x86_rsp_store64(16 * i + 8, "rcx"); })
+         + FOR(ncp, np, [&](int i) { return x86_rsp_store64_imm(16 * i, 0L)
+                                          + x86_rsp_store64_imm(16 * i + 8, 0L); })
+         + IF(vari, x86("sub", "rsp", 16L * rest + pad)
+                  + FOR(0, rest, [&](int k) { return bcps_icn_src(argblks, nfix + k, 0, K + 16 * rest + pad)
+                                                   + x86_rsp_store64(16 * k, "rcx")
+                                                   + bcps_icn_src(argblks, nfix + k, 8, K + 16 * rest + pad)
+                                                   + x86_rsp_store64(16 * k + 8, "rcx"); })
+                  + x86("mov", "rdi", "rsp")
+                  + x86("mov32", "esi", (long)rest)
+                  + x86("call", "rt_make_list", (uint64_t)(uintptr_t)(void *)rt_make_list)
+                  + x86_rt_gc_poll_res()
+                  + x86("add", "rsp", 16L * rest + pad)
+                  + x86_rsp_store64(16 * (np - 1), "rax")
+                  + x86_rsp_store64(16 * (np - 1) + 8, "rdx"))
+         + IF(is_gen, xa_icn_trace_tap(_.op_sval, 1, np, 0))
+         + IF(is_gen, x86_lea_id("rdx", 4))
+         + bcps_jmp_proc_fn(idx)
+         + x86("def", L(3))
+         + (is_gen ? x86("cmp", "al", (long)DT_FAIL)
+                   + x86("je", L(8))
+                   + x86("mov", "rdi", RDQ("rdx", 0 - n2_ftc))
+                   + x86("mov", "rsi", RDQ("rdx", 8 - n2_ftc))
+                   + x86("mov", FRQ(act + 8), "rdx")
+                   + x86("jmp", L(9))
+                   + x86("def", L(8))
+                   + x86("mov32", "edi", (long)DT_FAIL)
+                   + x86("mov32", "esi", 0L)
+                   + x86("mov", FRQ(act + 8), "rsp")
+                   + x86("def", L(9))
+                   + x86("mov", "rax", FRQ(act))
+                   + x86_raw_unpack("rax")
+                   + x86("test", "rax", "rax")
+                   + x86("jne", L(5))
+                   + x86("mov", FRQ(act), (long)(0x100 | DT_RAW))
+                   + bcps_icn_lvl(-1L)
+                   + x86("mov", "rax", "rdi")
+                   + x86("mov", "rdx", "rsi")
+                   + x86("jmp", L(2))
+                   + x86("def", L(5))
+                   + x86("call", "rt_gen_spine_pass_γ", (uint64_t)(uintptr_t)(void *)rt_gen_spine_pass_γ)
+                   + x86("jmp", L(2))
+                 : bcps_wire_land(_.op_sval)
+                   + x86("mov", "rax", "rdi")
+                   + x86("mov", "rdx", "rsi")
+                   + x86("jmp", L(2)))
+         + x86("def", L(4))
+         + bcps_wire_land(_.op_sval)
+         + (is_gen ? x86("add", "rsp", 8L)
+                   + x86("mov", "rax", FRQ(act))
+                   + x86_raw_unpack("rax")
+                   + x86("test", "rax", "rax")
+                   + x86("jne", L(6))
+                   + x86("mov", FRQ(act), (long)(0x100 | DT_RAW))
+                   + bcps_icn_lvl(-1L)
+                   + x86("mov32", "eax", (long)DT_FAIL)
+                   + x86("xor", "edx", "edx")
+                   + x86("jmp", L(2))
+                   + x86("def", L(6))
+                   + x86("call", "rt_gen_spine_pass_ω", (uint64_t)(uintptr_t)(void *)rt_gen_spine_pass_ω)
+                   + x86("jmp", L(2))
+                 : x86("mov32", "eax", (long)DT_FAIL)
+                   + x86("xor", "edx", "edx"))
+         + x86("def", L(2))
+         + x86_anchor_leave()
+         + x86_scan_sync_in_rr()
+         + x86("mov", _.op_zres ? ZRES(0) : FRQ(off), "rax")
+         + x86("mov", _.op_zres ? ZRES(8) : FRQ(off + 8), "rdx")
+         + x86("cmp", "al", (long)DT_FAIL)
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta()
+         + (is_gen ? x86_scan_sync_out()
+                   + x86("call", "rt_gen_spine_resume_enter", (uint64_t)(uintptr_t)(void *)rt_gen_spine_resume_enter)
+                   + x86("mov", "rax", FRQ(act + 8))
+                   + x86("mov", "rsp", RDQ("rax", 40))
+                   + x86_jmp_mem("rax", 32)
+                 : (bcps_beta_pair_idx() < 0 ? x86_omega() : x86_pair_jmp(bcps_beta_pair_idx())))
+         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_spine_gen_arm() {
     x86_begin();
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
@@ -631,6 +780,7 @@ static std::string bcps_spine_gen_arm() {
     if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
     if (icn_gen_regime() && n2_fb <= 0) return x86_alpha() + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta() + x86_bomb("N-3: beta re-entry into a refused generator call site");
     int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
+    { int ibnp = 0, ibva = 0; if (gi_idx >= 0 && n2_ftc > 0 && bb_proc_target_icn_block(_.op_sval, &ibnp, &ibva)) return bcps_icn_block_arm(1, off, act, argblks, gi_idx, ibnp, ibva, n2_ftc); }
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()

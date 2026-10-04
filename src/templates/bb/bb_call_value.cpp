@@ -14,6 +14,8 @@ extern DESCR_t rt_call_value_resume_h(void **hslot, int n);
 extern void rt_proc_drop_frame_h(void **hslot);
 extern CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n);
 extern CVSPINE_t rt_call_apply_spine_prep(DESCR_t callee, DESCR_t lv);
+extern CVSPINE_t rt_call_value_spine_prep_blk(DESCR_t callee, DESCR_t *argv, int n, void **hslot);
+extern CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot);
 extern CVSPINE_t rt_pl_goal_spine_prep(DESCR_t goal, DESCR_t *argv, int n, void **hslot);
 extern DESCR_t rt_pl_goal_gen_h(DESCR_t goal, DESCR_t *argv, int n, void **hslot);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
@@ -28,6 +30,7 @@ static bool cv_is_apply() { return _.op_sval && strcmp(_.op_sval, "apply") == 0 
 static bool cv_is_goal() { return _.op_sval && strcmp(_.op_sval, "goal") == 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static bool cv_pl_proto() { return cv_is_goal() && x86_fb_pinned(); }
+static bool cv_icn() { return !cv_is_goal() && g_emit_cfg && g_emit_cfg->icn_cells_graph; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cv_sync_out() { return cv_is_goal() ? x86_scan_sync_out() : x86_scan_sync_out_force(); }
 static std::string cv_sync_in() { return cv_is_goal() ? x86_scan_sync_in_rr() : x86_scan_sync_in_rr_force(); }
@@ -42,6 +45,8 @@ std::string bb_call_value() {
     int H = _.op_off + 16 + n * 16;
     uint64_t vprep_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t *, int) = rt_call_value_spine_prep; vprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t aprep_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t) = rt_call_apply_spine_prep; aprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t vprepb_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t *, int, void **) = rt_call_value_spine_prep_blk; vprepb_fp = (uint64_t)(uintptr_t)(void *)fp; }
+    uint64_t aprepb_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t, void **) = rt_call_apply_spine_prep_blk; aprepb_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t gprep_fp; { CVSPINE_t (*fp)(DESCR_t, DESCR_t *, int, void **) = rt_pl_goal_spine_prep; gprep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void *)fp; }
@@ -64,6 +69,8 @@ std::string bb_call_value() {
               + x86("mov", FRQ(H), 0L)
               + x86("mov", FRQ(H + 8), 0L)
               + x86("def", L(22))
+            :  cv_icn() ? x86("note", "the retained token: the block preps and the coroutine road each drop the slot's generator at their head, "
+                                       "so the box calls no rt_proc_drop_frame_h")
             :  x86("mov",   "rax", FRQ(H))
               + x86("test",  "rax", "rax")
               + x86("je",    L(22))
@@ -75,20 +82,46 @@ std::string bb_call_value() {
        + (cv_is_apply()
             ? x86("mov",   "rdx", FRQ(_.op_off + 16))
             + x86("mov",   "rcx", FRQ(_.op_off + 24))
-            + x86("call",  "rt_call_apply_spine_prep", aprep_fp)
+            + (cv_icn() ? x86("lea", "r8", FRQ(H))
+                        + x86("call", "rt_call_apply_spine_prep_blk", aprepb_fp)
+                        : x86("call",  "rt_call_apply_spine_prep", aprep_fp))
             : x86("lea",   "rdx", FRQ(_.op_off + 16))
             + x86("mov32", "ecx", (long)n)
-            + (cv_is_goal() ? x86("lea", "r8", FRQ(H)) + x86("call", "rt_pl_goal_spine_prep", gprep_fp) : x86("call", "rt_call_value_spine_prep", vprep_fp)))
+            + (cv_is_goal() ? x86("lea", "r8", FRQ(H)) + x86("call", "rt_pl_goal_spine_prep", gprep_fp)
+               : cv_icn() ? x86("lea", "r8", FRQ(H))
+                          + x86("call", "rt_call_value_spine_prep_blk", vprepb_fp)
+               : x86("call", "rt_call_value_spine_prep", vprep_fp)))
        + x86_rt_gc_poll()
        + x86("test",  "rax", "rax")
        + x86("je",    L(7))
-       + IF(!cv_is_goal(),  x86("mov", FRQ(H), "rdx"))
+       + IF(!cv_is_goal(),  IF(cv_icn(), x86("mov", "rsi", "rdx")
+                                       + x86("shr", "rsi", 8L)
+                                       + x86("and", "edx", 255L))
+                          + x86("mov", FRQ(H), "rdx"))
        + IF(cv_pl_proto(),  x86("note", "the block protocol: the goal's n cells (rdx) are copied from the staged medium onto this spine as the callee's argument block, then the wires and the jump")
                           + x86("mov", "rcx", "rdx") + x86("shl", "rcx", 4L) + x86("sub", "rsp", "rcx")
                           + x86("mov", "rsi", "[rip + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args") + x86("mov", "rsi", RDQ("rsi", 0))
                           + x86("mov", "rdi", "rsp") + x86("mov", "rcx", "rdx") + x86("add", "rcx", "rcx") + x86("rep_movsq")
                           + bb_glue_pass_wires(3, 4))
-       + IF(!cv_pl_proto(), bb_glue_pass_wires_blob_regs(3, 4))
+       + IF(!cv_pl_proto() && !cv_icn(), bb_glue_pass_wires_blob_regs(3, 4))
+       + IF(cv_icn(), x86("note", "the block protocol: the prep answered the callee's block cell count in rdx>>8 (rsi here); the wires go first, "
+                                  "then the n cells copied from the staged medium at the callee's entry rsp")
+                    + x86_lea_id("rcx", 4)
+                    + x86("push", "rcx")
+                    + x86_lea_id("rcx", 3)
+                    + x86("push", "rcx")
+                    + x86("mov", "rcx", "rsi")
+                    + x86("shl", "rcx", 4L)
+                    + x86("sub", "rsp", "rcx")
+                    + x86("mov", "rcx", "rsi")
+                    + x86("add", "rcx", "rcx")
+                    + x86("mov", "rsi", "[rip + __]", (uint64_t)(uintptr_t)&g_call_args, "g_call_args")
+                    + x86("mov", "rsi", RDQ("rsi", 0))
+                    + x86("mov", "rdi", "rsp")
+                    + x86("rep_movsq")
+                    + x86_lea_id("rcx", 3)
+                    + x86_lea_id("rdx", 4)
+                    + x86_jmp_reg("rax"))
        + x86("def", L(3))
        + (cv_pl_proto()
             ?  x86("mov",  FRQ(H), "rax")

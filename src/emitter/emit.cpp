@@ -3273,7 +3273,7 @@ static const char * icn_trace_intern(const char * s) {
     return pool.insert(std::string(s)).first->c_str();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string icn_act_record_inline(const char * pname, int np) {
+static std::string icn_act_record_inline(const char * pname, int np, int aoff) {
     extern int * const rt_k_level_p; extern long g_line; extern const char * g_file; extern int g_flat_node_id;
     if (!pname) return std::string();
     pname = icn_trace_intern(pname);
@@ -3298,7 +3298,33 @@ static std::string icn_act_record_inline(const char * pname, int np) {
          + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
          + x86("mov", "rsi", RDQ("rsi", 0))
          + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, file)), "rsi")
+         + x86("lea", "rsi", RDQ("rsp", aoff))
+         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, args)), "rsi")
          + x86("def", "L245");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string icn_sxt_latch(void) {
+    extern rt_sxt_fr_t * const rt_sxt_fr_p;
+    return x86("comment", "frames are present: the string-extension latch the C install used to set (rt_sxt_frames_present), set inline -- off = 1, owner = 0")
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_sxt_fr_p, "rt_sxt_fr_p")
+         + x86("mov", "rax", RDQ("rax", 0))
+         + x86("mov", RDD("rax", (int)offsetof(rt_sxt_fr_t, off)), 1L)
+         + x86("mov", RDQ("rax", (int)offsetof(rt_sxt_fr_t, owner)), 0L);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string icn_main_args_inline(int np, int blk) {
+    if (blk || np <= 0) return std::string();
+    if (np > 10) return x86_bomb("emit: an Icon root graph with more than ten parameters has no inline argument load");
+    std::string s = x86("comment", "the root graph keeps its parameters in its own frame: g_call_args[i] -> [rsp+16+16i] inline while i < cap (the frame was zeroed, so a short medium leaves a null DESCR)")
+                  + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_call_args, "g_call_args")
+                  + x86("mov", "ecx", RDD("rax", (int)offsetof(gv_t, cap)))
+                  + x86("mov", "rax", RDQ("rax", (int)offsetof(gv_t, p)));
+    for (int i = 0; i < np; i++)
+        s += x86("cmp", "ecx", (long)i) + x86("jbe", L(220 + i))
+           + x86("mov", "rdx", RDQ("rax", 16 * i)) + x86("mov", RDQ("rsp", 16 + 16 * i), "rdx")
+           + x86("mov", "rdx", RDQ("rax", 16 * i + 8)) + x86("mov", RDQ("rsp", 24 + 16 * i), "rdx")
+           + x86("def", L(220 + i));
+    return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_local_offsets(const char * pname) {
@@ -3325,7 +3351,7 @@ static void icn_register_local_offsets(const char * pname) {
     rt_proc_set_local_offs(pname, offs, nl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string icn_trace_tap(const char * pname, int kind, int np) {
+static std::string icn_trace_tap(const char * pname, int kind, int np, int aoff = 16) {
     if (!x86_trace_hooks_on()) return std::string();
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
     extern void rt_trace_gen_fail_hook(const char *, void *);
@@ -3339,7 +3365,7 @@ static std::string icn_trace_tap(const char * pname, int kind, int np) {
         + x86("mov", "rax", RDQ("rax", 0)) + x86("cmp", "rax", (long)0) + x86("je", sk))
         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
         + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str());
-    if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", 16)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
+    if (kind == 1) s += x86("mov32", "esi", (long)np) + x86("lea", "rdx", RDQ("r11", aoff)) + x86("call", "rt_trace_call_hook_f", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_f);
     else if (kind == 2) s += x86("mov", "rsi", RDQ("r11", 8)) + x86("mov", "rdx", RDQ("r11", 0)) + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook);
     else if (kind == 5) s += x86("mov", "rsi", "rbp") + x86("call", "rt_trace_gen_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_gen_fail_hook);
     else s += x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook);
@@ -3654,22 +3680,31 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           int _rg = (_en && g_emit_cfg) ? zls_g_region(g_emit_cfg) : -1;
           if (_lo >= 0 && _rg > 0 && !gc_plant_stale_frame()) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total)
-              _gseed =  x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb"); }
-        bb_emit_x86( x86("lea", "rax", RDQ("rsp", 0 - carve))
+              _gseed =  x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_rg - _lo)) + x86("rep_stosb");
+          if (_use_zframe_install && _gseed.empty() && _rg > 0 && _rg <= frame_total)
+              _gseed = x86("comment", "the block protocol: no C install runs, so the value region is zeroed here -- every local reads a null DESCR")
+                     + x86("mov", "rdi", "rsp") + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_rg) + x86("rep_stosb");
+          if (_use_zframe_install && gc_plant_stale_frame()) _gseed.clear(); }
+        extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
+        int _gblk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0, _gw = _gblk ? 16 * np : 0;
+        if (_gblk && zls_g_block_base(g_emit_cfg) != carve) { fprintf(stderr, "FATAL emit: generator %s's argument block lies at +%d by the layout and +%d by the carve -- the two must agree to the byte\n", prefix ? prefix : "?", zls_g_block_base(g_emit_cfg), carve); abort(); }
+        bb_emit_x86( IF(_gblk, x86("comment", "the block protocol: the caller's argument block is at this entry rsp, A[i] = [entry+16i]; the five entry words lie above it, so gamma, omega and the anchor are read 16n higher"))
+                  + x86("lea", "rax", RDQ("rsp", 0 - carve))
                   + x86("mov", RDQ("rax", frame_total + 0), "rbp")
-                  + x86("mov", "rcx", RDQ("rsp", 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
-                  + x86("mov", "rcx", RDQ("rsp", 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
-                  + x86("lea", "rcx", RDQ("rsp", 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
+                  + x86("mov", "rcx", RDQ("rsp", _gw + 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
+                  + x86("mov", "rcx", RDQ("rsp", _gw + 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
+                  + x86("lea", "rcx", RDQ("rsp", _gw + 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rsp", "rax")
                   + emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32, GC_FRAME_MAP_GEN_ANCHOR | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0)
                   + _gseed
-                  + x86("mov", "rdi", "rsp") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
+                  + IF(_gblk, icn_sxt_latch())
+                  + IF(!_gblk, x86("mov", "rdi", "rsp") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
-                        (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install)));
+                        (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install))));
         if (_use_zframe_install) {
             const char * _gn = (prefix && strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
-            bb_emit_x86(icn_act_record_inline(_gn, np));
+            bb_emit_x86(icn_act_record_inline(_gn, np, _gblk ? carve : 16));
             icn_register_local_offsets(_gn);
         }
     } else if (g_emit.flat_lcl_proc) {
@@ -3694,15 +3729,25 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           if (_lo >= 0 && _rg > 0 && !gc_plant_stale_frame()) _lo = 0;
           if (_lo >= 0 && _rg > _lo && _rg <= frame_total - 32)
               _lseed = x86("comment", "LCL-SEED: NULVCL the value region AND the header up to the saved rbp [___+0, ___+hz) BEFORE the map cell is stored, so no dead activation's map cell or pointer survives inside this frame, the header's unwritten words are DT_SNUL cells (row gc-one-stack, ARCH-GC section 12), and lexical locals read unbound")
-                     + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_hz - _lo)) + x86("rep_stosb"); }
+                     + x86("mov", "rdi", "rsp") + x86("add", "rdi", (long)_lo) + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)(_hz - _lo)) + x86("rep_stosb");
+          if (_use_zframe_install && _lseed.empty() && _hz > 0)
+              _lseed = x86("comment", "the block protocol: no C install runs, so the frame [0, hz) is zeroed here -- every local reads a null DESCR")
+                     + x86("mov", "rdi", "rsp") + x86("xor", "eax", "eax") + x86("mov32", "ecx", (long)_hz) + x86("rep_stosb");
+          if (_use_zframe_install && gc_plant_stale_frame()) _lseed.clear(); }
+        extern int zls_g_block_args(const IR_graph_t *); extern int zls_g_block_base(const IR_graph_t *);
+        int _blk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0;
+        int _aoff = _blk ? frame_total : 16;
+        if (_blk && zls_g_block_base(g_emit_cfg) != frame_total) { fprintf(stderr, "FATAL emit: %s's argument block lies at +%d by the layout and +%d by the prologue -- the two must agree to the byte\n", prefix ? prefix : "?", zls_g_block_base(g_emit_cfg), frame_total); abort(); }
+        std::string _inst = _use_zframe_install ? icn_sxt_latch() + icn_main_args_inline(np, _blk) : std::string();
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)
                         : snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
             if (!_lseed.empty()) bb_emit_x86(_lseed); bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, (g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u, 0)); if (!_pin.empty()) bb_emit_x86(_pin);
-            _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install");
-            emit_text_n(_lp, strlen(_lp));
+            if (_use_zframe_install) bb_emit_x86(_inst);
+            else { _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, "rt_lcl_proc_args_install");
+                   emit_text_n(_lp, strlen(_lp)); }
         } else {
             if (frame_total <= 127) { ef_b3(0x48, 0x83, 0xEC); ef_b1((uint8_t)frame_total); } else { ef_b3(0x48, 0x81, 0xEC); bb_emit_u32((uint32_t)frame_total); }
             if (!_iws) {
@@ -3711,10 +3756,12 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
             if (!_lseed.empty()) bb_emit_x86(_lseed); bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, (g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u, 0)); if (!_pin.empty()) bb_emit_x86(_pin);
+            if (_use_zframe_install) bb_emit_x86(_inst);
+            else {
             ef_b3(0x48, 0x89, 0xE7);
             ef_b1(0xBE); bb_emit_u32((uint32_t)np);
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);
-            { uint64_t _fn = (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install); ef_b2(0x48, 0xB8); bb_emit_u64(_fn); ef_b2(0xFF, 0xD0); }
+            { uint64_t _fn = (uint64_t)(uintptr_t)(void *)rt_lcl_proc_args_install; ef_b2(0x48, 0xB8); bb_emit_u64(_fn); ef_b2(0xFF, 0xD0); } }
         }
         if (_iws && _use_zframe_install && !(g_emit_cfg && g_emit_cfg->root_graph)) {
             extern int * const rt_k_level_p;
@@ -3727,10 +3774,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + x86("sub", "rcx", (long)1)
                      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
                      + x86("mov", RDQ("rax", 0), "rcx"));
-            bb_emit_x86(icn_act_record_inline((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, np) + icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 1, np));
+            bb_emit_x86(icn_act_record_inline((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, np, _aoff) + icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 1, np, _aoff));
             icn_register_local_offsets((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix);
         } else if (_iws && _use_zframe_install) {
-            bb_emit_x86(icn_act_record_inline("main", np) + icn_trace_tap("main", 1, np));
+            bb_emit_x86(icn_act_record_inline("main", np, _aoff) + icn_trace_tap("main", 1, np, _aoff));
             icn_register_local_offsets("main");
         }
     }
