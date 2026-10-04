@@ -2241,9 +2241,22 @@ static void rk_tap_desc_escape(const char *desc, char *out, size_t cap) {
     out[o] = '\0';
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static __attribute__((force_align_arg_pointer)) void rk_tap_exit(void) {
+    int code = 0; char b[160];
+    if (!g_tap_no_plan && g_tap_planned != g_tap_run) {
+        if (!g_tap_done_run) { snprintf(b, sizeof b, "You planned %ld test%s, but ran %ld", g_tap_planned, g_tap_planned == 1 ? "" : "s", g_tap_run); fprintf(stderr, "# %s\n", b); }
+        code = 255;
+    }
+    if (g_tap_failed > 0) {
+        if (!g_tap_done_run) { snprintf(b, sizeof b, "You failed %ld test%s of %ld", g_tap_failed, g_tap_failed == 1 ? "" : "s", g_tap_run); fprintf(stderr, "# %s\n", b); }
+        code = g_tap_failed > 254 ? 254 : (int) g_tap_failed;
+    }
+    if (code) { fflush(stdout); fflush(stderr); _exit(code); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
     char esc[1024]; char line[2048]; int in_todo;
-    g_tap_run++;
+    if (g_tap_run++ == 0) atexit(rk_tap_exit);
     in_todo = (g_tap_todo_reason[0] != '\0' && g_tap_run <= g_tap_todo_upto);
     if (!cond && !(g_tap_run <= g_tap_todo_upto)) g_tap_failed++;
     rk_tap_desc_escape(desc ? desc : "", esc, sizeof esc);
@@ -4493,7 +4506,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strncmp(fn, "__rk_test_", 10)) {
         const char *op = fn + 10; char sb1[512]; char sb2[512]; char msg[1024];
-        if (!strcmp(op, "plan")) { long n = (nargs > 0 && IS_INT_fn(args[0])) ? (long)args[0].i : 0; g_tap_planned = n; g_tap_no_plan = 0; printf("1..%ld\n", n); fflush(stdout); *out = NULVCL; return 1; }
+        if (!strcmp(op, "plan")) { long n = (nargs > 0 && IS_INT_fn(args[0])) ? (long)args[0].i : 0; g_tap_planned = n; g_tap_no_plan = 0; atexit(rk_tap_exit); printf("1..%ld\n", n); fflush(stdout); *out = NULVCL; return 1; }
         if (!strcmp(op, "ok")) { int c = (nargs > 0) ? rk_tap_truthy(args[0]) : 0; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "nok")) { int c = (nargs > 0) ? !rk_tap_truthy(args[0]) : 1; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "is")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = !strcmp(g, e); char gd[512]; char ed[512]; snprintf(gd, sizeof gd, "%s", g); snprintf(ed, sizeof ed, "%s", e); const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); if (!c) { char b[1024]; snprintf(b, sizeof b, "expected: '%s'", ed); rk_tap_diag(b); snprintf(b, sizeof b, "     got: '%s'", gd); rk_tap_diag(b); } *out = INTVAL(c); return 1; }
