@@ -2012,10 +2012,10 @@ static CVSPINE_t rt_call_value_spine_prep_x(DESCR_t callee, DESCR_t *argv, int n
     { extern int rt_proc_pinned(const char *); int gen = rt_proc_is_generator(nm), blk = rt_proc_pinned(nm) ? rt_proc_nparams(nm) : 0; cvprep_say("open", gen ? "spine" : "spinedet", nm);
       return (CVSPINE_t){ (long)(intptr_t)rt_proc_fn(nm), (gen ? 0 : 2) | ((long)(blk > 0 ? blk : 0) << 8) }; }
 }
-CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) { return rt_call_value_spine_prep_x(callee, argv, n, 0); }
+CVSPINE_t rt_call_value_spine_prep(DESCR_t callee, DESCR_t *argv, int n) { return RT_GC_CALLBACK(rt_call_value_spine_prep_x(callee, argv, n, 0)); }
 CVSPINE_t rt_call_value_spine_prep_blk(DESCR_t callee, DESCR_t *argv, int n, void **hslot) {
     { extern void rt_proc_drop_frame_h(void **hslot); rt_proc_drop_frame_h(hslot); }
-    return rt_call_value_spine_prep_x(callee, argv, n, 1);
+    return RT_GC_CALLBACK(rt_call_value_spine_prep_x(callee, argv, n, 1));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static CVSPINE_t rt_call_apply_spine_prep_x(DESCR_t callee, DESCR_t lv, int blk_ok) {
