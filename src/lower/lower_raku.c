@@ -1926,9 +1926,43 @@ static void rk_place_phasers(tree_t * prog) {
     for (int i = 0; i < prog->n; i++) { tree_t * a = rk_ph_subj_attr(prog->c[i]); if (a) rk_ph_inline(a->c[0]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_take_rewrite(tree_t * t, const char * gname) {
+    if (!t || t->t == TT_SUB_DECL) return;
+    for (int i = 0; i < t->n; i++) rk_take_rewrite(t->c[i], gname);
+    if (t->t == TT_SUSPEND && t->n == 1 && t->c[0]) {
+        tree_t * x = t->c[0]; int line = t->line;
+        t->t = TT_METHCALL; t->v.sval = NULL; t->n = 0; t->line = line;
+        tree_t * rv = leaf_sval2(TT_VAR, gname); rv->slen |= 4; (void) rv->slen;
+        ast_push(t, leaf_sval2(TT_VAR, gname)); ast_push(t, leaf_sval2(TT_QLIT, "push")); ast_push(t, x);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_desugar_gather(tree_t * t, int * seq) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        if (t->t == TT_ITERATE && i == 0 && t->c[0]) {
+            const tree_t * src = t->c[0]; if ((src->t == TT_MAP || src->t == TT_GREP) && src->n > 1) src = src->c[1];
+            const tree_t * tk[64]; if (src && src->t == TT_GATHER && rk_take_list(src, tk, 64) > 0) continue;
+        }
+        rk_desugar_gather(t->c[i], seq);
+    }
+    if (t->t == TT_GATHER && t->n >= 1 && t->c[0]) {
+        char nm[48]; snprintf(nm, sizeof nm, "@__gather%d", (*seq)++); const char * gname = intern(nm);
+        tree_t * body = t->c[0]; int line = t->line;
+        rk_take_rewrite(body, gname);
+        t->t = TT_SEQ_EXPR; t->n = 0; t->line = line;
+        tree_t * dv = leaf_sval2(TT_VAR, gname); dv->slen |= 4;
+        tree_t * un = ast_node_new(TT_FNC); un->v.sval = (char *) "__rk_undef"; ast_push(un, leaf_sval2(TT_VAR, "__rk_undef"));
+        tree_t * as = ast_node_new(TT_ASSIGN); as->line = line; ast_push(as, dv); ast_push(as, un);
+        tree_t * res = ast_node_new(TT_FNC); res->v.sval = (char *) "__rk_arr_values"; ast_push(res, leaf_sval2(TT_VAR, "__rk_arr_values")); ast_push(res, leaf_sval2(TT_VAR, gname));
+        ast_push(t, as); ast_push(t, body); ast_push(t, res);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) {
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
+    { int gseq = 0; rk_desugar_gather((tree_t *) prog, &gseq); }
     rk_listops_to_methcalls((tree_t *) prog, 0);
     rk_cap_find((tree_t *) prog);
     rk_hoist_anon_blocks((tree_t *) prog);
