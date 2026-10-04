@@ -79,9 +79,9 @@ static long gc_audit_b_words(const gc_audit_b_t *v, const char *lo, const char *
         c->found++;
         if (c->shown >= cap) { c->suppressed++; continue; }
         c->shown++;
-        { char tx[25]; char bb[512]; Dl_info di; const unsigned char *tb = (const unsigned char *)(h + 1); long tn = (long)h->size - (long)sizeof(rt_hblk_t), j; int dl, hl;
-          const char *sn, *df; unsigned long dof;
-          for (j = 0; j < 24 && j < tn; j++) tx[j] = (tb[j] >= 32 && tb[j] < 127) ? (char)tb[j] : '.';
+        { char bb[512]; Dl_info di; const unsigned char *tb = (const unsigned char *)(h + 1); long tn = (long)h->size - (long)sizeof(rt_hblk_t), tm = tn < 24 ? (tn > 0 ? tn : 0) : 24, j; int dl, hl;
+          const char *sn, *df; unsigned long dof; char tx[tm + 1];
+          for (j = 0; j < tm; j++) tx[j] = (tb[j] >= 32 && tb[j] < 127) ? (char)tb[j] : '.';
           tx[j] = 0; bb[0] = 0;
           if (v->birth_of) v->birth_of((const char *)h, bb, (long)sizeof bb);
           { long an = 0; const char *ow = strcmp(pop, "ctarena") ? (const char *)0 : gc_audit_b_ct_owner(v, lo, (char *)0, 0, &an); char also[an + 1]; also[0] = 0;

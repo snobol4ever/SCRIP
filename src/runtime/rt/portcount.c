@@ -46,6 +46,17 @@ uint64_t * rt_port_counts_slot(int uid, int port, const char * label)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t pc_get(long s) { if (s < 0 || s >= g_pc_nslot) return 0; long ci = s / PC_CHUNK; return (ci < g_pc_nchunk && g_pc_chunk[ci]) ? g_pc_chunk[ci][s % PC_CHUNK] : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t pc_box_name_len(long b)
+{
+    const char * l = NULL;
+    size_t len;
+    for (int p = 0; p < PC_PORTS && !l; p++) { long s = b * PC_PORTS + p; if (s < g_pc_nname && g_pc_name[s]) l = g_pc_name[s]; }
+    if (!l) return (size_t)fmt_len("n%ld_?", b);
+    len = strlen(l);
+    if (len > 3 && l[len - 3] == '_' && (unsigned char)l[len - 2] == 0xCE) len -= 3;
+    return len + 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pc_box_name(long b, char * out, size_t n)
 {
     const char * l = NULL;
@@ -70,8 +81,9 @@ static void pc_csv(int four)
 {
     long nbox = (g_pc_nslot + PC_PORTS - 1) / PC_PORTS;
     for (long b = 0; b < nbox; b++) {
-        unsigned long long a = pc_get(b * PC_PORTS), q = pc_get(b * PC_PORTS + 1), g = pc_get(b * PC_PORTS + 2), w = pc_get(b * PC_PORTS + 3); char nm[128];
+        unsigned long long a = pc_get(b * PC_PORTS), q = pc_get(b * PC_PORTS + 1), g = pc_get(b * PC_PORTS + 2), w = pc_get(b * PC_PORTS + 3);
         if (!a && !q && !g && !w) continue;
+        char nm[pc_box_name_len(b)];
         pc_box_name(b, nm, sizeof nm);
         if (four) fprintf(stderr, "[PCCSV] %llu %llu %llu %llu %s\n", a, q, g, w, nm);
         else      fprintf(stderr, "[PCCSV] %llu %llu %s\n", a, q, nm);
@@ -104,8 +116,8 @@ void rt_port_counts_report(const char * tag, int four)
       if (four) fprintf(stderr, "[PORTCOUNTS] %12s %12s %12s %12s %8s %8s  %s\n", "alpha", "beta", "gamma", "omega", "B/A", "W/G", "box");
       else      fprintf(stderr, "[PORTCOUNTS] %14s %14s %8s  %s\n", "alpha", "beta", "B/A", "box");
       for (long i = 0, shown = 0; i < nbox && shown < 25; i++) {
-          char nm[128];
           if (pc_get(ord[i] * PC_PORTS) == 0) break;
+          char nm[pc_box_name_len(ord[i])];
           pc_box_name(ord[i], nm, sizeof nm);
           pc_row(four, ord[i], nm); shown++;
       }

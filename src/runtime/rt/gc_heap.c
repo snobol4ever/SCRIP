@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -295,7 +296,11 @@ static void *rt_gcheap_carve(char *at, uint64_t total, uint16_t type)
     return (void *)(h + 1); }
 }
 #if RT_DIAG
-static long g_ah_tn[512]; static long g_ah_tb[512]; static struct { void *ra; uint16_t type; long n; long b; } g_ah_ra[4096]; static int g_ah_reg = 0;
+typedef struct { void *ra; uint16_t type; long n; long b; } gc_ah_ra_t;
+typedef struct { long n, cap; gc_ah_ra_t e[]; } gc_ah_tab_t;
+static long g_ah_tn[512]; static long g_ah_tb[512]; static gc_ah_tab_t *g_ah_ra; static int g_ah_reg = 0;
+static void *gcbk_alloc(size_t n);
+static void gcbk_drop(void *p);
 __attribute__((visibility("hidden"))) int g_ah_on = -1;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_alloc_hist_report(void)
@@ -303,7 +308,7 @@ static void rt_alloc_hist_report(void)
     fprintf(stderr, "[AH] per-type (type n bytes):\n");
     for (int t = 0; t < 512; t++) if (g_ah_tn[t]) fprintf(stderr, "[AH] T %d %ld %ld\n", t, g_ah_tn[t], g_ah_tb[t]);
     fprintf(stderr, "[AH] per-callsite (ra type n bytes):\n");
-    for (int i = 0; i < 4096; i++) if (g_ah_ra[i].n) { Dl_info di; const char *sym = (dladdr(g_ah_ra[i].ra, &di) && di.dli_sname) ? di.dli_sname : "?"; long off = (dladdr(g_ah_ra[i].ra, &di) && di.dli_saddr) ? (long)((char *)g_ah_ra[i].ra - (char *)di.dli_saddr) : 0; fprintf(stderr, "[AH] R %p %d %ld %ld  %s+%ld\n", g_ah_ra[i].ra, (int)g_ah_ra[i].type, g_ah_ra[i].n, g_ah_ra[i].b, sym, off); }
+    for (long i = 0; g_ah_ra && i < g_ah_ra->cap; i++) if (g_ah_ra->e[i].n) { gc_ah_ra_t *r = &g_ah_ra->e[i]; Dl_info di; const char *sym = (dladdr(r->ra, &di) && di.dli_sname) ? di.dli_sname : "?"; long off = (dladdr(r->ra, &di) && di.dli_saddr) ? (long)((char *)r->ra - (char *)di.dli_saddr) : 0; fprintf(stderr, "[AH] R %p %d %ld %ld  %s+%ld\n", r->ra, (int)r->type, r->n, r->b, sym, off); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int rt_alloc_hist_on(void)
@@ -314,12 +319,24 @@ static inline __attribute__((always_inline)) int rt_alloc_hist_on(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((constructor)) static void rt_alloc_hist_init(void) { (void)rt_alloc_hist_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static gc_ah_ra_t *gc_ah_slot(gc_ah_tab_t *t, void *ra, uint16_t type)
+{
+    long m = t->cap - 1, i = (long)((((uintptr_t)ra >> 3) ^ (uintptr_t)type) & (uintptr_t)m);
+    while (t->e[i].n && !(t->e[i].ra == ra && t->e[i].type == type)) i = (i + 1) & m;
+    return &t->e[i];
+}
 void rt_alloc_hist_ra(void *ra, uint16_t type, uint64_t bytes)
 {
-    unsigned h = (unsigned)(((uintptr_t)ra >> 3) ^ (uintptr_t)type) & 4095u;
-    for (unsigned k = 0; k < 4096; k++) { unsigned i = (h + k) & 4095u;
-        if (!g_ah_ra[i].n) { g_ah_ra[i].ra = ra; g_ah_ra[i].type = type; g_ah_ra[i].n = 1; g_ah_ra[i].b = (long)bytes; return; }
-        if (g_ah_ra[i].ra == ra && g_ah_ra[i].type == type) { g_ah_ra[i].n += 1; g_ah_ra[i].b += (long)bytes; return; } }
+    gc_ah_ra_t *e;
+    if (!g_ah_ra || (g_ah_ra->n + 1) * 2 > g_ah_ra->cap) {
+        long nc = g_ah_ra ? g_ah_ra->cap * 2 : 8; gc_ah_tab_t *nt = (gc_ah_tab_t *)gcbk_alloc(sizeof(gc_ah_tab_t) + (size_t)nc * sizeof(gc_ah_ra_t));
+        nt->n = 0; nt->cap = nc;
+        if (g_ah_ra) { for (long k = 0; k < g_ah_ra->cap; k++) if (g_ah_ra->e[k].n) { *gc_ah_slot(nt, g_ah_ra->e[k].ra, g_ah_ra->e[k].type) = g_ah_ra->e[k]; nt->n++; } gcbk_drop((void *)g_ah_ra); }
+        g_ah_ra = nt;
+    }
+    e = gc_ah_slot(g_ah_ra, ra, type);
+    if (!e->n) { e->ra = ra; e->type = type; g_ah_ra->n++; }
+    e->n += 1; e->b += (long)bytes;
 }
 static long gc_plant_pin_skip(void)
 {
@@ -548,6 +565,7 @@ char *rt_heap_strdup_c(const char *s)
 #include <setjmp.h>
 #include "../core/core.h"
 #include "rt_coexpr.h"
+#include "ct_arena.h"
 long g_scrip_coexpr_live;
 static struct gc_rng_t { const char *lo, *hi; } *g_gc_rrng = (struct gc_rng_t *)0;
 static long g_gc_rrng_n = 0, g_gc_rrng_cap = 0;
@@ -727,28 +745,36 @@ static void gc_vac_record(char *vlo)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(sizeof(long long) == 8, "A REGISTER HOLDING THE 0xDB POISON AT A FAULT IS A POINTER READ FROM VACATED GROUND (cto 2026-09-23, CTO-155): the collector fills the ground it vacates with 0xDB, a pointer loaded from there is 0xDBDB..., non-canonical, and the kernel reports a general-protection fault with si_addr 0 -- so the stale-address report above cannot see it and the crash printed nothing; the registers carry the evidence instead");
+static void gc_say(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+static void gc_say(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    { int len = vfmt_len(fmt, ap); char b[len]; ssize_t w; vsnprintf(b, (size_t)len, fmt, ap); w = write(2, b, (size_t)len - 1); (void)w; }
+    va_end(ap);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_gc_poison_reg_report(const long long *gregs, int n, void *ip)
 {
     static const char *const rn[] = { "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rdi", "rsi", "rbp", "rbx", "rdx", "rax", "rcx", "rsp", "rip" };
-    char bf[1024]; int k, m = 0, hit = 0;
-    for (k = 0; k < n && k < 16; k++) { uint64_t v = (uint64_t)gregs[k]; if ((v >> 32) == 0xDBDBDBDBu) { if (!hit) m += snprintf(bf + m, sizeof bf - (size_t)m, "[ZGC-STALE] fault at instruction %p with a register holding the 0xDB POISON the collector writes over vacated ground:", ip); hit = 1; m += snprintf(bf + m, sizeof bf - (size_t)m, " %s=%#llx", rn[k], (unsigned long long)v); if (m > 900) break; } }
+    int k, hit = 0;
+    for (k = 0; k < n && k < 16; k++) { uint64_t v = (uint64_t)gregs[k]; if ((v >> 32) == 0xDBDBDBDBu) { if (!hit) gc_say("[ZGC-STALE] fault at instruction %p with a register holding the 0xDB POISON the collector writes over vacated ground:", ip); hit = 1; gc_say(" %s=%#llx", rn[k], (unsigned long long)v); } }
     if (!hit) return 0;
-    m += snprintf(bf + m, sizeof bf - (size_t)m, "\n[ZGC-STALE]   a POINTER WAS READ FROM VACATED GROUND and dereferenced: the block that held it was moved or reclaimed by collection #%ld and whatever still points there was NEVER VISITED%s\n", g_gc_runs, g_gc_in ? " -- AND THE FAULT HAPPENED INSIDE A COLLECTION, so the stale holder is a root the previous collection did not repair" : "");
-    { ssize_t w = write(2, bf, (size_t)m); (void)w; }
+    gc_say("\n[ZGC-STALE]   a POINTER WAS READ FROM VACATED GROUND and dereferenced: the block that held it was moved or reclaimed by collection #%ld and whatever still points there was NEVER VISITED%s\n", g_gc_runs, g_gc_in ? " -- AND THE FAULT HAPPENED INSIDE A COLLECTION, so the stale holder is a root the previous collection did not repair" : "");
     return 1;
 }
 int rt_gc_stale_addr_report(void *fault, void *ip)
 {
-    char bf[4096]; int n = 0; char *f = (char *)fault; long off, i, hit = -1;
+    char *f = (char *)fault; long off, i, hit = -1;
     if (!g_hp_arena || f < g_hp_arena || f >= g_hp_cap_end) return 0;
     off = (long)(f - g_hp_arena);
-    n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE] SIGSEGV touching GC heap ground at %p (arena+%ld) from instruction %p -- a STALE HEAP POINTER was used, not a wild address\n", fault, off, ip);
+    gc_say("[ZGC-STALE] SIGSEGV touching GC heap ground at %p (arena+%ld) from instruction %p -- a STALE HEAP POINTER was used, not a wild address\n", fault, off, ip);
     if ((g_hp_qlo && f >= g_hp_qlo && f < g_hp_qhi) || (g_hp_flo && f >= g_hp_flo && f < g_hp_fhi)) {
-        n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   this page is QUARANTINED PROT_NONE: collection #%ld (or an earlier one) vacated arena+%ld..arena+%ld and no allocation has taken it back; the live top is arena+%ld\n", g_hp_qgen, (long)(g_hp_qlo - g_hp_arena), (long)(g_hp_qhi - g_hp_arena), (long)(g_hp_top - g_hp_arena));
+        gc_say("[ZGC-STALE]   this page is QUARANTINED PROT_NONE: collection #%ld (or an earlier one) vacated arena+%ld..arena+%ld and no allocation has taken it back; the live top is arena+%ld\n", g_hp_qgen, (long)(g_hp_qlo - g_hp_arena), (long)(g_hp_qhi - g_hp_arena), (long)(g_hp_top - g_hp_arena));
         for (i = g_gc_vacn - 1; i >= 0; i--) if (f >= g_gc_vac[i].at && f < g_gc_vac[i].at + g_gc_vac[i].size) { hit = i; break; }
-        if (hit >= 0 && g_gc_vac[hit].fwd) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was MOVED to arena+%ld by collection #%ld, so the holder of this pointer was NEVER VISITED and kept the pre-move address\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)(g_gc_vac[hit].fwd - g_hp_arena), (long)g_gc_vac[hit].gen);
-        else if (hit >= 0) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was RECLAIMED by collection #%ld because nothing marked it, so the holder of this pointer was never visited either\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)g_gc_vac[hit].gen);
-        else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   no block in the vacated ledger covers this address (ledger holds %ld entries through collection #%ld, %ld resets) -- this ground was vacated before the ledger's oldest entry, so the block is not nameable from here\n", g_gc_vacn, g_gc_vacgen, g_gc_vacover);
+        if (hit >= 0 && g_gc_vac[hit].fwd) gc_say("[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was MOVED to arena+%ld by collection #%ld, so the holder of this pointer was NEVER VISITED and kept the pre-move address\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)(g_gc_vac[hit].fwd - g_hp_arena), (long)g_gc_vac[hit].gen);
+        else if (hit >= 0) gc_say("[ZGC-STALE]   the block that lived here: #%ld kind=%u size=%u at arena+%ld, +%ld into it -- it was RECLAIMED by collection #%ld because nothing marked it, so the holder of this pointer was never visited either\n", hit, (unsigned)g_gc_vac[hit].type, (unsigned)g_gc_vac[hit].size, (long)(g_gc_vac[hit].at - g_hp_arena), (long)(f - g_gc_vac[hit].at), (long)g_gc_vac[hit].gen);
+        else gc_say("[ZGC-STALE]   no block in the vacated ledger covers this address (ledger holds %ld entries through collection #%ld, %ld resets) -- this ground was vacated before the ledger's oldest entry, so the block is not nameable from here\n", g_gc_vacn, g_gc_vacgen, g_gc_vacover);
         { long hops = 0; char *born = (char *)0; long bk = -1; int viachain = 0;
             if (hit >= 0) { born = gc_chain_back(hit, &hops); bk = gc_birth_find(born); viachain = bk >= 0; }
             if (bk < 0) { bk = gc_birth_cover(f); if (bk >= 0) { born = g_gc_vac[bk].at; hops = 0; } }
@@ -757,17 +783,16 @@ int rt_gc_stale_addr_report(void *fault, void *ip)
                 const char *s0 = (k0 && d0.dli_sname) ? d0.dli_sname : "?"; const char *s1 = (k1 && d1.dli_sname) ? d1.dli_sname : "?";
                 const char *m0 = (k0 && d0.dli_fname) ? d0.dli_fname : "?"; const char *m1 = (k1 && d1.dli_fname) ? d1.dli_fname : "?";
                 long f0 = k0 ? (long)((char *)v->ra_site - (char *)d0.dli_fbase) : 0L, f1 = k1 ? (long)((char *)v->ra_from - (char *)d1.dli_fbase) : 0L;
-                n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   block #%ld, kind=%u/%s, size=%u, allocated by %s (%s+0x%lx) from %s (%s+0x%lx), born at arena+%ld, +%ld into it, %s\n",
+                gc_say("[ZGC-BIRTH]   block #%ld, kind=%u/%s, size=%u, allocated by %s (%s+0x%lx) from %s (%s+0x%lx), born at arena+%ld, +%ld into it, %s\n",
                     v->serial, (unsigned)v->type, HB_KIND_NAME(v->type), (unsigned)v->size, s0, m0, f0, s1, m1, f1, (long)(born - g_hp_arena), (long)(f - born),
                     viachain ? "reached by walking the vacated ledger back through its relocations" : "matched by address in the birth ring, with no vacated-ledger entry to relocate it");
-                if (viachain) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   it was relocated %ld time(s) between that birth and the collection that vacated the ground you just read\n", hops); }
-            else if (!gc_birth_on()) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   THE BIRTH LEDGER IS OFF, so this fault names an address and not a defect -- set SCRIP_GC_BIRTH_LEDGER=<ring entries> and the report will name the block's serial, its type at birth and the site that allocated it\n");
-            else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-BIRTH]   the birth ledger does not hold this block: the chain walked back %ld relocation(s) to arena+%ld and no birth record survives there (ring holds %ld entries, %ld births so far) -- raise SCRIP_GC_BIRTH_LEDGER or the record has been overwritten\n", hops, born ? (long)(born - g_hp_arena) : -1L, (long)g_gc_vac[g_gc_vaccap].size, g_gc_vac[g_gc_vaccap].serial); }
-    } else if (f >= g_hp_top) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the address is above the live top (arena+%ld) but its page is not quarantined: vacated ground the allocator has already taken back, or ground beyond the committed window (arena+%ld)\n", (long)(g_hp_top - g_hp_arena), (long)(g_hp_end - g_hp_arena));
-    else n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   the address is BELOW the live top (arena+%ld), so it is inside live heap and this fault is NOT the vacated-ground trap\n", (long)(g_hp_top - g_hp_arena));
-    if (g_gc_in) n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   THE FAULT HAPPENED INSIDE A COLLECTION -- read this as a defect in the collector or in the trap before reading it as a mutator stale pointer\n");
-    n += snprintf(bf + n, sizeof bf - (size_t)n, "[ZGC-STALE]   a stale read means a ROOT THE COLLECTOR NEVER VISITED kept a pre-collection address; the instruction above is where it was used, not where it was stored. SCRIP_GC_TRAP=0 restores the old silent wrong answer.\n");
-    if (n > 0) { ssize_t w = write(2, bf, (size_t)n); (void)w; }
+                if (viachain) gc_say("[ZGC-BIRTH]   it was relocated %ld time(s) between that birth and the collection that vacated the ground you just read\n", hops); }
+            else if (!gc_birth_on()) gc_say("[ZGC-BIRTH]   THE BIRTH LEDGER IS OFF, so this fault names an address and not a defect -- set SCRIP_GC_BIRTH_LEDGER=<ring entries> and the report will name the block's serial, its type at birth and the site that allocated it\n");
+            else gc_say("[ZGC-BIRTH]   the birth ledger does not hold this block: the chain walked back %ld relocation(s) to arena+%ld and no birth record survives there (ring holds %ld entries, %ld births so far) -- raise SCRIP_GC_BIRTH_LEDGER or the record has been overwritten\n", hops, born ? (long)(born - g_hp_arena) : -1L, (long)g_gc_vac[g_gc_vaccap].size, g_gc_vac[g_gc_vaccap].serial); }
+    } else if (f >= g_hp_top) gc_say("[ZGC-STALE]   the address is above the live top (arena+%ld) but its page is not quarantined: vacated ground the allocator has already taken back, or ground beyond the committed window (arena+%ld)\n", (long)(g_hp_top - g_hp_arena), (long)(g_hp_end - g_hp_arena));
+    else gc_say("[ZGC-STALE]   the address is BELOW the live top (arena+%ld), so it is inside live heap and this fault is NOT the vacated-ground trap\n", (long)(g_hp_top - g_hp_arena));
+    if (g_gc_in) gc_say("[ZGC-STALE]   THE FAULT HAPPENED INSIDE A COLLECTION -- read this as a defect in the collector or in the trap before reading it as a mutator stale pointer\n");
+    gc_say("[ZGC-STALE]   a stale read means a ROOT THE COLLECTOR NEVER VISITED kept a pre-collection address; the instruction above is where it was used, not where it was stored. SCRIP_GC_TRAP=0 restores the old silent wrong answer.\n");
     return 1;
 }
 #else
@@ -798,6 +823,15 @@ static void gcbk_drop(void *p)
     h->magic = 0;
     munmap((void *)h, (size_t)h->len);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#if RT_DIAG
+static void *gcbk_reserve(void *p, size_t need)
+{
+    size_t have = p ? (size_t)((gcbk_head_t *)((uint8_t *)p - sizeof(gcbk_head_t)))->len - sizeof(gcbk_head_t) : 0;
+    if (need <= have) return p;
+    return gcbk_grow(p, need > 2 * have ? need : 2 * have);
+}
+#endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void gc_live_grow(long need) { if (need < g_gc_lcap) return; g_gc_lcap = g_gc_lcap ? g_gc_lcap : 4096; while (g_gc_lcap <= need) g_gc_lcap *= 2;
@@ -1238,16 +1272,25 @@ extern void *__libc_stack_end;
 static int gc_plant_stack_label(void) { static int v = -1, said = 0; if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_STACK_LABEL"); v = (e && *e && *e != '0') ? 1 : 0; } if (v && !said) { said = 1; fprintf(stderr, "[GC-STACKLABEL] plant: the main stack's top is read from the [stack] label alone and never from the mapping holding __libc_stack_end\n"); } return v; }
 #endif
 _Static_assert(sizeof(void *) == 8, "THE MAIN STACK IS THE MAPPING HOLDING __libc_stack_end, NOT THE MAPPING LABELLED [stack] (cto, 2026-09-24, row gc-the-main-stack-top-is-the-mapping-holding-libc-stack-end-...; hq_icon's and hq_prolog's findings): under valgrind the [stack] line of /proc/self/maps is the HOST's stack while the client's frames live in an unlabelled mapping, so a walk from the mutator's floor to the labelled top crossed unmapped ground and every collecting run died rc=139 in gc_walk_cell; glibc's __libc_stack_end is the entry rsp in both settings and the mapping containing it is the real stack in both; the label is the fallback only when no mapping contains it; SCRIP_GC_PLANT_STACK_LABEL=1 restores the label-only read as the plant");
+static int gc_maps_line(FILE *f, unsigned long *a, unsigned long *b, char *pm, int *is_stack)
+{
+    static const char want[] = "[stack]";
+    int c, k = 0;
+    *is_stack = 0;
+    if (fscanf(f, "%lx-%lx %7s", a, b, pm) != 3) { while ((c = fgetc(f)) != EOF && c != 10) {} return c == EOF ? -1 : 0; }
+    while ((c = fgetc(f)) != EOF && c != 10) { if (*is_stack) continue; if (c == want[k]) { if (!want[++k]) *is_stack = 1; } else k = (c == want[0]) ? 1 : 0; }
+    return 1;
+}
 static void gc_stack_region(char **lo, char **hi)
 {
 #if RT_DIAG
-    FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0, la = 0, lb = 0, e = gc_plant_stack_label() ? 0 : g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
+    FILE *f = fopen("/proc/self/maps", "r"); unsigned long a = 0, b = 0, la = 0, lb = 0, e = gc_plant_stack_label() ? 0 : g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
 #else
-    FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; unsigned long a = 0, b = 0, la = 0, lb = 0, e = g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
+    FILE *f = fopen("/proc/self/maps", "r"); unsigned long a = 0, b = 0, la = 0, lb = 0, e = g_gc_stktop ? (unsigned long)(g_gc_stktop - 1) : (unsigned long)__libc_stack_end;
 #endif
-    if (f) { while (fgets(ln, sizeof ln, f)) { unsigned long x = 0, y = 0; if (sscanf(ln, "%lx-%lx", &x, &y) != 2) continue;
+    if (f) { int r, st; char pm[8]; unsigned long x = 0, y = 0; while ((r = gc_maps_line(f, &x, &y, pm, &st)) >= 0) { if (!r) continue;
             if (e && x <= e && e < y) { a = x; b = y; break; }
-            if (!lb && strstr(ln, "[stack]")) { la = x; lb = y; } } fclose(f); }
+            if (!lb && st) { la = x; lb = y; } } fclose(f); }
     if (!b) { a = la; b = lb; }
     *lo = (char *)a; *hi = b ? (char *)b : (char *)0;
 }
@@ -1474,7 +1517,8 @@ static void gc_walk_site(const char *cls, const char *graph, long off, const cha
     if (!gc_maps_on()) return;
     if (g_gw_lines >= GC_WALK_LINE_CAP) { g_gw_suppressed++; return; }
     g_gw_lines++;
-    { char tx[25]; const unsigned char *b = (const unsigned char *)(h + 1); long n = (long)h->size - (long)sizeof(rt_hblk_t); int i = 0; for (; i < 24 && i < n; i++) tx[i] = (b[i] >= 32 && b[i] < 127) ? (char)b[i] : '.'; tx[i] = 0;
+    { const unsigned char *b = (const unsigned char *)(h + 1); long n = (long)h->size - (long)sizeof(rt_hblk_t), m = n < 24 ? (n > 0 ? n : 0) : 24; char tx[m + 1]; int i = 0;
+      for (; i < m; i++) tx[i] = (b[i] >= 32 && b[i] < 127) ? (char)b[i] : '.'; tx[i] = 0;
       fprintf(stderr, "[GC-WALK-%s] pop=%s graph=%s off=%ld at=%p word=%p blk=%p type=%u text=%s\n", cls, g_gc_rep_popname[g_gc_rep_pop], graph ? graph : "-", off, (const void *)w, (const void *)*w, (const void *)h, (unsigned)h->type, tx); }
 }
 static void gc_walk_badtag(const char *graph, long off, const DESCR_t *d)
@@ -1489,10 +1533,11 @@ static int gc_maps_dump(void) { static int v = -1; if (v < 0) { const char *e = 
 static long g_gw_dumps;
 static int gc_code_range(const char *w)
 {
-    static unsigned long lo[64], hi[64]; static int n = -1;
-    if (n < 0) { FILE *f = fopen("/proc/self/maps", "r"); char ln[256]; n = 0;
-        if (f) { while (fgets(ln, sizeof ln, f) && n < 64) { unsigned long a, b; char pm[8]; if (sscanf(ln, "%lx-%lx %7s", &a, &b, pm) == 3 && pm[1] == '-' && pm[2] == 'x') { lo[n] = a; hi[n] = b; n++; } } fclose(f); } }
-    for (int i = 0; i < n; i++) if ((unsigned long)w >= lo[i] && (unsigned long)w < hi[i]) return 1;
+    static unsigned long *xr; static int n = -1;
+    if (n < 0) { FILE *f = fopen("/proc/self/maps", "r"); n = 0;
+        if (f) { int r, st; unsigned long a, b; char pm[8]; while ((r = gc_maps_line(f, &a, &b, pm, &st)) >= 0) if (r && pm[1] == '-' && pm[2] == 'x') {
+            xr = (unsigned long *)gcbk_reserve((void *)xr, (size_t)(n + 1) * 2 * sizeof(unsigned long)); xr[2 * n] = a; xr[2 * n + 1] = b; n++; } fclose(f); } }
+    for (int i = 0; i < n; i++) if ((unsigned long)w >= xr[2 * i] && (unsigned long)w < xr[2 * i + 1]) return 1;
     return 0;
 }
 static void gc_walk_dump(const char *lo, const char *base, const char *graph)
@@ -1662,7 +1707,8 @@ static void gc_spine_lost_check(void)
     long nlost = 0;
     if (!gc_maps_on()) { g_gc_spine_recn = 0; g_gc_spine_seen = 0; return; }
     for (int i = 0; i < g_gc_spine_recn; i++) { rt_hblk_t *h = g_gc_spine_rec[i].h; if (h->flags & HBF_MARK) continue; g_gc_spine_lost++; nlost++;
-        { char tx[25]; const unsigned char *b = (const unsigned char *)(h + 1); long n = (long)h->size - (long)sizeof(rt_hblk_t); int j = 0; for (; j < 24 && j < n; j++) tx[j] = (b[j] >= 32 && b[j] < 127) ? (char)b[j] : '.'; tx[j] = 0;
+        { const unsigned char *b = (const unsigned char *)(h + 1); long n = (long)h->size - (long)sizeof(rt_hblk_t), m = n < 24 ? (n > 0 ? n : 0) : 24; char tx[m + 1]; int j = 0;
+          for (; j < m; j++) tx[j] = (b[j] >= 32 && b[j] < 127) ? (char)b[j] : '.'; tx[j] = 0;
           fprintf(stderr, "[GC-SPINE-LOST] graph=%s off=%ld at=%p word=%p blk=%p type=%u text=%s\n", g_gc_spine_rec[i].graph ? g_gc_spine_rec[i].graph : "-", g_gc_spine_rec[i].off, (const void *)g_gc_spine_rec[i].at, (const void *)*g_gc_spine_rec[i].at, (const void *)h, (unsigned)h->type, tx); } }
     if (nlost) fprintf(stderr, "[GC-SPINE-LOST] blocks=%ld raw_spine_words=%ld -- a word on the emitted spine that no map covers points at a block NO ROOT MARKED. ⛔ NECESSARY, NOT SUFFICIENT (cfo 2026-09-20, CFO-114): a DEAD spill slot holding a stale pointer reads identically, and 12 of the 32 green witnesses in scripts/gc_witnesses print this line while answering their oracle. It names a candidate, never a defect; only the frame map can say whether the slot is live.\n", nlost, g_gc_spine_seen);
     g_gc_spine_recn = 0; g_gc_spine_seen = 0;
@@ -1823,14 +1869,16 @@ static long gc_audit_b_frame_ranges(const char *lo0, const char *hi, gc_audit_b_
 }
 static long gc_audit_b_shim(char *floor)
 {
-    gc_audit_b_rgn_t rg[64]; gc_audit_b_skip_t sk[32]; gc_audit_b_t v; gc_seg_it_t it; char *lo, *hi; long n = 0, k = 0, i, nstat, nx = 0, xcap = 0; int pop, saved = g_gc_seg_main;
+    gc_audit_b_skip_t sk[32]; gc_audit_b_t v; gc_seg_it_t it; char *lo, *hi; long n = 0, k = 0, i, nstat, nx = 0, xcap = 0, nrg = 2; int pop, saved = g_gc_seg_main;
     gc_audit_b_xr_t *xr = (gc_audit_b_xr_t *)0;
     if (!g_hp_arena || !g_gc_idx) return -1;
     gc_static_segs_init();
-    for (i = 0; i < g_gc_nseg && n < 64; i++) { rg[n].lo = g_gc_segs[i].lo; rg[n].hi = g_gc_segs[i].hi; rg[n].pop = "static"; rg[n].name = "writable-PT_LOAD"; rg[n].xr = xr; rg[n].nxr = 0; n++; }
+    nrg += g_gc_nseg; for (scrip_coctx_t *c = scrip_co_gc_head(); c; c = c->gc_next) nrg++;
+    gc_audit_b_rgn_t rg[nrg];
+    for (i = 0; i < g_gc_nseg; i++) { rg[n].lo = g_gc_segs[i].lo; rg[n].hi = g_gc_segs[i].hi; rg[n].pop = "static"; rg[n].name = "writable-PT_LOAD"; rg[n].xr = xr; rg[n].nxr = 0; n++; }
     nstat = n;
     gc_seg_begin(&it, floor);
-    while (n < 64 && gc_seg_next(&it, &lo, &hi, &pop)) { rg[n].lo = lo; rg[n].hi = hi; rg[n].pop = "stack"; rg[n].name = g_gc_rep_popname[pop];
+    while (n < nrg && gc_seg_next(&it, &lo, &hi, &pop)) { rg[n].lo = lo; rg[n].hi = hi; rg[n].pop = "stack"; rg[n].name = g_gc_rep_popname[pop];
         rg[n].xr = xr; rg[n].nxr = 0; xcap += (long)(hi - lo) / 8 + 1; n++; }
     g_gc_seg_main = saved;
     if (xcap > 0) { xr = (gc_audit_b_xr_t *)gcbk_alloc((size_t)xcap * sizeof(*xr));

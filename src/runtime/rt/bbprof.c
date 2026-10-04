@@ -33,6 +33,18 @@ void bbprof_record(int nid, int kind, int uid, void *lo, void *hi)
     if (g_armed) g_late_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int bbp_skip_line(FILE *fp)
+{
+    int c, k = 0;
+    while ((c = fgetc(fp)) != EOF && c != 10) k = 1;
+    return (c == EOF && !k) ? -1 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static ssize_t bbp_exe_len(void)
+{
+    for (size_t cap = 256;; cap *= 2) { char b[cap]; ssize_t el = readlink("/proc/self/exe", b, cap); if (el < 0) return 0; if ((size_t)el < cap) return el; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bbprof_cmp(const void *a, const void *b) { uintptr_t x = ((const bbprof_e *)a)->lo, y = ((const bbprof_e *)b)->lo; return x < y ? -1 : x > y ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bbprof_find(uintptr_t pc)
@@ -129,8 +141,9 @@ void bbprof_report(void)
             bb_op_name(rank[i]->kind), rank[i]->nid, rank[i]->uid, (unsigned long)rank[i]->lo, (unsigned long)rank[i]->hi);
         shown++;
     }
-    { uint64_t by_kind_n[512]; memset(by_kind_n, 0, sizeof by_kind_n); int mk = 0;
-      for (int i = 0; i < g_n; i++) { int k = g_tab[i].kind; if (k >= 0 && k < 512) { by_kind_n[k] += g_tab[i].direct + g_tab[i].viac; if (k > mk) mk = k; } }
+    { int mk = 0; for (int i = 0; i < g_n; i++) if (g_tab[i].kind > mk) mk = g_tab[i].kind;
+      uint64_t by_kind_n[mk + 1]; memset(by_kind_n, 0, sizeof by_kind_n);
+      for (int i = 0; i < g_n; i++) { int k = g_tab[i].kind; if (k >= 0) by_kind_n[k] += g_tab[i].direct + g_tab[i].viac; }
       fprintf(stderr, "[BBPROF] -- by IR kind --\n");
       for (int pass = 0; pass < 12; pass++) { int best = -1; uint64_t bv = 0;
           for (int k = 0; k <= mk; k++) if (by_kind_n[k] > bv) { bv = by_kind_n[k]; best = k; }
@@ -140,17 +153,25 @@ void bbprof_report(void)
     qsort(g_pcs, BBPROF_PC_CAP, sizeof(bbprof_pc), bbprof_pc_rank);
     fprintf(stderr, "[BBPROF] -- top C sites (%llu samples outside boxes; via-C above re-attributes %llu of them) --\n",
         (unsigned long long)g_c_samples, (unsigned long long)(g_c_samples - g_unattr));
-    { char exe[512]; ssize_t el = readlink("/proc/self/exe", exe, sizeof exe - 1); if (el <= 0) el = 0; exe[el] = 0;
-      char cmd[4096]; int cl = snprintf(cmd, sizeof cmd, "addr2line -f -C -e '%s'", exe[0] ? exe : "/proc/self/exe");
+    { ssize_t xl = bbp_exe_len(); char exe[xl + 1]; ssize_t el = readlink("/proc/self/exe", exe, (size_t)xl + 1); if (el <= 0 || el > xl) el = 0; exe[el] = 0;
+      char cmd[fmt_len("addr2line -f -C -e '%s'", exe[0] ? exe : "/proc/self/exe") + 15 * 24]; int cl = snprintf(cmd, sizeof cmd, "addr2line -f -C -e '%s'", exe[0] ? exe : "/proc/self/exe");
       int npc = 0; for (int i = 0; i < 15 && g_pcs[i].n > 0; i++) { cl += snprintf(cmd + cl, sizeof cmd - (size_t)cl, " %#lx", (unsigned long)g_pcs[i].pc); npc++; }
-      char names[15][96]; for (int i = 0; i < 15; i++) names[i][0] = 0;
-      FILE *fp = npc ? popen(cmd, "r") : NULL;
-      if (fp) { char l1[256], l2[256]; for (int i = 0; i < npc; i++) { if (!fgets(l1, sizeof l1, fp) || !fgets(l2, sizeof l2, fp)) break; l1[strcspn(l1, "\n")] = 0; if (l1[0] && l1[0] != '?') snprintf(names[i], sizeof names[i], "%s", l1); } pclose(fp); }
+      FILE *fp = npc ? popen(cmd, "r") : NULL; int live = fp ? 1 : 0;
       for (int i = 0; i < npc; i++) {
-        Dl_info di; const char *nm = names[i][0] ? names[i] : "?"; uintptr_t off = 0;
-        if (!names[i][0] && dladdr((void *)g_pcs[i].pc, &di) && di.dli_sname) { nm = di.dli_sname; off = g_pcs[i].pc - (uintptr_t)di.dli_saddr; }
+        Dl_info di; const char *nm = "?"; uintptr_t off = 0; int c = live ? fgetc(fp) : EOF;
+        if (c == EOF) live = 0;
+        if (live && c != '?' && c != 10) {
+            fprintf(stderr, "[BBPROF] %6.2f%%  ", 100.0 * (double)g_pcs[i].n / (double)g_total);
+            while (c != EOF && c != 10) { fputc(c, stderr); c = fgetc(fp); }
+            fprintf(stderr, "+%#lx (%#lx)\n", 0UL, (unsigned long)g_pcs[i].pc);
+            if (c == EOF || bbp_skip_line(fp) < 0) live = 0;
+            continue; }
+        if (live && c != 10 && bbp_skip_line(fp) < 0) live = 0;
+        if (live && bbp_skip_line(fp) < 0) live = 0;
+        if (dladdr((void *)g_pcs[i].pc, &di) && di.dli_sname) { nm = di.dli_sname; off = g_pcs[i].pc - (uintptr_t)di.dli_saddr; }
         fprintf(stderr, "[BBPROF] %6.2f%%  %s+%#lx (%#lx)\n", 100.0 * (double)g_pcs[i].n / (double)g_total, nm, (unsigned long)off, (unsigned long)g_pcs[i].pc);
-      } }
+      }
+      if (fp) pclose(fp); }
     ct_drop(rank);
 }
 #else

@@ -51,9 +51,10 @@ static void  mon_at_exit(void);
 static uint32_t intern_name_bin(const char *p, int len);
 static void  mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
                           const void *value, uint32_t value_len);
-#define TRACE_TAB_CAP 256
+#define TRACE_TAB_N ((int)g_trace_tab.len)
 typedef struct { char used; int kind; const char *name; const char *tag; const char *cbfn; long eid; } trace_ent_t;
-static trace_ent_t trace_tab[TRACE_TAB_CAP];
+static gv_t g_trace_tab;
+#define trace_tab ((trace_ent_t *)g_trace_tab.p)
 __attribute__((visibility("hidden"))) int trace_set_n = 0;
 static int trace_access_n = 0;
 __attribute__((visibility("hidden"))) int g_comm_dbg = -1;
@@ -68,14 +69,14 @@ extern long g_trace;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static trace_ent_t *trace_find(const char *name, int kind) {
     if (!name || !*name) return (trace_ent_t *)0;
-    for (int i = 0; i < TRACE_TAB_CAP; i++)
+    for (int i = 0; i < TRACE_TAB_N; i++)
         if (trace_tab[i].used && strcmp(trace_tab[i].name, name) == 0 && (trace_tab[i].kind == kind || (trace_tab[i].kind == TRK_FUNCTION && (kind == TRK_CALL || kind == TRK_RETURN)))) return &trace_tab[i];
     return (trace_ent_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static trace_ent_t *trace_find_any(const char *name) {
     if (!name || !*name) return (trace_ent_t *)0;
-    for (int i = 0; i < TRACE_TAB_CAP; i++)
+    for (int i = 0; i < TRACE_TAB_N; i++)
         if (trace_tab[i].used && strcmp(trace_tab[i].name, name) == 0) return &trace_tab[i];
     return (trace_ent_t *)0;
 }
@@ -104,8 +105,8 @@ static void trace_register(const char *name, int kind, const char *tag, const ch
     if (!name || !*name) return;
     trace_ent_t *e = trace_find(name, kind);
     if (!e) {
-        for (int i = 0; i < TRACE_TAB_CAP; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
-        if (!e) return;
+        for (int i = 0; i < TRACE_TAB_N; i++) if (!trace_tab[i].used) { e = &trace_tab[i]; break; }
+        if (!e) e = (trace_ent_t *)gv_push(&g_trace_tab, (uint16_t)HB_WSB, (uint32_t)sizeof(trace_ent_t), "trace_tab");
         e->used = 1; e->kind = kind; e->name = lit ? name : rt_heap_strdup_c(name); e->eid = 0;
         trace_set_n++;
         if (kind == TRK_ACCESS) trace_access_n++;
@@ -138,26 +139,36 @@ int trace_is_active(const char *name) { (void)name; return 0; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dump_obj_head(DESCR_t d, char *out, int n);
-static void trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
+static int dump_obj_head_len(DESCR_t d);
+static size_t trace_spell_value(DESCR_t val, char *buf, size_t bufsz) {
     switch (val.v) {
-        case DT_I: snprintf(buf, bufsz, "%lld", (long long)val.i); return;
-        case DT_R: { extern const char *real_str(double r, char *b, int bufsz); real_str(val.r, buf, (int)bufsz); return; }
-        case DT_N: snprintf(buf, bufsz, ".%s", val.s ? val.s : ""); return;
-        case DT_FAIL: buf[0] = '\0'; return;
+        case DT_I: return (size_t)snprintf(buf, bufsz, "%lld", (long long)val.i) + 1;
+        case DT_R: { extern const char *real_str(double r, char *b, int bufsz); char rb[64]; return (size_t)snprintf(buf, bufsz, "%s", real_str(val.r, rb, (int)sizeof rb)) + 1; }
+        case DT_N: return (size_t)snprintf(buf, bufsz, ".%s", val.s ? val.s : "") + 1;
+        case DT_FAIL: if (bufsz) buf[0] = '\0'; return 1;
         case DT_S: case DT_SNUL: case DT_PLATOM: {
-            const char *s = val.v == DT_PLATOM ? VARVAL_fn(val) : rt_cstr_d(val); size_t o = 0;
-            if (bufsz > 2) buf[o++] = '\'';
-            for (; s && *s && o + 3 < bufsz; s++) { if (*s == '\n') { buf[o++] = '\\'; buf[o++] = 'n'; } else if (*s == '\r') { buf[o++] = '\\'; buf[o++] = 'r'; } else buf[o++] = *s; }
-            if (o + 1 < bufsz) buf[o++] = '\'';
-            buf[o < bufsz ? o : bufsz - 1] = '\0'; return;
+            const char *s = val.v == DT_PLATOM ? VARVAL_fn(val) : rt_cstr_d(val); size_t need = 3;
+            for (const char *t = s; t && *t; t++) need += (*t == '\n' || *t == '\r') ? 2 : 1;
+            if (bufsz < need) return need;
+            { size_t o = 0; buf[o++] = '\'';
+              for (; s && *s; s++) { if (*s == '\n') { buf[o++] = '\\'; buf[o++] = 'n'; } else if (*s == '\r') { buf[o++] = '\\'; buf[o++] = 'r'; } else buf[o++] = *s; }
+              buf[o++] = '\''; buf[o] = '\0'; }
+            return need;
         }
-        case DT_A: case DT_T: case DT_DATA: { char hb[192]; dump_obj_head(val, hb, (int)sizeof hb); if (hb[0]) { snprintf(buf, bufsz, "%s", hb); return; } }
-        default: { const char *s = VARVAL_fn(val); snprintf(buf, bufsz, "%s", s ? s : ""); return; }
+        case DT_A: case DT_T: case DT_DATA: { char hb[dump_obj_head_len(val)]; dump_obj_head(val, hb, (int)sizeof hb); if (hb[0]) return (size_t)snprintf(buf, bufsz, "%s", hb) + 1; }
+        default: { const char *s = VARVAL_fn(val); return (size_t)snprintf(buf, bufsz, "%s", s ? s : "") + 1; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
 static long trace_depth_override = -1;
+static size_t trace_spell_args(DESCR_t *args, int nargs, char *buf, size_t bufsz) {
+    size_t o = 0;
+    for (int k = 0; k < nargs; k++) { if (k) { if (o + 1 < bufsz) buf[o] = ','; o++; }
+        o += trace_spell_value(args ? args[k] : NULVCL, o < bufsz ? buf + o : (char *)0, o < bufsz ? bufsz - o : 0) - 1; }
+    if (bufsz) buf[o < bufsz ? o : bufsz - 1] = '\0';
+    return o + 1;
+}
 static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, int kind) {
     extern int64_t kw_fnclevel; extern int rt_k_level; extern long g_line; extern const char *g_file;
     char banner[13];
@@ -170,16 +181,10 @@ static void trace_print_banner_args(const char *name, DESCR_t *args, int nargs, 
     if (kind == TRK_CALL || kind == TRK_RETURN) depth--;
     if (trace_depth_override >= 0) depth = trace_depth_override;
     if (depth < 0) depth = 0;
-    if (depth > 60) depth = 60;
-    char istr[64]; int i; for (i = 0; i < depth; i++) istr[i] = 'i'; istr[i] = '\0';
-    char vtext[512];
+    char istr[depth + 1]; int i; for (i = 0; i < depth; i++) istr[i] = 'i'; istr[i] = '\0';
+    char vtext[kind == TRK_CALL ? trace_spell_args(args, nargs, (char *)0, 0) : (kind == TRK_LABEL || (kind == TRK_RETURN && IS_FAIL(value))) ? 1 : trace_spell_value(value, (char *)0, 0)];
     if (kind == TRK_CALL) {
-        size_t o = 0; vtext[0] = '\0';
-        for (int k = 0; k < nargs && o + 2 < sizeof vtext; k++) {
-            if (k) vtext[o++] = ',';
-            trace_spell_value(args ? args[k] : NULVCL, vtext + o, sizeof vtext - o);
-            o += strlen(vtext + o);
-        }
+        trace_spell_args(args, nargs, vtext, sizeof vtext);
         fprintf(stdout, "%s %s %s(%s)\n", banner, istr, name, vtext);
     } else if (kind == TRK_RETURN) {
         if (IS_FAIL(value)) fprintf(stdout, "%s %s FRETURN %s\n", banner, istr, name);
@@ -364,7 +369,7 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
         return;
     }
     trace_recursion_depth++;
-    { char nb[64]; snprintf(nb, sizeof nb, "&%s", kw);
+    { char nb[fmt_len("&%s", kw)]; snprintf(nb, sizeof nb, "&%s", kw);
       trace_depth_override = !strcmp(kw, "FNCLEVEL") ? (long)v : (long)kw_fnclevel;
       trace_print_banner_args(nb, (DESCR_t *)0, 0, INTVAL(v), stno, TRK_KEYWORD);
       trace_depth_override = -1; }
@@ -407,8 +412,8 @@ void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
 void rt_trace_call_hook(const char *fname) {
     if (trace_idle()) return;
     extern long g_stno; extern int rt_proc_nparams(const char *name); extern const char *rt_proc_pname(const char *name, int k); extern DESCR_t NV_GET_fn(const char *);
-    int np = fname ? rt_proc_nparams(fname) : 0; if (np < 0) np = 0; if (np > 16) np = 16;
-    DESCR_t a[16];
+    int np = fname ? rt_proc_nparams(fname) : 0; if (np < 0) np = 0;
+    DESCR_t a[np > 0 ? np : 1];
     for (int i = 0; i < np; i++) { const char *pn = rt_proc_pname(fname, i); a[i] = pn ? NV_GET_fn(pn) : NULVCL; }
     rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
 }
@@ -614,7 +619,8 @@ static void core_icn_report(int code, DESCR_t val, const char *msg) {
 void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     extern long g_stno;
     if (trace_idle()) return;
-    DESCR_t a[16]; if (np < 0) np = 0; if (np > 16) np = 16;
+    if (np < 0) np = 0;
+    DESCR_t a[np > 0 ? np : 1];
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
     rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
 }
@@ -704,9 +710,9 @@ static void mon_send(const char *kind, const char *name, const char *value) {
     iov[5].iov_base = MON_RS;        iov[5].iov_len = 1;
     writev(monitor_fd, iov, 6);
     if (monitor_ack_fd >= 0) {
-        char ack[1];
-        ssize_t r = read(monitor_ack_fd, ack, 1);
-        if (r != 1 || ack[0] == 'S') exit(0);
+        char ack = 0;
+        ssize_t r = read(monitor_ack_fd, &ack, 1);
+        if (r != 1 || ack == 'S') exit(0);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -728,12 +734,7 @@ void rt_trace_stmt(long line) {
 void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
     if (g_trace_budget == 0 || !name) return;
     g_trace_budget--; kw_stcount++;
-    char vtext[512]; size_t o = 0; vtext[0] = '\0';
-    for (int k = 0; k < nargs && o + 2 < sizeof vtext; k++) {
-        if (k) vtext[o++] = ',';
-        trace_spell_value(args ? args[k] : NULVCL, vtext + o, sizeof vtext - o);
-        o += strlen(vtext + o);
-    }
+    char vtext[trace_spell_args(args, nargs, (char *)0, 0)]; trace_spell_args(args, nargs, vtext, sizeof vtext);
     fprintf(stdout, "****%-7lld  %s(%s)\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
     if (g_monitor_bin) mon_emit_trace_bin(MWK_CALL, name, NULVCL); else if (monitor_fd >= 0) mon_send("CALL", name, vtext);
@@ -741,26 +742,27 @@ void rt_trace_call(const char *name, DESCR_t *args, int nargs) {
 void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval) {
     if (g_trace_budget == 0 || !name) return;
     g_trace_budget--; kw_stcount++;
-    char vtext[512]; trace_spell_value(retval, vtext, sizeof vtext);
+    char vtext[trace_spell_value(retval, (char *)0, 0)]; trace_spell_value(retval, vtext, sizeof vtext);
     fprintf(stdout, "****%-7lld  RETURN %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
     if (g_monitor_bin) mon_emit_trace_bin(MWK_RETURN, name, wireval); else if (monitor_fd >= 0) mon_send("RETURN", name, vtext);
 }
 void rt_trace_return(const char *name, DESCR_t retval) { rt_trace_return_wire(name, retval, retval); }
 void rt_trace_tap_off(void) { g_trace_tap_off = 1; }
+static gv_t g_trace_value_last;
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook) {
     if (g_trace_budget == 0 || !name) return;
     if (!strncmp(name, "__icn_", 6) || strstr(name, "__INITFLAG__")) return;
     { const char *st = strstr(name, "__STATIC__"); if (st && st[10]) name = st + 10; }
-    char vtext[512]; trace_spell_value(val, vtext, sizeof vtext);
+    char vtext[trace_spell_value(val, (char *)0, 0)]; trace_spell_value(val, vtext, sizeof vtext);
     static long g_trace_value_last_gen = -1;
-    static char g_trace_value_last_name[256] = "";
-    static char g_trace_value_last_text[512] = "";
-    if (g_trace_stmt_gen == g_trace_value_last_gen && g_trace_value_last_name[0] != (char)('0' + hook) && !strcmp(name, g_trace_value_last_name + 1) && !strcmp(vtext, g_trace_value_last_text))
-        return;
+    { const char *ln = (const char *)g_trace_value_last.p;
+      if (ln && g_trace_stmt_gen == g_trace_value_last_gen && ln[0] != (char)('0' + hook) && !strcmp(name, ln + 1) && !strcmp(vtext, ln + 2 + strlen(ln + 1)))
+          return; }
     g_trace_value_last_gen = g_trace_stmt_gen;
-    snprintf(g_trace_value_last_name, sizeof g_trace_value_last_name, "%c%s", (char)('0' + hook), name);
-    snprintf(g_trace_value_last_text, sizeof g_trace_value_last_text, "%s", vtext);
+    { size_t nl = strlen(name), vl = strlen(vtext); char *ln;
+      gv_reserve(&g_trace_value_last, (uint16_t)HB_WSB, 1u, (uint64_t)(nl + vl + 3), "trace_value_last"); ln = (char *)g_trace_value_last.p;
+      ln[0] = (char)('0' + hook); memcpy(ln + 1, name, nl + 1); memcpy(ln + 2 + nl, vtext, vl + 1); }
     g_trace_budget--; kw_stcount++;
     fprintf(stdout, "****%-7lld  %s = %s\n", (long long)kw_stcount, name, vtext);
     fflush(stdout);
@@ -906,7 +908,7 @@ static void mon_at_exit(void) {
             mw_pack_hdr(lhdr, MWK_LABEL, MW_NAME_ID_NONE, MWT_INTEGER, 8);
             struct iovec iov[2]; iov[0].iov_base = lhdr; iov[0].iov_len = MW_HDR_BYTES; iov[1].iov_base = lbuf; iov[1].iov_len = 8;
             ssize_t lw = writev(monitor_fd, iov, 2); (void)lw;
-            if (monitor_ack_fd >= 0) { char ack[1]; ssize_t r = read(monitor_ack_fd, ack, 1); (void)r; }
+            if (monitor_ack_fd >= 0) { char ack = 0; ssize_t r = read(monitor_ack_fd, &ack, 1); (void)r; (void)ack; }
         }
         unsigned char hdr[MW_HDR_BYTES];
         mw_pack_hdr(hdr, MWK_END, MW_NAME_ID_NONE, MWT_NULL, 0);
@@ -960,9 +962,9 @@ static void mon_send_bin(uint32_t kind, uint32_t name_id, uint8_t type,
     ssize_t got   = writev(monitor_fd, iov, niov);
     if (got != total) return;
     if (monitor_ack_fd >= 0) {
-        char ack[1];
-        ssize_t r = read(monitor_ack_fd, ack, 1);
-        if (r != 1 || ack[0] == 'S') exit(0);
+        char ack = 0;
+        ssize_t r = read(monitor_ack_fd, &ack, 1);
+        if (r != 1 || ack == 'S') exit(0);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1102,9 +1104,8 @@ static DESCR_t _b_MON_OPEN(DESCR_t *args, int nargs) {
         const char *np; int nl;
         _arg_str(args[2], &np, &nl);
         if (np && nl > 0) {
-            char buf[4096];
-            int  cp = nl < (int)sizeof(buf)-1 ? nl : (int)sizeof(buf)-1;
-            memcpy(buf, np, cp); buf[cp] = '\0';
+            char buf[nl + 1];
+            memcpy(buf, np, (size_t)nl); buf[nl] = '\0';
             if (load_names_file_bin(buf) < 0) return FAILDESCR;
         }
     }
@@ -1530,6 +1531,18 @@ static int host_cmdline_arg(int want, char *out, int outsz) {
     if (found < 0 && idx == want && oi > 0) found = idx;
     return found;
 }
+static int host_cmdline_len(int want) {
+    FILE *f = fopen("/proc/self/cmdline", "rb"); if (!f) return -1;
+    int idx = 0, n = 0, found = -1, c;
+    for (;;) {
+        c = fgetc(f); if (c == EOF) break;
+        if (c == 0) { if (idx == want) { found = n; break; } idx++; n = 0; continue; }
+        if (idx == want) n++;
+    }
+    fclose(f);
+    if (found < 0 && idx == want && n > 0) found = n;
+    return found;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long _sw_stack_bytes = 0;
 static long _sw_mem_arg(const char *t) {
@@ -1540,18 +1553,20 @@ static long _sw_mem_arg(const char *t) {
 _Static_assert(sizeof(long) == 8, "A COMPILED PROGRAM'S COMMAND LINE FOLLOWS THE STANDARD CONVENTION (Lon 2026-09-25, in-chat to the ceo, verbatim: \"You should fix the command-line switch processing in SCRIP if it is not standard convention and is causing you problems.\"; ceo CEO-1261): the runtime consumes only WELL-FORMED switches of its own, -d -i -s -m with a size attached (-s4m) or following (-s 4m) and -u with its string, a -- ends them and is consumed, and the first token that is not one -- a program's own option included, textcvt's `-d -f` and datmerge's `-min` in the IPL -- is the program's first argument, never refused: a compiled program's argv is the program's; it used to skip every leading dash token, known or not, while the program still saw them all, and HOST(0) found -u only in the first position");
 static int cmdline_switch_walk(long *win_kb, long *cap_kb, long *stk, long *mxl, char *ub, int ubsz, int *has_u, int *bad, int report)
 {
-    char tok[4096]; int i = 1;
+    int i = 1;
     *bad = 0;
     for (;;) {
+        int tl = host_cmdline_len(i); if (tl < 0) return i;
+        char tok[tl + 1];
         if (host_cmdline_arg(i, tok, (int)sizeof(tok)) != i) return i;
         if (tok[0] != '-' || tok[1] == '\0') return i;
         if (tok[1] == '-' && tok[2] == '\0') return i + 1;
         if (!(tok[1] == 'd' || tok[1] == 'i' || tok[1] == 's' || tok[1] == 'm' || tok[1] == 'u')) return i;
-        { char sw = tok[1]; const char *val = tok + 2; int at = i;
-          if (*val == '\0') { if (host_cmdline_arg(i + 1, tok, (int)sizeof(tok)) != i + 1) return at; val = tok; }
+        { char sw = tok[1]; const char *val = tok + 2; int at = i; int nl = *val ? 0 : host_cmdline_len(i + 1); char nx[nl > 0 ? nl + 1 : 1];
+          if (*val == '\0') { if (host_cmdline_arg(i + 1, nx, (int)sizeof(nx)) != i + 1) return at; val = nx; }
           if (sw != 'u' && _sw_mem_arg(val) < 0) return at;
-          if (val == tok) i++;
-          if (sw == 'u') { if (ub && ubsz > 0) snprintf(ub, (size_t)ubsz, "%s", val); if (has_u) *has_u = 1; i++; continue; }
+          if (val == nx) i++;
+          if (sw == 'u') { if (ub && ubsz > 0) snprintf(ub, (size_t)ubsz, "%s", val); if (has_u) *has_u = (int)strlen(val) + 1; i++; continue; }
           { long v = _sw_mem_arg(val);
             if (sw == 'd') { if (cap_kb) *cap_kb = v >> 10; } else if (sw == 'i') { if (win_kb) *win_kb = v >> 10; } else if (sw == 's') { if (stk) *stk = v; } else { if (mxl) *mxl = v; } } }
         i++;
@@ -1593,8 +1608,9 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     }
     if (selector == 0) {
         if (_host_u) return *_host_u ? STRVAL(rt_heap_strdup_c(_host_u)) : NULVCL;
-        { char ub[4096]; int has_u = 0, bad = 0; (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, ub, (int)sizeof(ub), &has_u, &bad, 0);
-          if (has_u && !bad) return *ub ? STRVAL(rt_heap_strdup_c(ub)) : NULVCL; }
+        { int has_u = 0, bad = 0; (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, (char *)0, 0, &has_u, &bad, 0);
+          if (has_u && !bad) { char ub[has_u]; int h2 = 0; (void)cmdline_switch_walk((long *)0, (long *)0, (long *)0, (long *)0, ub, (int)sizeof(ub), &h2, &bad, 0);
+              return *ub ? STRVAL(rt_heap_strdup_c(ub)) : NULVCL; } }
         return NULVCL;
     }
     if (selector == 1) {
@@ -1603,9 +1619,10 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
         return INTVAL((int64_t)system(cmd ? cmd : ""));
     }
     if (selector == 2 && n >= 2) {
-        int64_t want = to_int(a[1]); char abuf[4096];
-        if (want < 0 || host_cmdline_arg((int)want, abuf, (int)sizeof(abuf)) < 0) return FAILDESCR;
-        return STRVAL(rt_heap_strdup_c(abuf));
+        int64_t want = to_int(a[1]); int al = want < 0 ? -1 : host_cmdline_len((int)want);
+        if (al < 0) return FAILDESCR;
+        { char abuf[al + 1]; if (host_cmdline_arg((int)want, abuf, (int)sizeof(abuf)) < 0) return FAILDESCR;
+          return STRVAL(rt_heap_strdup_c(abuf)); }
     }
     if (selector == 3) {
         extern int rt_main_args_count(void);
@@ -1630,7 +1647,7 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     if (selector == 2306) return INTVAL((int64_t)CHAR_BIT);
     return NULVCL;
 }
-#define IO_CHAN_MAX 128
+#define IO_CHAN_STD_FROM 127
 typedef struct {
     FILE  *fp;
     char  *varname;
@@ -1638,37 +1655,46 @@ typedef struct {
     int    is_popen;
     char  *buf;
     size_t cap;
-    const char *prebind;
     long   rlen;
+    int    unit;
 } io_chan_t;
-static io_chan_t _io_chan[IO_CHAN_MAX];
-static int _io_chan_init = 0;
+static gv_t g_io_chan;
+#define _io_chan ((io_chan_t *)g_io_chan.p)
+#define IO_CHAN_N ((int)g_io_chan.len)
 extern FILE *popen(const char *, const char *);
 extern int pclose(FILE *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _io_chan_setup(void) {
-    if (_io_chan_init) return;
-    memset(_io_chan, 0, sizeof(_io_chan));
-    _io_chan_init = 1;
+static int _io_slot(int unit, int create) {
+    for (int i = 0; i < IO_CHAN_N; i++) if (_io_chan[i].unit == unit) return i;
+    if (!create) return -1;
+    ((io_chan_t *)gv_push(&g_io_chan, (uint16_t)HB_WSB, (uint32_t)sizeof(io_chan_t), "_io_chan"))->unit = unit;
+    return IO_CHAN_N - 1;
 }
-void rt_io_chan_prebind(int ch, const char *path) { if (ch < 0 || ch >= IO_CHAN_MAX || ch == 5 || ch == 6) return; _io_chan_setup(); _io_chan[ch].prebind = path; }
+static const char *_io_prebind(int unit) {
+    if (unit < 0) return (const char *)0;
+    char k[fmt_len("SCRIP_IO_PREBIND_%d", unit)]; snprintf(k, sizeof k, "SCRIP_IO_PREBIND_%d", unit);
+    return getenv(k);
+}
+void rt_io_chan_prebind(int ch, const char *path) {
+    if (ch < 0 || ch == 5 || ch == 6 || !path) return;
+    char k[fmt_len("SCRIP_IO_PREBIND_%d", ch)]; snprintf(k, sizeof k, "SCRIP_IO_PREBIND_%d", ch);
+    setenv(k, path, 1);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch);
 static void _io_var_refresh(const char *name);
 static FILE *_input_fp;
 static int _input_fp_is_popen;
 static int _io_chan_find_by_var(const char *name) {
-    _io_chan_setup();
     if (!g_call_fastpath_off) return -1;
-    for (int i = 0; i < IO_CHAN_MAX; i++)
+    for (int i = 0; i < IO_CHAN_N; i++)
         if (_io_chan[i].varname && strcmp(_io_chan[i].varname, name) == 0) return i;
     return -1;
 }
 void rt_terminal_to_file(const char *path) {
-    _io_chan_setup();
     FILE *f = fopen(path, "w");
     if (!f) { fprintf(stderr, "scrip: -T=%s: cannot open TERMINAL file\n", path); return; }
-    int c = 7;
+    int c = _io_slot(7, 1);
     _io_chan_close(c);
     _io_chan[c].fp = f; _io_chan[c].is_output = 1; _io_chan[c].is_popen = 0;
     _io_chan[c].varname = rt_heap_strdup_c("TERMINAL"); g_call_fastpath_off = 1; _io_var_refresh("TERMINAL");
@@ -1677,15 +1703,13 @@ void rt_terminal_to_file(const char *path) {
 static int sno_name_is_output_assoc(const char *name) {
     if (!name || !name[0]) return 0;
     if (strcmp(name, "OUTPUT") == 0 || strcmp(name, "TERMINAL") == 0) return 1;
-    _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     return ch >= 0 && _io_chan[ch].is_output;
 }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _io_chan_close(int ch) {
-    _io_chan_setup();
-    if (ch < 0 || ch >= IO_CHAN_MAX) return;
+    if (ch < 0 || ch >= IO_CHAN_N) return;
     if (_io_chan[ch].fp && _io_chan[ch].fp == _input_fp) { _input_fp = stdin; _input_fp_is_popen = 0; }
     if (_io_chan[ch].fp) { if (_io_chan[ch].fp == stdin || _io_chan[ch].fp == stdout) { } else if (_io_chan[ch].is_popen) pclose(_io_chan[ch].fp); else fclose(_io_chan[ch].fp); _io_chan[ch].fp = NULL; }
     if (_io_chan[ch].varname) { const char *ov = _io_chan[ch].varname; _io_chan[ch].varname = NULL; _io_var_refresh(ov); }
@@ -1698,8 +1722,8 @@ static void _io_chan_close(int ch) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ENDFILE_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
-    int ch = (int)a[0].i;
-    if (ch >= 0 && ch < IO_CHAN_MAX) _io_chan_close(ch);
+    int ch = (a[0].i >= 0 && a[0].i <= INT32_MAX) ? _io_slot((int)a[0].i, 0) : -1;
+    if (ch >= 0) _io_chan_close(ch);
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1857,7 +1881,7 @@ static DESCR_t _LABELCODE_(DESCR_t *a, int n) {
     if (!name || !*name) return FAILDESCR;
     extern void *rt_entry_resolve(const char *, int *);
     void *fn = rt_entry_resolve(name, (int *)0);
-    if (!fn) { char eb[288]; snprintf(eb, sizeof eb, "transfer to undefined label: %s", name); core_runtime_error(38, eb); return FAILDESCR; }
+    if (!fn) { char eb[fmt_len("transfer to undefined label: %s", name)]; snprintf(eb, sizeof eb, "transfer to undefined label: %s", name); core_runtime_error(38, eb); return FAILDESCR; }
     DESCR_t d = {0}; d.v = DT_C; d.slen = 3; d.ptr = fn;
     return d;
 }
@@ -2125,14 +2149,14 @@ extern DESCR_t rsort_fn(DESCR_t t, DESCR_t c);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _RSORT_(DESCR_t *a, int n) { return rsort_fn(n>0?a[0]:NULVCL, n>1?a[1]:NULVCL); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define CLEAR_MAX_EXCEPT 64
 static DESCR_t _CLEAR_(DESCR_t *a, int n) {
     const char *raw = (n > 0) ? VARVAL_fn(a[0]) : NULL;
     if (!raw || !*raw) { NV_CLEAR_fn(NULL, 0); return NULVCL; }
     char *tmp = rt_heap_strdup_c(raw);
-    const char *except[CLEAR_MAX_EXCEPT]; int nexcept = 0;
+    size_t nmax = 1; for (const char *q = raw; *q; q++) if (*q == ',') nmax++;
+    const char *except[nmax]; int nexcept = 0;
     char *tok = strtok(tmp, ",");
-    while (tok && nexcept < CLEAR_MAX_EXCEPT) {
+    while (tok) {
         while (*tok == ' ') tok++;
         char *end = tok + strlen(tok) - 1;
         while (end > tok && *end == ' ') *end-- = '\0';
@@ -2142,7 +2166,9 @@ static DESCR_t _CLEAR_(DESCR_t *a, int n) {
     NV_CLEAR_fn(except, nexcept);
     return NULVCL;
 }
-static char _setexit_label[256];
+static gv_t g_setexit_label;
+#define SXL ((char *)g_setexit_label.p)
+static int sxl_set(void) { return g_setexit_label.p && SXL[0]; }
 static int _setexit_resume = -1;
 extern jmp_buf g_core_errjmp_stk[64];
 extern int g_core_errjmp_n;
@@ -2183,9 +2209,9 @@ static int core_setexit_system_label(const char *s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
-    DESCR_t prev = (core_setexit_on() && _setexit_label[0]) ? STRVAL(rt_heap_strdup_c(_setexit_label)) : NULVCL;
+    DESCR_t prev = (core_setexit_on() && sxl_set()) ? STRVAL(rt_heap_strdup_c(SXL)) : NULVCL;
     if (n < 1 || a[0].v == DT_FAIL) {
-        _setexit_label[0] = '\0';
+        if (g_setexit_label.p) SXL[0] = '\0';
         return prev;
     }
     const char *lbl = VARVAL_fn(a[0]);
@@ -2197,20 +2223,20 @@ static DESCR_t _SETEXIT_(DESCR_t *a, int n) {
             return prev;
         }
     }
-    if (lbl) strncpy(_setexit_label, lbl, sizeof(_setexit_label)-1);
+    if (lbl) { size_t ll = strlen(lbl); gv_reserve(&g_setexit_label, (uint16_t)HB_WSB, 1u, (uint64_t)ll + 1, "setexit_label"); memcpy(SXL, lbl, ll + 1); }
     return prev;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *setexit_label_get(char *buf, size_t bufsz) {
-    if (!(core_setexit_on() && _setexit_label[0])) return NULL;
-    strncpy(buf, _setexit_label, bufsz - 1); buf[bufsz - 1] = '\0';
-    _setexit_label[0] = '\0';
+    if (!(core_setexit_on() && sxl_set())) return NULL;
+    strncpy(buf, SXL, bufsz - 1); buf[bufsz - 1] = '\0';
+    SXL[0] = '\0';
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_fire_on_end(void) {
     extern int64_t kw_errlimit;
-    char buf[sizeof _setexit_label];
+    char buf[g_setexit_label.p ? strlen(SXL) + 1 : 1];
     if (kw_errlimit == 0 || !core_setexit_on_end()) return;
     const char *lbl = setexit_label_get(buf, sizeof buf);
     if (!lbl) return;
@@ -2288,8 +2314,8 @@ static DESCR_t _DUMP_(DESCR_t *a, int n) {
 #if RT_DIAG
 static DESCR_t _TRACE_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
-    char ebuf[256]; long eid = 0;
-    const char *varname = (IS_NAMETRAP_fn(a[0]) && etrace_spell_of_cell((VCELL_t *)a[0].p, ebuf, sizeof ebuf, &eid)) ? ebuf : VARVAL_fn(a[0]);
+    long eid = 0; int en = IS_NAMETRAP_fn(a[0]) ? etrace_spell_of_cell((VCELL_t *)a[0].p, (char *)0, 0, (long *)0) : 0; char ebuf[en > 0 ? en : 1];
+    const char *varname = (en > 0 && etrace_spell_of_cell((VCELL_t *)a[0].p, ebuf, sizeof ebuf, &eid)) ? ebuf : VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
     if (getenv("SCRIP_DEBUG_TRACE"))
         fprintf(stderr, "[scrip-trace] _TRACE_ entry n=%d varname=%s\n", n, varname);
@@ -2311,8 +2337,8 @@ static DESCR_t _TRACE_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _STOPTR_(DESCR_t *a, int n) {
     if (n < 1) return FAILDESCR;
-    char ebuf[256]; long eid = 0;
-    const char *varname = (IS_NAMETRAP_fn(a[0]) && etrace_spell_of_cell((VCELL_t *)a[0].p, ebuf, sizeof ebuf, &eid)) ? ebuf : VARVAL_fn(a[0]);
+    long eid = 0; int en = IS_NAMETRAP_fn(a[0]) ? etrace_spell_of_cell((VCELL_t *)a[0].p, (char *)0, 0, (long *)0) : 0; char ebuf[en > 0 ? en : 1];
+    const char *varname = (en > 0 && etrace_spell_of_cell((VCELL_t *)a[0].p, ebuf, sizeof ebuf, &eid)) ? ebuf : VARVAL_fn(a[0]);
     if (!varname || !*varname) return FAILDESCR;
     const char *type = (n >= 2) ? VARVAL_fn(a[1]) : (const char *)0;
     int kind = trace_type_parse(type);
@@ -2562,8 +2588,7 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
     if (!raw_spec || !*raw_spec) return NULVCL;
     { const char *p = strchr(raw_spec, '(');
       if (p && p > raw_spec) {
-          char probe_name[256]; size_t plen = (size_t)(p - raw_spec);
-          if (plen >= sizeof probe_name) plen = sizeof probe_name - 1;
+          size_t plen = (size_t)(p - raw_spec); char probe_name[plen + 1];
           memcpy(probe_name, raw_spec, plen); probe_name[plen] = '\0';
           if (sn4_sysfn_protected(probe_name)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
           const char *fs = p + 1; const char *fe = strchr(fs, ')'); if (!fe) fe = fs + strlen(fs);
@@ -2573,7 +2598,7 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
               const char *e2 = comma; while (e2 > b && (e2[-1] == ' ' || e2[-1] == '\t')) e2--;
               size_t flen = (size_t)(e2 - b);
               if (flen > 0) {
-                  char fprobe[256]; if (flen >= sizeof fprobe) flen = sizeof fprobe - 1;
+                  char fprobe[flen + 1];
                   memcpy(fprobe, b, flen); fprobe[flen] = '\0';
                   if (sn4_sysfn_protected(fprobe)) { extern int kwb_error(int code, const char *msg); kwb_error(248, "attempted redefinition of system function"); return FAILDESCR; }
               }
@@ -2617,7 +2642,7 @@ DESCR_t core_DATA_register(DESCR_t *a, int n) {
         _facc_slots[slot].fidx = fi;
         const char *fname = _data_types[tidx].fields[fi];
         register_fn(fname, _facc_fns[slot], 1, 1);
-        char setname[256];
+        char setname[fmt_len("%s_SET", fname)];
         snprintf(setname, sizeof(setname), "%s_SET", fname);
         register_fn(setname, _facc_set_fns[slot], 2, 2);
     }
@@ -3049,7 +3074,7 @@ void core_runtime_error(int code, const char *msg) {
     { extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
       extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
       extern long g_error;
-      if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && _setexit_label[0]))) {
+      if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE && g_core_errjmp_n > 0 && (g_error == -2 || !(core_setexit_on() && sxl_set()))) {
           if (g_error > 0) g_error--;
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
@@ -3059,9 +3084,9 @@ void core_runtime_error(int code, const char *msg) {
     { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg);
       extern jmp_buf g_core_errjmp_stk[64]; extern int g_core_errjmp_n;
       int aborting = 0;
-      if (core_setexit_on() && _setexit_label[0] && kw_errlimit != 0) {
-          char lbl[sizeof _setexit_label]; strncpy(lbl, _setexit_label, sizeof lbl - 1); lbl[sizeof lbl - 1] = '\0';
-          _setexit_label[0] = '\0';
+      if (core_setexit_on() && sxl_set() && kw_errlimit != 0) {
+          char lbl[strlen(SXL) + 1]; memcpy(lbl, SXL, sizeof lbl);
+          SXL[0] = '\0';
           if (kw_errlimit > 0) kw_errlimit--;
           rt_kw_publish_error(code, msg);
           if (strcmp(lbl, "ABORT")) {
@@ -3087,7 +3112,7 @@ void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_k
     extern int rt_k_level;
     int icon = (rt_k_level >= 1 && g_icn_act[1].name) ? 1 : 0;
     int code = icon ? (type == (unsigned)DT_S ? 306 : 307) : 204;
-    char mb[320];
+    char mb[fmt_len("%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload)];
     snprintf(mb, sizeof mb, "%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload);
     core_runtime_error(code, mb);
     { extern void rt_setexit_fire_now(void); rt_setexit_fire_now(); }
@@ -3538,7 +3563,6 @@ static DESCR_t NV_GET_untapped(const char *name) {
     if (strcmp(name, "INPUT") == 0) { extern int rt_kw_input_on(void); if (!rt_kw_input_on()) return NULVCL; DESCR_t r = input_read(); if (r.v != DT_FAIL) _var_assoc_set("_INPUT", r); return r; }
     if (strcmp(name, "TERMINAL") == 0) return terminal_read();
     if (strcmp(name, "OUTPUT") == 0) { NV_t *e = _var_bucket_find("_OUTPUT"); return e ? (e->is_gva ? *e->cell : e->val) : NULVCL; }
-    _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && !_io_chan[ch].is_output && _io_chan[ch].fp) {
         if (_io_chan[ch].rlen > 0) {
@@ -3610,7 +3634,6 @@ DESCR_t NV_SET_fn(const char *name, DESCR_t val) {
 #else
     { DESCR_t *cell = NV_CELL_IF_FASTSET_fn(name); if (cell) { *cell = val; return val; } }
 #endif
-    _io_chan_setup();
     int ch = _io_chan_find_by_var(name);
     if (ch >= 0 && _io_chan[ch].is_output && _io_chan[ch].fp) {
         const char *s = (val.v == DT_S) ? rt_cstr_d(val) : (const char *)VARVAL_fn(val);
@@ -3836,6 +3859,12 @@ static const char *dump_arr_proto(const ARBLK_t *a, char *pb, int n) {
     else snprintf(pb, (size_t)n, "%d:%d", a->lo, a->hi);
     return pb;
 }
+static int dump_obj_head_len(DESCR_t d) {
+    if (d.v == DT_A && d.arr) { char pb[64]; return fmt_len("ARRAY(%s) #%ld", dump_arr_proto(d.arr, pb, (int)sizeof pb), d.arr->dumpno); }
+    if (d.v == DT_T && d.tbl) return fmt_len("TABLE(%d) #%ld", d.tbl->init, d.tbl->dumpno);
+    if (IS_DATA_INST_fn(d) && d.u && d.u->type) return fmt_len("%s #%ld", d.u->type->name ? d.u->type->name : "DATA", d.u->dumpno);
+    return 1;
+}
 static void dump_obj_head(DESCR_t d, char *out, int n) {
     if (d.v == DT_A && d.arr) { char pb[64]; snprintf(out, (size_t)n, "ARRAY(%s) #%ld", dump_arr_proto(d.arr, pb, (int)sizeof pb), d.arr->dumpno); return; }
     if (d.v == DT_T && d.tbl) { snprintf(out, (size_t)n, "TABLE(%d) #%ld", d.tbl->init, d.tbl->dumpno); return; }
@@ -3843,14 +3872,13 @@ static void dump_obj_head(DESCR_t d, char *out, int n) {
     out[0] = 0;
 }
 static void dump_val(DESCR_t d) {
-    char hb[192];
     if (d.v == DT_I) { char b[32]; snprintf(b, sizeof b, "%lld", (long long)d.i); dump_puts(b); return; }
     if (d.v == DT_R) { extern const char *real_str(double r, char *b, int bufsz); char b[64]; dump_puts(real_str(d.r, b, sizeof b)); return; }
     if (d.v == DT_S || d.v == DT_SNUL) {
         const char *s = d.s ? d.s : ""; long n = (d.slen && d.slen != 0xFFFFFFFFu) ? (long)d.slen : (long)strlen(s);
         dump_putc('\''); dump_putn(s, n); dump_putc('\''); return;
     }
-    dump_obj_head(d, hb, (int)sizeof hb); if (hb[0]) { dump_puts(hb); return; }
+    { char hb[dump_obj_head_len(d)]; dump_obj_head(d, hb, (int)sizeof hb); if (hb[0]) { dump_puts(hb); return; } }
     if (d.v == DT_P) { dump_puts("PATTERN"); return; }
     if (d.v == DT_E) { dump_puts("EXPRESSION"); return; }
     if (d.v == DT_C) { dump_puts("CODE"); return; }
@@ -3906,25 +3934,25 @@ static int dump_tk_cmp(const void *a, const void *b) {
 static int dump_obj_cmp(const void *a, const void *b) { long x = ((const DUMPOBJ_t *)a)->no, y = ((const DUMPOBJ_t *)b)->no; return (x > y) - (x < y); }
 static void dump_elem(const char *nm, const char *sub, DESCR_t v) { if (dump_is_null(v)) return; dump_puts(nm); dump_puts(sub); dump_puts(" = "); dump_val(v); dump_nl(); }
 static void dump_arr_walk(ARBLK_t *a, const char *nm, const char *pre) {
-    char sb[160]; if (!a->data) return;
+    if (!a->data) return;
     if (a->ndim > 1) {
         int cols = a->hi2 - a->lo2 + 1;
         for (int i = a->lo; i <= a->hi; i++) for (int j = a->lo2; j <= a->hi2; j++) {
-            snprintf(sb, sizeof sb, "<%s%d,%d>", pre, i, j); dump_elem(nm, sb, a->data[(long)(i - a->lo) * cols + (j - a->lo2)]);
+            char sb[fmt_len("<%s%d,%d>", pre, i, j)]; snprintf(sb, sizeof sb, "<%s%d,%d>", pre, i, j); dump_elem(nm, sb, a->data[(long)(i - a->lo) * cols + (j - a->lo2)]);
         }
         return;
     }
     for (int i = a->lo; i <= a->hi; i++) {
         DESCR_t v = a->data[i - a->lo];
-        if (v.v == DT_A && v.arr && v.arr->dumpno == 0 && v.arr->data) { char np[160]; snprintf(np, sizeof np, "%s%d,", pre, i); dump_arr_walk(v.arr, nm, np); continue; }
-        snprintf(sb, sizeof sb, "<%s%d>", pre, i); dump_elem(nm, sb, v);
+        if (v.v == DT_A && v.arr && v.arr->dumpno == 0 && v.arr->data) { char np[fmt_len("%s%d,", pre, i)]; snprintf(np, sizeof np, "%s%d,", pre, i); dump_arr_walk(v.arr, nm, np); continue; }
+        { char sb[fmt_len("<%s%d>", pre, i)]; snprintf(sb, sizeof sb, "<%s%d>", pre, i); dump_elem(nm, sb, v); }
     }
 }
 static void dump_arr_elems(ARBLK_t *a, const char *nm) { dump_arr_walk(a, nm, ""); }
 static void dump_contents(void) {
     qsort(g_dobj, (size_t)g_ndobj, sizeof(DUMPOBJ_t), dump_obj_cmp);
     for (int k = 0; k < g_ndobj; k++) {
-        DESCR_t d = g_dobj[k].d; char hb[192]; dump_obj_head(d, hb, (int)sizeof hb); const char *nm = g_dobj[k].name ? g_dobj[k].name : hb;
+        DESCR_t d = g_dobj[k].d; char hb[dump_obj_head_len(d)]; dump_obj_head(d, hb, (int)sizeof hb); const char *nm = g_dobj[k].name ? g_dobj[k].name : hb;
         dump_puts(hb); dump_nl();
         if (d.v == DT_A) dump_arr_elems(d.arr, nm);
         else if (d.v == DT_T) { TBBLK_t *t = d.tbl; unsigned n = t->ord_len; DUMPTK_t *ks = (DUMPTK_t *)ct_zalloc(n ? n : 1, sizeof(DUMPTK_t)); if (!ks) continue;
@@ -3957,9 +3985,13 @@ static unsigned etrace_spitbol_bucket(const NV_t *e) {
     for (size_t i = 0; i < lim; i += 8) { uint64_t w = 0; for (size_t j = 0; j < 8 && i + j < e->nlen; j++) w |= (uint64_t)(unsigned char)e->name[i + j] << (8 * j); h ^= w; }
     return (unsigned)((h & 0x7FFFFFFFFFFFFFFFull) % 257u);
 }
+static int etrace_spell_emit(char *out, size_t n, const char *nm, const char *kb) {
+    int need = fmt_len("%s<%s>", nm, kb);
+    if (out && n >= (size_t)need) snprintf(out, n, "%s<%s>", nm, kb);
+    return need;
+}
 static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) {
-    if (!vc || !out || n < 4) return 0;
-    char kb[160];
+    if (!vc) return 0;
     if (vc->tbl) {
         NV_t *best = (NV_t *)0; unsigned bb = 0;
         for (unsigned i = 0; i < _var_nbuckets; i++) for (NV_t *e = VBR(i); e; e = e->next) {
@@ -3969,10 +4001,9 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
             unsigned b = etrace_spitbol_bucket(e); if (!best || b < bb || (b == bb && e->serial < best->serial)) { best = e; bb = b; }
         }
         if (!best) return 0;
-        trace_spell_value(vc->key_d, kb, sizeof kb);
-        snprintf(out, n, "%s<%s>", best->name, kb);
+        char kb[trace_spell_value(vc->key_d, (char *)0, 0)]; trace_spell_value(vc->key_d, kb, sizeof kb);
         if (id_out) *id_out = vc->tbl->id;
-        return 1;
+        return etrace_spell_emit(out, n, best->name, kb);
     }
     if (!vc->cellp) return 0;
     NV_t *best = (NV_t *)0; unsigned bb = 0; ARBLK_t *ba = (ARBLK_t *)0;
@@ -3989,24 +4020,25 @@ static int etrace_spell_of_cell(VCELL_t *vc, char *out, size_t n, long *id_out) 
         unsigned b = etrace_spitbol_bucket(e); if (!best || b < bb || (b == bb && e->serial < best->serial)) { best = e; bb = b; ba = a; }
     }
     if (!best) return 0;
-    { long rows = (long)ba->hi - (long)ba->lo + 1, cols = (ba->ndim == 2) ? ((long)ba->hi2 - (long)ba->lo2 + 1) : 1; long off = (long)(vc->cellp - ba->data);
-      if (ba->ndim == 2 && cols > 0 && rows > 0) snprintf(kb, sizeof kb, "%ld,%ld", (long)ba->lo + off / cols, (long)ba->lo2 + off % cols);
-      else trace_spell_value(vc->key_d, kb, sizeof kb); }
-    snprintf(out, n, "%s<%s>", best->name, kb);
     if (id_out) *id_out = ba->id;
-    return 1;
+    { long rows = (long)ba->hi - (long)ba->lo + 1, cols = (ba->ndim == 2) ? ((long)ba->hi2 - (long)ba->lo2 + 1) : 1; long off = (long)(vc->cellp - ba->data);
+      if (ba->ndim == 2 && cols > 0 && rows > 0) { long r0 = (long)ba->lo + off / cols, c0 = (long)ba->lo2 + off % cols;
+          char kb[fmt_len("%ld,%ld", r0, c0)]; snprintf(kb, sizeof kb, "%ld,%ld", r0, c0); return etrace_spell_emit(out, n, best->name, kb); }
+      { char kb[trace_spell_value(vc->key_d, (char *)0, 0)]; trace_spell_value(vc->key_d, kb, sizeof kb); return etrace_spell_emit(out, n, best->name, kb); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void etrace_recount(void) {
     int c = 0;
-    for (int i = 0; i < TRACE_TAB_CAP; i++) if (trace_tab[i].used && trace_tab[i].name && strchr(trace_tab[i].name, '<')) c++;
+    for (int i = 0; i < TRACE_TAB_N; i++) if (trace_tab[i].used && trace_tab[i].name && strchr(trace_tab[i].name, '<')) c++;
     g_sno_etrace_n = c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_sno_elem_store_trace(DESCR_t var, DESCR_t val) {
     extern long g_stno;
-    char eb[256]; long eid = 0;
+    long eid = 0;
     if (g_sno_etrace_n == 0 || !IS_NAMETRAP_fn(var) || !var.p) return;
+    int en = etrace_spell_of_cell((VCELL_t *)var.p, (char *)0, 0, (long *)0); if (en <= 0) return;
+    char eb[en];
     if (!etrace_spell_of_cell((VCELL_t *)var.p, eb, sizeof eb, &eid)) return;
     { trace_ent_t *ee = trace_find(eb, TRK_VALUE); if (!ee || ee->eid != eid) return; }
     rt_trace_event(TRK_VALUE, eb, val, (long long)g_stno);
@@ -4089,7 +4121,6 @@ void NPOP_fn(void) {
     if (_ntop >= 0) _ntop--;
 }
 static int    _vstop = -1;
-#define FUNC_BUCKETS 128
 typedef struct _FNCBLK_t {
     char   *name;
     char   *spec;
@@ -4104,22 +4135,28 @@ typedef struct _FNCBLK_t {
     int     max_set;
     struct _FNCBLK_t *next;
 } FNCBLK_t;
-#define CORE_FN_PAD_MAX 8
-static FNCBLK_t *_func_buckets[FUNC_BUCKETS];
-static int        _func_init_done = 0;
-static unsigned _func_hash(const char *name);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void _func_init(void) {
-    if (_func_init_done) return;
-    memset(_func_buckets, 0, sizeof(_func_buckets));
-    _func_init_done = 1;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static unsigned _func_hash(const char *name) {
+static gv_t g_func_buckets; static unsigned _func_nbuckets = 0; static unsigned long _func_count = 0;
+#define _func_buckets ((FNCBLK_t **)g_func_buckets.p)
+static unsigned _func_hash_raw(const char *name) {
     unsigned h = 5381;
     while (*name) h = h * 33 ^ (unsigned char)*name++;
-    return h % FUNC_BUCKETS;
+    return h;
 }
+static void _func_regrow(unsigned nb) {
+    gv_t nv = { 0, 0, 0, 0, 0, 0 };
+    gv_reserve(&nv, (uint16_t)HB_PVEC, (uint32_t)sizeof(FNCBLK_t *), (uint64_t)nb, "g_func_buckets"); memset(nv.p, 0, (size_t)nb * sizeof(FNCBLK_t *));
+    for (unsigned h = 0; h < _func_nbuckets; h++) for (FNCBLK_t *e = _func_buckets[h], *nx; e; e = nx) { FNCBLK_t **t = &((FNCBLK_t **)nv.p)[_func_hash_raw(e->name) & (nb - 1)]; nx = e->next;
+        while (*t) t = &(*t)->next;
+        e->next = (FNCBLK_t *)0; *t = e; }
+    g_func_buckets = nv; _func_nbuckets = nb;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void _func_init(void) {
+    if (!_func_nbuckets) _func_regrow(8);
+}
+static void _func_count_one(void) { if (++_func_count > _func_nbuckets) _func_regrow(_func_nbuckets * 2); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned _func_hash(const char *name) { return _func_hash_raw(name) & (_func_nbuckets - 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FNCBLK_t *_parse_define_spec(const char *spec) {
     FNCBLK_t *fe = rt_wsb_alloc(sizeof(FNCBLK_t));
@@ -4237,6 +4274,7 @@ void DEFINE_fn(const char *spec, FNCPTR_t fn) {
     }
     fe->next = _func_buckets[h];
     _func_buckets[h] = fe;
+    _func_count_one();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label) {
@@ -4439,6 +4477,7 @@ int UNLOAD_fn(const char *name) {
         if (strcmp(e->name, name) != 0) continue;
         if (e->fn) return 0;
         if (prev) prev->next = e->next; else _func_buckets[h] = (FNCBLK_t *)e->next;
+        if (_func_count) _func_count--;
         rt_proc_unregister(name);
         return 1;
     }
@@ -4488,6 +4527,7 @@ void register_fn_alias(const char *newname, const char *oldname) {
     }
     fe->next = _func_buckets[hn];
     _func_buckets[hn] = fe;
+    _func_count_one();
 }
 DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4512,8 +4552,8 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
               if (_tgt && nargs == 1 && args && IS_DATA_TAG_fn(args[0].v) && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt))
                   return dat_field_get(_tgt, args[0]); }
             if (e->fn) {
-                if (e->min_args > 0 && nargs < e->min_args && e->min_args <= CORE_FN_PAD_MAX) {
-                    DESCR_t pad[CORE_FN_PAD_MAX]; int pi = 0;
+                if (e->min_args > 0 && nargs < e->min_args) {
+                    DESCR_t pad[e->min_args]; int pi = 0;
                     for (; pi < nargs && pi < e->min_args; pi++) pad[pi] = args[pi];
                     for (; pi < e->min_args; pi++) pad[pi] = NULVCL;
                     return e->fn(pad, e->min_args);
@@ -4710,12 +4750,12 @@ static int _input_fp_is_popen = 0;
 static void _input_fp_release(void) {
     if (_input_fp && _input_fp != stdin) {
         int owned = 0;
-        for (int c = 0; c < IO_CHAN_MAX; c++) if (_io_chan[c].fp == _input_fp) { owned = 1; break; }
+        for (int c = 0; c < IO_CHAN_N; c++) if (_io_chan[c].fp == _input_fp) { owned = 1; break; }
         if (!owned) { if (_input_fp_is_popen) pclose(_input_fp); else fclose(_input_fp); }
     }
     _input_fp = stdin; _input_fp_is_popen = 0;
 }
-static int _io_chan_in_use(int ch) { return ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp && _io_chan[ch].fp != stdin && _io_chan[ch].fp != stdout; }
+static int _io_chan_in_use(int unit) { int ch = unit >= 0 ? _io_slot(unit, 0) : -1; return ch >= 0 && _io_chan[ch].fp && _io_chan[ch].fp != stdin && _io_chan[ch].fp != stdout; }
 void rt_input_from_file_at(const char *path, long off) {
     FILE *f = fopen(path, "r");
     if (!f) return;
@@ -4831,7 +4871,7 @@ static void _io_parse_opts(const char *spec, long *fd, long *rlen) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static FILE *_io_chan_fp_or_std(int ch) {
-    if (ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp) return _io_chan[ch].fp;
+    { int s = ch >= 0 ? _io_slot(ch, 0) : -1; if (s >= 0 && _io_chan[s].fp) return _io_chan[s].fp; }
     if (ch == 5) return stdin;
     if (ch == 6) return stdout;
     return NULL;
@@ -4839,9 +4879,8 @@ static FILE *_io_chan_fp_or_std(int ch) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _REWIND_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
-    _io_chan_setup();
-    int ch = IS_INT(a[0]) ? (int)a[0].i : -1;
-    FILE *fp = (ch >= 0 && ch < IO_CHAN_MAX) ? _io_chan[ch].fp : (FILE *)0;
+    int ch = (IS_INT(a[0]) && a[0].i >= 0 && a[0].i <= INT32_MAX) ? _io_slot((int)a[0].i, 0) : -1;
+    FILE *fp = ch >= 0 ? _io_chan[ch].fp : (FILE *)0;
     if (!fp) { core_runtime_error(174, "rewind file does not exist"); return FAILDESCR; }
     rewind(fp); clearerr(fp);
     return NULVCL;
@@ -4849,19 +4888,17 @@ static DESCR_t _REWIND_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _EJECT_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
-    _io_chan_setup();
-    int ch = IS_INT(a[0]) ? (int)a[0].i : -1;
-    if (ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].fp && _io_chan[ch].is_output) fputs("\f\n", _io_chan[ch].fp);
+    int ch = (IS_INT(a[0]) && a[0].i >= 0 && a[0].i <= INT32_MAX) ? _io_slot((int)a[0].i, 0) : -1;
+    if (ch >= 0 && _io_chan[ch].fp && _io_chan[ch].is_output) fputs("\f\n", _io_chan[ch].fp);
     return NULVCL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _BACKSPACE_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
-    _io_chan_setup();
     int ch = -1;
-    if (IS_INT(a[0])) ch = (int)a[0].i;
+    if (IS_INT(a[0])) ch = (a[0].i >= 0 && a[0].i <= INT32_MAX) ? _io_slot((int)a[0].i, 0) : -1;
     else { const char *vn = _io_varname(a[0]); if (vn) ch = _io_chan_find_by_var(vn); }
-    if (ch < 0 || ch >= IO_CHAN_MAX || !_io_chan[ch].fp) return NULVCL;
+    if (ch < 0 || !_io_chan[ch].fp) return NULVCL;
     { FILE *fp = _io_chan[ch].fp;
       long pos = ftell(fp);
       if (pos <= 0) return NULVCL;
@@ -4884,21 +4921,21 @@ static int _set_int_arg(DESCR_t d, int64_t *out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _SET_(DESCR_t *a, int n) {
-    _io_chan_setup();
     DESCR_t c = n > 0 ? a[0] : NULVCL, o = n > 1 ? a[1] : NULVCL, w = n > 2 ? a[2] : NULVCL;
-    int64_t ch, off, wh, eof, target;
+    int64_t ch, off, wh, eof, target; int sl = -1;
     if (IS_NULL_fn(c)) { core_runtime_error(292, "set first argument is null"); return FAILDESCR; }
-    if (!_set_int_arg(c, &ch) || ch < 0 || ch >= IO_CHAN_MAX || !_io_chan[ch].fp) { core_runtime_error(295, "set file does not exist"); return FAILDESCR; }
-    if (_io_chan[ch].is_popen) { core_runtime_error(296, "set file does not permit setting file pointer"); return FAILDESCR; }
+    if (_set_int_arg(c, &ch) && ch >= 0 && ch <= INT32_MAX) sl = _io_slot((int)ch, 0);
+    if (sl < 0 || !_io_chan[sl].fp) { core_runtime_error(295, "set file does not exist"); return FAILDESCR; }
+    if (_io_chan[sl].is_popen) { core_runtime_error(296, "set file does not permit setting file pointer"); return FAILDESCR; }
     if (!_set_int_arg(w, &wh) || !_set_int_arg(o, &off)) { core_runtime_error(293, "inappropriate second argument to set"); return FAILDESCR; }
     if (wh < 0 || wh > 2) { core_runtime_error(297, "set caused non-recoverable i/o error"); return FAILDESCR; }
-    { FILE *fp = _io_chan[ch].fp; long cur;
+    { FILE *fp = _io_chan[sl].fp; long cur;
       fflush(fp); cur = ftell(fp);
       if (cur < 0 || fseek(fp, 0, SEEK_END) != 0) { core_runtime_error(296, "set file does not permit setting file pointer"); return FAILDESCR; }
       eof = ftell(fp);
       target = wh == 0 ? off : wh == 1 ? cur + off : eof + off;
       if (target < 0) target = 0;
-      if (!_io_chan[ch].is_output && target > eof) target = eof;
+      if (!_io_chan[sl].is_output && target > eof) target = eof;
       if (fseek(fp, (long)target, SEEK_SET) != 0) { core_runtime_error(297, "set caused non-recoverable i/o error"); return FAILDESCR; }
       clearerr(fp); }
     return INTVAL(target);
@@ -4906,7 +4943,6 @@ static DESCR_t _SET_(DESCR_t *a, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _DETACH_(DESCR_t *a, int n) {
     if (n < 1) return NULVCL;
-    _io_chan_setup();
     { const char *vn = _io_varname(a[0]);
       if (vn) { int ch = _io_chan_find_by_var(vn); if (ch >= 0) { _io_chan[ch].varname = NULL; _io_var_refresh(vn); }
         if (!strcmp(vn, "OUTPUT")) {
@@ -4929,16 +4965,19 @@ static int _io_assoc_pair_state(DESCR_t *a, int n) {
     return 2;
 }
 static int _io_assoc_std(const char *vn, int base, FILE *fp, int is_output) {
-    int c = -1;
-    for (int i = 0; i < IO_CHAN_MAX; i++) {
+    int c = -1, b = _io_slot(base, 1);
+    for (int i = 0; i < IO_CHAN_N; i++) {
         if (!_io_chan[i].varname || strcmp(_io_chan[i].varname, vn) != 0) continue;
         if (_io_chan[i].fp == stdin || _io_chan[i].fp == stdout || !_io_chan[i].fp) _io_chan_close(i);
         else { _io_chan[i].varname = NULL; _io_var_refresh(vn); }
     }
-    if (!_io_chan[base].varname) c = base;
-    for (int i = IO_CHAN_MAX - 1; c < 0 && i > 7; i--)
-        if (!_io_chan[i].varname && !_io_chan[i].prebind && !_io_chan[i].is_popen && (!_io_chan[i].fp || _io_chan[i].fp == stdin || _io_chan[i].fp == stdout)) c = i;
-    if (c < 0) c = base;
+    if (!_io_chan[b].varname) c = b;
+    for (int u = IO_CHAN_STD_FROM; c < 0 && u > 7; u--) {
+        int i = _io_slot(u, 0);
+        if (i < 0) { if (!_io_prebind(u)) c = _io_slot(u, 1); }
+        else if (!_io_chan[i].varname && !_io_prebind(u) && !_io_chan[i].is_popen && (!_io_chan[i].fp || _io_chan[i].fp == stdin || _io_chan[i].fp == stdout)) c = i;
+    }
+    if (c < 0) c = _io_slot(-2 - IO_CHAN_N, 1);
     _io_chan_close(c);
     _io_chan[c].fp = fp; _io_chan[c].is_output = is_output; _io_chan[c].is_popen = 0;
     _io_chan[c].varname = rt_heap_strdup_c(vn); g_call_fastpath_off = 1; _io_var_refresh(vn);
@@ -4946,8 +4985,7 @@ static int _io_assoc_std(const char *vn, int base, FILE *fp, int is_output) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _INPUT_(DESCR_t *a, int n) {
-    _io_chan_setup();
-    char fname_buf[4096];
+    char fname_buf[n == 3 ? strlen(VARVAL_fn(a[2])) + 1 : 1];
     const char *fname = NULL;
     if (n >= 4) {
         fname = VARVAL_fn(a[3]);
@@ -4957,7 +4995,7 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
     if (n == 3 && VARVAL_fn(a[2])[0] == '!') fname = VARVAL_fn(a[2]);
     int ch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1;
     int from_prebind = 0;
-    if ((!fname || !fname[0]) && ch >= 0 && ch < IO_CHAN_MAX && _io_chan[ch].prebind) { fname = _io_chan[ch].prebind; from_prebind = 1; }
+    if ((!fname || !fname[0]) && _io_prebind(ch)) { fname = _io_prebind(ch); from_prebind = 1; }
     else if (!core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
         core_runtime_error(116, "inappropriate file specification for input"); return FAILDESCR; }
     if (!fname || !fname[0]) {
@@ -4967,19 +5005,19 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
         const char *vn = (n == 1 || ps == 0) ? _io_varname(a[0]) : NULL;
         if (ps == 0 && !vn) return NULVCL;
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
-        if (ps == 2 && fd >= 0 && ch >= 0 && ch < IO_CHAN_MAX) {
-            const char *cv = _io_varname(a[0]); FILE *nf;
+        if (ps == 2 && fd >= 0 && ch >= 0) {
+            const char *cv = _io_varname(a[0]); FILE *nf; int sl;
             if (_io_chan_in_use(ch)) { core_runtime_error(289, "input channel currently in use"); return FAILDESCR; }
             nf = fdopen(dup((int)fd), "r"); if (!nf) return FAILDESCR;
-            _io_chan_close(ch); _io_chan[ch].fp = nf; _io_chan[ch].is_output = 0; _io_chan[ch].is_popen = 0; _io_chan[ch].rlen = rlen;
-            _io_chan[ch].varname = cv ? rt_heap_strdup_c(cv) : NULL; if (cv) { g_call_fastpath_off = 1; _io_var_refresh(cv); }
+            sl = _io_slot(ch, 1); _io_chan_close(sl); _io_chan[sl].fp = nf; _io_chan[sl].is_output = 0; _io_chan[sl].is_popen = 0; _io_chan[sl].rlen = rlen;
+            _io_chan[sl].varname = cv ? rt_heap_strdup_c(cv) : NULL; if (cv) { g_call_fastpath_off = 1; _io_var_refresh(cv); }
             if (cv && !strcmp(cv, "INPUT")) { _input_fp_release(); _input_fp = nf; _input_fp_is_popen = 0; _input_rlen = rlen; }
             return NULVCL;
         }
         if (vn && strcmp(vn, "INPUT") != 0) {
             FILE *fp = stdin;
             if (fd >= 0) { fp = fdopen(dup((int)fd), "r"); if (!fp) return FAILDESCR; }
-            _io_chan[_io_assoc_std(vn, 5, fp, 0)].rlen = rlen;
+            { int sc = _io_assoc_std(vn, 5, fp, 0); _io_chan[sc].rlen = rlen; }
             return NULVCL;
         }
         _input_fp_release();
@@ -4997,14 +5035,15 @@ static DESCR_t _INPUT_(DESCR_t *a, int n) {
     if (!f) return FAILDESCR;
     long fopt = -1, frlen = 0;
     _io_parse_opts(bang > 0 ? popts : n >= 3 ? VARVAL_fn(a[2]) : NULL, &fopt, &frlen);
-    if (ch >= 0 && ch < IO_CHAN_MAX) {
-        _io_chan_close(ch);
-        _io_chan[ch].fp = f;
-        _io_chan[ch].is_output = 0;
-        _io_chan[ch].is_popen = is_pipe;
-        _io_chan[ch].rlen = frlen;
+    if (ch >= 0) {
+        int sl = _io_slot(ch, 1);
+        _io_chan_close(sl);
+        _io_chan[sl].fp = f;
+        _io_chan[sl].is_output = 0;
+        _io_chan[sl].is_popen = is_pipe;
+        _io_chan[sl].rlen = frlen;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
+        _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
         if (vn && !strcmp(vn, "INPUT")) { _input_fp_release(); _input_fp = f; _input_fp_is_popen = is_pipe; _input_rlen = frlen; }
     } else {
         _input_fp_release();
@@ -5022,11 +5061,10 @@ static void _io_output_reattach_std(void) {
     _io_var_refresh("OUTPUT");
 }
 static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
-    _io_chan_setup();
-    char fname_buf[4096];
+    char fname_buf[n == 3 ? strlen(VARVAL_fn(a[2])) + 1 : 1];
     const char *fname = NULL;
     int from_prebind = 0;
-    { int pch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1; if (n < 3 && pch >= 0 && pch < IO_CHAN_MAX && _io_chan[pch].prebind) { fname = _io_chan[pch].prebind; from_prebind = 1; } }
+    { int pch = (n >= 2 && IS_INT(a[1])) ? (int)a[1].i : -1; if (n < 3 && _io_prebind(pch)) { fname = _io_prebind(pch); from_prebind = 1; } }
     if (!fname && !core_io_assoc_legacy() && _io_assoc_pair_state(a, n) == 1) {
         core_runtime_error(160, "inappropriate file specification for output"); return FAILDESCR; }
     if (fname) {
@@ -5045,15 +5083,16 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
         long fd = -1, rlen = 0;
         if (_io_assoc_pair_state(a, n) == 0) { const char *vn = _io_varname(a[0]); if (vn && strcmp(vn, "OUTPUT") != 0) _io_assoc_std(vn, 6, stdout, 1); else if (vn) _io_output_reattach_std(); return NULVCL; }
         _io_parse_opts(n >= 3 ? VARVAL_fn(a[2]) : NULL, &fd, &rlen);
-        if (fd < 0 || ch < 0 || ch >= IO_CHAN_MAX) return FAILDESCR;
-        { FILE *nf = fdopen(dup((int)fd), "w");
+        if (fd < 0 || ch < 0) return FAILDESCR;
+        { FILE *nf = fdopen(dup((int)fd), "w"); int sl;
           if (!nf) return FAILDESCR;
           setvbuf(nf, NULL, _IONBF, 0);
-          _io_chan_close(ch);
-          _io_chan[ch].fp = nf;
-          _io_chan[ch].is_output = 1;
+          sl = _io_slot(ch, 1);
+          _io_chan_close(sl);
+          _io_chan[sl].fp = nf;
+          _io_chan[sl].is_output = 1;
           { const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-            _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); } } }
+            _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); } } }
         return NULVCL;
     }
     char pcmd[strlen(fname) + 1]; const char *popts = NULL;
@@ -5066,13 +5105,14 @@ static DESCR_t _OUTPUT_(DESCR_t *a, int n) {
     if (!from_prebind && _io_chan_in_use(ch)) { core_runtime_error(290, "output channel currently in use"); return FAILDESCR; }
     FILE *f = bang > 0 ? _io_spawn(pcmd, "w") : fopen(fname, "w");
     if (!f) return FAILDESCR;
-    if (ch >= 0 && ch < IO_CHAN_MAX) {
-        _io_chan_close(ch);
-        _io_chan[ch].fp = f;
-        _io_chan[ch].is_output = 1;
-        _io_chan[ch].is_popen = is_pipe;
+    if (ch >= 0) {
+        int sl = _io_slot(ch, 1);
+        _io_chan_close(sl);
+        _io_chan[sl].fp = f;
+        _io_chan[sl].is_output = 1;
+        _io_chan[sl].is_popen = is_pipe;
         const char *vn = (n >= 1) ? _io_varname(a[0]) : NULL;
-        _io_chan[ch].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
+        _io_chan[sl].varname = vn ? rt_heap_strdup_c(vn) : NULL; if (vn) { g_call_fastpath_off = 1; _io_var_refresh(vn); }
     } else {
         if (is_pipe) pclose(f); else fclose(f);
         return FAILDESCR;
@@ -5091,7 +5131,8 @@ void core_gc_roots(void)
     if (g_bin_names) { rt_gc_visit_raw((const char **)&g_bin_names); rt_gc_visit_raw((const char **)&g_bin_name_lens);
         for (int i = 0; i < g_bin_n_names; i++) if (g_bin_names[i]) rt_gc_visit_raw_in((const char **)&g_bin_names[i], g_bin_names); }
 #endif
-    for (int i = 0; i < IO_CHAN_MAX; i++) if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
+    gv_gc_root(&g_io_chan); gv_gc_root(&g_setexit_label);
+    for (int i = 0; i < IO_CHAN_N; i++) if (_io_chan[i].varname) rt_gc_visit_raw((const char **)&_io_chan[i].varname);
     gv_gc_root(&g_var_buckets);
     for (unsigned b = 0; b < _var_nbuckets; b++) {
         for (NV_t *e = VBR(b); e; e = e->next) {
@@ -5099,7 +5140,8 @@ void core_gc_roots(void)
             if (e->next) rt_gc_visit_raw_in((const char **)&e->next, e);
             rt_gc_visit_descr(&e->val);
             if (e->cell) rt_gc_visit_raw_in((const char **)&e->cell, e); } }
-    for (int b = 0; b < FUNC_BUCKETS; b++) {
+    gv_gc_root(&g_func_buckets);
+    for (unsigned b = 0; b < _func_nbuckets; b++) {
         if (_func_buckets[b]) rt_gc_visit_raw((const char **)&_func_buckets[b]);
         for (FNCBLK_t *e = _func_buckets[b]; e; e = (FNCBLK_t *)e->next) {
             if (e->name) rt_gc_visit_raw_in((const char **)&e->name, e);
@@ -5117,7 +5159,8 @@ void core_gc_roots(void)
     rt_gc_visit_descr(&g_icn_errvalue);
 #if RT_DIAG
     if (core_icn_op_plant() != 2) { rt_gc_visit_descr(&g_icn_op.a); rt_gc_visit_descr(&g_icn_op.b); }
-    for (int i = 0; i < TRACE_TAB_CAP; i++) if (trace_tab[i].used) {
+    gv_gc_root(&g_trace_tab); gv_gc_root(&g_trace_value_last);
+    for (int i = 0; i < TRACE_TAB_N; i++) if (trace_tab[i].used) {
         if (trace_tab[i].name) rt_gc_visit_raw((const char **)&trace_tab[i].name);
         if (trace_tab[i].tag)  rt_gc_visit_raw((const char **)&trace_tab[i].tag);
         if (trace_tab[i].cbfn) rt_gc_visit_raw((const char **)&trace_tab[i].cbfn);
