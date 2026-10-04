@@ -2,8 +2,8 @@
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 2029
 #define GC_ALLOC_TAB_N_VOID 234
-#define GC_ALLOC_TAB_N_DESCR 1105
-#define GC_ALLOC_TAB_N_OTHER 684
+#define GC_ALLOC_TAB_N_DESCR 1104
+#define GC_ALLOC_TAB_N_OTHER 685
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1748,9 +1748,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_functor_cell", GC_RET_OTHER },
     { "rt_pl_functor_table_install", GC_RET_VOID },
     { "rt_pl_get_print_stream_cell", GC_RET_OTHER },
-    { "rt_pl_goal_gen_h", GC_RET_DESCR },
     { "rt_pl_goal_gen_h_c", GC_RET_DESCR },
-    { "rt_pl_goal_spine_prep", GC_RET_OTHER },
+    { "rt_pl_goal_resolve", GC_RET_OTHER },
+    { "rt_pl_goal_resolve_c", GC_RET_OTHER },
     { "rt_pl_goal_stage", GC_RET_OTHER },
     { "rt_pl_group_pairs_by_key_cell", GC_RET_OTHER },
     { "rt_pl_gz_init", GC_RET_VOID },

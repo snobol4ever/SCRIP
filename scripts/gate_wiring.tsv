@@ -1073,6 +1073,5 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pl_a_body_term_is_built_by_the_emitted_allocation_sequence.sh	WIRED	-	-	-
 test_gate_pl_a_meta_call_of_a_compiled_predicate_jumps_to_it_and_resumes_through_its_token.sh	WIRED	-	-	-
 test_gate_pl_a_cyclic_term_hashes_in_finite_time.sh	WIRED	-	-	-
