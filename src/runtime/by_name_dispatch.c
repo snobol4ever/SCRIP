@@ -1461,7 +1461,7 @@ void bnd_gc_roots(void)
     extern void rt_gc_visit_descr(DESCR_t *);
     extern void rt_gc_visit_raw(const char **);
     for (int gi = 0; gi < gram_n; gi++) { if (GRAM(gi).qname) rt_gc_visit_raw(&GRAM(gi).qname); if (GRAM(gi).body) rt_gc_visit_raw(&GRAM(gi).body); }
-    rt_gc_visit_raw((const char **)&g_match.blk);
+    rt_gc_visit_raw((const char **)&g_match.blk); rt_gc_visit_raw(&g_subject);
     for (int rd = 0; rd < g_redisp_top; rd++) { rt_gc_visit_descr(&g_redisp[rd].self); rt_gc_visit_descr(&g_redisp[rd].mname); for (int k = 0; k < g_redisp[rd].nargs; k++) rt_gc_visit_descr(&RD_ARG(rd, k)); }
     { extern void rt_main_args_gc_root(void); rt_main_args_gc_root(); }
     { extern void rt_pl_flags_gc_roots(void); rt_pl_flags_gc_roots(); }
