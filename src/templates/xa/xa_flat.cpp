@@ -8,8 +8,8 @@
 #include "pin_va.h"
 extern "C" {
 #include "xa_template_common.h"
-#include "../emitter/emit.h"
 }
+#include "../bb/bb_templates.h"
 extern "C" void rt_jmp_frame_lexprep(void *, long);
 extern "C" void rt_jmp_frame_lexprep2(void *, long, long);
 extern "C" void rt_main_args_fetch(void);
@@ -44,7 +44,7 @@ static std::string xa_flat_data_section_str(void) {
     if (MEDIUM_TEXT) {
         if (!g_flat_data_any) return std::string();
         return std::string("  .section .data\n")
-             + std::string(g_flat_data_buf, g_flat_data_len)
+             + (g_flat_data_len ? std::string((const char *)g_flat_data_buf.p, g_flat_data_len) : std::string())
              + "  .section .text\n";
     }
 }
@@ -76,7 +76,7 @@ static std::string xa_flat_dc_stub_str(void) {
     uint64_t prep_fp;  { void (*fp)(void *, long, long, long, long, long) = rt_pl_dc_prep; prep_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
     uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    static const char *argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+    static const char * const argreg[4] = { "rsi", "rdx", "rcx", "r8" };
     if (!x86_fb_pinned() && g_emit_cfg && zls_g_block_args(g_emit_cfg)) {
         int nb = g_emit_cfg->nparams;
         if (np > nb || nb > 12) return x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters");
@@ -107,7 +107,7 @@ static std::string xa_flat_dc_stub_str(void) {
         return zs;
     }
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) {
-        static const char *dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
+        static const char * const dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t stg_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stg_fp = (uint64_t)(uintptr_t)(void *)fp; }
         bool need_align_pad = (np > 0) && (np % 2 == 1);
         std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
@@ -518,7 +518,7 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
          + x86("mov", "[rsp + " + std::to_string(kt - 16) + "]", "rdx")
          + x86("mov", "[rsp + " + std::to_string(kt - 8) + "]", "rbp")
          + xa_flat_wn_park_str(kt, fname);
-    int nf = 0, nsave = 0; int gk[29];
+    int nf = 0, nsave = 0; int gk[BB_SCC_NP_MAX + 1];
     if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
         int argkt = 16 * nsave;
         s +=  x86("sub", "rsp", (long)argkt)
@@ -558,7 +558,7 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
     if (!xa_flat_class_c()) return std::string();
     int kt = g_emit.flat_frame_bytes;
     std::string pre;
-    { int nf = 0, nsave = 0, res_gk = -1; int gk[29];
+    { int nf = 0, nsave = 0, res_gk = -1; int gk[BB_SCC_NP_MAX + 1];
       int have = xa_flat_sig_names(fname, &nf, &nsave, gk, &res_gk);
       if (getenv("SCRIP_SIGEPI_DIAG")) fprintf(stderr, "[SIGEPI] fname=%s is_gamma=%d kt=%d sig_names_have=%d nf=%d nsave=%d\n", fname?fname:"(null)", is_gamma, kt, have, nf, nsave);
       if (have) {

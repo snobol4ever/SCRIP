@@ -331,7 +331,7 @@ static void bb_print_node_line(const IR_graph_t *bbg, FILE *fp, int seq, int i, 
     bb_ref_fmt(bbg, bb->ω.node, wp, sizeof wp);
     int na = 0; IR_t * const * ops = NULL;
     na = bb->n_operands; ops = bb->operands;
-    char ob[160]; size_t op = 0; ob[0] = 0;
+    char ob[12 * (size_t)(na > 0 ? na : 0) + 4]; size_t op = 0; ob[0] = 0;
     for (int j = 0; j < na && op < sizeof ob - 4; j++) {
         char r[12]; bb_ref_fmt(bbg, ops ? ops[j] : NULL, r, sizeof r);
         size_t rl = strlen(r);

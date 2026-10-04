@@ -60,7 +60,7 @@ extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int al
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void bb_ab_seal_alpha(const char * pname, void * alpha) {
     if (!pname || !alpha) return;
-    char cell[300]; snprintf(cell, sizeof cell, "alpha$%s", pname);
+    char cell[fmt_len("alpha$%s", pname)]; snprintf(cell, sizeof cell, "alpha$%s", pname);
     *(void **)bb_ab_fn_cell_ptr(cell) = alpha;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -241,7 +241,7 @@ static std::string bb_define_sr() {
     }
     if (role == 4) {
         const char * fn4 = _.op_sval; const char * en4 = _.lbl_t0 ? _.lbl_t0 : fn4;
-        int np4 = 0, ns4 = 0, rg4 = -1; int gk4[64];
+        int np4 = 0, ns4 = 0, rg4 = -1; int gk4[BB_SCC_NP_MAX + 1];
         int ok4 = (fn4 && en4 && bb_tiny_shim_ok(fn4, 0)) ? bb_scc_probe(fn4, 0, &np4, &ns4, gk4, &rg4) : 0;
         int nf4 = ok4 ? rt_proc_nformals(fn4) : 0;
         if (!(ok4 && nf4 >= 0 && nf4 <= np4)) return inl5

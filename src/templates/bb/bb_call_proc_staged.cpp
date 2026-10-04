@@ -217,7 +217,7 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
     static int _nt = -1; if (_nt < 0) { const char *e = getenv("SCRIP_NO_TINY"); _nt = (e && *e == '1') ? 1 : 0; }
     if (_nt || !fname) return 0;
     if (!rt_define_tiny_ok(fname, nargs)) return 0;
-    int np = 0, ns = 0, rg = -1; int gk[64];
+    int np = 0, ns = 0, rg = -1; int gk[BB_SCC_NP_MAX + 1];
     if (!bb_scc_probe(fname, 0, &np, &ns, gk, &rg)) return 0;
     int nf = rt_proc_nformals(fname);
     if (!(nf >= 0 && nf <= np)) return 0;
@@ -242,18 +242,18 @@ static std::string bcps_det_arm() {
         long det_idx_z = (!is_dyn_z && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
         int det_nA_z = (int)_.op_ival; { int _bnp = (det_idx_z >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != det_nA_z) return x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z); } }
         int det_fuse_z = (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
-        int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[280]; dc_name_z[0] = 0;
+        int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
             void **sl = rt_pl_dc_slot(det_idx_z); if (sl) { dc_z = 1; dc_slot_z = (uint64_t)(uintptr_t)sl;
                 snprintf(dc_name_z, sizeof dc_name_z, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
-        static const char *detN_argreg_z[4] = { "rsi", "rdx", "rcx", "r8" };
+        static const char * const detN_argreg_z[4] = { "rsi", "rdx", "rcx", "r8" };
         uint64_t detN_fp_z[5];
         { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp_z[0] = (uint64_t)(uintptr_t)(void*)f0; }
         { void *(*f1)(long, DESCR_t*) = rt_proc_call_open_det1; detN_fp_z[1] = (uint64_t)(uintptr_t)(void*)f1; }
         { void *(*f2)(long, DESCR_t*, DESCR_t*) = rt_proc_call_open_det2; detN_fp_z[2] = (uint64_t)(uintptr_t)(void*)f2; }
         { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp_z[3] = (uint64_t)(uintptr_t)(void*)f3; }
         { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp_z[4] = (uint64_t)(uintptr_t)(void*)f4; }
-        static const char *detN_nm_z[5] = { "rt_proc_call_open_det0","rt_proc_call_open_det1","rt_proc_call_open_det2","rt_proc_call_open_det3","rt_proc_call_open_det4" };
+        static const char * const detN_nm_z[5] = { "rt_proc_call_open_det0","rt_proc_call_open_det1","rt_proc_call_open_det2","rt_proc_call_open_det3","rt_proc_call_open_det4" };
         uint64_t open_fp_z;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t openfn_fp_z; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t procfn_fp_z; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
@@ -261,7 +261,7 @@ static std::string bcps_det_arm() {
         uint64_t epiw_fp_z;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t undef_fp_z;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         uint64_t det_fp_z; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[64];
+        int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[BB_SCC_NP_MAX + 1];
         scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
         uint64_t dc_slot_fp_z = dc_slot_z;
         uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
@@ -385,13 +385,13 @@ static std::string bcps_det_arm() {
     { void *(*f2)(long, DESCR_t*, DESCR_t*) = rt_proc_call_open_det2; detN_fp[2] = (uint64_t)(uintptr_t)(void*)f2; }
     { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp[3] = (uint64_t)(uintptr_t)(void*)f3; }
     { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
-    static const char *detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
+    static const char * const detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
 { int _bnp = (det_idx >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != (int)_.op_ival) return x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(0, off, bidx, argblks, det_idx); } } int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
-    uint64_t dc_slot = 0; char dc_name[280]; dc_name[0] = 0;
+    uint64_t dc_slot = 0; char dc_name[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
         snprintf(dc_name, sizeof dc_name, "%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)); } }
-    int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[64];
+    int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[BB_SCC_NP_MAX + 1];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
     { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc); }
     if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha() + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist as storage on an armed statement; registration and the probe disagreed");
