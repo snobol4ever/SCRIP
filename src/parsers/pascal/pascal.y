@@ -195,6 +195,7 @@ static int pas_var_is_real(const char *name);
 static int pas_is_setvar(const char *name);
 static int pas_is_singlevar(const char *name);
 static int pas_is_currencyexpr(tree_t *e);
+static int pas_is_qword(tree_t *e);
 static int pas_is_pcharvar(const char *name);
 static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b);
 static int g_pas_pend_isbool;
@@ -699,6 +700,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 else if (pas_is_boolexpr(val) || (val && val->t == TT_VAR && val->v.sval && pas_var_is_boolfam(val->v.sval))) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_enum_name")); ast_push(_w, bin(TT_NE, val, ilit(0))); ast_push(_w, leaf_s(TT_QLIT, "false,true")); val = _w; if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(5); }
                 else if (val && val->t == TT_VAR && val->v.sval && pas_is_singlevar(val->v.sval)) { if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-5); }
                 else if (pas_is_currencyexpr(val)) { if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-6); }
+                else if (pas_is_qword(val) && val->t == TT_VAR) { if (wid->t == TT_ILIT && wid->v.ival == -1) wid = ilit(-7); }
                 else if (val && val->t == TT_VAR && val->v.sval && pas_is_chararr(val->v.sval)) { val = pas_alpha_wrap(val); }
                 else if (pas_ca_is_read(val)) { val = pas_alpha_wrap(val); }
                 else if (val && val->t == TT_IDX && val->n >= 2 && val->c[0] && val->c[0]->t == TT_VAR && val->c[0]->v.sval && pas_is_strarr(val->c[0]->v.sval)) { tree_t *_w = ast_node_new(TT_FNC); ast_push(_w, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(_w, val); ast_push(_w, ilit(pas_strarr_lo(val->c[0]->v.sval))); val = _w; }
@@ -1321,6 +1323,7 @@ static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b) { tree_t *e = 
 static tree_t *pas_rdiv(tree_t *a, tree_t *b) { return bin(TT_DIV, bin(TT_MUL, a, flit(1.0)), b); }
 static int pas_var_unsigned(const char *name) { if (!name) return 0; const char *tn = pas_scalarvartype_get(name); long long lo, hi; if (tn && (pas_is_unsigned_inttypename(tn) || (pas_subtype_high(tn) >= 0 && pas_subtype_low(tn) >= 0))) return 1; return pas_subvar_get(name, &lo, &hi) && lo >= 0; }
 static int pas_unsigned_sum(tree_t *e, int *nv) { if (!e) return 0; if (e->t == TT_ILIT) return e->v.ival >= 0; if (e->t == TT_VAR) { if (!pas_var_unsigned(e->v.sval)) return 0; (*nv)++; return 1; } return e->t == TT_ADD && e->n == 2 && pas_unsigned_sum(e->c[0], nv) && pas_unsigned_sum(e->c[1], nv); }
+static int pas_is_qword(tree_t *e) { if (!e) return 0; if (e->t == TT_ILIT) return e->v.ival < 0; if (e->t != TT_VAR || !e->v.sval) return 0; const char *tn = pas_scalarvartype_get(e->v.sval); for (int g = 0; tn && g < 8; g++) { if (!strcmp(tn, "qword") || !strcmp(tn, "uint64")) return 1; const char *al = pas_typealias_get(tn); if (!al || !strcmp(al, tn)) break; tn = al; } return 0; }
 static tree_t *pas_arith_or_set(tree_e ak, const char *setfn, tree_t *a, tree_t *b) {
     if (pas_is_setexpr(a) || pas_is_setexpr(b)) return mk_set_bin(setfn, a, b);
     if (ak == TT_SUB && (g_pas_zerobased_strings & 2) && a && a->t == TT_ADD) { int nv = 0; if (pas_unsigned_sum(a, &nv) && nv >= 2) return mk_fnc1("__pas_qchk", bin(ak, a, b)); }
@@ -2355,8 +2358,8 @@ term:
     factor { $$ = $1; }
     | term MUL factor { $$ = pas_arith_or_set(TT_MUL, "__pas_setint", $1, $3); }
     | term RDIV factor { $$ = pas_rdiv($1, $3); }
-    | term IDIV factor { $$ = bin(TT_DIV, $1, $3); }
-    | term IMOD factor { $$ = pas_mod($1, $3); }
+    | term IDIV factor { $$ = pas_is_qword($1) ? mk_fnc2("__pas_udiv", $1, $3) : bin(TT_DIV, $1, $3); }
+    | term IMOD factor { $$ = pas_is_qword($1) ? mk_fnc2("__pas_umod", $1, $3) : pas_mod($1, $3); }
     | term ANDOP factor { $$ = (pas_is_boolexpr($1) && pas_is_boolexpr($3)) ? bin(TT_CONJ, $1, $3) : mk_fnc2("iand", $1, $3); }
     ;
 factor:

@@ -4868,6 +4868,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
         *out = NULVCL; return 1;
     }
+    if ((!strcmp(fn, "__pas_udiv") || !strcmp(fn, "__pas_umod")) && nargs == 2) {
+        unsigned long long x = IS_INT_fn(args[0]) ? (unsigned long long)args[0].i : 0ULL, y = IS_INT_fn(args[1]) ? (unsigned long long)args[1].i : 0ULL;
+        if (!y) pas_file_err("6.7.2.2", "the divisor of div or mod is zero", NULL);
+        *out = INTVAL((long long)(fn[7] == 'd' ? x / y : x % y)); return 1;
+    }
     if (!strcmp(fn, "__pas_qchk") && nargs == 1) {
         if (IS_INT_fn(args[0]) && args[0].i < 0) { fflush(NULL); fprintf(stderr, "Runtime error 215 at $0\n"); exit(215); }
         *out = args[0]; return 1;
@@ -8042,7 +8047,7 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
         for (int _pi = _start; _pi + 1 < nargs; _pi += 2) {
             DESCR_t av = args[_pi];
             DESCR_t aw = args[_pi + 1];
-            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i >= 0 ? (int)aw.i : -1))))) : -1;
+            int w = IS_INT_fn(aw) ? (aw.i == -3 ? -3 : (aw.i == -4 ? -4 : (aw.i == -5 ? -5 : (aw.i == -6 ? -6 : (aw.i == -7 ? -7 : (aw.i >= 0 ? (int)aw.i : -1)))))) : -1;
             if (w == -6) { double _cv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0); int _cn = 32; char _cb[_cn]; pas_currency_str(_cv, _cb, _cn); fputs(_cb, _dest); continue; }
             if (w == -3) { double _rv = IS_REAL_fn(av) ? av.r : (IS_INT_fn(av) ? (double)av.i : 0.0);
                 long _fw2 = 0, _fp2 = 0;
@@ -8050,10 +8055,11 @@ int try_call_builtin_by_name_bl_s(const char *fn, DESCR_t *args, int nargs, DESC
                 if (_fw2 < 0) _fw2 = 0; if (_fp2 < 0) _fp2 = 0; if (_fp2 > 16) _fp2 = 16;
                 fprintf(_dest, "%*.*f", (int)_fw2, (int)_fp2, _rv); _pi += 2; continue; }
             if (IS_INT_fn(av)) {
-                char _pb[32];
-                int _pfmtlen = snprintf(_pb, sizeof _pb, "%lld", (long long)av.i);
+                int _pbn = 32; char _pbq[_pbn];
+                int _pfmtlen = (w == -7) ? snprintf(_pbq, sizeof _pbq, "%llu", (unsigned long long)av.i) : snprintf(_pbq, sizeof _pbq, "%lld", (long long)av.i);
+                if (w < 0 && w != -4 && _pfmtlen > 11) { _pbq[11] = '\0'; _pfmtlen = 11; }
                 int _fw = (w == -4) ? _pfmtlen : (w < 0) ? 11 : (w > _pfmtlen ? w : _pfmtlen);
-                fprintf(_dest, "%*s", _fw, _pb);
+                fprintf(_dest, "%*s", _fw, _pbq);
             } else if (IS_REAL_fn(av)) {
                 char _rb[64];
                 int _prec = (w == -5) ? 9 : (w < 0) ? 16 : (w - 8 < 1 ? 1 : (w - 8 > 16 ? 16 : w - 8));
