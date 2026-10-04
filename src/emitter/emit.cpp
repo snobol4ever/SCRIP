@@ -3513,6 +3513,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int _flt_uid_burn[4] = {0, 0, 0, 0};
     const char *fam = (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
     g_emit.flat_fam = fam;
+    g_emit.op_zdepth = 0; g_emit.op_fc_bytes = 0;
     g_flt_fam = (strncmp(prefix, "proc_", 5) == 0) ? fam : (const char *)0; g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;
     g_emit.x86_uid_kind = (const char *)0;
     emit_label_initf(&lbl_α,      "%s_α",      fam);
