@@ -3312,6 +3312,37 @@ static std::string icn_sxt_latch(void) {
          + x86("mov", RDQ("rax", (int)offsetof(rt_sxt_fr_t, owner)), 0L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C++" std::string xa_icn_act_restore_call_line(int lbl);
+static std::string icn_gen_line_save(void) {
+    extern long g_line; extern const char * g_file;
+    return x86("comment", "suspend: the generator's own line and file are kept in its header at +48 and +56 for the resume (through rdx, the frame copy the gamma below already uses), then the caller's come back")
+         + x86("mov", "rdx", "rbp")
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86("mov", RDQ("rdx", 48), "rcx")
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
+         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86("mov", RDQ("rdx", 56), "rcx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string icn_gen_line_resume(void) {
+    extern long g_line; extern const char * g_file;
+    return x86("comment", "resume: the generator's own line and file, kept at its last suspend, come back (read through rdx, a copy of the frame the resume hands over in rax)")
+         + x86("mov", "rdx", "rax")
+         + x86("mov", "rcx", RDQ("rdx", 48))
+         + x86("test", "rcx", "rcx")
+         + x86("je", L(238))
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", RDQ("rax", 0), "rcx")
+         + x86("mov", "rcx", RDQ("rdx", 56))
+         + x86("test", "rcx", "rcx")
+         + x86("je", L(238))
+         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
+         + x86("mov", RDQ("rax", 0), "rcx")
+         + x86("def", L(238))
+         + x86("mov", "rax", "rdx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_main_args_inline(int np, int blk) {
     if (blk || np <= 0) return std::string();
     if (np > 10) return x86_bomb("emit: an Icon root graph with more than ten parameters has no inline argument load");
@@ -3672,7 +3703,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         extern void rt_lcl_proc_args_install(void *, int, int);
         extern void rt_icn_zframe_args_install(void *, int, int);
         int _use_zframe_install = (g_emit_cfg && g_emit_cfg->icn_cells_graph) ? 1 : 0;
-        int carve = ((frame_total + 15) & ~15) + 48 + 8;
+        int carve = ((frame_total + 15) & ~15) + 48 + 8 + 16;
         std::string _gseed;
         { extern int zls_g_locals(const IR_graph_t *); extern int zls_g_region(const IR_graph_t *);
           static int _en = -1; if (_en < 0) { const char * _e = getenv("SCRIP_LCL_SEED"); _en = (_e && *_e == '0') ? 0 : 1; }
@@ -4152,7 +4183,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (g_emit.flat_pat) {
             bb_emit_x86(IF(blob_frame_bytes() > 0, x86_rsp_load64("rbp", 24)) + x86("add", "rsp", 32L));
         } else if (icn_gen_regime() && g_emit.flat_gen) {
-            bb_emit_x86( x86("mov", "rbp", "rax"));
+            bb_emit_x86( x86("mov", "rbp", "rax") + icn_gen_line_resume());
         } else {
         if (g_is_text) {
             char _res[96];
@@ -4237,7 +4268,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
         else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (icn_gen_regime() && g_emit.flat_gen) {
-        bb_emit_x86( x86("mov", "rdx", "rbp")
+        bb_emit_x86( icn_gen_line_save() + xa_icn_act_restore_call_line(241)
+                  + x86("mov", "rdx", "rbp")
                   + x86_lea_ext("rax", &lbl_res) + x86("mov", RDQ("rdx", 32), "rax")
                   + x86("mov", RDQ("rdx", 40), "rsp")
                   + x86("mov", "rcx", RDQ("rdx", 8))
@@ -4256,6 +4288,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + IF(blob_frame_bytes() <= 0 && _sph > 0, IF(_sph == 32, x86("mov", "r12", RDQ("rsp", 8))) + x86("add", "rsp", (long)_sph)) + (blob_omega_ret() ? x86("add", "rsp", 8L) + x86("ret") : x86_rsp_load64("rcx", 8) + x86("add", "rsp", 16L) + x86("jmp", "rcx"))); for (int _k = 0; _k < _wpn; _k++) { emit_label_define_bb(_wpl[_k]); bb_emit_x86(x86("add", "rsp", (long)_wpd[_k])); emit_jmp_label(&lbl_ω, JMP_JMP); } }
     else if (icn_gen_regime() && g_emit.flat_gen) {
         { bb_emit_x86( icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 5, 0)); }
+        bb_emit_x86(xa_icn_act_restore_call_line(242));
         bb_emit_x86( x86("mov", "rcx", RDQ("rbp", 8))
                   + x86("mov", "rsp", RDQ("rbp", 24))
                   + x86("mov", "rbp", RDQ("rbp", 0))

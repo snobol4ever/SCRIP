@@ -878,7 +878,7 @@ int zls_g_block_base(const IR_graph_t * g) {
     if (!zls_g_block_args(g)) return -1;
     if (!g->icn_cells_graph) return zls_g_frame_bytes(g);
     { int ft = zls_g_frame_bytes(g) + (g->nparams + g->nlocals) * 16;
-      return zls_g_has_suspend(g) ? ((ft + 15) & ~15) + 56 : ft; }
+      return zls_g_has_suspend(g) ? ((ft + 15) & ~15) + 72 : ft; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zls_forget_graph_nodes(const IR_graph_t * g) {
