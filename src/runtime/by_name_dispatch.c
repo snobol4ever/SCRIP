@@ -10740,6 +10740,8 @@ static tree_t * pl_cell_tree(DESCR_t *c, pl_ctv_t *vt) {
     }
     if ((int)d->v == DT_I) { tree_t *t = ast_node_new(TT_ILIT); t->v.ival = d->i; return t; }
     if ((int)d->v == DT_R) { tree_t *t = ast_node_new(TT_FLIT); t->v.dval = d->r; return t; }
+    if ((int)d->v == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); tree_t *t = ast_node_new(TT_FNC), *q = ast_node_new(TT_QLIT);
+        t->v.sval = pl_tree_name("$pl_big"); q->v.sval = pl_tree_name(bs ? bs : "0"); ast_push(t, q); return t; }
     if ((int)d->v == DT_PLATOM) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = pl_tree_name(prolog_atom_name((int)d->i)); return t; }
     if ((int)d->v == DT_S || (int)d->v == DT_SNUL) { tree_t *t = ast_node_new(TT_QLIT); t->v.sval = pl_tree_name(d->s ? d->s : ""); return t; }
     if ((int)d->v == DT_PLREF) {

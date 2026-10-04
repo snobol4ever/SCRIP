@@ -785,6 +785,8 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86("mov", "rax", RDQ("r14", -24 - 8 * k)) + x86("mov", "r9", RDQ("rax", 0))
              + x86("mov", "esi", RDD("r9", 40 * i + 32)) + x86("movsxd", "rsi", "esi")
              + x86("lea", "rsp", RDQ(x86_fb(), kt)) + x86("mov", x86_fb(), RDQ(x86_fb(), kt - 8))
+             + x86("note", "a ball in flight (r15 armed) propagates past every remaining clause, never retries one -- the static chain's step does the same (its _step_ball arm)")
+             + x86("test", "r15", "r15") + x86("jne", L(225))
              + x86_def_ext(g_emit.flat_pkt_walk_p)
              + x86("cmp", "esi", 0L) + x86("jl", L(225))
              + xa_flat_pkt_slot_addr("rsi", "r10", "r11")

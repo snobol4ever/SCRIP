@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2051
+#define GC_ALLOC_TAB_N 2053
 #define GC_ALLOC_TAB_N_VOID 243
 #define GC_ALLOC_TAB_N_DESCR 1096
-#define GC_ALLOC_TAB_N_OTHER 706
+#define GC_ALLOC_TAB_N_OTHER 708
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -786,6 +786,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_cell_copy_persist", GC_RET_DESCR },
     { "pl_cell_is_clref", GC_RET_OTHER },
     { "pl_cell_text", GC_RET_OTHER },
+    { "pl_cell_tree", GC_RET_OTHER },
     { "pl_cons", GC_RET_DESCR },
     { "pl_consult_one", GC_RET_VOID },
     { "pl_curout_text_guard", GC_RET_OTHER },
@@ -1346,6 +1347,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_cell_compare", GC_RET_OTHER },
     { "rt_pl_cell_snapshot", GC_RET_DESCR },
     { "rt_pl_char_type_cell", GC_RET_OTHER },
+    { "rt_pl_clause_tree", GC_RET_OTHER },
     { "rt_pl_cmp_cold", GC_RET_DESCR },
     { "rt_pl_cmp_cold_c", GC_RET_DESCR },
     { "rt_pl_compare_cell", GC_RET_OTHER },
