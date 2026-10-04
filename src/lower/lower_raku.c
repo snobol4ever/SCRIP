@@ -1942,7 +1942,7 @@ static void rk_desugar_gather(tree_t * t, int * seq) {
     for (int i = 0; i < t->n; i++) {
         if (t->t == TT_ITERATE && i == 0 && t->c[0]) {
             const tree_t * src = t->c[0]; if ((src->t == TT_MAP || src->t == TT_GREP) && src->n > 1) src = src->c[1];
-            const tree_t * tk[64]; if (src && src->t == TT_GATHER && rk_take_list(src, tk, 64) > 0) continue;
+            if (src && src->t == TT_GATHER) { int tkc = rk_tree_size(src) + 1; const tree_t ** tk = (const tree_t **) ct_alloc(sizeof(const tree_t *) * (size_t) tkc); if (rk_take_list(src, tk, tkc) > 0) continue; }
         }
         rk_desugar_gather(t->c[i], seq);
     }

@@ -1843,8 +1843,12 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     if (params.n == 0 && !has_parens && rk_reads_var(body, "@_")) { tree_t *ap = var_node(b, "@_"); expr_add_child(ap, leaf_sval(TT_QLIT, intern("*@"))); tl_add(&params, ap); }
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
-    const char *lt = strstr(nm, ":<");
-    if (lt && nm[strlen(nm) - 1] == '>') {
+    const char *lt = strstr(nm, ":<"), *gq = strstr(nm, ":\xC2\xAB"); size_t nl0 = strlen(nm);
+    if (gq && nl0 >= 2 && (unsigned char) nm[nl0 - 2] == 0xC2 && (unsigned char) nm[nl0 - 1] == 0xBB && (size_t) (gq - nm) + 5 <= nl0) {
+        char *cat = trimdup(nm, (int) (gq - nm)); int rl = (int) (nl0 - (size_t) (gq - nm) - 5); char *raw = trimdup(gq + 3, rl < 0 ? 0 : rl);
+        size_t cn = strlen(cat) + strlen(raw) + 64; char *cb = (char *) ct_alloc(cn); rk_op_canon_base(cat, raw, cb, cn); nm = cb;
+    }
+    else if (lt && nm[strlen(nm) - 1] == '>') {
         char *cat = trimdup(nm, (int) (lt - nm));
         int rl = (int) strlen(lt + 2) - 1; char *raw = trimdup(lt + 2, rl < 0 ? 0 : rl);
         size_t cn = strlen(cat) + strlen(raw) + 64; char *cb = (char *) ct_alloc(cn); rk_op_canon_base(cat, raw, cb, cn); nm = cb;

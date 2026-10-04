@@ -4587,6 +4587,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         exit((int) code);
     }
     if (!strcmp(fn, "__rk_arr_at") && nargs == 2) {
+        if (args[0].v == DT_A && args[0].arr && args[1].v == DT_A && args[1].arr && !rk_is_pair(args[1]) && !rk_is_jct(args[1])) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr; rk_av_t ix = rk_av(args[1]); DESCR_t *r = ix.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) ix.n) : NULL;
+            for (int k = 0; k < ix.n; k++) { long i = IS_INT_fn(ix.el[k]) ? ix.el[k].i : 0; r[k] = (i < b->lo || i > b->hi) ? NULVCL : b->data[i - b->lo]; }
+            *out = rk_mk_arr(r, ix.n); return 1;
+        }
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr; long i = IS_INT_fn(args[1]) ? args[1].i : 0; if (i < b->lo || i > b->hi) { *out = NULVCL; return 1; } *out = b->data[i - b->lo]; return 1;
         }
