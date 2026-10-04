@@ -506,6 +506,7 @@ test_gate_pas_sizeof_of_an_array_or_an_empty_record_is_its_byte_count.sh	WIRED	-
 test_gate_pas_succ_and_pred_keep_their_arguments_type.sh	WIRED	-	-	-
 test_gate_pas_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
 test_gate_pas_the_input_buffer_variable_is_the_next_character.sh	WIRED	-	-	-
+test_gate_pas_two_routines_of_one_name_get_distinct_assembler_labels.sh	WIRED	-	-	-
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
 test_gate_pas_variant_arms_overlay_the_same_storage.sh	WIRED	-	-	-
