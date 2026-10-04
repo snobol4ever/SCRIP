@@ -1658,8 +1658,8 @@ static DESCR_t rt_random_var_body(DESCR_t base, int strict) {
     if (base.v == DT_S || base.v == DT_SNUL) {
         const char *sp = base.s ? base.s : ""; long slen = base.slen ? (long)base.slen : (long)strlen(sp);
         if (slen <= 0) return FAILDESCR;
-        long i = (long)(rval * (double)slen); char *one = rt_str_alloc(1); one[0] = sp[i]; one[1] = 0;
-        return (DESCR_t){ .v = DT_S, .slen = 1, .s = one };
+        long i = (long)(rval * (double)slen);
+        return (DESCR_t){ .v = DT_S, .slen = 1, .s = (char *)sp + i };
     }
     if (base.v == DT_DATA) {
         DESCR_t *elems; int n;

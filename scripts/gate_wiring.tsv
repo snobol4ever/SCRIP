@@ -252,6 +252,7 @@ test_gate_icn_a_procedure_entered_or_resumed_from_c_reads_its_statics.sh	WIRED	-
 test_gate_icn_a_procedure_returns_its_variable_when_its_result_is_one.sh	WIRED	-	-	-
 test_gate_icn_a_record_field_under_a_subscript_section_bang_or_random_is_a_variable.sh	WIRED	-	-	-
 test_gate_icn_a_spine_opened_plain_procedure_fails_forward_on_redo.sh	WIRED	-	-	-
+test_gate_icn_a_string_append_in_a_loop_extends_in_place.sh	WIRED	-	-	-
 test_gate_icn_a_string_with_an_embedded_nul_subscripts_by_its_length.sh	WIRED	-	-	-
 test_gate_icn_a_suspend_and_a_resume_restore_their_own_lines.sh	WIRED	-	-	-
 test_gate_icn_a_suspended_variable_images_as_a_variable_not_its_value.sh	WIRED	-	-	-

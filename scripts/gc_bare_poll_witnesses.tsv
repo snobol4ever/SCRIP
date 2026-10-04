@@ -170,7 +170,7 @@ src/templates/xa/xa_flat.cpp:639:rt_trace_return_hook	src/templates/xa/xa_flat.c
 src/templates/xa/xa_flat.cpp:640:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:642	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_flat.cpp:641:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:642	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
 src/templates/xa/xa_to_helpers.cpp:36:core_icn_int_operand_ok	src/templates/xa/xa_to_helpers.cpp:39	stack_top_under_valgrind.icn
-src/emitter/emit.cpp:3422:rt_trace_call_hook_f	src/emitter/emit.cpp:3426	hb_size_result_polled.icn
-src/emitter/emit.cpp:3423:rt_trace_return_hook	src/emitter/emit.cpp:3426	hb_size_result_polled.icn
-src/emitter/emit.cpp:3424:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3426	hb_size_result_polled.icn
-src/emitter/emit.cpp:3425:rt_trace_fail_hook	src/emitter/emit.cpp:3426	hb_size_result_polled.icn
+src/emitter/emit.cpp:3413:rt_trace_call_hook_f	src/emitter/emit.cpp:3417	hb_size_result_polled.icn
+src/emitter/emit.cpp:3414:rt_trace_return_hook	src/emitter/emit.cpp:3417	hb_size_result_polled.icn
+src/emitter/emit.cpp:3415:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3417	hb_size_result_polled.icn
+src/emitter/emit.cpp:3416:rt_trace_fail_hook	src/emitter/emit.cpp:3417	hb_size_result_polled.icn

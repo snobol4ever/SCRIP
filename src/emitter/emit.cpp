@@ -3326,15 +3326,6 @@ static std::string icn_entry_gva(void) {
          + x86_rtx_reestablish(RTCC_C_R9);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string icn_sxt_latch(void) {
-    extern rt_sxt_fr_t * const rt_sxt_fr_p;
-    return x86("comment", "frames are present: the string-extension latch the C install used to set (rt_sxt_frames_present), set inline -- off = 1, owner = 0")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_sxt_fr_p, "rt_sxt_fr_p")
-         + x86("mov", "rax", RDQ("rax", 0))
-         + x86("mov", RDD("rax", (int)offsetof(rt_sxt_fr_t, off)), 1L)
-         + x86("mov", RDQ("rax", (int)offsetof(rt_sxt_fr_t, owner)), 0L);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C++" std::string xa_icn_act_restore_call_line(int lbl);
 static std::string icn_gen_line_save(void) {
     extern long g_line; extern const char * g_file;
@@ -3761,7 +3752,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("mov", "rsp", "rax")
                   + emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32, GC_FRAME_MAP_GEN_ANCHOR | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0)
                   + _gseed
-                  + IF(_gblk, icn_sxt_latch() + icn_entry_gva())
+                  + IF(_gblk, icn_entry_gva())
                   + IF(!_gblk, x86("mov", "rdi", "rsp") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
                   + x86("call", _use_zframe_install ? "rt_icn_zframe_args_install" : "rt_lcl_proc_args_install",
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install))));
@@ -3801,7 +3792,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int _blk = (_use_zframe_install && zls_g_block_args(g_emit_cfg)) ? 1 : 0;
         int _aoff = _blk ? frame_total : 16;
         if (_blk && zls_g_block_base(g_emit_cfg) != frame_total) { fprintf(stderr, "FATAL emit: %s's argument block lies at +%d by the layout and +%d by the prologue -- the two must agree to the byte\n", prefix ? prefix : "?", zls_g_block_base(g_emit_cfg), frame_total); abort(); }
-        std::string _inst = _use_zframe_install ? icn_sxt_latch() + icn_entry_gva() + icn_main_args_inline(np, _blk) : std::string();
+        std::string _inst = _use_zframe_install ? icn_entry_gva() + icn_main_args_inline(np, _blk) : std::string();
         if (g_is_text) {
             char _lp[512]; int _lz = 0;
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)

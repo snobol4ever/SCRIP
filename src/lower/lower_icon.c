@@ -763,8 +763,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
         const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL; if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
         IR_t * ar = NULL; IR_t * ae;
-        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-        else ae = lower(cx, b0, NULL, ω, &ar);
+        ae = lower(cx, b0, NULL, ω, &ar);
         lc_γ_to(ar, rn); ir_operand_push(rn, ar);
         IR_t * drf = build(cx, IR_DEREF, γ, ω); lc_γ_to(rn, drf); ir_operand_push(drf, rn);
         *res = drf; return ae; }
