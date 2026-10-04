@@ -396,7 +396,7 @@ static IR_t * sx_call_named(scx_t * cx, const char * name, const tree_t * t, int
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_cursor_target(const tree_t * tgt);
-static const char * sno_lead_name(char lead, const char * nm);
+static const char * sno_lead_name(const char * lead, const char * nm);
 static const char * sno_capt_name(const tree_t * tgt);
 static IR_t * sx_nameval(scx_t * cx, const tree_t * inner, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * mk = lc_build(cx->g, IR_CALL, γ, ω); IR_LIT(mk).sval = (char *) "SNO$NAME";
@@ -537,7 +537,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (res) *res = cv; return wl;
         }
         if (t->c[0]->t == TT_KEYWORD && t->c[0]->v.sval) {
-            const char * kn = t->c[0]->v.sval; const char * cb = sno_lead_name('&', kn[0] == '&' ? kn + 1 : kn);
+            const char * kn = t->c[0]->v.sval; const char * cb = sno_lead_name("&&", kn[0] == '&' ? kn + 1 : kn);
             IR_t * nl = lc_build(cx->g, IR_LIT_NAME, γ, ω); IR_LIT(nl).sval = (char *) cb;
             if (res) *res = nl; return nl;
         }
@@ -1689,13 +1689,13 @@ static IR_t * sno_seq_nary(scx_t * cx, const tree_t ** elems, int ne, IR_t * suc
 static const char * sno_capt_name(const tree_t * tgt) {
     if (!tgt) return NULL;
     if (tgt->t == TT_VAR) return tgt->v.sval;
-    if (tgt->t == TT_KEYWORD && tgt->v.sval && tgt->v.sval[0]) { const char * kn = tgt->v.sval; return sno_lead_name('&', kn[0] == '&' ? kn + 1 : kn); }
+    if (tgt->t == TT_KEYWORD && tgt->v.sval && tgt->v.sval[0]) { const char * kn = tgt->v.sval; return sno_lead_name("&&", kn[0] == '&' ? kn + 1 : kn); }
     if (tgt->t == TT_INDIRECT && tgt->n > 0 && tgt->c[0] && tgt->c[0]->t == TT_QLIT) return tgt->c[0]->v.sval;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * sno_lead_name(char lead, const char * nm) {
-    size_t n = strlen(nm); char tmp[n + 2]; tmp[0] = lead; memcpy(tmp + 1, nm, n + 1);
+static const char * sno_lead_name(const char * lead, const char * nm) {
+    size_t ll = strlen(lead), n = strlen(nm); char tmp[ll + n + 1]; memcpy(tmp, lead, ll); memcpy(tmp + ll, nm, n + 1);
     return lp_strdup(tmp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1707,7 +1707,7 @@ static const char * sno_cursor_target(const tree_t * tgt) {
     if (!di) return NULL;
     if (di->t == TT_VAR && di->v.sval && di->v.sval[0]) { sno_reg_var(di->v.sval); return di->v.sval; }
     const char * bn = (di->t == TT_FNC && di->v.sval && di->n == 0) ? di->v.sval : ((di->t == TT_INDIRECT && di->n > 0 && di->c[0]) || (di->t == TT_IDX && di->n > 0)) ? sno_expr_collect_nm(di) : (di->t == TT_FNC && di->n > 0) ? sno_expr_collect_wn(di) : sno_expr_collect_nm(di);
-    return sno_lead_name('*', bn);
+    return sno_lead_name("*", bn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_kw_chase(const char * nm, int op) { static const char * stk[24]; static int top = 0; if (op == 1) { if (nm && top < 24) { stk[top++] = nm; return 1; } return 0; } if (op == 2) { if (top > 0) top--; return 1; } if (op == 3) return top != 0; if (!nm) return 0; for (int i = 0; i < top; i++) if (!strcmp(stk[i], nm)) return 1; return 0; }

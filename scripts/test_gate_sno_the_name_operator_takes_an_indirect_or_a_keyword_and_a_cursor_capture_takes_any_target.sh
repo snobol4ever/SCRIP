@@ -8,7 +8,7 @@
 #   over this form is outside the landed subset", and @ with a target that was not a plain variable ("@ cursor-position capture target is not a
 #   simple variable"); a keyword capture target was refused too. A NAME of a keyword stored into a variable named "&ANCHOR" and never reached
 #   the keyword.
-# THE CURE: TT_NAME lowers .$x to the value of x (a NAME) and .&KW to a NAME "&KW"; NV_SET_fn / NV_GET_fn route a name beginning with '&' that
+# THE CURE: TT_NAME lowers .$x to the value of x (a NAME) and .&KW to a NAME "&KW"; NV_SET_fn / NV_GET_fn route a name beginning with '&&' (the keyword NAME's spelling; a string $('&ANCHOR') is the plain variable of that name, as sbl -bf has it) that
 #   is a SNOBOL4 keyword to the keyword table; sno_cursor_target resolves an @ target as the captures do (a variable, '*' + a registered
 #   expression for a deferred one) and rt_at_cursor evaluates the '*' expression by name; sno_capt_name names a keyword target.
 # THE ARMS (expectations cut from sbl -bf AT RUN TIME):
@@ -80,6 +80,9 @@ cat > "$T/ct.sno" <<'EOF'
         OUTPUT = D
         'hello' LEN(3) $ E
         OUTPUT = E
+        &ANCHOR = 1
+        $('&ANCHOR') = 'HELLO'
+        OUTPUT = $('&ANCHOR') &ANCHOR
 END
 EOF
 want() { timeout 30 "$SBL" -bf "$T/$1.sno" < /dev/null > "$T/$1.want" 2>/dev/null; [ -s "$T/$1.want" ] || refuse "sbl -bf produced no output for $1 -- the oracle's answer moved"; }
@@ -96,7 +99,7 @@ m4() { : > "$T/$1.m4"
        then timeout 30 "$T/$1.bin" < /dev/null > "$T/$1.m4" 2>/dev/null; else echo COMPILE-FAILED > "$T/$1.m4"; fi; }
 m3 st; arm 1 "m3: .\$x, .&KW stores, @*V, @*\$('CUR' N), keyword capture targets answer as sbl -bf does" "$T/st.m3" "$T/st.want"
 m4 st; arm 2 "m4: the same" "$T/st.m4" "$T/st.want"
-m3 ct; arm 3 "CONTROL m3: .x, an array element name, @C, . D, \$ E" "$T/ct.m3" "$T/ct.want"
+m3 ct; arm 3 "CONTROL m3: .x, an array element name, @C, . D, \$ E, a string \$('&ANCHOR') stays the plain variable" "$T/ct.m3" "$T/ct.want"
 m4 ct; arm 4 "CONTROL m4: the same" "$T/ct.m4" "$T/ct.want"
 if [ "$fail" -eq 0 ]; then echo "GATE PASS(0) [$NAME]: $pass arms -- the name operator takes .\$x and .&KW, the cursor and value captures take deferred and keyword targets, both modes"; exit 0; fi
 echo "GATE FAIL(1) [$NAME]: $fail of $((pass + fail)) arms red"; exit 1
