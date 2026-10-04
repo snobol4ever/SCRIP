@@ -14,10 +14,17 @@ tell which. Each exposed baton is printed with its QUEUE.tsv owner and state, th
   BOARD   the criterion runs a guarded board or runner (a name in scripts/one_runner_boards.txt, corpus_suite_harness.py run, or any
           test_*_suite.sh / board_*.sh / scorecard_*.sh) and reads its rc or output -- the exemption ADMITS the run; the owner says
           whether admitting it is what the criterion means.
+  SMOKE   every guarded runner it names runs as an AREA SMOKE the guard admits for every seat (ceo CEO-1505, row instruments-the-
+          donewhen-census-names-an-area-smoke-as-a-board): S4E_AREA_SMOKE_ENTRIES set non-empty on that command (or exported before
+          it), the runner one of lib_one_runner.sh's ONE_RUNNER_SMOKE_MODE_RUNNERS -- READ FROM THAT LINE, never copied here -- and no
+          population named (no --corpus, no CORPUS=), the three conditions one_runner_guard admits on. A smoke writes no progress row
+          and no score row, so it is not a board run; counted, never named as exposed. A plain run of the same runner, a smoke of a
+          runner without a smoke mode, or a smoke beside any other board stays BOARD.
   CLEAR   it runs one of those but clears the exemption first (env -u S4E_DONE_WHEN_RUN, S4E_DONE_WHEN_RUN= , unset) -- measured
           on its own terms; counted, never named as exposed.
 
-EXIT 0: measured, no LIVE baton exposed. 1: at least one live baton exposed (named). 2: the tasks tree or QUEUE could not be read -- a
+EXIT 0: measured, no LIVE baton exposed. 1: at least one live baton exposed (named). 2: the tasks tree, QUEUE or the guard's smoke-mode
+list could not be read -- a
 census that reports zero exposed rows because it could not look is the very defect it exists to name. S4E_TASKS / S4E_QUEUE redirect
 it (the gate's fixture); --json prints one JSON document instead of lines; --all names DONE rows too.
 """
@@ -31,6 +38,11 @@ CLEAR_RX = re.compile(r"env\s+-u\s+S4E_DONE_WHEN_RUN\b|\bunset\s+S4E_DONE_WHEN_R
 GUARD_RX = re.compile(r"\blib_one_runner\.sh\b|\bone_runner_guard\b")
 GENERIC_RX = re.compile(r"\b(test_[a-z0-9_]+_suite\.sh|board_[a-z0-9_]+\.sh|scorecard_[a-z0-9_]+\.sh)\b")
 HARNESS_RX = re.compile(r"\bcorpus_suite_harness\.py\s+run\b")
+SMOKE_LIST_RX = re.compile(r'^ONE_RUNNER_SMOKE_MODE_RUNNERS="([^"]*)"', re.M)
+SMOKE_SET_RX = re.compile(r"""\bS4E_AREA_SMOKE_ENTRIES=(?:"[^"]+"|'[^']+'|[^\s"';&|]+)""")
+SMOKE_EXPORT_RX = re.compile(r"""\bexport\s+S4E_AREA_SMOKE_ENTRIES=(?:"[^"]+"|'[^']+'|[^\s"';&|]+)""")
+POPULATION_RX = re.compile(r"(?:^|\s)--corpus\b|\bCORPUS=")
+SEGMENT_RX = re.compile(r"&&|\|\||;|\||\n")
 
 
 def boards():
@@ -41,6 +53,29 @@ def boards():
         return set()
 
 
+def smoke_runners():
+    """the runners one_runner_guard admits as an area smoke: lib_one_runner.sh's own list, or None when it cannot be read."""
+    try:
+        m = SMOKE_LIST_RX.search(open(os.path.join(HERE, "lib_one_runner.sh"), encoding="utf-8").read())
+    except OSError:
+        return None
+    return set(m.group(1).split()) if m else None
+
+
+def smoke_admitted(dw, runner):
+    """True when every command of dw that names runner is an area smoke the guard admits: the entries set non-empty on that command
+    or exported before it, and no population named on it."""
+    exported, seen = False, False
+    for seg in SEGMENT_RX.split(dw):
+        if re.search(r"\b" + re.escape(runner) + r"\b", seg):
+            seen = True
+            if not (exported or SMOKE_SET_RX.search(seg)) or POPULATION_RX.search(seg):
+                return False
+        if SMOKE_EXPORT_RX.search(seg):
+            exported = True
+    return seen
+
+
 def donewhen(path):
     for line in open(path, encoding="utf-8", errors="replace"):
         if line.startswith("DONE-WHEN:"):
@@ -48,7 +83,7 @@ def donewhen(path):
     return None
 
 
-def classify(dw, board_names):
+def classify(dw, board_names, smoke_names=frozenset()):
     mech = []
     for m in GUARD_RX.findall(dw):
         mech.append(m)
@@ -63,6 +98,8 @@ def classify(dw, board_names):
         return None, []
     if CLEAR_RX.search(dw):
         return "CLEAR", mech
+    if not guard and all(m in smoke_names and smoke_admitted(dw, m) for m in mech):
+        return "SMOKE", mech
     return ("GUARD" if guard else "BOARD"), mech
 
 
@@ -78,15 +115,19 @@ def main(argv):
         return 2
     rows = {c[1]: (c[2] if len(c) > 2 else "", c[3] if len(c) > 3 else "") for c in q if len(c) > 1}
     names = sorted(f for f in os.listdir(TASKS) if f.endswith(".task.md"))
-    bn = boards()
+    bn, sm = boards(), smoke_runners()
+    if sm is None:
+        print("REFUSED(2): ONE_RUNNER_SMOKE_MODE_RUNNERS is not readable in lib_one_runner.sh -- the census cannot tell an admitted area "
+              "smoke from a board run", file=sys.stderr)
+        return 2
     with_dw, out = 0, []
-    counts = {"GUARD": 0, "BOARD": 0, "CLEAR": 0}
+    counts = {"GUARD": 0, "BOARD": 0, "SMOKE": 0, "CLEAR": 0}
     for f in names:
         dw = donewhen(os.path.join(TASKS, f))
         if dw is None:
             continue
         with_dw += 1
-        cls, mech = classify(dw, bn)
+        cls, mech = classify(dw, bn, sm)
         if not cls:
             continue
         topic = f[:-len(".task.md")]
@@ -94,17 +135,17 @@ def main(argv):
         live = topic in rows and not re.match(r"(DONE|SUPERSEDED)", state or "")
         counts[cls] += 1
         out.append({"topic": topic, "owner": owner, "state": state, "live": live, "class": cls, "mechanism": mech})
-    exposed_live = [r for r in out if r["class"] != "CLEAR" and r["live"]]
+    exposed_live = [r for r in out if r["class"] in ("GUARD", "BOARD") and r["live"]]
     if as_json:
         print(json.dumps({"tasks": TASKS, "batons_with_donewhen": with_dw, "counts": counts, "exposed_live": len(exposed_live),
                           "rows": out if show_all else [r for r in out if r["live"]]}, indent=1))
     else:
         for r in out:
-            if r["class"] == "CLEAR" or not (r["live"] or show_all):
+            if r["class"] in ("SMOKE", "CLEAR") or not (r["live"] or show_all):
                 continue
             print(f"  {r['class']:5}  {r['owner'] or '-':12} {r['state'][:22]:22} {r['topic'][:110]}  <- {', '.join(r['mechanism'][:3])}")
         print(f"population: {with_dw} baton(s) with a DONE-WHEN under {TASKS}; {len(out)} shell out to the guard or a guarded runner: "
-              f"GUARD {counts['GUARD']}, BOARD {counts['BOARD']}, CLEAR {counts['CLEAR']}; exposed and LIVE: {len(exposed_live)}")
+              f"GUARD {counts['GUARD']}, BOARD {counts['BOARD']}, SMOKE {counts['SMOKE']}, CLEAR {counts['CLEAR']}; exposed and LIVE: {len(exposed_live)}")
     return 1 if exposed_live else 0
 
 
