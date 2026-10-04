@@ -1449,6 +1449,7 @@ static int pas_boolfam_width(const char *tn0) { const char *tn = tn0; int guard 
 static int pas_var_is_boolfam(const char *name) { return name ? pas_boolfam_width(pas_scalarvartype_get(name)) > 0 : 0; }
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs) {
     { const char *_abn = pas_selector_base_name(sel); if (_abn) pas_assigned_add(_abn); }
+    if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_QLIT && pas_var_string_kind(sel->v.sval) && pas_is_charexpr(rhs)) rhs = mk_chr_wrap(rhs);
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs && rhs->t != TT_FLIT && pas_var_is_real(sel->v.sval)) rhs = bin(TT_ADD, rhs, flit(0.0));
     if (sel && sel->t == TT_VAR && sel->v.sval && rhs) {
         int _dbf = pas_var_is_boolfam(sel->v.sval);
