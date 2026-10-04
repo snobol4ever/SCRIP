@@ -21,7 +21,6 @@ typedef enum {
     NK_ACCEPT
 } Nfa_kind;
 #define NFA_NULL   (-1)
-#define MAX_GROUPS  16
 typedef struct {
     int       id;
     Nfa_kind  kind;
@@ -34,21 +33,23 @@ typedef struct {
     int       pred_neg;
     int       bb_id;
 } Nfa_state;
-#define MAX_CAPLOG 32
 typedef struct {
     int matched;
     int full_start;
     int full_end;
-    int  group_start[MAX_GROUPS];
-    int  group_end[MAX_GROUPS];
-    char group_name[MAX_GROUPS][64];
-    char group_repeatable[MAX_GROUPS];
-    int  ngroups;
-    int  ncaplog;
-    int  caplog_group[MAX_CAPLOG];
-    int  caplog_start[MAX_CAPLOG];
-    int  caplog_end[MAX_CAPLOG];
+    int ngroups;
+    int ncaplog;
+    char *blk;
 } Match;
+#define MATCH_GRP(m, g)               (((int *)(m)->blk) + 4 * (g))
+#define MATCH_LOG(m, k)               (((int *)(m)->blk) + 4 * (m)->ngroups + 3 * (k))
+#define match_group_start(m, g)       (MATCH_GRP(m, g)[0])
+#define match_group_end(m, g)         (MATCH_GRP(m, g)[1])
+#define match_group_repeatable(m, g)  (MATCH_GRP(m, g)[2])
+#define match_group_name(m, g)        ((const char *)(m)->blk + MATCH_GRP(m, g)[3])
+#define match_caplog_group(m, k)      (MATCH_LOG(m, k)[0])
+#define match_caplog_start(m, k)      (MATCH_LOG(m, k)[1])
+#define match_caplog_end(m, k)        (MATCH_LOG(m, k)[2])
 typedef struct Nfa Nfa;
 Nfa  *nfa_build(const char *pattern);
 int        nfa_state_count(const Nfa *nfa);

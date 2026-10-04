@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2043
-#define GC_ALLOC_TAB_N_VOID 237
+#define GC_ALLOC_TAB_N 2048
+#define GC_ALLOC_TAB_N_VOID 241
 #define GC_ALLOC_TAB_N_DESCR 1096
-#define GC_ALLOC_TAB_N_OTHER 704
+#define GC_ALLOC_TAB_N_OTHER 705
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -452,6 +452,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "c_str_concat_d", GC_RET_DESCR },
     { "c_table_find_pair_d", GC_RET_OTHER },
     { "call_user_function", GC_RET_DESCR },
+    { "cap_pool_push", GC_RET_OTHER },
     { "cf_binop", GC_RET_OTHER },
     { "cf_eval", GC_RET_OTHER },
     { "cf_run", GC_RET_OTHER },
@@ -549,6 +550,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "elem_to_descr", GC_RET_DESCR },
     { "emit_chain", GC_RET_OTHER },
     { "emit_drive", GC_RET_VOID },
+    { "eps_closure_into", GC_RET_VOID },
     { "etrace_spell_of_cell", GC_RET_OTHER },
     { "eval_build_chain", GC_RET_OTHER },
     { "eval_cache_put", GC_RET_VOID },
@@ -676,6 +678,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lpad_fn", GC_RET_DESCR },
     { "lt", GC_RET_OTHER },
     { "make_kw_cset", GC_RET_DESCR },
+    { "match_fill", GC_RET_VOID },
     { "mk_call", GC_RET_OTHER },
     { "mk_ident", GC_RET_OTHER },
     { "mkc_node", GC_RET_OTHER },
@@ -683,6 +686,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "mon_tap_cell_store", GC_RET_VOID },
     { "mul", GC_RET_DESCR },
     { "neg", GC_RET_DESCR },
+    { "nfa_exec", GC_RET_VOID },
     { "nv_entry_name", GC_RET_OTHER },
     { "op_cols_fill", GC_RET_VOID },
     { "opsyn", GC_RET_DESCR },
@@ -1991,6 +1995,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "sort_row_copy", GC_RET_DESCR },
     { "sort_rows", GC_RET_DESCR },
     { "sortf_field_i", GC_RET_OTHER },
+    { "ss_add", GC_RET_VOID },
     { "str_concat_d", GC_RET_DESCR },
     { "str_concat_fracdigit_d", GC_RET_DESCR },
     { "str_repeat_d", GC_RET_DESCR },
