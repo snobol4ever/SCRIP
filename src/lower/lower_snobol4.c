@@ -2948,7 +2948,7 @@ static void sno_register_entry_label(const char * el, int bb_idx) {
     if (!el || !el[0]) return;
     IR_t * anchor = bb_label_landing(el);
     if (!anchor) return;
-    char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", el);
+    char lname[strlen(el) + 6]; snprintf(lname, sizeof lname, "LBL__%s", el);
     for (int q = 0; q < g_stage2.proc_count; q++) if (g_stage2.proc_table[q].name && !strcmp(g_stage2.proc_table[q].name, lname)) return;
     int lpi = stage2_proc_grow(&g_stage2);
     g_stage2.proc_table[lpi].name = lp_strdup(lname);
@@ -3259,7 +3259,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             if (!lbl || !lbl[0]) continue;
             IR_t * anchor = bb_label_landing(lbl);
             if (!anchor) continue;
-            char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", lbl);
+            char lname[strlen(lbl) + 6]; snprintf(lname, sizeof lname, "LBL__%s", lbl);
             int lpi = stage2_proc_grow(&g_stage2);
             g_stage2.proc_table[lpi].name = lp_strdup(lname);
             g_stage2.proc_table[lpi].proc = NULL;

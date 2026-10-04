@@ -261,7 +261,7 @@ static int eval_thunks_emit_from(int pc0)
         { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
           int _isp = emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
           if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; _ispe = _isp; }
-        char _m3pfx[300]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
+        char _m3pfx[strlen(pname) + 6]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
         if (!pfn) emit_failed = 1;
         { extern int emit_gc_map_last_off(void); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
@@ -775,7 +775,7 @@ static void *rt_goto_resolve_x(const char *name, int *undef)
     { eval_chain_fn fn = rt_label_get_fn(name); if (fn) return (void *)fn; }
     {
         extern void *rt_proc_get_fn(const char *);
-        char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name);
+        char lname[strlen(name) + 6]; snprintf(lname, sizeof lname, "LBL__%s", name);
         eval_chain_fn fn = (eval_chain_fn)rt_proc_get_fn(lname);
         if (fn) return (void *)fn;
     }
@@ -791,7 +791,7 @@ void *rt_entry_resolve(const char *name, int *is_frag)
     if (is_frag) *is_frag = 0;
     if (!name || !*name) return NULL;
     { eval_chain_fn fn = rt_label_get_fn(name); if (fn) { if (is_frag) *is_frag = 1; return (void *)fn; } }
-    { extern void *rt_proc_get_fn(const char *); char lname[256]; snprintf(lname, sizeof lname, "LBL__%s", name); return rt_proc_get_fn(lname); }
+    { extern void *rt_proc_get_fn(const char *); char lname[strlen(name) + 6]; snprintf(lname, sizeof lname, "LBL__%s", name); return rt_proc_get_fn(lname); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_goto_transfer(const char *name)

@@ -338,8 +338,8 @@ static int sn4_kw_spelling_is_canonical(const char *kw) {
 static KWB_ENT_t *kwb_find(const char *kw) {
     if (!kw) return (KWB_ENT_t *)0;
     if (kw[0] == '&') kw++;
-    char uk[64]; size_t ui = 0;
-    for (; kw[ui] && ui < sizeof(uk) - 1; ui++) uk[ui] = (kw[ui] >= 'a' && kw[ui] <= 'z') ? (char)(kw[ui] - 'a' + 'A') : kw[ui];
+    size_t un = strlen(kw); char uk[un + 1]; size_t ui = 0;
+    for (; ui < un; ui++) uk[ui] = (kw[ui] >= 'a' && kw[ui] <= 'z') ? (char)(kw[ui] - 'a' + 'A') : kw[ui];
     uk[ui] = '\0';
     kwb_init_once();
     for (int i = 0; i < g_kwb_bound_n; i++) if (!strcmp(g_kwb_bound[i].name, uk)) return &g_kwb_bound[i];
@@ -571,8 +571,8 @@ DESCR_t kw_read(const char *kw) {
 DESCR_t rt_keyword_read(const char *sval) {
     if (!sval) return NULVCL;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    char lk[64]; size_t li = 0;
-    for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
+    size_t ln = strlen(kw); char lk[ln + 1]; size_t li = 0;
+    for (; li < ln; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
@@ -583,8 +583,8 @@ DESCR_t rt_keyword_read(const char *sval) {
 DESCR_t rt_keyword_read_snobol4(const char *sval) {
     if (!sval) return NULVCL;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    char lk[64]; size_t li = 0;
-    for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
+    size_t ln = strlen(kw); char lk[ln + 1]; size_t li = 0;
+    for (; li < ln; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     const int canon = sn4_kw_spelling_is_canonical(kw);
     { DESCR_t bv; if (canon && kwb_read(lk, &bv)) return bv; }
@@ -595,14 +595,14 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     if (canon && !strcmp(lk, "ff")) return STRVAL("\x0C");
     if (canon && !strcmp(lk, "cr")) return STRVAL("\r");
     if (canon && !strcmp(lk, "esc")) return STRVAL("\x1B");
-    char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
+    size_t bl = strlen(sval); char kb[bl + 2]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
     if (rt_udc_on() && NV_CONST_ASSIGNED_fn(ck)) return NV_KW_GET_fn(ck);
     DESCR_t kv = canon ? kw_read(lk) : FAILDESCR;
     if (!IS_FAIL(kv)) return kv;
     if (canon && (!strcmp(lk,"arb") || !strcmp(lk,"bal") || !strcmp(lk,"rem") || !strcmp(lk,"fail") || !strcmp(lk,"fence") || !strcmp(lk,"abort") || !strcmp(lk,"succeed"))) { const char *bn = sval[0] == '&' ? sval + 1 : sval; return NV_GET_fn(bn); }
-    if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", sval[0] == '&' ? sval : lk); core_runtime_error(251, eb); return FAILDESCR; }
+    if (!rt_udc_on()) { const char *en = sval[0] == '&' ? sval : lk; char eb[fmt_len("keyword operand is not name of defined keyword: %s", en)]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", en); core_runtime_error(251, eb); return FAILDESCR; }
     {
-      if (!NV_CONST_ASSIGNED_fn(ck)) { char eb[192]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return FAILDESCR; }
+      if (!NV_CONST_ASSIGNED_fn(ck)) { char eb[fmt_len("&constant read before its one-time assignment: %s", ck)]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return FAILDESCR; }
       return NV_KW_GET_fn(ck); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -668,8 +668,8 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
 int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     if (!sval) return 1;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    char lk[64]; size_t li = 0;
-    for (; kw[li] && li < sizeof(lk) - 1; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
+    size_t ln = strlen(kw); char lk[ln + 1]; size_t li = 0;
+    for (; li < ln; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     const int canon = sn4_kw_spelling_is_canonical(kw);
     { int r = canon ? kwb_write(lk, v) : 0; if (r) return r > 0; }
@@ -679,8 +679,8 @@ int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
     if (canon && !strcmp(lk,"error"))    { g_error = iv; return 1; }
     if (canon && !strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return 1; }
-    { char kb[128]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; size_t bl = strlen(sval); if (bl > 126) bl = 126; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
-      if (!rt_udc_on()) { char eb[192]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", ck); core_runtime_error(251, eb); return 1; }
+    { size_t bl = strlen(sval); char kb[bl + 2]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
+      if (!rt_udc_on()) { char eb[fmt_len("keyword operand is not name of defined keyword: %s", ck)]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", ck); core_runtime_error(251, eb); return 1; }
       NV_KW_SET_fn(ck, v); }
     return 1;
 }

@@ -51,9 +51,9 @@ extern "C" const char * bb_ab_sym_name(const char * nm) {
 extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int alpha_face) {
     extern int emit_label_lookup_offset(const char *);
     if (!pname || !fnbase) return;
-    char lbl[300], cell[300];
+    const char * sn = alpha_face ? pname : bb_ab_sym_name(pname); char lbl[fmt_len(alpha_face ? "%s_\xce\xb1" : "LBL__%s", sn)], cell[fmt_len(alpha_face ? "alpha$%s" : "entry$%s", pname)];
     if (alpha_face) { snprintf(lbl, sizeof lbl, "%s_\xce\xb1", pname); snprintf(cell, sizeof cell, "alpha$%s", pname); }
-    else            { snprintf(lbl, sizeof lbl, "LBL__%s",  bb_ab_sym_name(pname)); snprintf(cell, sizeof cell, "entry$%s",  pname); }
+    else            { snprintf(lbl, sizeof lbl, "LBL__%s",  sn); snprintf(cell, sizeof cell, "entry$%s",  pname); }
     int off = emit_label_lookup_offset(lbl); if (off < 0) { if (getenv("SCRIP_SEAL_DIAG")) fprintf(stderr, "[SEAL] MISS lbl=%s cell=%s\n", lbl, cell); return; }
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
