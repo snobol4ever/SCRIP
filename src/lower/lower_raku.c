@@ -1563,6 +1563,8 @@ static void rk_ns_add(rk_ns_t * s, const char * x) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_tree_size(const tree_t * t) { int n = 1; for (int i = 0; t && i < t->n; i++) n += rk_tree_size(t->c[i]); return t ? n : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * rk_cap_pname(const tree_t * pv) { if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; return (pv && pv->t == TT_VAR) ? pv->v.sval : NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_cap_declared(const tree_t * t, rk_ns_t * out) {
     if (!t || t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     if (t->t == TT_VAR && (t->slen & 4) && t->v.sval) rk_ns_add(out, t->v.sval);
@@ -1626,8 +1628,8 @@ static void rk_cap_declared_deep(const tree_t * t, rk_ns_t * out) {
     if (t->t == TT_VAR && (t->slen & 4) && t->v.sval) rk_ns_add(out, t->v.sval);
     if (t->t == TT_ITERATE && t->v.sval) rk_ns_add(out, t->v.sval);
     if (t->t == TT_FOR_RANGE && t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval) rk_ns_add(out, t->c[0]->v.sval);
-    if (t->t == TT_ANON_BLOCK) for (int k = 1; k < t->n; k++) { const tree_t * pv = t->c[k]; if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; if (pv && pv->v.sval) rk_ns_add(out, pv->v.sval); }
-    if (t->t == TT_SUB_DECL) { int np = (int) t->v.ival; for (int k = 0; k < np && 1 + k < t->n; k++) { const tree_t * pv = t->c[1 + k]; if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; if (pv && pv->v.sval) rk_ns_add(out, pv->v.sval); } }
+    if (t->t == TT_ANON_BLOCK) for (int k = 1; k < t->n; k++) { const char * pn = rk_cap_pname(t->c[k]); if (pn) rk_ns_add(out, pn); }
+    if (t->t == TT_SUB_DECL) { int np = (int) t->v.ival; for (int k = 0; k < np && 1 + k < t->n; k++) { const char * pn = rk_cap_pname(t->c[1 + k]); if (pn) rk_ns_add(out, pn); } }
     for (int i = 0; i < t->n; i++) rk_cap_declared_deep(t->c[i], out);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1659,7 +1661,7 @@ static void rk_cap_nested_find(tree_t * t, tree_t * sd, int np, const rk_ns_t * 
             const char * nm = c->c[0]->v.sval; int cnp = (int) c->v.ival;
             rk_ns_t used = { 0 }, decl = { 0 }, F = { 0 };
             for (int k = cnp + 1; k < c->n; k++) rk_cap_uses_deep(c->c[k], &used);
-            for (int k = 1; k <= cnp && k < c->n; k++) { const tree_t * pv = c->c[k]; if (pv && pv->t == TT_ASSIGN && pv->n) { rk_cap_uses_deep(pv->c[pv->n - 1], &used); pv = pv->c[0]; } if (pv && pv->v.sval) rk_ns_add(&decl, pv->v.sval); }
+            for (int k = 1; k <= cnp && k < c->n; k++) { const tree_t * pv = c->c[k]; if (pv && pv->t == TT_ASSIGN && pv->n) rk_cap_uses_deep(pv->c[pv->n - 1], &used); { const char * pn = rk_cap_pname(pv); if (pn) rk_ns_add(&decl, pn); } }
             for (int k = cnp + 1; k < c->n; k++) rk_cap_declared_deep(c->c[k], &decl);
             for (int k = 0; k < used.n; k++) { const char * u = used.v[k]; if (!strcmp(u, "_") || u[0] == '^' || !strncmp(u, "__", 2) || u[0] == '&' || rk_ns_has(&decl, u) || !rk_ns_has(d, u)) continue; rk_ns_add(&F, u); }
             if (F.n && F.n + cnp <= 12 && !rk_cap_name_escapes(sd, nm, c)) {
@@ -1685,7 +1687,7 @@ static void rk_cap_block(tree_t * parent, int idx, const rk_ns_t * encl);
 static void rk_cap_proc(tree_t * sd) {
     rk_ns_t d = { 0 };
     int np = (int) sd->v.ival;
-    for (int k = 0; k < np && 1 + k < sd->n; k++) { const tree_t * pv = sd->c[1 + k]; if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; if (pv && pv->v.sval) rk_ns_add(&d, pv->v.sval); }
+    for (int k = 0; k < np && 1 + k < sd->n; k++) { const char * pn = rk_cap_pname(sd->c[1 + k]); if (pn) rk_ns_add(&d, pn); }
     for (int i = 1 + np; i < sd->n; i++) rk_cap_declared(sd->c[i], &d);
     rk_cap_nested_find(sd, sd, np, &d);
     for (int i = 1 + np; i < sd->n; i++) { tree_t * c = sd->c[i]; if (!c) continue; if (c->t == TT_SUB_DECL) rk_cap_proc(c); else if (c->t == TT_ANON_BLOCK) rk_cap_block(sd, i, &d); else rk_cap_walk(c, &d); }
@@ -1694,7 +1696,7 @@ static void rk_cap_proc(tree_t * sd) {
 static void rk_cap_block(tree_t * parent, int idx, const rk_ns_t * encl) {
     tree_t * B = parent->c[idx];
     rk_ns_t dB = { 0 };
-    for (int k = 1; k < B->n; k++) { const tree_t * pv = B->c[k]; if (pv && pv->t == TT_ASSIGN && pv->n) pv = pv->c[0]; if (pv && pv->v.sval) rk_ns_add(&dB, pv->v.sval); }
+    for (int k = 1; k < B->n; k++) { const char * pn = rk_cap_pname(B->c[k]); if (pn) rk_ns_add(&dB, pn); }
     if (B->n > 0) rk_cap_declared(B->c[0], &dB);
     int wl = rk_cap_synchronous(parent, idx);
     rk_ns_t e2 = { 0 };

@@ -161,4 +161,11 @@ for m in m3 m4; do
     if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -q 'never assigned'; then printf '  ok   door %s refused at the guard\n' "$m"
     else printf '  FAIL door %s: rc=%s [%s] -- a nested sub taken as a value must not take the stack road\n' "$m" "$rc" "$(printf '%s' "$out" | head -c 90 | tr '\n' ' ')"; fails=$((fails + 1)); fi
 done
+echo "arm 4: Roast S05-metasyntax/regex.t (a lexical regex in a sub in a class) is refused or compiled and never crashes the lowerer: the capture pass read a TT_REGEX_DECL node's sval as a parameter name and died at rc 139 (measured on SCRIP 137f4d712, the Roast compile census)"
+RX="${ROAST_DIR:-/home/resources/roast-master}/S05-metasyntax/regex.t"
+[ -f "$RX" ] || { echo "⛔ REFUSE(rc=2) [$GATE_NAME]: $RX absent -- the crash witness cannot be measured"; exit 2; }
+cp "$RX" "$W/rx.raku"
+GATE_EXAMINED=$((GATE_EXAMINED + 1))
+timeout 60 "$ROOT/scrip" --compile -o "$W/rx.s" "$W/rx.raku" >/dev/null 2>&1 </dev/null; rc=$?
+if [ "$rc" -ge 128 ]; then printf '  FAIL regex.t: the compiler died (rc=%s)\n' "$rc"; fails=$((fails + 1)); else printf '  ok   regex.t compile rc=%s (no crash)\n' "$rc"; fi
 gate_verdict "$fails" "witness-mode pair(s) wrong: a nested sub does not read or write its enclosing sub's locals as Rakudo's does"
