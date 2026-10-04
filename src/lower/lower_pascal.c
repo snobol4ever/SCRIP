@@ -977,7 +977,7 @@ stage2_t *lower_pascal_stage2(const tree_t *prog) {
         int bb_idx = lower_pascal_body(prog, proc);
         if (bb_idx >= 0) {
             g_stage2.proc_table[pi].bb_idx = bb_idx;
-            for (int pj = 0; pj < pi; pj++) if (g_stage2.proc_table[pj].name && g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pj].name, g_stage2.proc_table[pi].name)) { char _dn[512]; snprintf(_dn, sizeof _dn, "%s$dup%d", g_stage2.proc_table[pi].name, pi); g_stage2.proc_table[pi].name = lp_strdup(_dn); break; }
+            for (int pj = 0; pj < pi; pj++) if (g_stage2.proc_table[pj].name && g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pj].name, g_stage2.proc_table[pi].name)) { size_t _dl = strlen(g_stage2.proc_table[pi].name) + 24; char *_dn = (char *)ct_zalloc(_dl, 1); snprintf(_dn, _dl, "%s$dup%d", g_stage2.proc_table[pi].name, pi); g_stage2.proc_table[pi].name = _dn; break; }
             g_stage2.bbp.table[bb_idx]->decl_level = (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) ? 0 : proc_decl_level(proc);
             g_stage2.bbp.table[bb_idx]->l3_ancestor_name = pas_l3_ancestor_name(proc, g_stage2.bbp.table[bb_idx]->decl_level);
             g_stage2.bbp.table[bb_idx]->caller_frame = 1; g_stage2.bbp.table[bb_idx]->static_calls = 1; g_stage2.proc_table[pi].lex_startup = 1;
