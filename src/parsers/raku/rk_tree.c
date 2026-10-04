@@ -1747,10 +1747,17 @@ tree_t *rkb_block_seq(RkB *b, tree_t *list, int bk, int yada) {
     return make_seq(&st);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_uses_topic(const tree_t *t) {
+    if (!t || t->t == TT_ANON_BLOCK) return 0;
+    if (t->t == TT_VAR && t->v.sval && (!strcmp(t->v.sval, "_") || t->v.sval[0] == '^')) return 1;
+    for (int i = 0; i < t->n; i++) if (rk_uses_topic(t->c[i])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *sig, int sub, RkList *last, int nstmts) {
     (void) sub;
     memset(it, 0, sizeof *it); it->kind = TK_BLOCK; it->from = from; it->to = it->core_to = to; it->val = seq; it->lop = rkb_paren(b, last, nstmts);
-    if (!sig && nstmts == 1 && last && last->n >= 1) { tree_t *h = paren_hash(b, last); if (h) { it->kind = TK_TREE; it->t = h; return; } }
+    if (!sig && nstmts == 1 && last && last->n >= 1) { tree_t *h = paren_hash(b, last); if (h && !rk_uses_topic(h)) { it->kind = TK_TREE; it->t = h; return; } }
     tree_t *a = ast_node_new(TT_ANON_BLOCK); expr_add_child(a, seq);
     for (int i = 0; sig && i < sig->n; i++) { tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0]; expr_add_child(a, p); }
     it->t = a;

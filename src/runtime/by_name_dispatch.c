@@ -5365,7 +5365,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if ((!strcmp(fn, "__rk_map_append") || !strcmp(fn, "__rk_grep_append")) && nargs == 2 && args[0].v == DT_A && args[0].arr) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;
-        if (fn[5] == 'm' && args[1].v == DT_A) { rk_av_t v = rk_av(args[1]); for (int i = 0; i < v.n; i++) rk_arr_append(b, v.el[i]); }
+        if (fn[5] == 'm' && rk_is_slip(args[1])) { rk_av_t v = rk_av(args[1]); for (int i = 0; i < v.n; i++) rk_arr_append(b, v.el[i]); }
         else rk_arr_append(b, args[1]);
         *out = args[0]; return 1;
     }
