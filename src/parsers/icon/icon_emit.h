@@ -10,7 +10,7 @@ typedef struct {
     FILE *out;
     int   uid;
     int   bounded;
-    char  errmsg[256];
+    char *errmsg;
     int   had_error;
 } IcnEmitter;
 #include "ast.h"

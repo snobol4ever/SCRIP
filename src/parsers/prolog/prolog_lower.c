@@ -20,7 +20,7 @@ static void pl_clause_assign_dense_slots(tree_t *ec, int arity);
 static char *pred_str(int functor, int arity) {
     const char *fn = prolog_atom_name(functor);
     if (!fn) fn = "?";
-    char buf[256];
+    char buf[fmt_len("%s/%d", fn, arity)];
     snprintf(buf, sizeof buf, "%s/%d", fn, arity);
     return ct_strdup(buf);
 }
@@ -171,22 +171,24 @@ static void pb_collect_names(const tree_t *t, const char **names, int *n, int ca
     }
     for (int i = 0; i < t->n; i++) pb_collect_names(t->c[i], names, n, cap);
 }
+static int pb_count_vars(const tree_t *t) { if (!t) return 0; int n = (t->t == TT_VAR) ? 1 : 0; for (int i = 0; i < t->n; i++) n += pb_count_vars(t->c[i]); return n; }
 static int g_pb_fresh_ctr = 0;
 static void pb_expand_goal(tree_t *t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pb_expand_bagof(tree_t *t) {
     int is_setof = !strcmp(t->v.sval, "setof");
     tree_t *T = t->c[0]; tree_t *G = t->c[1]; tree_t *L = t->c[2];
-    const char *quant[64]; int nq = 0;
+    int nvg = pb_count_vars(G) + 1, nvt = pb_count_vars(T) + 1;
+    const char *quant[nvg]; int nq = 0;
     tree_t *G1 = G;
-    while (G1 && G1->t == TT_FNC && G1->v.sval && !strcmp(G1->v.sval, "^") && G1->n == 2) { pb_collect_names(G1->c[0], quant, &nq, 64); G1 = G1->c[1]; }
-    const char *gv[128]; int ngv = 0; pb_collect_names(G1, gv, &ngv, 128);
-    const char *tv[128]; int ntv = 0; pb_collect_names(T, tv, &ntv, 128);
-    const char *fv[128]; int nfv = 0;
+    while (G1 && G1->t == TT_FNC && G1->v.sval && !strcmp(G1->v.sval, "^") && G1->n == 2) { pb_collect_names(G1->c[0], quant, &nq, nvg); G1 = G1->c[1]; }
+    const char *gv[nvg]; int ngv = 0; pb_collect_names(G1, gv, &ngv, nvg);
+    const char *tv[nvt]; int ntv = 0; pb_collect_names(T, tv, &ntv, nvt);
+    const char *fv[nvg]; int nfv = 0;
     for (int i = 0; i < ngv; i++) { int drop = 0;
         for (int j = 0; j < ntv && !drop; j++) if (!strcmp(gv[i], tv[j])) drop = 1;
         for (int j = 0; j < nq  && !drop; j++) if (!strcmp(gv[i], quant[j])) drop = 1;
-        if (!drop && nfv < 128) fv[nfv++] = gv[i]; }
+        if (!drop) fv[nfv++] = gv[i]; }
     char b1[32], b2[32];
     tree_t *fa; tree_t *inner;
     if (nfv == 0) {
@@ -380,13 +382,13 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }
     tree_t *prog = ast_node_new(TT_PROGRAM);
     tree_t *pld_seed[256]; int pld_seed_n = 0;
-    #define PL_MAX_CLAUSES 2048
-    char plunit_suite[PL_MAX_CLAUSES][64];
+    int n_clauses = 0; for (PlClause *cl = pl_prog->head; cl; cl = cl->next) n_clauses++;
+    const char *plunit_suite[n_clauses > 0 ? n_clauses : 1];
     {
-        char cur_suite[64] = "";
+        const char *cur_suite = "";
         int ci = 0;
-        for (PlClause *cl = pl_prog->head; cl && ci < PL_MAX_CLAUSES; cl = cl->next, ci++) {
-            plunit_suite[ci][0] = '\0';
+        for (PlClause *cl = pl_prog->head; cl; cl = cl->next, ci++) {
+            plunit_suite[ci] = "";
             int is_directive = (cl->tr && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t == TT_NUL);
             int is_rule      = (cl->tr != NULL && cl->tr->n > 0 && cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL);
             if (is_directive) {
@@ -404,13 +406,13 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                             const char *sn = NULL;
                             if (a && a->t == TT_QLIT) sn = a->v.sval;
                             if (a && a->t == TT_FNC)  sn = a->v.sval;
-                            if (sn) strncpy(cur_suite, sn, 63);
+                            if (sn) cur_suite = sn;
                         } else if (strcmp(d->v.sval, "end_tests") == 0) {
-                            cur_suite[0] = '\0';
+                            cur_suite = "";
                         }
                 }
             } else if (is_rule && cur_suite[0]) {
-                strncpy(plunit_suite[ci], cur_suite, 63);
+                plunit_suite[ci] = cur_suite;
             }
         }
     }
@@ -423,7 +425,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
         if (!is_rule) continue;
         PredKey k = key_of_head_tree(cl->tr->c[0]);
         if (k.functor < 0) continue;
-        if (clause_idx < PL_MAX_CLAUSES && plunit_suite[clause_idx][0] != '\0') {
+        if (plunit_suite[clause_idx][0] != '\0') {
             const char *fn = prolog_atom_name(k.functor);
             if (fn && strcmp(fn, "test") == 0 && (k.arity == 1 || k.arity == 2)) {
                 if (cl->tr) {

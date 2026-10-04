@@ -29,30 +29,12 @@ static inline int is_rws_at(const char *p, int n) {
     }
     return 0;
 }
-static signed char sc_value_table[512];
-static signed char sc_payload_table[512];
-static int         sc_value_table_built = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sc_value_table_build(void) {
-    sc_value_table[T_IDENT]    = 1;
-    sc_value_table[T_INT]      = 1;
-    sc_value_table[T_REAL]     = 1;
-    sc_value_table[T_STR]      = 1;
-    sc_value_table[T_KEYWORD]  = 1;
-    sc_value_table[T_RPAREN]   = 1;
-    sc_value_table[T_RBRACK]   = 1;
-    sc_payload_table[T_IDENT]   = 1;
-    sc_payload_table[T_CALL]    = 1;
-    sc_payload_table[T_INT]     = 1;
-    sc_payload_table[T_REAL]    = 1;
-    sc_payload_table[T_STR]     = 1;
-    sc_payload_table[T_KEYWORD] = 1;
-    sc_value_table_built       = 1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sc_kind_is_value(int kind) {
-    if (!sc_value_table_built) sc_value_table_build();
-    return (kind >= 0 && kind < 512) ? sc_value_table[kind] : 0;
+    switch (kind) {
+    case T_IDENT: case T_INT: case T_REAL: case T_STR: case T_KEYWORD: case T_RPAREN: case T_RBRACK: return 1;
+    default: return 0;
+    }
 }
 typedef struct { const char *word; int kind; } KwEntry;
 static const KwEntry KW_TABLE[] = {
@@ -86,7 +68,7 @@ static int kw_lookup_at(const char *s, int idx) {
 static int classify_keyword_range(const char *start, const char *end) {
     int n = (int)(end - start);
     if (n <= 0 || n > 32) return T_IDENT;
-    char buf[64];
+    char buf[n + 1];
     memcpy(buf, start, n);
     buf[n] = '\0';
     return kw_lookup_at(buf, 0);
@@ -101,12 +83,13 @@ static inline int emit_kind(LexCtx *ctx, SC_STYPE *yylval, const char *p, int ki
     return kind;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *sc_tok_dup(const char *s, int n) { char *d = (char *)ct_alloc((size_t)n + 1); memcpy(d, s, (size_t)n); d[n] = '\0'; return d; }
+static inline void sc_str_put(LexCtx *ctx, char c) {
+    if (ctx->strpos + 1 >= ctx->strcap) { int nc = ctx->strcap ? ctx->strcap * 2 : 8; ctx->strbuf = (char *)ct_grow(ctx->strbuf, (size_t)nc); ctx->strcap = nc; }
+    ctx->strbuf[ctx->strpos++] = c;
+}
 static inline int emit_value(LexCtx *ctx, SC_STYPE *yylval, const char *p, const char *tok_start, int kind) {
-    int n = (int)(p - tok_start);
-    if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-    memcpy(ctx->text, tok_start, n);
-    ctx->text[n] = '\0';
-    yylval->str = ct_strdup(ctx->text);
+    yylval->str = sc_tok_dup(tok_start, (int)(p - tok_start));
     ctx->p = p;
     ctx->last_kind = kind;
     return kind;
@@ -211,16 +194,16 @@ S_EXP_DIG:
                                                                                                                            goto LX_REAL;
 S_STR1:
     if (PEEK(0) == '\0' )                                                                                                  goto LX_STR;
-    if (PEEK(0) == '\'' && PEEK(1) == '\'' )                       {  ctx->strbuf[ctx->strpos++] = '\''; ADV(2);           goto S_STR1;      }
+    if (PEEK(0) == '\'' && PEEK(1) == '\'' )                       {  sc_str_put(ctx, '\''); ADV(2);           goto S_STR1;      }
     if (PEEK(0) == '\'' )                                          {  ADV(1);                                              goto LX_STR;       }
-    if (PEEK(0) == '\n' )                                          {  ctx->line++; ctx->strbuf[ctx->strpos++] = '\n'; ADV(1); goto S_STR1;   }
-                                                                   {  ctx->strbuf[ctx->strpos++] = *p; ADV(1);              goto S_STR1;     }
+    if (PEEK(0) == '\n' )                                          {  ctx->line++; sc_str_put(ctx, '\n'); ADV(1); goto S_STR1;   }
+                                                                   {  sc_str_put(ctx, *p); ADV(1);              goto S_STR1;     }
 S_STR2:
     if (PEEK(0) == '\0' )                                                                                                  goto LX_STR;
-    if (PEEK(0) == '"'  && PEEK(1) == '"'  )                       {  ctx->strbuf[ctx->strpos++] = '"';  ADV(2);           goto S_STR2;      }
+    if (PEEK(0) == '"'  && PEEK(1) == '"'  )                       {   sc_str_put(ctx, '"'); ADV(2);           goto S_STR2;      }
     if (PEEK(0) == '"'  )                                          {  ADV(1);                                              goto LX_STR;       }
-    if (PEEK(0) == '\n' )                                          {  ctx->line++; ctx->strbuf[ctx->strpos++] = '\n'; ADV(1); goto S_STR2;   }
-                                                                   {  ctx->strbuf[ctx->strpos++] = *p; ADV(1);              goto S_STR2;     }
+    if (PEEK(0) == '\n' )                                          {  ctx->line++; sc_str_put(ctx, '\n'); ADV(1); goto S_STR2;   }
+                                                                   {  sc_str_put(ctx, *p); ADV(1);              goto S_STR2;     }
 S_OP_COLON:
                                                                    {  ADV(1);                                              goto LX_COLON;     }
 S_OP_EQ:
@@ -348,11 +331,7 @@ LX_CALL:
     if (classify_keyword_range(tok_start, p) != T_IDENT) goto LX_IDENT;
     if (ctx->last_kind == T_DEFINE)                      goto LX_IDENT;
     {
-        int n = (int)(p - tok_start);
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, tok_start, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = sc_tok_dup(tok_start, (int)(p - tok_start));
         ADV(1);
         ctx->p = p;
         ctx->last_kind = T_CALL;
@@ -361,33 +340,18 @@ LX_CALL:
 LX_IDENT:
     {
         int kind = classify_keyword_range(tok_start, p);
-        int n    = (int)(p - tok_start);
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, tok_start, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = sc_tok_dup(tok_start, (int)(p - tok_start));
         ctx->p = p; ctx->last_kind = kind; return kind;
     }
 TT_KEYWORD:
     {
-        int n = (int)(p - tok_start);
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, tok_start, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = sc_tok_dup(tok_start, (int)(p - tok_start));
         ctx->p = p; ctx->last_kind = T_KEYWORD; return T_KEYWORD;
     }
 LX_STR:
     {
-        ctx->strbuf[ctx->strpos] = '\0';
-        int n = ctx->strpos;
-        if (n >= (int)sizeof(ctx->text)) n = (int)sizeof(ctx->text) - 1;
-        memcpy(ctx->text, ctx->strbuf, n);
-        ctx->text[n] = '\0';
-        yylval->str = ct_strdup(ctx->text);
+        yylval->str = ctx->strpos ? sc_tok_dup(ctx->strbuf, (int)strnlen(ctx->strbuf, (size_t)ctx->strpos)) : sc_tok_dup("", 0);
         ctx->p = p; ctx->last_kind = T_STR; return T_STR;
     }
 TT_UNKNOWN:       EMIT_V(T_UNKNOWN);
 }
-static const char *sc_name_table[512];
-static int         sc_name_table_built = 0;

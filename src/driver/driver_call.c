@@ -25,10 +25,12 @@ void shadow_set_cur(const char *name, DESCR_t val) {
     CallFrame *fr = &call_stack[call_depth - 1];
     for (int j = 0; j < fr->nshadow; j++)
         if (strcmp(fr->shadow[j].name, name) == 0) { fr->shadow[j].val = val; return; }
-    { if (fr->nshadow >= fr->shadow_cap) { int nc = fr->shadow_cap ? fr->shadow_cap * 2 : 8; fr->shadow = (ShadowEntry *)ct_grow(fr->shadow, (size_t)nc * sizeof(ShadowEntry)); fr->shadow_cap = nc; }
-        strncpy(fr->shadow[fr->nshadow].name, name, 63);
-        fr->shadow[fr->nshadow].name[63] = '\0';
-        fr->shadow[fr->nshadow].val = val;
+    { if (fr->nshadow >= fr->shadow_cap) { int nc = fr->shadow_cap ? fr->shadow_cap * 2 : 8; fr->shadow = (ShadowEntry *)ct_grow(fr->shadow, (size_t)nc * sizeof(ShadowEntry));
+            memset(fr->shadow + fr->shadow_cap, 0, (size_t)(nc - fr->shadow_cap) * sizeof(ShadowEntry)); fr->shadow_cap = nc; }
+        ShadowEntry *se = &fr->shadow[fr->nshadow]; size_t nl = strlen(name) + 1;
+        if (se->ncap < nl) { size_t nc = se->ncap * 2 > nl ? se->ncap * 2 : nl; se->name = (char *)ct_grow(se->name, nc); se->ncap = nc; }
+        memcpy(se->name, name, nl);
+        se->val = val;
         fr->nshadow++;
     }
 }
@@ -46,8 +48,8 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
 {
     int np = FUNC_NPARAMS_fn(fname);
     int nl = FUNC_NLOCALS_fn(fname);
-    char *pnames[64]; if (np > 64) np = 64;
-    char *lnames[64]; if (nl > 64) nl = 64;
+    char *pnames[np > 0 ? np : 1];
+    char *lnames[nl > 0 ? nl : 1];
     for (int i = 0; i < np; i++) {
         const char *p = FUNC_PARAM_fn(fname, i);
         pnames[i] = p ? rt_heap_strdup_c(p) : rt_heap_strdup_c("");
@@ -56,12 +58,8 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
         const char *l = FUNC_LOCAL_fn(fname, i);
         lnames[i] = l ? rt_heap_strdup_c(l) : rt_heap_strdup_c("");
     }
-    char ufname[128];
-    {
-        size_t flen = strlen(fname);
-        if (flen >= sizeof(ufname)) flen = sizeof(ufname)-1;
-        for (size_t i = 0; i <= flen; i++) ufname[i] = fname[i];
-    }
+    char ufname[strlen(fname) + 1];
+    memcpy(ufname, fname, sizeof ufname);
     const char *entry_pre = FUNC_ENTRY_fn(fname);
     const char *retname = fname;
     if (entry_pre && strcmp(entry_pre, fname) != 0 && FNCEX_fn(entry_pre))
@@ -91,8 +89,8 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
     monitor_quiet_depth--;
     cv_reserve(&call_stack_v, (uint32_t)sizeof(CallFrame), (uint64_t)call_depth + 1, "call_stack"); int fi = call_depth++;
     kw_fnclevel = call_depth;
-    strncpy(call_stack[fi].fname, retname, sizeof(call_stack[fi].fname)-1);
-    call_stack[fi].fname[sizeof(call_stack[fi].fname)-1] = '\0';
+    { CallFrame *cf = &call_stack[fi]; size_t rl = strlen(retname) + 1;
+      if (cf->fname_cap < rl) { size_t nc = cf->fname_cap * 2 > rl ? cf->fname_cap * 2 : rl; cf->fname = (char *)ct_grow(cf->fname, nc); cf->fname_cap = nc; } memcpy(cf->fname, retname, rl); }
     call_stack[fi].nshadow = 0;
     for (int i = 0; i < np; i++)
         if (_is_pat_fnc_name(pnames[i]))

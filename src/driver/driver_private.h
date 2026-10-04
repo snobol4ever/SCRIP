@@ -72,10 +72,10 @@ const char *define_spec_from_expr(tree_t *subj);
 const char *define_entry_from_expr(tree_t *subj);
 #include "stage2.h"
 #include "driver.h"
-typedef struct { char name[64]; DESCR_t val; } ShadowEntry;
+typedef struct { char *name; size_t ncap; DESCR_t val; } ShadowEntry;
 typedef struct {
     jmp_buf  ret_env;
-    char     fname[128];
+    char    *fname; size_t fname_cap;
     char   **saved_names;
     DESCR_t *saved_vals;
     int      nsaved;
@@ -92,9 +92,8 @@ int  shadow_get(const char *name, DESCR_t *out);
 void shadow_set_cur(const char *name, DESCR_t val);
 int  shadow_has(const char *name);
 int  is_current_frame_local(const char *name);
-#define INIT_SLOTS  8
-typedef struct { char nm[64]; DESCR_t val; } InitSlot;
-typedef struct { int id; int ns; InitSlot s[INIT_SLOTS]; } InitEnt;
+typedef struct { const char *nm; DESCR_t val; } InitSlot;
+typedef struct { int id; int ns; InitSlot *s; } InitEnt;
 extern cv_t init_tab_v;
 #define init_tab ((InitEnt *)init_tab_v.p)
 extern int        init_n;
@@ -122,10 +121,10 @@ DESCR_t *eval_ast_ref(tree_t *e);
 DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
 int string_section_assign(tree_t *lhs, DESCR_t val);
 typedef struct {
-    char * name; int nfields; char ** fields; char parent[64]; DESCR_t * defaults; char * has_default; char * required;
-    char * rw; char * sigil; char * priv; char mro[64][64]; int mro_len; char parents[8][64]; int nparents;
-    char roles[8][64]; int nroles; char methods[32][64]; int nmethods; char has_build; char build_keys[16][64]; int nbuild_keys;
-    char handles_meth[32][64]; char handles_fld[32][64]; int nhandles;
+    char * name; int nfields; char ** fields; char * parent; DESCR_t * defaults; char * has_default; char * required;
+    char * rw; char * sigil; char * priv; char ** mro; int mro_len, mro_cap; char ** parents; int nparents, parents_cap;
+    char ** roles; int nroles, roles_cap; char ** methods; int nmethods, methods_cap; char has_build; char ** build_keys; int nbuild_keys, build_keys_cap;
+    char ** handles_meth; char ** handles_fld; int nhandles, handles_cap;
     struct _DATINST_tType *blk;
     char live;
     int fcap;

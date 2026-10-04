@@ -815,6 +815,14 @@ static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_ou
 }
 static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
                            TreeScope *ts, tree_t **buf, int idx);
+static int dcg_need(tree_t *b) {
+    if (!b) return 1;
+    if (b->t == TT_FNC && b->v.sval && b->n == 1 && strcmp(b->v.sval, "{}") == 0) return dcg_count_conj(b->c[0]) + 1;
+    if (b->t == TT_FNC && b->v.sval && b->n == 2 && strcmp(b->v.sval, ",") == 0) return dcg_need(b->c[0]) + dcg_need(b->c[1]);
+    if (b->t == TT_FNC && b->v.sval && b->n == 1 && strcmp(b->v.sval, "\\+") == 0) return 2;
+    if (b->t == TT_CUT) return 2;
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
                            TreeScope *ts, tree_t **buf, int idx) {
@@ -849,8 +857,8 @@ static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, ";") == 0
             && body->n == 2) {
-        tree_t *buf_a[256]; int na = 0;
-        tree_t *buf_b[256]; int nb = 0;
+        tree_t *buf_a[dcg_need(body->c[0])]; int na = 0;
+        tree_t *buf_b[dcg_need(body->c[1])]; int nb = 0;
         na = dcg_expand_body(body->c[0], s_in, s_out, ts, buf_a, 0);
         nb = dcg_expand_body(body->c[1], s_in, s_out, ts, buf_b, 0);
         tree_t *conj_a = buf_a[0];
@@ -868,7 +876,7 @@ static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
         return idx;
     }
     if (body->t == TT_FNC && body->v.sval && (strcmp(body->v.sval, "->") == 0 || strcmp(body->v.sval, "*->") == 0) && body->n == 2) {
-        tree_t *buf_c[256]; int nc = 0; tree_t *buf_t[256]; int nt = 0; tree_t *s_mid = dcg_fresh_var(ts);
+        tree_t *buf_c[dcg_need(body->c[0])]; int nc = 0; tree_t *buf_t[dcg_need(body->c[1])]; int nt = 0; tree_t *s_mid = dcg_fresh_var(ts);
         nc = dcg_expand_body(body->c[0], s_in, s_mid, ts, buf_c, 0);
         nt = dcg_expand_body(body->c[1], s_mid, s_out, ts, buf_t, 0);
         tree_t *conj_c = buf_c[nc - 1];
@@ -880,7 +888,7 @@ static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
         return idx;
     }
     if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, "\\+") == 0 && body->n == 1) {
-        tree_t *buf_g[256]; int ng = 0; tree_t *s_void = dcg_fresh_var(ts);
+        tree_t *buf_g[dcg_need(body->c[0])]; int ng = 0; tree_t *s_void = dcg_fresh_var(ts);
         ng = dcg_expand_body(body->c[0], s_in, s_void, ts, buf_g, 0);
         tree_t *conj_g = buf_g[ng - 1];
         for (int i = ng - 2; i >= 0; i--) { tree_t *cg[2] = { buf_g[i], conj_g }; conj_g = mk_raw(prolog_atom_intern(","), cg, 2); }
@@ -916,7 +924,7 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     for (int i = 0; i < head_tr->n; i++) ast_push(new_head, head_tr->c[i]);
     ast_push(new_head, dcg_var_use(ts, s0));
     ast_push(new_head, dcg_var_use(ts, s));
-    tree_t *buf[1024];
+    tree_t *buf[dcg_need(dcg_body) + (pushback ? 1 : 0)];
     int n;
     if (pushback) {
         tree_t *s_mid = dcg_fresh_var(ts);
