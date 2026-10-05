@@ -342,11 +342,34 @@ def _conjunct_value(t):
 # this map (normalised guard text -> True/False) only where every mode agrees; --census, which runs nothing, leaves it empty.
 PROBED = {}
 
+# ⛔⭐ FOUR GUARDS ARE RULED, NOT PROBED (ceo CEO-1524, 2026-10-05, on the coo's ask): each is an if/else whose two branches expect
+# opposite outcomes of one goal, so no engine passes both -- the exclusive-configuration class of Lon's Windows and bounded rulings
+# (CEO-1519, CEO-1520). FEATURE PRESENT is decided for all four: ^/2 is callable (bagof_3 iso_bagof_3_09, setof_3 iso_setof_3_11),
+# the dialects whose atom may be both an infix and a postfix operator (op_3 iso_op_3_10), and '|' is an operator (op_3 iso_op_3_21,
+# whose guard asks for its ABSENCE, so it reads FALSE). The sibling branch of each is an EXCLUSIVE_BRANCH row of EXCLUDED_CASES.tsv;
+# the live branch is graded and reads FAIL until SCRIP has the feature (the cfo's work: ^/2 must be callable).
+RULED = {
+    "catch(1^true, _, fail)": True,
+    "catch({1^true}, _, fail)": True,
+    "( current_logtalk_flag(prolog_dialect, Dialect), (Dialect == eclipse; Dialect == sicstus; Dialect == swi; "
+    "Dialect == trealla; Dialect == yap; Dialect == xvm) )": True,
+    "\\+ current_op(_, _, '|')": False,
+}
+
+
+def ruled_guard(why):
+    """The RULED guard a guarded-out case's `why` names (the deciding text, normalised and cut at 120, perhaps 'else of ...'), or None."""
+    t = why[len("else of "):] if why.startswith("else of ") else why
+    return next((k for k in RULED if k[:120] == t), None)
+
 
 def cond_value(text):
     """True / False when this system decides the guard, else None (both branches stay in the population)."""
     v = _cond_value_static(text)
-    return PROBED.get(" ".join(text.split())) if v is None else v
+    if v is not None:
+        return v
+    n = " ".join(text.split())
+    return RULED[n] if n in RULED else PROBED.get(n)
 
 
 def _cond_value_static(text):

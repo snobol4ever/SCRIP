@@ -109,6 +109,12 @@ EXCLUDED_TABLE = "EXCLUDED_CASES.tsv"
 EXCLUDED_CLASSES = {
     "WINDOWS_ONLY": "the :- if(...) branch this suite compiles only on Windows (its unix else-branch is graded)",
     "BOUNDED_INTEGERS_ONLY": "a condition(...) that holds only where integers are bounded (SCRIP is unbounded, like SWI)",
+    # ceo CEO-1524 (2026-10-05): an if/else whose branches expect opposite outcomes of one goal, so no engine passes both; the ceo
+    # decided FEATURE PRESENT (util_logtalk_extract.RULED) and the sibling branch is this row.
+    "EXCLUSIVE_BRANCH": "the sibling branch of a ruled :- if(...)/else pair whose two branches expect opposite outcomes (the feature-present branch is graded)",
+    # ceo CEO-1524 (2026-10-05): read of a dotless float (1e33) expecting syntax_error. SCRIP's default reads it as SWI does, which
+    # 11 SWI suite programs depend on; the strict ISO reading is built under set_prolog_flag(iso, true) (the cfo's).
+    "DOTLESS_FLOAT_READ": "reads a dotless float such as 1e33 expecting syntax_error; SCRIP's default reads it as SWI does (the strict ISO reading is set_prolog_flag(iso, true))",
 }
 
 
@@ -131,6 +137,11 @@ def load_excluded(root):
             continue
         out[f[0]] = (f[1], f[2].strip())
     return out, bad
+
+
+def _dotless_float_read(case):
+    """The case reads a numeral with an exponent and no fraction (1e33, 1E33) and expects a syntax error."""
+    return bool(re.search(r"set_text_input\('\d+[eE][+-]?\d+\. '\)", case.goal or "")) and "syntax_error" in (case.expect or "")
 
 
 def _bounded_only(case):
@@ -941,6 +952,13 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                     continue
                 excl_hits.append((xk, xr[0], xr[1]))
                 continue
+            if xr is not None and xr[0] == "DOTLESS_FLOAT_READ":
+                if not _dotless_float_read(c):
+                    exerr.append((xk, "is excluded DOTLESS_FLOAT_READ and its goal %r does not read a dotless float expecting "
+                                      "syntax_error -- the row is stale or names the wrong case" % ((c.goal or "")[:80],)))
+                    continue
+                excl_hits.append((xk, xr[0], xr[1]))
+                continue
             reason = sequenced.get((fc.group, c.name))
             p = build(c, idx, reason is not None)
             if reason is not None:
@@ -967,7 +985,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     _keys = {"%s:%s" % (fc.group, p.case.name) for fc, p in work}
     # ⭐ A CASE A :- if(...) GUARD DECIDES FALSE IS STILL A VENDORED CASE, SO ITS DECLARATION IS NOT AN ORPHAN -- and it is NAMED here,
     # per guard, on the board. ⛔⭐ AND IT IS EXCLUDED BY NAME OR THE BOARD REFUSES (Lon 2026-10-05, CEO-1518: "We have NO expected
-    # failures."): the only guard that may take a case out is the Windows branch, each one a WINDOWS_ONLY row of EXCLUDED_CASES.tsv.
+    # failures."): the only guards that may take a case out are the Windows branch, each one a WINDOWS_ONLY row of EXCLUDED_CASES.tsv,
+    # and the sibling branch of a guard the ceo RULED (util_logtalk_extract.RULED, CEO-1524), each one an EXCLUSIVE_BRANCH row.
     _dead = {}
     for fc in files:
         if fc.group in graded_groups:
@@ -980,14 +999,17 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
             xr = excluded.get(k)
             if xr is not None and xr[0] == "WINDOWS_ONLY" and "operating_system_type(windows)" in why:
                 excl_hits.append((k, xr[0], xr[1]))
+            elif xr is not None and xr[0] == "EXCLUSIVE_BRANCH" and ex.ruled_guard(why) is not None:
+                excl_hits.append((k, xr[0], xr[1]))
             else:
-                exerr.append((k, "a :- if(...) takes this case out (%s) and no WINDOWS_ONLY row of %s names it -- every case is "
-                                 "graded or excluded by name" % (why, EXCLUDED_TABLE)))
+                exerr.append((k, "a :- if(...) takes this case out (%s) and no WINDOWS_ONLY or EXCLUSIVE_BRANCH row of %s names it -- "
+                                 "every case is graded or excluded by name" % (why, EXCLUDED_TABLE)))
     _hit_keys = {k for k, _c, _r in excl_hits}
     for k, (cls, _r) in sorted(excluded.items()):
         if k.split(":", 1)[0] in graded_groups and k not in _hit_keys:
             exerr.append((k, "is excluded %s and the suite has no such case %s -- the row is stale or names the wrong case"
-                             % (cls, "behind a Windows guard" if cls == "WINDOWS_ONLY" else "carrying a bounded-integers condition")))
+                             % (cls, {"WINDOWS_ONLY": "behind a Windows guard", "EXCLUSIVE_BRANCH": "behind a ruled guard",
+                                      "DOTLESS_FLOAT_READ": "reading a dotless float"}.get(cls, "carrying a bounded-integers condition"))))
     if exerr:
         return None, [(k, why) for k, why in exerr]
     _dead_keys = {k for ks in _dead.values() for k in ks} | _hit_keys
