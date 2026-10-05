@@ -394,7 +394,7 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
             if (wx) { d = plc_wsref_get(wx, &rd); aa = (pl_cell_t *)d->p; }
             if (lop) fputc(')', fp);
             if (isalnum((unsigned char)fn[0]) || fn[0] == '_') fprintf(fp, " %s ", fn);
-            else if (!strcmp(fn, ",")) fputc(',', fp);
+            else if (!strcmp(fn, ",") || !strcmp(fn, "|")) fputc(fn[0], fp);
             else { plc_wt_atom(fp, fn, quoted); if (!rop && plc_is_graphic_char(plc_first_char(&aa[1], quoted, ignore_ops, numbervars))) fputc(' ', fp); }
             if (rop) fputc('(', fp);
             PLC_KID(&aa[1], depth+1, rop ? 1200 : rmax);

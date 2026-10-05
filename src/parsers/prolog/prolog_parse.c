@@ -68,6 +68,7 @@ static const OpEntry BIN_OPS[] = {
     { "-->",  1200, ASSOC_NONE  },
     { ",",    1000, ASSOC_RIGHT },
     { ";",    1100, ASSOC_RIGHT },
+    { "|",    1105, ASSOC_RIGHT },
     { "->",   1050, ASSOC_RIGHT },
     { "*->",  1050, ASSOC_RIGHT },
     { "@",     900, ASSOC_NONE  },
