@@ -312,7 +312,8 @@ ipl_fixtures_stage() {
   # progs/mszip take a directory TREE as their argument and progs/newsrc opens the fixed name .newsrc, and the old '*' glob copied
   # neither -- it skipped dotfiles and refused every subdirectory. The tree is copied as it stands; a symlink or a special file
   # anywhere in it still refuses, since either could escape the scratch tree. ⛔ A staged file is visible to every program that
-  # lists its directory (progs/duplfile runs ls -R), so fixture names must not repeat under the package subdirectory.
+  # lists its directory. progs/duplfile (ls -R) and progs/gcomp (echo *) therefore run ALONE over their own fixture trees (NAME.alone;
+  # duplfile since ceo CEO-1516, when the 10-04 fixtures turned its ref stale), and any new unit that lists its cwd takes the same sidecar.
   f="$(find "$dir" -mindepth 1 \( -type l -o \( ! -type f ! -type d \) \) -print -quit)"
   [ -z "$f" ] || { echo "⛔ FIXTURE SIDECAR REFUSES(2): $f is not a plain regular file or directory" >&2; return 2; }
   cp -R "$dir"/. "$dest"/ || return 2
