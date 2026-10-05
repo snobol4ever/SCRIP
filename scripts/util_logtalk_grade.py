@@ -430,6 +430,12 @@ def plan_case(c, supported):
 
 
 def _finish(c, want, goal, balls, weaker, opts):
+    # ⛔ AN OPTION IS LOGTALK TEXT LIKE A TEST BODY, SO ITS {Goal} ESCAPE IS REWRITTEN THE SAME WAY (cfo 2026-10-05). Passed verbatim,
+    # condition({predicate_property('*->'(_,_), built_in)}) called '{}'/1, raised existence_error({}/1), and the catch around '$lgt_cond'
+    # read it as a false condition: predicate_property_2 22, 23, 29 and operators 57 sat UNGRADED as "the case's own condition(...) option
+    # is false on this system" on an engine where every one of those conditions is true or false on its own merits; the 12 occurs_check
+    # setup({set_prolog_flag(...)}) options would have died the same way once their :- if guard opens. probe_guards already did this.
+    opts = dict((k, _braces_to_parens(v)) for k, v in opts.items())
     if opts.get("setup"):
         goal = "lgt_h((%s)), %s" % (opts["setup"], goal)
     if opts.get("cleanup"):
