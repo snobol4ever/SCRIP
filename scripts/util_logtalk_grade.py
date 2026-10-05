@@ -358,7 +358,11 @@ def action_goal(c, supported):
 
 def plan_case(c, supported):
     """Turn one extracted Case into a Plan: either an executable grading, or a NAMED refusal to grade."""
-    if c.kind == "test" and not c.expect:
+    # ⛔ ONLY A BODILESS test(Name). IS THE PLACEHOLDER (cfo 2026-10-05). lgtunit's test(Name) :- Goal is a test that must SUCCEED, the
+    # test/1 dialect of test(Name, true); the extractor already tells the two apart (goal "" for the fact), but this check read every
+    # test/1 as the placeholder, so the suite's 7 test/1 cases -- all with bodies, none bodiless -- sat UNGRADED as "declared and not
+    # implemented": dynamic_1 x3, multifile_1 x3, operators iso_operators_15.
+    if c.kind == "test" and not c.expect and not (c.goal or "").strip():
         return Plan(c, skip_reason="lgtunit test/1 placeholder: the suite declares this test and does not implement it")
     goal, why = action_goal(c, supported)
     if goal is None:
@@ -370,7 +374,7 @@ def plan_case(c, supported):
     # fails == false, throws(Name,Ball) == the ball. They are normalised into the same expectation
     # vocabulary here rather than given their own grading path, because two paths that mean the same thing
     # are two places for the meaning to drift, and 349 of the 3617 cases (10%) ride on this one.
-    if c.kind == "succeeds":
+    if c.kind == "succeeds" or (c.kind == "test" and not c.expect):
         return _finish(c, "succ", goal, [], None, opts)
     if c.kind == "fails":
         return _finish(c, "fail", goal, [], None, opts)
