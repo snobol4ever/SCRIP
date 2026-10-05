@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2066
+#define GC_ALLOC_TAB_N 2074
 #define GC_ALLOC_TAB_N_VOID 243
-#define GC_ALLOC_TAB_N_DESCR 1095
-#define GC_ALLOC_TAB_N_OTHER 722
+#define GC_ALLOC_TAB_N_DESCR 1099
+#define GC_ALLOC_TAB_N_OTHER 726
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -911,16 +911,22 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_cons", GC_RET_DESCR },
     { "plc_copy", GC_RET_DESCR },
     { "plc_copy_run", GC_RET_OTHER },
+    { "plc_factorize", GC_RET_DESCR },
     { "plc_fb_term", GC_RET_OTHER },
     { "plc_first_char", GC_RET_OTHER },
     { "plc_fmt_dbl", GC_RET_OTHER },
     { "plc_fmt_eval", GC_RET_OTHER },
     { "plc_fmt_int", GC_RET_OTHER },
     { "plc_fmt_text", GC_RET_OTHER },
+    { "plc_fz_run", GC_RET_OTHER },
+    { "plc_fz_var", GC_RET_DESCR },
     { "plc_inplace_cmp", GC_RET_OTHER },
     { "plc_is_op_atom", GC_RET_OTHER },
     { "plc_make_atom_cell", GC_RET_DESCR },
     { "plc_num_of_text", GC_RET_OTHER },
+    { "plc_nv_visit", GC_RET_OTHER },
+    { "plc_nv_walk", GC_RET_OTHER },
+    { "plc_nv_walk_run", GC_RET_OTHER },
     { "plc_op_info", GC_RET_OTHER },
     { "plc_op_info_id", GC_RET_OTHER },
     { "plc_op_is_postfix", GC_RET_OTHER },
@@ -1704,6 +1710,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_setof_result_c", GC_RET_DESCR },
     { "rt_pl_dop_skip", GC_RET_DESCR },
     { "rt_pl_dop_skip_c", GC_RET_DESCR },
+    { "rt_pl_dop_skip_list", GC_RET_DESCR },
+    { "rt_pl_dop_skip_list_c", GC_RET_DESCR },
     { "rt_pl_dop_sort", GC_RET_DESCR },
     { "rt_pl_dop_sort_c", GC_RET_DESCR },
     { "rt_pl_dop_stream_guard", GC_RET_DESCR },

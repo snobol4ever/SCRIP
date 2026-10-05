@@ -808,6 +808,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "compound", 1, "$compound" }, { "callable", 1, "$callable" }, { "ground", 1, "$ground" }, { "is_list", 1, "$is_list" }, { "acyclic_term", 1, "$acyclic_term" }, { "==", 2, "$atop_eq" },
     { "\\==", 2, "$atop_ne" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" }, { "compare", 3, "$compare" }, { "functor", 3, "$functor" },
     { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "term_variables", 2, "$term_variables" }, { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" },
+    { "$skip_list", 3, "$skip_list" },
     { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_string" },
     { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2, "$atom_number" },
     { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" },
@@ -1672,8 +1673,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             { IR_t * le = NULL; IR_t * nd = pl_db_leaf2(cx, !strcmp(nm, "asserta") ? "$db_asserta" : "$db_assertz", pl_dyn_index_or_add(pn, ar), t->c[0], γnext, ωfail, &le);
               IR_t * se = NULL; pl_db_seed_file(cx, pn, ar, le, ωfail, &se);
               { IR_t * first = se ? se : le;
-                if (t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, ":-") && t->c[0]->n == 2 && pl_tree_has_var(t->c[0]->c[1])) {
-                    IR_t * ge = NULL; pl_db_leaf2_tree(cx, "$db_t_guard", t->c[0], pl_atom_goal("assert"), first, ωfail, &ge); if (ge) first = ge; }
+                if (pl_tree_has_var(t->c[0])) {
+                    int hb = t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, ":-") && t->c[0]->n == 2 && pl_tree_has_var(t->c[0]->c[1]);
+                    IR_t * ge = NULL; pl_db_leaf2_tree(cx, "$db_t_guard", t->c[0], pl_atom_goal(hb ? "assert" : "assert_cyc"), first, ωfail, &ge); if (ge) first = ge; }
                 if (entry_out) *entry_out = first; }
               return nd; } }
         if ((!strcmp(nm, "asserta") || !strcmp(nm, "assertz") || !strcmp(nm, "assert")) && t->n == 2) {

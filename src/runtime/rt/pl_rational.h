@@ -6,14 +6,17 @@
 #define PLR_SEEN    ((DTYPE_t)(DT_PLREF + 3))
 #define PLR_COPY    ((DTYPE_t)(DT_PLREF + 4))
 #define PLR_VCOPY   ((DTYPE_t)(DT_PLREF + 5))
+#define PLR_FZ_OPEN ((DTYPE_t)(DT_PLREF + 6))
+#define PLR_FZ_DONE ((DTYPE_t)(DT_PLREF + 7))
 #define PLR_DESCEND 0x7f
 #define PLR_V_GO    0
 #define PLR_V_STOP  1
 #define PLR_V_SKIP  2
 #define PLR_SEG0    64
 #define PLR_SEGMAX  16384
-_Static_assert(DT_PLREF + 5 < DT_X && DT_PLREF + 5 < 0x100,
-               "RATIONAL TREES (CEO-1521, row prolog-rational-trees-...): PLR_LINK, PLR_SEEN, PLR_COPY and PLR_VCOPY are private type bytes a Prolog term walk writes into a cell it is "
+_Static_assert(DT_PLREF + 7 < DT_X && DT_PLREF + 7 < 0x100,
+               "RATIONAL TREES (CEO-1521, row prolog-rational-trees-...): PLR_LINK, PLR_SEEN, PLR_COPY, PLR_VCOPY and the two PLR_FZ marks are private type bytes a Prolog term walk writes into a "
+               "cell it is "
                "walking and restores before the runtime call returns; they sit between DT_PLREF and the next tag, the collector never sees one (no collection inside a runtime call), "
                "and every walk resolves PLR_LINK to its partner. The walk is SWI-Prolog's (pl-prims.c do_unify / do_compare): a left-to-right agenda and a link per compound pair, "
                "undone at the end; the agenda and the link log live on the C stack in segments a VLA grows (THE LIFETIME RULE, CEO-1354), never on the heap");
