@@ -646,7 +646,8 @@ std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
     return s;
 }
 const char * xa_icn_trace_pname(void) {
-    return !g_emit.flat_fam ? ((g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (const char *)0)
+    return (g_emit_cfg && g_emit_cfg->root_graph) ? "main"
+         : !g_emit.flat_fam ? (const char *)0
          : (strncmp(g_emit.flat_fam, "proc_", 5) == 0) ? g_emit.flat_fam + 5
          : g_emit.flat_fam;
 }

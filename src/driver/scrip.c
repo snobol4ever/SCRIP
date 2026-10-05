@@ -100,6 +100,8 @@ __attribute__((used, noinline)) static void icn_zf_exit_g_body(void) { sno_setex
 __attribute__((used, noinline)) static void icn_zf_exit_w_body(void) { exit(1); }
 static __attribute__((naked)) void icn_zf_exit_γ(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_zf_exit_g_body"); }
 static __attribute__((naked)) void icn_zf_exit_ω(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_zf_exit_w_body"); }
+__attribute__((used, noinline)) static void icn_root_end_body(void) { exit(0); }
+static __attribute__((naked)) void icn_root_end(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_root_end_body"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     __asm__ volatile(
@@ -169,7 +171,10 @@ __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
         "  movq 48(%r10), %r9\n"
         "  movq 56(%r10), %r10\n"
         "1:\n"
+        "  test %rcx, %rcx\n"
+        "  jnz 3f\n"
         "  leaq 2f(%rip), %rcx\n"
+        "3:\n"
         "  push %rcx\n"
         "  push %rcx\n"
         "  xor %r13d, %r13d\n"
@@ -494,13 +499,21 @@ static int    g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_locals(const char *pname, IR_graph_t *g);
+static int icn_main_callable(const stage2_t *s2, const IR_graph_t *g) {
+    if (!g || !g->icn_cells_graph) return 0;
+    for (int i = 0; i < s2->proc_count; i++) if (s2->proc_table[i].name && !strcmp(s2->proc_table[i].name, "main")) return s2->proc_table[i].is_generator ? 0 : 1;
+    return 0;
+}
 static void register_procs_all(stage2_t * s2) {
     extern void rt_proc_register(const char *name, const char **pnames, int nparams);
-    for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+    int _mpi = -1;
+    for (int _k = 0; _k <= s2->proc_count; _k++) {
+        int _pi = (_k < s2->proc_count) ? _k : _mpi;
+        if (_pi < 0) break;
         const char *pname = s2->proc_table[_pi].name;
         if (!pname) continue;
-        if (strcmp(pname, "main") == 0) continue;
         int idx = s2->proc_table[_pi].bb_idx;
+        if (_k < s2->proc_count && strcmp(pname, "main") == 0) { if (idx >= 0 && idx < s2->bbp.count && icn_main_callable(s2, s2->bbp.table[idx])) _mpi = _pi; continue; }
         if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
         int np = s2->proc_table[_pi].nparams;
         const char **pn = NULL;
@@ -914,6 +927,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
           } }
         int last_static = -1;
         for (int i = 0; i < n_procs; i++) if (!m4_proc_startup_skip(s2, &s2->proc_table[proc_pidx_buf[i]], proc_ispat_buf ? proc_ispat_buf[i] : 0)) last_static = i;
+        { int _mx = polyglot_main_bb_idx(s2); if (_mx >= 0 && _mx < s2->bbp.count && icn_main_callable(s2, s2->bbp.table[_mx])) last_static = n_procs; }
         for (int i = 0; i < n_procs; i++) {
             ProcEntry *pe = &s2->proc_table[proc_pidx_buf[i]];
             int skip = m4_proc_startup_skip(s2, pe, proc_ispat_buf ? proc_ispat_buf[i] : 0);
@@ -1066,6 +1080,12 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             { IR_graph_t *_cg = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
               if (_cg && _cg->caller_frame && _cg->nslots > 0) emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n  mov esi, %d\n  mov edx, %d\n  call rt_proc_set_frame@PLT\n", i, _cg->nslots - 1, pe->decl_level); }
         }
+        { int _mx = polyglot_main_bb_idx(s2); IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0; int _mpi = -1;
+          for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && !strcmp(s2->proc_table[_q].name, "main")) { _mpi = _q; break; }
+          if (_mpi >= 0 && icn_main_callable(s2, _rg)) { ProcEntry *_mp = &s2->proc_table[_mpi];
+              emit_textf("  .section .rodata\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad 0\n  .quad 0\n  .quad 0\n");
+              emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n  .long %d\n  .long %d\n", _mp->nparams, _mp->nformals, (_mp->is_variadic ? 4 : 0) | 16, _mp->rest_kind, _mp->named_rest);
+              emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n"); } }
         emit_textf("  add rsp, 8\n");
         emit_textf("  ret\n");
     }
@@ -1781,9 +1801,16 @@ int main(int argc, char **argv)
                 else emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  mov edi, 1\n  call exit@PLT\n");
             } else {
             emit_textf("  xor r14d, r14d\n");
+            if (bbg->icn_cells_graph) {
+                emit_textf("  mov rax, qword ptr [rip + rt_k_level_p@GOTPCREL]\n  mov rax, qword ptr [rax]\n  mov dword ptr [rax], 0\n");
+                emit_textf("  lea rax, [rip + .Lmain_icn_end]\n  push rax\n  push rax\n");
+                emit_textf("  jmp main_\xce\xb1\n");
+                emit_textf(".Lmain_icn_end:\n  and rsp, -16\n  xor edi, edi\n  call exit@PLT\n");
+            } else {
             emit_textf("  lea rax, [rip + .Llevel_zero_return]\n  push rax\n  push rax\n");
             emit_textf("  jmp main_\xce\xb1\n");
             emit_textf(".Llevel_zero_return:\n  call rt_kw_return_level_zero@PLT\n  ud2\n");
+            }
             }
             if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
             if (n_gva_icn > 0) {
@@ -1954,6 +1981,8 @@ int main(int argc, char **argv)
             { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
             { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (fn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)fn + emit_gc_sites_off(_sk))); }
             if (fn) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, -1, (void *)fn, g_last_flat_frame_bytes); }
+            if (fn && icn_main_callable(s2, bbg)) { extern void rt_proc_set_fn(const char *, bb_box_fn); extern void rt_proc_set_frame_bytes(const char *, int); extern int g_last_flat_frame_bytes;
+                rt_proc_set_fn("main", fn); rt_proc_set_frame_bytes("main", g_last_flat_frame_bytes); m3_seal_entry_cells("main", (void *)fn, 1); }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
             if (!fn) {
@@ -1974,7 +2003,7 @@ int main(int argc, char **argv)
                 { extern void rt_pl_root_omega(void);
                   icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)rt_pl_root_omega : (void *)icn_zf_exit_ω); }
             } else
-            { extern void rt_outer_call(bb_box_fn, void *, long);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long); if (_icn_cells_graph) rt_outer_call_delta0(fn, mf, 0); else rt_outer_call(fn, mf, 0); } }
+            { extern void rt_outer_call(bb_box_fn, void *, long, void *);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long, void *); extern int * const rt_k_level_p; if (_icn_cells_graph) { *rt_k_level_p = 0; rt_outer_call_delta0(fn, mf, 0, (void *)icn_root_end); } else rt_outer_call(fn, mf, 0, (void *)0); } }
             sno_setexit_fire_on_end();
             goto run_done;
         }

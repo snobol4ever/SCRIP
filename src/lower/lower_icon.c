@@ -2088,7 +2088,7 @@ static int icn_callable_proc_index(const char * fn) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const char * pname = g_stage2.proc_table[pi].name;
         if (!pname || strcmp(pname, fn) != 0) continue;
-        if (strcmp(pname, "main") == 0) return -1;
+        if (strcmp(pname, "main") == 0 && g_stage2.proc_table[pi].is_generator) return -1;
         int idx = g_stage2.proc_table[pi].bb_idx;
         if (idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) return -1;
         return pi;

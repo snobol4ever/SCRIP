@@ -3881,7 +3881,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             ef_b1(0xBA); bb_emit_u32((uint32_t)nl);
             { uint64_t _fn = (uint64_t)(uintptr_t)(void *)rt_lcl_proc_args_install; ef_b2(0x48, 0xB8); bb_emit_u64(_fn); ef_b2(0xFF, 0xD0); } }
         }
-        if (_iws && _use_zframe_install && !(g_emit_cfg && g_emit_cfg->root_graph)) {
+        if (_iws && _use_zframe_install) {
+            const char * _apn = (g_emit_cfg && g_emit_cfg->root_graph) ? "main" : (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
             extern int * const rt_k_level_p;
             extern int64_t kw_fnclevel;
             bb_emit_x86( x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
@@ -3892,11 +3893,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + x86("sub", "rcx", (long)1)
                      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
                      + x86("mov", RDQ("rax", 0), "rcx"));
-            bb_emit_x86(icn_act_record_inline((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, np, _aoff) + icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 1, np, _aoff));
-            icn_register_local_offsets((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix);
-        } else if (_iws && _use_zframe_install) {
-            bb_emit_x86(icn_act_record_inline("main", np, _aoff) + icn_trace_tap("main", 1, np, _aoff));
-            icn_register_local_offsets("main");
+            bb_emit_x86(icn_act_record_inline(_apn, np, _aoff) + icn_trace_tap(_apn, 1, np, _aoff));
+            icn_register_local_offsets(_apn);
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
@@ -4429,14 +4427,11 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         int _has_nret = 0; for (int _ni = 0; _ni < n; _ni++) if (emit_floater_kind(nodes[_ni]) == 3) { _has_nret = 1; break; }
         if (_has_nret) emit_label_define_bb(emit_floater_label(1));
     }
-    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }
+    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) { extern void xa_flat_zframe_epilogue_γ(void); xa_flat_zframe_epilogue_γ(); }
     else if (_blob_wire) {
         int _bfb = blob_frame_bytes(); int _sd = (_bfb > 0) ? 0 : (_spgd >= 0) ? _spgd + _sph : -1; if (_bfb <= 0 && _sd < 0) bb_emit_x86(x86_bomb("frameless stored-pattern thunk: its gamma exits leave the spine at different or unknown depths"));
         bb_emit_x86(IF(_bfb > 0,  x86("mov", "rcx", RDQ("rbp", blob_cont_copy() ? -16 : 16)) + x86("push", "rbp") + x86("push", "rcx") + x86("mov", "rcx", RDQ("rbp", blob_cont_copy() ? -8 : 8)) + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86("mov", "rbp", RDQ("rbp", 0)) + x86_jmp_reg("rcx")) + IF(_bfb <= 0,  x86("mov", "rdx", RDQ("rsp", _sd + 8)) + x86("mov", "rcx", RDQ("rsp", _sd)) + x86("sub", "rsp", 8L) + x86("push", "rdx") + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86_jmp_reg("rcx")));
     }
-    else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 2, 0));
-        if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
-        else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
     else if (icn_gen_regime() && g_emit.flat_gen) {
         bb_emit_x86( icn_gen_line_save() + xa_icn_act_restore_call_line(241)
                   + x86("mov", "rdx", "rbp")
@@ -4451,10 +4446,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     }
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_ω);
-    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && g_emit.flat_jmp_entry)) { extern void xa_flat_zframe_epilogue_ω(void); xa_flat_zframe_epilogue_ω(); }
-    else if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc && !g_emit.flat_jmp_entry) { int _bk = g_emit.flat_frame_bytes; if (g_emit_cfg->root_graph) bb_emit_x86(icn_trace_tap("main", 3, 0));
-        if (g_is_text) { char _seg[128]; snprintf(_seg, sizeof _seg, "and rsp, -16\nxor edi, edi\ncall exit@PLT\n"); emit_text_n(_seg, strlen(_seg)); }
-        else { ef_b4(0x48, 0x83, 0xE4, 0xF0); ef_b3(0x31, 0xFF, 0x90); { uint64_t _ex = (uint64_t)(uintptr_t)(void *)exit; ef_b2(0x48, 0xB8); bb_emit_u64(_ex); ef_b2(0xFF, 0xD0); } } }
+    if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) { extern void xa_flat_zframe_epilogue_ω(void); xa_flat_zframe_epilogue_ω(); }
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + IF(blob_frame_bytes() <= 0 && _sph > 0, IF(_sph == 32, x86("mov", "r12", RDQ("rsp", 8))) + x86("add", "rsp", (long)_sph)) + (blob_omega_ret() ? x86("add", "rsp", 8L) + x86("ret") : x86_rsp_load64("rcx", 8) + x86("add", "rsp", 16L) + x86("jmp", "rcx"))); for (int _k = 0; _k < _wpn; _k++) { emit_label_define_bb(_wpl[_k]); bb_emit_x86(x86("add", "rsp", (long)_wpd[_k])); emit_jmp_label(&lbl_ω, JMP_JMP); } }
     else if (icn_gen_regime() && g_emit.flat_gen) {
         { bb_emit_x86( icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 5, 0)); }
