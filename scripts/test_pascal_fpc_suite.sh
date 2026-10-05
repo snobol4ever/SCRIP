@@ -32,6 +32,21 @@ VERBOSE="${FPC_SUITE_VERBOSE:-0}"
 # arguments): ALL.timeout.tsv names, per program, the seconds its run needs where the shipped default is not enough, with the measurement as the reason.
 # A name absent from the file runs at RUN_TIMEOUT. The file is a RECORD, printed with its reasons on every run, never a mask: a name that is not in the
 # suite REFUSES the board, so a stale row cannot sit there. FIRST ROW: webtbs_tw15203 (2^30 calls; fpc's own suite marks it %norun).
+# ⭐⭐ A CORRECTED REF, BESIDE THE DATA -- WHERE THE ORACLE CANNOT GRADE THE PROGRAM (Lon, in chat 2026-10-05: "A feature the oracle does not have can not be graded by the oracle. And a bug in the oracle causes a test to not be graded by that oracle." Two classes, one mechanism: an oracle DEFECT, and an oracle that LACKS the feature. Verbatim on test_tisobuf3: "I ordered
+# test_tisobuf3 to be PASSING ... You must enhance the test suite system to handle the case where we have a feature or a non-bug." and "Do not copy the
+# bug. We will be better."). ALL.corrected.tsv names, per program, a ref CORRECTED against the ISO 7185 text because the oracle's own output is a defect
+# of the oracle (reason: the oracle's issue or the clause), and <name>.ref.corrected holds the correct output. The program is graded, in the denominator,
+# against the corrected ref; PASS means SCRIP prints the CORRECT output -- never the oracle's bug. The oracle's own .ref stays beside it as the record.
+# THE LIST IS A RECORD, NOT A MASK: every row is printed with its reason on every run; a name not in the suite, a missing .ref.corrected, or a corrected
+# ref IDENTICAL to the oracle's .ref (the oracle was fixed, so the row is stale) REFUSES the board. Expected exit codes still come from ALL.wantrc.
+CORRECTED_TSV="$SUITE/ALL.corrected.tsv"; declare -A CORR_SET=()
+if [ -f "$CORRECTED_TSV" ]; then
+    while IFS=$'\t' read -r _cn _cr; do case "$_cn" in ''|'#'*) continue;; esac
+        [ -f "$SUITE/$_cn.pas" ] || { echo "⛔ REFUSED-TO-GRADE: ALL.corrected.tsv names $_cn, which is not in $SUITE"; exit 2; }
+        [ -f "$SUITE/$_cn.ref.corrected" ] || { echo "⛔ REFUSED-TO-GRADE: ALL.corrected.tsv names $_cn but $_cn.ref.corrected is missing"; exit 2; }
+        if cmp -s "$SUITE/$_cn.ref" "$SUITE/$_cn.ref.corrected"; then echo "⛔ REFUSED-TO-GRADE: $_cn.ref.corrected equals the oracle's $_cn.ref -- the oracle no longer errs there; delete the stale row"; exit 2; fi
+        CORR_SET[$_cn]=1; echo "-- corrected ref (oracle defect, graded against the ISO-correct output): $_cn ($_cr)"; done < "$CORRECTED_TSV"
+fi
 TIMEOUT_TSV="$SUITE/ALL.timeout.tsv"; declare -A TMO_OF=()
 if [ -f "$TIMEOUT_TSV" ]; then
     while IFS=$'\t' read -r _tn _ts _tr; do case "$_tn" in ''|'#'*) continue;; esac
@@ -123,6 +138,7 @@ for name in "${PAIRS[@]}"; do
         continue
     fi
     exp="$(cat "$ref")"
+    [ -n "${CORR_SET[$name]:-}" ] && exp="$(cat "$SUITE/$name.ref.corrected")"
     T_RUN="${TMO_OF[$name]:-$RUN_TIMEOUT}"
 
     m3ok=0
