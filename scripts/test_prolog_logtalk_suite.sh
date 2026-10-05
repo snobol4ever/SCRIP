@@ -108,6 +108,10 @@ _shell="$(grep -m1 '^BOARD_FOR_SHELL ' "$_out" || true)"
 [ -n "$_shell" ] || { echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME]: the run printed no BOARD_FOR_SHELL line, so there is no measurement to record"; rm -f "$_out" "$_decl"; exit 1; }
 set -- $_shell
 _pop="$2"; _both="$3"; _m3p="$4"; _m3f="$5"; _m4p="${6:-}"; _m4f="${7:-}"
+# ⭐ THE EXCLUDED CASES (EXCLUDED_CASES.tsv beside the suite, Lon 2026-10-05, ceo CEO-1519/1520) ride the shell line as a named trailing
+# field, never a position, and reach the row as --excluded so the grid shows Excl beside PASS over the population (shipped = both).
+_excl="$(printf '%s\n' "$_shell" | grep -o 'excluded=[0-9]*' | cut -d= -f2)"
+[ -n "$_excl" ] || refuse "the grader's BOARD_FOR_SHELL line carries no excluded= field -- the Excl column would be a guess"
 # ⛔⭐ POPULATION FLOOR (row every-board-wrapper-refuses-on-a-zero-population-instead-of-passing-
 # vacuously, hq_T 2026-09-04; gap named by coo, test_gate_board_population_floor.sh ARM 6, 2026-09-21).
 # util_logtalk_grade.py only refuses on an empty population when --group is passed; this runner never
@@ -152,7 +156,7 @@ _sc="$HERE/util_score_row.py"
 # A DENOMINATOR MOVE IS STAMPED THROUGH S4E_CRITERION_CHANGED='<YYYY-MM-DD>:<reason>' (the test_corpus_snobol4.sh convention, CEO-785): the
 # writer refuses a moved denominator without it, and this runner had no way to pass it (hq_prolog 2026-09-25, when CEO-1235 (a) moved 3600 -> 3528).
 python3 "$_sc" write --lang prolog --column vendor --text "$_txt${_iv:+ · $_iv (\`$GATE_NAME.sh\`)}" \
-    --measurer "${S4E_SEAT:-}" --modes "$MODES" --suite logtalk --suite-pass "$_both" --suite-total "$_pop" \
+    --measurer "${S4E_SEAT:-}" --modes "$MODES" --suite logtalk --suite-pass "$_both" --suite-total "$_pop" --excluded "$_excl" \
     ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
     || echo "⚠ SCORE.md NOT UPDATED [$GATE_NAME] -- the board above stands on its own measurement; the leaderboard row does not"
 rm -f "$_out" "$_decl"

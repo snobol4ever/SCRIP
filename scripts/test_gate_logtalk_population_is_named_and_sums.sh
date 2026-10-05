@@ -301,37 +301,53 @@ else
     echo "    ARM 14 SKIPPED: no vendored suite at $SUITE_REAL"
 fi
 
-# ---- ARM 15 — A GUARD THIS SYSTEM DECIDES FALSE TAKES ITS CASES OUT OF THE POPULATION BY NAME, AND A GUARD ABOUT THE ENGINE IS ASKED OF
-# THE ENGINE (hq_prolog 2026-09-25, CEO-1266; coinduction declared unsupported per ceo CEO-1235 (3) option (a)). Before this landing both
-# branches of every such guard were graded, so one of each pair was red by construction whatever the engine did (bagof_3 09, setof_3 11,
-# op_3 21), and the 68 cyclic-term cases were graded against an engine with no rational trees. Three properties: the coinduction case is
-# GUARDED OUT and named on the board; a heap/stack declaration for it is NOT an orphan (the full runner passes --decl and would refuse);
-# catch(no_such_predicate_q, _, fail) is PROBED on the binary and FALSE, so only its else-branch is graded.
+# ---- ARM 15 — EVERY CASE IS GRADED OR EXCLUDED BY NAME (Lon 2026-10-05, in-chat to the ceo, verbatim: "We do want ALL test programs to
+# run. We have NO expected failures. We expect to have ALL features." and "Mark the Windows dependent tests as Excluded." and "Mark the
+# bounded-integer tests as Excluded."; ceo CEO-1518..1520, withdrawing CEO-1235 (3) option (a) and the CEO-1266 probe). Five properties on
+# one fixture: the coinduction case is IN the population (the feature is declared supported); both branches of an engine guard are graded,
+# never probed; a Windows-branch case named WINDOWS_ONLY in EXCLUDED_CASES.tsv leaves and its unix twin is graded; a bounded-integers case
+# named BOUNDED_INTEGERS_ONLY leaves without running, its heap/stack declaration no orphan; and the board prints excluded=2. Then the two
+# refusals: a guarded-out case no row names, and a row naming no such case, each rc=2 and named.
 arms=$((arms+1))
 if [ -x "$HERE/../scrip" ]; then
     mkdir -p "$TD/g/grp"
     cat > "$TD/g/grp/tests.lgt" <<'LGT'
 :- object(tests, extends(lgtunit)).
 	:- if(current_logtalk_flag(coinduction, supported)).
-		test(t_cyc, true) :- fail.
+		test(t_cyc, true) :- true.
 	:- endif.
 	:- if(catch(no_such_predicate_q, _, fail)).
 		test(t_probe, true) :- fail.
 	:- else.
 		test(t_probe, true) :- true.
 	:- endif.
+	:- if(os::operating_system_type(windows)).
+		test(t_win, true) :- fail.
+	:- else.
+		test(t_win, true) :- true.
+	:- endif.
+	test(t_bnd, true, [condition(current_prolog_flag(bounded,true))]) :- fail.
 	test(t_plain, true) :- true.
 :- end_object.
 LGT
-    printf 'grp:t_cyc\t1024\t\n' > "$TD/g/decl.tsv"
+    printf 'grp:t_win\tWINDOWS_ONLY\t:- if(os::operating_system_type(windows))\ngrp:t_bnd\tBOUNDED_INTEGERS_ONLY\tcondition(current_prolog_flag(bounded,true))\n' > "$TD/g/EXCLUDED_CASES.tsv"
+    printf 'grp:t_bnd\t1024\t\n' > "$TD/g/decl.tsv"
     out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/g" --scrip "$HERE/../scrip" --modes m3 --decl "$TD/g/decl.tsv" 2>&1)"; rc=$?
     pop="$(printf '%s' "$out" | sed -n 's/.*population=\([0-9]*\).*/\1/p' | head -1)"
     pass="$(printf '%s' "$out" | sed -n 's/.*m3_pass=\([0-9]*\).*/\1/p' | head -1)"
-    if [ "$rc" -ne 0 ] || [ "$pop" != "2" ] || [ "$pass" != "2" ]; then
-        fail "ARM 15: the guarded fixture did not grade 2 of 2 (the coinduction case out, the probed guard's else-branch in) with its dead case declared (rc=$rc): $out"
+    if [ "$rc" -ne 0 ] || [ "$pop" != "5" ] || [ "$pass" != "4" ]; then
+        fail "ARM 15: the fixture did not grade population 5 with 4 passing (t_cyc in, both t_probe branches in and one red, t_win's unix branch in, t_bnd out) (rc=$rc pop=$pop pass=$pass): $out"
     fi
-    printf '%s' "$out" | grep -q '^GUARDED OUT.*coinduction.*grp:t_cyc' || fail "ARM 15: the coinduction case left the population without being NAMED on the board: $out"
-    printf '%s' "$out" | grep -q '^GUARD PROBED.*no_such_predicate_q.*-> FALSE' || fail "ARM 15: the engine guard was not probed on the binary, or read TRUE: $out"
+    printf '%s' "$out" | grep -q '^BOARD_FOR_SHELL .* excluded=2$' || fail "ARM 15: the board line does not carry excluded=2: $out"
+    printf '%s' "$out" | grep -q 'WINDOWS_ONLY.*grp:t_win' || fail "ARM 15: the Windows case left the population without being NAMED as excluded: $out"
+    printf '%s' "$out" | grep -q 'BOUNDED_INTEGERS_ONLY.*grp:t_bnd' || fail "ARM 15: the bounded-integers case left the population without being NAMED as excluded: $out"
+    printf '%s' "$out" | grep -q '^GUARD PROBED' && fail "ARM 15: a guard was probed on the binary -- one branch of its pair left the population: $out"
+    printf 'grp:t_bnd\tBOUNDED_INTEGERS_ONLY\tcondition(current_prolog_flag(bounded,true))\n' > "$TD/g/EXCLUDED_CASES.tsv"
+    out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/g" --scrip "$HERE/../scrip" --modes m3 2>&1)"; rc=$?
+    { [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'grp:t_win'; } || fail "ARM 15: a Windows-guarded case NO row names did not refuse rc=2 naming it (rc=$rc): $out"
+    printf 'grp:t_win\tWINDOWS_ONLY\t:- if(os::operating_system_type(windows))\ngrp:t_bnd\tBOUNDED_INTEGERS_ONLY\tcondition(current_prolog_flag(bounded,true))\ngrp:t_gone\tBOUNDED_INTEGERS_ONLY\tcondition(current_prolog_flag(bounded,true))\n' > "$TD/g/EXCLUDED_CASES.tsv"
+    out="$(python3 "$HERE/util_logtalk_grade.py" --suite "$TD/g" --scrip "$HERE/../scrip" --modes m3 2>&1)"; rc=$?
+    { [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q 'grp:t_gone'; } || fail "ARM 15: a row naming no such case did not refuse rc=2 naming it (rc=$rc): $out"
 else
     echo "    ARM 15 SKIPPED: no scrip binary at $HERE/../scrip"
 fi

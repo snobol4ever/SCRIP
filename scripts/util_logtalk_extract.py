@@ -325,13 +325,14 @@ def _conjunct_value(t):
     m = re.match(r"current_logtalk_flag\(\s*prolog_dialect\s*,\s*([a-z][a-zA-Z0-9_]*)\s*\)$", t)
     if m:
         return False if m.group(1) in _DIALECTS else None
-    # ⛔ COINDUCTION IS DECLARED UNSUPPORTED, AS GNU PROLOG'S OWN ADAPTER DECLARES IT (ceo CEO-1235 (3), option (a)): SCRIP has
-    # no rational trees, so the suite's cyclic-term branches leave the population as dead and the else-branch variants are
-    # graded. The debt is the rank-2 row prolog-rational-trees-cyclic-term-unification-comparison-copy-and-write-so-the-
-    # logtalk-coinduction-branch-is-graded-as-supported; when it lands this answers True and the dead count falls back.
+    # ⛔⭐ COINDUCTION IS DECLARED SUPPORTED, BECAUSE WE EXPECT TO HAVE EVERY FEATURE (Lon 2026-10-05, in-chat to the ceo, verbatim:
+    # "We do want ALL test programs to run. We have NO expected failures. We expect to have ALL features."; ceo CEO-1518, which
+    # withdraws CEO-1235 (3) option (a)). The 68 cyclic-term cases are in the denominator and read FAIL until SCRIP has rational
+    # trees (the cto's row prolog-rational-trees-cyclic-term-unification-comparison-copy-and-write-so-the-logtalk-coinduction-branch-
+    # is-graded-as-supported). Their else-branches are lgtunit-skipped "- test" clauses, which are not cases, so nothing leaves.
     m = re.match(r"current_logtalk_flag\(\s*coinduction\s*,\s*([a-z]+)\s*\)$", t)
     if m:
-        return m.group(1) == "unsupported"
+        return m.group(1) == "supported"
     return None
 
 

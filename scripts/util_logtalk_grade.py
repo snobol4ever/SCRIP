@@ -99,6 +99,45 @@ def load_sequenced(path=SEQ_TABLE):
     return out, bad
 
 
+# ⛔⭐ THE EXCLUDED CASES ARE NAMED BESIDE THE SUITE, ONE ROW EACH WITH THE CASE'S OWN CONDITION (Lon 2026-10-05, in-chat to the ceo,
+# verbatim: "Mark the Windows dependent tests as Excluded." and "Mark the bounded-integer tests as Excluded."; ceo CEO-1519, CEO-1520),
+# the shape of a SNOBOL4 package's EXCLUDED=k. An excluded case is never run and never counted as pass or fail; every other case is
+# in the denominator (Lon, CEO-1518: "We have NO expected failures."). The file is EXCLUDED_CASES.tsv, not EXCLUDED.tsv, because the
+# package inventory reads EXCLUDED.tsv as excluded FILES and these are cases inside the files. Each class names the evidence the
+# grader checks on the case itself, so a row cannot outlive the condition that justified it.
+EXCLUDED_TABLE = "EXCLUDED_CASES.tsv"
+EXCLUDED_CLASSES = {
+    "WINDOWS_ONLY": "the :- if(...) branch this suite compiles only on Windows (its unix else-branch is graded)",
+    "BOUNDED_INTEGERS_ONLY": "a condition(...) that holds only where integers are bounded (SCRIP is unbounded, like SWI)",
+}
+
+
+def load_excluded(root):
+    """{group:case: (class, reason)} from <root>/EXCLUDED_CASES.tsv; absent means none. A malformed line is NAMED, never skipped."""
+    path = os.path.join(root, EXCLUDED_TABLE)
+    out, bad = {}, []
+    if not os.path.exists(path):
+        return out, bad
+    for n, line in enumerate(io.open(path, encoding="utf-8"), 1):
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        f = line.rstrip("\n").split("\t")
+        if len(f) != 3 or ":" not in f[0] or f[1] not in EXCLUDED_CLASSES or not f[2].strip():
+            bad.append((path, "line %d is not group:case<TAB>CLASS<TAB>condition with CLASS one of %s: %r"
+                        % (n, "/".join(sorted(EXCLUDED_CLASSES)), line.rstrip()[:80])))
+            continue
+        if f[0] in out:
+            bad.append((path, "line %d names %s a second time" % (n, f[0])))
+            continue
+        out[f[0]] = (f[1], f[2].strip())
+    return out, bad
+
+
+def _bounded_only(case):
+    o = "".join((case.options or "").split())
+    return "condition(current_prolog_flag(bounded,true))" in o or "condition(verify_min_max_integers)" in o
+
+
 def _clause_head_name(clause):
     """The functor a database clause defines, or None -- `foo(X) :- ...`, `foo :- ...`, `'q'(X).`"""
     m = re.match(r"\s*('(?:[^']|'')*'|[a-z][A-Za-z0-9_]*)", clause)
@@ -811,13 +850,19 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
         return None, [(scrip, "no executable compiler at this path -- a missing binary prints a full, "
                               "plausible, entirely false board rather than nothing")]
     shim_src = open(SHIM, encoding="utf-8").read()
-    probe_guards(root, scrip, modes, shim_src)
+    # ⛔ NO GUARD IS PROBED (Lon 2026-10-05, CEO-1518: "We do want ALL test programs to run."): the four engine guards probe_guards()
+    # decided took one branch of each pair out of the population; both branches are graded now, as before CEO-1266.
     files, bad = ex.parse_suite(root)
     if bad:
         return None, bad
     sequenced, seqbad = load_sequenced(seq_table)
     if seqbad:
         return None, seqbad
+    excluded, exbad = load_excluded(root)
+    if exbad:
+        return None, exbad
+    excl_hits = []                # (group:case, class, condition) -- every row the suite honoured, printed on the board
+    exerr = []                    # (group:case, why) -- an exclusion the suite contradicts; it REFUSES, never warns
     supported = shim_helpers()
     work = []
     probes = []                   # (index into work, the SAME case planned standalone) -- the policing arm
@@ -879,6 +924,17 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
 
         builders[fc.path] = build
         for idx, c in enumerate(fc.cases):
+            # A BOUNDED_INTEGERS_ONLY row takes its live case out before it is planned; a WINDOWS_ONLY row names a guarded-out
+            # branch and never the live unix branch that carries the same name, so it is judged below, against the dead names.
+            xk = "%s:%s" % (fc.group, c.name)
+            xr = excluded.get(xk)
+            if xr is not None and xr[0] == "BOUNDED_INTEGERS_ONLY":
+                if not _bounded_only(c):
+                    exerr.append((xk, "is excluded BOUNDED_INTEGERS_ONLY and its options %r carry no condition that needs "
+                                      "bounded integers -- the row is stale or names the wrong case" % (c.options or "")))
+                    continue
+                excl_hits.append((xk, xr[0], xr[1]))
+                continue
             reason = sequenced.get((fc.group, c.name))
             p = build(c, idx, reason is not None)
             if reason is not None:
@@ -904,7 +960,8 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     # deleted case would otherwise leave its heap or stack declared for nothing while the receipt counted it as honoured.
     _keys = {"%s:%s" % (fc.group, p.case.name) for fc, p in work}
     # ⭐ A CASE A :- if(...) GUARD DECIDES FALSE IS STILL A VENDORED CASE, SO ITS DECLARATION IS NOT AN ORPHAN -- and it is NAMED here,
-    # per guard, on the board: it leaves the denominator in daylight (coinduction unsupported, ceo CEO-1235 (3) option (a)).
+    # per guard, on the board. ⛔⭐ AND IT IS EXCLUDED BY NAME OR THE BOARD REFUSES (Lon 2026-10-05, CEO-1518: "We have NO expected
+    # failures."): the only guard that may take a case out is the Windows branch, each one a WINDOWS_ONLY row of EXCLUDED_CASES.tsv.
     _dead = {}
     for fc in files:
         if fc.group in graded_groups:
@@ -913,7 +970,21 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
     for why, ks in sorted(_dead.items(), key=lambda x: -len(x[1])):
         print("GUARDED OUT (a :- if(...) this system decides FALSE, out of the population and named): %d case(s) under %s -- %s"
               % (len(ks), why, " ".join(ks)))
-    _dead_keys = {k for ks in _dead.values() for k in ks}
+        for k in ks:
+            xr = excluded.get(k)
+            if xr is not None and xr[0] == "WINDOWS_ONLY" and "operating_system_type(windows)" in why:
+                excl_hits.append((k, xr[0], xr[1]))
+            else:
+                exerr.append((k, "a :- if(...) takes this case out (%s) and no WINDOWS_ONLY row of %s names it -- every case is "
+                                 "graded or excluded by name" % (why, EXCLUDED_TABLE)))
+    _hit_keys = {k for k, _c, _r in excl_hits}
+    for k, (cls, _r) in sorted(excluded.items()):
+        if k.split(":", 1)[0] in graded_groups and k not in _hit_keys:
+            exerr.append((k, "is excluded %s and the suite has no such case %s -- the row is stale or names the wrong case"
+                             % (cls, "behind a Windows guard" if cls == "WINDOWS_ONLY" else "carrying a bounded-integers condition")))
+    if exerr:
+        return None, [(k, why) for k, why in exerr]
+    _dead_keys = {k for ks in _dead.values() for k in ks} | _hit_keys
     _orphan = sorted(k for k in (decl or {}) if k.split(":", 1)[0] in graded_groups and k not in _keys and k not in _dead_keys)
     if _orphan:
         return None, [(k, "ALL.csv declares a heap or stack for this case and no case of that name is graded in its group -- "
@@ -952,7 +1023,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
         shutil.rmtree(workroot, ignore_errors=True)
     seqinfo = {"table": sequenced, "errors": seqerr, "probes": probes, "probe_results": probe_results,
                "sweep": cands, "outside_n": outside_n, "outside_unresolved": outside_unresolved,
-               "outside_off": outside_off}
+               "outside_off": outside_off, "excluded": excl_hits}
     return (work, results, seqinfo), []
 
 
@@ -1082,6 +1153,13 @@ def main(argv):
         b = board[m]
         print("  identity %s: PASS %d + FAIL %d + OUTSIDE %d + UNGRADABLE %d + UNGRADED %d + DEFERRED %d == %d ✓"
               % (m, b["PASS"], b["FAIL"], b["OUTSIDE"], b["UNGRADABLE"], b["UNGRADED"], b["DEFERRED"], pop))
+    # ⭐ THE EXCLUDED CASES, BY CLASS AND BY NAME, BESIDE THE IDENTITY THEY ARE OUTSIDE OF: shipped == population + excluded.
+    excl = seqinfo.get("excluded") or []
+    print("  EXCLUDED %d case(s), out of the population and never pass or fail, each named in %s with its own condition "
+          "(shipped %d == population %d + excluded %d):" % (len(excl), EXCLUDED_TABLE, pop + len(excl), pop, len(excl)))
+    for cls in sorted({c for _k, c, _r in excl}):
+        ks = sorted(k for k, c, _r in excl if c == cls)
+        print("    %4d  %s -- %s: %s" % (len(ks), cls, EXCLUDED_CLASSES[cls], " ".join(ks)))
     outside_off = seqinfo.get("outside_off")
     outside_unresolved = seqinfo.get("outside_unresolved") or []
     if outside_off:
@@ -1206,9 +1284,9 @@ def main(argv):
     # fields POSITIONALLY, and a shrinking pop would silently re-base every one of them; a trailing field is
     # invisible to a reader that does not want it and available to the one that does. The GRADED denominator
     # is pop MINUS outside, and it is the reader's job to say so out loud when it uses it.
-    print("BOARD_FOR_SHELL %d %d %s outside=%d"
+    print("BOARD_FOR_SHELL %d %d %s outside=%d excluded=%d"
           % (pop, both, " ".join("%d %d" % (board[m]["PASS"], board[m]["FAIL"]) for m in modes),
-             board[modes[0]]["OUTSIDE"]))
+             board[modes[0]]["OUTSIDE"], len(seqinfo.get("excluded") or [])))
     return 0
 
 
