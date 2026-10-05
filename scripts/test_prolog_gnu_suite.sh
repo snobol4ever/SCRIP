@@ -27,13 +27,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #               directive). Run-graded, triangulated three ways: SCRIP m3 (--run), SCRIP m4
 #               (--compile, link, execute), and real `gprolog`, all invoked with ZERO command-line
 #               arguments (matching how every other suite runner in this repo invokes a file). These
-#               4 files are GNU Prolog's own compiler-driver entry points and no-op cleanly on an
-#               empty argument_list (confirmed by reading BipsPl/Pl2Wam source directly -- e.g.
-#               Pl2Wam/ciaolib.pl's `go_other1([]) :- !.` clause) -- empty-output agreement across
-#               all three arms IS the correct result here, not the vacuous-oracle trap ceo's
-#               stdin-freeze incident was about: nothing is cached or minted from this run, and the
-#               board prints the literal byte count of each arm's output so a silent "0,0,0" is never
-#               hidden behind a bare PASS.
+#               files are GNU Prolog's own compiler-driver entry points and no-op on an empty
+#               argument_list (e.g. Pl2Wam/ciaolib.pl's `go_other1([]) :- !.` clause), so they print
+#               0 bytes in all three arms. ⛔ AN EMPTY AGREEMENT IS NOT A PASS (Lon 2026-10-05 via the
+#               ceo, CEO-1523): it proves only that the file loads, so it is UNGRADED, named in
+#               UNGRADED.tsv, owed its driver; a PASS needs m3 = m4 = gprolog AND a non-empty output.
 #   REJECT   -- times out. A real, ALREADY-KNOWN class (`misc-single-witness-parser-crashes`' own
 #               claim: these hang after a parse-error, a defect in error recovery, not a fresh bug).
 #               Documented here, not graded PASS/FAIL, not counted against the exit code.
@@ -98,8 +96,26 @@ mapfile -t FILES < <(find "$PKG" -name "*.pl" | sort)
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pl files found under $PKG"; exit 2; }
 
-LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0
-UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=()
+LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0
+UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); EMPTY_NAMES=(); SIDE_ERR=()
+# ⛔⭐ THE ROW IS PUBLISHED OVER THE SHIPPED POPULATION, AND AN EMPTY OUTPUT GRADES NOTHING (Lon 2026-10-05, in-chat to the ceo, verbatim:
+# "What's up with \"GNU source\" test suite entry? Is that real? Did you write drivers for all those?"; ceo CEO-1523). The row read 11/11:
+# the 11 files that compile print 0 bytes in m3, m4 and gprolog with zero arguments, so their three-way agreement proved only that they
+# load, and the 45 libraries owed their drivers since CEO-1312 were not in the denominator at all. Now: population = the shipped .pl files
+# less the CONTAINERS.tsv rows (excluded, the Excl column, CEO-1288); a program PASSES only when m3 = m4 = gprolog AND that output is not
+# empty; an empty three-way agreement and a library are UNGRADED and must each be NAMED in UNGRADED.tsv -- the board refuses an unnamed one
+# and a stale row (a named program that now grades, or names no shipped file).
+declare -A CON_SET=() UNG_SET=()
+if [ -f "$PKG/CONTAINERS.tsv" ]; then
+    while IFS=$'\t' read -r _cn _rest; do case "$_cn" in ''|'#'*) continue;; esac
+        [ -f "$PKG/$_cn" ] || { echo "⛔ REFUSED-TO-GRADE: CONTAINERS.tsv names $_cn, which this package does not ship"; exit 2; }
+        CON_SET[$_cn]=1; CON_N=$((CON_N+1)); done < "$PKG/CONTAINERS.tsv"
+fi
+if [ -f "$PKG/UNGRADED.tsv" ]; then
+    while IFS=$'\t' read -r _un _rest; do case "$_un" in ''|'#'*) continue;; esac
+        [ -f "$PKG/$_un" ] || { echo "⛔ REFUSED-TO-GRADE: UNGRADED.tsv names $_un, which this package does not ship"; exit 2; }
+        UNG_SET[$_un]=1; done < "$PKG/UNGRADED.tsv"
+fi
 declare -A LADDER_RUNG_COUNT LADDER_RUNG_NAMES
 
 echo "=== GNU Prolog vendored suite ($TOTAL files, $PKG) ==="
@@ -110,8 +126,17 @@ for f in "${FILES[@]}"; do
     out="$TMP/${base}.s"
     probe_log="$TMP/${base}.probe"
 
+    if [ -n "${CON_SET[$rel]:-}" ]; then
+        [ "$VERBOSE" -eq 1 ] && echo "  CONTAINER (CONTAINERS.tsv, excluded) $rel"
+        continue
+    fi
     if is_bootstrap_only "$rel" "$f"; then
         LIB=$((LIB+1))
+        [ -n "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel is a library (no entry point) and UNGRADED.tsv does not name it NEEDS_DRIVER")
+        if command -v progress_append >/dev/null 2>&1; then
+            progress_append package gnu prolog "$rel" m3 UNGRADED 0 "library-needs-driver" || true
+            progress_append package gnu prolog "$rel" m4 UNGRADED 0 "library-needs-driver" || true
+        fi
         [ "$VERBOSE" -eq 1 ] && echo "  LIB (bootstrap-only file, no SCRIP invocation) $rel"
         continue
     fi
@@ -161,6 +186,16 @@ for f in "${FILES[@]}"; do
         # per-MODE outcome cannot be derived from it without lying about what was compared -- a mode is not graded
         # independently here. Both rows carry the SAME agreement verdict and the note names the comparison, rather than
         # inventing a per-mode result the runner never computed.
+        if [ "$m3_out" = "$m4_out" ] && [ "$m4_out" = "$gp_out" ] && [ -z "$m3_out" ]; then
+            EMPTY=$((EMPTY+1)); EMPTY_NAMES+=("$rel")
+            [ -n "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel prints 0 bytes in m3, m4 and gprolog and UNGRADED.tsv does not name it -- an empty output grades nothing")
+            if command -v progress_append >/dev/null 2>&1; then
+                progress_append package gnu prolog "$rel" m3 UNGRADED 0 "empty-output-grades-nothing" || true
+                progress_append package gnu prolog "$rel" m4 UNGRADED 0 "empty-output-grades-nothing" || true
+            fi
+            continue
+        fi
+        [ -z "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel is named in UNGRADED.tsv and now grades with output -- delete the stale row")
         if command -v progress_append >/dev/null 2>&1; then
             if [ "$m3_out" = "$m4_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
             progress_append package gnu prolog "$rel" m3 "$_gv" 0 "three-way m3=m4=gprolog" || true
@@ -228,15 +263,22 @@ if [ "$UNEXPECTED" -gt 0 ]; then
     for n in "${UNEXPECTED_NAMES[@]}"; do echo "   $n"; done
 fi
 
+POP=$((TOTAL - CON_N))
 echo ""
-echo "GNU_SUITE_BOARD total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
+echo "-- EMPTY (m3 = m4 = gprolog = 0 bytes: the file loads and prints nothing, so it grades nothing -- UNGRADED, owed its driver): $EMPTY --"
+for n in "${EMPTY_NAMES[@]:-}"; do [ -n "$n" ] && echo "   $n"; done
+if [ "${#SIDE_ERR[@]}" -gt 0 ]; then
+    echo "⛔ REFUSED-TO-GRADE: UNGRADED.tsv disagrees with this run:"; for n in "${SIDE_ERR[@]}"; do echo "   $n"; done; exit 2
+fi
+echo ""
+echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS excluded=$CON_N empty=$EMPTY total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. LIB (bootstrap/library files, no independent behavior) is a ruling about what the
 # file IS, so it is UNGRADABLE/CONTAINER_OR_LIBRARY; REJECT (hang after parse error, a known, filed,
 # fixable defect in error recovery) is owed work, so it is UNGRADED/TIMEOUT; OK_TOTAL already includes
 # the former LADDER entries per ARM 8 above, so graded_stream is OK_TOTAL with nothing left over.
 INV_PACKAGE=gnu_prolog; INV_DIR="$PKG"; INV_EXT=".pl"
-INV_LINE="$(inventory_line "$OK_TOTAL" 0)"
+INV_LINE="$(inventory_line "$((OK_TOTAL - EMPTY))" 0)"
 if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
 # ⛔ ONE LEADERBOARD (RULES.md FACT RULE, Lon 2026-09-03 ~16:05: "any run of a test suite by any
 # session will update the ONE LEADERBOARD"). This records the board line printed just above into
@@ -244,8 +286,9 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # ⛔ NON-FATAL BY DESIGN: a bookkeeping failure must never turn a real measurement into a red board,
 # because a gate that goes red for a reason unrelated to the code is a gate people route around. It
 # warns and names the unrecorded row instead; it has no silent path.
-python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GNU \
-    --measurer "${S4E_SEAT:-}" --text "ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED lib=$LIB of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
+python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GNU --modes m3,m4 \
+    --suite-pass "$OK_PASS" --suite-total "$POP" --excluded "$CON_N" ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
+    --measurer "${S4E_SEAT:-}" --text "PASS $OK_PASS over $POP shipped programs (Excl $CON_N containers) -- a program passes when m3 = m4 = gprolog and the output is not empty · ungraded $((LIB + EMPTY)) owed drivers ($LIB libraries, $EMPTY that print nothing) · ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 
@@ -253,5 +296,5 @@ python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GN
 # vacuously, hq_T 2026-09-04): the bucket-sum check just below PASSES vacuously at TOTAL=0 (0==0),
 # and OK_FAIL/UNEXPECTED read 0 too when nothing was discovered -- refuse first.
 "$HERE/util_require_population.sh" --gate test_prolog_gnu_suite "$TOTAL" 1 "prolog GNU source files discovered" || exit 2
-[ "$((LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
+[ "$((CON_N + LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
 [ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ]
