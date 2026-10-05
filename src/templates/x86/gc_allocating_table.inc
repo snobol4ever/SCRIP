@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2053
+#define GC_ALLOC_TAB_N 2066
 #define GC_ALLOC_TAB_N_VOID 243
-#define GC_ALLOC_TAB_N_DESCR 1096
-#define GC_ALLOC_TAB_N_OTHER 708
+#define GC_ALLOC_TAB_N_DESCR 1095
+#define GC_ALLOC_TAB_N_OTHER 722
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -782,8 +782,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_body_graph", GC_RET_OTHER },
     { "pl_byte_cur_ball", GC_RET_OTHER },
     { "pl_cell_atom_id", GC_RET_OTHER },
-    { "pl_cell_copy_cells", GC_RET_DESCR },
-    { "pl_cell_copy_persist", GC_RET_DESCR },
     { "pl_cell_is_clref", GC_RET_OTHER },
     { "pl_cell_text", GC_RET_OTHER },
     { "pl_cell_tree", GC_RET_OTHER },
@@ -908,7 +906,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_atoms_ready", GC_RET_VOID },
     { "plc_bind_cx", GC_RET_VOID },
     { "plc_cell_is_proper_list", GC_RET_OTHER },
+    { "plc_compare_walk", GC_RET_OTHER },
+    { "plc_compare_walk_run", GC_RET_OTHER },
     { "plc_cons", GC_RET_DESCR },
+    { "plc_copy", GC_RET_DESCR },
+    { "plc_copy_run", GC_RET_OTHER },
     { "plc_fb_term", GC_RET_OTHER },
     { "plc_first_char", GC_RET_OTHER },
     { "plc_fmt_dbl", GC_RET_OTHER },
@@ -931,6 +933,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_unify_cells_cx", GC_RET_OTHER },
     { "plc_unify_into_cell", GC_RET_OTHER },
     { "plc_unify_into_cell_cx", GC_RET_OTHER },
+    { "plc_unify_leaf", GC_RET_OTHER },
+    { "plc_unify_walk", GC_RET_OTHER },
+    { "plc_unify_walk_run", GC_RET_OTHER },
     { "plc_write", GC_RET_VOID },
     { "plc_write_canonical", GC_RET_VOID },
     { "plc_writeq", GC_RET_VOID },
@@ -945,8 +950,14 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plw_unify_cells", GC_RET_OTHER },
     { "plw_unify_cells_oc", GC_RET_OTHER },
     { "plw_unify_cells_x", GC_RET_OTHER },
+    { "plw_unify_leaf", GC_RET_OTHER },
+    { "plw_unify_oc_leaf", GC_RET_OTHER },
+    { "plw_unify_oc_walk", GC_RET_OTHER },
+    { "plw_unify_oc_walk_run", GC_RET_OTHER },
     { "plw_unify_vals", GC_RET_OTHER },
     { "plw_unify_vals_oc", GC_RET_OTHER },
+    { "plw_unify_walk", GC_RET_OTHER },
+    { "plw_unify_walk_run", GC_RET_OTHER },
     { "polyglot_init", GC_RET_VOID },
     { "pos", GC_RET_DESCR },
     { "prescan_defines", GC_RET_VOID },
@@ -1345,6 +1356,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_catch_handle", GC_RET_DESCR },
     { "rt_pl_catch_handle_c", GC_RET_OTHER },
     { "rt_pl_cell_compare", GC_RET_OTHER },
+    { "rt_pl_cell_compare_leaf", GC_RET_OTHER },
     { "rt_pl_cell_snapshot", GC_RET_DESCR },
     { "rt_pl_char_type_cell", GC_RET_OTHER },
     { "rt_pl_clause_tree", GC_RET_OTHER },
@@ -1810,6 +1822,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_type_cold", GC_RET_DESCR },
     { "rt_pl_type_cold_c", GC_RET_DESCR },
     { "rt_pl_type_test_cell", GC_RET_OTHER },
+    { "rt_pl_unify_cyc_plain", GC_RET_OTHER },
     { "rt_pl_univ_cell", GC_RET_OTHER },
     { "rt_pl_variant_cells", GC_RET_OTHER },
     { "rt_pl_wall_clock_cell", GC_RET_OTHER },

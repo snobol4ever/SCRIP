@@ -110,6 +110,7 @@ RTX_ENDF(rt_pl_dop_clause_unify)
     .l##5: mov rax, r12; and rax, 134217727; cmp rax, 134217696; jae .Lun_refuse; mov rax, qword ptr [c]; mov rcx, qword ptr [c + 8]; mov qword ptr [r12], c; mov qword ptr [r12 + 8], 0; mov qword ptr [r12 + 16], rax; mov qword ptr [r12 + 24], rcx; add r12, 32; \
     .l##9:
 #define PL_U_WORK_BYTES 696
+#define PL_U_AG_BASE 64
 RTX_FUNC(rt_pl_unify_deep)
     sub     rsp, CTX_FRAME
     CTX_SAVE
@@ -124,7 +125,13 @@ RTX_FUNC(rtx_pl_unify)
     sub     rsp, PL_U_WORK_BYTES
     mov     r8, r12
     mov     qword ptr [rsp], 0
-    lea     r9, [rsp + 16]
+    mov     qword ptr [rsp + 8], 0
+    mov     qword ptr [rsp + 16], 1
+    mov     qword ptr [rsp + 24], 0
+    mov     qword ptr [rsp + 32], 0
+    mov     qword ptr [rsp + 48], rdi
+    mov     qword ptr [rsp + 56], rsi
+    lea     r9, [rsp + PL_U_AG_BASE]
 .Lun_pair:
     PL_U_DEREF(Lun_da)
     mov     r10, rdi
@@ -193,6 +200,21 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r10 + 4]
     cmp     eax, dword ptr [r11 + 4]
     jne     .Lun_fail
+    cmp     r10, qword ptr [rsp + 24]
+    jne     .Lun_brent_step
+    cmp     r11, qword ptr [rsp + 32]
+    je      .Lun_restart
+.Lun_brent_step:
+    mov     rax, qword ptr [rsp + 8]
+    inc     rax
+    mov     qword ptr [rsp + 8], rax
+    cmp     rax, qword ptr [rsp + 16]
+    jb      .Lun_brent_kept
+    mov     qword ptr [rsp + 24], r10
+    mov     qword ptr [rsp + 32], r11
+    mov     qword ptr [rsp + 8], 0
+    shl     qword ptr [rsp + 16], 1
+.Lun_brent_kept:
     mov     rcx, qword ptr [rsp]
     test    rcx, rcx
     jnz     .Lun_tab
@@ -249,7 +271,7 @@ RTX_FUNC(rtx_pl_unify)
     test    eax, eax
     jz      .Lun_fail
 .Lun_next:
-    lea     rcx, [rsp + 16]
+    lea     rcx, [rsp + PL_U_AG_BASE]
     cmp     r9, rcx
     jbe     .Lun_ok
     sub     r9, 24
@@ -295,6 +317,13 @@ RTX_FUNC(rtx_pl_unify)
     add     rsp, PL_U_WORK_BYTES
     xor     eax, eax
     RTX_RET
+.Lun_restart:
+    mov     rdi, qword ptr [rsp + 48]
+    mov     rsi, qword ptr [rsp + 56]
+    RTX_CCALL(rt_pl_unify_deep)
+    test    eax, eax
+    jz      .Lun_fail
+    jmp     .Lun_ok
 .Lun_deep:
     mov     rdi, r10
     mov     rsi, r11

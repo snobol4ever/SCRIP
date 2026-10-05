@@ -187,6 +187,7 @@ int icn_builtin_arity(const char *name)
 }
 #include "../parsers/prolog/pl_cell.h"
 #include "rt/rt_pl_trail.h"
+#include "rt/pl_rational.h"
 static inline __attribute__((always_inline)) int plw_n_self(const DESCR_t *c) { return c->v == DT_N && c->slen == 1 && c->p == (void *)c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int plw_unbound_tag(const DESCR_t *c) { return c->v == DT_SNUL || c->v == DT_FAIL || (c->v == (DTYPE_t)DT_PLVAR && c->p == (void *)c) || plw_n_self(c); }
@@ -221,9 +222,8 @@ static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
 }
 static int plw_vvb_on(void) { static int p = -1; if (p < 0) { const char *e = getenv("SCRIP_NO_VVB"); p = (e && e[0] == '1') ? 0 : 1; } return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
-    DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
-    if (A == B) return 1;
+static int plw_unify_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
+    pl_tr_ctx_t *cx = (pl_tr_ctx_t *)ctx;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
     if (av && bv) {
         char probe; char *floor_ = &probe;
@@ -236,13 +236,7 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
         { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; } }
     if (av) { plw_bind(A, *B, cx); return 1; }
     if (bv) { plw_bind(B, *A, cx); return 1; }
-    if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
-        if (A->slen != B->slen) return 0;
-        int ar = plc_fid_arity(A->slen);
-        DESCR_t *aa = (DESCR_t *)A->p, *bb = (DESCR_t *)B->p;
-        for (int i = 0; i < ar; i++) if (!plw_unify_cells(&aa[i], &bb[i], cx)) return 0;
-        return 1;
-    }
+    if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) return A->slen == B->slen ? PLR_DESCEND : 0;
     if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
     if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
@@ -256,32 +250,21 @@ static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     if (A->v == DT_R && B->v == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
+PLR_WALK2(plw_unify_walk, plw_unify_leaf, plw_cell_deref)
+static int plw_unify_cells(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { return plw_unify_walk(a, b, (void *)cx, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plw_occurs_in(DESCR_t *v, DESCR_t *t) {
-    DESCR_t *T = plw_cell_deref(t);
-    if (T == v) return 1;
-    if (T->v == (DTYPE_t)DT_PLREF) {
-        int ar = plc_fid_arity(T->slen); DESCR_t *tt = (DESCR_t *)T->p;
-        for (int i = 0; i < ar; i++) if (plw_occurs_in(v, &tt[i])) return 1;
-    }
-    return 0;
-}
+static int plw_occurs_visit(DESCR_t *d, void *v) { return d == (DESCR_t *)v ? PLR_V_STOP : PLR_V_GO; }
+PLR_WALK1(plw_occurs_walk, plw_occurs_visit, plw_cell_deref)
+static int plw_occurs_in(DESCR_t *v, DESCR_t *t) { return plw_occurs_walk(t, (void *)v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
-    DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
-    if (A == B) return 1;
+static int plw_unify_oc_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
+    pl_tr_ctx_t *cx = (pl_tr_ctx_t *)ctx;
     int av = plw_unbound_tag(A), bv = plw_unbound_tag(B);
     if (av && bv) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j;
         DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; plw_bind(A, r, cx); plw_bind(B, r, cx); return 1; }
     if (av) { if (plw_occurs_in(A, B)) return 0; plw_bind(A, *B, cx); return 1; }
     if (bv) { if (plw_occurs_in(B, A)) return 0; plw_bind(B, *A, cx); return 1; }
-    if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) {
-        if (A->slen != B->slen) return 0;
-        int ar = plc_fid_arity(A->slen);
-        DESCR_t *aa = (DESCR_t *)A->p, *bb = (DESCR_t *)B->p;
-        for (int i = 0; i < ar; i++) if (!plw_unify_cells_oc(&aa[i], &bb[i], cx)) return 0;
-        return 1;
-    }
+    if (A->v == (DTYPE_t)DT_PLREF && B->v == (DTYPE_t)DT_PLREF) return A->slen == B->slen ? PLR_DESCEND : 0;
     if (A->v == (DTYPE_t)DT_PLREF || B->v == (DTYPE_t)DT_PLREF) return 0;
     if (A->v == DT_I && B->v == DT_I && !A->slen && !B->slen) return A->i == B->i;
     if (A->v == (DTYPE_t)DT_PLATOM && B->v == (DTYPE_t)DT_PLATOM) return A->i == B->i;
@@ -295,6 +278,8 @@ static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
     if (A->v == DT_R && B->v == DT_R) return A->r == B->r && signbit(A->r) == signbit(B->r);
     { extern int rt_descr_equal(DESCR_t, DESCR_t); return rt_descr_equal(*A, *B); }
 }
+PLR_WALK2(plw_unify_oc_walk, plw_unify_oc_leaf, plw_cell_deref)
+static int plw_unify_cells_oc(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { return plw_unify_oc_walk(a, b, (void *)cx, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *plw_entry(DESCR_t *tmp) {
     if (tmp->v == DT_N && tmp->slen == 1 && tmp->p) return (DESCR_t *)tmp->p;
@@ -2704,9 +2689,9 @@ int rt_pl_unify_atomic_cold(DESCR_t *A, DESCR_t *B) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int plu_deep(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx, const char *floor_) {
-    DESCR_t *A = plw_cell_deref(a), *B = plw_cell_deref(b);
-    if (A == B) return 1;
+typedef struct { pl_tr_ctx_t *cx; const char *floor_; } plu_ctx_t;
+static int plu_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
+    pl_tr_ctx_t *cx = ((plu_ctx_t *)ctx)->cx; const char *floor_ = ((plu_ctx_t *)ctx)->floor_;
     { int au = plw_unbound_tag(A), bu = plw_unbound_tag(B);
       if (au && bu) {
         int ah = (const char *)A <= floor_, bh = (const char *)B <= floor_; DESCR_t *from, *to;
@@ -2715,17 +2700,13 @@ static int plu_deep(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx, const char *floor_)
         { DESCR_t r = {0}; r.v = (DTYPE_t)DT_PLVAR; r.p = (void *)to; if (pl_tr_needs_log(cx, from, floor_)) pl_tr_push(cx, from); *from = r; return 1; } }
       if (au) { if (pl_tr_needs_log(cx, A, floor_)) pl_tr_push(cx, A); *A = *B; return 1; }
       if (bu) { if (pl_tr_needs_log(cx, B, floor_)) pl_tr_push(cx, B); *B = *A; return 1; } }
-    if (A->v == (DTYPE_t)DT_PLREF) {
-        int n, i; DESCR_t *ka, *kb;
-        if (B->v != (DTYPE_t)DT_PLREF || A->slen != B->slen) return 0;
-        n = prolog_functor_arity((int)A->slen); ka = (DESCR_t *)A->p; kb = (DESCR_t *)B->p;
-        for (i = 0; i < n; i++) if (!plu_deep(ka + i, kb + i, cx, floor_)) return 0;
-        return 1; }
+    if (A->v == (DTYPE_t)DT_PLREF) return (B->v != (DTYPE_t)DT_PLREF || A->slen != B->slen) ? 0 : PLR_DESCEND;
     if (B->v == (DTYPE_t)DT_PLREF) return 0;
     return rt_pl_unify_atomic_cold(A, B);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_unify_deep_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { char probe; return plu_deep(a, b, cx, &probe); }
+PLR_WALK2(plu_walk, plu_leaf, plw_cell_deref)
+int rt_pl_unify_deep_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) { char probe; plu_ctx_t k; k.cx = cx; k.floor_ = &probe; return plu_walk(a, b, (void *)&k, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_is_cold_c(DESCR_t *args, int nargs, void **ball) {
     if (nargs != 2) return FAILDESCR;

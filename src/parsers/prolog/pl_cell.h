@@ -71,13 +71,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     if (A->v != B->v) return 0;
     if ((int)A->v == DT_I) return A->i == B->i;
     if ((int)A->v == DT_R) return A->r == B->r;
-    if ((int)A->v == DT_PLREF) {
-        if (A->slen != B->slen) return 0;
-        int ar = plc_fid_arity(A->slen);
-        pl_cell_t *aa = (pl_cell_t *)A->p, *bb = (pl_cell_t *)B->p;
-        for (int i = 0; i < ar; i++) if (!pl_unify(&aa[i], &bb[i])) return 0;
-        return 1;
-    }
+    if ((int)A->v == DT_PLREF) { extern int rt_pl_unify_cyc_plain(pl_cell_t *, pl_cell_t *); return A->slen == B->slen && rt_pl_unify_cyc_plain(A, B); }
     return 0;
 }
 #define PL_DB_CELLS_MAX 256
