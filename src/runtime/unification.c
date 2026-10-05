@@ -2530,7 +2530,7 @@ int rt_pl_db_assert_ref(void *root, void *db_v, void *clause_term, int prepend)
 {
     pl_db_t *db = (pl_db_t *)db_v;
     if (!pl_db_store(root, db_v, clause_term, prepend, 1)) return 0;
-    return db->s[prepend ? 0 : db->n - 1].ref;
+    return db->s[db->n - 1].ref;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_slot_of_ref(void *db_v, int ref)
