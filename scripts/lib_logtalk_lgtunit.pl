@@ -58,10 +58,11 @@ lgt_h(G) :- ( catch(G, E, throw('$lgt_harness'(error(G, E)))) -> true ; throw('$
 % NOT MEASURED -- when nothing about SCRIP was in question. The suite asks it two ways and ONE clause
 % answers both honestly: current_logtalk_flag(prolog_dialect, swi) must FAIL because we are not swi, and
 % current_logtalk_flag(prolog_dialect, D), D \== b, D \== cx, ... must SUCCEED because we are none of
-% them. coinduction answers unsupported, the value util_logtalk_extract.py decides its guards by (ceo CEO-1235 (3),
-% option (a)); every other flag FAILS cleanly rather than raising, which is the right answer for a feature we do not have.
+% them. coinduction answers supported, the value util_logtalk_extract.py decides its guards by (Lon via the ceo, CEO-1518: "We
+% expect to have ALL features."; it answered unsupported under CEO-1235 (3) option (a), withdrawn, and the cto found it still did at
+% run time beside the extractor's supported); every other flag FAILS cleanly rather than raising.
 current_logtalk_flag(prolog_dialect, scrip).
-current_logtalk_flag(coinduction, unsupported).
+current_logtalk_flag(coinduction, supported).
 % '$lgt_load_prolog_file'/1 -- "defined in the backend adapter files and abstracts how to load a Prolog file" (the suite's own words, encoding_1):
 % SCRIP has no run-time consult/1 (consult is a load-time splice), so this adapter loads a file the way a minimal one would: read each
 % term, run a directive, assert a clause. The stream's own BOM detection and encoding apply; a :- encoding/1 directive is honoured by them.

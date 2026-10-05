@@ -362,22 +362,7 @@ if os.environ.get("INRIA_NAME_REDS"):
 _gtot = len(tests) - len(OUTSIDE)   # graded denominator -- OUTSIDE entries excluded per CEO-749, never hidden (printed above)
 open(os.path.join(tmp, "board"), "w").write("%d %d %d" % (_gtot, res["m3"][0], res["m4"][0]))
 print("BOARD_FOR_SHELL %d %d %d" % (_gtot, res["m3"][0], res["m4"][0]))
-# ⛔⭐ CEO-331: ONE ROW PER PROGRAM PER MODE INTO THE PROGRESS DATABASE. This runner grades with its OWN loop, so the
-# harness's automatic recording never sees it and util_progress_flips.py --coverage read inria as MISSING, 0 of 445.
-# ⛔ THE PROGRAM KEY IS fam#INDEX, NEVER fam:goal -- this runner's own comment two hundred lines up records that 2 goal
-# texts recur VERBATIM across distinct entries (('and',"'") five times, and set_prolog_flag), so a text key would
-# collapse them and silently shrink the denominator. outcome_ok is already keyed by index for exactly that reason.
-# ⛔ THE VERDICT RECORDED IS THE OUTCOME CLASS, and the note says so on every row: it is the finest per-ENTRY verdict
-# this runner retains (the bindings comparator below keeps counters, not per-entry results), and it is 6 goals per mode
-# LOOSER than the score this suite publishes. Labelling it is the difference between a weaker number and a wrong one.
-_prog_rows = os.path.join(tmp, "progress_rows.tsv")
-with open(_prog_rows, "w") as _pf:
-    for _i, (_fam, _goal, _exp) in enumerate(tests):
-        if _i in OUTSIDE: continue
-        for _m in ("m3", "m4"):
-            _pf.write("package\tinria\tprolog\t%s#%d\t%s\t%s\t0\toutcome-class\n"
-                      % (_fam, _i, _m, "PASS" if outcome_ok.get((_i, _m), False) else "FAIL"))
-print("PROGRESS_ROWS_TSV %s" % _prog_rows)
+# The progress rows are written BELOW the bindings comparator, on its per-entry verdict (CEO-331; see there).
 
 # ⛔⭐ THE BINDINGS COMPARATOR (row prolog-inria-bindings-comparator-turns-the-outcome-class-upper-bound-into-a-true-score,
 # seat05, 2026-09-04). THE ABOVE BOARD STAYS EXACTLY AS IT WAS -- not one line of it moved -- because the
@@ -479,6 +464,7 @@ excluded_fresh_named = []   # (fam, goal) this comparator refuses to check finer
 bres = {"m3": [0, 0], "m4": [0, 0]}   # pass, fail -- bindings board covers ALL 445 (non-bindings entries
                                         # inherit their outcome-class verdict: there is nothing finer to check)
 bnamed = []
+bok = {}   # (test index, mode) -> bool: THE per-entry verdict on the published criterion, kept for the progress rows below
 for _tidx, (fam, goal, exp) in enumerate(tests):
     if _tidx in OUTSIDE: continue
     want, wfun = expected_class(exp)
@@ -493,7 +479,8 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
         if sols is None:
             # Nothing finer to check than outcome class -- inherit that verdict directly (never re-derive
             # it from the truncated `named` diagnostics, which can collide on goal[:28]).
-            bres[mode][0 if outcome_ok.get((_tidx, mode), False) else 1] += 1
+            bok[(_tidx, mode)] = outcome_ok.get((_tidx, mode), False)
+            bres[mode][0 if bok[(_tidx, mode)] else 1] += 1
             continue
         # ⛔ A BARE `_` ON THE VALUE SIDE MEANS "unconstrained here", NOT "==-identical to a fresh
         # variable this comparison goal just introduced" -- those are never the same variable, so a plain
@@ -510,6 +497,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
             f.write(HARNESS_PRELUDE + dq_lead(_tidx, mode))
             f.write(":- catch( ( %s -> ( (%s) -> write('@BOK') ; write('@BFAIL') ) ; write('@BNO') ), E, ( write('@BER('), write(E), write(')') ) ), nl.\n"
                      % (goal, disj))
+        bok[(_tidx, mode)] = False
         try:
             if mode == "m3":
                 r = subprocess.run([scrip, "--run"] + decl_sw(_tidx, fam) + [prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
@@ -525,7 +513,7 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
         except subprocess.TimeoutExpired:
             bres[mode][1] += 1; bnamed.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
         o = r.stdout
-        if "@BOK" in o: bres[mode][0] += 1
+        if "@BOK" in o: bres[mode][0] += 1; bok[(_tidx, mode)] = True
         else:
             bres[mode][1] += 1
             reason = "outcome-already-red" if "@BNO" in o or "@BER" in o else "wrong-bindings"
@@ -548,6 +536,22 @@ if excluded_fresh_named:
     for x in excluded_fresh_named: print("    F:" + x)
 if os.environ.get("INRIA_NAME_REDS"):
     for x in bnamed[:80]: print("    B:" + x)
+# ⛔⭐ CEO-331: ONE ROW PER PROGRAM PER MODE INTO THE PROGRESS DATABASE -- ON THE CRITERION THE SUITE ROW STATES (row
+# prolog-inria-append-carries-the-outcome-class-while-the-row-states-the-bindings-criterion, COO-84 item 3). The rows
+# were written ABOVE this comparator on the outcome class alone, because it kept counters and no per-entry verdict, so
+# the DB read 436 where the row published 432 on one pass. Now the comparator keeps `bok` per (index, mode) and the rows
+# are written here from it: an entry with no declared bindings carries its outcome-class verdict (there is nothing finer
+# to check), every other entry the bindings verdict. Both board lines stand (the outcome class is the documented upper
+# bound). ⛔ THE PROGRAM KEY IS fam#INDEX, NEVER fam:goal: 2 goal texts recur verbatim across distinct entries.
+_prog_rows = os.path.join(tmp, "progress_rows.tsv")
+with open(_prog_rows, "w") as _pf:
+    for _i, (_fam, _goal, _exp) in enumerate(tests):
+        if _i in OUTSIDE: continue
+        for _m in ("m3", "m4"):
+            _pf.write("package\tinria\tprolog\t%s#%d\t%s\t%s\t0\toutcome-class-and-bindings\n"
+                      % (_fam, _i, _m, "PASS" if bok.get((_i, _m), False) else "FAIL"))
+assert sum(1 for _k, _v in bok.items() if _v and _k[1] == "m3") == bres["m3"][0] and sum(1 for _k, _v in bok.items() if _v and _k[1] == "m4") == bres["m4"][0], "the per-entry verdicts disagree with the bindings board's counters"
+print("PROGRESS_ROWS_TSV %s" % _prog_rows)
 open(os.path.join(tmp, "bindings_board"), "w").write("%d %d %d" % (_gtot, bres["m3"][0], bres["m4"][0]))
 print("BINDINGS_BOARD_FOR_SHELL %d %d %d" % (_gtot, bres["m3"][0], bres["m4"][0]))
 PY
