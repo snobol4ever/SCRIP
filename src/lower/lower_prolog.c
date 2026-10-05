@@ -78,14 +78,31 @@ static int pl_decl_dyn_is(const char * name, int arity) {
     return 0;
 }
 static const char ** g_pl_decl_other_name; static int * g_pl_decl_other_arity; static int g_pl_decl_other_n = 0; static int g_pl_decl_other_cap = 0;
-static void pl_decl_other_record(const tree_t * spec) {
+static void pl_decl_other_record(const tree_t * spec, int mf) {
     if (!spec) return;
-    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_other_record(spec->c[0]); pl_decl_other_record(spec->c[1]); return; }
-    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_other_record(spec->c[i]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_other_record(spec->c[0], mf); pl_decl_other_record(spec->c[1], mf); return; }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_other_record(spec->c[i], mf); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME)
         && spec->c[0]->v.sval && spec->c[1] && spec->c[1]->t == TT_ILIT) {
+        if (mf) CV_PUSH(g_stage2.pl_decl_multifile, const tree_t *) = spec;
         if (g_pl_decl_other_n >= g_pl_decl_other_cap) { int nc = g_pl_decl_other_cap > 0 ? g_pl_decl_other_cap * 2 : 256; g_pl_decl_other_name = (const char **) ct_grow((void *) g_pl_decl_other_name, (size_t) nc * sizeof(const char *)); g_pl_decl_other_arity = (int *) ct_grow((void *) g_pl_decl_other_arity, (size_t) nc * sizeof(int)); g_pl_decl_other_cap = nc; }
         g_pl_decl_other_name[g_pl_decl_other_n] = spec->c[0]->v.sval; g_pl_decl_other_arity[g_pl_decl_other_n] = (int) spec->c[1]->v.ival; g_pl_decl_other_n++; }
+}
+static int pl_decl_mf_is(const char * name, int arity) {
+    for (uint32_t i = 0; name && i < g_stage2.pl_decl_multifile.len; i++) { const tree_t * m = CV_AT(g_stage2.pl_decl_multifile, const tree_t *, i);
+        if (m->c[1]->v.ival == arity && !strcmp(m->c[0]->v.sval, name)) return 1; }
+    return 0;
+}
+static void pl_decl_meta_record(const tree_t * spec) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_meta_record(spec->c[0]); pl_decl_meta_record(spec->c[1]); return; }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_meta_record(spec->c[i]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && spec->n > 0) CV_PUSH(g_stage2.pl_decl_meta, const tree_t *) = spec;
+}
+static const tree_t * pl_decl_meta_of(const char * name, int arity) {
+    for (uint32_t i = 0; name && i < g_stage2.pl_decl_meta.len; i++) { const tree_t * m = CV_AT(g_stage2.pl_decl_meta, const tree_t *, i);
+        if (m->n == arity && !strcmp(m->v.sval, name)) return m; }
+    return (const tree_t *) 0;
 }
 typedef struct { IR_graph_t * g; IR_t * tω; IR_t * cutω; IR_t * clause_cutω; int cut_scope; int scope_seq; IR_t * meta_redo; int meta_redo_set; int stmt_depth; int * valias; int nvalias; const char * cur_key; } lcx_t;
 static const char * pl_vname(const lcx_t * cx, int slot);
@@ -1005,7 +1022,7 @@ static const char * pl_meta_template(const char * pn, int ar) {
         { "call", 1, "0" }, { "call", 2, "1?" }, { "call", 3, "2??" }, { "call", 4, "3???" }, { "call", 5, "4????" }, { "call", 6, "5?????" }, { "call", 7, "6??????" },
         { "call", 8, "7???????" }, { "once", 1, "0" }, { "ignore", 1, "0" }, { "not", 1, "0" }, { "catch", 3, "0?0" }, { "findall", 3, "?0?" }, { "findall", 4, "?0??" },
         { "bagof", 3, "?^?" }, { "setof", 3, "?^?" }, { "forall", 2, "00" }, { "aggregate_all", 3, "?0?" }, { "setup_call_cleanup", 3, "000" }, { "call_cleanup", 2, "00" },
-        { "call_nth", 2, "0?" }, { NULL, 0, NULL } };
+        { "call_nth", 2, "0?" }, { "if", 3, "000" }, { NULL, 0, NULL } };
     for (int i = 0; m[i].n; i++) if (m[i].a == ar && !strcmp(m[i].n, pn)) return m[i].t;
     return (const char *) 0;
 }
@@ -1773,15 +1790,20 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             { int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar); int def = dyn || pl_file_defines(pn, ar);
               const char * meta = def ? (const char *) 0 : pl_meta_template(pn, ar);
               int bi = !def && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
-              const tree_t * props[5]; int np = 0;
+              const tree_t * props[7]; int np = 0; const tree_t * um = def ? pl_decl_meta_of(pn, ar) : (const tree_t *) 0;
               int portray1 = !strcmp(pn, "portray") && ar == 1; const tree_t * props_pt[2]; int npt = 0;
               if (portray1) { if (!dyn) props_pt[npt++] = pl_atom_goal("dynamic"); props_pt[npt++] = pl_atom_goal("multifile"); }
               if (dyn) props[np++] = pl_atom_goal("dynamic"); else if (def && !portray1) props[np++] = pl_atom_goal("static");
               if (def) props[np++] = pl_atom_goal("defined"); if (bi) { props[np++] = pl_atom_goal("built_in"); props[np++] = pl_atom_goal("defined"); }
+              if (!portray1 && pl_decl_mf_is(pn, ar)) props[np++] = pl_atom_goal("multifile");
               if (meta) { tree_t * tm = ast_node_new(TT_FNC); tm->v.sval = (char *) pn;
                   for (int i = 0; i < ar; i++) ast_push(tm, meta[i] >= '0' && meta[i] <= '9' ? pl_cc_ilit(meta[i] - '0') : (tree_t *) pl_atom_goal(meta[i] == '^' ? "^" : "?"));
                   props[np++] = pl_cc_fnc1("meta_predicate", tm); }
-              for (int i = 0; i < npt && np < 5; i++) props[np++] = props_pt[i];
+              if (um) { tree_t * tm = ast_node_new(TT_FNC); tm->v.sval = (char *) pn;
+                  for (int i = 0; i < ar; i++) { const tree_t * a = um->c[i];
+                      ast_push(tm, (a && (a->t == TT_NAME || a->t == TT_QLIT) && a->v.sval && !strcmp(a->v.sval, "*")) ? (tree_t *) pl_atom_goal("?") : (tree_t *) a); }
+                  props[np++] = pl_cc_fnc1("meta_predicate", tm); }
+              for (int i = 0; i < npt && np < 7; i++) props[np++] = props_pt[i];
               if (!np) return build(cx, IR_GOTO, ωfail, ωfail);
               { tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);
                 for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[i]), alt);
@@ -2241,7 +2263,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     const tree_t * init_goals[ndirs]; int ninit = 0;
     const tree_t * dir_goals[ndirs]; int ndir = 0;
     const char * dvn[ndvn]; int dvc = 0;
-    g_pl_decl_dyn_n = 0; g_pl_decl_other_n = 0;
+    g_pl_decl_dyn_n = 0; g_pl_decl_other_n = 0; g_stage2.pl_decl_multifile.len = 0; g_stage2.pl_decl_meta.len = 0;
     for (int i = 0; i < prog->n; i++) {
         const tree_t *s = prog->c[i];
         if (!s || s->t != TT_STMT) continue;
@@ -2256,7 +2278,8 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "dynamic") && subj->n >= 1) {
             for (int k = 0; k < subj->n; k++) pl_decl_dynamic_record(&g_stage2, subj->c[k], (tree_t *) subj); continue; }
         if (subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "multifile") || !strcmp(subj->v.sval, "discontiguous")) && subj->n >= 1) {
-            for (int k = 0; k < subj->n; k++) pl_decl_other_record(subj->c[k]); continue; }
+            for (int k = 0; k < subj->n; k++) pl_decl_other_record(subj->c[k], !strcmp(subj->v.sval, "multifile")); continue; }
+        if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "meta_predicate") && subj->n >= 1) { for (int k = 0; k < subj->n; k++) pl_decl_meta_record(subj->c[k]); continue; }
         if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives)) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) subj, dvn, &dvc); continue; }
         { tree_t * dirgoal = (tree_t *) subj;

@@ -10198,9 +10198,9 @@ DESCR_t rt_pl_dop_pl_pp_nth_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *r
       if (pr) ok = plw_unify_vals(args[2], pl_mk_atom_dup(pr, strlen(pr)), cx); }
     rt_pl_tr_gc_sync(cx->tr); return ok ? pl_ok() : FAILDESCR;
 }
-PL_CX_LEAF_HEAD(pl_pp_guard, 1) { extern void *rt_pl_ball_kind2_pi(const char *, const char *, DESCR_t, const char *, int);
+PL_CX_LEAF_HEAD(pl_pp_guard, 1) { extern void *rt_pl_ball_kind2_pi(const char *, const char *, DESCR_t, const char *, int); extern void *rt_pl_ball_instantiation(void);
     DESCR_t h = rt_pl_deref_val(args[0]); ok = 1;
-    if (pl_iso_unbound(h)) { fprintf(stderr, "scrip: prolog: predicate_property/2 whose head is unbound when it runs -- ISO's backtracking-over-every-predicate mode needs a proc-table generator design, not yet built\n"); exit(2); }
+    if (pl_iso_unbound(h)) { cx->ball = rt_pl_ball_instantiation(); ok = 0; }
     if (h.v == DT_I || h.v == DT_R) { cx->ball = rt_pl_ball_kind2_pi("type_error", "callable", h, "predicate_property", 2); ok = 0; } } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(pl_cp_guard, 1) { extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); extern int prolog_atom_intern(const char *);
     DESCR_t s = rt_pl_deref_val(args[0]); ok = 1;
