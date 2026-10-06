@@ -131,6 +131,24 @@ if [ -f "$PKG/UNGRADED.tsv" ]; then
         UNG_SET[$_un]=1; done < "$PKG/UNGRADED.tsv"
 fi
 declare -A LADDER_RUNG_COUNT LADDER_RUNG_NAMES
+# ⛔⭐ AN EXCLUDED LINE IS NAMED, WITH ITS RULING (ceo CEO-1527 (a), 2026-10-06: SCRIP's integers are unbounded like SWI's, so
+# current_prolog_flag(bounded, false) is the answer and gprolog's `true` differs by ruling, not defect: "Name it an excluded line with that
+# ruling as its reason, never a row for the cfo"). EXCLUDED_LINES.tsv: name<TAB>line prefix<TAB>ruling. A driver output line that starts with
+# the prefix leaves all three outputs before the comparison; the _driver.ref stays gprolog's whole answer. A row whose program is not
+# shipped, or whose prefix matches no line of gprolog's live output, is a stale row and refuses the board.
+declare -A XL_PFX=() XL_N=()
+XL_TOTAL=0
+if [ -f "$PKG/EXCLUDED_LINES.tsv" ]; then
+    while IFS=$'\t' read -r _xn _xp _xr; do case "$_xn" in ''|'#'*) continue;; esac
+        [ -f "$PKG/$_xn" ] || { echo "⛔ REFUSED-TO-GRADE: EXCLUDED_LINES.tsv names $_xn, which this package does not ship"; exit 2; }
+        [ -n "$_xp" ] && [ -n "$_xr" ] || { echo "⛔ REFUSED-TO-GRADE: EXCLUDED_LINES.tsv row for $_xn lacks its prefix or its ruling"; exit 2; }
+        XL_PFX[$_xn]+="$_xp"$'\n'; XL_TOTAL=$((XL_TOTAL+1)); done < "$PKG/EXCLUDED_LINES.tsv"
+fi
+drop_excluded_lines() {
+    local rel="$1" text="$2"
+    [ -n "${XL_PFX[$rel]:-}" ] || { printf '%s' "$text"; return; }
+    printf '%s\n' "$text" | awk -v list="${XL_PFX[$rel]}" 'BEGIN{n=split(list,P,"\n")} {for(i=1;i<=n;i++) if(P[i]!="" && index($0,P[i])==1) next; print}'
+}
 
 echo "=== GNU Prolog vendored suite ($TOTAL files, $PKG) ==="
 
@@ -169,6 +187,12 @@ for f in "${FILES[@]}"; do
         if [ ! -s "$dref" ]; then SIDE_ERR+=("${dref#"$PKG"/} is missing or empty -- cut it from gprolog (GNU_SUITE_CUT_REFS=1 bash $0) before grading")
         elif [ "$(cat "$dref")" != "$gp_out" ]; then SIDE_ERR+=("${dref#"$PKG"/} differs from live gprolog -- a stale ref; re-cut it (GNU_SUITE_CUT_REFS=1 bash $0)"); fi
         [ -n "$gp_out" ] || SIDE_ERR+=("${drv#"$PKG"/} prints nothing in gprolog -- a driver that prints nothing grades nothing")
+        if [ -n "${XL_PFX[$rel]:-}" ]; then
+            while IFS= read -r _xp; do [ -n "$_xp" ] || continue
+                printf '%s\n' "$gp_out" | awk -v p="$_xp" 'index($0,p)==1{f=1} END{exit !f}' || SIDE_ERR+=("EXCLUDED_LINES.tsv prefix '$_xp' for $rel matches no line of live gprolog -- a stale row")
+                XL_N[$rel]=$((${XL_N[$rel]:-0}+1)); done <<< "${XL_PFX[$rel]}"
+            gp_out=$(drop_excluded_lines "$rel" "$gp_out"); m3_out=$(drop_excluded_lines "$rel" "$m3_out"); m4_out=$(drop_excluded_lines "$rel" "$m4_out")
+        fi
         if [ "$m3_out" = "$gp_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
         if command -v progress_append >/dev/null 2>&1; then
             progress_append package gnu prolog "$rel" m3 "$([ "$m3_out" = "$gp_out" ] && echo PASS || echo FAIL)" 0 "driver ${base}_driver.pl vs gprolog" || true
