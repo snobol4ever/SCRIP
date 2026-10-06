@@ -2835,7 +2835,8 @@ static int pl_parse_number(const char *s, DESCR_t *out) { char *e = 0;
         if (errno == ERANGE) { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(pl_skip_layout(s)); if (bg.v == DT_FAIL) return 0; *out = bg; return 1; }
         *out = INTVAL(iv); return 1; } }
     { double dv = strtod(s, &e);
-    if (e && e != s && !*e) { const char *b = pl_skip_layout(s); const char *d = strchr(b, '.');
+    if (e && e != s && !*e) { const char *b = pl_skip_layout(s); const char *d = strchr(b, '.'); extern int rt_pl_iso_mode(void);
+        if (!d && rt_pl_iso_mode()) return 0;
         if (d && (d[1] < '0' || d[1] > '9')) return 0;
         if (d && (d == b || d[-1] < '0' || d[-1] > '9')) return 0;
         *out = REALVAL(dv);return 1;} } return 0; }

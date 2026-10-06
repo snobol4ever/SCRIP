@@ -242,7 +242,7 @@ S_INT:
     if (PEEK(0) == ' ' && is_digit(PEEK(1)))                         {  seps = 1; ADV(1);                                                      goto S_INT;         }
     if (PEEK(0) == '\'')                                             {  radix = 0; for (const char *r = s; r < p && radix <= 36; r++) if (is_digit(*r)) radix = radix * 10 + (*r - '0');
                                                                         c = digval(PEEK(1)); if (radix >= 2 && radix <= 36 && c >= 0 && c < radix) { ADV(1); s = p; goto S_RDIGITS; } goto LX_INT; }
-    if ((PEEK(0) == 'e' || PEEK(0) == 'E') && (is_digit(PEEK(1)) || ((PEEK(1) == '+' || PEEK(1) == '-') && is_digit(PEEK(2))))) {  ADV(1);    goto S_EXP_SIGN;    }
+    if (!lx->iso && (PEEK(0) == 'e' || PEEK(0) == 'E') && (is_digit(PEEK(1)) || ((PEEK(1) == '+' || PEEK(1) == '-') && is_digit(PEEK(2))))) { ADV(1); goto S_EXP_SIGN; }
     if (PEEK(0) == '.' && is_digit(PEEK(1)))                         {  ADV(1);                                                                goto S_FRAC;        }
                                                                                                                                                goto LX_INT;
 S_RDIGITS:
@@ -337,6 +337,7 @@ void lexer_init(Lexer *lx, const char *src) {
     lx->has_peek = 0;
     lx->last_kind = TK_EOF;
     lx->fenced = 0;
+    lx->iso = 0;
     lx->sbuf = NULL; lx->slen = 0; lx->scap = 0;
     memset(&lx->peek, 0, sizeof lx->peek);
 }

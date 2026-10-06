@@ -1581,7 +1581,7 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.dq       = rt_pl_double_quotes_mode();
     p.prec     = 0;
     p.incl_depth = 0;
-    { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); }
+    { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }
     memset(&p.ts, 0, sizeof p.ts);
     PlProgram *prog = ct_zalloc(1, sizeof(PlProgram));
     pl_parse_loop(&p, prog);
