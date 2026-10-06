@@ -13,7 +13,8 @@ the package around it, never from a row's prose:
                                    unique in the package)
                OPENED_BY <rel>     <rel> names it outside any load or include directive and it holds facts alone -- a data
                                    file a test opens and reads (a file of rules a test loads at run time is a library)
-               SCAFFOLDING         every term is a directive and at least one loads or includes something: the suite's own loader
+               SCAFFOLDING         every term is a directive and at least one loads or includes something: the suite's own loader; or a Prolog
+                                   file of ONE clause whose body is bare '$use_<module>' goals, each a bare fact in a sibling file (a link list)
                NO_DEFINITION       it defines nothing callable and loads nothing -- declarations or data alone
                MULTI_PROGRAM       a SNOBOL4 file carrying more than one top-level END: several programs concatenated, so the
                                    file is not one compilation unit (sbl -bf stops at the first END and never sees the rest)
@@ -284,6 +285,31 @@ def pl_scaffold_loads(mm):
     return [d for d in mm['loads'] if re.search(r'initialization\s*\(', d)]
 
 
+def pl_marker_list(pkg, rel, mm):
+    """(n, None) when the file is ONE clause whose body is a conjunction of bare '$use_<module>' goals and every marker is a bare
+    fact in a sibling file of its package -- GNU Prolog's link-time reference list (BipsPl/all_pl_bips.pl), which computes nothing and
+    names the modules a link must pull in (ceo CEO-1526); else (0, why)."""
+    if len(mm['terms']) != 1 or len(mm['defs']) != 1:
+        return 0, 'not a single clause'
+    m = re.match(r"^'(\$use_[A-Za-z0-9_]+)'\s*:-\s*(.+)$", mm['defs'][0], re.S)
+    if not m:
+        return 0, 'not a marker rule'
+    goals = [g.strip() for g in m.group(2).split(',')]
+    marks = [re.fullmatch(r"'(\$use_[A-Za-z0-9_]+)'", g) for g in goals]
+    if not goals or not all(marks):
+        return 0, 'body is not bare marker goals'
+    names = {x.group(1) for x in marks}
+    here = os.path.dirname(os.path.join(pkg.root, rel))
+    found = set()
+    for f in os.listdir(here):
+        if f.endswith('.pl') and f != os.path.basename(rel):
+            t = open(os.path.join(here, f), encoding='utf-8', errors='replace').read()
+            found |= {n for n in names if re.search(r"^'%s'\.\s*$" % re.escape(n), t, re.M)}
+    if found != names:
+        return 0, '%d marker(s) are no bare fact in a sibling file: %s' % (len(names - found), ' '.join(sorted(names - found))[:80])
+    return len(names), None
+
+
 def classify(pkg, rel):
     path = os.path.join(pkg.root, rel)
     if not os.path.isfile(path):
@@ -309,6 +335,9 @@ def classify(pkg, rel):
                 return 'CONTAINER', 'OPENED_BY', op[0]
         if pl_scaffold_loads(mm) or (not mm['defs'] and not idefs and mm['loads']):
             return 'CONTAINER', 'SCAFFOLDING', ('an initialization directive loads and runs the suite' if pl_scaffold_loads(mm) else 'directives alone, and they load the suite') + (' (%d helper clause(s) beside it)' % len(mm['defs']) if mm['defs'] else '')
+        nmark, _why = pl_marker_list(pkg, rel, mm) if lang == 'prolog' else (0, None)
+        if nmark:
+            return 'CONTAINER', 'SCAFFOLDING', 'one clause of %d bare $use_ marker goals, each a bare fact in a sibling file: a link-time reference list that computes nothing (ceo CEO-1526)' % nmark
         if mm['defs'] or idefs:
             own = '%d clause(s)' % len(mm['defs'])
             by = (', %d more by include of %s' % (len(idefs), ' '.join(sorted({t for t, _ in idefs})[:3]))) if idefs else ''

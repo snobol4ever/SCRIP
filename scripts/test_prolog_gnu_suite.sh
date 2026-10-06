@@ -92,11 +92,25 @@ trap 'rm -rf "$TMP"' EXIT
 DECL="$TMP/declared_memory.tsv"
 declared_memory_begin "$PKG/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a declared-memory cell in $PKG/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; exit 2; }
 
-mapfile -t FILES < <(find "$PKG" -name "*.pl" | sort)
+# gprolog_out FILE: the oracle's stdout for a consulted file, its banner and its own compile diagnostics stripped -- ONE filter,
+# used by the driver arm and the ref cut alike (the non-driven arm below keeps its historical copy until no file needs it).
+gprolog_out() { timeout "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$1" --query-goal halt < /dev/null 2>/dev/null \
+    | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$'; }
+# ⭐ GNU_SUITE_CUT_REFS=1 CUTS EVERY DRIVER'S REF FROM gprolog AND GRADES NOTHING (no row, no progress append): NAME_driver.ref is
+# the oracle's answer as recorded evidence, cut by the same filter the board compares through; a driver gprolog answers with
+# nothing refuses, because an empty ref grades nothing (THE PACKAGE LOCKDOWN).
+if [ "${GNU_SUITE_CUT_REFS:-0}" = 1 ]; then
+    n=0; while IFS= read -r d; do
+        o="$(gprolog_out "$d")"; [ -n "$o" ] || { echo "⛔ REFUSED: ${d#"$PKG"/} prints nothing in gprolog -- no ref written"; exit 2; }
+        printf '%s\n' "$o" > "${d%.pl}.ref"; n=$((n+1)); echo "  cut ${d#"$PKG"/} -> $(printf '%s\n' "$o" | wc -l) line(s)"
+    done < <(find "$PKG" -name "*_driver.pl" | sort)
+    echo "GNU driver refs cut from gprolog: $n"; exit 0
+fi
+mapfile -t FILES < <(find "$PKG" -name "*.pl" ! -name "*_driver.pl" | sort)
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pl files found under $PKG"; exit 2; }
 
-LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0
+LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0; DRIVEN=0
 UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); EMPTY_NAMES=(); SIDE_ERR=()
 # ⛔⭐ THE ROW IS PUBLISHED OVER THE SHIPPED POPULATION, AND AN EMPTY OUTPUT GRADES NOTHING (Lon 2026-10-05, in-chat to the ceo, verbatim:
 # "What's up with \"GNU source\" test suite entry? Is that real? Did you write drivers for all those?"; ceo CEO-1523). The row read 11/11:
@@ -128,6 +142,43 @@ for f in "${FILES[@]}"; do
 
     if [ -n "${CON_SET[$rel]:-}" ]; then
         [ "$VERBOSE" -eq 1 ] && echo "  CONTAINER (CONTAINERS.tsv, excluded) $rel"
+        continue
+    fi
+    # ⛔⭐ A LIBRARY IS GRADED THROUGH ITS DRIVER (Lon 2026-09-27 via the ceo, CEO-1312: "So then create drivers for all the Prolog
+    # source"; CEO-700, CEO-1269; the coo's drivers, CEO-1523/1525). NAME_driver.pl beside NAME.pl calls the predicates NAME.pl
+    # defines and prints the answers; SCRIP m3, SCRIP m4 and gprolog all run the DRIVER, and the verdict is recorded under the
+    # LIBRARY's name, as the arizona, jcon, IPL and gimpel runners record theirs. A BipsPl file is GNU's own built-in source, which
+    # neither system can load as user code, so its driver calls the built-ins it defines and gprolog's answer is that file's code.
+    # NAME_driver.ref is the oracle's answer as cut (GNU_SUITE_CUT_REFS=1, below): live gprolog that disagrees with it refuses the
+    # board as a stale ref, so the stored evidence and the live oracle can never silently part.
+    drv="${f%.pl}_driver.pl"
+    if [ -f "$drv" ]; then
+        DRIVEN=$((DRIVEN+1)); OK_TOTAL=$((OK_TOTAL+1))
+        [ -z "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel has a driver and UNGRADED.tsv still names it -- delete the stale row")
+        dout="$TMP/${base}.drv.s"; dbin="$TMP/${base}.drv.bin"
+        timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
+        m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$drv" < /dev/null 2>/dev/null)
+        m4_out=""
+        if [ "$drc" -eq 0 ] && gcc -no-pie "$dout" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$dbin" 2>/dev/null; then
+            m4_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$dbin" < /dev/null 2>/dev/null)
+        fi
+        gp_out=$(gprolog_out "$drv")
+        dref="${f%.pl}_driver.ref"
+        if [ ! -s "$dref" ]; then SIDE_ERR+=("${dref#"$PKG"/} is missing or empty -- cut it from gprolog (GNU_SUITE_CUT_REFS=1 bash $0) before grading")
+        elif [ "$(cat "$dref")" != "$gp_out" ]; then SIDE_ERR+=("${dref#"$PKG"/} differs from live gprolog -- a stale ref; re-cut it (GNU_SUITE_CUT_REFS=1 bash $0)"); fi
+        [ -n "$gp_out" ] || SIDE_ERR+=("${drv#"$PKG"/} prints nothing in gprolog -- a driver that prints nothing grades nothing")
+        if [ "$m3_out" = "$gp_out" ] && [ "$m4_out" = "$gp_out" ]; then _gv=PASS; else _gv=FAIL; fi
+        if command -v progress_append >/dev/null 2>&1; then
+            progress_append package gnu prolog "$rel" m3 "$([ "$m3_out" = "$gp_out" ] && echo PASS || echo FAIL)" 0 "driver ${base}_driver.pl vs gprolog" || true
+            progress_append package gnu prolog "$rel" m4 "$([ "$m4_out" = "$gp_out" ] && echo PASS || echo FAIL)" 0 "driver ${base}_driver.pl vs gprolog" || true
+        fi
+        if [ "$_gv" = PASS ]; then
+            OK_PASS=$((OK_PASS+1))
+            [ "$VERBOSE" -eq 1 ] && echo "  DRIVEN PASS $rel (m3 = m4 = gprolog, $(printf '%s' "$gp_out" | wc -l) lines)"
+        else
+            OK_FAIL=$((OK_FAIL+1)); OK_FAIL_NAMES+=("$rel(driver)")
+            echo "  DRIVEN FAIL $rel -- driver compile rc=$drc; lines differing from gprolog: m3 $(diff <(printf '%s\n' "$gp_out") <(printf '%s\n' "$m3_out") | grep -c '^>') m4 $(diff <(printf '%s\n' "$gp_out") <(printf '%s\n' "$m4_out") | grep -c '^>') of $(printf '%s\n' "$gp_out" | wc -l)"
+        fi
         continue
     fi
     if is_bootstrap_only "$rel" "$f"; then
@@ -271,7 +322,7 @@ if [ "${#SIDE_ERR[@]}" -gt 0 ]; then
     echo "⛔ REFUSED-TO-GRADE: UNGRADED.tsv disagrees with this run:"; for n in "${SIDE_ERR[@]}"; do echo "   $n"; done; exit 2
 fi
 echo ""
-echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS excluded=$CON_N empty=$EMPTY total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
+echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS driven=$DRIVEN excluded=$CON_N empty=$EMPTY total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. LIB (bootstrap/library files, no independent behavior) is a ruling about what the
 # file IS, so it is UNGRADABLE/CONTAINER_OR_LIBRARY; REJECT (hang after parse error, a known, filed,

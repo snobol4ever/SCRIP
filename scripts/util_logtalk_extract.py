@@ -344,13 +344,13 @@ PROBED = {}
 
 # ⛔⭐ FOUR GUARDS ARE RULED, NOT PROBED (ceo CEO-1524, 2026-10-05, on the coo's ask): each is an if/else whose two branches expect
 # opposite outcomes of one goal, so no engine passes both -- the exclusive-configuration class of Lon's Windows and bounded rulings
-# (CEO-1519, CEO-1520). FEATURE PRESENT is decided for all four: ^/2 is callable (bagof_3 iso_bagof_3_09, setof_3 iso_setof_3_11),
+# (CEO-1519, CEO-1520). FEATURE PRESENT is decided for three: ^/2 is NOT callable (bagof_3 iso_bagof_3_09, setof_3 iso_setof_3_11: REVERSED by CEO-1526 on the cfo's measurement -- no oracle has a callable ^/2 and INRIA encodes ISO's answer, so the ABSENT branch is graded),
 # the dialects whose atom may be both an infix and a postfix operator (op_3 iso_op_3_10), and '|' is an operator (op_3 iso_op_3_21,
 # whose guard asks for its ABSENCE, so it reads FALSE). The sibling branch of each is an EXCLUSIVE_BRANCH row of EXCLUDED_CASES.tsv;
 # the live branch is graded and reads FAIL until SCRIP has the feature (the cfo's work: ^/2 must be callable).
 RULED = {
-    "catch(1^true, _, fail)": True,
-    "catch({1^true}, _, fail)": True,
+    "catch(1^true, _, fail)": False,
+    "catch({1^true}, _, fail)": False,
     "( current_logtalk_flag(prolog_dialect, Dialect), (Dialect == eclipse; Dialect == sicstus; Dialect == swi; "
     "Dialect == trealla; Dialect == yap; Dialect == xvm) )": True,
     "\\+ current_op(_, _, '|')": False,
