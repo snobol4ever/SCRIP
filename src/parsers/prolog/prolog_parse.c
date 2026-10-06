@@ -553,6 +553,16 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
         }
         case TK_NECK: {
             Token pkn = lexer_peek(&p->lx);
+            if (pkn.kind == TK_LPAREN && pkn.adj) {
+                lexer_next(&p->lx);
+                tree_t *fnc = ast_node_new(TT_FNC);
+                fnc->v.sval = ct_strdup(":-");
+                pt_args(p, ts, fnc);
+                Token rp = lexer_peek(&p->lx);
+                if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                else perror_at(p, rp.line, "expected ) to close argument list");
+                return pt_stamp(fnc, ln);
+            }
             if (prefix_arg_starts(pkn)) {
                 tree_t *arg = pt_term(p, ts, 1199);
                 tree_t *fnc = ast_node_new(TT_FNC);
@@ -567,6 +577,16 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
         }
         case TK_QUERY: {
             Token pkq = lexer_peek(&p->lx);
+            if (pkq.kind == TK_LPAREN && pkq.adj) {
+                lexer_next(&p->lx);
+                tree_t *fnc = ast_node_new(TT_FNC);
+                fnc->v.sval = ct_strdup("?-");
+                pt_args(p, ts, fnc);
+                Token rp = lexer_peek(&p->lx);
+                if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+                else perror_at(p, rp.line, "expected ) to close argument list");
+                return pt_stamp(fnc, ln);
+            }
             if (prefix_arg_starts(pkq)) {
                 tree_t *arg = pt_term(p, ts, 1199);
                 tree_t *fnc = ast_node_new(TT_FNC);
@@ -1088,6 +1108,24 @@ static PlClause *parse_clause(Parser *p) {
     cl->lineno = pk.line;
     if (pk.kind == TK_NECK) {
         lexer_next(&p->lx);
+        Token pa = lexer_peek(&p->lx);
+        if (pa.kind == TK_LPAREN && pa.adj) {
+            lexer_next(&p->lx);
+            tree_t *fnc = ast_node_new(TT_FNC);
+            fnc->v.sval = ct_strdup(":-");
+            pt_args(p, ts, fnc);
+            Token rp = lexer_peek(&p->lx);
+            if (rp.kind == TK_RPAREN) lexer_next(&p->lx);
+            else perror_at(p, rp.line, "expected ) to close argument list");
+            Token fdot = lexer_next(&p->lx);
+            if (fdot.kind != TK_DOT) perror_at(p, fdot.line, "expected . at end of clause");
+            tree_t *_fcl = ast_node_new(TT_CLAUSE);
+            if (fnc->n == 2) { ast_push(_fcl, fnc->c[0]); ast_push(_fcl, fnc->c[1]); }
+            else if (fnc->n == 1) { register_op_directive(fnc->c[0]); dq_directive(p, fnc->c[0]); iso_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
+            else ast_push(_fcl, fnc);
+            cl->tr = _fcl;
+            return cl;
+        }
         tree_t *body_tr = pt_term(p, ts, 1200);
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
@@ -1336,7 +1374,22 @@ static const char *PL_PRELUDE_SRC =
     "foreach(Generator,Rule)-->foreach(Generator,Rule,[]).\n"
     "foreach(Generator,Rule,Sep)-->{term_variables(Generator,GV0),sort(GV0,GV),term_variables((Rule,Sep),RV0),sort(RV0,RV),subtract(RV,GV,SGV),intersection(GV,RV,SV),Templ=..[v|SV],STempl=..[v|SGV],findall(Templ,Generator,List)},'$emit_list'(List,Templ,STempl,Rule,Sep).\n"
     "'$emit_list'([],_,_,_,_)-->[].\n"
-    "'$emit_list'([H|T],Templ,STempl,OnElem,OnSep)-->{copy_term(t(Templ,STempl,OnElem,OnSep),t(H,STempl,OnElemC,OnSepC))},phrase(OnElemC),({T==[]}->[];phrase(OnSepC),'$emit_list'(T,Templ,STempl,OnElem,OnSep)).\n";
+    "'$emit_list'([H|T],Templ,STempl,OnElem,OnSep)-->{copy_term(t(Templ,STempl,OnElem,OnSep),t(H,STempl,OnElemC,OnSepC))},phrase(OnElemC),({T==[]}->[];phrase(OnSepC),'$emit_list'(T,Templ,STempl,OnElem,OnSep)).\n"
+    "consult(F):-'$consult_path'(F,P),open(P,read,S),catch('$consult_loop'(S,Is),E,(close(S),throw(E))),close(S),'$consult_inits'(Is).\n"
+    "'$consult_path'(F,_):-var(F),!,throw(error(instantiation_error,consult/1)).\n"
+    "'$consult_path'(F,F):-atom(F),file_exists(F),!.\n"
+    "'$consult_path'(F,P):-atom(F),atom_concat(F,'.pl',P),file_exists(P),!.\n"
+    "'$consult_path'(F,_):-throw(error(existence_error(source_sink,F),consult/1)).\n"
+    "'$consult_loop'(S,Is):-read_term(S,T,[]),(T==end_of_file->Is=[];'$consult_term'(T,Is,R),'$consult_loop'(S,R)).\n"
+    "'$consult_term'((:-initialization(G)),[G|R],R):-!.\n"
+    "'$consult_term'((:-multifile(_)),R,R):-!.\n"
+    "'$consult_term'((:-discontiguous(_)),R,R):-!.\n"
+    "'$consult_term'((:-D),R,R):-!,'$consult_goal'(D).\n"
+    "'$consult_term'((H-->B),R,R):-!,dcg_translate_rule((H-->B),C),assertz(C).\n"
+    "'$consult_term'(C,R,R):-assertz(C).\n"
+    "'$consult_inits'([]).\n"
+    "'$consult_inits'([G|Gs]):-'$consult_goal'(G),'$consult_inits'(Gs).\n"
+    "'$consult_goal'(G):-(catch(G,E,(format(user_error,'Warning: directive raised: ~q~n',[E]),true))->true;format(user_error,'Warning: directive failed: ~q~n',[G])).\n";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pl_clause_dcg(const PlClause *cl) {
     tree_t *r;

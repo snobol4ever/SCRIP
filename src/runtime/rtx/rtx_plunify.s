@@ -595,6 +595,7 @@ RTX_FUNC(rt_pl_dop_list_guard)
     ret
 RTX_ENDF(rt_pl_dop_list_guard)
 PL_ROOT_LEAF(pl_declared)
+PL_ROOT_LEAF(pl_dynamic)
 RTX_FUNC(rt_pl_dop_char_guard)
     sub     rsp, 8
     RTX_CCALL(rt_pl_dop_char_guard_c)

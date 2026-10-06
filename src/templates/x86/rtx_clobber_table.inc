@@ -167,6 +167,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_pl_cs_count", 0 },
     { "rt_pl_dop_pl_cs_nth", 0 },
     { "rt_pl_dop_pl_declared", 0 },
+    { "rt_pl_dop_pl_dynamic", 0 },
     { "rt_pl_dop_pl_ioarg", 0 },
     { "rt_pl_dop_pl_op_check", 0 },
     { "rt_pl_dop_pl_op_count", 0 },

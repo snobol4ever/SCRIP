@@ -10519,6 +10519,24 @@ DESCR_t rt_pl_dop_pl_declared_c(DESCR_t *args, int nargs, void *root) {
       return rt_pl_db_key_is_declared(root, key) ? pl_ok() : FAILDESCR; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_dynamic_one(DESCR_t s, void *root) {
+    extern int prolog_atom_intern(const char *); extern int rt_pl_db_decl(void *, const char *, int64_t, int64_t);
+    s = rt_pl_deref_val(s);
+    if (pl_is_nil(s)) return 1;
+    if (s.v == (DTYPE_t)DT_PLREF && plc_fid_arity(s.slen) == 2 && plc_fid_name(s.slen) == prolog_atom_intern("/")) {
+        DESCR_t n = rt_pl_deref_val(((DESCR_t *)s.p)[0]); DESCR_t a = rt_pl_deref_val(((DESCR_t *)s.p)[1]); const char *nm = pl_atom_str(n);
+        if (!nm || a.v != DT_I || (long long)a.i < 0) return 0;
+        return rt_pl_db_decl(root, nm, a.i, 2); }
+    if (pl_is_cons(s) || (s.v == (DTYPE_t)DT_PLREF && plc_fid_arity(s.slen) == 2 && plc_fid_name(s.slen) == prolog_atom_intern(",")))
+        return pl_dynamic_one(((DESCR_t *)s.p)[0], root) && pl_dynamic_one(((DESCR_t *)s.p)[1], root);
+    return 0;
+}
+DESCR_t rt_pl_dop_pl_dynamic_c(DESCR_t *args, int nargs, void *root) {
+    if (nargs != 1) return FAILDESCR;
+    pl_atoms_ready();
+    return pl_dynamic_one(args[0], root) ? pl_ok() : FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void * rt_pl_dop_between_guard_c(DESCR_t *args, int nargs) {
     extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
     extern void *rt_pl_ball_instantiation(void);

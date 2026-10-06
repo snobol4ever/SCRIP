@@ -294,11 +294,19 @@ static std::string xa_flat_pkt_slot_addr(const char * idx64, const char * out, c
     return x86("mov", out, idx64) + x86_shift_imm("shl", 4, out, 5) + x86("mov", tmp, idx64) + x86_shift_imm("shl", 4, tmp, 3) + x86("add", out, tmp) + x86("add", out, "r9");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int rt_pl_db_frame_cells(void);
+static std::string xa_flat_pkt_cell_rax(int k) {
+    int nf = rt_pl_db_frame_cells();
+    if (k < nf) return x86("mov", "rax", RDQ("r14", -24 - 8 * k));
+    return x86("note", "a root cell past the frame's PL_DB_FRAME_CELLS lives in the registry's overflow vector: cell 0 holds the registry, [registry + 24] the vector, re-read here because the collector may move both")
+         + x86("mov", "rax", RDQ("r14", -24)) + x86("mov", "rax", RDQ("rax", 24)) + x86("mov", "rax", RDQ("rax", 8 * (k - nf)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_pkt_fresh_entry_str(void) {
     int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot;
     if (k < 0 || i < 0 || !g_emit.flat_pkt_walk_p) return x86_bomb("xa_flat_pkt_fresh_entry: a packet fragment without its cell, its slot or its walk label");
     return x86("comment", "PACKET FRAGMENT fresh entry (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): the registry road -- the packet from root cell k, G = next_ref, this slot visible at G, else the walk from the head")
-         + x86("mov", "rax", RDQ("r14", -24 - 8 * k))
+         + xa_flat_pkt_cell_rax(k)
          + x86("mov", "r8d", RDD("rax", 20))
          + x86("mov", "r9", RDQ("rax", 0))
          + x86("mov", "r11d", RDD("r9", 40 * i + 20))
@@ -698,7 +706,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("lea", "rax", RDQ(x86_fb(), kt - 64))
              + x86("cmp", "r13", "rax") + x86("jb", L(238)) + x86("ja", L(233))
              + x86("mov", "r8", FRQ(kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
-             + x86("mov", "rax", RDQ("r14", -24 - 8 * g_emit.flat_pkt_cell)) + x86("mov", "r9", RDQ("rax", 0))
+             + xa_flat_pkt_cell_rax(g_emit.flat_pkt_cell) + x86("mov", "r9", RDQ("rax", 0))
              + x86("mov", "r10d", RDD("r9", 40 * g_emit.flat_pkt_slot + 32)) + x86("movsxd", "r10", "r10d")
              + x86("def", L(230)) + x86("cmp", "r10d", 0L) + x86("jl", L(233))
              + xa_flat_pkt_slot_addr("r10", "r11", "rax")
@@ -785,7 +793,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              + x86_pl_tr_unwind_at(FRQ(kt - 64), 220, 221)
              + x86("mov", "rcx", FRQ(kt - 24)) + x86("mov", "rdx", FRQ(kt - 16)) + x86("mov", "r13", FRQ(kt - 40))
              + x86("mov", "r8", FRQ(kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
-             + x86("mov", "rax", RDQ("r14", -24 - 8 * k)) + x86("mov", "r9", RDQ("rax", 0))
+             + xa_flat_pkt_cell_rax(k) + x86("mov", "r9", RDQ("rax", 0))
              + x86("mov", "esi", RDD("r9", 40 * i + 32)) + x86("movsxd", "rsi", "esi")
              + x86("lea", "rsp", RDQ(x86_fb(), kt)) + x86("mov", x86_fb(), RDQ(x86_fb(), kt - 8))
              + x86("note", "a ball in flight (r15 armed) propagates past every remaining clause, never retries one -- the static chain's step does the same (its _step_ball arm)")

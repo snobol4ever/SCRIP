@@ -547,6 +547,7 @@ test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh	WIRED	-	-	-
 test_gate_pl_a_cyclic_term_hashes_in_finite_time.sh	WIRED	-	-	-
 test_gate_pl_a_directive_name_before_an_infix_operator_is_an_atom.sh	WIRED	-	-	-
 test_gate_pl_a_float_with_no_fraction_is_a_syntax_error_only_under_the_iso_flag.sh	WIRED	-	-	-
+test_gate_pl_a_dollar_named_dynamic_predicate_is_dynamic_at_run_time.sh	WIRED	-	-	-
 test_gate_pl_a_head_structure_against_an_unbound_argument_is_built_by_the_box.sh	WIRED	-	-	-
 test_gate_pl_a_meta_call_of_a_compiled_predicate_jumps_to_it_and_resumes_through_its_token.sh	WIRED	-	-	-
 test_gate_pl_a_meta_called_format_reads_its_empty_argument_list.sh	WIRED	-	-	-
@@ -585,6 +586,7 @@ test_gate_pl_bom_is_written_detected_and_reported.sh	WIRED	-	-	-
 test_gate_pl_clause_2_reads_static_code_on_every_road_and_obeys_the_iso_and_protect_flags.sh	WIRED	-	-	-
 test_gate_pl_clause_2_sees_the_clauses_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_compiled_tables_refuse_a_mismatch.sh	WIRED	-	-	-
+test_gate_pl_consult_loads_a_file_of_clauses_directives_and_initialization_goals.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
 test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
 test_gate_pl_current_op_enumerates_newest_first_over_the_table_of_its_call.sh	WIRED	-	-	-
@@ -634,6 +636,7 @@ test_gate_pl_the_general_unifier_is_one_asm_leaf_on_the_spine_not_a_c_road.sh	WI
 test_gate_pl_the_generator_road_takes_the_emitted_context_from_the_veneer_not_live_registers.sh	WIRED	-	-	-
 test_gate_pl_the_gnu_file_and_os_builtins_answer_as_gnu_prolog.sh	WIRED	-	-	-
 test_gate_pl_the_iso_flag_makes_reads_strict_and_integer_division_a_float.sh	WIRED	-	-	-
+test_gate_pl_the_neck_atom_before_an_adjacent_paren_is_functional_notation.sh	WIRED	-	-	-
 test_gate_pl_the_prelude_sees_every_clause_of_the_program.sh	WIRED	-	-	-
 test_gate_pl_the_query_neck_reads_as_an_atom_and_a_prefix_operator.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-

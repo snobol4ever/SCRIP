@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# test_gate_pl_a_program_with_more_than_64_dynamic_declarations_keeps_every_one.sh -- THE DYNAMIC TABLES GROW; THE ROOT CELLS ARE 256 AND THE 257TH REFUSES LOUDLY.
+# test_gate_pl_a_program_with_more_than_64_dynamic_declarations_keeps_every_one.sh -- THE DYNAMIC TABLES GROW, AND SO DO THE ROOT CELLS: NO 257TH REFUSAL.
 # hq_prolog 2026-10-04, the cfo's finding handed to the dynamic-database row: three tables capped at 64 (stage2.h pl_dyn_name/arity with pl_dyn_mark's silent
 # return, lower_prolog.c g_pl_decl_dyn_name, and PL_DB_CELLS_MAX in the runtime) dropped the 64th user declaration silently (slot 0 is the registry's), so
 # a program with 64 or more ":- dynamic" declarations printed nothing in both modes where swipl answers. Now the compile-time tables grow (ct_grow), every
-# Prolog root frame carries PL_DB_CELLS_MAX = 256 cells, and a program needing more refuses rc=2 naming the limit instead of dropping a predicate.
-# Witnesses: N = 70 declarations asserted and read back (swipl's text, both modes); N = 300 refuses rc=2 with the message in both compiles.
+# Prolog root frame carries PL_DB_FRAME_CELLS = 256 cells and every cell past them lives in the registry's overflow vector, which grows by doubling
+# (ceo CEO-1522, Lon's no-fixed-limits law: the 257th used to refuse rc=2 at compile time and BOMB at run time, which is how the Logtalk demo died).
+# Witnesses, all in both modes against swipl's text: N = 70 and N = 300 declarations asserted and read back; 300 predicates created at RUN TIME
+# by assertz with no declaration (Logtalk's shape); 300 global variables set and read back.
 # RED BEFORE on origin 689af8179: N = 70 prints nothing (rc 0) in both modes.
 set -u
 GATE_NAME=test_gate_pl_a_program_with_more_than_64_dynamic_declarations_keeps_every_one
@@ -37,12 +39,18 @@ if timeout 120 "$SCRIP" --compile -o "$TMPD/v300.s" "$TMPD/v300.pl" </dev/null 2
     got="$(cd "$TMPD" && timeout 30 ./v300.bin </dev/null 2>"$TMPD/err")"; rc=$?
     if [ "$rc" = 0 ] && [ "$got" = ok ]; then echo "  ok  a file clause with 300 variables matches m4"; else echo "  RED 300-variable file clause m4: rc=$rc out=[$(printf '%s' "$got" | cut -c1-40)]"; red=$((red+1)); fi
 else echo "  RED 300-variable file clause m4: the compile or link refused"; red=$((red+1)); fi
-for mode in m3 m4; do
-    if [ "$mode" = m3 ]; then (cd "$TMPD" && timeout 30 "$SCRIP" w300.pl </dev/null >"$TMPD/out" 2>"$TMPD/err"); rc=$?
-    else timeout 120 "$SCRIP" --compile -o "$TMPD/w300.s" "$TMPD/w300.pl" </dev/null >"$TMPD/out" 2>"$TMPD/err"; rc=$?; fi
-    if [ "$rc" = 2 ] && grep -q 'PL_DB_CELLS_MAX' "$TMPD/err"; then echo "  ok  300 declarations $mode refuse rc=2 naming the cell count"
-    else echo "  RED 300 declarations $mode: rc=$rc (want 2 with the PL_DB_CELLS_MAX message) err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
+printf ':- initialization(main).\nnm(P, K, F) :- number_codes(K, Cs), atom_codes(A, Cs), atom_concat(P, A, F).\nmain :- forall(between(0, 299, K), (nm(r, K, F), T =.. [F, K], assertz(T))), nm(r, 0, F0), G0 =.. [F0, A], call(G0), write(A), nl, nm(r, 299, F9), G9 =.. [F9, B], call(G9), write(B), nl, aggregate_all(count, (between(0, 299, K2), nm(r, K2, Fk), Gk =.. [Fk, _], call(Gk)), C), write(C), nl.\n' > "$TMPD/r300.pl"
+printf ':- initialization(main).\nnm(P, K, F) :- number_codes(K, Cs), atom_codes(A, Cs), atom_concat(P, A, F).\nmain :- forall(between(0, 299, K), (nm(g, K, N), nb_setval(N, K))), nb_getval(g0, A), write(A), nl, nb_getval(g299, B), write(B), nl, nb_getval(g150, C), write(C), nl.\n' > "$TMPD/g300.pl"
+want300="$(printf '[0]\n[299]\n150\n')"; wantr="$(printf '0\n299\n300\n')"; wantg="$(printf '0\n299\n150\n')"
+for w in w300 r300 g300; do
+    case "$w" in w300) wantw="$want300";; r300) wantw="$wantr";; g300) wantw="$wantg";; esac
+    got="$(cd "$TMPD" && timeout 60 "$SCRIP" "$w.pl" </dev/null 2>"$TMPD/err")"; rc=$?
+    if [ "$rc" = 0 ] && [ "$got" = "$wantw" ]; then echo "  ok  $w m3 keeps all 300"; else echo "  RED $w m3: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-80)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
+    if timeout 120 "$SCRIP" --compile -o "$TMPD/$w.s" "$TMPD/$w.pl" </dev/null 2>"$TMPD/err" && gcc -m64 -no-pie "$TMPD/$w.s" -o "$TMPD/$w.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err"; then
+        got="$(cd "$TMPD" && timeout 60 "./$w.bin" </dev/null 2>"$TMPD/err")"; rc=$?
+        if [ "$rc" = 0 ] && [ "$got" = "$wantw" ]; then echo "  ok  $w m4 keeps all 300"; else echo "  RED $w m4: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-80)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi
+    else echo "  RED $w m4: the compile or link refused: $(head -c 160 "$TMPD/err" | tr '\n' '|')"; red=$((red+1)); fi
 done
 [ "$red" = 0 ] || { echo "GATE FAIL [$GATE_NAME]: $red arm(s) red"; exit 1; }
-echo "GATE PASS [$GATE_NAME]: 70 dynamic declarations are all kept in both modes, a 300-variable file clause of a dynamic predicate matches in both modes, and 300 declarations refuse rc=2 naming the 256-cell limit"
+echo "GATE PASS [$GATE_NAME]: 70 and 300 dynamic declarations, 300 predicates created at run time and 300 global variables are all kept in both modes, and a 300-variable file clause of a dynamic predicate matches in both modes"
 exit 0

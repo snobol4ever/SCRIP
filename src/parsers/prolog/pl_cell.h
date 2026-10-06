@@ -74,5 +74,5 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     if ((int)A->v == DT_PLREF) { extern int rt_pl_unify_cyc_plain(pl_cell_t *, pl_cell_t *); return A->slen == B->slen && rt_pl_unify_cyc_plain(A, B); }
     return 0;
 }
-#define PL_DB_CELLS_MAX 256
+#define PL_DB_FRAME_CELLS 256
 #endif
