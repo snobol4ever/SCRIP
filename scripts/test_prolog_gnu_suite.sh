@@ -94,7 +94,7 @@ declared_memory_begin "$PKG/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a 
 
 # gprolog_out FILE: the oracle's stdout for a consulted file, its banner and its own compile diagnostics stripped -- ONE filter,
 # used by the driver arm and the ref cut alike (the non-driven arm below keeps its historical copy until no file needs it).
-gprolog_out() { timeout "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$1" --query-goal halt < /dev/null 2>/dev/null \
+gprolog_out() { cd "$TMP" && timeout "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$1" --query-goal halt < /dev/null 2>/dev/null \
     | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$'; }
 # ⭐ GNU_SUITE_CUT_REFS=1 CUTS EVERY DRIVER'S REF FROM gprolog AND GRADES NOTHING (no row, no progress append): NAME_driver.ref is
 # the oracle's answer as recorded evidence, cut by the same filter the board compares through; a driver gprolog answers with
@@ -156,11 +156,13 @@ for f in "${FILES[@]}"; do
         DRIVEN=$((DRIVEN+1)); OK_TOTAL=$((OK_TOTAL+1))
         [ -z "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel has a driver and UNGRADED.tsv still names it -- delete the stale row")
         dout="$TMP/${base}.drv.s"; dbin="$TMP/${base}.drv.bin"
+        # ⛔ A DRIVER RUNS IN THE SCRATCH DIRECTORY, never in the tree under test: dec10io's tell(user) made a FILE named user in the cwd
+        # (a SCRIP defect the driver exposed) and a dirty SCRIP skips every row this pass writes.
         timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
-        m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$drv" < /dev/null 2>/dev/null)
+        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$drv" < /dev/null 2>/dev/null)
         m4_out=""
         if [ "$drc" -eq 0 ] && gcc -no-pie "$dout" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$dbin" 2>/dev/null; then
-            m4_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$dbin" < /dev/null 2>/dev/null)
+            m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$dbin" < /dev/null 2>/dev/null)
         fi
         gp_out=$(gprolog_out "$drv")
         dref="${f%.pl}_driver.ref"
