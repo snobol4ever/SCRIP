@@ -3927,6 +3927,7 @@ PL_OUT_BALL_LEAF(flush_output, dop_pl_flush_output, 1)
 #define PL_TEXTOP_put_byte (-1)
 #define PL_TEXTOP_put_char_c 1
 #define PL_TEXTOP_write_term 1
+#define PL_TEXTOP_print 1
 PL_OUT_CX_LEAF(put_byte, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(put_char_c, 1) { extern FILE *fh_cur_out_fp(void); extern void *rt_pl_ball_instantiation(void);
@@ -3962,18 +3963,26 @@ static int pl_write_opt_bad(const char *on, DESCR_t a) {
     return 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-PL_CX_LEAF_HEAD(write_term, 2) { extern void rt_pl_write_term_cell(void *, void *); extern void *rt_pl_ball_instantiation(void);
-    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t o = rt_pl_deref_val(args[1]); ok = 0;
-    for (;;) { if (pl_val_unbound(o)) { cx->ball = rt_pl_ball_instantiation(); break; }
-        if (pl_is_nil(o)) { rt_pl_write_term_cell(&args[0], &args[1]); ok = 1; break; }
-        if (!pl_is_cons(o)) { cx->ball = rt_pl_ball_kind2("type_error", "list", rt_pl_deref_val(args[1])); break; }
+static int pl_write_opts_check(DESCR_t optlist, DESCR_t *culprit) {
+    DESCR_t o = rt_pl_deref_val(optlist);
+    for (;;) { if (pl_val_unbound(o)) return 1;
+        if (pl_is_nil(o)) return 0;
+        if (!pl_is_cons(o)) { *culprit = rt_pl_deref_val(optlist); return 2; }
         { DESCR_t *kids = (DESCR_t *)o.p; DESCR_t opt = rt_pl_deref_val(kids[0]); int bad;
-          if (pl_val_unbound(opt)) { cx->ball = rt_pl_ball_instantiation(); break; }
-          if (opt.v != (DTYPE_t)DT_PLREF || plc_fid_arity(opt.slen) != 1) { cx->ball = rt_pl_ball_kind2("domain_error", "write_option", opt); break; }
+          if (pl_val_unbound(opt)) return 1;
+          *culprit = opt;
+          if (opt.v != (DTYPE_t)DT_PLREF || plc_fid_arity(opt.slen) != 1) return 3;
           bad = pl_write_opt_bad(prolog_atom_name(plc_fid_name(opt.slen)), rt_pl_deref_val(((DESCR_t *)opt.p)[0]));
-          if (bad == 1) { cx->ball = rt_pl_ball_instantiation(); break; }
-          if (bad == 2) { cx->ball = rt_pl_ball_kind2("domain_error", "write_option", opt); break; }
-          o = rt_pl_deref_val(kids[1]); } } } PL_CX_LEAF_TAIL
+          if (bad) return bad == 1 ? 1 : 3;
+          o = rt_pl_deref_val(kids[1]); } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(write_term, 2) { extern void rt_pl_write_term_cell(void *, void *); extern void *rt_pl_ball_instantiation(void);
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t); DESCR_t bad = {0}; int k = pl_write_opts_check(args[1], &bad); ok = 0;
+    if (k == 1) cx->ball = rt_pl_ball_instantiation();
+    else if (k == 2) cx->ball = rt_pl_ball_kind2("type_error", "list", bad);
+    else if (k == 3) cx->ball = rt_pl_ball_kind2("domain_error", "write_option", bad);
+    else { rt_pl_write_term_cell(&args[0], &args[1]); ok = 1; } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_OUT_CX_LEAF(write_term, 3)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4088,7 +4097,7 @@ static int pl_edin_revert(int is_out) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; } pl_flag_t;
+typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; } pl_flag_t;
 static const pl_flag_t pl_flags_init[] = {
     { "bounded", "false", 0, { 0 } },
     { "integer_rounding_function", "toward_zero", 0, { 0 } },
@@ -4103,6 +4112,7 @@ static const pl_flag_t pl_flags_init[] = {
     { "protect_static_code", "false", 1, { "true", "false", 0 } },
     { "iso", "false", 1, { "true", "false", 0 } },
     { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
+    { "print_write_options", "", 1, { 0 }, 1, { 0 } },
     { "encoding", "UTF-8", 1, { "UTF-8", 0 } },
     { "argv", "[]", 0, { 0 } },
     { "dialect", "scrip", 0, { 0 } },
@@ -4120,13 +4130,22 @@ DESCR_t rt_sno_wantnm_d(DESCR_t *args, int nargs) { extern int rt_g_want_name; (
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_pl_flag_name(int i) { pl_flags_ready(); return (i >= 0 && i + 1 < (int)g_pl_flags.len) ? pl_flags[i].nm : (const char *)0; }
 void rt_pl_flags_gc_roots(void) { extern void rt_gc_visit_raw(const char **);
-    for (uint32_t i = 0; i < g_pl_flags.len; i++) { if (pl_flags[i].nm) rt_gc_visit_raw(&pl_flags[i].nm); if (pl_flags[i].val) rt_gc_visit_raw(&pl_flags[i].val); } }
+    extern void rt_gc_visit_descr(DESCR_t *);
+    for (uint32_t i = 0; i < g_pl_flags.len; i++) { if (pl_flags[i].nm) rt_gc_visit_raw(&pl_flags[i].nm); if (pl_flags[i].val) rt_gc_visit_raw(&pl_flags[i].val);
+        if (pl_flags[i].is_term) rt_gc_visit_descr(&pl_flags[i].term); } }
 void bnd_text_gc_roots(void) { extern void rt_gc_visit_raw(const char **); rt_gc_visit_raw(&pl_edin_out_name); rt_gc_visit_raw(&pl_edin_in_name); rt_gc_visit_raw(&g_tap_todo_reason); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find(const char *nm) {
     pl_flags_ready();
     for (int i = 0; pl_flags[i].nm; i++) if (!strcmp(nm, pl_flags[i].nm)) return &pl_flags[i];
     return (pl_flag_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t pl_flag_opt_true(const char *on) { extern int prolog_atom_intern(const char *); DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(1), c = {0};
+    kk[0] = pl_mk_atom("true"); c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern(on), 1); c.p = (void *)kk; return c; }
+static DESCR_t pl_flag_term_value(const pl_flag_t *fl) {
+    if (fl && fl->is_term && fl->val && fl->val[0]) return fl->term;
+    return pl_cons(pl_flag_opt_true("portray"), pl_cons(pl_flag_opt_true("numbervars"), pl_nil()));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static pl_flag_t * pl_flag_find_or_create(const char *nm) {
@@ -4166,6 +4185,7 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const ch
     if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); }
     else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); }
     else if (!(fl = pl_flag_find(fn))) { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); }
+    else if (fl->is_term) { DESCR_t o = pl_flag_term_value(fl); ok = plw_unify_vals(args[1], o, cx); }
     else if (!strcmp(fl->nm, "argv")) { ok = plw_unify_vals(args[1], pl_nil(), cx); }
     else if (!strcmp(fl->nm, "max_arity")) { ok = plw_unify_vals(args[1], INTVAL(1024), cx); }
     else if (!strcmp(fl->nm, "version_data")) { extern int prolog_atom_intern(const char *); DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(4), c;
@@ -4179,6 +4199,13 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2) { extern void *rt_pl_ball_kind2(const char *
     if (pl_val_unbound(f) || pl_val_unbound(v)) { cx->ball = rt_pl_ball_instantiation(); }
     else if ((f.v != (DTYPE_t)DT_S && f.v != (DTYPE_t)DT_PLATOM) || !pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("type_error", "atom", f); }
     else if (!(fl = pl_flag_find(fn))) { cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f); }
+    else if (fl->is_term) { extern pl_cell_t rt_pl_cell_snapshot(void *); extern void *rt_pl_ball_instantiation(void); DESCR_t bad = {0}; int k = pl_write_opts_check(args[1], &bad);
+        if (!k) { fl->term = rt_pl_cell_snapshot(&args[1]); fl->val = "set"; ok = 1; }
+        else if (k == 1) cx->ball = rt_pl_ball_instantiation();
+        else { DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(2); extern int prolog_atom_intern(const char *); DESCR_t c = {0};
+            kk[0] = pl_mk_atom_dup(fl->nm, strlen(fl->nm)); kk[1] = rt_pl_deref_val(args[1]);
+            c.v = (DTYPE_t)DT_PLREF; c.slen = (uint32_t)prolog_functor_intern(prolog_atom_intern("+"), 2); c.p = (void *)kk;
+            cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", c); } }
     else if (!pl_cell_text(args[1], vb, sizeof vb, &vn)) { cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", v); }
     else if (!fl->mod) { cx->ball = rt_pl_ball_permission3("modify", "flag", f); }
     else { int good = !fl->allow[0]; for (int i = 0; fl->allow[i]; i++) if (!strcmp(vn, fl->allow[i])) good = 1;
@@ -4195,6 +4222,11 @@ PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2) {
         if (fl && fl->mod) { fl->val = rt_heap_strdup_c(vn); pl_flag_effects(fl, cx); }
     }
 } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(print, 1) { extern void rt_pl_write_term_cell(void *, void *); DESCR_t o = pl_flag_term_value(pl_flag_find("print_write_options"));
+    rt_pl_write_term_cell(&args[0], &o); ok = 1; } PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_OUT_CX_LEAF(print, 2)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 PL_CX_LEAF_HEAD(telling, 1) { extern int fh_current_output(void);
     ok = plw_unify_vals(args[0], (fh_current_output() == 1 || !pl_edin_out_name[0]) ? pl_mk_atom("user") : pl_mk_atom_dup(pl_edin_out_name, strlen(pl_edin_out_name)), cx); } PL_CX_LEAF_TAIL

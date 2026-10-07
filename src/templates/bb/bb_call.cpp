@@ -138,7 +138,8 @@ DESCR_t dop_pl_told(DESCR_t *, int); DESCR_t dop_pl_seen(DESCR_t *, int);
 DESCR_t rt_pl_dop_put_byte(DESCR_t *, int); DESCR_t rt_pl_dop_put_byte_s(DESCR_t *, int); DESCR_t dop_pl_put_code(DESCR_t *, int); DESCR_t dop_pl_put_code_s(DESCR_t *, int);
 DESCR_t rt_pl_dop_current_input(DESCR_t *, int); DESCR_t rt_pl_dop_open(DESCR_t *, int); DESCR_t rt_pl_dop_open4(DESCR_t *, int); DESCR_t rt_pl_dop_keysort(DESCR_t *,
     int); DESCR_t rt_pl_dop_set_stream_position(DESCR_t *, int); DESCR_t rt_pl_dop_format3(DESCR_t *, int); DESCR_t rt_pl_dop_write_term(DESCR_t *,
-        int); DESCR_t rt_pl_dop_write_term_s(DESCR_t *, int); DESCR_t rt_pl_dop_write_sb(DESCR_t *, int); DESCR_t rt_pl_dop_writeq_sb(DESCR_t *,
+        int); DESCR_t rt_pl_dop_write_term_s(DESCR_t *, int); DESCR_t rt_pl_dop_print(DESCR_t *, int);
+        DESCR_t rt_pl_dop_print_s(DESCR_t *, int); DESCR_t rt_pl_dop_write_sb(DESCR_t *, int); DESCR_t rt_pl_dop_writeq_sb(DESCR_t *,
             int); DESCR_t rt_pl_dop_write_canonical_sb(DESCR_t *, int); DESCR_t rt_pl_dop_writeln_sb(DESCR_t *, int); DESCR_t rt_pl_dop_nl_sb(DESCR_t *,
                 int); DESCR_t rt_pl_dop_tab_sb(DESCR_t *, int); DESCR_t rt_pl_dop_put_char_sb(DESCR_t *, int); DESCR_t rt_pl_dop_put_code_sb(DESCR_t *,
                     int); DESCR_t rt_pl_dop_flush_output_sb(DESCR_t *, int); DESCR_t rt_pl_dop_op(DESCR_t *, int); DESCR_t rt_pl_dop_pl_op_check(DESCR_t *,
@@ -434,6 +435,7 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
                 "rt_pl_dop_write_term", rt_pl_dop_write_term }, { "$write_term_s", 3, "rt_pl_dop_write_term_s", rt_pl_dop_write_term_s }, { "$op", 3, "rt_pl_dop_op", rt_pl_dop_op },
                     { "$pl_op_check", 3, "rt_pl_dop_pl_op_check", rt_pl_dop_pl_op_check }, { "$pl_sp_check", 2, "rt_pl_dop_pl_sp_check", rt_pl_dop_pl_sp_check }, { "$pl_ioarg", 2,
                         "rt_pl_dop_pl_ioarg", rt_pl_dop_pl_ioarg }, { "$cutcall", 2, "rt_pl_dop_cutcall", rt_pl_dop_cutcall },
+        { "$print", 1, "rt_pl_dop_print", rt_pl_dop_print }, { "$print_s", 2, "rt_pl_dop_print_s", rt_pl_dop_print_s },
         { "$pl_op_count", 1, "rt_pl_dop_pl_op_count", rt_pl_dop_pl_op_count }, { "$pl_op_nth", 4, "rt_pl_dop_pl_op_nth", rt_pl_dop_pl_op_nth },
         { "$pl_sp_count", 1, "rt_pl_dop_pl_sp_count", rt_pl_dop_pl_sp_count }, { "$pl_sp_nth", 3, "rt_pl_dop_pl_sp_nth", rt_pl_dop_pl_sp_nth },
         { "$pl_cs_count", 1, "rt_pl_dop_pl_cs_count", rt_pl_dop_pl_cs_count }, { "$pl_cs_nth", 4, "rt_pl_dop_pl_cs_nth", rt_pl_dop_pl_cs_nth },

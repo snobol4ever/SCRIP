@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2195
+#define GC_ALLOC_TAB_N 2202
 #define GC_ALLOC_TAB_N_VOID 256
-#define GC_ALLOC_TAB_N_DESCR 1135
-#define GC_ALLOC_TAB_N_OTHER 798
+#define GC_ALLOC_TAB_N_DESCR 1141
+#define GC_ALLOC_TAB_N_OTHER 799
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -832,6 +832,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_dynamic_one", GC_RET_OTHER },
     { "pl_edin_switch", GC_RET_OTHER },
     { "pl_flag_find_or_create", GC_RET_OTHER },
+    { "pl_flag_opt_true", GC_RET_DESCR },
+    { "pl_flag_term_value", GC_RET_DESCR },
     { "pl_format_body", GC_RET_OTHER },
     { "pl_gnu_abs_path", GC_RET_OTHER },
     { "pl_gnu_cat3", GC_RET_OTHER },
@@ -922,6 +924,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_user_call", GC_RET_OTHER },
     { "pl_variant_rec", GC_RET_OTHER },
     { "pl_write_opt_bad", GC_RET_OTHER },
+    { "pl_write_opts_check", GC_RET_OTHER },
     { "plc_atom_id_of", GC_RET_OTHER },
     { "plc_atom_op_list_text_heap", GC_RET_OTHER },
     { "plc_atom_op_text", GC_RET_OTHER },
@@ -1781,6 +1784,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_pl_sp_nth_c", GC_RET_DESCR },
     { "rt_pl_dop_plus", GC_RET_DESCR },
     { "rt_pl_dop_plus_c", GC_RET_DESCR },
+    { "rt_pl_dop_print", GC_RET_DESCR },
+    { "rt_pl_dop_print_c", GC_RET_DESCR },
+    { "rt_pl_dop_print_s", GC_RET_DESCR },
+    { "rt_pl_dop_print_s_c", GC_RET_DESCR },
     { "rt_pl_dop_put_byte", GC_RET_DESCR },
     { "rt_pl_dop_put_byte_c", GC_RET_DESCR },
     { "rt_pl_dop_put_byte_s", GC_RET_DESCR },
