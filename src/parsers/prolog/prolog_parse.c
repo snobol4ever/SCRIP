@@ -813,6 +813,12 @@ static tree_t *dcg_call_nt(TreeScope *ts, tree_t *nt, tree_t *s_in, tree_t *s_ou
 }
 static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
                            TreeScope *ts, tree_t **buf, int idx);
+static void dcg_fill_lines(tree_t *t, int ln) {
+    if (!t) return;
+    pt_stamp(t, ln);
+    for (int i = 0; i < t->n; i++) dcg_fill_lines(t->c[i], t->line);
+}
+static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeScope *ts, tree_t **buf, int idx);
 static int dcg_need(tree_t *b) {
     if (!b) return 1;
     if (b->t == TT_FNC && b->v.sval && b->n == 1 && strcmp(b->v.sval, "{}") == 0) return dcg_count_conj(b->c[0]) + 1;
@@ -824,6 +830,12 @@ static int dcg_need(tree_t *b) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
                            TreeScope *ts, tree_t **buf, int idx) {
+    int i0 = idx;
+    idx = dcg_expand_body_at(body, s_in, s_out, ts, buf, idx);
+    for (int i = i0; i < idx && body; i++) pt_stamp(buf[i], body->line);
+    return idx;
+}
+static int dcg_expand_body_at(tree_t *body, tree_t *s_in, tree_t *s_out, TreeScope *ts, tree_t **buf, int idx) {
     if (!body) {
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
@@ -940,6 +952,7 @@ static void dcg_expand_clause(PlClause *cl, tree_t *head_tr, tree_t *dcg_body, t
     tree_t *_cl = ast_node_new(TT_CLAUSE);
     ast_push(_cl, new_head_final);
     ast_push(_cl, body_prog);
+    dcg_fill_lines(_cl, head_tr->line);
     cl->tr = _cl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -952,6 +965,7 @@ void prolog_dcg_expand(PlClause *cl) {
     tree_t *head_reshaped = rls(arrow->c[0]);
     tree_t *pushback = NULL;
     if (head_reshaped->t == TT_FNC && head_reshaped->v.sval && strcmp(head_reshaped->v.sval, ",") == 0 && head_reshaped->n == 2) { pushback = head_reshaped->c[1]; head_reshaped = head_reshaped->c[0]; }
+    pt_stamp(head_reshaped, arrow->line > 0 ? arrow->line : cl->tr->line);
     dcg_expand_clause(cl, head_reshaped, dcg_body, pushback, &ts);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
