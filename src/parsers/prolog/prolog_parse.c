@@ -233,7 +233,7 @@ static void register_op_directive(tree_t *goal) {
 static int prefix_arg_starts(Token pk) {
     switch (pk.kind) {
         case TK_VAR: case TK_ANON: case TK_INT: case TK_FLOAT: case TK_STRING: case TK_BQSTRING: case TK_LPAREN: case TK_LBRACKET: case TK_LBRACE: case TK_CUT: return 1;
-        case TK_ATOM: case TK_OP: return (find_prefix(pk.text) != NULL) || (find_binop(pk.text) == NULL);
+        case TK_ATOM: case TK_OP: return (find_prefix(pk.text) != NULL) || (find_binop(pk.text) == NULL) || !strcmp(pk.text, "-") || !strcmp(pk.text, "+");
         default: return 0;
     }
 }
