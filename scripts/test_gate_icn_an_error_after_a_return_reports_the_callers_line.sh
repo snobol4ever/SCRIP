@@ -73,14 +73,34 @@ Traceback:
 main()
 {list_1 = [] + 2} from line 5 in r3.icn
 WANT
+cat > "$T/r4.icn" <<'ICN'
+procedure q();
+   return 1;
+end
+procedure r(n);
+   local x;
+   if n = 0 then {
+      x := q() + "a";
+      return x;
+   };
+   return r(n - 1);
+end
+procedure main();
+   write(r(70000));
+end
+ICN
+{ printf '\nRun-time error 102\nFile r4.icn; Line 7\nnumeric expected\noffending value: "a"\nTraceback:\nmain()\nr(70000) from line 13 in r4.icn\n'
+  awk 'BEGIN { for (k = 69999; k >= 0; k--) printf "r(%d) from line 10 in r4.icn\n", k }'
+  printf '{1 + "a"} from line 7 in r4.icn\n'; } > "$T/r4.want"
 fail=0
-for w in r1 r2 r3; do
-  ( cd "$T" && timeout 60 "$SCRIP" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$w.m3" > "$T/$w.m3.r" && mv "$T/$w.m3.r" "$T/$w.m3"
+for w in r1 r2 r3 r4; do
+  sw=(); [ "$w" = r4 ] && sw=(-s262144k)
+  ( cd "$T" && timeout 60 "$SCRIP" "${sw[@]}" "$w.icn" </dev/null > "$w.m3" 2>&1 ); rc3=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$w.m3" > "$T/$w.m3.r" && mv "$T/$w.m3.r" "$T/$w.m3"
   if cmp -s "$T/$w.m3" "$T/$w.want"; then echo "  PASS  m3 $w (rc=$rc3)"; else echo "  FAIL  m3 $w rc=$rc3"; diff "$T/$w.want" "$T/$w.m3" | head -10 | sed 's/^/        /'; fail=1; fi
   if ( cd "$T" && "$SCRIP" --compile "$w.icn" > "$w.s" 2>/dev/null && gcc -c "$w.s" -o "$w.o" 2>/dev/null && gcc "$w.o" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$w.bin" 2>/dev/null ); then
-    ( cd "$T" && timeout 60 "./$w.bin" </dev/null > "$w.m4" 2>&1 ); rc4=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$w.m4" > "$T/$w.m4.r" && mv "$T/$w.m4.r" "$T/$w.m4"
+    ( cd "$T" && timeout 60 "./$w.bin" ${sw[@]+"${sw[@]}" --} </dev/null > "$w.m4" 2>&1 ); rc4=$?; python3 "$ROOT/scripts/util_render_error_voice.py" icon < "$T/$w.m4" > "$T/$w.m4.r" && mv "$T/$w.m4.r" "$T/$w.m4"
     if cmp -s "$T/$w.m4" "$T/$w.want"; then echo "  PASS  m4 $w (rc=$rc4)"; else echo "  FAIL  m4 $w rc=$rc4"; diff "$T/$w.want" "$T/$w.m4" | head -10 | sed 's/^/        /'; fail=1; fi
   else echo "  FAIL  m4 $w: no binary"; fail=1; fi
 done
-if [ "$fail" = 0 ]; then echo "✅ PASS: a run-time error raised in the caller after a procedure returns (r1, r3) or fails (r2) reports the caller's line, untraced, both modes"; exit 0; fi
+if [ "$fail" = 0 ]; then echo "✅ PASS: a run-time error raised in the caller after a procedure returns (r1, r3) or fails (r2) reports the caller's line, untraced, both modes -- and r4 at level 70000, past the 65536 records the table held before it grew, keeps every record (line 7, all 70001 frames)"; exit 0; fi
 echo "⛔ FAIL: an error after a return or failure is reporting the callee's last line, not the caller's (see the FAIL rows)"; exit 1

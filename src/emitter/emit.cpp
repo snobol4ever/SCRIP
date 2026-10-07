@@ -3298,14 +3298,25 @@ static std::string icn_act_record_inline(const char * pname, int np, int aoff) {
     if (!pname) return std::string();
     pname = icn_trace_intern(pname);
     std::string fl = ".Licn_act_nm" + std::to_string(g_flat_node_id++);
-    return  x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
+    std::string lvl = x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
          + x86("mov", "rdi", RDQ("rdi", 0))
          + x86("mov", "ecx", RDD("rdi", 0))
-         + x86("cmp", "ecx", (long)ICN_ACT_CAP)
+         + x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_icn_act, "g_icn_act")
+         + x86("mov", "esi", RDD("rdi", (int)offsetof(cv_t, cap)))
+         + x86("cmp", "rcx", "rsi");
+    return  x86("comment", "the activation record of this level: g_icn_act is a vector whose header is re-read here; a level at or past its capacity grows it first, so no record is ever dropped")
+         + lvl
+         + x86("jb", "L234")
+         + x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
+         + x86("mov", "rdi", "rcx")
+         + x86("call", "rt_icn_act_reserve", (uint64_t)(uintptr_t)(void *)rt_icn_act_reserve)
+         + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax")
+         + lvl
          + x86("jae", "L245")
+         + x86("def", "L234")
          + x86("mov", "rsi", (long)sizeof(icn_act_rec_t))
          + x86("imul", "rcx", "rsi")
-         + x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)g_icn_act, "g_icn_act")
+         + x86("mov", "rdi", RDQ("rdi", (int)offsetof(cv_t, p)))
          + x86("add", "rdi", "rcx")
          + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
          + x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str())
