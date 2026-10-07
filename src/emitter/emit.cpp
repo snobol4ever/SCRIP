@@ -8,7 +8,6 @@ extern "C" int prolog_functor_arity(int);
 #include "emit.h"
 #include "gc_frame_map.h"
 #include "dtp.h"
-#include "icn_act.h"
 #include "ir_index.h"
 #include "templates/x86/x86_asm.h"
 #include "templates/bb/bb_templates.h"
@@ -3294,44 +3293,9 @@ static const char * icn_trace_intern(const char * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_act_record_inline(const char * pname, int np, int aoff) {
-    extern int * const rt_k_level_p; extern long g_line; extern const char * g_file; extern int g_flat_node_id;
+    (void)np; (void)aoff;
     if (!pname) return std::string();
-    pname = icn_trace_intern(pname);
-    std::string fl = ".Licn_act_nm" + std::to_string(g_flat_node_id++);
-    std::string lvl = x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
-         + x86("mov", "rdi", RDQ("rdi", 0))
-         + x86("mov", "ecx", RDD("rdi", 0))
-         + x86("mov", "rdi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_icn_act, "g_icn_act")
-         + x86("mov", "esi", RDD("rdi", (int)offsetof(cv_t, cap)))
-         + x86("cmp", "rcx", "rsi");
-    return  x86("comment", "the activation record of this level: g_icn_act is a vector whose header is re-read here; a level at or past its capacity grows it first, so no record is ever dropped")
-         + lvl
-         + x86("jb", "L234")
-         + x86("push", "rax") + x86("push", "rdx") + x86_align_call_enter()
-         + x86("mov", "rdi", "rcx")
-         + x86("call", "rt_icn_act_reserve", (uint64_t)(uintptr_t)(void *)rt_icn_act_reserve)
-         + x86_align_call_leave() + x86("pop", "rdx") + x86("pop", "rax")
-         + lvl
-         + x86("jae", "L245")
-         + x86("def", "L234")
-         + x86("mov", "rsi", (long)sizeof(icn_act_rec_t))
-         + x86("imul", "rcx", "rsi")
-         + x86("mov", "rdi", RDQ("rdi", (int)offsetof(cv_t, p)))
-         + x86("add", "rdi", "rcx")
-         + x86("directive", ".section .rodata") + x86("directive", (fl + ": .string \"" + pname + "\"").c_str()) + x86("directive", ".section .text") + x86("directive", ".intel_syntax noprefix")
-         + x86("lea", "rsi", "[rip + __]", (uint64_t)(uintptr_t)pname, fl.c_str())
-         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, name)), "rsi")
-         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, base)), "rsp")
-         + x86("mov", RDD("rdi", (int)offsetof(icn_act_rec_t, np)), (long)np)
-         + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", "rsi", RDQ("rsi", 0))
-         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, line)), "rsi")
-         + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_file, "g_file")
-         + x86("mov", "rsi", RDQ("rsi", 0))
-         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, file)), "rsi")
-         + x86("lea", "rsi", RDQ("rsp", aoff))
-         + x86("mov", RDQ("rdi", (int)offsetof(icn_act_rec_t, args)), "rsi")
-         + x86("def", "L245");
+    return x86_bomb("icn_act_record_inline: g_icn_act is deleted -- the activation record (name, frame base, np, caller line and file, args) needs a home on the stack");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_entry_gva(void) {

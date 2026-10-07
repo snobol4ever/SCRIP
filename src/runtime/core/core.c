@@ -434,8 +434,6 @@ void rt_trace_call_hook(const char *fname) { (void)fname; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n);
-cv_t g_icn_act;
-void rt_icn_act_reserve(int lv) { if (lv >= 0) cv_reserve(&g_icn_act, (uint32_t)sizeof(icn_act_rec_t), (uint64_t)lv + 1, "g_icn_act"); }
 static icn_bi_rec_t *g_icn_bi_top = (icn_bi_rec_t *)0;
 static struct { const char *sym; int arity; DESCR_t a, b; } g_icn_op;
 #if RT_DIAG
@@ -529,24 +527,17 @@ static void icn_tb_builtins_at(int lv) {
         { extern long g_line; extern const char *g_file; fprintf(stderr, " from line %ld in %s\n", g_line, icn_basename(g_file)); }
     }
 }
-int core_icn_act_top(void) { extern int rt_k_level; int t = rt_k_level; if ((uint32_t)t >= g_icn_act.cap) t = (int)g_icn_act.cap - 1; if (t < 0) t = 0; return t; }
-const char *core_icn_act_name(int lv) { return (lv >= 1 && (uint32_t)lv < g_icn_act.cap) ? ICN_ACT(lv).name : (const char *)0; }
-void *core_icn_act_base(int lv) { return (lv >= 1 && (uint32_t)lv < g_icn_act.cap) ? ICN_ACT(lv).base : (void *)0; }
-int core_icn_act_np(int lv) { return (lv >= 1 && (uint32_t)lv < g_icn_act.cap) ? ICN_ACT(lv).np : 0; }
-DESCR_t *core_icn_act_arg(int lv, int k) { return (lv >= 1 && (uint32_t)lv < g_icn_act.cap && ICN_ACT(lv).args) ? (DESCR_t *)((char *)ICN_ACT(lv).args + 16 * k) : (DESCR_t *)0; }
+int core_icn_act_top(void) { return * (char *) NULL; }
+const char *core_icn_act_name(int lv) { (void)lv; return (const char *)(uintptr_t) * (char *) NULL; }
+void *core_icn_act_base(int lv) { (void)lv; return (void *)(uintptr_t) * (char *) NULL; }
+int core_icn_act_np(int lv) { (void)lv; return * (char *) NULL; }
+DESCR_t *core_icn_act_arg(int lv, int k) { (void)lv; (void)k; return (DESCR_t *)(uintptr_t) * (char *) NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_traceback(void) {
     extern int rt_k_level; extern long g_line; extern const char *g_file;
-    int top = rt_k_level; if (top >= (int)g_icn_act.cap) top = (int)g_icn_act.cap - 1;
+    int top = rt_k_level;
     for (int lv = 1; lv <= top; lv++) {
-        icn_act_rec_t *r = &ICN_ACT(lv);
-        if (r->name) {
-            fputs("  in ", stderr); fputs(r->name, stderr); fputc('(', stderr);
-            for (int i = 0; i < r->np; i++) { if (i) fputc(',', stderr); icn_tb_image(r->args ? *(DESCR_t *)((char *)r->args + i * 16) : NULVCL); }
-            fputc(')', stderr);
-            if (lv > 1) fprintf(stderr, " from line %ld in %s", r->line, icn_basename(r->file));
-            fputc('\n', stderr);
-        }
+        if (* (char *) NULL) fputc('\n', stderr);
         icn_tb_builtins_at(lv);
     }
     if (g_icn_op.sym) {
@@ -611,7 +602,7 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
         extern FILE *fh_memsink_open(char **, size_t *); char *vb = (char *)0; size_t vn = 0; FILE *vf = fh_memsink_open(&vb, &vn);
         if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); }
         if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb); }
-    if (rt_k_level >= 1 && g_icn_act.cap > 1 && ICN_ACT(1).name) core_icn_traceback();
+    if (rt_k_level >= 1 && * (char *) NULL) core_icn_traceback();
     fflush(stderr);
 }
 static void core_icn_report(int code, DESCR_t val, const char *msg) {
@@ -665,8 +656,8 @@ void rt_trace_resume_hook(const char *pname) {
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (trace_recursion_depth > 0) return;
-    long save = g_line; int top = rt_k_level; if (top < 0) top = 0; if (top >= (int)g_icn_act.cap) top = (int)g_icn_act.cap - 1;
-    for (int lv = top; lv >= 1; lv--) if (ICN_ACT(lv).name && !strcmp(ICN_ACT(lv).name, pname) && ICN_ACT(lv).line > 0) { g_line = ICN_ACT(lv).line; break; }
+    long save = g_line;
+    g_line = * (char *) NULL;
     g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL); trace_recursion_depth--;
     g_line = save;
 }
@@ -679,8 +670,8 @@ void rt_trace_resume_hook(const char *pname) { (void)pname; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_act_restore_call_line(void) {
-    extern int rt_k_level; extern long g_line; extern const char *g_file;
-    if (rt_k_level >= 0 && (uint32_t)rt_k_level < g_icn_act.cap) { icn_act_rec_t *r = &ICN_ACT(rt_k_level); if (r->line > 0) { g_line = r->line; if (r->file) g_file = r->file; } }
+    extern long g_line;
+    g_line = * (char *) NULL;
 }
 #if RT_DIAG
 void rt_trace_fail_hook(const char *fname) {
@@ -3131,7 +3122,7 @@ void core_runtime_error(int code, const char *msg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_kb, long committed_kb) {
     extern int rt_k_level;
-    int icon = (rt_k_level >= 1 && g_icn_act.cap > 1 && ICN_ACT(1).name) ? 1 : 0;
+    int icon = (rt_k_level >= 1 && * (char *) NULL) ? 1 : 0;
     int code = icon ? (type == (unsigned)DT_S ? 306 : 307) : 204;
     char mb[fmt_len("%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload)];
     snprintf(mb, sizeof mb, "%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload);
