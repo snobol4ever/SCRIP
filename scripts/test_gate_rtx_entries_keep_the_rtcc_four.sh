@@ -6,7 +6,9 @@
 # site re-establishes exactly the recorded set (x86_rtcc_call); an UNRECORDED write is the violation. The table's freshness
 # against the objects is test_gate_rtx_the_leaf_clobber_table_is_derived_and_gated_against_the_objects.sh. The truthful
 # injection set carries one entry (inj_recorded) writing r8 and r10 under a planted row that records them, and the lies are
-# walked under the same planted table, so lie_clobber's unrecorded r10 must still be caught (cto 2026-09-23, CEO-1224, row
+# walked under the same planted table, so lie_clobber's unrecorded r10 must still be caught. AND NO ROW MAY NAME r9: the GVA
+# base is a constant of the run, so every exit of every entry, its C tails included, reloads it (RTX_GVA_R9 then ret) and the
+# site re-establishes nothing for it -- a call_bare site could not (cto 2026-10-07). (cto 2026-09-23, CEO-1224, row
 # spine-no-rtccb-veneer-on-any-call-into-the-asm-runtime-the-rtx-abi-preserves-r8-to-r11; Lon in-chat to the ceo, verbatim:
 # "get rid of veneer for all RT ASM instances.").
 #
@@ -24,8 +26,8 @@
 # slot by slot through pushes, pops, frames, dynamic alignment, calls and stubs. The contract it grades is written in
 # src/runtime/rtx/rtx_abi.inc and ARCH-SNOBOL4-RTX.md section 2. A body the walker cannot read is a VIOLATION, never a pass.
 #
-# NEGATIVE-TESTED IN EVERY RUN, NOT AT AUTHORING TIME: a truthful synthetic body set (every sanctioned form: a leaf, a saved
-# body, a wrapped C call, a C tail stub, a saved C tail stub, a nested and a tail RTX call through the GOT, an r9 argument
+# NEGATIVE-TESTED IN EVERY RUN, NOT AT AUTHORING TIME: a truthful synthetic body set (every sanctioned form: a leaf, a body
+# that pushes and pops the four itself (the expansion of the deleted RTX_SAVE / RTX_RET, spelled literally), a wrapped C call, a C tail stub, a saved C tail stub, a nested and a tail RTX call through the GOT, an r9 argument
 # handed back as GVA, a dynamically aligned C call, registers reloaded from their own stack slots) must be PROVEN, and a lying set -- a clobbered r10, a bare tail jump into C, an unwrapped C call, a
 # nested RTX call through a PLT slot (lazy binding jumps through r11), an r9 argument returned as received, a stray stack
 # slot, a gate arm straight into C, a C call made with rsp misaligned, a register reloaded from its NEIGHBOUR'S slot (the walker's slot arithmetic checked in
@@ -80,13 +82,20 @@ RTX_FUNC(inj_leaf)
     ret
 RTX_ENDF(inj_leaf)
 RTX_FUNC(inj_saved)
-    RTX_SAVE
+    push    r8
+    push    r9
+    push    r10
+    push    r11
     mov     r10, 1
     mov     r11, 2
     sub     rsp, 8
     call    inj_c
     add     rsp, 8
-    RTX_RET
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    ret
 RTX_ENDF(inj_saved)
 RTX_FUNC(inj_ccall)
     sub     rsp, 8
@@ -102,13 +111,29 @@ RTX_FUNC(inj_ctail)
     RTX_CTAIL(inj_c)
 RTX_ENDF(inj_ctail)
 RTX_FUNC(inj_saved_tail)
-    RTX_SAVE
+    push    r8
+    push    r9
+    push    r10
+    push    r11
     mov     r8, 5
     test    rdi, rdi
     jz      .Linj_st
-    RTX_RET
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    ret
 .Linj_st:
-    RTX_CTAIL_SAVED(inj_c)
+    mov     r8, qword ptr [rsp + 24]
+    mov     r9, qword ptr [rsp + 16]
+    sub     rsp, 8
+    call    inj_c
+    add     rsp, 8
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    ret
 RTX_ENDF(inj_saved_tail)
 RTX_FUNC(inj_nested)
     sub     rsp, 8
@@ -117,12 +142,23 @@ RTX_FUNC(inj_nested)
     RTX_JMP(inj_leaf)
 RTX_ENDF(inj_nested)
 RTX_FUNC(inj_r9_arg)
-    RTX_SAVE
+    push    r8
+    push    r9
+    push    r10
+    push    r11
     mov     rax, r9
-    RTX_RET_GVA
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    RTX_GVA_R9
+    ret
 RTX_ENDF(inj_r9_arg)
 RTX_FUNC(inj_aligned)
-    RTX_SAVE
+    push    r8
+    push    r9
+    push    r10
+    push    r11
     RTX_CALL_ALIGN
     push    rdi
     push    rsi
@@ -130,7 +166,11 @@ RTX_FUNC(inj_aligned)
     pop     rsi
     pop     rdi
     RTX_CALL_UNALIGN
-    RTX_RET
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    ret
 RTX_ENDF(inj_aligned)
 RTX_FUNC(inj_recorded)
     mov     r10, 1
@@ -188,9 +228,16 @@ RTX_FUNC(lie_gate)
     ret
 RTX_ENDF(lie_gate)
 RTX_FUNC(lie_misaligned)
-    RTX_SAVE
+    push    r8
+    push    r9
+    push    r10
+    push    r11
     call    inj_c
-    RTX_RET
+    pop     r11
+    pop     r10
+    pop     r9
+    pop     r8
+    ret
 RTX_ENDF(lie_misaligned)
 RTX_FUNC(lie_reload)
     push    r10
@@ -265,6 +312,14 @@ inj_rc=$?
 cat "$WORK/inj.verdict"
 
 if [ "$real_rc" -eq 2 ] || [ "$ok_rc" -eq 2 ] || [ "$lie_rc" -eq 2 ]; then echo "REFUSED(2): the walker could not measure"; exit 2; fi
+r9rows="$(grep -E '^\s*\{ "[^"]+", [A-Z0-9_|]*RTCC_C_R9' "$TABLE" | sed -E 's/^\s*\{ "([^"]+)".*/\1/' | tr '\n' ' ')"
+echo "=== THE GVA BASE IS NEVER A RECORDED WRITE ==="
+if [ -n "$r9rows" ]; then
+    echo "  VIOLATION  the table records r9 for: $r9rows-- every exit of an entry, a C tail included, leaves by RTX_GVA_R9 then ret, because a call_bare site re-establishes nothing after the call (cto 2026-10-07, on the veneer row's r9 rule)"
+    real_rc=1
+else
+    echo "  ok  no row of $TABLE names RTCC_C_R9"
+fi
 if [ "$real_rc" -eq 0 ] && [ "$inj_rc" -eq 0 ]; then
     echo "PASS: all $n_entries RTX entries keep the RTCC four on every path, and the walker catches every planted lie."
     exit 0

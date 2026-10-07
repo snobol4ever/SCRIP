@@ -1,5 +1,5 @@
 #define RTX_CLOB_TAB_N 265
-#define RTX_CLOB_TAB_N_CLOBBERING 19
+#define RTX_CLOB_TAB_N_CLOBBERING 20
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -23,7 +23,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_faildescr", 0 },
     { "rt_gc_fix_slots", 0 },
     { "rt_gc_forward_run", 0 },
-    { "rt_gc_index_run", 0 },
+    { "rt_gc_index_run", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_gc_reset_run", 0 },
     { "rt_gcheap_alloc", 0 },
     { "rt_gen_spine_pass_γ", 0 },

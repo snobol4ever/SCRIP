@@ -42,26 +42,19 @@
  *
  * RTX WORKING SET — free at every entry, zero boundary cost:
  *   rax rcx rdx rsi rdi + xmm0-15
- * THE RTCC FOUR SURVIVE EVERY RTX ENTRY (Lon 2026-09-23, "get rid of veneer for all RT
- * ASM instances"; CEO-1224; ARCH-SNOBOL4-RTX.md section 2). Emitted code calls an RTX
- * entry BARE -- no rtccb write-back before, no reload after -- so the entry itself owes
- * what the veneer used to buy:
- *   r8 r10 r11  returned exactly as received (r10 = statement number and r11 = box id
- *               are the crash telemetry; r8 is whatever the caller left there, the
- *               fifth argument included)
- *   r9          returned as the GVA base, rtccb slot 6 -- the caller may have loaned it
- *               out as a sixth argument (rt_match_replace), and the veneer's reload was
- *               what handed it back
- * A body keeps the promise one of three ways, and the static gate
- * test_gate_rtx_entries_keep_the_rtcc_four.sh proves which by walking every entry:
- *   (1) it never writes them;
- *   (2) it opens with RTX_SAVE and leaves by RTX_RET (RTX_RET_GVA when r9 came in as
- *       an argument), so every write in between is its own business;
- *   (3) it saves them around the one place it needs them (its own push/pop pairs).
- * EVERY EXIT INTO C IS WRAPPED, because gcc-compiled C clobbers all four: a call in an
- * unsaved body is RTX_CCALL(fn); a tail exit lands on a local stub that is RTX_CTAIL(fn)
- * (or RTX_CTAIL_SAVED(fn) inside a saved body, which reloads the fifth and sixth
- * arguments from the save area first); RTX_GATE's gate-off arm lands on such a stub.
+ * THE LEAF CONTRACT (ARCH-RT-CALL-PROTOCOL.md section 15; Lon 2026-09-30, "Ensure the veneer to save and restore
+ * registers has been removed from ALL x86 asm runtime calls since they are not C functions and do not require the
+ * extra."). The emitted machine owns r8 (anchor), r9 (GVA base), r10 (statement number), r11 (box id); a leaf saves
+ * and restores none of them. What an entry can hand back changed among r8, r10 and r11 is DERIVED from the objects
+ * into src/templates/x86/rtx_clobber_table.inc (scripts/util_gen_rtx_clobber_table.py) and the emitted site
+ * re-establishes exactly that set after the call (x86_rtcc_call). r9 comes back as the GVA base: a body that wrote
+ * it, or took it as an argument, leaves by RTX_GVA_R9 then ret, because call_bare sites re-establish nothing.
+ * A body that needs its fifth or sixth argument after reusing r8 or r9 keeps it in a frame it opened with sub rsp
+ * (a store, never a push). test_gate_rtx_entries_keep_the_rtcc_four.sh walks every entry against the table: a
+ * recorded write is the contract, an unrecorded one the violation. The pins rbx, rbp, r12 to r15 are never written
+ * by a leaf the emitter calls; a leaf only C calls keeps the C convention for them.
+ * A C EXIT INSIDE A LEAF (layer 2 of the same row, not yet done) is still wrapped: RTX_CCALL(fn) for a call,
+ * RTX_CTAIL(fn) or RTX_CTAIL_GVA(fn) for a tail stub, and RTX_GATE's gate-off arm lands on such a stub.
  * AN RTX ENTRY IS NEVER REACHED THROUGH A PLT: a lazily bound PLT slot resolves through
  * _dl_runtime_resolve, which jumps to the target through r11 and runs _dl_fixup, so the
  * FIRST call of every symbol would hand the callee a clobbered r10/r11 to "preserve".
@@ -123,16 +116,10 @@
 #define RTX_ENTRY(name)  .globl name; .type name,@function; name: ; endbr64; RTX_NAME(name)
 #define RTX_ENDF(name)   .size name, .-name
 
-#define RTX_SAVE              push r8; push r9; push r10; push r11
-#define RTX_RESTORE           pop r11; pop r10; pop r9; pop r8
-#define RTX_RET               RTX_RESTORE; ret
 #define RTX_GVA_R9            mov r9, qword ptr [rip + rtccb@GOTPCREL]; mov r9, qword ptr [r9 + 48]
-#define RTX_RET_GVA           RTX_RESTORE; RTX_GVA_R9; ret
 #define RTX_CCALL(fn)         push r8; push r9; push r10; push r11; call fn; pop r11; pop r10; pop r9; pop r8
 #define RTX_CTAIL(fn)         push r8; push r9; push r10; push r11; sub rsp, 8; call fn; add rsp, 8; pop r11; pop r10; pop r9; pop r8; ret
 #define RTX_CTAIL_GVA(fn)     push r8; push r9; push r10; push r11; sub rsp, 8; call fn; add rsp, 8; pop r11; pop r10; pop r9; pop r8; RTX_GVA_R9; ret
-#define RTX_CTAIL_SAVED(fn)   mov r8, qword ptr [rsp + 24]; mov r9, qword ptr [rsp + 16]; sub rsp, 8; call fn; add rsp, 8; RTX_RET
-#define RTX_CTAIL_SAVED_GVA(fn) mov r8, qword ptr [rsp + 24]; mov r9, qword ptr [rsp + 16]; sub rsp, 8; call fn; add rsp, 8; RTX_RET_GVA
 #define RTX_CALL(fn)          call qword ptr [rip + fn@GOTPCREL]
 #define RTX_JMP(fn)           jmp qword ptr [rip + fn@GOTPCREL]
 

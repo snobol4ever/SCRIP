@@ -146,7 +146,6 @@ RTX_FUNC(rt_gc_fix_slots)
     ret
 RTX_ENDF(rt_gc_fix_slots)
 RTX_FUNC(rt_gc_index_run)
-    RTX_SAVE
     push    rbx
     push    r12
     push    r13
@@ -202,7 +201,8 @@ RTX_FUNC(rt_gc_index_run)
     pop     r13
     pop     r12
     pop     rbx
-    RTX_RET
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_gc_index_run)
 RTX_FUNC(rt_gc_forward_run)
     push    rbx
