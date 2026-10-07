@@ -142,14 +142,10 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86_rt_gc_poll_rec_res() \
          + x86_jmp_id((join_id)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcfn_tail_try(const char * fn, int strict) { return sn4_byname_kind(fn, strict) == 5 && rt_builtin_tail_may_open(fn); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcfn_tail_try_enter(const char * fn, int nargs, int base, int val_id, int join_id) {
-    uint64_t nb = ((uint64_t)(uint32_t)bid_bake_of(fn) << 32) | (uint64_t)(uint32_t)nargs;
-    return  x86("movabs", "rdx", nb)
-         + bb_glue_try_enter("rt_call_arr_bl_try", (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try, "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ,
-                             "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, base, val_id, join_id);
-}
+#define BCFN_TAIL_TRY(fn, strict) (sn4_byname_kind((fn), (strict)) == 5 && rt_builtin_tail_may_open((fn)))
+#define BCFN_TAIL_TRY_ENTER(fn, nargs, base, val_id, join_id) ( x86("movabs", "rdx", ((uint64_t)(uint32_t)bid_bake_of((fn)) << 32) | (uint64_t)(uint32_t)(nargs)) \
+         + bb_glue_try_enter("rt_call_arr_bl_try", (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try, "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, \
+                             "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, (base), (val_id), (join_id)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcfn_result_slot(IR_t * nd) {
     { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
@@ -308,9 +304,9 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("directive", ".intel_syntax noprefix");
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         s += x86("lea", "rsi", FRQ(argbase));
-        if (bcfn_tail_try(fn, _.op_strict)) {
+        if (BCFN_TAIL_TRY(fn, _.op_strict)) {
             s += x86("lea", "rcx", FRQ(resoff));
-            s += bcfn_tail_try_enter(fn, nargs, 100, 108, 29);
+            s += BCFN_TAIL_TRY_ENTER(fn, nargs, 100, 108, 29);
             s += x86("mov", "rax", FRQ(resoff));
             s += x86("mov", "rdx", FRQ(resoff + 8));
             if (!(_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict))) {
