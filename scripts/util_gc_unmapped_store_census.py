@@ -88,7 +88,7 @@ import util_gc_callee_saved_census as CS
 import util_gc_census as GCC
 
 GCMAP_LAYOUT_RX = re.compile(r"\[GC-MAP-LAYOUT\] graph=(\S+) n=(\d+) (.*?) gaps=(\d+) conflicts=(\d+)")
-LEA_MAP_RX = re.compile(r"\[rip \+ (\.Lgcmap_[A-Za-z0-9_$]+)\]")
+LEA_MAP_RX = re.compile(r"\[rip \+ (\.Lgcmap_[A-Za-z0-9_$.]+)\]")
 MEM_RX = re.compile(r"\[\s*(rsp|rbp)\s*([+-]\s*-?\d+)?\s*\]")
 STATIC_RX = re.compile(r"\[\s*rip\s*\+\s*([A-Za-z_][A-Za-z0-9_.$]*?)\s*(?:\+\s*(\d+))?\s*\]")
 IMM_RX = re.compile(r"^-?\d+$")

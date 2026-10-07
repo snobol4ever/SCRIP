@@ -1829,6 +1829,14 @@ def decode_map_quads(text, label):
     return {"magic": q0 & 0xFFFFFFFF, "frame_bytes": q0 >> 32, "header_bytes": q1 & 0xFFFFFFFF, "flags": q1 >> 32}
 
 
+GCMAP_LBL_RX = re.compile(r"\[GC-MAP\] graph=(\S+) .*? map=(\S+)")
+
+
+def read_gcmap_labels(text):
+    """graph -> the map label the emitter named (a thunk's label is its assembler-local stem, never its graph name)"""
+    return {m.group(1): m.group(2) for m in GCMAP_LBL_RX.finditer(text)}
+
+
 def read_gcmaps(text):
     d = {}
     for m in GCMAP_RX.finditer(text):
@@ -1878,14 +1886,15 @@ def census_maps_table(root, scrip, witnesses, out=print):
         laid = set(re.findall(r"^;\s*graph \d+ '([^']+)'", dz.stdout, re.M))
         m3 = read_gcmaps(r3.stdout + r3.stderr)
         m4 = read_gcmaps(r4.stderr)
+        m4lab = read_gcmap_labels(r4.stderr)
         asm = r4.stdout
-        labels = set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$]+):", asm, re.M)) - set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$]+_s):", asm, re.M))
-        leas = collections.Counter(re.findall(r"lea\s+\S+,\s*\[rip \+ (\.Lgcmap_[A-Za-z0-9_$]+)\]", asm))
-        tbl = re.search(r"^__gc_frame_maps:\s*\.quad\s+(\d+)\s*\n((?:\s*\.quad\s+\.Lgcmap_[A-Za-z0-9_$]+\s*\n)+)", asm, re.M)
+        labels = set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$.]+):", asm, re.M)) - set(re.findall(r"^(\.Lgcmap_[A-Za-z0-9_$.]+_s):", asm, re.M))
+        leas = collections.Counter(re.findall(r"lea\s+\S+,\s*\[rip \+ (\.Lgcmap_[A-Za-z0-9_$.]+)\]", asm))
+        tbl = re.search(r"^__gc_frame_maps:\s*\.quad\s+(\d+)\s*\n((?:\s*\.quad\s+\.Lgcmap_[A-Za-z0-9_$.]+\s*\n)+)", asm, re.M)
         if not (laid and m3 and m4):
             out(f"CENSUS maps/table REFUSED(2): {tag}: a producer printed nothing (dump-zeta graphs={len(laid)} m3 maps={len(m3)} m4 maps={len(m4)}) -- not measured"); return 2
         n_declared = int(tbl.group(1)) if tbl else -1
-        entries = re.findall(r"\.quad\s+(\.Lgcmap_[A-Za-z0-9_$]+)", tbl.group(2)) if tbl else []
+        entries = re.findall(r"\.quad\s+(\.Lgcmap_[A-Za-z0-9_$.]+)", tbl.group(2)) if tbl else []
         # the one NAMED alias: mode 3's emitter calls the entry graph pat_flat where mode 4 and --dump-zeta call it main
         alias = ENTRY_ALIAS[0] in m3 and ENTRY_ALIAS[0] not in laid and ENTRY_ALIAS[1] in laid
         m3n = dict(m3)
@@ -1900,7 +1909,7 @@ def census_maps_table(root, scrip, witnesses, out=print):
             if g in m3n and g in m4 and m3n[g] != m4[g]:
                 bad.append(f"graph '{g}' reads {m3n[g]} in mode 3 and {m4[g]} in mode 4 -- the media disagree")
         for g in sorted(m4):
-            lab = ".Lgcmap_" + g
+            lab = m4lab.get(g, ".Lgcmap_" + g)
             if lab not in labels: bad.append(f"'{g}' reports a map cell but the .s has no {lab}")
             elif leas[lab] != 1:  bad.append(f"{lab} is referenced by {leas[lab]} prologue lea(s), want exactly 1")
             elif lab not in entries: bad.append(f"{lab} is not in the __gc_frame_maps table")
@@ -1910,7 +1919,7 @@ def census_maps_table(root, scrip, witnesses, out=print):
                 elif q["magic"] != MAP_MAGIC: bad.append(f"{lab} magic 0x{q['magic']:08X}, want 0x{MAP_MAGIC:08X} 'ZMAP'")
                 elif q["frame_bytes"] != m4[g]["frame_bytes"] or q["header_bytes"] != m4[g]["header_bytes"] or q["flags"] != m4[g]["flags"]:
                     bad.append(f"{lab}'s static map {q} contradicts its own reported cell {m4[g]} -- the double-entry fails")
-        for lab in sorted(labels - {".Lgcmap_" + g for g in m4}):
+        for lab in sorted(labels - {m4lab.get(g, ".Lgcmap_" + g) for g in m4}):
             bad.append(f"{lab} is emitted but no graph reports a cell for it")
         if n_declared != len(entries): bad.append(f"__gc_frame_maps declares n={n_declared} over {len(entries)} entries")
         total_graphs += len(laid); all_laid |= laid
@@ -2236,6 +2245,8 @@ def selftest():
     ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=0, unpolled=2, unresolved=0)
        and any("UNPOLLED" in l and "rt_epilogue_\u03b3" in l for l in buf),
        "safe-points: a call target spelled with a Greek port letter is a LITERAL, counted and named -- never UNRESOLVED (32 of 39 were this, 2026-09-17)")
+    ck(read_gcmap_labels("[GC-MAP] graph=PAT$0 frame_bytes=88 header_bytes=16 map_off=0 flags=2 map=.Lgcmap_.LTp0\n[GC-MAP] graph=main frame_bytes=64 header_bytes=0 map_off=16 flags=9\n") == {"PAT$0": ".Lgcmap_.LTp0"},
+       "maps/table: a graph's map label is read from the report, so a thunk whose label is its assembler-local stem joins its own graph; a report with no map= field names no label")
     ck(blob_class_visible({"main", "fn", "PAT$0"}) and blob_class_visible({"main", ".LTp0"}) and not blob_class_visible({"main", "fn", "pattern_helper"}),
        "maps/table: the blob-frame class is VISIBLE only when a stored-pattern graph is in the witness set -- otherwise the census refuses rather than printing a zero by never looking (cto, ARCH-GC 6.2b)")
     tpl_rs = os.path.join(w, "resolved.cpp")

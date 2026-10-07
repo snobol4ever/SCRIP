@@ -3563,7 +3563,7 @@ static void emit_gc_map_data(const char * fam) {
     if (gc_maps_report_on() && lay) { fprintf(stderr, "[GC-MAP-LAYOUT] graph=%s n=%d", fam ? fam : "?", lay_n); for (int i = 0; i < lay_n; i++) fprintf(stderr, " %d:%u:%d", GC_LAY_OFF(lay[i]), GC_LAY_KIND(lay[i]), GC_LAY_SIZE(lay[i])); fprintf(stderr, " gaps=%d conflicts=%d\n", g_zls_lay_gaps, g_zls_lay_conf); }
     if (g_gc_map_flags & GC_FRAME_MAP_BLOB) g_blob_lay.len = 0;
     CV_PUSH(g_gc_map_names_v, char *) = ct_strdup(g_gc_map_lbl.name); g_gc_map_names_n++;
-    if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags);
+    if (gc_maps_report_on()) fprintf(stderr, "[GC-MAP] graph=%s frame_bytes=%d header_bytes=%d map_off=%d flags=%u map=%s\n", fam ? fam : "?", g_gc_map_fb, g_gc_map_hdr, g_gc_map_off, g_gc_map_flags, g_gc_map_lbl.name);
     emit_gc_sites_data(fam, 0);
 }
 extern "C" int emit_gc_map_last_off(void) { return g_gc_map_last_off; }
