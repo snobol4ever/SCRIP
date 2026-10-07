@@ -31,7 +31,6 @@ RTX_GATE_DEF(icnsub)
 #define ARBLK_NDIM        8
 #define ARBLK_DATA       32
 RTX_FUNC(rt_subscript_var)
-    RTX_SAVE
     RTX_GATE(icnsub, .Lsv_c)
     cmp     dl, DT_I
     je      .Lsub_tag_ok
@@ -149,7 +148,8 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_table:
     jmp     .Lsub_bail
     cmp     al, DT_T
@@ -220,7 +220,8 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_tbl_miss:
     mov     [rsp + 32], rsi
     mov     [rsp + 48], rdi
@@ -246,7 +247,8 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rcx
     mov     rax, DT_NAMETRAP_LO
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_string:
     mov     r8, rax
     shr     r8, 32
@@ -286,7 +288,8 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_array:
     test    rsi, rsi
     je      .Lsv_c
@@ -329,11 +332,13 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_arr_fail:
     mov     eax, DT_FAIL
     xor     edx, edx
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_table_direct:
     test    rsi, rsi
     je      .Lsv_c
@@ -359,7 +364,8 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 24
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_table_int:
     jmp     .Lsub_bail
     mov     rsi, rdx
@@ -398,7 +404,8 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     mov     eax, DT_FAIL
     xor     edx, edx
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsub_bail:
     mov     rdi, [rsp + 0]
     mov     rsi, [rsp + 8]
@@ -407,6 +414,10 @@ RTX_FUNC(rt_subscript_var)
     add     rsp, 88
     jmp     .Lsv_c
 .Lsv_c:
-    RTX_CTAIL_SAVED(c_rt_subscript_var)
+    sub     rsp, 8
+    call    c_rt_subscript_var
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_subscript_var)
 .section .note.GNU-stack,"",@progbits

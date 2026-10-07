@@ -216,7 +216,6 @@ RTX_FUNC(rt_dcap_end_ok_close)
     ret
 RTX_ENDF(rt_dcap_end_ok_close)
 RTX_FUNC(rt_match_replace)
-    RTX_SAVE
     RTX_GATE(match, .Lmr_c)
 #if RT_DIAG
     cmp     dword ptr [rip + g_repl_trace], 0
@@ -254,32 +253,33 @@ RTX_FUNC(rt_match_replace)
     xor     r10d, r10d
 .Lmr_repl_done:
 .Lmr_call:
-    push    r12
-    push    r13
-    xor     r13d, r13d
+    sub     rsp, 88
+    xor     eax, eax
     test    r9, r9
     jz      .Lmr_replslen_done
-    mov     r13d, dword ptr [r9 + 4]
+    mov     eax, dword ptr [r9 + 4]
 .Lmr_replslen_done:
-    sub     rsp, 88
+    mov     qword ptr [rsp + 80], rax
     mov     qword ptr [rsp + 0], rdi
     mov     qword ptr [rsp + 8], rdx
     mov     qword ptr [rsp + 16], rcx
     mov     qword ptr [rsp + 24], r8
     mov     qword ptr [rsp + 32], r10
-    mov     r12, r11
+    mov     qword ptr [rsp + 72], r11
     mov     rdi, rdx
     call    strlen@PLT
-    test    r12, r12
-    cmovnz  rax, r12
+    mov     rcx, qword ptr [rsp + 72]
+    test    rcx, rcx
+    cmovnz  rax, rcx
     mov     qword ptr [rsp + 40], rax
     xor     eax, eax
     mov     rdi, qword ptr [rsp + 32]
     test    rdi, rdi
     jz      .Lmr_rlen_zero
     call    strlen@PLT
-    test    r13, r13
-    cmovnz  rax, r13
+    mov     rcx, qword ptr [rsp + 80]
+    test    rcx, rcx
+    cmovnz  rax, rcx
 .Lmr_rlen_zero:
     mov     qword ptr [rsp + 48], rax
     mov     rcx, qword ptr [rsp + 16]
@@ -301,7 +301,7 @@ RTX_FUNC(rt_match_replace)
     mov     qword ptr [rsp + 56], rax
     add     rax, rcx
     add     rax, qword ptr [rsp + 48]
-    mov     r12, rax
+    mov     qword ptr [rsp + 72], rax
     mov     rdi, rax
     call    rt_str_alloc
     mov     qword ptr [rsp + 64], rax
@@ -333,23 +333,27 @@ RTX_FUNC(rt_match_replace)
     call    memcpy@PLT
 .Lmr_nul:
     mov     rax, qword ptr [rsp + 64]
-    mov     byte ptr [rax + r12], 0
+    mov     rcx, qword ptr [rsp + 72]
+    mov     byte ptr [rax + rcx], 0
     mov     rdx, rax
     jmp     .Lmr_setnv
 .Lmr_nobuf:
     lea     rdx, [rip + .Lrtx_dfx_nul]
 .Lmr_setnv:
-    mov     rsi, r12
+    mov     rsi, qword ptr [rsp + 72]
     shl     rsi, 32
     or      rsi, DT_S
     mov     rdi, qword ptr [rsp + 0]
     call    NV_SET_fn
     add     rsp, 88
-    pop     r13
-    pop     r12
-    RTX_RET_GVA
+    RTX_GVA_R9
+    ret
 .Lmr_c:
-    RTX_CTAIL_SAVED_GVA(c_rt_match_replace)
+    sub     rsp, 8
+    call    c_rt_match_replace
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_match_replace)
 RTX_FUNC(rt_cap_open)
     test    rdi, rdi
@@ -359,7 +363,6 @@ RTX_FUNC(rt_cap_open)
     cmp     byte ptr [rdi], 42
     je      .Lco_c
 RTX_ENTRY(rt_cap_open_plain)
-    RTX_SAVE
     mov     eax, edx
     sub     eax, esi
     test    eax, eax
@@ -400,31 +403,31 @@ RTX_ENTRY(rt_cap_open_plain)
     jne     .Lcap_fast
 .Lcap_lead_hit:
     RTX_CALL_ALIGN
-    push    r11
-    push    r8
-    push    rcx
-    push    rcx
+    sub     rsp, 32
+    mov     qword ptr [rsp + 24], r11
+    mov     qword ptr [rsp + 16], r8
+    mov     qword ptr [rsp + 8], rcx
     mov     rdi, r11
     call    is_protected_pat_name@PLT
-    pop     rcx
-    pop     rcx
-    pop     r8
-    pop     r11
+    mov     rcx, qword ptr [rsp + 8]
+    mov     r8, qword ptr [rsp + 16]
+    mov     r11, qword ptr [rsp + 24]
+    add     rsp, 32
     RTX_CALL_UNALIGN
     test    eax, eax
     jnz     .Lcap_slow
 .Lcap_fast:
     RTX_CALL_ALIGN
-    push    r11
-    push    r8
-    push    rcx
-    push    rcx
+    sub     rsp, 32
+    mov     qword ptr [rsp + 24], r11
+    mov     qword ptr [rsp + 16], r8
+    mov     qword ptr [rsp + 8], rcx
     mov     rdi, r11
     call    NV_CELL_IF_FASTSET_fn@PLT
-    pop     rcx
-    pop     rcx
-    pop     r8
-    pop     r11
+    mov     rcx, qword ptr [rsp + 8]
+    mov     r8, qword ptr [rsp + 16]
+    mov     r11, qword ptr [rsp + 24]
+    add     rsp, 32
     RTX_CALL_UNALIGN
     test    rax, rax
     jz      .Lcap_slow
@@ -437,15 +440,15 @@ RTX_ENTRY(rt_cap_open_plain)
     mov     qword ptr [r9 + 8], r8
 #if RT_DIAG
     RTX_CALL_ALIGN
-    push    r11
-    push    r8
-    push    rcx
-    push    rcx
+    sub     rsp, 32
+    mov     qword ptr [rsp + 24], r11
+    mov     qword ptr [rsp + 16], r8
+    mov     qword ptr [rsp + 8], rcx
     call    comm_var_active@PLT
-    pop     rcx
-    pop     rcx
-    pop     r8
-    pop     r11
+    mov     rcx, qword ptr [rsp + 8]
+    mov     r8, qword ptr [rsp + 16]
+    mov     r11, qword ptr [rsp + 24]
+    add     rsp, 32
     RTX_CALL_UNALIGN
     test    eax, eax
     jz      .Lcap_fastret
@@ -463,7 +466,8 @@ RTX_ENTRY(rt_cap_open_plain)
 #endif
 .Lcap_fastret:
     xor     eax, eax
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lcap_slow:
     RTX_CALL_ALIGN
     mov     rdi, r11
@@ -474,7 +478,8 @@ RTX_ENTRY(rt_cap_open_plain)
     call    NV_SET_fn@PLT
     RTX_CALL_UNALIGN
     xor     eax, eax
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lco_c:
     RTX_CTAIL(c_rt_cap_open)
 RTX_ENDF(rt_cap_open)
@@ -492,7 +497,6 @@ RTX_FUNC(rt_cap_open_gva)
     cmp     dword ptr [rip + g_comm_dbg], 0
     jne     .Lcg_plain
 #endif
-    RTX_SAVE
     mov     r11, rdi
     mov     eax, edx
     sub     eax, esi
@@ -519,7 +523,8 @@ RTX_FUNC(rt_cap_open_gva)
     mov     qword ptr [r11], rax
     mov     qword ptr [r11 + 8], r8
     xor     eax, eax
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lcg_nul:
     lea     r8, [rip + .Lcap_empty]
     xor     ecx, ecx

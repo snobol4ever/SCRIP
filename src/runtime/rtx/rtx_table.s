@@ -83,7 +83,6 @@ RTX_FUNC(rt_table_assign_fast)
     RTX_CTAIL_GVA(c_rt_table_assign_fast)
 RTX_ENDF(rt_table_assign_fast)
 RTX_FUNC(table_find_pair_d)
-    RTX_SAVE
     RTX_GATE(table, .Ltf_c)
     test    rdi, rdi
     je      .Ltf_null
@@ -336,12 +335,18 @@ RTX_FUNC(table_find_pair_d)
     jmp     .Ltf_hit
 .Ltf_hit:
     mov     rax, r10
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Ltf_null:
     xor     eax, eax
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Ltf_c:
-    RTX_CTAIL_SAVED(c_table_find_pair_d)
+    sub     rsp, 8
+    call    c_table_find_pair_d
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 RTX_ENDF(table_find_pair_d)
 RTX_FUNC(rt_subscript_var_container_only)
     RTX_GATE(table, .Lsvco_c)

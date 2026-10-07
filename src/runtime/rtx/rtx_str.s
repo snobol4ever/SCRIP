@@ -42,7 +42,6 @@ RTX_GATE_DEF(str)
 209:
 .endm
 RTX_FUNC(str_concat_d)
-    RTX_SAVE
     RTX_GATE(str, .Lsc_slow)
     cmp     dil, DT_S
     jne     .Lsc_null
@@ -73,18 +72,18 @@ RTX_FUNC(str_concat_d)
     cmp     rsi, [rax + 0]
     je      .Lsc_slow
 .Lsc_nosxt:
-    push    rsi
-    push    rcx
-    push    r8
-    push    r9
-    sub     rsp, 8
+    sub     rsp, 40
+    mov     qword ptr [rsp + 32], rsi
+    mov     qword ptr [rsp + 24], rcx
+    mov     qword ptr [rsp + 16], r8
+    mov     qword ptr [rsp + 8], r9
     lea     rdi, [r8 + r9]
     call    rt_str_alloc
-    add     rsp, 8
-    pop     r9
-    pop     r8
-    pop     rcx
-    pop     rsi
+    mov     r9, qword ptr [rsp + 8]
+    mov     r8, qword ptr [rsp + 16]
+    mov     rcx, qword ptr [rsp + 24]
+    mov     rsi, qword ptr [rsp + 32]
+    add     rsp, 40
     mov     r10, rax
     mov     rdx, rcx
     mov     rdi, rax
@@ -116,7 +115,8 @@ RTX_FUNC(str_concat_d)
     shl     rax, 32
     or      rax, DT_S
     mov     rdx, r10
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsc_null:
     mov     rax, [rip + g_gc_pending@GOTPCREL]
     cmp     dword ptr [rax], 0
@@ -131,7 +131,8 @@ RTX_FUNC(str_concat_d)
     je      .Lsc_slow
     mov     rax, rdx
     mov     rdx, rcx
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsc_nb:
     test    edx, edx
     jne     .Lsc_slow
@@ -149,9 +150,14 @@ RTX_FUNC(str_concat_d)
     je      .Lsc_slow
     mov     rax, rdi
     mov     rdx, rsi
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lsc_slow:
-    RTX_CTAIL_SAVED(c_str_concat_d)
+    sub     rsp, 8
+    call    c_str_concat_d
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 RTX_ENDF(str_concat_d)
 RTX_FUNC(VARVAL_fn)
     RTX_GATE(str, .Lvv_c)

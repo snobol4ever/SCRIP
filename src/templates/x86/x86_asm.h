@@ -2343,6 +2343,7 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
     if (m == 0) return x86_call_ro(sym, ptr) + x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     std::string cap = x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
+    if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro(sym, ptr) + cap + x86_rtx_reestablish(m);
     if (MEDIUM_BINARY) {
         std::string call_b = x86_rtcc_call_b(ptr, m);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_gc_site(X86_SITE_CALL) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
@@ -2354,6 +2355,7 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
     std::string cap = x86("mov", r0.c_str(), "rax") + x86("mov", r8.c_str(), "rdx");
     unsigned m = x86_rtcc_clob(sym);
     if (m == 0) return x86_call_ro(sym, ptr) + cap;
+    if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro(sym, ptr) + cap + x86_rtx_reestablish(m);
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
         std::string call_b = x86_rtcc_call_b(ptr, m);

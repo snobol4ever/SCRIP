@@ -51,7 +51,6 @@ RTX_FUNC(rt_assign_var)
     mov     rdx, rcx
     ret
 .Lav_table_store:
-    RTX_SAVE
     RTX_CALL_ALIGN
     push    rdx
     push    rcx
@@ -64,7 +63,7 @@ RTX_FUNC(rt_assign_var)
     pop     rcx
     pop     rdx
     RTX_CALL_UNALIGN
-    RTX_RESTORE
+    RTX_GVA_R9
     mov     rax, rdx
     mov     rdx, rcx
     ret
@@ -73,7 +72,6 @@ RTX_FUNC(rt_assign_var)
     je      .Lav_c
     cmp     byte ptr [rsi], 0
     je      .Lav_c
-    RTX_SAVE
     RTX_CALL_ALIGN
     push    rdx
     push    rcx
@@ -84,10 +82,9 @@ RTX_FUNC(rt_assign_var)
     pop     rdx
     pop     rax
     RTX_CALL_UNALIGN
-    RTX_RESTORE
+    RTX_GVA_R9
     ret
 .Lav_sxt:
-    RTX_SAVE
     RTX_CALL_ALIGN
     push    rdi
     push    rsi
@@ -100,7 +97,7 @@ RTX_FUNC(rt_assign_var)
     pop     rsi
     pop     rdi
     RTX_CALL_UNALIGN
-    RTX_RESTORE
+    RTX_GVA_R9
     jmp     .Lav_sxt_done
 .Lav_c:
     RTX_CTAIL(c_rt_assign_var)

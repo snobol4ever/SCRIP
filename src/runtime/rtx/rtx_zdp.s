@@ -20,25 +20,15 @@ RTX_FUNC(rt_zdp_anchor)
     push    rdx
     push    rsi
     push    rdi
-    push    r8
-    push    r9
-    push    r10
-    push    r11
-    push    rbp
-    mov     rbp, rsp
-    and     rsp, -16
+    RTX_CALL_ALIGN
     mov     rcx, rax
     call    rt_zdp_report
-    mov     rsp, rbp
-    pop     rbp
-    pop     r11
-    pop     r10
-    pop     r9
-    pop     r8
+    RTX_CALL_UNALIGN
     pop     rdi
     pop     rsi
     pop     rdx
     pop     rcx
+    RTX_GVA_R9
     jmp     .Lzdp_done
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_zdp_origin)
@@ -49,28 +39,18 @@ RTX_FUNC(rt_zdp_origin)
 RTX_FUNC(rt_zdp_ev)
     push    rax
     pushfq
-    push    r8
-    push    r9
-    push    r10
-    push    r11
     push    rdi
     push    rsi
     push    rdx
     push    rcx
-    push    rbp
-    mov     rbp, rsp
-    and     rsp, -16
+    RTX_CALL_ALIGN
     call    rt_zdp_sm_event
-    mov     rsp, rbp
-    pop     rbp
+    RTX_CALL_UNALIGN
     pop     rcx
     pop     rdx
     pop     rsi
     pop     rdi
-    pop     r11
-    pop     r10
-    pop     r9
-    pop     r8
+    RTX_GVA_R9
     popfq
     pop     rax
     ret
@@ -107,29 +87,15 @@ RTX_FUNC(rt_zdp_probe)
     push    rdx
     push    rsi
     push    rdi
-    push    r8
-    push    r9
-    push    r10
-    push    r11
-    push    rbp
-    mov     rbp, rsp
-    and     rsp, -16
-    push    r8
-    push    rax
+    RTX_CALL_ALIGN
     mov     r9, rax
     call    rt_zdp_probe_report
-    pop     rax
-    pop     r8
-    mov     rsp, rbp
-    pop     rbp
-    pop     r11
-    pop     r10
-    pop     r9
-    pop     r8
+    RTX_CALL_UNALIGN
     pop     rdi
     pop     rsi
     pop     rdx
     pop     rcx
+    RTX_GVA_R9
     jmp     .Lzdpp_done
 #else
 RTX_FUNC(rt_zdp_anchor)

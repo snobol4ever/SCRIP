@@ -20,7 +20,6 @@ RTX_FUNC(rt_call_bid_sn4)
     mov     eax, ecx
     and     eax, 0x3FFF
     shl     rax, 4
-    RTX_SAVE
     lea     r10, [rip + g_bn_direct]
     add     r10, rax
     mov     r11, qword ptr [r10]
@@ -41,7 +40,8 @@ RTX_FUNC(rt_call_bid_sn4)
     mov     rax, qword ptr [rsp]
     mov     rdx, qword ptr [rsp + 8]
     add     rsp, 72
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lcb_nohit:
     add     rsp, 40
     pop     rcx
@@ -49,7 +49,11 @@ RTX_FUNC(rt_call_bid_sn4)
     pop     rsi
     pop     rdi
 .Lcb_miss:
-    RTX_CTAIL_SAVED(c_rt_call_bid_sn4)
+    sub     rsp, 8
+    call    c_rt_call_bid_sn4
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 .Lcb_c:
     RTX_CTAIL(c_rt_call_bid_sn4)
 RTX_ENDF(rt_call_bid_sn4)
@@ -77,7 +81,6 @@ RTX_FUNC(descr_identical)
     je      .Ldi_zero
     cmp     dl, DT_FAIL
     je      .Ldi_zero
-    RTX_SAVE
     xor     r8d, r8d
     cmp     dil, DT_SNUL
     je      .Ldi_an1
@@ -130,7 +133,8 @@ RTX_FUNC(descr_identical)
     xor     eax, eax
     cmp     rsi, rcx
     sete    al
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Ldi_str:
     cmp     dil, DT_S
     jne     .Ldi_cs
@@ -157,12 +161,18 @@ RTX_FUNC(descr_identical)
     jmp     .Ldi_cmp
 .Ldi_one:
     mov     eax, 1
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Ldi_zero_r:
     xor     eax, eax
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Ldi_cs:
-    RTX_CTAIL_SAVED(c_descr_identical)
+    sub     rsp, 8
+    call    c_descr_identical
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 .Ldi_zero:
     xor     eax, eax
     ret

@@ -65,7 +65,6 @@ RTX_GATE_DEF(icnnum)
     neg ACC;                                                                                          \
 .Lok##SFX:
 RTX_FUNC(rt_coerce_num2_d)
-    RTX_SAVE
     RTX_GATE(icnnum, .Lbail)
     test ecx, 0x2000000
     jnz .Lbail
@@ -121,15 +120,21 @@ RTX_FUNC(rt_coerce_num2_d)
     mov dword ptr [rdx], DT_I
     mov dword ptr [rdx + 4], 0
     mov qword ptr [rdx + 8], r8
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lint_to_real:
     cvtsi2sd xmm0, r8
 .Lstore_real:
     mov dword ptr [rdx], DT_R
     mov dword ptr [rdx + 4], 0
     movq qword ptr [rdx + 8], xmm0
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lbail:
-    RTX_CTAIL_SAVED(c_rt_coerce_num2_d)
+    sub     rsp, 8
+    call    c_rt_coerce_num2_d
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_coerce_num2_d)
 .section .note.GNU-stack,"",@progbits

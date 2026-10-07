@@ -36,7 +36,6 @@ RTX_FUNC(rt_list_bang_at)
 RTX_ENDF(rt_list_bang_at)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(dat_field_get)
-    RTX_SAVE
     RTX_GATE(icnagg, .Ldfg_c)
     cmp     sil, DT_DATA
     jl      .Ldfg_c
@@ -82,8 +81,13 @@ RTX_FUNC(dat_field_get)
     add     r8, r10
     mov     rax, [r8]
     mov     rdx, [r8 + 8]
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Ldfg_c:
-    RTX_CTAIL_SAVED(c_dat_field_get)
+    sub     rsp, 8
+    call    c_dat_field_get
+    add     rsp, 8
+    RTX_GVA_R9
+    ret
 RTX_ENDF(dat_field_get)
 .section .note.GNU-stack,"",@progbits
