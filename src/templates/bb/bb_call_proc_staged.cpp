@@ -69,6 +69,11 @@ void rt_trace_call_hook_f(const char *fname, int np, void *base);
 int  zls_g_block_args(const IR_graph_t * g);
 }
 #include "x86_asm.h"
+#define RO_SEAL_STR(n, s) \
+    (x86("def", L(n)) \
+   + x86(".quad", LS(n), (s)) \
+   + x86("label", LS(n)) \
+   + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_wire_stack_on(void) {
     static int _v = -1;
@@ -102,10 +107,10 @@ static int bcps_retfix(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
 {
-    uint64_t nm_fp; if (is_omega) { DESCR_t (*fp)(const char *) = rt_proc_call_epilogue_named_ω; nm_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    else               { DESCR_t (*fp)(const char *) = rt_proc_call_epilogue_named_γ; nm_fp = (uint64_t)(uintptr_t)(void *)fp; }
     if (!bcps_retfix()) return x86("call", is_omega ? "rt_proc_call_epilogue_ω" : "rt_proc_call_epilogue_γ", bare_fp);
-    return x86_ro_load_q("rdi", 0) + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ", nm_fp)
+    return x86("mov", "rdi", ROQ(0))
+         + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ",
+        TEMPLATE_FN_ADDR(is_omega ? rt_proc_call_epilogue_named_ω : rt_proc_call_epilogue_named_γ))
          + x86_rt_gc_poll_res();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -176,7 +181,6 @@ static int bcps_fnsig(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {
     extern int rt_g_ret_by_name;
-    uint64_t fix_fp; { DESCR_t (*fp)(DESCR_t, int) = rt_nret_fix_tiny; fix_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return x86("note", std::string("NRETURN by-name consult (live wn, consumed)"))
          + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
          + x86("mov", "ecx", RDD("rcx", 0))
@@ -185,7 +189,7 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov32", "edx", 0L)
-         + x86_rtcc_call_descr_ops("rt_nret_fix_tiny", fix_fp, r0, r8)
+         + x86_rtcc_call_descr_ops("rt_nret_fix_tiny", TEMPLATE_FN_ADDR(rt_nret_fix_tiny), r0, r8)
          + x86("mov", "rax", r0.c_str())
          + x86("mov", "rdx", r8.c_str())
          + x86("def", L(29));
@@ -302,17 +306,9 @@ static std::string bcps_det_arm() {
         { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp_z[3] = (uint64_t)(uintptr_t)(void*)f3; }
         { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp_z[4] = (uint64_t)(uintptr_t)(void*)f4; }
         static const char * const detN_nm_z[5] = { "rt_proc_call_open_det0","rt_proc_call_open_det1","rt_proc_call_open_det2","rt_proc_call_open_det3","rt_proc_call_open_det4" };
-        uint64_t open_fp_z;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        uint64_t openfn_fp_z; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        uint64_t procfn_fp_z; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        uint64_t epig_fp_z;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        uint64_t epiw_fp_z;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        uint64_t undef_fp_z;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
-        uint64_t det_fp_z; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         int scc_z = 0, scc_np_z = 0, scc_nsave_z = 0, scc_res_gk_z = -1; int scc_gk_z[BB_SCC_NP_MAX + 1];
         scc_z = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np_z, &scc_nsave_z, scc_gk_z, &scc_res_gk_z);
         uint64_t dc_slot_fp_z = dc_slot_z;
-        uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; }
         return x86_alpha()
              + x86_scan_sync_out()
              + x86_anchor_enter()
@@ -402,26 +398,26 @@ static std::string bcps_det_arm() {
                         + x86("mov", "rsi", ZOPQ(i, 0))
                         + x86("note", ZOPN(i))
                         + x86("mov", "rdx", ZOPQ(i, 8))
-                        + x86("call", "rt_arg_stage", stage_fp_z)
+                        + x86("call", "rt_arg_stage", TEMPLATE_FN_ADDR(rt_arg_stage))
                         + x86_rt_gc_poll(); })
                         + x86("mov32", "edi", (long)det_idx_z)
                         + x86("mov32", "esi", (long)_.op_ival)
-                        + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp_z)
-                        : FOR(0, (int)_.op_ival, [&](int i) { uint64_t stage_fp_z; { void (*fp)(int,
-                            DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; } return x86("mov32", "edi", (long)i)
+                        + x86("call", "rt_proc_call_open_det", (uint64_t)TEMPLATE_FN_ADDR(rt_proc_call_open_det))
+                        : FOR(0, (int)_.op_ival, [&](int i) {return x86("mov32", "edi", (long)i)
                         + x86("note", ZOPN(i))
                         + x86("mov", "rsi", ZOPQ(i, 0))
                         + x86("note", ZOPN(i))
                         + x86("mov", "rdx", ZOPQ(i, 8))
-                        + x86("call", "rt_arg_stage", stage_fp_z)
+                        + x86("call", "rt_arg_stage", TEMPLATE_FN_ADDR(rt_arg_stage))
                         + x86_rt_gc_poll(); })
-                        + x86_ro_load_q("rdi", 0)
+                        + x86("mov", "rdi", ROQ(0))
                         + x86("mov32", "esi", (long)_.op_ival)
-                        + x86("call", "rt_proc_call_open", open_fp_z))))
+                        + x86("call", "rt_proc_call_open", TEMPLATE_FN_ADDR(rt_proc_call_open)))))
                    + x86_rt_gc_poll()
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
-                   + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp_z))
+                   + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86("mov", "rdi", ROQ(0))
+                   + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
                    + IF(det_idx_z < 0 && bcps_pl(), bcps_pinned_byname_road(x86("sub", "rsp", (long)(16 * det_nA_z)) + FOR(0, det_nA_z, [&](int i) { return
                    x86("note", ZOPN(i))
                    + x86("mov", "rax", ZOPQ(i, 0)) + x86_rsp_store64(16 * i, "rax")
@@ -446,14 +442,14 @@ static std::string bcps_det_arm() {
                    + bcps_wire_cross(3, 4, _.op_sval)
                    + x86("def", L(3))
                    + bcps_wire_land(_.op_sval)
-                   + (det_idx_z >= 0 ? x86("call", "rt_proc_call_epilogue_γ", epig_fp_z) : bcps_epi_named(0, epig_fp_z))
+                   + (det_idx_z >= 0 ? x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)) : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
                    + x86("jmp", L(2))
                    + x86("def", L(4))
                    + bcps_wire_land(_.op_sval)
-                   + (det_idx_z >= 0 ? x86("call", "rt_proc_call_epilogue_ω", epiw_fp_z) : bcps_epi_named(1, epiw_fp_z))
+                   + (det_idx_z >= 0 ? x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)) : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
                    + x86("jmp", L(2))
                    + x86("def", L(1))
-                   + bcps_undef_fallback(undef_fp_z))
+                   + bcps_undef_fallback(TEMPLATE_FN_ADDR(rt_ab_undef_fn_stub)))
                 : std::string(""))
              + x86("def", L(2))
              + x86_gc_site(X86_SITE_LANDING)
@@ -469,19 +465,10 @@ static std::string bcps_det_arm() {
              + x86_gamma()
              + x86_beta()
              + (bidx_z < 0 ? x86_omega() : x86_pair_jmp(bidx_z))
-             + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+             + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
     }
     int bidx = bcps_beta_pair_idx(); IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t openfn_fp; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t procfn_fp; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t prep_fp;  { void * (*fp)(void *, long) = rt_frame_prep; prep_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t undef_fp;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int is_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
-    uint64_t det_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; det_fp = (uint64_t)(uintptr_t)(void*)fp; }
     long det_idx = (!is_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     uint64_t detN_fp[5]; static const char *detN_nm[5] = { "rt_proc_call_open_det0", "rt_proc_call_open_det1", "rt_proc_call_open_det2", "rt_proc_call_open_det3", "rt_proc_call_open_det4" };
     { void *(*f0)(long) = rt_proc_call_open_det0; detN_fp[0] = (uint64_t)(uintptr_t)(void*)f0; }
@@ -582,7 +569,7 @@ static std::string bcps_det_arm() {
             : std::string(""))
          + (det_fuse || dc ? std::string("") : FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
-        return stage_arg_inline(i, slot, stage_fp);
+        return stage_arg_inline(i, slot, TEMPLATE_FN_ADDR(rt_arg_stage));
     }))
          + (dc ? std::string("")
             : det_fuse
@@ -592,15 +579,16 @@ static std::string bcps_det_arm() {
             : det_idx >= 0
             ? x86("mov32", "edi", (long)det_idx)
             + x86("mov32", "esi", (long)_.op_ival)
-            + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp)
-            : x86_ro_load_q("rdi", 0)
+            + x86("call", "rt_proc_call_open_det", (uint64_t)TEMPLATE_FN_ADDR(rt_proc_call_open_det))
+            : x86("mov", "rdi", ROQ(0))
             + x86("mov32", "esi", (long)_.op_ival)
-            + x86("call", "rt_proc_call_open", open_fp))
+            + x86("call", "rt_proc_call_open", TEMPLATE_FN_ADDR(rt_proc_call_open)))
          + IF(!dc, x86_rt_gc_poll())
          + IF(!dc, x86("test", "rax", "rax")
          + x86("je", L(1)))
          + (dc ? std::string("")
-            : (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
+            : (det_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
+            + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
             + IF(det_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), off, 61, 62, 60))
             + [&]{
                 static int _sp3 = -1;
@@ -623,14 +611,14 @@ static std::string bcps_det_arm() {
             + bcps_wire_cross(3, 4, _.op_sval)
             + x86("def", L(3))
             + bcps_wire_land(_.op_sval)
-            + (det_idx >= 0 ? x86("call", "rt_proc_call_epilogue_γ", epig_fp) : bcps_epi_named(0, epig_fp))
+            + (det_idx >= 0 ? x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)) : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
             + x86("jmp", L(2))
             + x86("def", L(4))
             + bcps_wire_land(_.op_sval)
-            + (det_idx >= 0 ? x86("call", "rt_proc_call_epilogue_ω", epiw_fp) : bcps_epi_named(1, epiw_fp))
+            + (det_idx >= 0 ? x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)) : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
             + x86("jmp", L(2)))
          + IF(!dc, x86("def", L(1))
-         + bcps_undef_fallback(undef_fp))
+         + bcps_undef_fallback(TEMPLATE_FN_ADDR(rt_ab_undef_fn_stub)))
          + x86("def", L(2))
          + x86_gc_site(X86_SITE_LANDING)
          + x86_anchor_leave()
@@ -643,7 +631,7 @@ static std::string bcps_det_arm() {
          + x86_gamma()
          + x86_beta()
          + (bidx < 0 ? x86_omega() : x86_pair_jmp(bidx))
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_jmp_proc_fn(long idx) {
@@ -670,11 +658,11 @@ static std::string bcps_jmp_callee(long idx) {
 static std::string bcps_lvl_add(long d);
 static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int lγ, int lω, int lskip) {
     extern int rt_proc_pinned(const char *);
-    uint64_t pinned_fp; { int (*fp)(const char *) = rt_proc_pinned; pinned_fp = (uint64_t)(uintptr_t)(void*)fp; }
     return x86("note",
         "the by-name road into a callee whose record reads PINNED at run time (a dynamic predicate's enumerator, a runtime-compiled graph): the block protocol, decided by the record, never by a name")
          + x86("mov", FRQ(fncell), "rax")
-         + x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_pinned", pinned_fp)
+         + x86("mov", "rdi", ROQ(0))
+         + x86("call", "rt_proc_pinned", TEMPLATE_FN_ADDR(rt_proc_pinned))
          + x86("test", "eax", "eax")
          + x86("je", L(lskip))
          + blk
@@ -859,7 +847,7 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86_jmp_reg("rcx")
          + x86("def", L(22))
          + x86_omega()
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_icn_lvl(long d) {
@@ -992,7 +980,7 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
                    + x86("mov", "rsp", RDQ("rax", 40))
                    + x86_jmp_mem("rax", 32)
                  : (bcps_beta_pair_idx() < 0 ? x86_omega() : x86_pair_jmp(bcps_beta_pair_idx())))
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_spine_gen_arm() {
@@ -1000,16 +988,6 @@ static std::string bcps_spine_gen_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     int act = zls_act_off(_.node); if (act < 0) act = off + 16 * (1 + (int)_.op_ival);
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    uint64_t stage_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t open_fp;  { long (*fp)(const char *, int) = rt_proc_call_open; open_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t openfn_fp; { void * (*fp)(void) = rt_proc_open_fn; openfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t procfn_fp; { void * (*fp)(const char *) = rt_proc_fn; procfn_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t epig_fp;  { DESCR_t (*fp)(DESCR_t) = rt_proc_call_epilogue_γ; epig_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t epiw_fp;  { DESCR_t (*fp)(void) = rt_proc_call_epilogue_ω; epiw_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t undef_fp;  { void (*fp)(void) = rt_ab_undef_fn_stub; undef_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int   gi_off; {
     static int c = -1;
     if (c < 0) {
@@ -1020,7 +998,6 @@ static std::string bcps_spine_gen_arm() {
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx);
-    uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int n2_fb = -1;
     if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
     if (icn_gen_regime() && n2_fb <= 0) return x86_alpha()
@@ -1034,15 +1011,15 @@ static std::string bcps_spine_gen_arm() {
          + x86("mov", FRQ(act), 0L)
          + FOR(0, (int)_.op_ival, [&](int i) {
         int slot = bcps_arg_slot(_.node, argblks, i);
-        return stage_arg_inline(i, slot, stage_fp);
+        return stage_arg_inline(i, slot, TEMPLATE_FN_ADDR(rt_arg_stage));
     })
          + (gi_idx >= 0
             ? x86("mov32", "edi", (long)gi_idx)
             + x86("mov32", "esi", (long)_.op_ival)
-            + x86("call", "rt_proc_call_open_det", (uint64_t)gidet_fp)
-            : x86_ro_load_q("rdi", 0)
+            + x86("call", "rt_proc_call_open_det", (uint64_t)TEMPLATE_FN_ADDR(rt_proc_call_open_det))
+            : x86("mov", "rdi", ROQ(0))
             + x86("mov32", "esi", (long)_.op_ival)
-            + x86("call", "rt_proc_call_open", open_fp))
+            + x86("call", "rt_proc_call_open", TEMPLATE_FN_ADDR(rt_proc_call_open)))
          + x86_rt_gc_poll()
          + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0)
          + x86("note",
@@ -1081,7 +1058,8 @@ static std::string bcps_spine_gen_arm() {
          x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0L)))
          + x86("test", "rax", "rax")
          + x86("je", L(1))
-         + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
+         + (gi_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
+         + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
          + IF(gi_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), act + 8, 61, 62, 60))
          + IF(icn_gen_regime(),  x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0))
          + bcps_wire_cross_gen(3, 4)
@@ -1093,7 +1071,7 @@ static std::string bcps_spine_gen_arm() {
               + x86("jne", L(21))
               + x86("add", "rsp", 32L)
               + x86("def", L(21))
-              + x86("call", "rt_gen_spine_pass_γ", pasg_fp)
+              + x86("call", "rt_gen_spine_pass_γ", TEMPLATE_FN_ADDR(rt_gen_spine_pass_γ))
               + x86("jmp", L(2))
             : icn_gen_regime()
             ?
@@ -1116,16 +1094,16 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("jne", L(5))
          + x86("mov", FRQ(act), 1L)
-         + x86("call", "rt_proc_call_epilogue_γ", epig_fp)
+         + x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ))
          + x86("jmp", L(2))
          + x86("def", L(5))
-         + x86("call", "rt_gen_spine_pass_γ", pasg_fp)
+         + x86("call", "rt_gen_spine_pass_γ", TEMPLATE_FN_ADDR(rt_gen_spine_pass_γ))
          + x86("jmp", L(2)))
          + x86("def", L(4))
          + (bcps_pl()
             ?  x86("add", "rsp", 32L)
               + x86("mov", FRQ(act), 0L)
-              + x86("call", "rt_gen_spine_pass_ω", pasw_fp)
+              + x86("call", "rt_gen_spine_pass_ω", TEMPLATE_FN_ADDR(rt_gen_spine_pass_ω))
               + x86("jmp", L(2))
             : bcps_wire_land(_.op_sval)
          + x86("add", "rsp", icn_gen_regime() ? 8L : 16L)
@@ -1133,13 +1111,13 @@ static std::string bcps_spine_gen_arm() {
          + x86("test", "rax", "rax")
          + x86("jne", L(6))
          + x86("mov", FRQ(act), 1L)
-         + x86("call", "rt_proc_call_epilogue_ω", epiw_fp)
+         + x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω))
          + x86("jmp", L(2))
          + x86("def", L(6))
-         + x86("call", "rt_gen_spine_pass_ω", pasw_fp)
+         + x86("call", "rt_gen_spine_pass_ω", TEMPLATE_FN_ADDR(rt_gen_spine_pass_ω))
          + x86("jmp", L(2)))
          + x86("def", L(1))
-         + bcps_undef_fallback(undef_fp)
+         + bcps_undef_fallback(TEMPLATE_FN_ADDR(rt_ab_undef_fn_stub))
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
@@ -1151,7 +1129,7 @@ static std::string bcps_spine_gen_arm() {
          + x86_gamma()
          + x86_beta()
          + x86_scan_sync_out()
-         + IF(!bcps_pl(), x86("call", "rt_gen_spine_resume_enter", rsen_fp))
+         + IF(!bcps_pl(), x86("call", "rt_gen_spine_resume_enter", TEMPLATE_FN_ADDR(rt_gen_spine_resume_enter)))
          + ((bcps_pl()
                ?  x86("test", "r15", "r15")
                  + x86("jne", L(22))
@@ -1160,7 +1138,7 @@ static std::string bcps_spine_gen_arm() {
                  + x86("je", L(22))
                  + x86("mov", "rcx", FRQ(act + 8))
                  + x86("mov", x86_fb(), "rax")
-                 + x86("call", "rt_gen_spine_resume_enter", rsen_fp)
+                 + x86("call", "rt_gen_spine_resume_enter", TEMPLATE_FN_ADDR(rt_gen_spine_resume_enter))
                  + x86_jmp_reg("rcx")
                  + x86("def", L(22))
                  + x86_omega()
@@ -1170,7 +1148,7 @@ static std::string bcps_spine_gen_arm() {
                  + x86_jmp_mem("rax", 32)
                : x86("mov", "rsp", FRQ(act + 8))
                  + x86_jmp_mem("rsp", 0)))
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_proc_staged_str(IR_t * pBB) {
@@ -1227,6 +1205,6 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t **
          + x86_gamma()
          + x86_beta()
          + (bidx < 0 ? x86_omega() : x86_pair_jmp(bidx))
-         + x86_ro_seal_str(0, _.op_sval ? _.op_sval : "");
+         + RO_SEAL_STR(0, _.op_sval ? _.op_sval : "");
     return s;
 }

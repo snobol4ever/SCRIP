@@ -121,12 +121,15 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86_rt_gc_poll_rec_sigma_word(1) \
          + x86("test", "rax", "rax") \
          + x86_jcc_id("jz", (decl_id)) \
-         + x86("mov", "rcx", "rdx") + x86("shr", "rcx", 62L) + x86("test", "rcx", "rcx") + x86_jcc_id("jnz", (base) + 37) \
+         + x86("mov", "rcx", "rdx") \
+         + x86("shr", "rcx", 62L) \
+         + x86("test", "rcx", "rcx") + x86_jcc_id("jnz", (base) + 37) \
          + bb_glue_enter_chain_ret((base) + 1) \
          + x86("call", "rt_eval_land", (uint64_t)(uintptr_t)(void *)rt_eval_land) \
          + x86_rt_gc_poll_rec_res() \
          + x86_jmp_id((join_id)) \
-         + x86_deflabel_id((base) + 37) + x86("shl", "rdx", 2L) + x86("shr", "rdx", 2L) \
+         + x86_deflabel_id((base) + 37) + x86("shl", "rdx", 2L) \
+         + x86("shr", "rdx", 2L) \
          + bb_glue_enter_c2bb((base) + 30, (base) + 35, (base) + 36) \
          + x86_deflabel_id((base) + 35) \
          + x86("call", "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ) \
@@ -163,7 +166,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
         if (zdfp) {
             s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf under ZD: ") + zdsym + " (no by-name dispatch)").c_str());
-            s += x86_reg_disp32_lea64("rdi", "rsp", 0);
+            s += x86("lea", "rdi", RDQ("rsp", 0));
             s += x86("mov32", "esi", (long)nargs);
             s += x86("call", zdsym, (uint64_t)(uintptr_t)zdfp);
             s += x86_rt_gc_poll_res();
@@ -173,9 +176,11 @@ std::string bb_call_fn_str(IR_t * pBB) {
             polled_in_arm = 1;
         } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);
-        if (_mopen) { s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
+        if (_mopen) { s += x86("lea", "rdi", RDQ("rsp", 0))
+                         + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
-        if (_aopen) { s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
+        if (_aopen) { s += x86("lea", "rdi", RDQ("rsp", 0))
+                         + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
         if (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
             s += x86("lea", "rdi", RDQ("rsp", 0));
             s += x86("mov32", "esi", (long)nargs);
@@ -185,12 +190,12 @@ std::string bb_call_fn_str(IR_t * pBB) {
         int _bk = bb_callee_baked_kind(fn, _.op_strict);
         if (_bk && !_mopen && !_aopen && !BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
             s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
-            if (nargs > 0) s += x86_reg_disp32_lea64("rdi", "rsp", 0);
+            if (nargs > 0) s += x86("lea", "rdi", RDQ("rsp", 0));
             else           s += x86("xor", "edi", "edi");
             s += x86("mov32", "esi", (long)nargs);
             s += bb_callee_rdx(fn);
             if (_bk == 2) {
-                s += x86_reg_disp32_lea64("rcx", "rsp", nargs * 16);
+                s += x86("lea", "rcx", RDQ("rsp", nargs * 16));
                 s += bb_glue_callee_try_enter(100, 108, 29);
                 s += x86_rsp_load64("rax", nargs * 16) + x86_rsp_load64("rdx", nargs * 16 + 8);
                 s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
@@ -207,7 +212,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("directive", ".intel_syntax noprefix");
             s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         }
-        if (nargs > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
+        if (nargs > 0) s += x86("lea", "rsi", RDQ("rsp", 0));
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
@@ -273,7 +278,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
             if (_bk == 2) {
                 s += x86("lea", "rcx", FRQ(resoff));
                 s += bb_glue_callee_try_enter(100, 108, 29);
-                s += x86("mov", "rax", FRQ(resoff)) + x86("mov", "rdx", FRQ(resoff + 8));
+                s += x86("mov", "rax", FRQ(resoff))
+                   + x86("mov", "rdx", FRQ(resoff + 8));
                 s += x86_deflabel_id(29);
             } else {
             s += x86("rtcc_wb");

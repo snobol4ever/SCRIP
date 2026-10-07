@@ -468,7 +468,8 @@ std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resof
 std::string pl_leaf_zd_cold(const char * fn, int narg) {
     const char * op = 0; int k = pl_leaf_kind(fn, narg, &op);
     std::string s = x86("comment", (std::string("PL-R7 ") + fn + " under ZD: the cold value service alone (no Prolog graph takes this route today)").c_str());
-    s += x86_reg_disp32_lea64("rdi", "rsp", 0) + x86("mov32", "esi", (long)narg);
+    s += x86("lea", "rdi", RDQ("rsp", 0))
+       + x86("mov32", "esi", (long)narg);
     switch (k) {
         case PLK_MKC:
             return x86_bomb("PL-MKC under ZD: a Prolog body term is a flat-frame box; no ZD arm exists");
@@ -496,7 +497,9 @@ std::string pl_leaf_zd_cold(const char * fn, int narg) {
             s += x86("cmp", "al", (long)DT_FAIL)
                + x86("je", L(150));
             s += x86("mov", RDQ("rsp", 16), "rax")
-               + x86("mov", RDQ("rsp", 24), "rdx") + x86_reg_disp32_lea64("rdi", "rsp", 0) + x86_reg_disp32_lea64("rsi", "rsp", 16);
+               + x86("mov", RDQ("rsp", 24), "rdx")
+               + x86("lea", "rdi", RDQ("rsp", 0))
+               + x86("lea", "rsi", RDQ("rsp", 16));
             s += x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify);
             s += x86("test", "eax", "eax")
                + x86("jz", L(151))

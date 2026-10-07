@@ -628,6 +628,7 @@ extern IR_graph_t * g_emit_cfg;
 extern const char *Σ;
 extern int         Σlen;
 extern int         Δ;
+#define TEMPLATE_FN_ADDR(sym) ((uint64_t)(uintptr_t)(void *)(sym))
 #define TEMPLATE_ADDR_SIGMA   ((uint64_t)(uintptr_t)&Σ)
 #define TEMPLATE_ADDR_SIGLEN  ((uint64_t)(uintptr_t)&Σlen)
 #define MATCH_CTX_CELL_BYTES  32

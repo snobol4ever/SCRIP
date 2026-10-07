@@ -74,9 +74,6 @@ static std::string xa_flat_dc_stub_str(void) {
     int suffix = (g_emit.flat_seed_off >= 16) ? g_emit.flat_seed_off : 16;
     extern int g_flat_dc_np;
     int np = g_flat_dc_np;
-    uint64_t prep_fp;  { void (*fp)(void *, long, long, long, long, long) = rt_pl_dc_prep; prep_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    uint64_t lvg_fp;   { DESCR_t (*fp)(DESCR_t, long, void *) = rt_pl_dc_leave_γ; lvg_fp = (uint64_t)(uintptr_t)(void *)fp; }
-    uint64_t lvw_fp;   { DESCR_t (*fp)(long, void *) = rt_pl_dc_leave_ω; lvw_fp = (uint64_t)(uintptr_t)(void *)fp; }
     static const char * const argreg[4] = { "rsi", "rdx", "rcx", "r8" };
     if (!x86_fb_pinned() && g_emit_cfg && zls_g_block_args(g_emit_cfg)) {
         int nb = g_emit_cfg->nparams;
@@ -111,7 +108,6 @@ static std::string xa_flat_dc_stub_str(void) {
     }
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) {
         static const char * const dcarg4[4] = { "rsi", "rdx", "rcx", "r8" };
-        uint64_t stg_fp; { void (*fp)(int, DESCR_t) = rt_arg_stage; stg_fp = (uint64_t)(uintptr_t)(void *)fp; }
         bool need_align_pad = (np > 0) && (np % 2 == 1);
         std::string zs = x86("comment", "ICN-FR-3 zframe dc stub: stage args, jmp proc_f_α≡0 with wire shims")
             + x86("pop", "rax")
@@ -125,7 +121,7 @@ static std::string xa_flat_dc_stub_str(void) {
                 + x86("mov32", "edi", (long)i)
                 + x86("mov", "rsi", "[rax + 0]")
                 + x86("mov", "rdx", "[rax + 8]")
-                + x86("call", "rt_arg_stage", stg_fp)
+                + x86("call", "rt_arg_stage", TEMPLATE_FN_ADDR(rt_arg_stage))
            + x86_rt_gc_poll();
         }
         if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
@@ -174,7 +170,7 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86("mov32", "ecx", (long)np)
          + x86("mov32", "r8d", (long)np)
          + x86("mov32", "r9d", 0L)
-         + x86("call", "rt_pl_dc_prep", prep_fp)
+         + x86("call", "rt_pl_dc_prep", TEMPLATE_FN_ADDR(rt_pl_dc_prep))
          + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?")
          + x86_deflabel_id(2)
          + x86_rsp_load64("rdx", 0)
@@ -184,7 +180,7 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86_rsp_load64("rsp", -8)
          + x86("add", "rsp", 16L)
          + x86("push", "r11")
-         + x86_jmpfn("rt_pl_dc_leave_γ", lvg_fp)
+         + x86_jmpfn("rt_pl_dc_leave_γ", TEMPLATE_FN_ADDR(rt_pl_dc_leave_γ))
          + x86_deflabel_id(3)
          + x86_rsp_load64("rdi", 0)
          + x86("mov", "rsi", "rsp")
@@ -193,7 +189,7 @@ static std::string xa_flat_dc_stub_str(void) {
          + x86_rsp_load64("rsp", -8)
          + x86("add", "rsp", 16L)
          + x86("push", "r11")
-         + x86_jmpfn("rt_pl_dc_leave_ω", lvw_fp);
+         + x86_jmpfn("rt_pl_dc_leave_ω", TEMPLATE_FN_ADDR(rt_pl_dc_leave_ω));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_block_staged_entry_str(void) {
@@ -278,7 +274,7 @@ static std::string zf_pin_restore(int kt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_det_block(const IR_graph_t * g);
-static long zf_det_block_bytes(void) { return (g_emit_cfg && zls_g_det_block(g_emit_cfg)) ? 16L * g_emit_cfg->nparams : 0L; }
+static long zf_det_block_size(void) { return (g_emit_cfg && zls_g_det_block(g_emit_cfg)) ? 16L * g_emit_cfg->nparams : 0L; }
 static std::string zf_release(int kt) {
     if (!x86_fb_pinned()) {
     int np = (g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0;
@@ -725,7 +721,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
         return  x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + zf_display_restore(kt)
-             + x86("add", "rsp", (long)kt + zf_det_block_bytes())
+             + x86("add", "rsp", (long)kt + zf_det_block_size())
              + x86("pop", "rcx")
              + x86("add", "rsp", 8L)
              + x86("jmp", "rcx");
@@ -829,7 +825,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     if (zf_pas_nest_graph())
         return x86("comment", "PAS-NEST epilogue-ω: consume the caller-pushed wire pair (discard γ-landing, jmp ω-landing) — twin of PAS-NEST epilogue-γ")
              + zf_display_restore(kt)
-             + x86("add", "rsp", (long)kt + zf_det_block_bytes())
+             + x86("add", "rsp", (long)kt + zf_det_block_size())
              + x86("add", "rsp", 8L)
              + x86("pop", "rcx")
              + x86("jmp", "rcx");

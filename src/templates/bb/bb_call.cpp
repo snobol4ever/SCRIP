@@ -161,6 +161,14 @@ int  rt_is_truthy(DESCR_t v);
 int  rk_is_truthy(DESCR_t v);
 }
 #include "x86_asm.h"
+#define RO_SEAL_ADDR(n, sym, addr) \
+    (x86("def", L(n)) \
+   + x86(".quad", (sym), (uint64_t)(uintptr_t)(addr)))
+#define RO_SEAL_STR(n, s) \
+    (x86("def", L(n)) \
+   + x86(".quad", LS(n), (s)) \
+   + x86("label", LS(n)) \
+   + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int zoff(const IR_t * nd) { return nd ? zls_off(nd) : -1; }
 static int bcbn_baked_kind(const char * fn, int strict) { return (fn && fn[0] && !x86_is_scan_builtin_name(fn) && strcmp(fn, "tab") && strcmp(fn, "move")) ? bb_callee_baked_kind(fn, strict) : 0; }
@@ -217,7 +225,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("mov", "rax", ROQ(nseal));
         s += x86("mov", FRQ(aoff + 8), "rax");
         s += x86_jmp_id(nskip);
-        s += x86_ro_seal_addr(nseal, lbl.c_str(), bb_dstar_rec_addr(star.c_str()));
+        s += RO_SEAL_ADDR(nseal, lbl.c_str(), bb_dstar_rec_addr(star.c_str()));
         s += x86_deflabel_id(nskip);
         return s;
     }
@@ -230,7 +238,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("mov", "rax", ROQ(nseal));
         s += x86("mov", FRQ(aoff + 8), "rax");
         s += x86_jmp_id(nskip);
-        s += x86_ro_seal_addr(nseal, lbl.c_str(), bb_thunk_rec_addr(IR_LIT(lf).sval));
+        s += RO_SEAL_ADDR(nseal, lbl.c_str(), bb_thunk_rec_addr(IR_LIT(lf).sval));
         s += x86_deflabel_id(nskip);
         return s;
     }
@@ -243,7 +251,7 @@ std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner,
         s += x86("mov", "rax", ROQ(nseal));
         s += x86("mov", FRQ(aoff + 8), "rax");
         s += x86_jmp_id(nskip);
-        s += x86_ro_seal_str(nseal, IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
+        s += RO_SEAL_STR(nseal, IR_LIT(lf).sval ? IR_LIT(lf).sval : "");
         s += x86_deflabel_id(nskip);
         return s;
     }
@@ -447,8 +455,6 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     int64_t      narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     if (_.op_zres) {
-        uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int,
-            int) = (_.op_strict == 2) ? rt_call_arr_bl_sn4 : _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
         std::string s = x86_alpha()
                       + x86("comment", std::string("BOX CALL ZD-7 byname ") + fn + "(...) -> rt_call_arr [ZD: args from ZOPQ, result to ZRES]");
         if (narg > 0) {
@@ -462,12 +468,12 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         }
         if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
             s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
-            if (narg > 0) s += x86_reg_disp32_lea64("rdi", "rsp", 0);
+            if (narg > 0) s += x86("lea", "rdi", RDQ("rsp", 0));
             else          s += x86("xor", "edi", "edi");
             s += x86("mov32", "esi", (long)narg);
             s += bb_callee_rdx(fn);
             if (_bk == 2) {
-                s += x86_reg_disp32_lea64("rcx", "rsp", (int)narg * 16);
+                s += x86("lea", "rcx", RDQ("rsp", (int)narg * 16));
                 s += bb_glue_callee_try_enter(100, 108, 29);
                 s += x86_rsp_load64("rax", (int)narg * 16) + x86_rsp_load64("rdx", (int)narg * 16 + 8);
                 s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
@@ -486,7 +492,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             s += x86("directive", ".intel_syntax noprefix"); }
             s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         }
-        if (narg > 0) s += x86_reg_disp32_lea64("rsi", "rsp", 0);
+        if (narg > 0) s += x86("lea", "rsi", RDQ("rsp", 0));
         else          s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)narg);
         s += x86("mov32", "ecx", bid_bake_of(fn));
@@ -509,8 +515,6 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
     std::string fl = std::string(".L") + x86_boxkind() + "_bynamefn" + std::to_string((long long)_.nid);
-    uint64_t fptr_bl; { DESCR_t (*fp)(const char *, DESCR_t *, int,
-        int) = (_.op_strict == 2) ? rt_call_arr_bl_sn4 : _.op_strict ? rt_call_arr_bl_strict : rt_call_arr_bl; fptr_bl = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL ") + fn + "(...) -> rt_call_arr by-name [four-port, FAIL->ω.node]");
     for (int i = (int)narg - 1; i >= 0; i--)
@@ -529,7 +533,8 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     if (_bk == 2) {
     s += x86("lea", "rcx", FRQ(resoff));
     s += bb_glue_callee_try_enter(100, 108, 29);
-    s += x86("mov", "rax", FRQ(resoff)) + x86("mov", "rdx", FRQ(resoff + 8));
+    s += x86("mov", "rax", FRQ(resoff))
+       + x86("mov", "rdx", FRQ(resoff + 8));
     s += x86_deflabel_id(29);
     } else {
     s += x86("rtcc_wb");
@@ -578,7 +583,6 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
     int genoff  = resoff + 16 * (1 + (int)narg);
     std::string fl = std::string(".L") + x86_boxkind() + "_bynamegenfn" + std::to_string((long long)_.nid);
-    uint64_t fptr; { DESCR_t (*fp)(const char *, DESCR_t *, int, int64_t *) = _.op_strict ? rt_call_arr_gen_strict : rt_call_arr_gen; fptr = (uint64_t)(uintptr_t)(void*)fp; }
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL_GEN ") + fn + "(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]");
     for (int i = (int)narg - 1; i >= 0; i--)
@@ -598,7 +602,7 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
     s += x86("mov32", "edx", (long)narg);
     s += x86("lea", "rcx", FRQ(genoff));
     s += x86("rtcc_wb");
-    s += x86("call_bare", (_.op_strict ? "rt_call_arr_gen_strict" : "rt_call_arr_gen"), fptr);
+    s += x86("call_bare", (_.op_strict ? "rt_call_arr_gen_strict" : "rt_call_arr_gen"), TEMPLATE_FN_ADDR((_.op_strict ? rt_call_arr_gen_strict : rt_call_arr_gen)));
     s += x86_rt_gc_poll_res();
     s += x86("rtcc_rl");
     s += x86("mov", FRQ(resoff), "rax");

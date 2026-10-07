@@ -1638,6 +1638,7 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_ILBL) return x86_quad_ilbl(a.lbl);
         if (xa.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xa.u)) : (std::string(" .quad ") + std::to_string((unsigned long long)xa.u) + "\n");
         if (xa.tag == 1 && xb.tag == 1) return MEDIUM_BINARY ? x86_Lrec(u64le((uint64_t)(uintptr_t)(xb.s ? xb.s : ""))) : (std::string(" .quad ") + (xa.s ? xa.s : "") + "\n");
+        if (xa.tag == 1 && xb.tag == 2) return MEDIUM_BINARY ? x86_Lrec(u64le(xb.u)) : (std::string(" .quad ") + (xa.s ? xa.s : "0") + "\n");
         return std::string();
     }
     if (X86_MEQ(mnem, ".string")) {
