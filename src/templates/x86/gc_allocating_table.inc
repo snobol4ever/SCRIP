@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2085
+#define GC_ALLOC_TAB_N 2090
 #define GC_ALLOC_TAB_N_VOID 243
 #define GC_ALLOC_TAB_N_DESCR 1104
-#define GC_ALLOC_TAB_N_OTHER 732
+#define GC_ALLOC_TAB_N_OTHER 737
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -640,11 +640,13 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_alt_impl", GC_RET_OTHER },
     { "lower_alt_lv", GC_RET_OTHER },
     { "lower_arith_val", GC_RET_OTHER },
+    { "lower_arm", GC_RET_OTHER },
     { "lower_assign", GC_RET_OTHER },
     { "lower_binop", GC_RET_OTHER },
     { "lower_block", GC_RET_OTHER },
     { "lower_call", GC_RET_OTHER },
     { "lower_case", GC_RET_OTHER },
+    { "lower_case_impl", GC_RET_OTHER },
     { "lower_every", GC_RET_OTHER },
     { "lower_for", GC_RET_OTHER },
     { "lower_icon_body", GC_RET_OTHER },
@@ -652,7 +654,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_icon_stage2", GC_RET_OTHER },
     { "lower_idx_var", GC_RET_OTHER },
     { "lower_if", GC_RET_OTHER },
+    { "lower_if_impl", GC_RET_OTHER },
     { "lower_key", GC_RET_OTHER },
+    { "lower_limit_impl", GC_RET_OTHER },
     { "lower_lvalue_var", GC_RET_OTHER },
     { "lower_make_list", GC_RET_OTHER },
     { "lower_not", GC_RET_OTHER },
@@ -668,6 +672,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_runerr_111", GC_RET_OTHER },
     { "lower_scan_impl", GC_RET_OTHER },
     { "lower_seq", GC_RET_OTHER },
+    { "lower_seq_impl", GC_RET_OTHER },
     { "lower_seq_variable_step", GC_RET_OTHER },
     { "lower_snobol4", GC_RET_OTHER },
     { "lower_to", GC_RET_OTHER },
