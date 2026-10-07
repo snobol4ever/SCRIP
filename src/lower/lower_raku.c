@@ -2457,7 +2457,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
             if (e) e = trace_stmt_wrap(&tcx, trace_stmt_line(s), e, sentry);
             if (e) { entry = e; sentry = e; }
         }
-        { tree_t * ta = ast_node_new(TT_ASSIGN); ast_push(ta, leaf_sval2(TT_VAR, "_")); ast_push(ta, ast_node_new(TT_NUL)); IR_t * tr = NULL; IR_t * te = lower_rv(&tcx, ta, sentry, sentry, &tr); if (te) { entry = te; sentry = te; } }
+        { tree_t * ta = ast_node_new(TT_ASSIGN); ta->v.ival = 1; ast_push(ta, leaf_sval2(TT_VAR, "_")); ast_push(ta, ast_node_new(TT_NUL)); IR_t * tr = NULL; IR_t * te = lower_rv(&tcx, ta, sentry, sentry, &tr); if (te) { entry = te; sentry = te; } }
         tg->entry = trace_call_wrap(&tcx, "main", entry, fail);
         int bb_idx = bb_program_add(&g_stage2.bbp, tg);
         if (bb_idx >= 0) {
