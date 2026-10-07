@@ -57,6 +57,15 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     return BSTRVAL(buf, (long)(al + bl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int so_sno_cat_bad(DESCR_t v) { return v.v == DT_A || v.v == DT_T || IS_DATA_INST_fn(v); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t sno_concat_d(DESCR_t a, DESCR_t b) {
+    if (!IS_FAIL_fn(a) && !IS_FAIL_fn(b) && !IS_NULL_fn(a) && !IS_NULL_fn(b)) {
+        if (so_sno_cat_bad(a)) { core_runtime_error(8, "concatenation left operand is not a string or pattern"); return FAILDESCR; }
+        if (so_sno_cat_bad(b)) { core_runtime_error(9, "concatenation right operand is not a string or pattern"); return FAILDESCR; } }
+    return str_concat_d(a, b);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int core_icn_str_ok(DESCR_t d) { return d.v == DT_S || d.v == DT_I || d.v == DT_BOOL || d.v == DT_R || d.v == DT_BIG || IS_CSET_fn(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b) {

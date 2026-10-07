@@ -7,7 +7,7 @@ extern "C" {
 #include "ast.h"
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
-DESCR_t str_concat_d(DESCR_t a, DESCR_t b);
+DESCR_t str_concat_d(DESCR_t a, DESCR_t b); DESCR_t sno_concat_d(DESCR_t a, DESCR_t b);
 DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b);
 DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b);
 }
@@ -16,8 +16,8 @@ DESCR_t rt_icn_lconcat_d(DESCR_t a, DESCR_t b);
 #include <cstdio>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int bcs_ok() { return _.op_off >= 0 && binop_is_concat((long)_.op_ival) && _.op_sa >= 0 && _.op_sb >= 0; }
-static inline const char *bcs_rt_name() { return _.op_ival == BINOP_LCONCAT ? "rt_icn_lconcat_d" : _.op_ival == BINOP_CONCAT_FRACDIGIT ? "str_concat_fracdigit_d" : "str_concat_d"; }
-static inline void *bcs_rt_addr() { return _.op_ival == BINOP_LCONCAT ? (void*)rt_icn_lconcat_d : _.op_ival == BINOP_CONCAT_FRACDIGIT ? (void*)str_concat_fracdigit_d : (void*)str_concat_d; }
+static inline const char *bcs_rt_name() { return _.op_ival == BINOP_LCONCAT ? "rt_icn_lconcat_d" : _.op_ival == BINOP_CONCAT_FRACDIGIT ? "str_concat_fracdigit_d" : _.op_ival == BINOP_CONCAT_SNO ? "sno_concat_d" : "str_concat_d"; }
+static inline void *bcs_rt_addr() { return _.op_ival == BINOP_LCONCAT ? (void*)rt_icn_lconcat_d : _.op_ival == BINOP_CONCAT_FRACDIGIT ? (void*)str_concat_fracdigit_d : _.op_ival == BINOP_CONCAT_SNO ? (void*)sno_concat_d : (void*)str_concat_d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int bcs_null_side() {
     return (getenv("SCRIP_OPT_NULLCAT") && getenv("SCRIP_OPT_NULLCAT")[0] == '0') ? -1
@@ -65,7 +65,7 @@ std::string bb_binop_concat_slot() {
              + x86("note", ZRESN())
              + x86("mov",  ZRES(8), "rdx")
              + x86_rt_gc_poll()
-             + IF(_.op_ival == BINOP_LCONCAT, x86("note", ZRESN())
+             + IF(_.op_ival == BINOP_LCONCAT || _.op_ival == BINOP_CONCAT_SNO, x86("note", ZRESN())
              + x86("mov", "eax", ZRESD(0))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je"))
@@ -80,7 +80,7 @@ std::string bb_binop_concat_slot() {
              + x86("mov", "rcx", FRQ(_.op_sb + 8))
              + x86("call_rt", bcs_rt_name(), (long)_.op_off, (uint64_t)(uintptr_t)bcs_rt_addr())
              + x86_rt_gc_poll()
-             + IF(_.op_ival == BINOP_LCONCAT, x86("mov", "eax", FR(_.op_off))
+             + IF(_.op_ival == BINOP_LCONCAT || _.op_ival == BINOP_CONCAT_SNO, x86("mov", "eax", FR(_.op_off))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je"))
              + x86_gamma()

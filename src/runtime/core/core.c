@@ -461,7 +461,7 @@ const char *core_icn_binop_sym(int bcode) {
         case BINOP_DIV: return "/"; case BINOP_MOD: return "%"; case BINOP_POW: case BINOP_POW_PROMOTE: return "^";
         case BINOP_LT: return "<"; case BINOP_LE: return "<="; case BINOP_GT: return ">"; case BINOP_GE: return ">="; case BINOP_EQ: return "="; case BINOP_NE: return "~=";
         case BINOP_SLT: return "<<"; case BINOP_SLE: return "<<="; case BINOP_SGT: return ">>"; case BINOP_SGE: return ">>="; case BINOP_SEQ: return "=="; case BINOP_SNE: return "~==";
-        case BINOP_CONCAT: case BINOP_CONCAT_FRACDIGIT: return "||"; case BINOP_CUNION: return "++"; case BINOP_CDIFF: return "--"; case BINOP_CINTER: return "**";
+        case BINOP_CONCAT: case BINOP_CONCAT_FRACDIGIT: case BINOP_CONCAT_SNO: return "||"; case BINOP_CUNION: return "++"; case BINOP_CDIFF: return "--"; case BINOP_CINTER: return "**";
         case BINOP_EQV: return "==="; case BINOP_NEQV: return "~===";
     }
     return "?";
