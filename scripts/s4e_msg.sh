@@ -1025,13 +1025,15 @@ s4e_lane_owner_of_language() {
       # MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
       # ⛔ MODE TENET (CEO-1435) was a misreading, reverted to SEXTET the same sitting (CEO-1436, Lon: "Only HQ-ICON and HQ-SNOBOL4 and 4 officers are running.").
       # ⛔⭐ MODE SEXTET (CEO-1433, 2026-10-02 19:2x, Lon in-chat to the ceo: "I'll fire up HQ-ICON and HQ-SNOBOL4 to help."): ICON to hq_icon, SNOBOL4 to hq_snobol4, the other five to the ceo; rows with an owner cell keep their owner.
-       icon)     printf 'ceo';;
-       prolog)   printf 'ceo';;
-       snobol4)  printf 'ceo';;
-       pascal)   printf 'ceo';;
-       snocone)  printf 'ceo';;
+      # ⛔⭐ MODE TENET (CEO-1530, 2026-10-07 08:5x CDT, Lon in-chat to the ceo, verbatim: "Go to TENET mode with 4 officers and 7 HQ's."): the CEO-1383 TENET
+      # table again -- every language to its own HQ, hq_templates owning none, rebus the ceo's keep-green. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
+       icon)     printf 'hq_icon';;
+       prolog)   printf 'hq_prolog';;
+       snobol4)  printf 'hq_snobol4';;
+       pascal)   printf 'hq_pascal';;
+       snocone)  printf 'hq_snocone';;
        rebus)    printf 'ceo';;
-       raku)     printf 'ceo';;
+       raku)     printf 'hq_raku';;
     esac
 }
 # One line of prose for the `mint` refusal, DERIVED so it cannot drift from the arms above.
