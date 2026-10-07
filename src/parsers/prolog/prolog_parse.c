@@ -253,21 +253,6 @@ static tree_t *mk_call(int fid, tree_t **args, int arity) {
         ast_push(e, args[1]);
         return e;
     }
-    if (arity == 2) {
-        static const struct { const char *name; tree_e kind; } arith[] = {
-            { "+", TT_ADD }, { "-", TT_SUB }, { "*", TT_MUL },
-            { "/", TT_DIV }, { "//", TT_DIV }, { NULL, 0 }
-        };
-        const char *fn0 = prolog_atom_name(fid);
-        for (int i = 0; fn0 && arith[i].name; i++) {
-            if (strcmp(fn0, arith[i].name) == 0) {
-                tree_t *e = ast_node_new(arith[i].kind);
-                ast_push(e, args[0]);
-                ast_push(e, args[1]);
-                return e;
-            }
-        }
-    }
     tree_t *e = ast_node_new(TT_FNC);
     const char *fn = prolog_atom_name(fid);
     e->v.sval = ct_strdup(fn ? fn : "");
@@ -1271,6 +1256,36 @@ static const char *PL_PRELUDE_SRC =
     "'$predmerge_d'(<,P,H1,H2,T1,T2,[H1|R]):-'$predmerge_'(P,T1,[H2|T2],R).\n"
     "'$predmerge_d'(=,P,H1,_,T1,T2,[H1|R]):-'$predmerge_'(P,T1,T2,R).\n"
     "'$predmerge_d'(>,P,H1,H2,T1,T2,[H2|R]):-'$predmerge_'(P,[H1|T1],T2,R).\n"
+    "read_line_to_string(S,L):-get_code(S,C),'$rl_first'(C,S,L).\n"
+    "'$rl_first'(-1,_,end_of_file):-!.\n"
+    "'$rl_first'(C,S,L):-'$rl_codes'(C,S,Cs),string_codes(L,Cs).\n"
+    "'$rl_codes'(-1,_,[]):-!.\n"
+    "'$rl_codes'(10,_,[]):-!.\n"
+    "'$rl_codes'(13,S,[]):-peek_code(S,10),!,get_code(S,_).\n"
+    "'$rl_codes'(C,S,[C|Cs]):-get_code(S,C1),'$rl_codes'(C1,S,Cs).\n"
+    "'$phrase'(G,_,_):-var(G),!,throw(error(instantiation_error,_)).\n"
+    "'$phrase'(G,S0,S):-'$dcg_body'(G,S0,S,Goal),call(Goal).\n"
+    "'$dcg_body'(V,S0,S,phrase(V,S0,S)):-var(V),!.\n"
+    "'$dcg_body'([],S0,S,S0=S):-!.\n"
+    "'$dcg_body'([H|T],S0,S,S0=L):-!,'$dcg_list'([H|T],S,L).\n"
+    "'$dcg_body'((A,B),S0,S,(GA,GB)):-!,'$dcg_body'(A,S0,S1,GA),'$dcg_body'(B,S1,S,GB).\n"
+    "'$dcg_body'((C->T;E),S0,S,(GC->GT;GE)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT),'$dcg_body'(E,S0,S,GE).\n"
+    "'$dcg_body'((C*->T;E),S0,S,(GC*->GT;GE)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT),'$dcg_body'(E,S0,S,GE).\n"
+    "'$dcg_body'((A;B),S0,S,(GA;GB)):-!,'$dcg_body'(A,S0,S,GA),'$dcg_body'(B,S0,S,GB).\n"
+    "'$dcg_body'((C->T),S0,S,(GC->GT)):-!,'$dcg_body'(C,S0,S1,GC),'$dcg_body'(T,S1,S,GT).\n"
+    "'$dcg_body'(\\+A,S0,S,(\\+GA,S0=S)):-!,'$dcg_body'(A,S0,_,GA).\n"
+    "'$dcg_body'({}(G),S0,S,(G,S0=S)):-!.\n"
+    "'$dcg_body'(!,S0,S,(!,S0=S)):-!.\n"
+    "'$dcg_body'(NT,S0,S,G):-NT=..L0,'$dcg_list'(L0,[S0,S],L1),G=..L1.\n"
+    "'$dcg_list'([],S,S).\n"
+    "'$dcg_list'([H|T],S,[H|R]):-'$dcg_list'(T,S,R).\n"
+    "code_type(C,T):-integer(C),!,C>=0,char_code(Ch,C),'$code_type'(Ch,T).\n"
+    "code_type(C,T):-char_type(C,T).\n"
+    "'$code_type'(Ch,to_lower(X)):-!,char_type(Ch,to_lower(Y)),char_code(Y,X).\n"
+    "'$code_type'(Ch,to_upper(X)):-!,char_type(Ch,to_upper(Y)),char_code(Y,X).\n"
+    "'$code_type'(Ch,upper(X)):-!,char_type(Ch,upper(Y)),char_code(Y,X).\n"
+    "'$code_type'(Ch,lower(X)):-!,char_type(Ch,lower(Y)),char_code(Y,X).\n"
+    "'$code_type'(Ch,T):-char_type(Ch,T).\n"
     "select(X,[X|T],T).\n"
     "select(X,[H|T],[H|R]):-select(X,T,R).\n"
     "nth(N,L,E):-nth1(N,L,E).\n"
@@ -1497,6 +1512,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
         if (cl->tr) pl_tree_collect_calls(cl->tr, &referenced);
     }
+    if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
     for (PlClause *cl = pre->head; cl; cl = cl->next) {

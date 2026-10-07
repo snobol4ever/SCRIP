@@ -1287,6 +1287,13 @@ static int pl_tree_is_callable(const tree_t * g) {
     switch (g->t) { case TT_FNC: case TT_QLIT: case TT_NAME: case TT_CUT: case TT_UNIFY: case TT_IF: case TT_PROGRAM: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_phrase_plain_nt(const tree_t * g) {
+    static const char * const ctl[] = { ",", ";", "->", "*->", "\\+", "{}", ".", "[]", "[|]", "!", "|", "call", 0 };
+    if (!g || (g->t != TT_FNC && g->t != TT_NAME && g->t != TT_QLIT) || !g->v.sval) return 0;
+    for (int i = 0; ctl[i]; i++) if (!strcmp(g->v.sval, ctl[i])) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_meta_goal(const tree_t * g, const tree_t * const * extra, int nextra) {
     if (!g) return NULL;
     if (nextra <= 0) return pl_tree_is_callable(g) ? g : NULL;
@@ -1365,7 +1372,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             return pl_lower_ite(cx, conj, pl_atom_goal("fail"), pl_atom_goal("true"), γnext, ωfail, entry_out); }
         if ((!strcmp(nm, "call") && t->n >= 1) || (!strcmp(nm, "phrase") && (t->n == 2 || t->n == 3))) {
             const tree_t * xs[2]; const tree_t * const * extra; int nextra;
-            if (!strcmp(nm, "phrase")) { xs[0] = t->c[1]; xs[1] = (t->n == 3) ? t->c[2] : pl_nil_term(); extra = xs; nextra = 2; }
+            if (!strcmp(nm, "phrase")) { xs[0] = t->c[1]; xs[1] = (t->n == 3) ? t->c[2] : pl_nil_term(); extra = xs; nextra = 2;
+                if (!pl_phrase_plain_nt(t->c[0])) return goal(cx, pl_cc_fnc3("$phrase", (tree_t *) t->c[0], (tree_t *) xs[0], (tree_t *) xs[1]), γnext, ωfail, entry_out); }
             else { extra = (const tree_t * const *) &t->c[1]; nextra = t->n - 1; }
             if (t->c[0] && t->c[0]->t == TT_VAR) return pl_meta_call_dyn(cx, t->c[0], extra, nextra, γnext, ωfail, entry_out);
             const tree_t * ext = pl_meta_goal(t->c[0], extra, nextra);

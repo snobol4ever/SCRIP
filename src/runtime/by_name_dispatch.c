@@ -2982,11 +2982,18 @@ DESCR_t rt_pl_dop_format_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     return (nargs < 1 || nargs > 2) ? FAILDESCR : pl_ok();
 }
 DESCR_t dop_pl_format(DESCR_t *args, int nargs) { return rt_pl_dop_format_c(args, nargs, (pl_tr_ctx_t *)0); }
+static int pl_alias_idx(const char *nm) {
+    extern int fh_alias_idx(const char *); extern int fh_current_input(void); extern int fh_current_output(void);
+    if (!strcmp(nm, "current_input")) return fh_current_input();
+    if (!strcmp(nm, "current_output")) return fh_current_output();
+    return fh_alias_idx(nm);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_stream_idx(DESCR_t s, int out) {
     extern FILE *fh_get(int); extern int prolog_atom_intern(const char *);
     DESCR_t d = rt_pl_deref_val(s); const char *nm = pl_atom_str(d);
     if (nm) { if (!strcmp(nm, "user_input")) return out ? -1 : 0; if (!strcmp(nm, "user_output")) return out ? 1 : -1;
-        if (!strcmp(nm, "user_error")) return out ? 2 : -1; { extern int fh_alias_idx(const char *); return fh_alias_idx(nm); } }
+        if (!strcmp(nm, "user_error")) return out ? 2 : -1; return pl_alias_idx(nm); }
     if (d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == prolog_atom_intern("$stream") && plc_fid_arity(d.slen) == 1) {
         DESCR_t a = rt_pl_deref_val(((DESCR_t *)d.p)[0]); if (a.v == DT_I && fh_get((int)a.i)) return (int)a.i; }
     return -1;
@@ -3007,7 +3014,7 @@ static int pl_stream_resolve(DESCR_t s, int out, int textop, void **ball)
     nm = pl_atom_str(d);
     if (nm) {
         if (!strcmp(nm, "user_input")) idx = 0; else if (!strcmp(nm, "user_output")) idx = 1; else if (!strcmp(nm, "user_error")) idx = 2;
-        else { extern int fh_alias_idx(const char *); idx = fh_alias_idx(nm); }
+        else idx = pl_alias_idx(nm);
         if (idx < 0 || !fh_get(idx)) { *ball = rt_pl_ball_kind2("existence_error", "stream", d); return -1; } }
     else if (d.v == (DTYPE_t)DT_PLREF && plc_fid_name(d.slen) == prolog_atom_intern("$stream") && plc_fid_arity(d.slen) == 1) {
         DESCR_t a = rt_pl_deref_val(((DESCR_t *)d.p)[0]);
@@ -3085,7 +3092,7 @@ static int pl_sp_is_input(int i) { return (i == 0) || (i >= 3 && g_fh[i].mode ==
 static int pl_sp_named(DESCR_t d) { const char *nm = pl_atom_str(d);
     if (!nm) return -1;
     if (!strcmp(nm, "user_input")) return 0; if (!strcmp(nm, "user_output")) return 1; if (!strcmp(nm, "user_error")) return 2;
-    { extern int fh_alias_idx(const char *); return fh_alias_idx(nm); } }
+    return pl_alias_idx(nm); }
 static const char *pl_sp_mode_name(int i) { char m = (i == 0) ? 'r' : (i == 1 || i == 2) ? 'a' : g_fh[i].mode;
     return (m == 'r') ? "read" : (m == 'a') ? "append" : (m == '+') ? "update" : "write"; }
 static const char *pl_sp_eos_name(int i) { extern FILE *fh_get(int); FILE *fp = fh_get(i); int c;
