@@ -3,7 +3,8 @@
 # HQ-RUNTIME's first row (Lon 2026-10-07, CEO-1534/1535): measure before converting a C leaf to asm.
 #
 # USAGE   util_runtime_leaf_census.sh PROGRAM --mode m3|m4 [--top N]
-# PRINTS  LEAF_CENSUS program=P mode=M total_ir=N emitted=PCT asm_leaf=PCT c_runtime=PCT libc=PCT other=PCT
+# PRINTS  LEAF_INPUT program=P stdin=NAME.in|NAME.stdin|NAME.dat|none   (what the run read on stdin, as the bench runners feed it)
+#         LEAF_CENSUS program=P mode=M total_ir=N emitted=PCT asm_leaf=PCT c_runtime=PCT libc=PCT other=PCT
 #         LEAF_OTHER compiler=PCT loader=PCT rest=PCT              (what `other` is made of, same denominator)
 #         LEAF_C fn=NAME ir=INCLUSIVE pct=PCT self=SELF            (the C runtime, ranked by inclusive Ir; top N, default 40)
 # EXIT    0 measured; 2 could not measure (no valgrind, stale binary, a program that does not compile or link, a run that
@@ -66,6 +67,10 @@ SW="$(declared_switches_beside "$PROG")" || refuse "$(basename "$PROG"): its .he
 CA="$(declared_compile_args_beside "$PROG")" || refuse "$(basename "$PROG"): its .cmdline sidecar is refused (the reader said why above)"
 undeclared_beside_named "$PROG" || true
 read -r -a SWA <<<"$SW"; read -r -a CAA <<<"$CA"
+# THE INPUT the bench runners give the kernel (test_icon_bench_suite.sh stdin_of, test_pascal_bench_suite.sh): NAME.in, else
+# NAME.stdin, else NAME.dat, else /dev/null -- a kernel that reads its input and is fed nothing measures a path that never did the work.
+IN=/dev/null; for x in in stdin dat; do [ -f "${PROG%.*}.$x" ] && { IN="${PROG%.*}.$x"; break; }; done
+echo "LEAF_INPUT program=$(basename "$PROG") stdin=$([ "$IN" = /dev/null ] && echo none || basename "$IN")"
 
 W="$(mktemp -d "${TMPDIR:-/tmp}/leafcensus.XXXXXX")" || refuse "no scratch directory"
 trap 'rm -rf "$W"' EXIT
@@ -82,7 +87,7 @@ else
 fi
 
 IRV="$(cd "$W" && IR_OUT="$W/cg.out" IR_VG_FLAGS="--smc-check=all-non-file ${LEAF_VG_FLAGS:-}" IR_PROG_OUT="$W/prog.out" \
-       IR_PROG_ERR="$W/vg.log" IR_TMO="${LEAF_TMO:-900}" ir_measure "${CMD[@]}" </dev/null)"
+       IR_PROG_ERR="$W/vg.log" IR_TMO="${LEAF_TMO:-900}" ir_measure "${CMD[@]}" <"$IN")"
 if ! ir_is_number "$IRV"; then
   tail -5 "$W/vg.log" 2>/dev/null
   refuse "$(basename "$PROG") $MODE: $(ir_cell "$IRV") -- $(ir_reason "$IRV")"
