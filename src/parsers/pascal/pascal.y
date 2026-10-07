@@ -1318,6 +1318,7 @@ static int pas_is_aggregate_designator(tree_t *e) { if (!e) return 0;
               return (idx >= 0 && idx < g_pas_recvars[i].nf) ? (g_pas_recvars[i].fldna[idx] || g_pas_recvars[i].fldrec[idx] != NULL) : 0; return 0; }
       { const char *bt = pas_with_sel_rtype(b); return bt ? (pas_rectype_field_is_na(bt, idx) || pas_rectype_field_rectype_by_index(bt, idx) != NULL) : 0; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_actual_is_tagfield(tree_t *a) { for (int i = g_pas_nvt - 1; a && i >= 0; i--) if ((g_pas_vt[i]->state == 7 || g_pas_vt[i]->state == 5 || g_pas_vt[i]->state == 8) && g_pas_vt[i]->node == a) return 1; return 0; }
 static int pas_actual_is_packed_component(tree_t *a) { if (!a || a->n < 2 || !a->c[0] || !a->c[1]) return 0;
     if (a->t == TT_IDX && a->c[0]->t == TT_IDX && a->c[0]->n >= 2 && a->c[0]->c[0] && a->c[0]->c[1] && a->c[0]->c[1]->t == TT_ILIT && a->c[1]->t != TT_ILIT) {
         tree_t *b = a->c[0]->c[0]; long i = (long)a->c[0]->c[1]->v.ival; const char *rt = NULL;
@@ -1602,7 +1603,7 @@ static tree_t *mk_ident(const char *name) {
         if (rt) fi = pas_with_field_index(rt, name);
         if (fi < 0 && wsel && wsel->t == TT_VAR && wsel->v.sval) fi = pas_with_recvar_field(wsel->v.sval, name);
         if (fi < 0 && wsel && wsel->t == TT_IDX && wsel->n == 2 && wsel->c[0] && wsel->c[0]->t == TT_VAR && wsel->c[0]->v.sval) fi = pas_arrrec_field_index(wsel->c[0]->v.sval, name);
-        if (fi >= 0) { if (wsel && wsel->t == TT_IDX && wsel->n == 2 && wsel->c[0] && wsel->c[0]->t == TT_VAR && pas_arrrec_find(wsel->c[0]->v.sval, NULL) > 0) { tree_t *_af = pas_arrrec_flatten(pas_tree_clone(wsel), fi); if (pas_arrrec_field_is_char(wsel->c[0]->v.sval, fi)) pas_cvfield_mark_add(_af); return _af; } tree_t *e = ast_node_new(TT_IDX); ast_push(e, pas_tree_clone(wsel)); ast_push(e, ilit(rt ? pas_rectype_slot(rt, fi) : (wsel && wsel->t == TT_VAR && wsel->v.sval) ? pas_recvar_slot(wsel->v.sval, fi) : fi)); { const char *_crt = rt ? rt : pas_with_sel_rtype(wsel); if (_crt && pas_rectype_field_is_ca(_crt, fi)) pas_cafield_mark_add(e, pas_rectype_field_ca_lo(_crt, fi), pas_rectype_field_ca_hi(_crt, fi)); if (_crt && pas_rectype_field_is_char(_crt, fi)) pas_cvfield_mark_add(e); } return e; }
+        if (fi >= 0) { if (wsel && wsel->t == TT_IDX && wsel->n == 2 && wsel->c[0] && wsel->c[0]->t == TT_VAR && pas_arrrec_find(wsel->c[0]->v.sval, NULL) > 0) { tree_t *_af = pas_arrrec_flatten(pas_tree_clone(wsel), fi); if (pas_arrrec_field_is_char(wsel->c[0]->v.sval, fi)) pas_cvfield_mark_add(_af); return _af; } tree_t *e = ast_node_new(TT_IDX); ast_push(e, pas_tree_clone(wsel)); ast_push(e, ilit(rt ? pas_rectype_slot(rt, fi) : (wsel && wsel->t == TT_VAR && wsel->v.sval) ? pas_recvar_slot(wsel->v.sval, fi) : fi)); { const char *_crt = rt ? rt : pas_with_sel_rtype(wsel); if (_crt && pas_rectype_field_is_ca(_crt, fi)) pas_cafield_mark_add(e, pas_rectype_field_ca_lo(_crt, fi), pas_rectype_field_ca_hi(_crt, fi)); if (_crt && pas_rectype_field_is_char(_crt, fi)) pas_cvfield_mark_add(e); } { struct pas_vt *_vt = pas_vt_find_name(rt ? rt : pas_with_sel_rtype(wsel)); if (!_vt && wsel && wsel->t == TT_VAR && wsel->v.sval) _vt = pas_vt_find_name(wsel->v.sval); if (_vt && _vt->tagfi >= 0 && fi == _vt->tagfi) pas_vt_new(8)->node = e; } return e; }
     }
     pas_scope_require(name);
     return leaf_s(TT_VAR, name);
@@ -2267,6 +2268,9 @@ call:
 call_with_args:
     IDENT LPARENT argument_list RPARENT { $3 = pas_pf_actuals($1, $3); if ($3) for (int i = 0; i < $3->count; i++) if (pas_proc_param_is_var($1, i) && pas_actual_is_packed_component($3->items[i])) {
             fprintf(stderr, "pascal: ISO 7185 6.6.3.3 violation: a component of a packed structure is passed as the variable parameter %d of '%s'\n", i + 1, $1);
+            g_pas_iso_errors++; }
+        if ($3) for (int i = 0; i < $3->count; i++) if (pas_proc_param_is_var($1, i) && pas_actual_is_tagfield($3->items[i])) {
+            fprintf(stderr, "pascal: ISO 7185 6.6.3.3 violation: a tag-field of a variant-part is passed as the variable parameter %d of '%s'\n", i + 1, $1);
             g_pas_iso_errors++; }
         pas_call_arity($1, $3); pas_ordinal_fn_arg($1, $3);
         $$ = pas_pf_is_formal($1) ? pas_pf_callthrough($1, $3) : mk_call($1, $3); }
