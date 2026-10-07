@@ -41,7 +41,7 @@
 import collections, re, sys
 
 LEX_K = r'match_(span|break|breakx|any|notany|lit|len|pos|rpos|tab|rtab|rem|arb|fail|succeed|abort|bal)'
-SYN_K = r'match_(alternate|arbno|fence\d*|defer|begin|end|atp)|disjunction|(FN__)?(PAT|EXPR)\$n'
+SYN_K = r'match_(alternate|arbno|fence\d*|defer|begin|end|atp)|disjunction|(FN__)?(PAT|EXPR)\$n|LT[px]\$n'
 TREE_K = r'match_(assign_\w+|replace)'
 FILE_PHASE = {'counter.sc': 'TREE', 'stack.sc': 'TREE', 'tree.sc': 'TREE', 'ShiftReduce.sc': 'TREE',
               'tdump.sc': 'OUTSIDE', 'qize.sc': 'OUTSIDE', 'gen.sc': 'OUTSIDE', 'trace.sc': 'OUTSIDE'}
@@ -111,6 +111,7 @@ def annotate(src, dst):
             n_fn += 1
         cur = None
     for ln in open(src, errors='surrogateescape'):
+        ln = re.sub(r'\.LT([px]\d+)', r'LT\1', ln)
         st = ln.strip()
         m = re.match(r'\.(section\s+(\S+)|text\b|data\b|bss\b)', st)
         if m:
@@ -191,6 +192,7 @@ def kind(sym):
     k = re.sub(r"'\d+$", '', sym)
     k = re.sub(r'^n\d+_', '', k)
     k = re.sub(r'^(FN__PAT|FN__EXPR|PAT|EXPR)\$\d+', r'\1$n', k)
+    k = re.sub(r'^LT([px])\d+', r'LT\1$n', k)
     return re.sub(r'_(bx|α_body|α|β|γ|ω|res)$', '', k)
 
 
