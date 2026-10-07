@@ -118,7 +118,7 @@ QatomIn = FENCE( ( "''" *DIFFER((qacc = qacc "'") 'x')
                  | ((NOTANY("'\" CHAR(10) CHAR(9)) FENCE(BREAK("'\" CHAR(10) CHAR(9)) | epsilon)) $ qc) *DIFFER((qacc = qacc qc) 'x')
                  ) *QatomIn | epsilon );
 Qatom   = ( "'" *DIFFER((qacc = '') 'x') ((*QatomIn) $ q_raw . q_txt *DIFFER((qesc[q_raw] = qacc) 'x')) "'" );
-/* a quoted atom as a term, and a double-quoted text under double_quotes atom, are what the pattern reads (the ceo 2026-09-30 */
+/* a quoted atom as a term, and a double-quoted text as one TT_DQLIT node, are what the pattern reads (the ceo 2026-09-30 */
 /* 18:3x on Lon's law, CEO-1378; parser_raku.sc's shape): each literal run and each single-character escape (decoded by a     */
 /* table) is Shifted as TT_QLIT, a doubled quote is one such piece, every piece after the first is joined by Reduce TT_CAT 2  */
 /* as it is read, a numeric escape is Shifted raw as TT_ESC, \c and a backslash-newline are no piece; the lowerer folds the   */
@@ -140,32 +140,14 @@ sa_piece = FENCE( '""' . *Shift('TT_QLIT', '"')
                 | (NOTANY('"\' CHAR(10) CHAR(9)) FENCE(BREAK('"\' CHAR(10) CHAR(9)) | epsilon)) . thx . *Shift('TT_QLIT', thx)
                 );
 sa_more  = FENCE( *qa_skip *sa_piece . *Reduce('TT_CAT', 2) *sa_more | *qa_skip );
-/* a double-quoted string as the C reads it under the double_quotes flag: codes (the default) a list of byte codes, one       */
-/* Shift per byte at replay; chars a list of one-character atoms; atom one atom. A set_prolog_flag directive moves the flag. */
-dq_mode = 2;
-dq_of = TABLE(3);
-dq_of['atom'] = 0; dq_of['chars'] = 1; dq_of['codes'] = 2;
 StrEsc  = ( ('\' *Escape) $ ec . ech *Utf8Bytes );
 CodeEsc = ( *StrEsc *IDENT(ebn[ec], 1) . *Shift('TT_ILIT', eb1[ech]) . *IncCounter()
           | *StrEsc *IDENT(ebn[ec], 2) . *Shift('TT_ILIT', eb1[ech]) . *IncCounter() . *Shift('TT_ILIT', eb2[ech]) . *IncCounter()
           | *StrEsc *IDENT(ebn[ec], 3) . *Shift('TT_ILIT', eb1[ech]) . *IncCounter() . *Shift('TT_ILIT', eb2[ech]) . *IncCounter() . *Shift('TT_ILIT', eb3[ech]) . *IncCounter()
           | *StrEsc . *Shift('TT_ILIT', eb1[ech]) . *IncCounter() . *Shift('TT_ILIT', eb2[ech]) . *IncCounter() . *Shift('TT_ILIT', eb3[ech]) . *IncCounter() . *Shift('TT_ILIT', eb4[ech]) . *IncCounter()
           );
-StrCodesIn = FENCE( ( (NOTANY('"\' CHAR(10) CHAR(9)) . sch) . *Shift('TT_ILIT', ascii_table[sch]) . *IncCounter()
-                    | '""' . *Shift('TT_ILIT', 34) . *IncCounter()
-                    | *CodeEsc
-                    | '\' *EscNone
-                    ) *StrCodesIn | epsilon );
-StrCodes = ( '"' . *PushCounter() *StrCodesIn '"' . *Reduce('TT_MAKELIST', nTop()) . *PopCounter() );
-StrCharsIn = FENCE( ( (NOTANY('"\' CHAR(10) CHAR(9)) . sch) . *Shift('TT_QLIT', sch) . *IncCounter()
-                    | '""' . *Shift('TT_QLIT', '"') . *IncCounter()
-                    | *StrEsc . *Shift('TT_QLIT', CHAR(eb1[ech])) . *IncCounter()
-                    | '\' *EscNone
-                    ) *StrCharsIn | epsilon );
-StrChars = ( '"' . *PushCounter() *StrCharsIn '"' . *Reduce('TT_MAKELIST', nTop()) . *PopCounter() );
 /* a Shift with a null value takes the matched text as the value (ShiftReduce.sc), so an empty atom's Shift sits on an empty match */
-StrAtom = '"' *qa_skip FENCE( *sa_piece *sa_more | epsilon . *Shift('TT_QLIT', '') ) '"';
-Str     = ( *IDENT(dq_mode, 2) *StrCodes | *IDENT(dq_mode, 1) *StrChars | *StrAtom );
+Str     = ( '"' *qa_skip FENCE( *sa_piece *sa_more | epsilon . *Shift('TT_QLIT', '') ) '"' . *Reduce('TT_DQLIT', 1) );
 BqIn    = FENCE( ( (NOTANY('`\' CHAR(10) CHAR(9)) . sch) . *Shift('TT_ILIT', ascii_table[sch]) . *IncCounter()
                  | '``' . *Shift('TT_ILIT', 96) . *IncCounter()
                  | *CodeEsc
@@ -234,13 +216,6 @@ op_goal = (   *$' ' 'op' *$'(' . *PushVal('op') . *PushCounter()
               (*op_type $ op_t) . thx . *Shift('TT_QLIT', thx) . *IncCounter() *$','
               *$' ' ( "'" (BREAK("'") $ op_n . thx) "'" | (*Atom | *Graphic_atom) $ op_n . thx ) . *Shift('TT_QLIT', thx) . *IncCounter()
               *$')' *OpBand
-              . *Reduce('TT_FNC', nTop(), PopVal()) . *PopCounter()
-          );
-/* set_prolog_flag(double_quotes, M): the tree is the plain compound and the flag moves at scan time (atom, chars, codes) */
-dq_goal = (   *$' ' 'set_prolog_flag' *$'(' . *PushVal('set_prolog_flag') . *PushCounter()
-              'double_quotes' . *Shift('TT_QLIT', 'double_quotes') . *IncCounter() *$','
-              (*Atom $ dqv) . thx . *Shift('TT_QLIT', thx) . *IncCounter() *$')'
-              ( *DIFFER(dq_of[dqv]) *DIFFER((dq_mode = dq_of[dqv]) 'x') | epsilon )
               . *Reduce('TT_FNC', nTop(), PopVal()) . *PopCounter()
           );
 /* ==================================================================================================================== */
@@ -366,7 +341,6 @@ pfx_kw_name = (   "dynamic" | "discontiguous" | "meta_predicate" | "multifile"
 body_goal = (   *$' ' (*pfx_kw_name) . pfx_kw *$'  ' . *PushVal(pfx_kw) *disj . *Reduce('TT_FNC', 1, PopVal())
             |   *$' ' '\+' *$' ' *body_goal  . *Reduce('TT_FNC', 1, '\+')
             |   *op_goal
-            |   *dq_goal
             |   *unify_expr
             |   *$'(' *body *$')'
             );
@@ -423,7 +397,6 @@ while (LE(0, 1)) {
     pf_a = TIME();
     InitCounter();
     InitStack();
-    dq_mode = 2;
     uop_on = FAIL;
     uop_band = TABLE(64);
     if (Src ? *Compiland) {
