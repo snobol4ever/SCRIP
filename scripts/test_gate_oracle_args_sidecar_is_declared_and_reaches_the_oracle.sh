@@ -6,6 +6,8 @@
 # corpus_suite_harness.oracle_args_declarations -- the one reader.
 #   R1-R7  the reader: a declared line echoes its switches; an unadmitted switch (-i), another unit's name, a malformed size, a switch
 #          named twice and an empty line each REFUSE rc 2; no sidecar echoes nothing, rc 0.
+#   R8-R10 the ruled oracle FLAGS (ORACLE_FLAGS_ADMITTED; CEO-1540, the cto 2026-10-07: prolog_recognizer is graded against swipl
+#          --traditional): the flag echoes whole; another spelling of it and a flag named twice REFUSE rc 2.
 #   B      the declaration is the oracle's NEED, read behaviourally: a 100000-deep SNOBOL4 recursion dies ERROR 246 under sbl -bf at its
 #          default stack and prints its depth under the switches the reader echoes for its sidecar.
 #   C      the bootstrap parser chain declares: every bootstrap/parser_<lang>.sc carries .heap and .stack the one reader turns into scrip's
@@ -48,6 +50,13 @@ printf 'u\t\n' > "$W/u.oracle_args"
 [ "$(rd "$W/u.sno")" = "2|" ] && ok "R6 an empty declaration REFUSES rc 2" || bad "R6 an empty declaration read '$(rd "$W/u.sno")'"
 rm -f "$W/u.oracle_args"
 [ "$(rd "$W/u.sno")" = "0|" ] && ok "R7 no sidecar echoes nothing, rc 0" || bad "R7 no sidecar read '$(rd "$W/u.sno")'"
+printf 'u\t--traditional\n' > "$W/u.oracle_args"
+[ "$(rd "$W/u.sno")" = "0|--traditional" ] && ok "R8 the ruled oracle flag --traditional (CEO-1540) echoes whole" || bad "R8 the ruled flag read '$(rd "$W/u.sno")'"
+printf 'u\t--traditional=true\n' > "$W/u.oracle_args"
+[ "$(rd "$W/u.sno")" = "2|" ] && ok "R9 a flag spelled other than its ruling (--traditional=true) REFUSES rc 2" || bad "R9 a misspelled flag read '$(rd "$W/u.sno")'"
+printf 'u\t--traditional --traditional\n' > "$W/u.oracle_args"
+[ "$(rd "$W/u.sno")" = "2|" ] && ok "R10 a flag named twice REFUSES rc 2" || bad "R10 a repeated flag read '$(rd "$W/u.sno")'"
+rm -f "$W/u.oracle_args"
 
 printf "        DEFINE('R(N)')                    :(REND)\nR       R = EQ(N,0) 0                     :S(RETURN)\n        R = R(N - 1) + 1                  :(RETURN)\nREND    OUTPUT = 'depth=' R(100000)\nEND\n" > "$W/deep.sno"
 printf 'deep\t-s64m\n' > "$W/deep.oracle_args"
@@ -111,6 +120,6 @@ for t in "${SNO_TOOLS[@]}"; do
   wired "$f" "${parts[@]:1}" || unwired="$unwired ${parts[0]}"
 done
 [ -z "$unwired" ] && ok "W2 all ${#SNO_TOOLS[@]} SNOBOL4 tools that run sbl on a unit pass its declared switches (and SCRIP's declared sizes where they run it)" || bad "W2 a SNOBOL4 tool no longer passes the unit's declaration:$unwired"
-echo "population: $N check(s): 7 reader shapes, one oracle recursion, $nl chain declarations, ${#TOOLS[@]} chain tools, one doctored copy, ${#SNO_TOOLS[@]} SNOBOL4 tools"
+echo "population: $N check(s): 10 reader shapes, one oracle recursion, $nl chain declarations, ${#TOOLS[@]} chain tools, one doctored copy, ${#SNO_TOOLS[@]} SNOBOL4 tools"
 if [ "$RED" = 0 ]; then echo "✅ GATE PASS [$G]: the oracle's declared switches are read by the one reader, refused when malformed, needed by the oracle, declared by every parser chain and passed by every tool that runs it and by the SNOBOL4 tools"; exit 0; fi
 echo "⛔ GATE FAIL [$G]"; exit 1

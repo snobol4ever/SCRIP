@@ -3980,10 +3980,14 @@ def oracle_env_declarations(src_path):
 # inputs and answers at -s8m, -s12m and -s12m; and sbl refuses -s128m and above alone ("Stack memory unavailable") and runs it beside a
 # larger -d, so -d is the stack's room as well as the heap. sbl reads a size as digits with an optional k or m.
 ORACLE_ARGS_ADMITTED = (("-s", "sbl stack"), ("-d", "sbl heap"))
+# ...and the ORACLE's semantic FLAGS a unit may declare, matched whole with no size: an oracle MODE the ceo rules a unit is graded under
+# (CEO-1540, 2026-10-07: the Prolog demo prolog_recognizer is graded against swipl --traditional, because SWI-7's distinct '[]' is the one
+# difference and SCRIP keeps ISO and GNU's '[]' == []; its ref is cut from that run). A flag joins only on such a ruling, named here.
+ORACLE_FLAGS_ADMITTED = (("--traditional", "swipl SWI-7 extensions off, CEO-1540"),)
 
 
 def oracle_args_sidecar_path(src_path):
-    """<stem>.oracle_args beside a standalone unit: one line NAME<TAB>SWITCH[ SWITCH] -- the oracle's command-line sizes for that unit."""
+    """<stem>.oracle_args beside a standalone unit: one line NAME<TAB>SWITCH[ SWITCH] -- the oracle's command-line sizes (and any ruled flag) for that unit."""
     return str(Path(src_path).with_suffix(".oracle_args"))
 
 
@@ -4005,10 +4009,17 @@ def oracle_args_declarations(src_path):
                    f"NAME the unit's stem; another unit's line is not a declaration for this one")
         seen = True
         for w in rest.split():
+            if any(w == f for f, _ in ORACLE_FLAGS_ADMITTED):
+                if w in named:
+                    refuse(f"{_p}:{ln}: {w!r} is named a second time -- one declaration per flag")
+                named.add(w)
+                words.append(w)
+                continue
             sw = next((p for p, _ in ORACLE_ARGS_ADMITTED if w.startswith(p)), None)
             if sw is None:
                 refuse(f"{_p}:{ln}: {w!r} is not one of the oracle switches a unit may declare "
-                       f"({' '.join(p for p, _ in ORACLE_ARGS_ADMITTED)}) -- a switch joins the list when an oracle is measured needing it")
+                       f"({' '.join(p for p, _ in ORACLE_ARGS_ADMITTED)} with a size, or the flag(s) {' '.join(f for f, _ in ORACLE_FLAGS_ADMITTED)}) "
+                       f"-- a size switch joins the list when an oracle is measured needing it, a flag on a ceo ruling")
             if not re.fullmatch(r"[1-9][0-9]*[km]?", w[len(sw):]):
                 refuse(f"{_p}:{ln}: {w!r} -- the size must be a positive integer with an optional k or m, as the oracle reads it")
             if sw in named:
