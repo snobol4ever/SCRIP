@@ -748,6 +748,9 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, swap ? t->c[2] : t->c[1]); ast_push(mc, leaf_sval2(TT_QLIT, nm)); if (swap) ast_push(mc, t->c[1]);
                 return lower_rv(cx, mc, γ, ω, res); }
             if (!strcmp(nm, "not") && t->n == 2) { tree_t * nt = ast_node_new(TT_NOT); nt->line = t->line; ast_push(nt, t->c[1]); return lower_rv(cx, nt, γ, ω, res); }
+            if ((!strcmp(nm, "set") || !strcmp(nm, "bag") || !strcmp(nm, "mix")) && t->n >= 1) {
+                tree_t * ar = ast_node_new(TT_FNC); ar->v.sval = (char *) "__rk_arr"; ast_push(ar, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
+                tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, ar); ast_push(mc, leaf_sval2(TT_QLIT, nm[0] == 's' ? "__rk_new_Set" : nm[0] == 'b' ? "__rk_new_Bag" : "__rk_new_Mix")); return lower_rv(cx, mc, γ, ω, res); }
             if (!strcmp(nm, "hash") || !strcmp(nm, "slip")) {
                 tree_t * ar = ast_node_new(TT_FNC); ar->v.sval = (char *) "__rk_arr"; ast_push(ar, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
                 if (!strcmp(nm, "hash")) { tree_t * h = ast_node_new(TT_FNC); h->v.sval = (char *) "__rk_to_hash"; ast_push(h, leaf_sval2(TT_VAR, "__rk_to_hash")); ast_push(h, ar); return lower_rv(cx, h, γ, ω, res); }
@@ -999,6 +1002,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             tree_t * basq = ast_node_new(TT_QLIT); basq->v.sval = (char *)intern(mbase); ast_push(mc, basq);
             for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
             return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res); }
+        if (cls && !rk_is_class_name(cls) && (!strcmp(cls, "Set") || !strcmp(cls, "SetHash") || !strcmp(cls, "Bag") || !strcmp(cls, "BagHash") || !strcmp(cls, "Mix") || !strcmp(cls, "MixHash"))) {
+            tree_t * ar = ast_node_new(TT_FNC); ar->v.sval = (char *) "__rk_arr"; ast_push(ar, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
+            char mn[fmt_len("__rk_new_%s", cls)]; snprintf(mn, sizeof mn, "__rk_new_%s", cls);
+            tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, ar); ast_push(mc, leaf_sval2(TT_QLIT, intern(mn))); return lower_rv(cx, mc, γ, ω, res); }
         return lower_rcall(cx, t, "obj_new", 0, γ, ω, res); }
     case TT_TWIGIL_FIELD: {
         IR_t * nd = build(cx, IR_FIELD_GET, γ, ω); IR_LIT(nd).sval = t->v.sval; IR_t * sv = build(cx, IR_VAR, nd, ω); IR_LIT(sv).sval = "self"; ir_operand_push(nd, sv); *res = nd; return sv;

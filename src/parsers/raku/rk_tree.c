@@ -874,10 +874,13 @@ static const char *const lv_cat[] = { "~", "\xe2\x88\x98", "o", 0 };
 static const char *const lv_range1[] = { "..", "...", "..^", 0 };
 static const char *const lv_range2[] = { "unicmp", "coll", "^..^", "^..", 0 };
 static const char *const lv_dor[] = { "//", 0 };
-static const char *const lv_jct[] = { "|", "(^)", "(-)", "(+)", "(|)", "(.)", "(&)", "&", 0 };
+static const char *const lv_jct[] = { "|", "(^)", "(-)", "(+)", "(|)", "(.)", "(&)", "&", "\xe2\x88\xaa", "\xe2\x88\xa9", "\xe2\x8a\x96", "\xe2\x8a\x8e", "\xe2\x88\x96", "\xe2\x8a\x8d", 0 };
 static const char *const lv_divis[] = { 0 };
 static const char *const lv_cmp[] = { "==", "!=", "<", ">", "<=", ">=", "\xe2\x89\xa4", "\xe2\x89\xa5", "\xe2\x89\xa0", "!~~", "=~=", "(elem)", "(cont)", "after", "before", "eqv", "===",
-                                      "eq", "<=>", "cmp", "leg", "ne", "lt", "le", "gt", "ge", "~~", 0 };
+                                      "eq", "<=>", "cmp", "leg", "ne", "lt", "le", "gt", "ge", "~~",
+                                      "\xe2\x88\x88", "\xe2\x88\x8a", "\xe2\x88\x89", "\xe2\x88\x8b", "\xe2\x88\x8d", "\xe2\x88\x8c", "(<)", "\xe2\x8a\x82", "\xe2\x8a\x84", "(>)", "\xe2\x8a\x83", "\xe2\x8a\x85",
+                                      "(==)", "\xe2\x89\xa1", "\xe2\x89\xa2", "(<=)", "\xe2\x8a\x86", "\xe2\x8a\x88", "(>=)", "\xe2\x8a\x87", "\xe2\x8a\x89", "(<+)", "\xe2\x89\xbc", "(>+)", "\xe2\x89\xbd",
+                                      "\xe2\xa9\xb5", "\xe2\xa9\xb6", "\xe2\x89\x85", 0 };
 static const char *const lv_and[] = { "&&", 0 };
 static const char *const lv_or[] = { "||", "^^", "max", "min", 0 };
 static const char *const lv_pow[] = { "**", 0 };
@@ -944,8 +947,25 @@ static tree_t *b_cmp(RkB *b, int k, tree_t *l, tree_t *r) {
     case 5: case 7: return rk_chain_cmp(nctx(b, l), TT_GE, nctx(b, r));
     case 9: return call2("__rk_not_smartmatch", l, r);
     case 10: return call2("__rk_approx", l, r);
-    case 11: return call2("__rk_set_elem", l, r);
-    case 12: return call2("__rk_set_cont", l, r);
+    case 11: case 27: case 28: return call2("__rk_set_elem", l, r);
+    case 12: case 30: case 31: return call2("__rk_set_cont", l, r);
+    case 29: return call2("__rk_set_nelem", l, r);
+    case 32: return call2("__rk_set_ncont", l, r);
+    case 33: case 34: return call2("__rk_set_psub", l, r);
+    case 35: return call2("__rk_set_npsub", l, r);
+    case 36: case 37: return call2("__rk_set_psup", l, r);
+    case 38: return call2("__rk_set_npsup", l, r);
+    case 39: case 40: return call2("__rk_set_eq", l, r);
+    case 41: return call2("__rk_set_ne", l, r);
+    case 42: case 43: return call2("__rk_set_sub", l, r);
+    case 44: return call2("__rk_set_nsub", l, r);
+    case 45: case 46: return call2("__rk_set_sup", l, r);
+    case 47: return call2("__rk_set_nsup", l, r);
+    case 48: case 49: return call2("__rk_bag_sub", l, r);
+    case 50: case 51: return call2("__rk_bag_sup", l, r);
+    case 52: return rk_chain_cmp(nctx(b, l), TT_EQ, nctx(b, r));
+    case 53: return call2("__rk_ident", l, r);
+    case 54: return call2("__rk_approx", l, r);
     case 13: return call2("__rk_after", l, r);
     case 14: return call2("__rk_before", l, r);
     case 15: return call2("__rk_eqv", l, r);
@@ -963,7 +983,7 @@ static tree_t *b_cmp(RkB *b, int k, tree_t *l, tree_t *r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rkb_binop_raw(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
-    static const char *const jfn[] = { NULL, "__rk_set_sym", "__rk_set_dif", "__rk_set_sum", "__rk_set_uni", "__rk_set_mul", "__rk_set_int", NULL };
+    static const char *const jfn[] = { NULL, "__rk_set_sym", "__rk_set_dif", "__rk_set_sum", "__rk_set_uni", "__rk_set_mul", "__rk_set_int", NULL, "__rk_set_uni", "__rk_set_int", "__rk_set_sym", "__rk_set_sum", "__rk_set_dif", "__rk_set_mul" };
     switch (lv) {
     case LV_MUL: return b_mul(b, k, l, r);
     case LV_ADDSUB: return b_addsub(b, k, l, r);

@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2169
-#define GC_ALLOC_TAB_N_VOID 249
-#define GC_ALLOC_TAB_N_DESCR 1127
-#define GC_ALLOC_TAB_N_OTHER 787
+#define GC_ALLOC_TAB_N 2194
+#define GC_ALLOC_TAB_N_VOID 256
+#define GC_ALLOC_TAB_N_DESCR 1135
+#define GC_ALLOC_TAB_N_OTHER 797
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1116,6 +1116,31 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_pre_env", GC_RET_DESCR },
     { "rk_pre_value", GC_RET_OTHER },
     { "rk_proc_descr_rq", GC_RET_DESCR },
+    { "rk_qh_add", GC_RET_VOID },
+    { "rk_qh_binop", GC_RET_DESCR },
+    { "rk_qh_bump", GC_RET_VOID },
+    { "rk_qh_coerce", GC_RET_DESCR },
+    { "rk_qh_del", GC_RET_OTHER },
+    { "rk_qh_draw", GC_RET_DESCR },
+    { "rk_qh_drop", GC_RET_VOID },
+    { "rk_qh_find", GC_RET_OTHER },
+    { "rk_qh_fn", GC_RET_OTHER },
+    { "rk_qh_from", GC_RET_DESCR },
+    { "rk_qh_get", GC_RET_DESCR },
+    { "rk_qh_hook", GC_RET_OTHER },
+    { "rk_qh_init", GC_RET_VOID },
+    { "rk_qh_key", GC_RET_OTHER },
+    { "rk_qh_method", GC_RET_OTHER },
+    { "rk_qh_new", GC_RET_DESCR },
+    { "rk_qh_pairs", GC_RET_DESCR },
+    { "rk_qh_put", GC_RET_DESCR },
+    { "rk_qh_raku", GC_RET_OTHER },
+    { "rk_qh_refuse", GC_RET_VOID },
+    { "rk_qh_reindex", GC_RET_VOID },
+    { "rk_qh_render", GC_RET_OTHER },
+    { "rk_qh_same", GC_RET_OTHER },
+    { "rk_qh_set", GC_RET_VOID },
+    { "rk_qh_subset", GC_RET_OTHER },
     { "rk_raku_scalar", GC_RET_OTHER },
     { "rk_raku_str", GC_RET_OTHER },
     { "rk_register_classes", GC_RET_VOID },
