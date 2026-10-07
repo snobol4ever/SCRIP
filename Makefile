@@ -1306,6 +1306,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/tree_to_sno.c \
     $(SRC)/lower/lower_icon.c \
     $(SRC)/lower/lower_snobol4.c \
+    $(SRC)/lower/lower_snocone.c \
     $(SRC)/lower/lower_prolog.c \
     $(SRC)/lower/lower_raku.c \
     $(SRC)/lower/lower_pascal.c \

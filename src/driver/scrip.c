@@ -1436,6 +1436,7 @@ int main(int argc, char **argv)
             else if (lang_rebus)   rebus_compile(src, input_path, &sub_ast);
             else if (lang_pascal)  pascal_compile(src, input_path, &sub_ast);
             else                   snocone_compile(src, input_path, &sub_ast);
+            if (lang_snocone)      sub_ast = lower_snocone_tree(sub_ast);
             ct_drop(src);
             if (dump_ast && sub_ast) {
                 ir_dump_program(sub_ast, stdout); return 0;

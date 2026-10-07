@@ -102,6 +102,7 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
             rebus_compile(block, filename, &sub_ast);
         } else if (tag_len == 7 && strncmp(tag_start, "Snocone", 7) == 0) {
             snocone_compile(block, filename, &sub_ast);
+            sub_ast = lower_snocone_tree(sub_ast);
         } else if (tag_len == 6 && strncmp(tag_start, "Pascal", 6) == 0) {
             pascal_compile(block, filename, &sub_ast);
             fence_fn = lower_pascal_stage2;

@@ -20,7 +20,7 @@ typedef struct LoopFrame {
 } LoopFrame;
 typedef struct ScParseState {
     struct LexCtx *ctx;
-    CODE_t        *code;
+    tree_t        *block;
     const char    *filename;
     int            nerrors;
     char          *cur_func_name;
@@ -76,54 +76,42 @@ typedef struct ScParseState {
 int  sc_lex  (SC_STYPE *yylval, ScParseState *st);
 void sc_error(ScParseState *st, const char *msg);
 static void     sc_append_stmt        (ScParseState *st, tree_t *top);
-static tree_t  *sc_collect_body       (ScParseState *st, STMT_t *snapshot);
+static tree_t  *sc_collect_body       (ScParseState *st, int mark);
 static void     sc_finalize_if_no_else_pst(ScParseState *st, struct IfHead *h);
-static void     sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *before_else);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_e sc_pat_prim_kind(const char *s) {
-    if (!s) return TT_VAR;
-    static const struct { const char *n; tree_e k; } m[] = {
-        {"ANY",TT_ANY},{"NOTANY",TT_NOTANY},{"SPAN",TT_SPAN},{"BREAK",TT_BREAK},{"BREAKX",TT_BREAKX},
-        {"LEN",TT_LEN},{"POS",TT_POS},{"RPOS",TT_RPOS},{"TAB",TT_TAB},{"RTAB",TT_RTAB},
-        {"ARB",TT_ARB},{"ARBNO",TT_ARBNO},{"REM",TT_REM},{"FAIL",TT_FAIL},{"SUCCEED",TT_SUCCEED},
-        {"FENCE",TT_FENCE},{"FLUSH",TT_FLUSH},{"ABORT",TT_ABORT},{"BAL",TT_BAL},{NULL,TT_VAR}
-    };
-    for (int i = 0; m[i].n; i++) if (strcmp(s, m[i].n) == 0) return m[i].k;
-    return TT_VAR;
-}
+static void     sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, int before_else);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t  *sc_int_literal        (const char *txt);
 static tree_t  *sc_real_literal       (const char *txt);
 static tree_t  *sc_str_literal        (const char *txt);
 struct IfHead {
     tree_t *cond;
-    STMT_t *before_body;
+    int     mark;
     int     lineno;
 };
 struct WhileHead {
     tree_t *cond;
-    STMT_t *before_body;
+    int     mark;
 };
 struct DoHead {
-    STMT_t *before_body;
+    int     mark;
 };
 struct ForHead {
     tree_t *init;
     tree_t *cond;
     tree_t *step;
-    STMT_t *before_body;
+    int     mark;
 };
 struct FuncHead {
     char   *name;
-    char   *argstr;
-    char   *locstr;
+    tree_t *params;
+    tree_t *locals;
     char   *prev_func;
-    STMT_t *before_body;
+    int     mark;
 };
 struct CaseEntry {
     char   *case_label;
     tree_t *value;
-    STMT_t *before_body;
+    int     mark;
 };
 struct SwitchHead {
     tree_t *disc;
@@ -131,21 +119,18 @@ struct SwitchHead {
     char   *end_label;
     char   *default_label;
     int     has_default;
-    STMT_t *after_tmp_assign;
     struct CaseEntry *cases;
     int     cases_count;
     int     cases_cap;
-    STMT_t *last_case_label_tail;
     struct SwitchHead *prev_switch;
     int     lineno;
 };
 static struct IfHead    *sc_if_head_new    (ScParseState *st, tree_t *cond);
 static void     sc_finalize_while_pst  (ScParseState *st, struct WhileHead *h, tree_t *cond);
 static void     sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t *cond);
-static struct ForHead   *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_t *cond, tree_t *step, STMT_t *before_body);
-static void     sc_append_chain       (ScParseState *st, STMT_t *chain_head, STMT_t *chain_tail);
+static struct ForHead   *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_t *cond, tree_t *step, int mark);
 static void     sc_finalize_for_pst   (ScParseState *st, struct ForHead *h);
-static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr, char *locstr);
+static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, tree_t *params, tree_t *locals);
 static void     sc_finalize_function_pst(ScParseState *st, struct FuncHead *h);
 static void     sc_append_label_node  (ScParseState *st, const char *name);
 static void     sc_loop_push           (ScParseState *st, char *cont_label, char *end_label, int is_loop);
@@ -156,7 +141,10 @@ static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc);
 static void     sc_switch_case_label   (ScParseState *st, tree_t *value);
 static void     sc_switch_default_label(ScParseState *st);
 static void     sc_finalize_switch_pst (ScParseState *st, struct SwitchHead *h);
-static void     sc_emit_struct         (ScParseState *st, char *name, char *fields);
+static void     sc_emit_struct         (ScParseState *st, char *name, tree_t *fields);
+static tree_t  *sc_qlit                (const char *txt);
+static tree_t  *sc_list_one            (tree_e k, char *ident);
+static tree_t  *sc_list_add            (tree_t *l, char *ident);
 }
 %define api.prefix {sc_}
 %define api.pure full
@@ -166,6 +154,7 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
     tree_t *expr;
     char   *str;
     long    ival;
+    int     markv;
     double  dval;
     struct IfHead    *ifhead;
     struct WhileHead *whilehead;
@@ -173,7 +162,6 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
     struct ForHead   *forhead;
     struct FuncHead  *funchead;
     struct SwitchHead *switchhead;
-    STMT_t           *stmt_ptr;
 }
 %token <str> T_IDENT
 %token <str> T_KEYWORD
@@ -215,12 +203,12 @@ static void     sc_emit_struct         (ScParseState *st, char *name, char *fiel
 %type <whilehead> while_head
 %type <dohead>    do_head
 %type <ifhead>    if_head
-%type <stmt_ptr>  else_keyword
+%type <markv>     else_keyword
 %type <forhead>   for_head
 %type <funchead>  func_head
-%type <str>       func_arglist func_arglist_ne func_locals func_locals_ne
+%type <expr>      func_arglist func_arglist_ne func_locals func_locals_ne
 %type <switchhead> switch_head
-%type <str>       struct_field_list
+%type <expr>      struct_field_list
 %%
 program     : stmt_list
             |
@@ -251,9 +239,9 @@ matched_stmt
             | switch_head T_LBRACE T_RBRACE
                                         { sc_finalize_switch_pst(st, $1); }
             | T_STRUCT T_IDENT T_LBRACE struct_field_list T_RBRACE
-                                        { sc_emit_struct(st, $2, $4); ct_drop($2); ct_drop($4); }
+                                        { sc_emit_struct(st, $2, $4); ct_drop($2); }
             | T_STRUCT T_IDENT T_LBRACE T_RBRACE
-                                        { sc_emit_struct(st, $2, ct_strdup("")); ct_drop($2); }
+                                        { sc_emit_struct(st, $2, ast_node_new(TT_FIELDS)); ct_drop($2); }
             | label_decl
             ;
 unmatched_stmt
@@ -273,12 +261,12 @@ while_head  : T_WHILE T_LPAREN expr0 T_RPAREN opt_head_sep
                                         { sc_loop_push(st, NULL, NULL, 1);
                                           struct WhileHead *wh = ct_zalloc(1, sizeof *wh);
                                           wh->cond        = $3;
-                                          wh->before_body = st->code->tail;
+                                          wh->mark        = st->block->n;
                                           $$ = wh; }
             ;
 do_head     : T_DO                  { sc_loop_push(st, NULL, NULL, 1);
                                       struct DoHead *dh = ct_zalloc(1, sizeof *dh);
-                                      dh->before_body = st->code->tail;
+                                      dh->mark = st->block->n;
                                       $$ = dh; }
             ;
 do_body     : T_LBRACE stmt_list T_RBRACE
@@ -288,7 +276,7 @@ for_lead    : T_FOR                  { }
             ;
 for_head    : for_lead T_LPAREN expr0 T_SEMICOLON expr0 T_SEMICOLON expr0 T_RPAREN opt_head_sep
                                         { sc_loop_push(st, NULL, NULL, 1);
-                                          $$ = sc_for_head_new_pst(st, $3, $5, $7, st->code->tail); }
+                                          $$ = sc_for_head_new_pst(st, $3, $5, $7, st->block->n); }
             ;
 switch_head : T_SWITCH T_LPAREN expr0 T_RPAREN
                                         { $$ = sc_switch_head_new(st, $3); }
@@ -308,44 +296,36 @@ opt_head_sep
             | T_CONCAT
             ;
 func_head   : T_DEFINE T_IDENT T_LPAREN func_arglist func_locals
-                                        { $$ = sc_func_head_new_pst(st, $2, $4, $5); ct_drop($2); ct_drop($4); ct_drop($5); }
+                                        { $$ = sc_func_head_new_pst(st, $2, $4, $5); ct_drop($2); }
             ;
 func_locals
-            : opt_head_sep                              { $$ = ct_strdup(""); }
+            : opt_head_sep                              { $$ = ast_node_new(TT_LOCALS); }
             | opt_head_sep func_locals_ne opt_head_sep  { $$ = $2; }
             ;
 func_locals_ne
-            : T_IDENT                  { $$ = ct_strdup($1); ct_drop($1); }
+            : T_IDENT                  { $$ = sc_list_one(TT_LOCALS, $1); }
             | func_locals_ne T_COMMA T_IDENT
-                { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  ct_drop($1); ct_drop($3); $$ = s; }
+                { $$ = sc_list_add($1, $3); }
             ;
 func_arglist
-            : T_RPAREN                 { $$ = ct_strdup(""); }
-            | T_IDENT T_RPAREN         { $$ = ct_strdup($1); ct_drop($1); }
+            : T_RPAREN                 { $$ = ast_node_new(TT_PARAMS); }
+            | T_IDENT T_RPAREN         { $$ = sc_list_one(TT_PARAMS, $1); }
             | func_arglist_ne T_RPAREN { $$ = $1; }
             ;
 func_arglist_ne
             : T_IDENT T_COMMA T_IDENT
-                { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  ct_drop($1); ct_drop($3); $$ = s; }
+                { $$ = sc_list_add(sc_list_one(TT_PARAMS, $1), $3); }
             | func_arglist_ne T_COMMA T_IDENT
-                { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  ct_drop($1); ct_drop($3); $$ = s; }
+                { $$ = sc_list_add($1, $3); }
             ;
 struct_field_list
             : T_IDENT
-                { $$ = ct_strdup($1); ct_drop($1); }
+                { $$ = sc_list_one(TT_FIELDS, $1); }
             | struct_field_list T_COMMA T_IDENT
-                { int len = strlen($1) + 1 + strlen($3) + 1;
-                  char *s = ct_alloc(len); snprintf(s, len, "%s,%s", $1, $3);
-                  ct_drop($1); ct_drop($3); $$ = s; }
+                { $$ = sc_list_add($1, $3); }
             ;
 else_keyword
-            : T_ELSE                 { $$ = st->code->tail; }
+            : T_ELSE                 { $$ = st->block->n; }
             ;
 label_decl
             : T_IDENT T_COLON        { sc_append_label_node(st, $1); ct_drop($1); }
@@ -357,7 +337,7 @@ simple_stmt : expr0 T_SEMICOLON                { sc_append_stmt(st, $1); }
             | T_RETURN T_SEMICOLON          { sc_append_stmt(st, ast_node_new(TT_RETURN)); }
             | T_FRETURN T_SEMICOLON         { sc_append_stmt(st, ast_node_new(TT_PROC_FAIL)); }
             | T_NRETURN T_SEMICOLON         { sc_append_stmt(st, ast_node_new(TT_NRETURN)); }
-            | T_GOTO T_IDENT T_SEMICOLON    { tree_t *g = ast_node_new(TT_GOTO_U); g->sval = ct_strdup($2); ct_drop($2); sc_append_stmt(st, g); }
+            | T_GOTO T_IDENT T_SEMICOLON    { tree_t *g = ast_node_new(TT_GOTO_U); ast_push(g, sc_qlit($2)); ct_drop($2); sc_append_stmt(st, g); }
             | T_BREAK T_SEMICOLON           { sc_append_break(st, NULL); }
             | T_BREAK T_IDENT T_SEMICOLON   { sc_append_break(st, $2); ct_drop($2); }
             | T_CONTINUE T_SEMICOLON        { sc_append_continue(st, NULL); }
@@ -463,10 +443,12 @@ expr14      : T_1PLUS  expr14
             ;
 expr15      : expr15 T_LBRACK exprlist T_RBRACK
                                 { tree_t *idx = expr_new(TT_IDX);
+                                  tree_t *sub = expr_new(TT_VLIST);
                                   expr_add_child(idx, $1);
                                   for (int i = 0; i < $3->nchildren; i++)
-                                      expr_add_child(idx, $3->children[i]);
+                                      expr_add_child(sub, $3->children[i]);
                                   if ($3->c) ct_drop((char*)$3->c - sizeof(size_t)); ct_drop($3);
+                                  expr_add_child(idx, sub);
                                   $$ = idx; }
             | expr17
                                 { $$ = $1; }
@@ -489,12 +471,13 @@ optexpr     : expr0
                                 { $$ = expr_new(TT_NUL); }
             ;
 expr17      : T_CALL exprlist T_RPAREN
-                                { tree_e _k = sc_pat_prim_kind($1);
-                                  tree_t *e = expr_new(_k == TT_VAR ? TT_FNC : _k);
-                                  if (_k == TT_VAR || _k == TT_ARB || _k == TT_BAL || _k == TT_REM || _k == TT_FAIL || _k == TT_SUCCEED || _k == TT_ABORT) e->sval = $1; else ct_drop($1);
+                                { tree_t *e = expr_new(TT_FNC);
+                                  tree_t *a = expr_new(TT_ARGS);
+                                  expr_add_child(e, sc_qlit($1)); ct_drop($1);
                                   for (int i = 0; i < $2->nchildren; i++)
-                                      expr_add_child(e, $2->children[i]);
+                                      expr_add_child(a, $2->children[i]);
                                   if ($2->c) ct_drop((char*)$2->c - sizeof(size_t)); ct_drop($2);
+                                  expr_add_child(e, a);
                                   $$ = e; }
             | T_IDENT
                                 { tree_t *e = expr_new(TT_VAR);
@@ -531,17 +514,27 @@ void sc_error(ScParseState *st, const char *msg) {
 }
 static void sc_append_stmt(ScParseState *st, tree_t *top) {
     if (!top) return;
-    STMT_t *s = stmt_new();
-    s->lineno  = st->ctx ? st->ctx->line : 0;
-    s->stno    = ++st->code->nstmts;
-    s->subject = top;
-    if (top->t == TT_ASSIGN && top->n == 2 && top->c[0] && top->c[1]) {
-        tree_t *lhs = top->c[0];
-        if (lhs->t == TT_INDIRECT && lhs->n == 1 && lhs->c[0] && lhs->c[0]->t == TT_QLIT && lhs->c[0]->sval && lhs->c[0]->sval[0] && lhs->c[0]->sval[0] != '&') { tree_t *v = ast_node_new(TT_VAR); v->sval = ct_strdup(lhs->c[0]->sval); lhs = v; }
-        if (lhs->t == TT_VAR && lhs->sval) { s->subject = lhs; s->replacement = top->c[1]; s->has_eq = 1; }
-    }
-    sc_append_chain(st, s, s);
+    top->line = st->ctx ? st->ctx->line : 0;
+    ast_push(st->block, top);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *sc_qlit(const char *txt) {
+    tree_t *q = ast_node_new(TT_QLIT);
+    q->sval = ct_strdup(txt);
+    return q;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *sc_list_add(tree_t *l, char *ident) {
+    tree_t *v = ast_node_new(TT_VAR);
+    v->sval = ident;
+    ast_push(l, v);
+    return l;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *sc_list_one(tree_e k, char *ident) {
+    return sc_list_add(ast_node_new(k), ident);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *sc_int_literal(const char *txt) {
     tree_t *e = expr_new(TT_ILIT);
     e->ival = strtol(txt, NULL, 10);
@@ -561,90 +554,72 @@ static tree_t *sc_str_literal(const char *txt) {
 static struct IfHead *sc_if_head_new(ScParseState *st, tree_t *cond) {
     struct IfHead *h = ct_zalloc(1, sizeof *h);
     h->cond        = cond;
-    h->before_body = st->code->tail;
+    h->mark        = st->block->n;
     h->lineno      = st->ctx ? st->ctx->line : 0;
     return h;
 }
-static struct ForHead *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_t *cond, tree_t *step, STMT_t *before_body) {
+static struct ForHead *sc_for_head_new_pst(ScParseState *st, tree_t *init, tree_t *cond, tree_t *step, int mark) {
     (void)st;
     struct ForHead *h = ct_zalloc(1, sizeof *h);
     h->init        = init;
     h->cond        = cond;
     h->step        = step;
-    h->before_body = before_body;
+    h->mark        = mark;
     return h;
 }
-static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, char *argstr, char *locstr) {
+static struct FuncHead *sc_func_head_new_pst(ScParseState *st, char *name, tree_t *params, tree_t *locals) {
     struct FuncHead *h  = ct_zalloc(1, sizeof *h);
     h->name             = ct_strdup(name);
-    h->argstr           = ct_strdup(argstr);
-    h->locstr           = ct_strdup(locstr ? locstr : "");
+    h->params           = params;
+    h->locals           = locals;
     h->prev_func        = st->cur_func_name;
-    h->before_body      = st->code->tail;
+    h->mark             = st->block->n;
     st->cur_func_name   = h->name;
     return h;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_function_pst(ScParseState *st, struct FuncHead *h)
 {
-    tree_t *body  = sc_collect_body(st, h->before_body);
-    int slen = strlen(h->name) + 1 + strlen(h->argstr) + 1 + strlen(h->locstr) + 1;
-    char *sig = ct_alloc((size_t)slen);
-    snprintf(sig, (size_t)slen, "%s(%s)%s", h->name, h->argstr, h->locstr);
-    tree_t *qname = ast_node_new(TT_QLIT); qname->sval = ct_strdup(h->name);
-    tree_t *qsig  = ast_node_new(TT_QLIT); qsig->sval  = sig;
+    tree_t *body  = sc_collect_body(st, h->mark);
     tree_t *def   = ast_node_new(TT_DEFINE);
-    ast_push(def, qname);
-    ast_push(def, qsig);
+    ast_push(def, sc_qlit(h->name));
+    ast_push(def, h->params);
+    ast_push(def, h->locals);
     ast_push(def, body);
     st->cur_func_name = h->prev_func;
-    ct_drop(h->name); ct_drop(h->argstr); ct_drop(h->locstr); ct_drop(h);
+    ct_drop(h->name); ct_drop(h);
     sc_append_stmt(st, def);
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_append_label_node(ScParseState *st, const char *name) {
     for (uint32_t i = 0; i < st->labels.len; i++) if (!strcmp(CV_AT(st->labels, char *, i), name)) { sc_error(st, ct_fmt("duplicate label '%s'", name)); return; }
-    STMT_t *s = stmt_new();
-    s->lineno = st->ctx ? st->ctx->line : 0;
-    s->stno   = ++st->code->nstmts;
-    s->label  = ct_strdup(name);
-    CV_PUSH(st->labels, char *) = s->label;
-    sc_append_chain(st, s, s);
+    tree_t *lab = ast_node_new(TT_LABEL);
+    ast_push(lab, sc_qlit(name));
+    CV_PUSH(st->labels, char *) = lab->c[0]->sval;
+    sc_append_stmt(st, lab);
 }
-static void sc_append_chain(ScParseState *st, STMT_t *chain_head, STMT_t *chain_tail) {
-    if (!chain_head) return;
-    if (!chain_tail) chain_tail = chain_head;
-    if (!st->code->head) st->code->head = chain_head;
-    else                 st->code->tail->next = chain_head;
-    st->code->tail = chain_tail;
-}
-static tree_t *sc_collect_body(ScParseState *st, STMT_t *snapshot)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *sc_collect_body(ScParseState *st, int mark)
 {
     tree_t *block = ast_node_new(TT_PROGRAM);
-    STMT_t *first = snapshot ? snapshot->next : st->code->head;
-    if (!first) return block;
-    if (snapshot) snapshot->next = NULL;
-    else          st->code->head = NULL;
-    st->code->tail = snapshot;
-    for (STMT_t *s = first; s; ) {
-        STMT_t *nxt = s->next;
-        ast_push(block, stmt_to_ast(s));
-        ct_drop(s);
-        s = nxt;
-    }
+    for (int i = mark; i < st->block->n; i++) ast_push(block, st->block->c[i]);
+    st->block->n = mark;
     return block;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sc_finalize_if_no_else_pst(ScParseState *st, struct IfHead *h)
 {
-    tree_t *then_block = sc_collect_body(st, h->before_body);
+    tree_t *then_block = sc_collect_body(st, h->mark);
     tree_t *if_node    = ast_node_new(TT_IF);
     ast_push(if_node, h->cond);
     ast_push(if_node, then_block);
     sc_append_stmt(st, if_node);
     ct_drop(h);
 }
-static void sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *before_else)
+static void sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, int before_else)
 {
     tree_t *else_block = sc_collect_body(st, before_else);
-    tree_t *then_block = sc_collect_body(st, h->before_body);
+    tree_t *then_block = sc_collect_body(st, h->mark);
     tree_t *if_node    = ast_node_new(TT_IF);
     ast_push(if_node, h->cond);
     ast_push(if_node, then_block);
@@ -654,7 +629,7 @@ static void sc_finalize_if_else_pst(ScParseState *st, struct IfHead *h, STMT_t *
 }
 static void sc_finalize_while_pst(ScParseState *st, struct WhileHead *h, tree_t *cond)
 {
-    tree_t    *body   = sc_collect_body(st, h->before_body);
+    tree_t    *body   = sc_collect_body(st, h->mark);
     tree_t    *w      = ast_node_new(TT_WHILE);
     ast_push(w, cond);
     ast_push(w, body);
@@ -664,7 +639,7 @@ static void sc_finalize_while_pst(ScParseState *st, struct WhileHead *h, tree_t 
 }
 static void sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t *cond)
 {
-    tree_t    *body   = sc_collect_body(st, h->before_body);
+    tree_t    *body   = sc_collect_body(st, h->mark);
     tree_t    *dw     = ast_node_new(TT_DO_WHILE);
     ast_push(dw, body);
     ast_push(dw, cond);
@@ -674,7 +649,7 @@ static void sc_finalize_do_while_pst(ScParseState *st, struct DoHead *h, tree_t 
 }
 static void sc_finalize_for_pst(ScParseState *st, struct ForHead *h)
 {
-    tree_t    *body   = sc_collect_body(st, h->before_body);
+    tree_t    *body   = sc_collect_body(st, h->mark);
     tree_t    *f      = ast_node_new(TT_FOR);
     ast_push(f, h->init ? h->init : ast_node_new(TT_NUL));
     ast_push(f, h->cond);
@@ -740,8 +715,6 @@ static struct SwitchHead *sc_switch_head_new(ScParseState *st, tree_t *disc) {
     h->default_label = NULL;
     h->has_default   = 0;
     h->tmp_name      = NULL;
-    h->after_tmp_assign     = NULL;
-    h->last_case_label_tail = NULL;
     sc_loop_push(st, NULL, NULL, 0);
     st->cur_switch = h;
     return h;
@@ -752,7 +725,7 @@ static void sc_switch_case_label(ScParseState *st, tree_t *value) {
     sc_switch_cases_grow(h);
     h->cases[h->cases_count].value       = value;
     h->cases[h->cases_count].case_label  = NULL;
-    h->cases[h->cases_count].before_body = st->code->tail;
+    h->cases[h->cases_count].mark        = st->block->n;
     h->cases_count++;
 }
 static void sc_switch_default_label(ScParseState *st) {
@@ -763,7 +736,7 @@ static void sc_switch_default_label(ScParseState *st) {
     sc_switch_cases_grow(h);
     h->cases[h->cases_count].value       = NULL;
     h->cases[h->cases_count].case_label  = NULL;
-    h->cases[h->cases_count].before_body = st->code->tail;
+    h->cases[h->cases_count].mark        = st->block->n;
     h->cases_count++;
 }
 static void sc_finalize_switch_pst(ScParseState *st, struct SwitchHead *h)
@@ -771,7 +744,7 @@ static void sc_finalize_switch_pst(ScParseState *st, struct SwitchHead *h)
     int nc = h->cases_count;
     tree_t **bodies = ct_zalloc((size_t)(nc > 0 ? nc : 1), sizeof *bodies);
     for (int i = nc - 1; i >= 0; i--)
-        bodies[i] = sc_collect_body(st, h->cases[i].before_body);
+        bodies[i] = sc_collect_body(st, h->cases[i].mark);
     tree_t *node = ast_node_new(TT_CASE);
     ast_push(node, h->disc);
     for (int i = 0; i < nc; i++) {
@@ -793,31 +766,24 @@ static void sc_finalize_switch_pst(ScParseState *st, struct SwitchHead *h)
     ct_drop(h);
     sc_append_stmt(st, node);
 }
-static void sc_emit_struct(ScParseState *st, char *name, char *fields) {
-    int slen = strlen(name) + 1 + strlen(fields) + 2;
-    char *spec = ct_alloc(slen);
-    snprintf(spec, slen, "%s(%s)", name, fields);
-    tree_t *qarg = expr_new(TT_QLIT);
-    qarg->sval   = spec;
-    tree_t *data_call = expr_new(TT_FNC);
-    data_call->sval   = ct_strdup("DATA");
-    expr_add_child(data_call, qarg);
-    sc_append_stmt(st, data_call);
+static void sc_emit_struct(ScParseState *st, char *name, tree_t *fields) {
+    tree_t *node = ast_node_new(TT_STRUCT);
+    ast_push(node, sc_qlit(name));
+    ast_push(node, fields);
+    sc_append_stmt(st, node);
 }
-CODE_t *snocone_parse_program(const char *src, const char *filename) {
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *snocone_parse_tree(const char *src, const char *filename) {
     LexCtx          ctx = {0};
     ctx.p           = src ? src : "";
     ctx.line        = 1;
     ScParseState    state = {0};
     state.ctx       = (struct LexCtx *)&ctx;
-    state.code      = ct_zalloc(1, sizeof *state.code);
+    state.block     = ast_node_new(TT_PROGRAM);
     state.filename  = filename;
     state.nerrors   = 0;
     int rc = sc_parse(&state);
     while (state.loop_top) sc_loop_pop(&state);
-    if (rc != 0 || state.nerrors > 0) {
-        ct_drop(state.code);
-        return NULL;
-    }
-    return state.code;
+    if (rc != 0 || state.nerrors > 0) return NULL;
+    return state.block;
 }

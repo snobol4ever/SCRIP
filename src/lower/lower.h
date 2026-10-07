@@ -43,6 +43,7 @@ int lc_is_binop(tree_e tt);
 typedef IR_t * (*lc_lower_fn)(void * cx, const tree_t * a, IR_t * F);
 IR_graph_t * lc_arg_block(IR_graph_t ** gslot, lc_lower_fn fn, void * cx, const tree_t * a);
 stage2_t *lower_sno_stage2(const tree_t *prog);
+tree_t *lower_snocone_tree(tree_t *pruned);
 stage2_t *lower_icon_stage2(const tree_t *prog);
 stage2_t *lower_pl_stage2(const tree_t *prog);
 stage2_t *lower_raku_stage2(const tree_t *prog);

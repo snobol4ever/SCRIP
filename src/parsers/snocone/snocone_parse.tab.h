@@ -71,7 +71,7 @@ typedef struct LoopFrame {
 } LoopFrame;
 typedef struct ScParseState {
     struct LexCtx *ctx;
-    CODE_t        *code;
+    tree_t        *block;
     const char    *filename;
     int            nerrors;
     char          *cur_func_name;
@@ -167,11 +167,12 @@ typedef struct ScParseState {
 #if ! defined SC_STYPE && ! defined SC_STYPE_IS_DECLARED
 union SC_STYPE
 {
-#line 165 "snocone_parse.y"
+#line 153 "snocone_parse.y"
 
     tree_t *expr;
     char   *str;
     long    ival;
+    int     markv;
     double  dval;
     struct IfHead    *ifhead;
     struct WhileHead *whilehead;
@@ -179,7 +180,6 @@ union SC_STYPE
     struct ForHead   *forhead;
     struct FuncHead  *funchead;
     struct SwitchHead *switchhead;
-    STMT_t           *stmt_ptr;
 
 #line 185 "snocone_parse.tab.h"
 

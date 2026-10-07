@@ -16,7 +16,7 @@
 #include "parsers/snobol4/scrip_cc.h"
 #define PARSER_NAME "snocone"
 #define PARSER_PARSE snocone_compile_parse
-#define PARSER_TREE(p) ((p) ? code_to_ast((CODE_t *)(p)) : NULL)
+#define PARSER_TREE(p) ((tree_t *)(p))
 #elif defined(PARSER_LANG_ICON)
 #include "parsers/icon/icon_driver.h"
 #define PARSER_NAME "icon"
