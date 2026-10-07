@@ -121,6 +121,11 @@ static int64_t rk_binop_code(tree_e tt) {
     switch (tt) { case TT_ADD: return BINOP_ADD_BIG; case TT_SUB: return BINOP_SUB_BIG; case TT_MUL: return BINOP_MUL_BIG; default: return lc_binop_code(tt); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_lower_name(const char * nm) {
+    static const char * const names[] = { "open", "close", "slurp", "spurt", "unlink", "mkdir", "rmdir", "copy", "rename", "move", "chmod", "dir", "chdir", "make-temp-file", "make-temp-dir", NULL };
+    for (int i = 0; names[i]; i++) if (!strcmp(nm, names[i])) return 1; return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_user_proc_exists(const char * nm) {
     for (int i = 0; i < g_stage2.proc_count; i++) { const char * pn = g_stage2.proc_table[i].name; if (pn && (!strcmp(pn, nm) || (pn[0] == '&' && !strcmp(pn + 1, nm)))) return 1; }
     return 0;
@@ -737,6 +742,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return lower_rcall(cx, mc, "__blk_invoke", 1, γ, ω, res); }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
         if (nm && !strcmp(nm, "EVAL") && !rk_user_proc_exists("EVAL")) return lower_rcall(cx, t, "__rk_eval", 1, γ, ω, res);
+        if (nm && t->n >= 1 && rk_io_lower_name(nm) && !rk_user_proc_exists(nm) && !rk_is_multi_name(nm) && !rk_is_class_name(nm)) { tree_t * io = ast_node_new(TT_FNC); io->v.sval = (char *) "__rk_io"; ast_push(io, leaf_sval2(TT_VAR, "__rk_io")); ast_push(io, leaf_sval2(TT_QLIT, nm)); for (int i = 1; i < t->n; i++) ast_push(io, t->c[i]); return lower_rcall(cx, io, "__rk_io", 1, γ, ω, res); }
         if (nm && rk_is_multi_name(nm)) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
             tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__multi_call"; ast_push(mc, nmv);
@@ -918,6 +924,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         *res = to; return elo; }
         { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     case TT_SORT: return lower_rcall(cx, t, "array_sort", 0, γ, ω, res);
+    case TT_FH_CAPTURE: return lower_rcall(cx, t, "fh_capture", 0, γ, ω, res);
     case TT_CAPTURE: return lower_rcall(cx, t, "re_capture", 0, γ, ω, res);
     case TT_NAMED_CAPTURE: return lower_rcall(cx, t, "re_named_capture", 0, γ, ω, res);
     case TT_ALT: if (t->n > 1) return rk_lower_logical(cx, t, 1, γ, ω, res);

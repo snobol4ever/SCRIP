@@ -123,6 +123,7 @@ void rt_call_args_clear_from(int n);
 #include <dlfcn.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <sys/time.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name)
 {
@@ -339,7 +340,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
@@ -613,6 +614,11 @@ int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[fmt_le
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_match_is(DESCR_t d);
 static int rk_exc_is(DESCR_t d);
+static int rk_io_is(DESCR_t d);
+static void rk_exc_init(void);
+static void rk_exc_throw(DESCR_t ex);
+static const char *rk_io_pathstr(DESCR_t d);
+static DESCR_t rk_io_mk(const char *path);
 static const char *rk_match_text(DESCR_t d);
 static int rk_match_is_nil(DESCR_t d) {
     if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0;
@@ -730,6 +736,7 @@ static const char *rk_cstr(DESCR_t v) {
     if (v.v == DT_A && v.arr) return rk_arr_text(v);
     if (v.v == DT_T && v.tbl) return rk_tbl_text(v);
     if (v.v == DT_DATA && rk_match_is(v)) return rk_match_text(v);
+    if (v.v == DT_DATA && rk_io_is(v)) return rk_io_pathstr(v);
     if (IS_INT_fn(v) || v.v == DT_BOOL || v.v == DT_ORDER) { char *b = rt_wsb_alloc(32); return to_cstring(v, b, 32); }
     const char *s = to_cstring(v, NULL, 0); return s ? s : "";
 }
@@ -1003,6 +1010,7 @@ static DESCR_t rk_typeobj(const char *nm) {
 static const char *rk_value_type(DESCR_t v) {
     const char *t = rk_typeobj_name(v); if (t) return t;
     if (v.v == DT_BOOL) return "Bool";
+    if (v.v == DT_FH) return "IO::Handle";
     if (v.v == DT_ORDER) return "Order";
     if (IS_INT_fn(v) || v.v == DT_BIG) return "Int";
     if (IS_REAL_fn(v)) return "Num";
@@ -1082,6 +1090,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         if (split) { tx[nel] = s + seg; ln[nel] = n - seg; nel++; }
         *out = rk_arr_of_texts(tx, ln, nel); return 1;
     }
+    if (!strcmp(meth, "IO") && nmargs == 0 && recv.v != DT_A) { *out = rk_io_mk(s); return 1; }
     if (!strcmp(meth, "chars")) { *out = INTVAL((long)utf8_strlen(s)); return 1; }
     if (!strcmp(meth, "uc")) { *out = STRVAL(rk_case_str(s, n, 1, 1, 0)); return 1; }
     if (!strcmp(meth, "lc")) { *out = STRVAL(rk_case_str(s, n, 2, 2, 0)); return 1; }
@@ -4603,11 +4612,12 @@ static int rk_pre_value(const char *nm, DESCR_t *out) {
     if (!strcmp(nm, "now")) { struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts); *out = REALVAL((double) ts.tv_sec + (double) ts.tv_nsec / 1e9); return 1; }
     if (!strcmp(nm, "rand")) { *out = REALVAL((double) random() / ((double) RAND_MAX + 1.0)); return 1; }
     if (!strcmp(nm, "*PID")) { *out = INTVAL((long) getpid()); return 1; }
-    if (!strcmp(nm, "*PROGRAM-NAME") || !strcmp(nm, "*PROGRAM") || !strcmp(nm, "?FILE")) { const char *p = rt_main_progname(); *out = STRVAL(rt_heap_strdup_c(p && *p ? p : "-e")); return 1; }
-    if (!strcmp(nm, "*CWD")) { char *b = rt_wsb_alloc(4096); *out = STRVAL(rt_heap_strdup_c(getcwd(b, 4096) ? b : "")); return 1; }
-    if (!strcmp(nm, "*EXECUTABLE") || !strcmp(nm, "*EXECUTABLE-NAME")) { char *b = rt_wsb_alloc(4096); ssize_t n = readlink("/proc/self/exe", b, 4095); if (n < 0) n = 0; b[n] = '\0'; *out = STRVAL(rt_heap_strdup_c(b)); return 1; }
-    if (!strcmp(nm, "*HOME")) { const char *h = getenv("HOME"); *out = STRVAL(rt_heap_strdup_c(h ? h : "")); return 1; }
-    if (!strcmp(nm, "*TMPDIR")) { const char *h = getenv("TMPDIR"); *out = STRVAL(rt_heap_strdup_c(h && *h ? h : "/tmp")); return 1; }
+    if (!strcmp(nm, "*PROGRAM")) { const char *p = rt_main_progname(); *out = rk_io_mk(p && *p ? p : "-e"); return 1; }
+    if (!strcmp(nm, "*PROGRAM-NAME") || !strcmp(nm, "?FILE")) { const char *p = rt_main_progname(); *out = STRVAL(rt_heap_strdup_c(p && *p ? p : "-e")); return 1; }
+    if (!strcmp(nm, "*CWD")) { char *b = rt_wsb_alloc(4096); *out = rk_io_mk(getcwd(b, 4096) ? b : ""); return 1; }
+    if (!strcmp(nm, "*EXECUTABLE") || !strcmp(nm, "*EXECUTABLE-NAME")) { char *b = rt_wsb_alloc(4096); ssize_t n = readlink("/proc/self/exe", b, 4095); if (n < 0) n = 0; b[n] = '\0'; *out = nm[11] == '-' ? STRVAL(rt_heap_strdup_c(b)) : rk_io_mk(b); return 1; }
+    if (!strcmp(nm, "*HOME")) { const char *h = getenv("HOME"); *out = rk_io_mk(h ? h : ""); return 1; }
+    if (!strcmp(nm, "*TMPDIR")) { const char *h = getenv("TMPDIR"); *out = rk_io_mk(h && *h ? h : "/tmp"); return 1; }
     if (!strcmp(nm, "*USER")) { const char *h = getenv("USER"); *out = STRVAL(rt_heap_strdup_c(h ? h : "")); return 1; }
     if (!strcmp(nm, "%*ENV")) { *out = rk_pre_env(); return 1; }
     if (!strcmp(nm, "@*ARGS")) { *out = rk_pre_args(); return 1; }
@@ -4711,6 +4721,259 @@ static int rk_match_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out
         *out = rk_mk_arr(r, n); return 1;
     }
     return rt_str_method(m, FIELD_GET_fn(d, "text"), &args[2], nargs - 2, out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct rk_dirstream RK_DIR; struct rk_dirent { unsigned long d_ino; long d_off; unsigned short d_reclen; unsigned char d_type; char d_name[]; };
+extern RK_DIR *opendir(const char *); extern struct rk_dirent *readdir(RK_DIR *); extern int closedir(RK_DIR *);
+extern FILE *fh_get(int); extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+static void rk_io_init(void) {
+    static int rk_io_reg = 0; if (rk_io_reg) return; rk_io_reg = 1;
+    extern void record_register(const char *spec); extern void class_inherit(const char *child, const char *parent);
+    rk_exc_init();
+    record_register("IO::Path(path,cwd)"); record_register("X::IO(message)"); class_inherit("X::IO", "Exception");
+    static const char *const sub[] = { "X::IO::DoesNotExist", "X::IO::Unlink", "X::IO::Mkdir", "X::IO::Rmdir", "X::IO::Rename", "X::IO::Copy", "X::IO::Chmod", "X::IO::Dir", NULL };
+    for (int i = 0; sub[i]; i++) { char spec[strlen(sub[i]) + 16]; snprintf(spec, sizeof spec, "%s(message)", sub[i]); record_register(spec); class_inherit(sub[i], "X::IO"); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_is(DESCR_t d) { return IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "IO::Path"); }
+static const char *rk_io_pathstr(DESCR_t d) { const char *t = VARVAL_fn(FIELD_GET_fn(d, "path")); return t ? t : ""; }
+static const char *rk_io_cwdstr(DESCR_t d) { const char *t = VARVAL_fn(FIELD_GET_fn(d, "cwd")); return t ? t : ""; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_io_mk_in(const char *path, const char *cwd) {
+    rk_io_init(); return DATCON_fn("IO::Path", STRVAL(rt_heap_strdup_c(path)), STRVAL(rt_heap_strdup_c(cwd)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_io_mk(const char *path) {
+    char *cw = rt_wsb_alloc(4096); if (!getcwd(cw, 4096)) strcpy(cw, "/"); return rk_io_mk_in(path, cw);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_io_arg(DESCR_t d) { return rk_io_is(d) ? rk_io_pathstr(d) : rk_cstr(d); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_io_abs(DESCR_t d) {
+    const char *p = rk_io_pathstr(d); if (p[0] == '/') return p;
+    const char *cw = rk_io_cwdstr(d); char *o = rt_wsb_alloc(strlen(cw) + strlen(p) + 3); size_t cl = strlen(cw);
+    if (!p[0]) strcpy(o, cw); else sprintf(o, "%s%s%s", cw, cl && cw[cl - 1] == '/' ? "" : "/", p); return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_io_clean(const char *p) {
+    size_t n = strlen(p); char *o = rt_wsb_alloc(n + 2); size_t k = 0; int lead = p[0] == '/';
+    for (size_t i = 0; i < n; ) {
+        if (p[i] == '/') { if (k == 0 || o[k - 1] != '/') o[k++] = '/'; i++; continue; }
+        if (p[i] == '.' && (i + 1 == n || p[i + 1] == '/') && (k == 0 || o[k - 1] == '/')) { i += (i + 1 == n) ? 1 : 2; continue; }
+        o[k++] = p[i++];
+    }
+    if (k > 1 && o[k - 1] == '/') k--;
+    if (k == 0) { o[0] = lead ? '/' : '.'; k = 1; }
+    o[k] = '\0'; return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_io_basename(const char *p) {
+    size_t n = strlen(p); while (n > 1 && p[n - 1] == '/') n--;
+    if (n == 1 && p[0] == '/') return "/";
+    size_t b = n; while (b > 0 && p[b - 1] != '/') b--;
+    char *o = rt_wsb_alloc(n - b + 1); memcpy(o, p + b, n - b); o[n - b] = '\0'; return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_io_dirname(const char *p) {
+    size_t n = strlen(p); while (n > 1 && p[n - 1] == '/') n--;
+    size_t b = n; while (b > 0 && p[b - 1] != '/') b--;
+    if (b == 0) return "."; while (b > 1 && p[b - 1] == '/') b--;
+    char *o = rt_wsb_alloc(b + 1); memcpy(o, p, b); o[b] = '\0'; return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_io_join(const char *dir, const char *name) {
+    size_t dl = strlen(dir); char *o = rt_wsb_alloc(dl + strlen(name) + 2);
+    if (!strcmp(dir, ".") && 0) sprintf(o, "%s", name); else sprintf(o, "%s%s%s", dir, dl && dir[dl - 1] == '/' ? "" : "/", name); return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_io_err(int e) { const char *m = strerror(e); char *o = rt_wsb_alloc(strlen(m) + 1); strcpy(o, m); if (o[0] >= 'A' && o[0] <= 'Z') o[0] = (char) tolower((unsigned char) o[0]); return o; }
+static int rk_io_fail(const char *cls, const char *msg) {
+    rk_io_init(); rk_exc_throw(DATCON_fn(cls, STRVAL(rt_heap_strdup_c(msg)))); return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_maxpos(const char *m) {
+    static const struct { const char *n; int p; } t[] = { { "spurt", 1 }, { "copy", 1 }, { "rename", 1 }, { "move", 1 }, { "chmod", 1 }, { "child", 1 }, { "add", 1 }, { "sibling", 1 }, { "parent", 1 }, { "mkdir", 1 }, { "absolute", 1 }, { "relative", 1 },
+        { "readchars", 1 }, { "read", 1 }, { "seek", 2 }, { "write", 1 }, { "extension", 1 }, { "lines", 1 }, { "words", 1 }, { "open", 0 }, { "slurp", 0 }, { "dir", 0 }, { NULL, 0 } };
+    for (int i = 0; t[i].n; i++) if (!strcmp(m, t[i].n)) return t[i].p; return 99;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_split(const char *m, DESCR_t *a, int na, DESCR_t **kv_out) {
+    int mp = rk_io_maxpos(m), npos = 0;
+    while (npos < na && npos < mp && !rk_is_pair(a[npos])) {
+        if (mp != 99 && IS_STR_fn(a[npos]) && npos + 1 < na && na - npos >= 2 && !strcmp(m, "lines") && 0) break;
+        npos++; }
+    if ((!strcmp(m, "lines") || !strcmp(m, "words")) && npos == 1 && !IS_INT_fn(a[0])) npos = 0;
+    int rest = na - npos; DESCR_t *kv = (DESCR_t *) rt_ws_alloc_descr((size_t) rest + 1); int k = 0;
+    for (int i = npos; i < na; ) { if (rk_is_pair(a[i])) { rk_av_t p = rk_av(a[i]); kv[k++] = p.el[0]; kv[k++] = p.n > 1 ? p.el[1] : NULVCL; i++; } else { kv[k++] = a[i]; if (i + 1 < na) kv[k++] = a[i + 1]; i += 2; } }
+    *kv_out = kv; return npos | (k << 16);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_flag(DESCR_t *kv, int nkv, const char *name, int dflt) {
+    for (int i = 0; i + 1 < nkv; i += 2) if (!strcmp(rk_cstr(kv[i]), name)) return rk_is_truthy(kv[i + 1]);
+    return dflt;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_text_of(DESCR_t d, char **buf, size_t *len) {
+    const char *p = rk_io_arg(d); FILE *f = fopen(p, "rb"); if (!f) return 0;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET); if (n < 0) n = 0;
+    char *b = rt_wsb_alloc((size_t) n + 1); size_t r = n ? fread(b, 1, (size_t) n, f) : 0; b[r] = '\0'; fclose(f); *buf = b; *len = r; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_io_lines_of(const char *t, size_t n, int chomp) {
+    int cnt = 0; for (size_t i = 0; i < n; i++) if (t[i] == '\n') cnt++; if (n && t[n - 1] != '\n') cnt++;
+    DESCR_t *el = cnt ? (DESCR_t *) rt_ws_alloc_descr((size_t) cnt) : NULL; int c = 0; size_t i = 0;
+    while (i < n) { size_t j = i; while (j < n && t[j] != '\n') j++; size_t e = j; int nl = j < n; if (chomp && e > i && t[e - 1] == '\r') e--;
+        size_t len = chomp ? e - i : (nl ? j + 1 - i : j - i); char *b = rt_wsb_alloc(len + 1); memcpy(b, t + i, len); b[len] = '\0'; el[c++] = STRVAL(b); i = nl ? j + 1 : j; }
+    return rk_mk_arr(el, c);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_io_words_of(const char *t, size_t n) {
+    int cnt = 0; { size_t i = 0; while (i < n) { while (i < n && isspace((unsigned char) t[i])) i++; if (i < n) { cnt++; while (i < n && !isspace((unsigned char) t[i])) i++; } } }
+    DESCR_t *el = cnt ? (DESCR_t *) rt_ws_alloc_descr((size_t) cnt) : NULL; int c = 0; size_t i = 0;
+    while (i < n) { while (i < n && isspace((unsigned char) t[i])) i++; size_t j = i; while (j < n && !isspace((unsigned char) t[j])) j++; if (j > i) { char *b = rt_wsb_alloc(j - i + 1); memcpy(b, t + i, j - i); b[j - i] = '\0'; el[c++] = STRVAL(b); } i = j; }
+    return rk_mk_arr(el, c);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_io_open(DESCR_t path, DESCR_t *kv, int nkv) {
+    const char *p = rk_io_arg(path); const char *mode = "r"; int mc = 'r';
+    if (rk_io_flag(kv, nkv, "w", 0)) { mode = "w"; mc = 'w'; } else if (rk_io_flag(kv, nkv, "a", 0)) { mode = "a"; mc = 'a'; } else if (rk_io_flag(kv, nkv, "rw", 0)) { mode = "r+"; mc = '+'; }
+    else if (rk_io_flag(kv, nkv, "x", 0)) { mode = "wx"; mc = 'w'; } else if (rk_io_flag(kv, nkv, "update", 0)) { mode = "r+"; mc = '+'; }
+    for (int i = 0; i + 1 < nkv; i += 2) if (!strcmp(rk_cstr(kv[i]), "mode")) { const char *m = rk_cstr(kv[i + 1]); if (!strcmp(m, "wo")) { mode = "w"; mc = 'w'; } else if (!strcmp(m, "ro")) { mode = "r"; mc = 'r'; } else if (!strcmp(m, "rw")) { mode = "r+"; mc = '+'; } }
+    FILE *f = fopen(p, mode);
+    if (!f && mc == '+') { f = fopen(p, "w+"); }
+    if (!f) { char m[strlen(p) + 96]; snprintf(m, sizeof m, "Failed to open file %s: %s", rk_io_is(path) ? rk_io_abs(path) : p, rk_io_err(errno)); rk_io_fail("X::AdHoc", m); return FAILDESCR; }
+    int idx = fh_alloc(f); g_fh[idx].name = rt_heap_strdup_c(p); g_fh[idx].mode = (char) mc; g_fh[idx].type = 't'; g_fh[idx].closed = 0; g_fh[idx].eof = 0;
+    return FHVAL(idx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_getline(FILE *f, char **out, size_t *len) {
+    size_t cap = 0, n = 0; char *b = NULL; int ch, any = 0;
+    while ((ch = fgetc(f)) != EOF) { any = 1; if (n + 2 > cap) { size_t nc = cap ? cap * 2 : 128; char *nb = rt_wsb_alloc(nc); if (n) memcpy(nb, b, n); b = nb; cap = nc; } b[n++] = (char) ch; if (ch == '\n') break; }
+    if (!any) return 0; b[n] = '\0'; *out = b; *len = n; return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_io_write_args(FILE *f, DESCR_t *a, int n, int gist, int nl) {
+    for (int i = 0; i < n; i++) out_write_descr(f, a[i], gist);
+    if (nl) fputc('\n', f);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_fh_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
+    int idx = (int) args[0].i; FILE *f = fh_get(idx); DESCR_t *a = args + 2; int na = nargs - 2; DESCR_t True = (DESCR_t){ .v = DT_BOOL, .i = 1 }; DESCR_t *fkv = NULL; int fnk = 0; if (strcmp(m, "say") && strcmp(m, "print") && strcmp(m, "put") && strcmp(m, "printf")) { int sp = rk_io_split(m, a, na, &fkv); na = sp & 0xFFFF; fnk = sp >> 16; }
+    if (!strcmp(m, "close")) { if (f && idx >= 3) { fclose(f); g_fh[idx].closed = 1; fh_free(idx); } *out = True; return 1; }
+    if (!f) { if (!strcmp(m, "opened")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; } return 0; }
+    if (!strcmp(m, "say")) { if (f != stdout) fflush(stdout); rk_io_write_args(f, a, na, 1, 1); *out = True; return 1; }
+    if (!strcmp(m, "print")) { if (f != stdout) fflush(stdout); rk_io_write_args(f, a, na, 0, 0); *out = True; return 1; }
+    if (!strcmp(m, "put")) { if (f != stdout) fflush(stdout); rk_io_write_args(f, a, na, 0, 1); *out = True; return 1; }
+    if (!strcmp(m, "printf") && na >= 1) { DESCR_t r; if (script_try_call_builtin_by_name("sprintf", a, na, &r) && !IS_FAIL_fn(r)) { fputs(rk_cstr(r), f); } *out = True; return 1; }
+    if (!strcmp(m, "flush")) { fflush(f); *out = True; return 1; }
+    if (!strcmp(m, "opened")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
+    if (!strcmp(m, "eof")) { int ch = fgetc(f); if (ch == EOF) { *out = True; return 1; } ungetc(ch, f); *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+    if (!strcmp(m, "get")) { char *l; size_t n; if (!rk_io_getline(f, &l, &n)) { *out = rk_typeobj("Str"); return 1; } while (n && (l[n - 1] == '\n' || l[n - 1] == '\r')) n--; l[n] = '\0'; *out = STRVAL(l); return 1; }
+    if (!strcmp(m, "getc")) { int ch = fgetc(f); if (ch == EOF) { *out = rk_typeobj("Str"); return 1; } size_t cl = ch >= 0xF0 ? 4 : ch >= 0xE0 ? 3 : ch >= 0xC0 ? 2 : 1; char *b = rt_wsb_alloc(cl + 1); b[0] = (char) ch; for (size_t i = 1; i < cl; i++) { int c2 = fgetc(f); if (c2 == EOF) { cl = i; break; } b[i] = (char) c2; } b[cl] = '\0'; *out = STRVAL(b); return 1; }
+    if (!strcmp(m, "slurp") || !strcmp(m, "slurp-rest") || !strcmp(m, "lines") || !strcmp(m, "words")) {
+        size_t cap = 4096, n = 0; char *b = rt_wsb_alloc(cap); int ch; while ((ch = fgetc(f)) != EOF) { if (n + 2 > cap) { char *nb = rt_wsb_alloc(cap * 2); memcpy(nb, b, n); b = nb; cap *= 2; } b[n++] = (char) ch; } b[n] = '\0';
+        if (m[0] == 's') { *out = STRVAL(b); return 1; }
+        if (m[0] == 'l') { *out = rk_io_lines_of(b, n, rk_io_flag(fkv, fnk, "chomp", 1)); return 1; }
+        *out = rk_io_words_of(b, n); return 1;
+    }
+    if (!strcmp(m, "readchars") || !strcmp(m, "read")) { long want = (na >= 1 && IS_INT_fn(a[0])) ? (long) a[0].i : 65536; char *b = rt_wsb_alloc((size_t) want * 4 + 1); size_t n = 0; long chars = 0; int ch;
+        while (chars < want && (ch = fgetc(f)) != EOF) { b[n++] = (char) ch; if (((unsigned char) ch & 0xC0) != 0x80) { int more = ch >= 0xF0 ? 3 : ch >= 0xE0 ? 2 : ch >= 0xC0 ? 1 : 0; for (int k = 0; k < more; k++) { int c2 = fgetc(f); if (c2 == EOF) break; b[n++] = (char) c2; } chars++; } }
+        b[n] = '\0'; *out = STRVAL(b); return 1; }
+    if (!strcmp(m, "seek") && na >= 1) { long off = IS_INT_fn(a[0]) ? (long) a[0].i : 0; int wh = SEEK_SET; if (na >= 2) { const char *w = rk_cstr(a[1]); if (strstr(w, "Current")) wh = SEEK_CUR; else if (strstr(w, "End")) wh = SEEK_END; else if (IS_INT_fn(a[1])) wh = a[1].i == 1 ? SEEK_CUR : a[1].i == 2 ? SEEK_END : SEEK_SET; } *out = (DESCR_t){ .v = DT_BOOL, .i = fseek(f, off, wh) == 0 }; return 1; }
+    if (!strcmp(m, "tell")) { *out = INTVAL(ftell(f)); return 1; }
+    if (!strcmp(m, "path") || !strcmp(m, "IO")) { *out = rk_io_mk(g_fh[idx].name ? g_fh[idx].name : ""); return 1; }
+    if (!strcmp(m, "t")) { *out = (DESCR_t){ .v = DT_BOOL, .i = isatty(fileno(f)) }; return 1; }
+    if (!strcmp(m, "native-descriptor")) { *out = INTVAL(fileno(f)); return 1; }
+    if (!strcmp(m, "write") && na >= 1) { fputs(rk_cstr(a[0]), f); *out = True; return 1; }
+    if (!strcmp(m, "encoding")) { *out = STRVAL(rt_heap_strdup_c("utf8")); return 1; }
+    if (!strcmp(m, "Bool") || !strcmp(m, "defined") || !strcmp(m, "so")) { *out = True; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_stat(DESCR_t d, struct stat *st) { return stat(rk_io_abs(d), st) == 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_dir_list(DESCR_t d, DESCR_t *kv, int nkv, DESCR_t *out) {
+    (void) kv; (void) nkv; const char *dir = rk_io_pathstr(d); RK_DIR *dp = opendir(rk_io_abs(d));
+    if (!dp) { char m[strlen(dir) + 80]; snprintf(m, sizeof m, "Failed to get the directory contents of '%s': %s", dir, rk_io_err(errno)); return rk_io_fail("X::IO::Dir", m); }
+    int cap = 64, n = 0; DESCR_t *el = (DESCR_t *) rt_ws_alloc_descr((size_t) cap); struct rk_dirent *de;
+    while ((de = readdir(dp))) { if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) continue;
+        if (n == cap) { DESCR_t *ne = (DESCR_t *) rt_ws_alloc_descr((size_t) cap * 2); memcpy(ne, el, sizeof(DESCR_t) * (size_t) n); el = ne; cap *= 2; }
+        el[n++] = rk_io_mk_in(!strcmp(dir, ".") ? de->d_name : rk_io_join(dir, de->d_name), rk_io_cwdstr(d)); }
+    closedir(dp); *out = rk_mk_arr(el, n); return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_path_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
+    DESCR_t d = args[0]; DESCR_t *a = args + 2; int na = nargs - 2; const char *p = rk_io_pathstr(d); DESCR_t True = (DESCR_t){ .v = DT_BOOL, .i = 1 }, False = (DESCR_t){ .v = DT_BOOL, .i = 0 }; struct stat st;
+    DESCR_t *pos = a, *kv; int sp = rk_io_split(m, a, na, &kv); int npos = sp & 0xFFFF, nkv = sp >> 16;
+    if (!strcmp(m, "Str") || !strcmp(m, "path")) { *out = STRVAL(rt_heap_strdup_c(p)); return 1; }
+    if (!strcmp(m, "gist") || !strcmp(m, "raku") || !strcmp(m, "perl")) { char *o = rt_wsb_alloc(strlen(p) * 2 + strlen(rk_io_cwdstr(d)) + 120);
+        if (m[0] == 'g') sprintf(o, "\"%s\".IO", p); else sprintf(o, "IO::Path.new(\"%s\", :SPEC(IO::Spec::Unix), :CWD(\"%s\"))", p, rk_io_cwdstr(d)); *out = STRVAL(o); return 1; }
+    if (!strcmp(m, "IO")) { *out = d; return 1; }
+    if (!strcmp(m, "Bool") || !strcmp(m, "so") || !strcmp(m, "defined")) { *out = True; return 1; }
+    if (!strcmp(m, "basename")) { *out = STRVAL(rt_heap_strdup_c(rk_io_basename(p))); return 1; }
+    if (!strcmp(m, "dirname")) { *out = STRVAL(rt_heap_strdup_c(rk_io_dirname(p))); return 1; }
+    if (!strcmp(m, "volume")) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+    if (!strcmp(m, "extension")) { const char *b = rk_io_basename(p); const char *dot = strrchr(b, '.'); *out = STRVAL(rt_heap_strdup_c(dot && dot != b ? dot + 1 : "")); return 1; }
+    if (!strcmp(m, "is-absolute")) { *out = p[0] == '/' ? True : False; return 1; }
+    if (!strcmp(m, "is-relative")) { *out = p[0] == '/' ? False : True; return 1; }
+    if (!strcmp(m, "absolute")) { if (npos >= 1) { DESCR_t b = rk_io_mk_in(rk_cstr(pos[0]), rk_io_cwdstr(d)); DESCR_t t = rk_io_mk_in(p, rk_io_abs(b)); *out = STRVAL(rt_heap_strdup_c(rk_io_abs(t))); return 1; } *out = STRVAL(rt_heap_strdup_c(rk_io_abs(d))); return 1; }
+    if (!strcmp(m, "relative")) { const char *ab = rk_io_abs(d), *bs = npos >= 1 ? rk_cstr(pos[0]) : rk_io_cwdstr(d); size_t bl = strlen(bs); while (bl > 1 && bs[bl - 1] == '/') bl--;
+        if (!strncmp(ab, bs, bl) && (ab[bl] == '/' || ab[bl] == '\0')) { const char *r = ab + bl; while (*r == '/') r++; *out = STRVAL(rt_heap_strdup_c(*r ? r : ".")); return 1; } *out = STRVAL(rt_heap_strdup_c(ab)); return 1; }
+    if (!strcmp(m, "parent")) { int up = (npos >= 1 && IS_INT_fn(pos[0])) ? (int) pos[0].i : 1; const char *q = p; for (int i = 0; i < up; i++) q = rk_io_dirname(q); *out = rk_io_mk_in(q, rk_io_cwdstr(d)); return 1; }
+    if ((!strcmp(m, "child") || !strcmp(m, "add")) && npos >= 1) { *out = rk_io_mk_in(rk_io_join(p, rk_cstr(pos[0])), rk_io_cwdstr(d)); return 1; }
+    if (!strcmp(m, "sibling") && npos >= 1) { *out = rk_io_mk_in(rk_io_join(rk_io_dirname(p), rk_cstr(pos[0])), rk_io_cwdstr(d)); return 1; }
+    if (!strcmp(m, "cleanup") || !strcmp(m, "resolve")) { if (m[0] == 'r') { char *rb = rt_wsb_alloc(4097); if (realpath(rk_io_abs(d), rb)) { *out = rk_io_mk_in(rb, rk_io_cwdstr(d)); return 1; } } *out = rk_io_mk_in(rk_io_clean(p), rk_io_cwdstr(d)); return 1; }
+    if (!strcmp(m, "e")) { *out = rk_io_stat(d, &st) ? True : False; return 1; }
+    if (!strcmp(m, "f")) { *out = (rk_io_stat(d, &st) && S_ISREG(st.st_mode)) ? True : False; return 1; }
+    if (!strcmp(m, "d")) { *out = (rk_io_stat(d, &st) && S_ISDIR(st.st_mode)) ? True : False; return 1; }
+    if (!strcmp(m, "l")) { *out = (lstat(rk_io_abs(d), &st) == 0 && S_ISLNK(st.st_mode)) ? True : False; return 1; }
+    if (!strcmp(m, "r") || !strcmp(m, "w") || !strcmp(m, "x")) { *out = access(rk_io_abs(d), m[0] == 'r' ? R_OK : m[0] == 'w' ? W_OK : X_OK) == 0 ? True : False; return 1; }
+    if (!strcmp(m, "rw")) { *out = access(rk_io_abs(d), R_OK | W_OK) == 0 ? True : False; return 1; }
+    if (!strcmp(m, "rwx")) { *out = access(rk_io_abs(d), R_OK | W_OK | X_OK) == 0 ? True : False; return 1; }
+    if (!strcmp(m, "z")) { *out = (rk_io_stat(d, &st) && S_ISREG(st.st_mode) && st.st_size == 0) ? True : False; return 1; }
+    if (!strcmp(m, "s")) { if (rk_io_stat(d, &st) && S_ISREG(st.st_mode)) { *out = INTVAL((long) st.st_size); return 1; } *out = FAILDESCR; return 1; }
+    if (!strcmp(m, "modified") || !strcmp(m, "accessed") || !strcmp(m, "changed")) { if (!rk_io_stat(d, &st)) { *out = FAILDESCR; return 1; } *out = REALVAL((double) (m[0] == 'm' ? st.st_mtime : m[0] == 'a' ? st.st_atime : st.st_ctime)); return 1; }
+    if (!strcmp(m, "mode")) { if (!rk_io_stat(d, &st)) { *out = FAILDESCR; return 1; } *out = INTVAL((long) (st.st_mode & 07777)); return 1; }
+    if (!strcmp(m, "inode")) { if (!rk_io_stat(d, &st)) { *out = FAILDESCR; return 1; } *out = INTVAL((long) st.st_ino); return 1; }
+    if (!strcmp(m, "slurp")) { char *b; size_t n; if (!rk_io_text_of(d, &b, &n)) { char mm[strlen(p) + 96]; snprintf(mm, sizeof mm, "Failed to open file %s: %s", rk_io_abs(d), rk_io_err(errno)); rk_io_fail("X::AdHoc", mm); *out = FAILDESCR; return 1; } *out = STRVAL(b); return 1; }
+    if (!strcmp(m, "lines") || !strcmp(m, "words")) { char *b; size_t n; if (!rk_io_text_of(d, &b, &n)) { char mm[strlen(p) + 96]; snprintf(mm, sizeof mm, "Failed to open file %s: %s", rk_io_abs(d), rk_io_err(errno)); rk_io_fail("X::AdHoc", mm); *out = FAILDESCR; return 1; }
+        *out = m[0] == 'l' ? rk_io_lines_of(b, n, rk_io_flag(kv, nkv, "chomp", 1)) : rk_io_words_of(b, n); return 1; }
+    if (!strcmp(m, "spurt") && npos >= 1) { const char *mode = rk_io_flag(kv, nkv, "append", 0) ? "a" : rk_io_flag(kv, nkv, "createonly", 0) ? "wx" : "w"; FILE *f = fopen(rk_io_abs(d), mode);
+        if (!f) { char mm[strlen(p) + 96]; snprintf(mm, sizeof mm, "Failed to open file %s: %s", rk_io_abs(d), rk_io_err(errno)); rk_io_fail("X::AdHoc", mm); *out = FAILDESCR; return 1; }
+        out_write_descr(f, pos[0], 0); fclose(f); *out = True; return 1; }
+    if (!strcmp(m, "open")) { *out = rk_io_open(d, kv, nkv); return 1; }
+    if (!strcmp(m, "unlink")) { if (unlink(rk_io_abs(d)) == 0 || errno == ENOENT) { *out = True; return 1; } char mm[strlen(p) + 96]; snprintf(mm, sizeof mm, "Failed to remove the file '%s': %s", rk_io_abs(d), rk_io_err(errno)); rk_io_fail("X::IO::Unlink", mm); *out = FAILDESCR; return 1; }
+    if (!strcmp(m, "mkdir")) { int mode = (npos >= 1 && IS_INT_fn(pos[0])) ? (int) pos[0].i : 0777; if (mkdir(rk_io_abs(d), (mode_t) mode) == 0 || (errno == EEXIST && rk_io_stat(d, &st) && S_ISDIR(st.st_mode))) { *out = d; return 1; }
+        char mm[strlen(p) + 96]; snprintf(mm, sizeof mm, "Failed to create directory '%s' with mode '0o%o': %s", rk_io_abs(d), mode, rk_io_err(errno)); rk_io_fail("X::IO::Mkdir", mm); *out = FAILDESCR; return 1; }
+    if (!strcmp(m, "rmdir")) { if (rmdir(rk_io_abs(d)) == 0) { *out = True; return 1; } char mm[strlen(p) + 96]; snprintf(mm, sizeof mm, "Failed to remove the directory '%s': %s", rk_io_abs(d), rk_io_err(errno)); rk_io_fail("X::IO::Rmdir", mm); *out = FAILDESCR; return 1; }
+    if ((!strcmp(m, "copy") || !strcmp(m, "rename") || !strcmp(m, "move")) && npos >= 1) { const char *to = rk_io_is(pos[0]) ? rk_io_abs(pos[0]) : rk_cstr(pos[0]);
+        if (m[0] == 'c') { if (rk_io_flag(kv, nkv, "createonly", 0) && access(to, F_OK) == 0) { *out = FAILDESCR; return rk_io_fail("X::IO::Copy", "Failed to copy: destination exists"); } char *b; size_t n; if (!rk_io_text_of(d, &b, &n)) { char mm[strlen(p) + 96]; snprintf(mm, sizeof mm, "Failed to copy '%s': %s", rk_io_abs(d), rk_io_err(errno)); rk_io_fail("X::IO::Copy", mm); *out = FAILDESCR; return 1; }
+            FILE *f = fopen(to, "wb"); if (!f) { char mm[strlen(to) + 96]; snprintf(mm, sizeof mm, "Failed to copy to '%s': %s", to, rk_io_err(errno)); rk_io_fail("X::IO::Copy", mm); *out = FAILDESCR; return 1; } fwrite(b, 1, n, f); fclose(f); *out = True; return 1; }
+        if (rename(rk_io_abs(d), to) == 0) { *out = True; return 1; } char mm[strlen(p) + strlen(to) + 96]; snprintf(mm, sizeof mm, "Failed to rename '%s' to '%s': %s", rk_io_abs(d), to, rk_io_err(errno)); rk_io_fail("X::IO::Rename", mm); *out = FAILDESCR; return 1; }
+    if (!strcmp(m, "chmod") && npos >= 1 && IS_INT_fn(pos[0])) { *out = chmod(rk_io_abs(d), (mode_t) pos[0].i) == 0 ? True : False; return 1; }
+    if (!strcmp(m, "dir")) return rk_io_dir_list(d, kv, nkv, out);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_io_name(const char *fn) { static const char *const nm[] = { "open", "close", "slurp", "spurt", "unlink", "mkdir", "rmdir", "copy", "rename", "move", "chmod", "dir", "chdir", "make-temp-file", "make-temp-dir", NULL }; for (int i = 0; nm[i]; i++) if (!strcmp(fn, nm[i])) return 1; return 0; }
+static int rk_io_fn(const char *fn, DESCR_t *a, int n, DESCR_t *out) {
+    DESCR_t *pos = a, *kv = NULL; int npos = 0; while (npos < n && !rk_is_pair(a[npos])) npos++;
+    int nkv = 0; { DESCR_t *kk; int sp2 = rk_io_split("none", a + npos, n - npos, &kk); kv = kk; nkv = sp2 >> 16; }
+    DESCR_t True = (DESCR_t){ .v = DT_BOOL, .i = 1 };
+    if (!strcmp(fn, "open") && npos >= 1) { *out = rk_io_open(pos[0], kv, nkv); return 1; }
+    if (!strcmp(fn, "close") && npos >= 1) { DESCR_t ar[2] = { pos[0], STRVAL((char *) "close") }; if (IS_FH_fn(pos[0])) return rk_io_fh_method("close", ar, 2, out); *out = True; return 1; }
+    static const char *const pm[] = { "slurp", "spurt", "unlink", "mkdir", "rmdir", "copy", "rename", "move", "chmod", "dir", NULL };
+    for (int i = 0; pm[i]; i++) if (!strcmp(fn, pm[i]) && npos >= 1) {
+        if (!strcmp(fn, "slurp") && IS_FH_fn(pos[0])) { DESCR_t ar[2] = { pos[0], STRVAL((char *) "slurp") }; return rk_io_fh_method("slurp", ar, 2, out); }
+        DESCR_t path = rk_io_is(pos[0]) ? pos[0] : rk_io_mk(rk_cstr(pos[0])); DESCR_t ar[2 + n]; ar[0] = path; ar[1] = STRVAL((char *) fn); for (int k = 1; k < n; k++) ar[1 + k] = a[k];
+        return rk_io_path_method(fn, ar, 1 + n, out); }
+    if (!strcmp(fn, "dir") && npos == 0) { DESCR_t d = rk_io_mk("."); DESCR_t ar[2] = { d, STRVAL((char *) "dir") }; return rk_io_path_method("dir", ar, 2, out); }
+    if (!strcmp(fn, "chdir") && npos >= 1) { *out = chdir(rk_io_arg(pos[0])) == 0 ? True : (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+    if (!strcmp(fn, "make-temp-file") || !strcmp(fn, "make-temp-dir")) { char t[] = "/tmp/rk_tmp_XXXXXX"; int isd = fn[10] == 'd';
+        if (isd) { if (!mkdtemp(t)) return 0; } else { int fd = mkstemp(t); if (fd < 0) return 0; close(fd); }
+        for (int i = 0; i + 1 < nkv; i += 2) if (!isd && !strcmp(rk_cstr(kv[i]), "content")) { FILE *f = fopen(t, "wb"); if (f) { out_write_descr(f, kv[i + 1], 0); fclose(f); } }
+        *out = rk_io_mk(t); return 1; }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_scrip_exe(void) {
@@ -5601,6 +5864,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         extern const char *rt_proc_pname(const char *name, int k);
         char pb[256]; const char *pname = to_cstring(args[0], pb, sizeof pb);
         int npos = IS_INT_fn(args[1]) ? (int)args[1].i : 0;
+        if (rk_io_name(pname)) { DESCR_t ar[nargs]; int an = 0; for (int i = 0; i < npos && 2 + i < nargs; i++) ar[an++] = args[2 + i]; for (int i = 2 + npos; i + 1 < nargs; i += 2) { DESCR_t pr[2] = { args[i], args[i + 1] }; ar[an++] = rk_mk_pair(pr[0], pr[1]); } DESCR_t r; if (rk_io_fn(pname, ar, an, &r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
         if (npos < 0) npos = 0;
         int np = 0; while (rt_proc_pname(pname, np)) np++;
         extern int rt_proc_named_rest(const char *name);
@@ -6225,6 +6489,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         rk_exc_init(); rk_exc_throw(rk_exc_is(args[0]) ? args[0] : rk_exc_adhoc(args[0]));
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "__rk_io") && nargs >= 1) { const char *nm = rk_cstr(args[0]); if (rk_io_fn(nm, args + 1, nargs - 1, out)) return 1; *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "__rk_eval") && nargs >= 1) {
         extern const char *rt_raku_eval_compile(const char *src, const char **errmsg);
         const char *s0 = rk_cstr(args[0]); char src[strlen(s0) + 1]; strcpy(src, s0); const char *err = NULL;
@@ -6584,6 +6849,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
         }
         if (mname0 && rk_match_is(args[0]) && rk_match_method(mname0, args, nargs, out)) return 1;
+        if (mname0 && rk_io_is(args[0]) && rk_io_path_method(mname0, args, nargs, out)) return 1;
+        if (mname0 && IS_FH_fn(args[0]) && rk_io_fh_method(mname0, args, nargs, out)) return 1;
         DESCR_t _recv0 = args[0]; int _was_list_recv = 0;
         { DESCR_t *_lva = 0; int _lvn = 0;
           if (_recv0.v == DT_DATA && rt_lv_is_list(_recv0, &_lva, &_lvn)) {
@@ -7396,6 +7663,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
         if (meth_is_user_proc(proc)) { DESCR_t self1 = d; DESCR_t r = invoke_method_proc(proc, &self1, 1); const char *s = VARVAL_fn(r); return s ? s : ""; }
     }
     if (rk_exc_is(d)) return rk_exc_message(d);
+    if (rk_io_is(d)) { if (!use_gist) return rk_io_pathstr(d); char *o = rt_wsb_alloc(strlen(rk_io_pathstr(d)) + 16); sprintf(o, "\"%s\".IO", rk_io_pathstr(d)); return o; }
     const char *s = VARVAL_fn(d); return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

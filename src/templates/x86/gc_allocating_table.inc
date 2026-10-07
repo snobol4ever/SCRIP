@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2138
-#define GC_ALLOC_TAB_N_VOID 247
-#define GC_ALLOC_TAB_N_DESCR 1122
-#define GC_ALLOC_TAB_N_OTHER 763
+#define GC_ALLOC_TAB_N 2164
+#define GC_ALLOC_TAB_N_VOID 249
+#define GC_ALLOC_TAB_N_DESCR 1127
+#define GC_ALLOC_TAB_N_OTHER 782
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1052,6 +1052,32 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_hash_list", GC_RET_DESCR },
     { "rk_hash_store", GC_RET_DESCR },
     { "rk_idx_label", GC_RET_OTHER },
+    { "rk_io_abs", GC_RET_OTHER },
+    { "rk_io_arg", GC_RET_OTHER },
+    { "rk_io_basename", GC_RET_OTHER },
+    { "rk_io_clean", GC_RET_OTHER },
+    { "rk_io_cwdstr", GC_RET_OTHER },
+    { "rk_io_dir_list", GC_RET_OTHER },
+    { "rk_io_dirname", GC_RET_OTHER },
+    { "rk_io_err", GC_RET_OTHER },
+    { "rk_io_fail", GC_RET_OTHER },
+    { "rk_io_fh_method", GC_RET_OTHER },
+    { "rk_io_flag", GC_RET_OTHER },
+    { "rk_io_fn", GC_RET_OTHER },
+    { "rk_io_getline", GC_RET_OTHER },
+    { "rk_io_init", GC_RET_VOID },
+    { "rk_io_join", GC_RET_OTHER },
+    { "rk_io_lines_of", GC_RET_DESCR },
+    { "rk_io_mk", GC_RET_DESCR },
+    { "rk_io_mk_in", GC_RET_DESCR },
+    { "rk_io_open", GC_RET_DESCR },
+    { "rk_io_path_method", GC_RET_OTHER },
+    { "rk_io_pathstr", GC_RET_OTHER },
+    { "rk_io_split", GC_RET_OTHER },
+    { "rk_io_stat", GC_RET_OTHER },
+    { "rk_io_text_of", GC_RET_OTHER },
+    { "rk_io_words_of", GC_RET_DESCR },
+    { "rk_io_write_args", GC_RET_VOID },
     { "rk_item", GC_RET_OTHER },
     { "rk_item_count", GC_RET_OTHER },
     { "rk_jct_text", GC_RET_OTHER },

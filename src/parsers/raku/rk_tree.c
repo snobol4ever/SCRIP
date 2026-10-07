@@ -214,6 +214,7 @@ static tree_t *mk_junction(const char *flav, tree_t *l, tree_t *r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_adverb_bool(int v) { tree_t *b = make_call("__rk_mkbool"); expr_add_child(b, rk_ilit(v)); return b; }
+static tree_t *rk_adverb_bool_n(int v, const char *name) { tree_t *b = rk_adverb_bool(v); if (name && *name) expr_add_child(b, leaf_sval(TT_QLIT, name)); return b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_multi_mangle(const char *base, TL *params) {
     int np = params ? params->n : 0;
@@ -1159,8 +1160,8 @@ static tree_t *pos_arg(RkB *b, RkEl *e) {
     if (e->nitem == 1) {
         RkTerm *t = &e->t0;
         if (t->kind == TK_CP && !t->npre && !t->npost) {
-            if (t->ck == 'n') return rk_adverb_bool(1);
-            if (t->ck == '!') return rk_adverb_bool(0);
+            if (t->ck == 'n') return rk_adverb_bool_n(1, t->name);
+            if (t->ck == '!') return rk_adverb_bool_n(0, t->name);
             if (t->ck == 'v' && t->cnt == 'P') return t->val ? t->val : make_call("__rk_undef");
             if (t->ck == 'v' && t->cnt == 'W') return t->val;
         }
@@ -1186,7 +1187,7 @@ static int var_cls_of(const char *t, int n) {
     if (s0 == '$') {
         if (n == 1) return 0;
         char c1 = t[1];
-        if ((n == 7 && !strncmp(t, "$*STDIN", 7)) || (n == 8 && (!strncmp(t, "$*STDOUT", 8) || !strncmp(t, "$*STDERR", 8)))) return 'F';
+        if ((n == 7 && !strncmp(t, "$*STDIN", 7)) || (n == 8 && (!strncmp(t, "$*STDOUT", 8) || !strncmp(t, "$*STDERR", 8))) || (n == 4 && !strncmp(t, "$*IN", 4)) || (n == 5 && (!strncmp(t, "$*OUT", 5) || !strncmp(t, "$*ERR", 5)))) return 'F';
         if (isdigit((unsigned char) c1)) return 'P';
         if (n == 6 && !strncmp(t, "$?LINE", 6)) return 'L';
         if ((c1 == '.' || c1 == '!') && n > 2 && (isalpha((unsigned char) t[2]) || t[2] == '_')) return 'T';
@@ -1204,7 +1205,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     int n = (int) strlen(name);
     it->cls = var_cls_of(name, n);
     switch (it->cls) {
-    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit(!strcmp(name, "$*STDIN") ? 0 : !strcmp(name, "$*STDOUT") ? 1 : 2)); it->t = c; return; }
+    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit((!strcmp(name, "$*STDIN") || !strcmp(name, "$*IN")) ? 0 : (!strcmp(name, "$*STDOUT") || !strcmp(name, "$*OUT")) ? 1 : 2)); it->t = c; return; }
     case 'P': { tree_t *c = ast_node_new(TT_CAPTURE); ast_push(c, rk_ilit(atoi(name + 1))); it->t = c; return; }
     case 'L': it->t = rk_ilit(line_at(b, from)); return;
     case 'T': case 'U': case 'W': { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(name + 1)); it->t = fe; return; }
@@ -1403,6 +1404,10 @@ static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
         if (pf->form == 2 && pf->args->n == 1 && pf->args->nitem > 1 && pf->args->op1) { ast_push(c, stmt_plain(b, pf->args)); return c; }
         TL pos = { 0 }, named = { 0 };
         arglist(b, pf->args, pf->form == 2 ? 4 : 2, &pos, &named);
+        static const char *const iom[] = { "spurt", "open", "lines", "words", "mkdir", "copy", "rename", "move", "chmod", "slurp", "dir", "readchars", "seek", NULL }; int isio = 0;
+        for (int k = 0; iom[k]; k++) if (!strcmp(nm, iom[k])) isio = 1;
+        if (isio) for (int i = 0; i < pos.n; i++) { tree_t *a = pos.v[i];
+            if (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_mkbool") && a->n >= 3 && a->c[2] && a->c[2]->t == TT_QLIT) { tree_t *pc = make_call("__rk_pair"); expr_add_child(pc, a->c[2]); tree_t *bv = rk_adverb_bool(a->c[1] && a->c[1]->v.ival ? 1 : 0); expr_add_child(pc, bv); pos.v[i] = pc; } }
         for (int i = 0; i < pos.n; i++) ast_push(c, pos.v[i]);
         for (int i = 0; i < named.n; i++) ast_push(c, named.v[i]);
     }
