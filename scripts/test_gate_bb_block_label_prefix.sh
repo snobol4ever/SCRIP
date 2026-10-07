@@ -47,6 +47,15 @@ export S4E_MINT_NO_CRITERION="gate fixture: the row under test exercises the bus
 # a section switch (the map's file-name string .Lstnof<N> is .rodata, a module datum). On 59 programs in seven languages
 # the only verdicts that moved were the anchors'. The span marker exists only when SCRIP_ASM_SYMSIZE is not 0.
 #
+# ⭐ THE CHAIN'S SITE LABELS AND A BOX'S CLOSE (cto 2026-10-07): the chain over the maps (6ec5871c8, ARCH-GC section 13) put a
+# recording label .Lgcsite_<fam>_<n> at every poll's return PC and a .Lgcsites_<fam>_<n> table after each graph, and this gate
+# read red on origin from then on (183 markers and 6 tables over the three witnesses). A site marker is the _bx class -- a
+# marker nothing jumps to, read as data by the site table -- and the table is a module datum beside .Lgcmap_ (CEO-1380), so
+# both are allowlisted with their citations. The checker also opened a box at its _bx marker but never closed it, so the
+# graph-level code after a box's .size (main_γ, <fam>_res, restoring g_line/g_file under .L<fam>_α_<uid>_<n> labels named
+# for the procedure) was charged to the box that closed (14 more); a box now closes at its .size. All 203 violations on
+# e4048536a were in those three classes, the new checker reads 0 over 1834 labels, and a foreign label planted inside a box
+# still reds it. A missing witness or a zero-label population now REFUSES rc=2 instead of grading a vacuous green.
 # KNOWN STILL-OPEN, DELIBERATELY NOT ALLOWLISTED (this gate correctly FAILS on this until fixed --
 # see task bb-label-prefix-uniform.task.md LEDGER for the full ruling and code citations):
 #   - n<N>_<kind>_af (emit.cpp na_f) -- na_s/fc_sig/ra_y/ra_t (the other four REAL gamma/omega transition
@@ -88,7 +97,7 @@ WITNESSES="$CORPUS/benchmarks/snobol4/pattern_bt.sno $CORPUS/tests/icon/generato
 fail=0
 total_defs=0
 for f in $WITNESSES; do
-    [ -f "$f" ] || { echo "SKIP (missing witness): $f"; continue; }
+    [ -f "$f" ] || { echo "⛔ GATE REFUSED(2) [test_gate_bb_block_label_prefix]: witness $f is missing -- a missing witness grades nothing, never a green"; exit 2; }
     b="$(basename "$f" | sed 's/\.[^.]*$//')"
     out="$WITDIR/$b.s"
     if ! "$SCRIP_BIN" --compile -o "$out" "$f" < /dev/null > "$WITDIR/$b.err" 2>&1; then
@@ -100,6 +109,7 @@ for f in $WITNESSES; do
     total_defs=$((total_defs + ${n:-0}))
     if [ $rc -ne 0 ]; then fail=1; fi
 done
+[ "$total_defs" -gt 0 ] || { echo "⛔ GATE REFUSED(2) [test_gate_bb_block_label_prefix]: 0 labels checked over the witnesses -- an unmeasured population is a refusal, never a green"; exit 2; }
 if [ "$fail" -ne 0 ]; then
     echo "⛔ GATE FAILED -- one or more labels inside an alpha/beta(/gamma/omega-transition) block do not carry that block's own derived prefix. See violations above."
     exit 1

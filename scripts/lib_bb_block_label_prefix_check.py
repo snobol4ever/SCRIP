@@ -75,6 +75,13 @@ EXEMPT = [
     (re.compile(r'^\.Lgcmap_'),
      "the collector's frame map for a graph or thunk (emit.cpp emit_label_initf \".Lgcmap_%s\", ~line 3292), .quad data emitted "
      "after the graph's omega in the text section -- a MODULE DATUM with no owning box; ceo 2026-09-30, CEO-1380"),
+    (re.compile(r'^\.Lgcsites_'),
+     "the collector's per-graph site table (emit.cpp emit_gc_sites_data, \".Lgcsites_<fam>_<n>\", ARCH-GC section 13.3), .quad data "
+     "emitted after the graph's omega in the text section beside .Lgcmap_ -- a MODULE DATUM with no owning box, CEO-1380's class; cto 2026-10-07"),
+    (re.compile(r'^\.Lgcsite_'),
+     "a poll site's return-PC marker (x86_asm.h x86_gc_site_adj/x86_gc_site_raw, emit.cpp emit_gc_site_label), a recording label the "
+     "site table reads as data and nothing jumps to -- the _bx class (a marker, never a jump target); the unmapped-store census "
+     "drops it at parse for the same reason; cto 2026-10-07, after 6ec5871c8 put 95+ of them in this gate's red"),
 ]
 ENTRY = re.compile(r'^(FN__|main$|module_init$|__gva_names$|[A-Za-z_][A-Za-z0-9_$]*_α_body$)')
 
@@ -96,6 +103,11 @@ SECTION_DIRECTIVE = re.compile(r'^\s*\.(?:(push)?section\s+(\S+)|(text|data|roda
 # read against its own box, not the box before it (cfo 2026-10-02: 59 programs in seven languages, the only labels whose
 # verdict moved were the code-map anchors). Still exempt from the naming check: a range marker, never a jump target.
 BOX_SPAN = re.compile(r'^n\d+_(.+)_bx$')
+# ...and its ".size n<uid>_<kind>_bx, .-n<uid>_<kind>_bx" closes it: the code after it until the next box opens (a graph's
+# own beta/gamma/omega and <fam>_res result paths, which restore g_line/g_file under .L<fam>_α_<uid>_<n> labels named for the
+# PROCEDURE) is owned by no box, so it is not charged to the box that closed (cto 2026-10-07: generators.icn read eleven such
+# labels as line_mark's and call_icon's).
+BOX_CLOSE = re.compile(r'^\s*\.size\s+n\d+_.+_bx\s*,')
 
 
 def classify(name):
@@ -167,6 +179,9 @@ def check(path):
             sm = SECTION_DIRECTIVE.match(line)
             if sm:
                 section(sm)
+                continue
+            if in_text and BOX_CLOSE.match(line):
+                owner = None
                 continue
             m = LABEL_DEF.match(line)
             if not m:
