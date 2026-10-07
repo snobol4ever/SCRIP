@@ -100,6 +100,8 @@ __attribute__((used, noinline)) static void icn_zf_exit_g_body(void) { sno_setex
 __attribute__((used, noinline)) static void icn_zf_exit_w_body(void) { exit(1); }
 static __attribute__((naked)) void icn_zf_exit_γ(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_zf_exit_g_body"); }
 static __attribute__((naked)) void icn_zf_exit_ω(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_zf_exit_w_body"); }
+__attribute__((used, noinline)) static void pl_root_w_body(void) { extern void rt_pl_root_omega(void); rt_pl_root_omega(); }
+static __attribute__((naked)) void pl_root_ω(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp pl_root_w_body"); }
 __attribute__((used, noinline)) static void icn_root_end_body(void) { exit(0); }
 static __attribute__((naked)) void icn_root_end(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_root_end_body"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1798,7 +1800,7 @@ int main(int argc, char **argv)
                 emit_textf("  lea rdx, [rip + .Lmain_zf_ω]\n");
                 emit_textf("  jmp main_\xce\xb1\n");
                 emit_textf(".Lmain_zf_γ:\n  and rsp, -16\n  xor edi, edi\n  call exit@PLT\n");
-                if (_pinned_root) emit_textf(".Lmain_zf_ω:\n  call rt_pl_root_omega@PLT\n");
+                if (_pinned_root) emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  call rt_pl_root_omega@PLT\n");
                 else emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  mov edi, 1\n  call exit@PLT\n");
             } else {
             emit_textf("  xor r14d, r14d\n");
@@ -2001,8 +2003,7 @@ int main(int argc, char **argv)
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
                 { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }
-                { extern void rt_pl_root_omega(void);
-                  icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)rt_pl_root_omega : (void *)icn_zf_exit_ω); }
+                icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)pl_root_ω : (void *)icn_zf_exit_ω);
             } else
             { extern void rt_outer_call(bb_box_fn, void *, long, void *);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long, void *); extern int * const rt_k_level_p; if (_icn_cells_graph) { *rt_k_level_p = 0; rt_outer_call_delta0(fn, mf, 0, (void *)icn_root_end); } else rt_outer_call(fn, mf, 0, (void *)0); } }
             sno_setexit_fire_on_end();
