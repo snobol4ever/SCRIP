@@ -100,9 +100,9 @@ void ct_drop(void *p) {
     if (h->magic == CT_MAGIC_BIN) {
         cls = ct_class_of((size_t)h->size);
         if (cls < 0) return;
-        if (ct_poison < 0) ct_poison = getenv("SCRIP_CT_POISON") ? 1 : 0;
-        if (ct_poison) memset(p, 0xDD, (size_t)h->size);
-        if (getenv("SCRIP_CT_NORECYCLE")) { if (ct_poison) h->magic = 0; return; }
+        if (ct_poison < 0) ct_poison = (getenv("SCRIP_CT_POISON") ? 1 : 0) | (getenv("SCRIP_CT_NORECYCLE") ? 2 : 0);
+        if (ct_poison & 1) memset(p, 0xDD, (size_t)h->size);
+        if (ct_poison & 2) { if (ct_poison & 1) h->magic = 0; return; }
         h->magic = 0;
         ct_taken -= (size_t)h->size;
         h->next = ct_bin[cls];

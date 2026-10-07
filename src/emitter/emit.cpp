@@ -83,7 +83,7 @@ static const char * g_flt_fam = (const char *)0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void emit_label_pool_reset(void)
 {
-    for (int i = 0; i < g_label_pool_n; i++) ct_drop(g_label_pool[i]);
+    for (int i = 0; i < g_label_pool_n; i++) { bb_label_t *l = g_label_pool[i]; if (l->name_cap) ct_drop((void *)l->name); ct_drop(l); }
     g_label_pool_n = 0; g_label_map.clear();
     g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;
 }
