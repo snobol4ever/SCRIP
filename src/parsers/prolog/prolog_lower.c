@@ -370,7 +370,7 @@ void prolog_fold_pieces(tree_t *t) {
     for (int i = 0; i < t->n; i++) prolog_fold_pieces(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int prolog_dq_flag_mode(const char *v) {
+static int prolog_dq_flag_mode(const char *v) {
     if (!v) return -1;
     return !strcmp(v, "atom") ? 0 : !strcmp(v, "chars") ? 1 : !strcmp(v, "codes") ? 2 : !strcmp(v, "string") ? 3 : -1;
 }

@@ -4136,9 +4136,9 @@ static int pl_float_flag(const char *nm, const char *val) { pl_flag_t *fl = pl_f
 int rt_pl_protect_static_code(void) { pl_flag_t *fl = pl_flag_find("protect_static_code"); return fl && !strcmp(fl->val, "true"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_double_quotes_mode(void) {
-    extern int prolog_dq_flag_mode(const char *); pl_flag_t *fl = pl_flag_find("double_quotes");
-    int m = fl ? prolog_dq_flag_mode(fl->val) : -1;
-    return m < 0 ? 2 : m;
+    pl_flag_t *fl = pl_flag_find("double_quotes"); const char *v = fl ? fl->val : NULL;
+    if (!v) return 2;
+    return !strcmp(v, "atom") ? 0 : !strcmp(v, "chars") ? 1 : !strcmp(v, "string") ? 3 : 2;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_unknown_suppress(const char *key) {
