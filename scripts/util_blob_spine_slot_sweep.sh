@@ -2,7 +2,7 @@
 # util_blob_spine_slot_sweep.sh — census the BLOB-SPINE COLLISION class across a corpus of programs.
 #
 # ⛔⭐ THE CLASS (hq_C s284, measured on corpus/probe/fuzz's fz_segv_09 / fz_red_m4a).  A stored-pattern
-# blob (`FN__PAT$n`) carves an rbp ACTIVATION FRAME of exactly blob_head_bytes() + 16*count bytes and
+# blob (`.LTp<n>`) carves an rbp ACTIVATION FRAME of exactly blob_head_bytes() + 16*count bytes and
 # EVERY BYTE OF IT IS OWNED: the head holds the WIRE-STACK banked (γ,ω) pair at [rbp-8]/[rbp-16] plus
 # rdx and the casmark, and frame_slot_off() hands the cells out from -(head+8) DOWNWARD.  So the ζ-SPINE
 # `[rsp + N]` plane has ZERO CAPACITY inside a blob: any FR-family slot access there necessarily lands on
@@ -10,7 +10,7 @@
 # when it happens — every store hits mapped, writable, plausible stack — so the corruption is silent and
 # surfaces one indirect jump later, in a different function, as a wild jump to a stack address.
 #
-# WHAT IT REPORTS: for every blob region (PAT$n_α_body .. PAT$n_ω) in the emitted asm, any `[rsp + N]`
+# WHAT IT REPORTS: for every blob region (.LTp<n>_α_body .. .LTp<n>_ω) in the emitted asm, any `[rsp + N]`
 # memory operand with N >= 32.  ⛔ WHY 32 AND NOT 0: the four-word γ-SUSPEND resume record ([rsp+0]=&res,
 # +8=γ, +16=ω, +24=saved rbp) and the caller's PUSHed wire pair are LEGITIMATE small-offset rsp reads and
 # are the overwhelming majority of in-blob rsp traffic.  A cutoff of 0 drowns the signal in them; 32 is
@@ -52,13 +52,13 @@ for f in "${FILES[@]}"; do
     if ! timeout 20 "$SCRIP" --compile -o "$TMP/p.s" "$f" < /dev/null > /dev/null 2>&1; then nskip=$((nskip+1)); continue; fi
     nprog=$((nprog+1))
     out="$(awk '
-        /^PAT\$[0-9]+_α_body:/ { inblob=1; blob=$0; sub(/_α_body:.*/,"",blob); blobs[blob]=1; next }
-        /^PAT\$[0-9]+_ω:/      { inblob=0; next }
+        /^\.LTp[0-9]+_α_body:/ { inblob=1; blob=$0; sub(/_α_body:.*/,"",blob); blobs[blob]=1; next }
+        /^\.LTp[0-9]+_ω:/      { inblob=0; next }
         inblob && match($0, /\[rsp \+ [0-9]+\]/) {
             off = substr($0, RSTART+6, RLENGTH-7) + 0
             if (off >= 32) { gsub(/^[ \t]+|[ \t]+$/,"",$0); printf "    %s   %s\n", blob, $0 } }
         END { }' "$TMP/p.s")"
-    b="$(grep -c '^PAT\$[0-9]*_α_body:' "$TMP/p.s" 2>/dev/null)"; b="${b//[^0-9]/}"; nblob=$((nblob + ${b:-0}))
+    b="$(grep -c '^\.LTp[0-9]*_α_body:' "$TMP/p.s" 2>/dev/null)"; b="${b//[^0-9]/}"; nblob=$((nblob + ${b:-0}))
     if [ -n "$out" ]; then nfile=$((nfile+1)); h=$(printf '%s\n' "$out" | grep -c .); nhit=$((nhit+h))
         printf '⛔ %s\n%s\n' "${f#$ROOT/}" "$out"; fi
 done

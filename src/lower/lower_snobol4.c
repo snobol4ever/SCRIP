@@ -2879,6 +2879,7 @@ void sno_expr_thunks_build(int x0) {
         g_stage2.proc_table[xpi].lower_sc.n = 0;
         g_stage2.proc_table[xpi].is_generator = 0;
         g_stage2.proc_table[xpi].dyn_scope = 1;
+        g_stage2.proc_table[xpi].thunk_kind = PROC_THUNK_EXPR;
         g_stage2.proc_table[xpi].result_name = CV_AT(g_sno_exprs, sno_expr_ent_t, xi).name;
         g_stage2.proc_table[xpi].bb_idx = bb_program_add(&g_stage2.bbp, gx);
     }
@@ -2969,6 +2970,7 @@ void sno_pat_thunks_build(int p0) {
         g_stage2.proc_table[ppi].lower_sc.n = 0;
         g_stage2.proc_table[ppi].is_generator = 0;
         g_stage2.proc_table[ppi].dyn_scope = 0;
+        g_stage2.proc_table[ppi].thunk_kind = PROC_THUNK_PATTERN;
         g_stage2.proc_table[ppi].result_name = NULL;
         g_stage2.proc_table[ppi].bb_idx = bb_program_add(&g_stage2.bbp, gp);
     }

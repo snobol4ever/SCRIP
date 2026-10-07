@@ -61,14 +61,14 @@ for arm in dfl; do
     for m in m3 m4; do cmp -s "$T/ref" "$T/$m.$arm" && echo "  PASS $arm $m = oracle" || { RC=1; echo "  FAIL $arm $m differs from the oracle: $(diff "$T/ref" "$T/$m.$arm" | grep -m2 '^[<>]' | tr '\n' ' ' | cut -c1-160)"; }; done
 done
 read -r nfl nhead nbad <<< "$(awk '
-/^FN__PAT\$[0-9]+:/ { inth = 1; framed = 0; reads = 0; tagged = 0; first = 1; next }
+/^\.LTp[0-9]+:/ { inth = 1; framed = 0; reads = 0; tagged = 0; first = 1; next }
 inth && /mov +rbp, +rsp/ { framed = 1 }
-inth && /^PAT\$[0-9]+_α_body:/ { next }
+inth && /^\.LTp[0-9]+_α_body:/ { next }
 inth && /sub +rsp, +(16|32)$/ && first { first = 0; next }
 inth && /mov +qword ptr \[rsp \+ (0|16)\], +8$/ { tagged = 1 }
 inth && /mov +rdi, +qword ptr \[rsp \+ [0-9]+\]/ && prevvar { reads = 1 }
 inth { prevvar = ($0 ~ /_var_α:/) }
-inth && /^PAT\$[0-9]+_ω:/ { if (!framed) { fl++; if (reads) { hd++; if (!tagged) bad++ } } inth = 0 }
+inth && /^\.LTp[0-9]+_ω:/ { if (!framed) { fl++; if (reads) { hd++; if (!tagged) bad++ } } inth = 0 }
 END { printf "%d %d %d\n", fl + 0, hd + 0, bad + 0 }' "$T/w.dfl.s")"
 [ "$nfl" -ge 1 ] && echo "  PASS the default emits $nfl frameless thunk(s)" || { RC=1; echo "  FAIL the default emits no frameless thunk -- the witness no longer reaches the road"; }
 [ "$nhead" -ge 1 ] && [ "$nbad" -eq 0 ] && echo "  PASS $nhead frameless thunk(s) read their head from the spine, every one carved as a tagged DT_P cell" || { RC=1; echo "  FAIL frameless head readers=$nhead, untagged heads=$nbad -- a frameless thunk reads a head it never carved as a cell"; }

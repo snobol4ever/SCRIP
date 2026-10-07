@@ -14,8 +14,8 @@
 # ANY save the cursor through rbp today) or a pending assignment's DESCR keeps its frame today by the EMITTER's placement, not by any
 # collector need -- the collector visits a tagged DESCR cell on the RSP spine by its tag (gc_walk_words; ARCH-GC-COMPILE-TIME-FRAME-
 # MAPS.md section 2b, the spine carries its own types; Lon's question of 2026-09-30, answered by measurement). The thunks are
-# read from the mode-4 .s by their FN__PAT$n labels in source order (p1 = PAT$0, p2 = PAT$1, p3 = PAT$2); a thunk is FRAMED when the
-# text between FN__PAT$n and PAT$n_omega carries "mov rbp, rsp". The program's output must equal sbl -bf in both modes whatever the
+# read from the mode-4 .s by their assembler-local faces .LTp<n> in source order (p1 = .LTp0, p2 = .LTp1, p3 = .LTp2); a thunk is FRAMED when the
+# text between .LTp<n> and .LTp<n>_omega carries "mov rbp, rsp". The program's output must equal sbl -bf in both modes whatever the
 # frames read. MEASURED RED at de0302f83: every thunk is framed (PAT$0 carries push rbp / mov rbp, rsp / sub rsp, 88, the map cell and
 # the zero-fill). Exit 0 = p1 frameless, p2 and p3 framed, both modes = the oracle; 1 = otherwise; 2 = cannot measure.
 set -uo pipefail
@@ -48,8 +48,8 @@ gcc -m64 -no-pie "$T/w.s" -Wl,-rpath,"$ROOT/out" -L"$ROOT/out" -lscrip_rt -lm -l
 timeout 20 "$T/w.bin" < /dev/null > "$T/m4" 2>&1
 RC=0
 for m in m3 m4; do cmp -s "$T/ref" "$T/$m" && echo "  PASS $m = oracle" || { RC=1; echo "  FAIL $m differs from the oracle: $(diff "$T/ref" "$T/$m" | grep -m2 '^[<>]' | tr '\n' ' ' | cut -c1-160)"; }; done
-framed() { sed -n "/^FN__PAT\$$1:/,/^PAT\$$1_ω:/p" "$T/w.s" | grep -c 'mov *rbp, *rsp'; }
-for k in 0 1 2; do grep -q "^FN__PAT\$$k:" "$T/w.s" || { echo "⛔ GATE REFUSE(2) [$G]: no FN__PAT\$$k thunk in the .s (the witness has three stored patterns)"; exit 2; }; done
+framed() { sed -n "/^\.LTp$1:/,/^\.LTp$1_ω:/p" "$T/w.s" | grep -c 'mov *rbp, *rsp'; }
+for k in 0 1 2; do grep -q "^\.LTp$k:" "$T/w.s" || { echo "⛔ GATE REFUSE(2) [$G]: no .LTp$k thunk in the .s (the witness has three stored patterns)"; exit 2; }; done
 f0=$(framed 0); f1=$(framed 1); f2=$(framed 2)
 [ "$f0" -eq 0 ] && echo "  PASS PAT\$0 (recede-free: POS LIT SPAN ANY LEN BREAK mark RPOS) runs on the RSP spine, no frame" || { RC=1; echo "  FAIL PAT\$0 is recede-free and still carves an RBP frame ($f0 frame prologue(s))"; }
 [ "$f1" -ge 1 ] && echo "  PASS PAT\$1 (an alternation, a recede window) keeps its frame" || { RC=1; echo "  FAIL PAT\$1 holds an alternation and runs frameless"; }

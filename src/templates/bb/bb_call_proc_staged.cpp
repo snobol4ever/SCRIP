@@ -7,7 +7,7 @@ extern "C" {
 #include "ab_abi.h"
 #include "bb_templates.h"
 long    rt_proc_call_open(const char *name, int nargs);
-void   *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm);
+void   *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
 void   *rt_proc_call_open_det(long idx, int nargs);
 void   *rt_proc_call_open_det0(long idx);
 void   *rt_proc_call_open_det1(long idx, DESCR_t *a0);
@@ -653,7 +653,7 @@ static std::string bcps_jmp_callee(long idx) {
             "alpha cell in the slab (x86_jmp_via_cell, both media; the cell is sealed by rt_proc_seal_alpha when the "
                 "record's fn is set and pinned, under no knob); the registry record is for a fn re-sealed at run time, which a static predicate never is (assertz on it raises permission_error)")
                                                                + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()),
-                                                                   (std::string("FN__") + bb_ab_sym_name(_.op_sval)).c_str());
+                                                                   bb_ab_fn_sym(_.op_sval));
     return bcps_jmp_proc_fn(idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

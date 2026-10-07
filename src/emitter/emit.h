@@ -596,6 +596,7 @@ typedef struct {
     long                         op_u_ktag;
     uint64_t                     op_u_kval;
     int                          op_u_vo;
+    void *                       thunk_stems;
 } sm_emit_t;
 extern sm_emit_t g_emit;
 #define XA_PAIR(i) CV_AT(g_emit.xa_bb_emit_pair, xa_pair_t, (i))

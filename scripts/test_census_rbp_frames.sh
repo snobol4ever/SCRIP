@@ -96,7 +96,7 @@ echo "opcode table (derived this run): ARBNO=$ARBNO_OP FENCE1=$FENCE1_OP ASSIGN_
 
 ASMAWK='
 /^[A-Za-z_.$][A-Za-z0-9_.$]*:/ { lbl=$1; sub(/:.*/,"",lbl);
-  if (lbl ~ /^proc_PAT\$/) cls="PAT-BLOB"; else if (lbl ~ /_act_/) cls="AB-ACT"; else if (lbl ~ /^proc_/) cls="PROC"; else if (lbl ~ /^main/) cls="MAIN"; }
+  if (lbl ~ /^\.LTp[0-9]/) cls="PAT-BLOB"; else if (lbl ~ /_act_/) cls="AB-ACT"; else if (lbl ~ /^proc_/) cls="PROC"; else if (lbl ~ /^main/) cls="MAIN"; }
 /mov +rbp, rsp/ { est[cls]++ }
 END { print "EST_PATBLOB " (est["PAT-BLOB"]+0); print "EST_ABACT " (est["AB-ACT"]+0); print "EST_PROC " (est["PROC"]+0); print "EST_MAIN " (est["MAIN"]+0) }'
 

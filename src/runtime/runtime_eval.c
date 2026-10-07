@@ -263,8 +263,8 @@ static int eval_thunks_emit_from(int pc0)
                     int _mx = g_stage2.proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < g_stage2.bbp.count && g_stage2.bbp.table[_mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[_mx]); break; }
                 if (g_flat_frame_floor <= 0 && b1cland) g_flat_frame_floor = zls_g_region(_pg); } }
         int _ispe = 0;
-        { extern int emit_jmp_entry_for_patproc(const char*, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
-          int _isp = emit_jmp_entry_for_patproc(pname, g_stage2.bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
+        { extern int emit_jmp_entry_for_patproc(int, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
+          int _isp = emit_jmp_entry_for_patproc(g_stage2.proc_table[pi].thunk_kind, g_stage2.bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g_stage2.bbp.table[idx]);
           if (b1c) g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1; _ispe = _isp; }
         char _m3pfx[strlen(pname) + 6]; snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
         eval_chain_fn pfn = emit_chain(g_stage2.bbp.table[idx]->entry, NULL, _m3pfx);
@@ -997,7 +997,7 @@ static int rk_emit_new_procs(int pc0)
     extern int zls_g_entry_block(const IR_graph_t *); extern void rt_proc_set_variadic(const char *, int); extern void rt_proc_set_rest_kind(const char *, int);
     extern void rt_proc_set_named_rest(const char *, int); extern void rt_proc_set_dyn_scope(const char *, int); extern void rt_proc_set_result_name(const char *, const char *);
     extern void optimizer_run(IR_graph_t *g); extern void fl_derive_tier(IR_graph_t *g); extern void ir_drive_slot_assign(IR_graph_t *g); extern void rt_proc_set_frame(const char *, int, int);
-    extern int emit_jmp_entry_for_patproc(const char *, IR_graph_t *); extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void);
+    extern int emit_jmp_entry_for_patproc(int, IR_graph_t *); extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void);
     extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int); extern void zls_graph_name(const IR_graph_t *, const char *); extern int g_emit_frame_caller_dl; extern int g_gen_proc_active;
     extern int g_frame_active; extern IR_graph_t *g_emit_cfg; extern int g_flat_frame_floor; extern int g_last_flat_frame_bytes, g_last_flat_zstatic, g_last_flat_fp, g_last_flat_uniform; extern long g_last_dc_off;
     extern void rt_proc_set_frame_bytes(const char *, int); extern void rt_proc_set_fn(const char *, eval_chain_fn); extern void bb_ab_seal_entry_cells(const char *, void *, int);
@@ -1024,7 +1024,7 @@ static int rk_emit_new_procs(int pc0)
         if (g->entry && ((g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) || g->entry->op == IR_GOTO_DEFERRED)) {
             extern int zls_g_region(const IR_graph_t *);
             for (int mi = 0; mi < g_stage2.proc_count; mi++) if (g_stage2.proc_table[mi].name && !strcmp(g_stage2.proc_table[mi].name, "main")) { int mx = g_stage2.proc_table[mi].bb_idx; if (mx >= 0 && mx < g_stage2.bbp.count && g_stage2.bbp.table[mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[mx]); break; } }
-        int isp = emit_jmp_entry_for_patproc(pname, g); if (!isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g);
+        int isp = emit_jmp_entry_for_patproc(g_stage2.proc_table[pi].thunk_kind, g); if (!isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g);
         g_flat_dc_np = (!isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1;
         zls_graph_name(g, pname); g_emit_frame_caller_dl = (g->caller_frame && g->nslots > 0) ? g_stage2.proc_table[pi].decl_level : -1;
         char pfx[strlen(pname) + 6]; snprintf(pfx, sizeof pfx, "proc_%s", pname);

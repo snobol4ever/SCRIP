@@ -1841,7 +1841,7 @@ def read_gcmaps(text):
 # activation frame presents NO map cell -- ARCH-GC 6.2b states the walk rule for it -- so a table census run over
 # witnesses that contain no pattern reads 0 divergences BY NEVER LOOKING, the same shape as words_scanned=0 on a run
 # that never collected.  A zero has to be a zero somebody could have failed.
-PATTERN_GRAPH_RX = re.compile(r"^PAT\$")
+PATTERN_GRAPH_RX = re.compile(r"^(PAT\$|\.LTp\d)")
 
 
 def blob_class_visible(graph_names):
@@ -2236,7 +2236,7 @@ def selftest():
     ck(rc == 1 and _sp_has(buf, allocating_call_sites=2, polled=0, unpolled=2, unresolved=0)
        and any("UNPOLLED" in l and "rt_epilogue_\u03b3" in l for l in buf),
        "safe-points: a call target spelled with a Greek port letter is a LITERAL, counted and named -- never UNRESOLVED (32 of 39 were this, 2026-09-17)")
-    ck(blob_class_visible({"main", "fn", "PAT$0"}) and not blob_class_visible({"main", "fn", "pattern_helper"}),
+    ck(blob_class_visible({"main", "fn", "PAT$0"}) and blob_class_visible({"main", ".LTp0"}) and not blob_class_visible({"main", "fn", "pattern_helper"}),
        "maps/table: the blob-frame class is VISIBLE only when a stored-pattern graph is in the witness set -- otherwise the census refuses rather than printing a zero by never looking (cto, ARCH-GC 6.2b)")
     tpl_rs = os.path.join(w, "resolved.cpp")
     open(tpl_rs, "w").write(

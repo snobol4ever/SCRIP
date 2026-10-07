@@ -74,7 +74,7 @@ if [ -z "$LIST" ]; then echo "  (no program list given; pass a glob dir as \$1 t
     # emitted text is Intel syntax, mnemonics padded with many spaces
     n10=$(echo "$s" | grep -cE '^[[:space:]]*(mov|movabs|lea|xor|add|sub|and|or|pop|movzx|movsxd)[[:space:]]+r10(d|w|b)?[[:space:]]*,')
     n11=$(echo "$s" | grep -cE '^[[:space:]]*(mov|movabs|lea|xor|add|sub|and|or|pop|movzx|movsxd)[[:space:]]+r11(d|w|b)?[[:space:]]*,')
-    nb=$(echo "$s" | grep -cE '^proc_PAT\$[0-9]+_α:')
+    nb=$(echo "$s" | grep -cE '^\.LTp[0-9]+_α:')
     T10=$((T10+n10)); T11=$((T11+n11)); NP=$((NP+1))
     [ $((n10+n11)) -gt 0 ] && printf "  %-34s %6s %6s %6s\n" "$b" "$n10" "$n11" "$nb"
   done

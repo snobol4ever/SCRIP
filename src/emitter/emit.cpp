@@ -51,7 +51,7 @@ static void port_exit_prepass_build(void) {
         if (!pe->name || pe->bb_idx < 0 || pe->bb_idx >= g_stage2.bbp.count) continue;
         IR_graph_t * g = g_stage2.bbp.table[pe->bb_idx];
         if (!g) continue;
-        int flat_pat = (strncmp(pe->name, "PAT$", 4) == 0) ? 1 : 0;
+        int flat_pat = (pe->thunk_kind == PROC_THUNK_PATTERN) ? 1 : 0;
         int flat_gen = (pe->is_generator && emit_graph_has_suspend(g)) ? 1 : 0;
         int gen_ok = !flat_gen;
         int flat_lcl_proc = (!flat_pat && gen_ok && ((g->nparams > 0 || g->nlocals > 0) || g->icn_cells_graph)) ? 1 : 0;
@@ -3609,7 +3609,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     int bare = g_emit.flat_bare_chain;
     if (strncmp(prefix, "proc_LBL__", 10) == 0) emit_label_initf(&lbl_α, "%s", prefix + 5);
     else if (strncmp(prefix, "proc_", 5) == 0 && !bare) {
-        emit_label_initf(&lbl_α, "FN__%s", prefix + 5);
+        { extern int bb_ab_sym_is_thunk_stem(const char *); if (bb_ab_sym_is_thunk_stem(prefix + 5)) emit_label_initf(&lbl_α, "%s", prefix + 5); else emit_label_initf(&lbl_α, "FN__%s", prefix + 5); }
         lbl_α_orig_p = emit_label_alloc("%s_α", prefix + 5);
     }
     int fn_face_dead = bare && strncmp(prefix, "proc_", 5) == 0 && strncmp(prefix, "proc_LBL__", 10) != 0;
@@ -4622,8 +4622,8 @@ static int emit_jmp_entry_arm_region(IR_graph_t *g) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int emit_jmp_entry_for_patproc(const char *pname, IR_graph_t *g) {
-    if (!pname || strncmp(pname, "PAT$", 4) != 0) return 0;
+extern "C" int emit_jmp_entry_for_patproc(int thunk_kind, IR_graph_t *g) {
+    if (thunk_kind != PROC_THUNK_PATTERN) return 0;
     g_emit.flat_pat = 1;
     return emit_jmp_entry_arm_region(g);
 }

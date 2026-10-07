@@ -19,6 +19,7 @@ typedef struct ScopeEnt { const char *name; int slot; } ScopeEnt;
 typedef struct Scope    { ScopeEnt *e; int n; int cap; } Scope;
 static inline void stage2_scope_reserve(Scope *sc, int need) { if (need > sc->cap) { int nc = sc->cap ? sc->cap * 2 : 8; while (nc < need) nc *= 2; sc->e = (ScopeEnt *)ct_grow(sc->e, (size_t)nc * sizeof(ScopeEnt)); sc->cap = nc; } }
 struct IR_graph_t;
+enum { PROC_THUNK_NONE = 0, PROC_THUNK_PATTERN = 1, PROC_THUNK_EXPR = 2 };
 typedef struct ProcEntry {
     const char         *name;
     tree_t             *proc;
@@ -37,6 +38,7 @@ typedef struct ProcEntry {
     uint64_t            byref_mask;
     int                 decl_level;
     IR_t *              proc_entry_node;
+    int                 thunk_kind;
 } ProcEntry;
 struct Resolve_PredEntry_t;
 typedef struct Resolve_PredTable {

@@ -24,8 +24,8 @@ SCRIP=${SCRIP:-$S4E/SCRIP/scrip}
 # (real loose .sno files remain there); a hard population floor is added below since this script had
 # none at all, unlike its ZDP-census siblings.
 CORPUS=${CORPUS:-$S4E/corpus/tests/snobol4}
-P_ENT='lea +r10\b'; P_EXG='jmp +r10\b'; P_EXO='jmp +r11\b'; P_BLOB='^proc_PAT\$[0-9]+_α:'; P_PROC='lea +rcx, \[rip'
-probe=$(printf '                        lea              r10, [rip + .Lx1]\n                                     jmp   r10\nproc_PAT$0_α:\n')
+P_ENT='lea +r10\b'; P_EXG='jmp +r10\b'; P_EXO='jmp +r11\b'; P_BLOB='^\.LTp[0-9]+_α:'; P_PROC='lea +rcx, \[rip'
+probe=$(printf '                        lea              r10, [rip + .Lx1]\n                                     jmp   r10\n.LTp0_α:\n')
 t=0
 echo "$probe" | grep -qE "$P_ENT"  || { echo "SELF-TEST FAIL: entry pattern"; t=1; }
 echo "$probe" | grep -qE "$P_EXG"  || { echo "SELF-TEST FAIL: gamma pattern"; t=1; }
