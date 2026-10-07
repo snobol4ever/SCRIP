@@ -675,6 +675,7 @@ test_gate_raku_a_named_sub_nested_in_a_sub_reads_and_writes_the_enclosing_locals
 test_gate_raku_a_tail_call_through_a_builtin_is_entered_by_the_box.sh	WIRED	-	-	-
 test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
 test_gate_raku_an_array_subscript_slices_by_an_array_of_indexes_as_rakudo_does.sh	WIRED	-	-	-
+test_gate_raku_a_sort_comparator_is_an_emitted_merge_sort_not_a_c_to_bb_entry.sh	WIRED	-	-	-
 test_gate_raku_an_exception_is_a_value_that_die_carries_and_catch_and_throws_like_read.sh	WIRED	-	-	-
 test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
 test_gate_raku_builtin_gaps_and_is_run_agree_with_rakudo.sh	WIRED	-	-	-

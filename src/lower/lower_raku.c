@@ -2256,6 +2256,58 @@ static void rk_desugar_gather(tree_t * t, int * seq) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_tv(const char * nm) { return leaf_sval2(TT_VAR, nm); }
+static tree_t * rk_ti(long long v) { tree_t * n = ast_node_new(TT_ILIT); n->v.ival = v; return n; }
+static tree_t * rk_t2(tree_e k, tree_t * a, tree_t * b) { tree_t * n = ast_node_new(k); ast_push(n, a); ast_push(n, b); return n; }
+static tree_t * rk_tset(const char * v, tree_t * e) { return rk_t2(TT_ASSIGN, rk_tv(v), e); }
+static tree_t * rk_tinc(const char * v, tree_t * by) { return rk_tset(v, rk_t2(TT_ADD, rk_tv(v), by)); }
+static tree_t * rk_tsq(tree_t * a, tree_t * b, tree_t * c) { tree_t * s = ast_node_new(TT_SEQ_EXPR); if (a) ast_push(s, a); if (b) ast_push(s, b); if (c) ast_push(s, c); return s; }
+static tree_t * rk_tadd(tree_t * s, tree_t * x) { ast_push(s, x); return s; }
+static tree_t * rk_tarr(const char * a, const char * i) { return rk_t2(TT_ARR_GET, rk_tv(a), rk_tv(i)); }
+static tree_t * rk_tput(const char * a, const char * i, tree_t * v) { tree_t * n = ast_node_new(TT_ARR_SET); ast_push(n, rk_tv(a)); ast_push(n, rk_tv(i)); ast_push(n, v); return n; }
+static tree_t * rk_tclamp(const char * v, const char * lim) { tree_t * f = ast_node_new(TT_IF); ast_push(f, rk_t2(TT_GT, rk_tv(v), rk_tv(lim))); ast_push(f, rk_tsq(rk_tset(v, rk_tv(lim)), NULL, NULL)); return f; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_sort_helper(const char * hname, const char * cmp) {
+    tree_t * sd = ast_node_new(TT_SUB_DECL); sd->v.ival = 1; ast_push(sd, rk_tv(hname));
+    tree_t * ps = rk_tv("@src"); ast_push(ps, leaf_sval2(TT_QLIT, "@")); ast_push(sd, ps);
+    ast_push(sd, rk_tset("@a", rk_tv("@src")));
+    { tree_t * m = ast_node_new(TT_METHCALL); ast_push(m, rk_tv("@a")); ast_push(m, leaf_sval2(TT_QLIT, "elems")); ast_push(sd, rk_tset("n", m)); }
+    ast_push(sd, rk_tset("@b", rk_fnc2("__rk_undef", NULL, NULL)));
+    ast_push(sd, rk_tset("w", rk_ti(1)));
+    tree_t * lt0 = rk_t2(TT_LT, rk_fnc2(cmp, rk_tarr("@a", "r"), rk_tarr("@a", "l")), rk_ti(0));
+    tree_t * ifc = ast_node_new(TT_IF); ast_push(ifc, lt0);
+    ast_push(ifc, rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "r")), rk_tinc("r", rk_ti(1)), NULL)); ast_push(ifc, rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "l")), rk_tinc("l", rk_ti(1)), NULL));
+    tree_t * both = ast_node_new(TT_SEQ); both->v.ival = 1; ast_push(both, rk_t2(TT_LT, rk_tv("l"), rk_tv("mid"))); ast_push(both, rk_t2(TT_LT, rk_tv("r"), rk_tv("hi")));
+    tree_t * w1 = rk_t2(TT_WHILE, both, rk_tsq(ifc, rk_tinc("k", rk_ti(1)), NULL));
+    tree_t * w2 = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("l"), rk_tv("mid")), rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "l")), rk_tinc("l", rk_ti(1)), rk_tinc("k", rk_ti(1))));
+    tree_t * w3 = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("r"), rk_tv("hi")), rk_tsq(rk_tput("@b", "k", rk_tarr("@a", "r")), rk_tinc("r", rk_ti(1)), rk_tinc("k", rk_ti(1))));
+    tree_t * ib = rk_tsq(rk_tset("mid", rk_t2(TT_ADD, rk_tv("i"), rk_tv("w"))), rk_tclamp("mid", "n"), rk_tset("hi", rk_t2(TT_ADD, rk_tv("i"), rk_t2(TT_MUL, rk_ti(2), rk_tv("w")))));
+    rk_tadd(ib, rk_tclamp("hi", "n")); rk_tadd(ib, rk_tset("l", rk_tv("i"))); rk_tadd(ib, rk_tset("r", rk_tv("mid"))); rk_tadd(ib, rk_tset("k", rk_tv("i")));
+    rk_tadd(ib, w1); rk_tadd(ib, w2); rk_tadd(ib, w3); rk_tadd(ib, rk_tinc("i", rk_t2(TT_MUL, rk_ti(2), rk_tv("w"))));
+    tree_t * inner = rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("i"), rk_tv("n")), ib);
+    tree_t * ob = rk_tsq(rk_tset("i", rk_ti(0)), inner, rk_tset("@a", rk_tv("@b"))); rk_tadd(ob, rk_tset("w", rk_t2(TT_MUL, rk_tv("w"), rk_ti(2))));
+    ast_push(sd, rk_t2(TT_WHILE, rk_t2(TT_LT, rk_tv("w"), rk_tv("n")), ob));
+    { tree_t * r = ast_node_new(TT_RETURN); tree_t * m = ast_node_new(TT_METHCALL); ast_push(m, rk_tv("@a")); ast_push(m, leaf_sval2(TT_QLIT, "list")); ast_push(r, m); ast_push(sd, r); }
+    return sd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * rk_block_decl(const tree_t * prog, const char * nm) {
+    for (int i = 0; prog && i < prog->n; i++) { const tree_t * d = prog->c[i]; if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (sub) d = sub; }
+        if (d && d->t == TT_SUB_DECL && d->n > 0 && d->c[0] && d->c[0]->v.sval && !strcmp(d->c[0]->v.sval, nm)) return d; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_sort_cmp_walk(tree_t * prog, tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_sort_cmp_walk(prog, t->c[i]);
+    if (t->t != TT_METHCALL || t->n != 3 || !t->c[1] || !t->c[1]->v.sval || strcmp(t->c[1]->v.sval, "sort") || !t->c[2] || t->c[2]->t != TT_ANON_BLOCK || !t->c[2]->v.sval || !t->c[0]) return;
+    if (t->c[0]->t == TT_VAR && t->c[0]->v.sval && t->c[0]->v.sval[0] == '%') return;
+    const tree_t * bd = rk_block_decl(prog, t->c[2]->v.sval); if (!bd || bd->v.ival != 2) return;
+    char hn[strlen(t->c[2]->v.sval) + 16]; snprintf(hn, sizeof hn, "__rk_sortc_%s", t->c[2]->v.sval); const char * hname = lp_strdup(hn);
+    if (!rk_block_decl(prog, hname)) ast_push(prog, rk_sort_helper(hname, t->c[2]->v.sval));
+    tree_t * recv = t->c[0]; t->t = TT_FNC; t->v.sval = (char *) hname; t->n = 0; ast_push(t, rk_tv(hname)); ast_push(t, recv);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_tail_ifs((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
@@ -2265,6 +2317,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_ph_alias((tree_t *) prog);
     rk_cap_file_scope((tree_t *) prog);
     rk_hoist_anon_blocks((tree_t *) prog);
+    rk_sort_cmp_walk((tree_t *) prog, (tree_t *) prog);
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
     rk_lower_grammar_boxes(prog);
