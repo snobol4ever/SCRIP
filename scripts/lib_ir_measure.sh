@@ -41,6 +41,8 @@
 #   IR_PROG_OUT  optional path to keep the CLIENT's stdout at   \  ⛔ USE THESE, never a `>` on the call:
 #   IR_PROG_ERR  optional path to keep the CLIENT's stderr at   /  the reading is this function's OWN stdout,
 #                so `v="$(ir_measure ./p > run.out)"` sends the READING into run.out and comes back empty.
+#   VALGRIND     the valgrind binary to run (default: valgrind on PATH). An instrument's no-valgrind arm points it at a path that
+#                does not exist and must read NOMEASURE:valgrind-absent through THIS function, never a private probe of its own.
 #   IR_VG_FLAGS  extra valgrind flags, word-split (e.g. --smc-check=all-non-file for runtime-emitted blobs).
 #                ⛔ It exists so a caller with a special need still comes through here instead of running its
 #                own callgrind -- a private call site is exactly what this file was written to end.
@@ -49,16 +51,16 @@
 #   <digits>                 a clean reading: the client exited 0 and PROGRAM TOTALS parsed
 #   RC:<n>                   the client RAN AND DIED with status n (139 = SIGSEGV, 124 = timeout kill)
 #   NOMEASURE:<reason>       the INSTRUMENT could not read: valgrind-absent, annotate-absent, no-totals
-ir_have_valgrind() { command -v valgrind >/dev/null 2>&1 && command -v callgrind_annotate >/dev/null 2>&1; }
+ir_have_valgrind() { command -v "${VALGRIND:-valgrind}" >/dev/null 2>&1 && command -v callgrind_annotate >/dev/null 2>&1; }
 # ir_measure ARGV... -- the whole rule, in one function.  Writes exactly one line to stdout and returns 0.
 ir_measure() {
     [ $# -ge 1 ] || { echo "NOMEASURE:no-argv"; return 0; }
-    command -v valgrind          >/dev/null 2>&1 || { echo "NOMEASURE:valgrind-absent"; return 0; }
+    command -v "${VALGRIND:-valgrind}" >/dev/null 2>&1 || { echo "NOMEASURE:valgrind-absent"; return 0; }
     command -v callgrind_annotate >/dev/null 2>&1 || { echo "NOMEASURE:annotate-absent"; return 0; }
     local d cg rc ir
     d="$(mktemp -d "${TMPDIR:-/tmp}/irm.XXXXXX")" || { echo "NOMEASURE:no-workdir"; return 0; }
     cg="${IR_OUT:-$d/cg.out}"
-    timeout "${IR_TMO:-600}" valgrind --tool=callgrind ${IR_VG_FLAGS:-} --callgrind-out-file="$cg" "$@" >"${IR_PROG_OUT:-$d/prog.out}" 2>"${IR_PROG_ERR:-$d/vg.log}"
+    timeout "${IR_TMO:-600}" "${VALGRIND:-valgrind}" --tool=callgrind ${IR_VG_FLAGS:-} --callgrind-out-file="$cg" "$@" >"${IR_PROG_OUT:-$d/prog.out}" 2>"${IR_PROG_ERR:-$d/vg.log}"
     rc=$?
     if [ "$rc" -ne 0 ]; then rm -rf "$d"; echo "RC:$rc"; return 0; fi
     ir="$(ir_reading 0 "$cg")"
