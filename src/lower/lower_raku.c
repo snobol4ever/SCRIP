@@ -736,6 +736,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         for (int i = 0; i < t->n; i++) ast_push(mc, t->c[i]);
         return lower_rcall(cx, mc, "__blk_invoke", 1, γ, ω, res); }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
+        if (nm && !strcmp(nm, "EVAL") && !rk_user_proc_exists("EVAL")) return lower_rcall(cx, t, "__rk_eval", 1, γ, ω, res);
         if (nm && rk_is_multi_name(nm)) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
             tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__multi_call"; ast_push(mc, nmv);
@@ -1533,6 +1534,45 @@ static void rk_file_scope_reads_are_globals(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static IR_t * rk_eval_call_next(int * pi, int * i) {
+    for (; *pi < g_stage2.proc_count; (*pi)++, *i = 0) {
+        int bi = g_stage2.proc_table[*pi].bb_idx; if (bi < 0 || bi >= g_stage2.bbp.count || !g_stage2.bbp.table[bi]) continue;
+        IR_graph_t * g = g_stage2.bbp.table[bi];
+        while (*i < g->n) { IR_t * m = g->all[(*i)++]; if (m && (m->op == IR_CALL || m->op == IR_CALL_BUILTIN) && IR_LIT(m).sval && !strcmp(IR_LIT(m).sval, "__rk_eval")) return m; }
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_eval_main_globals(void) {
+    extern void global_register(const char * name); extern int is_global(const char *);
+    IR_graph_t * mg = NULL;
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) { int bi = g_stage2.proc_table[pi].bb_idx; if (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi] && g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, "main")) mg = g_stage2.bbp.table[bi]; }
+    int pi0 = 0, i0 = 0; if (!mg || !rk_eval_call_next(&pi0, &i0)) return;
+    for (int i = 0; i < mg->n; i++) { IR_t * m = mg->all[i]; const char * nm = (m && m->op == IR_ASSIGN) ? IR_LIT(m).sval : NULL;
+        if (!nm || !nm[0] || nm[0] == '&' || !strncmp(nm, "__", 2) || is_global(nm)) continue;
+        const char * bare = (nm[0] == '@' || nm[0] == '%') ? nm + 1 : nm; size_t bl = strlen(bare); int hit = 0, pj = 0, ij = 0;
+        for (IR_t * c = rk_eval_call_next(&pj, &ij); c && !hit; c = rk_eval_call_next(&pj, &ij)) {
+            IR_t * a0 = (c->n_operands > 0) ? c->operands[0] : NULL;
+            if (!(a0 && a0->op == IR_LIT_STRING && IR_LIT(a0).sval)) { hit = 1; break; }
+            for (const char * q = IR_LIT(a0).sval; *q && !hit; q++) if ((*q == '$' || *q == '@' || *q == '%') && !strncmp(q + 1, bare, bl) && !(isalnum((unsigned char) q[1 + bl]) || q[1 + bl] == '_' || q[1 + bl] == '-')) hit = 1;
+        }
+        if (hit) global_register(nm);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void lower_raku_eval_reads_are_globals(int pc0) {
+    extern void global_register(const char * name); extern int is_global(const char *);
+    for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
+        int bi = g_stage2.proc_table[pi].bb_idx; if (bi < 0 || bi >= g_stage2.bbp.count || !g_stage2.bbp.table[bi]) continue;
+        IR_graph_t * g = g_stage2.bbp.table[bi];
+        for (int i = 0; i < g->n; i++) {
+            IR_t * m = g->all[i]; const char * nm = (m && m->op == IR_VAR) ? IR_LIT(m).sval : NULL;
+            if (!nm || !nm[0] || nm[0] == '&' || !strncmp(nm, "__", 2) || is_global(nm) || rk_graph_assigns(g, nm) || rk_graph_param(g, nm)) continue;
+            global_register(nm);
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_register_state_globals(const tree_t * t) {
     extern void global_register(const char * name); extern int is_global(const char *);
     if (!t) return;
@@ -1964,7 +2004,22 @@ static void rk_cap_file_scope(tree_t * prog) {
     rk_cap_assign_through(prog, &Bx); rk_cap_flag_boxed(prog, &Bx); rk_cap_box_decls(prog, &Bx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_tail_return(tree_t * st);
+static tree_t * rk_tail_if(tree_t * st) {
+    if (!st || (st->t != TT_IF && st->t != TT_UNLESS) || st->n < 2) return st;
+    tree_t * nd = ast_node_new(st->t); nd->line = st->line; nd->v = st->v; nd->slen = st->slen;
+    for (int i = 0; i < st->n; i++) { tree_t * ch = st->c[i]; ast_push(nd, (i >= 1 && ch && (ch->t == TT_SEQ_EXPR || ch->t == TT_IF || ch->t == TT_UNLESS)) ? rk_tail_return(ch) : ch); }
+    return nd;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_tail_ifs(tree_t * t) {
+    if (!t) return;
+    if (t->t == TT_SUB_DECL && t->n > 1) { int li = t->n - 1; tree_t * ls = t->c[li]; if (ls && ls->t == TT_STMT) { const tree_t * sub = stmt_subj(ls); if (sub) ls = (tree_t *) sub; } if (ls && (ls->t == TT_IF || ls->t == TT_UNLESS)) t->c[li] = rk_tail_if(ls); }
+    for (int i = 0; i < t->n; i++) rk_tail_ifs(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_tail_return(tree_t * st) {
+    if (st && (st->t == TT_IF || st->t == TT_UNLESS)) return rk_tail_if(st);
     if (st && st->t == TT_SEQ_EXPR && st->n > 0) { st->c[st->n - 1] = rk_tail_return(st->c[st->n - 1]); return st; }
     if (!rk_block_tail_is_value(st)) return st;
     tree_t * r = ast_node_new(TT_RETURN); r->line = st->line; ast_push(r, st); return r;
@@ -1991,7 +2046,7 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
     tree_t * blks[rk_count_blocks(prog) + 1]; int nb = 0; rk_collect_blocks(prog, blks, &nb, (int) (sizeof blks / sizeof blks[0]));
     static int g_blk_ctr = 0;
     for (int i = 0; i < nb; i++) {
-        tree_t * blk = blks[i]; char nm[64]; snprintf(nm, sizeof nm, "__blk_%d", ++g_blk_ctr);
+        extern int rt_proc_is_registered(const char *); tree_t * blk = blks[i]; char nm[64]; do snprintf(nm, sizeof nm, "__blk_%d", ++g_blk_ctr); while (rt_proc_is_registered(nm));
         char * pn = lp_strdup(nm); blk->v.sval = pn;
         tree_t * sd = ast_node_new(TT_SUB_DECL); sd->v.ival = 0;
         tree_t * nn = ast_node_new(TT_VAR); nn->v.sval = pn; ast_push(sd, nn);
@@ -2202,6 +2257,7 @@ static void rk_desugar_gather(tree_t * t, int * seq) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) {
+    rk_tail_ifs((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
     { int gseq = 0; rk_desugar_gather((tree_t *) prog, &gseq); }
@@ -2213,7 +2269,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     rk_discover_grammars(prog);
     rk_lower_grammar_boxes(prog);
     rk_register_classes(prog);
-    g_rk_multi_names.len = 0;
+    if (g_stage2.proc_count == 0) g_rk_multi_names.len = 0;
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
@@ -2327,7 +2383,19 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     }
     rk_reclassify_calls();
     rk_file_scope_reads_are_globals();
+    rk_eval_main_globals();
     for (int pi = 0; pi < g_stage2.proc_count; pi++) { int bi = g_stage2.proc_table[pi].bb_idx; if (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) { g_stage2.bbp.table[bi]->entry_frame = 1; g_stage2.bbp.table[bi]->smx = 1;
         { const tree_t * pr = (const tree_t *) g_stage2.proc_table[pi].proc; g_stage2.bbp.table[bi]->block_args = (pr && pr->t == TT_SUB_DECL && !g_stage2.proc_table[pi].is_variadic && !g_stage2.proc_table[pi].named_rest) ? 1 : 0; } } }
     return &g_stage2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t * lower_raku_tail_return(tree_t * st) { return rk_tail_return(st); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char * lower_raku_eval_proc_name(int n) { char nb[48]; snprintf(nb, sizeof nb, "EVAL$%d", n); return lp_strdup(nb); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char ** lower_raku_proc_pnames(int pi) {
+    int np = g_stage2.proc_table[pi].nparams; if (np <= 0) return NULL;
+    const char ** pn = (const char **) ct_zalloc((size_t) np, sizeof(const char *));
+    for (int k = 0; pn && k < np && k < g_stage2.proc_table[pi].lower_sc.n; k++) pn[k] = g_stage2.proc_table[pi].lower_sc.e[k].name;
+    return pn;
 }

@@ -339,7 +339,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
@@ -4753,7 +4753,7 @@ static const struct { const char *needle, *cls, *parent; } rk_exc_tab[] = {
 static void rk_exc_init(void) {
     static int rk_exc_reg = 0; if (rk_exc_reg) return; rk_exc_reg = 1;
     extern void record_register(const char *spec); extern void class_inherit(const char *child, const char *parent);
-    record_register("Exception"); record_register("X::AdHoc(payload)"); class_inherit("X::AdHoc", "Exception"); record_register("X::TypeCheck(message)"); class_inherit("X::TypeCheck", "Exception");
+    record_register("Exception"); record_register("X::AdHoc(payload)"); class_inherit("X::AdHoc", "Exception"); record_register("X::TypeCheck(message)"); class_inherit("X::TypeCheck", "Exception"); record_register("X::Comp(message)"); class_inherit("X::Comp", "Exception"); record_register("X::Comp::AdHoc(message)"); class_inherit("X::Comp::AdHoc", "X::Comp"); record_register("X::Syntax(message)"); class_inherit("X::Syntax", "X::Comp"); record_register("X::Syntax::Confused(message)"); class_inherit("X::Syntax::Confused", "X::Syntax"); record_register("X::Undeclared(message)"); class_inherit("X::Undeclared", "X::Comp");
     for (int i = 0; rk_exc_tab[i].cls; i++) { char spec[strlen(rk_exc_tab[i].cls) + 16]; snprintf(spec, sizeof spec, "%s(message)", rk_exc_tab[i].cls); record_register(spec); class_inherit(rk_exc_tab[i].cls, rk_exc_tab[i].parent); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6224,6 +6224,20 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if ((!strcmp(fn, "die") || !strcmp(fn, "script_die")) && nargs >= 1) {
         rk_exc_init(); rk_exc_throw(rk_exc_is(args[0]) ? args[0] : rk_exc_adhoc(args[0]));
         *out = FAILDESCR; return 1;
+    }
+    if (!strcmp(fn, "__rk_eval") && nargs >= 1) {
+        extern const char *rt_raku_eval_compile(const char *src, const char **errmsg);
+        const char *s0 = rk_cstr(args[0]); char src[strlen(s0) + 1]; strcpy(src, s0); const char *err = NULL;
+        const char *pn = rt_raku_eval_compile(src, &err);
+        if (!pn) {
+            rk_exc_init(); const char *e0 = err ? err : "syntax error"; const char *cls = strstr(e0, "Confused") ? "X::Syntax::Confused" : strstr(e0, "not declared") ? "X::Undeclared" : "X::Comp::AdHoc";
+            rk_exc_throw(DATCON_fn(cls, STRVAL(rt_heap_strdup_c(e0)))); *out = FAILDESCR; return 1;
+        }
+        extern DESCR_t rt_call_proc_descr(const char *name, int nargs); extern int rt_proc_has_native_fn(const char *name); extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
+        int pi; for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, pn)) break;
+        DESCR_t none[1] = { NULVCL };
+        if (pi < g_stage2.proc_count && !rt_proc_has_native_fn(pn)) { *out = ir_call_proc(pi, none, 0); return 1; }
+        rt_call_args_need(0); *out = RT_GC_CALLBACK(rt_call_proc_descr(pn, 0)); return 1;
     }
     if (!strcmp(fn, "__rk_rethrow") && nargs == 0) { DESCR_t ex = rk_exc_current(); if (rk_exc_is(ex)) rk_exc_throw(ex); *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "srand") && nargs == 1) {

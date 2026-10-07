@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2134
+#define GC_ALLOC_TAB_N 2136
 #define GC_ALLOC_TAB_N_VOID 247
 #define GC_ALLOC_TAB_N_DESCR 1122
-#define GC_ALLOC_TAB_N_OTHER 759
+#define GC_ALLOC_TAB_N_OTHER 761
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1033,6 +1033,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_cplx_str", GC_RET_OTHER },
     { "rk_cstr", GC_RET_OTHER },
     { "rk_discover_grammars", GC_RET_VOID },
+    { "rk_emit_new_procs", GC_RET_OTHER },
     { "rk_exc_adhoc", GC_RET_DESCR },
     { "rk_exc_current", GC_RET_DESCR },
     { "rk_exc_from_msg", GC_RET_DESCR },
@@ -1940,6 +1941,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_proc_set_fn", GC_RET_VOID },
     { "rt_pvec_alloc", GC_RET_OTHER },
     { "rt_pvec_realloc", GC_RET_OTHER },
+    { "rt_raku_eval_compile", GC_RET_OTHER },
     { "rt_random_var", GC_RET_DESCR },
     { "rt_random_var_body", GC_RET_DESCR },
     { "rt_random_var_s", GC_RET_DESCR },

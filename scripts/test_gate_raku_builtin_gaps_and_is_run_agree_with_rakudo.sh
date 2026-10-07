@@ -9,7 +9,7 @@
 # THE CURE: rt_str_method arms (comb(n), codes, samecase, Num/Numeric on strings, rotate, pairs, antipairs, batch, repeated, squish, polymod, log(base), round(scale), subst with a regex and :g), rkb_number for 0b/0o/0d,
 # the main body pre-assigns `$_` (Nil), Order::X and Bool::X are __rk_pre values (rk_predeclared, and ahead of the qualified-type literal), is() and isnt() stringify through rk_tap_str (lists, objects, type objects),
 # and the Test shim gains is_run (writes the program to a temp file, runs this build's scrip on it in a child with the input and :args, compares status/out/err by smartmatch exactly as Test::Util does: status defaults to 0
-# unless err is given and non-empty; scrip is /proc/self/exe in mode 3 and <libscrip_rt.so dir>/../scrip in mode 4) and is-eqv (eqv). `$*IN`, `$*OUT`, `$*ERR` name the standard handles like `$*STDIN`, `$*STDOUT`, `$*STDERR`.
+# unless err is given and non-empty; scrip is /proc/self/exe in mode 3 and <libscrip_rt.so dir>/../scrip in mode 4) and is-eqv (eqv). 
 # NOT HERE (own rows): method calls on a standard handle ($*OUT.say crashes at lowering -- BOMB "IR_VAR arg names a local with no LOWER-granted varslot", measured on base too), Rat arithmetic (0.1+0.2 prints
 # 0.30000000000000004, 1/3 prints a Num, 1.5.WHAT is Num), Set/Bag/Mix, the Seq flavour of .raku, X and Z returning nested lists, the Range type, IO::Path.
 #

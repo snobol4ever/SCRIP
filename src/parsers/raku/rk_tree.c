@@ -167,12 +167,13 @@ static tree_t *rk_testop_build(const char *name, TL *a) {
 static tree_t *mkbool_lit(int v);
 static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
     const char *nm = c->c[0]->v.sval;
-    int lives = !strcmp(nm, "__rk_test_lives_ok"), dies = !strcmp(nm, "__rk_test_dies_ok"), like = !strcmp(nm, "__rk_test_like"), unlike = !strcmp(nm, "__rk_test_unlike");
+    int lives = !strcmp(nm, "__rk_test_lives_ok") || !strcmp(nm, "__rk_test_eval_lives_ok"), dies = !strcmp(nm, "__rk_test_dies_ok") || !strcmp(nm, "__rk_test_eval_dies_ok"), like = !strcmp(nm, "__rk_test_like"), unlike = !strcmp(nm, "__rk_test_unlike");
+    int evalform = !strncmp(nm, "__rk_test_eval_", 15) || (c->n >= 2 && c->c[1] && c->c[1]->t != TT_ANON_BLOCK);
     if ((lives || dies) && c->n >= 2) {
         const char *fv = fmt("__tl%d", b->post_uid++);
         tree_t *seq = ast_node_new(TT_SEQ_EXPR);
         tree_t *init = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(init->c[1], rk_ilit(1)); expr_add_child(seq, init);
-        tree_t *body = ast_node_new(TT_SEQ_EXPR), *inv = ast_node_new(TT_INVOKE); expr_add_child(inv, c->c[1]); expr_add_child(body, inv);
+        tree_t *body = ast_node_new(TT_SEQ_EXPR), *inv = evalform ? make_call("__rk_eval") : ast_node_new(TT_INVOKE); expr_add_child(inv, c->c[1]); expr_add_child(body, inv);
         if (lives) {
             tree_t *fl = expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, fv), make_call("__rk_mkbool")); expr_add_child(fl->c[1], rk_ilit(0));
             tree_t *cs = ast_node_new(TT_CASE), *cb = ast_node_new(TT_SEQ_EXPR), *ct = ast_node_new(TT_CATCH), *cq = ast_node_new(TT_SEQ_EXPR);
@@ -185,8 +186,8 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
         expr_add_child(seq, ok);
         return seq;
     }
-    if (!strcmp(nm, "__rk_test_throws_like") && c->n >= 3 && c->c[1] && c->c[1]->t != TT_QLIT && c->c[1]->t != TT_CAT) {
-        tree_t *seq = ast_node_new(TT_SEQ_EXPR), *body = ast_node_new(TT_SEQ_EXPR), *inv = ast_node_new(TT_INVOKE), *tr = ast_node_new(TT_TRY);
+    if (!strcmp(nm, "__rk_test_throws_like") && c->n >= 3 && c->c[1]) {
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR), *body = ast_node_new(TT_SEQ_EXPR), *inv = c->c[1]->t != TT_ANON_BLOCK ? make_call("__rk_eval") : ast_node_new(TT_INVOKE), *tr = ast_node_new(TT_TRY);
         expr_add_child(inv, c->c[1]); expr_add_child(body, inv); expr_add_child(tr, body); expr_add_child(seq, tr);
         tree_t *tl = make_call("__rk_test_throws_like"); expr_add_child(tl, leaf_sval(TT_VAR, "!"));
         for (int i = 2; i < c->n; i++) expr_add_child(tl, c->c[i]);
@@ -1185,7 +1186,7 @@ static int var_cls_of(const char *t, int n) {
     if (s0 == '$') {
         if (n == 1) return 0;
         char c1 = t[1];
-        if ((n == 7 && !strncmp(t, "$*STDIN", 7)) || (n == 8 && (!strncmp(t, "$*STDOUT", 8) || !strncmp(t, "$*STDERR", 8))) || (n == 4 && !strncmp(t, "$*IN", 4)) || (n == 5 && (!strncmp(t, "$*OUT", 5) || !strncmp(t, "$*ERR", 5)))) return 'F';
+        if ((n == 7 && !strncmp(t, "$*STDIN", 7)) || (n == 8 && (!strncmp(t, "$*STDOUT", 8) || !strncmp(t, "$*STDERR", 8)))) return 'F';
         if (isdigit((unsigned char) c1)) return 'P';
         if (n == 6 && !strncmp(t, "$?LINE", 6)) return 'L';
         if ((c1 == '.' || c1 == '!') && n > 2 && (isalpha((unsigned char) t[2]) || t[2] == '_')) return 'T';
@@ -1203,7 +1204,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     int n = (int) strlen(name);
     it->cls = var_cls_of(name, n);
     switch (it->cls) {
-    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit((!strcmp(name, "$*STDIN") || !strcmp(name, "$*IN")) ? 0 : (!strcmp(name, "$*STDOUT") || !strcmp(name, "$*OUT")) ? 1 : 2)); it->t = c; return; }
+    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit(!strcmp(name, "$*STDIN") ? 0 : !strcmp(name, "$*STDOUT") ? 1 : 2)); it->t = c; return; }
     case 'P': { tree_t *c = ast_node_new(TT_CAPTURE); ast_push(c, rk_ilit(atoi(name + 1))); it->t = c; return; }
     case 'L': it->t = rk_ilit(line_at(b, from)); return;
     case 'T': case 'U': case 'W': { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(name + 1)); it->t = fe; return; }
