@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2126
+#define GC_ALLOC_TAB_N 2134
 #define GC_ALLOC_TAB_N_VOID 247
-#define GC_ALLOC_TAB_N_DESCR 1118
-#define GC_ALLOC_TAB_N_OTHER 755
+#define GC_ALLOC_TAB_N_DESCR 1122
+#define GC_ALLOC_TAB_N_OTHER 759
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -620,6 +620,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "input_read", GC_RET_DESCR },
     { "intern_name_bin", GC_RET_OTHER },
     { "invoke_method_proc", GC_RET_DESCR },
+    { "invoke_method_proc_rq", GC_RET_DESCR },
     { "is_numeric_like", GC_RET_OTHER },
     { "junction_collapse", GC_RET_OTHER },
     { "key_of_head_tree", GC_RET_OTHER },
@@ -1024,7 +1025,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_av_text", GC_RET_OTHER },
     { "rk_block_cmp_d", GC_RET_OTHER },
     { "rk_call_block", GC_RET_DESCR },
+    { "rk_call_block_rq", GC_RET_DESCR },
     { "rk_call_snap", GC_RET_DESCR },
+    { "rk_call_snap_rq", GC_RET_DESCR },
     { "rk_capture_list", GC_RET_DESCR },
     { "rk_case_str", GC_RET_OTHER },
     { "rk_cplx_str", GC_RET_OTHER },
@@ -1079,6 +1082,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_pre_args", GC_RET_DESCR },
     { "rk_pre_env", GC_RET_DESCR },
     { "rk_pre_value", GC_RET_OTHER },
+    { "rk_proc_descr_rq", GC_RET_DESCR },
     { "rk_raku_scalar", GC_RET_OTHER },
     { "rk_raku_str", GC_RET_OTHER },
     { "rk_register_classes", GC_RET_VOID },
@@ -1144,6 +1148,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_arr_bl_sn4", GC_RET_DESCR },
     { "rt_call_arr_bl_sn4_rq", GC_RET_DESCR },
     { "rt_call_arr_bl_strict", GC_RET_DESCR },
+    { "rt_call_arr_bl_try", GC_RET_OTHER },
     { "rt_call_arr_gen", GC_RET_DESCR },
     { "rt_call_arr_gen_s", GC_RET_DESCR },
     { "rt_call_arr_gen_strict", GC_RET_DESCR },
@@ -1164,6 +1169,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_open_staged", GC_RET_OTHER },
     { "rt_call_open_staged_rec", GC_RET_OTHER },
     { "rt_call_open_tail", GC_RET_OTHER },
+    { "rt_call_open_tail_lex", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_proc_descr_p", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
@@ -2035,6 +2041,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "scrip_cofail", GC_RET_VOID },
     { "scrip_coret", GC_RET_VOID },
     { "script_try_call_builtin_by_name", GC_RET_OTHER },
+    { "script_try_call_builtin_by_name_rq", GC_RET_OTHER },
     { "set_and_trace", GC_RET_VOID },
     { "set_copy_all", GC_RET_VOID },
     { "set_diff", GC_RET_OTHER },
@@ -2125,6 +2132,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "try_call_builtin_by_name", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl", GC_RET_OTHER },
     { "try_call_builtin_by_name_bl_s", GC_RET_OTHER },
+    { "try_call_builtin_by_name_bl_s_rq", GC_RET_OTHER },
     { "unify_pair", GC_RET_OTHER },
     { "unify_prepare", GC_RET_VOID },
     { "user_op_add", GC_RET_VOID },

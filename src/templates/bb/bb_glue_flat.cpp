@@ -203,21 +203,26 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + land_ω(0L, 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
-    return  x86("call", "rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4)
+std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id) {
+    return  x86("call", try_sym, try_fp)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", val_id)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + bb_glue_enter_c2bb(base, base + 5, base + 6)
          + x86_deflabel_id(base + 5)
-         + x86("call", "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ)
+         + x86("call", lg_sym, lg_fp)
          + x86_rt_gc_poll_rec_res()
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 6)
-         + x86("call", "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω)
+         + x86("call", lw_sym, lw_fp)
          + x86_rt_gc_poll_rec_res()
          + x86_jmp_id(join_id)
          + x86_deflabel_id(val_id);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
+    return bb_glue_try_enter("rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4, "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ,
+                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {

@@ -1226,6 +1226,16 @@ int rt_call_open_tail(const char *name, int nargs, long *rq)
 #endif
       return 1; }
 }
+int rt_call_open_tail_lex(const char *name, int nargs, long *rq)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p || p->dyn_scope || !p->fn || !p->jmp_entry || p->pinned) return 0;
+    { rt_call_next_t n = rt_call_open_by_name_p(p, name, nargs); rq[0] = n.fn; rq[1] = n.how;
+#if RT_DIAG
+      if (n.fn) rt_c2bb_hit("lex.open", name);
+#endif
+      return 1; }
+}
 int rt_dtx_open_tail(sno_dstar_rec_t *r, long *rq)
 {
     rt_proc_t *p = (r && !(r->flags & SNO_DSTAR_VARREF)) ? rt_proc_of_rec(r) : (rt_proc_t *)0;
