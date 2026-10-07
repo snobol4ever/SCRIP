@@ -93,4 +93,14 @@ int  stage2_label_grow(stage2_t *s2);
 int  stage2_proc_grow (stage2_t *s2);
 void    resolve_pred_table_insert(Resolve_PredTable *pt, const char *key, tree_t *choice);
 tree_t *resolve_pred_table_lookup(Resolve_PredTable *pt, const char *key);
+typedef struct { void (*before)(void *ctx, int pi, int bb_idx); void (*after)(void *ctx, int pi, int bb_idx, void *fn); void *ctx; } emit_install_hooks_t;
+#ifdef __cplusplus
+extern "C" {
+#endif
+void emit_register_proc(stage2_t *s2, int pi);
+void emit_proc_props(stage2_t *s2, int pi);
+void *emit_install_proc(stage2_t *s2, int pi, const emit_install_hooks_t *hooks);
+#ifdef __cplusplus
+}
+#endif
 #endif

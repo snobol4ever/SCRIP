@@ -2479,15 +2479,25 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_raku_stage2(const tree_t *prog) { return rk_stage2_core(prog, 1, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-stage2_t *lower_raku_eval_stage2(const tree_t *prog) { return rk_stage2_core(prog, 0, 0); }
+static const char * rk_eval_proc_name(int n) { char nb[48]; snprintf(nb, sizeof nb, "EVAL$%d", n); return lp_strdup(nb); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t * lower_raku_tail_return(tree_t * st) { return rk_tail_return(st); }
+static int rk_eval_is_declaration(const tree_t * st) {
+    const tree_t * u = st; if (u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
+    return u->t == TT_SUB_DECL || u->t == TT_CLASS_DECL || u->t == TT_ROLE_DECL || u->t == TT_GRAMMAR_DECL || u->t == TT_USE_DECL;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char * lower_raku_eval_proc_name(int n) { char nb[48]; snprintf(nb, sizeof nb, "EVAL$%d", n); return lp_strdup(nb); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char ** lower_raku_proc_pnames(int pi) {
-    int np = g_stage2.proc_table[pi].nparams; if (np <= 0) return NULL;
-    const char ** pn = (const char **) ct_zalloc((size_t) np, sizeof(const char *));
-    for (int k = 0; pn && k < np && k < g_stage2.proc_table[pi].lower_sc.n; k++) pn[k] = g_stage2.proc_table[pi].lower_sc.e[k].name;
-    return pn;
+const char * lower_raku_eval_stage2(const tree_t * prog) {
+    int pc0 = g_stage2.proc_count; const char * nm = rk_eval_proc_name(pc0);
+    tree_t * p2 = ast_node_new(TT_PROGRAM), * sd = ast_node_new(TT_SUB_DECL), * nv = ast_node_new(TT_VAR); nv->v.sval = (char *) nm; sd->v.ival = 0; ast_push(sd, nv);
+    int lastb = -1;
+    for (int i = prog->n - 1; i >= 0 && lastb < 0; i--) { tree_t * st = prog->c[i]; if (!st) continue; const tree_t * u = st; if (u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
+        if (!rk_eval_is_declaration(st) && !(u->t == TT_SEQ_EXPR && u->n == 0)) lastb = i; }
+    for (int i = 0; i < prog->n; i++) {
+        tree_t * st = prog->c[i]; if (!st) continue; const tree_t * u = st; if (u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
+        if (rk_eval_is_declaration(st)) ast_push(p2, st); else ast_push(sd, i == lastb ? rk_tail_return((tree_t *) u) : st);
+    }
+    ast_push(p2, sd);
+    rk_stage2_core(p2, 0, 0);
+    lower_raku_eval_reads_are_globals(pc0);
+    return nm;
 }

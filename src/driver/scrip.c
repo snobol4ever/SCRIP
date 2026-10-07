@@ -508,7 +508,6 @@ static int icn_main_callable(const stage2_t *s2, const IR_graph_t *g) {
     return 0;
 }
 static void register_procs_all(stage2_t * s2) {
-    extern void rt_proc_register(const char *name, const char **pnames, int nparams);
     int _mpi = -1;
     for (int _k = 0; _k <= s2->proc_count; _k++) {
         int _pi = (_k < s2->proc_count) ? _k : _mpi;
@@ -518,23 +517,9 @@ static void register_procs_all(stage2_t * s2) {
         int idx = s2->proc_table[_pi].bb_idx;
         if (_k < s2->proc_count && strcmp(pname, "main") == 0) { if (idx >= 0 && idx < s2->bbp.count && icn_main_callable(s2, s2->bbp.table[idx])) _mpi = _pi; continue; }
         if (idx < 0 || idx >= s2->bbp.count || !s2->bbp.table[idx] || !s2->bbp.table[idx]->entry) continue;
-        int np = s2->proc_table[_pi].nparams;
-        const char **pn = NULL;
-        if (np > 0) {
-            pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
-            for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
-                pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
-        }
-        rt_proc_register(pname, pn, np);
-        { extern void rt_proc_set_nformals(const char *, int); rt_proc_set_nformals(pname, s2->proc_table[_pi].nformals); }
+        emit_register_proc(s2, _pi);
         { IR_graph_t *_lg = (idx >= 0 && idx < s2->bbp.count) ? s2->bbp.table[idx] : (IR_graph_t *)0; icn_register_locals(pname, _lg); }
-        { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
-        { extern void rt_proc_set_pinned(const char *, int); IR_graph_t *_pg2 = s2->bbp.table[idx]; extern int zls_g_entry_block(const IR_graph_t *); rt_proc_set_pinned(pname, zls_g_entry_block(_pg2)); }
-        { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
-        { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
-        { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
-        { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
-        { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
+        emit_proc_props(s2, _pi);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -639,6 +624,10 @@ static void sn4_balias_register(const stage2_t *s2, const unsigned char *own, in
         rt_proc_set_fn(ln, (bb_box_fn)((char *)base + off)); if (fb > 0) rt_proc_set_frame_bytes(ln, fb);
         m3_seal_entry_cells(ln + 5, base, 0); }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const stage2_t *s2; const unsigned char *own; int owned; } m3_lbl_ctx_t;
+static void m3_lbl_before(void *c, int pi, int idx) { m3_lbl_ctx_t *x = (m3_lbl_ctx_t *) c; (void) pi; if (x->owned) sn4_balias_fill(x->s2->bbp.table[idx], x->s2, x->own, idx, 0); }
+static void m3_lbl_after(void *c, int pi, int idx, void *fn) { m3_lbl_ctx_t *x = (m3_lbl_ctx_t *) c; (void) pi; extern int g_last_flat_frame_bytes; if (x->owned) sn4_balias_register(x->s2, x->own, idx, fn, g_last_flat_frame_bytes); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int m4_program_has_prolog_terms(stage2_t *s2, IR_graph_t *bbg) {
     for (int gi = -1; gi < (s2 ? s2->bbp.count : 0); gi++) { IR_graph_t *g = gi < 0 ? bbg : s2->bbp.table[gi]; if (!g) continue;
@@ -1913,9 +1902,7 @@ int main(int argc, char **argv)
             }
             { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
             unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1]; int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
-            size_t _m3cap = 1; for (int _pi = 0; _pi < s2->proc_count; _pi++) if (s2->proc_table[_pi].name) {
-                size_t _n = (size_t)fmt_len("proc_%s", s2->proc_table[_pi].name); if (_n > _m3cap) _m3cap = _n; }
-            char _m3pfx[_m3cap];
+            m3_lbl_ctx_t _m3lc = { s2, _lbl_own, _lbl_owned };
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
                 if (!pname || strcmp(pname, "main") == 0) continue;
@@ -1928,43 +1915,8 @@ int main(int argc, char **argv)
                     for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
                         pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
-                { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
-                { extern void rt_proc_set_generator(const char *, int); rt_proc_set_generator(pname, s2->proc_table[_pi].is_generator); } { extern void rt_proc_set_jmpentry(const char *, int); rt_proc_set_jmpentry(pname, !s2->bbp.table[idx]->caller_frame && strncmp(pname, "gram__", 6) != 0); }
-        { extern void rt_proc_set_pinned(const char *, int); IR_graph_t *_pg2 = s2->bbp.table[idx]; extern int zls_g_entry_block(const IR_graph_t *); rt_proc_set_pinned(pname, zls_g_entry_block(_pg2)); }
-                { extern void rt_proc_set_variadic(const char *, int); rt_proc_set_variadic(pname, s2->proc_table[_pi].is_variadic); }
-                { extern void rt_proc_set_rest_kind(const char *, int); rt_proc_set_rest_kind(pname, s2->proc_table[_pi].rest_kind); }
-                { extern void rt_proc_set_named_rest(const char *, int); rt_proc_set_named_rest(pname, s2->proc_table[_pi].named_rest); }
-                { extern void rt_proc_set_dyn_scope(const char *, int); rt_proc_set_dyn_scope(pname, s2->proc_table[_pi].dyn_scope); }
-                { extern void rt_proc_set_result_name(const char *, const char *); if (s2->proc_table[_pi].result_name) rt_proc_set_result_name(pname, s2->proc_table[_pi].result_name); }
-                { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0; g_flat_frame_floor = 0; int _floor_hit = (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED))); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG] pname=%s is_lbl=%d entry_op=%d hit=%d\n", pname ? pname : "(null)", _is_lbl, _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
-                int _isp3 = 0;
-                { extern int emit_jmp_entry_for_patproc(int, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
-                  int _isp = emit_jmp_entry_for_patproc(s2->proc_table[_pi].thunk_kind, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
-                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, s2->proc_table[_pi].nparams)) ? s2->proc_table[_pi].nparams : -1; _isp3 = _isp; }
-                { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
-                { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
-                int _islbl3 = pname && strncmp(pname, "LBL__", 5) == 0;
-                snprintf(_m3pfx, sizeof _m3pfx, "proc_%s", pname);
-                if (_lbl_owned && !_islbl3) sn4_balias_fill(s2->bbp.table[idx], s2, _lbl_own, idx, 0);
-                if (getenv("SCRIP_PL_RTASM") && !_islbl3) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stderr, _m3pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
-                bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
-                if (pfn && _lbl_owned) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, idx, (void *)pfn, g_last_flat_frame_bytes); }
-                { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) pfn); }
-                { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
-                { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
-                { extern int g_gen_proc_active; g_gen_proc_active = 0; }
-                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (!_islbl3) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
-                { extern int g_last_flat_frame_bytes; if (getenv("SCRIP_N2_FB_PREPASS"))
-                  fprintf(stderr, "[N2-FB] POSTEMIT mode=3 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes); }
-                if (pfn) rt_proc_set_fn(pname, pfn);
-                { extern int g_last_flat_frame_bytes, g_last_flat_zstatic; extern void bb_thunk_rec_fill(const char *, void *, int32_t, int32_t); if (pfn && _isp3) bb_thunk_rec_fill(pname, (void *)pfn, g_last_flat_frame_bytes, g_last_flat_zstatic); }
-                if (pfn) m3_seal_entry_cells(pname, (void *)pfn, 1);
-                { extern int g_last_flat_zstatic; extern void rt_proc_set_zstatic(const char *, int); if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic); }
-                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!_islbl3) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
-                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); extern void rt_proc_set_gen_region_ft(const char *, int); int _gft = emit_icn_n2_gen_region_ft(pname, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]); if (_gft > 0) rt_proc_set_gen_region_ft(pname, _gft); }
-                { extern long g_last_dc_off; extern void rt_proc_set_dcfn(const char *, void *); if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *)pfn + g_last_dc_off)); }
-                { extern int g_last_flat_frame_bytes; extern void rt_proc_set_frame_bytes(const char *, int); if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); }
+                emit_install_hooks_t _m3hk = { m3_lbl_before, m3_lbl_after, &_m3lc };
+                (void) emit_install_proc(s2, _pi, &_m3hk);
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
                 extern void core_icn_startup_error_no_main(void);

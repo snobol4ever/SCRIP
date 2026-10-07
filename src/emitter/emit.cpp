@@ -4729,6 +4729,61 @@ bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     return (bb_box_fn)buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" {
+void rt_proc_set_generator(const char *, int); void rt_proc_set_jmpentry(const char *, int); void rt_proc_set_pinned(const char *, int); void rt_proc_set_variadic(const char *, int);
+void rt_proc_set_rest_kind(const char *, int); void rt_proc_set_named_rest(const char *, int); void rt_proc_set_dyn_scope(const char *, int); void rt_proc_set_result_name(const char *, const char *);
+void rt_proc_register(const char *, const char **, int); void rt_proc_set_nformals(const char *, int); void rt_proc_set_frame_bytes(const char *, int); void rt_proc_set_fn(const char *, bb_box_fn); void rt_proc_set_dcfn(const char *, void *); void rt_proc_set_zstatic(const char *, int);
+void rt_proc_set_gen_region_ft(const char *, int); void bb_ab_seal_entry_cells(const char *, void *, int); void emit_patzeta_register(const char *, int, int, int); int rt_pl_dc_ok(const char *, int);
+int zls_g_entry_block(const IR_graph_t *); int zls_g_region(const IR_graph_t *); void zls_graph_name(const IR_graph_t *, const char *);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void emit_register_proc(stage2_t * s2, int pi) {
+    ProcEntry * pe = &s2->proc_table[pi]; int np = pe->nparams; const char ** pn = NULL;
+    if (np > 0) { pn = (const char **) ct_zalloc((size_t) np, sizeof(const char *)); for (int k = 0; k < np && k < pe->lower_sc.n; k++) pn[k] = pe->lower_sc.e[k].name; }
+    rt_proc_register(pe->name, pn, np); rt_proc_set_nformals(pe->name, pe->nformals);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void emit_proc_props(stage2_t * s2, int pi) {
+    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    rt_proc_set_generator(pname, pe->is_generator); rt_proc_set_jmpentry(pname, !g->caller_frame && strncmp(pname, "gram__", 6) != 0); rt_proc_set_pinned(pname, zls_g_entry_block(g));
+    rt_proc_set_variadic(pname, pe->is_variadic); rt_proc_set_rest_kind(pname, pe->rest_kind); rt_proc_set_named_rest(pname, pe->named_rest); rt_proc_set_dyn_scope(pname, pe->dyn_scope);
+    if (pe->result_name) rt_proc_set_result_name(pname, pe->result_name);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" void * emit_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * hk) {
+    ProcEntry * pe = &s2->proc_table[pi]; const char * pname = pe->name; IR_graph_t * g = s2->bbp.table[pe->bb_idx];
+    int is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
+    g_emit_cfg = g;
+    emit_proc_props(s2, pi);
+    g_gen_proc_active = pe->is_generator; g_flat_frame_floor = 0;
+    int floor_hit = (is_lbl || (g->entry && ((g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) || g->entry->op == IR_GOTO_DEFERRED)));
+    if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG] pname=%s is_lbl=%d entry_op=%d hit=%d\n", pname ? pname : "(null)", is_lbl, g->entry ? (int) g->entry->op : -1, floor_hit);
+    if (floor_hit) for (int mi = 0; mi < s2->proc_count; mi++) if (s2->proc_table[mi].name && !strcmp(s2->proc_table[mi].name, "main")) {
+        int mx = s2->proc_table[mi].bb_idx; if (mx >= 0 && mx < s2->bbp.count && s2->bbp.table[mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[mx]); break; }
+    if (getenv("SCRIP_FLOOR_DIAG") && floor_hit) fprintf(stderr, "[FLOOR-DIAG] -> g_flat_frame_floor=%d\n", g_flat_frame_floor);
+    int isp = emit_jmp_entry_for_patproc(pe->thunk_kind, g); if (!isp) emit_jmp_entry_for_proc(pname, pe->dyn_scope, pe->is_generator, g);
+    g_flat_dc_np = (!isp && rt_pl_dc_ok(pname, pe->nparams)) ? pe->nparams : -1;
+    zls_graph_name(g, pname); g_emit_frame_caller_dl = (g->caller_frame && g->nslots > 0) ? pe->decl_level : -1;
+    char * pfx = (char *) alloca(strlen(pname) + 6); snprintf(pfx, strlen(pname) + 6, "proc_%s", pname);
+    IR_t * pent = pe->proc_entry_node ? pe->proc_entry_node : g->entry;
+    if (!is_lbl && hk && hk->before) hk->before(hk->ctx, pi, pe->bb_idx);
+    if (getenv("SCRIP_PL_RTASM") && !is_lbl) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(pent, stderr, pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
+    bb_box_fn pfn = is_lbl ? NULL : emit_chain(pent, NULL, pfx);
+    if (pfn && hk && hk->after) hk->after(hk->ctx, pi, pe->bb_idx, (void *) pfn);
+    emit_gc_tables_register((const void *) pfn);
+    emit_jmp_entry_clear(); g_emit_frame_caller_dl = -1; g_gen_proc_active = 0;
+    if (!is_lbl) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes);
+    if (getenv("SCRIP_N2_FB_PREPASS")) fprintf(stderr, "[N2-FB] POSTEMIT mode=3 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", pi, g_last_flat_frame_bytes);
+    if (pfn) rt_proc_set_fn(pname, pfn);
+    if (pfn && isp) bb_thunk_rec_fill(pname, (void *) pfn, g_last_flat_frame_bytes, g_last_flat_zstatic);
+    if (pfn) bb_ab_seal_entry_cells(pname, (void *) pfn, 1);
+    if (pfn) rt_proc_set_zstatic(pname, g_last_flat_zstatic);
+    if (!is_lbl) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
+    int gft = emit_icn_n2_gen_region_ft(pname, pe->is_generator, g); if (gft > 0) rt_proc_set_gen_region_ft(pname, gft);
+    if (pfn && g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *) ((char *) pfn + g_last_dc_off));
+    if (pfn && g_last_flat_frame_bytes > 0) rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes);
+    return (void *) pfn;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
     extern const char **global_names; extern int global_count;

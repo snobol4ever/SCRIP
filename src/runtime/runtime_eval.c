@@ -992,27 +992,14 @@ DESCR_t CONVE_fn(DESCR_t str_d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_emit_new_procs(int pc0)
 {
-    extern void rt_proc_register(const char *name, const char **pnames, int nparams); extern void rt_proc_set_nformals(const char *, int);
-    extern void rt_proc_set_generator(const char *, int); extern void rt_proc_set_jmpentry(const char *, int); extern void rt_proc_set_pinned(const char *, int);
-    extern int zls_g_entry_block(const IR_graph_t *); extern void rt_proc_set_variadic(const char *, int); extern void rt_proc_set_rest_kind(const char *, int);
-    extern void rt_proc_set_named_rest(const char *, int); extern void rt_proc_set_dyn_scope(const char *, int); extern void rt_proc_set_result_name(const char *, const char *);
     extern void optimizer_run(IR_graph_t *g); extern void fl_derive_tier(IR_graph_t *g); extern void ir_drive_slot_assign(IR_graph_t *g); extern void rt_proc_set_frame(const char *, int, int);
-    extern int emit_jmp_entry_for_patproc(int, IR_graph_t *); extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void);
-    extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int); extern void zls_graph_name(const IR_graph_t *, const char *); extern int g_emit_frame_caller_dl; extern int g_gen_proc_active;
-    extern int g_frame_active; extern IR_graph_t *g_emit_cfg; extern int g_flat_frame_floor; extern int g_last_flat_frame_bytes, g_last_flat_zstatic, g_last_flat_fp, g_last_flat_uniform; extern long g_last_dc_off;
-    extern void rt_proc_set_frame_bytes(const char *, int); extern void rt_proc_set_fn(const char *, eval_chain_fn); extern void bb_ab_seal_entry_cells(const char *, void *, int);
-    extern void rt_proc_set_zstatic(const char *, int); extern void emit_patzeta_register(const char *, int, int, int); extern void rt_proc_set_dcfn(const char *, void *);
-    extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); extern void rt_proc_set_gen_region_ft(const char *, int); extern void bb_thunk_rec_fill(const char *, void *, int32_t, int32_t);
+    extern int g_gen_proc_active; extern int g_frame_active; extern IR_graph_t *g_emit_cfg;
     int emit_failed = 0;
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name; int idx = g_stage2.proc_table[pi].bb_idx;
         if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
-        int np = g_stage2.proc_table[pi].nparams; extern const char **lower_raku_proc_pnames(int pi); const char **pn = lower_raku_proc_pnames(pi);
-        rt_proc_register(pname, pn, np); rt_proc_set_nformals(pname, g_stage2.proc_table[pi].nformals);
+        emit_register_proc(&g_stage2, pi); emit_proc_props(&g_stage2, pi);
         IR_graph_t *g = g_stage2.bbp.table[idx];
-        rt_proc_set_generator(pname, g_stage2.proc_table[pi].is_generator); rt_proc_set_jmpentry(pname, !g->caller_frame && strncmp(pname, "gram__", 6) != 0); rt_proc_set_pinned(pname, zls_g_entry_block(g));
-        rt_proc_set_variadic(pname, g_stage2.proc_table[pi].is_variadic); rt_proc_set_rest_kind(pname, g_stage2.proc_table[pi].rest_kind); rt_proc_set_named_rest(pname, g_stage2.proc_table[pi].named_rest);
-        rt_proc_set_dyn_scope(pname, g_stage2.proc_table[pi].dyn_scope); if (g_stage2.proc_table[pi].result_name) rt_proc_set_result_name(pname, g_stage2.proc_table[pi].result_name);
         optimizer_run(g); { extern void zls_forget_graph_nodes(const IR_graph_t *); zls_forget_graph_nodes(g); } fl_derive_tier(g); ir_drive_slot_assign(g);
         if (g->caller_frame && g->nslots > 0) rt_proc_set_frame(pname, g->nslots - 1, g_stage2.proc_table[pi].decl_level);
     }
@@ -1020,21 +1007,7 @@ static int rk_emit_new_procs(int pc0)
     for (int pi = pc0; pi < g_stage2.proc_count; pi++) {
         const char *pname = g_stage2.proc_table[pi].name; int idx = g_stage2.proc_table[pi].bb_idx;
         if (!pname || !strcmp(pname, "main") || idx < 0 || idx >= g_stage2.bbp.count || !g_stage2.bbp.table[idx] || !g_stage2.bbp.table[idx]->entry) continue;
-        IR_graph_t *g = g_stage2.bbp.table[idx]; g_emit_cfg = g; g_gen_proc_active = g_stage2.proc_table[pi].is_generator; g_flat_frame_floor = 0;
-        if (g->entry && ((g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) || g->entry->op == IR_GOTO_DEFERRED)) {
-            extern int zls_g_region(const IR_graph_t *);
-            for (int mi = 0; mi < g_stage2.proc_count; mi++) if (g_stage2.proc_table[mi].name && !strcmp(g_stage2.proc_table[mi].name, "main")) { int mx = g_stage2.proc_table[mi].bb_idx; if (mx >= 0 && mx < g_stage2.bbp.count && g_stage2.bbp.table[mx]) g_flat_frame_floor = zls_g_region(g_stage2.bbp.table[mx]); break; } }
-        int isp = emit_jmp_entry_for_patproc(g_stage2.proc_table[pi].thunk_kind, g); if (!isp) emit_jmp_entry_for_proc(pname, g_stage2.proc_table[pi].dyn_scope, g_stage2.proc_table[pi].is_generator, g);
-        g_flat_dc_np = (!isp && rt_pl_dc_ok(pname, g_stage2.proc_table[pi].nparams)) ? g_stage2.proc_table[pi].nparams : -1;
-        zls_graph_name(g, pname); g_emit_frame_caller_dl = (g->caller_frame && g->nslots > 0) ? g_stage2.proc_table[pi].decl_level : -1;
-        char pfx[strlen(pname) + 6]; snprintf(pfx, sizeof pfx, "proc_%s", pname);
-        IR_t *pent = g_stage2.proc_table[pi].proc_entry_node ? g_stage2.proc_table[pi].proc_entry_node : g->entry; eval_chain_fn pfn = emit_chain(pent, NULL, pfx); if (!pfn) emit_failed = 1;
-        { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) pfn); }
-        emit_jmp_entry_clear(); g_emit_frame_caller_dl = -1; g_gen_proc_active = 0;
-        if (pfn) { rt_proc_set_frame_bytes(pname, g_last_flat_frame_bytes); rt_proc_set_fn(pname, pfn); if (isp) bb_thunk_rec_fill(pname, (void *) pfn, g_last_flat_frame_bytes, g_last_flat_zstatic);
-            bb_ab_seal_entry_cells(pname, (void *) pfn, 1); rt_proc_set_zstatic(pname, g_last_flat_zstatic); emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
-            { int gft = emit_icn_n2_gen_region_ft(pname, g_stage2.proc_table[pi].is_generator, g); rt_proc_set_gen_region_ft(pname, gft); }
-            if (g_last_dc_off >= 0) rt_proc_set_dcfn(pname, (void *)((char *) pfn + g_last_dc_off)); }
+        if (!emit_install_proc(&g_stage2, pi, NULL)) emit_failed = 1;
     }
     g_rt_fragment_emit = 0; g_gen_proc_active = ga; g_frame_active = fa; g_emit_cfg = cfg_sv;
     return emit_failed;
@@ -1043,7 +1016,7 @@ static int rk_emit_new_procs(int pc0)
 const char *rt_raku_eval_compile(const char *src, const char **errmsg)
 {
     extern tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg);
-    extern stage2_t *lower_raku_eval_stage2(const tree_t *prog);
+    extern const char *lower_raku_eval_stage2(const tree_t *prog);
     char *perr = NULL; *errmsg = NULL;
     if (!src) return NULL;
     { extern void bb_pool_init(void); bb_pool_init(); }
@@ -1051,19 +1024,7 @@ const char *rt_raku_eval_compile(const char *src, const char **errmsg)
     tree_t *prog = rk_parse_tree(src, (int) strlen(src), "EVAL", &perr);
     if (!prog) { *errmsg = perr ? perr : "syntax error"; return NULL; }
     int pc0 = g_stage2.proc_count;
-    extern const char *lower_raku_eval_proc_name(int n); const char *nm = lower_raku_eval_proc_name(pc0);
-    tree_t *p2 = ast_node_new(TT_PROGRAM), *sd = ast_node_new(TT_SUB_DECL), *nv = ast_node_new(TT_VAR); nv->v.sval = (char *) nm; sd->v.ival = 0; ast_push(sd, nv);
-    extern tree_t *lower_raku_tail_return(tree_t *st); int lastb = -1;
-    for (int i = prog->n - 1; i >= 0 && lastb < 0; i--) { tree_t *st = prog->c[i]; if (!st) continue; const tree_t *u = st; if (u->t == TT_STMT) { extern const tree_t *lc_stmt_subj(const tree_t *); const tree_t *sub = lc_stmt_subj(u); if (sub) u = sub; }
-        if (!(u->t == TT_SUB_DECL || u->t == TT_CLASS_DECL || u->t == TT_ROLE_DECL || u->t == TT_GRAMMAR_DECL || u->t == TT_USE_DECL) && !(u->t == TT_SEQ_EXPR && u->n == 0)) lastb = i; }
-    for (int i = 0; i < prog->n; i++) {
-        tree_t *st = prog->c[i]; if (!st) continue; const tree_t *u = st;
-        if (u->t == TT_STMT) { extern const tree_t *lc_stmt_subj(const tree_t *); const tree_t *sub = lc_stmt_subj(u); if (sub) u = sub; }
-        if (u->t == TT_SUB_DECL || u->t == TT_CLASS_DECL || u->t == TT_ROLE_DECL || u->t == TT_GRAMMAR_DECL || u->t == TT_USE_DECL) ast_push(p2, st); else ast_push(sd, i == lastb ? lower_raku_tail_return((tree_t *) u) : st);
-    }
-    ast_push(p2, sd);
-    lower_raku_eval_stage2(p2);
-    { extern void lower_raku_eval_reads_are_globals(int pc0); lower_raku_eval_reads_are_globals(pc0); }
+    const char *nm = lower_raku_eval_stage2(prog);
     if (rk_emit_new_procs(pc0)) { *errmsg = "EVAL: the code could not be emitted"; return NULL; }
     return nm;
 }
