@@ -1051,8 +1051,10 @@ static int rk_type_isa(const char *have, const char *want) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz);
+static DESCR_t rk_hash_from_list(const DESCR_t *el, int n);
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
+    if (nmargs == 0 && !strcmp(meth, "item")) { *out = recv; return 1; }
     { const char *tn = rk_typeobj_name(recv);
       if (tn) {
           if (!strcmp(meth, "defined") || !strcmp(meth, "Bool") || !strcmp(meth, "so")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
@@ -1073,6 +1075,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         if (!strcmp(meth, "Str")) { *out = STRVAL((char *) rk_arr_text(recv)); return 1; }
         if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) { *out = STRVAL((char *) rk_raku_str(recv, 0)); return 1; }
         if (!strcmp(meth, "elems")) { *out = INTVAL(rk_av(recv).n); return 1; }
+        if (nmargs == 0 && !strcmp(meth, "hash")) { rk_av_t ha = rk_av(recv); *out = rk_is_pair(recv) ? rk_hash_from_list(&recv, 1) : rk_hash_from_list(ha.el, ha.n); return 1; }
         if (!rk_is_pair(recv) && (!strcmp(meth, "rotate") || !strcmp(meth, "pairs") || !strcmp(meth, "antipairs") || !strcmp(meth, "batch") || !strcmp(meth, "repeated") || !strcmp(meth, "squish"))) {
             rk_av_t a = rk_av(recv); DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL; int k = 0;
             if (!strcmp(meth, "rotate")) { long sh = (nmargs >= 1 && IS_INT_fn(margs[0])) ? (long) margs[0].i : 1; for (int i = 0; i < a.n; i++) r[i] = a.el[(int) ((((i + sh) % a.n) + a.n) % a.n)]; *out = rk_mk_arr(r, a.n); return 1; }
