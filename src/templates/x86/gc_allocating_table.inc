@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2108
-#define GC_ALLOC_TAB_N_VOID 245
-#define GC_ALLOC_TAB_N_DESCR 1111
-#define GC_ALLOC_TAB_N_OTHER 746
+#define GC_ALLOC_TAB_N 2116
+#define GC_ALLOC_TAB_N_VOID 247
+#define GC_ALLOC_TAB_N_DESCR 1114
+#define GC_ALLOC_TAB_N_OTHER 749
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1027,6 +1027,13 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_cplx_str", GC_RET_OTHER },
     { "rk_cstr", GC_RET_OTHER },
     { "rk_discover_grammars", GC_RET_VOID },
+    { "rk_exc_adhoc", GC_RET_DESCR },
+    { "rk_exc_current", GC_RET_DESCR },
+    { "rk_exc_from_msg", GC_RET_DESCR },
+    { "rk_exc_init", GC_RET_VOID },
+    { "rk_exc_message", GC_RET_OTHER },
+    { "rk_exc_method", GC_RET_OTHER },
+    { "rk_exc_throw", GC_RET_VOID },
     { "rk_flat_agg", GC_RET_DESCR },
     { "rk_flat_count", GC_RET_OTHER },
     { "rk_flat_into", GC_RET_OTHER },
@@ -1223,6 +1230,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_div_sno", GC_RET_DESCR },
     { "rt_div_strict", GC_RET_DESCR },
     { "rt_div_zero", GC_RET_VOID },
+    { "rt_dtx_open_tail", GC_RET_OTHER },
     { "rt_eval_land", GC_RET_DESCR },
     { "rt_eval_open", GC_RET_OTHER },
     { "rt_eval_raise", GC_RET_VOID },

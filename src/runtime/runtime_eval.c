@@ -659,6 +659,9 @@ typedef struct { long fn; long how; } rt_eval_next_t;
 rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs) {
     extern int eval_text_takes_chain(const char *); extern void rt_eval_stage_leave(const char *);
     rt_eval_next_t none = { 0, 0 };
+    if (args && nargs == 1 && args[0].v == DT_X) { extern int rt_dtx_open_tail(sno_dstar_rec_t *, long *); long rq[2] = { 0, 0 };
+      if (rt_dtx_open_tail(SNO_DTX_REC(args[0]), rq) && rq[0]) return (rt_eval_next_t){ rq[0], rq[1] | (1L << 62) };
+      return none; }
     if (!args || nargs != 1 || args[0].v != DT_S || !eval_guard_on() || !eval_open_on()) return none;
     const char *s = VARVAL_fn(args[0]);
     if (!s || !*s || !eval_text_takes_chain(s)) return none;
