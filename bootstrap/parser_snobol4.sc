@@ -115,7 +115,7 @@ $'>'        =  *$' ' '>';
 /* ==================================================================================================================== */
 /* THE EXPRESSION, as src/parsers/snobol4/snobol4.y builds it (Lon 2026-09-30: the C tree is canonical, and "the tree is */
 /* built from tokens in the same order as they are recognized by the PATTERN ... directly and once only"): every left-     */
-/* associative level is a tail loop that reduces as each right operand is recognised; =, ^ and ~ are right-recursive.     */
+/* associative level is a tail loop that reduces as each right operand is recognised; =, ^, @ and ~ are right-recursive.  */
 ArgTail     =  *$',' FENCE(*Expr | epsilon . *Reduce('TT_NUL', 0)) . *IncCounter() FENCE(*ArgTail | epsilon);
 ArgList     =  FENCE(*Expr . *IncCounter() FENCE(*ArgTail | epsilon) | epsilon . *Reduce('TT_NUL', 0) . *IncCounter() *ArgTail);
 Expr        =  *Expr0;
@@ -128,8 +128,7 @@ Expr3       =  *Expr4 *Expr3t;
 Expr3t      =  FENCE(*$'|' *Expr4 . *Reduce('TT_ALT', 2) *Expr3t | epsilon);
 Expr4       =  *Expr5 *Expr4t;
 Expr4t      =  FENCE(*$'  ' *Expr5 . *Reduce('TT_SEQ', 2) *Expr4t | epsilon);
-Expr5       =  *Expr6 *Expr5t;
-Expr5t      =  FENCE(*$'@' *Expr6 . *Reduce('TT_OPSYN', 2, '@') *Expr5t | epsilon);
+Expr5       =  *Expr6 FENCE(*$'@' *Expr5 . *Reduce('TT_OPSYN', 2, '@') | epsilon);
 Expr6       =  *Expr7 *Expr6t;
 Expr6t      =  FENCE(*$'  ' ('+' *$'  ' *Expr7 . *Reduce('TT_ADD', 2) | '-' *$'  ' *Expr7 . *Reduce('TT_SUB', 2)) *Expr6t | epsilon);
 Expr7       =  *Expr8 *Expr7t;

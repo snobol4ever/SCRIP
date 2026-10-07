@@ -143,7 +143,7 @@ expr3      : expr3 T_2PIPE expr4                                                
 expr4      : expr4 T_CONCAT expr5                                                                           { tree_t*s=ast_node_new(TT_SEQ);expr_add_child(s,$1);expr_add_child(s,$3);$$=s; }
            | expr5                                                                                 { $$=$1; }
            ;
-expr5      : expr5 T_2AT    expr6                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("@"); $$=_e; }
+expr5      : expr6 T_2AT    expr5                                                             { tree_t*_e=expr_binary(TT_OPSYN,$1,$3); _e->v.sval=ct_strdup("@"); $$=_e; }
            | expr6                                                                                 { $$=$1; }
            ;
 expr6      : expr6 T_2PLUS   expr7                                                             { $$=expr_binary(TT_ADD,             $1,$3); }

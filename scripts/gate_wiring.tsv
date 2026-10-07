@@ -911,6 +911,7 @@ test_gate_sno_substr_indexes_bytes_as_the_pattern_cursor_does.sh	WIRED	-	-	-
 test_gate_sno_system_fn_table_is_sorted.sh	WIRED	-	-	-
 test_gate_sno_terminal_read_fails_without_a_tty.sh	WIRED	-	-	-
 test_gate_sno_the_bid_entry_calls_the_builtin_body_through_the_direct_table.sh	WIRED	-	-	-
+test_gate_sno_the_binary_at_operator_groups_right_to_left_as_spitbol_does.sh	WIRED	-	-	-
 test_gate_sno_the_name_operator_takes_an_indirect_or_a_keyword_and_a_cursor_capture_takes_any_target.sh	WIRED	-	-	-
 test_gate_sno_the_null_string_is_one_table_key.sh	WIRED	-	-	-
 test_gate_sno_the_real_model_is_spitbols_gtnum_reading_and_ftz_daz_arithmetic.sh	WIRED	-	-	-
