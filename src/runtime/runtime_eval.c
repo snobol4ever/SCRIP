@@ -1047,7 +1047,7 @@ static int rk_emit_new_procs(int pc0)
 const char *rt_raku_eval_compile(const char *src, const char **errmsg)
 {
     extern tree_t *rk_parse_tree(const char *src, int len, const char *path, char **errmsg);
-    extern stage2_t *lower_raku_stage2(const tree_t *prog);
+    extern stage2_t *lower_raku_eval_stage2(const tree_t *prog);
     char *perr = NULL; *errmsg = NULL;
     if (!src) return NULL;
     { extern void bb_pool_init(void); bb_pool_init(); }
@@ -1066,9 +1066,8 @@ const char *rt_raku_eval_compile(const char *src, const char **errmsg)
         if (u->t == TT_SUB_DECL || u->t == TT_CLASS_DECL || u->t == TT_ROLE_DECL || u->t == TT_GRAMMAR_DECL || u->t == TT_USE_DECL) ast_push(p2, st); else ast_push(sd, i == lastb ? lower_raku_tail_return((tree_t *) u) : st);
     }
     ast_push(p2, sd);
-    lower_raku_stage2(p2);
+    lower_raku_eval_stage2(p2);
     { extern void lower_raku_eval_reads_are_globals(int pc0); lower_raku_eval_reads_are_globals(pc0); }
-    for (int pi = pc0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, "main")) g_stage2.proc_table[pi].bb_idx = -1;
     if (rk_emit_new_procs(pc0)) { *errmsg = "EVAL: the code could not be emitted"; return NULL; }
     return nm;
 }

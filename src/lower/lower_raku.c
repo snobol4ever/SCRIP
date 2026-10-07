@@ -2256,7 +2256,7 @@ static void rk_desugar_gather(tree_t * t, int * seq) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-stage2_t *lower_raku_stage2(const tree_t *prog) {
+static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_tail_ifs((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
@@ -2269,7 +2269,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     rk_discover_grammars(prog);
     rk_lower_grammar_boxes(prog);
     rk_register_classes(prog);
-    if (g_stage2.proc_count == 0) g_rk_multi_names.len = 0;
+    if (reset_multi) g_rk_multi_names.len = 0;
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
@@ -2333,7 +2333,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     int has_main = 0;
     for (int pi = 0; pi < g_stage2.proc_count; pi++)
         if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) { has_main = 1; break; }
-    if (!has_main) {
+    if (!has_main && want_main) {
         IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.try_depth = 0; tcx.g = tg; tcx.try_catch = NULL; tcx.loop_exit = NULL; tcx.loop_next = NULL;
         tcx.cur_proc = NULL; tcx.cur_byref_mask = 0; tcx.cur_nparams = 0; tcx.cur_proc_name = "main";
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
@@ -2388,6 +2388,10 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
         { const tree_t * pr = (const tree_t *) g_stage2.proc_table[pi].proc; g_stage2.bbp.table[bi]->block_args = (pr && pr->t == TT_SUB_DECL && !g_stage2.proc_table[pi].is_variadic && !g_stage2.proc_table[pi].named_rest) ? 1 : 0; } } }
     return &g_stage2;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+stage2_t *lower_raku_stage2(const tree_t *prog) { return rk_stage2_core(prog, 1, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+stage2_t *lower_raku_eval_stage2(const tree_t *prog) { return rk_stage2_core(prog, 0, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t * lower_raku_tail_return(tree_t * st) { return rk_tail_return(st); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

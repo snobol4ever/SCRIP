@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2136
+#define GC_ALLOC_TAB_N 2138
 #define GC_ALLOC_TAB_N_VOID 247
 #define GC_ALLOC_TAB_N_DESCR 1122
-#define GC_ALLOC_TAB_N_OTHER 761
+#define GC_ALLOC_TAB_N_OTHER 763
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -669,6 +669,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_pl_pred_graph", GC_RET_OTHER },
     { "lower_pl_stage2", GC_RET_OTHER },
     { "lower_proc_body", GC_RET_OTHER },
+    { "lower_raku_eval_stage2", GC_RET_OTHER },
     { "lower_raku_stage2", GC_RET_OTHER },
     { "lower_repeat", GC_RET_OTHER },
     { "lower_result_operand", GC_RET_OTHER },
@@ -1094,6 +1095,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_spill_count", GC_RET_OTHER },
     { "rk_spill_scalar", GC_RET_OTHER },
     { "rk_sprintf_core", GC_RET_VOID },
+    { "rk_stage2_core", GC_RET_OTHER },
     { "rk_tap_str", GC_RET_OTHER },
     { "rk_tbl_text", GC_RET_OTHER },
     { "rk_txt_elem", GC_RET_DESCR },
