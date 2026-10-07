@@ -1335,6 +1335,12 @@ static IR_t * pl_curout_text_guard(lcx_t * cx, IR_t * nd, IR_t * ne, IR_t * ωfa
     if (entry_out) *entry_out = ge ? ge : g; return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_pp_runtime(const tree_t * h, const tree_t * pp) {
+    tree_t * cv = pl_cc_freshvar(); tree_t * cv2 = pl_cc_freshvar(); tree_t * iv = pl_cc_freshvar(); tree_t * iv2 = pl_cc_freshvar(); cv2->v.ival = cv->v.ival; iv2->v.ival = iv->v.ival;
+    return pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h), pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv),
+        pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp))));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     if (entry_out) *entry_out = NULL;
     if (!t) return build(cx, IR_SUCCEED, γnext, ωfail);
@@ -1795,8 +1801,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (pl_tree_number(h)) return goal(cx, pl_cc_type_error("callable", h, nm, 2), γnext, ωfail, entry_out);
             if (pp && (pp->t == TT_QLIT || pp->t == TT_NAME || pp->t == TT_FNC) && pp->v.sval && !pl_name_in(pp->v.sval, pl_pred_props))
                 return goal(cx, pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("predicate_property"), (tree_t *) pp), nm, 2), γnext, ωfail, entry_out);
-            if (!pn) { tree_t * cv = pl_cc_freshvar(); tree_t * cv2 = pl_cc_freshvar(); tree_t * iv = pl_cc_freshvar(); tree_t * iv2 = pl_cc_freshvar(); cv2->v.ival = cv->v.ival; iv2->v.ival = iv->v.ival;
-                return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("$pl_pp_guard", (tree_t *) h), pl_cc_fnc2(",", pl_cc_fnc2("$pl_pp_count", (tree_t *) h, cv), pl_cc_fnc2(",", pl_cc_fnc3("between", pl_cc_ilit(1), cv2, iv), pl_cc_fnc3("$pl_pp_nth", iv2, (tree_t *) h, (tree_t *) pp)))), γnext, ωfail, entry_out); }
+            if (!pn) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
             { int dyn = (pl_dyn_index(pn, ar) >= 0) || pl_decl_dyn_is(pn, ar) || pl_rt_is_dynamic(pn, ar); int def = dyn || pl_file_defines(pn, ar);
               const char * meta = def ? (const char *) 0 : pl_meta_template(pn, ar);
               int bi = !def && (meta || pl_det_leaf_name_wired(pn) || pl_rung_of(pn) != 0);
@@ -1814,7 +1819,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                       ast_push(tm, (a && (a->t == TT_NAME || a->t == TT_QLIT) && a->v.sval && !strcmp(a->v.sval, "*")) ? (tree_t *) pl_atom_goal("?") : (tree_t *) a); }
                   props[np++] = pl_cc_fnc1("meta_predicate", tm); }
               for (int i = 0; i < npt && np < 7; i++) props[np++] = props_pt[i];
-              if (!np) return build(cx, IR_GOTO, ωfail, ωfail);
+              if (!np) return goal(cx, pl_pp_runtime(h, pp), γnext, ωfail, entry_out);
               { tree_t * alt = pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[np - 1]);
                 for (int i = np - 2; i >= 0; i--) alt = pl_cc_fnc2(";", pl_cc_fnc2("=", (tree_t *) t->c[1], (tree_t *) props[i]), alt);
                 return goal(cx, alt, γnext, ωfail, entry_out); } } }
