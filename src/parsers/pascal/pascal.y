@@ -63,6 +63,7 @@ static PNodeList *pas_scope_fwd_params(const char *name, PNodeList *params) { co
 static void pas_formal_subranges(const char *sig, PNodeList *params);
 static void pas_formal_chararrs(const char *sig, PNodeList *params);
 static void pas_formal_strtypes(const char *sig, PNodeList *params);
+static void pas_formal_tfiles(const char *sig, PNodeList *params);
 static void pas_scope_enter(const char *name, PNodeList *params) {
     if (g_pas_scope.depth >= g_pas_scope.mcap) { g_pas_scope.mcap = g_pas_scope.mcap ? g_pas_scope.mcap * 2 : 16; g_pas_scope.marks = (int *)ct_grow(g_pas_scope.marks, (size_t)g_pas_scope.mcap * sizeof(int)); }
     g_pas_scope.marks[g_pas_scope.depth++] = g_pas_scope.n;
@@ -72,7 +73,7 @@ static void pas_scope_enter(const char *name, PNodeList *params) {
         if (!strcmp(g_pas_scope.fsig[j].owner, name) && !strcmp(g_pas_scope.fsig[j].name, g_pas_scope.defs[i].name)) {
             g_pas_scope.defs[i].sig = g_pas_scope.fsig[j].sig; g_pas_scope.defs[i].formal = 1; break; }
     if (first > 0 && g_pas_scope.defs[first - 1].rid && name && !strcmp(g_pas_scope.defs[first - 1].name, name)) {
-        const char *sig = (fwd && fwd->sig) ? fwd->sig : g_pas_scope.defs[first - 1].sig; pas_formal_subranges(sig, params); pas_formal_chararrs(sig, params); pas_formal_strtypes(sig, params); }
+        const char *sig = (fwd && fwd->sig) ? fwd->sig : g_pas_scope.defs[first - 1].sig; pas_formal_subranges(sig, params); pas_formal_chararrs(sig, params); pas_formal_strtypes(sig, params); pas_formal_tfiles(sig, params); }
 }
 static int pas_pf_is_formal(const char *name);
 static const PasDef *pas_pf_lookup(const char *name);
@@ -203,6 +204,8 @@ static tree_t *mk_set_bin(const char *name, tree_t *a, tree_t *b);
 static int g_pas_pend_isbool;
 static int g_pas_pend_istfile;
 static void pas_tfilevar_add(const char *name);
+static void pas_tfilevar_mark(void);
+static void pas_tfilevar_release(void);
 static int pas_is_tfilevar(const char *name);
 static void pas_tfiletype_add(const char *name);
 static int pas_is_tfiletype(const char *name);
@@ -1001,8 +1004,8 @@ static int g_pas_pvmarks[PAS_NEST_MAX_PV]; static int g_pas_npvmark;
 static int g_pas_rvmarks[PAS_NEST_MAX_PV]; static int g_pas_nrvmark;
 static void pas_recvar_mark(void) { if (g_pas_nrvmark < PAS_NEST_MAX_PV) g_pas_rvmarks[g_pas_nrvmark++] = g_pas_nrecvar; }
 static void pas_recvar_release(void) { if (g_pas_nrvmark > 0) g_pas_nrecvar = g_pas_rvmarks[--g_pas_nrvmark]; }
-static void pas_ptrvar_mark(void) { if (g_pas_npvmark < PAS_NEST_MAX_PV) g_pas_pvmarks[g_pas_npvmark++] = g_pas_nptrvar; }
-static void pas_ptrvar_release(void) { if (g_pas_npvmark > 0) g_pas_nptrvar = g_pas_pvmarks[--g_pas_npvmark]; }
+static void pas_ptrvar_mark(void) { pas_tfilevar_mark(); if (g_pas_npvmark < PAS_NEST_MAX_PV) g_pas_pvmarks[g_pas_npvmark++] = g_pas_nptrvar; }
+static void pas_ptrvar_release(void) { pas_tfilevar_release(); if (g_pas_npvmark > 0) g_pas_nptrvar = g_pas_pvmarks[--g_pas_npvmark]; }
 static struct { char *pname; char *vnames[16]; char *rnames[16]; int n; struct pas_recvar_s rvsave[16]; int rvn; PNodeList *params; } g_pas_fwdpv[64]; static int g_pas_nfwdpv;
 static void pas_fwd_save(const char *pn, PNodeList *params) { if (!pn || g_pas_nfwdpv >= 64 || (g_pas_npvmark == 0 && g_pas_nrvmark == 0)) return; int k = g_pas_nfwdpv++; g_pas_fwdpv[k].pname = ct_strdup(pn); g_pas_fwdpv[k].params = params; g_pas_fwdpv[k].n = 0; g_pas_fwdpv[k].rvn = 0;
     if (g_pas_npvmark > 0) for (int i = g_pas_pvmarks[g_pas_npvmark - 1]; i < g_pas_nptrvar && g_pas_fwdpv[k].n < 16; i++) { g_pas_fwdpv[k].vnames[g_pas_fwdpv[k].n] = g_pas_ptrvars[i].vname; g_pas_fwdpv[k].rnames[g_pas_fwdpv[k].n] = g_pas_ptrvars[i].rname; g_pas_fwdpv[k].n++; }
@@ -1175,6 +1178,9 @@ static struct { char *name; } g_pas_boolvars[512]; static int g_pas_nboolvar;
 static struct { char *name; } g_pas_tfilevars[128]; static int g_pas_ntfilevar;
 static struct { char *name; } g_pas_tfiletypes[64]; static int g_pas_ntfiletype;
 static void pas_tfilevar_add(const char *name) { if (g_pas_ntfilevar < 128 && name) g_pas_tfilevars[g_pas_ntfilevar++].name = ct_strdup(name); }
+static int g_pas_tfvmarks[PAS_NEST_MAX_PV]; static int g_pas_ntfvmark;
+static void pas_tfilevar_mark(void) { if (g_pas_ntfvmark < PAS_NEST_MAX_PV) g_pas_tfvmarks[g_pas_ntfvmark++] = g_pas_ntfilevar; }
+static void pas_tfilevar_release(void) { if (g_pas_ntfvmark > 0) g_pas_ntfilevar = g_pas_tfvmarks[--g_pas_ntfvmark]; }
 static int pas_is_tfilevar(const char *name) { if (!name) return 0; for (int i = g_pas_ntfilevar - 1; i >= 0; i--) if (g_pas_tfilevars[i].name && !strcmp(g_pas_tfilevars[i].name, name)) return 1; return 0; }
 static void pas_tfiletype_add(const char *name) { if (g_pas_ntfiletype < 64 && name) g_pas_tfiletypes[g_pas_ntfiletype++].name = ct_strdup(name); }
 static int pas_is_tfiletype(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_ntfiletype; i++) if (g_pas_tfiletypes[i].name && !strcmp(g_pas_tfiletypes[i].name, name)) return 1; return 0; }
@@ -1852,6 +1858,10 @@ static void pas_formal_subranges(const char *sig, PNodeList *params) {
 static void pas_formal_chararrs(const char *sig, PNodeList *params) {
     for (int i = 0, fi = 0; params && i < params->count; i++) { tree_t *id = params->items[i]; if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
         const char *t = pas_sig_value_type(sig, fi++, 0); if (t && pas_arrtype_ischar(t)) pas_chararr_add2(id->v.sval, pas_arrtype_lo(t)); }
+}
+static void pas_formal_tfiles(const char *sig, PNodeList *params) {
+    for (int i = 0, fi = 0; params && i < params->count; i++) { tree_t *id = params->items[i]; if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;
+        const char *t = pas_sig_value_type(sig, fi++, 1); if (t && pas_is_tfiletype(t)) { pas_tfilevar_add(id->v.sval); pas_tfcomp_add(id->v.sval, 0, -1, 0); } }
 }
 static void pas_formal_strtypes(const char *sig, PNodeList *params) {
     for (int i = 0, fi = 0; params && i < params->count; i++) { tree_t *id = params->items[i]; if (!id || !id->v.sval || !strncmp(id->v.sval, "__pas_pe", 8)) continue;

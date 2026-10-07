@@ -11,8 +11,8 @@
 # under 6.9.1, and SCRIP follows ISO there.
 #
 # ARMS, both modes: (1) a program reading every valid form from stdin (integers over blank lines and signs, reals as 1.5, -2e3,
-# +0.25E+02 and 7, an integer stopping at a letter, readln) cut LIVE from fpc -Miso and required byte-identical; (2) seven faults --
-# integer 'five', integer '+', integer at end-of-file, real '10e', real '10.', real '.5', real '10e+' -- each must print fpc's stdout
+# +0.25E+02 and 7, an integer stopping at a letter, readln) cut LIVE from fpc -Miso and required byte-identical; (2) five faults --
+# integer 'five', integer '+', integer at end-of-file, real '10e', real '10e+' ('10.' and '.5' left this list 2026-10-07: fpc -Miso reads them, CEO-1302, landing 39) -- each must print fpc's stdout
 # up to the fault, exit non-zero and name 6.9.1. It FAILS on the parent. FAIL_ONCE=1 corrupts arm 1's ref to prove it can fail.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -55,7 +55,7 @@ for m in m3 m4; do
   else echo "  ⛔ arm 1 $m FAILED: rc=$rc"; echo "      want: $(tr '\n' '|' < "$T/rn.want")"; echo "      got : $(tr '\n' '|' < "$T/o")"; RC=1; fi
 done
 N=0
-for f in 'ri: five' 'ri: +' 'ri:' 'rr: 10e ' 'rr: 10. ' 'rr: .5 ' 'rr: 10e+ '; do
+for f in 'ri: five' 'ri: +' 'ri:' 'rr: 10e ' 'rr: 10e+ '; do
   p=${f%%:*}; inp=${f#*:}; N=$((N+1)); printf '%s' "$inp" > "$T/f.in"
   ( cd "$T" && timeout 20s ./$p.fpc <f.in ) 2>/dev/null | grep -v '^after' > "$T/f.want"
   for m in m3 m4; do
