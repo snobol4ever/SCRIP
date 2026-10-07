@@ -41,6 +41,29 @@ sm_emit_t g_emit;
 IR_graph_t * g_emit_cfg = (IR_graph_t *)0;
 static void emit_stno_mark(int32_t stno);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" const char * bb_ab_sym_name(const char * nm);
+struct bb_ab_thunk_stems_t { std::unordered_map<std::string, std::string> stem; std::unordered_set<std::string> stems; int n[3]; std::string fn; };
+static bb_ab_thunk_stems_t * bb_ab_thunk_stems(void) {
+    bb_ab_thunk_stems_t * t = (bb_ab_thunk_stems_t *) g_emit.thunk_stems; if (!t) { t = new bb_ab_thunk_stems_t(); g_emit.thunk_stems = t; } return t;
+}
+extern "C" void bb_ab_thunk_stem_note(const char * nm, int kind) {
+    if (!nm || kind <= PROC_THUNK_NONE || kind > PROC_THUNK_EXPR) return;
+    bb_ab_thunk_stems_t * t = bb_ab_thunk_stems();
+    if (t->stem.count(nm)) return;
+    char b[fmt_len(".LT%c%d", 'x', t->n[kind])]; snprintf(b, sizeof b, ".LT%c%d", kind == PROC_THUNK_PATTERN ? 'p' : 'x', t->n[kind]); t->n[kind]++;
+    t->stem.emplace(std::string(nm), std::string(b)); t->stems.emplace(std::string(b));
+}
+static const char * bb_ab_thunk_stem(const char * nm) {
+    const bb_ab_thunk_stems_t * t = (const bb_ab_thunk_stems_t *) g_emit.thunk_stems; if (!t || !nm) return (const char *)0;
+    auto it = t->stem.find(nm); return it == t->stem.end() ? (const char *)0 : it->second.c_str();
+}
+extern "C" int bb_ab_sym_is_thunk_stem(const char * sym) { const bb_ab_thunk_stems_t * t = (const bb_ab_thunk_stems_t *) g_emit.thunk_stems; return (t && sym && t->stems.count(sym)) ? 1 : 0; }
+extern "C" const char * bb_ab_fn_sym(const char * nm) {
+    bb_ab_thunk_stems_t * t = bb_ab_thunk_stems(); const char * st = bb_ab_thunk_stem(nm);
+    t->fn = st ? std::string(st) : std::string("FN__") + bb_ab_sym_name(nm); return t->fn.c_str();
+}
+extern "C" const char * bb_ab_thunk_stem_or(const char * nm) { const char * st = bb_ab_thunk_stem(nm); return st ? st : nm; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::unordered_set<std::string> g_port_exit_promoting_labels;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void port_exit_prepass_build(void) {
