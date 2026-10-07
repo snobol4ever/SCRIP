@@ -43,7 +43,7 @@ int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 extern "C" struct gv_s g_call_args;
 extern "C" int g_gc_pending;
-int  rt_proc_is_registered(const char *name);
+int  rt_proc_is_registered(const char *name); int  rt_proc_is_redefined(const char *name);
 int  rt_proc_nformals(const char *name);
 int  rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
@@ -240,7 +240,7 @@ extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) retu
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
     if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !bb_proc_multi_proto(fname) && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok()
-        && rt_proc_is_registered(fname)) {
+        && rt_proc_is_registered(fname) && !rt_proc_is_redefined(fname)) {
         np = rt_proc_nparams(fname);
         if (np >= 0 && np <= BB_SCC_NP_MAX && nargs <= rt_proc_nformals(fname)) {
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;

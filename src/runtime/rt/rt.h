@@ -124,6 +124,7 @@ extern gv_t g_call_args;
 void rt_call_args_need(int n);
 void rt_call_args_clear_from(int n);
 int  rt_proc_is_registered(const char *name);
+int  rt_proc_is_redefined(const char *name);
 int  rt_proc_has_native_fn(const char *name);
 void rt_proc_set_generator(const char *name, int is_gen);
 void rt_proc_set_variadic(const char *name, int is_var);
