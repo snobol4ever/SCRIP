@@ -4912,6 +4912,11 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             pas_file_err("6.6.5.3", "the tag-field of a variable created with new(p, c1, ..., cn) is assigned a value that activates a different variant", NULL);
         *out = NULVCL; return 1;
     }
+    if (!strcmp(fn, "__pas_tagwhole") && nargs == 1) {
+        if (IS_INT_fn(args[0]) && args[0].i > 0 && args[0].i < g_pas_heap_cap && (g_pas_heap_dead[args[0].i] & 2))
+            pas_file_err("6.6.5.3", "a variable created with new(p, c1, ..., cn) is accessed as a whole by a factor, an assignment or an actual-parameter", NULL);
+        *out = NULVCL; return 1;
+    }
     if ((!strcmp(fn, "__pas_udiv") || !strcmp(fn, "__pas_umod")) && nargs == 2) {
         unsigned long long x = IS_INT_fn(args[0]) ? (unsigned long long)args[0].i : 0ULL, y = IS_INT_fn(args[1]) ? (unsigned long long)args[1].i : 0ULL;
         if (!y) pas_file_err("6.7.2.2", "the divisor of div or mod is zero", NULL);
