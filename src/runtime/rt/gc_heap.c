@@ -1193,7 +1193,7 @@ void rt_gc_frame_maps_drop_range(const void *lo, const void *hi)
     g_gc_maps_n = w;
 }
 typedef struct { uint64_t pc; int32_t depth; uint16_t kind, rule; } gc_site_ent_t;
-typedef struct { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi; int n; gc_site_ent_t *ents; } gc_site_blk_t;
+typedef struct { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi; int n; int ckt; gc_site_ent_t *ents; } gc_site_blk_t;
 static gc_site_blk_t *g_gc_sblk = (gc_site_blk_t *)0; static int g_gc_sblk_n = 0, g_gc_sblk_cap = 0;
 static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const gc_site_ent_t *)a)->pc, y = ((const gc_site_ent_t *)b)->pc; return x < y ? -1 : x > y ? 1 : 0; }
 void rt_gc_frame_sites_add(const void *tab)
@@ -1204,12 +1204,12 @@ void rt_gc_frame_sites_add(const void *tab)
     n = (int)t[0]; m = (const gc_frame_map_t *)(uintptr_t)t[1];
     if (m && m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-SITES] rt_gc_frame_sites_add: table %p names no frame map (%p)\n", tab, (const void *)m); abort(); }
     e = n > 0 ? (gc_site_ent_t *)gcbk_alloc((size_t)n * sizeof *e) : (gc_site_ent_t *)0;
-    for (int i = 0; i < n; i++) { uint64_t pc = t[2 + 2 * i], w = t[3 + 2 * i]; if (!pc) continue; if ((w & 255u) == 4u || (w & 255u) == 5u) continue; e[k].pc = pc; e[k].kind = (uint16_t)(w & 0xFFFFu); e[k].rule = (uint16_t)((w >> 16) & 0xFFFFu); e[k].depth = (int32_t)(uint32_t)(w >> 32); k++; }
+    for (int i = 0; i < n; i++) { uint64_t pc = t[3 + 2 * i], w = t[4 + 2 * i]; if (!pc) continue; if ((w & 255u) == 4u || (w & 255u) == 5u) continue; e[k].pc = pc; e[k].kind = (uint16_t)(w & 0xFFFFu); e[k].rule = (uint16_t)((w >> 16) & 0xFFFFu); e[k].depth = (int32_t)(uint32_t)(w >> 32); k++; }
     if (k > 1) qsort(e, (size_t)k, sizeof *e, gc_site_ent_cmp);
     if (g_gc_sblk_n == g_gc_sblk_cap) { g_gc_sblk_cap = g_gc_sblk_cap ? g_gc_sblk_cap * 2 : 64; g_gc_sblk = (gc_site_blk_t *)gcbk_grow((void *)g_gc_sblk, (size_t)g_gc_sblk_cap * sizeof *g_gc_sblk); if (!g_gc_sblk) abort(); }
     { int i = g_gc_sblk_n; uint64_t lo = k > 0 ? e[0].pc : 0, hi = k > 0 ? e[k - 1].pc + 1 : 0;
       while (i > 0 && g_gc_sblk[i - 1].lo > lo) { g_gc_sblk[i] = g_gc_sblk[i - 1]; i--; }
-      g_gc_sblk[i].tab = t; g_gc_sblk[i].map = m; g_gc_sblk[i].lo = lo; g_gc_sblk[i].hi = hi; g_gc_sblk[i].n = k; g_gc_sblk[i].ents = e; g_gc_sblk_n++; }
+      g_gc_sblk[i].tab = t; g_gc_sblk[i].map = m; g_gc_sblk[i].lo = lo; g_gc_sblk[i].hi = hi; g_gc_sblk[i].n = k; g_gc_sblk[i].ckt = (int)t[2]; g_gc_sblk[i].ents = e; g_gc_sblk_n++; }
 }
 void rt_gc_frame_sites_drop_range(const void *lo, const void *hi)
 {
@@ -1738,7 +1738,7 @@ static void gc_walk_range_census(const char *lo0, const char *hi0, gc_chx_t *cx)
 static int g_gc_chain_knob = -1, g_gc_chain_reg = 0; static long g_gc_chain_said_fl = 0, g_gc_chain_said_dump = 0, g_gc_chain_said_ctx = 0;
 static int gc_chain_check_on(void) { if (g_gc_chain_knob < 0) { const char *e = getenv("SCRIP_GC_CHAIN_CHECK"); g_gc_chain_knob = (e && (*e == '1' || *e == '2')) ? (*e - '0') : 0; } return g_gc_chain_knob; }
 static long g_gc_chain_ok = 0, g_gc_chain_nosite = 0, g_gc_chain_host = 0, g_gc_chain_bad = 0, g_gc_chain_said = 0, g_gc_chain_frameless = 0, g_gc_chain_ctx = 0, g_gc_chain_fnhops = 0, g_gc_chain_landhops = 0, g_gc_chain_roadhops = 0;
-extern char rt_tge_gamma_ret[], rt_tge_omega_ret[];
+extern char rt_tge_gamma_ret[], rt_tge_omega_ret[], rt_chain_enter_ret[], rt_chain_enter_v_ret[];
 static void gc_chain_report_atexit(void) { fprintf(stderr, "[CHAIN-CHECK] SUMMARY ok=%ld host=%ld frameless=%ld ctxrbp=%ld nosite=%ld mismatch=%ld fnhops=%ld landhops=%ld roadhops=%ld\n", g_gc_chain_ok, g_gc_chain_host, g_gc_chain_frameless, g_gc_chain_ctx, g_gc_chain_nosite, g_gc_chain_bad, g_gc_chain_fnhops, g_gc_chain_landhops, g_gc_chain_roadhops); }
 static void gc_chain_resolve(gc_chx_t *cx, const gc_ent_t *ent)
 {
@@ -1761,6 +1761,9 @@ static void gc_chain_resolve(gc_chx_t *cx, const gc_ent_t *ent)
         if (xb && x && (x->kind & 255) == 6) { int loff = (int)(x->depth & 0xffff), carve = (int)((x->depth >> 16) & 0xffff); const char *L = *(const char *const *)(fb + loff);
             pc = *(const uint64_t *)(L + 8); r = (x->rule == 8) ? L : fb + 16 + carve; g_gc_chain_fnhops++; hops++; goto again; }
         if (xb && x && (x->kind & 255) == 2) { pc = w; r = fb; g_gc_chain_landhops++; hops++; goto again; } }
+    if (!b->map && e->rule == 0 && b->ckt >= 48 && hops < 16) { const char *fb = r + e->depth; uint64_t g = *(const uint64_t *)(fb + b->ckt - 24); const gc_site_ent_t *x = (const gc_site_ent_t *)0; const gc_site_blk_t *xb = gc_site_find(g, &x);
+        if (xb && x && (x->kind & 255) == 2) { pc = g; r = fb + b->ckt; g_gc_chain_landhops++; hops++; goto again; }
+        if (g == (uint64_t)(uintptr_t)rt_chain_enter_ret || g == (uint64_t)(uintptr_t)rt_chain_enter_v_ret) { pc = g; rbp = *(const char *const *)(fb + b->ckt - 8); r = fb + b->ckt; g_gc_chain_roadhops++; hops++; goto again; } }
     if (!b->map) { cx->st = 3; return; }
     if (e->rule == 6) { int nl = (e->kind >> 8) & 15, ek = (e->kind >> 12) & 15; const char *fp = rbp; for (int k = 1; k < nl; k++) fp = *(const char *const *)fp; base = (ek == 1 || ek == 3) ? *(const char *const *)fp : fp + 8 + e->depth; }
     else if (e->rule == 0) base = r + e->depth; else if (e->rule == 1) base = rbp; else if (e->rule == 2) base = rbp - e->depth; else if (e->rule == 3) base = rbp;

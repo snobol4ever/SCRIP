@@ -186,7 +186,7 @@ inline std::string x86_neg(const char * reg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_rsp_trace_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_RSP_TRACE"); v = (e && *e == '1') ? 1 : 0; } return v; }
 typedef struct { uint64_t key; int kind, delta; } x86_rsp_snap_t;
-struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead = 0, mark = 0, quiet = 0; std::vector<x86_rsp_snap_t> j, p; };
+struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead = 0, mark = 0, mark_unknown = 0, quiet = 0; std::vector<x86_rsp_snap_t> j, p; };
 inline x86_rsp_st_t & x86_rsp_S(void) { static x86_rsp_st_t v; return v; }
 inline int & x86_rsp_state(int k) { x86_rsp_st_t & S = x86_rsp_S(); return k == 0 ? S.delta : k == 1 ? S.before : k == 2 ? S.aligned : S.unknown; }
 inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.quiet = 0; }
@@ -2422,8 +2422,8 @@ inline void x86_text_sites_scan(const std::string & r, bool real = true) {
         if (line.compare(0, 6, "#@rspA") == 0) { g_x86_rsp_aligned = 1; g_x86_rsp_before = g_x86_rsp_delta; continue; }
         if (line.compare(0, 6, "#@rspZ") == 0) { g_x86_rsp_aligned = 0; g_x86_rsp_delta = g_x86_rsp_before; continue; }
         if (line.compare(0, 6, "#@rspG") == 0) { x86_rsp_S().dead = 1; continue; }
-        if (line.compare(0, 6, "#@rspK") == 0) { x86_rsp_S().mark = x86_rsp_S().delta; continue; }
-        if (line.compare(0, 7, "#@rspk ") == 0) { x86_rsp_S().delta = x86_rsp_S().mark + atoi(line.c_str() + 7); x86_rsp_S().dead = 0; continue; }
+        if (line.compare(0, 6, "#@rspK") == 0) { x86_rsp_S().mark = x86_rsp_S().delta; x86_rsp_S().mark_unknown = x86_rsp_S().unknown; continue; }
+        if (line.compare(0, 7, "#@rspk ") == 0) { x86_rsp_S().delta = x86_rsp_S().mark + atoi(line.c_str() + 7); x86_rsp_S().dead = 0; x86_rsp_S().unknown = x86_rsp_S().mark_unknown; continue; }
         if (!line.empty() && line[0] == '#') continue;
         size_t p = 0; while (p < line.size()) { size_t q = line.find(';', p); if (q == std::string::npos) q = line.size(); std::string ins = line.substr(p, q - p); p = q + 1;
             size_t a = ins.find_first_not_of(" \t"); if (a == std::string::npos) continue; ins = ins.substr(a); while (!ins.empty() && (ins.back() == ' ' || ins.back() == '\t')) ins.pop_back();
@@ -2456,8 +2456,8 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); }
         else if (tag == 'X' || tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'X') x86_rsp_jump(3, v); else x86_rsp_define(3, v); }
         else if (tag == 'G') { S.dead = 1; }
-        else if (tag == 'K') { S.mark = S.delta; }
-        else if (tag == 'k' || tag == 'R' || tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'k') { S.delta = S.mark + (int32_t)v; S.dead = 0; } else if (tag == 'R' && !S.aligned) S.delta += (int32_t)v; }
+        else if (tag == 'K') { S.mark = S.delta; S.mark_unknown = S.unknown; }
+        else if (tag == 'k' || tag == 'R' || tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'k') { S.delta = S.mark + (int32_t)v; S.dead = 0; S.unknown = S.mark_unknown; } else if (tag == 'R' && !S.aligned) S.delta += (int32_t)v; }
         else if (tag == 'U') { if (!S.aligned) S.unknown = 1; }
         else if (tag == 'A') { S.aligned = 1; S.before = S.delta; }
         else if (tag == 'Z') { S.aligned = 0; S.delta = S.before; }
@@ -2477,8 +2477,8 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'X') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_jump(3, v); bb_emit_patch_rel32((bb_label_t *)(uintptr_t)v); }
         else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_define(3, v); bb_label_define((bb_label_t *)(uintptr_t)v); }
         else if (tag == 'G') { x86_rsp_S().dead = 1; }
-        else if (tag == 'K') { x86_rsp_S().mark = x86_rsp_S().delta; }
-        else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_S().delta = x86_rsp_S().mark + (int32_t)v; x86_rsp_S().dead = 0; }
+        else if (tag == 'K') { x86_rsp_S().mark = x86_rsp_S().delta; x86_rsp_S().mark_unknown = x86_rsp_S().unknown; }
+        else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_S().delta = x86_rsp_S().mark + (int32_t)v; x86_rsp_S().dead = 0; x86_rsp_S().unknown = x86_rsp_S().mark_unknown; }
         else if (tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); extern bb_buf_t bb_emit_buf; extern int bb_emit_pos; emit_gc_site_play((int)v, (const void *)(bb_emit_buf + bb_emit_pos), g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown); }
         else if (tag == 'R') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (!g_x86_rsp_aligned) g_x86_rsp_delta += (int32_t)v; }
         else if (tag == 'U') { if (!g_x86_rsp_aligned) g_x86_rsp_unknown = 1; }

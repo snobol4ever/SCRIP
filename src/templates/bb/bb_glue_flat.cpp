@@ -151,18 +151,18 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
         return x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24)
              + x86_rsp_load64("rbx", 48) + x86_rsp_load64("r12", 56)
              + x86("add", "rsp", 64L); };
-    auto land_γ = [&](long drop) {
+    auto land_γ = [&](long drop, int word) {
         return x86_rsp_land(drop)
-             + x86_gc_site(X86_SITE_LANDING)
+             + x86_gc_site_adj(X86_SITE_LANDING, word)
              + x86("add", "rsp", drop)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + x86_rsp_load64("rdx", 40)
              + restore()
              + x86_jmp_id(lg); };
-    auto land_ω = [&](long drop) {
+    auto land_ω = [&](long drop, int word) {
         return x86_rsp_land(drop)
-             + x86_gc_site(X86_SITE_LANDING)
+             + x86_gc_site_adj(X86_SITE_LANDING, word)
              + x86("add", "rsp", drop)
              + x86_rsp_load64("rdi", 40)
              + restore()
@@ -188,19 +188,19 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + x86_load_got("rcx", "rt_tiny_glue_enter", (uint64_t)(uintptr_t)(void *)rt_tiny_glue_enter)
          + x86_jmp_reg("rcx")
          + x86_deflabel_id(base + 3)
-         + land_γ(48L)
+         + land_γ(48L, 0)
          + x86_deflabel_id(base + 4)
-         + land_ω(48L)
+         + land_ω(48L, 0)
          + x86_deflabel_id(base + 1)
-         + land_γ(16L)
+         + land_γ(16L, 0)
          + x86_deflabel_id(base + 2)
-         + land_ω(16L)
+         + land_ω(16L, 0)
          + x86_deflabel_id(base + 100)
          + bb_glue_pass_wires_blob_regs(base + 101, base + 102)
          + x86_deflabel_id(base + 101)
-         + land_γ(0L)
+         + land_γ(0L, 16)
          + x86_deflabel_id(base + 102)
-         + land_ω(0L);
+         + land_ω(0L, 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
@@ -227,6 +227,7 @@ std::string bb_glue_enter_chain_ret(int lid) {
          + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
          + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
+         + x86_rsp_mark_save()
          + x86("mov", "rcx", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGMA, "Σ")
          + x86("mov", "r13", RDQ("rcx", 0))
          + x86("mov", "rcx", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGLEN, "Σlen")
@@ -238,6 +239,8 @@ std::string bb_glue_enter_chain_ret(int lid) {
          + x86("push", "rcx")
          + x86_jmp_reg("rax")
          + x86_deflabel_id(lid)
+         + x86_rsp_land(8L)
+         + x86_gc_site_adj(X86_SITE_LANDING, 8)
          + x86("add", "rsp", 8L)
          + x86_rsp_load64("rdi", 40)
          + x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24)

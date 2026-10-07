@@ -3482,14 +3482,15 @@ extern "C" const char * emit_gc_sites_name(int k) { return (k >= 0 && k < g_gc_s
 static void emit_gc_sites_data(const char * fam, int frameless) {
     static int seq = 0; int n = (int)g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", seq++);
     if (frameless && n == 0) { g_gc_sites_last_off = -1; return; }
+    const long ckt = (frameless && xa_flat_class_c_pred()) ? (long)g_emit.flat_frame_bytes : 0L;
     if (g_is_text) {
-        std::string t = std::string(tl.name) + ":\n .quad " + std::to_string(n) + "\n .quad " + (frameless ? std::string("0") : std::string(g_gc_map_lbl.name)) + "\n"; emit_text_n(t.data(), t.size());
+        std::string t = std::string(tl.name) + ":\n .quad " + std::to_string(n) + "\n .quad " + (frameless ? std::string("0") : std::string(g_gc_map_lbl.name)) + "\n .quad " + std::to_string(ckt) + "\n"; emit_text_n(t.data(), t.size());
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
             t = " .quad " + emit_gc_site_label(i) + "\n .quad " + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
         g_gc_sites_last_off = 0;
     } else {
         emit_label_define_bb(&tl); g_gc_sites_last_off = tl.offset; CV_PUSH(g_gc_sites_offs_v, int) = tl.offset;
-        bb_emit_u64((uint64_t)n); bb_emit_u64(frameless ? (uint64_t)0 : (uint64_t)(uintptr_t)(bb_emit_buf + g_gc_map_lbl.offset));
+        bb_emit_u64((uint64_t)n); bb_emit_u64(frameless ? (uint64_t)0 : (uint64_t)(uintptr_t)(bb_emit_buf + g_gc_map_lbl.offset)); bb_emit_u64((uint64_t)ckt);
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32); bb_emit_u64(e->pc); bb_emit_u64(w); }
     }
     CV_PUSH(g_gc_sites_names_v, char *) = ct_strdup(tl.name); g_gc_sites_names_n++;

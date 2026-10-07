@@ -112,6 +112,8 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     size_t pool_before = bb_pool_mark();
 #endif
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");
+    { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
+    { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (fn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)fn + emit_gc_sites_off(_sk))); }
 #if RT_DIAG
     size_t pool_after = bb_pool_mark();
 #endif

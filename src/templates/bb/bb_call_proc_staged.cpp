@@ -337,14 +337,15 @@ static std::string bcps_det_arm() {
                             if (sigokz) {
                                 std::string snmz = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid) + "z";
                                 const struct bb_label_t * sigl_z = emit_label_intern(snmz.c_str());
-                                std::string sz = x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl_z)
+                                std::string sz = x86_rsp_mark_save()
+                                     + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl_z)
                                      + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str())
                                      + x86_def_ext(sigl_z)
                                      + x86(".quad", (uint64_t)_.op_ival)
                                      + x86(".quad", L(2))
                                      + x86(".quad", L(2));
                                 for (int i = 0; i < (int)_.op_ival; i++) sz += x86(".quad", (uint64_t)soffz[i]);
-                                return sz;
+                                return sz + x86_rsp_land(0L);
                             }
                             return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, "
                                 "fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls "
@@ -520,14 +521,15 @@ static std::string bcps_det_arm() {
                         if (sigok) {
                             std::string snm = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid);
                             const struct bb_label_t * sigl = emit_label_intern(snm.c_str());
-                            std::string s = x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl)
+                            std::string s = x86_rsp_mark_save()
+                                 + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl)
                                  + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str())
                                  + x86_def_ext(sigl)
                                  + x86(".quad", (uint64_t)_.op_ival)
                                  + x86(".quad", L(2))
                                  + x86(".quad", L(2));
                             for (int i = 0; i < (int)_.op_ival; i++) s += x86(".quad", (uint64_t)soff[i]);
-                            return s;
+                            return s + x86_rsp_land(0L);
                         }
                         return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, "
                             "fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls "
