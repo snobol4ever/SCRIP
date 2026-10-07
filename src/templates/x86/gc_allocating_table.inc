@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2164
+#define GC_ALLOC_TAB_N 2169
 #define GC_ALLOC_TAB_N_VOID 249
 #define GC_ALLOC_TAB_N_DESCR 1127
-#define GC_ALLOC_TAB_N_OTHER 782
+#define GC_ALLOC_TAB_N_OTHER 787
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -781,7 +781,12 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_ax_eval", GC_RET_OTHER },
     { "pl_ax_float_result", GC_RET_OTHER },
     { "pl_ax_int_ball", GC_RET_OTHER },
+    { "pl_ax_isign", GC_RET_OTHER },
+    { "pl_ax_powm", GC_RET_OTHER },
+    { "pl_ax_powm_arg", GC_RET_OTHER },
     { "pl_ax_shift", GC_RET_OTHER },
+    { "pl_ax_undef", GC_RET_OTHER },
+    { "pl_ax_zdiv", GC_RET_OTHER },
     { "pl_bagof_groups", GC_RET_OTHER },
     { "pl_big_as_real", GC_RET_OTHER },
     { "pl_big_binop", GC_RET_OTHER },

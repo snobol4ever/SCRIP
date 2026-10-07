@@ -236,6 +236,8 @@ static void plc_wt_string(FILE *fp, pl_cell_t *d, int quoted)
 static void plc_wt_num(FILE *fp, pl_cell_t *d)
 {
     double fv = d->r; char fb[64];
+    if (isnan(fv)) { fputs("1.5NaN", fp); return; }
+    if (isinf(fv)) { fputs(fv < 0 ? "-1.0Inf" : "1.0Inf", fp); return; }
     for (int pr = 15; pr <= 17; pr++) { snprintf(fb, sizeof fb, "%.*g", pr, fv); if (strtod(fb, NULL) == fv) break; }
     if (!strpbrk(fb, ".eEnN")) { size_t n = strlen(fb); if (n+2 < sizeof fb) { fb[n]='.'; fb[n+1]='0'; fb[n+2]='\0'; } }
     else if (!strchr(fb, '.')) { char *e = strpbrk(fb, "eE"); char t[64];

@@ -37,8 +37,10 @@ static inline const char * pl_ax_suffix_ext(const char * s, int ar) {
         if (!strcmp(s, "asinh")) return "asinh"; if (!strcmp(s, "acosh")) return "acosh"; if (!strcmp(s, "atanh")) return "atanh";
         if (!strcmp(s, "log2")) return "log2"; if (!strcmp(s, "log10")) return "log10";
         if (!strcmp(s, "lsb")) return "lsb"; if (!strcmp(s, "popcount")) return "popc";
+        if (!strcmp(s, "ceil")) return "ceil"; if (!strcmp(s, "lgamma")) return "lgamma";
         return (const char *)0;
     }
+    if (ar == 3) { if (!strcmp(s, "powm")) return "powm"; return (const char *)0; }
     if (ar == 0) {
         if (!strcmp(s, "epsilon")) return "eps"; if (!strcmp(s, "inf")) return "inf"; if (!strcmp(s, "nan")) return "nan";
         return (const char *)0;
