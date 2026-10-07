@@ -1126,4 +1126,5 @@ test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
 test_gate_pas_a_tag_allocated_variable_is_not_accessed_as_a_whole_variable.sh	WIRED	-	-	-
+test_gate_pas_the_tag_of_a_variable_passed_by_reference_is_not_changed_during_the_call.sh	WIRED	-	-	-
 test_gate_pas_dispose_of_a_pointer_whose_pointee_a_with_statement_references_is_refused.sh	WIRED	-	-	-

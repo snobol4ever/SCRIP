@@ -337,8 +337,9 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     ast_push(call, tv);
                 } else ast_push(call, arg);
             }
-            ast_push(seq, call);
+            tree_t * rv = pas_vptmp_var(); ast_push(seq, pas_lc_bin(TT_ASSIGN, rv, call));
             for (int i = 0; i < nout; i++) ast_push(seq, outs[i]);
+            ast_push(seq, pas_lc_clone(rv));
             return lower(cx, seq, γ, ω, res);
         }
     }
