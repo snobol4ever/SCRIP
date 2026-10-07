@@ -43,7 +43,6 @@ RTX_FUNC(rt_pl_exist_raise)
     ret
 RTX_ENDF(rt_pl_exist_raise)
 RTX_FUNC(rt_pl_goal_resolve)
-    RTX_SAVE
     sub     rsp, 24
     mov     qword ptr [rsp + 8], 0
     lea     rcx, [rsp + 8]
@@ -56,7 +55,8 @@ RTX_FUNC(rt_pl_goal_resolve)
     xor     eax, eax
     xor     edx, edx
 .Lgr_ret:
-    RTX_RET
+    RTX_GVA_R9
+    ret
 RTX_ENDF(rt_pl_goal_resolve)
 RTX_FUNC(rt_pl_catch_handle)
     test    r15, r15
@@ -128,7 +128,6 @@ RTX_FUNC(rt_pl_unify_deep)
     ret
 RTX_ENDF(rt_pl_unify_deep)
 RTX_FUNC(rtx_pl_unify)
-    RTX_SAVE
     sub     rsp, PL_U_WORK_BYTES
     mov     r8, r12
     mov     qword ptr [rsp], 0
@@ -314,7 +313,8 @@ RTX_FUNC(rtx_pl_unify)
     mov     qword ptr [rax], r12
     add     rsp, PL_U_WORK_BYTES
     mov     eax, 1
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lun_fail:
     cmp     r12, r8
     jbe     .Lun_unw_done
@@ -331,13 +331,15 @@ RTX_FUNC(rtx_pl_unify)
     mov     qword ptr [rax], r12
     add     rsp, PL_U_WORK_BYTES
     xor     eax, eax
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lun_refuse:
     mov     rdi, r12
     RTX_CCALL(rt_pl_tr_refuse)
     add     rsp, PL_U_WORK_BYTES
     xor     eax, eax
-    RTX_RET
+    RTX_GVA_R9
+    ret
 .Lun_restart:
     mov     rdi, qword ptr [rsp + 48]
     mov     rsi, qword ptr [rsp + 56]

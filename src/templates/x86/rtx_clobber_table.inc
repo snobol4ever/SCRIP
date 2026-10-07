@@ -1,5 +1,5 @@
 #define RTX_CLOB_TAB_N 263
-#define RTX_CLOB_TAB_N_CLOBBERING 17
+#define RTX_CLOB_TAB_N_CLOBBERING 19
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
     { "dat_field_get", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
@@ -240,7 +240,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_writeln_sb", 0 },
     { "rt_pl_dop_writeq_sb", 0 },
     { "rt_pl_exist_raise", 0 },
-    { "rt_pl_goal_resolve", 0 },
+    { "rt_pl_goal_resolve", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_pl_is_cold", 0 },
     { "rt_pl_quad_seed", 0 },
     { "rt_pl_throw_raise", 0 },
@@ -261,7 +261,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_zdp_ev", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "rt_zdp_origin", 0 },
     { "rt_zdp_probe", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
-    { "rtx_pl_unify", 0 },
+    { "rtx_pl_unify", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "str_concat_d", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
     { "table_find_pair_d", RTCC_C_R8|RTCC_C_R10|RTCC_C_R11 },
 };
