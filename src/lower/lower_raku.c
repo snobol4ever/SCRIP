@@ -128,7 +128,7 @@ static int rk_user_proc_exists(const char * nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_predeclared(const char * nm, int bare) {
     if (!nm || !*nm) return 0;
-    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", NULL };
+    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", "/", NULL };
     for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
     if (!bare) return 0;
     static const char * const terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
@@ -354,6 +354,11 @@ static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on
     if (c->t == TT_NOT && c->n > 0) return lower_cond(cx, c->c[0], on_false, on_true);
     if (c->t == TT_ALT && c->n > 1) { IR_t * rhs = lower_cond(cx, c->c[1], on_true, on_false); return lower_cond(cx, c->c[0], on_true, rhs); }
     if (c->t == TT_SEQ && c->n > 1) { IR_t * rhs = lower_cond(cx, c->c[1], on_true, on_false); return lower_cond(cx, c->c[0], rhs, on_false); }
+    if (c->t == TT_SMATCH && c->n > 2 && c->c[2] && c->c[2]->v.sval && !strcmp(c->c[2]->v.sval, "match")) {
+        IR_t * nd = build(cx, IR_CALL, on_true, on_false); IR_LIT(nd).sval = "re_test";
+        IR_t * sr = NULL, * pr = NULL; IR_t * es = lower_rv(cx, c->c[0], NULL, on_false, &sr); IR_t * ep = lower_rv(cx, c->c[1], nd, on_false, &pr);
+        γ_to(sr, ep); ir_operand_push(nd, sr); ir_operand_push(nd, pr); return es;
+    }
     IR_t * bk = build(cx, IR_CALL, on_true, on_false); IR_LIT(bk).sval = "__rk_bool";
     IR_t * r = NULL; IR_t * e = lower_rv(cx, c, bk, on_false, &r);
     if (r) ir_operand_push(bk, r);
@@ -881,6 +886,10 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, ra); for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
             return lower_rv(cx, mc, γ, ω, res); }
         const char * mname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : NULL;
+        if (mname && !strcmp(mname, "match") && t->n > 2 && t->c[2] && t->c[2]->t == TT_FNC && t->c[2]->n > 1 && t->c[2]->c[0] && t->c[2]->c[0]->v.sval && !strcmp(t->c[2]->c[0]->v.sval, "__rk_regex")) {
+            int glob = t->n > 3 && t->c[3] && t->c[3]->t == TT_FNC && t->c[3]->c[0] && t->c[3]->c[0]->v.sval && !strcmp(t->c[3]->c[0]->v.sval, "__rk_mkbool");
+            tree_t * m = ast_node_new(TT_SMATCH); m->line = t->line; ast_push(m, t->c[0]); ast_push(m, t->c[2]->c[1]); ast_push(m, leaf_sval2(TT_QLIT, glob ? "match_global" : "match"));
+            return lower_rv(cx, m, γ, ω, res); }
         if (mname) { IR_t * ie = rk_lower_iter_meth(cx, t, mname, γ, ω, res); if (ie) return ie; }
         if (mname && t->c[0] && t->c[0]->t == TT_VAR) {
             if (!strcmp(mname, "push") || !strcmp(mname, "unshift") || !strcmp(mname, "append") || !strcmp(mname, "prepend")) {

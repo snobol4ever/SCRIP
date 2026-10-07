@@ -555,6 +555,14 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             tree_t *var = leaf_sval(TT_VAR, st ? st + 1 : vs);
             result = result ? expr_binary(TT_CAT, result, var) : var;
         }
+        else if (s[i] == '$' && i + 1 < len && (s[i + 1] == '/' || (s[i + 1] >= '0' && s[i + 1] <= '9') || (s[i + 1] == '<' && strchr(s + i + 2, '>')))) {
+            if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
+            tree_t *cp;
+            if (s[i + 1] == '/') { cp = leaf_sval(TT_VAR, "/"); i += 2; }
+            else if (s[i + 1] == '<') { int j = i + 2; while (s[j] != '>') j++; cp = ast_node_new(TT_NAMED_CAPTURE); ast_push(cp, leaf_sval(TT_QLIT, trimdup(s + i + 2, j - i - 2))); i = j + 1; }
+            else { int j = i + 1, v = 0; while (j < len && s[j] >= '0' && s[j] <= '9') v = v * 10 + (s[j++] - '0'); cp = ast_node_new(TT_CAPTURE); ast_push(cp, rk_ilit(v)); i = j; }
+            result = result ? expr_binary(TT_CAT, result, cp) : cp;
+        }
         else if (s[i] == '@' && i + 1 < len && (s[i + 1] == '_' || (s[i + 1] >= 'A' && s[i + 1] <= 'Z') || (s[i + 1] >= 'a' && s[i + 1] <= 'z'))) {
             if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
             SB vn = { 0 }; sb_c(&vn, s[i]); i++;
