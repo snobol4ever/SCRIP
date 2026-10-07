@@ -1349,12 +1349,16 @@ int rt_pl_char_type_cell(void *char_cell, void *type_cell, void *val_cell, pl_tr
         pl_cell_t out;
         if (!ty) { return 0; }
         if (!strcmp(ty, "digit"))    { if (!isdigit(ch)) { return 0; } out = pl_make_int((int64_t)(ch - '0')); }
-        else if (!strcmp(ty, "to_lower")) { char c2[2] = { (char)tolower(ch), 0 }; out = plc_make_atom_cell(c2); }
-        else if (!strcmp(ty, "to_upper")) { char c2[2] = { (char)toupper(ch), 0 }; out = plc_make_atom_cell(c2); }
+        else if (!strcmp(ty, "to_lower")) { char c2[2] = { (char)toupper(ch), 0 }; out = plc_make_atom_cell(c2); }
+        else if (!strcmp(ty, "to_upper")) { char c2[2] = { (char)tolower(ch), 0 }; out = plc_make_atom_cell(c2); }
         else if (!strcmp(ty, "upper")) { if (!isupper(ch)) { return 0; } char c2[2] = { (char)tolower(ch), 0 }; out = plc_make_atom_cell(c2); }
         else if (!strcmp(ty, "lower")) { if (!islower(ch)) { return 0; } char c2[2] = { (char)toupper(ch), 0 }; out = plc_make_atom_cell(c2); }
         else if (!strcmp(ty, "code"))  { out = pl_make_int((int64_t)ch); }
         else { return 0; }
+        if (ty[0] == 't' && !pl_cell_unbound(pl_deref(inner))) {
+            char b1[8]; const char *vs = plc_atom_op_text(pl_deref(inner), b1, sizeof b1);
+            if (vs && (unsigned char)vs[0] == ch && !vs[1]) return 1;
+        }
         if (!plc_unify_into_cell_cx(inner, out, cx)) { return 0; }
         return 1;
     }
