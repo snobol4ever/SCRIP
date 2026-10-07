@@ -230,5 +230,15 @@ check_rule "GC-HEAP-HARD-CAP" \
     '.github/RULES.md FACT RULE -- THE GC HEAP HAS A HARD CAP AND DOES NOT EXTEND PAST IT (Lon 2026-09-21, in-chat to the ceo, verbatim: "Place a hard cap on the GC HEAP. Do not extend it." and "Do however use the lazy instantiation of memory as the heap grows."; CEO-1101): the DECLARED size is the CAP, memory inside it is committed page-granular as the heap grows, nothing above it is mapped, SCRIP_HEAP_MAX_MB names the cap itself, and A SMALL CAP CAN REFUSE A LIVE SET -- which is a row, never a reason to raise the default. The arena turn-over of CEO-1095 was an artifact of the retired 2 MB growth step.' \
     'the reserve grows to 8x it or SCRIP_HEAP_MAX_MB, so a small arena refuses no program'
 
+# ⭐ ADDED 2026-10-07 BY THE ceo (CEO-1532), ON THE cto'S MEASUREMENT: RULES.md FACT RULE -- THE TREE IS THE PRUNED PARSE TREE
+# (Lon 2026-10-03) closed CEO-1369/1377/1378 four days earlier, and the ceo, coo and cfo roots still carried CEO-1369's
+# "THE C TREE IS THE CANONICAL FORM" block -- the ceo had just told the cfo to copy it -- while this gate read PASS over 66
+# checks: no rule named the withdrawn text, so nothing could see it. Proved RED on the uncorrected roots before the cure.
+check_rule "TREE-IS-THE-PRUNED-PARSE-TREE" \
+    'C TREE IS (THE )?CANONICAL|C (parser.s )?tree is the canonical (form|shape)' \
+    'WITHDRAWN|PRUNED PARSE TREE|supersed|retire|history|used to|was the' \
+    '.github/RULES.md FACT RULE -- THE TREE IS THE PRUNED PARSE TREE (Lon 2026-10-03, in-chat to hq_snocone; restates and closes CEO-1369/1377/1378; ceo CEO-1532): the shape is the one the rule produces, never the C tree' \
+    '**THE TREE IS BUILT ONCE, DIRECTLY, IN RECOGNITION ORDER; THE C TREE IS THE CANONICAL FORM; NO POST-PROCESSING (Lon 2026-09-30 morning, in-chat to the cfo)'
+
 gate_floor "$EXAMINED" 2 "root-digest checks (roots × rules)"
 gate_verdict "$VIOLATIONS" "root digest(s) asserting retired FACT RULE text uncorrected"
