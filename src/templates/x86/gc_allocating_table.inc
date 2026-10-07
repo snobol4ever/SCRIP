@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2082
+#define GC_ALLOC_TAB_N 2084
 #define GC_ALLOC_TAB_N_VOID 243
-#define GC_ALLOC_TAB_N_DESCR 1101
+#define GC_ALLOC_TAB_N_DESCR 1103
 #define GC_ALLOC_TAB_N_OTHER 732
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1410,6 +1410,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_append1_c", GC_RET_DESCR },
     { "rt_pl_dop_arg", GC_RET_DESCR },
     { "rt_pl_dop_arg_c", GC_RET_DESCR },
+    { "rt_pl_dop_argv", GC_RET_DESCR },
+    { "rt_pl_dop_argv_c", GC_RET_DESCR },
     { "rt_pl_dop_at_end_of_stream_s", GC_RET_DESCR },
     { "rt_pl_dop_at_end_of_stream_s_c", GC_RET_DESCR },
     { "rt_pl_dop_atom_chars", GC_RET_DESCR },

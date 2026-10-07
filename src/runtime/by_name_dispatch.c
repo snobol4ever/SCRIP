@@ -3102,6 +3102,9 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
 PL_CX_LEAF_HEAD(compare, 3) ok = rt_pl_compare_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(functor, 3) ok = rt_pl_functor_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(arg, 3) ok = rt_pl_arg_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(argv, 1) { extern int rt_main_args_count(void); extern const char *rt_main_arg_at(int); extern const char *rt_main_progname(void); DESCR_t l = pl_nil();
+    for (int i = rt_main_args_count() - 1; i >= -1; i--) { const char *a = i < 0 ? rt_main_progname() : rt_main_arg_at(i); if (!a) a = ""; l = pl_cons(pl_mk_atom_dup(a, strlen(a)), l); }
+    ok = plw_unify_vals(args[0], l, cx); } PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(skip_list, 3) { DESCR_t *c = plw_cell_deref(&args[1]); void *ck = (void *)0; long n = 0, st = 0, pw = 1;
     while (pl_is_cons(*c) && c->p && c->p != ck) { if (++st == pw) { ck = c->p; pw <<= 1; st = 0; } n++; c = plw_cell_deref(&((DESCR_t *)c->p)[1]); }
     ok = plw_unify_cell_val(&args[0], INTVAL((int64_t)n), cx) && plw_unify_cells(&args[2], c, cx); } PL_CX_LEAF_TAIL
