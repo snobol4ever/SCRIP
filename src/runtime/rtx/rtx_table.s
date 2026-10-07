@@ -36,7 +36,9 @@ RTX_FUNC(rt_table_assign_fast)
     cmp     qword ptr [rax], 0
     jne     .Lta_c
 #endif
-    RTX_SAVE
+    sub     rsp, 16
+    mov     qword ptr [rsp + 8], r8
+    mov     qword ptr [rsp], r9
     push    rdi
     push    rsi
     push    rdx
@@ -51,6 +53,8 @@ RTX_FUNC(rt_table_assign_fast)
     pop     rdx
     pop     rsi
     pop     rdi
+    mov     r8, qword ptr [rsp + 8]
+    mov     r9, qword ptr [rsp]
     test    rax, rax
     je      .Lta_miss
     cmp     r8b, DT_S
@@ -66,9 +70,15 @@ RTX_FUNC(rt_table_assign_fast)
     mov     qword ptr [rax + 8], rcx
     mov     rax, r8
     mov     rdx, r9
-    RTX_RET_GVA
+    add     rsp, 16
+    RTX_GVA_R9
+    ret
 .Lta_miss:
-    RTX_CTAIL_SAVED_GVA(c_rt_table_assign_fast)
+    sub     rsp, 8
+    call    c_rt_table_assign_fast
+    add     rsp, 24
+    RTX_GVA_R9
+    ret
 .Lta_c:
     RTX_CTAIL_GVA(c_rt_table_assign_fast)
 RTX_ENDF(rt_table_assign_fast)

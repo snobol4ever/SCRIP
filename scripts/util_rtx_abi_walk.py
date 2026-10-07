@@ -25,14 +25,17 @@ Anything the walker cannot model (an unknown stack adjustment, a pop below the f
 cannot see through, a local call) is reported UNANALYZABLE and counts as a violation: the gate
 refuses to certify a body it could not read.
 
-Usage: util_rtx_abi_walk.py OBJ... [--entries FILE]   (FILE: one name per line, the registry; every
-global function the objects define must be in it). Exit 0 = every entry proven, 1 = violations,
+Usage: util_rtx_abi_walk.py OBJ... [--entries FILE] [--table TABLE]   (FILE: one name per line, the registry; every
+global function the objects define must be in it; TABLE: the generated src/templates/x86/rtx_clobber_table.inc --
+under it a register an entry's row records is the contract (ARCH-RT-CALL-PROTOCOL.md section 15: the emitted site
+re-establishes it), a nested call takes on its callee's recorded set, and an unrecorded write stays a violation). Exit 0 = every entry proven, 1 = violations,
 2 = could not measure.
 """
 import re, subprocess, sys
 
 REGS = ('r8', 'r9', 'r10', 'r11')
 CLOB_TABLE = {}
+RECORDED = None
 ALIAS = {}
 for base in REGS:
     for sfx in ('', 'd', 'w', 'b'):
@@ -138,6 +141,7 @@ def walk(name, code, funcs, rtx, clob=None):
     if name not in funcs: return ['%s: no body found in the objects' % name]
     obj, sec, base = funcs[name]
     errs, seen, rets, r9_input = [], set(), [], []
+    own = set((RECORDED or {}).get(name, ()))
     todo = [((obj, sec, base), (('E', 'E', 'E', 'E'), ('RA',), -1, False))]
     while todo:
         key, st = todo.pop()
@@ -230,8 +234,8 @@ def walk(name, code, funcs, rtx, clob=None):
                 else: rets.append((where, getr('r9')))
                 continue
             for r in ('r8', 'r10', 'r11'):
-                if getr(r) != 'E': bad.append('%s not returned' % r)
-            if getr('r9') not in ('E', 'G'): bad.append('r9 not returned as GVA')
+                if getr(r) != 'E' and r not in own: bad.append('%s not returned' % r)
+            if getr('r9') not in ('E', 'G') and 'r9' not in own: bad.append('r9 not returned as GVA')
             if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
             else: rets.append((where, getr('r9')))
             continue
@@ -252,6 +256,8 @@ def walk(name, code, funcs, rtx, clob=None):
                         setr('r10', 'X'); setr('r11', 'X')
                     if clob is not None:
                         for r in CLOB_TABLE.get(rel[1], ()): setr(r, 'X')
+                    elif RECORDED is not None:
+                        for r in RECORDED.get(rel[1], ()): setr(r, 'X')
                 else:
                     for r in REGS: setr(r, 'X')
                 push_state(nxt); continue
@@ -269,7 +275,9 @@ def walk(name, code, funcs, rtx, clob=None):
                     if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
                     continue
                 for r in ('r8', 'r10', 'r11'):
-                    if getr(r) != 'E': bad.append('%s not intact at the tail jump' % r)
+                    if getr(r) != 'E' and r not in own: bad.append('%s not intact at the tail jump' % r)
+                for r in sorted(set((RECORDED or {}).get(rel[1], ())) - own):
+                    bad.append('%s written by the tail callee %s and not recorded for this entry' % (r, rel[1]))
                 if bad: errs.append('%s: %s' % (where, '; '.join(bad)))
                 continue
             what = rel[1] if rel is not None else tgt
@@ -308,11 +316,21 @@ def walk(name, code, funcs, rtx, clob=None):
         for where, v in rets:
             if v == 'E':
                 if clob is not None: clob.add('r9')
+                elif 'r9' in own: pass
                 else: errs.append('%s: r9 came in as an argument (%s) and goes back unrestored' % (where, r9_input[0]))
     return errs
 
 
+def load_recorded(path):
+    bit = {'RTCC_C_R8': 'r8', 'RTCC_C_R9': 'r9', 'RTCC_C_R10': 'r10', 'RTCC_C_R11': 'r11'}
+    t = {}
+    for m in re.finditer(r'\{\s*"([^"]+)",\s*([A-Z0-9_|]+)\s*\}', open(path, encoding='utf-8').read()):
+        t[m.group(1)] = tuple(sorted(bit[b] for b in m.group(2).split('|') if b in bit))
+    return t
+
+
 def main(argv):
+    global RECORDED
     objs, entries_file, clobber = [], None, False
     i = 0
     while i < len(argv):
@@ -320,6 +338,8 @@ def main(argv):
             entries_file = argv[i + 1]; i += 2; continue
         if argv[i] == '--clobber-table':
             clobber = True; i += 1; continue
+        if argv[i] == '--table':
+            RECORDED = load_recorded(argv[i + 1]); i += 2; continue
         objs.append(argv[i]); i += 1
     if not objs:
         print('REFUSED: no objects named'); return 2

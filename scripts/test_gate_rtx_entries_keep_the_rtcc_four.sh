@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # test_gate_rtx_entries_keep_the_rtcc_four.sh -- EVERY ENTRY INTO THE ASM RUNTIME RETURNS r8, r10 AND r11 AS IT RECEIVED THEM
-# AND r9 AS THE GVA BASE, PROVEN FROM THE ASSEMBLED OBJECTS ALONG EVERY PATH (cto 2026-09-23, CEO-1224, row
+# AND r9 AS THE GVA BASE, UNLESS ITS ROW IN THE GENERATED CLOBBER TABLE RECORDS THE WRITE, PROVEN FROM THE ASSEMBLED OBJECTS
+# ALONG EVERY PATH. RE-ANCHORED ON THE TABLE (hq_runtime 2026-10-07, row rtx-leaves-carry-no-register-veneer-an-asm-runtime-
+# call-is-not-a-c-function; ARCH-RT-CALL-PROTOCOL.md section 15 item 6): a recorded write is the contract, because the emitted
+# site re-establishes exactly the recorded set (x86_rtcc_call); an UNRECORDED write is the violation. The table's freshness
+# against the objects is test_gate_rtx_the_leaf_clobber_table_is_derived_and_gated_against_the_objects.sh. The truthful
+# injection set carries one entry (inj_recorded) writing r8 and r10 under a planted row that records them, and the lies are
+# walked under the same planted table, so lie_clobber's unrecorded r10 must still be caught (cto 2026-09-23, CEO-1224, row
 # spine-no-rtccb-veneer-on-any-call-into-the-asm-runtime-the-rtx-abi-preserves-r8-to-r11; Lon in-chat to the ceo, verbatim:
 # "get rid of veneer for all RT ASM instances.").
 #
@@ -126,6 +132,11 @@ RTX_FUNC(inj_aligned)
     RTX_CALL_UNALIGN
     RTX_RET
 RTX_ENDF(inj_aligned)
+RTX_FUNC(inj_recorded)
+    mov     r10, 1
+    mov     r8, 2
+    ret
+RTX_ENDF(inj_recorded)
 RTX_FUNC(inj_reload)
     push    r10
     push    r11
@@ -219,9 +230,12 @@ registry "$WORK/real/entries.txt" "${objs[@]}"
 n_entries=$(grep -c . "$WORK/real/entries.txt")
 echo "=== THE REAL RUNTIME: ${#objs[@]} objects, $n_entries registered entries ==="
 if [ "$n_entries" -lt "$FLOOR" ]; then echo "REFUSED(2): the registry names $n_entries entries, under the floor of $FLOOR -- nothing would be walked"; exit 2; fi
-( python3 "$WALK" "${objs[@]}" --entries "$WORK/real/entries.txt" > "$WORK/real.out" 2>&1; echo $? > "$WORK/real.rc" ) &
-( python3 "$WALK" "$WORK/inj/inj_ok.o" --entries "$WORK/inj/inj_ok.entries" > "$WORK/inj_ok.out" 2>&1; echo $? > "$WORK/ok.rc" ) &
-( python3 "$WALK" "$WORK/inj/inj_lie.o" --entries "$WORK/inj/inj_lie.entries" > "$WORK/inj_lie.out" 2>&1; echo $? > "$WORK/lie.rc" ) &
+TABLE="$ROOT/src/templates/x86/rtx_clobber_table.inc"
+[ -f "$TABLE" ] || { echo "REFUSED(2): the generated clobber table $TABLE is missing"; exit 2; }
+printf '%s\n' '    { "inj_recorded", RTCC_C_R8|RTCC_C_R10 },' > "$WORK/inj/table.inc"
+( python3 "$WALK" "${objs[@]}" --entries "$WORK/real/entries.txt" --table "$TABLE" > "$WORK/real.out" 2>&1; echo $? > "$WORK/real.rc" ) &
+( python3 "$WALK" "$WORK/inj/inj_ok.o" --entries "$WORK/inj/inj_ok.entries" --table "$WORK/inj/table.inc" > "$WORK/inj_ok.out" 2>&1; echo $? > "$WORK/ok.rc" ) &
+( python3 "$WALK" "$WORK/inj/inj_lie.o" --entries "$WORK/inj/inj_lie.entries" --table "$WORK/inj/table.inc" > "$WORK/inj_lie.out" 2>&1; echo $? > "$WORK/lie.rc" ) &
 wait
 real_rc=$(cat "$WORK/real.rc"); ok_rc=$(cat "$WORK/ok.rc"); lie_rc=$(cat "$WORK/lie.rc")
 cat "$WORK/real.out"
@@ -231,8 +245,8 @@ import sys
 ok_out, ok_rc, ok_ent, lie_out, lie_rc = open(sys.argv[1]).read(), int(sys.argv[2]), open(sys.argv[3]).read().split(), open(sys.argv[4]).read(), int(sys.argv[5])
 bad = []
 if ok_rc != 0: bad.append('the truthful set was NOT proven (rc=%d):\n%s' % (ok_rc, ok_out))
-if len(ok_ent) != 9: bad.append('the truthful set registered %d entries, wanted 9' % len(ok_ent))
-if 'PROVEN: 9 ' not in ok_out: bad.append('the truthful set did not report 9 proven')
+if len(ok_ent) != 10: bad.append('the truthful set registered %d entries, wanted 10' % len(ok_ent))
+if 'PROVEN: 10 ' not in ok_out: bad.append('the truthful set did not report 10 proven')
 want = {'lie_clobber': 'r10 not returned', 'lie_ctail': 'tail exit into C', 'lie_cbare': 'r8 not returned',
         'lie_plt': 'r10 not returned', 'lie_r9': 'came in as an argument', 'lie_stack': 'left above the return address',
         'lie_gate': 'tail exit into C', 'lie_unregistered': 'does not name', 'lie_reload': 'r10 not returned', 'lie_misaligned': 'misaligned'}
@@ -244,7 +258,7 @@ for name, frag in want.items():
 if lie_rc != 1: bad.append('the lying set exited %d, wanted 1' % lie_rc)
 if any(' inj_leaf2+' in l or ' inj_leaf2:' in l for l in lines): bad.append('the honest leaf inside the lying set was convicted')
 for b in bad: print('  SELF-TEST FAIL  ' + b)
-if not bad: print('  SELF-TEST PASS  9 truthful forms proven; 10 lies caught by name and for the right reason; the honest leaf beside them proven')
+if not bad: print('  SELF-TEST PASS  10 truthful forms proven; 10 lies caught by name and for the right reason; the honest leaf beside them proven')
 sys.exit(1 if bad else 0)
 PY
 inj_rc=$?
