@@ -48,6 +48,10 @@ RTXE  = re.compile(r'^\s*RTX_ENDF\((\w+)\)')
 XFER  = re.compile(r'^(?:call|jmp)\s+\**([A-Za-z_][\w.$]*)(?:@\w+)?$')
 MEMFR = re.compile(r'^(?:qword\s+ptr\s+)?\[\s*(rbp|rsp|r13)\s*(?:[+-]\s*\d+)?\s*\]$')
 R12B  = re.compile(r'^\[\s*r12\s*[+-]\s*\d+\s*\]$')
+RSPB  = re.compile(r'^(?:qword\s+ptr\s+)?\[\s*rsp\s*(?:[+-]\s*\d+)?\s*\]$')
+RCX   = {'rcx', 'ecx', 'cx', 'cl', 'ch'}
+RCXIMP = {'loop', 'loope', 'loopne', 'loopz', 'loopnz', 'cpuid', 'rdtscp', 'syscall', 'call'}
+DISJ_OPEN_KINDS = {'bound', 'to', 'disjunction'}
 READ_FIRST = {'cmp', 'test', 'push', 'bt', 'jmp', 'call', 'ret', 'mul', 'div', 'idiv', 'ud2', 'int3', 'nop', 'endbr64'}
 PREFIX = {'rep', 'repe', 'repz', 'repne', 'repnz', 'lock', 'notrack', 'bnd'}
 def canon(tok):
@@ -74,10 +78,18 @@ KNOWN = {'mov', 'movabs', 'lea', 'movsx', 'movsxd', 'movzx', 'add', 'sub', 'adc'
          'imul', 'inc', 'dec', 'neg', 'not', 'pop', 'xchg', 'bsf', 'bsr', 'popcnt', 'lzcnt', 'tzcnt', 'cmpxchg', 'btc', 'btr', 'bts'} \
         | {'cmov' + c for c in 'e ne z nz a ae b be g ge l le s ns o no p np c nc'.split()} | {'set' + c for c in 'e ne z nz a ae b be g ge l le s ns o no p np c nc'.split()}
 def norm(mn, ops): return mn + (' ' + ', '.join(re.sub(r'\s+', ' ', o) for o in ops) if ops else '')
-def enrolled(site, reg, mn, ops, kind, seg):
+def rcx_written(mn, ops, rep):
+    if rep or mn in RCXIMP: return True
+    if not ops or mn in READ_FIRST: return False
+    return ops[0].strip().lower() in RCX or (mn == 'xchg' and len(ops) > 1 and ops[1].strip().lower() in RCX)
+def enrolled(site, reg, mn, ops, kind, seg, rcx_h=False):
     both = len(ops) == 2 and canon(ops[0]) == reg and canon(ops[1]) == reg
     if mn not in KNOWN: return None
     if site == 'driver': return 'ROOT/driver-seed'
+    if site == 'graph' and kind is None and reg == 'r13' and mn == 'lea' and len(ops) == 2 and RSPB.match(ops[1]):
+        return 'B/choice-open B:=H in the pinned prologue (ARCH-PROLOG-C-OUT-OF-THE-BOX § 2.2)'
+    if site == 'box' and kind in DISJ_OPEN_KINDS and seg == 'α' and reg == 'r13' and mn == 'mov' and len(ops) == 2 and ops[1] == 'rcx' and rcx_h:
+        return 'B/disj-open take B:=H, rcx the lea of this frame header (ARCH-PROLOG-C-OUT-OF-THE-BOX § 2.2)'
     if site == 'rootseed':
         if reg == 'r13' and mn == 'xor' and both: return 'ROOT/seed B=0 (ARCH § A.1)'
         if reg == 'r15' and mn == 'xor' and both: return 'ROOT/seed ball=0 (ARCH § A.1)'
@@ -95,12 +107,13 @@ def scan_program(path):
     try: lines = open(path, encoding='utf-8', errors='replace').read().split('\n')
     except OSError as e: return None
     site = 'graph'; kind = None; seg = None; driver_on = False; root = None; rootseed_on = False; func = '?'
-    targets = set(); rows = []; last_driver_jmp = None
+    targets = set(); rows = []; last_driver_jmp = None; rcx_h = False
     for ln, raw in enumerate(lines, 1):
         rest = raw
         m = LBL.match(raw.lstrip())
         if m:
             lab, rest = m.group(1), m.group(2)
+            if not lab.startswith('.L'): rcx_h = False
             if lab == 'main': driver_on = True; site = 'driver'; func = 'main'; kind = None; seg = None
             elif root and lab == root + '_α': rootseed_on = True; driver_on = False; site = 'rootseed'; func = lab
             elif rootseed_on and (lab == root + '_α_body' or PORT.match(lab) or lab.startswith('FN__')): rootseed_on = False; site = 'graph'
@@ -108,9 +121,10 @@ def scan_program(path):
             if pm: kind = pm.group(2); seg = pm.group(3); site = 'box' if site not in ('driver', 'rootseed') else site
             elif lab.startswith('FN__'): func = lab; kind = None; seg = None; site = 'graph' if site not in ('driver', 'rootseed') else site
         bm = BOXTY.match(raw)
-        if bm: kind = bm.group(2); seg = None
+        if bm: kind = bm.group(2); seg = None; rcx_h = False
         for st in statements(rest):
             mn, ops = parse_insn(st)
+            rep = st.split(None, 1)[0].lower().startswith('rep')
             xm = XFER.match(norm(mn, ops))
             if xm:
                 t = xm.group(1).split('@')[0]
@@ -122,9 +136,12 @@ def scan_program(path):
                 if reg not in QUAD: continue
                 shape = norm(mn, ops) if mn in KNOWN else '?' + norm(mn, ops)
                 where = site if site != 'driver-done' else 'graph'
-                cls = enrolled(where, reg, mn, ops, kind, seg)
+                cls = enrolled(where, reg, mn, ops, kind, seg, rcx_h)
                 loc = f'{where}' + (f' {func}' if where in ('driver', 'rootseed') else (f' box={kind}_{seg or "?"}' if kind else f' fn={func}'))
                 rows.append((cls is None, f'{os.path.basename(path)}:{ln}', reg, loc, shape, cls))
+            if rcx_written(mn, ops, rep):
+                fm = MEMFR.match(ops[1]) if mn == 'lea' and len(ops) == 2 and ops[0].strip().lower() == 'rcx' else None
+                rcx_h = bool(fm and fm.group(1) in ('rbp', 'rsp'))
     return rows, targets
 def scan_rtx(rtx_dir):
     funcs = {}
