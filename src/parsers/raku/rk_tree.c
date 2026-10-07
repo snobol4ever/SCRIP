@@ -140,7 +140,7 @@ static const char *testop_rt(const char *s) {
         { "done-testing", "__rk_test_done" }, { "skip-rest", "__rk_test_skip_rest" }, { "skip", "__rk_test_skip" }, { "todo", "__rk_test_todo" }, { "diag", "__rk_test_diag" },
         { "pass", "__rk_test_pass" }, { "flunk", "__rk_test_flunk" }, { "subtest", "__rk_test_subtest" }, { "is-deeply", "__rk_test_is_deeply" }, { "is-approx", "__rk_test_is_approx" },
         { "isa-ok", "__rk_test_isa_ok" }, { "does-ok", "__rk_test_does_ok" }, { "cmp-ok", "__rk_test_cmp_ok" }, { "lives-ok", "__rk_test_lives_ok" }, { "dies-ok", "__rk_test_dies_ok" },
-        { "throws-like", "__rk_test_throws_like" }, { "eval-lives-ok", "__rk_test_eval_lives_ok" }, { "eval-dies-ok", "__rk_test_eval_dies_ok" }, { "like", "__rk_test_like" }, { "unlike", "__rk_test_unlike" }, { NULL, NULL } };
+        { "throws-like", "__rk_test_throws_like" }, { "is_run", "__rk_test_is_run" }, { "is-eqv", "__rk_test_is_eqv" }, { "eval-lives-ok", "__rk_test_eval_lives_ok" }, { "eval-dies-ok", "__rk_test_eval_dies_ok" }, { "like", "__rk_test_like" }, { "unlike", "__rk_test_unlike" }, { NULL, NULL } };
     for (int i = 0; map[i][0]; i++) if (!strcmp(map[i][0], s)) return map[i][1];
     return NULL;
 }
@@ -1185,7 +1185,7 @@ static int var_cls_of(const char *t, int n) {
     if (s0 == '$') {
         if (n == 1) return 0;
         char c1 = t[1];
-        if ((n == 7 && !strncmp(t, "$*STDIN", 7)) || (n == 8 && (!strncmp(t, "$*STDOUT", 8) || !strncmp(t, "$*STDERR", 8)))) return 'F';
+        if ((n == 7 && !strncmp(t, "$*STDIN", 7)) || (n == 8 && (!strncmp(t, "$*STDOUT", 8) || !strncmp(t, "$*STDERR", 8))) || (n == 4 && !strncmp(t, "$*IN", 4)) || (n == 5 && (!strncmp(t, "$*OUT", 5) || !strncmp(t, "$*ERR", 5)))) return 'F';
         if (isdigit((unsigned char) c1)) return 'P';
         if (n == 6 && !strncmp(t, "$?LINE", 6)) return 'L';
         if ((c1 == '.' || c1 == '!') && n > 2 && (isalpha((unsigned char) t[2]) || t[2] == '_')) return 'T';
@@ -1203,7 +1203,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     int n = (int) strlen(name);
     it->cls = var_cls_of(name, n);
     switch (it->cls) {
-    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit(!strcmp(name, "$*STDIN") ? 0 : !strcmp(name, "$*STDOUT") ? 1 : 2)); it->t = c; return; }
+    case 'F': { tree_t *c = ast_node_new(TT_FH_CAPTURE); ast_push(c, rk_ilit((!strcmp(name, "$*STDIN") || !strcmp(name, "$*IN")) ? 0 : (!strcmp(name, "$*STDOUT") || !strcmp(name, "$*OUT")) ? 1 : 2)); it->t = c; return; }
     case 'P': { tree_t *c = ast_node_new(TT_CAPTURE); ast_push(c, rk_ilit(atoi(name + 1))); it->t = c; return; }
     case 'L': it->t = rk_ilit(line_at(b, from)); return;
     case 'T': case 'U': case 'W': { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(name + 1)); it->t = fe; return; }
@@ -1227,6 +1227,9 @@ void rkb_number(RkB *b, RkTerm *it, int from, int to) {
     char *u = sb_str(&s);
     if (!strncmp(u, "Inf", 3) || !strncmp(u, "NaN", 3)) { it->t = var_node(b, u); return; }
     if (strchr(u, '.') || ((strchr(u, 'e') || strchr(u, 'E')) && strncmp(u, "0x", 2))) { tree_t *e = ast_node_new(TT_FLIT); e->v.dval = atof(u); it->t = e; return; }
+    if (u[0] == '0' && (u[1] == 'b' || u[1] == 'B')) { it->t = rk_ilit(strtoll(u + 2, NULL, 2)); return; }
+    if (u[0] == '0' && (u[1] == 'o' || u[1] == 'O')) { it->t = rk_ilit(strtoll(u + 2, NULL, 8)); return; }
+    if (u[0] == '0' && (u[1] == 'd' || u[1] == 'D')) { it->t = rk_ilit(strtoll(u + 2, NULL, 10)); return; }
     it->t = rk_ilit(strtoll(u, NULL, 0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

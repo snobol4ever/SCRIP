@@ -121,6 +121,8 @@ void rt_call_args_clear_from(int n);
 #include <sys/select.h>
 #include <termios.h>
 #include <dlfcn.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_builtin_is_generator(const char *name)
 {
@@ -613,6 +615,7 @@ static int rk_match_is_nil(DESCR_t d) {
 int rk_is_truthy(DESCR_t v) { extern int rt_is_truthy(DESCR_t); if (rk_match_is_nil(v)) return 0; if (rk_match_is(v)) return 1; if (v.v == DT_ORDER) return (v.i != 0); return rt_is_truthy(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mk_arr(const DESCR_t *el, int n);
+static DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v);
 static DESCR_t rk_hash_store(DESCR_t h, DESCR_t k, DESCR_t v);
 static int rk_cp_off(const char *s, int boff) { int n = 0; for (int i = 0; i < boff && s[i]; i++) if (((unsigned char) s[i] & 0xC0) != 0x80) n++; return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -722,6 +725,13 @@ static const char *rk_cstr(DESCR_t v) {
     if (v.v == DT_DATA && rk_match_is(v)) return rk_match_text(v);
     if (IS_INT_fn(v) || v.v == DT_BOOL || v.v == DT_ORDER) { char *b = rt_wsb_alloc(32); return to_cstring(v, b, 32); }
     const char *s = to_cstring(v, NULL, 0); return s ? s : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_tap_str(DESCR_t v) {
+    extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
+    if (v.v == DT_DATA && IS_DATA_INST_fn(v)) return rk_obj_stringify(v, 0);
+    if (rk_typeobj_name(v)) return "";
+    const char *s = rk_cstr(v); return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int n; const DESCR_t *el; } rk_av_t;
@@ -1036,6 +1046,17 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         if (!strcmp(meth, "Str")) { *out = STRVAL((char *) rk_arr_text(recv)); return 1; }
         if (!strcmp(meth, "raku") || !strcmp(meth, "perl")) { *out = STRVAL((char *) rk_raku_str(recv, 0)); return 1; }
         if (!strcmp(meth, "elems")) { *out = INTVAL(rk_av(recv).n); return 1; }
+        if (!rk_is_pair(recv) && (!strcmp(meth, "rotate") || !strcmp(meth, "pairs") || !strcmp(meth, "antipairs") || !strcmp(meth, "batch") || !strcmp(meth, "repeated") || !strcmp(meth, "squish"))) {
+            rk_av_t a = rk_av(recv); DESCR_t *r = a.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) a.n) : NULL; int k = 0;
+            if (!strcmp(meth, "rotate")) { long sh = (nmargs >= 1 && IS_INT_fn(margs[0])) ? (long) margs[0].i : 1; for (int i = 0; i < a.n; i++) r[i] = a.el[(int) ((((i + sh) % a.n) + a.n) % a.n)]; *out = rk_mk_arr(r, a.n); return 1; }
+            if (!strcmp(meth, "pairs")) { for (int i = 0; i < a.n; i++) r[i] = rk_mk_pair(INTVAL(i), a.el[i]); *out = rk_mk_arr(r, a.n); return 1; }
+            if (!strcmp(meth, "antipairs")) { for (int i = 0; i < a.n; i++) r[i] = rk_mk_pair(a.el[i], INTVAL(i)); *out = rk_mk_arr(r, a.n); return 1; }
+            if (!strcmp(meth, "batch")) { long bs = (nmargs >= 1 && IS_INT_fn(margs[0]) && margs[0].i > 0) ? (long) margs[0].i : 1; int nb = (int) ((a.n + bs - 1) / bs); DESCR_t *rb = nb ? (DESCR_t *) rt_ws_alloc_descr((size_t) nb) : NULL;
+                for (int b0 = 0; b0 < nb; b0++) { int lo = (int) (b0 * bs), hi = lo + (int) bs > a.n ? a.n : lo + (int) bs; rb[b0] = rk_mk_arr(a.el + lo, hi - lo); } *out = rk_mk_arr(rb, nb); return 1; }
+            if (!strcmp(meth, "squish")) { for (int i = 0; i < a.n; i++) if (i == 0 || strcmp(rk_av_text(a, i), rk_av_text(a, i - 1))) r[k++] = a.el[i]; *out = rk_mk_arr(r, k); return 1; }
+            for (int i = 0; i < a.n; i++) { int seen = 0; for (int j = 0; j < i && !seen; j++) if (!strcmp(rk_av_text(a, i), rk_av_text(a, j))) seen = 1; if (seen) r[k++] = a.el[i]; }
+            *out = rk_mk_arr(r, k); return 1;
+        }
         if (!strcmp(meth, "join")) { char jb[64]; const char *sep = ""; if (nmargs >= 1) { sep = to_cstring(margs[0], jb, sizeof jb); if (!sep) sep = ""; } *out = STRVAL(rk_av_joined(rk_av(recv), sep, "", "")); return 1; }
     }
     char sb[64]; const char *s = recv.v == DT_A ? rk_av_joined(rk_av(recv), " ", "", "") : IS_REAL_fn(recv) ? rk_real_str(recv.r, sb, (int)sizeof sb) : to_cstring(recv, sb, sizeof sb); if (!s) s = "";
@@ -1089,6 +1110,24 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
     if (!strcmp(meth, "starts-with") && nmargs >= 1) { char nb[128]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; size_t ln = strlen(nd); *out = INTVAL((ln <= n && !strncmp(s, nd, ln)) ? 1 : 0); return 1; }
     if (!strcmp(meth, "ends-with") && nmargs >= 1) { char nb[128]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; size_t ln = strlen(nd); *out = INTVAL((ln <= n && !strncmp(s + (n - ln), nd, ln)) ? 1 : 0); return 1; }
+    if (!strcmp(meth, "subst") && nmargs >= 1 && rk_rx_pat(margs[0]) && (nmargs < 2 || !rk_is_code(margs[1]))) {
+        Nfa *nfa = nfa_build(rk_rx_pat(margs[0])); if (!nfa) { *out = FAILDESCR; return 1; }
+        char rb2[256]; const char *rep = nmargs >= 2 ? to_cstring(margs[1], rb2, sizeof rb2) : ""; if (!rep) rep = ""; size_t rl = strlen(rep);
+        int glob = 0; for (int i = 2; i < nmargs; i++) if (margs[i].v == DT_BOOL && margs[i].i) glob = 1;
+        size_t cap = n + 1, olen = 0, pos = 0; char *o = (char *) rt_wsb_alloc(cap); int done = 0;
+        while (pos <= n && !done) {
+            Match m; nfa_exec(nfa, s + pos, &m);
+            if (!m.matched) break;
+            size_t ms = pos + (size_t) m.full_start, me = pos + (size_t) m.full_end;
+            size_t need = olen + (ms - pos) + rl + (n - me) + 8; if (need > cap) { size_t nc = need * 2; char *no = (char *) rt_wsb_alloc(nc); memcpy(no, o, olen); o = no; cap = nc; }
+            memcpy(o + olen, s + pos, ms - pos); olen += ms - pos; memcpy(o + olen, rep, rl); olen += rl;
+            if (me == ms) { if (ms < n) o[olen++] = s[ms]; pos = ms + 1; } else pos = me;
+            if (!glob) done = 1;
+        }
+        nfa_free(nfa);
+        if (pos <= n) { size_t need = olen + (n - pos) + 8; if (need > cap) { char *no = (char *) rt_wsb_alloc(need); memcpy(no, o, olen); o = no; } memcpy(o + olen, s + pos, n - pos); olen += n - pos; }
+        o[olen] = '\0'; *out = STRVAL(rt_heap_strdup_c(o)); return 1;
+    }
     if (!strcmp(meth, "subst") && nmargs >= 1) {
         char nb[256]; const char *needle = to_cstring(margs[0], nb, sizeof nb); if (!needle) needle = "";
         char rb[256]; const char *repl = (nmargs >= 2) ? to_cstring(margs[1], rb, sizeof rb) : ""; if (!repl) repl = "";
@@ -1127,7 +1166,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!strcmp(meth, "abs")) { if (recv.v == DT_CPLX) { extern double rt_cplx_abs(DESCR_t); *out = REALVAL(rt_cplx_abs(recv)); } else if (IS_INT_fn(recv)) { long v = (long)recv.i; *out = INTVAL(v < 0 ? -v : v); } else { *out = REALVAL(fabs(to_real(recv))); } return 1; }
     if (!strcmp(meth, "floor")) { *out = INTVAL((long)floor(to_real(recv))); return 1; }
     if (!strcmp(meth, "ceiling")) { *out = INTVAL((long)ceil(to_real(recv))); return 1; }
-    if (!strcmp(meth, "round")) { *out = INTVAL((long)floor(to_real(recv) + 0.5)); return 1; }
+    if (!strcmp(meth, "round")) { if (nmargs >= 1 && to_real(margs[0]) != 0.0) { double sc = to_real(margs[0]), rv = floor(to_real(recv) / sc + 0.5) * sc; if (IS_INT_fn(margs[0]) && IS_INT_fn(recv)) *out = INTVAL((long) rv); else *out = REALVAL(rv); return 1; } *out = INTVAL((long)floor(to_real(recv) + 0.5)); return 1; }
     if (!strcmp(meth, "truncate")) { *out = INTVAL((long)to_real(recv)); return 1; }
     if (!strcmp(meth, "sin")) { *out = REALVAL(sin(to_real(recv))); return 1; }
     if (!strcmp(meth, "cos")) { *out = REALVAL(cos(to_real(recv))); return 1; }
@@ -1147,6 +1186,11 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         if (bs < 2 || bs > 36) return 0;
         do { buf[--k] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[u % bs]; u /= bs; } while (u && k > 1);
         if (neg) buf[--k] = '-'; *out = STRVAL(rt_heap_strdup_c(buf + k)); return 1;
+    }
+    if (!strcmp(meth, "polymod") && IS_INT_fn(recv) && nmargs >= 1) {
+        long long v = recv.i; DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) nmargs + 2); int k = 0;
+        for (int i = 0; i < nmargs && IS_INT_fn(margs[i]) && margs[i].i != 0; i++) { r[k++] = INTVAL(v % margs[i].i); v /= margs[i].i; }
+        r[k++] = INTVAL(v); *out = rk_mk_arr(r, k); return 1;
     }
     if (!strcmp(meth, "parse-base") && nmargs == 1 && IS_INT_fn(margs[0])) { *out = INTVAL(strtoll(s, NULL, (int) margs[0].i)); return 1; }
     if (!strcmp(meth, "ords") && nmargs == 0) {
@@ -1169,7 +1213,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = rk_mk_arr(pr, q); return 1;
     }
     if (!strcmp(meth, "sqrt")) { *out = REALVAL(sqrt(to_real(recv))); return 1; }
-    if (!strcmp(meth, "log")) { *out = REALVAL(log(to_real(recv))); return 1; }
+    if (!strcmp(meth, "log")) { double lx = log(to_real(recv)); if (nmargs >= 1) lx /= log(to_real(margs[0])); *out = REALVAL(lx); return 1; }
     if (!strcmp(meth, "exp")) { *out = REALVAL(exp(to_real(recv))); return 1; }
     if (!strcmp(meth, "rand")) { *out = REALVAL((double)rand() / RAND_MAX * to_real(recv)); return 1; }
     if (!strcmp(meth, "Bool") || !strcmp(meth, "so") || !strcmp(meth, "not")) {
@@ -1194,6 +1238,18 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             while (i < n && isspace((unsigned char)s[i])) i++; if (i >= n) break; size_t b = i; while (i < n && !isspace((unsigned char)s[i])) i++;
             tx[c] = s + b; ln[c] = i - b; c++;
         }
+        *out = rk_arr_of_texts(tx, ln, c); return 1;
+    }
+    if (!strcmp(meth, "codes") && nmargs == 0) { *out = INTVAL((long) utf8_strlen(s)); return 1; }
+    if ((!strcmp(meth, "Num") || !strcmp(meth, "Numeric")) && nmargs == 0 && recv.v != DT_A && !IS_INT_fn(recv) && !IS_REAL_fn(recv)) { char *ep; double dv = strtod(s, &ep); while (*ep == ' ') ep++; if (*s && (*ep == '\0')) { long lv = (long) dv; *out = (!strcmp(meth, "Numeric") && (double) lv == dv && !strpbrk(s, ".eEnN")) ? INTVAL(lv) : REALVAL(dv); return 1; } }
+    if (!strcmp(meth, "samecase") && nmargs == 1) {
+        char pb[256]; const char *pat = to_cstring(margs[0], pb, sizeof pb); if (!pat) pat = ""; size_t pn = strlen(pat); char *r = (char *) rt_str_alloc(n * 2 + 1); size_t o = 0, pi = 0;
+        for (size_t i = 0; i < n; i++) { unsigned char c = (unsigned char) s[i], pc = pn ? (unsigned char) pat[pi < pn ? pi : pn - 1] : 0; r[o++] = (char) (isupper(pc) ? toupper(c) : islower(pc) ? tolower(c) : c); pi++; }
+        r[o] = '\0'; *out = STRVAL(r); return 1;
+    }
+    if (!strcmp(meth, "comb") && nmargs == 1 && IS_INT_fn(margs[0]) && margs[0].i > 0) {
+        long cn = (long) margs[0].i; const char **tx = (const char **) rt_pvec_alloc(n + 1); size_t *ln = (size_t *) rt_wsb_alloc((n + 1) * sizeof(size_t)); int c = 0;
+        for (size_t i = 0; i < n; ) { size_t b = i; for (long k = 0; k < cn && i < n; k++) { int cl = utf8_seqlen((unsigned char) s[i]); for (int q = 0; q < cl && i < n; q++) i++; } tx[c] = s + b; ln[c] = i - b; c++; }
         *out = rk_arr_of_texts(tx, ln, c); return 1;
     }
     if (!strcmp(meth, "comb")) {
@@ -4522,6 +4578,8 @@ static int rk_pre_value(const char *nm, DESCR_t *out) {
     extern const char *rt_main_progname(void);
     if (!strcmp(nm, "!")) { DESCR_t ex = NV_GET_fn("!"); *out = rk_exc_is(ex) ? ex : NULVCL; return 1; }
     if (!strcmp(nm, "/")) { *out = (g_match.matched && g_subject) ? rk_match_obj(&g_match, g_subject) : rk_match_nil(); return 1; }
+    if (!strcmp(nm, "Bool::True") || !strcmp(nm, "Bool::False")) { *out = (DESCR_t){ .v = DT_BOOL, .i = nm[6] == 'T' }; return 1; }
+    if (!strncmp(nm, "Order::", 7)) nm += 7;
     if (!strcmp(nm, "Less")) { *out = (DESCR_t){ .v = DT_ORDER, .i = -1 }; return 1; }
     if (!strcmp(nm, "Same")) { *out = (DESCR_t){ .v = DT_ORDER, .i = 0 }; return 1; }
     if (!strcmp(nm, "More")) { *out = (DESCR_t){ .v = DT_ORDER, .i = 1 }; return 1; }
@@ -4638,6 +4696,36 @@ static int rk_match_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out
         *out = rk_mk_arr(r, n); return 1;
     }
     return rt_str_method(m, FIELD_GET_fn(d, "text"), &args[2], nargs - 2, out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_scrip_exe(void) {
+    char *self = rt_wsb_alloc(4096), *path = rt_wsb_alloc(4200); ssize_t k = readlink("/proc/self/exe", self, 4095); self[k > 0 ? k : 0] = '\0';
+    const char *bn = strrchr(self, '/'); if (bn && !strcmp(bn + 1, "scrip")) return rt_heap_strdup_c(self);
+    struct { const char *dli_fname; void *dli_fbase; const char *dli_sname; void *dli_saddr; } di; extern int dladdr(const void *, void *);
+    if (dladdr((void *) rk_scrip_exe, &di) && di.dli_fname) { char *lib = rt_wsb_alloc(strlen(di.dli_fname) + 1); strcpy(lib, di.dli_fname); char *sl = strrchr(lib, '/'); if (sl) { *sl = '\0'; snprintf(path, 4200, "%s/../scrip", lib); if (access(path, X_OK) == 0) return rt_heap_strdup_c(path); } }
+    return "scrip";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *rk_slurp_file(const char *fn) {
+    FILE *f = fopen(fn, "rb"); if (!f) return rt_wsb_alloc(1);
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET); if (n < 0) n = 0; char *b = rt_wsb_alloc((size_t) n + 1); size_t r = n ? fread(b, 1, (size_t) n, f) : 0; b[r] = '\0'; fclose(f); return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_run_child(const char *code, const char *input, DESCR_t argl, DESCR_t *got_out, DESCR_t *got_err) {
+    char dir[] = "/tmp/rk_is_run_XXXXXX"; if (!mkdtemp(dir)) return 255;
+    size_t dl = strlen(dir); char pf[dl + 16], inf[dl + 16], of[dl + 16], ef[dl + 16];
+    snprintf(pf, sizeof pf, "%s/prog.raku", dir); snprintf(inf, sizeof inf, "%s/in.txt", dir); snprintf(of, sizeof of, "%s/out.txt", dir); snprintf(ef, sizeof ef, "%s/err.txt", dir);
+    FILE *f = fopen(pf, "wb"); if (f) { fputs(code, f); fclose(f); } f = fopen(inf, "wb"); if (f) { fputs(input, f); fclose(f); }
+    rk_av_t al = rk_av(argl); const char *exe = rk_scrip_exe(); const char *argv[al.n + 5]; int k = 0; argv[k++] = exe; argv[k++] = pf;
+    if (al.n) { argv[k++] = "--"; for (int i = 0; i < al.n; i++) argv[k++] = rk_av_text(al, i); }
+    argv[k] = NULL;
+    fflush(NULL); pid_t pid = fork(); int status = 255;
+    if (pid == 0) { int fi = open(inf, O_RDONLY), fo = open(of, O_WRONLY | O_CREAT | O_TRUNC, 0600), fe = open(ef, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+        if (fi >= 0) dup2(fi, 0); if (fo >= 0) dup2(fo, 1); if (fe >= 0) dup2(fe, 2); execv(exe, (char *const *) argv); execvp(exe, (char *const *) argv); _exit(127); }
+    if (pid > 0) { int ws = 0; if (waitpid(pid, &ws, 0) == pid) status = WIFEXITED(ws) ? WEXITSTATUS(ws) : 128 + WTERMSIG(ws); }
+    *got_out = STRVAL(rt_heap_strdup_c(rk_slurp_file(of))); *got_err = STRVAL(rt_heap_strdup_c(rk_slurp_file(ef)));
+    unlink(pf); unlink(inf); unlink(of); unlink(ef); rmdir(dir);
+    return status;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const struct { const char *needle, *cls, *parent; } rk_exc_tab[] = {
@@ -4829,12 +4917,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         if (!strcmp(op, "plan")) { long n = (nargs > 0 && IS_INT_fn(args[0])) ? (long)args[0].i : 0; g_tap_planned = n; g_tap_no_plan = 0; atexit(rk_tap_exit); printf("1..%ld\n", n); fflush(stdout); *out = NULVCL; return 1; }
         if (!strcmp(op, "ok")) { int c = (nargs > 0) ? rk_tap_truthy(args[0]) : 0; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "nok")) { int c = (nargs > 0) ? !rk_tap_truthy(args[0]) : 1; const char *d = (nargs > 1) ? to_cstring(args[1], sb1, sizeof sb1) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
-        if (!strcmp(op, "is")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = !strcmp(g, e); char gd[fmt_len("%s", g)]; char ed[fmt_len("%s", e)]; snprintf(gd, sizeof gd, "%s", g); snprintf(ed, sizeof ed, "%s", e);
+        if (!strcmp(op, "is")) { const char *g = (nargs > 0) ? rk_tap_str(args[0]) : ""; const char *e = (nargs > 1) ? rk_tap_str(args[1]) : ""; int c = !strcmp(g, e); char gd[fmt_len("%s", g)]; char ed[fmt_len("%s", e)]; snprintf(gd, sizeof gd, "%s", g); snprintf(ed, sizeof ed, "%s", e);
             const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, "");
             if (!c) { char b[fmt_len("expected: '%s'", ed)]; snprintf(b, sizeof b, "expected: '%s'", ed); rk_tap_diag(b);
                       char b2[fmt_len("     got: '%s'", gd)]; snprintf(b2, sizeof b2, "     got: '%s'", gd); rk_tap_diag(b2); }
             *out = INTVAL(c); return 1; }
-        if (!strcmp(op, "isnt")) { const char *g = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; const char *e = (nargs > 1) ? to_cstring(args[1], sb2, sizeof sb2) : ""; int c = strcmp(g, e) != 0; const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "isnt")) { const char *g = (nargs > 0) ? rk_tap_str(args[0]) : ""; const char *e = (nargs > 1) ? rk_tap_str(args[1]) : ""; int c = strcmp(g, e) != 0; const char *d = (nargs > 2) ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "pass")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(1, d, ""); *out = INTVAL(1); return 1; }
         if (!strcmp(op, "flunk")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_proclaim(0, d, ""); *out = INTVAL(0); return 1; }
         if (!strcmp(op, "is_approx")) {
@@ -4893,6 +4981,27 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *d = nargs > 2 ? to_cstring(args[2], sb1, sizeof sb1) : NULL;
             if (!d) { size_t l = strlen(want ? want : "") + 24; char *dd = rt_wsb_alloc(l); snprintf(dd, l, "The object is-a '%s'", want ? want : ""); d = dd; }
             rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "is_eqv") && nargs >= 2) {
+            DESCR_t ea[2] = { args[0], args[1] }, t; int c = script_try_call_builtin_by_name("__rk_eqv", ea, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t);
+            const char *d = nargs > 2 ? to_cstring(args[2], msg, sizeof msg) : ""; rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "is_run") && nargs >= 2) {
+            const char *code = rk_cstr(args[0]), *input = ""; DESCR_t exp = NULVCL, argl = rk_mk_arr(NULL, 0); const char *name = ""; int have_exp = 0;
+            for (int i = 1; i < nargs; i++) {
+                if (args[i].v == DT_T && args[i].tbl && !have_exp) { exp = args[i]; have_exp = 1; }
+                else if (rk_is_pair(args[i])) { rk_av_t p = rk_av(args[i]); if (!strcmp(rk_cstr(p.el[0]), "args") && p.n > 1) argl = p.el[1]; }
+                else if (!have_exp) input = rk_cstr(args[i]);
+                else name = rk_cstr(args[i]);
+            }
+            char cb[strlen(code) + 1]; strcpy(cb, code); char ib[strlen(input) + 1]; strcpy(ib, input); char nb[strlen(name) + 1]; strcpy(nb, name);
+            DESCR_t gout, gerr; int st = rk_run_child(cb, ib, argl, &gout, &gerr); int c = 1, tested = 0; size_t wl = strlen(rk_cstr(gout)) + strlen(rk_cstr(gerr)) + 256; char why[wl]; why[0] = '\0';
+            const char *keys[3] = { "status", "out", "err" }; DESCR_t got[3] = { INTVAL(st), gout, gerr }; int has[3] = { 0, 0, 0 }; DESCR_t want[3];
+            for (int k = 0; k < 3; k++) { int found = 0; DESCR_t v = have_exp && exp.tbl ? table_get_found_d(exp.tbl, rk_key_tmp(STRVAL((char *) keys[k])), &found) : NULVCL; has[k] = found; want[k] = v; }
+            if (!has[0] && (!has[2] || (IS_STR_fn(want[2]) && !*rk_cstr(want[2])))) { has[0] = 1; want[0] = INTVAL(0); }
+            for (int k = 0; k < 3; k++) if (has[k]) { tested++; DESCR_t sm[2] = { got[k], want[k] }, t;
+                int good = script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t);
+                if (!good) { c = 0; size_t o = strlen(why); snprintf(why + o, wl - o, "%sgot %s: '%.*s'", o ? "\n" : "", keys[k], (int) ((wl - o) / 3), rk_cstr(got[k])); } }
+            if (!tested) { rk_tap_proclaim(1, "nothing tested", "# SKIP"); *out = INTVAL(1); return 1; }
+            rk_tap_proclaim(c, nb, ""); if (!c && why[0]) rk_tap_diag(why); *out = INTVAL(c); return 1; }
         if (!strcmp(op, "throws_like") && nargs >= 2) {
             DESCR_t ex = args[0]; const char *w0 = rk_typeobj_name(args[1]) ? rk_typeobj_name(args[1]) : VARVAL_fn(args[1]); if (!w0) w0 = "Exception";
             char want[strlen(w0) + 1]; strcpy(want, w0); const char *d0 = NULL;

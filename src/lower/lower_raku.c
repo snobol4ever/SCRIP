@@ -128,7 +128,7 @@ static int rk_user_proc_exists(const char * nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_predeclared(const char * nm, int bare) {
     if (!nm || !*nm) return 0;
-    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", "/", "!", NULL };
+    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", "/", "!", "Order::Less", "Order::Same", "Order::More", "Bool::True", "Bool::False", NULL };
     for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
     if (!bare) return 0;
     static const char * const terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
@@ -573,7 +573,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval) || (t->v.sval && t->v.sval[0] == 'X' && t->v.sval[1] == ':' && t->v.sval[2] == ':')) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;
         }
-        if (t->v.sval && strchr(t->v.sval, ':')) {
+        if (t->v.sval && strchr(t->v.sval, ':') && !rk_predeclared(t->v.sval, 0)) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = rk_qualified_type_gist(t->v.sval); *res = nd; return nd;
         }
         if ((t->slen & 1) && t->v.sval && !strcmp(t->v.sval, "Nil") && !rk_is_class_name("Nil")) {
@@ -2313,6 +2313,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
             if (e) e = trace_stmt_wrap(&tcx, trace_stmt_line(s), e, sentry);
             if (e) { entry = e; sentry = e; }
         }
+        { tree_t * ta = ast_node_new(TT_ASSIGN); ast_push(ta, leaf_sval2(TT_VAR, "_")); ast_push(ta, ast_node_new(TT_NUL)); IR_t * tr = NULL; IR_t * te = lower_rv(&tcx, ta, sentry, sentry, &tr); if (te) { entry = te; sentry = te; } }
         tg->entry = trace_call_wrap(&tcx, "main", entry, fail);
         int bb_idx = bb_program_add(&g_stage2.bbp, tg);
         if (bb_idx >= 0) {
