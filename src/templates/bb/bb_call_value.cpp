@@ -19,6 +19,7 @@ extern CVSPINE_t rt_call_value_spine_prep_blk(DESCR_t callee, DESCR_t *argv, int
 extern CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void **hslot);
 extern CVSPINE_t rt_pl_goal_resolve(DESCR_t goal, int n);
 extern int * const rt_k_level_p;
+extern "C++" std::string icn_landing_line_restore(void);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
 DESCR_t rt_proc_call_epilogue_ω(void);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
@@ -151,6 +152,7 @@ std::string bb_call_value() {
                     + x86_lea_id("rdx", 4)
                     + x86_jmp_reg("rax"))
        + x86("def", L(3))
+       + IF(cv_icn(), icn_landing_line_restore())
        + (cv_pl_proto()
             ?  x86("mov",  FRQ(CV_H()), "rax")
               + x86("mov",  FRQ(CV_H() + 8), "rdx")
@@ -173,6 +175,7 @@ std::string bb_call_value() {
               + x86("call", "rt_gen_spine_pass_γ", TEMPLATE_FN_ADDR(rt_gen_spine_pass_γ))
               + x86("jmp",  L(2)))
        + x86("def", L(4))
+       + IF(cv_icn(), icn_landing_line_restore())
        + (cv_pl_proto()
             ?  x86("mov",  FRQ(CV_H()), 0L)
               + x86("mov",  FRQ(CV_H() + 8), 0L)

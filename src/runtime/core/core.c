@@ -651,15 +651,11 @@ void rt_trace_gen_fail_hook(const char *fname, void *h) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_resume_hook(const char *pname) {
     if (trace_idle()) return;
-    extern int rt_k_level; extern long g_line;
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (trace_recursion_depth > 0) return;
-    long save = g_line;
-    g_line = * (char *) NULL;
     g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL); trace_recursion_depth--;
-    g_line = save;
 }
 #else
 void rt_trace_call_hook_f(const char *fname, int np, void *base) { (void)fname; (void)np; (void)base; }
@@ -669,25 +665,19 @@ void rt_trace_gen_fail_hook(const char *fname, void *h) { (void)fname; (void)h; 
 void rt_trace_resume_hook(const char *pname) { (void)pname; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_act_restore_call_line(void) {
-    extern long g_line;
-    g_line = * (char *) NULL;
-}
 #if RT_DIAG
 void rt_trace_fail_hook(const char *fname) {
     if (trace_idle()) return;
     extern long g_stno;
     rt_trace_event(TRK_RETURN, fname, FAILDESCR, g_stno);
-    icn_act_restore_call_line();
 }
 void rt_trace_return_hook(const char *fname, DESCR_t retval) {
     extern long g_stno;
     if (!trace_idle()) rt_trace_event(TRK_RETURN, fname, retval, g_stno);
-    icn_act_restore_call_line();
 }
 #else
 void rt_trace_fail_hook(const char *fname) { (void)fname; }
-void rt_trace_return_hook(const char *fname, DESCR_t retval) { (void)fname; (void)retval; icn_act_restore_call_line(); }
+void rt_trace_return_hook(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
 #endif
 int64_t kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

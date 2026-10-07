@@ -484,6 +484,8 @@ typedef struct {
     cv_t                         stno_map;
     int                          stno_map_n;
     int32_t                      stno_last;
+    long                         icn_line_cur;
+    const char *                 icn_file_cur;
     cv_t                         stno_src;
     int64_t                      stno_src_n;
     const char *                 stno_file_last;

@@ -1368,7 +1368,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_STATEMENT_BEGIN:      { extern long g_trace_budget; extern int g_mon_max_stno; g_emit.op_mon_stmt_tap = ((g_trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;    { extern int g_rt_fragment_emit; if (g_emit.op_mon_stmt_tap && !g_rt_fragment_emit && g_emit.op_stno > g_mon_max_stno) g_mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); static int _zdpa = -1; if (_zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); _zdpa = (e && *e == '1') ? 1 : 0; } if (_zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd))); }    g_emit.op_mon_stmt_tap = 0; } return 0;
     case IR_STMT_MARK:            bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_SETEXIT_TEST:         bb_emit_x86(bb_setexit_test()); return 0;
-    case IR_LINE_MARK:            bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
+    case IR_LINE_MARK:            if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval; bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
     case IR_STATEMENT_END:
     case IR_STATEMENT:            { g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); } return 0;
     case IR_BOUND:                { g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;
@@ -3292,11 +3292,6 @@ static const char * icn_trace_intern(const char * s) {
     return pool.insert(std::string(s)).first->c_str();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string icn_act_record_inline(const char * pname, int np, int aoff) {
-    (void)np; (void)aoff;
-    if (!pname) return std::string();
-    return x86_bomb("icn_act_record_inline: g_icn_act is deleted -- the activation record (name, frame base, np, caller line and file, args) needs a home on the stack");
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string icn_entry_gva(void) {
     return x86("comment", "entry: r9 (the global-cell base the RTCC bank keeps live across Icon code) is reloaded from its home -- a C road (a generator "
@@ -3304,7 +3299,6 @@ static std::string icn_entry_gva(void) {
          + x86_rtx_reestablish(RTCC_C_R9);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C++" std::string xa_icn_act_restore_call_line(int lbl);
 static std::string icn_gen_line_save(void) {
     extern long g_line; extern const char * g_file;
     return x86("comment", "suspend: the generator's own line and file are kept in its header at +48 and +56 for the resume (through rdx, the frame copy the gamma below already uses), then the caller's come back")
@@ -3801,7 +3795,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                         (uint64_t)(uintptr_t)(void *)(_use_zframe_install ? rt_icn_zframe_args_install : rt_lcl_proc_args_install))));
         if (_use_zframe_install) {
             const char * _gn = (prefix && strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
-            bb_emit_x86(icn_act_record_inline(_gn, np, _gblk ? carve : 16));
             icn_register_local_offsets(_gn);
         }
     } else if (g_emit.flat_lcl_proc) {
@@ -3872,7 +3865,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                      + x86("sub", "rcx", (long)1)
                      + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
                      + x86("mov", RDQ("rax", 0), "rcx"));
-            bb_emit_x86(icn_act_record_inline(_apn, np, _aoff) + icn_trace_tap(_apn, 1, np, _aoff));
+            bb_emit_x86(icn_trace_tap(_apn, 1, np, _aoff));
             icn_register_local_offsets(_apn);
         }
     }
@@ -4412,7 +4405,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         bb_emit_x86(IF(_bfb > 0,  x86("mov", "rcx", RDQ("rbp", blob_cont_copy() ? -16 : 16)) + x86("push", "rbp") + x86("push", "rcx") + x86("mov", "rcx", RDQ("rbp", blob_cont_copy() ? -8 : 8)) + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86("mov", "rbp", RDQ("rbp", 0)) + x86_jmp_reg("rcx")) + IF(_bfb <= 0,  x86("mov", "rdx", RDQ("rsp", _sd + 8)) + x86("mov", "rcx", RDQ("rsp", _sd)) + x86("sub", "rsp", 8L) + x86("push", "rdx") + x86("push", "rcx") + x86_lea_ext("rax", &lbl_res) + x86("push", "rax") + x86_jmp_reg("rcx")));
     }
     else if (icn_gen_regime() && g_emit.flat_gen) {
-        bb_emit_x86( icn_gen_line_save() + xa_icn_act_restore_call_line(241)
+        bb_emit_x86( icn_gen_line_save()
                   + x86("mov", "rdx", "rbp")
                   + x86_lea_ext("rax", &lbl_res) + x86("mov", RDQ("rdx", 32), "rax")
                   + x86("mov", RDQ("rdx", 40), "rsp")
@@ -4429,7 +4422,6 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     else if (_blob_wire) { extern int sn4_blob_casmark(void); bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) + IF(blob_frame_bytes() <= 0 && _sph > 0, IF(_sph == 32, x86("mov", "r12", RDQ("rsp", 8))) + x86("add", "rsp", (long)_sph)) + (blob_omega_ret() ? x86("add", "rsp", 8L) + x86("ret") : x86_rsp_load64("rcx", 8) + x86("add", "rsp", 16L) + x86("jmp", "rcx"))); for (int _k = 0; _k < _wpn; _k++) { emit_label_define_bb(_wpl[_k]); bb_emit_x86(x86("add", "rsp", (long)_wpd[_k])); emit_jmp_label(&lbl_ω, JMP_JMP); } }
     else if (icn_gen_regime() && g_emit.flat_gen) {
         { bb_emit_x86( icn_trace_tap((strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix, 5, 0)); }
-        bb_emit_x86(xa_icn_act_restore_call_line(242));
         bb_emit_x86( x86("mov", "rcx", RDQ("rbp", 8))
                   + x86("mov", "rsp", RDQ("rbp", 24))
                   + x86("mov", "rbp", RDQ("rbp", 0))
@@ -4676,7 +4668,7 @@ extern "C" int emit_jmp_entry_for_chain(IR_graph_t *g) {
 bb_box_fn emit_chain(IR_t *entry, FILE *out, const char *prefix) {
     if (!entry) return NULL;
     g_xci_epoch++;
-    g_emit.stno_last = -1;
+    g_emit.stno_last = -1; g_emit.icn_line_cur = 0; g_emit.icn_file_cur = (const char *)0;
     emit_chain_mark_entry_emitted(entry);
     emit_chain_operand_refs(entry);
     if (g_emit_cfg) zls_fct_finalize(g_emit_cfg, 1);

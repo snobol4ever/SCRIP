@@ -879,7 +879,7 @@ static std::string bcps_icn_src(IR_graph_t ** argblks, int i, int w, long d) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t ** argblks, long idx, int np, int vari, int n2_ftc) {
-    extern std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d);
+    extern std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d); extern std::string icn_landing_line_restore(void);
     int nargs = (int)_.op_ival, nfix = vari ? np - 1 : np, ncp = nargs < nfix ? nargs : nfix, rest = (vari && nargs > nfix) ? nargs - nfix : 0;
     long K = (is_gen ? 40L : 16L) + 16L * np, pad = is_gen ? 8L : 0L;
     return x86_alpha()
@@ -923,6 +923,7 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
          + IF(is_gen, x86_lea_id("rdx", 4))
          + bcps_jmp_proc_fn(idx)
          + x86("def", L(3))
+         + icn_landing_line_restore()
          + (is_gen ? x86("cmp", "al", (long)DT_FAIL)
                    + x86("je", L(8))
                    + x86("mov", "rdi", RDQ("rdx", 0 - n2_ftc))
@@ -951,6 +952,7 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
                    + x86("mov", "rdx", "rsi")
                    + x86("jmp", L(2)))
          + x86("def", L(4))
+         + icn_landing_line_restore()
          + bcps_wire_land(_.op_sval)
          + (is_gen ? x86("add", "rsp", 8L)
                    + x86("mov", "rax", FRQ(act))
