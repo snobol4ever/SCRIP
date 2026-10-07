@@ -1068,6 +1068,7 @@ tree_t *rkb_smartmatch_term(RkB *b, tree_t *l, RkTerm *x) {
         const char *kind = NULL; char *body = NULL, *srep = NULL; int sg = 0;
         if (s[0] == '/') { kind = "match"; body = regex_to_engine(regex_body(b, x->from + 1, x->to, '/')); }
         else if (!strncmp(s, "m:g/", 4)) { kind = "match_global"; body = regex_to_engine(regex_body(b, x->from + 4, x->to, '/')); }
+        else if (s[0] == 'm' && (s[1] == '{' || s[1] == '(' || s[1] == '[' || s[1] == '<' || s[1] == '!' || s[1] == '|' || s[1] == '#' || s[1] == ',')) { char cl = s[1] == '{' ? '}' : s[1] == '(' ? ')' : s[1] == '[' ? ']' : s[1] == '<' ? '>' : s[1]; kind = "match"; body = regex_to_engine(regex_body(b, x->from + 2, x->to, cl)); }
         else if (s[0] == 's' && s[1] == '/') {
             kind = "subst";
             char *pat = regex_to_engine(regex_body(b, x->from + 2, x->to, '/'));

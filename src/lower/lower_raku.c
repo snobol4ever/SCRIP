@@ -109,7 +109,7 @@ static IR_t * build(rcx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_str_subform(const char * nm) {
-    static const char * const names[] = { "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", "substr", "substr-rw", "index", "rindex", "floor", "ceiling", "round", "truncate", "sign", "log2", "log10", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "asin", "acos", "sec", "cosec", "cotan", "keys", "values", "kv", "pairs", "elems", "end", "ords", "atan2", "is-prime", NULL };
+    static const char * const names[] = { "lc", "uc", "samecase", "tc", "tclc", "fc", "chomp", "chop", "flip", "wordcase", "trim-leading", "trim-trailing", "samemark", "substr", "substr-rw", "index", "rindex", "floor", "ceiling", "round", "truncate", "sign", "log2", "log10", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "asin", "acos", "sec", "cosec", "cotan", "keys", "values", "kv", "pairs", "elems", "end", "ords", "atan2", "is-prime", NULL };
     for (int i = 0; names[i]; i++) if (!strcmp(nm, names[i])) return 1; return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -742,6 +742,17 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return lower_rcall(cx, mc, "__blk_invoke", 1, γ, ω, res); }
     case TT_FNC: { const char * nm = (t->n > 0 && t->c[0]) ? t->c[0]->v.sval : "?";
         if (nm && !strcmp(nm, "EVAL") && !rk_user_proc_exists("EVAL")) return lower_rcall(cx, t, "__rk_eval", 1, γ, ω, res);
+        if (nm && !rk_user_proc_exists(nm) && !rk_is_multi_name(nm) && !rk_is_class_name(nm)) {
+            int swap = (!strcmp(nm, "split") || !strcmp(nm, "comb") || !strcmp(nm, "first") || !strcmp(nm, "roll")) && t->n == 3;
+            if (swap || (!strcmp(nm, "words") && t->n == 2)) {
+                tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, swap ? t->c[2] : t->c[1]); ast_push(mc, leaf_sval2(TT_QLIT, nm)); if (swap) ast_push(mc, t->c[1]);
+                return lower_rv(cx, mc, γ, ω, res); }
+            if (!strcmp(nm, "not") && t->n == 2) { tree_t * nt = ast_node_new(TT_NOT); nt->line = t->line; ast_push(nt, t->c[1]); return lower_rv(cx, nt, γ, ω, res); }
+            if (!strcmp(nm, "hash") || !strcmp(nm, "slip")) {
+                tree_t * ar = ast_node_new(TT_FNC); ar->v.sval = (char *) "__rk_arr"; ast_push(ar, leaf_sval2(TT_VAR, "__rk_arr")); for (int i = 1; i < t->n; i++) ast_push(ar, t->c[i]);
+                if (!strcmp(nm, "hash")) { tree_t * h = ast_node_new(TT_FNC); h->v.sval = (char *) "__rk_to_hash"; ast_push(h, leaf_sval2(TT_VAR, "__rk_to_hash")); ast_push(h, ar); return lower_rv(cx, h, γ, ω, res); }
+                tree_t * mc = ast_node_new(TT_METHCALL); ast_push(mc, ar); ast_push(mc, leaf_sval2(TT_QLIT, "Slip")); return lower_rv(cx, mc, γ, ω, res); }
+        }
         if (nm && t->n >= 1 && rk_io_lower_name(nm) && !rk_user_proc_exists(nm) && !rk_is_multi_name(nm) && !rk_is_class_name(nm)) { tree_t * io = ast_node_new(TT_FNC); io->v.sval = (char *) "__rk_io"; ast_push(io, leaf_sval2(TT_VAR, "__rk_io")); ast_push(io, leaf_sval2(TT_QLIT, nm)); for (int i = 1; i < t->n; i++) ast_push(io, t->c[i]); return lower_rcall(cx, io, "__rk_io", 1, γ, ω, res); }
         if (nm && rk_is_multi_name(nm)) {
             tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__multi_call";
@@ -939,6 +950,16 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             tree_t * mc = ast_node_new(TT_METHCALL); mc->line = t->line; ast_push(mc, ra); for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
             return lower_rv(cx, mc, γ, ω, res); }
         const char * mname = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : NULL;
+        if (mname && (!strcmp(mname, "substr") || !strcmp(mname, "substr-rw")) && t->n >= 3 && t->c[0]) {
+            int wc = 0; for (int i = 2; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_ANON_BLOCK && t->c[i]->v.sval) wc = 1;
+            if (wc) { tree_t * nm = ast_node_new(TT_METHCALL); nm->line = t->line; ast_push(nm, t->c[0]); ast_push(nm, t->c[1]);
+                tree_t * posarg = NULL;
+                for (int i = 2; i < t->n; i++) { tree_t * a = t->c[i];
+                    if (a && a->t == TT_ANON_BLOCK && a->v.sval) { tree_t * iv = ast_node_new(TT_INVOKE); ast_push(iv, a); tree_t * ln = ast_node_new(TT_METHCALL); ast_push(ln, t->c[0]); ast_push(ln, leaf_sval2(TT_QLIT, "chars"));
+                        if (i == 3 && posarg) { tree_t * sb = ast_node_new(TT_SUB); ast_push(sb, ln); ast_push(sb, posarg); ln = sb; }
+                        ast_push(iv, ln); a = iv; }
+                    if (i == 2) posarg = a; ast_push(nm, a); }
+                return lower_rv(cx, nm, γ, ω, res); } }
         if (mname && !strcmp(mname, "match") && t->n > 2 && t->c[2] && t->c[2]->t == TT_FNC && t->c[2]->n > 1 && t->c[2]->c[0] && t->c[2]->c[0]->v.sval && !strcmp(t->c[2]->c[0]->v.sval, "__rk_regex")) {
             int glob = t->n > 3 && t->c[3] && t->c[3]->t == TT_FNC && t->c[3]->c[0] && t->c[3]->c[0]->v.sval && !strcmp(t->c[3]->c[0]->v.sval, "__rk_mkbool");
             tree_t * m = ast_node_new(TT_SMATCH); m->line = t->line; ast_push(m, t->c[0]); ast_push(m, t->c[2]->c[1]); ast_push(m, leaf_sval2(TT_QLIT, glob ? "match_global" : "match"));

@@ -340,7 +340,7 @@ int rt_builtin_is_known(const char *name)
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make",
         "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first",
         "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch",
-        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
+        "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max",
         "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
         "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of",
@@ -625,7 +625,7 @@ static int rk_match_is_nil(DESCR_t d) {
     return FIELD_GET_fn(d, "ok").i == 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rk_is_truthy(DESCR_t v) { extern int rt_is_truthy(DESCR_t); if (rk_match_is_nil(v)) return 0; if (rk_match_is(v)) return 1; if (v.v == DT_ORDER) return (v.i != 0); return rt_is_truthy(v); }
+int rk_is_truthy(DESCR_t v) { extern int rt_is_truthy(DESCR_t); if (rk_match_is_nil(v)) return 0; if (rk_match_is(v)) return 1; if (v.v == DT_S && v.s && v.slen != 0xFFFFFFFFu && v.s[0] != RK_TY) return v.s[0] != '\0'; if (v.v == DT_ORDER) return (v.i != 0); return rt_is_truthy(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mk_arr(const DESCR_t *el, int n);
 static DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v);
@@ -5007,6 +5007,7 @@ static int rk_io_path_method(const char *m, DESCR_t *args, int nargs, DESCR_t *o
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rt_proc_find_user(const char *nm) { extern int rt_proc_is_registered(const char *); return rt_proc_is_registered(nm); }
 static int rk_io_name(const char *fn) { static const char *const nm[] = { "open", "close", "slurp", "spurt", "unlink", "mkdir", "rmdir", "copy", "rename", "move", "chmod", "dir", "chdir", "make-temp-file", "make-temp-dir", NULL }; for (int i = 0; nm[i]; i++) if (!strcmp(fn, nm[i])) return 1; return 0; }
 static int rk_io_fn(const char *fn, DESCR_t *a, int n, DESCR_t *out) {
     DESCR_t *pos = a, *kv = NULL; int npos = 0; while (npos < n && !rk_is_pair(a[npos])) npos++;
@@ -5187,7 +5188,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if ((!strcmp(fn, "__rk_mkbool") || !strcmp(fn, "__rk_notbool")) && nargs >= 1) {
         DESCR_t a = args[0]; long long t;
         extern int rt_is_truthy(DESCR_t v);
-        if (a.v == DT_BOOL || IS_INT_fn(a)) t = (a.i != 0); else if (IS_REAL_fn(a)) t = (a.r != 0.0); else t = rt_is_truthy(a) ? 1 : 0;
+        if (a.v == DT_BOOL || IS_INT_fn(a)) t = (a.i != 0); else if (IS_REAL_fn(a)) t = (a.r != 0.0); else if (IS_STR_fn(a) && !rk_typeobj_name(a)) t = (a.s && a.s[0] != '\0' && a.slen != 0xFFFFFFFFu); else t = rt_is_truthy(a) ? 1 : 0;
         if (fn[5] == 'n') t = !t;
         *out = (DESCR_t){ .v = DT_BOOL, .i = t }; return 1;
     }
@@ -5916,6 +5917,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         extern const char *rt_proc_pname(const char *name, int k);
         char pb[256]; const char *pname = to_cstring(args[0], pb, sizeof pb);
         int npos = IS_INT_fn(args[1]) ? (int)args[1].i : 0;
+        if (!strcmp(pname, "hash") && !rt_proc_find_user(pname)) { DESCR_t h = TABLE_VAL(table_new()); for (int i = 2 + npos; i + 1 < nargs; i += 2) h = rk_hash_store(h, args[i], args[i + 1]); for (int i = 0; i < npos && 2 + i < nargs; i++) { DESCR_t el = args[2 + i]; if (rk_is_pair(el)) { rk_av_t pp = rk_av(el); h = rk_hash_store(h, pp.el[0], pp.n > 1 ? pp.el[1] : NULVCL); } } *out = h; return 1; }
         if (rk_io_name(pname)) { DESCR_t ar[nargs]; int an = 0; for (int i = 0; i < npos && 2 + i < nargs; i++) ar[an++] = args[2 + i]; for (int i = 2 + npos; i + 1 < nargs; i += 2) { DESCR_t pr[2] = { args[i], args[i + 1] }; ar[an++] = rk_mk_pair(pr[0], pr[1]); } DESCR_t r; if (rk_io_fn(pname, ar, an, &r)) { *out = r; return 1; } *out = FAILDESCR; return 1; }
         if (npos < 0) npos = 0;
         int np = 0; while (rt_proc_pname(pname, np)) np++;
@@ -6541,6 +6543,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         rk_exc_init(); rk_exc_throw(rk_exc_is(args[0]) ? args[0] : rk_exc_adhoc(args[0]));
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "sleep") && nargs >= 1) { double sec = IS_REAL_fn(args[0]) ? args[0].r : IS_INT_fn(args[0]) ? (double) args[0].i : strtod(rk_cstr(args[0]), NULL); if (sec > 0) { fflush(stdout); usleep((useconds_t) (sec * 1e6)); } *out = rk_typeobj("Nil"); return 1; }
+    if (!strcmp(fn, "val") && nargs >= 1) { const char *v = rk_cstr(args[0]); char *ep; long long iv = strtoll(v, &ep, 10); if (*v && !*ep) { *out = INTVAL(iv); return 1; } double dv = strtod(v, &ep); if (*v && !*ep && !isspace((unsigned char) v[0])) { *out = REALVAL(dv); return 1; } *out = args[0]; return 1; }
     if (!strcmp(fn, "__rk_io") && nargs >= 1) { const char *nm = rk_cstr(args[0]); if (rk_io_fn(nm, args + 1, nargs - 1, out)) return 1; *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "__rk_eval") && nargs >= 1) {
         extern const char *rt_raku_eval_compile(const char *src, const char **errmsg);
@@ -8623,7 +8627,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : 1;
-        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0' && !(s[0]=='0' && s[1]=='\0')); }
+        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0'); }
         if (!t) { *out = FAILDESCR; return 1; }
         *out = v; return 1;
     }
@@ -8644,7 +8648,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : 1;
-        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0' && !(s[0]=='0' && s[1]=='\0')); }
+        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0'); }
         *out = INTVAL(t); return 1;
     }
     L_bidjmp_5103: ;
