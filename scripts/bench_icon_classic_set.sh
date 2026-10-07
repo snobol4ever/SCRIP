@@ -52,6 +52,8 @@ QUANT_TICKS="${QUANT_TICKS:-5}"  # below this many ticks a multiple is QUANTIZED
 refuse() { echo "⛔ CLASSIC-SET BOARD REFUSED (rc=2): $*" >&2; exit 2; }
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "lib_oracle_flags.sh unloadable -- the ONE oracle-path authority (s200)."
 . "$HERE/lib_perf_fmt.sh"     2>/dev/null || refuse "lib_perf_fmt.sh unloadable -- the ONE authority for printing a multiple (s266)."
+. "$HERE/lib_icon_ipl_isolation.sh" 2>/dev/null || refuse "lib_icon_ipl_isolation.sh unloadable -- the ONE argv-sidecar reader."
+. "$HERE/lib_declared_arena.sh" 2>/dev/null || refuse "lib_declared_arena.sh unloadable -- the ONE declared-arena reader (CEO-1353)."
 # CEO-743 welded a load stamp onto every standalone perf_mult/perf_pct. THIS SCRIPT COMPOSES ITS OWN CELLS
 # from captured multiples, so the stamp must not land INSIDE a cell -- it is emitted once, above, with the
 # shared axes, which is where the FACT RULE says a grid names anything it shares.
@@ -69,18 +71,24 @@ trap 'rm -rf "$WORK"' EXIT
 export PATH="$(dirname "$ICONT"):$PATH"   # jcont shells out to icont; without this it fails talking about icont
 
 # ---------- staging ----------
-C="$WORK/corpus"; mkdir -p "$C"
-cp "$CORPUS_SRC"/*.icn "$CORPUS_SRC"/*.dat "$C/" 2>/dev/null
-( cd "$C" && "$ICONT" -c options.icn post.icn shuffle.icn ) >/dev/null 2>&1   # link units for iconx
-IPXIN="$WORK/ipxref_input.icn"; cat "$C"/*.icn > "$IPXIN"
-declare -A STDIN ARGS DEPS
-STDIN[concord]="$C/concord.dat"; ARGS[concord]="";        DEPS[concord]="options.icn post.icn"
-STDIN[deal]="";                  ARGS[deal]="-h 1000";    DEPS[deal]="options.icn post.icn shuffle.icn"
-STDIN[ipxref]="$IPXIN";          ARGS[ipxref]="";         DEPS[ipxref]="options.icn post.icn"
-STDIN[queens]="";                ARGS[queens]="-n10";     DEPS[queens]="options.icn post.icn"
-STDIN[rsg]="$C/rsg.dat";         ARGS[rsg]="";            DEPS[rsg]="options.icn post.icn"
-STDIN[geddump]="$C/geddump.dat"; ARGS[geddump]="";        DEPS[geddump]=""
+# ⛔⭐ THE KERNELS ARE SELF-CONTAINED SINCE corpus 5a128a38d (2026-09-23): options and shuffle are inlined in every kernel that used
+# them and the post.icn harness left for reference/icon/icont-bench, so there is no link unit, no answer cut and no per-program table
+# typed here. This file staged that harness until 2026-10-07 and so graded every program RED (m3 rc=1, m4 BUILDFAIL: scrip was handed
+# an options.icn that no longer exists) -- an instrument that types a population's settings goes stale the day the population moves.
+# Each kernel carries its own stdin (NAME.in, NAME.stdin, else NAME.dat, else /dev/null), argv (NAME.argv), memory (NAME.heap and
+# NAME.stack, as switches) and oracle knobs (NAME.oracle_env), read through the ONE readers the IcnBench runner reads (CEO-1281, CEO-1353).
 PROGS="${PROGS:-concord deal ipxref queens rsg geddump}"
+C="$WORK/corpus"; mkdir -p "$C"
+cp "$CORPUS_SRC"/*.icn "$C/" 2>/dev/null
+declare -A STDIN ARGS SWS OENVS
+for p in $PROGS; do f="$CORPUS_SRC/$p.icn"; [ -f "$f" ] || refuse "kernel $f is not in the corpus."
+  STDIN[$p]=/dev/null; for x in in stdin dat; do [ -f "$CORPUS_SRC/$p.$x" ] && { STDIN[$p]="$CORPUS_SRC/$p.$x"; break; }; done
+  declare -a AV=(); arc=0; ipl_argv_read "$f" AV || arc=$?; [ "$arc" = 2 ] && refuse "$p.argv is malformed (the reader said why above)."
+  for a in ${AV[@]+"${AV[@]}"}; do case "$a" in *[[:space:]]*) refuse "$p.argv carries an argument with white space, which this board's word-split argv cannot pass byte for byte.";; esac; done
+  ARGS[$p]="${AV[*]:-}"
+  SWS[$p]="$(declared_switches_beside "$f")" || refuse "$p.heap or $p.stack is malformed (the reader said why above)."
+  OENVS[$p]="$(declared_oracle_env_beside "$f")" || refuse "$p.oracle_env is malformed (the reader said why above)."
+done
 
 # ---------- the timing primitive ----------
 # Echoes "<wall_ms> <cpu_ms> <rc>" for ONE run.  CPU is user+sys from /usr/bin/time, which is the only
@@ -116,44 +124,26 @@ time_median() {  # $1 = stdin, $2.. = argv
   sp="$(awk -v l="$lo" -v h="$hi" 'BEGIN{printf "%.0f", (l>0? (h-l)*100/l : 0)}')"
   echo "${mw:-0} ${mc:-0} ${sp:-0} $lastrc"
 }
-# ⛔⭐⭐ THE ANSWER CUT -- WITHOUT THIS THE WHOLE CLASSIC SET GRADES RED FOREVER AND THE REASON IS NOT A
-# DEFECT IN ANY ENGINE (hq_P 2026-09-10, and it is why Lon's "get the classic benchmark set working"
-# needed an instrument before it needed a cure).
-# These programs link `post.icn`, which is a BENCHMARK HARNESS, not a library: `Init__` prints &version,
-# &host and every &features, then -- unless the environment variable OUTPUT is set -- ASSIGNS 1 TO write
-# AND writes, SUPPRESSING THE PROGRAM'S ENTIRE ANSWER; `Term__` restores output and prints the elapsed
-# time, the region sizes, the storage sizes and the collection counts.
-# ⭐ SO THE DEFAULT STDOUT OF EVERY PROGRAM IN THIS SET IS PURE ENVIRONMENT AND TIMING WITH THE ANSWER
-# DELIBERATELY REMOVED, and a byte-compare against an iconx cut can only ever fail: the version banner
-# differs by construction, the elapsed time differs by construction, and the GC statistics differ by
-# construction.  That is also what the vendored .std files are -- dumps of that report, which is why this
-# tree's older runner header calls them "NOT diffable oracles".
-# ✅ THE CUT: run with OUTPUT=1 and keep only the lines strictly BETWEEN the two markers the harness
-# itself prints -- `*** Benchmarking with output ***` (Init__'s last line) and ` elapsed time = `
-# (Term__'s first).  Those lines are the program's own answer and nothing else.  MEASURED: queens -n10
-# grades RED by raw compare and its 16,653 answer lines are BYTE-IDENTICAL to iconx once cut.
-# ⛔ TIMING IS RUN WITHOUT OUTPUT -- the suite's own convention, output suppressed -- so the timed arm
-# measures computation and not terminal I/O.  The two arms therefore run the program twice, on purpose.
-answer_cut() { awk '/^\*\*\* Benchmarking with output \*\*\*$/{on=1;next} / elapsed time = /{on=0} on' "$1"; }
+# ⛔ TIMING IS RUN WITHOUT OUTPUT TO A TERMINAL -- stdout goes to a file -- so the timed arm measures computation and the
+# answer is graded on a separate run; the two arms therefore run the program twice, on purpose.
 
 # ---------- per-engine builders: each echoes a runnable argv, or nothing ----------
 build_iconx() { ( cd "$C" && "$ICONT" -s -o "$WORK/$1.icx" "$1.icn" ) >/dev/null 2>&1 && echo "$ICONX $WORK/$1.icx"; }
 build_jcont() { [ "$HAVE_JCON" = "1" ] || return 0
-  local deps="${DEPS[$1]:-}"
-  ( cd "$C" && bash "$JCONT" -s -o "$WORK/$1.jxe" "$1.icn" $deps ) >/dev/null 2>&1 && [ -x "$WORK/$1.jxe" ] && echo "$WORK/$1.jxe"; }
-build_m4()    { local deps="${DEPS[$1]:-}"
-  ( cd "$C" && "$SCRIP_BIN" --compile --target=x86 "$1.icn" $deps > "$WORK/$1.s" ) 2>"$WORK/$1.m4c.err"
+  ( cd "$C" && bash "$JCONT" -s -o "$WORK/$1.jxe" "$1.icn" ) >/dev/null 2>&1 && [ -x "$WORK/$1.jxe" ] && echo "$WORK/$1.jxe"; }
+build_m4()    {
+  ( cd "$C" && "$SCRIP_BIN" --compile --target=x86 "$1.icn" > "$WORK/$1.s" ) 2>"$WORK/$1.m4c.err"
   [ -s "$WORK/$1.s" ] || return 0
-  gcc -no-pie "$WORK/$1.s" -L"$RTDIR" -lscrip_rt -Wl,-rpath,"$RTDIR" -lm -lpthread -o "$WORK/$1.bin" 2>"$WORK/$1.m4l.err" || return 0
-  echo "$WORK/$1.bin"; }
+  gcc "$WORK/$1.s" -L"$RTDIR" -lscrip_rt -Wl,-rpath,"$RTDIR" -lm -lpthread -o "$WORK/$1.bin" 2>"$WORK/$1.m4l.err" || return 0
+  echo "$WORK/$1.bin${SWS[$1]:+ ${SWS[$1]}}"; }
 # ⛔ m3 COMPILES ON EVERY RUN BY CONSTRUCTION -- it is `scrip --run`, so its total carries the compile
 # where m4's does not.  That is a real difference between the modes, not an instrument artefact, and it
 # is why the m3 column is labelled compile+run and may not be read as m4's rival.
-m3_argv() { local deps="${DEPS[$1]:-}"; echo "$SCRIP_BIN --run $C/$1.icn ${deps:+$(for d in $deps; do echo -n "$C/$d "; done)}"; }
+m3_argv() { echo "$SCRIP_BIN${SWS[$1]:+ ${SWS[$1]}} --run $C/$1.icn"; }
 
 # ---------- OVERHEAD: the empty-program constant, per engine, same protocol ----------
 printf 'procedure main()\nend\n' > "$C/zz_empty.icn"
-STDIN[zz_empty]=""; ARGS[zz_empty]=""; DEPS[zz_empty]=""
+STDIN[zz_empty]=/dev/null; ARGS[zz_empty]=""; SWS[zz_empty]=""; OENVS[zz_empty]=""
 declare -A OVW OVC
 for eng in iconx jcont m3 m4; do OVW[$eng]="" ; OVC[$eng]=""; done
 ov_probe() {  # $1 = engine
@@ -180,10 +170,9 @@ echo "     basis = two-number; OVERHEAD is the empty-program constant per engine
 echo "     RT_OPT=-O0 · oracle = $ICONX · rival = ${JCONT:-<absent>} · corpus $CTREE · one box, one sitting"
 echo "     load at start = $(perf_load_stamp)  ⛔ CEO-743: a wall-clock multiple is NOT comparable across loads --"
 echo "        one unchanged binary read 0.549x at load 6.96 and 0.384x at load 29.84, so load does not cancel out of a ratio."
-echo "     ⛔ CORRECTNESS is graded on the ANSWER CUT (OUTPUT=1, the lines between post.icn's own two markers),"
-echo "        never on raw stdout: post.icn SUPPRESSES the answer unless OUTPUT is set and prints &version,"
-echo "        &features, elapsed time and GC statistics instead -- a raw compare grades RED by construction."
-echo "     ⛔ TIMING runs WITHOUT OUTPUT, the suite's own convention, so it measures computation not terminal I/O."
+echo "     ⛔ CORRECTNESS is the program's whole stdout against an iconx run taken AT RUN TIME, and that run against the kernel's"
+echo "        own .ref (REF DRIFT refuses the row); stdin, argv, heap and stack are the kernel's own sidecars (CEO-1281, CEO-1353)."
+echo "     ⛔ TIMING runs with stdout to a file, never a terminal, so it measures computation not terminal I/O."
 echo "     ⛔ RESOLUTION: /usr/bin/time reports wall to ${TICK_MS} ms. A multiple whose arms are under $QUANT_TICKS ticks"
 echo "        (${qf:-$((TICK_MS*QUANT_TICKS))} ms) is printed with a QNT: prefix -- the figure is real, the precision it"
 echo "        LOOKS like is not. Off this floor by a bigger input or a self-timed hook, never by a tighter format."
@@ -210,54 +199,44 @@ fi
 
 RC=0; N=0
 for p in $PROGS; do
-  sin="${STDIN[$p]:-}"; av_args="${ARGS[$p]:-}"
-  # ---- the oracle cut, AT RUN TIME (never a vendored .std: those are icont self-benchmark dumps) ----
+  sin="${STDIN[$p]}"; av_args="${ARGS[$p]}"
+  # ⛔ m4's declared switches lead the binary's arguments, so a -- ends them before the kernel's own argv (Lon's CEO-1261 convention);
+  # m3 takes the kernel's argv after -- always.  The oracle gets NAME.oracle_env and none of SCRIP's switches.
+  m4_args="$av_args"; [ -n "${SWS[$p]}" ] && [ -n "$av_args" ] && m4_args="-- $av_args"
+  # ---- the oracle, AT RUN TIME, checked against the kernel's own .ref ----
   ix_av="$(build_iconx "$p")"
   if [ -z "$ix_av" ]; then printf '%-9s %-7s  ORACLE-COMPILE-FAILED -- no ground truth, nothing graded\n' "$p" "UNPROVEN"; RC=1; continue; fi
-  if [ -n "$sin" ]; then OUTPUT=1 timeout "$RUN_TMO" $ix_av $av_args >"$WORK/$p.oracle.raw" 2>"$WORK/$p.oracle.err" <"$sin"
-  else OUTPUT=1 timeout "$RUN_TMO" $ix_av $av_args >"$WORK/$p.oracle.raw" 2>"$WORK/$p.oracle.err" </dev/null; fi
+  [ -n "${OENVS[$p]}" ] && ix_av="env ${OENVS[$p]} $ix_av"
+  timeout "$RUN_TMO" $ix_av $av_args >"$WORK/$p.oracle.out" 2>"$WORK/$p.oracle.err" <"$sin"
   orc=$?
-  # ⭐ WHICH GRADING MODE THIS PROGRAM GETS IS DECIDED BY THE ORACLE'S OWN OUTPUT, NOT BY A LIST.
-  # Five of the six link post.icn and carry its markers; geddump comes from jcon's bmark, links nothing,
-  # and its stdout IS its answer.  ⛔ The decision is made on the ORACLE's raw text and PRINTED per row,
-  # because a silent fallback is the whole trap: an absent marker would make the cut empty, two empty
-  # files compare equal, and every engine would PASS a program nobody ran.
-  if grep -q '^\*\*\* Benchmarking with output \*\*\*$' "$WORK/$p.oracle.raw" 2>/dev/null; then
-    cutmode=CUT; answer_cut "$WORK/$p.oracle.raw" > "$WORK/$p.oracle.out"
-  else
-    cutmode=RAW; cp "$WORK/$p.oracle.raw" "$WORK/$p.oracle.out"
-  fi
-  if [ "$orc" = "0" ] && [ ! -s "$WORK/$p.oracle.out" ]; then
-    printf '%-9s %-7s  ORACLE-ANSWER-EMPTY (mode=%s) -- nothing to grade; a green here would be two empty files agreeing\n' "$p" "UNPROVEN" "$cutmode"; RC=1; continue
-  fi
   if [ "$orc" != "0" ]; then printf '%-9s %-7s  ORACLE-RAN-RED rc=%s -- no ground truth, nothing graded\n' "$p" "UNPROVEN" "$orc"; RC=1; continue; fi
-  # ---- build the other engines and grade each against that cut ----
+  if [ ! -s "$WORK/$p.oracle.out" ]; then
+    printf '%-9s %-7s  ORACLE-ANSWER-EMPTY -- nothing to grade; a green here would be two empty files agreeing\n' "$p" "UNPROVEN"; RC=1; continue
+  fi
+  if ! cmp -s "$WORK/$p.oracle.out" "$CORPUS_SRC/$p.ref"; then
+    printf '%-9s %-7s  REF DRIFT -- the oracle run under the kernel'"'"'s own sidecars does not print %s.ref\n' "$p" "UNPROVEN" "$p"; RC=1; continue
+  fi
+  # ---- build the other engines and grade each against the oracle ----
   jc_av="$(build_jcont "$p")"; m4_av="$(build_m4 "$p")"; m3_av="$(m3_argv "$p")"
   declare -A OUTOK
   for eng in jcont m3 m4; do
     case "$eng" in jcont) av="$jc_av";; m3) av="$m3_av";; m4) av="$m4_av";; esac
     OUTOK[$eng]="-"
     [ -n "$av" ] || { OUTOK[$eng]="BUILDFAIL"; continue; }
-    # ⛔ m3 takes the program's own args after `--`; the others take them bare.
-    if [ "$eng" = m3 ]; then run_av="$av -- $av_args"; else run_av="$av $av_args"; fi
-    if [ -n "$sin" ]; then OUTPUT=1 timeout "$RUN_TMO" $run_av >"$WORK/$p.$eng.raw" 2>"$WORK/$p.$eng.err" <"$sin"
-    else OUTPUT=1 timeout "$RUN_TMO" $run_av >"$WORK/$p.$eng.raw" 2>"$WORK/$p.$eng.err" </dev/null; fi
+    case "$eng" in m3) run_av="$av -- $av_args";; m4) run_av="$av $m4_args";; *) run_av="$av $av_args";; esac
+    timeout "$RUN_TMO" $run_av >"$WORK/$p.$eng.out" 2>"$WORK/$p.$eng.err" <"$sin"
     erc=$?
-    if [ "$cutmode" = CUT ]; then answer_cut "$WORK/$p.$eng.raw" > "$WORK/$p.$eng.out"
-    else cp "$WORK/$p.$eng.raw" "$WORK/$p.$eng.out"; fi
     if [ "$erc" != "0" ]; then OUTOK[$eng]="rc=$erc"
-    elif [ ! -s "$WORK/$p.$eng.out" ]; then OUTOK[$eng]="EMPTY-CUT"
     elif cmp -s "$WORK/$p.$eng.out" "$WORK/$p.oracle.out"; then OUTOK[$eng]="PASS"
     else OUTOK[$eng]="DIFF"; fi
   done
   verdict="PASS"; { [ "${OUTOK[m3]}" = PASS ] && [ "${OUTOK[m4]}" = PASS ]; } || { verdict="RED"; RC=1; }
-  verdict="$verdict/$cutmode"
   # ---- timing, only on arms that answered correctly (a wrong answer is never a fast answer) ----
   ixr="$(time_median "$sin" $ix_av $av_args)"
   ix_w="$(echo "$ixr"|awk '{print $1}')"; ix_c="$(echo "$ixr"|awk '{print $2}')"; ix_s="$(echo "$ixr"|awk '{print $3}')"
   jc_w=NA; jc_c=NA; jc_s="-"; if [ "${OUTOK[jcont]}" = PASS ]; then r="$(time_median "$sin" $jc_av $av_args)"; jc_w="$(echo "$r"|awk '{print $1}')"; jc_c="$(echo "$r"|awk '{print $2}')"; jc_s="$(echo "$r"|awk '{print $3}')"; fi
   m3_w=NA; m3_c=NA; m3_s="-"; if [ "${OUTOK[m3]}"    = PASS ]; then r="$(time_median "$sin" $m3_av -- $av_args)"; m3_w="$(echo "$r"|awk '{print $1}')"; m3_c="$(echo "$r"|awk '{print $2}')"; m3_s="$(echo "$r"|awk '{print $3}')"; fi
-  m4_w=NA; m4_c=NA; m4_s="-"; if [ "${OUTOK[m4]}"    = PASS ]; then r="$(time_median "$sin" $m4_av $av_args)"; m4_w="$(echo "$r"|awk '{print $1}')"; m4_c="$(echo "$r"|awk '{print $2}')"; m4_s="$(echo "$r"|awk '{print $3}')"; fi
+  m4_w=NA; m4_c=NA; m4_s="-"; if [ "${OUTOK[m4]}"    = PASS ]; then r="$(time_median "$sin" $m4_av $m4_args)"; m4_w="$(echo "$r"|awk '{print $1}')"; m4_c="$(echo "$r"|awk '{print $2}')"; m4_s="$(echo "$r"|awk '{print $3}')"; fi
   # ---- the two-number basis and the CEO-173 refusal, per arm, on WALL ----
   work() { local t="$1" o="$2"; case "$t" in NA|''|*[!0-9]*) echo ""; return;; esac; case "$o" in ''|*[!0-9]*) echo ""; return;; esac; echo $((t - o)); }
   ixw="$(work "$ix_w" "${OVW[iconx]:-}")"; jcw="$(work "$jc_w" "${OVW[jcont]:-}")"; m4w="$(work "$m4_w" "${OVW[m4]:-}")"
@@ -284,7 +263,7 @@ for p in $PROGS; do
       mj="${quant}TOTAL:$(perf_mult "$jc_w" "$m4_w")"
     else mj="$quant$(perf_mult "$jcw" "$m4w")"; fi
   elif [ "${OUTOK[jcont]}" != PASS ]; then mj="(jcont ${OUTOK[jcont]})"; fi
-  case "$verdict" in PASS/*) ;; *) mx="(m3 ${OUTOK[m3]} m4 ${OUTOK[m4]})"; mj="-";; esac
+  case "$verdict" in PASS) ;; *) mx="(m3 ${OUTOK[m3]} m4 ${OUTOK[m4]})"; mj="-";; esac
   printf '%-9s %-7s %10s %10s %8s %10s %10s %8s %10s %10s %8s %10s %10s %8s %8s %14s %14s\n' \
     "$p" "$verdict" "$ix_w" "$ix_c" "$ix_s" "$jc_w" "$jc_c" "$jc_s" "$m3_w" "$m3_c" "$m3_s" "$m4_w" "$m4_c" "$m4_s" "$basis" "$mx" "$mj"
   [ -z "$TSV_OUT" ] || printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
