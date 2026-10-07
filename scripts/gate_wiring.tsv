@@ -471,6 +471,7 @@ test_gate_pas_a_tag_allocated_variable_is_not_accessed_as_a_whole_variable.sh	WI
 test_gate_pas_a_text_parameter_is_the_file_its_actual_names.sh	WIRED	-	-	-
 test_gate_pas_a_two_dimensional_array_indexes_the_same_both_ways.sh	WIRED	-	-	-
 test_gate_pas_a_type_definition_never_applies_its_own_identifier.sh	WIRED	-	-	-
+test_gate_pas_a_typed_file_var_formal_is_the_callers_file.sh	WIRED	-	-	-
 test_gate_pas_a_value_formal_parameter_is_not_of_a_file_type_nor_holds_one.sh	WIRED	-	-	-
 test_gate_pas_a_var_actual_has_the_type_of_its_formal.sh	WIRED	-	-	-
 test_gate_pas_a_variable_is_defined_once_per_variable_declaration_part.sh	WIRED	-	-	-
@@ -646,6 +647,7 @@ test_gate_pl_the_query_neck_reads_as_an_atom_and_a_prefix_operator.sh	WIRED	-	-	
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
 test_gate_pl_two_variables_compare_one_way_only.sh	WIRED	-	-	-
 test_gate_pl_wall_us_arity1.sh	WIRED	-	-	-
+test_gate_pl_wildcard_match_answers_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_write_1_never_silently_drops_a_term_shape.sh	WIRED	-	-	-
 test_gate_pl_xfail_marker_consistent.sh	WIRED	-	-	-
 test_gate_postoffice_identity.sh	WIRED	-	-	-
@@ -673,9 +675,9 @@ test_gate_raku_a_tail_call_through_a_builtin_is_entered_by_the_box.sh	WIRED	-	-	
 test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
 test_gate_raku_an_array_subscript_slices_by_an_array_of_indexes_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_raku_an_exception_is_a_value_that_die_carries_and_catch_and_throws_like_read.sh	WIRED	-	-	-
+test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
 test_gate_raku_builtin_gaps_and_is_run_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_eval_compiles_a_string_in_process_in_both_modes.sh	WIRED	-	-	-
-test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
 test_gate_raku_gather_and_take_collect_what_the_body_takes_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_map_keeps_each_result_as_an_item_and_a_brace_of_pairs_using_the_topic_is_a_block.sh	WIRED	-	-	-
 test_gate_raku_match_is_a_typed_value_as_rakudo_has_it.sh	WIRED	-	-	-
@@ -1136,4 +1138,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pas_a_typed_file_var_formal_is_the_callers_file.sh	WIRED	-	-	-
