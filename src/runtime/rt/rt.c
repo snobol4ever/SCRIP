@@ -1210,6 +1210,16 @@ DESCR_t rt_call_land_ω(long word)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_call_open_by_name(const char *name, int nargs) { return rt_call_open_by_name_p(rt_proc_find(name), name, nargs); }
+int rt_call_open_tail(const char *name, int nargs, long *rq)
+{
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p || !p->dyn_scope) return 0;
+    { rt_call_next_t n = rt_call_open_by_name_p(p, name, nargs); rq[0] = n.fn; rq[1] = n.how;
+#if RT_DIAG
+      if (n.fn) rt_c2bb_hit("callee.open", name);
+#endif
+      return 1; }
+}
 rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) { rt_proc_t *p = rt_proc_find(name); *registered = p ? 1 : 0; return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 }; }
 static int rt_eval_stage_is_var(const char *name) { return name && name[0] == 'E' && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
 void rt_eval_stage_enter(const char *name) { if (g_error == 0 && !rt_eval_stage_is_var(name)) g_error = G_ERROR_EVAL_STAGE; }

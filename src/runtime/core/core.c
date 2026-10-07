@@ -4554,17 +4554,18 @@ void core_undefined_call_error(const char *name)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
+static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     extern int rt_proc_is_registered(const char *); extern gv_t g_call_args; extern void rt_call_args_need(int); extern void rt_call_args_clear_from(int); extern DESCR_t rt_call_proc_descr(const char *, int);
     if (!rt_proc_is_registered(name)) return 0;
     rt_call_args_need(nargs);
     for (int k = 0; k < nargs; k++) ((DESCR_t *)g_call_args.p)[k] = args[k];
     rt_call_args_clear_from(nargs);
+    if (rq) { extern int rt_call_open_tail(const char *, int, long *); if (rt_call_open_tail(name, nargs, rq)) { *out = FAILDESCR; return 1; } }
     *out = RT_GC_CALLBACK(rt_call_proc_descr(name, nargs));
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
+static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *rq) {
     if (!name) return NULVCL;
     unsigned h = _func_hash(name);
     for (FNCBLK_t *e = _func_head_at(h); e; e = e->next) {
@@ -4582,12 +4583,12 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
                 }
                 return e->fn(args, nargs);
             }
-            { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr)) return pr; }
+            { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr, rq)) return pr; }
             if (g_user_call_hook) return g_user_call_hook(name, args, nargs);
             return NULVCL;
         }
     }
-    { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr)) return pr; }
+    { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr, rq)) return pr; }
     if (g_user_call_hook) {
         DESCR_t r = g_user_call_hook(name, args, nargs);
         if (!IS_FAIL_fn(r)) return r;
@@ -4606,13 +4607,16 @@ int core_fn_is_c(const char *name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) {
-    extern long g_stno, g_line, g_lastno, g_lastline;
+DESCR_t APPLY_fn_rq(const char *name, DESCR_t *args, int nargs, long *rq) {
+    extern long g_stno, g_line, g_lastno, g_lastline; extern void rt_lvl_stno_stash(long, long);
     long sv_stno = g_stno, sv_line = g_line;
-    DESCR_t r = apply_fn_body(name, args, nargs);
+    DESCR_t r = apply_fn_body(name, args, nargs, rq);
+    if (rq && rq[0]) { rt_lvl_stno_stash(sv_stno, sv_line); return r; }
     if (g_stno != sv_stno || g_line != sv_line) { g_lastno = g_stno; g_lastline = g_line; g_stno = sv_stno; g_line = sv_line; }
     return r;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs) { return APPLY_fn_rq(name, args, nargs, (long *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ARG_(DESCR_t *a, int n) {
     if (n < 2) return FAILDESCR;

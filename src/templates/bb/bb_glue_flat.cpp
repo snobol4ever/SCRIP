@@ -7,6 +7,11 @@ extern "C" {
 extern int * const rt_k_level_p;
 extern long rt_stno_stack[];
 extern int g_core_errjmp_n;
+#include "dtp.h"
+typedef struct { long fn; long how; } rt_call_next_t;
+extern rt_call_next_t rt_call_callee_try_sn4(DESCR_t * args, int nargs, sno_callee_rec_t * r, DESCR_t * out);
+extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word);
+extern DESCR_t rt_apply_land_ω(long word);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -196,6 +201,23 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + land_γ(0L)
          + x86_deflabel_id(base + 102)
          + land_ω(0L);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
+    return  x86("call", "rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4)
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", val_id)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + bb_glue_enter_c2bb(base, base + 5, base + 6)
+         + x86_deflabel_id(base + 5)
+         + x86("call", "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ)
+         + x86_rt_gc_poll_rec_res()
+         + x86_jmp_id(join_id)
+         + x86_deflabel_id(base + 6)
+         + x86("call", "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω)
+         + x86_rt_gc_poll_rec_res()
+         + x86_jmp_id(join_id)
+         + x86_deflabel_id(val_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {

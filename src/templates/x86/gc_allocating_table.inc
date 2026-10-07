@@ -1,12 +1,13 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2103
+#define GC_ALLOC_TAB_N 2108
 #define GC_ALLOC_TAB_N_VOID 245
-#define GC_ALLOC_TAB_N_DESCR 1108
-#define GC_ALLOC_TAB_N_OTHER 744
+#define GC_ALLOC_TAB_N_DESCR 1111
+#define GC_ALLOC_TAB_N_OTHER 746
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
+    { "APPLY_fn_rq", GC_RET_DESCR },
     { "ASGNIC_fn", GC_RET_OTHER },
     { "BCHAR_fn", GC_RET_DESCR },
     { "CONVE_fn", GC_RET_DESCR },
@@ -1127,6 +1128,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_arr_bl", GC_RET_DESCR },
     { "rt_call_arr_bl_s", GC_RET_DESCR },
     { "rt_call_arr_bl_sn4", GC_RET_DESCR },
+    { "rt_call_arr_bl_sn4_rq", GC_RET_DESCR },
     { "rt_call_arr_bl_strict", GC_RET_DESCR },
     { "rt_call_arr_gen", GC_RET_DESCR },
     { "rt_call_arr_gen_s", GC_RET_DESCR },
@@ -1135,16 +1137,19 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_arr_strict", GC_RET_DESCR },
     { "rt_call_bid_sn4", GC_RET_DESCR },
     { "rt_call_callee_sn4", GC_RET_DESCR },
+    { "rt_call_callee_try_sn4", GC_RET_OTHER },
     { "rt_call_fld_sn4", GC_RET_DESCR },
     { "rt_call_land_γ", GC_RET_DESCR },
     { "rt_call_land_ω", GC_RET_DESCR },
     { "rt_call_name_sn4", GC_RET_DESCR },
+    { "rt_call_name_sn4_rq", GC_RET_DESCR },
     { "rt_call_named_proc", GC_RET_DESCR },
     { "rt_call_open_by_name", GC_RET_OTHER },
     { "rt_call_open_by_name_p", GC_RET_OTHER },
     { "rt_call_open_found", GC_RET_OTHER },
     { "rt_call_open_staged", GC_RET_OTHER },
     { "rt_call_open_staged_rec", GC_RET_OTHER },
+    { "rt_call_open_tail", GC_RET_OTHER },
     { "rt_call_proc_descr", GC_RET_DESCR },
     { "rt_call_proc_descr_p", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },

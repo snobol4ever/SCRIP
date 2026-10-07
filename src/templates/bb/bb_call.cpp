@@ -466,8 +466,15 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             else          s += x86("xor", "edi", "edi");
             s += x86("mov32", "esi", (long)narg);
             s += bb_callee_rdx(fn);
+            if (_bk == 2) {
+                s += x86_reg_disp32_lea64("rcx", "rsp", (int)narg * 16);
+                s += bb_glue_callee_try_enter(100, 108, 29);
+                s += x86_rsp_load64("rax", (int)narg * 16) + x86_rsp_load64("rdx", (int)narg * 16 + 8);
+                s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
+            } else {
             s += x86("call", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
             s += x86_rt_gc_poll_res();
+            }
         } else {
         {
             std::string fl = std::string(".L") + x86_boxkind() + "_bynamefnzd" + std::to_string((long long)_.nid);
@@ -519,9 +526,16 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     s += x86("lea", "rdi", FRQ(argbase));
     s += x86("mov32", "esi", (long)narg);
     s += bb_callee_rdx(fn);
+    if (_bk == 2) {
+    s += x86("lea", "rcx", FRQ(resoff));
+    s += bb_glue_callee_try_enter(100, 108, 29);
+    s += x86("mov", "rax", FRQ(resoff)) + x86("mov", "rdx", FRQ(resoff + 8));
+    s += x86_deflabel_id(29);
+    } else {
     s += x86("rtcc_wb");
     s += x86("call_bare", bb_callee_baked_sym(_bk), bb_callee_baked_fp(_bk));
     s += x86("rtcc_rl");
+    }
     s += x86("mov", FRQ(resoff), "rax");
     s += x86("mov", FRQ(resoff + 8), "rdx");
     if (scansync) s += x86_scan_sync_in_rr_force();

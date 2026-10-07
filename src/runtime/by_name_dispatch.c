@@ -6695,13 +6695,13 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     return 0;
 }
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4, long *rq);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4);
-DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 0, 0)); }
-DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0)); }
-DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0)); }
-DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0)); }
+static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4, long *rq);
+DESCR_t rt_call_arr(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 0, 0, (long *)0)); }
+DESCR_t rt_call_arr_strict(const char *fn, DESCR_t *args, int nargs) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, 1, 0, (long *)0)); }
+DESCR_t rt_call_arr_bl(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, (long *)0)); }
+DESCR_t rt_call_arr_bl_strict(const char *fn, DESCR_t *args, int nargs, int bidlen) { return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 1, 0, (long *)0)); }
 #define RT_CTOR_IC_N 256
 static struct { const char *fn; void *dt; long gen; } g_ctor_ic[RT_CTOR_IC_N];
 static long rt_ctor_gen(void) { extern int g_rt_gen_proc_count; extern int dat_type_gen(void); extern unsigned rt_dtax_gen; return (long)g_rt_gen_proc_count + (long)g_stage2.proc_count * 65536L + (long)dat_type_gen() * 4294967296L + (long)rt_dtax_gen * 1099511627776L; }
@@ -6712,13 +6712,14 @@ static inline int rt_ctor_ic_find(const char *fn, long gen) __attribute__((alway
 static inline int rt_ctor_ic_find(const char *fn, long gen) { unsigned h = rt_ctor_ic_h(fn); if (g_ctor_ic[h].fn == fn && g_ctor_ic[h].gen == gen) return (int)h; h ^= 1u; if (g_ctor_ic[h].fn == fn && g_ctor_ic[h].gen == gen) return (int)h; return -1; }
 static void rt_ctor_ic_note(const char *fn, void *dt) { const char *site = g_ctor_ic_site; if (!site || (site != fn && strcmp(site, fn) != 0)) return; { unsigned h = rt_ctor_ic_h(site); if (g_ctor_ic[h].fn != site && g_ctor_ic[h].fn && (!g_ctor_ic[h ^ 1u].fn || g_ctor_ic[h ^ 1u].fn == site)) h ^= 1u; g_ctor_ic[h].fn = site; g_ctor_ic[h].dt = dt; g_ctor_ic[h].gen = rt_ctor_gen(); } }
 _Static_assert((RT_CTOR_IC_N & (RT_CTOR_IC_N - 1)) == 0, "THE RECORD-CONSTRUCTOR INLINE CACHE (ceo 2026-09-25, CEO-1258): a call site whose name the full by-name path resolved to a DATA type and constructed positionally is remembered by its name pointer under a generation that moves whenever a procedure, a type, an EVAL'd procedure or the dtax cache changes, so the next call at that site constructs directly -- the same dat_construct, the same TWEAK hook, without the 5,000 instructions of checks that precede the positional arm");
-DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+static DESCR_t rt_call_arr_bl_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq) {
     extern long g_error; extern int64_t kw_errlimit;
     if (g_error == 0 && kw_errlimit == 0 && fn) { int h = rt_ctor_ic_find(fn, rt_ctor_gen());
       if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt;
         if (nargs <= _udt->nfields) return dat_construct(_udt, args, nargs); } }
-    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1)); g_ctor_ic_site = outer; return r; }
+    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 1, rq)); g_ctor_ic_site = outer; return r; }
 }
+DESCR_t rt_call_arr_bl_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, (long *)0); }
 #define RT_FIELD_IC_N 256
 static struct { const char *fn; const DATBLK_t *type; int idx; } g_field_ic[RT_FIELD_IC_N];
 _Static_assert((RT_FIELD_IC_N & (RT_FIELD_IC_N - 1)) == 0, "THE FIELD-ACCESSOR INLINE CACHE (ceo 2026-09-25, CEO-1258): a call site's field name pointer and the instance's type pointer key a direct-mapped slot holding the field index; a hit is confirmed by strcmp against the type's own field name, so a reused string address can never answer with another field's index, and the value is the instance's own cell, exactly what dat_field_get returns");
@@ -6751,6 +6752,17 @@ DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
     }
     return rt_call_name_sn4(r->name, args, nargs, -1);
 }
+static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq);
+rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r, DESCR_t *out)
+{
+    extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
+    long rq[2] = { 0, 0 };
+    if (r->ctor && r->cgen == rt_ctor_gen() && nargs <= ((DatType *)r->ctor)->nfields && !(nargs == 1 && IS_DATA_INST_fn(args[0]))) { *out = dat_construct((DatType *)r->ctor, args, nargs); return (rt_call_next_t){ 0, 0 }; }
+    { DESCR_t v = rt_call_name_sn4_rq(r->name, args, nargs, -1, rq); int h = rt_ctor_ic_find(r->name, rt_ctor_gen());
+      if (h >= 0) { r->ctor = g_ctor_ic[h].dt; r->cgen = g_ctor_ic[h].gen; }
+      if (!rq[0]) *out = v;
+      return (rt_call_next_t){ rq[0], rq[1] }; }
+}
 DESCR_t rt_call_callee_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
 {
     extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
@@ -6760,7 +6772,8 @@ DESCR_t rt_call_callee_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r)
       return v; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
+DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) { return rt_call_name_sn4_rq(fn, args, nargs, bidlen, (long *)0); }
+static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq) {
     if (nargs == 1 && fn && IS_DATA_INST_fn(args[0]) && args[0].u && args[0].u->type) {
         DATBLK_t *idb = args[0].u->type; int fi = rt_field_index_cached_i(fn, idb);
         if (fi >= 0 && args[0].u->fields) {
@@ -6771,7 +6784,7 @@ DESCR_t rt_call_name_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
     if (fn) { int h = rt_ctor_ic_find(fn, rt_ctor_gen());
       if (h >= 0) { extern DESCR_t dat_construct(DatType *, DESCR_t *, int); DatType *_udt = (DatType *)g_ctor_ic[h].dt;
         if (nargs <= _udt->nfields) return dat_construct(_udt, args, nargs); } }
-    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_sn4(fn, args, nargs, bidlen)); g_ctor_ic_site = outer; return r; }
+    { const char *outer = g_ctor_ic_site; DESCR_t r; g_ctor_ic_site = fn; r = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); g_ctor_ic_site = outer; return r; }
 }
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen);
 DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) {
@@ -6782,7 +6795,7 @@ DESCR_t c_rt_call_bid_sn4(const char *fn, DESCR_t *args, int nargs, int bidlen) 
     return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
+static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4, long *rq) {
     extern int g_core_errjmp_n;
 #if RT_DIAG
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
@@ -6791,7 +6804,7 @@ static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bi
     int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
     if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_bi_reset(bimark); core_unwind_pending(); return FAILDESCR; }
     core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
-    DESCR_t r = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4));
+    DESCR_t r = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4, rq));
     core_errjmp_pop(&ej, my);
     return r;
 }
@@ -6810,7 +6823,8 @@ static int sn4_call_in_scope(const char *fn) {
     for (int c = 0; c < dat_type_count(); c++) { if (!dat_type_live(c)) continue; const char *tn = dat_type_name(c); if (tn && !strcmp(tn, fn)) return 1; }
     return 0;
 }
-static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4) {
+static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bidlen, int strict, int sn4, long *rq) {
+    extern DESCR_t APPLY_fn_rq(const char *, DESCR_t *, int, long *);
     DESCR_t out = FAILDESCR;
 #if RT_DIAG
     { static long _cac = -1; if (_cac == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _cac = (ev && *ev && *ev != '0') ? 0 : -2; } if (_cac >= 0) { extern int g_core_errjmp_n; _cac++; fprintf(stderr, "[CAC] %ld fn='%s' nargs=%d errjmp_n=%d\n", _cac, fn ? fn : "(null)", nargs, g_core_errjmp_n); fflush(stderr); } }
@@ -6868,7 +6882,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
           for (int fi = 0; fi < idb->nfields; fi++) if (idb->fields[fi] && idb->fields[fi][0] == _f0 && !strcmp(idb->fields[fi], fn)) return dat_field_get(fn, args[0]);
       }
       { extern int rt_proc_is_registered(const char *);
-        if (sn4 && !sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); return out; } }
+        if (sn4 && !sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn_rq(fn, args, nargs, rq)); return out; } }
       if (sn4 && !sysfn && !sn4_call_in_scope(fn)) { if (sn4_name_is_identifier(fn)) core_runtime_error(22, "undefined function called"); else core_runtime_error(29, "undefined operator referenced"); return FAILDESCR; }
       { extern int FNCEX_fn(const char *); extern int rt_dat_field_of_any(const char *);
         if (sn4 && !sysfn && FNCEX_fn(fn) && icn_builtin_is_known(fn) && !rt_dat_field_of_any(fn) && !dat_find_type(fn))
@@ -6876,12 +6890,12 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
     { icn_bi_rec_t bi; core_icn_bi_push(&bi, fn, args, nargs);
       if (core_icn_builtin_argcheck(fn, args, nargs, strict)) { core_icn_bi_pop(&bi); return FAILDESCR; }
       int hit = try_call_builtin_by_name_bl_s(fn, args, nargs, &out, bidlen, strict); core_icn_bi_pop(&bi); if (hit) return out; }
-    if (sn4) { extern int core_fn_arity_norm(const char *, int); int na = core_fn_arity_norm(fn, nargs); if (na != nargs) { DESCR_t pad[na > 0 ? na : 1]; for (int k = 0; k < na; k++) pad[k] = k < nargs ? args[k] : NULVCL; return RT_GC_CALLBACK(rt_call_arr_impl(fn, pad, na, bidlen, strict, sn4)); } }
+    if (sn4) { extern int core_fn_arity_norm(const char *, int); int na = core_fn_arity_norm(fn, nargs); if (na != nargs) { DESCR_t pad[na > 0 ? na : 1]; for (int k = 0; k < na; k++) pad[k] = k < nargs ? args[k] : NULVCL; return RT_GC_CALLBACK(rt_call_arr_impl(fn, pad, na, bidlen, strict, sn4, rq)); } }
     if (strict && !rt_proc_name_exists(fn) && !icn_builtin_is_known(fn) && icn_builtin_arity(fn) == ICN_ARITY_UNKNOWN) {
         DESCR_t cal = NV_GET_fn(fn);
         if (!IS_PROCVAL_fn(cal)) { core_icn_op_ctx(fn, 1, cal, cal); core_icn_error(106, cal); core_icn_op_ctx_clear(); return FAILDESCR; }
     }
-    out = RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
+    out = RT_GC_CALLBACK(APPLY_fn_rq(fn, args, nargs, rq));
     return out;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -6900,7 +6914,7 @@ static DESCR_t rt_call_arr_gen_s(const char *fn, DESCR_t *args, int nargs, int64
         if (try_call_builtin_by_name_bl_s(fn, a4, 4, &out, -1, strict) && !IS_FAIL_fn(out)) { *resume = (int)out.i + 1; return out; }
         return FAILDESCR;
     }
-    return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, strict, 0));
+    return RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, -1, strict, 0, (long *)0));
 }
 DESCR_t rt_call_arr_gen(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 0)); }
 DESCR_t rt_call_arr_gen_strict(const char *fn, DESCR_t *args, int nargs, int64_t *resume) { return RT_GC_CALLBACK(rt_call_arr_gen_s(fn, args, nargs, resume, 1)); }
