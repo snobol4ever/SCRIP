@@ -30,6 +30,12 @@
 # it when the cell survives the frame, and LCO is REFUSED when the cell lies inside the dying frame.  Twelve Prolog
 # benchmark kernels (fib, nrev, tak, zebra ...) answered wrong or hung between the two; all twelve agree with base after.
 # RED-BEFORE on the rung-3(d) tree 987a8ea74: r/1 208, vslots=4 (G0 present), rc=1.
+# ⭐ RE-ANCHORED (cto 2026-10-07): the arm read "A0 at +16", the param's place in the callee frame when this rung landed.
+# hq_prolog's block protocol (e95282e39, 2026-10-03: a call crosses no C helper to carve, fill or release its frame) moved
+# every param into the caller-carved argument block above the callee's region -- bisected on the witness: e95282e39^ r/1
+# region_end=208 with A0 at +16, e95282e39 region_end=192 with A0 at +288 -- and this gate read red on origin from then on
+# while the rung's claim held (vslots=3, no G0). The arm now asks what the rung means under that protocol: A0 is a vslot,
+# and it lies at or above region_end, in the argument block, not copied into a local of the callee's frame.
 # ⛔ REFUSES rc=2 when --dump-zeta yields no r/1 graph.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="${S4E_HOME:-$(cd "$HERE/.." && pwd)}"; [ -x "$ROOT/scrip" ] || ROOT="$(cd "$HERE/../.." && pwd)/SCRIP"
@@ -50,7 +56,8 @@ end="$(printf '%s\n' "$line" | sed -n 's/.*region_end=\([0-9]*\).*/\1/p')"; vs="
 echo "r/1 region_end=$end (bar < 200, the row's DONE-WHEN; rung-3(d) tree read 208) vslots=${vs:-absent}"
 [ -n "$end" ] && [ "$end" -lt 200 ] || { echo "  ⛔ r/1 frame is $end bytes, not under the row's 200"; bad=$((bad+1)); }
 [ "${vs:-0}" -eq 3 ] || { echo "  ⛔ r/1 carries ${vs:-absent} vslots, not 3 (A0 + two body locals)"; bad=$((bad+1)); }
-grep -qE '^;   vslot \+16 .* A0$' "$T/r1.dump" || { echo "  ⛔ r/1's param A0 is not at +16"; bad=$((bad+1)); }
+a0="$(sed -n 's/^;   vslot +\([0-9]*\) .* A0$/\1/p' "$T/r1.dump" | head -1)"
+{ [ -n "$a0" ] && [ -n "$end" ] && [ "$a0" -ge "$end" ]; } || { echo "  ⛔ r/1's param A0 is at +${a0:-absent}, not in the caller-carved argument block at or above region_end $end"; bad=$((bad+1)); }
 grep -qE '^;   vslot .* G0$' "$T/r1.dump" && { echo "  ⛔ r/1 still owns a local G0 for its head argument"; bad=$((bad+1)); }
 refs="$(timeout 120s python3 scripts/util_frame_refs_land_in_grants.py "$T/w.pl" 2>/dev/null | grep -E '^; grants TOTAL')"
 echo "$refs"
