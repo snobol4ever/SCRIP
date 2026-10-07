@@ -354,6 +354,7 @@ static tree_t *pas_ord_check(tree_t *v, long long lo, long long hi, const char *
     return e;
 }
 static int pas_is_unsigned_inttypename(const char *n) { if (!n) return 0; static const char *U[] = {"byte","word","cardinal","longword","qword","uint8","uint16","uint32","uint64","nativeuint","pointer","ptruint","codepointer"}; for (size_t i = 0; i < sizeof(U) / sizeof(U[0]); i++) if (!strcmp(n, U[i])) return 1; return 0; }
+static int pas_with_holds_pointee_of(tree_t *ptr);
 static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
@@ -682,6 +683,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return mk_fnc1("__pas_release", args->items[0]);
     }
     if (name && !strcmp(name, "dispose") && args && args->count >= 1) {
+        if (pas_with_holds_pointee_of(args->items[0])) { fprintf(stderr, "pascal: ISO 7185 6.5.4 violation: dispose removes the identifying-value of a variable while a with-statement still references that variable\n"); g_pas_iso_errors++; }
         if (args->count >= 4) { const char *drt = pas_ptrexpr_target(args->items[0]); struct pas_vt *vt = drt ? pas_vt_find_name(drt) : NULL;
             tree_t *tn = ilit(-1); if (vt && vt->tagfi >= 0) { tn = ast_node_new(TT_IDX); ast_push(tn, mk_deref(pas_tree_clone(args->items[0]))); ast_push(tn, ilit(pas_rectype_slot(drt, vt->tagfi))); }
             tree_t *dk = ast_node_new(TT_FNC); ast_push(dk, leaf_s(TT_VAR, "__pas_dispose_k")); ast_push(dk, args->items[0]); ast_push(dk, args->items[2]); ast_push(dk, tn); return dk; }
@@ -1255,6 +1257,8 @@ static const char *pas_case_cur(void) { int d = g_pas_case_depth - 1; if (d < 0)
 static void pas_case_pop(void) { if (g_pas_case_depth > 0) g_pas_case_depth--; }
 #define PAS_WITH_MAX 8
 static struct { tree_t *sel; const char *rtype; } g_with_stk[PAS_WITH_MAX]; static int g_with_depth;
+static int pas_tree_same(tree_t *a, tree_t *b) { if (!a || !b) return a == b; if (a->t != b->t || a->n != b->n) return 0; if (a->t == TT_VAR || a->t == TT_QLIT) { if (!a->v.sval || !b->v.sval || strcmp(a->v.sval, b->v.sval)) return 0; } else if (a->t == TT_ILIT) { if (a->v.ival != b->v.ival) return 0; } for (int i = 0; i < a->n; i++) if (!pas_tree_same(a->c[i], b->c[i])) return 0; return 1; }
+static int pas_with_holds_pointee_of(tree_t *ptr) { for (int i = 0; ptr && i < g_with_depth; i++) { tree_t *w = g_with_stk[i].sel; if (w && w->t == TT_FNC && w->n == 2 && w->c[0] && w->c[0]->v.sval && !strcmp(w->c[0]->v.sval, "__pas_deref") && pas_tree_same(w->c[1], ptr)) return 1; } return 0; }
 static tree_t *pas_tree_clone(tree_t *e) { if (!e) return NULL; tree_t *c = ast_node_new(e->t); c->v = e->v; if (e->t == TT_IDX && e->slen == PAS_FIELD_IDX_MARK) c->slen = e->slen; if ((e->t == TT_VAR || e->t == TT_QLIT) && e->v.sval) c->v.sval = ct_strdup(e->v.sval); for (int i = 0; i < e->n; i++) ast_push(c, pas_tree_clone(e->c[i])); return c; }
 static const char *pas_with_sel_rtype(tree_t *sel) { if (!sel) return NULL; { const char *_er = pas_elem_rectype(sel); if (_er) return _er; } if (sel->t == TT_VAR && sel->v.sval) { for (int i = g_pas_nrecvar - 1; i >= 0; i--) if (g_pas_recvars[i].vname && !strcmp(g_pas_recvars[i].vname, sel->v.sval)) { const char *rt = NULL; for (int j = 0; j < g_pas_nrectype; j++) { int match = 1; if (!g_pas_rectypes[j].tname) continue; if (g_pas_rectypes[j].nf != g_pas_recvars[i].nf) continue; for (int k = 0; k < g_pas_recvars[i].nf; k++) if (!g_pas_recvars[i].fields[k] || !g_pas_rectypes[j].fields[k] || strcmp(g_pas_recvars[i].fields[k], g_pas_rectypes[j].fields[k])) { match = 0; break; } if (match) { rt = g_pas_rectypes[j].tname; break; } } return rt; } } if (sel->t == TT_FNC && sel->n >= 2 && sel->c[0] && sel->c[0]->v.sval && !strcmp(sel->c[0]->v.sval, "__pas_deref")) { const char *ptn = pas_ptrexpr_target(sel->c[1]); return ptn; } if (sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval) { const char *_arn = NULL; if (pas_arrrec_find(sel->c[0]->v.sval, &_arn) > 0 && _arn) return _arn; }
     if (sel->t == TT_IDX && sel->n >= 2 && sel->c[0] && sel->c[0]->t == TT_VAR && sel->c[0]->v.sval && sel->c[1] && sel->c[1]->t == TT_ILIT) {
