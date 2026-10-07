@@ -6012,6 +6012,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             snprintf(w, sizeof w, "%s -- the value %lld is outside %lld..%lld", wn, (long long)args[0].i, (long long)args[1].i, (long long)args[2].i);
             pas_file_err(nargs == 5 ? VARVAL_fn(args[4]) : "6.6.6.4", w, NULL); }
         *out = args[0]; return 1; }
+    if (!strcmp(fn, "__pas_resundef") && nargs == 1) { *out = INTVAL(args[0].v == DT_SNUL ? 1L : 0L); return 1; }
     if (!strcmp(fn, "__pas_rterr") && nargs == 2) { pas_file_err(VARVAL_fn(args[0]), VARVAL_fn(args[1]), NULL); *out = NULVCL; return 1; }
     if (!strcmp(fn, "__pas_range_check") && nargs == 5) {
         long long lo = IS_INT_fn(args[1]) ? args[1].i : 0, hi = IS_INT_fn(args[2]) ? args[2].i : 0; const char *cl = VARVAL_fn(args[3]);

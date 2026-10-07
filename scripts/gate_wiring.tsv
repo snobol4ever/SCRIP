@@ -446,6 +446,7 @@ test_gate_pas_a_file_carries_its_iso_mode_and_says_so.sh	WIRED	-	-	-
 test_gate_pas_a_file_component_is_never_itself_a_file.sh	WIRED	-	-	-
 test_gate_pas_a_for_statement_stays_inside_its_control_variables_type.sh	WIRED	-	-	-
 test_gate_pas_a_forward_declared_parameters_record_fields_resolve.sh	WIRED	-	-	-
+test_gate_pas_a_function_result_is_defined_when_its_algorithm_completes.sh	WIRED	-	-	-
 test_gate_pas_a_goto_leaves_its_routine_for_an_enclosing_label.sh	WIRED	-	-	-
 test_gate_pas_a_goto_never_enters_a_structured_statement.sh	WIRED	-	-	-
 test_gate_pas_a_goto_out_of_a_routine_leaves_every_box_of_main_at_one_depth.sh	WIRED	-	-	-
