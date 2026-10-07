@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""util_format_templates_r4.py [--check] [FILE...] (default: every src/templates/bb/bb_*.cpp and src/templates/xa/xa_*.cpp except the bb_call family, see CALL_FAMILY) : the R4 hygiene mechanism over template sources -- whitespace and string-literal splitting ONLY.
+"""util_format_templates_r4.py [--check] [FILE...] (default: every src/templates/bb/bb_*.cpp and src/templates/xa/xa_*.cpp) : the R4 hygiene mechanism over template sources -- whitespace and string-literal splitting ONLY.
   1. one x86( call per source line (a line holding two or more is broken before each later one, the joining '+' moving to the new line);
   2. no line over 200 columns (broken at the last top-level ' + ' or ', ' outside string literals that fits; a long string literal is split
      into adjacent literals, which the compiler concatenates);
@@ -11,10 +11,8 @@ classes stay at 0; after a rebase conflict in a template file, take your side of
 import re, sys
 
 COLS = 200
-# The bb_call family is left out of the default population, on two counts: its FIX-3 ONE-IR-ONE-LOGIC split (Lon-pinned, GOAL-BB-FIXUP.md) rewrites those files whole, and the safe-point census
-# (util_gc_census.py, --poll-window 12) measures a call's poll in PHYSICAL LINES, so splitting the family's `s += x86(a) + x86(b);` accumulator lines moved a poll out of its window in three places
-# (bb_call_fn.cpp, bb_call_value.cpp, and an unresolved computed target in bb_call_pl_leaf.cpp: unpolled 6 -> 8, unresolved 0 -> 1) -- pure whitespace, and census-visible. Name the files to format them.
-CALL_FAMILY = ('bb_call.cpp', 'bb_call_fn.cpp', 'bb_call_proc_staged.cpp', 'bb_call_pl_leaf.cpp', 'bb_call_value.cpp', 'bb_call_bool.cpp')
+# The bb_call family was left out until the safe-point census measured its poll window in x86 calls (62514e7f0, f09217bae); a whitespace-only reformat no longer moves a poll out of its window, so the family is in the default population.
+CALL_FAMILY = ()
 LIM = 190
 SD = re.compile(r'\)\s*\{\s*(std::string|int |long |const char|auto |bool |double |char |uint64_t|size_t|IR_t)')
 
@@ -79,6 +77,7 @@ def split_long_string(body):
             s = mm.group(1)
             room = max(30, min(110, LIM - mm.start() - 4))
             cut = s.rfind(' ', 0, room)
+            while cut > 0 and s[cut + 1:].startswith(('[rsp', '[rbp')): cut = s.rfind(' ', 0, cut)
             if cut <= 0: continue
             head = body[:mm.start()]
             a, b = s[:cut + 1], s[cut + 1:]

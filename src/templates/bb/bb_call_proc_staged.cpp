@@ -70,7 +70,13 @@ int  zls_g_block_args(const IR_graph_t * g);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_wire_stack_on(void) { static int _v = -1; if (_v < 0) { const char *e = getenv("SCRIP_ICN_WIRE_STACK"); _v = (e && *e == (char)48) ? 0 : 1; } return _v; }
+static int icn_wire_stack_on(void) {
+    static int _v = -1;
+    if (_v < 0) {
+        const char *e = getenv("SCRIP_ICN_WIRE_STACK");
+        _v = (e && *e == (char)48) ? 0 : 1;
+    } return _v;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_wire_stack_for(const char *fname) { return icn_wire_stack_on() && !bb_proc_target_zframe_graph(fname); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -86,7 +92,13 @@ static std::string bcps_wire_cross_gen(int gid, int wid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_land(const char *fname) { return icn_wire_stack_for(fname) ? IF(!bcps_wire_pair_consumed(fname), x86("add", "rsp", 16L)) : std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcps_retfix(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_RET_FIX"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int bcps_retfix(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("SCRIP_RET_FIX");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
 {
@@ -99,7 +111,10 @@ static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SAI_L0 200
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
-    std::string slow = x86("mov32", "edi", (long)i) + x86("mov", "rsi", FRQ(slot)) + x86("mov", "rdx", FRQ(slot + 8)) + x86("call", "rt_arg_stage", stage_fp)
+    std::string slow = x86("mov32", "edi", (long)i)
+                     + x86("mov", "rsi", FRQ(slot))
+                     + x86("mov", "rdx", FRQ(slot + 8))
+                     + x86("call", "rt_arg_stage", stage_fp)
                         + x86_rt_gc_poll();
     if (i < 0 || i >= 8 || getenv("SCRIP_NO_SINK")) return slow;
     return x86("lea", "r8", "[rip + __]", (uint64_t)(uintptr_t)&g_gc_pending, "g_gc_pending")
@@ -121,7 +136,8 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
          + x86("def", L(SAI_L0 + 1 + i * 2));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * bb_chain_terminal_staged(IR_t * entry) { IR_t * n = entry; int guard = 0;
+static IR_t * bb_chain_terminal_staged(IR_t * entry) {
+    IR_t * n = entry; int guard = 0;
     while (n && n->γ.node && n->γ.node->op != IR_SUCCEED && n->γ.node->op != IR_FAIL && guard++ < 4096) n = n->γ.node;
     return n;
 }
@@ -134,7 +150,11 @@ static int bcps_beta_pair_idx() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i) {
     IR_t * a = ir_call_arg(call, i);
-    if (a) { int s = bb_slot_get(a); if (s < 0) s = zls_off(a); if (s >= 0) return s; }
+    if (a) {
+    int s = bb_slot_get(a);
+    if (s < 0) s = zls_off(a);
+    if (s >= 0) return s;
+}
     IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int s = prod ? bb_slot_get(prod) : -1; return s < 0 ? 0 : s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -146,7 +166,13 @@ static int bcps_result_slot() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int c2farm() { return _.op_fc_wbytes > 0; }
 static inline int bcps_pl() { return x86_fb_pinned(); }
-static int bcps_fnsig(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_FN_SIG"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int bcps_fnsig(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_FN_SIG");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {
     extern int rt_g_ret_by_name;
@@ -182,14 +208,24 @@ static long bcps_sig_disp(int slot) { return bcps_parse_rsp(FRQB(slot, 0)); }
 static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const char * why, const char * opnd) {
-    static int _sd = -1; if (_sd < 0) { const char * _e = getenv("SCRIP_SIG_DIAG"); _sd = (_e && *_e == '1') ? 1 : 0; }
+    static int _sd = -1; if (_sd < 0) {
+    const char * _e = getenv("SCRIP_SIG_DIAG");
+    _sd = (_e && *_e == '1') ? 1 : 0;
+}
     if (!_sd) return;
     fprintf(stderr, "[SIG] arm=%s fn=%s nargs=%ld verdict=%s why=%s opnd=%s\n", arm, fn ? fn : "?", n, ok ? "SIG" : "DECLINE", why, (opnd && *opnd) ? opnd : "-");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->multi_proto : 0; } return 0; }
-extern "C" int bb_proc_target_pinned_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (cg) return (cg->zframe_pinned_base && cg->zframe_graph && !cg->icn_cells_graph) ? 1 : 0; break; } return rt_proc_pinned(fname); }
-extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !cg->zframe_pinned_base && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
+extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
+    || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count
+        && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->multi_proto : 0; } return 0; }
+extern "C" int bb_proc_target_pinned_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
+    || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (cg) return (cg->zframe_pinned_base && cg->zframe_graph
+            && !cg->icn_cells_graph) ? 1 : 0; break; } return rt_proc_pinned(fname); }
+extern "C" int bb_proc_target_block_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
+    || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && !cg->zframe_pinned_base && zls_g_block_args(cg)) ? 1 : 0; } return 0; }
 extern "C" int bb_proc_target_icn_block(const char *fname, int *np, int *vari) {
     int i = 0;
     while (fname && i < g_stage2.proc_count && (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname))) i++;
@@ -198,14 +234,22 @@ extern "C" int bb_proc_target_icn_block(const char *fname, int *np, int *vari) {
     if (cg && cg->icn_cells_graph && zls_g_block_args(cg)) { if (np) *np = cg->nparams; if (vari) *vari = g_stage2.proc_table[i].is_variadic; }
     return (cg && cg->icn_cells_graph && zls_g_block_args(cg)) ? 1 : 0;
 }
-extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->zframe_graph : 0; } return 0; }
+extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
+    || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count
+        && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->zframe_graph : 0; } return 0; }
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
-    if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !bb_proc_multi_proto(fname) && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok() && rt_proc_is_registered(fname)) {
+    if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !bb_proc_multi_proto(fname) && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok()
+        && rt_proc_is_registered(fname)) {
         np = rt_proc_nparams(fname);
         if (np >= 0 && np <= BB_SCC_NP_MAX && nargs <= rt_proc_nformals(fname)) {
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;
-            for (int k = 0; ok && k < np; k++) { const char *nm = rt_proc_pname(fname, k); int gk = nm ? gva_index_of(nm) : -1; if (gk < 0) ok = 0; else { gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; } }
+            for (int k = 0; ok && k < np; k++) {
+    const char *nm = rt_proc_pname(fname, k);
+    int gk = nm ? gva_index_of(nm) : -1;
+    if (gk < 0) ok = 0;
+    else { gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; }
+}
             if (ok) { res_gk = gva_index_of(rn); if (res_gk < 0) ok = 0; else if (!sh) gk_out[nsave++] = res_gk; }
             if (ok) scc = 1;
         }
@@ -214,7 +258,10 @@ extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsav
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
-    static int _nt = -1; if (_nt < 0) { const char *e = getenv("SCRIP_NO_TINY"); _nt = (e && *e == '1') ? 1 : 0; }
+    static int _nt = -1; if (_nt < 0) {
+    const char *e = getenv("SCRIP_NO_TINY");
+    _nt = (e && *e == '1') ? 1 : 0;
+}
     if (_nt || !fname) return 0;
     if (!rt_define_tiny_ok(fname, nargs)) return 0;
     int np = 0, ns = 0, rg = -1; int gk[BB_SCC_NP_MAX + 1];
@@ -240,7 +287,8 @@ static std::string bcps_det_arm() {
         int bidx_z = bcps_beta_pair_idx(); IR_graph_t ** argblks_z = (IR_graph_t **)(intptr_t)_.op_counter;
         int is_dyn_z = _.op_sval && rt_proc_dyn_scope(_.op_sval);
         long det_idx_z = (!is_dyn_z && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
-        int det_nA_z = (int)_.op_ival; { int _bnp = (det_idx_z >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != det_nA_z) return x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z); } }
+        int det_nA_z = (int)_.op_ival; { int _bnp = (det_idx_z >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != det_nA_z) return x86_alpha()
+            + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z); } }
         int det_fuse_z = (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
         int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
@@ -270,8 +318,14 @@ static std::string bcps_det_arm() {
              + x86_anchor_enter()
              + ((scc_z || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)))
                 ? [&]() -> std::string {
-                    static int _ntz = -1; if (_ntz < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntz = (_e && *_e == '1') ? 1 : 0; }
-                    static int _b1cz = -1; if (_b1cz < 0) { const char * _e = getenv("SCRIP_B1C_PARITY"); _b1cz = (_e && *_e == '0') ? 0 : 1; }
+                    static int _ntz = -1; if (_ntz < 0) {
+    const char * _e = getenv("SCRIP_NO_TINY");
+    _ntz = (_e && *_e == '1') ? 1 : 0;
+}
+                    static int _b1cz = -1; if (_b1cz < 0) {
+    const char * _e = getenv("SCRIP_B1C_PARITY");
+    _b1cz = (_e && *_e == '0') ? 0 : 1;
+}
                     if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
                         std::string laz = std::string(_.op_sval) + "_\xce\xb1";
                         if (bcps_fnsig()) {
@@ -296,14 +350,29 @@ static std::string bcps_det_arm() {
                                 for (int i = 0; i < (int)_.op_ival; i++) sz += x86(".quad", (uint64_t)soffz[i]);
                                 return sz;
                             }
-                            return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls through to the SCC/open_slim convention, which puts the gamma continuation in rcx instead -- one entry, two calling conventions, chosen independently by caller and callee, and the callee dereferences whatever it is handed. MEASURED hq_S 2026-09-06, incremental make, RT_OPT=-O0, m3 and m4 agreeing: 2507 shipped programs compiled, 228 of them carry a signature site, 3639 live sites in total, DECLINES = 0. The 42 frame-arm declines that existed before bcps_parse_rsp learned x86_fr64_prefix's '$' spelling are all SIG now (ADDON/1 x18, CUT/1 x9, PR/1 x6, PR/2 x6, RET/1 x3, in aisnobol, gimpel and snoflake_suite). So this refusal has a measured hit rate of ZERO, and reaching it means a NEW operand spelling or frame shape got here: run SCRIP_SIG_DIAG=1, which prints arm/fn/nargs/why/opnd for every site and names the operand that would not parse. One theoretical false positive, unmeasured because it has zero instances today: the callee tests bb_tiny_shim_ok(fn, 0) while this site tests it at the real nargs, so a proc tiny-ok at N but not at 0 would bomb here where slim-to-slim was in fact correct. The standing cure for that shape is two entry points at the callee, not a silent decline here. [arm=zref]");
+                            return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, "
+                                "fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls "
+                                    "through to the SCC/open_slim convention, which puts the gamma continuation in rcx instead -- one entry, two "
+                                        "calling conventions, chosen independently by caller and callee, and the callee dereferences whatever it is "
+                                            "handed. MEASURED hq_S 2026-09-06, incremental make, RT_OPT=-O0, m3 and m4 agreeing: 2507 shipped programs "
+                                                "compiled, 228 of them carry a signature site, 3639 live sites in total, DECLINES = 0. The 42 frame-arm "
+                                                    "declines that existed before bcps_parse_rsp learned x86_fr64_prefix's '$' spelling are all SIG now (ADDON/1 "
+                                                        "x18, CUT/1 x9, PR/1 x6, PR/2 x6, RET/1 x3, in aisnobol, gimpel and snoflake_suite). So this refusal has a "
+                                                            "measured hit rate of ZERO, and reaching it means a NEW operand spelling or frame shape got here: run "
+                                                                "SCRIP_SIG_DIAG=1, which prints arm/fn/nargs/why/opnd for every site and names the operand that would not "
+                                                                    "parse. One theoretical false positive, unmeasured because it has zero instances today: the callee tests "
+                                                                        "bb_tiny_shim_ok(fn, 0) while this site tests it at the real nargs, so a proc tiny-ok at N but not at 0 would "
+                                                                            "bomb here where slim-to-slim was in fact correct. The standing cure for that shape is two entry points at the "
+                                                                                "callee, not a silent decline here. [arm=zref]");
                         } else {
                         long Kbz = 16L * (long)_.op_ival + 32;
                         auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w + (int)Kbz, 1); };
                         return x86("sub", "rsp", Kbz)
                              + FOR(0, (int)_.op_ival, [&](int i) {
-                                   return x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQT(i, 0)) + x86_rsp_store64(32 + 16 * i, "rax")
-                                        + x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQT(i, 8)) + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
+                                   return x86("note", ZOPN(i))
+                                        + x86("mov", "rax", ZOPQT(i, 0)) + x86_rsp_store64(32 + 16 * i, "rax")
+                                        + x86("note", ZOPN(i))
+                                        + x86("mov", "rax", ZOPQT(i, 8)) + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
                              + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
                              + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
                              + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str());
@@ -316,22 +385,35 @@ static std::string bcps_det_arm() {
                 }()
                 : std::string(""))
              + (!scc_z && dc_z
-                ? FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
+                ? FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i))
+                + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
                 + x86_call_dc(dc_name_z, dc_slot_fp_z)
                 + x86("jmp", L(2))
                 : std::string(""))
              + (!scc_z && !dc_z
                 ? ((det_fuse_z
                     ? x86("mov32", "edi", det_idx_z)
-                    + FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
+                    + FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i))
+                    + x86("lea", detN_argreg_z[i], ZOPQ(i, 0)); })
                     + x86("call", detN_nm_z[det_nA_z], detN_fp_z[det_nA_z])
                     : ((det_idx_z >= 0
-                        ? FOR(0, (int)_.op_ival, [&](int i) { return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z)
+                        ? FOR(0, (int)_.op_ival, [&](int i) { return x86("mov32", "edi", (long)i)
+                        + x86("note", ZOPN(i))
+                        + x86("mov", "rsi", ZOPQ(i, 0))
+                        + x86("note", ZOPN(i))
+                        + x86("mov", "rdx", ZOPQ(i, 8))
+                        + x86("call", "rt_arg_stage", stage_fp_z)
                         + x86_rt_gc_poll(); })
                         + x86("mov32", "edi", (long)det_idx_z)
                         + x86("mov32", "esi", (long)_.op_ival)
                         + x86("call", "rt_proc_call_open_det", (uint64_t)det_fp_z)
-                        : FOR(0, (int)_.op_ival, [&](int i) { uint64_t stage_fp_z; { void (*fp)(int, DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; } return x86("mov32", "edi", (long)i) + x86("note", ZOPN(i)) + x86("mov", "rsi", ZOPQ(i, 0)) + x86("note", ZOPN(i)) + x86("mov", "rdx", ZOPQ(i, 8)) + x86("call", "rt_arg_stage", stage_fp_z)
+                        : FOR(0, (int)_.op_ival, [&](int i) { uint64_t stage_fp_z; { void (*fp)(int,
+                            DESCR_t) = rt_arg_stage; stage_fp_z = (uint64_t)(uintptr_t)(void*)fp; } return x86("mov32", "edi", (long)i)
+                        + x86("note", ZOPN(i))
+                        + x86("mov", "rsi", ZOPQ(i, 0))
+                        + x86("note", ZOPN(i))
+                        + x86("mov", "rdx", ZOPQ(i, 8))
+                        + x86("call", "rt_arg_stage", stage_fp_z)
                         + x86_rt_gc_poll(); })
                         + x86_ro_load_q("rdi", 0)
                         + x86("mov32", "esi", (long)_.op_ival)
@@ -340,8 +422,27 @@ static std::string bcps_det_arm() {
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
                    + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp_z))
-                   + IF(det_idx_z < 0 && bcps_pl(), bcps_pinned_byname_road(x86("sub", "rsp", (long)(16 * det_nA_z)) + FOR(0, det_nA_z, [&](int i) { return x86("note", ZOPN(i)) + x86("mov", "rax", ZOPQ(i, 0)) + x86_rsp_store64(16 * i, "rax") + x86("mov", "rax", ZOPQ(i, 8)) + x86_rsp_store64(16 * i + 8, "rax"); }), off, 61, 62, 60))
-                   + [&]{ static int _sp4 = -1; if (_sp4 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp4 = (!e || *e != (char)48) ? 1 : 0; } return (!icn_wire_stack_for(_.op_sval) && _sp4 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces n_gva_m3=0, the slim tail at ~:403 that s110 patched refuses, and the site falls through to rt_proc_call_open here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
+                   + IF(det_idx_z < 0 && bcps_pl(), bcps_pinned_byname_road(x86("sub", "rsp", (long)(16 * det_nA_z)) + FOR(0, det_nA_z, [&](int i) { return
+                   x86("note", ZOPN(i))
+                   + x86("mov", "rax", ZOPQ(i, 0)) + x86_rsp_store64(16 * i, "rax")
+                   + x86("mov", "rax", ZOPQ(i, 8)) + x86_rsp_store64(16 * i + 8, "rax"); }), off, 61, 62, 60))
+                   + [&]{
+                       static int _sp4 = -1;
+                       if (_sp4 < 0) {
+                           const char *e = getenv("SCRIP_SLIM_PAIR");
+                           _sp4 = (!e || *e != (char)48) ? 1 : 0;
+                       }
+                       return (!icn_wire_stack_for(_.op_sval) && _sp4 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note",
+                           "s111 floater pair (ZD twin NON-SLIM fallback): THE arm GVA-off actually reaches — MONITOR_BIN forces "
+                               "n_gva_m3=0, the slim tail at ~:403 that s110 patched refuses, and the site falls through to rt_proc_call_open "
+                                   "here with flat rcx/rdx wires and NO pair.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 "
+                                       "floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.")
+                                                                                                             + x86("lea", "rcx", L(4))
+                                                                                                             + x86("push", "rcx")
+                                                                                                             + x86("lea", "rcx", L(3))
+                                                                                                             + x86("push", "rcx") : std::string("");
+                   }
+                   ()
                    + bcps_wire_cross(3, 4, _.op_sval)
                    + x86("def", L(3))
                    + bcps_wire_land(_.op_sval)
@@ -359,8 +460,10 @@ static std::string bcps_det_arm() {
              + x86_anchor_leave()
              + x86_scan_sync_in_rr()
              + IF(!bb_proc_target_block_graph(_.op_sval), bcps_nret_consult(std::string(ZRES(0)), std::string(ZRES(8))))
-             + x86("note", ZRESN()) + x86("mov", ZRES(0), "rax")
-             + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(0), "rax")
+             + x86("note", ZRESN())
+             + x86("mov", ZRES(8), "rdx")
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86_gamma()
@@ -387,7 +490,9 @@ static std::string bcps_det_arm() {
     { void *(*f3)(long, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det3; detN_fp[3] = (uint64_t)(uintptr_t)(void*)f3; }
     { void *(*f4)(long, DESCR_t*, DESCR_t*, DESCR_t*, DESCR_t*) = rt_proc_call_open_det4; detN_fp[4] = (uint64_t)(uintptr_t)(void*)f4; }
     static const char * const detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-{ int _bnp = (det_idx >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != (int)_.op_ival) return x86_alpha() + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(0, off, bidx, argblks, det_idx); } } int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
+{ int _bnp = (det_idx >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != (int)_.op_ival) return x86_alpha()
+    + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(0, off, bidx, argblks,
+        det_idx); } } int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
     uint64_t dc_slot = 0; char dc_name[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
@@ -395,15 +500,24 @@ static std::string bcps_det_arm() {
     int scc = 0, scc_np = 0, scc_nsave = 0, scc_res_gk = -1; int scc_gk[BB_SCC_NP_MAX + 1];
     scc = bb_scc_probe(_.op_sval, (int)_.op_ival, &scc_np, &scc_nsave, scc_gk, &scc_res_gk);
     { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINYX] fn=%s nargs=%ld scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,scc); }
-    if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha() + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist as storage on an armed statement; registration and the probe disagreed");
+    if (c2farm() && (!scc || (int)_.op_ival != 1)) return x86_alpha()
+        + x86_bomb("bb_call_proc_staged: fc-armed call without SCC 1-arg shape (CALL2BB 3b v1) — the flat fallback does not exist "
+            "as storage on an armed statement; registration and the probe disagreed");
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()
          + (scc || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival))
             ? [&]() -> std::string {
-                static int _ntiny = -1; if (_ntiny < 0) { const char * _e = getenv("SCRIP_NO_TINY"); _ntiny = (_e && *_e == '1') ? 1 : 0; }
-                { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d\n", _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc); }
-                static int _b1ct = -1; if (_b1ct < 0) { const char * _e = getenv("SCRIP_B1C_PARITY"); _b1ct = (_e && *_e == '0') ? 0 : 1; }
+                static int _ntiny = -1; if (_ntiny < 0) {
+    const char * _e = getenv("SCRIP_NO_TINY");
+    _ntiny = (_e && *_e == '1') ? 1 : 0;
+}
+                { static int _td=-1; if(_td<0)_td=getenv("SCRIP_TINY_DIAG")?1:0; if(_td) fprintf(stderr,"[TINY] fn=%s nargs=%ld ok=%d scc=%d\n",
+                    _.op_sval?_.op_sval:"?",(long)_.op_ival,_.op_sval?rt_define_tiny_ok(_.op_sval,(int)_.op_ival):-1,scc); }
+                static int _b1ct = -1; if (_b1ct < 0) {
+    const char * _e = getenv("SCRIP_B1C_PARITY");
+    _b1ct = (_e && *_e == '0') ? 0 : 1;
+}
                 if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
                     std::string la = std::string(_.op_sval) + "_\xce\xb1";
                     if (bcps_fnsig()) {
@@ -428,7 +542,20 @@ static std::string bcps_det_arm() {
                             for (int i = 0; i < (int)_.op_ival; i++) s += x86(".quad", (uint64_t)soff[i]);
                             return s;
                         }
-                        return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls through to the SCC/open_slim convention, which puts the gamma continuation in rcx instead -- one entry, two calling conventions, chosen independently by caller and callee, and the callee dereferences whatever it is handed. MEASURED hq_S 2026-09-06, incremental make, RT_OPT=-O0, m3 and m4 agreeing: 2507 shipped programs compiled, 228 of them carry a signature site, 3639 live sites in total, DECLINES = 0. The 42 frame-arm declines that existed before bcps_parse_rsp learned x86_fr64_prefix's '$' spelling are all SIG now (ADDON/1 x18, CUT/1 x9, PR/1 x6, PR/2 x6, RET/1 x3, in aisnobol, gimpel and snoflake_suite). So this refusal has a measured hit rate of ZERO, and reaching it means a NEW operand spelling or frame shape got here: run SCRIP_SIG_DIAG=1, which prints arm/fn/nargs/why/opnd for every site and names the operand that would not parse. One theoretical false positive, unmeasured because it has zero instances today: the callee tests bb_tiny_shim_ok(fn, 0) while this site tests it at the real nargs, so a proc tiny-ok at N but not at 0 would bomb here where slim-to-slim was in fact correct. The standing cure for that shape is two entry points at the callee, not a silent decline here. [arm=frame]");
+                        return x86_bomb("bcps signature arm DECLINED and there is no safe fallthrough: the callee's role-4 SIG shim (bb_define.cpp, "
+                            "fnsig()) reads its formals from [rcx + 24 + 8i], but a site that cannot compute the staged offsets falls "
+                                "through to the SCC/open_slim convention, which puts the gamma continuation in rcx instead -- one entry, two "
+                                    "calling conventions, chosen independently by caller and callee, and the callee dereferences whatever it is "
+                                        "handed. MEASURED hq_S 2026-09-06, incremental make, RT_OPT=-O0, m3 and m4 agreeing: 2507 shipped programs "
+                                            "compiled, 228 of them carry a signature site, 3639 live sites in total, DECLINES = 0. The 42 frame-arm "
+                                                "declines that existed before bcps_parse_rsp learned x86_fr64_prefix's '$' spelling are all SIG now (ADDON/1 "
+                                                    "x18, CUT/1 x9, PR/1 x6, PR/2 x6, RET/1 x3, in aisnobol, gimpel and snoflake_suite). So this refusal has a "
+                                                        "measured hit rate of ZERO, and reaching it means a NEW operand spelling or frame shape got here: run "
+                                                            "SCRIP_SIG_DIAG=1, which prints arm/fn/nargs/why/opnd for every site and names the operand that would not "
+                                                                "parse. One theoretical false positive, unmeasured because it has zero instances today: the callee tests "
+                                                                    "bb_tiny_shim_ok(fn, 0) while this site tests it at the real nargs, so a proc tiny-ok at N but not at 0 would "
+                                                                        "bomb here where slim-to-slim was in fact correct. The standing cure for that shape is two entry points at the "
+                                                                            "callee, not a silent decline here. [arm=frame]");
                     } else {
                     long Kb = 16L * (long)_.op_ival + 32;
                     return x86("sub", "rsp", Kb)
@@ -475,7 +602,24 @@ static std::string bcps_det_arm() {
          + (dc ? std::string("")
             : (det_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
             + IF(det_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), off, 61, 62, 60))
-            + [&]{ static int _sp3 = -1; if (_sp3 < 0) { const char *e = getenv("SCRIP_SLIM_PAIR"); _sp3 = (!e || *e != (char)48) ? 1 : 0; } return (!icn_wire_stack_for(_.op_sval) && _sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note", "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.") + x86("lea", "rcx", L(4)) + x86("push", "rcx") + x86("lea", "rcx", L(3)) + x86("push", "rcx") : std::string(""); }()
+            + [&]{
+                static int _sp3 = -1;
+                if (_sp3 < 0) {
+                    const char *e = getenv("SCRIP_SLIM_PAIR");
+                    _sp3 = (!e || *e != (char)48) ? 1 : 0;
+                }
+                return (!icn_wire_stack_for(_.op_sval) && _sp3 && bcps_wire_pair_consumed(_.op_sval)) ? x86("note",
+                    "s111 floater pair (LEGACY flat-glue arm): the THIRD non-TINY arm, the one GVA-off actually takes (MONITOR_BIN "
+                        "forces n_gva_m3=0 so the SCC gate and the role-4 TINY shim both refuse and the site falls HERE, to "
+                            "rt_proc_call_open + flat rcx/rdx wires).  s110 patched only the two open_slim tails, so this arm still pushed "
+                                "NOTHING and :(RETURN) popped enclosing-frame bytes.  Push omega then gamma = [rsp+0]=gamma [rsp+8]=omega; the "
+                                    "fnrbp2 floater consumes 16 so L(3)/L(4) arrive at today's depth.  SCRIP_ICN_WIRE_STACK=0 restores prior bytes.")
+                                                                                                      + x86("lea", "rcx", L(4))
+                                                                                                      + x86("push", "rcx")
+                                                                                                      + x86("lea", "rcx", L(3))
+                                                                                                      + x86("push", "rcx") : std::string("");
+            }
+            ()
             + bcps_wire_cross(3, 4, _.op_sval)
             + x86("def", L(3))
             + bcps_wire_land(_.op_sval)
@@ -504,7 +648,9 @@ static std::string bcps_det_arm() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_jmp_proc_fn(long idx) {
     extern void *g_rt_gen_procs;
-    return x86("note", "the registry jump: the record's fn word (PROC_FN at +8, the 128-byte stride both asserted in rt.c), so a fn re-sealed at run time -- a dynamic predicate's enumerator, a redefinition -- is followed in both media")
+    return x86("note",
+        "the registry jump: the record's fn word (PROC_FN at +8, the 128-byte stride both asserted in rt.c), so a fn "
+            "re-sealed at run time -- a dynamic predicate's enumerator, a redefinition -- is followed in both media")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_rt_gen_procs, "g_rt_gen_procs")
          + x86("mov", "rax", RDQ("rax", 0))
          + x86("mov", "rax", RDQ("rax", (int)(8 + 128 * idx)))
@@ -512,8 +658,12 @@ static std::string bcps_jmp_proc_fn(long idx) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_jmp_callee(long idx) {
-    if (_.node && (_.node->strict & (1 << 30)) && _.op_sval) return x86("note", "a static callee (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.3): a direct jump to its entry label in the text, through its alpha cell in the slab (x86_jmp_via_cell, both media; the cell is sealed by rt_proc_seal_alpha when the record's fn is set and pinned, under no knob); the registry record is for a fn re-sealed at run time, which a static predicate never is (assertz on it raises permission_error)")
-                                                               + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), (std::string("FN__") + bb_ab_sym_name(_.op_sval)).c_str());
+    if (_.node && (_.node->strict & (1 << 30)) && _.op_sval) return x86("note",
+        "a static callee (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.3): a direct jump to its entry label in the text, through its "
+            "alpha cell in the slab (x86_jmp_via_cell, both media; the cell is sealed by rt_proc_seal_alpha when the "
+                "record's fn is set and pinned, under no knob); the registry record is for a fn re-sealed at run time, which a static predicate never is (assertz on it raises permission_error)")
+                                                               + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()),
+                                                                   (std::string("FN__") + bb_ab_sym_name(_.op_sval)).c_str());
     return bcps_jmp_proc_fn(idx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -521,18 +671,24 @@ static std::string bcps_lvl_add(long d);
 static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int lγ, int lω, int lskip) {
     extern int rt_proc_pinned(const char *);
     uint64_t pinned_fp; { int (*fp)(const char *) = rt_proc_pinned; pinned_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    return x86("note", "the by-name road into a callee whose record reads PINNED at run time (a dynamic predicate's enumerator, a runtime-compiled graph): the block protocol, decided by the record, never by a name")
+    return x86("note",
+        "the by-name road into a callee whose record reads PINNED at run time (a dynamic predicate's enumerator, a runtime-compiled graph): the block protocol, decided by the record, never by a name")
          + x86("mov", FRQ(fncell), "rax")
          + x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_pinned", pinned_fp)
-         + x86("test", "eax", "eax") + x86("je", L(lskip))
+         + x86("test", "eax", "eax")
+         + x86("je", L(lskip))
          + blk
          + x86_lea_id("rcx", lγ) + x86_lea_id("rdx", lω)
          + x86("mov", "rax", FRQ(fncell))
          + x86_jmp_reg("rax")
          + x86("def", L(lγ))
-         + bcps_lvl_add(-1L) + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi") + x86("jmp", L(2))
+         + bcps_lvl_add(-1L) + x86("mov", "rax", "rdi")
+         + x86("mov", "rdx", "rsi")
+         + x86("jmp", L(2))
          + x86("def", L(lω))
-         + bcps_lvl_add(-1L) + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx") + x86("jmp", L(2))
+         + bcps_lvl_add(-1L) + x86("mov32", "eax", (long)DT_FAIL)
+         + x86("xor", "edx", "edx")
+         + x86("jmp", L(2))
          + x86("def", L(lskip))
          + x86("mov", "rax", FRQ(fncell));
 }
@@ -557,50 +713,107 @@ static std::string bcps_block_tail_arm(int n, int kt, int lsk, long idx) {
     auto var_slot = [&](int i) -> int { IR_t * a = ir_call_arg(_.node, i); if (!a || a->op != IR_VAR_REF || !a->sval) return -1; return bb_varslot_peek(a->sval); };
     auto arms = [&](int lb) -> std::string {
         return x86("def", L(lb + 3))
-             + x86("mov", "r8", RDQ("rdi", 8)) + x86("test", "r8", "r8") + x86("je", L(lb + 8))
-             + x86("mov", "ecx", RDD("rdi", 4)) + x86("cmp", "ecx", 2L) + x86("jne", L(lb + 6))
-             + x86("mov", "r8", RDQ("r8", 0)) + x86("test", "r8", "r8") + x86("je", L(lb + 8)) + x86("jmp", L(lb + 6))
+             + x86("mov", "r8", RDQ("rdi", 8))
+             + x86("test", "r8", "r8")
+             + x86("je", L(lb + 8))
+             + x86("mov", "ecx", RDD("rdi", 4))
+             + x86("cmp", "ecx", 2L)
+             + x86("jne", L(lb + 6))
+             + x86("mov", "r8", RDQ("r8", 0))
+             + x86("test", "r8", "r8")
+             + x86("je", L(lb + 8))
+             + x86("jmp", L(lb + 6))
              + x86("def", L(lb + 5))
-             + x86("mov", "r8", RDQ("rdi", 8)) + x86("cmp", "r8", x86_fb()) + x86("jb", L(lb + 9))
-             + x86("mov", "rax", "r8") + x86("sub", "rax", x86_fb()) + x86("cmp", "rax", (long)(kt + 16 * ns)) + x86("jae", L(lb + 9))
+             + x86("mov", "r8", RDQ("rdi", 8))
+             + x86("cmp", "r8", x86_fb())
+             + x86("jb", L(lb + 9))
+             + x86("mov", "rax", "r8")
+             + x86("sub", "rax", x86_fb())
+             + x86("cmp", "rax", (long)(kt + 16 * ns))
+             + x86("jae", L(lb + 9))
              + x86("def", L(lb + 6))
-             + x86("mov", "rdi", "r8") + x86("sub", "r9d", 1L) + x86("jne", L(lb + 2)) + x86("jmp", L(lsk + 99))
+             + x86("mov", "rdi", "r8")
+             + x86("sub", "r9d", 1L)
+             + x86("jne", L(lb + 2))
+             + x86("jmp", L(lsk + 99))
              + x86("def", L(lb + 8))
-             + x86("mov", "rax", "rdi") + x86("sub", "rax", x86_fb()) + x86("cmp", "rax", (long)(kt + 16 * ns)) + x86("jb", L(lsk + 99))
-             + x86("mov", "rax", (long)((1L << 32) | (long)DT_N)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", RDQ("rsi", 8), "rdi")
+             + x86("mov", "rax", "rdi")
+             + x86("sub", "rax", x86_fb())
+             + x86("cmp", "rax", (long)(kt + 16 * ns))
+             + x86("jb", L(lsk + 99))
+             + x86("mov", "rax", (long)((1L << 32) | (long)DT_N))
+             + x86("mov", RDQ("rsi", 0), "rax")
+             + x86("mov", RDQ("rsi", 8), "rdi")
              + x86("jmp", L(lb + 7)); };
     auto body = [&](int lb) -> std::string {
         return x86("def", L(lb + 2))
-             + x86("mov", "eax", RDD("rdi", 0)) + x86("cmp", "al", (long)DT_N) + x86("je", L(lb + 3))
-             + x86("test", "al", "al") + x86("je", L(lb + 8)) + x86("cmp", "al", (long)DT_PLVAR) + x86("je", L(lb + 5))
+             + x86("mov", "eax", RDD("rdi", 0))
+             + x86("cmp", "al", (long)DT_N)
+             + x86("je", L(lb + 3))
+             + x86("test", "al", "al")
+             + x86("je", L(lb + 8))
+             + x86("cmp", "al", (long)DT_PLVAR)
+             + x86("je", L(lb + 5))
              + x86("def", L(lb + 9))
-             + x86("mov", "rax", RDQ("rdi", 0)) + x86("mov", RDQ("rsi", 0), "rax") + x86("mov", "rax", RDQ("rdi", 8)) + x86("mov", RDQ("rsi", 8), "rax")
+             + x86("mov", "rax", RDQ("rdi", 0))
+             + x86("mov", RDQ("rsi", 0), "rax")
+             + x86("mov", "rax", RDQ("rdi", 8))
+             + x86("mov", RDQ("rsi", 8), "rax")
              + x86("def", L(lb + 7)); };
     auto cell_entry = [&](int lb) -> std::string {
-        return x86("mov", "eax", RDD("rsi", 0)) + x86("cmp", "al", (long)DT_N) + x86("je", L(lb + 4)) + x86("cmp", "al", (long)DT_PLVAR) + x86("jne", L(lb + 7))
-             + x86("def", L(lb + 4)) + x86("mov", "rdi", RDQ("rsi", 8)) + x86("mov32", "r9d", 4L) + body(lb); };
-    std::string chk = x86("note", "tail-safe, per cell (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.3): a variable argument is inspected from its own slot (one hop fewer than through its name cell), any other cell from the block; ONE check body, its cold arms out of line after the callee jump: a name (slen 1 the cell, slen 2 the VCELL's) is followed to its cell; a PLVAR link INTO THIS FRAME (A = B between two locals) is followed too, a link elsewhere is a value (its pointer is absolute and its target outlives the frame); at most four hops, a longer chain or a self link of this frame DECLINES the tail arm; a bound cell's VALUE is copied in; an unbound cell (the zero DESCR, a null name) of this frame declines, elsewhere it becomes a one-hop name");
+        return x86("mov", "eax", RDD("rsi", 0))
+             + x86("cmp", "al", (long)DT_N)
+             + x86("je", L(lb + 4))
+             + x86("cmp", "al", (long)DT_PLVAR)
+             + x86("jne", L(lb + 7))
+             + x86("def", L(lb + 4))
+             + x86("mov", "rdi", RDQ("rsi", 8))
+             + x86("mov32", "r9d", 4L) + body(lb); };
+    std::string chk = x86("note",
+        "tail-safe, per cell (ARCH-PROLOG-C-OUT-OF-THE-BOX 9.3): a variable argument is inspected from its own slot "
+            "(one hop fewer than through its name cell), any other cell from the block; ONE check body, its cold arms out "
+                "of line after the callee jump: a name (slen 1 the cell, slen 2 the VCELL's) is followed to its cell; a PLVAR "
+                    "link INTO THIS FRAME (A = B between two locals) is followed too, a link elsewhere is a value (its pointer is "
+                        "absolute and its target outlives the frame); at most four hops, a longer chain or a self link of this frame "
+                            "DECLINES the tail arm; a bound cell's VALUE is copied in; an unbound cell (the zero DESCR, a null name) of this frame declines, elsewhere it becomes a one-hop name");
     std::string ool;
     int wide = n > 8;
-    if (wide) { chk += x86("mov", "rsi", "rsp") + x86("lea", "rdx", RDQ("rsp", 16 * n))
+    if (wide) { chk += x86("mov", "rsi", "rsp")
+                     + x86("lea", "rdx", RDQ("rsp", 16 * n))
          + x86("def", L(lsk + 1))
-         + x86("cmp", "rsi", "rdx") + x86("jae", L(lsk + 10))
+         + x86("cmp", "rsi", "rdx")
+         + x86("jae", L(lsk + 10))
          + cell_entry(lsk)
-         + x86("add", "rsi", 16L) + x86("jmp", L(lsk + 1))
+         + x86("add", "rsi", 16L)
+         + x86("jmp", L(lsk + 1))
          + x86("def", L(lsk + 10)); ool = arms(lsk); }
-    else for (int i = 0; i < n; i++) { int vs = var_slot(i); int lb = lsk + 10 + 10 * i;
+    else for (int i = 0; i < n; i++) {
+    int vs = var_slot(i); int lb = lsk + 10 + 10 * i;
         chk += x86("lea", "rsi", RDQ("rsp", 16 * i));
-        chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", FRQ(vs)) + x86("mov32", "r9d", 4L) + body(lb); ool += arms(lb); }
+        chk += vs < 0 ? cell_entry(lb) : x86("lea", "rdi", FRQ(vs))
+                                       + x86("mov32", "r9d", 4L) + body(lb); ool += arms(lb); }
     int nb = kt + 16 * (ns - n);
-    std::string mv = x86("note", "the new block's TOP is the old block's top (rbp+kt+16*nparams): a longer block grows DOWN over this frame's dead header, never up into the caller's spine; copied descending so a long block never overruns its own source");
-    for (int i = n - 1; i >= 0; i--) mv += x86("mov", "rax", RDQ("rsp", 16 * i + 8)) + x86("mov", RDQ(x86_fb(), nb + 16 * i + 8), "rax") + x86("mov", "rax", RDQ("rsp", 16 * i)) + x86("mov", RDQ(x86_fb(), nb + 16 * i), "rax");
+    std::string mv = x86("note",
+        "the new block's TOP is the old block's top (rbp+kt+16*nparams): a longer block grows DOWN over this frame's "
+            "dead header, never up into the caller's spine; copied descending so a long block never overruns its own source");
+    for (int i = n - 1; i >= 0; i--) mv += x86("mov", "rax", RDQ("rsp", 16 * i + 8))
+                                         + x86("mov", RDQ(x86_fb(), nb + 16 * i + 8), "rax")
+                                         + x86("mov", "rax", RDQ("rsp", 16 * i))
+                                         + x86("mov", RDQ(x86_fb(), nb + 16 * i), "rax");
     return x86("note", "last call (ARCH-PROLOG-C-OUT-OF-THE-BOX 1.4): the block is tested in place, then copied over this frame's own block and the frame released")
          + chk
-         + x86("mov", "rax", RDQ(x86_fb(), kt - 40)) + x86("cmp", "r13", "rax") + x86("jne", L(lsk + 99))
-         + x86("lea", "rax", RDQ("rsp", 16 * n)) + x86("cmp", "rax", x86_fb()) + x86("jne", L(lsk + 99))
-         + x86("mov", "rcx", RDQ(x86_fb(), kt - 24)) + x86("mov", "rdx", RDQ(x86_fb(), kt - 16)) + x86("mov", "r8", RDQ(x86_fb(), kt - 8))
+         + x86("mov", "rax", RDQ(x86_fb(), kt - 40))
+         + x86("cmp", "r13", "rax")
+         + x86("jne", L(lsk + 99))
+         + x86("lea", "rax", RDQ("rsp", 16 * n))
+         + x86("cmp", "rax", x86_fb())
+         + x86("jne", L(lsk + 99))
+         + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
+         + x86("mov", "rdx", RDQ(x86_fb(), kt - 16))
+         + x86("mov", "r8", RDQ(x86_fb(), kt - 8))
          + mv
-         + x86("lea", "rsp", RDQ(x86_fb(), nb)) + x86("mov", x86_fb(), "r8")
+         + x86("lea", "rsp", RDQ(x86_fb(), nb))
+         + x86("mov", x86_fb(), "r8")
          + bcps_jmp_callee(idx)
          + ool
          + x86("def", L(lsk + 99));
@@ -620,12 +833,14 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("mov", FRQ(act), "rax")
          + x86("mov", FRQ(act + 8), "rdx")
          + bcps_lvl_add(-1L)
-         + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi")
+         + x86("mov", "rax", "rdi")
+         + x86("mov", "rdx", "rsi")
          + x86("jmp", L(2))
          + x86("def", L(4))
          + x86("mov", FRQ(act), 0L)
          + bcps_lvl_add(-1L)
-         + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
+         + x86("mov32", "eax", (long)DT_FAIL)
+         + x86("xor", "edx", "edx")
          + x86("def", L(2))
          + x86("mov", FRQ(off), "rax")
          + x86("mov", FRQ(off + 8), "rdx")
@@ -795,14 +1010,22 @@ static std::string bcps_spine_gen_arm() {
     uint64_t pasg_fp;  { DESCR_t (*fp)(DESCR_t) = rt_gen_spine_pass_γ; pasg_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t pasw_fp;  { DESCR_t (*fp)(void) = rt_gen_spine_pass_ω; pasw_fp = (uint64_t)(uintptr_t)(void*)fp; }
     uint64_t rsen_fp;  { void (*fp)(void) = rt_gen_spine_resume_enter; rsen_fp = (uint64_t)(uintptr_t)(void*)fp; }
-    int   gi_off; { static int c = -1; if (c < 0) { const char *e = getenv("SCRIP_NO_GENIDX"); c = (e && *e == '1') ? 1 : 0; } gi_off = c; }
+    int   gi_off; {
+    static int c = -1;
+    if (c < 0) {
+        const char *e = getenv("SCRIP_NO_GENIDX");
+        c = (e && *e == '1') ? 1 : 0;
+    } gi_off = c;
+}
     int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
     long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx);
     uint64_t gidet_fp; { void * (*fp)(long, int) = rt_proc_call_open_det; gidet_fp = (uint64_t)(uintptr_t)(void*)fp; }
     int n2_fb = -1;
     if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
-    if (icn_gen_regime() && n2_fb <= 0) return x86_alpha() + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta() + x86_bomb("N-3: beta re-entry into a refused generator call site");
+    if (icn_gen_regime() && n2_fb <= 0) return x86_alpha()
+        + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta()
+            + x86_bomb("N-3: beta re-entry into a refused generator call site");
     int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
     { int ibnp = 0, ibva = 0; if (gi_idx >= 0 && n2_ftc > 0 && bb_proc_target_icn_block(_.op_sval, &ibnp, &ibva)) return bcps_icn_block_arm(1, off, act, argblks, gi_idx, ibnp, ibva, n2_ftc); }
     return x86_alpha()
@@ -821,8 +1044,41 @@ static std::string bcps_spine_gen_arm() {
             + x86("mov32", "esi", (long)_.op_ival)
             + x86("call", "rt_proc_call_open", open_fp))
          + x86_rt_gc_poll()
-         + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0) + x86("note", "N-2 ABI WORD (row icon-generator-call-path-enters-every-runtime-helper-8-bytes-off-the-sysv-abi, hq_I root-caused, hq_B authored): the REGION HAND-OFF push below is a LONE 8B word and therefore PARITY-FLIPPING, so the armed call site pushed 40 bytes (pad+L7+region+wire pair) where the unarmed one pushes 32. The callee body then ran at rsp0-40 = 8 mod 16 and EVERY call it made entered a helper at 0 mod 16 -- latent until some callee reached an aligned SSE store, which is why it read as a record bug (suspend a list, nothing; suspend a RECORD and dat_construct -> rt_fire_buildplan_tweak -> snprintf -> movaps -> dead). This word is pushed FIRST, above the pad, ON PURPOSE: every documented entry offset ([rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=pad) is UNCHANGED, and only the caller pre-pad rsp0 moves from [rsp+40] to [rsp+48] -- one constant in the alpha's ANCHOR lea and one in the beta re-creation. Placing it between L7 and the region instead would keep the region at +16 and silently move the pad, which is the slot the selfrec depth is read from at [entry rsp+32]."))
-         + (x86("note", "CFO-36 (cfo 2026-09-09): the landing words (N-2 word, landing cell) are pushed AFTER the prologue call, not before it -- in the generator regime they are an ODD count, so rt_proc_call_open_det ran at rsp 8-mod-16 and everything it reached did too (rt_trace_event_args -> image -> vsnprintf movaps: SIGSEGV on every traced generator call with an argument; Arizona coexpr and errors, rungs rung03). The entry layout the callee sees is byte-identical; only the prologue call moved above the words,") + IF(!icn_gen_regime(), x86_sub("rsp", 16) + x86("note", "LANDING UNIT (cto, ARCH-GC section 13.2): the 16 bytes under the wire pair are a raw carve nothing reads; nothing ever jumped to the L(7) they used to hold (plant over 1,800 programs, both modes).")) + IF(icn_gen_regime(), x86("note", "CEO-483 (hq_U): NO PAD IN THE GENERATOR REGIME. The pad above is caller-side transient bookkeeping that had drifted into the callee ENTRY FRAME as a sixth word, and hq_U FINDING-2026-09-09 measured that NOTHING READS IT -- an injected 0x5EEDFACE store into [entry rsp+32] left parse byte-identical while the same store into [entry rsp+0] SIGSEGVd, so the experiment had a positive control and the slot is padding. The comment that used to sit here named a `selfrec depth` reader at [entry rsp+32]; `selfrec` occurred exactly once in the whole tree -- in that sentence. The 8 bytes are NOT deleted, they MOVE ACROSS THE CALL into the callee`s own carve (emit.cpp: carve gains 8, ANCHOR lea rsp+48 -> rsp+40), so the callee body still lands 0 mod 16. Dropping the pad WITHOUT that move was measured on 2026-09-10 and SIGSEGVs patchu -- the crash is parity, never a lost datum. Entry frame in the generator regime is now FIVE words: [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=0, the landing word nobody reads [rsp+32]=N-2 ABI word, ANCHOR=[rsp+40]. rt_genp_spine_enter_n2 (rt.c) is the hand-written twin of this block and was shrunk by the same word in the same landing.")) + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0L)))
+         + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0)
+         + x86("note",
+             "N-2 ABI WORD (row icon-generator-call-path-enters-every-runtime-helper-8-bytes-off-the-sysv-abi, hq_I "
+                 "root-caused, hq_B authored): the REGION HAND-OFF push below is a LONE 8B word and therefore PARITY-FLIPPING, "
+                     "so the armed call site pushed 40 bytes (pad+L7+region+wire pair) where the unarmed one pushes 32. The callee "
+                         "body then ran at rsp0-40 = 8 mod 16 and EVERY call it made entered a helper at 0 mod 16 -- latent until some "
+                             "callee reached an aligned SSE store, which is why it read as a record bug (suspend a list, nothing; suspend a "
+                                 "RECORD and dat_construct -> rt_fire_buildplan_tweak -> snprintf -> movaps -> dead). This word is pushed "
+                                     "FIRST, above the pad, ON PURPOSE: every documented entry offset ([rsp+0]=gamma [rsp+8]=omega [rsp+16]="
+                                         "REGION [rsp+24]=L7 [rsp+32]=pad) is UNCHANGED, and only the caller pre-pad rsp0 moves from [rsp+40] to [rsp+48] -- "
+                                             "one constant in the alpha's ANCHOR lea and one in the beta re-creation. Placing it between L7 and the region "
+                                                 "instead would keep the region at +16 and silently move the pad, which is the slot the selfrec depth is read from at [entry rsp+32]."))
+         + (x86("note",
+             "CFO-36 (cfo 2026-09-09): the landing words (N-2 word, landing cell) are pushed AFTER the prologue call, not "
+                 "before it -- in the generator regime they are an ODD count, so rt_proc_call_open_det ran at rsp 8-mod-16 and "
+                     "everything it reached did too (rt_trace_event_args -> image -> vsnprintf movaps: SIGSEGV on every traced "
+                         "generator call with an argument; Arizona coexpr and errors, rungs rung03). The entry layout the callee sees "
+                             "is byte-identical; only the prologue call moved above the words,") + IF(!icn_gen_regime(), x86_sub("rsp", 16)
+         + x86("note",
+             "LANDING UNIT (cto, ARCH-GC section 13.2): the 16 bytes under the wire pair are a raw carve nothing reads; "
+                 "nothing ever jumped to the L(7) they used to hold (plant over 1,800 programs, both modes).")) + IF(icn_gen_regime(),
+         x86("note",
+             "CEO-483 (hq_U): NO PAD IN THE GENERATOR REGIME. The pad above is caller-side transient bookkeeping that had "
+                 "drifted into the callee ENTRY FRAME as a sixth word, and hq_U FINDING-2026-09-09 measured that NOTHING READS "
+                     "IT -- an injected 0x5EEDFACE store into [entry rsp+32] left parse byte-identical while the same store into "
+                         "[entry rsp+0] SIGSEGVd, so the experiment had a positive control and the slot is padding. The comment that "
+                             "used to sit here named a `selfrec depth` reader at [entry rsp+32]; `selfrec` occurred exactly once in the "
+                                 "whole tree -- in that sentence. The 8 bytes are NOT deleted, they MOVE ACROSS THE CALL into the callee`s own "
+                                     "carve (emit.cpp: carve gains 8, ANCHOR lea rsp+48 -> rsp+40), so the callee body still lands 0 mod 16. "
+                                         "Dropping the pad WITHOUT that move was measured on 2026-09-10 and SIGSEGVs patchu -- the crash is parity, "
+                                             "never a lost datum. Entry frame in the generator regime is now FIVE words: [rsp+0]=gamma [rsp+8]="
+                                                 "omega [rsp+16]=REGION [rsp+24]=0, the landing word nobody reads [rsp+32]=N-2 ABI word, ANCHOR=[rsp+40]. "
+                                                     "rt_genp_spine_enter_n2 (rt.c) is the hand-written twin of this block and was shrunk by the same word in the same landing."))
+                                                         + IF(icn_gen_regime(),
+         x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0L)))
          + x86("test", "rax", "rax")
          + x86("je", L(1))
          + (gi_idx >= 0 ? std::string("") : x86_ro_load_q("rdi", 0) + x86("call", "rt_proc_fn", procfn_fp))
@@ -848,7 +1104,8 @@ static std::string bcps_spine_gen_arm() {
               + x86("mov", FRQ(act + 8), "rdx")
               + x86("jmp", L(9))
               + x86("def", L(8))
-              + x86("mov32", "edi", (long)DT_FAIL) + x86("mov32", "esi", 0L)
+              + x86("mov32", "edi", (long)DT_FAIL)
+              + x86("mov32", "esi", 0L)
               + x86("mov", FRQ(act + 8), "rsp")
               + x86("def", L(9))
             : bcps_wire_land(_.op_sval)
@@ -918,21 +1175,31 @@ static std::string bcps_spine_gen_arm() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_proc_staged_str(IR_t * pBB) {
     int is_gen = _.op_sval && rt_proc_is_generator(_.op_sval);
-    if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha() + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act RSP-carve handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
+    if (is_gen && _.op_node_kind != (int)IR_PROC_GEN && _.op_node_kind != (int)IR_CALL_PROC_STAGED) return x86_alpha()
+        + x86_bomb("bb_call_proc_staged: generator call on an op kind without a callgen.act RSP-carve handle grant (zeta_storage.c widens only IR_PROC_GEN / IR_CALL_PROC_STAGED)");
     if (is_gen) return bcps_spine_gen_arm();
     return bcps_det_arm();
 }
 extern "C" int zls_g_det_block(const IR_graph_t * g);
-extern "C" int bb_proc_target_det_block(const char *fname) { if (!fname) return -1; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0 && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && zls_g_det_block(cg)) ? cg->nparams : -1; } return -1; }
+extern "C" int bb_proc_target_det_block(const char *fname) { if (!fname) return -1; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
+    || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && zls_g_det_block(cg)) ? cg->nparams : -1; } return -1; }
 static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t ** argblks, long idx) {
     int n = (int)_.op_ival; long bias = 16L + 16L * n;
-    auto zop = [&](int i, int w) -> std::string { int in = i >= 0 && i < _.op_zcap; if (in && _.op_zread_xf[i] != -1) return RDQ("rbp", _.op_zread_xf[i] + w); return x86_zref((in ? _.op_zread[i] : 0) + w + (int)bias, 1); };
+    auto zop = [&](int i, int w) -> std::string { int in = i >= 0 && i < _.op_zcap; if (in && _.op_zread_xf[i] != -1) return RDQ("rbp", _.op_zread_xf[i]
+        + w); return x86_zref((in ? _.op_zread[i] : 0) + w + (int)bias, 1); };
     std::string s = x86_alpha() + x86_scan_sync_out() + x86_anchor_enter()
-         + x86("note", "the block protocol for a deterministic Pascal callee (CEO-1491): the two wire cells, then the argument block on this spine, then a jump; no staged medium, no registry call, no C prologue or epilogue")
-         + x86_lea_id("rcx", 4) + x86("push", "rcx") + x86_lea_id("rcx", 3) + x86("push", "rcx")
+         + x86("note",
+             "the block protocol for a deterministic Pascal callee (CEO-1491): the two wire cells, then the argument block "
+                 "on this spine, then a jump; no staged medium, no registry call, no C prologue or epilogue")
+         + x86_lea_id("rcx", 4) + x86("push", "rcx") + x86_lea_id("rcx", 3)
+         + x86("push", "rcx")
          + x86("sub", "rsp", (long)(16 * n))
          + FOR(0, n, [&](int i) {
-               if (zres) return x86("note", ZOPN(i)) + x86("mov", "rax", zop(i, 0)) + x86_rsp_store64(16 * i, "rax") + x86("note", ZOPN(i)) + x86("mov", "rax", zop(i, 8)) + x86_rsp_store64(16 * i + 8, "rax");
+               if (zres) return x86("note", ZOPN(i))
+                              + x86("mov", "rax", zop(i, 0)) + x86_rsp_store64(16 * i, "rax")
+                              + x86("note", ZOPN(i))
+                              + x86("mov", "rax", zop(i, 8)) + x86_rsp_store64(16 * i + 8, "rax");
                int slot = bcps_arg_slot(_.node, argblks, i);
                return x86("note", std::string("block A") + std::to_string(i))
                     + x86("mov", "rax", FRQB(slot, (int)bias)) + x86_rsp_store64(16 * i, "rax")
@@ -940,15 +1207,21 @@ static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t **
          + x86_lea_id("rcx", 3) + x86_lea_id("rdx", 4)
          + bcps_jmp_proc_fn(idx)
          + x86("def", L(3))
-         + x86("mov", "rax", "rdi") + x86("mov", "rdx", "rsi")
+         + x86("mov", "rax", "rdi")
+         + x86("mov", "rdx", "rsi")
          + x86("jmp", L(2))
          + x86("def", L(4))
-         + x86("mov32", "eax", (long)DT_FAIL) + x86("xor", "edx", "edx")
+         + x86("mov32", "eax", (long)DT_FAIL)
+         + x86("xor", "edx", "edx")
          + x86("def", L(2))
          + x86_anchor_leave()
          + x86_scan_sync_in_rr()
-         + (zres ? x86("note", ZRESN()) + x86("mov", ZRES(0), "rax") + x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx")
-                 : x86("mov", FRQ(off), "rax") + x86("mov", FRQ(off + 8), "rdx"))
+         + (zres ? x86("note", ZRESN())
+         + x86("mov", ZRES(0), "rax")
+         + x86("note", ZRESN())
+         + x86("mov", ZRES(8), "rdx")
+                 : x86("mov", FRQ(off), "rax")
+                 + x86("mov", FRQ(off + 8), "rdx"))
          + x86("cmp", "al", (long)DT_FAIL)
          + x86_omega("je")
          + x86_gamma()

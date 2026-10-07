@@ -13,14 +13,32 @@ extern "C" {
 #include "builtin_ids.h"
 #include "snobol4_system_fns.h"
 }
-static int bid_bake_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BID_BAKE"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int bid_bake_on(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_BID_BAKE");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L;
-    return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) | ((sn4_direct_on() && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL)); }
+    return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) | ((sn4_direct_on()
+        && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL)); }
 extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
-static int sn4_byname_kind(const char * fn, int strict) { long bw = bid_bake_of(fn); if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1; if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2; if (strict == 2) return 3; if (strict) return 4; return 5; }
-static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
-static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn, strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4; case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict; default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
+static int sn4_byname_kind(const char * fn, int strict) {
+    long bw = bid_bake_of(fn);
+    if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1;
+    if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2;
+    if (strict == 2) return 3;
+    if (strict) return 4;
+    return 5;
+}
+static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn,
+    strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
+static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn,
+    strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4;
+        case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict;
+            default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 }
@@ -38,7 +56,10 @@ const char * bb_ab_sym_name(const char * nm);
 int bb_callee_baked_kind(const char * fn, int strict) { if (!fn || !fn[0] || sn4_byname_kind(fn, strict) != 2) return 0; return (rt_dat_field_of_any(fn) && !dat_find_type(fn)) ? 1 : 2; }
 const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" : "rt_call_fld_sn4"; }
 uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
-std::string bb_callee_rdx(const char * fn) { std::string lbl = std::string(".Lcallee_") + bb_ab_sym_name(fn); return x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)bb_callee_rec_addr(fn), lbl.c_str()); }
+extern "C++" std::string bb_callee_rdx(const char * fn) {
+    std::string lbl = std::string(".Lcallee_") + bb_ab_sym_name(fn);
+    return x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)bb_callee_rec_addr(fn), lbl.c_str());
+}
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand);
 std::string pl_leaf_zd_cold(const char * fn, int narg);
 int pl_leaf_inline_known(const char * fn, int narg);
@@ -125,7 +146,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
             }
         }
         const char * zdsym = 0; void * zdfp = dop_direct_fp(fn, (int64_t)nargs, &zdsym);
-        if (!zdfp && !pl_leaf_inline_known(fn, nargs) && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha() + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
+        if (!zdfp && !pl_leaf_inline_known(fn, nargs) && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha()
+            + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
         if (zdfp) {
             s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf under ZD: ") + zdsym + " (no by-name dispatch)").c_str());
             s += x86_reg_disp32_lea64("rdi", "rsp", 0);
@@ -178,8 +200,10 @@ std::string bb_call_fn_str(IR_t * pBB) {
         { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }
         s += x86("cmp", "al", (long)DT_FAIL);
         s += x86_omega("je");
-        s += x86("note", ZRESN()) + x86("mov", ZRES(0), "rax");
-        s += x86("note", ZRESN()) + x86("mov", ZRES(8), "rdx");
+        s += x86("note", ZRESN())
+           + x86("mov", ZRES(0), "rax");
+        s += x86("note", ZRESN())
+           + x86("mov", ZRES(8), "rdx");
         if (_.op_sb) { s += x86_omega(); _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; return s; } _.op_wpop = _wpop_save; _.op_zgpop = _zgpop_save; }
         s += x86_gamma();
         s += x86_beta_trampoline();
@@ -193,7 +217,8 @@ std::string bb_call_fn_str(IR_t * pBB) {
     std::string s = x86_alpha()
                   + x86("comment", std::string("BOX IR_CALL ") + fn + "(...) -> rt_call_arr [operand-marshal, FAIL->ω]");
     const char * dsym = 0; void * dfp = dop_direct_fp(fn, (int64_t)nargs, &dsym);
-    if (!dfp && !pl_leaf_inline_known(fn, nargs) && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha() + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
+    if (!dfp && !pl_leaf_inline_known(fn, nargs) && _.node && _.node->seal == IR_SEAL_CALL_DET_LEAF) return x86_alpha()
+        + x86_bomb("bb_call_fn: the lowerer sealed this call as a det leaf and dop_direct_fp does not know the callee -- the narrowing is REFUSED for a callee the registry does not know");
     for (int i = nargs - 1; i >= 0; i--)
         s += marshal_call_arg((subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i), (subs && subs[i]) ? subs[i] : NULL, argbase + i * 16, _.node, i);
     { std::string arm = pl_leaf_inline_arm(fn, nargs, argbase, resoff, (subs && subs[0]) ? subs[0]->entry : ir_call_arg(pBB, 0)); if (!arm.empty()) return s + arm; }
@@ -208,9 +233,11 @@ std::string bb_call_fn_str(IR_t * pBB) {
         polled_in_arm = 1;
     } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);
-        if (_mopen) { s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
+        if (_mopen) { s += x86("lea", "rdi", FRQ(argbase))
+                         + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29); s += x86_deflabel_id(28); }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
-        if (_aopen) { s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
+        if (_aopen) { s += x86("lea", "rdi", FRQ(argbase))
+                         + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
         if (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
             s += x86("lea", "rdi", FRQ(argbase));
             s += x86("mov32", "esi", (long)nargs);
