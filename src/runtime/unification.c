@@ -274,6 +274,7 @@ static int plc_first_char(pl_cell_t *c, int quoted, int ignore_ops, int numberva
     if (pl_cell_unbound(d)) return '_';
     if ((int)d->v == DT_I) return d->i < 0 ? '-' : '0';
     if ((int)d->v == DT_R) return d->r < 0 ? '-' : '0';
+    if ((int)d->v == DT_BIG) { extern int rt_big_sign(DESCR_t); return rt_big_sign(*d) < 0 ? '-' : '0'; }
     if ((int)d->v == DT_PLATOM || (int)d->v == DT_S) { const char *n = plc_atom_text(d);
         if (!n || !n[0]) return quoted ? '\'' : ' ';
         return (quoted && plc_atom_needs_quoting(n)) ? '\'' : (unsigned char)n[0]; }
@@ -434,7 +435,8 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
         } else {
             { pl_cell_t *a0 = pl_deref(&aa[0]); int ap = plc_term_prio(a0, ignore_ops);
               int alnum_op = isalnum((unsigned char)fn[0]) || fn[0] == '_';
-              int a_num = ((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0);
+              extern int rt_big_sign(DESCR_t);
+              int a_num = ((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0) || ((int)a0->v == DT_BIG && rt_big_sign(*a0) >= 0);
               int a_opatom = plc_is_op_atom(a0);
               int needp = (ap > rmax) || a_opatom || (a_num && !strcmp(fn, "-"));
               int sep = needp || (!alnum_op && plc_is_graphic_char(plc_first_char(&aa[0], quoted, ignore_ops, numbervars)));
