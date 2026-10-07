@@ -467,6 +467,7 @@ test_gate_pas_a_set_held_in_a_record_keeps_its_members.sh	WIRED	-	-	-
 test_gate_pas_a_set_member_is_of_an_ordinal_type.sh	WIRED	-	-	-
 test_gate_pas_a_subrange_bound_or_case_constant_is_never_real.sh	WIRED	-	-	-
 test_gate_pas_a_subrange_variable_is_given_only_values_of_its_subrange.sh	WIRED	-	-	-
+test_gate_pas_a_tag_allocated_variable_is_not_accessed_as_a_whole_variable.sh	WIRED	-	-	-
 test_gate_pas_a_text_parameter_is_the_file_its_actual_names.sh	WIRED	-	-	-
 test_gate_pas_a_two_dimensional_array_indexes_the_same_both_ways.sh	WIRED	-	-	-
 test_gate_pas_a_type_definition_never_applies_its_own_identifier.sh	WIRED	-	-	-
@@ -494,6 +495,7 @@ test_gate_pas_boolean_write_iso_mod_and_forward_params.sh	WIRED	-	-	-
 test_gate_pas_bytebool_wordbool_longbool_store_the_oracles_all_bits_value.sh	WIRED	-	-	-
 test_gate_pas_calls_carry_more_than_six_operands.sh	WIRED	-	-	-
 test_gate_pas_declared_locals_get_frame_slots.sh	WIRED	-	-	-
+test_gate_pas_dispose_of_a_pointer_whose_pointee_a_with_statement_references_is_refused.sh	WIRED	-	-	-
 test_gate_pas_eoln_needs_a_defined_file_not_at_its_end.sh	WIRED	-	-	-
 test_gate_pas_every_identifier_has_a_defining_point.sh	WIRED	-	-	-
 test_gate_pas_exit_leaves_the_routine_it_names.sh	WIRED	-	-	-
@@ -910,6 +912,7 @@ test_gate_snobol4_xfail_markers_are_attributed.sh	WIRED	-	-	-
 test_gate_snocone_a_setexit_trap_is_taken_from_a_function_body_a_nested_block_and_a_condition.sh	WIRED	-	-	-
 test_gate_snocone_apply_of_a_snocone_function_carries_its_arguments_into_the_tiny_record.sh	WIRED	-	-	-
 test_gate_snocone_beauty_suite_reads_every_test_in_both_modes_with_no_xfail.sh	WIRED	-	-	-
+test_gate_snocone_every_spitbol_operator_matches_the_oracle.sh	WIRED	-	-	-
 test_gate_snocone_expressions_are_snobol4_expressions.sh	WIRED	-	-	-
 test_gate_snocone_returns_codegen.sh	WIRED	-	-	-
 test_gate_spitbol_x32_case_conversion_is_oracle_equivalent.sh	WIRED	-	-	-
@@ -1125,6 +1128,4 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pas_a_tag_allocated_variable_is_not_accessed_as_a_whole_variable.sh	WIRED	-	-	-
 test_gate_pas_the_tag_of_a_variable_passed_by_reference_is_not_changed_during_the_call.sh	WIRED	-	-	-
-test_gate_pas_dispose_of_a_pointer_whose_pointee_a_with_statement_references_is_refused.sh	WIRED	-	-	-

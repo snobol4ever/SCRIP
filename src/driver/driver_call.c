@@ -130,7 +130,7 @@ DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs)
               if (_fld && nargs < 1) { retval = c_dat_field_get(_fld, NULVCL); goto fn_done; } }
             if (getenv("SCRIP_DEBUG_APPLY"))
                 fprintf(stderr, "[call-err5] unresolved '%s' (ufname='%s', nargs=%d)\n", fname ? fname : "(null)", ufname ? ufname : "(null)", nargs);
-            core_runtime_error(22, "undefined function called");
+            { extern void core_undefined_call_error(const char *); core_undefined_call_error(fname); }
             retval = FAILDESCR;
             goto fn_done;
         }

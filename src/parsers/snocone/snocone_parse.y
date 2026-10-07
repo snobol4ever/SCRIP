@@ -199,7 +199,7 @@ static tree_t  *sc_list_add            (tree_t *l, char *ident);
 %token T_UNKNOWN
 %token T_LBRACE T_RBRACE
 %token T_IF T_ELSE T_WHILE
-%type <expr> expr0 expr1 expr3 expr4 expr5 expr6 expr9 expr11 expr12 expr14 expr15 expr17 exprlist exprlist_c optexpr
+%type <expr> expr0 expr1 expr2 expr3 expr4 expr5 expr6 expr7 expr8 expr9 expr10 expr11 expr12 expr13 expr14 expr15 expr17 exprlist exprlist_c optexpr
 %type <whilehead> while_head
 %type <dohead>    do_head
 %type <ifhead>    if_head
@@ -370,8 +370,13 @@ expr0       : expr1 T_2EQUAL    expr0
             | expr1
                                 { $$ = $1; }
             ;
-expr1       : expr1 T_2QUEST expr3
+expr1       : expr1 T_2QUEST expr2
                                 { $$ = expr_binary(TT_SCAN, $1, $3); }
+            | expr2
+                                { $$ = $1; }
+            ;
+expr2       : expr2 T_2AMP expr3
+                                { tree_t *e = expr_binary(TT_OPSYN, $1, $3); e->sval = ct_strdup("&"); $$ = e; }
             | expr3
                                 { $$ = $1; }
             ;
@@ -385,20 +390,35 @@ expr4       : expr4 T_CONCAT expr5
             | expr5
                                 { $$ = $1; }
             ;
-expr5       : expr6
+expr5       : expr6 T_2AT expr5
+                                { tree_t *e = expr_binary(TT_OPSYN, $1, $3); e->sval = ct_strdup("@"); $$ = e; }
+            | expr6
                                 { $$ = $1; }
             ;
-expr6       : expr6 T_2PLUS    expr9
+expr6       : expr6 T_2PLUS    expr7
                                 { $$ = expr_binary(TT_ADD, $1, $3); }
-            | expr6 T_2MINUS expr9
+            | expr6 T_2MINUS expr7
                                 { $$ = expr_binary(TT_SUB, $1, $3); }
+            | expr7
+                                { $$ = $1; }
+            ;
+expr7       : expr7 T_2POUND expr8
+                                { tree_t *e = expr_binary(TT_OPSYN, $1, $3); e->sval = ct_strdup("#"); $$ = e; }
+            | expr8
+                                { $$ = $1; }
+            ;
+expr8       : expr8 T_2SLASH expr9
+                                { $$ = expr_binary(TT_DIV, $1, $3); }
             | expr9
                                 { $$ = $1; }
             ;
-expr9       : expr9 T_2STAR expr11
+expr9       : expr9 T_2STAR expr10
                                 { $$ = expr_binary(TT_MUL, $1, $3); }
-            | expr9 T_2SLASH       expr11
-                                { $$ = expr_binary(TT_DIV, $1, $3); }
+            | expr10
+                                { $$ = $1; }
+            ;
+expr10      : expr10 T_2PERCENT expr11
+                                { tree_t *e = expr_binary(TT_OPSYN, $1, $3); e->sval = ct_strdup("%"); $$ = e; }
             | expr11
                                 { $$ = $1; }
             ;
@@ -407,10 +427,15 @@ expr11      : expr12 T_2CARET expr11
             | expr12
                                 { $$ = $1; }
             ;
-expr12      : expr12 T_2DOLLAR expr14
+expr12      : expr12 T_2DOLLAR expr13
                                 { $$ = expr_binary(TT_CAPT_IMMED_ASGN, $1, $3); }
-            | expr12 T_2DOT    expr14
+            | expr12 T_2DOT    expr13
                                 { $$ = expr_binary(TT_CAPT_COND_ASGN,  $1, $3); }
+            | expr13
+                                { $$ = $1; }
+            ;
+expr13      : expr14 T_2TILDE expr13
+                                { tree_t *e = expr_binary(TT_OPSYN, $1, $3); e->sval = ct_strdup("~"); $$ = e; }
             | expr14
                                 { $$ = $1; }
             ;

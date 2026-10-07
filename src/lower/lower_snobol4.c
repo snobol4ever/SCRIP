@@ -313,6 +313,9 @@ static cv_t g_sno_predef;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void sno_predef_note(const char * fname) { for (uint32_t k = 0; k < g_sno_predef.len; k++) if (!strcmp(CV_AT(g_sno_predef, const char *, k), fname)) return; CV_PUSH(g_sno_predef, const char *) = fname; }
 static int sno_predef_registered(const char * fname) { if (!fname) return 0; for (uint32_t k = 0; k < g_sno_predef.len; k++) if (!strcmp(CV_AT(g_sno_predef, const char *, k), fname)) return 1; return 0; }
+static cv_t g_sno_tdef;
+static void sno_tdef_note(const char * fname) { for (uint32_t k = 0; k < g_sno_tdef.len; k++) if (!strcmp(CV_AT(g_sno_tdef, const char *, k), fname)) return; CV_PUSH(g_sno_tdef, const char *) = lp_strdup(fname); }
+static int sno_tdef_registered(const char * fname) { if (!fname) return 0; for (uint32_t k = 0; k < g_sno_tdef.len; k++) if (!strcmp(CV_AT(g_sno_tdef, const char *, k), fname)) return 1; return 0; }
 static const char * sno_t4_target(const char * op, int nops);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_tree_has_define_call(const tree_t * t) {
@@ -663,7 +666,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
     case TT_OPSYN: {
         const char * name = t->v.sval;
         if (!name || !*name) sno_fatal("OPSYN operator expression with no symbol", NULL);
-        { const char * _tg = sno_t4_target(name, t->n); if (_tg && sno_predef_registered(_tg)) return sx_call_named(cx, _tg, t, 0, γ, ω, res); }
+        { const char * _tg = sno_t4_target(name, t->n); if (_tg && (sno_predef_registered(_tg) || sno_tdef_registered(_tg))) return sx_call_named(cx, _tg, t, 0, γ, ω, res); }
         return sx_call_named(cx, name, t, 0, γ, ω, res);
     }
     case TT_FNC: {
@@ -3187,7 +3190,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
     const tree_t ** st = (const tree_t **) ct_zalloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
     sno_prog_scan(st, nst);
-    cv_t defs = {0}, def_body = {0}; g_sno_predef.len = 0;
+    cv_t defs = {0}, def_body = {0}; g_sno_predef.len = 0; g_sno_tdef.len = 0;
     cv_t def_entry_all = {0};
     int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));
     cv_t stmt_bind_fname = {0};
@@ -3203,6 +3206,7 @@ stage2_t * lower_sno_stage2(const tree_t * prog) {
             if (!pnode || pnode->t != TT_QLIT || !pnode->v.sval) sno_fatal("TT_DEFINE missing literal prototype string", NULL);
             sno_def_t d; sno_parse_define(pnode->v.sval, NULL, &d);
             if (sn4_sysfn_protected(d.fname)) continue;
+            sno_tdef_note(d.fname);
             const tree_t * body = (dfn->n > 2) ? dfn->c[2] : NULL;
             int found = -1;
             for (uint32_t k = 0; k < defs.len; k++) if (!strcmp(CV_AT(defs, sno_def_t, k).fname, d.fname)) { found = (int) k; break; }
@@ -3378,7 +3382,7 @@ IR_graph_t * sno_lower_fragment_at(const tree_t * prog, int entry_idx, long stno
     if (nst == 0 || entry_idx < 0 || entry_idx >= nst) return NULL;
     const tree_t ** st = (const tree_t **) ct_zalloc((size_t) nst, sizeof(tree_t *));
     { int k = 0; for (int i = 0; i < prog->n; i++) if (prog->c[i] && prog->c[i]->t == TT_STMT) st[k++] = prog->c[i]; }
-    g_sno_predef.len = 0;
+    g_sno_predef.len = 0; g_sno_tdef.len = 0;
     g_sno_t4.len = 0; g_sno_t4_unsafe = 1;
     int seal_sv = g_sno_seal_enabled; g_sno_seal_enabled = 0;
     int * is_def = (int *) ct_zalloc((size_t) nst, sizeof(int));

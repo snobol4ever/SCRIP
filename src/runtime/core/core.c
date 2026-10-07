@@ -4546,6 +4546,12 @@ void register_fn_alias(const char *newname, const char *oldname) {
     _func_buckets[hn] = fe;
     _func_count_one();
 }
+void core_undefined_call_error(const char *name)
+{
+    if (name && name[0] && strchr("&@#%~!/=|^*+-?\\", name[0])) core_runtime_error(29, "undefined operator referenced");
+    else core_runtime_error(22, "undefined function called");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out) {
@@ -4590,7 +4596,7 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs) {
     if (getenv("SCRIP_DEBUG_APPLY"))
         fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
 #endif
-    core_runtime_error(22, "undefined function called");
+    core_undefined_call_error(name);
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

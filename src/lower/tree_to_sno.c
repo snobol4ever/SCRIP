@@ -243,6 +243,10 @@ static void emit_expr(core_ctx_t *c, const tree_t *e) {
         emit(c, ")");
         break;
     }
+    case TT_OPSYN:
+        if (e->n == 1) { emit(c, "(%s", e->v.sval ? e->v.sval : ""); emit_expr(c, e->c[0]); emit(c, ")"); }
+        else { emit(c, "("); emit_expr(c, e->c[0]); emit(c, " %s ", e->v.sval ? e->v.sval : ""); emit_expr(c, e->c[1]); emit(c, ")"); }
+        break;
     case TT_CAPT_COND_ASGN:
         emit(c, "("); emit_expr(c, e->c[0]); emit(c, " . "); emit_expr(c, e->c[1]); emit(c, ")");
         break;

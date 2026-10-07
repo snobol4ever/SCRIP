@@ -6834,7 +6834,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         if (!strcmp(fn, "-")) return na(a, b, BINOP_SUB);
         if (!strcmp(fn, "*")) return na(a, b, BINOP_MUL);
         if (!strcmp(fn, "/")) return na(a, b, BINOP_DIV);
-        if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); return na(a, b, BINOP_MOD); }
+        if (!strcmp(fn, "%")) { extern int FNCEX_fn(const char *); if (FNCEX_fn(fn)) return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); if (sn4) { core_runtime_error(29, "undefined operator referenced"); return FAILDESCR; } return na(a, b, BINOP_MOD); }
         if (!strcmp(fn, "^")) return na(a, b, BINOP_POW);
         if (!strcmp(fn, "|||")) { extern DESCR_t rt_icn_lconcat_d(DESCR_t, DESCR_t); return rt_icn_lconcat_d(a, b); }
         if (!strcmp(fn, "||")) { const char *x = VARVAL_fn(a), *y = VARVAL_fn(b); if (!x) x = ""; if (!y) y = ""; size_t lx = strlen(x), ly = strlen(y); char *o = rt_str_alloc((int)(lx + ly)); memcpy(o, x, lx); memcpy(o + lx, y, ly); o[lx + ly] = 0; return STRVAL(o); }
@@ -6856,7 +6856,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
       }
       { extern int rt_proc_is_registered(const char *);
         if (sn4 && !sysfn && rt_proc_is_registered(fn)) { out = RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); return out; } }
-      if (sn4 && !sysfn && !sn4_call_in_scope(fn)) { core_runtime_error(22, "undefined function called"); return FAILDESCR; }
+      if (sn4 && !sysfn && !sn4_call_in_scope(fn)) { if (sn4_name_is_identifier(fn)) core_runtime_error(22, "undefined function called"); else core_runtime_error(29, "undefined operator referenced"); return FAILDESCR; }
       { extern int FNCEX_fn(const char *); extern int rt_dat_field_of_any(const char *);
         if (sn4 && !sysfn && FNCEX_fn(fn) && icn_builtin_is_known(fn) && !rt_dat_field_of_any(fn) && !dat_find_type(fn))
             return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs)); } }

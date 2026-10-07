@@ -118,13 +118,16 @@ Expr14          =   '@' *Expr14 . *Reduce('TT_CAPT_CURSOR', 1)
                 |   '*' *Expr14 . *Reduce('TT_DEFER', 1)
                 |   '$' *Expr14 . *Reduce('TT_INDIRECT', 1)
                 |   '.' *Expr14 . *Reduce('TT_NAME', 1)
-                |   '!' *Expr14 . *Reduce('TT_BANG', 1)
+                |   '!' *Expr14 . *Reduce('TT_OPSYN', 1, '!')
                 |   '?' *Expr14 . *Reduce('TT_INTERROGATE', 1)
-                |   '%' *Expr14 . *Reduce('TT_PCT', 1)
-                |   '/' *Expr14 . *Reduce('TT_SLASH', 1)
-                |   '#' *Expr14 . *Reduce('TT_POUND', 1)
-                |   *Expr15;
-Expr13          =   *Expr14 FENCE(*$'~' *Expr13 . *Reduce('TT_NOT', 2) | epsilon);
+                |   '%' *Expr14 . *Reduce('TT_OPSYN', 1, '%')
+                |   '/' *Expr14 . *Reduce('TT_OPSYN', 1, '/')
+                |   '#' *Expr14 . *Reduce('TT_OPSYN', 1, '#')
+                |   '|' *Expr14 . *Reduce('TT_OPSYN', 1, '|')
+                |   '=' *Expr14 . *Reduce('TT_OPSYN', 1, '=')
+                |   *Expr15
+                |   '&' *Expr14 . *Reduce('TT_OPSYN', 1, '&');
+Expr13          =   *Expr14 FENCE(*$'  ' '~' *$'  ' *Expr13 . *Reduce('TT_OPSYN', 2, '~') | epsilon);
 Expr12          =   *Expr13 *Expr12t;
 Expr12t         =   FENCE(
                       *$'  ' ('$' *$'  ' *Expr13 . *Reduce('TT_CAPT_IMMED_ASGN', 2) *Expr12t
@@ -132,23 +135,23 @@ Expr12t         =   FENCE(
                     ) | epsilon
                     );
 Expr11          =   *Expr12 FENCE((*$'  ' ('^' *$'  ' | '!' *$'  ' | '**' *$'  ')) *Expr11 . *Reduce('TT_POW', 2) | epsilon);
-Expr10          =   *Expr11 FENCE(*$'%' *Expr10 . *Reduce('TT_MUL', 2) | epsilon);
+Expr10          =   *Expr11 *Expr10t;
+Expr10t         =   FENCE(*$'  ' '%' *$'  ' *Expr11 . *Reduce('TT_OPSYN', 2, '%') *Expr10t | epsilon);
 Expr9           =   *Expr10 *Expr9t;
-Expr9t          =   FENCE(*$'*' *Expr10 . *Reduce('TT_MUL', 2) *Expr9t | *$'/' *Expr10 . *Reduce('TT_DIV', 2) *Expr9t | epsilon);
-Expr8           =   *Expr9;
-Expr7           =   *Expr8  FENCE(*$'#' *Expr7  . *Reduce('TT_SUB', 2) | epsilon);
+Expr9t          =   FENCE(*$'*' *Expr10 . *Reduce('TT_MUL', 2) *Expr9t | epsilon);
+Expr8           =   *Expr9 *Expr8t;
+Expr8t          =   FENCE(*$'/' *Expr9 . *Reduce('TT_DIV', 2) *Expr8t | epsilon);
+Expr7           =   *Expr8 *Expr7t;
+Expr7t          =   FENCE(*$'  ' '#' *$'  ' *Expr8 . *Reduce('TT_OPSYN', 2, '#') *Expr7t | epsilon);
 Expr6           =   *Expr7 *Expr6t;
 Expr6t          =   FENCE(*$'  ' ('+' *$'  ' *Expr7 . *Reduce('TT_ADD', 2) *Expr6t | '-' *$'  ' *Expr7 . *Reduce('TT_SUB', 2) *Expr6t) | epsilon);
-Expr5           =   *Expr6
-                    FENCE(
-                      *$'@'  *Expr5 . *Reduce('TT_CAPT_CURSOR', 2)
-                    | epsilon
-                    );
+Expr5           =   *Expr6 FENCE(*$'  ' '@' *$'  ' *Expr5 . *Reduce('TT_OPSYN', 2, '@') | epsilon);
 Expr4           =   *Expr5 *Expr4t;
 Expr4t          =   FENCE(*$'  ' *Expr5 . *Reduce('TT_SEQ', 2) *Expr4t | epsilon);
 Expr3           =   *Expr4 *Expr3t;
 Expr3t          =   FENCE(*$'|' *Expr4 . *Reduce('TT_ALT', 2) *Expr3t | epsilon);
-Expr2           =   *Expr3;
+Expr2           =   *Expr3 *Expr2t;
+Expr2t          =   FENCE(*$'  ' '&' *$'  ' *Expr3 . *Reduce('TT_OPSYN', 2, '&') *Expr2t | epsilon);
 Expr1           =   *Expr2 FENCE(*$'?' *Expr1 . *Reduce('TT_SCAN', 2) | epsilon);
 Expr0           =   *Expr1 FENCE(
                       *$'='  FENCE(*Expr0 | (epsilon) . thx . *Shift('TT_QLIT', thx)) . *Reduce('TT_ASSIGN', 2)
