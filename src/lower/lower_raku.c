@@ -5,7 +5,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "lower.h"
-typedef struct { IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; IR_t * proc_exit; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; const char * cur_proc_name; } rcx_t;
+typedef struct { int try_depth; IR_graph_t * g; IR_t * try_catch; IR_t * loop_exit; IR_t * loop_next; IR_t * proc_exit; const tree_t * cur_proc; uint64_t cur_byref_mask; int cur_nparams; const char * cur_proc_name; } rcx_t;
 static cv_t         g_rk_gram_names;
 static cv_t         g_rk_class_names;
 static cv_t         g_rk_multi_names;
@@ -128,7 +128,7 @@ static int rk_user_proc_exists(const char * nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_predeclared(const char * nm, int bare) {
     if (!nm || !*nm) return 0;
-    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", "/", NULL };
+    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", "/", "!", NULL };
     for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
     if (!bare) return 0;
     static const char * const terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
@@ -206,7 +206,37 @@ static IR_t * trace_value_prep(rcx_t * cx, const char * name, IR_t * γ, IR_t * 
     *call_out = call;
     return nm;
 }
+static const tree_t * rk_catch_of(const tree_t * t) {
+    for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (sub) s = sub; } if (s && s->t == TT_CATCH && s->n > 0) return s; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * rk_catch_handler(const tree_t * c) {
+    const tree_t * h = c->c[0]; if (!h || (h->t != TT_SEQ && h->t != TT_SEQ_EXPR)) return h;
+    int ci = -1; for (int i = h->n - 1; i >= 0; i--) { const tree_t * s = h->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (sub) s = sub; } if (s && s->t == TT_CASE) { ci = i; break; } }
+    tree_t * rt = ast_node_new(TT_FNC); rt->v.sval = (char *) "__rk_rethrow"; ast_push(rt, leaf_sval2(TT_VAR, "__rk_rethrow"));
+    tree_t * nh = ast_node_new(h->t);
+    for (int i = 0; i < h->n; i++) {
+        const tree_t * s = h->c[i]; const tree_t * u = s; if (u && u->t == TT_STMT) { const tree_t * sub = stmt_subj(u); if (sub) u = sub; }
+        if (i != ci) { ast_push(nh, (tree_t *) s); continue; }
+        int hasdef = 0; for (int k = 1; k < u->n; k += 2) if (u->c[k] && u->c[k]->t == TT_NUL) hasdef = 1;
+        if (hasdef) { ast_push(nh, (tree_t *) s); continue; }
+        tree_t * nc = ast_node_new(TT_CASE); nc->line = u->line; for (int k = 0; k < u->n; k++) ast_push(nc, u->c[k]);
+        ast_push(nc, ast_node_new(TT_NUL)); tree_t * rb = ast_node_new(TT_SEQ_EXPR); ast_push(rb, rt); ast_push(nc, rb); ast_push(nh, nc);
+    }
+    if (ci < 0) ast_push(nh, rt);
+    return nh;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_rblock(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** last_res) {
+    if (t && (t->t == TT_SEQ || t->t == TT_SEQ_EXPR || t->t == TT_PROGRAM) && t->slen != 78) {
+        const tree_t * ct = rk_catch_of(t);
+        if (ct) {
+            tree_t * nb = ast_node_new(t->t); nb->line = t->line; nb->slen = 78; for (int i = 0; i < t->n; i++) ast_push(nb, t->c[i]);
+            tree_t * nt = ast_node_new(TT_TRY); nt->line = t->line; nt->slen = 77; ast_push(nt, nb); ast_push(nt, (tree_t *) rk_catch_handler(ct));
+            IR_t * r = NULL; IR_t * e = lower_rv(cx, nt, γ, ω, &r); if (last_res) *last_res = r; return e;
+        }
+    }
     if (!t) return (γ && ir_is_generator_kind(γ->op)) ? γ : build(cx, IR_SUCCEED, γ, ω);
     if (t->t != TT_SEQ && t->t != TT_PROGRAM && t->t != TT_SEQ_EXPR) { IR_t * r = NULL; IR_t * e = lower_rv(cx, t, γ, ω, &r); if (last_res) *last_res = r; return e; }
     if (t->n == 0) return (γ && ir_is_generator_kind(γ->op)) ? γ : build(cx, IR_SUCCEED, γ, ω);
@@ -540,7 +570,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         tree_t * m1 = ast_node_new(TT_ILIT); m1->v.ival = -1; ast_push(m, m1);
         return lower_rv(cx, m, γ, ω, res); }
     case TT_VAR: {
-        if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval)) {
+        if (rk_is_grammar_name(t->v.sval) || rk_is_class_name(t->v.sval) || (t->v.sval && t->v.sval[0] == 'X' && t->v.sval[1] == ':' && t->v.sval[2] == ':')) {
             IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd;
         }
         if (t->v.sval && strchr(t->v.sval, ':')) {
@@ -657,13 +687,26 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return lower_rcall(cx, t, "rk_write", 0, γ, ω, res);
     case TT_PRINT: case TT_PRINT_FH: return lower_rcall(cx, t, "rk_writes", 0, γ, ω, res);
     case TT_DIE: return lower_rcall(cx, t, "die", 0, γ, ω, res);
-    case TT_TRY: {
+    case TT_TRY: if (t->slen != 77 && t->n > 0 && t->c[0] && (t->c[0]->t == TT_SEQ || t->c[0]->t == TT_SEQ_EXPR || t->c[0]->t == TT_PROGRAM)) {
+        const tree_t * ob = t->c[0]; int li = -1;
+        for (int i = ob->n - 1; i >= 0; i--) { const tree_t * s = ob->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (sub) s = sub; } if (s && s->t == TT_CATCH) continue; li = i; break; }
+        const tree_t * ls = li >= 0 ? ob->c[li] : NULL; if (ls && ls->t == TT_STMT) { const tree_t * sub = stmt_subj(ls); if (sub) ls = sub; }
+        if (ls && ls->t != TT_IF && ls->t != TT_UNLESS && ls->t != TT_WHILE && ls->t != TT_UNTIL && ls->t != TT_REPEAT && ls->t != TT_FOR && ls->t != TT_FOR_RANGE && ls->t != TT_EVERY && ls->t != TT_CASE && ls->t != TT_RETURN && ls->t != TT_NUL && ls->t != TT_INVOKE && ls->t != TT_SEQ && ls->t != TT_SEQ_EXPR && ls->t != TT_ASSIGN && ls->t != TT_REVASSIGN && ls->t != TT_ARR_SET && ls->t != TT_HASH_SET && ls->t != TT_DECL && ls->t != TT_ARR_DECL && ls->t != TT_HASH_DECL && ls->t != TT_RW_DECL && ls->t != TT_STATIC_DECL && ls->t != TT_SUB_DECL && ls->t != TT_CLASS_DECL) {
+            char tvb[48]; snprintf(tvb, sizeof tvb, "__tryv%p", (const void *) t); const char * tv = ct_strdup(tvb);
+            tree_t * nb = ast_node_new(ob->t); for (int i = 0; i < ob->n; i++) { if (i == li) { tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, leaf_sval2(TT_VAR, tv)); ast_push(as, (tree_t *) ls); ast_push(nb, as); } else ast_push(nb, ob->c[i]); }
+            tree_t * nt = ast_node_new(TT_TRY); nt->line = t->line; nt->slen = 77; ast_push(nt, nb); if (t->n > 1) ast_push(nt, t->c[1]);
+            tree_t * init = ast_node_new(TT_ASSIGN); ast_push(init, leaf_sval2(TT_VAR, tv)); ast_push(init, ast_node_new(TT_NUL));
+            tree_t * sq = ast_node_new(TT_SEQ_EXPR); ast_push(sq, init); ast_push(sq, nt); ast_push(sq, leaf_sval2(TT_VAR, tv));
+            return lower_rv(cx, sq, γ, ω, res);
+        }
+        goto try_plain;
+    } else { try_plain: {
         const tree_t * body = (t->n > 0) ? t->c[0] : NULL; const tree_t * handler = (t->n > 1) ? t->c[1] : NULL;
         if (!handler && body && (body->t == TT_SEQ || body->t == TT_SEQ_EXPR || body->t == TT_PROGRAM))
             for (int i = 0; i < body->n; i++) { const tree_t * s = body->c[i]; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (sub) s = sub; }
                 if (s && s->t == TT_CATCH && s->n > 0) { handler = s->c[0]; break; } }
         IR_t * kexit = build(cx, IR_CALL, γ, ω); IR_LIT(kexit).sval = "try_exit";
-        IR_t * save = cx->try_catch; cx->try_catch = NULL;
+        IR_t * save = cx->try_catch; cx->try_catch = NULL; int save_td = cx->try_depth;
         IR_t * centry;
         if (handler) {
             IR_t * hentry = lower_rblock(cx, handler, γ, ω, NULL);
@@ -675,11 +718,13 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * clr = build(cx, IR_CALL, γ, ω); IR_LIT(clr).sval = "exc_clear";
             IR_t * tx = build(cx, IR_CALL, clr, ω); IR_LIT(tx).sval = "try_exit"; centry = tx;
         }
-        cx->try_catch = centry;
-        IR_t * bentry = lower_rblock(cx, body, kexit, ω, NULL);
-        cx->try_catch = save;
+        cx->try_catch = centry; cx->try_depth = save_td + 1;
+        const tree_t * lb = body;
+        if (body && (body->t == TT_SEQ || body->t == TT_SEQ_EXPR || body->t == TT_PROGRAM) && body->slen != 78) { tree_t * mb = ast_node_new(body->t); mb->line = body->line; mb->slen = 78; for (int i = 0; i < body->n; i++) ast_push(mb, body->c[i]); lb = mb; }
+        IR_t * bentry = lower_rblock(cx, lb, kexit, ω, NULL);
+        cx->try_catch = save; cx->try_depth = save_td;
         IR_t * te = build(cx, IR_CALL, bentry, ω); IR_LIT(te).sval = "try_enter";
-        *res = kexit; return te; }
+        *res = kexit; return te; } }
     case TT_ANON_BLOCK: { const char * bn = t->v.sval ? t->v.sval : "?";
         tree_t * mc = ast_node_new(TT_FNC); mc->v.sval = (char *)"__blk_ref";
         tree_t * nmv = ast_node_new(TT_VAR); nmv->v.sval = (char *)"__blk_ref"; ast_push(mc, nmv);
@@ -959,12 +1004,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 trace_entry = nm;
             }
             IR_t * value_γ = trace_entry;
+            for (int td = 0; td < cx->try_depth; td++) { IR_t * te = build(cx, IR_CALL, value_γ, ω); IR_LIT(te).sval = "try_exit"; value_γ = te; }
             IR_t * r = NULL; IR_t * e = lower_rv(cx, t->c[0], value_γ, ω, &r);
             ir_operand_push(nd, r ? r : e);
             if (trace) ir_operand_push(trace, r ? r : e);
             *res = nd; return e;
-        } IR_t * nd = build(cx, IR_RETURN, exit_γ, ω);
-        *res = nd; return nd;
+        } IR_t * nd = build(cx, IR_RETURN, exit_γ, ω); IR_t * rentry = nd;
+        for (int td = 0; td < cx->try_depth; td++) { IR_t * te = build(cx, IR_CALL, rentry, ω); IR_LIT(te).sval = "try_exit"; rentry = te; }
+        *res = nd; return rentry;
     }
     default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
@@ -1241,12 +1288,18 @@ static const char * rk_prologue_target(const tree_t * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
-    IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.g = g; cx.try_catch = NULL; cx.loop_exit = NULL; cx.loop_next = NULL;
+    IR_graph_t * g = IR_alloc(8192); rcx_t cx; cx.try_depth = 0; cx.g = g; cx.try_catch = NULL; cx.loop_exit = NULL; cx.loop_next = NULL;
     cx.cur_proc = pd; cx.cur_byref_mask = 0; cx.cur_nparams = 0;
     const char * rk_proc_name = NULL;
     for (int _pbi = 0; pd && _pbi < g_stage2.proc_count; _pbi++) if (g_stage2.proc_table[_pbi].proc == pd) {
         cx.cur_byref_mask = g_stage2.proc_table[_pbi].byref_mask; cx.cur_nparams = g_stage2.proc_table[_pbi].nparams; rk_proc_name = g_stage2.proc_table[_pbi].name; break; }
     cx.cur_proc_name = rk_proc_name;
+    if (pd && pd->t == TT_SUB_DECL && rk_catch_of(pd)) {
+        const tree_t * ct = rk_catch_of(pd); tree_t * p2 = ast_node_new(pd->t); p2->v = pd->v; p2->slen = pd->slen; p2->line = pd->line;
+        int k = 0; while (k < pd->n && (k == 0 || (pd->c[k] && pd->c[k]->t == TT_VAR))) ast_push(p2, pd->c[k++]);
+        tree_t * nb = ast_node_new(TT_SEQ_EXPR); nb->slen = 78; for (; k < pd->n; k++) ast_push(nb, pd->c[k]);
+        tree_t * nt = ast_node_new(TT_TRY); nt->slen = 77; ast_push(nt, nb); ast_push(nt, (tree_t *) rk_catch_handler(ct)); ast_push(p2, nt); pd = p2;
+    }
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED); IR_t * fail = IR_node_alloc(g, IR_FAIL);
     IR_t * fall = build(&cx, IR_RETURN, succ, fail);
     IR_t * sentry = fall; IR_t * entry = fall;
@@ -2225,7 +2278,7 @@ stage2_t *lower_raku_stage2(const tree_t *prog) {
     for (int pi = 0; pi < g_stage2.proc_count; pi++)
         if (g_stage2.proc_table[pi].name && strcmp(g_stage2.proc_table[pi].name, "main") == 0) { has_main = 1; break; }
     if (!has_main) {
-        IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.g = tg; tcx.try_catch = NULL; tcx.loop_exit = NULL; tcx.loop_next = NULL;
+        IR_graph_t * tg = IR_alloc(8192); rcx_t tcx; tcx.try_depth = 0; tcx.g = tg; tcx.try_catch = NULL; tcx.loop_exit = NULL; tcx.loop_next = NULL;
         tcx.cur_proc = NULL; tcx.cur_byref_mask = 0; tcx.cur_nparams = 0; tcx.cur_proc_name = "main";
         IR_t * succ = IR_node_alloc(tg, IR_SUCCEED); IR_t * fail = IR_node_alloc(tg, IR_FAIL);
         IR_t * sentry = succ; IR_t * entry = succ;

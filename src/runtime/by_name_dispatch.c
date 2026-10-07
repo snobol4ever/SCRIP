@@ -613,6 +613,7 @@ int rt_grammar_flavor(int i) { return (i >= 0 && i < gram_n) ? GRAM(i).flavor : 
 int rt_grammar_has_top(const char *gname) { if (!gname) return 0; char qn[fmt_len("%s::TOP", gname)]; snprintf(qn, sizeof qn, "%s::TOP", gname); return gram_get(qn) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_match_is(DESCR_t d);
+static int rk_exc_is(DESCR_t d);
 static const char *rk_match_text(DESCR_t d);
 static int rk_match_is_nil(DESCR_t d) {
     if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0;
@@ -1029,7 +1030,7 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
       if (tn) {
           if (!strcmp(meth, "defined") || !strcmp(meth, "Bool") || !strcmp(meth, "so")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
           if (!strcmp(meth, "gist") && !strcmp(tn, "Nil")) { *out = STRVAL(rt_heap_strdup_c("Nil")); return 1; }
-          if (!strcmp(meth, "gist")) { size_t l = strlen(tn); char *r = (char *)rt_str_alloc(l + 2); r[0] = '('; memcpy(r + 1, tn, l); r[l + 1] = ')'; r[l + 2] = '\0'; *out = STRVAL(r); return 1; }
+          if (!strcmp(meth, "gist")) { const char *sc = strrchr(tn, ':'); if (sc) tn = sc + 1; size_t l = strlen(tn); char *r = (char *)rt_str_alloc(l + 2); r[0] = '('; memcpy(r + 1, tn, l); r[l + 1] = ')'; r[l + 2] = '\0'; *out = STRVAL(r); return 1; }
           if (!strcmp(meth, "raku") || !strcmp(meth, "perl") || !strcmp(meth, "^name") || !strcmp(meth, "name")) { *out = STRVAL(rt_heap_strdup_c(tn)); return 1; }
           if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
           if (!strcmp(meth, "WHAT")) { *out = recv; return 1; }
@@ -4532,6 +4533,7 @@ static DESCR_t rk_pre_args(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_pre_value(const char *nm, DESCR_t *out) {
     extern const char *rt_main_progname(void);
+    if (!strcmp(nm, "!")) { DESCR_t ex = NV_GET_fn("!"); *out = rk_exc_is(ex) ? ex : NULVCL; return 1; }
     if (!strcmp(nm, "/")) { *out = (g_match.matched && g_subject) ? rk_match_obj(&g_match, g_subject) : rk_match_nil(); return 1; }
     if (!strcmp(nm, "Less")) { *out = (DESCR_t){ .v = DT_ORDER, .i = -1 }; return 1; }
     if (!strcmp(nm, "Same")) { *out = (DESCR_t){ .v = DT_ORDER, .i = 0 }; return 1; }
@@ -4649,6 +4651,69 @@ static int rk_match_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out
         *out = rk_mk_arr(r, n); return 1;
     }
     return rt_str_method(m, FIELD_GET_fn(d, "text"), &args[2], nargs - 2, out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const struct { const char *needle, *cls, *parent; } rk_exc_tab[] = {
+    { "Attempt to divide by zero", "X::Numeric::DivideByZero", "Exception" }, { "Cannot resolve caller", "X::Multi::NoMatch", "Exception" },
+    { "Type check failed in binding", "X::TypeCheck::Binding", "X::TypeCheck" }, { "Type check failed in assignment", "X::TypeCheck::Assignment", "X::TypeCheck" },
+    { "Cannot modify an immutable", "X::Assignment::RO", "Exception" }, { "No such method", "X::Method::NotFound", "Exception" },
+    { "out of range", "X::OutOfRange", "Exception" }, { "Cannot convert string to number", "X::Str::Numeric", "Exception" },
+    { "Unrecognized trailing characters", "X::Str::Numeric", "Exception" }, { "must be resolved by class", "X::Role::Composition", "Exception" }, { NULL, NULL, NULL } };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_exc_init(void) {
+    static int rk_exc_reg = 0; if (rk_exc_reg) return; rk_exc_reg = 1;
+    extern void record_register(const char *spec); extern void class_inherit(const char *child, const char *parent);
+    record_register("Exception"); record_register("X::AdHoc(payload)"); class_inherit("X::AdHoc", "Exception"); record_register("X::TypeCheck(message)"); class_inherit("X::TypeCheck", "Exception");
+    for (int i = 0; rk_exc_tab[i].cls; i++) { char spec[strlen(rk_exc_tab[i].cls) + 16]; snprintf(spec, sizeof spec, "%s(message)", rk_exc_tab[i].cls); record_register(spec); class_inherit(rk_exc_tab[i].cls, rk_exc_tab[i].parent); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_exc_isa(DESCR_t d, const char *target) {
+    if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name)) return 0;
+    extern int dat_mro(const char *name, const char **out, int max); const char *cn = d.u->type->name;
+    const char *mro[bnd_dat_need(cn, 0)]; int mn = dat_mro(cn, mro, (int)(sizeof mro / sizeof mro[0])); if (mn == 0) { mro[0] = cn; mn = 1; }
+    for (int i = 0; i < mn; i++) if (mro[i] && !strcmp(mro[i], target)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_exc_is(DESCR_t d) { return rk_exc_isa(d, "Exception"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_exc_adhoc(DESCR_t payload) {
+    rk_exc_init();
+    return DATCON_fn("X::AdHoc", payload);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_exc_message(DESCR_t ex) {
+    const char *cn = ex.u->type->name; extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+    const char *rmc = resolve_method_chain(cn, "message", NULL); char proc[fmt_len("%s__%s", rmc, "message")]; snprintf(proc, sizeof proc, "%s__%s", rmc, "message");
+    if (meth_is_user_proc(proc)) { DESCR_t a[2] = { ex, STRVAL((char *) "message") }, r; if (script_try_call_builtin_by_name("meth_call", a, 2, &r) && !IS_FAIL_fn(r)) { const char *m = rk_cstr(r); return m ? m : ""; } }
+    DatType *t = ex.u->type; for (int i = 0; i < t->nfields; i++) if (!strcmp(t->fields[i], "message") || !strcmp(t->fields[i], "payload")) { const char *m = rk_cstr(FIELD_GET_fn(ex, t->fields[i])); return m ? m : ""; }
+    return "Died";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_exc_from_msg(const char *msg) {
+    rk_exc_init();
+    for (int i = 0; rk_exc_tab[i].cls; i++) if (strstr(msg, rk_exc_tab[i].needle)) return DATCON_fn(rk_exc_tab[i].cls, STRVAL(rt_heap_strdup_c(msg)));
+    return rk_exc_adhoc(STRVAL(rt_heap_strdup_c(msg)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_exc_current(void) {
+    extern char g_script_exception[512]; DESCR_t cur = NV_GET_fn("!");
+    if (rk_exc_is(cur) && !strcmp(rk_exc_message(cur), g_script_exception)) return cur;
+    if (!g_script_exception[0]) return rk_exc_is(cur) ? cur : NULVCL;
+    cur = rk_exc_from_msg(g_script_exception); NV_SET_fn("!", cur); return cur;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_exc_throw(DESCR_t ex) {
+    extern void rt_script_die_surface(const char *msg); NV_SET_fn("!", ex); rt_script_die_surface(rk_exc_message(ex));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
+    DESCR_t ex = args[0]; (void) nargs;
+    if (!strcmp(m, "message") || !strcmp(m, "Str") || !strcmp(m, "gist")) { *out = STRVAL(rt_heap_strdup_c(rk_exc_message(ex))); return 1; }
+    if (!strcmp(m, "throw") || !strcmp(m, "rethrow")) { rk_exc_throw(ex); *out = FAILDESCR; return 1; }
+    if (!strcmp(m, "Bool") || !strcmp(m, "so") || !strcmp(m, "defined")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
+    if (!strcmp(m, "backtrace")) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) {
@@ -4841,6 +4906,23 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *d = nargs > 2 ? to_cstring(args[2], sb1, sizeof sb1) : NULL;
             if (!d) { size_t l = strlen(want ? want : "") + 24; char *dd = rt_wsb_alloc(l); snprintf(dd, l, "The object is-a '%s'", want ? want : ""); d = dd; }
             rk_tap_proclaim(c, d, ""); *out = INTVAL(c); return 1; }
+        if (!strcmp(op, "throws_like") && nargs >= 2) {
+            DESCR_t ex = args[0]; const char *w0 = rk_typeobj_name(args[1]) ? rk_typeobj_name(args[1]) : VARVAL_fn(args[1]); if (!w0) w0 = "Exception";
+            char want[strlen(w0) + 1]; strcpy(want, w0); const char *d0 = NULL;
+            for (int i = 2; i < nargs; i++) if (!rk_is_pair(args[i]) && !d0) d0 = to_cstring(args[i], msg, sizeof msg);
+            char desc[(d0 ? strlen(d0) : 0) + strlen(want) + 40]; if (d0) strcpy(desc, d0); else sprintf(desc, "did we throws-like %s?", want);
+            char why[2 * strlen(want) + 700]; why[0] = '\0'; int c = 1;
+            if (!rk_exc_is(ex)) { c = 0; strcpy(why, "code did not die"); }
+            else if (!rk_exc_isa(ex, want)) { c = 0; snprintf(why, sizeof why, "expected a %s but got a %.200s", want, ex.u->type->name); }
+            else for (int i = 2; i < nargs && c; i++) if (rk_is_pair(args[i])) {
+                rk_av_t p = rk_av(args[i]); const char *k0 = rk_cstr(p.el[0]); char key[strlen(k0) + 1]; strcpy(key, k0); DESCR_t ma[2] = { ex, STRVAL(key) }, got, t;
+                if (!script_try_call_builtin_by_name("meth_call", ma, 2, &got) || IS_FAIL_fn(got)) { c = 0; snprintf(why, sizeof why, "the exception has no attribute '%.200s'", key); break; }
+                const char *g0 = rk_cstr(got); char gs[strlen(g0) + 1]; strcpy(gs, g0);
+                DESCR_t sm[2] = { got, p.n > 1 ? p.el[1] : NULVCL };
+                if (!(script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t))) { c = 0; snprintf(why, sizeof why, "%.200s: got '%.200s' which does not match", key, gs); }
+            }
+            rk_tap_proclaim(c, desc, ""); if (!c && why[0]) rk_tap_diag(why);
+            *out = INTVAL(c); return 1; }
         { static const struct { const char *nm; int di; } rk_unimpl[] = { { "does_ok", 2 }, { "lives_ok", 1 }, { "dies_ok", 1 }, { "throws_like", 2 }, { "eval_lives_ok", 1 }, { "eval_dies_ok", 1 }, { "like", 2 }, { "unlike", 2 }, { (const char *)0, 0 } };
           for (int i = 0; rk_unimpl[i].nm; i++) if (!strcmp(op, rk_unimpl[i].nm)) {
               const char *d = (nargs > rk_unimpl[i].di) ? to_cstring(args[rk_unimpl[i].di], msg, sizeof msg) : "";
@@ -5517,7 +5599,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             else if (args[_ri].v == DT_ORDER) tmp[_ri] = STRVAL(rt_heap_strdup_c(args[_ri].i < 0 ? "Less" : (args[_ri].i > 0 ? "More" : "Same")));
             else if (args[_ri].v == DT_SNUL) tmp[_ri] = STRVAL(rt_heap_strdup_c("Nil"));
             else if (IS_REAL_fn(args[_ri])) { char *_rb = rt_wsb_alloc(64); rk_real_str(args[_ri].r, _rb, 64); tmp[_ri] = STRVAL(_rb); }
-            else if (rk_typeobj_name(args[_ri])) { const char *tn = rk_typeobj_name(args[_ri]); size_t l = strlen(tn); char *r = rt_wsb_alloc(l + 3);
+            else if (rk_typeobj_name(args[_ri])) { const char *tn = rk_typeobj_name(args[_ri]); { const char *sc = strrchr(tn, ':'); if (sc && strcmp(tn, "Nil")) tn = sc + 1; } size_t l = strlen(tn); char *r = rt_wsb_alloc(l + 3);
                 if (!strcmp(fn, "rk_write") && !strcmp(tn, "Nil")) memcpy(r, "Nil", 4);
                 else if (!strcmp(fn, "rk_write")) { r[0] = '('; memcpy(r + 1, tn, l); r[l + 1] = ')'; r[l + 2] = '\0'; } else r[0] = '\0'; tmp[_ri] = STRVAL(r); }
             else tmp[_ri] = args[_ri];
@@ -6029,11 +6111,10 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = rk_mk_arr(r, a.n); return 1;
     }
     if ((!strcmp(fn, "die") || !strcmp(fn, "script_die")) && nargs >= 1) {
-        const char *m = VARVAL_fn(args[0]); if (!m) m = "Died";
-        extern void rt_script_die_surface(const char *msg);
-        rt_script_die_surface(m);
+        rk_exc_init(); rk_exc_throw(rk_exc_is(args[0]) ? args[0] : rk_exc_adhoc(args[0]));
         *out = FAILDESCR; return 1;
     }
+    if (!strcmp(fn, "__rk_rethrow") && nargs == 0) { DESCR_t ex = rk_exc_current(); if (rk_exc_is(ex)) rk_exc_throw(ex); *out = FAILDESCR; return 1; }
     if (!strcmp(fn, "srand") && nargs == 1) {
         long seed = IS_INT_fn(args[0]) ? (long)args[0].i : (IS_REAL_fn(args[0]) ? (long)args[0].r : 0);
         srand((unsigned int)seed);
@@ -6067,12 +6148,12 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "exc_clear") && nargs == 0) {
         extern char g_script_exception[512];
-        g_script_exception[0] = '\0';
+        (void) rk_exc_current(); g_script_exception[0] = '\0';
         *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "try_enter") && nargs == 0) {
         extern char g_script_exception[512]; extern int g_script_try_depth;
-        g_script_try_depth++; g_script_exception[0] = '\0';
+        g_script_try_depth++; g_script_exception[0] = '\0'; NV_SET_fn("!", NULVCL);
         *out = STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "try_exit") && nargs == 0) {
@@ -6086,8 +6167,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *out = FAILDESCR; return 1;
     }
     if (!strcmp(fn, "exc_get") && nargs == 0) {
-        extern char g_script_exception[512];
-        *out = STRVAL(rt_heap_strdup_c(g_script_exception)); return 1;
+        DESCR_t ex = rk_exc_current(); *out = rk_exc_is(ex) ? ex : STRVAL(rt_heap_strdup_c("")); return 1;
     }
     if (!strcmp(fn, "fh_capture") && nargs == 1) {
         extern void fh_ensure_init(void);
@@ -6264,6 +6344,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         *cell = args[3]; *out = args[3]; return 1;
     }
     if (!strcmp(fn, "obj_new") && nargs >= 1) {
+        { const char *xc = VARVAL_fn(args[0]); if (xc && ((xc[0] == 'X' && xc[1] == ':') || !strcmp(xc, "Exception"))) rk_exc_init(); }
         const char *cname = VARVAL_fn(args[0]); if (!cname || !*cname) { *out = FAILDESCR; return 1; }
         const char *rmc = resolve_method_chain(cname, "new", NULL); char newproc[fmt_len("%s__new", rmc)]; snprintf(newproc, sizeof newproc, "%s__new", rmc);
         extern int rt_proc_has_native_fn(const char *name);
@@ -6297,6 +6378,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
         const char *mname0 = VARVAL_fn(args[1]);
+        if (IS_STR_fn(args[0]) && args[0].s && ((args[0].s[0] == 'X' && args[0].s[1] == ':') || args[0].s[0] == 'E') && (args[0].s[0] == 'X' || !strcmp(args[0].s, "Exception"))) rk_exc_init();
         if (mname0 && mname0[0] == '^') {
             const char *mm = mname0 + 1; const char *cn = NULL;
             if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
@@ -6330,8 +6412,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
             const char *cn = NULL;
             if (IS_DATA_INST_fn(args[0]) && args[0].u) { DATINST_t *di = (DATINST_t *)args[0].u; cn = (di && di->type) ? di->type->name : NULL; }
             else { cn = VARVAL_fn(args[0]); if (cn && !dat_find_type(cn)) cn = NULL; }
-            if (cn && IS_DATA_INST_fn(args[0])) { *out = rk_typeobj(cn); return 1; }
-            if (cn) { *out = STRVAL(rt_heap_strdup_c(cn)); return 1; }
+            if (cn) { *out = rk_typeobj(cn); return 1; }
             *out = rk_typeobj(rk_value_type(args[0])); return 1;
         }
         if (mname0 && (!strcmp(mname0, "isa") || !strcmp(mname0, "does")) && nargs >= 3) {
@@ -6473,6 +6554,7 @@ int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DE
         const char *rmc = resolve_method_chain(cname, mname, &found_idx);
         char procname[fmt_len("%s__%s", rmc, mname)]; snprintf(procname, sizeof procname, "%s__%s", rmc, mname);
         if (!meth_is_user_proc(procname) && rt_multi_meth_dispatch(cname, mname, args, nargs, out)) return 1;
+        if (!meth_is_user_proc(procname) && rk_exc_is(args[0]) && rk_exc_method(mname, args, nargs, out)) return 1;
         if (nargs == 2 && !meth_is_user_proc(procname)) {
             extern int dat_field_is_private(const char *cls, const char *field);
             if (dat_field_is_private(cname, mname)) {
@@ -7181,6 +7263,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
         const char *rmc = resolve_method_chain(d.u->type->name, mname, NULL); char proc[fmt_len("%s__%s", rmc, mname)]; snprintf(proc, sizeof proc, "%s__%s", rmc, mname);
         if (meth_is_user_proc(proc)) { DESCR_t self1 = d; DESCR_t r = invoke_method_proc(proc, &self1, 1); const char *s = VARVAL_fn(r); return s ? s : ""; }
     }
+    if (rk_exc_is(d)) return rk_exc_message(d);
     const char *s = VARVAL_fn(d); return s ? s : "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

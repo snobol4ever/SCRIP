@@ -185,6 +185,14 @@ static tree_t *rk_testop_shape(RkB *b, tree_t *c) {
         expr_add_child(seq, ok);
         return seq;
     }
+    if (!strcmp(nm, "__rk_test_throws_like") && c->n >= 3 && c->c[1] && c->c[1]->t != TT_QLIT && c->c[1]->t != TT_CAT) {
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR), *body = ast_node_new(TT_SEQ_EXPR), *inv = ast_node_new(TT_INVOKE), *tr = ast_node_new(TT_TRY);
+        expr_add_child(inv, c->c[1]); expr_add_child(body, inv); expr_add_child(tr, body); expr_add_child(seq, tr);
+        tree_t *tl = make_call("__rk_test_throws_like"); expr_add_child(tl, leaf_sval(TT_VAR, "!"));
+        for (int i = 2; i < c->n; i++) expr_add_child(tl, c->c[i]);
+        expr_add_child(seq, tl);
+        return seq;
+    }
     if ((like || unlike) && c->n >= 3) {
         tree_t *ok = make_call(like ? "__rk_test_ok" : "__rk_test_nok");
         expr_add_child(ok, rkb_ternary(b, rkb_smartmatch(b, c->c[1], c->c[2]), mkbool_lit(1), mkbool_lit(0))); if (c->n >= 4) expr_add_child(ok, c->c[3]);
@@ -457,7 +465,7 @@ static tree_t *rk_named_call(const char *fname, TL *pos, TL *named) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_adhoc_new(const char *cname, TL *named, TL *pos) {
-    if (!cname || strcmp(cname, "X::AdHoc")) return NULL;
+    if (1) return NULL;
     tree_t *val = NULL;
     if (named) for (int i = 0; i + 1 < named->n; i += 2) {
         tree_t *k = named->v[i]; const char *ks = k ? k->v.sval : NULL;
@@ -468,7 +476,7 @@ static tree_t *rk_adhoc_new(const char *cname, TL *named, TL *pos) {
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static tree_t *rk_catch_when_cond(tree_t *e) { if (e && e->t == TT_VAR && e->v.sval && !strcmp(e->v.sval, "X::AdHoc")) return ast_node_new(TT_NUL); return e; }
+static tree_t *rk_catch_when_cond(tree_t *e) { return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_defaults_prologue(TL *params, tree_t *body) {
     if (!params) return body;
@@ -555,10 +563,11 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             tree_t *var = leaf_sval(TT_VAR, st ? st + 1 : vs);
             result = result ? expr_binary(TT_CAT, result, var) : var;
         }
-        else if (s[i] == '$' && i + 1 < len && (s[i + 1] == '/' || (s[i + 1] >= '0' && s[i + 1] <= '9') || (s[i + 1] == '<' && strchr(s + i + 2, '>')))) {
+        else if (s[i] == '$' && i + 1 < len && (s[i + 1] == '/' || (s[i + 1] == '!' && !(i + 2 < len && (s[i + 2] == '_' || isalpha((unsigned char) s[i + 2])))) || (s[i + 1] >= '0' && s[i + 1] <= '9') || (s[i + 1] == '<' && strchr(s + i + 2, '>')))) {
             if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
             tree_t *cp;
             if (s[i + 1] == '/') { cp = leaf_sval(TT_VAR, "/"); i += 2; }
+            else if (s[i + 1] == '!') { cp = leaf_sval(TT_VAR, "!"); i += 2; }
             else if (s[i + 1] == '<') { int j = i + 2; while (s[j] != '>') j++; cp = ast_node_new(TT_NAMED_CAPTURE); ast_push(cp, leaf_sval(TT_QLIT, trimdup(s + i + 2, j - i - 2))); i = j + 1; }
             else { int j = i + 1, v = 0; while (j < len && s[j] >= '0' && s[j] <= '9') v = v * 10 + (s[j++] - '0'); cp = ast_node_new(TT_CAPTURE); ast_push(cp, rk_ilit(v)); i = j; }
             result = result ? expr_binary(TT_CAT, result, cp) : cp;
