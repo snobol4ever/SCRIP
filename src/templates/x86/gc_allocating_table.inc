@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2090
-#define GC_ALLOC_TAB_N_VOID 243
-#define GC_ALLOC_TAB_N_DESCR 1104
-#define GC_ALLOC_TAB_N_OTHER 737
+#define GC_ALLOC_TAB_N 2103
+#define GC_ALLOC_TAB_N_VOID 245
+#define GC_ALLOC_TAB_N_DESCR 1108
+#define GC_ALLOC_TAB_N_OTHER 744
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -491,6 +491,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "core_quit_trap_300_sig", GC_RET_VOID },
     { "core_quit_trap_320_sig", GC_RET_VOID },
     { "core_runtime_error", GC_RET_VOID },
+    { "core_undefined_call_error", GC_RET_VOID },
     { "cset_bits_of", GC_RET_VOID },
     { "cset_canonical", GC_RET_OTHER },
     { "cset_diff", GC_RET_OTHER },
@@ -962,6 +963,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plw_bind", GC_RET_VOID },
     { "plw_bind_x", GC_RET_VOID },
     { "plw_det_cell", GC_RET_OTHER },
+    { "plw_oc_refuse", GC_RET_OTHER },
     { "plw_unify_cell_val", GC_RET_OTHER },
     { "plw_unify_cells", GC_RET_OTHER },
     { "plw_unify_cells_oc", GC_RET_OTHER },
@@ -1033,6 +1035,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_hash_from_list", GC_RET_DESCR },
     { "rk_hash_list", GC_RET_DESCR },
     { "rk_hash_store", GC_RET_DESCR },
+    { "rk_idx_label", GC_RET_OTHER },
     { "rk_item", GC_RET_OTHER },
     { "rk_item_count", GC_RET_OTHER },
     { "rk_jct_text", GC_RET_OTHER },
@@ -1040,8 +1043,17 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_key_own", GC_RET_DESCR },
     { "rk_key_tmp", GC_RET_DESCR },
     { "rk_lines_arr", GC_RET_DESCR },
-    { "rk_match_make", GC_RET_DESCR },
+    { "rk_match_caps", GC_RET_OTHER },
+    { "rk_match_gist_into", GC_RET_VOID },
+    { "rk_match_gist_len", GC_RET_OTHER },
+    { "rk_match_method", GC_RET_OTHER },
+    { "rk_match_nil", GC_RET_DESCR },
+    { "rk_match_obj", GC_RET_DESCR },
+    { "rk_match_obj_in", GC_RET_DESCR },
+    { "rk_match_rec", GC_RET_DESCR },
     { "rk_match_render", GC_RET_OTHER },
+    { "rk_match_span", GC_RET_DESCR },
+    { "rk_match_text", GC_RET_OTHER },
     { "rk_method_land_γ", GC_RET_DESCR },
     { "rk_method_land_ω", GC_RET_DESCR },
     { "rk_method_open", GC_RET_OTHER },
@@ -1363,6 +1375,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_ball_kind2", GC_RET_OTHER },
     { "rt_pl_ball_kind2_pi", GC_RET_OTHER },
     { "rt_pl_ball_make", GC_RET_OTHER },
+    { "rt_pl_ball_occurs", GC_RET_OTHER },
     { "rt_pl_ball_permission3", GC_RET_OTHER },
     { "rt_pl_ball_permission_pi", GC_RET_OTHER },
     { "rt_pl_ball_report", GC_RET_VOID },

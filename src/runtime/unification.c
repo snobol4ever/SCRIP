@@ -2090,6 +2090,17 @@ void *rt_pl_ball_kind2(const char *kind, const char *arg0_atom, DESCR_t culprit)
     return rt_pl_compound_cell("error", 2, (void *)er);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_pl_ball_occurs(DESCR_t *var, DESCR_t *term)
+{
+    extern DESCR_t rt_pl_fresh_var_ref(void);
+    pl_cell_t oc[2]; pl_cell_t *occ; pl_cell_t er[2];
+    oc[0].v = (DTYPE_t)DT_PLVAR; oc[0].slen = 0; oc[0].p = (void *)var; oc[1] = *term;
+    occ = (pl_cell_t *)rt_pl_compound_cell("occurs_check", 2, (void *)oc);
+    if (!occ) return (void *)0;
+    er[0] = rt_pl_cell_snapshot(occ); er[1] = rt_pl_fresh_var_ref();
+    return rt_pl_compound_cell("error", 2, (void *)er);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_ball_kind2_pi(const char *kind, const char *arg0_atom, DESCR_t culprit, const char *nm, int ar)
 {
     pl_cell_t fe[2]; pl_cell_t *fec; pl_cell_t pi[2]; pl_cell_t *pic; pl_cell_t er[2];

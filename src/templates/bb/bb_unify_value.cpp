@@ -12,6 +12,15 @@ int rtx_pl_unify(DESCR_t *, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define PL_OCHECK_LEAF(tag, lskip) (x86("note", "occurs_check (a Prolog flag, the word at offset 24 of the trail arena's header): binding a variable to a compound while it is true or error is the leaf's") \
+                    + x86("cmp", tag, (long)DT_PLREF) \
+                    + x86("jne", L(lskip)) \
+                    + x86("mov", "rdx", "r12") \
+                    + x86("and", "rdx", (long)~(PL_TR_ARENA_BYTES - 1)) \
+                    + x86("cmp", RDQ("rdx", PL_TR_OCHECK_OFF), 0L) \
+                    + x86("jne", L(60)) \
+                    + x86("def", L(lskip)))
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_unify_value() {
     x86_begin();
     return IF(_.op_zres,
@@ -80,6 +89,7 @@ std::string bb_unify_value() {
              + x86("je", L(60))
              + x86("cmp", "ecx", (long)DT_N)
              + x86("je", L(60))
+             + PL_OCHECK_LEAF("ecx", 70)
              + x86("mov", "r8", "rsi")
              + PL_TRAIL(31, 39)
              + x86("mov", "rax", RDQ("r8", 0))
@@ -89,6 +99,7 @@ std::string bb_unify_value() {
              + x86_gamma()
              + x86("def", L(50))
              + x86("note", "the variable is unbound and the cell is bound: bind the variable's cell to the value")
+             + PL_OCHECK_LEAF("eax", 71)
              + x86("mov", "r8", "rdi")
              + x86("mov", "rdi", "rsi")
              + PL_TRAIL(33, 39)

@@ -10,6 +10,7 @@ RTX_GATE_DEF(plunify)
 #define CTX_SAVE mov qword ptr [rsp + CTX_TR], r12; mov qword ptr [rsp + CTX_B], r13; mov qword ptr [rsp + CTX_RBX], rbx; mov qword ptr [rsp + CTX_R14], r14; mov qword ptr [rsp + CTX_R15], r15
 #define PL_TR_ARENA_MASK  -134217728
 #define PL_TR_BALL_SLOT   8
+#define PL_TR_OCHECK_SLOT 24
 #define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
 #define PL_BALL_DROP(t)    xor r15d, r15d; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], 0
 #define PL_BALL_GET(d)  mov d, r12; and d, PL_TR_ARENA_MASK; mov d, qword ptr [d + PL_TR_BALL_SLOT]
@@ -90,12 +91,18 @@ RTX_ENDF(rt_pl_dop_ball_pending)
 RTX_FUNC(rt_pl_dop_clause_unify)
     sub     rsp, CTX_FRAME
     CTX_SAVE
+    mov     qword ptr [rsp + CTX_BALL], 0
     mov     rdx, rsp
     RTX_CCALL(rt_pl_dop_clause_unify_c)
     mov     r12, qword ptr [rsp + CTX_TR]
+    mov     rcx, qword ptr [rsp + CTX_BALL]
     add     rsp, CTX_FRAME
     cmp     al, DT_FAIL
     jne     .Lpcu_ret
+    test    rcx, rcx
+    jz      .Lpcu_fail
+    PL_BALL_ARM(rcx, rdx)
+.Lpcu_fail:
     mov     eax, DT_FAIL
     xor     edx, edx
 .Lpcu_ret:
@@ -146,6 +153,13 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_both_unb, .Lun_a_unb_b_bnd)
 .Lun_a_unb_b_bnd:
+    cmp     al, DT_PLREF
+    jne     .Lun_oc1
+    mov     rax, r12
+    and     rax, PL_TR_ARENA_MASK
+    cmp     qword ptr [rax + PL_TR_OCHECK_SLOT], 0
+    jne     .Lun_restart
+.Lun_oc1:
     PL_U_TRAIL(r10, Lun_t1)
     mov     rax, qword ptr [r11]
     mov     rdx, qword ptr [r11 + 8]
@@ -185,6 +199,13 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_b_unb_a_bnd, .Lun_both_bnd)
 .Lun_b_unb_a_bnd:
+    cmp     byte ptr [r10], DT_PLREF
+    jne     .Lun_oc4
+    mov     rax, r12
+    and     rax, PL_TR_ARENA_MASK
+    cmp     qword ptr [rax + PL_TR_OCHECK_SLOT], 0
+    jne     .Lun_restart
+.Lun_oc4:
     PL_U_TRAIL(r11, Lun_t4)
     mov     rax, qword ptr [r10]
     mov     rdx, qword ptr [r10 + 8]
@@ -351,78 +372,78 @@ PL_COLD_PLAIN(atop)
 #define PL_CTX_LEAF_BALL(nm) RTX_FUNC(rt_pl_dop_##nm); sub rsp, CTX_FRAME; CTX_SAVE; \
     mov qword ptr [rsp + CTX_BALL], 0; mov rdx, rsp; RTX_CCALL(rt_pl_dop_##nm##_c); mov r12, qword ptr [rsp + CTX_TR]; mov rcx, qword ptr [rsp + CTX_BALL]; add rsp, CTX_FRAME; \
     test rcx, rcx; jz 99f; PL_BALL_ARM(rcx, rax); mov eax, DT_FAIL ; xor edx, edx; 99: ret; RTX_ENDF(rt_pl_dop_##nm)
-PL_CTX_LEAF(sub_atom_at)
-PL_CTX_LEAF(atom_concat_at)
-PL_CTX_LEAF(bagof_group_at)
-PL_CTX_LEAF(setof_group_at)
-PL_CTX_LEAF(findall_result)
-PL_CTX_LEAF(findall_result4)
-PL_CTX_LEAF(bagof_result)
-PL_CTX_LEAF(setof_result)
+PL_CTX_LEAF_BALL(sub_atom_at)
+PL_CTX_LEAF_BALL(atom_concat_at)
+PL_CTX_LEAF_BALL(bagof_group_at)
+PL_CTX_LEAF_BALL(setof_group_at)
+PL_CTX_LEAF_BALL(findall_result)
+PL_CTX_LEAF_BALL(findall_result4)
+PL_CTX_LEAF_BALL(bagof_result)
+PL_CTX_LEAF_BALL(setof_result)
 PL_CTX_LEAF_BALL(compare)
-PL_CTX_LEAF(functor)
-PL_CTX_LEAF(arg)
-PL_CTX_LEAF(skip_list)
-PL_CTX_LEAF(argv)
+PL_CTX_LEAF_BALL(functor)
+PL_CTX_LEAF_BALL(arg)
+PL_CTX_LEAF_BALL(skip_list)
+PL_CTX_LEAF_BALL(argv)
 PL_CTX_LEAF_BALL(univ)
-PL_CTX_LEAF(copy_term)
+PL_CTX_LEAF_BALL(copy_term)
 PL_CTX_LEAF_BALL(term_variables)
 PL_CTX_LEAF_BALL(numbervars3)
 PL_CTX_LEAF(numbervars1)
 PL_CTX_LEAF_BALL(succ)
 PL_CTX_LEAF_BALL(plus)
-PL_CTX_LEAF(wall_us)
-PL_CTX_LEAF(wall_ms)
+PL_CTX_LEAF_BALL(wall_us)
+PL_CTX_LEAF_BALL(wall_ms)
 PL_CTX_LEAF_BALL(sort)
 PL_CTX_LEAF_BALL(msort)
-PL_CTX_LEAF(char_type)
+PL_CTX_LEAF_BALL(char_type)
 PL_CTX_LEAF_BALL(term_string)
-PL_CTX_LEAF(atom_length)
-PL_CTX_LEAF(atom_concat)
-PL_CTX_LEAF(atomic_concat)
-PL_CTX_LEAF(atom_chars)
-PL_CTX_LEAF(atom_codes)
-PL_CTX_LEAF(atom_number)
-PL_CTX_LEAF(atom_string)
-PL_CTX_LEAF(upcase_atom)
-PL_CTX_LEAF(downcase_atom)
-PL_CTX_LEAF(string_concat)
-PL_CTX_LEAF(string_length)
-PL_CTX_LEAF(string_lower)
-PL_CTX_LEAF(string_upper)
-PL_CTX_LEAF(string_to_atom)
-PL_CTX_LEAF(string_codes)
-PL_CTX_LEAF(string_chars)
-PL_CTX_LEAF(number_string)
-PL_CTX_LEAF(atomic_list_concat)
-PL_CTX_LEAF(concat_atom)
-PL_CTX_LEAF(char_code)
-PL_CTX_LEAF(number_codes)
-PL_CTX_LEAF(number_chars)
-PL_CTX_LEAF(name)
-PL_CTX_LEAF(get_char)
-PL_CTX_LEAF(peek_char)
-PL_CTX_LEAF(get_code)
-PL_CTX_LEAF(peek_code)
+PL_CTX_LEAF_BALL(atom_length)
+PL_CTX_LEAF_BALL(atom_concat)
+PL_CTX_LEAF_BALL(atomic_concat)
+PL_CTX_LEAF_BALL(atom_chars)
+PL_CTX_LEAF_BALL(atom_codes)
+PL_CTX_LEAF_BALL(atom_number)
+PL_CTX_LEAF_BALL(atom_string)
+PL_CTX_LEAF_BALL(upcase_atom)
+PL_CTX_LEAF_BALL(downcase_atom)
+PL_CTX_LEAF_BALL(string_concat)
+PL_CTX_LEAF_BALL(string_length)
+PL_CTX_LEAF_BALL(string_lower)
+PL_CTX_LEAF_BALL(string_upper)
+PL_CTX_LEAF_BALL(string_to_atom)
+PL_CTX_LEAF_BALL(string_codes)
+PL_CTX_LEAF_BALL(string_chars)
+PL_CTX_LEAF_BALL(number_string)
+PL_CTX_LEAF_BALL(atomic_list_concat)
+PL_CTX_LEAF_BALL(concat_atom)
+PL_CTX_LEAF_BALL(char_code)
+PL_CTX_LEAF_BALL(number_codes)
+PL_CTX_LEAF_BALL(number_chars)
+PL_CTX_LEAF_BALL(name)
+PL_CTX_LEAF_BALL(get_char)
+PL_CTX_LEAF_BALL(peek_char)
+PL_CTX_LEAF_BALL(get_code)
+PL_CTX_LEAF_BALL(peek_code)
 PL_CTX_LEAF_BALL(get_byte)
 PL_CTX_LEAF_BALL(peek_byte)
 PL_CTX_LEAF(unget_char)
 PL_CTX_LEAF(unget_code)
 PL_CTX_LEAF(unget_byte)
-PL_CTX_LEAF(get_edin)
-PL_CTX_LEAF(telling)
-PL_CTX_LEAF(seeing)
+PL_CTX_LEAF_BALL(get_edin)
+PL_CTX_LEAF_BALL(telling)
+PL_CTX_LEAF_BALL(seeing)
 PL_CTX_LEAF(skip)
 PL_CTX_LEAF_BALL(read)
 PL_CTX_LEAF_BALL(atom_to_term)
 PL_CTX_LEAF_BALL(display)
 PL_CTX_LEAF_BALL(display_s)
 PL_CTX_LEAF(unify_oc)
-PL_CTX_LEAF(aggregate_reduce)
+PL_CTX_LEAF_BALL(aggregate_reduce)
 PL_CTX_LEAF_BALL(read_term_opts)
 PL_CTX_LEAF_BALL(read_term_opts_s)
-PL_CTX_LEAF(wot_open)
-PL_CTX_LEAF(wot_capture)
+PL_CTX_LEAF_BALL(wot_open)
+PL_CTX_LEAF_BALL(wot_capture)
 PL_CTX_LEAF(wot_discard)
 PL_CTX_LEAF(set_prolog_flag_declare)
 PL_CTX_LEAF_BALL(read_term_from_atom)
@@ -449,8 +470,8 @@ PL_CTX_LEAF_BALL(see)
 PL_CTX_LEAF_BALL(current_prolog_flag)
 PL_CTX_LEAF_BALL(set_prolog_flag)
 PL_CTX_LEAF_BALL(peek_char_s)
-PL_CTX_LEAF(current_output)
-PL_CTX_LEAF(current_input)
+PL_CTX_LEAF_BALL(current_output)
+PL_CTX_LEAF_BALL(current_input)
 PL_CTX_LEAF_BALL(open)
 PL_CTX_LEAF_BALL(open4)
 PL_CTX_LEAF_BALL(keysort)
@@ -489,17 +510,17 @@ PL_CTX_LEAF_BALL(tab_sb)
 PL_CTX_LEAF_BALL(put_char_sb)
 PL_CTX_LEAF_BALL(put_code_sb)
 PL_CTX_LEAF_BALL(flush_output_sb)
-PL_CTX_LEAF(pl_op_count)
-PL_CTX_LEAF(cutcall)
+PL_CTX_LEAF_BALL(pl_op_count)
+PL_CTX_LEAF_BALL(cutcall)
 PL_CTX_LEAF_BALL(op)
 PL_CTX_LEAF_BALL(pl_op_check)
 PL_CTX_LEAF_BALL(pl_sp_check)
 PL_CTX_LEAF_BALL(pl_ioarg)
-PL_CTX_LEAF(pl_op_nth)
-PL_CTX_LEAF(pl_sp_count)
+PL_CTX_LEAF_BALL(pl_op_nth)
+PL_CTX_LEAF_BALL(pl_sp_count)
 PL_CTX_LEAF_BALL(pl_sp_nth)
-PL_CTX_LEAF(pl_cs_count)
-PL_CTX_LEAF(pl_cs_nth)
+PL_CTX_LEAF_BALL(pl_cs_count)
+PL_CTX_LEAF_BALL(pl_cs_nth)
 PL_CTX_LEAF_BALL(pl_cp_guard)
 PL_CTX_LEAF_BALL(pl_pp_guard)
 PL_CTX_LEAF_BALL(halt)

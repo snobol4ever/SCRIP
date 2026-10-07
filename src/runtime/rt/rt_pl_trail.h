@@ -8,6 +8,7 @@
 #define PL_TR_ENTRY_BYTES   32
 #define PL_TR_BALL_OFF      8
 #define PL_TR_WSLOT_OFF     16
+#define PL_TR_OCHECK_OFF    24
 #define PL_TR_FRAME_HEADER_BYTES 64
 #define PL_TR_FRAME_HI_OFF 32
 typedef struct { DESCR_t *cell; uint64_t pad; DESCR_t old; } pl_tr_entry_t;
@@ -20,6 +21,8 @@ char *rt_pl_tr_unwind_to(char *tr, char *mark);
 static inline char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)tr & ~(PL_TR_ARENA_BYTES - 1)); }
 static inline void **pl_tr_ball_slot(const char *base) { return (void **)((char *)base + PL_TR_BALL_OFF); }
 static inline void **pl_tr_wslot_slot(const char *base) { return (void **)((char *)base + PL_TR_WSLOT_OFF); }
+static inline uint64_t *pl_tr_ocheck_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_OCHECK_OFF); }
+static inline uint64_t pl_tr_ocheck_mode(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline uintptr_t pl_tr_frame_hi(const char *b) { return *(const uintptr_t *)(b + PL_TR_FRAME_HI_OFF) >> 8; }
 static inline void pl_tr_frame_hi_set(char *b, const void *hi) { *(uintptr_t *)(b + PL_TR_FRAME_HI_OFF) = ((uintptr_t)hi << 8) | DT_RAW; }

@@ -1091,7 +1091,7 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
 static IR_t * pl_db_enum_ref(lcx_t * cx, const tree_t * target, const tree_t * refterm, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * un2 = build(cx, IR_CALL, γnext, ωfail); IR_LIT(un2).sval = "$unify";
     IR_t * rat = build(cx, IR_CALL, un2, ωfail); IR_LIT(rat).sval = "$db_ref_r";
-    IR_t * uni = build(cx, IR_CALL, rat, ωfail); IR_LIT(uni).sval = "$unify";
+    IR_t * uni = build(cx, IR_CALL, rat, ωfail); IR_LIT(uni).sval = "$clause_unify";
     IR_t * at = build(cx, IR_CALL, uni, ωfail); IR_LIT(at).sval = "$db_at_r";
     IR_t * to = build(cx, IR_TO, at, ωfail); IR_LIT(to).sval = (char *) "ag";
     IR_t * cnt = build(cx, IR_CALL, to, ωfail); IR_LIT(cnt).sval = "$db_n_r";
