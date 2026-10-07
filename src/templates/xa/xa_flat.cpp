@@ -203,10 +203,10 @@ static std::string xa_flat_block_staged_entry_str(void) {
                 "null DESCR, then fall into the block entry; a direct call (the dc stub) jumps past this")
         + x86("mov", "rsi", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_call_args, "g_call_args")
         + x86("mov", "rdi", "[rsi + 0]")
-        + x86("mov", "r9d", RDD("rsi", 12))
+        + x86("mov", "esi", RDD("rsi", 12))
         + x86("sub", "rsp", (long)(16 * nb));
     for (int i = 0; i < nb; i++) {
-        s += x86("cmp", "r9d", (long)(i + 1))
+        s += x86("cmp", "esi", (long)(i + 1))
            + x86_jcc_id("jb", 2 * i)
            + x86("mov", "rax", "[rdi + " + std::to_string(16 * i) + "]")
            + x86("mov", RDQ("rsp", 16 * i), "rax")
