@@ -12,6 +12,7 @@
 # ARMS, both modes: fault programs print `before`, then fault (stdout exactly `before`, rc non-zero, stderr naming 6.5.3.3); and a control cut LIVE from
 # fpc -Miso (tag unchanged, tag re-assigned to the same value, a non-variant component, a function with a variable parameter on a plain field) that must run byte-identical.
 # FAIL_ONCE=1 corrupts the control's ref.
+"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"

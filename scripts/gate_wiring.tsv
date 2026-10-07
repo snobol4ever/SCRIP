@@ -1129,3 +1129,4 @@ test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
 test_gate_pas_the_tag_of_a_variable_passed_by_reference_is_not_changed_during_the_call.sh	WIRED	-	-	-
+test_gate_pas_a_value_formal_parameter_is_not_of_a_file_type_nor_holds_one.sh	WIRED	-	-	-
