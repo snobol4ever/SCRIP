@@ -3,6 +3,7 @@
 #include "ct_vec.h"
 #include "rt/prolog_atom.h"
 #include "scrip_cc.h"
+#include "stage2.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -369,6 +370,44 @@ void prolog_fold_pieces(tree_t *t) {
     for (int i = 0; i < t->n; i++) prolog_fold_pieces(t->c[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int prolog_dq_flag_mode(const char *v) {
+    if (!v) return -1;
+    return !strcmp(v, "atom") ? 0 : !strcmp(v, "chars") ? 1 : !strcmp(v, "codes") ? 2 : !strcmp(v, "string") ? 3 : -1;
+}
+static int pl_dq_directive_mode(const tree_t *g) {
+    const tree_t *f, *v;
+    if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "set_prolog_flag") || g->n != 2) return -1;
+    f = g->c[0]; v = g->c[1];
+    if (!f || !v || f->t != TT_QLIT || v->t != TT_QLIT || !f->v.sval || strcmp(f->v.sval, "double_quotes")) return -1;
+    return prolog_dq_flag_mode(v->v.sval);
+}
+void prolog_dq_lower(tree_t *t, int mode) {
+    if (!t) return;
+    if (t->t == TT_DQLIT) {
+        const char *b = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : ""; size_t n = strlen(b);
+        if (mode == 3) return;
+        if (mode == 0) { t->t = TT_QLIT; t->v.sval = (char *)b; t->n = 0; return; }
+        t->t = TT_MAKELIST; t->v.ival = 0; t->n = 0;
+        for (size_t i = 0; i < n; i++) {
+            tree_t *e;
+            if (mode == 2) { e = ast_node_new(TT_ILIT); e->v.ival = (long long)(unsigned char)b[i]; }
+            else { char one[2]; one[0] = b[i]; one[1] = 0; e = ast_node_new(TT_QLIT); e->v.sval = ct_strdup(one); }
+            ast_push(t, e);
+        }
+        return;
+    }
+    for (int i = 0; i < t->n; i++) prolog_dq_lower(t->c[i], mode);
+}
+static void pl_dq_lower_program(PlProgram *pl_prog) {
+    int mode = g_stage2.pl_dq_mode ? g_stage2.pl_dq_mode - 1 : 2;
+    for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
+        tree_t *tr = cl->tr; int m;
+        if (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL && (m = pl_dq_directive_mode(tr->c[1])) >= 0) { mode = m; continue; }
+        prolog_dq_lower(tr, mode);
+    }
+    g_stage2.pl_dq_mode = mode + 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno) {
     tree_t *st = ast_node_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", lineno)); ast_push(st, ast_attr_int(":lline", lineno)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", subj));
@@ -377,6 +416,7 @@ static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *fcl = pl_prog->head; fcl; fcl = fcl->next) prolog_fold_pieces(fcl->tr);
+    pl_dq_lower_program(pl_prog);
     for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
     pl_dyn_mark(ct_strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }

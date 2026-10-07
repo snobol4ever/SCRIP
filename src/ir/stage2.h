@@ -80,6 +80,7 @@ typedef struct stage2_t {
     cv_t                 pl_prelude_keys;
     cv_t                 pl_decl_multifile;
     cv_t                 pl_decl_meta;
+    int                  pl_dq_mode;
 } stage2_t;
 typedef stage2_t *(*lower_entry_fn)(const tree_t *prog);
 typedef struct { const tree_t *prog; lower_entry_fn fn; } lower_seg_t;

@@ -220,6 +220,8 @@ int rt_arith_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
 int rt_term_cmp_nodes(const char *op, void *lhs_node, void *rhs_node);
 struct pl_tr_ctx_s;
 int rt_pl_type_test_cell(void *cell_term, const char *fn);
+DESCR_t rt_pl_make_string_cell(const char *s);
+int rt_pl_text_eq(const DESCR_t *a, const DESCR_t *b);
 int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, struct pl_tr_ctx_s *cx);
 int rt_pl_arg_cell(void *n_cell, void *t_cell, void *arg_cell, struct pl_tr_ctx_s *cx);
 int rt_pl_univ_cell(void *t0_cell, void *list_cell, struct pl_tr_ctx_s *cx);

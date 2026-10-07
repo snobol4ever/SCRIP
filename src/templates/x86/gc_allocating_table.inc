@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2116
+#define GC_ALLOC_TAB_N 2122
 #define GC_ALLOC_TAB_N_VOID 247
-#define GC_ALLOC_TAB_N_DESCR 1114
-#define GC_ALLOC_TAB_N_OTHER 749
+#define GC_ALLOC_TAB_N_DESCR 1118
+#define GC_ALLOC_TAB_N_OTHER 751
 #define GC_ALLOC_TAB_N_UNKNOWN 6
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -863,6 +863,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_mk_atom_dup", GC_RET_DESCR },
     { "pl_mk_cmp1", GC_RET_DESCR },
     { "pl_mk_stream", GC_RET_DESCR },
+    { "pl_mk_string_dup", GC_RET_DESCR },
     { "pl_name_is_scrip_own", GC_RET_OTHER },
     { "pl_nb_cell_k", GC_RET_OTHER },
     { "pl_nb_leaf_lv", GC_RET_OTHER },
@@ -905,6 +906,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_stream_idx", GC_RET_OTHER },
     { "pl_stream_idx_ball", GC_RET_OTHER },
     { "pl_stream_resolve", GC_RET_OTHER },
+    { "pl_term_text_leaf", GC_RET_OTHER },
     { "pl_text_cur_ball", GC_RET_OTHER },
     { "pl_text_list", GC_RET_DESCR },
     { "pl_tree_cell", GC_RET_DESCR },
@@ -948,6 +950,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "plc_sp_int_arg", GC_RET_OTHER },
     { "plc_sp_not_negative", GC_RET_OTHER },
     { "plc_term_prio", GC_RET_OTHER },
+    { "plc_text_out", GC_RET_OTHER },
     { "plc_unify_cells_cx", GC_RET_OTHER },
     { "plc_unify_into_cell", GC_RET_OTHER },
     { "plc_unify_into_cell_cx", GC_RET_OTHER },
@@ -1783,6 +1786,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_telling_c", GC_RET_DESCR },
     { "rt_pl_dop_term_string", GC_RET_DESCR },
     { "rt_pl_dop_term_string_c", GC_RET_DESCR },
+    { "rt_pl_dop_term_to_atom", GC_RET_DESCR },
+    { "rt_pl_dop_term_to_atom_c", GC_RET_DESCR },
     { "rt_pl_dop_term_variables", GC_RET_DESCR },
     { "rt_pl_dop_term_variables_c", GC_RET_DESCR },
     { "rt_pl_dop_unget_byte", GC_RET_DESCR },
@@ -1850,6 +1855,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_is_cold_c", GC_RET_DESCR },
     { "rt_pl_keysort_cell", GC_RET_OTHER },
     { "rt_pl_lower_upper_cell", GC_RET_OTHER },
+    { "rt_pl_make_string_cell", GC_RET_DESCR },
     { "rt_pl_name_query_vars_cell", GC_RET_OTHER },
     { "rt_pl_name_singleton_vars_cell", GC_RET_OTHER },
     { "rt_pl_nb_get_cell", GC_RET_OTHER },

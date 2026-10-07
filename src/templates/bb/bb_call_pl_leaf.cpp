@@ -37,7 +37,7 @@ static int pl_ax_arity(const char * op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_leaf_kind(const char * fn, int narg, const char ** op) {
     static const char * const cmps[] = { "lt", "gt", "le", "ge", "eq", "ne", 0 };
-    static const char * const types[] = { "var", "nonvar", "atom", "number", "integer", "float", "atomic", "compound", "callable", 0 };
+    static const char * const types[] = { "var", "nonvar", "atom", "number", "integer", "float", "atomic", "compound", "callable", "string", 0 };
     *op = 0;
     if (!fn || fn[0] != '$') return PLK_NONE;
     if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
@@ -224,8 +224,8 @@ static std::string pl_tag_in(const char * tags, int l_yes) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_arm_type(const char * kind, int argbase, int resoff) {
     int var = !strcmp(kind, "var"), nonvar = !strcmp(kind, "nonvar");
-    const char * tags = !strcmp(kind, "atom") ? "SA" : !strcmp(kind, "number") ? "IRB" : !strcmp(kind, "integer") ? "IB" : !strcmp(kind, "float") ? "R" : !strcmp(kind,
-        "atomic") ? "SAIRB" : !strcmp(kind, "compound") ? "P" : !strcmp(kind, "callable") ? "SAP" : "";
+    const char * tags = !strcmp(kind, "atom") ? "A" : !strcmp(kind, "string") ? "S" : !strcmp(kind, "number") ? "IRB" : !strcmp(kind, "integer") ? "IB" : !strcmp(kind, "float") ? "R" : !strcmp(kind,
+        "atomic") ? "SAIRB" : !strcmp(kind, "compound") ? "P" : !strcmp(kind, "callable") ? "AP" : "";
     std::string s = x86("comment", (std::string("PL-R7 $") + kind + ": deref and one tag compare inline, rt_pl_type_cold behind it").c_str());
     s += x86("lea", "rdi", FRQ(argbase)) + pl_deref("rdi", 100, 130, PL_L_COLD, 1);
     if (var) s += x86("jmp", L(PL_L_FAIL))

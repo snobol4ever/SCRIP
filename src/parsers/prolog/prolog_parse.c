@@ -9,8 +9,6 @@
 #include <string.h>
 #include <ctype.h>
 extern void *rt_wsb_alloc(size_t);
-extern int rt_pl_double_quotes_mode(void);
-extern void rt_pl_double_quotes_set(const char *);
 typedef struct {
     int active;
     int taken;
@@ -26,7 +24,6 @@ typedef struct {
     int         clause_errs;
     int         in_args;
     int         quiet;
-    int         dq;
     int         prec;
     cv_t        ifst;
     TreeScope   ts;
@@ -281,7 +278,7 @@ static tree_t *mk_call(int fid, tree_t **args, int arity) {
 static tree_t *tls(tree_t *t) {
     if (!t) return mk_atom(ATOM_NIL);
     switch (t->t) {
-        case TT_VAR: case TT_ILIT: case TT_FLIT: case TT_CUT:
+        case TT_VAR: case TT_ILIT: case TT_FLIT: case TT_CUT: case TT_DQLIT:
             return t;
         case TT_QLIT:
             return pt_stamp(mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : "")), t->line);
@@ -326,7 +323,7 @@ static tree_t *rls(tree_t *t) {
                 return v;
             }
             return t;
-        case TT_ILIT: case TT_FLIT: case TT_CUT:
+        case TT_ILIT: case TT_FLIT: case TT_CUT: case TT_DQLIT:
             return t;
         case TT_QLIT:
             return pt_stamp(mk_atom(prolog_atom_intern(t->v.sval ? t->v.sval : "")), t->line);
@@ -481,22 +478,9 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             return pt_stamp(n, ln);
         }
         case TK_STRING: {
-            int dqm = p->dq;
-            if (dqm == 0) {
-                if (tk.pc) return pt_stamp(tk.pc, ln);
-                tree_t *n = ast_node_new(TT_QLIT);
-                n->v.sval = ct_strdup(tk.text);
-                return pt_stamp(n, ln);
-            }
-            tree_t *n = ast_node_new(TT_MAKELIST);
-            n->v.ival = 0;
-            { const unsigned char *q0 = (const unsigned char *)tk.text; size_t qn = tk.len >= 0 ? (size_t)tk.len : strlen(tk.text);
-            for (const unsigned char *q = q0; q < q0 + qn; q++) {
-                tree_t *e;
-                if (dqm == 2) { e = ast_node_new(TT_ILIT); e->v.ival = (long long)*q; }
-                else { char one[2]; one[0] = (char)*q; one[1] = 0; e = ast_node_new(TT_QLIT); e->v.sval = ct_strdup(one); }
-                ast_push(n, e);
-            } }
+            tree_t *n = ast_node_new(TT_DQLIT);
+            if (tk.pc) ast_push(n, tk.pc);
+            else { tree_t *e = ast_node_new(TT_QLIT); e->v.sval = ct_strdup(tk.text); ast_push(n, e); }
             return pt_stamp(n, ln);
         }
         case TK_ATOM: {
@@ -805,8 +789,16 @@ static tree_t *dcg_var_use(TreeScope *ts, tree_t *v) {
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *dcg_dq_codes(const tree_t *dq) {
+    const char *b = (dq->n > 0 && dq->c[0] && dq->c[0]->v.sval) ? dq->c[0]->v.sval : ""; size_t n = strlen(b);
+    tree_t *acc = mk_atom(ATOM_NIL);
+    for (size_t i = n; i > 0; i--) { tree_t *e = ast_node_new(TT_ILIT); e->v.ival = (long long)(unsigned char)b[i - 1]; tree_t *dargs[2] = { e, acc }; acc = mk_raw(ATOM_DOT, dargs, 2); }
+    return acc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *dcg_append_tail(TreeScope *ts, tree_t *list, tree_t *tail) {
     if (!list) return dcg_var_use(ts, tail);
+    if (list->t == TT_DQLIT) list = dcg_dq_codes(list);
     if (list->t == TT_FNC && list->v.sval && strcmp(list->v.sval, "[]") == 0 && list->n == 0)
         return dcg_var_use(ts, tail);
     if (list->t == TT_FNC && list->v.sval && strcmp(list->v.sval, ".") == 0 && list->n == 2) {
@@ -864,7 +856,7 @@ static int dcg_expand_body(tree_t *body, tree_t *s_in, tree_t *s_out,
         buf[idx++] = dcg_make_unify(ts, s_in, s_out);
         return idx;
     }
-    if (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, ".") == 0 && body->n == 2) {
+    if (body->t == TT_DQLIT || (body->t == TT_FNC && body->v.sval && strcmp(body->v.sval, ".") == 0 && body->n == 2)) {
         tree_t *list_with_tail = dcg_append_tail(ts, body, s_out);
         buf[idx++] = dcg_make_unify(ts, s_in, list_with_tail);
         return idx;
@@ -1085,14 +1077,6 @@ static int try_handle_if_directive_tree(Parser *p, tree_t *goal, int lineno) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void dq_directive(Parser *p, const tree_t *goal) {
-    if (!goal || goal->t != TT_FNC || !goal->v.sval || strcmp(goal->v.sval, "set_prolog_flag") || goal->n != 2) return;
-    const tree_t *f = goal->c[0], *v = goal->c[1];
-    if (!f || !v || f->t != TT_QLIT || v->t != TT_QLIT || !f->v.sval || !v->v.sval || strcmp(f->v.sval, "double_quotes")) return;
-    if (!strcmp(v->v.sval, "atom") || !strcmp(v->v.sval, "string")) p->dq = 0; else if (!strcmp(v->v.sval, "chars")) p->dq = 1; else if (!strcmp(v->v.sval, "codes")) p->dq = 2; else return;
-    rt_pl_double_quotes_set(v->v.sval);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void iso_directive(Parser *p, const tree_t *goal) {
     if (!goal || goal->t != TT_FNC || !goal->v.sval || strcmp(goal->v.sval, "set_prolog_flag") || goal->n != 2) return;
     const tree_t *f = goal->c[0], *v = goal->c[1];
@@ -1121,7 +1105,7 @@ static PlClause *parse_clause(Parser *p) {
             if (fdot.kind != TK_DOT) perror_at(p, fdot.line, "expected . at end of clause");
             tree_t *_fcl = ast_node_new(TT_CLAUSE);
             if (fnc->n == 2) { ast_push(_fcl, fnc->c[0]); ast_push(_fcl, fnc->c[1]); }
-            else if (fnc->n == 1) { register_op_directive(fnc->c[0]); dq_directive(p, fnc->c[0]); iso_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
+            else if (fnc->n == 1) { register_op_directive(fnc->c[0]); iso_directive(p, fnc->c[0]); cl->nbody = 0; ast_push(_fcl, ast_node_new(TT_NUL)); ast_push(_fcl, fnc->c[0]); }
             else ast_push(_fcl, fnc);
             cl->tr = _fcl;
             return cl;
@@ -1130,7 +1114,7 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . after directive");
-        register_op_directive(body_tr); dq_directive(p, body_tr); iso_directive(p, body_tr);
+        register_op_directive(body_tr); iso_directive(p, body_tr);
         cl->nbody = 0;
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, ast_node_new(TT_NUL));
@@ -1193,6 +1177,21 @@ static const char *PL_PRELUDE_SRC =
     "'$numlist_'(L,H,[]):-L>H,!.\n"
     "'$numlist_'(L,H,[L|T]):-L=<H,L1 is L+1,'$numlist_'(L1,H,T).\n"
     "memberchk(X,L):-member(X,L),!.\n"
+    "sub_string(S,B,L,A,Sub):-var(Sub),!,sub_atom(S,B,L,A,X),atom_string(X,Sub).\n"
+    "sub_string(S,B,L,A,Sub):-string(Sub),!,sub_atom(S,B,L,A,Sub).\n"
+    "sub_string(S,B,L,A,Sub):-atom_string(Sub,T),sub_atom(S,B,L,A,T).\n"
+    "string_code(I,_,_):-var(I),!,throw(error(instantiation_error,string_code/3)).\n"
+    "atomics_to_string(L,S):-atomic_list_concat(L,A),atom_string(A,S).\n"
+    "string_code(I,S,C):-integer(I),I>0,string_codes(S,Cs),nth1(I,Cs,C0),!,C=C0.\n"
+    "split_string(S,Sep,Pad,Subs):-string_codes(S,Cs),string_codes(Sep,SC),string_codes(Pad,PC),'$ss_fields'(Cs,SC,Fs),'$ss_strip_all'(Fs,PC,Subs).\n"
+    "'$ss_fields'(Cs,SC,[F|Fs]):-'$ss_take'(Cs,SC,F,R),(R=[]->Fs=[];R=[_|R1],'$ss_fields'(R1,SC,Fs)).\n"
+    "'$ss_take'([],_,[],[]).\n"
+    "'$ss_take'([C|Cs],SC,[],[C|Cs]):-memberchk(C,SC),!.\n"
+    "'$ss_take'([C|Cs],SC,[C|F],R):-'$ss_take'(Cs,SC,F,R).\n"
+    "'$ss_strip_all'([],_,[]).\n"
+    "'$ss_strip_all'([F|Fs],PC,[S|Ss]):-'$ss_lstrip'(F,PC,F1),reverse(F1,R1),'$ss_lstrip'(R1,PC,R2),reverse(R2,F2),string_codes(S,F2),'$ss_strip_all'(Fs,PC,Ss).\n"
+    "'$ss_lstrip'([C|Cs],PC,R):-memberchk(C,PC),!,'$ss_lstrip'(Cs,PC,R).\n"
+    "'$ss_lstrip'(L,_,L).\n"
     "list(L):-is_list(L).\n"
     "g_assign(K,V):-retractall('$g_var'(K,_)),assertz('$g_var'(K,V)).\n"
     "g_read(K,V):-catch('$g_var'(K,V0),error(existence_error(procedure,_),_),fail),!,V=V0.\n"
@@ -1672,7 +1671,6 @@ PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet) {
     p.clause_errs = 0;
     p.in_args  = 0;
     p.quiet    = quiet;
-    p.dq       = rt_pl_double_quotes_mode();
     p.prec     = 0;
     p.incl_depth = 0;
     { extern int rt_pl_iso_mode(void); p.iso = rt_pl_iso_mode(); p.lx.iso = p.iso; }

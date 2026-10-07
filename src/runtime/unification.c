@@ -209,6 +209,30 @@ static void plc_wt_atom(FILE *fp, const char *name, int quoted)
     else fprintf(fp, "%s", name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void plc_wt_string(FILE *fp, pl_cell_t *d, int quoted)
+{
+    const char *b = d->s ? d->s : ""; uint32_t n = d->s ? d->slen : 0;
+    if (!(quoted & 1)) { fwrite(b, 1, n, fp); return; }
+    fputc('"', fp);
+    for (uint32_t i = 0; i < n; i++) {
+        unsigned char c = (unsigned char)b[i];
+        if ((quoted & PLC_WQ_NOESC) && c != '"') { fputc(c, fp); continue; }
+        switch (c) {
+        case '"': fputs("\\\"", fp); break;
+        case '\\': fputs("\\\\", fp); break;
+        case '\n': fputs("\\n", fp); break;
+        case '\t': fputs("\\t", fp); break;
+        case '\r': fputs("\\r", fp); break;
+        case '\a': fputs("\\a", fp); break;
+        case '\b': fputs("\\b", fp); break;
+        case '\f': fputs("\\f", fp); break;
+        case '\v': fputs("\\v", fp); break;
+        case '\0': fputs("\\0\\", fp); break;
+        default: if (c < 0x20 || c == 0x7f) fprintf(fp, "\\x%x\\", (unsigned)c); else fputc(c, fp); }
+    }
+    fputc('"', fp);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void plc_wt_num(FILE *fp, pl_cell_t *d)
 {
     double fv = d->r; char fb[64];
@@ -339,7 +363,8 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
     if (max_depth > 0 && depth >= max_depth) { fprintf(fp, "..."); return; }
     int tg = (int)d->v;
     if (pl_cell_unbound(d)) { { const char *vn = plc_vname(m, d); if (vn) fputs(vn, fp); else fprintf(fp, "_G%d", plc_vindex(m, d)); } return; }
-    if (tg == DT_PLATOM || tg == DT_S) { plc_wt_atom(fp, plc_atom_text(d), quoted); return; }
+    if (tg == DT_S) { plc_wt_string(fp, d, quoted); return; }
+    if (tg == DT_PLATOM) { plc_wt_atom(fp, plc_atom_text(d), quoted); return; }
     if (tg == DT_I) { fprintf(fp, "%ld", (long)d->i); return; }
     if (tg == DT_R) { plc_wt_num(fp, d); return; }
     if (tg == DT_BIG) { extern char *rt_big_str(DESCR_t); char *bs = rt_big_str(*d); fputs(bs ? bs : "0", fp); return; }
@@ -645,7 +670,8 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn)
 {
     pl_cell_t *d = cell_term ? pl_deref((pl_cell_t *)cell_term) : (pl_cell_t *)0;
     int isvar = (!d || pl_cell_unbound(d));
-    int isatom = (d && !isvar && plc_is_atomlike(d));
+    int isatom = (d && !isvar && (int)d->v == DT_PLATOM);
+    int isstr = (d && !isvar && (int)d->v == DT_S);
     int isint = (d && !isvar && ((int)d->v == DT_I || (int)d->v == DT_BIG));
     int isfloat = (d && !isvar && (int)d->v == DT_R);
     int iscomp = (d && !isvar && (int)d->v == DT_PLREF);
@@ -656,7 +682,8 @@ int rt_pl_type_test_cell(void *cell_term, const char *fn)
     if (strcmp(fn, "integer")  == 0) return isint ? 1 : 0;
     if (strcmp(fn, "float")    == 0) return isfloat ? 1 : 0;
     if (strcmp(fn, "number")   == 0) return (isint || isfloat) ? 1 : 0;
-    if (strcmp(fn, "atomic")   == 0) return (isatom || isint || isfloat) ? 1 : 0;
+    if (strcmp(fn, "atomic")   == 0) return (isatom || isstr || isint || isfloat) ? 1 : 0;
+    if (strcmp(fn, "string")   == 0) return isstr ? 1 : 0;
     if (strcmp(fn, "compound") == 0) return iscomp ? 1 : 0;
     if (strcmp(fn, "callable") == 0) return (isatom || iscomp) ? 1 : 0;
     if (strcmp(fn, "ground")   == 0) return plc_cell_is_ground((pl_cell_t *)cell_term) ? 1 : 0;
@@ -671,6 +698,7 @@ int rt_pl_functor_cell(void *t0_cell, void *name_cell, void *arity_cell, pl_tr_c
     if (d0 && !pl_cell_unbound(d0)) {
         pl_cell_t nameV, arityV;
         if ((int)d0->v == DT_PLREF)   { nameV = plc_atom_id_cell(plc_fid_name(d0->slen)); arityV = pl_make_int((int64_t)plc_fid_arity(d0->slen)); }
+        else if ((int)d0->v == DT_S)  { nameV = *d0; arityV = pl_make_int(0); }
         else if (plc_is_atomlike(d0)) { nameV = plc_atom_id_cell(plc_atom_id_of(d0)); arityV = pl_make_int(0); }
         else if ((int)d0->v == DT_I)  { nameV = pl_make_int(d0->i); arityV = pl_make_int(0); }
         else if ((int)d0->v == DT_R)  { nameV = pl_make_float(d0->r); arityV = pl_make_int(0); }
@@ -856,6 +884,19 @@ static int plc_unify_into_cell(pl_cell_t *dst, pl_cell_t val)
     return pl_unify(dst, &tmp);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+pl_cell_t rt_pl_make_string_cell(const char *s)
+{
+    extern char *rt_heap_strdup_c(const char *); pl_cell_t c = {0};
+    c.v = (DTYPE_t)DT_S; c.s = rt_heap_strdup_c(s ? s : ""); c.slen = (uint32_t)strlen(c.s); return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int plc_text_out(void *cell, const char *s, int as_str, pl_tr_ctx_t *cx)
+{
+    pl_cell_t *d = cell ? pl_deref((pl_cell_t *)cell) : (pl_cell_t *)0;
+    if (d && !pl_cell_unbound(d) && ((int)d->v == DT_S || (int)d->v == DT_PLATOM)) return !strcmp(plc_atom_text(d), s);
+    return plc_unify_into_cell_cx((pl_cell_t *)cell, as_str ? rt_pl_make_string_cell(s) : plc_make_atom_cell(s), cx);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_u8_get(const char *s, int *adv) {
     const unsigned char *u = (const unsigned char *)s; unsigned c = u[0];
     if (c < 0x80) { *adv = 1; return (int)c; }
@@ -952,6 +993,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
+            if (t1 && (int)t1->v == DT_S) return !strcmp(plc_atom_text(t1), s);
             int *cps = (int *)rt_wsb_alloc((strlen(s) + 1) * sizeof(int)); int cn = 0, adv;
             for (const char *q = s; *q; q += adv) { cps[cn] = rt_pl_u8_get(q, &adv); cn++; }
             pl_cell_t lst = plc_make_atom_cell("[]");
@@ -966,6 +1008,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, lst, cx)) { return 0; }
             return 1;
         }
+        if (t1 && (int)t1->v == DT_S) return plc_text_out(a0_cell, plc_atom_text(t1), fn[0] == 's', cx);
         pl_cell_t *cur = t1;
         size_t ocap = 256; char *out = (char *)rt_wsb_alloc(ocap); size_t oi = 0;
         while (cur && (int)cur->v == DT_PLREF && plc_fid_name(cur->slen) == ATOM_DOT && plc_fid_arity(cur->slen) == 2) {
@@ -978,13 +1021,12 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
             cur = pl_deref(&pr[1]);
         }
         out[oi] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(out), cx)) { return 0; }
-        return 1;
+        return plc_text_out(a0_cell, out, fn[0] == 's', cx);
     }
     if (!strcmp(fn, "string_length")) {
         const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)strlen(s)), cx)) { return 0; }
+        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, pl_make_int((int64_t)pl_u8_count(s)), cx)) { return 0; }
         return 1;
     }
     if (!strcmp(fn, "string_upper") || !strcmp(fn, "string_lower")) {
@@ -994,27 +1036,24 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         int up = (!strcmp(fn, "string_upper"));
         for (size_t i = 0; i < n; i++) out[i] = up ? (char)toupper((unsigned char)s[i]) : (char)tolower((unsigned char)s[i]);
         out[n] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(out), cx)) { return 0; }
-        return 1;
+        return plc_text_out(a1_cell, out, 1, cx);
     }
     if (!strcmp(fn, "atom_string") || !strcmp(fn, "string_to_atom")) {
+        int a0_str = !strcmp(fn, "string_to_atom");
         if (t0 && !pl_cell_unbound(t0)) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
-            if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(s), cx)) { return 0; }
-            return 1;
+            return plc_text_out(a1_cell, s, !a0_str, cx);
         }
         const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { return 0; }
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a0_cell, plc_make_atom_cell(s), cx)) { return 0; }
-        return 1;
+        return plc_text_out(a0_cell, s, a0_str, cx);
     }
     if (!strcmp(fn, "number_string")) {
-        if (t0 && !pl_cell_unbound(t0)) {
+        if (t0 && !pl_cell_unbound(t0) && (!t1 || pl_cell_unbound(t1))) {
             const char *s = plc_atom_op_text(t0, buf0, sizeof buf0);
             if (!s) { return 0; }
-            if (!plc_unify_into_cell_cx((pl_cell_t *)a1_cell, plc_make_atom_cell(s), cx)) { return 0; }
-            return 1;
+            return plc_text_out(a1_cell, s, 1, cx);
         }
         const char *s = plc_atom_op_text(t1, buf1, sizeof buf1);
         if (!s) { return 0; }
@@ -1037,8 +1076,7 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
         if (!s0 || !s1) { return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
         char cat[l0 + l1 + 1]; memcpy(cat, s0, l0); memcpy(cat + l0, s1, l1); cat[l0 + l1] = '\0';
-        if (!plc_unify_into_cell_cx((pl_cell_t *)a2_cell, plc_make_atom_cell(cat), cx)) { return 0; }
-        return 1;
+        return plc_text_out(a2_cell, cat, 1, cx);
     }
     if (!strcmp(fn, "atomic_list_concat") || !strcmp(fn, "concat_atom")) {
         const char *sep = (t1 && ((int)t1->v == DT_PLATOM || (int)t1->v == DT_S)) ? plc_atom_text(t1) : "";
@@ -1361,12 +1399,19 @@ int rt_pl_lower_upper_cell(void *lower_cell, void *upper_cell, pl_tr_ctx_t *cx)
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_text_eq(const DESCR_t *A, const DESCR_t *B) {
+    if ((int)A->v == DT_PLATOM && (int)B->v == DT_PLATOM) return A->i == B->i;
+    if ((int)A->v != DT_S || (int)B->v != DT_S) return 0;
+    return A->slen == B->slen && (!A->slen || !memcmp(A->s, B->s, A->slen));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_pl_cell_class(pl_cell_t *d) {
     int t = (int)d->v;
     if (pl_cell_unbound(d)) return 0;
     if (t == DT_I || t == DT_R || t == DT_BIG) return 1;
-    if (t == DT_PLATOM || t == DT_S) return 2;
-    if (t == DT_PLREF) return 3;
+    if (t == DT_S) return 2;
+    if (t == DT_PLATOM) return 3;
+    if (t == DT_PLREF) return 4;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1386,7 +1431,8 @@ static int rt_pl_cell_compare_leaf(pl_cell_t *a, pl_cell_t *b, void *ctx) {
     if (cla == 1 && ((int)a->v == DT_BIG || (int)b->v == DT_BIG)) { extern int rt_big_cmp(DESCR_t, DESCR_t); int rc = rt_big_cmp(*a, *b); return rc < 0 ? -1 : (rc > 0 ? 1 : 0); }
     if (cla == 1) { double x = ((int)a->v == DT_I) ? (double)a->i : a->r, y = ((int)b->v == DT_I) ? (double)b->i : b->r; if (x < y) return -1; if (x > y) return 1;
         if ((int)a->v == DT_R && (int)b->v == DT_R && signbit(x) != signbit(y)) return signbit(x) ? -1 : 1; if ((int)a->v == (int)b->v) return 0; return ((int)a->v == DT_R) ? -1 : 1; }
-    if (cla == 2) { if ((int)a->v == DT_PLATOM && (int)b->v == DT_PLATOM && a->i == b->i) return 0; int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
+    if (cla == 2) { uint32_t n = a->slen < b->slen ? a->slen : b->slen; int c = n ? memcmp(a->s, b->s, n) : 0; if (!c) c = a->slen < b->slen ? -1 : a->slen > b->slen ? 1 : 0; return c < 0 ? -1 : (c > 0 ? 1 : 0); }
+    if (cla == 3) { if (a->i == b->i) return 0; int c = strcmp(rt_pl_cell_name(a), rt_pl_cell_name(b)); return c < 0 ? -1 : (c > 0 ? 1 : 0); }
     int ara = plc_fid_arity(a->slen), arb = plc_fid_arity(b->slen);
     if (ara != arb) return ara < arb ? -1 : 1;
     if ((plc_fid_name(a->slen)) != (plc_fid_name(b->slen))) { const char *na = prolog_atom_name(plc_fid_name(a->slen)), *nb = prolog_atom_name(plc_fid_name(b->slen));
@@ -1404,11 +1450,7 @@ static int plc_unify_leaf(pl_cell_t *A, pl_cell_t *B, void *ctx)
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }
     if ((int)A->v == DT_PLATOM && (int)B->v == DT_PLATOM) return A->i == B->i;
-    if (((int)A->v == DT_S || (int)A->v == DT_PLATOM) && ((int)B->v == DT_S || (int)B->v == DT_PLATOM)) {
-        const char *as = ((int)A->v == DT_S) ? (A->s ? A->s : "") : prolog_atom_name((int)A->i);
-        const char *bs = ((int)B->v == DT_S) ? (B->s ? B->s : "") : prolog_atom_name((int)B->i);
-        return as && bs && !strcmp(as, bs);
-    }
+    if (((int)A->v == DT_S || (int)A->v == DT_PLATOM) && ((int)B->v == DT_S || (int)B->v == DT_PLATOM)) return rt_pl_text_eq(A, B);
     if (A->v != B->v) return 0;
     if ((int)A->v == DT_I) return A->i == B->i;
     if ((int)A->v == DT_R) return A->r == B->r;
@@ -1941,7 +1983,7 @@ int rt_pl_acyclic_cell(void *term_cell)
     return term_cell ? pl_acyclic_walk((pl_cell_t *)term_cell) : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
+int rt_pl_term_string_cell(void *term_cell, void *str_cell, int as_str, pl_tr_ctx_t *cx)
 {
     extern FILE *fh_memsink_open(char **, size_t *); char *buf = (char *)0; size_t len = 0;
     FILE *ms = fh_memsink_open(&buf, &len);
@@ -1949,9 +1991,7 @@ int rt_pl_term_string_cell(void *term_cell, void *str_cell, pl_tr_ctx_t *cx)
     plc_vmap m; m.n = 0; m.vnc = 0; m.fp = ms; m.portray = (int (*)(pl_cell_t *, plc_vmap *))0; m.pthrown = (void *)0; m.cx = (pl_tr_ctx_t *)0; m.pheld = 0;
     plc_writeq((pl_cell_t *)term_cell, &m);
     if (fclose(ms) != 0) { return 0; }
-    int ok = plc_unify_into_cell_cx((pl_cell_t *)str_cell, plc_make_atom_cell(buf ? buf : ""), cx);
-    if (!ok) { return 0; }
-    return 1;
+    return plc_text_out(str_cell, buf ? buf : "", as_str, cx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_cell_t *d; } plc_cp_t;
