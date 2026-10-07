@@ -2064,6 +2064,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
             fprintf(stderr, "[RTASM]   node[%d] op=%d off=%d scope=%d root_scope=%d %s\n", _i, (int)g->all[_i]->op, _o, _sc, _rs, (_sc >= 0 && _sc != _rs) ? "*** STALE ENTRY FROM ANOTHER GRAPH ***" : ""); } }
         fprintf(stderr, "[RTASM] ---- runtime fragment for %s ----\n", key); emit_chain(g->entry, stderr, pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", key); }
       fn = emit_chain(g->entry, (FILE *)0, pfx); }
+    { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
     emit_jmp_entry_clear();
     g_gen_proc_active = gpa_sv;
     g_rt_fragment_emit = rfe_sv; g_frame_active = fa; g_emit_cfg = cfg_sv;

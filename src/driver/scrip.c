@@ -1948,8 +1948,7 @@ int main(int argc, char **argv)
                 if (getenv("SCRIP_PL_RTASM") && !_islbl3) { fprintf(stderr, "[RTASM] ---- compile-time proc %s ----\n", pname); emit_chain(bb_proc_entry(&s2->proc_table[_pi]), stderr, _m3pfx); fprintf(stderr, "[RTASM] ---- end %s ----\n", pname); }
                 bb_box_fn pfn = _islbl3 ? NULL : emit_chain(bb_proc_entry(&s2->proc_table[_pi]), NULL, _m3pfx);
                 if (pfn && _lbl_owned) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, idx, (void *)pfn, g_last_flat_frame_bytes); }
-                { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (pfn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)pfn + _mo)); }
-                { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (pfn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)pfn + emit_gc_sites_off(_sk))); }
+                { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) pfn); }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
@@ -1981,8 +1980,7 @@ int main(int argc, char **argv)
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
             sn4_balias_fill(bbg, s2, _lbl_own, -1, 0);
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
-            { extern int emit_gc_map_last_off(void); extern void rt_gc_frame_maps_add(const void *); int _mo = emit_gc_map_last_off(); if (fn && _mo >= 0) rt_gc_frame_maps_add((const void *)((const char *)fn + _mo)); }
-            { extern int emit_gc_sites_offs_n(void); extern int emit_gc_sites_off(int); extern void rt_gc_frame_sites_add(const void *); if (fn) for (int _sk = 0; _sk < emit_gc_sites_offs_n(); _sk++) rt_gc_frame_sites_add((const void *)((const char *)fn + emit_gc_sites_off(_sk))); }
+            { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
             if (fn) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, -1, (void *)fn, g_last_flat_frame_bytes); }
             if (fn && icn_main_callable(s2, bbg)) { extern void rt_proc_set_fn(const char *, bb_box_fn); extern void rt_proc_set_frame_bytes(const char *, int); extern int g_last_flat_frame_bytes;
                 rt_proc_set_fn("main", fn); rt_proc_set_frame_bytes("main", g_last_flat_frame_bytes); m3_seal_entry_cells("main", (void *)fn, 1); }

@@ -3567,6 +3567,9 @@ static void emit_gc_map_data(const char * fam) {
     emit_gc_sites_data(fam, 0);
 }
 extern "C" int emit_gc_map_last_off(void) { return g_gc_map_last_off; }
+extern "C" void rt_gc_frame_maps_add(const gc_frame_map_t *m); extern "C" void rt_gc_frame_sites_add(const void *tab);
+extern "C" void emit_gc_tables_register(const void *fn) { if (!fn) return; if (g_gc_map_last_off >= 0) rt_gc_frame_maps_add((const gc_frame_map_t *)((const char *)fn + g_gc_map_last_off));
+    for (uint32_t k = 0; k < g_gc_sites_offs_v.len; k++) rt_gc_frame_sites_add((const char *)fn + CV_AT(g_gc_sites_offs_v, int, k)); }
 extern "C" int emit_gc_map_names_n(void) { return g_gc_map_names_n; }
 extern "C" const char * emit_gc_map_name(int i) { return (i >= 0 && i < g_gc_map_names_n) ? CV_AT(g_gc_map_names_v, char *, i) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
