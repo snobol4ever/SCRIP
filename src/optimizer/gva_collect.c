@@ -126,9 +126,23 @@ int gva_collect_var(const char *name) {
     }
     g_gva_names[g_gva_n] = name; g_gva_n++;
     if ((uint64_t)g_gva_n * 2 > (uint64_t)g_gva_hx_cap) { uint32_t c = g_gva_hx_cap ? g_gva_hx_cap * 2 : 1024; while ((uint64_t)c < (uint64_t)g_gva_n * 2 + 2) c *= 2;
-        g_gva_hx = (gva_hx_t *)ct_zalloc(c, sizeof(gva_hx_t)); g_gva_hx_cap = c; for (int i = 0; i < g_gva_n; i++) gva_hx_put(g_gva_names[i], i); }
+        g_gva_hx = (gva_hx_t *)ct_zalloc(c, sizeof(gva_hx_t)); g_gva_hx_cap = c; for (int i = 0; i < g_gva_n; i++) if (g_gva_names[i]) gva_hx_put(g_gva_names[i], i); }
     else gva_hx_put(name, g_gva_n - 1);
     return g_gva_n - 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int gva_collect_reserve(void) {
+    if (g_gva_n >= g_gva_max) {
+        int nm = g_gva_max ? g_gva_max * 2 : 256; const char **g = (const char **)ct_grow(g_gva_names, (size_t)nm * sizeof(const char *));
+        if (!g) return -1; g_gva_names = g; g_gva_max = nm;
+    }
+    g_gva_names[g_gva_n] = (const char *)0; g_gva_n++;
+    return g_gva_n - 1;
+}
+int gva_collect_var_copy(const char *name) {
+    if (!gva_name_eligible(name)) return -1;
+    { int k = gva_index_of(name); if (k >= 0) return k; }
+    { const char *own = ct_strdup(name); return own ? gva_collect_var(own) : -1; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int gva_name_hidden(const char *name) { return name && (!strncmp(name, "SCV$", 4) || !strncmp(name, "SNO$VL$", 7) || !strncmp(name, "PATV$", 5) || !strncmp(name, "PAT$", 4)); }

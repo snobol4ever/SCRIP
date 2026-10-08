@@ -243,6 +243,7 @@ static int eval_thunks_emit_from(int pc0)
         rt_proc_set_named_rest(pname, g_stage2.proc_table[pi].named_rest);
         rt_proc_set_dyn_scope(pname, g_stage2.proc_table[pi].dyn_scope);
         if (g_stage2.proc_table[pi].result_name) rt_proc_set_result_name(pname, g_stage2.proc_table[pi].result_name);
+        { extern int emit_thunk_self_save_k(stage2_t *, const char *); extern void rt_proc_set_self_save(const char *, int); rt_proc_set_self_save(pname, emit_thunk_self_save_k(&g_stage2, pname) >= 0); }
     }
     IR_graph_t *cfg_sv = g_emit_cfg;
     int fa = g_frame_active; g_frame_active = 1;
@@ -713,8 +714,15 @@ void eval_gc_roots(void)
         for (int i = 0; i < g_lbl_n; i++) if (g_lbl_tab[i].key) rt_gc_visit_raw((const char **)&g_lbl_tab[i].key); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rt_sno_entry_cells_follow(const char *lbl, void *fn) {
+    extern int rt_proc_enum_count(void); extern const char *rt_proc_enum_name(int); extern const char *core_define_entry_label(const char *); extern void *bb_ab_fn_cell_ptr(const char *);
+    for (int i = 0, n = rt_proc_enum_count(); i < n; i++) { const char *pn = rt_proc_enum_name(i); const char *el = pn ? core_define_entry_label(pn) : (const char *)0;
+        if (el && !strcmp(el, lbl)) { char cn[strlen(pn) + 8]; snprintf(cn, sizeof cn, "entry$%s", pn); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c && *c) *c = fn; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_label_set_fn(const char *name, void *fn) {
     if (!name || !*name) return;
+    rt_sno_entry_cells_follow(name, fn);
     for (int i = 0; i < g_lbl_n; i++) if (!strcmp(g_lbl_tab[i].key, name)) { g_lbl_tab[i].fn = (eval_chain_fn)fn; return; }
     if (g_lbl_n >= g_lbl_cap) {
         int ncap = g_lbl_cap ? g_lbl_cap * 2 : 16;
@@ -799,6 +807,39 @@ void *rt_entry_resolve(const char *name, int *is_frag)
     if (!name || !*name) return NULL;
     { eval_chain_fn fn = rt_label_get_fn(name); if (fn) { if (is_frag) *is_frag = 1; return (void *)fn; } }
     { extern void *rt_proc_get_fn(const char *); char lname[strlen(name) + 6]; snprintf(lname, sizeof lname, "LBL__%s", name); return rt_proc_get_fn(lname); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void *rt_sno_shim_install(void *pv, const char *name, void *efn)
+{
+    extern IR_graph_t *sno_build_rt_shim_graph(const char *, const char *, const char **);
+    extern int rt_gva_add_var(const char *); extern const char *rt_proc_pname(const char *, int); extern int rt_proc_nparams(const char *); extern const char *rt_proc_result_name_get(const char *);
+    extern int rt_proc_is_generator(const char *); extern int rt_proc_is_variadic(const char *); extern void *rt_proc_get_fn(const char *);
+    extern void *bb_ab_fn_cell_ptr(const char *); extern void bb_ab_seal_entry_cells(const char *, void *, int); extern void *rt_dyn_alpha_fn(const char *, void *);
+    extern int emit_jmp_entry_for_proc(const char *, int, int, IR_graph_t *); extern void emit_jmp_entry_clear(void); extern void emit_gc_tables_register(const void *);
+    extern void optimizer_run(IR_graph_t *); extern void fl_derive_tier(IR_graph_t *); extern void ir_drive_slot_assign(IR_graph_t *); extern void zls_forget_graph_nodes(const IR_graph_t *);
+    extern int g_frame_active; extern IR_graph_t *g_emit_cfg; extern int g_gen_proc_active;
+    static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+    (void)pv;
+    if (!name || !*name || rt_proc_is_generator(name) || rt_proc_is_variadic(name)) { if (diag) fprintf(stderr, "[SHIM] %s: refused (generator or variadic)\n", name ? name : "?"); return (void *)0; }
+    { int np = rt_proc_nparams(name); for (int k = 0; k < np; k++) { const char *nm = rt_proc_pname(name, k); if (nm && rt_gva_add_var(nm) < 0 && diag) fprintf(stderr, "[SHIM] %s: parameter %s takes the by-name road\n", name, nm); }
+      { const char *rn = rt_proc_result_name_get(name); if (!rn) { if (diag) fprintf(stderr, "[SHIM] %s: refused, no result name\n", name); return (void *)0; } if (rt_gva_add_var(rn) < 0 && diag) fprintf(stderr, "[SHIM] %s: result name %s takes the by-name road\n", name, rn); } }
+    { void *ent = efn ? efn : rt_proc_get_fn(name); if (!ent) { if (diag) fprintf(stderr, "[SHIM] %s: refused, no entry\n", name); return (void *)0; }
+      char cn[strlen(name) + 8]; snprintf(cn, sizeof cn, "entry$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (!c) return (void *)0; *c = ent;
+      if (diag) fprintf(stderr, "[SHIM] %s: compiling, np=%d entry=%p (%s)\n", name, rt_proc_nparams(name), ent, efn ? "given" : "record fn"); }
+    { extern void bb_pool_init(void); bb_pool_init(); }
+    { extern void fc_tables_reset(void); fc_tables_reset(); extern void zls_reset(void); zls_reset(); extern void bb_src_reset(void); bb_src_reset(); }
+    const char *stable = (const char *)0;
+    { IR_graph_t *g = sno_build_rt_shim_graph(name, name, &stable); if (!g || !stable) return (void *)0;
+      optimizer_run(g); zls_forget_graph_nodes(g); fl_derive_tier(g); ir_drive_slot_assign(g);
+      { IR_graph_t *cfg_sv = g_emit_cfg; int fa = g_frame_active, ga = g_gen_proc_active, rfe = g_rt_fragment_emit; char pfx[strlen(name) + 6]; snprintf(pfx, sizeof pfx, "proc_%s", name);
+        g_emit_cfg = g; g_frame_active = 1; g_gen_proc_active = 0; g_rt_fragment_emit = 1;
+        emit_jmp_entry_for_proc(name, 1, 0, g);
+        { eval_chain_fn fn = emit_chain(g->entry, NULL, pfx);
+          emit_gc_tables_register((const void *)fn);
+          emit_jmp_entry_clear(); g_rt_fragment_emit = rfe; g_gen_proc_active = ga; g_frame_active = fa; g_emit_cfg = cfg_sv;
+          if (fn) bb_ab_seal_entry_cells(stable, (void *)fn, 1); else rt_code_pool_check(); }
+        IR_free_dyn(g); } }
+    { void *afn = rt_dyn_alpha_fn(name, (void *)0); if (diag) fprintf(stderr, "[SHIM] %s: alpha=%p\n", name, afn); return afn; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_goto_transfer(const char *name)

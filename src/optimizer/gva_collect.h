@@ -5,6 +5,8 @@ int gva_name_eligible(const char *name);
 void gva_collect_reset(void);
 int gva_index_of(const char *name);
 int gva_collect_var(const char *name);
+int gva_collect_reserve(void);
+int gva_collect_var_copy(const char *name);
 int gva_count(void);
 int gva_name_hidden(const char *name);
 const char *gva_name(int k);

@@ -1772,7 +1772,8 @@ int main(int argc, char **argv)
                 emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
             { extern int proc_slot_count(void); int _nps = proc_slot_count(); if (_nps > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", _nps); }
             { extern int rt_is_reassigned_builtin(const char *); for (int k = 0; k < n_gva_icn; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k); }
-            if (n_gva_icn > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_icn, n_gva_icn);
+            { extern int gva_trace_demoted(void); int n_gva_tab = gva_trace_demoted() ? 0 : gva_count(); if (n_gva_tab > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_tab, n_gva_tab); }
+            emit_textf("  lea rdi, [rip + __alpha_cellp_tab]\n  call rt_ab_cell_bind_table@PLT\n");
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
             emit_textf("  lea rdi, [rip + __gc_frame_maps]\n  call rt_gc_frame_maps_install_counted@PLT\n  lea rdi, [rip + __gc_frame_sites]\n  call rt_gc_frame_sites_install_counted@PLT\n");
             { extern int scc_program_ok(void); if (!scc_program_ok()) emit_textf("  call rt_scc_taint_inherit@PLT\n"); }
@@ -1808,13 +1809,13 @@ int main(int argc, char **argv)
             }
             }
             if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
-            if (n_gva_icn > 0) {
+            { extern int gva_trace_demoted(void); int n_gva_tab = gva_trace_demoted() ? 0 : gva_count(); if (n_gva_tab > 0) {
                 emit_textf("  .section .rodata\n");
-                for (int k = 0; k < n_gva_icn; k++) { extern int gva_name_hidden(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char * _gn = gva_name(k) ? gva_name(k) : ""; if (gva_name_hidden(_gn)) continue; size_t _cap = 4 * strlen(_gn) + 1; char _esc[_cap]; x86_asm_str_escape_c(_gn, _esc, _cap); emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc); }
+                for (int k = 0; k < n_gva_tab; k++) { extern int gva_name_hidden(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char * _gn = gva_name(k) ? gva_name(k) : ""; if (gva_name_hidden(_gn)) continue; size_t _cap = 4 * strlen(_gn) + 1; char _esc[_cap]; x86_asm_str_escape_c(_gn, _esc, _cap); emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc); }
                 emit_textf("  .align 8\n__gva_names:\n");
-                { extern int gva_name_hidden(const char *); for (int k = 0; k < n_gva_icn; k++) { if (gva_name_hidden(gva_name(k))) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); } }
+                { extern int gva_name_hidden(const char *); for (int k = 0; k < n_gva_tab; k++) { if (gva_name_hidden(gva_name(k))) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); } }
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-            }
+            } }
             if (s2->label_count > 0) {
                 emit_textf("  .section .rodata\n");
                 for (int k = 0; k < s2->label_count; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char *_lnk = s2->label_table[k].name ? s2->label_table[k].name : ""; char _esc[4 * strlen(_lnk) + 1]; x86_asm_str_escape_c(_lnk, _esc, sizeof _esc); emit_textf("  .Llbln%d: .string \"%s\"\n", k, _esc); }
@@ -1845,6 +1846,7 @@ int main(int argc, char **argv)
             xa_emit_strtab_rodata();
             { extern void emit_callee_records_data(void); emit_callee_records_data(); }
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
+            { extern const char *bcps_alpha_cellp_table_c(void); emit_textf("%s", bcps_alpha_cellp_table_c()); }
             { extern int g_monitor_bin; extern long g_trace_budget; extern int g_mon_max_stno; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
             if (_pl_atoms) { m4_emit_atom_table(); m4_emit_functor_table(); }
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");

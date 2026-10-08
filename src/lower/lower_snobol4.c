@@ -2426,6 +2426,22 @@ static IR_graph_t * sno_build_call_stub(const char * entry_label, const char * f
     g->entry = gd;
     return g;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+IR_graph_t * sno_build_rt_shim_graph(const char * fname, const char * entry_label, const char ** stable_out) {
+    const char * fn = fname ? ct_strdup(fname) : (const char *)0; const char * el = !entry_label ? (const char *)0 : (entry_label == fname) ? fn : ct_strdup(entry_label);
+    if (!fn || !el) return (IR_graph_t *)0;
+    if (stable_out) *stable_out = fn;
+    IR_graph_t * g = IR_alloc(16);
+    IR_t * exitnd = lc_build(g, IR_SUCCEED, NULL, NULL);
+    IR_t * failnd = lc_build(g, IR_FAIL, NULL, NULL);
+    IR_t * sh4 = lc_build(g, IR_DEFINE, exitnd, failnd); IR_LIT(sh4).ival = 4;
+    IR_t * s41 = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(s41).sval = (char *) fn;
+    IR_t * s42 = lc_build(g, IR_LIT_STRING, NULL, NULL); IR_LIT(s42).sval = (char *) el;
+    IR_t * s43 = lc_build(g, IR_LIT_INTEGER, NULL, NULL); IR_LIT(s43).ival = 1;
+    ir_operand_push(sh4, s41); ir_operand_push(sh4, s42); ir_operand_push(sh4, s43);
+    g->entry = sh4;
+    return g;
+}
 static const tree_t * g_sno_prescan_top       = NULL;
 static int            g_sno_expr_define_seen  = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

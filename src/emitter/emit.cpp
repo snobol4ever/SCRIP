@@ -1363,7 +1363,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_GOTO:                 { static int _mgt = -1; if (_mgt < 0) _mgt = getenv("MONITOR_GOTO_TAP") ? 1 : 0; extern void emit_mon_label_tap(int32_t); extern long g_trace_budget; if (g_trace_budget != 0 && _mgt && g_emit.op_stno > 0) emit_mon_label_tap(g_emit.op_stno); } bb_emit_x86(bb_goto());           return 0;
     case IR_GOTO_DEFERRED:             bb_emit_x86(bb_goto_deferred());       return 0;
     case IR_DEFINE: {
-        if (ir_define_sr_citizen(nd)) { extern int fc_call_active(const IR_t *); if (g_emit.op_ival == 4 && nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval; }    if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5; }    if (g_emit.op_ival == 0 && nd->γ.node && fc_call_active(nd->γ.node) && nd->n_operands == 1 && nd->operands[0]) { extern int zls_off(const IR_t *); int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = zls_off(nd->operands[0]); if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as; } } g_emit.op_define_role = (int)g_emit.op_ival; extern std::string bb_define(); bb_emit_x86(bb_define()); return 0; }
+        if (ir_define_sr_citizen(nd)) { extern int fc_call_active(const IR_t *); if (g_emit.op_ival == 4 && nd->n_operands >= 2 && nd->operands[0] && nd->operands[1]) { g_emit.op_sval = IR_LIT(nd->operands[0]).sval; g_emit.lbl_t0 = IR_LIT(nd->operands[1]).sval; }    if (g_emit.op_ival == 3 && nd->γ.node && sr3_gamma_label(nd->γ.node)) { const char *_e = sr3_gamma_label(nd->γ.node); g_emit.op_sval = strncmp(_e, "LBL__", 5) ? _e : _e + 5; }    if (g_emit.op_ival == 0 && nd->γ.node && fc_call_active(nd->γ.node) && nd->n_operands == 1 && nd->operands[0]) { extern int zls_off(const IR_t *); int _as = bb_slot_get(nd->operands[0]); if (_as < 0) _as = zls_off(nd->operands[0]); if (_as >= 0) { g_emit.op_fc_wbytes = 16; g_emit.op_fc_base = _as; } } g_emit.op_define_role = (g_emit.op_ival == 4 && nd->n_operands >= 3) ? 7 : (int)g_emit.op_ival; extern std::string bb_define(); bb_emit_x86(bb_define()); return 0; }
         if (ir_define_is_bind(nd)) { g_emit.op_sval = IR_LIT(nd).sval;    g_emit.lbl_t0 = (const char *)0; g_emit.op_proto = ir_define_bind_proto(nd); g_emit.op_entry = ir_define_bind_entry(nd); int _realstub = 0; if (g_emit_cfg && g_emit_cfg->n_dentry > 0) for (int _dq = 0; _dq < g_emit_cfg->n_dentry; _dq++) if (g_emit_cfg->dentry_node[_dq] == nd) { g_emit.lbl_t0 = g_emit_cfg->dentry_name[_dq]; _realstub = g_emit_cfg->dentry_entry[_dq] ? 1 : 0; break; }    g_emit.op_define_role = 6; extern std::string bb_define(); bb_emit_x86(bb_define()); int _d1st = 1; if (g_emit_cfg && g_emit.op_sval) for (int _dr = 0; _dr < g_emit_cfg->n_dentry; _dr++) { IR_t *_dp = g_emit_cfg->dentry_node[_dr]; if (_dp == nd) break; if (_dp && ir_define_is_bind(_dp) && IR_LIT(_dp).sval && !strcmp(IR_LIT(_dp).sval, g_emit.op_sval)) { _d1st = 0; break; } }    if (g_is_text && g_emit.lbl_t0 && _d1st && _realstub) { long _sv5 = g_emit.op_ival; g_emit.op_ival = 5; g_emit.op_define_role = 5; bb_emit_x86(bb_define()); g_emit.op_ival = _sv5; }    return 0; }
         fprintf(stderr, "IR_DEFINE %s with %d operand(s) is neither an SR citizen nor a bind: no lowerer builds this shape since the activation road was retired\n", IR_LIT(nd).sval ? IR_LIT(nd).sval : "", (int)nd->n_operands);
         abort();
@@ -3400,6 +3400,7 @@ static int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hd
 static unsigned g_gc_map_flags = 0;
 static cv_t g_gc_map_names_v;
 extern "C" int emit_thunk_self_save_k(stage2_t * s2, const char * name);
+extern "C" int rt_gva_add_var(const char * name);
 extern "C" void rt_proc_set_self_save(const char * name, int v);
 std::string emit_thunk_self_save_enter(int k);
 std::string emit_thunk_self_save_leave(int k);
@@ -4746,7 +4747,7 @@ int zls_g_entry_block(const IR_graph_t *); int zls_g_region(const IR_graph_t *);
 extern "C" int emit_thunk_self_save_k(stage2_t * s2, const char * name) {
     if (!s2 || !name) return -1;
     for (int i = 0; i < s2->proc_count; i++) { ProcEntry * pe = &s2->proc_table[i];
-        if (pe->name && !strcmp(pe->name, name)) { extern int g_gva_active; extern int gva_index_of(const char *); return (pe->thunk_kind == PROC_THUNK_EXPR && g_gva_active) ? gva_index_of(name) : -1; } }
+        if (pe->name && !strcmp(pe->name, name)) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); if (pe->thunk_kind != PROC_THUNK_EXPR || gva_trace_demoted()) return -1; { int k = gva_index_of(name); return (k < 0) ? rt_gva_add_var(name) : k; } } }
     return -1;
 }
 static std::string emit_thunk_gq(int k, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, w) : ABSQ(RT_GVA_VA + (unsigned long)k * 16 + (unsigned long)w); }

@@ -738,6 +738,10 @@ inline std::string x86_jmp_via_cell(const char * label, uint64_t cell) {
     if (MEDIUM_BINARY) { std::string c; c += (char)0x48; c += (char)0xB8; c += u64le(cell); return x86_Lrec(c) + x86_Lrec(std::string("\x48\x8B\x00", 3)) + x86_Lrec(std::string("\xFF\xE0", 2)); }
     return x86_rec("lea") + "rax, [rip + " + (label ? label : "??") + "]\n" + x86_rec("jmp") + "rax\n";
 }
+inline std::string x86_jmp_via_cellp(const char * label, uint64_t cell) {
+    if (MEDIUM_BINARY) return x86_jmp_via_cell(label, cell);
+    return x86_rec("mov") + "rax, [rip + " + (label ? label : "??") + "]\n" + x86_rec("mov") + "rax, [rax]\n" + x86_rec("jmp") + "rax\n";
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_quad_ilbl(int n) {
     int id = x86_internal_id(n);
@@ -1660,6 +1664,7 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         return std::string();
     }
     if (X86_MEQ(mnem, "jmp_fn_cell")) { if (a.kind == XK_SYM && xb.tag == 2) return x86_jmp_through_fn_cell(a.sym, xb.u); return std::string(); }
+    if (X86_MEQ(mnem, "jmp_cellp")) { if (a.kind == XK_RIPCELL && xb.tag == 2 && xc.tag == 1) return x86_jmp_via_cellp(xc.s, xb.u); return std::string(); }
     if (X86_MEQ(mnem, "jmp")) {
         if (a.kind == XK_PORT) return x86_jmp(a.port);
         if (a.kind == XK_ILBL) return x86_jmp_id(a.lbl);

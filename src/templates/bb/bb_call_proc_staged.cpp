@@ -1,4 +1,6 @@
 #include <string>
+#include <vector>
+#include <algorithm>
 #include <stdint.h>
 #include "emit.h"
 extern "C" {
@@ -22,7 +24,7 @@ DESCR_t rt_proc_call_epilogue_ω(long touched);
 DESCR_t rt_proc_call_epilogue_named_γ(const char *name, long wn);
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name, long wn);
 DESCR_t rt_faildescr(void);
-void    rt_ab_undef_fn_stub(void);
+void    rt_ab_undef_fn_stub(void); void rt_ab_undef_sig_stub(void);
 void    rt_ab_undef_fn_fail(void);
 void    rt_pl_iso_throw_existence_key(const char *key);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot, const uint64_t *regs);
@@ -43,7 +45,7 @@ int  rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 extern "C" struct gv_s g_call_args;
 extern "C" int g_gc_pending;
-int  rt_proc_is_registered(const char *name); int  rt_proc_is_redefined(const char *name);
+int  rt_proc_is_registered(const char *name); int  rt_proc_is_redefined(const char *name); int  rt_proc_is_variadic(const char *name);
 int  rt_proc_nformals(const char *name);
 int  rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
@@ -53,7 +55,7 @@ int  rt_proc_nparams(const char *name);
 const char *rt_proc_pname(const char *name, int k);
 const char *rt_proc_result_name_get(const char *name);
 int  scc_program_ok(void);
-int  gva_index_of(const char *name);
+int  gva_index_of(const char *name); int rt_gva_add_var(const char *name); int gva_trace_demoted(void);
 extern int g_gva_active;
 extern int g_monitor_bin;
 extern long g_trace_budget;
@@ -249,22 +251,36 @@ extern "C" int bb_proc_target_zframe_graph(const char *fname) { if (!fname) retu
         && g_stage2.bbp.table[bi]) ? g_stage2.bbp.table[bi]->zframe_graph : 0; } return 0; }
 extern "C" int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
     int np = 0, nsave = 0, res_gk = -1, scc = 0;
-    if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !bb_proc_multi_proto(fname) && !getenv("SCRIP_SCC_OFF") && g_gva_active && scc_program_ok()
+    if (fname && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname) && !bb_proc_multi_proto(fname) && !getenv("SCRIP_SCC_OFF")
         && rt_proc_is_registered(fname) && !rt_proc_is_redefined(fname)) {
         np = rt_proc_nparams(fname);
         if (np >= 0 && np <= BB_SCC_NP_MAX && nargs <= rt_proc_nformals(fname)) {
             const char *rn = rt_proc_result_name_get(fname); int ok = rn ? 1 : 0, sh = 0;
             for (int k = 0; ok && k < np; k++) {
     const char *nm = rt_proc_pname(fname, k);
-    int gk = nm ? gva_index_of(nm) : -1;
-    if (gk < 0) ok = 0;
-    else { gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; }
+    if (!nm) { ok = 0; break; }
+    { int gk = gva_trace_demoted() ? -1 : gva_index_of(nm); if (gk < 0) gk = rt_gva_add_var(nm); gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; }
 }
-            if (ok) { res_gk = gva_index_of(rn); if (res_gk < 0) ok = 0; else if (!sh) gk_out[nsave++] = res_gk; }
+            if (ok) { res_gk = gva_trace_demoted() ? -1 : gva_index_of(rn); if (res_gk < 0) res_gk = rt_gva_add_var(rn); if (!sh) gk_out[nsave++] = res_gk; }
             if (ok) scc = 1;
         }
     }
     if (np_out) *np_out = np; if (nsave_out) *nsave_out = nsave; if (res_gk_out) *res_gk_out = res_gk; return scc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int bb_rt_shim_probe(const char *fname, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out) {
+    int np = 0, nsave = 0, res_gk = -1, ok = 0;
+    if (fname && rt_proc_is_registered(fname) && rt_proc_dyn_scope(fname) && !rt_proc_is_generator(fname)) {
+        np = rt_proc_nparams(fname);
+        if (np >= 0 && np <= BB_SCC_NP_MAX) {
+            const char *rn = rt_proc_result_name_get(fname); int sh = 0; ok = rn ? 1 : 0;
+            for (int k = 0; ok && k < np; k++) {
+                const char *nm = rt_proc_pname(fname, k); if (!nm) { ok = 0; break; }
+                { int gk = gva_trace_demoted() ? -1 : gva_index_of(nm); if (gk < 0) gk = rt_gva_add_var(nm); gk_out[nsave++] = gk; if (!strcmp(nm, rn)) sh = 1; } }
+            if (ok) { res_gk = gva_trace_demoted() ? -1 : gva_index_of(rn); if (res_gk < 0) res_gk = rt_gva_add_var(rn); if (!sh) gk_out[nsave++] = res_gk; }
+        }
+    }
+    if (np_out) *np_out = np; if (nsave_out) *nsave_out = nsave; if (res_gk_out) *res_gk_out = res_gk; return ok;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
@@ -279,6 +295,39 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
     int nf = rt_proc_nformals(fname);
     if (!(nf >= 0 && nf <= np)) return 0;
     return 1;
+}
+extern "C" int bb_sig_site_ok(const char *fname, int nargs) {
+    static int _nt = -1; if (_nt < 0) { const char *e = getenv("SCRIP_NO_TINY"); _nt = (e && *e == '1') ? 1 : 0; }
+    (void)nargs;
+    if (_nt || !fname || !rt_proc_is_registered(fname) || !rt_proc_dyn_scope(fname) || rt_proc_is_generator(fname) || rt_proc_is_variadic(fname)) return 0;
+    { int np = rt_proc_nparams(fname); return (np >= 0 && np <= BB_SCC_NP_MAX) ? 1 : 0; }
+}
+static std::vector<std::string> g_alpha_cellp_seen, g_alpha_cellp_names, g_alpha_shim_emitted;
+std::string bcps_alpha_cellp_label(const char * fname) { return std::string("alpha_cellp$") + bb_ab_sym_name(fname); }
+std::string bcps_alpha_cellp_data(const char * fname) {
+    if (!fname) return std::string();
+    { void ** c = (void **) bb_ab_fn_cell_ptr((std::string("alpha$") + fname).c_str()); if (c && (!*c || *c == (void *)(uintptr_t) rt_ab_undef_fn_stub)) *c = (void *)(uintptr_t) rt_ab_undef_sig_stub; }
+    std::string lbl = bcps_alpha_cellp_label(fname);
+    if (!std::count(g_alpha_cellp_seen.begin(), g_alpha_cellp_seen.end(), lbl)) { g_alpha_cellp_seen.push_back(lbl); g_alpha_cellp_names.push_back(std::string(fname)); }
+    return std::string();
+}
+extern "C" void bcps_alpha_shim_note(const char * fname) { if (fname) g_alpha_shim_emitted.push_back(std::string(fname)); }
+extern "C" const char * bcps_alpha_cellp_table_c(void) {
+    static std::string out; out.clear();
+    out += x86("directive", std::string(".section .data")) + x86("directive", std::string(".align 8"));
+    for (size_t i = 0; i < g_alpha_cellp_names.size(); i++) {
+        const std::string & nm = g_alpha_cellp_names[i]; const std::string & lbl = g_alpha_cellp_seen[i];
+        std::string init = std::count(g_alpha_shim_emitted.begin(), g_alpha_shim_emitted.end(), nm) ? (nm + "_\xce\xb1") : std::string("rt_ab_undef_sig_stub");
+        out += x86("directive", lbl + std::string(":")) + x86("directive", std::string(".quad ") + lbl + std::string(" + 8")) + x86("directive", std::string(".quad ") + init);
+    }
+    out += x86("directive", std::string("__alpha_cellp_tab:"));
+    for (size_t i = 0; i < g_alpha_cellp_names.size(); i++) out += x86("directive", std::string(".quad .Lalphan") + std::to_string((long)i) + std::string(", ") + g_alpha_cellp_seen[i]);
+    out += x86("directive", std::string(".quad 0"));
+    out += x86("directive", std::string(".section .rodata"));
+    for (size_t i = 0; i < g_alpha_cellp_names.size(); i++) { std::string esc; for (char c : g_alpha_cellp_names[i]) { if (c == '"' || c == '\\') esc += '\\'; esc += c; }
+        out += x86("directive", std::string(".Lalphan") + std::to_string((long)i) + std::string(": .string \"") + esc + std::string("\"")); }
+    out += x86("directive", std::string(".section .text")) + x86("directive", std::string(".intel_syntax noprefix"));
+    return out.c_str();
 }
 static std::string bcps_undef_fallback(uint64_t) {
     return x86("call", "rt_ab_undef_fn_fail", (uint64_t)(uintptr_t)(void *)rt_ab_undef_fn_fail)
@@ -318,7 +367,7 @@ static std::string bcps_det_arm() {
         return x86_alpha()
              + x86_scan_sync_out()
              + x86_anchor_enter()
-             + ((scc_z || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)))
+             + ((scc_z || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)))
                 ? [&]() -> std::string {
                     static int _ntz = -1; if (_ntz < 0) {
     const char * _e = getenv("SCRIP_NO_TINY");
@@ -328,8 +377,8 @@ static std::string bcps_det_arm() {
     const char * _e = getenv("SCRIP_B1C_PARITY");
     _b1cz = (_e && *_e == '0') ? 0 : 1;
 }
-                    if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
-                        std::string laz = std::string(_.op_sval) + "_\xce\xb1";
+                    if (!_ntz && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1cz; }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
+                        std::string laz = bcps_alpha_cellp_label(_.op_sval); std::string lazd = bcps_alpha_cellp_data(_.op_sval);
                         if (bcps_fnsig()) {
                             std::vector<long> soffz((size_t)_.op_ival); const char * whyz = "eligible"; std::string badz; int sigokz = 1;
                             for (int i = 0; sigokz && i < (int)_.op_ival; i++) {
@@ -343,9 +392,9 @@ static std::string bcps_det_arm() {
                             if (sigokz) {
                                 std::string snmz = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid) + "z";
                                 const struct bb_label_t * sigl_z = emit_label_intern(snmz.c_str());
-                                std::string sz = x86_rsp_mark_save()
+                                std::string sz = lazd + x86_rsp_mark_save()
                                      + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl_z)
-                                     + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str())
+                                     + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str())
                                      + x86_def_ext(sigl_z)
                                      + x86(".quad", (uint64_t)_.op_ival)
                                      + x86(".quad", L(2))
@@ -370,7 +419,7 @@ static std::string bcps_det_arm() {
                         } else {
                         long Kbz = 16L * (long)_.op_ival + 32;
                         auto ZOPQT = [&](int i, int w) { return x86_zref(_.op_zread[i] + w + (int)Kbz, 1); };
-                        return x86("sub", "rsp", Kbz)
+                        return lazd + x86("sub", "rsp", Kbz)
                              + FOR(0, (int)_.op_ival, [&](int i) {
                                    return x86("note", ZOPN(i))
                                         + x86("mov", "rax", ZOPQT(i, 0)) + x86_rsp_store64(32 + 16 * i, "rax")
@@ -378,7 +427,7 @@ static std::string bcps_det_arm() {
                                         + x86("mov", "rax", ZOPQT(i, 8)) + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
                              + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
                              + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
-                             + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str());
+                             + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), laz.c_str());
                         }
                     }
                     if (!scc_z) return std::string();
@@ -503,7 +552,7 @@ static std::string bcps_det_arm() {
     return x86_alpha()
          + x86_scan_sync_out()
          + x86_anchor_enter()
-         + (scc || (_.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival))
+         + (scc || (_.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival))
             ? [&]() -> std::string {
                 static int _ntiny = -1; if (_ntiny < 0) {
     const char * _e = getenv("SCRIP_NO_TINY");
@@ -515,8 +564,8 @@ static std::string bcps_det_arm() {
     const char * _e = getenv("SCRIP_B1C_PARITY");
     _b1ct = (_e && *_e == '0') ? 0 : 1;
 }
-                if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_tiny_shim_ok(_.op_sval, (int)_.op_ival)) {
-                    std::string la = std::string(_.op_sval) + "_\xce\xb1";
+                if (!_ntiny && ({ extern int g_rt_fragment_emit; !g_rt_fragment_emit || _b1ct; }) && _.op_sval && bb_sig_site_ok(_.op_sval, (int)_.op_ival)) {
+                    std::string la = bcps_alpha_cellp_label(_.op_sval); std::string lad = bcps_alpha_cellp_data(_.op_sval);
                     if (bcps_fnsig()) {
                         std::vector<long> soff((size_t)_.op_ival); const char * why = "eligible"; std::string bad; int sigok = 1;
                         for (int i = 0; sigok && i < (int)_.op_ival; i++) {
@@ -530,9 +579,9 @@ static std::string bcps_det_arm() {
                         if (sigok) {
                             std::string snm = std::string(".L") + x86_boxkind() + "_sig" + std::to_string((long)_.x86_uid);
                             const struct bb_label_t * sigl = emit_label_intern(snm.c_str());
-                            std::string s = x86_rsp_mark_save()
+                            std::string s = lad + x86_rsp_mark_save()
                                  + x86("lea", "rcx", "extlbl", (uint64_t)(uintptr_t)sigl)
-                                 + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str())
+                                 + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str())
                                  + x86_def_ext(sigl)
                                  + x86(".quad", (uint64_t)_.op_ival)
                                  + x86(".quad", L(2))
@@ -556,7 +605,7 @@ static std::string bcps_det_arm() {
                                                                             "callee, not a silent decline here. [arm=frame]");
                     } else {
                     long Kb = 16L * (long)_.op_ival + 32;
-                    return x86("sub", "rsp", Kb)
+                    return lad + x86("sub", "rsp", Kb)
                          + FOR(0, (int)_.op_ival, [&](int i) { int slot = bcps_arg_slot(_.node, argblks, i);
                                return (x86_fc_hit(slot) ? x86_rsp_load64("rax", slot - _.op_fc_base + (int)Kb) : x86("mov", "rax", FRQB(slot, (int)Kb)))
                                     + x86_rsp_store64(32 + 16 * i, "rax")
@@ -564,7 +613,7 @@ static std::string bcps_det_arm() {
                                     + x86_rsp_store64(32 + 16 * i + 8, "rax"); })
                          + x86("mov32", "eax", (long)_.op_ival) + x86_rsp_store64(0, "rax")
                          + x86("lea", "rax", L(2)) + x86_rsp_store64(16, "rax") + x86_rsp_store64(24, "rax")
-                         + x86("jmp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str());
+                         + x86("jmp_cellp", "[rip@cell + __]", (uint64_t)(uintptr_t)bb_ab_fn_cell_ptr((std::string("alpha$") + _.op_sval).c_str()), la.c_str());
                     }
                 }
                 if (!scc) return std::string();

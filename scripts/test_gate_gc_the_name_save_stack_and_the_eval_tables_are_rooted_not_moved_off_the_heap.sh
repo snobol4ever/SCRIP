@@ -43,9 +43,9 @@ W="$ROOT/../corpus/tests/snobol4/code_call_runtime_define_pending_entry.sno"
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 cp "$W" "$T/w.sno"
-n=$(awk '/^void rt_gc_ws_roots\(void\)$/{f=1} f&&/&g_name_save\)/{a++} f&&/\.name\)/{b++} f&&/\.cell\)/{c++} f&&/^}/{exit} END{printf "%d %d %d", a+0, b+0, c+0}' "$ROOT/src/runtime/rt/rt.c")
-if [ "$n" = "1 1 1" ]; then echo "  structural nsave PASS (rt_gc_ws_roots visits the ARRAY BLOCK &g_name_save and every entry's .name and .cell, not only .old -- visiting a descriptor inside a block does not mark the block)"
-else echo "  structural nsave FAIL (rt_gc_ws_roots visits [&g_name_save .name .cell] = [$n], want [1 1 1]: the name-save stack is reclaimed under a live call and re-carved as a string)"; RC=1; fi
+n=$(awk '/^void rt_gc_ws_roots\(void\)$/{f=1} f&&/&g_rk_cb_hold\)/{a++} f&&/&g_rk_cb_hold\[i\]\)/{b++} f&&/^}/{exit} END{printf "%d %d", a+0, b+0}' "$ROOT/src/runtime/rt/rt.c")
+if [ "$n" = "1 1" ]; then echo "  structural holds PASS (rt_gc_ws_roots visits the ARRAY BLOCK &g_rk_cb_hold and every held cell -- the Raku callback holds that rode the SNOBOL4 name-save stack until CEO-1543 chunk 2 deleted it; visiting a descriptor inside a block does not mark the block)"
+else echo "  structural holds FAIL (rt_gc_ws_roots visits [&g_rk_cb_hold &g_rk_cb_hold[i]] = [$n], want [1 1]: the Raku holds block is reclaimed under a live callback and re-carved as a string)"; RC=1; fi
 if grep -q '^void eval_gc_roots(void)$' "$ROOT/src/runtime/runtime_eval.c" && grep -q 'eval_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
     echo "  structural eval PASS (eval_gc_roots is defined in runtime_eval.c AND called from the collector's root phase -- a root walk nothing calls is not a root)"
 else echo "  structural eval FAIL (eval_gc_roots is missing, or gc_heap.c never calls it: the label table and the eval cache have no root)"; RC=1; fi
@@ -79,9 +79,9 @@ for fn in eval_cache_put rt_label_set_fn; do
     printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc|strdup)[[:space:]]*\(' && { echo "  fact-rule FAIL ($fn allocates with a C allocator -- moving a holder off the collected heap is the SAME EVASION as pinning it, one indirection further out; the cure for an unrooted holder is a ROOT)"; bad=1; }
     printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL ($fn no longer allocates from the collected heap at all, so the roots below are guarding nothing)"; bad=1; }
 done
-body=$(awk '/^static void rt_name_save_grow\(void\)/{d=1} d{print} d&&/^}/{exit}' "$ROOT/src/runtime/rt/rt.c")
-printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc)[[:space:]]*\(' && { echo "  fact-rule FAIL (rt_name_save_grow allocates with a C allocator)"; bad=1; }
-printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL (rt_name_save_grow no longer grows on the collected heap: its allocator is in none of the ROOTED-HEAP family [$ROOTED_RX])"; bad=1; }
+body=$(awk '/^static void rt_rk_cb_grow\(void\)/{d=1} d{print} d&&/^}/{exit}' "$ROOT/src/runtime/rt/rt.c")
+printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc)[[:space:]]*\(' && { echo "  fact-rule FAIL (rt_rk_cb_grow allocates with a C allocator)"; bad=1; }
+printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL (rt_rk_cb_grow no longer grows on the collected heap: its allocator is in none of the ROOTED-HEAP family [$ROOTED_RX])"; bad=1; }
 if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (all three holders still allocate from the COLLECTED heap -- this gate cannot be made green by taking them out of the collector's sight)"; else RC=1; fi
 ( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced an EMPTY ref"; exit 2; }

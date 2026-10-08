@@ -501,6 +501,25 @@ int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
 const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
 void rt_proc_reset(void) { extern void bnd_tweak_cache_clear(void); g_rt_gen_proc_count = 0; rt_proc_cache_clear(); bnd_tweak_cache_clear(); if (g_proc_hsl) memset(g_proc_hsl, 0, (size_t)g_proc_hcap * sizeof(int)); }
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void) { core_runtime_error(22, "undefined function called"); __builtin_unreachable(); }
+__asm__(
+".text\n"
+".globl rt_ab_undef_sig_stub\n"
+".type rt_ab_undef_sig_stub, @function\n"
+"rt_ab_undef_sig_stub:\n"
+"  movq %rsp, %rax\n"
+"  andq $-16, %rsp\n"
+"  pushq %rax\n"
+"  pushq %rcx\n"
+"  call rt_ab_undef_fn_fail\n"
+"  call rt_ret_faildescr\n"
+"  popq %rcx\n"
+"  popq %r8\n"
+"  movq %r8, %rsp\n"
+"  jmp *16(%rcx)\n"
+".size rt_ab_undef_sig_stub, .-rt_ab_undef_sig_stub\n"
+);
+void rt_ab_undef_sig_stub(void);
+static inline int rt_alpha_unsealed(const void *v) { return !v || v == (const void *)(uintptr_t)rt_ab_undef_fn_stub || v == (const void *)(uintptr_t)rt_ab_undef_sig_stub; }
 void rt_ab_undef_fn_fail(void) { core_runtime_error(22, "undefined function called"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
@@ -513,8 +532,10 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
         if (rt_proc_is_registered(nm)) cells[k] = rt_proc_value(nm);
         else { DESCR_t bv = {0}; bv.v = DT_E; bv.slen = PROCVAL_SLEN; bv.s = (char *)nm; cells[k] = bv; } } }
     { static int _b1cg = -1; if (_b1cg < 0) { const char *_e = getenv("SCRIP_B1C_PARITY"); _b1cg = (_e && *_e == '0') ? 0 : 1; }
-      extern int gva_count(void); extern int gva_collect_var(const char *); extern int g_gva_active;
-      if (_b1cg && n > 0 && gva_count() == 0) { for (int k = 0; k < n; k++) if (names && names[k]) (void)gva_collect_var(names[k]); g_gva_active = (gva_count() > 0) ? 1 : 0; } }
+      extern int gva_count(void); extern int gva_collect_var(const char *); extern int gva_collect_reserve(void); extern int g_gva_active;
+      if (_b1cg && n > 0 && gva_count() == 0) { for (int k = 0; k < n; k++) { int kk = (names && names[k]) ? gva_collect_var(names[k]) : gva_collect_reserve();
+          if (kk != k) { fprintf(stderr, "gva_register: island slot %d (%s) collected at %d -- the run-time island must mirror the compiled table slot for slot\n", k, (names && names[k]) ? names[k] : "<hidden>", kk); abort(); } }
+        g_gva_active = (gva_count() > 0) ? 1 : 0; } }
     return cells;
 }
 #define RT_GVA_WINDOW_BYTES ((size_t)1u << 30)
@@ -569,6 +590,20 @@ DESCR_t *rt_gva_island(int n) {
     return (DESCR_t *)RT_GVA_VA;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_gva_add_var(const char *nm)
+{
+    extern int gva_index_of(const char *); extern int gva_collect_var_copy(const char *); extern int gva_name_eligible(const char *); extern int gva_count(void); extern int NV_bind_gva(const char *, DESCR_t *); extern void rt_sxt_gva_count(int); extern int gva_trace_demoted(void);
+    if (!nm || !*nm || gva_trace_demoted()) return -1;
+    { int k = gva_index_of(nm); if (k >= 0) return k; }
+    if (!gva_name_eligible(nm) || !NV_PTR_fn(nm)) return -1;
+    if ((size_t)(gva_count() + 1) * sizeof(DESCR_t) > g_gva_mapped) return -1;
+    { int k = gva_collect_var_copy(nm); if (k < 0) return -1;
+      DESCR_t *cell = (DESCR_t *)RT_GVA_VA + k; memset((void *)cell, 0, sizeof(DESCR_t));
+      rt_sxt_gva_count(gva_count());
+      (void)NV_bind_gva(nm, cell);
+      return k; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_registered(const char *name)
 {
     if (!name) return 0;
@@ -603,6 +638,7 @@ int rt_proc_unregister(const char *name)
     int i = rt_proc_hash_lookup(name);
     if (i < 0) return 0;
     g_rt_gen_procs[i].name = "\x01<unloaded>"; g_rt_gen_procs[i].stage_var = 0;
+    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = (void *)(uintptr_t)rt_ab_undef_sig_stub; }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -650,6 +686,7 @@ void rt_proc_set_nformals(const char *name, int nformals)
     if (p) p->nformals = nformals;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void *rt_sno_shim_lazy(rt_proc_t *p, const char *name);
 void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, int nformals)
 {
     rt_proc_register(name, pnames, nparams);
@@ -658,7 +695,8 @@ void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, i
       { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); const char *el = core_define_entry_label(name); int frag = 0; void *fn = el ? rt_entry_resolve(el, &frag) : (void *)0;
         if (fn && !frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } } }
     { extern void *bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name);
-      void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0; }
+      void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0;
+      { rt_proc_t *p = rt_proc_find(name); void *afn = p ? rt_sno_shim_lazy(p, name) : (void *)0; if (!afn && cell) *cell = (void *)(uintptr_t)rt_ab_undef_sig_stub; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; const char **lnames; int nlocals; const int *loffs; const char **pnames; int nparams; } rt_proc_loc_t;
@@ -1067,12 +1105,10 @@ __asm__(
 "  jmp rt_proc_call_epilogue_barrier_\u03c9\n"
 );
 DESCR_t rt_proc_enter_barrier(void *fn, long nsb);
-int rt_name_save_mark(void);
-void rt_name_save_unwind(int base);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_barrier_γ(DESCR_t frame0, long nsb) { DESCR_t r = rt_proc_call_epilogue_γ(frame0, 1L); rt_name_save_unwind((int)nsb); return r; }
+DESCR_t rt_proc_call_epilogue_barrier_γ(DESCR_t frame0, long nsb) { (void)nsb; return rt_proc_call_epilogue_γ(frame0, 1L); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_barrier_ω(long nsb) { DESCR_t r = rt_proc_call_epilogue_ω(1L); rt_name_save_unwind((int)nsb); return r; }
+DESCR_t rt_proc_call_epilogue_barrier_ω(long nsb) { (void)nsb; return rt_proc_call_epilogue_ω(1L); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_ret_faildescr(void) { rt_g_ret_by_name = 0; return FAILDESCR; }
 void *rt_dyn_alpha_fn(const char *name, void *fallback);
@@ -1092,7 +1128,7 @@ static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
     if (!live || !name) return fallback;
     if (!p) { extern void *rt_dyn_alpha_fn(const char *, void *); return rt_dyn_alpha_fn(name, fallback); }
     { void **cell = rt_alpha_cell_of(p, name);
-      return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; }
+      return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_proc_call_open_p(rt_proc_t **pp, int nargs);
@@ -1100,16 +1136,43 @@ static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs);
 static int proc_open_p_on(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs) { return rt_call_proc_descr_p(rt_proc_find(name), name, nargs); }
+static void rt_nsave_bomb(const char *site, const char *name)
+{
+    fprintf(stderr, "%s: the procedure %s reached the C name-save road, DELETED with the global stack it kept (RULES.md NO GLOBAL HOLDS A STACK, CEO-1543): a dyn-scope procedure runs only through its role-4 shim, compiled at its first open when no alpha cell is sealed\n", site, name ? name : "?");
+    { volatile char *z = (volatile char *)0; (void)*z; }
+}
+static void *rt_sno_shim_lazy_ent(rt_proc_t *p, const char *name, void *ent)
+{
+    extern void *rt_sno_shim_install(void *, const char *, void *);
+    extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); extern void *bb_ab_fn_cell_ptr(const char *);
+    void *efn = ent; int frag = 0;
+    if (!p || !name) return (void *)0;
+    if (!efn) { const char *el = core_define_entry_label(name); if (el) efn = rt_entry_resolve(el, &frag); }
+    if (efn && !frag && !p->fn) { p->fn = (bb_box_fn)efn; p->jmp_entry = 1; }
+    if (!efn && !p->fn) return (void *)0;
+    { const char *rn = p->name ? p->name : name; void *afn = rt_sno_shim_install((void *)p, rn, efn);
+      if (afn && strcmp(rn, name)) { char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = afn; }
+      return afn; }
+}
+static void *rt_sno_shim_lazy(rt_proc_t *p, const char *name) { return rt_sno_shim_lazy_ent(p, name, (void *)0); }
+static void rt_sno_shim_refresh_ent(rt_proc_t *p, const char *name, void *ent)
+{
+    extern void *bb_ab_fn_cell_ptr(const char *);
+    if (!p || !name) return;
+    { char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0;
+      { void *afn = rt_sno_shim_lazy_ent(p, name, ent); if (!afn && cell) *cell = (void *)(uintptr_t)rt_ab_undef_sig_stub; } }
+}
+static void rt_sno_shim_refresh(rt_proc_t *p, const char *name) { rt_sno_shim_refresh_ent(p, name, (void *)0); }
 DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
 {
-    if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
-      if (el) { void *fn = rt_entry_resolve(el, &frag); if (!fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
-        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(&p, CALL_ARGS, nargs, wn);
-          { long idxw = (long)(p - g_rt_gen_procs) | ((wn ? 1L : 0L) << RT_IDXW_WN_SHIFT);
+    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (!afn) afn = rt_sno_shim_lazy(p, name);
+      if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < 0 ? 0 : nargs; rt_call_args_need(_n);
 #if RT_DIAG
-            rt_c2bb_hit(frag ? "descr.frag" : "descr.named", name);
+        rt_c2bb_hit("descr.tiny", name);
 #endif
-            return frag ? rt_proc_enter_frag(fn, idxw) : rt_proc_enter_named(fn, idxw); } } } }
+        return rt_tiny_record_enter(afn, (long)_n); }
+      if (!p->fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
+      rt_nsave_bomb("rt_call_proc_descr", name); return FAILDESCR; }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
@@ -1123,7 +1186,6 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
 #endif
         return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
     int _wn_gen = rt_g_want_name;
-    int _nsb = rt_name_save_mark();
     long fbytes = rt_proc_call_open_pn(&p, name, nargs);
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
@@ -1137,9 +1199,9 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
     }
     rt_g_want_name = _wn_gen;
 #if RT_DIAG
-    if (name && strchr(name, '$')) { rt_c2bb_hit("descr.enter.dyn$", name); return rt_proc_enter_barrier((void *)p->fn, (long)_nsb); }
+    if (name && strchr(name, '$')) { rt_c2bb_hit("descr.enter.dyn$", name); return rt_proc_enter_barrier((void *)p->fn, 0L); }
 #else
-    if (name && strchr(name, '$')) { return rt_proc_enter_barrier((void *)p->fn, (long)_nsb); }
+    if (name && strchr(name, '$')) { return rt_proc_enter_barrier((void *)p->fn, 0L); }
 #endif
 #if RT_DIAG
     rt_c2bb_hit("descr.enter.dyn.named", name);
@@ -1156,43 +1218,37 @@ static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb, lon
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int nargs)
 {
-    if (p && !p->fn && p->dyn_scope) { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); int frag = 0; const char *el = core_define_entry_label(name);
-      if (el) { void *efn = rt_entry_resolve(el, &frag); if (!efn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
-        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue(&p, CALL_ARGS, nargs, wn);
-          return rt_c2bb_word(p, (long)(uintptr_t)efn, 1, 0, (long)wn); } } }
+    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (!afn) afn = rt_sno_shim_lazy(p, name);
+      if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, nargs > 0 ? nargs : 0, 0L);
+      if (!p->fn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
+      rt_nsave_bomb("rt_call_open_by_name", name); return (rt_call_next_t){ 0, 0 }; }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
         fprintf(stderr, "[GZ-10] rt_call_open_by_name: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return (rt_call_next_t){ 0, 0 };
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, nargs > 0 ? nargs : 0, 0L); }
     if (!p->dyn_scope && !p->jmp_entry) { fprintf(stderr, "FATAL rt_call_open_by_name: target '%s' is a call-regime C-frame procedure; a box may only enter a jmp-entry procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
     { int _wn_gen = rt_g_want_name;
-      int nsb = rt_name_save_mark();
       long fbytes = rt_proc_call_open_pn(&p, name, nargs);
       if (!fbytes) return (rt_call_next_t){ 0, 0 };
       rt_g_want_name = _wn_gen;
-      return rt_c2bb_word(p, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, nsb, (long)_wn_gen); }
+      return rt_c2bb_word(p, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, 0, (long)_wn_gen); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_land_γ(DESCR_t frame0, long word)
 {
     extern DESCR_t rt_proc_call_epilogue_idx_γ(long);
-    { long how = RT_WORD_HOW(word); int nsb = (int)((word >> 8) & 0xffffffffL); long idx = word >> 40;
-      DESCR_t r = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_idx_γ(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT))
-                : rt_proc_call_epilogue_γ(frame0, RT_WORD_TOUCH(word));
-      if (how == 3) rt_name_save_unwind(nsb);
-      return r; }
+    { long how = RT_WORD_HOW(word); long idx = word >> 40;
+      return (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_idx_γ(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT))
+                : rt_proc_call_epilogue_γ(frame0, RT_WORD_TOUCH(word)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_land_ω(long word)
 {
     extern DESCR_t rt_proc_call_epilogue_idx_ω(long);
-    { long how = RT_WORD_HOW(word); int nsb = (int)((word >> 8) & 0xffffffffL); long idx = word >> 40;
-      DESCR_t r = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_idx_ω(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT)) : rt_proc_call_epilogue_ω(RT_WORD_TOUCH(word));
-      if (how == 3) rt_name_save_unwind(nsb);
-      return r; }
+    { long how = RT_WORD_HOW(word); long idx = word >> 40;
+      return (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_idx_ω(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT)) : rt_proc_call_epilogue_ω(RT_WORD_TOUCH(word)); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_call_open_by_name(const char *name, int nargs) { return rt_call_open_by_name_p(rt_proc_find(name), name, nargs); }
@@ -1265,13 +1321,55 @@ void *rt_dyn_alpha_fn(const char *name, void *fallback)
       if (fastcat) { memcpy(cn, "alpha$", 6); memcpy(cn + 6, name, nl + 1); }
       else snprintf(cn, sizeof cn, "alpha$%s", name);
       { void **cell = (void **)bb_ab_fn_cell_ptr(cn);
-        return (cell && *cell && *cell != (void *)(uintptr_t)rt_ab_undef_fn_stub) ? *cell : fallback; } }
+        return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_seal_alpha(const char * name, void * fn) {
     if (!name || !fn) return;
     { extern void * bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name);
       void ** cell = (void **) bb_ab_fn_cell_ptr(cn); if (cell) *cell = fn; }
+}
+void rt_ab_cell_bind(const char *name, void **quad)
+{
+    extern void *bb_ab_fn_cell_ptr(const char *);
+    if (!name || !quad) return;
+    { char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (!cell) return;
+      if (rt_alpha_unsealed(*cell)) *cell = !rt_alpha_unsealed(quad[1]) ? quad[1] : (void *)(uintptr_t)rt_ab_undef_sig_stub;
+      quad[0] = (void *)cell; }
+}
+void rt_ab_cell_bind_table(void **tab)
+{
+    if (!tab) return;
+    for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]);
+}
+static int rt_shim_nv_name(const char *nm) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); return nm && (gva_trace_demoted() || gva_index_of(nm) < 0); }
+void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base)
+{
+    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (!p || !cells || !sig || !base) return;
+    { int np = p->nparams, nf = p->nformals > 0 ? p->nformals : np, nargs = (int)sig[0], j = 0, sh = 0; const char *rn = p->result_name ? p->result_name : p->name;
+      for (int k = 0; k < np; k++) { const char *nm = p->pnames ? p->pnames[k] : (const char *)0; if (!nm) continue; if (rn && !strcmp(nm, rn)) sh = 1; if (!rt_shim_nv_name(nm)) continue;
+        { DESCR_t arg = (k < nf && k < nargs) ? *(const DESCR_t *)(base + sig[3 + k]) : NULVCL; cells[j] = NV_GET_fn(nm); NV_SET_fn(nm, arg);
+          { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[NVIN] %s.%s cells=%p j=%d old.v=%d arg.v=%d nargs=%d nf=%d off=%ld\n", proc, nm, (void *)cells, j, (int)cells[j].v, (int)arg.v, nargs, nf, (k < nargs) ? sig[3 + k] : -1L); }
+          j++; } }
+      if (rn && !sh && rt_shim_nv_name(rn)) { cells[j++] = NV_GET_fn(rn); NV_SET_fn(rn, NULVCL); } }
+}
+static void rt_shim_nv_restore(rt_proc_t *p, DESCR_t *cells)
+{
+    int np = p->nparams, j = 0, sh = 0; const char *rn = p->result_name ? p->result_name : p->name;
+    for (int k = 0; k < np; k++) { const char *nm = p->pnames ? p->pnames[k] : (const char *)0; if (!nm) continue; if (rn && !strcmp(nm, rn)) sh = 1; if (rt_shim_nv_name(nm)) j++; }
+    if (rn && !sh && rt_shim_nv_name(rn)) NV_SET_fn(rn, cells[j]);
+    for (int k = np - 1; k >= 0; k--) { const char *nm = p->pnames ? p->pnames[k] : (const char *)0; if (!nm || !rt_shim_nv_name(nm)) continue; j--;
+        { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[NVOUT] %s.%s cells=%p j=%d old.v=%d\n", p->name ? p->name : "?", nm, (void *)cells, j, (int)cells[j].v); }
+        NV_SET_fn(nm, cells[j]); }
+}
+DESCR_t rt_shim_nv_gamma(const char *proc, DESCR_t *cells)
+{
+    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (!p || !cells) return NULVCL;
+    { const char *rn = p->result_name ? p->result_name : p->name; DESCR_t r = (rn && rt_shim_nv_name(rn)) ? NV_GET_fn(rn) : NULVCL; rt_shim_nv_restore(p, cells); return r; }
+}
+void rt_shim_nv_omega(const char *proc, DESCR_t *cells)
+{
+    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (p && cells) rt_shim_nv_restore(p, cells);
 }
 static cv_t g_initial_fired;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1442,13 +1540,12 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
     if (hslot) *hslot = (void *)0;
     return FAILDESCR;
 }
-typedef struct { const char *name; DESCR_t *cell; DESCR_t old; } NameSaveEnt;
 #define PROC_FRAME_NEST_QWORDS 512
 #define DCR_CELL_CACHE_SIZE 2048
 #define DCR_CELL_CACHE_MASK (DCR_CELL_CACHE_SIZE - 1)
-static NameSaveEnt   *g_name_save = (NameSaveEnt *)0;
-static int            g_name_save_top = 0;
-static int            g_name_save_cap = 0;
+static DESCR_t       *g_rk_cb_hold = (DESCR_t *)0;
+static int            g_rk_cb_hold_top = 0;
+static int            g_rk_cb_hold_cap = 0;
 static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_CELL_CACHE_SIZE];
 static int            g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
 static const char    *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
@@ -1485,65 +1582,24 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
 }
 _Static_assert(sizeof(((rt_proc_t *)0)->cells_done) == 4, "cells_done bit 0 is the resolved flag and bit 1 the result-name-shadowed-by-a-parameter fact, computed once in rt_proc_resolve_cells and read by every call prologue in place of a strcmp per parameter per call (ceo 2026-09-25, CEO-1257); the record is pinned at 128 bytes so the fact rides in a bit");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_name_save_grow(void) {
-    if (g_name_save_top < g_name_save_cap) return;
-    int nc = g_name_save_cap ? g_name_save_cap * 2 : 4096; NameSaveEnt *np = (NameSaveEnt *)rt_wsb_realloc(g_name_save, (size_t)nc * sizeof(NameSaveEnt));
-    if (!np) return; g_name_save = np; g_name_save_cap = nc;
+static void rt_rk_cb_grow(void) {
+    if (g_rk_cb_hold_top < g_rk_cb_hold_cap) return;
+    int nc = g_rk_cb_hold_cap ? g_rk_cb_hold_cap * 2 : 64; DESCR_t *np = (DESCR_t *)rt_wsb_realloc(g_rk_cb_hold, (size_t)nc * sizeof(DESCR_t));
+    if (!np) return; g_rk_cb_hold = np; g_rk_cb_hold_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_cb_mark(void) { return g_name_save_top; }
+int rt_cb_mark(void) { return g_rk_cb_hold_top; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cb_hold(DESCR_t d) {
-    rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) return -1;
-    g_name_save[g_name_save_top].name = (const char *)0; g_name_save[g_name_save_top].cell = (DESCR_t *)0; g_name_save[g_name_save_top].old = d; return g_name_save_top++;
+    rt_rk_cb_grow(); if (g_rk_cb_hold_top >= g_rk_cb_hold_cap) return -1;
+    g_rk_cb_hold[g_rk_cb_hold_top] = d; return g_rk_cb_hold_top++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_cb_get(int i) { return g_name_save[i].old; }
+DESCR_t rt_cb_get(int i) { return g_rk_cb_hold[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cb_set(int i, DESCR_t d) { g_name_save[i].old = d; }
+void rt_cb_set(int i, DESCR_t d) { g_rk_cb_hold[i] = d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cb_release(int mark) { g_name_save_top = mark; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) int rt_nsave_fast_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_NSAVE_FAST"); v = (e && *e == '0') ? 0 : 1; } return v; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_name_save_push(const char **names, DESCR_t **cells, DESCR_t *args, int nargs, int n)
-{
-    int base = g_name_save_top;
-    int nf = rt_nsave_fast_on();
-    if (nf && n <= 0) return base;
-    for (int k = 0; k < n; k++) {
-        const char *nm = names ? names[k] : (const char *)0; if (!nm) continue;
-        if (nf) { if (g_name_save_top >= g_name_save_cap) { rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break; } }
-        else { rt_name_save_grow(); if (g_name_save_top >= g_name_save_cap) break; }
-        DESCR_t *cell = cells ? cells[k] : rt_cell_for(nm);
-        DESCR_t arg = (k < nargs) ? args[k] : NULVCL;
-        g_name_save[g_name_save_top].name = nm;
-        g_name_save[g_name_save_top].cell = cell;
-        if (cell) { g_name_save[g_name_save_top].old = *cell; *cell = arg; }
-#if RT_DIAG
-        else { monitor_quiet_depth++; g_name_save[g_name_save_top].old = NV_GET_fn(nm); NV_SET_fn(nm, arg); monitor_quiet_depth--; }
-#else
-        else { g_name_save[g_name_save_top].old = NV_GET_fn(nm); NV_SET_fn(nm, arg); }
-#endif
-        g_name_save_top++;
-    }
-    return base;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_name_restore(int base)
-{
-    for (int k = g_name_save_top - 1; k >= base; k--) {
-        if (g_name_save[k].cell) *g_name_save[k].cell = g_name_save[k].old;
-#if RT_DIAG
-        else { monitor_quiet_depth++; NV_SET_fn(g_name_save[k].name, g_name_save[k].old); monitor_quiet_depth--; }
-#else
-        else { NV_SET_fn(g_name_save[k].name, g_name_save[k].old); }
-#endif
-    }
-    g_name_save_top = base;
-}
-int rt_name_save_mark(void) { return g_name_save_top; }
-void rt_name_save_unwind(int base) { if (base >= 0 && g_name_save_top > base) rt_name_restore(base); }
+void rt_cb_release(int mark) { g_rk_cb_hold_top = mark; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
@@ -1565,11 +1621,8 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
 void rt_gc_ws_roots(void)
 {
     extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
-    if (g_name_save) rt_gc_visit_raw((const char **)&g_name_save);
-    for (int i = 0; i < g_name_save_top; i++) {
-        if (g_name_save[i].name) rt_gc_visit_raw((const char **)&g_name_save[i].name);
-        if (g_name_save[i].cell) rt_gc_visit_raw((const char **)&g_name_save[i].cell);
-        rt_gc_visit_descr(&g_name_save[i].old); }
+    if (g_rk_cb_hold) rt_gc_visit_raw((const char **)&g_rk_cb_hold);
+    for (int i = 0; i < g_rk_cb_hold_top; i++) rt_gc_visit_descr(&g_rk_cb_hold[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { rt_k_level--; rt_k_level_mirror(); } }
@@ -1584,9 +1637,8 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn)
     const char *rname = p->result_name ? p->result_name : p->name;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    int save_base = (p->self_save || (rt_nsave_fast_on() && np <= 0)) ? g_name_save_top : rt_name_save_push(pn, p->pcells, args, nargs, np);
-    { int rn_shadow = (p->cells_done & 2) ? 1 : 0;
-      if (!rn_shadow && !p->self_save) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
+    (void)pn; (void)args; (void)rname;
+    if (!p->self_save) rt_nsave_bomb("rt_proc_call_prologue", p->name);
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
 #if RT_DIAG
     if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
@@ -1610,17 +1662,6 @@ DESCR_t rt_proc_call_epilogue_ω(long touched)
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_proc_save_count(rt_proc_t *p)
-{
-    if (!p || !p->dyn_scope) return 0;
-    int np = p->nparams, n = 0; const char **pn = p->pnames; const char *rname = p->result_name ? p->result_name : p->name; int rn_shadow = 0;
-    for (int k = 0; k < np; k++) if (pn && pn[k]) n++;
-    if (p->cells_done & 1) rn_shadow = (p->cells_done & 2) ? 1 : 0;
-    else for (int k = 0; k < np; k++) if (pn && pn[k] && rname && !strcmp(pn[k], rname)) { rn_shadow = 1; break; }
-    if (!rn_shadow && rname) n++;
-    return n;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked);
 static DESCR_t rt_proc_epilogue_named(const char *name, int failed, long wn)
 {
@@ -1634,17 +1675,8 @@ static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
 {
     if (!p) return failed ? FAILDESCR : NULVCL;
     if (p->self_save) { fprintf(stderr, "rt_proc_epilogue_p: the self-saving thunk %s reached the cell-reading epilogue -- its road must hand the land frame0 (CEO-1543 chunk 1)\n", p->name ? p->name : "?"); abort(); }
-    const char *rname = p->result_name ? p->result_name : p->name;
-    DESCR_t *rcell = p->rcell;
-    DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
-    int base = g_name_save_top - rt_proc_save_count(p); if (base < 0) base = 0;
-#if RT_DIAG
-    if (g_trace_budget != 0) sno_trace_return(p->result_name ? p->result_name : p->name, result);
-    if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event(TRK_RETURN, p->result_name ? p->result_name : p->name, result, g_stno); }
-#endif
-    rt_name_restore(base);
-    if (wn_parked >= 0) rt_g_want_name = wn_parked;
-    return result;
+    (void)wn_parked; rt_nsave_bomb("rt_proc_epilogue_p", p->name);
+    return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_named_γ(const char *name, long wn) { return rt_proc_epilogue_named(name, 0, wn); }
@@ -2114,10 +2146,12 @@ void rt_define_bind_entry(const char *fname, const char *entry)
     extern void *bb_ab_fn_cell_ptr(const char *);
     extern void *bb_ab_cell_addr(const char *);
     if (!fname || !*fname || !entry || !*entry) return;
-    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); if (!fn) return;
+    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag);
+      { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[DEFSITE-BIND] %s -> %s fn=%p frag=%d\n", fname, entry, fn, frag); }
+      if (!fn) return;
       { void **c = (void **)bb_ab_cell_addr(fname); if (c) *c = fn; }
       { char cell[fmt_len("entry$%s", fname)]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } }
-      if (!frag) { rt_proc_t *p = rt_proc_find(fname); if (p && p->dyn_scope) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } } }
+      { rt_proc_t *p = rt_proc_find(fname); if (p && p->dyn_scope) { if (!frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } if (!rt_dyn_alpha_fn_p(p, fname, (void *)0)) rt_sno_shim_refresh_ent(p, fname, fn); } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_opsyn_bind(const char *nm, const char *old)
@@ -2144,32 +2178,40 @@ void rt_proc_opsyn_bind(const char *nm, const char *old)
       p->result_name = rn; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->pnames_owned = 1; p->redefined = fresh; }
     { void **c = (void **)bb_ab_cell_addr(nm); if (c) *c = (void *)o.fn; }
     { char cn[strlen(nm) + 8]; snprintf(cn, sizeof cn, "entry$%s", nm); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = (void *)o.fn; }
+    { rt_proc_t *p = rt_proc_find(key); if (p) rt_sno_shim_refresh_ent(p, nm, (void *)o.fn); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (p) { if (fn && p->fn && (void *)p->fn != fn) p->redefined = 1; if (fn) p->fn = (bb_box_fn)fn;
+    { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[DEFSITE] %s (%s) fn=%p p=%p pfn=%p sealed=%p\n", name ? name : "?", params_csv ? params_csv : "", fn, (void *)p, p ? (void *)p->fn : (void *)0, p ? rt_dyn_alpha_fn_p(p, name, (void *)0) : (void *)0); }
+    if (p) { int moved = 0; if (fn && p->fn && (void *)p->fn != fn) p->redefined = 1; if (fn) p->fn = (bb_box_fn)fn;
       if (params_csv) { int np = nparams > 0 ? nparams : 0; int same = (np == p->nparams); char *dup = ct_strdup(params_csv); char *sv = (char *)0; int k = 0;
         if (same && dup) { for (char *t = strtok_r(dup, ",", &sv); t; t = strtok_r((char *)0, ",", &sv)) { if (k >= np || !p->pnames || !p->pnames[k] || strcmp(p->pnames[k], t)) { same = 0; break; } k++; } if (k != np) same = 0; }
         if (!same) { const char **pn = (const char **)ct_zalloc((size_t)(np + 1), sizeof(const char *)); char *dup2 = ct_strdup(params_csv); char *sv2 = (char *)0; int j = 0;
           if (pn && dup2) { for (char *t = strtok_r(dup2, ",", &sv2); t && j < np; t = strtok_r((char *)0, ",", &sv2)) pn[j++] = t; }
-          if (pn) { p->pnames = pn; p->nparams = np; p->pnames_owned = 1; p->pcells = (DESCR_t **)0; p->cells_done = 0; p->redefined = 1; } }
+          if (pn) { p->pnames = pn; p->nparams = np; p->pnames_owned = 1; p->pcells = (DESCR_t **)0; p->cells_done = 0; p->redefined = 1; moved = 1; } }
         ct_drop(dup); }
       else if (nparams) p->nparams = nparams;
-      p->nformals = nformals; if (frame_bytes) p->frame_bytes = frame_bytes; p->dyn_scope = 1; p->jmp_entry = 1; return; }
+      p->nformals = nformals; if (frame_bytes) p->frame_bytes = frame_bytes; p->dyn_scope = 1; p->jmp_entry = 1;
+      if (moved || !rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, !rt_alpha_unsealed(fn) ? fn : (void *)0); return; }
     { int np = nparams > 0 ? nparams : 0; const char **pn = (const char **)ct_zalloc((size_t)(np + 1), sizeof(const char *)); char *dup = params_csv ? ct_strdup(params_csv) : (char *)0; int k = 0;
       if (pn && dup) { char *sv = (char *)0; for (char *t = strtok_r(dup, ",", &sv); t && k < np; t = strtok_r((char *)0, ",", &sv)) pn[k++] = t; }
       rt_proc_register(name, pn, np); p = rt_proc_find(name);
-      if (p) { p->pnames_owned = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; p->nformals = nformals; p->frame_bytes = frame_bytes; } }
+      if (p) { p->pnames_owned = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; p->nformals = nformals; p->frame_bytes = frame_bytes;
+        if (!rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, !rt_alpha_unsealed(fn) ? fn : (void *)0); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_define_site_entry(const char *name, const char *entry)
 {
     extern void *rt_entry_resolve(const char *, int *);
     if (!name || !*name || !entry || !*entry) return;
-    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); rt_proc_t *p = fn ? rt_proc_find(name) : (rt_proc_t *)0; if (!p) return;
-      if (p->fn && (void *)p->fn != fn) p->redefined = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; }
+    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); rt_proc_t *p = fn ? rt_proc_find(name) : (rt_proc_t *)0;
+      { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[DEFSITE-ENTRY] %s -> %s fn=%p frag=%d p=%p\n", name, entry, fn, frag, (void *)p); }
+      if (!p) return;
+      { extern void *bb_ab_fn_cell_ptr(const char *); int moved = p->fn && (void *)p->fn != fn; if (moved) p->redefined = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1;
+        { char cell[fmt_len("entry$%s", name)]; snprintf(cell, sizeof cell, "entry$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; }
+        if (!rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, fn); } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_define_tiny_ok(const char *name, int nargs)

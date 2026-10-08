@@ -507,6 +507,8 @@ static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, 
     int np = 0, nsave = 0, res_gk = -1;
     int have = bb_scc_probe(fname, nf, &np, &nsave, gk_out, &res_gk);
     if (!have || nsave <= 0 || nsave > 29) return 0;
+    for (int k = 0; k < nsave; k++) if (gk_out[k] < 0) return 0;
+    if (res_gk < 0) return 0;
     *nf_out = nf; *nsave_out = nsave;
     if (res_gk_out) *res_gk_out = res_gk;
     return 1;
