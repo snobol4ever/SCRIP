@@ -90,8 +90,8 @@ def main(argv):
             print("  %-40s %s:%d" % (r["name"], r["file"], r["line"]))
         tot = sum(r["scope"] == "file" for r in rows)
         if bad:
-            print("RED: %d of %d file-scope runtime globals do not start with g_ (Lon 2026-10-08: make it so)" % (len(bad), tot)); return 1
-        print("GREEN: every one of the %d file-scope runtime globals starts with g_" % tot); return 0
+            print("RED: %d of %d file-scope %s globals do not start with g_ (Lon 2026-10-08: make it so)" % (len(bad), tot, tree)); return 1
+        print("GREEN: every one of the %d file-scope %s globals starts with g_" % (tot, tree)); return 0
     print(__doc__); return 2
 
 
