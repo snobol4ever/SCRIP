@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
-"""util_reflow_200.py [--check | --apply | --proof | --print] [--width 200] PATH... -- THE 200-COLUMN RE-FLOW (Lon 2026-10-08 16:5x CDT, in-chat
-to the ceo, verbatim: "Read the rules of formatting found in MD files referencing the 200 max columns. No comments just comment line breaks. No
-blank lines. Put code on 200 character lines. If does not fit, begin wrapping at that level and keep those lines long. No line shall EXCEED 200
-characters, all must fit."; RULES.md section C code style: 200-char line max, zero blank lines, zero comments but the 200-char separators;
-CEO-1565). For every C, C++ and .inc file named (a directory names every such file under it; src/parsers and the two generated tables are
-never touched): every comment goes (a separator line is kept and re-cut to exactly --width characters), every blank line goes, preprocessor
-directives keep their own lines (a continued directive is re-joined and re-wrapped with backslashes), and the code is PACKED: the statements
-of each block go onto lines of at most --width characters, a block running on in the same line while it fits, else the next statement starts
-a new line at that block's indent; a statement longer than a line is WRAPPED at its own nesting level at a token boundary (after a comma or
-an operator at the shallowest depth first), its continuation lines indented one level deeper and filled as long as they can be; a string
-literal longer than a line is split into adjacent literals outside any escape. The token stream is never changed: tokens are re-emitted with
-a space wherever the source had whitespace or a newline and nothing where it had none, so `a - -b`, `> >` and `#` keep their meaning.
+"""util_reflow_200.py [--check | --apply | --proof | --objproof | --print] [--width 200] PATH... -- THE 200-COLUMN RE-FLOW (Lon 2026-10-08 16:5x
+CDT, in-chat to the ceo, verbatim: "Read the rules of formatting found in MD files referencing the 200 max columns. No comments just comment line
+breaks. No blank lines. Put code on 200 character lines. If does not fit, begin wrapping at that level and keep those lines long. No line shall
+EXCEED 200 characters, all must fit." -- "when you begin wrapping, it must be at hierarchical C structures." -- "if at one level it over flows a
+line, then you break at the hiearchical level and start the rule over again at the indention. But each child at the level gets its own line." --
+"Regarding the template CPP files, those should be more line oriented and not spead across 200 characters, but it can use 200 chars no problem.
+But since it is ASM, the lines of C++ code should match closely the lines of ASM being emitted."; RULES.md section C code style; CEO-1565).
+For every C, C++ and .inc file named (a directory names every such file under it; src/parsers and the two generated tables are never touched):
+every comment goes (a separator line is kept and re-cut to exactly --width characters), every blank line goes, preprocessor directives keep their
+own lines (a continued directive is re-joined and re-wrapped with backslashes). C and .inc files take LON'S RULE: an item (a statement, or a
+whole block with its else-chain) that fits goes on ONE line of at most --width UTF-8 bytes at its indent; an item that does not fit is a block
+that opens on its own line, lays every child out by the same rule one level deeper, each child on its own line, and closes on its own line; a
+statement longer than a line is wrapped at its own nesting level at a token boundary (after a comma or an operator at the shallowest depth
+first) with its continuation lines one level deeper; a string literal longer than a line is split into adjacent literals outside any escape.
+Every .cpp file and everything under src/templates is LINE-ORIENTED: each line keeps its own line and indent, only comments and blank lines go,
+a line over the width is wrapped at its level. The token stream is never changed: a token is re-emitted with a space where the source had
+whitespace and nothing where it had none, so `a - -b`, `> >` and `#` keep their meaning.
 --check reads rc 1 when a file would change or a line exceeds the width; --apply rewrites in place (LF, UTF-8); --print writes one file's
-re-flow to stdout; --proof preprocesses every translation unit the Makefile names with the original and the re-flowed text (gcc or g++
--E -P with the Makefile's own flags, __LINE__ pinned) and reads rc 1 unless the two token streams are identical, adjacent string literals
-merged: the behaviour-neutral proof of a landing.
+re-flow to stdout; --proof preprocesses every translation unit the Makefile names with the original and the re-flowed text (gcc or g++ -E -P
+with the Makefile's own flags, __LINE__ pinned) and reads rc 1 unless the two token streams are identical, adjacent string literals merged;
+--objproof compiles every unit twice under the same temporary name (-g0, __LINE__ pinned, no dependency list) and byte-compares the whole
+objects and their objdump -s -d -r internals, classifying a difference that is only gcc's -O0 brace-line nop placement (instruction streams
+identical with nops dropped and targets rebased by containing instruction, every data section identical) as nops-only.
 """
 import os, re, sys, subprocess
 
@@ -30,6 +37,8 @@ TOK = re.compile(r"""
 KW_CTRL = {"if", "while", "for", "switch"}
 OPEN_INIT_PREV = {"=", ",", "(", "[", "return", "?"}
 CUT_AFTER = {",": 0, ";": 0, "&&": 1, "||": 1, "?": 2, ":": 2, "=": 3, "|": 4, "&": 4, "+": 5, "-": 5, "<<": 5, ">>": 5, "*": 6, "/": 6, "%": 6, ")": 7, "}": 7}
+
+
 def W(s):
     return len(s.encode("utf-8"))
 
@@ -226,38 +235,39 @@ def _wrap_pp(line, width):
 
 
 class Blk:
-    __slots__ = ("opener", "children", "closer")
+    __slots__ = ("opener", "children", "closer", "next")
     def __init__(self, opener):
-        self.opener = opener; self.children = []; self.closer = "}"
+        self.opener = opener; self.children = []; self.closer = "}"; self.next = None
 
 
 def build_tree(units):
-    """Units -> a list of statements (str) and blocks (Blk); a closer followed by `else ...`, by `while (...);` after a `do {`, by `;` or by
-    the name after a struct/union/enum body is folded into the closer so that `} else {`, `} while (x);`, `};` and `} name;` stay together."""
-    root = []; stack = [root]; openers = [None]
+    """Units -> a list of statements (str) and blocks (Blk). A closer followed by `else ...` chains the else-block onto the if-block (one item for
+    the fit decision); a closer followed by `while (...);` after a `do {`, by `;`, or by the name after a struct/union/enum body is folded into
+    the closer so that `} while (x);`, `};` and `} name;` stay together."""
+    root = []; stack = [root]; openers = [None]; blocks = [None]
     i = 0
     while i < len(units):
         u, opens, closes = units[i]
         if closes:
-            blk_opener = openers[-1]
-            if len(stack) > 1:
-                stack.pop(); openers.pop()
-            blk = stack[-1][-1] if stack[-1] and isinstance(stack[-1][-1], Blk) else None
+            if len(stack) <= 1:
+                i += 1; continue
+            blk = blocks[-1]; blk_opener = openers[-1]
+            stack.pop(); openers.pop(); blocks.pop()
             nxt = units[i + 1] if i + 1 < len(units) else None
-            if blk is not None and nxt is not None:
+            if nxt is not None:
                 nu, nopens, ncloses = nxt
                 head = nu.split(" ", 1)[0] if nu else ""
-                is_do = blk_opener is not None and re.search(r"(^|\W)do\s*\{$", blk_opener) is not None
-                aggregate = blk_opener is not None and re.search(r"(^|\W)(struct|union|enum|typedef)(\W|$)", blk_opener) is not None and "(" not in blk_opener.split("{")[0]
+                is_do = re.search(r"(^|\W)do\s*\{$", blk_opener) is not None
+                aggregate = re.search(r"(^|\W)(struct|union|enum|typedef)(\W|$)", blk_opener) is not None and "(" not in blk_opener.split("{")[0]
                 if head == "else" and not ncloses:
                     if nopens:
-                        nb = Blk("} " + nu); blk.closer = None; stack[-1].append(nb); stack.append(nb.children); openers.append(nu); i += 2; continue
+                        nb = Blk("} " + nu); blk.closer = None; blk.next = nb; stack.append(nb.children); openers.append(nu); blocks.append(nb); i += 2; continue
                     blk.closer = "} " + nu; i += 2; continue
                 if (is_do and head == "while" and not nopens) or nu.startswith(";") or (aggregate and not nopens and not ncloses):
                     blk.closer = "}" + ("" if nu.startswith(";") else " ") + nu; i += 2; continue
             i += 1; continue
         if opens:
-            b = Blk(u); stack[-1].append(b); stack.append(b.children); openers.append(u)
+            b = Blk(u); stack[-1].append(b); stack.append(b.children); openers.append(u); blocks.append(b)
         else:
             stack[-1].append(u)
         i += 1
@@ -266,40 +276,42 @@ def build_tree(units):
 
 def flat(item):
     if isinstance(item, Blk):
-        inner = " ".join(flat(c) for c in item.children)
-        return item.opener + (" " + inner if inner else "") + " " + (item.closer if item.closer is not None else "}")
+        parts = []; cur = item
+        while cur is not None:
+            inner = " ".join(flat(c) for c in cur.children)
+            parts.append(cur.opener + (" " + inner if inner else ""))
+            if cur.next is None:
+                parts.append(cur.closer if cur.closer is not None else "}")
+            cur = cur.next
+        return " ".join(parts)
     return item
 
 
-def layout(items, depth, width, out, line):
-    """Pack `items` at `depth` onto lines of at most `width` bytes; returns the open line. A block that fits stays flat; one that does not opens
-    its line, lays its children out one level deeper and closes on its own line at its own depth."""
+def layout(items, depth, width, out):
+    """Lon's rule: an item that fits goes on one line of at most `width` bytes at its indent; an item that does not fit is a block that opens on its
+    own line, every child laid out by the same rule one level deeper, each on its own line, and closes on its own line; an else-chain is one
+    item, its `} else {` lines standing at the block's indent."""
     ind = "    " * depth
     for item in items:
         f = flat(item)
-        if line.strip() and W(line.rstrip()) + 1 + W(f) <= width:
-            line = line.rstrip() + " " + f; continue
-        if line.strip():
-            out.append(line.rstrip()); line = ""
         if len(ind) + W(f) <= width:
-            line = ind + f; continue
-        if isinstance(item, Blk):
-            opener = item.opener
-            if len(ind) + W(opener) <= width:
-                out.append(ind + opener)
+            out.append(ind + f); continue
+        if not isinstance(item, Blk):
+            out.extend(wrap_long(f, ind, width)); continue
+        cur = item
+        while cur is not None:
+            if len(ind) + W(cur.opener) <= width:
+                out.append(ind + cur.opener)
             else:
-                out.extend(wrap_long(opener, ind, width))
-            line = layout(item.children, depth + 1, width, out, "")
-            if line.strip():
-                out.append(line.rstrip()); line = ""
-            closer = item.closer if item.closer is not None else "}"
-            if len(ind) + W(closer) <= width:
-                out.append(ind + closer)
-            else:
-                out.extend(wrap_long(closer, ind, width))
-            continue
-        out.extend(wrap_long(f, ind, width)); line = ""
-    return line
+                out.extend(wrap_long(cur.opener, ind, width))
+            layout(cur.children, depth + 1, width, out)
+            if cur.next is None:
+                closer = cur.closer if cur.closer is not None else "}"
+                if len(ind) + W(closer) <= width:
+                    out.append(ind + closer)
+                else:
+                    out.extend(wrap_long(closer, ind, width))
+            cur = cur.next
 
 
 def reflow(text, width=200):
@@ -310,10 +322,7 @@ def reflow(text, width=200):
             out.append("/*" + payload * (width - 4) + "*/"); continue
         if kind == "pp":
             out.extend([payload] if W(payload) <= width else _wrap_pp(payload, width)); continue
-        tree = build_tree(split_units(payload))
-        line = layout(tree, 0, width, out, "")
-        if line.strip():
-            out.append(line.rstrip())
+        layout(build_tree(split_units(payload)), 0, width, out)
     return "\n".join(l for l in out if l.strip()) + "\n"
 
 

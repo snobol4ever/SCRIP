@@ -1,8 +1,22 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #ifndef GVA_COLLECT_H
 #define GVA_COLLECT_H
-int gva_name_eligible(const char *name); void gva_collect_reset(void); int gva_index_of(const char *name); int gva_collect_var(const char *name); int gva_collect_reserve(void);
-int gva_collect_var_copy(const char *name); int gva_count(void); int gva_name_hidden(const char *name); const char *gva_name(int k); void gva_io_refuse_name(const char *name);
-int gva_keyword_refused(const char *name); void gva_keyword_refuse_name(const char *name); void gva_keyword_refuse_reset(void); void gva_keyword_refuse_seed_snobol4(void); struct IR_graph_t;
-void gva_io_refuse_scan_graph(struct IR_graph_t *g); void gva_trace_demote_scan_graph(struct IR_graph_t *g); int gva_trace_demoted(void);
+int gva_name_eligible(const char *name);
+void gva_collect_reset(void);
+int gva_index_of(const char *name);
+int gva_collect_var(const char *name);
+int gva_collect_reserve(void);
+int gva_collect_var_copy(const char *name);
+int gva_count(void);
+int gva_name_hidden(const char *name);
+const char *gva_name(int k);
+void gva_io_refuse_name(const char *name);
+int gva_keyword_refused(const char *name);
+void gva_keyword_refuse_name(const char *name);
+void gva_keyword_refuse_reset(void);
+void gva_keyword_refuse_seed_snobol4(void);
+struct IR_graph_t;
+void gva_io_refuse_scan_graph(struct IR_graph_t *g);
+void gva_trace_demote_scan_graph(struct IR_graph_t *g);
+int gva_trace_demoted(void);
 #endif
