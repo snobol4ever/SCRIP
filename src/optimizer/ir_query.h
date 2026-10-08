@@ -1,5 +1,4 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #pragma once
 #include "IR.h"
-int ir_is_generator_kind(IR_e t);
-int ir_value_is_null_string(const IR_t * nd);
+int ir_is_generator_kind(IR_e t); int ir_value_is_null_string(const IR_t * nd);
