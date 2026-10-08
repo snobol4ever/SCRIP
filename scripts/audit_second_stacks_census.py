@@ -21,7 +21,7 @@ TABLE = [
     ("g_icn_act",        "hq_icon",    "icon",    "test_smoke_icon.sh",    "the frame (ARCH-ICON-RTX.md section 9); deleted ca33ff82a, bombs remain"),
     ("rt_stno_stack",    "hq_zetas",   "snobol4", "test_smoke_snobol4.sh", "activation frame + the code map"),
     ("g_name_save",      "hq_zetas",   "snobol4", "test_smoke_snobol4.sh", "spine, DESCR cells pushed by the callee prologue"),
-    ("g_rk_cb_hold",     "hq_raku",    "raku",    "test_smoke_raku.sh",    "the Raku block-callback holds (sort, map, grep, first, reduce): DESCR cells of the method frame's spine region released at the mark; rode g_name_save until CEO-1543 chunk 2"),
+    ("g_rk_cb_hold",     "hq_raku",    "raku",    "test_smoke_raku.sh",    "LANDED (ceo, CEO-1560): the Raku block-callback holds (sort, reduce, map/grep, first) are a C-local record on each builtin's own frame, rk_cbh_t, chained from one head cell g_rk_cbh_cur and root-visited through the chain in bnd_gc_roots, the rk_redisp_t shape; the two errjmp catch sites restore the head; the holder, its three leaves and rt_gc_ws_roots are gone"),
     ("g_lvl_own",        "hq_zetas",   "snobol4", "test_smoke_snobol4.sh", "activation frame, one RAW word"),
     ("g_core_errjmp_stk", "cfo",       "snobol4", "test_smoke_snobol4.sh", "already a chain through C frames; the head cell to zeta-STANDING"),
     ("g_eval_frames",    "cfo",        "snobol4", "test_smoke_snobol4.sh", "the EVAL chain's activation frame or rt_eval's C local"),

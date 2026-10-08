@@ -1543,9 +1543,6 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
 #define PROC_FRAME_NEST_QWORDS 512
 #define DCR_CELL_CACHE_SIZE 2048
 #define DCR_CELL_CACHE_MASK (DCR_CELL_CACHE_SIZE - 1)
-static DESCR_t       *g_rk_cb_hold = (DESCR_t *)0;
-static int            g_rk_cb_hold_top = 0;
-static int            g_rk_cb_hold_cap = 0;
 static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_CELL_CACHE_SIZE];
 static int            g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
 static const char    *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
@@ -1582,25 +1579,6 @@ static void rt_proc_resolve_cells(rt_proc_t *p)
 }
 _Static_assert(sizeof(((rt_proc_t *)0)->cells_done) == 4, "cells_done bit 0 is the resolved flag and bit 1 the result-name-shadowed-by-a-parameter fact, computed once in rt_proc_resolve_cells and read by every call prologue in place of a strcmp per parameter per call (ceo 2026-09-25, CEO-1257); the record is pinned at 128 bytes so the fact rides in a bit");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_rk_cb_grow(void) {
-    if (g_rk_cb_hold_top < g_rk_cb_hold_cap) return;
-    int nc = g_rk_cb_hold_cap ? g_rk_cb_hold_cap * 2 : 64; DESCR_t *np = (DESCR_t *)rt_wsb_realloc(g_rk_cb_hold, (size_t)nc * sizeof(DESCR_t));
-    if (!np) return; g_rk_cb_hold = np; g_rk_cb_hold_cap = nc;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_cb_mark(void) { return g_rk_cb_hold_top; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_cb_hold(DESCR_t d) {
-    rt_rk_cb_grow(); if (g_rk_cb_hold_top >= g_rk_cb_hold_cap) return -1;
-    g_rk_cb_hold[g_rk_cb_hold_top] = d; return g_rk_cb_hold_top++;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_cb_get(int i) { return g_rk_cb_hold[i]; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cb_set(int i, DESCR_t d) { g_rk_cb_hold[i] = d; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cb_release(int mark) { g_rk_cb_hold_top = mark; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
     char *base = (char *)base_p;
@@ -1616,13 +1594,6 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
     char *base = (char *)base_p;
     for (int i = 0; i < nparams; i++) { DESCR_t _v = ((uint32_t)i < g_call_args.cap) ? CALL_ARGS[i] : NULVCL; *(DESCR_t *)(base + (i + 1) * 16) = _v; }
     for (int j = 0; j < nlocals; j++) { DESCR_t _n = NULVCL; *(DESCR_t *)(base + (nparams + j + 1) * 16) = _n; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gc_ws_roots(void)
-{
-    extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
-    if (g_rk_cb_hold) rt_gc_visit_raw((const char **)&g_rk_cb_hold);
-    for (int i = 0; i < g_rk_cb_hold_top; i++) rt_gc_visit_descr(&g_rk_cb_hold[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { rt_k_level--; rt_k_level_mirror(); } }

@@ -402,7 +402,8 @@ static int rk_is_closure(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *
 static int rk_is_code(DESCR_t v) { return (v.v == DT_BLK && v.s && *v.s) || rk_is_closure(v); }
 static const char *rk_code_name(DESCR_t v) { return v.v == DT_BLK ? v.s : (rk_is_closure(v) && ((ARBLK_t *) v.arr)->hi >= ((ARBLK_t *) v.arr)->lo) ? ((ARBLK_t *) v.arr)->data[0].s : (const char *) 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_cb_mark(void); int rt_cb_hold(DESCR_t d); DESCR_t rt_cb_get(int i); void rt_cb_set(int i, DESCR_t d); void rt_cb_release(int mark);
+typedef struct rk_cbh { struct rk_cbh *prev; DESCR_t d[2]; } rk_cbh_t;
+static rk_cbh_t *g_rk_cbh_cur = (rk_cbh_t *)0;
 typedef struct { const char *name; int nref; } rk_cb_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_blk_nref(DESCR_t blk) { return rk_is_closure(blk) ? ((ARBLK_t *) blk.arr)->hi - ((ARBLK_t *) blk.arr)->lo : 0; }
@@ -1542,6 +1543,7 @@ void bnd_gc_roots(void)
     for (int gi = 0; gi < gram_n; gi++) { if (GRAM(gi).qname) rt_gc_visit_raw(&GRAM(gi).qname); if (GRAM(gi).body) rt_gc_visit_raw(&GRAM(gi).body); }
     rt_gc_visit_raw((const char **)&g_match.blk); rt_gc_visit_raw(&g_subject);
     for (rk_redisp_t *r = g_redisp_cur; r; r = r->prev) if (r->local) { rt_gc_visit_descr(&r->self); rt_gc_visit_descr(&r->mname); for (int k = 0; k < r->nargs; k++) rt_gc_visit_descr((DESCR_t *)&r->args[k]); }
+    for (rk_cbh_t *h = g_rk_cbh_cur; h; h = h->prev) { rt_gc_visit_descr(&h->d[0]); rt_gc_visit_descr(&h->d[1]); }
     { extern void rt_main_args_gc_root(void); rt_main_args_gc_root(); }
     { extern void rt_pl_flags_gc_roots(void); rt_pl_flags_gc_roots(); }
     { extern void bnd_text_gc_roots(void); bnd_text_gc_roots(); }
@@ -6441,17 +6443,17 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_arr_sort") && nargs >= 2 && rk_is_code(args[1])) {
         int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
         rk_av_t a = rk_av(args[0]); int nel = a.n; if (nel <= 0) { *out = rk_mk_arr(NULL, 0); return 1; }
-        int hm = rt_cb_mark(), hw = rt_cb_hold(rk_mk_arr(a.el, nel)), hk = rt_cb_hold(NULVCL);
+        rk_cbh_t H = { g_rk_cbh_cur, { rk_mk_arr(a.el, nel), NULVCL } }; g_rk_cbh_cur = &H;
         for (int i = 1; i < nel; i++) {
-            DESCR_t *w = ((ARBLK_t *) rt_cb_get(hw).arr)->data; rt_cb_set(hk, w[i]); int b = i - 1;
+            DESCR_t *w = ((ARBLK_t *) H.d[0].arr)->data; H.d[1] = w[i]; int b = i - 1;
             while (b >= 0) {
-                w = ((ARBLK_t *) rt_cb_get(hw).arr)->data;
-                if (rk_block_cmp_d(cb, rfs, w[b], rt_cb_get(hk)) <= 0) break;
-                w = ((ARBLK_t *) rt_cb_get(hw).arr)->data; w[b + 1] = w[b]; b--;
+                w = ((ARBLK_t *) H.d[0].arr)->data;
+                if (rk_block_cmp_d(cb, rfs, w[b], H.d[1]) <= 0) break;
+                w = ((ARBLK_t *) H.d[0].arr)->data; w[b + 1] = w[b]; b--;
             }
-            w = ((ARBLK_t *) rt_cb_get(hw).arr)->data; w[b + 1] = rt_cb_get(hk);
+            w = ((ARBLK_t *) H.d[0].arr)->data; w[b + 1] = H.d[1];
         }
-        *out = rt_cb_get(hw); rt_cb_release(hm); return 1;
+        *out = H.d[0]; g_rk_cbh_cur = H.prev; return 1;
     }
     if (!strcmp(fn, "__rk_arr_sort") && nargs >= 1) {
         rk_av_t a = rk_av_args(args, 0, nargs);
@@ -6473,12 +6475,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
         int an = rk_av(args[0]).n;
         if (an == 0) { *out = NULVCL; return 1; }
-        int hm = rt_cb_mark(), hs = rt_cb_hold(args[0]), ha = rt_cb_hold(rk_av_elem(rk_av(args[0]), 0));
+        rk_cbh_t H = { g_rk_cbh_cur, { args[0], rk_av_elem(rk_av(args[0]), 0) } }; g_rk_cbh_cur = &H;
         for (int i = 1; i < an; i++) {
-            DESCR_t ed = rk_av_elem(rk_av(rt_cb_get(hs)), i);
-            rt_call_args_need(2); CALL_ARGS[0] = rt_cb_get(ha); CALL_ARGS[1] = ed; rt_cb_set(ha, rk_call_snap(cb, rfs, 2));
+            DESCR_t ed = rk_av_elem(rk_av(H.d[0]), i);
+            rt_call_args_need(2); CALL_ARGS[0] = H.d[1]; CALL_ARGS[1] = ed; H.d[1] = rk_call_snap(cb, rfs, 2);
         }
-        *out = rt_cb_get(ha); rt_cb_release(hm); return 1;
+        *out = H.d[1]; g_rk_cbh_cur = H.prev; return 1;
     }
     if ((!strcmp(fn, "__rk_arr_min") || !strcmp(fn, "__rk_arr_max")) && nargs >= 1) {
         int tot = 0; rk_av_t *vs = (rk_av_t *) rt_wsb_alloc(sizeof(rk_av_t) * (size_t) nargs);
@@ -6611,29 +6613,29 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         int want_map = (fn[9] == 'm');
         if (!rk_is_code(args[1])) { *out = FAILDESCR; return 1; }
         int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
-        int hm = rt_cb_mark(), hs = rt_cb_hold(args[0]), hr = rt_cb_hold(rk_mk_arr(NULL, 0)); int an = rk_av(args[0]).n;
+        rk_cbh_t H = { g_rk_cbh_cur, { args[0], rk_mk_arr(NULL, 0) } }; g_rk_cbh_cur = &H; int an = rk_av(args[0]).n;
         extern int rt_is_truthy(DESCR_t v);
         for (int si = 0; si < an; si++) {
-            DESCR_t ed = rk_av_elem(rk_av(rt_cb_get(hs)), si);
+            DESCR_t ed = rk_av_elem(rk_av(H.d[0]), si);
             rt_call_args_need(2); CALL_ARGS[0] = ed;
             DESCR_t rd = rk_call_snap(cb, rfs, 1);
-            if (want_map) { DESCR_t cur = rt_cb_get(hr); rk_arr_append((ARBLK_t *) cur.arr, rd); }
-            else if (rt_is_truthy(rd)) { DESCR_t cur = rt_cb_get(hr); rk_arr_append((ARBLK_t *) cur.arr, rk_av_elem(rk_av(rt_cb_get(hs)), si)); }
+            if (want_map) { DESCR_t cur = H.d[1]; rk_arr_append((ARBLK_t *) cur.arr, rd); }
+            else if (rt_is_truthy(rd)) { DESCR_t cur = H.d[1]; rk_arr_append((ARBLK_t *) cur.arr, rk_av_elem(rk_av(H.d[0]), si)); }
         }
-        *out = rt_cb_get(hr); rt_cb_release(hm); return 1;
+        *out = H.d[1]; g_rk_cbh_cur = H.prev; return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_first") && nargs >= 2) {
         if (rk_is_code(args[1])) {
             int nrf = rk_blk_nref(args[1]); DESCR_t rfs[nrf ? nrf : 1]; rk_cb_t cb = rk_blk_snap(args[1], rfs);
-            int hm = rt_cb_mark(), hs = rt_cb_hold(args[0]); int an = rk_av(args[0]).n;
+            rk_cbh_t H = { g_rk_cbh_cur, { args[0], NULVCL } }; g_rk_cbh_cur = &H; int an = rk_av(args[0]).n;
             extern int rt_is_truthy(DESCR_t v);
             for (int i = 0; i < an; i++) {
-                DESCR_t ed = rk_av_elem(rk_av(rt_cb_get(hs)), i);
+                DESCR_t ed = rk_av_elem(rk_av(H.d[0]), i);
                 rt_call_args_need(2); CALL_ARGS[0] = ed;
-                if (rt_is_truthy(rk_call_snap(cb, rfs, 1))) { *out = rk_av_elem(rk_av(rt_cb_get(hs)), i); rt_cb_release(hm); return 1; }
+                if (rt_is_truthy(rk_call_snap(cb, rfs, 1))) { *out = rk_av_elem(rk_av(H.d[0]), i); g_rk_cbh_cur = H.prev; return 1; }
             }
-            rt_cb_release(hm); *out = NULVCL; return 1;
+            g_rk_cbh_cur = H.prev; *out = NULVCL; return 1;
         }
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -7592,8 +7594,8 @@ static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bi
     { static long _rspc = -1; if (_rspc == -1) { const char *ev = getenv("SCRIP_CALLARR_TRACE"); _rspc = (ev && *ev && *ev != '0') ? 0 : -2; } if (_rspc >= 0) { void *rsp_now; __asm__ volatile ("mov %%rsp, %0" : "=r"(rsp_now)); _rspc++; fprintf(stderr, "[RSP] %ld fn='%s' rsp=%p\n", _rspc, fn ? fn : "(null)", rsp_now); fflush(stderr); } }
 #endif
     core_errjmp_t ej;
-    int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_bi_reset(bimark); return FAILDESCR; }
+    int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark(); rk_cbh_t * volatile cbh0 = g_rk_cbh_cur;
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_bi_reset(bimark); g_rk_cbh_cur = cbh0; return FAILDESCR; }
     core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
     DESCR_t r = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4, rq));
     core_errjmp_pop(&ej, my);
@@ -7780,8 +7782,8 @@ static int rt_jct_relop_impl(DESCR_t lhs, DESCR_t rhs, int op);
 int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     extern int g_core_errjmp_n;
     core_errjmp_t ej;
-    int my = g_core_errjmp_n;
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); return 0; }
+    int my = g_core_errjmp_n; rk_cbh_t * volatile cbh0 = g_rk_cbh_cur;
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); g_rk_cbh_cur = cbh0; return 0; }
     core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
     int r = rt_jct_relop_impl(lhs, rhs, op);
     core_errjmp_pop(&ej, my);

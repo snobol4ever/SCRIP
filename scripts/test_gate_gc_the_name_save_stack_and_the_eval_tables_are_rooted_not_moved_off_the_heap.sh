@@ -43,9 +43,9 @@ W="$ROOT/../corpus/tests/snobol4/code_call_runtime_define_pending_entry.sno"
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 cp "$W" "$T/w.sno"
-n=$(awk '/^void rt_gc_ws_roots\(void\)$/{f=1} f&&/&g_rk_cb_hold\)/{a++} f&&/&g_rk_cb_hold\[i\]\)/{b++} f&&/^}/{exit} END{printf "%d %d", a+0, b+0}' "$ROOT/src/runtime/rt/rt.c")
-if [ "$n" = "1 1" ]; then echo "  structural holds PASS (rt_gc_ws_roots visits the ARRAY BLOCK &g_rk_cb_hold and every held cell -- the Raku callback holds that rode the SNOBOL4 name-save stack until CEO-1543 chunk 2 deleted it; visiting a descriptor inside a block does not mark the block)"
-else echo "  structural holds FAIL (rt_gc_ws_roots visits [&g_rk_cb_hold &g_rk_cb_hold[i]] = [$n], want [1 1]: the Raku holds block is reclaimed under a live callback and re-carved as a string)"; RC=1; fi
+n="$(awk '/^void bnd_gc_roots\(void\)$/{f=1} f&&/for \(rk_cbh_t \*h = g_rk_cbh_cur; h; h = h->prev\)/{a++} f&&/^}/{exit} END{printf "%d", a+0}' "$ROOT/src/runtime/by_name_dispatch.c") $(grep -c 'g_rk_cbh_cur = &H;' "$ROOT/src/runtime/by_name_dispatch.c") $(grep -c 'g_rk_cbh_cur = H.prev;' "$ROOT/src/runtime/by_name_dispatch.c")"
+if [ "$n" = "1 4 5" ]; then echo "  structural holds PASS (bnd_gc_roots walks the rk_cbh_t chain from g_rk_cbh_cur, the four Raku block-callback builtins link their frame record and every return unlinks it -- the holder g_rk_cb_hold is gone, CEO-1560; visiting a descriptor inside a block does not mark the block)"
+else echo "  structural holds FAIL (bnd_gc_roots chain walk, site links, site unlinks = [$n], want [1 4 5]: a held array is reclaimed under a live callback and re-carved as a string)"; RC=1; fi
 if grep -q '^void eval_gc_roots(void)$' "$ROOT/src/runtime/runtime_eval.c" && grep -q 'eval_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
     echo "  structural eval PASS (eval_gc_roots is defined in runtime_eval.c AND called from the collector's root phase -- a root walk nothing calls is not a root)"
 else echo "  structural eval FAIL (eval_gc_roots is missing, or gc_heap.c never calls it: the label table and the eval cache have no root)"; RC=1; fi
@@ -79,10 +79,8 @@ for fn in eval_cache_put rt_label_set_fn; do
     printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc|strdup)[[:space:]]*\(' && { echo "  fact-rule FAIL ($fn allocates with a C allocator -- moving a holder off the collected heap is the SAME EVASION as pinning it, one indirection further out; the cure for an unrooted holder is a ROOT)"; bad=1; }
     printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL ($fn no longer allocates from the collected heap at all, so the roots below are guarding nothing)"; bad=1; }
 done
-body=$(awk '/^static void rt_rk_cb_grow\(void\)/{d=1} d{print} d&&/^}/{exit}' "$ROOT/src/runtime/rt/rt.c")
-printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc)[[:space:]]*\(' && { echo "  fact-rule FAIL (rt_rk_cb_grow allocates with a C allocator)"; bad=1; }
-printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL (rt_rk_cb_grow no longer grows on the collected heap: its allocator is in none of the ROOTED-HEAP family [$ROOTED_RX])"; bad=1; }
-if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (all three holders still allocate from the COLLECTED heap -- this gate cannot be made green by taking them out of the collector's sight)"; else RC=1; fi
+grep -q 'rt_rk_cb_grow\|g_rk_cb_hold' "$ROOT/src/runtime/rt/rt.c" && { echo "  fact-rule FAIL (a grown Raku holder is back in rt.c: since CEO-1560 the Raku block-callback holds are rk_cbh_t cells on the builtin's own C frame, chained from g_rk_cbh_cur and visited by bnd_gc_roots, and allocate nothing)"; bad=1; }
+if [ "$bad" -eq 0 ]; then echo "  fact-rule PASS (both eval holders still allocate from the COLLECTED heap and the Raku holds are frame cells, never a grown holder -- this gate cannot be made green by taking them out of the collector's sight)"; else RC=1; fi
 ( cd "$T" && timeout 20s "$SBL" -bf w.sno </dev/null ) > "$T/w.ref" 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: the oracle refused its own witness -- no ref to grade against"; exit 2; }
 [ -s "$T/w.ref" ] || { echo "⛔ GATE REFUSE(2) [$G]: the oracle produced an EMPTY ref"; exit 2; }
 if "$SCRIP" --compile "$T/w.sno" -o "$T/w.s" </dev/null >/dev/null 2>&1 && gcc -m64 -no-pie -rdynamic "$T/w.s" -Wl,-rpath,"$LIBDIR" -L"$LIBDIR" -lscrip_rt -lm -lpthread -o "$T/w4" 2>"$T/ld.log"; then :; else echo "⛔ GATE REFUSE(2) [$G]: mode-4 compile or link failed, so every m4 arm measured nothing (see $T/ld.log)"; exit 2; fi
