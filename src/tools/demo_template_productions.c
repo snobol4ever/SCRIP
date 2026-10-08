@@ -2,8 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int main(void)
-{
+int main(void) {
     printf("=== emit_sm_halt — BINARY backend ===\n");
     {
         unsigned char buf[16];
@@ -16,15 +15,9 @@ int main(void)
         printf("\n  meaning: inc dword [r13+20] ; ret\n");
     }
     printf("\n=== emit_sm_halt — TEXT_INVOCATION backend ===\n");
-    {
-        emitter_init_text(stdout, TEXT_MODE_INVOCATION);
-        emit_sm_halt();
-    }
+    { emitter_init_text(stdout, TEXT_MODE_INVOCATION); emit_sm_halt(); }
     printf("\n=== emit_sm_halt — TEXT_DEFINITION (== MACRO_DEF) backend ===\n");
-    {
-        emitter_init_macro_def(stdout);
-        emit_sm_halt();
-    }
+    { emitter_init_macro_def(stdout); emit_sm_halt(); }
     printf("\n");
     return 0;
 }

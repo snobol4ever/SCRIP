@@ -87,7 +87,7 @@ static int bcfn_opens_as_method(const char * fn, int nargs) { return (fn && narg
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off) {
     if (rec_off < 0) return x86_bomb("bb_call_fn: a meth_call node without the argv grant that holds its redispatch record (CEO-1552)");
-    return  x86("lea", "rdx", FRQ(rec_off))
+    return x86("lea", "rdx", FRQ(rec_off))
          + x86("call", "rk_method_open", (uint64_t)(uintptr_t)(void *)rk_method_open)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
@@ -106,7 +106,7 @@ static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, in
 static int bcfn_opens_as_apply(const char * fn, int nargs) { return (fn && nargs >= 1 && !strcmp(fn, "APPLY")) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
-    return  x86("call", "rt_apply_open", (uint64_t)(uintptr_t)(void *)rt_apply_open)
+    return x86("call", "rt_apply_open", (uint64_t)(uintptr_t)(void *)rt_apply_open)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", decl_id)
@@ -206,7 +206,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         if (_bk && !_mopen && !_aopen && !BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
             s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
             if (nargs > 0) s += x86("lea", "rdi", RDQ("rsp", 0));
-            else           s += x86("xor", "edi", "edi");
+            else s += x86("xor", "edi", "edi");
             s += x86("mov32", "esi", (long)nargs);
             s += bb_callee_rdx(fn);
             if (_bk == 2) {
@@ -228,13 +228,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         }
         if (nargs > 0) s += x86("lea", "rsi", RDQ("rsp", BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict) ? BCFN_EVAL_REC : 0));
-        else           s += x86("xor", "esi", "esi");
+        else s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         if (!(_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict))) s += x86_rt_gc_poll_res();
         }
-        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29) + (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict) ? x86("add", "rsp", (long)BCFN_EVAL_REC) : std::string()) + x86_rt_gc_poll_res();
+        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29) +
+            (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict) ? x86("add", "rsp", (long)BCFN_EVAL_REC) : std::string()) + x86_rt_gc_poll_res();
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
         { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }

@@ -352,3 +352,5 @@ nested_proc	src/lower/lower_pascal.c
 for_with_array	src/lower/lower_pascal.c
 with_record	src/lower/lower_pascal.c
 lang:prolog	src/templates/bb/bb_pl_cell.h
+*	src/templates/bb/bb_match_lit.cpp
+*	src/templates/bb/bb_match_atp.cpp

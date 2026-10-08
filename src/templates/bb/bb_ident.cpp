@@ -41,7 +41,7 @@ std::string bb_ident() {
              + x86("call", "descr_identical", (uint64_t)(uintptr_t)(void *)descr_identical)
              + x86("test", "eax", "eax")
              + x86_omega("je")
-             + IF(_.op_res_live, x86("mov", FRQ(_.op_off),     (long)0)
+             + IF(_.op_res_live, x86("mov", FRQ(_.op_off), (long)0)
                                + x86("mov", FRQ(_.op_off + 8), (long)0))
              + x86_gamma()
              + x86_beta_trampoline()

@@ -101,12 +101,12 @@ extern "C" long rt_pat_prim_int_take(void);
 extern "C" long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes);
 extern "C" long rt_pat_prim_member(int ch, long codes);
 std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
-    std::string save =  x86("sub", "rsp", 64L)
+    std::string save = x86("sub", "rsp", 64L)
          + x86_rsp_store64(56, "r12")
          + x86_rsp_store64(48, "rbx")
          + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
-         + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13");
+         + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13");
     auto restore = [&]() {
         return x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24)
              + x86_rsp_load64("rbx", 48) + x86_rsp_load64("r12", 56)
@@ -129,22 +129,22 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
              + x86_jmp_id(lw); };
     return save
          + x86_rsp_mark_save()
-         + x86("mov",  "rcx", "rdx")
-         + x86("and",  "rcx", 63L)
-         + x86("cmp",  "rcx", 2L)
+         + x86("mov", "rcx", "rdx")
+         + x86("and", "rcx", 63L)
+         + x86("cmp", "rcx", 2L)
          + x86_jcc_id("je", base)
-         + x86("cmp",  "rcx", 1L)
+         + x86("cmp", "rcx", 1L)
          + x86_jcc_id("je", base + 100)
          + bb_glue_pass_wires_blob_regs(base + 1, base + 2)
          + x86_deflabel_id(base)
-         + x86("sub",  "rsp", 48L)
-         + x86("mov",  RDQ("rsp", 0), 0L)
+         + x86("sub", "rsp", 48L)
+         + x86("mov", RDQ("rsp", 0), 0L)
          + x86_lea_id("rcx", base + 3)
-         + x86("mov",  RDQ("rsp", 8), "rcx")
+         + x86("mov", RDQ("rsp", 8), "rcx")
          + x86_lea_id("rcx", base + 4)
-         + x86("mov",  RDQ("rsp", 16), "rcx")
-         + x86("mov",  RDQ("rsp", 24), 0L)
-         + x86("mov",  RDQ("rsp", 32), 16L)
+         + x86("mov", RDQ("rsp", 16), "rcx")
+         + x86("mov", RDQ("rsp", 24), 0L)
+         + x86("mov", RDQ("rsp", 32), 16L)
          + x86_load_got("rcx", "rt_tiny_glue_enter", (uint64_t)(uintptr_t)(void *)rt_tiny_glue_enter)
          + x86_jmp_reg("rcx")
          + x86_deflabel_id(base + 3)
@@ -174,7 +174,7 @@ std::string bb_glue_stno_unit_push(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno) {
-    return  x86("call", try_sym, try_fp)
+    return x86("call", try_sym, try_fp)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", val_id)
          + x86_rt_gc_poll_rec_sigma_word(1)
@@ -201,12 +201,12 @@ std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {
-    return  x86("sub", "rsp", 64L)
+    return x86("sub", "rsp", 64L)
          + x86_rsp_store64(56, "r12")
          + x86_rsp_store64(48, "rbx")
          + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
-         + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
+         + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
          + x86_rsp_mark_save()
          + x86("mov", "rcx", std::string("[rip@got + __]"), TEMPLATE_ADDR_SIGMA, "Σ")
          + x86("mov", "r13", RDQ("rcx", 0))
@@ -253,22 +253,22 @@ std::string bb_glue_prim_int(int base) {
 std::string bb_glue_prim_member(int base, int code) {
     return bb_glue_prim_open_enter(base)
          + x86("mov32", "edi", -1L)
-         + x86("mov",  "eax", "r14d")
-         + x86("cmp",  "eax", "r15d")
+         + x86("mov", "eax", "r14d")
+         + x86("cmp", "eax", "r15d")
          + x86_jcc_id("jge", base + 9)
          + x86("movsxd", "rcx", "r14d")
          + x86("movzx", "edi", "[r13+rcx]")
          + x86_deflabel_id(base + 9)
-         + x86("mov",  "rsi", (long)code | ((long)code << 16))
+         + x86("mov", "rsi", (long)code | ((long)code << 16))
          + x86("call", "rt_pat_prim_member", (uint64_t)(uintptr_t)(void *)rt_pat_prim_member)
          + x86_rt_gc_poll_rec_sigma(1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code) {
     std::string s = bb_glue_prim_open_enter(base);
-    s += x86("lea",  "rdi", LFDQ(ptr_d, ptr_sd));
-    s += x86("lea",  "rsi", LFD(len_d, len_sd));
-    s += x86("mov",  "rdx", (long)code | ((long)code << 16));
+    s += x86("lea", "rdi", LFDQ(ptr_d, ptr_sd));
+    s += x86("lea", "rsi", LFD(len_d, len_sd));
+    s += x86("mov", "rdx", (long)code | ((long)code << 16));
     s += x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take);
     s += x86_rt_gc_poll_rec_sigma(1);
     return s;
@@ -276,9 +276,9 @@ std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off, int code) {
     std::string s = bb_glue_prim_open_enter(base);
-    s += x86("lea",  "rdi", RDQ("rsp", ptr_off));
-    s += x86("lea",  "rsi", RDQ("rsp", len_off));
-    s += x86("mov",  "rdx", (long)code | ((long)code << 16));
+    s += x86("lea", "rdi", RDQ("rsp", ptr_off));
+    s += x86("lea", "rsi", RDQ("rsp", len_off));
+    s += x86("mov", "rdx", (long)code | ((long)code << 16));
     s += x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take);
     s += x86_rt_gc_poll_rec_sigma(1);
     return s;

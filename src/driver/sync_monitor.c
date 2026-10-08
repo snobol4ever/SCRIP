@@ -12,53 +12,41 @@
 #include "runtime/rt/prolog_atom.h"
 #ifdef WITH_CSNOBOL4
 typedef struct { char *name; char *val_str; } CsnNvPair;
-int  csnobol4_run_steps(const char *core_path, int step_limit,
-                        CsnNvPair **out_pairs, int *out_count);
+int csnobol4_run_steps(const char *core_path, int step_limit, CsnNvPair **out_pairs, int *out_count);
 void csn_nv_snapshot_free(CsnNvPair *pairs, int n);
 #else
 typedef struct { char *name; char *val_str; } CsnNvPair;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int  csnobol4_run_steps(const char *p, int n, CsnNvPair **o, int *c)
-    { (void)p;(void)n; *o=NULL;*c=0; return -1; }
+static int csnobol4_run_steps(const char *p, int n, CsnNvPair **o, int *c) { (void)p; (void)n; *o=NULL; *c=0; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void csn_nv_snapshot_free(CsnNvPair *pairs, int n)
-    { (void)pairs;(void)n; }
+static void csn_nv_snapshot_free(CsnNvPair *pairs, int n) { (void)pairs; (void)n; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_take(ExecSnapshot *s) {
     if (!s) return;
     s->nv_count = nv_snapshot(&s->nv_pairs);
-    s->kw_stcount      = kw_stcount;
-    s->kw_stlimit      = kw_stlimit;
-    s->kw_anchor       = kw_anchor;
-    s->resolve_trail_mark   = 0;
-    s->resolve_locals       = NULL;
+    s->kw_stcount = kw_stcount;
+    s->kw_stlimit = kw_stlimit;
+    s->kw_anchor = kw_anchor;
+    s->resolve_trail_mark = 0;
+    s->resolve_locals = NULL;
     s->resolve_locals_count = 0;
     s->last_ok = -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void exec_snapshot_restore(const ExecSnapshot *s) {
-    if (!s) return;
-    nv_restore(s->nv_pairs, s->nv_count);
-    kw_stcount = s->kw_stcount;
-    kw_stlimit = s->kw_stlimit;
-    kw_anchor  = s->kw_anchor;
-}
+void exec_snapshot_restore(const ExecSnapshot *s) { if (!s) return; nv_restore(s->nv_pairs, s->nv_count); kw_stcount = s->kw_stcount; kw_stlimit = s->kw_stlimit; kw_anchor = s->kw_anchor; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void exec_snapshot_free(ExecSnapshot *s) {
     if (!s) return;
     s->nv_pairs = NULL;
     s->nv_count = 0;
     ct_drop(s->label_path);
-    s->label_path     = NULL;
-    s->label_path_n   = 0;
+    s->label_path = NULL;
+    s->label_path_n = 0;
     s->label_path_cap = 0;
-    for (int i = 0; i < s->resolve_locals_count; i++) {
-        ct_drop(s->resolve_locals[i].name);
-        ct_drop(s->resolve_locals[i].val_str);
-    }
+    for (int i = 0; i < s->resolve_locals_count; i++) { ct_drop(s->resolve_locals[i].name); ct_drop(s->resolve_locals[i].val_str); }
     ct_drop(s->resolve_locals);
-    s->resolve_locals       = NULL;
+    s->resolve_locals = NULL;
     s->resolve_locals_count = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -74,62 +62,42 @@ static void label_path_append(ExecSnapshot *s, const char *lbl) {
 static void label_path_print(const char *tag, const ExecSnapshot *s) {
     fprintf(stderr, "  %-4s path:", tag);
     int printed = 0;
-    for (int i = 0; i < s->label_path_n; i++) {
-        if (!s->label_path[i]) continue;
-        fprintf(stderr, "%s[%s]", printed ? " \u2192 " : " ", s->label_path[i]);
-        printed++;
-    }
+    for (int i = 0; i < s->label_path_n; i++) { if (!s->label_path[i]) continue; fprintf(stderr, "%s[%s]", printed ? " \u2192 " : " ", s->label_path[i]); printed++; }
     if (!printed) fprintf(stderr, " (no labels reached)");
     fprintf(stderr, "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int snap_diff(const ExecSnapshot *a, const char *a_name,
-                     const ExecSnapshot *b, const char *b_name,
-                     int verbose) {
+static int snap_diff(const ExecSnapshot *a, const char *a_name, const ExecSnapshot *b, const char *b_name, int verbose) {
     int ndiff = 0;
     for (int i = 0; i < a->nv_count; i++) {
         const char *name = a->nv_pairs[i].name;
-        DESCR_t     va   = a->nv_pairs[i].val;
-        DESCR_t     vb   = NULVCL;
+        DESCR_t va = a->nv_pairs[i].val;
+        DESCR_t vb = NULVCL;
         int found = 0;
-        for (int j = 0; j < b->nv_count; j++) {
-            if (strcmp(b->nv_pairs[j].name, name) == 0) {
-                vb = b->nv_pairs[j].val; found = 1; break;
-            }
-        }
+        for (int j = 0; j < b->nv_count; j++) { if (strcmp(b->nv_pairs[j].name, name) == 0) { vb = b->nv_pairs[j].val; found = 1; break; } }
         const char *sa = VARVAL_fn(va);
         const char *sb = found ? VARVAL_fn(vb) : "";
         if (!sa) sa = "";
         if (!sb) sb = "";
-        if (strcmp(sa, sb) != 0) {
-            ndiff++;
-            if (verbose)
-                fprintf(stderr, "    %-12s  %s=%-20s  %s=%s\n",
-                        name, a_name, sa, b_name, sb);
-        }
+        if (strcmp(sa, sb) != 0) { ndiff++; if (verbose) fprintf(stderr, "    %-12s  %s=%-20s  %s=%s\n", name, a_name, sa, b_name, sb); }
     }
     for (int j = 0; j < b->nv_count; j++) {
         const char *name = b->nv_pairs[j].name;
         int found = 0;
-        for (int i = 0; i < a->nv_count; i++) {
-            if (strcmp(a->nv_pairs[i].name, name) == 0) { found = 1; break; }
-        }
+        for (int i = 0; i < a->nv_count; i++) { if (strcmp(a->nv_pairs[i].name, name) == 0) { found = 1; break; } }
         if (!found) {
             const char *sb = VARVAL_fn(b->nv_pairs[j].val);
             if (!sb) sb = "";
-            if (*sb) {
-                ndiff++;
-                if (verbose)
-                    fprintf(stderr, "    %-12s  %s=%-20s  %s=%s\n",
-                            name, a_name, "", b_name, sb);
-            }
+            if (*sb) { ndiff++; if (verbose) fprintf(stderr, "    %-12s  %s=%-20s  %s=%s\n", name, a_name, "", b_name, sb); }
         }
     }
     return ndiff;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sync_monitor_run(const tree_t *prog, int verbose, const char *core_path) {
-    (void)prog; (void)verbose; (void)core_path;
+    (void)prog;
+    (void)verbose;
+    (void)core_path;
     fprintf(stderr, "[NO-SM-BB] sync_monitor: codegen deleted (FACT RULE); unavailable\n");
     return -1;
 }

@@ -31,20 +31,22 @@ inline std::string x86_reclbl(const std::string & nm) { return x86_tabs_on() ? (
 static inline int x86_4col_joinon(void) { static int j = -1; if (j < 0) { const char * e = getenv("SCRIP_ASM_JOIN"); j = (e && *e == '0') ? 0 : 1; } return j; }
 static inline int x86_col4(void) { return x86_4col_joinon() ? 78 : 88; }
 enum { X86P_ALPHA = 0, X86P_BETA = 1, X86P_GAMMA = 2, X86P_OMEGA = 3 };
-#define PORT_ALPHA   "\xCE\xB1"
-#define PORT_BETA    "\xCE\xB2"
-#define PORT_GAMMA   "\xCE\xB3"
-#define PORT_OMEGA   "\xCF\x89"
+#define PORT_ALPHA "\xCE\xB1"
+#define PORT_BETA "\xCE\xB2"
+#define PORT_GAMMA "\xCE\xB3"
+#define PORT_OMEGA "\xCF\x89"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_rnum(const char * r) {
     if (!r || !r[0] || !r[1]) return 0;
-    if (!r[2]) { switch (r[0]) { case 'r': return r[1] == '8' ? 8 : r[1] == '9' ? 9 : 0; case 'a': return 0; case 'c': return r[1] == 'l' ? 1 : 0; case 'd': return r[1] == 'l' ? 2 : 0; case 'b': return r[1] == 'l' ? 3 : 0; default: return 0; } }
+    if (!r[2]) { switch (r[0]) { case 'r': return r[1] == '8' ? 8 : r[1] == '9' ? 9 : 0; case 'a': return 0; case 'c': return r[1] == 'l' ? 1 : 0; case 'd': return r[1] == 'l' ? 2 : 0;
+        case 'b': return r[1] == 'l' ? 3 : 0; default: return 0; } }
     if (!r[3]) {
         if (r[0] == 'e' || r[0] == 'r') { switch (r[1] * 256 + r[2]) { case 'a' * 256 + 'x': return 0; case 'c' * 256 + 'x': return 1; case 'd' * 256 + 'x': return 2; case 'b' * 256 + 'x': return 3;
             case 's' * 256 + 'p': return 4; case 's' * 256 + 'i': return 6; case 'd' * 256 + 'i': return 7; case 'b' * 256 + 'p': return r[0] == 'r' ? 5 : 0; default: break; } }
         if (r[0] == 'r' && (r[1] == '8' || r[1] == '9') && (r[2] == 'd' || r[2] == 'b')) return r[1] - '0';
         if (r[0] == 'r' && r[1] == '1' && r[2] >= '0' && r[2] <= '5') return 10 + (r[2] - '0');
-        if (r[2] == 'l') { switch (r[0] * 256 + r[1]) { case 's' * 256 + 'p': return 4; case 'b' * 256 + 'p': return 5; case 's' * 256 + 'i': return 6; case 'd' * 256 + 'i': return 7; default: return 0; } }
+        if (r[2] == 'l') { switch (r[0] * 256 + r[1]) { case 's' * 256 + 'p': return 4; case 'b' * 256 + 'p': return 5; case 's' * 256 + 'i': return 6; case 'd' * 256 + 'i': return 7;
+            default: return 0; } }
         return 0;
     }
     if (!r[4] && r[0] == 'r' && r[1] == '1' && r[2] >= '0' && r[2] <= '5' && (r[3] == 'd' || r[3] == 'b')) return 10 + (r[2] - '0');
@@ -61,16 +63,16 @@ inline struct bb_label_t * x86_portlbl(int p) {
                  case X86P_GAMMA: return _.lbl_γ_p; default: return _.lbl_ω_p; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char *           x86_tgt0()    { return _.lbl_t0; }
-inline struct bb_label_t *    x86_tgt0_p()  { return _.lbl_t0_p; }
-inline const char *           x86_tgt1()    { return _.lbl_t1; }
-inline struct bb_label_t *    x86_tgt1_p()  { return _.lbl_t1_p; }
+inline const char * x86_tgt0() { return _.lbl_t0; }
+inline struct bb_label_t * x86_tgt0_p() { return _.lbl_t0_p; }
+inline const char * x86_tgt1() { return _.lbl_t1; }
+inline struct bb_label_t * x86_tgt1_p() { return _.lbl_t1_p; }
 inline std::string x86_Lrec(const std::string & b) { std::string r; r += (char)'L'; r += (char)(unsigned char)b.size(); r += b; return r; }
-inline std::string x86_Jrec(int port)              { std::string r; r += (char)'J'; r += (char)(unsigned char)port; return r; }
-inline std::string x86_Drec(int port)              { std::string r; r += (char)'D'; r += (char)(unsigned char)port; return r; }
-inline std::string x86_b1(uint8_t a)                          { std::string s; s += (char)a; return s; }
-inline std::string x86_b2(uint8_t a, uint8_t b)               { std::string s; s += (char)a; s += (char)b; return s; }
-inline std::string x86_b3(uint8_t a, uint8_t b, uint8_t c)    { std::string s; s += (char)a; s += (char)b; s += (char)c; return s; }
+inline std::string x86_Jrec(int port) { std::string r; r += (char)'J'; r += (char)(unsigned char)port; return r; }
+inline std::string x86_Drec(int port) { std::string r; r += (char)'D'; r += (char)(unsigned char)port; return r; }
+inline std::string x86_b1(uint8_t a) { std::string s; s += (char)a; return s; }
+inline std::string x86_b2(uint8_t a, uint8_t b) { std::string s; s += (char)a; s += (char)b; return s; }
+inline std::string x86_b3(uint8_t a, uint8_t b, uint8_t c) { std::string s; s += (char)a; s += (char)b; s += (char)c; return s; }
 inline std::string x86_b4(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { std::string s; s += (char)a; s += (char)b; s += (char)c; s += (char)d; return s; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline bool x86_is64(const char * r) {
@@ -96,8 +98,8 @@ inline std::string x86_alu_rr(const char * mnem, uint8_t op, const char * rm, co
     return MEDIUM_BINARY ? x86_Lrec(code) : x86_rec(mnem) + rm + ", " + reg + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_mov (const char * rm, const char * reg) { return x86_alu_rr("mov",  0x89, rm, reg); }
-inline std::string x86_cmp (const char * rm, const char * reg) { return x86_alu_rr("cmp",  0x39, rm, reg); }
+inline std::string x86_mov (const char * rm, const char * reg) { return x86_alu_rr("mov", 0x89, rm, reg); }
+inline std::string x86_cmp (const char * rm, const char * reg) { return x86_alu_rr("cmp", 0x39, rm, reg); }
 inline std::string x86_test(const char * rm, const char * reg) { return x86_alu_rr("test", 0x85, rm, reg); }
 inline std::string x86_xor_rr(const char * rm, const char * reg) { return x86_alu_rr("xor", 0x31, rm, reg); }
 inline std::string x86_add_rr(const char * rm, const char * reg) { return x86_alu_rr("add", 0x01, rm, reg); }
@@ -190,24 +192,33 @@ struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead 
 inline x86_rsp_st_t & x86_rsp_S(void) { static x86_rsp_st_t v; return v; }
 inline int & x86_rsp_state(int k) { x86_rsp_st_t & S = x86_rsp_S(); return k == 0 ? S.delta : k == 1 ? S.before : k == 2 ? S.aligned : S.unknown; }
 inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.quiet = 0; }
-inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return; for (const x86_rsp_snap_t & q : S.j) if (q.kind == kind && q.key == key) return; S.j.push_back(x86_rsp_snap_t{ key, kind, S.delta }); }
-inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); int found = -1; for (size_t i = 0; i < S.j.size(); i++) if (S.j[i].kind == kind && S.j[i].key == key) { found = (int)i; break; }
+inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return; for (const x86_rsp_snap_t & q : S.j) if (q.kind == kind && q.key == key) return;
+    S.j.push_back(x86_rsp_snap_t{ key, kind, S.delta }); }
+inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); int found = -1;
+    for (size_t i = 0; i < S.j.size(); i++) if (S.j[i].kind == kind && S.j[i].key == key) { found = (int)i; break; }
     if (S.aligned) { S.dead = 0; return; }
     if (S.dead && found < 0) for (const x86_rsp_snap_t & q : S.p) if (q.kind == kind && q.key == key) { S.delta = q.delta; S.unknown = 0; S.dead = 0; return; }
-    if (S.dead) { if (found >= 0) { S.delta = S.j[found].delta; S.unknown = 0; } else { S.unknown = 1; if (!S.quiet && x86_rsp_trace_on()) fprintf(stderr, "[RSP-TRACE] %s dead define kind=%d key=%llu no jump recorded (delta %d)\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.delta); } }
-    else if (found >= 0 && S.j[found].delta != S.delta) { S.unknown = 1; if (!S.quiet && x86_rsp_trace_on()) fprintf(stderr, "[RSP-TRACE] %s live define kind=%d key=%llu jump delta %d vs fallthrough %d\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.j[found].delta, S.delta); }
+    if (S.dead) { if (found >= 0) { S.delta = S.j[found].delta; S.unknown = 0; } else { S.unknown = 1;
+        if (!S.quiet && x86_rsp_trace_on())
+        fprintf(stderr, "[RSP-TRACE] %s dead define kind=%d key=%llu no jump recorded (delta %d)\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.delta); } }
+    else if (found >= 0 && S.j[found].delta != S.delta) { S.unknown = 1;
+        if (!S.quiet && x86_rsp_trace_on())
+        fprintf(stderr, "[RSP-TRACE] %s live define kind=%d key=%llu jump delta %d vs fallthrough %d\n", _.x86_uid_kind ? _.x86_uid_kind : "?", kind, (unsigned long long)key, S.j[found].delta,
+        S.delta); }
     S.dead = 0; }
 inline void x86_rsp_prepass_commit(const x86_rsp_st_t & before) { x86_rsp_st_t after = x86_rsp_S(); x86_rsp_st_t & S = x86_rsp_S(); S = before;
     for (const x86_rsp_snap_t & a : after.j) { int have = 0; for (const x86_rsp_snap_t & q : S.p) if (q.kind == a.kind && q.key == a.key) { have = 1; break; }
         if (!have) S.p.push_back(a); } }
 inline std::string x86_rsp_mark_save(void) { if (MEDIUM_BINARY) return std::string(1, 'K'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspK\n"); }
-inline std::string x86_rsp_land(long k) { if (MEDIUM_BINARY) { std::string r; r += (char)'k'; uint32_t u = (uint32_t)(int32_t)k; for (int j = 0; j < 4; j++) r += (char)((u >> (8 * j)) & 255); return r; } return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspk ") + std::to_string(k) + "\n"; }
+inline std::string x86_rsp_land(long k) { if (MEDIUM_BINARY) { std::string r; r += (char)'k'; uint32_t u = (uint32_t)(int32_t)k; for (int j = 0; j < 4; j++) r += (char)((u >> (8 * j)) & 255);
+    return r; } return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspk ") + std::to_string(k) + "\n"; }
 inline std::string x86_rsp_goto(void) { if (MEDIUM_BINARY) return std::string(1, 'G'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspG\n"); }
 #define g_x86_rsp_delta x86_rsp_state(0)
 #define g_x86_rsp_before x86_rsp_state(1)
 #define g_x86_rsp_aligned x86_rsp_state(2)
 #define g_x86_rsp_unknown x86_rsp_state(3)
-inline std::string x86_rsp_rec(long d) { if (MEDIUM_BINARY) { std::string r; r += (char)'R'; uint32_t u = (uint32_t)(int32_t)d; for (int j = 0; j < 4; j++) r += (char)((u >> (8 * j)) & 255); return r; } return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rsp ") + std::to_string(d) + "\n"; }
+inline std::string x86_rsp_rec(long d) { if (MEDIUM_BINARY) { std::string r; r += (char)'R'; uint32_t u = (uint32_t)(int32_t)d; for (int j = 0; j < 4; j++) r += (char)((u >> (8 * j)) & 255); return r;
+    } return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rsp ") + std::to_string(d) + "\n"; }
 inline std::string x86_rsp_mark(char k) { if (MEDIUM_BINARY) return std::string(1, k); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rsp") + k + "\n"; }
 inline std::string x86_rsp_unk(void) { return x86_rsp_mark('U'); }
 inline std::string x86_add(const char * reg, long imm) {
@@ -215,8 +226,8 @@ inline std::string x86_add(const char * reg, long imm) {
     std::string code;
     uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01;
     if (imm >= -128 && imm <= 127) { if (rex != 0x40) code += (char)rex; code += (char)0x83; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
-    else if (m == 0 && !w)         { code += (char)0x05; code += u32le((uint32_t)imm); }
-    else                           { if (rex != 0x40) code += (char)rex; code += (char)0x81; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
+    else if (m == 0 && !w) { code += (char)0x05; code += u32le((uint32_t)imm); }
+    else { if (rex != 0x40) code += (char)rex; code += (char)0x81; code += (char)(0xC0 | (0 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return (!strcmp(reg, "rsp") ? x86_rsp_rec(-imm) : std::string()) + (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("add") + reg + ", " + std::to_string(imm) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -225,7 +236,7 @@ inline std::string x86_sub(const char * reg, long imm) {
     std::string code;
     uint8_t rex = 0x40; if (w) rex |= 0x08; if (m >= 8) rex |= 0x01; if (rex != 0x40) code += (char)rex;
     if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
-    else                           { code += (char)0x81; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
+    else { code += (char)0x81; code += (char)(0xC0 | (5 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return (!strcmp(reg, "rsp") ? x86_rsp_rec(imm) : std::string()) + (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("sub") + reg + ", " + std::to_string(imm) + "\n"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -240,7 +251,7 @@ inline std::string x86_lea_subj_cursor(const char * dst) {
     int g = x86_rnum(dst);
     uint8_t rex = 0x48 | 0x01; if (g >= 8) rex |= 0x04;
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
-    uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
+    uint8_t sib = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x8D; code += (char)modrm; code += (char)sib; code += (char)0x00;
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("lea") + dst + ", [r13 + rcx]\n");
 }
@@ -249,7 +260,7 @@ inline std::string x86_movzx_subj_byte(const char * dst, int disp) {
     int g = x86_rnum(dst);
     uint8_t rex = 0x40 | 0x01; if (g >= 8) rex |= 0x04;
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
-    uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
+    uint8_t sib = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movzx") + dst + ", byte ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
@@ -258,7 +269,7 @@ inline std::string x86_movzx_bir(const char * dst, const char * base, const char
     int g = x86_rnum(dst), bn = x86_rnum(base), in = x86_rnum(idx);
     uint8_t rex = 0x40; if (g >= 8) rex |= 0x04; if (in >= 8) rex |= 0x02; if (bn >= 8) rex |= 0x01;
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
-    uint8_t sib   = (uint8_t)((0 << 6) | ((in & 7) << 3) | (bn & 7));
+    uint8_t sib = (uint8_t)((0 << 6) | ((in & 7) << 3) | (bn & 7));
     std::string code; code += (char)rex; code += (char)0x0F; code += (char)0xB6; code += (char)modrm; code += (char)sib; code += (char)0x00;
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("movzx") + dst + ", byte ptr [" + base + " + " + idx + "]\n");
 }
@@ -267,7 +278,7 @@ inline std::string x86_mov_subj_q(const char * dst, int disp) {
     int g = x86_rnum(dst);
     uint8_t rex = 0x48 | 0x01; if (g >= 8) rex |= 0x04;
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
-    uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
+    uint8_t sib = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x8B; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", qword ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
@@ -276,7 +287,7 @@ inline std::string x86_mov_subj_d(const char * dst, int disp) {
     int g = x86_rnum(dst);
     uint8_t rex = 0x41; if (g >= 8) rex |= 0x04;
     uint8_t modrm = (uint8_t)((1 << 6) | ((g & 7) << 3) | 0x04);
-    uint8_t sib   = (uint8_t)((0 << 6) | (1 << 3) | 5);
+    uint8_t sib = (uint8_t)((0 << 6) | (1 << 3) | 5);
     std::string code; code += (char)rex; code += (char)0x8B; code += (char)modrm; code += (char)sib; code += (char)(disp & 0xFF);
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("mov") + dst + ", dword ptr [r13+rcx" + (disp ? std::string("+") + std::to_string(disp) : std::string()) + "]\n");
 }
@@ -294,7 +305,7 @@ inline std::string x86_push(const char * r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_pop (const char * r) {
-    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("pop")  + r + "\n")) + x86_rsp_rec(-8);
+    int m = x86_rnum(r); std::string code; if (m >= 8) code += (char)0x41; code += (char)(0x58 | (m & 7)); return (MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("pop") + r + "\n")) + x86_rsp_rec(-8);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_movimm(const char * dst, long imm) {
@@ -361,17 +372,19 @@ inline std::string x86_call_text_adj(const char * sym, const char * sfx, int adj
 }
 inline std::string x86_call_text(const char * sym, const char * sfx) { return x86_call_text_adj(sym, sfx, 0); }
 inline std::string x86_call_ro_adj(const char * sym, uint64_t ptr, int adj) {
-    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0; return x86_align_assert() + x86_Lrec(code) + x86_gc_site_adj(X86_SITE_CALL, adj) + x86_rtx_after_bare(sym); }
+    if (MEDIUM_BINARY) { std::string code; code += (char)0x48; code += (char)0xB8; code += u64le(ptr); code += (char)0xFF; code += (char)0xD0;
+        return x86_align_assert() + x86_Lrec(code) + x86_gc_site_adj(X86_SITE_CALL, adj) + x86_rtx_after_bare(sym); }
     return x86_align_assert() + x86_call_text_adj(sym, "@PLT", adj) + x86_rtx_after_bare(sym);
 }
 inline std::string x86_call_ro(const char * sym, uint64_t ptr) { return x86_call_ro_adj(sym, ptr, 0); }
-#define RTCC_C_R8   1u
-#define RTCC_C_R9   2u
-#define RTCC_C_R10  4u
-#define RTCC_C_R11  8u
-#define RTCC_C_ALL  (RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 | RTCC_C_R11)
+#define RTCC_C_R8 1u
+#define RTCC_C_R9 2u
+#define RTCC_C_R10 4u
+#define RTCC_C_R11 8u
+#define RTCC_C_ALL (RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 | RTCC_C_R11)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline unsigned x86_rtcc_veneer_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTCC_VENEER"); v = (e && *e) ? (int)strtoul(e, 0, 0) : (int)RTCC_C_ALL; } return (unsigned)v; }
+static inline unsigned x86_rtcc_veneer_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTCC_VENEER"); v = (e && *e) ? (int)strtoul(e, 0, 0) : (int)RTCC_C_ALL;
+    } return (unsigned)v; }
 static inline int x86_rtcc_veneer_on(void) { return x86_rtcc_veneer_mask() != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int gva_count(void);
@@ -385,23 +398,33 @@ static inline unsigned x86_rtcc_clob_raw(const char * sym) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 constexpr bool x86_rtcc_streq(const char * a, const char * b) { return *a == *b && (*a == '\0' ? true : x86_rtcc_streq(a + 1, b + 1)); }
-static_assert(RTCC_SLOT_RAX * 8 ==  0, "RTCC ABI drift: RTCC_SLOT_RAX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
-static_assert(RTCC_SLOT_RCX * 8 ==  8, "RTCC ABI drift: RTCC_SLOT_RCX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_RAX * 8 == 0, "RTCC ABI drift: RTCC_SLOT_RAX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
+static_assert(RTCC_SLOT_RCX * 8 == 8, "RTCC ABI drift: RTCC_SLOT_RCX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
 static_assert(RTCC_SLOT_RDX * 8 == 16, "RTCC ABI drift: RTCC_SLOT_RDX no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
 static_assert(RTCC_SLOT_RSI * 8 == 24, "RTCC ABI drift: RTCC_SLOT_RSI no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
 static_assert(RTCC_SLOT_RDI * 8 == 32, "RTCC ABI drift: RTCC_SLOT_RDI no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin");
-static_assert(RTCC_SLOT_R8  * 8 == 40, "RTCC ABI drift: RTCC_SLOT_R8 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin (and keywords.c ANCHOR companion write)");
-static_assert(RTCC_SLOT_R9  * 8 == 48, "RTCC ABI drift: RTCC_SLOT_R9 no longer matches the literal offset in x86_rtcc_rl_bin (and the rtcc_init RT_GVA_VA seed) — this is the H2 SIGSEGV class");
-static_assert(x86_rtcc_streq(RTCC_GVA_REG, "r9"), "RTCC ABI drift: RTCC_GVA_REG no longer names the register the reload encoders load from slot 6 (mov r9,[rcx+48]) — GVARQ would address a register the veneer never seeds");
+static_assert(RTCC_SLOT_R8 * 8 == 40, "RTCC ABI drift: RTCC_SLOT_R8 no longer matches the literal offset in x86_rtcc_wb_bin/x86_rtcc_rl_bin (and keywords.c ANCHOR companion write)");
+static_assert(RTCC_SLOT_R9 * 8 == 48, "RTCC ABI drift: RTCC_SLOT_R9 no longer matches the literal offset in x86_rtcc_rl_bin (and the rtcc_init RT_GVA_VA seed) — this is the H2 SIGSEGV class");
+static_assert(x86_rtcc_streq(RTCC_GVA_REG, "r9"),
+    "RTCC ABI drift: RTCC_GVA_REG no longer names the register the reload encoders load from slot 6 (mov r9,[rcx+48]) — GVARQ would address a register the veneer never seeds");
 static_assert(RTCC_GPR_COUNT == 9 && RTCC_GPR_BYTES == 72, "RTCC ABI drift: GPR tier width no longer matches the 9 slots the encoders write back and reload");
 #define PIN_FRONTIER_REG "rbx"
-#define PIN_CAS_TOP_REG  "r12"
-#define PIN_SIGMA_REG    "r13"
-#define PIN_CURSOR_REG   "r14"
-#define PIN_SUBJLEN_REG  "r15"
-static_assert(x86_rtcc_streq(PIN_FRONTIER_REG, "rbx"), "BLOB PIN DRIFT (ARCH-SNOBOL4-RTX section 2 REGISTER CONTRACT, which ARCH-ICON-RTX names as THE single source): rbx is the arena heap top, the DESCR mint pointer. This assert exists because that plane DID drift -- the frontier lived in the HEAP arm of the port selector the no-modes law deleted (that selector's identifiers are themselves forbidden under src/ by test_gate_no_zeta_frame_switches.sh, CEO-448, so it is described here and never spelled), and rbx, preserved by SysV and therefore free-looking, was picked up as scratch by four sites for months. Nothing failed, because a register plane written in a table and enforced nowhere cannot fail. r9 never drifted in the same years, and the only difference is the RTCC_GVA_REG assert above. One assert per pin is the cure (cto 2026-09-20, row gc-rbx-is-the-bump-frontier step 3; ceo CEO-959).");
-static_assert(x86_rtcc_streq(PIN_CAS_TOP_REG, "r12"), "BLOB PIN DRIFT: r12 is the CONDITIONAL-ASSIGNMENT STACK TOP (Lon 2026-08-02, reinstated s23k; the CAS BASE is a MATCH_BEGIN frame slot and not a register). The C-to-BB trampolines seed it from the RT_DCAP_TOP cell and the match templates advance it by 24 per pended capture.");
-static_assert(x86_rtcc_streq(PIN_SIGMA_REG, "r13"), "BLOB PIN DRIFT: r13 is the subject base pointer, the one Lon named in-chat 2026-09-19 -- r13 for SNOBOL4 and Icon points to the subject string. rt.c's generator entry loads it from 24(%rdi) and rt_coexpr.c's package from 16(%0); the chain trampolines seed it from the parked subject.");
+#define PIN_CAS_TOP_REG "r12"
+#define PIN_SIGMA_REG "r13"
+#define PIN_CURSOR_REG "r14"
+#define PIN_SUBJLEN_REG "r15"
+static_assert(x86_rtcc_streq(PIN_FRONTIER_REG, "rbx"),
+    "BLOB PIN DRIFT (ARCH-SNOBOL4-RTX section 2 REGISTER CONTRACT, which ARCH-ICON-RTX names as THE single source): rbx is the arena heap top, the DESCR mint pointer. This assert exists because that"
+    " plane DID drift -- the frontier lived in the HEAP arm of the port selector the no-modes law deleted (that selector's identifiers are themselves forbidden under src/ by test_gate_no_zeta_frame_"
+    "switches.sh, CEO-448, so it is described here and never spelled), and rbx, preserved by SysV and therefore free-looking, was picked up as scratch by four sites for months. Nothing failed, becau"
+    "se a register plane written in a table and enforced nowhere cannot fail. r9 never drifted in the same years, and the only difference is the RTCC_GVA_REG assert above. One assert per pin is the "
+    "cure (cto 2026-09-20, row gc-rbx-is-the-bump-frontier step 3; ceo CEO-959).");
+static_assert(x86_rtcc_streq(PIN_CAS_TOP_REG, "r12"),
+    "BLOB PIN DRIFT: r12 is the CONDITIONAL-ASSIGNMENT STACK TOP (Lon 2026-08-02, reinstated s23k; the CAS BASE is a MATCH_BEGIN frame slot and not a register). The C-to-BB trampolines seed it from "
+    "the RT_DCAP_TOP cell and the match templates advance it by 24 per pended capture.");
+static_assert(x86_rtcc_streq(PIN_SIGMA_REG, "r13"),
+    "BLOB PIN DRIFT: r13 is the subject base pointer, the one Lon named in-chat 2026-09-19 -- r13 for SNOBOL4 and Icon points to the subject string. rt.c's generator entry loads it from 24(%rdi) and"
+    " rt_coexpr.c's package from 16(%0); the chain trampolines seed it from the parked subject.");
 static_assert(x86_rtcc_streq(PIN_CURSOR_REG, "r14"), "BLOB PIN DRIFT: r14 is the subject cursor, the delta the match spine advances and every capture records.");
 static_assert(x86_rtcc_streq(PIN_SUBJLEN_REG, "r15"), "BLOB PIN DRIFT: r15 is the subject length, which the defer road's close compares the capture end against before it reads a byte.");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -410,33 +433,34 @@ static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_AL
     if (m & RTCC_C_R11) {
         wb += (char)0x41; wb += (char)0x53;
         wb += (char)0x49; wb += (char)0xBB; wb += u64le(block);
-        if (m & RTCC_C_R8)  { wb += (char)0x4D; wb += (char)0x89; wb += (char)0x43; wb += (char)40; }
+        if (m & RTCC_C_R8) { wb += (char)0x4D; wb += (char)0x89; wb += (char)0x43; wb += (char)40; }
         if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) { wb += (char)0x4D; wb += (char)0x89; wb += (char)0x4B; wb += (char)48; }
         if (m & RTCC_C_R10) { wb += (char)0x4D; wb += (char)0x89; wb += (char)0x53; wb += (char)56; }
         wb += (char)0x41; wb += (char)0x8F; wb += (char)0x43; wb += (char)64;
         return wb;
     }
     wb += (char)0x48; wb += (char)0xB8; wb += u64le(block);
-    if (m & RTCC_C_R8)  { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40; }
+    if (m & RTCC_C_R8) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x40; wb += (char)40; }
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x48; wb += (char)48; }
     if (m & RTCC_C_R10) { wb += (char)0x4C; wb += (char)0x89; wb += (char)0x50; wb += (char)56; }
     return wb;
 }
-static_assert(RTCC_SLOT_R11 * 8 == 64, "RTCC ABI drift: the binary write-back pops r11's pre-call value straight into slot 8 (pop qword ptr [r11+64]) -- slot 8 must stay r11's, or the pop lands in another register's slot");
+static_assert(RTCC_SLOT_R11 * 8 == 64,
+    "RTCC ABI drift: the binary write-back pops r11's pre-call value straight into slot 8 (pop qword ptr [r11+64]) -- slot 8 must stay r11's, or the pop lands in another register's slot");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_rl_bin(uint64_t block, unsigned m = RTCC_C_ALL) {
     std::string rl;
     if (m & RTCC_C_R11) {
         rl += (char)0x49; rl += (char)0xBB; rl += u64le(block);
-        if (m & RTCC_C_R8)  { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x43; rl += (char)40; }
-        if (m & RTCC_C_R9)  { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x4B; rl += (char)48; }
+        if (m & RTCC_C_R8) { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x43; rl += (char)40; }
+        if (m & RTCC_C_R9) { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x4B; rl += (char)48; }
         if (m & RTCC_C_R10) { rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x53; rl += (char)56; }
         rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x5B; rl += (char)64;
         return rl;
     }
     rl += (char)0x48; rl += (char)0xB9; rl += u64le(block);
-    if (m & RTCC_C_R8)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x41; rl += (char)40; }
-    if (m & RTCC_C_R9)  { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x49; rl += (char)48; }
+    if (m & RTCC_C_R8) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x41; rl += (char)40; }
+    if (m & RTCC_C_R9) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x49; rl += (char)48; }
     if (m & RTCC_C_R10) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x51; rl += (char)56; }
     return rl;
 }
@@ -450,7 +474,7 @@ static inline std::string x86_rtcc_call_b(uint64_t ptr, unsigned m) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_text(unsigned m = RTCC_C_ALL) {
     std::string wb;
-    if (m & RTCC_C_R8)  wb += x86_rec("mov") + "qword ptr [rip + rtccb+40], r8\n";
+    if (m & RTCC_C_R8) wb += x86_rec("mov") + "qword ptr [rip + rtccb+40], r8\n";
     if ((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA) wb += x86_rec("mov") + "qword ptr [rip + rtccb+48], r9\n";
     if (m & RTCC_C_R10) wb += x86_rec("mov") + "qword ptr [rip + rtccb+56], r10\n";
     if (m & RTCC_C_R11) wb += x86_rec("mov") + "qword ptr [rip + rtccb+64], r11\n";
@@ -459,8 +483,8 @@ static inline std::string x86_rtcc_wb_text(unsigned m = RTCC_C_ALL) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_rl_text(unsigned m = RTCC_C_ALL) {
     std::string rl;
-    if (m & RTCC_C_R8)  rl += x86_rec("mov") + "r8,  qword ptr [rip + rtccb+40]\n";
-    if (m & RTCC_C_R9)  rl += x86_rec("mov") + "r9,  qword ptr [rip + rtccb+48]\n";
+    if (m & RTCC_C_R8) rl += x86_rec("mov") + "r8,  qword ptr [rip + rtccb+40]\n";
+    if (m & RTCC_C_R9) rl += x86_rec("mov") + "r9,  qword ptr [rip + rtccb+48]\n";
     if (m & RTCC_C_R10) rl += x86_rec("mov") + "r10, qword ptr [rip + rtccb+56]\n";
     if (m & RTCC_C_R11) rl += x86_rec("mov") + "r11, qword ptr [rip + rtccb+64]\n";
     return rl;
@@ -488,20 +512,20 @@ inline std::string x86_rtcc_call(const char * sym, uint64_t ptr) { return x86_rt
 inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline uint8_t x86_jcc_op(const char * mnem) {
-    if (!strcmp(mnem, "je")  || !strcmp(mnem, "jz"))  return 0x84;
+    if (!strcmp(mnem, "je") || !strcmp(mnem, "jz")) return 0x84;
     if (!strcmp(mnem, "jne") || !strcmp(mnem, "jnz")) return 0x85;
-    if (!strcmp(mnem, "jb")  || !strcmp(mnem, "jc")  || !strcmp(mnem, "jnae")) return 0x82;
-    if (!strcmp(mnem, "jae") || !strcmp(mnem, "jnc") || !strcmp(mnem, "jnb"))  return 0x83;
-    if (!strcmp(mnem, "jbe") || !strcmp(mnem, "jna"))  return 0x86;
-    if (!strcmp(mnem, "ja")  || !strcmp(mnem, "jnbe")) return 0x87;
-    if (!strcmp(mnem, "jo"))  return 0x80;
+    if (!strcmp(mnem, "jb") || !strcmp(mnem, "jc") || !strcmp(mnem, "jnae")) return 0x82;
+    if (!strcmp(mnem, "jae") || !strcmp(mnem, "jnc") || !strcmp(mnem, "jnb")) return 0x83;
+    if (!strcmp(mnem, "jbe") || !strcmp(mnem, "jna")) return 0x86;
+    if (!strcmp(mnem, "ja") || !strcmp(mnem, "jnbe")) return 0x87;
+    if (!strcmp(mnem, "jo")) return 0x80;
     if (!strcmp(mnem, "jno")) return 0x81;
-    if (!strcmp(mnem, "js"))  return 0x88;
+    if (!strcmp(mnem, "js")) return 0x88;
     if (!strcmp(mnem, "jns")) return 0x89;
-    if (!strcmp(mnem, "jl")  || !strcmp(mnem, "jnge")) return 0x8C;
-    if (!strcmp(mnem, "jge") || !strcmp(mnem, "jnl"))  return 0x8D;
-    if (!strcmp(mnem, "jle") || !strcmp(mnem, "jng"))  return 0x8E;
-    if (!strcmp(mnem, "jg")  || !strcmp(mnem, "jnle")) return 0x8F;
+    if (!strcmp(mnem, "jl") || !strcmp(mnem, "jnge")) return 0x8C;
+    if (!strcmp(mnem, "jge") || !strcmp(mnem, "jnl")) return 0x8D;
+    if (!strcmp(mnem, "jle") || !strcmp(mnem, "jng")) return 0x8E;
+    if (!strcmp(mnem, "jg") || !strcmp(mnem, "jnle")) return 0x8F;
     fprintf(stderr, "[x86] FATAL x86_jcc_op: unknown condition code '%s' (no BINARY opcode; add it)\n", mnem); abort();
 }
 enum { X86H_DEF = 0, X86H_JMP = 1, X86H_JCC = 2, X86H_DEF_PAIR = 3 };
@@ -520,19 +544,24 @@ inline std::string x86_jcc(const char * mnem, int port) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_fc_on()       { return _.op_fc_bytes > 0; }
+inline int x86_fc_on() { return _.op_fc_bytes > 0; }
 inline int x86_fc_miss(int bump) { static int n = 0; if (bump) n++; return n; }
-inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = w > 0 && _.op_fc_base >= 0; int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0; int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0; } if (on) fprintf(stderr, "[FC-%s] granted box falls back to [off %d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w, (long)_.op_own_ci); } return hit; }
+inline int x86_fc_hit(int off) { int w = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : (int)_.op_fc_wbytes; int granted = w > 0 && _.op_fc_base >= 0;
+    int hit = granted && off >= _.op_fc_base && off < _.op_fc_base + w; if (granted && !hit) { int own = _.op_own_ci > 0 && off < (int)_.op_own_ci; int fullcell = _.op_fc_bytes > 0;
+    int defect = own && fullcell; if (defect) x86_fc_miss(1); static int on = -1; if (on < 0) { const char * e = getenv("SCRIP_FC_AUDIT"); on = (e && *e == '1') ? 1 : 0;
+    } if (on)
+    fprintf(stderr, "[FC-%s] granted box falls back to [off %d]: window=[%d,%d) w=%d ci=%ld\n", defect ? "MISS" : (own ? "FLAT-BYDESIGN" : "CROSS"), off, _.op_fc_base, _.op_fc_base + w, w,
+    (long)_.op_own_ci); } return hit; }
 inline std::string x86_fc_jcc_omega(const char * mnem);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_jcc_canon(uint8_t op) {
     switch (op) {
-        case 0x82: return "jb";  case 0x83: return "jae";
-        case 0x80: return "jo";  case 0x81: return "jno";
-        case 0x84: return "je";  case 0x85: return "jne";
+        case 0x82: return "jb"; case 0x83: return "jae";
+        case 0x80: return "jo"; case 0x81: return "jno";
+        case 0x84: return "je"; case 0x85: return "jne";
         case 0x86: return "jbe"; case 0x87: return "ja";
-        case 0x88: return "js";  case 0x89: return "jns";
-        case 0x8C: return "jl";  case 0x8D: return "jge";
+        case 0x88: return "js"; case 0x89: return "jns";
+        case 0x8C: return "jl"; case 0x8D: return "jge";
         case 0x8E: return "jle"; case 0x8F: return "jg";
     }
     fprintf(stderr, "[x86] FATAL x86_jcc_canon: unknown jcc opcode 0x%02X (x86_jcc_op grew an arm this switch does not spell)\n", (unsigned)op); abort();
@@ -540,8 +569,8 @@ inline const char * x86_jcc_canon(uint8_t op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_jcc_invert(const char * m) { return x86_jcc_canon((uint8_t)(x86_jcc_op(m) ^ 1)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * x86_zr()         { return "rsp"; }
-inline int          x86_zr_num()     { return 4; }
+inline const char * x86_zr() { return "rsp"; }
+inline int x86_zr_num() { return 4; }
 inline int x86_fb_pinned() { return emit_zframe_pinned(); }
 inline int icn_host_pinned() { return (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit_cfg->zframe_pinned_base && g_emit.flat_lcl_proc && !g_emit.flat_gen) ? 1 : 0; }
 inline int x86_fb_pinned_any() { return (x86_fb_pinned() || icn_host_pinned()) ? 1 : 0; }
@@ -550,8 +579,8 @@ inline int x86_fb_data() { return 0; }
 inline int x86_frame_off_rsp(int off) { return off + _.op_zdepth; }
 inline int x86_rsp_slide_known() { return 1; }
 inline int x86_frame_off(int off) { if (x86_fb_pinned()) return off; return x86_rsp_slide_known() ? off + _.op_zdepth : -1; }
-inline int          x86_fb_num()     { return (x86_fb_data() || x86_fb_pinned_any()) ? 5 : 4; }
-inline const char * x86_fb()         { return x86_fb_num() == 5 ? "rbp" : "rsp"; }
+inline int x86_fb_num() { return (x86_fb_data() || x86_fb_pinned_any()) ? 5 : 4; }
+inline const char * x86_fb() { return x86_fb_num() == 5 ? "rbp" : "rsp"; }
 inline const char * x86_fr32_prefix() { return "dword ptr [rsp$ + "; }
 inline const char * x86_fr64_prefix() { return "qword ptr [rsp$ + "; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -591,13 +620,13 @@ inline std::string x86_deflabel(int port) {
     return s + x86_port_hook(X86H_DEF, port) + x86_zdp_probe_at(port) + x86_zdp_rbp_at(port);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_alpha()                    { return x86_deflabel(X86P_ALPHA); }
-inline std::string x86_beta()                     { return x86_deflabel(X86P_BETA); }
-inline std::string x86_beta_trampoline()          { return _.op_beta_dead ? std::string() : (x86_deflabel(X86P_BETA) + x86_jmp(X86P_OMEGA)); }
-inline std::string x86_gamma()                    { return x86_jmp(X86P_GAMMA); }
-inline std::string x86_gamma(const char * mnem)   { return x86_jcc(mnem, X86P_GAMMA); }
-inline std::string x86_omega()                    { return x86_jmp(X86P_OMEGA); }
-inline std::string x86_omega(const char * mnem)   { return x86_jcc(mnem, X86P_OMEGA); }
+inline std::string x86_alpha() { return x86_deflabel(X86P_ALPHA); }
+inline std::string x86_beta() { return x86_deflabel(X86P_BETA); }
+inline std::string x86_beta_trampoline() { return _.op_beta_dead ? std::string() : (x86_deflabel(X86P_BETA) + x86_jmp(X86P_OMEGA)); }
+inline std::string x86_gamma() { return x86_jmp(X86P_GAMMA); }
+inline std::string x86_gamma(const char * mnem) { return x86_jcc(mnem, X86P_GAMMA); }
+inline std::string x86_omega() { return x86_jmp(X86P_OMEGA); }
+inline std::string x86_omega(const char * mnem) { return x86_jcc(mnem, X86P_OMEGA); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 enum { X86T_TGT0 = 4, X86T_TGT1 = 5 };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -628,10 +657,12 @@ inline std::string x86_lea_tgt(const char * dst, int t) {
     return x86_rec("lea") + dst + ", [rip + " + nm + "]\n";
 }
 #define X86_INTERNAL_BASE 6
-#define X86_INTERNAL_MAX  250
+#define X86_INTERNAL_MAX 250
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_internal_id(int n) {
-    if (n < 0 || n >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL x86_asm: internal label L(%d) out of range [0,%d) -- the one-byte record id would corrupt or truncate; split the box or raise X86_INTERNAL_MAX\n", n, X86_INTERNAL_MAX); abort(); }
+    if (n < 0 || n >= X86_INTERNAL_MAX)
+        { fprintf(stderr, "FATAL x86_asm: internal label L(%d) out of range [0,%d) -- the one-byte record id would corrupt or truncate; split the box or raise X86_INTERNAL_MAX\n", n, X86_INTERNAL_MAX)
+        ; abort(); }
     return X86_INTERNAL_BASE + n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -659,7 +690,8 @@ inline std::string x86_deflabel_id(int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lea_id(const char * dst, int n) {
     int id = x86_internal_id(n);
-    if (MEDIUM_BINARY) { int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3)); return x86_Lrec(code) + x86_Jrec(id); }
+    if (MEDIUM_BINARY) { int m = x86_rnum(dst); std::string code; uint8_t rex = 0x48; if (m >= 8) rex |= 0x04; code += (char)rex; code += (char)0x8D; code += (char)(0x05 | ((m & 7) << 3));
+        return x86_Lrec(code) + x86_Jrec(id); }
     return x86_rec("lea") + dst + ", [rip + " + x86_internal_name(n) + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -692,7 +724,8 @@ inline std::string x86_jmp_mem(const char * base, int disp) {
         else { code += (char)(0xA0 | lo); if (sib) code += (char)0x24; code += u32le((uint32_t)disp); }
         return x86_Lrec(code) + x86_rsp_goto();
     }
-    char b2[disp ? fmt_len("qword ptr [%s + %d]\n", base, disp) : fmt_len("qword ptr [%s]\n", base)]; if (disp) snprintf(b2, sizeof b2, "qword ptr [%s + %d]\n", base, disp); else snprintf(b2, sizeof b2, "qword ptr [%s]\n", base);
+    char b2[disp ? fmt_len("qword ptr [%s + %d]\n", base, disp) : fmt_len("qword ptr [%s]\n", base)]; if (disp) snprintf(b2, sizeof b2, "qword ptr [%s + %d]\n", base, disp);
+        else snprintf(b2, sizeof b2, "qword ptr [%s]\n", base);
     return x86_rec("jmp") + b2 + x86_rsp_goto();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -730,7 +763,8 @@ inline std::string x86_jcc_ext(const char * mnem, const struct bb_label_t * lbl)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_lea_ext(const char * dst, const struct bb_label_t * lbl) {
-    if (MEDIUM_BINARY) { int g = x86_rnum(dst); std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += (char)(0x05 | ((g & 7) << 3)); std::string r = x86_Lrec(c); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
+    if (MEDIUM_BINARY) { int g = x86_rnum(dst); std::string c; uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; c += (char)rex; c += (char)0x8D; c += (char)(0x05 | ((g & 7) << 3));
+        std::string r = x86_Lrec(c); r += (char)'X'; r += x86_ext_ptr_bytes(lbl); return r; }
     return x86_rec("lea") + dst + ", [rip + " + (lbl && lbl->name ? lbl->name : "?") + "]\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -777,9 +811,9 @@ inline std::string x86_asm_str_escape(const char * s) {
     for (const char * p = s; p && *p; ++p) {
         char c = *p;
         if (c == '\\' || c == '"') { o += '\\'; o += c; }
-        else if (c == '\n')        { o += "\\n"; }
-        else if (c == '\t')        { o += "\\t"; }
-        else                        o += c;
+        else if (c == '\n') { o += "\\n"; }
+        else if (c == '\t') { o += "\\t"; }
+        else o += c;
     }
     return o;
 }
@@ -789,10 +823,10 @@ inline std::string x86_asm_str_escape(const char * s, size_t len) {
     for (size_t i = 0; i < len; ++i) {
         char c = s[i];
         if (c == '\\' || c == '"') { o += '\\'; o += c; }
-        else if (c == '\n')        { o += "\\n"; }
-        else if (c == '\t')        { o += "\\t"; }
-        else if (c == '\0')        { o += "\\000"; }
-        else                        o += c;
+        else if (c == '\n') { o += "\\n"; }
+        else if (c == '\t') { o += "\\t"; }
+        else if (c == '\0') { o += "\\000"; }
+        else o += c;
     }
     return o;
 }
@@ -846,8 +880,8 @@ inline std::string x86_cmp_imm(const char * reg, long imm) {
     std::string code;
     if (x86_is8(reg)) { uint8_t rex = 0x40; if (m >= 8) rex |= 0x01; code += (char)rex; code += (char)0x80; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)imm; }
     else if (imm >= -128 && imm <= 127) { if (m >= 8) code += (char)0x41; code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
-    else if (m == 0)               { code += (char)0x3D; code += u32le((uint32_t)imm); }
-    else                           { if (m >= 8) code += (char)0x41; code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
+    else if (m == 0) { code += (char)0x3D; code += u32le((uint32_t)imm); }
+    else { if (m >= 8) code += (char)0x41; code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("cmp") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -912,7 +946,7 @@ inline std::string x86_frame_add_imm(int off, long imm) {
     if (MEDIUM_BINARY) {
         std::string c; c += x86_frame_rex(0, 0);
         if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_frame_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
-        else                           { c += (char)0x81; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); }
+        else { c += (char)0x81; c += x86_frame_modrm(0, off); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
     return x86_rec("add") + "dword ptr " + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
@@ -951,7 +985,8 @@ inline void x86_zop_note(int r) { if (r < 1 || r > 5) return; _.zop_seen |= (1 <
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zop(int off, int q, int bump) {
     static char b[16][48]; static int i; i = (i + 1) & 15; int r = x86_zop_regime(off); x86_zop_note(r); int eff, spine;
-    if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump); eff = off - _.op_fc_base + bump; spine = 1; }
+    if (r == 2) { if (getenv("SCRIP_ZOP_DIAG")) fprintf(stderr, "[ZOP] off=%d op_fc_base=%d bump=%d computed=%d\n", off, _.op_fc_base, bump, off - _.op_fc_base + bump);
+        eff = off - _.op_fc_base + bump; spine = 1; }
     else if (bump && !x86_fb_data() && !_.op_stmt_dyn) { eff = x86_frame_off(off) + bump; spine = 1; }
     else { eff = off + ((x86_fb_data() || _.op_stmt_dyn) ? 0 : bump); spine = 0; }
     { int ft = icn_gen_zeta_ft(); if (ft > 0) return q ? RDQ("rbp", eff - ft) : RDD("rbp", eff - ft); }
@@ -967,7 +1002,7 @@ inline const char * x86_ztos(int off, int q) {
     return b[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * ZTOS(int off)  { return x86_ztos(off, 1); }
+inline const char * ZTOS(int off) { return x86_ztos(off, 1); }
 inline const char * ZTOSD(int off) { return x86_ztos(off, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * x86_zref(int off, int q) {
@@ -980,15 +1015,15 @@ inline const char * x86_zref(int off, int q) {
 inline const char * RDQ(const char * base, int off);
 inline const char * RDD(const char * base, int off);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * ZRES(int w)        { return _.op_xf_off != -1 ? RDQ("rbp", _.op_xf_off + w) : x86_zref(w, 1); }
-inline const char * ZRESD(int w)       { return _.op_xf_off != -1 ? RDD("rbp", _.op_xf_off + w) : x86_zref(w, 0); }
-inline const char * ZRES_SPINE(int w)  { return x86_zref(w, 1); }
-inline const char * ZLOC(int o)        { return x86_zref(16 + o, 1); }
-inline const char * ZLOCD(int o)       { return x86_zref(16 + o, 0); }
-inline const char * ZLOC_B(int o)      { return x86_zref(_.op_ztail + 16 + o, 1); }
+inline const char * ZRES(int w) { return _.op_xf_off != -1 ? RDQ("rbp", _.op_xf_off + w) : x86_zref(w, 1); }
+inline const char * ZRESD(int w) { return _.op_xf_off != -1 ? RDD("rbp", _.op_xf_off + w) : x86_zref(w, 0); }
+inline const char * ZRES_SPINE(int w) { return x86_zref(w, 1); }
+inline const char * ZLOC(int o) { return x86_zref(16 + o, 1); }
+inline const char * ZLOCD(int o) { return x86_zref(16 + o, 0); }
+inline const char * ZLOC_B(int o) { return x86_zref(_.op_ztail + 16 + o, 1); }
 inline const char * ZOPQ(int k, int w) { int in = k >= 0 && k < _.op_zcap; return (in && _.op_zread_xf[k] != -1) ? RDQ("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 1); }
 inline const char * ZOPD(int k, int w) { int in = k >= 0 && k < _.op_zcap; return (in && _.op_zread_xf[k] != -1) ? RDD("rbp", _.op_zread_xf[k] + w) : x86_zref((in ? _.op_zread[k] : 0) + w, 0); }
-inline const char * FR(int off)            { return x86_zop(off, 0, 0); }
+inline const char * FR(int off) { return x86_zop(off, 0, 0); }
 inline const char * PAIR(int idx) { static char b[8][16]; static int i; i = (i + 1) & 7; snprintf(b[i], 16, "P%d", idx); return b[i]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_frame_load64(const char * reg, int off) {
@@ -1013,23 +1048,26 @@ inline std::string x86_frame_mov_imm64(int off, long imm) {
     return x86_rec("mov") + "qword ptr " + x86_frame_text_mem(off) + ", " + std::to_string(imm) + "\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * FRQ(int off)           { return x86_zop(off, 1, 0); }
+inline const char * FRQ(int off) { return x86_zop(off, 1, 0); }
 inline const char * FRQB(int off, int bump) { return x86_zop(off, 1, bump); }
-inline const char * ROQ(int n)   { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
+inline const char * ROQ(int n) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [rip + %d]", n); return b[i]; }
 inline const char * RDQ(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }
 inline const char * GVARQ(int k, int w) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [" RTCC_GVA_REG " + %d]", k * 16 + w); return b[i]; }
 extern "C" const char * gva_name(int k);
 extern "C" const char * bb_kind_name(int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline const char * ZOPAN() { if (_.op_a_node_kind < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(_.op_a_node_kind); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
+inline const char * ZOPAN() { if (_.op_a_node_kind < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(_.op_a_node_kind);
+    snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
 inline const char * ZRESN() { return "result"; }
-inline const char * ZOPN(int k) { if (k < 0 || k >= _.op_zcap) return ""; int kk = _.op_zkind[k]; if (kk < 0 && k == 0) kk = _.op_a_node_kind; if (kk < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(kk); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
+inline const char * ZOPN(int k) { if (k < 0 || k >= _.op_zcap) return ""; int kk = _.op_zkind[k]; if (kk < 0 && k == 0) kk = _.op_a_node_kind; if (kk < 0) return ""; static char b[8][48];
+    static int i; i = (i + 1) & 7; const char * n = bb_kind_name(kk); snprintf(b[i], 48, "%s", n ? n : ""); return b[i]; }
 inline const char * HKN(int k) { static const char * const n[6] = { "old____", "outer_Σ", "outer_δ", "outer_Δ", "cap_gen", "rsp_mark" }; return (k >= 0 && k < 6) ? n[k] : ""; }
 inline const char * RDD(const char * base, int off) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "dword ptr [%s + %d]", base, off); return b[i]; }
 inline const char * XSAQ(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDQ("rbp", _.op_zread_xf[0] + d) : FRQ(_.op_sa + d); }
 inline const char * XSAD(int d) { return (_.op_zcap > 0 && _.op_zread_xf[0] != -1) ? RDD("rbp", _.op_zread_xf[0] + d) : FR(_.op_sa + d); }
-inline const char * zone_ref(int rbp_off, int spine_base, int d, int w) { return (rbp_off != -1) ? ((w == 8) ? RDQ("rbp", rbp_off + d) : RDD("rbp", rbp_off + d)) : ((w == 8) ? FRQ(spine_base + d) : FR(spine_base + d)); }
+inline const char * zone_ref(int rbp_off, int spine_base, int d, int w) { return (rbp_off != -1) ? ((w == 8) ? RDQ("rbp", rbp_off + d) : RDD("rbp", rbp_off + d)) :
+    ((w == 8) ? FRQ(spine_base + d) : FR(spine_base + d)); }
 inline int LFC_ON() { return _.op_leaf_frame_off != -1; }
 extern "C" int zzone_tier_of_cur(void);
 extern "C" int zzone_off_of_cur(void);
@@ -1060,19 +1098,19 @@ inline const char * ZREFS(int reg_off, int d, int w, int customer, int spine) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * ZREF(int reg_off, int d, int w) { return ZREFC(reg_off, d, w, FL_LEAF); }
-inline const char * LFC(int d)  { return ZREF(_.op_leaf_frame_off, d, 4); }
+inline const char * LFC(int d) { return ZREF(_.op_leaf_frame_off, d, 4); }
 inline const char * LFCQ(int d) { return ZREF(_.op_leaf_frame_off, d, 8); }
 inline const char * LFDQ(int d, int sd) { return LFC_ON() ? RDQ("rbp", _.op_leaf_frame_off + 16 + d) : LFCQ(sd); }
-inline const char * LFD(int d, int sd)  { return LFC_ON() ? RDD("rbp", _.op_leaf_frame_off + 16 + d) : LFC(sd); }
-inline const char * AFC(int d)  { return ZREFC(_.op_arbno_frame_off, d, 4, FL_ARBNO); }
+inline const char * LFD(int d, int sd) { return LFC_ON() ? RDD("rbp", _.op_leaf_frame_off + 16 + d) : LFC(sd); }
+inline const char * AFC(int d) { return ZREFC(_.op_arbno_frame_off, d, 4, FL_ARBNO); }
 inline const char * AFCQ(int d) { return ZREFC(_.op_arbno_frame_off, d, 8, FL_ARBNO); }
-inline const char * CFC(int d)  { return ZREFC(_.op_cap_frame_off, d, 4, FL_CAPTURE); }
+inline const char * CFC(int d) { return ZREFC(_.op_cap_frame_off, d, 4, FL_CAPTURE); }
 inline const char * CFCQ(int d) { return ZREFC(_.op_cap_frame_off, d, 8, FL_CAPTURE); }
-inline const char * FFC(int d)  { return ZREFC(_.op_fence_frame_off, d, 4, FL_FENCE); }
+inline const char * FFC(int d) { return ZREFC(_.op_fence_frame_off, d, 4, FL_FENCE); }
 inline const char * FFCQ(int d) { return ZREFC(_.op_fence_frame_off, d, 8, FL_FENCE); }
 inline const char * CROQ(int cro, int d) { return ZREFS(cro ? cro : -1, d, 8, FL_CHOICE, ZSP_RAW); }
 inline const char * CROD(int cro, int d) { return ZREFS(cro ? cro : -1, d, 4, FL_CHOICE, ZSP_RAW); }
-inline const char * LIDX(long k)  { static char b[8][32]; static int i; i = (i + 1) & 7; if (k) snprintf(b[i], 32, "[r13+rcx+%ld]", k); else snprintf(b[i], 32, "[r13+rcx]"); return b[i]; }
+inline const char * LIDX(long k) { static char b[8][32]; static int i; i = (i + 1) & 7; if (k) snprintf(b[i], 32, "[r13+rcx+%ld]", k); else snprintf(b[i], 32, "[r13+rcx]"); return b[i]; }
 inline long LITQ(long k) { uint64_t w; memcpy(&w, _.op_sval + k, 8); return (long) w; }
 inline void x86_rd32_modrm(std::string & c, int g, int b) { c += (char)(0x80 | ((g & 7) << 3) | (b & 7)); if ((b & 7) == 4) c += (char)0x24; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1117,7 +1155,7 @@ inline std::string x86_reg_disp32_cmp_imm(const char * base, int disp, long imm)
     if (MEDIUM_BINARY) {
         std::string c; uint8_t rex = 0x48; if (b >= 8) rex |= 0x01; c += (char)rex;
         if (imm >= -128 && imm <= 127) { c += (char)0x83; x86_rd32_modrm(c, 7, b); c += u32le((uint32_t)disp); c += (char)(uint8_t)(int8_t)imm; }
-        else                           { c += (char)0x81; x86_rd32_modrm(c, 7, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
+        else { c += (char)0x81; x86_rd32_modrm(c, 7, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
     return x86_rec("cmp") + "qword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
@@ -1244,7 +1282,7 @@ inline std::string x86_reg_disp32_add_imm32(const char * base, int disp, long im
     if (MEDIUM_BINARY) {
         std::string c; uint8_t rex = 0x40; if (b >= 8) rex |= 0x01; if (rex != 0x40) c += (char)rex;
         if (imm >= -128 && imm <= 127) { c += (char)0x83; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += (char)(uint8_t)(int8_t)imm; }
-        else                           { c += (char)0x81; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
+        else { c += (char)0x81; x86_rd32_modrm(c, 0, b); c += u32le((uint32_t)disp); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
     return x86_rec("add") + "dword ptr [" + base + " + " + std::to_string(disp) + "], " + std::to_string(imm) + "\n";
@@ -1300,7 +1338,7 @@ inline std::string x86_rsp_add_imm32(int off, long imm) {
     if (MEDIUM_BINARY) {
         std::string c;
         if (imm >= -128 && imm <= 127) { c += (char)0x83; c += x86_rsp_modrm(0, off); c += (char)(uint8_t)(int8_t)imm; }
-        else                           { c += (char)0x81; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); }
+        else { c += (char)0x81; c += x86_rsp_modrm(0, off); c += u32le((uint32_t)imm); }
         return x86_Lrec(c);
     }
     return x86_rec("add") + "dword ptr [rsp + " + std::to_string(off) + "], " + std::to_string(imm) + "\n";
@@ -1326,7 +1364,7 @@ inline std::string x86_cmp_imm64(const char * reg, long imm) {
     uint8_t rex = 0x48; if (m >= 8) rex |= 0x01;
     std::string code; code += (char)rex;
     if (imm >= -128 && imm <= 127) { code += (char)0x83; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += (char)(uint8_t)(int8_t)imm; }
-    else                           { code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
+    else { code += (char)0x81; code += (char)(0xC0 | (7 << 3) | (m & 7)); code += u32le((uint32_t)imm); }
     return MEDIUM_BINARY ? x86_Lrec(code) : (x86_rec("cmp") + reg + ", " + std::to_string(imm) + "\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1362,18 +1400,19 @@ inline const char * x86_strkeep(const std::string & v) {
 }
 struct xop {
     const char * s; uint64_t u; int tag;
-    xop()                    : s(0), u(0), tag(0) {}
-    xop(const char * p)      : s(p), u(0), tag(p ? 1 : 0) {}
-    xop(char * p)            : s(p), u(0), tag(p ? 1 : 0) {}
+    xop() : s(0), u(0), tag(0) {}
+    xop(const char * p) : s(p), u(0), tag(p ? 1 : 0) {}
+    xop(char * p) : s(p), u(0), tag(p ? 1 : 0) {}
     xop(const std::string & v) : s(x86_strkeep(v)), u(0), tag(1) {}
-    xop(int v)               : s(0), u((uint64_t)(int64_t)v), tag(2) {}
-    xop(long v)              : s(0), u((uint64_t)v), tag(2) {}
-    xop(long long v)         : s(0), u((uint64_t)v), tag(2) {}
-    xop(unsigned v)          : s(0), u(v), tag(2) {}
-    xop(unsigned long v)     : s(0), u(v), tag(2) {}
+    xop(int v) : s(0), u((uint64_t)(int64_t)v), tag(2) {}
+    xop(long v) : s(0), u((uint64_t)v), tag(2) {}
+    xop(long long v) : s(0), u((uint64_t)v), tag(2) {}
+    xop(unsigned v) : s(0), u(v), tag(2) {}
+    xop(unsigned long v) : s(0), u(v), tag(2) {}
     xop(unsigned long long v): s(0), u(v), tag(2) {}
 };
-enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL, XK_PAIR, XK_ABS64, XK_MEMBI, XK_RIPGOT, XK_RIPCELL };
+enum { XK_NONE = 0, XK_REG, XK_IMM, XK_PORT, XK_ILBL, XK_FR32, XK_FR64, XK_RSP64, XK_RSP32, XK_MEMIND, XK_MEMIDX8, XK_R13RCX, XK_RIPSEAL, XK_REGDISP, XK_REGDISP32, XK_SYM, XK_ROSLOT, XK_EXTLBL,
+    XK_PAIR, XK_ABS64, XK_MEMBI, XK_RIPGOT, XK_RIPCELL };
 struct opnd {
     int kind; const char * txt;
     int reg; long imm; int port; int lbl; int off;
@@ -1411,21 +1450,24 @@ inline void x86_parse(const xop & x, opnd & o) {
     if (x.tag == 2) { o.kind = XK_IMM; o.imm = (long)(int64_t)x.u; return; }
     const char * s = x.s;
     int p = x86_port_of(s);
-    if (p >= 0 && (s[2] == 0)) { fprintf(stderr, "x86_parse: string port operand \"%s\" is RETIRED (Lon 2026-07-08 s5) — ports go through x86_alpha/x86_beta/x86_gamma/x86_omega ONLY\n", s); abort(); }
+    if (p >= 0 && (s[2] == 0)) { fprintf(stderr, "x86_parse: string port operand \"%s\" is RETIRED (Lon 2026-07-08 s5) — ports go through x86_alpha/x86_beta/x86_gamma/x86_omega ONLY\n", s); abort();
+        }
     if (s[0] == 'L' && s[1] >= '0' && s[1] <= '9') { int n = atoi(s + 1); o.kind = XK_ILBL; o.lbl = n; return; }
-    if (s[0] == 'P' && s[1] >= '0' && s[1] <= '9') { int _pdig = 1; for (const char * q = s + 1; *q; q++) if (*q < '0' || *q > '9') { _pdig = 0; break; } if (_pdig) { int n = atoi(s + 1); o.kind = XK_PAIR; o.lbl = n; return; } }
+    if (s[0] == 'P' && s[1] >= '0' && s[1] <= '9') { int _pdig = 1; for (const char * q = s + 1; *q; q++) if (*q < '0' || *q > '9') { _pdig = 0; break; } if (_pdig) { int n = atoi(s + 1);
+        o.kind = XK_PAIR; o.lbl = n; return; } }
     if (!strcmp(s, "extlbl")) { o.kind = XK_EXTLBL; return; }
     if (!strncmp(s, "dword ptr [rsp# + ", 18)) { o.kind = XK_RSP32; o.off = atoi(s + 18); return; }
     if (!strncmp(s, "qword ptr [rsp# + ", 18)) { o.kind = XK_RSP64; o.off = atoi(s + 18); return; }
-    if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32;  o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
-    if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64;  o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
+    if (!strncmp(s, x86_fr32_prefix(), strlen(x86_fr32_prefix()))) { o.kind = XK_FR32; o.off = atoi(s + strlen(x86_fr32_prefix())); return; }
+    if (!strncmp(s, x86_fr64_prefix(), strlen(x86_fr64_prefix()))) { o.kind = XK_FR64; o.off = atoi(s + strlen(x86_fr64_prefix())); return; }
     if (!strncmp(s, "dword ptr [rsp + ", 17)) { o.kind = XK_RSP32; o.off = atoi(s + 17); return; }
     if (!strncmp(s, "dword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP32; o.off = (int)d; return; } } }
     if (!strncmp(s, "qword ptr [rip + ", 17)) { o.kind = XK_ROSLOT; o.off = atoi(s + 17); return; }
     if (!strncmp(s, "qword ptr [rsp + ", 17)) { o.kind = XK_RSP64; o.off = atoi(s + 17); return; }
-    if (!strncmp(s, "qword ptr [", 11) && s[11] >= '0' && s[11] <= '9') { char * ep = 0; unsigned long a = strtoul(s + 11, &ep, 10); if (ep && *ep == ']' && !ep[1]) { o.kind = XK_ABS64; o.imm = (long)a; return; } }
+    if (!strncmp(s, "qword ptr [", 11) && s[11] >= '0' && s[11] <= '9') { char * ep = 0; unsigned long a = strtoul(s + 11, &ep, 10); if (ep && *ep == ']' && !ep[1]) { o.kind = XK_ABS64;
+        o.imm = (long)a; return; } }
     if (!strncmp(s, "qword ptr [", 11)) { const char * lb = s + 10; const char * pl = strstr(lb, " + ");
       if (pl) { size_t bl = (size_t)(pl - (lb + 1)); if (bl > 7) bl = 7; memcpy(o.base, lb + 1, bl); o.base[bl] = 0;
         char * ep = 0; long d = strtol(pl + 3, &ep, 10); if (x86_is_reg(o.base) && ep && *ep == ']') { o.kind = XK_REGDISP; o.off = (int)d; return; } } }
@@ -1437,10 +1479,10 @@ inline void x86_parse(const xop & x, opnd & o) {
           size_t bl = (size_t)(pp - (ns + 1)); if (bl > 7) bl = 7; char bb[bl + 1]; memcpy(bb, ns + 1, bl); bb[bl] = 0;
           size_t il = (size_t)((ns + nn - 1) - (pp + 1)); if (il > 7) il = 7; char ii[il + 1]; memcpy(ii, pp + 1, il); ii[il] = 0;
           if (x86_is_reg(bb) && x86_is_reg(ii)) { memcpy(o.base, bb, bl + 1); memcpy(o.idx, ii, il + 1); o.kind = XK_MEMBI; return; } } } }
-    if (!strcmp(s, "[rip + __]"))              { o.kind = XK_RIPSEAL; return; }
-    if (!strcmp(s, "[rip@got + __]"))          { o.kind = XK_RIPGOT; return; }
-    if (!strcmp(s, "[rip@cell + __]"))         { o.kind = XK_RIPCELL; return; }
-    if (!strncmp(s, "f64:", 4))                {
+    if (!strcmp(s, "[rip + __]")) { o.kind = XK_RIPSEAL; return; }
+    if (!strcmp(s, "[rip@got + __]")) { o.kind = XK_RIPGOT; return; }
+    if (!strcmp(s, "[rip@cell + __]")) { o.kind = XK_RIPCELL; return; }
+    if (!strncmp(s, "f64:", 4)) {
         o.kind = XK_IMM; o.imm = 0; o.txt = s; { unsigned long long bb = strtoull(s + 4, 0, 10); memcpy(&o.imm, &bb, sizeof(long) < 8 ? sizeof(long) : 8); } o.off = 1; return;
     }
     if (s[0] == '[') {
@@ -1453,7 +1495,7 @@ inline void x86_parse(const xop & x, opnd & o) {
             size_t il = (size_t)(star - ip); if (il > 7) il = 7;
             memcpy(o.idx, ip, il); o.idx[il] = 0;
             char * t; t = o.base; while (*t) { if (*t == ' ') { *t = 0; break; } t++; }
-            t = o.idx;  while (*t) { if (*t == ' ') { *t = 0; break; } t++; }
+            t = o.idx; while (*t) { if (*t == ' ') { *t = 0; break; } t++; }
             o.kind = XK_MEMIDX8; return;
         }
         { const char * pl = strstr(s, " + "); if (pl) { size_t bl = (size_t)(pl - (s + 1)); if (bl > 7) bl = 7;
@@ -1481,13 +1523,15 @@ static inline void x86_4col_pad(std::string & o, const char * s, size_t n, int w
 #include "x86_arg_roles.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int x86_argreg_slot(const char * s, size_t n) {
-    static const char * const r[6][4] = { { "rdi", "edi", "di", "dil" }, { "rsi", "esi", "si", "sil" }, { "rdx", "edx", "dx", "dl" }, { "rcx", "ecx", "cx", "cl" }, { "r8", "r8d", "r8w", "r8b" }, { "r9", "r9d", "r9w", "r9b" } };
+    static const char * const r[6][4] = { { "rdi", "edi", "di", "dil" }, { "rsi", "esi", "si", "sil" }, { "rdx", "edx", "dx", "dl" }, { "rcx", "ecx", "cx", "cl" }, { "r8", "r8d", "r8w", "r8b" },
+        { "r9", "r9d", "r9w", "r9b" } };
     for (int i = 0; i < 6; i++) for (int j = 0; j < 4; j++) { size_t l = strlen(r[i][j]); if (l == n && !strncmp(s, r[i][j], l)) return i; }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const x86_argrole_t * x86_argrole_find(const char * s, size_t n) {
-    for (size_t i = 0; i < sizeof(x86_argroles) / sizeof(x86_argroles[0]); i++) { const char * c = x86_argrole_str(x86_argroles[i].callee); if (strlen(c) == n && !strncmp(s, c, n)) return &x86_argroles[i]; }
+    for (size_t i = 0; i < sizeof(x86_argroles) / sizeof(x86_argroles[0]); i++) { const char * c = x86_argrole_str(x86_argroles[i].callee);
+        if (strlen(c) == n && !strncmp(s, c, n)) return &x86_argroles[i]; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1518,7 +1562,8 @@ static inline void x86_argnote(std::string & o) {
             if (!bl) break;
             if (o[bs] == '#' || o[bs] == '.' || o[bs] == 'j') break;
             if (bl == 4 && !strncmp(o.data() + bs, "call", 4)) break;
-            int isld = (bl == 3 && (!strncmp(o.data() + bs, "mov", 3) || !strncmp(o.data() + bs, "lea", 3) || !strncmp(o.data() + bs, "xor", 3))) || (bl == 6 && !strncmp(o.data() + bs, "movsxd", 6)) || (bl == 5 && !strncmp(o.data() + bs, "movzx", 5)) || (bl == 6 && !strncmp(o.data() + bs, "movabs", 6));
+            int isld = (bl == 3 && (!strncmp(o.data() + bs, "mov", 3) || !strncmp(o.data() + bs, "lea", 3) || !strncmp(o.data() + bs, "xor", 3))) ||
+                (bl == 6 && !strncmp(o.data() + bs, "movsxd", 6)) || (bl == 5 && !strncmp(o.data() + bs, "movzx", 5)) || (bl == 6 && !strncmp(o.data() + bs, "movabs", 6));
             if (!isld || !bol) break;
             size_t de = bo; while (de < bo + bol && o[de] != ',' && o[de] != ' ' && o[de] != '\t') de++;
             int slot = x86_argreg_slot(o.data() + bo, de - bo);
@@ -1552,9 +1597,11 @@ static inline void x86_rec_split(const char * p, size_t len, x86_rec_t & r) {
     const char * t = p + b; size_t tl = len - b;
     if (tl == 0) { r.marg = 1; return; }
     size_t k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++;
-    if (k > 0 && t[k - 1] == ':') { r.lb = t; r.ll = k; size_t rr = k; while (rr < tl && (t[rr] == ' ' || t[rr] == '\t')) rr++; if (rr >= tl) return; t += rr; tl -= rr; k = 0; while (k < tl && t[k] != ' ' && t[k] != '\t') k++; }
+    if (k > 0 && t[k - 1] == ':') { r.lb = t; r.ll = k; size_t rr = k; while (rr < tl && (t[rr] == ' ' || t[rr] == '\t')) rr++; if (rr >= tl) return; t += rr; tl -= rr; k = 0;
+        while (k < tl && t[k] != ' ' && t[k] != '\t') k++; }
     r.op = t; r.ol = k;
-    if ((k == 3 && !strncmp(t, "rep", 3)) || (k == 4 && (!strncmp(t, "repe", 4) || !strncmp(t, "repz", 4) || !strncmp(t, "lock", 4))) || (k == 5 && (!strncmp(t, "repne", 5) || !strncmp(t, "repnz", 5)))) {
+    if ((k == 3 && !strncmp(t, "rep", 3)) || (k == 4 && (!strncmp(t, "repe", 4) || !strncmp(t, "repz", 4) || !strncmp(t, "lock", 4))) ||
+        (k == 5 && (!strncmp(t, "repne", 5) || !strncmp(t, "repnz", 5)))) {
         size_t w = k; while (w < tl && (t[w] == ' ' || t[w] == '\t')) w++;
         if (w < tl) { size_t m2 = w; while (m2 < tl && t[m2] != ' ' && t[m2] != '\t') m2++; r.ol = m2; } }
     size_t rr = r.ol; while (rr < tl && (t[rr] == ' ' || t[rr] == '\t')) rr++;
@@ -1615,7 +1662,9 @@ inline std::string x86_4col(const std::string & s) {
 }
 #define X86_MEQ(m, lit) ((m)[0] == (lit)[0] && !strcmp((m), (lit)))
 __attribute__((noreturn)) inline void x86_bare_target_refused(const char * mnem, const char * sym) {
-    fprintf(stderr, "FATAL x86: '%s' to the bare name '%s' has no encoding in the binary medium -- mode 3 would fall through to the next instruction; pass the target as a port (lbl_t0/lbl_t1 through x86_jcc_tgt/x86_jmp_tgt) or an internal label id, which both media encode (hq_snobol4's finding 2026-09-25)\n", mnem ? mnem : "?", sym ? sym : "?");
+    fprintf(stderr,
+        "FATAL x86: '%s' to the bare name '%s' has no encoding in the binary medium -- mode 3 would fall through to the next instruction; pass the target as a port (lbl_t0/lbl_t1 through x86_jcc_tgt"
+        "/x86_jmp_tgt) or an internal label id, which both media encode (hq_snobol4's finding 2026-09-25)\n", mnem ? mnem : "?", sym ? sym : "?");
     abort();
 }
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
@@ -1625,18 +1674,20 @@ inline std::string x86(const char * mnem, xop xa = xop(), xop xb = xop(), xop xc
 inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xop xd);
 inline std::string x86_core_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
     std::string r = x86_core_inner_(mnem, xa, xb, xc, xd);
-    if (xa.tag == 1 && xa.s && !strcmp(xa.s, "rsp") && (X86_MEQ(mnem, "mov") || X86_MEQ(mnem, "lea") || X86_MEQ(mnem, "and") || X86_MEQ(mnem, "or") || X86_MEQ(mnem, "xor") || ((X86_MEQ(mnem, "sub") || X86_MEQ(mnem, "add")) && xb.tag == 1))) r += x86_rsp_unk();
+    if (xa.tag == 1 && xa.s && !strcmp(xa.s, "rsp") &&
+        (X86_MEQ(mnem, "mov") || X86_MEQ(mnem, "lea") || X86_MEQ(mnem, "and") || X86_MEQ(mnem, "or") || X86_MEQ(mnem, "xor") || ((X86_MEQ(mnem, "sub") || X86_MEQ(mnem, "add")) && xb.tag == 1)))
+        r += x86_rsp_unk();
     return r;
 }
 inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xop xd) {
-    if (X86_MEQ(mnem, "label"))     return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : x86_reclbl(std::string(xa.s ? xa.s : "")) + "\n";
-    if (X86_MEQ(mnem, "comment"))   return std::string();
+    if (X86_MEQ(mnem, "label")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : x86_reclbl(std::string(xa.s ? xa.s : "")) + "\n";
+    if (X86_MEQ(mnem, "comment")) return std::string();
     if (X86_MEQ(mnem, "note")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string("#@") + xa.s + "\n");
     if (X86_MEQ(mnem, "srccomment")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("# ") + (xa.s ? xa.s : "") + "\n");
     if (X86_MEQ(mnem, "loc")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF || !xa.s || !xa.s[0]) ? std::string() : (std::string(".loc ") + std::to_string(xc.u) + " " + std::to_string(xb.u) + " 0\n");
     if (X86_MEQ(mnem, "commentrule")) return (MEDIUM_BINARY || MEDIUM_MACRO_DEF) ? std::string() : (std::string("#") + (xa.s ? xa.s : "") + "\n");
     if (X86_MEQ(mnem, "directive")) return MEDIUM_BINARY ? std::string() : (std::string("  ") + (xa.s ? xa.s : "") + "\n");
-    if (X86_MEQ(mnem, "raw"))       return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
+    if (X86_MEQ(mnem, "raw")) return MEDIUM_BINARY ? std::string() : (std::string(" ") + (xa.s ? xa.s : "") + "\n");
     if (X86_MEQ(mnem, ".quad")) {
         opnd a; x86_parse(xa, a);
         if (a.kind == XK_ILBL) return x86_quad_ilbl(a.lbl);
@@ -1696,7 +1747,8 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_SYM && !MEDIUM_BINARY) return x86_align_assert() + x86_call_text(a.sym, "");
         if (a.kind == XK_REG) {
             int m = x86_rnum(a.txt); uint8_t modrm = (uint8_t)(0xD0 | (m & 7)); uint8_t rex = (m >= 8) ? 0x41 : 0x40;
-            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("call") + a.txt + "\n")) + x86_gc_site(X86_SITE_CALL);
+            return x86_align_assert() + (MEDIUM_BINARY ? x86_Lrec(std::string((char)rex == 0x40 ? "" : std::string(1,(char)rex)) + (char)0xFF + (char)modrm) : (x86_rec("call") + a.txt + "\n")) +
+                x86_gc_site(X86_SITE_CALL);
         }
         return std::string();
     }
@@ -1736,48 +1788,50 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         return x86_rec("test") + "r8, r8\n";
     }
     if (X86_MEQ(mnem, "push")) return x86_push(a.txt);
-    if (X86_MEQ(mnem, "pop"))  return x86_pop(a.txt);
+    if (X86_MEQ(mnem, "pop")) return x86_pop(a.txt);
     if (X86_MEQ(mnem, "idiv")) return x86_idiv(a.txt);
-    if (X86_MEQ(mnem, "neg"))  return x86_neg(a.txt);
+    if (X86_MEQ(mnem, "neg")) return x86_neg(a.txt);
     if (X86_MEQ(mnem, "inc")) {
         if (a.kind == XK_FR64) return x86_frame_inc64(a.off);
         if (a.kind == XK_REG) return x86_inc_r(a.txt);
         if (a.kind == XK_REGDISP) return x86_reg_disp32_inc64(a.base, a.off);
-        return x86_bomb("x86: inc operand kind unencodable -- an encoder that cannot encode must refuse loudly, never emit nothing (the silent empty here deleted the to-box increment from every armed generator graph; ceo s283)");
+        return x86_bomb(
+            "x86: inc operand kind unencodable -- an encoder that cannot encode must refuse loudly, never emit nothing (the silent empty here deleted the to-box increment from every armed generator "
+            "graph; ceo s283)");
     }
     if (X86_MEQ(mnem, "movabs")) {
-        if (a.kind == XK_REG && b.kind == XK_IMM)      return x86_movabs_r64(a.txt, (uint64_t)b.imm);
+        if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movabs_r64(a.txt, (uint64_t)b.imm);
     }
     if (X86_MEQ(mnem, "mov")) {
         if (a.kind == XK_REG && b.kind == XK_R13RCX && a.txt && a.txt[0] == 'r' && a.txt[strlen(a.txt) - 1] != 'd') return x86_mov_subj_q(a.txt, b.off);
-        if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_mov_subj_d(a.txt, b.off);
-        if (a.kind == XK_FR32 && b.kind == XK_REG)     return x86_frame_store(a.off, b.txt);
-        if (a.kind == XK_FR32 && b.kind == XK_IMM)     return x86_frame_mov_imm(a.off, b.imm);
-        if (a.kind == XK_FR64 && b.kind == XK_REG)     return x86_frame_store64(a.off, b.txt);
-        if (a.kind == XK_FR64 && b.kind == XK_IMM)     return x86_frame_mov_imm64(a.off, b.imm);
-        if (a.kind == XK_RSP64 && b.kind == XK_REG)    return x86_rsp_store64(a.off, b.txt);
-        if (a.kind == XK_RSP64 && b.kind == XK_IMM)    return x86_rsp_store64_imm(a.off, b.imm);
-        if (a.kind == XK_RSP32 && b.kind == XK_REG)    return x86_rsp_store32(a.off, b.txt);
-        if (a.kind == XK_RSP32 && b.kind == XK_IMM)    return x86_rsp_store32_imm(a.off, b.imm);
-        if (a.kind == XK_REG && b.kind == XK_FR32)     return x86_frame_load(a.txt, b.off);
-        if (a.kind == XK_REG && b.kind == XK_FR64)     return x86_frame_load64(a.txt, b.off);
-        if (a.kind == XK_REG && b.kind == XK_ROSLOT)   return x86_ro_load_q(a.txt, b.off);
-        if (a.kind == XK_REG && b.kind == XK_RSP64)    return x86_rsp_load64(a.txt, b.off);
-        if (a.kind == XK_REG && b.kind == XK_RSP32)    return x86_rsp_load32(a.txt, b.off);
-        if (a.kind == XK_REGDISP && b.kind == XK_REG)  return x86_reg_disp32_store64(a.base, a.off, b.txt);
-        if (a.kind == XK_REGDISP && b.kind == XK_IMM)  return x86_reg_disp32_store_imm64(a.base, a.off, b.imm);
-        if (a.kind == XK_REG && b.kind == XK_REGDISP)  return x86_reg_disp32_load64(a.txt, b.base, b.off);
-        if (a.kind == XK_ABS64 && b.kind == XK_REG)    return x86_abs_disp32_store64(a.imm, b.txt);
-        if (a.kind == XK_REG && b.kind == XK_ABS64)    return x86_abs_disp32_load64(a.txt, b.imm);
-        if (a.kind == XK_REGDISP32 && b.kind == XK_REG)  return x86_reg_disp32_store32(a.base, a.off, b.txt);
-        if (a.kind == XK_REGDISP32 && b.kind == XK_IMM)  return x86_reg_disp32_store_imm32(a.base, a.off, b.imm);
-        if (a.kind == XK_REG && b.kind == XK_REGDISP32)  return x86_reg_disp32_load32(a.txt, b.base, b.off);
-        if (a.kind == XK_REG && b.kind == XK_MEMIDX8)  return x86_load_indexed8(a.txt, b.base, b.idx);
-        if (a.kind == XK_REG && b.kind == XK_MEMIND)   return x86_load_mem64(a.txt, b.txt);
-        if (a.kind == XK_REG && b.kind == XK_RIPGOT)   return x86_load_got(a.txt, xd.s, xc.u);
-        if (a.kind == XK_REG && b.kind == XK_RIPSEAL)  return x86_load_ro(a.txt, xd.s, xc.u);
-        if (a.kind == XK_REG && b.kind == XK_REG)      return x86_mov(a.txt, b.txt);
-        if (a.kind == XK_REG && b.kind == XK_IMM)      return x86_movimm(a.txt, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_R13RCX) return x86_mov_subj_d(a.txt, b.off);
+        if (a.kind == XK_FR32 && b.kind == XK_REG) return x86_frame_store(a.off, b.txt);
+        if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_mov_imm(a.off, b.imm);
+        if (a.kind == XK_FR64 && b.kind == XK_REG) return x86_frame_store64(a.off, b.txt);
+        if (a.kind == XK_FR64 && b.kind == XK_IMM) return x86_frame_mov_imm64(a.off, b.imm);
+        if (a.kind == XK_RSP64 && b.kind == XK_REG) return x86_rsp_store64(a.off, b.txt);
+        if (a.kind == XK_RSP64 && b.kind == XK_IMM) return x86_rsp_store64_imm(a.off, b.imm);
+        if (a.kind == XK_RSP32 && b.kind == XK_REG) return x86_rsp_store32(a.off, b.txt);
+        if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_store32_imm(a.off, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_load(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_FR64) return x86_frame_load64(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_ROSLOT) return x86_ro_load_q(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_RSP64) return x86_rsp_load64(a.txt, b.off);
+        if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_load32(a.txt, b.off);
+        if (a.kind == XK_REGDISP && b.kind == XK_REG) return x86_reg_disp32_store64(a.base, a.off, b.txt);
+        if (a.kind == XK_REGDISP && b.kind == XK_IMM) return x86_reg_disp32_store_imm64(a.base, a.off, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_load64(a.txt, b.base, b.off);
+        if (a.kind == XK_ABS64 && b.kind == XK_REG) return x86_abs_disp32_store64(a.imm, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_ABS64) return x86_abs_disp32_load64(a.txt, b.imm);
+        if (a.kind == XK_REGDISP32 && b.kind == XK_REG) return x86_reg_disp32_store32(a.base, a.off, b.txt);
+        if (a.kind == XK_REGDISP32 && b.kind == XK_IMM) return x86_reg_disp32_store_imm32(a.base, a.off, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP32) return x86_reg_disp32_load32(a.txt, b.base, b.off);
+        if (a.kind == XK_REG && b.kind == XK_MEMIDX8) return x86_load_indexed8(a.txt, b.base, b.idx);
+        if (a.kind == XK_REG && b.kind == XK_MEMIND) return x86_load_mem64(a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_RIPGOT) return x86_load_got(a.txt, xd.s, xc.u);
+        if (a.kind == XK_REG && b.kind == XK_RIPSEAL) return x86_load_ro(a.txt, xd.s, xc.u);
+        if (a.kind == XK_REG && b.kind == XK_REG) return x86_mov(a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movimm(a.txt, b.imm);
         fprintf(stderr, "FATAL x86(\"mov\"): no dispatch arm for operand pair kinds (%d, %d) — dest '%s', src '%s'.  Add the encoder + dispatch case here (R7); never let a mov emit nothing.\n",
                 a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
         abort();
@@ -1785,29 +1839,31 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
     if (X86_MEQ(mnem, "mov32")) { if (a.kind == XK_REG && b.kind == XK_IMM) return x86_movimm32(a.txt, b.imm); return std::string(); }
     if (X86_MEQ(mnem, "stk32")) { if (a.kind == XK_IMM && b.kind == XK_IMM) return x86_rsp_store32_imm((int)a.imm, b.imm); return std::string(); }
     if (X86_MEQ(mnem, "movabs")) { if (a.kind == XK_REG && xb.tag == 2) return x86_movabs_r64(a.txt, xb.u); return std::string(); }
-    if (X86_MEQ(mnem, "xor"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "xor")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_xor_rr(a.txt, b.txt); return std::string(); }
     if (X86_MEQ(mnem, "lea")) {
-        if (a.kind == XK_REG && b.kind == XK_ILBL)                  return x86_lea_rip_id(a.txt, b.lbl);
-        if (a.kind == XK_REG && b.kind == XK_RIPSEAL)               return x86_load_ro(a.txt, xd.s, xc.u);
-        if (a.kind == XK_REG && b.kind == XK_RIPGOT)                return x86_load_got(a.txt, xd.s, xc.u);
+        if (a.kind == XK_REG && b.kind == XK_ILBL) return x86_lea_rip_id(a.txt, b.lbl);
+        if (a.kind == XK_REG && b.kind == XK_RIPSEAL) return x86_load_ro(a.txt, xd.s, xc.u);
+        if (a.kind == XK_REG && b.kind == XK_RIPGOT) return x86_load_got(a.txt, xd.s, xc.u);
         if (a.kind == XK_REG && b.kind == XK_EXTLBL && xc.tag == 2) return x86_lea_ext(a.txt, (const struct bb_label_t *)(uintptr_t)xc.u);
         if (a.kind == XK_REG && (b.kind == XK_FR32 || b.kind == XK_FR64)) return x86_frame_lea(a.txt, b.off);
-        if (a.kind == XK_REG && b.kind == XK_REGDISP)              return x86_reg_disp32_lea64(a.txt, b.base, b.off);
-        if (a.kind == XK_REG && b.kind == XK_REGDISP32)            return x86_reg_disp32_lea64(a.txt, b.base, b.off);
-        if (a.kind == XK_REG && b.kind == XK_R13RCX)                return x86_lea_subj_cursor(a.txt);
-        if (a.kind == XK_REG && b.kind == XK_REG)                   return x86_lea_subj_cursor(a.txt);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_lea64(a.txt, b.base, b.off);
+        if (a.kind == XK_REG && b.kind == XK_REGDISP32) return x86_reg_disp32_lea64(a.txt, b.base, b.off);
+        if (a.kind == XK_REG && b.kind == XK_R13RCX) return x86_lea_subj_cursor(a.txt);
+        if (a.kind == XK_REG && b.kind == XK_REG) return x86_lea_subj_cursor(a.txt);
         if (a.kind == XK_REG && (b.kind == XK_RSP32 || b.kind == XK_RSP64)) return x86_reg_disp32_lea64(a.txt, "rsp", b.off);
-        if (b.txt && strstr(b.txt, "rip"))                          return x86_bomb("lea: unsealed [rip + label] operand — use the [rip + __] sealed form with (ptr,label) args");
+        if (b.txt && strstr(b.txt, "rip")) return x86_bomb("lea: unsealed [rip + label] operand — use the [rip + __] sealed form with (ptr,label) args");
         if (b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
-            fprintf(stderr, "FATAL x86(\"lea\"): no dispatch arm for frame/cell operand kind %d — dest '%s', src '%s'.  A lea that emits nothing is the ZB-FC-1 silent-drop corruption class (measured: bb_match_arbno's PAIR(2)/PAIR(3) view leas were dropped for months, masked only by r12 being callee-saved); add the encoder + dispatch case here (R7).\n",
+            fprintf(stderr,
+                "FATAL x86(\"lea\"): no dispatch arm for frame/cell operand kind %d — dest '%s', src '%s'.  A lea that emits nothing is the ZB-FC-1 silent-drop corruption class (measured: bb_match"
+                "_arbno's PAIR(2)/PAIR(3) view leas were dropped for months, masked only by r12 being callee-saved); add the encoder + dispatch case here (R7).\n",
                     b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
         }
         return std::string();
     }
     if (X86_MEQ(mnem, "add")) {
-        if (a.kind == XK_REG && b.kind == XK_REG)  return x86_add_rr(a.txt, b.txt);
-        if (a.kind == XK_REG && b.kind == XK_IMM)  return x86_add(a.txt, b.imm);
+        if (a.kind == XK_REG && b.kind == XK_REG) return x86_add_rr(a.txt, b.txt);
+        if (a.kind == XK_REG && b.kind == XK_IMM) return x86_add(a.txt, b.imm);
         if (a.kind == XK_ABS64 && b.kind == XK_IMM) return x86_abs_disp32_addsub_imm8(0, a.imm, b.imm);
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_add_to_reg(a.txt, b.off);
         if (a.kind == XK_FR32 && b.kind == XK_IMM) return x86_frame_add_imm(a.off, b.imm);
@@ -1815,8 +1871,11 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_REG && b.kind == XK_REGDISP32) return x86_reg_disp32_add32(a.txt, b.base, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_add_to_reg32(a.txt, b.off);
         if (a.kind == XK_RSP32 && b.kind == XK_IMM) return x86_rsp_add_imm32(a.off, b.imm);
-        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
-            fprintf(stderr, "FATAL x86(\"add\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A frame/cell access that emits nothing is the ZB-FC-1 silent-drop corruption class (the mov precedent, 2026-07-08); add the encoder + dispatch case here (R7).\n",
+        if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 || b.kind == XK_FR32 || b.kind == XK_FR64 ||
+            b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
+            fprintf(stderr,
+                "FATAL x86(\"add\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A frame/cell access that emits nothing is the ZB-FC-1 silent-drop corruption"
+                " class (the mov precedent, 2026-07-08); add the encoder + dispatch case here (R7).\n",
                     a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
         }
@@ -1829,20 +1888,24 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_frame_sub_from_reg(a.txt, b.off);
         if (a.kind == XK_REG && b.kind == XK_RSP32) return x86_rsp_sub_from_reg32(a.txt, b.off);
         if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64) {
-            fprintf(stderr, "FATAL x86(\"sub\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A frame/cell access that emits nothing is the ZB-FC-1 silent-drop corruption class (the mov precedent, 2026-07-08); add the encoder + dispatch case here (R7).\n",
+            fprintf(stderr,
+                "FATAL x86(\"sub\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A frame/cell access that emits nothing is the ZB-FC-1 silent-drop corruption"
+                " class (the mov precedent, 2026-07-08); add the encoder + dispatch case here (R7).\n",
                     a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
         }
         return std::string();
     }
-    if (X86_MEQ(mnem, "imul"))   { return x86_imul_rr(a.txt, b.txt); }
+    if (X86_MEQ(mnem, "imul")) { return x86_imul_rr(a.txt, b.txt); }
     if (X86_MEQ(mnem, "and")) {
         if (b.kind == XK_IMM) return x86_and(a.txt, b.imm);
         if (a.kind == XK_REG && b.kind == XK_REG) return x86_alu_rr("and", 0x21, a.txt, b.txt);
         if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_and_r64(a.txt, b.base, b.off);
         if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 ||
             b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
-            fprintf(stderr, "FATAL x86(\"and\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  An and that emits nothing leaves a following branch testing STALE FLAGS — the ZB-FC-1 silent-drop class; add the encoder + dispatch case here (R7).\n",
+            fprintf(stderr,
+                "FATAL x86(\"and\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  An and that emits nothing leaves a following branch testing STALE FLAGS — "
+                "the ZB-FC-1 silent-drop class; add the encoder + dispatch case here (R7).\n",
                     a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
         }
@@ -1854,7 +1917,9 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_or_r64(a.txt, b.base, b.off);
         if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 ||
             b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
-            fprintf(stderr, "FATAL x86(\"or\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  An or that emits nothing leaves a following branch testing STALE FLAGS — the ZB-FC-1 silent-drop class; add the encoder + dispatch case here (R7).\n",
+            fprintf(stderr,
+                "FATAL x86(\"or\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  An or that emits nothing leaves a following branch testing STALE FLAGS — th"
+                "e ZB-FC-1 silent-drop class; add the encoder + dispatch case here (R7).\n",
                     a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
         }
@@ -1871,23 +1936,28 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_REG && b.kind == XK_REGDISP) return x86_reg_disp32_cmp_r64(a.txt, b.base, b.off);
         if (a.kind == XK_FR32 || a.kind == XK_FR64 || a.kind == XK_RSP32 || a.kind == XK_RSP64 || a.kind == XK_REGDISP || a.kind == XK_REGDISP32 ||
             b.kind == XK_FR32 || b.kind == XK_FR64 || b.kind == XK_RSP32 || b.kind == XK_RSP64 || b.kind == XK_REGDISP || b.kind == XK_REGDISP32) {
-            fprintf(stderr, "FATAL x86(\"cmp\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A cmp that emits nothing leaves the following jcc testing STALE FLAGS — the ZB-FC-1 silent-drop class (measured s23o: SPD-2's guard cmps vanished when RDQ(\"___\",·) collided with the pinned fr64 prefix and parsed XK_FR64; only the .s region diff caught it, the probes stayed green on garbage flags).  Add the encoder + dispatch case here (R7).\n",
+            fprintf(stderr,
+                "FATAL x86(\"cmp\"): no dispatch arm for frame/cell operand pair kinds (%d, %d) — dest '%s', src '%s'.  A cmp that emits nothing leaves the following jcc testing STALE FLAGS — th"
+                "e ZB-FC-1 silent-drop class (measured s23o: SPD-2's guard cmps vanished when RDQ(\"___\",·) collided with the pinned fr64 prefix and parsed XK_FR64; only the .s region diff caught "
+                "it, the probes stayed green on garbage flags).  Add the encoder + dispatch case here (R7).\n",
                     a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
             abort();
         }
         return std::string();
     }
-    if (X86_MEQ(mnem, "cmp64"))  { if (b.kind == XK_IMM) return x86_cmp_imm64(a.txt, b.imm); return std::string(); }
-    if (X86_MEQ(mnem, "test"))   { return x86_test(a.txt, b.txt); }
+    if (X86_MEQ(mnem, "cmp64")) { if (b.kind == XK_IMM) return x86_cmp_imm64(a.txt, b.imm); return std::string(); }
+    if (X86_MEQ(mnem, "test")) { return x86_test(a.txt, b.txt); }
     if (X86_MEQ(mnem, "movsxd")) {
         if (a.kind == XK_REG && b.kind == XK_FR32) return x86_movsxd_frame(a.txt, b.off);
-        if (a.kind == XK_REG && b.kind == XK_REG)  return x86_movsxd(a.txt, b.txt);
-        fprintf(stderr, "FATAL x86(\"movsxd\"): no dispatch arm for operand pair kinds (%d, %d) — dest '%s', src '%s'.  A movsxd emitting the reg/reg form for a memory source is the mode-3/mode-4 divergence class (scan-nary saved_delta, 2026-07-13); add the encoder + dispatch case here (R7).\n",
+        if (a.kind == XK_REG && b.kind == XK_REG) return x86_movsxd(a.txt, b.txt);
+        fprintf(stderr,
+            "FATAL x86(\"movsxd\"): no dispatch arm for operand pair kinds (%d, %d) — dest '%s', src '%s'.  A movsxd emitting the reg/reg form for a memory source is the mode-3/mode-4 divergence c"
+            "lass (scan-nary saved_delta, 2026-07-13); add the encoder + dispatch case here (R7).\n",
                 a.kind, b.kind, a.txt ? a.txt : "(null)", b.txt ? b.txt : "(null)");
         abort();
     }
-    if (X86_MEQ(mnem, "movzx"))  {
-        if (b.kind == XK_MEMBI)  return x86_movzx_bir(a.txt, b.base, b.idx);
+    if (X86_MEQ(mnem, "movzx")) {
+        if (b.kind == XK_MEMBI) return x86_movzx_bir(a.txt, b.base, b.idx);
         if (b.kind == XK_REG) {
             int g = x86_rnum(a.txt), m = x86_rnum(b.txt);
             uint8_t rex = 0x48; if (g >= 8) rex |= 0x04; if (m >= 8) rex |= 0x01;
@@ -1897,11 +1967,12 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         }
         return x86_movzx_subj_byte(a.txt, b.kind == XK_R13RCX ? b.off : 0);
     }
-    if (X86_MEQ(mnem, "cmpb0"))  { (void)a; (void)b; return x86_cset_probe(); }
-    if (X86_MEQ(mnem, "bt"))     { (void)a; (void)b; return x86_cset_bt(); }
-    if (X86_MEQ(mnem, "xorps"))  { return x86_xorps_xmm0(); }
-    if (X86_MEQ(mnem, "movups")) { if (a.kind == XK_REGDISP && b.kind == XK_REG && !strcmp(b.txt, "xmm0")) return x86_movups_store_xmm0(a.base, a.off); return x86_bomb("movups: only [reg + disp], xmm0 is encodable -- an encoder that cannot encode refuses loudly"); }
-    if (X86_MEQ(mnem, "movsd"))  {
+    if (X86_MEQ(mnem, "cmpb0")) { (void)a; (void)b; return x86_cset_probe(); }
+    if (X86_MEQ(mnem, "bt")) { (void)a; (void)b; return x86_cset_bt(); }
+    if (X86_MEQ(mnem, "xorps")) { return x86_xorps_xmm0(); }
+    if (X86_MEQ(mnem, "movups")) { if (a.kind == XK_REGDISP && b.kind == XK_REG && !strcmp(b.txt, "xmm0")) return x86_movups_store_xmm0(a.base, a.off);
+        return x86_bomb("movups: only [reg + disp], xmm0 is encodable -- an encoder that cannot encode refuses loudly"); }
+    if (X86_MEQ(mnem, "movsd")) {
         if (b.txt && !strncmp(b.txt, "f64:", 4)) { uint64_t bits = strtoull(b.txt + 4, 0, 10); double d; memcpy(&d, &bits, 8); return x86_set_xmm0_double(d); }
         return std::string();
     }
@@ -1910,9 +1981,9 @@ inline std::string x86_core_inner_(const char * mnem, xop xa, xop xb, xop xc, xo
         if (a.kind == XK_REG && b.kind == XK_REG && b.txt && !strncmp(b.txt, "xmm", 3)) return x86_movq_r64_xmm(a.txt, b.txt);
         return std::string();
     }
-    if (X86_MEQ(mnem, "addsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("addsd", 0x58, a.txt, b.txt); return std::string(); }
-    if (X86_MEQ(mnem, "subsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("subsd", 0x5C, a.txt, b.txt); return std::string(); }
-    if (X86_MEQ(mnem, "mulsd"))    { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("mulsd", 0x59, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "addsd")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("addsd", 0x58, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "subsd")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("subsd", 0x5C, a.txt, b.txt); return std::string(); }
+    if (X86_MEQ(mnem, "mulsd")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_sse2_xx("mulsd", 0x59, a.txt, b.txt); return std::string(); }
     if (X86_MEQ(mnem, "cvtsi2sd")) { if (a.kind == XK_REG && b.kind == XK_REG) return x86_cvtsi2sd_xmm_r64(a.txt, b.txt); return std::string(); }
     return std::string();
 }
@@ -1941,7 +2012,7 @@ inline std::string x86_frame_unsink() {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_xfer_enter() {
-    return  x86("sub", "rsp", 32L)
+    return x86("sub", "rsp", 32L)
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "r14")
          + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13");
 }
@@ -1950,8 +2021,8 @@ inline std::string x86_xfer_leave() {
     return x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24) + x86("add", "rsp", 32L);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_alpha_carve(long K)          { return K > 0 ? x86("sub", "rsp", K) : std::string(); }
-inline std::string x86_gamma_free(long K)           { return K > 0 ? x86("add", "rsp", K) : std::string(); }
+inline std::string x86_alpha_carve(long K) { return K > 0 ? x86("sub", "rsp", K) : std::string(); }
+inline std::string x86_gamma_free(long K) { return K > 0 ? x86("add", "rsp", K) : std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_gamma_result(long K, long n) {
     long drop = K + 16 * (n - 1);
@@ -1970,22 +2041,28 @@ inline std::string x86_cell_push(int tag, int resume_ilbl) {
          + std::string("");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_main_prologue()             { return std::string(); }
-inline std::string x86_cell_unwind_tail()           { return x86("pop", "rax") + x86("pop", "r14") + std::string("") + x86("add", "rsp", 8L) + x86_jmp_reg("rax"); }
-inline std::string x86_cell_fail_body()             { return std::string("") + x86_cell_unwind_tail(); }
+inline std::string x86_main_prologue() { return std::string(); }
+inline std::string x86_cell_unwind_tail() { return x86("pop", "rax") + x86("pop", "r14") + std::string("") + x86("add", "rsp", 8L) + x86_jmp_reg("rax"); }
+inline std::string x86_cell_fail_body() { return std::string("") + x86_cell_unwind_tail(); }
 inline std::string x86_cell_cut_keep(const char * base) { return x86_reg_disp32_load64("rsp", base, 16) + x86_reg_disp32_lea64("rsp", base, 32); }
 inline std::string x86_chain_prev(const char * dst, const char * src) { return x86_reg_disp32_load64(dst, src, 16); }
 inline std::string x86_chain_tag_load(const char * dst32, const char * cell) { return x86_reg_disp32_load32(dst32, cell, 12); }
-inline std::string x86_zclaim(long b)   { return x86("sub", "rsp", b); }
+inline std::string x86_zclaim(long b) { return x86("sub", "rsp", b); }
 inline std::string x86_zrelease(long b) { return x86("add", "rsp", b); }
-inline std::string x86_arbno_rbp_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "arbno_rbp_unwind") + x86("mov", "rax", mark_mem) + x86("def", L(l_loop)) + x86("cmp", "rbp", "rax") + x86("jae", L(l_done)) + x86("test", "rbp", "rbp") + x86("je", L(l_done)) + x86("mov", "rbp", RDQ("rbp", 24)) + x86("jmp", L(l_loop)) + x86("def", L(l_done)); }
+inline std::string x86_arbno_rbp_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "arbno_rbp_unwind") + x86("mov", "rax", mark_mem) + x86("def", L(l_loop)) +
+    x86("cmp", "rbp", "rax") + x86("jae", L(l_done)) + x86("test", "rbp", "rbp") + x86("je", L(l_done)) + x86("mov", "rbp", RDQ("rbp", 24)) + x86("jmp", L(l_loop)) + x86("def", L(l_done)); }
 inline std::string x86_arbno_rbp_unwind(const char * mark_base, int mark_off, int l_loop, int l_done) { return x86_arbno_rbp_unwind_at(RDQ(mark_base, mark_off), l_loop, l_done); }
 #define X86_PL_TR_ENTRY_BYTES 32L
-#define X86_PL_TR_ARENA_MASK  (-134217728L)
-inline std::string x86_pl_tr_pop_entry() { return x86("sub", "r12", X86_PL_TR_ENTRY_BYTES) + x86("mov", "rdi", RDQ("r12", 0)) + x86("mov", "rax", RDQ("r12", 16)) + x86("mov", "rdx", RDQ("r12", 24)) + x86("mov", RDQ("rdi", 0), "rax") + x86("mov", RDQ("rdi", 8), "rdx"); }
+#define X86_PL_TR_ARENA_MASK (-134217728L)
+inline std::string x86_pl_tr_pop_entry() { return x86("sub", "r12", X86_PL_TR_ENTRY_BYTES) + x86("mov", "rdi", RDQ("r12", 0)) + x86("mov", "rax", RDQ("r12", 16)) + x86("mov", "rdx", RDQ("r12", 24)) +
+    x86("mov", RDQ("rdi", 0), "rax") + x86("mov", RDQ("rdi", 8), "rdx"); }
 inline std::string x86_pl_tr_top_sync() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", RDQ("rax", 0), "r12"); }
-inline std::string x86_pl_disj_open(const char * fb, int kt, int l_take, int l_done) { return x86("note", "pl_disj_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is") + x86("mov", "rax", fb) + x86_raw_pack("rax") + x86("mov", RDQ(fb, kt - 32), "rax") + x86("lea", "rcx", RDQ(fb, kt - 64)) + x86("test", "r13", "r13") + x86("je", L(l_take)) + x86("cmp", "r13", "rcx") + x86("jb", L(l_done)) + x86("def", L(l_take)) + x86("mov", "r13", "rcx") + x86("def", L(l_done)); }
-inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) + x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_entry() + x86("jmp", L(l_loop)) + x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
+inline std::string x86_pl_disj_open(const char * fb, int kt, int l_take, int l_done)
+    { return x86("note", "pl_disj_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
+    + x86("mov", "rax", fb) + x86_raw_pack("rax") + x86("mov", RDQ(fb, kt - 32), "rax") + x86("lea", "rcx", RDQ(fb, kt - 64)) + x86("test", "r13", "r13") + x86("je", L(l_take)) +
+    x86("cmp", "r13", "rcx") + x86("jb", L(l_done)) + x86("def", L(l_take)) + x86("mov", "r13", "rcx") + x86("def", L(l_done)); }
+inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) +
+    x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_entry() + x86("jmp", L(l_loop)) + x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_call_frame_enter(int gamma_ilbl, int omega_ilbl) {
     return x86_lea_rip_id("rcx", gamma_ilbl)
@@ -2005,7 +2082,7 @@ inline std::string x86_srf_floater(int wire_disp) {
          + x86_jmp_reg("rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_return_floater()  { return x86_srf_floater(16); }
+inline std::string x86_return_floater() { return x86_srf_floater(16); }
 inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
 extern "C" void rt_scan_sync_out(uint64_t delta);
 extern "C" uint64_t rt_scan_sync_in(void);
@@ -2026,7 +2103,11 @@ inline std::string x86_scan_sync_out() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sigma_reload() {
     static int said = 0; const char * e = getenv("SCRIP_GC_PLANT_STALE_SIGMA");
-    if (e && *e == '1') { if (!said) { said = 1; fprintf(stderr, "[GC-STALESIGMA] plant: the call successor inside a scan body reloads the position from the runtime but NOT the subject base, so r13 keeps the pre-collection address of a subject the callee's allocation moved (SCRIP_GC_PLANT_STALE_SIGMA=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first scan-synced call successor emitted.\n"); } return std::string(); }
+    if (e && *e == '1') { if (!said) { said = 1;
+        fprintf(stderr,
+        "[GC-STALESIGMA] plant: the call successor inside a scan body reloads the position from the runtime but NOT the subject base, so r13 keeps the pre-collection address of a subject the callee'"
+        "s allocation moved (SCRIP_GC_PLANT_STALE_SIGMA=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first scan-synced call successor emitted.\n");
+        } return std::string(); }
     return x86("call", "rt_scan_live_subj", (uint64_t)(uintptr_t)(void *)rt_scan_live_subj)
          + x86("mov", "r13", "rax");
 }
@@ -2061,8 +2142,8 @@ inline std::string x86_scan_sync_in_rr_force() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline bool x86_is_scan_builtin_name(const char *fn) {
     if (!fn) return false;
-    return !strcmp(fn, "tab")  || !strcmp(fn, "move") || !strcmp(fn, "upto") || !strcmp(fn, "many")
-        || !strcmp(fn, "any")  || !strcmp(fn, "find") || !strcmp(fn, "match")|| !strcmp(fn, "pos")
+    return !strcmp(fn, "tab") || !strcmp(fn, "move") || !strcmp(fn, "upto") || !strcmp(fn, "many")
+        || !strcmp(fn, "any") || !strcmp(fn, "find") || !strcmp(fn, "match")|| !strcmp(fn, "pos")
         || !strcmp(fn, "bal");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2089,7 +2170,8 @@ std::string bb_glue_wire_ω();
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int emit_diag_regs_suppress(void);
 extern "C" int g_monitor_bin;
-inline int x86_trace_hooks_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MON_VARS"); const char * s = getenv("SCRIP_SNO_STMTKW"); const char * m = getenv("MONITOR_BIN"); v = (e && *e == (char)48) ? 0 : (((s && *s == (char)49) || (m && *m && *m != (char)48) || g_monitor_bin) ? 1 : 0); } return v; }
+inline int x86_trace_hooks_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_MON_VARS"); const char * s = getenv("SCRIP_SNO_STMTKW"); const char * m = getenv("MONITOR_BIN");
+    v = (e && *e == (char)48) ? 0 : (((s && *s == (char)49) || (m && *m && *m != (char)48) || g_monitor_bin) ? 1 : 0); } return v; }
 inline int x86_diag_regs_on() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_DIAG_REGS"); v = (e && *e && *e != '0') ? 1 : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" uint64_t * rt_port_counts_slot(int uid, int port, const char * label);
@@ -2141,7 +2223,8 @@ inline std::string x86_port_hook(int site, int port, const char * lbl) {
     if (site == X86H_DEF) s += x86_portcount(port);
     if (site == X86H_JMP) s += x86_port_canary();
     if ((site == X86H_JMP || site == X86H_JCC) && x86_portname(port) && getenv("SCRIP_PORT_EXIT_AUDIT") && emit_port_exit_label_promotes(x86_portname(port)))
-        fprintf(stderr, "[PORT-EXIT-PROMOTION] target=%s port=%s site=%s uid=%d\n", x86_portname(port), port == X86P_GAMMA ? "γ" : port == X86P_OMEGA ? "ω" : "?", site == X86H_JMP ? "jmp" : "jcc", _.x86_uid);
+        fprintf(stderr, "[PORT-EXIT-PROMOTION] target=%s port=%s site=%s uid=%d\n", x86_portname(port), port == X86P_GAMMA ? "γ" : port == X86P_OMEGA ? "ω" : "?", site == X86H_JMP ? "jmp" : "jcc",
+            _.x86_uid);
     if (site == X86H_JMP && port == X86P_OMEGA && getenv("SCRIP_ZETA_OMEGA_TRACE"))
         fprintf(stderr, "[OMEGA-TRACE] x86_uid=%d op_omega_is_death=%s\n", _.x86_uid, _.op_omega_is_death ? "TRUE-DEATH" : "internal-alias");
     if (x86_fc_on()) {
@@ -2193,17 +2276,17 @@ inline std::string x86_zsm_ev(int kind) {
     return x86("comment", "ZSM")
          + x86("push", "rax") + x86("push", "rax")
          + x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx")
-         + x86("push", "r8")  + x86("push", "r9")  + x86("push", "r10") + x86("push", "r11")
-         + x86("mov",  "rdx", "rsp")
-         + x86("add",  "rdx", 80L)
-         + x86("mov",  "rdi", (long)_.nid)
-         + x86("mov",  "rsi", "rbp")
-         + x86("mov",  "rcx", (long)(kind | ((long)_.op_node_kind << 8)))
-         + x86("mov",  "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
+         + x86("push", "r8") + x86("push", "r9") + x86("push", "r10") + x86("push", "r11")
+         + x86("mov", "rdx", "rsp")
+         + x86("add", "rdx", 80L)
+         + x86("mov", "rdi", (long)_.nid)
+         + x86("mov", "rsi", "rbp")
+         + x86("mov", "rcx", (long)(kind | ((long)_.op_node_kind << 8)))
+         + x86("mov", "r8", (x86_rsp_slide_known() && !_.flat_jmp_entry) ? (long)_.op_zdepth : -1L)
          + x86("call_bare", "rt_zdp_ev", (uint64_t)(uintptr_t)(void *)rt_zdp_ev)
-         + x86("pop",  "r11") + x86("pop", "r10") + x86("pop", "r9")  + x86("pop", "r8")
-         + x86("pop",  "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
-         + x86("pop",  "rax") + x86("pop", "rax");
+         + x86("pop", "r11") + x86("pop", "r10") + x86("pop", "r9") + x86("pop", "r8")
+         + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi")
+         + x86("pop", "rax") + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_zsm_all() { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ZSM_ALL"); v = (e && *e == '1') ? 1 : 0; } return v; }
@@ -2213,7 +2296,7 @@ inline std::string x86_zdp_rbp_at(int port) {
     if (x86_zdp_rbp_frames()) { if (port == X86P_ALPHA) return x86_zsm_ev(1); if (port == X86P_BETA) return x86_zsm_ev(2); return std::string(); }
     if (!x86_zsm_all()) return std::string();
     if (port == X86P_ALPHA) return x86_zsm_ev(5);
-    if (port == X86P_BETA)  return x86_zsm_ev(6);
+    if (port == X86P_BETA) return x86_zsm_ev(6);
     return std::string();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2236,11 +2319,11 @@ inline std::string x86_zdp_rbp_gamma_at(int port) {
 extern "C" void rt_bomb(const char * msg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_bomb(const char * msg) {
-    const char * m   = msg ? msg : "(unimplemented box)";
+    const char * m = msg ? msg : "(unimplemented box)";
     const char * lbl = emit_intern_str(m);
     char lblbuf[24];
     if (!MEDIUM_BINARY && (!lbl || !lbl[0])) { strtab_label(lblbuf, sizeof lblbuf, m); lbl = lblbuf; }
-    uint64_t     fp  = (uint64_t)(uintptr_t)(void *)rt_bomb;
+    uint64_t fp = (uint64_t)(uintptr_t)(void *)rt_bomb;
     return x86_load_ro("rdi", lbl, (uint64_t)(uintptr_t)(const void *)m)
          + x86_call_ro("rt_bomb", fp)
          + (MEDIUM_BINARY ? x86_Lrec(x86_b2(0x0F, 0x0B)) : x86_recn("ud2") + "\n");
@@ -2303,10 +2386,10 @@ inline std::string x86_pair_loop() {
     for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++) {
         if (MEDIUM_BINARY) {
             if (XA_PAIR(i).define) { r += (char)'E'; r += x86_pair_idx_bytes(i); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
-            if (XA_PAIR(i).jmp)    { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(i); }
+            if (XA_PAIR(i).jmp) { r += x86_Lrec(x86_b1(0xE9)); r += (char)'F'; r += x86_pair_idx_bytes(i); }
         } else {
             if (XA_PAIR(i).define) { r += emit_fmt("%s:\n", XA_PAIR(i).define->name); r += x86_port_canary(); r += x86_port_hook(X86H_DEF, X86P_BETA, XA_PAIR(i).define->name); }
-            if (XA_PAIR(i).jmp)    r += x86_rec("jmp") + XA_PAIR(i).jmp->name + "\n";
+            if (XA_PAIR(i).jmp) r += x86_rec("jmp") + XA_PAIR(i).jmp->name + "\n";
         }
     }
     return r;
@@ -2339,7 +2422,8 @@ inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal, char (* 
     if (id == X86T_TGT0) return _.lbl_t0_p;
     if (id == X86T_TGT1) return _.lbl_t1_p;
     if (id < X86_INTERNAL_BASE) return x86_portlbl(id);
-    if (id - X86_INTERNAL_BASE >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL bb_emit_x86: record label id %d exceeds internal[%d] -- refusing the out-of-bounds stack write\n", id, X86_INTERNAL_MAX); abort(); }
+    if (id - X86_INTERNAL_BASE >= X86_INTERNAL_MAX) { fprintf(stderr, "FATAL bb_emit_x86: record label id %d exceeds internal[%d] -- refusing the out-of-bounds stack write\n", id, X86_INTERNAL_MAX);
+        abort(); }
     { int k = id - X86_INTERNAL_BASE; bb_label_t * l = &internal[k]; if (l->name[0] == '\0') { snprintf(inm[k], sizeof inm[k], ".Lxi%d", k); l->name = inm[k]; } return l; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2370,7 +2454,7 @@ inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define X86_IS_PORTMARK(s_, i_, n_)  ((s_)[i_] == '\x01' && (i_) + 1 < (n_) && ((i_) == 0 || (s_)[(i_) - 1] == '\n') && (s_)[(i_) + 1] >= '0' && (s_)[(i_) + 1] <= '3')
+#define X86_IS_PORTMARK(s_, i_, n_) ((s_)[i_] == '\x01' && (i_) + 1 < (n_) && ((i_) == 0 || (s_)[(i_) - 1] == '\n') && (s_)[(i_) + 1] >= '0' && (s_)[(i_) + 1] <= '3')
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_ir_digit(char c) { return c >= '0' && c <= '9'; }
 inline long x86_ir_num(const std::string & s, size_t & i) { long v = 0; size_t n = s.size(); while (i < n && x86_ir_digit(s[i])) v = v * 10 + (s[i++] - '0'); return v; }
@@ -2434,12 +2518,18 @@ inline void x86_text_sites_scan(const std::string & r, bool real = true) {
         if (!line.empty() && line[0] == '#') continue;
         size_t p = 0; while (p < line.size()) { size_t q = line.find(';', p); if (q == std::string::npos) q = line.size(); std::string ins = line.substr(p, q - p); p = q + 1;
             size_t a = ins.find_first_not_of(" \t"); if (a == std::string::npos) continue; ins = ins.substr(a); while (!ins.empty() && (ins.back() == ' ' || ins.back() == '\t')) ins.pop_back();
-            if (ins.compare(0, 9, ".Lgcsite_") == 0) { size_t c = ins.find_first_of(": "); if (c != std::string::npos && real) { size_t u = ins.rfind('_', c); if (u != std::string::npos) emit_gc_site_play(atoi(ins.c_str() + u + 1), (const void *)0, g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown); } continue; }
-            if (!ins.empty() && ins.back() == ':') { std::string nm = ins.substr(0, ins.size() - 1); size_t sp = nm.find_first_of(" \t"); if (sp != std::string::npos) nm = nm.substr(0, sp); size_t L = nm.size();
+            if (ins.compare(0, 9, ".Lgcsite_") == 0) { size_t c = ins.find_first_of(": "); if (c != std::string::npos && real) { size_t u = ins.rfind('_', c);
+                if (u != std::string::npos) emit_gc_site_play(atoi(ins.c_str() + u + 1), (const void *)0, g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown);
+                } continue; }
+            if (!ins.empty() && ins.back() == ':') { std::string nm = ins.substr(0, ins.size() - 1); size_t sp = nm.find_first_of(" \t"); if (sp != std::string::npos) nm = nm.substr(0, sp);
+                size_t L = nm.size();
                 int is_a = L >= 3 && nm.compare(L - 3, 3, "_\xce\xb1") == 0, is_b = L >= 3 && nm.compare(L - 3, 3, "_\xce\xb2") == 0;
-                if (is_a) { x86_rsp_S().delta = 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else if (is_b) { x86_rsp_S().delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else x86_rsp_define(4, x86_rsp_hash(nm));
+                if (is_a) { x86_rsp_S().delta = 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else if (is_b) { x86_rsp_S().delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0;
+                    x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else x86_rsp_define(4, x86_rsp_hash(nm));
                 continue; }
-            if (ins.size() > 2 && ins[0] == 'j') { size_t sp = ins.find_first_of(" \t"); if (sp != std::string::npos) { std::string mn = ins.substr(0, sp); size_t t0 = ins.find_first_not_of(" \t", sp); std::string tg = t0 != std::string::npos ? ins.substr(t0) : std::string(); size_t te = tg.find_first_of(" \t#"); if (te != std::string::npos) tg = tg.substr(0, te);
+            if (ins.size() > 2 && ins[0] == 'j') { size_t sp = ins.find_first_of(" \t"); if (sp != std::string::npos) { std::string mn = ins.substr(0, sp);
+                size_t t0 = ins.find_first_not_of(" \t", sp); std::string tg = t0 != std::string::npos ? ins.substr(t0) : std::string(); size_t te = tg.find_first_of(" \t#");
+                if (te != std::string::npos) tg = tg.substr(0, te);
                     if (!tg.empty() && tg.find('[') == std::string::npos && tg != "rax" && tg != "rcx" && tg != "rdx" && tg != "r11" && tg != "rdi" && tg != "rsi") x86_rsp_jump(4, x86_rsp_hash(tg));
                     if (mn == "jmp") x86_rsp_S().dead = 1; } continue; }
             if (ins.compare(0, 3, "ret") == 0) { x86_rsp_S().dead = 1; continue; }
@@ -2452,19 +2542,23 @@ inline void x86_text_rsp_notes_strip(std::string & r) {
     r.swap(o);
 }
 inline void bb_emit_x86(const std::string & s) {
-    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); { x86_rsp_st_t before = x86_rsp_S(); x86_rsp_S().quiet = 1; x86_text_sites_scan(r, false); x86_rsp_prepass_commit(before); } x86_text_sites_scan(r, true); x86_text_rsp_notes_strip(r); emit_text_n(r.data(), r.size()); } return; }
+    if (!MEDIUM_BINARY) { if (!s.empty()) { std::string r = x86_internal_resolve(s); { x86_rsp_st_t before = x86_rsp_S(); x86_rsp_S().quiet = 1; x86_text_sites_scan(r, false);
+        x86_rsp_prepass_commit(before); } x86_text_sites_scan(r, true); x86_text_rsp_notes_strip(r); emit_text_n(r.data(), r.size()); } return; }
     { x86_rsp_st_t before = x86_rsp_S(); x86_rsp_st_t & S = x86_rsp_S(); S.quiet = 1; size_t i = 0, n = s.size();
       while (i < n) { char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; i += (size_t)k; if (k > 0) S.dead = 0; }
         else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); }
-        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0; } else if (id == X86P_BETA) { S.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; S.dead = 0; S.unknown = 0; } else x86_rsp_define(1, (uint64_t)id); }
+        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { S.delta = 0; S.dead = 0; S.unknown = 0;
+            } else if (id == X86P_BETA) { S.delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; S.dead = 0; S.unknown = 0; } else x86_rsp_define(1, (uint64_t)id); }
         else if (tag == 'Q') { i++; }
         else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); }
         else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); }
-        else if (tag == 'X' || tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'X') x86_rsp_jump(3, v); else x86_rsp_define(3, v); }
+        else if (tag == 'X' || tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'X') x86_rsp_jump(3, v);
+            else x86_rsp_define(3, v); }
         else if (tag == 'G') { S.dead = 1; }
         else if (tag == 'K') { S.mark = S.delta; S.mark_unknown = S.unknown; }
-        else if (tag == 'k' || tag == 'R' || tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (tag == 'k') { S.delta = S.mark + (int32_t)v; S.dead = 0; S.unknown = S.mark_unknown; } else if (tag == 'R' && !S.aligned) S.delta += (int32_t)v; }
+        else if (tag == 'k' || tag == 'R' || tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j);
+            if (tag == 'k') { S.delta = S.mark + (int32_t)v; S.dead = 0; S.unknown = S.mark_unknown; } else if (tag == 'R' && !S.aligned) S.delta += (int32_t)v; }
         else if (tag == 'U') { if (!S.aligned) S.unknown = 1; }
         else if (tag == 'A') { S.aligned = 1; S.before = S.delta; }
         else if (tag == 'Z') { S.aligned = 0; S.delta = S.before; }
@@ -2477,7 +2571,9 @@ inline void bb_emit_x86(const std::string & s) {
         char tag = s[i++];
         if (tag == 'L') { int k = (unsigned char)s[i++]; for (int j = 0; j < k; j++) bb_emit_byte((uint8_t)(unsigned char)s[i++]); if (k > 0) x86_rsp_S().dead = 0; }
         else if (tag == 'J') { int id = (unsigned char)s[i++]; x86_rsp_jump(1, (uint64_t)id); bb_emit_patch_rel32(x86_label_for(id, internal, inm)); }
-        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { x86_rsp_S().delta = 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else if (id == X86P_BETA) { x86_rsp_S().delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else x86_rsp_define(1, (uint64_t)id); bb_label_define(x86_label_for(id, internal, inm)); }
+        else if (tag == 'D') { int id = (unsigned char)s[i++]; if (id == X86P_ALPHA) { x86_rsp_S().delta = 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0;
+            } else if (id == X86P_BETA) { x86_rsp_S().delta = _.op_fc_bytes > 0 ? (int)_.op_fc_bytes : 0; x86_rsp_S().dead = 0; x86_rsp_S().unknown = 0; } else x86_rsp_define(1, (uint64_t)id);
+            bb_label_define(x86_label_for(id, internal, inm)); }
         else if (tag == 'Q') { int id = (unsigned char)s[i++]; bb_emit_patch_abs64(x86_label_for(id, internal, inm)); }
         else if (tag == 'E') { int idx = x86_pair_idx_read(s, i); x86_rsp_define(2, (uint64_t)idx); if (XA_PAIR(idx).define) bb_label_define(XA_PAIR(idx).define); }
         else if (tag == 'F') { int idx = x86_pair_idx_read(s, i); x86_rsp_jump(2, (uint64_t)idx); bb_label_t * _t = x86_pair_tgt(idx); if (_t) bb_emit_patch_rel32(_t); }
@@ -2485,8 +2581,10 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_define(3, v); bb_label_define((bb_label_t *)(uintptr_t)v); }
         else if (tag == 'G') { x86_rsp_S().dead = 1; }
         else if (tag == 'K') { x86_rsp_S().mark = x86_rsp_S().delta; x86_rsp_S().mark_unknown = x86_rsp_S().unknown; }
-        else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_S().delta = x86_rsp_S().mark + (int32_t)v; x86_rsp_S().dead = 0; x86_rsp_S().unknown = x86_rsp_S().mark_unknown; }
-        else if (tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); extern bb_buf_t bb_emit_buf; extern int bb_emit_pos; emit_gc_site_play((int)v, (const void *)(bb_emit_buf + bb_emit_pos), g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown); }
+        else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_S().delta = x86_rsp_S().mark + (int32_t)v; x86_rsp_S().dead = 0;
+            x86_rsp_S().unknown = x86_rsp_S().mark_unknown; }
+        else if (tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); extern bb_buf_t bb_emit_buf; extern int bb_emit_pos;
+            emit_gc_site_play((int)v, (const void *)(bb_emit_buf + bb_emit_pos), g_x86_rsp_aligned ? g_x86_rsp_before : g_x86_rsp_delta, g_x86_rsp_aligned, g_x86_rsp_unknown); }
         else if (tag == 'R') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); if (!g_x86_rsp_aligned) g_x86_rsp_delta += (int32_t)v; }
         else if (tag == 'U') { if (!g_x86_rsp_aligned) g_x86_rsp_unknown = 1; }
         else if (tag == 'A') { g_x86_rsp_aligned = 1; g_x86_rsp_before = g_x86_rsp_delta; }
@@ -2499,20 +2597,29 @@ extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int head
 extern "C" void rt_gc_poll(void);
 extern "C" void rt_gc_poll_asm(void);
 extern "C" int g_gc_pending;
-inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k; } else if (t == 'J') { i += 1; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 1; } else if (t == 'E') { i += 4; } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else if (t == 'S') { i += 4; } else if (t == 'R') { i += 4; } else if (t == 'U' || t == 'A' || t == 'Z' || t == 'G' || t == 'K') { } else if (t == 'k') { i += 4; } else return -1; } return n; }
+inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k;
+    } else if (t == 'J') { i += 1; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 1; } else if (t == 'E') { i += 4;
+    } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else if (t == 'S') { i += 4; } else if (t == 'R') { i += 4;
+    } else if (t == 'U' || t == 'A' || t == 'Z' || t == 'G' || t == 'K') { } else if (t == 'k') { i += 4; } else return -1; } return n; }
 inline std::string x86_gc_gate(const std::string & body) {
-    std::string test = x86("push", "rax") + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(const void *)&g_gc_pending, "g_gc_pending") + x86("mov", "eax", RDD("rax", 0)) + x86("test", "eax", "eax") + x86("pop", "rax");
+    std::string test =
+        x86("push", "rax") + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(const void *)&g_gc_pending, "g_gc_pending") + x86("mov", "eax", RDD("rax", 0)) +
+        x86("test", "eax", "eax") + x86("pop", "rax");
     if (!MEDIUM_BINARY) return test + x86("directive", "\tje 1f") + body + x86("directive", "1:");
     { long n = x86_rec_bytes(body);
-      if (n <= 0) { static int said; if (!said++ && getenv("SCRIP_GATE_DIAG")) fprintf(stderr, "[GATE-DIAG] a poll body carries a record kind x86_rec_bytes does not size; the site is emitted ungated\n"); return body; }
+      if (n <= 0) { static int said;
+          if (!said++ && getenv("SCRIP_GATE_DIAG")) fprintf(stderr, "[GATE-DIAG] a poll body carries a record kind x86_rec_bytes does not size; the site is emitted ungated\n"); return body; }
       std::string je = (n <= 127) ? x86_b2(0x74, (uint8_t)n) : (x86_b2(0x0F, 0x84) + x86_b4((uint8_t)(n & 255), (uint8_t)((n >> 8) & 255), (uint8_t)((n >> 16) & 255), (uint8_t)((n >> 24) & 255)));
       return test + x86_Lrec(je) + body; }
 }
-inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/'); return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm)); }
+inline std::string x86_rt_gc_poll_at(const char * f, int l) { const char * b = strrchr(f, '/');
+    return x86("note", std::string("gc_poll ") + (b ? b + 1 : f) + ":" + std::to_string(l)) + x86_gc_gate(x86("call", "rt_gc_poll_asm", (uint64_t)(uintptr_t)(void *)rt_gc_poll_asm)); }
 #define x86_rt_gc_poll() x86_rt_gc_poll_at(__FILE__, __LINE__)
 extern "C" void rt_gc_point_arr_probe_c(DESCR_t * arr, int n, const char ** saved_subject_reg, char * floor);
 inline std::string x86_rt_gc_poll_res() {
-return x86_gc_gate(x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r13 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or scan_subj")
+return x86_gc_gate(x86("comment",
+    "ARCH-GC 6.5b: the box result lives in rax:rdx, so it is spilled as a DESCR cell at the sweep floor across the poll and reloaded -- the walker sweeps [poll floor, stack top) and relocates it; r1"
+    "3 is spilled as a raw word BELOW the floor and handed to the probe entry as the saved subject, which rewrites it only when it aliases Sigma or scan_subj")
          + x86("sub", "rsp", (long)32)
          + x86_reg_disp32_store64("rsp", 0, "r13")
          + x86_reg_disp32_store64("rsp", 16, "rax")
@@ -2530,13 +2637,13 @@ return x86_gc_gate(x86("comment", "ARCH-GC 6.5b: the box result lives in rax:rdx
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_point_arr_c(DESCR_t * arr, int n, const char ** r0, char * floor);
 inline std::string x86_align_call_enter() {
-    return  x86_rsp_mark('A') + x86("mov", "r11", "rsp")
+    return x86_rsp_mark('A') + x86("mov", "r11", "rsp")
          + x86("and", "rsp", (long)-16)
          + x86("sub", "rsp", (long)16)
          + x86_rsp_store64(0, "r11");
 }
 inline std::string x86_align_call_leave() {
-    return  x86_rsp_load64("rsp", 0) + x86_rsp_mark('Z');
+    return x86_rsp_load64("rsp", 0) + x86_rsp_mark('Z');
 }
 inline std::string x86_rt_gc_poll_rec1(const char * preg, const char * lenreg32, int keep_rax, int keep_rdx = 0) {
 return x86_gc_gate(x86("sub", "rsp", (long)32)
@@ -2571,11 +2678,13 @@ return x86_gc_gate(x86("sub", "rsp", (long)16)
          + x86("add", "rsp", (long)16));
 }
 inline std::string x86_rt_gc_poll_rec2(const char * preg0, const char * lenreg32_0, const char * preg1, const char * lenreg32_1) {
-return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a: two live string pointers across one poll, each written as a well-formed tagged DESCR cell -- the range walk relocates only what gc_cell_visit can TYPE, so a raw spilled pointer is reported and never rooted")
+return x86_gc_gate(x86("comment",
+    "ARCH-GC 2b RULE 1a: two live string pointers across one poll, each written as a well-formed tagged DESCR cell -- the range walk relocates only what gc_cell_visit can TYPE, so a raw spilled poin"
+    "ter is reported and never rooted")
          + x86("sub", "rsp", (long)32)
-         + x86_rsp_store32_imm(0,  (long)DT_S)
-         + x86_rsp_store32(4,  lenreg32_0)
-         + x86_rsp_store64(8,  preg0)
+         + x86_rsp_store32_imm(0, (long)DT_S)
+         + x86_rsp_store32(4, lenreg32_0)
+         + x86_rsp_store64(8, preg0)
          + x86_rsp_store32_imm(16, (long)DT_S)
          + x86_rsp_store32(20, lenreg32_1)
          + x86_rsp_store64(24, preg1)
@@ -2590,11 +2699,13 @@ return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a: two live string pointers 
 }
 inline std::string x86_rt_gc_poll_rec_sigma_needle() { return x86_rt_gc_poll_rec2("r13", "r15d", "rax", "edx"); }
 inline std::string x86_rt_gc_poll_rec2_res(const char * preg0, const char * lenreg32_0) {
-return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a, cell 1 RAW: a DESCR_t return arrives as rax={v,src,slen} rdx={ptr}, so the register pair IS a well-formed cell and writing DT_S over it would forge the tag instead of carrying it")
+return x86_gc_gate(x86("comment",
+    "ARCH-GC 2b RULE 1a, cell 1 RAW: a DESCR_t return arrives as rax={v,src,slen} rdx={ptr}, so the register pair IS a well-formed cell and writing DT_S over it would forge the tag instead of carryi"
+    "ng it")
          + x86("sub", "rsp", (long)32)
-         + x86_rsp_store32_imm(0,  (long)DT_S)
-         + x86_rsp_store32(4,  lenreg32_0)
-         + x86_rsp_store64(8,  preg0)
+         + x86_rsp_store32_imm(0, (long)DT_S)
+         + x86_rsp_store32(4, lenreg32_0)
+         + x86_rsp_store64(8, preg0)
          + x86_rsp_store64(16, "rax")
          + x86_rsp_store64(24, "rdx")
          + x86_reg_disp32_lea64("rdi", "rsp", 0)
@@ -2609,14 +2720,14 @@ return x86_gc_gate(x86("comment", "ARCH-GC 2b RULE 1a, cell 1 RAW: a DESCR_t ret
 }
 inline std::string x86_rt_gc_poll_rec_sigma_res() { return x86_rt_gc_poll_rec2_res("r13", "r15d"); }
 inline std::string x86_rt_gc_poll_rec_subject_new() { return x86_rt_gc_poll_rec1("rax", "edx", 0, 1); }
-inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return  x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
+inline std::string x86_rt_gc_poll_rec_sigma_word(int keep_rax) { return x86_rt_gc_poll_rec1("r13", "r15d", keep_rax, 1); }
 inline std::string x86_rt_gc_poll_rec_sigma_pair(int ptr_in_rax, int lbl) {
 return x86_gc_gate(x86("sub", "rsp", (long)48)
-         + x86_rsp_store32_imm(0,  (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
+         + x86_rsp_store32_imm(0, (long)DT_S) + x86_rsp_store32(4, "r15d") + x86_rsp_store64(8, "r13")
          + x86_rsp_store32_imm(16, (long)DT_I) + x86_rsp_store32_imm(20, 0L) + x86_rsp_store64(24, "rax")
          + x86_rsp_store32_imm(32, (long)DT_I) + x86_rsp_store32_imm(36, 0L) + x86_rsp_store64(40, "rdx")
-         + IF(ptr_in_rax,  x86("cmp",  "rdx", (long)4) + x86("jne", L(lbl)) + x86_rsp_store32_imm(16, (long)DT_P) + x86("def", L(lbl)))
-         + IF(!ptr_in_rax, x86("test", "rax", "rax")    + x86("je",  L(lbl)) + x86_rsp_store32_imm(32, (long)DT_P) + x86("def", L(lbl)))
+         + IF(ptr_in_rax, x86("cmp", "rdx", (long)4) + x86("jne", L(lbl)) + x86_rsp_store32_imm(16, (long)DT_P) + x86("def", L(lbl)))
+         + IF(!ptr_in_rax, x86("test", "rax", "rax") + x86("je", L(lbl)) + x86_rsp_store32_imm(32, (long)DT_P) + x86("def", L(lbl)))
          + x86_reg_disp32_lea64("rdi", "rsp", 0)
          + x86("mov", "esi", (long)3)
          + x86("mov", "edx", (long)0)

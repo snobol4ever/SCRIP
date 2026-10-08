@@ -51,10 +51,14 @@ extern void ir_dump_tree(const tree_t * e, FILE * f);
 extern void stmt_src_set_file(const char * path);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * slurp(FILE * f, size_t * len) {
-    size_t cap = 1 << 16, n = 0; char * b = ct_alloc(cap + 2);
+    size_t cap = 1 << 16, n = 0;
+    char * b = ct_alloc(cap + 2);
     if (!b) return NULL;
     for (;;) { size_t r = fread(b + n, 1, cap - n, f); n += r; if (n < cap) break; cap *= 2; char * nb = ct_grow(b, cap + 2); if (!nb) { ct_drop(b); return NULL; } b = nb; }
-    b[n] = 0; b[n + 1] = 0; *len = n; return b;
+    b[n] = 0;
+    b[n + 1] = 0;
+    *len = n;
+    return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int64_t mono_ns(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (int64_t)ts.tv_sec * 1000000000LL + (int64_t)ts.tv_nsec; }
@@ -82,11 +86,16 @@ int pascal_lex_wrapped(void) { static int (*real)(void); if (!real) real = (int 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lex_clock_noop(int i) { return i; }
 static void lex_clock_calibrate(double * in_ns, double * full_ns) {
-    enum { N = 4000000 }; int (* volatile fn)(int) = lex_clock_noop; int64_t acc = 0, s = 0;
+    enum { N = 4000000 };
+    int (* volatile fn)(int) = lex_clock_noop;
+    int64_t acc = 0, s = 0;
     for (int i = 0; i < N; i++) { int64_t a = mono_ns(); acc += mono_ns() - a; }
     *in_ns = (double) acc / N;
-    int64_t t0 = mono_ns(); for (int i = 0; i < N; i++) s += fn(i); int64_t t1 = mono_ns();
-    for (int i = 0; i < N; i++) { int64_t a = mono_ns(); s += fn(i); acc += mono_ns() - a; } int64_t t2 = mono_ns();
+    int64_t t0 = mono_ns();
+    for (int i = 0; i < N; i++) s += fn(i);
+    int64_t t1 = mono_ns();
+    for (int i = 0; i < N; i++) { int64_t a = mono_ns(); s += fn(i); acc += mono_ns() - a; }
+    int64_t t2 = mono_ns();
     *full_ns = (double) ((t2 - t1) - (t1 - t0)) / N + (double) (s & 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -99,7 +108,8 @@ static ssize_t tree_hash_write(void * cookie, const char * b, size_t n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dump_program(const tree_t * ast, int hash) {
     if (!hash) { for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], stdout); return; }
-    uint64_t h = 0; cookie_io_functions_t io = { NULL, tree_hash_write, NULL, NULL };
+    uint64_t h = 0;
+    cookie_io_functions_t io = { NULL, tree_hash_write, NULL, NULL };
     FILE * f = fopencookie(&h, "w", io);
     if (!f) { fprintf(stderr, "parser_%s: no hashing stream\n", PARSER_NAME); exit(2); }
     for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], f);
@@ -131,11 +141,15 @@ static int parse_and_dump(char * src, size_t len, const char * name, int64_t * p
 #if defined(PARSER_LANG_PROLOG)
     PlProgram * pl = (PlProgram *) parsed;
     if (!pl || pl->nerrors > 0) { puts("Parse Error"); return 1; }
-    tree_t * kids[pl->nclauses > 0 ? pl->nclauses : 1]; tree_t prog = { .t = TT_PROGRAM, .n = 0, .c = kids };
+    tree_t * kids[pl->nclauses > 0 ? pl->nclauses : 1];
+    tree_t prog = { .t = TT_PROGRAM, .n = 0, .c = kids };
     for (PlClause * cl = pl->head; cl && prog.n < pl->nclauses; cl = cl->next) kids[prog.n++] = cl->tr;
     dump_program(&prog, hash);
 #else
-    int64_t ln = g_lex_ns, lc = g_lex_calls; tree_t * ast = PARSER_TREE(parsed); g_lex_ns = ln; g_lex_calls = lc;
+    int64_t ln = g_lex_ns, lc = g_lex_calls;
+    tree_t * ast = PARSER_TREE(parsed);
+    g_lex_ns = ln;
+    g_lex_calls = lc;
     if (!ast) { puts("Parse Error"); return 1; }
     dump_program(ast, hash);
 #endif
@@ -144,19 +158,26 @@ static int parse_and_dump(char * src, size_t len, const char * name, int64_t * p
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int main(int argc, char ** argv) {
-    const char * hv = getenv("PARSER_TREE_HASH"); int hash = hv && !strcmp(hv, "1");
+    const char * hv = getenv("PARSER_TREE_HASH");
+    int hash = hv && !strcmp(hv, "1");
     const char * list = getenv("PARSER_FILES");
     if (list && *list) {
         FILE * lf = fopen(list, "r");
         if (!lf) { fprintf(stderr, "parser_%s: cannot open list '%s'\n", PARSER_NAME, list); return 2; }
-        size_t llen = 0; char * names = slurp(lf, &llen); fclose(lf);
+        size_t llen = 0;
+        char * names = slurp(lf, &llen);
+        fclose(lf);
         if (!names) { fprintf(stderr, "parser_%s: out of memory\n", PARSER_NAME); return 2; }
-        int rc = 0; long files = 0, bytes = 0; int64_t pns = 0, pns1 = 0;
+        int rc = 0;
+        long files = 0, bytes = 0;
+        int64_t pns = 0, pns1 = 0;
         for (char * nm = strtok(names, "\n"); nm; nm = strtok(NULL, "\n")) {
             FILE * f = fopen(nm, "r");
             printf("== %s\n", nm);
             if (!f) { puts("Parse Error"); rc = 1; continue; }
-            size_t len = 0; char * src = slurp(f, &len); fclose(f);
+            size_t len = 0;
+            char * src = slurp(f, &len);
+            fclose(f);
             if (!src) { fprintf(stderr, "parser_%s: out of memory\n", PARSER_NAME); return 2; }
             bytes += (long)len;
             fflush(stdout);
@@ -165,15 +186,21 @@ int main(int argc, char ** argv) {
             if (++files == 1) pns1 = pns;
         }
         char lexm[256] = "";
-        if (lex_clock_on()) { double in_ns = 0, full_ns = 0; lex_clock_calibrate(&in_ns, &full_ns); double lex_ns = (double) g_lex_ns - (double) g_lex_calls * in_ns, par_ns = (double) pns - lex_ns - (double) g_lex_calls * full_ns;
-            snprintf(lexm, sizeof lexm, " lex_calls=%lld lex_raw_us=%lld clock_in_ns=%.1f clock_full_ns=%.1f lex_us=%.0f parser_us=%.0f", (long long) g_lex_calls, (long long) (g_lex_ns / 1000), in_ns, full_ns, lex_ns / 1000, par_ns / 1000); }
+        if (lex_clock_on()) {
+            double in_ns = 0, full_ns = 0;
+            lex_clock_calibrate(&in_ns, &full_ns);
+            double lex_ns = (double) g_lex_ns - (double) g_lex_calls * in_ns, par_ns = (double) pns - lex_ns - (double) g_lex_calls * full_ns;
+            snprintf(lexm, sizeof lexm, " lex_calls=%lld lex_raw_us=%lld clock_in_ns=%.1f clock_full_ns=%.1f lex_us=%.0f parser_us=%.0f", (long long) g_lex_calls, (long long) (g_lex_ns / 1000), in_ns,
+                full_ns, lex_ns / 1000, par_ns / 1000);
+        }
         fprintf(stderr, "PARSER-METRICS files=%ld bytes=%ld parse_first_us=%lld parse_us=%lld%s\n", files, bytes, (long long)(pns1 / 1000), (long long)(pns / 1000), lexm);
         return rc;
     }
     const char * path = (argc > 1 && strcmp(argv[1], "-") != 0) ? argv[1] : NULL;
     FILE * f = path ? fopen(path, "r") : stdin;
     if (!f) { fprintf(stderr, "parser_%s: cannot open '%s'\n", PARSER_NAME, path); return 2; }
-    size_t len = 0; char * src = slurp(f, &len);
+    size_t len = 0;
+    char * src = slurp(f, &len);
     if (path) fclose(f);
     if (!src) { fprintf(stderr, "parser_%s: out of memory\n", PARSER_NAME); return 2; }
     int64_t pns = 0;

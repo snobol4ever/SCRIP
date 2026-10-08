@@ -17,14 +17,16 @@
 #include "SM.h"
 int g_fi8_gen_init_count = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void polyglot_init(stage2_t *s2, const tree_t *prog)
-{
+void polyglot_init(stage2_t *s2, const tree_t *prog) {
     if (!prog) return;
     label_table_build(s2, prog);
     prescan_defines(prog);
     g_fi8_gen_init_count++;
-    s2->proc_count = 0; { extern void global_reset(void); global_reset(); }
-    scan_subj = ""; scan_pos = 1; scan_depth = 0;
+    s2->proc_count = 0;
+    { extern void global_reset(void); global_reset(); }
+    scan_subj = "";
+    scan_pos = 1;
+    scan_depth = 0;
     { extern void rt_scan_subj_len_set(const char *, long); rt_scan_subj_len_set(scan_subj, 0); }
     g_root = NULL;
     prolog_atom_init();
@@ -33,32 +35,25 @@ void polyglot_init(stage2_t *s2, const tree_t *prog)
     s2->module_registry.main_mod = -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int polyglot_module_open(stage2_t *s2, const tree_t *s)
-{
+int polyglot_module_open(stage2_t *s2, const tree_t *s) {
     stage2_mods_reserve(&s2->module_registry, s2->module_registry.nmod + 1);
     int mod_idx = s2->module_registry.nmod++;
     ScripModule *m = &s2->module_registry.mods[mod_idx];
-    m->name             = NULL;
-    m->first            = s;
-    m->last             = s;
-    m->nstmts           = 0;
+    m->name = NULL;
+    m->first = s;
+    m->last = s;
+    m->nstmts = 0;
     m->core_label_start = s2->label_count;
     m->core_label_count = 0;
-    m->proc_start       = s2->proc_count;
-    m->nprocs           = 0;
+    m->proc_start = s2->proc_count;
+    m->nprocs = 0;
     return mod_idx;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s)
-{
-    if (mod_idx < 0) return;
-    s2->module_registry.mods[mod_idx].last = s;
-    s2->module_registry.mods[mod_idx].nstmts++;
-}
+void polyglot_module_extend(stage2_t *s2, int mod_idx, const tree_t *s) { if (mod_idx < 0) return; s2->module_registry.mods[mod_idx].last = s; s2->module_registry.mods[mod_idx].nstmts++; }
 extern tree_t *sno_parse_string_ast(const char *src, CODE_t **code_out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t *segs, int *nsegs, int max_segs)
-{
+tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t *segs, int *nsegs, int max_segs) {
     tree_t *result = ct_zalloc(1, sizeof(tree_t));
     if (!result) return NULL;
     result->t = TT_PROGRAM;
@@ -67,7 +62,7 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
         const char *fence = strstr(p, "```");
         if (!fence) break;
         const char *tag_start = fence + 3;
-        const char *tag_end   = tag_start;
+        const char *tag_end = tag_start;
         while (*tag_end && *tag_end != '\n' && *tag_end != '\r') tag_end++;
         while (tag_end > tag_start && (tag_end[-1] == ' ' || tag_end[-1] == '\t')) tag_end--;
         int tag_len = (int)(tag_end - tag_start);
@@ -77,7 +72,7 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
         const char *block_start = p;
         const char *close = strstr(p, "```");
         if (!close) break;
-        int   blen = (int)(close - block_start);
+        int blen = (int)(close - block_start);
         char *block = ct_alloc(blen + 1);
         if (!block) { p = close + 3; continue; }
         memcpy(block, block_start, blen);
@@ -106,21 +101,25 @@ tree_t *parse_scrip_polyglot(const char *src, const char *filename, lower_seg_t 
         } else if (tag_len == 6 && strncmp(tag_start, "Pascal", 6) == 0) {
             pascal_compile(block, filename, &sub_ast);
             fence_fn = lower_pascal_stage2;
-        } else { ct_drop(block); continue; }
+        } else {
+            ct_drop(block);
+            continue;
+        }
         ct_drop(block);
         if (!sub_ast || sub_ast->n == 0) { ct_drop(sub_ast); continue; }
         if (segs && nsegs && *nsegs < max_segs) {
             tree_t *_sp = ct_zalloc(1, sizeof(tree_t));
-            if (_sp) { _sp->t = TT_PROGRAM;
+            if (_sp) {
+                _sp->t = TT_PROGRAM;
                 for (int _si = 0; _si < sub_ast->n; _si++) if (sub_ast->c[_si]) ast_push(_sp, sub_ast->c[_si]);
-                segs[*nsegs].prog = _sp; segs[*nsegs].fn = fence_fn; (*nsegs)++; }
+                segs[*nsegs].prog = _sp;
+                segs[*nsegs].fn = fence_fn;
+                (*nsegs)++;
+            }
         }
-        for (int _i = 0; _i < sub_ast->n; _i++) {
-            tree_t *ch = sub_ast->c[_i];
-            if (!ch) continue;
-            ast_push(result, ch);
-        }
-        if (sub_ast->c) ct_drop((char *)sub_ast->c - sizeof(size_t)); ct_drop(sub_ast);
+        for (int _i = 0; _i < sub_ast->n; _i++) { tree_t *ch = sub_ast->c[_i]; if (!ch) continue; ast_push(result, ch); }
+        if (sub_ast->c) ct_drop((char *)sub_ast->c - sizeof(size_t));
+        ct_drop(sub_ast);
     }
     return result;
 }

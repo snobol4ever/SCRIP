@@ -9,10 +9,10 @@ extern "C" void rt_at_cursor(const char *varname, int cur_delta);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_match_atp() {
     return !(_.op_sval ? _.op_sval : "")[0] ? std::string()
-         : (  x86("comment", "IR_MATCH_ATP")
+         : ( x86("comment", "IR_MATCH_ATP")
             + x86_alpha()
-            + x86("mov",  "esi", "r14d")
-            + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl(_.op_sval ? _.op_sval : "").c_str())
+            + x86("mov", "esi", "r14d")
+            + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl(_.op_sval ? _.op_sval : "").c_str())
             + x86("call", "rt_at_cursor", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, int))rt_at_cursor)
             + x86_rt_gc_poll()
             + x86_gamma()

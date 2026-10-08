@@ -13,9 +13,9 @@ extern DESCR_t rt_call_arr_gen(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_arr_gen_strict(const char *, DESCR_t *, int, int64_t *);
 extern DESCR_t rt_call_arr_bl_strict(const char *, DESCR_t *, int, int);
 extern DESCR_t rt_call_arr_bl_sn4(const char *, DESCR_t *, int, int);
-int  bb_slot_get(IR_t * nd);
-int  bb_varslot_peek(const char * name);
-int  is_global(const char * name);
+int bb_slot_get(IR_t * nd);
+int bb_varslot_peek(const char * name);
+int is_global(const char * name);
 DESCR_t rt_call_arr(const char * fn, DESCR_t * args, int nargs);
 DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
 extern "C" {
@@ -159,8 +159,8 @@ int64_t rt_gvar_get_int(const char * name);
 extern int g_gva_active;
 int gva_index_of(const char * name);
 DESCR_t NV_GET_fn(const char * name);
-int  rt_is_truthy(DESCR_t v);
-int  rk_is_truthy(DESCR_t v);
+int rt_is_truthy(DESCR_t v);
+int rk_is_truthy(DESCR_t v);
 }
 #include "x86_asm.h"
 #define RO_SEAL_ADDR(n, sym, addr) \
@@ -455,8 +455,8 @@ extern "C" int dop_direct_leaf_known(const char * fn, int narg) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_str(IR_t * pBB) {
-    const char * fn   = _.op_sval ? _.op_sval : "";
-    int64_t      narg = _.op_ival;
+    const char * fn = _.op_sval ? _.op_sval : "";
+    int64_t narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
     if (_.op_zres) {
         std::string s = x86_alpha()
@@ -473,7 +473,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
             s += x86("comment", (std::string(_bk == 2 ? "CALLEE CALL " : "FIELD CALL ") + fn + " -> " + bb_callee_baked_sym(_bk) + " with its record baked (no name, no lookup)").c_str());
             if (narg > 0) s += x86("lea", "rdi", RDQ("rsp", 0));
-            else          s += x86("xor", "edi", "edi");
+            else s += x86("xor", "edi", "edi");
             s += x86("mov32", "esi", (long)narg);
             s += bb_callee_rdx(fn);
             if (_bk == 2) {
@@ -497,7 +497,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
             s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         }
         if (narg > 0) s += x86("lea", "rsi", RDQ("rsp", 0));
-        else          s += x86("xor", "esi", "esi");
+        else s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)narg);
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
@@ -514,7 +514,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
         s += x86_beta_trampoline();
         return s;
     }
-    int resoff  = zoff(_.node);
+    int resoff = zoff(_.node);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
@@ -526,7 +526,7 @@ static std::string bb_call_byname_str(IR_t * pBB) {
     { std::string arm = pl_leaf_inline_arm(fn, (int)narg, argbase, resoff, subs && subs[0] ? subs[0]->entry : (IR_t *)0); if (!arm.empty()) return s + arm; }
     bool scansync = x86_is_scan_builtin_name(fn);
     bool curmov = fn && (!strcmp(fn, "tab") || !strcmp(fn, "move"));
-    int  dsave  = argbase + 16 * (int)narg;
+    int dsave = argbase + 16 * (int)narg;
     if (curmov) s += x86("mov", FRQ(dsave), "r14");
     if (scansync) s += x86_scan_sync_out_force();
     if (int _bk = bcbn_baked_kind(fn, _.op_strict)) {
@@ -578,14 +578,14 @@ static std::string bb_call_byname_str(IR_t * pBB) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_call_byname_gen_str(IR_t * pBB) {
-    const char * fn   = _.op_sval ? _.op_sval : "";
-    int64_t      narg = _.op_ival;
+    const char * fn = _.op_sval ? _.op_sval : "";
+    int64_t narg = _.op_ival;
     IR_graph_t ** subs = (IR_graph_t **)(intptr_t) _.op_counter;
-    int resoff  = zoff(_.node);
+    int resoff = zoff(_.node);
     if (resoff < 0) return x86_alpha() + x86_bomb("bb_call_byname_gen: no LOWER slot grant (TMP-ERADICATE)");
     if (_.node && (int)narg > _.node->n_operands) return x86_alpha() + x86_bomb("bb_call_byname_gen: arg count exceeds LOWER grant (TMP-ERADICATE)");
     int argbase = zls_argv_off(pBB); if (argbase < 0) argbase = resoff + 16;
-    int genoff  = resoff + 16 * (1 + (int)narg);
+    int genoff = resoff + 16 * (1 + (int)narg);
     std::string fl = std::string(".L") + x86_boxkind() + "_bynamegenfn" + std::to_string((long long)_.nid);
     std::string s = x86_alpha()
         + x86("comment", std::string("BOX CALL_GEN ") + fn + "(...) -> rt_call_arr_gen by-name [four-port generator; alpha zeroes resume cell, beta re-pumps invoke with persisted cell]");
@@ -621,12 +621,12 @@ static std::string bb_call_byname_gen_str(IR_t * pBB) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call(IR_t * pBB) {
     switch (_.op_call_route) {
-        case CALL_ROUTE_BYNAME:        return bb_call_byname_str(pBB);
-        case CALL_ROUTE_BYNAME_GEN:    return bb_call_byname_gen_str(pBB);
-        case CALL_ROUTE_DVAL2_BOMB:    return x86_alpha() + x86_bomb("CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
-        case CALL_ROUTE_PROC_STAGED:   return bb_call_proc_staged_str(pBB);
-        case CALL_ROUTE_RK_BOOL_SLOT:  return bb_call_bool_str(pBB);
-        case CALL_ROUTE_FN:            return bb_call_fn_str(pBB);
+        case CALL_ROUTE_BYNAME: return bb_call_byname_str(pBB);
+        case CALL_ROUTE_BYNAME_GEN: return bb_call_byname_gen_str(pBB);
+        case CALL_ROUTE_DVAL2_BOMB: return x86_alpha() + x86_bomb("CALL dval=2 descr-chain arm aborted per LANGUAGE-BLIND rule");
+        case CALL_ROUTE_PROC_STAGED: return bb_call_proc_staged_str(pBB);
+        case CALL_ROUTE_RK_BOOL_SLOT: return bb_call_bool_str(pBB);
+        case CALL_ROUTE_FN: return bb_call_fn_str(pBB);
         default: break;
     }
     fprintf(stderr, "[IBB] FATAL bb_call: unsupported call shape fn='%s'\n", _.op_sval ? _.op_sval : "");

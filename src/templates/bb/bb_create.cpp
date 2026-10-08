@@ -30,8 +30,8 @@ std::string bb_create() {
          + x86("mov", "ecx", std::to_string(CR_PINNED() ? _.flat_carve_total : 0))
          + x86_load_ro_str("r8", _.op_activate_proc ? _.op_activate_proc : "main")
          + x86("call", "scrip_coexpr_create", (uint64_t)(uintptr_t)(void *)scrip_coexpr_create)
-         + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", (long)DT_CO)
-         + x86("mov",  "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 8) + "]", "rax")
+         + x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off) + "]", (long)DT_CO)
+         + x86("mov", "qword ptr [" + std::string(x86_fb()) + " + " + std::to_string(_.op_off + 8) + "]", "rax")
          + x86_gamma()
          + x86_beta_trampoline());
 }

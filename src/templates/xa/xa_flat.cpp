@@ -30,18 +30,18 @@ static int icn_wire_stack_on(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
-    if (MEDIUM_BINARY)    return std::string();
+    if (MEDIUM_BINARY) return std::string();
     if (MEDIUM_TEXT) {
         if (!g_is_text) return std::string();
         return std::string("  cmp esi, 0\n")
-             + "  je "  + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
-             + "  jmp " + (g_emit.flat_lbl_β      ? g_emit.flat_lbl_β      : "?") + "\n";
+             + "  je " + (g_emit.flat_lbl_α_body ? g_emit.flat_lbl_α_body : "?") + "\n"
+             + "  jmp " + (g_emit.flat_lbl_β ? g_emit.flat_lbl_β : "?") + "\n";
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_data_section_str(void) {
     if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_FLAT_DATA_SECTION");
-    if (MEDIUM_BINARY)    return std::string();
+    if (MEDIUM_BINARY) return std::string();
     if (MEDIUM_TEXT) {
         if (!g_flat_data_any) return std::string();
         return std::string("  .section .data\n")
@@ -50,7 +50,7 @@ static std::string xa_flat_data_section_str(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void xa_entry_dispatch(void)    {
+extern "C" void xa_entry_dispatch(void) {
     auto s = xa_entry_dispatch_str();
     if (!s.empty()) emit_text_n(s.data(), s.size());
 }
@@ -126,7 +126,7 @@ static std::string xa_flat_dc_stub_str(void) {
         }
         if (push_bytes > 0) zs += x86("add", "rsp", (long)push_bytes);
         if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) {
-            zs +=  x86_lea_id("rcx", 3) + x86("push", "rcx")
+            zs += x86_lea_id("rcx", 3) + x86("push", "rcx")
                 + x86_lea_id("rcx", 2) + x86("push", "rcx")
                 + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
                 + x86_deflabel_id(2)
@@ -558,7 +558,7 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
     int nf = 0, nsave = 0; int gk[BB_SCC_NP_MAX + 1];
     if (xa_flat_sig_names(fname, &nf, &nsave, gk)) {
         int argkt = 16 * nsave;
-        s +=  x86("sub", "rsp", (long)argkt)
+        s += x86("sub", "rsp", (long)argkt)
              + x86("mov", "rdx", "[rcx + 0]")
              + x86("lea", "r8", "[rsp + " + std::to_string(kt + argkt) + "]")
              + FOR(0, nsave, [&](int i) {
@@ -700,7 +700,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
     }
     extern int xa_icn_block_size(void);
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
-        return  xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
+        return xa_icn_trace_tap(xa_icn_trace_pname(), 2, 0, 16)
              + x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
          + x86("push", "rax")
@@ -719,7 +719,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
                                   : x86("add", "rsp", (long)(kt + xa_icn_block_size())))
              + bb_glue_wire_γ();
     if (zf_pas_nest_graph())
-        return  x86("mov", "rdi", "rax")
+        return x86("mov", "rdi", "rax")
              + x86("mov", "rsi", "rdx")
              + zf_display_restore(kt)
              + x86("add", "rsp", (long)kt + zf_det_block_size())
@@ -727,7 +727,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("add", "rsp", 8L)
              + x86("jmp", "rcx");
     if (x86_fb_pinned() && g_emit.flat_pkt && g_emit.flat_β_p && g_emit.flat_altdet_p && !(g_emit_cfg && g_emit_cfg->root_graph)) {
-        return  x86("comment",
+        return x86("comment",
             "PACKET FRAGMENT gamma (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): B == this frame's header -> no choice inside the "
                 "clause: a later slot visible at G makes the token this frame with beta = the chain-omega, none pops the "
                     "choice and exits det; B younger -> the clause's own beta; B older -> a cut ran, det")
@@ -772,7 +772,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + x86("jmp", "rcx"); }
     if (x86_fb_pinned() && g_emit.flat_β_p && g_emit.flat_altdet_p) {
         int _plretain = !(g_emit_cfg && g_emit_cfg->root_graph);
-        return  x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
+        return x86("comment", "PL γ: a predicate has no value -- hand the caller the definite success DESCR {DT_I, 1} the return trampolines already hand it, never the last box's leftover rax:rdx")
              + x86("comment",
                  "(a bound integer payload 104 = DT_FAIL read as failure at the caller's al test; a {small int, cell address} pair in the caller's result slot is no DESCR to the collector)")
              + x86("mov32", "edi", (long)DT_I)
@@ -791,7 +791,7 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
              + zf_release(kt)
              + zf_pin_restore(kt)
              + x86("jmp", "rcx"); }
-    return  x86("mov", "rdi", "rax")
+    return x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
          + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
          + zf_display_restore(kt)
@@ -806,7 +806,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
     extern int xa_icn_block_size(void);
     if (icn_wire_stack_on() && g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)
-        return   xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
+        return xa_icn_trace_tap(xa_icn_trace_pname(), 3, 0, 16)
              + x86("push", "rax")
              + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
              + x86("mov", "rax", RDQ("rax", 0))
@@ -887,7 +887,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              x86("add", "rsp", (long)(16 * np))) + x86_jmp_reg("rdx");
     }
     if (x86_fb_pinned())
-        return  x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
+        return x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_fb(), kt - 40))
              + zf_release(kt)
              + zf_pin_restore(kt)
@@ -912,11 +912,11 @@ static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int na
                                    "NONE concedes through the step, two or more take the full chain; an unbound, float, bignum or text first argument takes the chain")
                   + x86("lea", "rdi", FRQ(a0_off))
                   + PL_DEREF(10, 11, 12, 13);
-    if (dref)  s += x86("cmp", "al", (long)DT_PLREF)
+    if (dref) s += x86("cmp", "al", (long)DT_PLREF)
                   + x86("je", L(20));
     if (datom) s += x86("cmp", "al", (long)DT_PLATOM)
                   + x86("je", L(30));
-    if (dint)  s += x86("cmp", "al", (long)DT_I)
+    if (dint) s += x86("cmp", "al", (long)DT_I)
                   + x86("je", L(40));
     s += ext("jmp", chain);
     if (dref) {

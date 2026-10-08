@@ -11,10 +11,35 @@ static IR_t * icn_arm_result(IR_t * rv);
 typedef struct icn_loop_fr { IR_t * exit; IR_t * next; IR_t * fail; struct icn_loop_fr * up; } icn_loop_fr;
 typedef struct icn_scan_fr { IR_t * enter; struct icn_scan_fr * up; } icn_scan_fr;
 typedef struct {
-    IR_graph_t * g; IR_t * psucc; IR_t * pfail; const char ** pn; int npn; const char ** ln; int nln; const char ** gn; int ngn; const char * pname;
-    IR_t * last_gen; IR_t * loop_exit; IR_t * loop_break_beta;     IR_t * loop_next; IR_t * beta; IR_t * conj_resumable;
-    icn_loop_fr * loop_top; IR_t * loop_fail; int loop_sp; icn_scan_fr * scan_top; int scan_sp; int loop_next_ssp; int want_lines; int end_line; int after_line; const tree_t * discard;
-    int ret_lv; const char * file; int links;
+    IR_graph_t * g;
+    IR_t * psucc;
+    IR_t * pfail;
+    const char ** pn;
+    int npn;
+    const char ** ln;
+    int nln;
+    const char ** gn;
+    int ngn;
+    const char * pname;
+    IR_t * last_gen;
+    IR_t * loop_exit;
+    IR_t * loop_break_beta;
+    IR_t * loop_next;
+    IR_t * beta;
+    IR_t * conj_resumable;
+    icn_loop_fr * loop_top;
+    IR_t * loop_fail;
+    int loop_sp;
+    icn_scan_fr * scan_top;
+    int scan_sp;
+    int loop_next_ssp;
+    int want_lines;
+    int end_line;
+    int after_line;
+    const tree_t * discard;
+    int ret_lv;
+    const char * file;
+    int links;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
 static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω);
@@ -22,27 +47,56 @@ static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_ent
 static IR_t * icn_trace_named_prep(icx_t * cx, const char * hook, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out);
 static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next);
 static icn_loop_fr * icn_loop_at(const icx_t * cx, int idx) {
-    icn_loop_fr * f = cx->loop_top; if (idx < 0 || idx >= cx->loop_sp) return NULL;
+    icn_loop_fr * f = cx->loop_top;
+    if (idx < 0 || idx >= cx->loop_sp) return NULL;
     for (int d = cx->loop_sp - 1; d > idx; d--) f = f->up;
     return f;
 }
 static IR_t * icn_scan_at(const icx_t * cx, int k) { icn_scan_fr * f = cx->scan_top; for (int d = cx->scan_sp - 1; d > k; d--) f = f->up; return f->enter; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_is_local(const icx_t * cx, const char * nm) { if (!nm) return 0; for (int i = 0; i < cx->nln; i++) if (cx->ln[i] && !strcmp(cx->ln[i], nm)) return 1; return 0; }
-static int icn_kw_assignable(const char * kw) { const char * id = (kw && kw[0] == '&') ? kw + 1 : kw; return id && (!strcmp(id, "subject") || !strcmp(id, "pos") || !strcmp(id, "random") || !strcmp(id, "trace") || !strcmp(id, "error") || !strcmp(id, "dump")); }
-static const char * icn_variable_lit(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_FNC || t->n != 2 || !t->c[0] || !t->c[1]) return NULL; const tree_t * f = t->c[0]; if (f->t != TT_VAR || !f->v.sval || strcmp(f->v.sval, "variable") || icn_is_local(cx, "variable")) return NULL; { extern void rt_icn_global_note(const char *); rt_icn_global_note(f->v.sval); } const tree_t * g = t->c[1]; return (g->t == TT_QLIT && g->v.sval && g->v.sval[0]) ? g->v.sval : NULL; }
+static int icn_kw_assignable(const char * kw) {
+    const char * id = (kw && kw[0] == '&') ? kw + 1 : kw;
+    return id && (!strcmp(id, "subject") || !strcmp(id, "pos") || !strcmp(id, "random") || !strcmp(id, "trace") || !strcmp(id, "error") || !strcmp(id, "dump"));
+}
+static const char * icn_variable_lit(const icx_t * cx, const tree_t * t) {
+    if (!t || t->t != TT_FNC || t->n != 2 || !t->c[0] || !t->c[1]) return NULL;
+    const tree_t * f = t->c[0];
+    if (f->t != TT_VAR || !f->v.sval || strcmp(f->v.sval, "variable") || icn_is_local(cx, "variable")) return NULL;
+    { extern void rt_icn_global_note(const char *); rt_icn_global_note(f->v.sval); }
+    const tree_t * g = t->c[1];
+    return (g->t == TT_QLIT && g->v.sval && g->v.sval[0]) ? g->v.sval : NULL;
+}
 static tree_t * icn_variable_lit_tree(const char * nm) { tree_t * v = ast_node_new(nm[0] == '&' ? TT_KEYWORD : TT_VAR); v->v.sval = (char *) nm; return v; }
 static lc_vec g_icn_synth_excl;
 static int icn_is_own_global(const icx_t * cx, const char * nm) { for (int i = 0; i < cx->ngn; i++) if (cx->gn[i] && !strcmp(cx->gn[i], nm)) return 1; return 0; }
-static const char * icn_static_mangled(const icx_t * cx, const char * nm) { if (!cx->pname) return NULL; size_t pl = strlen(cx->pname), nl = strlen(nm); for (int i = 0; i < g_icn_synth_excl.n; i++) { const char * m = LC_AT(&g_icn_synth_excl, const char *, i); if (m && !strncmp(m, cx->pname, pl) && !strncmp(m + pl, "__STATIC__", 10) && !strcmp(m + pl + 10, nm) && strlen(m) == pl + 10 + nl) return m; } return NULL; }
+static const char * icn_static_mangled(const icx_t * cx, const char * nm) {
+    if (!cx->pname) return NULL;
+    size_t pl = strlen(cx->pname), nl = strlen(nm);
+    for (int i = 0; i < g_icn_synth_excl.n; i++) {
+        const char * m = LC_AT(&g_icn_synth_excl, const char *, i);
+        if (m && !strncmp(m, cx->pname, pl) && !strncmp(m + pl, "__STATIC__", 10) && !strcmp(m + pl + 10, nm) && strlen(m) == pl + 10 + nl) return m;
+    }
+    return NULL;
+}
 static int icn_operand_derefs_late(const icx_t * cx, const tree_t * t) { if (!t || t->t != TT_VAR || !t->v.sval || t->v.sval[0] == '&') return 0; return !icn_is_local(cx, t->v.sval); }
 static int icn_tree_is_kw_var(const tree_t * t) { return t && (t->t == TT_KEYWORD || t->t == TT_VAR) && t->v.sval && t->v.sval[0] == '&' && icn_kw_assignable(t->v.sval); }
 static int icn_builtin_reassigned(const char * nm);
 static int icn_is_proc(const char * nm) { for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, nm)) return 1; return 0; }
 static int icn_call_yields_a_variable(icx_t * cx, const char * nm) { (void) cx; return nm && icn_is_proc(nm); }
-static int icn_is_static_mangled_name(const char * nm) { if (!nm || !strstr(nm, "__STATIC__")) return 0; for (int i = 0; i < g_icn_synth_excl.n; i++) { const char * m = LC_AT(&g_icn_synth_excl, const char *, i); if (m && !strcmp(m, nm)) return 1; } return 0; }
+static int icn_is_static_mangled_name(const char * nm) {
+    if (!nm || !strstr(nm, "__STATIC__")) return 0;
+    for (int i = 0; i < g_icn_synth_excl.n; i++) { const char * m = LC_AT(&g_icn_synth_excl, const char *, i); if (m && !strcmp(m, nm)) return 1; }
+    return 0;
+}
 static int icn_ret_global_name(const icx_t * cx, const char * nm) { return nm && nm[0] != '&' && !icn_is_local(cx, nm) && (icn_is_own_global(cx, nm) || icn_is_static_mangled_name(nm)); }
-static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) { if (vn[0] == '&') return icn_kw_assignable(vn) ? icn_variable_lit_tree(vn) : NULL; if (icn_is_local(cx, vn)) return icn_variable_lit_tree(vn); { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); } if (icn_is_own_global(cx, vn) || icn_is_proc(vn) || icn_builtin_reassigned(vn)) return icn_variable_lit_tree(vn); return NULL; }
+static tree_t * icn_variable_lit_target(const icx_t * cx, const char * vn) {
+    if (vn[0] == '&') return icn_kw_assignable(vn) ? icn_variable_lit_tree(vn) : NULL;
+    if (icn_is_local(cx, vn)) return icn_variable_lit_tree(vn);
+    { const char * m = icn_static_mangled(cx, vn); if (m) return icn_variable_lit_tree(m); }
+    if (icn_is_own_global(cx, vn) || icn_is_proc(vn) || icn_builtin_reassigned(vn)) return icn_variable_lit_tree(vn);
+    return NULL;
+}
 static int icn_gen_wiring(const IR_t * t) {
     if (!t) return 0;
     if (ir_is_generator_kind(t->op)) return 1;
@@ -64,7 +118,8 @@ static IR_t * build(icx_t * cx, IR_e op, IR_t * γ, IR_t * ω) {
 static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * stmt_subj(const tree_t * s) { return lc_stmt_subj(s); }
-static lc_vec g_icn_reassigned; static const tree_t * g_icn_reassigned_prog = NULL;
+static lc_vec g_icn_reassigned;
+static const tree_t * g_icn_reassigned_prog = NULL;
 static int icn_name_assigned(const char * nm) { if (!nm) return 0; for (int k = 0; k < g_icn_reassigned.n; k++) if (!strcmp(LC_AT(&g_icn_reassigned, const char *, k), nm)) return 1; return 0; }
 static int icn_proc_reassigned(const char * nm) { return nm && icn_is_proc(nm) && icn_name_assigned(nm); }
 static int icn_is_icon_function(const char * nm);
@@ -72,10 +127,11 @@ static int icn_is_icon_function(const char * nm);
 static void icn_reassigned_walk(const tree_t * n) {
     if (!n) return;
     if (n->t == TT_STMT) { icn_reassigned_walk(stmt_subj(n)); return; }
-    if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP)
-        for (int i = 0; i < n->n; i++) { const tree_t * c = n->c[i];
-            if (c && c->t == TT_VAR && c->v.sval && !icn_name_assigned(c->v.sval)) lc_vec_push(&g_icn_reassigned, &c->v.sval);
-            if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break; }
+    if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP) for (int i = 0; i < n->n; i++) {
+        const tree_t * c = n->c[i];
+        if (c && c->t == TT_VAR && c->v.sval && !icn_name_assigned(c->v.sval)) lc_vec_push(&g_icn_reassigned, &c->v.sval);
+        if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break;
+    }
     for (int i = 0; i < n->n; i++) icn_reassigned_walk(n->c[i]);
 }
 static int icn_is_rtname_variable(const tree_t * c) {
@@ -83,128 +139,202 @@ static int icn_is_rtname_variable(const tree_t * c) {
 }
 static int icn_tree_has_rtname_lv(const tree_t * n) {
     if (!n) return 0;
-    if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP)
-        for (int i = 0; i < n->n; i++) { if (icn_is_rtname_variable(n->c[i])) return 1; if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break; }
+    if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP) for (int i = 0; i < n->n; i++) {
+        if (icn_is_rtname_variable(n->c[i])) return 1;
+        if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break;
+    }
     for (int i = 0; i < n->n; i++) if (icn_tree_has_rtname_lv(n->c[i])) return 1;
     return 0;
 }
 static void icn_collect_reassigned_procs(const tree_t * prog) {
     if (g_icn_reassigned_prog == prog) return;
-    lc_vec_init(&g_icn_reassigned, (int) sizeof(const char *)); g_icn_reassigned.n = 0; icn_reassigned_walk(prog); g_icn_reassigned_prog = prog;
-    if (icn_tree_has_rtname_lv(prog))
-        for (int i = 0; i < prog->n; i++) { const tree_t * d = prog->c[i]; if (d && d->t == TT_STMT) d = stmt_subj(d);
-            if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval)) lc_vec_push(&g_icn_reassigned, &d->v.sval); }
+    lc_vec_init(&g_icn_reassigned, (int) sizeof(const char *));
+    g_icn_reassigned.n = 0;
+    icn_reassigned_walk(prog);
+    g_icn_reassigned_prog = prog;
+    if (icn_tree_has_rtname_lv(prog)) for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) d = stmt_subj(d);
+        if (d && d->t == TT_PROC_DECL && d->v.sval && !icn_name_assigned(d->v.sval)) lc_vec_push(&g_icn_reassigned, &d->v.sval);
+    }
 }
-static lc_vec g_icn_breassigned; static const tree_t * g_icn_breassigned_prog = NULL;
+static lc_vec g_icn_breassigned;
+static const tree_t * g_icn_breassigned_prog = NULL;
 static int icn_builtin_reassigned(const char * nm) {
     if (!nm || !g_icn_breassigned_prog) return 0;
     for (int k = 0; k < g_icn_breassigned.n; k++) if (!strcmp(LC_AT(&g_icn_breassigned, const char *, k), nm)) return 1;
     return 0;
 }
-static int icn_decl_list_has(const tree_t * d, const char * nm) {
-    for (int k = 0; d && k < d->n; k++) if (d->c[k] && d->c[k]->v.sval && !strcmp(d->c[k]->v.sval, nm)) return 1;
-    return 0;
-}
+static int icn_decl_list_has(const tree_t * d, const char * nm) { for (int k = 0; d && k < d->n; k++) if (d->c[k] && d->c[k]->v.sval && !strcmp(d->c[k]->v.sval, nm)) return 1; return 0; }
 static int icn_proc_declares(const tree_t * pd, const char * nm) {
     if (pd->n > 1 && icn_decl_list_has(pd->c[1], nm)) return 1;
     const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
-    for (int i = 0; body && i < body->n; i++) { const tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
-        if (st && (st->t == TT_LOCAL || st->t == TT_STATIC_DECL) && icn_decl_list_has(st, nm)) return 1; }
+    for (int i = 0; body && i < body->n; i++) {
+        const tree_t * st = body->c[i];
+        if (st && st->t == TT_STMT) st = stmt_subj(st);
+        if (st && (st->t == TT_LOCAL || st->t == TT_STATIC_DECL) && icn_decl_list_has(st, nm)) return 1;
+    }
     return 0;
 }
 static void icn_breassigned_note(const tree_t * prog, const tree_t * pd, const char * nm) {
-    extern int icn_builtin_is_known(const char *); extern void * dat_find_type(const char *);
+    extern int icn_builtin_is_known(const char *);
+    extern void * dat_find_type(const char *);
     if (nm && (icn_builtin_is_known(nm) || icn_is_icon_function(nm)) && !icn_is_proc(nm) && !dat_find_type(nm) && !icn_proc_declares(pd, nm) && !icn_builtin_reassigned(nm)) {
-        int glob = 0; for (int g = 0; g < prog->n && !glob; g++) { const tree_t * d = prog->c[g]; if (d && d->t == TT_STMT) d = stmt_subj(d); if (d && d->t == TT_GLOBAL && icn_decl_list_has(d, nm)) glob = 1; }
-        if (!glob) lc_vec_push(&g_icn_breassigned, &nm); }
+        int glob = 0;
+        for (int g = 0; g < prog->n && !glob; g++) { const tree_t * d = prog->c[g]; if (d && d->t == TT_STMT) d = stmt_subj(d); if (d && d->t == TT_GLOBAL && icn_decl_list_has(d, nm)) glob = 1; }
+        if (!glob) lc_vec_push(&g_icn_breassigned, &nm);
+    }
 }
 static void icn_breassigned_walk(const tree_t * prog, const tree_t * pd, const tree_t * n, int every_ref) {
     if (!n) return;
     if (n->t == TT_STMT) { icn_breassigned_walk(prog, pd, stmt_subj(n), every_ref); return; }
     if (every_ref && n->t == TT_VAR && n->v.sval && n->v.sval[0] != '&') icn_breassigned_note(prog, pd, n->v.sval);
-    if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP)
-        for (int i = 0; i < n->n; i++) { const tree_t * c = n->c[i]; icn_breassigned_note(prog, pd, (c && c->t == TT_VAR) ? c->v.sval : NULL);
-            if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break; }
+    if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN || n->t == TT_AUGOP || n->t == TT_SWAP || n->t == TT_REVSWAP) for (int i = 0; i < n->n; i++) {
+        const tree_t * c = n->c[i];
+        icn_breassigned_note(prog, pd, (c && c->t == TT_VAR) ? c->v.sval : NULL);
+        if (n->t == TT_ASSIGN || n->t == TT_REVASSIGN) break;
+    }
     for (int i = 0; i < n->n; i++) icn_breassigned_walk(prog, pd, n->c[i], every_ref);
 }
 static void icn_collect_reassigned_builtins(const tree_t * prog) {
     if (g_icn_breassigned_prog == prog) return;
-    lc_vec_init(&g_icn_breassigned, (int) sizeof(const char *)); g_icn_breassigned.n = 0; g_icn_breassigned_prog = prog;
+    lc_vec_init(&g_icn_breassigned, (int) sizeof(const char *));
+    g_icn_breassigned.n = 0;
+    g_icn_breassigned_prog = prog;
     int every_ref = icn_tree_has_rtname_lv(prog);
-    for (int i = 0; prog && i < prog->n; i++) { const tree_t * d = prog->c[i]; if (d && d->t == TT_STMT) d = stmt_subj(d);
-        if (d && d->t == TT_PROC_DECL && d->n > 2) icn_breassigned_walk(prog, d, d->c[2], every_ref); }
+    for (int i = 0; prog && i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) d = stmt_subj(d);
+        if (d && d->t == TT_PROC_DECL && d->n > 2) icn_breassigned_walk(prog, d, d->c[2], every_ref);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * icn_cset_canon(const char * s, int len, int * out_len) {
     if (!s) { if (out_len) *out_len = 0; return s; }
-    unsigned char seen[256]; memset(seen, 0, sizeof seen);
+    unsigned char seen[256];
+    memset(seen, 0, sizeof seen);
     for (int i = 0; i < len; i++) seen[(unsigned char) s[i]] = 1;
-    char buf[257]; int n = 0;
+    char buf[257];
+    int n = 0;
     for (int c = 0; c < 256; c++) if (seen[c]) buf[n++] = (char) c;
-    buf[n] = 0; if (out_len) *out_len = n;
+    buf[n] = 0;
+    if (out_len) *out_len = n;
     { char * p = (char *) ct_alloc((size_t) n + 1); if (p) { memcpy(p, buf, (size_t) n); p[n] = 0; } return p; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void icn_attach_lit_len(icx_t * cx, IR_t * nd, int len) {
-    IR_t * ln = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ln).ival = (int64_t) len;
-    ir_operand_push(nd, ln);
-}
+static void icn_attach_lit_len(icx_t * cx, IR_t * nd, int len) { IR_t * ln = build(cx, IR_LIT_INTEGER, NULL, NULL); IR_LIT(ln).ival = (int64_t) len; ir_operand_push(nd, ln); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_proc_is_generator(const char * name) {
-    if (!name) return 0; for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].is_generator;
+    if (!name) return 0;
+    for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, name)) return g_stage2.proc_table[i].is_generator;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_call_allow_gen(const char * name) { return name && (icn_proc_is_generator(name) || !strcmp(name, "find") || !strcmp(name, "upto") || !strcmp(name, "key") || !strcmp(name, "seq")); }
 static int icn_callee_is_a_value(const char * nm) {
-    extern int icn_builtin_is_known(const char *); extern void * dat_find_type(const char *);
+    extern int icn_builtin_is_known(const char *);
+    extern void * dat_find_type(const char *);
     return nm && nm[0] != '&' && (icn_proc_reassigned(nm) || (!icn_is_proc(nm) && !icn_is_icon_function(nm) && !icn_builtin_is_known(nm) && !dat_find_type(nm)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int augop_code(int aop) {
     switch (aop) {
-    case AUGOP_ADD: return BINOP_ADD; case AUGOP_SUB: return BINOP_SUB; case AUGOP_MUL: return BINOP_MUL; case AUGOP_DIV: return BINOP_DIV; case AUGOP_MOD: return BINOP_MOD;
-    case AUGOP_POW: return BINOP_POW; case AUGOP_CONCAT: return BINOP_CONCAT; case AUGOP_LCONCAT: return BINOP_LCONCAT; case AUGOP_EQ: return BINOP_EQ; case AUGOP_SEQ: return BINOP_SEQ;
-    case AUGOP_LT: return BINOP_LT; case AUGOP_LE: return BINOP_LE; case AUGOP_GT: return BINOP_GT; case AUGOP_GE: return BINOP_GE; case AUGOP_NE: return BINOP_NE;
-    case AUGOP_SLT: return BINOP_SLT; case AUGOP_SLE: return BINOP_SLE; case AUGOP_SGT: return BINOP_SGT; case AUGOP_SGE: return BINOP_SGE; case AUGOP_SNE: return BINOP_SNE;
-    case AUGOP_CSET_UNION: return BINOP_CUNION; case AUGOP_CSET_DIFF: return BINOP_CDIFF; case AUGOP_CSET_INTER: return BINOP_CINTER;
-    case AUGOP_IDENTICAL: return BINOP_EQV; case AUGOP_NIDENTICAL: return BINOP_NEQV;
-    default: return -1; }
+        case AUGOP_ADD:
+        return BINOP_ADD;
+        case AUGOP_SUB:
+        return BINOP_SUB;
+        case AUGOP_MUL:
+        return BINOP_MUL;
+        case AUGOP_DIV:
+        return BINOP_DIV;
+        case AUGOP_MOD:
+        return BINOP_MOD;
+        case AUGOP_POW:
+        return BINOP_POW;
+        case AUGOP_CONCAT:
+        return BINOP_CONCAT;
+        case AUGOP_LCONCAT:
+        return BINOP_LCONCAT;
+        case AUGOP_EQ:
+        return BINOP_EQ;
+        case AUGOP_SEQ:
+        return BINOP_SEQ;
+        case AUGOP_LT:
+        return BINOP_LT;
+        case AUGOP_LE:
+        return BINOP_LE;
+        case AUGOP_GT:
+        return BINOP_GT;
+        case AUGOP_GE:
+        return BINOP_GE;
+        case AUGOP_NE:
+        return BINOP_NE;
+        case AUGOP_SLT:
+        return BINOP_SLT;
+        case AUGOP_SLE:
+        return BINOP_SLE;
+        case AUGOP_SGT:
+        return BINOP_SGT;
+        case AUGOP_SGE:
+        return BINOP_SGE;
+        case AUGOP_SNE:
+        return BINOP_SNE;
+        case AUGOP_CSET_UNION:
+        return BINOP_CUNION;
+        case AUGOP_CSET_DIFF:
+        return BINOP_CDIFF;
+        case AUGOP_CSET_INTER:
+        return BINOP_CINTER;
+        case AUGOP_IDENTICAL:
+        return BINOP_EQV;
+        case AUGOP_NIDENTICAL:
+        return BINOP_NEQV;
+        default:
+        return -1;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_augop_build(icx_t * cx, int aop, IR_t * asn, IR_t * ω, IR_t ** op, IR_t ** ca, IR_t ** cb) {
-    int bc = augop_code(aop); int ar = (bc >= BINOP_ADD && bc <= BINOP_MOD) || bc == BINOP_POW;
+    int bc = augop_code(aop);
+    int ar = (bc >= BINOP_ADD && bc <= BINOP_MOD) || bc == BINOP_POW;
     *op = build(cx, (aop == AUGOP_ACTIVATE) ? IR_ACTIVATE : IR_BINOP, asn, ω);
     if (aop == AUGOP_ACTIVATE) IR_LIT(*op).sval = cx->pname;
     else IR_LIT(*op).ival = (bc == BINOP_ADD) ? BINOP_ADD_BIG : (bc == BINOP_SUB) ? BINOP_SUB_BIG : (bc == BINOP_MUL) ? BINOP_MUL_BIG : (bc == BINOP_CONCAT) ? BINOP_CONCAT_FRACDIGIT : bc;
     *cb = ar ? build(cx, IR_COERCE_NUMERIC, *op, ω) : NULL;
     if (*cb) IR_LIT(*cb).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bc == BINOP_POW) ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bc) | COERCE_OP_SELF_RIGHT;
-    *ca = ar ? build(cx, IR_COERCE_NUMERIC, *cb, ω) : NULL; if (*ca) IR_LIT(*ca).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bc);
+    *ca = ar ? build(cx, IR_COERCE_NUMERIC, *cb, ω) : NULL;
+    if (*ca) IR_LIT(*ca).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bc);
     return *ca ? *ca : *op;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_augop_operands(int aop, IR_t * op, IR_t * ca, IR_t * cb, IR_t * lval, IR_t * rval) {
-    if (aop == AUGOP_ACTIVATE) { ir_operand_push(op, rval); ir_operand_push(op, lval); }
-    else {
+    if (aop == AUGOP_ACTIVATE) {
+        ir_operand_push(op, rval);
+        ir_operand_push(op, lval);
+    } else {
         if (ca) { ir_operand_push(ca, lval); ir_operand_push(ca, rval); ir_operand_push(cb, rval); ir_operand_push(cb, lval); }
-        ir_operand_push(op, ca ? ca : lval); ir_operand_push(op, cb ? cb : rval);
+        ir_operand_push(op, ca ? ca : lval);
+        ir_operand_push(op, cb ? cb : rval);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_unop_tt(tree_e tt) {
-    switch (tt) {
-    case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_CSET_COMPL: case TT_INTERROGATE: return 1;
-    default: return 0; }
-}
+static int is_unop_tt(tree_e tt) { switch (tt) { case TT_MNS: case TT_PLS: case TT_SIZE: case TT_NONNULL: case TT_CSET_COMPL: case TT_INTERROGATE: return 1; default: return 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_is_cursor_mover(const tree_t * a);
 static int is_resumable(const tree_t * t) {
-    if (!t) return 0; if (t->t == TT_STMT) t = stmt_subj(t); if (!t) return 0;
+    if (!t) return 0;
+    if (t->t == TT_STMT) t = stmt_subj(t);
+    if (!t) return 0;
     if (t->t == TT_BANG_BINARY) return 1;
     if (t->t == TT_FIELD || t->t == TT_NULL || t->t == TT_NONNULL) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (t->t == TT_REPALT) return 1;
     if (is_unop_tt(t->t)) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
-    if (t->t == TT_FNC) { const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL; if (!nm || icn_call_allow_gen(nm) || icn_callee_is_a_value(nm)) return 1; for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
+    if (t->t == TT_FNC) {
+        const char * nm = (t->n > 0 && t->c[0] && t->c[0]->t == TT_VAR) ? t->c[0]->v.sval : NULL;
+        if (!nm || icn_call_allow_gen(nm) || icn_callee_is_a_value(nm)) return 1;
+        for (int i = 1; i < t->n; i++) if (is_resumable(t->c[i])) return 1;
+        return 0;
+    }
     if (t->t == TT_LIMIT) return (t->n > 0) ? is_resumable(t->c[0]) : 0;
     if (lc_is_binop(t->t)) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
     if (t->t == TT_IDX) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i])) return 1; return 0; }
@@ -214,12 +344,28 @@ static int is_resumable(const tree_t * t) {
     if (t->t == TT_MAKELIST || t->t == TT_VLIST) { for (int i = 0; i < t->n; i++) if (is_resumable(t->c[i]) || icn_tree_is_cursor_mover(t->c[i])) return 1; return 0; }
     if (t->t == TT_CASE) { for (int i = 2; i < t->n; i += 2) if (is_resumable(t->c[i])) return 1; return (t->n > 1 && (t->n - 1) % 2 == 1) ? is_resumable(t->c[t->n - 1]) : 0; }
     switch (t->t) {
-    case TT_IF: case TT_SCAN: case TT_EVERY: case TT_TO: case TT_TO_BY: case TT_ALTERNATE: case TT_REPEAT: case TT_WHILE: case TT_UNTIL: case TT_REVASSIGN: case TT_REVSWAP: case TT_ITERATE: return 1;
-    default: return 0; }
+        case TT_IF:
+        case TT_SCAN:
+        case TT_EVERY:
+        case TT_TO:
+        case TT_TO_BY:
+        case TT_ALTERNATE:
+        case TT_REPEAT:
+        case TT_WHILE:
+        case TT_UNTIL:
+        case TT_REVASSIGN:
+        case TT_REVSWAP:
+        case TT_ITERATE:
+        return 1;
+        default:
+        return 0;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_is_cursor_mover(const tree_t * a) {
-    if (!a) return 0; if (a->t == TT_STMT) a = stmt_subj(a); if (!a) return 0;
+    if (!a) return 0;
+    if (a->t == TT_STMT) a = stmt_subj(a);
+    if (!a) return 0;
     if (a->t == TT_MATCH_UNARY) return 1;
     if ((a->t == TT_REVASSIGN || a->t == TT_ASSIGN) && a->n >= 2) return icn_tree_is_cursor_mover(a->c[1]);
     if (a->t != TT_FNC) return 0;
@@ -257,28 +403,34 @@ static IR_t * lower_arm(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 static int icn_return_var_form(icx_t * cx, const tree_t * t);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_arg_lower(void * vcx, const tree_t * a, IR_t * F) {
-    icx_t * cx = (icx_t *) vcx; IR_t * sps = cx->psucc; IR_t * spf = cx->pfail;
-    cx->psucc = NULL; cx->pfail = F;
-    IR_t * r = NULL; IR_t * e = lower(cx, a, NULL, F, &r);
-    cx->psucc = sps; cx->pfail = spf;
+    icx_t * cx = (icx_t *) vcx;
+    IR_t * sps = cx->psucc;
+    IR_t * spf = cx->pfail;
+    cx->psucc = NULL;
+    cx->pfail = F;
+    IR_t * r = NULL;
+    IR_t * e = lower(cx, a, NULL, F, &r);
+    cx->psucc = sps;
+    cx->pfail = spf;
     return e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_graph_t * arg_block(void * vcx, const tree_t * a) { return lc_arg_block(&((icx_t *) vcx)->g, icn_arg_lower, vcx, a); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_arg_is_scan_fn(const tree_t * a) {
-    if (!a) return 0; if (a->t == TT_STMT) a = stmt_subj(a); if (!a || a->t != TT_FNC) return 0; const char * nm = (a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR) ? a->c[0]->v.sval : NULL;
-    return nm && (!strcmp(nm, "tab") || !strcmp(nm, "move") || !strcmp(nm, "pos") || !strcmp(nm, "any") || !strcmp(nm, "match")
-                  || !strcmp(nm, "many") || !strcmp(nm, "upto") || !strcmp(nm, "find") || !strcmp(nm, "bal"));
+    if (!a) return 0;
+    if (a->t == TT_STMT) a = stmt_subj(a);
+    if (!a || a->t != TT_FNC) return 0;
+    const char * nm = (a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR) ? a->c[0]->v.sval : NULL;
+    return nm &&
+        (!strcmp(nm, "tab") || !strcmp(nm, "move") || !strcmp(nm, "pos") || !strcmp(nm, "any") || !strcmp(nm, "match") || !strcmp(nm, "many") || !strcmp(nm, "upto") || !strcmp(nm, "find") ||
+        !strcmp(nm, "bal"));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * icn_record_names[512]; static int icn_record_name_count = 0;
+static const char * icn_record_names[512];
+static int icn_record_name_count = 0;
 static void icn_note_record_name(const char * nm) { if (nm && icn_record_name_count < 512) icn_record_names[icn_record_name_count++] = nm; }
-static int icn_is_proc_or_record_name(const char * nm) {
-    if (icn_is_proc(nm)) return 1;
-    for (int ri = 0; ri < icn_record_name_count; ri++) if (!strcmp(icn_record_names[ri], nm)) return 1;
-    return 0;
-}
+static int icn_is_proc_or_record_name(const char * nm) { if (icn_is_proc(nm)) return 1; for (int ri = 0; ri < icn_record_name_count; ri++) if (!strcmp(icn_record_names[ri], nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_undeclared_assigned_var(const icx_t * cx, const char * nm) {
     if (!nm || !nm[0] || nm[0] == '&') return 0;
@@ -287,9 +439,8 @@ static int icn_undeclared_assigned_var(const icx_t * cx, const char * nm) {
     return icn_name_assigned(nm);
 }
 static int icn_callee_is_name(const icx_t * cx, const tree_t * fn) {
-    return fn && fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval)
-        && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)) && !icn_proc_reassigned(fn->v.sval) && !icn_builtin_reassigned(fn->v.sval)
-        && !icn_undeclared_assigned_var(cx, fn->v.sval) && !icn_is_static_mangled_name(fn->v.sval);
+    return fn && fn->t == TT_VAR && fn->v.sval && fn->v.sval[0] != '&' && !icn_is_local(cx, fn->v.sval) && !(icn_is_own_global(cx, fn->v.sval) && !icn_is_proc(fn->v.sval)) &&
+        !icn_proc_reassigned(fn->v.sval) && !icn_builtin_reassigned(fn->v.sval) && !icn_undeclared_assigned_var(cx, fn->v.sval) && !icn_is_static_mangled_name(fn->v.sval);
 }
 static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (!a) return 0;
@@ -297,8 +448,7 @@ static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
     if (a->t == TT_SECTION || a->t == TT_SECTION_PLUS || a->t == TT_SECTION_MINUS) return 1;
     if ((a->t == TT_ASSIGN || a->t == TT_AUGOP || a->t == TT_SWAP) && a->n > 1 && a->c[0] && a->c[0]->t == TT_VAR) return icn_arg_stages(cx, a->c[0]);
     if (icn_tree_is_kw_var(a)) return 1;
-    if (a->t == TT_FNC && a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval && icn_callee_is_name(cx, a->c[0])
-        && icn_call_yields_a_variable((icx_t *) cx, a->c[0]->v.sval)) return 1;
+    if (a->t == TT_FNC && a->n > 0 && a->c[0] && a->c[0]->t == TT_VAR && a->c[0]->v.sval && icn_callee_is_name(cx, a->c[0]) && icn_call_yields_a_variable((icx_t *) cx, a->c[0]->v.sval)) return 1;
     if (a->t != TT_VAR || !a->v.sval || a->v.sval[0] == '&') return 0;
     const char * nm = a->v.sval;
     if (icn_is_proc_or_record_name(nm)) return 0;
@@ -309,7 +459,8 @@ static int icn_arg_stages(const icx_t * cx, const tree_t * a) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
-    int after_line = cx->after_line; cx->after_line = 0;
+    int after_line = cx->after_line;
+    cx->after_line = 0;
     if (name && !strcmp(name, "seq") && icn_callable_proc_index("seq") < 0) { IR_t * sq = lower_seq(cx, t, argbase, nargs, γ, ω, res); if (sq) return sq; }
     if (name && !strcmp(name, "function") && nargs == 0 && icn_callable_proc_index("function") < 0) { IR_t * fg = lower_function_gen(cx, γ, ω, res); if (fg) return fg; }
     if (name && !strcmp(name, "key") && nargs == 1 && icn_callable_proc_index("key") < 0) { IR_t * kg = lower_key(cx, t, argbase, nargs, γ, ω, res); if (kg) return kg; }
@@ -317,69 +468,116 @@ static IR_t * lower_call(icx_t * cx, const char * name, const tree_t * t, int ar
         const tree_t * na = t->c[argbase];
         if (na && na->t == TT_ALTERNATE && na->n >= 1) {
             tree_t * alt = ast_node_new(TT_ALTERNATE);
-            for (int k = 0; k < na->n; k++) { tree_t * call = ast_node_new(TT_FNC); tree_t * fnv = ast_node_new(TT_VAR); fnv->v.sval = (char *) "name"; ast_push(call, fnv); ast_push(call, (tree_t *) na->c[k]); ast_push(alt, call); }
+            for (int k = 0; k < na->n; k++) {
+                tree_t * call = ast_node_new(TT_FNC);
+                tree_t * fnv = ast_node_new(TT_VAR);
+                fnv->v.sval = (char *) "name";
+                ast_push(call, fnv);
+                ast_push(call, (tree_t *) na->c[k]);
+                ast_push(alt, call);
+            }
             return lower(cx, alt, γ, ω, res);
         }
         if (na && (na->t == TT_VAR || na->t == TT_KEYWORD) && na->v.sval && na->v.sval[0] == '&') {
-            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = na->v.sval; if (res) *res = nd; return nd;
+            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω);
+            IR_LIT(nd).sval = na->v.sval;
+            if (res) *res = nd;
+            return nd;
         }
         if (na && na->t == TT_VAR && na->v.sval && na->v.sval[0] != '&') {
-            const char * vn = na->v.sval; const char * st = strstr(vn, "__STATIC__"); if (st && cx->pname && !strncmp(vn, cx->pname, strlen(cx->pname)) && st == vn + strlen(cx->pname)) vn = st + 10;
-            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = (char *) vn; if (res) *res = nd; return nd;
+            const char * vn = na->v.sval;
+            const char * st = strstr(vn, "__STATIC__");
+            if (st && cx->pname && !strncmp(vn, cx->pname, strlen(cx->pname)) && st == vn + strlen(cx->pname)) vn = st + 10;
+            IR_t * nd = build(cx, IR_LIT_STRING, γ, ω);
+            IR_LIT(nd).sval = (char *) vn;
+            if (res) *res = nd;
+            return nd;
         }
-        IR_t * vr = NULL; IR_t * ve = lower_lvalue_var(cx, na, ω, &vr);
+        IR_t * vr = NULL;
+        IR_t * ve = lower_lvalue_var(cx, na, ω, &vr);
         if (ve && vr) {
-            IR_t * ncall = build(cx, IR_CALL, γ, ω); IR_LIT(ncall).sval = (char *) name; if (res) *res = ncall;
+            IR_t * ncall = build(cx, IR_CALL, γ, ω);
+            IR_LIT(ncall).sval = (char *) name;
+            if (res) *res = ncall;
             IR_t * argβ = cx->beta;
-            lc_γ_to(vr, ncall); ir_operand_push(ncall, vr);
-            if (argβ && argβ != ω) { ω_to(ncall, argβ); cx->beta = argβ; }
-            else cx->beta = ω;
+            lc_γ_to(vr, ncall);
+            ir_operand_push(ncall, vr);
+            if (argβ && argβ != ω) { ω_to(ncall, argβ); cx->beta = argβ; } else cx->beta = ω;
             return ve;
         }
     }
-    int gb = name && icn_callable_proc_index(name) < 0
-                  && ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto")))
-                   || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto")))
-                   || (nargs <= 6 && !strcmp(name, "bal")));
+    int gb = name && icn_callable_proc_index(name) < 0 &&
+        ((nargs >= 2 && nargs <= 4 && (!strcmp(name, "find") || !strcmp(name, "upto"))) || (nargs == 1 && (!strcmp(name, "find") || !strcmp(name, "upto"))) || (nargs <= 6 && !strcmp(name, "bal")));
     int is_cursor_mover = name && (!strcmp(name, "tab") || !strcmp(name, "move"));
     int fill_scan_defaults = gb && nargs == 1 && cx->scan_sp == 0 && (!strcmp(name, "find") || !strcmp(name, "upto"));
     int fill_bal_cset = gb && nargs == 0 && !strcmp(name, "bal");
-    IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω); IR_LIT(call).sval = (char *) name;
+    IR_t * call = build(cx, icn_proc_is_generator(name) ? IR_PROC_GEN : (gb ? IR_CALL_BUILTIN_GEN : IR_CALL), γ, ω);
+    IR_LIT(call).sval = (char *) name;
     if (res) *res = call;
     int cline = (t && t->line > 0) ? t->line : ((t && argbase > 0 && t->c[argbase - 1]) ? t->c[argbase - 1]->line : 0);
-    int own_line = cline; if (after_line > 0) cline = after_line;
+    int own_line = cline;
+    if (after_line > 0) cline = after_line;
     IR_t * callin = (name && cline > 0) ? icn_line_mark(cx, cline, call) : call;
     int chains = name && (!strcmp(name, "write") || !strcmp(name, "writes"));
     if (!chains) { for (int k = 0; k < nargs; k++) if (is_resumable(t->c[argbase + k])) { if (is_cursor_mover && icn_arg_is_scan_fn(t->c[argbase + k])) continue; chains = 1; break; } }
-    IR_t * prev = NULL; IR_t * entry = callin; IR_t * aω = ω; IR_t * last_ar = NULL;
-    int nstage = 0; for (int k = 0; k < nargs; k++) if (icn_arg_stages(cx, t->c[argbase + k])) nstage++;
-    IR_t * args_r[nargs > 0 ? nargs : 1]; int staged[nargs > 0 ? nargs : 1];
+    IR_t * prev = NULL;
+    IR_t * entry = callin;
+    IR_t * aω = ω;
+    IR_t * last_ar = NULL;
+    int nstage = 0;
+    for (int k = 0; k < nargs; k++) if (icn_arg_stages(cx, t->c[argbase + k])) nstage++;
+    IR_t * args_r[nargs > 0 ? nargs : 1];
+    int staged[nargs > 0 ? nargs : 1];
     for (int k = 0; k < nargs; k++) {
-        const tree_t * a = t->c[argbase + k]; IR_t * ar = NULL; IR_t * ae; staged[k] = 0;
+        const tree_t * a = t->c[argbase + k];
+        IR_t * ar = NULL;
+        IR_t * ae;
+        staged[k] = 0;
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
         if (!staged[k]) { if (k == nargs - 1) cx->after_line = own_line; ae = lower(cx, a, (k == nargs - 1 && !fill_scan_defaults && !nstage) ? callin : NULL, aω, &ar); }
         aω = cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
-        prev = ar; args_r[k] = ar;
+        prev = ar;
+        args_r[k] = ar;
     }
     for (int k = 0; k < nargs; k++) if (staged[k] && args_r[k]) {
-        IR_t * drf; if (icn_tree_is_kw_var(t->c[argbase + k])) { drf = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(drf).sval = (char *) t->c[argbase + k]->v.sval; } else { drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]); }
-        if (prev) lc_γ_to(prev, drf); else entry = drf;
-        prev = drf; args_r[k] = drf;
+        IR_t * drf;
+        if (icn_tree_is_kw_var(t->c[argbase + k])) {
+            drf = build(cx, IR_KW_ICON, NULL, aω);
+            IR_LIT(drf).sval = (char *) t->c[argbase + k]->v.sval;
+        } else {
+            drf = build(cx, IR_DEREF, NULL, aω);
+            ir_operand_push(drf, args_r[k]);
+        }
+        if (prev) lc_γ_to(prev, drf);
+        else entry = drf;
+        prev = drf;
+        args_r[k] = drf;
     }
     for (int k = 0; k < nargs; k++) if (args_r[k]) { ir_operand_push(call, args_r[k]); last_ar = args_r[k]; }
     if (nstage && prev) { last_ar = prev; if (!(icn_proc_is_generator(name) || gb || is_cursor_mover)) lc_γ_to(prev, callin); }
     if (fill_bal_cset) {
-        IR_t * kc = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(kc).sval = (char *) "&cset";
-        if (prev) lc_γ_to(prev, kc); else entry = kc;
-        ir_operand_push(call, kc); prev = kc; last_ar = kc;
+        IR_t * kc = build(cx, IR_KW_ICON, NULL, aω);
+        IR_LIT(kc).sval = (char *) "&cset";
+        if (prev) lc_γ_to(prev, kc);
+        else entry = kc;
+        ir_operand_push(call, kc);
+        prev = kc;
+        last_ar = kc;
     }
     if (fill_scan_defaults) {
-        IR_t * ks = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(ks).sval = (char *) "&subject";
-        IR_t * kp = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(kp).sval = (char *) "&pos";
-        if (prev) lc_γ_to(prev, ks); else entry = ks;
-        lc_γ_to(ks, kp); ir_operand_push(call, ks); ir_operand_push(call, kp); prev = kp; last_ar = kp;
+        IR_t * ks = build(cx, IR_KW_ICON, NULL, aω);
+        IR_LIT(ks).sval = (char *) "&subject";
+        IR_t * kp = build(cx, IR_KW_ICON, NULL, aω);
+        IR_LIT(kp).sval = (char *) "&pos";
+        if (prev) lc_γ_to(prev, ks);
+        else entry = ks;
+        lc_γ_to(ks, kp);
+        ir_operand_push(call, ks);
+        ir_operand_push(call, kp);
+        prev = kp;
+        last_ar = kp;
     }
     if ((icn_proc_is_generator(name) || gb || is_cursor_mover) && last_ar) lc_γ_to(last_ar, callin);
     const tree_t * la = (nargs > 0) ? t->c[argbase + nargs - 1] : NULL;
@@ -403,7 +601,9 @@ static IR_t * icn_scan_seq_nary(icx_t * cx, const tree_t ** elems, int ne, IR_t 
     lc_ω_to(S, ω);
     for (int i = 0; i < ne; i++) {
         int before = g->n;
-        IR_t * evz = NULL; IR_t * ei = lower(cx, elems[i], S, S, &evz); (void) evz;
+        IR_t * evz = NULL;
+        IR_t * ei = lower(cx, elems[i], S, S, &evz);
+        (void) evz;
         IR_t * ri = (before < g->n) ? g->all[before] : ei;
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];
@@ -415,7 +615,8 @@ static IR_t * icn_scan_seq_nary(icx_t * cx, const tree_t ** elems, int ne, IR_t 
         ir_operand_push(S, ri);
     }
     IR_LIT(S).ival = (long) ne;
-    cx->beta = S; *res = S;
+    cx->beta = S;
+    *res = S;
     return S;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -423,32 +624,42 @@ static const char * icn_assign_var_name(const tree_t * t) {
     while (t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && t->n >= 2) t = t->c[0];
     return (t && t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') ? t->v.sval : NULL;
 }
-static int icn_assign_names_var(const tree_t * t) {
-    return t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && icn_assign_var_name(t) != NULL;
-}
+static int icn_assign_names_var(const tree_t * t) { return t && (t->t == TT_ASSIGN || t->t == TT_AUGOP) && icn_assign_var_name(t) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     if (t->n < 2 || !t->c[0]) { IR_t * su = build(cx, IR_SUCCEED, NULL, ω); *var_res = su; return su; }
-    IR_t * br = NULL; IR_t * entry;
-    const tree_t * b0 = t->c[0]; IR_t * b4 = cx->beta;
+    IR_t * br = NULL;
+    IR_t * entry;
+    const tree_t * b0 = t->c[0];
+    IR_t * b4 = cx->beta;
     if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&' && !(cx->ret_lv && !icn_ret_global_name(cx, b0->v.sval))) {
-        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; br = vr; entry = vr;
+        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω);
+        IR_LIT(vr).sval = b0->v.sval;
+        br = vr;
+        entry = vr;
     } else if (b0->t == TT_IDX) {
         entry = lower_idx_var(cx, b0, ω, &br);
     } else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD || icn_assign_names_var(b0)) {
         IR_t * e2 = lower_lvalue_var(cx, b0, ω, &br);
         entry = e2 ? e2 : lower(cx, b0, NULL, ω, &br);
     } else entry = lower(cx, b0, NULL, ω, &br);
-    IR_t * cur = br; IR_t * hook = br; IR_t * prevβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : (b0->t == TT_IDX && cx->beta == b4) ? NULL : cx->beta;
+    IR_t * cur = br;
+    IR_t * hook = br;
+    IR_t * prevβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : (b0->t == TT_IDX && cx->beta == b4) ? NULL : cx->beta;
     for (int k = 1; k < t->n; k++) {
-        IR_t * ir = NULL; IR_t * ie = lower(cx, t->c[k], NULL, prevβ ? prevβ : ω, &ir); prevβ = cx->beta;
+        IR_t * ir = NULL;
+        IR_t * ie = lower(cx, t->c[k], NULL, prevβ ? prevβ : ω, &ir);
+        prevβ = cx->beta;
         lc_γ_to(hook, ie);
         IR_t * sub = build(cx, IR_SUBSCRIPT, NULL, prevβ ? prevβ : ω);
         γ_to(ir, sub);
-        ir_operand_push(sub, cur); ir_operand_push(sub, ir);
-        cur = sub; hook = sub;
+        ir_operand_push(sub, cur);
+        ir_operand_push(sub, ir);
+        cur = sub;
+        hook = sub;
     }
-    *var_res = cur; return entry;
+    *var_res = cur;
+    return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
@@ -458,121 +669,197 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
     if (t->t == TT_CASE) return lower_case_impl(cx, t, NULL, ω, var_res, 1);
     if (t->t == TT_SEQ_EXPR) return lower_seq_impl(cx, t, NULL, ω, var_res, 1);
     if (t->t == TT_LIMIT) return lower_limit_impl(cx, t, NULL, ω, var_res, 1);
-    if (icn_tree_is_kw_var(t)) {
-        IR_t * kv = build(cx, IR_KW_ICON, NULL, ω); IR_LIT(kv).sval = (char *) t->v.sval; kv->pat_static = 1; *var_res = kv; return kv;
-    }
+    if (icn_tree_is_kw_var(t)) { IR_t * kv = build(cx, IR_KW_ICON, NULL, ω); IR_LIT(kv).sval = (char *) t->v.sval; kv->pat_static = 1; *var_res = kv; return kv; }
     if (t->t == TT_FNC && t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, "variable") && !icn_is_local(cx, "variable")) {
-        IR_t * mk = build(cx, IR_CALL, NULL, ω); IR_LIT(mk).sval = (char *) "ICN$VARNAME";
-        IR_t * nr = NULL; IR_t * ne = lower(cx, t->c[1], mk, ω, &nr);
+        IR_t * mk = build(cx, IR_CALL, NULL, ω);
+        IR_LIT(mk).sval = (char *) "ICN$VARNAME";
+        IR_t * nr = NULL;
+        IR_t * ne = lower(cx, t->c[1], mk, ω, &nr);
         if (nr) ir_operand_push(mk, nr);
-        *var_res = mk; return ne;
+        *var_res = mk;
+        return ne;
     }
-    if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') {
-        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr;
-    }
+    if (t->t == TT_VAR && t->v.sval && t->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = t->v.sval; *var_res = vr; return vr; }
     if (icn_assign_names_var(t)) {
-        IR_t * ar = NULL; IR_t * ae = lower(cx, t, NULL, ω, &ar);
-        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = (char *) icn_assign_var_name(t);
-        lc_γ_to(ar, vr); *var_res = vr; return ae;
+        IR_t * ar = NULL;
+        IR_t * ae = lower(cx, t, NULL, ω, &ar);
+        IR_t * vr = build(cx, IR_VAR_REF, NULL, ω);
+        IR_LIT(vr).sval = (char *) icn_assign_var_name(t);
+        lc_γ_to(ar, vr);
+        *var_res = vr;
+        return ae;
     }
     if (t->t == TT_FNC && t->n > 0 && t->c[0] && icn_callee_is_name(cx, t->c[0]) && t->c[0]->t == TT_VAR && icn_call_yields_a_variable(cx, t->c[0]->v.sval) && !icn_variable_lit(cx, t)) {
-        IR_t * cr = NULL; IR_t * ce = lower_call(cx, t->c[0]->v.sval, t, 1, t->n - 1, NULL, ω, &cr);
+        IR_t * cr = NULL;
+        IR_t * ce = lower_call(cx, t->c[0]->v.sval, t, 1, t->n - 1, NULL, ω, &cr);
         if (!ce || !cr) return NULL;
-        *var_res = cr; return ce;
+        *var_res = cr;
+        return ce;
     }
     if (t->t == TT_IDX) return lower_idx_var(cx, t, ω, var_res);
     if (t->t == TT_ITERATE && t->n > 0 && t->c[0]) {
-        IR_t * it = build(cx, IR_ITERATE, NULL, ω); IR_LIT(it).ival = 0; IR_LIT(it).sval = "lv";
-        const tree_t * b0 = t->c[0]; IR_t * ar = NULL; IR_t * ae;
-        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-        else if (icn_tree_is_kw_var(b0) || b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) { IR_t * e2 = lower_lvalue_var(cx, b0, ω, &ar); ae = e2 ? e2 : lower(cx, b0, NULL, ω, &ar); }
-        else { cx->beta = ω; ae = lower(cx, b0, NULL, ω, &ar); IR_t * bβ = cx->beta; if (bβ && bβ != ω && is_resumable(b0)) lc_ω_to_β(it, bβ); }
-        lc_γ_to(ar, it); ir_operand_push(it, ar);
+        IR_t * it = build(cx, IR_ITERATE, NULL, ω);
+        IR_LIT(it).ival = 0;
+        IR_LIT(it).sval = "lv";
+        const tree_t * b0 = t->c[0];
+        IR_t * ar = NULL;
+        IR_t * ae;
+        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') {
+            IR_t * vr = build(cx, IR_VAR_REF, NULL, ω);
+            IR_LIT(vr).sval = b0->v.sval;
+            ar = vr;
+            ae = vr;
+        } else if (icn_tree_is_kw_var(b0) || b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) {
+            IR_t * e2 = lower_lvalue_var(cx, b0, ω, &ar);
+            ae = e2 ? e2 : lower(cx, b0, NULL, ω, &ar);
+        } else {
+            cx->beta = ω;
+            ae = lower(cx, b0, NULL, ω, &ar);
+            IR_t * bβ = cx->beta;
+            if (bβ && bβ != ω && is_resumable(b0)) lc_ω_to_β(it, bβ);
+        }
+        lc_γ_to(ar, it);
+        ir_operand_push(it, ar);
         cx->beta = it;
-        *var_res = it; return ae;
+        *var_res = it;
+        return ae;
     }
     if (t->t == TT_RANDOM && t->n > 0 && t->c[0]) {
         IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
-        const tree_t * b0 = t->c[0]; IR_t * ar = NULL; IR_t * ae;
-        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-        else if (icn_tree_is_kw_var(b0) || b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) { IR_t * e2 = lower_lvalue_var(cx, b0, ω, &ar); ae = e2 ? e2 : lower(cx, b0, NULL, ω, &ar); }
-        else ae = lower(cx, b0, NULL, ω, &ar);
-        lc_γ_to(ar, rn); ir_operand_push(rn, ar);
-        *var_res = rn; return ae;
+        const tree_t * b0 = t->c[0];
+        IR_t * ar = NULL;
+        IR_t * ae;
+        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') {
+            IR_t * vr = build(cx, IR_VAR_REF, NULL, ω);
+            IR_LIT(vr).sval = b0->v.sval;
+            ar = vr;
+            ae = vr;
+        } else if (icn_tree_is_kw_var(b0) || b0->t == TT_IDX || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_FIELD) {
+            IR_t * e2 = lower_lvalue_var(cx, b0, ω, &ar);
+            ae = e2 ? e2 : lower(cx, b0, NULL, ω, &ar);
+        } else ae = lower(cx, b0, NULL, ω, &ar);
+        lc_γ_to(ar, rn);
+        ir_operand_push(rn, ar);
+        *var_res = rn;
+        return ae;
     }
     if ((t->t == TT_SECTION || t->t == TT_SECTION_PLUS || t->t == TT_SECTION_MINUS) && t->n >= 3 && t->c[0] && t->c[1] && t->c[2]) {
         int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
-        IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω); IR_LIT(sec).ival = 0; IR_LIT(sec).sval = "lv";
-        IR_t * ar = NULL; IR_t * ae; const tree_t * b0 = t->c[0];
-        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') { IR_t * vr = build(cx, IR_VAR_REF, NULL, ω); IR_LIT(vr).sval = b0->v.sval; ar = vr; ae = vr; }
-        else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX || b0->t == TT_FIELD || icn_assign_names_var(b0)) ae = lower_lvalue_var(cx, b0, ω, &ar);
+        IR_t * sec = build(cx, IR_SUBSCRIPT, NULL, ω);
+        IR_LIT(sec).ival = 0;
+        IR_LIT(sec).sval = "lv";
+        IR_t * ar = NULL;
+        IR_t * ae;
+        const tree_t * b0 = t->c[0];
+        if (b0->t == TT_VAR && b0->v.sval && b0->v.sval[0] != '&') {
+            IR_t * vr = build(cx, IR_VAR_REF, NULL, ω);
+            IR_LIT(vr).sval = b0->v.sval;
+            ar = vr;
+            ae = vr;
+        } else if (icn_tree_is_kw_var(b0) || b0->t == TT_SECTION || b0->t == TT_SECTION_PLUS || b0->t == TT_SECTION_MINUS || b0->t == TT_IDX || b0->t == TT_FIELD || icn_assign_names_var(b0)) ae =
+            lower_lvalue_var(cx, b0, ω, &ar);
         else ae = lower(cx, b0, NULL, ω, &ar);
         IR_t * aβ = (b0->t == TT_VAR || icn_tree_is_kw_var(b0)) ? NULL : cx->beta;
         IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
-        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ωa, &br); lc_γ_to(ar, be); IR_t * bβ = cx->beta;
+        IR_t * br = NULL;
+        IR_t * be = lower(cx, t->c[1], NULL, ωa, &br);
+        lc_γ_to(ar, be);
+        IR_t * bβ = cx->beta;
         IR_t * ωb = (bβ && bβ != ωa && bβ != sec) ? bβ : ωa;
-        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr); lc_γ_to(br, ce); IR_t * cβ = cx->beta;
+        IR_t * cr = NULL;
+        IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr);
+        lc_γ_to(br, ce);
+        IR_t * cβ = cx->beta;
         IR_t * ωc = (cβ && cβ != ωb && cβ != sec) ? cβ : ωb;
         if (sec_variant) {
-            IR_t * op = build(cx, IR_BINOP, sec, ωc); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB; ir_operand_push(op, br); ir_operand_push(op, cr); γ_to(cr, op); cr = op;
+            IR_t * op = build(cx, IR_BINOP, sec, ωc);
+            IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
+            ir_operand_push(op, br);
+            ir_operand_push(op, cr);
+            γ_to(cr, op);
+            cr = op;
         }
-        ir_operand_push(sec, ar); ir_operand_push(sec, br); ir_operand_push(sec, cr);
+        ir_operand_push(sec, ar);
+        ir_operand_push(sec, br);
+        ir_operand_push(sec, cr);
         lc_γ_to(cr, sec);
         if (ωc != ω) ω_to(sec, ωc);
         cx->beta = ωc;
-        *var_res = sec; return ae;
+        *var_res = sec;
+        return ae;
     }
     if (t->t == TT_FIELD && t->n > 0 && t->c[0]) {
         IR_t * fg = build(cx, IR_FIELD_VAR, NULL, ω);
         IR_LIT(fg).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
-        IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], NULL, ω, &br);
-        lc_γ_to(br, fg); ir_operand_push(fg, br);
-        *var_res = fg; return be;
+        IR_t * br = NULL;
+        IR_t * be = lower(cx, t->c[0], NULL, ω, &br);
+        lc_γ_to(br, fg);
+        ir_operand_push(fg, br);
+        *var_res = fg;
+        return be;
     }
     if ((t->t == TT_NULL || t->t == TT_NONNULL) && t->n > 0 && t->c[0]) {
-        IR_t * b4 = cx->beta; IR_t * clv = NULL; IR_t * ce = lower_lvalue_var(cx, t->c[0], ω, &clv);
+        IR_t * b4 = cx->beta;
+        IR_t * clv = NULL;
+        IR_t * ce = lower_lvalue_var(cx, t->c[0], ω, &clv);
         if (!ce || !clv) return NULL;
-        IR_t * ut = build(cx, IR_NULLTEST_VAR, NULL, ω); IR_LIT(ut).sval = (t->t == TT_NONNULL) ? "nonnull" : "null";
-        ir_operand_push(ut, clv); lc_γ_to(clv, ut);
+        IR_t * ut = build(cx, IR_NULLTEST_VAR, NULL, ω);
+        IR_LIT(ut).sval = (t->t == TT_NONNULL) ? "nonnull" : "null";
+        ir_operand_push(ut, clv);
+        lc_γ_to(clv, ut);
         if (clv && ir_is_generator_kind(clv->op)) lc_ω_to_β(ut, clv);
         else if (cx->beta && cx->beta != b4 && cx->beta != ω && cx->beta != ut) ω_to(ut, cx->beta);
-        *var_res = ut; return ce;
+        *var_res = ut;
+        return ce;
     }
     if (t->t == TT_CONJ && t->n > 1 && t->c[0] && t->c[t->n - 1]) {
         const tree_t * head = t->c[0];
         if (t->n > 2) { tree_t * hc = ast_node_new(TT_CONJ); for (int k = 0; k < t->n - 1; k++) ast_push(hc, (tree_t *) t->c[k]); head = hc; }
-        IR_t * ir = NULL; IR_t * ie = lower(cx, head, NULL, ω, &ir);
+        IR_t * ir = NULL;
+        IR_t * ie = lower(cx, head, NULL, ω, &ir);
         if (!ie || !ir) return NULL;
-        IR_t * lv = NULL; IR_t * lve = lower_lvalue_var(cx, t->c[t->n - 1], ω, &lv);
+        IR_t * lv = NULL;
+        IR_t * lve = lower_lvalue_var(cx, t->c[t->n - 1], ω, &lv);
         if (!lve || !lv) return NULL;
         lc_γ_to(ir, lve);
-        *var_res = lv; return ie;
+        *var_res = lv;
+        return ie;
     }
     if ((t->t == TT_ASSIGN || t->t == TT_SWAP || t->t == TT_AUGOP || t->t == TT_REVSWAP || t->t == TT_REVASSIGN) && t->n > 1 && t->c[0]) {
-        int sv = cx->ret_lv; cx->ret_lv = 0; IR_t * ir = NULL; IR_t * ie = lower(cx, t, NULL, ω, &ir); cx->ret_lv = sv;
+        int sv = cx->ret_lv;
+        cx->ret_lv = 0;
+        IR_t * ir = NULL;
+        IR_t * ie = lower(cx, t, NULL, ω, &ir);
+        cx->ret_lv = sv;
         if (!ie || !ir) return NULL;
         if ((ir->op == IR_ASSIGN_VAR || ir->op == IR_SWAP_VAR || ir->op == IR_REV_ASSIGN_VAR) && ir->n_operands == 2 && ir->operands[0]) {
-            IR_t * fw = build(cx, IR_CONJUNCTION, NULL, ω); ir_operand_push(fw, ir->operands[0]); lc_γ_to(ir, fw); *var_res = fw; return ie;
+            IR_t * fw = build(cx, IR_CONJUNCTION, NULL, ω);
+            ir_operand_push(fw, ir->operands[0]);
+            lc_γ_to(ir, fw);
+            *var_res = fw;
+            return ie;
         }
-        IR_t * lv = NULL; IR_t * lve = lower_lvalue_var(cx, t->c[0], ω, &lv);
+        IR_t * lv = NULL;
+        IR_t * lve = lower_lvalue_var(cx, t->c[0], ω, &lv);
         if (!lve || !lv) return NULL;
         lc_γ_to(ir, lve);
-        *var_res = lv; return ie;
+        *var_res = lv;
+        return ie;
     }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_scan_kind_for(const char * s) {
     if (!s) return 0;
-    if (!strcmp(s,"tab"))   return (int)IR_SCAN_TAB;
-    if (!strcmp(s,"move"))  return (int)IR_SCAN_MOVE;
-    if (!strcmp(s,"upto"))  return (int)IR_SCAN_UPTO;
-    if (!strcmp(s,"any"))   return (int)IR_SCAN_ANY;
-    if (!strcmp(s,"many"))  return (int)IR_SCAN_MANY;
-    if (!strcmp(s,"find"))  return (int)IR_SCAN_FIND;
+    if (!strcmp(s,"tab")) return (int)IR_SCAN_TAB;
+    if (!strcmp(s,"move")) return (int)IR_SCAN_MOVE;
+    if (!strcmp(s,"upto")) return (int)IR_SCAN_UPTO;
+    if (!strcmp(s,"any")) return (int)IR_SCAN_ANY;
+    if (!strcmp(s,"many")) return (int)IR_SCAN_MANY;
+    if (!strcmp(s,"find")) return (int)IR_SCAN_FIND;
     if (!strcmp(s,"match")) return (int)IR_SCAN_MATCH;
-    if (!strcmp(s,"pos"))   return (int)IR_SCAN_POS;
-    if (!strcmp(s,"bal"))   return (int)IR_SCAN_BAL;
+    if (!strcmp(s,"pos")) return (int)IR_SCAN_POS;
+    if (!strcmp(s,"bal")) return (int)IR_SCAN_BAL;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -581,7 +868,10 @@ static void icn_retag_scan_body(IR_graph_t * g, int depth) {
     for (int i = 0; i < g->n; i++) {
         IR_t * nd = g->all[i];
         if (!nd) continue;
-        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_ICON || nd->op == IR_CALL_BUILTIN_GEN) && IR_LIT(nd).sval && nd->n_operands == 1) { int k = icn_scan_kind_for(IR_LIT(nd).sval); if (k) nd->op = (IR_e) k; }
+        if ((nd->op == IR_CALL || nd->op == IR_CALL_BUILTIN || nd->op == IR_CALL_ICON || nd->op == IR_CALL_BUILTIN_GEN) && IR_LIT(nd).sval && nd->n_operands == 1) {
+            int k = icn_scan_kind_for(IR_LIT(nd).sval);
+            if (k) nd->op = (IR_e) k;
+        }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -592,20 +882,39 @@ static IR_t * lc_key(icx_t * cx, const tree_t * t, const char * kw, IR_t * γ, I
     if (id) {
         const char * cs = !strcmp(id, "ucase") ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : !strcmp(id, "lcase") ? "abcdefghijklmnopqrstuvwxyz" : !strcmp(id, "digits") ? "0123456789" : NULL;
         if (!cs && !strcmp(id, "letters")) cs = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-        if (cs) { int cn; const char * canon = icn_cset_canon(cs, (int) strlen(cs), &cn); IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = canon; icn_attach_lit_len(cx, nd, cn); *res = nd; return nd; }
+        if (cs) {
+            int cn;
+            const char * canon = icn_cset_canon(cs, (int) strlen(cs), &cn);
+            IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω);
+            IR_LIT(nd).sval = canon;
+            icn_attach_lit_len(cx, nd, cn);
+            *res = nd;
+            return nd;
+        }
     }
     int is_gen_kw = id && (!strcmp(id, "features") || !strcmp(id, "regions") || !strcmp(id, "storage") || !strcmp(id, "collections") || !strcmp(id, "allocated"));
-    IR_t * nd = build(cx, is_gen_kw ? IR_KW_ICON_GEN : IR_KW_ICON, γ, ω); IR_LIT(nd).sval = (char *) kw;
-    if (is_gen_kw) {
-        cx->beta = nd; *res = nd; return nd;
-    }
-    *res = nd; return nd;
+    IR_t * nd = build(cx, is_gen_kw ? IR_KW_ICON_GEN : IR_KW_ICON, γ, ω);
+    IR_LIT(nd).sval = (char *) kw;
+    if (is_gen_kw) { cx->beta = nd; *res = nd; return nd; }
+    *res = nd;
+    return nd;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_is_literal(const tree_t * t) { return t && (t->t == TT_QLIT || t->t == TT_ILIT || t->t == TT_FLIT || t->t == TT_CSET); }
 static IR_t * lower_runerr_111(icx_t * cx, const tree_t * other, const tree_t * bad, IR_t * γ, IR_t * ω, IR_t ** res) {
-    tree_t * call = ast_node_new(TT_FNC); tree_t * fnv = ast_node_new(TT_VAR); fnv->v.sval = (char *) "runerr"; ast_push(call, fnv); tree_t * code = ast_node_new(TT_ILIT); code->v.ival = 111; ast_push(call, code); ast_push(call, (tree_t *) bad);
-    tree_t * seq = ast_node_new(TT_CONJ); if (other) ast_push(seq, (tree_t *) other); ast_push(seq, call); return lower(cx, seq, γ, ω, res); }
+    tree_t * call = ast_node_new(TT_FNC);
+    tree_t * fnv = ast_node_new(TT_VAR);
+    fnv->v.sval = (char *) "runerr";
+    ast_push(call, fnv);
+    tree_t * code = ast_node_new(TT_ILIT);
+    code->v.ival = 111;
+    ast_push(call, code);
+    ast_push(call, (tree_t *) bad);
+    tree_t * seq = ast_node_new(TT_CONJ);
+    if (other) ast_push(seq, (tree_t *) other);
+    ast_push(seq, call);
+    return lower(cx, seq, γ, ω, res);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * lv_t, const tree_t * body_t, IR_t * γ, IR_t * ω, IR_t ** res, IR_t ** lv_out) {
     IR_t * enter = build(cx, IR_SCAN_ENTER, NULL, ω);
@@ -614,12 +923,20 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     icn_mark_γ_fail_conduit(leave_fail);
     ir_operand_push(leave_succ, enter);
     ir_operand_push(leave_fail, enter);
-    IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(succ_tramp, leave_succ); lc_ω_to(succ_tramp, leave_succ);
-    IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(fail_tramp, leave_fail); lc_ω_to(fail_tramp, leave_fail);
+    IR_t * succ_tramp = IR_node_alloc(cx->g, IR_GOTO);
+    lc_γ_to(succ_tramp, leave_succ);
+    lc_ω_to(succ_tramp, leave_succ);
+    IR_t * fail_tramp = IR_node_alloc(cx->g, IR_GOTO);
+    lc_γ_to(fail_tramp, leave_fail);
+    lc_ω_to(fail_tramp, leave_fail);
     int scan_body_lo = cx->g->n;
-    icn_scan_fr sf = { enter, cx->scan_top }; cx->scan_top = &sf; cx->scan_sp++;
-    IR_t * bv = NULL; IR_t * b_entry = lower(cx, body_t, succ_tramp, fail_tramp, &bv);
-    cx->scan_sp--; cx->scan_top = sf.up;
+    icn_scan_fr sf = { enter, cx->scan_top };
+    cx->scan_top = &sf;
+    cx->scan_sp++;
+    IR_t * bv = NULL;
+    IR_t * b_entry = lower(cx, body_t, succ_tramp, fail_tramp, &bv);
+    cx->scan_sp--;
+    cx->scan_top = sf.up;
     if (IR_LIT(enter).dval == 3.0) { IR_LIT(leave_succ).dval = 3.0; IR_LIT(leave_fail).dval = 3.0; }
     IR_t * body_beta = cx->beta;
     for (int _si = scan_body_lo; _si < cx->g->n; _si++) if (cx->g->all[_si]) cx->g->all[_si]->in_scan = 1;
@@ -627,9 +944,19 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     icn_retag_scan_body(cx->g, 0);
     lc_γ_to(enter, b_entry);
     cx->beta = ω;
-    IR_t * sr = NULL; IR_t * s_entry = NULL;
+    IR_t * sr = NULL;
+    IR_t * s_entry = NULL;
     if (subj_t) s_entry = lower(cx, subj_t, enter, ω, &sr);
-    else { IR_t * lv = NULL; s_entry = lower_lvalue_var(cx, lv_t, ω, &lv); if (!s_entry || !lv) return NULL; IR_t * dr = build(cx, IR_DEREF, enter, ω); ir_operand_push(dr, lv); lc_γ_to(lv, dr); sr = dr; if (lv_out) *lv_out = lv; }
+    else {
+        IR_t * lv = NULL;
+        s_entry = lower_lvalue_var(cx, lv_t, ω, &lv);
+        if (!s_entry || !lv) return NULL;
+        IR_t * dr = build(cx, IR_DEREF, enter, ω);
+        ir_operand_push(dr, lv);
+        lc_γ_to(lv, dr);
+        sr = dr;
+        if (lv_out) *lv_out = lv;
+    }
     ir_operand_push(enter, sr);
     if (sr && sr->op == IR_SCAN && IR_LIT(sr).dval != 3.0) IR_LIT(sr).dval = 4.0;
     IR_t * subj_beta = cx->beta;
@@ -637,583 +964,1012 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     int body_resumes = (bv && icn_gen_wiring(bv)) || (body_beta && body_beta != ω && body_beta != fail_tramp && body_beta != succ_tramp);
     if (body_resumes && !(bv && icn_gen_wiring(bv))) ir_operand_push(leave_succ, body_beta);
     cx->beta = body_resumes ? leave_succ : ((subj_beta && subj_beta != ω) ? subj_beta : ω);
-    { const tree_t * bt = body_t; while (bt && ((bt->t == TT_CONJ && bt->n >= 2) || (bt->t == TT_SEQ_EXPR && bt->n >= 1) || bt->t == TT_STMT)) bt = (bt->t == TT_STMT) ? stmt_subj(bt) : bt->c[bt->n - 1];
-      if (icn_tree_is_kw_var(bt)) { IR_t * kr = build(cx, IR_KW_ICON, γ, ω); IR_LIT(kr).sval = (char *) bt->v.sval; lc_γ_to(leave_succ, kr); *res = kr; return s_entry; } }
-    *res = leave_succ; return s_entry;
+    {
+        const tree_t * bt = body_t;
+        while (bt && ((bt->t == TT_CONJ && bt->n >= 2) || (bt->t == TT_SEQ_EXPR && bt->n >= 1) || bt->t == TT_STMT)) bt = (bt->t == TT_STMT) ? stmt_subj(bt) : bt->c[bt->n - 1];
+        if (icn_tree_is_kw_var(bt)) { IR_t * kr = build(cx, IR_KW_ICON, γ, ω); IR_LIT(kr).sval = (char *) bt->v.sval; lc_γ_to(leave_succ, kr); *res = kr; return s_entry; }
+    }
+    *res = leave_succ;
+    return s_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    IR_t * dummy = NULL; if (!res) res = &dummy;
-    cx->beta = ω; int after_line = cx->after_line; cx->after_line = 0;
+    IR_t * dummy = NULL;
+    if (!res) res = &dummy;
+    cx->beta = ω;
+    int after_line = cx->after_line;
+    cx->after_line = 0;
     if (!t) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     if (lc_is_binop(t->t)) {
         if (t->t == TT_CAT && t->n == 2 && (icn_arg_is_scan_fn(t->c[0]) || icn_arg_is_scan_fn(t->c[1]))) {
-            const tree_t * elems[icn_cat_leaves(t)]; int ne = 0; icn_cat_flatten(t, elems, &ne);
-            int all_scan = (ne >= 2); for (int i = 0; i < ne; i++) if (!icn_arg_is_scan_fn(elems[i])) { all_scan = 0; break; }
+            const tree_t * elems[icn_cat_leaves(t)];
+            int ne = 0;
+            icn_cat_flatten(t, elems, &ne);
+            int all_scan = (ne >= 2);
+            for (int i = 0; i < ne; i++) if (!icn_arg_is_scan_fn(elems[i])) { all_scan = 0; break; }
             if (all_scan) return icn_scan_seq_nary(cx, elems, ne, γ, ω, res);
         }
         { int64_t fb = 0; int fr = 0; if (icn_const_step(t, &fb, &fr) && fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; } }
-        int64_t bcode = lc_binop_code(t->t); if (bcode == BINOP_CONCAT) bcode = BINOP_CONCAT_FRACDIGIT;
+        int64_t bcode = lc_binop_code(t->t);
+        if (bcode == BINOP_CONCAT) bcode = BINOP_CONCAT_FRACDIGIT;
         int64_t bemit = (bcode == BINOP_ADD) ? (int64_t)BINOP_ADD_BIG : (bcode == BINOP_SUB) ? (int64_t)BINOP_SUB_BIG : (bcode == BINOP_MUL) ? (int64_t)BINOP_MUL_BIG : bcode;
         int is_relop = (bcode >= BINOP_LT && bcode <= BINOP_NE) || (bcode >= BINOP_SLT && bcode <= BINOP_SNE) || bcode == BINOP_EQV || bcode == BINOP_NEQV;
         int is_arith = (bcode >= BINOP_ADD && bcode <= BINOP_MOD) || bcode == BINOP_POW;
-        int alit = 0, blit = 0; { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
-        IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω); IR_LIT(op).ival = is_relop ? bcode : bemit;
-        IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL; if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bcode == BINOP_POW) ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bcode) | COERCE_OP_SELF_RIGHT;
-        IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL; if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bcode);
+        int alit = 0, blit = 0;
+        { int64_t fb = 0; int fr = 0; alit = icn_const_step(t->c[0], &fb, &fr); fb = 0; fr = 0; blit = icn_const_step(t->c[1], &fb, &fr); }
+        IR_t * op = build(cx, is_relop ? IR_BINOP_TEST : IR_BINOP, γ, ω);
+        IR_LIT(op).ival = is_relop ? bcode : bemit;
+        IR_t * cb2 = (is_arith && !blit) ? build(cx, IR_COERCE_NUMERIC, op, ω) : NULL;
+        if (cb2) IR_LIT(cb2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((bcode == BINOP_POW) ? COERCE_KEEP_INT : 0) | COERCE_OP_TAG(bcode) | COERCE_OP_SELF_RIGHT;
+        IR_t * ca2 = (is_arith && !alit) ? build(cx, IR_COERCE_NUMERIC, cb2 ? cb2 : op, ω) : NULL;
+        if (ca2) IR_LIT(ca2).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | COERCE_OP_TAG(bcode);
         IR_t * bsucc = ca2 ? ca2 : (cb2 ? cb2 : op);
         int late_deref = icn_operand_derefs_late(cx, t->c[0]);
         IR_t * lr = NULL, * rr = NULL, * ea = NULL, * eb = NULL, * lβ = NULL, * rβ = NULL;
-        if (late_deref) { eb = lower(cx, t->c[1], NULL, ω, &rr); rβ = cx->beta; cx->after_line = (t->line > 0) ? t->line : -1; ea = lower(cx, t->c[0], bsucc, rβ, &lr); lβ = cx->beta; }
-        else { ea = lower(cx, t->c[0], NULL, ω, &lr); lβ = cx->beta; cx->after_line = (t->line > 0) ? t->line : -1; eb = lower(cx, t->c[1], bsucc, lβ, &rr); rβ = cx->beta; }
+        if (late_deref) {
+            eb = lower(cx, t->c[1], NULL, ω, &rr);
+            rβ = cx->beta;
+            cx->after_line = (t->line > 0) ? t->line : -1;
+            ea = lower(cx, t->c[0], bsucc, rβ, &lr);
+            lβ = cx->beta;
+        } else {
+            ea = lower(cx, t->c[0], NULL, ω, &lr);
+            lβ = cx->beta;
+            cx->after_line = (t->line > 0) ? t->line : -1;
+            eb = lower(cx, t->c[1], bsucc, lβ, &rr);
+            rβ = cx->beta;
+        }
         IR_t * opfail = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : NULL);
         if (is_relop && opfail) ω_to(op, opfail);
-        if (late_deref) lc_γ_to(rr, ea); else lc_γ_to(lr, eb);
+        if (late_deref) lc_γ_to(rr, ea);
+        else lc_γ_to(lr, eb);
         if (ca2) { ir_operand_push(ca2, lr); ir_operand_push(ca2, rr); }
         if (cb2) { ir_operand_push(cb2, rr); ir_operand_push(cb2, lr); }
-        ir_operand_push(op, ca2 ? ca2 : lr); ir_operand_push(op, cb2 ? cb2 : rr);
+        ir_operand_push(op, ca2 ? ca2 : lr);
+        ir_operand_push(op, cb2 ? cb2 : rr);
         cx->beta = (rβ && rβ != ω && rβ != op) ? rβ : ((lβ && lβ != ω && lβ != op) ? lβ : ω);
-        *res = op; return late_deref ? eb : ea; }
+        *res = op;
+        return late_deref ? eb : ea;
+    }
     if (is_unop_tt(t->t)) {
         {
-            int64_t fb = 0; int fr = 0;
+            int64_t fb = 0;
+            int fr = 0;
             if (icn_const_step(t, &fb, &fr)) {
-                if (fr) {
-                    IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd;
-                }
-                IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = fb; *res = nd; return nd;
+                if (fr) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); double d; memcpy(&d, &fb, 8); IR_LIT(nd).dval = d; *res = nd; return nd; }
+                IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω);
+                IR_LIT(nd).ival = fb;
+                *res = nd;
+                return nd;
             }
         }
         IR_e uop_kind = (t->t == TT_NONNULL) ? IR_UNOP_TEST : IR_UNOP;
-        IR_t * op = build(cx, uop_kind, γ, ω); IR_LIT(op).ival = (long long) t->t; IR_t * orr = NULL;
+        IR_t * op = build(cx, uop_kind, γ, ω);
+        IR_LIT(op).ival = (long long) t->t;
+        IR_t * orr = NULL;
         if (t->t == TT_MNS || t->t == TT_PLS) {
-            IR_t * co = build(cx, IR_COERCE_NUMERIC, op, ω); IR_LIT(co).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((t->t == TT_MNS) ? COERCE_OP_UNARY_NEG : COERCE_OP_UNARY_POS);
+            IR_t * co = build(cx, IR_COERCE_NUMERIC, op, ω);
+            IR_LIT(co).ival = 102 | COERCE_ERR_FAILURE_CONVERTIBLE | ((t->t == TT_MNS) ? COERCE_OP_UNARY_NEG : COERCE_OP_UNARY_POS);
             IR_t * ea = lower(cx, t->c[0], co, ω, &orr);
-            ir_operand_push(co, orr); ir_operand_push(op, co); *res = op; return ea;
+            ir_operand_push(co, orr);
+            ir_operand_push(op, co);
+            *res = op;
+            return ea;
         }
-        IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op;
+        IR_t * ea = lower(cx, t->c[0], op, ω, &orr);
+        ir_operand_push(op, orr);
+        *res = op;
         IR_t * uβ = cx->beta;
         if (uop_kind == IR_UNOP_TEST && uβ && uβ != ω && uβ != op) { ω_to(op, uβ); cx->beta = uβ; }
-        return ea; }
+        return ea;
+    }
     switch (t->t) {
-    case TT_ILIT: { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
-    case TT_FLIT: { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
-    case TT_QLIT: { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; icn_attach_lit_len(cx, nd, t->slen); *res = nd; return nd; }
-    case TT_CSET: { int cn; const char * canon = icn_cset_canon(t->v.sval, t->slen, &cn); IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω); IR_LIT(nd).sval = canon; icn_attach_lit_len(cx, nd, cn); *res = nd; return nd; }
-    case TT_NULL: {
-        if (t->n > 0 && t->c[0]) {
-            IR_t * op = build(cx, IR_UNOP_TEST, γ, ω); IR_LIT(op).ival = (long long) TT_NULL; IR_t * orr = NULL; IR_t * ea = lower(cx, t->c[0], op, ω, &orr); ir_operand_push(op, orr); *res = op;
-            IR_t * nβ = cx->beta;
-            if (nβ && nβ != ω && nβ != op) { ω_to(op, nβ); cx->beta = nβ; }
-            return ea;
-        } IR_t * nd = build(cx, IR_FAIL, γ, ω);
-        *res = nd; return nd;
-    }
-    case TT_BANG_BINARY: {
-        const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL;
-        const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
-        tree_t * callee;
-        if (lhs && icn_callee_is_name(cx, lhs)) {
-            callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval; callee->slen = (int) strlen(lhs->v.sval);
-        } else callee = (tree_t *) lhs;
-        IR_t * cr = NULL; IR_t * ce = lower(cx, callee, NULL, ω, &cr);
-        IR_t * prevβ = cx->beta;
-        IR_t * drf = build(cx, IR_DEREF, γ, ω);
-        IR_t * nd = build(cx, IR_CALL_VALUE, drf, NULL);
-        ir_operand_push(nd, cr);
-        if (rhs) {
-            IR_LIT(nd).sval = (char *) "apply";
-            IR_t * ar = NULL; IR_t * ae = lower(cx, rhs, NULL, prevβ ? prevβ : ω, &ar); prevβ = cx->beta;
-            lc_γ_to(cr, ae);
-            ir_operand_push(nd, ar);
-            ω_to(nd, prevβ ? prevβ : ω);
-            lc_γ_to(ar, nd);
-        } else {
-            ω_to(nd, prevβ ? prevβ : ω);
-            lc_γ_to(cr, nd);
+        case TT_ILIT:
+        { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
+        case TT_FLIT:
+        { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
+        case TT_QLIT:
+        { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; icn_attach_lit_len(cx, nd, t->slen); *res = nd; return nd; }
+        case TT_CSET:
+        {
+            int cn;
+            const char * canon = icn_cset_canon(t->v.sval, t->slen, &cn);
+            IR_t * nd = build(cx, IR_LIT_CHARSET, γ, ω);
+            IR_LIT(nd).sval = canon;
+            icn_attach_lit_len(cx, nd, cn);
+            *res = nd;
+            return nd;
         }
-        ω_to(drf, nd); ir_operand_push(drf, nd);
-        cx->beta = nd;
-        *res = drf; return ce;
-    }
-    case TT_VAR: { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
-    case TT_KEYWORD: return lc_key(cx, t, t->v.sval, γ, ω, res);
-    case TT_NUL: { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }
-    case TT_FIELD: { IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
-        IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
-        IR_t * br = NULL; IR_t * ea = lower(cx, t->c[0], nd, ω, &br); ir_operand_push(nd, br); *res = nd; return ea; }
-    case TT_FNC: { const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
-        { const char * vn = icn_variable_lit(cx, t);
-          if (vn) { tree_t * tg = icn_variable_lit_target(cx, vn); if (!tg) return lc_key(cx, t, "&fail", γ, ω, res); if (tg->t == TT_KEYWORD) return lc_key(cx, t, tg->v.sval, γ, ω, res); return lower(cx, tg, γ, ω, res); } }
-        if (!fn || icn_callee_is_name(cx, fn)) {
-            const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
-            cx->after_line = after_line; if (!icn_call_yields_a_variable(cx, nm)) return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
-            IR_t * cr = NULL; IR_t * drf = build(cx, IR_DEREF, γ, ω);
-            IR_t * centry = lower_call(cx, nm, t, 1, t->n - 1, drf, ω, &cr);
-            IR_t * cβ = cx->beta; if (cβ && cβ != ω && cβ != drf) ω_to(drf, cβ);
-            ir_operand_push(drf, cr);
-            *res = drf; return centry;
-        }
-        IR_t * cr = NULL; IR_t * ce = lower(cx, fn, NULL, ω, &cr);
-        IR_t * prevβ = cx->beta;
-        IR_t * drf = build(cx, IR_DEREF, γ, ω);
-        IR_t * nd = build(cx, IR_CALL_VALUE, drf, NULL);
-        IR_t * prev = cr;
-        ir_operand_push(nd, cr);
-        for (int i = 1; i < t->n; i++) {
-            IR_t * ar = NULL; IR_t * ae = NULL;
-            if (icn_arg_stages(cx, t->c[i]) || (t->c[i] && t->c[i]->t == TT_ITERATE && t->c[i]->n > 0 && icn_arg_stages(cx, t->c[i]->c[0]))) { cx->beta = prevβ ? prevβ : ω; ae = lower_lvalue_var(cx, t->c[i], prevβ ? prevβ : ω, &ar); if (ae && ar && ar->op == IR_VAR_REF) ar->pat_static = 1; }
-            if (!ae || !ar) { if (i == t->n - 1) cx->after_line = (t->line > 0) ? t->line : fn->line; ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar); }
-            prevβ = cx->beta;
-            lc_γ_to(prev, ae); prev = ar;
-            ir_operand_push(nd, ar);
-        }
-        ω_to(nd, prevβ ? prevβ : ω);
-        { long own = (t->line > 0) ? t->line : fn->line; long vline = (after_line != 0 && after_line != own) ? 0 : own; lc_γ_to(prev, (vline > 0) ? icn_line_mark(cx, (int) vline, nd) : nd); }
-        ω_to(drf, nd); ir_operand_push(drf, nd);
-        cx->beta = nd;
-        *res = drf; return ce; }
-    case TT_RANDOM: {
-        IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
-        const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL; if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
-        IR_t * ar = NULL; IR_t * ae;
-        ae = lower(cx, b0, NULL, ω, &ar);
-        lc_γ_to(ar, rn); ir_operand_push(rn, ar);
-        IR_t * drf = build(cx, IR_DEREF, γ, ω); lc_γ_to(rn, drf); ir_operand_push(drf, rn);
-        *res = drf; return ae; }
-    case TT_IDX: {
-        IR_t * vr = NULL; IR_t * e = lower_idx_var(cx, t, ω, &vr);
-        IR_t * idxβ = cx->beta;
-        IR_t * drf = build(cx, IR_DEREF, γ, idxβ ? idxβ : ω); lc_γ_to(vr, drf); ir_operand_push(drf, vr);
-        *res = drf; return e; }
-    case TT_DEREF: {
-        const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL; if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
-        IR_t * ar = NULL; IR_t * ae = lower(cx, b0, NULL, ω, &ar);
-        IR_t * drβ = cx->beta;
-        IR_t * drf = build(cx, IR_DEREF, γ, drβ ? drβ : ω); lc_γ_to(ar, drf); ir_operand_push(drf, ar);
-        *res = drf; return ae; }
-    case TT_MAKELIST: case TT_VLIST: return lower_make_list(cx, t, γ, ω, res);
-    case TT_ASSIGN: {
-        const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
-        { const char * vn = icn_variable_lit(cx, lhs);
-          if (vn) { tree_t * tg = icn_variable_lit_target(cx, vn); if (!tg) return lc_key(cx, t, "&fail", γ, ω, res);
-                    tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, tg); ast_push(as, (tree_t *) rhs); return lower(cx, as, γ, ω, res); } }
-        if (lhs && (lhs->t == TT_VAR || lhs->t == TT_KEYWORD) && lhs->v.sval && lhs->v.sval[0] == '&') {
-            IR_t * ka = build(cx, IR_KW_ASSIGN, γ, ω); IR_LIT(ka).sval = lhs->v.sval;
-            IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, ka, ω, &vr); ir_operand_push(ka, vr); *res = ka; return entry; }
-        if (lhs && lhs->t == TT_VAR) { IR_t * asn = build(cx, IR_ASSIGN, γ, ω); IR_LIT(asn).sval = lhs->v.sval; IR_t * vtc = NULL; IR_t * vt = icn_trace_named_prep(cx, "__trace_value", lhs->v.sval, asn, ω, &vtc);
-            IR_t * vr = NULL; IR_t * entry = lower(cx, rhs, vt ? vt : asn, ω, &vr); ir_operand_push(asn, vr); if (vr && vtc) ir_operand_push(vtc, vr); *res = asn; return entry; }
-        { IR_t * b4 = cx->beta;
-          IR_t * lv = NULL; IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
-          if (lve && lv) {
-            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, asn, lvbeta ? lvbeta : ω, &rr);
-            lc_γ_to(lv, re);
-            ir_operand_push(asn, lv); ir_operand_push(asn, rr);
-            *res = asn; return lve;
-          } }
-        if (getenv("SCRIP_ASSIGN_DIAG")) fprintf(stderr, "[ASSIGN-LV] nameless assign: lhs tree type %d, %d children, line %d\n", lhs ? (int) lhs->t : -1, lhs ? lhs->n : -1, lhs ? (int) lhs->line : -1);
-        { tree_t * call = ast_node_new(TT_FNC); tree_t * fnv = ast_node_new(TT_VAR); fnv->v.sval = (char *) "runerr"; ast_push(call, fnv); tree_t * code = ast_node_new(TT_ILIT); code->v.ival = 111; ast_push(call, code); ast_push(call, (tree_t *) lhs);
-          tree_t * seq = ast_node_new(TT_CONJ); ast_push(seq, (tree_t *) rhs); ast_push(seq, call); return lower(cx, seq, γ, ω, res); }
-    }
-    case TT_AUGOP: {
-        const tree_t * lhs = t->c[0]; const tree_t * rhs = t->c[1];
-        if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs && (lhs->t == TT_ALTERNATE || lhs->t == TT_IDX || lhs->t == TT_FIELD)) {
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω); IR_t * sres = NULL; IR_t * lv = NULL;
-            IR_t * entry = lower_scan_impl(cx, NULL, lhs, rhs, asn, ω, &sres, &lv);
-            if (entry && lv && sres) { ir_operand_push(asn, lv); ir_operand_push(asn, sres); *res = asn; return entry; }
-        }
-        if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs) {
-            tree_t * scn = ast_node_new(TT_SCAN); ast_push(scn, (tree_t *) lhs); ast_push(scn, (tree_t *) rhs);
-            tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, scn);
-            return lower(cx, as, γ, ω, res);
-        }
-        if (lhs && lhs->t == TT_VAR && rhs && augop_binop_tt((int) t->v.ival) != (tree_e) 0) {
-            tree_t * bo = ast_node_new(augop_binop_tt((int) t->v.ival)); ast_push(bo, (tree_t *) lhs); ast_push(bo, (tree_t *) rhs);
-            tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, bo);
-            return lower(cx, as, γ, ω, res);
-        }
-        if ((int) t->v.ival == AUGOP_CONJ && lhs && rhs) {
-            tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, (tree_t *) rhs);
-            return lower(cx, as, γ, ω, res);
-        }
-        int aop = (int) t->v.ival;
-        { IR_t * b4 = cx->beta;
-          IR_t * lv = NULL; IR_t * lve = (lhs && rhs) ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
-          if (lve && lv) {
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * op = NULL, * ca = NULL, * cb = NULL; IR_t * dr = build(cx, IR_DEREF, icn_augop_build(cx, aop, asn, ω, &op, &ca, &cb), ω);
-            ir_operand_push(dr, lv);
-            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL; IR_t * rω = lvbeta ? lvbeta : ω;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, dr, rω, &rr);
-            lc_γ_to(lv, re);
-            { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
-            icn_augop_operands(aop, op, ca, cb, dr, rr);
-            ir_operand_push(asn, lv); ir_operand_push(asn, op);
-            *res = asn; return lve;
-          }
-        }
-        { IR_t * b4 = cx->beta;
-          IR_t * lr = NULL; IR_t * ea = (lhs && rhs) ? lower(cx, lhs, NULL, ω, &lr) : NULL;
-          if (ea && lr) {
-            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
-            IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
-            IR_t * op = NULL, * ca = NULL, * cb = NULL; IR_t * dr = build(cx, IR_DEREF, icn_augop_build(cx, aop, asn, ω, &op, &ca, &cb), ω);
-            ir_operand_push(dr, lr); IR_t * rω = lvbeta ? lvbeta : ω;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, dr, rω, &rr);
-            lc_γ_to(lr, re);
-            { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
-            icn_augop_operands(aop, op, ca, cb, dr, rr);
-            ir_operand_push(asn, lr); ir_operand_push(asn, op);
-            *res = asn; return ea;
-          }
-        }
-        { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-    }
-    case TT_RETURN: { IR_t * ret = build(cx, IR_RETURN, cx->psucc ? cx->psucc : γ, ω);
-        IR_t * rtc = NULL; IR_t * rtn = icn_trace_named_prep(cx, "__trace_return", cx->pname, ret, ω, &rtc);
-        IR_t * vtgt = rtn ? rtn : ret;
-        if (cx->scan_sp > 0) { IR_t * tgt = ret;
-            for (int _k = 0; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); ir_operand_push(lv, icn_scan_at(cx, _k)); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
-            IR_t * tramp = IR_node_alloc(cx->g, IR_GOTO); lc_γ_to(tramp, tgt); lc_ω_to(tramp, tgt); vtgt = tramp; }
-        if (t->n > 0 && t->c[0]) { IR_t * vr = NULL; IR_t * entry = lower_result_operand(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr); ir_operand_push(ret, vr); if (vr && rtc) ir_operand_push(rtc, vr); *res = ret; return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, entry) : entry; }
-        *res = ret; return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, vtgt) : vtgt; }
-    case TT_PROC_FAIL: { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-    case TT_LOOP_BREAK: {
-        int k = 1; const tree_t * ch = (t->n >= 1) ? t->c[0] : NULL;
-        while (ch && ch->t == TT_LOOP_BREAK) { k++; ch = (ch->n >= 1) ? ch->c[0] : NULL; }
-        if (!ch) {
-            int idx = cx->loop_sp - k;
-            icn_loop_fr * lfk = icn_loop_at(cx, idx); IR_t * lx = lfk ? lfk->exit : NULL;
-            if (!lx) lx = cx->loop_exit;
-            if (!lx) { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
-            IR_t * nullv = build(cx, IR_VAR, NULL, lx); IR_LIT(nullv).sval = (char *) "&null";
-            IR_t * gt = build(cx, IR_GOTO, lx, lx);
-            IR_t * asn0 = build(cx, IR_ASSIGN, gt, gt); IR_LIT(asn0).sval = (char *) "__break_result";
-            ir_operand_push(asn0, nullv); γ_to(nullv, asn0);
-            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = nullv;
-                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, icn_scan_at(cx, _k)); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
-                *res = gt; return tgt; }
-            *res = gt; return nullv;
-        } else {
-            IR_t * cur_exit = cx->loop_exit;
-            IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
-            IR_t * cur_fail = cx->loop_fail;
-            IR_t * fail_goto = cur_fail ? build(cx, IR_GOTO, cur_fail, cur_fail) : exit_goto;
-            int idx = cx->loop_sp - 2; IR_t * se = cx->loop_exit, * sn = cx->loop_next, * sf = cx->loop_fail;
-            { icn_loop_fr * lfi = icn_loop_at(cx, idx); if (lfi) { cx->loop_exit = lfi->exit; cx->loop_next = lfi->next; cx->loop_fail = lfi->fail; } }
-            IR_t * ev = NULL; IR_t * en = lower(cx, ch, NULL, fail_goto, &ev);
-            cx->loop_exit = se; cx->loop_next = sn; cx->loop_fail = sf;
-            IR_t * asn = build(cx, IR_ASSIGN, exit_goto, exit_goto); IR_LIT(asn).sval = (char *) "__break_result";
-            { IR_t * evf = icn_arm_result(ev); if (evf) { ir_operand_push(asn, evf); γ_to(evf, asn); } else if (!ev) γ_to(en, asn); }
-            cx->loop_break_beta = cx->beta;
-            if (cx->scan_sp > cx->loop_next_ssp) { IR_t * tgt = en;
-                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); IR_LIT(lv).dval = 3.0; ir_operand_push(lv, icn_scan_at(cx, _k)); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
-                *res = exit_goto; return tgt; }
-            *res = exit_goto; return en;
-        }
-    }
-    case TT_LOOP_NEXT: { IR_t * ln = cx->loop_next; IR_t * nd;
-        if (ln && cx->scan_sp > cx->loop_next_ssp) {
-            for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); icn_mark_γ_fail_conduit(lv); ir_operand_push(lv, icn_scan_at(cx, _k)); lc_γ_to(lv, ln); lc_ω_to(lv, ln); ln = lv; }
-            nd = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(nd, ln); lc_ω_to(nd, ln);
-        } else nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω);
-        *res = nd; return nd; }
-    case TT_LOCAL: case TT_STATIC_DECL: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_INITIAL: {
-        IR_t * ini = build(cx, IR_INITIAL, NULL, γ);
-        if (t->n > 0 && t->c[0]) {
-            IR_t * br = NULL;
-            IR_t * be = lower(cx, t->c[0], γ, γ, &br);
-            lc_γ_to(ini, be);
-            ir_operand_push(ini, br);
-        } else {
-            lc_γ_to(ini, γ);
-        }
-        *res = ini; return ini; }
-    case TT_SUSPEND: { IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω); IR_LIT(sn).dval = 1.0; IR_LIT(sn).sval = (char *) cx->pname;
-        bb_src_note(sn, "suspend", t->line);
-        IR_t * ev = NULL; IR_t * e_entry = sn; IR_t * eβ = NULL;
-        if (t->n > 0 && t->c[0]) { cx->beta = ω; if (icn_trace_operand_has_var(cx, t->c[0])) sn->pat_static = 1; e_entry = lower_trace_operand(cx, t->c[0], sn, ω, &ev); if (cx->beta && cx->beta != ω) eβ = cx->beta; }
-        ir_operand_push(sn, ev);
-        IR_t * rrt; if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : ω, eβ ? eβ : ω, &dv); sn->seal = 1; }
-        else rrt = eβ ? eβ : ω;
-        if (cx->scan_sp > 0) {
-            IR_t * ytgt = cx->psucc ? cx->psucc : γ; IR_t * rrt0 = rrt;
-            IR_t * lvs[cx->scan_sp]; int nlv = 0;
-            for (int _k = cx->scan_sp - 1; _k >= 0; _k--) {
-                IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
-                IR_LIT(icn_scan_at(cx, _k)).dval = 3.0;
-                ir_operand_push(lv, icn_scan_at(cx, _k)); ir_operand_push(lv, NULL); ir_operand_push(lv, NULL);
-                if (nlv) { lc_γ_to(lvs[nlv - 1], lv); lc_ω_to(lvs[nlv - 1], lv); }
-                lvs[nlv++] = lv;
+        case TT_NULL:
+        {
+            if (t->n > 0 && t->c[0]) {
+                IR_t * op = build(cx, IR_UNOP_TEST, γ, ω);
+                IR_LIT(op).ival = (long long) TT_NULL;
+                IR_t * orr = NULL;
+                IR_t * ea = lower(cx, t->c[0], op, ω, &orr);
+                ir_operand_push(op, orr);
+                *res = op;
+                IR_t * nβ = cx->beta;
+                if (nβ && nβ != ω && nβ != op) { ω_to(op, nβ); cx->beta = nβ; }
+                return ea;
             }
-            lc_γ_to(lvs[nlv - 1], ytgt); lc_ω_to(lvs[nlv - 1], rrt0);
-            for (int _i = 0; _i < nlv; _i++) lvs[_i]->operands[2] = (_i > 0) ? lvs[_i - 1] : rrt;
-            lc_γ_to(sn, lvs[0]);
-            rrt = lvs[nlv - 1];
+            IR_t * nd = build(cx, IR_FAIL, γ, ω);
+            *res = nd;
+            return nd;
         }
-        ir_operand_push(sn, rrt);
-        *res = sn; return e_entry; }
-    case TT_CASE: return lower_case(cx, t, γ, ω, res);
-    case TT_CONJ:
-    case TT_SEQ_EXPR: return lower_seq_impl(cx, t, γ, ω, res, 0);
-    case TT_SECTION: case TT_SECTION_PLUS: case TT_SECTION_MINUS: {
-        if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-        int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
-        IR_t * sec = build(cx, IR_SUBSCRIPT, γ, ω);
-        if (sec_variant == 1) IR_LIT(sec).sval = "+";
-        else if (sec_variant == 2) IR_LIT(sec).sval = "-";
-        IR_t * ar = NULL; IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar); IR_t * aβ = cx->beta;
-        IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
-        IR_t * br = NULL; IR_t * be = lower(cx, t->c[1], NULL, ωa, &br); lc_γ_to(ar, be); IR_t * bβ = cx->beta;
-        IR_t * ωb = (bβ && bβ != ωa && bβ != sec) ? bβ : ωa;
-        IR_t * cr = NULL; IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr); lc_γ_to(br, ce); IR_t * cβ = cx->beta;
-        IR_t * ωc = (cβ && cβ != ωb && cβ != sec) ? cβ : ωb;
-        if (sec_variant) {
-            IR_t * op = build(cx, IR_BINOP, sec, ωc); IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
-            ir_operand_push(op, br); ir_operand_push(op, cr);
-            γ_to(cr, op); cr = op;
-        }
-        ir_operand_push(sec, ar);
-        ir_operand_push(sec, br);
-        ir_operand_push(sec, cr);
-        if (ωc != ω) ω_to(sec, ωc);
-        cx->beta = ωc; *res = sec; return ae; }
-    case TT_NOT: return lower_not(cx, t, γ, ω, res);
-    case TT_ALTERNATE: return lower_alt(cx, t, γ, ω, res);
-    case TT_ITERATE: {
-        IR_t * nd = build(cx, IR_ITERATE, γ, ω);
-        IR_t * orr = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr);
-        IR_t * opβ = cx->beta;
-        ir_operand_push(nd, orr);
-        lc_γ_to(orr, nd);
-        if (opβ && opβ != ω) lc_ω_to_β(nd, opβ);
-        cx->beta = nd; *res = nd; return ee; }
-    case TT_IF: return lower_if(cx, t, γ, ω, res);
-    case TT_WHILE: return lower_while(cx, t, γ, ω, res);
-    case TT_UNTIL: return lower_until(cx, t, γ, ω, res);
-    case TT_REPEAT: return lower_repeat(cx, t, γ, ω, res);
-    case TT_TO: case TT_TO_BY: return lower_to(cx, t, γ, ω, res);
-    case TT_EVERY: return lower_every(cx, t, γ, ω, res);
-    case TT_SCAN: {
-        if (t->n < 2 || !t->c[0] || !t->c[1]) {
-            IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs;
-        }
-        IR_t * sc = lower_scan_impl(cx, t->c[0], NULL, t->c[1], γ, ω, res, NULL); if (sc) return sc;
-        { IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs; } }
-    case TT_STMT: { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_CREATE: {
-        IR_t * nd = build(cx, IR_CREATE, γ, ω);
-        IR_LIT(nd).sval = cx->pname;
-        IR_t * coret = build(cx, IR_CORET, NULL, NULL);
-        IR_t * cofail = build(cx, IR_COFAIL, NULL, NULL);
-        IR_t * bv = NULL; IR_t * b_entry = lower(cx, (t->n > 0) ? t->c[0] : NULL, coret, cofail, &bv);
-        IR_t * body_beta = cx->beta;
-        if (body_beta) γ_to(coret, body_beta);
-        ir_operand_push(coret, bv);
-        ir_operand_push(nd, b_entry);
-        cx->beta = ω; *res = nd; return nd; }
-    case TT_ACTIVATE: {
-        IR_t * nd = build(cx, IR_ACTIVATE, γ, ω);
-        IR_LIT(nd).sval = cx->pname;
-        const tree_t * xt = (t->n > 1) ? t->c[0] : NULL;
-        const tree_t * ct = (t->n > 1) ? t->c[1] : t->c[0];
-        IR_t * b4 = cx->beta;
-        IR_t * cr = NULL; IR_t * c_entry = lower(cx, ct, nd, ω, &cr);
-        IR_t * cβ = (cx->beta != b4 && cx->beta != ω) ? cx->beta : NULL;
-        if (cβ) ω_to(nd, cβ);
-        IR_t * entry = c_entry;
-        ir_operand_push(nd, cr);
-        if (xt) { IR_t * xr = NULL; entry = lower(cx, xt, c_entry, ω, &xr); ir_operand_push(nd, xr); }
-        if (cx->want_lines && t->line > 0) entry = icn_line_hook(cx, t->line, entry);
-        cx->beta = cβ ? cβ : ω; *res = nd; return entry; }
-    case TT_REPALT: {
-        IR_t * nd = build(cx, IR_REPALT, γ, ω);
-        lc_γ_to(nd, γ);
-        IR_t * xs = build(cx, IR_FAIL, NULL, NULL);
-        IR_t * b4 = cx->beta;
-        IR_t * er = NULL; IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, xs, &er);
-        IR_t * eβ = (cx->beta != b4 && cx->beta != xs && cx->beta != ω) ? cx->beta : NULL;
-        ir_operand_push(nd, er);
-        ir_operand_push(nd, ee);
-        ir_operand_push(nd, xs);
-        ir_operand_push(nd, eβ);
-        cx->beta = nd; *res = nd; return nd; }
-    case TT_LIMIT: return lower_limit_impl(cx, t, γ, ω, res, 0);
-    case TT_LCONCAT: {
-        if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-        IR_t * op = build(cx, IR_BINOP, γ, ω); IR_LIT(op).ival = BINOP_LCONCAT;
-        IR_t * lr = NULL; IR_t * ee = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
-        IR_t * rr = NULL; IR_t * re = lower(cx, t->c[1], op, lβ, &rr); lc_γ_to(lr, re);
-        ir_operand_push(op, lr); ir_operand_push(op, rr);
-        *res = op; return ee; }
-    case TT_SWAP: {
-        const tree_t * lt = (t->n > 0) ? t->c[0] : NULL; const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
-        if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
-        if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
-        int plain_l = lt && lt->t == TT_VAR && lt->v.sval && lt->v.sval[0] != '&' && icn_is_local(cx, lt->v.sval);
-        int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&' && icn_is_local(cx, rt2->v.sval);
-        int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
-        int kw_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval && rt2->v.sval[0] == '&';
-        if (kw_l && kw_r) {
-            IR_t * lv_old = build(cx, IR_KW_ICON, NULL, ω); IR_LIT(lv_old).sval = (char *) lt->v.sval;
-            IR_t * rv_old = build(cx, IR_KW_ICON, NULL, ω); IR_LIT(rv_old).sval = (char *) rt2->v.sval;
-            lc_γ_to(lv_old, rv_old);
-            IR_t * write_l = build(cx, IR_KW_ASSIGN, NULL, ω); IR_LIT(write_l).sval = (char *) lt->v.sval;  ir_operand_push(write_l, rv_old);
-            IR_t * write_r = build(cx, IR_KW_ASSIGN, γ,    ω); IR_LIT(write_r).sval = (char *) rt2->v.sval; ir_operand_push(write_r, lv_old);
-            lc_γ_to(rv_old, write_l); lc_γ_to(write_l, write_r);
-            *res = write_l; return lv_old;
-        }
-        if (kw_l || kw_r) {
-            IR_t * kv_old = build(cx, IR_KW_ICON, NULL, ω);
-            IR_t * pv_old = build(cx, IR_VAR, NULL, ω);
-            const tree_t * kw_tree = kw_l ? lt : rt2;
-            const tree_t * pl_tree = kw_l ? rt2 : lt;
-            IR_LIT(kv_old).sval = (char *) kw_tree->v.sval;
-            IR_LIT(pv_old).sval = (char *) pl_tree->v.sval;
-            lc_γ_to(kv_old, pv_old);
-            if (kw_l) {
-                IR_t * write_kw    = build(cx, IR_KW_ASSIGN, NULL, ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
-                IR_t * write_plain = build(cx, IR_ASSIGN,          γ,    ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
-                lc_γ_to(pv_old, write_kw); lc_γ_to(write_kw, write_plain);
-                *res = write_kw; return kv_old;
+        case TT_BANG_BINARY:
+        {
+            const tree_t * lhs = (t->n > 0) ? t->c[0] : NULL;
+            const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
+            tree_t * callee;
+            if (lhs && icn_callee_is_name(cx, lhs)) { callee = ast_node_new(TT_QLIT); callee->v.sval = lhs->v.sval; callee->slen = (int) strlen(lhs->v.sval); } else callee = (tree_t *) lhs;
+            IR_t * cr = NULL;
+            IR_t * ce = lower(cx, callee, NULL, ω, &cr);
+            IR_t * prevβ = cx->beta;
+            IR_t * drf = build(cx, IR_DEREF, γ, ω);
+            IR_t * nd = build(cx, IR_CALL_VALUE, drf, NULL);
+            ir_operand_push(nd, cr);
+            if (rhs) {
+                IR_LIT(nd).sval = (char *) "apply";
+                IR_t * ar = NULL;
+                IR_t * ae = lower(cx, rhs, NULL, prevβ ? prevβ : ω, &ar);
+                prevβ = cx->beta;
+                lc_γ_to(cr, ae);
+                ir_operand_push(nd, ar);
+                ω_to(nd, prevβ ? prevβ : ω);
+                lc_γ_to(ar, nd);
             } else {
-                IR_t * write_plain = build(cx, IR_ASSIGN,          NULL, ω); IR_LIT(write_plain).sval = pl_tree->v.sval; ir_operand_push(write_plain, kv_old);
-                IR_t * write_kw    = build(cx, IR_KW_ASSIGN,  γ,    ω); IR_LIT(write_kw).sval    = kw_tree->v.sval; ir_operand_push(write_kw, pv_old);
-                lc_γ_to(pv_old, write_plain); lc_γ_to(write_plain, write_kw);
-                *res = write_plain; return kv_old;
-            } }
-        if (!(plain_l && plain_r)) {
-            IR_t * b4 = cx->beta;
-            IR_t * xr = NULL; IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
-            IR_t * xbeta = (cx->beta != b4) ? cx->beta : NULL;
-            IR_t * yr = NULL; IR_t * ye = xe ? lower_lvalue_var(cx, rt2, xbeta ? xbeta : ω, &yr) : NULL;
-            if (xe && ye) {
-                lc_γ_to(xr, ye);
-                IR_t * nd = build(cx, IR_SWAP_VAR, γ, ω);
-                lc_γ_to(yr, nd);
-                ir_operand_push(nd, xr); ir_operand_push(nd, yr);
-                *res = nd; return xe;
+                ω_to(nd, prevβ ? prevβ : ω);
+                lc_γ_to(cr, nd);
+            }
+            ω_to(drf, nd);
+            ir_operand_push(drf, nd);
+            cx->beta = nd;
+            *res = drf;
+            return ce;
+        }
+        case TT_VAR:
+        { if (t->v.sval && t->v.sval[0] == '&') return lc_key(cx, t, t->v.sval, γ, ω, res); IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
+        case TT_KEYWORD:
+        return lc_key(cx, t, t->v.sval, γ, ω, res);
+        case TT_NUL:
+        { IR_t * nd = build(cx, IR_VAR, γ, ω); IR_LIT(nd).sval = (char *) "&null"; *res = nd; return nd; }
+        case TT_FIELD:
+        {
+            IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
+            IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
+            IR_t * br = NULL;
+            IR_t * ea = lower(cx, t->c[0], nd, ω, &br);
+            ir_operand_push(nd, br);
+            *res = nd;
+            return ea;
+        }
+        case TT_FNC:
+        {
+            const tree_t * fn = (t->n > 0) ? t->c[0] : NULL;
+            {
+                const char * vn = icn_variable_lit(cx, t);
+                if (vn) {
+                    tree_t * tg = icn_variable_lit_target(cx, vn);
+                    if (!tg) return lc_key(cx, t, "&fail", γ, ω, res);
+                    if (tg->t == TT_KEYWORD) return lc_key(cx, t, tg->v.sval, γ, ω, res);
+                    return lower(cx, tg, γ, ω, res);
+                }
+            }
+            if (!fn || icn_callee_is_name(cx, fn)) {
+                const char * nm = (fn && fn->t == TT_VAR) ? fn->v.sval : "?";
+                cx->after_line = after_line;
+                if (!icn_call_yields_a_variable(cx, nm)) return lower_call(cx, nm, t, 1, t->n - 1, γ, ω, res);
+                IR_t * cr = NULL;
+                IR_t * drf = build(cx, IR_DEREF, γ, ω);
+                IR_t * centry = lower_call(cx, nm, t, 1, t->n - 1, drf, ω, &cr);
+                IR_t * cβ = cx->beta;
+                if (cβ && cβ != ω && cβ != drf) ω_to(drf, cβ);
+                ir_operand_push(drf, cr);
+                *res = drf;
+                return centry;
+            }
+            IR_t * cr = NULL;
+            IR_t * ce = lower(cx, fn, NULL, ω, &cr);
+            IR_t * prevβ = cx->beta;
+            IR_t * drf = build(cx, IR_DEREF, γ, ω);
+            IR_t * nd = build(cx, IR_CALL_VALUE, drf, NULL);
+            IR_t * prev = cr;
+            ir_operand_push(nd, cr);
+            for (int i = 1; i < t->n; i++) {
+                IR_t * ar = NULL;
+                IR_t * ae = NULL;
+                if (icn_arg_stages(cx, t->c[i]) || (t->c[i] && t->c[i]->t == TT_ITERATE && t->c[i]->n > 0 && icn_arg_stages(cx, t->c[i]->c[0]))) {
+                    cx->beta = prevβ ? prevβ : ω;
+                    ae = lower_lvalue_var(cx, t->c[i], prevβ ? prevβ : ω, &ar);
+                    if (ae && ar && ar->op == IR_VAR_REF) ar->pat_static = 1;
+                }
+                if (!ae || !ar) { if (i == t->n - 1) cx->after_line = (t->line > 0) ? t->line : fn->line; ae = lower(cx, t->c[i], NULL, prevβ ? prevβ : ω, &ar); }
+                prevβ = cx->beta;
+                lc_γ_to(prev, ae);
+                prev = ar;
+                ir_operand_push(nd, ar);
+            }
+            ω_to(nd, prevβ ? prevβ : ω);
+            { long own = (t->line > 0) ? t->line : fn->line; long vline = (after_line != 0 && after_line != own) ? 0 : own; lc_γ_to(prev, (vline > 0) ? icn_line_mark(cx, (int) vline, nd) : nd); }
+            ω_to(drf, nd);
+            ir_operand_push(drf, nd);
+            cx->beta = nd;
+            *res = drf;
+            return ce;
+        }
+        case TT_RANDOM:
+        {
+            IR_t * rn = build(cx, IR_RANDOM, NULL, ω);
+            const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL;
+            if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
+            IR_t * ar = NULL;
+            IR_t * ae;
+            ae = lower(cx, b0, NULL, ω, &ar);
+            lc_γ_to(ar, rn);
+            ir_operand_push(rn, ar);
+            IR_t * drf = build(cx, IR_DEREF, γ, ω);
+            lc_γ_to(rn, drf);
+            ir_operand_push(drf, rn);
+            *res = drf;
+            return ae;
+        }
+        case TT_IDX:
+        {
+            IR_t * vr = NULL;
+            IR_t * e = lower_idx_var(cx, t, ω, &vr);
+            IR_t * idxβ = cx->beta;
+            IR_t * drf = build(cx, IR_DEREF, γ, idxβ ? idxβ : ω);
+            lc_γ_to(vr, drf);
+            ir_operand_push(drf, vr);
+            *res = drf;
+            return e;
+        }
+        case TT_DEREF:
+        {
+            const tree_t * b0 = (t->n > 0) ? t->c[0] : NULL;
+            if (!b0) { IR_t * f = build(cx, IR_FAIL, γ, ω); *res = f; return f; }
+            IR_t * ar = NULL;
+            IR_t * ae = lower(cx, b0, NULL, ω, &ar);
+            IR_t * drβ = cx->beta;
+            IR_t * drf = build(cx, IR_DEREF, γ, drβ ? drβ : ω);
+            lc_γ_to(ar, drf);
+            ir_operand_push(drf, ar);
+            *res = drf;
+            return ae;
+        }
+        case TT_MAKELIST:
+        case TT_VLIST:
+        return lower_make_list(cx, t, γ, ω, res);
+        case TT_ASSIGN:
+        {
+            const tree_t * lhs = t->c[0];
+            const tree_t * rhs = t->c[1];
+            {
+                const char * vn = icn_variable_lit(cx, lhs);
+                if (vn) {
+                    tree_t * tg = icn_variable_lit_target(cx, vn);
+                    if (!tg) return lc_key(cx, t, "&fail", γ, ω, res);
+                    tree_t * as = ast_node_new(TT_ASSIGN);
+                    ast_push(as, tg);
+                    ast_push(as, (tree_t *) rhs);
+                    return lower(cx, as, γ, ω, res);
+                }
+            }
+            if (lhs && (lhs->t == TT_VAR || lhs->t == TT_KEYWORD) && lhs->v.sval && lhs->v.sval[0] == '&') {
+                IR_t * ka = build(cx, IR_KW_ASSIGN, γ, ω);
+                IR_LIT(ka).sval = lhs->v.sval;
+                IR_t * vr = NULL;
+                IR_t * entry = lower(cx, rhs, ka, ω, &vr);
+                ir_operand_push(ka, vr);
+                *res = ka;
+                return entry;
+            }
+            if (lhs && lhs->t == TT_VAR) {
+                IR_t * asn = build(cx, IR_ASSIGN, γ, ω);
+                IR_LIT(asn).sval = lhs->v.sval;
+                IR_t * vtc = NULL;
+                IR_t * vt = icn_trace_named_prep(cx, "__trace_value", lhs->v.sval, asn, ω, &vtc);
+                IR_t * vr = NULL;
+                IR_t * entry = lower(cx, rhs, vt ? vt : asn, ω, &vr);
+                ir_operand_push(asn, vr);
+                if (vr && vtc) ir_operand_push(vtc, vr);
+                *res = asn;
+                return entry;
+            }
+            {
+                IR_t * b4 = cx->beta;
+                IR_t * lv = NULL;
+                IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
+                if (lve && lv) {
+                    IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+                    IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+                    IR_t * rr = NULL;
+                    IR_t * re = lower(cx, rhs, asn, lvbeta ? lvbeta : ω, &rr);
+                    lc_γ_to(lv, re);
+                    ir_operand_push(asn, lv);
+                    ir_operand_push(asn, rr);
+                    *res = asn;
+                    return lve;
+                }
+            }
+            if (getenv("SCRIP_ASSIGN_DIAG"))
+                fprintf(stderr, "[ASSIGN-LV] nameless assign: lhs tree type %d, %d children, line %d\n", lhs ? (int) lhs->t : -1, lhs ? lhs->n : -1, lhs ? (int) lhs->line : -1);
+            {
+                tree_t * call = ast_node_new(TT_FNC);
+                tree_t * fnv = ast_node_new(TT_VAR);
+                fnv->v.sval = (char *) "runerr";
+                ast_push(call, fnv);
+                tree_t * code = ast_node_new(TT_ILIT);
+                code->v.ival = 111;
+                ast_push(call, code);
+                ast_push(call, (tree_t *) lhs);
+                tree_t * seq = ast_node_new(TT_CONJ);
+                ast_push(seq, (tree_t *) rhs);
+                ast_push(seq, call);
+                return lower(cx, seq, γ, ω, res);
             }
         }
-        IR_t * nd = build(cx, IR_SWAP, γ, ω);
-        IR_t * r_tc = NULL;
-        IR_t * r_vt = (rt2 && rt2->t == TT_VAR) ? icn_trace_named_prep(cx, "__trace_value", rt2->v.sval, nd, ω, &r_tc) : NULL;
-        IR_t * lr = NULL; IR_t * lr_entry = lower(cx, lt, r_vt ? r_vt : nd, ω, &lr);
-        if (r_tc && lr) ir_operand_push(r_tc, lr);
-        IR_t * l_tc = NULL;
-        IR_t * l_vt = (lt && lt->t == TT_VAR) ? icn_trace_named_prep(cx, "__trace_value", lt->v.sval, lr_entry, ω, &l_tc) : NULL;
-        IR_t * rr = NULL; IR_t * rr_entry = lower(cx, rt2, l_vt ? l_vt : lr_entry, ω, &rr);
-        if (l_tc && rr) ir_operand_push(l_tc, rr);
-        ir_operand_push(nd, lr); ir_operand_push(nd, rr);
-        *res = nd; return rr_entry; }
-    case TT_REVASSIGN: {
-        const tree_t * lhs = t->c[0]; const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
-        if (lhs && (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM || lhs->t == TT_NULL || lhs->t == TT_NONNULL || lhs->t == TT_CONJ || lhs->t == TT_ASSIGN || lhs->t == TT_SWAP || lhs->t == TT_REVSWAP || lhs->t == TT_REVASSIGN || lhs->t == TT_AUGOP)) {
-            IR_t * b4 = cx->beta;
-            IR_t * vr = NULL; IR_t * entry = lower_lvalue_var(cx, lhs, ω, &vr);
-            IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
-            IR_t * nd = build(cx, IR_REV_ASSIGN_VAR, γ, lvbeta ? lvbeta : ω);
-            IR_t * b5 = cx->beta;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, lvbeta ? lvbeta : ω, &rr);
-            IR_t * rbeta = (cx->beta != b5) ? cx->beta : NULL;
-            if (rbeta) ω_to(nd, rbeta);
-            lc_γ_to(vr, re);
-            lc_γ_to(rr, nd);
-            ir_operand_push(nd, vr);
-            ir_operand_push(nd, rr);
-            cx->beta = nd; *res = nd; return entry;
+        case TT_AUGOP:
+        {
+            const tree_t * lhs = t->c[0];
+            const tree_t * rhs = t->c[1];
+            if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs && (lhs->t == TT_ALTERNATE || lhs->t == TT_IDX || lhs->t == TT_FIELD)) {
+                IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+                IR_t * sres = NULL;
+                IR_t * lv = NULL;
+                IR_t * entry = lower_scan_impl(cx, NULL, lhs, rhs, asn, ω, &sres, &lv);
+                if (entry && lv && sres) { ir_operand_push(asn, lv); ir_operand_push(asn, sres); *res = asn; return entry; }
+            }
+            if ((int) t->v.ival == AUGOP_SCAN && lhs && rhs) {
+                tree_t * scn = ast_node_new(TT_SCAN);
+                ast_push(scn, (tree_t *) lhs);
+                ast_push(scn, (tree_t *) rhs);
+                tree_t * as = ast_node_new(TT_ASSIGN);
+                ast_push(as, (tree_t *) lhs);
+                ast_push(as, scn);
+                return lower(cx, as, γ, ω, res);
+            }
+            if (lhs && lhs->t == TT_VAR && rhs && augop_binop_tt((int) t->v.ival) != (tree_e) 0) {
+                tree_t * bo = ast_node_new(augop_binop_tt((int) t->v.ival));
+                ast_push(bo, (tree_t *) lhs);
+                ast_push(bo, (tree_t *) rhs);
+                tree_t * as = ast_node_new(TT_ASSIGN);
+                ast_push(as, (tree_t *) lhs);
+                ast_push(as, bo);
+                return lower(cx, as, γ, ω, res);
+            }
+            if ((int) t->v.ival == AUGOP_CONJ && lhs && rhs) { tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, (tree_t *) lhs); ast_push(as, (tree_t *) rhs); return lower(cx, as, γ, ω, res); }
+            int aop = (int) t->v.ival;
+            {
+                IR_t * b4 = cx->beta;
+                IR_t * lv = NULL;
+                IR_t * lve = (lhs && rhs) ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
+                if (lve && lv) {
+                    IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+                    IR_t * op = NULL, * ca = NULL, * cb = NULL;
+                    IR_t * dr = build(cx, IR_DEREF, icn_augop_build(cx, aop, asn, ω, &op, &ca, &cb), ω);
+                    ir_operand_push(dr, lv);
+                    IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+                    IR_t * rω = lvbeta ? lvbeta : ω;
+                    IR_t * rr = NULL;
+                    IR_t * re = lower(cx, rhs, dr, rω, &rr);
+                    lc_γ_to(lv, re);
+                    { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
+                    icn_augop_operands(aop, op, ca, cb, dr, rr);
+                    ir_operand_push(asn, lv);
+                    ir_operand_push(asn, op);
+                    *res = asn;
+                    return lve;
+                }
+            }
+            {
+                IR_t * b4 = cx->beta;
+                IR_t * lr = NULL;
+                IR_t * ea = (lhs && rhs) ? lower(cx, lhs, NULL, ω, &lr) : NULL;
+                if (ea && lr) {
+                    IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+                    IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
+                    IR_t * op = NULL, * ca = NULL, * cb = NULL;
+                    IR_t * dr = build(cx, IR_DEREF, icn_augop_build(cx, aop, asn, ω, &op, &ca, &cb), ω);
+                    ir_operand_push(dr, lr);
+                    IR_t * rω = lvbeta ? lvbeta : ω;
+                    IR_t * rr = NULL;
+                    IR_t * re = lower(cx, rhs, dr, rω, &rr);
+                    lc_γ_to(lr, re);
+                    { IR_t * rβ = cx->beta; if (rβ && rβ != rω && rβ != op && rβ != dr) { ω_to(op, rβ); cx->beta = rβ; } else if (lvbeta) { ω_to(op, lvbeta); cx->beta = lvbeta; } }
+                    icn_augop_operands(aop, op, ca, cb, dr, rr);
+                    ir_operand_push(asn, lr);
+                    ir_operand_push(asn, op);
+                    *res = asn;
+                    return ea;
+                }
+            }
+            { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
         }
-        if (lhs && lhs->t == TT_VAR) {
-            IR_t * nd = build(cx, IR_REV_ASSIGN, γ, ω);
-            IR_t * lr = NULL; IR_t * le = lower(cx, lhs, NULL, ω, &lr);
+        case TT_RETURN:
+        {
+            IR_t * ret = build(cx, IR_RETURN, cx->psucc ? cx->psucc : γ, ω);
+            IR_t * rtc = NULL;
+            IR_t * rtn = icn_trace_named_prep(cx, "__trace_return", cx->pname, ret, ω, &rtc);
+            IR_t * vtgt = rtn ? rtn : ret;
+            if (cx->scan_sp > 0) {
+                IR_t * tgt = ret;
+                for (int _k = 0; _k < cx->scan_sp; _k++) { IR_t * lv = build(cx, IR_SCAN, NULL, NULL); ir_operand_push(lv, icn_scan_at(cx, _k)); lc_γ_to(lv, tgt); lc_ω_to(lv, tgt); tgt = lv; }
+                IR_t * tramp = IR_node_alloc(cx->g, IR_GOTO);
+                lc_γ_to(tramp, tgt);
+                lc_ω_to(tramp, tgt);
+                vtgt = tramp;
+            }
+            if (t->n > 0 && t->c[0]) {
+                IR_t * vr = NULL;
+                IR_t * entry = lower_result_operand(cx, t->c[0], vtgt, cx->pfail ? cx->pfail : ω, &vr);
+                ir_operand_push(ret, vr);
+                if (vr && rtc) ir_operand_push(rtc, vr);
+                *res = ret;
+                return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, entry) : entry;
+            }
+            *res = ret;
+            return (cx->want_lines && t->line > 0) ? icn_line_hook(cx, t->line, vtgt) : vtgt;
+        }
+        case TT_PROC_FAIL:
+        { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
+        case TT_LOOP_BREAK:
+        {
+            int k = 1;
+            const tree_t * ch = (t->n >= 1) ? t->c[0] : NULL;
+            while (ch && ch->t == TT_LOOP_BREAK) { k++; ch = (ch->n >= 1) ? ch->c[0] : NULL; }
+            if (!ch) {
+                int idx = cx->loop_sp - k;
+                icn_loop_fr * lfk = icn_loop_at(cx, idx);
+                IR_t * lx = lfk ? lfk->exit : NULL;
+                if (!lx) lx = cx->loop_exit;
+                if (!lx) { IR_t * nd = build(cx, IR_FAIL, γ, ω); *res = nd; return nd; }
+                IR_t * nullv = build(cx, IR_VAR, NULL, lx);
+                IR_LIT(nullv).sval = (char *) "&null";
+                IR_t * gt = build(cx, IR_GOTO, lx, lx);
+                IR_t * asn0 = build(cx, IR_ASSIGN, gt, gt);
+                IR_LIT(asn0).sval = (char *) "__break_result";
+                ir_operand_push(asn0, nullv);
+                γ_to(nullv, asn0);
+                if (cx->scan_sp > cx->loop_next_ssp) {
+                    IR_t * tgt = nullv;
+                    for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) {
+                        IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
+                        icn_mark_γ_fail_conduit(lv);
+                        IR_LIT(lv).dval = 3.0;
+                        ir_operand_push(lv, icn_scan_at(cx, _k));
+                        lc_γ_to(lv, tgt);
+                        lc_ω_to(lv, tgt);
+                        tgt = lv;
+                    }
+                    *res = gt;
+                    return tgt;
+                }
+                *res = gt;
+                return nullv;
+            } else {
+                IR_t * cur_exit = cx->loop_exit;
+                IR_t * exit_goto = cur_exit ? build(cx, IR_GOTO, cur_exit, cur_exit) : build(cx, IR_FAIL, γ, ω);
+                IR_t * cur_fail = cx->loop_fail;
+                IR_t * fail_goto = cur_fail ? build(cx, IR_GOTO, cur_fail, cur_fail) : exit_goto;
+                int idx = cx->loop_sp - 2;
+                IR_t * se = cx->loop_exit, * sn = cx->loop_next, * sf = cx->loop_fail;
+                { icn_loop_fr * lfi = icn_loop_at(cx, idx); if (lfi) { cx->loop_exit = lfi->exit; cx->loop_next = lfi->next; cx->loop_fail = lfi->fail; } }
+                IR_t * ev = NULL;
+                IR_t * en = lower(cx, ch, NULL, fail_goto, &ev);
+                cx->loop_exit = se;
+                cx->loop_next = sn;
+                cx->loop_fail = sf;
+                IR_t * asn = build(cx, IR_ASSIGN, exit_goto, exit_goto);
+                IR_LIT(asn).sval = (char *) "__break_result";
+                { IR_t * evf = icn_arm_result(ev); if (evf) { ir_operand_push(asn, evf); γ_to(evf, asn); } else if (!ev) γ_to(en, asn); }
+                cx->loop_break_beta = cx->beta;
+                if (cx->scan_sp > cx->loop_next_ssp) {
+                    IR_t * tgt = en;
+                    for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) {
+                        IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
+                        icn_mark_γ_fail_conduit(lv);
+                        IR_LIT(lv).dval = 3.0;
+                        ir_operand_push(lv, icn_scan_at(cx, _k));
+                        lc_γ_to(lv, tgt);
+                        lc_ω_to(lv, tgt);
+                        tgt = lv;
+                    }
+                    *res = exit_goto;
+                    return tgt;
+                }
+                *res = exit_goto;
+                return en;
+            }
+        }
+        case TT_LOOP_NEXT:
+        {
+            IR_t * ln = cx->loop_next;
+            IR_t * nd;
+            if (ln && cx->scan_sp > cx->loop_next_ssp) {
+                for (int _k = cx->loop_next_ssp; _k < cx->scan_sp; _k++) {
+                    IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
+                    icn_mark_γ_fail_conduit(lv);
+                    ir_operand_push(lv, icn_scan_at(cx, _k));
+                    lc_γ_to(lv, ln);
+                    lc_ω_to(lv, ln);
+                    ln = lv;
+                }
+                nd = build(cx, IR_GOTO, NULL, NULL);
+                lc_γ_to(nd, ln);
+                lc_ω_to(nd, ln);
+            } else nd = ln ? build(cx, IR_GOTO, ln, ln) : build(cx, IR_FAIL, γ, ω);
+            *res = nd;
+            return nd;
+        }
+        case TT_LOCAL:
+        case TT_STATIC_DECL:
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+        case TT_INITIAL:
+        {
+            IR_t * ini = build(cx, IR_INITIAL, NULL, γ);
+            if (t->n > 0 && t->c[0]) { IR_t * br = NULL; IR_t * be = lower(cx, t->c[0], γ, γ, &br); lc_γ_to(ini, be); ir_operand_push(ini, br); } else { lc_γ_to(ini, γ); }
+            *res = ini;
+            return ini;
+        }
+        case TT_SUSPEND:
+        {
+            IR_t * sn = build(cx, IR_SUSPEND, cx->psucc ? cx->psucc : γ, ω);
+            IR_LIT(sn).dval = 1.0;
+            IR_LIT(sn).sval = (char *) cx->pname;
+            bb_src_note(sn, "suspend", t->line);
+            IR_t * ev = NULL;
+            IR_t * e_entry = sn;
+            IR_t * eβ = NULL;
+            if (t->n > 0 && t->c[0]) {
+                cx->beta = ω;
+                if (icn_trace_operand_has_var(cx, t->c[0])) sn->pat_static = 1;
+                e_entry = lower_trace_operand(cx, t->c[0], sn, ω, &ev);
+                if (cx->beta && cx->beta != ω) eβ = cx->beta;
+            }
+            ir_operand_push(sn, ev);
+            IR_t * rrt;
+            if (t->n > 1 && t->c[1]) { IR_t * dv = NULL; rrt = lower(cx, t->c[1], eβ ? eβ : ω, eβ ? eβ : ω, &dv); sn->seal = 1; } else rrt = eβ ? eβ : ω;
+            if (cx->scan_sp > 0) {
+                IR_t * ytgt = cx->psucc ? cx->psucc : γ;
+                IR_t * rrt0 = rrt;
+                IR_t * lvs[cx->scan_sp];
+                int nlv = 0;
+                for (int _k = cx->scan_sp - 1; _k >= 0; _k--) {
+                    IR_t * lv = build(cx, IR_SCAN, NULL, NULL);
+                    IR_LIT(icn_scan_at(cx, _k)).dval = 3.0;
+                    ir_operand_push(lv, icn_scan_at(cx, _k));
+                    ir_operand_push(lv, NULL);
+                    ir_operand_push(lv, NULL);
+                    if (nlv) { lc_γ_to(lvs[nlv - 1], lv); lc_ω_to(lvs[nlv - 1], lv); }
+                    lvs[nlv++] = lv;
+                }
+                lc_γ_to(lvs[nlv - 1], ytgt);
+                lc_ω_to(lvs[nlv - 1], rrt0);
+                for (int _i = 0; _i < nlv; _i++) lvs[_i]->operands[2] = (_i > 0) ? lvs[_i - 1] : rrt;
+                lc_γ_to(sn, lvs[0]);
+                rrt = lvs[nlv - 1];
+            }
+            ir_operand_push(sn, rrt);
+            *res = sn;
+            return e_entry;
+        }
+        case TT_CASE:
+        return lower_case(cx, t, γ, ω, res);
+        case TT_CONJ:
+        case TT_SEQ_EXPR:
+        return lower_seq_impl(cx, t, γ, ω, res, 0);
+        case TT_SECTION:
+        case TT_SECTION_PLUS:
+        case TT_SECTION_MINUS:
+        {
+            if (t->n < 3 || !t->c[0] || !t->c[1] || !t->c[2]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+            int sec_variant = (t->t == TT_SECTION_PLUS) ? 1 : (t->t == TT_SECTION_MINUS) ? 2 : 0;
+            IR_t * sec = build(cx, IR_SUBSCRIPT, γ, ω);
+            if (sec_variant == 1) IR_LIT(sec).sval = "+";
+            else if (sec_variant == 2) IR_LIT(sec).sval = "-";
+            IR_t * ar = NULL;
+            IR_t * ae = lower(cx, t->c[0], NULL, ω, &ar);
+            IR_t * aβ = cx->beta;
+            IR_t * ωa = (aβ && aβ != ω && aβ != sec) ? aβ : ω;
+            IR_t * br = NULL;
+            IR_t * be = lower(cx, t->c[1], NULL, ωa, &br);
+            lc_γ_to(ar, be);
+            IR_t * bβ = cx->beta;
+            IR_t * ωb = (bβ && bβ != ωa && bβ != sec) ? bβ : ωa;
+            IR_t * cr = NULL;
+            IR_t * ce = lower(cx, t->c[2], sec_variant ? NULL : sec, ωb, &cr);
+            lc_γ_to(br, ce);
+            IR_t * cβ = cx->beta;
+            IR_t * ωc = (cβ && cβ != ωb && cβ != sec) ? cβ : ωb;
+            if (sec_variant) {
+                IR_t * op = build(cx, IR_BINOP, sec, ωc);
+                IR_LIT(op).ival = (sec_variant == 1) ? BINOP_ADD : BINOP_SUB;
+                ir_operand_push(op, br);
+                ir_operand_push(op, cr);
+                γ_to(cr, op);
+                cr = op;
+            }
+            ir_operand_push(sec, ar);
+            ir_operand_push(sec, br);
+            ir_operand_push(sec, cr);
+            if (ωc != ω) ω_to(sec, ωc);
+            cx->beta = ωc;
+            *res = sec;
+            return ae;
+        }
+        case TT_NOT:
+        return lower_not(cx, t, γ, ω, res);
+        case TT_ALTERNATE:
+        return lower_alt(cx, t, γ, ω, res);
+        case TT_ITERATE:
+        {
+            IR_t * nd = build(cx, IR_ITERATE, γ, ω);
+            IR_t * orr = NULL;
+            IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, ω, &orr);
+            IR_t * opβ = cx->beta;
+            ir_operand_push(nd, orr);
+            lc_γ_to(orr, nd);
+            if (opβ && opβ != ω) lc_ω_to_β(nd, opβ);
+            cx->beta = nd;
+            *res = nd;
+            return ee;
+        }
+        case TT_IF:
+        return lower_if(cx, t, γ, ω, res);
+        case TT_WHILE:
+        return lower_while(cx, t, γ, ω, res);
+        case TT_UNTIL:
+        return lower_until(cx, t, γ, ω, res);
+        case TT_REPEAT:
+        return lower_repeat(cx, t, γ, ω, res);
+        case TT_TO:
+        case TT_TO_BY:
+        return lower_to(cx, t, γ, ω, res);
+        case TT_EVERY:
+        return lower_every(cx, t, γ, ω, res);
+        case TT_SCAN:
+        {
+            if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs; }
+            IR_t * sc = lower_scan_impl(cx, t->c[0], NULL, t->c[1], γ, ω, res, NULL);
+            if (sc) return sc;
+            { IR_t * gs = build(cx, IR_FAIL, γ, ω); *res = gs; return gs; }
+        }
+        case TT_STMT:
+        { const tree_t * sub = stmt_subj(t); if (sub) return lower(cx, sub, γ, ω, res); IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+        case TT_CREATE:
+        {
+            IR_t * nd = build(cx, IR_CREATE, γ, ω);
+            IR_LIT(nd).sval = cx->pname;
+            IR_t * coret = build(cx, IR_CORET, NULL, NULL);
+            IR_t * cofail = build(cx, IR_COFAIL, NULL, NULL);
+            IR_t * bv = NULL;
+            IR_t * b_entry = lower(cx, (t->n > 0) ? t->c[0] : NULL, coret, cofail, &bv);
+            IR_t * body_beta = cx->beta;
+            if (body_beta) γ_to(coret, body_beta);
+            ir_operand_push(coret, bv);
+            ir_operand_push(nd, b_entry);
+            cx->beta = ω;
+            *res = nd;
+            return nd;
+        }
+        case TT_ACTIVATE:
+        {
+            IR_t * nd = build(cx, IR_ACTIVATE, γ, ω);
+            IR_LIT(nd).sval = cx->pname;
+            const tree_t * xt = (t->n > 1) ? t->c[0] : NULL;
+            const tree_t * ct = (t->n > 1) ? t->c[1] : t->c[0];
             IR_t * b4 = cx->beta;
-            IR_t * rr = NULL; IR_t * re = lower(cx, rhs, NULL, ω, &rr);
-            IR_t * rbeta = (cx->beta != b4) ? cx->beta : NULL;
-            if (rbeta) ω_to(nd, rbeta);
-            else if (rr && icn_tree_is_cursor_mover(rhs)) lc_ω_to_β(nd, rr);
-            IR_t * tvc = NULL; IR_t * tv = icn_trace_named_prep(cx, "__trace_value", (lhs->v.sval && lhs->v.sval[0] != '&') ? lhs->v.sval : NULL, nd, ω, &tvc); if (tvc) lc_γ_to(tvc, nd);
+            IR_t * cr = NULL;
+            IR_t * c_entry = lower(cx, ct, nd, ω, &cr);
+            IR_t * cβ = (cx->beta != b4 && cx->beta != ω) ? cx->beta : NULL;
+            if (cβ) ω_to(nd, cβ);
+            IR_t * entry = c_entry;
+            ir_operand_push(nd, cr);
+            if (xt) { IR_t * xr = NULL; entry = lower(cx, xt, c_entry, ω, &xr); ir_operand_push(nd, xr); }
+            if (cx->want_lines && t->line > 0) entry = icn_line_hook(cx, t->line, entry);
+            cx->beta = cβ ? cβ : ω;
+            *res = nd;
+            return entry;
+        }
+        case TT_REPALT:
+        {
+            IR_t * nd = build(cx, IR_REPALT, γ, ω);
+            lc_γ_to(nd, γ);
+            IR_t * xs = build(cx, IR_FAIL, NULL, NULL);
+            IR_t * b4 = cx->beta;
+            IR_t * er = NULL;
+            IR_t * ee = lower(cx, (t->n > 0) ? t->c[0] : NULL, NULL, xs, &er);
+            IR_t * eβ = (cx->beta != b4 && cx->beta != xs && cx->beta != ω) ? cx->beta : NULL;
+            ir_operand_push(nd, er);
+            ir_operand_push(nd, ee);
+            ir_operand_push(nd, xs);
+            ir_operand_push(nd, eβ);
+            cx->beta = nd;
+            *res = nd;
+            return nd;
+        }
+        case TT_LIMIT:
+        return lower_limit_impl(cx, t, γ, ω, res, 0);
+        case TT_LCONCAT:
+        {
+            if (t->n < 2 || !t->c[0] || !t->c[1]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+            IR_t * op = build(cx, IR_BINOP, γ, ω);
+            IR_LIT(op).ival = BINOP_LCONCAT;
+            IR_t * lr = NULL;
+            IR_t * ee = lower(cx, t->c[0], NULL, ω, &lr);
+            IR_t * lβ = cx->beta;
+            IR_t * rr = NULL;
+            IR_t * re = lower(cx, t->c[1], op, lβ, &rr);
             lc_γ_to(lr, re);
-            lc_γ_to(rr, tv ? tv : nd);
-            if (tv && rr) ir_operand_push(tvc, rr);
-            ir_operand_push(nd, rr);
-            ir_operand_push(nd, lr);
-            cx->beta = nd; *res = nd; return le;
+            ir_operand_push(op, lr);
+            ir_operand_push(op, rr);
+            *res = op;
+            return ee;
         }
-        if (icn_tree_is_literal(lhs)) return lower_runerr_111(cx, rhs, lhs, γ, ω, res);
-        IR_t * nd = build(cx, IR_FAIL, γ, ω);
-        IR_t * lr = NULL; lower(cx, lhs, nd, ω, &lr);
-        IR_t * rr = NULL; lower(cx, rhs, nd, ω, &rr);
-        ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
-    case TT_REVSWAP: {
-        const tree_t * lt = (t->n > 0) ? t->c[0] : NULL; const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
-        int name_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval;
-        int name_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval;
-        if (name_l && name_r) {
-            IR_t * nd = build(cx, IR_REV_SWAP, γ, ω); IR_LIT(nd).sval = (char *) lt->v.sval;
-            IR_t * rc = build(cx, IR_LIT_STRING, NULL, NULL); IR_LIT(rc).sval = (char *) rt2->v.sval;
-            ir_operand_push(nd, rc);
-            cx->beta = nd; *res = nd; return nd;
-        }
-        if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
-        if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
-        { IR_t * b0 = cx->beta;
-          IR_t * xr = NULL; IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
-          IR_t * xbeta = (cx->beta != b0) ? cx->beta : NULL;
-          IR_t * yr = NULL; IR_t * ye = xe ? lower_lvalue_var(cx, rt2, xbeta ? xbeta : ω, &yr) : NULL;
-          IR_t * ybeta = (cx->beta != (xbeta ? xbeta : b0)) ? cx->beta : NULL;
-          if (xe && ye) {
-              IR_t * back = ybeta ? ybeta : (xbeta ? xbeta : ω);
-              lc_γ_to(xr, ye);
-              IR_t * db = build(cx, IR_DEREF, NULL, back); ir_operand_push(db, yr); lc_γ_to(yr, db);
-              IR_t * da = build(cx, IR_DEREF, NULL, back); ir_operand_push(da, xr); lc_γ_to(db, da);
-              IR_t * n1 = build(cx, IR_REV_ASSIGN_VAR, NULL, back); ir_operand_push(n1, yr); ir_operand_push(n1, da); lc_γ_to(da, n1);
-              IR_t * n2 = build(cx, IR_REV_ASSIGN_VAR, γ, ω); ir_operand_push(n2, xr); ir_operand_push(n2, db); lc_γ_to(n1, n2); ω_to(n2, n1);
-              cx->beta = n2; *res = n2; return xe;
-          }
-          cx->beta = b0; }
-        IR_t * nd = build(cx, IR_FAIL, γ, ω);
-        IR_t * lr = NULL; lower(cx, lt, nd, ω, &lr);
-        IR_t * rr = NULL; lower(cx, rt2, nd, ω, &rr);
-        ir_operand_push(nd, lr); ir_operand_push(nd, rr); *res = nd; return nd; }
-    case TT_RECORD: {
-        extern void record_register(const char *spec);
-        const char * rname = t->v.sval;
-        icn_note_record_name(rname);
-        if (rname) {
-            size_t specn = strlen(rname) + 3; for (int k = 0; k < t->n; k++) specn += 1 + ((t->c[k] && t->c[k]->v.sval) ? strlen(t->c[k]->v.sval) : 0);
-            char spec[specn]; int pos = 0;
-            pos += snprintf(spec + pos, sizeof spec - pos, "%s(", rname);
-            for (int k = 0; k < t->n; k++) {
-                if (k) pos += snprintf(spec + pos, sizeof spec - pos, ",");
-                if (t->c[k] && t->c[k]->v.sval) pos += snprintf(spec + pos, sizeof spec - pos, "%s", t->c[k]->v.sval);
+        case TT_SWAP:
+        {
+            const tree_t * lt = (t->n > 0) ? t->c[0] : NULL;
+            const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
+            if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
+            if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
+            int plain_l = lt && lt->t == TT_VAR && lt->v.sval && lt->v.sval[0] != '&' && icn_is_local(cx, lt->v.sval);
+            int plain_r = rt2 && rt2->t == TT_VAR && rt2->v.sval && rt2->v.sval[0] != '&' && icn_is_local(cx, rt2->v.sval);
+            int kw_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval && lt->v.sval[0] == '&';
+            int kw_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval && rt2->v.sval[0] == '&';
+            if (kw_l && kw_r) {
+                IR_t * lv_old = build(cx, IR_KW_ICON, NULL, ω);
+                IR_LIT(lv_old).sval = (char *) lt->v.sval;
+                IR_t * rv_old = build(cx, IR_KW_ICON, NULL, ω);
+                IR_LIT(rv_old).sval = (char *) rt2->v.sval;
+                lc_γ_to(lv_old, rv_old);
+                IR_t * write_l = build(cx, IR_KW_ASSIGN, NULL, ω);
+                IR_LIT(write_l).sval = (char *) lt->v.sval;
+                ir_operand_push(write_l, rv_old);
+                IR_t * write_r = build(cx, IR_KW_ASSIGN, γ, ω);
+                IR_LIT(write_r).sval = (char *) rt2->v.sval;
+                ir_operand_push(write_r, lv_old);
+                lc_γ_to(rv_old, write_l);
+                lc_γ_to(write_l, write_r);
+                *res = write_l;
+                return lv_old;
             }
-            snprintf(spec + pos, sizeof spec - pos, ")");
-            record_register(spec);
+            if (kw_l || kw_r) {
+                IR_t * kv_old = build(cx, IR_KW_ICON, NULL, ω);
+                IR_t * pv_old = build(cx, IR_VAR, NULL, ω);
+                const tree_t * kw_tree = kw_l ? lt : rt2;
+                const tree_t * pl_tree = kw_l ? rt2 : lt;
+                IR_LIT(kv_old).sval = (char *) kw_tree->v.sval;
+                IR_LIT(pv_old).sval = (char *) pl_tree->v.sval;
+                lc_γ_to(kv_old, pv_old);
+                if (kw_l) {
+                    IR_t * write_kw = build(cx, IR_KW_ASSIGN, NULL, ω);
+                    IR_LIT(write_kw).sval = kw_tree->v.sval;
+                    ir_operand_push(write_kw, pv_old);
+                    IR_t * write_plain = build(cx, IR_ASSIGN, γ, ω);
+                    IR_LIT(write_plain).sval = pl_tree->v.sval;
+                    ir_operand_push(write_plain, kv_old);
+                    lc_γ_to(pv_old, write_kw);
+                    lc_γ_to(write_kw, write_plain);
+                    *res = write_kw;
+                    return kv_old;
+                } else {
+                    IR_t * write_plain = build(cx, IR_ASSIGN, NULL, ω);
+                    IR_LIT(write_plain).sval = pl_tree->v.sval;
+                    ir_operand_push(write_plain, kv_old);
+                    IR_t * write_kw = build(cx, IR_KW_ASSIGN, γ, ω);
+                    IR_LIT(write_kw).sval = kw_tree->v.sval;
+                    ir_operand_push(write_kw, pv_old);
+                    lc_γ_to(pv_old, write_plain);
+                    lc_γ_to(write_plain, write_kw);
+                    *res = write_plain;
+                    return kv_old;
+                }
+            }
+            if (!(plain_l && plain_r)) {
+                IR_t * b4 = cx->beta;
+                IR_t * xr = NULL;
+                IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
+                IR_t * xbeta = (cx->beta != b4) ? cx->beta : NULL;
+                IR_t * yr = NULL;
+                IR_t * ye = xe ? lower_lvalue_var(cx, rt2, xbeta ? xbeta : ω, &yr) : NULL;
+                if (xe && ye) { lc_γ_to(xr, ye); IR_t * nd = build(cx, IR_SWAP_VAR, γ, ω); lc_γ_to(yr, nd); ir_operand_push(nd, xr); ir_operand_push(nd, yr); *res = nd; return xe; }
+            }
+            IR_t * nd = build(cx, IR_SWAP, γ, ω);
+            IR_t * r_tc = NULL;
+            IR_t * r_vt = (rt2 && rt2->t == TT_VAR) ? icn_trace_named_prep(cx, "__trace_value", rt2->v.sval, nd, ω, &r_tc) : NULL;
+            IR_t * lr = NULL;
+            IR_t * lr_entry = lower(cx, lt, r_vt ? r_vt : nd, ω, &lr);
+            if (r_tc && lr) ir_operand_push(r_tc, lr);
+            IR_t * l_tc = NULL;
+            IR_t * l_vt = (lt && lt->t == TT_VAR) ? icn_trace_named_prep(cx, "__trace_value", lt->v.sval, lr_entry, ω, &l_tc) : NULL;
+            IR_t * rr = NULL;
+            IR_t * rr_entry = lower(cx, rt2, l_vt ? l_vt : lr_entry, ω, &rr);
+            if (l_tc && rr) ir_operand_push(l_tc, rr);
+            ir_operand_push(nd, lr);
+            ir_operand_push(nd, rr);
+            *res = nd;
+            return rr_entry;
         }
-        IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
-    case TT_INVOCABLE:
-    case TT_LINK:
-    default: { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+        case TT_REVASSIGN:
+        {
+            const tree_t * lhs = t->c[0];
+            const tree_t * rhs = (t->n > 1) ? t->c[1] : NULL;
+            if (lhs &&
+                (lhs->t == TT_IDX || lhs->t == TT_ITERATE || lhs->t == TT_SECTION || lhs->t == TT_SECTION_PLUS || lhs->t == TT_SECTION_MINUS || lhs->t == TT_FIELD || lhs->t == TT_RANDOM ||
+                lhs->t == TT_NULL || lhs->t == TT_NONNULL || lhs->t == TT_CONJ || lhs->t == TT_ASSIGN || lhs->t == TT_SWAP || lhs->t == TT_REVSWAP || lhs->t == TT_REVASSIGN || lhs->t == TT_AUGOP)) {
+                IR_t * b4 = cx->beta;
+                IR_t * vr = NULL;
+                IR_t * entry = lower_lvalue_var(cx, lhs, ω, &vr);
+                IR_t * lvbeta = (cx->beta != b4) ? cx->beta : NULL;
+                IR_t * nd = build(cx, IR_REV_ASSIGN_VAR, γ, lvbeta ? lvbeta : ω);
+                IR_t * b5 = cx->beta;
+                IR_t * rr = NULL;
+                IR_t * re = lower(cx, rhs, NULL, lvbeta ? lvbeta : ω, &rr);
+                IR_t * rbeta = (cx->beta != b5) ? cx->beta : NULL;
+                if (rbeta) ω_to(nd, rbeta);
+                lc_γ_to(vr, re);
+                lc_γ_to(rr, nd);
+                ir_operand_push(nd, vr);
+                ir_operand_push(nd, rr);
+                cx->beta = nd;
+                *res = nd;
+                return entry;
+            }
+            if (lhs && lhs->t == TT_VAR) {
+                IR_t * nd = build(cx, IR_REV_ASSIGN, γ, ω);
+                IR_t * lr = NULL;
+                IR_t * le = lower(cx, lhs, NULL, ω, &lr);
+                IR_t * b4 = cx->beta;
+                IR_t * rr = NULL;
+                IR_t * re = lower(cx, rhs, NULL, ω, &rr);
+                IR_t * rbeta = (cx->beta != b4) ? cx->beta : NULL;
+                if (rbeta) ω_to(nd, rbeta);
+                else if (rr && icn_tree_is_cursor_mover(rhs)) lc_ω_to_β(nd, rr);
+                IR_t * tvc = NULL;
+                IR_t * tv = icn_trace_named_prep(cx, "__trace_value", (lhs->v.sval && lhs->v.sval[0] != '&') ? lhs->v.sval : NULL, nd, ω, &tvc);
+                if (tvc) lc_γ_to(tvc, nd);
+                lc_γ_to(lr, re);
+                lc_γ_to(rr, tv ? tv : nd);
+                if (tv && rr) ir_operand_push(tvc, rr);
+                ir_operand_push(nd, rr);
+                ir_operand_push(nd, lr);
+                cx->beta = nd;
+                *res = nd;
+                return le;
+            }
+            if (icn_tree_is_literal(lhs)) return lower_runerr_111(cx, rhs, lhs, γ, ω, res);
+            IR_t * nd = build(cx, IR_FAIL, γ, ω);
+            IR_t * lr = NULL;
+            lower(cx, lhs, nd, ω, &lr);
+            IR_t * rr = NULL;
+            lower(cx, rhs, nd, ω, &rr);
+            ir_operand_push(nd, lr);
+            ir_operand_push(nd, rr);
+            *res = nd;
+            return nd;
+        }
+        case TT_REVSWAP:
+        {
+            const tree_t * lt = (t->n > 0) ? t->c[0] : NULL;
+            const tree_t * rt2 = (t->n > 1) ? t->c[1] : NULL;
+            int name_l = lt && (lt->t == TT_VAR || lt->t == TT_KEYWORD) && lt->v.sval;
+            int name_r = rt2 && (rt2->t == TT_VAR || rt2->t == TT_KEYWORD) && rt2->v.sval;
+            if (name_l && name_r) {
+                IR_t * nd = build(cx, IR_REV_SWAP, γ, ω);
+                IR_LIT(nd).sval = (char *) lt->v.sval;
+                IR_t * rc = build(cx, IR_LIT_STRING, NULL, NULL);
+                IR_LIT(rc).sval = (char *) rt2->v.sval;
+                ir_operand_push(nd, rc);
+                cx->beta = nd;
+                *res = nd;
+                return nd;
+            }
+            if (icn_tree_is_literal(lt)) return lower_runerr_111(cx, rt2, lt, γ, ω, res);
+            if (icn_tree_is_literal(rt2)) return lower_runerr_111(cx, lt, rt2, γ, ω, res);
+            {
+                IR_t * b0 = cx->beta;
+                IR_t * xr = NULL;
+                IR_t * xe = lower_lvalue_var(cx, lt, ω, &xr);
+                IR_t * xbeta = (cx->beta != b0) ? cx->beta : NULL;
+                IR_t * yr = NULL;
+                IR_t * ye = xe ? lower_lvalue_var(cx, rt2, xbeta ? xbeta : ω, &yr) : NULL;
+                IR_t * ybeta = (cx->beta != (xbeta ? xbeta : b0)) ? cx->beta : NULL;
+                if (xe && ye) {
+                    IR_t * back = ybeta ? ybeta : (xbeta ? xbeta : ω);
+                    lc_γ_to(xr, ye);
+                    IR_t * db = build(cx, IR_DEREF, NULL, back);
+                    ir_operand_push(db, yr);
+                    lc_γ_to(yr, db);
+                    IR_t * da = build(cx, IR_DEREF, NULL, back);
+                    ir_operand_push(da, xr);
+                    lc_γ_to(db, da);
+                    IR_t * n1 = build(cx, IR_REV_ASSIGN_VAR, NULL, back);
+                    ir_operand_push(n1, yr);
+                    ir_operand_push(n1, da);
+                    lc_γ_to(da, n1);
+                    IR_t * n2 = build(cx, IR_REV_ASSIGN_VAR, γ, ω);
+                    ir_operand_push(n2, xr);
+                    ir_operand_push(n2, db);
+                    lc_γ_to(n1, n2);
+                    ω_to(n2, n1);
+                    cx->beta = n2;
+                    *res = n2;
+                    return xe;
+                }
+                cx->beta = b0;
+            }
+            IR_t * nd = build(cx, IR_FAIL, γ, ω);
+            IR_t * lr = NULL;
+            lower(cx, lt, nd, ω, &lr);
+            IR_t * rr = NULL;
+            lower(cx, rt2, nd, ω, &rr);
+            ir_operand_push(nd, lr);
+            ir_operand_push(nd, rr);
+            *res = nd;
+            return nd;
+        }
+        case TT_RECORD:
+        {
+            extern void record_register(const char *spec);
+            const char * rname = t->v.sval;
+            icn_note_record_name(rname);
+            if (rname) {
+                size_t specn = strlen(rname) + 3;
+                for (int k = 0; k < t->n; k++) specn += 1 + ((t->c[k] && t->c[k]->v.sval) ? strlen(t->c[k]->v.sval) : 0);
+                char spec[specn];
+                int pos = 0;
+                pos += snprintf(spec + pos, sizeof spec - pos, "%s(", rname);
+                for (int k = 0; k < t->n; k++) {
+                    if (k) pos += snprintf(spec + pos, sizeof spec - pos, ",");
+                    if (t->c[k] && t->c[k]->v.sval) pos += snprintf(spec + pos, sizeof spec - pos, "%s", t->c[k]->v.sval);
+                }
+                snprintf(spec + pos, sizeof spec - pos, ")");
+                record_register(spec);
+            }
+            IR_t * s = build(cx, IR_SUCCEED, γ, ω);
+            *res = s;
+            return s;
+        }
+        case TT_INVOCABLE:
+        case TT_LINK:
+        default:
+        { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long icn_first_line(const tree_t * t) {
-    if (!t) return 0;
-    if (t->line > 0) return t->line;
-    for (int i = 0; i < t->n; i++) { long l = icn_first_line(t->c[i]); if (l > 0) return l; }
-    return 0;
-}
+static long icn_first_line(const tree_t * t) { if (!t) return 0; if (t->line > 0) return t->line; for (int i = 0; i < t->n; i++) { long l = icn_first_line(t->c[i]); if (l > 0) return l; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_has_rec(const tree_t * t) {
     if (!t) return 0;
     switch (t->t) {
-    case TT_VAR: if (t->v.sval && t->v.sval[0] == '&') return 1; break;
-    case TT_ILIT: case TT_FLIT: case TT_QLIT: case TT_CSET: case TT_NUL: case TT_ALTERNATE: case TT_REPALT: case TT_LOOP_BREAK: case TT_LOOP_NEXT: case TT_CASE:
-    case TT_IF: case TT_UNLESS: case TT_BANG_BINARY: case TT_NOT: case TT_SEQ_EXPR: case TT_EVERY: case TT_WHILE: case TT_UNTIL: case TT_REPEAT: case TT_STMT: break;
-    default: return 1;
+        case TT_VAR:
+        if (t->v.sval && t->v.sval[0] == '&') return 1;
+        break;
+        case TT_ILIT:
+        case TT_FLIT:
+        case TT_QLIT:
+        case TT_CSET:
+        case TT_NUL:
+        case TT_ALTERNATE:
+        case TT_REPALT:
+        case TT_LOOP_BREAK:
+        case TT_LOOP_NEXT:
+        case TT_CASE:
+        case TT_IF:
+        case TT_UNLESS:
+        case TT_BANG_BINARY:
+        case TT_NOT:
+        case TT_SEQ_EXPR:
+        case TT_EVERY:
+        case TT_WHILE:
+        case TT_UNTIL:
+        case TT_REPEAT:
+        case TT_STMT:
+        break;
+        default:
+        return 1;
     }
     for (int i = 0; i < t->n; i++) if (icn_has_rec(t->c[i])) return 1;
     return 0;
@@ -1224,55 +1980,119 @@ static long icn_part_line(const tree_t * t) { return icn_has_rec(t) ? icn_first_
 static int icn_parts_split(long a, long b) { return a > 0 && b > 0 && a != b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_part_mark(icx_t * cx, long line, IR_t * next, int back) {
-    IR_t * m = build(cx, IR_LINE_MARK, NULL, NULL); m->pat_static = line;
+    IR_t * m = build(cx, IR_LINE_MARK, NULL, NULL);
+    m->pat_static = line;
     if (back) { γ_to(m, next); ω_to(m, next); } else { lc_γ_to_α(m, next); lc_ω_to_α(m, next); }
     if (cx->links || cx->want_lines) IR_LIT(m).sval = (char *) cx->file;
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_while(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
-    long cl = icn_first_line(C), bl = icn_part_line(B); int split = icn_parts_split(cl, bl);
-    IR_t * W = build(cx, IR_GOTO, ω, ω); γ_to(W, ω); ω_to(W, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
+    const tree_t * C = (t->n > 0) ? t->c[0] : NULL;
+    const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    long cl = icn_first_line(C), bl = icn_part_line(B);
+    int split = icn_parts_split(cl, bl);
+    IR_t * W = build(cx, IR_GOTO, ω, ω);
+    γ_to(W, ω);
+    ω_to(W, ω);
+    IR_t * slb = cx->loop_break_beta;
+    cx->loop_break_beta = NULL;
+    IR_t * slf = cx->loop_fail;
+    cx->loop_fail = ω;
+    IR_t * sle = cx->loop_exit;
+    IR_t * sln = cx->loop_next;
+    int slns = cx->loop_next_ssp;
+    IR_t * bres = build(cx, IR_VAR, γ, ω);
+    IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres;
-    icn_loop_fr lf = { cx->loop_exit, NULL, cx->loop_fail, cx->loop_top }; cx->loop_top = &lf; cx->loop_sp++;
+    icn_loop_fr lf = { cx->loop_exit, NULL, cx->loop_fail, cx->loop_top };
+    cx->loop_top = &lf;
+    cx->loop_sp++;
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
-    IR_t * cval = NULL; IR_t * centry = lower(cx, C, BENT, W, &cval);
-    IR_t * mark = build(cx, IR_BOUND, NULL, NULL); lc_γ_to_α(mark, centry); lc_ω_to_α(mark, centry);
-    IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, mark); lc_ω_to_α(CENT, mark);
+    IR_t * cval = NULL;
+    IR_t * centry = lower(cx, C, BENT, W, &cval);
+    IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
+    lc_γ_to_α(mark, centry);
+    lc_ω_to_α(mark, centry);
+    IR_t * CENT = build(cx, IR_GOTO, NULL, NULL);
+    lc_γ_to_α(CENT, mark);
+    lc_ω_to_α(CENT, mark);
     IR_t * back = split ? icn_part_mark(cx, cl, CENT, 0) : CENT;
-    IR_t * unmk = build(cx, IR_UNMARK, back, back); ir_operand_push(unmk, mark);
-    cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
+    IR_t * unmk = build(cx, IR_UNMARK, back, back);
+    ir_operand_push(unmk, mark);
+    cx->loop_next = unmk;
+    cx->loop_next_ssp = cx->scan_sp;
     lf.next = unmk;
-    IR_t * bval = NULL; cx->discard = B; IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
+    IR_t * bval = NULL;
+    cx->discard = B;
+    IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
     if (split) b_entry = icn_part_mark(cx, bl, b_entry, 0);
-    cx->loop_sp--; cx->loop_top = lf.up;
-    lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
+    cx->loop_sp--;
+    cx->loop_top = lf.up;
+    lc_γ_to(BENT, b_entry);
+    lc_ω_to(BENT, b_entry);
+    cx->loop_exit = sle;
+    cx->loop_next = sln;
+    cx->loop_fail = slf;
+    cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return CENT; } }
-    *res = bres; return CENT;
+    *res = bres;
+    return CENT;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_until(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
-    long cl = icn_first_line(C), bl = icn_part_line(B); int split = icn_parts_split(cl, bl);
-    IR_t * U = build(cx, IR_GOTO, ω, ω); γ_to(U, ω); ω_to(U, ω);
+    const tree_t * C = (t->n > 0) ? t->c[0] : NULL;
+    const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    long cl = icn_first_line(C), bl = icn_part_line(B);
+    int split = icn_parts_split(cl, bl);
+    IR_t * U = build(cx, IR_GOTO, ω, ω);
+    γ_to(U, ω);
+    ω_to(U, ω);
     IR_t * BENT = build(cx, IR_GOTO, γ, ω);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
+    IR_t * slb = cx->loop_break_beta;
+    cx->loop_break_beta = NULL;
+    IR_t * slf = cx->loop_fail;
+    cx->loop_fail = ω;
+    IR_t * sle = cx->loop_exit;
+    IR_t * sln = cx->loop_next;
+    int slns = cx->loop_next_ssp;
+    IR_t * bres = build(cx, IR_VAR, γ, ω);
+    IR_LIT(bres).sval = (char *) "__break_result";
     cx->loop_exit = bres;
-    IR_t * cval = NULL; IR_t * centry = lower(cx, C, U, BENT, &cval);
-    IR_t * mark = build(cx, IR_BOUND, NULL, NULL); lc_γ_to_α(mark, centry); lc_ω_to_α(mark, centry);
-    IR_t * CENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(CENT, mark); lc_ω_to_α(CENT, mark);
+    IR_t * cval = NULL;
+    IR_t * centry = lower(cx, C, U, BENT, &cval);
+    IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
+    lc_γ_to_α(mark, centry);
+    lc_ω_to_α(mark, centry);
+    IR_t * CENT = build(cx, IR_GOTO, NULL, NULL);
+    lc_γ_to_α(CENT, mark);
+    lc_ω_to_α(CENT, mark);
     IR_t * back = split ? icn_part_mark(cx, cl, CENT, 0) : CENT;
-    IR_t * unmk = build(cx, IR_UNMARK, back, back); ir_operand_push(unmk, mark);
-    cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
-    IR_t * b_entry; if (B) { icn_loop_fr lf = { cx->loop_exit, cx->loop_next, cx->loop_fail, cx->loop_top }; cx->loop_top = &lf; cx->loop_sp++; IR_t * bval = NULL; cx->discard = B; b_entry = lower(cx, B, unmk, unmk, &bval); cx->loop_sp--; cx->loop_top = lf.up; } else b_entry = unmk;
+    IR_t * unmk = build(cx, IR_UNMARK, back, back);
+    ir_operand_push(unmk, mark);
+    cx->loop_next = unmk;
+    cx->loop_next_ssp = cx->scan_sp;
+    IR_t * b_entry;
+    if (B) {
+        icn_loop_fr lf = { cx->loop_exit, cx->loop_next, cx->loop_fail, cx->loop_top };
+        cx->loop_top = &lf;
+        cx->loop_sp++;
+        IR_t * bval = NULL;
+        cx->discard = B;
+        b_entry = lower(cx, B, unmk, unmk, &bval);
+        cx->loop_sp--;
+        cx->loop_top = lf.up;
+    } else b_entry = unmk;
     if (split && B) b_entry = icn_part_mark(cx, bl, b_entry, 0);
-    lc_γ_to(BENT, b_entry); lc_ω_to(BENT, b_entry);
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
+    lc_γ_to(BENT, b_entry);
+    lc_ω_to(BENT, b_entry);
+    cx->loop_exit = sle;
+    cx->loop_next = sln;
+    cx->loop_fail = slf;
+    cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return CENT; } }
-    *res = bres; return CENT;
+    *res = bres;
+    return CENT;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
@@ -1281,25 +2101,52 @@ static IR_t * lower_repeat(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, I
     IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
     IR_t * unmk = build(cx, IR_UNMARK, H, H);
     ir_operand_push(unmk, mark);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL; IR_t * slf = cx->loop_fail; cx->loop_fail = ω; IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; int slns = cx->loop_next_ssp; IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
-    cx->loop_exit = bres; cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
-    icn_loop_fr lf = { cx->loop_exit, cx->loop_next, cx->loop_fail, cx->loop_top }; cx->loop_top = &lf; cx->loop_sp++;
-    IR_t * bval = NULL; cx->discard = B; IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
-    cx->loop_sp--; cx->loop_top = lf.up;
+    IR_t * slb = cx->loop_break_beta;
+    cx->loop_break_beta = NULL;
+    IR_t * slf = cx->loop_fail;
+    cx->loop_fail = ω;
+    IR_t * sle = cx->loop_exit;
+    IR_t * sln = cx->loop_next;
+    int slns = cx->loop_next_ssp;
+    IR_t * bres = build(cx, IR_VAR, γ, ω);
+    IR_LIT(bres).sval = (char *) "__break_result";
+    cx->loop_exit = bres;
+    cx->loop_next = unmk;
+    cx->loop_next_ssp = cx->scan_sp;
+    icn_loop_fr lf = { cx->loop_exit, cx->loop_next, cx->loop_fail, cx->loop_top };
+    cx->loop_top = &lf;
+    cx->loop_sp++;
+    IR_t * bval = NULL;
+    cx->discard = B;
+    IR_t * b_entry = lower(cx, B, unmk, unmk, &bval);
+    cx->loop_sp--;
+    cx->loop_top = lf.up;
     if (icn_parts_split(t->line, icn_part_line(B))) b_entry = icn_part_mark(cx, icn_part_line(B), b_entry, 0);
-    lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);
-    lc_γ_to(H, mark); lc_ω_to(H, mark);
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
+    lc_γ_to_α(mark, b_entry);
+    lc_ω_to_α(mark, b_entry);
+    lc_γ_to(H, mark);
+    lc_ω_to(H, mark);
+    cx->loop_exit = sle;
+    cx->loop_next = sln;
+    cx->loop_fail = slf;
+    cx->loop_next_ssp = slns;
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return H; } }
-    cx->beta = γ; *res = bres; return H;
+    cx->beta = γ;
+    *res = bres;
+    return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_not(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    IR_t * nullv = build(cx, IR_VAR, γ, ω); IR_LIT(nullv).sval = (char *) "&null";
-    IR_graph_t * g = cx->g; int before = g->n;
-    IR_t * cr = NULL; IR_t * ce = lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nullv, &cr);
+    IR_t * nullv = build(cx, IR_VAR, γ, ω);
+    IR_LIT(nullv).sval = (char *) "&null";
+    IR_graph_t * g = cx->g;
+    int before = g->n;
+    IR_t * cr = NULL;
+    IR_t * ce = lower(cx, (t->n > 0) ? t->c[0] : NULL, ω, nullv, &cr);
     for (int k = before; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == ω) icn_mark_γ_fail_conduit(x); }
-    cx->beta = ω; *res = nullv; return ce;
+    cx->beta = ω;
+    *res = nullv;
+    return ce;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * icn_arm_result(IR_t * rv) {
@@ -1307,10 +2154,7 @@ static IR_t * icn_arm_result(IR_t * rv) {
     return rv;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) {
-    (void) g;
-    return dj;
-}
+static IR_t * icn_dj_α_entry(IR_graph_t * g, IR_t * dj) { (void) g; return dj; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_trace_var_form(const icx_t * cx, const tree_t * t) {
     if (!t) return 0;
@@ -1331,14 +2175,17 @@ static void icn_trace_iterate_relax(const icx_t * cx, const tree_t * t, IR_t * a
     if (!icn_trace_var_form(cx, t->c[0])) IR_LIT(ar).sval = (char *) "lvv";
 }
 static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lval) {
-    int n = t->n; if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
+    int n = t->n;
+    if (n < 1) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     IR_graph_t * g = cx->g;
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
-    γ_to(dj, γ); ω_to(dj, ω);
+    γ_to(dj, γ);
+    ω_to(dj, ω);
     IR_t * resv[n];
     for (int j = 0; j < n; j++) {
         int before = g->n;
-        IR_t * ar = NULL; cx->beta = dj;
+        IR_t * ar = NULL;
+        cx->beta = dj;
         int use_lv = (lval == 2) ? icn_trace_var_form(cx, t->c[j]) : lval;
         if (lval == 3) use_lv = 0;
         IR_t * ej = use_lv ? lower_lvalue_var(cx, t->c[j], dj, &ar) : (lval == 3) ? lower_result_operand(cx, t->c[j], dj, dj, &ar) : lower(cx, t->c[j], dj, dj, &ar);
@@ -1346,7 +2193,8 @@ static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
         if (use_lv && lval == 2) icn_trace_iterate_relax(cx, t->c[j], ar);
         if (use_lv && ar) lc_γ_to(ar, dj);
         IR_t * ab = cx->beta;
-        int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < g->n; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        int ab_in_arm = 0;
+        if (ab && ab != dj) for (int k = before; k < g->n; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
         IR_t * rj = ab_in_arm ? ab : dj;
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];
@@ -1360,7 +2208,8 @@ static IR_t * lower_alt_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
     }
     for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
     IR_LIT(dj).ival = (long) n;
-    cx->beta = dj; *res = dj;
+    cx->beta = dj;
+    *res = dj;
     return icn_dj_α_entry(g, dj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1401,14 +2250,25 @@ static int icn_return_var_form(icx_t * cx, const tree_t * t) {
 static IR_t * lower_result_operand(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     if (icn_return_var_form(cx, t)) {
         switch (t->t) {
-        case TT_ALTERNATE: return lower_alt_impl(cx, t, γ, ω, res, 3);
-        case TT_IF: return lower_if_impl(cx, t, γ, ω, res, 3);
-        case TT_CASE: return lower_case_impl(cx, t, γ, ω, res, 3);
-        case TT_CONJ: case TT_SEQ_EXPR: return lower_seq_impl(cx, t, γ, ω, res, 3);
-        case TT_LIMIT: return lower_limit_impl(cx, t, γ, ω, res, 3);
-        default: break;
+            case TT_ALTERNATE:
+            return lower_alt_impl(cx, t, γ, ω, res, 3);
+            case TT_IF:
+            return lower_if_impl(cx, t, γ, ω, res, 3);
+            case TT_CASE:
+            return lower_case_impl(cx, t, γ, ω, res, 3);
+            case TT_CONJ:
+            case TT_SEQ_EXPR:
+            return lower_seq_impl(cx, t, γ, ω, res, 3);
+            case TT_LIMIT:
+            return lower_limit_impl(cx, t, γ, ω, res, 3);
+            default:
+            break;
         }
-        int sv = cx->ret_lv; cx->ret_lv = 1; IR_t * ar = NULL; IR_t * e = lower_lvalue_var(cx, t, ω, &ar); cx->ret_lv = sv;
+        int sv = cx->ret_lv;
+        cx->ret_lv = 1;
+        IR_t * ar = NULL;
+        IR_t * e = lower_lvalue_var(cx, t, ω, &ar);
+        cx->ret_lv = sv;
         if (e && ar) { lc_γ_to(ar, γ); *res = ar; return e; }
     }
     return lower(cx, t, γ, ω, res);
@@ -1421,9 +2281,11 @@ static IR_t * lower_arm(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lv) {
-    lc_vec Sv; lc_vec_init(&Sv, (int) sizeof(const tree_t *));
+    lc_vec Sv;
+    lc_vec_init(&Sv, (int) sizeof(const tree_t *));
     for (int i = 0; i < t->n; i++) { const tree_t * s = t->c[i]; if (s && s->t == TT_STMT) s = stmt_subj(s); if (s) lc_vec_push(&Sv, &s); }
-    const tree_t ** S = (const tree_t **) Sv.data; int k = Sv.n;
+    const tree_t ** S = (const tree_t **) Sv.data;
+    int k = Sv.n;
     if (k == 0) { IR_t * nv = build(cx, IR_VAR, γ, ω); IR_LIT(nv).sval = (char *) "&null"; *res = nv; return nv; }
     if (k == 1 && (t->v.ival != ICN_IF_FROM_INITIAL || (S[0]->line <= 0 && t->line <= 0))) return lower_arm(cx, S[0], γ, ω, res, lv);
     if (k == 1) {
@@ -1433,92 +2295,149 @@ static IR_t * lower_seq_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω,
         return icn_trace_stmt_wrap(cx, ln, e1, ω);
     }
     IR_t * SEQX = build(cx, IR_CONJUNCTION, γ, ω);
-    IR_t ** val = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *)); IR_t ** ent = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *)); IR_t * succ = SEQX;
+    IR_t ** val = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *));
+    IR_t ** ent = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *));
+    IR_t * succ = SEQX;
     if (t->t == TT_SEQ_EXPR) {
-        IR_t * failt = ω; IR_t * last_beta = ω; IR_t * rb = NULL;
+        IR_t * failt = ω;
+        IR_t * last_beta = ω;
+        IR_t * rb = NULL;
         for (int i = k - 1; i >= 0; i--) {
-            val[i] = NULL; ent[i] = lower_arm(cx, S[i], succ, failt, &val[i], i == k - 1 ? lv : 0); if (i == k - 1) last_beta = cx->beta; if (!rb && is_resumable(S[i])) rb = cx->beta;
-            if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ); succ = ent[i]; failt = ent[i];
-            if (i > 0 && ent[i] && ir_is_generator_kind(ent[i]->op)) {
-                IR_t * SENT = build(cx, IR_GOTO, NULL, NULL);
-                lc_γ_to(SENT, ent[i]); lc_ω_to(SENT, ent[i]);
-                succ = SENT; failt = SENT;
+            val[i] = NULL;
+            ent[i] = lower_arm(cx, S[i], succ, failt, &val[i], i == k - 1 ? lv : 0);
+            if (i == k - 1) last_beta = cx->beta;
+            if (!rb && is_resumable(S[i])) rb = cx->beta;
+            if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ);
+            succ = ent[i];
+            failt = ent[i];
+            if (i > 0 && ent[i] && ir_is_generator_kind(ent[i]->op)) { IR_t * SENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to(SENT, ent[i]); lc_ω_to(SENT, ent[i]); succ = SENT; failt = SENT; }
+            if (t->t == TT_SEQ_EXPR && S[i]->line > 0) {
+                IR_t * se = succ;
+                se = cx->want_lines ? icn_line_hook(cx, S[i]->line, se) : icn_line_mark(cx, S[i]->line, se);
+                se = icn_trace_stmt_wrap(cx, S[i]->line, se, ω);
+                if (succ == ent[i]) ent[i] = se;
+                succ = se;
+                failt = se;
             }
-            if (t->t == TT_SEQ_EXPR && S[i]->line > 0) { IR_t * se = succ; se = cx->want_lines ? icn_line_hook(cx, S[i]->line, se) : icn_line_mark(cx, S[i]->line, se); se = icn_trace_stmt_wrap(cx, S[i]->line, se, ω); if (succ == ent[i]) ent[i] = se; succ = se; failt = se; }
         }
         if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
-        cx->conj_resumable = rb; cx->beta = last_beta; *res = SEQX; return ent[0];
+        cx->conj_resumable = rb;
+        cx->beta = last_beta;
+        *res = SEQX;
+        return ent[0];
     }
-    IR_t * last_beta = ω; IR_t * rb = NULL;
+    IR_t * last_beta = ω;
+    IR_t * rb = NULL;
     IR_t ** bet = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *));
     IR_t ** jn = (IR_t **) ct_zalloc((size_t) k, sizeof(IR_t *));
-    for (int i = k - 1; i >= 0; i--) { val[i] = NULL; cx->beta = ω;
-        IR_t * failt = ω; if (i > 0) { jn[i] = build(cx, IR_GOTO, ω, ω); failt = jn[i]; }
+    for (int i = k - 1; i >= 0; i--) {
+        val[i] = NULL;
+        cx->beta = ω;
+        IR_t * failt = ω;
+        if (i > 0) { jn[i] = build(cx, IR_GOTO, ω, ω); failt = jn[i]; }
         int n0 = cx->g->n;
-        ent[i] = lower_arm(cx, S[i], succ, failt, &val[i], i == k - 1 ? lv : 0); bet[i] = cx->beta;
+        ent[i] = lower_arm(cx, S[i], succ, failt, &val[i], i == k - 1 ? lv : 0);
+        bet[i] = cx->beta;
         if (i == k - 1) last_beta = cx->beta;
         if (!rb && is_resumable(S[i])) rb = cx->beta;
         if (val[i] && val[i]->γ.node == succ) lc_γ_to(val[i], succ);
-        for (int j = n0; j < cx->g->n; j++) { IR_t * x = cx->g->all[j]; if (!x) continue;
+        for (int j = n0; j < cx->g->n; j++) {
+            IR_t * x = cx->g->all[j];
+            if (!x) continue;
             if (x->γ.node == succ && (unsigned char) x->γ.sz[0] == 0xce && (unsigned char) x->γ.sz[1] == 0xb2) lc_γ_to(x, succ);
-            if (x->ω.node == succ && (unsigned char) x->ω.sz[0] == 0xce && (unsigned char) x->ω.sz[1] == 0xb2) lc_ω_to(x, succ); }
+            if (x->ω.node == succ && (unsigned char) x->ω.sz[0] == 0xce && (unsigned char) x->ω.sz[1] == 0xb2) lc_ω_to(x, succ);
+        }
         succ = ent[i];
     }
-    int lr = -1; int lr_cm = 0;
+    int lr = -1;
+    int lr_cm = 0;
     for (int i = 0; i < k; i++) {
         if (i > 0 && jn[i]) {
-            IR_t * tgt = ω; if (lr >= 0) tgt = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
-            if (lr >= 0 && lr_cm && tgt && tgt != ω) { lc_γ_to_β(jn[i], tgt); lc_ω_to_β(jn[i], tgt); }
-            else { γ_to(jn[i], tgt); ω_to(jn[i], tgt); }
+            IR_t * tgt = ω;
+            if (lr >= 0) tgt = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
+            if (lr >= 0 && lr_cm && tgt && tgt != ω) { lc_γ_to_β(jn[i], tgt); lc_ω_to_β(jn[i], tgt); } else { γ_to(jn[i], tgt); ω_to(jn[i], tgt); }
         }
         if (is_resumable(S[i]) || icn_tree_is_cursor_mover(S[i])) { lr = i; lr_cm = (!is_resumable(S[i]) && icn_tree_is_cursor_mover(S[i])); }
     }
     if (val[k - 1]) ir_operand_push(SEQX, val[k - 1]);
     if (lr >= 0) rb = (bet[lr] && bet[lr] != ω) ? bet[lr] : val[lr];
-    cx->conj_resumable = rb; cx->beta = (last_beta && last_beta != ω) ? last_beta : (rb ? rb : last_beta); *res = SEQX; return ent[0];
+    cx->conj_resumable = rb;
+    cx->beta = (last_beta && last_beta != ω) ? last_beta : (rb ? rb : last_beta);
+    *res = SEQX;
+    return ent[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_limit_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lv) {
     IR_t * lim = build(cx, IR_LIMIT, γ, ω);
-    IR_t * lr = NULL; IR_t * ee = lower(cx, (t->n > 1) ? t->c[1] : NULL, lim, ω, &lr);
-    IR_t * inner_beta = cx->beta; cx->conj_resumable = NULL;
-    IR_t * er = NULL; IR_t * ge = (t->n > 0 && t->c[0]) ? lower_arm(cx, t->c[0], lim, ω, &er, lv) : lower(cx, NULL, lim, ω, &er);
+    IR_t * lr = NULL;
+    IR_t * ee = lower(cx, (t->n > 1) ? t->c[1] : NULL, lim, ω, &lr);
+    IR_t * inner_beta = cx->beta;
+    cx->conj_resumable = NULL;
+    IR_t * er = NULL;
+    IR_t * ge = (t->n > 0 && t->c[0]) ? lower_arm(cx, t->c[0], lim, ω, &er, lv) : lower(cx, NULL, lim, ω, &er);
     IR_t * gen_beta = cx->beta;
     if (t->n > 0 && t->c[0] && t->c[0]->t == TT_CONJ && t->c[0]->n > 0 && !is_resumable(t->c[0]->c[t->c[0]->n - 1]) && cx->conj_resumable && cx->conj_resumable != ω) gen_beta = cx->conj_resumable;
     ir_operand_push(lim, er);
     ir_operand_push(lim, lr);
-    if (lr) { IR_t * gate = build(cx, IR_LIMIT_GATE, NULL, ω); ir_operand_push(gate, lr); γ_to(gate, ge); if (gate->γ.node == ge) lc_γ_to(gate, ge); γ_to(lr, gate); if (lr->γ.node == gate) lc_γ_to(lr, gate); }
-    else { γ_to(lr, ge); if (lr && lr->γ.node == ge) lc_γ_to(lr, ge); }
+    if (lr) {
+        IR_t * gate = build(cx, IR_LIMIT_GATE, NULL, ω);
+        ir_operand_push(gate, lr);
+        γ_to(gate, ge);
+        if (gate->γ.node == ge) lc_γ_to(gate, ge);
+        γ_to(lr, gate);
+        if (lr->γ.node == gate) lc_γ_to(lr, gate);
+    } else {
+        γ_to(lr, ge);
+        if (lr && lr->γ.node == ge) lc_γ_to(lr, ge);
+    }
     if (er) lc_γ_to(er, lim);
     if (gen_beta && gen_beta != ω && gen_beta != er) ir_operand_push(lim, gen_beta);
-    (void)inner_beta; cx->beta = (gen_beta && gen_beta != ω) ? lim : gen_beta;
-    *res = lim; return ee;
+    (void)inner_beta;
+    cx->beta = (gen_beta && gen_beta != ω) ? lim : gen_beta;
+    *res = lim;
+    return ee;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) { return lower_if_impl(cx, t, γ, ω, res, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_if_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res, int lv) {
-    const tree_t * C = (t->n > 0) ? t->c[0] : NULL; const tree_t * TH = (t->n > 1) ? t->c[1] : NULL; const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
+    const tree_t * C = (t->n > 0) ? t->c[0] : NULL;
+    const tree_t * TH = (t->n > 1) ? t->c[1] : NULL;
+    const tree_t * EL = (t->n > 2) ? t->c[2] : NULL;
     IR_graph_t * g = cx->g;
-    int n = EL ? 2 : 1; long cl = (t->line > 0 || cx->discard == t) ? icn_first_line(C) : 0;
+    int n = EL ? 2 : 1;
+    long cl = (t->line > 0 || cx->discard == t) ? icn_first_line(C) : 0;
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
-    γ_to(dj, γ); ω_to(dj, ω);
+    γ_to(dj, γ);
+    ω_to(dj, ω);
     IR_t * fs = IR_node_alloc(g, IR_FAIL);
-    IR_t * entv[n]; IR_t * resumev[n]; IR_t * resv[n];
+    IR_t * entv[n];
+    IR_t * resumev[n];
+    IR_t * resv[n];
     for (int j = 0; j < n; j++) {
         const tree_t * ARM = j ? EL : TH;
         int before = g->n;
-        IR_t * ar = NULL; cx->beta = dj; if (cl > 0) cx->discard = ARM;
+        IR_t * ar = NULL;
+        cx->beta = dj;
+        if (cl > 0) cx->discard = ARM;
         IR_t * aent = lower_arm(cx, ARM, dj, ω, &ar, lv);
-        IR_t * ab = cx->beta; int arm_end = g->n;
-        int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        IR_t * ab = cx->beta;
+        int arm_end = g->n;
+        int ab_in_arm = 0;
+        if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
         if (aent && aent != dj && icn_parts_split(cl, icn_part_line(ARM))) aent = icn_part_mark(cx, icn_part_line(ARM), aent, 0);
         if (j == 0) {
-            IR_t * aent0 = aent; int cbefore = g->n;
-            IR_t * cval = NULL; aent = lower(cx, C, aent, dj, &cval); (void) cval;
-            for (int k = cbefore; k < g->n; k++) { IR_t * x = g->all[k]; if (!x) continue;
+            IR_t * aent0 = aent;
+            int cbefore = g->n;
+            IR_t * cval = NULL;
+            aent = lower(cx, C, aent, dj, &cval);
+            (void) cval;
+            for (int k = cbefore; k < g->n; k++) {
+                IR_t * x = g->all[k];
+                if (!x) continue;
                 if (x->γ.node == aent0 && (unsigned char) x->γ.sz[0] == 0xce && (unsigned char) x->γ.sz[1] == 0xb2) memcpy(x->γ.sz, "α!", 4);
-                if (x->ω.node == aent0 && (unsigned char) x->ω.sz[0] == 0xce && (unsigned char) x->ω.sz[1] == 0xb2) memcpy(x->ω.sz, "α!", 4); }
+                if (x->ω.node == aent0 && (unsigned char) x->ω.sz[0] == 0xce && (unsigned char) x->ω.sz[1] == 0xb2) memcpy(x->ω.sz, "α!", 4);
+            }
         }
         for (int k = before; k < g->n; k++) {
             IR_t * x = g->all[k];
@@ -1526,12 +2445,15 @@ static IR_t * lower_if_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, 
             if (x->ω.node == dj) { memcpy(x->ω.sz, "φ", 3); x->ω.sz[3] = 0; }
             if (x->γ.node == dj) { if ((x->op == IR_GOTO && x->ω.node == dj) || icn_γ_is_fail_conduit(x)) { memcpy(x->γ.sz, "φ", 3); } else { memcpy(x->γ.sz, "σ", 3); } x->γ.sz[3] = 0; }
         }
-        entv[j] = aent; resumev[j] = ab_in_arm ? ab : fs; resv[j] = ar;
+        entv[j] = aent;
+        resumev[j] = ab_in_arm ? ab : fs;
+        resv[j] = ar;
     }
     for (int j = 0; j < n; j++) { ir_operand_push(dj, entv[j]); ir_operand_push(dj, resumev[j]); }
     for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
     IR_LIT(dj).ival = (long) n;
-    cx->beta = dj; *res = dj;
+    cx->beta = dj;
+    *res = dj;
     return icn_dj_α_entry(g, dj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1551,42 +2473,61 @@ static IR_t * lower_case_impl(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
     if (t->n < 1 || !t->c[0]) { IR_t * s = build(cx, IR_SUCCEED, γ, ω); *res = s; return s; }
     int nc = t->n - 1, npairs = nc / 2, n = npairs + (nc % 2 == 1), dk = -1;
     for (int j = 0; j < npairs; j++) if (t->c[1 + 2 * j] && t->c[1 + 2 * j]->t == TT_NUL) { dk = j; break; }
-    long sl = (t->line > 0 || cx->discard == t) ? icn_first_line(t->c[0]) : 0; IR_t * sr = NULL; IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
+    long sl = (t->line > 0 || cx->discard == t) ? icn_first_line(t->c[0]) : 0;
+    IR_t * sr = NULL;
+    IR_t * se = lower(cx, t->c[0], NULL, ω, &sr);
     if (n == 0) { γ_to(sr, ω); cx->beta = ω; *res = sr; return se; }
     IR_t * dj = lc_build(g, IR_DISJUNCTION, NULL, NULL);
-    γ_to(dj, γ); ω_to(dj, ω);
+    γ_to(dj, γ);
+    ω_to(dj, ω);
     IR_t * fs = IR_node_alloc(g, IR_FAIL);
-    IR_t ** entv = (IR_t **) ct_zalloc((size_t) n, sizeof *entv); IR_t ** resumev = (IR_t **) ct_zalloc((size_t) n, sizeof *resumev); IR_t ** resv = (IR_t **) ct_zalloc((size_t) n, sizeof *resv);
+    IR_t ** entv = (IR_t **) ct_zalloc((size_t) n, sizeof *entv);
+    IR_t ** resumev = (IR_t **) ct_zalloc((size_t) n, sizeof *resumev);
+    IR_t ** resv = (IR_t **) ct_zalloc((size_t) n, sizeof *resv);
     for (int j = 0; j < n; j++) {
         int pj = (dk < 0 || j < dk) ? j : (j == n - 1) ? dk : j + 1;
         const tree_t * SEL = (pj < npairs && pj != dk) ? t->c[1 + 2 * pj] : NULL;
         const tree_t * BODY = (pj < npairs) ? t->c[2 + 2 * pj] : t->c[t->n - 1];
         int before = g->n;
-        IR_t * ar = NULL; cx->beta = dj; if (sl > 0) cx->discard = BODY;
+        IR_t * ar = NULL;
+        cx->beta = dj;
+        if (sl > 0) cx->discard = BODY;
         IR_t * aent = lower_arm(cx, BODY, dj, ω, &ar, lv);
-        IR_t * ab = cx->beta; int arm_end = g->n;
-        int ab_in_arm = 0; if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
+        IR_t * ab = cx->beta;
+        int arm_end = g->n;
+        int ab_in_arm = 0;
+        if (ab && ab != dj) for (int k = before; k < arm_end; k++) if (g->all[k] == ab) { ab_in_arm = 1; break; }
         if (aent && aent != dj && icn_parts_split(sl, icn_part_line(BODY))) aent = icn_part_mark(cx, icn_part_line(BODY), aent, 0);
         if (SEL) {
-            IR_t * aent0 = aent; cx->beta = dj;
-            IR_t * kn = NULL; IR_t * ke = lower(cx, SEL, NULL, dj, &kn);
+            IR_t * aent0 = aent;
+            cx->beta = dj;
+            IR_t * kn = NULL;
+            IR_t * ke = lower(cx, SEL, NULL, dj, &kn);
             IR_t * kβ = cx->beta;
-            IR_t * idc = build(cx, IR_CALL_BUILTIN, aent0, dj); IR_LIT(idc).sval = (char *) "IDENTICAL";
+            IR_t * idc = build(cx, IR_CALL_BUILTIN, aent0, dj);
+            IR_LIT(idc).sval = (char *) "IDENTICAL";
             lc_γ_to_α(idc, aent0);
-            ir_operand_push(idc, sr); ir_operand_push(idc, kn); γ_to(kn, idc);
+            ir_operand_push(idc, sr);
+            ir_operand_push(idc, kn);
+            γ_to(kn, idc);
             if (kβ && kβ != dj && kβ != ω) lc_ω_to_β(idc, kβ);
             aent = ke ? ke : idc;
             if (ke && is_resumable(SEL)) { IR_t * KENT = build(cx, IR_GOTO, NULL, NULL); lc_γ_to_α(KENT, ke); lc_ω_to_α(KENT, ke); aent = KENT; }
         }
         icn_arm_mark_edges(g, before, dj);
-        entv[j] = aent; resumev[j] = ab_in_arm ? ab : fs; resv[j] = ar;
+        entv[j] = aent;
+        resumev[j] = ab_in_arm ? ab : fs;
+        resv[j] = ar;
     }
     for (int j = 0; j < n; j++) { ir_operand_push(dj, entv[j]); ir_operand_push(dj, resumev[j]); }
     for (int j = 0; j < n; j++) ir_operand_push(dj, icn_arm_result(resv[j]));
     IR_LIT(dj).ival = (long) n;
     lc_γ_to_α(sr, icn_dj_α_entry(g, dj));
-    ct_drop(entv); ct_drop(resumev); ct_drop(resv);
-    cx->beta = dj; *res = dj;
+    ct_drop(entv);
+    ct_drop(resumev);
+    ct_drop(resv);
+    cx->beta = dj;
+    *res = dj;
     return se;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1600,39 +2541,66 @@ static int icn_const_step(const tree_t * s, int64_t * bits, int * isr) {
         return 1;
     }
     if (s->t == TT_POW && s->n >= 2 && s->c[0] && s->c[1]) {
-        int64_t lb = 0, rb = 0; int li = 0, ri = 0;
+        int64_t lb = 0, rb = 0;
+        int li = 0, ri = 0;
         if (!icn_const_step(s->c[0], &lb, &li) || !icn_const_step(s->c[1], &rb, &ri)) return 0;
         if (!li && !ri) {
             if (lb == 0 && rb <= 0) return 0;
             if (rb >= 0) { int64_t acc = 1; for (int64_t k = 0; k < rb; k++) if (__builtin_mul_overflow(acc, lb, &acc)) return 0; *bits = acc; *isr = 0; return 1; }
-            if (lb == 1)  { *bits = 1; *isr = 0; return 1; }
+            if (lb == 1) { *bits = 1; *isr = 0; return 1; }
             if (lb == -1) { *bits = (rb & 1) ? -1 : 1; *isr = 0; return 1; }
-            *bits = 0; *isr = 0; return 1;
+            *bits = 0;
+            *isr = 0;
+            return 1;
         }
-        double la, ra, rv; if (li) memcpy(&la, &lb, 8); else la = (double) lb; if (ri) memcpy(&ra, &rb, 8); else ra = (double) rb;
+        double la, ra, rv;
+        if (li) memcpy(&la, &lb, 8);
+        else la = (double) lb;
+        if (ri) memcpy(&ra, &rb, 8);
+        else ra = (double) rb;
         if (la < 0.0 || (la == 0.0 && ra <= 0.0)) return 0;
         if (!ri) { int64_t n = rb; double r = la; rv = 1.0; if (n < 0) { n = (-1) - n; r = 1.0 / r; rv = r; } while (n > 0) { if (n & 1) rv *= r; r *= r; n >>= 1; } } else rv = pow(la, ra);
         if (!isfinite(rv)) return 0;
-        memcpy(bits, &rv, 8); *isr = 1; return 1;
+        memcpy(bits, &rv, 8);
+        *isr = 1;
+        return 1;
     }
     if ((s->t == TT_ADD || s->t == TT_SUB || s->t == TT_MUL || s->t == TT_DIV || s->t == TT_MOD) && s->n >= 2 && s->c[0] && s->c[1]) {
-        int64_t lb = 0, rb = 0; int li = 0, ri = 0;
+        int64_t lb = 0, rb = 0;
+        int li = 0, ri = 0;
         if (!icn_const_step(s->c[0], &lb, &li) || !icn_const_step(s->c[1], &rb, &ri)) return 0;
         if (!li && !ri) {
             int64_t r;
-            if (s->t == TT_ADD) { if (__builtin_add_overflow(lb, rb, &r)) return 0; }
-            else if (s->t == TT_SUB) { if (__builtin_sub_overflow(lb, rb, &r)) return 0; }
-            else if (s->t == TT_MUL) { if (__builtin_mul_overflow(lb, rb, &r)) return 0; }
-            else if (s->t == TT_DIV) { if (rb == 0 || (rb == -1 && lb == INT64_MIN)) return 0; r = lb / rb; }
-            else { if (rb == 0 || (rb == -1 && lb == INT64_MIN)) return 0; r = lb % rb; }
-            *bits = r; *isr = 0; return 1;
+            if (s->t == TT_ADD) {
+                if (__builtin_add_overflow(lb, rb, &r)) return 0;
+            } else if (s->t == TT_SUB) {
+                if (__builtin_sub_overflow(lb, rb, &r)) return 0;
+            } else if (s->t == TT_MUL) {
+                if (__builtin_mul_overflow(lb, rb, &r)) return 0;
+            } else if (s->t == TT_DIV) {
+                if (rb == 0 || (rb == -1 && lb == INT64_MIN)) return 0;
+                r = lb / rb;
+            } else {
+                if (rb == 0 || (rb == -1 && lb == INT64_MIN)) return 0;
+                r = lb % rb;
+            }
+            *bits = r;
+            *isr = 0;
+            return 1;
         }
-        double la, ra, rv; if (li) memcpy(&la, &lb, 8); else la = (double) lb; if (ri) memcpy(&ra, &rb, 8); else ra = (double) rb;
-        if (s->t == TT_ADD) rv = la + ra; else if (s->t == TT_SUB) rv = la - ra; else if (s->t == TT_MUL) rv = la * ra; else if (s->t == TT_DIV) {
-            if (ra == 0.0) return 0; rv = la / ra;
-        } else { if (ra == 0.0) return 0; rv = fmod(la, ra); }
+        double la, ra, rv;
+        if (li) memcpy(&la, &lb, 8);
+        else la = (double) lb;
+        if (ri) memcpy(&ra, &rb, 8);
+        else ra = (double) rb;
+        if (s->t == TT_ADD) rv = la + ra;
+        else if (s->t == TT_SUB) rv = la - ra;
+        else if (s->t == TT_MUL) rv = la * ra;
+        else if (s->t == TT_DIV) { if (ra == 0.0) return 0; rv = la / ra; } else { if (ra == 0.0) return 0; rv = fmod(la, ra); }
         if (!isfinite(rv)) return 0;
-        memcpy(bits, &rv, 8); *isr = 1; return 1;
+        memcpy(bits, &rv, 8);
+        *isr = 1;
+        return 1;
     }
     return 0;
 }
@@ -1645,41 +2613,68 @@ static IR_t * lower_seq_variable_step(icx_t * cx, const tree_t * t, int argbase,
     if (byt->t != TT_VAR) return NULL;
     const tree_t * fromt = (nargs > 0 && !icn_arg_is_null(t->c[argbase])) ? t->c[argbase] : NULL;
     tree_t * from = fromt ? (tree_t *) fromt : icn_seq_leaf(TT_ILIT, NULL, 1);
-    tree_t * neg = ast_node_new(TT_LT); ast_push(neg, (tree_t *) byt); ast_push(neg, icn_seq_leaf(TT_ILIT, NULL, 0));
-    tree_t * bound = ast_node_new(TT_IF); ast_push(bound, neg); ast_push(bound, icn_seq_leaf(TT_ILIT, NULL, INT64_MIN)); ast_push(bound, icn_seq_leaf(TT_ILIT, NULL, INT64_MAX));
-    tree_t * tby = ast_node_new(TT_TO_BY); ast_push(tby, from); ast_push(tby, bound); ast_push(tby, (tree_t *) byt); tby->line = t->line;
+    tree_t * neg = ast_node_new(TT_LT);
+    ast_push(neg, (tree_t *) byt);
+    ast_push(neg, icn_seq_leaf(TT_ILIT, NULL, 0));
+    tree_t * bound = ast_node_new(TT_IF);
+    ast_push(bound, neg);
+    ast_push(bound, icn_seq_leaf(TT_ILIT, NULL, INT64_MIN));
+    ast_push(bound, icn_seq_leaf(TT_ILIT, NULL, INT64_MAX));
+    tree_t * tby = ast_node_new(TT_TO_BY);
+    ast_push(tby, from);
+    ast_push(tby, bound);
+    ast_push(tby, (tree_t *) byt);
+    tby->line = t->line;
     return lower_to(cx, tby, γ, ω, res);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_seq(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
-    int64_t by = 1; const tree_t * byt = (nargs > 1) ? t->c[argbase + 1] : NULL;
+    int64_t by = 1;
+    const tree_t * byt = (nargs > 1) ? t->c[argbase + 1] : NULL;
     if (icn_arg_is_null(byt)) byt = NULL;
     if (byt) { int64_t bb = 1; int isr = 0; if (!icn_const_step(byt, &bb, &isr)) return lower_seq_variable_step(cx, t, argbase, nargs, byt, γ, ω, res); if (isr) return NULL; by = bb; }
     int use_by = (by != 1);
-    IR_t * to = build(cx, use_by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag:int"; cx->last_gen = to;
-    const tree_t * fromt = (nargs > 0) ? t->c[argbase] : NULL; IR_t * lr; IR_t * ea; IR_t * lβ;
+    IR_t * to = build(cx, use_by ? IR_TO_BY : IR_TO, γ, ω);
+    IR_LIT(to).sval = (char *) "ag:int";
+    cx->last_gen = to;
+    const tree_t * fromt = (nargs > 0) ? t->c[argbase] : NULL;
+    IR_t * lr;
+    IR_t * ea;
+    IR_t * lβ;
     if (icn_arg_is_null(fromt)) fromt = NULL;
     if (fromt) { ea = lower(cx, fromt, NULL, ω, &lr); lβ = cx->beta; } else { lr = build(cx, IR_LIT_INTEGER, NULL, ω); IR_LIT(lr).ival = 1; ea = lr; lβ = ω; }
-    IR_t * mr = build(cx, IR_LIT_INTEGER, to, lβ); IR_LIT(mr).ival = (by > 0) ? INT64_MAX : INT64_MIN; γ_to(lr, mr);
+    IR_t * mr = build(cx, IR_LIT_INTEGER, to, lβ);
+    IR_LIT(mr).ival = (by > 0) ? INT64_MAX : INT64_MIN;
+    γ_to(lr, mr);
     if (use_by) {
-        IR_t * br = build(cx, IR_LIT_INTEGER, to, lβ); IR_LIT(br).ival = by; γ_to(mr, br);
+        IR_t * br = build(cx, IR_LIT_INTEGER, to, lβ);
+        IR_LIT(br).ival = by;
+        γ_to(mr, br);
         lc_γ_to_α(br, to);
-        ir_operand_push(to, lr); ir_operand_push(to, mr); ir_operand_push(to, br);
+        ir_operand_push(to, lr);
+        ir_operand_push(to, mr);
+        ir_operand_push(to, br);
     } else {
         lc_γ_to_α(mr, to);
-        ir_operand_push(to, lr); ir_operand_push(to, mr);
+        ir_operand_push(to, lr);
+        ir_operand_push(to, mr);
     }
-    cx->beta = to; *res = to; return ea;
+    cx->beta = to;
+    *res = to;
+    return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_key(icx_t * cx, const tree_t * t, int argbase, int nargs, IR_t * γ, IR_t * ω, IR_t ** res) {
     (void) nargs;
     IR_t * kg = build(cx, IR_ITERATE, γ, ω);
     IR_LIT(kg).sval = "key";
-    IR_t * orr = NULL; IR_t * ee = lower(cx, t->c[argbase], NULL, ω, &orr);
+    IR_t * orr = NULL;
+    IR_t * ee = lower(cx, t->c[argbase], NULL, ω, &orr);
     ir_operand_push(kg, orr);
     lc_γ_to(orr, kg);
-    cx->beta = kg; *res = kg; return ee;
+    cx->beta = kg;
+    *res = kg;
+    return ee;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern const char * icn_builtin_nth(int);
@@ -1688,7 +2683,8 @@ static int icn_is_icon_function(const char * nm) { for (int k = 0; nm && icn_bui
 static IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * fg = build(cx, IR_ITERATE, γ, ω);
     IR_t * ml = build(cx, IR_MAKE_LIST, NULL, ω);
-    IR_t * prev = NULL; IR_t * entry = NULL;
+    IR_t * prev = NULL;
+    IR_t * entry = NULL;
     for (int k = 0; icn_builtin_nth(k); k++) {
         IR_t * sn = build(cx, IR_LIT_STRING, icn_builtin_nth(k + 1) ? NULL : ml, ω);
         IR_LIT(sn).sval = (char *) icn_builtin_nth(k);
@@ -1699,29 +2695,48 @@ static IR_t * lower_function_gen(icx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) 
     }
     ir_operand_push(fg, ml);
     lc_γ_to(ml, fg);
-    cx->beta = fg; *res = fg; return entry;
+    cx->beta = fg;
+    *res = fg;
+    return entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * ml = build(cx, IR_MAKE_LIST, γ, ω);
     if (res) *res = ml;
-    IR_t * prev = NULL; IR_t * entry = ml; IR_t * aω = ω;
-    int nstage = 0; for (int k = 0; k < t->n; k++) if (icn_arg_stages(cx, t->c[k])) nstage++;
-    IR_t * args_r[t->n > 0 ? t->n : 1]; int staged[t->n > 0 ? t->n : 1];
+    IR_t * prev = NULL;
+    IR_t * entry = ml;
+    IR_t * aω = ω;
+    int nstage = 0;
+    for (int k = 0; k < t->n; k++) if (icn_arg_stages(cx, t->c[k])) nstage++;
+    IR_t * args_r[t->n > 0 ? t->n : 1];
+    int staged[t->n > 0 ? t->n : 1];
     for (int k = 0; k < t->n; k++) {
-        const tree_t * a = t->c[k]; IR_t * ar = NULL; IR_t * ae; staged[k] = 0;
+        const tree_t * a = t->c[k];
+        IR_t * ar = NULL;
+        IR_t * ae;
+        staged[k] = 0;
         if (nstage && icn_arg_stages(cx, a)) { cx->beta = aω; ae = lower_lvalue_var(cx, a, aω, &ar); if (ae && ar) staged[k] = 1; }
         IR_t * b4 = cx->beta;
         if (!staged[k]) ae = lower(cx, a, (k == t->n - 1 && !nstage) ? ml : NULL, aω, &ar);
         aω = (cx->beta == b4 && ar && !staged[k] && icn_tree_is_cursor_mover(a)) ? ar : cx->beta;
         if (k == 0) entry = ae;
         if (prev) lc_γ_to(prev, ae);
-        prev = ar; args_r[k] = ar;
+        prev = ar;
+        args_r[k] = ar;
     }
     for (int k = 0; k < t->n; k++) if (staged[k] && args_r[k]) {
-        IR_t * drf; if (icn_tree_is_kw_var(t->c[k])) { drf = build(cx, IR_KW_ICON, NULL, aω); IR_LIT(drf).sval = (char *) t->c[k]->v.sval; } else { drf = build(cx, IR_DEREF, NULL, aω); ir_operand_push(drf, args_r[k]); }
-        if (prev) lc_γ_to(prev, drf); else entry = drf;
-        prev = drf; args_r[k] = drf;
+        IR_t * drf;
+        if (icn_tree_is_kw_var(t->c[k])) {
+            drf = build(cx, IR_KW_ICON, NULL, aω);
+            IR_LIT(drf).sval = (char *) t->c[k]->v.sval;
+        } else {
+            drf = build(cx, IR_DEREF, NULL, aω);
+            ir_operand_push(drf, args_r[k]);
+        }
+        if (prev) lc_γ_to(prev, drf);
+        else entry = drf;
+        prev = drf;
+        args_r[k] = drf;
     }
     for (int k = 0; k < t->n; k++) if (args_r[k]) ir_operand_push(ml, args_r[k]);
     if (nstage && prev) lc_γ_to(prev, ml);
@@ -1731,53 +2746,99 @@ static IR_t * lower_make_list(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_to(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     int by = (t->t == TT_TO_BY && t->n > 2 && t->c[2]) ? 1 : 0;
-    IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω); IR_LIT(to).sval = (char *) "ag:int"; cx->last_gen = to;
-    IR_t * lr = NULL; IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr); IR_t * lβ = cx->beta;
-    IR_t * mr = NULL; IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr); lc_γ_to(lr, em);
-    ir_operand_push(to, lr); ir_operand_push(to, mr); IR_t * last_op = mr;
+    IR_t * to = build(cx, by ? IR_TO_BY : IR_TO, γ, ω);
+    IR_LIT(to).sval = (char *) "ag:int";
+    cx->last_gen = to;
+    IR_t * lr = NULL;
+    IR_t * ea = lower(cx, t->c[0], NULL, ω, &lr);
+    IR_t * lβ = cx->beta;
+    IR_t * mr = NULL;
+    IR_t * em = lower(cx, t->c[1], by ? NULL : to, lβ, &mr);
+    lc_γ_to(lr, em);
+    ir_operand_push(to, lr);
+    ir_operand_push(to, mr);
+    IR_t * last_op = mr;
     if (by) {
-        IR_t * mβ = cx->beta; IR_t * br = NULL; IR_t * eb = lower(cx, t->c[2], to, mβ, &br); lc_γ_to(mr, eb); (void) eb;
+        IR_t * mβ = cx->beta;
+        IR_t * br = NULL;
+        IR_t * eb = lower(cx, t->c[2], to, mβ, &br);
+        lc_γ_to(mr, eb);
+        (void) eb;
         if (br && ir_is_generator_kind(to->op)) lc_γ_to(br, to);
-        ir_operand_push(to, br); last_op = br;
+        ir_operand_push(to, br);
+        last_op = br;
     } else if (mr && ir_is_generator_kind(to->op)) lc_γ_to(mr, to);
-    { IR_t * resume_op = NULL;
-      if (by && last_op && ir_is_generator_kind(last_op->op)) resume_op = last_op;
-      else if (mr && ir_is_generator_kind(mr->op)) resume_op = mr;
-      else if (lr && ir_is_generator_kind(lr->op)) resume_op = lr;
-      if (resume_op) lc_ω_to_β(to, resume_op); }
-    cx->beta = to; *res = to; return ea;
+    {
+        IR_t * resume_op = NULL;
+        if (by && last_op && ir_is_generator_kind(last_op->op)) resume_op = last_op;
+        else if (mr && ir_is_generator_kind(mr->op)) resume_op = mr;
+        else if (lr && ir_is_generator_kind(lr->op)) resume_op = lr;
+        if (resume_op) lc_ω_to_β(to, resume_op);
+    }
+    cx->beta = to;
+    *res = to;
+    return ea;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_every(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
-    const tree_t * E = (t->n > 0) ? t->c[0] : NULL; const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
-    long el = icn_first_line(E), bl = icn_part_line(B); int split = icn_parts_split(el, bl);
-    IR_t * slb = cx->loop_break_beta; cx->loop_break_beta = NULL;
-    IR_t * bres = build(cx, IR_VAR, γ, ω); IR_LIT(bres).sval = (char *) "__break_result";
-    IR_t * sle = cx->loop_exit; IR_t * sln = cx->loop_next; IR_t * slf = cx->loop_fail; int slns = cx->loop_next_ssp; cx->loop_exit = bres; cx->loop_fail = ω; cx->loop_next_ssp = cx->scan_sp;
-    icn_loop_fr lf = { cx->loop_exit, NULL, cx->loop_fail, cx->loop_top }; cx->loop_top = &lf; cx->loop_sp++;
-    IR_t * eval = NULL; IR_t * e_entry = lower(cx, E, NULL, ω, &eval); IR_t * gen_beta = cx->beta;
-    cx->loop_sp--; cx->loop_top = lf.up;
+    const tree_t * E = (t->n > 0) ? t->c[0] : NULL;
+    const tree_t * B = (t->n > 1) ? t->c[1] : NULL;
+    long el = icn_first_line(E), bl = icn_part_line(B);
+    int split = icn_parts_split(el, bl);
+    IR_t * slb = cx->loop_break_beta;
+    cx->loop_break_beta = NULL;
+    IR_t * bres = build(cx, IR_VAR, γ, ω);
+    IR_LIT(bres).sval = (char *) "__break_result";
+    IR_t * sle = cx->loop_exit;
+    IR_t * sln = cx->loop_next;
+    IR_t * slf = cx->loop_fail;
+    int slns = cx->loop_next_ssp;
+    cx->loop_exit = bres;
+    cx->loop_fail = ω;
+    cx->loop_next_ssp = cx->scan_sp;
+    icn_loop_fr lf = { cx->loop_exit, NULL, cx->loop_fail, cx->loop_top };
+    cx->loop_top = &lf;
+    cx->loop_sp++;
+    IR_t * eval = NULL;
+    IR_t * e_entry = lower(cx, E, NULL, ω, &eval);
+    IR_t * gen_beta = cx->beta;
+    cx->loop_sp--;
+    cx->loop_top = lf.up;
     if (gen_beta == ω) gen_beta = build(cx, IR_GOTO, ω, ω);
     cx->loop_next = gen_beta;
-    IR_t * bval = NULL; (void) bval; IR_t * b_entry;
+    IR_t * bval = NULL;
+    (void) bval;
+    IR_t * b_entry;
     if (B) {
         IR_t * mark = build(cx, IR_BOUND, NULL, NULL);
         IR_t * back = split ? icn_part_mark(cx, el, gen_beta, 1) : gen_beta;
         IR_t * unmk = build(cx, IR_UNMARK, back, back);
         ir_operand_push(unmk, mark);
-        cx->loop_next = unmk; cx->loop_next_ssp = cx->scan_sp;
-        icn_loop_fr lfb = { cx->loop_exit, cx->loop_next, cx->loop_fail, cx->loop_top }; cx->loop_top = &lfb; cx->loop_sp++;
-        cx->discard = B; b_entry = lower(cx, B, unmk, unmk, &bval);
-        cx->loop_sp--; cx->loop_top = lfb.up;
+        cx->loop_next = unmk;
+        cx->loop_next_ssp = cx->scan_sp;
+        icn_loop_fr lfb = { cx->loop_exit, cx->loop_next, cx->loop_fail, cx->loop_top };
+        cx->loop_top = &lfb;
+        cx->loop_sp++;
+        cx->discard = B;
+        b_entry = lower(cx, B, unmk, unmk, &bval);
+        cx->loop_sp--;
+        cx->loop_top = lfb.up;
         if (split) b_entry = icn_part_mark(cx, bl, b_entry, 0);
-        lc_γ_to_α(mark, b_entry); lc_ω_to_α(mark, b_entry);
+        lc_γ_to_α(mark, b_entry);
+        lc_ω_to_α(mark, b_entry);
         b_entry = mark;
+    } else {
+        b_entry = gen_beta;
     }
-    else { b_entry = gen_beta; }
-    cx->loop_exit = sle; cx->loop_next = sln; cx->loop_fail = slf; cx->loop_next_ssp = slns;
+    cx->loop_exit = sle;
+    cx->loop_next = sln;
+    cx->loop_fail = slf;
+    cx->loop_next_ssp = slns;
     if (!(eval && eval->op == IR_SUSPEND) && !(eval && eval->op == IR_GOTO && eval->γ.node == bres)) γ_to(eval, b_entry);
     { IR_t * lbb = cx->loop_break_beta; cx->loop_break_beta = slb; if (lbb) { cx->beta = lbb; *res = bres; return e_entry; } }
-    cx->beta = ω; *res = bres; return e_entry;
+    cx->beta = ω;
+    *res = bres;
+    return e_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_tree_mentions_kw(const tree_t * t, const char * kw) {
@@ -1787,55 +2848,75 @@ static int icn_tree_mentions_kw(const tree_t * t, const char * kw) {
     return 0;
 }
 static IR_t * icn_line_mark(icx_t * cx, int line, IR_t * next) {
-    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL); lc_γ_to(mark, next); lc_ω_to(mark, next); mark->pat_static = line;
+    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL);
+    lc_γ_to(mark, next);
+    lc_ω_to(mark, next);
+    mark->pat_static = line;
     if (cx->links) IR_LIT(mark).sval = (char *) cx->file;
     return mark;
 }
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next) {
-    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL); lc_γ_to(mark, next); lc_ω_to(mark, next); mark->pat_static = line;
+    IR_t * mark = build(cx, IR_LINE_MARK, NULL, NULL);
+    lc_γ_to(mark, next);
+    lc_ω_to(mark, next);
+    mark->pat_static = line;
     IR_LIT(mark).sval = (char *) cx->file;
     return mark;
 }
 static int icn_trace_wanted(void) { extern long g_trace_budget; return g_trace_budget != 0; }
 static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω) {
     if (line <= 0 || !icn_trace_wanted()) return stmt_entry;
-    IR_t * call = build(cx, IR_CALL, stmt_entry, ω); IR_LIT(call).sval = "__trace_stmt";
-    IR_t * lit = build(cx, IR_LIT_INTEGER, call, ω); IR_LIT(lit).ival = line;
+    IR_t * call = build(cx, IR_CALL, stmt_entry, ω);
+    IR_LIT(call).sval = "__trace_stmt";
+    IR_t * lit = build(cx, IR_LIT_INTEGER, call, ω);
+    IR_LIT(lit).ival = line;
     ir_operand_push(call, lit);
     return lit;
 }
 static IR_t * icn_trace_call_wrap(icx_t * cx, const char * name, IR_t * body_entry, IR_t * ω) {
     if (!name || !*name || !icn_trace_wanted()) return body_entry;
-    IR_t * call = build(cx, IR_CALL, body_entry, ω); IR_LIT(call).sval = "__trace_call";
-    IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = (char *) name;
+    IR_t * call = build(cx, IR_CALL, body_entry, ω);
+    IR_LIT(call).sval = "__trace_call";
+    IR_t * nm = build(cx, IR_LIT_STRING, call, ω);
+    IR_LIT(nm).sval = (char *) name;
     ir_operand_push(call, nm);
     return nm;
 }
 static IR_t * icn_trace_named_prep(icx_t * cx, const char * hook, const char * name, IR_t * γ, IR_t * ω, IR_t ** call_out) {
     if (!name || !*name || !icn_trace_wanted()) { *call_out = NULL; return NULL; }
-    IR_t * call = build(cx, IR_CALL, γ, ω); IR_LIT(call).sval = (char *) hook;
-    IR_t * nm = build(cx, IR_LIT_STRING, call, ω); IR_LIT(nm).sval = (char *) name;
+    IR_t * call = build(cx, IR_CALL, γ, ω);
+    IR_LIT(call).sval = (char *) hook;
+    IR_t * nm = build(cx, IR_LIT_STRING, call, ω);
+    IR_LIT(nm).sval = (char *) name;
     ir_operand_push(call, nm);
     *call_out = call;
     return nm;
 }
 static IR_graph_t * lower_proc_body(icx_t * cx, const tree_t * body) {
-    IR_graph_t * g = IR_alloc(8192); cx->g = g;
-    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED); IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
-    cx->psucc = PSUCC; cx->pfail = PFAIL;
-    IR_t * succ = PFAIL; IR_t * fail = PFAIL;
+    IR_graph_t * g = IR_alloc(8192);
+    cx->g = g;
+    IR_t * PSUCC = IR_node_alloc(g, IR_SUCCEED);
+    IR_t * PFAIL = IR_node_alloc(g, IR_FAIL);
+    cx->psucc = PSUCC;
+    cx->pfail = PFAIL;
+    IR_t * succ = PFAIL;
+    IR_t * fail = PFAIL;
     if (cx->want_lines && cx->end_line > 0) { succ = icn_line_hook(cx, cx->end_line, PFAIL); fail = succ; }
     for (int i = body->n - 1; i >= 0; i--) {
-        const tree_t * s = body->c[i]; int sline = s ? s->line : 0; if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; } if (!s) continue; if (sline <= 0) sline = s->line;
-        IR_t * r = NULL; IR_t * entry = lower(cx, s, succ, fail, &r); if (r && r->γ.node == succ) lc_γ_to(r, succ);
-        if (entry && ir_is_generator_kind(entry->op)) {
-            IR_t * tramp = IR_node_alloc(g, IR_GOTO); lc_γ_to(tramp, entry); lc_ω_to(tramp, entry);
-            entry = tramp;
-        }
+        const tree_t * s = body->c[i];
+        int sline = s ? s->line : 0;
+        if (s && s->t == TT_STMT) { const tree_t * sub = stmt_subj(s); if (!sub) continue; s = sub; }
+        if (!s) continue;
+        if (sline <= 0) sline = s->line;
+        IR_t * r = NULL;
+        IR_t * entry = lower(cx, s, succ, fail, &r);
+        if (r && r->γ.node == succ) lc_γ_to(r, succ);
+        if (entry && ir_is_generator_kind(entry->op)) { IR_t * tramp = IR_node_alloc(g, IR_GOTO); lc_γ_to(tramp, entry); lc_ω_to(tramp, entry); entry = tramp; }
         if (entry && sline > 0) entry = (cx->want_lines || i == 0) ? icn_line_hook(cx, sline, entry) : icn_line_mark(cx, sline, entry);
-        if (entry && sline > 0 && s->t != TT_LOCAL && s->t != TT_STATIC_DECL && s->t != TT_INITIAL && !(s->t == TT_IF && s->v.ival == ICN_IF_FROM_INITIAL))
-            entry = icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
-        succ = entry; fail = entry;
+        if (entry && sline > 0 && s->t != TT_LOCAL && s->t != TT_STATIC_DECL && s->t != TT_INITIAL && !(s->t == TT_IF && s->v.ival == ICN_IF_FROM_INITIAL)) entry =
+            icn_trace_stmt_wrap(cx, sline, entry, PFAIL);
+        succ = entry;
+        fail = entry;
     }
     g->entry = icn_trace_call_wrap(cx, cx->pname, succ, PFAIL);
     if (cx->pname && !strcmp(cx->pname, "main")) { IR_t * qt = build(cx, IR_CALL, g->entry, g->entry); IR_LIT(qt).sval = (char *) "$quit_trap_300"; g->entry = qt; }
@@ -1853,7 +2934,8 @@ static void collect_procs_vec(const tree_t * t, lc_vec * out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void fill_pnames(const tree_t * prog, lc_vec * pn) {
-    static lc_vec ps; icn_vec_reuse(&ps, (int) sizeof(const tree_t *));
+    static lc_vec ps;
+    icn_vec_reuse(&ps, (int) sizeof(const tree_t *));
     collect_procs_vec(prog, &ps);
     for (int i = 0; i < ps.n; i++) if (LC_AT(&ps, const tree_t *, i)->v.sval) lc_vec_push(pn, &LC_AT(&ps, const tree_t *, i)->v.sval);
 }
@@ -1869,37 +2951,55 @@ static void icn_rename_statics_walk(tree_t * n, const char ** names, char ** man
 static lc_vec g_icn_synth_excl;
 static void icn_statics_prepass(tree_t * body, const char * pname) {
     if (!body) return;
-    int nst = 1; for (int i = 0; i < body->n; i++) { tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st); if (st && st->t == TT_STATIC_DECL) nst += st->n; }
-    const char * names[nst]; char * mangled[nst]; int cnt = 0; int inits = 0;
+    int nst = 1;
+    for (int i = 0; i < body->n; i++) { tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st); if (st && st->t == TT_STATIC_DECL) nst += st->n; }
+    const char * names[nst];
+    char * mangled[nst];
+    int cnt = 0;
+    int inits = 0;
     for (int i = 0; i < body->n; i++) {
-        tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
-        if (st && st->t == TT_STATIC_DECL)
-            for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) {
-                names[cnt] = st->c[k]->v.sval;
-                char * m = ct_alloc(strlen(pname) + strlen(names[cnt]) + 12); sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
-                { extern void global_register(const char *); global_register(m); }
-                { const char * mc = m; lc_vec_push(&g_icn_synth_excl, &mc); }
-                mangled[cnt] = m; cnt++;
-            }
+        tree_t * st = body->c[i];
+        if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
+        if (st && st->t == TT_STATIC_DECL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) {
+            names[cnt] = st->c[k]->v.sval;
+            char * m = ct_alloc(strlen(pname) + strlen(names[cnt]) + 12);
+            sprintf(m, "%s__STATIC__%s", pname, names[cnt]);
+            { extern void global_register(const char *); global_register(m); }
+            { const char * mc = m; lc_vec_push(&g_icn_synth_excl, &mc); }
+            mangled[cnt] = m;
+            cnt++;
+        }
     }
     if (cnt) icn_rename_statics_walk(body, names, mangled, cnt);
     for (int i = 0; i < body->n; i++) {
-        tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
+        tree_t * st = body->c[i];
+        if (st && st->t == TT_STMT) st = (tree_t *) stmt_subj(st);
         if (st && st->t == TT_INITIAL) {
-            char * f = ct_alloc(strlen(pname) + 20); sprintf(f, "%s__INITFLAG__%d", pname, inits++);
+            char * f = ct_alloc(strlen(pname) + 20);
+            sprintf(f, "%s__INITFLAG__%d", pname, inits++);
             { extern void global_register(const char *); global_register(f); }
             { const char * fc = f; lc_vec_push(&g_icn_synth_excl, &fc); }
-            tree_t * fv = ast_node_new(TT_VAR); fv->v.sval = f;
-            tree_t * nz = ast_node_new(TT_NULL); ast_push(nz, fv);
-            tree_t * fv2 = ast_node_new(TT_VAR); fv2->v.sval = f;
-            tree_t * one = ast_node_new(TT_ILIT); one->v.ival = 1;
-            tree_t * asn = ast_node_new(TT_ASSIGN); ast_push(asn, fv2); ast_push(asn, one);
+            tree_t * fv = ast_node_new(TT_VAR);
+            fv->v.sval = f;
+            tree_t * nz = ast_node_new(TT_NULL);
+            ast_push(nz, fv);
+            tree_t * fv2 = ast_node_new(TT_VAR);
+            fv2->v.sval = f;
+            tree_t * one = ast_node_new(TT_ILIT);
+            one->v.ival = 1;
+            tree_t * asn = ast_node_new(TT_ASSIGN);
+            ast_push(asn, fv2);
+            ast_push(asn, one);
             tree_t * child = (st->n > 0) ? st->c[0] : NULL;
             if (!child) { child = ast_node_new(TT_ILIT); child->v.ival = 1; child->line = st->line; }
             if (child->t != TT_SEQ_EXPR) { tree_t * sq = ast_node_new(TT_SEQ_EXPR); sq->line = (child->line > 0) ? child->line : st->line; ast_push(sq, child); child = sq; }
             child->v.ival = ICN_IF_FROM_INITIAL;
-            tree_t * body = ast_node_new(TT_CONJ); ast_push(body, asn); ast_push(body, child);
-            st->t = TT_IF; st->n = 0; st->v.ival = ICN_IF_FROM_INITIAL;
+            tree_t * body = ast_node_new(TT_CONJ);
+            ast_push(body, asn);
+            ast_push(body, child);
+            st->t = TT_IF;
+            st->n = 0;
+            st->v.ival = ICN_IF_FROM_INITIAL;
             ast_push(st, nz);
             ast_push(st, body);
         }
@@ -1908,8 +3008,13 @@ static void icn_statics_prepass(tree_t * body, const char * pname) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_progname_used(const tree_t * n);
 static void icn_collect_own_globals(const tree_t * prog, lc_vec * out) {
-    for (int i = 0; prog && i < prog->n; i++) { const tree_t * s = prog->c[i]; if (!s) continue; if (s->t == TT_STMT) s = stmt_subj(s); if (!s) continue;
-        if (s->t == TT_GLOBAL) for (int k = 0; k < s->n; k++) if (s->c[k] && s->c[k]->v.sval) lc_vec_push(out, &s->c[k]->v.sval); }
+    for (int i = 0; prog && i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        if (!s) continue;
+        if (s->t == TT_STMT) s = stmt_subj(s);
+        if (!s) continue;
+        if (s->t == TT_GLOBAL) for (int k = 0; k < s->n; k++) if (s->c[k] && s->c[k]->v.sval) lc_vec_push(out, &s->c[k]->v.sval);
+    }
     if (icn_progname_used(prog)) { static const char * pg = "__icn_progname"; lc_vec_push(out, &pg); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1918,11 +3023,15 @@ static void icn_collect_implicit_locals(const tree_t * n, const char ** excl, in
     if (n->t == TT_PROC_DECL || n->t == TT_LOCAL || n->t == TT_STATIC_DECL || n->t == TT_GLOBAL) return;
     if (n->t == TT_FIELD) { if (n->n > 0) icn_collect_implicit_locals(n->c[0], excl, nexcl, out); return; }
     if (n->t == TT_VAR && n->v.sval) {
-        const char * nm = n->v.sval; int found = 0;
+        const char * nm = n->v.sval;
+        int found = 0;
         for (int k = 0; k < nexcl && !found; k++) if (excl[k] && !strcmp(excl[k], nm)) found = 1;
         for (int k = 0; k < out->n && !found; k++) if (!strcmp(LC_AT(out, const char *, k), nm)) found = 1;
-        if (!found) { extern int icn_builtin_is_known(const char *); extern void * dat_find_type(const char *);
-            if (!icn_builtin_is_known(nm) && icn_builtin_arity(nm) == -99 && !dat_find_type(nm) && !icn_proc_reassigned(nm)) lc_vec_push(out, &nm); }
+        if (!found) {
+            extern int icn_builtin_is_known(const char *);
+            extern void * dat_find_type(const char *);
+            if (!icn_builtin_is_known(nm) && icn_builtin_arity(nm) == -99 && !dat_find_type(nm) && !icn_proc_reassigned(nm)) lc_vec_push(out, &nm);
+        }
     }
     for (int i = 0; i < n->n; i++) icn_collect_implicit_locals(n->c[i], excl, nexcl, out);
 }
@@ -1939,16 +3048,25 @@ static void icn_rewrite_progname(tree_t * n) {
     for (int i = 0; i < n->n; i++) icn_rewrite_progname(n->c[i]);
 }
 static void icn_progname_as_global(const tree_t * prog, const tree_t * pd) {
-    static const tree_t * done_prog = NULL; static int used = 0;
+    static const tree_t * done_prog = NULL;
+    static int used = 0;
     if (prog != done_prog) { done_prog = prog; used = icn_progname_used(prog); if (used) global_register("__icn_progname"); }
     if (!used || !pd || pd->n < 3 || !pd->c[2]) return;
     tree_t * body = (tree_t *) pd->c[2];
     icn_rewrite_progname(body);
     if (!pd->v.sval || strcmp(pd->v.sval, "main")) return;
-    for (int i = 0; i < body->n; i++) { const tree_t * st = body->c[i]; if (st && st->t == TT_ASSIGN && st->n == 2 && st->c[0] && st->c[0]->v.sval && !strcmp(st->c[0]->v.sval, "__icn_progname") && st->c[1] && st->c[1]->t == TT_KEYWORD && st->line == -1) return; }
-    tree_t * lhs = ast_node_new(TT_VAR); lhs->v.sval = (char *) "__icn_progname";
-    tree_t * rhs = ast_node_new(TT_KEYWORD); rhs->v.sval = (char *) "&progname";
-    tree_t * as = ast_node_new(TT_ASSIGN); ast_push(as, lhs); ast_push(as, rhs); as->line = -1;
+    for (int i = 0; i < body->n; i++) {
+        const tree_t * st = body->c[i];
+        if (st && st->t == TT_ASSIGN && st->n == 2 && st->c[0] && st->c[0]->v.sval && !strcmp(st->c[0]->v.sval, "__icn_progname") && st->c[1] && st->c[1]->t == TT_KEYWORD && st->line == -1) return;
+    }
+    tree_t * lhs = ast_node_new(TT_VAR);
+    lhs->v.sval = (char *) "__icn_progname";
+    tree_t * rhs = ast_node_new(TT_KEYWORD);
+    rhs->v.sval = (char *) "&progname";
+    tree_t * as = ast_node_new(TT_ASSIGN);
+    ast_push(as, lhs);
+    ast_push(as, rhs);
+    as->line = -1;
     ast_push(body, as);
     for (int i = body->n - 1; i > 0; i--) body->c[i] = body->c[i - 1];
     body->c[0] = as;
@@ -1958,35 +3076,82 @@ static void icn_init_reassigned_procs(icx_t * cx, IR_graph_t * g) {
     for (int k = 0; k < g_icn_reassigned.n + g_icn_breassigned.n; k++) {
         const char * nm = (k < g_icn_reassigned.n) ? LC_AT(&g_icn_reassigned, const char *, k) : LC_AT(&g_icn_breassigned, const char *, k - g_icn_reassigned.n);
         if (k < g_icn_reassigned.n && !icn_is_proc(nm)) continue;
-        IR_t * asn = build(cx, IR_ASSIGN, g->entry, g->entry); IR_LIT(asn).sval = (char *) nm;
-        IR_t * pv = build(cx, IR_PROC_VALUE, asn, asn); IR_LIT(pv).sval = (char *) nm;
-        ir_operand_push(asn, pv); g->entry = pv; }
+        IR_t * asn = build(cx, IR_ASSIGN, g->entry, g->entry);
+        IR_LIT(asn).sval = (char *) nm;
+        IR_t * pv = build(cx, IR_PROC_VALUE, asn, asn);
+        IR_LIT(pv).sval = (char *) nm;
+        ir_operand_push(asn, pv);
+        g->entry = pv;
+    }
 }
 IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
-    icn_collect_reassigned_procs(prog); icn_collect_reassigned_builtins(prog);
+    icn_collect_reassigned_procs(prog);
+    icn_collect_reassigned_builtins(prog);
     icn_vec_reuse(&g_icn_synth_excl, (int) sizeof(const char *));
     icn_progname_as_global(prog, pd);
-    static lc_vec pnv; icn_vec_reuse(&pnv, (int) sizeof(const char *)); fill_pnames(prog, &pnv);
-    icx_t cx; memset(&cx, 0, sizeof cx); cx.pn = (const char **) pnv.data; cx.npn = pnv.n;
-    static lc_vec lnv; lc_vec_init(&lnv, (int) sizeof(const char *)); lnv.n = 0;
+    static lc_vec pnv;
+    icn_vec_reuse(&pnv, (int) sizeof(const char *));
+    fill_pnames(prog, &pnv);
+    icx_t cx;
+    memset(&cx, 0, sizeof cx);
+    cx.pn = (const char **) pnv.data;
+    cx.npn = pnv.n;
+    static lc_vec lnv;
+    lc_vec_init(&lnv, (int) sizeof(const char *));
+    lnv.n = 0;
     if (pd) {
         const tree_t * plist = (pd->n > 1) ? pd->c[1] : NULL;
         for (int i = 0; plist && i < plist->n; i++) if (plist->c[i] && plist->c[i]->v.sval) lc_vec_push(&lnv, &plist->c[i]->v.sval);
         const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
         icn_statics_prepass((tree_t *) body, pd->v.sval ? pd->v.sval : "anon");
         for (int i = 0; body && i < body->n; i++) {
-            const tree_t * st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
-            if (st && st->t == TT_LOCAL)
-                for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) lc_vec_push(&lnv, &st->c[k]->v.sval);
+            const tree_t * st = body->c[i];
+            if (st && st->t == TT_STMT) st = stmt_subj(st);
+            if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) lc_vec_push(&lnv, &st->c[k]->v.sval);
         }
     }
-    cx.ln = (const char **) lnv.data; cx.nln = lnv.n;
-    { static lc_vec gnv; icn_vec_reuse(&gnv, (int) sizeof(const char *)); icn_collect_own_globals(prog, &gnv); cx.gn = (const char **) gnv.data; cx.ngn = gnv.n; cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon"; }
-    cx.want_lines = icn_tree_mentions_kw(prog, "&trace"); cx.end_line = pd ? pd->slen : 0;
-    { extern const char * stmt_src_get_file(void); const char * mf = stmt_src_get_file(); cx.file = mf ? mf : "";
-      for (int i = 0; prog && i < prog->n; i++) { const tree_t * s = prog->c[i]; if (!s || s->t != TT_STMT) continue; const tree_t * fl = lp_s_expr(s, ":file"); if (!fl || !fl->v.sval) continue; cx.links = 1; if (stmt_subj(s) == pd) cx.file = fl->v.sval; } }
-    if (pd && pd->n > 2 && pd->c[2]) { IR_graph_t * g = lower_proc_body(&cx, pd->c[2]); if (g && cx.pname && !strcmp(cx.pname, "main")) icn_init_reassigned_procs(&cx, g); if (g) { int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0; g->nparams = np; g->pnames = np > 0 ? (const char **)lnv.data : NULL; g->nlocals = lnv.n - np; g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL; if (pd->v.sval && !strcmp(pd->v.sval, "main")) g->root_graph = 1; } return g; }
-    IR_graph_t * g = IR_alloc(64); cx.g = g; IR_t * s = build(&cx, IR_SUCCEED, 0, 0); g->entry = s;
+    cx.ln = (const char **) lnv.data;
+    cx.nln = lnv.n;
+    {
+        static lc_vec gnv;
+        icn_vec_reuse(&gnv, (int) sizeof(const char *));
+        icn_collect_own_globals(prog, &gnv);
+        cx.gn = (const char **) gnv.data;
+        cx.ngn = gnv.n;
+        cx.pname = (pd && pd->v.sval) ? pd->v.sval : "anon";
+    }
+    cx.want_lines = icn_tree_mentions_kw(prog, "&trace");
+    cx.end_line = pd ? pd->slen : 0;
+    {
+        extern const char * stmt_src_get_file(void);
+        const char * mf = stmt_src_get_file();
+        cx.file = mf ? mf : "";
+        for (int i = 0; prog && i < prog->n; i++) {
+            const tree_t * s = prog->c[i];
+            if (!s || s->t != TT_STMT) continue;
+            const tree_t * fl = lp_s_expr(s, ":file");
+            if (!fl || !fl->v.sval) continue;
+            cx.links = 1;
+            if (stmt_subj(s) == pd) cx.file = fl->v.sval;
+        }
+    }
+    if (pd && pd->n > 2 && pd->c[2]) {
+        IR_graph_t * g = lower_proc_body(&cx, pd->c[2]);
+        if (g && cx.pname && !strcmp(cx.pname, "main")) icn_init_reassigned_procs(&cx, g);
+        if (g) {
+            int np = pd->n > 1 && pd->c[1] ? pd->c[1]->n : 0;
+            g->nparams = np;
+            g->pnames = np > 0 ? (const char **)lnv.data : NULL;
+            g->nlocals = lnv.n - np;
+            g->lnames = (lnv.n - np) > 0 ? (const char **)lnv.data + np : NULL;
+            if (pd->v.sval && !strcmp(pd->v.sval, "main")) g->root_graph = 1;
+        }
+        return g;
+    }
+    IR_graph_t * g = IR_alloc(64);
+    cx.g = g;
+    IR_t * s = build(&cx, IR_SUCCEED, 0, 0);
+    g->entry = s;
     g->icn_cells_graph = 1;
     return g;
 }
@@ -2001,17 +3166,9 @@ static int icn_subtree_has_suspend(const tree_t *n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_body_has_suspend(const tree_t *proc) {
-    if (!proc) return 0;
-    for (int i = 0; i < proc->n; i++) if (icn_subtree_has_suspend(proc->c[i])) return 1;
-    return 0;
-}
+static int icn_body_has_suspend(const tree_t *proc) { if (!proc) return 0; for (int i = 0; i < proc->n; i++) if (icn_subtree_has_suspend(proc->c[i])) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int lower_icon_body(const tree_t *prog, const tree_t *proc) {
-    IR_graph_t * ng = lower_icon_proc(prog, proc);
-    if (!ng || !ng->entry) return -1;
-    return bb_program_add(&g_stage2.bbp, ng);
-}
+static int lower_icon_body(const tree_t *prog, const tree_t *proc) { IR_graph_t * ng = lower_icon_proc(prog, proc); if (!ng || !ng->entry) return -1; return bb_program_add(&g_stage2.bbp, ng); }
 void lower_icon_resolve_call_kinds(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icon_register_program(stage2_t * s2, const tree_t * prog) {
@@ -2026,23 +3183,21 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
         polyglot_module_extend(s2, mod_idx, s);
         tree_t * proc = stmt_attr_expr(stmt_attr_find(s, ":subj"));
         if (!proc) continue;
-        if (proc->t == TT_GLOBAL) {
-            for (int _gi = 0; _gi < proc->n; _gi++)
-                if (proc->c[_gi] && proc->c[_gi]->v.sval)
-                    global_register(proc->c[_gi]->v.sval);
-        }
+        if (proc->t == TT_GLOBAL) { for (int _gi = 0; _gi < proc->n; _gi++) if (proc->c[_gi] && proc->c[_gi]->v.sval) global_register(proc->c[_gi]->v.sval); }
         if (proc->t == TT_RECORD && proc->v.sval && *proc->v.sval) {
             icn_note_record_name(proc->v.sval);
             size_t cap = strlen(proc->v.sval) + 3;
             for (int _ri = 0; _ri < proc->n; _ri++) cap += ((proc->c[_ri] && proc->c[_ri]->v.sval) ? strlen(proc->c[_ri]->v.sval) : 0) + 1;
-            char * spec = (char *) ct_alloc(cap); size_t pos = 0;
+            char * spec = (char *) ct_alloc(cap);
+            size_t pos = 0;
             pos += (size_t) snprintf(spec + pos, cap - pos, "%s(", proc->v.sval);
             for (int _ri = 0; _ri < proc->n; _ri++) {
                 if (_ri > 0) spec[pos++] = ',';
                 const char *fn2 = (proc->c[_ri] && proc->c[_ri]->v.sval) ? proc->c[_ri]->v.sval : "";
                 pos += (size_t) snprintf(spec + pos, cap - pos, "%s", fn2);
             }
-            spec[pos++] = ')'; spec[pos] = '\0';
+            spec[pos++] = ')';
+            spec[pos] = '\0';
             record_register(spec);
             ct_drop(spec);
         }
@@ -2051,18 +3206,19 @@ static void icon_register_program(stage2_t * s2, const tree_t * prog) {
             if (proc->t == TT_SUB_DECL) {
                 if (proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR && proc->c[0]->v.sval && *proc->c[0]->v.sval) name = proc->c[0]->v.sval;
             } else {
-                name = (proc->v.sval && *proc->v.sval) ? proc->v.sval : ((proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR && proc->c[0]->v.sval && *proc->c[0]->v.sval) ? proc->c[0]->v.sval : NULL);
+                name = (proc->v.sval && *proc->v.sval) ? proc->v.sval :
+                    ((proc->n > 0 && proc->c[0] && proc->c[0]->t == TT_VAR && proc->c[0]->v.sval && *proc->c[0]->v.sval) ? proc->c[0]->v.sval : NULL);
             }
             if (name) {
                 int _dup = 0;
                 for (int _qi = 0; _qi < s2->proc_count; _qi++) if (s2->proc_table[_qi].name && !strcmp(s2->proc_table[_qi].name, name)) { _dup = 1; break; }
                 if (_dup) continue;
                 int _pi = stage2_proc_grow(s2);
-                s2->proc_table[_pi].name     = name;
-                s2->proc_table[_pi].proc     = proc;
+                s2->proc_table[_pi].name = name;
+                s2->proc_table[_pi].proc = proc;
                 s2->proc_table[_pi].entry_pc = -1;
-                s2->proc_table[_pi].bb_idx   = -1;
-                s2->proc_table[_pi].nparams  = (proc->t == TT_PROC_DECL && proc->n >= 2 ? proc->c[1]->n : 0);
+                s2->proc_table[_pi].bb_idx = -1;
+                s2->proc_table[_pi].nparams = (proc->t == TT_PROC_DECL && proc->n >= 2 ? proc->c[1]->n : 0);
                 s2->proc_table[_pi].is_variadic = (proc->t == TT_PROC_DECL && proc->n >= 2 && proc->c[1] ? (int)proc->c[1]->v.ival : 0);
                 s2->proc_table[_pi].byref_mask = 0;
                 if (mod_idx >= 0) s2->module_registry.mods[mod_idx].nprocs++;
@@ -2079,7 +3235,9 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
     for (int _rk = 0; _rk < g_icn_reassigned.n; _rk++) { const char * _rn = LC_AT(&g_icn_reassigned, const char *, _rk); if (icn_is_proc(_rn)) global_register(_rn); }
     icn_collect_reassigned_builtins(prog);
     for (int _rk = 0; _rk < g_icn_breassigned.n; _rk++) global_register(LC_AT(&g_icn_breassigned, const char *, _rk));
-    lc_vec _icn_own_globals; lc_vec_init(&_icn_own_globals, (int) sizeof(const char *)); icn_collect_own_globals(prog, &_icn_own_globals);
+    lc_vec _icn_own_globals;
+    lc_vec_init(&_icn_own_globals, (int) sizeof(const char *));
+    icn_collect_own_globals(prog, &_icn_own_globals);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name) lc_vec_push(&_icn_own_globals, &g_stage2.proc_table[pi].name);
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
@@ -2098,7 +3256,8 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
             int np = g_stage2.proc_table[pi].nparams;
             Scope *sc = &g_stage2.proc_table[pi].lower_sc;
             sc->n = 0;
-            for (int k = 0; k < np && plist && k < plist->n; k++) { stage2_scope_reserve(sc, sc->n + 1);
+            for (int k = 0; k < np && plist && k < plist->n; k++) {
+                stage2_scope_reserve(sc, sc->n + 1);
                 const tree_t *pv = plist->c[k];
                 if (!pv || !pv->v.sval) continue;
                 sc->e[sc->n].name = lp_strdup(pv->v.sval);
@@ -2109,25 +3268,45 @@ stage2_t *lower_icon_stage2(const tree_t *prog) {
                 const char ** _pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
                 if (_pn) { for (int k = 0; k < np && k < sc->n; k++) _pn[k] = sc->e[k].name; g_stage2.bbp.table[bb_idx]->pnames = _pn; }
             }
-            { const tree_t *body = (proc->n > 2) ? proc->c[2] : NULL; int nl = 0;
-              for (int i = 0; body && i < body->n; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
-                  if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) nl++; }
-              const char ** _ln = NULL; int w = 0;
-              if (nl > 0) { _ln = (const char **)ct_zalloc((size_t)nl, sizeof(const char *));
-                  for (int i = 0; body && i < body->n && _ln; i++) { const tree_t *st = body->c[i]; if (st && st->t == TT_STMT) st = stmt_subj(st);
-                      if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval); } }
-              static lc_vec _excl; icn_vec_reuse(&_excl, (int) sizeof(const char *));
-              for (int k = 0; k < _icn_own_globals.n; k++) lc_vec_push(&_excl, &LC_AT(&_icn_own_globals, const char *, k));
-              for (int k = 0; k < sc->n; k++) lc_vec_push(&_excl, &sc->e[k].name);
-              for (int k = 0; k < w; k++) lc_vec_push(&_excl, &_ln[k]);
-              for (int k = 0; k < g_icn_synth_excl.n; k++) lc_vec_push(&_excl, &LC_AT(&g_icn_synth_excl, const char *, k));
-              static lc_vec _impl; icn_vec_reuse(&_impl, (int) sizeof(const char *));
-              icn_collect_implicit_locals(body, (const char **)_excl.data, _excl.n, &_impl);
-              if (w > 0 || _impl.n > 0) {
-                  int total = w + _impl.n;
-                  const char ** _all = (const char **)ct_zalloc((size_t)total, sizeof(const char *)); int a = 0;
-                  if (_all) { for (int k = 0; k < w; k++) _all[a++] = _ln[k]; for (int k = 0; k < _impl.n; k++) _all[a++] = LC_AT(&_impl, const char *, k);
-                      g_stage2.bbp.table[bb_idx]->lnames = _all; g_stage2.bbp.table[bb_idx]->nlocals = total; } } }
+            {
+                const tree_t *body = (proc->n > 2) ? proc->c[2] : NULL;
+                int nl = 0;
+                for (int i = 0; body && i < body->n; i++) {
+                    const tree_t *st = body->c[i];
+                    if (st && st->t == TT_STMT) st = stmt_subj(st);
+                    if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) nl++;
+                }
+                const char ** _ln = NULL;
+                int w = 0;
+                if (nl > 0) {
+                    _ln = (const char **)ct_zalloc((size_t)nl, sizeof(const char *));
+                    for (int i = 0; body && i < body->n && _ln; i++) {
+                        const tree_t *st = body->c[i];
+                        if (st && st->t == TT_STMT) st = stmt_subj(st);
+                        if (st && st->t == TT_LOCAL) for (int k = 0; k < st->n; k++) if (st->c[k] && st->c[k]->v.sval) _ln[w++] = lp_strdup(st->c[k]->v.sval);
+                    }
+                }
+                static lc_vec _excl;
+                icn_vec_reuse(&_excl, (int) sizeof(const char *));
+                for (int k = 0; k < _icn_own_globals.n; k++) lc_vec_push(&_excl, &LC_AT(&_icn_own_globals, const char *, k));
+                for (int k = 0; k < sc->n; k++) lc_vec_push(&_excl, &sc->e[k].name);
+                for (int k = 0; k < w; k++) lc_vec_push(&_excl, &_ln[k]);
+                for (int k = 0; k < g_icn_synth_excl.n; k++) lc_vec_push(&_excl, &LC_AT(&g_icn_synth_excl, const char *, k));
+                static lc_vec _impl;
+                icn_vec_reuse(&_impl, (int) sizeof(const char *));
+                icn_collect_implicit_locals(body, (const char **)_excl.data, _excl.n, &_impl);
+                if (w > 0 || _impl.n > 0) {
+                    int total = w + _impl.n;
+                    const char ** _all = (const char **)ct_zalloc((size_t)total, sizeof(const char *));
+                    int a = 0;
+                    if (_all) {
+                        for (int k = 0; k < w; k++) _all[a++] = _ln[k];
+                        for (int k = 0; k < _impl.n; k++) _all[a++] = LC_AT(&_impl, const char *, k);
+                        g_stage2.bbp.table[bb_idx]->lnames = _all;
+                        g_stage2.bbp.table[bb_idx]->nlocals = total;
+                    }
+                }
+            }
         }
     }
     lower_icon_resolve_call_kinds();
@@ -2183,14 +3362,16 @@ void lower_icon_resolve_call_kinds(void) {
             if (!nd || nd->op != IR_CALL) continue;
             const char * fn = IR_LIT(nd).sval;
             if (!fn || !fn[0]) continue;
-            { extern void rt_icn_global_note(const char *);
-              if (strncmp(fn, "__trace_", 8) != 0 && (icn_callable_proc_index(fn) >= 0 || rt_builtin_is_known(fn) || rt_builtin_is_generator(fn) || icn_builtin_arity(fn) != -99)) rt_icn_global_note(fn); }
+            {
+                extern void rt_icn_global_note(const char *);
+                if (strncmp(fn, "__trace_", 8) != 0 && (icn_callable_proc_index(fn) >= 0 || rt_builtin_is_known(fn) || rt_builtin_is_generator(fn) || icn_builtin_arity(fn) != -99))
+                    rt_icn_global_note(fn);
+            }
             int pi = icn_callable_proc_index(fn);
             if (pi >= 0 && g_stage2.proc_table[pi].is_generator) nd->op = IR_PROC_GEN;
             else if (pi >= 0) nd->op = IR_CALL_PROC_STAGED;
             else if (icn_builtin_is_generator(fn)) nd->op = IR_CALL_ICON;
-            else if (!strcmp(fn, "system")) { IR_LIT(nd).sval = "$system"; nd->op = IR_CALL_ICON; }
-            else if (icn_builtin_is_known(fn)) nd->op = IR_CALL_ICON;
+            else if (!strcmp(fn, "system")) { IR_LIT(nd).sval = "$system"; nd->op = IR_CALL_ICON; } else if (icn_builtin_is_known(fn)) nd->op = IR_CALL_ICON;
         }
         for (int i = 0; i < g->n; i++) {
             IR_t * nd = g->all[i];
@@ -2202,14 +3383,19 @@ void lower_icon_resolve_call_kinds(void) {
             int skip = 0;
             for (int k = 0; !skip && g->pnames && k < g->nparams; k++) if (g->pnames[k] && !strcmp(g->pnames[k], vn)) skip = 1;
             for (int k = 0; !skip && k < g->n; k++) {
-                IR_t * a = g->all[k]; if (!a) continue;
+                IR_t * a = g->all[k];
+                if (!a) continue;
                 if (a->op == IR_ASSIGN && IR_LIT(a).sval && !strcmp(IR_LIT(a).sval, vn)) skip = 1;
                 if (a->op == IR_REV_ASSIGN && a->n_operands > 1 && a->operands[1] && IR_LIT(a->operands[1]).sval && !strcmp(IR_LIT(a->operands[1]).sval, vn)) skip = 1;
             }
             if (skip || icn_proc_reassigned(vn)) continue;
             int isproc = 0;
             for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, vn)) { isproc = 1; break; }
-            if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || icn_builtin_arity(vn) != -99 || !strcmp(vn, "push") || !strcmp(vn, "put")) { extern void rt_icn_global_note(const char *); rt_icn_global_note(vn); nd->op = IR_PROC_VALUE; }
+            if (isproc || rt_builtin_is_known(vn) || rt_builtin_is_generator(vn) || icn_builtin_arity(vn) != -99 || !strcmp(vn, "push") || !strcmp(vn, "put")) {
+                extern void rt_icn_global_note(const char *);
+                rt_icn_global_note(vn);
+                nd->op = IR_PROC_VALUE;
+            }
         }
     }
 }

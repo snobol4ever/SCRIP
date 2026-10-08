@@ -27,7 +27,7 @@
 #include "../runtime/builtins/gen.h"
 #include "../parsers/icon/icon_lex.h"
 #include "../ir/bb_box.h"
-extern void ir_print_node   (const tree_t *e, FILE *f);
+extern void ir_print_node (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
 extern int pl_dyn_is_marked(const char *name, int arity);
 #include "core.h"
@@ -39,61 +39,111 @@ extern int pl_dyn_is_marked(const char *name, int arity);
 #include "scrip_sm.h"
 extern DESCR_t pat_at_cursor(const char *varname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void stmt_init(void) {}
-static int n2_proc_index(const stage2_t *s2, const char *fn) { if (!s2 || !fn) return -1;
-    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, fn)) return i; } return -1; }
-static int polyglot_main_bb_idx(const stage2_t *s2) { if (!s2) return -1;
+static void stmt_init(void) { }
+static int n2_proc_index(const stage2_t *s2, const char *fn) {
+    if (!s2 || !fn) return -1;
+    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, fn)) return i; }
+    return -1;
+}
+static int polyglot_main_bb_idx(const stage2_t *s2) {
+    if (!s2) return -1;
     int mm = s2->module_registry.main_mod;
-    if (mm >= 0 && mm < s2->module_registry.nmod) { const ScripModule *m = &s2->module_registry.mods[mm];
-        int lo = m->proc_start, hi = lo + m->nprocs; if (lo < 0) lo = 0; if (hi > s2->proc_count) hi = s2->proc_count;
-        for (int i = lo; i < hi; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, "main")) return s2->proc_table[i].bb_idx; } }
+    if (mm >= 0 && mm < s2->module_registry.nmod) {
+        const ScripModule *m = &s2->module_registry.mods[mm];
+        int lo = m->proc_start, hi = lo + m->nprocs;
+        if (lo < 0) lo = 0;
+        if (hi > s2->proc_count) hi = s2->proc_count;
+        for (int i = lo; i < hi; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, "main")) return s2->proc_table[i].bb_idx; }
+    }
     for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; if (pn && !strcmp(pn, "main")) return s2->proc_table[i].bb_idx; }
-    return -1; }
+    return -1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void n2_host_scan_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_HOST_DIAG")) return; int hosts = 0, fwd = 0, indirect = 0, edges = 0, unresolved = 0;
-    for (int hi = 0; hi < s2->proc_count; hi++) { const char *hn = s2->proc_table[hi].name; int gi = s2->proc_table[hi].bb_idx;
-        if (!hn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue; IR_graph_t *g = s2->bbp.table[gi]; int fired = 0;
-        for (int k = 0; k < g->n; k++) { IR_t *nd = g->all[k]; if (!nd) continue; if (nd->op == IR_CALL_VALUE) { indirect++; continue; }
-            if (nd->op != IR_PROC_GEN) continue; const char *fn = IR_LIT(nd).sval; int ci = n2_proc_index(s2, fn);
-            int hpos = !strcmp(hn, "main") ? s2->proc_count : hi; int cpos = (ci >= 0 && s2->proc_table[ci].name && !strcmp(s2->proc_table[ci].name, "main")) ? s2->proc_count : ci;
-            int is_fwd = (ci >= 0) && (cpos > hpos); fired = 1; edges++; if (is_fwd) fwd++; if (ci < 0) unresolved++;
-            fprintf(stderr, "[N2-HOST] host=%s host_idx=%d emit_pos=%d gen_callee=%s callee_idx=%d emit_pos=%d forward=%d\n", hn, hi, hpos, fn ? fn : "(null)", ci, cpos, is_fwd); }
-        if (fired) hosts++; }
-    fprintf(stderr, "[N2-HOST] SUMMARY procs=%d hosts=%d edges=%d forward_refs=%d unresolved_callees=%d indirect_call_nodes=%d\n", s2->proc_count, hosts, edges, fwd, unresolved, indirect); }
+static void n2_host_scan_diag(const stage2_t *s2) {
+    if (!s2 || !getenv("SCRIP_N2_HOST_DIAG")) return;
+    int hosts = 0, fwd = 0, indirect = 0, edges = 0, unresolved = 0;
+    for (int hi = 0; hi < s2->proc_count; hi++) {
+        const char *hn = s2->proc_table[hi].name;
+        int gi = s2->proc_table[hi].bb_idx;
+        if (!hn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
+        IR_graph_t *g = s2->bbp.table[gi];
+        int fired = 0;
+        for (int k = 0; k < g->n; k++) {
+            IR_t *nd = g->all[k];
+            if (!nd) continue;
+            if (nd->op == IR_CALL_VALUE) { indirect++; continue; }
+            if (nd->op != IR_PROC_GEN) continue;
+            const char *fn = IR_LIT(nd).sval;
+            int ci = n2_proc_index(s2, fn);
+            int hpos = !strcmp(hn, "main") ? s2->proc_count : hi;
+            int cpos = (ci >= 0 && s2->proc_table[ci].name && !strcmp(s2->proc_table[ci].name, "main")) ? s2->proc_count : ci;
+            int is_fwd = (ci >= 0) && (cpos > hpos);
+            fired = 1;
+            edges++;
+            if (is_fwd) fwd++;
+            if (ci < 0) unresolved++;
+            fprintf(stderr, "[N2-HOST] host=%s host_idx=%d emit_pos=%d gen_callee=%s callee_idx=%d emit_pos=%d forward=%d\n", hn, hi, hpos, fn ? fn : "(null)", ci, cpos, is_fwd);
+        }
+        if (fired) hosts++;
+    }
+    fprintf(stderr, "[N2-HOST] SUMMARY procs=%d hosts=%d edges=%d forward_refs=%d unresolved_callees=%d indirect_call_nodes=%d\n", s2->proc_count, hosts, edges, fwd, unresolved, indirect);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void n2_fb_prepass_diag(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_FB_PREPASS")) return;
-    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
+static void n2_fb_prepass_diag(const stage2_t *s2) {
+    if (!s2 || !getenv("SCRIP_N2_FB_PREPASS")) return;
+    for (int i = 0; i < s2->proc_count; i++) {
+        const char *pn = s2->proc_table[i].name;
+        int gi = s2->proc_table[i].bb_idx;
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
-        fprintf(stderr, "[N2-FB] PREPASS proc=%s idx=%d gen=%d region=%d\n", pn, i, s2->proc_table[i].is_generator, s2->bbp.table[gi]->jcon_value_region); }
-    fprintf(stderr, "[N2-FB] PREPASS-END procs=%d\n", s2->proc_count); }
+        fprintf(stderr, "[N2-FB] PREPASS proc=%s idx=%d gen=%d region=%d\n", pn, i, s2->proc_table[i].is_generator, s2->bbp.table[gi]->jcon_value_region);
+    }
+    fprintf(stderr, "[N2-FB] PREPASS-END procs=%d\n", s2->proc_count);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void n2_xgraph_probe(const stage2_t *s2) { if (!s2 || !getenv("SCRIP_N2_XGRAPH")) return;
-    extern int rt_proc_is_registered(const char *); extern int rt_proc_is_generator(const char *);
+static void n2_xgraph_probe(const stage2_t *s2) {
+    if (!s2 || !getenv("SCRIP_N2_XGRAPH")) return;
+    extern int rt_proc_is_registered(const char *);
+    extern int rt_proc_is_generator(const char *);
     fprintf(stderr, "[N2-XG] window=post-drive_slots_all procs=%d bbp.count=%d\n", s2->proc_count, s2->bbp.count);
-    for (int i = 0; i < s2->proc_count; i++) { const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
+    for (int i = 0; i < s2->proc_count; i++) {
+        const char *pn = s2->proc_table[i].name;
+        int gi = s2->proc_table[i].bb_idx;
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) { fprintf(stderr, "[N2-XG] proc=%s UNREACHABLE gi=%d\n", pn ? pn : "(null)", gi); continue; }
         IR_graph_t *g = s2->bbp.table[gi];
         int calls = 0, named = 0, reg = 0, gen = 0;
-        for (int k = 0; k < g->n; k++) { IR_t *hn = g->all[k]; if (!hn) continue;
+        for (int k = 0; k < g->n; k++) {
+            IR_t *hn = g->all[k];
+            if (!hn) continue;
             if (!ir_is_call_kind(hn->op) && hn->op != IR_CALL && hn->op != IR_PROC_GEN) continue;
             calls++;
-            { const char *cn = IR_LIT(hn).sval; if (!cn || !cn[0]) continue; named++;
-              if (rt_proc_is_registered(cn)) { reg++; if (rt_proc_is_generator(cn)) gen++; } } }
-        fprintf(stderr, "[N2-XG] proc=%-10s is_gen=%d all=%s n=%-4d calls=%-3d named=%-3d registered=%-3d generator=%d\n",
-                pn, s2->proc_table[i].is_generator, g->all ? "OK" : "NULL", g->n, calls, named, reg, gen); }
-    fprintf(stderr, "[N2-XG] END -- a 0 in n/calls is the plausible-zero this probe exists to expose, not evidence of no callees\n"); }
+            { const char *cn = IR_LIT(hn).sval; if (!cn || !cn[0]) continue; named++; if (rt_proc_is_registered(cn)) { reg++; if (rt_proc_is_generator(cn)) gen++; } }
+        }
+        fprintf(stderr, "[N2-XG] proc=%-10s is_gen=%d all=%s n=%-4d calls=%-3d named=%-3d registered=%-3d generator=%d\n", pn, s2->proc_table[i].is_generator, g->all ? "OK" : "NULL", g->n, calls,
+            named, reg, gen);
+    }
+    fprintf(stderr, "[N2-XG] END -- a 0 in n/calls is the plausible-zero this probe exists to expose, not evidence of no callees\n");
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void n2_fb_prepass_register(const stage2_t *s2) { if (!s2) return;
+static void n2_fb_prepass_register(const stage2_t *s2) {
+    if (!s2) return;
     extern void emit_patzeta_register(const char *, int, int, int);
-    for (int i = 0; i < s2->proc_count; i++) { if (!s2->proc_table[i].is_generator) continue;
-        const char *pn = s2->proc_table[i].name; int gi = s2->proc_table[i].bb_idx;
+    for (int i = 0; i < s2->proc_count; i++) {
+        if (!s2->proc_table[i].is_generator) continue;
+        const char *pn = s2->proc_table[i].name;
+        int gi = s2->proc_table[i].bb_idx;
         if (!pn || gi < 0 || gi >= s2->bbp.count || !s2->bbp.table[gi]) continue;
         IR_graph_t *g = s2->bbp.table[gi];
-        { int _zfA = (g->zframe_graph && !g->icn_cells_graph); int _fp = _zfA ? 0 : (g->nparams + g->nlocals) * 16;
-          if (getenv("SCRIP_N2_FT_PROBE")) fprintf(stderr, "[N2-PREPASS] proc=%-14s np=%-3d nl=%-3d zframeA=%d icncells=%d rg=%-5d fp=%-5d ft=%d\n",
-                                                  pn, g->nparams, g->nlocals, _zfA, g->icn_cells_graph, g->jcon_value_region, _fp, ((32 + g->jcon_value_region + 15) & ~15) + _fp + 16);
-          emit_patzeta_register(pn, g->jcon_value_region, _fp, 0); } } }
+        {
+            int _zfA = (g->zframe_graph && !g->icn_cells_graph);
+            int _fp = _zfA ? 0 : (g->nparams + g->nlocals) * 16;
+            if (getenv("SCRIP_N2_FT_PROBE"))
+                fprintf(stderr, "[N2-PREPASS] proc=%-14s np=%-3d nl=%-3d zframeA=%d icncells=%d rg=%-5d fp=%-5d ft=%d\n", pn, g->nparams, g->nlocals, _zfA, g->icn_cells_graph, g->jcon_value_region,
+                _fp, ((32 + g->jcon_value_region + 15) & ~15) + _fp + 16);
+            emit_patzeta_register(pn, g->jcon_value_region, _fp, 0);
+        }
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void sno_setexit_fire_on_end(void);
 __attribute__((used, noinline)) static void icn_zf_exit_g_body(void) { sno_setexit_fire_on_end(); exit(0); }
@@ -106,144 +156,104 @@ __attribute__((used, noinline)) static void icn_root_end_body(void) { exit(0); }
 static __attribute__((naked)) void icn_root_end(void) { __asm__ volatile("and $-16, %rsp\n\tpush $0\n\tjmp icn_root_end_body"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
-    __asm__ volatile(
-        "push %%r12\n\t"
-        "sub $8, %%rsp\n\t"
-        "mov %%rsp, %%r12\n\t"
-        "push %%rax\n\t"
-        "push %%rdi\n\t"
-        "push %%rcx\n\t"
-        "push %%rdx\n\t"
-        "mov %%r12, %%rdi\n\t"
-        "and $-16, %%rsp\n\t"
-        "call rt_gc_emit_ceiling_adopt_top@PLT\n\t"
-        "lea -32(%%r12), %%rsp\n\t"
-        "pop %%rdx\n\t"
-        "pop %%rcx\n\t"
-        "pop %%rdi\n\t"
-        "pop %%rax\n\t"
-        "mov $0x70000000, %%r12\n\t"
-        "mov (%%r12), %%r12\n\t"
-        "movq g_rtcc_on@GOTPCREL(%%rip), %%r10\n\t"
-        "cmpb $0, (%%r10)\n\t"
-        "je 1f\n\t"
-        "movq rtccb@GOTPCREL(%%rip), %%r10\n\t"
-        "movq 64(%%r10), %%r11\n\t"
-        "movq 40(%%r10), %%r8\n\t"
-        "movq 48(%%r10), %%r9\n\t"
-        "movq 56(%%r10), %%r10\n\t"
-        "1:\n\t"
-        "xor %%esi, %%esi\n\t"
-        "xor %%r13d, %%r13d\n\t"
-        "xor %%r14d, %%r14d\n\t"
-        "xor %%r15d, %%r15d\n\t"
-        "jmp *%%rax\n\t"
-        :
-        : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω)
-        : "memory", "rsi", "r8", "r9", "r10", "r11", "r13", "r15"
-    );
+    __asm__ volatile( "push %%r12\n\t" "sub $8, %%rsp\n\t" "mov %%rsp, %%r12\n\t" "push %%rax\n\t" "push %%rdi\n\t" "push %%rcx\n\t" "push %%rdx\n\t" "mov %%r12, %%rdi\n\t" "and $-16, %%rsp\n\t"
+        "call rt_gc_emit_ceiling_adopt_top@PLT\n\t" "lea -32(%%r12), %%rsp\n\t" "pop %%rdx\n\t" "pop %%rcx\n\t" "pop %%rdi\n\t" "pop %%rax\n\t" "mov $0x70000000, %%r12\n\t" "mov (%%r12), %%r12\n\t"
+        "movq g_rtcc_on@GOTPCREL(%%rip), %%r10\n\t" "cmpb $0, (%%r10)\n\t" "je 1f\n\t" "movq rtccb@GOTPCREL(%%rip), %%r10\n\t" "movq 64(%%r10), %%r11\n\t" "movq 40(%%r10), %%r8\n\t"
+        "movq 48(%%r10), %%r9\n\t" "movq 56(%%r10), %%r10\n\t" "1:\n\t" "xor %%esi, %%esi\n\t" "xor %%r13d, %%r13d\n\t" "xor %%r14d, %%r14d\n\t" "xor %%r15d, %%r15d\n\t" "jmp *%%rax\n\t" : : "a"(fn),
+        "D"(mf), "c"(wire_γ), "d"(wire_ω) : "memory", "rsi", "r8", "r9", "r10", "r11", "r13", "r15" );
 }
 #define RT_OUTER_RESERVE 4194304L
 #define RT_OUTER_RESERVE_S "4194304"
-_Static_assert(RT_OUTER_RESERVE == 4194304L && RT_OUTER_RESERVE % 16 == 0, "RT_OUTER_RESERVE_S is the same number spelled for the trampoline's asm: the mode-3 top-level slot region reserved above the program (9e6c187c8); the stack budget a mode-3 program is given adds it on top of the program's own -s (ceo CEO-1261)");
-__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n"
-        "rt_outer_call:\n"
-        "  push %r12\n"
-        "  sub $" RT_OUTER_RESERVE_S ", %rsp\n"
-        "  push %rdi\n"
-        "  push %rsi\n"
-        "  push %rdx\n"
-        "  push %rcx\n"
-        "  lea 16(%rsp), %rdi\n"
-        "  call rt_gc_emit_ceiling_adopt@PLT\n"
-        "  pop %rcx\n"
-        "  pop %rdx\n"
-        "  pop %rsi\n"
-        "  pop %rdi\n"
-        "  mov %rdi, %rax\n"
-        "  mov %rsi, %rdi\n"
-        "  mov %rdx, %rsi\n"
-        "  mov 0x70000000, %r12\n"
-        "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-        "  cmpb $0, (%r10)\n"
-        "  je 1f\n"
-        "  movq rtccb@GOTPCREL(%rip), %r10\n"
-        "  movq 64(%r10), %r11\n"
-        "  movq 40(%r10), %r8\n"
-        "  movq 48(%r10), %r9\n"
-        "  movq 56(%r10), %r10\n"
-        "1:\n"
-        "  test %rcx, %rcx\n"
-        "  jnz 3f\n"
-        "  leaq 2f(%rip), %rcx\n"
-        "3:\n"
-        "  push %rcx\n"
-        "  push %rcx\n"
-        "  xor %r13d, %r13d\n"
-        "  xor %r15d, %r15d\n"
-        "  jmp *%rax\n"
-        "  add $" RT_OUTER_RESERVE_S ", %rsp\n"
-        "  add $16, %rsp\n"
-        "  pop %r12\n"
-        "  ret\n"
-        "2:\n"
-        "  call rt_kw_return_level_zero@PLT\n"
-        "  ud2\n"
-        ".size rt_outer_call, .-rt_outer_call\n");
-__asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n"
-        "rt_outer_call_delta0:\n"
-        "  push %r14\n"
-        "  xor %r14d, %r14d\n"
-        "  call rt_outer_call\n"
-        "  pop %r14\n"
-        "  ret\n"
-        ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
+_Static_assert(RT_OUTER_RESERVE == 4194304L && RT_OUTER_RESERVE % 16 == 0,
+    "RT_OUTER_RESERVE_S is the same number spelled for the trampoline's asm: the mode-3 top-level slot region reserved above the program (9e6c187c8); the stack budget a mode-3 program is given adds "
+    "it on top of the program's own -s (ceo CEO-1261)");
+__asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n" "rt_outer_call:\n" "  push %r12\n" "  sub $" RT_OUTER_RESERVE_S ", %rsp\n" "  push %rdi\n" "  push %rsi\n" "  push %rdx\n"
+    "  push %rcx\n" "  lea 16(%rsp), %rdi\n" "  call rt_gc_emit_ceiling_adopt@PLT\n" "  pop %rcx\n" "  pop %rdx\n" "  pop %rsi\n" "  pop %rdi\n" "  mov %rdi, %rax\n" "  mov %rsi, %rdi\n"
+    "  mov %rdx, %rsi\n" "  mov 0x70000000, %r12\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 1f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 64(%r10), %r11\n"
+    "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "1:\n" "  test %rcx, %rcx\n" "  jnz 3f\n" "  leaq 2f(%rip), %rcx\n" "3:\n" "  push %rcx\n" "  push %rcx\n"
+    "  xor %r13d, %r13d\n" "  xor %r15d, %r15d\n" "  jmp *%rax\n" "  add $" RT_OUTER_RESERVE_S ", %rsp\n" "  add $16, %rsp\n" "  pop %r12\n" "  ret\n" "2:\n" "  call rt_kw_return_level_zero@PLT\n"
+    "  ud2\n" ".size rt_outer_call, .-rt_outer_call\n");
+__asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n" "rt_outer_call_delta0:\n" "  push %r14\n" "  xor %r14d, %r14d\n" "  call rt_outer_call\n" "  pop %r14\n" "  ret\n"
+    ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
 extern const char *Σ;
-extern int         Ω;
-extern int         Δ;
+extern int Ω;
+extern int Δ;
 #include "../runtime/builtins/gen_runtime.h"
 #include "driver/polyglot.h"
 #include "../tools/emit_per_kind_audit.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scrip_symmap(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_SYMMAP"); v = e ? (atoi(e) != 0) : 0; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2)
-{
+static void sn4_dentry_table_build(IR_graph_t *bbg, stage2_t *s2) {
     if (!bbg || !s2) return;
-    int _bd = 0; for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (ir_define_is_bind(_c)) _bd++; }
+    int _bd = 0;
+    for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (ir_define_is_bind(_c)) _bd++; }
     if (_bd <= 0 || bbg->n_dentry != 0) return;
-    bbg->dentry_node = (IR_t **)ct_zalloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_entry = (IR_t **)ct_zalloc((size_t)_bd, sizeof(IR_t *)); bbg->dentry_name = (const char **)ct_zalloc((size_t)_bd, sizeof(char *));
+    bbg->dentry_node = (IR_t **)ct_zalloc((size_t)_bd, sizeof(IR_t *));
+    bbg->dentry_entry = (IR_t **)ct_zalloc((size_t)_bd, sizeof(IR_t *));
+    bbg->dentry_name = (const char **)ct_zalloc((size_t)_bd, sizeof(char *));
     if (!bbg->dentry_node || !bbg->dentry_entry || !bbg->dentry_name) return;
-    for (int _s = 0; _s < bbg->n; _s++) { IR_t *_c = bbg->all[_s]; if (!ir_define_is_bind(_c) || !IR_LIT(_c).sval) continue;
+    for (int _s = 0; _s < bbg->n; _s++) {
+        IR_t *_c = bbg->all[_s];
+        if (!ir_define_is_bind(_c) || !IR_LIT(_c).sval) continue;
         if (bbg->n_dentry >= _bd) break;
-        for (int _q = 0; _q < s2->proc_count; _q++) { ProcEntry *_pr = &s2->proc_table[_q]; if (!_pr->name || strcmp(_pr->name, IR_LIT(_c).sval)) continue;
-            IR_t *_sn = bb_proc_entry(_pr); if (!_sn) continue; int _sg = 0; while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
-            IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn; if (!_gd) break;
-            if (_gd->op == IR_GOTO_DEFERRED) { if (!IR_LIT(_gd).sval) break;
-                const char *_en = ir_define_bind_entry(_c); if (!_en) _en = IR_LIT(_gd).sval; if (strncmp(_en, "LBL__", 5) == 0) _en += 5;
-                IR_t *_tn = (IR_t *)0; for (int _w = 0; _w < s2->proc_count; _w++) { ProcEntry *_lr = &s2->proc_table[_w]; if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _en) || !_lr->proc_entry_node) continue;
-                    _tn = _lr->proc_entry_node; int _tg = 0; while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node; break; }
+        for (int _q = 0; _q < s2->proc_count; _q++) {
+            ProcEntry *_pr = &s2->proc_table[_q];
+            if (!_pr->name || strcmp(_pr->name, IR_LIT(_c).sval)) continue;
+            IR_t *_sn = bb_proc_entry(_pr);
+            if (!_sn) continue;
+            int _sg = 0;
+            while (_sn && (_sn->op == IR_SUCCEED || _sn->op == IR_FAIL || _sn->op == IR_GOTO) && _sn->γ.node && _sg++ < 64) _sn = _sn->γ.node;
+            IR_t *_gd = (_sn && _sn->op == IR_DEFINE && ir_define_sr_citizen(_sn)) ? _sn->γ.node : _sn;
+            if (!_gd) break;
+            if (_gd->op == IR_GOTO_DEFERRED) {
+                if (!IR_LIT(_gd).sval) break;
+                const char *_en = ir_define_bind_entry(_c);
+                if (!_en) _en = IR_LIT(_gd).sval;
+                if (strncmp(_en, "LBL__", 5) == 0) _en += 5;
+                IR_t *_tn = (IR_t *)0;
+                for (int _w = 0; _w < s2->proc_count; _w++) {
+                    ProcEntry *_lr = &s2->proc_table[_w];
+                    if (!_lr->name || strncmp(_lr->name, "LBL__", 5) != 0 || strcmp(_lr->name + 5, _en) || !_lr->proc_entry_node) continue;
+                    _tn = _lr->proc_entry_node;
+                    int _tg = 0;
+                    while (_tn && (_tn->op == IR_SUCCEED || _tn->op == IR_FAIL || _tn->op == IR_GOTO) && _tn->γ.node && _tg++ < 65536) _tn = _tn->γ.node;
+                    break;
+                }
                 if (!_tn) break;
-                bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = _tn; bbg->dentry_name[bbg->n_dentry] = (const char *)0; bbg->n_dentry++; break; }
-            { char _anb[fmt_len("%s_\xce\xb1", IR_LIT(_c).sval)]; snprintf(_anb, sizeof _anb, "%s_\xce\xb1", IR_LIT(_c).sval);
-              bbg->dentry_node[bbg->n_dentry] = _c; bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0; bbg->dentry_name[bbg->n_dentry] = ct_strdup(_anb); bbg->n_dentry++; break; } } }
+                bbg->dentry_node[bbg->n_dentry] = _c;
+                bbg->dentry_entry[bbg->n_dentry] = _tn;
+                bbg->dentry_name[bbg->n_dentry] = (const char *)0;
+                bbg->n_dentry++;
+                break;
+            }
+            {
+                char _anb[fmt_len("%s_\xce\xb1", IR_LIT(_c).sval)];
+                snprintf(_anb, sizeof _anb, "%s_\xce\xb1", IR_LIT(_c).sval);
+                bbg->dentry_node[bbg->n_dentry] = _c;
+                bbg->dentry_entry[bbg->n_dentry] = (IR_t *)0;
+                bbg->dentry_name[bbg->n_dentry] = ct_strdup(_anb);
+                bbg->n_dentry++;
+                break;
+            }
+        }
+    }
 }
-static int proc_role3_kind(const IR_graph_t *g) { if (!g || !g->entry) return 0; if (g->entry->op == IR_GOTO_DEFERRED) return 1;  const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0; return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2; }
+static int proc_role3_kind(const IR_graph_t *g) {
+    if (!g || !g->entry) return 0;
+    if (g->entry->op == IR_GOTO_DEFERRED) return 1;
+    const IR_t *e = (g->entry->op == IR_DEFINE && IR_LIT(g->entry).ival == 3) ? g->entry : (const IR_t *)0;
+    return !e ? 0 : (e->γ.node && e->γ.node->op == IR_GOTO_DEFERRED) ? 1 : 2;
+}
 static const char *asm_sym_name(const char *nm) { extern const char * bb_ab_sym_name(const char *); return bb_ab_sym_name(nm); }
 static const char *asm_fn_sym(const char *nm) { extern const char * bb_ab_fn_sym(const char *); return bb_ab_fn_sym(nm); }
 static const char * ir_define_plain_name(const IR_t * nd) { return (nd && nd->op == IR_DEFINE && !ir_define_sr_citizen(nd)) ? IR_LIT(nd).sval : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int keyword_supported(const char *kw) {
-    if (!kw) return 0;
-    if (kw[0] == '&') kw++;
-    return !strcmp(kw, "subject") || !strcmp(kw, "pos") || !strcmp(kw, "null") || !strcmp(kw, "fail");
-}
+static int keyword_supported(const char *kw) { if (!kw) return 0; if (kw[0] == '&') kw++; return !strcmp(kw, "subject") || !strcmp(kw, "pos") || !strcmp(kw, "null") || !strcmp(kw, "fail"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_safe_kind(IR_e t) {
-    return t == IR_SUCCEED || t == IR_FAIL ||
-           t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_EXCISED ||
-           t == IR_VAR || t == IR_KW_ICON || t == IR_KW_SNOBOL4 || t == IR_EXCISED || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP
-        || t == IR_EXCISED || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_EXCISED || t == IR_EXCISED || t == IR_EXCISED;
+    return t == IR_SUCCEED || t == IR_FAIL || t == IR_LIT_INTEGER || t == IR_LIT_STRING || t == IR_LIT_REAL || t == IR_EXCISED || t == IR_VAR || t == IR_KW_ICON || t == IR_KW_SNOBOL4 ||
+        t == IR_EXCISED || t == IR_CALL || ir_is_scan_kind(t) || t == IR_BINOP || t == IR_EXCISED || t == IR_CONJUNCTION || t == IR_ASSIGN || t == IR_EXCISED || t == IR_EXCISED || t == IR_EXCISED;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sg_var_assigned(IR_graph_t *sg, const char *name) {
@@ -260,9 +270,7 @@ static IR_t *scan_lit_entry(IR_t *nd, IR_e want) {
     return ae;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int scan_fn_lit_arg(IR_t *nd, IR_e want) {
-    return scan_lit_entry(nd, want) != (IR_t *)0;
-}
+static int scan_fn_lit_arg(IR_t *nd, IR_e want) { return scan_lit_entry(nd, want) != (IR_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int scan_fn_cset_arg(IR_t *nd) {
     extern const char *kw_cset_const_str(const char *kw);
@@ -289,12 +297,10 @@ static int scan_tab_arg_ok(IR_t *nd) {
     if (!ae) return 0;
     if (ae->γ.node && ae->γ.node->op != IR_SUCCEED) return 0;
     if (ae->op == IR_LIT_INTEGER && IR_LIT(ae).ival >= 1) return 1;
-    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval
-        && (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto")) && scan_fn_cset_arg(ae))
-        return 1;
-    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval
-        && (!strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && scan_fn_lit_arg(ae, IR_LIT_STRING))
-        return 1;
+    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval &&
+        (!strcmp(IR_LIT(ae).sval, "any") || !strcmp(IR_LIT(ae).sval, "many") || !strcmp(IR_LIT(ae).sval, "upto")) && scan_fn_cset_arg(ae)) return 1;
+    if ((ae->op == IR_CALL || ir_is_scan_kind(ae->op)) && IR_LIT(ae).dval == 3.0 && IR_LIT(ae).sval &&
+        (!strcmp(IR_LIT(ae).sval, "match") || !strcmp(IR_LIT(ae).sval, "find") || !strcmp(IR_LIT(ae).sval, "bal")) && scan_fn_lit_arg(ae, IR_LIT_STRING)) return 1;
     return 0;
 }
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name);
@@ -306,29 +312,40 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
         if (!nd) continue;
         if (!scan_safe_kind(nd->op)) return 0;
         if (nd->op == IR_VAR) {
-            if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') { if (!keyword_supported(IR_LIT(nd).sval)) return 0; }
-            else if (!IR_LIT(nd).sval || (!graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval) && !sg_var_assigned(sg, IR_LIT(nd).sval))) return 0;
+            if (IR_LIT(nd).sval && IR_LIT(nd).sval[0] == '&') {
+                if (!keyword_supported(IR_LIT(nd).sval)) return 0;
+            } else if (!IR_LIT(nd).sval || (!graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval) && !sg_var_assigned(sg, IR_LIT(nd).sval))) return 0;
         }
         if (nd->op == IR_ASSIGN) { if (!IR_LIT(nd).sval || is_global(IR_LIT(nd).sval)) return 0; }
         if ((nd->op == IR_KW_ICON || nd->op == IR_KW_SNOBOL4) && !keyword_supported(IR_LIT(nd).sval)) return 0;
         if (nd->op == IR_CALL || ir_is_scan_kind(nd->op)) {
             if (!IR_LIT(nd).sval) return 0;
-            if (!strcmp(IR_LIT(nd).sval, "any")) { if (!(IR_LIT(nd).dval == 3.0 && (scan_fn_cset_arg(nd) || scan_any_cset_var_ok(s2, gi, g, nd)))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "many") || !strcmp(IR_LIT(nd).sval, "upto")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_cset_arg(nd))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "match")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_STRING))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "tab")) { if (!(IR_LIT(nd).dval == 3.0 && scan_tab_arg_ok(nd))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "move")) { if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_INTEGER))) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "pos")) { IR_t *pe = scan_lit_entry(nd, IR_LIT_INTEGER); if (!(IR_LIT(nd).dval == 3.0 && pe && IR_LIT(pe).ival >= 1)) return 0; }
-            else if (!strcmp(IR_LIT(nd).sval, "find")) {
-                IR_t *fe = scan_lit_entry(nd, IR_LIT_STRING); if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0;
-            }
-            else if (!strcmp(IR_LIT(nd).sval, "bal")) {
+            if (!strcmp(IR_LIT(nd).sval, "any")) {
+                if (!(IR_LIT(nd).dval == 3.0 && (scan_fn_cset_arg(nd) || scan_any_cset_var_ok(s2, gi, g, nd)))) return 0;
+            } else if (!strcmp(IR_LIT(nd).sval, "many") || !strcmp(IR_LIT(nd).sval, "upto")) {
+                if (!(IR_LIT(nd).dval == 3.0 && scan_fn_cset_arg(nd))) return 0;
+            } else if (!strcmp(IR_LIT(nd).sval, "match")) {
+                if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_STRING))) return 0;
+            } else if (!strcmp(IR_LIT(nd).sval, "tab")) {
+                if (!(IR_LIT(nd).dval == 3.0 && scan_tab_arg_ok(nd))) return 0;
+            } else if (!strcmp(IR_LIT(nd).sval, "move")) {
+                if (!(IR_LIT(nd).dval == 3.0 && scan_fn_lit_arg(nd, IR_LIT_INTEGER))) return 0;
+            } else if (!strcmp(IR_LIT(nd).sval, "pos")) {
+                IR_t *pe = scan_lit_entry(nd, IR_LIT_INTEGER);
+                if (!(IR_LIT(nd).dval == 3.0 && pe && IR_LIT(pe).ival >= 1)) return 0;
+            } else if (!strcmp(IR_LIT(nd).sval, "find")) {
+                IR_t *fe = scan_lit_entry(nd, IR_LIT_STRING);
+                if (!(IR_LIT(nd).dval == 3.0 && fe && IR_LIT(fe).sval && IR_LIT(fe).sval[0] && strlen(IR_LIT(fe).sval) <= 32)) return 0;
+            } else if (!strcmp(IR_LIT(nd).sval, "bal")) {
                 IR_t *be = scan_lit_entry(nd, IR_LIT_STRING);
                 if (!(IR_LIT(nd).dval == 3.0 && be && IR_LIT(be).sval && IR_LIT(be).sval[0] && !strchr(IR_LIT(be).sval, 40) && !strchr(IR_LIT(be).sval, 41))) return 0;
-            }
-            else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
+            } else if (!(!strcmp(IR_LIT(nd).sval, "write") || !strcmp(IR_LIT(nd).sval, "writes"))) return 0;
         }
-        if (nd->op == IR_BINOP) { int64_t bc = IR_LIT(nd).ival; int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE) || bc == BINOP_EQV || bc == BINOP_NEQV; if (!binop_is_concat((long)bc) && !is_rel) return 0; }
+        if (nd->op == IR_BINOP) {
+            int64_t bc = IR_LIT(nd).ival;
+            int is_rel = (bc >= BINOP_LT && bc <= BINOP_NE) || (bc >= BINOP_SLT && bc <= BINOP_SNE) || bc == BINOP_EQV || bc == BINOP_NEQV;
+            if (!binop_is_concat((long)bc) && !is_rel) return 0;
+        }
         if (nd->op == IR_EXCISED) {
             IR_graph_t *ssg = (IR_graph_t *)0;
             IR_graph_t *bsg = (IR_graph_t *) 0;
@@ -339,7 +356,13 @@ static int scan_subgraph_safe(stage2_t *s2, int gi, IR_graph_t *g, IR_graph_t *s
 }
 static int graph_native_emittable_mode(stage2_t *s2, int for_run, const char **why);
 static const char *why_fmt(const char *fmt, ...) {
-    va_list ap; va_start(ap, fmt); int n = vfmt_len(fmt, ap); char *w = (char *)ct_alloc((size_t)n); vsnprintf(w, (size_t)n, fmt, ap); va_end(ap); return w;
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vfmt_len(fmt, ap);
+    char *w = (char *)ct_alloc((size_t)n);
+    vsnprintf(w, (size_t)n, fmt, ap);
+    va_end(ap);
+    return w;
 }
 static int m4_icn_name_tables_data(int i, IR_graph_t *g);
 static int m4_icn_meta_present(stage2_t *s2);
@@ -355,10 +378,9 @@ static int gen_scan_body_slotful(IR_t *r) {
     while (bt && bt->γ.node && bt->γ.node->op != IR_SUCCEED && bt->γ.node->op != IR_FAIL && gd++ < 512) bt = bt->γ.node;
     if (bt && (bt->op == IR_LIT_INTEGER || bt->op == IR_LIT_STRING)) return 1;
     if (bt && bt->op == IR_VAR && IR_LIT(bt).sval && IR_LIT(bt).sval[0] != '&') return 1;
-    if (bt && (bt->op == IR_CALL || ir_is_scan_kind(bt->op)) && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval
-        && (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any")
-            || !strcmp(IR_LIT(bt).sval, "match") || !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal")))
-        return 1;
+    if (bt && (bt->op == IR_CALL || ir_is_scan_kind(bt->op)) && IR_LIT(bt).dval == 3.0 && IR_LIT(bt).sval &&
+        (!strcmp(IR_LIT(bt).sval, "tab") || !strcmp(IR_LIT(bt).sval, "move") || !strcmp(IR_LIT(bt).sval, "pos") || !strcmp(IR_LIT(bt).sval, "any") || !strcmp(IR_LIT(bt).sval, "match") ||
+        !strcmp(IR_LIT(bt).sval, "many") || !strcmp(IR_LIT(bt).sval, "upto") || !strcmp(IR_LIT(bt).sval, "find") || !strcmp(IR_LIT(bt).sval, "bal"))) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -368,10 +390,9 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_VAR && IR_LIT(r).sval && IR_LIT(r).sval[0] != '&') return 1;
     if (r->op == IR_VAR && IR_LIT(r).sval && !strcmp(IR_LIT(r).sval, "&null")) return 1;
     if (r->op == IR_BINOP_RELOP_VAL) return 1;
-    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL
-                               || IR_LIT(r).ival == BINOP_ADD_BIG || IR_LIT(r).ival == BINOP_SUB_BIG || IR_LIT(r).ival == BINOP_MUL_BIG
-                               || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || binop_is_concat((long)IR_LIT(r).ival)))
-        return 1;
+    if (r->op == IR_BINOP &&
+        (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_ADD_BIG || IR_LIT(r).ival == BINOP_SUB_BIG ||
+        IR_LIT(r).ival == BINOP_MUL_BIG || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || binop_is_concat((long)IR_LIT(r).ival))) return 1;
     if (ir_norm_call_kind(r->op) == IR_CALL || r->op == IR_UNOP || r->op == IR_FIELD_GET || r->op == IR_PROC_GEN) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;
@@ -383,9 +404,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_CONJUNCTION) { IR_t *lv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return lv ? rhs_kind_ok(lv) : 0; }
     {
         extern int is_global(const char *);
-        if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) {
-            IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0;
-        }
+        if (r->op == IR_ASSIGN && IR_LIT(r).sval && !is_global(IR_LIT(r).sval)) { IR_t *rv = (r->n_operands > 0) ? r->operands[0] : (IR_t *)0; return rv ? rhs_kind_ok(rv) : 0; }
     }
     if (r->op == IR_EXCISED) return 1;
     if (r->op == IR_EXCISED) return 1;
@@ -407,14 +426,13 @@ static int local_assign_rhs_ok_g(const IR_graph_t *g, IR_t *nd) {
 static int arith_operand_ok(IR_t *r) {
     if (!r) return 0;
     if (r->op == IR_LIT_INTEGER) return 1;
-    if (r->op == IR_BINOP && (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD
-                              || IR_LIT(r).ival == BINOP_ADD_BIG || IR_LIT(r).ival == BINOP_SUB_BIG || IR_LIT(r).ival == BINOP_MUL_BIG)) return 1;
+    if (r->op == IR_BINOP &&
+        (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_ADD_BIG ||
+        IR_LIT(r).ival == BINOP_SUB_BIG || IR_LIT(r).ival == BINOP_MUL_BIG)) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int is_jct_call(IR_t *r) {
-    return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9);
-}
+static int is_jct_call(IR_t *r) { return r && r->op == IR_CALL && IR_LIT(r).sval && !strncmp(IR_LIT(r).sval, "__rk_jct_", 9); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int jct_marshallable(IR_t *r) {
     if (!r) return 0;
@@ -438,33 +456,30 @@ static int bool_cond_emittable(IR_t *nd) {
     IR_graph_t **blks = (IR_graph_t **)0;
     IR_graph_t *cond = blks ? blks[0] : (IR_graph_t *)0;
     if (!cond) return 0;
-    IR_t *p = cond->entry; IR_t *rel = (IR_t *)0; int gd = 0;
+    IR_t *p = cond->entry;
+    IR_t *rel = (IR_t *)0;
+    int gd = 0;
     while (p && gd++ < 256) { if (p->op == IR_BINOP && IR_LIT(p).ival >= BINOP_LT && IR_LIT(p).ival <= BINOP_NE) { rel = p; break; } if (!p->γ.node) break; p = p->γ.node; }
     if (!rel) return 0;
-    IR_t *ra = ir_pair_arg(rel, 0); IR_t *rb = ir_pair_arg(rel, 1);
+    IR_t *ra = ir_pair_arg(rel, 0);
+    IR_t *rb = ir_pair_arg(rel, 1);
     if ((is_jct_call(ra) || is_jct_call(rb)) && jct_marshallable(ra) && jct_marshallable(rb)) return 1;
     return arith_operand_ok(ra) && arith_operand_ok(rb);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_has_local_assign(const IR_graph_t *g) {
-    for (int ni = 0; ni < g->n; ni++) {
-        IR_t *nd = g->all[ni];
-        if (nd && nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval)) return 1;
-    }
+    for (int ni = 0; ni < g->n; ni++) { IR_t *nd = g->all[ni]; if (nd && nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval)) return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int graph_has_binop(const IR_graph_t *g) {
-    for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_BINOP) return 1;
-    return 0;
-}
+static int graph_has_binop(const IR_graph_t *g) { for (int ni = 0; ni < g->n; ni++) if (g->all[ni] && g->all[ni]->op == IR_BINOP) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int graph_var_assigned_or_param(stage2_t *s2, int gi, IR_graph_t *g, const char *name) {
     for (int i = 0; i < g->n; i++) { IR_t *m = g->all[i]; if (m && m->op == IR_ASSIGN && IR_LIT(m).sval && !strcmp(IR_LIT(m).sval, name)) return 1; }
     for (int p = 0; p < s2->proc_count; p++) {
         if (s2->proc_table[p].bb_idx != gi) continue;
-        for (int k = 0; k < s2->proc_table[p].nparams && k < s2->proc_table[p].lower_sc.n; k++)
-            if (s2->proc_table[p].lower_sc.e[k].name && !strcmp(s2->proc_table[p].lower_sc.e[k].name, name)) return 1;
+        for (int k = 0; k < s2->proc_table[p].nparams && k < s2->proc_table[p].lower_sc.n; k++) if (s2->proc_table[p].lower_sc.e[k].name && !strcmp(s2->proc_table[p].lower_sc.e[k].name, name))
+            return 1;
     }
     return 0;
 }
@@ -479,26 +494,38 @@ static int graph_native_emittable_mode(stage2_t *s2, int for_run, const char **w
         for (int ni = 0; ni < g->n; ni++) {
             IR_t *nd = g->all[ni];
             if (!nd) continue;
-            if (nd->op == IR_EXCISED)
-                { *why = why_fmt("an excised node (op IR_EXCISED, dumped as IR_EXCISED; rk_excise) has no native template%s%s", IR_LIT(nd).sval ? " -- " : "", IR_LIT(nd).sval ? IR_LIT(nd).sval : ""); return 0; }
-            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval))
-                { *why = why_fmt("call '%s' is neither a user sub nor a known builtin", IR_LIT(nd).sval); return 0; }
-            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) {
-                if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) {} else { *why = why_fmt("%s condition shape has no native arm", IR_LIT(nd).sval); return 0; }
+            if (nd->op == IR_EXCISED) {
+                *why = why_fmt("an excised node (op IR_EXCISED, dumped as IR_EXCISED; rk_excise) has no native template%s%s", IR_LIT(nd).sval ? " -- " : "", IR_LIT(nd).sval ? IR_LIT(nd).sval : "");
+                return 0;
             }
-            if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval))
-                { *why = why_fmt("variable '%s' is read but never assigned and is not a parameter", IR_LIT(nd).sval); return 0; }
-            if (nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval) && !local_assign_rhs_ok_g(g, nd))
-                { *why = why_fmt("assignment to '%s' has an rhs shape with no native arm", IR_LIT(nd).sval); return 0; }
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && strcmp(IR_LIT(nd).sval,"__rk_bool") && strcmp(IR_LIT(nd).sval,"__rk_try") && !rt_builtin_is_known(IR_LIT(nd).sval)) {
+                *why = why_fmt("call '%s' is neither a user sub nor a known builtin", IR_LIT(nd).sval);
+                return 0;
+            }
+            if (nd->op == IR_CALL && IR_LIT(nd).dval == 2.0 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval,"__rk_bool")||!strcmp(IR_LIT(nd).sval,"__rk_try"))) {
+                if (bool_cond_emittable(nd)||bool_truthy_emittable(nd)) { } else { *why = why_fmt("%s condition shape has no native arm", IR_LIT(nd).sval); return 0; }
+            }
+            if (nd->op == IR_VAR && IR_LIT(nd).sval && IR_LIT(nd).sval[0] != '&' && !is_global(IR_LIT(nd).sval) && !graph_var_assigned_or_param(s2, gi, g, IR_LIT(nd).sval)) {
+                *why = why_fmt("variable '%s' is read but never assigned and is not a parameter", IR_LIT(nd).sval);
+                return 0;
+            }
+            if (nd->op == IR_ASSIGN && IR_LIT(nd).sval && !is_global(IR_LIT(nd).sval) && !local_assign_rhs_ok_g(g, nd)) {
+                *why = why_fmt("assignment to '%s' has an rhs shape with no native arm", IR_LIT(nd).sval);
+                return 0;
+            }
         }
     }
     *why = "";
     return 1;
 }
-static IR_graph_t **g_gz_visiting = NULL; static int g_gz_nvisiting = 0; static int g_gz_visiting_cap = 0;
-static IR_graph_t **g_gz_det_visiting = NULL; static int g_gz_det_nvisiting = 0; static int g_gz_det_visiting_cap = 0;
+static IR_graph_t **g_gz_visiting = NULL;
+static int g_gz_nvisiting = 0;
+static int g_gz_visiting_cap = 0;
+static IR_graph_t **g_gz_det_visiting = NULL;
+static int g_gz_det_nvisiting = 0;
+static int g_gz_det_visiting_cap = 0;
 static int g_gz_no_struct_ptr = 0;
-static int    g_prog_argc = 0;
+static int g_prog_argc = 0;
 static char **g_prog_argv = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void icn_register_locals(const char *pname, IR_graph_t *g);
@@ -524,29 +551,39 @@ static void register_procs_all(stage2_t * s2) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void drive_slots_all(stage2_t * s2) {
-    extern void ir_drive_slot_assign(IR_graph_t * g); extern void fl_derive_tier(IR_graph_t * g);
+    extern void ir_drive_slot_assign(IR_graph_t * g);
+    extern void fl_derive_tier(IR_graph_t * g);
     int _mx = polyglot_main_bb_idx(s2);
-    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) { IR_graph_t * _g = s2->bbp.table[_gi]; fl_derive_tier(_g); if (_gi == _mx && !_g->icn_cells_graph && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0; ir_drive_slot_assign(_g); }
+    for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) {
+        IR_graph_t * _g = s2->bbp.table[_gi];
+        fl_derive_tier(_g);
+        if (_gi == _mx && !_g->icn_cells_graph && !_g->root_graph) _g->zframe_graph = _g->entry_frame ? 1 : 0;
+        ir_drive_slot_assign(_g);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long parse_mem_arg(const char *s) {
-    char *end = NULL; errno = 0; long v = strtol(s, &end, 10); if (errno || end == s || v < 0) return -1;
+    char *end = NULL;
+    errno = 0;
+    long v = strtol(s, &end, 10);
+    if (errno || end == s || v < 0) return -1;
     if (*end == 'k' || *end == 'K') { v *= 1024L; end++; } else if (*end == 'm' || *end == 'M') { v *= 1024L * 1024L; end++; }
     return (*end == '\0') ? v : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int apply_stack_limit(long bytes) {
-    struct rlimit rl; if (getrlimit(RLIMIT_STACK, &rl) != 0) return -1;
+    struct rlimit rl;
+    if (getrlimit(RLIMIT_STACK, &rl) != 0) return -1;
     if (rl.rlim_max != RLIM_INFINITY && (rlim_t)bytes > rl.rlim_max) bytes = (long)rl.rlim_max;
     if (rl.rlim_cur != RLIM_INFINITY && (rlim_t)bytes <= rl.rlim_cur) return 0;
-    rl.rlim_cur = (rlim_t)bytes; return setrlimit(RLIMIT_STACK, &rl);
+    rl.rlim_cur = (rlim_t)bytes;
+    return setrlimit(RLIMIT_STACK, &rl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bbj_str(FILE * fp, const char * s) {
     fputc('"', fp);
     for (const unsigned char * p = (const unsigned char *) (s ? s : ""); *p; p++) {
-        if (*p == '"' || *p == '\\') { fputc('\\', fp); fputc(*p, fp); }
-        else if (*p == '\n') fputs("\\n", fp);
+        if (*p == '"' || *p == '\\') { fputc('\\', fp); fputc(*p, fp); } else if (*p == '\n') fputs("\\n", fp);
         else if (*p == '\t') fputs("\\t", fp);
         else if (*p == '\r') fputs("\\r", fp);
         else if (*p < 0x20) fprintf(fp, "\\u%04x", *p);
@@ -557,22 +594,51 @@ static void bbj_str(FILE * fp, const char * s) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bbj_label(FILE * fp, const IR_t * bb) {
     switch (bb->op) {
-        case IR_LIT_INTEGER: fprintf(fp, ",\"label\":\"%lld\"", (long long) IR_LIT(bb).ival); break;
-        case IR_LIT_REAL: fprintf(fp, ",\"label\":\"%g\"", IR_LIT(bb).dval); break;
-        case IR_LIT_STRING: case IR_LIT_CHARSET: case IR_LIT_NAME: case IR_LIT_ATOM: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
-        case IR_VAR: case IR_ASSIGN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
-        case IR_KW_ICON: case IR_KW_ICON_GEN: case IR_KW_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
-        case IR_MATCH_LIT: case IR_MATCH_ANY: case IR_MATCH_NOTANY: case IR_MATCH_SPAN: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
-        case IR_BINOP: case IR_BINOP_TEST: fprintf(fp, ",\"label\":\"op%lld\"", (long long) IR_LIT(bb).ival); break;
-        case IR_CALL: case IR_CALL_PROC_STAGED: case IR_CALL_BUILTIN: case IR_CALL_BUILTIN_GEN: case IR_CALL_ICON: case IR_CALL_SNOBOL4: if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); } break;
-        default: break;
+        case IR_LIT_INTEGER:
+        fprintf(fp, ",\"label\":\"%lld\"", (long long) IR_LIT(bb).ival);
+        break;
+        case IR_LIT_REAL:
+        fprintf(fp, ",\"label\":\"%g\"", IR_LIT(bb).dval);
+        break;
+        case IR_LIT_STRING:
+        case IR_LIT_CHARSET:
+        case IR_LIT_NAME:
+        case IR_LIT_ATOM:
+        if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); }
+        break;
+        case IR_VAR:
+        case IR_ASSIGN:
+        if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); }
+        break;
+        case IR_KW_ICON:
+        case IR_KW_ICON_GEN:
+        case IR_KW_SNOBOL4:
+        if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); }
+        break;
+        case IR_MATCH_LIT:
+        case IR_MATCH_ANY:
+        case IR_MATCH_NOTANY:
+        case IR_MATCH_SPAN:
+        if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); }
+        break;
+        case IR_BINOP:
+        case IR_BINOP_TEST:
+        fprintf(fp, ",\"label\":\"op%lld\"", (long long) IR_LIT(bb).ival);
+        break;
+        case IR_CALL:
+        case IR_CALL_PROC_STAGED:
+        case IR_CALL_BUILTIN:
+        case IR_CALL_BUILTIN_GEN:
+        case IR_CALL_ICON:
+        case IR_CALL_SNOBOL4:
+        if (IR_LIT(bb).sval) { fputs(",\"label\":", fp); bbj_str(fp, IR_LIT(bb).sval); }
+        break;
+        default:
+        break;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bbj_index(const IR_graph_t * g, const IR_t * nd) {
-    for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return i;
-    return -1;
-}
+static int bbj_index(const IR_graph_t * g, const IR_t * nd) { for (int i = 0; i < g->n; i++) if (g->all[i] == nd) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bbj_edge(FILE * fp, int * first, int gi, int i, const char * fp_name, const IR_graph_t * g, const IR_ref_t * r) {
     if (!r->node) return;
@@ -583,75 +649,118 @@ static void bbj_edge(FILE * fp, int * first, int gi, int i, const char * fp_name
     *first = 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face) {
-    extern void bb_ab_seal_entry_cells(const char *, void *, int);
-    bb_ab_seal_entry_cells(pname, fnbase, alpha_face);
-}
+static void m3_seal_entry_cells(const char *pname, void *fnbase, int alpha_face) { extern void bb_ab_seal_entry_cells(const char *, void *, int); bb_ab_seal_entry_cells(pname, fnbase, alpha_face); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sn4_module_init_bottom(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_MODULE_INIT"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_m4_alpha_seal(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_M4_ALPHA_SEAL"); v = (e && *e == '0') ? 0 : 1; } return v; }
 static int sn4_define_lbl_alias(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_DEFINE_LBL_ALIAS"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sn4_lbl_owners(const stage2_t *s2, unsigned char *own) {
-    int any = 0; for (int b = 0; b < s2->bbp.count; b++) own[b] = 0;
-    for (int r = 0; r < s2->proc_count; r++) { const char *rn = s2->proc_table[r].name; int b = s2->proc_table[r].bb_idx;
-        if (rn && strncmp(rn, "LBL__", 5) != 0 && strcmp(rn, "main") != 0 && b >= 0 && b < s2->bbp.count) own[b] = 1; }
-    for (int q = 0; q < s2->proc_count; q++) { const char *qn = s2->proc_table[q].name; int b = s2->proc_table[q].bb_idx;
-        if (qn && strncmp(qn, "LBL__", 5) == 0 && b >= 0 && b < s2->bbp.count && own[b]) any = 1; }
+    int any = 0;
+    for (int b = 0; b < s2->bbp.count; b++) own[b] = 0;
+    for (int r = 0; r < s2->proc_count; r++) {
+        const char *rn = s2->proc_table[r].name;
+        int b = s2->proc_table[r].bb_idx;
+        if (rn && strncmp(rn, "LBL__", 5) != 0 && strcmp(rn, "main") != 0 && b >= 0 && b < s2->bbp.count) own[b] = 1;
+    }
+    for (int q = 0; q < s2->proc_count; q++) {
+        const char *qn = s2->proc_table[q].name;
+        int b = s2->proc_table[q].bb_idx;
+        if (qn && strncmp(qn, "LBL__", 5) == 0 && b >= 0 && b < s2->bbp.count && own[b]) any = 1;
+    }
     return any;
 }
 static int sn4_lbl_pick(const stage2_t *s2, const unsigned char *own, int idx, int q) {
-    const char *n = s2->proc_table[q].name; int b = s2->proc_table[q].bb_idx;
+    const char *n = s2->proc_table[q].name;
+    int b = s2->proc_table[q].bb_idx;
     if (!n || strncmp(n, "LBL__", 5) != 0 || !s2->proc_table[q].proc_entry_node) return 0;
     return (idx >= 0) ? (b == idx) : !(b >= 0 && b < s2->bbp.count && own[b]);
 }
 static void sn4_balias_fill(IR_graph_t *g, const stage2_t *s2, const unsigned char *own, int idx, int dentry_skip) {
-    int na = 0; for (int q = 0; q < s2->proc_count; q++) if (sn4_lbl_pick(s2, own, idx, q)) na++;
+    int na = 0;
+    for (int q = 0; q < s2->proc_count; q++) if (sn4_lbl_pick(s2, own, idx, q)) na++;
     if (na == 0 || g->n_balias != 0) return;
-    g->balias_node = (IR_t **)ct_zalloc((size_t)na, sizeof(IR_t *)); g->balias_name = (const char **)ct_zalloc((size_t)na, sizeof(char *));
+    g->balias_node = (IR_t **)ct_zalloc((size_t)na, sizeof(IR_t *));
+    g->balias_name = (const char **)ct_zalloc((size_t)na, sizeof(char *));
     if (!g->balias_node || !g->balias_name) return;
-    for (int q = 0; q < s2->proc_count && g->n_balias < na; q++) { if (!sn4_lbl_pick(s2, own, idx, q)) continue;
-        IR_t *bn = s2->proc_table[q].proc_entry_node; int bgg = 0; while (bn && (bn->op == IR_SUCCEED || bn->op == IR_FAIL || bn->op == IR_GOTO) && bn->γ.node && bgg++ < 65536) bn = bn->γ.node;
+    for (int q = 0; q < s2->proc_count && g->n_balias < na; q++) {
+        if (!sn4_lbl_pick(s2, own, idx, q)) continue;
+        IR_t *bn = s2->proc_table[q].proc_entry_node;
+        int bgg = 0;
+        while (bn && (bn->op == IR_SUCCEED || bn->op == IR_FAIL || bn->op == IR_GOTO) && bn->γ.node && bgg++ < 65536) bn = bn->γ.node;
         if (dentry_skip) { int dl = 0; for (int dq = 0; dq < g->n_dentry; dq++) if (g->dentry_entry[dq] == bn) { dl = 1; break; } if (dl && !sn4_define_lbl_alias()) continue; }
-        const char *sym = asm_sym_name(s2->proc_table[q].name + 5); char ab[strlen(sym) + 6]; snprintf(ab, sizeof ab, "LBL__%s", sym);
-        g->balias_node[g->n_balias] = bn; g->balias_name[g->n_balias] = ct_strdup(ab); if (g->balias_name[g->n_balias]) g->n_balias++; }
+        const char *sym = asm_sym_name(s2->proc_table[q].name + 5);
+        char ab[strlen(sym) + 6];
+        snprintf(ab, sizeof ab, "LBL__%s", sym);
+        g->balias_node[g->n_balias] = bn;
+        g->balias_name[g->n_balias] = ct_strdup(ab);
+        if (g->balias_name[g->n_balias]) g->n_balias++;
+    }
 }
 static void sn4_balias_register(const stage2_t *s2, const unsigned char *own, int idx, void *base, int fb) {
-    extern int emit_label_lookup_offset(const char *); extern void rt_proc_set_frame_bytes(const char *, int); extern void rt_proc_set_fn(const char *, bb_box_fn);
-    for (int q = 0; q < s2->proc_count; q++) { if (!sn4_lbl_pick(s2, own, idx, q)) continue; const char *ln = s2->proc_table[q].name;
-        const char *sym = asm_sym_name(ln + 5); char ab[strlen(sym) + 6]; snprintf(ab, sizeof ab, "LBL__%s", sym); int off = emit_label_lookup_offset(ab);
+    extern int emit_label_lookup_offset(const char *);
+    extern void rt_proc_set_frame_bytes(const char *, int);
+    extern void rt_proc_set_fn(const char *, bb_box_fn);
+    for (int q = 0; q < s2->proc_count; q++) {
+        if (!sn4_lbl_pick(s2, own, idx, q)) continue;
+        const char *ln = s2->proc_table[q].name;
+        const char *sym = asm_sym_name(ln + 5);
+        char ab[strlen(sym) + 6];
+        snprintf(ab, sizeof ab, "LBL__%s", sym);
+        int off = emit_label_lookup_offset(ab);
         if (off < 0) { const char *e = getenv("SCRIP_M3_UNIFY_DIAG"); if (e && *e == '1') fprintf(stderr, "[M3-UNIFY] %s: body label %s not defined in its chain\n", ln, ab); continue; }
-        rt_proc_set_fn(ln, (bb_box_fn)((char *)base + off)); if (fb > 0) rt_proc_set_frame_bytes(ln, fb);
-        m3_seal_entry_cells(ln + 5, base, 0); }
+        rt_proc_set_fn(ln, (bb_box_fn)((char *)base + off));
+        if (fb > 0) rt_proc_set_frame_bytes(ln, fb);
+        m3_seal_entry_cells(ln + 5, base, 0);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const stage2_t *s2; const unsigned char *own; int owned; } m3_lbl_ctx_t;
 static void m3_lbl_before(void *c, int pi, int idx) { m3_lbl_ctx_t *x = (m3_lbl_ctx_t *) c; (void) pi; if (x->owned) sn4_balias_fill(x->s2->bbp.table[idx], x->s2, x->own, idx, 0); }
-static void m3_lbl_after(void *c, int pi, int idx, void *fn) { m3_lbl_ctx_t *x = (m3_lbl_ctx_t *) c; (void) pi; extern int g_last_flat_frame_bytes; if (x->owned) sn4_balias_register(x->s2, x->own, idx, fn, g_last_flat_frame_bytes); }
+static void m3_lbl_after(void *c, int pi, int idx, void *fn) {
+    m3_lbl_ctx_t *x = (m3_lbl_ctx_t *) c;
+    (void) pi;
+    extern int g_last_flat_frame_bytes;
+    if (x->owned) sn4_balias_register(x->s2, x->own, idx, fn, g_last_flat_frame_bytes);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int m4_program_has_prolog_terms(stage2_t *s2, IR_graph_t *bbg) {
-    for (int gi = -1; gi < (s2 ? s2->bbp.count : 0); gi++) { IR_graph_t *g = gi < 0 ? bbg : s2->bbp.table[gi]; if (!g) continue;
-        for (int i = 0; i < g->n; i++) { IR_t *nd = g->all[i]; if (!nd) continue;
+    for (int gi = -1; gi < (s2 ? s2->bbp.count : 0); gi++) {
+        IR_graph_t *g = gi < 0 ? bbg : s2->bbp.table[gi];
+        if (!g) continue;
+        for (int i = 0; i < g->n; i++) {
+            IR_t *nd = g->all[i];
+            if (!nd) continue;
             if (nd->op == IR_LIT_ATOM) return 1;
-            if (nd->op == IR_CALL && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "$mkc") || !strcmp(IR_LIT(nd).sval, "$db_decls"))) return 1; } }
+            if (nd->op == IR_CALL && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "$mkc") || !strcmp(IR_LIT(nd).sval, "$db_decls"))) return 1;
+        }
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void m4_emit_functor_table(void) {
-    extern int prolog_functor_count(void); extern int prolog_functor_name(int); extern int prolog_functor_arity(int); int n = prolog_functor_count();
+    extern int prolog_functor_count(void);
+    extern int prolog_functor_name(int);
+    extern int prolog_functor_arity(int);
+    int n = prolog_functor_count();
     emit_textf("  .section .rodata\n  .align 8\n.Lpl_functor_tab:\n  .quad %d\n", n);
     for (int k = 0; k < n; k++) emit_textf("  .quad %d, %d\n", prolog_functor_name(k), prolog_functor_arity(k));
     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void m4_emit_atom_table(void) {
-    extern int prolog_atom_count(void); extern const char *prolog_atom_name(int); int n = prolog_atom_count();
+    extern int prolog_atom_count(void);
+    extern const char *prolog_atom_name(int);
+    int n = prolog_atom_count();
     emit_textf("  .section .rodata\n  .align 8\n.Lpl_atom_tab:\n  .quad %d\n", n);
     for (int k = 0; k < n; k++) emit_textf("  .quad .Lpl_atom%d\n", k);
-    for (int k = 0; k < n; k++) { const unsigned char *p = (const unsigned char *)prolog_atom_name(k); if (!p) p = (const unsigned char *)"";
+    for (int k = 0; k < n; k++) {
+        const unsigned char *p = (const unsigned char *)prolog_atom_name(k);
+        if (!p) p = (const unsigned char *)"";
         emit_textf(".Lpl_atom%d:\n", k);
         for (int col = 0; ; p++, col++) { if (col % 32 == 0) emit_textf(col ? "\n  .byte %u" : "  .byte %u", (unsigned)*p); else emit_textf(",%u", (unsigned)*p); if (!*p) break; }
-        emit_textf("\n"); }
+        emit_textf("\n");
+    }
     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -659,264 +768,429 @@ static int m4_proc_startup_skip(stage2_t *s2, ProcEntry *pe, int ispat) {
     if (ispat) return 1;
     if (pe->dyn_scope && proc_role3_kind((pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0) != 2) return 2;
     if (!pe->name || strncmp(pe->name, "LBL__", 5) != 0 || sn4_define_lbl_alias()) return 0;
-    for (int z = 0; z < s2->proc_count; z++) { ProcEntry *dr = &s2->proc_table[z];
+    for (int z = 0; z < s2->proc_count; z++) {
+        ProcEntry *dr = &s2->proc_table[z];
         if (!dr->name || strncmp(dr->name, "LBL__", 5) == 0 || !dr->dyn_scope) continue;
-        IR_t *dn = bb_proc_entry(dr); if (!dn) continue;
-        int dg = 0; while (dn && (dn->op == IR_SUCCEED || dn->op == IR_FAIL || dn->op == IR_GOTO) && dn->γ.node && dg++ < 64) dn = dn->γ.node;
+        IR_t *dn = bb_proc_entry(dr);
+        if (!dn) continue;
+        int dg = 0;
+        while (dn && (dn->op == IR_SUCCEED || dn->op == IR_FAIL || dn->op == IR_GOTO) && dn->γ.node && dg++ < 64) dn = dn->γ.node;
         IR_t *dd = (dn && dn->op == IR_DEFINE && ir_define_sr_citizen(dn)) ? dn->γ.node : dn;
         if (!dd || dd->op != IR_GOTO_DEFERRED || !IR_LIT(dd).sval) continue;
-        const char *de = IR_LIT(dd).sval; if (strncmp(de, "LBL__", 5) == 0) de += 5;
-        if (!strcmp(de, pe->name + 5)) return 3; }
+        const char *de = IR_LIT(dd).sval;
+        if (strncmp(de, "LBL__", 5) == 0) de += 5;
+        if (!strcmp(de, pe->name + 5)) return 3;
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void m4_emit_proc_slot_keep(int i, const char *name) {
-    extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char *nm = name ? name : ""; size_t cap = 4 * strlen(nm) + 1; char esc[cap]; x86_asm_str_escape_c(nm, esc, cap);
+    extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+    const char *nm = name ? name : "";
+    size_t cap = 4 * strlen(nm) + 1;
+    char esc[cap];
+    x86_asm_str_escape_c(nm, esc, cap);
     emit_textf("  .section .rodata\n  .Lstartup_pkeep%d: .string \"\\001<slot>%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, esc);
     emit_textf("  lea rdi, [rip + .Lstartup_pkeep%d]\n  xor esi, esi\n  xor edx, edx\n  call rt_proc_register@PLT\n", i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs, int n_cls_emit, int n_gram_emit, const char *mi_name) {
+static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int *proc_nparams_buf, int *proc_pidx_buf, int *proc_fb_buf, int *proc_ispat_buf, int *proc_zstatic_buf, int n_procs,
+    int n_cls_emit, int n_gram_emit, const char *mi_name) {
     if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) {
         emit_textf("%s:\n", mi_name);
         emit_textf("  sub rsp, 8\n");
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              emit_textf("  .section .rodata\n");
-              emit_textf("  .Lclassspec%d: .string \"%s(", ci, cn);
-              for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) emit_textf(","); emit_textf("%s", dat_type_field(ci, fj)); }
-              emit_textf(")\"\n");
-              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-              emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
-              emit_textf("  call record_register@PLT\n");
-              { extern int dat_type_live(int);
-                if (!dat_type_live(ci)) {
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nfields(int);
+            extern const char *dat_type_field(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                emit_textf("  .section .rodata\n");
+                emit_textf("  .Lclassspec%d: .string \"%s(", ci, cn);
+                for (int fj = 0; fj < dat_type_nfields(ci); fj++) { if (fj) emit_textf(","); emit_textf("%s", dat_type_field(ci, fj)); }
+                emit_textf(")\"\n");
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  lea rdi, [rip + .Lclassspec%d]\n", ci);
+                emit_textf("  call record_register@PLT\n");
+                {
+                    extern int dat_type_live(int);
+                    if (!dat_type_live(ci)) {
+                        emit_textf("  .section .rodata\n");
+                        emit_textf("  .Lclassnm%d: .string \"%s\"\n", ci, cn);
+                        emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                        emit_textf("  lea rdi, [rip + .Lclassnm%d]\n", ci);
+                        emit_textf("  xor esi, esi\n");
+                        emit_textf("  call dat_set_live@PLT\n");
+                    }
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nparents(int);
+            extern const char *dat_type_parent_at(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                int np = dat_type_nparents(ci);
+                if (np <= 0) continue;
+                emit_textf("  .section .rodata\n");
+                emit_textf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
+                for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
+                emit_textf("  .balign 8\n  .Lclsparr%d:\n", ci);
+                for (int pj = 0; pj < np; pj++) emit_textf("  .quad .Lclsp%d_%d\n", ci, pj);
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  lea rdi, [rip + .Lclschild%d]\n", ci);
+                emit_textf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
+                emit_textf("  mov rdx, %d\n", np);
+                emit_textf("  call class_inherit_multi@PLT\n");
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nfields(int);
+            extern const char *dat_type_field(int, int);
+            extern int dat_type_field_has_default(int, int);
+            extern DESCR_t dat_type_field_default(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                    if (!dat_type_field_has_default(ci, fj)) continue;
+                    const char *fn = dat_type_field(ci, fj);
+                    if (!fn) continue;
+                    DESCR_t dv = dat_type_field_default(ci, fj);
                     emit_textf("  .section .rodata\n");
-                    emit_textf("  .Lclassnm%d: .string \"%s\"\n", ci, cn);
+                    emit_textf("  .Ldefcls%d_%d: .byte ", ci, fj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Ldeffld%d_%d: .byte ", ci, fj);
+                    for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    if (dv.v == DT_S) {
+                        const char *sv = dv.s ? dv.s : "";
+                        emit_textf("  .Ldefstr%d_%d: .byte ", ci, fj);
+                        for (const char *p = sv; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                        emit_textf("0\n");
+                    } else if (dv.v == DT_R) {
+                        union { double d; unsigned long long q; } u;
+                        u.d = dv.r;
+                        emit_textf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q);
+                    }
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                    emit_textf("  lea rdi, [rip + .Lclassnm%d]\n", ci);
-                    emit_textf("  xor esi, esi\n");
-                    emit_textf("  call dat_set_live@PLT\n");
-                } }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nparents(int); extern const char *dat_type_parent_at(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              int np = dat_type_nparents(ci); if (np <= 0) continue;
-              emit_textf("  .section .rodata\n");
-              emit_textf("  .Lclschild%d: .string \"%s\"\n", ci, cn);
-              for (int pj = 0; pj < np; pj++) emit_textf("  .Lclsp%d_%d: .string \"%s\"\n", ci, pj, dat_type_parent_at(ci, pj));
-              emit_textf("  .balign 8\n  .Lclsparr%d:\n", ci);
-              for (int pj = 0; pj < np; pj++) emit_textf("  .quad .Lclsp%d_%d\n", ci, pj);
-              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-              emit_textf("  lea rdi, [rip + .Lclschild%d]\n", ci);
-              emit_textf("  lea rsi, [rip + .Lclsparr%d]\n", ci);
-              emit_textf("  mov rdx, %d\n", np);
-              emit_textf("  call class_inherit_multi@PLT\n");
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-          extern int dat_type_field_has_default(int, int); extern DESCR_t dat_type_field_default(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                  if (!dat_type_field_has_default(ci, fj)) continue;
-                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                  DESCR_t dv = dat_type_field_default(ci, fj);
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Ldefcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Ldeffld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  if (dv.v == DT_S) {
-                      const char *sv = dv.s ? dv.s : ""; emit_textf("  .Ldefstr%d_%d: .byte ", ci, fj); for (const char *p = sv; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
-                      emit_textf("0\n");
-                  }
-                  else if (dv.v == DT_R) { union { double d; unsigned long long q; } u; u.d = dv.r; emit_textf("  .Ldefdbl%d_%d: .quad %llu\n", ci, fj, u.q); }
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
-                  emit_textf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
-                  if (dv.v == DT_S) { emit_textf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_s@PLT\n"); }
-                  else if (dv.v == DT_R) { emit_textf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj); emit_textf("  call dat_set_field_default_r@PLT\n"); }
-                  else { emit_textf("  mov rdx, %lld\n", (long long)dv.i); emit_textf("  call dat_set_field_default_i@PLT\n"); }
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-          extern int dat_type_field_required(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                  if (!dat_type_field_required(ci, fj)) continue;
-                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lreqcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lreqfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
-                  emit_textf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
-                  emit_textf("  call dat_set_field_required@PLT\n");
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-          extern int dat_type_field_rw(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                  if (!dat_type_field_rw(ci, fj)) continue;
-                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lrwcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lrwfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lrwcls%d_%d]\n", ci, fj);
-                  emit_textf("  lea rsi, [rip + .Lrwfld%d_%d]\n", ci, fj);
-                  emit_textf("  call dat_set_field_rw@PLT\n");
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-          extern int dat_type_field_sigil(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                  int sg = dat_type_field_sigil(ci, fj); if (sg != '@' && sg != '%') continue;
-                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lsigcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lsigfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lsigcls%d_%d]\n", ci, fj);
-                  emit_textf("  lea rsi, [rip + .Lsigfld%d_%d]\n", ci, fj);
-                  emit_textf("  mov rdx, %d\n", sg);
-                  emit_textf("  call dat_set_field_sigil@PLT\n");
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nfields(int); extern const char *dat_type_field(int, int);
-          extern int dat_type_field_priv(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
-                  if (!dat_type_field_priv(ci, fj)) continue;
-                  const char *fn = dat_type_field(ci, fj); if (!fn) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lprvcls%d_%d: .byte ", ci, fj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lprvfld%d_%d: .byte ", ci, fj); for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
-                  emit_textf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
-                  emit_textf("  call dat_set_field_priv@PLT\n");
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nmethods(int); extern const char *dat_type_method_at(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              int nm = dat_type_nmethods(ci); if (nm <= 0) continue;
-              for (int mj = 0; mj < nm; mj++) {
-                  const char *mn = dat_type_method_at(ci, mj); if (!mn || !*mn) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lmethcls%d_%d: .byte ", ci, mj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lmethnm%d_%d: .byte ", ci, mj); for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
-                  emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
-                  emit_textf("  call dat_add_method@PLT\n");
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_has_build(int);
-          extern int dat_type_nbuild_keys(int); extern const char *dat_type_build_key_at(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              if (!dat_type_has_build(ci)) continue;
-              emit_textf("  .section .rodata\n");
-              emit_textf("  .Lbldcls%d: .byte ", ci); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-              emit_textf("  .Lbldnull%d: .byte 0\n", ci);
-              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-              emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-              emit_textf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
-              emit_textf("  call dat_set_build_key@PLT\n");
-              int nk = dat_type_nbuild_keys(ci);
-              for (int kj = 0; kj < nk; kj++) {
-                  const char *kn = dat_type_build_key_at(ci, kj); if (!kn || !*kn) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lbldkey%d_%d: .byte ", ci, kj); for (const char *p = kn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
-                  emit_textf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
-                  emit_textf("  call dat_set_build_key@PLT\n");
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nhandles(int);
-          extern const char *dat_type_handles_meth_at(int, int); extern const char *dat_type_handles_fld_at(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              int nh = dat_type_nhandles(ci); if (nh <= 0) continue;
-              for (int hj = 0; hj < nh; hj++) {
-                  const char *hm = dat_type_handles_meth_at(ci, hj); const char *hf = dat_type_handles_fld_at(ci, hj);
-                  if (!hm || !*hm || !hf || !*hf) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lhndcls%d_%d: .byte ", ci, hj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lhndmeth%d_%d: .byte ", ci, hj); for (const char *p = hm; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lhndfld%d_%d: .byte ", ci, hj); for (const char *p = hf; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lhndcls%d_%d]\n", ci, hj);
-                  emit_textf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", ci, hj);
-                  emit_textf("  lea rdx, [rip + .Lhndfld%d_%d]\n", ci, hj);
-                  emit_textf("  call dat_add_handles@PLT\n");
-              }
-          } }
-        { extern int dat_type_count(void); extern const char *dat_type_name(int); extern int dat_type_nroles(int); extern const char *dat_type_role_at(int, int);
-          int n_cls = dat_type_count();
-          for (int ci = 0; ci < n_cls; ci++) {
-              const char *cn = dat_type_name(ci); if (!cn || !*cn) continue;
-              int nr = dat_type_nroles(ci); if (nr <= 0) continue;
-              for (int rj = 0; rj < nr; rj++) {
-                  const char *rn = dat_type_role_at(ci, rj); if (!rn || !*rn) continue;
-                  emit_textf("  .section .rodata\n");
-                  emit_textf("  .Lrolechild%d_%d: .byte ", ci, rj); for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .Lrolename%d_%d: .byte ", ci, rj); for (const char *p = rn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-                  emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-                  emit_textf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
-                  emit_textf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
-                  emit_textf("  call class_compose_role@PLT\n");
-              }
-          } }
-        { extern int rt_grammar_count(void); extern const char *rt_grammar_qname(int); extern const char *rt_grammar_body(int); extern int rt_grammar_flavor(int);
-          int n_gram = rt_grammar_count();
-          for (int gi = 0; gi < n_gram; gi++) {
-              const char *qn = rt_grammar_qname(gi); const char *bd = rt_grammar_body(gi);
-              if (!qn || !bd) continue;
-              emit_textf("  .section .rodata\n");
-              emit_textf("  .Lgramqn%d: .byte ", gi); for (const char *p = qn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-              emit_textf("  .Lgrambd%d: .byte ", gi); for (const char *p = bd; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p); emit_textf("0\n");
-              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-              emit_textf("  lea rdi, [rip + .Lgramqn%d]\n", gi);
-              emit_textf("  lea rsi, [rip + .Lgrambd%d]\n", gi);
-              emit_textf("  mov edx, %d\n", rt_grammar_flavor(gi));
-              emit_textf("  call rt_grammar_register@PLT\n");
-          } }
-        { extern int rt_icn_global_count(void); extern const char *rt_icn_global_name(int);
-          int _gn = rt_icn_global_count();
-          if (_gn > 0) {
-              emit_textf("  .section .rodata\n");
-              for (int _k = 0; _k < _gn; _k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char *_gnk = rt_icn_global_name(_k) ? rt_icn_global_name(_k) : ""; char _e[4 * strlen(_gnk) + 1]; x86_asm_str_escape_c(_gnk, _e, sizeof _e); emit_textf("  .Lstartup_ign%d: .string \"%s\"\n", _k, _e); }
-              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-              for (int _k = 0; _k < _gn; _k++) emit_textf("  lea rdi, [rip + .Lstartup_ign%d]\n  call rt_icn_global_note@PLT\n", _k);
-          } }
-        { int _mx = polyglot_main_bb_idx(s2); IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
-          if (_rg && !_rg->icn_cells_graph) _rg = (IR_graph_t *)0;
-          if (_rg && ((_rg->lnames && _rg->nlocals > 0) || (_rg->pnames && _rg->nparams > 0))) {
-              emit_textf("  .section .rodata\n  .Lstartup_rootnm: .string \"main\"\n");
-              m4_icn_name_tables_data(9000, _rg);
-              emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-              m4_icn_name_tables_calls(9000, ".Lstartup_rootnm", _rg);
-          } }
+                    emit_textf("  lea rdi, [rip + .Ldefcls%d_%d]\n", ci, fj);
+                    emit_textf("  lea rsi, [rip + .Ldeffld%d_%d]\n", ci, fj);
+                    if (dv.v == DT_S) {
+                        emit_textf("  lea rdx, [rip + .Ldefstr%d_%d]\n", ci, fj);
+                        emit_textf("  call dat_set_field_default_s@PLT\n");
+                    } else if (dv.v == DT_R) {
+                        emit_textf("  movsd xmm0, qword ptr [rip + .Ldefdbl%d_%d]\n", ci, fj);
+                        emit_textf("  call dat_set_field_default_r@PLT\n");
+                    } else {
+                        emit_textf("  mov rdx, %lld\n", (long long)dv.i);
+                        emit_textf("  call dat_set_field_default_i@PLT\n");
+                    }
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nfields(int);
+            extern const char *dat_type_field(int, int);
+            extern int dat_type_field_required(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                    if (!dat_type_field_required(ci, fj)) continue;
+                    const char *fn = dat_type_field(ci, fj);
+                    if (!fn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lreqcls%d_%d: .byte ", ci, fj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lreqfld%d_%d: .byte ", ci, fj);
+                    for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lreqcls%d_%d]\n", ci, fj);
+                    emit_textf("  lea rsi, [rip + .Lreqfld%d_%d]\n", ci, fj);
+                    emit_textf("  call dat_set_field_required@PLT\n");
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nfields(int);
+            extern const char *dat_type_field(int, int);
+            extern int dat_type_field_rw(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                    if (!dat_type_field_rw(ci, fj)) continue;
+                    const char *fn = dat_type_field(ci, fj);
+                    if (!fn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lrwcls%d_%d: .byte ", ci, fj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lrwfld%d_%d: .byte ", ci, fj);
+                    for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lrwcls%d_%d]\n", ci, fj);
+                    emit_textf("  lea rsi, [rip + .Lrwfld%d_%d]\n", ci, fj);
+                    emit_textf("  call dat_set_field_rw@PLT\n");
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nfields(int);
+            extern const char *dat_type_field(int, int);
+            extern int dat_type_field_sigil(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                    int sg = dat_type_field_sigil(ci, fj);
+                    if (sg != '@' && sg != '%') continue;
+                    const char *fn = dat_type_field(ci, fj);
+                    if (!fn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lsigcls%d_%d: .byte ", ci, fj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lsigfld%d_%d: .byte ", ci, fj);
+                    for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lsigcls%d_%d]\n", ci, fj);
+                    emit_textf("  lea rsi, [rip + .Lsigfld%d_%d]\n", ci, fj);
+                    emit_textf("  mov rdx, %d\n", sg);
+                    emit_textf("  call dat_set_field_sigil@PLT\n");
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nfields(int);
+            extern const char *dat_type_field(int, int);
+            extern int dat_type_field_priv(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                for (int fj = 0; fj < dat_type_nfields(ci); fj++) {
+                    if (!dat_type_field_priv(ci, fj)) continue;
+                    const char *fn = dat_type_field(ci, fj);
+                    if (!fn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lprvcls%d_%d: .byte ", ci, fj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lprvfld%d_%d: .byte ", ci, fj);
+                    for (const char *p = fn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lprvcls%d_%d]\n", ci, fj);
+                    emit_textf("  lea rsi, [rip + .Lprvfld%d_%d]\n", ci, fj);
+                    emit_textf("  call dat_set_field_priv@PLT\n");
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nmethods(int);
+            extern const char *dat_type_method_at(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                int nm = dat_type_nmethods(ci);
+                if (nm <= 0) continue;
+                for (int mj = 0; mj < nm; mj++) {
+                    const char *mn = dat_type_method_at(ci, mj);
+                    if (!mn || !*mn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lmethcls%d_%d: .byte ", ci, mj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lmethnm%d_%d: .byte ", ci, mj);
+                    for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lmethcls%d_%d]\n", ci, mj);
+                    emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
+                    emit_textf("  call dat_add_method@PLT\n");
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_has_build(int);
+            extern int dat_type_nbuild_keys(int);
+            extern const char *dat_type_build_key_at(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                if (!dat_type_has_build(ci)) continue;
+                emit_textf("  .section .rodata\n");
+                emit_textf("  .Lbldcls%d: .byte ", ci);
+                for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                emit_textf("0\n");
+                emit_textf("  .Lbldnull%d: .byte 0\n", ci);
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+                emit_textf("  lea rsi, [rip + .Lbldnull%d]\n", ci);
+                emit_textf("  call dat_set_build_key@PLT\n");
+                int nk = dat_type_nbuild_keys(ci);
+                for (int kj = 0; kj < nk; kj++) {
+                    const char *kn = dat_type_build_key_at(ci, kj);
+                    if (!kn || !*kn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lbldkey%d_%d: .byte ", ci, kj);
+                    for (const char *p = kn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lbldcls%d]\n", ci);
+                    emit_textf("  lea rsi, [rip + .Lbldkey%d_%d]\n", ci, kj);
+                    emit_textf("  call dat_set_build_key@PLT\n");
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nhandles(int);
+            extern const char *dat_type_handles_meth_at(int, int);
+            extern const char *dat_type_handles_fld_at(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                int nh = dat_type_nhandles(ci);
+                if (nh <= 0) continue;
+                for (int hj = 0; hj < nh; hj++) {
+                    const char *hm = dat_type_handles_meth_at(ci, hj);
+                    const char *hf = dat_type_handles_fld_at(ci, hj);
+                    if (!hm || !*hm || !hf || !*hf) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lhndcls%d_%d: .byte ", ci, hj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lhndmeth%d_%d: .byte ", ci, hj);
+                    for (const char *p = hm; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lhndfld%d_%d: .byte ", ci, hj);
+                    for (const char *p = hf; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lhndcls%d_%d]\n", ci, hj);
+                    emit_textf("  lea rsi, [rip + .Lhndmeth%d_%d]\n", ci, hj);
+                    emit_textf("  lea rdx, [rip + .Lhndfld%d_%d]\n", ci, hj);
+                    emit_textf("  call dat_add_handles@PLT\n");
+                }
+            }
+        }
+        {
+            extern int dat_type_count(void);
+            extern const char *dat_type_name(int);
+            extern int dat_type_nroles(int);
+            extern const char *dat_type_role_at(int, int);
+            int n_cls = dat_type_count();
+            for (int ci = 0; ci < n_cls; ci++) {
+                const char *cn = dat_type_name(ci);
+                if (!cn || !*cn) continue;
+                int nr = dat_type_nroles(ci);
+                if (nr <= 0) continue;
+                for (int rj = 0; rj < nr; rj++) {
+                    const char *rn = dat_type_role_at(ci, rj);
+                    if (!rn || !*rn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lrolechild%d_%d: .byte ", ci, rj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lrolename%d_%d: .byte ", ci, rj);
+                    for (const char *p = rn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lrolechild%d_%d]\n", ci, rj);
+                    emit_textf("  lea rsi, [rip + .Lrolename%d_%d]\n", ci, rj);
+                    emit_textf("  call class_compose_role@PLT\n");
+                }
+            }
+        }
+        {
+            extern int rt_grammar_count(void);
+            extern const char *rt_grammar_qname(int);
+            extern const char *rt_grammar_body(int);
+            extern int rt_grammar_flavor(int);
+            int n_gram = rt_grammar_count();
+            for (int gi = 0; gi < n_gram; gi++) {
+                const char *qn = rt_grammar_qname(gi);
+                const char *bd = rt_grammar_body(gi);
+                if (!qn || !bd) continue;
+                emit_textf("  .section .rodata\n");
+                emit_textf("  .Lgramqn%d: .byte ", gi);
+                for (const char *p = qn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                emit_textf("0\n");
+                emit_textf("  .Lgrambd%d: .byte ", gi);
+                for (const char *p = bd; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                emit_textf("0\n");
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                emit_textf("  lea rdi, [rip + .Lgramqn%d]\n", gi);
+                emit_textf("  lea rsi, [rip + .Lgrambd%d]\n", gi);
+                emit_textf("  mov edx, %d\n", rt_grammar_flavor(gi));
+                emit_textf("  call rt_grammar_register@PLT\n");
+            }
+        }
+        {
+            extern int rt_icn_global_count(void);
+            extern const char *rt_icn_global_name(int);
+            int _gn = rt_icn_global_count();
+            if (_gn > 0) {
+                emit_textf("  .section .rodata\n");
+                for (int _k = 0; _k < _gn; _k++) {
+                    extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+                    const char *_gnk = rt_icn_global_name(_k) ? rt_icn_global_name(_k) : "";
+                    char _e[4 * strlen(_gnk) + 1];
+                    x86_asm_str_escape_c(_gnk, _e, sizeof _e);
+                    emit_textf("  .Lstartup_ign%d: .string \"%s\"\n", _k, _e);
+                }
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                for (int _k = 0; _k < _gn; _k++) emit_textf("  lea rdi, [rip + .Lstartup_ign%d]\n  call rt_icn_global_note@PLT\n", _k);
+            }
+        }
+        {
+            int _mx = polyglot_main_bb_idx(s2);
+            IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
+            if (_rg && !_rg->icn_cells_graph) _rg = (IR_graph_t *)0;
+            if (_rg && ((_rg->lnames && _rg->nlocals > 0) || (_rg->pnames && _rg->nparams > 0))) {
+                emit_textf("  .section .rodata\n  .Lstartup_rootnm: .string \"main\"\n");
+                m4_icn_name_tables_data(9000, _rg);
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                m4_icn_name_tables_calls(9000, ".Lstartup_rootnm", _rg);
+            }
+        }
         int last_static = -1;
         for (int i = 0; i < n_procs; i++) if (!m4_proc_startup_skip(s2, &s2->proc_table[proc_pidx_buf[i]], proc_ispat_buf ? proc_ispat_buf[i] : 0)) last_static = i;
         { int _mx = polyglot_main_bb_idx(s2); if (_mx >= 0 && _mx < s2->bbp.count && icn_main_callable(s2, s2->bbp.table[_mx])) last_static = n_procs; }
@@ -927,158 +1201,207 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             if (skip == 2 && sn4_m4_alpha_seal() && pe->name && strncmp(pe->name, "LBL__", 5) != 0 && !strchr(pe->name, '$')) {
                 emit_textf("  .section .rodata\n  .Lseala%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, proc_names_buf[i]);
                 emit_textf("  .weak %s_\xce\xb1\n  lea rdi, [rip + .Lseala%d]\n", asm_sym_name(proc_names_buf[i]), i);
-                emit_textf("  mov rsi, qword ptr [rip + %s_\xce\xb1@GOTPCREL]\n  call rt_proc_seal_alpha@PLT\n", asm_sym_name(proc_names_buf[i])); }
+                emit_textf("  mov rsi, qword ptr [rip + %s_\xce\xb1@GOTPCREL]\n  call rt_proc_seal_alpha@PLT\n", asm_sym_name(proc_names_buf[i]));
+            }
             if (skip) continue;
-            { static int _onereg = -1; if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }
-            if (_onereg) {
-                extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));
-                int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
-                int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
-                { extern int emit_thunk_self_save_k(stage2_t *, const char *); if (emit_thunk_self_save_k(s2, proc_names_buf[i]) >= 0) _rkflags |= 64; }
-                { IR_graph_t *_pg4 = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0; extern int zls_g_entry_block(const IR_graph_t *); if (zls_g_entry_block(_pg4)) _rkflags |= 32; }
-                int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
-                emit_textf("  .section .rodata\n");
-                { extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
-                  char _esc[4 * strlen(proc_names_buf[i] ? proc_names_buf[i] : "") + 1]; x86_asm_str_escape_c(proc_names_buf[i], _esc, sizeof _esc);
-                  emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc); }
-                if (pe->dyn_scope) {
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char *_pnk = pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : ""; char _esc[4 * strlen(_pnk) + 1]; x86_asm_str_escape_c(_pnk, _esc, sizeof _esc); emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, _esc); }
-                    emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
-                    emit_textf("  .quad 0\n");
-                }
-                if (_rkulex) {
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[4 * strlen(pe->lower_sc.e[k].name) + 1]; x86_asm_str_escape_c(pe->lower_sc.e[k].name, _esc, sizeof _esc); emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, _esc); }
-                    emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
-                    for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }
-                    emit_textf("  .quad 0\n");
-                }
-                IR_graph_t *_ig = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
-                int _ihas_p = m4_icn_name_tables_data(i, _ig);
-                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); char _esc[4 * strlen(pe->result_name) + 1]; x86_asm_str_escape_c(pe->result_name, _esc, sizeof _esc); emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc); }
-                emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
-                emit_textf("  .quad .Lstartup_pname%d\n", i);
-                if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5)); else emit_textf("  .quad %s\n", asm_fn_sym(proc_names_buf[i]));
-                if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i])); else emit_textf("  .quad 0\n");
-                if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i); else emit_textf("  .quad 0\n");
-                if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i); else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i); else if (_ihas_p) emit_textf("  .quad .Lstartup_ipnames%d\n", i); else emit_textf("  .quad 0\n");
-                emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
-                emit_textf("  .section .text\n");
-                emit_textf("  .intel_syntax noprefix\n");
-                emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
-                emit_textf("  call rt_proc_register_rec@PLT\n");
-                { char _nl[64]; snprintf(_nl, sizeof _nl, ".Lstartup_pname%d", i); m4_icn_name_tables_calls(i, _nl, _ig); }
-                { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _gpi = proc_pidx_buf[i]; int _gft2 = 0;
-                  if (_gpi >= 0 && _gpi < s2->proc_count) { int _ggi = s2->proc_table[_gpi].bb_idx; if (_ggi >= 0 && _ggi < s2->bbp.count && s2->bbp.table[_ggi]) _gft2 = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_gpi].is_generator, s2->bbp.table[_ggi]); }
-                  if (_gft2 > 0) {
+            {
+                static int _onereg = -1;
+                if (_onereg < 0) { const char *_e = getenv("SCRIP_ONE_REG"); _onereg = (_e && *_e == '0') ? 0 : 1; }
+                if (_onereg) {
+                    extern int rt_pl_dc_ok(const char *, int);
+                    int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));
+                    int _pin = proc_pidx_buf[i];
+                    int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
+                    int _rkflags =
+                        (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) |
+                        ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
+                    { extern int emit_thunk_self_save_k(stage2_t *, const char *); if (emit_thunk_self_save_k(s2, proc_names_buf[i]) >= 0) _rkflags |= 64; }
+                    {
+                        IR_graph_t *_pg4 = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
+                        extern int zls_g_entry_block(const IR_graph_t *);
+                        if (zls_g_entry_block(_pg4)) _rkflags |= 32;
+                    }
+                    int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
+                    emit_textf("  .section .rodata\n");
+                    {
+                        extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+                        char _esc[4 * strlen(proc_names_buf[i] ? proc_names_buf[i] : "") + 1];
+                        x86_asm_str_escape_c(proc_names_buf[i], _esc, sizeof _esc);
+                        emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc);
+                    }
+                    if (pe->dyn_scope) {
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) {
+                            extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+                            const char *_pnk = pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "";
+                            char _esc[4 * strlen(_pnk) + 1];
+                            x86_asm_str_escape_c(_pnk, _esc, sizeof _esc);
+                            emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, _esc);
+                        }
+                        emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
+                        emit_textf("  .quad 0\n");
+                    }
+                    if (_rkulex) {
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) if (pe->lower_sc.e[k].name) {
+                            extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+                            char _esc[4 * strlen(pe->lower_sc.e[k].name) + 1];
+                            x86_asm_str_escape_c(pe->lower_sc.e[k].name, _esc, sizeof _esc);
+                            emit_textf("  .Lstartup_qp%d_%d: .string \"%s\"\n", i, k, _esc);
+                        }
+                        emit_textf("  .align 8\n  .Lstartup_qparr%d:\n", i);
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) { if (pe->lower_sc.e[k].name) emit_textf("  .quad .Lstartup_qp%d_%d\n", i, k); else emit_textf("  .quad 0\n"); }
+                        emit_textf("  .quad 0\n");
+                    }
+                    IR_graph_t *_ig = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
+                    int _ihas_p = m4_icn_name_tables_data(i, _ig);
+                    if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) {
+                        extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+                        char _esc[4 * strlen(pe->result_name) + 1];
+                        x86_asm_str_escape_c(pe->result_name, _esc, sizeof _esc);
+                        emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc);
+                    }
+                    emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
+                    emit_textf("  .quad .Lstartup_pname%d\n", i);
+                    if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5));
+                    else emit_textf("  .quad %s\n", asm_fn_sym(proc_names_buf[i]));
+                    if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i]));
+                    else emit_textf("  .quad 0\n");
+                    if (pe->dyn_scope && pe->result_name && strcmp(pe->result_name, pe->name)) emit_textf("  .quad .Lstartup_prn%d\n", i);
+                    else emit_textf("  .quad 0\n");
+                    if (pe->dyn_scope) emit_textf("  .quad .Lstartup_pnames%d\n", i);
+                    else if (_rkulex) emit_textf("  .quad .Lstartup_qparr%d\n", i);
+                    else if (_ihas_p) emit_textf("  .quad .Lstartup_ipnames%d\n", i);
+                    else emit_textf("  .quad 0\n");
+                    emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
+                    emit_textf("  .section .text\n");
+                    emit_textf("  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
+                    emit_textf("  call rt_proc_register_rec@PLT\n");
+                    { char _nl[64]; snprintf(_nl, sizeof _nl, ".Lstartup_pname%d", i); m4_icn_name_tables_calls(i, _nl, _ig); }
+                    {
+                        extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *);
+                        int _gpi = proc_pidx_buf[i];
+                        int _gft2 = 0;
+                        if (_gpi >= 0 && _gpi < s2->proc_count) {
+                            int _ggi = s2->proc_table[_gpi].bb_idx;
+                            if (_ggi >= 0 && _ggi < s2->bbp.count && s2->bbp.table[_ggi]) _gft2 = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_gpi].is_generator, s2->bbp.table[_ggi]);
+                        }
+                        if (_gft2 > 0) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", _gft2); emit_textf("  call rt_proc_set_gen_region_ft@PLT\n"); }
+                    }
+                } else {
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
+                    if (pe->dyn_scope) {
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
+                        emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
+                        for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
+                        emit_textf("  .quad 0\n");
+                    }
+                    emit_textf("  .section .text\n");
+                    emit_textf("  .intel_syntax noprefix\n");
+                    if (pe->dyn_scope) {
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  lea rsi, [rip + .Lstartup_pnames%d]\n", i);
+                        emit_textf("  mov edx, %d\n", proc_nparams_buf[i]);
+                        emit_textf("  call rt_proc_register@PLT\n");
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, 1\n");
+                        emit_textf("  call rt_proc_set_dyn_scope@PLT\n");
+                        if (pe->result_name && strcmp(pe->result_name, pe->name)) {
+                            emit_textf("  .section .rodata\n  .Lstartup_prn%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, pe->result_name);
+                            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                            emit_textf("  lea rsi, [rip + .Lstartup_prn%d]\n", i);
+                            emit_textf("  call rt_proc_set_result_name@PLT\n");
+                        }
+                    }
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    emit_textf("  mov esi, %d\n", _gft2);
-                    emit_textf("  call rt_proc_set_gen_region_ft@PLT\n");
-                  } }
-            } else {
-            emit_textf("  .section .rodata\n");
-            emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, proc_names_buf[i]);
-            if (pe->dyn_scope) {
-                for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++)
-                    emit_textf("  .Lstartup_pp%d_%d: .string \"%s\"\n", i, k, pe->lower_sc.e[k].name ? pe->lower_sc.e[k].name : "");
-                emit_textf("  .align 8\n  .Lstartup_pnames%d:\n", i);
-                for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) emit_textf("  .quad .Lstartup_pp%d_%d\n", i, k);
-                emit_textf("  .quad 0\n");
-            }
-            emit_textf("  .section .text\n");
-            emit_textf("  .intel_syntax noprefix\n");
-            if (pe->dyn_scope) {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  lea rsi, [rip + .Lstartup_pnames%d]\n", i);
-                emit_textf("  mov edx, %d\n", proc_nparams_buf[i]);
-                emit_textf("  call rt_proc_register@PLT\n");
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, 1\n");
-                emit_textf("  call rt_proc_set_dyn_scope@PLT\n");
-                if (pe->result_name && strcmp(pe->result_name, pe->name)) {
-                    emit_textf("  .section .rodata\n  .Lstartup_prn%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, pe->result_name);
+                    if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(proc_names_buf[i] + 5));
+                    else emit_textf("  lea rsi, [rip + %s]\n", asm_fn_sym(proc_names_buf[i]));
+                    emit_textf("  call rt_proc_set_fn@PLT\n");
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    emit_textf("  lea rsi, [rip + .Lstartup_prn%d]\n", i);
-                    emit_textf("  call rt_proc_set_result_name@PLT\n");
+                    emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
+                    emit_textf("  call rt_proc_set_nparams@PLT\n");
+                    {
+                        int _pin = proc_pidx_buf[i];
+                        int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, %d\n", _nf);
+                        emit_textf("  call rt_proc_set_nformals@PLT\n");
+                    }
+                    {
+                        int _pi2 = proc_pidx_buf[i];
+                        if (_pi2 >= 0 && _pi2 < s2->proc_count) {
+                            ProcEntry *_pe = &s2->proc_table[_pi2];
+                            if (_pe->lex_startup && !_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
+                                const char *_pn = _pe->lower_sc.e[k].name;
+                                if (!_pn) continue;
+                                emit_textf("  .section .rodata\n  .Lstartup_qp%d_%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, k, _pn);
+                                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                                emit_textf("  mov esi, %d\n", k);
+                                emit_textf("  lea rdx, [rip + .Lstartup_qp%d_%d]\n", i, k);
+                                emit_textf("  call rt_proc_set_pname@PLT\n");
+                            }
+                        }
+                    }
+                    if (proc_fb_buf[i] > 0) {
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
+                        emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
+                    }
+                    {
+                        extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *);
+                        int _pig = proc_pidx_buf[i];
+                        int _gft = 0;
+                        if (_pig >= 0 && _pig < s2->proc_count) {
+                            int _gi2 = s2->proc_table[_pig].bb_idx;
+                            if (_gi2 >= 0 && _gi2 < s2->bbp.count && s2->bbp.table[_gi2]) _gft = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_pig].is_generator, s2->bbp.table[_gi2]);
+                        }
+                        if (_gft > 0) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", _gft); emit_textf("  call rt_proc_set_gen_region_ft@PLT\n"); }
+                    }
+                    if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, 1\n");
+                        emit_textf("  call rt_proc_set_zstatic@PLT\n");
+                    }
+                    if (pe->is_variadic) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, 1\n"); emit_textf("  call rt_proc_set_variadic@PLT\n"); }
+                    if (pe->rest_kind) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", pe->rest_kind); emit_textf("  call rt_proc_set_rest_kind@PLT\n"); }
+                    if (pe->named_rest) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", pe->named_rest); emit_textf("  call rt_proc_set_named_rest@PLT\n"); }
+                    {
+                        emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                        emit_textf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
+                        emit_textf("  call rt_proc_set_jmpentry@PLT\n");
+                        {
+                            extern int rt_pl_dc_ok(const char *, int);
+                            if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {
+                                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
+                                emit_textf("  lea rsi, [rip + %s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
+                                emit_textf("  call rt_proc_set_dcfn@PLT\n");
+                            }
+                        }
+                        if (pe->is_generator) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, 1\n"); emit_textf("  call rt_proc_set_generator@PLT\n"); }
+                    }
                 }
-            }
-            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-            if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  lea rsi, [rip + LBL__%s]\n", asm_sym_name(proc_names_buf[i] + 5));
-            else emit_textf("  lea rsi, [rip + %s]\n", asm_fn_sym(proc_names_buf[i]));
-            emit_textf("  call rt_proc_set_fn@PLT\n");
-            emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-            emit_textf("  mov esi, %d\n", proc_nparams_buf[i]);
-            emit_textf("  call rt_proc_set_nparams@PLT\n");
-            { int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
-              emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-              emit_textf("  mov esi, %d\n", _nf);
-              emit_textf("  call rt_proc_set_nformals@PLT\n"); }
-            { int _pi2 = proc_pidx_buf[i];
-              if (_pi2 >= 0 && _pi2 < s2->proc_count) { ProcEntry *_pe = &s2->proc_table[_pi2];
-                if (_pe->lex_startup && !_pe->dyn_scope) for (int k = 0; k < _pe->nparams && k < _pe->lower_sc.n; k++) {
-                    const char *_pn = _pe->lower_sc.e[k].name; if (!_pn) continue;
-                    emit_textf("  .section .rodata\n  .Lstartup_qp%d_%d: .string \"%s\"\n  .section .text\n  .intel_syntax noprefix\n", i, k, _pn);
-                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    emit_textf("  mov esi, %d\n", k);
-                    emit_textf("  lea rdx, [rip + .Lstartup_qp%d_%d]\n", i, k);
-                    emit_textf("  call rt_proc_set_pname@PLT\n");
-                } } }
-            if (proc_fb_buf[i] > 0) {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, %d\n", proc_fb_buf[i]);
-                emit_textf("  call rt_proc_set_frame_bytes@PLT\n");
-            }
-            { extern int emit_icn_n2_gen_region_ft(const char *, int, IR_graph_t *); int _pig = proc_pidx_buf[i]; int _gft = 0;
-              if (_pig >= 0 && _pig < s2->proc_count) { int _gi2 = s2->proc_table[_pig].bb_idx; if (_gi2 >= 0 && _gi2 < s2->bbp.count && s2->bbp.table[_gi2]) _gft = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_pig].is_generator, s2->bbp.table[_gi2]); }
-              if (_gft > 0) {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, %d\n", _gft);
-                emit_textf("  call rt_proc_set_gen_region_ft@PLT\n");
-              } }
-            if (proc_ispat_buf[i] && proc_zstatic_buf[i]) {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, 1\n");
-                emit_textf("  call rt_proc_set_zstatic@PLT\n");
-            }
-            if (pe->is_variadic) {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, 1\n");
-                emit_textf("  call rt_proc_set_variadic@PLT\n");
-            }
-            if (pe->rest_kind) {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, %d\n", pe->rest_kind);
-                emit_textf("  call rt_proc_set_rest_kind@PLT\n");
-            }
-            if (pe->named_rest) {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, %d\n", pe->named_rest);
-                emit_textf("  call rt_proc_set_named_rest@PLT\n");
             }
             {
-                emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                emit_textf("  mov esi, %d\n", strncmp(proc_names_buf[i], "gram__", 6) != 0);
-                emit_textf("  call rt_proc_set_jmpentry@PLT\n");
-                { extern int rt_pl_dc_ok(const char *, int); if (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i])) {
-                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    emit_textf("  lea rsi, [rip + %s_dc\xce\xb1]\n", asm_sym_name(proc_names_buf[i]));
-                    emit_textf("  call rt_proc_set_dcfn@PLT\n"); } }
-                if (pe->is_generator) {
-                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i);
-                    emit_textf("  mov esi, 1\n");
-                    emit_textf("  call rt_proc_set_generator@PLT\n");
-                }
+                IR_graph_t *_cg = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
+                if (_cg && _cg->caller_frame && _cg->nslots > 0)
+                    emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n  mov esi, %d\n  mov edx, %d\n  call rt_proc_set_frame@PLT\n", i, _cg->nslots - 1, pe->decl_level);
             }
-            } }
-            { IR_graph_t *_cg = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
-              if (_cg && _cg->caller_frame && _cg->nslots > 0) emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n  mov esi, %d\n  mov edx, %d\n  call rt_proc_set_frame@PLT\n", i, _cg->nslots - 1, pe->decl_level); }
         }
-        { int _mx = polyglot_main_bb_idx(s2); IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0; int _mpi = -1;
-          for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && !strcmp(s2->proc_table[_q].name, "main")) { _mpi = _q; break; }
-          if (_mpi >= 0 && icn_main_callable(s2, _rg)) { ProcEntry *_mp = &s2->proc_table[_mpi];
-              emit_textf("  .section .rodata\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad 0\n  .quad 0\n  .quad 0\n");
-              emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n  .long %d\n  .long %d\n", _mp->nparams, _mp->nformals, (_mp->is_variadic ? 4 : 0) | 16, _mp->rest_kind, _mp->named_rest);
-              emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n"); } }
+        {
+            int _mx = polyglot_main_bb_idx(s2);
+            IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
+            int _mpi = -1;
+            for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && !strcmp(s2->proc_table[_q].name, "main")) { _mpi = _q; break; }
+            if (_mpi >= 0 && icn_main_callable(s2, _rg)) {
+                ProcEntry *_mp = &s2->proc_table[_mpi];
+                emit_textf(
+                    "  .section .rodata\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad 0\n  .quad 0\n  .quad "
+                    "0\n");
+                emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n  .long %d\n  .long %d\n", _mp->nparams, _mp->nformals, (_mp->is_variadic ? 4 : 0) | 16, _mp->rest_kind, _mp->named_rest);
+                emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n");
+            }
+        }
         emit_textf("  add rsp, 8\n");
         emit_textf("  ret\n");
     }
@@ -1086,7 +1409,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int m4_icn_meta_present(stage2_t *s2) {
     extern int rt_icn_global_count(void);
-    int _mx = polyglot_main_bb_idx(s2); IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
+    int _mx = polyglot_main_bb_idx(s2);
+    IR_graph_t *_rg = (_mx >= 0 && _mx < s2->bbp.count) ? s2->bbp.table[_mx] : (IR_graph_t *)0;
     if (_rg && _rg->icn_cells_graph && ((_rg->lnames && _rg->nlocals > 0) || rt_icn_global_count() > 0)) return 1;
     return 0;
 }
@@ -1096,20 +1420,29 @@ static int m4_icn_name_tables_data(int i, IR_graph_t *g) {
     int has_p = (g->pnames && g->nparams > 0);
     if (has_p) {
         for (int k = 0; k < g->nparams; k++) {
-            const char *_nk = g->pnames[k] ? g->pnames[k] : ""; char e[4 * strlen(_nk) + 1]; x86_asm_str_escape_c(_nk, e, sizeof e); emit_textf("  .Lstartup_ipp%d_%d: .string \"%s\"\n", i, k, e); }
+            const char *_nk = g->pnames[k] ? g->pnames[k] : "";
+            char e[4 * strlen(_nk) + 1];
+            x86_asm_str_escape_c(_nk, e, sizeof e);
+            emit_textf("  .Lstartup_ipp%d_%d: .string \"%s\"\n", i, k, e);
+        }
         emit_textf("  .align 8\n  .Lstartup_ipnames%d:\n", i);
         for (int k = 0; k < g->nparams; k++) emit_textf("  .quad .Lstartup_ipp%d_%d\n", i, k);
         emit_textf("  .quad 0\n");
     }
     if (g->lnames && g->nlocals > 0) {
         for (int k = 0; k < g->nlocals; k++) {
-            const char *_nk = g->lnames[k] ? g->lnames[k] : ""; char e[4 * strlen(_nk) + 1]; x86_asm_str_escape_c(_nk, e, sizeof e); emit_textf("  .Lstartup_iln%d_%d: .string \"%s\"\n", i, k, e); }
+            const char *_nk = g->lnames[k] ? g->lnames[k] : "";
+            char e[4 * strlen(_nk) + 1];
+            x86_asm_str_escape_c(_nk, e, sizeof e);
+            emit_textf("  .Lstartup_iln%d_%d: .string \"%s\"\n", i, k, e);
+        }
         emit_textf("  .align 8\n  .Lstartup_ilnames%d:\n", i);
         for (int k = 0; k < g->nlocals; k++) emit_textf("  .quad .Lstartup_iln%d_%d\n", i, k);
         emit_textf("  .quad 0\n");
         emit_textf("  .align 4\n  .Lstartup_iloffs%d:\n", i);
         for (int k = 0; k < g->nlocals; k++) {
-            int off = -1; const char *ln = g->lnames[k];
+            int off = -1;
+            const char *ln = g->lnames[k];
             if (ln && g->vslots) for (int v = 0; v < g->n_vslots; v++) if (g->vslots[v].name && !strcmp(g->vslots[v].name, ln)) { off = g->vslots[v].off; break; }
             emit_textf("  .long %d\n", off);
         }
@@ -1136,142 +1469,259 @@ static void icn_register_locals(const char *pname, IR_graph_t *g) {
     if (!offs) return;
     for (int k = 0; k < g->nlocals; k++) {
         offs[k] = -1;
-        const char *ln = g->lnames[k]; if (!ln) continue;
+        const char *ln = g->lnames[k];
+        if (!ln) continue;
         for (int v = 0; v < nv; v++) { int off = -1; const char *vn = zls_g_vslot_get(g, v, &off); if (vn && off >= 0 && !strcmp(vn, ln)) { offs[k] = off; break; } }
     }
     rt_proc_set_local_offs(pname, offs, g->nlocals);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int main(int argc, char **argv)
-{
-    if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) {
-        fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n");
-        return 1;
-    }
-    int mode_run           = 0;
-    int opt_no_exec = 0, opt_input_after_end = 0; const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0; long opt_heap_win_kb = 0, opt_heap_cap_kb = 0, opt_stack_bytes = 0;
-    int mode_compile       = 0;
-    int dump_ast           = 0;
-    int dump_ir            = 0;
-    int dump_bb            = 0;
-    int dump_ir_verbose    = 0;
-    int dump_zeta          = 0;
-    int dump_transpile     = 0;
-    int opt_bench          = 0;
-    int opt_pp_only        = 0;
+int main(int argc, char **argv) {
+    if (argc >= 3 && strcmp(argv[1], "--audit-per-kind") == 0) { fprintf(stderr, "scrip: --audit-per-kind unavailable (audit tool unlinked)\n"); return 1; }
+    int mode_run = 0;
+    int opt_no_exec = 0, opt_input_after_end = 0;
+    const char *opt_host_u = (const char *)0, *opt_terminal_file = (const char *)0;
+    long opt_heap_win_kb = 0, opt_heap_cap_kb = 0, opt_stack_bytes = 0;
+    int mode_compile = 0;
+    int dump_ast = 0;
+    int dump_ir = 0;
+    int dump_bb = 0;
+    int dump_ir_verbose = 0;
+    int dump_zeta = 0;
+    int dump_transpile = 0;
+    int opt_bench = 0;
+    int opt_pp_only = 0;
     const char * target_name = NULL;
     const char * output_path = NULL;
-    const char *preload_path[argc > 0 ? argc : 1]; int n_preload = 0;
+    const char *preload_path[argc > 0 ? argc : 1];
+    int n_preload = 0;
     int argi = 1;
-    for (;;) { int before_argi = argi;
-    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
-        if      (strcmp(argv[argi], "--run")           == 0) { mode_run       = 1; argi++; }
-        else if (strcmp(argv[argi], "--compile")       == 0) { mode_compile   = 1; if (!target_name) target_name = "x86"; argi++; }
-        else if (strncmp(argv[argi], "--target=", 9)   == 0) { target_name = argv[argi] + 9; mode_compile = 1; argi++; }
-        else if (strcmp(argv[argi], "--syntax")        == 0) { extern int rk_syntax_file(const char *path); if (argi + 1 >= argc) { fprintf(stderr, "scrip: --syntax needs a Raku source file\n");
-            return 2; } { const char *sx = strrchr(argv[argi + 1], '.'); if (!sx || (strcmp(sx, ".raku") && strcmp(sx, ".t") && strcmp(sx, ".rakumod") && strcmp(sx, ".rakutest") && strcmp(sx,
-            ".pm6") && strcmp(sx, ".p6"))) { fprintf(stderr, "scrip: --syntax checks Raku sources only (.raku .rakumod .rakutest .t .pm6 .p6); '%s' is not one\n", argv[argi + 1]); return 2;
-            } } return rk_syntax_file(argv[argi + 1]); }
-        else if (strcmp(argv[argi], "--dump-ast")      == 0) { dump_ast       = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-ir-verbose") == 0) { dump_ir = 1; dump_ir_verbose = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-ir")       == 0) { dump_ir        = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-bb")       == 0) { dump_bb        = 1; argi++; }
-        else if (strcmp(argv[argi], "--dump-zeta")     == 0) { dump_zeta      = 1; argi++; }
-        else if (strcmp(argv[argi], "--transpile")     == 0) { dump_transpile = 1; argi++; }
-        else if (strcmp(argv[argi], "--bench")         == 0) { opt_bench      = 1; argi++; }
-        else if (strcmp(argv[argi], "--stlimit")       == 0) { setenv("SCRIP_SNO_STMTKW", "1", 1); argi++; }
-        else if (strncmp(argv[argi], "--compat=", 9)   == 0) { fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n"); return 2; }
-        else if (strcmp(argv[argi], "--monitor")       == 0) { extern int g_monitor_bin; g_monitor_bin = 1; setenv("SCRIP_SNO_STMTKW", "1", 1); argi++; }
-        else if (strcmp(argv[argi], "--no-monitor")    == 0) { extern int g_monitor_bin; g_monitor_bin = 0; argi++; }
-        else if (strcmp(argv[argi], "--trace")         == 0) { setenv("SCRIP_SNO_STMTKW", "1", 1); extern long g_trace_budget; extern int64_t kw_trace; g_trace_budget = 2000000000L; kw_trace = 2000000000L; argi++; }
-        else if (strncmp(argv[argi], "--trace=", 8)    == 0) { setenv("SCRIP_SNO_STMTKW", "1", 1); extern long g_trace_budget; extern int64_t kw_trace; g_trace_budget = atol(argv[argi] + 8); kw_trace = (int64_t) g_trace_budget; argi++; }
-        else break;
+    for (;;) {
+        int before_argi = argi;
+        while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == '-') {
+            if (strcmp(argv[argi], "--run") == 0) {
+                mode_run = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--compile") == 0) {
+                mode_compile = 1;
+                if (!target_name) target_name = "x86";
+                argi++;
+            } else if (strncmp(argv[argi], "--target=", 9) == 0) {
+                target_name = argv[argi] + 9;
+                mode_compile = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--syntax") == 0) {
+                extern int rk_syntax_file(const char *path);
+                if (argi + 1 >= argc) { fprintf(stderr, "scrip: --syntax needs a Raku source file\n"); return 2; }
+                {
+                    const char *sx = strrchr(argv[argi + 1], '.');
+                    if (!sx || (strcmp(sx, ".raku") && strcmp(sx, ".t") && strcmp(sx, ".rakumod") && strcmp(sx, ".rakutest") && strcmp(sx, ".pm6") && strcmp(sx, ".p6"))) {
+                        fprintf(stderr, "scrip: --syntax checks Raku sources only (.raku .rakumod .rakutest .t .pm6 .p6); '%s' is not one\n", argv[argi + 1]);
+                        return 2;
+                    }
+                }
+                return rk_syntax_file(argv[argi + 1]);
+            } else if (strcmp(argv[argi], "--dump-ast") == 0) {
+                dump_ast = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--dump-ir-verbose") == 0) {
+                dump_ir = 1;
+                dump_ir_verbose = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--dump-ir") == 0) {
+                dump_ir = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--dump-bb") == 0) {
+                dump_bb = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--dump-zeta") == 0) {
+                dump_zeta = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--transpile") == 0) {
+                dump_transpile = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--bench") == 0) {
+                opt_bench = 1;
+                argi++;
+            } else if (strcmp(argv[argi], "--stlimit") == 0) {
+                setenv("SCRIP_SNO_STMTKW", "1", 1);
+                argi++;
+            } else if (strncmp(argv[argi], "--compat=", 9) == 0) {
+                fprintf(stderr, "scrip: --compat is retired -- SPITBOL (sbl -bf) is the one SNOBOL4 oracle and its feature list the baseline (Lon 2026-09-07)\n");
+                return 2;
+            } else if (strcmp(argv[argi], "--monitor") == 0) {
+                extern int g_monitor_bin;
+                g_monitor_bin = 1;
+                setenv("SCRIP_SNO_STMTKW", "1", 1);
+                argi++;
+            } else if (strcmp(argv[argi], "--no-monitor") == 0) {
+                extern int g_monitor_bin;
+                g_monitor_bin = 0;
+                argi++;
+            } else if (strcmp(argv[argi], "--trace") == 0) {
+                setenv("SCRIP_SNO_STMTKW", "1", 1);
+                extern long g_trace_budget;
+                extern int64_t kw_trace;
+                g_trace_budget = 2000000000L;
+                kw_trace = 2000000000L;
+                argi++;
+            } else if (strncmp(argv[argi], "--trace=", 8) == 0) {
+                setenv("SCRIP_SNO_STMTKW", "1", 1);
+                extern long g_trace_budget;
+                extern int64_t kw_trace;
+                g_trace_budget = atol(argv[argi] + 8);
+                kw_trace = (int64_t) g_trace_budget;
+                argi++;
+            } else break;
+        }
+        while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == 'L') {
+            const char * lp = argv[argi] + 2;
+            if (*lp == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -L needs a source file\n"); return 2; } lp = argv[++argi]; }
+            preload_path[n_preload++] = lp;
+            argi++;
+        }
+        while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthekE0123456789", argv[argi][1])) {
+            char sw = argv[argi][1];
+            const char *rest = argv[argi] + 2;
+            long v;
+            if (sw == 'o' && *rest == '=') { setenv("SCRIP_SNO_LIST_SINK", rest + 1, 1); argi++; continue; }
+            if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }
+            if (sw == 'E' && *rest == '\0') { opt_pp_only = 1; argi++; continue; }
+            if (sw == 'n') { opt_no_exec = 1; argi++; continue; }
+            if (sw == 'r') { opt_input_after_end = 1; argi++; continue; }
+            if (sw == 'b' || sw == 'f') { argi++; continue; }
+            if (sw == 'x') { opt_bench = 1; argi++; continue; }
+            if (sw == 'u') {
+                if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -u needs a string (SPITBOL: -u \"string\" is what HOST(0) returns)\n"); return 2; } rest = argv[++argi]; }
+                opt_host_u = rest;
+                argi++;
+                continue;
+            }
+            if (sw == 'T') {
+                if (*rest != '=' || rest[1] == '\0') { fprintf(stderr, "scrip: -T needs =file (SPITBOL: -T=file writes TERMINAL output to the file)\n"); return 2; }
+                opt_terminal_file = rest + 1;
+                argi++;
+                continue;
+            }
+            if (sw >= '0' && sw <= '9') {
+                long chn = strtol(argv[argi] + 1, (char **)&rest, 10);
+                if (*rest != '=' || rest[1] == '\0') { fprintf(stderr, "scrip: -%ld needs =file (SPITBOL: -#=file associates the file with I/O channel #)\n", chn); return 2; }
+                { extern void rt_io_chan_prebind(int, const char *); rt_io_chan_prebind((int)chn, rest + 1); }
+                argi++;
+                continue;
+            }
+            if (sw == 'F') {
+                fprintf(stderr,
+                    "scrip: -F (fold source case) is refused: SNOBOL4 and Snocone are case-sensitive in SCRIP by law (2026-09-08) and SCRIP carries no compatibility switches; Lon 2026-09-23 (CEO-122"
+                    "7): reject -F with stated reason\n");
+                return 2;
+            }
+            if (sw == 'y') { fprintf(stderr, "scrip: -y (write a save .spx file) is refused: SCRIP writes no save file; rejected for now (Lon 2026-09-23, CEO-1227)\n"); return 2; }
+            if (sw == 'k') {
+                fprintf(stderr,
+                    "scrip: -k (run with compilation errors) is refused: SCRIP compiles the whole program to machine code and does not run one that failed to compile; the switch is refused, not igno"
+                    "red\n");
+                return 2;
+            }
+            if (sw == 'c' || sw == 'a' || sw == 'l' || sw == 'p' || sw == 'z' || sw == 'g' || sw == 't' || sw == 'h' || sw == 'e') {
+                fprintf(stderr,
+                    "scrip: -%c is a SPITBOL compilation-listing or compiler-statistics switch and SCRIP produces no listing; the switch is refused, not ignored (-x, execution statistics, is honoure"
+                    "d)\n", sw);
+                return 2;
+            }
+            if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -%c needs a value\n", sw); return 2; } rest = argv[++argi]; }
+            v = parse_mem_arg(rest);
+            if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
+            if (sw == 's') {
+                if (v < 65536L) { fprintf(stderr, "scrip: -s%ld: the stack must be at least 64k\n", v); return 2; }
+                opt_stack_bytes = v;
+            } else if (sw == 'm') {
+                extern long g_maxlngth;
+                g_maxlngth = v;
+            } else if (sw == 'd') {
+                opt_heap_cap_kb = v >> 10;
+                if (opt_heap_cap_kb < 1) { fprintf(stderr, "scrip: -d%ld: the maximum heap must be at least 1k\n", v); return 2; }
+            } else if (sw == 'i') {
+                opt_heap_win_kb = v >> 10;
+                if (opt_heap_win_kb < 1) { fprintf(stderr, "scrip: -i%ld: the initial heap must be at least 1k\n", v); return 2; }
+            }
+            argi++;
+        }
+        if (argi == before_argi) break;
     }
-    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] == 'L') {
-        const char * lp = argv[argi] + 2;
-        if (*lp == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -L needs a source file\n"); return 2; } lp = argv[++argi]; }
-        preload_path[n_preload++] = lp; argi++;
+    for (int oi = argi; oi < argc; oi++) {
+        if (strcmp(argv[oi], "--") == 0) break;
+        if (argv[oi][0] == '-' && argv[oi][1] == 'o') {
+            int eat = 1;
+            if (argv[oi][2] != '\0') output_path = argv[oi] + 2;
+            else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; }
+            for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat];
+            argc -= eat;
+            oi--;
+        }
     }
-    while (argi < argc && argv[argi][0] == '-' && argv[argi][1] != '-' && argv[argi][1] != '\0' && strchr("sdimonurbfTFycxalpzgthekE0123456789", argv[argi][1])) {
-        char sw = argv[argi][1]; const char *rest = argv[argi] + 2; long v;
-        if (sw == 'o' && *rest == '=') { setenv("SCRIP_SNO_LIST_SINK", rest + 1, 1); argi++; continue; }
-        if (sw == 'o') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } rest = argv[++argi]; } output_path = rest; argi++; continue; }
-        if (sw == 'E' && *rest == '\0') { opt_pp_only = 1; argi++; continue; }
-        if (sw == 'n') { opt_no_exec = 1; argi++; continue; }
-        if (sw == 'r') { opt_input_after_end = 1; argi++; continue; }
-        if (sw == 'b' || sw == 'f') { argi++; continue; }
-        if (sw == 'x') { opt_bench = 1; argi++; continue; }
-        if (sw == 'u') { if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -u needs a string (SPITBOL: -u \"string\" is what HOST(0) returns)\n"); return 2; } rest = argv[++argi]; } opt_host_u = rest; argi++; continue; }
-        if (sw == 'T') { if (*rest != '=' || rest[1] == '\0') { fprintf(stderr, "scrip: -T needs =file (SPITBOL: -T=file writes TERMINAL output to the file)\n"); return 2; } opt_terminal_file = rest + 1; argi++; continue; }
-        if (sw >= '0' && sw <= '9') { long chn = strtol(argv[argi] + 1, (char **)&rest, 10); if (*rest != '=' || rest[1] == '\0') { fprintf(stderr, "scrip: -%ld needs =file (SPITBOL: -#=file associates the file with I/O channel #)\n", chn); return 2; } { extern void rt_io_chan_prebind(int, const char *); rt_io_chan_prebind((int)chn, rest + 1); } argi++; continue; }
-        if (sw == 'F') { fprintf(stderr, "scrip: -F (fold source case) is refused: SNOBOL4 and Snocone are case-sensitive in SCRIP by law (2026-09-08) and SCRIP carries no compatibility switches; Lon 2026-09-23 (CEO-1227): reject -F with stated reason\n"); return 2; }
-        if (sw == 'y') { fprintf(stderr, "scrip: -y (write a save .spx file) is refused: SCRIP writes no save file; rejected for now (Lon 2026-09-23, CEO-1227)\n"); return 2; }
-        if (sw == 'k') { fprintf(stderr, "scrip: -k (run with compilation errors) is refused: SCRIP compiles the whole program to machine code and does not run one that failed to compile; the switch is refused, not ignored\n"); return 2; }
-        if (sw == 'c' || sw == 'a' || sw == 'l' || sw == 'p' || sw == 'z' || sw == 'g' || sw == 't' || sw == 'h' || sw == 'e') { fprintf(stderr, "scrip: -%c is a SPITBOL compilation-listing or compiler-statistics switch and SCRIP produces no listing; the switch is refused, not ignored (-x, execution statistics, is honoured)\n", sw); return 2; }
-        if (*rest == '\0') { if (argi + 1 >= argc) { fprintf(stderr, "scrip: -%c needs a value\n", sw); return 2; } rest = argv[++argi]; }
-        v = parse_mem_arg(rest); if (v < 0) { fprintf(stderr, "scrip: bad -%c value '%s' (want e.g. 256m, 20m, 65536)\n", sw, rest); return 2; }
-        if (sw == 's') { if (v < 65536L) { fprintf(stderr, "scrip: -s%ld: the stack must be at least 64k\n", v); return 2; } opt_stack_bytes = v; }
-        else if (sw == 'm') { extern long g_maxlngth; g_maxlngth = v; }
-        else if (sw == 'd') { opt_heap_cap_kb = v >> 10; if (opt_heap_cap_kb < 1) { fprintf(stderr, "scrip: -d%ld: the maximum heap must be at least 1k\n", v); return 2; } }
-        else if (sw == 'i') { opt_heap_win_kb = v >> 10; if (opt_heap_win_kb < 1) { fprintf(stderr, "scrip: -i%ld: the initial heap must be at least 1k\n", v); return 2; } }
-        argi++;
-    }
-    if (argi == before_argi) break; }
-    for (int oi = argi; oi < argc; oi++) { if (strcmp(argv[oi], "--") == 0) break; if (argv[oi][0] == '-' && argv[oi][1] == 'o') { int eat = 1; if (argv[oi][2] != '\0') output_path = argv[oi] + 2; else { if (oi + 1 >= argc || strcmp(argv[oi+1], "--") == 0) { fprintf(stderr, "scrip: -o needs a filename\n"); return 2; } output_path = argv[oi+1]; eat = 2; } for (int mj = oi; mj + eat < argc; mj++) argv[mj] = argv[mj + eat]; argc -= eat; oi--; } }
     if (opt_pp_only) {
-        extern int icn_pp_echo(const char *path); extern void icn_pp_set_source_path(const char *path);
+        extern int icn_pp_echo(const char *path);
+        extern void icn_pp_set_source_path(const char *path);
         int fatals = 0, nfiles = 0;
         for (; argi < argc && strcmp(argv[argi], "--") != 0; argi++) {
             const char *ext = strrchr(argv[argi], '.');
             if (strcmp(argv[argi], "-") != 0 && (!ext || strcasecmp(ext, ".icn") != 0)) {
-                fprintf(stderr, "scrip: -E (preprocess only) is Icon's switch, as icont's -E; %s is not an Icon source\n", argv[argi]); return 2; }
+                fprintf(stderr, "scrip: -E (preprocess only) is Icon's switch, as icont's -E; %s is not an Icon source\n", argv[argi]);
+                return 2;
+            }
             icn_pp_set_source_path(argv[argi]);
-            int n = icn_pp_echo(argv[argi]); if (n < 0) return 1;
-            fatals += n; nfiles++;
+            int n = icn_pp_echo(argv[argi]);
+            if (n < 0) return 1;
+            fatals += n;
+            nfiles++;
         }
         if (nfiles == 0) { fprintf(stderr, "scrip: -E needs an Icon source file\n"); return 2; }
         fflush(stdout);
-        if (fatals == 1) fprintf(stderr, "1 error\n"); else if (fatals > 1) fprintf(stderr, "%d errors\n", fatals); else fprintf(stderr, "No errors\n");
+        if (fatals == 1) fprintf(stderr, "1 error\n");
+        else if (fatals > 1) fprintf(stderr, "%d errors\n", fatals);
+        else fprintf(stderr, "No errors\n");
         return fatals ? 1 : 0;
     }
     int mode_compile_x86 = (mode_compile && target_name && strcmp(target_name, "x86") == 0);
-    if (mode_compile_x86 && mode_run) {
-        fprintf(stderr, "scrip: --compile (x86) is mutually exclusive with --run\n");
-        return 1;
+    if (mode_compile_x86 && mode_run) { fprintf(stderr, "scrip: --compile (x86) is mutually exclusive with --run\n"); return 1; }
+    if (!mode_run && !mode_compile) mode_run = 1;
+    {
+        extern void rt_host_u_set(const char *);
+        extern void rt_terminal_to_file(const char *);
+        extern void rt_heap_size_set(long, long);
+        rt_host_u_set(opt_host_u);
+        if (opt_terminal_file) rt_terminal_to_file(opt_terminal_file);
+        if (opt_heap_win_kb > 0 || opt_heap_cap_kb > 0) rt_heap_size_set(opt_heap_win_kb, opt_heap_cap_kb);
     }
-    if (!mode_run && !mode_compile)
-        mode_run = 1;
-    { extern void rt_host_u_set(const char *); extern void rt_terminal_to_file(const char *); extern void rt_heap_size_set(long, long); rt_host_u_set(opt_host_u); if (opt_terminal_file) rt_terminal_to_file(opt_terminal_file); if (opt_heap_win_kb > 0 || opt_heap_cap_kb > 0) rt_heap_size_set(opt_heap_win_kb, opt_heap_cap_kb); }
-    { const char *_pm = getenv("SCRIP_PERF_MAP");
-      if (_pm && *_pm && *_pm != '0')
-          fprintf(stderr, "[PERF-MAP] %s: /tmp/perf-%d.map (perf jit convention; ⛔ APPEND -- delete a stale map for this pid before profiling)\n",
-                  mode_run ? "mode-3 graph names will be written to" : "⛔ NOT written: --compile is mode-4, which already has real symbols; expected", (int)getpid()); }
-    static const struct { const char *ext; const char *lang; int sno, non_sno, scrip, prolog, icon, raku, pascal; } scrip_exts[] = {
-        { ".sno", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".spt", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".sbl", "SNOBOL4", 1,0,0,0,0,0,0 },
-        { ".sc", "Snocone", 1,1,0,0,0,0,0 },  { ".reb", "Rebus", 1,1,0,0,0,0,0 },   { ".icn", "Icon", 0,1,0,0,1,0,0 },
-        { ".pl", "Prolog", 0,1,0,1,0,0,0 },   { ".raku", "Raku", 0,1,0,0,0,1,0 },   { ".pas", "Pascal", 0,0,0,0,0,0,1 },
-        { ".scrip", "polyglot", 0,1,1,0,0,0,0 }, { ".md", "polyglot", 0,1,1,0,0,0,0 } };
+    {
+        const char *_pm = getenv("SCRIP_PERF_MAP");
+        if (_pm && *_pm && *_pm != '0')
+            fprintf(stderr, "[PERF-MAP] %s: /tmp/perf-%d.map (perf jit convention; ⛔ APPEND -- delete a stale map for this pid before profiling)\n",
+            mode_run ? "mode-3 graph names will be written to" : "⛔ NOT written: --compile is mode-4, which already has real symbols; expected", (int)getpid());
+    }
+    static const struct {
+        const char *ext;
+        const char *lang;
+        int sno, non_sno, scrip, prolog, icon, raku, pascal;
+    } scrip_exts[] = { { ".sno", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".spt", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".sbl", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".sc", "Snocone", 1,1,0,0,0,0,0 }, { ".reb", "Rebus", 1,1,0,
+        0,0,0,0 }, { ".icn", "Icon", 0,1,0,0,1,0,0 }, { ".pl", "Prolog", 0,1,0,1,0,0,0 }, { ".raku", "Raku", 0,1,0,0,0,1,0 }, { ".pas", "Pascal", 0,0,0,0,0,0,1 }, { ".scrip", "polyglot", 0,1,1,0,0,0,
+        0 }, { ".md", "polyglot", 0,1,1,0,0,0,0 } };
     const int scrip_next = (int)(sizeof scrip_exts / sizeof scrip_exts[0]);
     if (argi >= argc) {
         fprintf(stderr,
-            "usage: scrip [mode] [options] <file> [-- program-args...]\n"
-            "\n"
-            "Execution modes (default: --run):\n"
-            "  --run            build flat-wired x86 BB blobs in a sealed slab and jump in  [DEFAULT]\n"
-            "  --compile        emit standalone x86-64 asm to stdout (links libscrip_rt.so)\n"
-            "  --target=ARCH    emit code for the named backend (x86, jvm, js, wasm); implies --compile\n"
-            "\n"
-            "Diagnostic options:\n"
-            "  --dump-ast       print AST after frontend\n"
+            "usage: scrip [mode] [options] <file> [-- program-args...]\n" "\n" "Execution modes (default: --run):\n"
+            "  --run            build flat-wired x86 BB blobs in a sealed slab and jump in  [DEFAULT]\n" "  --compile        emit standalone x86-64 asm to stdout (links libscrip_rt.so)\n"
+            "  --target=ARCH    emit code for the named backend (x86, jvm, js, wasm); implies --compile\n" "\n" "Diagnostic options:\n" "  --dump-ast       print AST after frontend\n"
             "  --syntax FILE    check a Raku source file's syntax only (as raku -c): rc 0 accept, rc 1 reject with the error, rc 2 not a Raku file\n"
             "  --dump-ir        print IR/BB-graph for each proc (terse: slot/op refs only)\n"
             "  --dump-bb        print the Byrd-box graph as JSON (boxes + gamma/omega port edges) for tools/bb_viewer.html\n"
             "  --dump-ir-verbose  same, plus node-id alongside each slot and the legend line\n"
-            "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n"
-            "  --transpile      transpile AST to portable SNOBOL4 source\n"
+            "  --dump-zeta      print the ZB-2 zeta layout table: scope tree, typed field maps, vslots (post-optimizer)\n" "  --transpile      transpile AST to portable SNOBOL4 source\n"
             "  --bench          print wall-clock time after execution\n"
-            "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variable tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace imply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n"
-            "\n"
+            "  --stlimit        the instrumentation switch, every language: SNOBOL4 &STLIMIT enforcement, &STCOUNT, &STNO/&LASTNO/&LINE/&LASTLINE, keyword and label TRACE, the per-assignment variabl"
+            "e tap, and every call/return/fail/suspend/resume trace hook the monitor reads (off by default; never inferred from the source, since EVAL and CODE can use them; --monitor and --trace im"
+            "ply it; SCRIP_SNO_STMTKW=1 in the environment is the same switch, which is how the correctness graders ask for it; benchmarks do not)\n" "\n"
             "Memory options (SPITBOL-compatible; value may end in k or m, e.g. -s256m -m8m):\n"
             "  -sN              the program's stack (SPITBOL -s#; default 4m, SPITBOL's; the compiler itself runs on its own 64m)\n"
             "  -mN              max object size -> &MAXLNGTH (default 16m, SPITBOL's)\n"
@@ -1279,23 +1729,17 @@ int main(int argc, char **argv)
             "  -iN              initial heap and enlarge amount: the first committed window and the least each growth commits (SPITBOL -i#; default 1m, SPITBOL's)\n"
             "                   -d -i -s -m -u reach a compiled (--compile) program the same way, as leading well-formed switches on its own\n"
             "                   command line; -- ends them; the first token that is not one is the program's first argument, and the program\n"
-            "                   never sees the switches it consumed\n"
-            "\n"
-            "SPITBOL switches (sbl -h, each with SPITBOL's meaning; Lon 2026-09-23, CEO-1224/1227):\n"
+            "                   never sees the switches it consumed\n" "\n" "SPITBOL switches (sbl -h, each with SPITBOL's meaning; Lon 2026-09-23, CEO-1224/1227):\n"
             "  -n               compile, suppress execution (exit 231 as sbl does)\n"
             "  -u \"string\"      the string HOST(0) returns (null without -u; a compiled program takes a leading -u string too)\n"
-            "  -r               INPUT reads the source file after the END statement\n"
-            "  -T=file          TERMINAL output to the file\n"
+            "  -r               INPUT reads the source file after the END statement\n" "  -T=file          TERMINAL output to the file\n"
             "  -#=file          associate the file with I/O channel # (INPUT(.v,#) / OUTPUT(.v,#) then open it)\n"
-            "  -b -f            no signon message, do not fold case: SCRIP's behaviour already, accepted\n"
-            "  -x               execution statistics (SCRIP's --bench)\n"
+            "  -b -f            no signon message, do not fold case: SCRIP's behaviour already, accepted\n" "  -x               execution statistics (SCRIP's --bench)\n"
             "  -E               Icon: preprocess only, as icont -E -- the text on stdout, each file's name, its diagnostics and the error count on stderr\n"
             "  -F -y -k         REFUSED with a stated reason (case folding; save files; running with compilation errors)\n"
             "  -c -a -l -p -z -g# -t# -h -e   compiler-statistics switches: SCRIP produces none of these, REFUSED with the reason\n"
-            "  -o=file          SPITBOL's listing-sink switch: -LIST/-NOLIST output goes to file instead of stdout (SCRIP_SNO_LIST_SINK=file is the same switch)\n"
-            "\n"
-            "Frontend inferred from file extension; an extension not in this list is REFUSED (rc=2), never guessed at:\n"
-        );
+            "  -o=file          SPITBOL's listing-sink switch: -LIST/-NOLIST output goes to file instead of stdout (SCRIP_SNO_LIST_SINK=file is the same switch)\n" "\n"
+            "Frontend inferred from file extension; an extension not in this list is REFUSED (rc=2), never guessed at:\n" );
         for (int ei = 0; ei < scrip_next; ei++) fprintf(stderr, "  %-7s %-9s%s", scrip_exts[ei].ext, scrip_exts[ei].lang, (ei % 3) == 2 || ei == scrip_next - 1 ? "\n" : "");
         fprintf(stderr, "  %-7s %-9s\n", "(none)", "SNOBOL4");
         return 1;
@@ -1303,7 +1747,8 @@ int main(int argc, char **argv)
     extern void sno_add_include_dir(const char *d);
     struct timespec _t0, _t1, _t2, _t3;
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t0);
-    int first_file_argi = argi; (void)first_file_argi;
+    int first_file_argi = argi;
+    (void)first_file_argi;
     int has_non_sno = 0;
     int is_prolog = 0;
     int is_icon = 0;
@@ -1312,56 +1757,45 @@ int main(int argc, char **argv)
     int is_scrip = 0;
     for (int fi = argi; fi < argc; fi++) {
         if (strcmp(argv[fi], "--") == 0) break;
-        const char *bn = strrchr(argv[fi], '/'); bn = bn ? bn + 1 : argv[fi];
+        const char *bn = strrchr(argv[fi], '/');
+        bn = bn ? bn + 1 : argv[fi];
         const char *d = strrchr(bn, '.');
         if (!d) { saw_sno = 1; continue; }
-        int ei = 0; while (ei < scrip_next && strcasecmp(d, scrip_exts[ei].ext) != 0) ei++;
+        int ei = 0;
+        while (ei < scrip_next && strcasecmp(d, scrip_exts[ei].ext) != 0) ei++;
         if (ei == scrip_next) {
             if (argv[fi][0] == '-') { saw_sno = 1; continue; }
-            fprintf(stderr, "scrip: %s: unknown source extension '%s'. The frontend is inferred from the extension, so an extension in no list selects no path -- refusing rather than guessing one. Known extensions:\n", argv[fi], d);
+            fprintf(stderr,
+                "scrip: %s: unknown source extension '%s'. The frontend is inferred from the extension, so an extension in no list selects no path -- refusing rather than guessing one. Known extensi"
+                "ons:\n", argv[fi], d);
             for (int kj = 0; kj < scrip_next; kj++) fprintf(stderr, "  %-7s %-9s%s", scrip_exts[kj].ext, scrip_exts[kj].lang, (kj % 3) == 2 || kj == scrip_next - 1 ? "\n" : "");
             fprintf(stderr, "  %-7s %-9s\n", "(none)", "SNOBOL4");
             return 2;
         }
         if (scrip_exts[ei].non_sno) has_non_sno = 1;
-        if (scrip_exts[ei].scrip)   is_scrip   = 1;
-        if (scrip_exts[ei].prolog)  is_prolog  = 1;
-        if (scrip_exts[ei].icon)    is_icon    = 1;
-        if (scrip_exts[ei].raku)    is_raku    = 1;
-        if (scrip_exts[ei].sno)     saw_sno    = 1;
+        if (scrip_exts[ei].scrip) is_scrip = 1;
+        if (scrip_exts[ei].prolog) is_prolog = 1;
+        if (scrip_exts[ei].icon) is_icon = 1;
+        if (scrip_exts[ei].raku) is_raku = 1;
+        if (scrip_exts[ei].sno) saw_sno = 1;
     }
     int is_sno_bb = (saw_sno || is_scrip);
     cv_t segs_v = {0};
-    #define segs ((lower_seg_t *)segs_v.p)
+#define segs ((lower_seg_t *)segs_v.p)
     int nsegs = 0;
-    tree_t  *ast_prog = NULL;
-    #define RECORD_SEG(sub_ast, seg_fn) do { \
-        if (sub_ast) { cv_reserve(&segs_v, (uint32_t)sizeof(lower_seg_t), (uint64_t)nsegs + 1, "segs"); \
-            tree_t *_sp = ct_zalloc(1, sizeof(tree_t)); \
-            if (_sp) { _sp->t = TT_PROGRAM; \
-                for (int _si = 0; _si < (sub_ast)->n; _si++) if ((sub_ast)->c[_si]) ast_push(_sp, (sub_ast)->c[_si]); \
-                segs[nsegs].prog = _sp; segs[nsegs].fn = (seg_fn); nsegs++; } } \
-    } while(0)
-    #define MERGE_AST(sub_ast) do { \
-        if (sub_ast) { \
-            if (!ast_prog) { ast_prog = sub_ast; } \
-            else { \
-                if (ast_prog->n > 0) { \
-                    tree_t *_last = ast_prog->c[ast_prog->n-1]; \
-                    if (_last && _last->t == TT_END) ast_prog->n--; \
-                } \
-                for (int _i = 0; _i < (sub_ast)->n; _i++) { \
-                    ast_push(ast_prog, (sub_ast)->c[_i]); \
-                } \
-                if ((sub_ast)->c) ct_drop((char *)(sub_ast)->c - sizeof(size_t)); ct_drop(sub_ast); \
-            } \
-        } \
-    } while(0)
+    tree_t *ast_prog = NULL;
+#define RECORD_SEG(sub_ast, seg_fn) do { if (sub_ast) { cv_reserve(&segs_v, (uint32_t)sizeof(lower_seg_t), (uint64_t)nsegs + 1, "segs"); tree_t *_sp = ct_zalloc(1, sizeof(tree_t)); if (_sp) { _sp->t \
+    = TT_PROGRAM; for (int _si = 0; _si < (sub_ast)->n; _si++) if ((sub_ast)->c[_si]) ast_push(_sp, (sub_ast)->c[_si]); segs[nsegs].prog = _sp; segs[nsegs].fn = (seg_fn); nsegs++; } } } while(0)
+#define MERGE_AST(sub_ast) do { if (sub_ast) { if (!ast_prog) { ast_prog = sub_ast; } else { if (ast_prog->n > 0) { tree_t *_last = ast_prog->c[ast_prog->n-1]; if (_last && _last->t == TT_END) \
+    ast_prog->n--; } for (int _i = 0; _i < (sub_ast)->n; _i++) { ast_push(ast_prog, (sub_ast)->c[_i]); } if ((sub_ast)->c) ct_drop((char *)(sub_ast)->c - sizeof(size_t)); ct_drop(sub_ast); } } } \
+    while(0)
     const char *last_input_path = (const char *)0;
-    int n_sources = 0; for (int fi = argi; fi < argc; fi++) { if (strcmp(argv[fi], "--") == 0) break; if (argv[fi][0] != '-') n_sources++; }
+    int n_sources = 0;
+    for (int fi = argi; fi < argc; fi++) { if (strcmp(argv[fi], "--") == 0) break; if (argv[fi][0] != '-') n_sources++; }
     for (; argi < argc; argi++) {
         if (strcmp(argv[argi], "--") == 0) { argi++; g_prog_argv = &argv[argi]; g_prog_argc = argc - argi; break; }
-        const char *input_path = argv[argi]; last_input_path = input_path;
+        const char *input_path = argv[argi];
+        last_input_path = input_path;
         { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
         {
             char rp[4096];
@@ -1369,12 +1803,13 @@ int main(int argc, char **argv)
             char dirbuf[strlen(abs_path) + 1];
             memcpy(dirbuf, abs_path, sizeof dirbuf);
             char *sl = strrchr(dirbuf, '/');
-            if (sl) { *sl = '\0'; sno_add_include_dir(ct_strdup(dirbuf)); }
-            else     { sno_add_include_dir("."); }
+            if (sl) { *sl = '\0'; sno_add_include_dir(ct_strdup(dirbuf)); } else { sno_add_include_dir("."); }
             const char *core_lib = getenv("SNO_LIB");
             if (core_lib && *core_lib) {
-                char envb[strlen(core_lib) + 1]; memcpy(envb, core_lib, sizeof envb);
-                char *sp = envb; char *tk;
+                char envb[strlen(core_lib) + 1];
+                memcpy(envb, core_lib, sizeof envb);
+                char *sp = envb;
+                char *tk;
                 while ((tk = strsep(&sp, ":")) != (char *)0) if (*tk) sno_add_include_dir(ct_strdup(tk));
             }
             char walk[strlen(abs_path) + 1];
@@ -1395,51 +1830,60 @@ int main(int argc, char **argv)
             sno_add_include_dir(".");
         }
         const char *dot = strrchr(input_path, '.');
-        int lang_snocone  = dot && strcasecmp(dot, ".sc")   == 0;
-        int lang_prolog   = dot && strcasecmp(dot, ".pl")   == 0;
-        int lang_icon     = dot && strcasecmp(dot, ".icn")  == 0;
-        int lang_raku     = dot && strcasecmp(dot, ".raku") == 0;
-        int lang_rebus    = dot && strcasecmp(dot, ".reb")  == 0;
-        int lang_pascal   = dot && strcasecmp(dot, ".pas")  == 0;
+        int lang_snocone = dot && strcasecmp(dot, ".sc") == 0;
+        int lang_prolog = dot && strcasecmp(dot, ".pl") == 0;
+        int lang_icon = dot && strcasecmp(dot, ".icn") == 0;
+        int lang_raku = dot && strcasecmp(dot, ".raku") == 0;
+        int lang_rebus = dot && strcasecmp(dot, ".reb") == 0;
+        int lang_pascal = dot && strcasecmp(dot, ".pas") == 0;
         int lang_polyglot = dot && (strcasecmp(dot, ".scrip") == 0 || strcasecmp(dot, ".md") == 0);
         if (lang_polyglot) {
             g_polyglot = 1;
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
-            fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);
+            fseek(f, 0, SEEK_END);
+            long flen = ftell(f);
+            rewind(f);
             char *src = ct_alloc(flen + 1);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
-            fread(src, 1, flen, f); src[flen] = '\0'; fclose(f);
-            { uint64_t _nf = 0; for (const char *_q = src; (_q = strstr(_q, "```")) != (const char *)0; _q += 3) _nf++;
-              cv_reserve(&segs_v, (uint32_t)sizeof(lower_seg_t), (uint64_t)nsegs + _nf / 2 + 1, "segs"); }
+            fread(src, 1, flen, f);
+            src[flen] = '\0';
+            fclose(f);
+            {
+                uint64_t _nf = 0;
+                for (const char *_q = src; (_q = strstr(_q, "```")) != (const char *)0; _q += 3) _nf++;
+                cv_reserve(&segs_v, (uint32_t)sizeof(lower_seg_t), (uint64_t)nsegs + _nf / 2 + 1, "segs");
+            }
             tree_t *sub_ast = parse_scrip_polyglot(src, input_path, segs, &nsegs, (int)segs_v.cap);
             ct_drop(src);
             MERGE_AST(sub_ast);
         } else if (lang_snocone || lang_prolog || lang_icon || lang_raku || lang_rebus || lang_pascal) {
             FILE *f = fopen(input_path, "r");
             if (!f) { fprintf(stderr, "scrip: cannot open '%s'\n", input_path); return 1; }
-            fseek(f, 0, SEEK_END); long flen = ftell(f); rewind(f);
+            fseek(f, 0, SEEK_END);
+            long flen = ftell(f);
+            rewind(f);
             char *src = ct_alloc(flen + 1);
             if (!src) { fprintf(stderr, "scrip: out of memory\n"); return 1; }
-            fread(src, 1, flen, f); src[flen] = '\0'; fclose(f);
+            fread(src, 1, flen, f);
+            src[flen] = '\0';
+            fclose(f);
             tree_t *sub_ast = NULL;
-            if (lang_icon)         icon_compile(src, input_path, &sub_ast);
-            else if (lang_raku)    raku_compile(src, input_path, &sub_ast);
-            else if (lang_prolog)  prolog_compile(src, input_path, &sub_ast);
-            else if (lang_rebus)   rebus_compile(src, input_path, &sub_ast);
-            else if (lang_pascal)  pascal_compile(src, input_path, &sub_ast);
-            else                   snocone_compile(src, input_path, &sub_ast);
-            if (lang_snocone)      sub_ast = lower_snocone_tree(sub_ast);
+            if (lang_icon) icon_compile(src, input_path, &sub_ast);
+            else if (lang_raku) raku_compile(src, input_path, &sub_ast);
+            else if (lang_prolog) prolog_compile(src, input_path, &sub_ast);
+            else if (lang_rebus) rebus_compile(src, input_path, &sub_ast);
+            else if (lang_pascal) pascal_compile(src, input_path, &sub_ast);
+            else snocone_compile(src, input_path, &sub_ast);
+            if (lang_snocone) sub_ast = lower_snocone_tree(sub_ast);
             ct_drop(src);
-            if (dump_ast && sub_ast) {
-                ir_dump_program(sub_ast, stdout); return 0;
-            }
+            if (dump_ast && sub_ast) { ir_dump_program(sub_ast, stdout); return 0; }
             lower_entry_fn seg_fn = lower_sno_stage2;
             if (lang_icon && n_sources == 1) { extern void icn_prune_unreachable_procs(tree_t * prog); icn_prune_unreachable_procs(sub_ast); }
-            if      (lang_pascal) seg_fn = lower_pascal_stage2;
-            else if (lang_icon)   seg_fn = lower_icon_stage2;
+            if (lang_pascal) seg_fn = lower_pascal_stage2;
+            else if (lang_icon) seg_fn = lower_icon_stage2;
             else if (lang_prolog) seg_fn = lower_pl_stage2;
-            else if (lang_raku)   seg_fn = lower_raku_stage2;
+            else if (lang_raku) seg_fn = lower_raku_stage2;
             RECORD_SEG(sub_ast, seg_fn);
             MERGE_AST(sub_ast);
         } else if (dump_ast) {
@@ -1464,87 +1908,98 @@ int main(int argc, char **argv)
             { extern void stmt_src_set_file(const char *); stmt_src_set_file(input_path); }
             char * _pre_buf = (char *)0;
             if (n_preload > 0) {
-                long _flen; size_t _plen = 0; int _k;
+                long _flen;
+                size_t _plen = 0;
+                int _k;
                 for (_k = 0; _k < n_preload; _k++) _plen += strlen(preload_path[_k]) + 16;
-                fseek(f, 0, SEEK_END); _flen = ftell(f); rewind(f);
+                fseek(f, 0, SEEK_END);
+                _flen = ftell(f);
+                rewind(f);
                 if (_flen < 0) { fprintf(stderr, "scrip: cannot size '%s'\n", input_path); fclose(f); return 1; }
                 _pre_buf = (char *)ct_alloc(_plen + (size_t)_flen + 2);
                 if (!_pre_buf) { fprintf(stderr, "scrip: out of memory\n"); fclose(f); return 1; }
-                { size_t _at = 0; for (_k = 0; _k < n_preload; _k++) _at += (size_t)snprintf(_pre_buf + _at, _plen + 2 - _at, "-INCLUDE '%s'\n", preload_path[_k]);
-                  if (fread(_pre_buf + _at, 1, (size_t)_flen, f) != (size_t)_flen) { fprintf(stderr, "scrip: short read on '%s'\n", input_path); ct_drop(_pre_buf); fclose(f); return 1; }
-                  _pre_buf[_at + (size_t)_flen] = '\0';
-                  fclose(f); f = fmemopen(_pre_buf, _at + (size_t)_flen, "r");
-                  if (!f) { fprintf(stderr, "scrip: cannot stage %d -L preload(s)\n", n_preload); ct_drop(_pre_buf); return 1; } }
+                {
+                    size_t _at = 0;
+                    for (_k = 0; _k < n_preload; _k++) _at += (size_t)snprintf(_pre_buf + _at, _plen + 2 - _at, "-INCLUDE '%s'\n", preload_path[_k]);
+                    if (fread(_pre_buf + _at, 1, (size_t)_flen, f) != (size_t)_flen) { fprintf(stderr, "scrip: short read on '%s'\n", input_path); ct_drop(_pre_buf); fclose(f); return 1; }
+                    _pre_buf[_at + (size_t)_flen] = '\0';
+                    fclose(f);
+                    f = fmemopen(_pre_buf, _at + (size_t)_flen, "r");
+                    if (!f) { fprintf(stderr, "scrip: cannot stage %d -L preload(s)\n", n_preload); ct_drop(_pre_buf); return 1; }
+                }
             }
             tree_t *sub_ast = sno_parse_ast(f, input_path, NULL);
             fclose(f);
             ct_drop(_pre_buf);
-            if (opt_input_after_end) { extern int sno_end_lineno; extern void rt_input_from_file_at(const char *, long); FILE *rf = fopen(input_path, "r"); long want = (long)sno_end_lineno - 1 - (long)n_preload, seen = 0, off = 0; if (rf) { int c; while (seen < want && (c = fgetc(rf)) != EOF) { off++; if (c == '\n') seen++; } fclose(rf); if (seen == want) rt_input_from_file_at(input_path, off); } }
+            if (opt_input_after_end) {
+                extern int sno_end_lineno;
+                extern void rt_input_from_file_at(const char *, long);
+                FILE *rf = fopen(input_path, "r");
+                long want = (long)sno_end_lineno - 1 - (long)n_preload, seen = 0, off = 0;
+                if (rf) { int c; while (seen < want && (c = fgetc(rf)) != EOF) { off++; if (c == '\n') seen++; } fclose(rf); if (seen == want) rt_input_from_file_at(input_path, off); }
+            }
             RECORD_SEG(sub_ast, lower_sno_stage2);
             MERGE_AST(sub_ast);
         }
-        if (!ast_prog) {
-            fprintf(stderr, "scrip: parse failed for '%s'\n", input_path);
-            return 1;
-        }
+        if (!ast_prog) { fprintf(stderr, "scrip: parse failed for '%s'\n", input_path); return 1; }
         { extern int sno_nerrors; if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d parse error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; } }
     }
-    { int _w = 0; for (int _r = 0; _r < nsegs; _r++) {
-        if (_w > 0 && ((segs[_w-1].fn == lower_pl_stage2 && segs[_r].fn == lower_pl_stage2) || (segs[_w-1].fn == lower_icon_stage2 && segs[_r].fn == lower_icon_stage2))) {
-            tree_t *_dst = (tree_t *) segs[_w-1].prog, *_src = (tree_t *) segs[_r].prog;
-            if (_dst && _src) { for (int _k = 0; _k < _src->n; _k++) if (_src->c[_k]) ast_push(_dst, _src->c[_k]); continue; } }
-        segs[_w++] = segs[_r]; } nsegs = _w; }
+    {
+        int _w = 0;
+        for (int _r = 0; _r < nsegs; _r++) {
+            if (_w > 0 && ((segs[_w-1].fn == lower_pl_stage2 && segs[_r].fn == lower_pl_stage2) || (segs[_w-1].fn == lower_icon_stage2 && segs[_r].fn == lower_icon_stage2))) {
+                tree_t *_dst = (tree_t *) segs[_w-1].prog, *_src = (tree_t *) segs[_r].prog;
+                if (_dst && _src) { for (int _k = 0; _k < _src->n; _k++) if (_src->c[_k]) ast_push(_dst, _src->c[_k]); continue; }
+            }
+            segs[_w++] = segs[_r];
+        }
+        nsegs = _w;
+    }
     if (nsegs == 1) segs[0].prog = ast_prog;
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t1);
     const char *input_path = last_input_path ? last_input_path : argv[argc - 1];
     { extern void stmt_src_set_file(const char *); if (input_path) stmt_src_set_file(input_path); }
     if (opt_bench) clock_gettime(CLOCK_MONOTONIC, &_t2);
-    if (!ast_prog) {
-        fprintf(stderr, "scrip: parse failed for '%s'\n", input_path);
-        return 1;
-    }
-    {
-        extern void bb_pool_init(void);
-        bb_pool_init();
-    }
+    if (!ast_prog) { fprintf(stderr, "scrip: parse failed for '%s'\n", input_path); return 1; }
+    { extern void bb_pool_init(void); bb_pool_init(); }
     setvbuf(stdout, NULL, _IOLBF, 0);
     extern void core_lib_init(void);
-    { extern int core_stack_floor_raised; struct rlimit rl; core_stack_floor_raised = 1; if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) (void)apply_stack_limit(64L << 20); }
+    {
+        extern int core_stack_floor_raised;
+        struct rlimit rl;
+        core_stack_floor_raised = 1;
+        if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY && rl.rlim_cur < (rlim_t)(64L << 20)) (void)apply_stack_limit(64L << 20);
+    }
     core_lib_init();
     stmt_init();
-    register_fn("IDENT",  _builtin_IDENT,  1, 2);
+    register_fn("IDENT", _builtin_IDENT, 1, 2);
     register_fn("DIFFER", _builtin_DIFFER, 1, 2);
-    register_fn("EVAL",   _builtin_EVAL,   1, 1);
-    register_fn("CODE",   _builtin_CODE,   1, 1);
-    register_fn("DATA",   _builtin_DATA,   1, 1);
-    register_fn("print",  _builtin_print,  0, 99);
+    register_fn("EVAL", _builtin_EVAL, 1, 1);
+    register_fn("CODE", _builtin_CODE, 1, 1);
+    register_fn("DATA", _builtin_DATA, 1, 1);
+    register_fn("print", _builtin_print, 0, 99);
     extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
     g_user_call_hook = _usercall_hook;
-    { extern void sno_preeval_program(const tree_t *); extern int sno_nerrors;
-      for (int _p = 0; _p < nsegs; _p++) if (segs[_p].fn == lower_sno_stage2) sno_preeval_program((const tree_t *)segs[_p].prog);
-      if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d compile error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; } }
     {
-        extern void core_set_label_exists_hook(int (*fn)(const char *));
-        core_set_label_exists_hook(_label_exists_fn);
+        extern void sno_preeval_program(const tree_t *);
+        extern int sno_nerrors;
+        for (int _p = 0; _p < nsegs; _p++) if (segs[_p].fn == lower_sno_stage2) sno_preeval_program((const tree_t *)segs[_p].prog);
+        if (sno_nerrors > 0) { fprintf(stderr, "scrip: %d compile error(s) in '%s' -- no code generated\n", sno_nerrors, input_path); return 1; }
     }
-    {
-        extern DESCR_t (*g_eval_str_hook)(const char *s);
-        g_eval_str_hook = _eval_str_impl_fn;
-    }
+    { extern void core_set_label_exists_hook(int (*fn)(const char *)); core_set_label_exists_hook(_label_exists_fn); }
+    { extern DESCR_t (*g_eval_str_hook)(const char *s); g_eval_str_hook = _eval_str_impl_fn; }
     g_opt_dump_bb = dump_ir;
-    if (dump_transpile) {
-        extern int tree_to_sno(const tree_t *ast, FILE *out);
-        tree_to_sno(ast_prog, stdout);
-        return 0;
-    }
+    if (dump_transpile) { extern int tree_to_sno(const tree_t *ast, FILE *out); tree_to_sno(ast_prog, stdout); return 0; }
     if (dump_ir || dump_zeta) {
         extern void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose);
         extern void ir_drive_slot_assign(IR_graph_t * g);
         extern void zls_graph_name(const IR_graph_t * g, const char * name);
         extern void zls_dump(FILE * fp);
-        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+        n2_host_scan_diag(s2);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
-        ast_tree_free(ast_prog); ast_prog = NULL;
+        ast_tree_free(ast_prog);
+        ast_prog = NULL;
         if (dump_zeta) { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
         { extern void rt_proc_reset(void); rt_proc_reset(); register_procs_all(s2); drive_slots_all(s2); }
         const IR_t ** seen_all = (const IR_t **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_t *));
@@ -1569,9 +2024,11 @@ int main(int argc, char **argv)
     if (dump_bb) {
         extern void optimizer_run(IR_graph_t * g);
         extern const char * bb_src_of(const IR_t * nd);
-        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+        n2_host_scan_diag(s2);
         if (!s2) { fprintf(stderr, "scrip: sm_preamble failed\n"); return 1; }
-        ast_tree_free(ast_prog); ast_prog = NULL;
+        ast_tree_free(ast_prog);
+        ast_prog = NULL;
         for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]);
         const IR_graph_t ** gset = (const IR_graph_t **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const IR_graph_t *));
         const char ** gname = (const char **) ct_zalloc(s2->proc_count > 0 ? s2->proc_count : 1, sizeof(const char *));
@@ -1585,7 +2042,8 @@ int main(int argc, char **argv)
             gname[gn] = s2->proc_table[_pi].name ? s2->proc_table[_pi].name : "?";
             gset[gn++] = s2->bbp.table[idx];
         }
-        fputs("{\"meta\":{\"program\":", stdout); bbj_str(stdout, input_path ? input_path : "?");
+        fputs("{\"meta\":{\"program\":", stdout);
+        bbj_str(stdout, input_path ? input_path : "?");
         fputs(",\"generator\":\"scrip --dump-bb\"},\n \"boxes\":[", stdout);
         int first = 1, stno = 0;
         for (int gi = 0; gi < gn; gi++) {
@@ -1607,7 +2065,8 @@ int main(int argc, char **argv)
                 if (!bb) continue;
                 const char * opn = bb_op_name(bb->op);
                 if (opn && !strncmp(opn, "IR_", 3)) opn += 3;
-                fprintf(stdout, "%s\n  {\"id\":\"b%d_%d\",\"kind\":", first ? "" : ",", gi, i); first = 0;
+                fprintf(stdout, "%s\n  {\"id\":\"b%d_%d\",\"kind\":", first ? "" : ",", gi, i);
+                first = 0;
                 bbj_str(stdout, opn ? opn : "?");
                 bbj_label(stdout, bb);
                 if (stno_of[i] > 0) fprintf(stdout, ",\"stmt\":%d", stno_of[i]);
@@ -1615,13 +2074,15 @@ int main(int argc, char **argv)
                 if (src_of[i]) { fputs(",\"src\":", stdout); bbj_str(stdout, src_of[i]); }
                 fputs("}", stdout);
             }
-            ct_drop(stno_of); ct_drop((void *) src_of);
+            ct_drop(stno_of);
+            ct_drop((void *) src_of);
         }
         fputs("],\n \"edges\":[", stdout);
         first = 1;
         if (gn > 0 && gset[0]->n > 0) {
             int e0 = gset[0]->entry ? bbj_index(gset[0], gset[0]->entry) : 0;
-            fprintf(stdout, "\n  {\"from\":\"$start\",\"to\":\"b0_%d\",\"tp\":\"alpha\"}", e0 < 0 ? 0 : e0); first = 0;
+            fprintf(stdout, "\n  {\"from\":\"$start\",\"to\":\"b0_%d\",\"tp\":\"alpha\"}", e0 < 0 ? 0 : e0);
+            first = 0;
         }
         for (int gi = 0; gi < gn; gi++) {
             const IR_graph_t * g = gset[gi];
@@ -1639,51 +2100,90 @@ int main(int argc, char **argv)
             }
         }
         fputs("]}\n", stdout);
-        ct_drop(gset); ct_drop(gname);
+        ct_drop(gset);
+        ct_drop(gname);
         return 0;
     }
     if (mode_compile_x86) {
         extern int g_frame_active;
         {
-            extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(void);
-            g_m4_dense_nid = 1; g_bb_alpha_seq_reset();
-                stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
+            extern int g_m4_dense_nid;
+            extern void g_bb_alpha_seq_reset(void);
+            g_m4_dense_nid = 1;
+            g_bb_alpha_seq_reset();
+            stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+            n2_host_scan_diag(s2);
             if (!s2) return 1;
-            ast_tree_free(ast_prog); ast_prog = NULL;
+            ast_tree_free(ast_prog);
+            ast_prog = NULL;
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             int main_bb_idx = polyglot_main_bb_idx(s2);
             rt_proc_reset();
             register_procs_all(s2);
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
-            { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
-            { extern int g_proc_direct_active; extern void proc_collect_reset(void); extern void proc_collect_graph(IR_graph_t *); extern int proc_slot_count(void); proc_collect_reset(); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && s2->bbp.table[_gi]->static_calls) proc_collect_graph(s2->bbp.table[_gi]); g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0; }
+            drive_slots_all(s2);
+            n2_fb_prepass_diag(s2);
+            n2_xgraph_probe(s2);
+            n2_fb_prepass_register(s2);
+            {
+                extern void rt_proc_set_frame(const char *, int, int);
+                for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                    const char *_fn = s2->proc_table[_pi].name;
+                    int _fx = s2->proc_table[_pi].bb_idx;
+                    if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue;
+                    IR_graph_t *_fg = s2->bbp.table[_fx];
+                    if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level);
+                }
+            }
+            {
+                extern int g_proc_direct_active;
+                extern void proc_collect_reset(void);
+                extern void proc_collect_graph(IR_graph_t *);
+                extern int proc_slot_count(void);
+                proc_collect_reset();
+                for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi] && s2->bbp.table[_gi]->static_calls) proc_collect_graph(s2->bbp.table[_gi]);
+                g_proc_direct_active = (proc_slot_count() > 0) ? 1 : 0;
+            }
             const char *smx_why = "";
             if (!graph_native_emittable(s2, &smx_why)) {
-                fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
+                fprintf(stderr, "[SMX] --compile --target=x86: mode-4 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n",
+                    smx_why);
                 return 1;
             }
             if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx] || !s2->bbp.table[main_bb_idx]->entry) {
-                FILE * _nm = stdout; if (output_path) { _nm = fopen(output_path, "w"); if (!_nm) { perror(output_path); return 1; } }
+                FILE * _nm = stdout;
+                if (output_path) { _nm = fopen(output_path, "w"); if (!_nm) { perror(output_path); return 1; } }
                 fprintf(_nm, "  .intel_syntax noprefix\n  .text\n  .globl main\nmain:\n  sub rsp, 8\n  call core_icn_startup_error_no_main\n");
                 if (_nm != stdout) fclose(_nm);
                 return 0;
             }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
-            g_medium = BB_MEDIUM_TEXT; FILE * _out = stdout; if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } } emit_set_sink(_out);
-            { extern void bb_ab_thunk_stem_note(const char *, int); for (int _tq = 0; _tq < s2->proc_count; _tq++) if (s2->proc_table[_tq].thunk_kind) bb_ab_thunk_stem_note(s2->proc_table[_tq].name, s2->proc_table[_tq].thunk_kind); }
+            g_medium = BB_MEDIUM_TEXT;
+            FILE * _out = stdout;
+            if (output_path) { _out = fopen(output_path, "w"); if (!_out) { perror(output_path); return 1; } }
+            emit_set_sink(_out);
+            {
+                extern void bb_ab_thunk_stem_note(const char *, int);
+                for (int _tq = 0; _tq < s2->proc_count; _tq++) if (s2->proc_table[_tq].thunk_kind) bb_ab_thunk_stem_note(s2->proc_table[_tq].name, s2->proc_table[_tq].thunk_kind);
+            }
             emit_textf("  .intel_syntax noprefix\n");
             emit_textf("  .text\n");
-            { extern int emit_dwarf_loc_on(void); extern const char * stmt_src_get_file(void); const char * _sf = stmt_src_get_file();
-              if (emit_dwarf_loc_on() && _sf && *_sf) { emit_textf("  .file 1 \"%s\"\n", _sf); emit_textf("  .file 2 \"<included>\"\n"); } }
+            {
+                extern int emit_dwarf_loc_on(void);
+                extern const char * stmt_src_get_file(void);
+                const char * _sf = stmt_src_get_file();
+                if (emit_dwarf_loc_on() && _sf && *_sf) { emit_textf("  .file 1 \"%s\"\n", _sf); emit_textf("  .file 2 \"<included>\"\n"); }
+            }
             for (int _dz = 0; _dz < bbg->n; _dz++) {
                 const char * _dn = ir_define_plain_name(bbg->all[_dz]);
                 if (!_dn) continue;
-                int _dhave = 0; for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && !strcmp(s2->proc_table[_q].name, _dn)) { _dhave = 1; break; }
+                int _dhave = 0;
+                for (int _q = 0; _q < s2->proc_count; _q++) if (s2->proc_table[_q].name && !strcmp(s2->proc_table[_q].name, _dn)) { _dhave = 1; break; }
                 if (_dhave) continue;
-                int _ddup = 0; for (int _dw = 0; _dw < _dz; _dw++) { const char * _dwn = ir_define_plain_name(bbg->all[_dw]); if (_dwn && !strcmp(_dwn, _dn)) { _ddup = 1; break; } }
+                int _ddup = 0;
+                for (int _dw = 0; _dw < _dz; _dw++) { const char * _dwn = ir_define_plain_name(bbg->all[_dw]); if (_dwn && !strcmp(_dwn, _dn)) { _ddup = 1; break; } }
                 if (_ddup) continue;
                 emit_sep_rule_c('-');
                 if (scrip_symmap()) emit_textf("  .type FN__%s, @function\n", asm_sym_name(_dn));
@@ -1691,12 +2191,17 @@ int main(int argc, char **argv)
                 if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(_dn), asm_sym_name(_dn));
             }
             g_frame_active = 1;
-            extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+            extern void gva_collect_reset(void);
+            extern void gva_collect_icon_globals(void);
+            extern int gva_count(void);
+            extern const char *gva_name(int);
+            extern int g_gva_active;
             gva_collect_reset();
             { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
-                { extern void gva_trace_demote_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_trace_demote_scan_graph(s2->bbp.table[_si]); }
+            { extern void gva_trace_demote_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_trace_demote_scan_graph(s2->bbp.table[_si]); }
             gva_collect_icon_globals();
-            int n_gva_icn; { extern int gva_trace_demoted(void); n_gva_icn = gva_trace_demoted() ? 0 : gva_count(); }
+            int n_gva_icn;
+            { extern int gva_trace_demoted(void); n_gva_icn = gva_trace_demoted() ? 0 : gva_count(); }
             g_gva_active = (n_gva_icn > 0) ? 1 : 0;
             int n_procs = 0;
             int _pnbcap = (s2->proc_count > 0) ? s2->proc_count : 1;
@@ -1706,10 +2211,22 @@ int main(int argc, char **argv)
             int *proc_fb_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
             int *proc_ispat_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
             int *proc_zstatic_buf = (int *)ct_alloc((size_t)_pnbcap * sizeof(int));
-            { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
-            unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1]; int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
-            size_t _pfxcap = 1; for (int _pi = 0; _pi < s2->proc_count; _pi++) if (s2->proc_table[_pi].name) {
-                size_t _n = (size_t)fmt_len("proc_%s", asm_sym_name(s2->proc_table[_pi].name)); if (_n > _pfxcap) _pfxcap = _n; }
+            {
+                extern void zls_graph_name(const IR_graph_t *, const char *);
+                for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) {
+                    const char *_pn2 = s2->proc_table[_pi2].name;
+                    if (!_pn2 || strcmp(_pn2, "main") == 0) continue;
+                    int _idx2 = s2->proc_table[_pi2].bb_idx;
+                    if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2);
+                }
+            }
+            unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1];
+            int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
+            size_t _pfxcap = 1;
+            for (int _pi = 0; _pi < s2->proc_count; _pi++) if (s2->proc_table[_pi].name) {
+                size_t _n = (size_t)fmt_len("proc_%s", asm_sym_name(s2->proc_table[_pi].name));
+                if (_n > _pfxcap) _pfxcap = _n;
+            }
             char _pfx[_pfxcap];
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -1720,37 +2237,88 @@ int main(int argc, char **argv)
                 const char **pn = NULL;
                 if (np > 0) {
                     pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
-                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = s2->bbp.table[idx]; }
                 { extern int g_gen_proc_active; g_gen_proc_active = s2->proc_table[_pi].is_generator; }
-                { extern int g_flat_frame_floor; extern int zls_g_region(const IR_graph_t *); IR_graph_t *_pg = s2->bbp.table[idx]; int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0; g_flat_frame_floor = 0; int _floor_hit = (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED))); if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[FLOOR-DIAG] pname=%s is_lbl=%d entry_op=%d hit=%d\n", pname ? pname : "(null)", _is_lbl, _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit); if (_floor_hit) { for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) { int _mx = s2->proc_table[_mi].bb_idx; if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]); break; } } if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG] -> g_flat_frame_floor=%d\n", g_flat_frame_floor); }
-                { extern int emit_jmp_entry_for_patproc(int, IR_graph_t*); extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*); extern void emit_jmp_entry_clear(void); extern int g_flat_dc_np; extern int rt_pl_dc_ok(const char *, int);
-                  int _isp = emit_jmp_entry_for_patproc(s2->proc_table[_pi].thunk_kind, s2->bbp.table[idx]); if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
-                  g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1; proc_ispat_buf[n_procs] = _isp; }
+                {
+                    extern int g_flat_frame_floor;
+                    extern int zls_g_region(const IR_graph_t *);
+                    IR_graph_t *_pg = s2->bbp.table[idx];
+                    int _is_lbl = pname && strncmp(pname, "LBL__", 5) == 0;
+                    g_flat_frame_floor = 0;
+                    int _floor_hit = (_is_lbl || (_pg && _pg->entry && ((_pg->entry->op == IR_DEFINE && IR_LIT(_pg->entry).ival == 3) || _pg->entry->op == IR_GOTO_DEFERRED)));
+                    if (getenv("SCRIP_FLOOR_DIAG"))
+                        fprintf(stderr, "[FLOOR-DIAG] pname=%s is_lbl=%d entry_op=%d hit=%d\n", pname ? pname : "(null)", _is_lbl, _pg && _pg->entry ? (int)_pg->entry->op : -1, _floor_hit);
+                    if (_floor_hit) {
+                        for (int _mi = 0; _mi < s2->proc_count; _mi++) if (s2->proc_table[_mi].name && !strcmp(s2->proc_table[_mi].name, "main")) {
+                            int _mx = s2->proc_table[_mi].bb_idx;
+                            if (_mx >= 0 && _mx < s2->bbp.count && s2->bbp.table[_mx]) g_flat_frame_floor = zls_g_region(s2->bbp.table[_mx]);
+                            break;
+                        }
+                    }
+                    if (getenv("SCRIP_FLOOR_DIAG") && _floor_hit) fprintf(stderr, "[FLOOR-DIAG] -> g_flat_frame_floor=%d\n", g_flat_frame_floor);
+                }
+                {
+                    extern int emit_jmp_entry_for_patproc(int, IR_graph_t*);
+                    extern int emit_jmp_entry_for_proc(const char*, int, int, IR_graph_t*);
+                    extern void emit_jmp_entry_clear(void);
+                    extern int g_flat_dc_np;
+                    extern int rt_pl_dc_ok(const char *, int);
+                    int _isp = emit_jmp_entry_for_patproc(s2->proc_table[_pi].thunk_kind, s2->bbp.table[idx]);
+                    if (!_isp) emit_jmp_entry_for_proc(pname, s2->proc_table[_pi].dyn_scope, s2->proc_table[_pi].is_generator, s2->bbp.table[idx]);
+                    g_flat_dc_np = (!_isp && rt_pl_dc_ok(pname, np)) ? np : -1;
+                    proc_ispat_buf[n_procs] = _isp;
+                }
                 { extern void zls_graph_name(const IR_graph_t *, const char *); zls_graph_name(s2->bbp.table[idx], pname); }
                 { extern int g_emit_frame_caller_dl; IR_graph_t *_cg = s2->bbp.table[idx]; g_emit_frame_caller_dl = (_cg->caller_frame && _cg->nslots > 0) ? s2->proc_table[_pi].decl_level : -1; }
                 if (_lbl_owned && strncmp(pname, "LBL__", 5) != 0) sn4_balias_fill(s2->bbp.table[idx], s2, _lbl_own, idx, 0);
-                { snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname)); int _islbl = pname && strncmp(pname, "LBL__", 5) == 0; IR_graph_t *_bg = s2->bbp.table[idx]; int _bare = (proc_role3_kind(_bg) == 1);    if (!_islbl && !_bare) {    emit_sep_rule_c('-'); if (scrip_symmap()) emit_textf("  .type %s, @function\n", asm_fn_sym(pname)); g_emit.flat_bare_chain = _bare; emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx); g_emit.flat_bare_chain = 0; if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname)); } }
+                {
+                    snprintf(_pfx, sizeof(_pfx), "proc_%s", asm_sym_name(pname));
+                    int _islbl = pname && strncmp(pname, "LBL__", 5) == 0;
+                    IR_graph_t *_bg = s2->bbp.table[idx];
+                    int _bare = (proc_role3_kind(_bg) == 1);
+                    if (!_islbl && !_bare) {
+                        emit_sep_rule_c('-');
+                        if (scrip_symmap()) emit_textf("  .type %s, @function\n", asm_fn_sym(pname));
+                        g_emit.flat_bare_chain = _bare;
+                        emit_chain(bb_proc_entry(&s2->proc_table[_pi]), _out, _pfx);
+                        g_emit.flat_bare_chain = 0;
+                        if (scrip_symmap()) emit_textf("  .size FN__%s, .-FN__%s\n", asm_sym_name(pname), asm_sym_name(pname));
+                    }
+                }
                 { extern void emit_jmp_entry_clear(void); emit_jmp_entry_clear(); }
                 { extern int g_emit_frame_caller_dl; g_emit_frame_caller_dl = -1; }
                 { extern int g_gen_proc_active; g_gen_proc_active = 0; }
-                { extern int g_last_flat_frame_bytes; proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes;
-                  if (getenv("SCRIP_N2_FB_PREPASS")) fprintf(stderr, "[N2-FB] POSTEMIT mode=4 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes); }
+                {
+                    extern int g_last_flat_frame_bytes;
+                    proc_fb_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_frame_bytes;
+                    if (getenv("SCRIP_N2_FB_PREPASS")) fprintf(stderr, "[N2-FB] POSTEMIT mode=4 proc=%s idx=%d fb=%d\n", pname ? pname : "(null)", _pi, g_last_flat_frame_bytes);
+                }
                 { extern int g_last_flat_zstatic; proc_zstatic_buf[n_procs] = (pname && strncmp(pname, "LBL__", 5) == 0) ? 0 : g_last_flat_zstatic; }
-                if (proc_ispat_buf[n_procs] && pname) emit_textf("  .section .data.rel.ro\n  .p2align 4\n.Lthk_%s:\n  .quad %s\n  .long %d, %d\n  .section .text\n  .intel_syntax noprefix\n", asm_sym_name(pname), asm_fn_sym(pname), proc_fb_buf[n_procs], proc_zstatic_buf[n_procs]);
-                { extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform; extern void emit_patzeta_register(const char *, int, int, int); if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform); }
+                if (proc_ispat_buf[n_procs] && pname)
+                    emit_textf("  .section .data.rel.ro\n  .p2align 4\n.Lthk_%s:\n  .quad %s\n  .long %d, %d\n  .section .text\n  .intel_syntax noprefix\n", asm_sym_name(pname), asm_fn_sym(pname),
+                    proc_fb_buf[n_procs], proc_zstatic_buf[n_procs]);
+                {
+                    extern int g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform;
+                    extern void emit_patzeta_register(const char *, int, int, int);
+                    if (!(pname && strncmp(pname, "LBL__", 5) == 0)) emit_patzeta_register(pname, g_last_flat_frame_bytes, g_last_flat_fp, g_last_flat_uniform);
+                }
                 proc_nparams_buf[n_procs] = np;
                 proc_pidx_buf[n_procs] = _pi;
                 proc_names_buf[n_procs++] = pname ? ct_strdup(pname) : NULL;
                 ct_drop(pn);
             }
-            if (_lbl_owned) for (int _q = 0; _q < n_procs; _q++) { int _pq = proc_pidx_buf[_q], _b = (_pq >= 0 && _pq < s2->proc_count) ? s2->proc_table[_pq].bb_idx : -1;
+            if (_lbl_owned) for (int _q = 0; _q < n_procs; _q++) {
+                int _pq = proc_pidx_buf[_q], _b = (_pq >= 0 && _pq < s2->proc_count) ? s2->proc_table[_pq].bb_idx : -1;
                 if (_b < 0 || _b >= s2->bbp.count || !_lbl_own[_b] || !proc_names_buf[_q] || strncmp(proc_names_buf[_q], "LBL__", 5) != 0) continue;
-                for (int _r = 0; _r < n_procs; _r++) { int _pr = proc_pidx_buf[_r];
+                for (int _r = 0; _r < n_procs; _r++) {
+                    int _pr = proc_pidx_buf[_r];
                     if (_pr < 0 || _pr >= s2->proc_count || s2->proc_table[_pr].bb_idx != _b || !proc_names_buf[_r] || strncmp(proc_names_buf[_r], "LBL__", 5) == 0) continue;
-                    proc_fb_buf[_q] = proc_fb_buf[_r]; break; } }
+                    proc_fb_buf[_q] = proc_fb_buf[_r];
+                    break;
+                }
+            }
             int n_cls_emit = 0;
             { extern int dat_type_count(void); n_cls_emit = dat_type_count(); }
             int n_gram_emit = 0;
@@ -1758,30 +2326,78 @@ int main(int argc, char **argv)
             int _pl_atoms = m4_program_has_prolog_terms(s2, bbg);
             emit_textf("  .globl main\n");
             emit_textf("main:\n");
-            emit_textf("  push rdi\n  push rsi\n  sub rsp, 8\n  call rt_main_stack_adopt@PLT\n  mov rsi, qword ptr [rsp + 8]\n  mov rdi, qword ptr [rsp + 16]\n  add rsp, 24\n  test rax, rax\n  jz .Lmain_stack_kept\n  mov rsp, rax\n.Lmain_stack_kept:\n");
-            { extern int g_m4_main_frame_bytes; long _mfb = 65544; int _mrg = bbg ? bbg->jcon_value_region : 0;
-              if (_mrg > 0 && (long)_mrg + 64 > _mfb) _mfb = ((((long)_mrg + 64 + 15) & ~15L) | 8L);
-              g_m4_main_frame_bytes = (int)_mfb;
-              emit_textf("  sub rsp, %ld\n", _mfb); }
+            emit_textf(
+                "  push rdi\n  push rsi\n  sub rsp, 8\n  call rt_main_stack_adopt@PLT\n  mov rsi, qword ptr [rsp + 8]\n  mov rdi, qword ptr [rsp + 16]\n  add rsp, 24\n  test rax, rax\n  jz .Lmain_st"
+                "ack_kept\n  mov rsp, rax\n.Lmain_stack_kept:\n");
+            {
+                extern int g_m4_main_frame_bytes;
+                long _mfb = 65544;
+                int _mrg = bbg ? bbg->jcon_value_region : 0;
+                if (_mrg > 0 && (long)_mrg + 64 > _mfb) _mfb = ((((long)_mrg + 64 + 15) & ~15L) | 8L);
+                g_m4_main_frame_bytes = (int)_mfb;
+                emit_textf("  sub rsp, %ld\n", _mfb);
+            }
             { const char * hr = getenv("SCRIP_M4_HEADROOM"); if (hr && *hr) { long hb = atol(hr); if (hb > 0) { hb = (hb + 15) & ~15L; emit_textf("  sub rsp, %ld\n", hb); } } }
             emit_textf("  push rdi\n");
             emit_textf("  push rsi\n");
             emit_textf("  call core_lib_init@PLT\n");
             if (_pl_atoms) emit_textf("  lea rdi, [rip + .Lpl_atom_tab]\n  call rt_pl_atom_table_install@PLT\n  lea rdi, [rip + .Lpl_functor_tab]\n  call rt_pl_functor_table_install@PLT\n");
-            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2))
-                emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
-            { extern int proc_slot_count(void); int _nps = proc_slot_count(); if (_nps > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", _nps); }
-            { extern int rt_is_reassigned_builtin(const char *); for (int k = 0; k < n_gva_icn; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k); }
-            { extern int gva_trace_demoted(void); int n_gva_tab = gva_trace_demoted() ? 0 : gva_count(); if (n_gva_tab > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_tab, n_gva_tab); }
+            if (n_procs > 0 || n_cls_emit > 0 || n_gram_emit > 0 || m4_icn_meta_present(s2)) emit_textf("  call %s\n", sn4_module_init_bottom() ? "module_init" : "main_init");
+            {
+                extern int proc_slot_count(void);
+                int _nps = proc_slot_count();
+                if (_nps > 0) emit_textf("  lea rdi, [rip + __proc]\n  lea rsi, [rip + __proc_names]\n  mov edx, %d\n  call rt_proc_table_fill@PLT\n", _nps);
+            }
+            {
+                extern int rt_is_reassigned_builtin(const char *);
+                for (int k = 0; k < n_gva_icn; k++) if (rt_is_reassigned_builtin(gva_name(k))) emit_textf("  lea rdi, [rip + .Lgvan%d]\n  call rt_note_reassigned_builtin@PLT\n", k);
+            }
+            {
+                extern int gva_trace_demoted(void);
+                int n_gva_tab = gva_trace_demoted() ? 0 : gva_count();
+                if (n_gva_tab > 0) emit_textf("  mov edi, %d\n  call rt_gva_island@PLT\n  mov rsi, rax\n  lea rdi, [rip + __gva_names]\n  mov edx, %d\n  call gva_register@PLT\n", n_gva_tab, n_gva_tab)
+                    ;
+            }
             emit_textf("  lea rdi, [rip + __alpha_cellp_tab]\n  call rt_ab_cell_bind_table@PLT\n");
             if (s2->label_count > 0) emit_textf("  lea rdi, [rip + __label_names]\n  mov esi, %d\n  call rt_label_table_install@PLT\n", s2->label_count);
             emit_textf("  lea rdi, [rip + __gc_frame_maps]\n  call rt_gc_frame_maps_install_counted@PLT\n  lea rdi, [rip + __gc_frame_sites]\n  call rt_gc_frame_sites_install_counted@PLT\n");
             { extern int scc_program_ok(void); if (!scc_program_ok()) emit_textf("  call rt_scc_taint_inherit@PLT\n"); }
-            { extern int g_monitor_bin; extern long g_trace_budget; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n"); }
-            { extern int prolog_op_user_count(void); extern int prolog_op_user_get(int, const char **, int *, const char **); int n_uop = prolog_op_user_count();
-              if (n_uop > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; char eb[2 * strlen(onm ? onm : "") + 1]; int ei = 0; for (const char *s = onm ? onm : ""; *s; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; } eb[ei] = 0; emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx"); }
-                emit_textf("  .section .text\n  .intel_syntax noprefix\n"); for (int k = 0; k < n_uop; k++) { const char *onm = 0; int opr = 0; const char *oty = 0; if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue; emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k); } } }
-            emit_textf("  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  call rt_main_args_stage_argv@PLT\n"); if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
+            {
+                extern int g_monitor_bin;
+                extern long g_trace_budget;
+                if (g_monitor_bin || g_trace_budget != 0) emit_textf("  mov edi, dword ptr [rip + __mon_maxst]\n  call rt_mon_set_max_stno@PLT\n");
+            }
+            {
+                extern int prolog_op_user_count(void);
+                extern int prolog_op_user_get(int, const char **, int *, const char **);
+                int n_uop = prolog_op_user_count();
+                if (n_uop > 0) {
+                    emit_textf("  .section .rodata\n");
+                    for (int k = 0; k < n_uop; k++) {
+                        const char *onm = 0;
+                        int opr = 0;
+                        const char *oty = 0;
+                        if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue;
+                        char eb[2 * strlen(onm ? onm : "") + 1];
+                        int ei = 0;
+                        for (const char *s = onm ? onm : ""; *s; s++) { if (*s == '\\' || *s == '"') eb[ei++] = '\\'; eb[ei++] = *s; }
+                        eb[ei] = 0;
+                        emit_textf("  .Lopn%d: .string \"%s\"\n  .Lopt%d: .string \"%s\"\n", k, eb, k, oty ? oty : "xfx");
+                    }
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    for (int k = 0; k < n_uop; k++) {
+                        const char *onm = 0;
+                        int opr = 0;
+                        const char *oty = 0;
+                        if (!prolog_op_user_get(k, &onm, &opr, &oty)) continue;
+                        emit_textf("  lea rdi, [rip + .Lopn%d]\n  mov esi, %d\n  lea rdx, [rip + .Lopt%d]\n  call prolog_op_table_add@PLT\n", k, opr, k);
+                    }
+                }
+            }
+            emit_textf(
+                "  mov rdi, qword ptr [rsp]\n  mov rdi, qword ptr [rdi]\n  call rt_main_progname_stage@PLT\n  mov rdi, qword ptr [rsp]\n  add rdi, 8\n  mov esi, dword ptr [rsp + 8]\n  sub esi, 1\n  "
+                "call rt_main_args_stage_argv@PLT\n");
+            if (bbg->nparams >= 1) emit_textf("  call rt_main_args_bind@PLT\n");
             int _pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             if (!_pinned_root) emit_textf("  mov r12, qword ptr [0x70000000]\n");
             if (bbg->zframe_graph && !bbg->icn_cells_graph) emit_textf("  call rt_gcheap_warmup@PLT\n  mov rdi, rsp\n  call rt_gc_emit_ceiling_adopt_top@PLT\n");
@@ -1796,49 +2412,114 @@ int main(int argc, char **argv)
                 if (_pinned_root) emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  call rt_pl_root_omega@PLT\n");
                 else emit_textf(".Lmain_zf_ω:\n  and rsp, -16\n  mov edi, 1\n  call exit@PLT\n");
             } else {
-            emit_textf("  xor r14d, r14d\n");
-            if (bbg->icn_cells_graph) {
-                emit_textf("  mov rax, qword ptr [rip + rt_k_level_p@GOTPCREL]\n  mov rax, qword ptr [rax]\n  mov dword ptr [rax], 0\n");
-                emit_textf("  lea rax, [rip + .Lmain_icn_end]\n  push rax\n  push rax\n");
-                emit_textf("  jmp main_\xce\xb1\n");
-                emit_textf(".Lmain_icn_end:\n  and rsp, -16\n  xor edi, edi\n  call exit@PLT\n");
-            } else {
-            emit_textf("  lea rax, [rip + .Llevel_zero_return]\n  push rax\n  push rax\n");
-            emit_textf("  jmp main_\xce\xb1\n");
-            emit_textf(".Llevel_zero_return:\n  call rt_kw_return_level_zero@PLT\n  ud2\n");
+                emit_textf("  xor r14d, r14d\n");
+                if (bbg->icn_cells_graph) {
+                    emit_textf("  mov rax, qword ptr [rip + rt_k_level_p@GOTPCREL]\n  mov rax, qword ptr [rax]\n  mov dword ptr [rax], 0\n");
+                    emit_textf("  lea rax, [rip + .Lmain_icn_end]\n  push rax\n  push rax\n");
+                    emit_textf("  jmp main_\xce\xb1\n");
+                    emit_textf(".Lmain_icn_end:\n  and rsp, -16\n  xor edi, edi\n  call exit@PLT\n");
+                } else {
+                    emit_textf("  lea rax, [rip + .Llevel_zero_return]\n  push rax\n  push rax\n");
+                    emit_textf("  jmp main_\xce\xb1\n");
+                    emit_textf(".Llevel_zero_return:\n  call rt_kw_return_level_zero@PLT\n  ud2\n");
+                }
             }
+            if (!sn4_module_init_bottom())
+                emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
+            {
+                extern int gva_trace_demoted(void);
+                int n_gva_tab = gva_trace_demoted() ? 0 : gva_count();
+                if (n_gva_tab > 0) {
+                    emit_textf("  .section .rodata\n");
+                    for (int k = 0; k < n_gva_tab; k++) {
+                        extern int gva_name_hidden(const char *);
+                        extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+                        const char * _gn = gva_name(k) ? gva_name(k) : "";
+                        if (gva_name_hidden(_gn)) continue;
+                        size_t _cap = 4 * strlen(_gn) + 1;
+                        char _esc[_cap];
+                        x86_asm_str_escape_c(_gn, _esc, _cap);
+                        emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc);
+                    }
+                    emit_textf("  .align 8\n__gva_names:\n");
+                    {
+                        extern int gva_name_hidden(const char *);
+                        for (int k = 0; k < n_gva_tab; k++) { if (gva_name_hidden(gva_name(k))) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); }
+                    }
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                }
             }
-            if (!sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "main_init");
-            { extern int gva_trace_demoted(void); int n_gva_tab = gva_trace_demoted() ? 0 : gva_count(); if (n_gva_tab > 0) {
-                emit_textf("  .section .rodata\n");
-                for (int k = 0; k < n_gva_tab; k++) { extern int gva_name_hidden(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char * _gn = gva_name(k) ? gva_name(k) : ""; if (gva_name_hidden(_gn)) continue; size_t _cap = 4 * strlen(_gn) + 1; char _esc[_cap]; x86_asm_str_escape_c(_gn, _esc, _cap); emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc); }
-                emit_textf("  .align 8\n__gva_names:\n");
-                { extern int gva_name_hidden(const char *); for (int k = 0; k < n_gva_tab; k++) { if (gva_name_hidden(gva_name(k))) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); } }
-                emit_textf("  .section .text\n  .intel_syntax noprefix\n");
-            } }
             if (s2->label_count > 0) {
                 emit_textf("  .section .rodata\n");
-                for (int k = 0; k < s2->label_count; k++) { extern void x86_asm_str_escape_c(const char *, char *, unsigned long); const char *_lnk = s2->label_table[k].name ? s2->label_table[k].name : ""; char _esc[4 * strlen(_lnk) + 1]; x86_asm_str_escape_c(_lnk, _esc, sizeof _esc); emit_textf("  .Llbln%d: .string \"%s\"\n", k, _esc); }
+                for (int k = 0; k < s2->label_count; k++) {
+                    extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
+                    const char *_lnk = s2->label_table[k].name ? s2->label_table[k].name : "";
+                    char _esc[4 * strlen(_lnk) + 1];
+                    x86_asm_str_escape_c(_lnk, _esc, sizeof _esc);
+                    emit_textf("  .Llbln%d: .string \"%s\"\n", k, _esc);
+                }
                 emit_textf("  .align 8\n__label_names:\n");
                 for (int k = 0; k < s2->label_count; k++) emit_textf("  .quad .Llbln%d\n", k);
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n");
             }
-            { extern int proc_slot_count(void); extern const char *proc_slot_name(int); int _nps = proc_slot_count();
-              if (_nps > 0) { emit_textf("  .section .rodata\n"); for (int k = 0; k < _nps; k++) emit_textf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k)); emit_textf("  .align 8\n__proc_names:\n"); for (int k = 0; k < _nps; k++) emit_textf("  .quad .Lprocn%d\n", k); emit_textf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", _nps * 8); emit_textf("  .section .text\n  .intel_syntax noprefix\n"); } }
+            {
+                extern int proc_slot_count(void);
+                extern const char *proc_slot_name(int);
+                int _nps = proc_slot_count();
+                if (_nps > 0) {
+                    emit_textf("  .section .rodata\n");
+                    for (int k = 0; k < _nps; k++) emit_textf("  .Lprocn%d: .string \"%s\"\n", k, proc_slot_name(k));
+                    emit_textf("  .align 8\n__proc_names:\n");
+                    for (int k = 0; k < _nps; k++) emit_textf("  .quad .Lprocn%d\n", k);
+                    emit_textf("  .section .bss\n  .align 8\n__proc: .space %d, 0\n", _nps * 8);
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                }
+            }
             int rc;
             {
                 { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
                 sn4_dentry_table_build(bbg, s2);
                 sn4_balias_fill(bbg, s2, _lbl_own, -1, 1);
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = bbg->nparams; }
-                emit_sep_rule_c('-'); rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
+                emit_sep_rule_c('-');
+                rc = emit_chain(bbg->entry, _out, "main") ? 0 : 1;
                 { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
-                { extern int g_last_flat_frame_bytes; int _main_fb = g_last_flat_frame_bytes; for (int _q = 0; _q < n_procs; _q++) { if (proc_fb_buf[_q] != 0) continue; int _pi2 = proc_pidx_buf[_q]; if (_pi2 < 0 || _pi2 >= s2->proc_count) continue; const char *_qn = s2->proc_table[_pi2].name; if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue; if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb; } }
-                if (sn4_module_init_bottom()) emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "module_init");
-                { extern int emit_gc_map_names_n(void); extern const char *emit_gc_map_name(int); int _nm = emit_gc_map_names_n(); emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm); for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k)); { extern int emit_gc_sites_names_n(void); extern const char *emit_gc_sites_name(int); int _ns = emit_gc_sites_names_n(); emit_textf("  .align 8\n__gc_frame_sites:\n  .quad %d\n", _ns); for (int _k = 0; _k < _ns; _k++) emit_textf("  .quad %s\n", emit_gc_sites_name(_k)); } emit_textf("  .section .text\n  .intel_syntax noprefix\n"); }
+                {
+                    extern int g_last_flat_frame_bytes;
+                    int _main_fb = g_last_flat_frame_bytes;
+                    for (int _q = 0; _q < n_procs; _q++) {
+                        if (proc_fb_buf[_q] != 0) continue;
+                        int _pi2 = proc_pidx_buf[_q];
+                        if (_pi2 < 0 || _pi2 >= s2->proc_count) continue;
+                        const char *_qn = s2->proc_table[_pi2].name;
+                        if (!_qn || strncmp(_qn, "LBL__", 5) != 0) continue;
+                        if (s2->proc_table[_pi2].bb_idx == main_bb_idx) proc_fb_buf[_q] = _main_fb;
+                    }
+                }
+                if (sn4_module_init_bottom())
+                    emit_module_init_body(s2, proc_names_buf, proc_nparams_buf, proc_pidx_buf, proc_fb_buf, proc_ispat_buf, proc_zstatic_buf, n_procs, n_cls_emit, n_gram_emit, "module_init");
+                {
+                    extern int emit_gc_map_names_n(void);
+                    extern const char *emit_gc_map_name(int);
+                    int _nm = emit_gc_map_names_n();
+                    emit_textf("  .section .rodata\n  .align 8\n__gc_frame_maps:\n  .quad %d\n", _nm);
+                    for (int _k = 0; _k < _nm; _k++) emit_textf("  .quad %s\n", emit_gc_map_name(_k));
+                    {
+                        extern int emit_gc_sites_names_n(void);
+                        extern const char *emit_gc_sites_name(int);
+                        int _ns = emit_gc_sites_names_n();
+                        emit_textf("  .align 8\n__gc_frame_sites:\n  .quad %d\n", _ns);
+                        for (int _k = 0; _k < _ns; _k++) emit_textf("  .quad %s\n", emit_gc_sites_name(_k));
+                    }
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                }
             }
             for (int _fq = 0; _fq < n_procs; _fq++) if (proc_names_buf[_fq]) { ct_drop((void *)proc_names_buf[_fq]); proc_names_buf[_fq] = NULL; }
-            ct_drop(proc_names_buf); ct_drop(proc_nparams_buf); ct_drop(proc_pidx_buf); ct_drop(proc_fb_buf); ct_drop(proc_zstatic_buf);
+            ct_drop(proc_names_buf);
+            ct_drop(proc_nparams_buf);
+            ct_drop(proc_pidx_buf);
+            ct_drop(proc_fb_buf);
+            ct_drop(proc_zstatic_buf);
             g_gva_active = 0;
             g_frame_active = 0;
             { extern int g_proc_direct_active; g_proc_direct_active = 0; }
@@ -1847,7 +2528,12 @@ int main(int argc, char **argv)
             { extern void emit_callee_records_data(void); emit_callee_records_data(); }
             { extern void xa_emit_csettab_rodata(void); xa_emit_csettab_rodata(); }
             { extern const char *bcps_alpha_cellp_table_c(void); emit_textf("%s", bcps_alpha_cellp_table_c()); }
-            { extern int g_monitor_bin; extern long g_trace_budget; extern int g_mon_max_stno; if (g_monitor_bin || g_trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno); }
+            {
+                extern int g_monitor_bin;
+                extern long g_trace_budget;
+                extern int g_mon_max_stno;
+                if (g_monitor_bin || g_trace_budget != 0) emit_textf("  .align 4\n__mon_maxst:\n  .long %d\n", g_mon_max_stno);
+            }
             if (_pl_atoms) { m4_emit_atom_table(); m4_emit_functor_table(); }
             emit_textf("  .section .note.GNU-stack,\"\",@progbits\n");
             emit_textf_flush();
@@ -1857,35 +2543,49 @@ int main(int argc, char **argv)
         }
     }
     if (mode_compile && target_name && strcmp(target_name, "x86") != 0) {
-        fprintf(stderr, "[SMX] --target=%s removed (Stack-Machine codegen removed).\n",
-                target_name ? target_name : "?");
-        ast_tree_free(ast_prog); ast_prog = NULL;
+        fprintf(stderr, "[SMX] --target=%s removed (Stack-Machine codegen removed).\n", target_name ? target_name : "?");
+        ast_tree_free(ast_prog);
+        ast_prog = NULL;
         return 1;
     }
     if (mode_run) {
-        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs); n2_host_scan_diag(s2);
+        stage2_t *s2 = sm_preamble(ast_prog, segs, nsegs);
+        n2_host_scan_diag(s2);
         if (!s2) return 1;
-        ast_tree_free(ast_prog); ast_prog = NULL;
+        ast_tree_free(ast_prog);
+        ast_prog = NULL;
         {
             extern void rt_proc_register(const char *name, const char **pnames, int nparams);
             extern void rt_proc_reset(void);
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             extern void rt_proc_set_fn(const char *name, bb_box_fn fn);
             extern int g_frame_active;
-            extern int g_m4_dense_nid; extern void g_bb_alpha_seq_reset(); extern int x86_diag_regs_on_c(void);
+            extern int g_m4_dense_nid;
+            extern void g_bb_alpha_seq_reset();
+            extern int x86_diag_regs_on_c(void);
             if (x86_diag_regs_on_c()) { g_m4_dense_nid = 1; g_bb_alpha_seq_reset(); }
             int main_bb_idx = polyglot_main_bb_idx(s2);
             rt_proc_reset();
             g_frame_active = 1;
             void *m3_gva_arena = (void *)0;
             {
-                extern void gva_collect_reset(void); extern void gva_collect_icon_globals(void); extern int gva_count(void); extern const char *gva_name(int); extern int g_gva_active;
+                extern void gva_collect_reset(void);
+                extern void gva_collect_icon_globals(void);
+                extern int gva_count(void);
+                extern const char *gva_name(int);
+                extern int g_gva_active;
                 gva_collect_reset();
                 { extern void gva_io_refuse_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_io_refuse_scan_graph(s2->bbp.table[_si]); }
                 { extern void gva_trace_demote_scan_graph(IR_graph_t *); for (int _si = 0; _si < s2->bbp.count; _si++) if (s2->bbp.table[_si]) gva_trace_demote_scan_graph(s2->bbp.table[_si]); }
                 gva_collect_icon_globals();
-                { extern void rt_icn_global_note(const char *); extern const char **global_names; extern int global_count; for (int _gi = 0; _gi < global_count; _gi++) if (global_names[_gi]) rt_icn_global_note(global_names[_gi]); }
-                int n_gva_m3; { extern int gva_trace_demoted(void); const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = (gva_trace_demoted() || (_gv && *_gv && *_gv == (char)48)) ? 0 : gva_count(); }
+                {
+                    extern void rt_icn_global_note(const char *);
+                    extern const char **global_names;
+                    extern int global_count;
+                    for (int _gi = 0; _gi < global_count; _gi++) if (global_names[_gi]) rt_icn_global_note(global_names[_gi]);
+                }
+                int n_gva_m3;
+                { extern int gva_trace_demoted(void); const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = (gva_trace_demoted() || (_gv && *_gv && *_gv == (char)48)) ? 0 : gva_count(); }
                 if (n_gva_m3 > 0) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)ct_alloc((size_t)n_gva_m3 * sizeof(const char *));
@@ -1896,15 +2596,36 @@ int main(int argc, char **argv)
             }
             register_procs_all(s2);
             { extern void optimizer_run(IR_graph_t * g); for (int _gi = 0; _gi < s2->bbp.count; _gi++) if (s2->bbp.table[_gi]) optimizer_run(s2->bbp.table[_gi]); }
-            drive_slots_all(s2); n2_fb_prepass_diag(s2); n2_xgraph_probe(s2); n2_fb_prepass_register(s2);
-            { extern void rt_proc_set_frame(const char *, int, int); for (int _pi = 0; _pi < s2->proc_count; _pi++) { const char *_fn = s2->proc_table[_pi].name; int _fx = s2->proc_table[_pi].bb_idx; if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue; IR_graph_t *_fg = s2->bbp.table[_fx]; if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level); } }
+            drive_slots_all(s2);
+            n2_fb_prepass_diag(s2);
+            n2_xgraph_probe(s2);
+            n2_fb_prepass_register(s2);
+            {
+                extern void rt_proc_set_frame(const char *, int, int);
+                for (int _pi = 0; _pi < s2->proc_count; _pi++) {
+                    const char *_fn = s2->proc_table[_pi].name;
+                    int _fx = s2->proc_table[_pi].bb_idx;
+                    if (!_fn || strcmp(_fn, "main") == 0 || _fx < 0 || _fx >= s2->bbp.count || !s2->bbp.table[_fx] || !s2->bbp.table[_fx]->entry) continue;
+                    IR_graph_t *_fg = s2->bbp.table[_fx];
+                    if (_fg->caller_frame && _fg->nslots > 0) rt_proc_set_frame(_fn, _fg->nslots - 1, s2->proc_table[_pi].decl_level);
+                }
+            }
             const char *smx_why = "";
             if (!graph_native_emittable_mode(s2, 1, &smx_why)) {
                 fprintf(stderr, "[SMX] --run: mode-3 native emitter does not yet cover this program: %s. REJECTED — native BB emission pending (no interpreter fallback).\n", smx_why);
                 return 1;
             }
-            { extern void zls_graph_name(const IR_graph_t *, const char *); for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) { const char *_pn2 = s2->proc_table[_pi2].name; if (!_pn2 || strcmp(_pn2, "main") == 0) continue; int _idx2 = s2->proc_table[_pi2].bb_idx; if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2); } }
-            unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1]; int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
+            {
+                extern void zls_graph_name(const IR_graph_t *, const char *);
+                for (int _pi2 = 0; _pi2 < s2->proc_count; _pi2++) {
+                    const char *_pn2 = s2->proc_table[_pi2].name;
+                    if (!_pn2 || strcmp(_pn2, "main") == 0) continue;
+                    int _idx2 = s2->proc_table[_pi2].bb_idx;
+                    if (_idx2 >= 0 && _idx2 < s2->bbp.count && s2->bbp.table[_idx2]) zls_graph_name(s2->bbp.table[_idx2], _pn2);
+                }
+            }
+            unsigned char _lbl_own[s2->bbp.count > 0 ? s2->bbp.count : 1];
+            int _lbl_owned = sn4_lbl_owners(s2, _lbl_own);
             m3_lbl_ctx_t _m3lc = { s2, _lbl_own, _lbl_owned };
             for (int _pi = 0; _pi < s2->proc_count; _pi++) {
                 const char *pname = s2->proc_table[_pi].name;
@@ -1915,21 +2636,14 @@ int main(int argc, char **argv)
                 const char **pn = NULL;
                 if (np > 0) {
                     pn = (const char **)ct_zalloc((size_t)np, sizeof(const char *));
-                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++)
-                        pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
+                    for (int k = 0; k < np && k < s2->proc_table[_pi].lower_sc.n; k++) pn[k] = s2->proc_table[_pi].lower_sc.e[k].name;
                 }
                 emit_install_hooks_t _m3hk = { m3_lbl_before, m3_lbl_after, &_m3lc };
                 (void) emit_install_proc(s2, _pi, &_m3hk);
             }
-            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) {
-                extern void core_icn_startup_error_no_main(void);
-                core_icn_startup_error_no_main();
-            }
+            if (main_bb_idx < 0 || main_bb_idx >= s2->bbp.count || !s2->bbp.table[main_bb_idx]) { extern void core_icn_startup_error_no_main(void); core_icn_startup_error_no_main(); }
             IR_graph_t * bbg = s2->bbp.table[main_bb_idx];
-            if (!bbg->entry) {
-                fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph has no entry\n");
-                abort();
-            }
+            if (!bbg->entry) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: main BB graph has no entry\n"); abort(); }
             extern bb_box_fn emit_chain(IR_t * entry, FILE * out, const char * prefix);
             bb_box_fn fn;
             { extern IR_graph_t *g_emit_cfg; g_emit_cfg = bbg; }
@@ -1939,54 +2653,75 @@ int main(int argc, char **argv)
             fn = emit_chain(bbg->entry, NULL, "pat_flat");
             { extern void emit_gc_tables_register(const void *); emit_gc_tables_register((const void *) fn); }
             if (fn) { extern int g_last_flat_frame_bytes; sn4_balias_register(s2, _lbl_own, -1, (void *)fn, g_last_flat_frame_bytes); }
-            if (fn && icn_main_callable(s2, bbg)) { extern void rt_proc_set_fn(const char *, bb_box_fn); extern void rt_proc_set_frame_bytes(const char *, int); extern int g_last_flat_frame_bytes;
-                rt_proc_set_fn("main", fn); rt_proc_set_frame_bytes("main", g_last_flat_frame_bytes); m3_seal_entry_cells("main", (void *)fn, 1); }
+            if (fn && icn_main_callable(s2, bbg)) {
+                extern void rt_proc_set_fn(const char *, bb_box_fn);
+                extern void rt_proc_set_frame_bytes(const char *, int);
+                extern int g_last_flat_frame_bytes;
+                rt_proc_set_fn("main", fn);
+                rt_proc_set_frame_bytes("main", g_last_flat_frame_bytes);
+                m3_seal_entry_cells("main", (void *)fn, 1);
+            }
             { extern int g_flat_outer_nparams; g_flat_outer_nparams = 0; }
             g_frame_active = 0;
-            if (!fn) {
-                fprintf(stderr, "[IBB] FATAL: mode-3 driver: emit_chain returned NULL — BB template(s) lack MEDIUM_BINARY arm\n");
-                abort();
-            }
+            if (!fn) { fprintf(stderr, "[IBB] FATAL: mode-3 driver: emit_chain returned NULL — BB template(s) lack MEDIUM_BINARY arm\n"); abort(); }
             int _nparams = bbg->nparams, _zframe_graph = bbg->zframe_graph, _icn_cells_graph = bbg->icn_cells_graph;
             int _zframe_pinned_root = (bbg->zframe_pinned_base && bbg->root_graph) ? 1 : 0;
             ir_delete_all(s2);
             void *mf = NULL;
-            { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); } { extern void rt_main_progname_stage(const char *); extern const char * stmt_src_get_file(void); const char * _pn = stmt_src_get_file(); char _pnb[_pn ? strlen(_pn) + 1 : 1]; if (_pn) { const char *_sl = strrchr(_pn, '/'); const char *_dt = strrchr(_pn, '.'); if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1)) { memcpy(_pnb, _pn, (size_t)(_dt - _pn)); _pnb[_dt - _pn] = 0; _pn = _pnb; } } rt_main_progname_stage(_pn ? _pn : ""); } if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
+            { extern void rt_main_args_stage(char **, int); rt_main_args_stage(g_prog_argv, g_prog_argc); }
+            {
+                extern void rt_main_progname_stage(const char *);
+                extern const char * stmt_src_get_file(void);
+                const char * _pn = stmt_src_get_file();
+                char _pnb[_pn ? strlen(_pn) + 1 : 1];
+                if (_pn) {
+                    const char *_sl = strrchr(_pn, '/');
+                    const char *_dt = strrchr(_pn, '.');
+                    if (_dt && _dt > _pn && (!_sl || _dt > _sl + 1)) { memcpy(_pnb, _pn, (size_t)(_dt - _pn)); _pnb[_dt - _pn] = 0; _pn = _pnb; }
+                }
+                rt_main_progname_stage(_pn ? _pn : "");
+            }
+            if (_nparams >= 1) { extern void rt_main_args_bind(void); rt_main_args_bind(); }
             if (opt_no_exec) return 231;
-            { extern long rt_stack_budget_bytes(long); extern void rt_stack_budget_apply(long, long); rt_stack_budget_apply(rt_stack_budget_bytes(opt_stack_bytes), (_zframe_graph && !_icn_cells_graph) ? 0L : RT_OUTER_RESERVE); }
+            {
+                extern long rt_stack_budget_bytes(long);
+                extern void rt_stack_budget_apply(long, long);
+                rt_stack_budget_apply(rt_stack_budget_bytes(opt_stack_bytes), (_zframe_graph && !_icn_cells_graph) ? 0L : RT_OUTER_RESERVE);
+            }
             { extern void bbprof_start(void); bbprof_start(); }
             { extern void rt_gcheap_warmup(void); rt_gcheap_warmup(); }
             if (_zframe_graph && !_icn_cells_graph) {
                 { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }
                 icn_zf_main_call((void *)fn, mf, (void *)icn_zf_exit_γ, _zframe_pinned_root ? (void *)pl_root_ω : (void *)icn_zf_exit_ω);
-            } else
-            { extern void rt_outer_call(bb_box_fn, void *, long, void *);  { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }    { extern void rt_outer_call_delta0(bb_box_fn, void *, long, void *); extern int * const rt_k_level_p; if (_icn_cells_graph) { *rt_k_level_p = 0; rt_outer_call_delta0(fn, mf, 0, (void *)icn_root_end); } else rt_outer_call(fn, mf, 0, (void *)0); } }
+            } else {
+                extern void rt_outer_call(bb_box_fn, void *, long, void *);
+                { extern void rtcc_load_all(void); extern unsigned char g_rtcc_on; if (g_rtcc_on) rtcc_load_all(); }
+                {
+                    extern void rt_outer_call_delta0(bb_box_fn, void *, long, void *);
+                    extern int * const rt_k_level_p;
+                    if (_icn_cells_graph) { *rt_k_level_p = 0; rt_outer_call_delta0(fn, mf, 0, (void *)icn_root_end); } else rt_outer_call(fn, mf, 0, (void *)0);
+                }
+            }
             sno_setexit_fire_on_end();
             goto run_done;
         }
     } else if (has_non_sno) {
         (void)sm_preamble;
-        fprintf(stderr, "[MODE] FATAL: reached dead has_non_sno branch — mode resolution is broken; "
-                        "refusing to silently run the SM interpreter. Aborting.\n");
+        fprintf(stderr, "[MODE] FATAL: reached dead has_non_sno branch — mode resolution is broken; " "refusing to silently run the SM interpreter. Aborting.\n");
         abort();
     } else {
-        fprintf(stderr, "[MODE] FATAL: reached dead default dispatch branch — no execution mode "
-                        "selected; refusing to silently run the SM interpreter. Aborting.\n");
+        fprintf(stderr, "[MODE] FATAL: reached dead default dispatch branch — no execution mode " "selected; refusing to silently run the SM interpreter. Aborting.\n");
         abort();
     }
-run_done:
+    run_done:
     { extern void bbprof_report(void); bbprof_report(); }
     if (opt_bench) {
         clock_gettime(CLOCK_MONOTONIC, &_t3);
         double parse_ms = (_t1.tv_sec - _t0.tv_sec)*1e3 + (_t1.tv_nsec - _t0.tv_nsec)/1e6;
         double lower_ms = (_t2.tv_sec - _t1.tv_sec)*1e3 + (_t2.tv_nsec - _t1.tv_nsec)/1e6;
-        double exec_ms  = (_t3.tv_sec - _t2.tv_sec)*1e3 + (_t3.tv_nsec - _t2.tv_nsec)/1e6;
-        fprintf(stderr, "BENCH parse=%.2fms lower=%.2fms exec=%.2fms total=%.2fms\n",
-                parse_ms, lower_ms, exec_ms, parse_ms + lower_ms + exec_ms);
+        double exec_ms = (_t3.tv_sec - _t2.tv_sec)*1e3 + (_t3.tv_nsec - _t2.tv_nsec)/1e6;
+        fprintf(stderr, "BENCH parse=%.2fms lower=%.2fms exec=%.2fms total=%.2fms\n", parse_ms, lower_ms, exec_ms, parse_ms + lower_ms + exec_ms);
     }
-    if (getenv("BINARY_AUDIT") || getenv("SNO_BINARY_BOXES")) {
-        extern void bin_audit_print(void);
-        bin_audit_print();
-    }
+    if (getenv("BINARY_AUDIT") || getenv("SNO_BINARY_BOXES")) { extern void bin_audit_print(void); bin_audit_print(); }
     return 0;
 }

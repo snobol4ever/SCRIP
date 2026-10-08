@@ -31,11 +31,13 @@ static int scan_bank_off() {
 }
 std::string bb_gen_scan() {
     x86_begin();
-    return x86("comment", "IR_GEN_SCAN: the outer Sigma/delta/Delta live in ENTER's own grant (FRQ off/+8/+16) and the inner environment a leave banks for its re-entry lives in the LEAVE node's own grant (+16/+24): the enclosing activation's frame is the one home, no C-global scan stack (CEO-1548)")
+    return x86("comment",
+        "IR_GEN_SCAN: the outer Sigma/delta/Delta live in ENTER's own grant (FRQ off/+8/+16) and the inner environment a leave banks for its re-entry lives in the LEAVE node's own grant (+16/+24): t"
+        "he enclosing activation's frame is the one home, no C-global scan stack (CEO-1548)")
          + x86_alpha()
          + IF(_.op_sb == 1,
-               x86("mov", FRQ(_.op_off),      "r13")
-             + x86("mov", FRQ(_.op_off + 8),  "r14")
+               x86("mov", FRQ(_.op_off), "r13")
+             + x86("mov", FRQ(_.op_off + 8), "r14")
              + x86("mov", FRQ(_.op_off + 16), "r15")
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))

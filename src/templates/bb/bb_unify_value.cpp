@@ -12,7 +12,8 @@ int rtx_pl_unify(DESCR_t *, DESCR_t *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "bb_pl_cell.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PL_OCHECK_LEAF(tag, lskip) (x86("note", "occurs_check (a Prolog flag, the word at offset 24 of the trail arena's header): binding a variable to a compound while it is true or error is the leaf's") \
+#define PL_OCHECK_LEAF(tag, lskip) (x86("note", \
+    "occurs_check (a Prolog flag, the word at offset 24 of the trail arena's header): binding a variable to a compound while it is true or error is the leaf's") \
                     + x86("cmp", tag, (long)DT_PLREF) \
                     + x86("jne", L(lskip)) \
                     + x86("mov", "rdx", "r12") \

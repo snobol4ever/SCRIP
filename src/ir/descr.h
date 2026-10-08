@@ -3,38 +3,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #define DT_NUMERIC_BIT 0x01
-#define DT_CHARS_BIT   0x02
-#define DT_REAL_BIT    0x04
+#define DT_CHARS_BIT 0x02
+#define DT_REAL_BIT 0x04
 #define DT_NOTSTR_MASK 0xFFFFFFFDu
 #define DT_DATA_STRIDE 8
 typedef enum {
-    DT_SNUL = 0x00,
-    DT_S    = 0x02,
-    DT_I    = 0x03,
-    DT_R    = 0x05,
-    DT_P    = 0x08,
-    DT_A    = 0x10,
-    DT_T    = 0x18,
-    DT_C    = 0x20,
-    DT_N    = 0x28,
-    DT_K    = 0x30,
-    DT_E    = 0x38,
-    DT_FH   = 0x40,
-    DT_PLVAR = 0x48,
-    DT_PLREF = 0x50,
-    DT_X    = 0x58,
-    DT_BLK  = 0x60,
-    DT_FAIL = 0x68,
-    DT_DATA = 0x70,
-    DT_BIG  = 0x78,
-    DT_CO   = 0x80,
-    DT_BOOL = 0x88,
-    DT_ORDER = 0x90,
-    DT_RAW  = 0x98,
-    DT_MAP  = 0xA0,
-    DT_CPLX = 0xA8,
-    DT_PLATOM = 0xB0,
-    DT_EXTL = 0xB8,
+    DT_SNUL = 0x00, DT_S = 0x02, DT_I = 0x03, DT_R = 0x05, DT_P = 0x08, DT_A = 0x10, DT_T = 0x18, DT_C = 0x20, DT_N = 0x28, DT_K = 0x30, DT_E = 0x38, DT_FH = 0x40, DT_PLVAR = 0x48, DT_PLREF = 0x50,
+        DT_X = 0x58, DT_BLK = 0x60, DT_FAIL = 0x68, DT_DATA = 0x70, DT_BIG = 0x78, DT_CO = 0x80, DT_BOOL = 0x88, DT_ORDER = 0x90, DT_RAW = 0x98, DT_MAP = 0xA0, DT_CPLX = 0xA8, DT_PLATOM = 0xB0,
+        DT_EXTL = 0xB8,
 } DTYPE_t;
 #ifdef __cplusplus
 #define DESCR_SASSERT(c, m) static_assert(c, m)
@@ -45,87 +21,79 @@ DESCR_SASSERT(DT_SNUL == 0, "DT_SNUL must stay 0: bulk memset init mints null st
 DESCR_SASSERT((DT_I & DT_NUMERIC_BIT) && (DT_R & DT_NUMERIC_BIT), "NUMERIC is bit0");
 DESCR_SASSERT(!(DT_S & DT_NUMERIC_BIT) && !(DT_SNUL & DT_NUMERIC_BIT), "strings never read numeric");
 DESCR_SASSERT(!(DT_I & DT_REAL_BIT) && (DT_R & DT_REAL_BIT), "REAL is bit2");
-DESCR_SASSERT(((DT_I & DT_R) != DT_I) && ((DT_I & DT_R) & DT_NUMERIC_BIT),
-               "DT_I must NOT be a subset of DT_R (or BOTH INT dies) yet must share NUMERIC (or BOTH NUMERIC dies)");
-DESCR_SASSERT(((DT_SNUL | DT_S) & (DT_NOTSTR_MASK & 0xFF)) == 0, "SNUL|S must vanish under the 8-bit string mask -- every .S string-family test reads only the tag byte, never the 32-bit word (that word's bits 8-31 carry the DESCR provenance stamp, see ARCH-SNOBOL4-RTX.md sec9)");
+DESCR_SASSERT(((DT_I & DT_R) != DT_I) && ((DT_I & DT_R) & DT_NUMERIC_BIT), "DT_I must NOT be a subset of DT_R (or BOTH INT dies) yet must share NUMERIC (or BOTH NUMERIC dies)");
+DESCR_SASSERT(((DT_SNUL | DT_S) & (DT_NOTSTR_MASK & 0xFF)) == 0,
+    "SNUL|S must vanish under the 8-bit string mask -- every .S string-family test reads only the tag byte, never the 32-bit word (that word's bits 8-31 carry the DESCR provenance stamp, see ARCH-SN"
+    "OBOL4-RTX.md sec9)");
 DESCR_SASSERT((DT_I & (DT_NOTSTR_MASK & 0xFF)) && (DT_R & (DT_NOTSTR_MASK & 0xFF)), "numerics must NOT read as string under the 8-bit mask");
-DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & (DT_NOTSTR_MASK & 0xFF)),
-               "DT_FAIL must read as neither numeric nor string under the 8-bit mask");
+DESCR_SASSERT(!(DT_FAIL & DT_NUMERIC_BIT) && (DT_FAIL & (DT_NOTSTR_MASK & 0xFF)), "DT_FAIL must read as neither numeric nor string under the 8-bit mask");
 DESCR_SASSERT(!(DT_BOOL & DT_NUMERIC_BIT) && (DT_BOOL & (DT_NOTSTR_MASK & 0xFF)),
-               "DT_BOOL must read as neither numeric nor string under the 8-bit mask (ceo CEO-654): a Bool renders True/False, and only a Raku-own arm may coerce it to 1/0");
+    "DT_BOOL must read as neither numeric nor string under the 8-bit mask (ceo CEO-654): a Bool renders True/False, and only a Raku-own arm may coerce it to 1/0");
 DESCR_SASSERT(!(DT_ORDER & DT_NUMERIC_BIT) && (DT_ORDER & (DT_NOTSTR_MASK & 0xFF)),
-               "DT_ORDER must read as neither numeric nor string under the 8-bit mask, same shape as DT_BOOL above: a Raku Order renders Less/Same/More, and only a Raku-own arm may coerce it to -1/0/1");
-DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT),
-               "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");
+    "DT_ORDER must read as neither numeric nor string under the 8-bit mask, same shape as DT_BOOL above: a Raku Order renders Less/Same/More, and only a Raku-own arm may coerce it to -1/0/1");
+DESCR_SASSERT(!(DT_DATA & DT_NUMERIC_BIT) && !(DT_DATA_STRIDE & DT_NUMERIC_BIT), "DATA base and stride must leave NUMERIC clear so no user datatype enters the arith fast path");
 DESCR_SASSERT(DT_FAIL < DT_DATA, "the v >= DT_DATA range tests require every fixed tag below DT_DATA");
-DESCR_SASSERT(DT_RAW > DT_ORDER && DT_MAP > DT_RAW, "DT_RAW and DT_MAP are the two value-never-a-pointer stack-cell codes of ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.1 (CTO-65): every code above DT_ORDER is a cell the collector never visits as a value, and the three open-ended v >= DT_DATA tests (driver_data.c, core.c, by_name_dispatch.c) carry a v < DT_RAW bound for that reason");
-DESCR_SASSERT(!(DT_RAW & DT_NUMERIC_BIT) && (DT_RAW & (DT_NOTSTR_MASK & 0xFF)) && !(DT_MAP & DT_NUMERIC_BIT) && (DT_MAP & (DT_NOTSTR_MASK & 0xFF)), "DT_RAW and DT_MAP read as neither numeric nor string under the 8-bit mask, like DT_FAIL");
+DESCR_SASSERT(DT_RAW > DT_ORDER && DT_MAP > DT_RAW,
+    "DT_RAW and DT_MAP are the two value-never-a-pointer stack-cell codes of ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.1 (CTO-65): every code above DT_ORDER is a cell the collector never visits a"
+    "s a value, and the three open-ended v >= DT_DATA tests (driver_data.c, core.c, by_name_dispatch.c) carry a v < DT_RAW bound for that reason");
+DESCR_SASSERT(!(DT_RAW & DT_NUMERIC_BIT) && (DT_RAW & (DT_NOTSTR_MASK & 0xFF)) && !(DT_MAP & DT_NUMERIC_BIT) && (DT_MAP & (DT_NOTSTR_MASK & 0xFF)),
+    "DT_RAW and DT_MAP read as neither numeric nor string under the 8-bit mask, like DT_FAIL");
 DESCR_SASSERT(DT_T - DT_A == 8, "rtx_icnsub.s array+table share one subscript range guard");
 DESCR_SASSERT(DT_PLATOM > DT_CPLX && DT_PLATOM < 0x100 && !(DT_PLATOM & DT_NUMERIC_BIT) && (DT_PLATOM & (DT_NOTSTR_MASK & 0xFF)),
-               "DT_PLATOM is the Prolog atom, {v, slen 0, i = atom id} (ARCH-PROLOG-BB-REWRITE.md section 3, rung R1): it replaced the builder form that wore DT_A, "
-               "the SNOBOL4/Icon ARRAY tag, with an integer payload -- the collector's DT_A arm read atom id 0x8e as an ARBLK pointer (row prolog-an-atom-wears-the-array-tag). "
-               "It is safe under the collector because gc_type_says_ref is an explicit switch whose default returns 0, NOT because it sits above DT_ORDER (DT_CPLX sits above "
-               "DT_ORDER and is a ref); IS_DATA_TAG_fn's v < DT_RAW bound excludes it; and it reads neither numeric nor string under the 8-bit mask, like DT_FAIL");
+    "DT_PLATOM is the Prolog atom, {v, slen 0, i = atom id} (ARCH-PROLOG-BB-REWRITE.md section 3, rung R1): it replaced the builder form that wore DT_A, "
+    "the SNOBOL4/Icon ARRAY tag, with an integer payload -- the collector's DT_A arm read atom id 0x8e as an ARBLK pointer (row prolog-an-atom-wears-the-array-tag). "
+    "It is safe under the collector because gc_type_says_ref is an explicit switch whose default returns 0, NOT because it sits above DT_ORDER (DT_CPLX sits above "
+    "DT_ORDER and is a ref); IS_DATA_TAG_fn's v < DT_RAW bound excludes it; and it reads neither numeric nor string under the 8-bit mask, like DT_FAIL");
 struct _ARBLK_t;
 struct _TBBLK_t;
 struct _DATINST_t;
 typedef struct DESCR_t {
-    uint8_t  v;
-    uint8_t  src_node0, src_node1, src_node2;
+    uint8_t v;
+    uint8_t src_node0, src_node1, src_node2;
     uint32_t slen;
-    union {
-        char              *s;
-        int64_t            i;
-        double             r;
-        void              *p;
-        struct _ARBLK_t   *arr;
-        struct _TBBLK_t   *tbl;
-        struct _DATINST_t *u;
-        void              *ptr;
-    };
+    union { char *s; int64_t i; double r; void *p; struct _ARBLK_t *arr; struct _TBBLK_t *tbl; struct _DATINST_t *u; void *ptr; };
 } DESCR_t;
 DESCR_SASSERT(sizeof(DESCR_t) == 16, "DESCR_t is a SysV register-pair (rax:rdx) INTEGER-class return; 17+ bytes flips it to MEMORY class across 4,009 lines of asm");
 #define DESCR_SRC_NODE_UNSTAMPED 0u
-#define DESCR_SRC_NODE_OVERFLOW  0xFFFFFFu
+#define DESCR_SRC_NODE_OVERFLOW 0xFFFFFFu
 DESCR_SASSERT(offsetof(DESCR_t, v) == 0 && offsetof(DESCR_t, src_node0) == 1 && offsetof(DESCR_t, src_node2) == 3 && offsetof(DESCR_t, slen) == 4,
-               "the tag word is {v:1, src_node:3, slen:4} and emitted code mints it as ONE 32-bit immediate: "
-               "bb_lit_scalar.cpp's lit_tag_imm ORs the node id in at <<8, which on little-endian x86-64 lands in "
-               "src_node[0..2] exactly. Move either field and every stamped literal mints a wrong node id silently.");
+    "the tag word is {v:1, src_node:3, slen:4} and emitted code mints it as ONE 32-bit immediate: " "bb_lit_scalar.cpp's lit_tag_imm ORs the node id in at <<8, which on little-endian x86-64 lands in "
+    "src_node[0..2] exactly. Move either field and every stamped literal mints a wrong node id silently.");
 DESCR_SASSERT(DESCR_SRC_NODE_OVERFLOW == 0xFFFFFFu && DESCR_SRC_NODE_UNSTAMPED == 0u,
-               "src_node is 24 bits (Lon 2026-09-18, in-chat: mint_op is REMOVED because the IR op is DERIVABLE from "
-               "the node id -- scrip --dump-bb maps id to kind and statement -- so the byte it held belongs to the id "
-               "instead. 0 stays UNSTAMPED and an id past the field SATURATES to OVERFLOW rather than wrapping, "
-               "because a wrapped id aliases two nodes and yields a CONFIDENTLY WRONG attribution, which is strictly "
-               "worse for a debugging tool than no attribution. MEASURED HEADROOM: beauty.sno is the densest program "
-               "in the corpus at 12812 boxes over 618 lines, 19.6 percent of the OLD 16-bit field and 0.08 percent of "
-               "this one.");
-static inline __attribute__((always_inline)) uint32_t descr_src_node(DESCR_t d)
-{ return (uint32_t)d.src_node0 | ((uint32_t)d.src_node1 << 8) | ((uint32_t)d.src_node2 << 16); }
-static inline __attribute__((always_inline)) void descr_set_src_node(DESCR_t *d, uint32_t id)
-{ if (id > DESCR_SRC_NODE_OVERFLOW) id = DESCR_SRC_NODE_OVERFLOW; d->src_node0 = (uint8_t)id; d->src_node1 = (uint8_t)(id >> 8); d->src_node2 = (uint8_t)(id >> 16); }
+    "src_node is 24 bits (Lon 2026-09-18, in-chat: mint_op is REMOVED because the IR op is DERIVABLE from "
+    "the node id -- scrip --dump-bb maps id to kind and statement -- so the byte it held belongs to the id "
+    "instead. 0 stays UNSTAMPED and an id past the field SATURATES to OVERFLOW rather than wrapping, "
+    "because a wrapped id aliases two nodes and yields a CONFIDENTLY WRONG attribution, which is strictly "
+    "worse for a debugging tool than no attribution. MEASURED HEADROOM: beauty.sno is the densest program "
+    "in the corpus at 12812 boxes over 618 lines, 19.6 percent of the OLD 16-bit field and 0.08 percent of " "this one.");
+static inline __attribute__((always_inline)) uint32_t descr_src_node(DESCR_t d) { return (uint32_t)d.src_node0 | ((uint32_t)d.src_node1 << 8) | ((uint32_t)d.src_node2 << 16); }
+static inline __attribute__((always_inline)) void descr_set_src_node(DESCR_t *d, uint32_t id) {
+    if (id > DESCR_SRC_NODE_OVERFLOW) id = DESCR_SRC_NODE_OVERFLOW;
+    d->src_node0 = (uint8_t)id;
+    d->src_node1 = (uint8_t)(id >> 8);
+    d->src_node2 = (uint8_t)(id >> 16);
+}
 typedef struct _VCELL_t { DESCR_t *cellp; struct _TBBLK_t *tbl; const char *key; DESCR_t key_d; DESCR_t sv; long pos; long len; } VCELL_t;
-#define FAILDESCR    ((DESCR_t){ .v = DT_FAIL, .i = 0 })
+#define FAILDESCR ((DESCR_t){ .v = DT_FAIL, .i = 0 })
 #define NAMETRAP(vc_) ((DESCR_t){ .v = DT_N, .slen = 2, .p = (void *)(vc_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_FAIL_fn(DESCR_t v) { return v.v == DT_FAIL; }
 static inline __attribute__((always_inline)) int IS_DATA_TAG_fn(uint8_t v) { return v >= DT_DATA && v < DT_RAW; }
 static inline __attribute__((always_inline)) int IS_NAMETRAP_fn(DESCR_t v) { return v.v == DT_N && v.slen == 2; }
 static inline __attribute__((always_inline)) int IS_VARREF_fn(DESCR_t v) { return v.v == DT_N && (v.slen == 2 || (v.slen == 1 && v.ptr) || (v.slen == 0 && v.s && *v.s)); }
-#define DATA_INST_SLEN  0u
+#define DATA_INST_SLEN 0u
 #define DATA_ELEMS_SLEN 1u
 DESCR_SASSERT(DATA_INST_SLEN != DATA_ELEMS_SLEN,
-               "DT_DATA was a UNION with nothing in the descriptor to arbitrate it: the .u arm is a DATINST_t (a record instance) and the "
-               ".ptr arm is a raw DESCR_t element vector (an Icon list's frame_elems backing store), and until 2026-09-18 BOTH were minted "
-               "with slen 0, so a reader that guessed wrong read a DATBLK_t* out of the first element of a descriptor array -- a SILENT "
-               "WRONG ANSWER, not a crash, and the collector had to string-compare a field name to tell them apart. This is DT_N's own "
-               "scheme (slen 0 char*, 1 DESCR_t*, 2 VCELL_t*) applied to the tag that needed it; the two values are PINNED here so a future "
-               "third meaning cannot quietly reuse one.");
-DESCR_SASSERT(DATA_ELEMS_SLEN != 0xFFFFFFFFu && DATA_ELEMS_SLEN != 0xFFFFFFFDu && DATA_ELEMS_SLEN != 0xFFFFFFFEu &&
-               DATA_ELEMS_SLEN != 0xFFFFFFFCu && DATA_ELEMS_SLEN != 0xFFFFFFFBu,
-               "a DT_DATA discriminator is PER-TAG, so reusing a small value another tag already uses is fine (DT_N slen 1 is NAMEPTR and is "
-               "unrelated to this); what it must not do is land in the 0xFFFFFFFx range that the PROCVAL_BUILTIN_SLEN assert above records as "
-               "ONE space shared across unrelated headers with nothing collecting it.");
-static inline __attribute__((always_inline)) int IS_DATA_INST_fn(DESCR_t v)  { return v.v == DT_DATA && v.slen == DATA_INST_SLEN; }
+    "DT_DATA was a UNION with nothing in the descriptor to arbitrate it: the .u arm is a DATINST_t (a record instance) and the "
+    ".ptr arm is a raw DESCR_t element vector (an Icon list's frame_elems backing store), and until 2026-09-18 BOTH were minted "
+    "with slen 0, so a reader that guessed wrong read a DATBLK_t* out of the first element of a descriptor array -- a SILENT "
+    "WRONG ANSWER, not a crash, and the collector had to string-compare a field name to tell them apart. This is DT_N's own "
+    "scheme (slen 0 char*, 1 DESCR_t*, 2 VCELL_t*) applied to the tag that needed it; the two values are PINNED here so a future " "third meaning cannot quietly reuse one.");
+DESCR_SASSERT(DATA_ELEMS_SLEN != 0xFFFFFFFFu && DATA_ELEMS_SLEN != 0xFFFFFFFDu && DATA_ELEMS_SLEN != 0xFFFFFFFEu && DATA_ELEMS_SLEN != 0xFFFFFFFCu && DATA_ELEMS_SLEN != 0xFFFFFFFBu,
+    "a DT_DATA discriminator is PER-TAG, so reusing a small value another tag already uses is fine (DT_N slen 1 is NAMEPTR and is "
+    "unrelated to this); what it must not do is land in the 0xFFFFFFFx range that the PROCVAL_BUILTIN_SLEN assert above records as "
+    "ONE space shared across unrelated headers with nothing collecting it.");
+static inline __attribute__((always_inline)) int IS_DATA_INST_fn(DESCR_t v) { return v.v == DT_DATA && v.slen == DATA_INST_SLEN; }
 static inline __attribute__((always_inline)) int IS_DATA_ELEMS_fn(DESCR_t v) { return v.v == DT_DATA && v.slen == DATA_ELEMS_SLEN; }
 #define DATA_ELEMS(p_) ((DESCR_t){ .v = DT_DATA, .slen = DATA_ELEMS_SLEN, .ptr = (void *)(p_) })
 #define FHVAL(idx_) ((DESCR_t){ .v = DT_FH, .i = (int64_t)(idx_) })
@@ -140,22 +108,29 @@ static inline __attribute__((always_inline)) int IS_DATA_ELEMS_fn(DESCR_t v) { r
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int IS_FH_fn(DESCR_t v) { return v.v == DT_FH; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define PROCVAL_SLEN         0xFFFFFFFEu
+#define PROCVAL_SLEN 0xFFFFFFFEu
 #define PROCVAL_BUILTIN_SLEN 0xFFFFFFFCu
 DESCR_SASSERT(PROCVAL_SLEN != PROCVAL_BUILTIN_SLEN, "the two procedure-value markers must differ, or proc(s,0) is indistinguishable from a global of the same name");
 DESCR_SASSERT(PROCVAL_BUILTIN_SLEN != 0xFFFFFFFFu && PROCVAL_BUILTIN_SLEN != 0xFFFFFFFDu,
-               "slen sentinels share ONE 32-bit space across unrelated headers and nothing collects them: 0xFFFFFFFF is CSETVAL, "
-               "0xFFFFFFFD is core.h RT_CONVE_CHAIN_MARK. PROCVAL_BUILTIN_SLEN was first written 0xFFFFFFFD, every board stayed "
-               "green, and type(proc(name,0)) silently answered EXPRESSION -- grep the whole 0xFFFFFFFx space before adding one");
+    "slen sentinels share ONE 32-bit space across unrelated headers and nothing collects them: 0xFFFFFFFF is CSETVAL, "
+    "0xFFFFFFFD is core.h RT_CONVE_CHAIN_MARK. PROCVAL_BUILTIN_SLEN was first written 0xFFFFFFFD, every board stayed "
+    "green, and type(proc(name,0)) silently answered EXPRESSION -- grep the whole 0xFFFFFFFx space before adding one");
 DESCR_SASSERT(PROCVAL_SLEN == 0xFFFFFFFEu,
-               "PROCVAL_SLEN is HAND-COPIED in src/runtime/rtx/rtx_icncall.s, which mints the ordinary form in asm where no assert "
-               "in this header can see it; this arm pins the C side so a silent divergence needs two deliberate edits, not one");
+    "PROCVAL_SLEN is HAND-COPIED in src/runtime/rtx/rtx_icncall.s, which mints the ordinary form in asm where no assert "
+    "in this header can see it; this arm pins the C side so a silent divergence needs two deliberate edits, not one");
 #define PROCVAL_EXTERNAL_SLEN 0xFFFFFFFBu
 DESCR_SASSERT(PROCVAL_EXTERNAL_SLEN != PROCVAL_SLEN && PROCVAL_EXTERNAL_SLEN != PROCVAL_BUILTIN_SLEN && PROCVAL_EXTERNAL_SLEN != 0xFFFFFFFFu && PROCVAL_EXTERNAL_SLEN != 0xFFFFFFFDu,
-               "PROCVAL_EXTERNAL_SLEN joins the ONE shared 0xFFFFFFFx sentinel space this header's PROCVAL_BUILTIN_SLEN assert already warns about; 0xFFFFFFFB was free when it was minted and this arm keeps it free");
+    "PROCVAL_EXTERNAL_SLEN joins the ONE shared 0xFFFFFFFx sentinel space this header's PROCVAL_BUILTIN_SLEN assert already warns about; 0xFFFFFFFB was free when it was minted and this arm keeps it "
+    "free");
 typedef struct _EXTFN_t { void *fn; char name[]; } EXTFN_t;
 typedef struct _CVSPINE_t { long fn; long act0; } CVSPINE_t;
-DESCR_SASSERT(sizeof(CVSPINE_t) == 16, "CVSPINE_t is the two-register answer rt_call_value_spine_prep and rt_call_apply_spine_prep hand bb_call_value: fn in rax is the callee box entry and 0 declines, act0 in rdx is the word the box banks in callgen.act +0 BEFORE it transfers -- 0 when the callee may be re-driven on beta (a jmp-entry generator; the box still writes 1 at its first gamma, which is the pre-2026-09-19 behaviour unchanged) and 2 when it may not (a plain procedure returns once, so beta fails forward instead of resuming a frame the callee already released). MEASURED (ceo 2026-09-19, row gc-the-five-c-to-bb-entries-outside-rt-c-go-to-zero): opening a plain procedure on the spine WITHOUT this word hangs every redo -- `every x := f()` and a failing comparison each loop forever at 10 s timeout in both modes -- because beta's `cmp rax,1` cannot tell a suspended generator from a returned procedure, while a SINGLE call is byte-correct. That is why the old rt_proc_is_generator refusal was not a policy. Two longs so the pair rides rax:rdx with no memory traffic, the shape rt_call_next_t and rt_prim_next_t already use.");
+DESCR_SASSERT(sizeof(CVSPINE_t) == 16,
+    "CVSPINE_t is the two-register answer rt_call_value_spine_prep and rt_call_apply_spine_prep hand bb_call_value: fn in rax is the callee box entry and 0 declines, act0 in rdx is the word the box "
+    "banks in callgen.act +0 BEFORE it transfers -- 0 when the callee may be re-driven on beta (a jmp-entry generator; the box still writes 1 at its first gamma, which is the pre-2026-09-19 behaviou"
+    "r unchanged) and 2 when it may not (a plain procedure returns once, so beta fails forward instead of resuming a frame the callee already released). MEASURED (ceo 2026-09-19, row gc-the-five-c-t"
+    "o-bb-entries-outside-rt-c-go-to-zero): opening a plain procedure on the spine WITHOUT this word hangs every redo -- `every x := f()` and a failing comparison each loop forever at 10 s timeout i"
+    "n both modes -- because beta's `cmp rax,1` cannot tell a suspended generator from a returned procedure, while a SINGLE call is byte-correct. That is why the old rt_proc_is_generator refusal was"
+    " not a policy. Two longs so the pair rides rax:rdx with no memory traffic, the shape rt_call_next_t and rt_prim_next_t already use.");
 static inline __attribute__((always_inline)) int IS_PROCVAL_EXTERNAL_fn(DESCR_t v) { return v.v == DT_E && v.slen == PROCVAL_EXTERNAL_SLEN; }
 #define PROCVAL_EXTERNAL(blk_) ((DESCR_t){ .v = DT_E, .slen = PROCVAL_EXTERNAL_SLEN, .s = (blk_)->name })
 #define PROCVAL_EXT_FN(v_) (((EXTFN_t *)(void *)((char *)(v_).s - offsetof(EXTFN_t, name)))->fn)

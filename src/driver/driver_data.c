@@ -3,14 +3,10 @@
 #include "driver_private.h"
 #include "ct_arena.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t _builtin_print(DESCR_t *args, int nargs) {
-    if (nargs == 0) { output_str(""); return NULVCL; }
-    for (int i = 0; i < nargs; i++) output_val(args[i]);
-    return NULVCL;
-}
+DESCR_t _builtin_print(DESCR_t *args, int nargs) { if (nargs == 0) { output_str(""); return NULVCL; } for (int i = 0; i < nargs; i++) output_val(args[i]); return NULVCL; }
 static cv_t dat_types_v;
 #define dat_types ((DatType **)dat_types_v.p)
-static int       dat_ntypes = 0;
+static int dat_ntypes = 0;
 unsigned rt_dtax_gen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_nfields_byref(void *t) { return t ? ((DatType *)t)->nfields : 0; }
@@ -21,21 +17,47 @@ static char *dat_strndup(const char *s, size_t n) { char *d = (char *)ct_alloc(n
 static void dat_sv_put(char ***v, int *n, int *cap, char *s) { if (*n >= *cap) { int nc = *cap ? *cap * 2 : 4; *v = (char **)ct_grow(*v, (size_t)nc * sizeof(char *)); *cap = nc; } (*v)[(*n)++] = s; }
 static void dat_fields_reserve(DatType *t, int need) {
     if (need <= t->fcap) return;
-    int cap = t->fcap > 0 ? t->fcap * 2 : 8; while (cap < need) cap *= 2;
-    char **f = (char **)ct_zalloc((size_t)cap, sizeof(char *)); DESCR_t *d = (DESCR_t *)ct_zalloc((size_t)cap, sizeof(DESCR_t));
-    char *hd = (char *)ct_zalloc((size_t)cap, 1), *rq = (char *)ct_zalloc((size_t)cap, 1), *rw = (char *)ct_zalloc((size_t)cap, 1), *sg = (char *)ct_zalloc((size_t)cap, 1), *pv = (char *)ct_zalloc((size_t)cap, 1);
+    int cap = t->fcap > 0 ? t->fcap * 2 : 8;
+    while (cap < need) cap *= 2;
+    char **f = (char **)ct_zalloc((size_t)cap, sizeof(char *));
+    DESCR_t *d = (DESCR_t *)ct_zalloc((size_t)cap, sizeof(DESCR_t));
+    char *hd = (char *)ct_zalloc((size_t)cap, 1), *rq = (char *)ct_zalloc((size_t)cap, 1), *rw = (char *)ct_zalloc((size_t)cap, 1), *sg = (char *)ct_zalloc((size_t)cap, 1),
+        *pv = (char *)ct_zalloc((size_t)cap, 1);
     int n = t->nfields;
-    if (n > 0) { memcpy(f, t->fields, (size_t)n * sizeof(char *)); memcpy(d, t->defaults, (size_t)n * sizeof(DESCR_t)); memcpy(hd, t->has_default, (size_t)n); memcpy(rq, t->required, (size_t)n); memcpy(rw, t->rw, (size_t)n); memcpy(sg, t->sigil, (size_t)n); memcpy(pv, t->priv, (size_t)n); }
-    t->fields = f; t->defaults = d; t->has_default = hd; t->required = rq; t->rw = rw; t->sigil = sg; t->priv = pv; t->fcap = cap;
+    if (n > 0) {
+        memcpy(f, t->fields, (size_t)n * sizeof(char *));
+        memcpy(d, t->defaults, (size_t)n * sizeof(DESCR_t));
+        memcpy(hd, t->has_default, (size_t)n);
+        memcpy(rq, t->required, (size_t)n);
+        memcpy(rw, t->rw, (size_t)n);
+        memcpy(sg, t->sigil, (size_t)n);
+        memcpy(pv, t->priv, (size_t)n);
+    }
+    t->fields = f;
+    t->defaults = d;
+    t->has_default = hd;
+    t->required = rq;
+    t->rw = rw;
+    t->sigil = sg;
+    t->priv = pv;
+    t->fcap = cap;
 }
 static void dat_field_put(DatType *t, char *nm, DESCR_t df, char hd, char rq, char rw, char sg, char pv) {
     for (int j = 0; j < t->nfields; j++) if (!strcmp(t->fields[j], nm)) return;
     dat_fields_reserve(t, t->nfields + 1);
-    int k = t->nfields++; t->fields[k] = nm; t->defaults[k] = df; t->has_default[k] = hd; t->required[k] = rq; t->rw[k] = rw; t->sigil[k] = sg; t->priv[k] = pv;
+    int k = t->nfields++;
+    t->fields[k] = nm;
+    t->defaults[k] = df;
+    t->has_default[k] = hd;
+    t->required[k] = rq;
+    t->rw[k] = rw;
+    t->sigil[k] = sg;
+    t->priv[k] = pv;
 }
 DatType *dat_register(const char *spec) {
     cv_reserve(&dat_types_v, (uint32_t)sizeof(DatType *), (uint64_t)dat_ntypes + 1, "dat_types");
-    DatType *t = (DatType *)ct_zalloc(1, sizeof(DatType)); dat_types[dat_ntypes] = t;
+    DatType *t = (DatType *)ct_zalloc(1, sizeof(DatType));
+    dat_types[dat_ntypes] = t;
     const char *p = spec;
     while (*p && *p != '(') p++;
     t->name = dat_strndup(spec, (size_t)(p - spec));
@@ -51,7 +73,8 @@ DatType *dat_register(const char *spec) {
         if (*p == ',') p++;
     }
     t->live = 1;
-    dat_ntypes++; rt_dtax_gen++;
+    dat_ntypes++;
+    rt_dtax_gen++;
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -87,32 +110,22 @@ int dat_spec_is_current(const char *spec) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_type_gen(void) { return dat_ntypes; }
 DatType *dat_find_type_n(const char *name, size_t n) {
-    for (int i = dat_ntypes - 1; i >= 0; i--)
-        if (strncmp(dat_types[i]->name, name, n) == 0 && dat_types[i]->name[n] == '\0') return dat_types[i];
-    if (n == 63) for (int i = dat_ntypes - 1; i >= 0; i--)
-        if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
+    for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, n) == 0 && dat_types[i]->name[n] == '\0') return dat_types[i];
+    if (n == 63) for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
     return NULL;
 }
 const void *dat_type_blk(int k) { return (k >= 0 && k < dat_ntypes) ? (const void *)dat_types[k]->blk : (const void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_type(const char *name) {
-    for (int i = dat_ntypes - 1; i >= 0; i--)
-        if (strcmp(dat_types[i]->name, name) == 0) return dat_types[i];
-    if (strnlen(name, 64) == 63) for (int i = dat_ntypes - 1; i >= 0; i--)
-        if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
+    for (int i = dat_ntypes - 1; i >= 0; i--) if (strcmp(dat_types[i]->name, name) == 0) return dat_types[i];
+    if (strnlen(name, 64) == 63) for (int i = dat_ntypes - 1; i >= 0; i--) if (strncmp(dat_types[i]->name, name, 63) == 0 && dat_types[i]->name[63] != '\0') return dat_types[i];
     return NULL;
 }
 static int dat_mro_need(const char *name) { DatType *t = name ? dat_find_type(name) : NULL; return (t && t->mro_len > 0 ? t->mro_len : 0) + 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void class_inherit(const char *child, const char *parent) {
-    if (!child || !parent) return;
-    class_inherit_multi(child, &parent, 1);
-}
+void class_inherit(const char *child, const char *parent) { if (!child || !parent) return; class_inherit_multi(child, &parent, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int c3_in_tail(const char **list, int len, const char *name) {
-    for (int k = 1; k < len; k++) if (strcmp(list[k], name) == 0) return 1;
-    return 0;
-}
+static int c3_in_tail(const char **list, int len, const char *name) { for (int k = 1; k < len; k++) if (strcmp(list[k], name) == 0) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int c3_merge(const char ***lists, int *lens, int nlists, const char **out) {
     int outn = 0;
@@ -125,12 +138,9 @@ static int c3_merge(const char ***lists, int *lens, int nlists, const char **out
             for (int j = 0; j < nlists; j++) if (c3_in_tail(lists[j], lens[j], cb)) { rejected = 1; break; }
             if (rejected) continue;
             out[outn++] = cb;
-            for (int j = 0; j < nlists; j++) {
-                int w = 0;
-                for (int k = 0; k < lens[j]; k++) if (strcmp(lists[j][k], cb) != 0) lists[j][w++] = lists[j][k];
-                lens[j] = w;
-            }
-            picked = 1; break;
+            for (int j = 0; j < nlists; j++) { int w = 0; for (int k = 0; k < lens[j]; k++) if (strcmp(lists[j][k], cb) != 0) lists[j][w++] = lists[j][k]; lens[j] = w; }
+            picked = 1;
+            break;
         }
         if (!picked) break;
     }
@@ -140,15 +150,22 @@ static int c3_merge(const char ***lists, int *lens, int nlists, const char **out
 static void compute_mro_multi(DatType *c) {
     int nlists = c->nparents + 1, tot = c->nparents;
     for (int pi = 0; pi < c->nparents; pi++) { DatType *p = dat_find_type(c->parents[pi]); tot += p ? p->mro_len : 1; }
-    const char *cell[tot > 0 ? tot : 1]; const char **lists[nlists]; int lens[nlists]; int at = 0;
+    const char *cell[tot > 0 ? tot : 1];
+    const char **lists[nlists];
+    int lens[nlists];
+    int at = 0;
     for (int pi = 0; pi < c->nparents; pi++) {
-        DatType *p = dat_find_type(c->parents[pi]); lists[pi] = &cell[at]; lens[pi] = 0;
-        if (p) { for (int k = 0; k < p->mro_len; k++) lists[pi][lens[pi]++] = p->mro[k]; }
-        else  lists[pi][lens[pi]++] = c->parents[pi];
+        DatType *p = dat_find_type(c->parents[pi]);
+        lists[pi] = &cell[at];
+        lens[pi] = 0;
+        if (p) { for (int k = 0; k < p->mro_len; k++) lists[pi][lens[pi]++] = p->mro[k]; } else lists[pi][lens[pi]++] = c->parents[pi];
         at += lens[pi];
     }
-    lists[nlists - 1] = &cell[at]; lens[nlists - 1] = 0; for (int pi = 0; pi < c->nparents; pi++) lists[nlists - 1][lens[nlists - 1]++] = c->parents[pi];
-    const char *merged[tot > 0 ? tot : 1]; int mn = c3_merge(lists, lens, nlists, merged);
+    lists[nlists - 1] = &cell[at];
+    lens[nlists - 1] = 0;
+    for (int pi = 0; pi < c->nparents; pi++) lists[nlists - 1][lens[nlists - 1]++] = c->parents[pi];
+    const char *merged[tot > 0 ? tot : 1];
+    int mn = c3_merge(lists, lens, nlists, merged);
     c->mro_len = 0;
     dat_sv_put(&c->mro, &c->mro_len, &c->mro_cap, c->name);
     for (int k = 0; k < mn; k++) dat_sv_put(&c->mro, &c->mro_len, &c->mro_cap, (char *)merged[k]);
@@ -156,12 +173,25 @@ static void compute_mro_multi(DatType *c) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void class_inherit_multi(const char *child, const char **parents, int nparents) {
     if (!child || nparents <= 0) return;
-    DatType *c = dat_find_type(child); if (!c) return;
+    DatType *c = dat_find_type(child);
+    if (!c) return;
     if (c->nparents > 0) return;
-    char **of = c->fields; DESCR_t *od = c->defaults; char *oh = c->has_default, *oq = c->required, *orw = c->rw, *os = c->sigil, *op = c->priv; int on = c->nfields;
-    c->fields = NULL; c->defaults = NULL; c->has_default = NULL; c->required = NULL; c->rw = NULL; c->sigil = NULL; c->priv = NULL; c->nfields = 0; c->fcap = 0;
+    char **of = c->fields;
+    DESCR_t *od = c->defaults;
+    char *oh = c->has_default, *oq = c->required, *orw = c->rw, *os = c->sigil, *op = c->priv;
+    int on = c->nfields;
+    c->fields = NULL;
+    c->defaults = NULL;
+    c->has_default = NULL;
+    c->required = NULL;
+    c->rw = NULL;
+    c->sigil = NULL;
+    c->priv = NULL;
+    c->nfields = 0;
+    c->fcap = 0;
     for (int pi = 0; pi < nparents; pi++) {
-        DatType *p = dat_find_type(parents[pi]); if (!p) continue;
+        DatType *p = dat_find_type(parents[pi]);
+        if (!p) continue;
         for (int i = 0; i < p->nfields; i++) dat_field_put(c, p->fields[i], p->defaults[i], p->has_default[i], p->required[i], p->rw[i], p->sigil[i], p->priv[i]);
     }
     for (int i = 0; i < on; i++) dat_field_put(c, of[i], od[i], oh[i], oq[i], orw[i], os[i], op[i]);
@@ -173,42 +203,57 @@ void class_inherit_multi(const char *child, const char **parents, int nparents) 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void class_compose_role(const char *child, const char *role) {
     if (!child || !role) return;
-    DatType *c = dat_find_type(child); if (!c) return;
-    DatType *r = dat_find_type(role);  if (!r) return;
+    DatType *c = dat_find_type(child);
+    if (!c) return;
+    DatType *r = dat_find_type(role);
+    if (!r) return;
     for (int mi = 0; mi < r->nmethods; mi++) {
         const char *m = r->methods[mi];
-        int own = 0; for (int k = 0; k < c->nmethods; k++) if (!strcmp(c->methods[k], m)) { own = 1; break; }
+        int own = 0;
+        for (int k = 0; k < c->nmethods; k++) if (!strcmp(c->methods[k], m)) { own = 1; break; }
         if (own) continue;
         for (int pri = 0; pri < c->nroles; pri++) {
-            DatType *rp = dat_find_type(c->roles[pri]); if (!rp) continue;
-            int clash = 0; for (int k = 0; k < rp->nmethods; k++) if (!strcmp(rp->methods[k], m)) { clash = 1; break; }
+            DatType *rp = dat_find_type(c->roles[pri]);
+            if (!rp) continue;
+            int clash = 0;
+            for (int k = 0; k < rp->nmethods; k++) if (!strcmp(rp->methods[k], m)) { clash = 1; break; }
             if (clash) {
                 extern void rt_script_die_surface(const char *msg);
                 char _m[fmt_len("Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role)];
-                snprintf(_m, sizeof _m, "Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role); rt_script_die_surface(_m); return;
+                snprintf(_m, sizeof _m, "Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role);
+                rt_script_die_surface(_m);
+                return;
             }
         }
     }
     for (int i = 0; i < r->nfields; i++) dat_field_put(c, r->fields[i], r->defaults[i], r->has_default[i], r->required[i], r->rw[i], r->sigil[i], r->priv[i]);
-    int dupr = 0; for (int i = 0; i < c->nroles; i++) if (!strcmp(c->roles[i], role)) { dupr = 1; break; }
+    int dupr = 0;
+    for (int i = 0; i < c->nroles; i++) if (!strcmp(c->roles[i], role)) { dupr = 1; break; }
     if (!dupr) dat_sv_put(&c->roles, &c->nroles, &c->roles_cap, ct_strdup(role));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_add_method(const char *type, const char *mname) {
     if (!type || !mname || !*mname) return;
-    DatType *t = dat_find_type(type); if (!t) return;
+    DatType *t = dat_find_type(type);
+    if (!t) return;
     for (int i = 0; i < t->nmethods; i++) if (!strcmp(t->methods[i], mname)) return;
     dat_sv_put(&t->methods, &t->nmethods, &t->methods_cap, ct_strdup(mname));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_build_key(const char *cls, const char *key) {
-    DatType *t = dat_find_type(cls); if (!t) return; t->has_build = 1; if (!key || !*key) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
+    t->has_build = 1;
+    if (!key || !*key) return;
     dat_sv_put(&t->build_keys, &t->nbuild_keys, &t->build_keys_cap, ct_strdup(key));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_has_build_mro(const char *cls) {
-    if (!cls) return 0; extern int dat_mro(const char *name, const char **out, int max);
-    const char *mro[dat_mro_need(cls)]; int mn = dat_mro(cls, mro, (int)(sizeof mro / sizeof *mro)); if (mn == 0) { mro[0] = cls; mn = 1; }
+    if (!cls) return 0;
+    extern int dat_mro(const char *name, const char **out, int max);
+    const char *mro[dat_mro_need(cls)];
+    int mn = dat_mro(cls, mro, (int)(sizeof mro / sizeof *mro));
+    if (mn == 0) { mro[0] = cls; mn = 1; }
     for (int mi = 0; mi < mn; mi++) { DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL; if (t && t->has_build) return 1; }
     return 0;
 }
@@ -216,26 +261,39 @@ int dat_has_build_mro(const char *cls) {
 int dat_class_has_build(const char *cls) { DatType *t = cls ? dat_find_type(cls) : NULL; return (t && t->has_build) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_build_keys(const char *cls, const char **out, int max) {
-    DatType *t = cls ? dat_find_type(cls) : NULL; if (!t) return 0; int n = 0;
+    DatType *t = cls ? dat_find_type(cls) : NULL;
+    if (!t) return 0;
+    int n = 0;
     for (int i = 0; i < t->nbuild_keys && n < max; i++) out[n++] = t->build_keys[i];
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_add_handles(const char *cls, const char *meth, const char *field) {
-    DatType *t = dat_find_type(cls); if (!t || !meth || !*meth || !field || !*field) return;
+    DatType *t = dat_find_type(cls);
+    if (!t || !meth || !*meth || !field || !*field) return;
     for (int i = 0; i < t->nhandles; i++) if (!strcmp(t->handles_meth[i], meth)) return;
     if (t->nhandles >= t->handles_cap) {
-        int nc = t->handles_cap ? t->handles_cap * 2 : 4; t->handles_cap = nc;
-        t->handles_meth = (char **)ct_grow(t->handles_meth, (size_t)nc * sizeof(char *)); t->handles_fld = (char **)ct_grow(t->handles_fld, (size_t)nc * sizeof(char *));
+        int nc = t->handles_cap ? t->handles_cap * 2 : 4;
+        t->handles_cap = nc;
+        t->handles_meth = (char **)ct_grow(t->handles_meth, (size_t)nc * sizeof(char *));
+        t->handles_fld = (char **)ct_grow(t->handles_fld, (size_t)nc * sizeof(char *));
     }
-    t->handles_meth[t->nhandles] = ct_strdup(meth); t->handles_fld[t->nhandles] = ct_strdup(field); t->nhandles++;
+    t->handles_meth[t->nhandles] = ct_strdup(meth);
+    t->handles_fld[t->nhandles] = ct_strdup(field);
+    t->nhandles++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_handles_field(const char *cls, const char *meth, char *out, int outsz) {
-    if (!cls || !meth) return 0; extern int dat_mro(const char *name, const char **out, int max);
-    const char *mro[dat_mro_need(cls)]; int mn = dat_mro(cls, mro, (int)(sizeof mro / sizeof *mro)); if (mn == 0) { mro[0] = cls; mn = 1; }
-    for (int mi = 0; mi < mn; mi++) { DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL; if (!t) continue;
-        for (int i = 0; i < t->nhandles; i++) if (!strcmp(t->handles_meth[i], meth)) { snprintf(out, outsz, "%s", t->handles_fld[i]); return 1; } }
+    if (!cls || !meth) return 0;
+    extern int dat_mro(const char *name, const char **out, int max);
+    const char *mro[dat_mro_need(cls)];
+    int mn = dat_mro(cls, mro, (int)(sizeof mro / sizeof *mro));
+    if (mn == 0) { mro[0] = cls; mn = 1; }
+    for (int mi = 0; mi < mn; mi++) {
+        DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL;
+        if (!t) continue;
+        for (int i = 0; i < t->nhandles; i++) if (!strcmp(t->handles_meth[i], meth)) { snprintf(out, outsz, "%s", t->handles_fld[i]); return 1; }
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -244,46 +302,58 @@ const char *dat_type_handles_meth_at(int i, int j) { return (i >= 0 && i < dat_n
 const char *dat_type_handles_fld_at(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nhandles) ? dat_types[i]->handles_fld[j] : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_i(const char *cls, const char *field, int64_t v) {
-    DatType *t = dat_find_type(cls); if (!t) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = INTVAL(v); t->has_default[i] = 1; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_s(const char *cls, const char *field, const char *v) {
-    DatType *t = dat_find_type(cls); if (!t) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = STRVAL(rt_heap_strdup_c(v ? v : "")); t->has_default[i] = 1; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_default_r(const char *cls, const char *field, double v) {
-    DatType *t = dat_find_type(cls); if (!t) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->defaults[i] = REALVAL(v); t->has_default[i] = 1; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_required(const char *cls, const char *field) {
-    DatType *t = dat_find_type(cls); if (!t) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->required[i] = 1; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_rw(const char *cls, const char *field) {
-    DatType *t = dat_find_type(cls); if (!t) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->rw[i] = 1; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_sigil(const char *cls, const char *field, int sig) {
-    DatType *t = dat_find_type(cls); if (!t) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->sigil[i] = (char)sig; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_set_field_priv(const char *cls, const char *field) {
-    DatType *t = dat_find_type(cls); if (!t) return;
+    DatType *t = dat_find_type(cls);
+    if (!t) return;
     for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) { t->priv[i] = 1; return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_field_is_private(const char *cls, const char *field) {
     if (!cls || !field) return 0;
     extern int dat_mro(const char *name, const char **out, int max);
-    const char *mro[dat_mro_need(cls)]; int mn = dat_mro(cls, mro, (int)(sizeof mro / sizeof *mro)); if (mn == 0) { mro[0] = cls; mn = 1; }
-    for (int mi = 0; mi < mn; mi++) { DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL; if (!t) continue;
-        for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) return t->priv[i] ? 1 : 0; }
+    const char *mro[dat_mro_need(cls)];
+    int mn = dat_mro(cls, mro, (int)(sizeof mro / sizeof *mro));
+    if (mn == 0) { mro[0] = cls; mn = 1; }
+    for (int mi = 0; mi < mn; mi++) {
+        DatType *t = mro[mi] ? dat_find_type(mro[mi]) : NULL;
+        if (!t) continue;
+        for (int i = 0; i < t->nfields; i++) if (strcmp(t->fields[i], field) == 0) return t->priv[i] ? 1 : 0;
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -294,10 +364,7 @@ int dat_type_field_rw(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0
 int dat_type_field_sigil(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->sigil[j] : 0; }
 DESCR_t dat_type_field_default(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->defaults[j] : NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *dat_parent(const char *name) {
-    DatType *t = dat_find_type(name);
-    return (t && t->parent && t->parent[0]) ? t->parent : (const char *)0;
-}
+const char *dat_parent(const char *name) { DatType *t = dat_find_type(name); return (t && t->parent && t->parent[0]) ? t->parent : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_mro(const char *name, const char **out, int max) {
     DatType *t = dat_find_type(name);
@@ -332,47 +399,58 @@ const char *dat_type_build_key_at(int i, int j) { return (i >= 0 && i < dat_ntyp
 const char *dat_type_field(int i, int j) { return (i >= 0 && i < dat_ntypes && j >= 0 && j < dat_types[i]->nfields) ? dat_types[i]->fields[j] : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_methods(const char *name, const char **out, int max) {
-    DatType *t = dat_find_type(name); if (!t) return 0; int n = 0; const char *mro[dat_mro_need(name)]; int mn = dat_mro(name, mro, (int)(sizeof mro / sizeof *mro));
+    DatType *t = dat_find_type(name);
+    if (!t) return 0;
+    int n = 0;
+    const char *mro[dat_mro_need(name)];
+    int mn = dat_mro(name, mro, (int)(sizeof mro / sizeof *mro));
     if (mn == 0) { mro[0] = name; mn = 1; }
-    for (int mi = 0; mi < mn; mi++) { DatType *c = dat_find_type(mro[mi]); if (!c) continue;
+    for (int mi = 0; mi < mn; mi++) {
+        DatType *c = dat_find_type(mro[mi]);
+        if (!c) continue;
         for (int j = 0; j < c->nmethods && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], c->methods[j])) { dup = 1; break; } if (!dup) out[n++] = c->methods[j]; }
-        for (int ri = 0; ri < c->nroles; ri++) { DatType *r = dat_find_type(c->roles[ri]); if (!r) continue;
-            for (int j = 0; j < r->nmethods && n < max; j++) {
-                int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], r->methods[j])) { dup = 1; break; } if (!dup) out[n++] = r->methods[j];
-            } } }
+        for (int ri = 0; ri < c->nroles; ri++) {
+            DatType *r = dat_find_type(c->roles[ri]);
+            if (!r) continue;
+            for (int j = 0; j < r->nmethods && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], r->methods[j])) { dup = 1; break; } if (!dup) out[n++] = r->methods[j]; }
+        }
+    }
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int dat_attributes(const char *name, const char **out, int max) {
-    DatType *t = dat_find_type(name); if (!t) return 0; int n = 0; const char *mro[dat_mro_need(name)]; int mn = dat_mro(name, mro, (int)(sizeof mro / sizeof *mro));
+    DatType *t = dat_find_type(name);
+    if (!t) return 0;
+    int n = 0;
+    const char *mro[dat_mro_need(name)];
+    int mn = dat_mro(name, mro, (int)(sizeof mro / sizeof *mro));
     if (mn == 0) { mro[0] = name; mn = 1; }
-    for (int mi = 0; mi < mn; mi++) { DatType *c = dat_find_type(mro[mi]); if (!c) continue;
-        for (int j = 0; j < c->nfields && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], c->fields[j])) { dup = 1; break; } if (!dup) out[n++] = c->fields[j]; } }
+    for (int mi = 0; mi < mn; mi++) {
+        DatType *c = dat_find_type(mro[mi]);
+        if (!c) continue;
+        for (int j = 0; j < c->nfields && n < max; j++) { int dup = 0; for (int k = 0; k < n; k++) if (!strcmp(out[k], c->fields[j])) { dup = 1; break; } if (!dup) out[n++] = c->fields[j]; }
+    }
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void dat_set_live(const char *name, int live) {
-    DatType *t = dat_find_type(name);
-    if (t) t->live = (char)(live ? 1 : 0);
-}
+void dat_set_live(const char *name, int live) { DatType *t = dat_find_type(name); if (t) t->live = (char)(live ? 1 : 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DatType *dat_find_field(const char *name, int *fidx) {
-    for (int i = 0; i < dat_ntypes; i++)
-        if (dat_types[i]->live)
-        for (int j = 0; j < dat_types[i]->nfields; j++)
-            if (strcmp(dat_types[i]->fields[j], name) == 0) {
-                if (fidx) *fidx = j;
-                return dat_types[i];
-            }
+    for (int i = 0; i < dat_ntypes; i++) if (dat_types[i]->live) for (int j = 0; j < dat_types[i]->nfields; j++) if (strcmp(dat_types[i]->fields[j], name) == 0) {
+        if (fidx) *fidx = j;
+        return dat_types[i];
+    }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_gc_roots(void) {
-    extern void rt_gc_visit_raw(const char **); extern void rt_gc_visit_descr(DESCR_t *);
+    extern void rt_gc_visit_raw(const char **);
+    extern void rt_gc_visit_descr(DESCR_t *);
     for (int i = 0; i < dat_ntypes; i++) {
         DatType *t = dat_types[i];
         for (int j = 0; j < t->nfields; j++) if (t->has_default[j]) rt_gc_visit_descr(&t->defaults[j]);
-        DATBLK_t *blk = (DATBLK_t *)t->blk; if (!blk) continue;
+        DATBLK_t *blk = (DATBLK_t *)t->blk;
+        if (!blk) continue;
         rt_gc_visit_raw((const char **)&t->blk);
         if (blk->name) rt_gc_visit_raw((const char **)&blk->name);
         if (blk->fields) { rt_gc_visit_raw((const char **)&blk->fields); for (int j = 0; j < blk->nfields; j++) if (blk->fields[j]) rt_gc_visit_raw((const char **)&blk->fields[j]); }
@@ -385,35 +463,32 @@ static DESCR_t dat_alloc_fill(DatType *t, DESCR_t *args, int nargs) {
     DATBLK_t *blk = (DATBLK_t *)t->blk;
     if (!blk) {
         blk = rt_wsb_alloc(sizeof(DATBLK_t));
-        blk->name    = rt_heap_strdup_c(t->name);
+        blk->name = rt_heap_strdup_c(t->name);
         blk->nfields = t->nfields;
-        blk->fields  = rt_pvec_alloc((size_t)t->nfields);
+        blk->fields = rt_pvec_alloc((size_t)t->nfields);
         for (int i = 0; i < t->nfields; i++) blk->fields[i] = rt_heap_strdup_c(t->fields[i]);
-        blk->next    = NULL;
+        blk->next = NULL;
         blk->serial_next = 1;
         t->blk = (struct _DATINST_tType *)blk;
     }
-    inst->type   = blk;
-    inst->id     = blk->serial_next++;
+    inst->type = blk;
+    inst->id = blk->serial_next++;
     { extern void *rt_ws_alloc_descr(size_t); inst->fields = rt_ws_alloc_descr((size_t)(t->nfields > 0 ? t->nfields : 0)); }
-    for (int i = 0; i < t->nfields; i++) {
-        inst->fields[i] = (i < nargs) ? args[i] : NULVCL;
-        if (t->has_default[i] && inst->fields[i].v == DT_SNUL) inst->fields[i] = t->defaults[i];
-    }
-    for (int i = 0; i < t->nfields; i++) {
-        if ((t->sigil[i] == '@' || t->sigil[i] == '%') && inst->fields[i].v == DT_SNUL && !t->required[i]) inst->fields[i] = STRVAL(rt_heap_strdup_c(""));
-    }
+    for (int i = 0; i < t->nfields; i++) { inst->fields[i] = (i < nargs) ? args[i] : NULVCL; if (t->has_default[i] && inst->fields[i].v == DT_SNUL) inst->fields[i] = t->defaults[i]; }
+    for (int i = 0; i < t->nfields; i++) { if ((t->sigil[i] == '@' || t->sigil[i] == '%') && inst->fields[i].v == DT_SNUL && !t->required[i]) inst->fields[i] = STRVAL(rt_heap_strdup_c("")); }
     return (DESCR_t){ .v = DT_DATA, .slen = DATA_INST_SLEN, .u = inst };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dat_check_required(DatType *t, DESCR_t self) {
-    DATINST_t *inst = (DATINST_t *)self.u; if (!inst) return;
+    DATINST_t *inst = (DATINST_t *)self.u;
+    if (!inst) return;
     for (int i = 0; i < t->nfields; i++) {
         if (t->required[i] && inst->fields[i].v == DT_SNUL) {
             extern void rt_script_die_surface(const char *msg);
             char _m[fmt_len("The attribute '$!%s' is required, but you did not provide a value for it.", t->fields[i])];
             snprintf(_m, sizeof _m, "The attribute '$!%s' is required, but you did not provide a value for it.", t->fields[i]);
-            rt_script_die_surface(_m); break;
+            rt_script_die_surface(_m);
+            break;
         }
     }
 }
@@ -441,25 +516,18 @@ DESCR_t c_dat_field_get(const char *fname, DESCR_t obj) {
     if (cell) return *cell;
     if (fname && !strcmp(fname, "WHAT")) {
         const char *cn = (const char *)0;
-        if (IS_DATA_TAG_fn(obj.v) && obj.u) { DATBLK_t *b = obj.u->type; cn = b ? b->name : (const char *)0; }
-        else { const char *s = VARVAL_fn(obj); if (s && dat_find_type(s)) cn = s; }
+        if (IS_DATA_TAG_fn(obj.v) && obj.u) { DATBLK_t *b = obj.u->type; cn = b ? b->name : (const char *)0; } else { const char *s = VARVAL_fn(obj); if (s && dat_find_type(s)) cn = s; }
         if (cn) return STRVAL(rt_heap_strdup_c(cn));
     }
     extern int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out);
-    DESCR_t r; if (obj.v != DT_DATA && rt_str_method(fname, obj, (DESCR_t *)0, 0, &r)) return r;
+    DESCR_t r;
+    if (obj.v != DT_DATA && rt_str_method(fname, obj, (DESCR_t *)0, 0, &r)) return r;
     extern int rt_dat_field_of_any(const char *name);
-    if (fname && rt_dat_field_of_any(fname)) {
-        extern void core_runtime_error(int code, const char *msg);
-        core_runtime_error(41, "field function argument is wrong datatype");
-    }
+    if (fname && rt_dat_field_of_any(fname)) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(41, "field function argument is wrong datatype"); }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t dat_field_set(const char *fname, DESCR_t obj, DESCR_t val) {
-    DESCR_t *cell = data_field_ptr(fname, obj);
-    if (cell) { *cell = val; return val; }
-    return FAILDESCR;
-}
+DESCR_t dat_field_set(const char *fname, DESCR_t obj, DESCR_t val) { DESCR_t *cell = data_field_ptr(fname, obj); if (cell) { *cell = val; return val; } return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t _builtin_DATA(DESCR_t *args, int nargs) {
     if (nargs < 1) return FAILDESCR;
@@ -478,9 +546,7 @@ DESCR_t *data_field_ptr(const char *fname, DESCR_t inst) {
     if (inst.v < DT_DATA || inst.slen != DATA_INST_SLEN || !inst.u) return NULL;
     DATBLK_t *blk = inst.u->type;
     if (!blk) return NULL;
-    for (int i = 0; i < blk->nfields; i++)
-        if (blk->fields[i] && strcmp(blk->fields[i], fname) == 0)
-            return &inst.u->fields[i];
+    for (int i = 0; i < blk->nfields; i++) if (blk->fields[i] && strcmp(blk->fields[i], fname) == 0) return &inst.u->fields[i];
     return NULL;
 }
 #include "../runtime/builtins/gen_runtime.h"

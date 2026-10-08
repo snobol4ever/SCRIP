@@ -13,7 +13,7 @@ std::string bb_assign_local() {
              + x86("mov", "rax", ZOPQ(0, 0))
              + x86("note", ZOPN(0))
              + x86("mov", "rdx", ZOPQ(0, 8))
-             + x86("mov", FRQ(_.op_sb),     "rax")
+             + x86("mov", FRQ(_.op_sb), "rax")
              + x86("mov", FRQ(_.op_sb + 8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline())

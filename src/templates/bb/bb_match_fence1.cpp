@@ -13,7 +13,7 @@ static int fence_u2_frame(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string fence_release(int off, int kk = 0) {
     return _.op_fence_frame_off != -1 ? x86("mov", "rsp", FFCQ(0))
-         : fence_u2_frame()           ? x86("mov", "rsp", FRQ(off+32+kk))
+         : fence_u2_frame() ? x86("mov", "rsp", FRQ(off+32+kk))
                                        : x86("mov", "rsp", FRQ(off+kk));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -43,7 +43,7 @@ std::string bb_match_fence1() {
                x86("comment", "IR_MATCH_FENCE1")
          + x86_alpha()
          + (_.op_fence_frame_off != -1 ? x86("mov", FFCQ(0), "rsp")
-          : fence_u2_frame()           ? x86("mov", FRQ(_.op_off), "rsp")
+          : fence_u2_frame() ? x86("mov", FRQ(_.op_off), "rsp")
                                       + x86("mov", FRQ(_.op_off+32), "rsp")
                                         : x86("mov", FRQ(_.op_off), "rsp"))
          + x86("mov", fence_cap_top(_.op_off), "r12")

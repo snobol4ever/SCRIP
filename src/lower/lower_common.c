@@ -20,22 +20,19 @@ static lc_vec g_bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_label_registry_reset(void) { for (int i = 0; i < g_bb_labels.n; i++) ct_drop((void *) LC_AT(&g_bb_labels, bb_label_entry_t, i).name); g_bb_labels.n = 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void lower_gc_roots(void)
-{
+void lower_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **);
     extern void bb_src_gc_roots(void);
-    for (int i = 0; i < g_bb_labels.n; i++) { bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
+    for (int i = 0; i < g_bb_labels.n; i++) {
+        bb_label_entry_t * e = &LC_AT(&g_bb_labels, bb_label_entry_t, i);
         if (e->name) rt_gc_visit_raw((const char **) &e->name);
-        if (e->landing) rt_gc_visit_raw((const char **) &e->landing); }
+        if (e->landing) rt_gc_visit_raw((const char **) &e->landing);
+    }
     bb_src_gc_roots();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_label_registry_add(const char * name, IR_t * landing) {
-    if (!name || !landing) return;
-    bb_label_entry_t e; e.name = name; e.landing = landing;
-    lc_vec_push(&g_bb_labels, &e);
-}
+void bb_label_registry_add(const char * name, IR_t * landing) { if (!name || !landing) return; bb_label_entry_t e; e.name = name; e.landing = landing; lc_vec_push(&g_bb_labels, &e); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_t * bb_label_landing(const char * name) {
     if (!name) return NULL;
@@ -55,26 +52,20 @@ const char * bb_label_registry_get(int i, IR_t ** landing) {
 int lp_s_int(const tree_t *s, const char *tag) { const char *v = stmt_attr_str(stmt_attr_find(s, tag)); return v ? atoi(v) : 0; }
 tree_t *lp_s_expr(const tree_t *s, const char *tag) { return stmt_attr_expr(stmt_attr_find(s, tag)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *lp_strdup(const char *s) {
-    if (!s) return NULL;
-    { size_t n = strlen(s) + 1; char *q = (char *)ct_alloc(n); if (!q) return NULL; memcpy(q, s, n); return q; }
-}
+const char *lp_strdup(const char *s) { if (!s) return NULL; { size_t n = strlen(s) + 1; char *q = (char *)ct_alloc(n); if (!q) return NULL; memcpy(q, s, n); return q; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
     *rel_fail = 0;
     if (IS_FAIL_fn(lv) || IS_FAIL_fn(rv)) return FAILDESCR;
     {
         int lj = junction_is(lv), rj = junction_is(rv);
-        int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT ||
-                       op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
-        int str_rel = (op == BINOP_SEQ || op == BINOP_SNE || op == BINOP_SLT ||
-                       op == BINOP_SLE || op == BINOP_SGT || op == BINOP_SGE);
+        int num_rel = (op == BINOP_EQ || op == BINOP_NE || op == BINOP_LT || op == BINOP_LE || op == BINOP_GT || op == BINOP_GE);
+        int str_rel = (op == BINOP_SEQ || op == BINOP_SNE || op == BINOP_SLT || op == BINOP_SLE || op == BINOP_SGT || op == BINOP_SGE);
         if ((lj || rj) && (num_rel || str_rel)) {
-            DESCR_t jct    = lj ? lv : rv;
+            DESCR_t jct = lj ? lv : rv;
             DESCR_t scalar = lj ? rv : lv;
-            int tt_op = (op == BINOP_EQ || op == BINOP_SEQ) ? TT_EQ : (op == BINOP_NE || op == BINOP_SNE) ? TT_NE :
-                        (op == BINOP_LT || op == BINOP_SLT) ? TT_LT : (op == BINOP_LE || op == BINOP_SLE) ? TT_LE :
-                        (op == BINOP_GT || op == BINOP_SGT) ? TT_GT : TT_GE;
+            int tt_op = (op == BINOP_EQ || op == BINOP_SEQ) ? TT_EQ : (op == BINOP_NE || op == BINOP_SNE) ? TT_NE : (op == BINOP_LT || op == BINOP_SLT) ? TT_LT : (op == BINOP_LE || op == BINOP_SLE) ?
+                TT_LE : (op == BINOP_GT || op == BINOP_SGT) ? TT_GT : TT_GE;
             int numeric = str_rel ? 0 : (IS_INT_fn(scalar) || IS_REAL_fn(scalar));
             if (lj) tt_op = junction_mirror_op(tt_op);
             int truth = junction_collapse(scalar, jct, tt_op, numeric);
@@ -92,12 +83,24 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
         if (!cmp) cmp = (ll > rl) - (ll < rl);
         int ok;
         switch (op) {
-        case BINOP_LT: ok = (cmp <  0); break;
-        case BINOP_LE: ok = (cmp <= 0); break;
-        case BINOP_GT: ok = (cmp >  0); break;
-        case BINOP_GE: ok = (cmp >= 0); break;
-        case BINOP_EQ: ok = (cmp == 0); break;
-        default:       ok = (cmp != 0); break;
+            case BINOP_LT:
+            ok = (cmp < 0);
+            break;
+            case BINOP_LE:
+            ok = (cmp <= 0);
+            break;
+            case BINOP_GT:
+            ok = (cmp > 0);
+            break;
+            case BINOP_GE:
+            ok = (cmp >= 0);
+            break;
+            case BINOP_EQ:
+            ok = (cmp == 0);
+            break;
+            default:
+            ok = (cmp != 0);
+            break;
         }
         *rel_fail = !ok;
         return ok ? rv : FAILDESCR;
@@ -105,41 +108,77 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
     int either_real = (IS_REAL_fn(lv) || IS_REAL_fn(rv));
     double ld = IS_REAL_fn(lv) ? lv.r : (double)(IS_INT_fn(lv) ? lv.i : 0);
     double rd = IS_REAL_fn(rv) ? rv.r : (double)(IS_INT_fn(rv) ? rv.i : 0);
-    long   li = IS_INT_fn(lv) ? lv.i : (long)lv.r;
-    long   ri = IS_INT_fn(rv) ? rv.i : (long)rv.r;
+    long li = IS_INT_fn(lv) ? lv.i : (long)lv.r;
+    long ri = IS_INT_fn(rv) ? rv.i : (long)rv.r;
     DESCR_t real_result = {0};
     switch (op) {
-        case BINOP_ADD: if (either_real) { real_result.v=DT_R; real_result.r=ld+rd; return real_result; } return INTVAL(li + ri);
-        case BINOP_SUB: if (either_real) { real_result.v=DT_R; real_result.r=ld-rd; return real_result; } return INTVAL(li - ri);
-        case BINOP_MUL: if (either_real) { real_result.v=DT_R; real_result.r=ld*rd; return real_result; } return INTVAL(li * ri);
-        case BINOP_DIV: if (either_real) { if (rd == 0.0) return FAILDESCR; real_result.v=DT_R; real_result.r=ld/rd; return real_result; } return ri ? INTVAL(li / ri) : FAILDESCR;
-        case BINOP_MOD: return ri ? INTVAL(li % ri) : FAILDESCR;
-        case BINOP_POW: { extern DESCR_t POWER_fn(DESCR_t, DESCR_t); return POWER_fn(lv, rv); }
-        case BINOP_POW_PROMOTE: { extern DESCR_t rt_powreal(DESCR_t, DESCR_t); return rt_powreal(lv, rv); }
-        case BINOP_LT: *rel_fail = !(either_real ? ld <  rd : li <  ri); return *rel_fail ? FAILDESCR : rv;
-        case BINOP_LE: *rel_fail = !(either_real ? ld <= rd : li <= ri); return *rel_fail ? FAILDESCR : rv;
-        case BINOP_GT: *rel_fail = !(either_real ? ld >  rd : li >  ri); return *rel_fail ? FAILDESCR : rv;
-        case BINOP_GE: *rel_fail = !(either_real ? ld >= rd : li >= ri); return *rel_fail ? FAILDESCR : rv;
-        case BINOP_EQ: *rel_fail = !(either_real ? ld == rd : li == ri); return *rel_fail ? FAILDESCR : rv;
-        case BINOP_NE: *rel_fail = !(either_real ? ld != rd : li != ri); return *rel_fail ? FAILDESCR : rv;
-        case BINOP_LCONCAT: { extern DESCR_t rt_icn_lconcat_d(DESCR_t, DESCR_t); return rt_icn_lconcat_d(lv, rv); }
-        case BINOP_CONCAT_SNO: { extern DESCR_t sno_concat_d(DESCR_t, DESCR_t); return sno_concat_d(lv, rv); }
-        case BINOP_CONCAT: case BINOP_CONCAT_FRACDIGIT: {
-            { extern int core_icn_str_ok(DESCR_t d); extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t);
-              if (op == BINOP_CONCAT_FRACDIGIT && !(core_icn_str_ok(lv) && core_icn_str_ok(rv))) return str_concat_fracdigit_d(lv, rv); }
-            DESCR_t ls_d; ls_d = (op == BINOP_CONCAT_FRACDIGIT) ? descr_to_str_fracdigit(lv) : descr_to_str(lv);
-            DESCR_t rs_d; rs_d = (op == BINOP_CONCAT_FRACDIGIT) ? descr_to_str_fracdigit(rv) : descr_to_str(rv);
+        case BINOP_ADD:
+        if (either_real) { real_result.v=DT_R; real_result.r=ld+rd; return real_result; }
+        return INTVAL(li + ri);
+        case BINOP_SUB:
+        if (either_real) { real_result.v=DT_R; real_result.r=ld-rd; return real_result; }
+        return INTVAL(li - ri);
+        case BINOP_MUL:
+        if (either_real) { real_result.v=DT_R; real_result.r=ld*rd; return real_result; }
+        return INTVAL(li * ri);
+        case BINOP_DIV:
+        if (either_real) { if (rd == 0.0) return FAILDESCR; real_result.v=DT_R; real_result.r=ld/rd; return real_result; }
+        return ri ? INTVAL(li / ri) : FAILDESCR;
+        case BINOP_MOD:
+        return ri ? INTVAL(li % ri) : FAILDESCR;
+        case BINOP_POW:
+        { extern DESCR_t POWER_fn(DESCR_t, DESCR_t); return POWER_fn(lv, rv); }
+        case BINOP_POW_PROMOTE:
+        { extern DESCR_t rt_powreal(DESCR_t, DESCR_t); return rt_powreal(lv, rv); }
+        case BINOP_LT:
+        *rel_fail = !(either_real ? ld < rd : li < ri);
+        return *rel_fail ? FAILDESCR : rv;
+        case BINOP_LE:
+        *rel_fail = !(either_real ? ld <= rd : li <= ri);
+        return *rel_fail ? FAILDESCR : rv;
+        case BINOP_GT:
+        *rel_fail = !(either_real ? ld > rd : li > ri);
+        return *rel_fail ? FAILDESCR : rv;
+        case BINOP_GE:
+        *rel_fail = !(either_real ? ld >= rd : li >= ri);
+        return *rel_fail ? FAILDESCR : rv;
+        case BINOP_EQ:
+        *rel_fail = !(either_real ? ld == rd : li == ri);
+        return *rel_fail ? FAILDESCR : rv;
+        case BINOP_NE:
+        *rel_fail = !(either_real ? ld != rd : li != ri);
+        return *rel_fail ? FAILDESCR : rv;
+        case BINOP_LCONCAT:
+        { extern DESCR_t rt_icn_lconcat_d(DESCR_t, DESCR_t); return rt_icn_lconcat_d(lv, rv); }
+        case BINOP_CONCAT_SNO:
+        { extern DESCR_t sno_concat_d(DESCR_t, DESCR_t); return sno_concat_d(lv, rv); }
+        case BINOP_CONCAT:
+        case BINOP_CONCAT_FRACDIGIT:
+        {
+            {
+                extern int core_icn_str_ok(DESCR_t d);
+                extern DESCR_t str_concat_fracdigit_d(DESCR_t, DESCR_t);
+                if (op == BINOP_CONCAT_FRACDIGIT && !(core_icn_str_ok(lv) && core_icn_str_ok(rv))) return str_concat_fracdigit_d(lv, rv);
+            }
+            DESCR_t ls_d;
+            ls_d = (op == BINOP_CONCAT_FRACDIGIT) ? descr_to_str_fracdigit(lv) : descr_to_str(lv);
+            DESCR_t rs_d;
+            rs_d = (op == BINOP_CONCAT_FRACDIGIT) ? descr_to_str_fracdigit(rv) : descr_to_str(rv);
             if (IS_FAIL_fn(ls_d) || IS_FAIL_fn(rs_d)) return FAILDESCR;
             const char *ls = ls_d.s ? ls_d.s : "";
             const char *rs = rs_d.s ? rs_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
             size_t rl = rs_d.slen > 0 ? (size_t)rs_d.slen : strlen(rs);
             char *buf = rt_wsb_alloc(ll + rl + 1);
-            memcpy(buf, ls, ll); memcpy(buf + ll, rs, rl); buf[ll + rl] = '\0';
+            memcpy(buf, ls, ll);
+            memcpy(buf + ll, rs, rl);
+            buf[ll + rl] = '\0';
             { DESCR_t r2 = {0}; r2.v = DT_S; r2.slen = (int)(ll + rl); r2.s = buf; return r2; }
         }
-        case BINOP_XREP: {
-            DESCR_t ls_d; ls_d = descr_to_str(lv);
+        case BINOP_XREP:
+        {
+            DESCR_t ls_d;
+            ls_d = descr_to_str(lv);
             if (IS_FAIL_fn(ls_d)) return FAILDESCR;
             const char *ls = ls_d.s ? ls_d.s : "";
             size_t ll = ls_d.slen > 0 ? (size_t)ls_d.slen : strlen(ls);
@@ -151,8 +190,13 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             buf[total] = '\0';
             { DESCR_t r2 = {0}; r2.v = DT_S; r2.slen = (int)total; r2.s = buf; return r2; }
         }
-        case BINOP_SLT: case BINOP_SLE: case BINOP_SGT:
-        case BINOP_SGE: case BINOP_SEQ: case BINOP_SNE: {
+        case BINOP_SLT:
+        case BINOP_SLE:
+        case BINOP_SGT:
+        case BINOP_SGE:
+        case BINOP_SEQ:
+        case BINOP_SNE:
+        {
             DESCR_t ls_d = descr_to_str(lv);
             DESCR_t rs_d = descr_to_str(rv);
             const char *ls = (!IS_FAIL_fn(ls_d) && ls_d.s) ? ls_d.s : "";
@@ -164,18 +208,33 @@ DESCR_t binop_apply(BinopKind op, DESCR_t lv, DESCR_t rv, int *rel_fail) {
             if (cmp == 0) cmp = (lsn < rsn) ? -1 : (lsn > rsn) ? 1 : 0;
             int ok;
             switch (op) {
-            case BINOP_SLT: ok = (cmp <  0); break;
-            case BINOP_SLE: ok = (cmp <= 0); break;
-            case BINOP_SGT: ok = (cmp >  0); break;
-            case BINOP_SGE: ok = (cmp >= 0); break;
-            case BINOP_SEQ: ok = (cmp == 0); break;
-            case BINOP_SNE: ok = (cmp != 0); break;
-            default:            ok = 0;           break;
+                case BINOP_SLT:
+                ok = (cmp < 0);
+                break;
+                case BINOP_SLE:
+                ok = (cmp <= 0);
+                break;
+                case BINOP_SGT:
+                ok = (cmp > 0);
+                break;
+                case BINOP_SGE:
+                ok = (cmp >= 0);
+                break;
+                case BINOP_SEQ:
+                ok = (cmp == 0);
+                break;
+                case BINOP_SNE:
+                ok = (cmp != 0);
+                break;
+                default:
+                ok = 0;
+                break;
             }
             *rel_fail = !ok;
             return ok ? rs_d : FAILDESCR;
         }
-        default: return FAILDESCR;
+        default:
+        return FAILDESCR;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -189,10 +248,7 @@ void lc_ω_to_α(IR_t * nd, IR_t * t) { if (nd) { nd->ω.node = t; memcpy(nd->ω
 IR_t * lc_build(IR_graph_t * g, IR_e op, IR_t * γ, IR_t * ω) { IR_t * nd = IR_node_alloc(g, op); lc_γ_to(nd, γ); lc_ω_to(nd, ω); return nd; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const tree_t * lc_stmt_subj(const tree_t * s) {
-    for (int i = 0; i < s->n; i++) {
-        const tree_t * a = s->c[i];
-        if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) return (a->n > 0) ? a->c[0] : NULL;
-    }
+    for (int i = 0; i < s->n; i++) { const tree_t * a = s->c[i]; if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj")) return (a->n > 0) ? a->c[0] : NULL; }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -201,19 +257,33 @@ static gname_set_t g_gnames, g_icn_gnames, g_rbi_names;
 const char ** global_names = NULL;
 int global_count = 0;
 static uint64_t gname_hash(const char * s) { uint64_t h = 1469598103934665603ull; for (; *s; s++) h = (h ^ (unsigned char) *s) * 1099511628211ull; return h; }
-static void gset_ix_put(gname_set_t * g, uint32_t k) { uint32_t m = g->ix.len - 1; uint64_t h = gname_hash(CV_AT(g->v, const char *, k)) & m; while (CV_AT(g->ix, uint32_t, h)) h = (h + 1) & m; CV_AT(g->ix, uint32_t, h) = k + 1; }
+static void gset_ix_put(gname_set_t * g, uint32_t k) {
+    uint32_t m = g->ix.len - 1;
+    uint64_t h = gname_hash(CV_AT(g->v, const char *, k)) & m;
+    while (CV_AT(g->ix, uint32_t, h)) h = (h + 1) & m;
+    CV_AT(g->ix, uint32_t, h) = k + 1;
+}
 static int gset_has(const gname_set_t * g, const char * name) {
     if (!name || !g->ix.len) return 0;
-    { uint32_t m = g->ix.len - 1, k; uint64_t h = gname_hash(name) & m;
-      while ((k = CV_AT(g->ix, uint32_t, h)) != 0) { if (!strcmp(CV_AT(g->v, const char *, k - 1), name)) return 1; h = (h + 1) & m; } }
+    {
+        uint32_t m = g->ix.len - 1, k;
+        uint64_t h = gname_hash(name) & m;
+        while ((k = CV_AT(g->ix, uint32_t, h)) != 0) { if (!strcmp(CV_AT(g->v, const char *, k - 1), name)) return 1; h = (h + 1) & m; }
+    }
     return 0;
 }
 static int gset_add(gname_set_t * g, const char * name) {
     if (!name || gset_has(g, name)) return 0;
     CV_PUSH(g->v, const char *) = name;
     if ((uint64_t) g->v.len * 2 > g->ix.len) {
-        uint32_t nc = g->ix.len ? g->ix.len * 2 : 256; while ((uint64_t) nc < (uint64_t) g->v.len * 2) nc *= 2;
-        cv_t n = { 0, 0, 0, 0 }; n.p = ct_zalloc(nc, sizeof(uint32_t)); n.len = nc; n.cap = nc; n.esz = (uint32_t) sizeof(uint32_t); g->ix = n;
+        uint32_t nc = g->ix.len ? g->ix.len * 2 : 256;
+        while ((uint64_t) nc < (uint64_t) g->v.len * 2) nc *= 2;
+        cv_t n = { 0, 0, 0, 0 };
+        n.p = ct_zalloc(nc, sizeof(uint32_t));
+        n.len = nc;
+        n.cap = nc;
+        n.esz = (uint32_t) sizeof(uint32_t);
+        g->ix = n;
         for (uint32_t k = 0; k < g->v.len; k++) gset_ix_put(g, k);
     } else gset_ix_put(g, g->v.len - 1);
     return 1;
@@ -240,38 +310,113 @@ void * lc_vec_push(lc_vec * v, const void * elem) {
         void * nd = ct_grow(v->data, (size_t) nc * (size_t) v->esz);
         if (!nd) return NULL;
         memset((char *) nd + (size_t) v->cap * (size_t) v->esz, 0, (size_t) (nc - v->cap) * (size_t) v->esz);
-        v->data = nd; v->cap = nc;
+        v->data = nd;
+        v->cap = nc;
     }
     char * slot = (char *) v->data + (size_t) v->n * (size_t) v->esz;
-    if (elem) memcpy(slot, elem, (size_t) v->esz); else memset(slot, 0, (size_t) v->esz);
+    if (elem) memcpy(slot, elem, (size_t) v->esz);
+    else memset(slot, 0, (size_t) v->esz);
     v->n++;
     return slot;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lc_binop_code(tree_e tt) {
     switch (tt) {
-    case TT_ADD: return 0; case TT_SUB: return 1; case TT_MUL: return 2; case TT_DIV: return 3; case TT_MOD: return 4;
-    case TT_LT: return 5; case TT_LE: return 6; case TT_GT: return 7; case TT_GE: return 8;
-    case TT_EQ: return 9; case TT_NE: return 10; case TT_CAT: return 11;
-    case TT_LLT: return 12; case TT_LLE: return 13; case TT_LGT: return 14; case TT_LGE: return 15;
-    case TT_LEQ: return 16; case TT_LNE: return 17; case TT_POW: return 18;
-    case TT_CSET_UNION: return 19; case TT_CSET_DIFF: return 20; case TT_CSET_INTER: return 21;
-    case TT_IDENTICAL: return 22; case TT_NIDENTICAL: return 23; case TT_XREP: return 24; default: return 0; }
+        case TT_ADD:
+        return 0;
+        case TT_SUB:
+        return 1;
+        case TT_MUL:
+        return 2;
+        case TT_DIV:
+        return 3;
+        case TT_MOD:
+        return 4;
+        case TT_LT:
+        return 5;
+        case TT_LE:
+        return 6;
+        case TT_GT:
+        return 7;
+        case TT_GE:
+        return 8;
+        case TT_EQ:
+        return 9;
+        case TT_NE:
+        return 10;
+        case TT_CAT:
+        return 11;
+        case TT_LLT:
+        return 12;
+        case TT_LLE:
+        return 13;
+        case TT_LGT:
+        return 14;
+        case TT_LGE:
+        return 15;
+        case TT_LEQ:
+        return 16;
+        case TT_LNE:
+        return 17;
+        case TT_POW:
+        return 18;
+        case TT_CSET_UNION:
+        return 19;
+        case TT_CSET_DIFF:
+        return 20;
+        case TT_CSET_INTER:
+        return 21;
+        case TT_IDENTICAL:
+        return 22;
+        case TT_NIDENTICAL:
+        return 23;
+        case TT_XREP:
+        return 24;
+        default:
+        return 0;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lc_is_binop(tree_e tt) {
     switch (tt) {
-    case TT_ADD: case TT_SUB: case TT_MUL: case TT_DIV: case TT_MOD: case TT_POW: case TT_LT: case TT_LE: case TT_GT: case TT_GE:
-    case TT_EQ: case TT_NE: case TT_CAT: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: case TT_LEQ: case TT_LNE: return 1;
-    case TT_CSET_UNION: case TT_CSET_DIFF: case TT_CSET_INTER: return 1;
-    case TT_IDENTICAL: case TT_NIDENTICAL: return 1;
-    case TT_XREP: return 1;
-    default: return 0; }
+        case TT_ADD:
+        case TT_SUB:
+        case TT_MUL:
+        case TT_DIV:
+        case TT_MOD:
+        case TT_POW:
+        case TT_LT:
+        case TT_LE:
+        case TT_GT:
+        case TT_GE:
+        case TT_EQ:
+        case TT_NE:
+        case TT_CAT:
+        case TT_LLT:
+        case TT_LLE:
+        case TT_LGT:
+        case TT_LGE:
+        case TT_LEQ:
+        case TT_LNE:
+        return 1;
+        case TT_CSET_UNION:
+        case TT_CSET_DIFF:
+        case TT_CSET_INTER:
+        return 1;
+        case TT_IDENTICAL:
+        case TT_NIDENTICAL:
+        return 1;
+        case TT_XREP:
+        return 1;
+        default:
+        return 0;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 IR_graph_t * lc_arg_block(IR_graph_t ** gslot, lc_lower_fn fn, void * cx, const tree_t * a) {
     IR_graph_t * saved = *gslot;
-    IR_graph_t * g2 = IR_alloc(256); *gslot = g2;
+    IR_graph_t * g2 = IR_alloc(256);
+    *gslot = g2;
     IR_t * F = IR_node_alloc(g2, IR_FAIL);
     IR_t * e = fn(cx, a, F);
     g2->entry = e;
@@ -284,11 +429,18 @@ typedef struct { const IR_t * k; int v; } bb_src_slot_t;
 static struct { bb_src_slot_t * s; int cap; int n; long runs; } g_bb_src_ix = { 0, 0, -1, -1 };
 static void bb_src_ix_build(int cap) {
     extern long rt_gc_runs_count(void);
-    bb_src_slot_t * t = (bb_src_slot_t *) ct_zalloc((size_t) cap, sizeof(bb_src_slot_t)); if (!t) { g_bb_src_ix.n = -1; return; }
-    if (g_bb_src_ix.s) ct_drop(g_bb_src_ix.s); g_bb_src_ix.s = t; g_bb_src_ix.cap = cap; g_bb_src_ix.runs = rt_gc_runs_count();
-    for (int i = 0; i < g_bb_src.n; i++) { const IR_t * k = g_bb_src.nd[i]; size_t h = ((size_t)(uintptr_t) k >> 4) & (size_t)(cap - 1);
+    bb_src_slot_t * t = (bb_src_slot_t *) ct_zalloc((size_t) cap, sizeof(bb_src_slot_t));
+    if (!t) { g_bb_src_ix.n = -1; return; }
+    if (g_bb_src_ix.s) ct_drop(g_bb_src_ix.s);
+    g_bb_src_ix.s = t;
+    g_bb_src_ix.cap = cap;
+    g_bb_src_ix.runs = rt_gc_runs_count();
+    for (int i = 0; i < g_bb_src.n; i++) {
+        const IR_t * k = g_bb_src.nd[i];
+        size_t h = ((size_t)(uintptr_t) k >> 4) & (size_t)(cap - 1);
         while (t[h].k && t[h].k != k) h = (h + 1) & (size_t)(cap - 1);
-        if (!t[h].k) { t[h].k = k; t[h].v = i; } }
+        if (!t[h].k) { t[h].k = k; t[h].v = i; }
+    }
     g_bb_src_ix.n = g_bb_src.n;
 }
 static int bb_src_ix_get(const IR_t * nd) {
@@ -307,33 +459,43 @@ static void bb_src_ix_add(const IR_t * nd, int i) {
     g_bb_src_ix.n = i + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_src_gc_roots(void)
-{
+void bb_src_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **);
     for (int i = 0; i < g_bb_src.n; i++) { if (g_bb_src.nd[i]) rt_gc_visit_raw((const char **) &g_bb_src.nd[i]); if (g_bb_src.src[i]) rt_gc_visit_raw((const char **) &g_bb_src.src[i]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void bb_src_note(const IR_t * nd, const char * src, int line) {
     if (!nd || !src || !src[0]) return;
-    { int i = bb_src_ix_get(nd); if (i >= 0) {
-        { const char * h = g_bb_src.src[i]; size_t ls = strlen(src);
-          while (h) { const char * e = strchr(h, '\n'); size_t seg = e ? (size_t)(e - h) : strlen(h);
-                      if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; } }
-        size_t la = strlen(g_bb_src.src[i]);
-        size_t lb = strlen(src);
-        char * j = (char *) ct_alloc(la + lb + 2);
-        if (!j) return;
-        memcpy(j, g_bb_src.src[i], la); j[la] = '\n'; memcpy(j + la + 1, src, lb); j[la + 1 + lb] = 0;
-        g_bb_src.src[i] = j;
-        return;
-    } }
+    {
+        int i = bb_src_ix_get(nd);
+        if (i >= 0) {
+            {
+                const char * h = g_bb_src.src[i];
+                size_t ls = strlen(src);
+                while (h) { const char * e = strchr(h, '\n'); size_t seg = e ? (size_t)(e - h) : strlen(h); if (seg == ls && !memcmp(h, src, ls)) return; h = e ? e + 1 : 0; }
+            }
+            size_t la = strlen(g_bb_src.src[i]);
+            size_t lb = strlen(src);
+            char * j = (char *) ct_alloc(la + lb + 2);
+            if (!j) return;
+            memcpy(j, g_bb_src.src[i], la);
+            j[la] = '\n';
+            memcpy(j + la + 1, src, lb);
+            j[la + 1 + lb] = 0;
+            g_bb_src.src[i] = j;
+            return;
+        }
+    }
     if (g_bb_src.n >= g_bb_src.max) {
         int m = g_bb_src.max ? g_bb_src.max * 2 : 256;
         const IR_t ** a = (const IR_t **) ct_grow((void *) g_bb_src.nd, (size_t) m * sizeof(const IR_t *));
         const char ** b = (const char **) ct_grow((void *) g_bb_src.src, (size_t) m * sizeof(const char *));
         int * c = (int *) ct_grow((void *) g_bb_src.line, (size_t) m * sizeof(int));
         if (!a || !b || !c) return;
-        g_bb_src.nd = a; g_bb_src.src = b; g_bb_src.line = c; g_bb_src.max = m;
+        g_bb_src.nd = a;
+        g_bb_src.src = b;
+        g_bb_src.line = c;
+        g_bb_src.max = m;
     }
     g_bb_src.nd[g_bb_src.n] = nd;
     g_bb_src.src[g_bb_src.n] = lp_strdup(src);
@@ -344,21 +506,17 @@ void bb_src_note(const IR_t * nd, const char * src, int line) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * bb_src_of(const IR_t * nd) {
     if (!nd) return 0;
-    { static int _sd = -1; if (_sd < 0) { const char * e = getenv("SCRIP_SRC_DIAG"); _sd = (e && e[0] == '1') ? 1 : 0; }
-      { int i = bb_src_ix_get(nd); if (i >= 0) {
-          if (_sd) fprintf(stderr, "[SRC] hit nd=%p i=%d/%d src=%.44s\n", (const void *) nd, i, g_bb_src.n, g_bb_src.src[i] ? g_bb_src.src[i] : "-");
-          return g_bb_src.src[i]; } } }
+    {
+        static int _sd = -1;
+        if (_sd < 0) { const char * e = getenv("SCRIP_SRC_DIAG"); _sd = (e && e[0] == '1') ? 1 : 0; }
+        {
+            int i = bb_src_ix_get(nd);
+            if (i >= 0) { if (_sd) fprintf(stderr, "[SRC] hit nd=%p i=%d/%d src=%.44s\n", (const void *) nd, i, g_bb_src.n, g_bb_src.src[i] ? g_bb_src.src[i] : "-"); return g_bb_src.src[i]; }
+        }
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int bb_line_of(const IR_t * nd) {
-    if (!nd) return 0;
-    { int i = bb_src_ix_get(nd); if (i >= 0) return g_bb_src.line[i]; }
-    return 0;
-}
+int bb_line_of(const IR_t * nd) { if (!nd) return 0; { int i = bb_src_ix_get(nd); if (i >= 0) return g_bb_src.line[i]; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bb_src_reset(void) {
-    static int _sr = -1;
-    if (_sr < 0) { const char * e = getenv("SCRIP_SRC_RESET"); _sr = (e && e[0] == '0') ? 0 : 1; }
-    if (_sr) g_bb_src.n = 0;
-}
+void bb_src_reset(void) { static int _sr = -1; if (_sr < 0) { const char * e = getenv("SCRIP_SRC_RESET"); _sr = (e && e[0] == '0') ? 0 : 1; } if (_sr) g_bb_src.n = 0; }

@@ -9,12 +9,22 @@ static void print_escaped(const char * s, FILE * f) {
     fputc('"', f);
     for (const char * p = s; *p; p++) {
         switch (*p) {
-        case '"':  fputs("\\\"", f); break;
-        case '\\': fputs("\\\\", f); break;
-        case '\n': fputs("\\n",  f); break;
-        case '\r': fputs("\\r",  f); break;
-        case '\t': fputs("\\t",  f); break;
-        default:
+            case '"':
+            fputs("\\\"", f);
+            break;
+            case '\\':
+            fputs("\\\\", f);
+            break;
+            case '\n':
+            fputs("\\n", f);
+            break;
+            case '\r':
+            fputs("\\r", f);
+            break;
+            case '\t':
+            fputs("\\t", f);
+            break;
+            default:
             if ((unsigned char)*p < 0x20) fprintf(f, "\\x%02x", (unsigned char)*p);
             else fputc(*p, f);
         }
@@ -22,9 +32,7 @@ static void print_escaped(const char * s, FILE * f) {
     fputc('"', f);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void print_indent(int depth, FILE * f) {
-    for (int i = 0; i < depth * 2; i++) fputc(' ', f);
-}
+static void print_indent(int depth, FILE * f) { for (int i = 0; i < depth * 2; i++) fputc(' ', f); }
 #define FLAT_TOO_LONG 99999
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int value_is_text(const tree_t * e) {
@@ -38,84 +46,109 @@ static int flat_length(const tree_t *e, int budget) {
     int klen = (int)strlen(kname);
     int total;
     switch (e->t) {
-    case TT_QLIT: case TT_CSET: {
-        const char *s = e->v.sval ? e->v.sval : "";
-        int elen = 2;
-        for (const char *p = s; *p; p++) {
-            switch (*p) {
-            case '"': case '\\': case '\n': case '\r': case '\t': elen += 2; break;
-            default: elen += ((unsigned char)*p < 0x20) ? 4 : 1; break;
-            }
+        case TT_QLIT:
+        case TT_CSET:
+        {
+            const char *s = e->v.sval ? e->v.sval : "";
+            int elen = 2;
+            for (const char *p = s; *p; p++) { switch (*p) { case '"': case '\\': case '\n': case '\r': case '\t': elen += 2; break; default: elen += ((unsigned char)*p < 0x20) ? 4 : 1; break; } }
+            return 1 + klen + 1 + elen + 1;
         }
-        return 1 + klen + 1 + elen + 1;
-    }
-    case TT_ILIT: { char buf[32]; return 1 + klen + 1 + snprintf(buf,sizeof buf,"%lld",(long long)e->v.ival) + 1; }
-    case TT_FLIT: { char buf[32]; return 1 + klen + 1 + snprintf(buf,sizeof buf,"%g",e->v.dval) + 1; }
-    case TT_NUL:  return 1 + klen + 1;
-    default: break;
+        case TT_ILIT:
+        { char buf[32]; return 1 + klen + 1 + snprintf(buf,sizeof buf,"%lld",(long long)e->v.ival) + 1; }
+        case TT_FLIT:
+        { char buf[32]; return 1 + klen + 1 + snprintf(buf,sizeof buf,"%g",e->v.dval) + 1; }
+        case TT_NUL:
+        return 1 + klen + 1;
+        default:
+        break;
     }
     total = 1 + klen;
-    if (value_is_text(e))
-        total += 1 + (int)strlen(e->v.sval);
+    if (value_is_text(e)) total += 1 + (int)strlen(e->v.sval);
     else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { tree_e op = augop_binop_tt((int)e->v.ival); total += 1 + (int)strlen(tt_e_name[op]); }
     if (e->n == 0) return total + 1;
-    for (int i = 0; i < e->n; i++) {
-        total += 1 + flat_length(e->c[i], budget - total);
-        if (total > budget) return FLAT_TOO_LONG;
-    }
+    for (int i = 0; i < e->n; i++) { total += 1 + flat_length(e->c[i], budget - total); if (total > budget) return FLAT_TOO_LONG; }
     return total + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void print_node(const tree_t * e, FILE * f, int depth) {
     const char * kname;
     int i;
-    if (!e)                          { fputs("(null)", f); return; }
-    if (depth > AST_PRINT_MAX_DEPTH) { fputs("(...)",  f); return; }
+    if (!e) { fputs("(null)", f); return; }
+    if (depth > AST_PRINT_MAX_DEPTH) { fputs("(...)", f); return; }
     kname = (e->t >= 0 && e->t < TT_KIND_COUNT) ? tt_e_name[e->t] : "E_???";
-    int budget    = ast_print_width - depth * 2;
+    int budget = ast_print_width - depth * 2;
     int inline_ok = (flat_length(e, budget) <= budget);
     if (inline_ok) {
         switch (e->t) {
-        case TT_QLIT: case TT_CSET:
-            fputc('(', f); fputs(kname, f); fputc(' ', f); print_escaped(e->v.sval, f); fputc(')', f);
+            case TT_QLIT:
+            case TT_CSET:
+            fputc('(', f);
+            fputs(kname, f);
+            fputc(' ', f);
+            print_escaped(e->v.sval, f);
+            fputc(')', f);
             return;
-        case TT_ILIT: fprintf(f, "(%s %lld)", kname, (long long)e->v.ival); return;
-        case TT_FLIT: fprintf(f, "(%s %g)",   kname, e->v.dval);             return;
-        case TT_NUL:  fprintf(f, "(%s)",      kname);                         return;
-        default: break;
+            case TT_ILIT:
+            fprintf(f, "(%s %lld)", kname, (long long)e->v.ival);
+            return;
+            case TT_FLIT:
+            fprintf(f, "(%s %g)", kname, e->v.dval);
+            return;
+            case TT_NUL:
+            fprintf(f, "(%s)", kname);
+            return;
+            default:
+            break;
         }
-        fputc('(', f); fputs(kname, f);
-        if (value_is_text(e)) { fputc(' ', f); fputs(e->v.sval, f); }
-        else if (e->t == TT_VAR && (uintptr_t)e->v.sval < 4096) fprintf(f, " #%d", (int)e->v.ival);
+        fputc('(', f);
+        fputs(kname, f);
+        if (value_is_text(e)) { fputc(' ', f); fputs(e->v.sval, f); } else if (e->t == TT_VAR && (uintptr_t)e->v.sval < 4096) fprintf(f, " #%d", (int)e->v.ival);
         else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { fputc(' ', f); fputs(tt_e_name[augop_binop_tt((int)e->v.ival)], f); }
         for (i = 0; i < e->n; i++) { fputc(' ', f); print_node(e->c[i], f, depth + 1); }
         fputc(')', f);
         return;
     }
-    fputc('(', f); fputs(kname, f);
-    if (value_is_text(e)) { fputc(' ', f); fputs(e->v.sval, f); }
-    else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { fputc(' ', f); fputs(tt_e_name[augop_binop_tt((int)e->v.ival)], f); }
-    if (e->n == 0) { fputc(')', f); return; }
-    for (i = 0; i < e->n; i++) {
-        fputc('\n', f); print_indent(depth + 1, f); print_node(e->c[i], f, depth + 1);
+    fputc('(', f);
+    fputs(kname, f);
+    if (value_is_text(e)) {
+        fputc(' ', f);
+        fputs(e->v.sval, f);
+    } else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) {
+        fputc(' ', f);
+        fputs(tt_e_name[augop_binop_tt((int)e->v.ival)], f);
     }
-    fputc('\n', f); print_indent(depth, f); fputc(')', f);
+    if (e->n == 0) { fputc(')', f); return; }
+    for (i = 0; i < e->n; i++) { fputc('\n', f); print_indent(depth + 1, f); print_node(e->c[i], f, depth + 1); }
+    fputc('\n', f);
+    print_indent(depth, f);
+    fputc(')', f);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void ir_print_node(const tree_t * e, FILE * f)    { print_node(e, f, 0); }
+void ir_print_node(const tree_t * e, FILE * f) { print_node(e, f, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void print_head(const tree_t * e, FILE * f) {
     const char * kname = (e->t >= 0 && e->t < TT_KIND_COUNT) ? tt_e_name[e->t] : "E_???";
-    fputc('(', f); fputs(kname, f);
+    fputc('(', f);
+    fputs(kname, f);
     switch (e->t) {
-    case TT_QLIT: case TT_CSET: fputc(' ', f); print_escaped(e->v.sval, f); return;
-    case TT_ILIT: fprintf(f, " %lld", (long long)e->v.ival); return;
-    case TT_FLIT: fprintf(f, " %g", e->v.dval); return;
-    case TT_NUL:  return;
-    default: break;
+        case TT_QLIT:
+        case TT_CSET:
+        fputc(' ', f);
+        print_escaped(e->v.sval, f);
+        return;
+        case TT_ILIT:
+        fprintf(f, " %lld", (long long)e->v.ival);
+        return;
+        case TT_FLIT:
+        fprintf(f, " %g", e->v.dval);
+        return;
+        case TT_NUL:
+        return;
+        default:
+        break;
     }
-    if (value_is_text(e)) { fputc(' ', f); fputs(e->v.sval, f); }
-    else if (e->t == TT_VAR && (uintptr_t)e->v.sval < 4096) fprintf(f, " #%d", (int)e->v.ival);
+    if (value_is_text(e)) { fputc(' ', f); fputs(e->v.sval, f); } else if (e->t == TT_VAR && (uintptr_t)e->v.sval < 4096) fprintf(f, " #%d", (int)e->v.ival);
     else if (e->t == TT_AUGOP && augop_binop_tt((int)e->v.ival) != (tree_e) 0) { fputc(' ', f); fputs(tt_e_name[augop_binop_tt((int)e->v.ival)], f); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -130,11 +163,13 @@ static void print_tree_lines(const tree_t * e, FILE * f, int depth) {
     print_indent(depth, f);
     if (!e) { fputs("(null)\n", f); return; }
     print_head(e, f);
-    int kids = 0; for (int i = 0; i < e->n; i++) if (!is_bookkeeping_attr(e->c[i])) kids++;
+    int kids = 0;
+    for (int i = 0; i < e->n; i++) if (!is_bookkeeping_attr(e->c[i])) kids++;
     if (kids == 0) { fputs(")\n", f); return; }
     fputc('\n', f);
     for (int i = 0; i < e->n; i++) if (!is_bookkeeping_attr(e->c[i])) print_tree_lines(e->c[i], f, depth + 1);
-    print_indent(depth, f); fputs(")\n", f);
+    print_indent(depth, f);
+    fputs(")\n", f);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void ir_dump_tree(const tree_t * e, FILE * f)     { print_tree_lines(e, f, 0); }
+void ir_dump_tree(const tree_t * e, FILE * f) { print_tree_lines(e, f, 0); }

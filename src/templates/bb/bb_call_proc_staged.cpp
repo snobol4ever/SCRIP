@@ -8,67 +8,67 @@ extern "C" {
 #include "stage2.h"
 #include "ab_abi.h"
 #include "bb_templates.h"
-long    rt_proc_call_open(const char *name, int nargs);
-void   *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
-void   *rt_proc_call_open_det(long idx, int nargs);
-void   *rt_proc_call_open_det0(long idx);
-void   *rt_proc_call_open_det1(long idx, DESCR_t *a0);
-void   *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1);
-void   *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2);
-void   *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DESCR_t *a3);
-int     rt_proc_index_of(const char *name);
-void   *rt_proc_open_fn(void);
-void   *rt_frame_prep(void *fb, long fbytes);
+long rt_proc_call_open(const char *name, int nargs);
+void *rt_proc_fn(const char *name); const char *bb_ab_sym_name(const char *nm); const char *bb_ab_fn_sym(const char *nm);
+void *rt_proc_call_open_det(long idx, int nargs);
+void *rt_proc_call_open_det0(long idx);
+void *rt_proc_call_open_det1(long idx, DESCR_t *a0);
+void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1);
+void *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2);
+void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DESCR_t *a3);
+int rt_proc_index_of(const char *name);
+void *rt_proc_open_fn(void);
+void *rt_frame_prep(void *fb, long fbytes);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
 DESCR_t rt_proc_call_epilogue_ω(long touched);
 DESCR_t rt_proc_call_epilogue_named_γ(const char *name, long wn);
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name, long wn);
 DESCR_t rt_faildescr(void);
-void    rt_ab_undef_fn_stub(void); void rt_ab_undef_sig_stub(void);
-void    rt_ab_undef_fn_fail(void);
-void    rt_pl_iso_throw_existence_key(const char *key);
+void rt_ab_undef_fn_stub(void); void rt_ab_undef_sig_stub(void);
+void rt_ab_undef_fn_fail(void);
+void rt_pl_iso_throw_existence_key(const char *key);
 DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **act_slot, const uint64_t *regs);
 DESCR_t rt_proc_resume_frame_h(void **hslot);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
-int     zls_g_resume_by_name(const char *name);
-int     zls_g_block_args(const IR_graph_t * g);
-int  rt_proc_is_generator(const char *name);
+int zls_g_resume_by_name(const char *name);
+int zls_g_block_args(const IR_graph_t * g);
+int rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_wire_pair_consumed(const char *fname) {
     return (fname && rt_define_returns_by_frame(fname)) ? 0 : 1;
 }
-int  rt_proc_dyn_scope(const char *name);
+int rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 extern "C" struct gv_s g_call_args;
 extern "C" int g_gc_pending;
-int  rt_proc_is_registered(const char *name); int  rt_proc_is_redefined(const char *name); int  rt_proc_is_variadic(const char *name);
-int  rt_proc_nformals(const char *name);
-int  rt_pl_dc_ok(const char *name, int nargs);
+int rt_proc_is_registered(const char *name); int rt_proc_is_redefined(const char *name); int rt_proc_is_variadic(const char *name);
+int rt_proc_nformals(const char *name);
+int rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
 DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx);
-int  rt_proc_nparams(const char *name);
+int rt_proc_nparams(const char *name);
 const char *rt_proc_pname(const char *name, int k);
 const char *rt_proc_result_name_get(const char *name);
-int  scc_program_ok(void);
-int  gva_index_of(const char *name); int rt_gva_add_var(const char *name); int gva_trace_demoted(void);
+int scc_program_ok(void);
+int gva_index_of(const char *name); int rt_gva_add_var(const char *name); int gva_trace_demoted(void);
 extern int g_gva_active;
 extern int g_monitor_bin;
 extern long g_trace_budget;
-int  bb_slot_get(IR_t * nd);
+int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
-int  bb_proc_target_zframe_graph(const char *fname);
-int  bb_proc_target_pinned_graph(const char *fname); int bb_proc_target_det_block(const char *fname);
-int  rt_proc_pinned(const char *name);
+int bb_proc_target_zframe_graph(const char *fname);
+int bb_proc_target_pinned_graph(const char *fname); int bb_proc_target_det_block(const char *fname);
+int rt_proc_pinned(const char *name);
 void *bb_ab_fn_cell_ptr(const char *fname);
-int  bb_proc_target_icn_block(const char *fname, int *np, int *vari);
+int bb_proc_target_icn_block(const char *fname, int *np, int *vari);
 DESCR_t rt_make_list(DESCR_t *args, int nargs);
 void rt_trace_call_hook_f(const char *fname, int np, void *base);
-int  zls_g_block_args(const IR_graph_t * g);
+int zls_g_block_args(const IR_graph_t * g);
 }
 #include "x86_asm.h"
 #define RO_SEAL_STR(n, s) \
@@ -306,7 +306,8 @@ static std::vector<std::string> g_alpha_cellp_seen, g_alpha_cellp_names, g_alpha
 std::string bcps_alpha_cellp_label(const char * fname) { return std::string("alpha_cellp$") + bb_ab_sym_name(fname); }
 std::string bcps_alpha_cellp_data(const char * fname) {
     if (!fname) return std::string();
-    { void ** c = (void **) bb_ab_fn_cell_ptr((std::string("alpha$") + fname).c_str()); if (c && (!*c || *c == (void *)(uintptr_t) rt_ab_undef_fn_stub)) *c = (void *)(uintptr_t) rt_ab_undef_sig_stub; }
+    { void ** c = (void **) bb_ab_fn_cell_ptr((std::string("alpha$") + fname).c_str()); if (c && (!*c || *c == (void *)(uintptr_t) rt_ab_undef_fn_stub)) *c = (void *)(uintptr_t) rt_ab_undef_sig_stub;
+        }
     std::string lbl = bcps_alpha_cellp_label(fname);
     if (!std::count(g_alpha_cellp_seen.begin(), g_alpha_cellp_seen.end(), lbl)) { g_alpha_cellp_seen.push_back(lbl); g_alpha_cellp_names.push_back(std::string(fname)); }
     return std::string();
@@ -1056,15 +1057,15 @@ static std::string bcps_spine_gen_arm() {
     int off = bcps_result_slot(); if (off < 0) return x86_bomb("bb_call_proc_staged: no LOWER slot grant (TMP-ERADICATE)");
     int act = zls_act_off(_.node); if (act < 0) act = off + 16 * (1 + (int)_.op_ival);
     IR_graph_t ** argblks = (IR_graph_t **)(intptr_t)_.op_counter;
-    int   gi_off; {
+    int gi_off; {
     static int c = -1;
     if (c < 0) {
         const char *e = getenv("SCRIP_NO_GENIDX");
         c = (e && *e == '1') ? 1 : 0;
     } gi_off = c;
 }
-    int   gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
-    long  gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
+    int gi_dyn = _.op_sval && rt_proc_dyn_scope(_.op_sval);
+    long gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx);
     int n2_fb = -1;
     if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
@@ -1130,11 +1131,11 @@ static std::string bcps_spine_gen_arm() {
          + (gi_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
          + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
          + IF(gi_idx < 0 && bcps_pl(), bcps_pinned_byname_road(bcps_block_build(argblks, (int)_.op_ival), act + 8, 61, 62, 60))
-         + IF(icn_gen_regime(),  x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0))
+         + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0))
          + bcps_wire_cross_gen(3, 4)
          + x86("def", L(3))
          + (bcps_pl()
-            ?  x86("mov", FRQ(act), "rax")
+            ? x86("mov", FRQ(act), "rax")
               + x86("mov", FRQ(act + 8), "rdx")
               + x86("test", "rax", "rax")
               + x86("jne", L(21))
@@ -1171,7 +1172,7 @@ static std::string bcps_spine_gen_arm() {
          + x86("jmp", L(2)))
          + x86("def", L(4))
          + (bcps_pl()
-            ?  x86("add", "rsp", 32L)
+            ? x86("add", "rsp", 32L)
               + x86("mov", FRQ(act), 0L)
               + x86("call", "rt_gen_spine_pass_ω", TEMPLATE_FN_ADDR(rt_gen_spine_pass_ω))
               + x86("jmp", L(2))
@@ -1202,7 +1203,7 @@ static std::string bcps_spine_gen_arm() {
          + x86_scan_sync_out()
          + IF(!bcps_pl(), x86("call", "rt_gen_spine_resume_enter", TEMPLATE_FN_ADDR(rt_gen_spine_resume_enter)))
          + ((bcps_pl()
-               ?  x86("test", "r15", "r15")
+               ? x86("test", "r15", "r15")
                  + x86("jne", L(22))
                  + x86("mov", "rax", FRQ(act))
                  + x86("test", "rax", "rax")
@@ -1214,7 +1215,7 @@ static std::string bcps_spine_gen_arm() {
                  + x86("def", L(22))
                  + x86_omega()
                : icn_gen_regime()
-               ?  x86("mov", "rax", FRQ(act + 8))
+               ? x86("mov", "rax", FRQ(act + 8))
                  + x86("mov", "rsp", RDQ("rax", 40))
                  + x86_jmp_mem("rax", 32)
                : x86("mov", "rsp", FRQ(act + 8))

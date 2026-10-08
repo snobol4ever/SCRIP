@@ -25,7 +25,7 @@ static int alt_sigma_base(long N) {
 static std::string alt_sigma_stubs(long N, int cro) {
     return FOR(0, (int)N, [&](int j) { return x86("def", PAIR((int)(2 * N + 2 + j)))
                                             + x86_lea_rip_id("rax", (int)(alt_sigma_base(N) + j))
-                                            + (cro            ? x86("mov", CROQ(cro, 8), "rax")
+                                            + (cro ? x86("mov", CROQ(cro, 8), "rax")
                                                : _.op_alt_cell ? x86("sub", "rsp", 16L)
                                                                + x86("mov", RDQ("rsp", 0), "rax")
                                                                : x86("mov", CROQ(cro, 8), "rax"))
@@ -62,7 +62,7 @@ std::string bb_match_alternate() {
              + x86("def", PAIR((int)(2 * _.op_ival)))
              + x86_gamma()
              + x86_beta()
-             + (_.op_sa            ? x86("mov", "rax", CROQ(_.op_sa, 8))
+             + (_.op_sa ? x86("mov", "rax", CROQ(_.op_sa, 8))
               : _.op_alt_cell ? x86("mov", "rax", RDQ("rsp", 0))
               + x86("add", "rsp", 16L)
                               : x86("mov", "rax", CROQ(_.op_sa, 8)))

@@ -7,10 +7,10 @@ extern DESCR_t rt_num_arith_strict(DESCR_t, DESCR_t, int);
 #include "descr.h"
 #include "../runtime/builtins/gen.h"
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op);
-int     rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
+int rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op);
 int64_t to_int(DESCR_t v);
 int64_t core_icn_to_int_check(uint64_t lo, uint64_t hi);
-int     core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
+int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -31,8 +31,8 @@ std::string xa_to_trail_unwind() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_int_operand_guard(int slot) {
     return IF(_.op_range_int_operands,
-               x86("mov",  "rdi", FRQ(slot))
-             + x86("mov",  "rsi", FRQ(slot + 8))
+               x86("mov", "rdi", FRQ(slot))
+             + x86("mov", "rsi", FRQ(slot + 8))
              + x86("call", "core_icn_int_operand_ok", (uint64_t)(uintptr_t)(void *)(int (*)(uint64_t, uint64_t))core_icn_int_operand_ok)
              + x86("test", "eax", "eax")
              + x86_omega("jz")

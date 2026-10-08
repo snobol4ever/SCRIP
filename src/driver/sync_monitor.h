@@ -4,21 +4,18 @@
 #include "core.h"
 #include "runtime/builtins/gen_runtime.h"
 typedef struct {
-    NvPair  *nv_pairs;
-    int      nv_count;
-    int64_t  kw_stcount;
-    int64_t  kw_stlimit;
-    int64_t  kw_anchor;
-    int      resolve_trail_mark;
-    int      last_ok;
+    NvPair *nv_pairs;
+    int nv_count;
+    int64_t kw_stcount;
+    int64_t kw_stlimit;
+    int64_t kw_anchor;
+    int resolve_trail_mark;
+    int last_ok;
     const char **label_path;
-    int          label_path_n;
-    int          label_path_cap;
-    struct PlLocalPair {
-        char *name;
-        char *val_str;
-    } *resolve_locals;
-    int      resolve_locals_count;
+    int label_path_n;
+    int label_path_cap;
+    struct PlLocalPair { char *name; char *val_str; } *resolve_locals;
+    int resolve_locals_count;
 } ExecSnapshot;
 void exec_snapshot_take(ExecSnapshot *s);
 void exec_snapshot_restore(const ExecSnapshot *s);

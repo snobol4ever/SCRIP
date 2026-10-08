@@ -80,7 +80,7 @@ extern "C" void bb_ab_seal_entry_cells(const char * pname, void * fnbase, int al
     if (!pname || !fnbase) return;
     const char * sn = alpha_face ? pname : bb_ab_sym_name(pname); char lbl[fmt_len(alpha_face ? "%s_\xce\xb1" : "LBL__%s", sn)], cell[fmt_len(alpha_face ? "alpha$%s" : "entry$%s", pname)];
     if (alpha_face) { snprintf(lbl, sizeof lbl, "%s_\xce\xb1", pname); snprintf(cell, sizeof cell, "alpha$%s", pname); }
-    else            { snprintf(lbl, sizeof lbl, "LBL__%s",  sn); snprintf(cell, sizeof cell, "entry$%s",  pname); }
+    else { snprintf(lbl, sizeof lbl, "LBL__%s", sn); snprintf(cell, sizeof cell, "entry$%s", pname); }
     int off = emit_label_lookup_offset(lbl); if (off < 0) { if (getenv("SCRIP_SEAL_DIAG")) fprintf(stderr, "[SEAL] MISS lbl=%s cell=%s\n", lbl, cell); return; }
     *(void **)bb_ab_fn_cell_ptr(cell) = (void *)((char *)fnbase + off);
 }
@@ -252,8 +252,8 @@ extern "C" {
 #include "bb_templates.h"
 #include "ab_abi.h"
 #include "pin_va.h"
-int   bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
-int   rt_proc_nformals(const char *);
+int bb_scc_probe(const char *fname, int nargs, int *np_out, int *nsave_out, int *gk_out, int *res_gk_out);
+int rt_proc_nformals(const char *);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -290,7 +290,7 @@ static std::string bb_define_sr() {
                  + x86_deflabel_id(base + nf4); };
         long WNOFF = 16L * xt4 + 24;
         auto WNSAVE = [&]() {
-            return  x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+            return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
                  + x86("mov", "edx", RDD("rax", 0))
                  + x86("movsxd", "rdx", "edx")
                  + x86_rsp_store64((int)WNOFF, "rdx")
@@ -299,7 +299,7 @@ static std::string bb_define_sr() {
                  + x86("mov", RDD("rax", 0), (long)0); };
         auto WNRESTORE = [&]() {
             if (!wn_park()) return x86("comment", "SCRIP_WN_PARK=0: the caller's want-name is left as the body left it (the knob's documented meaning; the park gate's fail-once arm plants it)");
-            return  x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+            return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
                  + x86_rsp_load64("rdx", (int)WNOFF)
                  + x86("mov", RDD("rax", 0), "edx"); };
         std::string la = std::string(fn4) + "_\xce\xb1", lb = std::string(fn4) + "_\xce\xb3", lo = std::string(fn4) + "_\xcf\x89";
@@ -342,7 +342,8 @@ static std::string bb_define_sr() {
                                 + x86("mov", GQ(gk4[i], 8), "rax"); }); };
         if (fnsig()) {
             long F4nv = T4 + 16L * nf4; long F4 = F4nv + 16L * nnv4;
-            auto NVPUSH = [&]() { return x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9") + x86("push", "r12") + x86("push", "rdi"); };
+            auto NVPUSH =
+                [&]() { return x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9") + x86("push", "r12") + x86("push", "rdi"); };
             auto NVPOP = [&]() { return x86("pop", "rdi") + x86("pop", "r12") + x86("pop", "r9") + x86("pop", "r8") + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi"); };
             auto NVCELLS = [&]() { return x86("mov", "rsi", "rsp") + x86("add", "rsi", (long)(F4nv + 64)); };
             auto NVIN = [&]() { if (!nnv4) return std::string();

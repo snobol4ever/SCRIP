@@ -5,5 +5,5 @@
 #include <stdio.h>
 #include "IR.h"
 #include "ast.h"
-int  bb_node_id(IR_t * nd);
+int bb_node_id(IR_t * nd);
 #endif

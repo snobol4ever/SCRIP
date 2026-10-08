@@ -30,11 +30,11 @@ std::string jvm_emit_ldc_string_str(const char * s) {
     std::string result = "    ldc \"";
     if (s) {
         for (const char * p = s; *p; p++) {
-            if      (*p == '"')  result += "\\\""; else if (*p == '\\') result += "\\\\";
+            if (*p == '"') result += "\\\""; else if (*p == '\\') result += "\\\\";
             else if (*p == '\n') result += "\\n";
             else if (*p == '\r') result += "\\r";
             else if (*p == '\t') result += "\\t";
-            else                 result += *p;
+            else result += *p;
         }
     }
     result += "\"\n";
@@ -126,12 +126,12 @@ std::string js_escape_string_str(const char * s) {
     if (s) {
         for (; *s; s++) {
             unsigned char c = (unsigned char)*s;
-            if      (c == '"')  result += "\\\""; else if (c == '\\') result += "\\\\";
+            if (c == '"') result += "\\\""; else if (c == '\\') result += "\\\\";
             else if (c == '\n') result += "\\n";
             else if (c == '\r') result += "\\r";
             else if (c == '\t') result += "\\t";
             else if (c < 0x20 || c > 0x7e) result += emit_fmt("\\x%02x", c);
-            else                 result += c;
+            else result += c;
         }
     }
     result += "\"";
@@ -142,9 +142,9 @@ std::string net_escape_ldstr_str(const char * s) {
     std::string result = "    ldstr      \"";
     if (s) {
         for (const unsigned char * p = (const unsigned char *)s; *p; p++) {
-            if (*p == '"')       result += "\\\""; else if (*p == '\\') result += "\\\\";
+            if (*p == '"') result += "\\\""; else if (*p == '\\') result += "\\\\";
             else if (*p < 0x20 || *p == 0x7f) result += emit_fmt("\\u%04X", (unsigned)*p);
-            else                 result += *p;
+            else result += *p;
         }
     }
     result += "\"\n";
@@ -192,10 +192,10 @@ std::string net_charset_class_str(int sid, int nid, const char * tag) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_push_i4_str(int v) {
-    if (v >= 0 && v <= 8)          return emit_fmt("    ldc.i4.%d\n", v);
-    else if (v == -1)               return "    ldc.i4.m1\n";
+    if (v >= 0 && v <= 8) return emit_fmt("    ldc.i4.%d\n", v);
+    else if (v == -1) return "    ldc.i4.m1\n";
     else if (v >= -128 && v <= 127) return emit_fmt("    ldc.i4.s   %d\n", v);
-    else                            return emit_fmt("    ldc.i4     %d\n", v);
+    else return emit_fmt("    ldc.i4     %d\n", v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string net_ctor_none_str(int sid, int nid) {

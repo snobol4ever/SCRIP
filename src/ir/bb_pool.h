@@ -4,17 +4,17 @@
 #include <stddef.h>
 #include <stdint.h>
 typedef uint8_t * bb_buf_t;
-#define BB_POOL_SIZE   (2048UL * 1024UL * 1024UL)
-void     bb_pool_init    (void);
-int      bb_in_pool      (const void * p);
-bb_buf_t bb_alloc        (size_t size);
-void     bb_seal         (bb_buf_t buf, size_t size);
-void     bb_pool_trim_last(bb_buf_t buf, size_t reserved, size_t used);
-void     bb_free         (bb_buf_t buf, size_t size);
-void     bb_pool_destroy (void);
-void     bb_pool_reset   (void);
-size_t   bb_pool_used    (void);
-size_t   bb_pool_free    (void);
-size_t   bb_pool_mark    (void);
-void     bb_pool_release (size_t mark);
+#define BB_POOL_SIZE (2048UL * 1024UL * 1024UL)
+void bb_pool_init (void);
+int bb_in_pool (const void * p);
+bb_buf_t bb_alloc (size_t size);
+void bb_seal (bb_buf_t buf, size_t size);
+void bb_pool_trim_last(bb_buf_t buf, size_t reserved, size_t used);
+void bb_free (bb_buf_t buf, size_t size);
+void bb_pool_destroy (void);
+void bb_pool_reset (void);
+size_t bb_pool_used (void);
+size_t bb_pool_free (void);
+size_t bb_pool_mark (void);
+void bb_pool_release (size_t mark);
 #endif

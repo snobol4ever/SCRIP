@@ -16,7 +16,7 @@
 #include "parsers/rebus/rebus_lower.h"
 #include "runtime/builtins/gen.h"
 #include "parsers/icon/icon_lex.h"
-extern void ir_print_node   (const tree_t *e, FILE *f);
+extern void ir_print_node (const tree_t *e, FILE *f);
 extern void ir_print_node_nl(const tree_t *e, FILE *f);
 #include "core.h"
 #include "sil_macros.h"
@@ -27,28 +27,46 @@ extern void ir_print_node_nl(const tree_t *e, FILE *f);
 extern DESCR_t pat_at_cursor(const char *varname);
 #include "runtime/builtins/gen_runtime.h"
 extern const char *Σ;
-extern int         Ω;
-extern int         Δ;
-extern int         Σlen;
+extern int Ω;
+extern int Δ;
+extern int Σlen;
 #include "driver.h"
-extern char  g_script_exception[512];
-extern int   g_script_try_depth;
+extern char g_script_exception[512];
+extern int g_script_try_depth;
 void rt_script_die_surface(const char *msg);
-extern Match  g_match;
+extern Match g_match;
 extern const char *g_subject;
-extern int   g_kw_ctx;
+extern int g_kw_ctx;
 #include "ct_vec.h"
-typedef struct { FILE *fp; char *name; char *alias; char *enc; char mode; char type; char untrans; char bom; char repos; char closed; char eof; char rd_last;
-    long pos_off; long pos_chars; long pos_lines; long pos_lpos; long rd_line; long rd_col; } fh_slot_t;
+typedef struct {
+    FILE *fp;
+    char *name;
+    char *alias;
+    char *enc;
+    char mode;
+    char type;
+    char untrans;
+    char bom;
+    char repos;
+    char closed;
+    char eof;
+    char rd_last;
+    long pos_off;
+    long pos_chars;
+    long pos_lines;
+    long pos_lpos;
+    long rd_line;
+    long rd_col;
+} fh_slot_t;
 extern cv_t g_fhv;
 void fh_ensure_init(void);
 #define g_fh (fh_ensure_init(), (fh_slot_t *)g_fhv.p)
 #define FH_N (fh_ensure_init(), (int)g_fhv.len)
-void  drv_gc_roots(void);
-extern int   fh_init;
-int   fh_alias_idx(const char *nm);
-void  fh_set_alias(int idx, const char *nm);
-void  fh_set_encoding(int idx, const char *nm);
+void drv_gc_roots(void);
+extern int fh_init;
+int fh_alias_idx(const char *nm);
+void fh_set_alias(int idx, const char *nm);
+void fh_set_encoding(int idx, const char *nm);
 const char *fh_encoding(int idx);
 void fh_set_bom(int idx, int v);
 int fh_bom(int idx);
@@ -56,18 +74,18 @@ void fh_set_repos(int idx, int v);
 int fh_repos(int idx);
 void fh_set_eof(int idx, int v);
 int fh_eof(int idx);
-void  fh_ensure_init(void);
-int   fh_alloc(FILE *fp);
+void fh_ensure_init(void);
+int fh_alloc(FILE *fp);
 FILE *fh_get(int idx);
-void  fh_free(int idx);
-int   fh_current_input(void);
-int   fh_current_output(void);
-void  fh_set_input(int idx);
-void  fh_set_output(int idx);
+void fh_free(int idx);
+int fh_current_input(void);
+int fh_current_output(void);
+void fh_set_input(int idx);
+void fh_set_output(int idx);
 FILE *fh_cur_out_fp(void);
 FILE *fh_cur_in_fp(void);
-int   fh_capture_begin(char **bufp, size_t *szp, int *saved_out);
-void  fh_capture_end(int idx, int saved_out);
+int fh_capture_begin(char **bufp, size_t *szp, int *saved_out);
+void fh_capture_end(int idx, int saved_out);
 const char *define_spec_from_expr(tree_t *subj);
 const char *define_entry_from_expr(tree_t *subj);
 #include "stage2.h"
@@ -76,35 +94,46 @@ typedef struct { const char *nm; DESCR_t val; } InitSlot;
 typedef struct { int id; int ns; InitSlot *s; } InitEnt;
 extern cv_t init_tab_v;
 #define init_tab ((InitEnt *)init_tab_v.p)
-extern int        init_n;
+extern int init_n;
 void init_update_snapshot(char **snames, DESCR_t *svals, int nsaved);
 int _is_pat_fnc_name(const char *s);
 int _expr_is_pat(tree_t *e);
 void set_and_trace(const char *name, DESCR_t val);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t NAME_DEREF(DESCR_t d) {
-    if (IS_NAME(d)) {
-        if (IS_NAMEPTR(d)) return NAME_DEREF_PTR(d);
-        if (IS_NAMEVAL(d)) return NV_GET_fn(d.s);
-    }
-    return d;
-}
+static inline DESCR_t NAME_DEREF(DESCR_t d) { if (IS_NAME(d)) { if (IS_NAMEPTR(d)) return NAME_DEREF_PTR(d); if (IS_NAMEVAL(d)) return NV_GET_fn(d.s); } return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int NAME_SET(DESCR_t nd, DESCR_t val) {
-    if (IS_NAME(nd)) {
-        if (IS_NAMEPTR(nd)) { NAME_DEREF_PTR(nd) = val; return 1; }
-        if (IS_NAMEVAL(nd)) { set_and_trace(nd.s, val); return 1; }
-    }
+    if (IS_NAME(nd)) { if (IS_NAMEPTR(nd)) { NAME_DEREF_PTR(nd) = val; return 1; } if (IS_NAMEVAL(nd)) { set_and_trace(nd.s, val); return 1; } }
     return 0;
 }
 DESCR_t *eval_ast_ref(tree_t *e);
 DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
 int string_section_assign(tree_t *lhs, DESCR_t val);
 typedef struct {
-    char * name; int nfields; char ** fields; char * parent; DESCR_t * defaults; char * has_default; char * required;
-    char * rw; char * sigil; char * priv; char ** mro; int mro_len, mro_cap; char ** parents; int nparents, parents_cap;
-    char ** roles; int nroles, roles_cap; char ** methods; int nmethods, methods_cap; char has_build; char ** build_keys; int nbuild_keys, build_keys_cap;
-    char ** handles_meth; char ** handles_fld; int nhandles, handles_cap;
+    char * name;
+    int nfields;
+    char ** fields;
+    char * parent;
+    DESCR_t * defaults;
+    char * has_default;
+    char * required;
+    char * rw;
+    char * sigil;
+    char * priv;
+    char ** mro;
+    int mro_len, mro_cap;
+    char ** parents;
+    int nparents, parents_cap;
+    char ** roles;
+    int nroles, roles_cap;
+    char ** methods;
+    int nmethods, methods_cap;
+    char has_build;
+    char ** build_keys;
+    int nbuild_keys, build_keys_cap;
+    char ** handles_meth;
+    char ** handles_fld;
+    int nhandles, handles_cap;
     struct _DATINST_tType *blk;
     char live;
     int fcap;
@@ -114,7 +143,7 @@ DatType *dat_find_type(const char *name);
 DatType *dat_find_type_n(const char *name, size_t n);
 DatType *dat_find_field(const char *name, int *fidx);
 void dat_set_live(const char *name, int live);
-DESCR_t    dat_construct(DatType *t, DESCR_t *args, int nargs);
+DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs);
 void class_inherit_multi(const char *child, const char **parents, int nparents);
 void class_compose_role(const char *child, const char *role);
 void dat_add_method(const char *type, const char *mname);
@@ -123,7 +152,7 @@ void dat_set_field_priv(const char *cls, const char *field);
 int dat_field_is_private(const char *cls, const char *field);
 void dat_set_field_default_s(const char *cls, const char *field, const char *v);
 void dat_set_field_default_r(const char *cls, const char *field, double v);
-DESCR_t    dat_field_get(const char *fname, DESCR_t obj);
+DESCR_t dat_field_get(const char *fname, DESCR_t obj);
 DESCR_t call_user_function(const char *fname, DESCR_t *args, int nargs);
 DESCR_t call_builtin(tree_t *call, DESCR_t *args, int nargs);
 int try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);

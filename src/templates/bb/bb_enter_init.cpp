@@ -13,10 +13,10 @@ std::string bb_enter_init() {
          + IF(!(_.op_off < 0),
              x86_alpha()
            + x86("comment", "IR_INITIAL")
-           + x86("mov",  "rax", FRQ(_.op_off + 8))
-           + x86("cmp",  "rax", (long)0)
+           + x86("mov", "rax", FRQ(_.op_off + 8))
+           + x86("cmp", "rax", (long)0)
            + x86_omega("jne")
-           + x86("mov",  FRQ(_.op_off + 8), (long)1)
+           + x86("mov", FRQ(_.op_off + 8), (long)1)
            + x86_gamma()
            + x86_beta_trampoline());
 }

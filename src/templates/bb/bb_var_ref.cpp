@@ -25,7 +25,7 @@ std::string bb_var_ref_frame() {
              + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))
              + x86("mov", "rcx", RDQ("r15", _.op_sb))
              + x86("lea", "rdx", RDQ("rcx", _.op_sa))
-             + x86("mov", FRQ(_.op_off),     "rax")
+             + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline())
@@ -34,12 +34,12 @@ std::string bb_var_ref_frame() {
              + x86_alpha()
              + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))
              + x86("lea", "rdx", RDQ(_.op_name1, _.op_sa))
-             + x86("mov", FRQ(_.op_off),     "rax")
+             + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline());
 }
-#define VR_ANON()  (_.op_gva_k < 0 && _.op_sa == -1)
+#define VR_ANON() (_.op_gva_k < 0 && _.op_sa == -1)
 #define VR_NAMED() (_.op_var_named == 1 && _.op_sval && (_.op_sa >= 0 || _.op_gva_k >= 0))
 #define VR_ICNZD() (_.op_zres && (_.op_sa >= 0 || _.op_gva_k >= 0))
 std::string bb_var_ref() {
@@ -49,7 +49,7 @@ std::string bb_var_ref() {
                x86("comment", "IR_VAR_REF anon: rt_pl_fresh_var_ref -> PLJ PLVAR cell")
              + x86_alpha()
              + x86("call", "rt_pl_fresh_var_ref", (uint64_t)(uintptr_t)(void *)rt_pl_fresh_var_ref)
-             + x86("mov", FRQ(_.op_off),     "rax")
+             + x86("mov", FRQ(_.op_off), "rax")
              + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_rt_gc_poll()
              + x86_gamma()
@@ -96,8 +96,8 @@ std::string bb_var_ref() {
                  ? x86("note", gva_name(_.op_gva_k))
                  + x86("mov", "rdx", (long)(RT_GVA_VA + _.op_gva_k * 16))
                  : x86("lea", "rdx", FRQ(_.op_sa)))
-             + x86("mov",     FRQ(_.op_off),     "rax")
-             + x86("mov",     FRQ(_.op_off + 8), "rdx")
+             + x86("mov", FRQ(_.op_off), "rax")
+             + x86("mov", FRQ(_.op_off + 8), "rdx")
              + x86_gamma()
              + x86_beta_trampoline());
 }

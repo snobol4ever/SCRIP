@@ -24,7 +24,7 @@ static std::string bb_match_arbno_frameless_k() {
          + x86("def", PAIR(2))
          + x86("mov", "eax", RDD("rsp", kkN() + 4))
          + x86("cmp", "r14d", "eax")
-         + x86("je",  PAIR(1))
+         + x86("je", PAIR(1))
          + x86("mov", "eax", RDD("rsp", kkN()))
          + x86("sub", "rsp", 16L)
          + x86("mov", RDD("rsp", 0), "eax")
@@ -55,7 +55,7 @@ static std::string bb_match_arbno_frameless() {
          + x86("def", PAIR(2))
          + x86("mov", "eax", RDD("rsp", 4))
          + x86("cmp", "r14d", "eax")
-         + x86("je",  bodybeta)
+         + x86("je", bodybeta)
          + x86("mov", RDD("rsp", 4), "r14d")
          + x86_gamma()
          + x86("def", PAIR(3))
@@ -83,7 +83,7 @@ static std::string arbno_win_restore(const char * cell, int src) {
 static std::string bb_match_arbno_frame() {
     const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);
     long cs = 32 + ((_.op_arbno_win_bytes + 15) & ~15);
-    return  x86_alpha()
+    return x86_alpha()
          + x86("sub", "rsp", cs)
          + x86("mov", RDD("rsp", 0), "r14d")
          + x86("mov", RDD("rsp", 4), "r14d")
@@ -102,7 +102,7 @@ static std::string bb_match_arbno_frame() {
          + x86("mov", "eax", RDD("rcx", 4))
          + x86("cmp", "r14d", "eax")
          + x86("comment", "NULL-BODY GUARD: the body matched without moving the cursor -- recede INTO the body (a CHAIN body's beta is its LAST node's, PAIR(4)) for a longer match")
-         + x86("je",  bodybeta)
+         + x86("je", bodybeta)
          + x86("comment", "COMMIT: push a fresh cell BELOW the body's live frames and snapshot the body's slot window into it")
          + x86("sub", "rsp", cs)
          + x86("mov", "eax", RDD("rcx", 0))

@@ -451,17 +451,17 @@ static std::string pl_arm_unify(int argbase, int resoff) {
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand) {
     const char * op = 0;
     switch (pl_leaf_kind(fn, narg, &op)) {
-        case PLK_MKC:    return pl_arm_mkc(narg, argbase, resoff, first_operand);
+        case PLK_MKC: return pl_arm_mkc(narg, argbase, resoff, first_operand);
         case PLK_DBDECLS: return pl_arm_dbdecls(narg, resoff);
-        case PLK_UNIFY:  return pl_arm_unify(argbase, resoff);
-        case PLK_AX:     return pl_arm_ax(op, narg, argbase, resoff);
-        case PLK_CMP:    return pl_arm_cmp(op, argbase, resoff);
-        case PLK_IS:     return pl_arm_is(argbase, resoff);
-        case PLK_TYPE:   return pl_arm_type(op, argbase, resoff);
-        case PLK_ATOP:   return pl_arm_atop(op, argbase, resoff);
+        case PLK_UNIFY: return pl_arm_unify(argbase, resoff);
+        case PLK_AX: return pl_arm_ax(op, narg, argbase, resoff);
+        case PLK_CMP: return pl_arm_cmp(op, argbase, resoff);
+        case PLK_IS: return pl_arm_is(argbase, resoff);
+        case PLK_TYPE: return pl_arm_type(op, argbase, resoff);
+        case PLK_ATOP: return pl_arm_atop(op, argbase, resoff);
         case PLK_ZGUARD: return pl_arm_zguard(argbase, resoff);
-        case PLK_ANUM:   return pl_arm_anum(narg, argbase, resoff, first_operand);
-        default:         return std::string();
+        case PLK_ANUM: return pl_arm_anum(narg, argbase, resoff, first_operand);
+        default: return std::string();
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -510,6 +510,6 @@ std::string pl_leaf_zd_cold(const char * fn, int narg) {
                + x86("mov32", "eax", (long)DT_FAIL)
                + x86("xor", "edx", "edx");
             return s + x86("def", L(150));
-        default:         return std::string();
+        default: return std::string();
     }
 }

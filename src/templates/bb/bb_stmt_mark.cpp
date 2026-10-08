@@ -19,7 +19,7 @@ extern long g_stcount;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_stmt_mark(long stno, long line) {
     x86_begin();
-    return  x86_alpha()
+    return x86_alpha()
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
          + x86("mov", "rcx", RDQ("rax", 0))
          + x86("mov", RDQ("rax", 0), (long)stno)

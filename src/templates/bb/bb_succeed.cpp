@@ -19,6 +19,6 @@ extern "C" void emit_mon_label_tap(int32_t stno) {
     _.op_stno = stno;
     bb_emit_x86(
           x86("comment", "MON LABEL tap")
-        + x86("mov",  "rdi", (long)_.op_stno)
+        + x86("mov", "rdi", (long)_.op_stno)
         + x86("call", "rt_trace_stmt", (uint64_t)(uintptr_t)(void *)rt_trace_stmt));
 }

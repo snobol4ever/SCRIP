@@ -30,5 +30,5 @@ static inline void *cv_push(cv_t *v, uint32_t esz, const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define CV_AT(v, T, i) (((T *)(v).p)[i])
-#define CV_PUSH(v, T)  (*(T *)cv_push(&(v), (uint32_t)sizeof(T), #v))
+#define CV_PUSH(v, T) (*(T *)cv_push(&(v), (uint32_t)sizeof(T), #v))
 #endif

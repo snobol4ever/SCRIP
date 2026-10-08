@@ -7,19 +7,19 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-#define CT_ALIGN     ((size_t)32)
-#define CT_BINS      20
+#define CT_ALIGN ((size_t)32)
+#define CT_BINS 20
 #define CT_MIN_CLASS ((size_t)16)
-#define CT_CHUNK     ((size_t)1 << 22)
+#define CT_CHUNK ((size_t)1 << 22)
 #define CT_MAGIC_BIN ((uint64_t)0x4354424c4f434b31ULL)
 #define CT_MAGIC_BIG ((uint64_t)0x4354424c4f434b32ULL)
 typedef struct ct_head { uint64_t magic; uint64_t size; struct ct_head *next; uint64_t pad; } ct_head_t;
 static ct_head_t *ct_bin[CT_BINS];
-static int        ct_poison = -1;
+static int ct_poison = -1;
 static uint8_t *ct_cur = (uint8_t *)0;
 static uint8_t *ct_end = (uint8_t *)0;
-static size_t   ct_taken = 0;
-static size_t   ct_mapped = 0;
+static size_t ct_taken = 0;
+static size_t ct_mapped = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_page(void) { long p = sysconf(_SC_PAGESIZE); return p > 0 ? (size_t)p : (size_t)4096; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -30,12 +30,7 @@ static void *ct_map(size_t want) {
     return m;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int ct_class_of(size_t n) {
-    size_t cap = CT_MIN_CLASS;
-    int i = 0;
-    while (i < CT_BINS) { if (n <= cap) return i; cap <<= 1; i++; }
-    return -1;
-}
+static int ct_class_of(size_t n) { size_t cap = CT_MIN_CLASS; int i = 0; while (i < CT_BINS) { if (n <= cap) return i; cap <<= 1; i++; } return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t ct_cap_of(int cls) { return CT_MIN_CLASS << (size_t)cls; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -50,28 +45,31 @@ void *ct_alloc(size_t n) {
         need = ((n + sizeof(ct_head_t)) + pg - 1) & ~(pg - 1);
         h = (ct_head_t *)ct_map(need);
         h->magic = CT_MAGIC_BIG;
-        h->size  = need;
+        h->size = need;
         ct_taken += need;
         return (void *)((uint8_t *)h + CT_ALIGN);
     }
-    if (ct_bin[cls]) { h = ct_bin[cls]; ct_bin[cls] = h->next; h->magic = CT_MAGIC_BIN; h->size = ct_cap_of(cls); h->next = (ct_head_t *)0; ct_taken += h->size; return (void *)((uint8_t *)h + CT_ALIGN); }
-    cap  = ct_cap_of(cls);
+    if (ct_bin[cls]) {
+        h = ct_bin[cls];
+        ct_bin[cls] = h->next;
+        h->magic = CT_MAGIC_BIN;
+        h->size = ct_cap_of(cls);
+        h->next = (ct_head_t *)0;
+        ct_taken += h->size;
+        return (void *)((uint8_t *)h + CT_ALIGN);
+    }
+    cap = ct_cap_of(cls);
     need = cap + CT_ALIGN;
     if ((size_t)(ct_end - ct_cur) < need) { size_t want = CT_CHUNK > need ? CT_CHUNK : ((need + ct_page() - 1) & ~(ct_page() - 1)); ct_cur = (uint8_t *)ct_map(want); ct_end = ct_cur + want; }
     h = (ct_head_t *)ct_cur;
     ct_cur += need;
     h->magic = CT_MAGIC_BIN;
-    h->size  = cap;
+    h->size = cap;
     ct_taken += cap;
     return (void *)((uint8_t *)h + CT_ALIGN);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *ct_zalloc(size_t n, size_t sz) {
-    size_t want = n * sz;
-    void *p = ct_alloc(want ? want : 1);
-    memset(p, 0, want ? want : 1);
-    return p;
-}
+void *ct_zalloc(size_t n, size_t sz) { size_t want = n * sz; void *p = ct_alloc(want ? want : 1); memset(p, 0, want ? want : 1); return p; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *ct_grow(void *p, size_t n) {
     ct_head_t *h;
@@ -85,7 +83,10 @@ void *ct_grow(void *p, size_t n) {
     if (n <= old) return p;
     cls = ct_class_of(n);
     if (h->magic == CT_MAGIC_BIN && cls >= 0 && (uint8_t *)p + old == ct_cur && (size_t)(ct_end - (uint8_t *)p) >= (cap = ct_cap_of(cls))) {
-        ct_cur = (uint8_t *)p + cap; ct_taken += cap - old; h->size = cap; return p;
+        ct_cur = (uint8_t *)p + cap;
+        ct_taken += cap - old;
+        h->size = cap;
+        return p;
     }
     q = ct_alloc(n);
     memcpy(q, p, old);
@@ -112,26 +113,9 @@ void ct_drop(void *p) {
     if (h->magic == CT_MAGIC_BIG) { size_t len = (size_t)h->size; h->magic = 0; ct_taken -= len; munmap((void *)h, len); return; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *ct_strdup(const char *s) {
-    size_t n;
-    char *q;
-    if (!s) return (char *)0;
-    n = strlen(s);
-    q = (char *)ct_alloc(n + 1);
-    memcpy(q, s, n + 1);
-    return q;
-}
+char *ct_strdup(const char *s) { size_t n; char *q; if (!s) return (char *)0; n = strlen(s); q = (char *)ct_alloc(n + 1); memcpy(q, s, n + 1); return q; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *ct_strndup(const char *s, size_t n) {
-    size_t k = 0;
-    char *q;
-    if (!s) return (char *)0;
-    while (k < n && s[k]) k++;
-    q = (char *)ct_alloc(k + 1);
-    memcpy(q, s, k);
-    q[k] = '\0';
-    return q;
-}
+char *ct_strndup(const char *s, size_t n) { size_t k = 0; char *q; if (!s) return (char *)0; while (k < n && s[k]) k++; q = (char *)ct_alloc(k + 1); memcpy(q, s, k); q[k] = '\0'; return q; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t ct_arena_bytes(void) { return ct_taken; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -171,36 +155,10 @@ long ct_arena_scan(const char *lo, const char *hi, void (*fn)(void *ctx, const c
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int vfmt_len(const char *fmt, va_list ap) {
-    va_list aq;
-    int n;
-    va_copy(aq, ap);
-    n = vsnprintf((char *)0, 0, fmt, aq);
-    va_end(aq);
-    return n < 0 ? 1 : n + 1;
-}
+int vfmt_len(const char *fmt, va_list ap) { va_list aq; int n; va_copy(aq, ap); n = vsnprintf((char *)0, 0, fmt, aq); va_end(aq); return n < 0 ? 1 : n + 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int fmt_len(const char *fmt, ...) {
-    va_list ap;
-    int n;
-    va_start(ap, fmt);
-    n = vfmt_len(fmt, ap);
-    va_end(ap);
-    return n;
-}
+int fmt_len(const char *fmt, ...) { va_list ap; int n; va_start(ap, fmt); n = vfmt_len(fmt, ap); va_end(ap); return n; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *ct_vfmt(const char *fmt, va_list ap) {
-    int n = vfmt_len(fmt, ap);
-    char *q = (char *)ct_alloc((size_t)n);
-    vsnprintf(q, (size_t)n, fmt, ap);
-    return q;
-}
+char *ct_vfmt(const char *fmt, va_list ap) { int n = vfmt_len(fmt, ap); char *q = (char *)ct_alloc((size_t)n); vsnprintf(q, (size_t)n, fmt, ap); return q; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *ct_fmt(const char *fmt, ...) {
-    va_list ap;
-    char *q;
-    va_start(ap, fmt);
-    q = ct_vfmt(fmt, ap);
-    va_end(ap);
-    return q;
-}
+char *ct_fmt(const char *fmt, ...) { va_list ap; char *q; va_start(ap, fmt); q = ct_vfmt(fmt, ap); va_end(ap); return q; }
