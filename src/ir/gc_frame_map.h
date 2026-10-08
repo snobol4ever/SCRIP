@@ -27,6 +27,7 @@ typedef struct gc_frame_map_t {
     uint64_t     map_off;
 } gc_frame_map_t;
 typedef struct rt_icn_frame_t { const gc_frame_map_t * map; const char * base; uint64_t caller_pc; } rt_icn_frame_t;
+void * rt_match_frame_cur(void);
 #ifdef __cplusplus
 static_assert(sizeof(gc_frame_map_t) == 32, "gc_frame_map_t is four sealed quads beside the code in both media (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.3): magic|frame_bytes, header_bytes|flags, graph_name, map_off -- the emitter writes them as four quads and the collector reads them through this struct, so the size is the contract; map_off is the cell's offset from the frame's region base (the value-region size), so the walker finds the region as cell - map_off in every regime (ARCH-GC section 6.2h)");
 static_assert(offsetof(gc_frame_map_t, graph_name) == 16 && offsetof(gc_frame_map_t, header_bytes) == 8, "the quad order is magic|frame_bytes, header_bytes|flags, graph_name, map_off");
