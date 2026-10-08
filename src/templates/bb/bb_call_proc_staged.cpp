@@ -85,7 +85,7 @@ static int icn_wire_stack_on(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int icn_wire_stack_for(const char *fname) { return icn_wire_stack_on() && !bb_proc_target_zframe_graph(fname); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_wire_cross(int gid, int wid, const char *fname) { return icn_wire_stack_for(fname) ? bb_glue_pass_wires_blob_act(gid, wid) : bb_glue_pass_wires(gid, wid); }
+static std::string bcps_wire_cross(int gid, int wid, const char *fname) { return icn_wire_stack_for(fname) ? bb_glue_pass_wires_blob(gid, wid) : bb_glue_pass_wires(gid, wid); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_cross_gen(int gid, int wid) {
     if (!icn_wire_stack_on() || x86_fb_pinned()) return IF(icn_wire_stack_on(), x86_sub("rsp", 16)) + bb_glue_pass_wires(gid, wid);
@@ -889,8 +889,6 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
          + x86_anchor_enter()
          + IF(is_gen, x86("mov", FRQ(act), (long)DT_RAW)
                     + bcps_icn_lvl(1L)
-                    + bb_glue_lvl_slot_rcx()
-                    + x86("mov", RDQ("rcx", SNO_LVL_ACT_RSP), 0L)
                     + x86("sub", "rsp", 24L)
                     + x86_rsp_store64_imm(16, 0L)
                     + x86_rsp_store64_imm(8, 0L)
@@ -900,7 +898,6 @@ static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t *
          + x86("push", "rcx")
          + x86_lea_id("rcx", 3)
          + x86("push", "rcx")
-         + IF(!is_gen, bb_glue_act_record(0))
          + x86("sub", "rsp", 16L * np)
          + FOR(0, ncp, [&](int i) { return bcps_icn_src(argblks, i, 0, K)
                                          + x86_rsp_store64(16 * i, "rcx")

@@ -3,15 +3,13 @@
 #include "emit.h"
 extern "C" {
 #include "bb_template_common.h"
-#include "ab_abi.h"
-extern int * const rt_k_level_p;
-extern long rt_stno_stack[];
-extern int g_core_errjmp_n;
+extern long g_stno;
+extern long g_line;
 #include "dtp.h"
 typedef struct { long fn; long how; } rt_call_next_t;
 extern rt_call_next_t rt_call_callee_try_sn4(DESCR_t * args, int nargs, sno_callee_rec_t * r, DESCR_t * out);
-extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word);
-extern DESCR_t rt_apply_land_ω(long word);
+extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long * sv);
+extern DESCR_t rt_apply_land_ω(long word, const long * sv);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -81,47 +79,9 @@ std::string bb_glue_pass_wires(int gid, int wid) {
          + x86_jmp_reg("rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_lvl_slot_rcx(void) {
-    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
-         + x86("mov", "rax", RDQ("rax", 0))
-         + x86("mov", "ecx", RDD("rax", 0))
-         + x86("movsxd", "rcx", "ecx")
-         + x86("and", "rcx", (long)SNO_LVL_MASK)
-         + FOR(0, SNO_LVL_SHIFT, [&](int) { return x86("add", "rcx", "rcx"); })
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)rt_stno_stack, "rt_stno_stack")
-         + x86("add", "rcx", "rax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_act_record(int keep_rax) {
-    int k = keep_rax ? 8 : 0;
-    return x86("comment",
-        "ACTIVATION RECORD (row snobol4-a-setexit-handler-runs-at-top-level-so-freturn-from-it-is-error-242): the wire "
-            "pair just pushed IS the activation base; a SETEXIT handler that RETURNs resumes here")
-         + IF(keep_rax, x86("push", "rax"))
-         + bb_glue_lvl_slot_rcx()
-         + x86("lea", "rax", RDQ("rsp", k))
-         + x86("mov", RDQ("rcx", SNO_LVL_ACT_RSP), "rax")
-         + x86("mov", RDQ("rcx", SNO_LVL_ACT_R12), "r12")
-         + x86("mov", "rax", RDQ("rsp", k))
-         + x86("mov", RDQ("rcx", SNO_LVL_GAMMA), "rax")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_core_errjmp_n, "g_core_errjmp_n")
-         + x86("mov", "eax", RDD("rax", 0))
-         + x86("movsxd", "rax", "eax")
-         + x86("mov", RDQ("rcx", SNO_LVL_ERRJMP), "rax")
-         + IF(keep_rax, x86("pop", "rax"))
-         + x86("mov", "rcx", RDQ("rsp", 0));
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_pass_wires_blob(int gid, int wid) {
     return x86_lea_id("rcx", wid) + x86("push", "rcx")
          + x86_lea_id("rcx", gid) + x86("push", "rcx")
-         + x86_jmp_reg("rax");
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_pass_wires_blob_act(int gid, int wid) {
-    return x86_lea_id("rcx", wid) + x86("push", "rcx")
-         + x86_lea_id("rcx", gid) + x86("push", "rcx")
-         + bb_glue_act_record(1)
          + x86_jmp_reg("rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -203,26 +163,41 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + land_ω(0L, 16);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id) {
+std::string bb_glue_stno_unit_push(void) {
+    return x86("sub", "rsp", 16L)
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
+         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86_rsp_store64(0, "rcx")
+         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
+         + x86("mov", "rcx", RDQ("rcx", 0))
+         + x86_rsp_store64(8, "rcx");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno) {
     return  x86("call", try_sym, try_fp)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", val_id)
          + x86_rt_gc_poll_rec_sigma_word(1)
+         + IF(stno, bb_glue_stno_unit_push())
          + bb_glue_enter_c2bb(base, base + 5, base + 6)
          + x86_deflabel_id(base + 5)
+         + IF(stno, x86("mov", "rcx", "rsp"))
          + x86("call", lg_sym, lg_fp)
          + x86_rt_gc_poll_rec_res()
+         + IF(stno, x86("add", "rsp", 16L))
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 6)
+         + IF(stno, x86("mov", "rsi", "rsp"))
          + x86("call", lw_sym, lw_fp)
          + x86_rt_gc_poll_rec_res()
+         + IF(stno, x86("add", "rsp", 16L))
          + x86_jmp_id(join_id)
          + x86_deflabel_id(val_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
     return bb_glue_try_enter("rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4, "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ,
-                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id);
+                             "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {

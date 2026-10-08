@@ -20,8 +20,6 @@ extern int rt_g_ret_by_name;
 void rt_kw_set_rtntype_role(int);
 void rt_define_bind_entry(const char *fname, const char *entry);
 extern int * const rt_k_level_p;
-extern long rt_stno_stack[];
-extern int g_core_errjmp_n;
 extern long g_stno;
 extern long g_line;
 extern long g_lastno;
@@ -111,16 +109,14 @@ static std::string bb_fnclevel_enter() {
          + x86("mov", RDQ("rax", 0), "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_stno_slot_rcx() { return bb_glue_lvl_slot_rcx(); }
-static std::string bb_stno_save() {
-    return x86("comment", "&STNO SAVE (trace-trunk row, cfo): the CALLER's &STNO/&LINE go into the slot of the level just entered, so RETURN can put them back")
-         + bb_stno_slot_rcx()
+static std::string bb_stno_save(int off) {
+    return x86("comment", "&STNO SAVE (CEO-1543): the CALLER's &STNO/&LINE go into this activation's own frame unit, so RETURN can put them back")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
          + x86("mov", "rax", RDQ("rax", 0))
-         + x86("mov", RDQ("rcx", 0), "rax")
+         + x86_rsp_store64(off, "rax")
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
          + x86("mov", "rax", RDQ("rax", 0))
-         + x86("mov", RDQ("rcx", 8), "rax");
+         + x86_rsp_store64(off + 8, "rax");
 }
 static std::string bb_stno_last_from_callee() {
     return x86("comment", "&LASTNO/&LASTLINE ON RETURN: the returning function's statement and line become the previous ones, as SPITBOL answers them in the calling statement")
@@ -134,18 +130,14 @@ static std::string bb_stno_last_from_callee() {
          + x86("mov", RDQ("rax", 0), "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_stno_restore_act() {
-    return x86("comment", "&STNO RESTORE + ACTIVATION RECORD RETIRED: the level record's activation base is cleared on the way out, "
-                          "so a SETEXIT handler can never resume into a frame that has returned")
+static std::string bb_stno_restore(int off) {
+    return x86("comment", "&STNO RESTORE (CEO-1543): the caller's &STNO/&LINE come back from this activation's own frame unit")
          + bb_stno_last_from_callee()
-         + bb_stno_slot_rcx()
+         + x86_rsp_load64("rcx", off)
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
-         + x86("mov", "rcx", RDQ("rcx", SNO_LVL_STNO))
          + x86("mov", RDQ("rax", 0), "rcx")
-         + bb_stno_slot_rcx()
-         + x86("mov", RDQ("rcx", SNO_LVL_ACT_RSP), (long)0)
+         + x86_rsp_load64("rcx", off + 8)
          + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", "rcx", RDQ("rcx", SNO_LVL_LINE))
          + x86("mov", RDQ("rax", 0), "rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -412,7 +404,7 @@ static std::string bb_define_sr() {
                                 + x86("mov", GQ(gk4[i], 8), (long)0); })
          + x86("push", "rcx")
                  + bb_fnclevel_enter()
-                 + bb_stno_save()
+                 + bb_stno_save((int)(16 * xt4 + 8))
                  + x86("pop", "rcx")
          + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
                  + x86("mov", "rax", RDQ("rax", 0))
@@ -482,7 +474,6 @@ static std::string bb_define_sr() {
                  + (x86("comment", "s64 RSP-ONLY WRITER (see the s58 arm's full comment — unchanged under SIG)")
                              + x86("push", "rax")
                              + x86("push", "rcx"))
-                 + bb_glue_act_record(0)
                  + bb_define_entry_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), entry_cell)
                  + x86_def_ext(lbl_b)
                  + x86_gc_site_raw(X86_SITE_FN_EXIT, 7, (int)((32 + 16 * xt4) | (F4 << 16)))
@@ -562,7 +553,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rdx")
                  + FRESTORE(BB_SHIM_ID_BETA)
          + x86("push", "rcx")
-                 + bb_stno_restore_act()
+                 + bb_stno_restore((int)(16 * xt4 + 8))
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
                  + WNRESTORE()
@@ -607,7 +598,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rdi")
                  + x86_deflabel_id(249))
          + x86("push", "rcx")
-                 + bb_stno_restore_act()
+                 + bb_stno_restore((int)(16 * xt4 + 8))
                  + bb_fnclevel_leave()
                  + x86("pop", "rcx")
                  + WNRESTORE()

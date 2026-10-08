@@ -1639,14 +1639,16 @@ rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
 #if RT_DIAG
         rt_c2bb_hit("apply.open", pn);
 #endif
-        { extern rt_call_next_t rt_call_open_found(const char *, int, int *); extern void rt_lvl_stno_stash(long, long); extern long g_stno, g_line; long sv_stno = g_stno, sv_line = g_line; int reg = 0; rt_call_next_t n = rt_call_open_found(pn, na, &reg);
+        { extern rt_call_next_t rt_call_open_found(const char *, int, int *); int reg = 0; rt_call_next_t n = rt_call_open_found(pn, na, &reg);
           if (!(reg && n.fn)) return none;
-          rt_lvl_stno_stash(sv_stno, sv_line); return n; } } }
+          return n; } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_apply_land_γ(DESCR_t frame0, long word) { extern DESCR_t rt_call_land_γ(DESCR_t, long); extern void rt_lvl_stno_land(void); rt_lvl_stno_land(); return rt_call_land_γ(frame0, word); }
+static void rt_apply_stno_land(const long *sv) { extern long g_stno, g_line, g_lastno, g_lastline; if (g_stno != sv[0] || g_line != sv[1]) { g_lastno = g_stno; g_lastline = g_line; g_stno = sv[0]; g_line = sv[1]; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_apply_land_ω(long word) { extern DESCR_t rt_call_land_ω(long); extern void rt_lvl_stno_land(void); rt_lvl_stno_land(); return rt_call_land_ω(word); }
+DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long *sv) { extern DESCR_t rt_call_land_γ(DESCR_t, long); rt_apply_stno_land(sv); return rt_call_land_γ(frame0, word); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_apply_land_ω(long word, const long *sv) { extern DESCR_t rt_call_land_ω(long); rt_apply_stno_land(sv); return rt_call_land_ω(word); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rk_method_land_γ(DESCR_t frame0, long word) { extern DESCR_t rt_call_land_γ(DESCR_t, long); DESCR_t r = rt_call_land_γ(frame0, word); if (g_redisp_top > 0) g_redisp_top--; return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -7620,7 +7622,7 @@ static DESCR_t rt_call_arr_bl_s(const char *fn, DESCR_t *args, int nargs, int bi
 #endif
     core_errjmp_t ej;
     int my = g_core_errjmp_n; void * volatile bimark = core_icn_bi_mark();
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_bi_reset(bimark); core_unwind_pending(); return FAILDESCR; }
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_bi_reset(bimark); return FAILDESCR; }
     core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
     DESCR_t r = RT_GC_CALLBACK(rt_call_arr_impl(fn, args, nargs, bidlen, strict, sn4, rq));
     core_errjmp_pop(&ej, my);
@@ -7808,7 +7810,7 @@ int c_rt_jct_relop(DESCR_t lhs, DESCR_t rhs, int op) {
     extern int g_core_errjmp_n;
     core_errjmp_t ej;
     int my = g_core_errjmp_n;
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_unwind_pending(); return 0; }
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); return 0; }
     core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
     int r = rt_jct_relop_impl(lhs, rhs, op);
     core_errjmp_pop(&ej, my);

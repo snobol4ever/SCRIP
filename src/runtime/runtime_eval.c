@@ -652,9 +652,7 @@ DESCR_t eval_string_transient(const char *s) {
     int my = eval_frame_open(s, 1);
     if (my < 0) return FAILDESCR;
     int ok = eval_chain_run_guarded(g_eval_frames[my].fn);
-    DESCR_t result = eval_frame_land(my, ok);
-    if (!ok) core_unwind_pending();
-    return result;
+    return eval_frame_land(my, ok);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long fn; long how; } rt_eval_next_t;

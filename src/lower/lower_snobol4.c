@@ -137,7 +137,7 @@ static int sno_pe_valfn(const char * s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * out, sno_pe_t * e) {
-    extern int g_core_errjmp_n; extern long g_error; extern void core_icn_op_ctx_clear(void); extern void core_unwind_pending(void);
+    extern int g_core_errjmp_n; extern long g_error; extern void core_icn_op_ctx_clear(void);
     extern long g_icn_errnumber; extern const char * g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
     extern DESCR_t rt_num_neg_sno(DESCR_t); extern DESCR_t rt_num_pos(DESCR_t); extern DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int); extern DESCR_t sno_concat_d(DESCR_t, DESCR_t);
     extern DESCR_t rt_call_arr_bl_sn4(const char *, DESCR_t *, int, int);
@@ -152,7 +152,6 @@ static int sno_pe_op(tree_e op, const char * fn, DESCR_t * av, int n, DESCR_t * 
     core_errjmp_pop(&ej, my); g_error = esv; core_icn_op_ctx_clear();
     if (g_icn_err_valid) { e->code = (int)g_icn_errnumber; e->msg = g_icn_errtext; } else if (jc) { e->code = jc; e->msg = ""; }
     g_icn_errnumber = snum; g_icn_errtext = stxt; g_icn_errvalue = sval; g_icn_err_valid = svalid;
-    core_unwind_pending();
     if (jc || e->code || r.v == DT_FAIL) return 0;
     *out = r; return 1;
 }

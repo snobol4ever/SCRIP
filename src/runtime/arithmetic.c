@@ -273,7 +273,7 @@ static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
     }
     core_errjmp_t ej;
     int my = g_core_errjmp_n;
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; }
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; }
     core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
     DESCR_t r = rt_num_arith_impl_s(a, b, op, strict);
     core_errjmp_pop(&ej, my);
@@ -313,7 +313,7 @@ DESCR_t fn(DESCR_t a, DESCR_t b) { \
     if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
     core_errjmp_t ej; \
     int my = g_core_errjmp_n; \
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); core_unwind_pending(); return FAILDESCR; } \
+    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; } \
     core_errjmp_push(&ej); g_core_errjmp_n = my + 1; \
     DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); \
     core_errjmp_pop(&ej, my); \

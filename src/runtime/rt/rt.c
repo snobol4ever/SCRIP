@@ -398,27 +398,6 @@ long        g_subject_dbg_len  = -1;
 __attribute__((visibility("hidden"))) int rt_k_level = 1;
 int * const rt_k_level_p = &rt_k_level;
 static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
-extern long rt_stno_stack[];
-static inline __attribute__((always_inline)) void rt_lvl_retire(void) { rt_stno_stack[(long)(rt_k_level & SNO_LVL_MASK) * SNO_LVL_LONGS + SNO_LVL_ACT_RSP / 8] = 0; }
-#define RT_S_(x) #x
-#define RT_S(x) RT_S_(x)
-#define RT_ACT_RECORD_ASM \
-"  movq rt_k_level_p@GOTPCREL(%rip), %rcx\n" \
-"  movq (%rcx), %rcx\n" \
-"  movslq (%rcx), %rcx\n" \
-"  andq $" RT_S(SNO_LVL_MASK) ", %rcx\n" \
-"  shlq $" RT_S(SNO_LVL_SHIFT) ", %rcx\n" \
-"  movq rt_stno_stack@GOTPCREL(%rip), %rdx\n" \
-"  addq %rdx, %rcx\n" \
-"  movq %rsp, " RT_S(SNO_LVL_ACT_RSP) "(%rcx)\n" \
-"  movq %r12, " RT_S(SNO_LVL_ACT_R12) "(%rcx)\n" \
-"  movq (%rsp), %rdx\n" \
-"  movq %rdx, " RT_S(SNO_LVL_GAMMA) "(%rcx)\n" \
-"  movq g_core_errjmp_n@GOTPCREL(%rip), %rdx\n" \
-"  movslq (%rdx), %rdx\n" \
-"  movq %rdx, " RT_S(SNO_LVL_ERRJMP) "(%rcx)\n" \
-"  movq (%rsp), %rcx\n" \
-"  movq 8(%rsp), %rdx\n"
 #define PROC_FRAME_QWORDS 512
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
@@ -560,7 +539,7 @@ int rt_ab_enter_env(void *frame)
     *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
     *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
     *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0; rt_g_ret_by_name = 0;
-    rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
+    rt_k_level++; rt_k_level_mirror();
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -606,19 +585,6 @@ int rt_proc_named_runs(const char *name)
 {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     return p && (p->fn || p->dyn_scope);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_lvl_stno_stash(long stno, long line)
-{
-    long *sl = &rt_stno_stack[(long)(rt_k_level & SNO_LVL_MASK) * SNO_LVL_LONGS];
-    sl[SNO_LVL_STNO / 8] = stno; sl[SNO_LVL_LINE / 8] = line;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_lvl_stno_land(void)
-{
-    extern long g_stno, g_line, g_lastno, g_lastline;
-    long *sl = &rt_stno_stack[(long)(rt_k_level & SNO_LVL_MASK) * SNO_LVL_LONGS];
-    if (g_stno != sl[SNO_LVL_STNO / 8] || g_line != sl[SNO_LVL_LINE / 8]) { g_lastno = g_stno; g_lastline = g_line; g_stno = sl[SNO_LVL_STNO / 8]; g_line = sl[SNO_LVL_LINE / 8]; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *r)
@@ -1063,7 +1029,6 @@ __asm__(
 "4:\n"
 "  pushq %rdx\n"
 "  pushq %rcx\n"
-RT_ACT_RECORD_ASM
 "  jmp *%rax\n"
 "2:\n"
 "  addq $24, %rsp\n"
@@ -1454,7 +1419,7 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
           rt_c2bb_hit("gen_h.coro_resume", g->name);
 #endif
           uint64_t out2[2] = { 0, 0 };
-          rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
+          rt_k_level++; rt_k_level_mirror();
           int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
           rt_k_level--; rt_k_level_mirror();
           return rt_genp_triage(g, ok, out2, hslot);
@@ -1597,7 +1562,7 @@ static cv_t g_lvl_own;
 static inline unsigned char *rt_lvl_cell(int L) { if (L < 0) return (unsigned char *)0; if ((uint32_t)L >= g_lvl_own.cap) cv_reserve(&g_lvl_own, 1, (uint64_t)L + 1, "g_lvl_own"); return &LVL_OWN(L); }
 static inline __attribute__((always_inline)) void rt_lvl_open(int own) {
     int L = rt_k_level; { unsigned char *c = rt_lvl_cell(L); if (c) *c = (unsigned char)((*c & 2) | (own ? 1 : 0)); else own = 0; }
-    if (!own) { rt_k_level++; rt_lvl_retire(); } rt_k_level_mirror();
+    if (!own) rt_k_level++; rt_k_level_mirror();
 }
 static inline __attribute__((always_inline)) void rt_lvl_close(void) { int L = rt_k_level; if (L >= 0 && (uint32_t)L < g_lvl_own.cap && (LVL_OWN(L) & 1)) { LVL_OWN(L) = 0;
     return; } rt_k_level--; rt_k_level_mirror(); }
@@ -1719,7 +1684,7 @@ void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long n
     for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
     zf[0] = NULVCL;
     { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
-    rt_k_level++; rt_k_level_mirror(); rt_lvl_retire();
+    rt_k_level++; rt_k_level_mirror();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb)
@@ -1754,7 +1719,6 @@ __asm__(
 "  leaq 3f(%rip), %rdx\n"
 "  pushq %rdx\n"
 "  pushq %rcx\n"
-RT_ACT_RECORD_ASM
 "  testq %r9, %r9\n"
 "  jz 6f\n"
 "  movq %r9, %rcx\n"
@@ -1832,7 +1796,6 @@ __asm__(
 "4:\n"
 "  pushq %rdx\n"
 "  pushq %rcx\n"
-RT_ACT_RECORD_ASM
 "  jmp *%rax\n"
 "2:\n"
 "  addq $8, %rsp\n"
@@ -1884,7 +1847,6 @@ __asm__(
 "9:\n"
 "  pushq %rdx\n"
 "  pushq %rcx\n"
-RT_ACT_RECORD_ASM
 "  jmp *%rax\n"
 "7:\n"
 "  addq $8, %rsp\n"

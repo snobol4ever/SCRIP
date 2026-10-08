@@ -30,7 +30,7 @@ static int cf_store_descr(IR_graph_t * g, IR_t * nd, DESCR_t r) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int cf_eval(DESCR_t da, DESCR_t db, int code, DESCR_t * out) {
     extern int g_core_errjmp_n; extern long g_error;
-    extern long g_icn_errnumber; extern const char * g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid; extern void core_icn_op_ctx_clear(void); extern void core_unwind_pending(void);
+    extern long g_icn_errnumber; extern const char * g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid; extern void core_icn_op_ctx_clear(void);
     long snum = g_icn_errnumber; const char * stxt = g_icn_errtext; DESCR_t sval = g_icn_errvalue; int svalid = g_icn_err_valid;
     long esv = g_error; int my = g_core_errjmp_n; int folded = 0;
     core_errjmp_t ej;
@@ -38,7 +38,6 @@ static int cf_eval(DESCR_t da, DESCR_t db, int code, DESCR_t * out) {
     if (setjmp(ej.jb) == 0) { core_errjmp_push(&ej); g_core_errjmp_n = my + 1; *out = rt_num_arith(da, db, code); folded = (out->v != DT_FAIL); }
     core_errjmp_pop(&ej, my); g_error = esv; core_icn_op_ctx_clear();
     g_icn_errnumber = snum; g_icn_errtext = stxt; g_icn_errvalue = sval; g_icn_err_valid = svalid;
-    core_unwind_pending();
     return folded;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

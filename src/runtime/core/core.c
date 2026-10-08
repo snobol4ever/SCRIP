@@ -2183,28 +2183,6 @@ static gv_t g_setexit_label;
 static int sxl_set(void) { return g_setexit_label.p && SXL[0]; }
 static int _setexit_resume = -1;
 extern int g_core_errjmp_n;
-extern long rt_stno_stack[];
-extern int * const rt_k_level_p;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long *core_lvl_rec(void) { return &rt_stno_stack[(long)(*rt_k_level_p & SNO_LVL_MASK) * SNO_LVL_LONGS]; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void core_unwind_next(void) __attribute__((noreturn));
-static void core_unwind_next(void) {
-    long *rec = core_lvl_rec();
-    if (g_core_errjmp_n > rec[SNO_LVL_ERRJMP / 8]) longjmp(core_errjmp_at(g_core_errjmp_n - 1)->jb, 3);
-    fprintf(stderr, "scrip: a level unwind reached its activation, but the C-to-BB jump that finished it (rt_unwind_to_activation) was deleted by CEO-1468 when no path set SNO_LVL_UNWIND\n");
-    abort();
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void core_unwind_pending(void) { if (rt_k_level_p && core_lvl_rec()[SNO_LVL_UNWIND / 8]) core_unwind_next(); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void core_setexit_handler_return(void) {
-    if (_setexit_resume < 0 || !rt_k_level_p || *rt_k_level_p < 2) return;
-    long *rec = core_lvl_rec(); long act = rec[SNO_LVL_ACT_RSP / 8], floor = rec[SNO_LVL_ERRJMP / 8];
-    if (!act || (act & 15) || floor < 0 || floor > _setexit_resume || (char *)act <= (char *)__builtin_frame_address(0) || *(long *)act != rec[SNO_LVL_GAMMA / 8]) return;
-    rec[SNO_LVL_UNWIND / 8] = (kw_rtntype[0] == 'F') ? 2 : 1;
-    core_unwind_next();
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2259,7 +2237,6 @@ void sno_setexit_fire_on_end(void) {
     int my = g_core_errjmp_n; int outer = _setexit_resume;
     if (setjmp(ej.jb) == 0) { core_errjmp_push(&ej); g_core_errjmp_n = my + 1; _setexit_resume = my; rt_goto_transfer(lbl); }
     core_errjmp_pop(&ej, my); _setexit_resume = outer;
-    core_unwind_pending();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_setexit_fire_now(void) {
@@ -3146,7 +3123,7 @@ void rt_code_pool_overflow(unsigned long long used_kb, unsigned long long cap_kb
     fprintf(stderr, "scrip: the out-of-memory error handler returned and the compiled-code pool cannot grow\n");
     exit(1);
 }
-void rt_kw_return_level_zero(void) { core_setexit_handler_return(); core_runtime_error(242, "function return from level zero"); abort(); }
+void rt_kw_return_level_zero(void) { core_runtime_error(242, "function return from level zero"); abort(); }
 core_errjmp_t *g_core_errjmp_stk = (core_errjmp_t *)0; int g_core_errjmp_n = 0;
 #ifdef SCRIP_GC_AUDIT_B
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4607,10 +4584,10 @@ int core_fn_is_c(const char *name) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t APPLY_fn_rq(const char *name, DESCR_t *args, int nargs, long *rq) {
-    extern long g_stno, g_line, g_lastno, g_lastline; extern void rt_lvl_stno_stash(long, long);
+    extern long g_stno, g_line, g_lastno, g_lastline;
     long sv_stno = g_stno, sv_line = g_line;
     DESCR_t r = apply_fn_body(name, args, nargs, rq);
-    if (rq && rq[0]) { rt_lvl_stno_stash(sv_stno, sv_line); return r; }
+    if (rq && rq[0]) return r;
     if (g_stno != sv_stno || g_line != sv_line) { g_lastno = g_stno; g_lastline = g_line; g_stno = sv_stno; g_line = sv_line; }
     return r;
 }

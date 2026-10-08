@@ -71,8 +71,8 @@ extern DESCR_t rk_method_land_γ(DESCR_t frame0, long word);
 extern DESCR_t rk_method_land_ω(long word);
 typedef struct { long fn; long how; } rt_call_next_t;
 extern rt_call_next_t rt_apply_open(DESCR_t * args, int nargs);
-extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word);
-extern DESCR_t rt_apply_land_ω(long word);
+extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long * sv);
+extern DESCR_t rt_apply_land_ω(long word, const long * sv);
 typedef struct { long fn; long how; } rt_eval_next_t;
 extern rt_eval_next_t rt_eval_open(DESCR_t * args, int nargs);
 extern DESCR_t rt_eval_land(long word);
@@ -107,14 +107,19 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("test", "rax", "rax")
          + x86_jcc_id("jz", decl_id)
+         + bb_glue_stno_unit_push()
          + bb_glue_enter_c2bb(base, base + 5, base + 6)
          + x86_deflabel_id(base + 5)
+         + x86("mov", "rcx", "rsp")
          + x86("call", "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ)
          + x86_rt_gc_poll_rec_res()
+         + x86("add", "rsp", 16L)
          + x86_jmp_id(join_id)
          + x86_deflabel_id(base + 6)
+         + x86("mov", "rsi", "rsp")
          + x86("call", "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω)
          + x86_rt_gc_poll_rec_res()
+         + x86("add", "rsp", 16L)
          + x86_jmp_id(join_id);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
