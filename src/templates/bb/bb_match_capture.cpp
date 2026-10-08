@@ -8,8 +8,8 @@ extern "C" {
 extern "C" long rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm);
 extern "C" long rt_cap_open_plain(const char *varname, int saved_delta, int cur_delta, int is_imm);
 extern "C" void *rt_proc_open_fn(void);
-extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
-extern "C" DESCR_t rt_proc_call_epilogue_ω(void);
+extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
+extern "C" DESCR_t rt_proc_call_epilogue_ω(long touched);
 extern "C" long rt_cap_land_γ(DESCR_t frame0, long word);
 extern "C" long rt_cap_land_ω(long word);
 extern "C" long rt_cap_open_gva(DESCR_t *cell, int saved_delta, int cur_delta, const char *varname);

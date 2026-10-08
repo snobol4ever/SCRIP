@@ -20,8 +20,8 @@ extern CVSPINE_t rt_call_apply_spine_prep_blk(DESCR_t callee, DESCR_t lv, void *
 extern CVSPINE_t rt_pl_goal_resolve(DESCR_t goal, int n);
 extern int * const rt_k_level_p;
 extern "C++" std::string icn_landing_line_restore(void);
-DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
-DESCR_t rt_proc_call_epilogue_ω(void);
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
+DESCR_t rt_proc_call_epilogue_ω(long touched);
 DESCR_t rt_gen_spine_pass_γ(DESCR_t v);
 DESCR_t rt_gen_spine_pass_ω(void);
 void rt_gen_spine_resume_enter(void);
@@ -164,6 +164,10 @@ std::string bb_call_value() {
             : bb_glue_wire_land()
               + x86("mov",  FRQ(CV_H() + 8), "rsp")
               + x86("mov",  "rax", FRQ(CV_H()))
+              + x86("mov",  "rdx", "rax")
+              + x86("shr",  "rdx", 16L)
+              + x86("and",  "edx", 1L)
+              + x86("and",  "eax", 255L)
          + x86("cmp",  "rax", 2L)
               + x86("je",   L(23))
               + x86("test", "rax", "rax")
@@ -187,6 +191,10 @@ std::string bb_call_value() {
             : bb_glue_wire_land()
               + x86("mov",  FRQ(CV_H() + 8), "rsp")
               + x86("mov",  "rax", FRQ(CV_H()))
+              + x86("mov",  "rdi", "rax")
+              + x86("shr",  "rdi", 16L)
+              + x86("and",  "edi", 1L)
+              + x86("and",  "eax", 255L)
               + x86("cmp",  "rax", 2L)
               + x86("je",   L(24))
               + x86("test", "rax", "rax")

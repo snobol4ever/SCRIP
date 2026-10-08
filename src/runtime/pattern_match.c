@@ -969,11 +969,14 @@ rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const ch
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0)
 {
-    extern DESCR_t rt_proc_call_epilogue_γ(DESCR_t); extern DESCR_t rt_proc_call_epilogue_named_γ(const char *); extern DESCR_t rt_nret_fix_tiny(DESCR_t, int); extern void rt_name_save_unwind(int);
+    extern DESCR_t rt_proc_call_epilogue_γ(DESCR_t, long); extern DESCR_t rt_proc_call_epilogue_named_γ(const char *, long);
+    extern DESCR_t rt_nret_fix_tiny(DESCR_t, int); extern void rt_name_save_unwind(int);
     if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    DESCR_t nm = (c->how == 2) ? rt_nret_fix_tiny(frame0, 0) : (c->how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1) : rt_proc_call_epilogue_γ(frame0);
-    if (c->how == 3) rt_name_save_unwind(c->nsb);
+    int how = c->how & 0x3f;
+    DESCR_t nm = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1, (long)((c->how >> 7) & 1))
+               : rt_proc_call_epilogue_γ(frame0, (long)((c->how >> 6) & 1));
+    if (how == 3) rt_name_save_unwind(c->nsb);
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump();
@@ -981,11 +984,14 @@ rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_dcap_next_t rt_dcap_land_ω(void)
 {
-    extern DESCR_t rt_proc_call_epilogue_ω(void); extern DESCR_t rt_proc_call_epilogue_named_ω(const char *); extern DESCR_t rt_ret_faildescr(void); extern void rt_name_save_unwind(int);
+    extern DESCR_t rt_proc_call_epilogue_ω(long); extern DESCR_t rt_proc_call_epilogue_named_ω(const char *, long);
+    extern DESCR_t rt_ret_faildescr(void); extern void rt_name_save_unwind(int);
     if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
     rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
-    DESCR_t nm = (c->how == 2) ? rt_ret_faildescr() : (c->how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1) : rt_proc_call_epilogue_ω();
-    if (c->how == 3) rt_name_save_unwind(c->nsb);
+    int how = c->how & 0x3f;
+    DESCR_t nm = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1, (long)((c->how >> 7) & 1))
+               : rt_proc_call_epilogue_ω((long)((c->how >> 6) & 1));
+    if (how == 3) rt_name_save_unwind(c->nsb);
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump();

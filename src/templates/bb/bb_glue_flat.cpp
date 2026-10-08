@@ -130,7 +130,7 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
     return save
          + x86_rsp_mark_save()
          + x86("mov",  "rcx", "rdx")
-         + x86("and",  "rcx", 255L)
+         + x86("and",  "rcx", 63L)
          + x86("cmp",  "rcx", 2L)
          + x86_jcc_id("je", base)
          + x86("cmp",  "rcx", 1L)

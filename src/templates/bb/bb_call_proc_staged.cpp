@@ -17,10 +17,10 @@ void   *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, 
 int     rt_proc_index_of(const char *name);
 void   *rt_proc_open_fn(void);
 void   *rt_frame_prep(void *fb, long fbytes);
-DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0);
-DESCR_t rt_proc_call_epilogue_ω(void);
-DESCR_t rt_proc_call_epilogue_named_γ(const char *name);
-DESCR_t rt_proc_call_epilogue_named_ω(const char *name);
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
+DESCR_t rt_proc_call_epilogue_ω(long touched);
+DESCR_t rt_proc_call_epilogue_named_γ(const char *name, long wn);
+DESCR_t rt_proc_call_epilogue_named_ω(const char *name, long wn);
 DESCR_t rt_faildescr(void);
 void    rt_ab_undef_fn_stub(void);
 void    rt_ab_undef_fn_fail(void);
@@ -105,14 +105,20 @@ static int bcps_retfix(void) {
     } return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int bcps_pl();
+static std::string bcps_open_word_keep(void) { return x86("sub", "rsp", 16L) + x86_rsp_store64(0, "rax"); }
 static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
 {
-    if (!bcps_retfix()) return x86("call", is_omega ? "rt_proc_call_epilogue_ω" : "rt_proc_call_epilogue_γ", bare_fp);
-    return x86("mov", "rdi", ROQ(0))
+    const char * fr = is_omega ? "rdi" : "rdx", * fr32 = is_omega ? "edi" : "edx";
+    if (!bcps_retfix()) return (bcps_pl() ? x86("mov32", fr32, 0L) : x86_rsp_load64(fr, 0) + x86("shr", fr, 61L) + x86("and", fr32, 1L) + x86("add", "rsp", 16L))
+         + x86("call", is_omega ? "rt_proc_call_epilogue_ω" : "rt_proc_call_epilogue_γ", bare_fp);
+    return (bcps_pl() ? x86("mov32", "esi", 0L) : x86_rsp_load64("rsi", 0) + x86("shr", "rsi", 62L) + x86("add", "rsp", 16L))
+         + x86("mov", "rdi", ROQ(0))
          + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ",
         TEMPLATE_FN_ADDR(is_omega ? rt_proc_call_epilogue_named_ω : rt_proc_call_epilogue_named_γ))
          + x86_rt_gc_poll_res();
 }
+static std::string bcps_epi_det(int is_omega, int is_gen) { return x86("mov32", is_omega ? "edi" : "edx", (long)(is_gen ? 1 : 0)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SAI_L0 200
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
@@ -417,6 +423,7 @@ static std::string bcps_det_arm() {
                    + x86_rt_gc_poll()
                    + x86("test", "rax", "rax")
                    + x86("je", L(1))
+                   + IF(det_idx_z < 0 && !bcps_pl(), bcps_open_word_keep())
                    + (det_idx_z >= 0 && det_fuse_z ? std::string("") : x86("mov", "rdi", ROQ(0))
                    + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
                    + IF(det_idx_z < 0 && bcps_pl(), bcps_pinned_byname_road(x86("sub", "rsp", (long)(16 * det_nA_z)) + FOR(0, det_nA_z, [&](int i) { return
@@ -443,11 +450,13 @@ static std::string bcps_det_arm() {
                    + bcps_wire_cross(3, 4, _.op_sval)
                    + x86("def", L(3))
                    + bcps_wire_land(_.op_sval)
-                   + (det_idx_z >= 0 ? x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)) : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
+                   + (det_idx_z >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ))
+                                      : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
                    + x86("jmp", L(2))
                    + x86("def", L(4))
                    + bcps_wire_land(_.op_sval)
-                   + (det_idx_z >= 0 ? x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)) : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
+                   + (det_idx_z >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω))
+                                      : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
                    + x86("jmp", L(2))
                    + x86("def", L(1))
                    + bcps_undef_fallback(TEMPLATE_FN_ADDR(rt_ab_undef_fn_stub)))
@@ -588,6 +597,7 @@ static std::string bcps_det_arm() {
          + IF(!dc, x86_rt_gc_poll())
          + IF(!dc, x86("test", "rax", "rax")
          + x86("je", L(1)))
+         + IF(det_idx < 0 && !dc && !bcps_pl(), bcps_open_word_keep())
          + (dc ? std::string("")
             : (det_idx >= 0 ? std::string("") : x86("mov", "rdi", ROQ(0))
             + x86("call", "rt_proc_fn", TEMPLATE_FN_ADDR(rt_proc_fn)))
@@ -613,11 +623,13 @@ static std::string bcps_det_arm() {
             + bcps_wire_cross(3, 4, _.op_sval)
             + x86("def", L(3))
             + bcps_wire_land(_.op_sval)
-            + (det_idx >= 0 ? x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)) : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
+            + (det_idx >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ))
+                             : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
             + x86("jmp", L(2))
             + x86("def", L(4))
             + bcps_wire_land(_.op_sval)
-            + (det_idx >= 0 ? x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)) : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
+            + (det_idx >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω))
+                             : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
             + x86("jmp", L(2)))
          + IF(!dc, x86("def", L(1))
          + bcps_undef_fallback(TEMPLATE_FN_ADDR(rt_ab_undef_fn_stub)))
@@ -1028,6 +1040,7 @@ static std::string bcps_spine_gen_arm() {
             + x86("mov32", "esi", (long)_.op_ival)
             + x86("call", "rt_proc_call_open", TEMPLATE_FN_ADDR(rt_proc_call_open)))
          + x86_rt_gc_poll()
+         + IF(gi_idx < 0, x86("mov", FRQ(act + 8), "rax"))
          + IF(icn_gen_regime(), x86("sub", "rsp", 8L) + x86_rsp_store64_imm(0, 0)
          + x86("note",
              "N-2 ABI WORD (row icon-generator-call-path-enters-every-runtime-helper-8-bytes-off-the-sysv-abi, hq_I "
@@ -1094,6 +1107,7 @@ static std::string bcps_spine_gen_arm() {
               + x86("mov", FRQ(act + 8), "rsp")
               + x86("def", L(9))
             : bcps_wire_land(_.op_sval)
+              + (gi_idx >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) : x86("mov", "rdx", FRQ(act + 8)) + x86("shr", "rdx", 61L) + x86("and", "edx", 1L))
               + (x86("mov", FRQ(act + 8), "rsp")
                  + x86("add", "rsp", 16L)))
          + IF(!bcps_pl(),
@@ -1113,6 +1127,7 @@ static std::string bcps_spine_gen_arm() {
               + x86("call", "rt_gen_spine_pass_ω", TEMPLATE_FN_ADDR(rt_gen_spine_pass_ω))
               + x86("jmp", L(2))
             : bcps_wire_land(_.op_sval)
+         + (gi_idx >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) : x86("mov", "rdi", FRQ(act + 8)) + x86("shr", "rdi", 61L) + x86("and", "edi", 1L))
          + x86("add", "rsp", icn_gen_regime() ? 8L : 16L)
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")
