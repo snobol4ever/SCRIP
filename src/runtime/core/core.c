@@ -647,7 +647,6 @@ void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long lin
     g_line = save;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void *g_icn_gen_ret[256]; static int g_icn_gen_ret_n;
 void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h) {
     if (trace_idle()) return;
     if (g_trace == 0 || !pname || !*pname) return;
@@ -656,12 +655,11 @@ void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void 
     if (trace_recursion_depth > 0) return;
     DESCR_t v; uint64_t w[2]; w[0] = lo; w[1] = hi; memcpy(&v, w, sizeof v);
     g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RETURN, pname, (DESCR_t *)0, 0, v); trace_recursion_depth--;
-    if (g_icn_gen_ret_n == 256) { for (int i = 1; i < 256; i++) g_icn_gen_ret[i - 1] = g_icn_gen_ret[i]; g_icn_gen_ret_n = 255; }
-    g_icn_gen_ret[g_icn_gen_ret_n++] = h;
+    if (h) *(long *)((char *)h + 64) |= 1;
 }
 void rt_trace_gen_fail_hook(const char *fname, void *h) {
     if (trace_idle()) return;
-    for (int i = g_icn_gen_ret_n - 1; i >= 0; i--) if (g_icn_gen_ret[i] == h) { for (int j = i + 1; j < g_icn_gen_ret_n; j++) g_icn_gen_ret[j - 1] = g_icn_gen_ret[j]; g_icn_gen_ret_n--; return; }
+    if (h && (*(const long *)((const char *)h + 64) & 1)) return;
     rt_trace_fail_hook(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -672,7 +670,7 @@ void rt_trace_resume_hook(const char *pname, void *h) {
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (trace_recursion_depth > 0) return;
-    long save = g_line; if (h) { long ln = *(const long *)((const char *)h + 64); if (ln > 0) g_line = ln; }
+    long save = g_line; if (h) { long ln = *(const long *)((const char *)h + 64) >> 1; if (ln > 0) g_line = ln; }
     g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL); trace_recursion_depth--;
     g_line = save;
 }

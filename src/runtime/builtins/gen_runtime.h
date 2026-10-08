@@ -27,9 +27,8 @@ static inline IR_t *bb_proc_entry(const ProcEntry *e)
 extern tree_t      *g_root;
 extern const char  *scan_subj;
 extern int          scan_pos;
-typedef struct { const char *subj; int pos; long len; } ScanEntry;
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
-typedef struct { const char *subj; int pos; int depth; int saved_depth; int saved_cap; long len; ScanEntry saved[]; } ScanState;
+typedef struct { const char *subj; int pos; int depth; long len; } ScanState;
 void  *rt_scan_state_capture(void *prev);
 void   rt_scan_state_apply(void *saved);
 void   rt_scan_state_reset(void);
@@ -41,7 +40,6 @@ ScanSubjRegs rt_match_enter(uint64_t lo, uint64_t hi);
 uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);
 DESCR_t rt_match_capture(uint64_t sigma, int64_t start, int64_t end, const char *var);
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
-ScanSubjRegs rt_scan_reenter(void);
 void rt_scan_sync_out(uint64_t delta);
 uint64_t rt_scan_sync_in(void);
 DESCR_t rt_substr(const char *sigma, int64_t a, int64_t b);

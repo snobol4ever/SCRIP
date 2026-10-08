@@ -3788,6 +3788,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("mov", "rcx", RDQ("rsp", _gw + 0)) + x86("mov", RDQ("rax", frame_total + 8), "rcx")
                   + x86("mov", "rcx", RDQ("rsp", _gw + 8)) + x86("mov", RDQ("rax", frame_total + 16), "rcx")
                   + x86("lea", "rcx", RDQ("rsp", _gw + 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
+                  + IF(x86_trace_hooks_on(), x86("mov", RDQ("rax", frame_total + 64), 0L))
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rsp", "rax")
                   + emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32, GC_FRAME_MAP_GEN_ANCHOR | GC_FRAME_MAP_ICN_PROC | (_gblk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0)
@@ -4328,7 +4329,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         } else if (icn_gen_regime() && g_emit.flat_gen) {
             { extern long g_line;
               bb_emit_x86( x86("mov", "rbp", "rax")
-                         + IF(x86_trace_hooks_on(), x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") + x86("mov", "rcx", RDQ("rcx", 0)) + x86("mov", RDQ("rax", 64), "rcx"))
+                         + IF(x86_trace_hooks_on(), x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") + x86("mov", "rcx", RDQ("rcx", 0)) + x86("shl", "rcx", 1L) + x86("mov", "rdx", RDQ("rax", 64)) + x86("and", "rdx", 1L) + x86("or", "rcx", "rdx") + x86("mov", RDQ("rax", 64), "rcx"))
                          + icn_gen_line_resume() + icn_entry_gva()); }
         } else {
         if (g_is_text) {

@@ -26,47 +26,29 @@ long rt_scan_subj_len(void);
 void rt_scan_subj_len_set(const char *p, long n);
 int         scan_pos   = 1;
 int         scan_depth = 0;
-static ScanState *g_scan_stack = (ScanState *)0;
-#define SCAN_SAVED(i) (g_scan_stack->saved[i])
-int         scan_saved_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_scan_active(void)
 {
     return (scan_depth > 0) || (scan_subj && scan_subj[0] != 0) || (scan_pos != 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static ScanState *scan_state_with_room(ScanState *s, int need) {
-    int nc;
-    ScanState *n;
-    if (s && s->saved_cap >= need) return s;
-    nc = (s && s->saved_cap) ? s->saved_cap : 8;
-    while (nc < need) nc *= 2;
-    n = (ScanState *)ct_zalloc(1, sizeof(ScanState) + (size_t)nc * sizeof(ScanEntry));
-    if (!n) return s;
-    if (s) memcpy(n, s, sizeof(ScanState) + (size_t)s->saved_cap * sizeof(ScanEntry));
-    n->saved_cap = nc;
-    return n;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_scan_state_capture(void *prev) {
-    ScanState *s = scan_state_with_room((ScanState *)prev, scan_saved_depth);
+    ScanState *s = (ScanState *)prev;
+    if (!s) s = (ScanState *)ct_zalloc(1, sizeof(ScanState));
     if (!s) return NULL;
-    s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->saved_depth = scan_saved_depth; s->len = rt_scan_subj_len();
-    for (int i = 0; i < scan_saved_depth; i++) s->saved[i] = SCAN_SAVED(i);
+    s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->len = rt_scan_subj_len();
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_state_apply(void *saved) {
     ScanState *s = (ScanState *)saved;
     if (!s) return;
-    scan_subj = s->subj ? s->subj : g_scan_empty; scan_pos = s->pos; scan_depth = s->depth; scan_saved_depth = s->saved_depth;
+    scan_subj = s->subj ? s->subj : g_scan_empty; scan_pos = s->pos; scan_depth = s->depth;
     rt_scan_subj_len_set(scan_subj, (s->subj && s->len >= 0) ? s->len : 0);
-    g_scan_stack = scan_state_with_room(g_scan_stack, scan_saved_depth);
-    for (int i = 0; i < scan_saved_depth; i++) SCAN_SAVED(i) = s->saved[i];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_state_reset(void) {
-    scan_subj = g_scan_empty; scan_pos = 1; scan_depth = 0; scan_saved_depth = 0; rt_scan_subj_len_set(scan_subj, 0);
+    scan_subj = g_scan_empty; scan_pos = 1; scan_depth = 0; rt_scan_subj_len_set(scan_subj, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
@@ -86,8 +68,6 @@ ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
     else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     scan_depth++;
-    g_scan_stack = scan_state_with_room(g_scan_stack, scan_depth);
-    if (scan_saved_depth > scan_depth - 1) { for (int i = scan_depth - 1; i < scan_saved_depth; i++) SCAN_SAVED(i).subj = (const char *)0; scan_saved_depth = scan_depth - 1; }
     rt_gc_point(&sv, (const char **)0);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
@@ -116,41 +96,10 @@ ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
-    if (scan_depth > 0) {
-        scan_depth--;
-        SCAN_SAVED(scan_depth).subj = scan_subj;
-        SCAN_SAVED(scan_depth).pos  = scan_pos;
-        SCAN_SAVED(scan_depth).len  = rt_scan_subj_len();
-        if (scan_saved_depth < scan_depth + 1) scan_saved_depth = scan_depth + 1;
-    }
+    if (scan_depth > 0) scan_depth--;
     scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
     scan_pos  = (int)outer_delta + 1;
     rt_scan_subj_len_set(scan_subj, outer_sigma ? (long)outer_len : 0);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
-    if (scan_depth > 0) {
-        scan_depth--;
-        SCAN_SAVED(scan_depth).subj = scan_depth < scan_saved_depth ? scan_subj : (const char *)0;
-        SCAN_SAVED(scan_depth).pos = scan_pos; SCAN_SAVED(scan_depth).len = rt_scan_subj_len();
-    }
-    scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
-    scan_pos  = (int)outer_delta + 1;
-    rt_scan_subj_len_set(scan_subj, outer_sigma ? (long)outer_len : 0);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-ScanSubjRegs rt_scan_reenter(void) {
-    ScanSubjRegs r; r.ptr = 0; r.len = 0;
-    if (scan_depth < 0 || scan_depth >= scan_saved_depth) return r;
-    scan_subj = SCAN_SAVED(scan_depth).subj;
-    scan_pos  = SCAN_SAVED(scan_depth).pos;
-    long n = SCAN_SAVED(scan_depth).len;
-    scan_depth++;
-    if (!scan_subj) { scan_subj = g_scan_empty; n = 0; }
-    rt_scan_subj_len_set(scan_subj, n);
-    if (n < 0) n = rt_scan_subj_len();
-    r.ptr = (uint64_t)(uintptr_t)scan_subj; r.len = (uint64_t)n;
-    return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
@@ -366,7 +315,6 @@ void gen_gc_roots(void)
     if (g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
     if (g_scan_needle_ptr) rt_gc_visit_raw(&g_scan_needle_ptr);
     rt_gc_visit_raw(&scan_subj);
-    for (int i = 0; i < scan_saved_depth; i++) if (SCAN_SAVED(i).subj) rt_gc_visit_raw(&SCAN_SAVED(i).subj);
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -376,7 +324,6 @@ void gen_gc_visit_scan_state(void *p)
     ScanState *s = (ScanState *)p;
     if (!s) return;
     if (s->subj) rt_gc_visit_raw(&s->subj);
-    for (int i = 0; i < s->saved_depth; i++) if (s->saved[i].subj) rt_gc_visit_raw(&s->saved[i].subj);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
@@ -394,13 +341,11 @@ void gen_gc_audit_scan_state(void *p, long *hp, long *un)
     ScanState *s = (ScanState *)p;
     if (!s) return;
     gen_audit_one(&s->subj, hp, un);
-    for (int i = 0; i < s->saved_depth; i++) gen_audit_one(&s->saved[i].subj, hp, un);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gen_gc_audit_scan_slots(long *hp, long *un)
 {
     extern void rt_coexpr_gc_audit_scan_states(long *, long *);
-    for (int i = 0; i < scan_saved_depth; i++) gen_audit_one(&SCAN_SAVED(i).subj, hp, un);
     rt_coexpr_gc_audit_scan_states(hp, un);
 }
 #else

@@ -7,9 +7,7 @@ extern "C" {
 typedef struct { uint64_t ptr; uint64_t len; } ScanSubjRegs;
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi);
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
-void rt_scan_leave_ns(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len);
 void rt_scan_sync_out(uint64_t delta);
-ScanSubjRegs rt_scan_reenter(void);
 uint64_t rt_scan_sync_in(void);
 uint64_t rt_scan_live_subj(void);
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len);
@@ -33,7 +31,7 @@ static int scan_bank_off() {
 }
 std::string bb_gen_scan() {
     x86_begin();
-    return x86("comment", "IR_GEN_SCAN [N-3: outer Sigma/delta/Delta save-restore ONE HOME -- ENTER's own zls grant (FRQ off/+8/+16), the enclosing activation's own frame -- no C-global scan_stack]")
+    return x86("comment", "IR_GEN_SCAN: the outer Sigma/delta/Delta live in ENTER's own grant (FRQ off/+8/+16) and the inner environment a leave banks for its re-entry lives in the LEAVE node's own grant (+16/+24): the enclosing activation's frame is the one home, no C-global scan stack (CEO-1548)")
          + x86_alpha()
          + IF(_.op_sb == 1,
                x86("mov", FRQ(_.op_off),      "r13")
@@ -56,7 +54,7 @@ std::string bb_gen_scan() {
                  + x86("mov", FRQ(_.op_ival), "rax")
                  + x86("mov", "rax", FRQ(_.op_sa + 8))
                  + x86("mov", FRQ(_.op_ival + 8), "rax"))
-             + IF(_.op_sb == 2,
+             + IF(_.op_sb != 4,
                    x86("mov", FR(_.op_ival + scan_bank_off()), "r14d")
                  + x86("mov", FR(_.op_ival + scan_bank_off() + 4), "r15d")
                  + x86("call", "rt_scan_live_subj", (uint64_t)(uintptr_t)(void *)rt_scan_live_subj)
@@ -65,15 +63,13 @@ std::string bb_gen_scan() {
              + x86("mov", "rsi", FRQ(_.op_off + 8))
              + x86("comment", "the outer Delta travels with the outer Sigma: leave restores the length CACHE too, or an embedded/trailing NUL in the outer subject is lost to strlen on the way out")
              + x86("mov", "rdx", FRQ(_.op_off + 16))
-             + (_.op_sb >= 2
-                ? x86("call", "rt_scan_leave_ns", (uint64_t)(uintptr_t)(void *)rt_scan_leave_ns)
-                : x86("call", "rt_scan_leave", (uint64_t)(uintptr_t)(void *)rt_scan_leave))
+             + x86("call", "rt_scan_leave", (uint64_t)(uintptr_t)(void *)rt_scan_leave)
              + x86("mov", "r13", FRQ(_.op_off))
              + x86("mov", "r14", FRQ(_.op_off + 8))
              + x86("mov", "r15", FRQ(_.op_off + 16))
              + x86_gamma()
              + x86_beta()
-             + IF(_.lbl_t0_p != 0 && _.op_sb == 2,
+             + IF(_.lbl_t0_p != 0 && _.op_sb != 4,
                    x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
                  + x86("mov", FRQ(_.op_off + 8), "rax")
                  + x86("mov", "rdi", FRQ(_.op_ival + scan_bank_off() + 8))
@@ -95,13 +91,6 @@ std::string bb_gen_scan() {
                  + x86("mov", "r13", "rax")
                  + x86("mov", "r15", "rdx")
                  + x86("mov", "r14", (long)0)
-                 + x86_jmp_tgt(X86T_TGT0))
-             + IF(_.lbl_t0_p != 0 && _.op_sb != 2 && _.op_sb != 4,
-                   x86("call", "rt_scan_reenter", (uint64_t)(uintptr_t)(void *)rt_scan_reenter)
-                 + x86("mov", "r13", "rax")
-                 + x86("mov", "r15", "rdx")
-                 + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
-                 + x86("mov", "r14", "rax")
                  + x86_jmp_tgt(X86T_TGT0))
              + x86_omega())
          + IF(_.op_sb != 1 && _.op_off < 0, x86_bomb("bb_gen_scan: leave glue without regs out-area (op_off < 0)"));
