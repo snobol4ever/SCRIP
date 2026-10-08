@@ -401,7 +401,7 @@ static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { kw_f
 #define PROC_FRAME_QWORDS 512
 typedef struct {
     const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
-    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; int stage_var; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; unsigned int redefined : 16; unsigned int pinned : 16; int zstatic; int pnames_owned; int nformals;
+    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; int stage_var; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; unsigned int redefined : 15; unsigned int self_save : 1; unsigned int pinned : 16; int zstatic; int pnames_owned; int nformals;
 } rt_proc_t;
 static int rt_eval_stage_is_var(const char *name);
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
@@ -800,6 +800,12 @@ void rt_proc_set_variadic(const char *name, int is_var)
 {
     if (!name) return;
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_self_save(const char *name, int v)
+{
+    if (!name) return;
+    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].self_save = v ? 1 : 0; return; } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_rest_kind(const char *name, int kind)
@@ -1578,9 +1584,9 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn)
     const char *rname = p->result_name ? p->result_name : p->name;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    int save_base = (rt_nsave_fast_on() && np <= 0) ? g_name_save_top : rt_name_save_push(pn, p->pcells, args, nargs, np);
+    int save_base = (p->self_save || (rt_nsave_fast_on() && np <= 0)) ? g_name_save_top : rt_name_save_push(pn, p->pcells, args, nargs, np);
     { int rn_shadow = (p->cells_done & 2) ? 1 : 0;
-      if (!rn_shadow) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
+      if (!rn_shadow && !p->self_save) rt_name_save_push(&rname, &p->rcell, (DESCR_t *)0, 0, 1); }
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
 #if RT_DIAG
     if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
@@ -1627,6 +1633,7 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed, long wn)
 static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
 {
     if (!p) return failed ? FAILDESCR : NULVCL;
+    if (p->self_save) { fprintf(stderr, "rt_proc_epilogue_p: the self-saving thunk %s reached the cell-reading epilogue -- its road must hand the land frame0 (CEO-1543 chunk 1)\n", p->name ? p->name : "?"); abort(); }
     const char *rname = p->result_name ? p->result_name : p->name;
     DESCR_t *rcell = p->rcell;
     DESCR_t result = failed ? FAILDESCR : (rcell ? *rcell : NV_GET_fn(rname));
@@ -2325,5 +2332,6 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r)
       p->jmp_entry = (r->flags >> 4) & 1;
       if (r->dcfn) { void **sl = rt_pl_dc_slot(i); if (sl) *sl = r->dcfn; }
       if (r->flags & 8) p->is_generator = 1;
+      p->self_save = (r->flags & 64) ? 1 : 0;
       if (r->flags & 32) p->pinned = 1; }
 }

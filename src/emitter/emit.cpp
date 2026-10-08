@@ -3399,6 +3399,10 @@ static bb_label_t g_gc_map_lbl;
 static int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
 static unsigned g_gc_map_flags = 0;
 static cv_t g_gc_map_names_v;
+extern "C" int emit_thunk_self_save_k(stage2_t * s2, const char * name);
+extern "C" void rt_proc_set_self_save(const char * name, int v);
+std::string emit_thunk_self_save_enter(int k);
+std::string emit_thunk_self_save_leave(int k);
 typedef struct { uint64_t pc; int32_t depth; uint16_t kind; uint16_t rule; int32_t zdepth, fcb, fcbase, demit; const char * bk; int mn; const IR_t * nd; } gc_site_t;
 static int gc_sites_report_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_SITES_REPORT"); v = (e && *e == '1') ? 1 : 0; } return v; }
 static cv_t g_gc_sites_v; static int g_gc_sites_armed = 0, g_gc_sites_last_off = -1, g_gc_sites_names_n = 0; static cv_t g_gc_sites_names_v;
@@ -3567,7 +3571,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         g_emit.flat_altdet_p = emit_label_alloc("%s_altdet", fam);
         if (n_alt > 1) g_emit.flat_alt1_p = alt_tr[1];
     }
-    int bare = g_emit.flat_bare_chain;
+    int bare = g_emit.flat_bare_chain; int _ssk = (!bare && strncmp(prefix, "proc_", 5) == 0) ? emit_thunk_self_save_k(&g_stage2, prefix + 5) : -1;
     if (strncmp(prefix, "proc_LBL__", 10) == 0) emit_label_initf(&lbl_α, "%s", prefix + 5);
     else if (strncmp(prefix, "proc_", 5) == 0 && !bare) {
         { extern int bb_ab_sym_is_thunk_stem(const char *); if (bb_ab_sym_is_thunk_stem(prefix + 5)) emit_label_initf(&lbl_α, "%s", prefix + 5); else emit_label_initf(&lbl_α, "FN__%s", prefix + 5); }
@@ -3874,6 +3878,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         }
     }
     if (!bare) emit_label_define_bb(&lbl_α_body);
+    if (_ssk >= 0) bb_emit_x86(emit_thunk_self_save_enter(_ssk));
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); }   { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
     if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
@@ -4185,7 +4190,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
           { int _h = i;
           if (_zw5_on && !_endj_stolen && !_uw_stolen && nodes[i]->op != IR_STATEMENT && nodes[i]->op != IR_STATEMENT_END && zd_on[i] && zd_wp[i] > 0 && !omega_is_retry && !omega_is_phi) { int _lo = 0, _hi = zw5_pool_stmts; while (_lo < _hi) { int _m = (_lo + _hi) / 2; if (zw5_stmt[_m].idx > i) _hi = _m; else _lo = _m + 1; } if (_lo < zw5_pool_stmts) { int _sb = zw5_stmt[_lo].base; for (int _d = 0; _d < zw5_stmt[_lo].cnt; _d++) { if (zw5_depth[_sb + _d] == zd_wp[i]) { _zw5_saved_omega = node_ω; node_ω = &zw5_pool[_sb + _d]; _zw5_wpop_stolen = zd_wp[i]; break; } } } } }
           g_emit.op_trap_drop = (nodes[i]->op == IR_SETEXIT_TEST && zd_on[i]) ? (long)(zd_out[i] - zd_k(nodes[i])) : 0;
-          g_emit.op_zrun = zd_out[i] >= 0 ? (int)(zd_out[i] - (zd_on[i] ? zd_k(nodes[i]) : 0)) : 0;
+          g_emit.op_zrun = (zd_out[i] >= 0 ? (int)(zd_out[i] - (zd_on[i] ? zd_k(nodes[i]) : 0)) : 0) + (_ssk >= 0 ? 16 : 0);
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_zd_stage = 1; g_zd_arm = zd_on[i] ? 1 : 0; g_zd_gpop = zd_gp[i]; g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_zd_k = zd_on[i] ? zd_k(nodes[i]) : 0;
               { g_zd_zunder = 0; if (zd_on[i] && nodes[i]->op == IR_MATCH_REPLACE) { int _zu = 0; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_END) break; if (zd_on[_zj]) _zu += zd_k(nodes[_zj]); } g_zd_zunder = _zu; int _zp = 0, _inpat = 0; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) break; if (nodes[_zj]->op == IR_MATCH_END) { _inpat = 1; continue; } if (_inpat && zd_on[_zj] && nodes[_zj]->op >= IR_MATCH && nodes[_zj]->op <= IR_MATCH_VALUE) _zp += zd_k(nodes[_zj]) - fence0_release_bytes(nodes[_zj]);    } g_zd_zpat = _zp; { extern int fc_head_fp(const IR_t *); IR_t * _mb = (IR_t *)0; int _jh = -1; for (int _zj = i - 1; _zj >= 0; _zj--) { if (nodes[_zj]->op == IR_MATCH_BEGIN) { _mb = nodes[_zj]; _jh = _zj; break; } } int _fp = _mb ? fc_head_fp(_mb) : -1; g_zd_zfc = (_fp >= 0) ? _fp : 0; (void)_jh; } { static int _zpd = -1; if (_zpd < 0) { const char * _e = getenv("SCRIP_ZPAT_DIAG"); _zpd = (_e && *_e == '1') ? 1 : 0; } if (_zpd) fprintf(stderr, "[ZPAT] i=%d zunder=%d zpat=%d zfc=%d zout_repl=%d op=%s\n", i, g_zd_zunder, g_zd_zpat, g_zd_zfc, zd_out[i], bb_op_name(nodes[i]->op)); } } }       { g_zd_ztail = 0; if (zd_on[i] && (nodes[i]->op == IR_TO || nodes[i]->op == IR_TO_BY)) { int _zttail = 0; for (int _zt = i + 1; _zt < n; _zt++) { if (zd_on[_zt]) _zttail += zd_k(nodes[_zt]); } g_zd_ztail = _zttail; } }
@@ -4400,6 +4405,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     if (g_emit.flat_stmt_frame) { emit_sep_rule('-'); emit_label_define_bb(&lbl_stcγ); bb_emit_x86(bb_glue_framed_leave()); emit_jmp_label(&lbl_γ, JMP_JMP); emit_label_define_bb(&lbl_stcω); bb_emit_x86(bb_glue_framed_leave()); emit_jmp_label(&lbl_ω, JMP_JMP); }
     { extern int g_flat_frame_floor; int _wire_stub = ((g_emit.flat_jmp_entry && g_flat_frame_floor > 0) || (g_emit.flat_lcl_proc && !(g_emit_cfg && g_emit_cfg->icn_cells_graph))) ? 1 : 0;
     int _blob_wire = (!_wire_stub && g_emit.flat_jmp_entry && g_emit.flat_pat) ? 1 : 0;
+    if (_ssk >= 0 && (g_emit.zframe_graph || _blob_wire || (icn_gen_regime() && g_emit.flat_gen) || (xa_flat_class_c_pred() && !g_rt_fragment_emit) || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc))) {
+        fprintf(stderr, "FATAL self-saving thunk %s takes an exit that is not the plain wire exit -- its saved result cell would never be restored (CEO-1543 chunk 1)\n", prefix); abort(); }
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_γ);
     if (xa_flat_class_c_pred()) {
@@ -4421,7 +4428,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
          + x86("mov32", "eax", (long)DT_S) + x86_jmp_reg("rcx"));
     }
     else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(1, fam); }
-    else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); g_emit.op_fc_bytes = _glue_carve; bb_emit_x86(_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ()); }
+    else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); g_emit.op_fc_bytes = _glue_carve; bb_emit_x86(IF(_ssk >= 0, emit_thunk_self_save_leave(_ssk)) + (_wire_stub ? bb_glue_wire_γ() : bb_glue_outer_γ())); }
     }
     if (!bare && !_top_hoist) {
     emit_sep_rule('-'); emit_label_define_bb(&lbl_ω);
@@ -4435,7 +4442,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("mov32", "eax", (long)DT_FAIL) + x86_jmp_reg("rcx"));
     }
     else if (xa_flat_class_c_pred() && !g_rt_fragment_emit) { xa_flat_chain_epilogue_sig(0, fam); }
-    else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); g_emit.op_fc_bytes = _glue_carve; bb_emit_x86(_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω()); } } }
+    else { if (xa_flat_class_c_pred()) xa_flat_chain_epilogue(); g_emit.op_fc_bytes = _glue_carve; bb_emit_x86(IF(_ssk >= 0, emit_thunk_self_save_leave(_ssk)) + (_wire_stub ? bb_glue_wire_ω() : bb_glue_outer_ω())); } } }
     { extern int g_flat_dc_np; extern long g_last_dc_off; g_last_dc_off = -1;
       if (g_flat_dc_np >= 0) {
           if (!g_emit.flat_jmp_entry || !g_emit.flat_lex || g_emit.flat_gen || g_emit.flat_pat) { fprintf(stderr, "FATAL PL-DC: driver-armed graph is not det-lexical jmp-entry (jmp=%d lex=%d gen=%d pat=%d)\n", g_emit.flat_jmp_entry, g_emit.flat_lex, g_emit.flat_gen, g_emit.flat_pat); abort(); }
@@ -4736,6 +4743,20 @@ void rt_proc_set_gen_region_ft(const char *, int); void bb_ab_seal_entry_cells(c
 int zls_g_entry_block(const IR_graph_t *); int zls_g_region(const IR_graph_t *); void zls_graph_name(const IR_graph_t *, const char *);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" int emit_thunk_self_save_k(stage2_t * s2, const char * name) {
+    if (!s2 || !name) return -1;
+    for (int i = 0; i < s2->proc_count; i++) { ProcEntry * pe = &s2->proc_table[i];
+        if (pe->name && !strcmp(pe->name, name)) { extern int g_gva_active; extern int gva_index_of(const char *); return (pe->thunk_kind == PROC_THUNK_EXPR && g_gva_active) ? gva_index_of(name) : -1; } }
+    return -1;
+}
+static std::string emit_thunk_gq(int k, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(k, w) : ABSQ(RT_GVA_VA + (unsigned long)k * 16 + (unsigned long)w); }
+std::string emit_thunk_self_save_enter(int k) {
+    return x86("sub", "rsp", 16L) + x86("mov", "rax", emit_thunk_gq(k, 0)) + x86_rsp_store64(0, "rax") + x86("mov", "rax", emit_thunk_gq(k, 8)) + x86_rsp_store64(8, "rax");
+}
+std::string emit_thunk_self_save_leave(int k) {
+    return x86_rsp_load64("rcx", 0) + x86("mov", emit_thunk_gq(k, 0), "rcx") + x86_rsp_load64("rcx", 8) + x86("mov", emit_thunk_gq(k, 8), "rcx") + x86("add", "rsp", 16L);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void emit_register_proc(stage2_t * s2, int pi) {
     ProcEntry * pe = &s2->proc_table[pi]; int np = pe->nparams; const char ** pn = NULL;
     if (np > 0) { pn = (const char **) ct_zalloc((size_t) np, sizeof(const char *)); for (int k = 0; k < np && k < pe->lower_sc.n; k++) pn[k] = pe->lower_sc.e[k].name; }
@@ -4747,6 +4768,7 @@ extern "C" void emit_proc_props(stage2_t * s2, int pi) {
     rt_proc_set_generator(pname, pe->is_generator); rt_proc_set_jmpentry(pname, !g->caller_frame && strncmp(pname, "gram__", 6) != 0); rt_proc_set_pinned(pname, zls_g_entry_block(g));
     rt_proc_set_variadic(pname, pe->is_variadic); rt_proc_set_rest_kind(pname, pe->rest_kind); rt_proc_set_named_rest(pname, pe->named_rest); rt_proc_set_dyn_scope(pname, pe->dyn_scope);
     if (pe->result_name) rt_proc_set_result_name(pname, pe->result_name);
+    rt_proc_set_self_save(pname, emit_thunk_self_save_k(s2, pname) >= 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void * emit_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * hk) {

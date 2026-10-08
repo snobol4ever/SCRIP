@@ -934,6 +934,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                 extern int rt_pl_dc_ok(const char *, int); int _dc = (!proc_ispat_buf[i] && rt_pl_dc_ok(proc_names_buf[i], proc_nparams_buf[i]));
                 int _pin = proc_pidx_buf[i]; int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
                 int _rkflags = (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) | ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
+                { extern int emit_thunk_self_save_k(stage2_t *, const char *); if (emit_thunk_self_save_k(s2, proc_names_buf[i]) >= 0) _rkflags |= 64; }
                 { IR_graph_t *_pg4 = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0; extern int zls_g_entry_block(const IR_graph_t *); if (zls_g_entry_block(_pg4)) _rkflags |= 32; }
                 int _rkulex = (pe->lex_startup && !pe->dyn_scope && pe->nparams > 0 && pe->lower_sc.n > 0);
                 emit_textf("  .section .rodata\n");
