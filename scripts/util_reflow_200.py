@@ -225,41 +225,95 @@ def _wrap_pp(line, width):
     return out
 
 
+class Blk:
+    __slots__ = ("opener", "children", "closer")
+    def __init__(self, opener):
+        self.opener = opener; self.children = []; self.closer = "}"
+
+
+def build_tree(units):
+    """Units -> a list of statements (str) and blocks (Blk); a closer followed by `else ...`, by `while (...);` after a `do {`, by `;` or by
+    the name after a struct/union/enum body is folded into the closer so that `} else {`, `} while (x);`, `};` and `} name;` stay together."""
+    root = []; stack = [root]; openers = [None]
+    i = 0
+    while i < len(units):
+        u, opens, closes = units[i]
+        if closes:
+            blk_opener = openers[-1]
+            if len(stack) > 1:
+                stack.pop(); openers.pop()
+            blk = stack[-1][-1] if stack[-1] and isinstance(stack[-1][-1], Blk) else None
+            nxt = units[i + 1] if i + 1 < len(units) else None
+            if blk is not None and nxt is not None:
+                nu, nopens, ncloses = nxt
+                head = nu.split(" ", 1)[0] if nu else ""
+                is_do = blk_opener is not None and re.search(r"(^|\W)do\s*\{$", blk_opener) is not None
+                aggregate = blk_opener is not None and re.search(r"(^|\W)(struct|union|enum|typedef)(\W|$)", blk_opener) is not None and "(" not in blk_opener.split("{")[0]
+                if head == "else" and not ncloses:
+                    if nopens:
+                        nb = Blk("} " + nu); blk.closer = None; stack[-1].append(nb); stack.append(nb.children); openers.append(nu); i += 2; continue
+                    blk.closer = "} " + nu; i += 2; continue
+                if (is_do and head == "while" and not nopens) or nu.startswith(";") or (aggregate and not nopens and not ncloses):
+                    blk.closer = "}" + ("" if nu.startswith(";") else " ") + nu; i += 2; continue
+            i += 1; continue
+        if opens:
+            b = Blk(u); stack[-1].append(b); stack.append(b.children); openers.append(u)
+        else:
+            stack[-1].append(u)
+        i += 1
+    return root
+
+
+def flat(item):
+    if isinstance(item, Blk):
+        inner = " ".join(flat(c) for c in item.children)
+        return item.opener + (" " + inner if inner else "") + " " + (item.closer if item.closer is not None else "}")
+    return item
+
+
+def layout(items, depth, width, out, line):
+    """Pack `items` at `depth` onto lines of at most `width` bytes; returns the open line. A block that fits stays flat; one that does not opens
+    its line, lays its children out one level deeper and closes on its own line at its own depth."""
+    ind = "    " * depth
+    for item in items:
+        f = flat(item)
+        if line.strip() and W(line.rstrip()) + 1 + W(f) <= width:
+            line = line.rstrip() + " " + f; continue
+        if line.strip():
+            out.append(line.rstrip()); line = ""
+        if len(ind) + W(f) <= width:
+            line = ind + f; continue
+        if isinstance(item, Blk):
+            opener = item.opener
+            if len(ind) + W(opener) <= width:
+                out.append(ind + opener)
+            else:
+                out.extend(wrap_long(opener, ind, width))
+            line = layout(item.children, depth + 1, width, out, "")
+            if line.strip():
+                out.append(line.rstrip()); line = ""
+            closer = item.closer if item.closer is not None else "}"
+            if len(ind) + W(closer) <= width:
+                out.append(ind + closer)
+            else:
+                out.extend(wrap_long(closer, ind, width))
+            continue
+        out.extend(wrap_long(f, ind, width)); line = ""
+    return line
+
+
 def reflow(text, width=200):
     items = logical_lines(text)
-    out = []; depth = 0; pending = ""
-    def flush():
-        nonlocal pending
-        if pending.strip():
-            out.append(pending.rstrip())
-        pending = ""
+    out = []
     for kind, payload in items:
         if kind == "sep":
-            flush(); out.append("/*" + payload * (width - 4) + "*/"); continue
+            out.append("/*" + payload * (width - 4) + "*/"); continue
         if kind == "pp":
-            flush(); out.extend([payload] if W(payload) <= width else _wrap_pp(payload, width)); continue
-        for u, opens, closes in split_units(payload):
-            if closes:
-                depth = max(0, depth - 1)
-                if pending.strip() and W(pending.rstrip()) + 2 <= width:
-                    pending = pending.rstrip() + " }"
-                else:
-                    flush(); pending = "    " * depth + "}"
-                continue
-            ind = "    " * depth
-            if u.startswith(";") and pending.strip() and W(pending.rstrip()) + W(u) <= width:
-                pending = pending.rstrip() + u
-            elif pending.strip() and W(pending.rstrip()) + 1 + W(u) <= width:
-                pending = pending.rstrip() + " " + u
-            else:
-                flush()
-                if len(ind) + W(u) <= width:
-                    pending = ind + u
-                else:
-                    out.extend(wrap_long(u, ind, width))
-            if opens:
-                depth += 1
-    flush()
+            out.extend([payload] if W(payload) <= width else _wrap_pp(payload, width)); continue
+        tree = build_tree(split_units(payload))
+        line = layout(tree, 0, width, out, "")
+        if line.strip():
+            out.append(line.rstrip())
     return "\n".join(l for l in out if l.strip()) + "\n"
 
 
