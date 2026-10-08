@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2204
-#define GC_ALLOC_TAB_N_VOID 257
+#define GC_ALLOC_TAB_N 2203
+#define GC_ALLOC_TAB_N_VOID 256
 #define GC_ALLOC_TAB_N_DESCR 1141
 #define GC_ALLOC_TAB_N_OTHER 800
 #define GC_ALLOC_TAB_N_UNKNOWN 6
@@ -562,9 +562,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "eval_chain_enter_only", GC_RET_VOID },
     { "eval_chain_run_guarded", GC_RET_OTHER },
     { "eval_chain_settle", GC_RET_VOID },
+    { "eval_frame_init", GC_RET_OTHER },
     { "eval_frame_land", GC_RET_DESCR },
     { "eval_frame_open", GC_RET_OTHER },
-    { "eval_frame_push", GC_RET_OTHER },
     { "eval_string_transient", GC_RET_DESCR },
     { "eval_thunks_emit_from", GC_RET_OTHER },
     { "fh_capture_begin", GC_RET_OTHER },
@@ -1248,7 +1248,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_cap_open", GC_RET_OTHER },
     { "rt_cap_open_gva", GC_RET_OTHER },
     { "rt_cap_open_plain", GC_RET_OTHER },
-    { "rt_cap_push", GC_RET_VOID },
     { "rt_cap_target_finish", GC_RET_OTHER },
     { "rt_case_eq", GC_RET_OTHER },
     { "rt_cb_hold", GC_RET_OTHER },

@@ -74,7 +74,8 @@ extern rt_call_next_t rt_apply_open(DESCR_t * args, int nargs);
 extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long * sv);
 extern DESCR_t rt_apply_land_ω(long word, const long * sv);
 typedef struct { long fn; long how; } rt_eval_next_t;
-extern rt_eval_next_t rt_eval_open(DESCR_t * args, int nargs);
+extern rt_eval_next_t rt_eval_open(DESCR_t * args, int nargs, void * rec);
+#define BCFN_EVAL_REC 112
 extern DESCR_t rt_eval_land(long word);
 extern DESCR_t rt_call_land_γ(DESCR_t frame0, long word);
 extern DESCR_t rt_call_land_ω(long word);
@@ -126,7 +127,7 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BCFN_OPENS_AS_EVAL(fn, nargs, strict) ((fn) && (nargs) == 1 && (strict) == 2 && !strcmp((fn), "EVAL"))
-#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
+#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( x86("sub", "rsp", (long)BCFN_EVAL_REC) + x86("mov", "rdx", "rsp") + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
          + x86_rt_gc_poll_rec_sigma_word(1) \
          + x86("test", "rax", "rax") \
          + x86_jcc_id("jz", (decl_id)) \
@@ -226,14 +227,14 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += x86("directive", ".intel_syntax noprefix");
             s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
         }
-        if (nargs > 0) s += x86("lea", "rsi", RDQ("rsp", 0));
+        if (nargs > 0) s += x86("lea", "rsi", RDQ("rsp", BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict) ? BCFN_EVAL_REC : 0));
         else           s += x86("xor", "esi", "esi");
         s += x86("mov32", "edx", (long)nargs);
         s += x86("mov32", "ecx", bid_bake_of(fn));
         s += x86("call", sn4_byname_sym(fn, _.op_strict), sn4_byname_fp(fn, _.op_strict));
         if (!(_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict))) s += x86_rt_gc_poll_res();
         }
-        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29) + x86_rt_gc_poll_res();
+        if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86_deflabel_id(29) + (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict) ? x86("add", "rsp", (long)BCFN_EVAL_REC) : std::string()) + x86_rt_gc_poll_res();
         }
         if (nargs > 0) s += x86("add", "rsp", (long)(nargs * 16));
         { int _wpop_save = _.op_wpop; int _zgpop_save = _.op_zgpop; if (_.op_sb) { _.op_wpop = 0; _.op_zgpop = 0; }

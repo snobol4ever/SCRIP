@@ -137,18 +137,7 @@ int g_polyglot = 0;
 int g_opt_dump_bb = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void set_and_trace(const char *name, DESCR_t val) {
-    if (shadow_has(name)) { shadow_set_cur(name, val); goto trace_hook; }
     NV_SET_fn(name, val);
-trace_hook:
-    if (call_depth > 0) {
-        CallFrame *fr = &call_stack[call_depth - 1];
-        if (name && fr->fname[0] && strcmp(name, fr->fname) == 0) {
-            fr->retval_cell = val;
-            fr->retval_set  = 1;
-        }
-    }
-    if (shadow_has(name) && name && name[0] != '&' && trace_is_active(name))
-        comm_var(name, val, stmt_src_get_file(), 0, 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_script_die_surface(const char *msg) {

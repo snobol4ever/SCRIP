@@ -95,30 +95,4 @@ static inline DESCR_t _snoc_pat_imm(DESCR_t child, const char *var) {
 static inline void INIT_fn(void)    { core_lib_init(); extern void inc_init(void); inc_init(); }
 static inline void finish(void)  { }
 #include <setjmp.h>
-#define ABRT_STACK_INIT 16
-static jmp_buf **_core_abort_stack = NULL;
-static int       _core_abort_depth = 0;
-static int       _core_abort_cap   = 0;
-static int       _core_abort_lineno = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void push_abort_handler(jmp_buf *jb) {
-    if (_core_abort_depth >= _core_abort_cap) {
-        _core_abort_cap = _core_abort_cap ? _core_abort_cap * 2 : ABRT_STACK_INIT;
-        _core_abort_stack = ct_grow(_core_abort_stack, _core_abort_cap * sizeof(jmp_buf *));
-        if (!_core_abort_stack) { fprintf(stderr, "abort stack OOM\n"); abort(); }
-    }
-    _core_abort_stack[_core_abort_depth++] = jb;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void pop_abort_handler(void) {
-    if (_core_abort_depth > 0) _core_abort_depth--;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void ABORT_fn(int lineno) {
-    _core_abort_lineno = lineno;
-    if (_core_abort_depth > 0)
-        longjmp(*_core_abort_stack[_core_abort_depth-1], 1);
-    fprintf(stderr, "ABORT at line %d\n", lineno);
-    exit(1);
-}
 #endif

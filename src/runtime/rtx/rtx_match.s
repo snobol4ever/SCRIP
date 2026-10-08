@@ -15,33 +15,6 @@ RTX_FUNC(rt_cap_match_begin)
     mov     dword ptr [rcx], eax
     ret
 RTX_ENDF(rt_cap_match_begin)
-RTX_FUNC(rt_cap_pop)
-    mov     rcx, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     eax, dword ptr [rcx]
-    cmp     eax, dword ptr [rdi + 8]
-    jne     .Lcp_ret
-    mov     eax, dword ptr [rdi + 12]
-    test    eax, eax
-    je      .Lcp_ret
-    sub     eax, 1
-    mov     dword ptr [rdi + 12], eax
-.Lcp_ret:
-    ret
-RTX_ENDF(rt_cap_pop)
-RTX_FUNC(rt_cap_top)
-    xor     eax, eax
-    mov     rsi, qword ptr [rip + g_cap_gen@GOTPCREL]
-    mov     ecx, dword ptr [rsi]
-    cmp     ecx, dword ptr [rdi + 8]
-    jne     .Lct_ret
-    mov     ecx, dword ptr [rdi + 12]
-    test    ecx, ecx
-    je      .Lct_ret
-    mov     rdx, qword ptr [rdi]
-    mov     eax, dword ptr [rdx + rcx*4]
-.Lct_ret:
-    ret
-RTX_ENDF(rt_cap_top)
 RTX_FUNC(rt_defer_close)
     RTX_GATE(match, .Ldc_c)
     mov     eax, dword ptr [rip + g_dfx_top]

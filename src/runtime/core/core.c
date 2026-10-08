@@ -2183,6 +2183,11 @@ static gv_t g_setexit_label;
 static int sxl_set(void) { return g_setexit_label.p && SXL[0]; }
 static int _setexit_resume = -1;
 extern int g_core_errjmp_n;
+static void core_errjmp_throw(int k, int v) __attribute__((noreturn));
+static void core_errjmp_throw(int k, int v) {
+    core_errjmp_t *t = core_errjmp_at(k); extern void rt_eval_unwind_to(const void *);
+    rt_eval_unwind_to((const void *)t); longjmp(t->jb, v);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_setexit_on(void) { const char *e = getenv("SCRIP_SETEXIT"); return (e && e[0] == '0') ? 0 : 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2256,7 +2261,7 @@ void rt_setexit_abort(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_setexit_resume(const char *which) {
-    if (_setexit_resume >= 0) longjmp(core_errjmp_at(_setexit_resume)->jb, (which && which[0] == 'A') ? 2 : 1);
+    if (_setexit_resume >= 0) core_errjmp_throw(_setexit_resume, (which && which[0] == 'A') ? 2 : 1);
     char w0 = which ? which[0] : 'C'; char w1 = which ? which[1] : '\0';
     if (w0 == 'A') core_runtime_error(36, "goto abort with no preceding error");
     else if (w0 == 'S' && w1 == 'C') core_runtime_error(321, "goto scontinue with no preceding error");
@@ -3075,7 +3080,7 @@ void core_runtime_error(int code, const char *msg) {
           extern void rt_kw_publish_error(int code, const char *msg);
           g_icn_errnumber = code; g_icn_errtext = msg ? msg : ""; memset(&g_icn_errvalue, 0, sizeof g_icn_errvalue); g_icn_err_valid = 1;
           rt_kw_publish_error(code, msg);
-          longjmp(core_errjmp_at(g_core_errjmp_n - 1)->jb, code);
+          core_errjmp_throw(g_core_errjmp_n - 1, code);
       } }
     { extern int64_t kw_errlimit; extern void rt_kw_publish_error(int code, const char *msg);
       extern int g_core_errjmp_n;
@@ -3165,7 +3170,7 @@ int core_icn_error(int code, DESCR_t val) {
     if (g_error != 0 && g_error != G_ERROR_EVAL_STAGE) {
         g_error--;
         g_icn_errnumber = code; { const char *_em = icn_errmsg_known(code); g_icn_errtext = _em ? _em : ""; } g_icn_errvalue = val; g_icn_err_valid = 1;
-        if (g_core_errjmp_n > 0) longjmp(core_errjmp_at(g_core_errjmp_n - 1)->jb, code);
+        if (g_core_errjmp_n > 0) core_errjmp_throw(g_core_errjmp_n - 1, code);
         return 1;
     }
     core_icn_report(code, val, (const char *)0);

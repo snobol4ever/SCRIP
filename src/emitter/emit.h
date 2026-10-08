@@ -569,9 +569,7 @@ typedef struct {
     int *                        op_zread_xf;
     int                          pl_trace_mode;
     unsigned long                pl_trace_n;
-    long                         pl_trace_sp;
-    long                         pl_trace_stk_cap;
-    long *                       pl_trace_stk;
+    long                         pl_trace_depth;
     long                         pl_trace_lastn_cap;
     unsigned long *              pl_trace_lastn;
     int                          pl_trace_atexit;

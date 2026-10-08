@@ -39,10 +39,10 @@ typedef struct { char *key; eval_chain_fn fn; long gen; } eval_cache_ent_t;
 static eval_cache_ent_t *g_eval_cache = NULL;
 static int               g_eval_cache_n = 0;
 static int               g_eval_cache_cap = 0;
-typedef struct { DESCR_t saved; DESCR_t res; char *key; int depth; int made; int keep; int thunks; int opened; long esv; size_t mark; size_t built; eval_chain_fn fn; } eval_frame_t;
-static eval_frame_t     *g_eval_frames = NULL;
-static int               g_eval_frames_n = 0;
-static int               g_eval_frames_cap = 0;
+typedef struct { DESCR_t saved; DESCR_t key; DESCR_t fn; DESCR_t mark; DESCR_t built; DESCR_t esv; DESCR_t flags; } eval_frame_t;
+_Static_assert(sizeof(eval_frame_t) == 112, "bb_call_fn.cpp carves BCFN_EVAL_REC = 112 bytes on the spine for the EVAL record; the record drifted");
+typedef struct eval_cframe_s { eval_frame_t f; struct eval_cframe_s *prev; } eval_cframe_t;
+static eval_cframe_t    *g_eval_cfr = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *eval_tmp_name(void)
     { static int m = -1; if (m < 0) { const char *e = getenv("SCRIP_EVAL_TMP_MARK"); m = (e && e[0] == '0') ? 0 : 1; } return m ? EVAL_TMP_MARKED : EVAL_TMP_LEGACY; }
@@ -79,19 +79,21 @@ static void eval_cache_insert_raw(eval_cache_ent_t *tab, int cap, char *key, eva
     tab[i].key = key; tab[i].fn = fn; tab[i].gen = gen;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define EVAL_SEEN_ONCE_TABLE_MAX 8192
 static void eval_cache_put(char *key, eval_chain_fn fn) {
     eval_cache_ent_t *have = eval_cache_slot(key);
     if (have) { if (fn) have->fn = fn; return; }
     extern long rt_gc_runs_count(void);
     long now = rt_gc_runs_count();
     if (g_eval_cache_cap == 0 || (g_eval_cache_n + 1) * 2 > g_eval_cache_cap) {
-        int keep = 0, ncap = 16;
-        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || g_eval_cache[k].gen == now)) keep++;
+        int keep = 0, marks = 0, ncap = 16;
+        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || g_eval_cache[k].gen == now)) { keep++; if (!g_eval_cache[k].fn) marks++; }
+        int drop = (keep + 1) * 4 > EVAL_SEEN_ONCE_TABLE_MAX && marks > 0; if (drop) keep -= marks;
         while ((keep + 1) * 4 > ncap) ncap *= 2;
         eval_cache_ent_t *ntab = (eval_cache_ent_t *)rt_wsb_alloc((size_t)ncap * sizeof(eval_cache_ent_t));
         if (!ntab) return;
         memset(ntab, 0, (size_t)ncap * sizeof(eval_cache_ent_t));
-        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || g_eval_cache[k].gen == now)) eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn, g_eval_cache[k].gen);
+        for (int k = 0; k < g_eval_cache_cap; k++) if (g_eval_cache[k].key && (g_eval_cache[k].fn || (g_eval_cache[k].gen == now && !drop))) eval_cache_insert_raw(ntab, ncap, g_eval_cache[k].key, g_eval_cache[k].fn, g_eval_cache[k].gen);
         g_eval_cache = ntab; g_eval_cache_cap = ncap; g_eval_cache_n = keep;
     }
     eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn, now);
@@ -439,21 +441,21 @@ static int eval_chain_run_guarded(eval_chain_fn fn) {
     core_errjmp_pop(&ej, my); g_error = esv; return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int eval_frame_push(DESCR_t saved, const char *key_src) {
-    extern int g_core_errjmp_n;
-    while (g_eval_frames_n > 0 && g_eval_frames[g_eval_frames_n - 1].depth > g_core_errjmp_n) g_eval_frames_n--;
-    if (g_eval_frames_n >= g_eval_frames_cap) {
-        int nc = g_eval_frames_cap ? g_eval_frames_cap * 2 : 8;
-        eval_frame_t *nf = (eval_frame_t *)rt_wsb_realloc(g_eval_frames, (size_t)nc * sizeof(eval_frame_t));
-        if (!nf) return -1;
-        g_eval_frames = nf; g_eval_frames_cap = nc;
-    }
-    char *key = key_src ? rt_heap_strdup_c(key_src) : NULL;
-    if (key_src && !key) return -1;
-    eval_frame_t *f = &g_eval_frames[g_eval_frames_n];
-    f->saved = saved; f->res = FAILDESCR; f->key = key; f->depth = g_core_errjmp_n;
-    f->made = 0; f->keep = 0; f->thunks = 0; f->opened = 0; f->esv = 0; f->mark = 0; f->built = 0; f->fn = NULL;
-    return g_eval_frames_n++;
+static void eval_frame_blank(eval_frame_t *f) {
+    f->saved = FAILDESCR; f->key = INTVAL(0); f->fn = INTVAL(0); f->mark = INTVAL(0); f->built = INTVAL(0); f->esv = INTVAL(0); f->flags = INTVAL(0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int eval_frame_init(eval_frame_t *f, DESCR_t saved, const char *key_src) {
+    eval_frame_blank(f); f->saved = saved;
+    if (!key_src) return 0;
+    char *key = rt_heap_strdup_c(key_src);
+    if (!key) return -1;
+    f->key = STRVAL(key);
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_eval_unwind_to(const void *catcher) {
+    while (g_eval_cfr && (const void *)g_eval_cfr < catcher) g_eval_cfr = g_eval_cfr->prev;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_sb_numok(const char *t, long len) {
@@ -618,7 +620,7 @@ static void eval_chain_settle(char *key, eval_chain_fn fn, DESCR_t res, size_t m
     else eval_cache_put(key, fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int eval_frame_open(const char *s, int raise) {
+static int eval_frame_open(eval_frame_t *f, const char *s, int raise) {
     eval_chain_fn fn = eval_cache_get(s);
     size_t mark = 0, built = 0; int made = 0, keep = 0, thunks = 0;
     if (!fn) {
@@ -628,37 +630,38 @@ static int eval_frame_open(const char *s, int raise) {
         if (!fn) { if (raise && !pe) rt_code_pool_check(); bb_pool_release(mark); if (raise) { if (pe) rt_eval_raise(pe, pm); else rt_eval_syntax_raise(s); } return -1; }
         built = bb_pool_mark(); made = 1; keep = mark < eval_retain_budget();
     }
-    int my = eval_frame_push(NV_GET_fn(EVAL_TMP), made ? s : NULL);
-    if (my < 0) { if (made) bb_pool_release(mark); return -1; }
-    eval_frame_t *f = &g_eval_frames[my];
-    f->fn = fn; f->mark = mark; f->built = built; f->made = made; f->keep = keep; f->thunks = thunks;
+    if (eval_frame_init(f, NV_GET_fn(EVAL_TMP), made ? s : NULL) < 0) { if (made) bb_pool_release(mark); return -1; }
+    f->fn = INTVAL((int64_t)(uintptr_t)fn); f->mark = INTVAL((int64_t)mark); f->built = INTVAL((int64_t)built);
+    f->flags = INTVAL((int64_t)made | (int64_t)keep << 1 | (int64_t)thunks << 8);
     NV_SET_fn(EVAL_TMP, FAILDESCR);
-    return my;
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t eval_frame_land(int my, int ok) {
-    eval_frame_t *f = &g_eval_frames[my];
+static DESCR_t eval_frame_land(eval_frame_t *f, int ok) {
     DESCR_t got = NV_GET_fn(EVAL_TMP);
-    f->res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
+    DESCR_t res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
     NV_SET_fn(EVAL_TMP, f->saved);
-    if (f->made) eval_chain_settle(f->key, f->fn, f->res, f->mark, f->built, f->thunks, f->keep);
-    DESCR_t result = f->res;
-    g_eval_frames_n = my;
-    return result;
+    int64_t fl = f->flags.i;
+    if (fl & 1) eval_chain_settle(f->key.v == DT_S ? f->key.s : NULL, (eval_chain_fn)(uintptr_t)f->fn.i, res, (size_t)f->mark.i, (size_t)f->built.i, (int)(fl >> 8), (int)((fl >> 1) & 1));
+    return res;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t eval_string_transient(const char *s) {
     if (!s || !*s) return NULVCL;
-    int my = eval_frame_open(s, 1);
-    if (my < 0) return FAILDESCR;
-    int ok = eval_chain_run_guarded(g_eval_frames[my].fn);
-    return eval_frame_land(my, ok);
+    eval_cframe_t c; c.prev = g_eval_cfr;
+    if (eval_frame_open(&c.f, s, 1) < 0) return FAILDESCR;
+    g_eval_cfr = &c;
+    int ok = eval_chain_run_guarded((eval_chain_fn)(uintptr_t)c.f.fn.i);
+    g_eval_cfr = c.prev;
+    return eval_frame_land(&c.f, ok);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long fn; long how; } rt_eval_next_t;
-rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs) {
+rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs, eval_frame_t *f) {
     extern int eval_text_takes_chain(const char *); extern void rt_eval_stage_leave(const char *);
     rt_eval_next_t none = { 0, 0 };
+    if (!f) return none;
+    eval_frame_blank(f);
     if (args && nargs == 1 && args[0].v == DT_X) { extern int rt_dtx_open_tail(sno_dstar_rec_t *, long *); long rq[2] = { 0, 0 };
       if (rt_dtx_open_tail(SNO_DTX_REC(args[0]), rq) && rq[0]) return (rt_eval_next_t){ rq[0], rq[1] | (1L << 62) };
       return none; }
@@ -666,19 +669,17 @@ rt_eval_next_t rt_eval_open(DESCR_t *args, int nargs) {
     const char *s = VARVAL_fn(args[0]);
     if (!s || !*s || !eval_text_takes_chain(s)) return none;
     rt_eval_stage_leave((const char *)0);
-    int my = eval_frame_open(s, 0);
-    if (my < 0) return none;
-    eval_frame_t *f = &g_eval_frames[my];
-    f->opened = 1;
-    f->esv = g_error == G_ERROR_EVAL_STAGE ? 0 : g_error; g_error = G_ERROR_EVAL_STAGE;
-    return (rt_eval_next_t){ (long)(uintptr_t)f->fn, (long)my };
+    if (eval_frame_open(f, s, 0) < 0) return none;
+    f->flags.i |= 4;
+    f->esv = INTVAL(g_error == G_ERROR_EVAL_STAGE ? 0 : g_error); g_error = G_ERROR_EVAL_STAGE;
+    return (rt_eval_next_t){ (long)f->fn.i, (long)(uintptr_t)f };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_eval_land(long word) {
-    int my = (int)word;
-    if (my < 0 || my >= g_eval_frames_n || !g_eval_frames[my].opened) { fprintf(stderr, "rt_eval_land: frame %d is not an opened EVAL frame (%d live)\n", my, g_eval_frames_n); abort(); }
-    g_error = g_eval_frames[my].esv;
-    return eval_frame_land(my, 1);
+    eval_frame_t *f = (eval_frame_t *)(uintptr_t)word;
+    if (!f || f->flags.v != DT_I || !(f->flags.i & 4)) { fprintf(stderr, "rt_eval_land: %p is not an opened EVAL record on the spine\n", (void *)f); abort(); }
+    g_error = f->esv.i;
+    return eval_frame_land(f, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_node(tree_t *e)
@@ -706,8 +707,8 @@ void eval_gc_roots(void)
     extern void rt_gc_visit_raw(const char **loc);
     if (g_eval_cache) { rt_gc_visit_raw((const char **)&g_eval_cache);
         for (int i = 0; i < g_eval_cache_cap; i++) if (g_eval_cache[i].key) rt_gc_visit_raw((const char **)&g_eval_cache[i].key); }
-    if (g_eval_frames) { extern void rt_gc_visit_descr(DESCR_t *); rt_gc_visit_raw((const char **)&g_eval_frames);
-        for (int i = 0; i < g_eval_frames_n; i++) { rt_gc_visit_descr(&g_eval_frames[i].saved); rt_gc_visit_descr(&g_eval_frames[i].res); if (g_eval_frames[i].key) rt_gc_visit_raw((const char **)&g_eval_frames[i].key); } }
+    { extern void rt_gc_visit_descr(DESCR_t *);
+      for (eval_cframe_t *c = g_eval_cfr; c; c = c->prev) { rt_gc_visit_descr(&c->f.saved); if (c->f.key.v == DT_S) rt_gc_visit_descr(&c->f.key); } }
     if (g_lbl_tab) { rt_gc_visit_raw((const char **)&g_lbl_tab);
         for (int i = 0; i < g_lbl_n; i++) if (g_lbl_tab[i].key) rt_gc_visit_raw((const char **)&g_lbl_tab[i].key); }
 }
@@ -918,14 +919,15 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
         if (expr_d.slen == RT_CONVE_CHAIN_MARK) {
             eval_chain_fn fn = (eval_chain_fn)expr_d.ptr;
             if (!fn) return FAILDESCR;
-            DESCR_t saved = NV_GET_fn(EVAL_TMP);
+            eval_cframe_t c; c.prev = g_eval_cfr; eval_frame_init(&c.f, NV_GET_fn(EVAL_TMP), (const char *)0); g_eval_cfr = &c;
             NV_SET_fn(EVAL_TMP, FAILDESCR);
             rt_c2bb_hit("chain.eval.conve", "?");
             { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter((const char *)0); }
             eval_chain_enter_only(fn);
             { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
+            g_eval_cfr = c.prev;
             DESCR_t result = NV_GET_fn(EVAL_TMP);
-            NV_SET_fn(EVAL_TMP, saved);
+            NV_SET_fn(EVAL_TMP, c.f.saved);
             return result;
         }
         if (expr_d.slen == 2) {
@@ -938,12 +940,9 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d)
         const char *save_Σ = Σ;
         int         save_Ω = Ω;
         int         save_Δ = Δ;
-        NAME_ctx_t eval_ctx;
-        NAME_ctx_enter(&eval_ctx);
         { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter((const char *)0); }
         DESCR_t result = eval_node((tree_t *)expr_d.ptr);
         { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
-        NAME_ctx_leave();
         Σ = save_Σ;
         Ω = save_Ω;
         Δ = save_Δ;

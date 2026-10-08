@@ -72,26 +72,6 @@ const char *define_spec_from_expr(tree_t *subj);
 const char *define_entry_from_expr(tree_t *subj);
 #include "stage2.h"
 #include "driver.h"
-typedef struct { char *name; size_t ncap; DESCR_t val; } ShadowEntry;
-typedef struct {
-    jmp_buf  ret_env;
-    char    *fname; size_t fname_cap;
-    char   **saved_names;
-    DESCR_t *saved_vals;
-    int      nsaved;
-    DESCR_t  retval_cell;
-    int      retval_set;
-    ShadowEntry *shadow;
-    int         shadow_cap;
-    int         nshadow;
-} CallFrame;
-extern cv_t call_stack_v;
-#define call_stack ((CallFrame *)call_stack_v.p)
-extern int       call_depth;
-int  shadow_get(const char *name, DESCR_t *out);
-void shadow_set_cur(const char *name, DESCR_t val);
-int  shadow_has(const char *name);
-int  is_current_frame_local(const char *name);
 typedef struct { const char *nm; DESCR_t val; } InitSlot;
 typedef struct { int id; int ns; InitSlot *s; } InitEnt;
 extern cv_t init_tab_v;

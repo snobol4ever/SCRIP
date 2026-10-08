@@ -188,14 +188,6 @@ DESCR_t  NAME_fn(const char *varname);
 int      ASGNIC_fn(const char *kw_name, DESCR_t val);
 void    NAME_pop(void);
 void    NAME_commit(void);
-typedef struct NAME_ctx_s {
-    void              *entries;
-    int                cap;
-    int                top;
-    struct NAME_ctx_s *parent;
-} NAME_ctx_t;
-void    NAME_ctx_enter(NAME_ctx_t *ctx);
-void    NAME_ctx_leave(void);
 void    NPUSH_fn(void);
 int     NHAS_FRAME_fn(void);
 int     NTOP_INDEX_fn(void);

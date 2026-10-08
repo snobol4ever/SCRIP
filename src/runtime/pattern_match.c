@@ -999,27 +999,8 @@ rt_dcap_next_t rt_dcap_land_ω(void)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
-typedef struct { uint32_t *buf; uint32_t gen; uint32_t sp; } rt_cap_stk_t;
 uint32_t g_cap_gen = 1;
 __attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;
-_Static_assert(__builtin_offsetof(rt_cap_stk_t, buf) == 0, "rtx_match.s hardcodes rt_cap_stk_t.buf at +0; the struct drifted -- rt_cap_top would read the span array through the wrong member, which links fine and returns garbage capture cursors silently");
-_Static_assert(__builtin_offsetof(rt_cap_stk_t, gen) == 8, "rtx_match.s hardcodes rt_cap_stk_t.gen at +8; the struct drifted -- the generation compare would test the wrong word and stale frames would resurrect across statements");
-_Static_assert(__builtin_offsetof(rt_cap_stk_t, sp) == 12, "rtx_match.s hardcodes rt_cap_stk_t.sp at +12; the struct drifted -- rt_cap_pop/rt_cap_top would index the wrong word");
-_Static_assert(sizeof(uint32_t) == 4, "rtx_match.s scales the sp index by 4 in [rdx+rcx*4]; uint32_t drifted");
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_cap_push(void *slot, int delta)
-{
-    rt_cap_stk_t *s = (rt_cap_stk_t *)slot;
-    if (s->gen != g_cap_gen) { s->sp = 0; s->gen = g_cap_gen; }
-    if (!s->buf) { s->buf = (uint32_t *)rt_wsb_alloc(17 * sizeof(uint32_t)); s->buf[0] = 16; }
-    if (s->sp == s->buf[0]) {
-        uint32_t nc = s->buf[0] * 2;
-        uint32_t *nb = (uint32_t *)rt_wsb_alloc(((size_t)nc + 1) * sizeof(uint32_t));
-        memcpy(nb + 1, s->buf + 1, (size_t)s->sp * sizeof(uint32_t));
-        nb[0] = nc; s->buf = nb;
-    }
-    s->buf[1 + s->sp++] = (uint32_t)delta;
-}
 static gv_t g_capo; static int g_capo_top;
 #define CAPO_AT(i, k) (((DESCR_t *)g_capo.p)[(i) * 4 + (k)])
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
