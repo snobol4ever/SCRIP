@@ -605,6 +605,7 @@ test_gate_pl_cyclic_terms_every_walker_terminates_and_writes_as_swipl_does.sh	WI
 test_gate_pl_cyclic_terms_unify_compare_copy_and_survive_a_collection_as_swipl_does.sh	WIRED	-	-	-
 test_gate_pl_findall_4_serves_a_bound_tail_and_an_unbound_one.sh	WIRED	-	-	-
 test_gate_pl_format_column_fill_is_a_character_not_a_byte.sh	WIRED	-	-	-
+test_gate_pl_gnu_all_solutions_dec10_io_for_and_name_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_dialect_value_builtins_answer_as_gnu_prolog.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
 test_gate_pl_ieee_float_flags_and_ceil_lgamma_powm_answer_as_swipl.sh	WIRED	-	-	-

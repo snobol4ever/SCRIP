@@ -832,7 +832,7 @@ static const pl_det_leaf_t pl_det_leaves[] = {
     { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" },
     { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" },
     { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3, "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" },
-    { "$pl_declared", 2, "$pl_declared" }, { "$pl_dynamic", 1, "$pl_dynamic" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$cutcall", 2, "$cutcall" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
+    { "$pl_declared", 2, "$pl_declared" }, { "$pl_dynamic", 1, "$pl_dynamic" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$cutcall", 2, "$cutcall" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$get_edin", 1, "$get_edin" }, { "$skip", 1, "$skip" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" },
     { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" },
     { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" },
     { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" },
@@ -1427,6 +1427,17 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (entry_out) *entry_out = ea ? ea : a;
             return nd;
           } }
+        if (!strcmp(nm, "tab") && t->n == 1 && !(t->c[0] && t->c[0]->t == TT_ILIT) && !pl_file_defines(nm, 1)) {
+            tree_t * fv = pl_cc_freshvar(); tree_t * f2 = pl_cc_freshvar(); tree_t * f3 = pl_cc_freshvar();
+            f2->v.ival = fv->v.ival; f3->v.ival = fv->v.ival;
+            IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$tab";
+            IR_t * ve = NULL; IR_t * v = term_e(cx, f3, &ve);
+            lc_γ_to(v, nd); lc_ω_to(v, ωfail); ir_operand_push(nd, v);
+            { IR_t * ge = NULL; IR_t * g = goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("is", fv, (tree_t *) t->c[0]),
+                  pl_cc_ite(pl_cc_fnc1("integer", f2), (tree_t *) pl_atom_goal("true"), pl_cc_throw(pl_cc_fnc2("type_error", (tree_t *) pl_atom_goal("integer"), f2), "tab"))), ve ? ve : v, ωfail, &ge);
+              if (entry_out) *entry_out = ge ? ge : g; }
+            return nd;
+        }
         if (!strcmp(nm, "tab") && t->n == 1) {
             IR_t * nd = build(cx, IR_CALL, γnext, ωfail); IR_LIT(nd).sval = "$tab";
             IR_t * ve = NULL; IR_t * v = lower_arith_val(cx, t->c[0], ωfail, &ve);
@@ -1549,6 +1560,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             const tree_t * gt = pl_caret_body(t->c[1]);
             int wantg = pl_goal_arg_wants_guard(gt);
             int pl_isfind = !strcmp(nm, "findall");
+            if (!pl_isfind && gt && gt->t == TT_VAR)
+                return goal(cx, pl_cc_fnc3(!strcmp(nm, "bagof") ? "$bagof_var" : "$setof_var", (tree_t *) t->c[0], (tree_t *) t->c[1], (tree_t *) t->c[2]), γnext, ωfail, entry_out);
             int pl_fvn = pl_isfind ? 1 : pl_var_nodes(t->c[1]) + 1; int pl_fv[pl_fvn]; int pl_nfv = pl_isfind ? 0 : pl_free_vars(t->c[0], t->c[1], pl_fv, pl_fvn);
             if (pl_nfv > 0) {
                 const char * gat = !strcmp(nm, "bagof") ? "$bagof_group_at" : "$setof_group_at";
@@ -1655,13 +1668,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             IR_t * xe = NULL; IR_t * xl = term_lval_e(cx, vr_t, &xe);
             lc_γ_to(xl, loe ? loe : lo); lc_ω_to(xl, ωfail);
             lc_γ_to(lo, hie ? hie : hi); lc_ω_to(lo, ωfail);
-            if (!forarg) {
-                IR_t * chk = build(cx, IR_CALL, to, ωfail); IR_LIT(chk).sval = "$pl_between_guard";
-                ir_operand_push(chk, lo); ir_operand_push(chk, hi); ir_operand_push(chk, xl);
-                lc_γ_to(hi, chk); lc_ω_to(hi, ωfail);
-            } else {
-                lc_γ_to(hi, to); lc_ω_to(hi, ωfail);
-            }
+            { IR_t * chk = build(cx, IR_CALL, to, ωfail); IR_LIT(chk).sval = "$pl_between_guard";
+              ir_operand_push(chk, lo); ir_operand_push(chk, hi); ir_operand_push(chk, xl);
+              lc_γ_to(hi, chk); lc_ω_to(hi, ωfail); }
             ir_operand_push(to, lo); ir_operand_push(to, hi);
             ir_operand_push(nd, xl); ir_operand_push(nd, to);
             lc_ω_to_β(nd, to);
@@ -1777,7 +1786,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                   pl_db_leaf2_tree(cx, "$db_t_guard", pl_clause_target(t->c[0], t->c[1]), pl_atom_goal("clause"), body_first, ωfail, &ge);
                   if (entry_out) *entry_out = ge ? ge : body_first; return to; } } } }
         { static const struct { const char * n; int a; const char * k; const char * leaf; } io[] = { { "put_code", 1, "put_code1", "$put_code" }, { "put_code", 2, "put_code2", "$put_code_s" }, { "put_char", 1, "put_char1", "$put_char" }, { "put_char", 2, "put_char2", "$put_char_c_s" }, { "get_code", 1, "in_code1", "$get_code" }, { "get_code", 2, "in_code2", "$get_code_s" }, { "peek_code", 1, "in_code1", "$peek_code" }, { "peek_code", 2, "in_code2", "$peek_code_s" }, { "get_char", 1, "in_char1", "$get_char" }, { "get_char", 2, "in_char2", "$get_char_s" }, { "peek_char", 1, "in_char1", "$peek_char" }, { "peek_char", 2, "in_char2", "$peek_char_s" },
-            { "get_byte", 1, "in_byte1", "$get_byte" }, { "get_byte", 2, "in_byte2", "$get_byte_s" }, { "peek_byte", 1, "in_byte1", "$peek_byte" }, { "peek_byte", 2, "in_byte2", "$peek_byte_s" }, { NULL, 0, NULL, NULL } };
+            { "get_byte", 1, "in_byte1", "$get_byte" }, { "get_byte", 2, "in_byte2", "$get_byte_s" }, { "peek_byte", 1, "in_byte1", "$peek_byte" }, { "peek_byte", 2, "in_byte2", "$peek_byte_s" },
+            { "put", 1, "put_code1", "$put_code" }, { "get", 1, "in_code1", "$get_edin" }, { "get0", 1, "in_code1", "$get_code" }, { "skip", 1, "put_code1", "$skip" }, { NULL, 0, NULL, NULL } };
           for (int i = 0; io[i].n; i++) if (t->n == io[i].a && !strcmp(nm, io[i].n) && !pl_file_defines(nm, t->n)) {
               tree_t * raw = ast_node_new(TT_FNC); raw->v.sval = (char *) io[i].leaf; for (int k = 0; k < t->n; k++) ast_push(raw, (tree_t *) t->c[k]);
               return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$pl_ioarg", (tree_t *) pl_atom_goal(io[i].k), (tree_t *) t->c[t->n - 1]), raw), γnext, ωfail, entry_out); } }

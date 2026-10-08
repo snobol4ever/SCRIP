@@ -3457,12 +3457,12 @@ static int rt_pl_all_solutions_tail_cell(DESCR_t *args, pl_tr_ctx_t *cx) {
     extern int rt_pl_findall_count(void *); extern void rt_pl_findall_item(void *, int, void *);
     DESCR_t h = rt_pl_deref_val(args[0]);
     if (!pl_fa_of(h)) return 0;
-    DESCR_t t4 = args[2]; DESCR_t *c4 = plw_cell_deref(plw_entry(&t4));
-    { void *acc = pl_fa_of(h); int n = rt_pl_findall_count(acc); int i; DESCR_t lst = plw_unbound_tag(c4) ? args[2] : *c4;
+    { void *acc = pl_fa_of(h); int n = rt_pl_findall_count(acc); int i; DESCR_t *tv = (DESCR_t *)rt_ws_alloc_descr(1); DESCR_t tref = {0}, lst;
       DESCR_t el[n > 0 ? n : 1];
+      tv->v = (DTYPE_t)DT_PLVAR; tv->slen = 0; tv->p = (void *)tv; tref.v = (DTYPE_t)DT_PLVAR; tref.slen = 0; tref.p = (void *)tv; lst = tref;
       for (i = 0; i < n; i++) rt_pl_findall_item(acc, i, (void *)&el[i]);
       for (i = n - 1; i >= 0; i--) lst = pl_cons(el[i], lst);
-      return plw_unify_vals(args[1], lst, cx); }
+      return plw_unify_vals(args[1], lst, cx) && plw_unify_vals(tref, args[2], cx); }
 }
 PL_CX_LEAF_HEAD(findall_result4, 3) ok = rt_pl_all_solutions_tail_cell(args, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(findall_result, 2) ok = rt_pl_all_solutions_cell(args, cx, 0); PL_CX_LEAF_TAIL
@@ -3578,9 +3578,11 @@ static int pl_number_text_leaf(DESCR_t *args, int codes, pl_tr_ctx_t *cx) { char
     return 0; }
 PL_CX_LEAF_HEAD(number_codes, 2) ok = pl_number_text_leaf(args, 1, cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(number_chars, 2) ok = pl_number_text_leaf(args, 0, cx); PL_CX_LEAF_TAIL
-PL_CX_LEAF_HEAD(name, 2) { char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
+PL_CX_LEAF_HEAD(name, 2) { extern void *rt_pl_ball_instantiation(void); extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    char b[4096]; const char *s; DESCR_t a = rt_pl_deref_val(args[0]);
     if (a.v == DT_I || a.v == DT_R || a.v == DT_BIG || pl_atom_str(a)) { pl_cell_text(a, b, sizeof b, &s); ok = plw_unify_vals(args[1], pl_text_list(s, 1), cx); }
-    else { DESCR_t num; const char *t = pl_list_text_heap(args[1]); if (!t) ok = 0; else ok = plw_unify_vals(args[0], pl_parse_number(t, &num) ? num : pl_mk_atom_dup(t, strlen(t)), cx); } } PL_CX_LEAF_TAIL
+    else if ((int)a.v == DT_PLREF) { cx->ball = rt_pl_ball_kind2("type_error", "atomic", a); ok = 0; }
+    else { DESCR_t num; const char *t = pl_list_text_heap(args[1]); if (!t) { ok = 0; if (pl_val_unbound(rt_pl_deref_val(args[1]))) cx->ball = rt_pl_ball_instantiation(); } else ok = plw_unify_vals(args[0], pl_parse_number(t, &num) ? num : pl_mk_atom_dup(t, strlen(t)), cx); } } PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_in_is_text(void) { extern int fh_current_input(void); extern int fh_is_untranslated(int); int ix = fh_current_input();
     return ix >= 0 && ix < FH_N && g_fh[ix].type != 'b' && !fh_is_untranslated(ix); }
@@ -4056,6 +4058,7 @@ static int pl_edin_switch(DESCR_t *args, pl_tr_ctx_t *cx, int is_out, const char
     char fb[4096]; const char *fn; FILE *fp; int idx; DESCR_t f = rt_pl_deref_val(args[0]);
     if (pl_val_unbound(f)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
     if (!pl_cell_text(args[0], fb, sizeof fb, &fn)) { cx->ball = rt_pl_ball_kind2("domain_error", "source_sink", f); return 0; }
+    if (!strcmp(fn, "user")) { if (is_out) { fh_set_output(1); pl_edin_out_name = ""; } else { fh_set_input(0); pl_edin_in_name = ""; } return 1; }
     fp = fopen(fn, fmode);
     if (!fp) { cx->ball = rt_pl_ball_kind2("existence_error", "source_sink", f); return 0; }
     idx = fh_alloc(fp); if (idx < 0) { fclose(fp); return 0; }

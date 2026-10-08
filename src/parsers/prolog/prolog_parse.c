@@ -1376,6 +1376,20 @@ static const char *PL_PRELUDE_SRC =
     "'$wc_m'([alt(As)|O],S):-member(A,As),append(A,O,AO),'$wc_m'(AO,S).\n"
     "'$wc_in'([X|_],C):-(X=L-H->C>=L,C=<H;X==C),!.\n"
     "'$wc_in'([_|T],C):-'$wc_in'(T,C).\n"
+    "'$bagof_var'(T,G,R):-'$bag_goal_ok'(G),'$pl_list_guard'(R),'$bag_wit'(T,G,W,G1),(W=='$w'->findall(T,G1,R0),R0\\==[],R=R0;findall(W-T,G1,Ps),Ps\\==[],'$bag_pick'(Ps,W,R)).\n"
+    "'$setof_var'(T,G,R):-'$bag_goal_ok'(G),'$pl_list_guard'(R),'$bag_wit'(T,G,W,G1),(W=='$w'->findall(T,G1,R0),R0\\==[],sort(R0,R);findall(W-T,G1,Ps0),Ps0\\==[],keysort(Ps0,Ps),'$bag_pick'(Ps,W,R1),sort(R1,R)).\n"
+    "'$bag_wit'(T,G,W,G1):-'$bag_strip'(G,[T],Bs,G1),term_variables(Bs,BV),term_variables(G1,GV),'$bag_sub'(GV,BV,FV),W=..['$w'|FV].\n"
+    "'$bag_goal_ok'(G):-'$bag_strip'(G,[],_,G0),(var(G0)->throw(error(instantiation_error,_));callable(G0)->true;throw(error(type_error(callable,G0),_))).\n"
+    "'$bag_strip'(G,B,B,G):-var(G),!.\n"
+    "'$bag_strip'(V^G,B0,B,G1):-!,'$bag_strip'(G,[V|B0],B,G1).\n"
+    "'$bag_strip'(G,B,B,G).\n"
+    "'$bag_sub'([],_,[]).\n"
+    "'$bag_sub'([V|Vs],B,R):-('$bag_memq'(V,B)->R=R1;R=[V|R1]),'$bag_sub'(Vs,B,R1).\n"
+    "'$bag_memq'(V,[W|Ws]):-(V==W->true;'$bag_memq'(V,Ws)).\n"
+    "'$bag_pick'([W0-T0|Ps],W,R):-'$bag_vars'(Ps,W0,Ts,Rest),(W=W0,R=[T0|Ts];Rest\\==[],'$bag_pick'(Rest,W,R)).\n"
+    "'$bag_vars'([],_,[],[]).\n"
+    "'$bag_vars'([W1-T1|Ps],W0,Ts,Rest):-('$bag_variant'(W1,W0)->W1=W0,Ts=[T1|Ts1],Rest=Rest1;Ts=Ts1,Rest=[W1-T1|Rest1]),'$bag_vars'(Ps,W0,Ts1,Rest1).\n"
+    "'$bag_variant'(A,B):- \\+ \\+ (copy_term(A,A1),copy_term(B,B1),numbervars(A1,0,N),numbervars(B1,0,N),A1==B1).\n"
     "subtract([],_,[]).\n"
     "subtract([H|T],L,R):-(member(H,L)->R=R1;R=[H|R1]),subtract(T,L,R1).\n"
     "intersection([],_,[]).\n"
@@ -1580,6 +1594,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (cl->tr) pl_tree_collect_calls(cl->tr, &referenced);
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
+    if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
     for (PlClause *cl = pre->head; cl; cl = cl->next) {
