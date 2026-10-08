@@ -2108,36 +2108,6 @@ static DESCR_t _COPY_(DESCR_t *a, int n) {
     return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _b_nPush(DESCR_t *a, int n) {
-    (void)a; (void)n;
-    NPUSH_fn();
-    return NULVCL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _b_nInc(DESCR_t *a, int n) {
-    (void)a; (void)n;
-    NINC_fn();
-    return INTVAL(ntop());
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _b_nDec(DESCR_t *a, int n) {
-    (void)a; (void)n;
-    NDEC_fn();
-    return INTVAL(ntop());
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _b_nTop(DESCR_t *a, int n) {
-    (void)a; (void)n;
-    return INTVAL(ntop());
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _b_nPop(DESCR_t *a, int n) {
-    (void)a; (void)n;
-    int64_t val = ntop();
-    NPOP_fn();
-    return INTVAL(val);
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _b_tree_n(DESCR_t *a, int n) {
     if (n < 1) return INTVAL(0);
     return FIELD_GET_fn(a[0], "n");
@@ -2840,11 +2810,6 @@ void core_lib_init(void) {
     register_fn("SORT",  _SORT_,  1, 2);
     register_fn("INPUT",  _INPUT_,  1, 4);
     register_fn("OUTPUT", _OUTPUT_, 1, 4);
-    register_fn("nPush",    _b_nPush,    0, 0);
-    register_fn("nInc",     _b_nInc,     0, 0);
-    register_fn("nDec",     _b_nDec,     0, 0);
-    register_fn("nTop",     _b_nTop,     0, 0);
-    register_fn("nPop",     _b_nPop,     0, 0);
     register_fn("n",        _b_tree_n,      1, 1);
     register_fn("t",        _b_tree_t,      1, 1);
     register_fn("v",        _b_tree_v,      1, 1);
@@ -4081,46 +4046,6 @@ void rt_dump_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; a
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void code_at_exit(int status, void * arg) { (void) arg; if (status == 0 && kw_code != 0) { fflush((FILE *) 0); _exit((int) kw_code); } }
 void rt_code_atexit_arm(void) { static int armed = 0; if (!armed) { armed = 1; on_exit(code_at_exit, (void *) 0); } }
-#define NSTACK_MAX 256
-static int64_t _nstack[NSTACK_MAX];
-static int      _ntop = -1;
-#define NHOME_MAX 256
-static int _nhome[NHOME_MAX];
-static int _nhome_top = -1;
-int _nseq = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void NPUSH_fn(void) {
-    if (_ntop < NSTACK_MAX - 1) {
-        ++_ntop;
-        _nstack[_ntop] = 0;
-        if (_nhome_top < NHOME_MAX - 1) {
-            _nhome[++_nhome_top] = _ntop;
-        }
-    }
-#if RT_DIAG
-    fprintf(stderr, "SEQ%04d NPUSH depth=%d top=%lld\n",
-            ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
-#endif
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void NINC_fn(void) {
-    if (_ntop >= 0) _nstack[_ntop]++;
-#if RT_DIAG
-    fprintf(stderr, "SEQ%04d NINC  depth=%d top=%lld\n",
-            ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
-#endif
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void NDEC_fn(void) { if (_ntop >= 0) _nstack[_ntop]--; }
-int64_t ntop(void) { return (_ntop >= 0) ? _nstack[_ntop] : 0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void NPOP_fn(void) {
-#if RT_DIAG
-    fprintf(stderr, "SEQ%04d NPOP  depth=%d top=%lld\n",
-            ++_nseq, _ntop, (long long)(_ntop >= 0 ? _nstack[_ntop] : 0));
-#endif
-    if (_ntop >= 0) _ntop--;
-}
 static int    _vstop = -1;
 typedef struct _FNCBLK_t {
     char   *name;

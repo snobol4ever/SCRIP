@@ -29,7 +29,7 @@ TABLE = [
     ("g_dcf",            "hq_snobol4", "snobol4", "test_smoke_snobol4.sh", "the match frame: the CAS mark at entry"),
     ("g_dfx",            "hq_snobol4", "snobol4", "test_smoke_snobol4.sh", "the defer frame bb_match_defer pins"),
     ("call_stack_v",     "cfo",        "snobol4", "test_smoke_snobol4.sh", "the callee's activation frame, or deleted with the c2bb road"),
-    ("_nstack",          "hq_snocone", "snocone", "test_smoke_snocone.sh", "the stored-pattern thunk's frame, one counter word per rule activation"),
+    ("_nstack",          "hq_snocone", "snocone", "test_smoke_snocone.sh", "DELETED OUTRIGHT with the five builtins nPush/nInc/nDec/nTop/nPop (Lon 2026-10-08 15:3x CDT, verbatim: Delete the built-in nPush, etc. We do not want them.; CEO-1559): no graded program reached them, the parsers and every corpus speller define their own over counter.sc; an undefined call is error 22 as in SPITBOL"),
     ("g_scan_stack",     "hq_icon",    "icon",    "test_smoke_icon.sh",    "two cells per scan in the enclosing procedure's frame"),
     ("g_icn_bi_top",     "hq_icon",    "icon",    "test_smoke_icon.sh",    "already a chain through C frames; the head cell to zeta-STANDING"),
     ("g_icn_gen_ret",    "hq_icon",    "icon",    "test_smoke_icon.sh",    "the generator header: the retained frame is the entry"),
