@@ -268,6 +268,14 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
                 return 1;
             }
             for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
+            { const char * cmn = IR_LIT(nd).sval; if (cmn && !strcmp(cmn, "meth_call")) {
+                zls_field(scope_id, off + 16 * nd->n_operands, 16, ZK_DESCR, 0, "redisp.self (the method call's redispatch record, CEO-1552: the invocant, for callsame/nextsame; lives as long as the call, chained from one head cell)", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands + 16, 16, ZK_DESCR, 0, "redisp.mname (the method name)", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands + 32, 8, ZK_RAW, 0, "redisp.prev (the chain link to the enclosing dispatch's record)", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands + 40, 8, ZK_RAW, 0, "redisp.cname (the invocant's class name, interned)", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands + 48, 8, ZK_RAW, 0, "redisp.found_idx | nargs (two 32-bit halves)", nd);
+                zls_field(scope_id, off + 16 * nd->n_operands + 56, 8, ZK_RAW, 0, "redisp.args (a pointer into this frame's own argv: self, mname, the rest)", nd);
+                return nd->n_operands + 4; } }
             { const char * cmn = IR_LIT(nd).sval; if (cmn && (!strcmp(cmn, "tab") || !strcmp(cmn, "move"))) {
                 zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0, "scan.saved_delta — ICN-BYNAME-CURSOR-RESTORE: a cursor-mover (tab/move, and =s == tab(match(s))) reached by-name through rt_call_arr has no inline bb_scan_tab body, so it also had no saved-δ slot and its β degenerated to a bare jmp ω — the backtrack never restored &pos. This quad is that slot; bb_call_byname_str writes r14 here at α and reloads it in β, mirroring bb_scan_tab's restore-δ-and-FAIL port. Same extra-quad shape as callgen.act above.", nd);
                 zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_RAW, 0, "scan.saved_delta pad (unused)", nd);
