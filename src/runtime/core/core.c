@@ -41,6 +41,7 @@ int g_call_fastpath_off = 0;
 #define MON_US "\x1f"
 #include <sys/uio.h>
 #include "../../../scripts/monitor/monitor_wire.h"
+#include "gc_frame_map.h"
 #if RT_DIAG
 int monitor_fd  = -1;
 int monitor_ack_fd = -1;
@@ -527,19 +528,29 @@ static void icn_tb_builtins_at(int lv) {
         { extern long g_line; extern const char *g_file; fprintf(stderr, " from line %ld in %s\n", g_line, icn_basename(g_file)); }
     }
 }
-int core_icn_act_top(void) { return * (char *) NULL; }
-const char *core_icn_act_name(int lv) { (void)lv; return (const char *)(uintptr_t) * (char *) NULL; }
-void *core_icn_act_base(int lv) { (void)lv; return (void *)(uintptr_t) * (char *) NULL; }
-int core_icn_act_np(int lv) { (void)lv; return * (char *) NULL; }
-DESCR_t *core_icn_act_arg(int lv, int k) { (void)lv; (void)k; return (DESCR_t *)(uintptr_t) * (char *) NULL; }
+extern int rt_icn_frames(rt_icn_frame_t *out, int cap); extern const char *rt_icn_map_proc_name(const gc_frame_map_t *m); extern long rt_icn_map_args_off(const gc_frame_map_t *m);
+static int icn_act_frame(int lv, rt_icn_frame_t *o) { int n = rt_icn_frames((rt_icn_frame_t *)0, 0); if (lv < 1 || lv > n) return 0; { rt_icn_frame_t fr[n]; rt_icn_frames(fr, n); *o = fr[n - lv]; } return 1; }
+int core_icn_act_top(void) { return rt_icn_frames((rt_icn_frame_t *)0, 0); }
+const char *core_icn_act_name(int lv) { rt_icn_frame_t f; return icn_act_frame(lv, &f) ? rt_icn_map_proc_name(f.map) : (const char *)0; }
+void *core_icn_act_base(int lv) { rt_icn_frame_t f; return icn_act_frame(lv, &f) ? (void *)f.base : (void *)0; }
+int core_icn_act_np(int lv) { rt_icn_frame_t f; if (!icn_act_frame(lv, &f)) return 0; { extern int rt_proc_nparams(const char *); int np = rt_proc_nparams(rt_icn_map_proc_name(f.map)); return np > 0 ? np : 0; } }
+DESCR_t *core_icn_act_arg(int lv, int k) { rt_icn_frame_t f; return icn_act_frame(lv, &f) ? (DESCR_t *)(f.base + rt_icn_map_args_off(f.map) + 16 * k) : (DESCR_t *)0; }
+void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void core_icn_traceback(void) {
-    extern int rt_k_level; extern long g_line; extern const char *g_file;
-    int top = rt_k_level;
-    for (int lv = 1; lv <= top; lv++) {
-        if (* (char *) NULL) fputc('\n', stderr);
+    extern long g_line; extern const char *g_file; extern int rt_proc_nparams(const char *);
+    int n = rt_icn_frames((rt_icn_frame_t *)0, 0);
+    { rt_icn_frame_t fr[n > 0 ? n : 1]; rt_icn_frames(fr, n);
+      for (int lv = 1; lv <= n; lv++) {
+        rt_icn_frame_t *f = &fr[n - lv]; const char *nm = rt_icn_map_proc_name(f->map); int np = rt_proc_nparams(nm); const DESCR_t *a = (const DESCR_t *)(f->base + rt_icn_map_args_off(f->map));
+        if (np < 0) np = 0;
+        fputs("  in ", stderr); fputs(nm, stderr); fputc('(', stderr);
+        for (int i = 0; i < np; i++) { if (i) fputc(',', stderr); icn_tb_image(a[i]); }
+        fputc(')', stderr);
+        if (lv > 1) { long ln = 0; const char *fl = (const char *)0; rt_icn_line_of_pc(f->caller_pc, &ln, &fl); fprintf(stderr, " from line %ld in %s", ln, icn_basename(fl ? fl : "")); }
+        fputc('\n', stderr);
         icn_tb_builtins_at(lv);
-    }
+      } }
     if (g_icn_op.sym) {
         fputs("  in {", stderr);
         if (g_icn_op.arity == 1) { fputs(g_icn_op.sym, stderr); icn_tb_image(g_icn_op.a); }
@@ -552,7 +563,7 @@ void core_icn_traceback(void) {
 }
 #define SCRIP_STNO_WALK_MAX_FRAMES 64
 #define SCRIP_STNO_MAX_STMT_SPAN   (1 << 20)
-static const sno_stno_rec_t * scrip_stno_from_return_addrs(void) {
+static const sno_stno_rec_t * stno_rec_table(uint32_t * np) {
     const sno_stno_rec_t * base = 0; uint32_t n = 0;
     if (scrip_emit_stno_table) base = scrip_emit_stno_table(&n);
     if (!base || n == 0) {
@@ -563,19 +574,24 @@ static const sno_stno_rec_t * scrip_stno_from_return_addrs(void) {
             n = (uint32_t)((size_t)(__stop_scrip_stno_map - __start_scrip_stno_map) / sizeof(sno_stno_rec_t));
         }
     }
-    if (!base || n == 0) return (const sno_stno_rec_t *)0;
+    *np = (base && n) ? n : 0;
+    return (base && n) ? base : (const sno_stno_rec_t *)0;
+}
+static const sno_stno_rec_t * stno_rec_find(uint64_t ra) {
+    uint32_t n = 0; const sno_stno_rec_t * base = stno_rec_table(&n); uint32_t lo = 0, hi = n;
+    if (!base) return (const sno_stno_rec_t *)0;
+    while (lo < hi) { uint32_t mid = lo + (hi - lo) / 2; if (base[mid].pc <= ra) lo = mid + 1; else hi = mid; }
+    if (lo > 0) { uint32_t idx = lo - 1; uint64_t span_end = (idx + 1 < n) ? base[idx + 1].pc : base[idx].pc + SCRIP_STNO_MAX_STMT_SPAN; if (ra < span_end) return &base[idx]; }
+    return (const sno_stno_rec_t *)0;
+}
+void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file) { const sno_stno_rec_t * r = pc ? stno_rec_find(pc) : (const sno_stno_rec_t *)0; *line = r ? (long)r->line : 0; *file = r ? r->file : (const char *)0; }
+static const sno_stno_rec_t * scrip_stno_from_return_addrs(void) {
     void ** rbp = (void **)__builtin_frame_address(0);
     if (!rbp) return (const sno_stno_rec_t *)0;
     rbp = (void **)rbp[0];
     for (int depth = 0; depth < SCRIP_STNO_WALK_MAX_FRAMES && rbp; depth++) {
-        uint64_t ra = (uint64_t)(uintptr_t)rbp[1];
-        uint32_t lo = 0, hi = n;
-        while (lo < hi) { uint32_t mid = lo + (hi - lo) / 2; if (base[mid].pc <= ra) lo = mid + 1; else hi = mid; }
-        if (lo > 0) {
-            uint32_t idx = lo - 1;
-            uint64_t span_end = (idx + 1 < n) ? base[idx + 1].pc : base[idx].pc + SCRIP_STNO_MAX_STMT_SPAN;
-            if (ra < span_end) return &base[idx];
-        }
+        const sno_stno_rec_t * r = stno_rec_find((uint64_t)(uintptr_t)rbp[1]);
+        if (r) return r;
         void ** next = (void **)rbp[0];
         if (!next || next <= rbp) break;
         rbp = next;
@@ -602,7 +618,7 @@ void core_error_voice(int code, const char *msg, int has_val, DESCR_t val) {
         extern FILE *fh_memsink_open(char **, size_t *); char *vb = (char *)0; size_t vn = 0; FILE *vf = fh_memsink_open(&vb, &vn);
         if (vf) { trace_image_icon_f(vf, val, 1); fclose(vf); }
         if (vb && vb[0]) fprintf(stderr, "  offending value: %s\n", vb); }
-    if (rt_k_level >= 1 && * (char *) NULL) core_icn_traceback();
+    if (rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) core_icn_traceback();
     fflush(stderr);
 }
 static void core_icn_report(int code, DESCR_t val, const char *msg) {
@@ -649,20 +665,23 @@ void rt_trace_gen_fail_hook(const char *fname, void *h) {
     rt_trace_fail_hook(fname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_trace_resume_hook(const char *pname) {
+void rt_trace_resume_hook(const char *pname, void *h) {
     if (trace_idle()) return;
+    extern long g_line;
     if (g_trace == 0 || !pname || !*pname) return;
     trace_ent_t *e = trace_find("*", TRK_CALL);
     if (!e || !e->tag || strcmp(e->tag, "icn")) return;
     if (trace_recursion_depth > 0) return;
+    long save = g_line; if (h) { long ln = *(const long *)((const char *)h + 64); if (ln > 0) g_line = ln; }
     g_trace--; trace_recursion_depth++; trace_print_icon(TRK_RESUME, pname, (DESCR_t *)0, 0, NULVCL); trace_recursion_depth--;
+    g_line = save;
 }
 #else
 void rt_trace_call_hook_f(const char *fname, int np, void *base) { (void)fname; (void)np; (void)base; }
 void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line) { (void)pname; (void)lo; (void)hi; (void)line; }
 void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void *h) { (void)pname; (void)lo; (void)hi; (void)h; }
 void rt_trace_gen_fail_hook(const char *fname, void *h) { (void)fname; (void)h; }
-void rt_trace_resume_hook(const char *pname) { (void)pname; }
+void rt_trace_resume_hook(const char *pname, void *h) { (void)pname; (void)h; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
@@ -3112,7 +3131,7 @@ void core_runtime_error(int code, const char *msg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_kb, long committed_kb) {
     extern int rt_k_level;
-    int icon = (rt_k_level >= 1 && * (char *) NULL) ? 1 : 0;
+    int icon = (rt_k_level >= 1 && rt_icn_frames((rt_icn_frame_t *)0, 0) > 0) ? 1 : 0;
     int code = icon ? (type == (unsigned)DT_S ? 306 : 307) : 204;
     char mb[fmt_len("%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload)];
     snprintf(mb, sizeof mb, "%s (the GC heap's hard cap is %ld KB, -d; %ld KB committed; this request %llu bytes)", icon ? icn_errmsg(code) : "memory overflow", cap_kb, committed_kb, payload);

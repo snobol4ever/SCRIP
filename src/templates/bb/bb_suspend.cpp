@@ -6,8 +6,8 @@ extern "C" {
 #include "descr.h"
 }
 #include "x86_asm.h"
+extern "C" void rt_trace_resume_hook(const char *pname, void *h);
 extern "C" void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line);
-extern "C" void rt_trace_resume_hook(const char *pname);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_suspend() {
     x86_begin();
@@ -44,6 +44,8 @@ std::string bb_suspend() {
          + IF(x86_trace_hooks_on(), x86("push", "rax")
          + x86("push", "rdx") + x86_align_call_enter()
          + x86_load_ro_str("rdi", (_.op_activate_proc ? _.op_activate_proc : "main"))
+         + IF(icn_gen_zeta_ft() > 0, x86("mov", "rsi", "rbp"))
+         + IF(!(icn_gen_zeta_ft() > 0), x86("xor", "esi", "esi"))
          + x86("call", "rt_trace_resume_hook", (uint64_t)(uintptr_t)(void *)rt_trace_resume_hook)
          + x86_rt_gc_poll()
          + x86_align_call_leave() + x86("pop", "rdx")

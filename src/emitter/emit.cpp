@@ -342,9 +342,7 @@ static void emit_stno_file_label(const char * file) {
         else q += (char)*c; }
     emit_textf("  .pushsection .rodata\n.Lstnof%d:\n  .string \"%s\"\n  .popsection\n", lb, q.c_str());
 }
-static void emit_stno_mark(int32_t stno) {
-    int32_t line = 0; const char * file = (const char *)0;
-    if (stno > 0 && stno < g_emit.stno_src_n) { line = STNO_SRC(stno).line; file = STNO_SRC(stno).file; }
+static void emit_stno_row(int32_t stno, int32_t line, const char * file) {
     if (g_is_text) {
         char fq[32]; if (file) { emit_stno_file_label(file); snprintf(fq, sizeof fq, ".Lstnof%d", g_emit.stno_file_lbl); } else snprintf(fq, sizeof fq, "0");
         const char * kn = flat_label_kind(g_emit.node->op); int uid = g_emit.x86_uid;
@@ -353,6 +351,11 @@ static void emit_stno_mark(int32_t stno) {
     } else {
         stno_rec_push((uint64_t)(uintptr_t)(bb_emit_buf + bb_emit_pos), stno, line, file ? icn_trace_intern(file) : (const char *)0);
     }
+}
+static void emit_stno_mark(int32_t stno) {
+    int32_t line = 0; const char * file = (const char *)0;
+    if (stno > 0 && stno < g_emit.stno_src_n) { line = STNO_SRC(stno).line; file = STNO_SRC(stno).file; }
+    emit_stno_row(stno, line, file);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const sno_stno_rec_t * scrip_emit_stno_table(uint32_t * out_count) {
@@ -1368,7 +1371,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_STATEMENT_BEGIN:      { extern long g_trace_budget; extern int g_mon_max_stno; g_emit.op_mon_stmt_tap = ((g_trace_budget != 0 || x86_zdp_rbp_on()) && g_emit.op_stno > 0) ? 1 : 0;    { extern int g_rt_fragment_emit; if (g_emit.op_mon_stmt_tap && !g_rt_fragment_emit && g_emit.op_stno > g_mon_max_stno) g_mon_max_stno = g_emit.op_stno; } g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); { extern std::string bb_zdp_anchor(long, long); static int _zdpa = -1; if (_zdpa < 0) { const char * e = getenv("SCRIP_ZDP_TEARDOWN"); _zdpa = (e && *e == '1') ? 1 : 0; } if (_zdpa) bb_emit_x86(bb_zdp_anchor((long)nd->op, (long)bb_node_id((IR_t *)nd))); }    g_emit.op_mon_stmt_tap = 0; } return 0;
     case IR_STMT_MARK:            bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_SETEXIT_TEST:         bb_emit_x86(bb_setexit_test()); return 0;
-    case IR_LINE_MARK:            if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval; bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
+    case IR_LINE_MARK:            if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval; if (g_emit.icn_line_cur > 0) emit_stno_row(0, (int32_t)g_emit.icn_line_cur, g_emit.icn_file_cur); bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
     case IR_STATEMENT_END:
     case IR_STATEMENT:            { g_emit.op_fc_bytes = 0; bb_emit_x86(bb_statement()); } return 0;
     case IR_BOUND:                { g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;
@@ -3787,7 +3790,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
                   + x86("lea", "rcx", RDQ("rsp", _gw + 40)) + x86("mov", RDQ("rax", frame_total + 24), "rcx")
                   + x86("lea", "rbp", RDQ("rax", frame_total))
                   + x86("mov", "rsp", "rax")
-                  + emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32, GC_FRAME_MAP_GEN_ANCHOR | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0)
+                  + emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32, GC_FRAME_MAP_GEN_ANCHOR | GC_FRAME_MAP_ICN_PROC | (_gblk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0)
                   + _gseed
                   + IF(_gblk, icn_entry_gva())
                   + IF(!_gblk, x86("mov", "rdi", "rsp") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
@@ -3834,7 +3837,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             _lz += _iws ? snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\n", frame_total)
                         : snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "sub rsp, %d\nmov qword ptr [rsp + %d], rcx\nmov qword ptr [rsp + %d], rdx\n", frame_total, frame_total - 24, frame_total - 16);
             emit_text_n(_lp, strlen(_lp));
-            if (!_lseed.empty()) bb_emit_x86(_lseed); bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, (g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u, 0)); if (!_pin.empty()) bb_emit_x86(_pin);
+            if (!_lseed.empty()) bb_emit_x86(_lseed); bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) | (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0)); if (!_pin.empty()) bb_emit_x86(_pin);
             if (_use_zframe_install) bb_emit_x86(_inst);
             else { _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, "rt_lcl_proc_args_install");
                    emit_text_n(_lp, strlen(_lp)); }
@@ -3845,7 +3848,7 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
             { int _d = frame_total - 16; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x54, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0x94, 0x24); bb_emit_u32((uint32_t)_d); } }
             { static int _hd = -1; if (_hd < 0) { const char * _e = getenv("SCRIP_ICN_HDR_DEAD"); _hd = (_e && *_e == '1') ? 1 : 0; } if (_hd) { int _d = frame_total - 8; ef_b2(0x48, 0x89); if (_d >= -128 && _d <= 127) { ef_b3(0x6C, 0x24, (uint8_t)(int8_t)_d); } else { ef_b2(0xAC, 0x24); bb_emit_u32((uint32_t)_d); } } }
             }
-            if (!_lseed.empty()) bb_emit_x86(_lseed); bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, (g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u, 0)); if (!_pin.empty()) bb_emit_x86(_pin);
+            if (!_lseed.empty()) bb_emit_x86(_lseed); bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) | (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0)); if (!_pin.empty()) bb_emit_x86(_pin);
             if (_use_zframe_install) bb_emit_x86(_inst);
             else {
             ef_b3(0x48, 0x89, 0xE7);
@@ -4323,7 +4326,10 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
         if (g_emit.flat_pat) {
             bb_emit_x86(IF(blob_frame_bytes() > 0, x86_rsp_load64("rbp", 24)) + x86("add", "rsp", 32L));
         } else if (icn_gen_regime() && g_emit.flat_gen) {
-            bb_emit_x86( x86("mov", "rbp", "rax") + icn_gen_line_resume() + icn_entry_gva());
+            { extern long g_line;
+              bb_emit_x86( x86("mov", "rbp", "rax")
+                         + IF(x86_trace_hooks_on(), x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") + x86("mov", "rcx", RDQ("rcx", 0)) + x86("mov", RDQ("rax", 64), "rcx"))
+                         + icn_gen_line_resume() + icn_entry_gva()); }
         } else {
         if (g_is_text) {
             char _res[fmt_len("add rsp, 8\npop %s\n", emit_rec_fb())];

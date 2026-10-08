@@ -1774,6 +1774,35 @@ static void gc_chain_resolve(gc_chx_t *cx, const gc_ent_t *ent)
         if (xb && x && (x->kind & 255) == 2) { pc = w; r = base; g_gc_chain_landhops++; hops++; goto again; } }
     cx->base = base; cx->st = (e->rule == 5) ? 4 : 1;
 }
+const char *rt_icn_map_proc_name(const gc_frame_map_t *m) { const char *g = m ? m->graph_name : (const char *)0; if (!g) return "?"; return strncmp(g, "proc_", 5) == 0 ? g + 5 : g; }
+long rt_icn_map_args_off(const gc_frame_map_t *m) { if (!m) return 0; if (m->flags & GC_FRAME_MAP_GEN_ANCHOR) return (long)(((m->frame_bytes + 15u) & ~15u) + 72u); return (m->flags & GC_FRAME_MAP_ICN_BLOCK) ? (long)m->frame_bytes : 16L; }
+extern const void *_Unwind_Find_FDE(const void *pc, void *bases);
+static int gc_pc_is_frameless_leaf(uint64_t ra) { void *bases[3] = { 0, 0, 0 }; return ra ? _Unwind_Find_FDE((const void *)(uintptr_t)(ra - 1), bases) == (const void *)0 : 0; }
+int rt_icn_frames(rt_icn_frame_t *out, int cap)
+{
+    extern int rt_proc_nparams(const char *);
+    const char *fp = (const char *)__builtin_frame_address(0), *top = gc_stack_top(), *r = (const char *)0, *rbp = (const char *)0; uint64_t pc = 0; int n = 0, hops = 0;
+    while (fp && fp + 16 <= top && hops++ < 4096) { uint64_t ra = *(const uint64_t *)(fp + 8); const char *fp2 = *(const char *const *)fp; const gc_site_ent_t *e = (const gc_site_ent_t *)0;
+        if (gc_site_find(ra, &e) && e) { pc = ra; r = fp + 16; rbp = fp2; break; }
+        if (gc_pc_is_frameless_leaf(ra)) for (int k = 0; k < 14 && fp + 24 + 8 * k <= top; k++) { uint64_t w = *(const uint64_t *)(fp + 16 + 8 * k); const gc_site_ent_t *x = (const gc_site_ent_t *)0; if (w && gc_site_find(w, &x) && x && (x->kind & 255) == 1) { pc = w; r = fp + 24 + 8 * k; rbp = fp2; break; } }
+        if (pc) break;
+        if (!fp2 || fp2 <= fp) break; fp = fp2; }
+    if (!pc) return 0;
+    for (hops = 0; pc && r && hops < 1000000; hops++) {
+        gc_chx_t cx; gc_ent_t ent = { (const void *)(uintptr_t)pc, r, (const void *)rbp }; const gc_frame_map_t *m; const char *base;
+        gc_chain_resolve(&cx, &ent);
+        if (cx.st != 1 || !cx.b || !cx.b->map || !cx.base) break;
+        m = cx.b->map; base = cx.base;
+        if (!(m->flags & GC_FRAME_MAP_ICN_PROC)) break;
+        if (m->flags & GC_FRAME_MAP_GEN_ANCHOR) { const char *h = base + m->frame_bytes; if (out && n < cap) { out[n].map = m; out[n].base = base; out[n].caller_pc = *(const uint64_t *)(h + 8); } n++;
+            if (m->flags & GC_FRAME_MAP_ROOT) break; pc = *(const uint64_t *)(h + 8); rbp = *(const char *const *)h; r = *(const char *const *)(h + 24); }
+        else { int np = rt_proc_nparams(rt_icn_map_proc_name(m)); const char *a = base + m->frame_bytes + 16L * (np > 0 ? np : 0); uint64_t cpc = (m->flags & GC_FRAME_MAP_ICN_BLOCK) ? *(const uint64_t *)a : 0;
+            if (out && n < cap) { out[n].map = m; out[n].base = base; out[n].caller_pc = cpc; } n++;
+            if ((m->flags & GC_FRAME_MAP_ROOT) || !(m->flags & GC_FRAME_MAP_ICN_BLOCK)) break;
+            if (m->flags & GC_FRAME_MAP_ICN_PINNED) rbp = *(const char *const *)(base + m->frame_bytes - 8); pc = cpc; r = a; }
+    }
+    return n;
+}
 static void gc_chain_judge(gc_chx_t *cx)
 {
     const gc_site_ent_t *e = cx->e; const gc_site_blk_t *b = cx->b; const char *base = cx->base; uint64_t pc = cx->pc; const char *r = cx->r; const char *rbp = cx->rbp;
