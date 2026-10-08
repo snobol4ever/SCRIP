@@ -9,11 +9,7 @@
 #include <string.h>
 #include <math.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int so_is_list(DESCR_t v) {
-    if (!IS_DATA_INST_fn(v) || !v.u) return 0;
-    DESCR_t t = FIELD_GET_fn(v, "gen_type");
-    return t.v == DT_S && t.s && !strcmp(t.s, "list");
-}
+static int so_is_list(DESCR_t v) { if (!IS_DATA_INST_fn(v) || !v.u) return 0; DESCR_t t = FIELD_GET_fn(v, "gen_type"); return t.v == DT_S && t.s && !strcmp(t.s, "list"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
     if (a.v == DT_P || b.v == DT_P || a.v == DT_X || b.v == DT_X) { extern DESCR_t pat_cat(DESCR_t, DESCR_t); return pat_cat(a, b); }
@@ -31,16 +27,20 @@ DESCR_t c_str_concat_d(DESCR_t a, DESCR_t b) {
         DESCR_t *ne = (DESCR_t *)rt_ws_alloc_descr((size_t)(n > 0 ? n : 1));
         for (int64_t i = 0; i < an; i++) ne[i] = ae ? ae[i] : NULVCL;
         for (int64_t i = 0; i < bn; i++) ne[an + i] = be ? be[i] : NULVCL;
-        DESCR_t ep = {0}; ep.v = DT_DATA; ep.slen = DATA_ELEMS_SLEN; ep.ptr = (void *)ne;
+        DESCR_t ep = {0};
+        ep.v = DT_DATA;
+        ep.slen = DATA_ELEMS_SLEN;
+        ep.ptr = (void *)ne;
         return DATCON_fn("list", ep, INTVAL(n), STRVAL("list"), INTVAL(n));
     }
     const char *asp, *bsp;
-    long alc = -1; long al_auth = -1, bl_auth = -1;
-    if (a.v == DT_S && a.s && a.slen != 0xFFFFFFFFu) { asp = a.s; al_auth = (long)a.slen; }
-    else if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0); else { DESCR_t as = descr_to_str(a); if (as.v == DT_S || as.v == DT_SNUL) { asp = VARVAL_fn(as); al_auth = (long)descr_slen(as); } else asp = NULL; }
+    long alc = -1;
+    long al_auth = -1, bl_auth = -1;
+    if (a.v == DT_S && a.s && a.slen != 0xFFFFFFFFu) { asp = a.s; al_auth = (long)a.slen; } else if (a.v == DT_DATA) asp = rk_obj_stringify(a, 0);
+    else { DESCR_t as = descr_to_str(a); if (as.v == DT_S || as.v == DT_SNUL) { asp = VARVAL_fn(as); al_auth = (long)descr_slen(as); } else asp = NULL; }
     if (a.v == DT_S && asp && g_sxt_fr.off <= 0) { alc = rt_sxt_match(asp); if (alc >= 0 && al_auth >= 0 && alc != al_auth) alc = -1; }
-    if (b.v == DT_S && b.s && b.slen != 0xFFFFFFFFu) { bsp = b.s; bl_auth = (long)b.slen; }
-    else if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0); else { DESCR_t bs = descr_to_str(b); if (bs.v == DT_S || bs.v == DT_SNUL) { bsp = VARVAL_fn(bs); bl_auth = (long)descr_slen(bs); } else bsp = NULL; }
+    if (b.v == DT_S && b.s && b.slen != 0xFFFFFFFFu) { bsp = b.s; bl_auth = (long)b.slen; } else if (b.v == DT_DATA) bsp = rk_obj_stringify(b, 0);
+    else { DESCR_t bs = descr_to_str(b); if (bs.v == DT_S || bs.v == DT_SNUL) { bsp = VARVAL_fn(bs); bl_auth = (long)descr_slen(bs); } else bsp = NULL; }
     if (!asp) asp = "";
     if (!bsp) bsp = "";
     size_t bl = (bl_auth >= 0) ? (size_t)bl_auth : strlen(bsp);
@@ -62,7 +62,8 @@ static int so_sno_cat_bad(DESCR_t v) { return v.v == DT_A || v.v == DT_T || IS_D
 DESCR_t sno_concat_d(DESCR_t a, DESCR_t b) {
     if (!IS_FAIL_fn(a) && !IS_FAIL_fn(b) && !IS_NULL_fn(a) && !IS_NULL_fn(b)) {
         if (so_sno_cat_bad(a)) { core_runtime_error(8, "concatenation left operand is not a string or pattern"); return FAILDESCR; }
-        if (so_sno_cat_bad(b)) { core_runtime_error(9, "concatenation right operand is not a string or pattern"); return FAILDESCR; } }
+        if (so_sno_cat_bad(b)) { core_runtime_error(9, "concatenation right operand is not a string or pattern"); return FAILDESCR; }
+    }
     return str_concat_d(a, b);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -84,7 +85,10 @@ DESCR_t str_concat_fracdigit_d(DESCR_t a, DESCR_t b) {
         DESCR_t bad = core_icn_str_ok(a) ? b : a, sa = a;
         if (core_icn_str_ok(a) && (a.v == DT_R || a.v == DT_I || a.v == DT_BOOL)) sa = descr_to_str_fracdigit(a);
         else if (core_icn_str_ok(a) && a.v == DT_BIG && a.p) sa = STRVAL(rt_big_str(a));
-        core_icn_op_ctx("||", 2, sa, b); core_icn_error(103, bad); core_icn_op_ctx_clear(); return FAILDESCR;
+        core_icn_op_ctx("||", 2, sa, b);
+        core_icn_error(103, bad);
+        core_icn_op_ctx_clear();
+        return FAILDESCR;
     }
     if (a.v == DT_R || a.v == DT_I || a.v == DT_BOOL) a = descr_to_str_fracdigit(a);
     if (b.v == DT_R || b.v == DT_I || b.v == DT_BOOL) b = descr_to_str_fracdigit(b);
@@ -97,7 +101,8 @@ DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {
     if (IS_FAIL_fn(s) || IS_FAIL_fn(n)) return FAILDESCR;
     extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
     const char *sp;
-    if (s.v == DT_DATA) sp = rk_obj_stringify(s, 0); else { DESCR_t sd = descr_to_str(s); sp = (sd.v == DT_S || sd.v == DT_SNUL) ? VARVAL_fn(sd) : NULL; }
+    if (s.v == DT_DATA) sp = rk_obj_stringify(s, 0);
+    else { DESCR_t sd = descr_to_str(s); sp = (sd.v == DT_S || sd.v == DT_SNUL) ? VARVAL_fn(sd) : NULL; }
     if (!sp) sp = "";
     long cnt = IS_INT_fn(n) ? (long)n.i : (IS_REAL_fn(n) ? (long)n.r : 0);
     size_t sl = strlen(sp);
@@ -114,14 +119,11 @@ const char *real_str(double r, char *buf, int bufsz) {
     if (isnan(r)) { snprintf(buf, bufsz, "%s", "nan"); return buf; }
     if (isinf(r)) { snprintf(buf, bufsz, "%s", r < 0 ? "-inf" : "inf"); return buf; }
     if (r == 0.0) { snprintf(buf, bufsz, "%s", "0."); return buf; }
-    int neg = (r < 0.0); double x = fabs(r); long e = 0;
+    int neg = (r < 0.0);
+    double x = fabs(r);
+    long e = 0;
     while (x - 0.1 < 0) { x = x * 1e10; e -= 10; }
-    if (!(x - 1.0 < 0)) {
-        while (!(x - 1e10 < 0)) { x = x / 1e10; e += 10; }
-        double pk = 1.0;
-        do { e++; pk = pk * 10.0; } while (!(x - pk < 0));
-        x = x / pk;
-    }
+    if (!(x - 1.0 < 0)) { while (!(x - 1e10 < 0)) { x = x / 1e10; e += 10; } double pk = 1.0; do { e++; pk = pk * 10.0; } while (!(x - pk < 0)); x = x / pk; }
     double sc = 1.0;
     for (int i = 0; i < 15; i++) sc = sc * 10.0;
     x = x + 0.5 / sc;
@@ -144,24 +146,42 @@ const char *real_str(double r, char *buf, int bufsz) {
 const char *icon_real_str(double r, char *buf, int bufsz) {
     if (isnan(r)) { snprintf(buf, (size_t)bufsz, "%s", "nan"); return buf; }
     if (isinf(r)) { snprintf(buf, (size_t)bufsz, "%s", r < 0 ? "-inf" : "inf"); return buf; }
-    int neg = (r < 0.0); double ar = fabs(r);
+    int neg = (r < 0.0);
+    double ar = fabs(r);
     if (ar == 0.0) { snprintf(buf, (size_t)bufsz, "%s", neg ? "-0.0" : "0.0"); return buf; }
     char sci[64];
     snprintf(sci, sizeof sci, "%.9e", ar);
-    char digits[40]; int nd = 0; int E = 0; const char *p = sci;
+    char digits[40];
+    int nd = 0;
+    int E = 0;
+    const char *p = sci;
     if (*p >= '0' && *p <= '9') digits[nd++] = *p++;
     if (*p == '.') { p++; while (*p >= '0' && *p <= '9' && nd < (int)sizeof digits - 1) digits[nd++] = *p++; }
     if (*p == 'e' || *p == 'E') { p++; E = (int)strtol(p, (char **)0, 10); }
     while (nd > 1 && digits[nd - 1] == '0') nd--;
     digits[nd] = '\0';
-    char out[64]; int o = 0;
+    char out[64];
+    int o = 0;
     if (neg) out[o++] = '-';
     if (E >= -4 && E <= 9) {
         if (E >= 0) {
             int intdigits = E + 1;
-            if (nd <= intdigits) { for (int i = 0; i < nd; i++) out[o++] = digits[i]; for (int i = nd; i < intdigits; i++) out[o++] = '0'; out[o++] = '.'; out[o++] = '0'; }
-            else { for (int i = 0; i < intdigits; i++) out[o++] = digits[i]; out[o++] = '.'; for (int i = intdigits; i < nd; i++) out[o++] = digits[i]; }
-        } else { out[o++] = '0'; out[o++] = '.'; for (int i = 0; i < -E - 1; i++) out[o++] = '0'; for (int i = 0; i < nd; i++) out[o++] = digits[i]; }
+            if (nd <= intdigits) {
+                for (int i = 0; i < nd; i++) out[o++] = digits[i];
+                for (int i = nd; i < intdigits; i++) out[o++] = '0';
+                out[o++] = '.';
+                out[o++] = '0';
+            } else {
+                for (int i = 0; i < intdigits; i++) out[o++] = digits[i];
+                out[o++] = '.';
+                for (int i = intdigits; i < nd; i++) out[o++] = digits[i];
+            }
+        } else {
+            out[o++] = '0';
+            out[o++] = '.';
+            for (int i = 0; i < -E - 1; i++) out[o++] = '0';
+            for (int i = 0; i < nd; i++) out[o++] = digits[i];
+        }
     } else {
         out[o++] = digits[0];
         if (nd > 1) { out[o++] = '.'; for (int i = 1; i < nd; i++) out[o++] = digits[i]; }

@@ -42,8 +42,8 @@ extern "C" __attribute__((force_align_arg_pointer)) void rt_pl_port_trace(const 
     else { n = ln ? *ln : 0; if (g_emit.pl_trace_depth > 0) depth = --g_emit.pl_trace_depth; }
     const char * pn = port == 0 ? "Call" : port == 1 ? "Redo" : port == 2 ? "Exit" : "Fail";
     if (target && port == 3 && ball) fprintf(stderr, "(%lu) %ld %s: %s -> %s r15=0x%lx\n", n, depth, pn, stem ? stem : "?", target, (unsigned long)ball);
-    else if (target)                 fprintf(stderr, "(%lu) %ld %s: %s -> %s\n", n, depth, pn, stem ? stem : "?", target);
-    else                             fprintf(stderr, "(%lu) %ld %s: %s\n", n, depth, pn, stem ? stem : "?");
+    else if (target) fprintf(stderr, "(%lu) %ld %s: %s -> %s\n", n, depth, pn, stem ? stem : "?", target);
+    else fprintf(stderr, "(%lu) %ld %s: %s\n", n, depth, pn, stem ? stem : "?");
 }
 #else
 extern "C" __attribute__((force_align_arg_pointer)) void rt_pl_port_trace(const char * stem, const char * target, long ev, long uid, long ball) {

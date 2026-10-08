@@ -234,10 +234,22 @@ def _wrap_pp(line, width):
     return out
 
 
+class PP:
+    __slots__ = ("text",)
+    def __init__(self, text):
+        self.text = text
+
+
+class Sep:
+    __slots__ = ("ch",)
+    def __init__(self, ch):
+        self.ch = ch
+
+
 class Blk:
-    __slots__ = ("opener", "children", "closer", "next")
+    __slots__ = ("opener", "children", "closer", "next", "closed")
     def __init__(self, opener):
-        self.opener = opener; self.children = []; self.closer = "}"; self.next = None
+        self.opener = opener; self.children = []; self.closer = "}"; self.next = None; self.closed = False
 
 
 def build_tree(units):
@@ -248,12 +260,14 @@ def build_tree(units):
     i = 0
     while i < len(units):
         u, opens, closes = units[i]
+        if not isinstance(u, str):
+            stack[-1].append(u); i += 1; continue
         if closes:
             if len(stack) <= 1:
                 i += 1; continue
             blk = blocks[-1]; blk_opener = openers[-1]
-            stack.pop(); openers.pop(); blocks.pop()
-            nxt = units[i + 1] if i + 1 < len(units) else None
+            stack.pop(); openers.pop(); blocks.pop(); blk.closed = True
+            nxt = units[i + 1] if i + 1 < len(units) and isinstance(units[i + 1][0], str) else None
             if nxt is not None:
                 nu, nopens, ncloses = nxt
                 head = nu.split(" ", 1)[0] if nu else ""
@@ -275,10 +289,17 @@ def build_tree(units):
 
 
 def flat(item):
+    if isinstance(item, (PP, Sep)):
+        return None
     if isinstance(item, Blk):
         parts = []; cur = item
         while cur is not None:
-            inner = " ".join(flat(c) for c in cur.children)
+            if not cur.closed:
+                return None
+            fl = [flat(c) for c in cur.children]
+            if any(x is None for x in fl):
+                return None
+            inner = " ".join(fl)
             parts.append(cur.opener + (" " + inner if inner else ""))
             if cur.next is None:
                 parts.append(cur.closer if cur.closer is not None else "}")
@@ -293,8 +314,12 @@ def layout(items, depth, width, out):
     item, its `} else {` lines standing at the block's indent."""
     ind = "    " * depth
     for item in items:
+        if isinstance(item, Sep):
+            out.append("/*" + item.ch * (width - 4) + "*/"); continue
+        if isinstance(item, PP):
+            out.extend([item.text] if W(item.text) <= width else _wrap_pp(item.text, width)); continue
         f = flat(item)
-        if len(ind) + W(f) <= width:
+        if f is not None and len(ind) + W(f) <= width:
             out.append(ind + f); continue
         if not isinstance(item, Blk):
             out.extend(wrap_long(f, ind, width)); continue
@@ -305,7 +330,7 @@ def layout(items, depth, width, out):
             else:
                 out.extend(wrap_long(cur.opener, ind, width))
             layout(cur.children, depth + 1, width, out)
-            if cur.next is None:
+            if cur.next is None and cur.closed:
                 closer = cur.closer if cur.closer is not None else "}"
                 if len(ind) + W(closer) <= width:
                     out.append(ind + closer)
@@ -315,14 +340,16 @@ def layout(items, depth, width, out):
 
 
 def reflow(text, width=200):
-    items = logical_lines(text)
-    out = []
-    for kind, payload in items:
+    units = []
+    for kind, payload in logical_lines(text):
         if kind == "sep":
-            out.append("/*" + payload * (width - 4) + "*/"); continue
-        if kind == "pp":
-            out.extend([payload] if W(payload) <= width else _wrap_pp(payload, width)); continue
-        layout(build_tree(split_units(payload)), 0, width, out)
+            units.append((Sep(payload), 0, 0))
+        elif kind == "pp":
+            units.append((PP(payload), 0, 0))
+        else:
+            units.extend(split_units(payload))
+    out = []
+    layout(build_tree(units), 0, width, out)
     return "\n".join(l for l in out if l.strip()) + "\n"
 
 
@@ -501,13 +528,25 @@ def insn_stream(dump):
         if a >= en:
             return None
         return "@%d" % o if (is_nop or a == st) else "@%d+%d" % (o, a - st)
-    out = []
-    for op, args in insns:
+    texts = []
+    for idx, (op, args) in enumerate(insns):
         def rebase(mm):
             r = locate(int(mm.group(1), 16))
             return r if r is not None else mm.group(0)
-        out.append(op + " " + re.sub(r"\b([0-9a-f]+) <[^>]*>", rebase, args))
-    return out
+        a = re.sub(r"\b([0-9a-f]+) <[^>]*>", rebase, args)
+        if "(%rip)" in a and "@" in a:
+            a = re.sub(r"-?0x[0-9a-f]+\(%rip\)", "(%rip)", a)
+        texts.append(op + " " + a)
+    dropped = [i for i, t in enumerate(texts) if t.strip() == "jmp @%d" % (i + 1)]
+    shift = []; d = 0; k = 0
+    for i in range(len(texts) + 1):
+        while k < len(dropped) and dropped[k] < i:
+            d += 1; k += 1
+        shift.append(d)
+    def renum(mm):
+        o = int(mm.group(1)); return "@%d%s" % (o - shift[min(o, len(texts))], mm.group(2) or "")
+    keep = set(range(len(texts))) - set(dropped)
+    return [re.sub(r"@(\d+)(\+\d+)?", renum, texts[i]) for i in range(len(texts)) if i in keep]
 
 
 def nonnop_sections_equal(da, db):
@@ -562,7 +601,7 @@ def objproof(paths, width):
             bad += 1; print("  OBJECT PROOF FAIL %s: the dumps agree but the object files differ (%d vs %d bytes)" % (os.path.relpath(f, ROOT), len(oa), len(ob)))
         else:
             proved += 1
-    print("object proof: %d translation units compile to byte-identical objects and objdump -s -d -r internals before and after the re-flow (-g0, __LINE__ pinned); %d differ only by gcc's -O0 brace-line nops (instruction streams and every other section identical); %d differ or refused; %d without a Makefile command" % (proved, nops, bad, skipped))
+    print("object proof: %d translation units compile to byte-identical objects and objdump -s -d -r internals before and after the re-flow (-g0, __LINE__ pinned); %d differ only by gcc's -O0 brace-line nops and jumps to the next instruction (instruction streams and every other section identical); %d differ or refused; %d without a Makefile command" % (proved, nops, bad, skipped))
     return 1 if bad else 0
 
 

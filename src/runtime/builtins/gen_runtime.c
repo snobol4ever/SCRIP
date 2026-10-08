@@ -14,91 +14,113 @@
 #include <stdio.h>
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern int core_icn_argtype_check(uint64_t lo, uint64_t hi, uint64_t code);
-tree_t      *g_root     = NULL;
+tree_t *g_root = NULL;
 unsigned long bb_rnd_seed = 12345UL;
-tree_t  *drive_node = NULL;
-DESCR_t  drive_val;
+tree_t *drive_node = NULL;
+DESCR_t drive_val;
 static const char g_scan_empty[1] = "";
-const char *scan_subj  = g_scan_empty;
+const char *scan_subj = g_scan_empty;
 long g_scan_subj_len = 0;
 const char *g_scan_subj_ptr = g_scan_empty;
 long rt_scan_subj_len(void);
 void rt_scan_subj_len_set(const char *p, long n);
-int         scan_pos   = 1;
-int         scan_depth = 0;
+int scan_pos = 1;
+int scan_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_scan_active(void)
-{
-    return (scan_depth > 0) || (scan_subj && scan_subj[0] != 0) || (scan_pos != 1);
-}
+int rt_scan_active(void) { return (scan_depth > 0) || (scan_subj && scan_subj[0] != 0) || (scan_pos != 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_scan_state_capture(void *prev) {
     ScanState *s = (ScanState *)prev;
     if (!s) s = (ScanState *)ct_zalloc(1, sizeof(ScanState));
     if (!s) return NULL;
-    s->subj = scan_subj; s->pos = scan_pos; s->depth = scan_depth; s->len = rt_scan_subj_len();
+    s->subj = scan_subj;
+    s->pos = scan_pos;
+    s->depth = scan_depth;
+    s->len = rt_scan_subj_len();
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_state_apply(void *saved) {
     ScanState *s = (ScanState *)saved;
     if (!s) return;
-    scan_subj = s->subj ? s->subj : g_scan_empty; scan_pos = s->pos; scan_depth = s->depth;
+    scan_subj = s->subj ? s->subj : g_scan_empty;
+    scan_pos = s->pos;
+    scan_depth = s->depth;
     rt_scan_subj_len_set(scan_subj, (s->subj && s->len >= 0) ? s->len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_scan_state_reset(void) {
-    scan_subj = g_scan_empty; scan_pos = 1; scan_depth = 0; rt_scan_subj_len_set(scan_subj, 0);
-}
+void rt_scan_state_reset(void) { scan_subj = g_scan_empty; scan_pos = 1; scan_depth = 0; rt_scan_subj_len_set(scan_subj, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 unsigned long rt_scan_state_size(void) { return (unsigned long)sizeof(ScanState); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_scan_subj_len(void) {
-    extern const char *scan_subj; if (!scan_subj) return -1;
+    extern const char *scan_subj;
+    if (!scan_subj) return -1;
     if (g_scan_subj_ptr == scan_subj && g_scan_subj_len >= 0) return g_scan_subj_len;
     fflush(stdout);
-    fprintf(stderr, "scrip: internal error: the scan subject's length was not carried (subject %p, cached %p len %ld) -- a subject was set without "
-                    "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)scan_subj, (const void *)g_scan_subj_ptr, g_scan_subj_len);
+    fprintf(stderr,
+        "scrip: internal error: the scan subject's length was not carried (subject %p, cached %p len %ld) -- a subject was set without "
+        "rt_scan_subj_len_set, or moved without its cache; measuring it would lose an embedded NUL\n", (const void *)scan_subj, (const void *)g_scan_subj_ptr, g_scan_subj_len);
     abort();
 }
 void rt_scan_subj_len_set(const char *p, long n) { g_scan_subj_ptr = p; g_scan_subj_len = n; }
 ScanSubjRegs rt_scan_enter(uint64_t lo, uint64_t hi) {
-    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); }
-    else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
+    if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); } else if (core_icn_argtype_check(lo, hi, 103)) { ScanSubjRegs z; z.ptr = 0; z.len = 0; return z; }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     scan_depth++;
     rt_gc_point(&sv, (const char **)0);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
     scan_subj = s;
-    scan_pos  = 1;
+    scan_pos = 1;
     uint64_t L;
-    if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = sv.s ? kw_cset_len(sv.s) : -1; L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
-    else L = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    g_scan_subj_ptr = s; g_scan_subj_len = (long)L;
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
+    if (IS_CSET_fn(sv)) {
+        extern int kw_cset_len(const char *);
+        int kn = sv.s ? kw_cset_len(sv.s) : -1;
+        L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
+    } else L = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    g_scan_subj_ptr = s;
+    g_scan_subj_len = (long)L;
+    ScanSubjRegs r;
+    r.ptr = (uint64_t)(uintptr_t)s;
+    r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *g_scan_needle_ptr = 0; long g_scan_needle_len = -1;
+const char *g_scan_needle_ptr = 0;
+long g_scan_needle_len = -1;
 ScanSubjRegs rt_scan_needle(uint64_t lo, uint64_t hi) {
-    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
     uint64_t L;
-    if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = sv.s ? kw_cset_len(sv.s) : -1; L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
-    else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    g_scan_needle_ptr = s; g_scan_needle_len = (long)L;
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
+    if (IS_CSET_fn(sv)) {
+        extern int kw_cset_len(const char *);
+        int kn = sv.s ? kw_cset_len(sv.s) : -1;
+        L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
+    } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    g_scan_needle_ptr = s;
+    g_scan_needle_len = (long)L;
+    ScanSubjRegs r;
+    r.ptr = (uint64_t)(uintptr_t)s;
+    r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_len) {
     if (scan_depth > 0) scan_depth--;
     scan_subj = outer_sigma ? (const char *)(uintptr_t)outer_sigma : "";
-    scan_pos  = (int)outer_delta + 1;
+    scan_pos = (int)outer_delta + 1;
     rt_scan_subj_len_set(scan_subj, outer_sigma ? (long)outer_len : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -111,23 +133,33 @@ ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
     scan_depth++;
     scan_subj = s;
     rt_scan_subj_len_set(s, n);
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = (uint64_t)n;
+    ScanSubjRegs r;
+    r.ptr = (uint64_t)(uintptr_t)s;
+    r.len = (uint64_t)n;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
-    extern const char *Σ; extern int Σlen;
+    extern const char *Σ;
+    extern int Σlen;
     extern void rt_cap_match_begin(void);
     extern void rt_dcap_lazy_init(void);
     rt_cap_match_begin();
     rt_dcap_lazy_init();
-    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
     uint64_t L = (sv.v == DT_S && sv.slen) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    Σ = s; Σlen = (int)L;
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
+    Σ = s;
+    Σlen = (int)L;
+    ScanSubjRegs r;
+    r.ptr = (uint64_t)(uintptr_t)s;
+    r.len = L;
     return r;
 }
 #if RT_DIAG
@@ -138,20 +170,35 @@ __attribute__((visibility("hidden"))) int g_repl_trace = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void c_rt_match_replace(const char *name, uint64_t sub_lo, uint64_t sub_hi, int64_t start, int64_t end, DESCR_t *replp) {
     extern char * rt_str_alloc(long n);
-    uint64_t w[2]; w[0] = sub_lo; w[1] = sub_hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    uint64_t w[2];
+    w[0] = sub_lo;
+    w[1] = sub_hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
-    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv); if (!s) s = "";
+    const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
+    if (!s) s = "";
     int64_t slen = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (int64_t)sv.slen : (int64_t)strlen(s);
     DESCR_t rv = replp ? *replp : sv;
     if (IS_INT_fn(rv) || IS_REAL_fn(rv)) rv = descr_to_str(rv);
-    const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv); if (!rs) rs = "";
+    const char *rs = (!replp || IS_NULL_fn(rv)) ? "" : VARVAL_fn(rv);
+    if (!rs) rs = "";
     int64_t rlen = (rv.v == DT_S && rv.slen != 0xFFFFFFFFu) ? (int64_t)rv.slen : (int64_t)strlen(rs);
 #if RT_DIAG
     int64_t raw_start = start, raw_end = end;
 #endif
-    if (start < 0) start = 0; if (start > slen) start = slen; if (end < start) end = start; if (end > slen) end = slen;
+    if (start < 0) start = 0;
+    if (start > slen) start = slen;
+    if (end < start) end = start;
+    if (end > slen) end = slen;
 #if RT_DIAG
-    { int _rpt = g_repl_trace; if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; } if (_rpt) fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start, (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen); }
+    {
+        int _rpt = g_repl_trace;
+        if (_rpt < 0) { const char *_e = getenv("SCRIP_REPL_TRACE"); _rpt = g_repl_trace = (_e && _e[0]) ? 1 : 0; }
+        if (_rpt)
+            fprintf(stderr, "[REPL] name=%s slen=%lld raw_start=%lld raw_end=%lld start=%lld end=%lld rs=\"%s\" rlen=%lld\n", name?name:"(null)", (long long)slen, (long long)raw_start,
+            (long long)raw_end, (long long)start, (long long)end, rs, (long long)rlen);
+    }
 #endif
     int64_t nlen = start + rlen + (slen - end);
     char *buf = rt_str_alloc((long)nlen);
@@ -181,11 +228,11 @@ DESCR_t rt_keyword_subject(void) { if (!scan_subj) return NULVCL; { long n = rt_
 DESCR_t rt_keyword_pos(void) { return INTVAL((int64_t)scan_pos); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long cvpos_of(DESCR_t v, long len, int *ok) {
-    long i; *ok = 1;
+    long i;
+    *ok = 1;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
-    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) { *ok = 0; return 0; } i = t; }
-    else { *ok = 0; return 0; }
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) { *ok = 0; return 0; } i = t; } else { *ok = 0; return 0; }
     if (i < -len || i > len + 1) { *ok = 0; return 0; }
     return (i > 0) ? i : (len + i + 1);
 }
@@ -193,15 +240,20 @@ static long cvpos_of(DESCR_t v, long len, int *ok) {
 int64_t rt_cvpos_pos(DESCR_t v, int64_t len) { int ok; long p = cvpos_of(v, (long)len, &ok); return ok ? (int64_t)p : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_pos_set_strict(DESCR_t v) {
-    extern int core_icn_error(int, DESCR_t); extern int core_icn_int_ok_d(DESCR_t); extern DESCR_t rt_keyword_pos_set(DESCR_t);
+    extern int core_icn_error(int, DESCR_t);
+    extern int core_icn_int_ok_d(DESCR_t);
+    extern DESCR_t rt_keyword_pos_set(DESCR_t);
     if (!core_icn_int_ok_d(v)) { core_icn_error(101, v); return FAILDESCR; }
     return rt_keyword_pos_set(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_pos_set(DESCR_t v) {
-    long len = scan_subj ? rt_scan_subj_len() : 0; int ok; long p = cvpos_of(v, len, &ok);
+    long len = scan_subj ? rt_scan_subj_len() : 0;
+    int ok;
+    long p = cvpos_of(v, len, &ok);
     if (!ok) return FAILDESCR;
-    scan_pos = (int)p; return INTVAL((int64_t)p);
+    scan_pos = (int)p;
+    return INTVAL((int64_t)p);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
@@ -210,22 +262,34 @@ static DESCR_t rsw_get(long kind, DESCR_t *vp, int64_t *spill) {
     if (kind == 3) { extern long g_random; return INTVAL((int64_t)g_random); }
     if (kind == 4) { extern long g_error; return INTVAL((int64_t)g_error); }
     if (kind == 6) { extern long g_dump; return INTVAL((int64_t)g_dump); }
-    fprintf(stderr, "[REVSWAP] FATAL: <-> read of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind); abort();
+    fprintf(stderr, "[REVSWAP] FATAL: <-> read of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind);
+    abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rsw_set(long kind, DESCR_t *vp, int64_t *spill, DESCR_t v) {
     if (kind == 0) { if (vp) *vp = v; return 1; }
-    if (kind == 1) { long len = spill ? (long)spill[1] : (scan_subj ? rt_scan_subj_len() : 0); int ok; long p = cvpos_of(v, len, &ok); if (!ok) return 0; if (spill) spill[0] = (int64_t)(p - 1); else scan_pos = (int)p; return 1; }
+    if (kind == 1) {
+        long len = spill ? (long)spill[1] : (scan_subj ? rt_scan_subj_len() : 0);
+        int ok;
+        long p = cvpos_of(v, len, &ok);
+        if (!ok) return 0;
+        if (spill) spill[0] = (int64_t)(p - 1);
+        else scan_pos = (int)p;
+        return 1;
+    }
     extern DESCR_t rt_keyword_random_set(DESCR_t), rt_keyword_error_set(DESCR_t), rt_keyword_dump_set(DESCR_t);
     if (kind == 3) return !IS_FAIL_fn(rt_keyword_random_set(v));
     if (kind == 4) return !IS_FAIL_fn(rt_keyword_error_set(v));
     if (kind == 6) return !IS_FAIL_fn(rt_keyword_dump_set(v));
-    fprintf(stderr, "[REVSWAP] FATAL: <-> write of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind); abort();
+    fprintf(stderr, "[REVSWAP] FATAL: <-> write of unimplemented keyword kind %ld (only plain vars and &pos are wired; add the kind to rsw_get/rsw_set)\n", kind);
+    abort();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_rev_swap_fwd(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR_t *save, int64_t *spill) {
-    DESCR_t old_l = rsw_get(lkind, lp, spill); DESCR_t old_r = rsw_get(rkind, rp, spill);
-    save[0] = old_l; save[1] = old_r;
+    DESCR_t old_l = rsw_get(lkind, lp, spill);
+    DESCR_t old_r = rsw_get(rkind, rp, spill);
+    save[0] = old_l;
+    save[1] = old_r;
     if (!rsw_set(lkind, lp, spill, old_r)) return FAILDESCR;
     if (!rsw_set(rkind, rp, spill, old_l)) return FAILDESCR;
     return old_r;
@@ -238,27 +302,47 @@ DESCR_t rt_rev_swap_undo(long lkind, DESCR_t *lp, long rkind, DESCR_t *rp, DESCR
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_keyword_subject_set_strict(uint64_t lo, uint64_t hi) {
-    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    { extern int rt_big_is(DESCR_t); extern int core_icn_error(int, DESCR_t); extern ScanSubjRegs rt_keyword_subject_set(uint64_t, uint64_t);
-      int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
-      if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { core_icn_error(103, sv); ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; } }
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
+    {
+        extern int rt_big_is(DESCR_t);
+        extern int core_icn_error(int, DESCR_t);
+        extern ScanSubjRegs rt_keyword_subject_set(uint64_t, uint64_t);
+        int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
+        if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { core_icn_error(103, sv); ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; }
+    }
     return rt_keyword_subject_set(lo, hi);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ScanSubjRegs rt_keyword_subject_set(uint64_t lo, uint64_t hi) {
-    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
-    { extern int rt_big_is(DESCR_t);
-      int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
-      if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; } }
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
+    {
+        extern int rt_big_is(DESCR_t);
+        int strish = (sv.v == DT_S) || (sv.v == DT_SNUL && sv.s);
+        if (!strish && !IS_INT_fn(sv) && !IS_REAL_fn(sv) && !rt_big_is(sv)) { ScanSubjRegs r; r.ptr = 0; r.len = 0; return r; }
+    }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str_fracdigit(sv);
     if (sv.v == DT_BIG) { extern char *rt_big_str(DESCR_t); sv = STRVAL(rt_big_str(sv)); }
     const char *s = sv.s ? sv.s : "";
     uint64_t L;
-    if (IS_CSET_fn(sv)) { extern int kw_cset_len(const char *); int kn = kw_cset_len(s); L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s); }
-    else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
-    scan_subj = s; scan_pos = 1;
+    if (IS_CSET_fn(sv)) {
+        extern int kw_cset_len(const char *);
+        int kn = kw_cset_len(s);
+        L = (kn >= 0) ? (uint64_t)kn : (uint64_t)strlen(s);
+    } else L = (sv.v == DT_S && sv.slen != 0xFFFFFFFFu) ? (uint64_t)sv.slen : (uint64_t)strlen(s);
+    scan_subj = s;
+    scan_pos = 1;
     rt_scan_subj_len_set(s, (long)L);
-    ScanSubjRegs r; r.ptr = (uint64_t)(uintptr_t)s; r.len = L;
+    ScanSubjRegs r;
+    r.ptr = (uint64_t)(uintptr_t)s;
+    r.len = L;
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -267,50 +351,59 @@ DESCR_t rt_keyword_random_set(DESCR_t v) {
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
-    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
-    else return FAILDESCR;
-    g_random = i; return INTVAL((int64_t)i);
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
+    g_random = i;
+    return INTVAL((int64_t)i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_error_set(DESCR_t v) { extern long g_error;
+DESCR_t rt_keyword_error_set(DESCR_t v) {
+    extern long g_error;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
-    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
-    else return FAILDESCR;
-    g_error = i; return INTVAL((int64_t)i); }
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
+    g_error = i;
+    return INTVAL((int64_t)i);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-DESCR_t rt_keyword_trace_set(DESCR_t v) { extern long g_trace;
+DESCR_t rt_keyword_trace_set(DESCR_t v) {
+    extern long g_trace;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
-    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
-    else return FAILDESCR;
-    g_trace = i; { extern void rt_trace_all_set(int on); rt_trace_all_set(i != 0); } return INTVAL((int64_t)i); }
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
+    g_trace = i;
+    { extern void rt_trace_all_set(int on); rt_trace_all_set(i != 0); }
+    return INTVAL((int64_t)i);
+}
 #else
-DESCR_t rt_keyword_trace_set(DESCR_t v) { extern long g_trace;
+DESCR_t rt_keyword_trace_set(DESCR_t v) {
+    extern long g_trace;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
-    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
-    else return FAILDESCR;
-    g_trace = i; return INTVAL((int64_t)i); }
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
+    g_trace = i;
+    return INTVAL((int64_t)i);
+}
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_keyword_dump_set(DESCR_t v)  { extern long g_dump;
+DESCR_t rt_keyword_dump_set(DESCR_t v) {
+    extern long g_dump;
     long i;
     if (v.v == DT_I) i = (long)v.i;
     else if (v.v == DT_R) i = (long)v.r;
-    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; }
-    else return FAILDESCR;
-    g_dump  = i; return INTVAL((int64_t)i); }
+    else if (v.v == DT_S && v.s) { char *end; long t = strtol(v.s, &end, 10); if (end == v.s) return FAILDESCR; i = t; } else return FAILDESCR;
+    g_dump = i;
+    return INTVAL((int64_t)i);
+}
 #include "../../driver/driver_private.h"
 #include <time.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gen_gc_roots(void)
-{
-    extern void rt_gc_visit_descr(DESCR_t *d); extern void rt_gc_visit_raw(const char **loc);
+void gen_gc_roots(void) {
+    extern void rt_gc_visit_descr(DESCR_t *d);
+    extern void rt_gc_visit_raw(const char **loc);
     rt_gc_visit_descr(&drive_val);
     if (g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
     if (g_scan_needle_ptr) rt_gc_visit_raw(&g_scan_needle_ptr);
@@ -318,17 +411,10 @@ void gen_gc_roots(void)
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gen_gc_visit_scan_state(void *p)
-{
-    extern void rt_gc_visit_raw(const char **loc);
-    ScanState *s = (ScanState *)p;
-    if (!s) return;
-    if (s->subj) rt_gc_visit_raw(&s->subj);
-}
+void gen_gc_visit_scan_state(void *p) { extern void rt_gc_visit_raw(const char **loc); ScanState *s = (ScanState *)p; if (!s) return; if (s->subj) rt_gc_visit_raw(&s->subj); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-static void gen_audit_one(const char **loc, long *hp, long *un)
-{
+static void gen_audit_one(const char **loc, long *hp, long *un) {
     extern int rt_gc_ptr_in_heap_slot(const char *);
     extern int rt_gc_slot_registered(const void *);
     if (!*loc || !rt_gc_ptr_in_heap_slot(*loc)) return;
@@ -336,18 +422,9 @@ static void gen_audit_one(const char **loc, long *hp, long *un)
     if (!rt_gc_slot_registered((const void *)loc)) (*un)++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gen_gc_audit_scan_state(void *p, long *hp, long *un)
-{
-    ScanState *s = (ScanState *)p;
-    if (!s) return;
-    gen_audit_one(&s->subj, hp, un);
-}
+void gen_gc_audit_scan_state(void *p, long *hp, long *un) { ScanState *s = (ScanState *)p; if (!s) return; gen_audit_one(&s->subj, hp, un); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void gen_gc_audit_scan_slots(long *hp, long *un)
-{
-    extern void rt_coexpr_gc_audit_scan_states(long *, long *);
-    rt_coexpr_gc_audit_scan_states(hp, un);
-}
+void gen_gc_audit_scan_slots(long *hp, long *un) { extern void rt_coexpr_gc_audit_scan_states(long *, long *); rt_coexpr_gc_audit_scan_states(hp, un); }
 #else
 void gen_gc_audit_scan_state(void *p, long *hp, long *un) { (void)p; (void)hp; (void)un; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

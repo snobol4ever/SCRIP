@@ -11,10 +11,7 @@
 static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
 int kw_cset_len(const char *ptr);
 static inline size_t descr_slen(DESCR_t d) {
-    if (d.v == DT_S) {
-        if (d.slen == 0xFFFFFFFFu) { if (!d.s) return 0; int kl = kw_cset_len(d.s); return kl >= 0 ? (size_t)kl : __builtin_strlen(d.s); }
-        return (size_t)d.slen;
-    }
+    if (d.v == DT_S) { if (d.slen == 0xFFFFFFFFu) { if (!d.s) return 0; int kl = kw_cset_len(d.s); return kl >= 0 ? (size_t)kl : __builtin_strlen(d.s); } return (size_t)d.slen; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -23,21 +20,21 @@ static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
     if (d.v != DT_S || !d.s || !d.slen || d.slen == 0xFFFFFFFFu) return d.s ? d.s : "";
     return d.s[d.slen] ? rt_cstr_materialize(d) : d.s;
 }
-#define NULVCL    ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
+#define NULVCL ((DESCR_t){ .v = DT_SNUL, .slen = 0, .s = "" })
 #define STRVAL(s_) __extension__({ char *_sv_ = (char *)(s_); (DESCR_t){ .v = DT_S, .slen = descr_cstrlen(_sv_), .s = _sv_ }; })
 #define BSTRVAL(s_, len_) ((DESCR_t){ .v = DT_S, .slen = (uint32_t)(len_), .s = (s_) })
-#define INTVAL(i_) ((DESCR_t){ .v = DT_I,  .i = (i_) })
+#define INTVAL(i_) ((DESCR_t){ .v = DT_I, .i = (i_) })
 #define REALVAL(r_)((DESCR_t){ .v = DT_R, .r = (r_) })
 #define CSETVAL(s_) ((DESCR_t){ .v = DT_S, .slen = 0xFFFFFFFFu, .s = (s_) })
 #define NAMEPTR(dp_) ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void*)(dp_) })
-#define NAMEVAL(s_)  ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
+#define NAMEVAL(s_) ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int IS_NULL_fn(DESCR_t v)  { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
-static inline int IS_STR_fn(DESCR_t v)   { return v.v == DT_S || v.v == DT_SNUL; }
-static inline int IS_INT_fn(DESCR_t v)   { return v.v == DT_I; }
-static inline int IS_REAL_fn(DESCR_t v)  { return v.v == DT_R; }
-static inline int IS_CSET_fn(DESCR_t v)  { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
-static inline int IS_DATA_fn(DESCR_t v)  { return v.v == DT_DATA; }
+static inline int IS_NULL_fn(DESCR_t v) { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
+static inline int IS_STR_fn(DESCR_t v) { return v.v == DT_S || v.v == DT_SNUL; }
+static inline int IS_INT_fn(DESCR_t v) { return v.v == DT_I; }
+static inline int IS_REAL_fn(DESCR_t v) { return v.v == DT_R; }
+static inline int IS_CSET_fn(DESCR_t v) { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
+static inline int IS_DATA_fn(DESCR_t v) { return v.v == DT_DATA; }
 char *VARVAL_fn(DESCR_t v);
 int lex_cmp_pair(DESCR_t a, DESCR_t b);
 void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
@@ -70,38 +67,20 @@ DESCR_t CONCAT_fn(DESCR_t a, DESCR_t b);
 char *STRDUP_fn(const char *s);
 int64_t size(const char *s);
 const char *datatype(DESCR_t v);
-typedef struct _TREEBLK_t {
-    char   *tag;
-    DESCR_t  val;
-    int     n;
-    int     cap;
-    struct _TREEBLK_t **c;
-} TREEBLK_t;
+typedef struct _TREEBLK_t { char *tag; DESCR_t val; int n; int cap; struct _TREEBLK_t **c; } TREEBLK_t;
 TREEBLK_t *expr_new(const char *tag, DESCR_t val);
 TREEBLK_t *tree_new0(const char *tag);
-void  tree_append(TREEBLK_t *x, TREEBLK_t *y);
-void  tree_prepend(TREEBLK_t *x, TREEBLK_t *y);
-void  tree_insert(TREEBLK_t *x, TREEBLK_t *y, int place);
+void tree_append(TREEBLK_t *x, TREEBLK_t *y);
+void tree_prepend(TREEBLK_t *x, TREEBLK_t *y);
+void tree_insert(TREEBLK_t *x, TREEBLK_t *y, int place);
 TREEBLK_t *tree_remove(TREEBLK_t *x, int place);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const char *t(TREEBLK_t *x) { return x ? x->tag : ""; }
-static inline DESCR_t      v(TREEBLK_t *x) { return x ? x->val  : NULVCL; }
-static inline int         n(TREEBLK_t *x) { return x ? x->n    : 0; }
+static inline DESCR_t v(TREEBLK_t *x) { return x ? x->val : NULVCL; }
+static inline int n(TREEBLK_t *x) { return x ? x->n : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline TREEBLK_t       *c_i(TREEBLK_t *x, int i) {
-    if (!x || i < 1 || i > x->n) return NULL;
-    return x->c[i-1];
-}
-typedef struct _ARBLK_t {
-    int     lo, hi;
-    int     ndim;
-    int     lo2, hi2;
-    int     proto_bare;
-    const char *proto;
-    DESCR_t *data;
-    long    id;
-    long    dumpno;
-} ARBLK_t;
+static inline TREEBLK_t *c_i(TREEBLK_t *x, int i) { if (!x || i < 1 || i > x->n) return NULL; return x->c[i-1]; }
+typedef struct _ARBLK_t { int lo, hi; int ndim; int lo2, hi2; int proto_bare; const char *proto; DESCR_t *data; long id; long dumpno; } ARBLK_t;
 long rt_sno_dumpno_next(void);
 void rt_sno_dumpno_undo(void);
 long rt_agg_serial_list(void);
@@ -109,104 +88,90 @@ long rt_agg_serial_table(void);
 long rt_agg_serial_set(void);
 ARBLK_t *array_new(int lo, int hi);
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2);
-DESCR_t    array_get(ARBLK_t *a, int i);
-void      array_set(ARBLK_t *a, int i, DESCR_t v);
-DESCR_t    array_get2(ARBLK_t *a, int i, int j);
-void      array_set2(ARBLK_t *a, int i, int j, DESCR_t v);
-typedef struct _TBBLK_tEntry {
-    DESCR_t            key_descr;
-    DESCR_t            val;
-    unsigned long long hkey;
-} TBPAIR_t;
+DESCR_t array_get(ARBLK_t *a, int i);
+void array_set(ARBLK_t *a, int i, DESCR_t v);
+DESCR_t array_get2(ARBLK_t *a, int i, int j);
+void array_set2(ARBLK_t *a, int i, int j, DESCR_t v);
+typedef struct _TBBLK_tEntry { DESCR_t key_descr; DESCR_t val; unsigned long long hkey; } TBPAIR_t;
 typedef struct _TBBUCK_t { unsigned len, cap; TBPAIR_t ent[]; } TBBUCK_t;
 #define TABLE_BUCKETS 256
 typedef struct _TBBLK_t {
-    TBBUCK_t     **buckets;
-    unsigned       nbuck;
-    int            size;
-    int            init, inc;
-    int            is_set;
-    DESCR_t        dflt;
-    long           id;
-    DESCR_t       *ord;
-    unsigned       ord_len, ord_cap;
-    unsigned long  icn_mask;
-    long           dumpno;
-    int64_t        gen_idx, gen_pos;
-    unsigned       ord_dead;
-    unsigned long  gen_mask, gen_lseg, gen_lslot, gen_lhn;
-    unsigned       gen_lseq;
-    int            gen_have;
-    int            null_one;
+    TBBUCK_t **buckets;
+    unsigned nbuck;
+    int size;
+    int init, inc;
+    int is_set;
+    DESCR_t dflt;
+    long id;
+    DESCR_t *ord;
+    unsigned ord_len, ord_cap;
+    unsigned long icn_mask;
+    long dumpno;
+    int64_t gen_idx, gen_pos;
+    unsigned ord_dead;
+    unsigned long gen_mask, gen_lseg, gen_lslot, gen_lhn;
+    unsigned gen_lseq;
+    int gen_have;
+    int null_one;
 } TBBLK_t;
-#define TBL_FOREACH(t_, e_)            for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != (TBPAIR_t *)0; _ts++)
+#define TBL_FOREACH(t_, e_) for (unsigned _tb = 0; _tb < (t_)->nbuck; _tb++) if ((t_)->buckets[_tb]) for (unsigned _ts = 0; _ts < (t_)->buckets[_tb]->len && ((e_) = &(t_)->buckets[_tb]->ent[_ts]) != \
+    (TBPAIR_t *)0; _ts++)
 TBBLK_t *table_new(void);
 TBBLK_t *set_new(void);
 TBBLK_t *table_new_args(int init, int inc);
 DESCR_t agg_prototype(DESCR_t v);
-int  tbl_key_equal(DESCR_t a, DESCR_t b);
+int tbl_key_equal(DESCR_t a, DESCR_t b);
 long tbl_key_serial(DESCR_t k);
-TBPAIR_t  *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
-int        table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out);
-TBPAIR_t  *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
-DESCR_t    table_get_d(TBBLK_t *tbl, DESCR_t k);
-DESCR_t    table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
-int        table_has_d(TBBLK_t *tbl, DESCR_t k);
-int        table_delete_d(TBBLK_t *tbl, DESCR_t k);
-void       table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val);
-void       table_copy_in_order(TBBLK_t *dst, TBBLK_t *src);
-TBBLK_t  *set_union(TBBLK_t *x, TBBLK_t *y);
-TBBLK_t  *set_diff(TBBLK_t *x, TBBLK_t *y);
-TBBLK_t  *set_inter(TBBLK_t *x, TBBLK_t *y);
-typedef struct _DATINST_tType {
-    char   *name;
-    int     nfields;
-    char  **fields;
-    struct _DATINST_tType *next;
-    long    serial_next;
-} DATBLK_t;
-typedef struct _DATINST_t {
-    DATBLK_t *type;
-    DESCR_t   *fields;
-    long      id;
-    long      dumpno;
-} DATINST_t;
+TBPAIR_t *table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
+int table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out);
+TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k);
+DESCR_t table_get_d(TBBLK_t *tbl, DESCR_t k);
+DESCR_t table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found);
+int table_has_d(TBBLK_t *tbl, DESCR_t k);
+int table_delete_d(TBBLK_t *tbl, DESCR_t k);
+void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val);
+void table_copy_in_order(TBBLK_t *dst, TBBLK_t *src);
+TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y);
+TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y);
+TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y);
+typedef struct _DATINST_tType { char *name; int nfields; char **fields; struct _DATINST_tType *next; long serial_next; } DATBLK_t;
+typedef struct _DATINST_t { DATBLK_t *type; DESCR_t *fields; long id; long dumpno; } DATINST_t;
 void DEFDAT_fn(const char *spec);
 DESCR_t DATCON_fn(const char *type_name, ...);
 DESCR_t FIELD_GET_fn(DESCR_t obj, const char *field);
-void    FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
-void   FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
-DESCR_t  NV_GET_fn(const char *name);
-DESCR_t  NV_SET_fn(const char *name, DESCR_t val);
-void    NV_CLEAR_fn(const char **except, int nexcept);
+void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
+void FIELD_SET_fn(DESCR_t obj, const char *field, DESCR_t val);
+DESCR_t NV_GET_fn(const char *name);
+DESCR_t NV_SET_fn(const char *name, DESCR_t val);
+void NV_CLEAR_fn(const char **except, int nexcept);
 typedef struct { const char *name; DESCR_t val; } NvPair;
-int     nv_snapshot(NvPair **out);
-void    nv_restore(const NvPair *pairs, int n);
-DESCR_t  INDR_GET_fn(const char *name);
-void    INDR_SET_fn(const char *name, DESCR_t val);
-DESCR_t  NAME_fn(const char *varname);
-int      ASGNIC_fn(const char *kw_name, DESCR_t val);
-void    NAME_pop(void);
-void    NAME_commit(void);
-void   PUSH_fn(DESCR_t v);
+int nv_snapshot(NvPair **out);
+void nv_restore(const NvPair *pairs, int n);
+DESCR_t INDR_GET_fn(const char *name);
+void INDR_SET_fn(const char *name, DESCR_t val);
+DESCR_t NAME_fn(const char *varname);
+int ASGNIC_fn(const char *kw_name, DESCR_t val);
+void NAME_pop(void);
+void NAME_commit(void);
+void PUSH_fn(DESCR_t v);
 DESCR_t POP_fn(void);
 DESCR_t TOP_fn(void);
-int    STACK_DEPTH_fn(void);
+int STACK_DEPTH_fn(void);
 typedef DESCR_t (*FNCPTR_t)(DESCR_t *args, int nargs);
-void    DEFINE_fn(const char *spec, FNCPTR_t fn);
-void    DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label);
-void    register_fn_alias(const char *newname, const char *oldname);
-int     core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out);
-DESCR_t  APPLY_fn(const char *name, DESCR_t *args, int nargs);
-int     FNCEX_fn(const char *name);
-int         FUNC_NPARAMS_fn(const char *fname);
-int         FUNC_NLOCALS_fn(const char *fname);
+void DEFINE_fn(const char *spec, FNCPTR_t fn);
+void DEFINE_fn_entry(const char *spec, FNCPTR_t fn, const char *entry_label);
+void register_fn_alias(const char *newname, const char *oldname);
+int core_call_registered_fn(const char *name, DESCR_t *args, int nargs, DESCR_t *out);
+DESCR_t APPLY_fn(const char *name, DESCR_t *args, int nargs);
+int FNCEX_fn(const char *name);
+int FUNC_NPARAMS_fn(const char *fname);
+int FUNC_NLOCALS_fn(const char *fname);
 const char *FUNC_PARAM_fn(const char *fname, int i);
 const char *FUNC_LOCAL_fn(const char *fname, int i);
 const char *FUNC_ENTRY_fn(const char *fname);
-int     FUNC_IS_ENTRY_LABEL(const char *label);
-#define FRETURN  4
-#define NRETURN  5
+int FUNC_IS_ENTRY_LABEL(const char *label);
+#define FRETURN 4
+#define NRETURN 5
 DESCR_t SIZE_fn(DESCR_t s);
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n);
 DESCR_t REPLACE_fn(DESCR_t s, DESCR_t from, DESCR_t to);
@@ -235,17 +200,17 @@ DESCR_t DIVIDE_fn(DESCR_t a, DESCR_t b);
 DESCR_t POWER_fn(DESCR_t a, DESCR_t b);
 DESCR_t neg(DESCR_t a);
 DESCR_t pos(DESCR_t a);
-void   output_val(DESCR_t v);
+void output_val(DESCR_t v);
 DESCR_t input_read(void);
 DESCR_t terminal_read(void);
-void   output_str(const char *s);
+void output_str(const char *s);
 extern int monitor_fd;
 extern int g_monitor_bin;
 extern int monitor_quiet_depth;
 void comm_stno(int n);
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno);
 void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook);
-int  comm_var_active(void);
+int comm_var_active(void);
 const char * stmt_src_get_file(void);
 void mon_emit_label_bin(int64_t stno);
 void sno_trace_value(const char *name, DESCR_t val);
@@ -254,14 +219,19 @@ void sno_trace_return(const char *fname, DESCR_t retval);
 void rt_trace_return_wire(const char *name, DESCR_t retval, DESCR_t wireval);
 void comm_call(const char *fname);
 void comm_return(const char *fname, DESCR_t retval);
-int  trace_is_active(const char *name);
+int trace_is_active(const char *name);
 extern long g_trace_budget;
 void rt_trace_stmt(long line);
 void rt_trace_call(const char *name, DESCR_t *args, int nargs);
 void rt_trace_return(const char *name, DESCR_t retval);
 void rt_trace_value(const char *name, DESCR_t val);
 void rt_trace_value_sigil(const char *name, DESCR_t val, int hook);
-extern int g_comm_dbg; extern int trace_set_n; extern int monitor_fd; extern long g_trace; extern int64_t kw_trace; extern int64_t kw_ftrace;
+extern int g_comm_dbg;
+extern int trace_set_n;
+extern int monitor_fd;
+extern long g_trace;
+extern int64_t kw_trace;
+extern int64_t kw_ftrace;
 #if RT_DIAG
 #define rt_trace_layer_idle() (g_comm_dbg == 0 && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0 && kw_ftrace <= 0 && g_trace == 0)
 #else
@@ -274,7 +244,7 @@ void rt_trace_resume_hook(const char *pname, void *h);
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno);
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno);
 void rt_trace_all_set(int on);
-int  rt_proc_is_defined(const char *name);
+int rt_proc_is_defined(const char *name);
 void rt_trace_call_hook(const char *fname);
 void rt_trace_fail_hook(const char *fname);
 void rt_trace_call_hook_f(const char *fname, int np, void *base);
@@ -288,9 +258,9 @@ void *core_icn_bi_mark(void);
 void core_icn_bi_reset(void *mark);
 void core_icn_traceback(void);
 void core_icn_display_image(FILE *fp, DESCR_t v);
-int  core_icn_act_np(int lv);
+int core_icn_act_np(int lv);
 DESCR_t *core_icn_act_arg(int lv, int k);
-int  core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
+int core_icn_builtin_argcheck(const char *fn, DESCR_t *args, int nargs, int strict);
 void rt_trace_return_hook(const char *fname, DESCR_t retval);
 void rt_trace_gen_fail_hook(const char *fname, void *h);
 extern int64_t kw_fullscan;
@@ -304,41 +274,21 @@ extern int64_t kw_trace;
 extern int64_t kw_errlimit;
 extern int64_t kw_code;
 extern int64_t kw_fnclevel;
-extern char    kw_rtntype[16];
+extern char kw_rtntype[16];
 #include <setjmp.h>
 void core_runtime_error(int code, const char *msg);
 extern int g_kw_ctx;
 extern jmp_buf g_core_err_jmp;
-extern int     g_core_err_active;
+extern int g_core_err_active;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int core_err_is_terminal(int code) {
-    switch (code) {
-        case 20: case 21: case 22: case 23:
-        case 26: case 27: case 29: case 30:
-        case 31: case 38: case 39:
-        case 242:
-            return 1;
-        default: return 0;
-    }
+    switch (code) { case 20: case 21: case 22: case 23: case 26: case 27: case 29: case 30: case 31: case 38: case 39: case 242: return 1; default: return 0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_survives_errlimit(int code) {
-    switch (code) {
-        case 38:
-        case 242:
-            return 0;
-        default: return 1;
-    }
-}
+static inline int core_err_survives_errlimit(int code) { switch (code) { case 38: case 242: return 0; default: return 1; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int core_err_is_fatal(int code) {
-    switch (code) {
-        case 19: case 24: case 25: case 35:
-            return 1;
-        default: return 0;
-    }
-}
+static inline int core_err_is_fatal(int code) { switch (code) { case 19: case 24: case 25: case 35: return 1; default: return 0; } }
 extern char ucase[27];
 extern char lcase[27];
 extern char alphabet[257];
@@ -371,12 +321,8 @@ DESCR_t pat_ref(const char *name);
 DESCR_t pat_assign_imm(DESCR_t child, DESCR_t var);
 DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
 DESCR_t pat_assign_callcap(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs);
-DESCR_t pat_assign_callcap_named(DESCR_t child, const char *fnc_name,
-                                  DESCR_t *args, int nargs,
-                                  char **arg_names, int n_arg_names);
-DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name,
-                                      DESCR_t *args, int nargs,
-                                      char **arg_names, int n_arg_names);
+DESCR_t pat_assign_callcap_named(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names);
+DESCR_t pat_assign_callcap_named_imm(DESCR_t child, const char *fnc_name, DESCR_t *args, int nargs, char **arg_names, int n_arg_names);
 DESCR_t var_as_pattern(DESCR_t v);
 DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 DESCR_t subscript_get(DESCR_t arr, DESCR_t idx);
@@ -405,12 +351,12 @@ const char *NV_name_from_ptr(const DESCR_t *ptr);
 extern DESCR_t (*g_eval_str_hook)(const char *s);
 DESCR_t *array_ptr(ARBLK_t *a, int i);
 extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);
-int    subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
+int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);
-int    subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
-int    val_stack_depth(void);
-void   register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args);
+int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
+int val_stack_depth(void);
+void register_fn(const char *name, DESCR_t (*fn)(DESCR_t*, int), int min_args, int max_args);
 int64_t rt_time_ns(void);
 DESCR_t EVAL_fn(DESCR_t expr);
 DESCR_t EXPVAL_fn(DESCR_t expr_d);
@@ -422,12 +368,12 @@ DESCR_t opsyn(DESCR_t newname, DESCR_t oldname, DESCR_t type);
 static inline DESCR_t opsyn2(DESCR_t a, DESCR_t b) { return opsyn(a, b, NULVCL); }
 DESCR_t sort_fn(DESCR_t arr, DESCR_t col);
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col);
-void    core_set_label_exists_hook(int (*fn)(const char *));
+void core_set_label_exists_hook(int (*fn)(const char *));
 const char *setexit_label_get(char *buf, size_t bufsz);
-void    sno_setexit_fire_on_end(void);
-void    sno_setexit_resume(const char *which);
+void sno_setexit_fire_on_end(void);
+void sno_setexit_resume(const char *which);
 #define TABLE_VAL(tbl_) ((DESCR_t){ .v = DT_T, .tbl = (tbl_) })
-#define ARRAY_VAL(a_)   ((DESCR_t){ .v = DT_A, .arr = (a_)   })
+#define ARRAY_VAL(a_) ((DESCR_t){ .v = DT_A, .arr = (a_) })
 #endif
 void indirect_goto(const char *varname);
 extern int _x4_pending_parent_frame;

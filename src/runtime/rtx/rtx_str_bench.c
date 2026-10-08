@@ -24,15 +24,13 @@ int main(int argc, char **argv) {
     int reps = (argc > 2) ? atoi(argv[2]) : 7;
     int only = (argc > 3) ? atoi(argv[3]) : -1;
     const char *arm = getenv("SCRIP_RTX_STR");
-    struct { const char *name; uint32_t al, bl; } cases[] = {
-        { "tiny   3+3",   3,  3 }, { "small  8+8",   8,  8 }, { "token 12+7",  12,  7 },
-        { "mid   24+24", 24, 24 }, { "big   64+64", 64, 64 },
-    };
+    struct { const char *name; uint32_t al, bl; } cases[] = { { "tiny   3+3", 3, 3 }, { "small  8+8", 8, 8 }, { "token 12+7", 12, 7 }, { "mid   24+24", 24, 24 }, { "big   64+64", 64, 64 }, };
     printf("# RTX-3 str_concat_d A/B  arm=SCRIP_RTX_STR=%s  n=%ld reps=%d  (min ns/concat)\n", arm ? arm : "default(1)", n, reps);
     for (unsigned c = 0; c < sizeof cases / sizeof cases[0]; c++) {
         if (only >= 0 && (int)c != only) continue;
         DESCR_t a = S(A64, cases[c].al), b = S(B64, cases[c].bl);
-        double best = 1e30; int gc0 = g_gc_pending, gcs = 0;
+        double best = 1e30;
+        int gc0 = g_gc_pending, gcs = 0;
         for (int r = 0; r < reps; r++) { double d = run(a, b, n); if (d < best) best = d; if (g_gc_pending != gc0) gcs++; }
         printf("%-12s  %8.2f ns/concat%s\n", cases[c].name, best / (double)n, gcs ? "   [!! COLLECTION OBSERVED — NOT COMPARABLE]" : "");
     }

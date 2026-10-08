@@ -75,7 +75,7 @@ _HEAD_KEYWORDS = {"return", "else", "do", "while", "if", "case", "goto", "sizeof
 
 
 def is_declaration(line, upto):
-    head = line[:upto]
+    head = re.split(r"[;{}]", line[:upto])[-1]
     if not head.strip():
         return False
     m = _DECL_HEAD.match(head)

@@ -21,10 +21,10 @@ _Static_assert(PL_TR_BALL_OFF >= 8, "the trail top word owns offset 0 of the hea
 _Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)134217728, "rtx_plunify.s spells this arena size as the literal mask -33554432");
 _Static_assert(PL_TR_BALL_OFF == 8, "rtx_plunify.s spells this offset as the literal 8");
 _Static_assert(PL_TR_OCHECK_OFF == 24 && PL_TR_HEADER_BYTES >= PL_TR_OCHECK_OFF + 8, "the occurs_check mode word (0 false, 1 true, 2 error): rtx_plunify.s and bb_unify_value.cpp read offset 24");
-_Static_assert(PL_TR_WSLOT_OFF != PL_TR_BALL_OFF && PL_TR_WSLOT_OFF >= 8 && PL_TR_HEADER_BYTES >= PL_TR_WSLOT_OFF + 8, "the writer's slot-vector word must fit inside the trail header, apart from the top word and the ball (the cfo's condition c)");
+_Static_assert(PL_TR_WSLOT_OFF != PL_TR_BALL_OFF && PL_TR_WSLOT_OFF >= 8 && PL_TR_HEADER_BYTES >= PL_TR_WSLOT_OFF + 8,
+    "the writer's slot-vector word must fit inside the trail header, apart from the top word and the ball (the cfo's condition c)");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void pl_tr_gc_root_ball(const char *base)
-{
+void pl_tr_gc_root_ball(const char *base) {
     extern void rt_gc_visit_raw(const char **loc);
     void **slot = pl_tr_ball_slot(base);
     if (*slot) rt_gc_visit_raw((const char **)slot);
@@ -33,14 +33,11 @@ void pl_tr_gc_root_ball(const char *base)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_tr_refuse(const char *tr) {
     unsigned long used = (unsigned long)((uintptr_t)tr & (PL_TR_ARENA_BYTES - 1)) / PL_TR_ENTRY_BYTES;
-    fprintf(stderr, "scrip: prolog: trail arena exhausted after %lu conditional bindings (PL_TR_ARENA_LG2=%d, %lu MB) -- REFUSE rc=2, not a wrong answer\n",
-            used, (int)PL_TR_ARENA_LG2, (unsigned long)(PL_TR_ARENA_BYTES >> 20));
+    fprintf(stderr, "scrip: prolog: trail arena exhausted after %lu conditional bindings (PL_TR_ARENA_LG2=%d, %lu MB) -- REFUSE rc=2, not a wrong answer\n", used, (int)PL_TR_ARENA_LG2,
+        (unsigned long)(PL_TR_ARENA_BYTES >> 20));
     exit(2);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_pl_tr_gc_sync(const char *tr) { *(const char **)pl_tr_base_of(tr) = tr; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-char *rt_pl_tr_unwind_to(char *tr, char *mark) {
-    while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; *e->cell = e->old; } }
-    return tr;
-}
+char *rt_pl_tr_unwind_to(char *tr, char *mark) { while (tr > mark) { tr -= PL_TR_ENTRY_BYTES; { pl_tr_entry_t *e = (pl_tr_entry_t *)tr; *e->cell = e->old; } } return tr; }

@@ -22,20 +22,21 @@ static pthread_t g_co_main_thr;
 static int g_co_main_set = 0;
 static long g_coexpr_serial = 1;
 extern int scan_depth;
-typedef struct scrip_coexpr_entry_pkg_t {
-    void    *body_entry_addr;
-    uint64_t r12, r13, r14, r15, rbx, csav5, gva, frame_bytes, below;
-} scrip_coexpr_entry_pkg_t;
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) ==  0, "pkg layout drift: body_entry_addr");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12)             ==  8, "pkg layout drift: r12");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r13)             == 16, "pkg layout drift: r13");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14)             == 24, "pkg layout drift: r14");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r15)             == 32, "pkg layout drift: r15");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx)             == 40, "pkg layout drift: rbx");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5)             == 48, "pkg layout drift: csav5");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva)               == 56, "pkg layout drift: gva -- the GLOBAL-VARIABLE AREA base, r9. A co-expression body reads every global as [r9 + off], and r9 was not among the six registers this package carried, so on the body's own thread it held whatever the trampoline left there: EVERY GLOBAL READ INSIDE A CO-EXPRESSION RETURNED GARBAGE, which is also why activating a co-expression stored in a global segfaulted -- the target pointer was garbage, not the co-expression.");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes)       == 64, "pkg layout drift: frame_bytes -- the trampoline reads it at 64(pkg) to size the frame-snapshot restore onto the body stack");
-_Static_assert(sizeof(DESCR_t) == 16, "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
+typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r13, r14, r15, rbx, csav5, gva, frame_bytes, below; } scrip_coexpr_entry_pkg_t;
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) == 0, "pkg layout drift: body_entry_addr");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12) == 8, "pkg layout drift: r12");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r13) == 16, "pkg layout drift: r13");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14) == 24, "pkg layout drift: r14");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r15) == 32, "pkg layout drift: r15");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx) == 40, "pkg layout drift: rbx");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5) == 48, "pkg layout drift: csav5");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva) == 56,
+    "pkg layout drift: gva -- the GLOBAL-VARIABLE AREA base, r9. A co-expression body reads every global as [r9 + off], and r9 was not among the six registers this package carried, so on the body's "
+    "own thread it held whatever the trampoline left there: EVERY GLOBAL READ INSIDE A CO-EXPRESSION RETURNED GARBAGE, which is also why activating a co-expression stored in a global segfaulted -- t"
+    "he target pointer was garbage, not the co-expression.");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes) == 64, "pkg layout drift: frame_bytes -- the trampoline reads it at 64(pkg) to size the frame-snapshot restore onto the body stack");
+_Static_assert(sizeof(DESCR_t) == 16,
+    "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
 static void co_xmit_set(DESCR_t *x, uint64_t d0, uint64_t d1) { uint64_t w[2]; w[0] = d0; w[1] = d1; memcpy(x, w, sizeof *x); }
 #if RT_DIAG
 int scrip_co_gc_plant(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_GC_COEXPR_PLANT"); v = (e && *e) ? atoi(e) : 0; } return v; }
@@ -43,23 +44,25 @@ int scrip_co_gc_plant(void) { static int v = -1; if (v < 0) { const char *e = ge
 int scrip_co_gc_plant(void) { return 0; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void scrip_co_uerror(const char *msg) {
-    perror(msg);
-    fprintf(stderr, "scrip_coexpr: fatal error, aborting\n");
-    abort();
-}
+static void scrip_co_uerror(const char *msg) { perror(msg); fprintf(stderr, "scrip_coexpr: fatal error, aborting\n"); abort(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void scrip_co_makesem(scrip_coctx_t *ctx) {
-    if (sem_init(&ctx->sema, 0, 0) == -1) scrip_co_uerror("scrip_coexpr: sem_init failed");
-    ctx->semp = &ctx->sema;
-}
+static void scrip_co_makesem(scrip_coctx_t *ctx) { if (sem_init(&ctx->sema, 0, 0) == -1) scrip_co_uerror("scrip_coexpr: sem_init failed"); ctx->semp = &ctx->sema; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *scrip_co_trampoline(void *arg) {
     scrip_coctx_t *self = (scrip_coctx_t *)arg;
     if (self->eager) {
-        if (self->image_span) { char *img = (char *)__builtin_alloca(self->image_span + 16); img = (char *)(((uintptr_t)img + 15u) & ~(uintptr_t)15u);
-            memcpy(img, self->image_src, self->image_span); self->image = img;
-            { scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)self->entry_arg; pkg->csav5 = (uint64_t)(uintptr_t)img; pkg->frame_bytes = (uint64_t)self->image_span; pkg->below = self->image_below; } }
+        if (self->image_span) {
+            char *img = (char *)__builtin_alloca(self->image_span + 16);
+            img = (char *)(((uintptr_t)img + 15u) & ~(uintptr_t)15u);
+            memcpy(img, self->image_src, self->image_span);
+            self->image = img;
+            {
+                scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)self->entry_arg;
+                pkg->csav5 = (uint64_t)(uintptr_t)img;
+                pkg->frame_bytes = (uint64_t)self->image_span;
+                pkg->below = self->image_below;
+            }
+        }
         sem_post(&self->created);
     }
     while (sem_wait(self->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in trampoline");
@@ -78,27 +81,38 @@ static void scrip_co_init_once(scrip_coctx_t *cur) {
     cur->thread = pthread_self();
     cur->alive = 1;
     cur->started = 1;
-    g_co_main_thr = cur->thread; g_co_main_set = 1;
+    g_co_main_thr = cur->thread;
+    g_co_main_set = 1;
     { const char *_cs = getenv("SCRIP_COEXP_STACK"); if (_cs && *_cs) { long _v = atol(_cs); if (_v >= (long)PTHREAD_STACK_MIN) g_coexp_stksize = _v; } }
     pthread_attr_init(&attribs);
-    if (pthread_attr_setstacksize(&attribs, (size_t)g_coexp_stksize) != 0)
-        scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
+    if (pthread_attr_setstacksize(&attribs, (size_t)g_coexp_stksize) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize failed");
     inited = 1;
 }
 static void scrip_co_thread_start(scrip_coctx_t *new_ctx) {
     scrip_co_makesem(new_ctx);
-    { pthread_attr_t *ap = &attribs; pthread_attr_t big;
-      size_t need = new_ctx->stk_need + (size_t)(2u << 20);
-      if (need > (size_t)g_coexp_stksize) { need = (need + 4095u) & ~(size_t)4095u; pthread_attr_init(&big);
-          if (pthread_attr_setstacksize(&big, need) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize (image-sized) failed"); ap = &big; }
-      if (pthread_create(&new_ctx->thread, ap, scrip_co_trampoline, new_ctx) != 0)
-          scrip_co_uerror("scrip_coexpr: pthread_create failed");
-      if (ap == &big) pthread_attr_destroy(&big); }
-    { pthread_attr_t a; void *sa = 0; size_t sz = 0;
-      if (pthread_getattr_np(new_ctx->thread, &a) != 0) scrip_co_uerror("scrip_coexpr: pthread_getattr_np on new thread failed");
-      if (pthread_attr_getstack(&a, &sa, &sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_getstack on new thread failed");
-      pthread_attr_destroy(&a);
-      new_ctx->stk_lo = (char *)sa; new_ctx->stk_hi = (char *)sa + sz; }
+    {
+        pthread_attr_t *ap = &attribs;
+        pthread_attr_t big;
+        size_t need = new_ctx->stk_need + (size_t)(2u << 20);
+        if (need > (size_t)g_coexp_stksize) {
+            need = (need + 4095u) & ~(size_t)4095u;
+            pthread_attr_init(&big);
+            if (pthread_attr_setstacksize(&big, need) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_setstacksize (image-sized) failed");
+            ap = &big;
+        }
+        if (pthread_create(&new_ctx->thread, ap, scrip_co_trampoline, new_ctx) != 0) scrip_co_uerror("scrip_coexpr: pthread_create failed");
+        if (ap == &big) pthread_attr_destroy(&big);
+    }
+    {
+        pthread_attr_t a;
+        void *sa = 0;
+        size_t sz = 0;
+        if (pthread_getattr_np(new_ctx->thread, &a) != 0) scrip_co_uerror("scrip_coexpr: pthread_getattr_np on new thread failed");
+        if (pthread_attr_getstack(&a, &sa, &sz) != 0) scrip_co_uerror("scrip_coexpr: pthread_attr_getstack on new thread failed");
+        pthread_attr_destroy(&a);
+        new_ctx->stk_lo = (char *)sa;
+        new_ctx->stk_hi = (char *)sa + sz;
+    }
     new_ctx->alive = 1;
 }
 void scrip_coexpr_trampoline_entry(void *arg);
@@ -107,11 +121,18 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
     const int _inh_ctx = new_ctx && new_ctx->inherit_scan;
     { extern void *rt_scan_state_capture(void *); old->scan_state = rt_scan_state_capture(old->scan_state); }
     if (first == 0) scrip_co_thread_start(new_ctx);
-    if (!new_ctx->started) { new_ctx->started = 1; { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); }
+    if (!new_ctx->started) {
+        new_ctx->started = 1;
+        { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); }
         if (_inh_ctx && new_ctx->entry_fn == scrip_coexpr_trampoline_entry && new_ctx->entry_arg) {
-            extern int scan_pos; extern const char *scan_subj; extern long rt_scan_subj_len(void); scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)new_ctx->entry_arg;
+            extern int scan_pos;
+            extern const char *scan_subj;
+            extern long rt_scan_subj_len(void);
+            scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)new_ctx->entry_arg;
             pkg->r14 = (uint64_t)(scan_pos > 0 ? scan_pos - 1 : 0);
-            if (!new_ctx->sigma_live && scan_depth > 0 && scan_subj) { pkg->r13 = (uint64_t)(uintptr_t)scan_subj; pkg->r15 = (uint64_t)rt_scan_subj_len(); new_ctx->sigma_live = 1; } } }
+            if (!new_ctx->sigma_live && scan_depth > 0 && scan_subj) { pkg->r13 = (uint64_t)(uintptr_t)scan_subj; pkg->r15 = (uint64_t)rt_scan_subj_len(); new_ctx->sigma_live = 1; }
+        }
+    }
     __asm__ volatile ("mov %%rsp, %0" : "=m"(old->park_sp));
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
@@ -125,9 +146,12 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     ctx->alive = 0;
     sem_post(ctx->semp);
     pthread_join(ctx->thread, NULL);
-    ctx->stk_lo = 0; ctx->stk_hi = 0; ctx->park_sp = 0;
+    ctx->stk_lo = 0;
+    ctx->stk_hi = 0;
+    ctx->park_sp = 0;
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
-    ctx->image = 0; ctx->image_span = 0;
+    ctx->image = 0;
+    ctx->image_span = 0;
     if (ctx->eager) sem_destroy(&ctx->created);
     sem_destroy(ctx->semp);
 }
@@ -189,35 +213,10 @@ void scrip_cofail(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_trampoline_entry(void *arg) {
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)arg;
-    __asm__ volatile (
-        "mov  8(%0), %%r12\n\t"
-        "mov 16(%0), %%r13\n\t"
-        "mov 24(%0), %%r14\n\t"
-        "mov 32(%0), %%r15\n\t"
-        "mov 40(%0), %%rbx\n\t"
-        "mov 56(%0), %%r9\n\t"
-        "mov 48(%0), %%rsi\n\t"
-        "mov 64(%0), %%rcx\n\t"
-        "mov  0(%0), %%rax\n\t"
-        "test %%rcx, %%rcx\n\t"
-        "jz 2f\n\t"
-        "sub %%rcx, %%rsp\n\t"
-        "sub $256, %%rsp\n\t"
-        "and $-16, %%rsp\n\t"
-        "mov %%rsp, %%rdi\n\t"
-        "mov %%rsp, %%rbp\n\t"
-        "mov 72(%0), %%rdx\n\t"
-        "add %%rdx, %%rbp\n\t"
-        "cld\n\t"
-        "rep movsb\n\t"
-        "jmp *%%rax\n\t"
-        "2:\n\t"
-        "mov %%rsp, %%rbp\n\t"
-        "jmp *%%rax\n\t"
-        :
-        : "r"(pkg)
-        : "rax", "rcx", "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory"
-    );
+    __asm__ volatile ( "mov  8(%0), %%r12\n\t" "mov 16(%0), %%r13\n\t" "mov 24(%0), %%r14\n\t" "mov 32(%0), %%r15\n\t" "mov 40(%0), %%rbx\n\t" "mov 56(%0), %%r9\n\t" "mov 48(%0), %%rsi\n\t"
+        "mov 64(%0), %%rcx\n\t" "mov  0(%0), %%rax\n\t" "test %%rcx, %%rcx\n\t" "jz 2f\n\t" "sub %%rcx, %%rsp\n\t" "sub $256, %%rsp\n\t" "and $-16, %%rsp\n\t" "mov %%rsp, %%rdi\n\t"
+        "mov %%rsp, %%rbp\n\t" "mov 72(%0), %%rdx\n\t" "add %%rdx, %%rbp\n\t" "cld\n\t" "rep movsb\n\t" "jmp *%%rax\n\t" "2:\n\t" "mov %%rsp, %%rbp\n\t" "jmp *%%rax\n\t" : : "r"(pkg) : "rax", "rcx",
+        "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory" );
     fprintf(stderr, "scrip_coexpr: FATAL scrip_coexpr_trampoline_entry fell through the jmp -- bad body_entry_addr?\n");
     abort();
 }
@@ -225,111 +224,82 @@ void scrip_coexpr_trampoline_entry(void *arg) {
 extern void rt_genp_deliver_γ(DESCR_t v);
 extern void rt_genp_deliver_ω(void);
 extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
-__asm__(".text\n.globl rt_genp_spine_enter\n"
-"rt_genp_spine_enter:\n"
-"  pushq $0\n"
-"  leaq 4f(%rip), %rax\n"
-"  pushq $0\n"
-"  pushq %rax\n"
-"  movq %rdi, %rax\n"
-"  testq %rsi, %rsi\n"
-"  jz 6f\n"
-"  movq %rsi, %rcx\n"
-"  shlq $4, %rcx\n"
-"  subq %rcx, %rsp\n"
-"  movq g_call_args@GOTPCREL(%rip), %rsi\n"
-"  movq (%rsi), %rsi\n"
-"  movq %rsp, %rdi\n"
-"  shrq $3, %rcx\n"
-"  rep movsq\n"
-"6:\n"
-"  leaq 2f(%rip), %rcx\n"
-"  leaq 3f(%rip), %rdx\n"
-"  jmp *%rax\n"
-"2:\n"
-"  call rt_genp_deliver_γ\n"
-"  jmp *(%rsp)\n"
-"3:\n"
-"  call rt_genp_deliver_ω\n"
-"4:\n"
-"  call rt_genp_deliver_ω\n"
-);
+__asm__(".text\n.globl rt_genp_spine_enter\n" "rt_genp_spine_enter:\n" "  pushq $0\n" "  leaq 4f(%rip), %rax\n" "  pushq $0\n" "  pushq %rax\n" "  movq %rdi, %rax\n" "  testq %rsi, %rsi\n" "  jz 6f\n"
+    "  movq %rsi, %rcx\n" "  shlq $4, %rcx\n" "  subq %rcx, %rsp\n" "  movq g_call_args@GOTPCREL(%rip), %rsi\n" "  movq (%rsi), %rsi\n" "  movq %rsp, %rdi\n" "  shrq $3, %rcx\n" "  rep movsq\n" "6:\n"
+    "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  jmp *%rax\n" "2:\n" "  call rt_genp_deliver_γ\n" "  jmp *(%rsp)\n" "3:\n" "  call rt_genp_deliver_ω\n" "4:\n" "  call rt_genp_deliver_ω\n"
+    );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(DT_FAIL == 0x68, "rt_genp_spine_enter_n2's cmpb $0x68 bakes DT_FAIL");
-__asm__(".text\n.globl rt_genp_spine_enter_n2\n"
-"rt_genp_spine_enter_n2:\n"
-"  # N-2 ABI WORD, RUNTIME TWIN (row icon-generator-through-a-procedure-value-is-ungraded-at-the-intersection, hq_B): this reserve is the hand-written twin of bcps_spine_gen_arm's push block and MUST hand the callee the same FIVE-word entry frame [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=ABI word, ANCHOR=[rsp+40] (CEO-483, hq_U 2026-09-10: the sixth word, the PL-CALL-ALIGN pad, had NO READER -- poisoning [entry rsp+32] left parse byte-identical while the same poison at [entry rsp+0] SIGSEGVd -- and its 8 bytes moved across the call into the callee`s own carve in emit.cpp. ONE `pushq $0` was dropped HERE in the same landing, because this arm and bcps_spine_gen_arm are two hand-written copies of ONE ABI and the last time one grew without the other it took weeks to find. The `subq $16` above is NOT that pad: one of its words is the ABI word and the other is this path`s OWN parity correction, needed because this arm is entered by a CALL. Parity after the drop: entry = X-48, and X is 8 mod 16 here, so entry is 8 mod 16 -- which is exactly what the callee`s carve (now odd, align16(ft)+56) is built to absorb, landing the body at 0 mod 16 on BOTH doors.). ORIGINAL NOTE FOLLOWS: b49fd7a4 grew the COMPILED site by one word and moved the callee ANCHOR lea 40->48, but this arm was not grown with it, so the callee stored ANCHOR = rsp0 and label 5 below re-loaded rsp = rsp0 before calling deliver -- and rsp0 here is 8 mod 16, because THIS arm is entered by a CALL while the compiled site's rsp0 is a 0-mod-16 BB depth. OPPOSITE BASE PARITY IS THE WHOLE POINT: the old 40 offset was the aligned one for this path and the new 48 is the aligned one for that path, so the shared callee constant can only be right for both if this reserve carries the extra word. 16 not 8: the body then runs at rsp0-56 = 0 mod 16 and ANCHOR at rsp0-8 = 0 mod 16, so both the body's own calls and the deliver call below enter their helper at the 8 mod 16 SysV requires. Symptom when it is 8: SIGSEGV in the first movaps a callee reaches, which is glibc tcache_init via rt_scan_state_capture -- a crash with no SCRIP frame in it.\n"
-"  subq $16, %rsp\n"
-"  pushq $0\n"
-"  pushq %rsi\n"
-"  leaq 6f(%rip), %rax\n"
-"  pushq %rax\n"
-"  leaq 5f(%rip), %rax\n"
-"  pushq %rax\n"
-"  movq %rdi, %rax\n"
-"  # the block protocol (twin of bcps_icn_block_arm): rdx = the callee's argument cell count, copied from the staged medium BELOW the five words, at the callee's entry rsp\n"
-"  testq %rdx, %rdx\n"
-"  jz 7f\n"
-"  movq %rdx, %rcx\n"
-"  shlq $4, %rcx\n"
-"  subq %rcx, %rsp\n"
-"  movq g_call_args@GOTPCREL(%rip), %rsi\n"
-"  movq (%rsi), %rsi\n"
-"  movq %rsp, %rdi\n"
-"  shrq $3, %rcx\n"
-"  rep movsq\n"
-"7:\n"
-"  leaq 5f(%rip), %rcx\n"
-"  leaq 6f(%rip), %rdx\n"
-"  jmp *%rax\n"
-"5:\n"
-"  cmpb $0x68, %al\n"
-"  je 6f\n"
-"  movq %rdx, %rdi\n"
-"  call rt_genp_deliver_n2_γ\n"
-"  movq 40(%rax), %rsp\n"
-"  jmpq *32(%rax)\n"
-"6:\n"
-"  call rt_genp_deliver_ω\n"
-);
+__asm__(".text\n.globl rt_genp_spine_enter_n2\n" "rt_genp_spine_enter_n2:\n"
+    "  # N-2 ABI WORD, RUNTIME TWIN (row icon-generator-through-a-procedure-value-is-ungraded-at-the-intersection, hq_B): this reserve is the hand-written twin of bcps_spine_gen_arm's push block and"
+    " MUST hand the callee the same FIVE-word entry frame [rsp+0]=gamma [rsp+8]=omega [rsp+16]=REGION [rsp+24]=L7 [rsp+32]=ABI word, ANCHOR=[rsp+40] (CEO-483, hq_U 2026-09-10: the sixth word, the PL"
+    "-CALL-ALIGN pad, had NO READER -- poisoning [entry rsp+32] left parse byte-identical while the same poison at [entry rsp+0] SIGSEGVd -- and its 8 bytes moved across the call into the callee`s o"
+    "wn carve in emit.cpp. ONE `pushq $0` was dropped HERE in the same landing, because this arm and bcps_spine_gen_arm are two hand-written copies of ONE ABI and the last time one grew without the "
+    "other it took weeks to find. The `subq $16` above is NOT that pad: one of its words is the ABI word and the other is this path`s OWN parity correction, needed because this arm is entered by a C"
+    "ALL. Parity after the drop: entry = X-48, and X is 8 mod 16 here, so entry is 8 mod 16 -- which is exactly what the callee`s carve (now odd, align16(ft)+56) is built to absorb, landing the body"
+    " at 0 mod 16 on BOTH doors.). ORIGINAL NOTE FOLLOWS: b49fd7a4 grew the COMPILED site by one word and moved the callee ANCHOR lea 40->48, but this arm was not grown with it, so the callee stored"
+    " ANCHOR = rsp0 and label 5 below re-loaded rsp = rsp0 before calling deliver -- and rsp0 here is 8 mod 16, because THIS arm is entered by a CALL while the compiled site's rsp0 is a 0-mod-16 BB "
+    "depth. OPPOSITE BASE PARITY IS THE WHOLE POINT: the old 40 offset was the aligned one for this path and the new 48 is the aligned one for that path, so the shared callee constant can only be ri"
+    "ght for both if this reserve carries the extra word. 16 not 8: the body then runs at rsp0-56 = 0 mod 16 and ANCHOR at rsp0-8 = 0 mod 16, so both the body's own calls and the deliver call below "
+    "enter their helper at the 8 mod 16 SysV requires. Symptom when it is 8: SIGSEGV in the first movaps a callee reaches, which is glibc tcache_init via rt_scan_state_capture -- a crash with no SCR"
+    "IP frame in it.\n" "  subq $16, %rsp\n" "  pushq $0\n" "  pushq %rsi\n" "  leaq 6f(%rip), %rax\n" "  pushq %rax\n" "  leaq 5f(%rip), %rax\n" "  pushq %rax\n" "  movq %rdi, %rax\n"
+    "  # the block protocol (twin of bcps_icn_block_arm): rdx = the callee's argument cell count, copied from the staged medium BELOW the five words, at the callee's entry rsp\n"
+    "  testq %rdx, %rdx\n" "  jz 7f\n" "  movq %rdx, %rcx\n" "  shlq $4, %rcx\n" "  subq %rcx, %rsp\n" "  movq g_call_args@GOTPCREL(%rip), %rsi\n" "  movq (%rsi), %rsi\n" "  movq %rsp, %rdi\n"
+    "  shrq $3, %rcx\n" "  rep movsq\n" "7:\n" "  leaq 5f(%rip), %rcx\n" "  leaq 6f(%rip), %rdx\n" "  jmp *%rax\n" "5:\n" "  cmpb $0x68, %al\n" "  je 6f\n" "  movq %rdx, %rdi\n"
+    "  call rt_genp_deliver_n2_γ\n" "  movq 40(%rax), %rsp\n" "  jmpq *32(%rax)\n" "6:\n" "  call rt_genp_deliver_ω\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
-    extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
+    extern long g_scrip_coexpr_live;
+    g_scrip_coexpr_live++;
     scrip_coctx_t *ctx = (scrip_coctx_t *)ct_alloc(sizeof(scrip_coctx_t));
     if (!ctx) scrip_co_uerror("scrip_coexpr: malloc scrip_coctx_t failed");
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)ct_alloc(sizeof(scrip_coexpr_entry_pkg_t));
     if (!pkg) scrip_co_uerror("scrip_coexpr: malloc scrip_coexpr_entry_pkg_t failed");
     pkg->body_entry_addr = body_entry_addr;
     ctx->inherit_scan = 1;
-    pkg->r12 = regs[0]; pkg->r13 = regs[1]; pkg->r14 = regs[2];
-    pkg->r15 = regs[3]; pkg->rbx = regs[4]; pkg->csav5 = regs[5]; pkg->gva = regs[6]; pkg->frame_bytes = frame_bytes; pkg->below = 0;
-    ctx->image = 0; ctx->image_src = 0; ctx->image_span = 0; ctx->image_below = below_bytes; ctx->started = 0; ctx->eager = 1; ctx->stk_need = (size_t)frame_bytes;
+    pkg->r12 = regs[0];
+    pkg->r13 = regs[1];
+    pkg->r14 = regs[2];
+    pkg->r15 = regs[3];
+    pkg->rbx = regs[4];
+    pkg->csav5 = regs[5];
+    pkg->gva = regs[6];
+    pkg->frame_bytes = frame_bytes;
+    pkg->below = 0;
+    ctx->image = 0;
+    ctx->image_src = 0;
+    ctx->image_span = 0;
+    ctx->image_below = below_bytes;
+    ctx->started = 0;
+    ctx->eager = 1;
+    ctx->stk_need = (size_t)frame_bytes;
     if (frame_bytes + below_bytes > 0 && regs[5] != 0) {
         ctx->image_span = (size_t)(frame_bytes + below_bytes);
         ctx->image_src = (const char *)(uintptr_t)(regs[5] - below_bytes);
         ctx->stk_need = 2 * ctx->image_span;
     }
-    ctx->entry_fn  = scrip_coexpr_trampoline_entry;
+    ctx->entry_fn = scrip_coexpr_trampoline_entry;
     ctx->entry_arg = pkg;
     ctx->thread = 0;
     ctx->alive = 0;
-    ctx->semp  = NULL;
-    ctx->activator   = NULL;
+    ctx->semp = NULL;
+    ctx->activator = NULL;
     ctx->resume_addr = NULL;
-    ctx->dead        = 0;
+    ctx->dead = 0;
     memset(&ctx->xmit, 0, sizeof ctx->xmit);
-    ctx->stk_lo      = 0;
-    ctx->stk_hi      = 0;
-    ctx->park_sp     = 0;
-    ctx->sigma_live  = scan_depth > 0;
+    ctx->stk_lo = 0;
+    ctx->stk_hi = 0;
+    ctx->park_sp = 0;
+    ctx->sigma_live = scan_depth > 0;
     ctx->scan_state = NULL;
     ctx->serial = ++g_coexpr_serial;
     ctx->activations = 0;
     { extern long g_line; ctx->create_line = g_line; }
     ctx->create_proc = procname;
     ctx->cur_line = 0;
-    ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx;
+    ctx->gc_next = g_co_gc_head;
+    g_co_gc_head = ctx;
     { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : &g_root_ctx; scrip_co_init_once(cur); }
     if (sem_init(&ctx->created, 0, 0) == -1) scrip_co_uerror("scrip_coexpr: sem_init (created) failed");
     scrip_co_thread_start(ctx);
@@ -342,8 +312,13 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     scrip_coexpr_entry_pkg_t *opkg = (scrip_coexpr_entry_pkg_t *)orig->entry_arg;
     if (!opkg) scrip_co_uerror("scrip_coexpr: refresh of a coexpression with no entry package");
     uint64_t regs[7];
-    regs[0] = opkg->r12; regs[1] = opkg->r13; regs[2] = opkg->r14; regs[3] = opkg->r15;
-    regs[4] = opkg->rbx; regs[5] = opkg->csav5 + opkg->below; regs[6] = opkg->gva;
+    regs[0] = opkg->r12;
+    regs[1] = opkg->r13;
+    regs[2] = opkg->r14;
+    regs[3] = opkg->r15;
+    regs[4] = opkg->rbx;
+    regs[5] = opkg->csav5 + opkg->below;
+    regs[6] = opkg->gva;
     return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->image_span ? (uint64_t)orig->image_span - orig->image_below : 0, orig->image_below, orig->create_proc);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -375,22 +350,28 @@ int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint6
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry_arg) {
-    extern long g_scrip_coexpr_live; g_scrip_coexpr_live++;
-    ctx->entry_fn  = entry_fn;
+    extern long g_scrip_coexpr_live;
+    g_scrip_coexpr_live++;
+    ctx->entry_fn = entry_fn;
     ctx->entry_arg = entry_arg;
     ctx->thread = 0;
     ctx->alive = 0;
-    ctx->semp  = NULL;
-    ctx->activator   = NULL;
+    ctx->semp = NULL;
+    ctx->activator = NULL;
     ctx->inherit_scan = 0;
     ctx->resume_addr = NULL;
-    ctx->dead        = 0;
+    ctx->dead = 0;
     memset(&ctx->xmit, 0, sizeof ctx->xmit);
-    ctx->stk_lo      = 0;
-    ctx->stk_hi      = 0;
-    ctx->park_sp     = 0;
-    ctx->sigma_live  = scan_depth > 0;
-    ctx->image = 0; ctx->image_src = 0; ctx->image_span = 0; ctx->image_below = 0; ctx->started = 0; ctx->eager = 0;
+    ctx->stk_lo = 0;
+    ctx->stk_hi = 0;
+    ctx->park_sp = 0;
+    ctx->sigma_live = scan_depth > 0;
+    ctx->image = 0;
+    ctx->image_src = 0;
+    ctx->image_span = 0;
+    ctx->image_below = 0;
+    ctx->started = 0;
+    ctx->eager = 0;
     ctx->scan_state = NULL;
     ctx->serial = 0;
     ctx->activations = 0;
@@ -401,8 +382,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_co_gc_link(scrip_coctx_t *ctx) { ctx->gc_next = g_co_gc_head; g_co_gc_head = ctx; }
-void rt_coexpr_gc_scan_states(void)
-{
+void rt_coexpr_gc_scan_states(void) {
     extern void gen_gc_visit_scan_state(void *);
     scrip_coctx_t *c;
     gen_gc_visit_scan_state(g_root_ctx.scan_state);
@@ -410,8 +390,7 @@ void rt_coexpr_gc_scan_states(void)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-void rt_coexpr_gc_audit_scan_states(long *hp, long *un)
-{
+void rt_coexpr_gc_audit_scan_states(long *hp, long *un) {
     extern void gen_gc_audit_scan_state(void *, long *, long *);
     scrip_coctx_t *c;
     gen_gc_audit_scan_state(g_root_ctx.scan_state, hp, un);
@@ -424,16 +403,15 @@ void rt_coexpr_gc_audit_scan_states(long *hp, long *un) { (void)hp; (void)un; }
 scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void rt_genp_thread_entry(void *arg);
-static void co_gc_visit_record(scrip_coctx_t *c, long *n_sigma)
-{
+static void co_gc_visit_record(scrip_coctx_t *c, long *n_sigma) {
     if (!c->entry_arg || !c->sigma_live) return;
     if (c->entry_fn == scrip_coexpr_trampoline_entry) { scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)c->entry_arg; rt_gc_visit_raw((const char **)&pkg->r13); (*n_sigma)++; return; }
     if (c->entry_fn == rt_genp_thread_entry) { rt_gc_visit_raw((const char **)((char *)c->entry_arg + 24)); (*n_sigma)++; return; }
 }
 #if RT_DIAG
-void scrip_co_gc_images(long *on_stack, long *off_stack)
-{
-    long on = 0, off = 0; scrip_coctx_t *c;
+void scrip_co_gc_images(long *on_stack, long *off_stack) {
+    long on = 0, off = 0;
+    scrip_coctx_t *c;
     for (c = g_co_gc_head; c; c = c->gc_next) if (c->image) { if (c->stk_lo && c->image >= c->stk_lo && c->image < c->stk_hi) on++; else off++; }
     if (on_stack) *on_stack = on;
     if (off_stack) *off_stack = off;
@@ -441,13 +419,14 @@ void scrip_co_gc_images(long *on_stack, long *off_stack)
 #else
 void scrip_co_gc_images(long *on_stack, long *off_stack) { if (on_stack) *on_stack = 0; if (off_stack) *off_stack = 0; }
 #endif
-long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma)
-{
-    long n = 0, ns = 0; scrip_coctx_t *c;
+long scrip_co_gc_visit_records(long *n_ctx, long *n_sigma) {
+    long n = 0, ns = 0;
+    scrip_coctx_t *c;
 #if RT_DIAG
     if (scrip_co_gc_plant() == 1) { if (n_ctx) *n_ctx = 0; if (n_sigma) *n_sigma = 0; return 0; }
 #endif
-    rt_gc_visit_descr(&g_root_ctx.xmit); n++;
+    rt_gc_visit_descr(&g_root_ctx.xmit);
+    n++;
     for (c = g_co_gc_head; c; c = c->gc_next) { rt_gc_visit_descr(&c->xmit); co_gc_visit_record(c, &ns); n++; }
     if (n_ctx) *n_ctx = n;
     if (n_sigma) *n_sigma = ns;
@@ -461,8 +440,15 @@ int scrip_co_main_known(pthread_t *out) { if (g_co_main_set && out) *out = g_co_
 int scrip_co_stack_of(scrip_coctx_t *ctx, char **lo, char **hi) {
     if (ctx->stk_lo && ctx->stk_hi && ctx->stk_lo < ctx->stk_hi) { *lo = ctx->stk_lo; *hi = ctx->stk_hi; return 1; }
     if (!ctx->alive || ctx->thread == 0) return 0;
-    { pthread_attr_t a; void *sa = 0; size_t sz = 0;
-      if (pthread_getattr_np(ctx->thread, &a) != 0) return 0;
-      if (pthread_attr_getstack(&a, &sa, &sz) != 0) { pthread_attr_destroy(&a); return 0; }
-      pthread_attr_destroy(&a); *lo = (char *)sa; *hi = (char *)sa + sz; return 1; }
+    {
+        pthread_attr_t a;
+        void *sa = 0;
+        size_t sz = 0;
+        if (pthread_getattr_np(ctx->thread, &a) != 0) return 0;
+        if (pthread_attr_getstack(&a, &sa, &sz) != 0) { pthread_attr_destroy(&a); return 0; }
+        pthread_attr_destroy(&a);
+        *lo = (char *)sa;
+        *hi = (char *)sa + sz;
+        return 1;
+    }
 }

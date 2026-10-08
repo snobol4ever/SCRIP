@@ -4,95 +4,61 @@
 #include "ct_arena.h"
 #include "core.h"
 #include <string.h>
-#define IS_FAIL_fn(v)      IS_FAIL_fn(v)
-#define get(v)          (v)
-#define set(v, x)       ((v) = (x))
+#define IS_FAIL_fn(v) IS_FAIL_fn(v)
+#define get(v) (v)
+#define set(v, x) ((v) = (x))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t _vint_impl(int64_t i)    { return INTVAL(i); }
-static inline DESCR_t _real_impl(double d)    { return REALVAL(d); }
+static inline DESCR_t _vint_impl(int64_t i) { return INTVAL(i); }
+static inline DESCR_t _real_impl(double d) { return REALVAL(d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t _str_impl(const char *s) {
-    if (!s) return NULVCL;
-    char *p = rt_heap_strdup_c(s);
-    return STRVAL(p);
-}
-#define INTVAL_fn(i)   _vint_impl((int64_t)(i))
-#define real(d)  _real_impl((double)(d))
-#define STRVAL_fn(s)   _str_impl(s)
+static inline DESCR_t _str_impl(const char *s) { if (!s) return NULVCL; char *p = rt_heap_strdup_c(s); return STRVAL(p); }
+#define INTVAL_fn(i) _vint_impl((int64_t)(i))
+#define real(d) _real_impl((double)(d))
+#define STRVAL_fn(s) _str_impl(s)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _kw_impl(const char *name) { return NV_GET_fn(name); }
-static inline void   _kw_set_impl(const char *name, DESCR_t v) { NV_SET_fn(name, v); }
-#define kw(name)         _kw_impl(name)
+static inline void _kw_set_impl(const char *name, DESCR_t v) { NV_SET_fn(name, v); }
+#define kw(name) _kw_impl(name)
 #ifdef CONCAT_fn
 #undef CONCAT_fn
 #endif
-#define CONCAT_fn(a, b)    CONCAT_fn((a), (b))
+#define CONCAT_fn(a, b) CONCAT_fn((a), (b))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _alt_impl(DESCR_t a, DESCR_t b) { return pat_alt(a, b); }
-#define alt(a, b)   _alt_impl(a, b)
+#define alt(a, b) _alt_impl(a, b)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t _deref_impl(DESCR_t nameVal) {
-    const char *name = VARVAL_fn(nameVal);
-    if (!name || !*name) return NULVCL;
-    return NV_GET_fn(name);
-}
+static inline DESCR_t _deref_impl(DESCR_t nameVal) { const char *name = VARVAL_fn(nameVal); if (!name || !*name) return NULVCL; return NV_GET_fn(name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void _iset_impl(DESCR_t nameVal, DESCR_t v) {
-    const char *name = VARVAL_fn(nameVal);
-    if (name && *name) NV_SET_fn(name, v);
-}
-#define deref(nv)       _deref_impl(nv)
-#define assign_expr(lvar, x)  ((lvar) = (x))
+static inline void _iset_impl(DESCR_t nameVal, DESCR_t v) { const char *name = VARVAL_fn(nameVal); if (name && *name) NV_SET_fn(name, v); }
+#define deref(nv) _deref_impl(nv)
+#define assign_expr(lvar, x) ((lvar) = (x))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _aref_impl(DESCR_t arr, DESCR_t *keys, int n) {
     if (n <= 0) return FAILDESCR;
-    if (arr.v == DT_T) {
-        return table_get_d(arr.tbl, keys[0]);
-    }
-    if (arr.v == DT_A) {
-        int i = (int)to_int(keys[0]);
-        if (n == 1) return array_get(arr.arr, i);
-        int j = (int)to_int(keys[1]);
-        return array_get2(arr.arr, i, j);
-    }
+    if (arr.v == DT_T) { return table_get_d(arr.tbl, keys[0]); }
+    if (arr.v == DT_A) { int i = (int)to_int(keys[0]); if (n == 1) return array_get(arr.arr, i); int j = (int)to_int(keys[1]); return array_get2(arr.arr, i, j); }
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline void _aset_impl(DESCR_t arr, DESCR_t *keys, int n, DESCR_t v) {
     if (n <= 0) return;
-    if (arr.v == DT_T) {
-        table_set_descr_d(arr.tbl, keys[0], v);
-        return;
-    }
-    if (arr.v == DT_A) {
-        int i = (int)to_int(keys[0]);
-        if (n == 1) { array_set(arr.arr, i, v); return; }
-        int j = (int)to_int(keys[1]);
-        array_set2(arr.arr, i, j, v);
-    }
+    if (arr.v == DT_T) { table_set_descr_d(arr.tbl, keys[0], v); return; }
+    if (arr.v == DT_A) { int i = (int)to_int(keys[0]); if (n == 1) { array_set(arr.arr, i, v); return; } int j = (int)to_int(keys[1]); array_set2(arr.arr, i, j, v); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t _index_impl(DESCR_t base, DESCR_t *keys, int n) {
-    return _aref_impl(base, keys, n);
-}
+static inline DESCR_t _index_impl(DESCR_t base, DESCR_t *keys, int n) { return _aref_impl(base, keys, n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t _snoc_cursor_get(const char *varname) {
-    (void)varname; return NULVCL;
-}
+static inline DESCR_t _snoc_cursor_get(const char *varname) { (void)varname; return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline DESCR_t _snoc_pat_var(const char *name) { return pat_ref(name); }
-static inline DESCR_t _snoc_pat_val(DESCR_t v)          { return var_as_pattern(v); }
-static inline DESCR_t _snoc_pat_deref(DESCR_t v)        { return var_as_pattern(v); }
+static inline DESCR_t _snoc_pat_val(DESCR_t v) { return var_as_pattern(v); }
+static inline DESCR_t _snoc_pat_deref(DESCR_t v) { return var_as_pattern(v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t _snoc_pat_cond(DESCR_t child, const char *var) {
-    return pat_assign_cond(child, STRVAL((char *)var));
-}
+static inline DESCR_t _snoc_pat_cond(DESCR_t child, const char *var) { return pat_assign_cond(child, STRVAL((char *)var)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline DESCR_t _snoc_pat_imm(DESCR_t child, const char *var) {
-    return pat_assign_imm(child, STRVAL((char *)var));
-}
+static inline DESCR_t _snoc_pat_imm(DESCR_t child, const char *var) { return pat_assign_imm(child, STRVAL((char *)var)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void INIT_fn(void)    { core_lib_init(); extern void inc_init(void); inc_init(); }
-static inline void finish(void)  { }
+static inline void INIT_fn(void) { core_lib_init(); extern void inc_init(void); inc_init(); }
+static inline void finish(void) { }
 #include <setjmp.h>
 #endif

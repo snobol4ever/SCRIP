@@ -11,11 +11,9 @@
 #include "ast.h"
 #include "bb_box.h"
 const char *Σ = NULL;
-int         Δ = 0;
-int         Ω = 0;
-int         g_scan_pre_delta = 0;
-int         Σlen = 0;
+int Δ = 0;
+int Ω = 0;
+int g_scan_pre_delta = 0;
+int Σlen = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void bin_audit_print(void)
-{
-}
+void bin_audit_print(void) { }

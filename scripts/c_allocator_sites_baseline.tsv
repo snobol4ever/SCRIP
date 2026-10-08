@@ -79,7 +79,7 @@ src/runtime/by_name_dispatch.c	43	192	0	0
 src/runtime/core/core.c	11	26	0	0
 src/runtime/core/runtime_shim.h	1	0	0	0
 src/runtime/icn_extfn.c	0	2	0	0
-src/runtime/keywords.c	5	8	0	0
+src/runtime/keywords.c	5	7	0	0
 src/runtime/pattern_match.c	1	15	0	0
 src/runtime/rt/bbprof.c	3	0	0	0
 src/runtime/rt/gc_heap.c	12	2	0	1

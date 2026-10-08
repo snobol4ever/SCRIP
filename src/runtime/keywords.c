@@ -10,14 +10,14 @@
 #include <math.h>
 #include <time.h>
 #include <unistd.h>
-const char  *cset_canonical(const char *cs, int len);
-extern const char  *scan_subj;
-extern int           scan_pos;
+const char *cset_canonical(const char *cs, int len);
+extern const char *scan_subj;
+extern int scan_pos;
 extern unsigned long bb_rnd_seed;
-void         fh_ensure_init(void);
-long g_error  = 0;
-long g_trace  = 0;
-long g_dump   = 0;
+void fh_ensure_init(void);
+long g_error = 0;
+long g_trace = 0;
+long g_dump = 0;
 long g_random = 0;
 static long g_anchor = 0;
 extern long rt_anchor_g __attribute__((alias("g_anchor")));
@@ -25,10 +25,10 @@ extern long rt_anchor_g __attribute__((alias("g_anchor")));
 long *rt_anchor_ptr(void) { return &g_anchor; }
 long g_maxlngth = 5000000;
 int64_t g_kw_maxint = 9223372036854775807LL;
-long g_stno    = 0;
+long g_stno = 0;
 long g_stcount = 0;
-long g_lastno  = 0;
-long g_line    = 0;
+long g_lastno = 0;
+long g_line = 0;
 long g_lastline = 0;
 const char *g_file = NULL;
 const char *g_lastfile = NULL;
@@ -39,19 +39,14 @@ static int g_kw_cset_count = 0;
 static int g_kw_cset_cap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int *g_kw_cset_hidx = NULL;
-static int  g_kw_cset_hcap = 0;
-static unsigned kw_cset_hash(const char *p) {
-    uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ull; x ^= x >> 29; return (unsigned)x;
-}
+static int g_kw_cset_hcap = 0;
+static unsigned kw_cset_hash(const char *p) { uint64_t x = (uint64_t)(uintptr_t)p; x ^= x >> 17; x *= 0x9E3779B97F4A7C15ull; x ^= x >> 29; return (unsigned)x; }
 static int *g_kw_cset_cidx = NULL;
-static unsigned kw_cset_chash(const char *p, int len) {
-    unsigned h = 5381u;
-    for (int i = 0; i < len; i++) h = h * 33u + (unsigned char)p[i];
-    return h;
-}
+static unsigned kw_cset_chash(const char *p, int len) { unsigned h = 5381u; for (int i = 0; i < len; i++) h = h * 33u + (unsigned char)p[i]; return h; }
 static int kw_cset_same(const kw_cset_ent_t *e, const char *p, int len) { return e->ptr && e->len == len && !memcmp(e->ptr, p, (size_t)len); }
 static void kw_cset_cindex_insert(int idx) {
-    const kw_cset_ent_t *e = &g_kw_cset_names[idx]; if (!e->ptr || e->len < 0) return;
+    const kw_cset_ent_t *e = &g_kw_cset_names[idx];
+    if (!e->ptr || e->len < 0) return;
     int m = g_kw_cset_hcap - 1;
     for (int sl = (int)(kw_cset_chash(e->ptr, e->len) & (unsigned)m);; sl = (sl + 1) & m) {
         int v = g_kw_cset_cidx[sl];
@@ -62,16 +57,11 @@ static void kw_cset_cindex_insert(int idx) {
 static int kw_cset_find_content(const char *p, int len) {
     if (!g_kw_cset_cidx || !p || len < 0) return -1;
     int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_chash(p, len) & (unsigned)m);; sl = (sl + 1) & m) {
-        int v = g_kw_cset_cidx[sl];
-        if (!v) return -1;
-        if (kw_cset_same(&g_kw_cset_names[v - 1], p, len)) return v - 1;
-    }
+    for (int sl = (int)(kw_cset_chash(p, len) & (unsigned)m);; sl = (sl + 1) & m) { int v = g_kw_cset_cidx[sl]; if (!v) return -1; if (kw_cset_same(&g_kw_cset_names[v - 1], p, len)) return v - 1; }
 }
 static void kw_cset_hindex_insert(int idx) {
     int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_hash(g_kw_cset_names[idx].ptr) & (unsigned)m);; sl = (sl + 1) & m)
-        if (!g_kw_cset_hidx[sl]) { g_kw_cset_hidx[sl] = idx + 1; return; }
+    for (int sl = (int)(kw_cset_hash(g_kw_cset_names[idx].ptr) & (unsigned)m);; sl = (sl + 1) & m) if (!g_kw_cset_hidx[sl]) { g_kw_cset_hidx[sl] = idx + 1; return; }
 }
 static long g_kw_cset_hidx_gen = -1;
 static __attribute__((noinline)) void kw_cset_compact(void) {
@@ -93,20 +83,25 @@ static void kw_cset_hindex_refresh(void) {
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) kw_cset_hindex_insert(i);
 }
 static void kw_cset_hindex_rebuild(void) {
-    int want = 64; while (want < g_kw_cset_cap * 2) want <<= 1;
-    if (want != g_kw_cset_hcap) { ct_drop(g_kw_cset_hidx); ct_drop(g_kw_cset_cidx); g_kw_cset_hidx = (int *) ct_zalloc((size_t)want, sizeof(int)); g_kw_cset_cidx = (int *) ct_zalloc((size_t)want, sizeof(int)); g_kw_cset_hcap = want; }
-    else { memset(g_kw_cset_hidx, 0, (size_t)want * sizeof(int)); memset(g_kw_cset_cidx, 0, (size_t)want * sizeof(int)); }
+    int want = 64;
+    while (want < g_kw_cset_cap * 2) want <<= 1;
+    if (want != g_kw_cset_hcap) {
+        ct_drop(g_kw_cset_hidx);
+        ct_drop(g_kw_cset_cidx);
+        g_kw_cset_hidx = (int *) ct_zalloc((size_t)want, sizeof(int));
+        g_kw_cset_cidx = (int *) ct_zalloc((size_t)want, sizeof(int));
+        g_kw_cset_hcap = want;
+    } else {
+        memset(g_kw_cset_hidx, 0, (size_t)want * sizeof(int));
+        memset(g_kw_cset_cidx, 0, (size_t)want * sizeof(int));
+    }
     for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr) { kw_cset_hindex_insert(i); kw_cset_cindex_insert(i); }
 }
 static int kw_cset_find_ptr(const char *p) {
     if (!g_kw_cset_hidx || !p) return -1;
     kw_cset_hindex_refresh();
     int m = g_kw_cset_hcap - 1;
-    for (int sl = (int)(kw_cset_hash(p) & (unsigned)m);; sl = (sl + 1) & m) {
-        int v = g_kw_cset_hidx[sl];
-        if (!v) return -1;
-        if (g_kw_cset_names[v - 1].ptr == p) return v - 1;
-    }
+    for (int sl = (int)(kw_cset_hash(p) & (unsigned)m);; sl = (sl + 1) & m) { int v = g_kw_cset_hidx[sl]; if (!v) return -1; if (g_kw_cset_names[v - 1].ptr == p) return v - 1; }
 }
 static void kw_cset_grow(void) {
     if (g_kw_cset_count < g_kw_cset_cap) return;
@@ -120,23 +115,25 @@ static void kw_cset_bits_fill(kw_cset_ent_t *e) {
 }
 const unsigned char *kw_cset_bits(const char *ptr) { int hit = kw_cset_find_ptr(ptr); return hit >= 0 ? g_kw_cset_names[hit].bits : (const unsigned char *)0; }
 const unsigned char *rt_icn_cset_bits_d(uint64_t lo, uint64_t hi) {
-    uint64_t w[2]; w[0] = lo; w[1] = hi; DESCR_t sv; memcpy(&sv, w, sizeof sv);
+    uint64_t w[2];
+    w[0] = lo;
+    w[1] = hi;
+    DESCR_t sv;
+    memcpy(&sv, w, sizeof sv);
     return (IS_CSET_fn(sv) && sv.s) ? kw_cset_bits(sv.s) : (const unsigned char *)0;
 }
 static void kw_cset_append(const char *ptr, const char *name, int len) {
     kw_cset_grow();
-    g_kw_cset_names[g_kw_cset_count].ptr  = ptr;
+    g_kw_cset_names[g_kw_cset_count].ptr = ptr;
     g_kw_cset_names[g_kw_cset_count].name = name;
-    g_kw_cset_names[g_kw_cset_count].len  = len;
+    g_kw_cset_names[g_kw_cset_count].len = len;
     kw_cset_bits_fill(&g_kw_cset_names[g_kw_cset_count]);
     g_kw_cset_count++;
     if (ptr) { kw_cset_hindex_insert(g_kw_cset_count - 1); kw_cset_cindex_insert(g_kw_cset_count - 1); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t make_kw_cset(const char *chars, const char *kw_name) {
-    for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name))
-            return CSETVAL(g_kw_cset_names[i].ptr);
+    for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name)) return CSETVAL(g_kw_cset_names[i].ptr);
     const char *arena = cset_canonical(chars, (int)strlen(chars));
     char *stable = rt_heap_strdup_c(arena);
     int clen = (int)strlen(stable);
@@ -154,7 +151,9 @@ static void kw_cset_reg(const char *chars, const char *name, int len) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kw_cset_prime(void) {
-    static int primed = 0; if (primed) return; primed = 1;
+    static int primed = 0;
+    if (primed) return;
+    primed = 1;
     kw_cset_reg("abcdefghijklmnopqrstuvwxyz", "&lcase", 26);
     kw_cset_reg("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "&ucase", 26);
     kw_cset_reg("0123456789", "&digits", 10);
@@ -163,31 +162,24 @@ static void kw_cset_prime(void) {
     { char a[256]; for (int c=0;c<256;c++) a[c]=(char)c; kw_cset_reg(a, "&cset", 256); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int kw_cset_slot_of(const char *kw_name) {
-    for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name)) return i;
-    return -1;
-}
+static int kw_cset_slot_of(const char *kw_name) { for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].name, kw_name)) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void kw_errtext_gc_root(void)
-{
-    extern void rt_gc_visit_raw(const char **loc);
-    if (g_sno_errtext) rt_gc_visit_raw(&g_sno_errtext);
-}
+void kw_errtext_gc_root(void) { extern void rt_gc_visit_raw(const char **loc); if (g_sno_errtext) rt_gc_visit_raw(&g_sno_errtext); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-static int kw_cset_plant_strong(void)
-{
+static int kw_cset_plant_strong(void) {
     static int v = -1, said = 0;
     if (v < 0) { const char *e = getenv("SCRIP_GC_PLANT_CSET_STRONG"); v = (e && *e && *e != '0') ? 1 : 0; }
-    if (v && !said) { said = 1; fprintf(stderr, "[GC-CSET] plant: every interned cset is a STRONG root again, as before the registry went weak, so no computed cset ever dies and every "
-                                                "collection visits and slides all of them (SCRIP_GC_PLANT_CSET_STRONG=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints "
-                                                "ONCE PER PROCESS.\n"); }
+    if (v && !said) {
+        said = 1;
+        fprintf(stderr,
+            "[GC-CSET] plant: every interned cset is a STRONG root again, as before the registry went weak, so no computed cset ever dies and every "
+            "collection visits and slides all of them (SCRIP_GC_PLANT_CSET_STRONG=1). THIS LINE IS THE ONLY PROOF THE PLANT APPLIED, so it prints " "ONCE PER PROCESS.\n");
+    }
     return v;
 }
 #endif
-void kw_cset_gc_roots(void)
-{
+void kw_cset_gc_roots(void) {
     extern void rt_gc_visit_raw(const char **loc);
     kw_errtext_gc_root();
     if (!g_kw_cset_names) return;
@@ -206,22 +198,25 @@ void kw_cset_gc_roots(void)
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *g_kw_cset_regc_ptr[64]; static int g_kw_cset_regc_len[64];
-void kw_cset_gc_weak(void)
-{
+static const char *g_kw_cset_regc_ptr[64];
+static int g_kw_cset_regc_len[64];
+void kw_cset_gc_weak(void) {
     extern int rt_gc_weak_keep(const char **loc);
-    for (int i = 0; i < g_kw_cset_count; i++) {
-        kw_cset_ent_t *e = &g_kw_cset_names[i];
-        if (e->name || !e->ptr || rt_gc_weak_keep(&e->ptr)) continue;
-        e->ptr = (const char *)0; e->len = -1;
-    }
+    for (int i = 0; i < g_kw_cset_count; i++) { kw_cset_ent_t *e = &g_kw_cset_names[i]; if (e->name || !e->ptr || rt_gc_weak_keep(&e->ptr)) continue; e->ptr = (const char *)0; e->len = -1; }
     memset(g_kw_cset_regc_ptr, 0, sizeof g_kw_cset_regc_ptr);
 }
 const char *kw_cset_intern(const char *canon, int len) {
     kw_cset_prime();
     if (!canon) { canon = ""; if (len > 0) len = 0; }
     if (len >= 0) { int hit = kw_cset_find_content(canon, len); if (hit >= 0) return g_kw_cset_names[hit].ptr; }
-    { extern void *rt_wsb_alloc(size_t); char *stable = (char *)rt_wsb_alloc((size_t)len + 1); memcpy(stable, canon, (size_t)len); stable[len] = '\0'; kw_cset_append(stable, NULL, len); return stable; }
+    {
+        extern void *rt_wsb_alloc(size_t);
+        char *stable = (char *)rt_wsb_alloc((size_t)len + 1);
+        memcpy(stable, canon, (size_t)len);
+        stable[len] = '\0';
+        kw_cset_append(stable, NULL, len);
+        return stable;
+    }
 }
 void rt_icn_cset_register(const char *ptr, int len) {
     if (!ptr) return;
@@ -234,11 +229,13 @@ void rt_icn_cset_register(const char *ptr, int len) {
 const char *kw_cset_name(const char *ptr) {
     kw_cset_prime();
     { int hit = kw_cset_find_ptr(ptr); if (hit >= 0 && g_kw_cset_names[hit].name) return g_kw_cset_names[hit].name; }
-    if (ptr) for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr)) return g_kw_cset_names[i].name;
-    { int plen = kw_cset_len(ptr);
-      if (plen > 0) for (int i = 0; i < g_kw_cset_count; i++)
-        if (g_kw_cset_names[i].name && g_kw_cset_names[i].len == plen && g_kw_cset_names[i].ptr && !memcmp(g_kw_cset_names[i].ptr, ptr, (size_t)plen)) return g_kw_cset_names[i].name; }
+    if (ptr) for (int i = 0; i < g_kw_cset_count; i++) if (g_kw_cset_names[i].ptr && g_kw_cset_names[i].ptr[0] != '\0' && g_kw_cset_names[i].name && !strcmp(g_kw_cset_names[i].ptr, ptr))
+        return g_kw_cset_names[i].name;
+    {
+        int plen = kw_cset_len(ptr);
+        if (plen > 0) for (int i = 0; i < g_kw_cset_count; i++)
+            if (g_kw_cset_names[i].name && g_kw_cset_names[i].len == plen && g_kw_cset_names[i].ptr && !memcmp(g_kw_cset_names[i].ptr, ptr, (size_t)plen)) return g_kw_cset_names[i].name;
+    }
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -252,10 +249,10 @@ int kw_cset_len(const char *ptr) {
 const char *kw_cset_const_str(const char *kw) {
     if (!kw) return (const char *)0;
     if (kw[0] == '&') kw++;
-    if (!strcmp(kw, "lcase"))   return "abcdefghijklmnopqrstuvwxyz";
-    if (!strcmp(kw, "ucase"))   return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    if (!strcmp(kw, "lcase")) return "abcdefghijklmnopqrstuvwxyz";
+    if (!strcmp(kw, "ucase")) return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     if (!strcmp(kw, "letters")) return "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-    if (!strcmp(kw, "digits"))  return "0123456789";
+    if (!strcmp(kw, "digits")) return "0123456789";
     return (const char *)0;
 }
 #define KWB_INT 1
@@ -264,40 +261,20 @@ const char *kw_cset_const_str(const char *kw) {
 typedef struct { const char *name; unsigned char kind; unsigned char prot; int64_t *cell; int64_t init; const char *sval; const char *sym; } KWB_ENT_t;
 static int64_t kwb_own[8] = { 0, 0, 0, 0, 0, 0, 0, 1 };
 extern int64_t rt_kwb_own[8] __attribute__((alias("kwb_own")));
-static KWB_ENT_t g_kwb[] = {
-    { "ANCHOR",   KWB_INT, 0, (int64_t *)&g_anchor,    0,          (const char *)0 , "rt_anchor_g" },
-    { "TRIM",     KWB_INT, 0, &kw_trim,                1,          (const char *)0 , "kw_trim" },
-    { "CASE",     KWB_INT, 0, &kwb_own[0],             0,          (const char *)0 , "rt_kwb_own" },
-    { "CODE",     KWB_INT, 0, &kw_code,                0,          (const char *)0 , "kw_code" },
-    { "DUMP",     KWB_INT, 0, (int64_t *)&g_dump,      0,          (const char *)0 , "g_dump" },
-    { "ERRLIMIT", KWB_INT, 0, &kw_errlimit,            0,          (const char *)0 , "kw_errlimit" },
-    { "ERRTYPE",  KWB_INT, 0, &kwb_own[1],             0,          (const char *)0 , "rt_kwb_own" },
-    { "FTRACE",   KWB_INT, 0, &kw_ftrace,              0,          (const char *)0 , "kw_ftrace" },
-    { "FULLSCAN", KWB_INT, 0, &kw_fullscan,            1,          (const char *)0 , "kw_fullscan" },
-    { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth,  16777216,   (const char *)0 , "g_maxlngth" },
-    { "STLIMIT",  KWB_INT, 0, &kw_stlimit,             2147483647, (const char *)0 , "kw_stlimit" },
-    { "TRACE",    KWB_INT, 0, (int64_t *)&g_trace,     0,          (const char *)0 , "g_trace" },
-    { "ABEND",    KWB_INT, 0, &kwb_own[2],             0,          (const char *)0 , "rt_kwb_own" },
-    { "INPUT",    KWB_INT, 0, &kwb_own[3],             1,          (const char *)0 , "rt_kwb_own" },
-    { "OUTPUT",   KWB_INT, 0, &kwb_own[4],             1,          (const char *)0 , "rt_kwb_own" },
-    { "PROFILE",  KWB_INT, 0, &kwb_own[5],             0,          (const char *)0 , "rt_kwb_own" },
-    { "COMPARE",  KWB_INT, 0, &kwb_own[6],             0,          (const char *)0 , "rt_kwb_own" },
-    { "STCOUNT",  KWB_INT, KWB_PROT, (int64_t *)&g_stcount,  0, (const char *)0 , "g_stcount" },
-    { "STNO",     KWB_INT, KWB_PROT, (int64_t *)&g_stno,     0, (const char *)0 , "g_stno" },
-    { "LASTNO",   KWB_INT, KWB_PROT, (int64_t *)&g_lastno,   0, (const char *)0 , "g_lastno" },
-    { "LINE",     KWB_INT, KWB_PROT, (int64_t *)&g_line,     0, (const char *)0 , "g_line" },
-    { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_lastline, 0, (const char *)0 , "g_lastline" },
-    { "FILE",     KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
-    { "LASTFILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
-    { "FNCLEVEL", KWB_INT, KWB_PROT, &kw_fnclevel,           0, (const char *)0 , "kw_fnclevel" },
-    { "UCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" , (const char *)0 },
-    { "LCASE",    KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 },
-    { "RTNTYPE",  KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
-    { "ERRTEXT",  KWB_STR, 0,        (int64_t *)0, 0, (const char *)0 , (const char *)0 },
-    { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
-    { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &kwb_own[7], 1, (const char *)0 , "rt_kwb_own" },
-    { "MAXINT",   KWB_INT, KWB_PROT, &g_kw_maxint,     0,          (const char *)0 , "g_kw_maxint" },
-};
+static KWB_ENT_t g_kwb[] = { { "ANCHOR", KWB_INT, 0, (int64_t *)&g_anchor, 0, (const char *)0 , "rt_anchor_g" }, { "TRIM", KWB_INT, 0, &kw_trim, 1, (const char *)0 , "kw_trim" }, { "CASE", KWB_INT, 0,
+    &kwb_own[0], 0, (const char *)0 , "rt_kwb_own" }, { "CODE", KWB_INT, 0, &kw_code, 0, (const char *)0 , "kw_code" }, { "DUMP", KWB_INT, 0, (int64_t *)&g_dump, 0, (const char *)0 , "g_dump" },
+    { "ERRLIMIT", KWB_INT, 0, &kw_errlimit, 0, (const char *)0 , "kw_errlimit" }, { "ERRTYPE", KWB_INT, 0, &kwb_own[1], 0, (const char *)0 , "rt_kwb_own" }, { "FTRACE", KWB_INT, 0, &kw_ftrace, 0,
+    (const char *)0 , "kw_ftrace" }, { "FULLSCAN", KWB_INT, 0, &kw_fullscan, 1, (const char *)0 , "kw_fullscan" }, { "MAXLNGTH", KWB_INT, 0, (int64_t *)&g_maxlngth, 16777216, (const char *)0 ,
+    "g_maxlngth" }, { "STLIMIT", KWB_INT, 0, &kw_stlimit, 2147483647, (const char *)0 , "kw_stlimit" }, { "TRACE", KWB_INT, 0, (int64_t *)&g_trace, 0, (const char *)0 , "g_trace" }, { "ABEND",
+    KWB_INT, 0, &kwb_own[2], 0, (const char *)0 , "rt_kwb_own" }, { "INPUT", KWB_INT, 0, &kwb_own[3], 1, (const char *)0 , "rt_kwb_own" }, { "OUTPUT", KWB_INT, 0, &kwb_own[4], 1, (const char *)0 ,
+    "rt_kwb_own" }, { "PROFILE", KWB_INT, 0, &kwb_own[5], 0, (const char *)0 , "rt_kwb_own" }, { "COMPARE", KWB_INT, 0, &kwb_own[6], 0, (const char *)0 , "rt_kwb_own" }, { "STCOUNT", KWB_INT,
+    KWB_PROT, (int64_t *)&g_stcount, 0, (const char *)0 , "g_stcount" }, { "STNO", KWB_INT, KWB_PROT, (int64_t *)&g_stno, 0, (const char *)0 , "g_stno" }, { "LASTNO", KWB_INT, KWB_PROT,
+    (int64_t *)&g_lastno, 0, (const char *)0 , "g_lastno" }, { "LINE", KWB_INT, KWB_PROT, (int64_t *)&g_line, 0, (const char *)0 , "g_line" }, { "LASTLINE", KWB_INT, KWB_PROT, (int64_t *)&g_lastline,
+    0, (const char *)0 , "g_lastline" }, { "FILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "LASTFILE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 ,
+    (const char *)0 }, { "FNCLEVEL", KWB_INT, KWB_PROT, &kw_fnclevel, 0, (const char *)0 , "kw_fnclevel" }, { "UCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ" ,
+    (const char *)0 }, { "LCASE", KWB_STR, KWB_PROT, (int64_t *)0, 0, "abcdefghijklmnopqrstuvwxyz" , (const char *)0 }, { "RTNTYPE", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 ,
+    (const char *)0 }, { "ERRTEXT", KWB_STR, 0, (int64_t *)0, 0, (const char *)0 , (const char *)0 }, { "ALPHABET", KWB_STR, KWB_PROT, (int64_t *)0, 0, (const char *)0 , (const char *)0 },
+    { "USER_DECLARED_CONSTANTS", KWB_INT, 0, &kwb_own[7], 1, (const char *)0 , "rt_kwb_own" }, { "MAXINT", KWB_INT, KWB_PROT, &g_kw_maxint, 0, (const char *)0 , "g_kw_maxint" }, };
 static const int g_kwb_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
 static KWB_ENT_t *g_kwb_bound = g_kwb;
 static int g_kwb_bound_n = (int)(sizeof g_kwb / sizeof g_kwb[0]);
@@ -310,7 +287,8 @@ const char *rt_kw_direct_sym(int idx, int *soff, const void **base) {
     KWB_ENT_t *e = &g_kwb_bound[idx];
     if (e->kind != KWB_INT || !e->cell || !e->sym) return (const char *)0;
     long off = ((char *)e->cell >= (char *)kwb_own && (char *)e->cell < (char *)(kwb_own + 8)) ? (char *)e->cell - (char *)kwb_own : 0;
-    *soff = (int)off; *base = (const void *)((char *)e->cell - off);
+    *soff = (int)off;
+    *base = (const void *)((char *)e->cell - off);
     return e->sym;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -320,23 +298,22 @@ int rt_kw_output_on(void) { return kwb_own[4] != 0; }
 void rt_kw_bind(void *block, int n) { if (block && n > 0) { g_kwb_bound = (KWB_ENT_t *)block; g_kwb_bound_n = n; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void kwb_init_once(void) {
-    static int done = 0; if (done) return; done = 1;
+    static int done = 0;
+    if (done) return;
+    done = 1;
     for (int i = 0; i < g_kwb_bound_n; i++) if (g_kwb_bound[i].kind == KWB_INT && !g_kwb_bound[i].prot && g_kwb_bound[i].cell) *g_kwb_bound[i].cell = g_kwb_bound[i].init;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_seed_defaults(void) { kwb_init_once(); { extern void rt_code_atexit_arm(void); rt_code_atexit_arm(); } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sn4_kw_spelling_is_canonical(const char *kw) {
-    if (!kw) return 0;
-    if (kw[0] == '&') kw++;
-    for (size_t i = 0; kw[i]; i++) if (kw[i] >= 'a' && kw[i] <= 'z') return 0;
-    return 1;
-}
+static int sn4_kw_spelling_is_canonical(const char *kw) { if (!kw) return 0; if (kw[0] == '&') kw++; for (size_t i = 0; kw[i]; i++) if (kw[i] >= 'a' && kw[i] <= 'z') return 0; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static KWB_ENT_t *kwb_find(const char *kw) {
     if (!kw) return (KWB_ENT_t *)0;
     if (kw[0] == '&') kw++;
-    size_t un = strlen(kw); char uk[un + 1]; size_t ui = 0;
+    size_t un = strlen(kw);
+    char uk[un + 1];
+    size_t ui = 0;
     for (; ui < un; ui++) uk[ui] = (kw[ui] >= 'a' && kw[ui] <= 'z') ? (char)(kw[ui] - 'a' + 'A') : kw[ui];
     uk[ui] = '\0';
     kwb_init_once();
@@ -350,11 +327,13 @@ static int kwb_read_ent(KWB_ENT_t *e, DESCR_t *out) {
         if (!strcmp(e->name, "RTNTYPE")) { *out = STRVAL(kw_rtntype); return 1; }
         if (!strcmp(e->name, "ERRTEXT")) { *out = STRVAL(g_sno_errtext ? g_sno_errtext : ""); return 1; }
         if (!strcmp(e->name, "ALPHABET")) { extern char alphabet[257]; return (*out = BSTRVAL(alphabet, 256)), 1; }
-        if (!strcmp(e->name, "FILE"))     { extern const char *g_file;     *out = STRVAL(g_file ? g_file : ""); return 1; }
+        if (!strcmp(e->name, "FILE")) { extern const char *g_file; *out = STRVAL(g_file ? g_file : ""); return 1; }
         if (!strcmp(e->name, "LASTFILE")) { extern const char *g_lastfile; *out = STRVAL(g_lastfile ? g_lastfile : ""); return 1; }
-        *out = e->sval ? STRVAL(e->sval) : STRVAL(""); return 1;
+        *out = e->sval ? STRVAL(e->sval) : STRVAL("");
+        return 1;
     }
-    *out = INTVAL(e->cell ? *e->cell : 0); return 1;
+    *out = INTVAL(e->cell ? *e->cell : 0);
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int kwb_read(const char *kw, DESCR_t *out) { return kwb_read_ent(kwb_find(kw), out); }
@@ -366,18 +345,13 @@ int kwb_error(int code, const char *msg) {
     extern int core_setexit_armed(void);
     KWB_ENT_t *el = kwb_find("ERRLIMIT");
     if (el && el->cell && *el->cell > 0 && !core_setexit_armed()) { *el->cell -= 1; KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg; return 0; }
-    core_runtime_error(code, msg); return 1;
+    core_runtime_error(code, msg);
+    return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_publish_error(int code, const char *msg) {
-    KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code;
-    g_sno_errtext = msg ? rt_heap_strdup_c(msg) : "";
-}
+void rt_kw_publish_error(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg ? rt_heap_strdup_c(msg) : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_kw_publish_error_at_exit(int code, const char *msg) {
-    KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code;
-    g_sno_errtext = msg ? msg : "";
-}
+void rt_kw_publish_error_at_exit(int code, const char *msg) { KWB_ENT_t *et = kwb_find("ERRTYPE"); if (et && et->cell) *et->cell = code; g_sno_errtext = msg ? msg : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_set_rtntype(int which) {
     static const uint64_t words[4] = { 0x00004E5255544552ull, 0x004E525554455246ull, 0x004E52555445524Eull, 0ull };
@@ -392,7 +366,8 @@ static int kwb_numeric_text(const char *s) {
     while (*q == ' ' || *q == '\t' || *q == '\n' || *q == '\r' || *q == '\f' || *q == '\v') q++;
     if (*q == '+' || *q == '-') q++;
     if (q[0] == '0' && (q[1] == 'x' || q[1] == 'X')) return 0;
-    char *end = (char *)0; double d = strtod(s, &end);
+    char *end = (char *)0;
+    double d = strtod(s, &end);
     if (end && end != s && !isfinite(d)) return 0;
     const char *p = (end && end != s) ? (const char *)end : s;
     while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r' || *p == '\f' || *p == '\v') p++;
@@ -418,47 +393,32 @@ static int kwb_write_ent(KWB_ENT_t *e, DESCR_t v) {
 static int kwb_write(const char *kw, DESCR_t v) { return kwb_write_ent(kwb_find(kw), v); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_kw_dump_values(void (*emit)(const char *name, DESCR_t v)) {
-    static const char *const names[] = {
-        "ANCHOR", "CASE", "CODE", "DUMP", "ERRLIMIT", "ERRTEXT", "ERRTYPE", "FILE", "FNCLEVEL", "FTRACE",
-        "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO", "LINE", "MAXLNGTH", "OUTPUT", "PROFILE",
-        "RTNTYPE", "STCOUNT", "STLIMIT", "STNO", "TRACE", "TRIM",
-    };
-    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) {
-        DESCR_t v; if (kwb_read(names[i], &v)) emit(names[i], v);
-    }
+    static const char *const names[] = { "ANCHOR", "CASE", "CODE", "DUMP", "ERRLIMIT", "ERRTEXT", "ERRTYPE", "FILE", "FNCLEVEL", "FTRACE", "FULLSCAN", "INPUT", "LASTFILE", "LASTLINE", "LASTNO",
+        "LINE", "MAXLNGTH", "OUTPUT", "PROFILE", "RTNTYPE", "STCOUNT", "STLIMIT", "STNO", "TRACE", "TRIM", };
+    for (size_t i = 0; i < sizeof(names) / sizeof(names[0]); i++) { DESCR_t v; if (kwb_read(names[i], &v)) emit(names[i], v); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_kw_index(const char *kw) {
-    if (!kw) return -1;
-    if (!sn4_kw_spelling_is_canonical(kw)) return -1;
-    KWB_ENT_t *e = kwb_find(kw); if (!e) return -1;
-    return (int)(e - g_kwb_bound);
-}
+int rt_kw_index(const char *kw) { if (!kw) return -1; if (!sn4_kw_spelling_is_canonical(kw)) return -1; KWB_ENT_t *e = kwb_find(kw); if (!e) return -1; return (int)(e - g_kwb_bound); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_kw_read_idx(int64_t idx) {
-    if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return NULVCL;
-    kwb_init_once();
-    DESCR_t out; if (kwb_read_ent(&g_kwb_bound[idx], &out)) return out;
-    return NULVCL;
-}
+DESCR_t rt_kw_read_idx(int64_t idx) { if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return NULVCL; kwb_init_once(); DESCR_t out; if (kwb_read_ent(&g_kwb_bound[idx], &out)) return out; return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) {
-    if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return v;
-    kwb_init_once();
-    return kwb_write_ent(&g_kwb_bound[idx], v) < 0 ? FAILDESCR : v;
-}
+DESCR_t rt_kw_write_idx(int64_t idx, DESCR_t v) { if (idx < 0 || idx >= (int64_t)g_kwb_bound_n) return v; kwb_init_once(); return kwb_write_ent(&g_kwb_bound[idx], v) < 0 ? FAILDESCR : v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t kw_read(const char *kw) {
     if (!kw) return FAILDESCR;
-    if (!strcmp(kw,"pos"))     return INTVAL(scan_pos);
-    if (!strcmp(kw,"subject")) { extern long rt_scan_subj_len(void); if (!scan_subj) return STRVAL(""); { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); } }
-    if (!strcmp(kw,"e"))   return REALVAL(2.718281828459045);
-    if (!strcmp(kw,"pi"))  return REALVAL(3.141592653589793);
+    if (!strcmp(kw,"pos")) return INTVAL(scan_pos);
+    if (!strcmp(kw,"subject")) {
+        extern long rt_scan_subj_len(void);
+        if (!scan_subj) return STRVAL("");
+        { long n = rt_scan_subj_len(); return (n >= 0) ? BSTRVAL((char *)scan_subj, n) : STRVAL(scan_subj); }
+    }
+    if (!strcmp(kw,"e")) return REALVAL(2.718281828459045);
+    if (!strcmp(kw,"pi")) return REALVAL(3.141592653589793);
     if (!strcmp(kw,"phi")) return REALVAL(1.618033988749895);
-    if (!strcmp(kw,"lcase"))   return make_kw_cset("abcdefghijklmnopqrstuvwxyz","&lcase");
-    if (!strcmp(kw,"ucase"))   return make_kw_cset("ABCDEFGHIJKLMNOPQRSTUVWXYZ","&ucase");
+    if (!strcmp(kw,"lcase")) return make_kw_cset("abcdefghijklmnopqrstuvwxyz","&lcase");
+    if (!strcmp(kw,"ucase")) return make_kw_cset("ABCDEFGHIJKLMNOPQRSTUVWXYZ","&ucase");
     if (!strcmp(kw,"letters")) return make_kw_cset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz","&letters");
-    if (!strcmp(kw,"digits"))  return make_kw_cset("0123456789","&digits");
+    if (!strcmp(kw,"digits")) return make_kw_cset("0123456789","&digits");
     if (!strcmp(kw,"alphabet")) return kw_read("cset");
     if (!strcmp(kw,"ascii")) {
         static int csi = -1;
@@ -467,7 +427,9 @@ DESCR_t kw_read(const char *kw) {
             char ascii_str[128];
             for (int c=0;c<128;c++) ascii_str[c]=(char)c;
             extern void *rt_wsb_alloc(size_t);
-            char *stable = (char *)rt_wsb_alloc(129); memcpy(stable, ascii_str, 128); stable[128] = '\0';
+            char *stable = (char *)rt_wsb_alloc(129);
+            memcpy(stable, ascii_str, 128);
+            stable[128] = '\0';
             kw_cset_append(stable, "&ascii", 128);
             csi = g_kw_cset_count - 1;
         }
@@ -480,86 +442,96 @@ DESCR_t kw_read(const char *kw) {
             char cset_str[256];
             for (int c=0;c<256;c++) cset_str[c]=(char)c;
             extern void *rt_wsb_alloc(size_t);
-            char *stable = (char *)rt_wsb_alloc(257); memcpy(stable, cset_str, 256); stable[256] = '\0';
+            char *stable = (char *)rt_wsb_alloc(257);
+            memcpy(stable, cset_str, 256);
+            stable[256] = '\0';
             kw_cset_append(stable, "&cset", 256);
             csi = g_kw_cset_count - 1;
         }
         return CSETVAL(g_kw_cset_names[csi].ptr);
     }
-    { extern long g_icn_errnumber; extern const char *g_icn_errtext; extern DESCR_t g_icn_errvalue; extern int g_icn_err_valid;
-      if (!strcmp(kw,"errornumber")) { if (!g_icn_err_valid) return FAILDESCR; return INTVAL(g_icn_errnumber); }
-      if (!strcmp(kw,"errortext"))   { if (!g_icn_err_valid) return FAILDESCR; return STRVAL(rt_heap_strdup_c(g_icn_errtext ? g_icn_errtext : "")); }
-      if (!strcmp(kw,"errorvalue"))  { if (!g_icn_err_valid) return FAILDESCR; return g_icn_errvalue; }
-      if (!strcmp(kw,"control"))     return FAILDESCR; }
-    { extern long g_error, g_trace, g_dump, g_random;
-      if (!strcmp(kw,"error"))  return INTVAL(g_error);
-      if (!strcmp(kw,"trace"))  return INTVAL(g_trace);
-      if (!strcmp(kw,"dump"))   return INTVAL(g_dump);
-      if (!strcmp(kw,"random")) return INTVAL(g_random);
+    {
+        extern long g_icn_errnumber;
+        extern const char *g_icn_errtext;
+        extern DESCR_t g_icn_errvalue;
+        extern int g_icn_err_valid;
+        if (!strcmp(kw,"errornumber")) { if (!g_icn_err_valid) return FAILDESCR; return INTVAL(g_icn_errnumber); }
+        if (!strcmp(kw,"errortext")) { if (!g_icn_err_valid) return FAILDESCR; return STRVAL(rt_heap_strdup_c(g_icn_errtext ? g_icn_errtext : "")); }
+        if (!strcmp(kw,"errorvalue")) { if (!g_icn_err_valid) return FAILDESCR; return g_icn_errvalue; }
+        if (!strcmp(kw,"control")) return FAILDESCR;
     }
-    { extern long g_maxlngth;
-      if (!strcmp(kw,"anchor"))   return INTVAL(g_anchor);
-      if (!strcmp(kw,"maxlngth")) return INTVAL(g_maxlngth);
-      if (!strcmp(kw,"fullscan")) return INTVAL(0);
-      if (!strcmp(kw,"stlimit"))  return INTVAL(-1);
+    {
+        extern long g_error, g_trace, g_dump, g_random;
+        if (!strcmp(kw,"error")) return INTVAL(g_error);
+        if (!strcmp(kw,"trace")) return INTVAL(g_trace);
+        if (!strcmp(kw,"dump")) return INTVAL(g_dump);
+        if (!strcmp(kw,"random")) return INTVAL(g_random);
     }
-    { extern long g_stno, g_stcount, g_lastno, g_line, g_lastline;
-      if (!strcmp(kw,"stno"))     return INTVAL(g_stno);
-      if (!strcmp(kw,"stcount"))  return INTVAL(g_stcount);
-      if (!strcmp(kw,"lastno"))   return INTVAL(g_lastno);
-      if (!strcmp(kw,"line"))     return INTVAL(g_line);
-      if (!strcmp(kw,"lastline")) return INTVAL(g_lastline);
+    {
+        extern long g_maxlngth;
+        if (!strcmp(kw,"anchor")) return INTVAL(g_anchor);
+        if (!strcmp(kw,"maxlngth")) return INTVAL(g_maxlngth);
+        if (!strcmp(kw,"fullscan")) return INTVAL(0);
+        if (!strcmp(kw,"stlimit")) return INTVAL(-1);
     }
-    { extern const char *g_file, *g_lastfile;
-      if (!strcmp(kw,"file"))     return STRVAL(g_file ? g_file : "");
-      if (!strcmp(kw,"lastfile")) return STRVAL(g_lastfile ? g_lastfile : "");
+    {
+        extern long g_stno, g_stcount, g_lastno, g_line, g_lastline;
+        if (!strcmp(kw,"stno")) return INTVAL(g_stno);
+        if (!strcmp(kw,"stcount")) return INTVAL(g_stcount);
+        if (!strcmp(kw,"lastno")) return INTVAL(g_lastno);
+        if (!strcmp(kw,"line")) return INTVAL(g_line);
+        if (!strcmp(kw,"lastline")) return INTVAL(g_lastline);
     }
-    if (!strcmp(kw,"col"))     return FAILDESCR;
-    if (!strcmp(kw,"row"))     return FAILDESCR;
-    if (!strcmp(kw,"x"))       return FAILDESCR;
-    if (!strcmp(kw,"y"))       return FAILDESCR;
+    { extern const char *g_file, *g_lastfile; if (!strcmp(kw,"file")) return STRVAL(g_file ? g_file : ""); if (!strcmp(kw,"lastfile")) return STRVAL(g_lastfile ? g_lastfile : ""); }
+    if (!strcmp(kw,"col")) return FAILDESCR;
+    if (!strcmp(kw,"row")) return FAILDESCR;
+    if (!strcmp(kw,"x")) return FAILDESCR;
+    if (!strcmp(kw,"y")) return FAILDESCR;
     { extern int rt_k_level; if (!strcmp(kw,"level")) return INTVAL(rt_k_level); }
-    if (!strcmp(kw,"lpress"))   return INTVAL(-1);
-    if (!strcmp(kw,"mpress"))   return INTVAL(-2);
-    if (!strcmp(kw,"rpress"))   return INTVAL(-3);
+    if (!strcmp(kw,"lpress")) return INTVAL(-1);
+    if (!strcmp(kw,"mpress")) return INTVAL(-2);
+    if (!strcmp(kw,"rpress")) return INTVAL(-3);
     if (!strcmp(kw,"lrelease")) return INTVAL(-4);
     if (!strcmp(kw,"mrelease")) return INTVAL(-5);
     if (!strcmp(kw,"rrelease")) return INTVAL(-6);
-    if (!strcmp(kw,"ldrag"))    return INTVAL(-7);
-    if (!strcmp(kw,"mdrag"))    return INTVAL(-8);
-    if (!strcmp(kw,"rdrag"))    return INTVAL(-9);
-    if (!strcmp(kw,"resize"))   return INTVAL(-10);
-    if (!strcmp(kw,"null"))    return NULVCL;
-    if (!strcmp(kw,"fail"))    return FAILDESCR;
-    if (!strcmp(kw,"window"))  return FAILDESCR;
-    if (!strcmp(kw,"input"))   { fh_ensure_init(); return FHVAL(0); }
-    if (!strcmp(kw,"output"))  { fh_ensure_init(); return FHVAL(1); }
-    if (!strcmp(kw,"errout"))  { fh_ensure_init(); return FHVAL(2); }
+    if (!strcmp(kw,"ldrag")) return INTVAL(-7);
+    if (!strcmp(kw,"mdrag")) return INTVAL(-8);
+    if (!strcmp(kw,"rdrag")) return INTVAL(-9);
+    if (!strcmp(kw,"resize")) return INTVAL(-10);
+    if (!strcmp(kw,"null")) return NULVCL;
+    if (!strcmp(kw,"fail")) return FAILDESCR;
+    if (!strcmp(kw,"window")) return FAILDESCR;
+    if (!strcmp(kw,"input")) { fh_ensure_init(); return FHVAL(0); }
+    if (!strcmp(kw,"output")) { fh_ensure_init(); return FHVAL(1); }
+    if (!strcmp(kw,"errout")) { fh_ensure_init(); return FHVAL(2); }
     if (!strcmp(kw,"current")) { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); DESCR_t d = {0}; d.v = DT_CO; d.p = cur; return d; }
-    if (!strcmp(kw,"main"))    { DESCR_t d = {0}; d.v = DT_CO; d.p = scrip_co_gc_root(); return d; }
-    if (!strcmp(kw,"source"))  { scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root(); scrip_coctx_t *src = cur->activator ? cur->activator : scrip_co_gc_root(); DESCR_t d = {0}; d.v = DT_CO; d.p = src; return d; }
-    { time_t t = time(NULL); struct tm *tm = localtime(&t); extern void *rt_wsb_alloc(size_t);
-      if (!strcmp(kw,"date")) {
-          char *buf = rt_wsb_alloc(16);
-          snprintf(buf,16,"%04d/%02d/%02d",tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday);
-          return STRVAL(buf);
-      }
-      if (!strcmp(kw,"dateline")) {
-          static const char *day[] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
-          static const char *month[] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
-          int hour = tm->tm_hour; const char *merid = (hour >= 12) ? "pm" : "am"; if (hour > 12) hour -= 12; else if (hour < 1) hour += 12;
-          char *buf = rt_wsb_alloc(64);
-          snprintf(buf,64,"%s, %s %d, %d  %d:%02d %s",day[tm->tm_wday],month[tm->tm_mon],tm->tm_mday,tm->tm_year+1900,hour,tm->tm_min,merid);
-          return STRVAL(buf);
-      }
-      if (!strcmp(kw,"clock")) {
-          char *buf = rt_wsb_alloc(16);
-          snprintf(buf,16,"%02d:%02d:%02d",tm->tm_hour,tm->tm_min,tm->tm_sec);
-          return STRVAL(buf);
-      }
-      if (!strcmp(kw,"time")) {
-          return INTVAL((int64_t)(clock()*1000/CLOCKS_PER_SEC));
-      }
+    if (!strcmp(kw,"main")) { DESCR_t d = {0}; d.v = DT_CO; d.p = scrip_co_gc_root(); return d; }
+    if (!strcmp(kw,"source")) {
+        scrip_coctx_t *cur = scrip_co_current ? scrip_co_current : scrip_co_gc_root();
+        scrip_coctx_t *src = cur->activator ? cur->activator : scrip_co_gc_root();
+        DESCR_t d = {0};
+        d.v = DT_CO;
+        d.p = src;
+        return d;
+    }
+    {
+        time_t t = time(NULL);
+        struct tm *tm = localtime(&t);
+        extern void *rt_wsb_alloc(size_t);
+        if (!strcmp(kw,"date")) { char *buf = rt_wsb_alloc(16); snprintf(buf,16,"%04d/%02d/%02d",tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday); return STRVAL(buf); }
+        if (!strcmp(kw,"dateline")) {
+            static const char *day[] = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" };
+            static const char *month[] = { "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December" };
+            int hour = tm->tm_hour;
+            const char *merid = (hour >= 12) ? "pm" : "am";
+            if (hour > 12) hour -= 12;
+            else if (hour < 1) hour += 12;
+            char *buf = rt_wsb_alloc(64);
+            snprintf(buf,64,"%s, %s %d, %d  %d:%02d %s",day[tm->tm_wday],month[tm->tm_mon],tm->tm_mday,tm->tm_year+1900,hour,tm->tm_min,merid);
+            return STRVAL(buf);
+        }
+        if (!strcmp(kw,"clock")) { char *buf = rt_wsb_alloc(16); snprintf(buf,16,"%02d:%02d:%02d",tm->tm_hour,tm->tm_min,tm->tm_sec); return STRVAL(buf); }
+        if (!strcmp(kw,"time")) { return INTVAL((int64_t)(clock()*1000/CLOCKS_PER_SEC)); }
     }
     if (!strcmp(kw,"progname")) { extern const char *rt_main_progname(void); return STRVAL(rt_main_progname()); }
     if (!strcmp(kw,"version")) return STRVAL("Icon Version 9.5.25a, September 7, 2025");
@@ -570,19 +542,24 @@ DESCR_t kw_read(const char *kw) {
 DESCR_t rt_keyword_read(const char *sval) {
     if (!sval) return NULVCL;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    size_t ln = strlen(kw); char lk[ln + 1]; size_t li = 0;
+    size_t ln = strlen(kw);
+    char lk[ln + 1];
+    size_t li = 0;
     for (; li < ln; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     DESCR_t kv = kw_read(lk);
     if (!IS_FAIL(kv)) return kv;
-    if (!strcmp(lk,"control") || !strcmp(lk,"errornumber") || !strcmp(lk,"errortext") || !strcmp(lk,"errorvalue") || !strcmp(lk,"fail") || !strcmp(lk,"interval") || !strcmp(lk,"meta") || !strcmp(lk,"shift") || !strcmp(lk,"col") || !strcmp(lk,"row") || !strcmp(lk,"x") || !strcmp(lk,"y") || !strcmp(lk,"window")) return FAILDESCR;
+    if (!strcmp(lk,"control") || !strcmp(lk,"errornumber") || !strcmp(lk,"errortext") || !strcmp(lk,"errorvalue") || !strcmp(lk,"fail") || !strcmp(lk,"interval") || !strcmp(lk,"meta") ||
+        !strcmp(lk,"shift") || !strcmp(lk,"col") || !strcmp(lk,"row") || !strcmp(lk,"x") || !strcmp(lk,"y") || !strcmp(lk,"window")) return FAILDESCR;
     return NV_GET_fn(sval);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_keyword_read_snobol4(const char *sval) {
     if (!sval) return NULVCL;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    size_t ln = strlen(kw); char lk[ln + 1]; size_t li = 0;
+    size_t ln = strlen(kw);
+    char lk[ln + 1];
+    size_t li = 0;
     for (; li < ln; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     const int canon = sn4_kw_spelling_is_canonical(kw);
@@ -594,15 +571,33 @@ DESCR_t rt_keyword_read_snobol4(const char *sval) {
     if (canon && !strcmp(lk, "ff")) return STRVAL("\x0C");
     if (canon && !strcmp(lk, "cr")) return STRVAL("\r");
     if (canon && !strcmp(lk, "esc")) return STRVAL("\x1B");
-    size_t bl = strlen(sval); char kb[bl + 2]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
+    size_t bl = strlen(sval);
+    char kb[bl + 2];
+    const char *ck = sval;
+    if (sval[0] != '&') { kb[0] = '&'; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
     if (rt_udc_on() && NV_CONST_ASSIGNED_fn(ck)) return NV_KW_GET_fn(ck);
     DESCR_t kv = canon ? kw_read(lk) : FAILDESCR;
     if (!IS_FAIL(kv)) return kv;
-    if (canon && (!strcmp(lk,"arb") || !strcmp(lk,"bal") || !strcmp(lk,"rem") || !strcmp(lk,"fail") || !strcmp(lk,"fence") || !strcmp(lk,"abort") || !strcmp(lk,"succeed"))) { const char *bn = sval[0] == '&' ? sval + 1 : sval; return NV_GET_fn(bn); }
-    if (!rt_udc_on()) { const char *en = sval[0] == '&' ? sval : lk; char eb[fmt_len("keyword operand is not name of defined keyword: %s", en)]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", en); core_runtime_error(251, eb); return FAILDESCR; }
+    if (canon && (!strcmp(lk,"arb") || !strcmp(lk,"bal") || !strcmp(lk,"rem") || !strcmp(lk,"fail") || !strcmp(lk,"fence") || !strcmp(lk,"abort") || !strcmp(lk,"succeed"))) {
+        const char *bn = sval[0] == '&' ? sval + 1 : sval;
+        return NV_GET_fn(bn);
+    }
+    if (!rt_udc_on()) {
+        const char *en = sval[0] == '&' ? sval : lk;
+        char eb[fmt_len("keyword operand is not name of defined keyword: %s", en)];
+        snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", en);
+        core_runtime_error(251, eb);
+        return FAILDESCR;
+    }
     {
-      if (!NV_CONST_ASSIGNED_fn(ck)) { char eb[fmt_len("&constant read before its one-time assignment: %s", ck)]; snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck); core_runtime_error(342, eb); return FAILDESCR; }
-      return NV_KW_GET_fn(ck); }
+        if (!NV_CONST_ASSIGNED_fn(ck)) {
+            char eb[fmt_len("&constant read before its one-time assignment: %s", ck)];
+            snprintf(eb, sizeof eb, "&constant read before its one-time assignment: %s", ck);
+            core_runtime_error(342, eb);
+            return FAILDESCR;
+        }
+        return NV_KW_GET_fn(ck);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_stmt_file_init(const char *file) { g_file = file; }
@@ -628,8 +623,8 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
     if (!sval) return FAILDESCR;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
     if (!strcmp(kw,"features")) {
-        static const char *const feats[] = { "UNIX", "ASCII", "co-expressions", "dynamic loading", "environment variables", "external values",
-                                             "keyboard functions", "large integers", "pipes", "system function" };
+        static const char *const feats[] = { "UNIX", "ASCII", "co-expressions", "dynamic loading", "environment variables", "external values", "keyboard functions", "large integers", "pipes",
+            "system function" };
         int n = (int)(sizeof(feats) / sizeof(feats[0]));
         if (idx < 0 || idx >= n) return FAILDESCR;
         return STRVAL(feats[idx]);
@@ -642,19 +637,11 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
         if (idx == 3) return INTVAL(rt_gc_alloc_total() - rt_gc_alloc_str());
         return FAILDESCR;
     }
-    if (!strcmp(kw,"regions")) {
-        if (idx == 0) return INTVAL(0);
-        if (idx == 1 || idx == 2) return INTVAL(500000);
-        return FAILDESCR;
-    }
-    if (!strcmp(kw,"storage")) {
-        extern long rt_gc_bytes_in_use(void);
-        if (idx == 0 || idx == 1) return INTVAL(0);
-        if (idx == 2) return INTVAL(rt_gc_bytes_in_use());
-        return FAILDESCR;
-    }
+    if (!strcmp(kw,"regions")) { if (idx == 0) return INTVAL(0); if (idx == 1 || idx == 2) return INTVAL(500000); return FAILDESCR; }
+    if (!strcmp(kw,"storage")) { extern long rt_gc_bytes_in_use(void); if (idx == 0 || idx == 1) return INTVAL(0); if (idx == 2) return INTVAL(rt_gc_bytes_in_use()); return FAILDESCR; }
     if (!strcmp(kw,"collections")) {
-        extern long rt_gc_runs_count(void); long g = rt_gc_runs_count();
+        extern long rt_gc_runs_count(void);
+        long g = rt_gc_runs_count();
         if (idx == 0) return INTVAL(g);
         if (idx == 1) return INTVAL(0);
         if (idx == 2) return INTVAL(0);
@@ -667,7 +654,9 @@ DESCR_t rt_keyword_gen(const char *sval, long idx) {
 int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     if (!sval) return 1;
     const char *kw = sval[0] == '&' ? sval + 1 : sval;
-    size_t ln = strlen(kw); char lk[ln + 1]; size_t li = 0;
+    size_t ln = strlen(kw);
+    char lk[ln + 1];
+    size_t li = 0;
     for (; li < ln; li++) lk[li] = (kw[li] >= 'A' && kw[li] <= 'Z') ? (char)(kw[li] - 'A' + 'a') : kw[li];
     lk[li] = '\0';
     const int canon = sn4_kw_spelling_is_canonical(kw);
@@ -676,10 +665,20 @@ int rt_keyword_write_snobol4(const char *sval, DESCR_t v) {
     if (IS_INT(v)) iv = (long)v.i;
     else if (IS_REAL(v)) iv = (long)v.r;
     else { const char *s2 = VARVAL_fn(v); if (s2) iv = strtol(s2, (char **)0, 10); }
-    if (canon && !strcmp(lk,"error"))    { g_error = iv; return 1; }
-    if (canon && !strcmp(lk,"random"))   { g_random = iv; bb_rnd_seed = (unsigned long)iv; return 1; }
-    { size_t bl = strlen(sval); char kb[bl + 2]; const char *ck = sval; if (sval[0] != '&') { kb[0] = '&'; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
-      if (!rt_udc_on()) { char eb[fmt_len("keyword operand is not name of defined keyword: %s", ck)]; snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", ck); core_runtime_error(251, eb); return 1; }
-      NV_KW_SET_fn(ck, v); }
+    if (canon && !strcmp(lk,"error")) { g_error = iv; return 1; }
+    if (canon && !strcmp(lk,"random")) { g_random = iv; bb_rnd_seed = (unsigned long)iv; return 1; }
+    {
+        size_t bl = strlen(sval);
+        char kb[bl + 2];
+        const char *ck = sval;
+        if (sval[0] != '&') { kb[0] = '&'; memcpy(kb + 1, sval, bl); kb[bl + 1] = 0; ck = kb; }
+        if (!rt_udc_on()) {
+            char eb[fmt_len("keyword operand is not name of defined keyword: %s", ck)];
+            snprintf(eb, sizeof eb, "keyword operand is not name of defined keyword: %s", ck);
+            core_runtime_error(251, eb);
+            return 1;
+        }
+        NV_KW_SET_fn(ck, v);
+    }
     return 1;
 }

@@ -2,20 +2,20 @@
 #define RT_PL_TRAIL_H
 #include <stdint.h>
 #include "descr.h"
-#define PL_TR_ARENA_LG2     27
-#define PL_TR_ARENA_BYTES   ((uintptr_t)1 << PL_TR_ARENA_LG2)
-#define PL_TR_HEADER_BYTES  32
-#define PL_TR_ENTRY_BYTES   32
-#define PL_TR_BALL_OFF      8
-#define PL_TR_WSLOT_OFF     16
-#define PL_TR_OCHECK_OFF    24
+#define PL_TR_ARENA_LG2 27
+#define PL_TR_ARENA_BYTES ((uintptr_t)1 << PL_TR_ARENA_LG2)
+#define PL_TR_HEADER_BYTES 32
+#define PL_TR_ENTRY_BYTES 32
+#define PL_TR_BALL_OFF 8
+#define PL_TR_WSLOT_OFF 16
+#define PL_TR_OCHECK_OFF 24
 #define PL_TR_FRAME_HEADER_BYTES 64
 #define PL_TR_FRAME_HI_OFF 32
 typedef struct { DESCR_t *cell; uint64_t pad; DESCR_t old; } pl_tr_entry_t;
 typedef struct pl_tr_ctx_s { char *tr; char *b; void *ball; uint64_t rbx; uint64_t r14; uint64_t r15; } pl_tr_ctx_t;
 void *rt_pl_tr_init(void);
-void  rt_pl_tr_refuse(const char *tr);
-void  rt_pl_tr_gc_sync(const char *tr);
+void rt_pl_tr_refuse(const char *tr);
+void rt_pl_tr_gc_sync(const char *tr);
 char *rt_pl_tr_unwind_to(char *tr, char *mark);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)tr & ~(PL_TR_ARENA_BYTES - 1)); }

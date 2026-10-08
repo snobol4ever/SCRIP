@@ -12,10 +12,8 @@
 #include <stdio.h>
 #include <math.h>
 #include "core/core_errjmp.h"
-#define STACKLESS_ABORT(fn) \
-    do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
-                         "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
-         abort(); } while (0)
+#define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \
+    ; abort(); } while (0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t coerce_numeric(DESCR_t v) {
     if (IS_STR(v)) {
@@ -26,8 +24,7 @@ static DESCR_t coerce_numeric(DESCR_t v) {
         const char *p = s;
         while (*p >= '0' && *p <= '9') p++;
         while (*p == ' ') p++;
-        if (*p == '\0' && p > s)
-            return INTVAL((int64_t)strtoll(s0, NULL, 10));
+        if (*p == '\0' && p > s) return INTVAL((int64_t)strtoll(s0, NULL, 10));
     }
     return v;
 }
@@ -35,32 +32,82 @@ static DESCR_t coerce_numeric(DESCR_t v) {
 void rk_op_canon_base_c(const char *cat, const char *op, char *outbuf, int n) { rk_op_canon_base(cat, op, outbuf, (size_t)n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_binop_opstr(int op) {
-    switch (op) { case BINOP_ADD: return "+"; case BINOP_SUB: return "-"; case BINOP_MUL: return "*"; case BINOP_DIV: return "/"; case BINOP_MOD: return "%"; case BINOP_POW: return "**";
-                  case BINOP_POW_PROMOTE: return "**";
-                  case BINOP_LT: return "<"; case BINOP_LE: return "<="; case BINOP_GT: return ">"; case BINOP_GE: return ">="; case BINOP_EQ: return "=="; case BINOP_NE: return "!=";
-                  case BINOP_CONCAT: return "~"; case BINOP_SEQ: return "eq"; case BINOP_SNE: return "ne"; case BINOP_SLT: return "lt";
-                  case BINOP_SLE: return "le"; case BINOP_SGT: return "gt"; case BINOP_SGE: return "ge"; default: return (const char *)0; }
+    switch (op) {
+        case BINOP_ADD:
+        return "+";
+        case BINOP_SUB:
+        return "-";
+        case BINOP_MUL:
+        return "*";
+        case BINOP_DIV:
+        return "/";
+        case BINOP_MOD:
+        return "%";
+        case BINOP_POW:
+        return "**";
+        case BINOP_POW_PROMOTE:
+        return "**";
+        case BINOP_LT:
+        return "<";
+        case BINOP_LE:
+        return "<=";
+        case BINOP_GT:
+        return ">";
+        case BINOP_GE:
+        return ">=";
+        case BINOP_EQ:
+        return "==";
+        case BINOP_NE:
+        return "!=";
+        case BINOP_CONCAT:
+        return "~";
+        case BINOP_SEQ:
+        return "eq";
+        case BINOP_SNE:
+        return "ne";
+        case BINOP_SLT:
+        return "lt";
+        case BINOP_SLE:
+        return "le";
+        case BINOP_SGT:
+        return "gt";
+        case BINOP_SGE:
+        return "ge";
+        default:
+        return (const char *)0;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     if (a.v != DT_DATA && b.v != DT_DATA) return 0;
-    const char *ops = rk_binop_opstr(op); if (!ops) return 0;
-    char base[sizeof "Rinfix_" + 2 * strlen(ops)]; rk_op_canon_base("infix", ops, base, sizeof base);
-    extern int rt_proc_enum_count(void); extern const char *rt_proc_enum_name(int i);
-    char prefix[sizeof base + 1]; int pl = snprintf(prefix, sizeof prefix, "%s$", base);
+    const char *ops = rk_binop_opstr(op);
+    if (!ops) return 0;
+    char base[sizeof "Rinfix_" + 2 * strlen(ops)];
+    rk_op_canon_base("infix", ops, base, sizeof base);
+    extern int rt_proc_enum_count(void);
+    extern const char *rt_proc_enum_name(int i);
+    char prefix[sizeof base + 1];
+    int pl = snprintf(prefix, sizeof prefix, "%s$", base);
     int found = 0, pcount = rt_proc_enum_count();
     for (int pi = 0; pi < pcount; pi++) { const char *pn = rt_proc_enum_name(pi); if (pn && !strncmp(pn, prefix, (size_t)pl)) { found = 1; break; } }
     if (!found) return 0;
     extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
-    DESCR_t args[3]; args[0] = STRVAL(rt_str_dup(base)); args[1] = a; args[2] = b;
-    DESCR_t r = FAILDESCR; if (script_try_call_builtin_by_name("__multi_call", args, 3, &r)) { *out = r; return 1; }
+    DESCR_t args[3];
+    args[0] = STRVAL(rt_str_dup(base));
+    args[1] = a;
+    args[2] = b;
+    DESCR_t r = FAILDESCR;
+    if (script_try_call_builtin_by_name("__multi_call", args, 3, &r)) { *out = r; return 1; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     if (a.v != DT_DATA && b.v != DT_DATA) return 0;
-    DESCR_t r; if (!rt_binop_overload(a, b, op, &r)) return 0;
-    *out = r; extern int rt_is_truthy(DESCR_t v); return rt_is_truthy(r) ? 2 : 1;
+    DESCR_t r;
+    if (!rt_binop_overload(a, b, op, &r)) return 0;
+    *out = r;
+    extern int rt_is_truthy(DESCR_t v);
+    return rt_is_truthy(r) ? 2 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t big_str_operand(DESCR_t d);
@@ -77,9 +124,9 @@ DESCR_t add(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
     if (IS_NULL(a)) a = INTVAL(0);
     if (IS_NULL(b)) b = INTVAL(0);
-    a = coerce_numeric(a); b = coerce_numeric(b);
-    if (IS_INT(a) && IS_INT(b))
-        return INTVAL(a.i + b.i);
+    a = coerce_numeric(a);
+    b = coerce_numeric(b);
+    if (IS_INT(a) && IS_INT(b)) return INTVAL(a.i + b.i);
     return REALVAL(to_real(a) + to_real(b));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -87,42 +134,35 @@ DESCR_t sub(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
     if (IS_NULL(a)) a = INTVAL(0);
     if (IS_NULL(b)) b = INTVAL(0);
-    a = coerce_numeric(a); b = coerce_numeric(b);
-    if (IS_INT(a) && IS_INT(b))
-        return INTVAL(a.i - b.i);
+    a = coerce_numeric(a);
+    b = coerce_numeric(b);
+    if (IS_INT(a) && IS_INT(b)) return INTVAL(a.i - b.i);
     return REALVAL(to_real(a) - to_real(b));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t mul(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
-    a = coerce_numeric(a); b = coerce_numeric(b);
-    if (IS_INT(a) && IS_INT(b))
-        return INTVAL(a.i * b.i);
+    a = coerce_numeric(a);
+    b = coerce_numeric(b);
+    if (IS_INT(a) && IS_INT(b)) return INTVAL(a.i * b.i);
     return REALVAL(to_real(a) * to_real(b));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DIVIDE_fn(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
-    if (IS_INT(a) && IS_INT(b)) {
-        if (b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; }
-        return INTVAL(a.i / b.i);
-    }
+    if (IS_INT(a) && IS_INT(b)) { if (b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; } return INTVAL(a.i / b.i); }
     double denom = to_real(b);
     if (denom == 0.0) { core_runtime_error(2, NULL); return FAILDESCR; }
     return REALVAL(to_real(a) / denom);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static double rt_ripow(double r, int64_t n) {
-    double acc = 1.0;
-    if (n < 0) { n = (-1) - n; r = 1.0 / r; acc = r; }
-    while (n > 0) { if (n & 1) acc *= r; r *= r; n >>= 1; }
-    return acc;
-}
+static double rt_ripow(double r, int64_t n) { double acc = 1.0; if (n < 0) { n = (-1) - n; r = 1.0 / r; acc = r; } while (n > 0) { if (n & 1) acc *= r; r *= r; n >>= 1; } return acc; }
 DESCR_t POWER_fn(DESCR_t a, DESCR_t b) {
     if (IS_FAIL(a) || IS_FAIL(b)) return FAILDESCR;
     if (IS_NULL(a)) a = INTVAL(0);
     if (IS_NULL(b)) b = INTVAL(0);
-    a = coerce_numeric(a); b = coerce_numeric(b);
+    a = coerce_numeric(a);
+    b = coerce_numeric(b);
     if (IS_INT(a) && IS_INT(b) && b.i >= 0) {
         if (a.i == 0 && b.i == 0) { core_runtime_error(2, NULL); return FAILDESCR; }
         int64_t acc = 1;
@@ -137,68 +177,52 @@ DESCR_t POWER_fn(DESCR_t a, DESCR_t b) {
 DESCR_t neg(DESCR_t a) {
     if (IS_FAIL(a)) return FAILDESCR;
     if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
-    if (IS_INT(a))  return INTVAL(-a.i);
+    if (IS_INT(a)) return INTVAL(-a.i);
     if (IS_REAL(a)) return REALVAL(-a.r);
     return INTVAL(-to_int(a));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t pos(DESCR_t a) {
-    if (IS_FAIL(a))  return FAILDESCR;
-    if (IS_INT(a))   return a;
-    if (IS_REAL(a))  return a;
-    return INTVAL(to_int(a));
-}
+DESCR_t pos(DESCR_t a) { if (IS_FAIL(a)) return FAILDESCR; if (IS_INT(a)) return a; if (IS_REAL(a)) return a; return INTVAL(to_int(a)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int lt(DESCR_t a, DESCR_t b) {
-    if (IS_INT(a) && IS_INT(b)) return a.i < b.i;
-    return to_real(a) < to_real(b);
-}
+int lt(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i < b.i; return to_real(a) < to_real(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int le(DESCR_t a, DESCR_t b) {
-    if (IS_INT(a) && IS_INT(b)) return a.i <= b.i;
-    return to_real(a) <= to_real(b);
-}
+int le(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i <= b.i; return to_real(a) <= to_real(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int gt(DESCR_t a, DESCR_t b) {
-    if (IS_INT(a) && IS_INT(b)) return a.i > b.i;
-    return to_real(a) > to_real(b);
-}
+int gt(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i > b.i; return to_real(a) > to_real(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int ge(DESCR_t a, DESCR_t b) {
-    if (IS_INT(a) && IS_INT(b)) return a.i >= b.i;
-    return to_real(a) >= to_real(b);
-}
+int ge(DESCR_t a, DESCR_t b) { if (IS_INT(a) && IS_INT(b)) return a.i >= b.i; return to_real(a) >= to_real(b); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_arith(int lk, long li, const char *ls,
-                  int rk, long ri, const char *rs, const char *op)
-{
-    (void)ls; (void)rs; (void)lk; (void)rk;
+long rt_arith(int lk, long li, const char *ls, int rk, long ri, const char *rs, const char *op) {
+    (void)ls;
+    (void)rs;
+    (void)lk;
+    (void)rk;
     long lv = li;
     long rv = ri;
     if (!op) return lv + rv;
-    if (strcmp(op, "sign")==0)     return (lv > 0) ? 1 : (lv < 0) ? -1 : 0;
-    if (strcmp(op, "abs")==0)      return (lv < 0) ? -lv : lv;
+    if (strcmp(op, "sign")==0) return (lv > 0) ? 1 : (lv < 0) ? -1 : 0;
+    if (strcmp(op, "abs")==0) return (lv < 0) ? -lv : lv;
     if (strcmp(op, "truncate")==0) return lv;
-    if (strcmp(op, "integer")==0)  return lv;
-    if (strcmp(op, "round")==0)    return lv;
-    if (strcmp(op, "ceiling")==0)  return lv;
-    if (strcmp(op, "floor")==0)    return lv;
-    if (strcmp(op, "\\")==0)       return ~lv;
-    if (strcmp(op, "msb")==0)      { long v=lv, m=-1; while(v){v>>=1;m++;} return m; }
-    if (strcmp(op, "**") == 0)   { long r=1; for(long i=0;i<rv;i++) r*=lv; return r; }
-    if (strcmp(op, "^") == 0)    { long r=1; for(long i=0;i<rv;i++) r*=lv; return r; }
-    if (strcmp(op, "/\\") == 0)  return lv & rv;
-    if (strcmp(op, "\\/") == 0)  return lv | rv;
-    if (strcmp(op, "xor") == 0)  return lv ^ rv;
-    if (strcmp(op, ">>") == 0)   return lv >> rv;
-    if (strcmp(op, "<<") == 0)   return lv << rv;
-    if (strcmp(op, "mod") == 0)  return rv ? lv % rv : 0;
-    if (strcmp(op, "rem") == 0)  return rv ? lv % rv : 0;
-    if (strcmp(op, "gcd") == 0)  { long a = lv<0?-lv:lv, b = rv<0?-rv:rv; while (b) { long r = a % b; a = b; b = r; } return a; }
-    if (strcmp(op, "div") == 0)  { if (!rv) return 0; long q = lv / rv; if ((lv % rv != 0) && ((lv < 0) != (rv < 0))) q--; return q; }
-    if (strcmp(op, "max") == 0)  return lv > rv ? lv : rv;
-    if (strcmp(op, "min") == 0)  return lv < rv ? lv : rv;
-    if (strcmp(op, "//") == 0)   return rv ? lv / rv : 0;
+    if (strcmp(op, "integer")==0) return lv;
+    if (strcmp(op, "round")==0) return lv;
+    if (strcmp(op, "ceiling")==0) return lv;
+    if (strcmp(op, "floor")==0) return lv;
+    if (strcmp(op, "\\")==0) return ~lv;
+    if (strcmp(op, "msb")==0) { long v=lv, m=-1; while(v){ v>>=1; m++; } return m; }
+    if (strcmp(op, "**") == 0) { long r=1; for(long i=0;i<rv;i++) r*=lv; return r; }
+    if (strcmp(op, "^") == 0) { long r=1; for(long i=0;i<rv;i++) r*=lv; return r; }
+    if (strcmp(op, "/\\") == 0) return lv & rv;
+    if (strcmp(op, "\\/") == 0) return lv | rv;
+    if (strcmp(op, "xor") == 0) return lv ^ rv;
+    if (strcmp(op, ">>") == 0) return lv >> rv;
+    if (strcmp(op, "<<") == 0) return lv << rv;
+    if (strcmp(op, "mod") == 0) return rv ? lv % rv : 0;
+    if (strcmp(op, "rem") == 0) return rv ? lv % rv : 0;
+    if (strcmp(op, "gcd") == 0) { long a = lv<0?-lv:lv, b = rv<0?-rv:rv; while (b) { long r = a % b; a = b; b = r; } return a; }
+    if (strcmp(op, "div") == 0) { if (!rv) return 0; long q = lv / rv; if ((lv % rv != 0) && ((lv < 0) != (rv < 0))) q--; return q; }
+    if (strcmp(op, "max") == 0) return lv > rv ? lv : rv;
+    if (strcmp(op, "min") == 0) return lv < rv ? lv : rv;
+    if (strcmp(op, "//") == 0) return rv ? lv / rv : 0;
     if (op[0] == '+' && op[1] == '\0') return lv + rv;
     if (op[0] == '-' && op[1] == '\0') return lv - rv;
     if (op[0] == '*' && op[1] == '\0') return lv * rv;
@@ -209,24 +233,38 @@ long rt_arith(int lk, long li, const char *ls,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_ipow_descr(int64_t li, int64_t ri) {
     if (li == 0 && ri <= 0) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, FAILDESCR); return FAILDESCR; }
-    if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); } return INTVAL(acc); }
+    if (ri >= 0) {
+        int64_t acc = 1;
+        for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); }
+        return INTVAL(acc);
+    }
     if (li == 1) return INTVAL(1);
     if (li == -1) return INTVAL((ri & 1) ? -1 : 1);
     return INTVAL(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_ipow_promote_descr(int64_t li, int64_t ri) {
-    if (ri >= 0) { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) { int64_t _z; if (__builtin_mul_overflow(acc, li, &_z)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); } acc = _z; } return INTVAL(acc); }
+    if (ri >= 0) {
+        int64_t acc = 1;
+        for (int64_t k = 0; k < ri; k++) { int64_t _z; if (__builtin_mul_overflow(acc, li, &_z)) { extern DESCR_t rt_big_pow(DESCR_t, int64_t); return rt_big_pow(INTVAL(li), ri); } acc = _z; }
+        return INTVAL(acc);
+    }
     if (li == 0) return REALVAL(0.0);
     { double _r = pow((double)li, (double)ri); if (!isfinite(_r)) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(204, FAILDESCR); return FAILDESCR; } return REALVAL(_r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int operand_is_real_str(DESCR_t v) {
     if (!IS_STR_fn(v) || !v.s) return 0;
-    const char *s = v.s; while (*s == ' ') s++; if (!*s) return 0;
+    const char *s = v.s;
+    while (*s == ' ') s++;
+    if (!*s) return 0;
     if (rt_plain_int_str(s)) return 0;
-    char *endi = 0, *endd = 0; strtoll(s, &endi, 10); strtod(s, &endd);
-    if (endd <= endi) return 0; while (*endd == ' ') endd++; return *endd == '\0';
+    char *endi = 0, *endd = 0;
+    strtoll(s, &endi, 10);
+    strtod(s, &endd);
+    if (endd <= endi) return 0;
+    while (*endd == ' ') endd++;
+    return *endd == '\0';
 }
 static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict);
 static DESCR_t rt_num_arith_impl(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_impl_s(a, b, op, 0); }
@@ -236,25 +274,37 @@ DESCR_t rt_cplx_make(double re, double im) {
     extern void *rt_wsb_alloc(size_t);
     RK_CPLX_t *c = (RK_CPLX_t *) rt_wsb_alloc(sizeof(RK_CPLX_t));
     if (!c) return FAILDESCR;
-    c->re = re; c->im = im;
-    DESCR_t d; d.v = DT_CPLX; descr_set_src_node(&d, DESCR_SRC_NODE_UNSTAMPED); d.slen = 0; d.p = (void *) c;
+    c->re = re;
+    c->im = im;
+    DESCR_t d;
+    d.v = DT_CPLX;
+    descr_set_src_node(&d, DESCR_SRC_NODE_UNSTAMPED);
+    d.slen = 0;
+    d.p = (void *) c;
     return d;
 }
-void rt_cplx_parts(DESCR_t d, double *re, double *im) {
-    if (d.v == DT_CPLX && d.p) { RK_CPLX_t *c = (RK_CPLX_t *) d.p; *re = c->re; *im = c->im; return; }
-    *re = to_real(d); *im = 0.0;
-}
+void rt_cplx_parts(DESCR_t d, double *re, double *im) { if (d.v == DT_CPLX && d.p) { RK_CPLX_t *c = (RK_CPLX_t *) d.p; *re = c->re; *im = c->im; return; } *re = to_real(d); *im = 0.0; }
 double rt_cplx_abs(DESCR_t d) { double re, im; rt_cplx_parts(d, &re, &im); return sqrt(re * re + im * im); }
 static DESCR_t rt_cplx_arith(DESCR_t a, DESCR_t b, int op) {
-    double ar, ai, br, bi; rt_cplx_parts(a, &ar, &ai); rt_cplx_parts(b, &br, &bi);
+    double ar, ai, br, bi;
+    rt_cplx_parts(a, &ar, &ai);
+    rt_cplx_parts(b, &br, &bi);
     switch (op) {
-        case BINOP_ADD: return rt_cplx_make(ar + br, ai + bi);
-        case BINOP_SUB: return rt_cplx_make(ar - br, ai - bi);
-        case BINOP_MUL: return rt_cplx_make(ar * br - ai * bi, ar * bi + ai * br);
-        case BINOP_DIV: { double dnm = br * br + bi * bi;
+        case BINOP_ADD:
+        return rt_cplx_make(ar + br, ai + bi);
+        case BINOP_SUB:
+        return rt_cplx_make(ar - br, ai - bi);
+        case BINOP_MUL:
+        return rt_cplx_make(ar * br - ai * bi, ar * bi + ai * br);
+        case BINOP_DIV:
+        {
+            double dnm = br * br + bi * bi;
             if (dnm == 0.0) { core_runtime_error(2, "division by zero (Complex)"); return FAILDESCR; }
-            return rt_cplx_make((ar * br + ai * bi) / dnm, (ai * br - ar * bi) / dnm); }
-        default: core_runtime_error(1, "unsupported operation on Complex"); return FAILDESCR;
+            return rt_cplx_make((ar * br + ai * bi) / dnm, (ai * br - ar * bi) / dnm);
+        }
+        default:
+        core_runtime_error(1, "unsupported operation on Complex");
+        return FAILDESCR;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -263,109 +313,141 @@ static DESCR_t rt_num_arith_s(DESCR_t a, DESCR_t b, int op, int strict) {
     if (a.v == DT_I && b.v == DT_I) {
         int64_t _z;
         switch (op) {
-            case BINOP_ADD: if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); break;
-            case BINOP_SUB: if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); break;
-            case BINOP_MUL: if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); break;
-            case BINOP_DIV: if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i); break;
-            case BINOP_MOD: if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i); break;
-            default: break;
+            case BINOP_ADD:
+            if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z);
+            break;
+            case BINOP_SUB:
+            if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z);
+            break;
+            case BINOP_MUL:
+            if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z);
+            break;
+            case BINOP_DIV:
+            if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);
+            break;
+            case BINOP_MOD:
+            if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);
+            break;
+            default:
+            break;
         }
     }
     core_errjmp_t ej;
     int my = g_core_errjmp_n;
     if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; }
-    core_errjmp_push(&ej); g_core_errjmp_n = my + 1;
+    core_errjmp_push(&ej);
+    g_core_errjmp_n = my + 1;
     DESCR_t r = rt_num_arith_impl_s(a, b, op, strict);
     core_errjmp_pop(&ej, my);
     return r;
 }
 static void rt_div_zero(int bcode, DESCR_t a, DESCR_t b, const char *msg, int strict) {
     core_icn_op_ctx(core_icn_binop_sym(bcode), 2, a, b);
-    if (strict == 1) { extern int core_icn_error(int code, DESCR_t val); core_icn_error(bcode == BINOP_MOD ? 202 : 201, bcode == BINOP_MOD ? b : FAILDESCR); }
-    else core_runtime_error(strict == 2 ? 14 : 2, msg);
+    if (strict == 1) {
+        extern int core_icn_error(int code, DESCR_t val);
+        core_icn_error(bcode == BINOP_MOD ? 202 : 201, bcode == BINOP_MOD ? b : FAILDESCR);
+    } else core_runtime_error(strict == 2 ? 14 : 2, msg);
     core_icn_op_ctx_clear();
 }
 DESCR_t rt_num_arith(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 0); }
 DESCR_t rt_num_arith_strict(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 1); }
 DESCR_t rt_num_arith_sno(DESCR_t a, DESCR_t b, int op) { return rt_num_arith_s(a, b, op, 2); }
 static inline int rt_int_str_operand(DESCR_t d, int64_t *out) __attribute__((always_inline));
-static inline int rt_int_str_operand(DESCR_t d, int64_t *out)
-{
+static inline int rt_int_str_operand(DESCR_t d, int64_t *out) {
     if (d.v == DT_I) { *out = d.i; return 1; }
     if (d.v == DT_SNUL || (d.v == DT_S && !d.s)) { *out = 0; return 1; }
     if (d.v != DT_S) return 0;
-    { const unsigned char *p = (const unsigned char *)d.s, *e = p + descr_slen(d); int neg = 0; uint64_t v = 0;
-      while (p < e && (*p == ' ' || *p == '\t')) p++;
-      if (p == e) { *out = 0; return 1; }
-      if (*p == '+' || *p == '-') { neg = (*p == '-'); p++; }
-      if (p == e || *p < '0' || *p > '9') return 0;
-      while (p < e && *p >= '0' && *p <= '9') { if (v > (uint64_t)922337203685477580ull) return 0; v = v * 10u + (uint64_t)(*p - '0'); p++; }
-      if (v > (uint64_t)9223372036854775807ull + (uint64_t)neg) return 0;
-      while (p < e && (*p == ' ' || *p == '\t')) p++;
-      if (p != e) return 0;
-      *out = neg ? (int64_t)(0u - v) : (int64_t)v; return 1; }
+    {
+        const unsigned char *p = (const unsigned char *)d.s, *e = p + descr_slen(d);
+        int neg = 0;
+        uint64_t v = 0;
+        while (p < e && (*p == ' ' || *p == '\t')) p++;
+        if (p == e) { *out = 0; return 1; }
+        if (*p == '+' || *p == '-') { neg = (*p == '-'); p++; }
+        if (p == e || *p < '0' || *p > '9') return 0;
+        while (p < e && *p >= '0' && *p <= '9') { if (v > (uint64_t)922337203685477580ull) return 0; v = v * 10u + (uint64_t)(*p - '0'); p++; }
+        if (v > (uint64_t)9223372036854775807ull + (uint64_t)neg) return 0;
+        while (p < e && (*p == ' ' || *p == '\t')) p++;
+        if (p != e) return 0;
+        *out = neg ? (int64_t)(0u - v) : (int64_t)v;
+        return 1;
+    }
 }
-#define RT_BINOP_ENTRY_S(fn, code, fast, strict) \
-DESCR_t fn(DESCR_t a, DESCR_t b) { \
-    extern int g_core_errjmp_n; \
-    if (a.v == DT_I && b.v == DT_I) { fast } \
-    { int64_t _x, _y; if (rt_int_str_operand(a, &_x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } \
-    if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
-    core_errjmp_t ej; \
-    int my = g_core_errjmp_n; \
-    if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; } \
-    core_errjmp_push(&ej); g_core_errjmp_n = my + 1; \
-    DESCR_t r = rt_num_arith_impl_s(a, b, code, strict); \
-    core_errjmp_pop(&ej, my); \
-    return r; \
-}
+#define RT_BINOP_ENTRY_S(fn, code, fast, strict) DESCR_t fn(DESCR_t a, DESCR_t b) { extern int g_core_errjmp_n; if (a.v == DT_I && b.v == DT_I) { fast } { int64_t _x, _y; if (rt_int_str_operand(a, & \
+    _x) && rt_int_str_operand(b, &_y)) { DESCR_t a = INTVAL(_x), b = INTVAL(_y); { fast } } } if (a.v == DT_DATA || b.v == DT_DATA) { DESCR_t ov; if (rt_binop_overload(a, b, code, &ov)) return ov; } \
+    core_errjmp_t ej; int my = g_core_errjmp_n; if (setjmp(ej.jb)) { core_errjmp_pop(&ej, my); core_icn_op_ctx_clear(); return FAILDESCR; } core_errjmp_push(&ej); g_core_errjmp_n = my + 1; DESCR_t r \
+    = rt_num_arith_impl_s(a, b, code, strict); core_errjmp_pop(&ej, my); return r; }
 #define RT_BINOP_ENTRY(fn, code, fast) RT_BINOP_ENTRY_S(fn, code, fast, 0) RT_BINOP_ENTRY_S(fn##_strict, code, fast, 1) RT_BINOP_ENTRY_S(fn##_sno, code, fast, 2)
-RT_BINOP_ENTRY(c_rt_add,  BINOP_ADD,    { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-RT_BINOP_ENTRY(c_rt_sub,  BINOP_SUB,    { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-RT_BINOP_ENTRY(c_rt_mul,  BINOP_MUL,    { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
-RT_BINOP_ENTRY(rt_div,    BINOP_DIV,    if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);)
-RT_BINOP_ENTRY(rt_mod,    BINOP_MOD,    if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
+RT_BINOP_ENTRY(c_rt_add, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
+    RT_BINOP_ENTRY(c_rt_sub, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
+    RT_BINOP_ENTRY(c_rt_mul, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); })
+    RT_BINOP_ENTRY(rt_div, BINOP_DIV, if (b.i != 0 && b.i != -1) return INTVAL(a.i / b.i);) RT_BINOP_ENTRY(rt_mod, BINOP_MOD, if (b.i != 0 && b.i != -1) return INTVAL(a.i % b.i);)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_big_add(DESCR_t, DESCR_t); DESCR_t rt_big_sub(DESCR_t, DESCR_t); DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+DESCR_t rt_big_add(DESCR_t, DESCR_t);
+DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+DESCR_t rt_big_mul(DESCR_t, DESCR_t);
 RT_BINOP_ENTRY_S(rt_add_big, BINOP_ADD, { int64_t _z; if (!__builtin_add_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_add(a, b); }, 0)
-RT_BINOP_ENTRY_S(rt_sub_big, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_sub(a, b); }, 0)
-RT_BINOP_ENTRY_S(rt_mul_big, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_mul(a, b); }, 0)
+    RT_BINOP_ENTRY_S(rt_sub_big, BINOP_SUB, { int64_t _z; if (!__builtin_sub_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_sub(a, b); }, 0)
+    RT_BINOP_ENTRY_S(rt_mul_big, BINOP_MUL, { int64_t _z; if (!__builtin_mul_overflow(a.i, b.i, &_z)) return INTVAL(_z); return rt_big_mul(a, b); }, 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-RT_BINOP_ENTRY(rt_pow,    BINOP_POW,    )
-RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE, )
-RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, )
-RT_BINOP_ENTRY(rt_cdiff,  BINOP_CDIFF,  )
-RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, )
-static DESCR_t big_route_operand(DESCR_t d) {
+RT_BINOP_ENTRY(rt_pow, BINOP_POW, ) RT_BINOP_ENTRY(rt_powreal, BINOP_POW_PROMOTE, ) RT_BINOP_ENTRY(rt_cunion, BINOP_CUNION, ) RT_BINOP_ENTRY(rt_cdiff, BINOP_CDIFF, )
+    RT_BINOP_ENTRY(rt_cinter, BINOP_CINTER, ) static DESCR_t big_route_operand(DESCR_t d) {
     if (d.v == DT_BIG || d.v == DT_I) return d;
     if (d.v == DT_SNUL) return INTVAL(0);
-    if (d.v == DT_R) { extern DESCR_t rt_big_from_str(const char *); double t = trunc(d.r); if (t >= -9223372036854775808.0 && t < 9223372036854775808.0) return INTVAL((int64_t)t); if (t == t && t - t == 0.0) { char nb[400]; snprintf(nb, sizeof nb, "%.0f", t); return rt_big_from_str(nb); } return FAILDESCR; }
-    if (IS_STR_fn(d) && d.s) { errno = 0; char *e = 0; long long v = strtoll(d.s, &e, 10); if (e != d.s && errno != ERANGE) { while (*e == ' ') e++; if (!*e) return INTVAL(v); } { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(d.s); if (!IS_FAIL_fn(bg)) return bg; } }
+    if (d.v == DT_R) {
+        extern DESCR_t rt_big_from_str(const char *);
+        double t = trunc(d.r);
+        if (t >= -9223372036854775808.0 && t < 9223372036854775808.0) return INTVAL((int64_t)t);
+        if (t == t && t - t == 0.0) { char nb[400]; snprintf(nb, sizeof nb, "%.0f", t); return rt_big_from_str(nb); }
+        return FAILDESCR;
+    }
+    if (IS_STR_fn(d) && d.s) {
+        errno = 0;
+        char *e = 0;
+        long long v = strtoll(d.s, &e, 10);
+        if (e != d.s && errno != ERANGE) { while (*e == ' ') e++; if (!*e) return INTVAL(v); }
+        { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(d.s); if (!IS_FAIL_fn(bg)) return bg; }
+    }
     return d;
 }
 DESCR_t rt_bitop_operand(DESCR_t d) { return big_route_operand(d); }
 static DESCR_t rt_big_arith_route(DESCR_t a, DESCR_t b, int op) {
-    extern DESCR_t rt_big_add(DESCR_t, DESCR_t); extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
-    a = big_route_operand(a); b = big_route_operand(b);
-    if (a.v != DT_BIG && a.v != DT_I) return FAILDESCR; if (b.v != DT_BIG && b.v != DT_I) return FAILDESCR;
-    extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); extern DESCR_t rt_big_pow(DESCR_t, int64_t);
+    extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+    a = big_route_operand(a);
+    b = big_route_operand(b);
+    if (a.v != DT_BIG && a.v != DT_I) return FAILDESCR;
+    if (b.v != DT_BIG && b.v != DT_I) return FAILDESCR;
+    extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+    extern DESCR_t rt_big_pow(DESCR_t, int64_t);
     switch (op) {
-        case BINOP_ADD: return rt_big_add(a, b);
-        case BINOP_SUB: return rt_big_sub(a, b);
-        case BINOP_MUL: return rt_big_mul(a, b);
-        case BINOP_DIV: { extern DESCR_t rt_big_div(DESCR_t, DESCR_t); return rt_big_div(a, b); }
-        case BINOP_MOD: { extern DESCR_t rt_big_mod(DESCR_t, DESCR_t); return rt_big_mod(a, b); }
-        case BINOP_POW: case BINOP_POW_PROMOTE: {
-            extern int core_icn_error(int code, DESCR_t val); extern int rt_big_sign(DESCR_t); extern int rt_big_is_odd(DESCR_t);
+        case BINOP_ADD:
+        return rt_big_add(a, b);
+        case BINOP_SUB:
+        return rt_big_sub(a, b);
+        case BINOP_MUL:
+        return rt_big_mul(a, b);
+        case BINOP_DIV:
+        { extern DESCR_t rt_big_div(DESCR_t, DESCR_t); return rt_big_div(a, b); }
+        case BINOP_MOD:
+        { extern DESCR_t rt_big_mod(DESCR_t, DESCR_t); return rt_big_mod(a, b); }
+        case BINOP_POW:
+        case BINOP_POW_PROMOTE:
+        {
+            extern int core_icn_error(int code, DESCR_t val);
+            extern int rt_big_sign(DESCR_t);
+            extern int rt_big_is_odd(DESCR_t);
             if (b.v == DT_I && b.i >= 0) return rt_big_pow(a, b.i);
             if (op == BINOP_POW_PROMOTE) return FAILDESCR;
-            if (a.v == DT_I && a.i ==  1) return INTVAL(1);
+            if (a.v == DT_I && a.i == 1) return INTVAL(1);
             if (a.v == DT_I && a.i == -1) return INTVAL(rt_big_is_odd(b) ? -1 : 1);
-            if (a.v == DT_I && a.i ==  0) { if (rt_big_sign(b) > 0) return INTVAL(0); core_icn_error(204, FAILDESCR); return FAILDESCR; }
+            if (a.v == DT_I && a.i == 0) { if (rt_big_sign(b) > 0) return INTVAL(0); core_icn_error(204, FAILDESCR); return FAILDESCR; }
             if (rt_big_sign(b) < 0) return INTVAL(0);
-            core_icn_error(203, FAILDESCR); return FAILDESCR;
+            core_icn_error(203, FAILDESCR);
+            return FAILDESCR;
         }
-        default: return FAILDESCR;
+        default:
+        return FAILDESCR;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -385,7 +467,9 @@ static int rt_big_arith_wanted(DESCR_t a, DESCR_t b, int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_real_overflow(int spitcode, const char *what, double lv, int strict) {
-    extern long g_error; extern int64_t kw_errlimit; extern int core_icn_error(int code, DESCR_t val);
+    extern long g_error;
+    extern int64_t kw_errlimit;
+    extern int core_icn_error(int code, DESCR_t val);
     if (strict == 2 || kw_errlimit != 0) { core_runtime_error(spitcode, what); return FAILDESCR; }
     core_icn_error(204, FAILDESCR);
     return FAILDESCR;
@@ -398,9 +482,7 @@ static DESCR_t rt_real_zero_divisor(int strict) {
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_cset_operand_ok(DESCR_t v) {
-    return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R || v.v == DT_BIG;
-}
+static int icn_cset_operand_ok(DESCR_t v) { return IS_CSET_fn(v) || v.v == DT_S || v.v == DT_I || v.v == DT_R || v.v == DT_BIG; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict);
 static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict) {
@@ -410,7 +492,8 @@ static DESCR_t rt_num_arith_impl_s(DESCR_t a, DESCR_t b, int op, int strict) {
     return r;
 }
 static const char *rt_cset_operand_chars(DESCR_t d, char *buf, int bufsz, int *len) {
-    extern const char *icon_real_str(double r, char *buf, int bufsz); extern int kw_cset_len(const char *);
+    extern const char *icon_real_str(double r, char *buf, int bufsz);
+    extern int kw_cset_len(const char *);
     if (IS_CSET_fn(d)) { const char *s = d.s ? d.s : ""; int kl = kw_cset_len(s); *len = kl >= 0 ? kl : (int)strlen(s); return s; }
     if (d.v == DT_S || d.v == DT_SNUL) { *len = (int)descr_slen(d); return d.s ? d.s : ""; }
     if (IS_INT_fn(d)) { snprintf(buf, (size_t)bufsz, "%lld", (long long)d.i); *len = (int)strlen(buf); return buf; }
@@ -420,18 +503,27 @@ static const char *rt_cset_operand_chars(DESCR_t d, char *buf, int bufsz, int *l
 static DESCR_t rt_cset_arith(DESCR_t a, DESCR_t b, int op) {
     if (a.v == DT_T && a.tbl && a.tbl->is_set && b.v == DT_T && b.tbl && b.tbl->is_set) {
         if (op == BINOP_CUNION) return TABLE_VAL(set_union(a.tbl, b.tbl));
-        if (op == BINOP_CDIFF)  return TABLE_VAL(set_diff(a.tbl, b.tbl));
+        if (op == BINOP_CDIFF) return TABLE_VAL(set_diff(a.tbl, b.tbl));
         return TABLE_VAL(set_inter(a.tbl, b.tbl));
     }
-    char _ab[64], _bb[64]; int aslen, bslen, outlen; const char *ur;
-    { extern int core_icn_error(int code, DESCR_t val);
-      if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
-      if (!icn_cset_operand_ok(b)) { const char *cs = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen); ur = cset_union(cs, aslen, "", 0, &outlen);
-          core_icn_op_ctx(core_icn_binop_sym(op), 2, CSETVAL(outlen > 0 ? ur : ""), b); core_icn_error(120, b); return FAILDESCR; } }
+    char _ab[64], _bb[64];
+    int aslen, bslen, outlen;
+    const char *ur;
+    {
+        extern int core_icn_error(int code, DESCR_t val);
+        if (!icn_cset_operand_ok(a)) { core_icn_error(120, a); return FAILDESCR; }
+        if (!icn_cset_operand_ok(b)) {
+            const char *cs = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen);
+            ur = cset_union(cs, aslen, "", 0, &outlen);
+            core_icn_op_ctx(core_icn_binop_sym(op), 2, CSETVAL(outlen > 0 ? ur : ""), b);
+            core_icn_error(120, b);
+            return FAILDESCR;
+        }
+    }
     const char *as = rt_cset_operand_chars(a, _ab, sizeof _ab, &aslen), *bs = rt_cset_operand_chars(b, _bb, sizeof _bb, &bslen);
-    if (op == BINOP_CUNION)     ur = cset_union(as, aslen, bs, bslen, &outlen);
+    if (op == BINOP_CUNION) ur = cset_union(as, aslen, bs, bslen, &outlen);
     else if (op == BINOP_CDIFF) ur = cset_diff(as, aslen, bs, bslen, &outlen);
-    else                        ur = cset_inter(as, aslen, bs, bslen, &outlen);
+    else ur = cset_inter(as, aslen, bs, bslen, &outlen);
     return CSETVAL(outlen > 0 ? ur : "");
 }
 static DESCR_t rt_int_neg_div(int64_t li, int strict) {
@@ -461,7 +553,11 @@ static DESCR_t rt_sno_pow(int anyf, int rreal, int64_t li, int64_t ri, double ld
         if (li == 0 && ri == 0) { core_runtime_error(18, "exponentiation result is undefined"); return FAILDESCR; }
         if (li == 0 || li == 1) return INTVAL(li);
         if (li == -1) return INTVAL((ri & 1) ? -1 : 1);
-        { int64_t acc = 1; for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { core_runtime_error(17, "exponentiation caused integer overflow"); return FAILDESCR; } return INTVAL(acc); }
+        {
+            int64_t acc = 1;
+            for (int64_t k = 0; k < ri; k++) if (__builtin_mul_overflow(acc, li, &acc)) { core_runtime_error(17, "exponentiation caused integer overflow"); return FAILDESCR; }
+            return INTVAL(acc);
+        }
     }
     if (rreal) return rt_sno_pow_real(ld, rd);
     if (ri < 0) return rt_sno_pow_real(ld, (double)ri);
@@ -474,12 +570,24 @@ static DESCR_t rt_sno_pow(int anyf, int rreal, int64_t li, int64_t ri, double ld
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_sno_operand_error(int op, int left) {
     switch (op) {
-    case BINOP_ADD: core_runtime_error(left ? 1 : 2, left ? "addition left operand is not numeric" : "addition right operand is not numeric"); return;
-    case BINOP_SUB: core_runtime_error(left ? 32 : 33, left ? "subtraction left operand is not numeric" : "subtraction right operand is not numeric"); return;
-    case BINOP_MUL: core_runtime_error(left ? 26 : 27, left ? "multiplication left operand is not numeric" : "multiplication right operand is not numeric"); return;
-    case BINOP_DIV: core_runtime_error(left ? 12 : 13, left ? "division left operand is not numeric" : "division right operand is not numeric"); return;
-    case BINOP_POW: case BINOP_POW_PROMOTE: core_runtime_error(left ? 16 : 15, left ? "exponentiation left operand is not numeric" : "exponentiation right operand is not numeric"); return;
-    default: return;
+        case BINOP_ADD:
+        core_runtime_error(left ? 1 : 2, left ? "addition left operand is not numeric" : "addition right operand is not numeric");
+        return;
+        case BINOP_SUB:
+        core_runtime_error(left ? 32 : 33, left ? "subtraction left operand is not numeric" : "subtraction right operand is not numeric");
+        return;
+        case BINOP_MUL:
+        core_runtime_error(left ? 26 : 27, left ? "multiplication left operand is not numeric" : "multiplication right operand is not numeric");
+        return;
+        case BINOP_DIV:
+        core_runtime_error(left ? 12 : 13, left ? "division left operand is not numeric" : "division right operand is not numeric");
+        return;
+        case BINOP_POW:
+        case BINOP_POW_PROMOTE:
+        core_runtime_error(left ? 16 : 15, left ? "exponentiation left operand is not numeric" : "exponentiation right operand is not numeric");
+        return;
+        default:
+        return;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -487,7 +595,8 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     if (a.v == DT_CPLX || b.v == DT_CPLX) return rt_cplx_arith(a, b, op);
     if (op == BINOP_CUNION || op == BINOP_CDIFF || op == BINOP_CINTER) return rt_cset_arith(a, b, op);
     DESCR_t oa = a, ob = b;
-    a = big_str_operand(a); b = big_str_operand(b);
+    a = big_str_operand(a);
+    b = big_str_operand(b);
     if (rt_big_arith_wanted(a, b, op)) return rt_big_arith_route(a, b, op);
     if ((a.v == DT_S || a.v == DT_SNUL) && (!a.s || descr_slen(a) == 0)) a = INTVAL(0);
     if ((b.v == DT_S || b.v == DT_SNUL) && (!b.s || descr_slen(b) == 0)) b = INTVAL(0);
@@ -497,31 +606,96 @@ static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {
     double ld = to_real(a), rd = to_real(b);
     int64_t li = to_int(a), ri = to_int(b);
     switch (op) {
-        case BINOP_ADD: if (anyf) { double _r = ld + rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(261, "addition caused real overflow", ld, strict); return REALVAL(_r); } { int64_t _z; if (__builtin_add_overflow(li, ri, &_z)) { if (strict == 2) { core_runtime_error(3, "addition caused integer overflow"); return FAILDESCR; } extern DESCR_t rt_big_add(DESCR_t, DESCR_t); return rt_big_add(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
-        case BINOP_SUB: if (anyf) { double _r = ld - rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(264, "subtraction caused real overflow", ld, strict); return REALVAL(_r); } { int64_t _z; if (__builtin_sub_overflow(li, ri, &_z)) { if (strict == 2) { core_runtime_error(34, "subtraction caused integer overflow"); return FAILDESCR; } extern DESCR_t rt_big_sub(DESCR_t, DESCR_t); return rt_big_sub(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
-        case BINOP_MUL: if (anyf) { double _r = ld * rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(263, "multiplication caused real overflow", ld, strict); return REALVAL(_r); } { int64_t _z; if (__builtin_mul_overflow(li, ri, &_z)) { if (strict == 2) { core_runtime_error(28, "multiplication caused integer overflow"); return FAILDESCR; } extern DESCR_t rt_big_mul(DESCR_t, DESCR_t); return rt_big_mul(INTVAL(li), INTVAL(ri)); } return INTVAL(_z); }
-        case BINOP_DIV: if (anyf) { if (rd == 0.0) return (ld == 0.0 && strict != 1) ? REALVAL(0.0) : rt_real_zero_divisor(strict); { double _r = ld / rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(262, "division caused real overflow", ld, strict); return REALVAL(_r); } } if (ri == 0) { rt_div_zero(BINOP_DIV, oa, ob, "division caused integer overflow", strict); return FAILDESCR; } if (ri == -1) return rt_int_neg_div(li, strict); return INTVAL(li / ri);
-        case BINOP_MOD: if (anyf) return (rd == 0.0) ? rt_real_zero_divisor(strict) : REALVAL(fmod(ld, rd)); if (ri == 0) { rt_div_zero(BINOP_MOD, oa, ob, NULL, strict); return FAILDESCR; } if (ri == -1) return INTVAL(0); return INTVAL(li % ri);
-        case BINOP_POW: {
+        case BINOP_ADD:
+        if (anyf) { double _r = ld + rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(261, "addition caused real overflow", ld, strict); return REALVAL(_r); }
+        {
+            int64_t _z;
+            if (__builtin_add_overflow(li, ri, &_z)) {
+                if (strict == 2) { core_runtime_error(3, "addition caused integer overflow"); return FAILDESCR; }
+                extern DESCR_t rt_big_add(DESCR_t, DESCR_t);
+                return rt_big_add(INTVAL(li), INTVAL(ri));
+            }
+            return INTVAL(_z);
+        }
+        case BINOP_SUB:
+        if (anyf) { double _r = ld - rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(264, "subtraction caused real overflow", ld, strict); return REALVAL(_r); }
+        {
+            int64_t _z;
+            if (__builtin_sub_overflow(li, ri, &_z)) {
+                if (strict == 2) { core_runtime_error(34, "subtraction caused integer overflow"); return FAILDESCR; }
+                extern DESCR_t rt_big_sub(DESCR_t, DESCR_t);
+                return rt_big_sub(INTVAL(li), INTVAL(ri));
+            }
+            return INTVAL(_z);
+        }
+        case BINOP_MUL:
+        if (anyf) { double _r = ld * rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(263, "multiplication caused real overflow", ld, strict); return REALVAL(_r); }
+        {
+            int64_t _z;
+            if (__builtin_mul_overflow(li, ri, &_z)) {
+                if (strict == 2) { core_runtime_error(28, "multiplication caused integer overflow"); return FAILDESCR; }
+                extern DESCR_t rt_big_mul(DESCR_t, DESCR_t);
+                return rt_big_mul(INTVAL(li), INTVAL(ri));
+            }
+            return INTVAL(_z);
+        }
+        case BINOP_DIV:
+        if (anyf) {
+            if (rd == 0.0) return (ld == 0.0 && strict != 1) ? REALVAL(0.0) : rt_real_zero_divisor(strict);
+            { double _r = ld / rd; if (!isfinite(_r) && isfinite(ld) && isfinite(rd)) return rt_real_overflow(262, "division caused real overflow", ld, strict); return REALVAL(_r); }
+        }
+        if (ri == 0) { rt_div_zero(BINOP_DIV, oa, ob, "division caused integer overflow", strict); return FAILDESCR; }
+        if (ri == -1) return rt_int_neg_div(li, strict);
+        return INTVAL(li / ri);
+        case BINOP_MOD:
+        if (anyf) return (rd == 0.0) ? rt_real_zero_divisor(strict) : REALVAL(fmod(ld, rd));
+        if (ri == 0) { rt_div_zero(BINOP_MOD, oa, ob, NULL, strict); return FAILDESCR; }
+        if (ri == -1) return INTVAL(0);
+        return INTVAL(li % ri);
+        case BINOP_POW:
+        {
             extern int core_icn_error(int code, DESCR_t val);
             if (strict == 2) return rt_sno_pow(anyf, rf || operand_is_real_str(b), li, ri, ld, rd);
             if (!anyf) return rt_ipow_descr(li, ri);
             if (ld == 0.0 && rd <= 0.0) { core_icn_error(204, FAILDESCR); return FAILDESCR; }
             if (ld < 0.0 && (rf || operand_is_real_str(b))) { core_icn_error(206, FAILDESCR); return FAILDESCR; }
-            if (b.v == DT_BIG) { extern int rt_big_is_odd(DESCR_t); double _rb = pow(fabs(ld), rd); if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict); if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb; return REALVAL(_rb); }
-            { double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict); return REALVAL(_rp); }
+            if (b.v == DT_BIG) {
+                extern int rt_big_is_odd(DESCR_t);
+                double _rb = pow(fabs(ld), rd);
+                if (!isfinite(_rb)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
+                if (ld < 0.0 && _rb != 0.0 && rt_big_is_odd(b)) _rb = -_rb;
+                return REALVAL(_rb);
+            }
+            {
+                double _rp = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd);
+                if (!isfinite(_rp)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
+                return REALVAL(_rp);
+            }
         }
-        case BINOP_POW_PROMOTE: if (strict == 2) return rt_sno_pow(anyf, rf || operand_is_real_str(b), li, ri, ld, rd); if (anyf) { double _rq = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd); if (!isfinite(_rq)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict); return REALVAL(_rq); } return rt_ipow_promote_descr(li, ri);
-        default: return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
+        case BINOP_POW_PROMOTE:
+        if (strict == 2) return rt_sno_pow(anyf, rf || operand_is_real_str(b), li, ri, ld, rd);
+        if (anyf) {
+            double _rq = (!rf && !operand_is_real_str(b)) ? rt_ripow(ld, ri) : pow(ld, rd);
+            if (!isfinite(_rq)) return rt_real_overflow(266, "exponentiation caused real overflow", ld, strict);
+            return REALVAL(_rq);
+        }
+        return rt_ipow_promote_descr(li, ri);
+        default:
+        return anyf ? REALVAL(ld + rd) : INTVAL(li + ri);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_cset_compl(DESCR_t a) {
-    char _cbuf[64]; int rawlen;
+    char _cbuf[64];
+    int rawlen;
     if (IS_FAIL_fn(a)) return FAILDESCR;
     const char *raw = rt_cset_operand_chars(a, _cbuf, sizeof _cbuf, &rawlen);
-    unsigned char in[256] = {0}; for (int _i = 0; _i < rawlen; _i++) in[(unsigned char)raw[_i]] = 1;
-    char *outs = rt_str_alloc(257); int n = 0; for (int c = 0; c < 256; c++) if (!in[c]) outs[n++] = (char)c; outs[n] = 0;
+    unsigned char in[256] = {0};
+    for (int _i = 0; _i < rawlen; _i++) in[(unsigned char)raw[_i]] = 1;
+    char *outs = rt_str_alloc(257);
+    int n = 0;
+    for (int c = 0; c < 256; c++) if (!in[c]) outs[n++] = (char)c;
+    outs[n] = 0;
     return CSETVAL(cset_canonical(outs, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -529,7 +703,12 @@ static DESCR_t rt_num_neg_s(DESCR_t a, int strict) {
     if (a.v == DT_BIG) { extern DESCR_t rt_big_neg(DESCR_t); return rt_big_neg(a); }
     if (!is_numeric_like(a)) { core_runtime_error(10, "negation operand is not numeric"); return FAILDESCR; }
     if (IS_REAL_fn(a) || operand_is_real_str(a)) return REALVAL(-to_real(a));
-    { int64_t li = to_int(a); if (li != INT64_MIN || strict == 0) return INTVAL(-li); if (strict == 2) { core_runtime_error(11, "negation caused integer overflow"); return FAILDESCR; } return rt_int_neg_div(li, strict); }
+    {
+        int64_t li = to_int(a);
+        if (li != INT64_MIN || strict == 0) return INTVAL(-li);
+        if (strict == 2) { core_runtime_error(11, "negation caused integer overflow"); return FAILDESCR; }
+        return rt_int_neg_div(li, strict);
+    }
 }
 DESCR_t rt_num_neg(DESCR_t a) { return rt_num_neg_s(a, 0); }
 DESCR_t rt_num_neg_strict(DESCR_t a) { return rt_num_neg_s(a, 1); }

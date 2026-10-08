@@ -8,9 +8,12 @@ static inline int rt_lv_is_list(DESCR_t o, DESCR_t **elems, int *n) {
     if (!IS_DATA_INST_fn(o) || !o.u) return 0;
     DATBLK_t *t = o.u->type;
     if (!pm_lf_type_is(t)) return 0;
-    DESCR_t gt = o.u->fields[2]; if (gt.v != DT_S || !gt.s) return 0;
+    DESCR_t gt = o.u->fields[2];
+    if (gt.v != DT_S || !gt.s) return 0;
     if (!(gt.s[0] == 'l' && gt.s[1] == 'i' && gt.s[2] == 's' && gt.s[3] == 't' && gt.s[4] == '\0')) return 0;
-    DESCR_t ea = o.u->fields[0]; if (elems) *elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : (DESCR_t *)0; if (n) *n = (int)o.u->fields[1].i;
+    DESCR_t ea = o.u->fields[0];
+    if (elems) *elems = IS_DATA_ELEMS_fn(ea) ? (DESCR_t *)ea.ptr : (DESCR_t *)0;
+    if (n) *n = (int)o.u->fields[1].i;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

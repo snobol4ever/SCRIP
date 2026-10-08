@@ -41,19 +41,19 @@ extern "C" void bb_build_len_blob(const char *name, int I) {
     IR_graph_t *g = IR_alloc(8);
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *nd    = IR_node_alloc(g, IR_MATCH_LEN);
+    IR_t *nd = IR_node_alloc(g, IR_MATCH_LEN);
     lc_γ_to(nd, PSUCC);
     lc_ω_to(nd, PFAIL);
     IR_LIT(nd).ival = (int64_t)I;
     IR_graph_t *saved_cfg = g_emit_cfg;
     int saved_fa = g_frame_active;
-    g_emit_cfg   = g;
+    g_emit_cfg = g;
     g_frame_active = 1;
     int kt = bb_jmp_entry_ktotal(g);
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
     bb_box_fn fn = emit_chain(g->entry = nd, NULL, "rtlen");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
-    g_emit_cfg   = saved_cfg;
+    g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
     if (fn) rt_gvar_assign_pat_sz(name, (void *)fn, (int64_t)kt, (zls_g_region(g) > 0) ? 1 : 0);
 }
@@ -63,19 +63,19 @@ extern "C" void bb_build_break_blob(const char *name, const char *cset) {
     IR_graph_t *g = IR_alloc(8);
     IR_t *PSUCC = IR_node_alloc(g, IR_SUCCEED);
     IR_t *PFAIL = IR_node_alloc(g, IR_FAIL);
-    IR_t *nd    = IR_node_alloc(g, IR_MATCH_BREAK);
+    IR_t *nd = IR_node_alloc(g, IR_MATCH_BREAK);
     lc_γ_to(nd, PSUCC);
     lc_ω_to(nd, PFAIL);
     IR_LIT(nd).sval = cset;
     IR_graph_t *saved_cfg = g_emit_cfg;
     int saved_fa = g_frame_active;
-    g_emit_cfg   = g;
+    g_emit_cfg = g;
     g_frame_active = 1;
     int kt = bb_jmp_entry_ktotal(g);
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
     bb_box_fn fn = emit_chain(g->entry = nd, NULL, "rtbrk");
     g_emit.flat_jmp_entry = 0; g_emit.flat_frame_bytes = 0;
-    g_emit_cfg   = saved_cfg;
+    g_emit_cfg = saved_cfg;
     g_frame_active = saved_fa;
     if (fn) rt_gvar_assign_pat_sz(name, (void *)fn, (int64_t)kt, (zls_g_region(g) > 0) ? 1 : 0);
 }
@@ -109,7 +109,8 @@ extern "C" void *bb_compile_pat_tree_sz(const void *tv, int64_t *zsz, int32_t *z
     g_emit.flat_jmp_entry = 1; g_emit.flat_frame_bytes = kt;
     g_emit.flat_pat = 1;
 #if RT_DIAG
-    if (getenv("SCRIP_RTPAT_DIAG")) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn); fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d cro=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, sn4_choice_rbp_off(), 1, g_flat_frame_floor, _nc, _lf, _fn); }
+    if (getenv("SCRIP_RTPAT_DIAG")) { int _nc = 0, _lf = 0, _fn = 0; sn4_blob_choice_scan(&_nc, &_lf, &_fn);
+        fprintf(stderr, "[RTPAT-DIAG] n=%d kt=%d cro=%d ptf=%d floor=%d nc=%d lf=%d fn=%d\n", g->n, kt, sn4_choice_rbp_off(), 1, g_flat_frame_floor, _nc, _lf, _fn); }
     size_t pool_before = bb_pool_mark();
 #endif
     bb_box_fn fn = emit_chain(g->entry, NULL, "rtpat");

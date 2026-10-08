@@ -5,7 +5,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
-static unsigned  _tbl_nbuck_for(int init);
+static unsigned _tbl_nbuck_for(int init);
 static struct _TBBUCK_t **_tbl_vec_new(unsigned nb);
 static long g_agg_list_ser = 1;
 static long g_agg_table_ser = 1;
@@ -22,13 +22,13 @@ void rt_sno_dumpno_undo(void) { if (g_sno_dumpno > 0) g_sno_dumpno--; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new(int lo, int hi) {
     ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
-    a->lo   = lo;
-    a->hi   = hi;
+    a->lo = lo;
+    a->hi = hi;
     a->ndim = 1;
-    a->id   = g_agg_list_ser++;
+    a->id = g_agg_list_ser++;
     a->dumpno = rt_sno_dumpno_next();
     a->proto = (const char *)0;
-    int sz  = hi - lo + 1;
+    int sz = hi - lo + 1;
     if (sz < 1) sz = 1;
     a->data = rt_ws_alloc_descr((size_t)sz);
     for (int i = 0; i < sz; i++) a->data[i] = NULVCL;
@@ -37,12 +37,12 @@ ARBLK_t *array_new(int lo, int hi) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     ARBLK_t *a = rt_gcheap_alloc(HB_ARR, sizeof(ARBLK_t));
-    a->lo   = lo1;
-    a->hi   = hi1;
-    a->lo2  = lo2;
-    a->hi2  = hi2;
+    a->lo = lo1;
+    a->hi = hi1;
+    a->lo2 = lo2;
+    a->hi2 = hi2;
     a->ndim = 2;
-    a->id   = g_agg_list_ser++;
+    a->id = g_agg_list_ser++;
     a->dumpno = rt_sno_dumpno_next();
     a->proto = (const char *)0;
     int rows = hi1 - lo1 + 1;
@@ -54,78 +54,57 @@ ARBLK_t *array_new2d(int lo1, int hi1, int lo2, int hi2) {
     return a;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t array_get(ARBLK_t *a, int i) {
-    if (!a) return FAILDESCR;
-    int idx = i - a->lo;
-    if (idx < 0 || idx >= (a->hi - a->lo + 1)) return FAILDESCR;
-    return a->data[idx];
-}
+DESCR_t array_get(ARBLK_t *a, int i) { if (!a) return FAILDESCR; int idx = i - a->lo; if (idx < 0 || idx >= (a->hi - a->lo + 1)) return FAILDESCR; return a->data[idx]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void array_set(ARBLK_t *a, int i, DESCR_t v) {
-    if (!a) return;
-    int idx = i - a->lo;
-    if (idx < 0 || idx >= (a->hi - a->lo + 1)) return;
-    a->data[idx] = v;
-}
+void array_set(ARBLK_t *a, int i, DESCR_t v) { if (!a) return; int idx = i - a->lo; if (idx < 0 || idx >= (a->hi - a->lo + 1)) return; a->data[idx] = v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t array_get2(ARBLK_t *a, int i, int j) {
     if (!a) return FAILDESCR;
     int cols = a->hi2 - a->lo2 + 1;
-    int row  = i - a->lo;
-    int col  = j - a->lo2;
-    int idx  = row * cols + col;
+    int row = i - a->lo;
+    int col = j - a->lo2;
+    int idx = row * cols + col;
     int total = (a->hi - a->lo + 1) * cols;
-    if (row < 0 || row >= (a->hi - a->lo + 1) || col < 0 || col >= cols || idx < 0 || idx >= total)
-        return FAILDESCR;
+    if (row < 0 || row >= (a->hi - a->lo + 1) || col < 0 || col >= cols || idx < 0 || idx >= total) return FAILDESCR;
     return a->data[idx];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void array_set2(ARBLK_t *a, int i, int j, DESCR_t v) {
-    if (!a) return;
-    int cols = a->hi2 - a->lo2 + 1;
-    int row  = i - a->lo;
-    int col  = j - a->lo2;
-    int idx  = row * cols + col;
-    a->data[idx] = v;
-}
+void array_set2(ARBLK_t *a, int i, int j, DESCR_t v) { if (!a) return; int cols = a->hi2 - a->lo2 + 1; int row = i - a->lo; int col = j - a->lo2; int idx = row * cols + col; a->data[idx] = v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static TBBUCK_t **_tbl_vec_new(unsigned nb) {
-    TBBUCK_t **v = rt_gcheap_alloc(HB_AGGB, (unsigned long long)nb * sizeof(TBBUCK_t *));
-    memset(v, 0, (size_t)nb * sizeof(TBBUCK_t *));
-    return v;
-}
+static TBBUCK_t **_tbl_vec_new(unsigned nb) { TBBUCK_t **v = rt_gcheap_alloc(HB_AGGB, (unsigned long long)nb * sizeof(TBBUCK_t *)); memset(v, 0, (size_t)nb * sizeof(TBBUCK_t *)); return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new(void) {
     TBBLK_t *t = rt_agg_alloc(2, sizeof(TBBLK_t));
-    t->id   = g_agg_table_ser++;
+    t->id = g_agg_table_ser++;
     t->dumpno = rt_sno_dumpno_next();
     t->size = 0;
     t->init = 11;
-    t->inc  = 10;
-    t->is_set = 0; t->null_one = 0;
-    t->ord = (DESCR_t *)0; t->ord_len = 0; t->ord_cap = 0; t->ord_dead = 0u;
-    t->gen_idx = -1; t->gen_pos = -1; t->gen_mask = 0ul; t->gen_lseg = t->gen_lslot = t->gen_lhn = 0ul; t->gen_lseq = 0u; t->gen_have = 0;
+    t->inc = 10;
+    t->is_set = 0;
+    t->null_one = 0;
+    t->ord = (DESCR_t *)0;
+    t->ord_len = 0;
+    t->ord_cap = 0;
+    t->ord_dead = 0u;
+    t->gen_idx = -1;
+    t->gen_pos = -1;
+    t->gen_mask = 0ul;
+    t->gen_lseg = t->gen_lslot = t->gen_lhn = 0ul;
+    t->gen_lseq = 0u;
+    t->gen_have = 0;
     t->icn_mask = 15ul;
     t->nbuck = _tbl_nbuck_for(t->init);
     t->buckets = _tbl_vec_new(t->nbuck);
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-TBBLK_t *set_new(void) {
-    TBBLK_t *r = table_new();
-    g_agg_table_ser--; r->is_set = 1; r->id = rt_agg_serial_set();
-    return r;
-}
+TBBLK_t *set_new(void) { TBBLK_t *r = table_new(); g_agg_table_ser--; r->is_set = 1; r->id = rt_agg_serial_set(); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *table_new_args(int init, int inc) {
     TBBLK_t *t = table_new();
-    if (inc  > 0) t->inc  = inc;
-    if (init > 0) {
-        t->init  = init;
-        unsigned nb = _tbl_nbuck_for(init);
-        if (nb != t->nbuck) { t->nbuck = nb; t->buckets = _tbl_vec_new(nb); }
-    }
+    if (inc > 0) t->inc = inc;
+    if (init > 0) { t->init = init; unsigned nb = _tbl_nbuck_for(init); if (nb != t->nbuck) { t->nbuck = nb; t->buckets = _tbl_vec_new(nb); } }
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -155,20 +134,23 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_snul(cons
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned _tbl_slen(const DESCR_t *k) { return (k->slen != 0xFFFFFFFFu) ? k->slen : (k->s ? (unsigned)__builtin_strlen(k->s) : 0u); }
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_str(const DESCR_t *k) {
-    const unsigned char *p = (const unsigned char *)(k->s ? k->s : ""); unsigned n = k->s ? _tbl_slen(k) : 0u, m = n;
+    const unsigned char *p = (const unsigned char *)(k->s ? k->s : "");
+    unsigned n = k->s ? _tbl_slen(k) : 0u, m = n;
     unsigned long long h = 5381ull ^ ((unsigned long long)n * 0x9E3779B97F4A7C15ull), w;
     while (m >= 8u) { h = (h ^ *(const unsigned long long *)p) * 0xFF51AFD7ED558CCDull; p += 8; m -= 8u; }
-    if (m) { w = (m >= 4u) ? ((unsigned long long)*(const unsigned *)p | ((unsigned long long)*(const unsigned *)(p + m - 4u) << 32))
-                : (m >= 2u) ? ((unsigned long long)*(const unsigned short *)p | ((unsigned long long)*(const unsigned short *)(p + m - 2u) << 32))
-                : (unsigned long long)*p;
-             h = (h ^ w) * 0xFF51AFD7ED558CCDull; }
+    if (m) {
+        w = (m >= 4u) ? ((unsigned long long)*(const unsigned *)p | ((unsigned long long)*(const unsigned *)(p + m - 4u) << 32)) : (m >= 2u) ?
+            ((unsigned long long)*(const unsigned short *)p | ((unsigned long long)*(const unsigned short *)(p + m - 2u) << 32)) : (unsigned long long)*p;
+        h = (h ^ w) * 0xFF51AFD7ED558CCDull;
+    }
     return ((h ^ (h >> 31)) * 0xC4CEB9FE1A85EC53ull) >> 8;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_int(const DESCR_t *k) { return ((unsigned long long)(long long)k->i * 0x9E3779B97F4A7C15ull) >> 8; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_real(const DESCR_t *k) {
-    union { double d; unsigned long long u; } cv; cv.d = k->r;
+    union { double d; unsigned long long u; } cv;
+    cv.d = k->r;
     return ((cv.u ^ (cv.u >> 32)) * 0xBF58476D1CE4E5B9ull) >> 8;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -200,49 +182,67 @@ static inline __attribute__((always_inline)) unsigned long long _tbl_h_name(cons
 static inline __attribute__((always_inline)) unsigned long long _tbl_h_big(const DESCR_t *k) { extern unsigned long long rt_big_hash(DESCR_t); return rt_big_hash(*k); }
 static inline __attribute__((always_inline)) unsigned long long _tbl_hval(const DESCR_t *k) {
     switch (k->v) {
-        case DT_SNUL: return _tbl_h_snul(k);
-        case DT_S:    return _tbl_h_str (k);
-        case DT_I:    return _tbl_h_int (k);
-        case DT_R:    return _tbl_h_real(k);
-        case DT_A:    return _tbl_h_arr (k);
-        case DT_T:    return _tbl_h_tbl (k);
-        case DT_DATA: return _tbl_h_data(k);
-        case DT_BIG:  return _tbl_h_big (k);
-        case DT_N:    return _tbl_h_name(k);
-        default:      return _tbl_h_ptr (k);
+        case DT_SNUL:
+        return _tbl_h_snul(k);
+        case DT_S:
+        return _tbl_h_str (k);
+        case DT_I:
+        return _tbl_h_int (k);
+        case DT_R:
+        return _tbl_h_real(k);
+        case DT_A:
+        return _tbl_h_arr (k);
+        case DT_T:
+        return _tbl_h_tbl (k);
+        case DT_DATA:
+        return _tbl_h_data(k);
+        case DT_BIG:
+        return _tbl_h_big (k);
+        case DT_N:
+        return _tbl_h_name(k);
+        default:
+        return _tbl_h_ptr (k);
     }
 }
 static inline __attribute__((always_inline)) DESCR_t _tbl_key_canon(const TBBLK_t *tbl, DESCR_t k) { return (tbl->null_one && k.v == DT_S && (!k.s || _tbl_slen(&k) == 0u)) ? NULVCL : k; }
-static inline __attribute__((always_inline)) unsigned long long _tbl_hkey(DESCR_t k) {
-    return ((unsigned long long)k.v << 56) | (_tbl_hval(&k) & 0x00FFFFFFFFFFFFFFull);
-}
+static inline __attribute__((always_inline)) unsigned long long _tbl_hkey(DESCR_t k) { return ((unsigned long long)k.v << 56) | (_tbl_hval(&k) & 0x00FFFFFFFFFFFFFFull); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static unsigned _tbl_nbuck_for(int init) {
-    unsigned want = (init > 0) ? (unsigned)init / 2u : 4u, nb = 4u;
-    while (nb < want && nb < 65536u) nb <<= 1;
-    return nb;
-}
+static unsigned _tbl_nbuck_for(int init) { unsigned want = (init > 0) ? (unsigned)init / 2u : 4u, nb = 4u; while (nb < want && nb < 65536u) nb <<= 1; return nb; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define TBL_BUCKET_OF(t_, h_) ((unsigned)(h_) & ((t_)->nbuck - 1u))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) int _tbl_eq_d(const TBPAIR_t *e, DESCR_t k) {
     if (e->key_descr.v != k.v) return 0;
     switch (k.v) {
-        case DT_SNUL: return 1;
-        case DT_S:    { const char *a = e->key_descr.s, *b = k.s; unsigned la, lb;
-                        if (a == b) return 1;
-                        if (!a || !b) return 0;
-                        la = _tbl_slen(&e->key_descr); lb = _tbl_slen(&k);
-                        return la == lb && memcmp(a, b, (size_t)la) == 0; }
-        case DT_I:    return e->key_descr.i == k.i;
-        case DT_R:    { union { double d; unsigned long long u; } a, b; a.d = e->key_descr.r; b.d = k.r; return a.u == b.u; }
-        case DT_A:    return e->key_descr.arr == k.arr;
-        case DT_T:    return e->key_descr.tbl == k.tbl;
-        case DT_DATA: return e->key_descr.slen == k.slen && e->key_descr.u == k.u;
-        case DT_BIG:  { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(e->key_descr, k) == 0; }
-        case DT_N:    if (e->key_descr.slen == 0 && k.slen == 0) return (e->key_descr.s && k.s) ? strcmp(e->key_descr.s, k.s) == 0 : e->key_descr.s == k.s;
-                      return e->key_descr.slen == k.slen && e->key_descr.ptr == k.ptr;
-        default:      return e->key_descr.ptr == k.ptr;
+        case DT_SNUL:
+        return 1;
+        case DT_S:
+        {
+            const char *a = e->key_descr.s, *b = k.s;
+            unsigned la, lb;
+            if (a == b) return 1;
+            if (!a || !b) return 0;
+            la = _tbl_slen(&e->key_descr);
+            lb = _tbl_slen(&k);
+            return la == lb && memcmp(a, b, (size_t)la) == 0;
+        }
+        case DT_I:
+        return e->key_descr.i == k.i;
+        case DT_R:
+        { union { double d; unsigned long long u; } a, b; a.d = e->key_descr.r; b.d = k.r; return a.u == b.u; }
+        case DT_A:
+        return e->key_descr.arr == k.arr;
+        case DT_T:
+        return e->key_descr.tbl == k.tbl;
+        case DT_DATA:
+        return e->key_descr.slen == k.slen && e->key_descr.u == k.u;
+        case DT_BIG:
+        { extern int rt_big_cmp(DESCR_t, DESCR_t); return rt_big_cmp(e->key_descr, k) == 0; }
+        case DT_N:
+        if (e->key_descr.slen == 0 && k.slen == 0) return (e->key_descr.s && k.s) ? strcmp(e->key_descr.s, k.s) == 0 : e->key_descr.s == k.s;
+        return e->key_descr.slen == k.slen && e->key_descr.ptr == k.ptr;
+        default:
+        return e->key_descr.ptr == k.ptr;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -255,19 +255,16 @@ long tbl_key_serial(DESCR_t k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define TBL_LINEAR_MAX 12u
-#define TBL_LOAD_MAX    4u
+#define TBL_LOAD_MAX 4u
 static inline __attribute__((always_inline)) unsigned _tbl_lower(const TBPAIR_t *en, unsigned n, unsigned long long h) {
     if (n <= TBL_LINEAR_MAX) { const TBPAIR_t *p = en, *e = en + n; while (p < e && p->hkey < h) p++; return (unsigned)(p - en); }
-    { unsigned lo = 0;
-      while (n) { unsigned half = n >> 1; unsigned mid = lo + half; if (en[mid].hkey < h) { lo = mid + 1; n -= half + 1; } else n = half; }
-      return lo; }
+    { unsigned lo = 0; while (n) { unsigned half = n >> 1; unsigned mid = lo + half; if (en[mid].hkey < h) { lo = mid + 1; n -= half + 1; } else n = half; } return lo; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static TBBUCK_t *_tbl_grow(TBBLK_t *tbl, TBBUCK_t *b) {
     unsigned nc;
-    if (!b)                 { int hint = tbl->init / (int)tbl->nbuck; nc = 1u; while (nc < (unsigned)hint && nc < 64u) nc <<= 1; }
-    else if (b->cap < 128u) nc = b->cap * 2u;
-    else                    nc = b->cap + 128u;
+    if (!b) { int hint = tbl->init / (int)tbl->nbuck; nc = 1u; while (nc < (unsigned)hint && nc < 64u) nc <<= 1; } else if (b->cap < 128u) nc = b->cap * 2u;
+    else nc = b->cap + 128u;
     TBBUCK_t *nb = rt_gcheap_alloc(HB_AGGB, (unsigned long long)(sizeof(TBBUCK_t) + (size_t)nc * sizeof(TBPAIR_t)));
     if (b && b->len) { memcpy(nb->ent, b->ent, (size_t)b->len * sizeof(TBPAIR_t)); nb->len = b->len; }
     nb->cap = nc;
@@ -280,14 +277,13 @@ TBPAIR_t *c_table_find_pair_d(TBBLK_t *tbl, DESCR_t k) {
     unsigned long long h = _tbl_hkey(k);
     TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];
     if (!b) return (TBPAIR_t *)0;
-    { const TBPAIR_t *p = b->ent + _tbl_lower(b->ent, b->len, h), *e = b->ent + b->len;
-      for (; p < e && p->hkey == h; p++) if (_tbl_eq_d(p, k)) return (TBPAIR_t *)p; }
+    { const TBPAIR_t *p = b->ent + _tbl_lower(b->ent, b->len, h), *e = b->ent + b->len; for (; p < e && p->hkey == h; p++) if (_tbl_eq_d(p, k)) return (TBPAIR_t *)p; }
     return (TBPAIR_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t table_get_d(TBBLK_t *tbl, DESCR_t k) { TBPAIR_t *e = table_find_pair_d(tbl, k); return e ? e->val : NULVCL; }
 DESCR_t table_get_found_d(TBBLK_t *tbl, DESCR_t k, int *found) { TBPAIR_t *e = table_find_pair_d(tbl, k); *found = e ? 1 : 0; return e ? e->val : NULVCL; }
-int     table_has_d(TBBLK_t *tbl, DESCR_t k) { return table_find_pair_d(tbl, k) != (TBPAIR_t *)0; }
+int table_has_d(TBBLK_t *tbl, DESCR_t k) { return table_find_pair_d(tbl, k) != (TBPAIR_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
     if (!tbl) return 0;
@@ -295,10 +291,13 @@ int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
     unsigned long long h = _tbl_hkey(k);
     TBBUCK_t *b = tbl->buckets[TBL_BUCKET_OF(tbl, h)];
     if (!b) return 0;
-    for (unsigned i = _tbl_lower(b->ent, b->len, h); i < b->len && b->ent[i].hkey == h; i++)
-        if (_tbl_eq_d(&b->ent[i], k)) { memmove(&b->ent[i], &b->ent[i + 1], (size_t)(b->len - i - 1) * sizeof(TBPAIR_t)); b->len--; tbl->size--;
-            tbl->ord_dead++;
-            return 1; }
+    for (unsigned i = _tbl_lower(b->ent, b->len, h); i < b->len && b->ent[i].hkey == h; i++) if (_tbl_eq_d(&b->ent[i], k)) {
+        memmove(&b->ent[i], &b->ent[i + 1], (size_t)(b->len - i - 1) * sizeof(TBPAIR_t));
+        b->len--;
+        tbl->size--;
+        tbl->ord_dead++;
+        return 1;
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -306,18 +305,20 @@ static void _tbl_rehash(TBBLK_t *tbl) {
     unsigned old_n = tbl->nbuck, nb = old_n << 1;
     if (!nb || nb > 1u << 22) return;
     TBBUCK_t **ov = tbl->buckets, **nv = _tbl_vec_new(nb);
-    tbl->buckets = nv; tbl->nbuck = nb;
+    tbl->buckets = nv;
+    tbl->nbuck = nb;
     for (unsigned b = 0; b < old_n; b++) {
         TBBUCK_t *ob = ov[b];
         if (!ob) continue;
         for (unsigned i = 0; i < ob->len; i++) {
             TBPAIR_t *e = &ob->ent[i];
-            unsigned  nbi = (unsigned)e->hkey & (nb - 1u);
+            unsigned nbi = (unsigned)e->hkey & (nb - 1u);
             TBBUCK_t *nbk = nv[nbi];
             if (!nbk || nbk->len == nbk->cap) { nbk = _tbl_grow(tbl, nbk); nv[nbi] = nbk; }
             unsigned j = _tbl_lower(nbk->ent, nbk->len, e->hkey);
             if (j < nbk->len) memmove(&nbk->ent[j + 1], &nbk->ent[j], (size_t)(nbk->len - j) * sizeof(TBPAIR_t));
-            nbk->ent[j] = *e; nbk->len++;
+            nbk->ent[j] = *e;
+            nbk->len++;
         }
     }
 }
@@ -331,34 +332,51 @@ void table_set_descr_d(TBBLK_t *tbl, DESCR_t k, DESCR_t val) {
     unsigned bi = TBL_BUCKET_OF(tbl, h);
     TBBUCK_t *b = tbl->buckets[bi];
     unsigned i = b ? _tbl_lower(b->ent, b->len, h) : 0u;
-    if (b) for (; i < b->len && b->ent[i].hkey == h; i++)
-        if (_tbl_eq_d(&b->ent[i], k)) { b->ent[i].val = val; b->ent[i].key_descr = k; return; }
+    if (b) for (; i < b->len && b->ent[i].hkey == h; i++) if (_tbl_eq_d(&b->ent[i], k)) { b->ent[i].val = val; b->ent[i].key_descr = k; return; }
     if (!b || b->len == b->cap) { b = _tbl_grow(tbl, b); tbl->buckets[bi] = b; }
     if (i < b->len) memmove(&b->ent[i + 1], &b->ent[i], (size_t)(b->len - i) * sizeof(TBPAIR_t));
     { TBPAIR_t *n = &b->ent[i]; n->key_descr = k; n->val = val; n->hkey = h; }
-    b->len++; tbl->size++;
-    if (tbl->ord_len == tbl->ord_cap) { unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u; DESCR_t *nv = rt_ws_alloc_descr((size_t)nc); if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t)); tbl->ord = nv; tbl->ord_cap = nc; }
-    if (tbl->ord_dead > 0u) { unsigned dead = tbl->ord_len;
+    b->len++;
+    tbl->size++;
+    if (tbl->ord_len == tbl->ord_cap) {
+        unsigned nc = tbl->ord_cap ? tbl->ord_cap * 2u : 16u;
+        DESCR_t *nv = rt_ws_alloc_descr((size_t)nc);
+        if (tbl->ord) memcpy(nv, tbl->ord, (size_t)tbl->ord_len * sizeof(DESCR_t));
+        tbl->ord = nv;
+        tbl->ord_cap = nc;
+    }
+    if (tbl->ord_dead > 0u) {
+        unsigned dead = tbl->ord_len;
         for (unsigned oi = 0; oi < tbl->ord_len; oi++) { TBPAIR_t _op; _op.key_descr = tbl->ord[oi]; if (_tbl_eq_d(&_op, k)) { dead = oi; break; } }
-        if (dead < tbl->ord_len) { unsigned long hk = _icn_hash(k); int later = 0;
+        if (dead < tbl->ord_len) {
+            unsigned long hk = _icn_hash(k);
+            int later = 0;
             for (unsigned oj = dead + 1u; oj < tbl->ord_len && !later; oj++) if (tbl->ord[oj].v != DT_RAW && _icn_hash(tbl->ord[oj]) == hk && table_find_pair_d(tbl, tbl->ord[oj])) later = 1;
             if (!later) { tbl->ord[dead] = k; tbl->ord_dead--; goto _ord_placed; }
-            tbl->ord[dead] = (DESCR_t){ .v = DT_RAW }; } }
+            tbl->ord[dead] = (DESCR_t){ .v = DT_RAW };
+        }
+    }
     tbl->ord[tbl->ord_len++] = k;
-_ord_placed: ;
+    _ord_placed:
+    ;
     if ((unsigned long)tbl->size > 5ul * (tbl->icn_mask + 1ul) && tbl->icn_mask < (16ul << 19) - 1ul) tbl->icn_mask = (tbl->icn_mask << 1) | 1ul;
     if ((unsigned)tbl->size > tbl->nbuck * TBL_LOAD_MAX) _tbl_rehash(tbl);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned long _icn_hash(DESCR_t k) {
     if (IS_CSET_fn(k)) {
-        uint32_t w[8] = { 0 }; size_t n = descr_slen(k); const unsigned char *s = (const unsigned char *)k.s; unsigned long i = 0;
+        uint32_t w[8] = { 0 };
+        size_t n = descr_slen(k);
+        const unsigned char *s = (const unsigned char *)k.s;
+        unsigned long i = 0;
         for (size_t j = 0; s && j < n; j++) w[s[j] >> 5] |= 1u << (s[j] & 31u);
         for (int j = 7; j >= 0; j--) { i += w[j]; i *= 37ul; }
         return i % 1048583ul;
     }
     if (k.v == DT_S) {
-        unsigned long i = 0; size_t n = descr_slen(k), j = n > 10 ? 10 : n; const unsigned char *s = (const unsigned char *)k.s;
+        unsigned long i = 0;
+        size_t n = descr_slen(k), j = n > 10 ? 10 : n;
+        const unsigned char *s = (const unsigned char *)k.s;
         while (j-- > 0) { i += *s++; i *= 37ul; }
         return i + (unsigned long)n;
     }
@@ -372,7 +390,8 @@ static unsigned long _icn_hash(DESCR_t k) {
 static void _icn_slot(unsigned long hn, unsigned long mask, unsigned long *seg, unsigned long *slot) {
     unsigned long sn = hn & mask, sg = 0;
     if (sn >= 16ul) { unsigned long v = sn; while (v > 1ul) { v >>= 1; sg++; } sg -= 3ul; }
-    *seg = sg; *slot = hn & ((sg ? (16ul << (sg - 1ul)) : 16ul) - 1ul);
+    *seg = sg;
+    *slot = hn & ((sg ? (16ul << (sg - 1ul)) : 16ul) - 1ul);
 }
 typedef struct { TBPAIR_t *e; unsigned long seg, slot, hn; unsigned seq; } _icn_ord_t;
 static int _icn_cmp(const void *a, const void *b) {
@@ -389,26 +408,39 @@ static int _icn_key_lt(unsigned long aseg, unsigned long aslot, unsigned long ah
     return aseq < bseq;
 }
 static int _icn_succ(TBBLK_t *tbl, TBPAIR_t **out) {
-    TBPAIR_t *be = (TBPAIR_t *)0; unsigned long bseg = 0ul, bslot = 0ul, bhn = 0ul; unsigned bseq = 0u; int have = 0;
+    TBPAIR_t *be = (TBPAIR_t *)0;
+    unsigned long bseg = 0ul, bslot = 0ul, bhn = 0ul;
+    unsigned bseq = 0u;
+    int have = 0;
     for (unsigned oi = 0; oi < tbl->ord_len; oi++) {
         if (tbl->ord[oi].v == DT_RAW) continue;
-        TBPAIR_t *e = table_find_pair_d(tbl, tbl->ord[oi]); if (!e) continue;
-        unsigned long hn = _icn_hash(tbl->ord[oi]), seg, slot; _icn_slot(hn, tbl->gen_mask, &seg, &slot);
+        TBPAIR_t *e = table_find_pair_d(tbl, tbl->ord[oi]);
+        if (!e) continue;
+        unsigned long hn = _icn_hash(tbl->ord[oi]), seg, slot;
+        _icn_slot(hn, tbl->gen_mask, &seg, &slot);
         if (tbl->gen_have && !_icn_key_lt(tbl->gen_lseg, tbl->gen_lslot, tbl->gen_lhn, tbl->gen_lseq, seg, slot, hn, oi)) continue;
         if (!have || _icn_key_lt(seg, slot, hn, oi, bseg, bslot, bhn, bseq)) { be = e; bseg = seg; bslot = slot; bhn = hn; bseq = oi; have = 1; }
     }
     if (!have) return 0;
-    tbl->gen_lseg = bseg; tbl->gen_lslot = bslot; tbl->gen_lhn = bhn; tbl->gen_lseq = bseq; tbl->gen_have = 1;
-    *out = be; return 1;
+    tbl->gen_lseg = bseg;
+    tbl->gen_lslot = bslot;
+    tbl->gen_lhn = bhn;
+    tbl->gen_lseq = bseq;
+    tbl->gen_have = 1;
+    *out = be;
+    return 1;
 }
 int table_icn_nth(TBBLK_t *tbl, int64_t idx, TBPAIR_t **out) {
     if (!tbl || idx < 0 || tbl->ord_len == 0u) return 0;
     if (idx == 0 || tbl->gen_idx != idx - 1) {
-        tbl->gen_mask = tbl->icn_mask; tbl->gen_have = 0; tbl->gen_idx = -1;
+        tbl->gen_mask = tbl->icn_mask;
+        tbl->gen_have = 0;
+        tbl->gen_idx = -1;
         for (int64_t k = 0; k < idx; k++) { TBPAIR_t *skip; if (!_icn_succ(tbl, &skip)) return 0; }
     }
     if (!_icn_succ(tbl, out)) return 0;
-    tbl->gen_idx = idx; tbl->gen_pos = 0;
+    tbl->gen_idx = idx;
+    tbl->gen_pos = 0;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -424,12 +456,7 @@ static void set_copy_all(TBBLK_t *dst, TBBLK_t *src) {
     for (unsigned oi = 0; oi < src->ord_len; oi++) { TBPAIR_t *e = _tbl_live_at(src, oi); if (e) table_set_descr_d(dst, e->key_descr, e->key_descr); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) {
-    TBBLK_t *r = set_new();
-    if (x && y && y->size > x->size) { TBBLK_t *t = x; x = y; y = t; }
-    set_copy_all(r, x); set_copy_all(r, y);
-    return r;
-}
+TBBLK_t *set_union(TBBLK_t *x, TBBLK_t *y) { TBBLK_t *r = set_new(); if (x && y && y->size > x->size) { TBBLK_t *t = x; x = y; y = t; } set_copy_all(r, x); set_copy_all(r, y); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 TBBLK_t *set_diff(TBBLK_t *x, TBBLK_t *y) {
     TBBLK_t *r = set_new();
@@ -444,12 +471,6 @@ TBBLK_t *set_inter(TBBLK_t *x, TBBLK_t *y) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_table_idx_get(DESCR_t base, DESCR_t key) {
-    if (base.v != DT_T || !base.tbl) return NULVCL;
-    return table_get_d(base.tbl, key);
-}
+DESCR_t rt_table_idx_get(DESCR_t base, DESCR_t key) { if (base.v != DT_T || !base.tbl) return NULVCL; return table_get_d(base.tbl, key); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_table_idx_set(DESCR_t base, DESCR_t key, DESCR_t val) {
-    if (base.v != DT_T || !base.tbl) return;
-    table_set_descr_d(base.tbl, key, val);
-}
+void rt_table_idx_set(DESCR_t base, DESCR_t key, DESCR_t val) { if (base.v != DT_T || !base.tbl) return; table_set_descr_d(base.tbl, key, val); }

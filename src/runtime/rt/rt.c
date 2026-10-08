@@ -29,34 +29,41 @@
 extern const char *Σ;
 extern int Σlen;
 #if RT_DIAG
-void rt_c2bb_hit(const char *site, const char *name) { static int on = -1; static const char *path; if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; } if (!on) return;
-    { const char *w1 = "?", *w2 = "?"; Dl_info di;
-      if (__builtin_frame_address(1) && __builtin_return_address(1) && dladdr(__builtin_return_address(1), &di) && di.dli_sname) w1 = di.dli_sname;
-      if (__builtin_frame_address(2) && __builtin_return_address(2) && dladdr(__builtin_return_address(2), &di) && di.dli_sname) w2 = di.dli_sname;
-      FILE *f = fopen(path, "a"); if (!f) return; fprintf(f, "%s\t%s\t%s\t%s\n", site, name ? name : "?", w1, w2); fclose(f); } }
+void rt_c2bb_hit(const char *site, const char *name) {
+    static int on = -1;
+    static const char *path;
+    if (on < 0) { path = getenv("SCRIP_C2BB_TRACE"); on = (path && *path) ? 1 : 0; }
+    if (!on) return;
+    {
+        const char *w1 = "?", *w2 = "?";
+        Dl_info di;
+        if (__builtin_frame_address(1) && __builtin_return_address(1) && dladdr(__builtin_return_address(1), &di) && di.dli_sname) w1 = di.dli_sname;
+        if (__builtin_frame_address(2) && __builtin_return_address(2) && dladdr(__builtin_return_address(2), &di) && di.dli_sname) w2 = di.dli_sname;
+        FILE *f = fopen(path, "a");
+        if (!f) return;
+        fprintf(f, "%s\t%s\t%s\t%s\n", site, name ? name : "?", w1, w2);
+        fclose(f);
+    }
+}
 #else
 void rt_c2bb_hit(const char *site, const char *name) { (void)site; (void)name; }
 #endif
-#define STACKLESS_ABORT(fn) \
-    do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " \
-                         "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)); \
-         abort(); } while (0)
+#define STACKLESS_ABORT(fn) do { fprintf(stderr, "libscrip_rt: %s called — Icon value stack removed (GROUND ZERO 3). " "This box must be rebuilt stackless (per-box slot, no value stack).\n", (fn)) \
+    ; abort(); } while (0)
 #include <string.h>
 #include <math.h>
-extern void    core_lib_init(void);
+extern void core_lib_init(void);
 extern DESCR_t NV_GET_fn(const char *name);
 extern DESCR_t NV_SET_fn(const char *name, DESCR_t val);
 extern DESCR_t *NV_PTR_fn(const char *name);
 extern int is_protected_pat_name(const char *name);
 extern int g_call_fastpath_off;
 extern DESCR_t NAME_fn(const char *varname);
-extern char   *VARVAL_fn(DESCR_t v);
+extern char *VARVAL_fn(DESCR_t v);
 extern DESCR_t *data_field_ptr(const char *fname, DESCR_t inst);
-extern int     junction_is(DESCR_t v);
-extern int     junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
-extern void    register_fn(const char *name,
-                           DESCR_t (*fn)(DESCR_t *, int),
-                           int min_args, int max_args);
+extern int junction_is(DESCR_t v);
+extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
+extern void register_fn(const char *name, DESCR_t (*fn)(DESCR_t *, int), int min_args, int max_args);
 extern DESCR_t pat_lit(const char *s);
 extern DESCR_t pat_span(const char *chars);
 extern DESCR_t pat_break_(const char *chars);
@@ -86,8 +93,7 @@ extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
 extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_case_eq(const DESCR_t *sel, const DESCR_t *key)
-{
+int rt_case_eq(const DESCR_t *sel, const DESCR_t *key) {
     if (!sel || !key) return 0;
     if (sel->v == DT_I && key->v == DT_I) return sel->i == key->i;
     { const char *ss = VARVAL_fn(*sel); const char *ks = VARVAL_fn(*key); if (ss && ks) return strcmp(ss, ks) == 0; return ss == ks; }
@@ -98,17 +104,12 @@ extern cap_t *bb_cap_new(bb_box_fn child_fn, void *child_state, const char *varn
 extern cap_t *bb_cap_new_call(bb_box_fn child_fn, void *child_state, const char *fnc_name, DESCR_t *fnc_args, int fnc_nargs, char **fnc_arg_names, int fnc_n_arg_names, int immediate);
 extern void *bb_arbno_new(void *fn, void *state);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *rt_nv_cstr(const char *name)
-{
-    const char *s = VARVAL_fn(NV_GET_fn(name ? name : ""));
-    return s ? s : "";
-}
+const char *rt_nv_cstr(const char *name) { const char *s = VARVAL_fn(NV_GET_fn(name ? name : "")); return s ? s : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gvar_assign_str(const char *name, const char *str)
-{
+void rt_gvar_assign_str(const char *name, const char *str) {
     DESCR_t d = {0};
-    d.v    = DT_S;
-    d.s    = (char *)(str ? str : "");
+    d.v = DT_S;
+    d.s = (char *)(str ? str : "");
     d.slen = descr_cstrlen(d.s);
     NV_SET_fn(name ? name : "", d);
 #if RT_DIAG
@@ -116,13 +117,9 @@ void rt_gvar_assign_str(const char *name, const char *str)
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_indirect_assign_str(const char *holder, const char *str)
-{
-    rt_gvar_assign_str(rt_nv_cstr(holder ? holder : ""), str);
-}
+void rt_indirect_assign_str(const char *holder, const char *str) { rt_gvar_assign_str(rt_nv_cstr(holder ? holder : ""), str); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_indirect_assign_var(const char *holder, const char *val_name)
-{
+void rt_indirect_assign_var(const char *holder, const char *val_name) {
     const char *target = rt_nv_cstr(holder ? holder : "");
     DESCR_t val = NV_GET_fn(val_name ? val_name : "");
     NV_SET_fn(target ? target : "", val);
@@ -131,29 +128,19 @@ void rt_indirect_assign_var(const char *holder, const char *val_name)
 #endif
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gvar_assign_pat(const char *name, void *head)
-{
-    extern void *dtp_wrap_fn(void *);
-    DESCR_t d = {0};
-    d.v    = DT_P;
-    d.slen = 0;
-    d.p    = dtp_wrap_fn(head);
-    NV_SET_fn(name ? name : "", d);
-}
+void rt_gvar_assign_pat(const char *name, void *head) { extern void *dtp_wrap_fn(void *); DESCR_t d = {0}; d.v = DT_P; d.slen = 0; d.p = dtp_wrap_fn(head); NV_SET_fn(name ? name : "", d); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zstatic)
-{
+void rt_gvar_assign_pat_sz(const char *name, void *fn, int64_t zsz, int32_t zstatic) {
     extern void *dtp_wrap_fn_sz(void *, int64_t, int32_t);
     DESCR_t d = {0};
-    d.v    = DT_P;
+    d.v = DT_P;
     d.slen = 0;
-    d.p    = dtp_wrap_fn_sz(fn, zsz, zstatic);
+    d.p = dtp_wrap_fn_sz(fn, zsz, zstatic);
     NV_SET_fn(name ? name : "", d);
 }
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int64_t rt_gvar_arith(const char *a, const char *b, int op)
-{
+int64_t rt_gvar_arith(const char *a, const char *b, int op) {
     DESCR_t lv = NV_GET_fn(a ? a : "");
     DESCR_t rv = NV_GET_fn(b ? b : "");
     int rel_fail = 0;
@@ -163,19 +150,25 @@ int64_t rt_gvar_arith(const char *a, const char *b, int op)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int64_t rt_relop_descr2(int64_t l_lo, int64_t l_hi, int64_t r_lo, int64_t r_hi, int op)
-{
-    DESCR_t lv = {0}; DESCR_t rv = {0};
-    union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ul; union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ur;
-    ul.q = l_lo; lv.v = ul.f.v; lv.slen = ul.f.slen; lv.i = l_hi;
-    ur.q = r_lo; rv.v = ur.f.v; rv.slen = ur.f.slen; rv.i = r_hi;
+int64_t rt_relop_descr2(int64_t l_lo, int64_t l_hi, int64_t r_lo, int64_t r_hi, int op) {
+    DESCR_t lv = {0};
+    DESCR_t rv = {0};
+    union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ul;
+    union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } ur;
+    ul.q = l_lo;
+    lv.v = ul.f.v;
+    lv.slen = ul.f.slen;
+    lv.i = l_hi;
+    ur.q = r_lo;
+    rv.v = ur.f.v;
+    rv.slen = ur.f.slen;
+    rv.i = r_hi;
     int rel_fail = 0;
     binop_apply(op, lv, rv, &rel_fail);
     return rel_fail ? 0 : 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int64_t rt_gvar_get_int(const char *name)
-{
+int64_t rt_gvar_get_int(const char *name) {
     DESCR_t v = NV_GET_fn(name ? name : "");
     if (v.v == DT_I) return v.i;
     if (v.v == DT_R) return (int64_t)v.r;
@@ -183,19 +176,15 @@ int64_t rt_gvar_get_int(const char *name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_gvar_get_descr(const char *name)
-{
-    return NV_GET_fn(name ? name : "");
-}
+DESCR_t rt_gvar_get_descr(const char *name) { return NV_GET_fn(name ? name : ""); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
-{
+void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi) {
     DESCR_t d = {0};
     union { int64_t q; struct { DTYPE_t v; uint32_t slen; } f; } u;
-    u.q    = lo;
-    d.v    = u.f.v;
+    u.q = lo;
+    d.v = u.f.v;
     d.slen = u.f.slen;
-    d.i    = hi;
+    d.i = hi;
     NV_SET_fn(name ? name : "", d);
 #if RT_DIAG
     if (g_trace_budget != 0) sno_trace_value(name ? name : "", d);
@@ -204,36 +193,97 @@ void rt_gvar_assign_descr(const char *name, int64_t lo, int64_t hi)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * rt_coerce_errmsg(int code) {
     switch (code) {
-    case  59: return "any argument is not a string or expression";
-    case  69: return "break argument is not a string or expression";
-    case  70: return "breakx argument is not a string or expression";
-    case 151: return "notany argument is not a string or expression";
-    case 188: return "span argument is not a string or expression";
-    case  43: return "any evaluated argument is not a string"; case  49: return "notany evaluated argument is not a string"; case  56: return "span evaluated argument is not a string";
-    case  44: return "break evaluated argument is not a string"; case  45: return "breakx evaluated argument is not a string";
-    case 120: return "len argument is not integer or expression";
-    case 162: return "pos argument is not integer or expression";
-    case 181: return "rtab argument is not integer or expression";
-    case 183: return "tab argument is not integer or expression";
-    case 185: return "rpos argument is not integer or expression";
-    case 121: return "len argument is negative or too large";
-    case 163: return "pos argument is negative or too large";
-    case 182: return "rtab argument is negative or too large";
-    case 184: return "tab argument is negative or too large";
-    case 186: return "rpos argument is negative or too large";
-    case 101: return "eq first argument is not numeric";  case 102: return "eq second argument is not numeric";
-    case 109: return "ge first argument is not numeric";  case 110: return "ge second argument is not numeric";
-    case 111: return "gt first argument is not numeric";  case 112: return "gt second argument is not numeric";
-    case 118: return "le first argument is not numeric";  case 119: return "le second argument is not numeric";
-    case 147: return "lt first argument is not numeric";  case 148: return "lt second argument is not numeric";
-    case 149: return "ne first argument is not numeric";  case 150: return "ne second argument is not numeric";
-    case 122: return "leq first argument is not a string"; case 123: return "leq second argument is not a string";
-    case 124: return "lge first argument is not a string"; case 125: return "lge second argument is not a string";
-    case 126: return "lgt first argument is not a string"; case 127: return "lgt second argument is not a string";
-    case 128: return "lle first argument is not a string"; case 129: return "lle second argument is not a string";
-    case 130: return "llt first argument is not a string"; case 131: return "llt second argument is not a string";
-    case 132: return "lne first argument is not a string"; case 133: return "lne second argument is not a string";
-    default:  return "pattern primitive argument coercion failed"; }
+        case 59:
+        return "any argument is not a string or expression";
+        case 69:
+        return "break argument is not a string or expression";
+        case 70:
+        return "breakx argument is not a string or expression";
+        case 151:
+        return "notany argument is not a string or expression";
+        case 188:
+        return "span argument is not a string or expression";
+        case 43:
+        return "any evaluated argument is not a string";
+        case 49:
+        return "notany evaluated argument is not a string";
+        case 56:
+        return "span evaluated argument is not a string";
+        case 44:
+        return "break evaluated argument is not a string";
+        case 45:
+        return "breakx evaluated argument is not a string";
+        case 120:
+        return "len argument is not integer or expression";
+        case 162:
+        return "pos argument is not integer or expression";
+        case 181:
+        return "rtab argument is not integer or expression";
+        case 183:
+        return "tab argument is not integer or expression";
+        case 185:
+        return "rpos argument is not integer or expression";
+        case 121:
+        return "len argument is negative or too large";
+        case 163:
+        return "pos argument is negative or too large";
+        case 182:
+        return "rtab argument is negative or too large";
+        case 184:
+        return "tab argument is negative or too large";
+        case 186:
+        return "rpos argument is negative or too large";
+        case 101:
+        return "eq first argument is not numeric";
+        case 102:
+        return "eq second argument is not numeric";
+        case 109:
+        return "ge first argument is not numeric";
+        case 110:
+        return "ge second argument is not numeric";
+        case 111:
+        return "gt first argument is not numeric";
+        case 112:
+        return "gt second argument is not numeric";
+        case 118:
+        return "le first argument is not numeric";
+        case 119:
+        return "le second argument is not numeric";
+        case 147:
+        return "lt first argument is not numeric";
+        case 148:
+        return "lt second argument is not numeric";
+        case 149:
+        return "ne first argument is not numeric";
+        case 150:
+        return "ne second argument is not numeric";
+        case 122:
+        return "leq first argument is not a string";
+        case 123:
+        return "leq second argument is not a string";
+        case 124:
+        return "lge first argument is not a string";
+        case 125:
+        return "lge second argument is not a string";
+        case 126:
+        return "lgt first argument is not a string";
+        case 127:
+        return "lgt second argument is not a string";
+        case 128:
+        return "lle first argument is not a string";
+        case 129:
+        return "lle second argument is not a string";
+        case 130:
+        return "llt first argument is not a string";
+        case 131:
+        return "llt second argument is not a string";
+        case 132:
+        return "lne first argument is not a string";
+        case 133:
+        return "lne second argument is not a string";
+        default:
+        return "pattern primitive argument coercion failed";
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char * rt_coerce_errtext(int code) { return rt_coerce_errmsg(code); }
@@ -248,9 +298,16 @@ int rt_coerce_str_d(const DESCR_t *in, DESCR_t *out, long codes) {
     if (v.v == DT_I || v.v == DT_R) {
         char *s = VARVAL_fn(v);
         if ((!s || !s[0]) && nc) core_runtime_error(nc, rt_coerce_errmsg(nc));
-        out->v = DT_S; out->s = s ? s : (char *)""; out->slen = descr_cstrlen(out->s); return (!s || !s[0]) && nc; }
+        out->v = DT_S;
+        out->s = s ? s : (char *)"";
+        out->slen = descr_cstrlen(out->s);
+        return (!s || !s[0]) && nc;
+    }
     if (tc) core_runtime_error(tc, rt_coerce_errmsg(tc));
-    out->v = DT_S; out->s = (char *)""; out->slen = 0; return tc != 0;
+    out->v = DT_S;
+    out->s = (char *)"";
+    out->slen = 0;
+    return tc != 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal) {
@@ -258,12 +315,12 @@ static int rt_parse_num_d(const DESCR_t *v, int64_t *iv, double *rv, int *isreal
     if (v->v == DT_R) { *rv = v->r; *isreal = 1; return 1; }
     if (v->v == DT_SNUL) { *iv = 0; *isreal = 0; return 1; }
     if ((v->v == DT_S || IS_CSET_fn(*v)) && v->s) {
-        const char *p = rt_cstr_d(*v); while (*p == ' ') p++;
+        const char *p = rt_cstr_d(*v);
+        while (*p == ' ') p++;
         if (!*p) { *iv = 0; *isreal = 0; return 1; }
-        { char *ep = NULL; long long t = strtoll(p, &ep, 10);
-          if (ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { *iv = (int64_t)t; *isreal = 0; return 1; } } }
-        { char *ep = NULL; double d = strtod(p, &ep);
-          if (ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { *rv = d; *isreal = 1; return 1; } } } }
+        { char *ep = NULL; long long t = strtoll(p, &ep, 10); if (ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { *iv = (int64_t)t; *isreal = 0; return 1; } } }
+        { char *ep = NULL; double d = strtod(p, &ep); if (ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { *rv = d; *isreal = 1; return 1; } } }
+    }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -274,7 +331,9 @@ static int rt_num_is_blank_d(const DESCR_t *v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_coerce_shown_d(const DESCR_t *v) {
-    int64_t i = 0; double r = 0; int re = 0;
+    int64_t i = 0;
+    double r = 0;
+    int re = 0;
     if ((v->v == DT_S || IS_CSET_fn(*v)) && v->s) { errno = 0; if (rt_parse_num_d(v, &i, &r, &re) && errno == 0) return re ? (DESCR_t){ .v = DT_R, .slen = 0, .r = r } : INTVAL(i); }
     return *v;
 }
@@ -283,23 +342,50 @@ void c_rt_coerce_num2_d(const DESCR_t *self, const DESCR_t *other, DESCR_t *out,
     extern void core_runtime_error(int code, const char *msg);
     if (IS_FAIL(*self) || IS_FAIL(*other)) { *out = FAILDESCR; return; }
     if (self->v == DT_BIG) { *out = *self; return; }
-    if (self->v == DT_S && self->s) { const char *p = rt_cstr_d(*self); while (*p == ' ') p++; if (*p == '+' || *p == '-') p++;
-        if (*p >= '0' && *p <= '9') { errno = 0; char *ep = NULL; strtoll(p, &ep, 10); if (errno == ERANGE && ep && ep != p) { const char *q = ep; while (*q == ' ') q++; if (!*q) { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(rt_cstr_d(*self)); if (!IS_FAIL_fn(bg)) { *out = bg; return; } } } } }
+    if (self->v == DT_S && self->s) {
+        const char *p = rt_cstr_d(*self);
+        while (*p == ' ') p++;
+        if (*p == '+' || *p == '-') p++;
+        if (*p >= '0' && *p <= '9') {
+            errno = 0;
+            char *ep = NULL;
+            strtoll(p, &ep, 10);
+            if (errno == ERANGE && ep && ep != p) {
+                const char *q = ep;
+                while (*q == ' ') q++;
+                if (!*q) { extern DESCR_t rt_big_from_str(const char *); DESCR_t bg = rt_big_from_str(rt_cstr_d(*self)); if (!IS_FAIL_fn(bg)) { *out = bg; return; } }
+            }
+        }
+    }
     int ec = (int)(codes & 0xffff);
-    int64_t si = 0, oi = 0; double sr = 0, orr = 0; int sreal = 0, oreal = 0;
+    int64_t si = 0, oi = 0;
+    double sr = 0, orr = 0;
+    int sreal = 0, oreal = 0;
     int sok = rt_parse_num_d(self, &si, &sr, &sreal);
     if (sok && (codes & COERCE_ERR_FAILURE_CONVERTIBLE) && rt_num_is_blank_d(self)) sok = 0;
     if (!sok) {
-        if (ec && (codes & COERCE_ERR_FAILURE_CONVERTIBLE)) { extern int core_icn_error(int code, DESCR_t val);
+        if (ec && (codes & COERCE_ERR_FAILURE_CONVERTIBLE)) {
+            extern int core_icn_error(int code, DESCR_t val);
             if (codes & COERCE_OP_UNARY_NEG) core_icn_op_ctx("-", 1, *self, *self);
             else if (codes & COERCE_OP_UNARY_POS) core_icn_op_ctx("+", 1, *self, *self);
-            else if (COERCE_OP_OF(codes) >= 0) { int _r = (codes & COERCE_OP_SELF_RIGHT) != 0; core_icn_op_ctx(core_icn_binop_sym(COERCE_OP_OF(codes)), 2, _r ? rt_coerce_shown_d(other) : *self, _r ? *self : *other); }
-            core_icn_error(ec, *self); core_icn_op_ctx_clear(); *out = FAILDESCR; return; }
-        if (ec) { core_runtime_error(ec, rt_coerce_errmsg(ec)); *out = FAILDESCR; return; } si = 0; sreal = 0; }
+            else if (COERCE_OP_OF(codes) >= 0) {
+                int _r = (codes & COERCE_OP_SELF_RIGHT) != 0;
+                core_icn_op_ctx(core_icn_binop_sym(COERCE_OP_OF(codes)), 2, _r ? rt_coerce_shown_d(other) : *self, _r ? *self : *other);
+            }
+            core_icn_error(ec, *self);
+            core_icn_op_ctx_clear();
+            *out = FAILDESCR;
+            return;
+        }
+        if (ec) { core_runtime_error(ec, rt_coerce_errmsg(ec)); *out = FAILDESCR; return; }
+        si = 0;
+        sreal = 0;
+    }
     int ook = rt_parse_num_d(other, &oi, &orr, &oreal);
-    (void)ook; (void)oi; (void)orr;
-    if (sreal || (oreal && !(codes & COERCE_KEEP_INT))) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; }
-    else { out->v = DT_I; out->slen = 0; out->i = si; }
+    (void)ook;
+    (void)oi;
+    (void)orr;
+    if (sreal || (oreal && !(codes & COERCE_KEEP_INT))) { out->v = DT_R; out->slen = 0; out->r = sreal ? sr : (double)si; } else { out->v = DT_I; out->slen = 0; out->i = si; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
@@ -307,18 +393,35 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
     int ec = (int)(codes & 0xffff);
     int en = (int)((codes >> 16) & 0xffff);
     DESCR_t v = *in;
-    int64_t r = 0; int ok = 0;
-    if (v.v == DT_I) { r = v.i; ok = 1; }
-    else if (v.v == DT_R) { double d = v.r; if (d == floor(d) && d >= -9.2e18 && d <= 9.2e18) { r = (int64_t)d; ok = 1; } }
-    else if (v.v == DT_SNUL) { r = 0; ok = 1; }
-    else if (v.v == DT_S && v.s) {
+    int64_t r = 0;
+    int ok = 0;
+    if (v.v == DT_I) {
+        r = v.i;
+        ok = 1;
+    } else if (v.v == DT_R) {
+        double d = v.r;
+        if (d == floor(d) && d >= -9.2e18 && d <= 9.2e18) { r = (int64_t)d; ok = 1; }
+    } else if (v.v == DT_SNUL) {
+        r = 0;
+        ok = 1;
+    } else if (v.v == DT_S && v.s) {
         const char *s0 = rt_cstr_d(v);
-        if (!s0[0]) { r = 0; ok = 1; }
-        else { const char *p = s0; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
-               if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = (int64_t)t; ok = 1; } } } }
+        if (!s0[0]) {
+            r = 0;
+            ok = 1;
+        } else {
+            const char *p = s0;
+            while (*p == ' ') p++;
+            char *ep = NULL;
+            long long t = strtoll(p, &ep, 10);
+            if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = (int64_t)t; ok = 1; } }
+        }
+    }
     if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
     if (r < 0 && en) core_runtime_error(en, rt_coerce_errmsg(en));
-    out->v = DT_I; out->slen = 0; out->i = r;
+    out->v = DT_I;
+    out->slen = 0;
+    out->i = r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t g_prim_val;
@@ -326,7 +429,16 @@ void rt_eval_stage_enter(const char *name);
 void rt_eval_stage_leave_word(long word);
 rt_call_next_t rt_pat_prim_open(const char *varname) {
     extern int rt_proc_is_registered(const char *name);
-    if (varname && varname[0] == '*') { if (rt_proc_is_registered(varname + 1)) { rt_call_next_t n = rt_call_open_by_name(varname + 1, 0); if (n.fn) { rt_eval_stage_enter(varname + 1); return n; } g_prim_val = FAILDESCR; return (rt_call_next_t){ 0, 0 }; } g_prim_val = NV_GET_fn(varname + 1); return (rt_call_next_t){ 0, 0 }; }
+    if (varname && varname[0] == '*') {
+        if (rt_proc_is_registered(varname + 1)) {
+            rt_call_next_t n = rt_call_open_by_name(varname + 1, 0);
+            if (n.fn) { rt_eval_stage_enter(varname + 1); return n; }
+            g_prim_val = FAILDESCR;
+            return (rt_call_next_t){ 0, 0 };
+        }
+        g_prim_val = NV_GET_fn(varname + 1);
+        return (rt_call_next_t){ 0, 0 };
+    }
     g_prim_val = NV_GET_fn(varname ? varname : "");
     return (rt_call_next_t){ 0, 0 };
 }
@@ -337,15 +449,27 @@ void rt_pat_prim_land_ω(long word) { g_prim_val = rt_call_land_ω(word); rt_eva
 long rt_pat_prim_int_take(void) {
     DESCR_t v = g_prim_val;
     int64_t r = 0;
-    if (v.v == DT_I) { r = v.i; }
-    else if (v.v == DT_R) { double d = v.r; r = (int64_t)d; }
-    else if (v.v == DT_SNUL) { r = 0; }
-    else if (v.v == DT_S && v.s) {
+    if (v.v == DT_I) {
+        r = v.i;
+    } else if (v.v == DT_R) {
+        double d = v.r;
+        r = (int64_t)d;
+    } else if (v.v == DT_SNUL) {
+        r = 0;
+    } else if (v.v == DT_S && v.s) {
         const char *s0 = rt_cstr_d(v);
-        if (!s0[0]) { r = 0; }
-        else { const char *p = s0; while (*p == ' ') p++; char *ep = NULL; long long t = strtoll(p, &ep, 10);
-               if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) r = (int64_t)t; else return -1; } else return -1; }
-    } else { return -1; }
+        if (!s0[0]) {
+            r = 0;
+        } else {
+            const char *p = s0;
+            while (*p == ' ') p++;
+            char *ep = NULL;
+            long long t = strtoll(p, &ep, 10);
+            if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) r = (int64_t)t; else return -1; } else return -1;
+        }
+    } else {
+        return -1;
+    }
     if (r < 0) return -1;
     return r;
 }
@@ -354,8 +478,12 @@ long rt_pat_prim_member(int ch, long codes) {
     extern int IS_FAIL_fn(DESCR_t);
     DESCR_t v = g_prim_val, s;
     if (IS_FAIL_fn(v)) return -1;
-    if (rt_coerce_str_d(&v, &s, codes)) { extern uint64_t rtccb[32]; extern void rt_setexit_continue_tramp(void);
-        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp; return -1; }
+    if (rt_coerce_str_d(&v, &s, codes)) {
+        extern uint64_t rtccb[32];
+        extern void rt_setexit_continue_tramp(void);
+        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
+        return -1;
+    }
     if (s.v != DT_S) return -1;
     if (ch < 0) return 2;
     return (s.s && s.slen && memchr(s.s, ch, (size_t)s.slen)) ? 1 : 0;
@@ -366,8 +494,12 @@ long rt_pat_prim_str_take(const char **out_ptr, long *out_len, long codes) {
     DESCR_t v = g_prim_val;
     DESCR_t s;
     if (IS_FAIL_fn(v)) return -1;
-    if (rt_coerce_str_d(&v, &s, codes)) { extern uint64_t rtccb[32]; extern void rt_setexit_continue_tramp(void);
-        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp; return -1; }
+    if (rt_coerce_str_d(&v, &s, codes)) {
+        extern uint64_t rtccb[32];
+        extern void rt_setexit_continue_tramp(void);
+        if (!rtccb[25]) rtccb[25] = (uint64_t)(uintptr_t)(void *)rt_setexit_continue_tramp;
+        return -1;
+    }
     if (s.v != DT_S) return -1;
     *out_ptr = s.s ? s.s : "";
     *out_len = (long)s.slen;
@@ -378,49 +510,100 @@ void rt_coerce_real_d(const DESCR_t *in, DESCR_t *out, long codes) {
     extern void core_runtime_error(int code, const char *msg);
     int ec = (int)(codes & 0xffff);
     DESCR_t v = *in;
-    double r = 0.0; int ok = 0;
-    if (v.v == DT_R) { r = v.r; ok = 1; }
-    else if (v.v == DT_I) { r = (double)v.i; ok = 1; }
-    else if (v.v == DT_SNUL) { r = 0.0; ok = 1; }
-    else if (v.v == DT_S && v.s) {
-        if (descr_slen(v) == 0) { r = 0.0; ok = 1; }
-        else { const char *p = v.s; while (*p == ' ') p++; char *ep = NULL; double d = strtod(p, &ep);
-               if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = d; ok = 1; } } } }
+    double r = 0.0;
+    int ok = 0;
+    if (v.v == DT_R) {
+        r = v.r;
+        ok = 1;
+    } else if (v.v == DT_I) {
+        r = (double)v.i;
+        ok = 1;
+    } else if (v.v == DT_SNUL) {
+        r = 0.0;
+        ok = 1;
+    } else if (v.v == DT_S && v.s) {
+        if (descr_slen(v) == 0) {
+            r = 0.0;
+            ok = 1;
+        } else {
+            const char *p = v.s;
+            while (*p == ' ') p++;
+            char *ep = NULL;
+            double d = strtod(p, &ep);
+            if (ep && ep != p) { while (*ep == ' ') ep++; if (*ep == 0) { r = d; ok = 1; } }
+        }
+    }
     if (!ok && ec) core_runtime_error(ec, rt_coerce_errmsg(ec));
-    out->v = DT_R; out->slen = 0; out->r = r;
+    out->v = DT_R;
+    out->slen = 0;
+    out->r = r;
 }
 extern DESCR_t VARVAL_d_fn(DESCR_t d);
 typedef struct { const char *base; long len; } rt_subj_t;
 #if RT_DIAG
 const char *g_subject_dbg_base = 0;
-long        g_subject_dbg_len  = -1;
+long g_subject_dbg_len = -1;
 #endif
 __attribute__((visibility("hidden"))) int rt_k_level = 1;
 int * const rt_k_level_p = &rt_k_level;
 static inline __attribute__((always_inline)) void rt_k_level_mirror(void) { kw_fnclevel = (int64_t)rt_k_level - 1; }
 #define PROC_FRAME_QWORDS 512
 typedef struct {
-    const char *name; bb_box_fn fn; const char **pnames; int nparams; int frame_nslots; int decl_level; int alpha_slot; uint64_t byref_mask;
-    int frame_bytes; int gen_region_ft; DESCR_t **pcells; DESCR_t *rcell; int cells_done; int is_generator; int dyn_scope; int stage_var; const char *result_name; int is_variadic; int rest_kind; int named_rest; int jmp_entry; unsigned int redefined : 15; unsigned int self_save : 1; unsigned int pinned : 16; int zstatic; int pnames_owned; int nformals;
+    const char *name;
+    bb_box_fn fn;
+    const char **pnames;
+    int nparams;
+    int frame_nslots;
+    int decl_level;
+    int alpha_slot;
+    uint64_t byref_mask;
+    int frame_bytes;
+    int gen_region_ft;
+    DESCR_t **pcells;
+    DESCR_t *rcell;
+    int cells_done;
+    int is_generator;
+    int dyn_scope;
+    int stage_var;
+    const char *result_name;
+    int is_variadic;
+    int rest_kind;
+    int named_rest;
+    int jmp_entry;
+    unsigned int redefined : 15;
+    unsigned int self_save : 1;
+    unsigned int pinned : 16;
+    int zstatic;
+    int pnames_owned;
+    int nformals;
 } rt_proc_t;
 static int rt_eval_stage_is_var(const char *name);
 _Static_assert(__builtin_offsetof(rt_proc_t, fn) == 8, "rtx_call.s bakes PROC_FN for the rt_proc_open_fn port (RTX-4 slice 3); confirmed from emitted -O0 code as mov 0x8(%rax),%rax");
 _Static_assert(__builtin_offsetof(rt_proc_t, name) == 0 && __builtin_offsetof(rt_proc_t, is_generator) == 0x4c, "rtx_call.s bakes PROC_NAME and PROC_ISGEN");
-_Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128, "RTX-1-PL: rtx_plcall.S baked PROC_DYN_SCOPE and the shl 7 index stride. THAT FILE IS GONE -- added ff6947e52, DELETED f3565287f 2026-08-13 (GLOBALS ERADICATED s55, whose own message says g_pcall* went REGARDLESS OF CONSUMERS). The offset is TRUE and NO LIVE ASM READS THIS TABLE: grep of src/runtime/rtx/*.s and *.inc for rt_proc_t or PROC_DYN_SCOPE returns nothing. Do not read this assert as evidence of an asm consumer. \u26d4 AND IT IS NOT THE C->BB DISPATCHER: rtx_plcall.S ported rt_proc_call_open_det, the PROLOG deterministic predicate-call open, and mentions rt_call_proc_descr ZERO times; the SNOBOL4 procedure dispatcher that carries the C->BB population was never ported (ceo CEO-1085, correcting CEO-1085a)");
-_Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48, "RTX-1-PL: rtx_plcall.S recorded this in its offset table and the fbytes computation was elided, not baked. THAT FILE WAS DELETED AT f3565287f -- no live consumer (ceo CEO-1085)");
-_Static_assert(__builtin_offsetof(rt_proc_t, byref_mask) == 40 && __builtin_offsetof(rt_proc_t, alpha_slot) == 36, "alpha_slot occupies the 4-byte alignment HOLE that already sat between decl_level and byref_mask -- it must not push any later field, or every baked offset above moves and rtx_call.s/rtx_plcall.s read the wrong words");
-rt_proc_t    *g_rt_gen_procs = (rt_proc_t *)0;
-__attribute__((visibility("hidden"))) int           g_rt_gen_proc_count = 0;
-static int           g_rt_gen_proc_cap = 0;
-static int          *g_proc_hsl = (int *)0;
-static unsigned      g_proc_hcap = 0;
+_Static_assert(__builtin_offsetof(rt_proc_t, dyn_scope) == 80 && sizeof(rt_proc_t) == 128,
+    "RTX-1-PL: rtx_plcall.S baked PROC_DYN_SCOPE and the shl 7 index stride. THAT FILE IS GONE -- added ff6947e52, DELETED f3565287f 2026-08-13 (GLOBALS ERADICATED s55, whose own message says g_pcal"
+    "l* went REGARDLESS OF CONSUMERS). The offset is TRUE and NO LIVE ASM READS THIS TABLE: grep of src/runtime/rtx/*.s and *.inc for rt_proc_t or PROC_DYN_SCOPE returns nothing. Do not read this as"
+    "sert as evidence of an asm consumer. \u26d4 AND IT IS NOT THE C->BB DISPATCHER: rtx_plcall.S ported rt_proc_call_open_det, the PROLOG deterministic predicate-call open, and mentions rt_call_pro"
+    "c_descr ZERO times; the SNOBOL4 procedure dispatcher that carries the C->BB population was never ported (ceo CEO-1085, correcting CEO-1085a)");
+_Static_assert(__builtin_offsetof(rt_proc_t, frame_bytes) == 48,
+    "RTX-1-PL: rtx_plcall.S recorded this in its offset table and the fbytes computation was elided, not baked. THAT FILE WAS DELETED AT f3565287f -- no live consumer (ceo CEO-1085)");
+_Static_assert(__builtin_offsetof(rt_proc_t, byref_mask) == 40 && __builtin_offsetof(rt_proc_t, alpha_slot) == 36,
+    "alpha_slot occupies the 4-byte alignment HOLE that already sat between decl_level and byref_mask -- it must not push any later field, or every baked offset above moves and rtx_call.s/rtx_plcall"
+    ".s read the wrong words");
+rt_proc_t *g_rt_gen_procs = (rt_proc_t *)0;
+__attribute__((visibility("hidden"))) int g_rt_gen_proc_count = 0;
+static int g_rt_gen_proc_cap = 0;
+static int *g_proc_hsl = (int *)0;
+static unsigned g_proc_hcap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned rt_proc_fnv(const char *s) { unsigned h = 2166136261u; while (*s) { h ^= (unsigned char)*s++; h *= 16777619u; } return h; }
 static int rt_proc_hash_lookup_h(const char *name, unsigned h0) {
     if (!name || !g_proc_hcap) return -1;
-    { unsigned m = g_proc_hcap - 1, h = h0 & m;
-      while (g_proc_hsl[h]) { int ix = g_proc_hsl[h] - 1; if (ix < g_rt_gen_proc_count && g_rt_gen_procs[ix].name && strcmp(g_rt_gen_procs[ix].name, name) == 0) return ix; h = (h + 1) & m; }
-      return -1; }
+    {
+        unsigned m = g_proc_hcap - 1, h = h0 & m;
+        while (g_proc_hsl[h]) { int ix = g_proc_hsl[h] - 1; if (ix < g_rt_gen_proc_count && g_rt_gen_procs[ix].name && strcmp(g_rt_gen_procs[ix].name, name) == 0) return ix; h = (h + 1) & m; }
+        return -1;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_proc_hash_seed_h(int idx, unsigned h0) { unsigned m = g_proc_hcap - 1, h = h0 & m; while (g_proc_hsl[h]) h = (h + 1) & m; g_proc_hsl[h] = idx + 1; }
@@ -429,8 +612,12 @@ static void rt_proc_hash_seed(int idx) { unsigned m = g_proc_hcap - 1, h = rt_pr
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_proc_hash_insert(int idx) {
     if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) {
-        unsigned nc = g_proc_hcap ? g_proc_hcap * 2 : 1024; int *np = (int *)rt_wsb_realloc(g_proc_hsl, (size_t)nc * sizeof(int)); if (!np) return;
-        g_proc_hsl = np; g_proc_hcap = nc; memset(g_proc_hsl, 0, (size_t)nc * sizeof(int));
+        unsigned nc = g_proc_hcap ? g_proc_hcap * 2 : 1024;
+        int *np = (int *)rt_wsb_realloc(g_proc_hsl, (size_t)nc * sizeof(int));
+        if (!np) return;
+        g_proc_hsl = np;
+        g_proc_hcap = nc;
+        memset(g_proc_hsl, 0, (size_t)nc * sizeof(int));
         for (int i = 0; i < g_rt_gen_proc_count; i++) if (g_rt_gen_procs[i].name) rt_proc_hash_seed(i);
         return;
     }
@@ -446,23 +633,57 @@ static int rt_proc_hash_lookup(const char *name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rt_gen_proc_grow(void) {
     if (g_rt_gen_proc_count < g_rt_gen_proc_cap) return;
-    int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64; rt_proc_t *np = (rt_proc_t *)rt_wsb_realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
-    if (!np) return; g_rt_gen_procs = np; g_rt_gen_proc_cap = nc;
+    int nc = g_rt_gen_proc_cap ? g_rt_gen_proc_cap * 2 : 64;
+    rt_proc_t *np = (rt_proc_t *)rt_wsb_realloc(g_rt_gen_procs, (size_t)nc * sizeof(rt_proc_t));
+    if (!np) return;
+    g_rt_gen_procs = np;
+    g_rt_gen_proc_cap = nc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_register(const char *name, const char **pnames, int nparams)
-{
+void rt_proc_register(const char *name, const char **pnames, int nparams) {
     if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { if (pnames) g_rt_gen_procs[i].pnames = pnames; if (nparams) g_rt_gen_procs[i].nparams = nparams; g_rt_gen_procs[i].cells_done = 0; g_rt_gen_procs[i].nformals = 0; g_rt_gen_procs[i].redefined = 1; return; } }
+    {
+        int i = rt_proc_hash_lookup(name);
+        if (i >= 0) {
+            if (pnames) g_rt_gen_procs[i].pnames = pnames;
+            if (nparams) g_rt_gen_procs[i].nparams = nparams;
+            g_rt_gen_procs[i].cells_done = 0;
+            g_rt_gen_procs[i].nformals = 0;
+            g_rt_gen_procs[i].redefined = 1;
+            return;
+        }
+    }
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->stage_var = rt_eval_stage_is_var(name); p->fn = NULL; p->pnames = pnames; p->nparams = nparams; p->frame_nslots = -1; p->decl_level = 0; p->alpha_slot = -1; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; p->gen_region_ft = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->name = name;
+    p->stage_var = rt_eval_stage_is_var(name);
+    p->fn = NULL;
+    p->pnames = pnames;
+    p->nparams = nparams;
+    p->frame_nslots = -1;
+    p->decl_level = 0;
+    p->alpha_slot = -1;
+    p->byref_mask = 0;
+    p->frame_bytes = 0;
+    p->pcells = (DESCR_t **)0;
+    p->rcell = (DESCR_t *)0;
+    p->cells_done = 0;
+    p->is_generator = 0;
+    p->dyn_scope = 0;
+    p->result_name = (const char *)0;
+    p->is_variadic = 0;
+    p->rest_kind = 0;
+    p->named_rest = 0;
+    p->jmp_entry = 0;
+    p->zstatic = 0;
+    p->pnames_owned = 0;
+    p->nformals = 0;
+    p->gen_region_ft = 0;
+    rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_result_name(const char *name, const char *rname)
-{
+void rt_proc_set_result_name(const char *name, const char *rname) {
     if (!name) return;
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].result_name = rname; g_rt_gen_procs[i].cells_done = 0; return; } }
 }
@@ -473,24 +694,13 @@ const char *rt_proc_trace_canon(const char *name) { int i = name ? rt_proc_hash_
 const char *rt_proc_trace_canon(const char *name) { return name; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_dyn_scope(const char *name, int v)
-{
-    if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].dyn_scope = v ? 1 : 0; return; } }
-}
+void rt_proc_set_dyn_scope(const char *name, int v) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].dyn_scope = v ? 1 : 0; return; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_dyn_scope(const char *name)
-{
-    if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].dyn_scope; }
-    return 0;
-}
-int rt_proc_entry_pending(const char *name)
-{
+int rt_proc_dyn_scope(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].dyn_scope; } return 0; }
+int rt_proc_entry_pending(const char *name) {
     extern const char *core_define_entry_label(const char *);
     if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); if (i < 0) return 0;
-      { rt_proc_t *p = &g_rt_gen_procs[i]; return (p->dyn_scope && !p->fn && !p->jmp_entry && core_define_entry_label(name)) ? 1 : 0; } }
+    { int i = rt_proc_hash_lookup(name); if (i < 0) return 0; { rt_proc_t *p = &g_rt_gen_procs[i]; return (p->dyn_scope && !p->fn && !p->jmp_entry && core_define_entry_label(name)) ? 1 : 0; } }
 }
 static rt_proc_t *rt_proc_find(const char *name);
 static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r);
@@ -499,25 +709,16 @@ void rt_proc_cache_clear(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_enum_count(void) { return g_rt_gen_proc_count; }
 const char *rt_proc_enum_name(int i) { return (i >= 0 && i < g_rt_gen_proc_count) ? g_rt_gen_procs[i].name : (const char *)0; }
-void rt_proc_reset(void) { extern void bnd_tweak_cache_clear(void); g_rt_gen_proc_count = 0; rt_proc_cache_clear(); bnd_tweak_cache_clear(); if (g_proc_hsl) memset(g_proc_hsl, 0, (size_t)g_proc_hcap * sizeof(int)); }
+void rt_proc_reset(void) {
+    extern void bnd_tweak_cache_clear(void);
+    g_rt_gen_proc_count = 0;
+    rt_proc_cache_clear();
+    bnd_tweak_cache_clear();
+    if (g_proc_hsl) memset(g_proc_hsl, 0, (size_t)g_proc_hcap * sizeof(int));
+}
 __attribute__((noreturn)) void rt_ab_undef_fn_stub(void) { core_runtime_error(22, "undefined function called"); __builtin_unreachable(); }
-__asm__(
-".text\n"
-".globl rt_ab_undef_sig_stub\n"
-".type rt_ab_undef_sig_stub, @function\n"
-"rt_ab_undef_sig_stub:\n"
-"  movq %rsp, %rax\n"
-"  andq $-16, %rsp\n"
-"  pushq %rax\n"
-"  pushq %rcx\n"
-"  call rt_ab_undef_fn_fail\n"
-"  call rt_ret_faildescr\n"
-"  popq %rcx\n"
-"  popq %r8\n"
-"  movq %r8, %rsp\n"
-"  jmp *16(%rcx)\n"
-".size rt_ab_undef_sig_stub, .-rt_ab_undef_sig_stub\n"
-);
+__asm__( ".text\n" ".globl rt_ab_undef_sig_stub\n" ".type rt_ab_undef_sig_stub, @function\n" "rt_ab_undef_sig_stub:\n" "  movq %rsp, %rax\n" "  andq $-16, %rsp\n" "  pushq %rax\n" "  pushq %rcx\n"
+    "  call rt_ab_undef_fn_fail\n" "  call rt_ret_faildescr\n" "  popq %rcx\n" "  popq %r8\n" "  movq %r8, %rsp\n" "  jmp *16(%rcx)\n" ".size rt_ab_undef_sig_stub, .-rt_ab_undef_sig_stub\n" );
 void rt_ab_undef_sig_stub(void);
 static inline int rt_alpha_unsealed(const void *v) { return !v || v == (const void *)(uintptr_t)rt_ab_undef_fn_stub || v == (const void *)(uintptr_t)rt_ab_undef_sig_stub; }
 void rt_ab_undef_fn_fail(void) { core_runtime_error(22, "undefined function called"); }
@@ -526,16 +727,36 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n) {
     if (!cells) return cells;
     { extern void rt_icn_global_note(const char *); for (int k = 0; k < n; k++) if (names && names[k]) rt_icn_global_note(names[k]); }
     for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0; if (!nm) continue; (void)NV_bind_gva(nm, &cells[k]); }
-    { extern int rt_is_reassigned_builtin(const char *); extern int rt_proc_is_registered(const char *); extern DESCR_t rt_proc_value(const char *);
-      for (int k = 0; k < n; k++) { const char *nm = names ? names[k] : (const char *)0;
-        if (!nm || !rt_is_reassigned_builtin(nm)) continue;
-        if (rt_proc_is_registered(nm)) cells[k] = rt_proc_value(nm);
-        else { DESCR_t bv = {0}; bv.v = DT_E; bv.slen = PROCVAL_SLEN; bv.s = (char *)nm; cells[k] = bv; } } }
-    { static int _b1cg = -1; if (_b1cg < 0) { const char *_e = getenv("SCRIP_B1C_PARITY"); _b1cg = (_e && *_e == '0') ? 0 : 1; }
-      extern int gva_count(void); extern int gva_collect_var(const char *); extern int gva_collect_reserve(void); extern int g_gva_active;
-      if (_b1cg && n > 0 && gva_count() == 0) { for (int k = 0; k < n; k++) { int kk = (names && names[k]) ? gva_collect_var(names[k]) : gva_collect_reserve();
-          if (kk != k) { fprintf(stderr, "gva_register: island slot %d (%s) collected at %d -- the run-time island must mirror the compiled table slot for slot\n", k, (names && names[k]) ? names[k] : "<hidden>", kk); abort(); } }
-        g_gva_active = (gva_count() > 0) ? 1 : 0; } }
+    {
+        extern int rt_is_reassigned_builtin(const char *);
+        extern int rt_proc_is_registered(const char *);
+        extern DESCR_t rt_proc_value(const char *);
+        for (int k = 0; k < n; k++) {
+            const char *nm = names ? names[k] : (const char *)0;
+            if (!nm || !rt_is_reassigned_builtin(nm)) continue;
+            if (rt_proc_is_registered(nm)) cells[k] = rt_proc_value(nm);
+            else { DESCR_t bv = {0}; bv.v = DT_E; bv.slen = PROCVAL_SLEN; bv.s = (char *)nm; cells[k] = bv; }
+        }
+    }
+    {
+        static int _b1cg = -1;
+        if (_b1cg < 0) { const char *_e = getenv("SCRIP_B1C_PARITY"); _b1cg = (_e && *_e == '0') ? 0 : 1; }
+        extern int gva_count(void);
+        extern int gva_collect_var(const char *);
+        extern int gva_collect_reserve(void);
+        extern int g_gva_active;
+        if (_b1cg && n > 0 && gva_count() == 0) {
+            for (int k = 0; k < n; k++) {
+                int kk = (names && names[k]) ? gva_collect_var(names[k]) : gva_collect_reserve();
+                if (kk != k) {
+                    fprintf(stderr, "gva_register: island slot %d (%s) collected at %d -- the run-time island must mirror the compiled table slot for slot\n", k,
+                        (names && names[k]) ? names[k] : "<hidden>", kk);
+                    abort();
+                }
+            }
+            g_gva_active = (gva_count() > 0) ? 1 : 0;
+        }
+    }
     return cells;
 }
 #define RT_GVA_WINDOW_BYTES ((size_t)1u << 30)
@@ -547,42 +768,50 @@ __attribute__((constructor)) static void rt_pin_init(void) {
     void * g = mmap((void *)RT_GVA_VA, RT_GVA_WINDOW_BYTES, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
     g_gva_mapped = RT_GVA_WINDOW_BYTES;
     if (g != (void *)RT_GVA_VA) { fprintf(stderr, "rt_pin_init: RT_GVA_VA 0x%lx unavailable (got %p) -- REG-1 tripwire, see RUNG REG-MAP\n", (unsigned long)RT_GVA_VA, g); abort(); }
-    *(volatile uint64_t *)RT_AB_NRET   = 0;
+    *(volatile uint64_t *)RT_AB_NRET = 0;
     { extern void rt_dcap_lazy_init(void); rt_dcap_lazy_init(); }
 }
 extern int rt_g_want_name;
 extern int rt_g_ret_by_name;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_ab_enter_env(void *frame)
-{
+int rt_ab_enter_env(void *frame) {
     char *fb = (char *)frame;
-    *(uint64_t *)(fb + AB_OFF_SIGMA)    = (uint64_t)(uintptr_t)Σ;
+    *(uint64_t *)(fb + AB_OFF_SIGMA) = (uint64_t)(uintptr_t)Σ;
     *(uint64_t *)(fb + AB_OFF_SIGMALEN) = (uint64_t)(int64_t)Σlen;
-    *(uint64_t *)(fb + AB_OFF_WN)       = (uint64_t)(int64_t)rt_g_want_name; rt_g_want_name = 0; rt_g_ret_by_name = 0;
-    rt_k_level++; rt_k_level_mirror();
+    *(uint64_t *)(fb + AB_OFF_WN) = (uint64_t)(int64_t)rt_g_want_name;
+    rt_g_want_name = 0;
+    rt_g_ret_by_name = 0;
+    rt_k_level++;
+    rt_k_level_mirror();
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail)
-{
+DESCR_t rt_ab_leave_env(void *frame, DESCR_t result, int is_fail) {
     char *fb = (char *)frame;
-    int wn   = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
-    Σ    = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
+    int wn = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_WN);
+    Σ = (const char *)(uintptr_t)*(uint64_t *)(fb + AB_OFF_SIGMA);
     Σlen = (int)(int64_t)*(uint64_t *)(fb + AB_OFF_SIGMALEN);
-    rt_k_level--; rt_k_level_mirror();
+    rt_k_level--;
+    rt_k_level_mirror();
     if (is_fail) { rt_g_want_name = wn; return FAILDESCR; }
     return rt_nret_fix(result, wn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t *rt_gva_cell_of(const void *p) { uintptr_t a = (uintptr_t)p; return (a >= (uintptr_t)RT_GVA_VA && a - (uintptr_t)RT_GVA_VA < (uintptr_t)g_gva_mapped && !((a - (uintptr_t)RT_GVA_VA) & 15u)) ? (DESCR_t *)p : (DESCR_t *)0; }
+DESCR_t *rt_gva_cell_of(const void *p) {
+    uintptr_t a = (uintptr_t)p;
+    return (a >= (uintptr_t)RT_GVA_VA && a - (uintptr_t)RT_GVA_VA < (uintptr_t)g_gva_mapped && !((a - (uintptr_t)RT_GVA_VA) & 15u)) ? (DESCR_t *)p : (DESCR_t *)0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t *rt_gva_island(int n) {
     if ((size_t)n * sizeof(DESCR_t) > g_gva_mapped) {
         size_t want = g_gva_mapped ? g_gva_mapped : RT_GVA_WINDOW_BYTES;
         while (want < (size_t)n * sizeof(DESCR_t)) want *= 2;
         void * x = mmap((void *)(RT_GVA_VA + g_gva_mapped), want - g_gva_mapped, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE | MAP_FIXED_NOREPLACE, -1, 0);
-        if (x != (void *)(RT_GVA_VA + g_gva_mapped)) { fprintf(stderr, "rt_gva_island: %d slots need %zu bytes and the window past RT_GVA_VA + %zu is not free (got %p)\n", n, want, g_gva_mapped, x); abort(); }
+        if (x != (void *)(RT_GVA_VA + g_gva_mapped)) {
+            fprintf(stderr, "rt_gva_island: %d slots need %zu bytes and the window past RT_GVA_VA + %zu is not free (got %p)\n", n, want, g_gva_mapped, x);
+            abort();
+        }
         g_gva_mapped = want;
     }
     { extern void rt_sxt_gva_count(int); rt_sxt_gva_count(n); }
@@ -590,40 +819,36 @@ DESCR_t *rt_gva_island(int n) {
     return (DESCR_t *)RT_GVA_VA;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_gva_add_var(const char *nm)
-{
-    extern int gva_index_of(const char *); extern int gva_collect_var_copy(const char *); extern int gva_name_eligible(const char *); extern int gva_count(void); extern int NV_bind_gva(const char *, DESCR_t *); extern void rt_sxt_gva_count(int); extern int gva_trace_demoted(void);
+int rt_gva_add_var(const char *nm) {
+    extern int gva_index_of(const char *);
+    extern int gva_collect_var_copy(const char *);
+    extern int gva_name_eligible(const char *);
+    extern int gva_count(void);
+    extern int NV_bind_gva(const char *, DESCR_t *);
+    extern void rt_sxt_gva_count(int);
+    extern int gva_trace_demoted(void);
     if (!nm || !*nm || gva_trace_demoted()) return -1;
     { int k = gva_index_of(nm); if (k >= 0) return k; }
     if (!gva_name_eligible(nm) || !NV_PTR_fn(nm)) return -1;
     if ((size_t)(gva_count() + 1) * sizeof(DESCR_t) > g_gva_mapped) return -1;
-    { int k = gva_collect_var_copy(nm); if (k < 0) return -1;
-      DESCR_t *cell = (DESCR_t *)RT_GVA_VA + k; memset((void *)cell, 0, sizeof(DESCR_t));
-      rt_sxt_gva_count(gva_count());
-      (void)NV_bind_gva(nm, cell);
-      return k; }
+    {
+        int k = gva_collect_var_copy(nm);
+        if (k < 0) return -1;
+        DESCR_t *cell = (DESCR_t *)RT_GVA_VA + k;
+        memset((void *)cell, 0, sizeof(DESCR_t));
+        rt_sxt_gva_count(gva_count());
+        (void)NV_bind_gva(nm, cell);
+        return k;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_is_registered(const char *name)
-{
-    if (!name) return 0;
-    return rt_proc_find(name) != (rt_proc_t *)0;
-}
+int rt_proc_is_registered(const char *name) { if (!name) return 0; return rt_proc_find(name) != (rt_proc_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_is_redefined(const char *name)
-{
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    return p ? p->redefined : 0;
-}
+int rt_proc_is_redefined(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? p->redefined : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_named_runs(const char *name)
-{
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    return p && (p->fn || p->dyn_scope);
-}
+int rt_proc_named_runs(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p && (p->fn || p->dyn_scope); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *r)
-{
+DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *r) {
     rt_proc_t *p = (r && !(r->flags & SNO_DSTAR_VARREF)) ? rt_proc_of_rec(r) : (rt_proc_t *)0;
     if (!p) return NV_GET_fn(r ? r->star + 1 : "");
 #if RT_DIAG
@@ -632,18 +857,23 @@ DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *r)
     return RT_GC_CALLBACK(rt_call_proc_descr_p(p, r->star + 1, 0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_unregister(const char *name)
-{
+int rt_proc_unregister(const char *name) {
     if (!name) return 0;
     int i = rt_proc_hash_lookup(name);
     if (i < 0) return 0;
-    g_rt_gen_procs[i].name = "\x01<unloaded>"; g_rt_gen_procs[i].stage_var = 0;
-    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = (void *)(uintptr_t)rt_ab_undef_sig_stub; }
+    g_rt_gen_procs[i].name = "\x01<unloaded>";
+    g_rt_gen_procs[i].stage_var = 0;
+    {
+        extern void *bb_ab_fn_cell_ptr(const char *);
+        char cn[fmt_len("alpha$%s", name)];
+        snprintf(cn, sizeof cn, "alpha$%s", name);
+        void **c = (void **)bb_ab_fn_cell_ptr(cn);
+        if (c) *c = (void *)(uintptr_t)rt_ab_undef_sig_stub;
+    }
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static rt_proc_t *rt_proc_find_alias(const char *name)
-{
+static rt_proc_t *rt_proc_find_alias(const char *name) {
     extern int FNCEX_fn(const char *name);
     extern const char *FUNC_ENTRY_fn(const char *fname);
     if (!FNCEX_fn(name)) return (rt_proc_t *)0;
@@ -651,52 +881,59 @@ static rt_proc_t *rt_proc_find_alias(const char *name)
     return (ent && strcmp(ent, name) != 0) ? rt_proc_find(ent) : (rt_proc_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_is_defined(const char *name)
-{
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (!p && name) p = rt_proc_find_alias(name);
-    return p != (rt_proc_t *)0;
-}
+int rt_proc_is_defined(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; if (!p && name) p = rt_proc_find_alias(name); return p != (rt_proc_t *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_jmp_entry(const char *name)
-{
+int rt_proc_jmp_entry(const char *name) {
     if (!name) return 0;
     { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].jmp_entry; }
     { rt_proc_t *p = rt_proc_find_alias(name); if (p) return p->jmp_entry; }
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_fn(const char *name)
-{
+void *rt_proc_fn(const char *name) {
     if (!name) return (void *)0;
     { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
     { rt_proc_t *p = rt_proc_find_alias(name); if (p) return (void *)p->fn; }
     return (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_nparams(const char *name, int nparams)
-{
-    rt_proc_t *p = rt_proc_find(name);
-    if (p) p->nparams = nparams;
-}
+void rt_proc_set_nparams(const char *name, int nparams) { rt_proc_t *p = rt_proc_find(name); if (p) p->nparams = nparams; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_nformals(const char *name, int nformals)
-{
-    rt_proc_t *p = rt_proc_find(name);
-    if (p) p->nformals = nformals;
-}
+void rt_proc_set_nformals(const char *name, int nformals) { rt_proc_t *p = rt_proc_find(name); if (p) p->nformals = nformals; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void *rt_sno_shim_lazy(rt_proc_t *p, const char *name);
-void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, int nformals)
-{
+void rt_sno_runtime_define(const char *name, const char **pnames, int nparams, int nformals) {
     rt_proc_register(name, pnames, nparams);
-    { rt_proc_t *p = rt_proc_find(name); if (!p) return;
-      p->fn = (bb_box_fn)0; p->pnames = pnames; p->nparams = nparams; p->nformals = nformals; p->dyn_scope = 1; p->result_name = (const char *)0; p->redefined = 1; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0;
-      { extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); const char *el = core_define_entry_label(name); int frag = 0; void *fn = el ? rt_entry_resolve(el, &frag) : (void *)0;
-        if (fn && !frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } } }
-    { extern void *bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name);
-      void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0;
-      { rt_proc_t *p = rt_proc_find(name); void *afn = p ? rt_sno_shim_lazy(p, name) : (void *)0; if (!afn && cell) *cell = (void *)(uintptr_t)rt_ab_undef_sig_stub; } }
+    {
+        rt_proc_t *p = rt_proc_find(name);
+        if (!p) return;
+        p->fn = (bb_box_fn)0;
+        p->pnames = pnames;
+        p->nparams = nparams;
+        p->nformals = nformals;
+        p->dyn_scope = 1;
+        p->result_name = (const char *)0;
+        p->redefined = 1;
+        p->cells_done = 0;
+        p->is_generator = 0;
+        p->is_variadic = 0;
+        {
+            extern const char *core_define_entry_label(const char *);
+            extern void *rt_entry_resolve(const char *, int *);
+            const char *el = core_define_entry_label(name);
+            int frag = 0;
+            void *fn = el ? rt_entry_resolve(el, &frag) : (void *)0;
+            if (fn && !frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; }
+        }
+    }
+    {
+        extern void *bb_ab_fn_cell_ptr(const char *);
+        char cn[fmt_len("alpha$%s", name)];
+        snprintf(cn, sizeof cn, "alpha$%s", name);
+        void **cell = (void **)bb_ab_fn_cell_ptr(cn);
+        if (cell) *cell = (void *)0;
+        { rt_proc_t *p = rt_proc_find(name); void *afn = p ? rt_sno_shim_lazy(p, name) : (void *)0; if (!afn && cell) *cell = (void *)(uintptr_t)rt_ab_undef_sig_stub; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *name; const char **lnames; int nlocals; const int *loffs; const char **pnames; int nparams; } rt_proc_loc_t;
@@ -728,19 +965,15 @@ int rt_proc_loff(const char *name, int k) {
     return -1;
 }
 int rt_proc_nlocals(const char *name) { if (!name) return 0; for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return PLOC(i).nlocals; return 0; }
-const char *rt_proc_lname(const char *name, int k) { if (!name) return (const char *)0; for (int i = 0; i < (int)g_proc_loc.len;
-    i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).lnames && k >= 0 && k < PLOC(i).nlocals) ? PLOC(i).lnames[k] : (const char *)0;
-    return (const char *)0; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_nformals(const char *name)
-{
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (!p) return -1;
-    return p->nformals > 0 ? p->nformals : p->nparams;
+const char *rt_proc_lname(const char *name, int k) {
+    if (!name) return (const char *)0;
+    for (int i = 0; i < (int)g_proc_loc.len; i++) if (PLOC(i).name && !strcmp(PLOC(i).name, name)) return (PLOC(i).lnames && k >= 0 && k < PLOC(i).nlocals) ? PLOC(i).lnames[k] : (const char *)0;
+    return (const char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_pname(const char *name, int k, const char *pname)
-{
+int rt_proc_nformals(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; if (!p) return -1; return p->nformals > 0 ? p->nformals : p->nparams; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_pname(const char *name, int k, const char *pname) {
     rt_proc_t *p = rt_proc_find(name);
     if (!p || k < 0 || k >= p->nparams) return;
     if (!p->pnames) { const char **v = (const char **)ct_zalloc((size_t)p->nparams, sizeof(const char *)); if (!v) return; p->pnames = v; p->pnames_owned = 1; }
@@ -748,191 +981,151 @@ void rt_proc_set_pname(const char *name, int k, const char *pname)
     ((const char **)p->pnames)[k] = pname;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_nparams(const char *name)
-{
-    if (!name) return -1;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].nparams; }
-    return -1;
-}
+int rt_proc_nparams(const char *name) { if (!name) return -1; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].nparams; } return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_has_native_fn(const char *name)
-{
-    if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].fn != (bb_box_fn)0; }
-    return 0;
-}
+int rt_proc_has_native_fn(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].fn != (bb_box_fn)0; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_get_fn(const char *name)
-{
-    if (!name) return (void *)0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; }
-    return (void *)0;
-}
+void *rt_proc_get_fn(const char *name) { if (!name) return (void *)0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return (void *)g_rt_gen_procs[i].fn; } return (void *)0; }
 typedef struct { void *fn; int bytes; } rt_blob_fb_t;
 static gv_t g_blob_fbv;
 #define g_blob_fb ((rt_blob_fb_t *)g_blob_fbv.p)
 #define g_blob_fb_n ((int)g_blob_fbv.len)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_fn_frame_bytes_register(void *fn, int bytes)
-{
+void rt_fn_frame_bytes_register(void *fn, int bytes) {
     if (!fn || bytes <= 0) return;
     for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) { if (bytes > g_blob_fb[i].bytes) g_blob_fb[i].bytes = bytes; return; }
     { rt_blob_fb_t *e = (rt_blob_fb_t *)gv_push(&g_blob_fbv, (uint16_t)HB_WSB, (uint32_t)sizeof(rt_blob_fb_t), "g_blob_fb"); e->fn = fn; e->bytes = bytes; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_fn_frame_bytes(void *fn)
-{
+long rt_fn_frame_bytes(void *fn) {
     if (!fn) return 0;
     for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn && g_rt_gen_procs[i].frame_bytes > 0) return (long)g_rt_gen_procs[i].frame_bytes;
     for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) return (long)g_blob_fb[i].bytes;
     return (long)PROC_FRAME_QWORDS * 8;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_fn_frame_bytes_known(void *fn)
-{
+long rt_fn_frame_bytes_known(void *fn) {
     if (!fn) return 0;
     for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn && g_rt_gen_procs[i].frame_bytes > 0) return (long)g_rt_gen_procs[i].frame_bytes;
     for (int i = 0; i < g_blob_fb_n; i++) if (g_blob_fb[i].fn == fn) return (long)g_blob_fb[i].bytes;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_zstatic(const char *name, int bit)
-{
+void rt_proc_set_zstatic(const char *name, int bit) { if (!name) return; int i = rt_proc_hash_lookup(name); if (i >= 0) g_rt_gen_procs[i].zstatic = bit ? 1 : 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+long rt_fn_zstatic_known(void *fn) { if (!fn) return 0; for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn) return (long)g_rt_gen_procs[i].zstatic; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_pinned(const char *name, int v) {
     if (!name) return;
-    int i = rt_proc_hash_lookup(name); if (i >= 0) g_rt_gen_procs[i].zstatic = bit ? 1 : 0;
+    {
+        int i = rt_proc_hash_lookup(name);
+        if (i >= 0) {
+            g_rt_gen_procs[i].pinned = v ? 1 : 0;
+            if (v && g_rt_gen_procs[i].fn) { extern void rt_proc_seal_alpha(const char *, void *); rt_proc_seal_alpha(name, (void *)g_rt_gen_procs[i].fn); }
+            return;
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_fn_zstatic_known(void *fn)
-{
-    if (!fn) return 0;
-    for (int i = 0; i < g_rt_gen_proc_count; i++) if ((void *)g_rt_gen_procs[i].fn == fn) return (long)g_rt_gen_procs[i].zstatic;
-    return 0;
-}
+int rt_proc_pinned(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); return (i >= 0) ? g_rt_gen_procs[i].pinned : 0; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_pinned(const char *name, int v)
-{
+void rt_proc_set_generator(const char *name, int is_gen) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_is_variadic(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_variadic ? 1 : 0; } return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_variadic(const char *name, int is_var) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_self_save(const char *name, int v) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].self_save = v ? 1 : 0; return; } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_rest_kind(const char *name, int kind) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].rest_kind = kind; return; } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_named_rest(const char *name, int slot) { { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].named_rest = slot; return; } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_named_rest(const char *name) { { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].named_rest; } return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_jmpentry(const char *name, int on) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].jmp_entry = on ? 1 : 0; return; } } }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_proc_is_generator(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_generator; } return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_fn(const char *name, bb_box_fn fn) {
     if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].pinned = v ? 1 : 0; if (v && g_rt_gen_procs[i].fn) { extern void rt_proc_seal_alpha(const char *, void *); rt_proc_seal_alpha(name, (void *)g_rt_gen_procs[i].fn); } return; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_pinned(const char *name)
-{
-    if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); return (i >= 0) ? g_rt_gen_procs[i].pinned : 0; }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_generator(const char *name, int is_gen)
-{
-    if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_generator = is_gen ? 1 : 0; return; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_is_variadic(const char *name)
-{
-    if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_variadic ? 1 : 0; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_variadic(const char *name, int is_var)
-{
-    if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_self_save(const char *name, int v)
-{
-    if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].self_save = v ? 1 : 0; return; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_rest_kind(const char *name, int kind)
-{
-    if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].rest_kind = kind; return; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_named_rest(const char *name, int slot)
-{
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].named_rest = slot; return; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_named_rest(const char *name)
-{
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].named_rest; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_jmpentry(const char *name, int on)
-{
-    if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].jmp_entry = on ? 1 : 0; return; } }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_is_generator(const char *name)
-{
-    if (!name) return 0;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_generator; }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_fn(const char *name, bb_box_fn fn)
-{
-    if (!name) return;
-    { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].fn = fn; if (g_rt_gen_procs[i].pinned && fn) { extern void rt_proc_seal_alpha(const char *, void *); rt_proc_seal_alpha(name, (void *)fn); } return; } }
+    {
+        int i = rt_proc_hash_lookup(name);
+        if (i >= 0) { g_rt_gen_procs[i].fn = fn; if (g_rt_gen_procs[i].pinned && fn) { extern void rt_proc_seal_alpha(const char *, void *); rt_proc_seal_alpha(name, (void *)fn); } return; }
+    }
     rt_gen_proc_grow();
     if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
     rt_proc_t *p = &g_rt_gen_procs[g_rt_gen_proc_count++];
-    p->name = name; p->stage_var = rt_eval_stage_is_var(name); p->fn = fn; p->pnames = NULL; p->nparams = 0; p->frame_nslots = -1; p->decl_level = 0; p->byref_mask = 0;
-    p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->gen_region_ft = 0; rt_proc_hash_insert(g_rt_gen_proc_count - 1);
+    p->name = name;
+    p->stage_var = rt_eval_stage_is_var(name);
+    p->fn = fn;
+    p->pnames = NULL;
+    p->nparams = 0;
+    p->frame_nslots = -1;
+    p->decl_level = 0;
+    p->byref_mask = 0;
+    p->frame_bytes = 0;
+    p->pcells = (DESCR_t **)0;
+    p->rcell = (DESCR_t *)0;
+    p->cells_done = 0;
+    p->is_generator = 0;
+    p->dyn_scope = 0;
+    p->result_name = (const char *)0;
+    p->is_variadic = 0;
+    p->rest_kind = 0;
+    p->named_rest = 0;
+    p->jmp_entry = 0;
+    p->zstatic = 0;
+    p->pnames_owned = 0;
+    p->gen_region_ft = 0;
+    rt_proc_hash_insert(g_rt_gen_proc_count - 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_call_proc(const char *name, int nargs)
-{
-    (void)name;
-    (void)nargs;
-    STACKLESS_ABORT("rt_call_proc");
-}
+void rt_call_proc(const char *name, int nargs) { (void)name; (void)nargs; STACKLESS_ABORT("rt_call_proc"); }
 gv_t g_call_args;
 void rt_call_args_need(int n) { uint64_t w = (uint64_t)(n > 8 ? n : 8); gv_reserve(&g_call_args, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), w, "g_call_args"); }
 void rt_call_args_clear_from(int n) { DESCR_t *a = CALL_ARGS; for (uint32_t i = (uint32_t)(n < 0 ? 0 : n); a && i < g_call_args.cap; i++) memset(&a[i], 0, sizeof(DESCR_t)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_arg_stage(int idx, DESCR_t v)
-{
-    if (idx < 0) return;
-    rt_call_args_need(idx + 1);
-    CALL_ARGS[idx] = v;
-}
+void rt_arg_stage(int idx, DESCR_t v) { if (idx < 0) return; rt_call_args_need(idx + 1); CALL_ARGS[idx] = v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs)
-{
+static void rt_frame_bind_args(char *fb, rt_proc_t *p, int nargs) {
     extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
     extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
-    int npc = p->nparams; rt_call_args_need(npc > nargs ? npc : nargs);
+    int npc = p->nparams;
+    rt_call_args_need(npc > nargs ? npc : nargs);
     if (p->is_variadic && npc > 0) {
         int fixed = npc - 1;
         for (int i = 0; i < fixed; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = (i < nargs) ? CALL_ARGS[i] : NULVCL;
-        int rest = nargs - fixed; if (rest < 0) rest = 0;
+        int rest = nargs - fixed;
+        if (rest < 0) rest = 0;
         DESCR_t *tail = rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0;
         *(DESCR_t *)(fb + 16 * (fixed + 1)) = (p->rest_kind == 2) ? rt_make_item_agg(tail, rest) : p->rest_kind ? rt_make_flat_agg(tail, rest) : rt_make_list(tail, rest);
         return;
     }
     for (int i = 0; i < nargs; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = CALL_ARGS[i];
     for (int i = nargs; i < npc; i++) *(DESCR_t *)(fb + 16 * (i + 1)) = NULVCL;
-    if (p->named_rest > 0 && p->named_rest <= npc) { DESCR_t *slot = (DESCR_t *)(fb + 16 * p->named_rest); if (slot->v == NULVCL.v && slot->i == NULVCL.i) { char *e = (char *)rt_wsb_alloc(1); e[0] = '\0'; *slot = STRVAL(e); } }
+    if (p->named_rest > 0 && p->named_rest <= npc) {
+        DESCR_t *slot = (DESCR_t *)(fb + 16 * p->named_rest);
+        if (slot->v == NULVCL.v && slot->i == NULVCL.i) { char *e = (char *)rt_wsb_alloc(1); e[0] = '\0'; *slot = STRVAL(e); }
+    }
 }
 int rt_g_ret_by_name = 0;
 int rt_g_want_name = 0;
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_nret_fix(DESCR_t r, int wn) { extern int rt_cap_name_strict(void); if (rt_g_ret_by_name) { if (!wn || !rt_cap_name_strict()) rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } } rt_g_want_name = 0; return r; }
+DESCR_t rt_nret_fix(DESCR_t r, int wn) {
+    extern int rt_cap_name_strict(void);
+    if (rt_g_ret_by_name) { if (!wn || !rt_cap_name_strict()) rt_g_ret_by_name = 0; if (!wn && r.v == DT_N) { extern DESCR_t rt_deref(DESCR_t); r = rt_deref(r); } }
+    rt_g_want_name = 0;
+    return r;
+}
 DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx) { (void)unused_edx; int wn = rt_g_want_name; return rt_nret_fix(r, wn); }
-long    rt_proc_call_open(const char *name, int nargs);
-void   *rt_frame_prep(void *fb, long fbytes);
-void   *rt_proc_open_fn(void);
+long rt_proc_call_open(const char *name, int nargs);
+void *rt_frame_prep(void *fb, long fbytes);
+void *rt_proc_open_fn(void);
 DESCR_t rt_pl_enter(void *fn, long nargs);
 DESCR_t rt_proc_enter(void *fn, long nargs);
 DESCR_t rt_proc_enter_named(void *fn, long idx);
@@ -947,163 +1140,26 @@ DESCR_t rt_proc_call_epilogue_ω(long touched);
 #define RT_WORD_TOUCH(w) ((long)(((w) >> 6) & 1))
 #define RT_WORD_WN(w) ((long)(((w) >> 7) & 1))
 static inline __attribute__((always_inline)) long rt_proc_touches_level(const rt_proc_t *p) { return (p->dyn_scope || p->is_generator) ? 1L : 0L; }
-__asm__(
-".text\n"
-".globl rt_tiny_record_enter\n"
-"rt_tiny_record_enter:\n"
-"  pushq %rbp\n"
-"  movq %rsp, %rbp\n"
-"  pushq %rbx\n"
-"  pushq %r12\n"
-"  pushq %r14\n"
-"  subq $16, %rsp\n"
-"  movl $2, (%rsp)\n"
-"  movl %r15d, 4(%rsp)\n"
-"  movq %r13, 8(%rsp)\n"
-"  movq %rdi, %rax\n"
-"  movq %rsi, %rdx\n"
-"  shlq $4, %rdx\n"
-"  movq %rsi, %rcx\n"
-"  shlq $3, %rcx\n"
-"  addq %rdx, %rcx\n"
-"  addq $47, %rcx\n"
-"  andq $-16, %rcx\n"
-"  addq $8, %rcx\n"
-"  subq %rcx, %rsp\n"
-"  movq g_call_args@GOTPCREL(%rip), %r10\n"
-"  movq (%r10), %r10\n"
-"  xorq %rdi, %rdi\n"
-"  cmpq $0, %rsi\n"
-"  jle 6f\n"
-"5:\n"
-"  movq %rsi, %r8\n"
-"  subq $1, %r8\n"
-"  subq %rdi, %r8\n"
-"  shlq $4, %r8\n"
-"  addq %r10, %r8\n"
-"  movq 0(%r8), %rcx\n"
-"  movq 8(%r8), %rdx\n"
-"  movq %rdi, %r9\n"
-"  shlq $4, %r9\n"
-"  leaq 16(%rsp,%r9,1), %r9\n"
-"  movq %rcx, 0(%r9)\n"
-"  movq %rdx, 8(%r9)\n"
-"  addq $1, %rdi\n"
-"  cmpq %rsi, %rdi\n"
-"  jl 5b\n"
-"6:\n"
-"  movq %rsi, %rdx\n"
-"  shlq $4, %rdx\n"
-"  leaq 16(%rsp,%rdx,1), %rcx\n"
-"  movq %rsi, 0(%rcx)\n"
-"  leaq 2f(%rip), %r10\n"
-"  movq %r10, 8(%rcx)\n"
-"  leaq 3f(%rip), %r10\n"
-"  movq %r10, 16(%rcx)\n"
-"  movq %rdx, %r9\n"
-"  xorq %rdi, %rdi\n"
-"  cmpq $0, %rsi\n"
-"  jle 7f\n"
-"8:\n"
-"  movq %rdi, %r8\n"
-"  shlq $3, %r8\n"
-"  leaq 24(%rcx,%r8,1), %r8\n"
-"  movq %r9, 0(%r8)\n"
-"  subq $16, %r9\n"
-"  addq $1, %rdi\n"
-"  cmpq %rsi, %rdi\n"
-"  jl 8b\n"
-"7:\n"
-"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-"  cmpb $0, (%r10)\n"
-"  je 4f\n"
-"  movq rtccb@GOTPCREL(%rip), %r10\n"
-"  movq 24(%r10), %rsi\n"
-"  movq 32(%r10), %rdi\n"
-"  movq 64(%r10), %r11\n"
-"  movq 40(%r10), %r8\n"
-"  movq 48(%r10), %r9\n"
-"  movq 56(%r10), %r10\n"
-"4:\n"
-"  jmp *%rax\n"
-"2:\n"
-"  movq %rax, %rdi\n"
-"  movq %rdx, %rsi\n"
-"  xorl %edx, %edx\n"
-"  leaq -40(%rbp), %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  popq %rbp\n"
-"  jmp rt_nret_fix_tiny\n"
-"3:\n"
-"  leaq -40(%rbp), %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  popq %rbp\n"
-"  jmp rt_ret_faildescr\n"
-);
+__asm__( ".text\n" ".globl rt_tiny_record_enter\n" "rt_tiny_record_enter:\n" "  pushq %rbp\n" "  movq %rsp, %rbp\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n"
+    "  movl $2, (%rsp)\n" "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  movq %rdi, %rax\n" "  movq %rsi, %rdx\n" "  shlq $4, %rdx\n" "  movq %rsi, %rcx\n" "  shlq $3, %rcx\n"
+    "  addq %rdx, %rcx\n" "  addq $47, %rcx\n" "  andq $-16, %rcx\n" "  addq $8, %rcx\n" "  subq %rcx, %rsp\n" "  movq g_call_args@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  xorq %rdi, %rdi\n"
+    "  cmpq $0, %rsi\n" "  jle 6f\n" "5:\n" "  movq %rsi, %r8\n" "  subq $1, %r8\n" "  subq %rdi, %r8\n" "  shlq $4, %r8\n" "  addq %r10, %r8\n" "  movq 0(%r8), %rcx\n" "  movq 8(%r8), %rdx\n"
+    "  movq %rdi, %r9\n" "  shlq $4, %r9\n" "  leaq 16(%rsp,%r9,1), %r9\n" "  movq %rcx, 0(%r9)\n" "  movq %rdx, 8(%r9)\n" "  addq $1, %rdi\n" "  cmpq %rsi, %rdi\n" "  jl 5b\n" "6:\n"
+    "  movq %rsi, %rdx\n" "  shlq $4, %rdx\n" "  leaq 16(%rsp,%rdx,1), %rcx\n" "  movq %rsi, 0(%rcx)\n" "  leaq 2f(%rip), %r10\n" "  movq %r10, 8(%rcx)\n" "  leaq 3f(%rip), %r10\n"
+    "  movq %r10, 16(%rcx)\n" "  movq %rdx, %r9\n" "  xorq %rdi, %rdi\n" "  cmpq $0, %rsi\n" "  jle 7f\n" "8:\n" "  movq %rdi, %r8\n" "  shlq $3, %r8\n" "  leaq 24(%rcx,%r8,1), %r8\n"
+    "  movq %r9, 0(%r8)\n" "  subq $16, %r9\n" "  addq $1, %rdi\n" "  cmpq %rsi, %rdi\n" "  jl 8b\n" "7:\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 4f\n"
+    "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n"
+    "4:\n" "  jmp *%rax\n" "2:\n" "  movq %rax, %rdi\n" "  movq %rdx, %rsi\n" "  xorl %edx, %edx\n" "  leaq -40(%rbp), %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n"
+    "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rbp\n" "  jmp rt_nret_fix_tiny\n" "3:\n" "  leaq -40(%rbp), %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n"
+    "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rbp\n" "  jmp rt_ret_faildescr\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__asm__(
-".text\n"
-".globl rt_proc_enter_barrier\n"
-"rt_proc_enter_barrier:\n"
-"  pushq %rsi\n"
-"  pushq %rbx\n"
-"  pushq %r12\n"
-"  pushq %r14\n"
-"  subq $16, %rsp\n"
-"  movl $2, (%rsp)\n"
-"  movl %r15d, 4(%rsp)\n"
-"  movq %r13, 8(%rsp)\n"
-"  subq $8, %rsp\n"
-"  movq %rdi, %rax\n"
-"  leaq 2f(%rip), %rcx\n"
-"  leaq 3f(%rip), %rdx\n"
-"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-"  cmpb $0, (%r10)\n"
-"  je 4f\n"
-"  movq rtccb@GOTPCREL(%rip), %r10\n"
-"  movq 24(%r10), %rsi\n"
-"  movq 32(%r10), %rdi\n"
-"  movq 64(%r10), %r11\n"
-"  movq 40(%r10), %r8\n"
-"  movq 48(%r10), %r9\n"
-"  movq 56(%r10), %r10\n"
-"4:\n"
-"  pushq %rdx\n"
-"  pushq %rcx\n"
-"  jmp *%rax\n"
-"2:\n"
-"  addq $24, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  movq %rax, %rdi\n"
-"  movq %rdx, %rsi\n"
-"  popq %rdx\n"
-"  jmp rt_proc_call_epilogue_barrier_\u03b3\n"
-"3:\n"
-"  addq $24, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  popq %rdi\n"
-"  jmp rt_proc_call_epilogue_barrier_\u03c9\n"
-);
+__asm__( ".text\n" ".globl rt_proc_enter_barrier\n" "rt_proc_enter_barrier:\n" "  pushq %rsi\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n"
+    "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  subq $8, %rsp\n" "  movq %rdi, %rax\n" "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+    "  cmpb $0, (%r10)\n" "  je 4f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n"
+    "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "4:\n" "  pushq %rdx\n" "  pushq %rcx\n" "  jmp *%rax\n" "2:\n" "  addq $24, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n"
+    "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  movq %rax, %rdi\n" "  movq %rdx, %rsi\n" "  popq %rdx\n" "  jmp rt_proc_call_epilogue_barrier_\u03b3\n" "3:\n"
+    "  addq $24, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n"
+    "  jmp rt_proc_call_epilogue_barrier_\u03c9\n" );
 DESCR_t rt_proc_enter_barrier(void *fn, long nsb);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_barrier_γ(DESCR_t frame0, long nsb) { (void)nsb; return rt_proc_call_epilogue_γ(frame0, 1L); }
@@ -1114,21 +1170,28 @@ DESCR_t rt_ret_faildescr(void) { rt_g_ret_by_name = 0; return FAILDESCR; }
 void *rt_dyn_alpha_fn(const char *name, void *fallback);
 DESCR_t rt_ret_faildescr(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void **rt_alpha_cell_of(rt_proc_t *p, const char *name)
-{
-    extern int bb_ab_slot_index(const char *); extern void *bb_ab_cell_at(int);
+static void **rt_alpha_cell_of(rt_proc_t *p, const char *name) {
+    extern int bb_ab_slot_index(const char *);
+    extern void *bb_ab_cell_at(int);
     if (!p || !name) return (void **)0;
-    if (p->alpha_slot < 0) { char cn[264]; memcpy(cn, "alpha$", 6); char *w = cn + 6, *lim = cn + sizeof cn - 1; const char *r = name; while (*r && w < lim) *w++ = *r++; *w = '\0'; p->alpha_slot = bb_ab_slot_index(cn); }
+    if (p->alpha_slot < 0) {
+        char cn[264];
+        memcpy(cn, "alpha$", 6);
+        char *w = cn + 6, *lim = cn + sizeof cn - 1;
+        const char *r = name;
+        while (*r && w < lim) *w++ = *r++;
+        *w = '\0';
+        p->alpha_slot = bb_ab_slot_index(cn);
+    }
     return (void **)bb_ab_cell_at(p->alpha_slot);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback)
-{
-    static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
+static void *rt_dyn_alpha_fn_p(rt_proc_t *p, const char *name, void *fallback) {
+    static int live = -1;
+    if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
     if (!live || !name) return fallback;
     if (!p) { extern void *rt_dyn_alpha_fn(const char *, void *); return rt_dyn_alpha_fn(name, fallback); }
-    { void **cell = rt_alpha_cell_of(p, name);
-      return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; }
+    { void **cell = rt_alpha_cell_of(p, name); return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_proc_call_open_p(rt_proc_t **pp, int nargs);
@@ -1136,55 +1199,78 @@ static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs);
 static int proc_open_p_on(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_call_proc_descr(const char *name, int nargs) { return rt_call_proc_descr_p(rt_proc_find(name), name, nargs); }
-static void rt_nsave_bomb(const char *site, const char *name)
-{
-    fprintf(stderr, "%s: the procedure %s reached the C name-save road, DELETED with the global stack it kept (RULES.md NO GLOBAL HOLDS A STACK, CEO-1543): a dyn-scope procedure runs only through its role-4 shim, compiled at its first open when no alpha cell is sealed\n", site, name ? name : "?");
+static void rt_nsave_bomb(const char *site, const char *name) {
+    fprintf(stderr,
+        "%s: the procedure %s reached the C name-save road, DELETED with the global stack it kept (RULES.md NO GLOBAL HOLDS A STACK, CEO-1543): a dyn-scope procedure runs only through its role-4 shi"
+        "m, compiled at its first open when no alpha cell is sealed\n", site, name ? name : "?");
     { volatile char *z = (volatile char *)0; (void)*z; }
 }
-static void *rt_sno_shim_lazy_ent(rt_proc_t *p, const char *name, void *ent)
-{
+static void *rt_sno_shim_lazy_ent(rt_proc_t *p, const char *name, void *ent) {
     extern void *rt_sno_shim_install(void *, const char *, void *);
-    extern const char *core_define_entry_label(const char *); extern void *rt_entry_resolve(const char *, int *); extern void *bb_ab_fn_cell_ptr(const char *);
-    void *efn = ent; int frag = 0;
+    extern const char *core_define_entry_label(const char *);
+    extern void *rt_entry_resolve(const char *, int *);
+    extern void *bb_ab_fn_cell_ptr(const char *);
+    void *efn = ent;
+    int frag = 0;
     if (!p || !name) return (void *)0;
     if (!efn) { const char *el = core_define_entry_label(name); if (el) efn = rt_entry_resolve(el, &frag); }
     if (efn && !frag && !p->fn) { p->fn = (bb_box_fn)efn; p->jmp_entry = 1; }
     if (!efn && !p->fn) return (void *)0;
-    { const char *rn = p->name ? p->name : name; void *afn = rt_sno_shim_install((void *)p, rn, efn);
-      if (afn && strcmp(rn, name)) { char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = afn; }
-      return afn; }
+    {
+        const char *rn = p->name ? p->name : name;
+        void *afn = rt_sno_shim_install((void *)p, rn, efn);
+        if (afn && strcmp(rn, name)) { char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = afn; }
+        return afn;
+    }
 }
 static void *rt_sno_shim_lazy(rt_proc_t *p, const char *name) { return rt_sno_shim_lazy_ent(p, name, (void *)0); }
-static void rt_sno_shim_refresh_ent(rt_proc_t *p, const char *name, void *ent)
-{
+static void rt_sno_shim_refresh_ent(rt_proc_t *p, const char *name, void *ent) {
     extern void *bb_ab_fn_cell_ptr(const char *);
     if (!p || !name) return;
-    { char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (cell) *cell = (void *)0;
-      { void *afn = rt_sno_shim_lazy_ent(p, name, ent); if (!afn && cell) *cell = (void *)(uintptr_t)rt_ab_undef_sig_stub; } }
+    {
+        char cn[fmt_len("alpha$%s", name)];
+        snprintf(cn, sizeof cn, "alpha$%s", name);
+        void **cell = (void **)bb_ab_fn_cell_ptr(cn);
+        if (cell) *cell = (void *)0;
+        { void *afn = rt_sno_shim_lazy_ent(p, name, ent); if (!afn && cell) *cell = (void *)(uintptr_t)rt_ab_undef_sig_stub; }
+    }
 }
 static void rt_sno_shim_refresh(rt_proc_t *p, const char *name) { rt_sno_shim_refresh_ent(p, name, (void *)0); }
-DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
-{
-    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (!afn) afn = rt_sno_shim_lazy(p, name);
-      if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs < 0 ? 0 : nargs; rt_call_args_need(_n);
+DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs) {
+    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) {
+        void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0);
+        if (!afn) afn = rt_sno_shim_lazy(p, name);
+        if (afn) {
+            extern DESCR_t rt_tiny_record_enter(void *fn, long nargs);
+            int _n = nargs < 0 ? 0 : nargs;
+            rt_call_args_need(_n);
 #if RT_DIAG
-        rt_c2bb_hit("descr.tiny", name);
+            rt_c2bb_hit("descr.tiny", name);
 #endif
-        return rt_tiny_record_enter(afn, (long)_n); }
-      if (!p->fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
-      rt_nsave_bomb("rt_call_proc_descr", name); return FAILDESCR; }
+            return rt_tiny_record_enter(afn, (long)_n);
+        }
+        if (!p->fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
+        rt_nsave_bomb("rt_call_proc_descr", name);
+        return FAILDESCR;
+    }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
         fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return FAILDESCR;
     }
-    if (p->dyn_scope) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs);
-        int _n = nargs < 0 ? 0 : nargs; rt_call_args_need(_n);
+    if (p->dyn_scope) {
+        void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0);
+        if (afn) {
+            extern DESCR_t rt_tiny_record_enter(void *fn, long nargs);
+            int _n = nargs < 0 ? 0 : nargs;
+            rt_call_args_need(_n);
 #if RT_DIAG
-        rt_c2bb_hit("descr.tiny", name);
+            rt_c2bb_hit("descr.tiny", name);
 #endif
-        return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n)); } }
+            return rt_tiny_record_enter(afn, (long)(_n < 0 ? 0 : _n));
+        }
+    }
     int _wn_gen = rt_g_want_name;
     long fbytes = rt_proc_call_open_pn(&p, name, nargs);
     if (!fbytes) return FAILDESCR;
@@ -1194,7 +1280,10 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
 #else
         if (p->jmp_entry) { return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L); }
 #endif
-        core_runtime_error(287, "lexical procedure has no jmp_entry: the callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). It alloca'd the frame on the C STACK, called the box, and then chose omega-vs-gamma IN C via rt_proc_call_epilogue_ret -- runtime logic where the law requires BB logic. It cannot be converted to return-the-target because a C-stack frame cannot outlive a tail jump; the frame must come from the zeta-spine first. Traced ZERO times over 486 programs (336 snocone rungs + 150 snobol4 package), so this error is the row, not a regression.");
+        core_runtime_error(287,
+            "lexical procedure has no jmp_entry: the callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). It alloca'd the frame on the C STACK, called the box, and then chose omega-vs"
+            "-gamma IN C via rt_proc_call_epilogue_ret -- runtime logic where the law requires BB logic. It cannot be converted to return-the-target because a C-stack frame cannot outlive a tail jum"
+            "p; the frame must come from the zeta-spine first. Traced ZERO times over 486 programs (336 snocone rungs + 150 snobol4 package), so this error is the row, not a regression.");
         return FAILDESCR;
     }
     rt_g_want_name = _wn_gen;
@@ -1209,238 +1298,275 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs)
     return rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs) | ((_wn_gen ? 1L : 0L) << RT_IDXW_WN_SHIFT));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb, long wn)
-{
-    long idx = p ? (long)(p - g_rt_gen_procs) : 0; how |= ((p ? rt_proc_touches_level(p) : 1L) << 6) | ((wn ? 1L : 0L) << 7);
+static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb, long wn) {
+    long idx = p ? (long)(p - g_rt_gen_procs) : 0;
+    how |= ((p ? rt_proc_touches_level(p) : 1L) << 6) | ((wn ? 1L : 0L) << 7);
     if (p && (idx < 0 || idx >= g_rt_gen_proc_count)) { fprintf(stderr, "rt_call_open_by_name: procedure '%s' is not in the registry\n", p->name ? p->name : "?"); abort(); }
     return (rt_call_next_t){ fn, how | ((long)(unsigned)nsb << 8) | (idx << 40) };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int nargs)
-{
-    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) { void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0); if (!afn) afn = rt_sno_shim_lazy(p, name);
-      if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, nargs > 0 ? nargs : 0, 0L);
-      if (!p->fn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
-      rt_nsave_bomb("rt_call_open_by_name", name); return (rt_call_next_t){ 0, 0 }; }
+static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int nargs) {
+    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) {
+        void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0);
+        if (!afn) afn = rt_sno_shim_lazy(p, name);
+        if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, nargs > 0 ? nargs : 0, 0L);
+        if (!p->fn) { core_runtime_error(286, "function call to undefined entry label"); return (rt_call_next_t){ 0, 0 }; }
+        rt_nsave_bomb("rt_call_open_by_name", name);
+        return (rt_call_next_t){ 0, 0 };
+    }
     if (!p || !p->fn) {
         extern void rt_pl_iso_throw_existence_key(const char *);
         fprintf(stderr, "[GZ-10] rt_call_open_by_name: procedure '%s' has no stackless slab\n", name ? name : "(null)");
         rt_pl_iso_throw_existence_key(name ? name : "?");
         return (rt_call_next_t){ 0, 0 };
     }
-    if (!p->dyn_scope && !p->jmp_entry) { fprintf(stderr, "FATAL rt_call_open_by_name: target '%s' is a call-regime C-frame procedure; a box may only enter a jmp-entry procedure (Lon 2026-09-19: no BB is entered from C after the original program invocation)\n", name); abort(); }
-    { int _wn_gen = rt_g_want_name;
-      long fbytes = rt_proc_call_open_pn(&p, name, nargs);
-      if (!fbytes) return (rt_call_next_t){ 0, 0 };
-      rt_g_want_name = _wn_gen;
-      return rt_c2bb_word(p, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, 0, (long)_wn_gen); }
+    if (!p->dyn_scope && !p->jmp_entry) {
+        fprintf(stderr,
+            "FATAL rt_call_open_by_name: target '%s' is a call-regime C-frame procedure; a box may only enter a jmp-entry procedure (Lon 2026-09-19: no BB is entered from C after the original progra"
+            "m invocation)\n", name);
+        abort();
+    }
+    {
+        int _wn_gen = rt_g_want_name;
+        long fbytes = rt_proc_call_open_pn(&p, name, nargs);
+        if (!fbytes) return (rt_call_next_t){ 0, 0 };
+        rt_g_want_name = _wn_gen;
+        return rt_c2bb_word(p, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, 0, (long)_wn_gen);
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_land_γ(DESCR_t frame0, long word)
-{
+DESCR_t rt_call_land_γ(DESCR_t frame0, long word) {
     extern DESCR_t rt_proc_call_epilogue_idx_γ(long);
-    { long how = RT_WORD_HOW(word); long idx = word >> 40;
-      return (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_idx_γ(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT))
-                : rt_proc_call_epilogue_γ(frame0, RT_WORD_TOUCH(word)); }
+    {
+        long how = RT_WORD_HOW(word);
+        long idx = word >> 40;
+        return (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_idx_γ(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT)) :
+            rt_proc_call_epilogue_γ(frame0, RT_WORD_TOUCH(word));
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_land_ω(long word)
-{
+DESCR_t rt_call_land_ω(long word) {
     extern DESCR_t rt_proc_call_epilogue_idx_ω(long);
-    { long how = RT_WORD_HOW(word); long idx = word >> 40;
-      return (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_idx_ω(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT)) : rt_proc_call_epilogue_ω(RT_WORD_TOUCH(word)); }
+    {
+        long how = RT_WORD_HOW(word);
+        long idx = word >> 40;
+        return (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_idx_ω(idx | (RT_WORD_WN(word) << RT_IDXW_WN_SHIFT)) : rt_proc_call_epilogue_ω(RT_WORD_TOUCH(word));
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_call_open_by_name(const char *name, int nargs) { return rt_call_open_by_name_p(rt_proc_find(name), name, nargs); }
-int rt_call_open_tail(const char *name, int nargs, long *rq)
-{
+int rt_call_open_tail(const char *name, int nargs, long *rq) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p || !p->dyn_scope) return 0;
-    { rt_call_next_t n = rt_call_open_by_name_p(p, name, nargs); rq[0] = n.fn; rq[1] = n.how;
+    {
+        rt_call_next_t n = rt_call_open_by_name_p(p, name, nargs);
+        rq[0] = n.fn;
+        rq[1] = n.how;
 #if RT_DIAG
-      if (n.fn) rt_c2bb_hit("callee.open", name);
+        if (n.fn) rt_c2bb_hit("callee.open", name);
 #endif
-      return 1; }
+        return 1;
+    }
 }
-int rt_call_open_tail_lex(const char *name, int nargs, long *rq)
-{
+int rt_call_open_tail_lex(const char *name, int nargs, long *rq) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p || p->dyn_scope || !p->fn || !p->jmp_entry || p->pinned) return 0;
-    { rt_call_next_t n = rt_call_open_by_name_p(p, name, nargs); rq[0] = n.fn; rq[1] = n.how;
+    {
+        rt_call_next_t n = rt_call_open_by_name_p(p, name, nargs);
+        rq[0] = n.fn;
+        rq[1] = n.how;
 #if RT_DIAG
-      if (n.fn) rt_c2bb_hit("lex.open", name);
+        if (n.fn) rt_c2bb_hit("lex.open", name);
 #endif
-      return 1; }
+        return 1;
+    }
 }
-int rt_dtx_open_tail(sno_dstar_rec_t *r, long *rq)
-{
+int rt_dtx_open_tail(sno_dstar_rec_t *r, long *rq) {
     rt_proc_t *p = (r && !(r->flags & SNO_DSTAR_VARREF)) ? rt_proc_of_rec(r) : (rt_proc_t *)0;
     if (!p || !p->dyn_scope || !p->fn) return 0;
-    { rt_call_next_t n = rt_call_open_by_name_p(p, r->star + 1, 0); rq[0] = n.fn; rq[1] = n.how;
+    {
+        rt_call_next_t n = rt_call_open_by_name_p(p, r->star + 1, 0);
+        rq[0] = n.fn;
+        rq[1] = n.how;
 #if RT_DIAG
-      if (n.fn) rt_c2bb_hit("dtx.open", r->star + 1);
+        if (n.fn) rt_c2bb_hit("dtx.open", r->star + 1);
 #endif
-      return 1; }
+        return 1;
+    }
 }
-rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) { rt_proc_t *p = rt_proc_find(name); *registered = p ? 1 : 0; return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 }; }
+rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) {
+    rt_proc_t *p = rt_proc_find(name);
+    *registered = p ? 1 : 0;
+    return p ? rt_call_open_by_name_p(p, name, nargs) : (rt_call_next_t){ 0, 0 };
+}
 static int rt_eval_stage_is_var(const char *name) { return name && name[0] == 'E' && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
 void rt_eval_stage_enter(const char *name) { if (g_error == 0 && !rt_eval_stage_is_var(name)) g_error = G_ERROR_EVAL_STAGE; }
 void rt_eval_stage_leave(const char *name) { if (g_error == G_ERROR_EVAL_STAGE && !rt_eval_stage_is_var(name)) g_error = 0; }
 void rt_eval_stage_leave_word(long word) { long idx = word >> 40; if (g_error == G_ERROR_EVAL_STAGE && !((idx >= 0 && idx < g_rt_gen_proc_count) ? g_rt_gen_procs[idx].stage_var : 0)) g_error = 0; }
-rt_call_next_t rt_call_open_staged(const char *name, int *registered) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; *registered = p ? 1 : 0; if (!p) return (rt_call_next_t){ 0, 0 }; { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; } }
-static long rt_dcap_call_prepare_p(rt_proc_t *p, const char *name, short *how, int *nsb, int *registered)
-{
-    *how = 0; *nsb = 0; *registered = p ? 1 : 0;
+rt_call_next_t rt_call_open_staged(const char *name, int *registered) {
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    *registered = p ? 1 : 0;
+    if (!p) return (rt_call_next_t){ 0, 0 };
+    { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; }
+}
+static long rt_dcap_call_prepare_p(rt_proc_t *p, const char *name, short *how, int *nsb, int *registered) {
+    *how = 0;
+    *nsb = 0;
+    *registered = p ? 1 : 0;
     if (!p) return 0;
-    { rt_call_next_t n = rt_call_open_by_name_p(p, name, 0);
-      if (!n.fn) return 0;
-      if (g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE;
-      *how = (short)(n.how & 0xff); *nsb = (int)((n.how >> 8) & 0xffffffffL);
-      return n.fn; }
+    {
+        rt_call_next_t n = rt_call_open_by_name_p(p, name, 0);
+        if (!n.fn) return 0;
+        if (g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE;
+        *how = (short)(n.how & 0xff);
+        *nsb = (int)((n.how >> 8) & 0xffffffffL);
+        return n.fn;
+    }
 }
 long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_find(name), name, how, nsb, registered); }
-static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r)
-{
+static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r) {
     rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count && g_rt_gen_procs[r->pidx].name && g_rt_gen_procs[r->pidx].name[0] != 1) ? &g_rt_gen_procs[r->pidx] : rt_proc_find(r->star + 1);
     if (p) r->pidx = (int32_t)(p - g_rt_gen_procs);
     return p;
 }
 long rt_dcap_call_prepare_rec(sno_dstar_rec_t *r, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_of_rec(r), r->star + 1, how, nsb, registered); }
-rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered)
-{
-    rt_proc_t *p = rt_proc_of_rec(r); *registered = p ? 1 : 0; if (!p) return (rt_call_next_t){ 0, 0 };
+rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered) {
+    rt_proc_t *p = rt_proc_of_rec(r);
+    *registered = p ? 1 : 0;
+    if (!p) return (rt_call_next_t){ 0, 0 };
     { rt_call_next_t n = rt_call_open_by_name_p(p, r->star + 1, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_dyn_alpha_fn(const char *name, void *fallback)
-{
-    static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
+void *rt_dyn_alpha_fn(const char *name, void *fallback) {
+    static int live = -1;
+    if (live < 0) { const char *e = getenv("SCRIP_DYN_ALPHA"); live = e ? (e[0] != '0') : 1; }
     if (!live || !name) return fallback;
-    { extern void *bb_ab_fn_cell_ptr(const char *); size_t nl = strlen(name); char cn[nl + 7];
-      static int fastcat = -1; if (fastcat < 0) { const char *e = getenv("SCRIP_ALPHA_FASTCAT"); fastcat = (e && *e == '0') ? 0 : 1; }
-      if (fastcat) { memcpy(cn, "alpha$", 6); memcpy(cn + 6, name, nl + 1); }
-      else snprintf(cn, sizeof cn, "alpha$%s", name);
-      { void **cell = (void **)bb_ab_fn_cell_ptr(cn);
-        return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; } }
+    {
+        extern void *bb_ab_fn_cell_ptr(const char *);
+        size_t nl = strlen(name);
+        char cn[nl + 7];
+        static int fastcat = -1;
+        if (fastcat < 0) { const char *e = getenv("SCRIP_ALPHA_FASTCAT"); fastcat = (e && *e == '0') ? 0 : 1; }
+        if (fastcat) { memcpy(cn, "alpha$", 6); memcpy(cn + 6, name, nl + 1); } else snprintf(cn, sizeof cn, "alpha$%s", name);
+        { void **cell = (void **)bb_ab_fn_cell_ptr(cn); return (cell && !rt_alpha_unsealed(*cell)) ? *cell : fallback; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_seal_alpha(const char * name, void * fn) {
     if (!name || !fn) return;
-    { extern void * bb_ab_fn_cell_ptr(const char *); char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name);
-      void ** cell = (void **) bb_ab_fn_cell_ptr(cn); if (cell) *cell = fn; }
+    {
+        extern void * bb_ab_fn_cell_ptr(const char *);
+        char cn[fmt_len("alpha$%s", name)];
+        snprintf(cn, sizeof cn, "alpha$%s", name);
+        void ** cell = (void **) bb_ab_fn_cell_ptr(cn);
+        if (cell) *cell = fn;
+    }
 }
-void rt_ab_cell_bind(const char *name, void **quad)
-{
+void rt_ab_cell_bind(const char *name, void **quad) {
     extern void *bb_ab_fn_cell_ptr(const char *);
     if (!name || !quad) return;
-    { char cn[fmt_len("alpha$%s", name)]; snprintf(cn, sizeof cn, "alpha$%s", name); void **cell = (void **)bb_ab_fn_cell_ptr(cn); if (!cell) return;
-      if (rt_alpha_unsealed(*cell)) *cell = !rt_alpha_unsealed(quad[1]) ? quad[1] : (void *)(uintptr_t)rt_ab_undef_sig_stub;
-      quad[0] = (void *)cell; }
+    {
+        char cn[fmt_len("alpha$%s", name)];
+        snprintf(cn, sizeof cn, "alpha$%s", name);
+        void **cell = (void **)bb_ab_fn_cell_ptr(cn);
+        if (!cell) return;
+        if (rt_alpha_unsealed(*cell)) *cell = !rt_alpha_unsealed(quad[1]) ? quad[1] : (void *)(uintptr_t)rt_ab_undef_sig_stub;
+        quad[0] = (void *)cell;
+    }
 }
-void rt_ab_cell_bind_table(void **tab)
-{
-    if (!tab) return;
-    for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]);
-}
+void rt_ab_cell_bind_table(void **tab) { if (!tab) return; for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]); }
 static int rt_shim_nv_name(const char *nm) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); return nm && (gva_trace_demoted() || gva_index_of(nm) < 0); }
-void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base)
-{
-    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (!p || !cells || !sig || !base) return;
-    { int np = p->nparams, nf = p->nformals > 0 ? p->nformals : np, nargs = (int)sig[0], j = 0, sh = 0; const char *rn = p->result_name ? p->result_name : p->name;
-      for (int k = 0; k < np; k++) { const char *nm = p->pnames ? p->pnames[k] : (const char *)0; if (!nm) continue; if (rn && !strcmp(nm, rn)) sh = 1; if (!rt_shim_nv_name(nm)) continue;
-        { DESCR_t arg = (k < nf && k < nargs) ? *(const DESCR_t *)(base + sig[3 + k]) : NULVCL; cells[j] = NV_GET_fn(nm); NV_SET_fn(nm, arg);
-          { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[NVIN] %s.%s cells=%p j=%d old.v=%d arg.v=%d nargs=%d nf=%d off=%ld\n", proc, nm, (void *)cells, j, (int)cells[j].v, (int)arg.v, nargs, nf, (k < nargs) ? sig[3 + k] : -1L); }
-          j++; } }
-      if (rn && !sh && rt_shim_nv_name(rn)) { cells[j++] = NV_GET_fn(rn); NV_SET_fn(rn, NULVCL); } }
+void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base) {
+    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;
+    if (!p || !cells || !sig || !base) return;
+    {
+        int np = p->nparams, nf = p->nformals > 0 ? p->nformals : np, nargs = (int)sig[0], j = 0, sh = 0;
+        const char *rn = p->result_name ? p->result_name : p->name;
+        for (int k = 0; k < np; k++) {
+            const char *nm = p->pnames ? p->pnames[k] : (const char *)0;
+            if (!nm) continue;
+            if (rn && !strcmp(nm, rn)) sh = 1;
+            if (!rt_shim_nv_name(nm)) continue;
+            {
+                DESCR_t arg = (k < nf && k < nargs) ? *(const DESCR_t *)(base + sig[3 + k]) : NULVCL;
+                cells[j] = NV_GET_fn(nm);
+                NV_SET_fn(nm, arg);
+                {
+                    static int diag = -1;
+                    if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+                    if (diag)
+                        fprintf(stderr, "[NVIN] %s.%s cells=%p j=%d old.v=%d arg.v=%d nargs=%d nf=%d off=%ld\n", proc, nm, (void *)cells, j, (int)cells[j].v, (int)arg.v, nargs, nf,
+                        (k < nargs) ? sig[3 + k] : -1L);
+                }
+                j++;
+            }
+        }
+        if (rn && !sh && rt_shim_nv_name(rn)) { cells[j++] = NV_GET_fn(rn); NV_SET_fn(rn, NULVCL); }
+    }
 }
-static void rt_shim_nv_restore(rt_proc_t *p, DESCR_t *cells)
-{
-    int np = p->nparams, j = 0, sh = 0; const char *rn = p->result_name ? p->result_name : p->name;
+static void rt_shim_nv_restore(rt_proc_t *p, DESCR_t *cells) {
+    int np = p->nparams, j = 0, sh = 0;
+    const char *rn = p->result_name ? p->result_name : p->name;
     for (int k = 0; k < np; k++) { const char *nm = p->pnames ? p->pnames[k] : (const char *)0; if (!nm) continue; if (rn && !strcmp(nm, rn)) sh = 1; if (rt_shim_nv_name(nm)) j++; }
     if (rn && !sh && rt_shim_nv_name(rn)) NV_SET_fn(rn, cells[j]);
-    for (int k = np - 1; k >= 0; k--) { const char *nm = p->pnames ? p->pnames[k] : (const char *)0; if (!nm || !rt_shim_nv_name(nm)) continue; j--;
-        { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[NVOUT] %s.%s cells=%p j=%d old.v=%d\n", p->name ? p->name : "?", nm, (void *)cells, j, (int)cells[j].v); }
-        NV_SET_fn(nm, cells[j]); }
+    for (int k = np - 1; k >= 0; k--) {
+        const char *nm = p->pnames ? p->pnames[k] : (const char *)0;
+        if (!nm || !rt_shim_nv_name(nm)) continue;
+        j--;
+        {
+            static int diag = -1;
+            if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+            if (diag) fprintf(stderr, "[NVOUT] %s.%s cells=%p j=%d old.v=%d\n", p->name ? p->name : "?", nm, (void *)cells, j, (int)cells[j].v);
+        }
+        NV_SET_fn(nm, cells[j]);
+    }
 }
-DESCR_t rt_shim_nv_gamma(const char *proc, DESCR_t *cells)
-{
-    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (!p || !cells) return NULVCL;
+DESCR_t rt_shim_nv_gamma(const char *proc, DESCR_t *cells) {
+    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;
+    if (!p || !cells) return NULVCL;
     { const char *rn = p->result_name ? p->result_name : p->name; DESCR_t r = (rn && rt_shim_nv_name(rn)) ? NV_GET_fn(rn) : NULVCL; rt_shim_nv_restore(p, cells); return r; }
 }
-void rt_shim_nv_omega(const char *proc, DESCR_t *cells)
-{
-    rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (p && cells) rt_shim_nv_restore(p, cells);
-}
+void rt_shim_nv_omega(const char *proc, DESCR_t *cells) { rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (p && cells) rt_shim_nv_restore(p, cells); }
 static cv_t g_initial_fired;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int64_t rt_initial_fire(int64_t site)
-{
+int64_t rt_initial_fire(int64_t site) {
     for (uint32_t i = 0; i < g_initial_fired.len; i++) if (CV_AT(g_initial_fired, int64_t, i) == site) return 0;
     CV_PUSH(g_initial_fired, int64_t) = site;
     return 1;
 }
-typedef struct rt_genp_s {
-    struct rt_genp_s *next;
-    uint64_t          regs[5];
-    scrip_coctx_t     co;
-    DESCR_t          *args;
-    int               nargs;
-    void             *fn;
-    const char       *name;
-    int               done;
-    int               first_done;
-    long              region_ft;
-} rt_genp_s;
+typedef struct rt_genp_s { struct rt_genp_s *next; uint64_t regs[5]; scrip_coctx_t co; DESCR_t *args; int nargs; void *fn; const char *name; int done; int first_done; long region_ft; } rt_genp_s;
 _Static_assert(offsetof(rt_genp_s, next) == 0 && offsetof(rt_genp_s, regs) == 8, "rt_genp_s layout drift vs rt_genp_thread_entry asm offsets");
 static rt_genp_s *g_genp_head = (rt_genp_s *)0;
 extern void rt_genp_entry_c(rt_genp_s *g);
 extern void rt_genp_thread_entry(void *arg);
-__asm__(
-".text\n"
-".globl rt_genp_thread_entry\n"
-"rt_genp_thread_entry:\n"
-"  movq  8(%rdi), %rbx\n"
-"  movq 16(%rdi), %r12\n"
-"  movq 24(%rdi), %r13\n"
-"  movq 32(%rdi), %r14\n"
-"  movq 40(%rdi), %r15\n"
-"  jmp rt_genp_entry_c\n"
-);
+__asm__( ".text\n" ".globl rt_genp_thread_entry\n" "rt_genp_thread_entry:\n" "  movq  8(%rdi), %rbx\n" "  movq 16(%rdi), %r12\n" "  movq 24(%rdi), %r13\n" "  movq 32(%rdi), %r14\n"
+    "  movq 40(%rdi), %r15\n" "  jmp rt_genp_entry_c\n" );
 static __thread rt_genp_s *g_genp_self = (rt_genp_s *)0;
 extern void rt_genp_spine_enter(void *fn, long nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_genp_deliver_γ(DESCR_t v)
-{
+void rt_genp_deliver_γ(DESCR_t v) {
     rt_genp_s *g = g_genp_self;
     if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v, 1L); }
     { uint64_t d0, d1; memcpy(&d0, &v, 8); memcpy(&d1, (char *)&v + 8, 8); scrip_coret(d0, d1, (void *)0); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_genp_deliver_ω(void)
-{
-    rt_genp_s *g = g_genp_self;
-    if (!g->first_done) { g->first_done = 1; (void)rt_proc_call_epilogue_ω(1L); }
-    g->done = 2;
-    scrip_cofail();
-    for (;;) pause();
-}
+void rt_genp_deliver_ω(void) { rt_genp_s *g = g_genp_self; if (!g->first_done) { g->first_done = 1; (void)rt_proc_call_epilogue_ω(1L); } g->done = 2; scrip_cofail(); for (;;) pause(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void rt_genp_spine_enter_n2(void *fn, void *region, long nblk);
 extern uint64_t rt_genp_deliver_n2_γ(uint64_t H);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-uint64_t rt_genp_deliver_n2_γ(uint64_t H)
-{
+uint64_t rt_genp_deliver_n2_γ(uint64_t H) {
     rt_genp_s *g = g_genp_self;
     long ftc = (g->region_ft + 15L) & ~15L;
-    DESCR_t v; memcpy(&v, (const void *)(uintptr_t)(H - (uint64_t)ftc), 16);
+    DESCR_t v;
+    memcpy(&v, (const void *)(uintptr_t)(H - (uint64_t)ftc), 16);
     if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v, 1L); }
     { uint64_t d0, d1; memcpy(&d0, &v, 8); memcpy(&d1, (char *)&v + 8, 8); scrip_coret(d0, d1, (void *)0); }
     return H;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_pinned(const char *name);
-void rt_genp_entry_c(rt_genp_s *g)
-{
+void rt_genp_entry_c(rt_genp_s *g) {
     g_genp_self = g;
     for (int i = 0; i < g->nargs; i++) rt_arg_stage(i, g->args[i]);
     long fb = rt_proc_call_open(g->name, g->nargs);
@@ -1449,22 +1575,17 @@ void rt_genp_entry_c(rt_genp_s *g)
     rt_c2bb_hit(g->region_ft > 0 ? "genp.spine.n2" : "genp.spine", g->name);
 #endif
     { long nb = rt_proc_pinned(g->name) ? (long)rt_proc_nparams(g->name) : 0L; if (g->region_ft > 0) rt_genp_spine_enter_n2(g->fn, (void *)0, nb); else rt_genp_spine_enter(g->fn, nb); }
-    g->done = 2; scrip_cofail();
+    g->done = 2;
+    scrip_cofail();
     for (;;) pause();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_genp_yield(uint64_t d0, uint64_t d1) { scrip_coret(d0, d1, (void *)0); }
 static rt_genp_s *rt_genp_lookup(void *h) { for (rt_genp_s *g = g_genp_head; g; g = g->next) if ((void *)g == h) return g; return (rt_genp_s *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_genp_destroy(rt_genp_s *g)
-{
-    scrip_coexpr_destroy(&g->co);
-    rt_genp_s **pp = &g_genp_head; while (*pp && *pp != g) pp = &(*pp)->next; if (*pp) *pp = g->next;
-    ct_drop(g);
-}
+static void rt_genp_destroy(rt_genp_s *g) { scrip_coexpr_destroy(&g->co); rt_genp_s **pp = &g_genp_head; while (*pp && *pp != g) pp = &(*pp)->next; if (*pp) *pp = g->next; ct_drop(g); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t *out2, void **hout)
-{
+static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t *out2, void **hout) {
     DESCR_t r;
     if (!ok || g->done == 2) { if (hout) *hout = (void *)0; rt_genp_destroy(g); return FAILDESCR; }
     memcpy(&r, out2, 16);
@@ -1473,10 +1594,15 @@ static DESCR_t rt_genp_triage(rt_genp_s *g, int ok, uint64_t *out2, void **hout)
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint64_t *regs)
-{
+DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint64_t *regs) {
     rt_proc_t *p = rt_proc_find(name);
-    if (!p || !p->fn) { extern void rt_pl_iso_throw_existence_key(const char *); fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)"); rt_pl_iso_throw_existence_key(name ? name : "?"); if (hout) *hout = (void *)0; return FAILDESCR; }
+    if (!p || !p->fn) {
+        extern void rt_pl_iso_throw_existence_key(const char *);
+        fprintf(stderr, "[SUSP] rt_proc_call_gen_h: generator '%s' has no stackless slab\n", name ? name : "(null)");
+        rt_pl_iso_throw_existence_key(name ? name : "?");
+        if (hout) *hout = (void *)0;
+        return FAILDESCR;
+    }
     if (p->is_generator) {
         uint64_t cregs[5];
         if (regs) memcpy(cregs, regs, sizeof cregs);
@@ -1484,15 +1610,19 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
         rt_genp_s *g = (rt_genp_s *)ct_zalloc(1, sizeof *g);
         if (!g) { if (hout) *hout = (void *)0; return FAILDESCR; }
         memcpy(g->regs, cregs, sizeof cregs);
-        g->nargs = nargs < 0 ? 0 : nargs; rt_call_args_need(g->nargs);
+        g->nargs = nargs < 0 ? 0 : nargs;
+        rt_call_args_need(g->nargs);
         g->args = (DESCR_t *)rt_ws_alloc_descr((size_t)(g->nargs > 0 ? g->nargs : 1));
         for (int i = 0; i < g->nargs; i++) g->args[i] = CALL_ARGS[i];
-        g->fn = (void *)p->fn; g->name = p->name; g->done = 0;
+        g->fn = (void *)p->fn;
+        g->name = p->name;
+        g->done = 0;
         if (p->gen_region_ft > 0) g->region_ft = (long)p->gen_region_ft;
         scrip_co_ctx_init(&g->co, rt_genp_thread_entry, (void *)g);
         g->co.inherit_scan = 1;
         scrip_co_gc_link(&g->co);
-        g->next = g_genp_head; g_genp_head = g;
+        g->next = g_genp_head;
+        g_genp_head = g;
 #if RT_DIAG
         rt_c2bb_hit("gen_h.coro", name);
 #endif
@@ -1510,33 +1640,37 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
         return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L);
     }
     if (hout) *hout = (void *)0;
-    core_runtime_error(287, "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, then delete the C code NOW'; CEO-1086 deleted the identical shape from rt_call_proc_descr; CEO-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile-time frame map describes). It alloca'd the frame on the C STACK, called p->fn through a member function pointer, and read the result back out of the C frame after the box returned -- so C survived the transition and the answer came back through C. It cannot become return-the-target while written that way: a C-stack frame cannot outlive a tail jump. TRACED ZERO IN ALL SEVEN LANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by the ceo's own SnoRungs sweep; the 1039 transitions those control arms did raise were all genp.spine.n2, the sanctioned coroutine start. Reachability is ALSO analytic: this arm needs fn set AND jmp_entry clear, and jmp_entry is cleared only for a caller_frame graph or a gram__ name, and gram__ procedures are never registered at all. This error is the row, not a regression.");
+    core_runtime_error(287,
+        "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, th"
+        "en delete the C code NOW'; CEO-1086 deleted the identical shape from rt_call_proc_descr; CEO-1090 makes this GC work because the C frame leaves residue on the hardware stack that no compile"
+        "-time frame map describes). It alloca'd the frame on the C STACK, called p->fn through a member function pointer, and read the result back out of the C frame after the box returned -- so C "
+        "survived the transition and the answer came back through C. It cannot become return-the-target while written that way: a C-stack frame cannot outlive a tail jump. TRACED ZERO IN ALL SEVEN L"
+        "ANGUAGES before deletion, not two: prolog (inria 445, gnu 62, swi 2935), pascal (pat 427, fpc 181), raku (929), icon (jcon 82, arizona 88), snocone, rebus (7), and snobol4 by the ceo's own "
+        "SnoRungs sweep; the 1039 transitions those control arms did raise were all genp.spine.n2, the sanctioned coroutine start. Reachability is ALSO analytic: this arm needs fn set AND jmp_entry "
+        "clear, and jmp_entry is cleared only for a caller_frame graph or a gram__ name, and gram__ procedures are never registered at all. This error is the row, not a regression.");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_drop_frame_h(void **hslot)
-{
-    void *frame = hslot ? *hslot : (void *)0;
-    if (!frame) return;
-    { rt_genp_s *g = rt_genp_lookup(frame); if (g) rt_genp_destroy(g); }
-    *hslot = (void *)0;
-}
+void rt_proc_drop_frame_h(void **hslot) { void *frame = hslot ? *hslot : (void *)0; if (!frame) return; { rt_genp_s *g = rt_genp_lookup(frame); if (g) rt_genp_destroy(g); } *hslot = (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_resume_frame_h(void **hslot)
-{
+DESCR_t rt_proc_resume_frame_h(void **hslot) {
     void *frame = hslot ? *hslot : (void *)0;
     if (!frame) return FAILDESCR;
-    { rt_genp_s *g = rt_genp_lookup(frame);
-      if (g) {
+    {
+        rt_genp_s *g = rt_genp_lookup(frame);
+        if (g) {
 #if RT_DIAG
-          rt_c2bb_hit("gen_h.coro_resume", g->name);
+            rt_c2bb_hit("gen_h.coro_resume", g->name);
 #endif
-          uint64_t out2[2] = { 0, 0 };
-          rt_k_level++; rt_k_level_mirror();
-          int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
-          rt_k_level--; rt_k_level_mirror();
-          return rt_genp_triage(g, ok, out2, hslot);
-      } }
+            uint64_t out2[2] = { 0, 0 };
+            rt_k_level++;
+            rt_k_level_mirror();
+            int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
+            rt_k_level--;
+            rt_k_level_mirror();
+            return rt_genp_triage(g, ok, out2, hslot);
+        }
+    }
     if (hslot) *hslot = (void *)0;
     return FAILDESCR;
 }
@@ -1544,40 +1678,45 @@ DESCR_t rt_proc_resume_frame_h(void **hslot)
 #define DCR_CELL_CACHE_SIZE 2048
 #define DCR_CELL_CACHE_MASK (DCR_CELL_CACHE_SIZE - 1)
 static struct { const char *name; DESCR_t *cell; int valid; } g_cell_cache[DCR_CELL_CACHE_SIZE];
-static int            g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
-static const char    *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
+static int g_proc_idx_slot[DCR_CELL_CACHE_SIZE];
+static const char *g_proc_idx_key[DCR_CELL_CACHE_SIZE];
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_name_side_effecting(const char *nm)
-{
+static int rt_name_side_effecting(const char *nm) {
     static const char *const S[] = { "TERMINAL", "ALPHABET", "STCOUNT", "STNO", 0 };
     if (is_protected_pat_name(nm)) return 1;
     for (int i = 0; S[i]; i++) if (strcmp(nm, S[i]) == 0) return 1;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t *rt_cell_for(const char *nm)
-{
+static DESCR_t *rt_cell_for(const char *nm) {
     unsigned h = (unsigned)(((uintptr_t)nm >> 4) & DCR_CELL_CACHE_MASK);
     if (g_cell_cache[h].valid && g_cell_cache[h].name == nm) return g_cell_cache[h].cell;
     DESCR_t *c = rt_name_side_effecting(nm) ? (DESCR_t *)0 : NV_PTR_fn(nm);
-    g_cell_cache[h].name = nm; g_cell_cache[h].cell = c; g_cell_cache[h].valid = 1;
+    g_cell_cache[h].name = nm;
+    g_cell_cache[h].cell = c;
+    g_cell_cache[h].valid = 1;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rt_proc_resolve_cells(rt_proc_t *p)
-{
+static void rt_proc_resolve_cells(rt_proc_t *p) {
     if (p->cells_done) return;
-    int np = p->nparams; const char **pn = p->pnames;
+    int np = p->nparams;
+    const char **pn = p->pnames;
     if (np > 0 && pn) {
         p->pcells = (DESCR_t **)rt_pvec_alloc((size_t)np);
         if (p->pcells) for (int k = 0; k < np; k++) { const char *nm = pn[k]; p->pcells[k] = (nm && !rt_name_side_effecting(nm)) ? NV_PTR_fn(nm) : (DESCR_t *)0; }
     }
-    { const char *rn = p->result_name ? p->result_name : p->name; int sh = 0;
-      p->rcell = (rn && !rt_name_side_effecting(rn)) ? NV_PTR_fn(rn) : (DESCR_t *)0;
-      for (int k = 0; k < np; k++) if (pn && pn[k] && rn && !strcmp(pn[k], rn)) { sh = 1; break; }
-      p->cells_done = 1 | (sh << 1); }
+    {
+        const char *rn = p->result_name ? p->result_name : p->name;
+        int sh = 0;
+        p->rcell = (rn && !rt_name_side_effecting(rn)) ? NV_PTR_fn(rn) : (DESCR_t *)0;
+        for (int k = 0; k < np; k++) if (pn && pn[k] && rn && !strcmp(pn[k], rn)) { sh = 1; break; }
+        p->cells_done = 1 | (sh << 1);
+    }
 }
-_Static_assert(sizeof(((rt_proc_t *)0)->cells_done) == 4, "cells_done bit 0 is the resolved flag and bit 1 the result-name-shadowed-by-a-parameter fact, computed once in rt_proc_resolve_cells and read by every call prologue in place of a strcmp per parameter per call (ceo 2026-09-25, CEO-1257); the record is pinned at 128 bytes so the fact rides in a bit");
+_Static_assert(sizeof(((rt_proc_t *)0)->cells_done) == 4,
+    "cells_done bit 0 is the resolved flag and bit 1 the result-name-shadowed-by-a-parameter fact, computed once in rt_proc_resolve_cells and read by every call prologue in place of a strcmp per par"
+    "ameter per call (ceo 2026-09-25, CEO-1257); the record is pinned at 128 bytes so the fact rides in a bit");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_lcl_proc_args_install(void *base_p, int nparams, int nlocals) {
@@ -1598,9 +1737,10 @@ void rt_icn_zframe_args_install(void *base_p, int nparams, int nlocals) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) void rt_lvl_leave(long touched) { if (touched) { rt_k_level--; rt_k_level_mirror(); } }
 static int rt_wn_park_on(void) { static int on = -1; if (on < 0) { const char *e = getenv("SCRIP_WN_PARK"); on = (e && e[0] == '0') ? 0 : 1; } return on; }
-int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn)
-{
-    rt_proc_t *p = *pp; long ix = (long)(p - g_rt_gen_procs); int slot = ix >= 0 && ix < g_rt_gen_proc_count;
+int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
+    rt_proc_t *p = *pp;
+    long ix = (long)(p - g_rt_gen_procs);
+    int slot = ix >= 0 && ix < g_rt_gen_proc_count;
     rt_proc_resolve_cells(p);
     int np = p->nparams;
     { int nf = p->nformals > 0 ? p->nformals : np; if (nargs > nf) nargs = nf; }
@@ -1608,7 +1748,9 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn)
     const char *rname = p->result_name ? p->result_name : p->name;
     int fbytes = (int)(PROC_FRAME_NEST_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
-    (void)pn; (void)args; (void)rname;
+    (void)pn;
+    (void)args;
+    (void)rname;
     if (!p->self_save) rt_nsave_bomb("rt_proc_call_prologue", p->name);
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
 #if RT_DIAG
@@ -1616,306 +1758,178 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn)
     if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_stno); }
 #endif
     if (slot) *pp = &g_rt_gen_procs[ix];
-    rt_k_level++; rt_k_level_mirror();
+    rt_k_level++;
+    rt_k_level_mirror();
     rt_g_want_name = rt_wn_park_on() ? 0 : wn;
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched)
-{
-    rt_lvl_leave(touched);
-    return frame0;
-}
+DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched) { rt_lvl_leave(touched); return frame0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_ω(long touched)
-{
-    rt_lvl_leave(touched);
-    return FAILDESCR;
-}
+DESCR_t rt_proc_call_epilogue_ω(long touched) { rt_lvl_leave(touched); return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked);
-static DESCR_t rt_proc_epilogue_named(const char *name, int failed, long wn)
-{
+static DESCR_t rt_proc_epilogue_named(const char *name, int failed, long wn) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p && name) p = rt_proc_find_alias(name);
     rt_lvl_leave(p ? rt_proc_touches_level(p) : 1L);
     return rt_proc_epilogue_p(p, failed, rt_wn_park_on() ? (int)(wn & 1) : -1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked)
-{
+static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked) {
     if (!p) return failed ? FAILDESCR : NULVCL;
-    if (p->self_save) { fprintf(stderr, "rt_proc_epilogue_p: the self-saving thunk %s reached the cell-reading epilogue -- its road must hand the land frame0 (CEO-1543 chunk 1)\n", p->name ? p->name : "?"); abort(); }
-    (void)wn_parked; rt_nsave_bomb("rt_proc_epilogue_p", p->name);
+    if (p->self_save) {
+        fprintf(stderr, "rt_proc_epilogue_p: the self-saving thunk %s reached the cell-reading epilogue -- its road must hand the land frame0 (CEO-1543 chunk 1)\n", p->name ? p->name : "?");
+        abort();
+    }
+    (void)wn_parked;
+    rt_nsave_bomb("rt_proc_epilogue_p", p->name);
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_proc_call_epilogue_named_γ(const char *name, long wn) { return rt_proc_epilogue_named(name, 0, wn); }
 DESCR_t rt_proc_call_epilogue_named_ω(const char *name, long wn) { return rt_proc_epilogue_named(name, 1, wn); }
-static DESCR_t rt_proc_epilogue_idx(long idxw, int failed)
-{
-    long idx = idxw & RT_IDXW_MASK; rt_proc_t *p = &g_rt_gen_procs[idx]; rt_lvl_leave(rt_proc_touches_level(p));
+static DESCR_t rt_proc_epilogue_idx(long idxw, int failed) {
+    long idx = idxw & RT_IDXW_MASK;
+    rt_proc_t *p = &g_rt_gen_procs[idx];
+    rt_lvl_leave(rt_proc_touches_level(p));
     return rt_proc_epilogue_p(p, failed, rt_wn_park_on() ? (int)((idxw >> RT_IDXW_WN_SHIFT) & 1) : -1);
 }
 DESCR_t rt_proc_call_epilogue_idx_γ(long idx) { return rt_proc_epilogue_idx(idx, 0); }
 DESCR_t rt_proc_call_epilogue_idx_ω(long idx) { return rt_proc_epilogue_idx(idx, 1); }
-_Static_assert(sizeof(long) == 8, "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place -- so the idx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
-_Static_assert(sizeof(long) == 8, "rt_proc_enter_named and rt_proc_enter_frag park the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; parking the name POINTER raw on the C stack left it stale after a collection that slid the block (cto 2026-09-23, user_function_opsyn_8 under the association tap's poll; row 867's holder)");
+_Static_assert(sizeof(long) == 8,
+    "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place -- so the i"
+    "dx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
+_Static_assert(sizeof(long) == 8,
+    "rt_proc_enter_named and rt_proc_enter_frag park the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; par"
+    "king the name POINTER raw on the C stack left it stale after a collection that slid the block (cto 2026-09-23, user_function_opsyn_8 under the association tap's poll; row 867's holder)");
 static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn);
 #define RT_DC_CHUNK 64
 static cv_t g_rt_dc_chunks;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void **rt_pl_dc_slot(long idx) {
     if (idx < 0) return (void **)0;
-    { uint64_t ci = (uint64_t)idx / RT_DC_CHUNK; void **ch;
-      if (ci >= g_rt_dc_chunks.len) { cv_reserve(&g_rt_dc_chunks, (uint32_t)sizeof(void **), ci + 1, "g_rt_dc_chunks"); g_rt_dc_chunks.len = (uint32_t)(ci + 1); }
-      ch = CV_AT(g_rt_dc_chunks, void **, ci); if (!ch) { ch = (void **)ct_zalloc((size_t)RT_DC_CHUNK, sizeof(void *)); CV_AT(g_rt_dc_chunks, void **, ci) = ch; }
-      return &ch[(size_t)idx % RT_DC_CHUNK]; }
+    {
+        uint64_t ci = (uint64_t)idx / RT_DC_CHUNK;
+        void **ch;
+        if (ci >= g_rt_dc_chunks.len) { cv_reserve(&g_rt_dc_chunks, (uint32_t)sizeof(void **), ci + 1, "g_rt_dc_chunks"); g_rt_dc_chunks.len = (uint32_t)(ci + 1); }
+        ch = CV_AT(g_rt_dc_chunks, void **, ci);
+        if (!ch) { ch = (void **)ct_zalloc((size_t)RT_DC_CHUNK, sizeof(void *)); CV_AT(g_rt_dc_chunks, void **, ci) = ch; }
+        return &ch[(size_t)idx % RT_DC_CHUNK];
+    }
 }
 void rt_proc_set_dcfn(const char *name, void *fp) { int i = name ? rt_proc_hash_lookup(name) : -1; { void **sl = rt_pl_dc_slot(i); if (sl) *sl = fp; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_dc_ok(const char *name, int nargs)
-{
-    static int off = -1; if (off < 0) { const char *e = getenv("SCRIP_NO_DC"); off = (e && *e == '1') ? 1 : 0; }
+int rt_pl_dc_ok(const char *name, int nargs) {
+    static int off = -1;
+    if (off < 0) { const char *e = getenv("SCRIP_NO_DC"); off = (e && *e == '1') ? 1 : 0; }
     if (off) return 0;
     if (name && strncmp(name, "LBL__", 5) == 0) return 0;
     if (name && strcmp(name, "main") == 0) return 0;
-    { int i = name ? rt_proc_hash_lookup(name) : -1;
-      if (i < 0) return 0;
-      { rt_proc_t *p = &g_rt_gen_procs[i];
-        return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && !p->pinned && (p->nformals > 0 ? p->nformals : p->nparams) == nargs && nargs >= 0 && nargs <= 4) ? 1 : 0; } }
+    {
+        int i = name ? rt_proc_hash_lookup(name) : -1;
+        if (i < 0) return 0;
+        {
+            rt_proc_t *p = &g_rt_gen_procs[i];
+            return (!p->dyn_scope && !p->is_generator && p->jmp_entry && !p->is_variadic && !p->redefined && !p->pinned && (p->nformals > 0 ? p->nformals : p->nparams) == nargs && nargs >= 0 &&
+                nargs <= 4) ? 1 : 0;
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long nargs, long idx)
-{
+void rt_pl_dc_prep(void *fb, long suffix_off, long region_bytes, long np, long nargs, long idx) {
     (void)idx;
     DESCR_t *zf = (DESCR_t *)fb;
     DESCR_t **pp = (DESCR_t **)((char *)fb + 16);
     DESCR_t *s0 = (nargs > 0) ? pp[0] : (DESCR_t *)0, *s1 = (nargs > 1) ? pp[1] : (DESCR_t *)0, *s2 = (nargs > 2) ? pp[2] : (DESCR_t *)0, *s3 = (nargs > 3) ? pp[3] : (DESCR_t *)0;
-    if (s0) zf[1] = *s0; if (s1) zf[2] = *s1; if (s2) zf[3] = *s2; if (s3) zf[4] = *s3;
+    if (s0) zf[1] = *s0;
+    if (s1) zf[2] = *s1;
+    if (s2) zf[3] = *s2;
+    if (s3) zf[4] = *s3;
     for (long k = nargs; k < np; k++) zf[1 + k] = NULVCL;
     zf[0] = NULVCL;
     { DESCR_t *sz = (DESCR_t *)((char *)fb + suffix_off); for (long zi = 0; zi < (region_bytes - suffix_off) / 16; zi++) sz[zi] = NULVCL; }
-    rt_k_level++; rt_k_level_mirror();
+    rt_k_level++;
+    rt_k_level_mirror();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb)
-{
-    rt_k_level--; rt_k_level_mirror();
-    return r;
-}
+DESCR_t rt_pl_dc_leave_γ(DESCR_t r, long vtmark, void *fb) { rt_k_level--; rt_k_level_mirror(); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb)
-{
-    rt_k_level--; rt_k_level_mirror();
-    return FAILDESCR;
-}
+DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb) { rt_k_level--; rt_k_level_mirror(); return FAILDESCR; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
 const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? (p->result_name ? p->result_name : p->name) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__asm__(
-".text\n"
-".globl rt_proc_enter\n"
-"rt_proc_enter:\n"
-"  pushq %rbx\n"
-"  pushq %r12\n"
-"  pushq %r14\n"
-"  subq $16, %rsp\n"
-"  movl $2, (%rsp)\n"
-"  movl %r15d, 4(%rsp)\n"
-"  movq %r13, 8(%rsp)\n"
-"  movq %rdi, %rax\n"
-"  movq %rsi, %r9\n"
-"  leaq 2f(%rip), %rcx\n"
-"  leaq 3f(%rip), %rdx\n"
-"  pushq %rdx\n"
-"  pushq %rcx\n"
-"  testq %r9, %r9\n"
-"  jz 6f\n"
-"  movq %r9, %rcx\n"
-"  shlq $4, %rcx\n"
-"  subq %rcx, %rsp\n"
-"  pushq %rcx\n"
-"  leaq 8(%rsp), %rdi\n"
-"  movq g_call_args@GOTPCREL(%rip), %rsi\n"
-"  movq (%rsi), %rsi\n"
-"  shrq $3, %rcx\n"
-"  rep movsq\n"
-"  popq %rcx\n"
-"  leaq 2f(%rip), %rcx\n"
-"6:\n"
-"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-"  cmpb $0, (%r10)\n"
-"  je 4f\n"
-"  movq rtccb@GOTPCREL(%rip), %r10\n"
-"  movq 24(%r10), %rsi\n"
-"  movq 32(%r10), %rdi\n"
-"  movq 64(%r10), %r11\n"
-"  movq 40(%r10), %r8\n"
-"  movq 48(%r10), %r9\n"
-"  movq 56(%r10), %r10\n"
-"4:\n"
-"  jmp *%rax\n"
-"2:\n"
-"  addq $16, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  movq %rax, %rdi\n"
-"  movq %rdx, %rsi\n"
-"  jmp rt_proc_call_epilogue_γ\n"
-"3:\n"
-"  addq $16, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  jmp rt_proc_call_epilogue_ω\n"
-);
+__asm__( ".text\n" ".globl rt_proc_enter\n" "rt_proc_enter:\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n" "  movl %r15d, 4(%rsp)\n"
+    "  movq %r13, 8(%rsp)\n" "  movq %rdi, %rax\n" "  movq %rsi, %r9\n" "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  pushq %rdx\n" "  pushq %rcx\n" "  testq %r9, %r9\n" "  jz 6f\n"
+    "  movq %r9, %rcx\n" "  shlq $4, %rcx\n" "  subq %rcx, %rsp\n" "  pushq %rcx\n" "  leaq 8(%rsp), %rdi\n" "  movq g_call_args@GOTPCREL(%rip), %rsi\n" "  movq (%rsi), %rsi\n" "  shrq $3, %rcx\n"
+    "  rep movsq\n" "  popq %rcx\n" "  leaq 2f(%rip), %rcx\n" "6:\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 4f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n"
+    "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "4:\n" "  jmp *%rax\n" "2:\n"
+    "  addq $16, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  movq %rax, %rdi\n" "  movq %rdx, %rsi\n"
+    "  jmp rt_proc_call_epilogue_γ\n" "3:\n" "  addq $16, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n"
+    "  jmp rt_proc_call_epilogue_ω\n" );
 DESCR_t rt_proc_enter(void *fn, long nargs);
-__asm__(
-".text\n"
-".globl rt_proc_enter_named\n"
-"rt_proc_enter_named:\n"
-"  pushq %rsi\n"
-"  pushq %rbx\n"
-"  pushq %r12\n"
-"  pushq %r14\n"
-"  subq $16, %rsp\n"
-"  movl $2, (%rsp)\n"
-"  movl %r15d, 4(%rsp)\n"
-"  movq %r13, 8(%rsp)\n"
-"  subq $8, %rsp\n"
-"  movq %rdi, %rax\n"
-"  leaq 2f(%rip), %rcx\n"
-"  leaq 3f(%rip), %rdx\n"
-"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-"  cmpb $0, (%r10)\n"
-"  je 4f\n"
-"  movq rtccb@GOTPCREL(%rip), %r10\n"
-"  movq 24(%r10), %rsi\n"
-"  movq 32(%r10), %rdi\n"
-"  movq 64(%r10), %r11\n"
-"  movq 40(%r10), %r8\n"
-"  movq 48(%r10), %r9\n"
-"  movq 56(%r10), %r10\n"
-"4:\n"
-"  pushq %rdx\n"
-"  pushq %rcx\n"
-"  jmp *%rax\n"
-"2:\n"
-"  addq $8, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  popq %rdi\n"
-"  jmp rt_proc_call_epilogue_idx_γ\n"
-"3:\n"
-"  addq $8, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  popq %rdi\n"
-"  jmp rt_proc_call_epilogue_idx_ω\n"
-);
-__asm__(
-".text\n"
-".globl rt_proc_enter_frag\n"
-"rt_proc_enter_frag:\n"
-"  pushq %rsi\n"
-"  pushq %rbx\n"
-"  pushq %r12\n"
-"  pushq %r14\n"
-"  subq $16, %rsp\n"
-"  movl $2, (%rsp)\n"
-"  movl %r15d, 4(%rsp)\n"
-"  movq %r13, 8(%rsp)\n"
-"  subq $8, %rsp\n"
-"  movq %rdi, %rax\n"
-"  leaq 7f(%rip), %rcx\n"
-"  leaq 8f(%rip), %rdx\n"
-"  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-"  cmpb $0, (%r10)\n"
-"  je 9f\n"
-"  movq rtccb@GOTPCREL(%rip), %r10\n"
-"  movq 24(%r10), %rsi\n"
-"  movq 32(%r10), %rdi\n"
-"  movq 64(%r10), %r11\n"
-"  movq 40(%r10), %r8\n"
-"  movq 48(%r10), %r9\n"
-"  movq 56(%r10), %r10\n"
-"9:\n"
-"  pushq %rdx\n"
-"  pushq %rcx\n"
-"  jmp *%rax\n"
-"7:\n"
-"  addq $8, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  popq %rdi\n"
-"  jmp rt_proc_call_epilogue_idx_γ\n"
-"8:\n"
-"  addq $8, %rsp\n"
-"  movl 4(%rsp), %r15d\n"
-"  movq 8(%rsp), %r13\n"
-"  addq $16, %rsp\n"
-"  popq %r14\n"
-"  popq %r12\n"
-"  popq %rbx\n"
-"  popq %rdi\n"
-"  jmp rt_proc_call_epilogue_idx_ω\n"
-);
+__asm__( ".text\n" ".globl rt_proc_enter_named\n" "rt_proc_enter_named:\n" "  pushq %rsi\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n"
+    "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  subq $8, %rsp\n" "  movq %rdi, %rax\n" "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+    "  cmpb $0, (%r10)\n" "  je 4f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n"
+    "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "4:\n" "  pushq %rdx\n" "  pushq %rcx\n" "  jmp *%rax\n" "2:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n"
+    "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_γ\n" "3:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n"
+    "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_ω\n" );
+__asm__( ".text\n" ".globl rt_proc_enter_frag\n" "rt_proc_enter_frag:\n" "  pushq %rsi\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n"
+    "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  subq $8, %rsp\n" "  movq %rdi, %rax\n" "  leaq 7f(%rip), %rcx\n" "  leaq 8f(%rip), %rdx\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
+    "  cmpb $0, (%r10)\n" "  je 9f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n"
+    "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "9:\n" "  pushq %rdx\n" "  pushq %rcx\n" "  jmp *%rax\n" "7:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n"
+    "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_γ\n" "8:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n"
+    "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_ω\n" );
 DESCR_t rt_proc_enter_named(void *fn, long idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_open_fn(void)
-{
-    return (void *)0;
-}
+void *rt_proc_open_fn(void) { return (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn)
-{
-    rt_proc_t *p = *pp; long ix = (long)(p - g_rt_gen_procs); int slot = ix >= 0 && ix < g_rt_gen_proc_count;
+static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn) {
+    rt_proc_t *p = *pp;
+    long ix = (long)(p - g_rt_gen_procs);
+    int slot = ix >= 0 && ix < g_rt_gen_proc_count;
     int fbytes = (int)(PROC_FRAME_QWORDS * 8);
     if (p->frame_bytes > fbytes) fbytes = p->frame_bytes;
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
     { int _np = p->nparams; rt_call_args_need(_np > nargs ? _np : nargs); for (int i = nargs; i < _np; i++) CALL_ARGS[i] = NULVCL; }
-    { static int _va = -1; if (_va < 0) { const char *_e = getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
-      if (_va && p->is_variadic && p->jmp_entry) {
-        extern DESCR_t rt_make_list(DESCR_t *args, int nargs); extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs); extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
-        int npc = p->nparams;
-        if (npc > 0) { int fixed = npc - 1; int rest = nargs - fixed; if (rest < 0) rest = 0;
-            for (int i = nargs; i < fixed; i++) CALL_ARGS[i] = NULVCL;
-            DESCR_t _tail = (p->rest_kind == 2) ? rt_make_item_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : p->rest_kind ? rt_make_flat_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
-            CALL_ARGS[fixed] = _tail; } } }
+    {
+        static int _va = -1;
+        if (_va < 0) { const char *_e = getenv("SCRIP_VARARG_TAIL"); _va = (_e && *_e == '0') ? 0 : 1; }
+        if (_va && p->is_variadic && p->jmp_entry) {
+            extern DESCR_t rt_make_list(DESCR_t *args, int nargs);
+            extern DESCR_t rt_make_flat_agg(DESCR_t *args, int nargs);
+            extern DESCR_t rt_make_item_agg(DESCR_t *args, int nargs);
+            int npc = p->nparams;
+            if (npc > 0) {
+                int fixed = npc - 1;
+                int rest = nargs - fixed;
+                if (rest < 0) rest = 0;
+                for (int i = nargs; i < fixed; i++) CALL_ARGS[i] = NULVCL;
+                DESCR_t _tail = (p->rest_kind == 2) ? rt_make_item_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : p->rest_kind ?
+                    rt_make_flat_agg(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest) : rt_make_list(rest > 0 ? &CALL_ARGS[fixed] : (DESCR_t *)0, rest);
+                CALL_ARGS[fixed] = _tail;
+            }
+        }
+    }
 #if RT_DIAG
-    { int own = p->is_generator ? 0 : 1; if (!own) rt_k_level++; rt_k_level_mirror();
-      if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_stno); } }
+    {
+        int own = p->is_generator ? 0 : 1;
+        if (!own) rt_k_level++;
+        rt_k_level_mirror();
+        if (!own && !rt_trace_layer_idle()) { extern long g_stno; int _tn = p->nparams > 0 ? p->nparams : nargs; rt_trace_event_args(TRK_CALL, p->name, CALL_ARGS, _tn, NULVCL, g_stno); }
+    }
 #else
-    if (p->is_generator) rt_k_level++; rt_k_level_mirror();
+    if (p->is_generator) rt_k_level++;
+    rt_k_level_mirror();
 #endif
     if (slot) *pp = &g_rt_gen_procs[ix];
     return fbytes;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn)
-{
-    if (nargs < 0) nargs = 0; rt_call_args_need(nargs);
+static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn) {
+    if (nargs < 0) nargs = 0;
+    rt_call_args_need(nargs);
     for (int i = 0; i < nargs; i++) CALL_ARGS[i] = args ? args[i] : NULVCL;
     if (p->jmp_entry) {
         (void)rt_proc_call_prologue_lex(&p, nargs, wn);
@@ -1925,144 +1939,139 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
         return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L);
     }
     (void)rt_proc_call_prologue_lex(&p, nargs, wn);
-    core_runtime_error(287, "named lexical procedure has no jmp_entry: the c_lex callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). Identical shape to the descr.callregime.lex arm deleted above -- alloca the frame on the C STACK, call the box, then choose omega-vs-gamma IN C through rt_proc_call_epilogue_ret. Both halves are forbidden: C survives the transition, and the port selection is runtime logic where the law requires BB logic.");
+    core_runtime_error(287,
+        "named lexical procedure has no jmp_entry: the c_lex callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). Identical shape to the descr.callregime.lex arm deleted above -- allo"
+        "ca the frame on the C STACK, call the box, then choose omega-vs-gamma IN C through rt_proc_call_epilogue_ret. Both halves are forbidden: C survives the transition, and the port selection is"
+        " runtime logic where the law requires BB logic.");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int proc_open_p_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_PROC_OPEN_P"); v = (e && *e == '0') ? 0 : 1; } return v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long rt_proc_call_open_p(rt_proc_t **pp, int nargs)
-{
+static long rt_proc_call_open_p(rt_proc_t **pp, int nargs) {
     rt_proc_t *p = *pp;
     if (!p || !p->fn) return 0;
-    int wn = rt_g_want_name; rt_g_want_name = 0;
-    { long fb = p->dyn_scope ? (long)rt_proc_call_prologue(pp, CALL_ARGS, nargs, wn) : (long)rt_proc_call_prologue_lex(pp, nargs, wn);
-      return fb ? (fb | ((wn ? 1L : 0L) << RT_IDXW_WN_SHIFT) | (rt_proc_touches_level(*pp) << RT_IDXW_TOUCH_SHIFT)) : 0L; }
+    int wn = rt_g_want_name;
+    rt_g_want_name = 0;
+    {
+        long fb = p->dyn_scope ? (long)rt_proc_call_prologue(pp, CALL_ARGS, nargs, wn) : (long)rt_proc_call_prologue_lex(pp, nargs, wn);
+        return fb ? (fb | ((wn ? 1L : 0L) << RT_IDXW_WN_SHIFT) | (rt_proc_touches_level(*pp) << RT_IDXW_TOUCH_SHIFT)) : 0L;
+    }
 }
-static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs)
-{
+static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs) {
     if (proc_open_p_on()) return rt_proc_call_open_p(pp, nargs);
-    long ix = (long)(*pp - g_rt_gen_procs); long fb = rt_proc_call_open(name, nargs);
+    long ix = (long)(*pp - g_rt_gen_procs);
+    long fb = rt_proc_call_open(name, nargs);
     if (ix >= 0 && ix < g_rt_gen_proc_count) *pp = &g_rt_gen_procs[ix];
     return fb;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_proc_call_open(const char *name, int nargs)
-{
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (!p && name) p = rt_proc_find_alias(name);
-    return rt_proc_call_open_p(&p, nargs);
-}
+long rt_proc_call_open(const char *name, int nargs) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; if (!p && name) p = rt_proc_find_alias(name); return rt_proc_call_open_p(&p, nargs); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_call_open_fnret(const char *name, int nargs)
-{
+void *rt_proc_call_open_fnret(const char *name, int nargs) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
     if (!p || !p->fn) return (void *)0;
     return rt_proc_call_open_p(&p, nargs) ? (void *)p->fn : (void *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_call_open_det(long idx, int nargs)
-{
+void *rt_proc_call_open_det(long idx, int nargs) {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
-    { rt_proc_t *p = &g_rt_gen_procs[idx];
-      if (!p->fn || p->dyn_scope) return (void *)0;
-      { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(&p, nargs, wn);
-        return (void *)p->fn; } }
+    {
+        rt_proc_t *p = &g_rt_gen_procs[idx];
+        if (!p->fn || p->dyn_scope) return (void *)0;
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue_lex(&p, nargs, wn); return (void *)p->fn; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_call_open_det0(long idx)
-{
+void *rt_proc_call_open_det0(long idx) {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
-    { rt_proc_t *p = &g_rt_gen_procs[idx];
-      if (!p->fn || p->dyn_scope) return (void *)0;
-      { int _np = p->nparams; rt_call_args_need(_np); for (int i = 0; i < _np; i++) CALL_ARGS[i] = NULVCL; }
-      { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(&p, 0, wn);
-        return (void *)p->fn; } }
+    {
+        rt_proc_t *p = &g_rt_gen_procs[idx];
+        if (!p->fn || p->dyn_scope) return (void *)0;
+        { int _np = p->nparams; rt_call_args_need(_np); for (int i = 0; i < _np; i++) CALL_ARGS[i] = NULVCL; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue_lex(&p, 0, wn); return (void *)p->fn; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_call_open_det1(long idx, DESCR_t *a0)
-{
+void *rt_proc_call_open_det1(long idx, DESCR_t *a0) {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
-    { rt_proc_t *p = &g_rt_gen_procs[idx];
-      if (!p->fn || p->dyn_scope) return (void *)0;
-      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; for (int i = 1; i < _np; i++) CALL_ARGS[i] = NULVCL; }
-      { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(&p, 1, wn);
-        return (void *)p->fn; } }
+    {
+        rt_proc_t *p = &g_rt_gen_procs[idx];
+        if (!p->fn || p->dyn_scope) return (void *)0;
+        { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; for (int i = 1; i < _np; i++) CALL_ARGS[i] = NULVCL; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue_lex(&p, 1, wn); return (void *)p->fn; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1)
-{
+void *rt_proc_call_open_det2(long idx, DESCR_t *a0, DESCR_t *a1) {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
-    { rt_proc_t *p = &g_rt_gen_procs[idx];
-      if (!p->fn || p->dyn_scope) return (void *)0;
-      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; for (int i = 2; i < _np; i++) CALL_ARGS[i] = NULVCL; }
-      { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(&p, 2, wn);
-        return (void *)p->fn; } }
+    {
+        rt_proc_t *p = &g_rt_gen_procs[idx];
+        if (!p->fn || p->dyn_scope) return (void *)0;
+        { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; for (int i = 2; i < _np; i++) CALL_ARGS[i] = NULVCL; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue_lex(&p, 2, wn); return (void *)p->fn; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2)
-{
+void *rt_proc_call_open_det3(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2) {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
-    { rt_proc_t *p = &g_rt_gen_procs[idx];
-      if (!p->fn || p->dyn_scope) return (void *)0;
-      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; for (int i = 3; i < _np; i++) CALL_ARGS[i] = NULVCL; }
-      { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(&p, 3, wn);
-        return (void *)p->fn; } }
+    {
+        rt_proc_t *p = &g_rt_gen_procs[idx];
+        if (!p->fn || p->dyn_scope) return (void *)0;
+        { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; for (int i = 3; i < _np; i++) CALL_ARGS[i] = NULVCL; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue_lex(&p, 3, wn); return (void *)p->fn; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DESCR_t *a3)
-{
+void *rt_proc_call_open_det4(long idx, DESCR_t *a0, DESCR_t *a1, DESCR_t *a2, DESCR_t *a3) {
     if (idx < 0 || idx >= g_rt_gen_proc_count) return (void *)0;
-    { rt_proc_t *p = &g_rt_gen_procs[idx];
-      if (!p->fn || p->dyn_scope) return (void *)0;
-      { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; CALL_ARGS[3] = *a3; for (int i = 4; i < _np; i++) CALL_ARGS[i] = NULVCL; }
-      { int wn = rt_g_want_name; rt_g_want_name = 0;
-        (void)rt_proc_call_prologue_lex(&p, 4, wn);
-        return (void *)p->fn; } }
+    {
+        rt_proc_t *p = &g_rt_gen_procs[idx];
+        if (!p->fn || p->dyn_scope) return (void *)0;
+        { int _np = p->nparams; rt_call_args_need(_np); CALL_ARGS[0] = *a0; CALL_ARGS[1] = *a1; CALL_ARGS[2] = *a2; CALL_ARGS[3] = *a3; for (int i = 4; i < _np; i++) CALL_ARGS[i] = NULVCL; }
+        { int wn = rt_g_want_name; rt_g_want_name = 0; (void)rt_proc_call_prologue_lex(&p, 4, wn); return (void *)p->fn; }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_jmp_frame_lexprep(void *fb, long region_bytes)
-{
-    (void)fb; (void)region_bytes;
-}
+void rt_jmp_frame_lexprep(void *fb, long region_bytes) { (void)fb; (void)region_bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes)
-{
-    (void)suffix_off;
-    memset(fb, 0, (size_t)region_bytes);
-}
-void *rt_frame_prep(void *fb, long fbytes)
-{
-    (void)fb; (void)fbytes;
-    return (void *)0;
-}
+void rt_jmp_frame_lexprep2(void *fb, long suffix_off, long region_bytes) { (void)suffix_off; memset(fb, 0, (size_t)region_bytes); }
+void *rt_frame_prep(void *fb, long fbytes) { (void)fb; (void)fbytes; return (void *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rt_byname_alpha_on(void) { static int live = -1; if (live < 0) { const char *e = getenv("SCRIP_BYNAME_ALPHA"); live = (e && e[0] == '0') ? 0 : 1; } return live; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
-{
+DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs) {
     if (!name) return FAILDESCR;
-    { rt_proc_t *pd = rt_proc_find(name);
-      if (pd && !pd->fn && pd->dyn_scope) {
-          int _n = nargs; if (_n < 0) _n = 0; rt_call_args_need(_n);
-          for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i];
-          return RT_GC_CALLBACK(rt_call_proc_descr(name, _n)); } }
-    int _wn = rt_g_want_name; rt_g_want_name = 0;
+    {
+        rt_proc_t *pd = rt_proc_find(name);
+        if (pd && !pd->fn && pd->dyn_scope) {
+            int _n = nargs;
+            if (_n < 0) _n = 0;
+            rt_call_args_need(_n);
+            for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i];
+            return RT_GC_CALLBACK(rt_call_proc_descr(name, _n));
+        }
+    }
+    int _wn = rt_g_want_name;
+    rt_g_want_name = 0;
     rt_proc_t *p = rt_proc_find(name);
     if (!p || !p->fn) return FAILDESCR;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
-    { void *afn = (rt_byname_alpha_on() && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
-      if (afn) { extern DESCR_t rt_tiny_record_enter(void *fn, long nargs); int _n = nargs; if (_n < 0) _n = 0; rt_call_args_need(_n);
-                 for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i]; rt_g_want_name = _wn;
+    {
+        void *afn = (rt_byname_alpha_on() && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
+        if (afn) {
+            extern DESCR_t rt_tiny_record_enter(void *fn, long nargs);
+            int _n = nargs;
+            if (_n < 0) _n = 0;
+            rt_call_args_need(_n);
+            for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i];
+            rt_g_want_name = _wn;
 #if RT_DIAG
-                 rt_c2bb_hit("named.tiny", name);
+            rt_c2bb_hit("named.tiny", name);
 #endif
-                 return rt_tiny_record_enter(afn, (long)_n); } }
+            return rt_tiny_record_enter(afn, (long)_n);
+        }
+    }
     (void)rt_proc_call_prologue(&p, args, nargs, _wn);
 #if RT_DIAG
     rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
@@ -2070,65 +2079,69 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs)
     return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_index_of(const char *name)
-{
+int rt_proc_index_of(const char *name) {
     if (!name) return -1;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && (g_rt_gen_procs[ci].name == name || (g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0))) return ci; }
+    if (g_proc_idx_key[h] == name) {
+        int ci = g_proc_idx_slot[h];
+        if (ci < g_rt_gen_proc_count && (g_rt_gen_procs[ci].name == name || (g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0))) return ci;
+    }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return i; } }
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_table_fill(int64_t *tab, const char **names, int n)
-{
-    if (!tab || !names) return;
-    for (int k = 0; k < n; k++) tab[k] = (int64_t)rt_proc_index_of(names[k]);
-}
+void rt_proc_table_fill(int64_t *tab, const char **names, int n) { if (!tab || !names) return; for (int k = 0; k < n; k++) tab[k] = (int64_t)rt_proc_index_of(names[k]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_cache_clear(void) { for (int i = 0; i < DCR_CELL_CACHE_SIZE; i++) g_proc_idx_key[i] = (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static rt_proc_t * rt_proc_find(const char *name)
-{
+static rt_proc_t * rt_proc_find(const char *name) {
     if (!name) return (rt_proc_t *)0;
     unsigned h = (unsigned)(((uintptr_t)name >> 4) & DCR_CELL_CACHE_MASK);
-    if (g_proc_idx_key[h] == name) { int ci = g_proc_idx_slot[h]; if (ci < g_rt_gen_proc_count && (g_rt_gen_procs[ci].name == name || (g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0))) return &g_rt_gen_procs[ci]; }
+    if (g_proc_idx_key[h] == name) {
+        int ci = g_proc_idx_slot[h];
+        if (ci < g_rt_gen_proc_count && (g_rt_gen_procs[ci].name == name || (g_rt_gen_procs[ci].name && strcmp(g_rt_gen_procs[ci].name, name) == 0))) return &g_rt_gen_procs[ci];
+    }
     { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_proc_idx_key[h] = name; g_proc_idx_slot[h] = i; return &g_rt_gen_procs[i]; } }
     return (rt_proc_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_frame(const char *name, int nslots, int decl_level)
-{
-    rt_proc_t *p = rt_proc_find(name);
-    if (p) { p->frame_nslots = nslots; p->decl_level = decl_level; }
-}
+void rt_proc_set_frame(const char *name, int nslots, int decl_level) { rt_proc_t *p = rt_proc_find(name); if (p) { p->frame_nslots = nslots; p->decl_level = decl_level; } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_gen_region_ft(const char *name, int ft) { rt_proc_t *p = rt_proc_find(name); if (p) p->gen_region_ft = ft; }
 int rt_proc_gen_region_ft(const char *name) { rt_proc_t *p = rt_proc_find(name); return p ? p->gen_region_ft : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_frame_bytes(const char *name, int bytes)
-{
-    rt_proc_t *p = rt_proc_find(name);
-    if (p && bytes > p->frame_bytes) p->frame_bytes = bytes;
-}
+void rt_proc_set_frame_bytes(const char *name, int bytes) { rt_proc_t *p = rt_proc_find(name); if (p && bytes > p->frame_bytes) p->frame_bytes = bytes; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_define_bind_entry(const char *fname, const char *entry)
-{
+void rt_define_bind_entry(const char *fname, const char *entry) {
     extern void *rt_entry_resolve(const char *, int *);
     extern void *bb_ab_fn_cell_ptr(const char *);
     extern void *bb_ab_cell_addr(const char *);
     if (!fname || !*fname || !entry || !*entry) return;
-    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag);
-      { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[DEFSITE-BIND] %s -> %s fn=%p frag=%d\n", fname, entry, fn, frag); }
-      if (!fn) return;
-      { void **c = (void **)bb_ab_cell_addr(fname); if (c) *c = fn; }
-      { char cell[fmt_len("entry$%s", fname)]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } }
-      { rt_proc_t *p = rt_proc_find(fname); if (p && p->dyn_scope) { if (!frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } if (!rt_dyn_alpha_fn_p(p, fname, (void *)0)) rt_sno_shim_refresh_ent(p, fname, fn); } } }
+    {
+        int frag = 0;
+        void *fn = rt_entry_resolve(entry, &frag);
+        {
+            static int diag = -1;
+            if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+            if (diag) fprintf(stderr, "[DEFSITE-BIND] %s -> %s fn=%p frag=%d\n", fname, entry, fn, frag);
+        }
+        if (!fn) return;
+        { void **c = (void **)bb_ab_cell_addr(fname); if (c) *c = fn; }
+        { char cell[fmt_len("entry$%s", fname)]; snprintf(cell, sizeof cell, "entry$%s", fname); { void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; } }
+        {
+            rt_proc_t *p = rt_proc_find(fname);
+            if (p && p->dyn_scope) { if (!frag) { p->fn = (bb_box_fn)fn; p->jmp_entry = 1; } if (!rt_dyn_alpha_fn_p(p, fname, (void *)0)) rt_sno_shim_refresh_ent(p, fname, fn); }
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_opsyn_bind(const char *nm, const char *old)
-{
-    extern char *rt_heap_strdup_c(const char *); extern void *rt_heap_alloc_c(size_t); extern void *bb_ab_fn_cell_ptr(const char *); extern void *bb_ab_cell_addr(const char *);
-    extern const char *FUNC_ENTRY_fn(const char *); extern void core_fn_entry_label_set(const char *, const char *);
+void rt_proc_opsyn_bind(const char *nm, const char *old) {
+    extern char *rt_heap_strdup_c(const char *);
+    extern void *rt_heap_alloc_c(size_t);
+    extern void *bb_ab_fn_cell_ptr(const char *);
+    extern void *bb_ab_cell_addr(const char *);
+    extern const char *FUNC_ENTRY_fn(const char *);
+    extern void core_fn_entry_label_set(const char *, const char *);
     if (!nm || !old || !*nm || !strcmp(nm, old)) return;
     int io = rt_proc_hash_lookup(old);
     if (io < 0) { const char *ent = FUNC_ENTRY_fn(old); if (ent && ent[0] == '\001') io = rt_proc_hash_lookup(ent); }
@@ -2136,122 +2149,187 @@ void rt_proc_opsyn_bind(const char *nm, const char *old)
     rt_proc_t o = g_rt_gen_procs[io];
     if (!o.fn || !o.dyn_scope) return;
     int np = o.nparams > 0 ? o.nparams : 0;
-    const char **pn = (const char **)rt_heap_alloc_c((size_t)(np + 1) * sizeof(char *)); if (!pn) return;
+    const char **pn = (const char **)rt_heap_alloc_c((size_t)(np + 1) * sizeof(char *));
+    if (!pn) return;
     for (int k = 0; k < np; k++) pn[k] = (o.pnames && o.pnames[k]) ? rt_heap_strdup_c(o.pnames[k]) : (const char *)0;
     pn[np] = (const char *)0;
     const char *rn = rt_heap_strdup_c(o.result_name ? o.result_name : o.name);
     const char *key = nm;
     if (rt_proc_hash_lookup(nm) < 0) { char kb[strlen(nm) + 8]; snprintf(kb, sizeof kb, "\001OPSYN%s", nm); key = rt_heap_strdup_c(kb); core_fn_entry_label_set(nm, key); }
     rt_proc_register(key == nm ? rt_heap_strdup_c(nm) : key, pn, np);
-    { rt_proc_t *p = rt_proc_find(key); if (!p) return;
-      int fresh = key != nm;
-      p->pnames = pn; p->nparams = np; p->nformals = o.nformals; p->fn = o.fn; p->jmp_entry = o.jmp_entry; p->dyn_scope = 1; p->frame_bytes = o.frame_bytes; p->frame_nslots = o.frame_nslots;
-      p->result_name = rn; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->pnames_owned = 1; p->redefined = fresh; }
+    {
+        rt_proc_t *p = rt_proc_find(key);
+        if (!p) return;
+        int fresh = key != nm;
+        p->pnames = pn;
+        p->nparams = np;
+        p->nformals = o.nformals;
+        p->fn = o.fn;
+        p->jmp_entry = o.jmp_entry;
+        p->dyn_scope = 1;
+        p->frame_bytes = o.frame_bytes;
+        p->frame_nslots = o.frame_nslots;
+        p->result_name = rn;
+        p->pcells = (DESCR_t **)0;
+        p->rcell = (DESCR_t *)0;
+        p->cells_done = 0;
+        p->is_generator = 0;
+        p->is_variadic = 0;
+        p->rest_kind = 0;
+        p->named_rest = 0;
+        p->pnames_owned = 1;
+        p->redefined = fresh;
+    }
     { void **c = (void **)bb_ab_cell_addr(nm); if (c) *c = (void *)o.fn; }
     { char cn[strlen(nm) + 8]; snprintf(cn, sizeof cn, "entry$%s", nm); void **c = (void **)bb_ab_fn_cell_ptr(cn); if (c) *c = (void *)o.fn; }
     { rt_proc_t *p = rt_proc_find(key); if (p) rt_sno_shim_refresh_ent(p, nm, (void *)o.fn); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn)
-{
+void rt_define_site(const char *name, const char *params_csv, int nparams, int nformals, int frame_bytes, void *fn) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[DEFSITE] %s (%s) fn=%p p=%p pfn=%p sealed=%p\n", name ? name : "?", params_csv ? params_csv : "", fn, (void *)p, p ? (void *)p->fn : (void *)0, p ? rt_dyn_alpha_fn_p(p, name, (void *)0) : (void *)0); }
-    if (p) { int moved = 0; if (fn && p->fn && (void *)p->fn != fn) p->redefined = 1; if (fn) p->fn = (bb_box_fn)fn;
-      if (params_csv) { int np = nparams > 0 ? nparams : 0; int same = (np == p->nparams); char *dup = ct_strdup(params_csv); char *sv = (char *)0; int k = 0;
-        if (same && dup) { for (char *t = strtok_r(dup, ",", &sv); t; t = strtok_r((char *)0, ",", &sv)) { if (k >= np || !p->pnames || !p->pnames[k] || strcmp(p->pnames[k], t)) { same = 0; break; } k++; } if (k != np) same = 0; }
-        if (!same) { const char **pn = (const char **)ct_zalloc((size_t)(np + 1), sizeof(const char *)); char *dup2 = ct_strdup(params_csv); char *sv2 = (char *)0; int j = 0;
-          if (pn && dup2) { for (char *t = strtok_r(dup2, ",", &sv2); t && j < np; t = strtok_r((char *)0, ",", &sv2)) pn[j++] = t; }
-          if (pn) { p->pnames = pn; p->nparams = np; p->pnames_owned = 1; p->pcells = (DESCR_t **)0; p->cells_done = 0; p->redefined = 1; moved = 1; } }
-        ct_drop(dup); }
-      else if (nparams) p->nparams = nparams;
-      p->nformals = nformals; if (frame_bytes) p->frame_bytes = frame_bytes; p->dyn_scope = 1; p->jmp_entry = 1;
-      if (moved || !rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, !rt_alpha_unsealed(fn) ? fn : (void *)0); return; }
-    { int np = nparams > 0 ? nparams : 0; const char **pn = (const char **)ct_zalloc((size_t)(np + 1), sizeof(const char *)); char *dup = params_csv ? ct_strdup(params_csv) : (char *)0; int k = 0;
-      if (pn && dup) { char *sv = (char *)0; for (char *t = strtok_r(dup, ",", &sv); t && k < np; t = strtok_r((char *)0, ",", &sv)) pn[k++] = t; }
-      rt_proc_register(name, pn, np); p = rt_proc_find(name);
-      if (p) { p->pnames_owned = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1; p->nformals = nformals; p->frame_bytes = frame_bytes;
-        if (!rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, !rt_alpha_unsealed(fn) ? fn : (void *)0); } }
+    {
+        static int diag = -1;
+        if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+        if (diag)
+            fprintf(stderr, "[DEFSITE] %s (%s) fn=%p p=%p pfn=%p sealed=%p\n", name ? name : "?", params_csv ? params_csv : "", fn, (void *)p, p ? (void *)p->fn : (void *)0,
+            p ? rt_dyn_alpha_fn_p(p, name, (void *)0) : (void *)0);
+    }
+    if (p) {
+        int moved = 0;
+        if (fn && p->fn && (void *)p->fn != fn) p->redefined = 1;
+        if (fn) p->fn = (bb_box_fn)fn;
+        if (params_csv) {
+            int np = nparams > 0 ? nparams : 0;
+            int same = (np == p->nparams);
+            char *dup = ct_strdup(params_csv);
+            char *sv = (char *)0;
+            int k = 0;
+            if (same && dup) {
+                for (char *t = strtok_r(dup, ",", &sv); t; t = strtok_r((char *)0, ",", &sv)) { if (k >= np || !p->pnames || !p->pnames[k] || strcmp(p->pnames[k], t)) { same = 0; break; } k++; }
+                if (k != np) same = 0;
+            }
+            if (!same) {
+                const char **pn = (const char **)ct_zalloc((size_t)(np + 1), sizeof(const char *));
+                char *dup2 = ct_strdup(params_csv);
+                char *sv2 = (char *)0;
+                int j = 0;
+                if (pn && dup2) { for (char *t = strtok_r(dup2, ",", &sv2); t && j < np; t = strtok_r((char *)0, ",", &sv2)) pn[j++] = t; }
+                if (pn) { p->pnames = pn; p->nparams = np; p->pnames_owned = 1; p->pcells = (DESCR_t **)0; p->cells_done = 0; p->redefined = 1; moved = 1; }
+            }
+            ct_drop(dup);
+        } else if (nparams) p->nparams = nparams;
+        p->nformals = nformals;
+        if (frame_bytes) p->frame_bytes = frame_bytes;
+        p->dyn_scope = 1;
+        p->jmp_entry = 1;
+        if (moved || !rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, !rt_alpha_unsealed(fn) ? fn : (void *)0);
+        return;
+    }
+    {
+        int np = nparams > 0 ? nparams : 0;
+        const char **pn = (const char **)ct_zalloc((size_t)(np + 1), sizeof(const char *));
+        char *dup = params_csv ? ct_strdup(params_csv) : (char *)0;
+        int k = 0;
+        if (pn && dup) { char *sv = (char *)0; for (char *t = strtok_r(dup, ",", &sv); t && k < np; t = strtok_r((char *)0, ",", &sv)) pn[k++] = t; }
+        rt_proc_register(name, pn, np);
+        p = rt_proc_find(name);
+        if (p) {
+            p->pnames_owned = 1;
+            p->fn = (bb_box_fn)fn;
+            p->dyn_scope = 1;
+            p->jmp_entry = 1;
+            p->nformals = nformals;
+            p->frame_bytes = frame_bytes;
+            if (!rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, !rt_alpha_unsealed(fn) ? fn : (void *)0);
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_define_site_entry(const char *name, const char *entry)
-{
+void rt_define_site_entry(const char *name, const char *entry) {
     extern void *rt_entry_resolve(const char *, int *);
     if (!name || !*name || !entry || !*entry) return;
-    { int frag = 0; void *fn = rt_entry_resolve(entry, &frag); rt_proc_t *p = fn ? rt_proc_find(name) : (rt_proc_t *)0;
-      { static int diag = -1; if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; } if (diag) fprintf(stderr, "[DEFSITE-ENTRY] %s -> %s fn=%p frag=%d p=%p\n", name, entry, fn, frag, (void *)p); }
-      if (!p) return;
-      { extern void *bb_ab_fn_cell_ptr(const char *); int moved = p->fn && (void *)p->fn != fn; if (moved) p->redefined = 1; p->fn = (bb_box_fn)fn; p->dyn_scope = 1; p->jmp_entry = 1;
-        { char cell[fmt_len("entry$%s", name)]; snprintf(cell, sizeof cell, "entry$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; }
-        if (!rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, fn); } }
+    {
+        int frag = 0;
+        void *fn = rt_entry_resolve(entry, &frag);
+        rt_proc_t *p = fn ? rt_proc_find(name) : (rt_proc_t *)0;
+        {
+            static int diag = -1;
+            if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
+            if (diag) fprintf(stderr, "[DEFSITE-ENTRY] %s -> %s fn=%p frag=%d p=%p\n", name, entry, fn, frag, (void *)p);
+        }
+        if (!p) return;
+        {
+            extern void *bb_ab_fn_cell_ptr(const char *);
+            int moved = p->fn && (void *)p->fn != fn;
+            if (moved) p->redefined = 1;
+            p->fn = (bb_box_fn)fn;
+            p->dyn_scope = 1;
+            p->jmp_entry = 1;
+            { char cell[fmt_len("entry$%s", name)]; snprintf(cell, sizeof cell, "entry$%s", name); void **c = (void **)bb_ab_fn_cell_ptr(cell); if (c) *c = fn; }
+            if (!rt_dyn_alpha_fn_p(p, name, (void *)0)) rt_sno_shim_refresh_ent(p, name, fn);
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_define_tiny_ok(const char *name, int nargs)
-{
+int rt_define_tiny_ok(const char *name, int nargs) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    (void)nargs; return (p && p->dyn_scope && !p->is_generator && !p->is_variadic && !p->redefined) ? 1 : 0;
+    (void)nargs;
+    return (p && p->dyn_scope && !p->is_generator && !p->is_variadic && !p->redefined) ? 1 : 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_define_returns_by_frame(const char *name)
-{
-    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    return (p && p->jmp_entry && !p->dyn_scope) ? 1 : 0;
-}
+int rt_define_returns_by_frame(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->jmp_entry && !p->dyn_scope) ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out)
-{
+const char *rt_define_query(const char *name, int *np_out, int *nf_out, int *fb_out, void **fn_out) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
-    if (np_out) *np_out = p ? p->nparams : 0; if (nf_out) *nf_out = p ? p->nformals : 0; if (fb_out) *fb_out = p ? p->frame_bytes : 0; if (fn_out) *fn_out = p ? (void *)p->fn : (void *)0;
+    if (np_out) *np_out = p ? p->nparams : 0;
+    if (nf_out) *nf_out = p ? p->nformals : 0;
+    if (fb_out) *fb_out = p ? p->frame_bytes : 0;
+    if (fn_out) *fn_out = p ? (void *)p->fn : (void *)0;
     if (!p || !p->pnames || p->nparams <= 0) return "";
-    { size_t need = 1; for (int k = 0; k < p->nparams; k++) need += (p->pnames[k] ? strlen(p->pnames[k]) : 0) + 1; char *csv = (char *)ct_alloc(need); if (!csv) return ""; csv[0] = 0;
-      for (int k = 0; k < p->nparams; k++) { if (k) strcat(csv, ","); if (p->pnames[k]) strcat(csv, p->pnames[k]); } return csv; }
+    {
+        size_t need = 1;
+        for (int k = 0; k < p->nparams; k++) need += (p->pnames[k] ? strlen(p->pnames[k]) : 0) + 1;
+        char *csv = (char *)ct_alloc(need);
+        if (!csv) return "";
+        csv[0] = 0;
+        for (int k = 0; k < p->nparams; k++) { if (k) strcat(csv, ","); if (p->pnames[k]) strcat(csv, p->pnames[k]); }
+        return csv;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_frame_nslots(const char *name)
-{
-    rt_proc_t *p = rt_proc_find(name);
-    return p ? p->frame_nslots : -1;
-}
+int rt_proc_frame_nslots(const char *name) { rt_proc_t *p = rt_proc_find(name); return p ? p->frame_nslots : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_decl_level(const char *name)
-{
-    rt_proc_t *p = rt_proc_find(name);
-    return p ? p->decl_level : 0;
-}
+int rt_proc_decl_level(const char *name) { rt_proc_t *p = rt_proc_find(name); return p ? p->decl_level : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_proc_name_exists(const char *name)
-{
-    return name && rt_proc_find(name) != NULL;
-}
+int rt_proc_name_exists(const char *name) { return name && rt_proc_find(name) != NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t *rt_gvar_cell(const char *name)
-{
-    return NV_PTR_fn(name);
-}
+DESCR_t *rt_gvar_cell(const char *name) { return NV_PTR_fn(name); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_define(const char *spec)
-{
-    (void)spec;
-    return NULVCL;
-}
+DESCR_t rt_proc_define(const char *spec) { (void)spec; return NULVCL; }
 static int g_last_ok = 0;
 extern void rt_set_last_ok(int v);
 extern DESCR_t binop_apply(int op, DESCR_t lv, DESCR_t rv, int *rel_fail);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
-{
+DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi) {
     DESCR_t v = {0};
-    v.v    = (DTYPE_t)(uint32_t)(lo & 0xFFFFFFFFu);
+    v.v = (DTYPE_t)(uint32_t)(lo & 0xFFFFFFFFu);
     v.slen = (uint32_t)(lo >> 32);
-    v.i    = (int64_t)hi;
+    v.i = (int64_t)hi;
     if (IS_FAIL_fn(v)) return FAILDESCR;
     if (v.v == DT_SNUL || IS_PROCVAL_fn(v)) { extern int core_icn_error(int code, DESCR_t val); core_icn_op_ctx("*", 1, v, v); core_icn_error(112, v); core_icn_op_ctx_clear(); return FAILDESCR; }
     if (v.v == DT_T) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)(v.tbl ? v.tbl->size : 0); return r; }
     if (v.v == DT_CO) { extern long scrip_coexpr_activations_of(void *); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)scrip_coexpr_activations_of(v.p); return r; }
-    if (IS_CSET_fn(v)) { extern int kw_cset_len(const char *); int kn = v.s ? kw_cset_len(v.s) : -1; size_t n = (kn >= 0) ? (size_t)kn : (v.s ? strlen(v.s) : 0); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
-    if (v.v == DT_S) {
-        size_t n = descr_slen(v);
-        DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r;
+    if (IS_CSET_fn(v)) {
+        extern int kw_cset_len(const char *);
+        int kn = v.s ? kw_cset_len(v.s) : -1;
+        size_t n = (kn >= 0) ? (size_t)kn : (v.s ? strlen(v.s) : 0);
+        DESCR_t r = {0};
+        r.v = DT_I;
+        r.slen = 0;
+        r.i = (int64_t)n;
+        return r;
     }
+    if (v.v == DT_S) { size_t n = descr_slen(v); DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
     if (IS_DATA_INST_fn(v) && v.u) {
         DESCR_t tag = FIELD_GET_fn(v, "gen_type");
         if (tag.v == DT_S && tag.s && strcmp(tag.s, "list") == 0) { DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)FIELD_GET_fn(v, "frame_size").i; return r; }
@@ -2262,28 +2340,31 @@ DESCR_t c_rt_size_d(uint64_t lo, uint64_t hi)
         extern const char *icon_real_str(double r, char *buf, int bufsz);
         char buf[64];
         icon_real_str(v.r, buf, sizeof(buf));
-        DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)strlen(buf); return r;
+        DESCR_t r = {0};
+        r.v = DT_I;
+        r.slen = 0;
+        r.i = (int64_t)strlen(buf);
+        return r;
     }
     { const char *s = VARVAL_fn(v); long n = s ? (long)strlen(s) : 0; DESCR_t r = {0}; r.v = DT_I; r.slen = 0; r.i = (int64_t)n; return r; }
 }
 extern int list_bang_at(DESCR_t obj, int64_t idx, DESCR_t *out);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t idx)
-{
-    (void)obj; (void)idx;
+DESCR_t c_rt_list_bang_at(DESCR_t obj, int64_t idx) {
+    (void)obj;
+    (void)idx;
     rt_bomb("c_rt_list_bang_at: DELETED (s196 Lon one-to-maintain) — rt_list_bang_at in rtx_icnagg.s is the sole spelling (zero bails, gate removed)");
     return FAILDESCR;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t idx)
-{
+DESCR_t rt_list_bang_key_at(DESCR_t obj, int64_t idx) {
     extern int list_bang_key_at(DESCR_t obj, int64_t idx, DESCR_t *out);
     DESCR_t out;
     if (list_bang_key_at(obj, idx, &out)) return out;
     return FAILDESCR;
 }
-extern int     subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
-extern int     subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
+extern int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
+extern int subscript_set2(DESCR_t arr, DESCR_t i, DESCR_t j, DESCR_t val);
 #include "SM.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include <string.h>
@@ -2294,57 +2375,98 @@ extern void flush_pending_captures(void);
 extern void reset_capture_registry(void);
 extern void clear_pending_flags(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_gc_root_args(void)
-{
+void rt_gc_root_args(void) {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
-    gv_gc_root(&g_call_args); gv_gc_root(&g_blob_fbv);
+    gv_gc_root(&g_call_args);
+    gv_gc_root(&g_blob_fbv);
     for (rt_genp_s *gp = g_genp_head; gp; gp = gp->next) if (gp->args) rt_gc_visit_raw((const char **)&gp->args);
     rt_gc_visit_descr(&g_prim_val);
     if (g_proc_hsl) rt_gc_visit_raw((const char **)&g_proc_hsl);
-    if (g_rt_gen_procs) { rt_gc_visit_raw((const char **)&g_rt_gen_procs);
-        for (int i = 0; i < g_rt_gen_proc_count; i++) { rt_proc_t *pr = &g_rt_gen_procs[i];
+    if (g_rt_gen_procs) {
+        rt_gc_visit_raw((const char **)&g_rt_gen_procs);
+        for (int i = 0; i < g_rt_gen_proc_count; i++) {
+            rt_proc_t *pr = &g_rt_gen_procs[i];
             if (pr->name) rt_gc_visit_raw((const char **)&pr->name);
-            if (pr->pnames) { rt_gc_visit_raw((const char **)&pr->pnames);
-                for (int k = 0; k < pr->nparams; k++) if (pr->pnames[k]) rt_gc_visit_raw((const char **)&pr->pnames[k]); }
-            if (pr->pcells) { rt_gc_visit_raw((const char **)&pr->pcells);
-                for (int k = 0; k < pr->nparams; k++) if (pr->pcells[k]) rt_gc_visit_raw((const char **)&pr->pcells[k]); }
+            if (pr->pnames) { rt_gc_visit_raw((const char **)&pr->pnames); for (int k = 0; k < pr->nparams; k++) if (pr->pnames[k]) rt_gc_visit_raw((const char **)&pr->pnames[k]); }
+            if (pr->pcells) { rt_gc_visit_raw((const char **)&pr->pcells); for (int k = 0; k < pr->nparams; k++) if (pr->pcells[k]) rt_gc_visit_raw((const char **)&pr->pcells[k]); }
             if (pr->rcell) rt_gc_visit_raw((const char **)&pr->rcell);
-            if (pr->result_name) rt_gc_visit_raw((const char **)&pr->result_name); } }
+            if (pr->result_name) rt_gc_visit_raw((const char **)&pr->result_name);
+        }
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_nofail_abort(void)
-{
-    extern void core_runtime_error(int code, const char *msg);
-    core_runtime_error(35, "unexpected failure in -nofail mode");
-    exit(1);
-}
+void rt_nofail_abort(void) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(35, "unexpected failure in -nofail mode"); exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_register_rec(const rt_proc_reg_rec_t *r)
-{
+void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
     _Static_assert(sizeof(rt_proc_reg_rec_t) == 64, "ONE-REG record is 64 bytes");
-    _Static_assert(__builtin_offsetof(rt_proc_reg_rec_t, pnames) == 32 && __builtin_offsetof(rt_proc_reg_rec_t, nparams) == 40 && __builtin_offsetof(rt_proc_reg_rec_t, flags) == 52, "ONE-REG field offsets are law");
+    _Static_assert(__builtin_offsetof(rt_proc_reg_rec_t, pnames) == 32 && __builtin_offsetof(rt_proc_reg_rec_t, nparams) == 40 && __builtin_offsetof(rt_proc_reg_rec_t, flags) == 52,
+        "ONE-REG field offsets are law");
     extern void **rt_pl_dc_slot(long idx);
     if (!r || !r->name) return;
-    { unsigned h = rt_proc_fnv(r->name); int i = rt_proc_hash_lookup_h(r->name, h); rt_proc_t *p;
-      if (i < 0) {
-          rt_gen_proc_grow(); if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
-          i = g_rt_gen_proc_count++; p = &g_rt_gen_procs[i];
-          p->name = r->name; p->stage_var = rt_eval_stage_is_var(r->name); p->fn = NULL; p->pnames = (const char **)r->pnames; p->nparams = r->nparams; p->frame_nslots = -1; p->decl_level = 0; p->alpha_slot = -1; p->byref_mask = 0;
-          p->frame_bytes = 0; p->pcells = (DESCR_t **)0; p->rcell = (DESCR_t *)0; p->cells_done = 0; p->is_generator = 0; p->dyn_scope = 0; p->result_name = (const char *)0; p->is_variadic = 0; p->rest_kind = 0; p->named_rest = 0; p->jmp_entry = 0; p->zstatic = 0; p->pnames_owned = 0; p->nformals = 0; p->gen_region_ft = 0; p->redefined = 0; p->pinned = 0;
-          if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) rt_proc_hash_insert(i); else rt_proc_hash_seed_h(i, h); }
-      else { p = &g_rt_gen_procs[i]; if (r->flags & 1) { if (r->pnames) p->pnames = (const char **)r->pnames; if (r->nparams) p->nparams = r->nparams; p->cells_done = 0; p->nformals = 0; p->redefined = 1; } else if (r->pnames && !p->pnames) { p->pnames = (const char **)r->pnames; p->pnames_owned = 0; } }
-      if (r->flags & 1) { p->dyn_scope = 1; if (r->result_name) { p->result_name = r->result_name; p->cells_done = 0; } }
-      if (r->fn) p->fn = (bb_box_fn)r->fn;
-      p->nparams = r->nparams; p->nformals = r->nformals;
-      if (r->frame_bytes > p->frame_bytes) p->frame_bytes = r->frame_bytes;
-      if (r->flags & 2) p->zstatic = 1;
-      if (r->flags & 4) p->is_variadic = 1;
-      if (r->rest_kind) p->rest_kind = r->rest_kind;
-      if (r->named_rest) p->named_rest = r->named_rest;
-      p->jmp_entry = (r->flags >> 4) & 1;
-      if (r->dcfn) { void **sl = rt_pl_dc_slot(i); if (sl) *sl = r->dcfn; }
-      if (r->flags & 8) p->is_generator = 1;
-      p->self_save = (r->flags & 64) ? 1 : 0;
-      if (r->flags & 32) p->pinned = 1; }
+    {
+        unsigned h = rt_proc_fnv(r->name);
+        int i = rt_proc_hash_lookup_h(r->name, h);
+        rt_proc_t *p;
+        if (i < 0) {
+            rt_gen_proc_grow();
+            if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
+            i = g_rt_gen_proc_count++;
+            p = &g_rt_gen_procs[i];
+            p->name = r->name;
+            p->stage_var = rt_eval_stage_is_var(r->name);
+            p->fn = NULL;
+            p->pnames = (const char **)r->pnames;
+            p->nparams = r->nparams;
+            p->frame_nslots = -1;
+            p->decl_level = 0;
+            p->alpha_slot = -1;
+            p->byref_mask = 0;
+            p->frame_bytes = 0;
+            p->pcells = (DESCR_t **)0;
+            p->rcell = (DESCR_t *)0;
+            p->cells_done = 0;
+            p->is_generator = 0;
+            p->dyn_scope = 0;
+            p->result_name = (const char *)0;
+            p->is_variadic = 0;
+            p->rest_kind = 0;
+            p->named_rest = 0;
+            p->jmp_entry = 0;
+            p->zstatic = 0;
+            p->pnames_owned = 0;
+            p->nformals = 0;
+            p->gen_region_ft = 0;
+            p->redefined = 0;
+            p->pinned = 0;
+            if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) rt_proc_hash_insert(i);
+            else rt_proc_hash_seed_h(i, h);
+        } else {
+            p = &g_rt_gen_procs[i];
+            if (r->flags & 1) {
+                if (r->pnames) p->pnames = (const char **)r->pnames;
+                if (r->nparams) p->nparams = r->nparams;
+                p->cells_done = 0;
+                p->nformals = 0;
+                p->redefined = 1;
+            } else if (r->pnames && !p->pnames) {
+                p->pnames = (const char **)r->pnames;
+                p->pnames_owned = 0;
+            }
+        }
+        if (r->flags & 1) { p->dyn_scope = 1; if (r->result_name) { p->result_name = r->result_name; p->cells_done = 0; } }
+        if (r->fn) p->fn = (bb_box_fn)r->fn;
+        p->nparams = r->nparams;
+        p->nformals = r->nformals;
+        if (r->frame_bytes > p->frame_bytes) p->frame_bytes = r->frame_bytes;
+        if (r->flags & 2) p->zstatic = 1;
+        if (r->flags & 4) p->is_variadic = 1;
+        if (r->rest_kind) p->rest_kind = r->rest_kind;
+        if (r->named_rest) p->named_rest = r->named_rest;
+        p->jmp_entry = (r->flags >> 4) & 1;
+        if (r->dcfn) { void **sl = rt_pl_dc_slot(i); if (sl) *sl = r->dcfn; }
+        if (r->flags & 8) p->is_generator = 1;
+        p->self_save = (r->flags & 64) ? 1 : 0;
+        if (r->flags & 32) p->pinned = 1;
+    }
 }
