@@ -740,28 +740,6 @@ static DESCR_t sort_impl(DESCR_t arr, DESCR_t col, int rev) {
 DESCR_t sort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 0); }
 DESCR_t rsort_fn(DESCR_t arr, DESCR_t col) { return sort_impl(arr, col, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define RT_CAS_ISLAND_INIT ((size_t)8u << 20)
-#define RT_CAS_DFX_MAX      (1 << 14)
-#define RT_CAS_DCF_MAX      (1 << 14)
-static char  *g_cas_base = 0;
-static size_t g_cas_used = 0;
-static size_t g_cas_cap = 0;
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void *rt_cas_carve(size_t bytes)
-{
-    extern void *rt_slab_region(size_t);
-    bytes = (bytes + 15u) & ~(size_t)15u;
-    if (!g_cas_base || g_cas_used + bytes > g_cas_cap) {
-        size_t want = g_cas_cap ? g_cas_cap * 2 : RT_CAS_ISLAND_INIT;
-        while (want < bytes) want *= 2;
-        g_cas_base = (char *)rt_slab_region(want);
-        if (!g_cas_base) { fprintf(stderr, "rt_cas: island reserve of %zu bytes failed\n", want); abort(); }
-        g_cas_cap = want; g_cas_used = 0;
-    }
-    void *p = g_cas_base + g_cas_used; g_cas_used += bytes; memset(p, 0, bytes);
-    return p;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 uint64_t g_scan_hit_start = 0;
 uint64_t g_sno_defer_cells[4096];
 static int g_sno_defer_pair_hwm = 0;
@@ -806,10 +784,10 @@ int rt_cap_poison(void) { static int v = -1; if (v < 0) { const char *e = getenv
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_cap_slice_on(void) { static int v = -1; if (v < 0) { const char *e = getenv("SCRIP_CAP_SLICE"); v = (e && *e == '0') ? 0 : 1; } return v; }
-typedef struct { const char *cur; const char *top; const char *subj; DESCR_t pending; const char *star; int nsb; short how; short rc; int wsv; uint32_t asv; } rt_dcf_t;
+typedef struct { DESCR_t pending; uint32_t subj_v, subj_len; const char *subj; uint32_t star_v, star_len; const char *star; uint32_t cur_v, cur_pad; const char *cur; uint32_t top_v, top_pad; const char *top;
+                 uint32_t nhr_v, nhr_pad; int nsb; short how; short rc; uint32_t wa_v, wa_pad; int wsv; uint32_t asv; } rt_dcf_t;
 typedef struct { long fn; long how; } rt_dcap_next_t;
 _Static_assert(sizeof(rt_dcap_next_t) == 16, "bb_match_end reads the pump result as rax = entry (0 done, 1 refuse) and rdx = protocol (2 = the alpha tiny record, else wires)");
-__attribute__((visibility("hidden"))) rt_dcf_t *g_dcf; __attribute__((visibility("hidden"))) int g_dcf_top; __attribute__((visibility("hidden"))) int g_dcf_cap;
 extern uint32_t g_cap_gen;
 __attribute__((visibility("hidden"))) uint32_t g_cap_abort_gen;
 #if RT_DIAG
@@ -817,13 +795,11 @@ __attribute__((visibility("hidden"))) int g_dcap_trace = -1;
 #else
 __attribute__((visibility("hidden"))) int g_dcap_trace = 0;
 #endif
-_Static_assert(sizeof(rt_dcf_t) == 64, "rtx_match.s rt_dcap_end_ok_open hardcodes stride 64 for rt_dcf_t (shl 6) and zeroes +40..+63");
-_Static_assert(offsetof(rt_dcf_t, star) == 40 && offsetof(rt_dcf_t, nsb) == 48 && offsetof(rt_dcf_t, how) == 52 && offsetof(rt_dcf_t, rc) == 54 && offsetof(rt_dcf_t, wsv) == 56 && offsetof(rt_dcf_t, asv) == 60, "rtx_match.s rt_dcap_end_ok_open zeroes the box-driven call record at +40 +48 +56 as three qwords");
-_Static_assert(offsetof(rt_dcf_t, cur) == 0, "rtx_match.s RTX-8 slice 8 hardcodes cur at +0");
-_Static_assert(offsetof(rt_dcf_t, top) == 8, "rtx_match.s RTX-8 slice 8 hardcodes top at +8");
-_Static_assert(offsetof(rt_dcf_t, subj) == 16, "rtx_match.s RTX-8 slice 8 hardcodes subj at +16");
-_Static_assert(offsetof(rt_dcf_t, pending) == 24, "rtx_match.s RTX-8 slice 8 hardcodes pending at +24");
-_Static_assert(sizeof(DESCR_t) == 16, "rtx_match.s RTX-8 slice 8 stores pending as v/slen qword + s qword");
+_Static_assert(sizeof(rt_dcf_t) == 112, "bb_match_end.cpp release_pump carves the commit-pump record as 112 bytes of spine: seven cells");
+_Static_assert(offsetof(rt_dcf_t, pending) == 0 && offsetof(rt_dcf_t, subj_v) == 16 && offsetof(rt_dcf_t, subj) == 24 && offsetof(rt_dcf_t, star_v) == 32 && offsetof(rt_dcf_t, star) == 40, "rtx_match.s rt_dcap_end_ok_open writes pending at +0 and the subject and star DT_S cells at +16 and +32");
+_Static_assert(offsetof(rt_dcf_t, cur_v) == 48 && offsetof(rt_dcf_t, cur) == 56 && offsetof(rt_dcf_t, top_v) == 64 && offsetof(rt_dcf_t, top) == 72, "rtx_match.s rt_dcap_end_ok_open writes the cursor and top DT_I cells at +48 and +64");
+_Static_assert(offsetof(rt_dcf_t, nhr_v) == 80 && offsetof(rt_dcf_t, nsb) == 88 && offsetof(rt_dcf_t, how) == 92 && offsetof(rt_dcf_t, rc) == 94 && offsetof(rt_dcf_t, wa_v) == 96 && offsetof(rt_dcf_t, wsv) == 104 && offsetof(rt_dcf_t, asv) == 108, "rtx_match.s rt_dcap_end_ok_open writes the two DT_I flag cells at +80 and +96 with their payloads zero");
+_Static_assert(sizeof(DESCR_t) == 16 && DT_S == 2 && DT_I == 3, "rtx_match.s rt_dcap_end_ok_open stores the cell tags as imm32 qwords");
 #define RT_DCAP_NVCACHE_N 16
 static const char *g_dcap_nv_key[RT_DCAP_NVCACHE_N];
 static DESCR_t     *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
@@ -863,14 +839,13 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
+__attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c)
 {
     extern long rt_proc_call_open(const char *name, int nargs);
     extern int rt_g_want_name;
     extern int g_protected_pat_vars_armed;
     if (g_cap_abort_gen && g_cap_abort_gen == g_cap_gen) { g_cap_abort_gen = 0; return (rt_dcap_next_t){ 1, 0 }; }
-    if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+    if (!c) { rt_bomb("rt_dcap_pump: no spine record -- release_pump carves one before rt_dcap_end_ok_open"); return (rt_dcap_next_t){ 1, 0 }; }
 #if RT_DIAG
     int _cva = comm_var_active();
     int _prev_star = 0;
@@ -886,8 +861,8 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
         { extern int Σlen;
           long long _end = (long long)e->saved_delta + (long long)len;
           if (len > Σlen || _end > (long long)Σlen) {
-              fprintf(stderr, "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu end=%lld exceeds subject length %d (target '%s', frame depth %d). Deferred re-entry invalidated the outer frame; capture skipped rather than reading out of bounds.\n",
-                      len, (unsigned long long)e->saved_delta, _end, Σlen, ecell ? "(a variable's cell)" : !e->varname ? "(null)" : (e->varname[0] == '*' && (unsigned char)e->varname[1] == 1) ? ((const sno_dstar_rec_t *)(const void *)e->varname)->star : e->varname, g_dcf_top);
+              fprintf(stderr, "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu end=%lld exceeds subject length %d (target '%s'). Deferred re-entry invalidated the outer frame; capture skipped rather than reading out of bounds.\n",
+                      len, (unsigned long long)e->saved_delta, _end, Σlen, ecell ? "(a variable's cell)" : !e->varname ? "(null)" : (e->varname[0] == '*' && (unsigned char)e->varname[1] == 1) ? ((const sno_dstar_rec_t *)(const void *)e->varname)->star : e->varname);
               c->cur += sizeof(rt_dcap_e);
               c->rc = 1;
               continue; } }
@@ -955,54 +930,51 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(void)
     return (rt_dcap_next_t){ (long)c->rc, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj)
+rt_dcap_next_t c_rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj, rt_dcf_t *c)
 {
 #if RT_DIAG
     { if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; } if (g_dcap_trace) fprintf(stderr, "[DCAP] end_ok n=%ld\n", (long)((top - mark) / (long)sizeof(rt_dcap_e))); }
 #endif
-    if (!g_dcf) { g_dcf = (rt_dcf_t *)rt_cas_carve((size_t)RT_CAS_DCF_MAX * sizeof(rt_dcf_t)); g_dcf_cap = RT_CAS_DCF_MAX; }
-    if (g_dcf_top >= g_dcf_cap) { fprintf(stderr, "rt_cas: dcf overflow (%d) — raise RT_CAS_DCF_MAX\n", g_dcf_cap); abort(); }
-    rt_dcf_t *c = &g_dcf[g_dcf_top++];
-    c->cur = mark; c->top = top; c->subj = subj; c->pending = NULVCL; c->star = (const char *)0; c->nsb = 0; c->how = 0; c->rc = 0; c->wsv = 0; c->asv = 0;
-    return rt_dcap_pump();
+    if (!c) { rt_bomb("c_rt_dcap_end_ok_open: no spine record -- release_pump carves one before the call"); return (rt_dcap_next_t){ 1, 0 }; }
+    memset(c, 0, sizeof *c);
+    c->pending = NULVCL; c->subj_v = DT_S; c->subj = subj; c->star_v = DT_S; c->star = (const char *)0; c->cur_v = DT_I; c->cur = mark; c->top_v = DT_I; c->top = top; c->nhr_v = DT_I; c->wa_v = DT_I;
+    return rt_dcap_pump(c);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0)
+rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, rt_dcf_t *c)
 {
     extern DESCR_t rt_proc_call_epilogue_γ(DESCR_t, long); extern DESCR_t rt_proc_call_epilogue_named_γ(const char *, long);
     extern DESCR_t rt_nret_fix_tiny(DESCR_t, int); extern void rt_name_save_unwind(int);
-    if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+    if (!c) { rt_bomb("rt_dcap_land_γ: no spine record -- release_pump passes the one it carved"); return (rt_dcap_next_t){ 1, 0 }; }
     int how = c->how & 0x3f;
     DESCR_t nm = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1, (long)((c->how >> 7) & 1))
                : rt_proc_call_epilogue_γ(frame0, (long)((c->how >> 6) & 1));
     if (how == 3) rt_name_save_unwind(c->nsb);
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
-    return rt_dcap_pump();
+    return rt_dcap_pump(c);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_dcap_land_ω(void)
+rt_dcap_next_t rt_dcap_land_ω(rt_dcf_t *c)
 {
     extern DESCR_t rt_proc_call_epilogue_ω(long); extern DESCR_t rt_proc_call_epilogue_named_ω(const char *, long);
     extern DESCR_t rt_ret_faildescr(void); extern void rt_name_save_unwind(int);
-    if (g_dcf_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    rt_dcf_t *c = &g_dcf[g_dcf_top - 1];
+    if (!c) { rt_bomb("rt_dcap_land_ω: no spine record -- release_pump passes the one it carved"); return (rt_dcap_next_t){ 1, 0 }; }
     int how = c->how & 0x3f;
     DESCR_t nm = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1, (long)((c->how >> 7) & 1))
                : rt_proc_call_epilogue_ω((long)((c->how >> 6) & 1));
     if (how == 3) rt_name_save_unwind(c->nsb);
     { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
-    return rt_dcap_pump();
+    return rt_dcap_pump(c);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_dcap_flush(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_flush: dead C-side flush called — the commit flush is box-driven since NCB-1c M3 (rt_dcap_end_ok_open/step/close)\n"); abort(); }
 void rt_dcap_end_ok(void) { fprintf(stderr, "[DCAP] FATAL rt_dcap_end_ok: superseded by the box-driven pump (NCB-1c M3: rt_dcap_end_ok_open/step/close)\n"); abort(); }
 uint32_t g_cap_gen = 1;
 __attribute__((visibility("hidden"))) uint32_t g_cap_gen_next = 1;
-static gv_t g_capo; static int g_capo_top;
-#define CAPO_AT(i, k) (((DESCR_t *)g_capo.p)[(i) * 4 + (k)])
+typedef struct { DESCR_t matched; DESCR_t wsv; DESCR_t asv; DESCR_t nmy; } rt_capo_t;
+_Static_assert(sizeof(rt_capo_t) == 64, "bb_match_capture.cpp carves the computed-name capture record as 64 bytes of spine cells");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name)
 {
@@ -1013,10 +985,12 @@ static long rt_cap_target_finish(DESCR_t nm, DESCR_t matched, int by_name)
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm)
+rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta, int is_imm, rt_capo_t *rec)
 {
     extern rt_dcap_next_t rt_call_open_by_name(const char *, int); extern int rt_proc_is_registered(const char *); extern int rt_g_want_name; extern int rt_g_ret_by_name;
     (void)is_imm;
+    if (!rec) { rt_bomb("c_rt_cap_open: no spine record -- the computed-name capture box carves one before the call"); return (rt_dcap_next_t){ 0, 0 }; }
+    rec->matched = INTVAL(0); rec->wsv = INTVAL(0); rec->asv = INTVAL(0); rec->nmy = INTVAL(0);
     if (!varname || !*varname) return (rt_dcap_next_t){ 0, 0 };
     { int len = cur_delta - saved_delta; if (len < 0) len = 0;
       const char *base = Σ ? Σ + saved_delta : NULL;
@@ -1027,38 +1001,34 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
         if (varname[0] != '*') { rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only"); return (rt_dcap_next_t){ 0, 0 }; }
         { const char *tn = varname + 1; const int nmyield = tn[0] == 'E' && !strncmp(tn, "EXPRNM$", 7); int wsv = rt_g_want_name;
           if (!rt_proc_is_registered(tn)) { rt_g_want_name = 1; DESCR_t nm = NV_GET_fn(tn); rt_g_want_name = wsv; { int by_name = rt_g_ret_by_name || nmyield; rt_g_ret_by_name = 0; return (rt_dcap_next_t){ rt_cap_target_finish(nm, matched, by_name), 0 }; } }
-          gv_reserve(&g_capo, (uint16_t)HB_DVEC, (uint32_t)sizeof(DESCR_t), (uint64_t)(g_capo_top + 1) * 4, "g_capo");
-          CAPO_AT(g_capo_top, 0) = matched; CAPO_AT(g_capo_top, 1) = INTVAL((long long)wsv); CAPO_AT(g_capo_top, 2) = INTVAL((long long)g_cap_abort_gen);
-              CAPO_AT(g_capo_top, 3) = INTVAL((long long)nmyield); g_capo_top++;
+          rec->matched = matched; rec->wsv = INTVAL((long long)wsv); rec->asv = INTVAL((long long)g_cap_abort_gen); rec->nmy = INTVAL((long long)nmyield);
           rt_g_want_name = 1;
           { rt_dcap_next_t n = rt_call_open_by_name(tn, 0);
-            if (!n.fn) { g_capo_top--; rt_g_want_name = wsv; return (rt_dcap_next_t){ 0, 0 }; }
+            if (!n.fn) { rt_g_want_name = wsv; return (rt_dcap_next_t){ 0, 0 }; }
             { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter(tn); }
             return n; } } } }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_cap_land_γ(DESCR_t frame0, long word)
+long rt_cap_land_γ(DESCR_t frame0, long word, rt_capo_t *rec)
 {
     extern DESCR_t rt_call_land_γ(DESCR_t, long); extern int rt_g_want_name; extern int rt_g_ret_by_name;
     DESCR_t nm = rt_call_land_γ(frame0, word);
     { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
-    if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_γ: no open capture\n"); abort(); }
-    g_capo_top--;
-    { DESCR_t matched = CAPO_AT(g_capo_top, 0); int by_name;
-      g_cap_abort_gen = (uint32_t)CAPO_AT(g_capo_top, 2).i; rt_g_want_name = (int)CAPO_AT(g_capo_top, 1).i;
-      by_name = rt_g_ret_by_name || (int)CAPO_AT(g_capo_top, 3).i; rt_g_ret_by_name = 0;
+    if (!rec) { rt_bomb("rt_cap_land_γ: no spine record -- the computed-name capture box passes the one it carved"); return 0; }
+    { DESCR_t matched = rec->matched; int by_name;
+      g_cap_abort_gen = (uint32_t)rec->asv.i; rt_g_want_name = (int)rec->wsv.i;
+      by_name = rt_g_ret_by_name || (int)rec->nmy.i; rt_g_ret_by_name = 0;
       return rt_cap_target_finish(nm, matched, by_name); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_cap_land_ω(long word)
+long rt_cap_land_ω(long word, rt_capo_t *rec)
 {
     extern DESCR_t rt_call_land_ω(long); extern int rt_g_want_name; extern int rt_g_ret_by_name;
     DESCR_t nm = rt_call_land_ω(word);
     { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); }
-    if (g_capo_top <= 0) { fprintf(stderr, "rt_cap_land_ω: no open capture\n"); abort(); }
-    g_capo_top--;
-    g_cap_abort_gen = (uint32_t)CAPO_AT(g_capo_top, 2).i; rt_g_want_name = (int)CAPO_AT(g_capo_top, 1).i; rt_g_ret_by_name = 0;
-    return rt_cap_target_finish(nm, CAPO_AT(g_capo_top, 0), 0);
+    if (!rec) { rt_bomb("rt_cap_land_ω: no spine record -- the computed-name capture box passes the one it carved"); return 0; }
+    g_cap_abort_gen = (uint32_t)rec->asv.i; rt_g_want_name = (int)rec->wsv.i; rt_g_ret_by_name = 0;
+    return rt_cap_target_finish(nm, rec->matched, 0);
 }
 extern const char *Σ;
 extern int Σlen;
@@ -1134,31 +1104,25 @@ void rt_at_cursor(const char *varname, int cur_delta)
 }
 extern const char *Σ;
 extern int Σlen;
-typedef struct { DESCR_t val; int failed; int dtx_used; } rt_dfx_t;
+typedef struct { DESCR_t val; int failed; int dtx_used; int64_t zero; } rt_dfx_t;
 typedef struct { void *fn; long aux; } rt_defer_pr_t;
-__attribute__((visibility("hidden"))) rt_dfx_t *g_dfx;
-__attribute__((visibility("hidden"))) int g_dfx_top, g_dfx_cap;
-_Static_assert(sizeof(rt_dfx_t) == 24, "rtx_match.s strides g_dfx by 24");
+_Static_assert(sizeof(rt_dfx_t) == 32, "bb_match_defer.cpp carves the deferred-expression record as 32 bytes of spine: the value cell and a flags unit whose pointer word stays 0");
 _Static_assert(__builtin_offsetof(rt_dfx_t, val) == 0, "rtx_match.s reads val at +0");
 _Static_assert(__builtin_offsetof(rt_dfx_t, failed) == 16, "rtx_match.s reads failed at +16");
 _Static_assert(__builtin_offsetof(rt_dfx_t, dtx_used) == 20, "rtx_match.s reads dtx_used at +20");
 _Static_assert(sizeof(DESCR_t) == 16, "rtx_match.s assumes the 16-byte DESCR pair");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_push(void) {
-    if (!g_dfx) { g_dfx = (rt_dfx_t *)rt_cas_carve((size_t)RT_CAS_DFX_MAX * sizeof(rt_dfx_t)); g_dfx_cap = RT_CAS_DFX_MAX; }
-    if (g_dfx_top >= g_dfx_cap) { fprintf(stderr, "rt_cas: dfx overflow (%d) — raise RT_CAS_DFX_MAX\n", g_dfx_cap); abort(); }
-    rt_dfx_t *s = &g_dfx[g_dfx_top++]; s->val = NULVCL; s->failed = 0; s->dtx_used = 0; return s;
+static inline __attribute__((always_inline)) rt_dfx_t *rt_dfx_init(rt_dfx_t *s) {
+    if (!s) { rt_bomb("rt_dfx_init: no spine record -- the deferred-expression box carves one before the open"); return s; }
+    s->val = NULVCL; s->failed = 0; s->dtx_used = 0; s->zero = 0; return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_cas_gc_roots(void)
 {
-    extern void rt_gc_visit_descr(DESCR_t *); extern void rt_gc_visit_raw(const char **);
+    extern void rt_gc_visit_raw(const char **);
     long b = 0;
-    gv_gc_root(&g_capo); b += (long)g_capo_top * 4 * (long)sizeof(DESCR_t);
-    for (int i = 0; i < g_dfx_top; i++) { rt_gc_visit_descr(&g_dfx[i].val); b += (long)sizeof(DESCR_t); }
     for (int c = 0; c < 2048; c += 8) { const uint64_t *w = &g_sno_defer_cells[c]; if ((w[0] | w[1] | w[2] | w[3] | w[4] | w[5] | w[6] | w[7]) == 0) continue; for (int i = 0; i < 8; i++) if (w[i]) rt_gc_visit_raw((const char **)&w[i]); }
     for (int i = 0; i < g_sno_defer_pair_hwm; i++) { uint64_t *slot = &g_sno_defer_cells[2048 + i * 2]; if (slot[0] && slot[1]) rt_gc_visit_raw((const char **)&slot[1]); }
-    for (int i = 0; i < g_dcf_top; i++) { rt_dcf_t *c = &g_dcf[i]; rt_gc_visit_descr(&c->pending); rt_gc_visit_raw(&c->cur); rt_gc_visit_raw(&c->top); rt_gc_visit_raw(&c->subj); rt_gc_visit_raw(&c->star); b += (long)sizeof(DESCR_t) + 4 * (long)sizeof(const char *); }
     return b;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1177,10 +1141,10 @@ static DESCR_t rt_defer_expr_value(DESCR_t val)
     return val;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int c_rt_defer_close(int cur_delta)
+int c_rt_defer_close(int cur_delta, rt_dfx_t *sp)
 {
-    if (g_dfx_top <= 0) return -1;
-    rt_dfx_t s = g_dfx[--g_dfx_top];
+    if (!sp) return -1;
+    rt_dfx_t s = *sp;
     if (s.failed) return -1;
     DESCR_t val = s.val;
     if (IS_FAIL_fn(val)) return -1;
@@ -1216,7 +1180,7 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r)
               if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
               return n; }
         }
-        if (r.v == DT_P && r.p) { dtp_fn_of(r.p); if (*(void **)r.p) { g_dfx_top--; return (rt_dcap_next_t){ (long)(uintptr_t)r.p, 4 }; } s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
+        if (r.v == DT_P && r.p) { dtp_fn_of(r.p); if (*(void **)r.p) return (rt_dcap_next_t){ (long)(uintptr_t)r.p, 4 }; s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
         s->val = r;
         return (rt_dcap_next_t){ 0, 0 };
     }
@@ -1224,17 +1188,17 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r)
     return (rt_dcap_next_t){ 0, 0 };
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_open_cell(DESCR_t *cell, int ival_flag)
+rt_dcap_next_t rt_defer_open_cell(DESCR_t *cell, int ival_flag, rt_dfx_t *rec)
 {
-    rt_dfx_t *s = rt_dfx_push();
+    rt_dfx_t *s = rt_dfx_init(rec);
     DESCR_t val = cell ? *cell : NULVCL;
     if (ival_flag) { if (IS_NAMEVAL(val)) val = NV_GET_fn(val.s); else if (IS_NAMEPTR(val)) val = NAME_DEREF_PTR(val); }
     return rt_defer_resolve(s, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag)
+rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag, rt_dfx_t *rec)
 {
-    rt_dfx_t *s = rt_dfx_push();
+    rt_dfx_t *s = rt_dfx_init(rec);
     if (varname && varname[0] == 'F' && !strcmp(varname, "FAIL")) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
     if (varname && varname[0] == '*') { extern void *bb_dstar_rec_intern(const char *, uint32_t); DESCR_t x = NULVCL; x.v = DT_X; x.slen = 0; x.p = bb_dstar_rec_intern(varname, 0u); return rt_defer_resolve(s, x); }
     { DESCR_t val = rt_defer_nv_read(varname ? varname : "");
@@ -1242,32 +1206,32 @@ rt_dcap_next_t rt_defer_open_entry(const char *varname, int ival_flag)
       return rt_defer_resolve(s, val); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_open_rec(sno_dstar_rec_t *r)
+rt_dcap_next_t rt_defer_open_rec(sno_dstar_rec_t *r, rt_dfx_t *rec)
 {
-    rt_dfx_t *s = rt_dfx_push();
+    rt_dfx_t *s = rt_dfx_init(rec);
     DESCR_t x = NULVCL; x.v = DT_X; x.slen = 0; x.p = r;
     return rt_defer_resolve(s, x);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag)
+rt_dcap_next_t rt_patv_defer_open_entry(void *hv, long i, const char *fb, int ival_flag, rt_dfx_t *rec)
 {
-    rt_dfx_t *s = rt_dfx_push();
+    rt_dfx_t *s = rt_dfx_init(rec);
     DESCR_t val; { DTP_t *h = (DTP_t *)hv; if (h && h->snap && i >= 0 && i < h->nsnap) val = h->snap[i]; else val = patv_slot(hv, i, fb, ival_flag); }
     return rt_defer_resolve(s, val);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word)
+rt_dcap_next_t rt_defer_land_γ(DESCR_t frame0, long word, rt_dfx_t *s)
 {
     extern DESCR_t rt_call_land_γ(DESCR_t, long);
-    if (g_dfx_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; DESCR_t r = rt_call_land_γ(frame0, word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
+    if (!s) { rt_bomb("rt_defer_land_γ: no spine record -- the deferred-expression box passes the one it carved"); return (rt_dcap_next_t){ 0, 0 }; }
+    { DESCR_t r = rt_call_land_γ(frame0, word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_dcap_next_t rt_defer_land_ω(long word)
+rt_dcap_next_t rt_defer_land_ω(long word, rt_dfx_t *s)
 {
     extern DESCR_t rt_call_land_ω(long);
-    if (g_dfx_top <= 0) return (rt_dcap_next_t){ 0, 0 };
-    { rt_dfx_t *s = &g_dfx[g_dfx_top - 1]; DESCR_t r = rt_call_land_ω(word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
+    if (!s) { rt_bomb("rt_defer_land_ω: no spine record -- the deferred-expression box passes the one it carved"); return (rt_dcap_next_t){ 0, 0 }; }
+    { DESCR_t r = rt_call_land_ω(word); { extern void rt_eval_stage_leave_word(long); rt_eval_stage_leave_word(word); } return rt_defer_resolve(s, r); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int cset_resolve(DESCR_t arg, const char **out_ptr, int *out_len) {
@@ -1397,9 +1361,9 @@ void *rt_match_value_get_pat_dtp(DESCR_t *pval)
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-long rt_match_value_open(DESCR_t *pval)
+long rt_match_value_open(DESCR_t *pval, rt_dfx_t *rec)
 {
-    rt_dfx_t *s = rt_dfx_push(); if (!s) return 0;
+    rt_dfx_t *s = rt_dfx_init(rec); if (!s) return 0;
     DESCR_t val = pval ? *pval : NULVCL;
     if (IS_FAIL_fn(val)) { s->failed = 1; return 0; }
     s->val = val;

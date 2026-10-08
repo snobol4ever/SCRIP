@@ -4,10 +4,10 @@ extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
 }
-extern "C" int   rt_defer_close            (int cur_delta);
+extern "C" int   rt_defer_close            (int cur_delta, void *rec);
 extern "C" void *rt_match_value_get_pat_fn (DESCR_t *pval);
 extern "C" void *rt_match_value_get_pat_dtp(DESCR_t *pval);
-extern "C" long  rt_match_value_open       (DESCR_t *pval);
+extern "C" long  rt_match_value_open       (DESCR_t *pval, void *rec);
 extern "C" void *dtp_fn_of(void *headv);
 extern uint64_t g_scan_hit_start;
 #include "x86_asm.h"
@@ -37,11 +37,15 @@ std::string bb_match_value() {
          + IF(_.op_zres,  x86("lea",  "rdi", ZOPQ(0, 0)))
          + IF(!_.op_zres, x86("lea",  "rdi", FRQ(_.op_a_slot)))
          + x86_align_enter()
-         + x86("call", "rt_match_value_open", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t *))rt_match_value_open)
+         + x86("sub",  "rsp", 32L)
+         + x86("mov",  "rsi", "rsp")
+         + x86("call", "rt_match_value_open", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t *, void *))rt_match_value_open)
          + x86_align_leave()
          + x86("mov",  "edi", "r14d")
+         + x86("mov",  "rsi", "rsp")
          + x86_align_enter()
-         + x86("call", "rt_defer_close", (uint64_t)(uintptr_t)(void *)(int (*)(int))rt_defer_close)
+         + x86("call", "rt_defer_close", (uint64_t)(uintptr_t)(void *)(int (*)(int, void *))rt_defer_close)
+         + x86("add",  "rsp", 32L)
          + x86_rt_gc_poll_rec_sigma(1)
          + x86_align_leave()
          + x86("test", "eax", "eax")

@@ -7,10 +7,10 @@ extern "C" {
 }
 extern "C" uint64_t rt_match_ctx_restore(uint64_t sig, uint64_t len, uint64_t cell);
 typedef struct { long fn; long how; } rt_dcap_next_t;
-extern "C" rt_dcap_next_t rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj);
-extern "C" rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0);
-extern "C" rt_dcap_next_t rt_dcap_land_ω(void);
-extern "C" void rt_dcap_end_ok_close(void);
+extern "C" rt_dcap_next_t rt_dcap_end_ok_open(const char *mark, const char *top, const char *subj, void *rec);
+extern "C" rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, void *rec);
+extern "C" rt_dcap_next_t rt_dcap_land_ω(void *rec);
+#define DCF_RECORD_BYTES 112L
 extern "C" long zvo_owner_dout(int cur_head);
 #include "x86_asm.h"
 #define rfc() (_.op_fc_disp >= 0)
@@ -43,27 +43,31 @@ static std::string release_pump() {
     return std::string()
          + x86_xfer_enter()
          + x86_anchor_enter()
+         + x86("sub",  "rsp", DCF_RECORD_BYTES)
          + x86("note", "cas_mark")
          + x86("mov",  "rdi", RDQ("rbp", -8))
          + x86("mov",  "rsi", "r12")
          + x86("mov",  "rdx", "r13")
-         + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, const char *, const char *))rt_dcap_end_ok_open)
+         + x86("mov",  "rcx", "rsp")
+         + x86("call", "rt_dcap_end_ok_open", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, const char *, const char *, void *))rt_dcap_end_ok_open)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("def",  L(1))
          + x86("cmp",  "rax", 1L)
          + x86("jbe",  L(2))
          + bb_glue_enter_c2bb(20, 8, 9)
          + x86("def",  L(8))
-         + x86("call", "rt_dcap_land_γ", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t))rt_dcap_land_γ)
+         + x86("mov",  "rdx", "rsp")
+         + x86("call", "rt_dcap_land_γ", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t, void *))rt_dcap_land_γ)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("jmp",  L(1))
          + x86("def",  L(9))
-         + x86("call", "rt_dcap_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void))rt_dcap_land_ω)
+         + x86("mov",  "rdi", "rsp")
+         + x86("call", "rt_dcap_land_ω", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *))rt_dcap_land_ω)
          + x86_rt_gc_poll_rec_sigma_word(1)
          + x86("jmp",  L(1))
          + x86("def",  L(2))
+         + x86("add",  "rsp", DCF_RECORD_BYTES)
          + x86("mov",  RDQ("rsp", 0), "rax")
-         + x86("call", "rt_dcap_end_ok_close", (uint64_t)(uintptr_t)(void *)(void (*)(void))rt_dcap_end_ok_close)
          + x86("note", HKN(1))
          + x86("mov",  "rdi", RDQ("rbp", -16))
          + x86("note", HKN(3))

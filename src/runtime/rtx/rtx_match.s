@@ -17,20 +17,13 @@ RTX_FUNC(rt_cap_match_begin)
 RTX_ENDF(rt_cap_match_begin)
 RTX_FUNC(rt_defer_close)
     RTX_GATE(match, .Ldc_c)
-    mov     eax, dword ptr [rip + g_dfx_top]
-    test    eax, eax
-    jle     .Ldc_empty
-    mov     rsi, qword ptr [rip + g_dfx]
     test    rsi, rsi
-    jz      .Ldc_c
-    lea     ecx, [rax - 1]
-    lea     rcx, [rcx + rcx*2]
-    lea     rsi, [rsi + rcx*8]
+    jz      .Ldc_empty
     cmp     dword ptr [rsi + 16], 0
-    jne     .Ldc_pop_fail
+    jne     .Ldc_fail
     mov     ecx, dword ptr [rsi]
     cmp     cl, DT_FAIL
-    je      .Ldc_pop_fail
+    je      .Ldc_fail
     cmp     cl, DT_S
     je      .Ldc_str
     cmp     cl, DT_SNUL
@@ -44,7 +37,6 @@ RTX_FUNC(rt_defer_close)
     mov     rdx, qword ptr [rsi + 8]
     test    rdx, rdx
     jz      .Ldc_c
-    sub     dword ptr [rip + g_dfx_top], 1
     mov     rsi, qword ptr [rip + Σlen@GOTPCREL]
     mov     esi, dword ptr [rsi]
     mov     eax, edi
@@ -72,8 +64,6 @@ RTX_FUNC(rt_defer_close)
     pop     rdi
     jne     .Ldc_fail
     ret
-.Ldc_pop_fail:
-    sub     dword ptr [rip + g_dfx_top], 1
 .Ldc_fail:
 .Ldc_empty:
     mov     eax, -1
@@ -158,36 +148,28 @@ RTX_FUNC(rt_dcap_end_ok_open)
     cmp     dword ptr [rip + g_dcap_trace], 0
     jne     .Ldeoo_c
 #endif
-    mov     rax, qword ptr [rip + g_dcf]
-    test    rax, rax
+    test    rcx, rcx
     jz      .Ldeoo_c
-    mov     ecx, dword ptr [rip + g_dcf_top]
-    cmp     ecx, dword ptr [rip + g_dcf_cap]
-    jge     .Ldeoo_c
-.Ldeoo_mutate:
-    shl     rcx, 6
-    add     rax, rcx
-    inc     dword ptr [rip + g_dcf_top]
-    mov     qword ptr [rax + 0], rdi
-    mov     qword ptr [rax + 8], rsi
-    mov     qword ptr [rax + 16], rdx
-    mov     qword ptr [rax + 24], 0
-    lea     rcx, [rip + .Lrtx_dfx_nul]
-    mov     qword ptr [rax + 32], rcx
-    mov     qword ptr [rax + 40], 0
-    mov     qword ptr [rax + 48], 0
-    mov     qword ptr [rax + 56], 0
+    mov     qword ptr [rcx + 0], 0
+    lea     rax, [rip + .Lrtx_dfx_nul]
+    mov     qword ptr [rcx + 8], rax
+    mov     qword ptr [rcx + 16], DT_S
+    mov     qword ptr [rcx + 24], rdx
+    mov     qword ptr [rcx + 32], DT_S
+    mov     qword ptr [rcx + 40], 0
+    mov     qword ptr [rcx + 48], DT_I
+    mov     qword ptr [rcx + 56], rdi
+    mov     qword ptr [rcx + 64], DT_I
+    mov     qword ptr [rcx + 72], rsi
+    mov     qword ptr [rcx + 80], DT_I
+    mov     qword ptr [rcx + 88], 0
+    mov     qword ptr [rcx + 96], DT_I
+    mov     qword ptr [rcx + 104], 0
+    mov     rdi, rcx
     RTX_CTAIL(rt_dcap_pump)
 .Ldeoo_c:
     RTX_CTAIL(c_rt_dcap_end_ok_open)
 RTX_ENDF(rt_dcap_end_ok_open)
-RTX_FUNC(rt_dcap_end_ok_close)
-    cmp     dword ptr [rip + g_dcf_top], 0
-    jle     .Lrtx_deoc_ret
-    dec     dword ptr [rip + g_dcf_top]
-.Lrtx_deoc_ret:
-    ret
-RTX_ENDF(rt_dcap_end_ok_close)
 RTX_FUNC(rt_match_replace)
     RTX_GATE(match, .Lmr_c)
 #if RT_DIAG

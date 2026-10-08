@@ -10,8 +10,8 @@ extern "C" long rt_cap_open_plain(const char *varname, int saved_delta, int cur_
 extern "C" void *rt_proc_open_fn(void);
 extern "C" DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
 extern "C" DESCR_t rt_proc_call_epilogue_ω(long touched);
-extern "C" long rt_cap_land_γ(DESCR_t frame0, long word);
-extern "C" long rt_cap_land_ω(long word);
+extern "C" long rt_cap_land_γ(DESCR_t frame0, long word, void *rec);
+extern "C" long rt_cap_land_ω(long word, void *rec);
 extern "C" long rt_cap_open_gva(DESCR_t *cell, int saved_delta, int cur_delta, const char *varname);
 extern "C" int is_protected_pat_name(const char *name);
 extern "C" int gva_name_hidden(const char *name);
@@ -29,6 +29,10 @@ extern "C" const char * bb_ab_sym_name(const char * nm);
     : (const void *)(long (*)(const char *, int, int, int))rt_cap_open \
 )
 #define cap_gva() (sn4_cap_gva() && g_gva_active && _.op_gva_k >= 0 && cap_name_plain() && !is_protected_pat_name(_.op_sval))
+#define CAPO_RECORD_BYTES 64L
+static std::string capo_carve() { return cap_name_plain() ? std::string() : x86("sub", "rsp", CAPO_RECORD_BYTES); }
+static std::string capo_free() { return cap_name_plain() ? std::string() : x86("add", "rsp", CAPO_RECORD_BYTES); }
+static std::string capo_arg(const char * reg64, const char * reg32) { return cap_name_plain() ? (reg32 ? x86("xor", reg32, reg32) : std::string()) : x86("mov", reg64, "rsp"); }
 static std::string gva_cell_addr(int k) { return std::string("[" RTCC_GVA_REG " + ") + std::to_string(k * 16) + "]"; }
 static std::string cap_imm_gva(const std::string & homeop) {
     return x86("comment", "IR_MATCH_CAPTURE_IMM gva")
@@ -147,10 +151,12 @@ std::string bb_match_capture() {
            + x86_alpha()
            + x86("mov",  "eax", CFC(0))
            + x86_anchor_enter()
+           + capo_carve()
            + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
+           + capo_arg("r8", (const char *)0)
            + x86("call", cap_open_sym(), (uint64_t)(uintptr_t)cap_open_fp())
            + x86_rt_gc_poll()
            + (cap_fail_retreat()
@@ -161,11 +167,13 @@ std::string bb_match_capture() {
            + x86("je",   L(1))
          + bb_glue_enter_c2bb(10, 2, 3)
            + x86("def",  L(2))
-           + x86("call", "rt_cap_land_γ", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t, long))rt_cap_land_γ)
+           + capo_arg("rcx", "ecx")
+           + x86("call", "rt_cap_land_γ", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t, long, void *))rt_cap_land_γ)
            + x86_rt_gc_poll()
            + x86("jmp",  L(1))
            + x86("def",  L(3))
-           + x86("call", "rt_cap_land_ω", (uint64_t)(uintptr_t)(void *)(long (*)(long))rt_cap_land_ω)
+           + capo_arg("rsi", "esi")
+           + x86("call", "rt_cap_land_ω", (uint64_t)(uintptr_t)(void *)(long (*)(long, void *))rt_cap_land_ω)
            + x86("push", "rax")
            + x86("push", "rax")
            + x86_rt_gc_poll()
@@ -174,10 +182,11 @@ std::string bb_match_capture() {
            + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1)
            + x86("je", L(4))) : std::string())
            + x86("def",  L(1))
+           + capo_free()
            + x86_anchor_leave()
            + x86_gamma()
            + x86_beta_trampoline()
-           + (cap_fail_retreat() ? (x86("def", L(4)) + x86_anchor_leave() + x86_omega()) : std::string()) )
+           + (cap_fail_retreat() ? (x86("def", L(4)) + capo_free() + x86_anchor_leave() + x86_omega()) : std::string()) )
          : (int)_.op_phase == 2 && _.op_frame_need
          ? ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: hazard crosses a DEFER-unsafe boundary but op_cap_frame_off is unavailable -- CAPTURE never pushes its own activation frame (s88 revert), see "
@@ -190,10 +199,12 @@ std::string bb_match_capture() {
            + x86_alpha()
            + x86("mov",  "eax", readhome())
            + x86_anchor_enter()
+           + capo_carve()
            + x86("lea",  "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), x86_strtab_lbl((_.op_sval ? _.op_sval : "")).c_str())
            + x86("mov",  "esi", "eax")
            + x86("mov",  "edx", "r14d")
            + x86("mov",  "ecx", (long)1)
+           + capo_arg("r8", (const char *)0)
            + x86("call", cap_open_sym(), (uint64_t)(uintptr_t)cap_open_fp())
            + x86_rt_gc_poll()
            + (cap_fail_retreat()
@@ -204,11 +215,13 @@ std::string bb_match_capture() {
            + x86("je",   L(1))
          + bb_glue_enter_c2bb(10, 2, 3)
            + x86("def",  L(2))
-           + x86("call", "rt_cap_land_γ", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t, long))rt_cap_land_γ)
+           + capo_arg("rcx", "ecx")
+           + x86("call", "rt_cap_land_γ", (uint64_t)(uintptr_t)(void *)(long (*)(DESCR_t, long, void *))rt_cap_land_γ)
            + x86_rt_gc_poll()
            + x86("jmp",  L(1))
            + x86("def",  L(3))
-           + x86("call", "rt_cap_land_ω", (uint64_t)(uintptr_t)(void *)(long (*)(long))rt_cap_land_ω)
+           + capo_arg("rsi", "esi")
+           + x86("call", "rt_cap_land_ω", (uint64_t)(uintptr_t)(void *)(long (*)(long, void *))rt_cap_land_ω)
            + x86("push", "rax")
            + x86("push", "rax")
            + x86_rt_gc_poll()
@@ -217,10 +230,11 @@ std::string bb_match_capture() {
            + (cap_fail_retreat() ? (x86("cmp", "rax", (long)-1)
            + x86("je", L(4))) : std::string())
            + x86("def",  L(1))
+           + capo_free()
            + x86_anchor_leave()
            + x86_gamma()
            + x86_beta_trampoline()
-           + (cap_fail_retreat() ? (x86("def", L(4)) + x86_anchor_leave() + x86_omega()) : std::string()) )
+           + (cap_fail_retreat() ? (x86("def", L(4)) + capo_free() + x86_anchor_leave() + x86_omega()) : std::string()) )
          : ( x86_alpha()
            + x86_bomb("IR_MATCH_CAPTURE_IMM: no home -- neither a ζ-SPINE cell (op_zres) nor a ζ-STANDING slot (frame_need_of: DEFER-hazard / ALT-arm "
                       "classes); classifier and ZD plan disagree on this node -- the legacy C rt_cap_top fallback is deliberately not rebuilt (s83)")

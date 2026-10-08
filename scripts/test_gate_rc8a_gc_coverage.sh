@@ -23,12 +23,21 @@
 #   (3) "pz=0 whenever a root region is registered" -- c6bf8e789 (2026-09-19, THE E SWITCH) deleted punt-zero with the
 #       word sweep and the descriptor sniff, and [GC-COV] has printed no pz field since; the old arm read the absent field
 #       as pz=1 and would have called it a FAIL.
-# ⛔ AN UNARMED ARM MEASURED NOTHING, SO IT REFUSES (rc 2), NEVER GREEN: with (1) and (3) retired the CAS arm is the gate.
+#   (2) "the CAS capture-pending island is walked when occupied" -- the coo's match-records landing (CEO-1543/1545/1547, 2026-10-07)
+#       deleted g_capo, g_dcf and g_dfx and the side region they were carved from: each record is now a spine region its own box
+#       carves and pops, typed DESCR cells the stack walk visits, so rt_cas_gc_roots roots none of them and [GC-COV]'s
+#       cas_scanned_bytes reads 0 by construction (802 collections, max 0, on the landing tree; 48 on a954b0d8e before it).
+# ⛔ THE ARM THAT REPLACES IT (4): the *-target capture's record is LIVE on the spine across every collection its deferred
+#   call fires -- f() allocates inside the capture, after the box carved the record and before it lands -- and its matched
+#   cell is read back after the collector moved the subject. The witness builds its subject on the heap and prints the last
+#   captured value (sbl -bf prints "S q"); it runs at SCRIP_GC_STRESS=1 and again with SCRIP_GC_RELOC=1. Armed when the
+#   relocating run read at least one collection; a wrong value is a FAIL, no collection is a REFUSE.
+# ⛔ AN UNARMED ARM MEASURED NOTHING, SO IT REFUSES (rc 2), NEVER GREEN: with (1), (2) and (3) retired arm (4) is the gate.
 #
 # The positive control is a SOURCE CENSUS of SCRIP's own src/ for the un-rooting escape SCRIP_GC_UNROOT. It used to grep
 # "$ROOT/src" with ROOT the CORPUS, which has no src/, so the census read "unreachable" whatever the runtime held.
 # Usage: bash scripts/test_gate_rc8a_gc_coverage.sh
-# Exit: 0 the armed arm walked the island · 1 a FAIL (wrong output, or the escape is back) · 2 could not measure (no binary,
+# Exit: 0 the armed arm read the spine record back · 1 a FAIL (wrong output, or the escape is back) · 2 could not measure (no binary,
 # no collection, unarmed).
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -65,14 +74,33 @@ N=$(grep -c . <<<"$L")
 echo "  witness: inline (the gate's own fixture), printed [$GOT] as sbl -bf does; $N collection(s) read at SCRIP_GC_STRESS=1"
 echo "  [RETIRED] (1) RTCC range registration -- removed by be6b03b5e; the spill block's invariant is test_gate_gc_the_caller_saved_spill_block_never_holds_a_heap_reference.sh"
 echo "  [RETIRED] (3) pz=0 -- punt-zero deleted by c6bf8e789; [GC-COV] prints no pz field"
-# ---- ASSERTION 2: the CAS island is walked when occupied (SELF-ARMING) ---------------------------------
-C=$(grep -o 'cas_scanned_bytes=[0-9]*' <<<"$L" | cut -d= -f2 | sort -n | tail -1)
-if [ "${C:-0}" -gt 0 ]; then
-    echo "  [PASS] CAS island walked at collection (max cas_scanned_bytes=$C over $N collection(s))"
-    if ! grep -rq 'SCRIP_GC_UNROOT' "$SRC" 2>/dev/null; then echo "  [PASS] control (SOURCE CENSUS of $SRC): the cas un-rooting escape is UNREACHABLE — zero SCRIP_GC_UNROOT"; else echo "  [FAIL] control: SCRIP_GC_UNROOT is back in $SRC — the cas arm needs its runtime sabotage control restored"; echo "GATE RC-8a: RED"; exit 1; fi
-    echo "GATE RC-8a: GREEN"; exit 0
-fi
-echo "GATE RC-8a: REFUSE(2) — CAS arm UNARMED: the witness occupied 0 island bytes at all $N collection(s), so nothing was measured."
-echo "         The island is reachable only through the *-target capture form (c_rt_cap_open's varname[0]=='*' arm) with a"
-echo "         collection firing while the capture is pending; the witness above stopped reaching it and the arm needs one that does."
-exit 2
+echo "  [RETIRED] (2) the CAS island walk -- g_capo, g_dcf and g_dfx left the runtime with their side region (CEO-1543/1545/1547); cas_scanned_bytes reads 0 by construction"
+# ---- ASSERTION 4: the *-target capture's spine record survives the collections its deferred call fires (SELF-ARMING) ----
+W2="$T/rc8a_spine_witness.sno"
+cat > "$W2" <<'SNO'
+        DEFINE("f()")                       :(f_end)
+f       i = 0
+floop   i = i + 1
+        s = s DUPL('y', 64)
+        LT(i, 200)                          :S(floop)
+        f = .dummy                          :(NRETURN)
+f_end
+        subj = DUPL('x', 2) 'q' 'z'
+        pat = ARBNO(LEN(1) . *f()) 'z'
+        subj ? pat                          :F(FF)
+        OUTPUT = 'S ' dummy                 :(END)
+FF      OUTPUT = 'F'
+END
+SNO
+WANT2='S q'   # sbl -bf prints "S q" (the coo 2026-10-07)
+for E in "" "SCRIP_GC_RELOC=1"; do
+    ( cd "$T" && env SCRIP_GC_COVERAGE=1 SCRIP_GC_STRESS=1 $E timeout 60s "$SCRIP" --run "$W2" < /dev/null 2> "$T/err2" > "$T/out2"; echo "rc=$?" > "$T/rc2" )
+    G2=$(cat "$T/out2" 2>/dev/null); N2=$(grep -c "GC-COV" "$T/err2"); K="${E:-plain}"
+    [ "$(cat "$T/rc2")" = rc=124 ] && { echo "GATE RC-8a: REFUSE(2) — the spine witness ran past 60 s ($K), so nothing was measured"; exit 2; }
+    [ "$(cat "$T/rc2")" = rc=0 ] && [ "$G2" = "$WANT2" ] || { echo "  [FAIL] (4, $K) the spine witness printed [$G2] with $(cat "$T/rc2"); want [$WANT2] rc=0 (sbl -bf): a collection inside the deferred call broke the capture record"; echo "GATE RC-8a: RED"; exit 1; }
+    [ "$N2" -gt 0 ] || { echo "GATE RC-8a: REFUSE(2) — arm (4) UNARMED ($K): no collection fired inside the deferred call, so the live record was never measured"; exit 2; }
+    echo "  [PASS] (4, $K) the *-target capture record read back [$G2] across $N2 collection(s) fired inside its deferred call"
+done
+if grep -rq 'SCRIP_GC_UNROOT' "$SRC" 2>/dev/null; then echo "  [FAIL] control: SCRIP_GC_UNROOT is back in $SRC — the un-rooting escape needs its runtime sabotage control restored"; echo "GATE RC-8a: RED"; exit 1; fi
+echo "  [PASS] control (SOURCE CENSUS of $SRC): the un-rooting escape is UNREACHABLE — zero SCRIP_GC_UNROOT"
+echo "GATE RC-8a: GREEN"; exit 0
