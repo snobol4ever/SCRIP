@@ -3662,7 +3662,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
             for (int k = 0; k < np && (k + param_start) < proc->n; k++) {
                 stage2_scope_reserve(sc, sc->n + 1);
                 const tree_t *pv = proc->c[k + param_start];
-                if (!pv || !pv->v.sval) continue;
+                if (!pv || pv->t != TT_VAR || !pv->v.sval) continue;
                 sc->e[sc->n].name = lp_strdup(pv->v.sval);
                 sc->e[sc->n].slot = sc->n;
                 sc->n++;
