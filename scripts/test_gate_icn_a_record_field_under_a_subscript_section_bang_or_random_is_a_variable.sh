@@ -12,7 +12,8 @@
 # lower_lvalue_var, which already lowers a field to IR_FIELD_VAR; the runtime's trapped substring over a field variable
 # was already correct.
 #
-# ARMS. (1) STRUCTURE: the four sites name TT_FIELD. (2) BEHAVIOUR, both media, against the LIVE oracle (icont/iconx
+# ARMS. (1) STRUCTURE: the four sites name TT_FIELD (the ? site read as statements, whitespace folded, so a re-flow of its lines
+# cannot blind it, CEO-1565). (2) BEHAVIOUR, both media, against the LIVE oracle (icont/iconx
 # 9.5.25a): a ten-line witness of subscript, section, swap, !, ? and nested-list assignments through record fields and
 # list elements -- stdout byte-identical and exit status 0. A witness the oracle does not run refuses the gate.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -27,7 +28,7 @@ RC=0
 LI="$ROOT/src/lower/lower_icon.c"; [ -f "$LI" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing $LI"; exit 2; }
 echo "  HOLDS: a record field under a subscript, a section, ! or ? in an assignable position is a variable, as iconx has it"
 sites=$(grep -c 'b0->t == TT_SECTION_MINUS.*b0->t == TT_FIELD' "$LI")
-rnd=$(sed -n '/if (t->t == TT_RANDOM && t->n > 0 && t->c\[0\]) {/,/\*var_res = rn; return ae;/p' "$LI" | grep -c 'b0->t == TT_FIELD) { IR_t \* e2 = lower_lvalue_var(cx, b0, ω, &ar);')
+rnd=$(sed -n '/if (t->t == TT_RANDOM && t->n > 0 && t->c\[0\]) {/,/return ae;/p' "$LI" | tr -s ' \n' '  ' | grep -o 'b0->t == TT_FIELD) { IR_t \* e2 = lower_lvalue_var(cx, b0, ω, &ar);' | wc -l)
 if [ "$sites" = 4 ] && [ "$rnd" = 1 ]; then echo "  arm 1 PASS: the subscript, section, ! and ? sites all send a record field down the variable path"
 else echo "  arm 1 FAIL: sites_naming_a_field=$sites random_site=$rnd (want 4 1)"; RC=1; fi
 cat > "$T/w.icn" <<'EOF'
