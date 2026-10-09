@@ -29,25 +29,25 @@ static std::string disj_sigma_copy() {
     return r + x86_gamma();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string disj_choice_open() {
-    return IF(x86_fb_pinned(),
-               x86("mov", FRQ(_.op_off + 24), "r12")
-             + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227));
-}
+#define disj_choice_open() ( \
+      IF(x86_fb_pinned(), \
+      x86("mov", FRQ(_.op_off + 24), "r12") \
+    + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227)) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string disj_step_unwind() {
-    return IF(!x86_fb_pinned(),
-               std::string())
-         + IF(!(!x86_fb_pinned()),
-               x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201));
-}
+#define disj_step_unwind() ( \
+      IF(!x86_fb_pinned(), \
+          std::string()) \
+    + IF(!(!x86_fb_pinned()), \
+          x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201)) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string disj_step_ball() {
-    return IF(!x86_fb_pinned(),
-               std::string())
-         + IF(!(!x86_fb_pinned()),
-               x86("test", "r15", "r15") + x86_omega("jne"));
-}
+#define disj_step_ball() ( \
+      IF(!x86_fb_pinned(), \
+          std::string()) \
+    + IF(!(!x86_fb_pinned()), \
+          x86("test", "r15", "r15") + x86_omega("jne")) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_disjunction() {
     x86_begin();

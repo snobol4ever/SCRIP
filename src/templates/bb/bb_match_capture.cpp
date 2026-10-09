@@ -30,10 +30,14 @@ extern "C" const char * bb_ab_sym_name(const char * nm);
 )
 #define cap_gva() (sn4_cap_gva() && g_gva_active && _.op_gva_k >= 0 && cap_name_plain() && !is_protected_pat_name(_.op_sval))
 #define CAPO_RECORD_BYTES 64L
-static std::string capo_carve() { return cap_name_plain() ? std::string() : x86("sub", "rsp", CAPO_RECORD_BYTES); }
-static std::string capo_free() { return cap_name_plain() ? std::string() : x86("add", "rsp", CAPO_RECORD_BYTES); }
-static std::string capo_arg(const char * reg64, const char * reg32) { return cap_name_plain() ? (reg32 ? x86("xor", reg32, reg32) : std::string()) : x86("mov", reg64, "rsp"); }
-static std::string gva_cell_addr(int k) { return std::string("[" RTCC_GVA_REG " + ") + std::to_string(k * 16) + "]"; }
+#define capo_carve() (cap_name_plain() ? std::string() : x86("sub", "rsp", CAPO_RECORD_BYTES))
+#define capo_free() (cap_name_plain() ? std::string() : x86("add", "rsp", CAPO_RECORD_BYTES))
+#define capo_arg(reg64, reg32) ( \
+      cap_name_plain() \
+    ? ((reg32) ? x86("xor", (reg32), (reg32)) : std::string()) \
+    : x86("mov", (reg64), "rsp") \
+)
+#define gva_cell_addr(k) (std::string("[" RTCC_GVA_REG " + ") + std::to_string((k) * 16) + "]")
 static std::string cap_imm_gva(const std::string & homeop) {
     return x86("comment", "IR_MATCH_CAPTURE_IMM gva")
          + x86_alpha()

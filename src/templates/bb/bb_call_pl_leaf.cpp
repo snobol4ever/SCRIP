@@ -107,13 +107,17 @@ static std::string pl_cold_call(const char * sym, void * fp, int narg, int argba
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string pl_ok_store(int resoff) { return x86("def", L(PL_L_OK))
-                                                  + x86("mov", FRQ(resoff), (long)DT_I)
-                                                  + x86("mov", FRQ(resoff + 8), (long)1) + x86_gamma(); }
-static std::string pl_fail_store(int resoff) { return x86("def", L(PL_L_FAIL))
-                                                    + x86("mov", FRQ(resoff), (long)DT_FAIL)
-                                                    + x86("mov", FRQ(resoff + 8), (long)0) + x86_omega(); }
-static std::string pl_tail() { return x86_gamma() + x86_beta() + x86_omega(); }
+#define pl_ok_store(resoff) ( \
+      x86("def", L(PL_L_OK)) \
+    + x86("mov", FRQ((resoff)), (long)DT_I) \
+    + x86("mov", FRQ((resoff) + 8), (long)1) + x86_gamma() \
+)
+#define pl_fail_store(resoff) ( \
+      x86("def", L(PL_L_FAIL)) \
+    + x86("mov", FRQ((resoff)), (long)DT_FAIL) \
+    + x86("mov", FRQ((resoff) + 8), (long)0) + x86_omega() \
+)
+#define pl_tail() (x86_gamma() + x86_beta() + x86_omega())
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_arm_ax(const char * op, int narg, int argbase, int resoff) {
     int add = !strcmp(op, "add"), sub = !strcmp(op, "sub"), mul = !strcmp(op, "mul"), idiv = !strcmp(op, "idiv"), mod = !strcmp(op, "mod"), rem = !strcmp(op, "rem");
@@ -156,9 +160,7 @@ static std::string pl_arm_ax(const char * op, int narg, int argbase, int resoff)
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * pl_cmp_fail_jcc(const char * op) {
-    return !strcmp(op, "lt") ? "jge" : !strcmp(op, "gt") ? "jle" : !strcmp(op, "le") ? "jg" : !strcmp(op, "ge") ? "jl" : !strcmp(op, "eq") ? "jne" : "je";
-}
+#define pl_cmp_fail_jcc(op) (!strcmp((op), "lt") ? "jge" : !strcmp((op), "gt") ? "jle" : !strcmp((op), "le") ? "jg" : !strcmp((op), "ge") ? "jl" : !strcmp((op), "eq") ? "jne" : "je")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_arm_cmp(const char * op, int argbase, int resoff) {
     std::string s = x86("comment", (std::string("PL-R7 $cmp_") + op + ": two small integers compared inline, rt_pl_cmp_cold behind it").c_str());

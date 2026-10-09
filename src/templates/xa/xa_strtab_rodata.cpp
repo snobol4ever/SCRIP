@@ -18,7 +18,4 @@ static std::string xa_strtab_rodata_str(void) {
              + ".text\n");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void xa_strtab_rodata(void) {
-    std::string s = xa_strtab_rodata_str();
-    if (!s.empty()) emit_text_n(s.data(), s.size());
-}
+extern "C" void xa_strtab_rodata(void) { emit_text_s(xa_strtab_rodata_str()); }

@@ -280,7 +280,7 @@ static std::string zf_pin_restore(int kt) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int zls_g_det_block(const IR_graph_t * g);
-static long zf_det_block_size(void) { return (g_emit_cfg && zls_g_det_block(g_emit_cfg)) ? 16L * g_emit_cfg->nparams : 0L; }
+#define zf_det_block_size() ((g_emit_cfg && zls_g_det_block(g_emit_cfg)) ? 16L * g_emit_cfg->nparams : 0L)
 static std::string zf_release(int kt) {
     if (!x86_fb_pinned()) {
     int np = (g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0;
@@ -303,12 +303,12 @@ static std::string pl_standing_cells_zero(int kt, int n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void *g_rt_gen_procs;
-static std::string xa_flat_pkt_slot_addr(const char * idx64, const char * out, const char * tmp) {
-    return x86("mov", out, idx64) + x86_shift_imm("shl", 4, out, 5)
-         + x86("mov", tmp, idx64) + x86_shift_imm("shl", 4, tmp, 3)
-         + x86("add", out, tmp)
-         + x86("add", out, "r9");
-}
+#define xa_flat_pkt_slot_addr(idx64, out, tmp) ( \
+      x86("mov", (out), (idx64)) + x86_shift_imm("shl", 4, (out), 5) \
+    + x86("mov", (tmp), (idx64)) + x86_shift_imm("shl", 4, (tmp), 3) \
+    + x86("add", (out), (tmp)) \
+    + x86("add", (out), "r9") \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int rt_pl_db_frame_cells(void);
 static std::string xa_flat_pkt_cell_rax(int k) {
@@ -506,9 +506,7 @@ static int xa_flat_class_c(void) {
       return _r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string xa_flat_sig_gq(int gk, int w) {
-    return g_rtcc_on ? std::string(GVARQ(gk, w)) : std::string(ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w));
-}
+#define xa_flat_sig_gq(gk, w) (g_rtcc_on ? std::string(GVARQ((gk), (w))) : std::string(ABSQ(RT_GVA_VA + (unsigned long)(gk) * 16 + (unsigned long)(w))))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out = 0) {
     if (!fname || !fname[0] || g_rt_fragment_emit) return 0;
@@ -523,7 +521,7 @@ static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, 
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_wn_park(const char * fname) { return !g_rt_fragment_emit && fname && fname[0] && !strchr(fname, '$') && strncmp(fname, "LBL__", 5) != 0; }
+#define xa_flat_wn_park(fname) (!g_rt_fragment_emit && (fname) && (fname)[0] && !strchr((fname), '$') && strncmp((fname), "LBL__", 5) != 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_wn_park_str(int kt, const char * fname) {
     extern int rt_g_want_name; extern int rt_g_ret_by_name;

@@ -172,8 +172,8 @@ int rk_is_truthy(DESCR_t v);
    + x86("label", LS(n)) \
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int zoff(const IR_t * nd) { return nd ? zls_off(nd) : -1; }
-static int bcbn_baked_kind(const char * fn, int strict) { return (fn && fn[0] && !x86_is_scan_builtin_name(fn) && strcmp(fn, "tab") && strcmp(fn, "move")) ? bb_callee_baked_kind(fn, strict) : 0; }
+#define zoff(nd) ((nd) ? zls_off((nd)) : -1)
+#define bcbn_baked_kind(fn, strict) (((fn) && (fn)[0] && !x86_is_scan_builtin_name((fn)) && strcmp((fn), "tab") && strcmp((fn), "move")) ? bb_callee_baked_kind((fn), (strict)) : 0)
 extern std::string bb_call_proc_staged_str(IR_t *);
 extern std::string bb_call_fn_str(IR_t *);
 extern std::string bb_call_bool_str(IR_t *);

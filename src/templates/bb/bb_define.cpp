@@ -83,60 +83,60 @@ static std::string bb_define_entry_cell_data(const std::string & lbl, const std:
              + x86("directive", std::string(".intel_syntax noprefix")));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_fnclevel_enter() {
-    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
-         + x86("mov", "rax", RDQ("rax", 0))
-         + x86("add", RDD("rax", 0), (long)1)
-         + x86("mov", "ecx", RDD("rax", 0))
-         + x86("movsxd", "rcx", "ecx")
-         + x86("sub", "rcx", (long)1)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
-         + x86("mov", RDQ("rax", 0), "rcx");
-}
+#define bb_fnclevel_enter() ( \
+      x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p") \
+    + x86("mov", "rax", RDQ("rax", 0)) \
+    + x86("add", RDD("rax", 0), (long)1) \
+    + x86("mov", "ecx", RDD("rax", 0)) \
+    + x86("movsxd", "rcx", "ecx") \
+    + x86("sub", "rcx", (long)1) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel") \
+    + x86("mov", RDQ("rax", 0), "rcx") \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_stno_save(int off) {
-    return x86("comment", "&STNO SAVE (CEO-1543): the CALLER's &STNO/&LINE go into this activation's own frame unit, so RETURN can put them back")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
-         + x86("mov", "rax", RDQ("rax", 0))
-         + x86_rsp_store64(off, "rax")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", "rax", RDQ("rax", 0))
-         + x86_rsp_store64(off + 8, "rax");
-}
-static std::string bb_stno_last_from_callee() {
-    return x86("comment", "&LASTNO/&LASTLINE ON RETURN: the returning function's statement and line become the previous ones, as SPITBOL answers them in the calling statement")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
-         + x86("mov", "rcx", RDQ("rax", 0))
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastno, "g_lastno")
-         + x86("mov", RDQ("rax", 0), "rcx")
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", "rcx", RDQ("rax", 0))
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastline, "g_lastline")
-         + x86("mov", RDQ("rax", 0), "rcx");
-}
+#define bb_stno_save(off) ( \
+      x86("comment", "&STNO SAVE (CEO-1543): the CALLER's &STNO/&LINE go into this activation's own frame unit, so RETURN can put them back") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno") \
+    + x86("mov", "rax", RDQ("rax", 0)) \
+    + x86_rsp_store64((off), "rax") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") \
+    + x86("mov", "rax", RDQ("rax", 0)) \
+    + x86_rsp_store64((off) + 8, "rax") \
+)
+#define bb_stno_last_from_callee() ( \
+      x86("comment", "&LASTNO/&LASTLINE ON RETURN: the returning function's statement and line become the previous ones, as SPITBOL answers them in the calling statement") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno") \
+    + x86("mov", "rcx", RDQ("rax", 0)) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastno, "g_lastno") \
+    + x86("mov", RDQ("rax", 0), "rcx") \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") \
+    + x86("mov", "rcx", RDQ("rax", 0)) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_lastline, "g_lastline") \
+    + x86("mov", RDQ("rax", 0), "rcx") \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_stno_restore(int off) {
-    return x86("comment", "&STNO RESTORE (CEO-1543): the caller's &STNO/&LINE come back from this activation's own frame unit")
-         + bb_stno_last_from_callee()
-         + x86_rsp_load64("rcx", off)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno")
-         + x86("mov", RDQ("rax", 0), "rcx")
-         + x86_rsp_load64("rcx", off + 8)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line")
-         + x86("mov", RDQ("rax", 0), "rcx");
-}
+#define bb_stno_restore(off) ( \
+      x86("comment", "&STNO RESTORE (CEO-1543): the caller's &STNO/&LINE come back from this activation's own frame unit") \
+    + bb_stno_last_from_callee() \
+    + x86_rsp_load64("rcx", (off)) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_stno, "g_stno") \
+    + x86("mov", RDQ("rax", 0), "rcx") \
+    + x86_rsp_load64("rcx", (off) + 8) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&g_line, "g_line") \
+    + x86("mov", RDQ("rax", 0), "rcx") \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_fnclevel_leave() {
-    return x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p")
-         + x86("mov", "rax", RDQ("rax", 0))
-         + x86("mov", "ecx", RDD("rax", 0))
-         + x86("movsxd", "rcx", "ecx")
-         + x86("sub", "rcx", (long)1)
-         + x86("mov", RDD("rax", 0), "ecx")
-         + x86("sub", "rcx", (long)1)
-         + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel")
-         + x86("mov", RDQ("rax", 0), "rcx");
-}
+#define bb_fnclevel_leave() ( \
+      x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_k_level_p, "rt_k_level_p") \
+    + x86("mov", "rax", RDQ("rax", 0)) \
+    + x86("mov", "ecx", RDD("rax", 0)) \
+    + x86("movsxd", "rcx", "ecx") \
+    + x86("sub", "rcx", (long)1) \
+    + x86("mov", RDD("rax", 0), "ecx") \
+    + x86("sub", "rcx", (long)1) \
+    + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&kw_fnclevel, "kw_fnclevel") \
+    + x86("mov", RDQ("rax", 0), "rcx") \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_define_bind() {
     x86_begin();
@@ -157,7 +157,10 @@ static std::string bb_define_bind() {
          + x86_rt_gc_poll()
          + x86_scan_sync_in_rr();
     {
-    static int _m4seal = -1; if (_m4seal < 0) { const char * _e = getenv("SCRIP_M4_ALPHA_SEAL"); _m4seal = (_e && *_e == '0') ? 0 : 1; }
+    static int _m4seal = -1; if (_m4seal < 0) {
+    const char * _e = getenv("SCRIP_M4_ALPHA_SEAL");
+    _m4seal = (_e && *_e == '0') ? 0 : 1;
+}
       if (_m4seal && !bb_ab_cell_addr(fname) && bb_tiny_shim_ok(fname, 0)) {
         uint64_t _seal_fp; { void (*fp)(const char *, void *) = bb_ab_seal_alpha; _seal_fp = (uint64_t)(uintptr_t)(void *)fp; }
         reg = reg + x86("comment", "M4-ALPHA-SEAL: alpha$<FN> <- &<FN>_α, the m4 twin of the driver seal")
@@ -227,7 +230,13 @@ static int fnsig(void) {
         v = (e && *e == '0') ? 0 : 1;
     } return v;
 }
-static int wn_park(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_WN_PARK"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int wn_park(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_WN_PARK");
+        v = (e && *e == '0') ? 0 : 1;
+    } return v;
+}
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"
@@ -324,13 +333,29 @@ static std::string bb_define_sr() {
         if (fnsig()) {
             long F4nv = T4 + 16L * nf4; long F4 = F4nv + 16L * nnv4;
             auto NVPUSH =
-                [&]() { return x86("push", "rdi") + x86("push", "rsi") + x86("push", "rdx") + x86("push", "rcx") + x86("push", "r8") + x86("push", "r9") + x86("push", "r12") + x86("push", "rdi"); };
-            auto NVPOP = [&]() { return x86("pop", "rdi") + x86("pop", "r12") + x86("pop", "r9") + x86("pop", "r8") + x86("pop", "rcx") + x86("pop", "rdx") + x86("pop", "rsi") + x86("pop", "rdi"); };
-            auto NVCELLS = [&]() { return x86("mov", "rsi", "rsp") + x86("add", "rsi", (long)(F4nv + 64)); };
+                [&]() { return x86("push", "rdi")
+                             + x86("push", "rsi")
+                             + x86("push", "rdx")
+                             + x86("push", "rcx")
+                             + x86("push", "r8")
+                             + x86("push", "r9")
+                             + x86("push", "r12")
+                             + x86("push", "rdi"); };
+            auto NVPOP = [&]() { return x86("pop", "rdi")
+                                      + x86("pop", "r12")
+                                      + x86("pop", "r9")
+                                      + x86("pop", "r8")
+                                      + x86("pop", "rcx")
+                                      + x86("pop", "rdx")
+                                      + x86("pop", "rsi")
+                                      + x86("pop", "rdi"); };
+            auto NVCELLS = [&]() { return x86("mov", "rsi", "rsp")
+                                        + x86("add", "rsi", (long)(F4nv + 64)); };
             auto NVIN = [&]() { if (!nnv4) return std::string();
                 return x86("comment", "NV-ROAD NAMES (CEO-1543 chunk 2): a formal, local or result name with no island cell is swapped by a leaf into this frame's own cells, by name")
                      + NVPUSH() + x86("mov", "rdi", ROQ(232)) + NVCELLS() + x86_rsp_load64("rdx", (int)(16 * xt4 + 16 + 64))
-                     + x86("mov", "rcx", "rsp") + x86("add", "rcx", (long)(F4 + 64))
+                     + x86("mov", "rcx", "rsp")
+                     + x86("add", "rcx", (long)(F4 + 64))
                      + x86("call", "rt_shim_nv_in", (uint64_t)(uintptr_t)(void *)rt_shim_nv_in) + x86_rt_gc_poll() + NVPOP(); };
             auto NVGAMMA = [&]() { if (!nnv4) return std::string();
                 return NVPUSH() + x86("mov", "rdi", ROQ(237)) + NVCELLS()

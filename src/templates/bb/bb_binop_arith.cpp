@@ -53,9 +53,7 @@ static inline long long binop_base(long long op) {
     return op == BINOP_ADD_BIG ? BINOP_ADD : op == BINOP_SUB_BIG ? BINOP_SUB : op == BINOP_MUL_BIG ? BINOP_MUL : op;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int binop_promotes(long long op) {
-    return op == BINOP_ADD_BIG || op == BINOP_SUB_BIG || op == BINOP_MUL_BIG;
-}
+#define binop_promotes(op) ((op) == BINOP_ADD_BIG || (op) == BINOP_SUB_BIG || (op) == BINOP_MUL_BIG)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const struct { long long op; int col; const char * name; void * addr; const char * cname; void * caddr; } rtop_tab[] = {
     { BINOP_ADD_BIG, 0, "rt_add_big", (void*)rt_add_big },

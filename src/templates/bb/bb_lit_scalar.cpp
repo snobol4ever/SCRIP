@@ -16,10 +16,10 @@ static uint64_t blsc_bits(double d, uint64_t b = 0) { memcpy(&b, &d, 8); return 
      | (((_.nid <= 0 || _.nid > (long)DESCR_SRC_NODE_OVERFLOW - 1) ? (long)DESCR_SRC_NODE_OVERFLOW : (long)_.nid) << 8)))
 #define ls_rq(w) (_.op_zres ? ZRES(w) : FRQ(_.op_off + (w)))
 #define ls_rd(w) (_.op_zres ? ZRESD(w) : FR(_.op_off + (w)))
-static std::string blsc_thk_label(const char * n) { return std::string(".Lthk_") + bb_ab_sym_name(n ? n : ""); }
+#define blsc_thk_label(n) (std::string(".Lthk_") + bb_ab_sym_name((n) ? (n) : ""))
 static const char * blsc_thk_rec(const char * n) { void * r = bb_thunk_rec_addr(n); return r ? (const char *)r : ""; }
 extern "C" void * bb_dstar_rec_addr(const char * star);
-static std::string blsc_dstar_label(const char * n) { return std::string(".Ldstar_") + bb_ab_sym_name((std::string("*") + (n ? n : "")).c_str()); }
+#define blsc_dstar_label(n) (std::string(".Ldstar_") + bb_ab_sym_name((std::string("*") + ((n) ? (n) : "")).c_str()))
 static const char * blsc_dstar_rec(const char * n) { void * r = bb_dstar_rec_addr((std::string("*") + (n ? n : "")).c_str()); return r ? (const char *)r : ""; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_lit_scalar() {

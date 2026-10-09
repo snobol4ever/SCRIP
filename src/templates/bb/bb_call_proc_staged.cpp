@@ -38,9 +38,7 @@ int rt_proc_is_generator(const char *name);
 int rt_define_tiny_ok(const char *, int);
 int rt_define_returns_by_frame(const char *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcps_wire_pair_consumed(const char *fname) {
-    return (fname && rt_define_returns_by_frame(fname)) ? 0 : 1;
-}
+#define bcps_wire_pair_consumed(fname) (((fname) && rt_define_returns_by_frame((fname))) ? 0 : 1)
 int rt_proc_dyn_scope(const char *name);
 void rt_arg_stage(int idx, DESCR_t v);
 extern "C" struct gv_s g_call_args;
@@ -85,9 +83,9 @@ static int icn_wire_stack_on(void) {
     } return _v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_wire_stack_for(const char *fname) { return icn_wire_stack_on() && !bb_proc_target_zframe_graph(fname); }
+#define icn_wire_stack_for(fname) (icn_wire_stack_on() && !bb_proc_target_zframe_graph((fname)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_wire_cross(int gid, int wid, const char *fname) { return icn_wire_stack_for(fname) ? bb_glue_pass_wires_blob(gid, wid) : bb_glue_pass_wires(gid, wid); }
+#define bcps_wire_cross(gid, wid, fname) (icn_wire_stack_for((fname)) ? bb_glue_pass_wires_blob((gid), (wid)) : bb_glue_pass_wires((gid), (wid)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_wire_cross_gen(int gid, int wid) {
     if (!icn_wire_stack_on() || x86_fb_pinned()) return IF(icn_wire_stack_on(), x86_sub("rsp", 16)) + bb_glue_pass_wires(gid, wid);
@@ -97,8 +95,8 @@ static std::string bcps_wire_cross_gen(int gid, int wid) {
          + x86_jmp_reg("rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_wire_land_site(const char *fname) { return x86_rsp_land((icn_wire_stack_for(fname) && !bcps_wire_pair_consumed(fname)) ? 16L : 0L) + x86_gc_site(X86_SITE_LANDING); }
-static std::string bcps_wire_land(const char *fname) { return icn_wire_stack_for(fname) ? IF(!bcps_wire_pair_consumed(fname), x86("add", "rsp", 16L)) : std::string(); }
+#define bcps_wire_land_site(fname) (x86_rsp_land((icn_wire_stack_for((fname)) && !bcps_wire_pair_consumed((fname))) ? 16L : 0L) + x86_gc_site(X86_SITE_LANDING))
+#define bcps_wire_land(fname) (icn_wire_stack_for((fname)) ? IF(!bcps_wire_pair_consumed((fname)), x86("add", "rsp", 16L)) : std::string())
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_retfix(void) {
     static int v = -1;
@@ -109,13 +107,18 @@ static int bcps_retfix(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int bcps_pl();
-static std::string bcps_open_word_keep(void) { return x86("sub", "rsp", 16L) + x86_rsp_store64(0, "rax"); }
+#define bcps_open_word_keep() (x86("sub", "rsp", 16L) + x86_rsp_store64(0, "rax"))
 static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
 {
     const char * fr = is_omega ? "rdi" : "rdx", * fr32 = is_omega ? "edi" : "edx";
-    if (!bcps_retfix()) return (bcps_pl() ? x86("mov32", fr32, 0L) : x86_rsp_load64(fr, 0) + x86("shr", fr, 61L) + x86("and", fr32, 1L) + x86("add", "rsp", 16L))
+    if (!bcps_retfix()) return (bcps_pl() ? x86("mov32", fr32, 0L) : x86_rsp_load64(fr, 0)
+                                          + x86("shr", fr, 61L)
+                                          + x86("and", fr32, 1L)
+                                          + x86("add", "rsp", 16L))
          + x86("call", is_omega ? "rt_proc_call_epilogue_ω" : "rt_proc_call_epilogue_γ", bare_fp);
-    return (bcps_pl() ? x86("mov32", "esi", 0L) : x86_rsp_load64("rsi", 0) + x86("shr", "rsi", 62L) + x86("add", "rsp", 16L))
+    return (bcps_pl() ? x86("mov32", "esi", 0L) : x86_rsp_load64("rsi", 0)
+                      + x86("shr", "rsi", 62L)
+                      + x86("add", "rsp", 16L))
          + x86("mov", "rdi", ROQ(0))
          + x86("call", is_omega ? "rt_proc_call_epilogue_named_ω" : "rt_proc_call_epilogue_named_γ",
         TEMPLATE_FN_ADDR(is_omega ? rt_proc_call_epilogue_named_ω : rt_proc_call_epilogue_named_γ))
@@ -178,7 +181,7 @@ static int bcps_result_slot() {
     return -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int c2farm() { return _.op_fc_wbytes > 0; }
+#define c2farm() (_.op_fc_wbytes > 0)
 static inline int bcps_pl() { return x86_fb_pinned(); }
 static int bcps_fnsig(void) {
     static int v = -1;
@@ -217,8 +220,8 @@ static long bcps_parse_rsp(const char * t) {
     return (*p == ']') ? v : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long bcps_sig_disp(int slot) { return bcps_parse_rsp(FRQB(slot, 0)); }
-static long bcps_zref_disp(int zoff) { return bcps_parse_rsp(x86_zref(zoff, 1)); }
+#define bcps_sig_disp(slot) (bcps_parse_rsp(FRQB((slot), 0)))
+#define bcps_zref_disp(zoff) (bcps_parse_rsp(x86_zref((zoff), 1)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const char * why, const char * opnd) {
     static int _sd = -1; if (_sd < 0) {
@@ -298,7 +301,10 @@ extern "C" int bb_tiny_shim_ok(const char *fname, int nargs) {
     return 1;
 }
 extern "C" int bb_sig_site_ok(const char *fname, int nargs) {
-    static int _nt = -1; if (_nt < 0) { const char *e = getenv("SCRIP_NO_TINY"); _nt = (e && *e == '1') ? 1 : 0; }
+    static int _nt = -1; if (_nt < 0) {
+    const char *e = getenv("SCRIP_NO_TINY");
+    _nt = (e && *e == '1') ? 1 : 0;
+}
     (void)nargs;
     if (_nt || !fname || !rt_proc_is_registered(fname) || !rt_proc_dyn_scope(fname) || rt_proc_is_generator(fname) || rt_proc_is_variadic(fname)) return 0;
     { int np = rt_proc_nparams(fname); return (np >= 0 && np <= BB_SCC_NP_MAX) ? 1 : 0; }
@@ -316,19 +322,24 @@ std::string bcps_alpha_cellp_data(const char * fname) {
 extern "C" void bcps_alpha_shim_note(const char * fname) { if (fname) g_alpha_shim_emitted.push_back(std::string(fname)); }
 extern "C" const char * bcps_alpha_cellp_table_c(void) {
     static std::string out; out.clear();
-    out += x86("directive", std::string(".section .data")) + x86("directive", std::string(".align 8"));
+    out += x86("directive", std::string(".section .data"))
+         + x86("directive", std::string(".align 8"));
     for (size_t i = 0; i < g_alpha_cellp_names.size(); i++) {
         const std::string & nm = g_alpha_cellp_names[i]; const std::string & lbl = g_alpha_cellp_seen[i];
         std::string init = std::count(g_alpha_shim_emitted.begin(), g_alpha_shim_emitted.end(), nm) ? (nm + "_\xce\xb1") : std::string("rt_ab_undef_sig_stub");
-        out += x86("directive", lbl + std::string(":")) + x86("directive", std::string(".quad ") + lbl + std::string(" + 8")) + x86("directive", std::string(".quad ") + init);
+        out += x86("directive", lbl + std::string(":"))
+             + x86("directive", std::string(".quad ") + lbl + std::string(" + 8"))
+             + x86("directive", std::string(".quad ") + init);
     }
     out += x86("directive", std::string("__alpha_cellp_tab:"));
     for (size_t i = 0; i < g_alpha_cellp_names.size(); i++) out += x86("directive", std::string(".quad .Lalphan") + std::to_string((long)i) + std::string(", ") + g_alpha_cellp_seen[i]);
     out += x86("directive", std::string(".quad 0"));
     out += x86("directive", std::string(".section .rodata"));
-    for (size_t i = 0; i < g_alpha_cellp_names.size(); i++) { std::string esc; for (char c : g_alpha_cellp_names[i]) { if (c == '"' || c == '\\') esc += '\\'; esc += c; }
+    for (size_t i = 0; i < g_alpha_cellp_names.size(); i++) {
+    std::string esc; for (char c : g_alpha_cellp_names[i]) { if (c == '"' || c == '\\') esc += '\\'; esc += c; }
         out += x86("directive", std::string(".Lalphan") + std::to_string((long)i) + std::string(": .string \"") + esc + std::string("\"")); }
-    out += x86("directive", std::string(".section .text")) + x86("directive", std::string(".intel_syntax noprefix"));
+    out += x86("directive", std::string(".section .text"))
+         + x86("directive", std::string(".intel_syntax noprefix"));
     return out.c_str();
 }
 static std::string bcps_undef_fallback(uint64_t) {
@@ -950,12 +961,12 @@ static std::string bcps_icn_opnd(IR_graph_t ** argblks, int i, int w, long d) {
          : std::string(FRQB(bcps_arg_slot(_.node, argblks, i) + w, (int)d));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcps_icn_src(IR_graph_t ** argblks, int i, int w, long d) {
-    return (_.op_zres && i < _.op_zcap && _.op_zread_xf[i] != -1) ? x86("mov", "rcx", RDQ("rbp", _.op_zread_xf[i] + w))
-         : (!_.op_zres && x86_fc_hit(bcps_arg_slot(_.node, argblks, i) + w))
-         ? x86_rsp_load64("rcx", bcps_arg_slot(_.node, argblks, i) + w - _.op_fc_base + (int)d)
-         : x86("mov", "rcx", bcps_icn_opnd(argblks, i, w, d).c_str());
-}
+#define bcps_icn_src(argblks, i, w, d) ( \
+      (_.op_zres && (i) < _.op_zcap && _.op_zread_xf[(i)] != -1) ? x86("mov", "rcx", RDQ("rbp", _.op_zread_xf[(i)] + (w))) \
+    : (!_.op_zres && x86_fc_hit(bcps_arg_slot(_.node, (argblks), (i)) + (w))) \
+    ? x86_rsp_load64("rcx", bcps_arg_slot(_.node, (argblks), (i)) + (w) - _.op_fc_base + (int)(d)) \
+    : x86("mov", "rcx", bcps_icn_opnd((argblks), (i), (w), (d)).c_str()) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t ** argblks, long idx, int np, int vari, int n2_ftc) {
     extern std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d); extern std::string icn_landing_line_restore(void);
@@ -1174,7 +1185,9 @@ static std::string bcps_spine_gen_arm() {
               + x86("mov", FRQ(act + 8), "rsp")
               + x86("def", L(9))
             : bcps_wire_land(_.op_sval)
-              + (gi_idx >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) : x86("mov", "rdx", FRQ(act + 8)) + x86("shr", "rdx", 61L) + x86("and", "edx", 1L))
+              + (gi_idx >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) : x86("mov", "rdx", FRQ(act + 8))
+              + x86("shr", "rdx", 61L)
+              + x86("and", "edx", 1L))
               + (x86("mov", FRQ(act + 8), "rsp")
                  + x86("add", "rsp", 16L)))
          + IF(!bcps_pl(),
@@ -1194,7 +1207,9 @@ static std::string bcps_spine_gen_arm() {
               + x86("call", "rt_gen_spine_pass_ω", TEMPLATE_FN_ADDR(rt_gen_spine_pass_ω))
               + x86("jmp", L(2))
             : bcps_wire_land(_.op_sval)
-         + (gi_idx >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) : x86("mov", "rdi", FRQ(act + 8)) + x86("shr", "rdi", 61L) + x86("and", "edi", 1L))
+         + (gi_idx >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) : x86("mov", "rdi", FRQ(act + 8))
+         + x86("shr", "rdi", 61L)
+         + x86("and", "edi", 1L))
          + x86("add", "rsp", icn_gen_regime() ? 8L : 16L)
          + x86("mov", "rax", FRQ(act))
          + x86("test", "rax", "rax")

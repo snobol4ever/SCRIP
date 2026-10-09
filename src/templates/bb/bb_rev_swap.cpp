@@ -13,14 +13,14 @@ struct DESCR_t rt_rev_swap_undo(long lkind, struct DESCR_t *lp, long rkind, stru
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long rsw_kind(const char *n) {
-    return (!n || n[0] != '&') ? 0
-         : !strcmp(n, "&pos") ? 1
-         : !strcmp(n, "&random") ? 3
-         : !strcmp(n, "&error") ? 4
-         : !strcmp(n, "&dump") ? 6
-         : -1;
-}
+#define rsw_kind(n) ( \
+      (!(n) || (n)[0] != '&') ? 0 \
+    : !strcmp((n), "&pos") ? 1 \
+    : !strcmp((n), "&random") ? 3 \
+    : !strcmp((n), "&error") ? 4 \
+    : !strcmp((n), "&dump") ? 6 \
+    : -1 \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static long rsw_eff(long k, int slot, const char *n) { return (k == 0 && slot < 0 && n && is_global(n)) ? 2 : k; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -35,32 +35,32 @@ static std::string rsw_cell(int lbl, int arm) {
          + x86("def", L(2 + arm * 2 + lbl));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string rsw_operands(long lk, long rk, int arm) {
-    return IF(lk == 2, rsw_cell(0, arm) + x86("mov", FRQ(_.op_off + 64), "rax"))
-         + IF(rk == 2, rsw_cell(1, arm) + x86("mov", "rcx", "rax"))
-         + IF(rk == 0, x86("lea", "rcx", FRQ(_.op_sa)))
-         + IF(rk == 1 || rk >= 3, x86("mov", "rcx", (long)0))
-         + IF(lk == 2, x86("mov", "rsi", FRQ(_.op_off + 64)))
-         + IF(lk == 0, x86("lea", "rsi", FRQ(_.op_sb)))
-         + IF(lk == 1 || lk >= 3, x86("mov", "rsi", (long)0))
-         + x86("mov", "rdi", (long)(lk == 2 ? 0 : lk))
-         + x86("mov", "rdx", (long)(rk == 2 ? 0 : rk))
-         + x86("lea", "r8", FRQ(_.op_off + 16))
-         + (g_scan_regs_live != 0 ? x86("note", "scan_δ")
-                                    + x86("lea", "r9", FRQ(_.op_off + 48))
-                                  : x86("mov", "r9", (long)0));
-}
+#define rsw_operands(lk, rk, arm) ( \
+      IF((lk) == 2, rsw_cell(0, (arm)) + x86("mov", FRQ(_.op_off + 64), "rax")) \
+    + IF((rk) == 2, rsw_cell(1, (arm)) + x86("mov", "rcx", "rax")) \
+    + IF((rk) == 0, x86("lea", "rcx", FRQ(_.op_sa))) \
+    + IF((rk) == 1 || (rk) >= 3, x86("mov", "rcx", (long)0)) \
+    + IF((lk) == 2, x86("mov", "rsi", FRQ(_.op_off + 64))) \
+    + IF((lk) == 0, x86("lea", "rsi", FRQ(_.op_sb))) \
+    + IF((lk) == 1 || (lk) >= 3, x86("mov", "rsi", (long)0)) \
+    + x86("mov", "rdi", (long)((lk) == 2 ? 0 : (lk))) \
+    + x86("mov", "rdx", (long)((rk) == 2 ? 0 : (rk))) \
+    + x86("lea", "r8", FRQ(_.op_off + 16)) \
+    + (g_scan_regs_live != 0 ? x86("note", "scan_δ") \
+                               + x86("lea", "r9", FRQ(_.op_off + 48)) \
+                             : x86("mov", "r9", (long)0)) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string rsw_names(long lk, long rk) {
-    return IF(lk == 2, x86("def", L(0))
-                     + x86(".quad", LS(0), _.op_sval)
-                     + x86("label", LS(0))
-                     + x86(".string", _.op_sval))
-         + IF(rk == 2, x86("def", L(1))
-                     + x86(".quad", LS(1), _.op_name2)
-                     + x86("label", LS(1))
-                     + x86(".string", _.op_name2));
-}
+#define rsw_names(lk, rk) ( \
+      IF((lk) == 2, x86("def", L(0)) \
+                + x86(".quad", LS(0), _.op_sval) \
+                + x86("label", LS(0)) \
+                + x86(".string", _.op_sval)) \
+    + IF((rk) == 2, x86("def", L(1)) \
+                + x86(".quad", LS(1), _.op_name2) \
+                + x86("label", LS(1)) \
+                + x86(".string", _.op_name2)) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_rev_swap() {
     return [&](long lk, long rk) {

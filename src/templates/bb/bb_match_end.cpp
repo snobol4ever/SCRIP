@@ -23,21 +23,21 @@ static int cap_name_strict(void) {
     } return v;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string mend_bank_cursors() {
-    return IF(sn4_defer_beta_guard(),
-                   x86("note", "mbc_restore")
-                 + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")
-                 + x86("mov", "rax", RDQ("rbp", -48))
-                 + x86("mov", RDQ("rcx", 248), "rax"))
-         + ((_.op_dval != 0.0)
-         ? x86("note", "repl_start")
-         + x86("mov", "eax", RDD("rbp", -40))
-         + x86("note", "repl_start")
-         + x86("mov", RDD("rbp", -36), "eax")
-         + x86("note", "repl_end")
-         + x86("mov", RDQ("rbp", -56), "r14")
-         : std::string());
-}
+#define mend_bank_cursors() ( \
+      IF(sn4_defer_beta_guard(), \
+              x86("note", "mbc_restore") \
+            + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb") \
+            + x86("mov", "rax", RDQ("rbp", -48)) \
+            + x86("mov", RDQ("rcx", 248), "rax")) \
+    + ((_.op_dval != 0.0) \
+    ? x86("note", "repl_start") \
+    + x86("mov", "eax", RDD("rbp", -40)) \
+    + x86("note", "repl_start") \
+    + x86("mov", RDD("rbp", -36), "eax") \
+    + x86("note", "repl_end") \
+    + x86("mov", RDQ("rbp", -56), "r14") \
+    : std::string()) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string release_pump() {
     return std::string()

@@ -10,37 +10,37 @@ extern "C" int sn4_arbno_seal_omega(void);
 extern "C" int sn4_arbno_tailbeta(void);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int kkN(void) { return _.op_arbno_body_kk; }
+#define kkN() (_.op_arbno_body_kk)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bb_match_arbno_frameless_k() {
-    return x86("comment", "IR_MATCH_ARBNO_FRAMELESS_K (ARB-LON-K16: re-homed cell, one-level static offsets)")
-         + x86_alpha()
-         + x86("sub", "rsp", 16L)
-         + x86("mov", RDD("rsp", 0), "r14d")
-         + x86("mov", RDD("rsp", 4), "r14d")
-         + x86_gamma()
-         + x86_beta()
-         + x86("jmp", PAIR(0))
-         + x86("def", PAIR(2))
-         + x86("mov", "eax", RDD("rsp", kkN() + 4))
-         + x86("cmp", "r14d", "eax")
-         + x86("je", PAIR(1))
-         + x86("mov", "eax", RDD("rsp", kkN()))
-         + x86("sub", "rsp", 16L)
-         + x86("mov", RDD("rsp", 0), "eax")
-         + x86("mov", RDD("rsp", 4), "r14d")
-         + x86_gamma()
-         + x86("def", PAIR(3))
-         + x86("def", PAIR(5))
-         + x86("mov", "eax", RDD("rsp", 0))
-         + x86("cmp", "r14d", "eax")
-         + x86("jne", L(3))
-         + x86("add", "rsp", 16L)
-         + x86_omega()
-         + x86("def", L(3))
-         + x86("add", "rsp", 16L)
-         + x86("jmp", PAIR(1));
-}
+#define bb_match_arbno_frameless_k() ( \
+      x86("comment", "IR_MATCH_ARBNO_FRAMELESS_K (ARB-LON-K16: re-homed cell, one-level static offsets)") \
+    + x86_alpha() \
+    + x86("sub", "rsp", 16L) \
+    + x86("mov", RDD("rsp", 0), "r14d") \
+    + x86("mov", RDD("rsp", 4), "r14d") \
+    + x86_gamma() \
+    + x86_beta() \
+    + x86("jmp", PAIR(0)) \
+    + x86("def", PAIR(2)) \
+    + x86("mov", "eax", RDD("rsp", kkN() + 4)) \
+    + x86("cmp", "r14d", "eax") \
+    + x86("je", PAIR(1)) \
+    + x86("mov", "eax", RDD("rsp", kkN())) \
+    + x86("sub", "rsp", 16L) \
+    + x86("mov", RDD("rsp", 0), "eax") \
+    + x86("mov", RDD("rsp", 4), "r14d") \
+    + x86_gamma() \
+    + x86("def", PAIR(3)) \
+    + x86("def", PAIR(5)) \
+    + x86("mov", "eax", RDD("rsp", 0)) \
+    + x86("cmp", "r14d", "eax") \
+    + x86("jne", L(3)) \
+    + x86("add", "rsp", 16L) \
+    + x86_omega() \
+    + x86("def", L(3)) \
+    + x86("add", "rsp", 16L) \
+    + x86("jmp", PAIR(1)) \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_match_arbno_frameless() {
     const char * bodybeta = sn4_arbno_tailbeta() ? PAIR(4) : PAIR(1);

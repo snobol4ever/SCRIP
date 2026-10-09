@@ -784,5 +784,7 @@ std::string net_spec_zw_str();
 template<typename F> inline std::string FOR(int lo, int hi, F f) { std::string r; for (int i = lo; i < hi; i++) r += f(i); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 template<typename F> inline std::string emit_for(int lo, int hi, F f) { return FOR(lo, hi, f); }
+void emit_text_s(const std::string & s);
+void emit_write_file_s(const char * path, const std::string & s);
 #endif
 #endif

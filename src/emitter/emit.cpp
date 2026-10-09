@@ -5509,3 +5509,5 @@ void unify_prepare(IR_t *nd) {
         g_emit.op_u_why = !(ok && vn) ? 1 : g_emit.op_u_vo < 0 ? 4 : 0;
     }
 }
+void emit_text_s(const std::string & s) { if (!s.empty()) emit_text_n(s.data(), s.size()); }
+void emit_write_file_s(const char * path, const std::string & s) { FILE * f = fopen(path, "w"); if (f) { fputs(s.c_str(), f); fclose(f); } }

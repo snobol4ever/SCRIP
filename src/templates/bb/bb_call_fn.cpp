@@ -83,27 +83,28 @@ extern rt_call_next_t rt_call_arr_bl_try(const char * fn, DESCR_t * args, long n
 extern int rt_builtin_tail_may_open(const char * fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcfn_opens_as_method(const char * fn, int nargs) { return (fn && nargs >= 2 && !strcmp(fn, "meth_call")) ? 1 : 0; }
+#define bcfn_opens_as_method(fn, nargs) (((fn) && (nargs) >= 2 && !strcmp((fn), "meth_call")) ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off) {
-    if (rec_off < 0) return x86_bomb("bb_call_fn: a meth_call node without the argv grant that holds its redispatch record (CEO-1552)");
-    return x86("lea", "rdx", FRQ(rec_off))
-         + x86("call", "rk_method_open", (uint64_t)(uintptr_t)(void *)rk_method_open)
-         + x86_rt_gc_poll_rec_sigma_word(1)
-         + x86("test", "rax", "rax")
-         + x86_jcc_id("jz", decl_id)
-         + bb_glue_enter_c2bb(base, base + 5, base + 6)
-         + x86_deflabel_id(base + 5)
-         + x86("call", "rk_method_land_γ", (uint64_t)(uintptr_t)(void *)rk_method_land_γ)
-         + x86_rt_gc_poll_rec_res()
-         + x86_jmp_id(join_id)
-         + x86_deflabel_id(base + 6)
-         + x86("call", "rk_method_land_ω", (uint64_t)(uintptr_t)(void *)rk_method_land_ω)
-         + x86_rt_gc_poll_rec_res()
-         + x86_jmp_id(join_id);
+    return IF(rec_off < 0, x86_bomb("bb_call_fn: a meth_call node without the argv grant that holds its redispatch record (CEO-1552)"))
+         + IF(rec_off >= 0,
+               x86("lea", "rdx", FRQ(rec_off))
+             + x86("call", "rk_method_open", (uint64_t)(uintptr_t)(void *)rk_method_open)
+             + x86_rt_gc_poll_rec_sigma_word(1)
+             + x86("test", "rax", "rax")
+             + x86_jcc_id("jz", decl_id)
+             + bb_glue_enter_c2bb(base, base + 5, base + 6)
+             + x86_deflabel_id(base + 5)
+             + x86("call", "rk_method_land_γ", (uint64_t)(uintptr_t)(void *)rk_method_land_γ)
+             + x86_rt_gc_poll_rec_res()
+             + x86_jmp_id(join_id)
+             + x86_deflabel_id(base + 6)
+             + x86("call", "rk_method_land_ω", (uint64_t)(uintptr_t)(void *)rk_method_land_ω)
+             + x86_rt_gc_poll_rec_res()
+             + x86_jmp_id(join_id));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcfn_opens_as_apply(const char * fn, int nargs) { return (fn && nargs >= 1 && !strcmp(fn, "APPLY")) ? 1 : 0; }
+#define bcfn_opens_as_apply(fn, nargs) (((fn) && (nargs) >= 1 && !strcmp((fn), "APPLY")) ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
     return x86("call", "rt_apply_open", (uint64_t)(uintptr_t)(void *)rt_apply_open)
@@ -127,7 +128,9 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BCFN_OPENS_AS_EVAL(fn, nargs, strict) ((fn) && (nargs) == 1 && (strict) == 2 && !strcmp((fn), "EVAL"))
-#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( x86("sub", "rsp", (long)BCFN_EVAL_REC) + x86("mov", "rdx", "rsp") + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
+#define BCFN_EVAL_OPEN_ENTER(base, decl_id, join_id) ( x86("sub", "rsp", (long)BCFN_EVAL_REC) \
+                                                     + x86("mov", "rdx", "rsp") \
+                                                     + x86("call", "rt_eval_open", (uint64_t)(uintptr_t)(void *)rt_eval_open) \
          + x86_rt_gc_poll_rec_sigma_word(1) \
          + x86("test", "rax", "rax") \
          + x86_jcc_id("jz", (decl_id)) \

@@ -17,11 +17,5 @@ static std::string xa_wasm_main_close_str(void) {
          + "  )\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void xa_wasm_main_open(void) {
-    auto s = xa_wasm_main_open_str();
-    if (!s.empty()) emit_text_n(s.data(), s.size());
-}
-extern "C" void xa_wasm_main_close(void) {
-    auto s = xa_wasm_main_close_str();
-    if (!s.empty()) emit_text_n(s.data(), s.size());
-}
+extern "C" void xa_wasm_main_open(void) { emit_text_s(xa_wasm_main_open_str()); }
+extern "C" void xa_wasm_main_close(void) { emit_text_s(xa_wasm_main_close_str()); }

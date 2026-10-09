@@ -52,7 +52,4 @@ static std::string xa_bb_macro_library_text(void) {
          + "# === END bb macro library ===\n";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-extern "C" void xa_bb_macro_library(void) {
-    FILE *f = fopen("bb_macros.s", "w");
-    if (f) { fputs(xa_bb_macro_library_text().c_str(), f); fclose(f); }
-}
+extern "C" void xa_bb_macro_library(void) { emit_write_file_s("bb_macros.s", xa_bb_macro_library_text()); }
