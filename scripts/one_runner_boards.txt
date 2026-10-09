@@ -7,6 +7,7 @@ test_icon_rung_suite.sh
 test_icon_all_rungs.sh
 test_pascal_fpc_suite.sh
 test_pascal_rosetta_suite.sh
+test_pascal_wirth76_suite.sh
 test_pascal_pat_suite.sh
 test_prolog_gnu_suite.sh
 test_prolog_inria_suite.sh

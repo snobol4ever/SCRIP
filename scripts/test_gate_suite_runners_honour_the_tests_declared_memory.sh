@@ -396,7 +396,7 @@ t5="$(declared_memory_table "$T/tbl/OTHER.csv" 2>/dev/null)"
 # the row's baton) -- and it cannot show that the wiring works; arms B, S and T do that.
 r_miss=""; r_n=0
 need() { local f="$HERE/$1" c; r_n=$((r_n+1)); [ -f "$f" ] || { r_miss="$r_miss $1(missing)"; return; }; c=$(grep -c -- "$3" "$f"); [ "$c" -ge "$4" ] || r_miss="$r_miss $1($2: $c of $4)"; }
-for r in test_snobol4_dotnet_suite.sh test_snobol4_spitbol_testpgms_suite.sh test_snobol4_csnobol4_suite.sh test_snoflake_suite.sh test_snobol4_spitbol_x64_suite.sh test_prolog_gnu_suite.sh test_pascal_fpc_suite.sh test_pascal_pat_suite.sh; do
+for r in test_snobol4_dotnet_suite.sh test_snobol4_spitbol_testpgms_suite.sh test_snobol4_csnobol4_suite.sh test_snoflake_suite.sh test_snobol4_spitbol_x64_suite.sh test_prolog_gnu_suite.sh test_pascal_fpc_suite.sh test_pascal_wirth76_suite.sh test_pascal_pat_suite.sh; do
   need "$r" begin 'declared_memory_begin "\$[A-Z_]*/ALL.csv"' 1; need "$r" runs 'run_at_declared_table "\$DECL"' 2
 done
 need scorecard_snobol4.sh table 'sc_decl_build' 3; need scorecard_snobol4.sh runs 'run_at_declared_table "\$SC_DECL"' 2

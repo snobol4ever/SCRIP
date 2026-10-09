@@ -23,7 +23,7 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: a runner invoked as an instrum
 # reads the sidecars through declared_arena_kb_beside, which the plant leaves alone, so it stays green). THE MASSIVE SET (the coo 2026-10-03,
 # LARGE CHUNKS, CEO-1478..1484): EVERY runner family, each driven through its OWN population override (a scratch package, corpus, kernel
 # dir, S4E_HOME or suite variable) and read from its own progress rows or printed verdicts -- SNOBOL4 SF X64 X32 TP GS AIS; Prolog PI PG PS PR
-# PL and the timing angles PBT PBF PBP PBV; Icon IA IJ II IB IT ITX IR IAR IBR; Pascal SPF SPT SPB SPTM SPTM4 SPFI SPTR; Raku RR RB RTM RFI RTR;
+# PL and the timing angles PBT PBF PBP PBV; Icon IA IJ II IB IT ITX IR IAR IBR; Pascal SPF SPW SPT SPB SPTM SPTM4 SPFI SPTR; Raku RR RB RTM RFI RTR;
 # Snocone and Rebus SCB RBB RBT SCT; and the coo's own MON (monitor_run.sh --oracle), PT (lib_port_trace.sh) and AS (the area smoke). Each
 # language has its own witness pair, measured against its oracle (named above its arms); a runner that grades m3 alone is graded in m3 alone,
 # named on its line. bench_pascal_bar.sh and bench_raku_bar.sh grade one kernel THROUGH an angle graded here and are read there. Every
@@ -460,6 +460,12 @@ pacsv fpc_tests "" > "$W/spf/ALL.csv"
 ospf=$(FPC_SUITE="$W/spf" S4E_PROGRESS_DB="$W/spf.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_pascal_fpc_suite.sh" 2>&1); rspf=$?
 [ "$rspf" = 2 ] && [ ! -s "$W/spf.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospf" | cut -c1-200)"
 quad SPF "$W/spf.tsv" "test_pascal_fpc_suite.sh over a scratch suite (rc $rspf)"
+echo "--- SPW: test_pascal_wirth76_suite.sh (WIRTH76_SUITE scratch; each program at its ALL.csv row, reps 1 on stdin) ---"
+mkdir -p "$W/spw"; for u in $UNITS; do cp "$(pfile "$u")" "$W/spw/$u.pas"; echo 1 > "$W/spw/$u.in"; printf '      30000\n' > "$W/spw/$u.ref"; done
+pacsv wirth1976 "" > "$W/spw/ALL.csv"
+ospw=$(WIRTH76_SUITE="$W/spw" S4E_PROGRESS_DB="$W/spw.tsv" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 bash "$HERE/test_pascal_wirth76_suite.sh" 2>&1); rspw=$?
+[ "$rspw" = 2 ] && [ ! -s "$W/spw.tsv" ] && echo "      $(grep -m1 -E 'REFUS' <<<"$ospw" | cut -c1-200)"
+quad SPW "$W/spw.tsv" "test_pascal_wirth76_suite.sh over a scratch suite (rc $rspw)"
 echo "--- SPT: test_pascal_pat_suite.sh (PAT_SUITE scratch; the acceptance population iso7185pat*, graded live against fpc -Miso) ---"
 mkdir -p "$W/spt"; for u in $UNITS; do cp "$(pfile "$u")" "$W/spt/iso7185pat_$u.pas"; echo 1 > "$W/spt/iso7185pat_$u.inp"; done
 pacsv pat iso7185pat_ > "$W/spt/ALL.csv"
@@ -624,6 +630,6 @@ oas=$(S4E_HOME="$W/pt" SCRIP="$SCRIP" RT_DIR="$RT" timeout 900 python3 "$HERE/co
 quad AS "$W/as.tsv" "the area smoke over a scratch feature column (rc $ras)"
 
 echo "------------------------------------------------------------"
-echo "population: $((PASS+FAIL)) verdict(s): the premise W and every runner family -- SNOBOL4 H D P1 P2 L SF X64 X32 TP GS AIS; Prolog PBS PBM PB4 PBT PBF PBP PBV PI PG PS PR PL; Icon IA IJ II IB IT ITX IR IAR IBR; Pascal SPF SPT SPB SPTM SPTM4 SPFI SPTR; Raku RR RB RTM RFI RTR; Snocone and Rebus SCB RBB RBT SCT; the monitor MON, the port tracer PT, the area smoke AS -- each over deepdecl/deepnodecl/livedecl/livenodecl in the modes the runner runs (the bar scripts grade through their angles and are read there)"
+echo "population: $((PASS+FAIL)) verdict(s): the premise W and every runner family -- SNOBOL4 H D P1 P2 L SF X64 X32 TP GS AIS; Prolog PBS PBM PB4 PBT PBF PBP PBV PI PG PS PR PL; Icon IA IJ II IB IT ITX IR IAR IBR; Pascal SPF SPW SPT SPB SPTM SPTM4 SPFI SPTR; Raku RR RB RTM RFI RTR; Snocone and Rebus SCB RBB RBT SCT; the monitor MON, the port tracer PT, the area smoke AS -- each over deepdecl/deepnodecl/livedecl/livenodecl in the modes the runner runs (the bar scripts grade through their angles and are read there)"
 if [ "$FAIL" -eq 0 ]; then echo "GATE PASS [$GATE_NAME]: every runner family passes each unit's declared heap and stack in the modes it runs"; gate_stamp; exit 0; fi
 echo "⛔ GATE FAIL [$GATE_NAME]: $FAIL red"; gate_stamp; exit 1
