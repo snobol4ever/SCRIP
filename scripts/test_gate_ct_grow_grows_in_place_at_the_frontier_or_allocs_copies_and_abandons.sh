@@ -7,7 +7,9 @@
 # (d2efe8a8f), whose case 3 FREED the old block through ct_drop: CEO-1244 supersedes that contract, and every arm below that read a free
 # now reads an abandon. Row compiler-every-population-table-grows-in-the-compile-time-arena-through-ct-grow-no-fixed-limit-a-program-can-reach.
 #
-# ARM 1, the primitive, through a C harness linked against the allocator's own source (no build of scrip needed):
+# ARM 1, the primitive, through a C harness linked against the allocator's own source (no build of scrip needed). The allocator keeps its state
+# in g_lower.ir (CEO-1575, the ceo's ruling of 2026-10-09 14:10), so the harness defines the one g_lower from the same G_LOWER_INIT that
+# lower_common.c uses -- ct_poison starts at -1 here exactly as in scrip:
 #   1a FITS      a grow within the block's power-of-two class returns the SAME pointer.
 #   1b FRONTIER  the last block carved grows IN PLACE: same pointer, payload intact, the frontier advanced.
 #   1c MOVES     a block that is not at the frontier moves: a new pointer, the payload copied, and the old block is ABANDONED -- under
@@ -69,7 +71,8 @@ int main(int argc, char **argv) {
     return 2;
 }
 EOF
-gcc -O0 -I"$ROOT/src/ir" "$T/h.c" "$ROOT/src/ir/ct_arena.c" -o "$T/h" 2> "$T/cc.err" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the harness did not compile against src/ir/ct_arena.c"; head -5 "$T/cc.err"; exit 2; }
+printf '#include "g_lower.h"\ng_lower_t g_lower = G_LOWER_INIT;\n' > "$T/g.c"
+gcc -O0 -I"$ROOT/src/ir" -I"$ROOT/src/lower" "$T/h.c" "$T/g.c" "$ROOT/src/ir/ct_arena.c" -o "$T/h" 2> "$T/cc.err" || { echo "GATE UNPROVEN(2) [$GATE_NAME]: the harness did not compile against src/ir/ct_arena.c"; head -5 "$T/cc.err"; exit 2; }
 echo "ARM 1 -- the primitive (src/ir/ct_arena.c)"
 "$T/h" shape || red=1
 SCRIP_CT_POISON=1 SCRIP_CT_NORECYCLE=1 "$T/h" poison > "$T/p.out" 2> "$T/p.err"; prc=$?

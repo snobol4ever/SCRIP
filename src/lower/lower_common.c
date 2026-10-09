@@ -13,16 +13,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <ctype.h>
-g_lower_t g_lower = { .pl = { .fresh_next = 900000, .seed_var_base = 4096, .fence_on = -1 }, .lc = { .bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) }, .bb_src_ix = { 0, 0, -1, -1 },
-    .bb_src_of_sd = -1, .bb_src_reset_sr = -1 }, .sno = { .sno_sub_val_on_v = -1, .sx_call_named_c2bb = -1, .sno_ident_inline_on_on = -1, .sno_goto_special_chain_sp = -1,
-    .sno_goto_computed_target_bn = -1, .sno_const_feature_cs = -1, .sno_const_t1_on_t = -1, .sno_t4_on_v = -1, .fc_tail_walk_dtl = -1, .sno_cap_name_strict_v = -1, .sno_rtseq_resume_v = -1,
-    .sno_defer_resume_v = -1, .sno_seq_tail_v = -1, .sno_kw_nest_ok_nn = -1, .sno_pat_inline_ok_ia = -1, .sno_pat_node_cn = -1, .sno_pat_node_ci = -1, .sno_pat_node_ck = -1, .sno_pat_node_ec = -1,
-    .sno_mkpat_here_on = -1, .sno_patsalt_on_v = -1, .sno_patname_salt_on_v = -1, .sno_lower_match_preord = -1, .sno_expr_thunks_build_xd = -1 }, .pas = { .proc_list = { NULL, 0, 0,
-    (int) sizeof(const tree_t *) }, .proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) } }, .opt = { .bc_mon_m = -1, .dg_mon_m = -1, .cf_spine_on_s = -1 } , .ir = { .zls_slot_census_on = -1,
-    .zls_build_dbg = -1, .zls_build_dbg2 = -1, .zls_build_dbg3 = -1, .zls_build_subj_on = -1, .zls_build_dyn_on = -1, .zls_build_dbg4 = -1, .zls_build_dbg5 = -1, .zls_build_eon = -1, .zc_nofc_v = -1,
-    .fc_geom_ac = -1, .fc_reg_hw_e = (const char *) 1, .zls_dump_plant = -1, .zw_carve_k_ba = -1, .zw_carve_k_all = -1, .bb_print_v_xd2 = -1, .zdp_mode_m = -1, .zdp_cap_seamtier_v = -1,
-    .zdp_atp_seamtier_v = -1, .zdp_bomb_census_bm = -1, .ast_print_width = 140, .znb_gen = 1, .zgh = (zgh_t *)0, .fcn_gen = 1, .seq_of_node = (const int *)0 },
-    .rk = { .rk_lower_grammar_boxes_nat = -1 } };
+g_lower_t g_lower = G_LOWER_INIT;
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 extern int junction_mirror_op(int op);

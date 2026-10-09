@@ -3,6 +3,7 @@
 #define CT_ARENA_H
 #include <stddef.h>
 #include <stdarg.h>
+#define CT_BINS 20
 #ifdef __cplusplus
 extern "C" {
 #endif
