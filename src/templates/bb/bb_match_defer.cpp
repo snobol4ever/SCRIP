@@ -25,38 +25,14 @@ extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_r
 #include "x86_asm.h"
 extern "C" int sn4_alt_carrier(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int dw_cell(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_DEFER_CELL");
-        v = e ? (atoi(e) != 0) : 1;
-    } return v;
-}
-static int defer_inline(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_DEFER_INLINE");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
+#define dw_cell() emit_knob_nonzero("SCRIP_DEFER_CELL")
+#define defer_inline() emit_knob_unless_zero("SCRIP_DEFER_INLINE")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define dfrm() ((_.op_seal == 1))
 #define rspd() (getenv("SCRIP_RSPDIFF") ? 1 : 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int patv_fast_on() {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_PATV_FAST");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
-static int defer_ic_on(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char *e = getenv("SCRIP_DEFER_IC");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
+#define patv_fast_on() emit_knob_unless_zero("SCRIP_PATV_FAST")
+#define defer_ic_on() emit_knob_unless_zero("SCRIP_DEFER_IC")
 #define rspd_snap(cell, nm) IF(rspd(), x86("lea","rcx","[rip + __]",(uint64_t)(uintptr_t)(const void*)(cell),nm) \
                                      + x86("mov",RDQ("rcx",0),"rsp"))
 #define T1_TRAP_TEST() IF(_.lbl_t1_p, \

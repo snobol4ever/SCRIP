@@ -5511,3 +5511,108 @@ void unify_prepare(IR_t *nd) {
 }
 void emit_text_s(const std::string & s) { if (!s.empty()) emit_text_n(s.data(), s.size()); }
 void emit_write_file_s(const char * path, const std::string & s) { FILE * f = fopen(path, "w"); if (f) { fputs(s.c_str(), f); fclose(f); } }
+extern "C" {
+#include "builtin_ids.h"
+#include "snobol4_system_fns.h"
+DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
+DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
+DESCR_t rt_call_arr_bl_strict(const char *, DESCR_t *, int, int);
+DESCR_t rt_call_arr_bl_sn4(const char *, DESCR_t *, int, int);
+DESCR_t rt_call_arr_bl(const char * fn, DESCR_t * args, int nargs, int bidlen);
+DESCR_t rt_call_fld_sn4(DESCR_t * args, int nargs, sno_callee_rec_t * r);
+DESCR_t rt_call_callee_sn4(DESCR_t * args, int nargs, sno_callee_rec_t * r);
+int rt_dat_field_of_any(const char * name);
+void * dat_find_type(const char * name);
+}
+int emit_knob_unless_zero(const char * name) { const char * e = getenv(name); return (e && *e == '0') ? 0 : 1; }
+int emit_knob_nonzero(const char * name) { const char * e = getenv(name); return e ? (atoi(e) != 0) : 1; }
+int emit_knob_if_one(const char * name) { const char * e = getenv(name); return (e && *e == '1') ? 1 : 0; }
+long bid_bake_of(const char * fn) {
+    if (!emit_knob_unless_zero("SCRIP_BID_BAKE") || !fn) return -1L;
+    size_t n = strlen(fn);
+    if (n > 0xFFFFu) return -1L;
+    return (long)
+        (((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) |
+        ((sn4_direct_on() && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL));
+}
+int sn4_byname_kind(const char * fn, int strict) {
+    long bw = bid_bake_of(fn);
+    if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1;
+    if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2;
+    if (strict == 2) return 3;
+    if (strict) return 4;
+    return 5;
+}
+const char * sn4_byname_sym(const char * fn, int strict) {
+    switch (sn4_byname_kind(fn, strict)) {
+        case 1: return "rt_call_bid_sn4";
+        case 2: return "rt_call_name_sn4";
+        case 3: return "rt_call_arr_bl_sn4";
+        case 4: return "rt_call_arr_bl_strict";
+        default: return "rt_call_arr_bl";
+    }
+}
+uint64_t sn4_byname_fp(const char * fn, int strict) {
+    switch (sn4_byname_kind(fn, strict)) {
+        case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4;
+        case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4;
+        case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4;
+        case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict;
+        default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl;
+    }
+}
+int bb_callee_baked_kind(const char * fn, int strict) { if (!fn || !fn[0] || sn4_byname_kind(fn, strict) != 2) return 0; return (rt_dat_field_of_any(fn) && !dat_find_type(fn)) ? 1 : 2; }
+const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" : "rt_call_fld_sn4"; }
+uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
+#include "templates/bb/bb_pl_leaf_kinds.h"
+static int pl_ax_arity(const char * op) {
+    static const char * const b2[] = { "add", "sub", "mul", "div", "idiv", "divf", "mod", "rem", "fpow", "pow", "min", "max", "gcd", "xor", "shr", "shl", "band", "bor", 0 };
+    static const char * const b1[] = { "neg", "pos", "abs", "sign", "trunc", "intg", "flt", "floor", "ceil", "round", "sqrt", "msb", "bnot", "sin", "cos", "atan", "log", "exp", "fip", "ffp", 0 };
+    static const char * const b0[] = { "pi", "e", 0 };
+    for (int i = 0; b2[i]; i++) if (!strcmp(op, b2[i])) return 2;
+    for (int i = 0; b1[i]; i++) if (!strcmp(op, b1[i])) return 1;
+    for (int i = 0; b0[i]; i++) if (!strcmp(op, b0[i])) return 0;
+    return -1;
+}
+int pl_leaf_kind(const char * fn, int narg, const char ** op) {
+    static const char * const cmps[] = { "lt", "gt", "le", "ge", "eq", "ne", 0 };
+    static const char * const types[] = { "var", "nonvar", "atom", "number", "integer", "float", "atomic", "compound", "callable", "string", 0 };
+    *op = 0;
+    if (!fn || fn[0] != '$') return PLK_NONE;
+    if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
+    if (!strcmp(fn, "$db_decls")) return narg >= 1 ? PLK_DBDECLS : PLK_NONE;
+    if (!strcmp(fn, "$unify")) return narg == 2 ? PLK_UNIFY : PLK_NONE;
+    if (!strcmp(fn, "$ax_zguard")) return narg == 2 ? PLK_ZGUARD : PLK_NONE;
+    if (!strcmp(fn, "$ax_eguard")) return PLK_NONE;
+    if (!strncmp(fn, "$ax_", 4)) { *op = fn + 4; return pl_ax_arity(*op) == narg ? PLK_AX : PLK_NONE; }
+    if (!strncmp(fn, "$cmp_", 5) && narg == 2) { for (int i = 0; cmps[i]; i++) if (!strcmp(fn + 5, cmps[i])) { *op = fn + 5; return PLK_CMP; } return PLK_NONE; }
+    if (!strcmp(fn, "$is_v")) return narg == 2 ? PLK_IS : PLK_NONE;
+    if (!strncmp(fn, "$atop_", 6) && narg == 2) { for (int i = 0; cmps[i]; i++) if (!strcmp(fn + 6, cmps[i])) { *op = fn + 6; return PLK_ATOP; } return PLK_NONE; }
+    if (!strcmp(fn, "$pl_anum_guard2")) return narg == 3 ? PLK_ANUM : PLK_NONE;
+    if (!strcmp(fn, "$pl_anum_guard3")) return narg == 4 ? PLK_ANUM : PLK_NONE;
+    if (!strcmp(fn, "$pl_anum_guard5")) return narg == 6 ? PLK_ANUM : PLK_NONE;
+    if (narg == 1) for (int i = 0; types[i]; i++) if (!strcmp(fn + 1, types[i])) { *op = fn + 1; return PLK_TYPE; }
+    return PLK_NONE;
+}
+int pl_leaf_inline_known(const char * fn, int narg) {
+    const char * op = 0;
+    return pl_leaf_kind(fn, narg, &op) != PLK_NONE;
+}
+const int * pl_anum_rules(const char * name, int nargs) {
+    static const int r_atom_length[] = { PLR_TEXT, PLR_UNB_OR_INT0 }, r_text_list[] = { PLR_TEXT, PLR_UNB }, r_num_list[] = { PLR_NUM, PLR_UNB }, r_number_string[] = { PLR_NUM, PLR_ANY };
+    static const int r_char_code[] = { PLR_UNB, PLR_INTCODE }, r_atom_concat[] = { PLR_TEXT, PLR_TEXT, PLR_UNB_OR_TEXT }, r_atomic_concat[] = { PLR_TEXT_OR_NUM, PLR_TEXT_OR_NUM, PLR_UNB_OR_TEXT };
+    static const int r_sub_atom[] = { PLR_TEXT, PLR_UNB_OR_INT0, PLR_UNB_OR_INT0, PLR_UNB_OR_INT0, PLR_UNB_OR_TEXT }, r_arg[] = { PLR_INT0, PLR_COMP, PLR_ANY }, r_functor[] = { PLR_NONVAR,
+        PLR_ANY, PLR_ANY };
+    if (!name) return 0;
+    if (nargs == 2 && !strcmp(name, "atom_length")) return r_atom_length;
+    if (nargs == 2 && (!strcmp(name, "atom_chars") || !strcmp(name, "atom_codes"))) return r_text_list;
+    if (nargs == 2 && (!strcmp(name, "number_chars") || !strcmp(name, "number_codes"))) return r_num_list;
+    if (nargs == 2 && !strcmp(name, "number_string")) return r_number_string;
+    if (nargs == 2 && !strcmp(name, "char_code")) return r_char_code;
+    if (nargs == 3 && !strcmp(name, "atom_concat")) return r_atom_concat;
+    if (nargs == 3 && !strcmp(name, "atomic_concat")) return r_atomic_concat;
+    if (nargs == 5 && !strcmp(name, "sub_atom")) return r_sub_atom;
+    if (nargs == 3 && !strcmp(name, "arg")) return r_arg;
+    if (nargs == 3 && !strcmp(name, "functor")) return r_functor;
+    return 0;
+}

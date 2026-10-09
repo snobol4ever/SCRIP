@@ -12,13 +12,7 @@ extern DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx)
 extern DESCR_t rt_subscript_val(DESCR_t base, DESCR_t idx);
 }
 #include "x86_asm.h"
-static int sub_val_on(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_SUB_VAL");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
+#define sub_val_on() emit_knob_unless_zero("SCRIP_SUB_VAL")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sub_cval(void) { return _.op_sval && !strcmp(_.op_sval, "container-value"); }
 static int sub_conly(void) { return sub_cval() || (_.op_sval && !strcmp(_.op_sval, "container-only")); }

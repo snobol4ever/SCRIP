@@ -223,20 +223,8 @@ static std::string bb_define_bind() {
 #include <cstdint>
 #include "emit.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int fnsig(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_FN_SIG");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
-static int wn_park(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_WN_PARK");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
+#define fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
+#define wn_park() emit_knob_unless_zero("SCRIP_WN_PARK")
 extern "C" {
 #include "bb_template_common.h"
 #include "bb_templates.h"

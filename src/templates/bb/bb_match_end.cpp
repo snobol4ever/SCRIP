@@ -15,13 +15,7 @@ extern "C" long zvo_owner_dout(int cur_head);
 #include "x86_asm.h"
 #define rfc() (_.op_fc_disp >= 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int cap_name_strict(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_CAP_NAME_STRICT");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
+#define cap_name_strict() emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define mend_bank_cursors() ( \
       IF(sn4_defer_beta_guard(), \

@@ -13,36 +13,19 @@ extern "C" {
 #include "builtin_ids.h"
 #include "snobol4_system_fns.h"
 }
-static int bid_bake_on(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_BID_BAKE");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
-static long bid_bake_of(const char * fn) { if (!bid_bake_on() || !fn) return -1L; size_t n = strlen(fn); if (n > 0xFFFFu) return -1L;
-    return (long)(((unsigned long)n << 16) | (unsigned long)(unsigned)bid_of(fn, (unsigned)n) | (sn4_is_system_fn(fn) ? (unsigned long)BID_BAKE_SYSFN : 0UL) | ((sn4_direct_on()
-        && sn4_is_leaf_fn(fn)) ? (unsigned long)BID_BAKE_LEAF : 0UL)); }
 extern "C" DESCR_t rt_call_bid_sn4(const char *, DESCR_t *, int, int);
 extern "C" DESCR_t rt_call_name_sn4(const char *, DESCR_t *, int, int);
-static int sn4_byname_kind(const char * fn, int strict) {
-    long bw = bid_bake_of(fn);
-    if (strict != 1 && bw >= 0 && (bw & BID_BAKE_LEAF)) return 1;
-    if (strict == 2 && bw >= 0 && !(bw & BID_BAKE_SYSFN) && (bw & BID_BAKE_MASK) == 0 && sn4_direct_on()) return 2;
-    if (strict == 2) return 3;
-    if (strict) return 4;
-    return 5;
-}
-static const char * sn4_byname_sym(const char * fn, int strict) { switch (sn4_byname_kind(fn,
-    strict)) { case 1: return "rt_call_bid_sn4"; case 2: return "rt_call_name_sn4"; case 3: return "rt_call_arr_bl_sn4"; case 4: return "rt_call_arr_bl_strict"; default: return "rt_call_arr_bl"; } }
-static uint64_t sn4_byname_fp(const char * fn, int strict) { switch (sn4_byname_kind(fn,
-    strict)) { case 1: return (uint64_t)(uintptr_t)(void *)rt_call_bid_sn4; case 2: return (uint64_t)(uintptr_t)(void *)rt_call_name_sn4;
-        case 3: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_sn4; case 4: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_strict;
-            default: return (uint64_t)(uintptr_t)(void *)rt_call_arr_bl; } }
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 }
 #include "x86_asm.h"
+extern "C++" long bid_bake_of(const char * fn);
+extern "C++" int sn4_byname_kind(const char * fn, int strict);
+extern "C++" const char * sn4_byname_sym(const char * fn, int strict);
+extern "C++" uint64_t sn4_byname_fp(const char * fn, int strict);
+extern "C++" int bb_callee_baked_kind(const char * fn, int strict);
+extern "C++" const char * bb_callee_baked_sym(int k);
+extern "C++" uint64_t bb_callee_baked_fp(int k);
 std::string marshal_call_arg(IR_t * lf, IR_graph_t * sg, int aoff, IR_t * owner, int idx);
 void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym);
 extern "C" {
@@ -53,9 +36,6 @@ int rt_dat_field_of_any(const char *name);
 void * dat_find_type(const char *name);
 const char * bb_ab_sym_name(const char * nm);
 }
-int bb_callee_baked_kind(const char * fn, int strict) { if (!fn || !fn[0] || sn4_byname_kind(fn, strict) != 2) return 0; return (rt_dat_field_of_any(fn) && !dat_find_type(fn)) ? 1 : 2; }
-const char * bb_callee_baked_sym(int k) { return k == 2 ? "rt_call_callee_sn4" : "rt_call_fld_sn4"; }
-uint64_t bb_callee_baked_fp(int k) { return k == 2 ? (uint64_t)(uintptr_t)(void *)rt_call_callee_sn4 : (uint64_t)(uintptr_t)(void *)rt_call_fld_sn4; }
 extern "C++" std::string bb_callee_rdx(const char * fn) {
     std::string lbl = std::string(".Lcallee_") + bb_ab_sym_name(fn);
     return x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)bb_callee_rec_addr(fn), lbl.c_str());

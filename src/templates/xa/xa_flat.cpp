@@ -20,13 +20,7 @@ extern int g_rt_fragment_emit;
 extern int * const rt_k_level_p;
 extern int64_t kw_fnclevel;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_wire_stack_on(void) {
-    static int _v = -1;
-    if (_v < 0) {
-        const char *e = getenv("SCRIP_ICN_WIRE_STACK");
-        _v = (e && *e == (char)48) ? 0 : 1;
-    } return _v;
-}
+#define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_entry_dispatch_str(void) {
     if (MEDIUM_MACRO_DEF) return x86("comment", "# no macro form — XA_ENTRY_DISPATCH");
@@ -232,13 +226,7 @@ extern "C" void rt_lcl_proc_args_install(void *, int, int);
 extern "C" void rt_icn_zframe_args_install(void *, int, int);
 extern "C" void rt_arg_stage(int idx, DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_zanchor_poison(void) {
-    static int on = -1;
-    if (on < 0) {
-        const char * e = getenv("SCRIP_PL_ZANCHOR_POISON");
-        on = (e && *e == '1') ? 1 : 0;
-    } return on;
-}
+#define xa_flat_zanchor_poison() emit_knob_if_one("SCRIP_PL_ZANCHOR_POISON")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zf_display_level(void) {
     if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;

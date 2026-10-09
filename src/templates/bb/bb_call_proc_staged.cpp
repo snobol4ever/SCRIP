@@ -75,13 +75,7 @@ int zls_g_block_args(const IR_graph_t * g);
    + x86("label", LS(n)) \
    + x86(".string", (s)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int icn_wire_stack_on(void) {
-    static int _v = -1;
-    if (_v < 0) {
-        const char *e = getenv("SCRIP_ICN_WIRE_STACK");
-        _v = (e && *e == (char)48) ? 0 : 1;
-    } return _v;
-}
+#define icn_wire_stack_on() emit_knob_unless_zero("SCRIP_ICN_WIRE_STACK")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define icn_wire_stack_for(fname) (icn_wire_stack_on() && !bb_proc_target_zframe_graph((fname)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -98,13 +92,7 @@ static std::string bcps_wire_cross_gen(int gid, int wid) {
 #define bcps_wire_land_site(fname) (x86_rsp_land((icn_wire_stack_for((fname)) && !bcps_wire_pair_consumed((fname))) ? 16L : 0L) + x86_gc_site(X86_SITE_LANDING))
 #define bcps_wire_land(fname) (icn_wire_stack_for((fname)) ? IF(!bcps_wire_pair_consumed((fname)), x86("add", "rsp", 16L)) : std::string())
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcps_retfix(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char *e = getenv("SCRIP_RET_FIX");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
+#define bcps_retfix() emit_knob_unless_zero("SCRIP_RET_FIX")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int bcps_pl();
 #define bcps_open_word_keep() (x86("sub", "rsp", 16L) + x86_rsp_store64(0, "rax"))
@@ -183,13 +171,7 @@ static int bcps_result_slot() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define c2farm() (_.op_fc_wbytes > 0)
 static inline int bcps_pl() { return x86_fb_pinned(); }
-static int bcps_fnsig(void) {
-    static int v = -1;
-    if (v < 0) {
-        const char * e = getenv("SCRIP_FN_SIG");
-        v = (e && *e == '0') ? 0 : 1;
-    } return v;
-}
+#define bcps_fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {
     extern int rt_g_ret_by_name;

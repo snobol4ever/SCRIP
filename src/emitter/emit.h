@@ -786,5 +786,8 @@ template<typename F> inline std::string FOR(int lo, int hi, F f) { std::string r
 template<typename F> inline std::string emit_for(int lo, int hi, F f) { return FOR(lo, hi, f); }
 void emit_text_s(const std::string & s);
 void emit_write_file_s(const char * path, const std::string & s);
+int emit_knob_unless_zero(const char * name);
+int emit_knob_nonzero(const char * name);
+int emit_knob_if_one(const char * name);
 #endif
 #endif

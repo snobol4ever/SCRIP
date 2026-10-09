@@ -20,46 +20,12 @@ void rt_pl_tr_refuse(const char *);
 #include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
 #include "bb_pl_cell.h"
+#include "bb_pl_leaf_kinds.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-enum { PLK_NONE = 0, PLK_AX, PLK_CMP, PLK_IS, PLK_TYPE, PLK_ATOP, PLK_ZGUARD, PLK_ANUM, PLK_MKC, PLK_DBDECLS, PLK_UNIFY };
-enum { PLR_ANY = 0, PLR_TEXT, PLR_NUM, PLR_INT0, PLR_UNB, PLR_UNB_OR_INT0, PLR_UNB_OR_TEXT, PLR_COMP, PLR_NONVAR, PLR_TEXT_OR_NUM, PLR_INTCODE };
 static const int PL_L_COLD = 190, PL_L_OK = 180, PL_L_FAIL = 195;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_ax_arity(const char * op) {
-    static const char * const b2[] = { "add", "sub", "mul", "div", "idiv", "divf", "mod", "rem", "fpow", "pow", "min", "max", "gcd", "xor", "shr", "shl", "band", "bor", 0 };
-    static const char * const b1[] = { "neg", "pos", "abs", "sign", "trunc", "intg", "flt", "floor", "ceil", "round", "sqrt", "msb", "bnot", "sin", "cos", "atan", "log", "exp", "fip", "ffp", 0 };
-    static const char * const b0[] = { "pi", "e", 0 };
-    for (int i = 0; b2[i]; i++) if (!strcmp(op, b2[i])) return 2;
-    for (int i = 0; b1[i]; i++) if (!strcmp(op, b1[i])) return 1;
-    for (int i = 0; b0[i]; i++) if (!strcmp(op, b0[i])) return 0;
-    return -1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_leaf_kind(const char * fn, int narg, const char ** op) {
-    static const char * const cmps[] = { "lt", "gt", "le", "ge", "eq", "ne", 0 };
-    static const char * const types[] = { "var", "nonvar", "atom", "number", "integer", "float", "atomic", "compound", "callable", "string", 0 };
-    *op = 0;
-    if (!fn || fn[0] != '$') return PLK_NONE;
-    if (!strcmp(fn, "$mkc")) return narg >= 1 ? PLK_MKC : PLK_NONE;
-    if (!strcmp(fn, "$db_decls")) return narg >= 1 ? PLK_DBDECLS : PLK_NONE;
-    if (!strcmp(fn, "$unify")) return narg == 2 ? PLK_UNIFY : PLK_NONE;
-    if (!strcmp(fn, "$ax_zguard")) return narg == 2 ? PLK_ZGUARD : PLK_NONE;
-    if (!strcmp(fn, "$ax_eguard")) return PLK_NONE;
-    if (!strncmp(fn, "$ax_", 4)) { *op = fn + 4; return pl_ax_arity(*op) == narg ? PLK_AX : PLK_NONE; }
-    if (!strncmp(fn, "$cmp_", 5) && narg == 2) { for (int i = 0; cmps[i]; i++) if (!strcmp(fn + 5, cmps[i])) { *op = fn + 5; return PLK_CMP; } return PLK_NONE; }
-    if (!strcmp(fn, "$is_v")) return narg == 2 ? PLK_IS : PLK_NONE;
-    if (!strncmp(fn, "$atop_", 6) && narg == 2) { for (int i = 0; cmps[i]; i++) if (!strcmp(fn + 6, cmps[i])) { *op = fn + 6; return PLK_ATOP; } return PLK_NONE; }
-    if (!strcmp(fn, "$pl_anum_guard2")) return narg == 3 ? PLK_ANUM : PLK_NONE;
-    if (!strcmp(fn, "$pl_anum_guard3")) return narg == 4 ? PLK_ANUM : PLK_NONE;
-    if (!strcmp(fn, "$pl_anum_guard5")) return narg == 6 ? PLK_ANUM : PLK_NONE;
-    if (narg == 1) for (int i = 0; types[i]; i++) if (!strcmp(fn + 1, types[i])) { *op = fn + 1; return PLK_TYPE; }
-    return PLK_NONE;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int pl_leaf_inline_known(const char * fn, int narg) {
-    const char * op = 0;
-    return pl_leaf_kind(fn, narg, &op) != PLK_NONE;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_opstr(const char * reg, const char * str) {
     std::string fl = std::string(".L") + x86_boxkind() + "_plop" + std::to_string(g_flat_node_id++);
@@ -286,24 +252,6 @@ static std::string pl_arm_zguard(int argbase, int resoff) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const int * pl_anum_rules(const char * name, int nargs) {
-    static const int r_atom_length[] = { PLR_TEXT, PLR_UNB_OR_INT0 }, r_text_list[] = { PLR_TEXT, PLR_UNB }, r_num_list[] = { PLR_NUM, PLR_UNB }, r_number_string[] = { PLR_NUM, PLR_ANY };
-    static const int r_char_code[] = { PLR_UNB, PLR_INTCODE }, r_atom_concat[] = { PLR_TEXT, PLR_TEXT, PLR_UNB_OR_TEXT }, r_atomic_concat[] = { PLR_TEXT_OR_NUM, PLR_TEXT_OR_NUM, PLR_UNB_OR_TEXT };
-    static const int r_sub_atom[] = { PLR_TEXT, PLR_UNB_OR_INT0, PLR_UNB_OR_INT0, PLR_UNB_OR_INT0, PLR_UNB_OR_TEXT }, r_arg[] = { PLR_INT0, PLR_COMP, PLR_ANY }, r_functor[] = { PLR_NONVAR,
-        PLR_ANY, PLR_ANY };
-    if (!name) return 0;
-    if (nargs == 2 && !strcmp(name, "atom_length")) return r_atom_length;
-    if (nargs == 2 && (!strcmp(name, "atom_chars") || !strcmp(name, "atom_codes"))) return r_text_list;
-    if (nargs == 2 && (!strcmp(name, "number_chars") || !strcmp(name, "number_codes"))) return r_num_list;
-    if (nargs == 2 && !strcmp(name, "number_string")) return r_number_string;
-    if (nargs == 2 && !strcmp(name, "char_code")) return r_char_code;
-    if (nargs == 3 && !strcmp(name, "atom_concat")) return r_atom_concat;
-    if (nargs == 3 && !strcmp(name, "atomic_concat")) return r_atomic_concat;
-    if (nargs == 5 && !strcmp(name, "sub_atom")) return r_sub_atom;
-    if (nargs == 3 && !strcmp(name, "arg")) return r_arg;
-    if (nargs == 3 && !strcmp(name, "functor")) return r_functor;
-    return 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string pl_anum_arg(int rule, int aoff, int b) {
     int l_unb = b + 3, l_next = b + 4;
