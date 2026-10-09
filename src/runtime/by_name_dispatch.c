@@ -1,3 +1,4 @@
+#include <sys/utsname.h>
 #include "dtp.h"
 #include "by_name_dispatch.h"
 #include "ct_arena.h"
@@ -7129,6 +7130,73 @@ static DESCR_t rk_pre_args(void) {
     return rk_unmark(rk_mk_arr(r, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_os_release(const char *key, char *buf, size_t cap) {
+    FILE *f = fopen("/etc/os-release", "r");
+    buf[0] = '\0';
+    if (!f) return buf;
+    char ln[512];
+    size_t kl = strlen(key);
+    while (fgets(ln, sizeof ln, f)) {
+        if (strncmp(ln, key, kl) || ln[kl] != '=') continue;
+        const char *v = ln + kl + 1;
+        size_t n = strlen(v);
+        while (n && (v[n - 1] == '\n' || v[n - 1] == '"')) n--;
+        if (n && v[0] == '"') { v++; n--; }
+        if (n >= cap) n = cap - 1;
+        memcpy(buf, v, n);
+        buf[n] = '\0';
+        break;
+    }
+    fclose(f);
+    return buf;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_dyn_str(const char *s) { return STRVAL(rt_heap_strdup_c(s ? s : "")); }
+static DESCR_t rk_dyn_obj(const char *nm) {
+    static int reg = 0;
+    if (!reg) {
+        DEFDAT_fn("Distro(name,version,auth,release,desc,is-win,path-sep)");
+        DEFDAT_fn("Kernel(name,version,release,hardware,arch,bits)");
+        DEFDAT_fn("VM(name,version,osname,prefix,precomp-ext,precomp-target)");
+        DEFDAT_fn("Compiler(name,backend,version,auth)");
+        DEFDAT_fn("Raku(name,version,auth,desc,compiler,signature)");
+        reg = 1;
+    }
+    DESCR_t no = { .v = DT_BOOL, .i = 0 };
+    if (!strcmp(nm, "*DISTRO")) {
+        char id[128], vid[128], url[256], pretty[256], ver[160];
+        rk_os_release("ID", id, sizeof id);
+        rk_os_release("VERSION_ID", vid, sizeof vid);
+        rk_os_release("HOME_URL", url, sizeof url);
+        rk_os_release("PRETTY_NAME", pretty, sizeof pretty);
+        char fullv[160];
+        size_t vk = 0;
+        rk_os_release("VERSION", fullv, sizeof fullv);
+        ver[vk++] = 'v';
+        for (const char *c = fullv[0] ? fullv : vid; *c && vk + 1 < sizeof ver; c++) { if (*c == ' ') ver[vk++] = '.'; else if (*c != '(' && *c != ')') ver[vk++] = *c; }
+        ver[vk] = '\0';
+        return DATCON_fn("Distro", rk_dyn_str(id[0] ? id : "linux"), rk_dyn_str(ver), rk_dyn_str(url), rk_dyn_str(vid), rk_dyn_str(pretty), no, rk_dyn_str(":"));
+    }
+    if (!strcmp(nm, "*KERNEL")) {
+        struct utsname u;
+        char ver[300];
+        size_t k = 0;
+        memset(&u, 0, sizeof u);
+        uname(&u);
+        ver[k++] = 'v';
+        for (const char *c = u.version[0] == '#' ? u.version + 1 : u.version; *c && k + 1 < sizeof ver; c++) ver[k++] = (*c == '-' || *c == ' ' || *c == ':') ? '.' : *c;
+        ver[k] = '\0';
+        char low[64];
+        size_t i = 0;
+        for (; u.sysname[i] && i + 1 < sizeof low; i++) low[i] = (char) tolower((unsigned char) u.sysname[i]);
+        low[i] = '\0';
+        return DATCON_fn("Kernel", rk_dyn_str(low), rk_dyn_str(ver), rk_dyn_str(u.release), rk_dyn_str(u.machine), rk_dyn_str(u.machine), INTVAL((long) (sizeof(void *) * 8)));
+    }
+    if (!strcmp(nm, "*VM")) return DATCON_fn("VM", rk_dyn_str("moar"), rk_dyn_str("v2022.12"), rk_dyn_str("linux"), rk_dyn_str("/usr"), rk_dyn_str("moarvm"), rk_dyn_str("mbc"));
+    DESCR_t comp = DATCON_fn("Compiler", rk_dyn_str("rakudo"), rk_dyn_str("moar"), rk_dyn_str("v2022.12"), rk_dyn_str("Yet Another Society"));
+    return DATCON_fn("Raku", rk_dyn_str("Raku"), rk_dyn_str("v6.d"), rk_dyn_str("The Perl Foundation"), rk_typeobj("Str"), comp, rk_typeobj("Blob"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_pre_value(const char *nm, DESCR_t *out) {
     extern const char *rt_main_progname(void);
     if (!strcmp(nm, "!")) { DESCR_t ex = NV_GET_fn("!"); *out = rk_exc_is(ex) ? ex : NULVCL; return 1; }
@@ -7143,6 +7211,7 @@ static int rk_pre_value(const char *nm, DESCR_t *out) {
     if (!strcmp(nm, "now")) { struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts); *out = REALVAL((double) ts.tv_sec + (double) ts.tv_nsec / 1e9); return 1; }
     if (!strcmp(nm, "rand")) { *out = REALVAL((double) random() / ((double) RAND_MAX + 1.0)); return 1; }
     if (!strcmp(nm, "*PID")) { *out = INTVAL((long) getpid()); return 1; }
+    if (!strcmp(nm, "*DISTRO") || !strcmp(nm, "*KERNEL") || !strcmp(nm, "*VM") || !strcmp(nm, "*RAKU") || !strcmp(nm, "*PERL")) { *out = rk_dyn_obj(nm); return 1; }
     if (!strcmp(nm, "*PROGRAM")) { const char *p = rt_main_progname(); *out = rk_io_mk(p && *p ? p : "-e"); return 1; }
     if (!strcmp(nm, "*PROGRAM-NAME") || !strcmp(nm, "?FILE")) { const char *p = rt_main_progname(); *out = STRVAL(rt_heap_strdup_c(p && *p ? p : "-e")); return 1; }
     if (!strcmp(nm, "*CWD")) { char *b = rt_wsb_alloc(4096); *out = rk_io_mk(getcwd(b, 4096) ? b : ""); return 1; }
@@ -12119,7 +12188,24 @@ const char *rk_cplx_str(DESCR_t d) {
     snprintf(out, 160, "%s%s%si", rb, im < 0 ? "-" : "+", ib);
     return out;
 }
+static const char *rk_dyn_text(DESCR_t d, int use_gist) {
+    static const char *const dyn[] = { "Distro", "Kernel", "VM", "Compiler", "Raku" };
+    if (!IS_DATA_INST_fn(d) || !d.u || !d.u->type || !d.u->type->name) return NULL;
+    int hit = 0;
+    for (size_t i = 0; i < sizeof dyn / sizeof dyn[0]; i++) if (!strcmp(d.u->type->name, dyn[i])) hit = 1;
+    if (!hit) return NULL;
+    extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+    const char *nm = rk_cstr(dat_field_get("name", d));
+    if (!use_gist) return nm;
+    const char *vs = rk_cstr(dat_field_get("version", d));
+    if (*vs == 'v') vs++;
+    size_t n = strlen(nm) + strlen(vs) + 4;
+    char *r = rt_wsb_alloc(n);
+    snprintf(r, n, "%s (%s)", nm, vs);
+    return r;
+}
 static const char *rk_obj_default_raku(DESCR_t d) {
+    { const char *dt = rk_dyn_text(d, 1); if (dt) return dt; }
     extern int dat_attributes(const char *name, const char **out, int max);
     extern int dat_field_is_private(const char *cls, const char *field);
     extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
@@ -12148,6 +12234,7 @@ static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
     if (!strcmp(m, "defined") || !strcmp(m, "Bool") || !strcmp(m, "so") || !strcmp(m, "DEFINITE")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
     if (!strcmp(m, "not")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
     if (!strcmp(m, "gist") || !strcmp(m, "raku") || !strcmp(m, "perl")) { *out = STRVAL(rk_obj_default_raku(self)); return 1; }
+    if (!strcmp(m, "Str") && rk_dyn_text(self, 0)) { *out = STRVAL((char *) rk_dyn_text(self, 0)); return 1; }
     if (!strcmp(m, "Str")) {
         size_t sl = strlen(self.u->type->name) + 32;
         char *r = rt_wsb_alloc(sl);
@@ -12176,6 +12263,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     if (rk_qh_is(d)) return rk_qh_render(d, use_gist);
     if (rk_io_is(d)) { if (!use_gist) return rk_io_pathstr(d); char *o = rt_wsb_alloc(strlen(rk_io_pathstr(d)) + 16); sprintf(o, "\"%s\".IO", rk_io_pathstr(d)); return o; }
     if (use_gist && IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && dat_find_type(d.u->type->name)) return rk_obj_default_raku(d);
+    { const char *dt = rk_dyn_text(d, 0); if (dt) return dt; }
     const char *s = VARVAL_fn(d);
     return s ? s : "";
 }

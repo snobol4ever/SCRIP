@@ -558,10 +558,11 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
     tree_t *result = NULL;
     SB lit = { 0 }; int i = 0;
     while (i < len) {
-        if (s[i] == '$' && i + 1 < len && (s[i + 1] == '_' || (s[i + 1] >= 'A' && s[i + 1] <= 'Z') || (s[i + 1] >= 'a' && s[i + 1] <= 'z'))) {
+        if (s[i] == '$' && i + 1 < len && (s[i + 1] == '_' || (s[i + 1] >= 'A' && s[i + 1] <= 'Z') || (s[i + 1] >= 'a' && s[i + 1] <= 'z') || (s[i + 1] == '*' && i + 2 < len && (s[i + 2] == '_' || isalpha((unsigned char) s[i + 2]))))) {
             if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.n = 0; }
             i++;
             SB vn = { 0 };
+            if (s[i] == '*') { sb_c(&vn, '*'); i++; }
             while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&vn, s[i]); i++; }
             while (i + 1 < len && (s[i] == '-' || s[i] == '\'') && isalpha((unsigned char) s[i + 1])) {
                 sb_c(&vn, s[i]);

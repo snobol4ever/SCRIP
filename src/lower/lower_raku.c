@@ -156,8 +156,8 @@ static int rk_user_proc_exists(const char * nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_predeclared(const char * nm, int bare) {
     if (!nm || !*nm) return 0;
-    static const char * const dyn[] = { "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER", "%*ENV", "@*ARGS", "?FILE", "/", "!",
-        "Order::Less", "Order::Same", "Order::More", "Bool::True", "Bool::False", NULL };
+    static const char * const dyn[] = { "*DISTRO", "*KERNEL", "*VM", "*RAKU", "*PERL", "*PID", "*PROGRAM", "*PROGRAM-NAME", "*CWD", "*EXECUTABLE", "*EXECUTABLE-NAME", "*HOME", "*TMPDIR", "*USER",
+        "%*ENV", "@*ARGS", "?FILE", "/", "!", "Order::Less", "Order::Same", "Order::More", "Bool::True", "Bool::False", NULL };
     for (int i = 0; dyn[i]; i++) if (!strcmp(nm, dyn[i])) return 1;
     if (!bare) return 0;
     static const char * const terms[] = { "now", "time", "rand", "Empty", "Less", "Same", "More", NULL };
