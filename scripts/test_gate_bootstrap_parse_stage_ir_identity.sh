@@ -42,6 +42,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ -x "$SCRIP" ] || refuse "no scrip at $SCRIP (make)"
+"$HERE/util_require_fresh.sh" --gate "$G" || exit $?
 [ "$POP" = sample ] || [ "$POP" = corpus ] || refuse "population must be sample or corpus"
 [ -d "$CORPUS" ] || refuse "no corpus at $CORPUS"
 STORE="$ROOT/out/ir_identity"

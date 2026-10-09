@@ -106,16 +106,17 @@ static ssize_t tree_hash_write(void * cookie, const char * b, size_t n) {
     return (ssize_t) n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * attr_value(const tree_t * a) {
-    static char b[64];
-    const tree_t * c = (a->n > 0) ? a->c[0] : NULL;
-    if (c && c->t == TT_ILIT) { snprintf(b, sizeof b, "%lld", c->v.ival); return b; }
-    return c ? (c->v.sval ? c->v.sval : "") : "";
-}
 static void print_escaped(const char * s) {
     putchar('"');
     for (; *s; s++) { if (*s == '\n') fputs("\\n", stdout); else if (*s == '\\') fputs("\\\\", stdout); else if (*s == '"') fputs("\\\"", stdout); else putchar(*s); }
     putchar('"');
+}
+static void print_attr_value(const tree_t * a, int escaped) {
+    const tree_t * c = (a->n > 0) ? a->c[0] : NULL;
+    if (c && c->t == TT_ILIT) { if (escaped) printf("\"%lld\"", c->v.ival); else printf("%lld", c->v.ival); return; }
+    const char * v = c ? (c->v.sval ? c->v.sval : "") : "";
+    if (escaped) print_escaped(v);
+    else fputs(v, stdout);
 }
 static void print_statement_attrs(const tree_t * ast) {
     for (int i = 0; i < ast->n; i++) {
@@ -126,8 +127,13 @@ static void print_statement_attrs(const tree_t * ast) {
             const tree_t * a = s->c[k];
             if (!a || a->t != TT_ATTR || !a->v.sval || (uintptr_t) a->v.sval < 4096) continue;
             const char * t = a->v.sval;
-            if (!strcmp(t, ":line") || !strcmp(t, ":lline") || !strcmp(t, ":stno") || !strcmp(t, ":incl")) printf(" %s=%s", t + 1, attr_value(a));
-            else if (!strcmp(t, ":lbl") || !strcmp(t, ":src") || !strcmp(t, ":file")) { printf(" %s=", t + 1); print_escaped(attr_value(a)); }
+            if (!strcmp(t, ":line") || !strcmp(t, ":lline") || !strcmp(t, ":stno") || !strcmp(t, ":incl")) {
+                printf(" %s=", t + 1);
+                print_attr_value(a, 0);
+            } else if (!strcmp(t, ":lbl") || !strcmp(t, ":src") || !strcmp(t, ":file")) {
+                printf(" %s=", t + 1);
+                print_attr_value(a, 1);
+            }
         }
         putchar('\n');
     }
