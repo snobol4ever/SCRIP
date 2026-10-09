@@ -384,8 +384,15 @@ inline std::string x86_call_ro(const char * sym, uint64_t ptr) { return x86_call
 #define RTCC_C_R11 8u
 #define RTCC_C_ALL (RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10 | RTCC_C_R11)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline unsigned x86_rtcc_veneer_mask(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_RTCC_VENEER"); v = (e && *e) ? (int)strtoul(e, 0, 0) : (int)RTCC_C_ALL;
-    } return (unsigned)v; }
+inline int x86_diag_regs_on();
+static inline unsigned x86_rtcc_veneer_mask(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char * e = getenv("SCRIP_RTCC_VENEER");
+        v = (e && *e) ? (int)strtoul(e, 0, 0) : x86_rtx_plant_veneer() ? (int)RTCC_C_ALL : (int)(RTCC_C_R9 | (x86_diag_regs_on() ? RTCC_C_R11 : 0u));
+    }
+    return (unsigned)v;
+}
 static inline int x86_rtcc_veneer_on(void) { return x86_rtcc_veneer_mask() != 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int gva_count(void);
@@ -431,6 +438,7 @@ static_assert(x86_rtcc_streq(PIN_SUBJLEN_REG, "r15"), "BLOB PIN DRIFT: r15 is th
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string x86_rtcc_wb_bin(uint64_t block, unsigned m = RTCC_C_ALL) {
     std::string wb;
+    if (!(m & (RTCC_C_R8 | RTCC_C_R10 | RTCC_C_R11)) && !((m & RTCC_C_R9) && !RTCC_GLOBAL_R9_GVA)) return wb;
     if (m & RTCC_C_R11) {
         wb += (char)0x41; wb += (char)0x53;
         wb += (char)0x49; wb += (char)0xBB; wb += u64le(block);
@@ -459,6 +467,12 @@ static inline std::string x86_rtcc_rl_bin(uint64_t block, unsigned m = RTCC_C_AL
         rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x5B; rl += (char)64;
         return rl;
     }
+    if (m == RTCC_C_R9) {
+        rl += (char)0x49; rl += (char)0xB9; rl += u64le(block);
+        rl += (char)0x4D; rl += (char)0x8B; rl += (char)0x49; rl += (char)48;
+        return rl;
+    }
+    if (!(m & (RTCC_C_R8 | RTCC_C_R9 | RTCC_C_R10))) return rl;
     rl += (char)0x48; rl += (char)0xB9; rl += u64le(block);
     if (m & RTCC_C_R8) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x41; rl += (char)40; }
     if (m & RTCC_C_R9) { rl += (char)0x4C; rl += (char)0x8B; rl += (char)0x49; rl += (char)48; }
@@ -466,10 +480,9 @@ static inline std::string x86_rtcc_rl_bin(uint64_t block, unsigned m = RTCC_C_AL
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline std::string x86_rtcc_call_b(uint64_t ptr, unsigned m) {
+static inline std::string x86_rtcc_call_b(uint64_t ptr) {
     std::string c;
-    if (m & RTCC_C_R11) { c += (char)0x49; c += (char)0xBB; c += u64le(ptr); c += (char)0x41; c += (char)0xFF; c += (char)0xD3; return c; }
-    c += (char)0x48; c += (char)0xB8; c += u64le(ptr); c += (char)0xFF; c += (char)0xD0;
+    c += (char)0x49; c += (char)0xBB; c += u64le(ptr); c += (char)0x41; c += (char)0xFF; c += (char)0xD3;
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -491,7 +504,6 @@ static inline std::string x86_rtcc_rl_text(unsigned m = RTCC_C_ALL) {
     return rl;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline int x86_diag_regs_on();
 inline std::string x86_rtx_reestablish(unsigned m) {
     std::string s;
     if (m & RTCC_C_R9) s += MEDIUM_BINARY ? x86_Lrec(x86_rtcc_rl_bin((uint64_t)(uintptr_t)rtccb, RTCC_C_R9)) : x86_rtcc_rl_text(RTCC_C_R9);
@@ -500,11 +512,10 @@ inline std::string x86_rtx_reestablish(unsigned m) {
 }
 inline std::string x86_rtcc_call_adj(const char * sym, uint64_t ptr, int adj) {
     unsigned m = x86_rtcc_clob(sym);
-    if (m == 0) return x86_call_ro_adj(sym, ptr, adj);
     if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro_adj(sym, ptr, adj) + x86_rtx_reestablish(m);
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
-        std::string call_b = x86_rtcc_call_b(ptr, m);
+        std::string call_b = x86_rtcc_call_b(ptr);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_gc_site_adj(X86_SITE_CALL, adj) + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text_adj(sym, "@PLT", adj) + x86_rtcc_rl_text(m);
@@ -2439,12 +2450,11 @@ inline struct bb_label_t * x86_label_for(int id, bb_label_t * internal, char (* 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot) {
     unsigned m = x86_rtcc_clob(sym);
-    if (m == 0) return x86_call_ro(sym, ptr) + x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     std::string cap = x86("mov", FRQ(slot), "rax") + x86("mov", FRQ(slot + 8), "rdx");
     if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro(sym, ptr) + cap + x86_rtx_reestablish(m);
     if (MEDIUM_BINARY) {
-        std::string call_b = x86_rtcc_call_b(ptr, m);
+        std::string call_b = x86_rtcc_call_b(ptr);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_gc_site(X86_SITE_CALL) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + cap + x86_rtcc_rl_text(m);
@@ -2453,11 +2463,10 @@ inline std::string x86_rtcc_call_descr(const char * sym, uint64_t ptr, int slot)
 inline std::string x86_rtcc_call_descr_ops(const char * sym, uint64_t ptr, const std::string & r0, const std::string & r8) {
     std::string cap = x86("mov", r0.c_str(), "rax") + x86("mov", r8.c_str(), "rdx");
     unsigned m = x86_rtcc_clob(sym);
-    if (m == 0) return x86_call_ro(sym, ptr) + cap;
     if (emit_rtx_entry_is(sym) && !x86_rtx_plant_veneer()) return x86_call_ro(sym, ptr) + cap + x86_rtx_reestablish(m);
     uint64_t block = (uint64_t)(uintptr_t)rtccb;
     if (MEDIUM_BINARY) {
-        std::string call_b = x86_rtcc_call_b(ptr, m);
+        std::string call_b = x86_rtcc_call_b(ptr);
         return x86_align_assert() + x86_Lrec(x86_rtcc_wb_bin(block, m)) + x86_Lrec(call_b) + x86_gc_site(X86_SITE_CALL) + cap + x86_Lrec(x86_rtcc_rl_bin(block, m));
     }
     return x86_align_assert() + x86_rtcc_wb_text(m) + x86_call_text(sym, "@PLT") + cap + x86_rtcc_rl_text(m);

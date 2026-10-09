@@ -158,9 +158,9 @@ static __attribute__((naked)) void icn_root_end(void) { __asm__ volatile("and $-
 static void icn_zf_main_call(void *fn, void *mf, void *wire_γ, void *wire_ω) {
     __asm__ volatile( "push %%r12\n\t" "sub $8, %%rsp\n\t" "mov %%rsp, %%r12\n\t" "push %%rax\n\t" "push %%rdi\n\t" "push %%rcx\n\t" "push %%rdx\n\t" "mov %%r12, %%rdi\n\t" "and $-16, %%rsp\n\t"
         "call rt_gc_emit_ceiling_adopt_top@PLT\n\t" "lea -32(%%r12), %%rsp\n\t" "pop %%rdx\n\t" "pop %%rcx\n\t" "pop %%rdi\n\t" "pop %%rax\n\t" "mov $0x70000000, %%r12\n\t" "mov (%%r12), %%r12\n\t"
-        "movq g_rtcc_on@GOTPCREL(%%rip), %%r10\n\t" "cmpb $0, (%%r10)\n\t" "je 1f\n\t" "movq rtccb@GOTPCREL(%%rip), %%r10\n\t" "movq 64(%%r10), %%r11\n\t" "movq 40(%%r10), %%r8\n\t"
-        "movq 48(%%r10), %%r9\n\t" "movq 56(%%r10), %%r10\n\t" "1:\n\t" "xor %%esi, %%esi\n\t" "xor %%r13d, %%r13d\n\t" "xor %%r14d, %%r14d\n\t" "xor %%r15d, %%r15d\n\t" "jmp *%%rax\n\t" : : "a"(fn),
-        "D"(mf), "c"(wire_γ), "d"(wire_ω) : "memory", "rsi", "r8", "r9", "r10", "r11", "r13", "r15" );
+        "movq g_rtcc_on@GOTPCREL(%%rip), %%r10\n\t" "cmpb $0, (%%r10)\n\t" "je 1f\n\t" "movq rtccb@GOTPCREL(%%rip), %%r10\n\t" "movq 48(%%r10), %%r9\n\t" "1:\n\t" "xor %%esi, %%esi\n\t"
+        "xor %%r13d, %%r13d\n\t" "xor %%r14d, %%r14d\n\t" "xor %%r15d, %%r15d\n\t" "jmp *%%rax\n\t" : : "a"(fn), "D"(mf), "c"(wire_γ), "d"(wire_ω) : "memory", "rsi", "r8", "r9", "r10", "r11", "r13",
+        "r15" );
 }
 #define RT_OUTER_RESERVE 4194304L
 #define RT_OUTER_RESERVE_S "4194304"
@@ -169,10 +169,9 @@ _Static_assert(RT_OUTER_RESERVE == 4194304L && RT_OUTER_RESERVE % 16 == 0,
     "it on top of the program's own -s (ceo CEO-1261)");
 __asm__(".globl rt_outer_call\n.type rt_outer_call, @function\n" "rt_outer_call:\n" "  push %r12\n" "  sub $" RT_OUTER_RESERVE_S ", %rsp\n" "  push %rdi\n" "  push %rsi\n" "  push %rdx\n"
     "  push %rcx\n" "  lea 16(%rsp), %rdi\n" "  call rt_gc_emit_ceiling_adopt@PLT\n" "  pop %rcx\n" "  pop %rdx\n" "  pop %rsi\n" "  pop %rdi\n" "  mov %rdi, %rax\n" "  mov %rsi, %rdi\n"
-    "  mov %rdx, %rsi\n" "  mov 0x70000000, %r12\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 1f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 64(%r10), %r11\n"
-    "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "1:\n" "  test %rcx, %rcx\n" "  jnz 3f\n" "  leaq 2f(%rip), %rcx\n" "3:\n" "  push %rcx\n" "  push %rcx\n"
-    "  xor %r13d, %r13d\n" "  xor %r15d, %r15d\n" "  jmp *%rax\n" "  add $" RT_OUTER_RESERVE_S ", %rsp\n" "  add $16, %rsp\n" "  pop %r12\n" "  ret\n" "2:\n" "  call rt_kw_return_level_zero@PLT\n"
-    "  ud2\n" ".size rt_outer_call, .-rt_outer_call\n");
+    "  mov %rdx, %rsi\n" "  mov 0x70000000, %r12\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 1f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 48(%r10), %r9\n" "1:\n"
+    "  test %rcx, %rcx\n" "  jnz 3f\n" "  leaq 2f(%rip), %rcx\n" "3:\n" "  push %rcx\n" "  push %rcx\n" "  xor %r13d, %r13d\n" "  xor %r15d, %r15d\n" "  jmp *%rax\n" "  add $" RT_OUTER_RESERVE_S
+    ", %rsp\n" "  add $16, %rsp\n" "  pop %r12\n" "  ret\n" "2:\n" "  call rt_kw_return_level_zero@PLT\n" "  ud2\n" ".size rt_outer_call, .-rt_outer_call\n");
 __asm__(".globl rt_outer_call_delta0\n.type rt_outer_call_delta0, @function\n" "rt_outer_call_delta0:\n" "  push %r14\n" "  xor %r14d, %r14d\n" "  call rt_outer_call\n" "  pop %r14\n" "  ret\n"
     ".size rt_outer_call_delta0, .-rt_outer_call_delta0\n");
 extern const char *Σ;
