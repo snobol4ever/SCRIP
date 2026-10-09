@@ -23,6 +23,7 @@ struct RkB {
     int nonwhen;
     int nocurry, wc_uid;
     const char **pcv; int npcv, cpcv; int use_test;
+    const char *rop_txt;
 };
 #define GROW(arr, n, cap, type) do { if ((n) >= (cap)) { (cap) = (cap) ? (cap) * 2 : 8; (arr) = (type *) ct_grow((arr), sizeof(type) * (size_t) (cap)); } } while (0)
 /*====================================================================================================================================================================================================*/
@@ -1192,8 +1193,9 @@ static tree_t *rkb_wrap_call(const char *fn, tree_t *x) { tree_t *e = make_call(
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rkb_reduce_name(RkB *b, int ofrom, int oto) {
     char *op = spn(b, ofrom, oto);
+    b->rop_txt = op;
     return !strcmp(op, "+") ? "__rk_reduce_add" : !strcmp(op, "-") ? "__rk_reduce_sub" : !strcmp(op, "*") ? "__rk_reduce_mul" : !strcmp(op, "~") ? "__rk_reduce_cat"
-         : !strcmp(op, "min") ? "__rk_reduce_min" : "__rk_reduce_max";
+         : !strcmp(op, "min") ? "__rk_reduce_min" : !strcmp(op, "max") ? "__rk_reduce_max" : NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_adverb(RkB *b, tree_t *t, const char *key) {
@@ -1492,12 +1494,51 @@ void rkb_fatarrow(RkB *b, RkTerm *it, int from, int to, int kfrom, int kto, RkLi
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_prefix(RkTerm *it, const char *s, int n) { GROW(it->pre, it->npre, it->cpre, const char *); it->pre[it->npre++] = trimdup(s, n); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_ph(const char *nm) { return leaf_sval(TT_VAR, nm); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_reduce_general(RkB *b, const char *op, tree_t *l) {
+    if (!strcmp(op, ",")) return l;
+    int rv = 0, lv = -1, k = -1;
+    const char *o = op;
+    if (o[0] == 'R' && o[1]) { rv = 1; o++; }
+    for (int i = 0; i <= LV_PAIR && k < 0; i++) { if (i == LV_TERN) continue; k = rkb_op_index(i, o); if (k >= 0) lv = i; }
+    if (k < 0) return rkb_wrap_call("__rk_reduce_max", l);
+    int chain = lv == LV_CMP && strcmp(o, "<=>") && strcmp(o, "cmp") && strcmp(o, "leg");
+    int right = (lv == LV_POW || lv == LV_PAIR) ^ rv;
+    int swap = rv ^ right;
+    tree_t *a = rk_ph("^a"), *c = rk_ph("^b");
+    tree_t *blk = ast_node_new(TT_ANON_BLOCK), *sq = ast_node_new(TT_SEQ_EXPR);
+    if (chain) {
+        a = rk_hyper_elem(0);
+        c = rk_hyper_elem(1);
+    }
+    tree_t *body = !strcmp(o, "~~") ? rkb_smartmatch(b, rv ? c : a, rv ? a : c) : rkb_binop_raw(b, lv, k, swap ? c : a, swap ? a : c);
+    expr_add_child(sq, body);
+    expr_add_child(blk, sq);
+    tree_t *src = l;
+    if (chain) {
+        tree_t *pr = make_call("__rk_adjacent_pairs");
+        expr_add_child(pr, l);
+        src = pr;
+    }
+    else if (right) {
+        src = ast_node_new(TT_METHCALL);
+        ast_push(src, l);
+        ast_push(src, leaf_sval(TT_QLIT, "reverse"));
+    }
+    tree_t *mc = ast_node_new(TT_METHCALL);
+    ast_push(mc, src);
+    ast_push(mc, leaf_sval(TT_QLIT, chain ? "map" : "reduce"));
+    ast_push(mc, blk);
+    return chain ? rkb_wrap_call("__rk_all_true", mc) : mc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_reduce(RkB *b, RkTerm *it, int from, int to, const char *rop, RkList *args) {
     memset(it, 0, sizeof *it); it->kind = TK_TREE; it->from = from; it->to = it->core_to = to;
-    if (!args || !args->nitem) { it->t = make_call(rop); return; }
+    if (!args || !args->nitem) { it->t = rop ? make_call(rop) : rkb_wrap_call("__rk_reduce_max", make_call("__rk_arr")); return; }
     tree_t *l = rkb_paren(b, args, 0);
     if (l->t == TT_TO && l->n >= 2) { tree_t *r = make_call("__rk_range_arr"); expr_add_child(r, l->c[0]); expr_add_child(r, l->c[1]); l = r; }
-    it->t = rkb_wrap_call(rop, l);
+    it->t = rop ? rkb_wrap_call(rop, l) : rk_reduce_general(b, b->rop_txt, l);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
