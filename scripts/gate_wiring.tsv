@@ -494,6 +494,8 @@ test_gate_pas_a_typed_file_var_formal_is_the_callers_file.sh	WIRED	-	-	-
 test_gate_pas_a_value_assigned_through_a_pointer_is_compatible_with_its_domain_type.sh	WIRED	-	-	-
 test_gate_pas_a_value_formal_parameter_is_not_of_a_file_type_nor_holds_one.sh	WIRED	-	-	-
 test_gate_pas_a_var_actual_has_the_type_of_its_formal.sh	WIRED	-	-	-
+test_gate_pas_a_var_actual_that_is_a_component_is_the_component_not_a_copy.sh	WIRED	-	-	-
+test_gate_pas_a_var_actual_that_is_a_variant_field_is_a_view_of_its_region_not_a_copy.sh	WIRED	-	-	-
 test_gate_pas_a_variable_declared_in_one_routine_does_not_give_a_later_routines_variable_its_type.sh	WIRED	-	-	-
 test_gate_pas_a_variable_is_defined_once_per_variable_declaration_part.sh	WIRED	-	-	-
 test_gate_pas_a_variant_case_constant_is_a_value_of_its_tag_type.sh	WIRED	-	-	-
@@ -504,6 +506,7 @@ test_gate_pas_a_word_symbol_is_never_defined_as_an_identifier.sh	WIRED	-	-	-
 test_gate_pas_an_anonymous_record_variable_borrows_no_declared_record_type.sh	WIRED	-	-	-
 test_gate_pas_an_arithmetic_or_transfer_function_has_a_value.sh	WIRED	-	-	-
 test_gate_pas_an_array_assigned_or_passed_by_value_is_a_copy.sh	WIRED	-	-	-
+test_gate_pas_an_array_element_is_not_fetched_by_a_builtin_looked_up_by_its_name.sh	WIRED	-	-	-
 test_gate_pas_an_array_field_of_a_record_component_is_indexed_as_its_type.sh	WIRED	-	-	-
 test_gate_pas_an_array_keeps_its_declared_low_bound.sh	WIRED	-	-	-
 test_gate_pas_an_array_of_records_held_as_a_record_field_compiles_and_runs.sh	WIRED	-	-	-
@@ -760,6 +763,7 @@ test_gate_raku_the_loose_logical_operators_and_or_xor_andthen_orelse_notandthen_
 test_gate_raku_the_math_and_list_routines_answer_in_function_form_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_the_negation_zip_and_cross_metaoperators_destructuring_loops_and_the_right_shift_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_reduce_operators_every_infix_chaining_and_right_associative_agree_with_rakudo.sh	WIRED	-	-	-
+test_gate_raku_the_regex_engine_is_rx_and_agrees_with_rakudo_on_quantifiers_alternation_captures_aliases_and_classes.sh	WIRED	-	-	-
 test_gate_raku_the_sequence_operator_deduces_arithmetic_and_geometric_series_runs_generators_and_stops_at_its_endpoint_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_test_module_exits_as_rakudos_does_when_the_plan_is_not_met_or_a_test_fails.sh	WIRED	-	-	-
 test_gate_raku_the_universal_methods_of_a_user_object_chr_ord_chrs_bool_as_int_and_a_type_objects_falsity_agree_with_rakudo.sh	WIRED	-	-	-
@@ -1028,6 +1032,7 @@ test_gate_template_returns_count_per_function.sh	WIRED	-	-	-
 test_gate_template_watch_names_a_planted_violation_by_commit.sh	WIRED	-	-	-
 test_gate_term_wordref_ratchet.sh	WIRED	-	-	-
 test_gate_testpgms_grades_a_spitbol_post_mortem_through_the_one_error_voice.sh	WIRED	-	-	-
+test_gate_the_code_pool_refuses_loudly_at_its_cap_never_a_wild_jump.sh	WIRED	-	-	-
 test_gate_the_default_stack_and_heap_are_spitbols.sh	WIRED	-	-	-
 test_gate_the_tiny_open_protocol_and_its_glue_record_agree.sh	WIRED	-	-	-
 test_gate_timeout_under_load_is_could_not_measure_and_retried_once.sh	WIRED	-	-	-
@@ -1221,6 +1226,3 @@ test_gate_xfail_has_reason.sh	TASK	-	-	-
 test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
-test_gate_pas_an_array_element_is_not_fetched_by_a_builtin_looked_up_by_its_name.sh	WIRED	-	-	-
-test_gate_pas_a_var_actual_that_is_a_component_is_the_component_not_a_copy.sh	WIRED	-	-	-
-test_gate_pas_a_var_actual_that_is_a_variant_field_is_a_view_of_its_region_not_a_copy.sh	WIRED	-	-	-

@@ -3052,7 +3052,9 @@ void rt_heap_out_of_memory(unsigned type, unsigned long long payload, long cap_k
 }
 void rt_code_pool_overflow(unsigned long long used_kb, unsigned long long cap_kb) {
     char mb[320];
-    snprintf(mb, sizeof mb, "memory overflow (the compiled-code pool is full: %llu of %llu KB in use, every distinct EVAL, pattern or CODE chain still referenced holds pages in it)", used_kb, cap_kb);
+    snprintf(mb, sizeof mb,
+        "memory overflow (the compiled-code pool is full: %llu of %llu KB in use, SCRIP_CODE_POOL_MB; every run-time compile still referenced holds pages in it: an EVAL, pattern or CODE chain, an as"
+        "serted clause)", used_kb, cap_kb);
     core_runtime_error(204, mb);
     { extern void rt_setexit_fire_now(void); rt_setexit_fire_now(); }
     fprintf(stderr, "scrip: the out-of-memory error handler returned and the compiled-code pool cannot grow\n");

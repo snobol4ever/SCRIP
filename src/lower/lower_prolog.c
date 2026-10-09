@@ -3078,7 +3078,7 @@ static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, 
     g_rt_fragment_emit = rfe_sv;
     g_frame_active = fa;
     g_emit_cfg = cfg_sv;
-    if (!fn) return (void *)0;
+    if (!fn) { extern void rt_code_pool_check(void); rt_code_pool_check(); return (void *)0; }
     if (chain_off_out) { extern long emit_last_pkt_chain_off(void); *chain_off_out = (int)emit_last_pkt_chain_off(); }
     rt_proc_set_frame_bytes(key, g_last_flat_frame_bytes);
     rt_proc_set_fn(key, fn);
