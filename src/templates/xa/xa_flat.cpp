@@ -696,6 +696,13 @@ const char * xa_icn_trace_pname(void) {
          : (strncmp(g_emit.flat_fam, "proc_", 5) == 0) ? g_emit.flat_fam + 5
          : g_emit.flat_fam;
 }
+static int xa_flat_graph_holds_a_frame_retry(void) {
+    if (!g_emit_cfg) return 0;
+    for (int i = 0; i < g_emit_cfg->n; i++) { const IR_t * nd = g_emit_cfg->all[i];
+        if (nd && (nd->op == IR_DISJUNCTION || nd->op == IR_TO || nd->op == IR_TO_BY)) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
     if (!xa_flat_class_zf()) return std::string();
     int kt = g_emit.flat_frame_bytes; if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) kt += (g_emit_cfg->nparams + g_emit_cfg->nlocals) * 16;
@@ -740,12 +747,15 @@ static std::string xa_flat_zframe_epilogue_γ_str(void) {
             "PACKET FRAGMENT gamma (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): B == this frame's header -> no choice inside the "
                 "clause: a later slot visible at G makes the token this frame with beta = the chain-omega, none pops the "
                     "choice and exits det; B younger -> the clause's own beta; B older -> a cut ran, det")
+             + IF(xa_flat_graph_holds_a_frame_retry(), x86("comment",
+                 "PACKET FRAGMENT gamma: this clause holds a disjunction or a builtin generator, whose choice re-aims B at THIS frame's header -- "
+                     "B == header cannot say no choice is left inside, so it takes the clause's own beta, whose exhaustion reaches the chain-omega's walk"))
              + x86("mov32", "edi", (long)DT_I)
              + x86("mov32", "esi", 1L)
              + x86("mov", "rcx", RDQ(x86_fb(), kt - 24))
              + x86("lea", "rax", RDQ(x86_fb(), kt - 64))
              + x86("cmp", "r13", "rax")
-             + x86("jb", L(238))
+             + x86(xa_flat_graph_holds_a_frame_retry() ? "jbe" : "jb", L(238))
              + x86("ja", L(233))
              + x86("mov", "r8", FRQ(kt - 80)) + x86_shift_imm("shr", 5, "r8", 8)
              + xa_flat_pkt_cell_rax(g_emit.flat_pkt_cell) + x86("mov", "r9", RDQ("rax", 0))

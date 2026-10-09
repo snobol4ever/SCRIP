@@ -554,6 +554,7 @@ test_gate_pl_a_body_less_procedure_returns_a_defined_result.sh	WIRED	-	-	-
 test_gate_pl_a_body_term_is_built_by_the_emitted_allocation_sequence.sh	WIRED	-	-	-
 test_gate_pl_a_bounded_conditional_runs_assert_2_exists_and_a_huge_length_is_a_resource_error.sh	WIRED	-	-	-
 test_gate_pl_a_call_whose_first_argument_selects_one_clause_enters_it_without_a_choice.sh	WIRED	-	-	-
+test_gate_pl_a_choice_inside_a_dynamic_clause_body_is_retried.sh	WIRED	-	-	-
 test_gate_pl_a_closed_stream_is_not_a_current_stream_argument.sh	WIRED	-	-	-
 test_gate_pl_a_cut_inside_a_control_goal_held_in_a_variable_cuts_to_the_call.sh	WIRED	-	-	-
 test_gate_pl_a_cut_redo_reaches_its_own_barrier.sh	WIRED	-	-	-
