@@ -32,6 +32,7 @@ _Static_assert(GC_FREE_PCT == 15,
 #include "descr.h"
 #include "pin_va.h"
 #include "gc_frame_map.h"
+#include "rt_pl_trail.h"
 #include "gc_audit_b.h"
 #include "../rtx/rtcc.h"
 _Static_assert(sizeof(rt_hblk_t) == 16, "rt_hblk_t must be one 16-byte title unit");
@@ -3569,7 +3570,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
         if (g_gc_rrng[i].hi) continue;
         {
             const char *top = *(const char * const *)g_gc_rrng[i].lo;
-            for (char *e = (char *)g_gc_rrng[i].lo + 32; e + 32 <= top; e += 32) {
+            for (char *e = (char *)g_gc_rrng[i].lo + PL_TR_HEADER_BYTES; e + PL_TR_ENTRY_BYTES <= top; e += PL_TR_ENTRY_BYTES) {
                 const char **cell = (const char **)e;
                 DESCR_t *old = (DESCR_t *)(e + 16);
                 if (*cell) rt_gc_visit_raw(cell);

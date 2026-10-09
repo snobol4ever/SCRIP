@@ -73,6 +73,7 @@ std::string bb_bound();
 std::string bb_statement();
 std::string bb_stmt_mark(long stno, long line);
 std::string bb_setexit_test();
+std::string bb_cleanup();
 std::string bb_setexit_take(int land_id, long drop);
 std::string bb_line_mark(long line, const char * file);
 std::string bb_glue_flat_enter();

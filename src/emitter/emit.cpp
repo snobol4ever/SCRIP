@@ -1532,6 +1532,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
             } g_emit.op_mon_stmt_tap = 0; } return 0;
     case IR_STMT_MARK: bb_emit_x86(bb_stmt_mark((long)IR_LIT(nd).ival, (long)nd->pat_static)); return 0;
     case IR_SETEXIT_TEST: bb_emit_x86(bb_setexit_test()); return 0;
+    case IR_CLEANUP: bb_emit_x86(bb_cleanup()); return 0;
     case IR_LINE_MARK: if ((long)nd->pat_static > 0) g_emit.icn_line_cur = (long)nd->pat_static; if (IR_LIT(nd).sval && *IR_LIT(nd).sval) g_emit.icn_file_cur = IR_LIT(nd).sval;
         if (g_emit.icn_line_cur > 0) emit_stno_row(0, (int32_t)g_emit.icn_line_cur, g_emit.icn_file_cur); bb_emit_x86(bb_line_mark((long)nd->pat_static, IR_LIT(nd).sval)); return 0;
     case IR_STATEMENT_END:
@@ -1766,6 +1767,29 @@ static void flat_drive_gate(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_la
         xa_pair_push(NULL, t);
     }
     g_emit.op_off = drive_value_slot(nd);
+    DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb_label_t **betas, bb_label_t *node_γ, bb_label_t *node_ω) {
+    IR_t *nd = nodes[i];
+    int kind = (int) IR_LIT(nd).ival;
+    IR_t *op0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
+    IR_t *open = kind == CLEANUP_OPEN ? nd : kind == CLEANUP_PROBE ? (IR_t *)0 : kind == CLEANUP_BANK ? nd : op0;
+    g_emit.xa_bb_emit_pair_n = 0;
+    if (kind != CLEANUP_PROBE && !emit_zframe_pinned()) { fprintf(stderr, "FATAL emit: a setup_call_cleanup record (IR_CLEANUP kind %d) in a graph that is not a pinned RBP frame\n", kind); abort(); }
+    if (kind == CLEANUP_RESUME) {
+        IR_t *g = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
+        IR_t *x = nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0;
+        int kg = nidx(nodes, n, g), kx = nidx(nodes, n, x);
+        xa_pair_push(NULL, kg >= 0 ? betas[kg] : node_ω);
+        xa_pair_push(NULL, kx >= 0 ? lbls[kx] : node_ω);
+    }
+    g_emit.op_ival = kind;
+    g_emit.op_off = kind == CLEANUP_PROBE ? 0 : (open ? zls_off(open) : -1);
+    g_emit.op_sa = -1;
+    if (kind == CLEANUP_OPEN && nd->n_operands > 1 && nd->operands[1]) g_emit.op_sa = drive_value_slot(nd->operands[1]);
+    if (kind == CLEANUP_PROBE && op0) g_emit.op_sa = zls_off(op0);
+    if (kind == CLEANUP_BANK) g_emit.op_sa = zls_off(nd);
     DRIVE_FILL(nd, lbls[i], node_γ, node_ω, betas[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4053,6 +4077,7 @@ if (((c)->op == IR_MATCH_ALTERNATE || (c)->op == IR_MATCH_ARBNO || (c)->op == IR
         if ((c)->op == IR_GATE_ARM && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
         if ((c)->op == IR_GATE_ARM && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
         if ((c)->op == IR_CREATE && (c)->n_operands > 0) RPO_PUSH((c)->operands[0]); \
+        if ((c)->op == IR_CLEANUP) { if ((c)->ω.node) RPO_PUSH((c)->ω.node); for (int _ci = (c)->n_operands - 1; _ci >= 0; _ci--) RPO_PUSH((c)->operands[_ci]); } \
         if ((c)->op == IR_SUSPEND && (c)->n_operands > 1) RPO_PUSH((c)->operands[1]); \
 if (((c)->op == IR_SUBSCRIPT || (c)->op == IR_RANDOM || (c)->op == IR_DEREF || (c)->op == IR_UNIFY_CONST || (c)->op == IR_UNIFY_STRUCT || (c)->op == IR_UNIFY_FIRST || (c)->op == IR_UNIFY_VALUE || (c \
     )->op == IR_ASSIGN_VAR || (c)->op == IR_REV_ASSIGN_VAR || (c)->op == IR_KW_ASSIGN || (c)->op == IR_SCAN_TAB || (c)->op == IR_SCAN_MOVE || (c)->op == IR_SCAN_POS || (c)->op == IR_SCAN_MATCH || (c \
@@ -4697,6 +4722,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             flat_drive_gate(g_emitter.codegen_flat_chain_body_nodes, n, i, lbls, betas, node_γ, node_ω);
             continue;
         }
+        if (g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_CLEANUP) {
+            flat_drive_cleanup(g_emitter.codegen_flat_chain_body_nodes, n, i, lbls, betas, node_γ, node_ω);
+            continue;
+        }
         if ((g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ALTERNATE || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_ARBNO ||
             g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_MATCH_FENCE1 || g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_SEQUENCE ||
             g_emitter.codegen_flat_chain_body_nodes[i]->op == IR_SCAN_ALTERNATE ||
@@ -4922,6 +4951,15 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             emit_jmp_label(&lbl_γ, JMP_JMP);
         }
         emit_sep_rule('-'); emit_label_define_bb(pl_step_lbl);
+        if (emit_pl_scc_armed()) {
+            bb_label_t * sccd_ok = emit_label_alloc("%s_sccd", fam);
+            bb_emit_x86(x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rcx", RDQ("rax", 32)) + x86("test", "rcx", "rcx"));
+            emit_jmp_label(sccd_ok, JMP_JE);
+            bb_emit_x86(x86("lea", "rdx", RDQ("rbp", _kt0)) + x86("cmp", "rcx", "rdx"));
+            emit_jmp_label(sccd_ok, JMP_JGE);
+            bb_emit_x86(x86_bomb("setup_call_cleanup: a clause retry reuses a frame that still holds a linked cleanup record, or one younger"));
+            emit_label_define_bb(sccd_ok);
+        }
         bb_label_t * pl_step_ball_lbl = emit_label_alloc("%s_step_ball", fam);
         bb_emit_x86(x86("test", "r15", "r15"));
         emit_jmp_label(pl_step_ball_lbl, JMP_JNE);
@@ -5043,8 +5081,19 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         int _kt = g_emit.flat_frame_bytes;
         bb_label_t * _step = pl_step_lbl;
         bb_label_t * _resume = emit_label_alloc("%s_βres", fam);
-        bb_emit_x86( x86("test", "r15", "r15"));
-        emit_jmp_label(&lbl_ω, JMP_JNE);
+        if (emit_pl_scc_armed()) {
+            bb_label_t * _go = emit_label_alloc("%s_βgo", fam);
+            bb_emit_x86(x86("test", "r15", "r15"));
+            emit_jmp_label(_go, JMP_JE);
+            bb_emit_x86(x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rax", RDQ("rax", 32)) + x86("test", "rax", "rax"));
+            emit_jmp_label(&lbl_ω, JMP_JE);
+            bb_emit_x86(x86("lea", "rdx", RDQ("rbp", _kt)) + x86("cmp", "rax", "rdx"));
+            emit_jmp_label(&lbl_ω, JMP_JGE);
+            emit_label_define_bb(_go);
+        } else {
+            bb_emit_x86( x86("test", "r15", "r15"));
+            emit_jmp_label(&lbl_ω, JMP_JNE);
+        }
         bb_emit_x86(x86("mov", "rax", RDQ("rbp", _kt - 48)) + x86("mov", RDQ("rbp", _kt - 48), 0L) + x86("test", "rax", "rax"));
         emit_jmp_label(_resume, JMP_JNE);
         emit_jmp_label(_step ? _step : &lbl_ω, JMP_JMP);
@@ -5914,7 +5963,8 @@ DESCR_t rt_sno_name_dl(DESCR_t *, int); DESCR_t rt_sno_pbk_d(DESCR_t *, int); DE
             int); DESCR_t rt_sno_nofail_d(DESCR_t *, int); DESCR_t rt_sno_list_d(DESCR_t *, int);
 DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
-DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *,
+DESCR_t rt_pl_dop_scc_bnew(DESCR_t *, int); DESCR_t rt_pl_dop_scc_take(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int);
+    DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *,
     int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
 DESCR_t rt_pl_dop_wall_us(DESCR_t *, int); DESCR_t rt_pl_dop_wall_ms(DESCR_t *, int);
 DESCR_t rt_pl_dop_plus(DESCR_t *, int); DESCR_t rt_pl_dop_sort(DESCR_t *, int); DESCR_t rt_pl_dop_msort(DESCR_t *, int); DESCR_t rt_pl_dop_char_type(DESCR_t *, int);
@@ -6025,7 +6075,8 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$skip_list", 3, "rt_pl_dop_skip_list", rt_pl_dop_skip_list }, { "$argv", 1, "rt_pl_dop_argv", rt_pl_dop_argv },
         { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term },
         { "$term_variables", 2, "rt_pl_dop_term_variables", rt_pl_dop_term_variables }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },
-        { "$numbervars1", 1, "rt_pl_dop_numbervars1", rt_pl_dop_numbervars1 }, { "$succ", 2, "rt_pl_dop_succ", rt_pl_dop_succ }, { "$plus", 3, "rt_pl_dop_plus", rt_pl_dop_plus },
+        { "$numbervars1", 1, "rt_pl_dop_numbervars1", rt_pl_dop_numbervars1 }, { "$scc_bnew", 1, "rt_pl_dop_scc_bnew", rt_pl_dop_scc_bnew }, { "$scc_take", 2, "rt_pl_dop_scc_take",
+            rt_pl_dop_scc_take }, { "$succ", 2, "rt_pl_dop_succ", rt_pl_dop_succ }, { "$plus", 3, "rt_pl_dop_plus", rt_pl_dop_plus },
         { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },
         { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
         { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },

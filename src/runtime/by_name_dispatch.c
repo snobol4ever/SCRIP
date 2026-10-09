@@ -6325,6 +6325,20 @@ PL_CX_LEAF_HEAD(numbervars3, 3)
     }
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(numbervars1, 1) ok = rt_pl_numbervars1_cell(&args[0], cx); PL_CX_LEAF_TAIL
+static int rt_pl_scc_bnew_cell(DESCR_t *a, pl_tr_ctx_t *cx) { return plw_unify_cell_val(plw_entry(a), INTVAL((int64_t)*pl_tr_probe_b_slot(pl_tr_base_of(cx->tr))), cx); }
+static int rt_pl_scc_take_cell(DESCR_t *ab, DESCR_t *ac, pl_tr_ctx_t *cx) {
+    char **cell = pl_tr_cleanup_slot(pl_tr_base_of(cx->tr));
+    char *rec = *cell;
+    if (!rec || *(uint64_t *)(rec + CLEANUP_REC_STATE) != CLEANUP_PENDING) return 0;
+    DESCR_t *bc = plw_cell_deref(plw_entry(ab));
+    if (bc->v != DT_I) return 0;
+    if (bc->i && *(uint64_t *)(rec + CLEANUP_REC_BS) > (uint64_t)bc->i) return 0;
+    *cell = *(char **)(rec + CLEANUP_REC_LINK);
+    *(uint64_t *)(rec + CLEANUP_REC_STATE) = CLEANUP_DONE;
+    return plw_unify_cell_val(plw_entry(ac), *(DESCR_t *)(rec + CLEANUP_REC_C), cx);
+}
+PL_CX_LEAF_HEAD(scc_bnew, 1) ok = rt_pl_scc_bnew_cell(&args[0], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(scc_take, 2) ok = rt_pl_scc_take_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL

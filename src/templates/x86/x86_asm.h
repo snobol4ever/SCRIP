@@ -2082,6 +2082,20 @@ inline std::string x86_pl_disj_open(const char * fb, int kt, int l_take, int l_d
     { return x86("note", "pl_disj_open inline (ARCH-PROLOG-C-OUT-OF-THE-BOX 2.2): the floor word re-aimed at this frame's base; this frame becomes the youngest choice unless a younger one already is")
     + x86("mov", "rax", fb) + x86_raw_pack("rax") + x86("mov", RDQ(fb, kt - 32), "rax") + x86("lea", "rcx", RDQ(fb, kt - 64)) + x86("test", "r13", "r13") + x86("je", L(l_take)) +
     x86("cmp", "r13", "rcx") + x86("jb", L(l_done)) + x86("def", L(l_take)) + x86("mov", "r13", "rcx") + x86("def", L(l_done)); }
+inline std::string x86_pl_scc_release_check(const char * fb, int kt, int l_ok) { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rcx", RDQ("rax", 32)) +
+    x86("test", "rcx", "rcx") + x86("je", L(l_ok)) + x86("lea", "rdx", RDQ(fb, kt)) + x86("cmp", "rcx", "rdx") + x86("jae", L(l_ok)) +
+    x86_bomb("setup_call_cleanup: a frame released on its failure road still holds a linked cleanup record, or one younger") + x86("def", L(l_ok)); }
+inline std::string x86_pl_ball_rec_probe() { return x86("mov", "rax", "r12") + x86("and", "rax", X86_PL_TR_ARENA_MASK) + x86("mov", "rax", RDQ("rax", 32)) + x86("test", "rax", "rax"); }
+inline std::string x86_pl_ball_rule(int l_go, int l_skip) {
+    if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86("jne", L(l_skip));
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86("je", L(l_skip)) + x86("lea", "rdx", RDQ(x86_fb(), g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+        x86("jae", L(l_skip)) + x86("def", L(l_go));
+}
+inline std::string x86_pl_ball_rule_omega(int l_go) {
+    if (!emit_pl_scc_armed()) return x86("test", "r15", "r15") + x86_omega("jne");
+    return x86("test", "r15", "r15") + x86("je", L(l_go)) + x86_pl_ball_rec_probe() + x86_omega("je") + x86("lea", "rdx", RDQ(x86_fb(), g_emit.flat_frame_bytes)) + x86("cmp", "rax", "rdx") +
+        x86_omega("jae") + x86("def", L(l_go));
+}
 inline std::string x86_pl_tr_unwind_at(const std::string & mark_mem, int l_loop, int l_done) { return x86("note", "pl_tr_unwind: pop the r12 trail to the mark, inline") + x86("mov", "rsi", mark_mem) +
     x86("def", L(l_loop)) + x86("cmp", "rsi", "r12") + x86("jae", L(l_done)) + x86_pl_tr_pop_entry() + x86("jmp", L(l_loop)) + x86("def", L(l_done)) + x86_pl_tr_top_sync(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

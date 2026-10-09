@@ -792,6 +792,7 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
         int k = g_emit.flat_pkt_cell, i = g_emit.flat_pkt_slot; int np = g_emit_cfg ? g_emit_cfg->nparams : 0;
         if (!g_emit.flat_pkt_chainω_p || !g_emit.flat_pkt_walk_p) return x86_bomb("packet fragment chain-omega without its labels");
         return x86_def_ext(g_emit.flat_pkt_chainω_p)
+             + IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_fb(), kt, 246))
              + x86("comment",
                  "PACKET FRAGMENT chain-omega (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A): undo this clause's bindings, restore B and "
                      "the caller's landings, release the frame but not the block, then walk next_idx to the next slot visible at G "
@@ -846,7 +847,8 @@ static std::string xa_flat_zframe_epilogue_ω_str(void) {
              x86("add", "rsp", (long)(16 * np))) + x86_jmp_reg("rdx");
     }
     if (x86_fb_pinned())
-        return x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
+        return IF(emit_pl_scc_armed(), x86_pl_scc_release_check(x86_fb(), kt, 246))
+             + x86("mov", "rcx", RDQ(x86_fb(), kt - 16))
              + x86("mov", "r13", RDQ(x86_fb(), kt - 40))
              + zf_release(kt)
              + zf_pin_restore(kt)

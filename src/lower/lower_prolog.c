@@ -132,6 +132,7 @@ typedef struct {
     IR_t * cutω;
     IR_t * clause_cutω;
     int cut_scope;
+    IR_t * cut_mark;
     int scope_seq;
     IR_t * meta_redo;
     int meta_redo_set;
@@ -601,7 +602,12 @@ static IR_t * pl_lower_conj(lcx_t * cx, const tree_t * const * gl, int ng, IR_t 
             if (rds[i] && rd[i]) { last_res = rd[i]; last_res_beta = 1; }
         } else if (last_res_beta) lc_ω_to_β(gn[i], last_res);
         else lc_ω_to(gn[i], last_res);
-        if (gn[i] && (gn[i]->op == IR_CALL_PROC_STAGED || gn[i]->op == IR_DISJUNCTION || gn[i]->op == IR_GATE || ir_is_generator_kind(gn[i]->op))) { last_res = gn[i]; last_res_beta = 1; }
+        if (gn[i] &&
+            (gn[i]->op == IR_CALL_PROC_STAGED || gn[i]->op == IR_DISJUNCTION || gn[i]->op == IR_GATE || ir_is_generator_kind(gn[i]->op) ||
+            (gn[i]->op == IR_CLEANUP && IR_LIT(gn[i]).ival == CLEANUP_RESUME))) {
+            last_res = gn[i];
+            last_res_beta = 1;
+        }
     }
     if (redo_out) *redo_out = last_res_beta ? last_res : NULL;
     if (entry_out) *entry_out = (ng > 0) ? en[0] : γtail;
@@ -798,6 +804,20 @@ int emit_pl_fence_on(void) { if (g_lower.pl.fence_on < 0) { const char * e = get
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_fence_on(void) { return emit_pl_fence_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_file_defines(const char * nm, int ar);
+static int pl_scc_armed(void) { return pl_fence_on() && pl_file_defines("$scc_cut", 0); }
+int emit_pl_scc_armed(void) { return pl_scc_armed(); }
+static IR_t * pl_probe_before(lcx_t * cx, IR_t * target, IR_t * mark, int needs_mark) {
+    if (!pl_scc_armed() || (needs_mark && !mark)) return target;
+    IR_t * pr = build(cx, IR_CLEANUP, NULL, target);
+    IR_LIT(pr).ival = CLEANUP_PROBE;
+    if (mark) ir_operand_push(pr, mark);
+    IR_t * ce = NULL;
+    IR_t * cn = goal(cx, pl_atom_goal("$scc_cut"), target, target, &ce);
+    lc_γ_to(pr, ce ? ce : cn);
+    return pr;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const tree_t * E, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
     IR_t * ig = build(cx, IR_GATE, γnext, ωfail);
     IR_t * mark = build(cx, IR_BOUND, NULL, ig);
@@ -843,11 +863,14 @@ static IR_t * pl_lower_ite(lcx_t * cx, const tree_t * C, const tree_t * T, const
         cx->cutω = ccut;
         int save_scope = cx->cut_scope;
         cx->cut_scope = ++cx->scope_seq;
+        IR_t * save_mark_0 = cx->cut_mark;
+        cx->cut_mark = mark;
         IR_t * fence = pl_fence_on() ? build(cx, IR_UNMARK, arm_entry[0], unmk_c) : (IR_t *) 0;
         if (fence) { ir_operand_push(fence, mark); IR_LIT(fence).ival = 2; }
-        IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, fence ? fence : arm_entry[0], unmk_f, &ce, NULL, NULL);
+        IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, fence ? pl_probe_before(cx, fence, mark, 1) : arm_entry[0], unmk_f, &ce, NULL, NULL);
         cx->cutω = savecutω;
         cx->cut_scope = save_scope;
+        cx->cut_mark = save_mark_0;
         cx->cutω = saveω;
         lc_γ_to(mark, ce ? ce : (cfirst ? cfirst : arm_entry[0]));
         if (entry_out) *entry_out = mark;
@@ -881,9 +904,12 @@ static IR_t * pl_lower_softcut(lcx_t * cx, const tree_t * C, const tree_t * T, c
         cx->cutω = build(cx, IR_GOTO, unmk_f, unmk_f);
         int save_scope = cx->cut_scope;
         cx->cut_scope = ++cx->scope_seq;
+        IR_t * save_mark_0 = cx->cut_mark;
+        cx->cut_mark = mark;
         IR_t * cfirst = pl_lower_conj(cx, (const tree_t * const *) cv.data, cv.n, ml_c, unmk_f, &ce, &credo, NULL);
         cx->cutω = savecutω;
         cx->cut_scope = save_scope;
+        cx->cut_mark = save_mark_0;
         lc_γ_to(ml_e, pl_sc_entry(ce ? ce : (cfirst ? cfirst : ml_c)));
     }
     IR_t * tredo = NULL;
@@ -949,16 +975,81 @@ static IR_t * pl_leaf_lv(lcx_t * cx, const char * sym, const tree_t * t, int nar
 static const tree_t * pl_tree_number(const tree_t * t);
 static tree_t * pl_cc_throw_ar(tree_t * formal, const char * nm, int ar);
 static tree_t * pl_cc_type_error(const char * type, const tree_t * culprit, const char * nm, int ar);
+static IR_t * pl_cleanup_node(lcx_t * cx, int kind, IR_t * open, IR_t * γ, IR_t * ω) {
+    IR_t * n = build(cx, IR_CLEANUP, γ, ω);
+    IR_LIT(n).ival = kind;
+    if (open) ir_operand_push(n, open);
+    return n;
+}
 static IR_t * pl_lower_scc(lcx_t * cx, const tree_t * S, const tree_t * G, const tree_t * C, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
-    tree_t * ball = pl_meta_var("$SccBall");
-    tree_t * quiet = pl_cc_fnc2(",", pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) C), pl_meta_var("$SccIgn"), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", ball));
-    tree_t * ran =
-        pl_cc_ite(pl_cc_fnc3("catch", (tree_t *) G, ball, quiet), pl_cc_ite(pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("true"), (tree_t *) pl_atom_goal("true")),
-        pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("fail")));
     if (pl_tree_number(C)) return goal(cx, pl_cc_type_error("callable", C, "setup_call_cleanup", 3), γnext, ωfail, entry_out);
-    if (C && C->t == TT_VAR) ran =
-        pl_cc_fnc2(",", pl_cc_ite(pl_cc_fnc1("var", (tree_t *) C), pl_cc_throw_ar((tree_t *) pl_atom_goal("instantiation_error"), "setup_call_cleanup", 3), (tree_t *) pl_atom_goal("true")), ran);
-    return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) S), ran), γnext, ωfail, entry_out);
+    tree_t * vchk = (C && C->t == TT_VAR) ?
+        pl_cc_ite(pl_cc_fnc1("var", (tree_t *) C), pl_cc_throw_ar((tree_t *) pl_atom_goal("instantiation_error"), "setup_call_cleanup", 3), (tree_t *) pl_atom_goal("true")) : (tree_t *) 0;
+    if (!pl_scc_armed()) {
+        tree_t * ball = pl_meta_var("$SccBall");
+        tree_t * quiet = pl_cc_fnc2(",", pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) C), pl_meta_var("$SccIgn"), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", ball));
+        tree_t * ran =
+            pl_cc_ite(pl_cc_fnc3("catch", (tree_t *) G, ball, quiet), pl_cc_ite(pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("true"), (tree_t *) pl_atom_goal("true")),
+            pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) C), (tree_t *) pl_atom_goal("fail")));
+        if (vchk) ran = pl_cc_fnc2(",", vchk, ran);
+        return goal(cx, pl_cc_fnc2(",", pl_cc_fnc1("once", (tree_t *) S), ran), γnext, ωfail, entry_out);
+    }
+    IR_t * resume = pl_cleanup_node(cx, CLEANUP_RESUME, (IR_t *) 0, (IR_t *) 0, ωfail);
+    IR_t * mark = build(cx, IR_BOUND, NULL, resume);
+    IR_t * open = pl_cleanup_node(cx, CLEANUP_OPEN, (IR_t *) 0, (IR_t *) 0, resume);
+    ir_operand_push(resume, open);
+    IR_t * drain = pl_cleanup_node(cx, CLEANUP_DRAIN, open, (IR_t *) 0, resume);
+    IR_t * exh = build(cx, IR_UNMARK, NULL, resume);
+    ir_operand_push(exh, mark);
+    IR_LIT(exh).ival = 4;
+    lc_γ_to(drain, exh);
+    IR_t * pop_b = pl_cleanup_node(cx, CLEANUP_POP, open, (IR_t *) 0, resume);
+    IR_t * pop_f = pl_cleanup_node(cx, CLEANUP_POP, open, (IR_t *) 0, resume);
+    tree_t * bv = pl_cc_freshvar();
+    IR_t * he = NULL;
+    IR_t * hc = pl_leaf_lv(cx, "$catch_handle", pl_cc_fnc1("$catch_handle", bv), 1, NULL, pop_f, &he);
+    lc_γ_to(exh, he ? he : hc);
+    lc_γ_to(hc, pop_b);
+    {
+        tree_t * bv2 = pl_cc_freshvar();
+        bv2->v.ival = bv->v.ival;
+        const tree_t * gl[2] = { pl_cc_fnc3("catch", pl_cc_fnc1("once", (tree_t *) C), pl_cc_freshvar(), (tree_t *) pl_atom_goal("true")), pl_cc_fnc1("throw", bv2) };
+        IR_t * e = NULL;
+        IR_t * f = pl_lower_conj(cx, gl, 2, resume, resume, &e, NULL, NULL);
+        lc_γ_to(pop_b, e ? e : f);
+    }
+    {
+        const tree_t * gl[2] = { pl_cc_fnc1("once", (tree_t *) C), pl_atom_goal("fail") };
+        IR_t * e = NULL;
+        IR_t * f = pl_lower_conj(cx, gl, 2, resume, resume, &e, NULL, NULL);
+        lc_γ_to(pop_f, e ? e : f);
+    }
+    IR_t * commit = build(cx, IR_UNMARK, NULL, resume);
+    ir_operand_push(commit, mark);
+    IR_LIT(commit).ival = 2;
+    IR_t * pop_d = pl_cleanup_node(cx, CLEANUP_POP, open, (IR_t *) 0, resume);
+    lc_γ_to(commit, pop_d);
+    { IR_t * ie = NULL; IR_t * ig = pl_lower_ite(cx, C, pl_atom_goal("true"), pl_atom_goal("true"), γnext, resume, &ie); lc_γ_to(pop_d, ie ? ie : ig); }
+    IR_t * test = pl_cleanup_node(cx, CLEANUP_TEST, open, γnext, commit);
+    IR_t * ge = NULL;
+    IR_t * gc = goal(cx, G, test, drain, &ge);
+    IR_t * te = NULL;
+    IR_t * tv = term_e(cx, C, &te);
+    lc_ω_to(tv, resume);
+    lc_γ_to(mark, te ? te : tv);
+    lc_γ_to(tv, open);
+    ir_operand_push(open, drain);
+    ir_operand_push(open, tv);
+    lc_γ_to(open, ge ? ge : gc);
+    ir_operand_push(resume, gc);
+    ir_operand_push(resume, drain);
+    {
+        const tree_t * pre[2] = { pl_cc_fnc1("once", (tree_t *) S), vchk };
+        IR_t * pe = NULL;
+        IR_t * pf = pl_lower_conj(cx, pre, vchk ? 2 : 1, mark, resume, &pe, NULL, NULL);
+        if (entry_out) *entry_out = pe ? pe : pf;
+    }
+    return resume;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, const tree_t * R, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out) {
@@ -980,6 +1071,8 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
         int save_scope = cx->cut_scope;
         cx->cutω = build(cx, IR_GOTO, ig, ig);
         cx->cut_scope = ++cx->scope_seq;
+        IR_t * save_mark_0 = cx->cut_mark;
+        cx->cut_mark = mark;
         lc_vec av;
         lc_vec_init(&av, (int) sizeof(const tree_t *));
         collect_conj(arms[j], &av);
@@ -988,6 +1081,7 @@ static IR_t * pl_lower_catch(lcx_t * cx, const tree_t * G, const tree_t * C, con
         IR_t * first = pl_lower_conj(cx, (const tree_t * const *) av.data, av.n, ml, j ? ig : unmk, &ae, &redo, NULL);
         cx->cutω = saveω;
         cx->cut_scope = save_scope;
+        cx->cut_mark = save_mark_0;
         ir_operand_push(ml, redo ? redo : ig);
         ir_operand_push(ml, ig);
         ir_operand_push(ig, ml);
@@ -1057,44 +1151,45 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     "$float" }, { "atomic", 1, "$atomic" }, { "string", 1, "$string" }, { "compound", 1, "$compound" }, { "callable", 1, "$callable" }, { "ground", 1, "$ground" }, { "is_list", 1, "$is_list" },
     { "acyclic_term", 1, "$acyclic_term" }, { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
     { "compare", 3, "$compare" }, { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "term_variables", 2, "$term_variables" },
-    { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" }, { "$skip_list", 3, "$skip_list" }, { "$argv", 1, "$argv" }, { "plus", 3, "$plus" }, { "sort", 2,
-    "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom", 2, "$term_to_atom" }, { "atom_length", 2, "$atom_length" },
-    { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2, "$atom_number" }, { "atom_string", 2, "$atom_string" },
-    { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" }, { "string_length", 2, "$string_length" }, { "string_lower", 2,
-    "$string_lower" }, { "string_upper", 2, "$string_upper" }, { "string_to_atom", 2, "$string_to_atom" }, { "number_string", 2, "$number_string" }, { "string_chars", 2, "$string_chars" },
-    { "string_codes", 2, "$string_codes" }, { "atomic_concat", 3, "$atomic_concat" }, { "atomic_list_concat", 2, "$atomic_list_concat" }, { "atomic_list_concat", 3, "$atomic_list_concat" },
-    { "concat_atom", 2, "$concat_atom" }, { "concat_atom", 3, "$concat_atom" }, { "char_code", 2, "$char_code" }, { "number_codes", 2, "$number_codes" }, { "number_chars", 2, "$number_chars" },
-    { "name", 2, "$name" }, { "get_char", 1, "$get_char" }, { "peek_char", 1, "$peek_char" }, { "get_code", 1, "$get_code" }, { "peek_code", 1, "$peek_code" }, { "get_byte", 1, "$get_byte" },
-    { "peek_byte", 1, "$peek_byte" }, { "put_code", 1, "$put_code" }, { "put_byte", 1, "$put_byte" }, { "unget_char", 1, "$unget_char" }, { "at_end_of_stream", 0, "$at_end_of_stream" },
-    { "current_prolog_flag", 2, "$current_prolog_flag" }, { "set_prolog_flag", 2, "$set_prolog_flag" }, { "telling", 1, "$telling" }, { "seeing", 1, "$seeing" }, { "tell", 1, "$tell" }, { "append", 1,
-    "$append1" }, { "see", 1, "$see" }, { "told", 0, "$told" }, { "seen", 0, "$seen" }, { "at_end_of_stream", 1, "$at_end_of_stream_s" }, { "put", 1, "$put_code" }, { "get0", 1, "$get_code" },
-    { "get", 1, "$get_edin" }, { "skip", 1, "$skip" }, { "unget_code", 1, "$unget_code" }, { "unget_byte", 1, "$unget_byte" }, { "get_code", 2, "$get_code_s" }, { "peek_code", 2, "$peek_code_s" },
-    { "get_byte", 2, "$get_byte_s" }, { "peek_byte", 2, "$peek_byte_s" }, { "put_code", 2, "$put_code_s" }, { "put_byte", 2, "$put_byte_s" }, { "unget_char", 2, "$unget_char_s" }, { "unget_code", 2,
-    "$unget_code_s" }, { "unget_byte", 2, "$unget_byte_s" }, { "read", 1, "$read" }, { "atom_to_term", 3, "$atom_to_term" }, { "read_term_from_atom", 3, "$read_term_from_atom" },
-    { "read_term_from_chars", 3, "$read_term_from_chars" }, { "read_term_from_codes", 3, "$read_term_from_codes" }, { "writeq", 1, "$writeq" }, { "print", 1, "$print" }, { "write_term", 2,
-    "$write_term" }, { "write_term", 3, "$write_term_s" }, { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" }, { "display", 1, "$display" }, { "display", 2, "$display_s" },
-    { "unify_with_occurs_check", 2, "$unify_oc" }, { "$aggregate_reduce", 3, "$aggregate_reduce" }, { "$wot_open", 3, "$wot_open" }, { "$wot_capture", 4, "$wot_capture" }, { "$wot_discard", 3,
-    "$wot_discard" }, { "$set_prolog_flag_declare", 2, "$set_prolog_flag_declare" }, { "put_char", 1, "$put_char" }, { "$db_t_guard", 2, "$db_t_guard" }, { "$db_assertz_t", 1, "$db_assertz_t" },
-    { "$db_asserta_t", 1, "$db_asserta_t" }, { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3, "$db_seed_once" }, { "$db_asserta_r", 2,
-    "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" }, { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3, "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" },
-    { "$pl_declared", 2, "$pl_declared" }, { "$pl_dynamic", 1, "$pl_dynamic" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3, "$pl_op_check" }, { "$cutcall", 2, "$cutcall" },
-    { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" }, { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1,
-    "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" }, { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" },
-    { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2, "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s",
-    2, "$peek_byte_s" }, { "$get_edin", 1, "$get_edin" }, { "$skip", 1, "$skip" }, { "$current_prolog_flag", 2, "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1,
-    "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3,
-    "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" }, { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2,
-    "$format" }, { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1,
-    "$nl_s" }, { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2,
-    "$peek_char_s" }, { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close", 2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1,
-    "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2, "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" },
-    { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1, "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" },
-    { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort", 1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" },
-    { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "character_count", 2, "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" },
-    { "last_read_start_line_column", 2, "$gnu_last_read_start" }, { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2,
-    "$gnu_builtin" }, { "working_directory", 1, "$gnu_working_directory" }, { "change_directory", 1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "delete_file", 1,
-    "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" },
-    { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { 0, 0, 0 } };
+    { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" }, { "$skip_list", 3, "$skip_list" }, { "$argv", 1, "$argv" }, { "$scc_bnew", 1, "$scc_bnew" },
+    { "$scc_take", 2, "$scc_take" }, { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom",
+    2, "$term_to_atom" }, { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2,
+    "$atom_number" }, { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" }, { "string_length",
+    2, "$string_length" }, { "string_lower", 2, "$string_lower" }, { "string_upper", 2, "$string_upper" }, { "string_to_atom", 2, "$string_to_atom" }, { "number_string", 2, "$number_string" },
+    { "string_chars", 2, "$string_chars" }, { "string_codes", 2, "$string_codes" }, { "atomic_concat", 3, "$atomic_concat" }, { "atomic_list_concat", 2, "$atomic_list_concat" },
+    { "atomic_list_concat", 3, "$atomic_list_concat" }, { "concat_atom", 2, "$concat_atom" }, { "concat_atom", 3, "$concat_atom" }, { "char_code", 2, "$char_code" }, { "number_codes", 2,
+    "$number_codes" }, { "number_chars", 2, "$number_chars" }, { "name", 2, "$name" }, { "get_char", 1, "$get_char" }, { "peek_char", 1, "$peek_char" }, { "get_code", 1, "$get_code" }, { "peek_code",
+    1, "$peek_code" }, { "get_byte", 1, "$get_byte" }, { "peek_byte", 1, "$peek_byte" }, { "put_code", 1, "$put_code" }, { "put_byte", 1, "$put_byte" }, { "unget_char", 1, "$unget_char" },
+    { "at_end_of_stream", 0, "$at_end_of_stream" }, { "current_prolog_flag", 2, "$current_prolog_flag" }, { "set_prolog_flag", 2, "$set_prolog_flag" }, { "telling", 1, "$telling" }, { "seeing", 1,
+    "$seeing" }, { "tell", 1, "$tell" }, { "append", 1, "$append1" }, { "see", 1, "$see" }, { "told", 0, "$told" }, { "seen", 0, "$seen" }, { "at_end_of_stream", 1, "$at_end_of_stream_s" }, { "put",
+    1, "$put_code" }, { "get0", 1, "$get_code" }, { "get", 1, "$get_edin" }, { "skip", 1, "$skip" }, { "unget_code", 1, "$unget_code" }, { "unget_byte", 1, "$unget_byte" }, { "get_code", 2,
+    "$get_code_s" }, { "peek_code", 2, "$peek_code_s" }, { "get_byte", 2, "$get_byte_s" }, { "peek_byte", 2, "$peek_byte_s" }, { "put_code", 2, "$put_code_s" }, { "put_byte", 2, "$put_byte_s" },
+    { "unget_char", 2, "$unget_char_s" }, { "unget_code", 2, "$unget_code_s" }, { "unget_byte", 2, "$unget_byte_s" }, { "read", 1, "$read" }, { "atom_to_term", 3, "$atom_to_term" },
+    { "read_term_from_atom", 3, "$read_term_from_atom" }, { "read_term_from_chars", 3, "$read_term_from_chars" }, { "read_term_from_codes", 3, "$read_term_from_codes" }, { "writeq", 1, "$writeq" },
+    { "print", 1, "$print" }, { "write_term", 2, "$write_term" }, { "write_term", 3, "$write_term_s" }, { "write_canonical", 1, "$write_canonical" }, { "writeln", 1, "$writeln" }, { "display", 1,
+    "$display" }, { "display", 2, "$display_s" }, { "unify_with_occurs_check", 2, "$unify_oc" }, { "$aggregate_reduce", 3, "$aggregate_reduce" }, { "$wot_open", 3, "$wot_open" }, { "$wot_capture", 4,
+    "$wot_capture" }, { "$wot_discard", 3, "$wot_discard" }, { "$set_prolog_flag_declare", 2, "$set_prolog_flag_declare" }, { "put_char", 1, "$put_char" }, { "$db_t_guard", 2, "$db_t_guard" },
+    { "$db_assertz_t", 1, "$db_assertz_t" }, { "$db_asserta_t", 1, "$db_asserta_t" }, { "$db_abolish_t", 1, "$db_abolish_t" }, { "$db_retractall_t", 1, "$db_retractall_t" }, { "$db_seed_once", 3,
+    "$db_seed_once" }, { "$db_asserta_r", 2, "$db_asserta_r" }, { "$db_assertz_r", 2, "$db_assertz_r" }, { "$db_erase_ref", 1, "$db_erase_ref" }, { "$db_n_r", 2, "$db_n_r" }, { "$db_at_r", 3,
+    "$db_at_r" }, { "$db_ref_r", 3, "$db_ref_r" }, { "$pl_declared", 2, "$pl_declared" }, { "$pl_dynamic", 1, "$pl_dynamic" }, { "$pl_list_guard", 1, "$pl_list_guard" }, { "$pl_op_check", 3,
+    "$pl_op_check" }, { "$cutcall", 2, "$cutcall" }, { "$pl_ioarg", 2, "$pl_ioarg" }, { "$put_code", 1, "$put_code" }, { "$put_code_s", 2, "$put_code_s" }, { "$put_char", 1, "$put_char" },
+    { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" },
+    { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2,
+    "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$get_edin", 1, "$get_edin" }, { "$skip", 1, "$skip" }, { "$current_prolog_flag", 2,
+    "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" },
+    { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" }, { "halt", 0, "$halt" }, { "halt", 1,
+    "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" }, { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" },
+    { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" }, { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3,
+    "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" }, { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close",
+    2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2,
+    "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1,
+    "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort",
+    1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "character_count", 2,
+    "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" }, { "absolute_file_name", 2,
+    "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory", 1, "$gnu_working_directory" }, { "change_directory",
+    1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2,
+    "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2,
+    "$gnu_file_props" }, { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
@@ -1839,6 +1934,9 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     cx->cutω = callω;
                     int save_scope = cx->cut_scope;
                     cx->cut_scope = ++cx->scope_seq;
+                    IR_t * bank = pl_scc_armed() ? pl_cleanup_node(cx, CLEANUP_BANK, (IR_t *) 0, (IR_t *) 0, ωfail) : (IR_t *) 0;
+                    IR_t * save_mark_0 = cx->cut_mark;
+                    cx->cut_mark = bank;
                     lc_vec glv;
                     lc_vec_init(&glv, (int) sizeof(const tree_t *));
                     collect_conj(ext, &glv);
@@ -1847,8 +1945,10 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, γnext, callω, &ientry, &iredo, NULL);
                     cx->cutω = saveω;
                     cx->cut_scope = save_scope;
+                    cx->cut_mark = save_mark_0;
                     cx->meta_redo = iredo;
                     cx->meta_redo_set = 1;
+                    if (bank) { lc_γ_to(bank, ientry ? ientry : γnext); ientry = bank; }
                     if (pl_tree_is_control(ext) && pl_tree_control_var_leaf(ext)) {
                         IR_t * gge = NULL;
                         IR_t * gg = goal(cx, pl_cc_fnc1("$pl_goal_guard", (tree_t *) ext), ientry ? ientry : γnext, ωfail, &gge);
@@ -2193,9 +2293,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     cx->cutω = gcutω2;
                     int gsave_scope2 = cx->cut_scope;
                     cx->cut_scope = ++cx->scope_seq;
+                    IR_t * save_mark_0 = cx->cut_mark;
+                    cx->cut_mark = mark2;
                     IR_t * first2 = pl_lower_conj(cx, (const tree_t * const *) glv2.data, glv2.n, pe ? pe : pr, bc2, &gentry, &gredo, NULL);
                     cx->cutω = gsaveω2;
                     cx->cut_scope = gsave_scope2;
+                    cx->cut_mark = save_mark_0;
                     lc_γ_to(acc, mark2);
                     lc_γ_to(mark2, gentry ? gentry : (first2 ? first2 : unmk2));
                     lc_γ_to(pr, add);
@@ -2255,9 +2358,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 cx->cutω = gcutω;
                 int gsave_scope = cx->cut_scope;
                 cx->cut_scope = ++cx->scope_seq;
+                IR_t * save_mark_0 = cx->cut_mark;
+                cx->cut_mark = mark;
                 IR_t * first = pl_lower_conj(cx, (const tree_t * const *) glv.data, glv.n, te ? te : tv, bc, &gentry, &gredo, NULL);
                 cx->cutω = gsaveω;
                 cx->cut_scope = gsave_scope;
+                cx->cut_mark = save_mark_0;
                 lc_γ_to(acc, mark);
                 lc_γ_to(mark, gentry ? gentry : (first ? first : unmk));
                 lc_γ_to(tv, add);
@@ -2730,13 +2836,23 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 return nd;
             }
             if (!strcmp(nm, "repeat") && !pl_file_defines(nm, 0)) return goal(cx, pl_cc_fnc3("between", pl_cc_ilit(1), pl_cc_ilit(9223372036854775807LL), pl_cc_freshvar()), γnext, ωfail, entry_out);
-            if (!strcmp(nm, "!")) { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1; return cn; }
+            if (!strcmp(nm, "!")) {
+                IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω);
+                if (cx->cutω != cx->clause_cutω) IR_LIT(cn).ival = 1;
+                if (entry_out) *entry_out = pl_probe_before(cx, cn, IR_LIT(cn).ival ? cx->cut_mark : (IR_t *) 0, IR_LIT(cn).ival != 0);
+                return cn;
+            }
             { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
             { extern int g_rt_fragment_emit; int r = pl_rung_of(nm); if (r && !g_rt_fragment_emit && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
             return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
         }
         case TT_CUT:
-        { IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω); IR_LIT(cn).ival = cx->cut_scope; return cn; }
+        {
+            IR_t * cn = build(cx, IR_CUT, γnext, cx->cutω);
+            IR_LIT(cn).ival = cx->cut_scope;
+            if (entry_out) *entry_out = pl_probe_before(cx, cn, IR_LIT(cn).ival ? cx->cut_mark : (IR_t *) 0, IR_LIT(cn).ival != 0);
+            return cn;
+        }
         case TT_UNIFY:
         { IR_t * e = NULL; IR_t * nd = unify_pair(cx, t->c[0], t->c[1], γnext, ωfail, &e); if (entry_out) *entry_out = e ? e : nd; return nd; }
         case TT_IF:
@@ -3454,6 +3570,112 @@ static tree_t * pl_table_wrapper(const char * key) {
     return ch;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_is(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && ((t->n == 3 && !strcmp(t->v.sval, "setup_call_cleanup")) || (t->n == 2 && !strcmp(t->v.sval, "call_cleanup"))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_count(const tree_t * t) { int n = 0; if (!t) return 0; if (pl_scc_is(t)) n++; for (int i = 0; i < t->n; i++) n += pl_scc_count(t->c[i]); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_vars(const tree_t * t, int * v, int n, int cap) {
+    if (!t) return n;
+    if (t->t == TT_VAR) { int s = (int) t->v.ival; for (int i = 0; i < n; i++) if (v[i] == s) return n; if (n < cap) v[n] = s; return n + 1; }
+    for (int i = 0; i < t->n; i++) n = pl_scc_vars(t->c[i], v, n, cap);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_scc_remap(const tree_t * t, const int * v, int n) {
+    tree_t * c = ast_node_new(t->t);
+    c->v = t->v;
+    c->line = t->line;
+    if (t->t == TT_VAR) { for (int i = 0; i < n; i++) if (v[i] == (int) t->v.ival) c->v.ival = i; return c; }
+    for (int i = 0; i < t->n; i++) ast_push(c, pl_scc_remap(t->c[i], v, n));
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_var_cap(const tree_t * t) { int n = (t && t->t == TT_VAR) ? 1 : 0; if (!t) return 0; for (int i = 0; i < t->n; i++) n += pl_scc_var_cap(t->c[i]); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_scc_aux(const tree_t * g, tree_t ** work, int * nw, int cap) {
+    int vc = pl_scc_var_cap(g) + 1;
+    int v[vc];
+    int n = pl_scc_vars(g, v, 0, vc);
+    char nm[32], key[48];
+    snprintf(nm, sizeof nm, "$scc_g%d", g_stage2.pl_scc_aux_n++);
+    snprintf(key, sizeof key, "%s/%d", nm, n);
+    tree_t * call = ast_node_new(n > 0 ? TT_FNC : TT_QLIT);
+    call->v.sval = (char *) lp_strdup(nm);
+    for (int i = 0; i < n; i++) { tree_t * a = ast_node_new(TT_VAR); a->v.ival = v[i]; ast_push(call, a); }
+    tree_t * cl = ast_node_new(TT_CLAUSE);
+    cl->v.dval = n;
+    for (int i = 0; i < n; i++) { tree_t * a = ast_node_new(TT_VAR); a->v.ival = i; ast_push(cl, a); }
+    ast_push(cl, g->t == TT_VAR ? pl_cc_fnc1("call", pl_scc_remap(g, v, n)) : pl_scc_remap(g, v, n));
+    tree_t * ch = ast_node_new(TT_CHOICE);
+    ch->v.sval = (char *) lp_strdup(key);
+    ast_push(ch, cl);
+    if (*nw >= cap) pl_refuse("setup_call_cleanup lift count in", key, 2);
+    work[(*nw)++] = ch;
+    return call;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_named(const tree_t * t, const char * nm, int n) { return t && t->t == TT_FNC && t->v.sval && t->n == n && !strcmp(t->v.sval, nm); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_liftable(const tree_t * g) { return g && (g->t == TT_FNC || g->t == TT_QLIT || g->t == TT_VAR); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_scc_walk(tree_t * t, tree_t ** work, int * nw, int cap, int ccdef) {
+    if (!t || t->t != TT_FNC || !t->v.sval) return;
+    const char * nm = t->v.sval;
+    int n = t->n;
+    if (n == 2 && (!strcmp(nm, ",") || !strcmp(nm, ";") || !strcmp(nm, "->") || !strcmp(nm, "*->") || !strcmp(nm, "forall"))) {
+        pl_scc_walk(t->c[0], work, nw, cap, ccdef);
+        pl_scc_walk(t->c[1], work, nw, cap, ccdef);
+        return;
+    }
+    if (n == 1 && (!strcmp(nm, "\\+") || !strcmp(nm, "not") || !strcmp(nm, "once") || !strcmp(nm, "ignore") || !strcmp(nm, "call"))) { pl_scc_walk(t->c[0], work, nw, cap, ccdef); return; }
+    if (n == 3 && !strcmp(nm, "catch")) { pl_scc_walk(t->c[0], work, nw, cap, ccdef); pl_scc_walk(t->c[2], work, nw, cap, ccdef); return; }
+    if (((n == 3 || n == 4) && !strcmp(nm, "findall")) || (n == 3 && !strcmp(nm, "aggregate_all"))) { pl_scc_walk(t->c[1], work, nw, cap, ccdef); return; }
+    if (n == 3 && (!strcmp(nm, "bagof") || !strcmp(nm, "setof"))) { tree_t * g = t->c[1]; while (pl_scc_named(g, "^", 2)) g = g->c[1]; pl_scc_walk(g, work, nw, cap, ccdef); return; }
+    if (n == 3 && !strcmp(nm, "setup_call_cleanup")) {
+        pl_scc_walk(t->c[0], work, nw, cap, ccdef);
+        if (pl_scc_liftable(t->c[1])) t->c[1] = pl_scc_aux(t->c[1], work, nw, cap);
+        pl_scc_walk(t->c[2], work, nw, cap, ccdef);
+        return;
+    }
+    if (n == 2 && !strcmp(nm, "call_cleanup") && !ccdef) { if (pl_scc_liftable(t->c[0])) t->c[0] = pl_scc_aux(t->c[0], work, nw, cap); pl_scc_walk(t->c[1], work, nw, cap, ccdef); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_scc_clauses(tree_t * ch, tree_t ** work, int * nw, int cap, int ccdef) {
+    int nc = ch->t == TT_CHOICE ? ch->n : 1;
+    for (int k = 0; k < nc; k++) {
+        tree_t * cl = ch->t == TT_CHOICE ? ch->c[k] : ch;
+        if (!cl || cl->t != TT_CLAUSE) continue;
+        for (int i = (int) cl->v.dval; i < cl->n; i++) pl_scc_walk(cl->c[i], work, nw, cap, ccdef);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_scc_rewrite(const tree_t * prog) {
+    int total = 0, ccdef = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!subj || (subj->t != TT_CHOICE && subj->t != TT_CLAUSE)) continue;
+        if (subj->v.sval && !strcmp(subj->v.sval, "call_cleanup/2")) ccdef = 1;
+        total += pl_scc_count(subj);
+    }
+    if (!total) return prog;
+    tree_t * work[total];
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!subj || (subj->t != TT_CHOICE && subj->t != TT_CLAUSE) || !pl_scc_count(subj)) { ast_push(np, (tree_t *) s); continue; }
+        tree_t * rn = pl_tree_copy(subj);
+        int nw = 0, done = 0;
+        pl_scc_clauses(rn, work, &nw, total, ccdef);
+        ast_push(np, pl_table_stmt(s, rn));
+        while (done < nw) { tree_t * aux = work[done++]; pl_scc_clauses(aux, work, &nw, total, ccdef); ast_push(np, pl_table_stmt(s, aux)); }
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_rewrite(const tree_t * prog) {
     int nk = 0;
     for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, nk, 0);
@@ -3651,6 +3873,7 @@ static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int ni
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_table_rewrite(prog);
+    prog = pl_scc_rewrite(prog);
     const tree_t * prog_src = prog;
     int load_h = pl_load_hook_line(prog, NULL);
     int load_cap = load_h > 0 ? pl_load_capacity(prog) : 1;

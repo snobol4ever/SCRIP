@@ -680,6 +680,7 @@ test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
 test_gate_pl_read_raises_catchable_syntax_error.sh	WIRED	-	-	-
 test_gate_pl_read_term_syntax_error_option_answers_as_the_oracles.sh	WIRED	-	-	-
 test_gate_pl_set_stream_position_round_trips_and_refuses.sh	WIRED	-	-	-
+test_gate_pl_setup_call_cleanup_runs_its_cleanup_on_every_road.sh	WIRED	-	-	-
 test_gate_pl_sort_4_answers_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_stream_arg_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_stream_property_sees_the_standard_streams_before_any_file_operation.sh	WIRED	-	-	-

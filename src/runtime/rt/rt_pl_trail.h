@@ -4,12 +4,22 @@
 #include "descr.h"
 #define PL_TR_ARENA_LG2 27
 #define PL_TR_ARENA_BYTES ((uintptr_t)1 << PL_TR_ARENA_LG2)
-#define PL_TR_HEADER_BYTES 32
+#define PL_TR_HEADER_BYTES 64
 #define PL_TR_ENTRY_BYTES 32
 #define PL_TR_BALL_OFF 8
 #define PL_TR_WSLOT_OFF 16
 #define PL_TR_OCHECK_OFF 24
+#define PL_TR_CLEANUP_OFF 32
+#define PL_TR_PROBE_B_OFF 40
 #define PL_TR_FRAME_HEADER_BYTES 64
+#define CLEANUP_DONE 0
+#define CLEANUP_ACTIVE 1
+#define CLEANUP_PENDING 2
+#define CLEANUP_REC_LINK 0
+#define CLEANUP_REC_BS 8
+#define CLEANUP_REC_STATE 16
+#define CLEANUP_REC_C 32
+#define CLEANUP_REC_BYTES 48
 #define PL_TR_FRAME_HI_OFF 32
 typedef struct { DESCR_t *cell; uint64_t pad; DESCR_t old; } pl_tr_entry_t;
 typedef struct pl_tr_ctx_s { char *tr; char *b; void *ball; uint64_t rbx; uint64_t r14; uint64_t r15; } pl_tr_ctx_t;
@@ -22,6 +32,8 @@ static inline char *pl_tr_base_of(const char *tr) { return (char *)((uintptr_t)t
 static inline void **pl_tr_ball_slot(const char *base) { return (void **)((char *)base + PL_TR_BALL_OFF); }
 static inline void **pl_tr_wslot_slot(const char *base) { return (void **)((char *)base + PL_TR_WSLOT_OFF); }
 static inline uint64_t *pl_tr_ocheck_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_OCHECK_OFF); }
+static inline char **pl_tr_cleanup_slot(const char *base) { return (char **)((char *)base + PL_TR_CLEANUP_OFF); }
+static inline uint64_t *pl_tr_probe_b_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_PROBE_B_OFF); }
 static inline uint64_t pl_tr_ocheck_mode(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline uintptr_t pl_tr_frame_hi(const char *b) { return *(const uintptr_t *)(b + PL_TR_FRAME_HI_OFF) >> 8; }

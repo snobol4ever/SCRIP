@@ -1,3 +1,4 @@
+#include "rt_pl_trail.h"
 #include <string.h>
 #include "ct_arena.h"
 #include "ct_vec.h"
@@ -433,6 +434,22 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_LINE_MARK:
         case IR_STATEMENT:
         return 0;
+        case IR_CLEANUP:
+        if (IR_LIT(nd).ival == CLEANUP_BANK) {
+            zls_field(scope_id, off, 16, ZK_RAW, 0, "cleanup.bank pad (unused)", nd);
+            zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "cleanup.bank -- B at the entry of a cut scope with no mark (an inline call/1), read by a scoped cut's probe at +16 as a mark's banked B is",
+                nd);
+            zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "cleanup.bank pad (unused)", nd);
+            return 2;
+        }
+        if (IR_LIT(nd).ival != CLEANUP_OPEN) return 0;
+        zls_field(scope_id, off + CLEANUP_REC_LINK, 8, ZK_RAW, 0,
+            "cleanup.link -- the next older setup_call_cleanup record, a stack address the trail header's cleanup cell chains through, never a heap pointer", nd);
+        zls_field(scope_id, off + CLEANUP_REC_BS, 8, ZK_RAW, 0, "cleanup.B_s -- r13 banked at OPEN, after the construct's mark: G's exit is deterministic when r13 reads it again", nd);
+        zls_field(scope_id, off + CLEANUP_REC_STATE, 8, ZK_RAW, 0, "cleanup.state -- 0 DONE (a zeroed frame reads DONE), 1 ACTIVE while G runs, 2 PENDING after a nondeterministic exit", nd);
+        zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "cleanup.pad (unused)", nd);
+        zls_field(scope_id, off + CLEANUP_REC_C, 16, ZK_DESCR, 0, "cleanup.C -- the cleanup goal as a term, built at OPEN, run by '$scc_cut' when a cut drops the record", nd);
+        return 3;
         case IR_GATE:
         zls_field(scope_id, off, 8, ZK_RAW, 0,
             "gate.live arm index (+16 from box base; IR_GATE_ARM banks its own position in this gate's operand list at each arm's success, the box beta dispatches on it over compile-time wired ports"
@@ -522,7 +539,7 @@ static int zls_is_wiring(IR_e op) {
 static int zls_locals_shifted(IR_e op) {
     return op == IR_BOUND || op == IR_MATCH_BEGIN || op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO ||
         op == IR_MATCH_SPAN || op == IR_MATCH_BREAK || op == IR_MATCH_BREAKX || op == IR_MATCH_TAB || op == IR_MATCH_RTAB || op == IR_MATCH_REM || op == IR_MATCH_DEFER || op == IR_MATCH_VALUE ||
-        op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL;
+        op == IR_MATCH_ASSIGN_SAVE || op == IR_SCAN_ENTER || op == IR_INITIAL || op == IR_CLEANUP;
 }
 int fc_arm_member(const IR_t * nd);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -549,6 +566,7 @@ static int zls_fc_cell(const IR_t * nd) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_grant(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     if (zls_is_wiring(nd->op)) return 0;
+    if (nd->op == IR_CLEANUP && IR_LIT(nd).ival != CLEANUP_OPEN && IR_LIT(nd).ival != CLEANUP_BANK) return 0;
     zls_entry(nd, scope_id, off);
     zls_field(scope_id, off, 16, ZK_DESCR, 0, "result", nd);
     if (zls_fc_cell(nd)) { ze[g_lower.ir.ze_n - 1].loff = FL_FC_SYNTH; return 1; }

@@ -1153,6 +1153,9 @@ static PlClause *parse_clause(Parser *p) {
 }
 static const char * const PL_PRELUDE_SRC =
     "member(X,[X|_]).\n"
+    "'$scc_cut':-'$scc_bnew'(B),'$scc_cut_loop'(B).\n"
+    "'$scc_cut_loop'(B):-'$scc_take'(B,C),!,(catch(C,_,true)->true;true),'$scc_cut_loop'(B).\n"
+    "'$scc_cut_loop'(_).\n"
     "member(X,[_|T]):-member(X,T).\n"
     "append([],L,L).\n"
     "append([H|T],L,[H|R]):-append(T,L,R).\n"
@@ -1871,6 +1874,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
     if (pl_cv_has(&referenced, "table")) pl_cv_add(&referenced, "$tbl_call");
+    if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");

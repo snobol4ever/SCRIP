@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2400
-#define GC_ALLOC_TAB_N_VOID 286
-#define GC_ALLOC_TAB_N_DESCR 1176
-#define GC_ALLOC_TAB_N_OTHER 922
+#define GC_ALLOC_TAB_N 2408
+#define GC_ALLOC_TAB_N_VOID 287
+#define GC_ALLOC_TAB_N_DESCR 1180
+#define GC_ALLOC_TAB_N_OTHER 925
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -633,6 +633,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "fh_sink_open", GC_RET_OTHER },
     { "fh_sink_write", GC_RET_OTHER },
     { "fht_grow", GC_RET_VOID },
+    { "flat_drive_cleanup", GC_RET_VOID },
     { "flat_drive_gate", GC_RET_VOID },
     { "flat_drive_match_alt", GC_RET_VOID },
     { "flat_drive_repalt", GC_RET_VOID },
@@ -989,6 +990,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_pred_graph", GC_RET_OTHER },
     { "pl_prelude_defines", GC_RET_OTHER },
     { "pl_preprocess_list", GC_RET_VOID },
+    { "pl_probe_before", GC_RET_OTHER },
     { "pl_rb_room", GC_RET_OTHER },
     { "pl_read_esc_body", GC_RET_OTHER },
     { "pl_read_opts_ball", GC_RET_OTHER },
@@ -1999,6 +2001,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_read_term_opts_c", GC_RET_DESCR },
     { "rt_pl_dop_read_term_opts_s", GC_RET_DESCR },
     { "rt_pl_dop_read_term_opts_s_c", GC_RET_DESCR },
+    { "rt_pl_dop_scc_bnew", GC_RET_DESCR },
+    { "rt_pl_dop_scc_bnew_c", GC_RET_DESCR },
+    { "rt_pl_dop_scc_take", GC_RET_DESCR },
+    { "rt_pl_dop_scc_take_c", GC_RET_DESCR },
     { "rt_pl_dop_see", GC_RET_DESCR },
     { "rt_pl_dop_see_c", GC_RET_DESCR },
     { "rt_pl_dop_seeing", GC_RET_DESCR },
@@ -2129,6 +2135,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_numbervars_cell", GC_RET_OTHER },
     { "rt_pl_pairs_keys_values_cell", GC_RET_OTHER },
     { "rt_pl_root_omega", GC_RET_VOID },
+    { "rt_pl_scc_bnew_cell", GC_RET_OTHER },
+    { "rt_pl_scc_take_cell", GC_RET_OTHER },
     { "rt_pl_sort_cell", GC_RET_OTHER },
     { "rt_pl_sort_in_place_cell", GC_RET_OTHER },
     { "rt_pl_struct_alloc", GC_RET_OTHER },

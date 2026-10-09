@@ -12,6 +12,8 @@ void *rt_pl_tr_init(void) {
     *pl_tr_ball_slot(base) = (void *)0;
     *pl_tr_wslot_slot(base) = (void *)0;
     *pl_tr_ocheck_slot(base) = 0;
+    *pl_tr_cleanup_slot(base) = (char *)0;
+    *pl_tr_probe_b_slot(base) = 0;
     rt_gc_root_range_add_topword(base);
     return (void *)tr;
 }
@@ -21,6 +23,8 @@ _Static_assert(PL_TR_BALL_OFF >= 8, "the trail top word owns offset 0 of the hea
 _Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)134217728, "rtx_plunify.s spells this arena size as the literal mask -33554432");
 _Static_assert(PL_TR_BALL_OFF == 8, "rtx_plunify.s spells this offset as the literal 8");
 _Static_assert(PL_TR_OCHECK_OFF == 24 && PL_TR_HEADER_BYTES >= PL_TR_OCHECK_OFF + 8, "the occurs_check mode word (0 false, 1 true, 2 error): rtx_plunify.s and bb_unify_value.cpp read offset 24");
+_Static_assert(PL_TR_HEADER_BYTES == 64 && PL_TR_CLEANUP_OFF == 32 && PL_TR_PROBE_B_OFF == 40 && PL_TR_HEADER_BYTES >= PL_TR_PROBE_B_OFF + 8,
+    "the cleanup record cell (a stack address, never a heap pointer) and the cut probe's B word: bb_cleanup.cpp, xa_flat.cpp and gc_heap.c's trail scan read these offsets");
 _Static_assert(PL_TR_WSLOT_OFF != PL_TR_BALL_OFF && PL_TR_WSLOT_OFF >= 8 && PL_TR_HEADER_BYTES >= PL_TR_WSLOT_OFF + 8,
     "the writer's slot-vector word must fit inside the trail header, apart from the top word and the ball (the cfo's condition c)");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

@@ -42,8 +42,8 @@ long rt_gc_collect(void);
 void rt_gc_root_range_add_topword(const char *lo);
 void rt_gc_assert_dead(const void *payload);
 void *rt_gc_assert_instances(uint16_t type, long n);
-static char g_root[32 + 32 * 8] __attribute__((aligned(16)));
-static void root_set(int k, void *p) { *(void **)(g_root + 32 + 32 * k) = p; }
+static char g_root[HDR + 32 * 8] __attribute__((aligned(16)));
+static void root_set(int k, void *p) { *(void **)(g_root + HDR + 32 * k) = p; }
 int main(int argc, char **argv)
 {
     int mode = argc > 1 ? atoi(argv[1]) : 0; char *p[3];
@@ -57,7 +57,9 @@ int main(int argc, char **argv)
     return 0;
 }
 FXC
-gcc -O0 -g -o "$T/fx" "$T/fx.c" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" 2> "$T/cc.err" || { sed -n 1,5p "$T/cc.err"; echo "⛔ GATE REFUSE(2) [$G]: the fixture did not build"; exit 2; }
+HDR=$(awk '$1 == "#define" && $2 == "PL_TR_HEADER_BYTES" {print $3}' "$ROOT/src/runtime/rt/rt_pl_trail.h")
+[ -n "$HDR" ] || { echo "⛔ GATE REFUSE(2) [$G]: no PL_TR_HEADER_BYTES in rt_pl_trail.h -- the fixture lays its root range out as the trail arena header does"; exit 2; }
+gcc -O0 -g -DHDR="$HDR" -o "$T/fx" "$T/fx.c" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" 2> "$T/cc.err" || { sed -n 1,5p "$T/cc.err"; echo "⛔ GATE REFUSE(2) [$G]: the fixture did not build"; exit 2; }
 run() { env -u SCRIP_GC_ASSERT_FATAL "$@" > "$T/o.txt" 2> "$T/e.txt"; echo $?; }
 r=$(run "$T/fx" 1); n=$(grep -c '^\[ZGC-ASSERT\] DEAD-ASSERTED block kind=205/' "$T/e.txt")
 if [ "$r" = 0 ] && [ "$n" -ge 1 ] && grep -q '^FX mode=1' "$T/o.txt"; then echo "  arm 1 PASS: a rooted block asserted dead is reported by kind (205/HB_WSC) at the collection that finds it live, and the program runs on (rc 0)"

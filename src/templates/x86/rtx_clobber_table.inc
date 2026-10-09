@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 265
+#define RTX_CLOB_TAB_N 267
 #define RTX_CLOB_TAB_N_CLOBBERING 20
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -193,6 +193,8 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_read_term_from_codes", 0 },
     { "rt_pl_dop_read_term_opts", 0 },
     { "rt_pl_dop_read_term_opts_s", 0 },
+    { "rt_pl_dop_scc_bnew", 0 },
+    { "rt_pl_dop_scc_take", 0 },
     { "rt_pl_dop_see", 0 },
     { "rt_pl_dop_seeing", 0 },
     { "rt_pl_dop_set_prolog_flag", 0 },
