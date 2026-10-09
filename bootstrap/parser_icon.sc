@@ -245,13 +245,12 @@ Call      = ( epsilon . *PushCounter()
               . *Reduce('TT_FNC', nTop())
               . *PopCounter()
             );
-SeqRest   = ( *$';' *Expr  . *IncCounter() );
 ConjRest  = ( *$',' (*Expr | epsilon . *Reduce('TT_NUL', 0)) . *IncCounter() );
-/* (e1, e2) is mutual evaluation, TT_CONJ; (e1; e2) a sequence.                                */
+/* (e1, e2) is mutual evaluation, TT_CONJ; a ';' inside parentheses is refused, as icont refuses it. */
 Paren     = ( epsilon . *PushCounter()
               ( *$' ' *$'(' *Expr  . *IncCounter()
                 ( *ConjRest ARBNO(*ConjRest) . *Reduce('TT_CONJ', nTop())
-                | ARBNO(*SeqRest) . *Reduce('TT_SEQ_EXPR', *(GT(nTop(), 1) nTop()))
+                | epsilon
                 )
                 *$')'
               | *$' ' *$'(' *$')' . *Reduce('TT_SEQ_EXPR', 0)
@@ -326,7 +325,7 @@ Case_rest        = ( epsilon . *PushCounter()
                );
 /* return and suspend are expressions too (a | return b): DEFERRED, because they are defined below   */
 /* and a by-value reference here would be the empty pattern, which matches everywhere (measured)     */
-break_rest   = FENCE( SPAN(' ' CHAR(9)) *Expr . *Reduce('TT_LOOP_BREAK', 1) | *$' ' . *Reduce('TT_LOOP_BREAK', 0) );
+break_rest   = FENCE( *$' ' *Expr . *Reduce('TT_LOOP_BREAK', 1) | *$' ' . *Reduce('TT_LOOP_BREAK', 0) );
 next_rest    = *$' '  . *Reduce('TT_LOOP_NEXT', 0);
 fail_rest    = *$' '  . *Reduce('TT_PROC_FAIL', 0);
 KwT          = TABLE(12);
@@ -743,7 +742,7 @@ function PPDir(dl, nc, cmd, rest, sym, r2, dv, nm, t, sv, d, st) {
     nreturn;
 }
 function ParseOne(ptree, i, n_kids) {
-    if (Src ? '$') {
+    if (Src ? ANY('$_')) {
         PPInit();
         if (Src ? *pp_need) {
             if (Src ? *Preprocess) { ; } else { pp_err = 1; }
