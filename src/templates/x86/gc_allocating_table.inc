@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2323
-#define GC_ALLOC_TAB_N_VOID 285
-#define GC_ALLOC_TAB_N_DESCR 1153
+#define GC_ALLOC_TAB_N 2325
+#define GC_ALLOC_TAB_N_VOID 286
+#define GC_ALLOC_TAB_N_DESCR 1154
 #define GC_ALLOC_TAB_N_OTHER 869
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -2126,6 +2126,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_section_var_strict", GC_RET_DESCR },
     { "rt_setexit_abort", GC_RET_VOID },
     { "rt_setexit_fire_now", GC_RET_VOID },
+    { "rt_shim_cell_get", GC_RET_DESCR },
+    { "rt_shim_cell_set", GC_RET_VOID },
     { "rt_shim_nv_gamma", GC_RET_DESCR },
     { "rt_shim_nv_in", GC_RET_VOID },
     { "rt_shim_nv_omega", GC_RET_VOID },
