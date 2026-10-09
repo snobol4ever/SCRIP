@@ -9611,6 +9611,40 @@ static int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) 
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_arr_get(DESCR_t *args, int nargs) {
+    if (args[0].v == DT_A && args[0].arr) {
+        ARBLK_t *b = (ARBLK_t *) args[0].arr;
+        long i = IS_INT_fn(args[1]) ? args[1].i : 0;
+        if (i < b->lo || i > b->hi) return FAILDESCR;
+        return b->data[i - b->lo];
+    }
+    const char *cur = VARVAL_fn(args[0]);
+    if (!cur) cur = "";
+    long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
+    if (idx < 0 || !*cur) return FAILDESCR;
+    if (idx >= 1 && (size_t)idx <= strlen(cur)) return INTVAL((long long)(unsigned char)cur[idx - 1]);
+    return (idx == 0) ? elem_to_descr(cur, strlen(cur)) : FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_arr_set(DESCR_t *args, int nargs) {
+    if (args[0].v == DT_A && args[0].arr) {
+        ARBLK_t *b = (ARBLK_t *) args[0].arr;
+        long i = IS_INT_fn(args[1]) ? args[1].i : 0;
+        if (i < b->lo || i > b->hi) return FAILDESCR;
+        b->data[i - b->lo] = args[2];
+        return args[0];
+    }
+    const char *cur = VARVAL_fn(args[0]);
+    if (!cur) cur = "";
+    long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
+    char rb[64];
+    const char *rv = to_cstring(args[2], rb, sizeof rb);
+    size_t rvl = strlen(rv);
+    if (idx == 0) { char *e0 = rt_wsb_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; return STRVAL(e0); }
+    if (idx < 1 || (size_t)idx > strlen(cur)) return FAILDESCR;
+    return pas_str_setch(STRVAL((char *) cur), idx, pas_ch_of(args[2]));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return script_try_call_builtin_by_name_rq(fn, args, nargs, out, (long *)0); }
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
 #if RT_DIAG
@@ -11637,23 +11671,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = d;
         return 1;
     }
-    if (!strcmp(fn, "arr_get") && nargs == 2) {
-        if (args[0].v == DT_A && args[0].arr) {
-            ARBLK_t *b = (ARBLK_t *) args[0].arr;
-            long i = IS_INT_fn(args[1]) ? args[1].i : 0;
-            if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; }
-            *out = b->data[i - b->lo];
-            return 1;
-        }
-        const char *cur = VARVAL_fn(args[0]);
-        if (!cur) cur = "";
-        long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
-        if (idx < 0) { *out = FAILDESCR; return 1; }
-        if (!*cur) { *out = FAILDESCR; return 1; }
-        if (idx >= 1 && (size_t)idx <= strlen(cur)) { *out = INTVAL((long long)(unsigned char)cur[idx - 1]); return 1; }
-        *out = (idx == 0) ? elem_to_descr(cur, strlen(cur)) : FAILDESCR;
-        return 1;
-    }
+    if (!strcmp(fn, "arr_get") && nargs == 2) { *out = pas_arr_get(args, nargs); return 1; }
     if (!strcmp(fn, "str_substr") || (!strcmp(fn, "substr") && nargs >= 2)) {
         const char *s = VARVAL_fn(args[0]);
         if (!s) s = "";
@@ -12744,26 +12762,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = rk_unmark(rk_mk_arr(r, (int) n));
         return 1;
     }
-    if (!strcmp(fn, "arr_set_pure") && nargs >= 3) {
-        if (args[0].v == DT_A && args[0].arr) {
-            ARBLK_t *b = (ARBLK_t *) args[0].arr;
-            long i = IS_INT_fn(args[1]) ? args[1].i : 0;
-            if (i < b->lo || i > b->hi) { *out = FAILDESCR; return 1; }
-            b->data[i - b->lo] = args[2];
-            *out = args[0];
-            return 1;
-        }
-        const char *cur = VARVAL_fn(args[0]);
-        if (!cur) cur = "";
-        long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
-        char rb[64];
-        const char *rv = to_cstring(args[2], rb, sizeof rb);
-        size_t rvl = strlen(rv);
-        if (idx == 0) { char *e0 = rt_wsb_alloc(rvl + 1); memcpy(e0, rv, rvl); e0[rvl] = '\0'; *out = STRVAL(e0); return 1; }
-        if (idx < 1 || (size_t)idx > strlen(cur)) { *out = FAILDESCR; return 1; }
-        *out = pas_str_setch(STRVAL((char *) cur), idx, pas_ch_of(args[2]));
-        return 1;
-    }
+    if (!strcmp(fn, "arr_set_pure") && nargs >= 3) { *out = pas_arr_set(args, nargs); return 1; }
     if (!strcmp(fn, "arr_last") && nargs == 1) { rk_av_t a = rk_av(args[0]); *out = a.n ? rk_av_elem(a, a.n - 1) : FAILDESCR; return 1; }
     if ((!strcmp(fn, "arr_init") || !strcmp(fn, "arr_tail")) && nargs == 1) {
         rk_av_t a = rk_av(args[0]);

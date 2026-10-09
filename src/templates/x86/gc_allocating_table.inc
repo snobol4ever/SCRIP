@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2249
+#define GC_ALLOC_TAB_N 2251
 #define GC_ALLOC_TAB_N_VOID 273
-#define GC_ALLOC_TAB_N_DESCR 1133
+#define GC_ALLOC_TAB_N_DESCR 1135
 #define GC_ALLOC_TAB_N_OTHER 828
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -722,6 +722,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "parse_clause", GC_RET_OTHER },
     { "parse_scrip_polyglot", GC_RET_OTHER },
     { "pas_agg_copy", GC_RET_DESCR },
+    { "pas_arr_get", GC_RET_DESCR },
+    { "pas_arr_set", GC_RET_DESCR },
     { "pas_call_args", GC_RET_OTHER },
     { "pas_call_args_brm", GC_RET_OTHER },
     { "pas_call_args_brm_dir", GC_RET_OTHER },
