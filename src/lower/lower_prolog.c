@@ -3454,6 +3454,108 @@ static tree_t * pl_table_wrapper(const char * key) {
     return ch;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_is(const tree_t * t) { return t && t->t == TT_FNC && t->v.sval && ((t->n == 3 && !strcmp(t->v.sval, "setup_call_cleanup")) || (t->n == 2 && !strcmp(t->v.sval, "call_cleanup"))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_count(const tree_t * t) { int n = 0; if (!t) return 0; if (pl_scc_is(t)) n++; for (int i = 0; i < t->n; i++) n += pl_scc_count(t->c[i]); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_vars(const tree_t * t, int * v, int n, int cap) {
+    if (!t) return n;
+    if (t->t == TT_VAR) { int s = (int) t->v.ival; for (int i = 0; i < n; i++) if (v[i] == s) return n; if (n < cap) v[n] = s; return n + 1; }
+    for (int i = 0; i < t->n; i++) n = pl_scc_vars(t->c[i], v, n, cap);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_scc_remap(const tree_t * t, const int * v, int n) {
+    tree_t * c = ast_node_new(t->t);
+    c->v = t->v;
+    c->line = t->line;
+    if (t->t == TT_VAR) { for (int i = 0; i < n; i++) if (v[i] == (int) t->v.ival) c->v.ival = i; return c; }
+    for (int i = 0; i < t->n; i++) ast_push(c, pl_scc_remap(t->c[i], v, n));
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_var_cap(const tree_t * t) { int n = (t && t->t == TT_VAR) ? 1 : 0; if (!t) return 0; for (int i = 0; i < t->n; i++) n += pl_scc_var_cap(t->c[i]); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_scc_aux(const tree_t * g, tree_t ** work, int * nw, int cap) {
+    int vc = pl_scc_var_cap(g) + 1;
+    int v[vc];
+    int n = pl_scc_vars(g, v, 0, vc);
+    char nm[32], key[48];
+    snprintf(nm, sizeof nm, "$scc_g%d", g_stage2.pl_scc_aux_n++);
+    snprintf(key, sizeof key, "%s/%d", nm, n);
+    tree_t * call = ast_node_new(n > 0 ? TT_FNC : TT_QLIT);
+    call->v.sval = (char *) lp_strdup(nm);
+    for (int i = 0; i < n; i++) { tree_t * a = ast_node_new(TT_VAR); a->v.ival = v[i]; ast_push(call, a); }
+    tree_t * cl = ast_node_new(TT_CLAUSE);
+    cl->v.dval = n;
+    for (int i = 0; i < n; i++) { tree_t * a = ast_node_new(TT_VAR); a->v.ival = i; ast_push(cl, a); }
+    ast_push(cl, pl_scc_remap(g, v, n));
+    tree_t * ch = ast_node_new(TT_CHOICE);
+    ch->v.sval = (char *) lp_strdup(key);
+    ast_push(ch, cl);
+    if (*nw >= cap) pl_refuse("setup_call_cleanup lift count in", key, 2);
+    work[(*nw)++] = ch;
+    return call;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_named(const tree_t * t, const char * nm, int n) { return t && t->t == TT_FNC && t->v.sval && t->n == n && !strcmp(t->v.sval, nm); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_scc_liftable(const tree_t * g) { return g && (g->t == TT_FNC || g->t == TT_QLIT); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_scc_walk(tree_t * t, tree_t ** work, int * nw, int cap, int ccdef) {
+    if (!t || t->t != TT_FNC || !t->v.sval) return;
+    const char * nm = t->v.sval;
+    int n = t->n;
+    if (n == 2 && (!strcmp(nm, ",") || !strcmp(nm, ";") || !strcmp(nm, "->") || !strcmp(nm, "*->") || !strcmp(nm, "forall"))) { pl_scc_walk(t->c[0], work, nw, cap, ccdef); pl_scc_walk(t->c[1], work, nw, cap, ccdef); return; }
+    if (n == 1 && (!strcmp(nm, "\\+") || !strcmp(nm, "not") || !strcmp(nm, "once") || !strcmp(nm, "ignore") || !strcmp(nm, "call"))) { pl_scc_walk(t->c[0], work, nw, cap, ccdef); return; }
+    if (n == 3 && !strcmp(nm, "catch")) { pl_scc_walk(t->c[0], work, nw, cap, ccdef); pl_scc_walk(t->c[2], work, nw, cap, ccdef); return; }
+    if (((n == 3 || n == 4) && !strcmp(nm, "findall")) || (n == 3 && !strcmp(nm, "aggregate_all"))) { pl_scc_walk(t->c[1], work, nw, cap, ccdef); return; }
+    if (n == 3 && (!strcmp(nm, "bagof") || !strcmp(nm, "setof"))) { tree_t * g = t->c[1]; while (pl_scc_named(g, "^", 2)) g = g->c[1]; pl_scc_walk(g, work, nw, cap, ccdef); return; }
+    if (n == 3 && !strcmp(nm, "setup_call_cleanup")) {
+        pl_scc_walk(t->c[0], work, nw, cap, ccdef);
+        if (pl_scc_liftable(t->c[1])) t->c[1] = pl_scc_aux(t->c[1], work, nw, cap);
+        pl_scc_walk(t->c[2], work, nw, cap, ccdef);
+        return;
+    }
+    if (n == 2 && !strcmp(nm, "call_cleanup") && !ccdef) { if (pl_scc_liftable(t->c[0])) t->c[0] = pl_scc_aux(t->c[0], work, nw, cap); pl_scc_walk(t->c[1], work, nw, cap, ccdef); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_scc_clauses(tree_t * ch, tree_t ** work, int * nw, int cap, int ccdef) {
+    int nc = ch->t == TT_CHOICE ? ch->n : 1;
+    for (int k = 0; k < nc; k++) {
+        tree_t * cl = ch->t == TT_CHOICE ? ch->c[k] : ch;
+        if (!cl || cl->t != TT_CLAUSE) continue;
+        for (int i = (int) cl->v.dval; i < cl->n; i++) pl_scc_walk(cl->c[i], work, nw, cap, ccdef);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_scc_rewrite(const tree_t * prog) {
+    int total = 0, ccdef = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!subj || (subj->t != TT_CHOICE && subj->t != TT_CLAUSE)) continue;
+        if (subj->v.sval && !strcmp(subj->v.sval, "call_cleanup/2")) ccdef = 1;
+        total += pl_scc_count(subj);
+    }
+    if (!total) return prog;
+    tree_t * work[total];
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!subj || (subj->t != TT_CHOICE && subj->t != TT_CLAUSE) || !pl_scc_count(subj)) { ast_push(np, (tree_t *) s); continue; }
+        tree_t * rn = pl_tree_copy(subj);
+        int nw = 0, done = 0;
+        pl_scc_clauses(rn, work, &nw, total, ccdef);
+        ast_push(np, pl_table_stmt(s, rn));
+        while (done < nw) { tree_t * aux = work[done++]; pl_scc_clauses(aux, work, &nw, total, ccdef); ast_push(np, pl_table_stmt(s, aux)); }
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_rewrite(const tree_t * prog) {
     int nk = 0;
     for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, nk, 0);
@@ -3651,6 +3753,7 @@ static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int ni
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_table_rewrite(prog);
+    prog = pl_scc_rewrite(prog);
     const tree_t * prog_src = prog;
     int load_h = pl_load_hook_line(prog, NULL);
     int load_cap = load_h > 0 ? pl_load_capacity(prog) : 1;
