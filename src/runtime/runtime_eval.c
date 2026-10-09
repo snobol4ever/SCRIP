@@ -675,19 +675,23 @@ static int eval_frame_open(eval_frame_t *f, const char *s, int raise) {
         made = 1;
         keep = mark < eval_retain_budget();
     }
-    if (eval_frame_init(f, NV_GET_fn(EVAL_TMP), made ? s : NULL) < 0) { if (made) bb_pool_release(mark); return -1; }
+    DESCR_t *tc = NV_CELL_PLAIN_fn(EVAL_TMP);
+    if (eval_frame_init(f, tc ? *tc : NV_GET_fn(EVAL_TMP), made ? s : NULL) < 0) { if (made) bb_pool_release(mark); return -1; }
     f->fn = INTVAL((int64_t)(uintptr_t)fn);
     f->mark = INTVAL((int64_t)mark);
     f->built = INTVAL((int64_t)built);
     f->flags = INTVAL((int64_t)made | (int64_t)keep << 1 | (int64_t)thunks << 8);
-    NV_SET_fn(EVAL_TMP, FAILDESCR);
+    if (tc) *tc = FAILDESCR;
+    else NV_SET_fn(EVAL_TMP, FAILDESCR);
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t eval_frame_land(eval_frame_t *f, int ok) {
-    DESCR_t got = NV_GET_fn(EVAL_TMP);
+    DESCR_t *tc = NV_CELL_PLAIN_fn(EVAL_TMP);
+    DESCR_t got = tc ? *tc : NV_GET_fn(EVAL_TMP);
     DESCR_t res = (ok && !IS_FAIL(got)) ? got : FAILDESCR;
-    NV_SET_fn(EVAL_TMP, f->saved);
+    if (tc) *tc = f->saved;
+    else NV_SET_fn(EVAL_TMP, f->saved);
     int64_t fl = f->flags.i;
     if (fl & 1) eval_chain_settle(f->key.v == DT_S ? f->key.s : NULL, (eval_chain_fn)(uintptr_t)f->fn.i, res, (size_t)f->mark.i, (size_t)f->built.i, (int)(fl >> 8), (int)((fl >> 1) & 1));
     return res;

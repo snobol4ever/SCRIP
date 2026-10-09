@@ -3906,6 +3906,7 @@ const char *NV_intern_name_fn(const char *name) {
     { NV_t *e = _var_bucket_find(name); return e ? e->name : (const char *)0; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t *NV_CELL_PLAIN_fn(const char *name) { _var_init(); if (!name) return (DESCR_t *)0; NV_t *e = _var_find_cached(name); return (e && !e->is_io) ? (e->is_gva ? e->cell : &e->val) : (DESCR_t *)0; }
 DESCR_t *NV_PTR_fn(const char *name) {
     _var_init();
     if (!name) return NULL;
