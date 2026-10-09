@@ -16,12 +16,15 @@
 # WITH -DSELF_COMPILE (the flavour a P-code interpreter can run: it reads standard input). Generation 1 is that compile. The
 # interpreter half is a known-answer probe: scrip-compiled pcom compiles P5's hello sample, scrip-compiled pint runs the P-code
 # and the transcript (from its second line, the first is each program's banner) must equal P5's own hello.cmp. Generation 2 is
-# pint running the generation-1 P-code with pcom.pas (self-compile flavour) on standard input; the verdict compares its P-code.
+# pint running the generation-1 P-code (the compiler, compiled by itself) over a source: pint reads the program from the file prd and the
+# interpreted program goes on reading the same file, so prd holds the P-code followed by the source. Two sources: P5's hello (the quick
+# probe, minutes: its P-code must equal the native compiler's) and pcom.pas itself (the full generation 2, hours at today's interpreter speed:
+# GEN2_TIMEOUT_S bounds it, and a timeout reads BLOCKED); the verdict compares the full run's P-code with generation 1's.
 #
 # Declared sizes (RULES.md hard-cap clause 8 (g)): pint's store is sixteen million cells and needs a declared arena; PCOM_HEAP_KB and
 # PINT_HEAP_KB are the declarations, passed as -d<kb>k to every run of that program.
 #
-# Verdict line: "P5_SELFHOST: pre=<rc> pcom=<rc|BLOCKED> pint=<match|differs|BLOCKED> gen1_pcode_lines=<n> gen2=<rc|BLOCKED> pcode_identical=<yes|no|n/a>"
+# Verdict line: "P5_SELFHOST: pre=<rc> pcom=<rc|BLOCKED> pint=<match|differs|BLOCKED> gen1_pcode_lines=<n> gen1_hello=<identical|differs> gen2=<rc|BLOCKED> pcode_identical=<yes|no|n/a>"
 # then "SELFHOST OK" (gen2 reproduced gen1's P-code), "SELFHOST PARTIAL" (both halves run, the P-code differs) or
 # "SELFHOST BLOCKED" (a half cannot run, with the reason printed).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -32,7 +35,7 @@ P5="${P5_DIR:-$ROOT/../corpus/packages/pascal/p5}"; SRC="$P5/source"; SMP="$P5/s
 [ -f "$SRC/pcom.pas" ] && [ -f "$SRC/pint.pas" ] || { echo "⛔ REFUSE(2): no Pascal-P5 pcom.pas and pint.pas at $SRC"; exit 2; }
 [ -f "$SMP/hello.pas" ] && [ -f "$SMP/hello.cmp" ] || { echo "⛔ REFUSE(2): no P5 hello sample and transcript at $SMP"; exit 2; }
 command -v cpp >/dev/null || { echo "⛔ REFUSE(2): no cpp -- P5's own preprocessing step cannot run"; exit 2; }
-PCOM_HEAP_KB="${PCOM_HEAP_KB:-800000}"; PINT_HEAP_KB="${PINT_HEAP_KB:-800000}"
+PCOM_HEAP_KB="${PCOM_HEAP_KB:-800000}"; PINT_HEAP_KB="${PINT_HEAP_KB:-800000}"; GEN2_TIMEOUT_S="${GEN2_TIMEOUT_S:-900}"
 W=$(mktemp -d) || exit 2; trap 'rm -rf "$W"' EXIT
 TREE="SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY) RT_OPT=-O0 mode=m3 oracle-note=fpc-Miso-refuses-both-halves-unpreprocessed"
 echo "P5 self-host on $TREE"
@@ -70,19 +73,26 @@ read -r s2 k2 < <(tail -1 "$W/t2"); case "$s2" in ""|*[!0-9.]*) s2=unmeasured; k
 echo "WORK pint.pas(hello probe, the P-code of P5's hello sample) wall=${s2}s rss=${k2}KB  ($TREE)"
 if [ "$hcrc" -eq 0 ] && [ "$pintrc" -eq 0 ] && diff <(tail -n +2 "$SMP/hello.cmp") <(tail -n +2 "$W/hello_i.out") >/dev/null 2>&1; then pintv=match; else pintv=differs; fi
 echo "pint: rc=$pintrc hello_transcript=$pintv first_line=$(head -1 "$W/hello_i.out" | cut -c1-60) $(grep -v '^Command' "$W/hello_i.err" | head -c 120 | tr '\n' ' ')"
-# ---- generation 2: the interpreter runs gen1's P-code on the same source -----------------------------------------------
-cp "$W/gen1.pcode" "$W/prd"
-( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t3" timeout 900s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas < "$W/pcom_self.pas" > gen2.out 2> gen2.err ); gen2rc=$?
+# ---- generation 2, the quick probe: the compiler, compiled by itself and run by pint, compiles P5's hello -----------------
+cat "$W/gen1.pcode" "$SMP/hello.pas" > "$W/prd"
+( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t3" timeout 1200s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas < /dev/null > g2h.out 2> g2h.err ); g2hrc=$?
 read -r s3 k3 < <(tail -1 "$W/t3"); case "$s3" in ""|*[!0-9.]*) s3=unmeasured; k3=unmeasured;; esac
-echo "WORK pint.pas(gen2, running the gen1 P-code on pcom's own source) wall=${s3}s rss=${k3}KB  ($TREE)"
+echo "WORK pint.pas(gen2 probe, the gen1 P-code compiling P5's hello) wall=${s3}s rss=${k3}KB  ($TREE)"
+if [ "$g2hrc" -eq 0 ] && cmp -s "$W/prr" "$W/hello.pcode"; then g1h=identical; else g1h=differs; fi
+echo "gen2 probe: rc=$g2hrc hello_pcode=$g1h pcode_lines=$(wc -l < "$W/prr" 2>/dev/null)"
+# ---- generation 2, in full: the gen1 P-code compiles pcom's own source -------------------------------------------------
+cat "$W/gen1.pcode" "$W/pcom_self.pas" > "$W/prd"
+( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t4" timeout ${GEN2_TIMEOUT_S}s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas < /dev/null > gen2.out 2> gen2.err ); gen2rc=$?
+read -r s4 k4 < <(tail -1 "$W/t4"); case "$s4" in ""|*[!0-9.]*) s4=unmeasured; k4=unmeasured;; esac
+echo "WORK pint.pas(gen2, running the gen1 P-code on pcom's own source) wall=${s4}s rss=${k4}KB  ($TREE)"
 g2lines=$(wc -l < "$W/prr" 2>/dev/null); g2lines=${g2lines:-0}
 echo "gen2: rc=$gen2rc out_lines=$(wc -l < "$W/gen2.out") pcode_lines=$g2lines $(grep -v '^Command' "$W/gen2.err" | head -c 160 | tr '\n' ' ')"
 if [ "$gen2rc" -ne 0 ] || [ "$g2lines" -eq 0 ]; then
-  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen2=BLOCKED pcode_identical=n/a"
+  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_hello=$g1h gen2=BLOCKED pcode_identical=n/a"
   echo "SELFHOST BLOCKED (generation 2 did not finish: rc=$gen2rc)"; exit 1
 fi
 if cmp -s "$W/prr" "$W/gen1.pcode"; then
-  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen2=0 pcode_identical=yes"; echo "SELFHOST OK"; exit 0
+  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_hello=$g1h gen2=0 pcode_identical=yes"; echo "SELFHOST OK"; exit 0
 fi
 echo "first differing line: $(diff "$W/prr" "$W/gen1.pcode" | head -2 | tr '\n' ' ' | cut -c1-160)"
-echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen2=0 pcode_identical=no"; echo "SELFHOST PARTIAL"; exit 1
+echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_hello=$g1h gen2=0 pcode_identical=no"; echo "SELFHOST PARTIAL"; exit 1
