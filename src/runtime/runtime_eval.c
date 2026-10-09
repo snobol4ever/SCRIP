@@ -29,7 +29,6 @@ void rt_proc_set_named_rest(const char *name, int slot);
 typedef DESCR_t (*eval_chain_fn)(void *zeta, int entry);
 extern void *lower_snobol4(const tree_t *prog);
 extern eval_chain_fn emit_chain(void *entry, void *out, const char *prefix);
-extern void rt_chain_enter(eval_chain_fn fn);
 extern int emit_jmp_entry_for_chain(IR_graph_t *g);
 extern void emit_jmp_entry_clear(void);
 extern void ast_tree_free_dyn(tree_t *p);
@@ -112,22 +111,6 @@ static void eval_cache_put(char *key, eval_chain_fn fn) {
     eval_cache_insert_raw(g_eval_cache, g_eval_cache_cap, key, fn, now);
     g_eval_cache_n++;
 }
-__asm__( ".text\n" ".globl rt_chain_enter\n" "rt_chain_enter:\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n" "  movl %r15d, 4(%rsp)\n"
-    "  movq %r13, 8(%rsp)\n" "  movq %rdi, %rax\n" "  leaq 1f(%rip), %rcx\n" "  movq %rcx, %rdx\n" "  leaq 9f(%rip), %r10\n" "  pushq %r10\n" "  pushq %r10\n"
-    "  movq g_dcap_base@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  testq %r10, %r10\n" "  jz  5f\n" "  cmpq %r10, %r12\n" "  jb  5f\n" "  addq $67108864, %r10\n" "  cmpq %r10, %r12\n"
-    "  jb  6f\n" "5:\n" "  movq 0x70000000, %r12\n" "6:\n" "  movq Σ@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r13\n" "  movq Σlen@GOTPCREL(%rip), %r10\n" "  movl (%r10), %r15d\n"
-    "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 2f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n"
-    "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "2:\n" "  jmp *%rax\n" "9:\n" "  call rt_kw_return_level_zero@PLT\n" "  ud2\n" ".globl rt_chain_enter_ret\n"
-    "rt_chain_enter_ret:\n" "1:\n" "  addq $16, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  ret\n" );
-__asm__( ".text\n" ".globl rt_chain_enter_v\n" "rt_chain_enter_v:\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n" "  movl %r15d, 4(%rsp)\n"
-    "  movq %r13, 8(%rsp)\n" "  movq %rdi, %rax\n" "  leaq 3f(%rip), %rcx\n" "  movq %rcx, %rdx\n" "  movq g_dcap_base@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  testq %r10, %r10\n"
-    "  jz  7f\n" "  cmpq %r10, %r12\n" "  jb  7f\n" "  addq $67108864, %r10\n" "  cmpq %r10, %r12\n" "  jb  8f\n" "7:\n" "  movq 0x70000000, %r12\n" "8:\n" "  movq Σ@GOTPCREL(%rip), %r10\n"
-    "  movq (%r10), %r13\n" "  movq Σlen@GOTPCREL(%rip), %r10\n" "  movl (%r10), %r15d\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 4f\n"
-    "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n"
-    "4:\n" "  subq $8, %rsp\n" "  pushq %rcx\n" "  jmp *%rax\n" ".globl rt_chain_enter_v_ret\n" "rt_chain_enter_v_ret:\n" "3:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n"
-    "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  ret\n" );
-void rt_chain_enter_v(eval_chain_fn fn);
-void rt_chain_enter(eval_chain_fn fn);
 int g_rt_fragment_emit = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int eval_thunks_emit_from(int pc0) {
@@ -329,22 +312,9 @@ static eval_chain_fn eval_build_chain(const char *s, int *pe, const char **pm, i
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_c2bb_hit(const char *site, const char *name);
+extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
 int g_eval_ret_v = 1;
 __attribute__((constructor)) static void eval_ret_init(void) { const char *e = getenv("SCRIP_EVAL_RET"); g_eval_ret_v = (e && *e == '0') ? 0 : 1; }
-extern void eval_chain_enter_only(eval_chain_fn fn);
-__asm__( ".text\n" ".globl eval_chain_enter_only\n" "eval_chain_enter_only:\n" "  movq g_eval_ret_v@GOTPCREL(%rip), %rax\n" "  cmpl $0, (%rax)\n" "  je 1f\n"
-#if RT_DIAG
-"  pushq %rdi\n" "  leaq 2f(%rip), %rdi\n" "  leaq 4f(%rip), %rsi\n" "  call rt_c2bb_hit\n" "  popq %rdi\n"
-#endif
-"  jmp rt_chain_enter_v\n" "1:\n"
-#if RT_DIAG
-"  pushq %rdi\n" "  leaq 3f(%rip), %rdi\n" "  leaq 4f(%rip), %rsi\n" "  call rt_c2bb_hit\n" "  popq %rdi\n"
-#endif
-"  jmp rt_chain_enter\n"
-#if RT_DIAG
-".section .rodata\n" "2:  .asciz \"chain.eval.v\"\n" "3:  .asciz \"chain.eval\"\n" "4:  .asciz \"?\"\n" ".text\n"
-#endif
-);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static size_t eval_retain_budget(void) { static long v = -1; if (v < 0) { const char *e = getenv("SCRIP_EVAL_RETAIN"); v = (e && *e) ? atol(e) : -1; } return v < 0 ? ~(size_t)0 : (size_t)v; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -355,9 +325,9 @@ static int eval_open_on(void) { static int v = -1; if (v < 0) { const char *e = 
 static int eval_chain_run_guarded(eval_chain_fn fn) {
     extern int g_core_errjmp_n;
 #if RT_DIAG
-    if (!eval_guard_on()) { rt_c2bb_hit("chain.eval.unguarded", "?"); eval_chain_enter_only(fn); return 1; }
+    if (!eval_guard_on()) { (void)fn; (void)rt_c2bb_bomb("eval_chain_run_guarded.unguarded", "?"); return 0; }
 #else
-    if (!eval_guard_on()) { eval_chain_enter_only(fn); return 1; }
+    if (!eval_guard_on()) { (void)fn; (void)rt_c2bb_bomb("eval_chain_run_guarded.unguarded", "?"); return 0; }
 #endif
     core_errjmp_t ej;
     int my = g_core_errjmp_n;
@@ -369,7 +339,7 @@ static int eval_chain_run_guarded(eval_chain_fn fn) {
 #if RT_DIAG
     rt_c2bb_hit("chain.eval.guarded", "?");
 #endif
-    eval_chain_enter_only(fn);
+    (void)rt_c2bb_bomb("eval_chain_run_guarded", "?");
     core_errjmp_pop(&ej, my);
     g_error = esv;
     return 1;
@@ -942,9 +912,9 @@ int rt_goto_transfer(const char *name) {
     extern void rt_c2bb_hit(const char *site, const char *name);
     void *fn = rt_goto_resolve(name);
 #if RT_DIAG
-    if (fn) { rt_c2bb_hit("chain.goto", name); RT_GC_CALLBACK_V(rt_chain_enter((eval_chain_fn)fn)); return 1; }
+    if (fn) { rt_c2bb_hit("chain.goto", name); (void)rt_c2bb_bomb("rt_goto_transfer", name); return 0; }
 #else
-    if (fn) { RT_GC_CALLBACK_V(rt_chain_enter((eval_chain_fn)fn)); return 1; }
+    if (fn) { (void)rt_c2bb_bomb("rt_goto_transfer", name); return 0; }
 #endif
     return 0;
 }
@@ -1084,7 +1054,7 @@ DESCR_t EXPVAL_fn(DESCR_t expr_d) {
             NV_SET_fn(EVAL_TMP, FAILDESCR);
             rt_c2bb_hit("chain.eval.conve", "?");
             { extern void rt_eval_stage_enter(const char *); rt_eval_stage_enter((const char *)0); }
-            eval_chain_enter_only(fn);
+            (void)rt_c2bb_bomb("chain.eval.conve", "?");
             { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave((const char *)0); }
             g_eval_cfr = c.prev;
             DESCR_t result = NV_GET_fn(EVAL_TMP);

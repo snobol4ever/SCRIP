@@ -2388,7 +2388,7 @@ static int gc_chain_check_on(void) {
 }
 static long g_gc_chain_ok = 0, g_gc_chain_nosite = 0, g_gc_chain_host = 0, g_gc_chain_bad = 0, g_gc_chain_said = 0, g_gc_chain_frameless = 0, g_gc_chain_ctx = 0, g_gc_chain_fnhops = 0,
     g_gc_chain_landhops = 0, g_gc_chain_roadhops = 0;
-extern char rt_tge_gamma_ret[], rt_tge_omega_ret[], rt_chain_enter_ret[], rt_chain_enter_v_ret[];
+extern char rt_tge_gamma_ret[], rt_tge_omega_ret[];
 extern const uint64_t rt_genp_n2_conts[2];
 static void gc_chain_report_atexit(void) {
     fprintf(stderr, "[CHAIN-CHECK] SUMMARY ok=%ld host=%ld frameless=%ld ctxrbp=%ld nosite=%ld mismatch=%ld fnhops=%ld landhops=%ld roadhops=%ld\n", g_gc_chain_ok, g_gc_chain_host,
@@ -2470,13 +2470,6 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         const gc_site_ent_t *x = (const gc_site_ent_t *)0;
         const gc_site_blk_t *xb = gc_site_find(g, &x);
         if (xb && x && (x->kind & 255) == 2) { pc = g; r = fb + b->ckt; g_gc_chain_landhops++; goto again; }
-        if (g == (uint64_t)(uintptr_t)rt_chain_enter_ret || g == (uint64_t)(uintptr_t)rt_chain_enter_v_ret) {
-            pc = g;
-            rbp = *(const char *const *)(fb + b->ckt - 8);
-            r = fb + b->ckt;
-            g_gc_chain_roadhops++;
-            goto again;
-        }
         if (g && gc_code_block_of(g) && gc_code_block_of(g + 8)) {
             uint64_t sg = *(const uint64_t *)(uintptr_t)(g + 8);
             const gc_site_ent_t *y = (const gc_site_ent_t *)0;

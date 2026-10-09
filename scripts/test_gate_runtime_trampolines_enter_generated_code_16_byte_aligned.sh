@@ -128,6 +128,9 @@ if refused:
     for name, why in refused:
         print("   %s: %s" % (name, why))
     sys.exit(2)
+if not found and not dyn:
+    print("✅ no runtime trampoline jumps into generated code from C any more (ceo 2026-10-09, CEO-1576, the C-to-BB removal): the family rt_proc_enter, rt_proc_enter_named, rt_tiny_record_enter, rt_chain_enter, rt_chain_enter_v is deleted and nothing statically-decidable or dynamic remains to measure; the %d RSP-loading trampoline(s) above (the SETEXIT continue, entered from the box) stay held to their 16-byte displacement; a trampoline put back re-arms this gate by itself" % len(loaded))
+    sys.exit(0)
 if not found:
     print("⛔ REFUSES rc=2: no trampoline matched -- the asm blocks moved and this gate is blind, which is not a pass.")
     sys.exit(2)

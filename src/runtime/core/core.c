@@ -2394,7 +2394,7 @@ void rt_setexit_fire_now(void) {
     void (*fn)(void) = (void (*)(void))(uintptr_t)rtccb[25];
     if (!fn) return;
     rtccb[25] = 0;
-    { extern void rt_chain_enter(void (*)(void)); RT_GC_CALLBACK_V(rt_chain_enter(fn)); }
+    { extern DESCR_t rt_c2bb_bomb(const char *, const char *); (void)fn; (void)rt_c2bb_bomb("rt_setexit_fire_now", "the SETEXIT handler after an out-of-memory or code-pool error"); }
     exit(0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

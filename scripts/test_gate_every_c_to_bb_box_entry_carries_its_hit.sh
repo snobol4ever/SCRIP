@@ -40,6 +40,9 @@ ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT" || exit 2
 
 ENTRY_PRIMS='rt_proc_enter|rt_proc_enter_named|rt_tiny_record_enter|rt_chain_enter|rt_chain_enter_v'
+# ⛔ ceo 2026-10-09 (CEO-1576, Lon: "stop the show and remove all of them"): when the tree DEFINES none of the entry primitives, every site this gate
+# graded is deleted and there is nothing to carry a hit; the guard reads the tree, so a primitive put back re-arms the whole gate by itself.
+if ! grep -rqaE "\.globl ($ENTRY_PRIMS)\\\\n" src/runtime 2>/dev/null; then echo "✅ no C->BB entry primitive remains in the tree (CEO-1576, the C-to-BB removal): rt_proc_enter, rt_proc_enter_named, rt_tiny_record_enter, rt_chain_enter and rt_chain_enter_v are deleted; nothing enters a box from C"; exit 0; fi
 SCAN_DIRS="src/runtime src/driver"
 WINDOW=3
 # The program-initiating entry and the coroutine start -- the ONLY entries that may carry no hit (CEO-970).
