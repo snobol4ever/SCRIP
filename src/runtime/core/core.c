@@ -1993,13 +1993,13 @@ static void _io_chan_close(int ch) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t _ENDFILE_(DESCR_t *a, int n) { if (n < 1) return NULVCL; int ch = (a[0].i >= 0 && a[0].i <= INT32_MAX) ? _io_slot((int)a[0].i, 0) : -1; if (ch >= 0) _io_chan_close(ch); return NULVCL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t _APPLY_(DESCR_t *a, int n) {
-    if (n < 1) return NULVCL;
+static const char *core_apply_target(const DESCR_t *a) {
     const char *fname = NULL;
     if (a[0].v == DT_N) { if (a[0].slen == 0 && a[0].s && *a[0].s) fname = a[0].s; else if (a[0].slen == 1 && a[0].ptr) fname = NV_name_from_ptr((const DESCR_t *)a[0].ptr); }
     if (!fname) fname = VARVAL_fn(a[0]);
-    return RT_GC_CALLBACK(APPLY_fn(fname, a + 1, n - 1));
+    return fname;
 }
+static DESCR_t _APPLY_(DESCR_t *a, int n) { if (n < 1) return NULVCL; return RT_GC_CALLBACK(APPLY_fn(core_apply_target(a), a + 1, n - 1)); }
 static DESCR_t _ARG_(DESCR_t *a, int n);
 static DESCR_t _DEFINE_(DESCR_t *a, int n);
 static DESCR_t _FIELD_(DESCR_t *a, int n);
@@ -4772,6 +4772,10 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
                 extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
                 const char *_tgt = e->entry_label ? e->entry_label : (const char *)0;
                 if (_tgt && nargs == 1 && args && IS_DATA_TAG_fn(args[0].v) && strcmp(_tgt, name) != 0 && rt_dat_field_of_any_live(_tgt)) return dat_field_get(_tgt, args[0]);
+            }
+            if (e->fn == _APPLY_ && rq && nargs >= 1) {
+                extern DESCR_t APPLY_fn_rq(const char *, DESCR_t *, int, long *);
+                return RT_GC_CALLBACK(APPLY_fn_rq(core_apply_target(args), args + 1, nargs - 1, rq));
             }
             if (e->fn) {
                 if (e->min_args > 0 && nargs < e->min_args) {
