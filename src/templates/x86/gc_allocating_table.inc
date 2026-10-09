@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2215
+#define GC_ALLOC_TAB_N 2208
 #define GC_ALLOC_TAB_N_VOID 263
-#define GC_ALLOC_TAB_N_DESCR 1129
-#define GC_ALLOC_TAB_N_OTHER 808
+#define GC_ALLOC_TAB_N_DESCR 1123
+#define GC_ALLOC_TAB_N_OTHER 807
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -522,7 +522,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "dcg_expand_body_at", GC_RET_OTHER },
     { "dcg_expand_clause", GC_RET_VOID },
     { "dcg_make_unify", GC_RET_OTHER },
-    { "descr_slen", GC_RET_OTHER },
     { "descr_to_str", GC_RET_DESCR },
     { "descr_to_str_fracdigit", GC_RET_DESCR },
     { "differ", GC_RET_OTHER },
@@ -1185,9 +1184,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_ab_undef_fn_fail", GC_RET_VOID },
     { "rt_ab_undef_fn_stub", GC_RET_VOID },
     { "rt_ab_undef_sig_stub", GC_RET_VOID },
-    { "rt_add", GC_RET_DESCR },
     { "rt_add_big", GC_RET_DESCR },
-    { "rt_add_sno", GC_RET_DESCR },
     { "rt_agg_alloc", GC_RET_OTHER },
     { "rt_apply_land_γ", GC_RET_DESCR },
     { "rt_apply_open", GC_RET_OTHER },
@@ -1415,9 +1412,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_mod", GC_RET_DESCR },
     { "rt_mod_sno", GC_RET_DESCR },
     { "rt_mod_strict", GC_RET_DESCR },
-    { "rt_mul", GC_RET_DESCR },
     { "rt_mul_big", GC_RET_DESCR },
-    { "rt_mul_sno", GC_RET_DESCR },
     { "rt_multi_meth_dispatch", GC_RET_OTHER },
     { "rt_nd2_fast", GC_RET_OTHER },
     { "rt_nofail_abort", GC_RET_VOID },
@@ -2070,9 +2065,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_str_coerce", GC_RET_DESCR },
     { "rt_str_dup", GC_RET_OTHER },
     { "rt_str_method", GC_RET_OTHER },
-    { "rt_sub", GC_RET_DESCR },
     { "rt_sub_big", GC_RET_DESCR },
-    { "rt_sub_sno", GC_RET_DESCR },
     { "rt_subject_load_nv", GC_RET_VOID },
     { "rt_subscript_val", GC_RET_DESCR },
     { "rt_subscript_var", GC_RET_DESCR },

@@ -22,6 +22,7 @@
 #define RTX_CCALL(fn) RTX_PUSH(r8); RTX_PUSH(r9); RTX_PUSH(r10); RTX_PUSH(r11); call fn; RTX_POP(r11); RTX_POP(r10); RTX_POP(r9); RTX_POP(r8)
 #define RTX_CTAIL(fn) RTX_PUSH(r8); RTX_PUSH(r9); RTX_PUSH(r10); RTX_PUSH(r11); RTX_SUB_RSP(8); call fn; RTX_ADD_RSP(8); RTX_POP(r11); RTX_POP(r10); RTX_POP(r9); RTX_POP(r8); ret
 #define RTX_CTAIL_GVA(fn) RTX_PUSH(r8); RTX_PUSH(r9); RTX_PUSH(r10); RTX_PUSH(r11); RTX_SUB_RSP(8); call fn; RTX_ADD_RSP(8); RTX_POP(r11); RTX_POP(r10); RTX_POP(r9); RTX_POP(r8); RTX_GVA_R9; ret
+#define RTX_DECLINE mov eax, RTX_NOT_HANDLED; ret
 #define RTX_CALL(fn) call qword ptr [rip + fn@GOTPCREL]
 #define RTX_JMP(fn) jmp qword ptr [rip + fn@GOTPCREL]
 #define RTX_GATE_DEF(fam) .data; .align 1; .globl rtx_gate_##fam; .hidden rtx_gate_##fam; .type rtx_gate_##fam,@object; .size rtx_gate_##fam,1; rtx_gate_##fam: .byte 0; .text

@@ -38,6 +38,12 @@ DESCR_t rt_mod_sno(DESCR_t, DESCR_t);
 DESCR_t rt_pow_sno(DESCR_t, DESCR_t);
 DESCR_t rt_powreal_sno(DESCR_t, DESCR_t);
 DESCR_t rt_num_arith_sno(DESCR_t, DESCR_t, int);
+DESCR_t c_rt_add(DESCR_t, DESCR_t);
+DESCR_t c_rt_sub(DESCR_t, DESCR_t);
+DESCR_t c_rt_mul(DESCR_t, DESCR_t);
+DESCR_t c_rt_add_sno(DESCR_t, DESCR_t);
+DESCR_t c_rt_sub_sno(DESCR_t, DESCR_t);
+DESCR_t c_rt_mul_sno(DESCR_t, DESCR_t);
 }
 #include "x86_asm.h"
 #include <cstdlib>
@@ -51,7 +57,7 @@ static inline int binop_promotes(long long op) {
     return op == BINOP_ADD_BIG || op == BINOP_SUB_BIG || op == BINOP_MUL_BIG;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const struct { long long op; int col; const char * name; void * addr; } rtop_tab[] = {
+static const struct { long long op; int col; const char * name; void * addr; const char * cname; void * caddr; } rtop_tab[] = {
     { BINOP_ADD_BIG, 0, "rt_add_big", (void*)rt_add_big },
     { BINOP_ADD_BIG, 1, "rt_add_big", (void*)rt_add_big },
     { BINOP_ADD_BIG, 2, "rt_add_big", (void*)rt_add_big },
@@ -61,15 +67,15 @@ static const struct { long long op; int col; const char * name; void * addr; } r
     { BINOP_MUL_BIG, 0, "rt_mul_big", (void*)rt_mul_big },
     { BINOP_MUL_BIG, 1, "rt_mul_big", (void*)rt_mul_big },
     { BINOP_MUL_BIG, 2, "rt_mul_big", (void*)rt_mul_big },
-    { BINOP_ADD, 0, "rt_add", (void*)rt_add },
-    { BINOP_ADD, 1, "rt_add", (void*)rt_add },
-    { BINOP_ADD, 2, "rt_add_sno", (void*)rt_add_sno },
-    { BINOP_SUB, 0, "rt_sub", (void*)rt_sub },
-    { BINOP_SUB, 1, "rt_sub", (void*)rt_sub },
-    { BINOP_SUB, 2, "rt_sub_sno", (void*)rt_sub_sno },
-    { BINOP_MUL, 0, "rt_mul", (void*)rt_mul },
-    { BINOP_MUL, 1, "rt_mul", (void*)rt_mul },
-    { BINOP_MUL, 2, "rt_mul_sno", (void*)rt_mul_sno },
+    { BINOP_ADD, 0, "rt_add", (void*)rt_add, "c_rt_add", (void*)c_rt_add },
+    { BINOP_ADD, 1, "rt_add", (void*)rt_add, "c_rt_add", (void*)c_rt_add },
+    { BINOP_ADD, 2, "rt_add_sno", (void*)rt_add_sno, "c_rt_add_sno", (void*)c_rt_add_sno },
+    { BINOP_SUB, 0, "rt_sub", (void*)rt_sub, "c_rt_sub", (void*)c_rt_sub },
+    { BINOP_SUB, 1, "rt_sub", (void*)rt_sub, "c_rt_sub", (void*)c_rt_sub },
+    { BINOP_SUB, 2, "rt_sub_sno", (void*)rt_sub_sno, "c_rt_sub_sno", (void*)c_rt_sub_sno },
+    { BINOP_MUL, 0, "rt_mul", (void*)rt_mul, "c_rt_mul", (void*)c_rt_mul },
+    { BINOP_MUL, 1, "rt_mul", (void*)rt_mul, "c_rt_mul", (void*)c_rt_mul },
+    { BINOP_MUL, 2, "rt_mul_sno", (void*)rt_mul_sno, "c_rt_mul_sno", (void*)c_rt_mul_sno },
     { BINOP_DIV, 0, "rt_div", (void*)rt_div },
     { BINOP_DIV, 1, "rt_div_strict", (void*)rt_div_strict },
     { BINOP_DIV, 2, "rt_div_sno", (void*)rt_div_sno },
@@ -101,6 +107,17 @@ static inline int rtop_row(long long op, int strict, int i) {
 }
 #define rtop_addr_s(op, strict) (rtop_tab[rtop_row((op), (strict), 0)].addr)
 #define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)
+#define RTOP() (rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)])
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define rtop_call_leaf() ( \
+      x86("call", RTOP().name, (uint64_t)(uintptr_t)RTOP().addr) \
+    + IF(RTOP().cname, x86("cmp", "al", (long)RTX_NOT_HANDLED) \
+                     + x86("jne", L(11)) \
+                     + x86("call", RTOP().cname, (uint64_t)(uintptr_t)RTOP().caddr) \
+                     + x86("def", L(11))) \
+)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define rtop_call_c() x86("call", RTOP().cname ? RTOP().cname : RTOP().name, (uint64_t)(uintptr_t)(RTOP().cname ? RTOP().caddr : RTOP().addr))
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fuse_on() (SCRIP_DEF_ARITH_FUSE)
@@ -124,19 +141,20 @@ static inline int rtop_row(long long op, int strict, int i) {
 )
 #define inl2_ok() (fuse_op_ok() && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define inl_tail() ( \
+#define inl_tail_by(callx) ( \
       x86("mov", "rdi", FRQ(_.op_sa)) \
     + x86("mov", "rsi", FRQ(_.op_sa + 8)) \
     + x86("mov", "rdx", FRQ(_.op_sb)) \
     + x86("mov", "rcx", FRQ(_.op_sb + 8)) \
     + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival)) \
-    + x86("call", rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)].name, (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict)) \
+    + callx \
     + x86("cmp", "al", (long)DT_FAIL) \
     + x86_omega("je") \
     + x86("mov", FRQ(_.op_off), "rax") \
     + x86("mov", FRQ(_.op_off + 8), "rdx") \
     + x86_rt_gc_poll() \
 )
+#define inl_tail() inl_tail_by(rtop_call_leaf())
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BA_IA() ((_.op_imm_a_ok && _.op_imm_b_ok) || sn4_opt_binimm_off() ? 0 : _.op_imm_a_ok)
 #define BA_IB() ((_.op_imm_a_ok && _.op_imm_b_ok) || sn4_opt_binimm_off() ? 0 : _.op_imm_b_ok)
@@ -230,7 +248,7 @@ std::string bb_binop_arith() {
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-             + x86("call", rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)].name, (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
+             + rtop_call_c()
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -291,7 +309,7 @@ std::string bb_binop_arith() {
              + x86("def", L(7))
              + x86_gamma()
              + x86("def", L(0))
-             + inl_tail()
+             + inl_tail_by(rtop_call_c())
              + x86_gamma()
              + x86_beta_trampoline())
          + IF(!BAR_FUSE1() && !BAR_FUSE2() && _.op_zres,
@@ -306,7 +324,7 @@ std::string bb_binop_arith() {
              + x86("note", ZOPN(1))
              + x86("mov", "rcx", ZOPQ(1, 8))
              + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival))
-             + x86("call", rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)].name, (uint64_t)(uintptr_t)rtop_addr_s(_.op_ival, _.op_strict))
+             + rtop_call_leaf()
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())

@@ -31,5 +31,6 @@
 #define DT_CPLX 0xA8
 #define DT_PLATOM 0xB0
 #define DT_EXTL 0xB8
+#define RTX_NOT_HANDLED 0xFF
 #define DT_NAMETRAP_LO (((2) << 32) | DT_N)
 #endif

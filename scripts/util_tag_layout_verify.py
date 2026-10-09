@@ -51,9 +51,11 @@ srcroot = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src')
 inc = os.path.join(srcroot, 'ir', 'descr_tags.inc')
 itags = {}
 for ln in open(inc):
-    m = re.match(r'\s*#define\s+(DT_[A-Z0-9_]+)\s+(0x[0-9a-fA-F]+|\d+)\s*$', ln)
+    m = re.match(r'\s*#define\s+(DT_[A-Z0-9_]+|RTX_NOT_HANDLED)\s+(0x[0-9a-fA-F]+|\d+)\s*$', ln)
     if m:
         itags[m.group(1)] = int(m.group(2), 0)
+mh = re.search(r'^#define\s+RTX_NOT_HANDLED\s+(0x[0-9a-fA-F]+)\s*$', h, re.M)
+if mh: T['RTX_NOT_HANDLED'] = int(mh.group(1), 16)
 mism = [k for k in T if k in itags and itags[k] != T[k]]
 missing = [k for k in T if k not in itags]
 ck('descr.h == descr_tags.inc', f'{len(itags)} defines cross-checked', not mism and not missing)
