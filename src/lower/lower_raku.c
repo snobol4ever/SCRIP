@@ -1160,6 +1160,34 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     return lower_rv(cx, mc, γ, ω, res);
                 }
                 if (!strcmp(nm, "not") && t->n == 2) { tree_t * nt = ast_node_new(TT_NOT); nt->line = t->line; ast_push(nt, t->c[1]); return lower_rv(cx, nt, γ, ω, res); }
+                {
+                    static const struct {
+                        const char * n;
+                        int shape;
+                    } fsub[] = { { "item", 1 }, { "gist", 1 }, { "append", 1 }, { "prepend", 1 }, { "rotate", 1 }, { "head", 2 }, { "tail", 2 }, { "pick", 2 }, { "list", 3 }, { "minmax", 3 },
+                        { "unique", 3 }, { "repeated", 3 }, { "reduce", 4 }, { "produce", 4 }, { "classify", 4 }, { "categorize", 4 }, { NULL, 0 } };
+                    int shape = 0;
+                    for (int i = 0; fsub[i].n; i++) if (!strcmp(nm, fsub[i].n)) shape = fsub[i].shape;
+                    if (shape && t->n >= 2 && !(shape == 2 && t->n < 3)) {
+                        int first_item = (shape == 2 || shape == 4) ? 2 : (shape == 3 ? 1 : 0);
+                        tree_t * recv = NULL;
+                        if (shape == 1) recv = t->c[1];
+                        else if (t->n - first_item == 1) recv = t->c[first_item];
+                        else {
+                            recv = ast_node_new(TT_FNC);
+                            recv->v.sval = (char *) "__rk_arr";
+                            ast_push(recv, leaf_sval2(TT_VAR, "__rk_arr"));
+                            for (int i = first_item; i < t->n; i++) ast_push(recv, t->c[i]);
+                        }
+                        tree_t * mc = ast_node_new(TT_METHCALL);
+                        mc->line = t->line;
+                        ast_push(mc, recv);
+                        ast_push(mc, leaf_sval2(TT_QLIT, nm));
+                        if (shape == 1) for (int i = 2; i < t->n; i++) ast_push(mc, t->c[i]);
+                        else if (shape == 2 || shape == 4) ast_push(mc, t->c[1]);
+                        return lower_rv(cx, mc, γ, ω, res);
+                    }
+                }
                 if ((!strcmp(nm, "set") || !strcmp(nm, "bag") || !strcmp(nm, "mix")) && t->n >= 1) {
                     tree_t * ar = ast_node_new(TT_FNC);
                     ar->v.sval = (char *) "__rk_arr";
