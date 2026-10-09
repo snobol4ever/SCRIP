@@ -207,6 +207,22 @@ std::string bb_glue_apply_try_enter(int base, int val_id, int join_id) {
         (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_trace_pend_run(int base, const std::string & after) {
+    return x86("mov", "rcx", RDQ("rsp", 0))
+         + x86("test", "rcx", "rcx")
+         + x86_jcc_id("jz", base + 20)
+         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("mov32", "esi", 3L)
+         + bb_glue_apply_try_enter(base, base + 21, base + 22)
+         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("call", "rt_trace_pend_run", (uint64_t)(uintptr_t)(void *)rt_trace_pend_run)
+         + x86_deflabel_id(base + 22)
+         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("call", "rt_trace_pend_close", (uint64_t)(uintptr_t)(void *)rt_trace_pend_close)
+         + after
+         + x86_deflabel_id(base + 20);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {
     return x86("sub", "rsp", 64L)
          + x86_rsp_store64(56, "r12")

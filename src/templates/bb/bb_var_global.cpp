@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "emit.h"
+#include "bb_templates.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
@@ -60,8 +61,17 @@ std::string bb_var_global() {
              + x86_beta_trampoline()
              : x86("comment", "IR_VAR")
              + x86_alpha()
-             + x86("mov", "rdi", ROQ(0))
-             + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn)
+             + IF(!x86_trace_hooks_on(),
+                  x86("mov", "rdi", ROQ(0))
+                + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn))
+             + IF(x86_trace_hooks_on(),
+                  x86("sub", "rsp", 112L)
+                + x86("mov", RDQ("rsp", 0), 0L)
+                + x86("mov", "rdi", ROQ(0))
+                + x86("mov", "rsi", "rsp")
+                + x86("call", "NV_GET_open", (uint64_t)(uintptr_t)(void *)NV_GET_open)
+                + bb_glue_trace_pend_run(110, x86("mov", "rax", RDQ("rsp", 80)) + x86("mov", "rdx", RDQ("rsp", 88)))
+                + x86("add", "rsp", 112L))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())

@@ -3702,6 +3702,19 @@ DESCR_t NV_GET_fn(const char *name) {
 #endif
     return v;
 }
+#if RT_DIAG
+DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) {
+    DESCR_t v = NV_GET_untapped(name);
+    if (trace_access_n != 0 && name && *name) {
+        extern long g_stno;
+        rt_trace_event_args_ip(TRK_ACCESS, name, (DESCR_t *)0, 0, v, (long long)g_stno, 0, pend);
+        if (pend && pend->args[0].v) pend->val = v;
+    }
+    return v;
+}
+#else
+DESCR_t NV_GET_open(const char *name, trace_pend_t *pend) { (void)pend; return NV_GET_untapped(name); }
+#endif
 int g_protected_pat_vars_armed = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 __attribute__((visibility("hidden"))) DESCR_t *NV_CELL_IF_FASTSET_fn(const char *name) {

@@ -250,6 +250,7 @@ void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line,
 void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend);
 void rt_trace_pend_run(trace_pend_t *pend);
 void rt_trace_pend_close(trace_pend_t *pend);
+DESCR_t NV_GET_open(const char *name, trace_pend_t *pend);
 void rt_trace_call_hook_i(const char *fname, long island);
 void rt_trace_return_hook_i(const char *fname, DESCR_t retval, long island);
 void rt_trace_fail_hook_i(const char *fname, long island);
