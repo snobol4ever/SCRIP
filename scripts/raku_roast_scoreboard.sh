@@ -83,6 +83,12 @@ is_tier_c() {
   esac
 }
 TMP=$(mktemp -d)
+# ⛔ EVERY CASE RUNS IN ITS OWN EMPTY SCRATCH CWD (coo 2026-10-09): the tests ran with cwd = this checkout, and roast's IO tests
+# write files where they stand (.tmp-test-file, temp-evalfile.*, io-native-descriptor-testfile, names holding a literal \0 ...): pass
+# 42 left 16 untracked files in SCRIP, and this runner's own row write then REFUSED the dirty tree ("SCRIP has uncommitted"), so
+# a whole Roast run (96/1464 both modes) published nothing. incwd empties $TMP/cwd and runs the command there; every path it is
+# handed is absolute, and no case sees the files an earlier case wrote.
+incwd() { rm -rf "$TMP/cwd" && mkdir -p "$TMP/cwd" && ( cd "$TMP/cwd" && "$@" ); }
 # ⛔ EACH TEST'S DECLARED HEAP AND STACK RIDE ITS OWN COMMAND LINE (ceo CEO-1353; RULES.md 8 (f)): the attribute table keyed by pname,
 # read through lib_declared_arena.sh, as -d<kb>k -s<kb>k after --run in mode 3 and at the head of the binary's arguments in mode 4 --
 # never SCRIP_HEAP_KB (the collector's window), never a ulimit. A test with no row is NAMED (ROAST_UNDECLARED), never run silently at a default.
@@ -144,7 +150,7 @@ if [ "$DO_INV" = 1 ]; then
     stage="$TMP/case.raku"; cp "$src" "$stage"
     so="$TMP/o"; se="$TMP/e"
     rel="${src#$ROAST/}"; roast_sw "$rel"
-    timeout 10 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
+    incwd timeout 10 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
     err1=$(head -1 "$se" 2>/dev/null)
     bucket=$(roast_bucket "$so" "$se" "$rc")   # lib_raku_roast_bucket.sh -- the ONE bucket rule
     # The line the parser died on, so the histogram names CONSTRUCTS and not line numbers.
@@ -231,7 +237,7 @@ if [ "$DO_RUN" = 1 ]; then
     stage="$TMP/case.raku"; cp "$src" "$stage"
     so="$TMP/o"; se="$TMP/e"
     pname="${src#$ROAST/}"; pname="${pname%.t}"; roast_sw "$pname"
-    timeout 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
+    incwd timeout 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null; rc=$?
     v3="$(classify "$so" "$se" "$rc")"
     progress_append package roast raku "$pname" m3 "$(roast_outcome "$v3")" >/dev/null 2>&1 || true
     if [ "$v3" = PASS ]; then m3p=$((m3p+1)); else m3f=$((m3f+1)); FAILED_M3="$FAILED_M3 $pname:$v3"; fi
@@ -240,7 +246,7 @@ if [ "$DO_RUN" = 1 ]; then
        && timeout 20 gcc -c "$s4" -o "$o4" 2>/dev/null \
        && timeout 20 gcc "$o4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
       compiled_ok=$((compiled_ok+1))
-      timeout 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?
+      incwd timeout 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4" < /dev/null; rc4=$?
       v4="$(classify "$TMP/o4" "$TMP/e4" "$rc4")"
       progress_append package roast raku "$pname" m4 "$(roast_outcome "$v4")" >/dev/null 2>&1 || true
       if [ "$v4" = PASS ]; then m4p=$((m4p+1)); else m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:$v4"; fi
@@ -341,7 +347,7 @@ while read -r rel _rest; do
   stage="$TMP/case.raku"
   cp "$src" "$stage"
   so="$TMP/o"; se="$TMP/e"; roast_sw "$rel"
-  timeout 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null
+  incwd timeout 5 "$SCRIP" --run "${RSW[@]}" "$stage" > "$so" 2> "$se" < /dev/null
   rc=$?
   verdict=$(classify "$so" "$se" "$rc")
   case "$verdict" in
@@ -356,7 +362,7 @@ while read -r rel _rest; do
     if timeout 20 "$SCRIP" --compile --target=x86 "$stage" > "$s4" 2>/dev/null \
        && as -o "$o4" "$s4" 2>/dev/null \
        && gcc -no-pie -o "$b4" "$o4" -L"$ROOT/out" -lscrip_rt 2>/dev/null; then
-      LD_LIBRARY_PATH="$ROOT/out" timeout 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4"
+      incwd env LD_LIBRARY_PATH="$ROOT/out" timeout 10 "$b4" "${RSW[@]}" > "$TMP/o4" 2> "$TMP/e4"
       [ "$(classify "$TMP/o4" "$TMP/e4" $?)" = PASS ] && n_pass4=$((n_pass4+1))
     fi
   fi

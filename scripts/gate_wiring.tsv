@@ -719,6 +719,7 @@ test_gate_raku_predeclared_names_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_reversed_meta_operator_agrees_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
 test_gate_raku_roast_bucket_names_the_stage_the_file_died_in.sh	WIRED	-	-	-
+test_gate_raku_roast_runner_leaves_the_checkout_clean.sh	WIRED	-	-	-
 test_gate_raku_set_bag_mix_are_typed_values_as_rakudo_has_them.sh	WIRED	-	-	-
 test_gate_raku_string_zero_is_true_and_the_string_function_forms_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
