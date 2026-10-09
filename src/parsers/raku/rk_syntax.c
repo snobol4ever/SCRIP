@@ -2106,7 +2106,7 @@ typedef struct RkX {
     tree_t *cur;
     RkTerm *pend;
     RkList *L; RkEl *el; int xstop;
-    int star; int rev; int hyper; const char *subst; int subst_len;
+    int star; int rev; int hyper; int neg; const char *subst; int subst_len;
     tree_t *subst_call, *subst_paren;
 } RkX;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2198,7 +2198,9 @@ static int x_in(RkP *p, RkX *x, int lv) {
     int rv = 0, hy = 0;
     int k = rkb_op_index_rev(lv, x->pk_txt, &rv);
     if (k < 0) k = rkb_hyper_index(lv, x->pk_txt, &rv, &hy);
-    x->rev = rv; x->hyper = hy;
+    int ng = 0;
+    if (k < 0) { k = rkb_neg_index(lv, x->pk_txt, &rv); ng = k >= 0; }
+    x->rev = rv; x->hyper = hy; x->neg = ng;
     return k;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2300,11 +2302,14 @@ static tree_t *x_cmp(RkP *p, RkX *x) {
     tree_t *l = x_divis(p, x); int k;
     if (x->fail) return NULL;
     while ((k = x_in(p, x, LV_CMP)) >= 0) {
-        int rv = x->rev, hy = x->hyper, sm = !strcmp(x->pk_txt, "~~");
+        int rv = x->rev, hy = x->hyper, ng = x->neg, sm = !strcmp(x->pk_txt, "~~");
         x_take(p, x); x->lastcls = 0;
         if (sm) { l = x_smartmatch(p, x, l); continue; }
         tree_t *r = x_divis(p, x);
-        if (p->build) l = hy ? rkb_hyper(p->B, LV_CMP, k, hy, l, r) : rv ? rkb_binop(p->B, LV_CMP, k, r, l) : rkb_binop(p->B, LV_CMP, k, l, r);
+        if (p->build) {
+            l = hy ? rkb_hyper(p->B, LV_CMP, k, hy, l, r) : rv ? rkb_binop(p->B, LV_CMP, k, r, l) : rkb_binop(p->B, LV_CMP, k, l, r);
+            if (ng) l = rkb_prefix_apply(p->B, "!", l);
+        }
     }
     return l;
 }
@@ -2339,7 +2344,12 @@ static tree_t *x_expr(RkP *p, RkX *x) {
     return l;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int x_listinfix(RkX *x) { return !strcmp(x->pk_txt, "X") || !strcmp(x->pk_txt, "Z"); }
+static int x_listinfix(RkX *x) {
+    const char *tx = x->pk_txt;
+    if (!strcmp(tx, "X") || !strcmp(tx, "Z")) return 1;
+    int lv, k, rv;
+    return (tx[0] == 'X' || tx[0] == 'Z') && tx[1] && rkb_cross_inner(tx + 1, &lv, &k, &rv);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *x_elem(RkP *p, RkX *x) {
     x->nterm = 0; x->el_nops = x->nops;

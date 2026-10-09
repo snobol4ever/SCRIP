@@ -9728,15 +9728,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         long long rows = zip ? -1 : 1;
         for (int i = 0; i < nargs; i++) { vs[i] = rk_av_args(args, i, i + 1); if (zip) rows = (rows < 0 || vs[i].n < rows) ? vs[i].n : rows; else rows *= vs[i].n; }
         if (rows <= 0) { *out = rk_mk_arr(NULL, 0); return 1; }
-        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) rows * (size_t) nargs);
-        long long q = 0;
+        DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) rows);
         for (long long row = 0; row < rows; row++) {
             long long rem = row;
-            long long *pick = (long long *) rt_wsb_alloc(sizeof(long long) * (size_t) nargs);
-            for (int i = nargs - 1; i >= 0; i--) { if (zip) pick[i] = row; else { pick[i] = rem % vs[i].n; rem /= vs[i].n; } }
-            for (int i = 0; i < nargs; i++) r[q++] = vs[i].el[pick[i]];
+            DESCR_t *rv = (DESCR_t *) rt_ws_alloc_descr((size_t) nargs);
+            for (int i = nargs - 1; i >= 0; i--) { long long pk; if (zip) pk = row; else { pk = rem % vs[i].n; rem /= vs[i].n; } rv[i] = vs[i].el[pk]; }
+            r[row] = rk_mark_list(rk_mk_arr(rv, nargs));
         }
-        *out = rk_mk_arr(r, (int) q);
+        *out = rk_mark_list(rk_mk_arr(r, (int) rows));
         return 1;
     }
     if (!strcmp(fn, "__rk_typeobj") && nargs == 1) { *out = rk_typeobj(VARVAL_fn(args[0])); return 1; }
