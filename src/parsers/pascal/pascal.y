@@ -679,12 +679,14 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
         return mk_fnc1("__pas_ferase", args->items[0]);
     }
     if (name && !strcmp(name, "new") && args && args->count >= 1) {
-        tree_t *pv = args->items[0];
+        tree_t *pv0 = args->items[0], *pv = pas_vt_unwrap_read(pv0);
+        tree_t *pvchk = (pv != pv0 && pv0 && pv0->t == TT_SEQ_EXPR && pv0->n >= 2) ? pv0->c[0] : NULL;
         const char *rt = pas_ptrexpr_target(pv);
         tree_t *alloc = ast_node_new(TT_FNC);
         if (rt) { ast_push(alloc, leaf_s(TT_VAR, "__pas_alloc_rec")); ast_push(alloc, pas_new_target_init(rt)); }
         else ast_push(alloc, leaf_s(TT_VAR, "__pas_alloc"));
         tree_t *as = mk_assign(pv, alloc);
+        if (pvchk) { tree_t *qc = ast_node_new(TT_SEQ_EXPR); ast_push(qc, pvchk); ast_push(qc, as); as = qc; }
         if (args->count >= 4 && rt) { struct pas_vt *vt = pas_vt_find_name(rt); if (vt && vt->tagfi >= 0) {
             tree_t *tg = ast_node_new(TT_IDX); ast_push(tg, mk_deref(pas_tree_clone(pv))); ast_push(tg, ilit(pas_rectype_slot(rt, vt->tagfi)));
             tree_t *q = ast_node_new(TT_SEQ_EXPR); ast_push(q, as); ast_push(q, mk_assign(tg, args->items[2])); ast_push(q, mk_fnc1("__pas_tagmark", pas_tree_clone(pv))); return q; } }
@@ -2398,7 +2400,7 @@ case_open:
     { pas_vcase_push(); pas_vt_open(); }
     ;
 record_case_opt:
-    CASESY IDENT COLON IDENT OFSY case_open record_case_list { pas_vcase_pop(); pas_scope_define($2); pas_variant_constants_in_tag_type($4, $7); if ($2) { g_pas_pend_typename = ct_strdup($4); pas_pend_add($2); pas_vt_close(g_pas_pend_nf - 1); } else pas_vt_close(-1); }
+    CASESY IDENT COLON IDENT OFSY case_open record_case_list { pas_vcase_pop(); pas_scope_define($2); pas_variant_constants_in_tag_type($4, $7); if ($2) { g_pas_pend_typename = ct_strdup($4); { int _sb = g_pas_pend_isbool; g_pas_pend_isbool = pas_is_booltype($4); pas_pend_add($2); g_pas_pend_isbool = _sb; } pas_vt_close(g_pas_pend_nf - 1); } else pas_vt_close(-1); }
     | CASESY IDENT OFSY case_open record_case_list { pas_vcase_pop(); pas_variant_constants_in_tag_type($2, $5); if ($2) pas_pend_add($2); pas_vt_close(-1); }
     |
     ;
