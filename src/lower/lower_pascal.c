@@ -370,6 +370,9 @@ static int pas_tree_disposes(const tree_t * t, const char * f) { static const ch
 static int pas_is_deref_actual(const tree_t * a) {
     return a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_deref") && a->c[1] && a->c[1]->t == TT_VAR;
 }
+static int pas_is_region_actual(const tree_t * a) {
+    return a && a->t == TT_FNC && a->n == 5 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_rdecode") && a->c[1] && a->c[1]->t == TT_IDX && a->c[2] && a->c[3] && a->c[4];
+}
 static int pas_is_filebuf_actual(const tree_t * a) {
     return a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && (!strcmp(a->c[0]->v.sval, "__pas_fbuf_get") || !strcmp(a->c[0]->v.sval, "__pas_tbuf_get")) && a->c[1] &&
         a->c[1]->t == TT_VAR;
@@ -410,7 +413,8 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
     if (brm) {
         int rw = 0;
         for (int i = env + 1; i < t->n; i++) {
-            if (((brm >> (i - env - 1)) & 1ULL) && t->c[i] && (t->c[i]->t == TT_IDX || pas_is_stdfile_actual(t->c[i]) || pas_is_deref_actual(t->c[i]) || pas_is_filebuf_actual(t->c[i]))) {
+            if (((brm >> (i - env - 1)) & 1ULL) && t->c[i] &&
+                (t->c[i]->t == TT_IDX || pas_is_stdfile_actual(t->c[i]) || pas_is_deref_actual(t->c[i]) || pas_is_filebuf_actual(t->c[i]) || pas_is_region_actual(t->c[i]))) {
                 rw = 1;
                 break;
             }
@@ -434,6 +438,15 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
                     ast_push(call, tv);
                     outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg), pas_lc_clone(tv));
+                } else if (((brm >> (i - env - 1)) & 1ULL) && pas_is_region_actual(arg)) {
+                    tree_t * tv = pas_vptmp_var();
+                    ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
+                    ast_push(call, tv);
+                    tree_t * pt = ast_node_new(TT_FNC);
+                    ast_push(pt, pas_lc_leaf(TT_VAR, "__pas_rpatch"));
+                    for (int k = 1; k <= 4; k++) ast_push(pt, pas_lc_clone(arg->c[k]));
+                    ast_push(pt, pas_lc_clone(tv));
+                    outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg->c[1]), pt);
                 } else if (((brm >> (i - env - 1)) & 1ULL) && pas_is_filebuf_actual(arg)) {
                     tree_t * tv = pas_vptmp_var();
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));

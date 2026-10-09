@@ -550,6 +550,7 @@ test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_under_overflow_checking_an_unsigned_sum_that_goes_negative_is_runtime_error_215.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
 test_gate_pas_variant_arms_overlay_the_same_storage.sh	WIRED	-	-	-
+test_gate_pas_variant_record_arms_share_one_byte_storage_as_fpc_overlays_them.sh	WIRED	-	-	-
 test_gate_pas_zero_based_strings_make_low_zero_and_index_from_zero_after_the_directive.sh	WIRED	-	-	-
 test_gate_pattern_operand_reentry.sh	WIRED	-	-	-
 test_gate_perf_fmt_refuses_a_dark_cell.sh	WIRED	-	-	-
