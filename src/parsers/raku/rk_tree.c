@@ -26,6 +26,7 @@ struct RkB {
     const char *rop_txt;
     tree_t *rad_inner;
     tree_t **pt_blk; const char **pt_nm; int pt_n, pt_c;
+    struct { char cat; const char *sym; const char *raw; const char *canon; int prec; } *uop; int nuop, cuop;
 };
 #define GROW(arr, n, cap, type) do { if ((n) >= (cap)) { (cap) = (cap) ? (cap) * 2 : 8; (arr) = (type *) ct_grow((arr), sizeof(type) * (size_t) (cap)); } } while (0)
 /*====================================================================================================================================================================================================*/
@@ -1019,8 +1020,57 @@ static tree_t *rk_ctrl_guard(int is_or, tree_t *l, tree_t *r) {
     return g;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int arglist(RkB *b, RkList *L, int ctx, TL *pos, TL *named);
+static char *rk_op_name_canon(char *nm);
+void rkb_user_op(RkB *b, char cat, const char *sym, int len, const char *raw, int rawlen, int prec) {
+    static const char *const cn[] = { "infix", "prefix", "postfix", "circumfix", "postcircumfix", "term" };
+    const char *cs = cat == 'i' ? cn[0] : cat == 'p' ? cn[1] : cat == 'P' ? cn[2] : cat == 'c' ? cn[3] : cat == 'k' ? cn[4] : cn[5];
+    char *sy = trimdup(sym, len), *rw = trimdup(raw, rawlen);
+    size_t n = strlen(cs) + 2 * strlen(rw) + 8;
+    char *canon = (char *) ct_alloc(n);
+    rk_op_canon_base(cs, rw, canon, n);
+    int at = -1;
+    for (int i = 0; i < b->nuop; i++) if (b->uop[i].cat == cat && !strcmp(b->uop[i].sym, sy)) { at = i; break; }
+    if (at < 0) { GROW(b->uop, b->nuop, b->cuop, __typeof__(*b->uop)); at = b->nuop++; }
+    b->uop[at].cat = cat; b->uop[at].sym = sy; b->uop[at].raw = rw; b->uop[at].canon = canon; b->uop[at].prec = prec;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rkb_user_op_find(RkB *b, char cat, const char *sym) {
+    for (int i = b->nuop - 1; i >= 0; i--) if (b->uop[i].cat == cat && !strcmp(b->uop[i].sym, sym)) return i;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rkb_user_op_prec(RkB *b, int idx) { return b->uop[idx].prec; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_user_name(RkB *b, int idx, const char *cat) { (void) cat; return b->uop[idx].canon; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_user_canon_known(RkB *b, const char *cn) {
+    for (int i = 0; i < b->nuop; i++) if (!strcmp(b->uop[i].canon, cn)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_user_call1(RkB *b, int idx, const char *cat, tree_t *x) { tree_t *c = make_call(rk_user_name(b, idx, cat)); expr_add_child(c, x); return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_user_term(RkB *b, RkTerm *it, int from, int to) {
+    memset(it, 0, sizeof *it); it->kind = TK_TREE; it->from = from; it->to = it->core_to = to;
+    char *sy = spn(b, from, to);
+    int ui = rkb_user_op_find(b, 't', sy);
+    it->t = ui >= 0 ? make_call(rk_user_name(b, ui, "term")) : var_node(b, sy);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_circumfix_call(RkB *b, RkTerm *it, int from, int to, const char *open, RkList *in) {
+    memset(it, 0, sizeof *it); it->kind = TK_TREE; it->from = from; it->to = it->core_to = to;
+    int ui = rkb_user_op_find(b, 'c', open);
+    tree_t *c = make_call(ui >= 0 ? rk_user_name(b, ui, "circumfix") : "__rk_arr");
+    TL pos = { 0 };
+    if (in) arglist(b, in, 1, &pos, NULL);
+    for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]);
+    it->t = c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rk_defined_op(RkB *b, int kind, tree_t *l, tree_t *r);
 static tree_t *rkb_binop_raw(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
+    if (k >= RK_UK) return call2(rk_user_name(b, k - RK_UK, "infix"), l, r);
     static const char *const jfn[] = { NULL, "__rk_set_sym", "__rk_set_dif", "__rk_set_sum", "__rk_set_uni", "__rk_set_mul", "__rk_set_int", NULL, "__rk_set_uni", "__rk_set_int", "__rk_set_sym", "__rk_set_sum", "__rk_set_dif", "__rk_set_mul" };
     switch (lv) {
     case LV_MUL: return b_mul(b, k, l, r);
@@ -1266,6 +1316,7 @@ static tree_t *rkb_prefix_raw(RkB *b, const char *op, tree_t *x) {
     if (!strcmp(op, "~")) { tree_t *m = make_call("__rk_str"); expr_add_child(m, x); return m; }
     if (!strcmp(op, "^")) return rk_range_ex(b, rk_ilit(0), x);
     if (!strcmp(op, "|")) { tree_t *m = make_call("__rk_arr_slip"); expr_add_child(m, x); return m; }
+    { int ui = rkb_user_op_find(b, 'p', op); if (ui >= 0) return rk_user_call1(b, ui, "prefix", x); }
     return x;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1463,7 +1514,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     case 'P': { tree_t *c = ast_node_new(TT_CAPTURE); ast_push(c, rk_ilit(atoi(name + 1))); it->t = c; return; }
     case 'L': it->t = rk_ilit(line_at(b, from)); return;
     case 'T': case 'U': case 'W': { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(name + 1)); it->t = fe; return; }
-    default: { tree_t *orf = name[0] == '&' ? rk_opref(b, name) : NULL; it->t = orf ? orf : var_node(b, name); return; }
+    default: { tree_t *orf = name[0] == '&' ? rk_opref(b, name) : NULL; if (!orf && name[0] == '&' && strchr(name, ':')) { char *cn = rk_op_name_canon(name + 1); if (cn != name + 1 && rk_user_canon_known(b, cn)) name = fmt("&%s", cn); } it->t = orf ? orf : var_node(b, name); return; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1620,9 +1671,12 @@ tree_t *rkb_listop_call(RkB *b, const char *name, int namelen, RkTerm *paren) {
     return call;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *rk_op_name_canon(char *nm);
 void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, int form) {
     memset(it, 0, sizeof *it); it->kind = TK_CALL; it->from = from; it->to = it->core_to = to;
-    char *nm = spn(b, from, from + namelen); it->name = nm;
+    char *nm = spn(b, from, from + namelen);
+    if (nm[0] != '&' && strchr(nm, ':')) { char *cn = rk_op_name_canon(nm); if (cn != nm && rk_user_canon_known(b, cn)) nm = cn; }
+    it->name = nm;
     if (!args || !args->nitem) args = NULL;
     const char *rt = testop_rt(nm);
     if (rt && (!strcmp(nm, "like") || !strcmp(nm, "unlike")) && !b->use_test) rt = NULL;
@@ -1743,6 +1797,7 @@ static tree_t *rk_reduce_general(RkB *b, const char *op, tree_t *l) {
     const char *o = op;
     if (o[0] == 'R' && o[1]) { rv = 1; o++; }
     for (int i = 0; i <= LV_PAIR && k < 0; i++) { if (i == LV_TERN) continue; k = rkb_op_index(i, o); if (k >= 0) lv = i; }
+    if (k < 0) { int ui = rkb_user_op_find(b, 'i', o); if (ui >= 0) { lv = LV_ADDSUB; k = RK_UK + ui; } }
     if (k < 0) return rkb_wrap_call("__rk_reduce_max", l);
     int chain = lv == LV_CMP && strcmp(o, "<=>") && strcmp(o, "cmp") && strcmp(o, "leg");
     int right = (lv == LV_POW || lv == LV_PAIR) ^ rv;
@@ -1818,6 +1873,17 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
         it->t = rk_wc_close(it->t, &ps); return;
     }
     it->npost++; it->to = pf->to;
+    if (pf->k == 'P' && pf->txt) { int ui = rkb_user_op_find(b, 'P', pf->txt); if (ui >= 0) { it->t = rk_user_call1(b, ui, "postfix", e); return; } }
+    if (pf->k == 'U' && pf->txt) {
+        int ui = rkb_user_op_find(b, 'k', pf->txt);
+        if (ui >= 0) {
+            tree_t *c = make_call(rk_user_name(b, ui, "postcircumfix")); TL pos = { 0 };
+            expr_add_child(c, e);
+            if (pf->inner) arglist(b, pf->inner, 1, &pos, NULL);
+            for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]);
+            it->t = c; return;
+        }
+    }
     if (!first && pf->k == 'P' && pf->txt && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--")) && rk_is_elem(e)) { it->t = rkb_elem_incdec(b, e, pf->txt[0] == '+', 1); return; }
     if (first && it->kind == TK_VAR && pf->hyper && pf->k == 'P' && pf->txt && it->cls == 'A' && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--"))) {
         tree_t *c = make_call("__rk_hyper_incdec"); expr_add_child(c, var_node(b, it->name)); expr_add_child(c, rk_ilit(pf->txt[0] == '+' ? 1 : -1));
@@ -2280,6 +2346,20 @@ void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *s
     it->t = a;
 }
 /*====================================================================================================================================================================================================*/
+static char *rk_op_name_canon(char *nm) {
+    const char *lt = strstr(nm, ":<"), *gq = strstr(nm, ":\xC2\xAB"); size_t nl0 = strlen(nm);
+    if (gq && nl0 >= 2 && (unsigned char) nm[nl0 - 2] == 0xC2 && (unsigned char) nm[nl0 - 1] == 0xBB && (size_t) (gq - nm) + 5 <= nl0) {
+        char *cat = trimdup(nm, (int) (gq - nm)); int rl = (int) (nl0 - (size_t) (gq - nm) - 5); char *raw = trimdup(gq + 3, rl < 0 ? 0 : rl);
+        size_t cn = strlen(cat) + strlen(raw) + 64; char *cb = (char *) ct_alloc(cn); rk_op_canon_base(cat, raw, cb, cn); return cb;
+    }
+    if (lt && nm[nl0 - 1] == '>') {
+        char *cat = trimdup(nm, (int) (lt - nm));
+        int rl = (int) strlen(lt + 2) - 1; char *raw = trimdup(lt + 2, rl < 0 ? 0 : rl);
+        size_t cn = strlen(cat) + strlen(raw) + 64; char *cb = (char *) ct_alloc(cn); rk_op_canon_base(cat, raw, cb, cn); return cb;
+    }
+    return nm;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr) {
     (void) prefix; (void) has_parens; (void) tr; (void) ntr;
     TL params = { 0 };
@@ -2290,16 +2370,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     if (!has_parens && (params.n == 0 || (params.n == 1 && params.v[0] && params.v[0]->v.sval && !strcmp(params.v[0]->v.sval, "@_"))) && rk_reads_var(body, "%_")) { tree_t *hp = var_node(b, "%_"); expr_add_child(hp, leaf_sval(TT_QLIT, intern("*%"))); tl_add(&params, hp); }
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
-    const char *lt = strstr(nm, ":<"), *gq = strstr(nm, ":\xC2\xAB"); size_t nl0 = strlen(nm);
-    if (gq && nl0 >= 2 && (unsigned char) nm[nl0 - 2] == 0xC2 && (unsigned char) nm[nl0 - 1] == 0xBB && (size_t) (gq - nm) + 5 <= nl0) {
-        char *cat = trimdup(nm, (int) (gq - nm)); int rl = (int) (nl0 - (size_t) (gq - nm) - 5); char *raw = trimdup(gq + 3, rl < 0 ? 0 : rl);
-        size_t cn = strlen(cat) + strlen(raw) + 64; char *cb = (char *) ct_alloc(cn); rk_op_canon_base(cat, raw, cb, cn); nm = cb;
-    }
-    else if (lt && nm[strlen(nm) - 1] == '>') {
-        char *cat = trimdup(nm, (int) (lt - nm));
-        int rl = (int) strlen(lt + 2) - 1; char *raw = trimdup(lt + 2, rl < 0 ? 0 : rl);
-        size_t cn = strlen(cat) + strlen(raw) + 64; char *cb = (char *) ct_alloc(cn); rk_op_canon_base(cat, raw, cb, cn); nm = cb;
-    }
+    nm = rk_op_name_canon(nm);
     const char *mn = multi == 1 ? rk_multi_mangle(nm, &params) : intern(nm);
     tree_t *e;
     if (kind == 0) { e = leaf_sval(TT_SUB_DECL, mn); e->v.ival = params.n; }

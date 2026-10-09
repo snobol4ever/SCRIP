@@ -46,6 +46,12 @@ void     rkb_pend(RkEl *e, tree_t *ph, RkDecl *d);
 int      rkb_op_index(int lv, const char *op);
 int      rkb_op_index_rev(int lv, const char *op, int *rev);
 tree_t  *rkb_binop(RkB *b, int lv, int k, tree_t *l, tree_t *r);
+#define RK_UK 0x4000
+void     rkb_user_op(RkB *b, char cat, const char *sym, int len, const char *raw, int rawlen, int prec);
+int      rkb_user_op_find(RkB *b, char cat, const char *sym);
+int      rkb_user_op_prec(RkB *b, int idx);
+void     rkb_user_term(RkB *b, RkTerm *it, int from, int to);
+void     rkb_circumfix_call(RkB *b, RkTerm *it, int from, int to, const char *open, RkList *in);
 tree_t  *rkb_hyper(RkB *b, int lv, int k, int hy, tree_t *l, tree_t *r);
 tree_t  *rkb_hyper_prefix(RkB *b, const char *op, tree_t *x);
 tree_t  *rkb_loose(RkB *b, int kind, tree_t *l, tree_t *r);

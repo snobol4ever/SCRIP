@@ -46,6 +46,7 @@ typedef struct RkP {
     StackOp *ops; int nops; int cops;
     int *ends; int nends; int cends;
     RkUserOp *uops; int nuops; int cuops;
+    RkList *ucf_in; const char *ucf_open; int ucf_c;
     RkName *names; int nnames; int cnames;
     int depth; int st_uid;
     char *pkg;
@@ -554,6 +555,13 @@ static void add_user_op(RkP *p, char cat, const char *sym, int len, int prec) {
     d[k] = 0;
     u->sym = d; u->len = k; u->prec = prec; u->depth = p->depth; u->cat = cat; u->assoc = AS_LEFT; u->flags = 0;
     { int q = k - 1; while (q > 0 && (((unsigned char) d[q]) & 0xC0) == 0x80) q--; int l; u->wordend = is_word_cp(rk_decode(d, k, q, &l)); }
+    if (p->B && cat == 't') rkb_user_op(p->B, 't', d, k, d, k, 0);
+    if (p->B && (cat == 'i' || cat == 'p' || cat == 'P')) {
+        const RkOp *tab = cat == 'i' ? rk_infix : cat == 'p' ? rk_prefix : rk_postfix;
+        int builtin = 0;
+        for (int i = 0; tab[i].sym; i++) if (!strcmp(tab[i].sym, d)) { builtin = 1; break; }
+        if (!builtin) rkb_user_op(p->B, cat, d, k, d, k, prec);
+    }
 }
 /*====================================================================================================================================================================================================*/
 static int r_nibble_until(RkP *p, int pos, RkLang *L, int *endpos);
@@ -1969,9 +1977,13 @@ static int r_postfixish_at(RkP *p, int q, int sub, int meta) {
             const char *su = p->ustop; int sl = p->ustop_len; int sq = p->qsigil;
             p->ustop = cl->sym; p->ustop_len = cl->len; p->qsigil = 0;
             int t = r_semilist(p, q + l);
+            RkList *uin = p->last_list;
             p->ustop = su; p->ustop_len = sl; p->qsigil = sq;
             t = ws(p, t);
-            if (t + cl->len <= p->n && !memcmp(p->s + t, cl->sym, (size_t) cl->len)) return t + cl->len;
+            if (t + cl->len <= p->n && !memcmp(p->s + t, cl->sym, (size_t) cl->len)) {
+                if (p->build) { memset(&p->pf, 0, sizeof p->pf); p->pf.k = 'U'; p->pf.from = q; p->pf.to = t + cl->len; p->pf.txt = p->uops[idx].sym; p->pf.inner = uin; }
+                return t + cl->len;
+            }
             panic_at(p, t, "Unable to parse postcircumfix:<%s %s>; couldn't find final %s", p->uops[idx].sym, cl->sym, cl->sym);
         }
     }
@@ -2193,6 +2205,8 @@ static void x_take(RkP *p, RkX *x) {
     if (x->nops - x->el_nops == 1 && strcmp(x->pk_txt, ",")) x->el->op1 = x->pk_txt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_lv_of_prec(int prec) { return prec == PR('u') ? LV_MUL : prec == PR('t') ? LV_ADDSUB : prec == PR('s') ? LV_REPL : prec == PR('r') ? LV_CAT : -1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int x_in(RkP *p, RkX *x, int lv) {
     if (!x_peek(p, x)) return -1;
     int rv = 0, hy = 0;
@@ -2200,6 +2214,7 @@ static int x_in(RkP *p, RkX *x, int lv) {
     if (k < 0) k = rkb_hyper_index(lv, x->pk_txt, &rv, &hy);
     int ng = 0;
     if (k < 0) { k = rkb_neg_index(lv, x->pk_txt, &rv); ng = k >= 0; }
+    if (k < 0 && p->B && p->nuops) { int ui = rkb_user_op_find(p->B, 'i', x->pk_txt); if (ui >= 0 && rk_lv_of_prec(rkb_user_op_prec(p->B, ui)) == lv) { k = RK_UK + ui; rv = hy = ng = 0; } }
     x->rev = rv; x->hyper = hy; x->neg = ng;
     return k;
 }
@@ -2386,7 +2401,12 @@ static tree_t *x_elem(RkP *p, RkX *x) {
     tree_t *t = x_expr(p, x);
     if (x->fail) return NULL;
     t = x_loose(p, x, t);
-    while (x_peek(p, x) && strcmp(x->pk_txt, ",") && !x_listinfix(x)) { x_take(p, x); x_after(p, x); }
+    while (x_peek(p, x) && strcmp(x->pk_txt, ",") && !x_listinfix(x)) {
+        int ui = p->build && p->B && p->nuops ? rkb_user_op_find(p->B, 'i', x->pk_txt) : -1;
+        x_take(p, x);
+        tree_t *r = x_after(p, x);
+        if (ui >= 0 && !x->fail) t = rkb_binop(p->B, LV_ADDSUB, RK_UK + ui, t, r);
+    }
     return t;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3481,6 +3501,7 @@ static int r_keyword_term(RkP *p, int pos) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int r_user_term(RkP *p, int pos) {
     int prec = 0;
+    p->ucf_c = 0;
     int l = user_op_longest(p, pos, 't', &prec);
     if (l > 0) return pos + l;
     l = user_op_longest(p, pos, 'c', &prec);
@@ -3496,7 +3517,7 @@ static int r_user_term(RkP *p, int pos) {
             int e = r_semilist(p, q);
             p->ustop = su; p->ustop_len = sl;
             e = ws(p, e);
-            if (e + cl->len <= p->n && !memcmp(p->s + e, cl->sym, (size_t) cl->len)) return e + cl->len;
+            if (e + cl->len <= p->n && !memcmp(p->s + e, cl->sym, (size_t) cl->len)) { p->ucf_in = p->last_list; p->ucf_open = u->sym; p->ucf_c = 1; return e + cl->len; }
             panic_at(p, e, "Unable to parse expression in circumfix:<%s %s>; couldn't find final %s", u->sym, cl->sym, cl->sym);
         }
     }
@@ -3507,7 +3528,7 @@ static int r_term(RkP *p, int pos) {
     int c = cp_at(p, pos);
     if (c < 0) return -1;
     int e;
-    if (p->nuops && (e = r_user_term(p, pos)) >= 0) { if (p->build) rkb_name(p->B, &p->tm, pos, e, e - pos); return e; }
+    if (p->nuops && (e = r_user_term(p, pos)) >= 0) { if (p->build) { if (p->ucf_c) { p->ucf_c = 0; rkb_circumfix_call(p->B, &p->tm, pos, e, p->ucf_open, p->ucf_in); } else rkb_user_term(p->B, &p->tm, pos, e); } return e; }
     if (c == '$' || c == '@' || c == '%' || c == '&') {
         if (c == '&' && ch(p, pos + 1) == '&') return -1;
         if (c == '@' && ch(p, pos + 1) == '(' && !p->in_decl && !p->qsigil) {
@@ -4136,7 +4157,9 @@ static void register_user_op_x(RkP *p, int from, int to, int exported) {
             int sp = x; while (sp < y && !asc_space((unsigned char) p->s[sp])) sp++;
             int op2 = sp; while (op2 < y && asc_space((unsigned char) p->s[op2])) op2++;
             if (i == 3) { add_user_op(p, 'c', p->s + x, sp - x, 0); add_user_op(p, 'C', p->s + op2, y - op2, 0); }
+            if (i == 3 && p->B) rkb_user_op(p->B, 'c', p->uops[p->nuops - 2].sym, p->uops[p->nuops - 2].len, p->s + x, y - x, 0);
             if (i == 4) { add_user_op(p, 'k', p->s + x, sp - x, 0); add_user_op(p, 'K', p->s + op2, y - op2, 0); }
+            if (i == 4 && p->B) rkb_user_op(p->B, 'k', p->uops[p->nuops - 2].sym, p->uops[p->nuops - 2].len, p->s + x, y - x, 0);
             if (exported) for (int k = nb; k < p->nuops; k++) p->uops[k].depth = 1000;
             return;
         }
