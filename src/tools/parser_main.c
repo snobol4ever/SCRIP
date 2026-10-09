@@ -106,7 +106,35 @@ static ssize_t tree_hash_write(void * cookie, const char * b, size_t n) {
     return (ssize_t) n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * attr_value(const tree_t * a) {
+    static char b[64];
+    const tree_t * c = (a->n > 0) ? a->c[0] : NULL;
+    if (c && c->t == TT_ILIT) { snprintf(b, sizeof b, "%lld", c->v.ival); return b; }
+    return c ? (c->v.sval ? c->v.sval : "") : "";
+}
+static void print_escaped(const char * s) {
+    putchar('"');
+    for (; *s; s++) { if (*s == '\n') fputs("\\n", stdout); else if (*s == '\\') fputs("\\\\", stdout); else if (*s == '"') fputs("\\\"", stdout); else putchar(*s); }
+    putchar('"');
+}
+static void print_statement_attrs(const tree_t * ast) {
+    for (int i = 0; i < ast->n; i++) {
+        const tree_t * s = ast->c[i];
+        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
+        fputs(s->t == TT_END ? "END" : "STMT", stdout);
+        for (int k = 0; k < s->n; k++) {
+            const tree_t * a = s->c[k];
+            if (!a || a->t != TT_ATTR || !a->v.sval || (uintptr_t) a->v.sval < 4096) continue;
+            const char * t = a->v.sval;
+            if (!strcmp(t, ":line") || !strcmp(t, ":lline") || !strcmp(t, ":stno") || !strcmp(t, ":incl")) printf(" %s=%s", t + 1, attr_value(a));
+            else if (!strcmp(t, ":lbl") || !strcmp(t, ":src") || !strcmp(t, ":file")) { printf(" %s=", t + 1); print_escaped(attr_value(a)); }
+        }
+        putchar('\n');
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void dump_program(const tree_t * ast, int hash) {
+    if (hash == 2) { print_statement_attrs(ast); return; }
     if (!hash) { for (int i = 0; i < ast->n; i++) ir_dump_tree(ast->c[i], stdout); return; }
     uint64_t h = 0;
     cookie_io_functions_t io = { NULL, tree_hash_write, NULL, NULL };
@@ -160,6 +188,8 @@ static int parse_and_dump(char * src, size_t len, const char * name, int64_t * p
 int main(int argc, char ** argv) {
     const char * hv = getenv("PARSER_TREE_HASH");
     int hash = hv && !strcmp(hv, "1");
+    const char * av = getenv("PARSER_ATTRS");
+    if (av && !strcmp(av, "1")) hash = 2;
     const char * list = getenv("PARSER_FILES");
     if (list && *list) {
         FILE * lf = fopen(list, "r");
