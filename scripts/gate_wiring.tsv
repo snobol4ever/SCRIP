@@ -714,6 +714,7 @@ test_gate_raku_match_is_a_typed_value_as_rakudo_has_it.sh	WIRED	-	-	-
 test_gate_raku_nested_and_anonymous_classes_and_the_operator_references_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_raku_parse_census_measures_over_a_printed_denominator.sh	WIRED	-	-	-
+test_gate_raku_placeholders_in_a_sub_and_a_for_body_a_comma_list_as_the_last_statement_or_return_value_and_sort_with_a_leading_block_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_port_trace.sh	WIRED	-	-	-
 test_gate_raku_predeclared_names_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_reversed_meta_operator_agrees_with_rakudo.sh	WIRED	-	-	-

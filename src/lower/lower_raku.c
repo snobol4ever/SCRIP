@@ -2535,7 +2535,7 @@ static int rk_count_blocks(const tree_t * t) { int n; if (!t) return 0; n = (t->
 static int rk_var_nodes(const tree_t * t) { int n; if (!t) return 0; n = (t->t == TT_VAR); for (int i = 0; i < t->n; i++) n += rk_var_nodes(t->c[i]); return n; }
 static void rk_scan_implicit_params(const tree_t * t, int * topic, const char ** ph, int * nph, int max) {
     if (!t) return;
-    if (t->t == TT_ANON_BLOCK) return;
+    if (t->t == TT_ANON_BLOCK || t->t == TT_SUB_DECL) return;
     if (t->t == TT_VAR && t->v.sval) {
         const char * v = t->v.sval;
         if (!strcmp(v, "_")) *topic = 1;
@@ -3061,6 +3061,24 @@ static void rk_ph_rename(tree_t * t, const char * from, const char * to) {
     for (int i = 0; i < t->n; i++) rk_ph_rename(t->c[i], from, to);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_sub_placeholders(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_sub_placeholders(t->c[i]);
+    if (t->t != TT_SUB_DECL || t->v.ival != 0 || t->n < 1) return;
+    int topic = 0, nph = 0, phmax = rk_tree_size(t) + 1;
+    const char ** ph = (const char **) ct_alloc(sizeof(const char *) * (size_t) phmax);
+    for (int i = 1; i < t->n; i++) rk_scan_implicit_params(t->c[i], &topic, ph, &nph, phmax);
+    if (nph == 0) return;
+    for (int a = 1; a < nph; a++) { const char * key = ph[a]; int b = a - 1; while (b >= 0 && strcmp(ph[b], key) > 0) { ph[b + 1] = ph[b]; b--; } ph[b + 1] = key; }
+    int nbody = t->n - 1;
+    tree_t ** body = (tree_t **) ct_alloc(sizeof(tree_t *) * (size_t) nbody);
+    for (int i = 0; i < nbody; i++) body[i] = t->c[i + 1];
+    t->n = 1;
+    for (int k = 0; k < nph; k++) ast_push(t, leaf_sval2(TT_VAR, ph[k]));
+    for (int i = 0; i < nbody; i++) { for (int k = 0; k < nph; k++) rk_ph_rename(body[i], intern(ph[k] + 1), ph[k]); ast_push(t, body[i]); }
+    t->v.ival = nph;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_ph_alias(tree_t * t) {
     if (!t) return;
     if (t->t == TT_ANON_BLOCK && t->n == 1 && t->c[0]) {
@@ -3526,6 +3544,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_rename_user_main((tree_t *) prog);
     { int gseq = 0; rk_desugar_gather((tree_t *) prog, &gseq); }
     rk_listops_to_methcalls((tree_t *) prog, 0);
+    rk_sub_placeholders((tree_t *) prog);
     rk_ph_alias((tree_t *) prog);
     rk_cap_file_scope((tree_t *) prog);
     rk_hoist_anon_blocks((tree_t *) prog);
