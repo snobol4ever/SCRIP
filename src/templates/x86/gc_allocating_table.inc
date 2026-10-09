@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2213
-#define GC_ALLOC_TAB_N_VOID 264
+#define GC_ALLOC_TAB_N 2211
+#define GC_ALLOC_TAB_N_VOID 263
 #define GC_ALLOC_TAB_N_DESCR 1127
-#define GC_ALLOC_TAB_N_OTHER 807
+#define GC_ALLOC_TAB_N_OTHER 806
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1262,7 +1262,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_cap_open_plain", GC_RET_OTHER },
     { "rt_cap_target_finish", GC_RET_OTHER },
     { "rt_case_eq", GC_RET_OTHER },
-    { "rt_cb_hold", GC_RET_OTHER },
     { "rt_cdiff", GC_RET_DESCR },
     { "rt_cdiff_sno", GC_RET_DESCR },
     { "rt_cdiff_strict", GC_RET_DESCR },
@@ -2016,7 +2015,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_relop_descr2", GC_RET_OTHER },
     { "rt_relop_overload", GC_RET_OTHER },
     { "rt_relop_val_coerce", GC_RET_VOID },
-    { "rt_rk_cb_grow", GC_RET_VOID },
     { "rt_scan_enter", GC_RET_OTHER },
     { "rt_scan_lit", GC_RET_OTHER },
     { "rt_scan_needle", GC_RET_OTHER },
