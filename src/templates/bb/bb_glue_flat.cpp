@@ -224,9 +224,11 @@ std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_s
          + bb_glue_apply_try_enter(base, val, join, in_shim)
          + x86("lea", "rdi", RDQ("rsp", 0))
          + x86("call", "rt_trace_pend_run", (uint64_t)(uintptr_t)(void *)rt_trace_pend_run)
+         + x86_rt_gc_poll()
          + x86_deflabel_id(join)
          + x86("lea", "rdi", RDQ("rsp", 0))
          + x86("call", "rt_trace_pend_close", (uint64_t)(uintptr_t)(void *)rt_trace_pend_close)
+         + x86_rt_gc_poll()
          + after
          + x86_deflabel_id(skip);
 }

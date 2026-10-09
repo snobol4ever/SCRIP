@@ -64,9 +64,6 @@ std::string bb_var_global() {
              + x86_beta_trampoline()
              : x86("comment", "IR_VAR")
              + x86_alpha()
-             + IF(!x86_trace_hooks_on(),
-                  x86("mov", "rdi", ROQ(0))
-                + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn))
              + IF(x86_trace_hooks_on(),
                   x86("sub", "rsp", 112L)
                 + x86("mov", RDQ("rsp", 0), 0L)
@@ -74,7 +71,11 @@ std::string bb_var_global() {
                 + x86("mov", "rsi", "rsp")
                 + x86("call", "NV_GET_open", (uint64_t)(uintptr_t)(void *)NV_GET_open)
                 + bb_glue_trace_pend_run(110, VG_TRACE_LAND())
-                + x86("add", "rsp", 112L))
+                + x86("add", "rsp", 112L)
+                + x86_rt_gc_poll_res())
+             + IF(!x86_trace_hooks_on(),
+                  x86("mov", "rdi", ROQ(0))
+                + x86("call", "NV_GET_fn", (uint64_t)(uintptr_t)(void *)NV_GET_fn))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")
              + x86("note", ZRESN())

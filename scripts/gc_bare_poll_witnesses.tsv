@@ -83,6 +83,8 @@ src/templates/bb/bb_deref.cpp:rt_deref#1	hb_sno_twenty_thousand_indirect_names.s
 src/templates/bb/bb_deref.cpp:rt_deref#2	stack_top_under_valgrind.icn
 src/templates/bb/bb_gcc.cpp:rt_icn_cset_member#1	UNWITNESSED
 src/templates/bb/bb_glue_flat.cpp:sno_setexit_fire_on_end#1	hb_deferexpr_a_dupl.sno
+src/templates/bb/bb_glue_flat.cpp:rt_trace_pend_run#1	hb_deferexpr_a_dupl.sno
+src/templates/bb/bb_glue_flat.cpp:rt_trace_pend_close#1	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_goto_deferred.cpp:rt_sno_goto_special_is#1	UNWITNESSED
 src/templates/bb/bb_goto_deferred.cpp:rt_goto_resolve#1	hb_shim_rt_names_past_the_hidden_island_slots.sno
 src/templates/bb/bb_iterate.cpp:rt_list_bang_key_at#1	hb_table_elem_ref_across_collections.icn
@@ -164,7 +166,7 @@ src/templates/bb/bb_unop.cpp:rt_cset_compl#2	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_size_d#2	hb_size_result_polled.icn
 src/templates/bb/bb_unop.cpp:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg#2	hb_bignum_length.icn
 src/templates/bb/bb_unop.cpp:rt_num_pos#2	hb_bignum_length.icn
-src/templates/bb/bb_var_global.cpp:NV_GET_open#1	hb_shim_nv_road.sno
+src/templates/bb/bb_var_global.cpp:NV_GET_fn#1	hb_shim_nv_road.sno
 src/templates/bb/bb_var_ref.cpp:rt_pl_fresh_var_ref#1	UNWITNESSED
 src/templates/bb/bb_var_ref.cpp:rt_var_ref_cell_named#1	UNWITNESSED
 src/templates/xa/xa_flat.cpp:rt_arg_stage#1	UNWITNESSED
