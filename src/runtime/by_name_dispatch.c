@@ -1187,6 +1187,8 @@ static const char *rk_gist_text(DESCR_t v, char open, char close) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_raku_scalar(DESCR_t v) {
     if (v.v == DT_SNUL) return "Nil";
+    if (rk_typeobj_name(v)) return rk_typeobj_name(v);
+    if (IS_REAL_fn(v)) { const char *t = rk_cstr(v); if (strpbrk(t, "eEIN")) return t; char *r = (char *) rt_wsb_alloc(strlen(t) + 3); sprintf(r, "%se0", t); return r; }
     if (v.v == DT_BOOL) return v.i ? "Bool::True" : "Bool::False";
     if (IS_INT_fn(v) || IS_REAL_fn(v) || v.v == DT_BIG) return rk_cstr(v);
     const char *s = rk_cstr(v);
@@ -1699,6 +1701,157 @@ static void rk_combos_of(rk_av_t a, int k, DESCR_t outl) {
         ix[i]++;
         for (int j = i + 1; j < k; j++) ix[j] = ix[j - 1] + 1;
     }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static double rk_cstr_num(DESCR_t v) { double d; int i; return rk_range_num(v, &d, &i) ? d : 0; }
+typedef struct { char *b; size_t n, cap; } rk_sb_t;
+static void rk_sb_put(rk_sb_t *s, const char *p, size_t n) {
+    if (s->n + n + 1 > s->cap) { size_t nc = (s->cap ? s->cap * 2 : 128) + n; char *nb = (char *) rt_wsb_alloc(nc); if (s->n) memcpy(nb, s->b, s->n); s->b = nb; s->cap = nc; }
+    memcpy(s->b + s->n, p, n);
+    s->n += n;
+}
+static void rk_sb_rep(rk_sb_t *s, char c, long n) { for (long i = 0; i < n; i++) rk_sb_put(s, &c, 1); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t rk_u8len(const char *s) { size_t n = 0; for (; *s; s++) if (((unsigned char) *s & 0xC0) != 0x80) n++; return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rsp_arg_num(DESCR_t a, long long *iv, double *dv, int *isint, const char **big) {
+    *big = NULL;
+    *isint = 1;
+    *iv = 0;
+    *dv = 0;
+    if (a.v == DT_BIG) { *big = rk_cstr(a); return; }
+    if (IS_INT_fn(a) || a.v == DT_BOOL) { *iv = a.i; *dv = (double) a.i; return; }
+    if (IS_REAL_fn(a)) { *isint = 0; *dv = a.r; *iv = (long long) a.r; return; }
+    double d;
+    int ii;
+    if (rk_range_num(a, &d, &ii)) { *dv = d; *iv = (long long) d; *isint = ii; return; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rsp_pad(rk_sb_t *o, const char *body, size_t blen, size_t chars, long width, int left, int zero, size_t zpos) {
+    long pad = width > (long) chars ? width - (long) chars : 0;
+    if (left) { rk_sb_put(o, body, blen); rk_sb_rep(o, ' ', pad); return; }
+    if (zero) { rk_sb_put(o, body, zpos); rk_sb_rep(o, '0', pad); rk_sb_put(o, body + zpos, blen - zpos); return; }
+    rk_sb_rep(o, ' ', pad);
+    rk_sb_put(o, body, blen);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_rsprintf(const char *fmt, DESCR_t *args, int nargs, int from, char **outp, size_t *outlen) {
+    rk_sb_t o = { 0, 0, 0 };
+    int ai = from;
+    for (const char *p = fmt; *p; ) {
+        if (*p != '%') { const char *q = strchr(p, '%'); size_t n = q ? (size_t) (q - p) : strlen(p); rk_sb_put(&o, p, n); p += n; continue; }
+        const char *start = p++;
+        if (*p == '%') { rk_sb_put(&o, "%", 1); p++; continue; }
+        int idx = -1;
+        { const char *q = p; long n = 0; while (*q >= '0' && *q <= '9') n = n * 10 + (*q++ - '0'); if (q > p && *q == '$') { idx = (int) n; p = q + 1; } }
+        int left = 0, plus = 0, space = 0, zero = 0, alt = 0;
+        for (;; p++) { if (*p == '-') left = 1; else if (*p == '+') plus = 1; else if (*p == ' ') space = 1; else if (*p == '0') zero = 1; else if (*p == '#') alt = 1; else break; }
+        long width = 0;
+        if (*p == '*') {
+            long long w = ai < nargs ? (IS_INT_fn(args[ai]) ? args[ai].i : (long long) rk_cstr_num(args[ai])) : 0;
+            ai++;
+            if (w < 0) { left = 1; w = -w; }
+            width = (long) w;
+            p++;
+        } else while (*p >= '0' && *p <= '9') width = width * 10 + (*p++ - '0');
+        long prec = -1;
+        if (*p == '.') {
+            p++;
+            prec = 0;
+            if (*p == '*') {
+                long long w = ai < nargs ? (IS_INT_fn(args[ai]) ? args[ai].i : (long long) rk_cstr_num(args[ai])) : 0;
+                ai++;
+                prec = w < 0 ? -1 : (long) w;
+                p++;
+            } else while (*p >= '0' && *p <= '9') prec = prec * 10 + (*p++ - '0');
+        }
+        while (*p == 'l' || *p == 'h' || *p == 'q' || *p == 'L' || *p == 'V' || *p == 'z' || *p == 't' || *p == 'j') p++;
+        char conv = *p;
+        if (!conv) { rk_sb_put(&o, start, (size_t) (p - start)); break; }
+        p++;
+        DESCR_t a = NULVCL;
+        if (idx > 0) { if (from - 1 + idx < nargs) a = args[from - 1 + idx]; } else { if (ai < nargs) a = args[ai]; ai++; }
+        long long iv;
+        double dv;
+        int isint;
+        const char *big;
+        char sb[64];
+        if (conv == 'd' || conv == 'i' || conv == 'u' || conv == 'b' || conv == 'B' || conv == 'o' || conv == 'x' || conv == 'X') {
+            rk_rsp_arg_num(a, &iv, &dv, &isint, &big);
+            int neg = big ? big[0] == '-' : (isint ? iv < 0 : dv < 0);
+            char digits[big ? strlen(big) + 2 : 72];
+            if (big) strcpy(digits, big[0] == '-' ? big + 1 : big);
+            else {
+                unsigned long long mag = neg ? (unsigned long long) (-(iv + 1)) + 1ULL : (unsigned long long) iv;
+                if (!isint) { double ad = dv < 0 ? -dv : dv; mag = (unsigned long long) ad; }
+                int base = (conv == 'd' || conv == 'i' || conv == 'u') ? 10 : (conv == 'b' || conv == 'B') ? 2 : conv == 'o' ? 8 : 16;
+                const char *dg = conv == 'X' ? "0123456789ABCDEF" : "0123456789abcdef";
+                int nb = 2;
+                for (unsigned long long m = mag; m > 1; m >>= 1) nb++;
+                char tmp[nb + 2];
+                int tn = 0;
+                if (mag == 0) tmp[tn++] = '0';
+                while (mag) { tmp[tn++] = dg[mag % (unsigned) base]; mag /= (unsigned) base; }
+                int dn = 0;
+                while (tn) digits[dn++] = tmp[--tn];
+                digits[dn] = 0;
+            }
+            int is0 = digits[0] == '0' && !digits[1];
+            int signed_conv = conv == 'd' || conv == 'i';
+            if (prec == 0 && is0) digits[0] = 0;
+            size_t dl = strlen(digits);
+            char dpad[(prec > (long) dl ? (size_t) prec : dl) + 2];
+            size_t k = 0;
+            for (long z = (long) dl; z < prec; z++) dpad[k++] = '0';
+            memcpy(dpad + k, digits, dl + 1);
+            const char *pre = "";
+            if (alt && !is0) pre = conv == 'b' ? "0b" : conv == 'B' ? "0B" : conv == 'x' ? "0x" : conv == 'X' ? "0X" : conv == 'o' ? (dpad[0] == '0' ? "" : "0") : "";
+            const char *sg = neg ? "-" : (signed_conv && plus) ? "+" : (signed_conv && space) ? " " : "";
+            char body[strlen(sg) + strlen(pre) + strlen(dpad) + 2];
+            snprintf(body, sizeof body, "%s%s%s", sg, pre, dpad);
+            rk_rsp_pad(&o, body, strlen(body), strlen(body), width, left, zero && prec < 0, strlen(sg) + strlen(pre));
+        } else if (conv == 'e' || conv == 'E' || conv == 'f' || conv == 'F' || conv == 'g' || conv == 'G') {
+            rk_rsp_arg_num(a, &iv, &dv, &isint, &big);
+            if (big) dv = strtod(big, NULL);
+            char cs[32];
+            int cl = 0;
+            cs[cl++] = '%';
+            if (left && !zero) cs[cl++] = '-';
+            if (plus) cs[cl++] = '+';
+            if (space) cs[cl++] = ' ';
+            if (zero) cs[cl++] = '0';
+            if (alt) cs[cl++] = '#';
+            cl += snprintf(cs + cl, sizeof cs - (size_t) cl, "%ld", width);
+            if (prec >= 0) cl += snprintf(cs + cl, sizeof cs - (size_t) cl, ".%ld", prec);
+            cs[cl++] = conv;
+            cs[cl] = 0;
+            size_t need = (size_t) snprintf(NULL, 0, cs, dv) + 1;
+            char fb[need];
+            snprintf(fb, need, cs, dv);
+            rk_sb_put(&o, fb, strlen(fb));
+        } else if (conv == 's') {
+            const char *sv = a.v == DT_BOOL ? (a.i ? "True" : "False") : rk_cstr(a);
+            if (!sv) sv = "";
+            size_t chars = rk_u8len(sv), blen = strlen(sv);
+            if (prec >= 0 && (size_t) prec < chars) {
+                size_t q = 0, cc = 0;
+                while (sv[q] && cc < (size_t) prec) { q++; while (((unsigned char) sv[q] & 0xC0) == 0x80) q++; cc++; }
+                blen = q;
+                chars = (size_t) prec;
+            }
+            rk_rsp_pad(&o, sv, blen, chars, width, left, zero, 0);
+        } else if (conv == 'c') {
+            rk_rsp_arg_num(a, &iv, &dv, &isint, &big);
+            char ch[8];
+            size_t cn = rk_utf8_put((unsigned) iv, ch);
+            rk_rsp_pad(&o, ch, cn, 1, width, left, zero, 0);
+        } else rk_sb_put(&o, start, (size_t) (p - start));
+        (void) sb;
+    }
+    if (!o.b) o.b = (char *) rt_wsb_alloc(1);
+    o.b[o.n] = 0;
+    *outp = o.b;
+    if (outlen) *outlen = o.n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_list_more_methods(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
@@ -7534,7 +7687,7 @@ static int pl_read_src_from_fp(FILE *f, char *rb, int cap) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spill_count(DESCR_t v) { DESCR_t *la = 0; int ln = 0; if (v.v == DT_A && v.arr) return rk_av(v).n; if (rt_lv_is_list(v, &la, &ln)) return ln; return 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_spill_scalar(DESCR_t *r, int k, DESCR_t v) { if (IS_STR_fn(v) || v.v == DT_SNUL) { const char *t = rk_cstr(v); r[k++] = rk_txt_elem(t, strlen(t)); return k; } r[k++] = v; return k; }
+static int rk_spill_scalar(DESCR_t *r, int k, DESCR_t v) { if (v.v == DT_SNUL) { r[k++] = rk_txt_elem("", 0); return k; } r[k++] = v; return k; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spill(DESCR_t *r, int k, DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -7564,7 +7717,14 @@ static int rk_spill(DESCR_t *r, int k, DESCR_t v) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_one(DESCR_t v) { DESCR_t t[1]; if (rk_is_slip(v)) return v; rk_item(t, 0, v); return t[0]; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v) { DESCR_t kv[2]; kv[0] = rk_one(k); kv[1] = rk_one(v); DESCR_t p = rk_mk_arr(kv, 2); ((ARBLK_t *) p.arr)->proto = rk_proto_pair; return p; }
+static DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v) {
+    DESCR_t kv[2];
+    kv[0] = IS_STR_fn(k) && !rk_typeobj_name(k) && !rk_is_slip(k) ? k : rk_one(k);
+    kv[1] = IS_STR_fn(v) && !rk_typeobj_name(v) && !rk_is_slip(v) ? v : rk_one(v);
+    DESCR_t p = rk_mk_arr(kv, 2);
+    ((ARBLK_t *) p.arr)->proto = rk_proto_pair;
+    return p;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mk_jct(const char *flavor, DESCR_t *args, int nargs) {
     DESCR_t *src = args;
@@ -9003,6 +9163,8 @@ static void rk_exc_init(void) {
     class_inherit("X::Syntax::Confused", "X::Syntax");
     record_register("X::Undeclared(message)");
     class_inherit("X::Undeclared", "X::Comp");
+    record_register("X::TypeCheck::Assignment(message,got,expected,symbol)");
+    class_inherit("X::TypeCheck::Assignment", "X::TypeCheck");
     record_register("X::Method::NotFound(message,method,typename,invocant)");
     class_inherit("X::Method::NotFound", "Exception");
     for (int i = 0; rk_comp_tab[i].cls; i++) {
@@ -9012,7 +9174,7 @@ static void rk_exc_init(void) {
         class_inherit(rk_comp_tab[i].cls, rk_comp_tab[i].parent);
     }
     for (int i = 0; rk_exc_tab[i].cls; i++) {
-        if (!strcmp(rk_exc_tab[i].cls, "X::Method::NotFound")) continue;
+        if (!strcmp(rk_exc_tab[i].cls, "X::Method::NotFound") || !strcmp(rk_exc_tab[i].cls, "X::TypeCheck::Assignment")) continue;
         char spec[strlen(rk_exc_tab[i].cls) + 16];
         snprintf(spec, sizeof spec, "%s(message)", rk_exc_tab[i].cls);
         record_register(spec);
@@ -9522,6 +9684,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             memset(&blk, 0, sizeof blk);
             for (int i = 0; i < nargs; i++) { if (rk_is_code(args[i])) { blk = args[i]; haveblk = 1; } else if (!havenm) { nm = to_cstring(args[i], sb1, sizeof sb1); havenm = 1; } }
             if (!haveblk) { rk_tap_proclaim(0, nm, ""); *out = INTVAL(0); return 1; }
+            char nmc[strlen(nm ? nm : "") + 1];
+            strcpy(nmc, nm ? nm : "");
+            nm = nmc;
             if (nm && *nm) printf("# Subtest: %s\n", nm);
             else printf("# Subtest\n");
             fflush(stdout);
@@ -10371,6 +10536,23 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_range_arr") && nargs == 2) { *out = rk_range_arr_make(args[0], args[1]); return 1; }
+    if (!strcmp(fn, "__rk_assign_check") && nargs == 4) {
+        const char *ty = rk_cstr(args[0]), *nm = rk_cstr(args[2]);
+        DESCR_t v = args[1];
+        *out = v;
+        if (v.v == DT_SNUL || v.v == DT_FAIL) return 1;
+        const char *vt = rk_value_type(v);
+        if (rk_type_isa(vt, ty)) return 1;
+        rk_exc_init();
+        const char *got = rk_raku_str(v, 0);
+        int el = IS_INT_fn(args[3]) && args[3].i;
+        char msg[strlen(nm) + strlen(ty) + strlen(vt) + strlen(got) + 80];
+        if (el) snprintf(msg, sizeof msg, "Type check failed for an element of %s; expected %s but got %s (%s)", nm, ty, vt, got);
+        else snprintf(msg, sizeof msg, "Type check failed in assignment to $%s; expected %s but got %s (%s)", nm, ty, vt, got);
+        rk_exc_throw(DATCON_fn("X::TypeCheck::Assignment", STRVAL(rt_heap_strdup_c(msg)), STRVAL(rt_heap_strdup_c(vt)), STRVAL(rt_heap_strdup_c(ty)), STRVAL(rt_heap_strdup_c(nm))));
+        *out = FAILDESCR;
+        return 1;
+    }
     if (!strcmp(fn, "__rk_range_val") && nargs == 3) { *out = rk_range_value(args[0], args[1], IS_INT_fn(args[2]) ? (int) args[2].i : 0); return 1; }
     if (!strcmp(fn, "__rk_in_range") && nargs == 3) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_in_range(args[0], args[1], args[2]) }; return 1; }
     if (!strcmp(fn, "__rk_substr_replace") && (nargs == 3 || nargs == 4)) {
@@ -10511,7 +10693,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (a.v == DT_ORDER) { *out = STRVAL(rt_heap_strdup_c(a.i < 0 ? "Less" : (a.i > 0 ? "More" : "Same"))); return 1; }
         if (a.v == DT_SNUL || rk_typeobj_name(a)) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         if (rk_match_is(a)) { *out = FIELD_GET_fn(a, "text"); return 1; }
-        if (IS_REAL_fn(a)) { *out = STRVAL(rt_heap_strdup_c(rk_cstr(a))); return 1; }
+        if (IS_REAL_fn(a) || IS_INT_fn(a) || a.v == DT_BIG) { *out = STRVAL(rt_heap_strdup_c(rk_cstr(a))); return 1; }
         if ((a.v == DT_A && a.arr) || (a.v == DT_T && a.tbl) || a.v == DT_DATA) {
             const char *st = a.v == DT_DATA ? rk_obj_stringify(a, 0) : a.v == DT_A ? rk_arr_text(a) : rk_tbl_text(a);
             *out = STRVAL(rt_heap_strdup_c(st ? st : ""));
@@ -11188,13 +11370,26 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = STRVAL(o);
         return 1;
     }
+    if ((!strcmp(fn, "sprintf") || !strcmp(fn, "__rk_sprintf") || !strcmp(fn, "printf") || !strcmp(fn, "__rk_printf")) && nargs >= 2) {
+        int ns = 0;
+        int one_list = nargs == 2 && args[1].v == DT_A && args[1].arr && !rk_is_pair(args[1]) && !rk_is_jct(args[1]);
+        for (int i = 1; i < nargs; i++) ns += (rk_is_slip(args[i]) || one_list) ? rk_av(args[i]).n : 1;
+        if (ns != nargs - 1 || one_list) {
+            DESCR_t *fa = (DESCR_t *) rt_ws_alloc_descr((size_t) ns + 1);
+            int k = 0;
+            fa[k++] = args[0];
+            for (int i = 1; i < nargs; i++) { if (rk_is_slip(args[i]) || one_list) { rk_av_t sa = rk_av(args[i]); for (int j = 0; j < sa.n; j++) fa[k++] = sa.el[j]; } else fa[k++] = args[i]; }
+            return script_try_call_builtin_by_name_rq(fn, fa, k, out, rq);
+        }
+    }
     if ((!strcmp(fn, "sprintf") || !strcmp(fn, "__rk_sprintf")) && nargs >= 1) {
         char fb[512];
         const char *fmt = to_cstring(args[0], fb, sizeof fb);
         if (!fmt) fmt = "";
         char *r = NULL;
         size_t rl = 0;
-        rk_sprintf_core(fmt, args, nargs, 1, &r, &rl);
+        if (fn[0] == '_') rk_rsprintf(fmt, args, nargs, 1, &r, &rl);
+        else rk_sprintf_core(fmt, args, nargs, 1, &r, &rl);
         *out = BSTRVAL(r, rl);
         return 1;
     }
@@ -11204,7 +11399,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!fmt) fmt = "";
         char *r = NULL;
         size_t rl = 0;
-        rk_sprintf_core(fmt, args, nargs, 1, &r, &rl);
+        if (fn[0] == '_') rk_rsprintf(fmt, args, nargs, 1, &r, &rl);
+        else rk_sprintf_core(fmt, args, nargs, 1, &r, &rl);
         fwrite(r, 1, rl, stdout);
         *out = INTVAL(1);
         return 1;
@@ -12154,7 +12350,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if ((!strcmp(fn, "push_pure") || !strcmp(fn, "unshift_pure") || !strcmp(fn, "append_pure") || !strcmp(fn, "prepend_pure")) && nargs >= 1) {
         int is_app = fn[0] == 'a', is_pre = fn[0] == 'p' && fn[1] == 'r', is_push = fn[0] == 'p' && fn[1] == 'u';
-        int back = is_push || is_app, flat = is_app || is_pre;
+        int back = is_push || is_app, flat = (is_app || is_pre) && nargs == 2;
         if (back && args[0].v == DT_A && args[0].arr && ((ARBLK_t *) args[0].arr)->proto == NULL) {
             int add = 0;
             for (int i = 1; i < nargs; i++) add += flat ? rk_spill_count(args[i]) : rk_item_count(args[i]);

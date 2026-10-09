@@ -1077,7 +1077,7 @@ static tree_t *rkb_binop_raw(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
     case LV_ADDSUB: return b_addsub(b, k, l, r);
     case LV_REPL: return k == 0 ? expr_binary(TT_XREP, l, r) : call2("__rk_arr_xx", l, r);
     case LV_CAT: return k == 0 ? expr_binary(TT_CAT, l, r) : call2("__rk_compose", l, r);
-    case LV_RANGE1: return k < 2 ? expr_binary(TT_TO, l, r) : rk_range_ex(b, l, r);
+    case LV_RANGE1: { if (k >= 2) return rk_range_ex(b, l, r); tree_t *to = expr_binary(TT_TO, l, r); if (k == 1) to->v.ival = 1; return to; }
     case LV_RANGE2: return call2(k == 0 ? "__rk_unicmp" : k == 1 ? "__rk_coll" : k == 2 ? "__rk_range_xb" : "__rk_range_xl", l, r);
     case LV_DOR: return (r && (r->t == TT_VAR || r->t == TT_ILIT || r->t == TT_QLIT || r->t == TT_FLIT)) ? call2("__rk_dor", l, r) : rk_defined_op(b, 0, l, r);
     case LV_JCT: return k == 0 ? mk_junction("any", l, r) : k == 7 ? mk_junction("all", l, r) : call2(jfn[k], l, r);
@@ -1361,7 +1361,7 @@ tree_t *rkb_smartmatch(RkB *b, tree_t *l, tree_t *r) {
 }
 static tree_t *rkb_smartmatch_raw(RkB *b, tree_t *l, tree_t *r) {
     (void) b;
-    if (r && r->t == TT_TO && r->n == 2) { tree_t *c = make_call("__rk_in_range"); expr_add_child(c, l); expr_add_child(c, r->c[0]); expr_add_child(c, r->c[1]); return c; }
+    if (r && r->t == TT_TO && r->n == 2 && !r->v.ival) { tree_t *c = make_call("__rk_in_range"); expr_add_child(c, l); expr_add_child(c, r->c[0]); expr_add_child(c, r->c[1]); return c; }
     return call2("__rk_smartmatch", l, r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

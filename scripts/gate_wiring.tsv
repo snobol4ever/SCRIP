@@ -723,6 +723,7 @@ test_gate_raku_an_element_assignment_through_a_chain_of_subscripts_stores_into_t
 test_gate_raku_an_exception_is_a_value_that_die_carries_and_catch_and_throws_like_read.sh	WIRED	-	-	-
 test_gate_raku_an_unknown_method_throws_x_method_notfound_dot_question_calls_it_maybe_can_finds_methods_and_attributes_and_fallback_catches_the_rest_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
+test_gate_raku_assigning_the_wrong_type_to_a_typed_variable_throws_x_typecheck_assignment_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_builtin_gaps_and_is_run_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_eval_compiles_a_string_in_process_in_both_modes.sh	WIRED	-	-	-
 test_gate_raku_first_takes_the_end_k_kv_p_v_adverbs_and_a_non_block_matcher_and_later_bare_adverbs_are_named_agree_with_rakudo.sh	WIRED	-	-	-
@@ -742,6 +743,7 @@ test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
 test_gate_raku_roast_bucket_names_the_stage_the_file_died_in.sh	WIRED	-	-	-
 test_gate_raku_roast_runner_leaves_the_checkout_clean.sh	WIRED	-	-	-
 test_gate_raku_set_bag_mix_are_typed_values_as_rakudo_has_them.sh	WIRED	-	-	-
+test_gate_raku_sprintf_under_use_v6e_agrees_with_rakudos_own_b_d_e_f_o_s_u_x_spec_tables.sh	WIRED	-	-	-
 test_gate_raku_string_zero_is_true_and_the_string_function_forms_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
 test_gate_raku_the_bare_dispatcher_words_samewith_and_the_implicit_at_underscore_of_anonymous_routines_agree_with_rakudo.sh	WIRED	-	-	-
