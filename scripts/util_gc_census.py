@@ -720,6 +720,24 @@ def _window_lines(lines, start, poll_window):
     return out
 
 
+def _path_window_lines(lines, i):
+    """The base window of the call at 1-based line `i`, budgeted on the call's OWN PATH: the lines after it that hold POLL_WINDOW_X86
+    x86 tokens, counting none in another arm of a ternary the call stands in (_ternary_sibling_offsets' counts) and none on a line of
+    another arm of its if / else chain (_stmt_sibling_offsets), never more than WINDOW_LINE_CAP lines. With no alternative arm in
+    reach it is exactly _window_lines."""
+    wide = lines[i:i + WINDOW_LINE_CAP]
+    counts = []
+    _ternary_sibling_offsets(lines, i, wide, counts)
+    stmt = _stmt_sibling_offsets(lines, i, wide)
+    out, n = [], 0
+    for k, wl in enumerate(wide):
+        out.append(wl)
+        n += 0 if k in stmt else (counts[k] if k < len(counts) else len(X86_TOKEN_RX.findall(wl)))
+        if n >= POLL_WINDOW_X86:
+            break
+    return out
+
+
 def _window_after(lines, line_no, poll_window):
     """The window after an EXPANSION site, stopped at the first column-0 closing brace or /*--- separator (the coo's
     2026-09-17 rule: a poll belongs to the call's own routine) AND at the first intervening emitted call.
@@ -1071,7 +1089,7 @@ def _paren_delta(s, q=None):
 TERNARY_LOOKBACK = 60
 
 
-def _ternary_sibling_offsets(lines, i, window_lines):
+def _ternary_sibling_offsets(lines, i, window_lines, counts=None):
     """Offsets into `window_lines` whose emitted call stands in a DIFFERENT ARM of a ternary the call at 1-based line
     `i` also stands in -- an ALTERNATIVE to the site, never a successor to it, so it is not an intervening call and
     must not stop the poll window.
@@ -1150,19 +1168,31 @@ def _ternary_sibling_offsets(lines, i, window_lines):
     rest, q = _lit_free(lines[site][m.start():], q)
     walk(rest)
 
+    # ⛔ THE WINDOW'S BUDGET COUNTS ONLY THE SITE'S OWN PATH (the cto 2026-10-08, bb_match_defer.cpp:307): `counts`, when given, gets
+    # one entry per window line -- the x86 tokens on it that are NOT in another arm of the site's ternary. The budget of
+    # POLL_WINDOW_X86 is a distance in EMITTED code, and an alternative arm is never emitted on the site's path, so its tokens are no
+    # distance at all: rt_patv_defer_open_entry heads the first of four arms, the three others hold some 17 x86 calls, and the one
+    # shared poll after the ternary's close stood outside a window those arms had spent. One literal-free pass per line serves both
+    # readings; the call's split point is never inside a literal, so the walk is the one the two-part reading made.
     off = set()
     for k, wl in enumerate(window_lines):
+        c, q2 = _lit_free(wl, q)
         mk = CALL_RX.search(wl)
-        if mk is None:
-            c, q = _lit_free(wl, q)
-            walk(c)
-            continue
-        pre, q = _lit_free(wl[:mk.start()], q)
-        walk(pre)
-        if alternative():
-            off.add(k)
-        post, q = _lit_free(wl[mk.start():], q)
-        walk(post)
+        cut = len(_lit_free(wl[:mk.start()], q)[0]) if mk else None
+        marks = sorted({t.start() for t in X86_TOKEN_RX.finditer(c)} | ({cut} if cut is not None else set()))
+        p, own = 0, 0
+        for t in marks:
+            walk(c[p:t])
+            p = t
+            alt = alternative()
+            if t == cut and alt:
+                off.add(k)
+            if X86_TOKEN_RX.match(c, t) and not alt:
+                own += 1
+        walk(c[p:])
+        q = q2
+        if counts is not None:
+            counts.append(own)
     return off
 
 
@@ -1315,6 +1345,8 @@ def census_safe_points(so, emitter_files, poll_window=12, poll_helper="", out=pr
         # green, the worst direction for this census.  The window stops at the first line that starts a new routine in
         # this tree's style: a column-0 closing brace or a column-0 /*---- separator.
         window_lines = _window_lines(lines, i, poll_window)
+        if base_call_stop and os.environ.get("SCRIP_GC_CENSUS_WINDOW_UNIT", "x86") != "lines":
+            window_lines = _path_window_lines(lines, i)
         stop = len(window_lines)
         # ⛔ THE SIBLING-ARM REGION, COMPUTED ONCE PER SITE (the blind spot COO-143 named; see
         # _ternary_sibling_offsets).  Offsets here are ALTERNATIVES to the site, not successors, so a call on one of
@@ -2236,6 +2268,22 @@ def selftest():
        "safe-points PARAMETER TARGET: a call on a parameter of its helper resolves to the literals the helper's callers pass there")
     ck(_sp_has(o5, allocating_call_sites=1, polled=1) and any("rt_concat" in x and "rt_gcheap_alloc" in x for x in o5),
        "safe-points TERNARY OF CALLS: both arms of a ternary of x86(\"call\") on one line are the site's candidates")
+    # THE WINDOW'S BUDGET COUNTS ONLY THE SITE'S OWN PATH (the cto 2026-10-08, bb_match_defer.cpp:307): the call heads the first of three
+    # ternary arms, the two others hold sixteen x86 tokens, and the one poll follows the ternary's close -- POLLED on every arm. The same
+    # sixteen tokens written on the call's own path (the control) still spend the window before the poll -- UNPOLLED.
+    mv8 = ['        + x86("mov", "rax", "rbx")'] * 7
+    t_arm = os.path.join(w, "arm.cpp"); t_armc = os.path.join(w, "armc.cpp")
+    open(t_arm, "w").write('std::string a(){\n    return x86("mov", "rax", "rbx")\n        + (c\n        ? x86("call", "rt_concat", fp)\n        : d\n'
+                           '        ? x86("mov", "rax", "rbx")\n' + "\n".join(mv8) + '\n        : x86("mov", "rax", "rbx")\n' + "\n".join(mv8)
+                           + ')\n        + x86_rt_gc_poll();\n}\n')
+    open(t_armc, "w").write('std::string a(){\n    return x86("call", "rt_concat", fp)\n' + "\n".join(['        + x86("mov", "rax", "rbx")'] * 16)
+                            + '\n        + x86_rt_gc_poll();\n}\n')
+    o6 = []; o7 = []
+    census_safe_points("", [t_arm], out=o6.append, allocating=alloc); census_safe_points("", [t_armc], out=o7.append, allocating=alloc)
+    ck(_sp_has(o6, allocating_call_sites=1, polled=1, unpolled=0),
+       "safe-points OWN-PATH BUDGET: a call heading one ternary arm, sixteen x86 tokens in the two other arms and one poll after the close reads POLLED")
+    ck(_sp_has(o7, allocating_call_sites=1, polled=0, unpolled=1),
+       "safe-points OWN-PATH BUDGET control: the same sixteen tokens on the call's own path spend the window before the poll -- UNPOLLED")
     buf.clear(); rc = census_safe_points("", [tpl_bad], out=buf.append, allocating=alloc, poll_helper="gc_poll_here")
     ck(rc == 1, "safe-points: naming a poll helper does not excuse a call that has neither")
     tpl_gk = os.path.join(w, "greek.cpp")
