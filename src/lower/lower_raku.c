@@ -1164,8 +1164,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     static const struct {
                         const char * n;
                         int shape;
-                    } fsub[] = { { "item", 1 }, { "gist", 1 }, { "append", 1 }, { "prepend", 1 }, { "rotate", 1 }, { "head", 2 }, { "tail", 2 }, { "pick", 2 }, { "list", 3 }, { "minmax", 3 },
-                        { "unique", 3 }, { "repeated", 3 }, { "reduce", 4 }, { "produce", 4 }, { "classify", 4 }, { "categorize", 4 }, { NULL, 0 } };
+                    } fsub[] = { { "item", 1 }, { "chr", 1 }, { "ord", 1 }, { "gist", 1 }, { "append", 1 }, { "prepend", 1 }, { "rotate", 1 }, { "head", 2 }, { "tail", 2 }, { "pick", 2 }, { "list",
+                        3 }, { "chrs", 3 }, { "minmax", 3 }, { "unique", 3 }, { "repeated", 3 }, { "reduce", 4 }, { "produce", 4 }, { "classify", 4 }, { "categorize", 4 }, { NULL, 0 } };
                     int shape = 0;
                     for (int i = 0; fsub[i].n; i++) if (!strcmp(nm, fsub[i].n)) shape = fsub[i].shape;
                     if (shape && t->n >= 2 && !(shape == 2 && t->n < 3)) {

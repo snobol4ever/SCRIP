@@ -710,6 +710,7 @@ int rk_is_truthy(DESCR_t v) {
     if (rk_match_is_nil(v)) return 0;
     if (rk_match_is(v)) return 1;
     if (rk_qh_is(v)) return rk_qh_n(v) > 0;
+    if (rk_typeobj_name(v)) return 0;
     if (v.v == DT_S && v.s && v.slen != 0xFFFFFFFFu && !rk_typeobj_name(v)) return v.s[0] != '\0';
     if (v.v == DT_ORDER) return (v.i != 0);
     return rt_is_truthy(v);
@@ -793,6 +794,16 @@ static unsigned rk_utf8_cp(const unsigned char *p, size_t n, size_t *len) {
     return c;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static size_t rk_utf8_put(unsigned cp, char *o) {
+    if (cp < 0x80) { o[0] = (char)cp; return 1; }
+    if (cp < 0x800) { o[0] = (char)(0xC0 | (cp >> 6)); o[1] = (char)(0x80 | (cp & 0x3F)); return 2; }
+    if (cp < 0x10000) { o[0] = (char)(0xE0 | (cp >> 12)); o[1] = (char)(0x80 | ((cp >> 6) & 0x3F)); o[2] = (char)(0x80 | (cp & 0x3F)); return 3; }
+    o[0] = (char)(0xF0 | ((cp >> 18) & 0x07));
+    o[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
+    o[2] = (char)(0x80 | ((cp >> 6) & 0x3F));
+    o[3] = (char)(0x80 | (cp & 0x3F));
+    return 4;
+}
 static int rk_case_cmp(const void *k, const void *e) { unsigned a = *(const unsigned *)k, b = ((const RkCase *)e)->cp; return a < b ? -1 : a > b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_case_one(unsigned cp, int m) {
@@ -838,6 +849,7 @@ static char *rk_case_str(const char *s, size_t n, int mfirst, int mrest, int wor
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz);
+static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out);
 static const char *rk_arr_text(DESCR_t v);
 static const char *rk_tbl_text(DESCR_t v);
 static const char *rk_cstr(DESCR_t v) {
@@ -1119,6 +1131,7 @@ static const char *rk_gist_str(DESCR_t v) {
         int lst = rk_is_list(v) || rk_is_slip(v);
         return rk_join_gists(tx, a.n, " ", lst ? "(" : "[", lst ? ")" : "]");
     }
+    if (v.v == DT_DATA) { extern const char *rk_obj_stringify(DESCR_t d, int use_gist); return rk_obj_stringify(v, 1); }
     return rk_cstr(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1332,6 +1345,9 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             if (!strcmp(meth, "WHAT")) { *out = recv; return 1; }
         }
     }
+    if (recv.v == DT_BOOL && nmargs == 0 && (!strcmp(meth, "Int") || !strcmp(meth, "Num") || !strcmp(meth, "Numeric") || !strcmp(meth, "Real") || !strcmp(meth, "abs") || !strcmp(meth, "sum"))) recv =
+        INTVAL(recv.i);
+    if (nmargs == 0 && (!strcmp(meth, "Numeric") || !strcmp(meth, "Real")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { *out = recv; return 1; }
     if (recv.v == DT_A) {
         if (rk_is_pair(recv)) {
             rk_av_t pa = rk_av(recv);
@@ -1367,6 +1383,20 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             if (!strcmp(meth, "squish")) { for (int i = 0; i < a.n; i++) if (i == 0 || strcmp(rk_av_text(a, i), rk_av_text(a, i - 1))) r[k++] = a.el[i]; *out = rk_mk_arr(r, k); return 1; }
             for (int i = 0; i < a.n; i++) { int seen = 0; for (int j = 0; j < i && !seen; j++) if (!strcmp(rk_av_text(a, i), rk_av_text(a, j))) seen = 1; if (seen) r[k++] = a.el[i]; }
             *out = rk_mk_arr(r, k);
+            return 1;
+        }
+        if (!strcmp(meth, "chrs") && nmargs == 0) {
+            rk_av_t ca = rk_av(recv);
+            char *cr = (char *)rt_str_alloc((size_t)ca.n * 4 + 1);
+            size_t cl = 0;
+            for (int i = 0; i < ca.n; i++) {
+                DESCR_t ce = rk_av_elem(ca, i);
+                char eb[64];
+                unsigned cp = IS_INT_fn(ce) ? (unsigned)ce.i : (unsigned)atoll(to_cstring(ce, eb, sizeof eb));
+                cl += rk_utf8_put(cp, cr + cl);
+            }
+            cr[cl] = '\0';
+            *out = BSTRVAL(cr, cl);
             return 1;
         }
         if (!strcmp(meth, "join")) {
@@ -1566,8 +1596,22 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         *out = SUBSTR_fn(recv, INTVAL(from + 1), INTVAL(ln));
         return 1;
     }
-    if (!strcmp(meth, "chr")) { long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s); char *r = (char *)rt_str_alloc(1); r[0] = (char)(cp & 0xFF); r[1] = '\0'; *out = BSTRVAL(r, 1); return 1; }
-    if (!strcmp(meth, "ord")) { size_t on = descr_slen(recv); if (!s || !on) { *out = FAILDESCR; return 1; } *out = INTVAL((unsigned char)s[0]); return 1; }
+    if (!strcmp(meth, "chr")) {
+        long cp = IS_INT_fn(recv) ? (long)recv.i : (long)atoll(s);
+        char *r = (char *)rt_str_alloc(4);
+        size_t rl = rk_utf8_put((unsigned)cp, r);
+        r[rl] = '\0';
+        *out = BSTRVAL(r, rl);
+        return 1;
+    }
+    if (!strcmp(meth, "ord")) {
+        size_t on = IS_STR_fn(recv) ? descr_slen(recv) : n;
+        if (!s || !on) { *out = FAILDESCR; return 1; }
+        size_t ln;
+        *out = INTVAL(rk_utf8_cp((const unsigned char *)s, on, &ln));
+        return 1;
+    }
+    if (!strcmp(meth, "chrs") && nmargs == 0 && recv.v != DT_A) { *out = recv; return 1; }
     if (!strcmp(meth, "abs")) {
         if (recv.v == DT_CPLX) {
             extern double rt_cplx_abs(DESCR_t);
@@ -8414,6 +8458,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (a.v == DT_BOOL || IS_INT_fn(a)) t = (a.i != 0);
         else if (IS_REAL_fn(a)) t = (a.r != 0.0);
         else if (IS_STR_fn(a) && !rk_typeobj_name(a)) t = (a.s && a.s[0] != '\0' && a.slen != 0xFFFFFFFFu);
+        else if (rk_typeobj_name(a)) t = 0;
         else if (rk_qh_is(a)) t = rk_qh_n(a) > 0;
         else t = rt_is_truthy(a) ? 1 : 0;
         if (fn[5] == 'n') t = !t;
@@ -10983,6 +11028,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 return script_try_call_builtin_by_name_rq("meth_call", fwd, nargs, out, rq);
             }
         }
+        if (!meth_is_user_proc(procname) && rk_mu_method(mname, args[0], nargs - 2, out)) return 1;
         int nextra = nargs - 2;
         int total = 1 + nextra;
         DESCR_t callargs[total > 0 ? total : 1];
@@ -11152,7 +11198,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = STRVAL(o);
         return 1;
     }
-    if ((!strcmp(fn, "push_pure") || !strcmp(fn, "unshift_pure") || !strcmp(fn, "append_pure") || !strcmp(fn, "prepend_pure")) && nargs >= 2) {
+    if ((!strcmp(fn, "push_pure") || !strcmp(fn, "unshift_pure") || !strcmp(fn, "append_pure") || !strcmp(fn, "prepend_pure")) && nargs >= 1) {
         int is_app = fn[0] == 'a', is_pre = fn[0] == 'p' && fn[1] == 'r', is_push = fn[0] == 'p' && fn[1] == 'u';
         int back = is_push || is_app, flat = is_app || is_pre;
         if (back && args[0].v == DT_A && args[0].arr && ((ARBLK_t *) args[0].arr)->proto == NULL) {
@@ -11994,6 +12040,50 @@ const char *rk_cplx_str(DESCR_t d) {
     snprintf(out, 160, "%s%s%si", rb, im < 0 ? "-" : "+", ib);
     return out;
 }
+static const char *rk_obj_default_raku(DESCR_t d) {
+    extern int dat_attributes(const char *name, const char **out, int max);
+    extern int dat_field_is_private(const char *cls, const char *field);
+    extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+    const char *cn = d.u->type->name;
+    const char *as[bnd_dat_need(cn, 4)];
+    int an = dat_attributes(cn, as, (int)(sizeof as / sizeof as[0]));
+    const char *piece[an > 0 ? an : 1];
+    int np = 0;
+    size_t total = strlen(cn) + 8;
+    for (int i = 0; i < an; i++) {
+        if (!as[i] || dat_field_is_private(cn, as[i])) continue;
+        const char *vs = rk_raku_str(dat_field_get(as[i], d), 0);
+        size_t pl = strlen(as[i]) + 4 + strlen(vs) + 2;
+        char *pc = rt_wsb_alloc(pl + 1);
+        snprintf(pc, pl + 1, "%s => %s", as[i], vs);
+        piece[np++] = pc;
+        total += pl;
+    }
+    char *r = rt_wsb_alloc(total + 1);
+    size_t o = (size_t)snprintf(r, total + 1, "%s.new", cn);
+    if (np) { r[o++] = '('; for (int i = 0; i < np; i++) o += (size_t)snprintf(r + o, total + 1 - o, "%s%s", i ? ", " : "", piece[i]); r[o++] = ')'; r[o] = '\0'; }
+    return r;
+}
+static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
+    if (nmargs) return 0;
+    if (!strcmp(m, "defined") || !strcmp(m, "Bool") || !strcmp(m, "so") || !strcmp(m, "DEFINITE")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
+    if (!strcmp(m, "not")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+    if (!strcmp(m, "gist") || !strcmp(m, "raku") || !strcmp(m, "perl")) { *out = STRVAL(rk_obj_default_raku(self)); return 1; }
+    if (!strcmp(m, "Str")) {
+        size_t sl = strlen(self.u->type->name) + 32;
+        char *r = rt_wsb_alloc(sl);
+        snprintf(r, sl, "%s<%lu>", self.u->type->name, (unsigned long)(uintptr_t)self.u);
+        *out = STRVAL(r);
+        return 1;
+    }
+    if (!strcmp(m, "item") || !strcmp(m, "self") || !strcmp(m, "head") || !strcmp(m, "tail") || !strcmp(m, "min") || !strcmp(m, "max") || !strcmp(m, "pick") || !strcmp(m, "roll")) {
+        *out = self;
+        return 1;
+    }
+    if (!strcmp(m, "elems")) { *out = INTVAL(1); return 1; }
+    if (!strcmp(m, "list") || !strcmp(m, "Seq") || !strcmp(m, "flat") || !strcmp(m, "cache") || !strcmp(m, "Slip")) { *out = rk_mark_list(rk_mk_arr(&self, 1)); return 1; }
+    return 0;
+}
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
     if (IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name) {
@@ -12006,6 +12096,7 @@ const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     if (rk_exc_is(d)) return rk_exc_message(d);
     if (rk_qh_is(d)) return rk_qh_render(d, use_gist);
     if (rk_io_is(d)) { if (!use_gist) return rk_io_pathstr(d); char *o = rt_wsb_alloc(strlen(rk_io_pathstr(d)) + 16); sprintf(o, "\"%s\".IO", rk_io_pathstr(d)); return o; }
+    if (use_gist && IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && dat_find_type(d.u->type->name)) return rk_obj_default_raku(d);
     const char *s = VARVAL_fn(d);
     return s ? s : "";
 }
@@ -13515,7 +13606,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : rk_qh_is(v) ? rk_qh_n(v) > 0 : 1;
-        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0'); }
+        else { const char *s = v.s ? v.s : ""; t = rk_typeobj_name(v) ? 0 : (s[0] != '\0'); }
         if (!t) { *out = FAILDESCR; return 1; }
         *out = v;
         return 1;
@@ -13536,7 +13627,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : rk_qh_is(v) ? rk_qh_n(v) > 0 : 1;
-        else { const char *s = v.s ? v.s : ""; t = (s[0] != '\0'); }
+        else { const char *s = v.s ? v.s : ""; t = rk_typeobj_name(v) ? 0 : (s[0] != '\0'); }
         *out = INTVAL(t);
         return 1;
     }
