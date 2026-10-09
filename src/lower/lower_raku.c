@@ -3590,6 +3590,96 @@ static const tree_t * rk_block_decl(const tree_t * prog, const char * nm) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * rk_new_sub(const tree_t * cdecl, const char * mn) {
+    for (int j = 1; cdecl && j < cdecl->n; j++) {
+        const tree_t * ch = cdecl->c[j];
+        if (ch && ch->t == TT_SUB_DECL && ch->n > 0 && ch->c[0] && ch->c[0]->v.sval && !strcmp(ch->c[0]->v.sval, mn) && !rk_method_is_stub(ch)) return ch;
+    }
+    return NULL;
+}
+static const char * rk_new_parent(const tree_t * cdecl, int * bad) {
+    const tree_t * tn = cdecl->c[0];
+    const char * parent = NULL;
+    for (int ti = 0; tn && ti < tn->n; ti++) { const char * s = tn->c[ti] ? tn->c[ti]->v.sval : NULL; if (!s || !s[0]) continue; if (s[0] != 'i' || parent) { *bad = 1; return NULL; } parent = s + 1; }
+    return parent;
+}
+static int rk_new_chain_ok(const tree_t * prog, const char * cls, int depth, int * hooks) {
+    const tree_t * d = rk_find_type_decl(prog, cls);
+    if (!d || d->t != TT_CLASS_DECL || depth > prog->n) return 0;
+    for (int j = 1; j < d->n; j++) {
+        const tree_t * ch = d->c[j];
+        const char * mn = (ch && ch->t == TT_SUB_DECL && ch->n > 0 && ch->c[0]) ? ch->c[0]->v.sval : NULL;
+        if (mn && (!strcmp(mn, "new") || !strncmp(mn, "BUILD$", 6) || !strncmp(mn, "TWEAK$", 6) || !strncmp(mn, "new$", 4))) return 0;
+    }
+    if (rk_new_sub(d, "BUILD") || rk_new_sub(d, "TWEAK")) *hooks = 1;
+    int bad = 0;
+    const char * parent = rk_new_parent(d, &bad);
+    if (bad) return 0;
+    return parent ? rk_new_chain_ok(prog, parent, depth + 1, hooks) : 1;
+}
+static tree_t * rk_new_call(const char * proc, tree_t * self) { tree_t * f = ast_node_new(TT_FNC); f->v.sval = (char *) proc; ast_push(f, rk_tv(proc)); ast_push(f, self); return f; }
+static void rk_new_hooks(const tree_t * prog, const char * cls, const char * hook, tree_t * sd, const tree_t * site, char ** pnames) {
+    const tree_t * d = rk_find_type_decl(prog, cls);
+    int bad = 0;
+    const char * parent = rk_new_parent(d, &bad);
+    if (parent) rk_new_hooks(prog, parent, hook, sd, site, pnames);
+    const tree_t * h = rk_new_sub(d, hook);
+    if (!h) return;
+    char pn[fmt_len("%s__%s", cls, hook)];
+    snprintf(pn, sizeof pn, "%s__%s", cls, hook);
+    tree_t * f = rk_new_call(lp_strdup(pn), rk_tv("s"));
+    if (!strcmp(hook, "BUILD")) {
+        int bs = (int) h->v.ival;
+        for (int p = 1; p < bs && p < h->n; p++) {
+            const char * pk = (h->c[p] && h->c[p]->v.sval) ? h->c[p]->v.sval : NULL;
+            if (!pk || !*pk) continue;
+            tree_t * arg = NULL;
+            for (int k = 0; 1 + 2 * k + 1 < site->n; k++) if (!strcmp(site->c[1 + 2 * k]->v.sval, pk)) arg = rk_tv(pnames[k]);
+            ast_push(f, arg ? arg : rk_fnc2("__rk_undef", NULL, NULL));
+        }
+    }
+    ast_push(sd, f);
+}
+static int rk_new_site_ok(const tree_t * t) {
+    if (!t || t->t != TT_NEW || t->n < 1 || !t->c[0] || t->c[0]->t != TT_QLIT || !t->c[0]->v.sval || (t->n - 1) % 2) return 0;
+    for (int k = 1; k < t->n; k += 2) if (!t->c[k] || t->c[k]->t != TT_QLIT || !t->c[k]->v.sval) return 0;
+    return 1;
+}
+static void rk_new_build_walk(tree_t * prog, tree_t * t, int * seq) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_new_build_walk(prog, t->c[i], seq);
+    if (!rk_new_site_ok(t)) return;
+    const char * cls = t->c[0]->v.sval;
+    int hooks = 0;
+    if (!rk_new_chain_ok(prog, cls, 0, &hooks) || !hooks) return;
+    int nkv = (t->n - 1) / 2;
+    char hn[fmt_len("__rk_newp_%s_%d", cls, *seq)];
+    snprintf(hn, sizeof hn, "__rk_newp_%s_%d", cls, (*seq)++);
+    const char * hname = lp_strdup(hn);
+    char * pnames[nkv > 0 ? nkv : 1];
+    tree_t * sd = ast_node_new(TT_SUB_DECL);
+    sd->v.ival = nkv;
+    ast_push(sd, rk_tv(hname));
+    for (int k = 0; k < nkv; k++) { char pn[fmt_len("__rk_nv%d", k)]; snprintf(pn, sizeof pn, "__rk_nv%d", k); pnames[k] = lp_strdup(pn); ast_push(sd, rk_tv(pnames[k])); }
+    tree_t * al = ast_node_new(TT_FNC);
+    al->v.sval = (char *) "__rk_new_alloc";
+    ast_push(al, rk_tv("__rk_new_alloc"));
+    ast_push(al, leaf_sval2(TT_QLIT, cls));
+    for (int k = 0; k < nkv; k++) { ast_push(al, leaf_sval2(TT_QLIT, t->c[1 + 2 * k]->v.sval)); ast_push(al, rk_tv(pnames[k])); }
+    ast_push(sd, rk_tset("s", al));
+    rk_new_hooks(prog, cls, "BUILD", sd, t, pnames);
+    ast_push(sd, rk_fnc2("__rk_new_check", leaf_sval2(TT_QLIT, cls), rk_tv("s")));
+    rk_new_hooks(prog, cls, "TWEAK", sd, t, pnames);
+    { tree_t * r = ast_node_new(TT_RETURN); ast_push(r, rk_fnc2("__rk_new_defaults", leaf_sval2(TT_QLIT, cls), rk_tv("s"))); ast_push(sd, r); }
+    ast_push(prog, sd);
+    tree_t * vals[nkv > 0 ? nkv : 1];
+    for (int k = 0; k < nkv; k++) vals[k] = t->c[2 + 2 * k];
+    t->t = TT_FNC;
+    t->v.sval = (char *) hname;
+    t->n = 0;
+    ast_push(t, rk_tv(hname));
+    for (int k = 0; k < nkv; k++) ast_push(t, vals[k]);
+}
 static void rk_sort_cmp_walk(tree_t * prog, tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_sort_cmp_walk(prog, t->c[i]);
@@ -3999,6 +4089,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_globalize_file_scope_writes((tree_t *) prog);
     rk_hoist_anon_blocks((tree_t *) prog);
     rk_sort_cmp_walk((tree_t *) prog, (tree_t *) prog);
+    { int nseq = 0; rk_new_build_walk((tree_t *) prog, (tree_t *) prog, &nseq); }
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
     rk_lower_grammar_boxes(prog);

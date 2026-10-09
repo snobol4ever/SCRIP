@@ -512,6 +512,8 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs) {
     return r;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_construct_alloc(DatType *t, DESCR_t *args, int nargs) { return dat_alloc_fill(t, args, nargs); }
+void rt_construct_check(DatType *t, DESCR_t self) { dat_check_required(t, self); }
 DESCR_t rt_construct_build(DatType *t, DESCR_t *named, int nnamed) {
     DESCR_t self = dat_alloc_fill(t, (DESCR_t *)0, 0);
     extern void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed);
