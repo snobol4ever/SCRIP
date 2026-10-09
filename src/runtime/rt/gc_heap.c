@@ -2423,6 +2423,15 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     if (!b || !e) { cx->st = 2; return; }
     cx->e = e;
     cx->b = b;
+    if (e->rule == 9) {
+        const char *fb = r + 8 * ((e->kind >> 8) & 255);
+        int loff = (int)((uint32_t)e->depth & 0xffffu), carve = (int)(((uint32_t)e->depth >> 16) & 0xffffu);
+        const char *L = *(const char *const *)(fb + loff);
+        pc = *(const uint64_t *)(L + 8);
+        r = fb + 16 + carve;
+        g_gc_chain_fnhops++;
+        goto again;
+    }
     if (!b->map && e->rule == 0) {
         const char *fb = r + e->depth;
         uint64_t w = *(const uint64_t *)fb;

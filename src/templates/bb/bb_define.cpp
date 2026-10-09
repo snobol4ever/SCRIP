@@ -320,6 +320,14 @@ static std::string bb_define_sr() {
                                 + x86("mov", GQ(gk4[i], 8), "rax"); }); };
         if (fnsig()) {
             long F4nv = T4 + 16L * nf4; long F4 = F4nv + 16L * nnv4;
+            auto S9 = [&](auto f) {
+                long sv = _.site_shim9;
+                if (32 + 16L * xt4 > 0xFFFF || F4 > 0xFFFF)
+                    { fprintf(stderr, "FATAL bb_define role 4: a SIG shim frame of %ld bytes cannot be named by a rule-9 SHIM-SELF site (loff and carve must fit 16 bits)\n", (long)F4); abort(); }
+                _.site_shim9 = ((32 + 16L * xt4) | ((long)F4 << 16)) + 1L;
+                std::string r = f();
+                _.site_shim9 = sv;
+                return r; };
             auto NVPUSH =
                 [&]() { return x86("push", "rdi")
                              + x86("push", "rsi")
@@ -344,14 +352,14 @@ static std::string bb_define_sr() {
                      + NVPUSH() + x86("mov", "rdi", ROQ(232)) + NVCELLS() + x86_rsp_load64("rdx", (int)(16 * xt4 + 16 + 64))
                      + x86("mov", "rcx", "rsp")
                      + x86("add", "rcx", (long)(F4 + 64))
-                     + x86("call", "rt_shim_nv_in", (uint64_t)(uintptr_t)(void *)rt_shim_nv_in) + x86_rt_gc_poll() + NVPOP(); };
+                     + S9([&]() { return x86("call", "rt_shim_nv_in", (uint64_t)(uintptr_t)(void *)rt_shim_nv_in) + x86_rt_gc_poll(); }) + NVPOP(); };
             auto NVGAMMA = [&]() { if (!nnv4) return std::string();
                 return NVPUSH() + x86("mov", "rdi", ROQ(237)) + NVCELLS()
-                     + x86("call", "rt_shim_nv_gamma", (uint64_t)(uintptr_t)(void *)rt_shim_nv_gamma) + x86_rt_gc_poll()
+                     + S9([&]() { return x86("call", "rt_shim_nv_gamma", (uint64_t)(uintptr_t)(void *)rt_shim_nv_gamma) + x86_rt_gc_poll(); })
                      + IF(rg4 < 0, x86_rsp_store64(56, "rax") + x86_rsp_store64(48, "rdx")) + NVPOP(); };
             auto NVOMEGA = [&]() { if (!nnv4) return std::string();
                 return NVPUSH() + x86("mov", "rdi", ROQ(237)) + NVCELLS()
-                     + x86("call", "rt_shim_nv_omega", (uint64_t)(uintptr_t)(void *)rt_shim_nv_omega) + x86_rt_gc_poll() + NVPOP(); };
+                     + S9([&]() { return x86("call", "rt_shim_nv_omega", (uint64_t)(uintptr_t)(void *)rt_shim_nv_omega) + x86_rt_gc_poll(); }) + NVPOP(); };
             auto SIGQ = [&](long d) { return std::string("[rcx + ") + std::to_string(d) + "]"; };
             auto EXTQ = [&](long d) { return std::string("[rsp + ") + std::to_string(T4 + d) + "]"; };
             auto R8AT = [&]() { return x86("lea", "r8", std::string("[rsp + ") + std::to_string(F4) + "]"); };
@@ -388,6 +396,7 @@ static std::string bb_define_sr() {
                  + IF(!inl5, x86_alpha())
                  + x86_def_ext(emit_label_intern(la.c_str()))
                  + x86("sub", "rsp", F4)
+                 + x86_rsp_mark_save()
                  + WNSAVE()
                  + FOR(0, xt4, [&](int k) { if (gk4[nf4 + k] < 0) return std::string();
                        return x86("note", gva_note(gk4[nf4 + k]))
@@ -445,8 +454,8 @@ static std::string bb_define_sr() {
                  + x86("push", "rdi")
                  + x86_align_enter()
                  + x86("mov", "rdi", ROQ(232))
-                 + x86("call", "rt_trace_call_hook", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook)
-                 + x86_rt_gc_poll()
+                 + S9([&]() { return x86("call", "rt_trace_call_hook", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook)
+                 + x86_rt_gc_poll(); })
                  + x86_align_leave()
                  + x86("pop", "rdi")
                  + x86("pop", "r12")
@@ -471,8 +480,8 @@ static std::string bb_define_sr() {
                  + x86("push", "rdi")
                  + x86_align_enter()
                  + x86("mov", "rdi", ROQ(232))
-                 + x86("call", "sno_trace_call", (uint64_t)(uintptr_t)(void *)sno_trace_call)
-                 + x86_rt_gc_poll()
+                 + S9([&]() { return x86("call", "sno_trace_call", (uint64_t)(uintptr_t)(void *)sno_trace_call)
+                 + x86_rt_gc_poll(); })
                  + x86_align_leave()
                  + x86("pop", "rdi")
                  + x86("pop", "r12")
@@ -496,6 +505,7 @@ static std::string bb_define_sr() {
                              + x86("push", "rcx"))
                  + bb_define_entry_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), entry_cell)
                  + x86_def_ext(lbl_b)
+                 + x86_rsp_land(0L)
                  + x86_gc_site_raw(X86_SITE_FN_EXIT, 7, (int)((32 + 16 * xt4) | (F4 << 16)))
                  + NVGAMMA()
                  + IF(rg4 >= 0, x86("note", gva_note(rgx))
@@ -524,8 +534,8 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdi", ROQ(237))
                  + x86_rsp_load64("rsi", 48)
                  + x86_rsp_load64("rdx", 56)
-                 + x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook)
-                 + x86_rt_gc_poll()
+                 + S9([&]() { return x86("call", "rt_trace_return_hook", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook)
+                 + x86_rt_gc_poll(); })
                  + x86_align_leave()
                  + x86("pop", "r12")
                  + x86("pop", "r9")
@@ -551,8 +561,8 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdi", ROQ(237))
                  + x86_rsp_load64("rsi", 48)
                  + x86_rsp_load64("rdx", 56)
-                 + x86("call", "sno_trace_return", (uint64_t)(uintptr_t)(void *)sno_trace_return)
-                 + x86_rt_gc_poll()
+                 + S9([&]() { return x86("call", "sno_trace_return", (uint64_t)(uintptr_t)(void *)sno_trace_return)
+                 + x86_rt_gc_poll(); })
                  + x86_align_leave()
                  + x86("pop", "r12")
                  + x86("pop", "r9")
@@ -586,6 +596,7 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdx", "rsi")
                  + x86("jmp", "rcx")
                  + x86_def_ext(lbl_o)
+                 + x86_rsp_land(0L)
                  + NVOMEGA()
                  + FRESTORE(BB_SHIM_ID_OMEGA)
          + IF(x86_trace_hooks_on(), x86_load_got("rax", "g_trace", (uint64_t)(uintptr_t)(void *)&g_trace)
@@ -607,8 +618,8 @@ static std::string bb_define_sr() {
                  + x86("push", "rdi")
                  + x86_align_enter()
                  + x86("mov", "rdi", ROQ(237))
-                 + x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook)
-                 + x86_rt_gc_poll()
+                 + S9([&]() { return x86("call", "rt_trace_fail_hook", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook)
+                 + x86_rt_gc_poll(); })
                  + x86_align_leave()
                  + x86("pop", "rdi")
                  + x86("pop", "r12")

@@ -3745,6 +3745,7 @@ extern "C++" int emit_gc_site_new(int kind, int adj) {
     else if (icn_gen_zeta_ft() > 0) { rule = 2; depth = icn_gen_zeta_ft(); }
     else if (adj == X86_ADJ_ALIGNED) { rule = 4; depth = g_emit.op_zdepth; }
     else { rule = 0; depth = g_emit.op_zrun + adj; }
+    if (g_emit.site_shim9) { rule = 9; depth = (int)(g_emit.site_shim9 - 1); }
     gc_site_t * e = &CV_PUSH(g_gc_sites_v, gc_site_t); e->pc = 0; e->depth = depth; e->kind = (uint16_t)kind; e->rule = (uint16_t)rule; e->zdepth = g_emit.op_zdepth;
         e->fcb = (int32_t)g_emit.op_fc_bytes; e->fcbase = (int32_t)g_emit.op_fc_base; e->demit = depth; e->bk = x86_boxkind(); e->mn = 0; e->nd = g_emit.node;
     return (int)g_gc_sites_v.len - 1;
@@ -3763,6 +3764,18 @@ extern "C++" void emit_gc_site_play(int idx, const void * pc, int delta, int ali
     if (e->kind == X86_SITE_MATCH_ENTER) { int ek = e->rule == 3 ? 3 : (e->rule == 1 ? 1 : (e->rule == 0 && !aligned && !unknown ? 0 : 5)); int ed = e->rule == 0 ? e->depth + delta : 0;
         if (g_gc_match_n == 0) { g_gc_match_out.enc_kind = ek; g_gc_match_out.enc_depth = ed; } g_gc_match_n++; e->depth = ed; return; }
     if (e->kind == X86_SITE_MATCH_LEAVE) { if (g_gc_match_n > 0) g_gc_match_n--; return; }
+    if (e->rule == 9) {
+        const x86_rsp_st_t & K = x86_rsp_S();
+        int d = delta - K.mark - 16;
+        if (aligned || unknown || K.mark_unknown || d < 0 || (d & 7) || d / 8 > 255 || (e->kind & 0xFF00)) {
+            fprintf(stderr,
+                "FATAL emit_gc_site_play: a rule-9 SHIM-SELF site in %s needs a known distance from R to the shim's base, a multiple of 8 of at most 255 slots (delta=%d mark=%d d=%d al=%d unk=%d mar"
+                "k_unk=%d)\n",
+                g_emit.flat_fam ? g_emit.flat_fam : "chain", delta, K.mark, d, aligned, unknown, K.mark_unknown);
+            abort();
+        }
+        e->kind = (uint16_t)((e->kind & 255) | ((d / 8) << 8));
+    }
     if (e->rule == 0) { e->depth += delta; if (aligned) e->rule = 4; if (unknown) e->rule = 5; }
     if (g_gc_match_n > 0 && (e->rule == 0 || e->rule == 1 || e->rule == 3 || e->rule == 5)) { const gc_match_lvl_t & o = g_gc_match_out;
         if (o.enc_kind == 5) e->rule = 5; else { e->rule = 6; e->kind = (uint16_t)((e->kind & 255) | ((g_gc_match_n & 15) << 8) | ((o.enc_kind & 15) << 12)); e->depth = o.enc_depth; } }
