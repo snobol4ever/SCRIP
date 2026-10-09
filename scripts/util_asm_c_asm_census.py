@@ -25,24 +25,35 @@
 #      here.  That is a REAL hole and it is the direction the machine actually uses most, so a count of 0 from this tool
 #      would NOT prove the property -- it would prove only that no NAMED road remains.
 #   2. It does not model the killswitches; a road refused at runtime still counts as a road.
-#   3. It parses C by regex.  It is validated on every run against a MEASURED road (GROUND_TRUTH_ROAD) and REFUSES to
-#      report if that ground truth stops reproducing; the gate also plants two roads (--plant DIR) and requires both -- an analysis that cannot find the bug we already found by hand
-#      has no business grading the tree.
-import re, sys, glob, os, collections
+#   3. It parses C by regex.  It is validated on every run against a PLANTED road (SELFTEST_C / SELFTEST_CPP: a synthetic
+#      asm entry, a C body that calls it, an emitted call to that body, and two decoys that only take the entry's address)
+#      and REFUSES to report unless it finds the road, skips the decoys, and counts exactly one more than the tree; the
+#      gate also plants two roads (--plant DIR) and requires both -- an analysis that cannot find a road put there on
+#      purpose has no business grading the tree.
+import re, sys, glob, os, collections, tempfile
 BOGUS = {"DESCR_t","fn","code","if","for","while","switch","return","sizeof","do","else","static","extern","inline",
          "void","int","long","char","unsigned","struct","union","typedef","const","goto","case","default","break","continue"}
-# ⛔ THE GROUND TRUTH IS A MEASURED ROAD, RE-MEASURED WHEN THE CODE MOVES (CEO-1573).  beauty's s194 M1 path
-# (rt_call_arr -> rt_call_arr_impl -> try_call_builtin_by_name -> rt_call_named_proc) no longer exists as written: beauty
-# reaches no asm entry from C today (gdb, every entry broken on, SCRIP 7016f6e25).  The road below is the APPLY OF AN
-# INDIRECT NAME, measured under gdb on the same tree: Raku `say &::("f")(2)` with `sub f`, mode 3, a breakpoint on every
-# asm entry, the frames read from the backtrace -- emitted code (slab pc) -> rt_call_arr_bl_try -> ... -> rt_proc_enter.
-# The name the Raku lowerer hands the road there is the source text `(("f"))` (a Raku defect, telegrammed to hq_raku);
-# the last edge was measured with the name set to "f" at rt_call_proc_descr, as a correct lowering would hand it.
-GROUND_TRUTH_TREE = "7016f6e25"
-GROUND_TRUTH_ROAD = ["rt_call_arr_bl_try", "rt_call_arr_bl_s", "rt_call_arr_impl", "try_call_builtin_by_name_bl_s_rq",
-                     "script_try_call_builtin_by_name_rq", "rk_call_block_rq", "rk_call_snap_rq", "rk_proc_descr_rq",
-                     "rt_call_proc_descr", "rt_call_proc_descr_p", "rt_proc_enter"]
-GROUND_TRUTH = list(zip(GROUND_TRUTH_ROAD, GROUND_TRUTH_ROAD[1:]))
+# ⛔ THE SELFTEST IS A PLANTED ROAD, NOT A FOUND ONE (CEO-554, CEO-1576).  It was a MEASURED road (beauty's s194 M1
+# path, then the Raku APPLY of an indirect name ending at rt_proc_enter on SCRIP 7016f6e25); CEO-1576 landing 3 deleted
+# rt_proc_enter and every sibling C could reach, the road ceased to exist, and an instrument anchored on its witness died
+# the day the witness was cured.  The fixture below is the shape the census exists to see, written down once: an asm
+# entry that jumps through a register, a one-line C body that calls it, a multi-line C body the emitter calls by name,
+# and two decoys (one-line and multi-line) the emitter also calls that only DECLARE the entry in its body and returns its address -- the shape of
+# rt_goto_resolve_x handing back rt_setexit_continue_tramp, which the census once read as a call and counted as 112 roads.
+SELFTEST_C = (
+    '__asm__(".text\\n.globl rt_zz_selftest_entry\\nrt_zz_selftest_entry:\\n  jmp *%rdi\\n");\n'
+    'extern void rt_zz_selftest_entry(void *fn);\n'
+    'void rt_zz_selftest_mid(void *fn) { rt_zz_selftest_entry(fn); }\n'
+    'void rt_zz_selftest_road(long n) {\n'
+    '    if (n) rt_zz_selftest_mid((void *)0);\n'
+    '}\n'
+    'void *rt_zz_selftest_decoy(void) { extern void rt_zz_selftest_entry(void *fn); return (void *)rt_zz_selftest_entry; }\n'
+    'void *rt_zz_selftest_decoy_block(long n) {\n'
+    '    extern void rt_zz_selftest_entry(void *fn);\n'
+    '    return n ? (void *)rt_zz_selftest_entry : (void *)0;\n'
+    '}\n')
+SELFTEST_CPP = 'static std::string zz_selftest(void) { return x86("call", "rt_zz_selftest_road", 0) + x86("call", "rt_zz_selftest_decoy", 0) + x86("call", "rt_zz_selftest_decoy_block", 0); }\n'
+SELFTEST_ROAD = ["rt_zz_selftest_road", "rt_zz_selftest_mid", "rt_zz_selftest_entry"]
 DEF  = re.compile(r'^(?:static\s+|inline\s+|extern\s+)*[A-Za-z_][A-Za-z_0-9]*[ \*]+\**([A-Za-z_][A-Za-z_0-9]*)\s*\(')
 CALL = re.compile(r'\b([A-Za-z_][A-Za-z_0-9]*)\s*\(')
 # NO LEADING WHITESPACE: a forward declaration in this tree sits at COLUMN 0; a body statement is indented.  The first
@@ -50,8 +61,11 @@ CALL = re.compile(r'\b([A-Za-z_][A-Za-z_0-9]*)\s*\(')
 # the selftest is for.
 PROTO = re.compile(r'^(?:extern\s+)?[A-Za-z_][A-Za-z_0-9 \*]*\**[A-Za-z_][A-Za-z_0-9]*\s*\([^;{]*\)\s*;\s*$')
 STRLIT = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'')
+# ⛔ A BLOCK-SCOPE DECLARATION IS NOT A CALL.  `{ extern void rt_setexit_continue_tramp(void); return (void *)rt_setexit_continue_tramp; }`
+# names the trampoline to take its address; read as a call it manufactured 112 roads through rt_goto_resolve_x (CEO-1576).
+LOCALDECL = re.compile(r'\bextern\s+[A-Za-z_][A-Za-z_0-9 \*]*?\**\s*[A-Za-z_][A-Za-z_0-9]*\s*\([^;{}()]*\)\s*;')
 INDIRECT = re.compile(r'\b(?:jmp|call)q?\s+\*')
-def asm_entries(root):
+def asm_entries(root, plants=()):
     """⛔ THE ASM ACTIVATION ENTRIES ARE COMPUTED, NOT TYPED (CEO-1573).  The typed set had fallen behind the code:
     rt_proc_enter_named, rt_proc_enter_frag, rt_genp_spine_enter_n2 and rt_tiny_glue_enter all enter emitted code and
     none was in it.  An entry is a global symbol DEFINED IN ASM -- a .globl inside an __asm__ block of a C file under
@@ -60,6 +74,7 @@ def asm_entries(root):
     code.  An asm leaf that only calls named C is not an entry."""
     out = set()
     cs = glob.glob(os.path.join(root,'src/runtime/**/*.c'), recursive=True) + glob.glob(os.path.join(root,'src/driver/**/*.c'), recursive=True)
+    cs += [f for d in plants for f in sorted(glob.glob(os.path.join(d,'*.c')))]
     for path in cs:
         txt = open(path, encoding='utf-8', errors='ignore').read()
         for m in re.finditer(r'__asm__\s*\((.*?)\)\s*;', txt, re.S):
@@ -74,31 +89,31 @@ def asm_entries(root):
             if m: cur = m.group(1) or m.group(2); continue
             if cur and INDIRECT.search(line): out.add(cur)
     return out
-def build(root, entries, plant=None):
+def build(root, entries, plants=()):
     """⛔ BODIES ARE BRACE-BOUNDED, NOT 'UNTIL THE NEXT DEFINITION'.  The naive form absorbed everything after a
     function -- including the forward declaration `DESCR_t rt_proc_enter(void *fn);` and the __asm__ string blocks --
     and manufactured an edge rt_proc_call_epilogue_ret -> rt_proc_enter that DOES NOT EXIST (its real body calls only
     rt_proc_call_epilogue_omega/gamma).  That single fake edge sat on 18 of 26 reported roads.  This codebase writes
     `}` at column 0 with zero blank lines, so the closing brace is a reliable terminator."""
     bodies = collections.defaultdict(list)
-    for path in sorted(glob.glob(os.path.join(root,'src/runtime/**/*.c'), recursive=True)) + (sorted(glob.glob(os.path.join(plant,'*.c'))) if plant else []):
+    for path in sorted(glob.glob(os.path.join(root,'src/runtime/**/*.c'), recursive=True)) + [f for d in plants for f in sorted(glob.glob(os.path.join(d,'*.c')))]:
         cur = None
         for line in open(path, encoding='utf-8', errors='ignore'):
             if cur is not None:
                 if line.startswith('}'): cur = None; continue
-                if not PROTO.match(line) and not line.lstrip().startswith('"'): bodies[cur].append(STRLIT.sub('""', line))
+                if not PROTO.match(line) and not line.lstrip().startswith('"'): bodies[cur].append(LOCALDECL.sub('', STRLIT.sub('""', line)))
                 continue
             m = DEF.match(line)
             if not m or m.group(1) in BOGUS: continue
             head = line.rstrip()
             if '{' in head and head.endswith('}'):
-                bodies[m.group(1)].append(STRLIT.sub('""', head[head.index('{') + 1:]))
+                bodies[m.group(1)].append(LOCALDECL.sub('', STRLIT.sub('""', head[head.index('{') + 1:])))
             elif ';' not in head and head.endswith(('{',')')):
                 cur = m.group(1); bodies[cur]  # touch so a body-less definition still registers
     g = {f: {c for ln in b for c in CALL.findall(ln)} - BOGUS for f,b in bodies.items()}
     known = set(g) | entries
     return {f: (cs & known) for f,cs in g.items()}
-def asm_callees(root, plant=None):
+def asm_callees(root, plants=()):
     """The callee of every x86("call*", ...) the emitter and the templates write: EVERY identifier literal in the
     call's second argument, so `cond ? "a" : "b"` names both.  The templates live in subdirectories (src/templates/bb,
     x86, xa) and the emitter writes calls too; the old flat glob over src/templates/*.cpp matched no file at all.
@@ -107,7 +122,7 @@ def asm_callees(root, plant=None):
     every `(void *)NAME` and `TEMPLATE_FN_ADDR(NAME)` there is a callee too."""
     out = set()
     srcs = [f for d in ('src/templates','src/emitter') for e in ('cpp','h') for f in glob.glob(os.path.join(root,d,'**','*.'+e), recursive=True)]
-    srcs += sorted(glob.glob(os.path.join(plant,'*.cpp'))) if plant else []
+    srcs += [f for d in plants for f in sorted(glob.glob(os.path.join(d,'*.cpp')))]
     for p in srcs:
         txt = open(p, encoding='utf-8', errors='ignore').read()
         for m in re.finditer(r'x86\(\s*"call[^"]*"\s*,', txt):
@@ -137,22 +152,31 @@ def main():
     if args and not (plant and os.path.isdir(plant)):
         print("usage: util_asm_c_asm_census.py [--roads-by-entry] [--plant DIR]  (DIR's *.c read as runtime C, its *.cpp as emitter source)")
         return 2
-    entries = asm_entries(root)
-    g = build(root, entries, plant)
-    callees = asm_callees(root, plant)
-    missing = [a+" -> "+b for a,b in GROUND_TRUTH if b not in g.get(a,())]
-    if GROUND_TRUTH_ROAD[0] not in callees: missing.append("emitted asm -> " + GROUND_TRUTH_ROAD[0])
-    if GROUND_TRUTH_ROAD[-1] not in entries: missing.append(GROUND_TRUTH_ROAD[-1] + " is not an asm entry")
+    def analyse(plants):
+        entries = asm_entries(root, plants)
+        g = build(root, entries, plants)
+        callees = asm_callees(root, plants)
+        reach, ch = {f for f in g if g[f] & entries}, True
+        while ch:
+            ch = False
+            for f,cs in g.items():
+                if f not in reach and (cs & reach): reach.add(f); ch = True
+        return entries, g, callees, reach, sorted(callees & set(g) & reach)
+    entries, g, callees, reach, bad = analyse((plant,) if plant else ())
+    with tempfile.TemporaryDirectory() as fx:
+        open(os.path.join(fx, 'zz_selftest.c'), 'w').write(SELFTEST_C)
+        open(os.path.join(fx, 'zz_selftest.cpp'), 'w').write(SELFTEST_CPP)
+        s_entries, s_g, _, _, s_bad = analyse((fx,) + ((plant,) if plant else ()))
+    missing = [a+" -> "+b for a,b in zip(SELFTEST_ROAD, SELFTEST_ROAD[1:]) if b not in s_g.get(a,())]
+    if SELFTEST_ROAD[-1] not in s_entries: missing.append(SELFTEST_ROAD[-1] + " is not an asm entry")
+    if SELFTEST_ROAD[0] not in s_bad: missing.append("the planted road " + SELFTEST_ROAD[0] + " is not reported")
+    for d in ("rt_zz_selftest_decoy", "rt_zz_selftest_decoy_block"):
+        if d in s_bad: missing.append("the decoy %s, which only takes the entry's address, is reported as a road" % d)
+    if len(s_bad) != len(bad) + 1: missing.append("the planted fixture moved the count by %d, not 1" % (len(s_bad) - len(bad)))
     if missing:
-        print("⛔ SELFTEST FAILED — the census cannot reproduce the MEASURED road (%s); refusing to report." % GROUND_TRUTH_TREE)
+        print("⛔ SELFTEST FAILED — the census cannot find the PLANTED road; refusing to report.")
         for m in missing: print("   MISSING EDGE:", m)
         return 3
-    reach, ch = {f for f in g if g[f] & entries}, True
-    while ch:
-        ch = False
-        for f,cs in g.items():
-            if f not in reach and (cs & reach): reach.add(f); ch = True
-    bad = sorted(callees & set(g) & reach)
     def path(f, goal=None, through=None):
         goal, through = goal or entries, through or reach
         prev, q = {f: None}, collections.deque([f])
@@ -167,7 +191,7 @@ def main():
                     return p[::-1]
                 if c in through: q.append(c)
         return None
-    print("=== NO-ASM->C->ASM CENSUS (selftest OK: the measured road of %s reproduces) ===" % GROUND_TRUTH_TREE)
+    print("=== NO-ASM->C->ASM CENSUS (selftest OK: the planted road is found and its decoys are not) ===")
     print("    C functions parsed %d · asm entries %d · reaching an asm entry %d · called from emitted asm %d" %
           (len(g), len(entries), len(reach), len(callees)))
     print("    ASM -> C -> ASM roads: %d" % len(bad))
