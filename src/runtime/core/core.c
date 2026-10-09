@@ -4748,7 +4748,11 @@ static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, D
     rt_call_args_need(nargs);
     for (int k = 0; k < nargs; k++) ((DESCR_t *)g_call_args.p)[k] = args[k];
     rt_call_args_clear_from(nargs);
-    if (rq) { extern int rt_call_open_tail(const char *, int, long *); if (rt_call_open_tail(name, nargs, rq)) { *out = FAILDESCR; return 1; } }
+    if (rq) {
+        extern int rt_call_open_tail(const char *, int, long *);
+        extern int rt_call_open_tail_lex(const char *, int, long *);
+        if (rt_call_open_tail(name, nargs, rq) || rt_call_open_tail_lex(name, nargs, rq)) { *out = FAILDESCR; return 1; }
+    }
     *out = RT_GC_CALLBACK(rt_call_proc_descr(name, nargs));
     return 1;
 }

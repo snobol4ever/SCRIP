@@ -1226,7 +1226,24 @@ static void rt_sno_shim_refresh_ent(rt_proc_t *p, const char *name, void *ent) {
     }
 }
 static void rt_sno_shim_refresh(rt_proc_t *p, const char *name) { rt_sno_shim_refresh_ent(p, name, (void *)0); }
-DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs) { (void)p; (void)nargs; return rt_c2bb_bomb("rt_call_proc_descr", name); }
+DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs) {
+    if (p && p->dyn_scope && !p->thunk) {
+        void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0);
+        if (!afn) afn = rt_sno_shim_lazy(p, name);
+        if (afn) return rt_c2bb_bomb("rt_call_proc_descr", name);
+        if (!p->fn) { core_runtime_error(286, "function call to undefined entry label"); return FAILDESCR; }
+        rt_nsave_bomb("rt_call_proc_descr", name);
+        return FAILDESCR;
+    }
+    if (!p || !p->fn) {
+        extern void rt_pl_iso_throw_existence_key(const char *);
+        fprintf(stderr, "[GZ-10] rt_call_proc_descr: procedure '%s' has no stackless slab\n", name ? name : "(null)");
+        rt_pl_iso_throw_existence_key(name ? name : "?");
+        return FAILDESCR;
+    }
+    (void)nargs;
+    return rt_c2bb_bomb("rt_call_proc_descr", name);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb, long wn) {
     long idx = p ? (long)(p - g_rt_gen_procs) : 0;

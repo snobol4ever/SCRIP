@@ -13551,6 +13551,11 @@ rt_call_next_t rt_call_arr_bl_try(const char *fn, DESCR_t *args, long nb, DESCR_
     int nargs = (int)(uint32_t)nb, bidlen = (int)(nb >> 32);
     { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_s(fn, args, nargs, bidlen, 0, 0, rq)); if (!rq[0]) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
 }
+rt_call_next_t rt_call_arr_bl_sn4_try(const char *fn, DESCR_t *args, long nb, DESCR_t *out) {
+    long rq[2] = { 0, 0 };
+    int nargs = (int)(uint32_t)nb, bidlen = (int)(nb >> 32);
+    { DESCR_t v = RT_GC_CALLBACK(rt_call_arr_bl_sn4_rq(fn, args, nargs, bidlen, rq)); if (!rq[0]) *out = v; return (rt_call_next_t){ rq[0], rq[1] }; }
+}
 rt_call_next_t rt_call_callee_try_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r, DESCR_t *out) {
     extern DESCR_t dat_construct(DatType *, DESCR_t *, int);
     long rq[2] = { 0, 0 };

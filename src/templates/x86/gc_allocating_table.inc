@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2351
+#define GC_ALLOC_TAB_N 2354
 #define GC_ALLOC_TAB_N_VOID 286
-#define GC_ALLOC_TAB_N_DESCR 1152
-#define GC_ALLOC_TAB_N_OTHER 897
+#define GC_ALLOC_TAB_N_DESCR 1154
+#define GC_ALLOC_TAB_N_OTHER 898
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1354,6 +1354,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_arr_bl_s", GC_RET_DESCR },
     { "rt_call_arr_bl_sn4", GC_RET_DESCR },
     { "rt_call_arr_bl_sn4_rq", GC_RET_DESCR },
+    { "rt_call_arr_bl_sn4_try", GC_RET_OTHER },
     { "rt_call_arr_bl_strict", GC_RET_DESCR },
     { "rt_call_arr_bl_try", GC_RET_OTHER },
     { "rt_call_arr_gen", GC_RET_DESCR },
@@ -1376,6 +1377,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_open_staged_rec", GC_RET_OTHER },
     { "rt_call_open_tail", GC_RET_OTHER },
     { "rt_call_open_tail_lex", GC_RET_OTHER },
+    { "rt_call_proc_descr", GC_RET_DESCR },
+    { "rt_call_proc_descr_p", GC_RET_DESCR },
     { "rt_call_value", GC_RET_DESCR },
     { "rt_call_value_gen_h", GC_RET_DESCR },
     { "rt_call_value_resume_h", GC_RET_DESCR },

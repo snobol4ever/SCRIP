@@ -59,6 +59,12 @@ done
 printf -- '-- ARM A: every box-entry shim hands r13 over as a DT_S cell (static, NAMED) --\n'
 python3 "$CENSUS" > "$TD/census.txt" 2>&1; crc=$?
 cat "$TD/census.txt"
+# ⛔ ceo 2026-10-09 (CEO-1576, Lon: "stop the show and remove all of them"): the shims this gate censused are DELETED. When the census finds no asm block with an
+# indirect jump AND the tree defines none of the five box-entry shims, the population is empty BY DESIGN and the gate passes by name; the guard reads the tree,
+# so a shim put back (a .globl of one of the five) re-arms the census and this gate by itself.
+if grep -q 'no __asm__ block with an indirect jump' "$TD/census.txt" && ! grep -rqaE '\.globl (rt_proc_enter|rt_proc_enter_named|rt_tiny_record_enter|rt_chain_enter|rt_chain_enter_v)\\n' src/runtime 2>/dev/null; then
+  printf '✅ GATE PASS [%s]: no box-entry asm shim remains in the tree (CEO-1576, the C-to-BB removal): rt_proc_enter, rt_proc_enter_named, rt_tiny_record_enter, rt_chain_enter and rt_chain_enter_v are deleted, nothing hands r13 over a C frame any more\n' "$(basename "$0" .sh)"; exit 0
+fi
 if [ "$crc" != 0 ]; then printf 'GATE REFUSE(2): the census refused rc=%s -- COULD NOT MEASURE\n' "$crc"; exit 2; fi
 HEAD_LINE="$(grep -m1 '^CENSUS asm-shim-tag' "$TD/census.txt")"
 TAGGED="$(printf '%s' "$HEAD_LINE" | sed -nE 's/.*tagged=([0-9]+).*/\1/p')"
