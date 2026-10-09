@@ -26,6 +26,19 @@ container_package_run() {
   [ -n "$board" ] || { echo "⛔ REFUSE(rc=2): corpus_suite_harness.py printed no SUITE_BOARD line (above) -- nothing measured, no row written"; return 2; }
   field_() { printf '%s\n' "$board" | grep -oE " $1=[0-9]+" | head -1 | cut -d= -f2; }
   scored="$(field_ total)"; bothp="$(field_ all_pass)"; m3p="$(field_ m3_pass)"; m4p="$(field_ m4_pass)"
+  # ⭐ THE POPULATION IS SHIPPED TOO (CEO-749/1286, test_gate_score_row_denominator_includes_xfails.sh): every shipped program the container does
+  # not grade gets one UNGRADED progress row per mode, its class from UNGRADABLE.tsv or UNGRADED.tsv, before the row is written
+  . "$here/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; return 2; }
+  local graded_list ung_rows n cls
+  graded_list="$(cd "$sd" && S4E_PROGRESS_OFF=1 python3 scripts/corpus_suite_harness.py list "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" 2>/dev/null)"
+  ung_rows="$(mktemp)"
+  while IFS= read -r f; do
+    n="$(basename "$f" ".$ext")"; grep -qxF "$n" <<<"$graded_list" && continue
+    cls="$(awk -F'\t' -v k="$n.$ext" '$1==k {print $2; exit}' "$suite/UNGRADABLE.tsv" "$suite/UNGRADED.tsv" 2>/dev/null)"
+    printf 'package\t%s\t%s\t%s\tm3\tUNGRADED\t0\t%s\npackage\t%s\t%s\t%s\tm4\tUNGRADED\t0\t%s\n' "$key" "$lang" "$n" "${cls:-unclassed}" "$key" "$lang" "$n" "${cls:-unclassed}" >> "$ung_rows"
+  done < <(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" | sort)
+  [ -s "$ung_rows" ] && { progress_append_rows_tsv "$ung_rows" || echo "⚠ the UNGRADED progress rows were not appended (reason above) -- the row write's cross-check reads the graded population only" >&2; }
+  rm -f "$ung_rows"
   # the denominator is SHIPPED (CEO-1286): a program the container does not grade is named in UNGRADABLE.tsv or UNGRADED.tsv and stays
   # in as debt; only a program a ruled EXCLUDED.tsv class names leaves it, shown as Excl
   excl=0; [ -f "$suite/EXCLUDED.tsv" ] && excl=$(grep -vc -E '^#|^\s*$' "$suite/EXCLUDED.tsv")
