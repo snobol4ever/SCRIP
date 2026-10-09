@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "lower.h"
-#include "../parsers/pascal/pascal_driver.h"
 #define PAS_MAX_SCOPE 64
 typedef struct pas_scope_s { const char * names[PAS_MAX_SCOPE]; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
 typedef struct { const char * name; IR_t * node; } pas_label_t;
