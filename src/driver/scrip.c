@@ -1999,7 +1999,7 @@ int main(int argc, char **argv) {
     register_fn("CODE", _builtin_CODE, 1, 1);
     register_fn("DATA", _builtin_DATA, 1, 1);
     register_fn("print", _builtin_print, 0, 99);
-    extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
+    extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int, long *);
     g_user_call_hook = _usercall_hook;
     {
         extern void sno_preeval_program(const tree_t *);

@@ -81,9 +81,20 @@ rm -f "$RAW.tmp1"
 grep -rna --include='*.c' -E -e 'call \*%r?ax|call \*%%r?ax|jmp \*%%?rax' $SCAN_DIRS 2>/dev/null | cut -d: -f1,2 | sed 's/$/:asm-shim/' >> "$RAW"
 # (d) bare MAIN-shape entries
 grep -rna --include='*.c' -E -e 'fn\(rt_frame\(\), 0\)|m3_enter_with_rbx\(' $SCAN_DIRS 2>/dev/null | grep -av 'static void m3_enter_with_rbx' | cut -d: -f1,2 | sed 's/$/:main-shape/' >> "$RAW"
-# (e) riders: C callers of the V4/V5 trampoline API outside rt.c (exclude decls)
-grep -rna --include='*.c' -E -e 'rt_proc_call_gen_h\(|rt_proc_resume_frame_h\(' $SCAN_DIRS 2>/dev/null \
-    | grep -av 'src/runtime/rt/rt\.c' | grep -avE ':[ \t]*(extern|DESCR_t) ' | cut -d: -f1,2 | sed 's/$/:rider/' >> "$RAW"
+# (e) riders: C callers of the V4/V5 trampoline API outside rt.c (exclude decls) -- counted ONLY WHILE THE API STILL TRANSFERS.
+# ⛔ ceo 2026-10-09 (CEO-1576, Lon: "List how many places call into BB's from C. Then stop the show and remove all of them."):
+# a rider is a C function that reaches a shim THROUGH rt_proc_call_gen_h or rt_proc_resume_frame_h. Once the body of that API
+# function carries no shim call (rt_proc_enter / rt_proc_enter_named / rt_tiny_record_enter / rt_chain_enter), what it does is
+# start or resume a coroutine (the sanctioned arm test_gate_c2bb_the_generator_arm_is_a_coroutine_start_not_a_box_entry_from_c.sh
+# reads), and its callers ride nothing. The guard reads the body from the tree, never a hand-kept list, so a shim call put back
+# into either function re-arms this rule by itself.
+for _api in rt_proc_call_gen_h rt_proc_resume_frame_h; do
+    _body="$(awk -v f="$_api" '$0 ~ "^DESCR_t " f "\\(" {p=1} p {print} p && /^}/ {exit}' src/runtime/rt/rt.c)"
+    if printf '%s\n' "$_body" | grep -qE '\b(rt_proc_enter|rt_proc_enter_named|rt_tiny_record_enter|rt_chain_enter)\('; then
+        grep -rna --include='*.c' -E -e "$_api\\(" $SCAN_DIRS 2>/dev/null \
+            | grep -av 'src/runtime/rt/rt\.c' | grep -avE ':[ \t]*(extern|DESCR_t) ' | cut -d: -f1,2 | sed 's/$/:rider/' >> "$RAW"
+    fi
+done
 cd "$REPO" || exit 2
 
 while IFS=: read -r f l shape; do

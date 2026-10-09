@@ -1344,6 +1344,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_call_land_γ", GC_RET_DESCR },
     { "rt_call_name_sn4", GC_RET_DESCR },
     { "rt_call_name_sn4_rq", GC_RET_DESCR },
+    { "rt_call_named_open", GC_RET_OTHER },
     { "rt_call_named_proc", GC_RET_DESCR },
     { "rt_call_open_by_name", GC_RET_OTHER },
     { "rt_call_open_by_name_p", GC_RET_OTHER },

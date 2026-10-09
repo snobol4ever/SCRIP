@@ -91,7 +91,7 @@ extern DESCR_t pat_assign_imm(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_assign_cond(DESCR_t child, DESCR_t var);
 extern DESCR_t pat_at_cursor(const char *varname);
 extern DESCR_t pat_user_call(const char *name, DESCR_t *args, int nargs);
-extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int);
+extern DESCR_t (*g_user_call_hook)(const char *, DESCR_t *, int, long *);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_case_eq(const DESCR_t *sel, const DESCR_t *key) {
     if (!sel || !key) return 0;
@@ -1371,6 +1371,23 @@ int rt_call_open_tail_lex(const char *name, int nargs, long *rq) {
         return 1;
     }
 }
+int rt_call_named_open(const char *name, DESCR_t *args, int nargs, long *rq) {
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!rq || !p || !p->dyn_scope) return 0;
+    {
+        int _n = nargs < 0 ? 0 : nargs;
+        rt_call_args_need(_n);
+        for (int i = 0; i < _n; i++) CALL_ARGS[i] = args[i];
+        rt_call_args_clear_from(_n);
+        rt_call_next_t n = rt_call_open_by_name_p(p, name, _n);
+        rq[0] = n.fn;
+        rq[1] = n.how;
+#if RT_DIAG
+        if (n.fn) rt_c2bb_hit("named.open", name);
+#endif
+        return 1;
+    }
+}
 int rt_dtx_open_tail(sno_dstar_rec_t *r, long *rq) {
     rt_proc_t *p = (r && !(r->flags & SNO_DSTAR_VARREF)) ? rt_proc_of_rec(r) : (rt_proc_t *)0;
     if (!p || !p->dyn_scope || !p->fn) return 0;
@@ -1635,15 +1652,6 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
         int ok = scrip_coexpr_activate(&g->co, 0, 0, out2, (const char *)0, (uint64_t)DT_CO);
         return rt_genp_triage(g, ok, out2, hout);
     }
-    if (p->jmp_entry) {
-        long fb2 = rt_proc_call_open(name, nargs);
-        if (!fb2) { if (hout) *hout = (void *)0; return FAILDESCR; }
-        if (hout) *hout = (void *)0;
-#if RT_DIAG
-        rt_c2bb_hit("gen_h.enter", name);
-#endif
-        return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L, rt_proc_touches_level(p));
-    }
     if (hout) *hout = (void *)0;
     core_runtime_error(287,
         "generator-handle callregime: the LAST non-tail C-frame call into a box is DELETED (Lon 2026-09-21, in-chat to the cto: 'So if those C function violation are all dead code, i.e. not live, th"
@@ -1801,7 +1809,7 @@ _Static_assert(sizeof(long) == 8,
     "THE EPILOGUE TAKES THE PROCEDURE THE CALL OPENED (ceo CEO-1263): g_rt_gen_procs[idx] is the called record itself -- its slots are fixed and a redefinition rewrites the slot in place -- so the i"
     "dx epilogues and the land restore the names its prologue saved without finding the procedure by name a second time, which SPITBOL never does either");
 _Static_assert(sizeof(long) == 8,
-    "rt_proc_enter_named and rt_proc_enter_frag park the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; par"
+    "rt_proc_enter_named parks the callee's TABLE INDEX (an integer) across the body and re-derive its name here from the rooted, slot-fixed g_rt_gen_procs at the epilogue; par"
     "king the name POINTER raw on the C stack left it stale after a collection that slid the block (cto 2026-09-23, user_function_opsyn_8 under the association tap's poll; row 867's holder)");
 static int rt_proc_call_prologue_lex(rt_proc_t **pp, int nargs, int wn);
 #define RT_DC_CHUNK 64

@@ -363,7 +363,7 @@ DESCR_t *gva_register(const char **names, DESCR_t *cells, int n);
 const char *NV_name_from_ptr(const DESCR_t *ptr);
 extern DESCR_t (*g_eval_str_hook)(const char *s);
 DESCR_t *array_ptr(ARBLK_t *a, int i);
-extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs);
+extern DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs, long *rq);
 int subscript_set(DESCR_t arr, DESCR_t idx, DESCR_t val);
 DESCR_t subscript_get2(DESCR_t arr, DESCR_t i, DESCR_t j);
 DESCR_t subscript_get2_ext(DESCR_t arr, DESCR_t i, DESCR_t end);

@@ -14,7 +14,7 @@ DESCR_t _builtin_IDENT(DESCR_t *args, int nargs);
 DESCR_t _builtin_DIFFER(DESCR_t *args, int nargs);
 DESCR_t _builtin_DATA(DESCR_t *args, int nargs);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
+DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq) {
     if (strcmp(name, "IDENT") == 0) return _builtin_IDENT(args, nargs);
     if (strcmp(name, "DIFFER") == 0) return _builtin_DIFFER(args, nargs);
     if (strcmp(name, "DATA") == 0) return _builtin_DATA(args, nargs);
@@ -48,9 +48,10 @@ DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs) {
     int _wn_pre = rt_g_want_name;
     if (FNCEX_fn(name)) {
         extern int rt_proc_named_runs(const char *);
-        if (rt_proc_named_runs(name)) return rt_call_named_proc(name, args, nargs);
-        const char *_ent = FUNC_ENTRY_fn(name);
-        if (_ent && strcmp(_ent, name) != 0 && rt_proc_named_runs(_ent)) return rt_call_named_proc(_ent, args, nargs);
+        extern int rt_call_named_open(const char *, DESCR_t *, int, long *);
+        const char *_run = name;
+        if (!rt_proc_named_runs(_run)) { const char *_ent = FUNC_ENTRY_fn(name); _run = (_ent && strcmp(_ent, name) != 0 && rt_proc_named_runs(_ent)) ? _ent : (const char *)0; }
+        if (_run) return rt_call_named_open(_run, args, nargs, rq) ? FAILDESCR : rt_call_named_proc(_run, args, nargs);
     }
     rt_g_want_name = _wn_pre;
     return call_user_function(name, args, nargs);

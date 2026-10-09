@@ -2741,7 +2741,7 @@ void core_lib_init(void) {
     for (int i = 0; i < 256; i++) alphabet[i] = (char)i;
     alphabet[256] = '\0';
     { extern void rt_kw_seed_defaults(void); rt_kw_seed_defaults(); }
-    if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs); g_user_call_hook = _usercall_hook; }
+    if (!g_user_call_hook) { extern DESCR_t _usercall_hook(const char *name, DESCR_t *args, int nargs, long *rq); g_user_call_hook = _usercall_hook; }
     { struct timespec _ts; clock_gettime(CLOCK_MONOTONIC, &_ts); _g_start_ns = (int64_t)_ts.tv_sec * 1000000000LL + (int64_t)_ts.tv_nsec; }
 #if RT_DIAG
     const char *mon_fifo = getenv("MONITOR_READY_PIPE");
@@ -4728,7 +4728,7 @@ void core_undefined_call_error(const char *name) {
     else core_runtime_error(22, "undefined function called");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs) = NULL;
+DESCR_t (*g_user_call_hook)(const char *name, DESCR_t *args, int nargs, long *rq) = NULL;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int core_apply_runtime_proc(const char *name, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
     extern int rt_proc_is_registered(const char *);
@@ -4767,12 +4767,12 @@ static DESCR_t apply_fn_body(const char *name, DESCR_t *args, int nargs, long *r
                 return e->fn(args, nargs);
             }
             { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr, rq)) return pr; }
-            if (g_user_call_hook) return g_user_call_hook(name, args, nargs);
+            if (g_user_call_hook) return g_user_call_hook(name, args, nargs, rq);
             return NULVCL;
         }
     }
     { DESCR_t pr; if (core_apply_runtime_proc(name, args, nargs, &pr, rq)) return pr; }
-    if (g_user_call_hook) { DESCR_t r = g_user_call_hook(name, args, nargs); if (!IS_FAIL_fn(r)) return r; }
+    if (g_user_call_hook) { DESCR_t r = g_user_call_hook(name, args, nargs, rq); if ((rq && rq[0]) || !IS_FAIL_fn(r)) return r; }
 #if RT_DIAG
     if (getenv("SCRIP_DEBUG_APPLY")) fprintf(stderr, "[apply-err5] unresolved '%s' (nargs=%d)\n", name ? name : "(null)", nargs);
 #endif

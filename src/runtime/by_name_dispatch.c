@@ -13680,7 +13680,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
                 extern const char *sn4_unary_op_key(const char *);
                 const char *uk = sn4_unary_op_key(fn);
                 if (core_call_registered_fn(uk, args, nargs, &out)) return out;
-                if (FNCEX_fn(uk)) return RT_GC_CALLBACK(APPLY_fn(uk, args, nargs));
+                if (FNCEX_fn(uk)) return RT_GC_CALLBACK(APPLY_fn_rq(uk, args, nargs, rq));
                 core_runtime_error(29, "undefined operator referenced");
                 return FAILDESCR;
             }
@@ -13715,7 +13715,7 @@ static DESCR_t rt_call_arr_impl(const char *fn, DESCR_t *args, int nargs, int bi
         if (!strcmp(fn, "/")) return na(a, b, BINOP_DIV);
         if (!strcmp(fn, "%")) {
             extern int FNCEX_fn(const char *);
-            if (FNCEX_fn(fn)) return RT_GC_CALLBACK(APPLY_fn(fn, args, nargs));
+            if (FNCEX_fn(fn)) return RT_GC_CALLBACK(APPLY_fn_rq(fn, args, nargs, rq));
             if (sn4) { core_runtime_error(29, "undefined operator referenced"); return FAILDESCR; }
             return na(a, b, BINOP_MOD);
         }
