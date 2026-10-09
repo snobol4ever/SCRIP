@@ -71,11 +71,12 @@ src/templates/bb/bb_define.cpp:rt_define_site_entry#1	hb_define_with_an_entry_la
 src/templates/bb/bb_define.cpp:rt_shim_nv_in#1	hb_shim_nv_road.sno
 src/templates/bb/bb_define.cpp:rt_shim_nv_gamma#1	hb_shim_nv_road.sno
 src/templates/bb/bb_define.cpp:rt_shim_nv_omega#1	hb_shim_nv_road.sno
-src/templates/bb/bb_define.cpp:rt_trace_call_hook#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:rt_trace_call_hook_i#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:sno_trace_call#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:rt_trace_return_hook#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:rt_trace_return_hook_i#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:sno_trace_return#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:rt_trace_fail_hook#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:rt_trace_fail_hook_i#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:sno_trace_return#2	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_deref.cpp:rt_deref#1	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_deref.cpp:rt_deref#2	stack_top_under_valgrind.icn
 src/templates/bb/bb_gcc.cpp:rt_icn_cset_member#1	UNWITNESSED
@@ -160,7 +161,7 @@ src/templates/bb/bb_unop.cpp:rt_cset_compl#2	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_size_d#2	hb_size_result_polled.icn
 src/templates/bb/bb_unop.cpp:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg#2	hb_bignum_length.icn
 src/templates/bb/bb_unop.cpp:rt_num_pos#2	hb_bignum_length.icn
-src/templates/bb/bb_var_global.cpp:NV_GET_fn#1	hb_shim_nv_road.sno
+src/templates/bb/bb_var_global.cpp:NV_GET_open#1	hb_shim_nv_road.sno
 src/templates/bb/bb_var_ref.cpp:rt_pl_fresh_var_ref#1	UNWITNESSED
 src/templates/bb/bb_var_ref.cpp:rt_var_ref_cell_named#1	UNWITNESSED
 src/templates/xa/xa_flat.cpp:rt_arg_stage#1	UNWITNESSED

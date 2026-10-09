@@ -58,7 +58,10 @@ TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
 # open roads, so hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn witnesses bb_call_proc_staged.cpp :102 (the staging slow path, a ninth argument) and :464/:468/:471
 # (polled at :472); the same commit re-keys the twelve rows 6ec5871c8 moved by one to three lines (bb_call_proc_staged.cpp :819/:822, bb_define.cpp :490/:517/:572, emit.cpp
 # :3416..:3419, and the three det-arm rows above), each to its own function at its new line with its old witness -- undeclared 12 and retired 12 on origin, 0 and 0 here.
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-59}"
+# 57 over 165 on the re-key after cf6af2b58 (cto 2026-10-09, hq_raku's report): the SNOBOL4 trace-hook landing renamed the three role-4 shim hook polls to their _i forms and added
+# sno_trace_return, so origin read undeclared 5 and retired 4 (unwitnessed 62); every one of the five is reached by hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+# or hb_shim_nv_road.sno at zero collections in both modes, and the table carried two more witnessed rows than the old ceiling credited, so the ceiling falls to 57 and nothing arrives.
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-57}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
