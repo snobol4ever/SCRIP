@@ -1755,6 +1755,15 @@ static PNodeList *pas_var_names_add(PNodeList *seen, PNodeList *ids) {
         pnl_push(seen, ids->items[i]); }
     return seen;
 }
+static tree_t *pas_for_once(tree_t *e) {
+    if (!e || e->t != TT_FOR || e->n < 4 || !e->c[1] || !e->c[2]) return e;
+    int kfrom = e->c[1]->t == TT_ILIT || e->c[1]->t == TT_QLIT, kto = e->c[2]->t == TT_ILIT || e->c[2]->t == TT_QLIT;
+    if (kto) return e;
+    static int _fln = 0; tree_t *q = ast_node_new(TT_SEQ_EXPR);
+    if (!kfrom) { char _b[24]; snprintf(_b, sizeof _b, "__pas_fl%d", _fln++); const char *_n = ct_strdup(_b); pas_scope_define(_n); pas_local_add(_n); ast_push(q, mk_assign(leaf_s(TT_VAR, _n), e->c[1])); e->c[1] = leaf_s(TT_VAR, _n); }
+    char _b2[24]; snprintf(_b2, sizeof _b2, "__pas_fl%d", _fln++); const char *_n2 = ct_strdup(_b2); pas_scope_define(_n2); pas_local_add(_n2);
+    ast_push(q, mk_assign(leaf_s(TT_VAR, _n2), e->c[2])); e->c[2] = leaf_s(TT_VAR, _n2); ast_push(q, e); return q;
+}
 static void pas_for_const_bounds(const char *cv, tree_t *from, tree_t *to, int down) {
     if (!cv || !from || !to || from->t != TT_ILIT || to->t != TT_ILIT) return;
     long long lo = 0, hi = -1, a = from->v.ival, b = to->v.ival; int n = 0;
@@ -2469,12 +2478,12 @@ for_statement:
         { pas_scope_require($2); pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
           if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 0);
-          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = e; }
+          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = pas_for_once(e); }
     | FORSY IDENT BECOMES expression DOWNTOSY expression DOSY statement
         { pas_scope_require($2); pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
           if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 1);
-          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = e; }
+          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = pas_for_once(e); }
     ;
 with_statement:
     WITHSY with_open DOSY statement { long long n = $2; for (long long i = 0; i < n; i++) pas_with_pop(); $$ = $4; }
