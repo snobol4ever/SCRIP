@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2245
-#define GC_ALLOC_TAB_N_VOID 271
-#define GC_ALLOC_TAB_N_DESCR 1131
+#define GC_ALLOC_TAB_N 2249
+#define GC_ALLOC_TAB_N_VOID 273
+#define GC_ALLOC_TAB_N_DESCR 1133
 #define GC_ALLOC_TAB_N_OTHER 828
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1187,12 +1187,16 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_range_value", GC_RET_DESCR },
     { "rk_register_classes", GC_RET_VOID },
     { "rk_rsp_arg_num", GC_RET_VOID },
+    { "rk_rsp_legacy_pad", GC_RET_VOID },
     { "rk_rsp_pad", GC_RET_VOID },
     { "rk_rsprintf", GC_RET_VOID },
+    { "rk_rsprintf_legacy", GC_RET_VOID },
     { "rk_run_child", GC_RET_OTHER },
     { "rk_sb_put", GC_RET_VOID },
     { "rk_sb_rep", GC_RET_VOID },
     { "rk_scrip_exe", GC_RET_OTHER },
+    { "rk_seq_num2", GC_RET_DESCR },
+    { "rk_sequence", GC_RET_DESCR },
     { "rk_slurp_file", GC_RET_OTHER },
     { "rk_spill", GC_RET_OTHER },
     { "rk_spill_count", GC_RET_OTHER },

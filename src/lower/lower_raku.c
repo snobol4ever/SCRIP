@@ -3911,11 +3911,11 @@ static int rk_uses_v6e(const tree_t * t) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_sprintf_names(tree_t * t) {
+static void rk_sprintf_names(tree_t * t, int v6e) {
     if (!t) return;
-    for (int i = 0; i < t->n; i++) rk_sprintf_names(t->c[i]);
+    for (int i = 0; i < t->n; i++) rk_sprintf_names(t->c[i], v6e);
     if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "sprintf") || !strcmp(t->v.sval, "printf")) && t->n >= 1 && !rk_proc_known(t->v.sval)) {
-        const char * nn = !strcmp(t->v.sval, "sprintf") ? "__rk_sprintf" : "__rk_printf";
+        const char * nn = !strcmp(t->v.sval, "sprintf") ? (v6e ? "__rk_sprintf" : "__rk_sprintf_d") : (v6e ? "__rk_printf" : "__rk_printf_d");
         t->v.sval = (char *) nn;
         if (t->c[0] && t->c[0]->t == TT_VAR) t->c[0]->v.sval = (char *) nn;
     }
@@ -3945,7 +3945,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_tail_ifs((tree_t *) prog);
     rk_assign_pow_rhs((tree_t *) prog);
     rk_typed_vars((tree_t *) prog);
-    if (rk_uses_v6e(prog)) rk_sprintf_names((tree_t *) prog);
+    rk_sprintf_names((tree_t *) prog, rk_uses_v6e(prog));
     rk_range_values((tree_t *) prog);
     rk_nonint_ranges((tree_t *) prog);
     rk_nested_elem_sets((tree_t *) prog);
