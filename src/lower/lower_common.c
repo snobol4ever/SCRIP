@@ -21,7 +21,8 @@ g_lower_t g_lower = { .pl = { .fresh_next = 900000, .seed_var_base = 4096, .fenc
     (int) sizeof(const tree_t *) }, .proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) } }, .opt = { .bc_mon_m = -1, .dg_mon_m = -1, .cf_spine_on_s = -1 } , .ir = { .zls_slot_census_on = -1,
     .zls_build_dbg = -1, .zls_build_dbg2 = -1, .zls_build_dbg3 = -1, .zls_build_subj_on = -1, .zls_build_dyn_on = -1, .zls_build_dbg4 = -1, .zls_build_dbg5 = -1, .zls_build_eon = -1, .zc_nofc_v = -1,
     .fc_geom_ac = -1, .fc_reg_hw_e = (const char *) 1, .zls_dump_plant = -1, .zw_carve_k_ba = -1, .zw_carve_k_all = -1, .bb_print_v_xd2 = -1, .zdp_mode_m = -1, .zdp_cap_seamtier_v = -1,
-    .zdp_atp_seamtier_v = -1, .zdp_bomb_census_bm = -1, .ast_print_width = 140, .znb_gen = 1, .zgh = (zgh_t *)0, .fcn_gen = 1, .seq_of_node = (const int *)0 } };
+    .zdp_atp_seamtier_v = -1, .zdp_bomb_census_bm = -1, .ast_print_width = 140, .znb_gen = 1, .zgh = (zgh_t *)0, .fcn_gen = 1, .seq_of_node = (const int *)0 },
+    .rk = { .rk_lower_grammar_boxes_nat = -1 } };
 extern int junction_is(DESCR_t v);
 extern int junction_collapse(DESCR_t scalar, DESCR_t jct, int op, int numeric);
 extern int junction_mirror_op(int op);

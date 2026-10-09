@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <math.h>
 #include "lower.h"
+#include "g_lower.h"
 typedef struct {
     int try_depth;
     IR_graph_t * g;
@@ -17,16 +18,25 @@ typedef struct {
     int cur_nparams;
     const char * cur_proc_name;
 } rcx_t;
-static cv_t g_rk_gram_names;
-static cv_t g_rk_class_names;
-static cv_t g_rk_multi_names;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_seq_is_logical_and(const tree_t * t) { return t && t->t == TT_SEQ && t->n == 2 && t->v.ival == 1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_is_multi_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_multi_names.len; i++) if (!strcmp(CV_AT(g_rk_multi_names, const char *, i), nm)) return 1; return 0; }
-static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_rk_multi_names, const char *) = nm; } }
-static int rk_is_grammar_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_gram_names.len; i++) if (!strcmp(CV_AT(g_rk_gram_names, const char *, i), nm)) return 1; return 0; }
-static int rk_is_class_name(const char * nm) { if (!nm) return 0; for (uint32_t i = 0; i < g_rk_class_names.len; i++) if (!strcmp(CV_AT(g_rk_class_names, const char *, i), nm)) return 1; return 0; }
+static int rk_is_multi_name(const char * nm) {
+    if (!nm) return 0;
+    for (uint32_t i = 0; i < g_lower.rk.multi_names.len; i++) if (!strcmp(CV_AT(g_lower.rk.multi_names, const char *, i), nm)) return 1;
+    return 0;
+}
+static void rk_multi_name_add(const char * base) { if (!base || rk_is_multi_name(base)) return; { const char * nm = ct_strdup(base); CV_PUSH(g_lower.rk.multi_names, const char *) = nm; } }
+static int rk_is_grammar_name(const char * nm) {
+    if (!nm) return 0;
+    for (uint32_t i = 0; i < g_lower.rk.gram_names.len; i++) if (!strcmp(CV_AT(g_lower.rk.gram_names, const char *, i), nm)) return 1;
+    return 0;
+}
+static int rk_is_class_name(const char * nm) {
+    if (!nm) return 0;
+    for (uint32_t i = 0; i < g_lower.rk.class_names.len; i++) if (!strcmp(CV_AT(g_lower.rk.class_names, const char *, i), nm)) return 1;
+    return 0;
+}
 static const char * rk_qualified_type_gist(const char * nm) {
     const char * p = strrchr(nm, ':');
     const char * shortname = p ? p + 1 : nm;
@@ -41,7 +51,7 @@ static const char * rk_qualified_type_gist(const char * nm) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_modeled_type(const char * ty) {
     if (!ty) return 0;
-    static const char * k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 };
+    static const char * const k[] = { "Int", "Num", "Rat", "Str", "Numeric", "Real", "Cool", "Bool", 0 };
     for (int i = 0; k[i]; i++) if (!strcmp(ty, k[i])) return 1;
     return rk_is_class_name(ty);
 }
@@ -89,9 +99,7 @@ static int rk_method_is_stub(const tree_t * m) {
 static const char * rk_fld_bare(const char * s) { return (s && (s[0] == '.' || s[0] == '!')) ? s + 1 : s; }
 static int rk_fld_priv(const char * s) { return (s && s[0] == '!') ? 1 : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int g_rk_user_write_meth = 0;
-static const char * RK_LISTLIKE_METHNAMES[] = { "keys", "values", "kv", "sort", "reverse", "grep", "map", "split", "words", "comb", NULL };
-static int g_rk_listlike_overridden[10];
+static const char * const RK_LISTLIKE_METHNAMES[] = { "keys", "values", "kv", "sort", "reverse", "grep", "map", "split", "words", "comb", NULL };
 static int rk_listlike_idx(const char * nm) { if (!nm) return -1; for (int i = 0; RK_LISTLIKE_METHNAMES[i]; i++) if (!strcmp(RK_LISTLIKE_METHNAMES[i], nm)) return i; return -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * rk_find_type_decl(const tree_t * prog, const char * name) {
@@ -194,7 +202,7 @@ static int rk_yields_list(const tree_t * t) {
         const char * f = t->c[0]->v.sval;
         return !strcmp(f, "__rk_arr_slice") || !strcmp(f, "__rk_arr_pick") || !strcmp(f, "__rk_hyper_meth");
     }
-    if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) { int li = rk_listlike_idx(t->c[1]->v.sval); return li >= 0 && !g_rk_listlike_overridden[li]; }
+    if (t->t == TT_METHCALL && t->n > 1 && t->c[1] && t->c[1]->v.sval) { int li = rk_listlike_idx(t->c[1]->v.sval); return li >= 0 && !g_lower.rk.listlike_overridden[li]; }
     if (t->t == TT_SORT || t->t == TT_REVERSE) return 1;
     return 0;
 }
@@ -469,9 +477,8 @@ static tree_t * rk_case_match(const tree_t * subj, const tree_t * cond) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_case_desugar(const tree_t * t) {
-    static int cid = 0;
     char nb[48];
-    snprintf(nb, sizeof nb, "__case_%d", cid++);
+    snprintf(nb, sizeof nb, "__case_%d", g_lower.rk.rk_case_desugar_cid++);
     const char * vn = intern(nb);
     tree_t * chain = NULL;
     for (int i = t->n - 2; i >= 1; i -= 2) {
@@ -1473,8 +1480,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 }
             }
             if (src && xfk == 0) {
-                static int g_forlist_ctr = 0;
-                int fid = ++g_forlist_ctr;
+                int fid = ++g_lower.rk.lower_rv_forlist_ctr;
                 char iname[48];
                 snprintf(iname, sizeof iname, "__foridx_%d", fid);
                 const char * in = intern(iname);
@@ -1710,7 +1716,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     return eval_;
                 }
             }
-            if (mname && t->n == 2 && t->c[0] && !g_rk_user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
+            if (mname && t->n == 2 && t->c[0] && !g_lower.rk.user_write_meth && (!strcmp(mname, "say") || !strcmp(mname, "print"))) {
                 const tree_t * inv = t->c[0];
                 const char * wfn = !strcmp(mname, "print") ? "rk_writes" : "rk_write";
                 if (!strcmp(mname, "say")) { if (rk_yields_array(inv)) wfn = "rk_write_arr"; else if (rk_yields_list(inv)) wfn = "rk_write_list"; }
@@ -1772,9 +1778,8 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return rk_excise(cx, γ, ω, res);
         case TT_TERNARY:
         if (t->n > 2) {
-            static int tern_n = 0;
             char tn[32];
-            snprintf(tn, sizeof tn, "$?tern%d", tern_n++);
+            snprintf(tn, sizeof tn, "$?tern%d", g_lower.rk.lower_rv_tern_n++);
             const char * tname = lp_strdup(tn);
             IR_t * jv = build(cx, IR_VAR, γ, ω);
             IR_LIT(jv).sval = tname;
@@ -1884,7 +1889,7 @@ static void rk_discover_lexical_regexes(const tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_discover_grammars(const tree_t * prog) {
     extern void rt_grammar_register(const char *qname, const char *body, int flavor);
-    g_rk_gram_names.len = 0;
+    g_lower.rk.gram_names.len = 0;
     if (!prog) return;
     rk_discover_lexical_regexes(prog);
     for (int i = 0; i < prog->n; i++) {
@@ -1893,7 +1898,7 @@ static void rk_discover_grammars(const tree_t * prog) {
         if (!d || d->t != TT_GRAMMAR_DECL) continue;
         const char * gname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!gname || !*gname) continue;
-        if (!rk_is_grammar_name(gname)) CV_PUSH(g_rk_gram_names, const char *) = gname;
+        if (!rk_is_grammar_name(gname)) CV_PUSH(g_lower.rk.gram_names, const char *) = gname;
         for (int j = 1; j < d->n; j++) {
             const tree_t * rd = d->c[j];
             if (!rd || rd->t != TT_REGEX_DECL) continue;
@@ -1910,18 +1915,18 @@ static void rk_discover_grammars(const tree_t * prog) {
 static void rk_register_classes(const tree_t * prog) {
     extern void record_register(const char *spec);
     if (!prog) return;
-    g_rk_class_names.len = 0;
-    g_rk_user_write_meth = 0;
-    memset(g_rk_listlike_overridden, 0, sizeof g_rk_listlike_overridden);
+    g_lower.rk.class_names.len = 0;
+    g_lower.rk.user_write_meth = 0;
+    memset(g_lower.rk.listlike_overridden, 0, sizeof g_lower.rk.listlike_overridden);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
         if (!d || (d->t != TT_CLASS_DECL && d->t != TT_ROLE_DECL)) continue;
         const char * cname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
         if (!cname || !*cname) continue;
-        if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_rk_user_write_meth = 1;
-        for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_rk_listlike_overridden[li] = 1;
-        if (!rk_is_class_name(cname)) CV_PUSH(g_rk_class_names, const char *) = cname;
+        if (rk_type_provides_real_method(d, "say") || rk_type_provides_real_method(d, "print")) g_lower.rk.user_write_meth = 1;
+        for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_lower.rk.listlike_overridden[li] = 1;
+        if (!rk_is_class_name(cname)) CV_PUSH(g_lower.rk.class_names, const char *) = cname;
         size_t specn = strlen(cname) + 3;
         for (int j = 1; j < d->n; j++) if (d->c[j] && d->c[j]->t != TT_SUB_DECL) specn += 1 + (d->c[j]->v.sval ? strlen(d->c[j]->v.sval) : 0);
         char spec[specn];
@@ -2375,9 +2380,8 @@ static IR_t * rk_gram_build_leaf_chain(IR_graph_t * gg, rk_gleaf_t * lv, int nlv
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_lower_grammar_boxes(const tree_t * prog) {
     extern int g_opt_dump_bb;
-    static int nat = -1;
-    if (nat < 0) { const char *e = getenv("RK_GRAM_NATIVE"); nat = (e && e[0] == '0') ? 0 : 1; }
-    if (!g_opt_dump_bb && !nat) return;
+    if (g_lower.rk.rk_lower_grammar_boxes_nat < 0) { const char *e = getenv("RK_GRAM_NATIVE"); g_lower.rk.rk_lower_grammar_boxes_nat = (e && e[0] == '0') ? 0 : 1; }
+    if (!g_opt_dump_bb && !g_lower.rk.rk_lower_grammar_boxes_nat) return;
     if (!prog) return;
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
@@ -3212,12 +3216,11 @@ static void rk_hoist_anon_blocks(tree_t * prog) {
     tree_t * blks[rk_count_blocks(prog) + 1];
     int nb = 0;
     rk_collect_blocks(prog, blks, &nb, (int) (sizeof blks / sizeof blks[0]));
-    static int g_blk_ctr = 0;
     for (int i = 0; i < nb; i++) {
         extern int rt_proc_is_registered(const char *);
         tree_t * blk = blks[i];
         char nm[64];
-        do snprintf(nm, sizeof nm, "__blk_%d", ++g_blk_ctr);
+        do snprintf(nm, sizeof nm, "__blk_%d", ++g_lower.rk.rk_hoist_anon_blocks_blk_ctr);
         while (rt_proc_is_registered(nm));
         char * pn = lp_strdup(nm);
         blk->v.sval = pn;
@@ -3980,7 +3983,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_discover_grammars(prog);
     rk_lower_grammar_boxes(prog);
     rk_register_classes(prog);
-    if (reset_multi) g_rk_multi_names.len = 0;
+    if (reset_multi) g_lower.rk.multi_names.len = 0;
     for (int i = 0; prog && i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }

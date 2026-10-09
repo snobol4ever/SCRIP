@@ -236,6 +236,18 @@ typedef struct {
     zls_fct_t fct[64];
     char zls_pas_display_name_names[13][24];
 } g_lower_ir_t;
-typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_icn_t icn; g_lower_pas_t pas; g_lower_opt_t opt; g_lower_ir_t ir; } g_lower_t;
+typedef struct {
+    cv_t gram_names;
+    cv_t class_names;
+    cv_t multi_names;
+    int user_write_meth;
+    int listlike_overridden[10];
+    int rk_case_desugar_cid;
+    int lower_rv_forlist_ctr;
+    int lower_rv_tern_n;
+    int rk_lower_grammar_boxes_nat;
+    int rk_hoist_anon_blocks_blk_ctr;
+} g_lower_rk_t;
+typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_icn_t icn; g_lower_pas_t pas; g_lower_opt_t opt; g_lower_ir_t ir; g_lower_rk_t rk; } g_lower_t;
 extern g_lower_t g_lower;
 #endif
