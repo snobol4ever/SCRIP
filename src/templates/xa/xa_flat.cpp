@@ -97,9 +97,11 @@ static std::string xa_flat_dc_stub_str(void) {
             + x86_lea_id("rdx", 3)
             + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_dc_body_p ? g_emit.flat_dc_body_p->name : "?")
             + x86_deflabel_id(2)
+            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
             + x86("add", "rsp", 8L)
             + x86("ret")
             + x86_deflabel_id(3)
+            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
             + x86("add", "rsp", 8L)
             + x86("mov32", "eax", 104L)
             + x86("xor", "edx", "edx")
@@ -130,9 +132,11 @@ static std::string xa_flat_dc_stub_str(void) {
                 + x86_lea_id("rcx", 2) + x86("push", "rcx")
                 + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
                 + x86_deflabel_id(2)
+                + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 24)
                 + x86("add", "rsp", 24L)
                 + x86("ret")
                 + x86_deflabel_id(3)
+                + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 24)
                 + x86("add", "rsp", 24L)
                 + x86("mov32", "eax", 104L)
                 + x86("xor", "edx", "edx")
@@ -143,9 +147,11 @@ static std::string xa_flat_dc_stub_str(void) {
             + x86_lea_id("rdx", 3)
             + x86_jmp_lblptr(g_emit.flat_dc_body_p, g_emit.flat_lbl_α ? g_emit.flat_lbl_α : "?")
             + x86_deflabel_id(2)
+            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
             + x86("add", "rsp", 8L)
             + x86("ret")
             + x86_deflabel_id(3)
+            + x86_gc_site_raw(X86_SITE_RET_ROAD, 7, 8)
             + x86("add", "rsp", 8L)
             + x86("mov32", "eax", 104L)
             + x86("xor", "edx", "edx")
@@ -472,8 +478,11 @@ static std::string xa_flat_zframe_prologue_str(void) {
                "PACKET FRAGMENT: this frame is the youngest choice from its entry (B = its header, the floor word at its "
                    "base), as a multi-clause chain's alternation is, so every binding of a caller cell is trailed and the chain-omega's unwind undoes it before the next clause")
            + x86_pl_disj_open(x86_fb(), kt, 236, 237); }
-    if (g_emit_cfg && g_emit_cfg->root_graph) s += emit_gc_map_cell(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0);
-    else s += emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16, 0u, 0);
+    if (g_emit_cfg && g_emit_cfg->root_graph) s += emit_gc_map_cell(kt - FLAT_FRAME_ALLOWANCE_ROOT, kt, FLAT_FRAME_ALLOWANCE_ROOT - 16, GC_FRAME_MAP_ROOT, 0, 0u);
+    else s += emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, kt, kt - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
+        (!g_rt_fragment_emit && g_emit.flat_fam && (!strcmp(g_emit.flat_fam, "main") || !strcmp(g_emit.flat_fam, "pat_flat"))) ? GC_FRAME_MAP_ROOT : 0u, 0,
+        (zf_pas_nest_graph() ? GC_LINK_Q(kt + (int)zf_det_block_size(), kt - 8, kt + (int)zf_det_block_size() + 16, x86_fb_pinned() ? 0u : GC_LINK_RBP_KEPT) :
+        GC_LINK_Q(kt - 24, kt - 8, kt + 16 * ((g_emit_cfg && zls_g_block_args(g_emit_cfg)) ? g_emit_cfg->nparams : 0), x86_fb_pinned() ? 0u : GC_LINK_RBP_KEPT)));
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

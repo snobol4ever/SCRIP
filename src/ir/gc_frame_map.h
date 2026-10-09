@@ -45,6 +45,15 @@ _Static_assert(GC_LAY_OFF(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == -72 && GC_LAY_KIND
     "the map's four quads when GC_FRAME_MAP_BLOB is set, and the collector reads them through (const uint64_t *)(map + 1); no relocation in either medium, so the map's sizeof stays 32 (ARCH-GC-COMPI"
     "LE-TIME-FRAME-MAPS.md section 6.2e)");
 #endif
+#define GC_LINK_RBP_KEPT 1u
+#define GC_LINK_R_IND 2u
+#define GC_LINK_Q(pc, rbp, r, fl) ((uint64_t)(uint32_t)(int32_t)(pc) | ((uint64_t)(uint16_t)(int16_t)((rbp) - (pc)) << 32) | ((uint64_t)(uint8_t)(int8_t)((r) - (pc)) << 48) | ((uint64_t)((fl) & \
+    0x7Fu) << 56) | (1ull << 63))
+#define GC_LINK_SET(q) ((unsigned)(((q) >> 63) & 1u))
+#define GC_LINK_PC(q) ((int)(int32_t)(uint32_t)(q))
+#define GC_LINK_RBP(q) (GC_LINK_PC(q) + (int)(int16_t)(uint16_t)((q) >> 32))
+#define GC_LINK_R(q) (GC_LINK_PC(q) + (int)(int8_t)(uint8_t)((q) >> 48))
+#define GC_LINK_FL(q) ((unsigned)(((q) >> 56) & 0x7Fu))
 #define FLAT_FRAME_ALLOWANCE 64
 #define FLAT_FRAME_ALLOWANCE_PINNED 96
 #define FLAT_FRAME_ALLOWANCE_ROOT 80

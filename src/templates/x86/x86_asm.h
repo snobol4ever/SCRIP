@@ -352,6 +352,7 @@ extern "C++" std::string emit_gc_site_label(int idx);
 #define X86_SITE_MATCH_ENTER 4
 #define X86_SITE_MATCH_LEAVE 5
 #define X86_SITE_FN_EXIT 6
+#define X86_SITE_RET_ROAD 7
 #define X86_ADJ_ALIGNED (-1)
 inline std::string x86_gc_site_adj(int kind, int adj) {
     int idx = emit_gc_site_new(kind, adj);
@@ -701,8 +702,8 @@ inline std::string x86_jmp_reg(const char * r) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_call_dc(const char * dcname, uint64_t slot) {
-    if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("rax", slot); std::string c; c += (char)0xFF; c += (char)0x10; r += x86_Lrec(c); return r; }
-    return x86_rec("call") + dcname + "\n";
+    if (MEDIUM_BINARY) { std::string r = x86_movabs_r64("rax", slot); std::string c; c += (char)0xFF; c += (char)0x10; r += x86_Lrec(c); return r + x86_gc_site(X86_SITE_CALL); }
+    return x86_rec("call") + dcname + "\n" + x86_gc_site(X86_SITE_CALL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_jmp_lblptr(bb_label_t * l, const char * txt) {
@@ -2593,7 +2594,7 @@ inline void bb_emit_x86(const std::string & s) {
         else break;
     }
 }
-extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel);
+extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel, uint64_t link);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void rt_gc_poll(void);
 extern "C" void rt_gc_poll_asm(void);

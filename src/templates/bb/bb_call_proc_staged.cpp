@@ -97,6 +97,7 @@ static std::string bcps_wire_cross_gen(int gid, int wid) {
          + x86_jmp_reg("rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string bcps_wire_land_site(const char *fname) { return x86_rsp_land((icn_wire_stack_for(fname) && !bcps_wire_pair_consumed(fname)) ? 16L : 0L) + x86_gc_site(X86_SITE_LANDING); }
 static std::string bcps_wire_land(const char *fname) { return icn_wire_stack_for(fname) ? IF(!bcps_wire_pair_consumed(fname), x86("add", "rsp", 16L)) : std::string(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int bcps_retfix(void) {
@@ -497,13 +498,16 @@ static std::string bcps_det_arm() {
                                                                                                              + x86("push", "rcx") : std::string("");
                    }
                    ()
+                   + x86_rsp_mark_save()
                    + bcps_wire_cross(3, 4, _.op_sval)
                    + x86("def", L(3))
+                   + bcps_wire_land_site(_.op_sval)
                    + bcps_wire_land(_.op_sval)
                    + (det_idx_z >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ))
                                       : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
                    + x86("jmp", L(2))
                    + x86("def", L(4))
+                   + bcps_wire_land_site(_.op_sval)
                    + bcps_wire_land(_.op_sval)
                    + (det_idx_z >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω))
                                       : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
@@ -670,13 +674,16 @@ static std::string bcps_det_arm() {
                                                                                                       + x86("push", "rcx") : std::string("");
             }
             ()
+            + x86_rsp_mark_save()
             + bcps_wire_cross(3, 4, _.op_sval)
             + x86("def", L(3))
+            + bcps_wire_land_site(_.op_sval)
             + bcps_wire_land(_.op_sval)
             + (det_idx >= 0 ? bcps_epi_det(0, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_γ", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ))
                              : bcps_epi_named(0, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_γ)))
             + x86("jmp", L(2))
             + x86("def", L(4))
+            + bcps_wire_land_site(_.op_sval)
             + bcps_wire_land(_.op_sval)
             + (det_idx >= 0 ? bcps_epi_det(1, rt_proc_is_generator(_.op_sval)) + x86("call", "rt_proc_call_epilogue_ω", TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω))
                              : bcps_epi_named(1, TEMPLATE_FN_ADDR(rt_proc_call_epilogue_ω)))
@@ -730,14 +737,19 @@ static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, 
          + x86("test", "eax", "eax")
          + x86("je", L(lskip))
          + blk
+         + x86_rsp_mark_save()
          + x86_lea_id("rcx", lγ) + x86_lea_id("rdx", lω)
          + x86("mov", "rax", FRQ(fncell))
          + x86_jmp_reg("rax")
          + x86("def", L(lγ))
+         + x86_rsp_land(0L)
+         + x86_gc_site(X86_SITE_LANDING)
          + bcps_lvl_add(-1L) + x86("mov", "rax", "rdi")
          + x86("mov", "rdx", "rsi")
          + x86("jmp", L(2))
          + x86("def", L(lω))
+         + x86_rsp_land(0L)
+         + x86_gc_site(X86_SITE_LANDING)
          + bcps_lvl_add(-1L) + x86("mov32", "eax", (long)DT_FAIL)
          + x86("xor", "edx", "edx")
          + x86("jmp", L(2))
@@ -879,9 +891,12 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("mov", FRQ(act), 0L)
          + bcps_block_build(argblks, n)
          + IF(pl_lco_armed, bcps_block_tail_arm(n, kt, 100, idx))
+         + x86_rsp_mark_save()
          + x86_lea_id("rcx", 3) + x86_lea_id("rdx", 4)
          + bcps_jmp_callee(idx)
          + x86("def", L(3))
+         + x86_rsp_land(0L)
+         + x86_gc_site(X86_SITE_LANDING)
          + x86("mov", FRQ(act), "rax")
          + x86("mov", FRQ(act + 8), "rdx")
          + bcps_lvl_add(-1L)
@@ -889,6 +904,8 @@ static std::string bcps_block_arm(int off, int act, IR_graph_t ** argblks, long 
          + x86("mov", "rdx", "rsi")
          + x86("jmp", L(2))
          + x86("def", L(4))
+         + x86_rsp_land(0L)
+         + x86_gc_site(X86_SITE_LANDING)
          + x86("mov", FRQ(act), 0L)
          + bcps_lvl_add(-1L)
          + x86("mov32", "eax", (long)DT_FAIL)

@@ -71,7 +71,9 @@ done
 # is tabled (notab=0) and fully covered (i_gap=0). arm 5, THE FAIL-ONCE THAT IS A CURE: the nested-scan witness holds the
 # OUTER subject pointer in scan-enter's save slot across the whole inner scan; registered ZK_RAW ("dead at safe points")
 # it read i_raw_heap=1 at every one of 15101 collections on the uncured tree (2026-09-19); retagged ZK_PTR_GC it reads
-# i_raw_heap=0 and i_ptr_heap>=1, both media, answer = icont. arm 6: every installed map carries a layout in both media.
+# i_raw_heap=0 and i_ptr_heap>=1, both media, answer = icont. Since hq_collector's chain step 2 (ARCH-GC 13.5) the save is a
+# DT_S cell, so the frame holds no PTR_GC word at all: arm 5 reads i_raw_heap=0, i_ptr=0 and i_heap>=1 (the heap pointers are
+# in tagged cells), both media, answer = icont. arm 6: every installed map carries a layout in both media.
 for w in w.sno g.icn; do
     e="$W/onerr_$w.txt"; n=$(grep -c '^\[GC-WALK\] ' "$e")
     if [ "$n" -eq 0 ]; then echo "  arm 4 RED [$w]: no [GC-WALK] line -- the frame walker did not run beside the sweep"; bad=1; continue; fi
@@ -88,12 +90,14 @@ walk_arm5() {
     "$@" > "$W/ns_out.txt" 2> "$W/ns_err.txt"; r=$?
     c=$(grep -c '^\[GC-WALK\] ' "$W/ns_err.txt")
     rh=$(grep '^\[GC-WALK\] ' "$W/ns_err.txt" | grep -o 'i_raw_heap=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
-    ph=$(grep '^\[GC-WALK\] ' "$W/ns_err.txt" | grep -o 'i_ptr_heap=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
+    ph=$(grep '^\[GC-WALK\] ' "$W/ns_err.txt" | grep -o 'i_heap=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
+    pp=$(grep '^\[GC-WALK\] ' "$W/ns_err.txt" | grep -o 'i_ptr=[0-9]*' | sed 's/.*=//' | sort -rn | head -1)
     if [ "$r" -ne 0 ] || ! cmp -s "$W/ns_out.txt" "$NSREF"; then echo "  arm 5 RED [$lbl]: rc=$r answer=[$(tail -1 "$W/ns_out.txt")] oracle=[$(cat "$NSREF")]"; bad=1; return; fi
     if [ "$c" -lt 1 ]; then echo "  arm 5 RED [$lbl]: no collection observed under the reporter"; bad=1; return; fi
     if [ "${rh:-1}" -ne 0 ]; then echo "  arm 5 RED [$lbl]: i_raw_heap=$rh -- a RAW-kinded frame slot holds a collected-heap pointer the typed walk would not relocate (the scan-enter sigma save read exactly this on the uncured tree)"; bad=1; return; fi
-    if [ "${ph:-0}" -lt 1 ]; then echo "  arm 5 RED [$lbl]: i_ptr_heap=${ph:-0} -- the retagged sigma save never held a heap pointer, so this arm graded nothing"; bad=1; return; fi
-    echo "  arm 5 PASS [$lbl]: $c collection(s), i_raw_heap=0, i_ptr_heap>=1, answer = icont"
+    if [ "${pp:-1}" -ne 0 ]; then echo "  arm 5 RED [$lbl]: i_ptr=$pp -- a raw PTR_GC word is back in the nested-scan frame where ARCH-GC 13.5 keeps a DT_S cell"; bad=1; return; fi
+    if [ "${ph:-0}" -lt 1 ]; then echo "  arm 5 RED [$lbl]: i_heap=${ph:-0} -- no tagged cell of the frame held a heap pointer, so this arm graded nothing"; bad=1; return; fi
+    echo "  arm 5 PASS [$lbl]: $c collection(s), i_raw_heap=0, i_ptr=0, i_heap>=1, answer = icont"
 }
 walk_arm5 "m3" env SCRIP_GC_MAPS=1 SCRIP_GC_STRESS=1 timeout 300 "$ROOT/scrip" "$NS"
 if "$ROOT/scrip" --compile -o "$W/ns.s" "$NS" < /dev/null 2>"$W/nsc.txt" && gcc "$W/ns.s" -L "$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$W/ns.m4" 2>>"$W/nsc.txt"; then

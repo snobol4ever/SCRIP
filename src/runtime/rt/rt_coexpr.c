@@ -133,7 +133,7 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
             if (!new_ctx->sigma_live && scan_depth > 0 && scan_subj) { pkg->r13 = (uint64_t)(uintptr_t)scan_subj; pkg->r15 = (uint64_t)rt_scan_subj_len(); new_ctx->sigma_live = 1; }
         }
     }
-    __asm__ volatile ("mov %%rsp, %0" : "=m"(old->park_sp));
+    __asm__ volatile ("mov %%rsp, %0\n\tmov %%rbp, %1" : "=m"(old->park_sp), "=m"(old->park_rbp));
     { extern void rtcc_coexpr_save(uint64_t *); rtcc_coexpr_save(old->rtcc_spill); }
     sem_post(new_ctx->semp);
     while (sem_wait(old->semp) < 0) if (errno != EINTR) scrip_co_uerror("scrip_coexpr: sem_wait in scrip_coswitch");
@@ -149,6 +149,7 @@ void scrip_coexpr_destroy(scrip_coctx_t *ctx) {
     ctx->stk_lo = 0;
     ctx->stk_hi = 0;
     ctx->park_sp = 0;
+    ctx->park_rbp = 0;
     { extern long g_scrip_coexpr_live; scrip_coctx_t **pp = &g_co_gc_head; while (*pp && *pp != ctx) pp = &(*pp)->gc_next; if (*pp) { *pp = ctx->gc_next; g_scrip_coexpr_live--; } }
     ctx->image = 0;
     ctx->image_span = 0;
@@ -291,6 +292,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->stk_lo = 0;
     ctx->stk_hi = 0;
     ctx->park_sp = 0;
+    ctx->park_rbp = 0;
     ctx->sigma_live = scan_depth > 0;
     ctx->scan_state = NULL;
     ctx->serial = ++g_coexpr_serial;
@@ -365,6 +367,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->stk_lo = 0;
     ctx->stk_hi = 0;
     ctx->park_sp = 0;
+    ctx->park_rbp = 0;
     ctx->sigma_live = scan_depth > 0;
     ctx->image = 0;
     ctx->image_src = 0;

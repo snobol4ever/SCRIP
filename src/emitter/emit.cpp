@@ -2887,7 +2887,7 @@ static int frame_slot_scan(const IR_t * query, int * out_index, int * out_count)
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int sn4_blob_casmark(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_BLOB_CASMARK"); v = (e && *e == '0') ? 0 : 1; } return v; }
-static int blob_head_bytes(void) { return sn4_blob_casmark() ? 40 : 24; }
+static int blob_head_bytes(void) { return sn4_blob_casmark() ? 56 : 40; }
 static int frame_slot_off(int scan_rc, int idx) { return -((scan_rc == 2 ? (blob_head_bytes() + 8) : 64) + 16 * idx); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int sn4_choice_rbp_off(void);
@@ -3177,8 +3177,8 @@ static void blob_first_guard(void) {
 static int blob_layout_build(int bfb) {
     int count = 0; g_blob_lay.len = 0;
     blob_lay_push(0, GC_LAY_RAW, 8); blob_lay_push(8, GC_LAY_PTR_CODE, 8); blob_lay_push(16, GC_LAY_PTR_CODE, 8);
-    blob_lay_push(-8, GC_LAY_PTR_CODE, 8); blob_lay_push(-16, GC_LAY_PTR_CODE, 8); blob_lay_push(-24, GC_LAY_PTR_GC, 8);
-    if (sn4_blob_casmark()) blob_lay_push(-32, GC_LAY_RAW, 8);
+    blob_lay_push(-8, GC_LAY_PTR_CODE, 8); blob_lay_push(-16, GC_LAY_PTR_CODE, 8); blob_lay_push(-32, GC_LAY_DESCR, 16);
+    if (sn4_blob_casmark()) { blob_lay_push(-40, GC_LAY_RAW, 8); blob_lay_push(-48, GC_LAY_RAW, 8); } else blob_lay_push(-40, GC_LAY_RAW, 8);
     g_frame_slot_visitor = blob_layout_slot; if (frame_slot_scan((const IR_t *)0, (int *)0, &count) != 2) count = 0; g_frame_slot_visitor = (void (*)(const IR_t *, int, int))0;
     blob_lay_push(-(blob_head_bytes() + 16 * count), GC_LAY_RAW, 8);
     if (blob_choice_rbp_scan()) { int r = -bfb; blob_lay_push(r, GC_LAY_RAW, 8); blob_lay_push(r + 8, GC_LAY_PTR_CODE, 8); blob_lay_push(r + 16, GC_LAY_PTR_CODE, 8);
@@ -3728,7 +3728,7 @@ static std::string icn_trace_tap(const char * pname, int kind, int np, int aoff 
 int g_m4_main_frame_bytes = 65544;
 static bb_label_t g_gc_map_lbl;
 static int g_gc_map_pending = 0, g_gc_map_off = -1, g_gc_map_fb = 0, g_gc_map_hdr = 0, g_gc_map_last_off = -1, g_gc_map_names_n = 0;
-static unsigned g_gc_map_flags = 0;
+static unsigned g_gc_map_flags = 0; static uint64_t g_gc_map_link = 0;
 static cv_t g_gc_map_names_v;
 extern "C" int emit_thunk_self_save_k(stage2_t * s2, const char * name);
 extern "C" int rt_gva_add_var(const char * name);
@@ -3785,7 +3785,7 @@ extern "C" const char * emit_gc_sites_name(int k) { return (k >= 0 && k < g_gc_s
 static void emit_gc_sites_data(const char * fam, int frameless) {
     static int seq = 0; int n = (int)g_gc_sites_v.len; bb_label_t tl; emit_label_initf(&tl, ".Lgcsites_%s_%d", g_emit.flat_fam ? g_emit.flat_fam : "chain", seq++);
     if (frameless && n == 0) { g_gc_sites_last_off = -1; return; }
-    const long ckt = (frameless && xa_flat_class_c_pred()) ? (long)g_emit.flat_frame_bytes : 0L;
+    const uint64_t ckt = frameless ? ((xa_flat_class_c_pred()) ? (uint64_t)g_emit.flat_frame_bytes : 0u) : g_gc_map_link;
     if (g_is_text) {
         std::string t =
             std::string(tl.name) + ":\n .quad " + std::to_string(n) + "\n .quad " + (frameless ? std::string("0") : std::string(g_gc_map_lbl.name)) + "\n .quad " + std::to_string(ckt) + "\n";
@@ -3795,7 +3795,7 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
         g_gc_sites_last_off = 0;
     } else {
         emit_label_define_bb(&tl); g_gc_sites_last_off = tl.offset; CV_PUSH(g_gc_sites_offs_v, int) = tl.offset;
-        bb_emit_u64((uint64_t)n); bb_emit_u64(frameless ? (uint64_t)0 : (uint64_t)(uintptr_t)(bb_emit_buf + g_gc_map_lbl.offset)); bb_emit_u64((uint64_t)ckt);
+        bb_emit_u64((uint64_t)n); bb_emit_u64(frameless ? (uint64_t)0 : (uint64_t)(uintptr_t)(bb_emit_buf + g_gc_map_lbl.offset)); bb_emit_u64(ckt);
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
             bb_emit_u64(e->pc); bb_emit_u64(w); }
     }
@@ -3820,12 +3820,12 @@ static int gc_plant_stale_frame(void) { static int v = -1, said = 0; if (v < 0) 
     fprintf(stderr,
     "[GC-STALEFRAME] plant: procedure and generator prologues clear only their locals again, so a dead activation's map cell can survive inside a live frame (SCRIP_GC_PLANT_STALE_FRAME=1). THIS LINE"
     " IS THE ONLY PROOF THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first prologue emitted under it.\n"); } return v; }
-extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel) {
+extern "C++" std::string emit_gc_map_cell(int map_off, int frame_bytes, int header_bytes, unsigned flags, int frame_rel, uint64_t link) {
     if (frame_rel == 2 ? (map_off < 16 || map_off != frame_bytes || (flags & GC_FRAME_MAP_BLOB) == 0) : (map_off < 0 || (map_off & 15) || map_off + 16 > frame_bytes))
         { fprintf(stderr,
         "FATAL emit_gc_map_cell: map_off=%d frame_bytes=%d frame_rel=%d (the map cell must be a 16-aligned cell inside the frame; a blob's cell is the frame's bottom cell at [rbp - frame_bytes] and "
         "carries GC_FRAME_MAP_BLOB)\n", map_off, frame_bytes, frame_rel); abort(); }
-    g_gc_map_pending = 1; g_gc_map_off = map_off; g_gc_map_fb = frame_bytes; g_gc_map_hdr = header_bytes; g_gc_map_flags = flags;
+    g_gc_map_pending = 1; g_gc_map_off = map_off; g_gc_map_link = link; g_gc_map_fb = frame_bytes; g_gc_map_hdr = header_bytes; g_gc_map_flags = flags;
     emit_label_initf(&g_gc_map_lbl, ".Lgcmap_%s", g_emit.flat_fam ? g_emit.flat_fam : "chain");
     long slen = (long)frame_bytes + (gc_maps_plant_on() ? 16L : 0L);
     std::string s = x86("lea", "rax", "extlbl", (uint64_t)(uintptr_t)&g_gc_map_lbl);
@@ -4165,7 +4165,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
         !g_emit.flat_pat) { int _rg = g_emit_cfg->jcon_value_region;
         if (_rg >= 0 && !(_rg & 15)) { if (g_is_text && _rg + 32 > g_m4_main_frame_bytes)
         { fprintf(stderr, "FATAL emit: main's value region %d + the map cell exceeds the mode-4 main frame (%d), which the driver sizes from that same region -- the two readings disagree\n", _rg,
-        g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1)); } }
+        g_m4_main_frame_bytes); abort(); } bb_emit_x86(emit_gc_map_cell(_rg, _rg + 16, 0, GC_FRAME_MAP_ROOT | (g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 1, 0u)); } }
     g_emit.flat_pkt = (g_emit.zframe_graph && g_emit_cfg && g_emit_cfg->pkt_fragment) ? 1 : 0; g_emit.flat_pkt_cell = g_emit.flat_pkt ? g_emit_cfg->pkt_cell : -1;
         g_emit.flat_pkt_slot = g_emit.flat_pkt ? g_emit_cfg->pkt_slot : -1; g_emit.flat_pkt_chain_off = -1;
     g_emit.flat_pkt_walk_p = (bb_label_t *)0; g_emit.flat_pkt_chainω_p = (bb_label_t *)0;
@@ -4215,7 +4215,8 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
                   + x86("mov", "rsp", "rax")
                   +
                       emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16 + 32,
-                      GC_FRAME_MAP_GEN_ANCHOR | GC_FRAME_MAP_ICN_PROC | (_gblk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0)
+                      GC_FRAME_MAP_GEN_ANCHOR | GC_FRAME_MAP_ICN_PROC | (_gblk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (g_emit_cfg && g_emit_cfg->root_graph ? GC_FRAME_MAP_ROOT : 0u), 0,
+                      GC_LINK_Q(frame_total + 8, frame_total, frame_total + 24, GC_LINK_R_IND))
                   + _gseed
                   + IF(_gblk, icn_entry_gva())
                   + IF(!_gblk, x86("mov", "rdi", "rsp") + x86("mov32", "esi", (long)np) + x86("mov32", "edx", (long)nl)
@@ -4270,8 +4271,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (!_lseed.empty()) bb_emit_x86(_lseed);
                 bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
                 ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) |
-                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0));
-                if (!_pin.empty()) bb_emit_x86(_pin);
+                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0,
+                GC_LINK_Q(_iws ? frame_total + (_blk ? 16 * np : 0) : frame_total - 24, frame_total - 8, _iws ? frame_total + (_blk ? 16 * np : 0) : frame_total, _pin.empty() ? GC_LINK_RBP_KEPT : 0u))
+                ); if (!_pin.empty()) bb_emit_x86(_pin);
             if (_use_zframe_install) bb_emit_x86(_inst);
             else { _lz = 0; _lz += snprintf(_lp + _lz, (int)sizeof(_lp) - _lz, "mov rdi, rsp\nmov esi, %d\nmov edx, %d\ncall %s@PLT\n", np, nl, "rt_lcl_proc_args_install");
                    emit_text_n(_lp, strlen(_lp)); }
@@ -4286,8 +4288,9 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
             if (!_lseed.empty()) bb_emit_x86(_lseed);
                 bb_emit_x86(emit_gc_map_cell(g_emit_cfg ? g_emit_cfg->jcon_value_region : 0, frame_total, frame_total - (g_emit_cfg ? g_emit_cfg->jcon_value_region : 0) - 16,
                 ((g_emit_cfg && g_emit_cfg->root_graph) ? GC_FRAME_MAP_ROOT : 0u) |
-                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0));
-                if (!_pin.empty()) bb_emit_x86(_pin);
+                (_use_zframe_install ? (GC_FRAME_MAP_ICN_PROC | (_blk ? GC_FRAME_MAP_ICN_BLOCK : 0u) | (icn_host_pinned() ? GC_FRAME_MAP_ICN_PINNED : 0u)) : 0u), 0,
+                GC_LINK_Q(_iws ? frame_total + (_blk ? 16 * np : 0) : frame_total - 24, frame_total - 8, _iws ? frame_total + (_blk ? 16 * np : 0) : frame_total, _pin.empty() ? GC_LINK_RBP_KEPT : 0u))
+                ); if (!_pin.empty()) bb_emit_x86(_pin);
             if (_use_zframe_install) bb_emit_x86(_inst);
             else {
             ef_b3(0x48, 0x89, 0xE7);
@@ -4319,10 +4322,10 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     if (!bare && blob_frame_scope()) blob_first_guard();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb);
         bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +
-        emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2) + blob_zero_fill(_bfb) +
+        emit_gc_map_cell(_bfb + 16, _bfb + 16, 24, GC_FRAME_MAP_BLOB, 2, GC_LINK_Q(8, 0, 8, 0u)) + blob_zero_fill(_bfb) +
         IF(blob_cont_copy(), x86("mov", "rcx", RDQ("rbp", 8)) + x86("mov", RDQ("rbp", -8), "rcx") + x86("mov", "rcx", RDQ("rbp", 16)) + x86("mov", RDQ("rbp", -16), "rcx")) +
-        x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -32), "r12"))); } else if (blob_frame_scope()) { _spf = 1; int _need = sn4_blob_casmark();
-        for (int _q = 0; _q < n; _q++) if (blob_patv_reader(nodes[_q])) _need = 1; _sph = _need ? (sn4_blob_casmark() ? 32 : 16) : 0; _spgd = -1;
+        x86("mov", RDQ("rbp", -32), (long)DT_P) + x86("mov", RDQ("rbp", -24), "rdx") + IF(sn4_blob_casmark(), x86("mov", RDQ("rbp", -40), "r12"))); } else if (blob_frame_scope()) { _spf = 1;
+        int _need = sn4_blob_casmark(); for (int _q = 0; _q < n; _q++) if (blob_patv_reader(nodes[_q])) _need = 1; _sph = _need ? (sn4_blob_casmark() ? 32 : 16) : 0; _spgd = -1;
         for (int _q = 0; _q < n; _q++) { IR_t * _gt = zd_chase(nodes[_q]->γ.node); if (_gt && _gt->op != IR_SUCCEED) continue; int _d = zd_on[_q] ? zd_out[_q] : -2;
         _spgd = (_spgd == -1 || _spgd == _d) ? _d : -2;
         } if (_sph)
@@ -4975,7 +4978,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     emit_sep_rule('-'); emit_label_define_bb(&lbl_ω);
     if (g_emit.zframe_graph || (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc)) { extern void xa_flat_zframe_epilogue_ω(void); xa_flat_zframe_epilogue_ω(); }
     else if (_blob_wire) { extern int sn4_blob_casmark(void);
-        bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -32))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) +
+        bb_emit_x86(IF(blob_frame_bytes() > 0, IF(sn4_blob_casmark(), x86("mov", "r12", RDQ("rbp", -40))) + x86("mov", "rsp", "rbp") + x86("pop", "rbp")) +
         IF(blob_frame_bytes() <= 0 && _sph > 0, IF(_sph == 32, x86("mov", "r12", RDQ("rsp", 8))) + x86("add", "rsp", (long)_sph)) +
         (blob_omega_ret() ? x86("add", "rsp", 8L) + x86("ret") : x86_rsp_load64("rcx", 8) + x86("add", "rsp", 16L) + x86("jmp", "rcx")));
         for (int _k = 0; _k < _wpn; _k++) { emit_label_define_bb(_wpl[_k]); bb_emit_x86(x86("add", "rsp", (long)_wpd[_k])); emit_jmp_label(&lbl_ω, JMP_JMP); } }

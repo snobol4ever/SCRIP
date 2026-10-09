@@ -248,12 +248,11 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_MAKE_LIST:
         { for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "list.elem", nd); return 0 + nd->n_operands; }
         case IR_SCAN_ENTER:
-        zls_field(scope_id, off, 8, ZK_PTR_GC, 0,
-            "scan.leave out3 sigma (the OUTER subject pointer, held here across the whole inner scan body and reloaded into r13 at leave: a collected-heap pointer the walker must relocate -- ZK_RAW "
-            "until 2026-09-19 read it as dead at safe points, and the walker-reporter measured it live at every collection of a nested scan, CTO-88)", nd);
-        zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "scan.leave out3 delta", nd);
-        zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd);
-        zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.pad (unused)", nd);
+        zls_field(scope_id, off, 16, ZK_DESCR, 0,
+            "scan.leave out3 sigma cell (the OUTER subject pointer as a DT_S cell {tag, 0, sigma}, held across the whole inner scan body and reloaded into r13 at leave: a collected-heap pointer the "
+            "walker relocates as a cell, so a generator frame suspended off the chain keeps it through the spine sweep -- ARCH-GC 13.5, the PTR_GC word of CTO-88 converted at STEP B)", nd);
+        zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "scan.leave out3 delta", nd);
+        zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.leave out3 Delta", nd);
         return 2;
         case IR_MATCH_BEGIN:
         zls_field(scope_id, off + 4, 4, ZK_RAW, 0, "head.cursor pad (unused upper half of the quad)", nd);
@@ -373,14 +372,15 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         return 2;
         case IR_SCAN:
         if (nd) {
-            zls_field(scope_id, off, 8, ZK_RAW, 0,
-                "scan.suspend-leave bank: +0 4B inner-δ, +4 4B the inner subject's carried length, which rt_scan_reenter_live takes back at resume because neither the shared scan_saved stack nor th"
-                "e length cache can (icon-scan-env-value-residue slice 3: per-activation env round-trip across suspension — the shared scan_saved stack cannot carry it, +1 leak per exhaustion-thro"
-                "ugh-scan measured)", nd);
-            zls_field(scope_id, off + 8, 8, ZK_PTR_GC, 0,
-                "scan.suspend-leave live subject (the subject pointer rt_scan_live_subj banks across the suspension and rt_scan_reenter_live takes back at resume: a collected-heap pointer, interior "
-                "to its block, the walker relocates it -- banked in the RESULT slot until 2026-09-23 with the delta in its tag word, invisible to the walker, cto CTO-154)", nd);
-            return 1;
+            zls_field(scope_id, off, 16, ZK_DESCR, 0,
+                "scan.suspend-leave live subject cell: a DT_S cell {tag, slen = the inner subject's carried length, s = the subject pointer rt_scan_live_subj banks across the suspension}, which rt_s"
+                "can_reenter_live takes back at resume -- a collected-heap pointer the walker relocates as a cell, so a generator suspended off the chain keeps it through the spine sweep (ARCH-GC 13"
+                ".5, the PTR_GC word converted at STEP B)", nd);
+            zls_field(scope_id, off + 16, 8, ZK_RAW, 0,
+                "scan.suspend-leave bank: the inner delta, 4B at +0 (icon-scan-env-value-residue slice 3: per-activation env round-trip across suspension -- the shared scan_saved stack cannot carry "
+                "it, +1 leak per exhaustion-through-scan measured)", nd);
+            zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "scan.suspend-leave bank pad (unused)", nd);
+            return 2;
         }
         return 0;
         case IR_SCAN_TAB:

@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2211
+#define GC_ALLOC_TAB_N 2213
 #define GC_ALLOC_TAB_N_VOID 263
 #define GC_ALLOC_TAB_N_DESCR 1127
-#define GC_ALLOC_TAB_N_OTHER 806
+#define GC_ALLOC_TAB_N_OTHER 808
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -700,6 +700,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_trace_operand", GC_RET_OTHER },
     { "lower_unop", GC_RET_OTHER },
     { "lower_until", GC_RET_OTHER },
+    { "lower_var_r", GC_RET_OTHER },
     { "lower_while", GC_RET_OTHER },
     { "lpad_fn", GC_RET_DESCR },
     { "lt", GC_RET_OTHER },
@@ -733,6 +734,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_cond", GC_RET_OTHER },
     { "pas_cond_bool", GC_RET_OTHER },
     { "pas_cond_sc", GC_RET_OTHER },
+    { "pas_envcall_wrap", GC_RET_OTHER },
     { "pas_index_fault", GC_RET_OTHER },
     { "pas_lower_exit", GC_RET_OTHER },
     { "pas_lower_idx_assign_curried", GC_RET_OTHER },

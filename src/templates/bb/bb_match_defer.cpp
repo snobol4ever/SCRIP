@@ -275,8 +275,11 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86("def", L(48))
          + x86("mov", "r8d", (long)(_.op_scan ? 1 : 0))
+         + x86_rsp_mark_save()
          + bb_glue_pass_wires_blob(4, 5)
          + x86("def", L(4))
+         + x86_rsp_land(16L)
+         + x86_gc_site(X86_SITE_LANDING)
          + bb_glue_wire_land()
          + IF(dfrm(),
                x86("mov", "rsp", "rbp")
@@ -284,6 +287,8 @@ std::string bb_match_defer() {
          + rspd_snap(&g_rspd_g4, "g_rspd_g4")
          + x86_gamma()
          + x86("def", L(5))
+         + x86_rsp_land(0L)
+         + x86_gc_site(X86_SITE_LANDING)
          + bb_glue_wire_land()
          + IF(dfrm(),
                x86("mov", "rsp", "rbp")
