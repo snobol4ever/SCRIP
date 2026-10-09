@@ -181,6 +181,7 @@ static std::string bb_define_bind() {
             + x86("mov", "rsi", ROQ(2))
             + x86_scan_sync_out()
             + x86("call", "rt_define_bind_entry", _bind_fp)
+            + x86_rt_gc_poll()
             + x86_scan_sync_in_rr();
         bind_seal = x86("def", L(2))
             + x86(".quad", LS(2), _ent)
@@ -194,6 +195,7 @@ static std::string bb_define_bind() {
             + x86("mov", "rsi", ROQ(3))
             + x86_scan_sync_out()
             + x86("call", "rt_define_site_entry", _ent_fp)
+            + x86_rt_gc_poll()
             + x86_scan_sync_in_rr();
         entry_seal = x86("def", L(3))
             + x86(".quad", LS(3), _.op_entry)
