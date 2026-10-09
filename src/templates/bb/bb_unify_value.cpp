@@ -6,6 +6,7 @@ extern "C" {
 #include "descr.h"
 void rt_pl_tr_refuse(const char *);
 int rtx_pl_unify(DESCR_t *, DESCR_t *);
+DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 }
 #include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
@@ -113,8 +114,19 @@ std::string bb_unify_value() {
              + x86("note", "the general-unify leaf (ARCH-PROLOG-C-OUT-OF-THE-BOX 6.2): rtx_pl_unify on the spine, allocating nothing and polling nothing")
              + x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify)
              + x86("test", "eax", "eax")
-             + x86_omega("je")
+             + x86("je", L(61))
              + x86_gamma()
+             + x86("def", L(61))
+             + x86("note", "occurs_check error (the trail header's mode word reads 2): the leaf's failure is re-run on the cx road, which builds the ball, unwinds what it bound and arms r15")
+             + x86("mov", "rdx", "r12")
+             + x86("and", "rdx", (long)~(PL_TR_ARENA_BYTES - 1))
+             + x86("cmp", RDQ("rdx", PL_TR_OCHECK_OFF), 2L)
+             + x86_omega("jne")
+             + PL_SRC_RDI()
+             + x86("lea", "rsi", FRQ(_.op_u_vo))
+             + x86("call", "rt_pl_dop_unify_raise", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_raise)
+             + x86_rt_gc_poll()
+             + x86_omega()
              + x86("def", L(39))
              + x86("mov", "rdi", "r12")
              + x86("call", "rt_pl_tr_refuse", (uint64_t)(uintptr_t)(void *)rt_pl_tr_refuse)

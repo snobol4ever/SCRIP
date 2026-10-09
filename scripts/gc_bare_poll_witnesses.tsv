@@ -36,6 +36,7 @@ src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_anum_cold/rt_pl_atop_cold/...#1	hb_pl
 src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_is_cold#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_pl_leaf.cpp:rt_gcheap_alloc#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_db_decls_install#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_dop_unify_raise#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_call_proc_staged.cpp:rt_arg_stage#1	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
 src/templates/bb/bb_call_proc_staged.cpp:rt_ab_undef_fn_fail#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open_det0/rt_proc_call_open_det1/...#1	UNWITNESSED
@@ -152,6 +153,7 @@ src/templates/bb/bb_to_by.cpp:core_icn_to_int_check/to_int#2	hb_scan_subject_acr
 src/templates/bb/bb_to_by.cpp:core_icn_to_int_check/to_int#3	hb_scan_subject_across_allocating_poll.icn
 src/templates/bb/bb_to_by.cpp:core_icn_by_zero_check#1	hb_scan_subject_across_allocating_poll.icn
 src/templates/bb/bb_unify_struct.cpp:rt_gcheap_alloc#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_unify_value.cpp:rt_pl_dop_unify_raise#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
 src/templates/bb/bb_unop.cpp:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg#1	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_num_pos#1	UNWITNESSED
 src/templates/bb/bb_unop.cpp:rt_size_d#1	UNWITNESSED

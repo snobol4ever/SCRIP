@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2327
+#define GC_ALLOC_TAB_N 2329
 #define GC_ALLOC_TAB_N_VOID 286
-#define GC_ALLOC_TAB_N_DESCR 1155
+#define GC_ALLOC_TAB_N_DESCR 1157
 #define GC_ALLOC_TAB_N_OTHER 870
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1996,6 +1996,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_unify_c", GC_RET_DESCR },
     { "rt_pl_dop_unify_oc", GC_RET_DESCR },
     { "rt_pl_dop_unify_oc_c", GC_RET_DESCR },
+    { "rt_pl_dop_unify_raise", GC_RET_DESCR },
+    { "rt_pl_dop_unify_raise_c", GC_RET_DESCR },
     { "rt_pl_dop_univ", GC_RET_DESCR },
     { "rt_pl_dop_univ_c", GC_RET_DESCR },
     { "rt_pl_dop_upcase_atom", GC_RET_DESCR },

@@ -386,15 +386,26 @@ static std::string pl_arm_dbdecls(int narg, int resoff) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int rtx_pl_unify(DESCR_t *, DESCR_t *);
+extern "C" DESCR_t rt_pl_dop_unify_raise(DESCR_t *, DESCR_t *);
 static std::string pl_arm_unify(int argbase, int resoff) {
     return x86("comment", "body =/2 (ARCH-PROLOG-C-OUT-OF-THE-BOX 6.2): the two argv cells to the general-unify leaf on the spine; the result is the leaf's verdict")
          + x86("lea", "rdi", FRQ(argbase))
          + x86("lea", "rsi", FRQ(argbase + 16))
          + x86("call", "rtx_pl_unify", (uint64_t)(uintptr_t)(void *)rtx_pl_unify)
          + x86("test", "eax", "eax")
-         + x86("jz", L(PL_L_FAIL))
+         + x86("jz", L(PL_L_COLD))
          + x86("mov", FRQ(resoff), (long)DT_I)
          + x86("mov", FRQ(resoff + 8), 1L) + x86_gamma()
+         + x86("def", L(PL_L_COLD))
+         + x86("note", "occurs_check error (the trail header's mode word reads 2): the leaf's failure is re-run on the cx road, which builds the ball, unwinds what it bound and arms r15")
+         + x86("mov", "rdx", "r12")
+         + x86("and", "rdx", (long)~(PL_TR_ARENA_BYTES - 1))
+         + x86("cmp", RDQ("rdx", PL_TR_OCHECK_OFF), 2L)
+         + x86("jne", L(PL_L_FAIL))
+         + x86("lea", "rdi", FRQ(argbase))
+         + x86("lea", "rsi", FRQ(argbase + 16))
+         + x86("call", "rt_pl_dop_unify_raise", (uint64_t)(uintptr_t)(void *)rt_pl_dop_unify_raise) + x86_rt_gc_poll()
+         + x86("jmp", L(PL_L_FAIL))
          + pl_fail_store(resoff) + pl_tail();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

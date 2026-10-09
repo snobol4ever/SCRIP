@@ -5408,6 +5408,16 @@ DESCR_t rt_pl_dop_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_pl_dop_unify_raise_c(DESCR_t *a, DESCR_t *b, pl_tr_ctx_t *cx) {
+    char *tr0;
+    rt_pl_tr_gc_sync(cx->tr);
+    tr0 = cx->tr;
+    (void)plw_unify_cells(plw_entry(a), plw_entry(b), cx);
+    cx->tr = rt_pl_tr_unwind_to(cx->tr, tr0);
+    rt_pl_tr_gc_sync(cx->tr);
+    return FAILDESCR;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_pl_dop_clause_unify_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
     extern int prolog_atom_intern(const char *);
     if (nargs != 2) return FAILDESCR;

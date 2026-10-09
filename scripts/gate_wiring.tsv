@@ -662,6 +662,7 @@ test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
 test_gate_pl_no_new_global.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
+test_gate_pl_occurs_check_error_raises_on_every_unify_road.sh	WIRED	-	-	-
 test_gate_pl_only_tree_t_crosses_parser_to_lower.sh	WIRED	-	-	-
 test_gate_pl_port_trace_oracle_diff.sh	WIRED	-	-	-
 test_gate_pl_portray_reaches_every_subterm_of_print_and_write_term.sh	WIRED	-	-	-
