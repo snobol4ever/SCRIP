@@ -342,6 +342,14 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
         # is nothing else present for the oracle to rename, the real corpus tree is never touched at all, and
         # it matches this package's own README's documented usage (`cp progs/hello.icn /tmp/t.icn && cd /tmp
         # && icont -s t.icn`) rather than inventing a new invocation contract.
+        _mode = re.search(r"\{\$mode +(delphi|objfpc|fpc|tp|macpas)", text, re.I) if lang == "pascal" else None
+        if _mode:
+            # ⛔ -Miso IS NOT ISO WHEN THE SOURCE SAYS OTHERWISE (the coo 2026-10-09, measured on rosetta-pascal: 102 of 203 graded programs
+            # carried {$mode delphi} or {$mode objfpc}, which overrides the command line, so fpc cut their refs as Delphi or Object Pascal).
+            # ISO is the oracle (Lon, CEO-1225): such a program is not graded against it.
+            excluded.append((name, f"not ISO 7185 -- the source's own {{$mode {_mode.group(1).lower()}}} overrides fpc -Miso"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (non-ISO $mode directive)", file=sys.stderr)
+            continue
         def _oracle_isolated():
             with tempfile.TemporaryDirectory(prefix="pkgsuite_oracle_") as _iso_dir:
                 _iso_src = Path(_iso_dir) / src.name
