@@ -76,12 +76,6 @@ src/templates/bb/bb_define.cpp:566:sno_trace_return	src/templates/bb/bb_define.c
 src/templates/bb/bb_define.cpp:622:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:623	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_deref.cpp:19:rt_deref	src/templates/bb/bb_deref.cpp:26	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_deref.cpp:36:rt_deref	src/templates/bb/bb_deref.cpp:41	stack_top_under_valgrind.icn
-src/templates/bb/bb_field_get.cpp:26:rt_field_var_strict	src/templates/bb/bb_field_get.cpp:35	hb_sno_data_field_name_held_across_collections.sno
-src/templates/bb/bb_field_get.cpp:27:rt_field_var	src/templates/bb/bb_field_get.cpp:35	hb_sno_data_field_name_held_across_collections.sno
-src/templates/bb/bb_field_get.cpp:28:icn_field_get	src/templates/bb/bb_field_get.cpp:35	hb_sno_data_field_name_held_across_collections.sno
-src/templates/bb/bb_field_get.cpp:46:rt_field_var_strict	src/templates/bb/bb_field_get.cpp:53	hb_frame_map_anchor_recursive_marklists_mode4.icn
-src/templates/bb/bb_field_get.cpp:47:rt_field_var	src/templates/bb/bb_field_get.cpp:53	hb_frame_map_anchor_recursive_marklists_mode4.icn
-src/templates/bb/bb_field_get.cpp:48:icn_field_get	src/templates/bb/bb_field_get.cpp:53	hb_frame_map_anchor_recursive_marklists_mode4.icn
 src/templates/bb/bb_gcc.cpp:24:rt_icn_cset_member	src/templates/bb/bb_gcc.cpp:25	UNWITNESSED
 src/templates/bb/bb_glue_flat.cpp:43:sno_setexit_fire_on_end	src/templates/bb/bb_glue_flat.cpp:44	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_goto_deferred.cpp:35:rt_sno_goto_special_is	src/templates/bb/bb_goto_deferred.cpp:37	UNWITNESSED
