@@ -128,6 +128,7 @@ static int icn_cvt_int_ok(DESCR_t d) {
 static int icn_argtype_raise(int code, DESCR_t val, DESCR_t *out) { core_icn_error(code, val); *out = FAILDESCR; return 1; }
 #include "rt/rt_arena.h"
 #include "rt/gc_heap.h"
+#include "rt/prolog_atom.h"
 #include "ct_vec.h"
 extern gv_t g_call_args;
 void rt_call_args_need(int n);
@@ -6023,10 +6024,10 @@ static int pl_edin_revert(int is_out) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char *nm; const char *val; int mod; const char *allow[6]; int is_term; DESCR_t term; } pl_flag_t;
-static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "1024", 0, { 0 } }, { "float_overflow", "error",
-    1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } }, { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1, { "on",
-    "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error", "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string", 0 } },
-    { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
+static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "integer_rounding_function", "toward_zero", 0, { 0 } }, { "max_arity", "2147483647", 0, { 0 } }, { "float_overflow",
+    "error", 1, { "error", "infinity", 0 } }, { "float_zero_div", "error", 1, { "error", "infinity", 0 } }, { "float_undefined", "error", 1, { "error", "nan", 0 } }, { "char_conversion", "off", 1,
+    { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error", "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string",
+    0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
     { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } },
     { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
@@ -6124,7 +6125,7 @@ PL_CX_LEAF_HEAD(current_prolog_flag, 2)
         } else if (!strcmp(fl->nm, "argv")) {
             ok = plw_unify_vals(args[1], pl_nil(), cx);
         } else if (!strcmp(fl->nm, "max_arity")) {
-            ok = plw_unify_vals(args[1], INTVAL(1024), cx);
+            ok = plw_unify_vals(args[1], INTVAL(PROLOG_MAX_ARITY), cx);
         } else if (!strcmp(fl->nm, "version_data")) {
             extern int prolog_atom_intern(const char *);
             DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(4), c;
@@ -16675,7 +16676,7 @@ void * rt_pl_dop_db_t_guard_c(DESCR_t *args, int nargs, void *root) {
             if (!pl_anum_is_text(n)) return rt_pl_ball_kind2("type_error", "atom", n);
             if (a.v != DT_I) return rt_pl_ball_kind2("type_error", "integer", a);
             if ((long long)a.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", a);
-            if ((long long)a.i > 1024) return rt_pl_ball_kind1("representation_error", "max_arity");
+            if ((long long)a.i > PROLOG_MAX_ARITY) return rt_pl_ball_kind1("representation_error", "max_arity");
             ns = pl_atom_str(n);
             return pl_db_static_ball(root, op, ns ? ns : "?", (int)a.i);
         }
@@ -17196,7 +17197,7 @@ static void * pl_anum_check(const char *nm, DESCR_t *a, int n) {
         if (pl_anum_is_compound(f)) return rt_pl_ball_kind2("type_error", "atomic", f);
         if (r.v == DT_BIG ? pl_anum_big_sign(r) < 0 : (long long)r.i < 0) return rt_pl_ball_kind2("domain_error", "not_less_than_zero", r);
         if ((r.v == DT_BIG || (long long)r.i > 0) && !pl_anum_is_text(f)) return rt_pl_ball_kind2("type_error", "atom", f);
-        if (r.v == DT_BIG || (long long)r.i > 1024) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_arity"); }
+        if (r.v == DT_BIG || (long long)r.i > PROLOG_MAX_ARITY) { extern void *rt_pl_ball_kind1(const char *, const char *); return rt_pl_ball_kind1("representation_error", "max_arity"); }
         return (void *)0;
     }
     return (void *)0;

@@ -960,7 +960,7 @@ int rt_pl_univ_cell(void *t0_cell, void *list_cell, pl_tr_ctx_t *cx) {
     if (pl_cell_unbound(h)) b = rt_pl_ball_instantiation();
     else if (ne == 1 && (int)h->v == DT_PLREF) b = rt_pl_ball_kind2("type_error", "atomic", *h);
     else if (ne > 1 && !plc_is_atomlike(h)) b = rt_pl_ball_kind2("type_error", "atom", *h);
-    else if (ne - 1 > 1024) b = rt_pl_ball_kind1("representation_error", "max_arity");
+    else if ((long)ne - 1 > PROLOG_MAX_ARITY) b = rt_pl_ball_kind1("representation_error", "max_arity");
     if (b) { if (cx && !cx->ball) cx->ball = b; return 0; }
     pl_cell_t built;
     if (ne == 1) {

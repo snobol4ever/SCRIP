@@ -7,6 +7,7 @@
 #include "emit.h"
 #include "stage2.h"
 #include "../parsers/snobol4/scrip_cc.h"
+#include "../runtime/rt/prolog_atom.h"
 #include "bb_program.h"
 #include "ir_query.h"
 #include "pl_arith_names.h"
@@ -1348,7 +1349,7 @@ static tree_t * pl_cc_spec_ill_typed(const tree_t * s, const char * nm) {
         if (n && n->t != TT_VAR && !(n->t == TT_QLIT || n->t == TT_NAME)) return strcmp(nm, "abolish") ? pl_cc_type_error("predicate_indicator", s, nm, 1) : pl_cc_type_error("atom", n, nm, 1);
         if (a && a->t != TT_VAR && a->t != TT_ILIT) return strcmp(nm, "abolish") ? pl_cc_type_error("predicate_indicator", s, nm, 1) : pl_cc_type_error("integer", a, nm, 1);
         if (a && a->t == TT_ILIT && a->v.ival < 0 && !strcmp(nm, "abolish")) return pl_cc_throw_ar(pl_cc_fnc2("domain_error", (tree_t *) pl_atom_goal("not_less_than_zero"), (tree_t *) a), nm, 1);
-        if (a && a->t == TT_ILIT && a->v.ival > 1024 && !strcmp(nm, "abolish")) return pl_cc_throw_ar(pl_cc_fnc1("representation_error", (tree_t *) pl_atom_goal("max_arity")), nm, 1);
+        if (a && a->t == TT_ILIT && a->v.ival > PROLOG_MAX_ARITY && !strcmp(nm, "abolish")) return pl_cc_throw_ar(pl_cc_fnc1("representation_error", (tree_t *) pl_atom_goal("max_arity")), nm, 1);
         return NULL;
     }
 }
