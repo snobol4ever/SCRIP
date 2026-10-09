@@ -710,6 +710,7 @@ test_gate_raku_gather_and_take_collect_what_the_body_takes_as_rakudos_do.sh	WIRE
 test_gate_raku_io_path_and_handle_are_typed_values_as_rakudo_has_them.sh	WIRED	-	-	-
 test_gate_raku_map_keeps_each_result_as_an_item_and_a_brace_of_pairs_using_the_topic_is_a_block.sh	WIRED	-	-	-
 test_gate_raku_match_is_a_typed_value_as_rakudo_has_it.sh	WIRED	-	-	-
+test_gate_raku_nested_and_anonymous_classes_and_the_operator_references_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_paren_call_passes_its_arguments.sh	WIRED	-	-	-
 test_gate_raku_parse_census_measures_over_a_printed_denominator.sh	WIRED	-	-	-
 test_gate_raku_port_trace.sh	WIRED	-	-	-

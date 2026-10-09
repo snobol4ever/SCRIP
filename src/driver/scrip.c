@@ -1040,6 +1040,23 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     emit_textf("  lea rsi, [rip + .Lmethnm%d_%d]\n", ci, mj);
                     emit_textf("  call dat_add_method@PLT\n");
                 }
+                extern int dat_type_nmultis(int);
+                extern const char *dat_type_multi_at(int, int);
+                for (int mj = 0; mj < dat_type_nmultis(ci); mj++) {
+                    const char *mn = dat_type_multi_at(ci, mj);
+                    if (!mn || !*mn) continue;
+                    emit_textf("  .section .rodata\n");
+                    emit_textf("  .Lmultcls%d_%d: .byte ", ci, mj);
+                    for (const char *p = cn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .Lmultnm%d_%d: .byte ", ci, mj);
+                    for (const char *p = mn; *p; p++) emit_textf("%d, ", (int)(unsigned char)*p);
+                    emit_textf("0\n");
+                    emit_textf("  .section .text\n  .intel_syntax noprefix\n");
+                    emit_textf("  lea rdi, [rip + .Lmultcls%d_%d]\n", ci, mj);
+                    emit_textf("  lea rsi, [rip + .Lmultnm%d_%d]\n", ci, mj);
+                    emit_textf("  call dat_mark_method_multi@PLT\n");
+                }
             }
         }
         {

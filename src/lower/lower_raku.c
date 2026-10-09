@@ -1885,7 +1885,15 @@ static void rk_register_classes(const tree_t * prog) {
             const char * mname = (ch->n > 0 && ch->c[0] && ch->c[0]->v.sval) ? ch->c[0]->v.sval : NULL;
             if (!mname) continue;
             const char * dollar = strchr(mname, '$');
-            if (dollar) { int bl = (int)(dollar - mname); char base[bl + 1]; memcpy(base, mname, bl); base[bl] = '\0'; dat_add_method(cname, base); } else dat_add_method(cname, mname);
+            if (dollar) {
+                int bl = (int)(dollar - mname);
+                char base[bl + 1];
+                memcpy(base, mname, bl);
+                base[bl] = '\0';
+                dat_add_method(cname, base);
+                extern void dat_mark_method_multi(const char *type, const char *mname);
+                dat_mark_method_multi(cname, base);
+            } else dat_add_method(cname, mname);
             if (!strcmp(mname, "BUILD")) {
                 extern void dat_set_build_key(const char *cls, const char *key);
                 int bs = (int)ch->v.ival;
@@ -3436,7 +3444,75 @@ static void rk_sort_cmp_walk(tree_t * prog, tree_t * t) {
     ast_push(t, recv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_alpha_name(char * out, size_t cap, const char * base, int n) {
+    char sfx[16];
+    int k = 0;
+    for (; n > 0 && k < 14; n /= 26) sfx[k++] = (char) ('a' + (n - 1) % 26), n -= 1;
+    sfx[k] = '\0';
+    for (int i = 0, j = k - 1; i < j; i++, j--) { char c = sfx[i]; sfx[i] = sfx[j]; sfx[j] = c; }
+    snprintf(out, cap, "%sZ%s", base, sfx);
+}
+static int rk_is_type_decl(const tree_t * d) { return d && (d->t == TT_CLASS_DECL || d->t == TT_ROLE_DECL); }
+static const char * rk_decl_name(const tree_t * d) { return (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_count_type_decls(const tree_t * t) { if (!t) return 0; int n = rk_is_type_decl(t) ? 1 : 0; for (int i = 0; i < t->n; i++) n += rk_count_type_decls(t->c[i]); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rename_type_refs(tree_t * t, const char * from, const char * to) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, from)) t->v.sval = (char *) to;
+    if (t->t == TT_NEW && t->n > 0 && t->c[0] && t->c[0]->t == TT_QLIT && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, from)) t->c[0]->v.sval = (char *) to;
+    for (int i = 0; i < t->n; i++) rk_rename_type_refs(t->c[i], from, to);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const tree_t ** top; int ntop; const char ** seen; int nseen; tree_t ** out; int nout; int uid; } rk_hoist_t;
+static int rk_is_top_decl(rk_hoist_t * h, const tree_t * d) { for (int i = 0; i < h->ntop; i++) if (h->top[i] == d) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_hoist_types_walk(rk_hoist_t * h, tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        if (rk_is_type_decl(c) && !rk_is_top_decl(h, c)) {
+            const char * nm = rk_decl_name(c);
+            int stmt_pos = t->t == TT_ATTR;
+            char buf[64];
+            if (!nm || !*nm) {
+                rk_alpha_name(buf, sizeof buf, "AnonClass", ++h->uid);
+                nm = lp_strdup(buf);
+            } else {
+                int dup = 0;
+                for (int k = 0; k < h->nseen; k++) if (!strcmp(h->seen[k], nm)) dup = 1;
+                if (dup || rk_is_class_name(nm)) { rk_alpha_name(buf, sizeof buf, nm, ++h->uid); const char * un = lp_strdup(buf); rk_rename_type_refs(t, nm, un); nm = un; }
+            }
+            if (c->n > 0 && c->c[0]) c->c[0]->v.sval = (char *) nm;
+            h->seen[h->nseen++] = nm;
+            h->out[h->nout++] = c;
+            if (stmt_pos) t->c[i] = ast_node_new(TT_SEQ_EXPR);
+            else { tree_t * v = ast_node_new(TT_VAR); v->v.sval = (char *) nm; t->c[i] = v; }
+            rk_hoist_types_walk(h, c);
+            continue;
+        }
+        rk_hoist_types_walk(h, c);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_hoist_nested_types(tree_t * prog) {
+    if (!prog) return;
+    int cap = rk_count_type_decls(prog) + 1;
+    const tree_t * top[cap];
+    const char * seen[cap];
+    tree_t * out[cap];
+    rk_hoist_t h = { top, 0, seen, 0, out, 0, 0 };
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (sub) d = sub; }
+        if (rk_is_type_decl(d)) { top[h.ntop++] = d; const char * nm = rk_decl_name(d); if (nm && *nm) seen[h.nseen++] = nm; }
+    }
+    rk_hoist_types_walk(&h, prog);
+    for (int i = 0; i < h.nout; i++) ast_push(prog, out[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
+    rk_hoist_nested_types((tree_t *) prog);
     rk_tail_ifs((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);

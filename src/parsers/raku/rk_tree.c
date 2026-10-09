@@ -1036,12 +1036,35 @@ static int rk_hyper_pure(tree_t *t) {
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *rk_opref_text(const char *nm, int *unary) {
+    *unary = 0;
+    if (!nm || nm[0] != '&') return NULL;
+    size_t n = strlen(nm);
+    if (n > 3 && nm[1] == '[' && nm[n - 1] == ']') return trimdup(nm + 2, (int) (n - 3));
+    static const char *const pre[] = { "&infix:", "&prefix:", "&postfix:", NULL };
+    for (int i = 0; pre[i]; i++) {
+        size_t pl = strlen(pre[i]);
+        if (strncmp(nm, pre[i], pl)) continue;
+        const char *q = nm + pl;
+        size_t ql = n - pl;
+        *unary = i;
+        if (ql > 4 && !strncmp(q, "<<", 2) && !strcmp(q + ql - 2, ">>")) return trimdup(q + 2, (int) ql - 4);
+        if (ql > 2 && q[0] == '<' && q[ql - 1] == '>') return trimdup(q + 1, (int) ql - 2);
+        if (ql > 4 && !strncmp(q, "\xc2\xab", 2) && !strcmp(q + ql - 2, "\xc2\xbb")) return trimdup(q + 2, (int) ql - 4);
+        return NULL;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rkb_cross_inner(const char *op, int *lv, int *k, int *rev) {
     *lv = -1; *k = -1; *rev = 0;
     if (!op || !*op) return 0;
     char *inner = trimdup(op, (int) strlen(op));
     size_t il = strlen(inner);
     if (il > 2 && inner[0] == '[' && inner[il - 1] == ']') inner = trimdup(inner + 1, (int) il - 2);
+    int un;
+    char *rf = rk_opref_text(inner, &un);
+    if (rf && !un) inner = rf;
     for (int i = 0; i <= LV_PAIR && *k < 0; i++) { if (i == LV_TERN) continue; int kk = rkb_op_index_rev(i, inner, rev); if (kk >= 0) { *lv = i; *k = kk; } }
     return *k >= 0;
 }
@@ -1333,6 +1356,27 @@ static int var_cls_of(const char *t, int n) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_opref(RkB *b, const char *name) {
+    int un;
+    char *op = rk_opref_text(name, &un);
+    if (!op || !*op || un == 2) return NULL;
+    tree_t *a = leaf_sval(TT_VAR, "^a"), *c = leaf_sval(TT_VAR, "^b"), *body = NULL;
+    if (un == 1) {
+        static const char *const pf[] = { "-", "+", "!", "?", "~", "^", "so", "not", NULL };
+        for (int i = 0; pf[i] && !body; i++) if (!strcmp(op, pf[i])) body = rkb_prefix_raw(b, op, a);
+    }
+    else if (!strcmp(op, ",")) { body = make_call("__rk_arr"); expr_add_child(body, a); expr_add_child(body, c); }
+    else {
+        int lv, k, rv;
+        if (rkb_cross_inner(op, &lv, &k, &rv) && lv != LV_RANGE1 && lv != LV_PAIR + 100) body = !strcmp(op, "~~") ? rkb_smartmatch(b, rv ? c : a, rv ? a : c) : rkb_binop_raw(b, lv, k, rv ? c : a, rv ? a : c);
+    }
+    if (!body) return NULL;
+    tree_t *blk = ast_node_new(TT_ANON_BLOCK), *sq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(sq, body);
+    expr_add_child(blk, sq);
+    return blk;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     memset(it, 0, sizeof *it); it->kind = TK_VAR; it->from = from; it->to = it->core_to = to;
     if (nc) { tree_t *c = ast_node_new(TT_NAMED_CAPTURE); ast_push(c, leaf_sval(TT_QLIT, trimdup(nc, nclen))); it->t = c; it->cls = 'N'; return; }
@@ -1344,7 +1388,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     case 'P': { tree_t *c = ast_node_new(TT_CAPTURE); ast_push(c, rk_ilit(atoi(name + 1))); it->t = c; return; }
     case 'L': it->t = rk_ilit(line_at(b, from)); return;
     case 'T': case 'U': case 'W': { tree_t *fe = ast_node_new(TT_TWIGIL_FIELD); fe->v.sval = (char *) intern(rk_tw_bare(name + 1)); it->t = fe; return; }
-    default: it->t = var_node(b, name); return;
+    default: { tree_t *orf = name[0] == '&' ? rk_opref(b, name) : NULL; it->t = orf ? orf : var_node(b, name); return; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

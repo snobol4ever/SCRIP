@@ -128,6 +128,8 @@ typedef struct {
     int nroles, roles_cap;
     char ** methods;
     int nmethods, methods_cap;
+    char ** multis;
+    int nmultis, multis_cap;
     char has_build;
     char ** build_keys;
     int nbuild_keys, build_keys_cap;
@@ -147,6 +149,9 @@ DESCR_t dat_construct(DatType *t, DESCR_t *args, int nargs);
 void class_inherit_multi(const char *child, const char **parents, int nparents);
 void class_compose_role(const char *child, const char *role);
 void dat_add_method(const char *type, const char *mname);
+void dat_mark_method_multi(const char *type, const char *mname);
+int dat_type_nmultis(int idx);
+const char *dat_type_multi_at(int idx, int j);
 void dat_set_field_default_i(const char *cls, const char *field, int64_t v);
 void dat_set_field_priv(const char *cls, const char *field);
 int dat_field_is_private(const char *cls, const char *field);

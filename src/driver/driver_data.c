@@ -201,6 +201,7 @@ void class_inherit_multi(const char *child, const char **parents, int nparents) 
     compute_mro_multi(c);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int dat_method_is_multi(const DatType *t, const char *mname) { for (int i = 0; i < t->nmultis; i++) if (!strcmp(t->multis[i], mname)) return 1; return 0; }
 void class_compose_role(const char *child, const char *role) {
     if (!child || !role) return;
     DatType *c = dat_find_type(child);
@@ -217,7 +218,7 @@ void class_compose_role(const char *child, const char *role) {
             if (!rp) continue;
             int clash = 0;
             for (int k = 0; k < rp->nmethods; k++) if (!strcmp(rp->methods[k], m)) { clash = 1; break; }
-            if (clash) {
+            if (clash && !dat_method_is_multi(r, m) && !dat_method_is_multi(rp, m)) {
                 extern void rt_script_die_surface(const char *msg);
                 char _m[fmt_len("Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role)];
                 snprintf(_m, sizeof _m, "Method '%s' must be resolved by class %s because it exists in multiple roles (%s, %s)", m, child, c->roles[pri], role);
@@ -231,6 +232,16 @@ void class_compose_role(const char *child, const char *role) {
     for (int i = 0; i < c->nroles; i++) if (!strcmp(c->roles[i], role)) { dupr = 1; break; }
     if (!dupr) dat_sv_put(&c->roles, &c->nroles, &c->roles_cap, ct_strdup(role));
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void dat_mark_method_multi(const char *type, const char *mname) {
+    if (!type || !mname || !*mname) return;
+    DatType *t = dat_find_type(type);
+    if (!t) return;
+    for (int i = 0; i < t->nmultis; i++) if (!strcmp(t->multis[i], mname)) return;
+    dat_sv_put(&t->multis, &t->nmultis, &t->multis_cap, ct_strdup(mname));
+}
+int dat_type_nmultis(int idx) { return (idx >= 0 && idx < dat_ntypes) ? dat_types[idx]->nmultis : 0; }
+const char *dat_type_multi_at(int idx, int j) { return (idx >= 0 && idx < dat_ntypes && j >= 0 && j < dat_types[idx]->nmultis) ? dat_types[idx]->multis[j] : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void dat_add_method(const char *type, const char *mname) {
     if (!type || !mname || !*mname) return;

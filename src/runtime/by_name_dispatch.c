@@ -11034,8 +11034,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             }
         }
         if (args[0].v != DT_DATA) {
-            const char *tname = VARVAL_fn(args[0]);
+            const char *tname = rk_typeobj_name(args[0]) ? rk_typeobj_name(args[0]) : VARVAL_fn(args[0]);
             extern int rt_proc_has_native_fn(const char *name);
+            if (tname && mname0 && !strcmp(mname0, "new") && dat_find_type(tname)) {
+                DESCR_t *na = rt_ws_alloc_descr((size_t)(nargs - 1));
+                na[0] = STRVAL(rt_heap_strdup_c(tname));
+                for (int k = 2; k < nargs; k++) na[k - 1] = args[k];
+                return script_try_call_builtin_by_name_rq("obj_new", na, nargs - 1, out, rq);
+            }
             if (tname && dat_find_type(tname)) {
                 const char *rmc = resolve_method_chain(tname, mname0, NULL);
                 char tproc[fmt_len("%s__%s", rmc, mname0)];
