@@ -135,7 +135,7 @@ runner_arm() {  # <arm> <db> <progress name of lib> <undeclared key of bare> <en
 J="$W/jcon"; mkw "$J" lib; printf '%s\n1,lib,jcon_tests__lib,jcon_tests,3,0,0,131072,4096,--stlimit,\n' "$HDR" > "$J/ALL.csv"
 runner_arm J "$W/j.tsv" lib bare -- "$HERE/test_icon_jcon_suite.sh" --corpus "$J"
 A="$W/az/corpus/packages/icon/arizona_tests"; mkw "$A/general" driver; mkdir -p "$A/special"; printf '%s\n1,general/lib,arizona_tests__general/lib,arizona_tests,3,0,0,131072,4096,--stlimit,\n' "$HDR" > "$A/ALL.csv"
-runner_arm A "$W/a.tsv" lib general/bare S4E_HOME="$W/az" -- "$HERE/test_icon_arizona_suite.sh"
+runner_arm A "$W/a.tsv" general/lib general/bare S4E_HOME="$W/az" -- "$HERE/test_icon_arizona_suite.sh"   # the board keys <subdir>/<stem> (b4f66ce42, CEO-1366 (b))
 P="$W/ipl/corpus/packages/icon/ipl"; mkw "$P/procs" driver; for d in progs gprogs gprocs incl gincl; do mkdir -p "$P/$d"; done
 mv "$P/procs/bare.icn" "$P/procs/bare.ref" "$P/progs/"
 printf '%s\n1,procs/lib,ipl__procs/lib,ipl,3,0,0,131072,4096,--stlimit,\n' "$HDR" > "$P/ALL.csv"

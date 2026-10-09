@@ -176,7 +176,7 @@ board_pair P6 "$rc" "$out"
 mk_icn "$W/jcon"; csv_pair decl nodecl > "$W/jcon/ALL.csv"
 run_db P7 "$W/p7.tsv" -- "$HERE/test_icon_jcon_suite.sh" --corpus "$W/jcon"
 A="$W/az/corpus/packages/icon/arizona_tests"; mk_icn "$A/general"; mkdir -p "$A/special"; csv_pair general/decl general/nodecl > "$A/ALL.csv"
-run_db P8 "$W/p8.tsv" S4E_HOME="$W/az" -- "$HERE/test_icon_arizona_suite.sh"
+DBPFX=general/ run_db P8 "$W/p8.tsv" S4E_HOME="$W/az" -- "$HERE/test_icon_arizona_suite.sh"   # the board keys <subdir>/<stem> (b4f66ce42, CEO-1366 (b))
 P="$W/ipl/corpus/packages/icon/ipl"; mk_icn "$P/progs"; for d in gprogs procs gprocs incl gincl; do mkdir -p "$P/$d"; done; csv_pair progs/decl progs/nodecl > "$P/ALL.csv"
 DBPFX=progs/ run_db P9 "$W/p9.tsv" S4E_HOME="$W/ipl" -- "$HERE/test_icon_ipl_suite.sh"
 mk_sno "$W/x32" spt

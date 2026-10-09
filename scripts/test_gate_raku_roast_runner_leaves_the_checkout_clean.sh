@@ -20,6 +20,7 @@ ROOT="$(cd "$HERE/.." && pwd)"
 BOARD="$HERE/raku_roast_scoreboard.sh"
 [ -f "$BOARD" ] || { echo "GATE UNPROVEN(2): missing $BOARD"; exit 2; }
 [ -x "$ROOT/scrip" ] || { echo "GATE UNPROVEN(2): no $ROOT/scrip (make first)"; exit 2; }
+"$HERE/util_require_fresh.sh" --gate test_gate_raku_roast_runner_leaves_the_checkout_clean "$ROOT/scrip" "$ROOT/out/libscrip_rt.so" || exit 2
 git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1 || { echo "GATE UNPROVEN(2): $ROOT is not a git checkout -- arm 3 reads its status"; exit 2; }
 W="$(mktemp -d)" || { echo "GATE UNPROVEN(2): mktemp failed"; exit 2; }
 DEBRIS="gate-roast-cwd-debris-$$.txt"
