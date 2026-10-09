@@ -1152,7 +1152,7 @@ static PlClause *parse_clause(Parser *p) {
     }
     return cl;
 }
-static const char *PL_PRELUDE_SRC =
+static const char * const PL_PRELUDE_SRC =
     "member(X,[X|_]).\n"
     "member(X,[_|T]):-member(X,T).\n"
     "append([],L,L).\n"
