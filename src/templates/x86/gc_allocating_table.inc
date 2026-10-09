@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2291
+#define GC_ALLOC_TAB_N 2296
 #define GC_ALLOC_TAB_N_VOID 273
-#define GC_ALLOC_TAB_N_DESCR 1141
+#define GC_ALLOC_TAB_N_DESCR 1146
 #define GC_ALLOC_TAB_N_OTHER 861
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -770,13 +770,18 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_numeral_put", GC_RET_OTHER },
     { "pas_ord_of", GC_RET_OTHER },
     { "pas_pf_resolve", GC_RET_VOID },
+    { "pas_rdecode", GC_RET_DESCR },
     { "pas_read_number", GC_RET_DESCR },
     { "pas_ref_val", GC_RET_DESCR },
+    { "pas_rpatch", GC_RET_DESCR },
     { "pas_str_setch", GC_RET_DESCR },
     { "pas_tf_read", GC_RET_OTHER },
     { "pas_tf_set", GC_RET_VOID },
     { "pas_tf_write", GC_RET_VOID },
     { "pas_trace_print_value", GC_RET_VOID },
+    { "pas_view_get", GC_RET_DESCR },
+    { "pas_view_make", GC_RET_DESCR },
+    { "pas_view_set", GC_RET_DESCR },
     { "pascal_compile", GC_RET_VOID },
     { "pascal_compile_parse", GC_RET_OTHER },
     { "pascal_parse_string", GC_RET_OTHER },

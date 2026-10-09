@@ -9753,6 +9753,68 @@ DESCR_t pas_elem_ref(DESCR_t *args, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t pas_ref_val(DESCR_t *args, int nargs) { extern DESCR_t rt_deref(DESCR_t); return rt_deref(args[0]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char pas_view_key[] = "__pas_view";
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_rdecode(DESCR_t reg, long off, long kind, long rsz) {
+    int cls = (int)(kind & 0xFF), esz = (int)((kind >> 8) & 0xFF);
+    size_t tsz = PAS_SET_BYTES;
+    unsigned char tmp[tsz];
+    memset(tmp, 0, tsz);
+    if (esz > (int)tsz) esz = (int)tsz;
+    if (IS_STR_fn(reg) && reg.s && off >= 0) for (int k = 0; k < esz && off + k < rsz && off + k < (long)reg.slen; k++) tmp[k] = (unsigned char)reg.s[off + k];
+    if (cls == 1 || cls == 2) {
+        uint64_t v = 0;
+        for (int k = 0; k < esz && k < 8; k++) v |= (uint64_t)tmp[k] << (8 * k);
+        if (cls == 1 && esz < 8 && esz > 0 && ((v >> (8 * esz - 1)) & 1u)) v |= ~(uint64_t)0 << (8 * esz);
+        return INTVAL((int64_t)v);
+    }
+    if (cls == 3) { if (esz == 4) { float f; memcpy(&f, tmp, 4); return REALVAL((double)f); } double d; memcpy(&d, tmp, 8); return REALVAL(d); }
+    if (cls == 4) return INTVAL((int64_t)tmp[0]);
+    if (cls == 5) return INTVAL(tmp[0] ? 1 : 0);
+    if (cls == 6) { unsigned char *b = (unsigned char *)rt_str_alloc(PAS_SET_BYTES); memcpy(b, tmp, PAS_SET_BYTES); return BSTRVAL((char *)b, PAS_SET_BYTES); }
+    return INTVAL(0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_rpatch(DESCR_t reg, long off, long kind, long rsz, DESCR_t val) {
+    int cls = (int)(kind & 0xFF), esz = (int)((kind >> 8) & 0xFF);
+    if (rsz < 0) rsz = 0;
+    unsigned char *b = (unsigned char *)rt_str_alloc(rsz > 0 ? rsz : 1);
+    memset(b, 0, (size_t)(rsz > 0 ? rsz : 1));
+    if (IS_STR_fn(reg) && reg.s) memcpy(b, reg.s, (size_t)(reg.slen < (uint32_t)rsz ? reg.slen : (uint32_t)rsz));
+    if (off >= 0 && esz > 0 && off + esz <= rsz) {
+        size_t tsz = PAS_SET_BYTES;
+        unsigned char tmp[tsz];
+        memset(tmp, 0, tsz);
+        if (cls == 1 || cls == 2) {
+            uint64_t v = (uint64_t)(IS_REAL_fn(val) ? (int64_t)val.r : (int64_t)pas_ord_of(val));
+            for (int k = 0; k < esz && k < 8; k++) tmp[k] = (unsigned char)(v >> (8 * k));
+        } else if (cls == 3) {
+            double d = IS_REAL_fn(val) ? val.r : (double)pas_ord_of(val);
+            if (esz == 4) { float f = (float)d; memcpy(tmp, &f, 4); } else memcpy(tmp, &d, 8);
+        } else if (cls == 4) tmp[0] = (unsigned char)pas_ord_of(val);
+        else if (cls == 5) tmp[0] = pas_ord_of(val) ? 1 : 0;
+        else if (cls == 6) pas_set_bits(val, tmp);
+        memcpy(b + off, tmp, (size_t)(esz < (int)sizeof tmp ? esz : (int)sizeof tmp));
+    }
+    return BSTRVAL((char *)b, rsz);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_view_make(DESCR_t *args, int nargs) {
+    VCELL_t *vc = rt_agg_alloc(0, sizeof(VCELL_t));
+    vc->cellp = 0;
+    vc->tbl = 0;
+    vc->key = pas_view_key;
+    vc->key_d = INTVAL((long)pas_ord_of(args[2]));
+    vc->sv = args[0];
+    vc->pos = (long)pas_ord_of(args[1]);
+    vc->len = (long)pas_ord_of(args[3]);
+    return NAMETRAP(vc);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_view_get(VCELL_t *vc) { return pas_rdecode(rt_deref(vc->sv), vc->pos, (long)vc->key_d.i, vc->len); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_view_set(VCELL_t *vc, DESCR_t val) { rt_assign_var(vc->sv, pas_rpatch(rt_deref(vc->sv), vc->pos, (long)vc->key_d.i, vc->len, val)); return val; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return script_try_call_builtin_by_name_rq(fn, args, nargs, out, (long *)0); }
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
 #if RT_DIAG
@@ -10480,51 +10542,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__pas_mark") && nargs == 0) { *out = INTVAL(g_pas_heap_ctr + 1); return 1; }
     if (!strcmp(fn, "__pas_release") && nargs == 1) { if (IS_INT_fn(args[0])) pas_heap_release(args[0].i); *out = NULVCL; return 1; }
     if (!strcmp(fn, "__pas_alpha_str") && nargs == 2) { *out = pas_chars_of(args[0], IS_INT_fn(args[1]) ? (long)args[1].i : 0); return 1; }
-    if (!strcmp(fn, "__pas_rdecode") && nargs == 4) {
-        long off = (long)pas_ord_of(args[1]), kind = (long)pas_ord_of(args[2]), rsz = (long)pas_ord_of(args[3]);
-        int cls = (int)(kind & 0xFF), esz = (int)((kind >> 8) & 0xFF);
-        size_t tsz = PAS_SET_BYTES;
-        unsigned char tmp[tsz];
-        memset(tmp, 0, tsz);
-        if (esz > (int)tsz) esz = (int)tsz;
-        if (IS_STR_fn(args[0]) && args[0].s && off >= 0) for (int k = 0; k < esz && off + k < rsz && off + k < (long)args[0].slen; k++) tmp[k] = (unsigned char)args[0].s[off + k];
-        if (cls == 1 || cls == 2) {
-            uint64_t v = 0;
-            for (int k = 0; k < esz && k < 8; k++) v |= (uint64_t)tmp[k] << (8 * k);
-            if (cls == 1 && esz < 8 && esz > 0 && ((v >> (8 * esz - 1)) & 1u)) v |= ~(uint64_t)0 << (8 * esz);
-            *out = INTVAL((int64_t)v);
-        } else if (cls == 3) {
-            if (esz == 4) { float f; memcpy(&f, tmp, 4); *out = REALVAL((double)f); } else { double d; memcpy(&d, tmp, 8); *out = REALVAL(d); }
-        } else if (cls == 4) *out = INTVAL((int64_t)tmp[0]);
-        else if (cls == 5) *out = INTVAL(tmp[0] ? 1 : 0);
-        else if (cls == 6) { unsigned char *b = (unsigned char *)rt_str_alloc(PAS_SET_BYTES); memcpy(b, tmp, PAS_SET_BYTES); *out = BSTRVAL((char *)b, PAS_SET_BYTES); } else *out = INTVAL(0);
-        return 1;
-    }
-    if (!strcmp(fn, "__pas_rpatch") && nargs == 5) {
-        long off = (long)pas_ord_of(args[1]), kind = (long)pas_ord_of(args[2]), rsz = (long)pas_ord_of(args[3]);
-        int cls = (int)(kind & 0xFF), esz = (int)((kind >> 8) & 0xFF);
-        if (rsz < 0) rsz = 0;
-        unsigned char *b = (unsigned char *)rt_str_alloc(rsz > 0 ? rsz : 1);
-        memset(b, 0, (size_t)(rsz > 0 ? rsz : 1));
-        if (IS_STR_fn(args[0]) && args[0].s) memcpy(b, args[0].s, (size_t)(args[0].slen < (uint32_t)rsz ? args[0].slen : (uint32_t)rsz));
-        if (off >= 0 && esz > 0 && off + esz <= rsz) {
-            size_t tsz = PAS_SET_BYTES;
-            unsigned char tmp[tsz];
-            memset(tmp, 0, tsz);
-            if (cls == 1 || cls == 2) {
-                uint64_t v = (uint64_t)(IS_REAL_fn(args[4]) ? (int64_t)args[4].r : (int64_t)pas_ord_of(args[4]));
-                for (int k = 0; k < esz && k < 8; k++) tmp[k] = (unsigned char)(v >> (8 * k));
-            } else if (cls == 3) {
-                double d = IS_REAL_fn(args[4]) ? args[4].r : (double)pas_ord_of(args[4]);
-                if (esz == 4) { float f = (float)d; memcpy(tmp, &f, 4); } else memcpy(tmp, &d, 8);
-            } else if (cls == 4) tmp[0] = (unsigned char)pas_ord_of(args[4]);
-            else if (cls == 5) tmp[0] = pas_ord_of(args[4]) ? 1 : 0;
-            else if (cls == 6) pas_set_bits(args[4], tmp);
-            memcpy(b + off, tmp, (size_t)(esz < (int)sizeof tmp ? esz : (int)sizeof tmp));
-        }
-        *out = BSTRVAL((char *)b, rsz);
-        return 1;
-    }
+    if (!strcmp(fn, "__pas_rdecode") && nargs == 4) { *out = pas_rdecode(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3])); return 1; }
+    if (!strcmp(fn, "__pas_rpatch") && nargs == 5) { *out = pas_rpatch(args[0], (long)pas_ord_of(args[1]), (long)pas_ord_of(args[2]), (long)pas_ord_of(args[3]), args[4]); return 1; }
+    if (!strcmp(fn, "__pas_view") && nargs == 4) { *out = pas_view_make(args, nargs); return 1; }
     if (!strcmp(fn, "__pas_setlength") && nargs == 2) {
         const char *s = VARVAL_fn(args[0]);
         if (!s) s = "";

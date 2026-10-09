@@ -459,6 +459,22 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
                     ast_push(call, tv);
                     outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg), pas_lc_clone(tv));
+                } else if (((brm >> (i - env - 1)) & 1ULL) && pas_is_region_actual(arg) && arg->c[1]->n >= 2) {
+                    tree_t * tv = pas_vptmp_var();
+                    tree_t * cr = pas_vpref_var();
+                    tree_t * vw = pas_vpref_var();
+                    tree_t * mk = ast_node_new(TT_FNC);
+                    tree_t * mv = ast_node_new(TT_FNC);
+                    ast_push(mk, pas_lc_leaf(TT_VAR, "__pas_elem_ref"));
+                    ast_push(mk, pas_lc_clone(arg->c[1]->c[0]));
+                    ast_push(mk, pas_lc_clone(arg->c[1]->c[1]));
+                    ast_push(mk, tv);
+                    ast_push(seq, pas_lc_bin(TT_ASSIGN, cr, mk));
+                    ast_push(mv, pas_lc_leaf(TT_VAR, "__pas_view"));
+                    ast_push(mv, pas_lc_clone(cr));
+                    for (int k = 2; k <= 4; k++) ast_push(mv, pas_lc_clone(arg->c[k]));
+                    ast_push(seq, pas_lc_bin(TT_ASSIGN, vw, mv));
+                    ast_push(call, pas_lc_clone(vw));
                 } else if (((brm >> (i - env - 1)) & 1ULL) && pas_is_region_actual(arg)) {
                     tree_t * tv = pas_vptmp_var();
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));

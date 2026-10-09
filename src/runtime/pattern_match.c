@@ -2182,12 +2182,16 @@ static const char k_one_char_str[513] =
     "\377\000";
 void rt_trace_deref_slot(DESCR_t *p) { if (p) *p = rt_deref(*p); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern const char pas_view_key[];
+extern DESCR_t pas_view_get(VCELL_t *);
+extern DESCR_t pas_view_set(VCELL_t *, DESCR_t);
 DESCR_t rt_deref_slow(DESCR_t d) {
     if (d.v == DT_N && d.slen == 0 && d.s && *d.s) { extern DESCR_t NV_GET_fn(const char *); return NV_GET_fn(d.s); }
     if (d.v == DT_N && d.slen == 1 && d.ptr) return *(DESCR_t *)d.ptr;
     if (!IS_NAMETRAP_fn(d)) return d;
     VCELL_t *vc = (VCELL_t *)d.p;
     if (!vc) return FAILDESCR;
+    if (vc->key == pas_view_key) return pas_view_get(vc);
     if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) { extern DESCR_t rt_keyword_read(const char *); return rt_keyword_read(vc->key); }
     if (vc->cellp) return *vc->cellp;
     if (vc->tbl) {
@@ -2227,6 +2231,7 @@ static DESCR_t c_rt_assign_var_body(DESCR_t var, DESCR_t val, int strict) {
     }
     VCELL_t *vc = (VCELL_t *)var.p;
     if (!vc) return FAILDESCR;
+    if (vc->key == pas_view_key) return pas_view_set(vc, val);
     if (!vc->cellp && !vc->tbl && vc->key && vc->pos == -1) {
         fprintf(stderr, "[IDX] BOMB rt_assign_var: assignment to keyword variable %s is not implemented (the keyword write also resets the scanning environment, so it is not a cell store)\n", vc->key)
             ;
