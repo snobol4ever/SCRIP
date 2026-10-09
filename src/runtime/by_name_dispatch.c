@@ -10548,28 +10548,53 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-    if (!strcmp(fn, "__rk_arr_first") && nargs >= 2) {
-        if (rk_is_code(args[1])) {
-            int nrf = rk_blk_nref(args[1]);
-            DESCR_t rfs[nrf ? nrf : 1];
-            rk_cb_t cb = rk_blk_snap(args[1], rfs);
-            rk_cbh_t H = { g_rk_cbh_cur, { args[0], NULVCL } };
-            g_rk_cbh_cur = &H;
-            int an = rk_av(args[0]).n;
-            extern int rt_is_truthy(DESCR_t v);
-            for (int i = 0; i < an; i++) {
-                DESCR_t ed = rk_av_elem(rk_av(H.d[0]), i);
+    if (!strcmp(fn, "__rk_arr_first") && nargs >= 1) {
+        int fend = 0, fmode = 0, fmi = -1;
+        for (int i = 1; i < nargs; i++) {
+            int adv = 0;
+            if (rk_is_pair(args[i])) {
+                rk_av_t pp = rk_av(args[i]);
+                char kb[64];
+                const char *k = pp.n > 1 && pp.el[1].v == DT_BOOL ? to_cstring(pp.el[0], kb, sizeof kb) : NULL;
+                if (k && (!strcmp(k, "end") || !strcmp(k, "k") || !strcmp(k, "kv") || !strcmp(k, "p") || !strcmp(k, "v"))) {
+                    adv = 1;
+                    if (pp.el[1].i) { if (!strcmp(k, "end")) fend = 1; else fmode = !strcmp(k, "k") ? 1 : !strcmp(k, "kv") ? 2 : !strcmp(k, "p") ? 3 : 0; }
+                }
+            }
+            if (!adv && fmi < 0) fmi = i;
+        }
+        rk_cbh_t H = { g_rk_cbh_cur, { args[0], fmi >= 0 ? args[fmi] : NULVCL } };
+        g_rk_cbh_cur = &H;
+        int code = fmi >= 0 && rk_is_code(args[fmi]);
+        int nrf = code ? rk_blk_nref(args[fmi]) : 0;
+        DESCR_t rfs[nrf ? nrf : 1];
+        rk_cb_t cb = code ? rk_blk_snap(args[fmi], rfs) : (rk_cb_t) { NULL, 0 };
+        int an = rk_av(args[0]).n;
+        extern int rt_is_truthy(DESCR_t v);
+        *out = NULVCL;
+        for (int j = 0; j < an; j++) {
+            int i = fend ? an - 1 - j : j;
+            DESCR_t ed = rk_av_elem(rk_av(H.d[0]), i);
+            int hit = 1;
+            if (code) {
                 rt_call_args_need(2);
                 CALL_ARGS[0] = ed;
-                if (rt_is_truthy(rk_call_snap(cb, rfs, 1))) { *out = rk_av_elem(rk_av(H.d[0]), i); g_rk_cbh_cur = H.prev; return 1; }
+                hit = rt_is_truthy(rk_call_snap(cb, rfs, 1));
+            } else if (fmi >= 0) {
+                DESCR_t sm[2] = { ed, H.d[1] }, t;
+                hit = script_try_call_builtin_by_name("__rk_smartmatch", sm, 2, &t) && !IS_FAIL_fn(t) && rk_is_truthy(t);
             }
-            g_rk_cbh_cur = H.prev;
-            *out = NULVCL;
-            return 1;
+            if (!hit) continue;
+            ed = rk_av_elem(rk_av(H.d[0]), i);
+            if (fmode == 1) *out = INTVAL(i);
+            else if (fmode == 2) { DESCR_t kv[2] = { INTVAL(i), ed }; *out = rk_mk_arr(kv, 2); } else if (fmode == 3) *out = rk_mk_pair(INTVAL(i), ed);
+            else *out = ed;
+            break;
         }
+        g_rk_cbh_cur = H.prev;
+        return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-    if (!strcmp(fn, "__rk_arr_first") && nargs >= 1) { rk_av_t a = rk_av(args[0]); *out = a.n > 0 ? rk_av_elem(a, 0) : NULVCL; return 1; }
     if (!strcmp(fn, "__rk_arr_values") && nargs >= 1) { rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1; }
     if ((!strcmp(fn, "__rk_flat") || !strcmp(fn, "__rk_arr_flat")) && nargs >= 0) { *out = rk_flat_agg(args, nargs); return 1; }
     if (!strcmp(fn, "__rk_to_array") && nargs == 1) { if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_unmark(rk_mk_arr(a.el, a.n)); } else *out = args[0]; return 1; }

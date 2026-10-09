@@ -720,6 +720,7 @@ test_gate_raku_an_exception_is_a_value_that_die_carries_and_catch_and_throws_lik
 test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
 test_gate_raku_builtin_gaps_and_is_run_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_eval_compiles_a_string_in_process_in_both_modes.sh	WIRED	-	-	-
+test_gate_raku_first_takes_the_end_k_kv_p_v_adverbs_and_a_non_block_matcher_and_later_bare_adverbs_are_named_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_gather_and_take_collect_what_the_body_takes_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_group_of_is_a_planned_subtest_and_a_multi_sub_declared_in_a_block_or_a_sub_is_registered_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_io_path_and_handle_are_typed_values_as_rakudo_has_them.sh	WIRED	-	-	-

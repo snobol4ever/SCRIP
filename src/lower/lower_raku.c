@@ -1253,8 +1253,30 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 for (int i = 2; i < t->n; i++) ast_push(mc, t->c[i]);
                 return lower_rv(cx, mc, γ, ω, res);
             }
+            if (nm && !strcmp(nm, "__rk_named_call") && t->n > 4 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "first") && !rk_proc_known("first") && t->c[2] &&
+                t->c[2]->t == TT_ILIT && t->c[2]->v.ival >= 1 && t->n >= 3 + t->c[2]->v.ival) {
+                int np = (int) t->c[2]->v.ival;
+                tree_t * lst = ast_node_new(TT_FNC);
+                lst->v.sval = (char *)"__rk_flat";
+                ast_push(lst, leaf_sval2(TT_VAR, "__rk_flat"));
+                for (int i = 4; i < 3 + np; i++) ast_push(lst, t->c[i]);
+                tree_t * mc = ast_node_new(TT_METHCALL);
+                mc->line = t->line;
+                ast_push(mc, lst);
+                ast_push(mc, leaf_sval2(TT_QLIT, "first"));
+                ast_push(mc, t->c[3]);
+                for (int i = 3 + np; i + 1 < t->n; i += 2) {
+                    tree_t * pr = ast_node_new(TT_FNC);
+                    pr->v.sval = (char *)"__rk_pair";
+                    ast_push(pr, leaf_sval2(TT_VAR, "__rk_pair"));
+                    ast_push(pr, t->c[i]);
+                    ast_push(pr, t->c[i + 1]);
+                    ast_push(mc, pr);
+                }
+                return lower_rv(cx, mc, γ, ω, res);
+            }
             if (nm && t->n > 2 && (!strcmp(nm, "map") || !strcmp(nm, "grep") || !strcmp(nm, "first")) && !rk_proc_known(nm) && t->c[1] &&
-                (t->c[1]->t == TT_ANON_BLOCK || (t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] == '&'))) {
+                (!strcmp(nm, "first") || t->c[1]->t == TT_ANON_BLOCK || (t->c[1]->t == TT_VAR && t->c[1]->v.sval && t->c[1]->v.sval[0] == '&'))) {
                 tree_t * lst = ast_node_new(TT_FNC);
                 lst->v.sval = (char *)"__rk_arr";
                 ast_push(lst, leaf_sval2(TT_VAR, "__rk_arr"));
