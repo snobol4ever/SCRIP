@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
@@ -24,7 +25,7 @@ static const struct {
     int op;
 } leaves[] = { { "rt_add", rt_add, c_rt_add, 0 }, { "rt_sub", rt_sub, c_rt_sub, 1 }, { "rt_mul", rt_mul, c_rt_mul, 2 }, { "rt_add_sno", rt_add_sno, c_rt_add_sno, 0 }, { "rt_sub_sno", rt_sub_sno,
     c_rt_sub_sno, 1 }, { "rt_mul_sno", rt_mul_sno, c_rt_mul_sno, 2 }, };
-static int fails = 0, n = 0, handled = 0, declined = 0;
+static int fails = 0, n = 0, handled = 0, declined = 0, d_ovf = 0, d_real = 0, d_data = 0, d_other = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t lo(DESCR_t d) { uint64_t w; memcpy(&w, &d, 8); return w; }
 static uint64_t hi(DESCR_t d) { uint64_t w; memcpy(&w, (char *)&d + 8, 8); return w; }
@@ -73,6 +74,14 @@ static void check(int k, DESCR_t a, DESCR_t b, int ia, int ib) {
     n++;
     if ((uint8_t)rax == RTX_NOT_HANDLED) {
         declined++;
+        {
+            int64_t x, y, z;
+            int op = leaves[k].op;
+            if (a.v == DT_DATA || b.v == DT_DATA) d_data++;
+            else if (model_int(a, &x) && model_int(b, &y) && (op == 0 ? __builtin_add_overflow(x, y, &z) : op == 1 ? __builtin_sub_overflow(x, y, &z) : __builtin_mul_overflow(x, y, &z))) d_ovf++;
+            else if (a.v == DT_R || b.v == DT_R || (a.v == DT_S && a.s && strtod(a.s, NULL) != 0 && !model_int(a, &x)) || (b.v == DT_S && b.s && strtod(b.s, NULL) != 0 && !model_int(b, &y))) d_real++;
+            else d_other++;
+        }
         if (want) { fails++; printf("  FAIL %-10s case %d,%d declined a pair its fast path owns\n", leaves[k].name, ia, ib); }
         if (rdi != lo(a) || rsi != hi(a) || rdx != lo(b) || rcx != hi(b)) { fails++; printf("  FAIL %-10s case %d,%d declined with an argument register changed\n", leaves[k].name, ia, ib); }
         return;
@@ -92,19 +101,21 @@ int main(void) {
     static char s12[] = "12", sempty[] = "", sabc[] = "abc", sws[] = " \t 12 \t", splus[] = "+5", sminus[] = "-5", smin[] = "-9223372036854775808", smax[] = "9223372036854775807";
     static char sover[] = "9223372036854775808", sunder[] = "-9223372036854775809", sgap[] = "1 2", sp[] = "+", sm[] = "-", sblank[] = "   ", shex[] = "0x10", sreal[] = "1.5",
         szeros[] = "0000000000000000000000000000001";
-    static char sjunk[] = "12abc", sslice[] = "123456", sbig[] = "3037000500", stail[] = "7 x", smneg[] = "- 5";
+    static char sjunk[] = "12abc", sslice[] = "123456", sbig[] = "3037000500", stail[] = "7 x", smneg[] = "- 5", snz[] = "-0", spz[] = "+0", sbz[] = " -0 ", s19[] = "1234567890123456789",
+        s20[] = "12345678901234567890";
     DESCR_t snull = ds(sempty), sunk = ds(s12);
     snull.s = NULL;
     snull.slen = 0;
     sunk.slen = 0xFFFFFFFFu;
     DESCR_t cases[] = { ds(sws), ds(splus), ds(sminus), ds(smin), ds(smax), ds(sover), ds(sunder), ds(sgap), ds(sp), ds(sm), ds(sblank), ds(shex), ds(sreal), ds(szeros), ds(sjunk), dsl(sslice, 3),
-        dsl(sslice, 0), ds(sbig), ds(stail), ds(smneg), snull, sunk, di(0), di(1), di(-1), di(7), di(INT64_MAX), di(INT64_MIN), di((int64_t)1 << 62), di(-((int64_t)1 << 62)), di(3037000499LL),
-        di(3037000500LL), dr(0.0), dr(-0.0), dr(1.5), dr(2.5), dr(1e300), dr(-1e300), dr(DBL_MAX), dr(INFINITY), dr(-INFINITY), dr(NAN), dr(5e-324), ds(s12), ds(sempty), ds(sabc), dtag(DT_SNUL),
-        dtag(DT_FAIL), dtag(DT_N), };
+        dsl(sslice, 0), ds(sbig), ds(stail), ds(smneg), ds(snz), ds(spz), ds(sbz), ds(s19), ds(s20), snull, sunk, di(0), di(1), di(-1), di(7), di(INT64_MAX), di(INT64_MIN), di((int64_t)1 << 62),
+        di(-((int64_t)1 << 62)), di(3037000499LL), di(3037000500LL), dr(0.0), dr(-0.0), dr(1.5), dr(2.5), dr(1e300), dr(-1e300), dr(DBL_MAX), dr(INFINITY), dr(-INFINITY), dr(NAN), dr(5e-324), ds(s12),
+        ds(sempty), ds(sabc), dtag(DT_SNUL), dtag(DT_FAIL), dtag(DT_N), dtag(DT_DATA), };
     int nc = (int)(sizeof cases / sizeof cases[0]);
     printf("RTX ARITH verdict battery (the six arith leaves against their C twins, the verdict road of ARCH-RT-CALL-PROTOCOL.md section 15)\n");
     for (int k = 0; k < (int)(sizeof leaves / sizeof leaves[0]); k++) for (int i = 0; i < nc; i++) for (int j = 0; j < nc; j++) check(k, cases[i], cases[j], i, j);
     printf("RTX ARITH: %d cases, %d handled, %d declined, %d mismatches\n", n, handled, declined, fails);
+    printf("RTX ARITH DECLINES overflow=%d real=%d data=%d other=%d (the arms the leaf hands the box; each is a row until the leaf or the box owns it)\n", d_ovf, d_real, d_data, d_other);
     if (!handled || !declined) { printf("RTX ARITH UNIT: FAIL -- a battery that saw only one verdict proves nothing\n"); return 1; }
     printf("RTX ARITH UNIT: %s\n", fails ? "FAIL" : "PASS");
     return fails ? 1 : 0;

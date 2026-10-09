@@ -7,39 +7,17 @@ RTX_GATE_DEF(arith)
     shr     rax, 53 ; \
     cmp     eax, 0x7FF ; \
     jae     slow
-#define RTX_INTSTR(p, fail) \
-    cmp dil, DT_I; jne .L##p##_ni; mov rax, rsi; jmp .L##p##_ok; \
-.L##p##_ni: \
-    test dil, dil; jz .L##p##_zero; cmp dil, DT_S; jne fail; test rsi, rsi; jz .L##p##_zero; shr rdi, 32; cmp edi, -1; je fail; add rdi, rsi; \
-.L##p##_ws1: \
-    cmp rsi, rdi; je .L##p##_zero; movzx ecx, byte ptr [rsi]; cmp cl, 0x20; je .L##p##_ws1n; cmp cl, 0x09; jne .L##p##_sign; \
-.L##p##_ws1n: \
-    inc rsi; jmp .L##p##_ws1; \
-.L##p##_sign: \
-    xor edx, edx; cmp cl, 0x2B; je .L##p##_sg; cmp cl, 0x2D; jne .L##p##_dig0; inc edx; \
-.L##p##_sg: \
-    inc rsi; cmp rsi, rdi; je fail; movzx ecx, byte ptr [rsi]; \
-.L##p##_dig0: \
-    sub ecx, 0x30; cmp ecx, 9; ja fail; xor eax, eax; \
-.L##p##_dig: \
-    imul rax, rax, 10; jo fail; sub rax, rcx; jo fail; inc rsi; cmp rsi, rdi; je .L##p##_end; movzx ecx, byte ptr [rsi]; sub ecx, 0x30; cmp ecx, 9; jbe .L##p##_dig; \
-    add ecx, 0x30; \
-.L##p##_ws2: \
-    cmp cl, 0x20; je .L##p##_ws2n; cmp cl, 0x09; jne fail; \
-.L##p##_ws2n: \
-    inc rsi; cmp rsi, rdi; je .L##p##_end; movzx ecx, byte ptr [rsi]; jmp .L##p##_ws2; \
-.L##p##_end: \
-    test edx, edx; jnz .L##p##_ok; neg rax; jo fail; jmp .L##p##_ok; \
-.L##p##_zero: \
-    xor eax, eax; \
-.L##p##_ok:
 #define RTX_ARITH_INTSTR(p, opi) \
 .L##p##_try: \
     movq xmm2, rdi; movq xmm3, rsi; movq xmm4, rdx; movq xmm5, rcx; \
-    RTX_INTSTR(p##a, .L##p##_rst); \
+    RTX_SUB_RSP(8); \
+    call qword ptr [rip + rtx_int_str_operand@GOTPCREL]; test ecx, ecx; jz .L##p##_fail; \
     movq xmm6, rax; movq rdi, xmm4; movq rsi, xmm5; \
-    RTX_INTSTR(p##b, .L##p##_rst); \
+    call qword ptr [rip + rtx_int_str_operand@GOTPCREL]; test ecx, ecx; jz .L##p##_fail; \
+    RTX_ADD_RSP(8); \
     mov rcx, rax; movq rax, xmm6; opi rax, rcx; jo .L##p##_rst; mov rdx, rax; mov eax, DT_I; ret; \
+.L##p##_fail: \
+    .cfi_adjust_cfa_offset 8; RTX_ADD_RSP(8); \
 .L##p##_rst: \
     movq rdi, xmm2; movq rsi, xmm3; movq rdx, xmm4; movq rcx, xmm5;
 .section .rodata
@@ -167,6 +145,92 @@ RTX_FUNC(rt_cmp_d)
     movsx   eax, al
     ret
 RTX_ENDF(rt_cmp_d)
+RTX_FUNC(rtx_int_str_operand)
+    cmp     dil, DT_I
+    jne     .Lis_ni
+    mov     rax, rsi
+    mov     ecx, 1
+    ret
+.Lis_ni:
+    test    dil, dil
+    jz      .Lis_zero
+    cmp     dil, DT_S
+    jne     .Lis_fail
+    test    rsi, rsi
+    jz      .Lis_zero
+    shr     rdi, 32
+    cmp     edi, -1
+    je      .Lis_fail
+    add     rdi, rsi
+.Lis_ws1:
+    cmp     rsi, rdi
+    je      .Lis_zero
+    movzx   ecx, byte ptr [rsi]
+    cmp     cl, 0x20
+    je      .Lis_ws1n
+    cmp     cl, 0x09
+    jne     .Lis_sign
+.Lis_ws1n:
+    inc     rsi
+    jmp     .Lis_ws1
+.Lis_sign:
+    xor     edx, edx
+    cmp     cl, 0x2B
+    je      .Lis_sg
+    cmp     cl, 0x2D
+    jne     .Lis_dig0
+    inc     edx
+.Lis_sg:
+    inc     rsi
+    cmp     rsi, rdi
+    je      .Lis_fail
+    movzx   ecx, byte ptr [rsi]
+.Lis_dig0:
+    sub     ecx, 0x30
+    cmp     ecx, 9
+    ja      .Lis_fail
+    xor     eax, eax
+.Lis_dig:
+    imul    rax, rax, 10
+    jo      .Lis_fail
+    sub     rax, rcx
+    jo      .Lis_fail
+    inc     rsi
+    cmp     rsi, rdi
+    je      .Lis_end
+    movzx   ecx, byte ptr [rsi]
+    sub     ecx, 0x30
+    cmp     ecx, 9
+    jbe     .Lis_dig
+    add     ecx, 0x30
+.Lis_ws2:
+    cmp     cl, 0x20
+    je      .Lis_ws2n
+    cmp     cl, 0x09
+    jne     .Lis_fail
+.Lis_ws2n:
+    inc     rsi
+    cmp     rsi, rdi
+    je      .Lis_end
+    movzx   ecx, byte ptr [rsi]
+    jmp     .Lis_ws2
+.Lis_end:
+    test    edx, edx
+    jnz     .Lis_ok
+    neg     rax
+    jo      .Lis_fail
+.Lis_ok:
+    mov     ecx, 1
+    ret
+.Lis_zero:
+    xor     eax, eax
+    mov     ecx, 1
+    ret
+.Lis_fail:
+    xor     ecx, ecx
+    ret
+RTX_ENDF(rtx_int_str_operand)
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_add)
     RTX_GATE(arith, .Ladd_slow)
     cmp     dil, DT_I
