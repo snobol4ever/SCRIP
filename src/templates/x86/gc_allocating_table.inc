@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2307
-#define GC_ALLOC_TAB_N_VOID 283
-#define GC_ALLOC_TAB_N_DESCR 1147
-#define GC_ALLOC_TAB_N_OTHER 861
+#define GC_ALLOC_TAB_N 2323
+#define GC_ALLOC_TAB_N_VOID 285
+#define GC_ALLOC_TAB_N_DESCR 1153
+#define GC_ALLOC_TAB_N_OTHER 869
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -642,6 +642,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "invoke_method_proc_rq", GC_RET_DESCR },
     { "is_numeric_like", GC_RET_OTHER },
     { "junction_collapse", GC_RET_OTHER },
+    { "k_conj", GC_RET_OTHER },
     { "k_group", GC_RET_OTHER },
     { "k_qiter", GC_RET_OTHER },
     { "k_rule_end", GC_RET_OTHER },
@@ -739,6 +740,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "p_atom", GC_RET_OTHER },
     { "p_closure_bounds", GC_RET_OTHER },
     { "p_conj", GC_RET_OTHER },
+    { "p_conj1", GC_RET_OTHER },
     { "p_group", GC_RET_OTHER },
     { "p_ltm", GC_RET_OTHER },
     { "p_quant", GC_RET_OTHER },
@@ -1081,6 +1083,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "relop_num_coerce", GC_RET_OTHER },
     { "rgbkey", GC_RET_OTHER },
     { "rk_agg_truth", GC_RET_OTHER },
+    { "rk_apply_actions", GC_RET_VOID },
     { "rk_arr_append", GC_RET_VOID },
     { "rk_arr_of_texts", GC_RET_DESCR },
     { "rk_arr_text", GC_RET_OTHER },
@@ -1104,6 +1107,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_cstr", GC_RET_OTHER },
     { "rk_cstr_num", GC_RET_OTHER },
     { "rk_discover_grammars", GC_RET_VOID },
+    { "rk_discover_lexical_regexes", GC_RET_VOID },
     { "rk_dyn_obj", GC_RET_DESCR },
     { "rk_dyn_str", GC_RET_DESCR },
     { "rk_dyn_text", GC_RET_OTHER },
@@ -1164,9 +1168,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_lines_arr", GC_RET_DESCR },
     { "rk_list_more_methods", GC_RET_OTHER },
     { "rk_match_caps", GC_RET_OTHER },
+    { "rk_match_caps_fill", GC_RET_OTHER },
     { "rk_match_gist_into", GC_RET_VOID },
     { "rk_match_gist_len", GC_RET_OTHER },
     { "rk_match_method", GC_RET_OTHER },
+    { "rk_match_ncaps", GC_RET_OTHER },
     { "rk_match_nil", GC_RET_DESCR },
     { "rk_match_obj", GC_RET_DESCR },
     { "rk_match_obj_in", GC_RET_DESCR },
@@ -1232,10 +1238,19 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_rsprintf", GC_RET_VOID },
     { "rk_rsprintf_legacy", GC_RET_VOID },
     { "rk_run_child", GC_RET_OTHER },
+    { "rk_rx_collect", GC_RET_OTHER },
     { "rk_rx_compile", GC_RET_OTHER },
+    { "rk_rx_concat3", GC_RET_DESCR },
     { "rk_rx_inst", GC_RET_DESCR },
+    { "rk_rx_interp_item", GC_RET_DESCR },
+    { "rk_rx_interp_list", GC_RET_DESCR },
+    { "rk_rx_piece", GC_RET_OTHER },
+    { "rk_rx_piece_str", GC_RET_DESCR },
+    { "rk_rx_quoted", GC_RET_DESCR },
+    { "rk_rx_rule", GC_RET_OTHER },
     { "rk_rx_slot", GC_RET_DESCR },
     { "rk_rx_sub", GC_RET_DESCR },
+    { "rk_rx_subst_run", GC_RET_OTHER },
     { "rk_rx_to_match", GC_RET_VOID },
     { "rk_sb_put", GC_RET_VOID },
     { "rk_sb_rep", GC_RET_VOID },
@@ -1252,6 +1267,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_tap_str", GC_RET_OTHER },
     { "rk_tap_truthy", GC_RET_OTHER },
     { "rk_tbl_text", GC_RET_OTHER },
+    { "rk_trans_run", GC_RET_DESCR },
     { "rk_txt_elem", GC_RET_DESCR },
     { "rk_typeobj", GC_RET_DESCR },
     { "rk_un_normalize", GC_RET_OTHER },
