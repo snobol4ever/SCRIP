@@ -33,13 +33,12 @@ cat > "$W/leaf.sno" <<'SNO'
         OUTPUT = EVAL('1 + 2')
 END
 SNO
-# ⛔ THE ERROR-MODE ARM IS GRADED ARM AGAINST ARM, NOT AGAINST THE ORACLE, because of a PRE-EXISTING gap measured 2026-09-24 20:3x:
-# SPITBOL raises an error inside DUPL('x','abc') (90), SUBSTR('abc','q',1) (193), ARRAY('x,y') (66), ITEM(3,1) (235) and with
-# &ERRLIMIT = 1 fails the statement with &ERRTYPE set, while SCRIP's builtins return silently and &ERRTYPE stays 0 -- the row
-# snobol4-builtin-argument-errors-are-silent-where-spitbol-raises-them-under-errlimit. Until it closes, this arm proves only that
-# the direct path changes nothing in the error modes: both arms print the same lines and the program runs to the end.
+# THE ERROR-MODE ARM IS GRADED AGAINST THE ORACLE since the row snobol4-builtin-argument-errors-are-silent-where-spitbol-raises-them-under-errlimit
+# closed: SPITBOL raises an error inside DUPL('x','abc') (90) and SUBSTR('abc','q',1) (193) and, with &ERRLIMIT = 2, fails each statement with
+# &ERRTYPE set; SCRIP now raises the same two (the witness read &ERRLIMIT = 1 until 2026-10-09, where the SECOND error is fatal in both, so the
+# by-name run stopped at statement 5 and this gate refused: the coo's pass 43).
 cat > "$W/errlimit.sno" <<'SNO'
-        &ERRLIMIT = 1
+        &ERRLIMIT = 2
         OUTPUT = 'before'
         x = DUPL('x', 'abc')
         OUTPUT = 'after: ' &ERRTYPE ' kept ' x
@@ -51,7 +50,7 @@ SNO
 red=0
 "$SBL" $(sbl_lang_flags) "$W/leaf.sno" < /dev/null > "$W/leaf.ref" 2>&1 || true
 [ -s "$W/leaf.ref" ] || { echo "REFUSED(2): the oracle printed nothing for the leaf witness"; exit 2; }
-( cd "$W" && export SCRIP_SN4_DIRECT=0 && timeout 20 "$ROOT/scrip" errlimit.sno < /dev/null > "$W/errlimit.ref" 2>&1 ); grep -q '^end$' "$W/errlimit.ref" || { echo "REFUSED(2): the by-name arm did not run the error-mode witness to its end"; head -4 "$W/errlimit.ref"; exit 2; }
+( cd "$W" && timeout 20 "$SBL" $(sbl_lang_flags) errlimit.sno < /dev/null > "$W/errlimit.ref" 2>&1 ); grep -q '^end$' "$W/errlimit.ref" || { echo "REFUSED(2): the oracle did not run the error-mode witness to its end"; head -4 "$W/errlimit.ref"; exit 2; }
 for arm in on off; do
     if [ "$arm" = on ]; then unset SCRIP_SN4_DIRECT; else export SCRIP_SN4_DIRECT=0; fi
     ( cd "$W" && "$ROOT/scrip" --compile -o "$W/leaf_$arm.s" leaf.sno < /dev/null > /dev/null 2>&1 ) || { echo "RED: leaf.sno did not compile (arm $arm)"; red=1; continue; }
