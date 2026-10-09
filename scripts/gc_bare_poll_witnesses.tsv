@@ -1,172 +1,176 @@
 # gc_bare_poll_witnesses.tsv -- THE DECLARED WITNESS OF EVERY CREDITED BARE-POLL SITE (cto, row gc-the-116-bare-poll-
 # sites-already-counted-as-done-are-re-screened-by-the-zero-collection-arm; ceo CEO-1137/1144).  Written by
 # `util_gc_safe_point_contract.py <witnesses> --write-bare-poll-table`, read by `--bare-poll`.  ONE ROW PER SITE the
-# census credits with the bare form (util_gc_census.py safe-points --list-polled, form=x86_rt_gc_poll); the join key
-# is poll_at, the template line the emitted note names.  A witness is the smallest ref-carrying program whose
+# census credits with the bare form (util_gc_census.py safe-points --list-polled, form=x86_rt_gc_poll).  A row is named
+# <template>:<callees>#<n>: the template, the callee names the census prints for the site, and the ordinal n among the
+# sites of that template naming the same callees, in census order -- NO LINE NUMBER, so a re-flow or any move of a
+# line never invalidates a row (the coo's pass-42 red, 2026-10-08).  The reading takes the site's current line from the
+# census at every run and checks the witness's emission against it.  A witness is the smallest ref-carrying program whose
 # emission reaches the site; UNWITNESSED is a site no program in the set reaches, NAMED and never counted green.
-# COLUMNS: site  poll_at  witness
-src/templates/bb/bb_activate.cpp:29:scrip_coexpr_activate	src/templates/bb/bb_activate.cpp:33	hb_coexpr_refresh.icn
-src/templates/bb/bb_assign_global.cpp:129:NV_SET_fn	src/templates/bb/bb_assign_global.cpp:132	UNWITNESSED
-src/templates/bb/bb_assign_var.cpp:24:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:31	hb_sno_twenty_thousand_indirect_names.sno
-src/templates/bb/bb_assign_var.cpp:43:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var.cpp:48	hb_concat_augmented_then_subscript.icn
-src/templates/bb/bb_assign_var_sub.cpp:48:rt_table_assign_fast	src/templates/bb/bb_assign_var_sub.cpp:55	hb_arena_grow.sno
-src/templates/bb/bb_assign_var_sub.cpp:68:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var_sub.cpp:75	hb_arena_grow.sno
-src/templates/bb/bb_assign_var_sub.cpp:96:rt_table_assign_fast	src/templates/bb/bb_assign_var_sub.cpp:101	UNWITNESSED
-src/templates/bb/bb_assign_var_sub.cpp:112:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_assign_var_sub.cpp:117	UNWITNESSED
-src/templates/bb/bb_binop_concat_slot.cpp:65:rt_icn_lconcat_d/str_concat_fracdigit_d/sno_concat_d/str_concat_d	src/templates/bb/bb_binop_concat_slot.cpp:70	hb_sno_twenty_thousand_indirect_names.sno
-src/templates/bb/bb_binop_concat_slot.cpp:84:rt_icn_lconcat_d/str_concat_fracdigit_d/sno_concat_d/str_concat_d	src/templates/bb/bb_binop_concat_slot.cpp:85	hb_raku_nextsame_seventy_method_frames_deep_reaches_the_parent_with_its_own_argument.raku
-src/templates/bb/bb_binop_relop.cpp:51:rt_relop_overload	src/templates/bb/bb_binop_relop.cpp:56	hb_raku_nextsame_seventy_method_frames_deep_reaches_the_parent_with_its_own_argument.raku
-src/templates/bb/bb_binop_relop.cpp:78:rt_relop_val_coerce	src/templates/bb/bb_binop_relop.cpp:79	hb_raku_nextsame_seventy_method_frames_deep_reaches_the_parent_with_its_own_argument.raku
-src/templates/bb/bb_binop_relop.cpp:98:rt_str_coerce	src/templates/bb/bb_binop_relop.cpp:110	hb_icn_errorvalue_keyword.icn
-src/templates/bb/bb_binop_relop.cpp:109:rt_relop_val_coerce	src/templates/bb/bb_binop_relop.cpp:110	hb_icn_errorvalue_keyword.icn
-src/templates/bb/bb_binop_relop_val.cpp:59:rt_relop_val_coerce	src/templates/bb/bb_binop_relop_val.cpp:60	hb_pas_a_three_argument_and_a_nine_argument_call_take_the_det_roads.pas
-src/templates/bb/bb_binop_relop_val.cpp:141:rt_binop_overload	src/templates/bb/bb_binop_relop_val.cpp:144	hb_wsb_rk_iter_grep.raku
-src/templates/bb/bb_binop_xrep_slot.cpp:24:str_repeat_d	src/templates/bb/bb_binop_xrep_slot.cpp:25	rk_list_array_marker.raku
-src/templates/bb/bb_call.cpp:545:rt_call_callee_sn4/rt_call_fld_sn4	src/templates/bb/bb_call.cpp:551	UNWITNESSED
-src/templates/bb/bb_call.cpp:564:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr_bl_sn4/rt_call_arr_bl_strict/rt_call_arr_bl	src/templates/bb/bb_call.cpp:569	hb_wsb_rk_gram_parse.raku
-src/templates/bb/bb_call_fn.cpp:273:rt_pl_dop_clause_unify/rt_pl_throw_raise/rt_pl_exist_raise/rt_pl_catch_handle/dop_write/rt_sno_mkpat_d/rt_sno_name_dl/rt_sno_pbk_d/rt_sno_pbn_d/rt_sno_pb0_d/rt_sno_pbc_d/rt_sno_pcur_d/rt_sno_pbalt_d/rt_sno_parb_d/rt_sno_pfen_d/rt_sno_pdef_d/rt_sno_kwset_d/rt_sno_mkexpr_d/rt_sno_stmt_d/rt_sno_nofail_d/rt_sno_list_d/rt_pl_dop_compare/rt_pl_dop_functor/rt_pl_dop_arg/rt_pl_dop_skip_list/rt_pl_dop_argv/rt_pl_dop_univ/rt_pl_dop_copy_term/rt_pl_dop_term_variables/rt_pl_dop_numbervars3/rt_pl_dop_numbervars1/rt_pl_dop_succ/rt_pl_dop_plus/rt_pl_dop_wall_us/rt_pl_dop_wall_ms/rt_pl_dop_sort/rt_pl_dop_msort/rt_pl_dop_char_type/rt_pl_dop_big/rt_pl_dop_findall_new/rt_pl_dop_findall_add/rt_pl_dop_findall_result/rt_pl_dop_findall_result4/rt_pl_dop_bagof_result/rt_pl_dop_setof_result/rt_pl_dop_sub_atom_n/rt_pl_dop_sub_atom_at/rt_pl_dop_atom_concat_n/rt_pl_dop_atom_concat_at/rt_pl_dop_bagof_group_n/rt_pl_dop_bagof_group_at/rt_pl_dop_setof_group_at/rt_pl_dop_db_assertz/rt_pl_dop_db_asserta/rt_pl_dop_db_erase/rt_pl_dop_db_abolish/rt_pl_dop_db_nonempty/rt_pl_dop_db_seed_once/rt_pl_dop_db_retractall/rt_pl_dop_db_alive/rt_pl_dop_db_store_k/rt_pl_dop_db_copy/rt_pl_dop_pl_cp_count/rt_pl_dop_pl_cp_nth/rt_pl_dop_pl_pp_guard/rt_pl_dop_pl_pp_count/rt_pl_dop_pl_pp_nth/rt_pl_dop_pl_cp_guard/rt_pl_dop_db_t_guard/rt_pl_dop_db_assertz_t/rt_pl_dop_db_asserta_t/rt_pl_dop_db_erase_t/rt_pl_dop_db_abolish_t/rt_pl_dop_db_retractall_t/rt_pl_dop_db_asserta_r/rt_pl_dop_db_assertz_r/rt_pl_dop_db_erase_ref/rt_pl_dop_db_n_r/rt_pl_dop_db_at_r/rt_pl_dop_db_ref_r/rt_pl_dop_nb_setval/rt_pl_dop_nb_getval/rt_pl_dop_b_setval/rt_pl_dop_nb_getval_guard/rt_pl_dop_ax_eguard/rt_pl_dop_char_guard/rt_pl_dop_between_guard/rt_pl_dop_stream_guard/rt_pl_dop_curstream_guard/rt_pl_dop_goal_guard/rt_pl_dop_list_guard/rt_pl_dop_pl_declared/rt_pl_dop_pl_dynamic/rt_pl_dop_term_string/rt_pl_dop_term_to_atom/rt_pl_dop_atom_length/rt_pl_dop_atom_concat/rt_pl_dop_atomic_concat/rt_pl_dop_atom_chars/rt_pl_dop_atom_codes/rt_pl_dop_atom_number/rt_pl_dop_atom_string/rt_pl_dop_upcase_atom/rt_pl_dop_downcase_atom/rt_pl_dop_string_concat/rt_pl_dop_string_length/rt_pl_dop_string_lower/rt_pl_dop_string_upper/rt_pl_dop_string_to_atom/rt_pl_dop_string_codes/rt_pl_dop_string_chars/rt_pl_dop_number_string/rt_pl_dop_atomic_list_concat/rt_pl_dop_atomic_list_concat/rt_pl_dop_concat_atom/rt_pl_dop_concat_atom/rt_pl_dop_char_code/rt_pl_dop_gnu_sort1/rt_pl_dop_gnu_msort1/rt_pl_dop_gnu_keysort1/rt_pl_dop_gnu_line_count/rt_pl_dop_gnu_line_position/rt_pl_dop_gnu_character_count/rt_pl_dop_gnu_stream_line_column/rt_pl_dop_gnu_last_read_start/rt_pl_dop_gnu_absolute_file_name/rt_pl_dop_gnu_prolog_file_name/rt_pl_dop_gnu_builtin/rt_pl_dop_gnu_working_directory/rt_pl_dop_gnu_change_directory/rt_pl_dop_gnu_make_directory/rt_pl_dop_gnu_delete_file/rt_pl_dop_gnu_file_exists/rt_pl_dop_gnu_directory_files/rt_pl_dop_gnu_environ_list/rt_pl_dop_gnu_file_props/rt_pl_dop_gnu_term_hash/rt_pl_dop_gnu_prolog_pid/rt_pl_dop_number_codes/rt_pl_dop_number_chars/rt_pl_dop_name/rt_pl_dop_get_char/rt_pl_dop_peek_char/rt_pl_dop_get_code/rt_pl_dop_peek_code/rt_pl_dop_get_byte/rt_pl_dop_peek_byte/rt_pl_dop_unget_char/rt_pl_dop_unget_code/rt_pl_dop_unget_byte/rt_pl_dop_put_byte/rt_pl_dop_current_prolog_flag/rt_pl_dop_set_prolog_flag/rt_pl_dop_telling/rt_pl_dop_seeing/rt_pl_dop_tell/rt_pl_dop_append1/rt_pl_dop_see/rt_pl_dop_put_char_c/rt_pl_dop_put_char_c_s/rt_pl_dop_at_end_of_stream_s/rt_pl_dop_get_edin/rt_pl_dop_skip/rt_pl_dop_get_code_s/rt_pl_dop_peek_code_s/rt_pl_dop_get_byte_s/rt_pl_dop_peek_byte_s/rt_pl_dop_unget_char_s/rt_pl_dop_unget_code_s/rt_pl_dop_unget_byte_s/rt_pl_dop_put_byte_s/rt_pl_dop_put_code_sb/rt_pl_dop_read/rt_pl_dop_atom_to_term/rt_pl_dop_display/rt_pl_dop_display_s/rt_pl_dop_unify_oc/rt_pl_dop_aggregate_reduce/rt_pl_dop_read_term_opts/rt_pl_dop_read_term_opts_s/rt_pl_dop_wot_open/rt_pl_dop_wot_capture/rt_pl_dop_wot_discard/rt_pl_dop_set_prolog_flag_declare/rt_pl_dop_read_term_from_atom/rt_pl_dop_read_term_from_chars/rt_pl_dop_read_term_from_codes/dop_pl_ground/dop_pl_is_list/dop_pl_acyclic_term/dop_pl_writeq/dop_pl_write_canonical/dop_pl_writeln/dop_pl_put_char/rt_pl_dop_halt/rt_pl_dop_halt/rt_pl_dop_format/rt_pl_dop_format/rt_pl_dop_write_sb/rt_pl_dop_writeq_sb/rt_pl_dop_write_canonical_sb/rt_pl_dop_writeln_sb/rt_pl_dop_nl_sb/rt_pl_dop_tab_sb/rt_pl_dop_put_char_sb/rt_pl_dop_flush_output_sb/dop_pl_set_output/dop_pl_set_input/rt_pl_dop_close/rt_pl_dop_close/rt_pl_dop_read_s/rt_pl_dop_get_char_s/rt_pl_dop_peek_char_s/rt_pl_dop_current_output/rt_pl_dop_current_input/rt_pl_dop_open/rt_pl_dop_open4/rt_pl_dop_keysort/rt_pl_dop_set_stream_position/rt_pl_dop_format3/rt_pl_dop_write_term/rt_pl_dop_write_term_s/rt_pl_dop_op/rt_pl_dop_pl_op_check/rt_pl_dop_pl_sp_check/rt_pl_dop_pl_ioarg/rt_pl_dop_cutcall/rt_pl_dop_print/rt_pl_dop_print_s/rt_pl_dop_pl_op_count/rt_pl_dop_pl_op_nth/rt_pl_dop_pl_sp_count/rt_pl_dop_pl_sp_nth/rt_pl_dop_pl_cs_count/rt_pl_dop_pl_cs_nth	src/templates/bb/bb_call_fn.cpp:276	hb_deferexpr_a_dupl.sno
-src/templates/bb/bb_call_fn.cpp:305:rt_call_callee_sn4/rt_call_fld_sn4	src/templates/bb/bb_call_fn.cpp:310	UNWITNESSED
-src/templates/bb/bb_call_fn.cpp:334:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr_bl_sn4/rt_call_arr_bl_strict/rt_call_arr_bl	src/templates/bb/bb_call_fn.cpp:339	hb_size_result_polled.icn
-src/templates/bb/bb_call_pl_leaf.cpp:103:rt_pl_anum_cold/rt_pl_atop_cold/rt_pl_ax_cold/rt_pl_cmp_cold/rt_pl_type_cold/rt_pl_zguard_cold	src/templates/bb/bb_call_pl_leaf.cpp:105	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_pl_leaf.cpp:206:rt_pl_is_cold	src/templates/bb/bb_call_pl_leaf.cpp:210	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_pl_leaf.cpp:365:rt_gcheap_alloc	src/templates/bb/bb_call_pl_leaf.cpp:372	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_pl_leaf.cpp:428:rt_pl_db_decls_install	src/templates/bb/bb_call_pl_leaf.cpp:429	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_proc_staged.cpp:134:rt_arg_stage	src/templates/bb/bb_call_proc_staged.cpp:135	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
-src/templates/bb/bb_call_proc_staged.cpp:346:rt_ab_undef_fn_fail	src/templates/bb/bb_call_proc_staged.cpp:347	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_call_proc_staged.cpp:463:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4	src/templates/bb/bb_call_proc_staged.cpp:471	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:470:rt_arg_stage	src/templates/bb/bb_call_proc_staged.cpp:471	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:474:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:481	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_call_proc_staged.cpp:480:rt_arg_stage	src/templates/bb/bb_call_proc_staged.cpp:481	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_call_proc_staged.cpp:484:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:485	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_call_proc_staged.cpp:654:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4	src/templates/bb/bb_call_proc_staged.cpp:662	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
-src/templates/bb/bb_call_proc_staged.cpp:658:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:662	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
-src/templates/bb/bb_call_proc_staged.cpp:661:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:662	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
-src/templates/bb/bb_call_proc_staged.cpp:1116:rt_proc_call_open_det	src/templates/bb/bb_call_proc_staged.cpp:1120	UNWITNESSED
-src/templates/bb/bb_call_proc_staged.cpp:1119:rt_proc_call_open	src/templates/bb/bb_call_proc_staged.cpp:1120	UNWITNESSED
-src/templates/bb/bb_call_value.cpp:87:rt_call_apply_spine_prep_blk	src/templates/bb/bb_call_value.cpp:97	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_value.cpp:88:rt_call_apply_spine_prep	src/templates/bb/bb_call_value.cpp:97	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_value.cpp:92:rt_pl_goal_resolve	src/templates/bb/bb_call_value.cpp:97	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_value.cpp:95:rt_call_value_spine_prep_blk	src/templates/bb/bb_call_value.cpp:97	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_value.cpp:96:rt_call_value_spine_prep	src/templates/bb/bb_call_value.cpp:97	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_value.cpp:216:rt_call_apply_gen_h	src/templates/bb/bb_call_value.cpp:231	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_value.cpp:223:rt_call_value_gen_h	src/templates/bb/bb_call_value.cpp:231	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_call_value.cpp:263:rt_call_value_resume_h	src/templates/bb/bb_call_value.cpp:269	hb_procval_in_aggregate.icn
-src/templates/bb/bb_coerce_integer.cpp:21:rt_coerce_int_d	src/templates/bb/bb_coerce_integer.cpp:22	hb_sno_every_deferred_expression_shape_under_the_flip_plant.sno
-src/templates/bb/bb_coerce_integer.cpp:33:rt_coerce_int_d	src/templates/bb/bb_coerce_integer.cpp:34	UNWITNESSED
-src/templates/bb/bb_coerce_numeric.cpp:44:rt_coerce_num2_d	src/templates/bb/bb_coerce_numeric.cpp:45	hb_sno_twenty_thousand_indirect_names.sno
-src/templates/bb/bb_coerce_numeric.cpp:76:rt_coerce_num2_d	src/templates/bb/bb_coerce_numeric.cpp:77	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
-src/templates/bb/bb_coerce_real.cpp:20:rt_coerce_real_d	src/templates/bb/bb_coerce_real.cpp:21	UNWITNESSED
-src/templates/bb/bb_coerce_string.cpp:47:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:49	UNWITNESSED
-src/templates/bb/bb_coerce_string.cpp:62:rt_coerce_str_d	src/templates/bb/bb_coerce_string.cpp:64	UNWITNESSED
-src/templates/bb/bb_cofail.cpp:15:scrip_cofail	src/templates/bb/bb_cofail.cpp:16	hb_coexpr_refresh.icn
-src/templates/bb/bb_coret.cpp:21:scrip_coret	src/templates/bb/bb_coret.cpp:23	hb_coexpr_refresh.icn
-src/templates/bb/bb_define.cpp:156:rt_define_site	src/templates/bb/bb_define.cpp:157	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:186:rt_define_bind_entry	src/templates/bb/bb_define.cpp:187	UNWITNESSED
-src/templates/bb/bb_define.cpp:200:rt_define_site_entry	src/templates/bb/bb_define.cpp:201	hb_define_with_an_entry_label_binds_its_entry_at_the_statement.sno
-src/templates/bb/bb_define.cpp:359:rt_shim_nv_in	src/templates/bb/bb_define.cpp:359	hb_shim_nv_road.sno
-src/templates/bb/bb_define.cpp:362:rt_shim_nv_gamma	src/templates/bb/bb_define.cpp:362	hb_shim_nv_road.sno
-src/templates/bb/bb_define.cpp:366:rt_shim_nv_omega	src/templates/bb/bb_define.cpp:366	hb_shim_nv_road.sno
-src/templates/bb/bb_define.cpp:460:rt_trace_call_hook	src/templates/bb/bb_define.cpp:461	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:486:sno_trace_call	src/templates/bb/bb_define.cpp:487	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:539:rt_trace_return_hook	src/templates/bb/bb_define.cpp:540	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:566:sno_trace_return	src/templates/bb/bb_define.cpp:567	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:622:rt_trace_fail_hook	src/templates/bb/bb_define.cpp:623	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_deref.cpp:19:rt_deref	src/templates/bb/bb_deref.cpp:26	hb_sno_twenty_thousand_indirect_names.sno
-src/templates/bb/bb_deref.cpp:36:rt_deref	src/templates/bb/bb_deref.cpp:41	stack_top_under_valgrind.icn
-src/templates/bb/bb_gcc.cpp:24:rt_icn_cset_member	src/templates/bb/bb_gcc.cpp:25	UNWITNESSED
-src/templates/bb/bb_glue_flat.cpp:43:sno_setexit_fire_on_end	src/templates/bb/bb_glue_flat.cpp:44	hb_deferexpr_a_dupl.sno
-src/templates/bb/bb_goto_deferred.cpp:35:rt_sno_goto_special_is	src/templates/bb/bb_goto_deferred.cpp:37	UNWITNESSED
-src/templates/bb/bb_goto_deferred.cpp:54:rt_goto_resolve	src/templates/bb/bb_goto_deferred.cpp:56	hb_shim_rt_names_past_the_hidden_island_slots.sno
-src/templates/bb/bb_iterate.cpp:27:rt_list_bang_key_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_iterate.cpp:28:rt_list_bang_elem_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_iterate.cpp:29:rt_list_bang_var_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_iterate.cpp:30:rt_list_bang_at	src/templates/bb/bb_iterate.cpp:35	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_keyword_assign.cpp:33:rt_keyword_pos_set_strict	src/templates/bb/bb_keyword_assign.cpp:38	UNWITNESSED
-src/templates/bb/bb_keyword_assign.cpp:48:rt_keyword_subject_set_strict/rt_keyword_subject_set	src/templates/bb/bb_keyword_assign.cpp:54	UNWITNESSED
-src/templates/bb/bb_keyword_assign.cpp:90:rt_keyword_trace_set	src/templates/bb/bb_keyword_assign.cpp:95	hb_trace_wildcard_registry_root.icn
-src/templates/bb/bb_keyword_assign_snobol4.cpp:25:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:32	hb_errtext_keyword.sno
-src/templates/bb/bb_keyword_assign_snobol4.cpp:44:rt_kw_write_idx	src/templates/bb/bb_keyword_assign_snobol4.cpp:49	UNWITNESSED
-src/templates/bb/bb_keyword_icon.cpp:23:rt_keyword_var	src/templates/bb/bb_keyword_icon.cpp:26	hb_icn_reversible_assignment_to_pos_and_subject.icn
-src/templates/bb/bb_keyword_icon.cpp:126:rt_keyword_read	src/templates/bb/bb_keyword_icon.cpp:131	hb_icn_errorvalue_keyword.icn
-src/templates/bb/bb_keyword_snobol4.cpp:48:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:55	UNWITNESSED
-src/templates/bb/bb_keyword_snobol4.cpp:88:rt_keyword_read_snobol4	src/templates/bb/bb_keyword_snobol4.cpp:93	UNWITNESSED
-src/templates/bb/bb_limit.cpp:25:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:35	hb_sibling_frames_leave_no_dead_map_cell.icn
-src/templates/bb/bb_limit.cpp:40:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:45	hb_sibling_frames_leave_no_dead_map_cell.icn
-src/templates/bb/bb_limit.cpp:62:core_icn_limit_count_check	src/templates/bb/bb_limit.cpp:65	hb_sibling_frames_leave_no_dead_map_cell.icn
-src/templates/bb/bb_lit_scalar.cpp:125:rt_icn_cset_register	src/templates/bb/bb_lit_scalar.cpp:128	hb_scan_subject_across_a_failing_callee.icn
-src/templates/bb/bb_make_list.cpp:26:rt_make_list	src/templates/bb/bb_make_list.cpp:33	UNWITNESSED
-src/templates/bb/bb_make_list.cpp:50:rt_make_list	src/templates/bb/bb_make_list.cpp:53	hb_size_result_polled.icn
-src/templates/bb/bb_match_atp.cpp:16:rt_at_cursor	src/templates/bb/bb_match_atp.cpp:17	UNWITNESSED
-src/templates/bb/bb_match_capture.cpp:52:rt_cap_open_gva	src/templates/bb/bb_match_capture.cpp:53	hb_immediate_capture_into_a_gva_cell_polled.sno
-src/templates/bb/bb_match_capture.cpp:164:rt_cap_open_plain/rt_cap_open	src/templates/bb/bb_match_capture.cpp:165	UNWITNESSED
-src/templates/bb/bb_match_capture.cpp:175:rt_cap_land_γ	src/templates/bb/bb_match_capture.cpp:176	UNWITNESSED
-src/templates/bb/bb_match_capture.cpp:180:rt_cap_land_ω	src/templates/bb/bb_match_capture.cpp:183	UNWITNESSED
-src/templates/bb/bb_match_capture.cpp:212:rt_cap_open_plain/rt_cap_open	src/templates/bb/bb_match_capture.cpp:213	UNWITNESSED
-src/templates/bb/bb_match_capture.cpp:223:rt_cap_land_γ	src/templates/bb/bb_match_capture.cpp:224	UNWITNESSED
-src/templates/bb/bb_match_capture.cpp:228:rt_cap_land_ω	src/templates/bb/bb_match_capture.cpp:231	UNWITNESSED
-src/templates/bb/bb_match_defer.cpp:149:dtp_fn_of	src/templates/bb/bb_match_defer.cpp:151	hb_sno_a_hidden_gva_cell_holds_a_nested_unevaluated_expression.sno
-src/templates/bb/bb_match_replace.cpp:34:rt_match_replace	src/templates/bb/bb_match_replace.cpp:45	UNWITNESSED
-src/templates/bb/bb_match_value.cpp:21:rt_match_value_get_pat_dtp	src/templates/bb/bb_match_value.cpp:34	UNWITNESSED
-src/templates/bb/bb_random.cpp:18:rt_random_var_strict/rt_random_var	src/templates/bb/bb_random.cpp:23	hb_table_dump_every_key_ref.icn
-src/templates/bb/bb_return.cpp:49:rt_trace_gen_return_hook	src/templates/bb/bb_return.cpp:50	UNWITNESSED
-src/templates/bb/bb_rev_assign_global.cpp:31:NV_GET_fn	src/templates/bb/bb_rev_assign_global.cpp:34	hb_icn_reversible_assignment_to_pos_and_subject.icn
-src/templates/bb/bb_rev_assign_global.cpp:38:rt_keyword_pos_set_strict	src/templates/bb/bb_rev_assign_global.cpp:43	hb_icn_reversible_assignment_to_pos_and_subject.icn
-src/templates/bb/bb_rev_assign_global.cpp:46:rt_keyword_subject_set_strict/rt_keyword_subject_set	src/templates/bb/bb_rev_assign_global.cpp:52	hb_icn_reversible_assignment_to_pos_and_subject.icn
-src/templates/bb/bb_rev_assign_global.cpp:64:rt_keyword_subject_set_strict/rt_keyword_subject_set	src/templates/bb/bb_rev_assign_global.cpp:68	hb_icn_reversible_assignment_to_pos_and_subject.icn
-src/templates/bb/bb_rev_assign_global.cpp:109:NV_GET_fn	src/templates/bb/bb_rev_assign_global.cpp:112	UNWITNESSED
-src/templates/bb/bb_rev_assign_global.cpp:117:NV_SET_fn	src/templates/bb/bb_rev_assign_global.cpp:119	UNWITNESSED
-src/templates/bb/bb_rev_assign_global.cpp:130:NV_SET_fn	src/templates/bb/bb_rev_assign_global.cpp:132	UNWITNESSED
-src/templates/bb/bb_rev_assign_var.cpp:19:rt_deref	src/templates/bb/bb_rev_assign_var.cpp:22	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_rev_assign_var.cpp:27:rt_assign_var_strict/rt_assign_var	src/templates/bb/bb_rev_assign_var.cpp:32	hb_table_elem_ref_across_collections.icn
-src/templates/bb/bb_scan_any.cpp:45:rt_icn_cset_member	src/templates/bb/bb_scan_any.cpp:53	UNWITNESSED
-src/templates/bb/bb_scan_any.cpp:67:rt_icn_cset_member_n	src/templates/bb/bb_scan_any.cpp:75	UNWITNESSED
-src/templates/bb/bb_scan_bal.cpp:49:rt_icn_cset_member	src/templates/bb/bb_scan_bal.cpp:57	UNWITNESSED
-src/templates/bb/bb_scan_bal.cpp:96:rt_icn_cset_member	src/templates/bb/bb_scan_bal.cpp:104	UNWITNESSED
-src/templates/bb/bb_scan_match.cpp:32:rt_scan_needle	src/templates/bb/bb_scan_match.cpp:37	UNWITNESSED
-src/templates/bb/bb_section.cpp:28:rt_section_var_strict/rt_section_var	src/templates/bb/bb_section.cpp:33	hb_concat_augmented_then_subscript.icn
-src/templates/bb/bb_section.cpp:45:subscript_get2_ext_strict/subscript_get2_ext	src/templates/bb/bb_section.cpp:50	UNWITNESSED
-src/templates/bb/bb_section.cpp:61:subscript_get2_strict/subscript_get2	src/templates/bb/bb_section.cpp:66	hb_dvec_list_slice.icn
-src/templates/bb/bb_subscript.cpp:43:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:50	hb_arena_grow.sno
-src/templates/bb/bb_subscript.cpp:62:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript.cpp:67	hb_icn_errorvalue_keyword.icn
-src/templates/bb/bb_subscript2.cpp:31:c_rt_subscript_var2_lv/c_rt_subscript_var2	src/templates/bb/bb_subscript2.cpp:38	hb_dvec_data_convert.sno
-src/templates/bb/bb_subscript2.cpp:52:c_rt_subscript_var2_lv/c_rt_subscript_var2	src/templates/bb/bb_subscript2.cpp:57	UNWITNESSED
-src/templates/bb/bb_subscript_lvck.cpp:90:rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var	src/templates/bb/bb_subscript_lvck.cpp:94	hb_arena_grow.sno
-src/templates/bb/bb_suspend.cpp:38:rt_trace_suspend_hook	src/templates/bb/bb_suspend.cpp:41	hb_icn_a_suspended_scan_reenters_twenty_four_levels_deep.icn
-src/templates/bb/bb_suspend.cpp:49:rt_trace_resume_hook	src/templates/bb/bb_suspend.cpp:50	hb_icn_a_suspended_scan_reenters_twenty_four_levels_deep.icn
-src/templates/bb/bb_swap_var.cpp:19:rt_swap_var	src/templates/bb/bb_swap_var.cpp:24	UNWITNESSED
-src/templates/bb/bb_to.cpp:85:core_icn_to_int_check/to_int	src/templates/bb/bb_to.cpp:88	UNWITNESSED
-src/templates/bb/bb_to.cpp:93:core_icn_to_int_check/to_int	src/templates/bb/bb_to.cpp:105	UNWITNESSED
-src/templates/bb/bb_to.cpp:127:rt_jct_relop	src/templates/bb/bb_to.cpp:130	UNWITNESSED
-src/templates/bb/bb_to.cpp:142:rt_num_arith_strict/rt_num_arith	src/templates/bb/bb_to.cpp:145	UNWITNESSED
-src/templates/bb/bb_to.cpp:156:core_icn_to_int_check/to_int	src/templates/bb/bb_to.cpp:160	stack_top_under_valgrind.icn
-src/templates/bb/bb_to.cpp:164:core_icn_to_int_check/to_int	src/templates/bb/bb_to.cpp:168	stack_top_under_valgrind.icn
-src/templates/bb/bb_to_by.cpp:24:core_icn_int_operand_ok	src/templates/bb/bb_to_by.cpp:27	hb_scan_subject_across_allocating_poll.icn
-src/templates/bb/bb_to_by.cpp:49:rt_jct_relop	src/templates/bb/bb_to_by.cpp:52	UNWITNESSED
-src/templates/bb/bb_to_by.cpp:60:rt_jct_relop	src/templates/bb/bb_to_by.cpp:63	UNWITNESSED
-src/templates/bb/bb_to_by.cpp:86:core_icn_to_int_check/to_int	src/templates/bb/bb_to_by.cpp:90	hb_scan_subject_across_allocating_poll.icn
-src/templates/bb/bb_to_by.cpp:94:core_icn_to_int_check/to_int	src/templates/bb/bb_to_by.cpp:98	hb_scan_subject_across_allocating_poll.icn
-src/templates/bb/bb_to_by.cpp:102:core_icn_to_int_check/to_int	src/templates/bb/bb_to_by.cpp:106	hb_scan_subject_across_allocating_poll.icn
-src/templates/bb/bb_to_by.cpp:109:core_icn_by_zero_check	src/templates/bb/bb_to_by.cpp:112	hb_scan_subject_across_allocating_poll.icn
-src/templates/bb/bb_unify_struct.cpp:79:rt_gcheap_alloc	src/templates/bb/bb_unify_struct.cpp:83	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
-src/templates/bb/bb_unop.cpp:27:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg	src/templates/bb/bb_unop.cpp:36	UNWITNESSED
-src/templates/bb/bb_unop.cpp:29:rt_num_pos	src/templates/bb/bb_unop.cpp:36	UNWITNESSED
-src/templates/bb/bb_unop.cpp:30:rt_size_d	src/templates/bb/bb_unop.cpp:36	UNWITNESSED
-src/templates/bb/bb_unop.cpp:31:rt_cset_compl	src/templates/bb/bb_unop.cpp:36	UNWITNESSED
-src/templates/bb/bb_unop.cpp:55:rt_deref	src/templates/bb/bb_unop.cpp:64	hb_frame_map_anchor_recursive_marklists_mode4.icn
-src/templates/bb/bb_unop.cpp:102:rt_cset_compl	src/templates/bb/bb_unop.cpp:105	UNWITNESSED
-src/templates/bb/bb_unop.cpp:113:rt_size_d	src/templates/bb/bb_unop.cpp:116	hb_size_result_polled.icn
-src/templates/bb/bb_unop.cpp:123:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg	src/templates/bb/bb_unop.cpp:128	hb_bignum_length.icn
-src/templates/bb/bb_unop.cpp:125:rt_num_pos	src/templates/bb/bb_unop.cpp:128	hb_bignum_length.icn
-src/templates/bb/bb_var_global.cpp:65:NV_GET_fn	src/templates/bb/bb_var_global.cpp:72	hb_shim_nv_road.sno
-src/templates/bb/bb_var_ref.cpp:51:rt_pl_fresh_var_ref	src/templates/bb/bb_var_ref.cpp:54	UNWITNESSED
-src/templates/bb/bb_var_ref.cpp:65:rt_var_ref_cell_named	src/templates/bb/bb_var_ref.cpp:74	UNWITNESSED
-src/templates/xa/xa_flat.cpp:126:rt_arg_stage	src/templates/xa/xa_flat.cpp:127	UNWITNESSED
-src/templates/xa/xa_flat.cpp:681:rt_trace_call_hook_f	src/templates/xa/xa_flat.cpp:685	hb_size_result_polled.icn
-src/templates/xa/xa_flat.cpp:682:rt_trace_return_hook	src/templates/xa/xa_flat.cpp:685	hb_size_result_polled.icn
-src/templates/xa/xa_flat.cpp:683:rt_trace_gen_fail_hook	src/templates/xa/xa_flat.cpp:685	hb_size_result_polled.icn
-src/templates/xa/xa_flat.cpp:684:rt_trace_fail_hook	src/templates/xa/xa_flat.cpp:685	hb_size_result_polled.icn
-src/templates/xa/xa_to_helpers.cpp:36:core_icn_int_operand_ok	src/templates/xa/xa_to_helpers.cpp:39	stack_top_under_valgrind.icn
-src/emitter/emit.cpp:3720:rt_trace_call_hook_f	src/emitter/emit.cpp:3724	hb_size_result_polled.icn
-src/emitter/emit.cpp:3721:rt_trace_return_hook	src/emitter/emit.cpp:3724	hb_size_result_polled.icn
-src/emitter/emit.cpp:3722:rt_trace_gen_fail_hook	src/emitter/emit.cpp:3724	hb_size_result_polled.icn
-src/emitter/emit.cpp:3723:rt_trace_fail_hook	src/emitter/emit.cpp:3724	hb_size_result_polled.icn
+# The table is rewritten only when a site is added or removed, or a witness is lost.
+# COLUMNS: site  witness
+src/templates/bb/bb_activate.cpp:scrip_coexpr_activate#1	hb_coexpr_refresh.icn
+src/templates/bb/bb_assign_global.cpp:NV_SET_fn#1	UNWITNESSED
+src/templates/bb/bb_assign_var.cpp:rt_assign_var_strict/rt_assign_var#1	hb_sno_twenty_thousand_indirect_names.sno
+src/templates/bb/bb_assign_var.cpp:rt_assign_var_strict/rt_assign_var#2	hb_concat_augmented_then_subscript.icn
+src/templates/bb/bb_assign_var_sub.cpp:rt_table_assign_fast#1	hb_arena_grow.sno
+src/templates/bb/bb_assign_var_sub.cpp:rt_assign_var_strict/rt_assign_var#1	hb_arena_grow.sno
+src/templates/bb/bb_assign_var_sub.cpp:rt_table_assign_fast#2	UNWITNESSED
+src/templates/bb/bb_assign_var_sub.cpp:rt_assign_var_strict/rt_assign_var#2	UNWITNESSED
+src/templates/bb/bb_binop_concat_slot.cpp:rt_icn_lconcat_d/str_concat_fracdigit_d/sno_concat_d/str_concat_d#1	hb_sno_twenty_thousand_indirect_names.sno
+src/templates/bb/bb_binop_concat_slot.cpp:rt_icn_lconcat_d/str_concat_fracdigit_d/sno_concat_d/str_concat_d#2	hb_raku_nextsame_seventy_method_frames_deep_reaches_the_parent_with_its_own_argument.raku
+src/templates/bb/bb_binop_relop.cpp:rt_relop_overload#1	hb_raku_nextsame_seventy_method_frames_deep_reaches_the_parent_with_its_own_argument.raku
+src/templates/bb/bb_binop_relop.cpp:rt_relop_val_coerce#1	hb_raku_nextsame_seventy_method_frames_deep_reaches_the_parent_with_its_own_argument.raku
+src/templates/bb/bb_binop_relop.cpp:rt_str_coerce#1	hb_icn_errorvalue_keyword.icn
+src/templates/bb/bb_binop_relop.cpp:rt_relop_val_coerce#2	hb_icn_errorvalue_keyword.icn
+src/templates/bb/bb_binop_relop_val.cpp:rt_relop_val_coerce#1	hb_pas_a_three_argument_and_a_nine_argument_call_take_the_det_roads.pas
+src/templates/bb/bb_binop_relop_val.cpp:rt_binop_overload#1	hb_wsb_rk_iter_grep.raku
+src/templates/bb/bb_binop_xrep_slot.cpp:str_repeat_d#1	rk_list_array_marker.raku
+src/templates/bb/bb_call.cpp:rt_call_callee_sn4/rt_call_fld_sn4#1	UNWITNESSED
+src/templates/bb/bb_call.cpp:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr_bl_sn4/rt_call_arr_bl_strict/rt_call_arr_bl#1	hb_wsb_rk_gram_parse.raku
+src/templates/bb/bb_call_fn.cpp:rt_pl_dop_clause_unify/rt_pl_throw_raise/rt_pl_exist_raise/rt_pl_catch_handle/dop_write/rt_sno_mkpat_d/rt_sno_name_dl/rt_sno_pbk_d/rt_sno_pbn_d/rt_sno_pb0_d/rt_sno_pbc_d/rt_sno_pcur_d/rt_sno_pbalt_d/rt_sno_parb_d/rt_sno_pfen_d/rt_sno_pdef_d/rt_sno_kwset_d/rt_sno_mkexpr_d/rt_sno_stmt_d/rt_sno_nofail_d/rt_sno_list_d/rt_pl_dop_compare/rt_pl_dop_functor/rt_pl_dop_arg/rt_pl_dop_skip_list/rt_pl_dop_argv/rt_pl_dop_univ/rt_pl_dop_copy_term/rt_pl_dop_term_variables/rt_pl_dop_numbervars3/rt_pl_dop_numbervars1/rt_pl_dop_succ/rt_pl_dop_plus/rt_pl_dop_wall_us/rt_pl_dop_wall_ms/rt_pl_dop_sort/rt_pl_dop_msort/rt_pl_dop_char_type/rt_pl_dop_big/rt_pl_dop_findall_new/rt_pl_dop_findall_add/rt_pl_dop_findall_result/rt_pl_dop_findall_result4/rt_pl_dop_bagof_result/rt_pl_dop_setof_result/rt_pl_dop_sub_atom_n/rt_pl_dop_sub_atom_at/rt_pl_dop_atom_concat_n/rt_pl_dop_atom_concat_at/rt_pl_dop_bagof_group_n/rt_pl_dop_bagof_group_at/rt_pl_dop_setof_group_at/rt_pl_dop_db_assertz/rt_pl_dop_db_asserta/rt_pl_dop_db_erase/rt_pl_dop_db_abolish/rt_pl_dop_db_nonempty/rt_pl_dop_db_seed_once/rt_pl_dop_db_retractall/rt_pl_dop_db_alive/rt_pl_dop_db_store_k/rt_pl_dop_db_copy/rt_pl_dop_pl_cp_count/rt_pl_dop_pl_cp_nth/rt_pl_dop_pl_pp_guard/rt_pl_dop_pl_pp_count/rt_pl_dop_pl_pp_nth/rt_pl_dop_pl_cp_guard/rt_pl_dop_db_t_guard/rt_pl_dop_db_assertz_t/rt_pl_dop_db_asserta_t/rt_pl_dop_db_erase_t/rt_pl_dop_db_abolish_t/rt_pl_dop_db_retractall_t/rt_pl_dop_db_asserta_r/rt_pl_dop_db_assertz_r/rt_pl_dop_db_erase_ref/rt_pl_dop_db_n_r/rt_pl_dop_db_at_r/rt_pl_dop_db_ref_r/rt_pl_dop_nb_setval/rt_pl_dop_nb_getval/rt_pl_dop_b_setval/rt_pl_dop_nb_getval_guard/rt_pl_dop_ax_eguard/rt_pl_dop_char_guard/rt_pl_dop_between_guard/rt_pl_dop_stream_guard/rt_pl_dop_curstream_guard/rt_pl_dop_goal_guard/rt_pl_dop_list_guard/rt_pl_dop_pl_declared/rt_pl_dop_pl_dynamic/rt_pl_dop_term_string/rt_pl_dop_term_to_atom/rt_pl_dop_atom_length/rt_pl_dop_atom_concat/rt_pl_dop_atomic_concat/rt_pl_dop_atom_chars/rt_pl_dop_atom_codes/rt_pl_dop_atom_number/rt_pl_dop_atom_string/rt_pl_dop_upcase_atom/rt_pl_dop_downcase_atom/rt_pl_dop_string_concat/rt_pl_dop_string_length/rt_pl_dop_string_lower/rt_pl_dop_string_upper/rt_pl_dop_string_to_atom/rt_pl_dop_string_codes/rt_pl_dop_string_chars/rt_pl_dop_number_string/rt_pl_dop_atomic_list_concat/rt_pl_dop_atomic_list_concat/rt_pl_dop_concat_atom/rt_pl_dop_concat_atom/rt_pl_dop_char_code/rt_pl_dop_gnu_sort1/rt_pl_dop_gnu_msort1/rt_pl_dop_gnu_keysort1/rt_pl_dop_gnu_line_count/rt_pl_dop_gnu_line_position/rt_pl_dop_gnu_character_count/rt_pl_dop_gnu_stream_line_column/rt_pl_dop_gnu_last_read_start/rt_pl_dop_gnu_absolute_file_name/rt_pl_dop_gnu_prolog_file_name/rt_pl_dop_gnu_builtin/rt_pl_dop_gnu_working_directory/rt_pl_dop_gnu_change_directory/rt_pl_dop_gnu_make_directory/rt_pl_dop_gnu_delete_file/rt_pl_dop_gnu_file_exists/rt_pl_dop_gnu_directory_files/rt_pl_dop_gnu_environ_list/rt_pl_dop_gnu_file_props/rt_pl_dop_gnu_term_hash/rt_pl_dop_gnu_prolog_pid/rt_pl_dop_number_codes/rt_pl_dop_number_chars/rt_pl_dop_name/rt_pl_dop_get_char/rt_pl_dop_peek_char/rt_pl_dop_get_code/rt_pl_dop_peek_code/rt_pl_dop_get_byte/rt_pl_dop_peek_byte/rt_pl_dop_unget_char/rt_pl_dop_unget_code/rt_pl_dop_unget_byte/rt_pl_dop_put_byte/rt_pl_dop_current_prolog_flag/rt_pl_dop_set_prolog_flag/rt_pl_dop_telling/rt_pl_dop_seeing/rt_pl_dop_tell/rt_pl_dop_append1/rt_pl_dop_see/rt_pl_dop_put_char_c/rt_pl_dop_put_char_c_s/rt_pl_dop_at_end_of_stream_s/rt_pl_dop_get_edin/rt_pl_dop_skip/rt_pl_dop_get_code_s/rt_pl_dop_peek_code_s/rt_pl_dop_get_byte_s/rt_pl_dop_peek_byte_s/rt_pl_dop_unget_char_s/rt_pl_dop_unget_code_s/rt_pl_dop_unget_byte_s/rt_pl_dop_put_byte_s/rt_pl_dop_put_code_sb/rt_pl_dop_read/rt_pl_dop_atom_to_term/rt_pl_dop_display/rt_pl_dop_display_s/rt_pl_dop_unify_oc/rt_pl_dop_aggregate_reduce/rt_pl_dop_read_term_opts/rt_pl_dop_read_term_opts_s/rt_pl_dop_wot_open/rt_pl_dop_wot_capture/rt_pl_dop_wot_discard/rt_pl_dop_set_prolog_flag_declare/rt_pl_dop_read_term_from_atom/rt_pl_dop_read_term_from_chars/rt_pl_dop_read_term_from_codes/dop_pl_ground/dop_pl_is_list/dop_pl_acyclic_term/dop_pl_writeq/dop_pl_write_canonical/dop_pl_writeln/dop_pl_put_char/rt_pl_dop_halt/rt_pl_dop_halt/rt_pl_dop_format/rt_pl_dop_format/rt_pl_dop_write_sb/rt_pl_dop_writeq_sb/rt_pl_dop_write_canonical_sb/rt_pl_dop_writeln_sb/rt_pl_dop_nl_sb/rt_pl_dop_tab_sb/rt_pl_dop_put_char_sb/rt_pl_dop_flush_output_sb/dop_pl_set_output/dop_pl_set_input/rt_pl_dop_close/rt_pl_dop_close/rt_pl_dop_read_s/rt_pl_dop_get_char_s/rt_pl_dop_peek_char_s/rt_pl_dop_current_output/rt_pl_dop_current_input/rt_pl_dop_open/rt_pl_dop_open4/rt_pl_dop_keysort/rt_pl_dop_set_stream_position/rt_pl_dop_format3/rt_pl_dop_write_term/rt_pl_dop_write_term_s/rt_pl_dop_op/rt_pl_dop_pl_op_check/rt_pl_dop_pl_sp_check/rt_pl_dop_pl_ioarg/rt_pl_dop_cutcall/rt_pl_dop_print/rt_pl_dop_print_s/rt_pl_dop_pl_op_count/rt_pl_dop_pl_op_nth/rt_pl_dop_pl_sp_count/rt_pl_dop_pl_sp_nth/rt_pl_dop_pl_cs_count/rt_pl_dop_pl_cs_nth#1	hb_deferexpr_a_dupl.sno
+src/templates/bb/bb_call_fn.cpp:rt_call_callee_sn4/rt_call_fld_sn4#1	UNWITNESSED
+src/templates/bb/bb_call_fn.cpp:rt_call_bid_sn4/rt_call_name_sn4/rt_call_arr_bl_sn4/rt_call_arr_bl_strict/rt_call_arr_bl#1	hb_size_result_polled.icn
+src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_anum_cold/rt_pl_atop_cold/rt_pl_ax_cold/rt_pl_cmp_cold/rt_pl_type_cold/rt_pl_zguard_cold#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_is_cold#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_pl_leaf.cpp:rt_gcheap_alloc#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_pl_leaf.cpp:rt_pl_db_decls_install#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_proc_staged.cpp:rt_arg_stage#1	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
+src/templates/bb/bb_call_proc_staged.cpp:rt_ab_undef_fn_fail#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4#1	UNWITNESSED
+src/templates/bb/bb_call_proc_staged.cpp:rt_arg_stage#2	UNWITNESSED
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open_det#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_call_proc_staged.cpp:rt_arg_stage#3	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open_det0/rt_proc_call_open_det1/rt_proc_call_open_det2/rt_proc_call_open_det3/rt_proc_call_open_det4#2	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open_det#2	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open#2	hb_icn_a_call_to_main_from_another_procedure_takes_the_open_road.icn
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open_det#3	UNWITNESSED
+src/templates/bb/bb_call_proc_staged.cpp:rt_proc_call_open#3	UNWITNESSED
+src/templates/bb/bb_call_value.cpp:rt_call_apply_spine_prep_blk#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_value.cpp:rt_call_apply_spine_prep#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_value.cpp:rt_pl_goal_resolve#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_value.cpp:rt_call_value_spine_prep_blk#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_value.cpp:rt_call_value_spine_prep#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_value.cpp:rt_call_apply_gen_h#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_value.cpp:rt_call_value_gen_h#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_call_value.cpp:rt_call_value_resume_h#1	hb_procval_in_aggregate.icn
+src/templates/bb/bb_coerce_integer.cpp:rt_coerce_int_d#1	hb_sno_every_deferred_expression_shape_under_the_flip_plant.sno
+src/templates/bb/bb_coerce_integer.cpp:rt_coerce_int_d#2	UNWITNESSED
+src/templates/bb/bb_coerce_numeric.cpp:rt_coerce_num2_d#1	hb_sno_twenty_thousand_indirect_names.sno
+src/templates/bb/bb_coerce_numeric.cpp:rt_coerce_num2_d#2	hb_icn_a_nine_argument_call_takes_the_staging_slow_path.icn
+src/templates/bb/bb_coerce_real.cpp:rt_coerce_real_d#1	UNWITNESSED
+src/templates/bb/bb_coerce_string.cpp:rt_coerce_str_d#1	UNWITNESSED
+src/templates/bb/bb_coerce_string.cpp:rt_coerce_str_d#2	UNWITNESSED
+src/templates/bb/bb_cofail.cpp:scrip_cofail#1	hb_coexpr_refresh.icn
+src/templates/bb/bb_coret.cpp:scrip_coret#1	hb_coexpr_refresh.icn
+src/templates/bb/bb_define.cpp:rt_define_site#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:rt_define_bind_entry#1	UNWITNESSED
+src/templates/bb/bb_define.cpp:rt_define_site_entry#1	hb_define_with_an_entry_label_binds_its_entry_at_the_statement.sno
+src/templates/bb/bb_define.cpp:rt_shim_nv_in#1	hb_shim_nv_road.sno
+src/templates/bb/bb_define.cpp:rt_shim_nv_gamma#1	hb_shim_nv_road.sno
+src/templates/bb/bb_define.cpp:rt_shim_nv_omega#1	hb_shim_nv_road.sno
+src/templates/bb/bb_define.cpp:rt_trace_call_hook#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:sno_trace_call#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:rt_trace_return_hook#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:sno_trace_return#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_define.cpp:rt_trace_fail_hook#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
+src/templates/bb/bb_deref.cpp:rt_deref#1	hb_sno_twenty_thousand_indirect_names.sno
+src/templates/bb/bb_deref.cpp:rt_deref#2	stack_top_under_valgrind.icn
+src/templates/bb/bb_gcc.cpp:rt_icn_cset_member#1	UNWITNESSED
+src/templates/bb/bb_glue_flat.cpp:sno_setexit_fire_on_end#1	hb_deferexpr_a_dupl.sno
+src/templates/bb/bb_goto_deferred.cpp:rt_sno_goto_special_is#1	UNWITNESSED
+src/templates/bb/bb_goto_deferred.cpp:rt_goto_resolve#1	hb_shim_rt_names_past_the_hidden_island_slots.sno
+src/templates/bb/bb_iterate.cpp:rt_list_bang_key_at#1	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_iterate.cpp:rt_list_bang_elem_at#1	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_iterate.cpp:rt_list_bang_var_at#1	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_iterate.cpp:rt_list_bang_at#1	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_keyword_assign.cpp:rt_keyword_pos_set_strict#1	UNWITNESSED
+src/templates/bb/bb_keyword_assign.cpp:rt_keyword_subject_set_strict/rt_keyword_subject_set#1	UNWITNESSED
+src/templates/bb/bb_keyword_assign.cpp:rt_keyword_trace_set#1	hb_trace_wildcard_registry_root.icn
+src/templates/bb/bb_keyword_assign_snobol4.cpp:rt_kw_write_idx#1	hb_errtext_keyword.sno
+src/templates/bb/bb_keyword_assign_snobol4.cpp:rt_kw_write_idx#2	UNWITNESSED
+src/templates/bb/bb_keyword_icon.cpp:rt_keyword_var#1	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_keyword_icon.cpp:rt_keyword_read#1	hb_icn_errorvalue_keyword.icn
+src/templates/bb/bb_keyword_snobol4.cpp:rt_keyword_read_snobol4#1	UNWITNESSED
+src/templates/bb/bb_keyword_snobol4.cpp:rt_keyword_read_snobol4#2	UNWITNESSED
+src/templates/bb/bb_limit.cpp:core_icn_limit_count_check#1	hb_sibling_frames_leave_no_dead_map_cell.icn
+src/templates/bb/bb_limit.cpp:core_icn_limit_count_check#2	hb_sibling_frames_leave_no_dead_map_cell.icn
+src/templates/bb/bb_limit.cpp:core_icn_limit_count_check#3	hb_sibling_frames_leave_no_dead_map_cell.icn
+src/templates/bb/bb_lit_scalar.cpp:rt_icn_cset_register#1	hb_scan_subject_across_a_failing_callee.icn
+src/templates/bb/bb_make_list.cpp:rt_make_list#1	UNWITNESSED
+src/templates/bb/bb_make_list.cpp:rt_make_list#2	hb_size_result_polled.icn
+src/templates/bb/bb_match_atp.cpp:rt_at_cursor#1	UNWITNESSED
+src/templates/bb/bb_match_capture.cpp:rt_cap_open_gva#1	hb_immediate_capture_into_a_gva_cell_polled.sno
+src/templates/bb/bb_match_capture.cpp:rt_cap_open_plain/rt_cap_open#1	UNWITNESSED
+src/templates/bb/bb_match_capture.cpp:rt_cap_land_γ#1	UNWITNESSED
+src/templates/bb/bb_match_capture.cpp:rt_cap_land_ω#1	UNWITNESSED
+src/templates/bb/bb_match_capture.cpp:rt_cap_open_plain/rt_cap_open#2	UNWITNESSED
+src/templates/bb/bb_match_capture.cpp:rt_cap_land_γ#2	UNWITNESSED
+src/templates/bb/bb_match_capture.cpp:rt_cap_land_ω#2	UNWITNESSED
+src/templates/bb/bb_match_defer.cpp:dtp_fn_of#1	hb_sno_a_hidden_gva_cell_holds_a_nested_unevaluated_expression.sno
+src/templates/bb/bb_match_replace.cpp:rt_match_replace#1	UNWITNESSED
+src/templates/bb/bb_match_value.cpp:rt_match_value_get_pat_dtp#1	UNWITNESSED
+src/templates/bb/bb_random.cpp:rt_random_var_strict/rt_random_var#1	hb_table_dump_every_key_ref.icn
+src/templates/bb/bb_return.cpp:rt_trace_gen_return_hook#1	UNWITNESSED
+src/templates/bb/bb_rev_assign_global.cpp:NV_GET_fn#1	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_rev_assign_global.cpp:rt_keyword_pos_set_strict#1	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_rev_assign_global.cpp:rt_keyword_subject_set_strict/rt_keyword_subject_set#1	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_rev_assign_global.cpp:rt_keyword_subject_set_strict/rt_keyword_subject_set#2	hb_icn_reversible_assignment_to_pos_and_subject.icn
+src/templates/bb/bb_rev_assign_global.cpp:NV_GET_fn#2	UNWITNESSED
+src/templates/bb/bb_rev_assign_global.cpp:NV_SET_fn#1	UNWITNESSED
+src/templates/bb/bb_rev_assign_global.cpp:NV_SET_fn#2	UNWITNESSED
+src/templates/bb/bb_rev_assign_var.cpp:rt_deref#1	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_rev_assign_var.cpp:rt_assign_var_strict/rt_assign_var#1	hb_table_elem_ref_across_collections.icn
+src/templates/bb/bb_scan_any.cpp:rt_icn_cset_member#1	UNWITNESSED
+src/templates/bb/bb_scan_any.cpp:rt_icn_cset_member_n#1	UNWITNESSED
+src/templates/bb/bb_scan_bal.cpp:rt_icn_cset_member#1	UNWITNESSED
+src/templates/bb/bb_scan_bal.cpp:rt_icn_cset_member#2	UNWITNESSED
+src/templates/bb/bb_scan_match.cpp:rt_scan_needle#1	UNWITNESSED
+src/templates/bb/bb_section.cpp:rt_section_var_strict/rt_section_var#1	hb_concat_augmented_then_subscript.icn
+src/templates/bb/bb_section.cpp:subscript_get2_ext_strict/subscript_get2_ext#1	UNWITNESSED
+src/templates/bb/bb_section.cpp:subscript_get2_strict/subscript_get2#1	hb_dvec_list_slice.icn
+src/templates/bb/bb_subscript.cpp:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var#1	hb_arena_grow.sno
+src/templates/bb/bb_subscript.cpp:rt_subscript_val/rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var#2	hb_icn_errorvalue_keyword.icn
+src/templates/bb/bb_subscript2.cpp:c_rt_subscript_var2_lv/c_rt_subscript_var2#1	hb_dvec_data_convert.sno
+src/templates/bb/bb_subscript2.cpp:c_rt_subscript_var2_lv/c_rt_subscript_var2#2	UNWITNESSED
+src/templates/bb/bb_subscript_lvck.cpp:rt_subscript_var_container_only_strict/rt_subscript_var_container_only/rt_subscript_var_strict/rt_subscript_var#1	hb_arena_grow.sno
+src/templates/bb/bb_suspend.cpp:rt_trace_suspend_hook#1	hb_icn_a_suspended_scan_reenters_twenty_four_levels_deep.icn
+src/templates/bb/bb_suspend.cpp:rt_trace_resume_hook#1	hb_icn_a_suspended_scan_reenters_twenty_four_levels_deep.icn
+src/templates/bb/bb_swap_var.cpp:rt_swap_var#1	UNWITNESSED
+src/templates/bb/bb_to.cpp:core_icn_to_int_check/to_int#1	UNWITNESSED
+src/templates/bb/bb_to.cpp:core_icn_to_int_check/to_int#2	UNWITNESSED
+src/templates/bb/bb_to.cpp:rt_jct_relop#1	UNWITNESSED
+src/templates/bb/bb_to.cpp:rt_num_arith_strict/rt_num_arith#1	UNWITNESSED
+src/templates/bb/bb_to.cpp:core_icn_to_int_check/to_int#3	stack_top_under_valgrind.icn
+src/templates/bb/bb_to.cpp:core_icn_to_int_check/to_int#4	stack_top_under_valgrind.icn
+src/templates/bb/bb_to_by.cpp:core_icn_int_operand_ok#1	hb_scan_subject_across_allocating_poll.icn
+src/templates/bb/bb_to_by.cpp:rt_jct_relop#1	UNWITNESSED
+src/templates/bb/bb_to_by.cpp:rt_jct_relop#2	UNWITNESSED
+src/templates/bb/bb_to_by.cpp:core_icn_to_int_check/to_int#1	hb_scan_subject_across_allocating_poll.icn
+src/templates/bb/bb_to_by.cpp:core_icn_to_int_check/to_int#2	hb_scan_subject_across_allocating_poll.icn
+src/templates/bb/bb_to_by.cpp:core_icn_to_int_check/to_int#3	hb_scan_subject_across_allocating_poll.icn
+src/templates/bb/bb_to_by.cpp:core_icn_by_zero_check#1	hb_scan_subject_across_allocating_poll.icn
+src/templates/bb/bb_unify_struct.cpp:rt_gcheap_alloc#1	hb_pl_atomic_list_concat_splits_five_thousand_pieces.pl
+src/templates/bb/bb_unop.cpp:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg#1	UNWITNESSED
+src/templates/bb/bb_unop.cpp:rt_num_pos#1	UNWITNESSED
+src/templates/bb/bb_unop.cpp:rt_size_d#1	UNWITNESSED
+src/templates/bb/bb_unop.cpp:rt_cset_compl#1	UNWITNESSED
+src/templates/bb/bb_unop.cpp:rt_deref#1	hb_frame_map_anchor_recursive_marklists_mode4.icn
+src/templates/bb/bb_unop.cpp:rt_cset_compl#2	UNWITNESSED
+src/templates/bb/bb_unop.cpp:rt_size_d#2	hb_size_result_polled.icn
+src/templates/bb/bb_unop.cpp:rt_num_neg_sno/rt_num_neg_strict/rt_num_neg#2	hb_bignum_length.icn
+src/templates/bb/bb_unop.cpp:rt_num_pos#2	hb_bignum_length.icn
+src/templates/bb/bb_var_global.cpp:NV_GET_fn#1	hb_shim_nv_road.sno
+src/templates/bb/bb_var_ref.cpp:rt_pl_fresh_var_ref#1	UNWITNESSED
+src/templates/bb/bb_var_ref.cpp:rt_var_ref_cell_named#1	UNWITNESSED
+src/templates/xa/xa_flat.cpp:rt_arg_stage#1	UNWITNESSED
+src/templates/xa/xa_flat.cpp:rt_trace_call_hook_f#1	hb_size_result_polled.icn
+src/templates/xa/xa_flat.cpp:rt_trace_return_hook#1	hb_size_result_polled.icn
+src/templates/xa/xa_flat.cpp:rt_trace_gen_fail_hook#1	hb_size_result_polled.icn
+src/templates/xa/xa_flat.cpp:rt_trace_fail_hook#1	hb_size_result_polled.icn
+src/templates/xa/xa_to_helpers.cpp:core_icn_int_operand_ok#1	stack_top_under_valgrind.icn
+src/emitter/emit.cpp:rt_trace_call_hook_f#1	hb_size_result_polled.icn
+src/emitter/emit.cpp:rt_trace_return_hook#1	hb_size_result_polled.icn
+src/emitter/emit.cpp:rt_trace_gen_fail_hook#1	hb_size_result_polled.icn
+src/emitter/emit.cpp:rt_trace_fail_hook#1	hb_size_result_polled.icn

@@ -78,7 +78,7 @@ else
   ck no "(a) the checker's selftest did not hold (rc=$src): $(printf '%s\n' "$st" | grep -i 'fail' | head -2 | tr '\n' ' ')"
 fi
 OUT="$(mktemp -t gc_bare_poll_reading.XXXXXX)"; trap 'rm -f "$OUT"' EXIT
-WIT="$(grep -v '^#' "$TABLE" | cut -f3 | grep -v '^UNWITNESSED$' | sort -u | sed "s|^|$ROOT/scripts/gc_witnesses/|")"
+WIT="$(grep -v '^#' "$TABLE" | cut -f2 | grep -v '^UNWITNESSED$' | sort -u | sed "s|^|$ROOT/scripts/gc_witnesses/|")"
 timeout 900s python3 "$CHK" $WIT --bare-poll > "$OUT" 2>&1; rrc=$?
 summ="$(grep '^CONTRACT BARE-POLL sites=' "$OUT" | head -1)"
 notes="$(grep '^CONTRACT BARE-POLL-NOTES ' "$OUT" | head -1)"

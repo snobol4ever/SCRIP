@@ -1096,10 +1096,14 @@ BARE_TABLE_HEADER = (
     "# gc_bare_poll_witnesses.tsv -- THE DECLARED WITNESS OF EVERY CREDITED BARE-POLL SITE (cto, row gc-the-116-bare-poll-\n"
     "# sites-already-counted-as-done-are-re-screened-by-the-zero-collection-arm; ceo CEO-1137/1144).  Written by\n"
     "# `util_gc_safe_point_contract.py <witnesses> --write-bare-poll-table`, read by `--bare-poll`.  ONE ROW PER SITE the\n"
-    "# census credits with the bare form (util_gc_census.py safe-points --list-polled, form=x86_rt_gc_poll); the join key\n"
-    "# is poll_at, the template line the emitted note names.  A witness is the smallest ref-carrying program whose\n"
+    "# census credits with the bare form (util_gc_census.py safe-points --list-polled, form=x86_rt_gc_poll).  A row is named\n"
+    "# <template>:<callees>#<n>: the template, the callee names the census prints for the site, and the ordinal n among the\n"
+    "# sites of that template naming the same callees, in census order -- NO LINE NUMBER, so a re-flow or any move of a\n"
+    "# line never invalidates a row (the coo's pass-42 red, 2026-10-08).  The reading takes the site's current line from the\n"
+    "# census at every run and checks the witness's emission against it.  A witness is the smallest ref-carrying program whose\n"
     "# emission reaches the site; UNWITNESSED is a site no program in the set reaches, NAMED and never counted green.\n"
-    "# COLUMNS: site  poll_at  witness\n"
+    "# The table is rewritten only when a site is added or removed, or a witness is lost.\n"
+    "# COLUMNS: site  witness\n"
 )
 
 
@@ -1107,6 +1111,18 @@ def bare_key(poll_at):
     """'src/templates/bb/x.cpp:39' -> 'x.cpp:39', the basename form the emitted note spells"""
     path, _, line = poll_at.rpartition(":")
     return os.path.basename(path) + ":" + line
+
+
+def bare_norm_sites(sites):
+    """[(nsite, site, poll_at)]: nsite is '<template>:<callees>#<n>', the census's line left out, n counting the sites of one
+    template that name the same callees in census order, so a line move or a re-flow keeps every row's name"""
+    seen, out = {}, []
+    for site, poll_at in sites:
+        path, _line, callees = site.split(":", 2)
+        base = path + ":" + callees
+        seen[base] = seen.get(base, 0) + 1
+        out.append((base + "#" + str(seen[base]), site, poll_at))
+    return out
 
 
 def bare_sites_from_census(root=ROOT):
@@ -1208,20 +1224,20 @@ def read_bare_table(path=BARE_TABLE):
         if ln.startswith("#") or not ln.strip():
             continue
         f = ln.rstrip("\n").split("\t")
-        if len(f) >= 3:
-            rows.append((f[0], f[1], f[2]))
+        if len(f) >= 2:
+            rows.append((f[0], f[1]))
     return rows
 
 
-def write_bare_table(sites, reach_by_witness, refs, path=BARE_TABLE):
-    """one row per credited site: the smallest ref-carrying witness reaching poll_at, else UNWITNESSED"""
+def write_bare_table(nsites, reach_by_witness, refs, path=BARE_TABLE):
+    """one row per credited site: the smallest ref-carrying witness reaching its current poll_at, else UNWITNESSED"""
     with open(path, "w", encoding="utf-8") as fh:
         fh.write(BARE_TABLE_HEADER)
-        for site, poll_at in sites:
+        for ns, _site, poll_at in nsites:
             k = bare_key(poll_at)
             cands = [w for w in reach_by_witness if k in reach_by_witness[w][2] and w.rsplit(".", 1)[0] in refs]
             cands.sort(key=lambda w: (reach_by_witness[w][3], w))
-            fh.write("%s\t%s\t%s\n" % (site, poll_at, cands[0] if cands else "UNWITNESSED"))
+            fh.write("%s\t%s\n" % (ns, cands[0] if cands else "UNWITNESSED"))
     return path
 
 
@@ -1231,6 +1247,7 @@ def bare_poll_report(scrip, progs, workdir, out=print, write_table=False, clean_
     if sites is None:
         out("CONTRACT BARE-POLL REFUSED(2): the census printed no safe-points reading -- nothing to re-screen")
         return 2
+    nsites = bare_norm_sites(sites)
     progs = [os.path.abspath(p) for p in progs]
     by_name = {os.path.basename(p): p for p in progs}
     for w in sorted(os.listdir(os.path.join(HERE, "gc_witnesses"))):
@@ -1263,16 +1280,16 @@ def bare_poll_report(scrip, progs, workdir, out=print, write_table=False, clean_
             "one; cure the emission, never the reader")
         return 2
     if write_table:
-        path = write_bare_table(sites, reach, refs)
+        path = write_bare_table(nsites, reach, refs)
         out("CONTRACT BARE-POLL TABLE written to %s over %d credited site(s) and %d witness(es)" % (path, len(sites), len(reach)))
     table = read_bare_table()
     if not table:
         out("CONTRACT BARE-POLL REFUSED(2): no declared table at %s -- run --write-bare-poll-table first" % BARE_TABLE)
         return 2
-    credited = {s: pa for s, pa in sites}
-    declared = {s for s, _pa, _w in table}
+    credited = {ns: (site, pa) for ns, site, pa in nsites}
+    declared = {ns for ns, _w in table}
     verdict_of, runs = {}, {}
-    needed = sorted({w for _s, _pa, w in table if w != "UNWITNESSED"})
+    needed = sorted({w for _ns, w in table if w != "UNWITNESSED"})
     for w in needed:
         p = by_name.get(w)
         if not p:
@@ -1318,11 +1335,13 @@ def bare_poll_report(scrip, progs, workdir, out=print, write_table=False, clean_
         out("CONTRACT BARE-POLL-WITNESS %s m3=%s m4=%s%s -- m3: %s; m4: %s" % (
             w, v["m3"][0], v["m4"][0], (" clean=%s" % v["clean"][0]) if "clean" in v else "", v["m3"][1], v["m4"][1]))
     c = collections.Counter()
-    for s, pa, w in table:
-        if s not in credited:
+    for ns, w in table:
+        if ns not in credited:
+            s, pa = ns, "-"
             c["retired"] += 1
             out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s RETIRED the census no longer credits this site with the bare form" % (s, pa, w))
             continue
+        s, pa = credited[ns]
         if w == "UNWITNESSED":
             c["unwitnessed"] += 1
             out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=- UNWITNESSED no program in the set reaches this site" % (s, pa))
@@ -1346,8 +1365,8 @@ def bare_poll_report(scrip, progs, workdir, out=print, write_table=False, clean_
         else:
             c["unread"] += 1
             out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=%s UNREAD m3=%s m4=%s -- a NO-REF, NO-EXERCISE, REFUSED or MISSING arm asserts nothing" % (s, pa, w, v["m3"][0], v["m4"][0]))
-    for s, pa in sites:
-        if s not in declared:
+    for ns, s, pa in nsites:
+        if ns not in declared:
             c["undeclared"] += 1
             out("CONTRACT BARE-POLL-SITE %s poll_at=%s witness=- UNDECLARED the census credits a bare site the table does not name -- rewrite the table" % (s, pa))
     unwit = c["unwitnessed"] + c["stale"] + c["notzero"] + c["unread"] + c["undeclared"]
@@ -1377,6 +1396,10 @@ def bare_selftest(ck):
     calls, notes, keys = bare_reach(asm_ok + "        call rt_gc_poll_asm@PLT\n")
     ck(calls == 3 and notes == 2, "BARE-POLL PLANTED: a poll call WITHOUT its note reads calls=3 notes=2, the mismatch the reading refuses on")
     ck(bare_key("src/templates/bb/bb_x.cpp:39") == "bb_x.cpp:39", "BARE-POLL JOIN: the census poll_at path folds to the basename:line the note spells")
+    a = bare_norm_sites([("src/templates/bb/bb_x.cpp:10:rt_a/rt_b", "src/templates/bb/bb_x.cpp:12"), ("src/templates/bb/bb_x.cpp:30:rt_a/rt_b", "src/templates/bb/bb_x.cpp:32"), ("src/templates/bb/bb_x.cpp:40:rt_c", "src/templates/bb/bb_x.cpp:41")])
+    b = bare_norm_sites([("src/templates/bb/bb_x.cpp:310:rt_a/rt_b", "src/templates/bb/bb_x.cpp:312"), ("src/templates/bb/bb_x.cpp:330:rt_a/rt_b", "src/templates/bb/bb_x.cpp:332"), ("src/templates/bb/bb_x.cpp:340:rt_c", "src/templates/bb/bb_x.cpp:341")])
+    ck([x[0] for x in a] == ["src/templates/bb/bb_x.cpp:rt_a/rt_b#1", "src/templates/bb/bb_x.cpp:rt_a/rt_b#2", "src/templates/bb/bb_x.cpp:rt_c#1"], "BARE-POLL KEY: two sites naming the same callees take the ordinals 1 and 2, a third site its own #1 (%s)" % ([x[0] for x in a],))
+    ck([x[0] for x in a] == [x[0] for x in b], "BARE-POLL KEY: every site moved 300 lines keeps its row name -- a re-flow or a line move never invalidates the table")
 
 
 
