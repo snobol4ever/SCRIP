@@ -1854,6 +1854,121 @@ void rk_rsprintf(const char *fmt, DESCR_t *args, int nargs, int from, char **out
     if (outlen) *outlen = o.n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_exc_adhoc(DESCR_t payload);
+static void rk_exc_init(void);
+static int rk_code_arity(DESCR_t blk) {
+    extern const char *rt_proc_pname(const char *name, int k);
+    const char *nm = rk_code_name(blk);
+    int n = 0;
+    while (nm && rt_proc_pname(nm, n)) n++;
+    return n > 0 ? n : 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_seq_num2(DESCR_t a, DESCR_t b, int op) {
+    double da, db;
+    int ia, ib;
+    rk_range_num(a, &da, &ia);
+    rk_range_num(b, &db, &ib);
+    if (ia && ib) {
+        long long x = IS_INT_fn(a) ? a.i : (long long) da, y = IS_INT_fn(b) ? b.i : (long long) db, r;
+        int ov = op == 0 ? __builtin_add_overflow(x, y, &r) : op == 1 ? __builtin_sub_overflow(x, y, &r) : __builtin_mul_overflow(x, y, &r);
+        if (!ov) return INTVAL(r);
+    }
+    return REALVAL(op == 0 ? da + db : op == 1 ? da - db : da * db);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_sequence(int excl, DESCR_t seedv, DESCR_t endv) {
+    rk_av_t sd = rk_av(seedv), en = rk_av(endv);
+    DESCR_t res = rk_mk_arr(NULL, 0);
+    if (!sd.n) return res;
+    DESCR_t ev = en.n ? en.el[0] : NULVCL;
+    int infinite = rk_typeobj_name(ev) != NULL || (IS_REAL_fn(ev) && isinf(ev.r)) || en.n == 0;
+    int endcode = !infinite && rk_is_code(ev);
+    double dE = 0;
+    int iE = 0, endnum = !infinite && !endcode && rk_range_num(ev, &dE, &iE);
+    rk_cbh_t H = { g_rk_cbh_cur, { seedv, res } };
+    g_rk_cbh_cur = &H;
+    int gen_code = rk_is_code(sd.el[sd.n - 1]);
+    int nseed = gen_code ? sd.n - 1 : sd.n;
+    int nrf = endcode ? rk_blk_nref(ev) : 0, grf = gen_code ? rk_blk_nref(sd.el[sd.n - 1]) : 0;
+    DESCR_t erfs[nrf ? nrf : 1], grfs[grf ? grf : 1];
+    rk_cb_t ecb = endcode ? rk_blk_snap(ev, erfs) : (rk_cb_t) { NULL, 0 }, gcb = gen_code ? rk_blk_snap(sd.el[sd.n - 1], grfs) : (rk_cb_t) { NULL, 0 };
+    int ar = gen_code ? rk_code_arity(sd.el[sd.n - 1]) : 0;
+    int numeric_seeds = nseed > 0;
+    for (int i = 0; i < nseed; i++) { double d; int ii; if (!rk_range_num(sd.el[i], &d, &ii)) numeric_seeds = 0; }
+    int dir = 1, geometric = 0;
+    DESCR_t step = INTVAL(1), ratio = INTVAL(1);
+    if (!gen_code && numeric_seeds) {
+        double d0, d1, d2;
+        int i0, i1, i2;
+        if (nseed == 1) {
+            rk_range_num(sd.el[0], &d0, &i0);
+            dir = endnum && dE < d0 ? -1 : 1;
+            step = INTVAL(dir);
+        } else {
+            rk_range_num(sd.el[nseed - 2], &d1, &i1);
+            rk_range_num(sd.el[nseed - 1], &d2, &i2);
+            step = rk_seq_num2(sd.el[nseed - 1], sd.el[nseed - 2], 1);
+            if (nseed >= 3) {
+                rk_range_num(sd.el[nseed - 3], &d0, &i0);
+                if (d2 - d1 != d1 - d0) {
+                    if (d0 != 0 && d1 != 0 && d1 / d0 == d2 / d1) {
+                        geometric = 1;
+                        double r = d2 / d1;
+                        ratio = (i0 && i1 && i2 && r == (double) (long long) r) ? INTVAL((long long) r) : REALVAL(r);
+                    } else {
+                        g_rk_cbh_cur = H.prev;
+                        rk_exc_init();
+                        rk_exc_throw(rk_exc_adhoc(STRVAL(rt_heap_strdup_c("Unable to deduce arithmetic or geometric sequence from the seeds"))));
+                        return res;
+                    }
+                }
+            }
+            double ds = geometric ? (d2 * (IS_REAL_fn(ratio) ? ratio.r : (double) ratio.i) - d2) : d2 - d1;
+            dir = ds < 0 ? -1 : 1;
+        }
+    }
+    DESCR_t last = NULVCL;
+    long cap = infinite ? 1000 : 100000;
+    for (long k = 0; k < cap; k++) {
+        DESCR_t v;
+        if (k < nseed) v = rk_av_elem(rk_av(H.d[0]), (int) k);
+        else if (gen_code) {
+            rk_av_t ra = rk_av(H.d[1]);
+            rt_call_args_need(ar + 1);
+            for (int a = 0; a < ar; a++) CALL_ARGS[a] = rk_av_elem(ra, ra.n - ar + a);
+            v = rk_call_snap(gcb, grfs, ar);
+        } else if (numeric_seeds) v = geometric ? rk_seq_num2(last, ratio, 2) : rk_seq_num2(last, step, 0);
+        else { const char *ls = rk_cstr(last); char sb[strlen(ls) + 3]; v = STRVAL(rt_heap_strdup_c(rk_str_succ_buf(ls, sb))); }
+        if (endnum) {
+            double dv;
+            int iv;
+            if (rk_range_num(v, &dv, &iv)) {
+                double tol = 1e-9 * (fabs(dE) > 1 ? fabs(dE) : 1);
+                if (fabs(dv - dE) <= (iv && iE ? 0 : tol)) { if (!excl) rk_arr_append((ARBLK_t *) H.d[1].arr, iv ? v : ev); break; }
+                if (!gen_code && ((dir > 0 && dv > dE) || (dir < 0 && dv < dE))) break;
+            }
+        } else if (!infinite && !endcode) {
+            const char *vs = rk_cstr(v), *es = rk_cstr(ev);
+            if (!strcmp(vs, es)) { if (!excl) rk_arr_append((ARBLK_t *) H.d[1].arr, v); break; }
+            if (!numeric_seeds && !gen_code && strlen(vs) > strlen(es)) break;
+        }
+        if (endcode) {
+            rt_call_args_need(2);
+            CALL_ARGS[0] = v;
+            int stop = rt_is_truthy(rk_call_snap(ecb, erfs, 1));
+            if (stop && excl) break;
+            rk_arr_append((ARBLK_t *) H.d[1].arr, v);
+            if (stop) break;
+        } else rk_arr_append((ARBLK_t *) H.d[1].arr, v);
+        last = v;
+    }
+    g_rk_cbh_cur = H.prev;
+    res = H.d[1];
+    for (int i = 1; i < en.n; i++) rk_arr_append((ARBLK_t *) res.arr, rk_av_elem(rk_av(endv), i));
+    return res;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_list_more_methods(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     rk_av_t a = rk_av(recv);
     if (nmargs == 0 && !strcmp(meth, "permutations")) {
@@ -10553,6 +10668,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = FAILDESCR;
         return 1;
     }
+    if (!strcmp(fn, "__rk_seq") && nargs == 3) { *out = rk_sequence(IS_INT_fn(args[0]) ? (int) args[0].i : 0, args[1], args[2]); return 1; }
     if (!strcmp(fn, "__rk_range_val") && nargs == 3) { *out = rk_range_value(args[0], args[1], IS_INT_fn(args[2]) ? (int) args[2].i : 0); return 1; }
     if (!strcmp(fn, "__rk_in_range") && nargs == 3) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_in_range(args[0], args[1], args[2]) }; return 1; }
     if (!strcmp(fn, "__rk_substr_replace") && (nargs == 3 || nargs == 4)) {

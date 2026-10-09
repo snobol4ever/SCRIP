@@ -896,7 +896,7 @@ static const char *const lv_mul[] = { "*", "\xc3\xb7", "\xc3\x97", "~&", "mod", 
 static const char *const lv_addsub[] = { "+", "\xe2\x88\x92", "?^", "?|", "~|", "+|", "-", "+^", 0 };
 static const char *const lv_repl[] = { "x", "xx", 0 };
 static const char *const lv_cat[] = { "~", "\xe2\x88\x98", "o", 0 };
-static const char *const lv_range1[] = { "..", "...", "..^", 0 };
+static const char *const lv_range1[] = { "..", "..^", 0 };
 static const char *const lv_range2[] = { "unicmp", "coll", "^..^", "^..", 0 };
 static const char *const lv_dor[] = { "//", 0 };
 static const char *const lv_jct[] = { "|", "(^)", "(-)", "(+)", "(|)", "(.)", "(&)", "&", "\xe2\x88\xaa", "\xe2\x88\xa9", "\xe2\x8a\x96", "\xe2\x8a\x8e", "\xe2\x88\x96", "\xe2\x8a\x8d", 0 };
@@ -1077,7 +1077,7 @@ static tree_t *rkb_binop_raw(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
     case LV_ADDSUB: return b_addsub(b, k, l, r);
     case LV_REPL: return k == 0 ? expr_binary(TT_XREP, l, r) : call2("__rk_arr_xx", l, r);
     case LV_CAT: return k == 0 ? expr_binary(TT_CAT, l, r) : call2("__rk_compose", l, r);
-    case LV_RANGE1: { if (k >= 2) return rk_range_ex(b, l, r); tree_t *to = expr_binary(TT_TO, l, r); if (k == 1) to->v.ival = 1; return to; }
+    case LV_RANGE1: { if (k >= 1) return rk_range_ex(b, l, r); return expr_binary(TT_TO, l, r); }
     case LV_RANGE2: return call2(k == 0 ? "__rk_unicmp" : k == 1 ? "__rk_coll" : k == 2 ? "__rk_range_xb" : "__rk_range_xl", l, r);
     case LV_DOR: return (r && (r->t == TT_VAR || r->t == TT_ILIT || r->t == TT_QLIT || r->t == TT_FLIT)) ? call2("__rk_dor", l, r) : rk_defined_op(b, 0, l, r);
     case LV_JCT: return k == 0 ? mk_junction("any", l, r) : k == 7 ? mk_junction("all", l, r) : call2(jfn[k], l, r);
@@ -1406,6 +1406,18 @@ void rkb_cross(RkB *b, const char *op, RkList *L, RkList **rs, int nr) {
         ast_push(mc, blk);
         c = mc;
     }
+    RkEl e; memset(&e, 0, sizeof e); e.t = c; e.nitem = 1; e.t0.kind = TK_TREE; e.t0.t = c;
+    L->v[0] = e; L->n = 1; L->nitem = 1; L->op1 = NULL; L->trailing = 0;
+    L->rg_lo = L->rg_hi = NULL; L->rg_op = NULL; L->rg_nitem = 0; memset(&L->t1, 0, sizeof L->t1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_sequence(RkB *b, const char *op, RkList *L, RkList *R) {
+    size_t ol = strlen(op);
+    int excl = ol > 0 && op[ol - 1] == '^';
+    tree_t *c = make_call("__rk_seq");
+    expr_add_child(c, rk_ilit(excl));
+    expr_add_child(c, rk_list_operand(b, L));
+    expr_add_child(c, rk_list_operand(b, R));
     RkEl e; memset(&e, 0, sizeof e); e.t = c; e.nitem = 1; e.t0.kind = TK_TREE; e.t0.t = c;
     L->v[0] = e; L->n = 1; L->nitem = 1; L->op1 = NULL; L->trailing = 0;
     L->rg_lo = L->rg_hi = NULL; L->rg_op = NULL; L->rg_nitem = 0; memset(&L->t1, 0, sizeof L->t1);
