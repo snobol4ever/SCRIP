@@ -1764,7 +1764,24 @@ static const char *PL_PRELUDE_SRC =
     "'$consult_term'(C,R,R):-assertz(C).\n"
     "'$consult_inits'([]).\n"
     "'$consult_inits'([G|Gs]):-'$consult_goal'(G),'$consult_inits'(Gs).\n"
-    "'$consult_goal'(G):-(catch(G,E,(format(user_error,'Warning: directive raised: ~q~n',[E]),true))->true;format(user_error,'Warning: directive failed: ~q~n',[G])).\n";
+    "'$consult_goal'(G):-(catch(G,E,(format(user_error,'Warning: directive raised: ~q~n',[E]),true))->true;format(user_error,'Warning: directive failed: ~q~n',[G])).\n"
+    "'$load_item'(T,L,U,E):-(catch('$load_item1'(T,U,E),X,(format(user_error,'Warning: line ~w: load raised: ~q~n',[L,X]),true))->true;format(user_error,'Warning: line ~w: load failed: ~q~n',[L,T])).\n"
+    "'$load_item1'(T,U,0):-!,'$load_one'(T,U).\n"
+    "'$load_item1'(T,U,_):-expand_term(T,X),'$load_items'(X,U).\n"
+    "'$load_items'(X,U):-var(X),!,'$load_one'(X,U).\n"
+    "'$load_items'([],_):-!.\n"
+    "'$load_items'([T|Ts],U):-!,'$load_one'(T,U),'$load_items'(Ts,U).\n"
+    "'$load_items'(T,U):-'$load_one'(T,U).\n"
+    "'$load_one'((:-D),_):-!,'$consult_goal'(D).\n"
+    "'$load_one'((H-->B),U):-!,dcg_translate_rule((H-->B),C),'$load_one'(C,U).\n"
+    "'$load_one'(C,U):-U\\==0,'$load_test'(C,N,O,B),!,assertz(pj_test(U,N,O,B)),assertz(C).\n"
+    "'$load_one'(C,_):-assertz(C).\n"
+    "'$load_test'((test(N):-B),N,[],B):-!.\n"
+    "'$load_test'((test(N,O):-B),N,Os,B):-!,'$load_test_opts'(O,Os).\n"
+    "'$load_test'(test(N),N,[],true):-!.\n"
+    "'$load_test'(test(N,O),N,Os,true):-'$load_test_opts'(O,Os).\n"
+    "'$load_test_opts'(O,O):-is_list(O),!.\n"
+    "'$load_test_opts'(O,[O]).\n";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pl_clause_dcg(const PlClause *cl) {
     tree_t *r;
@@ -1831,6 +1848,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
     if (pl_cv_has(&referenced, "table")) pl_cv_add(&referenced, "$tbl_call");
+    if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
@@ -1866,7 +1884,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         nextc = cl->next;
         const char *nm; int ar;
         int keep = pl_clause_key(cl, &nm, &ar) && nm && pl_cv_has(&wanted, pl_pred_key(nm, ar));
-        if (keep) { cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
+        if (keep) { cl->lineno = 0; cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
     }
     ct_drop(pre);
 }

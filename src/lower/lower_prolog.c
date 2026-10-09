@@ -3481,8 +3481,181 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const tree_t * t; const char * pn; const char * file; int ar; int line; int fo; int ord; int expand; } pl_load_item_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_stmt_file(const tree_t * s) { const char * v = stmt_attr_str(stmt_attr_find(s, ":file")); return v ? v : ""; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_load_hook_key(const char * k) { return k && (!strcmp(k, "term_expansion/2") || !strcmp(k, "goal_expansion/2")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_load_nclauses(const tree_t * subj) { return subj->t == TT_CHOICE ? subj->n : 1; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_load_clause(const tree_t * subj, int i) { return subj->t == TT_CHOICE ? subj->c[i] : subj; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_load_hook_line(const tree_t * prog, const char * file) {
+    int h = 0;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!subj || (subj->t != TT_CHOICE && subj->t != TT_CLAUSE) || !pl_load_hook_key(subj->v.sval) || (file && strcmp(pl_stmt_file(s), file))) continue;
+        for (int j = 0; j < pl_load_nclauses(subj); j++) { const tree_t * c = pl_load_clause(subj, j); if (c && c->line > 0 && (!h || c->line < h)) h = c->line; }
+    }
+    return h;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_load_dir_is_exec(const tree_t * subj) {
+    const char * f = (subj->t == TT_FNC) ? subj->v.sval : NULL;
+    if (!f) return 1;
+    if (!strcmp(f, "initialization") && subj->n >= 1) { const tree_t * gt = subj->c[0]; if (gt && (gt->t == TT_QLIT || gt->t == TT_NAME || gt->t == TT_FNC) && gt->v.sval) return 0; }
+    if (!strcmp(f, "dynamic") || !strcmp(f, "multifile") || !strcmp(f, "discontiguous") || !strcmp(f, "meta_predicate") || pl_name_in(f, pl_decl_directives)) return 0;
+    if ((!strcmp(f, "op") && subj->n == 3) || (!strcmp(f, "set_prolog_flag") && subj->n == 2)) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_load_unit_of(const tree_t * prog, const tree_t * subj, int * is_unit) {
+    *is_unit = 0;
+    if (!subj || subj->t != TT_FNC || !subj->v.sval || strcmp(subj->v.sval, "initialization") || subj->n < 1) return NULL;
+    const tree_t * a = subj->c[0];
+    if (!a || a->t != TT_QLIT || !a->v.sval || strncmp(a->v.sval, "pj_dir_", 7)) return NULL;
+    char key[strlen(a->v.sval) + 3];
+    snprintf(key, sizeof key, "%s/0", a->v.sval);
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * ch = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!ch || (ch->t != TT_CHOICE && ch->t != TT_CLAUSE) || !ch->v.sval || strcmp(ch->v.sval, key)) continue;
+        const tree_t * c = pl_load_clause(ch, 0);
+        const tree_t * g = (c && c->n > 0) ? c->c[0] : NULL;
+        if (!g || g->t != TT_FNC || !g->v.sval || g->n < 1) return NULL;
+        if (!strcmp(g->v.sval, "end_tests")) { *is_unit = 1; return NULL; }
+        if (strcmp(g->v.sval, "begin_tests")) return NULL;
+        *is_unit = 1;
+        return (g->c[0] && (g->c[0]->t == TT_QLIT || g->c[0]->t == TT_NAME || g->c[0]->t == TT_FNC)) ? g->c[0]->v.sval : NULL;
+    }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_load_item_cmp(const void * a, const void * b) {
+    const pl_load_item_t * x = (const pl_load_item_t *) a;
+    const pl_load_item_t * y = (const pl_load_item_t *) b;
+    if (x->fo != y->fo) return x->fo < y->fo ? -1 : 1;
+    if (x->line != y->line) return x->line < y->line ? -1 : 1;
+    return x->ord < y->ord ? -1 : (x->ord > y->ord);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_load_capacity(const tree_t * prog) {
+    int n = 1;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        n += subj ? ((subj->t == TT_CHOICE || subj->t == TT_CLAUSE) ? pl_load_nclauses(subj) : 1) : 0;
+    }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_load_defer(const tree_t * prog, pl_load_item_t * it, int * nit) {
+    const char * files[prog->n + 1];
+    int fh[prog->n + 1], ffo[prog->n + 1], nf = 0;
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        const char * file = subj ? pl_stmt_file(s) : "";
+        int k = 0, h;
+        while (k < nf && strcmp(files[k], file)) k++;
+        if (k == nf) { files[nf] = file; fh[nf] = pl_load_hook_line(prog, file); ffo[nf] = i; nf++; }
+        h = fh[k];
+        if (!subj || h <= 0) { ast_push(np, (tree_t *) s); continue; }
+        if (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) {
+            const char * key = subj->v.sval;
+            const char * sl = key ? strrchr(key, '/') : NULL;
+            int late = 0, pj = key && !strcmp(key, "pj_test/4");
+            for (int j = 0; j < pl_load_nclauses(subj); j++) if (pl_load_clause(subj, j)->line > h) late = 1;
+            if (!late || !sl || pl_load_hook_key(key)) { ast_push(np, (tree_t *) s); continue; }
+            char * pn = (char *) ct_alloc((size_t) (sl - key) + 1);
+            memcpy(pn, key, (size_t) (sl - key));
+            pn[sl - key] = 0;
+            for (int j = 0; j < pl_load_nclauses(subj); j++) {
+                const tree_t * c = pl_load_clause(subj, j);
+                if (pj && c->line > h) continue;
+                it[*nit] = (pl_load_item_t) { c, pn, file, atoi(sl + 1), c->line, ffo[k], *nit, c->line > h };
+                (*nit)++;
+            }
+            continue;
+        }
+        int ln = lp_s_int(s, ":line");
+        if (ln > h && pl_load_dir_is_exec(subj)) { it[*nit] = (pl_load_item_t) { subj, NULL, file, -1, ln, ffo[k], *nit, 1 }; (*nit)++; continue; }
+        ast_push(np, (tree_t *) s);
+    }
+    qsort(it, (size_t) *nit, sizeof *it, pl_load_item_cmp);
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_load_directive_term(const tree_t * subj) {
+    tree_t * tg = pl_cc_fnc1(":-", pl_body_term(subj));
+    int occ = pl_var_nodes(tg) + 1;
+    const char * names[occ];
+    long long slots[occ];
+    int nn = 0, n = 0;
+    pl_dir_number_vars(tg, names, &nn, 0);
+    pl_tree_renumber_vars(tg, slots, &n, occ, g_lower.pl.seed_var_base);
+    g_lower.pl.seed_var_base += (n > 0 ? n : 1);
+    return tg;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * pl_load_unit_at(const tree_t * prog, const char * file, int line) {
+    const char * u = NULL;
+    int best = -1;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        int is_unit = 0, ln;
+        const char * nu;
+        if (!subj || subj->t == TT_CHOICE || subj->t == TT_CLAUSE || strcmp(pl_stmt_file(s), file)) continue;
+        nu = pl_load_unit_of(prog, subj, &is_unit);
+        ln = lp_s_int(s, ":line");
+        if (is_unit && ln < line && ln > best) { best = ln; u = nu; }
+    }
+    return u;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int nit, cv_t * procs) {
+    for (int lo = 0; lo < nit && procs->len < PL_SEED_PROCS_MAX; lo += PL_SEED_CHUNK) {
+        int hi = lo + PL_SEED_CHUNK < nit ? lo + PL_SEED_CHUNK : nit, m = 0, save_base = g_lower.pl.seed_var_base;
+        const tree_t ** sg = (const tree_t **) ct_zalloc((size_t) (hi - lo), sizeof(const tree_t *));
+        g_lower.pl.seed_var_base = 0;
+        for (int i = lo; i < hi; i++) {
+            const char * u = it[i].expand ? pl_load_unit_at(prog, it[i].file, it[i].line) : NULL;
+            tree_t * t = it[i].pn ? pl_static_clause_term(it[i].t, it[i].pn, it[i].ar) : pl_load_directive_term(it[i].t);
+            if (it[i].pn && it[i].t->t == TT_CLAUSE && it[i].t->n <= it[i].ar && t->t == TT_FNC && t->n == 2) t = t->c[0];
+            tree_t * g = pl_cc_fnc3("$load_item", t, pl_cc_ilit(it[i].line), u ? (tree_t *) pl_atom_goal(u) : pl_cc_ilit(0));
+            ast_push(g, pl_cc_ilit(it[i].expand));
+            sg[m++] = g;
+        }
+        g_lower.pl.seed_var_base = save_base;
+        {
+            IR_graph_t * g = pl_body_graph(sg, m);
+            int bb_idx = bb_program_add(&g_stage2.bbp, g);
+            if (bb_idx >= 0) {
+                char * pn = pl_pi_text("$load_deferred", (int) procs->len, 0);
+                char * rk = pl_pi_text(pn, 0, 1);
+                pl_bb_register(rk, 0, bb_idx);
+                pl_new_proc(rk, 0, bb_idx);
+                CV_PUSH(*procs, const char *) = pn;
+            }
+        }
+        ct_drop(sg);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_table_rewrite(prog);
+    const tree_t * prog_src = prog;
+    int load_h = pl_load_hook_line(prog, NULL);
+    int load_cap = load_h > 0 ? pl_load_capacity(prog) : 1;
+    pl_load_item_t load_it[load_cap];
+    int load_n = 0;
+    if (load_h > 0) prog = pl_load_defer(prog, load_it, &load_n);
     int _pl_bb0 = g_stage2.bbp.count;
     pl_register_program(&g_stage2, prog);
     int ndirs = 1, ndvn = 1;
@@ -3538,7 +3711,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     }
     IR_graph_t * top;
     {
-        const tree_t * all_goals[ndir + ninit + 3];
+        const tree_t * all_goals[ndir + ninit + 3 + (load_n + PL_SEED_CHUNK - 1) / PL_SEED_CHUNK];
         int nall = 0;
         int nseedv = 1;
         { tree_t * dt = ast_node_new(TT_FNC); dt->v.sval = (char *) "$db_decls"; ast_push(dt, pl_cc_ilit(0)); all_goals[nall++] = dt; }
@@ -3606,6 +3779,12 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             ct_drop(sp.p);
         }
         for (int i = 0; i < ndir; i++) all_goals[nall++] = dir_goals[i];
+        if (load_n > 0) {
+            cv_t lp = { 0 };
+            pl_load_procs(prog_src, load_it, load_n, &lp);
+            for (uint32_t i = 0; i < lp.len; i++) all_goals[nall++] = pl_atom_goal(CV_AT(lp, const char *, i));
+            ct_drop(lp.p);
+        }
         for (int i = 0; i < ninit; i++) all_goals[nall++] = init_goals[i];
         top = pl_body_graph(all_goals, nall);
     }

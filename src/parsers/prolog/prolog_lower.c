@@ -409,9 +409,10 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
     g_stage2.pl_dq_mode = mode + 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno) {
+static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *file) {
     tree_t *st = ast_node_new(TT_STMT);
     ast_push(st, ast_attr_int(":line", lineno)); ast_push(st, ast_attr_int(":lline", lineno)); ast_push(st, ast_attr_int(":stno", 0)); ast_push(st, ast_attr_expr(":subj", subj));
+    if (file && file[0]) ast_push(st, ast_attr_leaf(":file", file));
     ast_push(prog, st);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -522,6 +523,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
                         int found = pl_pred_slot(&keys, &choices, pk2);
                         {
                             tree_t *ec = lower_clause_from_tree(syn, pk2, 0, &csm);
+                            ec->line = cl->lineno;
                             expr_add_child(CV_AT(choices, tree_t *, found), ec);
                         }
                     }
@@ -530,6 +532,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
         }
         int found = pl_pred_slot(&keys, &choices, k);
         tree_t *ec = lower_clause_from_tree(cl->tr, k, cl->is_dcg, &csm);
+        ec->line = cl->lineno;
         expr_add_child(CV_AT(choices, tree_t *, found), ec);
     }
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
@@ -615,7 +618,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
             }
         }
         if (goal_tr && goal_tr->t == TT_FNC && goal_tr->v.sval && strcmp(goal_tr->v.sval, "export") == 0 && goal_tr->n == 1) continue;
-        pl_stmt_push(prog, goal_tr, cl->lineno);
+        pl_stmt_push(prog, goal_tr, cl->lineno, pl_prog->filename);
     }
     if (pld_seed_n > 0) {
         for (uint32_t i = 0; i < keys.len; i++) {
@@ -634,6 +637,6 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
             break;
         }
     }
-    for (uint32_t i = 0; i < keys.len; i++) pl_stmt_push(prog, CV_AT(choices, tree_t *, i), 0);
+    for (uint32_t i = 0; i < keys.len; i++) pl_stmt_push(prog, CV_AT(choices, tree_t *, i), 0, pl_prog->filename);
     return prog;
 }
