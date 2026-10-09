@@ -295,7 +295,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("directive", ".section .text");
         s += x86("directive", ".intel_syntax noprefix");
         s += x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)fn, fl.c_str());
-        s += x86("lea", "rsi", FRQ(argbase));
+        s += x86("lea", "rsi", FRQ(argbase + (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict) ? BCFN_EVAL_REC : 0)));
         if (BCFN_TAIL_TRY(fn, _.op_strict)) {
             s += x86("lea", "rcx", FRQ(resoff));
             s += BCFN_TAIL_TRY_ENTER(fn, nargs, 100, 108, 29);
@@ -322,6 +322,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         }
         if (_mopen || _aopen || BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) {
             s += x86_deflabel_id(29);
+            if (BCFN_OPENS_AS_EVAL(fn, nargs, _.op_strict)) s += x86("add", "rsp", (long)BCFN_EVAL_REC);
             s += x86("mov", FRQ(resoff), "rax");
             s += x86("mov", FRQ(resoff + 8), "rdx");
             s += x86_rt_gc_poll();
