@@ -3113,6 +3113,21 @@ static void * pl_runtime_define_pred_g(const char * key, const tree_t * choice, 
 }
 void * pl_runtime_define_pred(const char * key, const tree_t * choice, int arity, void * rt_root) { return pl_runtime_define_pred_x(key, choice, arity, NULL, -1, -1, (int *)0, rt_root); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_tree_count(const tree_t * t) { int n; if (!t) return 0; n = 1; for (int i = 0; i < t->n; i++) n += pl_tree_count(t->c[i]); return n; }
+static void pl_tree_gather(tree_t * t, tree_t ** v, int * k) { if (!t) return; v[(*k)++] = t; for (int i = 0; i < t->n; i++) pl_tree_gather(t->c[i], v, k); }
+static int pl_tree_ptr_cmp(const void * a, const void * b) { uintptr_t x = (uintptr_t) *(tree_t * const *) a, y = (uintptr_t) *(tree_t * const *) b; return (x > y) - (x < y); }
+static void pl_trees_drop(tree_t * a, tree_t * b) {
+    int n = pl_tree_count(a) + pl_tree_count(b);
+    int k = 0;
+    tree_t ** v;
+    if (n <= 0) return;
+    v = (tree_t **) ct_alloc((size_t) n * sizeof(tree_t *));
+    pl_tree_gather(a, v, &k);
+    pl_tree_gather(b, v, &k);
+    qsort(v, (size_t) k, sizeof(tree_t *), pl_tree_ptr_cmp);
+    for (int i = 0; i < k; i++) if (!i || v[i] != v[i - 1]) { if (v[i]->c) ct_drop((char *) v[i]->c - sizeof(size_t)); ct_drop(v[i]); }
+    ct_drop(v);
+}
 void * pl_runtime_define_fragment(const char * fkey, void * clause_cell, int arity, int cell_k, int slot, int * ridx_out, int * chain_off_out, void * rt_root) {
     extern void * rt_pl_clause_tree(void *);
     extern tree_t * pl_runtime_clause_tree(tree_t *);
@@ -3128,6 +3143,7 @@ void * pl_runtime_define_fragment(const char * fkey, void * clause_cell, int ari
     ch = rt_pl_choice_new(fkey);
     rt_pl_choice_add(ch, cl);
     fn = pl_runtime_define_pred_x(ct_strdup(fkey), (const tree_t *) ch, arity, NULL, cell_k, slot, &off, rt_root);
+    pl_trees_drop((tree_t *) raw, (tree_t *) ch);
     if (!fn || off < 0) return (void *)0;
     if (ridx_out) *ridx_out = rt_proc_index_of(fkey);
     if (chain_off_out) *chain_off_out = off;

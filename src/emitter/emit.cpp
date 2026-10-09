@@ -348,7 +348,8 @@ void emit_label_initf(bb_label_t *lbl, const char *fmt, ...)
     va_list ap; va_start(ap, fmt);
     char nb[vfmt_len(fmt, ap)]; vsnprintf(nb, sizeof nb, fmt, ap);
     va_end(ap);
-    lbl->name = ""; lbl->name_cap = 0; bb_label_name_set(lbl, nb);
+    bb_label_t *own = emit_label_alloc("%s", nb);
+    lbl->name = own ? own->name : ""; lbl->name_cap = 0;
     lbl->offset = BB_LABEL_UNRESOLVED;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

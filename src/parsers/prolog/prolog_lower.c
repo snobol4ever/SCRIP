@@ -265,6 +265,7 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite,
             body_prog->c[i] = pl_rewrite_control(body_prog->c[i]);
     for (int i = 0; i < body_prog->n; i++)
         expr_add_child(ec, body_prog->c[i]);
+    if (body_prog != raw_body) { if (body_prog->c) ct_drop((char *)body_prog->c - sizeof(size_t)); ct_drop(body_prog); }
     return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -342,7 +343,7 @@ tree_t *pl_runtime_clause_tree(tree_t *raw) {
     syn = ast_node_new(TT_CLAUSE);
     expr_add_child(syn, head);
     if (body) expr_add_child(syn, body);
-    { TRSlotMap sm; trslot_reset(&sm); return lower_clause_from_tree(syn, k, 0, &sm); }
+    { TRSlotMap sm; tree_t *ec; trslot_reset(&sm); ec = lower_clause_from_tree(syn, k, 0, &sm); if (syn->c) ct_drop((char *)syn->c - sizeof(size_t)); ct_drop(syn); return ec; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pf_pieces(const tree_t *t) {
