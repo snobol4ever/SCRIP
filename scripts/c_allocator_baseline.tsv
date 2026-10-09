@@ -93,6 +93,7 @@
 # arena_in_runtime_ratcheted and arena_in_runtime_debt fall 88 -> 86 BY DELETION, two sites: runtime_shim.h's _core_abort_stack (a ct_grow'd jmp_buf* stack with zero callers of push_abort_handler/
 # pop_abort_handler/ABORT_fn) and porttrace.cpp's g_emit.pl_trace_stk (the RT_DIAG port trace's ct_grow'd uid/number stack in plt_push; the depth column it fed is now one counter cell) left the tree
 # as two of the four dead second stacks of CEO-1542/1543; nothing moved to the arena and nothing moved off the collected heap.
+# COUNT EARNED 2026-10-09 hq_raku (row raku-every-suite-to-100-under-nonet-ceo-1266): arena_in_runtime_ratcheted and arena_in_runtime_debt fall 86 -> 80 BY A CURE: re.c, the byte-wise Pike NFA that ct_alloc'd its states and capture pools at run time, is deleted; its replacement rx.c allocates only through rt_wsb_alloc, a work-space block the collector owns.
 forbidden_total	0
 malloc	0
 calloc	0
@@ -100,9 +101,9 @@ realloc	0
 free	0
 aliases	0
 alias_calls	0
-arena_in_runtime_ratcheted	86
+arena_in_runtime_ratcheted	80
 arena_in_runtime_evasion	0
-arena_in_runtime_debt	86
+arena_in_runtime_debt	80
 container_unmarked_live	1
 libc_owned_misuse	0
 libc_doors	0

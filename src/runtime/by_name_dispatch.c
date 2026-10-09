@@ -139,6 +139,7 @@ void rt_call_args_clear_from(int n);
 #include "builtins/gen_runtime.h"
 #include "../driver/driver_private.h"
 #include "re.h"
+#include "rx.h"
 #include "core.h"
 #include "core/utf8.h"
 #include "builtin_ids.h"
@@ -597,88 +598,6 @@ static int gram_get_flavor(const char *qname) { for (int i = 0; i < gram_n; i++)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *gram_get(const char *qname) { for (int i = 0; i < gram_n; i++) if (!strcmp(GRAM(i).qname, qname)) return GRAM(i).body; return NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_grammar_builtin_class(const char *nm) {
-    if (!nm) return NULL;
-    if (!strcmp(nm, "digit")) return "[0-9]";
-    if (!strcmp(nm, "alpha")) return "[a-zA-Z]";
-    if (!strcmp(nm, "alnum")) return "[a-zA-Z0-9]";
-    if (!strcmp(nm, "upper")) return "[A-Z]";
-    if (!strcmp(nm, "lower")) return "[a-z]";
-    if (!strcmp(nm, "space")) return "[ \\t\\n\\r]";
-    if (!strcmp(nm, "ws")) return "{!ww}[ \\t\\n\\r]*{!sp}";
-    if (!strcmp(nm, "xdigit")) return "[0-9a-fA-F]";
-    return NULL;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline void gx_put(char *out, int outsz, int *op, char *last, char c) { if (*op < outsz - 1) out[*op] = c; (*op)++; *last = c; }
-static int gram_expand(const char *gname, const char *body, int flavor, char *out, int outsz, int depth) {
-    int op = 0, n = (int)strlen(body);
-    char last = 0;
-    for (int i = 0; i < n; ) {
-        char c = body[i];
-        if (c == '\\' && i + 1 < n) { gx_put(out, outsz, &op, &last, c); gx_put(out, outsz, &op, &last, body[i + 1]); i += 2; continue; }
-        if (c == '\'' || c == '"') {
-            char q = c;
-            i++;
-            while (i < n && body[i] != q) {
-                if (body[i] == '\\' && i + 1 < n) { gx_put(out, outsz, &op, &last, body[i]); gx_put(out, outsz, &op, &last, body[i+1]); i += 2; continue; }
-                char lc = body[i++];
-                if (strchr(".^$*+?()[]{}|\\", lc)) gx_put(out, outsz, &op, &last, '\\');
-                gx_put(out, outsz, &op, &last, lc);
-            }
-            if (i < n) i++;
-            continue;
-        }
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
-            while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
-            int at_arm_start = (op == 0) || last == '|' || last == '(';
-            if (flavor == 1 && !at_arm_start) { const char *wsp = "{!ww}\\s*{!sp}"; for (int k = 0; wsp[k]; k++) gx_put(out, outsz, &op, &last, wsp[k]); }
-            continue;
-        }
-        if (c == '<' && i + 1 < n) {
-            int ns = i + 1;
-            int nocap = 0;
-            if (body[ns] == '.' && ns + 1 < n && isalpha((unsigned char)body[ns + 1])) { ns++; nocap = 1; }
-            if (isalpha((unsigned char)body[ns])) {
-                int j = ns;
-                char nm[n - ns + 1];
-                int nl = 0;
-                while (j < n && (isalnum((unsigned char)body[j]) || body[j] == '_')) nm[nl++] = body[j++];
-                nm[nl] = '\0';
-                if (j < n && body[j] == '>' && !(j + 1 < n && body[j + 1] == '(')) {
-                    const char *sub = NULL;
-                    int subfl = 0;
-                    if (depth < 16) { char qn[fmt_len("%s::%s", gname, nm)]; snprintf(qn, sizeof qn, "%s::%s", gname, nm); sub = gram_get(qn); subfl = gram_get_flavor(qn); }
-                    if (sub) {
-                        if (!nocap) { gx_put(out, outsz, &op, &last, '<'); for (int k = 0; nm[k]; k++) gx_put(out, outsz, &op, &last, nm[k]); gx_put(out, outsz, &op, &last, '>'); }
-                        gx_put(out, outsz, &op, &last, '(');
-                        op += gram_expand(gname, sub, subfl, (out && op < outsz) ? out + op : (char *)0, (out && op < outsz) ? outsz - op : 0, depth + 1);
-                        gx_put(out, outsz, &op, &last, ')');
-                        i = j + 1;
-                        continue;
-                    }
-                    const char *bc = rk_grammar_builtin_class(nm);
-                    if (bc) {
-                        if (!nocap) {
-                            gx_put(out, outsz, &op, &last, '<');
-                            for (int k = 0; nm[k]; k++) gx_put(out, outsz, &op, &last, nm[k]);
-                            gx_put(out, outsz, &op, &last, '>');
-                            gx_put(out, outsz, &op, &last, '(');
-                        }
-                        for (int k = 0; bc[k]; k++) gx_put(out, outsz, &op, &last, bc[k]);
-                        if (!nocap) gx_put(out, outsz, &op, &last, ')');
-                        i = j + 1;
-                        continue;
-                    }
-                }
-            }
-        }
-        gx_put(out, outsz, &op, &last, c);
-        i++;
-    }
-    if (out && op < outsz) out[op] = '\0';
-    return op;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_grammar_register(const char *qname, const char *body, int flavor) { if (qname && body) gram_set(qname, body, flavor); }
 int rt_grammar_count(void) { return gram_n; }
@@ -743,30 +662,207 @@ static DESCR_t rk_match_span(DESCR_t orig, const char *subj, int bs, int be, DES
     return rk_match_rec(orig, rk_cp_off(subj, bs), rk_cp_off(subj, bs + len), 1, STRVAL(t), pos, named);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_match_obj_in(const Match *m, const char *subj, DESCR_t orig, int want_pos) {
+#define RK_EV(m, k) (((int *) (m)->blk) + 4 * (m)->ngroups + 3 * (m)->ncaplog + 10 * (k))
+static const char *rk_ev_nm(const Match *m, int off) { return off >= 0 ? m->blk + off : NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_sub(const Match *m, const char *subj, DESCR_t orig, int lo, int hi, int from, int to);
+static DESCR_t rk_rx_inst(const Match *m, const char *subj, DESCR_t orig, int i) { int *e = RK_EV(m, i); return rk_rx_sub(m, subj, orig, e[7], i, e[5], e[6]); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_ev_has_name(const int *e, const Match *m, const char *nm) { const char *a = rk_ev_nm(m, e[2]), *b = rk_ev_nm(m, e[3]); return (a && !strcmp(a, nm)) || (b && !strcmp(b, nm)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_slot(const Match *m, const char *subj, DESCR_t orig, const int *evs, int n, int rep) {
+    if (n == 0) return rep ? rk_mk_arr(NULL, 0) : NULVCL;
+    if (!rep && n == 1) return rk_rx_inst(m, subj, orig, evs[0]);
+    DESCR_t el[n];
+    for (int k = 0; k < n; k++) el[k] = rk_rx_inst(m, subj, orig, evs[k]);
+    return rk_mk_arr(el, n);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_sub(const Match *m, const char *subj, DESCR_t orig, int lo, int hi, int from, int to) {
+    int tops[hi > lo ? hi - lo : 1], nt = 0;
+    for (int i = hi - 1; i >= lo; i = RK_EV(m, i)[7] - 1) tops[nt++] = i;
+    for (int a = 0, b = nt - 1; a < b; a++, b--) { int t = tops[a]; tops[a] = tops[b]; tops[b] = t; }
+    int maxp = -1;
+    for (int a = 0; a < nt; a++) { int *e = RK_EV(m, tops[a]); if (e[0] == 0 && e[1] > maxp) maxp = e[1]; }
+    DESCR_t pos[maxp + 1 > 0 ? maxp + 1 : 1];
+    for (int idx = 0; idx <= maxp; idx++) {
+        int evs[nt + 1], n = 0, rep = 0;
+        for (int a = 0; a < nt; a++) { int *e = RK_EV(m, tops[a]); if (e[0] == 0 && e[1] == idx) { evs[n++] = tops[a]; rep |= e[4]; } }
+        pos[idx] = rk_rx_slot(m, subj, orig, evs, n, rep);
+    }
+    DESCR_t named = TABLE_VAL(table_new());
+    const char *seen[2 * nt + 1];
+    int nseen = 0;
+    for (int a = 0; a < nt; a++) {
+        int *e = RK_EV(m, tops[a]);
+        if (e[0] != 1) continue;
+        for (int w = 0; w < 2; w++) {
+            const char *nm = rk_ev_nm(m, e[2 + w]);
+            if (!nm || !nm[0]) continue;
+            int dup = 0;
+            for (int q = 0; q < nseen; q++) if (!strcmp(seen[q], nm)) dup = 1;
+            if (dup) continue;
+            seen[nseen++] = nm;
+            int evs[nt + 1], n = 0, rep = 0;
+            for (int b = 0; b < nt; b++) { int *f = RK_EV(m, tops[b]); if (f[0] == 1 && rk_ev_has_name(f, m, nm)) { evs[n++] = tops[b]; rep |= f[4]; } }
+            named = rk_hash_store(named, STRVAL((char *) nm), rk_rx_slot(m, subj, orig, evs, n, rep));
+        }
+    }
+    return rk_match_span(orig, subj, from, to, rk_mk_arr(pos, maxp + 1), named);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_match_obj_in(const Match *m, const char *subj, DESCR_t orig) {
     if (!m->matched || !subj) return rk_match_nil();
-    DESCR_t epos = rk_mk_arr(NULL, 0), enam = TABLE_VAL(table_new());
     DESCR_t sub[m->ngroups > 0 ? m->ngroups : 1];
     int npos = 0;
     DESCR_t named = TABLE_VAL(table_new());
     for (int g = 0; g < m->ngroups; g++) {
-        int n = 0;
-        for (int k = 0; k < m->ncaplog; k++) if (match_caplog_group(m, k) == g) n++;
-        DESCR_t v = NULVCL;
-        if (match_group_repeatable(m, g) || n > 1) {
-            DESCR_t el[n > 0 ? n : 1];
-            int j = 0;
-            for (int k = 0; k < m->ncaplog; k++) if (match_caplog_group(m, k) == g) el[j++] = rk_match_span(orig, subj, match_caplog_start(m, k), match_caplog_end(m, k), epos, enam);
-            v = rk_mk_arr(el, n);
-        } else if (match_group_start(m, g) >= 0 && match_group_end(m, g) >= match_group_start(m, g)) v = rk_match_span(orig, subj, match_group_start(m, g), match_group_end(m, g), epos, enam);
+        int evs[m->nev + 1], n = 0;
+        for (int i = 0; i < m->nev; i++) { int *e = RK_EV(m, i); if (e[8] == g || e[9] == g) evs[n++] = i; }
+        DESCR_t v = rk_rx_slot(m, subj, orig, evs, n, match_group_repeatable(m, g) || n > 1);
         const char *nm = match_group_name(m, g);
         if (nm && nm[0]) named = rk_hash_store(named, STRVAL((char *) nm), v);
-        else if (want_pos) sub[npos++] = v;
+        else sub[npos++] = v;
     }
     return rk_match_span(orig, subj, m->full_start, m->full_end, rk_mk_arr(sub, npos), named);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_match_obj(const Match *m, const char *subj) { return rk_match_obj_in(m, subj, STRVAL(rt_heap_strdup_c(subj ? subj : "")), 1); }
+static DESCR_t rk_match_obj(const Match *m, const char *subj) { return rk_match_obj_in(m, subj, STRVAL(rt_heap_strdup_c(subj ? subj : ""))); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_rx_rule(void *ud, const char *name, int nlen, int *flags) {
+    const char *gname = ud ? (const char *) ud : "";
+    char qn[strlen(gname) + (size_t) nlen + 3];
+    snprintf(qn, sizeof qn, "%s::%.*s", gname, nlen, name);
+    const char *body = gram_get(qn);
+    if (!body) return NULL;
+    int fl = gram_get_flavor(qn);
+    *flags = fl == 0 ? RXF_R : fl == 1 ? (RXF_R | RXF_S) : 0;
+    return body;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static RxProg *rk_rx_compile(RxEnv *env, const char *gname, const char *pat, int flags) {
+    env->ud = (void *) gname;
+    env->rule = rk_rx_rule;
+    env->fold = NULL;
+    env->prop = NULL;
+    const char *err = NULL;
+    RxProg *p = rx_compile(pat, flags, env, &err);
+    if (!p) fprintf(stderr, "re: compile error: %s\n", err ? err : "?");
+    return p;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { char kind; int idx; const char *nm; int nl; int rep; int start, end; } RkGrp;
+static int rk_grp_find(const RkGrp *g, int ng, char kind, int idx, const char *nm, int nl) {
+    for (int k = 0; k < ng; k++) if (g[k].kind == kind && (kind == 'p' ? g[k].idx == idx : (g[k].nl == nl && !strncmp(g[k].nm, nm, (size_t) nl)))) return k;
+    return -1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_cap_is(const RxCap *c, char kind, int idx, const char *nm, int nl) {
+    if (kind == 'p') return c->kind == 'p' && c->idx == idx;
+    if (c->kind != 'n' || !nm) return 0;
+    return (c->nlen == nl && !strncmp(c->name, nm, (size_t) nl)) || (c->name2 && c->nlen2 == nl && !strncmp(c->name2, nm, (size_t) nl));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_rx_to_match(Match *gm, const RxProg *p, const RxMatch *rm) {
+    memset(gm, 0, sizeof *gm);
+    if (!rm->ok) return;
+    int ntops, nev = rm->nev;
+    const RxCap *const *tops = rx_tops(p, &ntops);
+    int topidx[nev + 1], nt = 0;
+    { int tmp[nev + 1], n2 = 0; for (int i = nev - 1; i >= 0; i = rm->ev[i].sub - 1) tmp[n2++] = i; for (int a = n2 - 1; a >= 0; a--) topidx[nt++] = tmp[a]; }
+    int maxp = -1;
+    for (int t = 0; t < ntops; t++) if (tops[t]->kind == 'p') {
+        int has = tops[t]->rep;
+        for (int a = 0; a < nt; a++) if (rm->ev[topidx[a]].cap->kind == 'p' && rm->ev[topidx[a]].cap->idx == tops[t]->idx) has = 1;
+        if (has && tops[t]->idx > maxp) maxp = tops[t]->idx;
+    }
+    for (int a = 0; a < nt; a++) if (rm->ev[topidx[a]].cap->kind == 'p' && rm->ev[topidx[a]].cap->idx > maxp) maxp = rm->ev[topidx[a]].cap->idx;
+    RkGrp grp[maxp + 1 + 2 * (ntops + nt) + 1];
+    int ng = 0;
+    for (int i = 0; i <= maxp; i++) {
+        grp[ng] = (RkGrp) { 'p', i, NULL, 0, 0, -1, -1 };
+        for (int t = 0; t < ntops; t++) if (tops[t]->kind == 'p' && tops[t]->idx == i) grp[ng].rep |= tops[t]->rep;
+        ng++;
+    }
+    for (int t = 0; t < ntops + nt; t++) {
+        const RxCap *c = t < ntops ? tops[t] : rm->ev[topidx[t - ntops]].cap;
+        if (c->kind != 'n') continue;
+        for (int w = 0; w < 2; w++) {
+            const char *nm = w ? c->name2 : c->name;
+            int nl = w ? c->nlen2 : c->nlen;
+            if (!nm || !nl) continue;
+            if (rk_grp_find(grp, ng, 'n', 0, nm, nl) < 0) grp[ng++] = (RkGrp) { 'n', 0, nm, nl, 0, -1, -1 };
+        }
+    }
+    int nbefore = ng;
+    ng = 0;
+    RkGrp fin[nbefore + 1];
+    for (int k = 0; k < nbefore; k++) {
+        int has = 0;
+        for (int t = 0; t < ntops; t++) if (rk_cap_is(tops[t], grp[k].kind, grp[k].idx, grp[k].nm, grp[k].nl)) grp[k].rep |= tops[t]->rep;
+        for (int a = 0; a < nt; a++) if (rk_cap_is(rm->ev[topidx[a]].cap, grp[k].kind, grp[k].idx, grp[k].nm, grp[k].nl)) has = 1;
+        if (has || grp[k].rep || grp[k].kind == 'p') fin[ng++] = grp[k];
+    }
+    int ncl = 0, evg[nev + 1][2];
+    for (int i = 0; i < nev; i++) evg[i][0] = evg[i][1] = -1;
+    for (int a = 0; a < nt; a++) {
+        int i = topidx[a];
+        const RxCap *c = rm->ev[i].cap;
+        if (c->kind == 'p') evg[i][0] = rk_grp_find(fin, ng, 'p', c->idx, NULL, 0);
+        else { evg[i][0] = rk_grp_find(fin, ng, 'n', 0, c->name, c->nlen); if (c->name2 && c->nlen2) evg[i][1] = rk_grp_find(fin, ng, 'n', 0, c->name2, c->nlen2); }
+        for (int w = 0; w < 2; w++) if (evg[i][w] >= 0) { RkGrp *g = &fin[evg[i][w]]; g->start = rm->ev[i].from; g->end = rm->ev[i].to; ncl++; }
+    }
+    size_t nb = 1;
+    for (int k = 0; k < ng; k++) nb += (size_t) fin[k].nl + 1;
+    for (int i = 0; i < nev; i++) { const RxCap *c = rm->ev[i].cap; if (c->kind == 'n') nb += (size_t) c->nlen + 1 + (size_t) c->nlen2 + 1; }
+    size_t ints = (size_t) (4 * ng + 3 * ncl + 10 * nev);
+    gm->matched = 1;
+    gm->full_start = rm->from;
+    gm->full_end = rm->to;
+    gm->ngroups = ng;
+    gm->ncaplog = ncl;
+    gm->nev = nev;
+    gm->blk = rt_wsb_alloc(ints * sizeof(int) + nb);
+    char *names = gm->blk + ints * sizeof(int), *np = names;
+    *np++ = '\0';
+    for (int k = 0; k < ng; k++) {
+        int *gr = MATCH_GRP(gm, k);
+        gr[0] = fin[k].start;
+        gr[1] = fin[k].end;
+        gr[2] = fin[k].rep;
+        if (fin[k].nl) { gr[3] = (int) (np - gm->blk); memcpy(np, fin[k].nm, (size_t) fin[k].nl); np += fin[k].nl; *np++ = '\0'; } else gr[3] = (int) (names - gm->blk);
+    }
+    int lk = 0;
+    for (int a = 0; a < nt; a++) {
+        int i = topidx[a];
+        for (int w = 0; w < 2; w++) if (evg[i][w] >= 0) { int *lg = MATCH_LOG(gm, lk++); lg[0] = evg[i][w]; lg[1] = rm->ev[i].from; lg[2] = rm->ev[i].to; }
+    }
+    int cnt[ng + 1];
+    for (int k = 0; k < ng; k++) cnt[k] = 0;
+    for (int a = 0; a < nt; a++) for (int w = 0; w < 2; w++) if (evg[topidx[a]][w] >= 0) cnt[evg[topidx[a]][w]]++;
+    for (int k = 0; k < ng; k++) if (cnt[k] > 1) MATCH_GRP(gm, k)[2] = 1;
+    for (int i = 0; i < nev; i++) {
+        const RxCap *c = rm->ev[i].cap;
+        int *e = RK_EV(gm, i);
+        e[0] = c->kind == 'p' ? 0 : 1;
+        e[1] = c->idx;
+        e[2] = -1;
+        e[3] = -1;
+        e[4] = c->rep;
+        e[5] = rm->ev[i].from;
+        e[6] = rm->ev[i].to;
+        e[7] = rm->ev[i].sub;
+        e[8] = evg[i][0];
+        e[9] = evg[i][1];
+        if (c->kind == 'n') {
+            e[2] = (int) (np - gm->blk);
+            memcpy(np, c->name, (size_t) c->nlen);
+            np += c->nlen;
+            *np++ = '\0';
+            if (c->name2 && c->nlen2) { e[3] = (int) (np - gm->blk); memcpy(np, c->name2, (size_t) c->nlen2); np += c->nlen2; *np++ = '\0'; }
+        }
+    }
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out) {
     if (!gname) gname = "";
@@ -776,16 +872,15 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     const char *body = gram_get(qn);
     if (!body) { *out = FAILDESCR; return 1; }
     int topflv = gram_get_flavor(qn);
-    char pat[gram_expand(gname, body, topflv, (char *)0, 0, 0) + 1];
-    gram_expand(gname, body, topflv, pat, (int)sizeof pat, 0);
-    Nfa *nfa = nfa_build(pat);
-    if (!nfa) { *out = FAILDESCR; return 1; }
+    RxEnv env;
+    RxProg *prog = rk_rx_compile(&env, gname, body, topflv == 0 ? RXF_R : topflv == 1 ? (RXF_R | RXF_S) : 0);
+    if (!prog) { *out = FAILDESCR; return 1; }
+    int slen = (int) strlen(subj);
+    RxMatch rm;
     Match m;
-    nfa_exec(nfa, subj, &m);
-    int slen = (int)strlen(subj);
-    int ok = m.matched && m.full_start == 0 && m.full_end == slen;
-    *out = ok ? rk_match_obj_in(&m, subj, STRVAL(rt_heap_strdup_c(subj)), 0) : rk_match_nil();
-    nfa_free(nfa);
+    int ok = rx_exec(prog, subj, slen, 0, 3, &rm);
+    rk_rx_to_match(&m, prog, &rm);
+    *out = ok ? rk_match_obj_in(&m, subj, STRVAL(rt_heap_strdup_c(subj))) : rk_match_nil();
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2512,24 +2607,23 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     if (!s) s = "";
     size_t n = strlen(s);
     if ((!strcmp(meth, "split") || !strcmp(meth, "comb")) && nmargs >= 1 && rk_rx_pat(margs[0])) {
-        Nfa *nfa = nfa_build(rk_rx_pat(margs[0]));
-        if (!nfa) { *out = FAILDESCR; return 1; }
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", rk_rx_pat(margs[0]), 0);
+        if (!prog) { *out = FAILDESCR; return 1; }
         int split = meth[0] == 's';
         const char **tx = (const char **) rt_pvec_alloc(n + 2);
         size_t *ln = (size_t *) rt_wsb_alloc((n + 2) * sizeof(size_t));
         size_t seg = 0, pos = 0;
         int nel = 0;
         while (pos <= n) {
-            Match m;
-            nfa_exec(nfa, s + pos, &m);
-            if (!m.matched) break;
-            size_t ms = pos + (size_t)m.full_start, me = pos + (size_t)m.full_end;
+            RxMatch rm;
+            if (!rx_exec(prog, s, (int) n, (int) pos, 0, &rm)) break;
+            size_t ms = (size_t) rm.from, me = (size_t) rm.to;
             if (me == ms) { pos = ms + 1; continue; }
             if (split) { tx[nel] = s + seg; ln[nel] = ms - seg; seg = me; } else { tx[nel] = s + ms; ln[nel] = me - ms; }
             nel++;
             pos = me;
         }
-        nfa_free(nfa);
         if (split) { tx[nel] = s + seg; ln[nel] = n - seg; nel++; }
         *out = rk_arr_of_texts(tx, ln, nel);
         return 1;
@@ -2610,8 +2704,9 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         return 1;
     }
     if (!strcmp(meth, "subst") && nmargs >= 1 && rk_rx_pat(margs[0]) && (nmargs < 2 || !rk_is_code(margs[1]))) {
-        Nfa *nfa = nfa_build(rk_rx_pat(margs[0]));
-        if (!nfa) { *out = FAILDESCR; return 1; }
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", rk_rx_pat(margs[0]), 0);
+        if (!prog) { *out = FAILDESCR; return 1; }
         char rb2[256];
         const char *rep = nmargs >= 2 ? to_cstring(margs[1], rb2, sizeof rb2) : "";
         if (!rep) rep = "";
@@ -2622,10 +2717,9 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         char *o = (char *) rt_wsb_alloc(cap);
         int done = 0;
         while (pos <= n && !done) {
-            Match m;
-            nfa_exec(nfa, s + pos, &m);
-            if (!m.matched) break;
-            size_t ms = pos + (size_t) m.full_start, me = pos + (size_t) m.full_end;
+            RxMatch rm;
+            if (!rx_exec(prog, s, (int) n, (int) pos, 0, &rm)) break;
+            size_t ms = (size_t) rm.from, me = (size_t) rm.to;
             size_t need = olen + (ms - pos) + rl + (n - me) + 8;
             if (need > cap) { size_t nc = need * 2; char *no = (char *) rt_wsb_alloc(nc); memcpy(no, o, olen); o = no; cap = nc; }
             memcpy(o + olen, s + pos, ms - pos);
@@ -2635,7 +2729,6 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
             if (me == ms) { if (ms < n) o[olen++] = s[ms]; pos = ms + 1; } else pos = me;
             if (!glob) done = 1;
         }
-        nfa_free(nfa);
         if (pos <= n) {
             size_t need = olen + (n - pos) + 8;
             if (need > cap) { char *no = (char *) rt_wsb_alloc(need); memcpy(no, o, olen); o = no; }
@@ -11439,13 +11532,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             char sb[64];
             const char *subj = to_cstring(args[0], sb, sizeof sb);
             subj = rt_heap_strdup_c(subj ? subj : "");
-            Nfa *nfa = nfa_build(pat);
-            if (!nfa) { *out = FAILDESCR; return 1; }
-            nfa_exec(nfa, subj, &g_match);
+            RxEnv renv;
+            RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+            if (!prog) { *out = FAILDESCR; return 1; }
+            RxMatch rm;
+            rx_exec(prog, subj, (int) strlen(subj), 0, 0, &rm);
+            rk_rx_to_match(&g_match, prog, &rm);
             g_subject = subj;
-            int ok = g_match.matched;
-            nfa_free(nfa);
-            *out = ok ? INTVAL(1) : FAILDESCR;
+            *out = rm.ok ? INTVAL(1) : FAILDESCR;
             return 1;
         }
         long long hit;
@@ -12601,12 +12695,14 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!subj) subj = "";
         const char *pat = VARVAL_fn(args[1]);
         if (!pat) pat = "";
-        Nfa *nfa = nfa_build(pat);
-        if (!nfa) { *out = FAILDESCR; return 1; }
-        nfa_exec(nfa, subj, &g_match);
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+        if (!prog) { *out = FAILDESCR; return 1; }
+        RxMatch rm;
+        rx_exec(prog, subj, (int) strlen(subj), 0, 0, &rm);
+        rk_rx_to_match(&g_match, prog, &rm);
         g_subject = subj;
         *out = g_match.matched ? rk_match_obj(&g_match, subj) : FAILDESCR;
-        nfa_free(nfa);
         return 1;
     }
     if (!strcmp(fn, "re_test") && nargs == 2) {
@@ -12614,11 +12710,13 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!subj) subj = "";
         const char *pat = VARVAL_fn(args[1]);
         if (!pat) pat = "";
-        Nfa *nfa = nfa_build(pat);
-        if (!nfa) { *out = FAILDESCR; return 1; }
-        nfa_exec(nfa, subj, &g_match);
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+        if (!prog) { *out = FAILDESCR; return 1; }
+        RxMatch rm;
+        rx_exec(prog, subj, (int) strlen(subj), 0, 0, &rm);
+        rk_rx_to_match(&g_match, prog, &rm);
         g_subject = subj;
-        nfa_free(nfa);
         *out = g_match.matched ? INTVAL(1) : FAILDESCR;
         return 1;
     }
@@ -12653,38 +12751,24 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!subj) subj = "";
         const char *pat = VARVAL_fn(args[1]);
         if (!pat) pat = "";
-        Nfa *nfa = nfa_build(pat);
-        if (!nfa) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+        if (!prog) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         int slen = (int)strlen(subj);
         DESCR_t *mr = (DESCR_t *) rt_ws_alloc_descr((size_t) slen + 1);
         int pos = 0, count = 0;
         DESCR_t gorig = STRVAL(rt_heap_strdup_c(subj));
         while (pos <= slen) {
-            Match m;
-            nfa_exec(nfa, subj + pos, &m);
-            if (!m.matched) break;
-            int mlen = m.full_end - m.full_start;
-            g_match = m;
-            g_match.full_start += pos;
-            g_match.full_end += pos;
-            for (int g = 0; g < m.ngroups; g++) { if (match_group_start(&m, g) >= 0) match_group_start(&g_match, g) += pos; if (match_group_end(&m, g) >= 0) match_group_end(&g_match, g) += pos; }
+            RxMatch rm;
+            if (!rx_exec(prog, subj, slen, pos, 0, &rm)) break;
+            rk_rx_to_match(&g_match, prog, &rm);
             g_subject = subj;
-            mr[count] = rk_match_obj_in(&g_match, subj, gorig, 1);
-            pos += m.full_start + (mlen > 0 ? mlen : 1);
+            mr[count] = rk_match_obj_in(&g_match, subj, gorig);
+            if (rm.to > rm.from) pos = rm.to;
+            else { int l = 1; while (rm.to + l < slen && ((unsigned char) subj[rm.to + l] & 0xC0) == 0x80) l++; pos = rm.to + l; }
             count++;
         }
-        nfa_free(nfa);
         *out = count > 0 ? rk_mk_arr(mr, count) : FAILDESCR;
-        return 1;
-    }
-    if (!strcmp(fn, "nfa_compile") && nargs == 1) {
-        const char *pat = VARVAL_fn(args[0]);
-        if (!pat) pat = "";
-        Nfa *nfa = nfa_build(pat);
-        if (!nfa) { printf("NFA:%s:ERROR\n", pat); *out = INTVAL(0); return 1; }
-        printf("NFA:%s:states=%d\n", pat, nfa_state_count(nfa));
-        nfa_free(nfa);
-        *out = INTVAL(0);
         return 1;
     }
     if ((!strcmp(fn, "__rk_say_capture") || !strcmp(fn, "__rk_say_named_capture")) && nargs == 1) {
