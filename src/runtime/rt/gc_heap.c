@@ -8,6 +8,7 @@
 #include <link.h>
 #include <time.h>
 #include <dlfcn.h>
+#include <unwind.h>
 #include "rt_slab.h"
 #include "rt_arena.h"
 #include "gc_heap.h"
@@ -2372,21 +2373,28 @@ long rt_icn_map_args_off(const gc_frame_map_t *m) {
     if (m->flags & GC_FRAME_MAP_GEN_ANCHOR) return (long)(((m->frame_bytes + 15u) & ~15u) + 72u);
     return (m->flags & GC_FRAME_MAP_ICN_BLOCK) ? (long)m->frame_bytes : 16L;
 }
-extern const void *_Unwind_Find_FDE(const void *pc, void *bases);
-static int gc_pc_is_frameless_leaf(uint64_t ra) { void *bases[3] = { 0, 0, 0 }; return ra ? _Unwind_Find_FDE((const void *)(uintptr_t)(ra - 1), bases) == (const void *)0 : 0; }
-static int gc_chain_entry_from_c(const char *fp, uint64_t *pco, const char **ro, const char **rbpo) {
-    const char *top = gc_stack_top();
+typedef struct { uint64_t pc; const char *r, *rbp; int hit; } gc_uw_t;
+static _Unwind_Reason_Code gc_uw_step(struct _Unwind_Context *c, void *a) {
+    gc_uw_t *u = (gc_uw_t *)a;
+    const gc_site_ent_t *e = (const gc_site_ent_t *)0;
+    u->pc = (uint64_t)_Unwind_GetIP(c);
+    u->r = (const char *)_Unwind_GetCFA(c);
+    u->rbp = (const char *)_Unwind_GetGR(c, 6);
+    if (u->pc && gc_site_find(u->pc, &e) && e) { u->hit = 1; return _URC_END_OF_STACK; }
+    return _URC_NO_REASON;
+}
+static int gc_chain_entry_from_c(uint64_t *pco, const char **ro, const char **rbpo) {
+    const char *top = gc_stack_top(), *fp;
+    gc_uw_t u = { 0, (const char *)0, (const char *)0, 0 };
     int hops = 0;
+    _Unwind_Backtrace(gc_uw_step, &u);
+    if (u.hit) { *pco = u.pc; *ro = u.r; *rbpo = u.rbp; return 1; }
+    fp = u.rbp;
     while (fp && fp + 16 <= top && hops++ < 4096) {
         uint64_t ra = *(const uint64_t *)(fp + 8);
         const char *fp2 = *(const char *const *)fp;
         const gc_site_ent_t *e = (const gc_site_ent_t *)0;
         if (gc_site_find(ra, &e) && e) { *pco = ra; *ro = fp + 16; *rbpo = fp2; return 1; }
-        if (gc_pc_is_frameless_leaf(ra)) for (int k = 0; k < 14 && fp + 24 + 8 * k <= top; k++) {
-            uint64_t w = *(const uint64_t *)(fp + 16 + 8 * k);
-            const gc_site_ent_t *x = (const gc_site_ent_t *)0;
-            if (w && gc_site_find(w, &x) && x && (x->kind & 255) == 1) { *pco = w; *ro = fp + 24 + 8 * k; *rbpo = fp2; return 1; }
-        }
         if (!fp2 || fp2 <= fp) break;
         fp = fp2;
     }
@@ -2397,7 +2405,7 @@ void *rt_match_frame_cur(void) {
     const char *r = (const char *)0, *rbp = (const char *)0;
     gc_chx_t cx;
     gc_ent_t ent;
-    if (!gc_chain_entry_from_c((const char *)__builtin_frame_address(0), &pc, &r, &rbp)) return (void *)0;
+    if (!gc_chain_entry_from_c(&pc, &r, &rbp)) return (void *)0;
     ent.pc = (const void *)(uintptr_t)pc;
     ent.r = r;
     ent.rbp = (const void *)rbp;
@@ -2409,7 +2417,7 @@ int rt_icn_frames(rt_icn_frame_t *out, int cap) {
     const char *r = (const char *)0, *rbp = (const char *)0;
     uint64_t pc = 0;
     int n = 0, hops;
-    if (!gc_chain_entry_from_c((const char *)__builtin_frame_address(0), &pc, &r, &rbp)) return 0;
+    if (!gc_chain_entry_from_c(&pc, &r, &rbp)) return 0;
     for (hops = 0; pc && r && hops < 1000000; hops++) {
         gc_chx_t cx;
         gc_ent_t ent = { (const void *)(uintptr_t)pc, r, (const void *)rbp };
@@ -3642,19 +3650,23 @@ long rt_gc_polls_count(void) { return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_gc_poll_slow(void);
 void rt_gc_poll_asm(void);
-__asm__( ".text\n" ".globl rt_gc_poll_slow\n" ".type rt_gc_poll_slow,@function\n" "rt_gc_poll_slow:\n" "  pushq %rax\n" "  pushq %rcx\n" "  pushq %rdx\n" "  pushq %rsi\n" "  pushq %rdi\n"
-    "  pushq %r8\n" "  pushq %r9\n" "  pushq %r10\n" "  pushq %r11\n" "  subq  $16, %rsp\n" "  movq  %r13, (%rsp)\n"
+__asm__( ".text\n" ".globl rt_gc_poll_slow\n" ".type rt_gc_poll_slow,@function\n" "rt_gc_poll_slow:\n" "  .cfi_startproc\n" "  pushq %rax ; .cfi_adjust_cfa_offset 8\n"
+    "  pushq %rcx ; .cfi_adjust_cfa_offset 8\n" "  pushq %rdx ; .cfi_adjust_cfa_offset 8\n" "  pushq %rsi ; .cfi_adjust_cfa_offset 8\n" "  pushq %rdi ; .cfi_adjust_cfa_offset 8\n"
+    "  pushq %r8 ; .cfi_adjust_cfa_offset 8\n" "  pushq %r9 ; .cfi_adjust_cfa_offset 8\n" "  pushq %r10 ; .cfi_adjust_cfa_offset 8\n" "  pushq %r11 ; .cfi_adjust_cfa_offset 8\n"
+    "  subq  $16, %rsp ; .cfi_adjust_cfa_offset 16\n" "  movq  %r13, (%rsp)\n"
 #if RT_DIAG
 "  incq g_gc_polls(%rip)\n" "  movq 88(%rsp), %rax\n" "  movq %rax, g_gc_poll_site(%rip)\n"
 #endif
-"  xorl %edi, %edi\n" "  xorl %esi, %esi\n" "  movq %rsp, %rdx\n" "  leaq 88(%rsp), %rcx\n" "  movl $1, %r8d\n" "  call gc_point_arr_body\n" "  movq (%rsp), %r13\n" "  addq  $16, %rsp\n"
-    "  popq %r11\n" "  popq %r10\n" "  popq %r9\n" "  popq %r8\n" "  popq %rdi\n" "  popq %rsi\n" "  popq %rdx\n" "  popq %rcx\n" "  popq %rax\n" "  ret\n" ".size rt_gc_poll_slow,.-rt_gc_poll_slow\n"
-    );
+"  xorl %edi, %edi\n" "  xorl %esi, %esi\n" "  movq %rsp, %rdx\n" "  leaq 88(%rsp), %rcx\n" "  movl $1, %r8d\n" "  call gc_point_arr_body\n" "  movq (%rsp), %r13\n"
+    "  addq  $16, %rsp ; .cfi_adjust_cfa_offset -16\n" "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "  popq %r10 ; .cfi_adjust_cfa_offset -8\n" "  popq %r9 ; .cfi_adjust_cfa_offset -8\n"
+    "  popq %r8 ; .cfi_adjust_cfa_offset -8\n" "  popq %rdi ; .cfi_adjust_cfa_offset -8\n" "  popq %rsi ; .cfi_adjust_cfa_offset -8\n" "  popq %rdx ; .cfi_adjust_cfa_offset -8\n"
+    "  popq %rcx ; .cfi_adjust_cfa_offset -8\n" "  popq %rax ; .cfi_adjust_cfa_offset -8\n" "  ret\n" "  .cfi_endproc\n" ".size rt_gc_poll_slow,.-rt_gc_poll_slow\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__asm__( ".text\n" ".globl rt_gc_poll_asm\n" ".type rt_gc_poll_asm,@function\n" "rt_gc_poll_asm:\n" "  cmpl $0, g_gc_in(%rip)\n" "  jne  9f\n" "  pushq %r11\n"
-    "  movq g_gc_pending@GOTPCREL(%rip), %r11\n" "  cmpl $0, (%r11)\n" "  jne  2f\n" "  movq g_hp_gcline(%rip), %r11\n" "  testq %r11, %r11\n" "  je   1f\n" "  pushq %r10\n"
-    "  movq g_hp_fr@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  cmpq %r11, %r10\n" "  popq %r10\n" "  jbe  1f\n" "2:\n" "  popq %r11\n" "  jmp  rt_gc_poll_slow@PLT\n" "1:\n" "  popq %r11\n"
-    "9:\n" "  ret\n" ".size rt_gc_poll_asm,.-rt_gc_poll_asm\n" );
+__asm__( ".text\n" ".globl rt_gc_poll_asm\n" ".type rt_gc_poll_asm,@function\n" "rt_gc_poll_asm:\n" "  .cfi_startproc\n" "  cmpl $0, g_gc_in(%rip)\n" "  jne  9f\n"
+    "  pushq %r11 ; .cfi_adjust_cfa_offset 8\n" "  movq g_gc_pending@GOTPCREL(%rip), %r11\n" "  cmpl $0, (%r11)\n" "  jne  2f\n" "  movq g_hp_gcline(%rip), %r11\n" "  testq %r11, %r11\n" "  je   1f\n"
+    "  pushq %r10 ; .cfi_adjust_cfa_offset 8\n" "  movq g_hp_fr@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  cmpq %r11, %r10\n" "  popq %r10 ; .cfi_adjust_cfa_offset -8\n" "  jbe  1f\n" "2:\n"
+    "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "  jmp  rt_gc_poll_slow@PLT\n" "1:\n" "  .cfi_def_cfa_offset 16\n" "  popq %r11 ; .cfi_adjust_cfa_offset -8\n" "9:\n" "  ret\n" "  .cfi_endproc\n"
+    ".size rt_gc_poll_asm,.-rt_gc_poll_asm\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 long rt_gcheap_free(void) { if (!g_hp_arena) rt_gcheap_init(); return (long)(g_hp_end - g_hp_top); }
 long rt_gcheap_stat(int which) {

@@ -36,23 +36,23 @@ RTX_FUNC(rt_table_assign_fast)
     cmp     qword ptr [rax], 0
     jne     .Lta_c
 #endif
-    sub     rsp, 16
+    RTX_SUB_RSP(16)
     mov     qword ptr [rsp + 8], r8
     mov     qword ptr [rsp], r9
-    push    rdi
-    push    rsi
-    push    rdx
-    push    rcx
-    sub     rsp, 8
+    RTX_PUSH(rdi)
+    RTX_PUSH(rsi)
+    RTX_PUSH(rdx)
+    RTX_PUSH(rcx)
+    RTX_SUB_RSP(8)
     mov     rdi, rsi
     mov     rsi, rdx
     mov     rdx, rcx
     RTX_CALL(table_find_pair_d)
-    add     rsp, 8
-    pop     rcx
-    pop     rdx
-    pop     rsi
-    pop     rdi
+    RTX_ADD_RSP(8)
+    RTX_POP(rcx)
+    RTX_POP(rdx)
+    RTX_POP(rsi)
+    RTX_POP(rdi)
     mov     r8, qword ptr [rsp + 8]
     mov     r9, qword ptr [rsp]
     test    rax, rax
@@ -70,16 +70,18 @@ RTX_FUNC(rt_table_assign_fast)
     mov     qword ptr [rax + 8], rcx
     mov     rax, r8
     mov     rdx, r9
-    add     rsp, 16
+    RTX_ADD_RSP(16)
     RTX_GVA_R9
     ret
 .Lta_miss:
-    sub     rsp, 8
+    RTX_CFA(24)
+    RTX_SUB_RSP(8)
     call    c_rt_table_assign_fast
-    add     rsp, 24
+    RTX_ADD_RSP(24)
     RTX_GVA_R9
     ret
 .Lta_c:
+    RTX_CFA(8)
     RTX_CTAIL_GVA(c_rt_table_assign_fast)
 RTX_ENDF(rt_table_assign_fast)
 RTX_FUNC(table_find_pair_d)
@@ -342,9 +344,9 @@ RTX_FUNC(table_find_pair_d)
     RTX_GVA_R9
     ret
 .Ltf_c:
-    sub     rsp, 8
+    RTX_SUB_RSP(8)
     call    c_table_find_pair_d
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 RTX_ENDF(table_find_pair_d)
@@ -358,12 +360,12 @@ RTX_FUNC(rt_subscript_var_container_only)
 .Lsvco_tbl:
     test    rsi, rsi
     je      .Lsvco_c
-    push    rsi
+    RTX_PUSH(rsi)
     mov     rdi, rsi
     mov     rsi, rdx
     mov     rdx, rcx
     RTX_CALL(table_find_pair_d)
-    pop     rdi
+    RTX_POP(rdi)
     test    rax, rax
     je      .Lsvco_miss
     mov     rdx, [rax + 24]

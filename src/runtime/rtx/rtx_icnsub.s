@@ -57,7 +57,7 @@ RTX_FUNC(rt_subscript_var)
     jne     .Lsv_c
     test    rsi, rsi
     je      .Lsv_c
-    sub     rsp, 88
+    RTX_SUB_RSP(88)
     mov     [rsp + 0], rdi
     mov     [rsp + 8], rsi
     mov     [rsp + 16], rdx
@@ -145,12 +145,13 @@ RTX_FUNC(rt_subscript_var)
     movsxd  rcx, dword ptr [rsp + 48]
     mov     [rax + VCELL_POS], rcx
     mov     qword ptr [rax + VCELL_LEN], 0
-    add     rsp, 88
+    RTX_ADD_RSP(88)
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
     RTX_GVA_R9
     ret
 .Lsub_table:
+    RTX_CFA(96)
     jmp     .Lsub_bail
     cmp     al, DT_T
     jne     .Lsub_bail
@@ -217,7 +218,7 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
-    add     rsp, 88
+    RTX_ADD_RSP(88)
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
     RTX_GVA_R9
@@ -244,12 +245,13 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rcx + VCELL_SV + 8], 0
     mov     qword ptr [rcx + VCELL_POS], 0
     mov     qword ptr [rcx + VCELL_LEN], 0
-    add     rsp, 88
+    RTX_ADD_RSP(88)
     mov     rdx, rcx
     mov     rax, DT_NAMETRAP_LO
     RTX_GVA_R9
     ret
 .Lsub_string:
+    RTX_CFA(96)
     mov     r8, rax
     shr     r8, 32
     test    r8d, r8d
@@ -285,12 +287,13 @@ RTX_FUNC(rt_subscript_var)
     mov     rcx, [rsp + 40]
     mov     [rax + VCELL_POS], rcx
     mov     qword ptr [rax + VCELL_LEN], 1
-    add     rsp, 88
+    RTX_ADD_RSP(88)
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
     RTX_GVA_R9
     ret
 .Lsub_array:
+    RTX_CFA(8)
     test    rsi, rsi
     je      .Lsv_c
     cmp     dword ptr [rsi + ARBLK_NDIM], 1
@@ -310,7 +313,7 @@ RTX_FUNC(rt_subscript_var)
     movsxd  rax, eax
     shl     rax, 4
     add     rax, r9
-    sub     rsp, 88
+    RTX_SUB_RSP(88)
     mov     [rsp + 16], rdx
     mov     [rsp + 24], rcx
     mov     [rsp + 32], rax
@@ -329,20 +332,22 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
-    add     rsp, 88
+    RTX_ADD_RSP(88)
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
     RTX_GVA_R9
     ret
 .Lsub_arr_fail:
+    RTX_CFA(8)
     mov     eax, DT_FAIL
     xor     edx, edx
     RTX_GVA_R9
     ret
 .Lsub_table_direct:
+    RTX_CFA(8)
     test    rsi, rsi
     je      .Lsv_c
-    sub     rsp, 24
+    RTX_SUB_RSP(24)
     mov     [rsp + 0], rsi
     mov     [rsp + 8], rdx
     mov     [rsp + 16], rcx
@@ -361,12 +366,13 @@ RTX_FUNC(rt_subscript_var)
     mov     qword ptr [rax + VCELL_SV + 8], 0
     mov     qword ptr [rax + VCELL_POS], 0
     mov     qword ptr [rax + VCELL_LEN], 0
-    add     rsp, 24
+    RTX_ADD_RSP(24)
     mov     rdx, rax
     mov     rax, DT_NAMETRAP_LO
     RTX_GVA_R9
     ret
 .Lsub_table_int:
+    RTX_CFA(96)
     jmp     .Lsub_bail
     mov     rsi, rdx
     test    rsi, rsi
@@ -401,22 +407,25 @@ RTX_FUNC(rt_subscript_var)
     mov     rdi, r8
     jmp     .Lsub_hash_init
 .Lsub_fail:
-    add     rsp, 88
+    RTX_CFA(96)
+    RTX_ADD_RSP(88)
     mov     eax, DT_FAIL
     xor     edx, edx
     RTX_GVA_R9
     ret
 .Lsub_bail:
+    RTX_CFA(96)
     mov     rdi, [rsp + 0]
     mov     rsi, [rsp + 8]
     mov     rdx, [rsp + 16]
     mov     rcx, [rsp + 24]
-    add     rsp, 88
+    RTX_ADD_RSP(88)
     jmp     .Lsv_c
 .Lsv_c:
-    sub     rsp, 8
+    RTX_CFA(8)
+    RTX_SUB_RSP(8)
     call    c_rt_subscript_var
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_subscript_var)

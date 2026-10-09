@@ -25,11 +25,11 @@ RTX_FUNC(rt_call_bid_sn4)
     mov     r11, qword ptr [r10]
     test    r11, r11
     jz      .Lcb_miss
-    push    rdi
-    push    rsi
-    push    rdx
-    push    rcx
-    sub     rsp, 40
+    RTX_PUSH(rdi)
+    RTX_PUSH(rsi)
+    RTX_PUSH(rdx)
+    RTX_PUSH(rcx)
+    RTX_SUB_RSP(40)
     mov     ecx, dword ptr [r10 + 8]
     mov     rdi, rsi
     mov     esi, edx
@@ -39,22 +39,24 @@ RTX_FUNC(rt_call_bid_sn4)
     jne     .Lcb_nohit
     mov     rax, qword ptr [rsp]
     mov     rdx, qword ptr [rsp + 8]
-    add     rsp, 72
+    RTX_ADD_RSP(72)
     RTX_GVA_R9
     ret
 .Lcb_nohit:
-    add     rsp, 40
-    pop     rcx
-    pop     rdx
-    pop     rsi
-    pop     rdi
+    RTX_CFA(80)
+    RTX_ADD_RSP(40)
+    RTX_POP(rcx)
+    RTX_POP(rdx)
+    RTX_POP(rsi)
+    RTX_POP(rdi)
 .Lcb_miss:
-    sub     rsp, 8
+    RTX_SUB_RSP(8)
     call    c_rt_call_bid_sn4
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 .Lcb_c:
+    RTX_CFA(8)
     RTX_CTAIL(c_rt_call_bid_sn4)
 RTX_ENDF(rt_call_bid_sn4)
 RTX_FUNC(rt_kw_set_rtntype_role)
@@ -168,9 +170,9 @@ RTX_FUNC(descr_identical)
     RTX_GVA_R9
     ret
 .Ldi_cs:
-    sub     rsp, 8
+    RTX_SUB_RSP(8)
     call    c_descr_identical
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 .Ldi_zero:

@@ -54,14 +54,14 @@ RTX_FUNC(rt_defer_close)
     jne     .Ldc_fail
     ret
 .Ldc_cmpn:
-    push    rdi
-    push    rax
+    RTX_PUSH(rdi)
+    RTX_PUSH(rax)
     mov     rdi, rdx
     mov     ecx, ecx
     cld
     repe    cmpsb
-    pop     rax
-    pop     rdi
+    RTX_POP(rax)
+    RTX_POP(rdi)
     jne     .Ldc_fail
     ret
 .Ldc_fail:
@@ -119,9 +119,9 @@ RTX_FUNC(rt_match_enter)
     test    edx, edx
     jnz     .Lme_store
     mov     rdi, rsi
-    push    rsi
+    RTX_PUSH(rsi)
     RTX_CCALL(strlen@PLT)
-    pop     rsi
+    RTX_POP(rsi)
     mov     rdx, rax
 .Lme_store:
     mov     rcx, qword ptr [rip + Σ@GOTPCREL]
@@ -131,13 +131,13 @@ RTX_FUNC(rt_match_enter)
     mov     rax, rsi
     ret
 .Lme_dcap_cold:
-    push    rsi
-    push    rdx
-    sub     rsp, 8
+    RTX_PUSH(rsi)
+    RTX_PUSH(rdx)
+    RTX_SUB_RSP(8)
     RTX_CCALL(rt_dcap_lazy_init)
-    add     rsp, 8
-    pop     rdx
-    pop     rsi
+    RTX_ADD_RSP(8)
+    RTX_POP(rdx)
+    RTX_POP(rsi)
     jmp     .Lme_dcap_done
 .Lme_c:
     RTX_CTAIL(c_rt_match_enter)
@@ -208,7 +208,7 @@ RTX_FUNC(rt_match_replace)
     xor     r10d, r10d
 .Lmr_repl_done:
 .Lmr_call:
-    sub     rsp, 88
+    RTX_SUB_RSP(88)
     xor     eax, eax
     test    r9, r9
     jz      .Lmr_replslen_done
@@ -300,13 +300,13 @@ RTX_FUNC(rt_match_replace)
     or      rsi, DT_S
     mov     rdi, qword ptr [rsp + 0]
     call    NV_SET_fn
-    add     rsp, 88
+    RTX_ADD_RSP(88)
     RTX_GVA_R9
     ret
 .Lmr_c:
-    sub     rsp, 8
+    RTX_SUB_RSP(8)
     call    c_rt_match_replace
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_match_replace)
@@ -357,8 +357,8 @@ RTX_ENTRY(rt_cap_open_plain)
     cmp     al, 83
     jne     .Lcap_fast
 .Lcap_lead_hit:
-    RTX_CALL_ALIGN
-    sub     rsp, 32
+    RTX_CALL_ALIGN(8)
+    RTX_SUB_RSP_DYN(32, 40, 8)
     mov     qword ptr [rsp + 24], r11
     mov     qword ptr [rsp + 16], r8
     mov     qword ptr [rsp + 8], rcx
@@ -367,13 +367,13 @@ RTX_ENTRY(rt_cap_open_plain)
     mov     rcx, qword ptr [rsp + 8]
     mov     r8, qword ptr [rsp + 16]
     mov     r11, qword ptr [rsp + 24]
-    add     rsp, 32
-    RTX_CALL_UNALIGN
+    RTX_ADD_RSP_DYN(32, 8, 8)
+    RTX_CALL_UNALIGN(8)
     test    eax, eax
     jnz     .Lcap_slow
 .Lcap_fast:
-    RTX_CALL_ALIGN
-    sub     rsp, 32
+    RTX_CALL_ALIGN(8)
+    RTX_SUB_RSP_DYN(32, 40, 8)
     mov     qword ptr [rsp + 24], r11
     mov     qword ptr [rsp + 16], r8
     mov     qword ptr [rsp + 8], rcx
@@ -382,8 +382,8 @@ RTX_ENTRY(rt_cap_open_plain)
     mov     rcx, qword ptr [rsp + 8]
     mov     r8, qword ptr [rsp + 16]
     mov     r11, qword ptr [rsp + 24]
-    add     rsp, 32
-    RTX_CALL_UNALIGN
+    RTX_ADD_RSP_DYN(32, 8, 8)
+    RTX_CALL_UNALIGN(8)
     test    rax, rax
     jz      .Lcap_slow
     mov     r9, rax
@@ -394,8 +394,8 @@ RTX_ENTRY(rt_cap_open_plain)
     mov     qword ptr [r9], rax
     mov     qword ptr [r9 + 8], r8
 #if RT_DIAG
-    RTX_CALL_ALIGN
-    sub     rsp, 32
+    RTX_CALL_ALIGN(8)
+    RTX_SUB_RSP_DYN(32, 40, 8)
     mov     qword ptr [rsp + 24], r11
     mov     qword ptr [rsp + 16], r8
     mov     qword ptr [rsp + 8], rcx
@@ -403,11 +403,11 @@ RTX_ENTRY(rt_cap_open_plain)
     mov     rcx, qword ptr [rsp + 8]
     mov     r8, qword ptr [rsp + 16]
     mov     r11, qword ptr [rsp + 24]
-    add     rsp, 32
-    RTX_CALL_UNALIGN
+    RTX_ADD_RSP_DYN(32, 8, 8)
+    RTX_CALL_UNALIGN(8)
     test    eax, eax
     jz      .Lcap_fastret
-    RTX_CALL_ALIGN
+    RTX_CALL_ALIGN(8)
     mov     rdi, r11
     mov     esi, 2
     shl     rcx, 32
@@ -417,21 +417,21 @@ RTX_ENTRY(rt_cap_open_plain)
     xor     r8d, r8d
     xor     r9d, r9d
     call    comm_var@PLT
-    RTX_CALL_UNALIGN
+    RTX_CALL_UNALIGN(8)
 #endif
 .Lcap_fastret:
     xor     eax, eax
     RTX_GVA_R9
     ret
 .Lcap_slow:
-    RTX_CALL_ALIGN
+    RTX_CALL_ALIGN(8)
     mov     rdi, r11
     mov     esi, 2
     shl     rcx, 32
     or      rsi, rcx
     mov     rdx, r8
     call    NV_SET_fn@PLT
-    RTX_CALL_UNALIGN
+    RTX_CALL_UNALIGN(8)
     xor     eax, eax
     RTX_GVA_R9
     ret

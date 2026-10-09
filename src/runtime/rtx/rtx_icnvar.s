@@ -51,18 +51,18 @@ RTX_FUNC(rt_assign_var)
     mov     rdx, rcx
     ret
 .Lav_table_store:
-    RTX_CALL_ALIGN
-    push    rdx
-    push    rcx
+    RTX_CALL_ALIGN(8)
+    RTX_PUSH_DYN(rdx, 16, 8)
+    RTX_PUSH_DYN(rcx, 24, 8)
     mov     rdi, rax
     mov     rdx, [rsi + VCELL_KEY_D + 8]
     mov     rsi, [rsi + VCELL_KEY_D]
     mov     rcx, [rsp + 8]
     mov     r8,  [rsp]
     call    table_set_descr_d@PLT
-    pop     rcx
-    pop     rdx
-    RTX_CALL_UNALIGN
+    RTX_POP_DYN(rcx, 16, 8)
+    RTX_POP_DYN(rdx, 8, 8)
+    RTX_CALL_UNALIGN(8)
     RTX_GVA_R9
     mov     rax, rdx
     mov     rdx, rcx
@@ -72,31 +72,31 @@ RTX_FUNC(rt_assign_var)
     je      .Lav_c
     cmp     byte ptr [rsi], 0
     je      .Lav_c
-    RTX_CALL_ALIGN
-    push    rdx
-    push    rcx
+    RTX_CALL_ALIGN(8)
+    RTX_PUSH_DYN(rdx, 16, 8)
+    RTX_PUSH_DYN(rcx, 24, 8)
     mov     rdi, rsi
     mov     rsi, rdx
     mov     rdx, rcx
     call    NV_SET_fn@PLT
-    pop     rdx
-    pop     rax
-    RTX_CALL_UNALIGN
+    RTX_POP_DYN(rdx, 16, 8)
+    RTX_POP_DYN(rax, 8, 8)
+    RTX_CALL_UNALIGN(8)
     RTX_GVA_R9
     ret
 .Lav_sxt:
-    RTX_CALL_ALIGN
-    push    rdi
-    push    rsi
-    push    rdx
-    push    rcx
+    RTX_CALL_ALIGN(8)
+    RTX_PUSH_DYN(rdi, 16, 8)
+    RTX_PUSH_DYN(rsi, 24, 8)
+    RTX_PUSH_DYN(rdx, 32, 8)
+    RTX_PUSH_DYN(rcx, 40, 8)
     mov     rdi, rcx
     call    rt_sxt_break@PLT
-    pop     rcx
-    pop     rdx
-    pop     rsi
-    pop     rdi
-    RTX_CALL_UNALIGN
+    RTX_POP_DYN(rcx, 32, 8)
+    RTX_POP_DYN(rdx, 24, 8)
+    RTX_POP_DYN(rsi, 16, 8)
+    RTX_POP_DYN(rdi, 8, 8)
+    RTX_CALL_UNALIGN(8)
     RTX_GVA_R9
     jmp     .Lav_sxt_done
 .Lav_c:

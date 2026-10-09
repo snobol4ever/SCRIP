@@ -72,7 +72,7 @@ RTX_FUNC(str_concat_d)
     cmp     rsi, [rax + 0]
     je      .Lsc_slow
 .Lsc_nosxt:
-    sub     rsp, 40
+    RTX_SUB_RSP(40)
     mov     qword ptr [rsp + 32], rsi
     mov     qword ptr [rsp + 24], rcx
     mov     qword ptr [rsp + 16], r8
@@ -83,7 +83,7 @@ RTX_FUNC(str_concat_d)
     mov     r8, qword ptr [rsp + 16]
     mov     rcx, qword ptr [rsp + 24]
     mov     rsi, qword ptr [rsp + 32]
-    add     rsp, 40
+    RTX_ADD_RSP(40)
     mov     r10, rax
     mov     rdx, rcx
     mov     rdi, rax
@@ -153,9 +153,9 @@ RTX_FUNC(str_concat_d)
     RTX_GVA_R9
     ret
 .Lsc_slow:
-    sub     rsp, 8
+    RTX_SUB_RSP(8)
     call    c_str_concat_d
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 RTX_ENDF(str_concat_d)

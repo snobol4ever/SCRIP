@@ -146,11 +146,11 @@ RTX_FUNC(rt_gc_fix_slots)
     ret
 RTX_ENDF(rt_gc_fix_slots)
 RTX_FUNC(rt_gc_index_run)
-    push    rbx
-    push    r12
-    push    r13
-    push    r14
-    push    r15
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
     mov     rsi, qword ptr [rdi + 0]
     mov     r12, qword ptr [rdi + 8]
     mov     r13, qword ptr [rdi + 16]
@@ -196,19 +196,19 @@ RTX_FUNC(rt_gc_index_run)
     mov     qword ptr [rdi + 0], rsi
     mov     qword ptr [rdi + 32], rcx
     mov     qword ptr [rdi + 56], rbx
-    pop     r15
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbx
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_gc_index_run)
 RTX_FUNC(rt_gc_forward_run)
-    push    rbx
-    push    r12
-    push    r13
-    push    r14
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
     mov     r12, qword ptr [rdx]
     xor     eax, eax
     xor     r13d, r13d
@@ -239,10 +239,10 @@ RTX_FUNC(rt_gc_forward_run)
     jl      .Lfw_loop
 .Lfw_done:
     mov     qword ptr [rdx], r12
-    pop     r14
-    pop     r13
-    pop     r12
-    pop     rbx
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
     ret
 RTX_ENDF(rt_gc_forward_run)
 RTX_FUNC(rt_gc_reset_run)

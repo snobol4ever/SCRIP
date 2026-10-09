@@ -131,9 +131,9 @@ RTX_FUNC(rt_coerce_num2_d)
     RTX_GVA_R9
     ret
 .Lbail:
-    sub     rsp, 8
+    RTX_SUB_RSP(8)
     call    c_rt_coerce_num2_d
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 RTX_ENDF(rt_coerce_num2_d)

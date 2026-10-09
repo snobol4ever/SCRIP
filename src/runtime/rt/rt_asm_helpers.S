@@ -11,6 +11,7 @@ rtx_gate_leaf:
     .globl rt_deref
     .type  rt_deref, @function
 rt_deref:
+    .cfi_startproc
     cmpb   $0, rtx_gate_leaf(%rip)
     jne    .Lrd_asm
     jmp    rt_deref_slow@PLT
@@ -57,11 +58,13 @@ rt_deref:
     ret
 .Lrd_slow:
     jmp    rt_deref_slow@PLT
+    .cfi_endproc
     .size  rt_deref, .-rt_deref
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     .globl to_int
     .type  to_int, @function
 to_int:
+    .cfi_startproc
     cmpb   $0, rtx_gate_leaf(%rip)
     jne    .Lti_asm
     jmp    to_int_slow@PLT
@@ -72,18 +75,20 @@ to_int:
     ret
 .Lti_slow:
     jmp    to_int_slow@PLT
+    .cfi_endproc
     .size  to_int, .-to_int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     .globl rt_gc_point_arr
     .type  rt_gc_point_arr, @function
 rt_gc_point_arr:
-    pushq  %rbx
-    pushq  %rbp
-    pushq  %r12
-    pushq  %r13
-    pushq  %r14
-    pushq  %r15
-    subq   $8, %rsp
+    .cfi_startproc
+    pushq  %rbx ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %rbx, 0
+    pushq  %rbp ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %rbp, 0
+    pushq  %r12 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r12, 0
+    pushq  %r13 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r13, 0
+    pushq  %r14 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r14, 0
+    pushq  %r15 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r15, 0
+    subq   $8, %rsp ; .cfi_adjust_cfa_offset 8
     leaq   8(%rsp), %rcx
     testq  %rdx, %rdx
     jnz    .Lgpa_r0
@@ -93,36 +98,39 @@ rt_gc_point_arr:
 .Lgpa_r0:
     call   rt_gc_point_arr_c@PLT
 .Lgpa_done:
-    addq   $8, %rsp
-    popq   %r15
-    popq   %r14
-    popq   %r13
-    popq   %r12
-    popq   %rbp
-    popq   %rbx
+    addq   $8, %rsp ; .cfi_adjust_cfa_offset -8
+    popq   %r15 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r15
+    popq   %r14 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r14
+    popq   %r13 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r13
+    popq   %r12 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r12
+    popq   %rbp ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %rbp
+    popq   %rbx ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %rbx
     ret
+    .cfi_endproc
     .size  rt_gc_point_arr, .-rt_gc_point_arr
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     .globl rt_gc_collect
     .type  rt_gc_collect, @function
 rt_gc_collect:
-    pushq  %rbx
-    pushq  %rbp
-    pushq  %r12
-    pushq  %r13
-    pushq  %r14
-    pushq  %r15
-    subq   $8, %rsp
+    .cfi_startproc
+    pushq  %rbx ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %rbx, 0
+    pushq  %rbp ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %rbp, 0
+    pushq  %r12 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r12, 0
+    pushq  %r13 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r13, 0
+    pushq  %r14 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r14, 0
+    pushq  %r15 ; .cfi_adjust_cfa_offset 8 ; .cfi_rel_offset %r15, 0
+    subq   $8, %rsp ; .cfi_adjust_cfa_offset 8
     leaq   8(%rsp), %rdi
     call   rt_gc_collect_c@PLT
-    addq   $8, %rsp
-    popq   %r15
-    popq   %r14
-    popq   %r13
-    popq   %r12
-    popq   %rbp
-    popq   %rbx
+    addq   $8, %rsp ; .cfi_adjust_cfa_offset -8
+    popq   %r15 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r15
+    popq   %r14 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r14
+    popq   %r13 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r13
+    popq   %r12 ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %r12
+    popq   %rbp ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %rbp
+    popq   %rbx ; .cfi_adjust_cfa_offset -8 ; .cfi_restore %rbx
     ret
+    .cfi_endproc
     .size  rt_gc_collect, .-rt_gc_collect
     .section .note.GNU-stack,"",@progbits
     .text

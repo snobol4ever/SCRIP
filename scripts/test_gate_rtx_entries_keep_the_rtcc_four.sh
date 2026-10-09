@@ -159,13 +159,13 @@ RTX_FUNC(inj_aligned)
     push    r9
     push    r10
     push    r11
-    RTX_CALL_ALIGN
+    RTX_CALL_ALIGN(40)
     push    rdi
     push    rsi
     call    inj_c
     pop     rsi
     pop     rdi
-    RTX_CALL_UNALIGN
+    RTX_CALL_UNALIGN(40)
     pop     r11
     pop     r10
     pop     r9

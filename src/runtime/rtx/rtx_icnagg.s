@@ -19,19 +19,20 @@ RTX_FUNC(rt_size_d)
 RTX_ENDF(rt_size_d)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 RTX_FUNC(rt_list_bang_at)
-    sub     rsp, 24
+    RTX_SUB_RSP(24)
     mov     rcx, rsp
     RTX_CCALL(list_bang_at@PLT)
     test    eax, eax
     je      .Lbang_fail
     mov     rax, [rsp]
     mov     rdx, [rsp + 8]
-    add     rsp, 24
+    RTX_ADD_RSP(24)
     ret
 .Lbang_fail:
+    RTX_CFA(32)
     mov     eax, DT_FAIL
     xor     edx, edx
-    add     rsp, 24
+    RTX_ADD_RSP(24)
     ret
 RTX_ENDF(rt_list_bang_at)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -84,9 +85,9 @@ RTX_FUNC(dat_field_get)
     RTX_GVA_R9
     ret
 .Ldfg_c:
-    sub     rsp, 8
+    RTX_SUB_RSP(8)
     call    c_dat_field_get
-    add     rsp, 8
+    RTX_ADD_RSP(8)
     RTX_GVA_R9
     ret
 RTX_ENDF(dat_field_get)

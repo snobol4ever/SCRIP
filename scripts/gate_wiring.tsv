@@ -720,6 +720,7 @@ test_gate_right_sealed_defer_beta_no_double_teardown.sh	WIRED	-	-	-
 test_gate_rtcc_claimed_regs.sh	WIRED	-	-	-
 test_gate_rtx_calls_carry_no_veneer.sh	WIRED	-	-	-
 test_gate_rtx_entries_keep_the_rtcc_four.sh	WIRED	-	-	-
+test_gate_rtx_every_leaf_carries_cfi_true_at_every_pc.sh	WIRED	-	-	-
 test_gate_rtx_the_leaf_clobber_table_is_derived_and_gated_against_the_objects.sh	WIRED	-	-	-
 test_gate_rungs_banner_seq_is_position.sh	WIRED	-	-	-
 test_gate_rungs_boards_publish_xpass.sh	WIRED	-	-	-
