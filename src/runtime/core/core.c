@@ -3955,6 +3955,18 @@ const char *NV_nul_key(const char *s, size_t n) {
     k[1 + 2 * n] = '\0';
     return k;
 }
+DESCR_t *NV_CELL_FAST_n(const char *s, size_t n) {
+    if (!s || n == 0 || n >= 0x7FFFFFFFu || s[0] == '\x01' || s[0] == '&') return (DESCR_t *)0;
+    _var_init();
+    for (NV_t *e = VBR(nv_hash_n(s, n)); e; e = e->next) {
+        if (!nv_key_n(e, s, n)) continue;
+        if (e->has_nul || e->is_io) return (DESCR_t *)0;
+        if ((n == 5 && s[0] == 'I' && !memcmp(s, "INPUT", 5)) || (n == 6 && s[0] == 'O' && !memcmp(s, "OUTPUT", 6)) || (n == 8 && s[0] == 'T' && !memcmp(s, "TERMINAL", 8))) return (DESCR_t *)0;
+        if (is_protected_pat_lead(s[0]) && is_protected_pat_name(e->name)) return (DESCR_t *)0;
+        return e->is_gva ? e->cell : &e->val;
+    }
+    return (DESCR_t *)0;
+}
 int NV_name_needs_key(const char *s, size_t n) { return s && n > 0 && n < 0x7FFFFFFFu && (s[0] == '\x01' || memchr(s, 0, n) != (void *)0); }
 DESCR_t *NV_PTR_n(const char *s, size_t n) { if (!s || n == 0 || n >= 0x7FFFFFFFu) return NULL; return NV_PTR_fn(NV_nul_key(s, n)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

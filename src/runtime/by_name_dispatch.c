@@ -14684,6 +14684,16 @@ static int bn_sno_name(DESCR_t *args, int nargs, DESCR_t *out) {
     const char *sv;
     (void)nargs;
     if (IS_VARREF_fn(args[0])) { *out = args[0]; return 1; }
+    if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].slen != 0xFFFFFFFFu) {
+        extern DESCR_t *NV_CELL_FAST_n(const char *, size_t);
+        extern int comm_var_active(void);
+#if RT_DIAG
+        DESCR_t *fc = comm_var_active() ? (DESCR_t *)0 : NV_CELL_FAST_n(args[0].s, (size_t)args[0].slen);
+#else
+        DESCR_t *fc = NV_CELL_FAST_n(args[0].s, (size_t)args[0].slen);
+#endif
+        if (fc) { *out = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)fc }; return 1; }
+    }
     if (args[0].v == DT_S && args[0].s && args[0].slen > 0 && args[0].slen != 0xFFFFFFFFu && NV_name_needs_key(args[0].s, (size_t)args[0].slen)) {
         DESCR_t *cell = NV_PTR_n(args[0].s, (size_t)args[0].slen);
         *out = cell ? (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *)cell } : FAILDESCR;
