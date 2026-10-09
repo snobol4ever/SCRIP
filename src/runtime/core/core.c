@@ -34,6 +34,7 @@ int g_call_fastpath_off = 0;
 #include <fcntl.h>
 #include <inttypes.h>
 #include <unistd.h>
+#include <unwind.h>
 #include <sys/resource.h>
 #include <signal.h>
 #include <time.h>
@@ -808,7 +809,19 @@ void rt_icn_line_of_pc(uint64_t pc, long *line, const char **file) {
     *line = r ? (long)r->line : 0;
     *file = r ? r->file : (const char *)0;
 }
+typedef struct { const sno_stno_rec_t * rec; } stno_uw_t;
+static _Unwind_Reason_Code stno_uw_step(struct _Unwind_Context * c, void * a) {
+    stno_uw_t * u = (stno_uw_t *)a;
+    uint64_t ip = (uint64_t)_Unwind_GetIP(c);
+    const sno_stno_rec_t * r = ip ? stno_rec_find(ip) : (const sno_stno_rec_t *)0;
+    if (!r) return _URC_NO_REASON;
+    u->rec = r;
+    return _URC_END_OF_STACK;
+}
 static const sno_stno_rec_t * scrip_stno_from_return_addrs(void) {
+    stno_uw_t u = { (const sno_stno_rec_t *)0 };
+    _Unwind_Backtrace(stno_uw_step, &u);
+    if (u.rec) return u.rec;
     void ** rbp = (void **)__builtin_frame_address(0);
     if (!rbp) return (const sno_stno_rec_t *)0;
     rbp = (void **)rbp[0];

@@ -16,6 +16,11 @@
 # same error classes the vendored programs raised, and a gate anchored on a found witness dies when the witness is
 # cured (ceo CEO-554). "in line"/"in statement" are read from the oracle's own post-mortem through
 # util_spitbol_post_mortem.py, never hardcoded.
+# TWO ARITHMETIC WITNESSES (ceo CEO-1572, the coo's audit 2026-10-08: the nine arms above were all BUILTIN faults and the GOAL was red on an
+# arithmetic one): arith1  X = N + "q"  at top level (sbl: statement 1) and arith2  the same statement inside a DEFINEd function G (sbl: statement
+# 2). The arithmetic boxes call an asm leaf (rt_add_sno ...) that sets up no rbp frame, so the frame-pointer walk skipped the return address
+# into the statement and the voice read statement 0; the cure walks the stack by its unwind CFI (_Unwind_Backtrace) and takes the innermost
+# frame whose pc the code map knows.
 # ARM shape per witness per mode: run SCRIP with NO --stlimit, render its stderr through util_render_error_voice.py
 # spitbol (the one renderer, RULES.md SS ONE ERROR VOICE) and read "in statement <n>" from the rendered text -- the
 # renderer prints stno 0 when SCRIP's voice carried none, so arm `loc` is RED on today's tree by construction.
@@ -42,13 +47,15 @@ printf '         &FULLSCAN = 1\n         EOF =\n         N = 3\n         INPUT(.
 printf '         DATA = ARRAY(24)\n         J = 1\n         INPUT(.INPUT,,72)\n         OUTPUT = J\nEND\n' > "$TPGM/test5.spt"
 printf '         X = 1\n         DATA(\047SYMB(CHAR,LINK,ALT,ASSOC,SUCC)\047)\n         OUTPUT = X\nEND\n' > "$TPGM/test7.spt"
 printf '         DATA(\047CARD(NUM,NEXT)\047)\n         OUTPUT(\047TITLE\047,6,\047(14H1THIS IS HAND ,110A1)\047)\n         TITLE = 1\nEND\n' > "$TPGM/test8.spt"
+printf '        X = N + "q"\nEND\n' > "$TPGM/arith1.spt"
+printf "        DEFINE('G()')              :(START)\nG       X = N + \"q\"                :(RETURN)\nSTART   G()\nEND\n" > "$TPGM/arith2.spt"
 red=0; n=0
 arm() { n=$((n+1)); if [ "$2" = ok ]; then echo "  ok   $1"; else echo "  RED  $1 -- $3"; red=$((red+1)); fi; }
 
 stno_of() { python3 "$PM" "$1" /dev/null 2>/dev/null | awk -F'\t' '$1=="STATEMENT"{print $2; exit}'; }
 rendered_stno() { python3 "$RV" spitbol 2>/dev/null | grep -o 'in statement [0-9]*' | head -1 | awk '{print $3}'; }
 
-for w in test4 test5 test7 test8; do
+for w in test4 test5 test7 test8 arith1 arith2; do
     [ -f "$TPGM/$w.spt" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: $TPGM/$w.spt missing -- the witness moved"; exit 2; }
     ( cd "$TPGM" && timeout 20 "$SBL" -bf "$w.spt" < /dev/null > "$T/$w.ora" 2>/dev/null )
     want="$(stno_of "$T/$w.ora")"
