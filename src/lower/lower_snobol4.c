@@ -24,8 +24,10 @@ static int sno_kw_static_slot(const char * kw) { return kw ? rt_kw_index(kw) : -
 extern void global_register(const char * name);
 extern int stage2_proc_grow(stage2_t * s2);
 typedef struct { const tree_t * arg; IR_t * prim; int str; long codes; const char * snapg; } sprearg_t;
+typedef struct sno_kw_link { const char * nm; const struct sno_kw_link * up; } sno_kw_link_t;
 typedef struct {
     IR_graph_t * g;
+    const sno_kw_link_t * kw_chain;
     IR_t * loop_exit;
     IR_t * loop_next;
     const char * result_name;
@@ -2540,19 +2542,10 @@ static const char * sno_cursor_target(const tree_t * tgt) {
     return sno_lead_name("*", bn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sno_kw_chase(const char * nm, int op) {
-    static const char * stk[24];
-    static int top = 0;
-    if (op == 1) { if (nm && top < 24) { stk[top++] = nm; return 1; } return 0; }
-    if (op == 2) { if (top > 0) top--; return 1; }
-    if (op == 3) return top != 0;
-    if (!nm) return 0;
-    for (int i = 0; i < top; i++) if (!strcmp(stk[i], nm)) return 1;
-    return 0;
-}
-static int sno_kw_nest_ok(const char * nm) {
+static int sno_kw_chase(const scx_t * cx, const char * nm) { for (const sno_kw_link_t * l = cx->kw_chain; l; l = l->up) if (!strcmp(l->nm, nm)) return 1; return 0; }
+static int sno_kw_nest_ok(const scx_t * cx, const char * nm) {
     if (g_lower.sno.sno_kw_nest_ok_nn < 0) { const char * e = getenv("SCRIP_CONST_NEST"); g_lower.sno.sno_kw_nest_ok_nn = (e && *e == '0') ? 0 : 1; }
-    return g_lower.sno.sno_kw_nest_ok_nn ? !sno_kw_chase(nm, 0) : !sno_kw_chase((const char *)0, 3);
+    return g_lower.sno.sno_kw_nest_ok_nn ? !sno_kw_chase(cx, nm) : cx->kw_chain == NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_pat_inline_ok(const tree_t * t) {
@@ -2733,9 +2726,12 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                         if (g_lower.sno.sno_pat_node_ci < 0) { const char * e = getenv("SCRIP_CONST_INLINE"); g_lower.sno.sno_pat_node_ci = (e && *e == '0') ? 0 : 1; }
                         if (g_lower.sno.sno_pat_node_ci) {
                             const tree_t * cp0 = sno_const_pat(cb);
-                            if (cp0 && g_lower.sno.pat_match_ctx && !g_lower.sno.in_patproc && sno_kw_nest_ok(cb) && sno_pat_inline_ok(cp0)) {
-                                char * ky0 = lp_strdup(cb);
-                                if (sno_kw_chase(ky0, 1)) { IR_t * r0 = sno_pat_node(cx, cp0, succ, fail); sno_kw_chase(NULL, 2); return r0; }
+                            if (cp0 && g_lower.sno.pat_match_ctx && !g_lower.sno.in_patproc && sno_kw_nest_ok(cx, cb) && sno_pat_inline_ok(cp0)) {
+                                sno_kw_link_t l0 = { cb, cx->kw_chain };
+                                cx->kw_chain = &l0;
+                                IR_t * r0 = sno_pat_node(cx, cp0, succ, fail);
+                                cx->kw_chain = l0.up;
+                                return r0;
                             }
                         }
                     }
@@ -2768,9 +2764,12 @@ static IR_t * sno_pat_node(scx_t * cx, const tree_t * t, IR_t * succ, IR_t * fai
                 if (g_lower.sno.sno_pat_node_ck < 0) { const char * e = getenv("SCRIP_CONST_INLINE"); g_lower.sno.sno_pat_node_ck = (e && *e == '0') ? 0 : 1; }
                 if (g_lower.sno.sno_pat_node_ck) {
                     const tree_t * cp = sno_const_pat(cb);
-                    if (cp && g_lower.sno.pat_match_ctx && !g_lower.sno.in_patproc && sno_kw_nest_ok(cb) && sno_pat_inline_ok(cp)) {
-                        char * ky = lp_strdup(cb);
-                        if (sno_kw_chase(ky, 1)) { IR_t * r = sno_pat_node(cx, cp, succ, fail); sno_kw_chase(NULL, 2); return r; }
+                    if (cp && g_lower.sno.pat_match_ctx && !g_lower.sno.in_patproc && sno_kw_nest_ok(cx, cb) && sno_pat_inline_ok(cp)) {
+                        sno_kw_link_t l = { cb, cx->kw_chain };
+                        cx->kw_chain = &l;
+                        IR_t * r = sno_pat_node(cx, cp, succ, fail);
+                        cx->kw_chain = l.up;
+                        return r;
                     }
                 }
             }
@@ -3607,6 +3606,7 @@ static IR_graph_t * sno_build_graph(const tree_t ** st, int nst, int entry_idx, 
     IR_graph_t * g = IR_alloc(nst * 16 + 256);
     scx_t cx;
     cx.g = g;
+    cx.kw_chain = NULL;
     cx.loop_exit = NULL;
     cx.loop_next = NULL;
     cx.result_name = result_name;
