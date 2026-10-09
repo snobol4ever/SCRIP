@@ -421,6 +421,13 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
             excluded.append((name, "oracle produced EMPTY output -- refusing to mint a vacuous ref"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (empty oracle output)", file=sys.stderr)
             continue
+        if "\r" in ora_text:
+            # ⛔ A REF WITH A CARRIAGE RETURN IS NO REF (the coo 2026-10-09, measured on rosetta-pascal at corpus df56f1058: gapful-numbers-1,
+            # ludic-numbers-2 and two-sum redraw a progress line with #13): ALL.ref would breach OUR FILES ARE LF (test_gate_our_files_are_lf.sh
+            # read it red) and the harness reader splits a line on CR, so the container falls out of step with its own sources.
+            excluded.append((name, "the oracle output carries carriage returns -- a ref with CR breaks OUR FILES ARE LF and the harness reader"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle output carries CR)", file=sys.stderr)
+            continue
         want_rc = ora_rc if ora_rc else 0
         e = h.Entry("block", len(entries) + 1, name, text.splitlines(), ora_text.split("\n"),
                      stdin=stdin_text, want_rc=want_rc)
