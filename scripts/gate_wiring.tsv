@@ -456,6 +456,7 @@ test_gate_pas_a_file_variable_is_not_altered_while_a_reference_to_its_buffer_exi
 test_gate_pas_a_for_control_variable_is_undefined_after_the_for_statement.sh	WIRED	-	-	-
 test_gate_pas_a_for_statement_evaluates_its_initial_and_final_values_once_before_the_loop.sh	WIRED	-	-	-
 test_gate_pas_a_for_statement_stays_inside_its_control_variables_type.sh	WIRED	-	-	-
+test_gate_pas_a_for_variable_threat_names_its_real_lines_and_a_sibling_local_is_not_one.sh	WIRED	-	-	-
 test_gate_pas_a_forward_declared_parameters_record_fields_resolve.sh	WIRED	-	-	-
 test_gate_pas_a_function_result_is_defined_when_its_algorithm_completes.sh	WIRED	-	-	-
 test_gate_pas_a_goto_leaves_its_routine_for_an_enclosing_label.sh	WIRED	-	-	-

@@ -2279,7 +2279,7 @@ static void pas_pf_resolve(tree_t *e) {
 %token <dval> REALCONST
 %token <str>  STRINGCONST IDENT
 %type <node> set_member set_member_list
-%type <node> block body statement statement_no_label compound_statement
+%type <node> block body statement body_stmt statement_no_label compound_statement
 %type <node> assignment call call_with_args if_statement while_statement
 %type <node> repeat_statement for_statement with_statement case_statement goto_statement
 %type <node> expression simple_expression term factor selector
@@ -2482,8 +2482,11 @@ body:
     BEGINSY statement_list ENDSY { $$ = prog_of($2); }
     ;
 statement_list:
-    statement_list SEMICOLON { pas_stmt_mark(); } statement { int _ln = pas_stmt_line_pop(); if ($4) { if (pas_trace_enabled() && $4->t != TT_SUCCEED) pnl_push($1, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push($1, $4); } $$ = $1; }
-    | { pas_stmt_mark(); } statement { int _ln = pas_stmt_line_pop(); PNodeList *l = pnl_new(); if ($2) { if (pas_trace_enabled() && $2->t != TT_SUCCEED) pnl_push(l, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push(l, $2); } $$ = l; }
+    statement_list SEMICOLON { pas_stmt_mark(); } statement { int _ln = pas_stmt_line_pop(); if ($4 && !$4->line) $4->line = _ln; if ($4) { if (pas_trace_enabled() && $4->t != TT_SUCCEED) pnl_push($1, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push($1, $4); } $$ = $1; }
+    | { pas_stmt_mark(); } statement { int _ln = pas_stmt_line_pop(); PNodeList *l = pnl_new(); if ($2 && !$2->line) $2->line = _ln; if ($2) { if (pas_trace_enabled() && $2->t != TT_SUCCEED) pnl_push(l, mk_fnc1("__trace_stmt", ilit(_ln))); pnl_push(l, $2); } $$ = l; }
+    ;
+body_stmt:
+    { pas_stmt_mark(); } statement { int _ln = pas_stmt_line_pop(); if ($2 && !$2->line) $2->line = _ln; $$ = $2; }
     ;
 statement:
     statement_no_label { $$ = $1; }
@@ -2589,8 +2592,8 @@ goto_statement:
           tree_t *G = ast_node_new(TT_GOTO_U); G->v.sval = ct_strdup(_gb); G->line = pascal_get_lineno(); $$ = G; }
     ;
 if_statement:
-    IFSY expression THENSY statement { $$ = bin(TT_IF, pas_cond_bool($2, "an if-statement", "6.8.3.4"), $4); }
-    | IFSY expression THENSY statement ELSESY statement { tree_t *e = ast_node_new(TT_IF); ast_push(e, pas_cond_bool($2, "an if-statement", "6.8.3.4")); ast_push(e, $4); ast_push(e, $6); $$ = e; }
+    IFSY expression THENSY body_stmt { $$ = bin(TT_IF, pas_cond_bool($2, "an if-statement", "6.8.3.4"), $4); }
+    | IFSY expression THENSY body_stmt ELSESY body_stmt { tree_t *e = ast_node_new(TT_IF); ast_push(e, pas_cond_bool($2, "an if-statement", "6.8.3.4")); ast_push(e, $4); ast_push(e, $6); $$ = e; }
     ;
 case_statement:
     CASESY expression OFSY { pas_case_push(); } case_list ENDSY
@@ -2608,7 +2611,7 @@ case_list:
     | case_elem { PNodeList *l = pnl_new(); if ($1) pnl_push(l, $1); $$ = l; }
     ;
 case_elem:
-    constant_list COLON statement { $$ = bin(TT_IF, pas_cond($1), $3); }
+    constant_list COLON body_stmt { $$ = bin(TT_IF, pas_cond($1), $3); }
     | { $$ = NULL; }
     ;
 constant_list:
@@ -2616,25 +2619,25 @@ constant_list:
     | constant { $$ = bin(TT_EQ, leaf_s(TT_VAR, pas_case_cur()), ilit($1)); }
     ;
 while_statement:
-    WHILESY expression DOSY statement { $$ = bin(TT_WHILE, pas_cond_bool($2, "a while-statement", "6.8.3.8"), $4); }
+    WHILESY expression DOSY body_stmt { $$ = bin(TT_WHILE, pas_cond_bool($2, "a while-statement", "6.8.3.8"), $4); }
     ;
 repeat_statement:
     REPEATSY statement_list UNTILSY expression { $$ = bin(TT_REPEAT, seq_of($2), pas_cond_bool($4, "a repeat-statement", "6.8.3.7")); }
     ;
 for_statement:
-    FORSY IDENT BECOMES expression TOSY expression DOSY statement
+    FORSY IDENT BECOMES expression TOSY expression DOSY body_stmt
         { pas_scope_require($2); pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
           if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 0);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = pas_for_once(e); }
-    | FORSY IDENT BECOMES expression DOWNTOSY expression DOSY statement
+    | FORSY IDENT BECOMES expression DOWNTOSY expression DOSY body_stmt
         { pas_scope_require($2); pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
           if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 1);
           tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = pas_for_once(e); }
     ;
 with_statement:
-    WITHSY with_open DOSY statement { $$ = pas_with_finish($2, $4); }
+    WITHSY with_open DOSY body_stmt { $$ = pas_with_finish($2, $4); }
     ;
 with_open:
     with_open COMMA selector { pas_with_push_once($3); $$ = $1 + 1; }
