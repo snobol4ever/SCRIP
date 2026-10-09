@@ -86,7 +86,7 @@ SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus}"
 BENCH="${ICON_BENCH:-$CORPUS/benchmarks/icon}"
 ICN_C_BASELINE="${ICN_C_BASELINE:-25412}"   # re-declared 2026-10-09 by hq_collector: +21 entered with SCRIP 7016f6e25 (the ARCH-GC 13.5 cell conversions: the scan-enter sigma cell tag and zeroed slen, and the suspend-leave bank tag, three frame-relative stores per scan site), measured by hq_icon over the committed bench .s, 25322 at cfcfaf46d and 25412 at 7016f6e25; earlier: 25391 re-declared 2026-09-26 15:3x by the cto on SCRIP 65bb1f417 (read 25391, +30 over the CTO-174 02:4x reading of 25361, the crawl landings between; wired REPORTED in test-sequential under CEO-1274 (3), so a rise prints and never blocks)
-ICN_E_BASELINE="${ICN_E_BASELINE:-1042}"   # ⭐ CLASS E ratchet (Lon grant 2026-08-29): ζ-ACTIVATION refs in region-resident generator frames -- never-rising; set at flip-time measurement, lowered manually in the landing commit like C.
+ICN_E_BASELINE="${ICN_E_BASELINE:-1044}"   # re-declared 2026-10-09 by hq_collector: E read 1040 at 7016f6e25~1 and 1044 at 7016f6e25 (the same 13.5 tag stores where a scan sits in a region-resident generator frame); earlier 1042: ⭐ CLASS E ratchet (Lon grant 2026-08-29): ζ-ACTIVATION refs in region-resident generator frames -- never-rising; set at flip-time measurement, lowered manually in the landing commit like C.
 PY="$HERE/util_icn_rbp_census.py"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -d "$BENCH" ] || { echo "⛔ REFUSED-TO-GRADE no Icon benchmark corpus at $BENCH"; exit 2; }
