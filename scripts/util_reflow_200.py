@@ -127,17 +127,67 @@ def _paren_is_cast(st):
     return False
 
 
-def split_units(toks):
+def macro_brace_deltas(items):
+    """The net brace count each macro of this file carries (ceo CEO-1570, 2026-10-08): a function written `PL_CX_LEAF_HEAD(nm, ar) ... PL_CX_LEAF_TAIL`
+    or `DESCR_t f(...) { ... PL_CX_LEAF_TAIL` is balanced only once the macros are expanded, so the splitter opens a block at a macro whose body
+    nets +1 and closes one at a macro whose body nets -1; a macro that names another macro carries that one's delta too. Read from the file's
+    own `#define` lines; braces inside string and character literals do not count."""
+    defs = {}
+    for kind, payload in items:
+        if kind != "pp":
+            continue
+        m = re.match(r"#\s*define\s+([A-Za-z_]\w*)(\([^)]*\))?\s*(.*)$", payload, re.S)
+        if m:
+            defs[m.group(1)] = m.group(3)
+    memo = {}
+    def delta(name, seen):
+        if name in memo:
+            return memo[name]
+        if name in seen:
+            return 0
+        seen = seen | {name}; d = 0
+        for k, s, p in tokenize(defs[name]):
+            if k == "op" and s == "{":
+                d += 1
+            elif k == "op" and s == "}":
+                d -= 1
+            elif k == "id" and s in defs and s != name:
+                d += delta(s, seen)
+        memo[name] = d
+        return d
+    return {n: delta(n, frozenset()) for n in defs if delta(n, frozenset()) != 0}
+
+
+def split_units(toks, macro_delta=None):
     units = []; cur = []; pdepth = 0; init_depth = 0; prev_sig = None
+    macro_delta = macro_delta or {}; pending = None
+    def open_at(start):
+        nonlocal cur
+        units.append((_join(cur).strip(), 1, 0)); cur = []
+    def close_at(start):
+        nonlocal cur
+        body = _join(cur[:start]).strip()
+        if body:
+            units.append((body, 0, 0))
+        units.append((_join(cur[start:]).strip(), 0, 1)); cur = []
     for t in toks:
         k, s, p = t
+        if k not in ("ws", "nl") and pending is not None and pending[2] is None:
+            if s == "(":
+                pending = (pending[0], pending[1], True)
+            else:
+                (open_at if pending[0] > 0 else close_at)(pending[1]); pending = None
         cur.append(t)
         if k in ("ws", "nl"):
             continue
+        if k == "id" and s in macro_delta and pending is None and init_depth == 0 and pdepth == 0:
+            pending = (macro_delta[s], len(cur) - 1, None); prev_sig = s; continue
         if s in ("(", "["):
             pdepth += 1
         elif s in (")", "]"):
             pdepth = max(0, pdepth - 1)
+            if pending is not None and pending[2] and pdepth == 0:
+                (open_at if pending[0] > 0 else close_at)(pending[1]); pending = None; prev_sig = s; continue
         elif s == "{":
             if pdepth > 0 or init_depth > 0 or prev_sig in OPEN_INIT_PREV or (prev_sig == ")" and _paren_is_cast(_sig(cur))):
                 init_depth += 1
@@ -158,6 +208,8 @@ def split_units(toks):
             if st and (st[0][1] in ("case", "default", "public", "private", "protected") or (len(st) == 2 and st[0][0] == "id")):
                 units.append((_join(cur).strip(), 0, 0)); cur = []
         prev_sig = s
+    if pending is not None:
+        (open_at if pending[0] > 0 else close_at)(pending[1])
     rest = _join(cur).strip()
     if rest:
         units.append((rest, 0, 0))
@@ -267,6 +319,8 @@ def build_tree(units):
                 i += 1; continue
             blk = blocks[-1]; blk_opener = openers[-1]
             stack.pop(); openers.pop(); blocks.pop(); blk.closed = True
+            if u != "}":
+                blk.closer = u; i += 1; continue
             nxt = units[i + 1] if i + 1 < len(units) and isinstance(units[i + 1][0], str) else None
             if nxt is not None:
                 nu, nopens, ncloses = nxt
@@ -288,10 +342,21 @@ def build_tree(units):
     return root
 
 
+EXTERN_C_RX = re.compile(r'^(?:extern\s+"C(?:\+\+)?"|namespace(?:\s+[A-Za-z_]\w*)?)\s*\{$')
+
+
+def transparent(blk):
+    """An `extern "C" {` guard or a `namespace X {` (ceo CEO-1570): its children are file-scope items and lay out at the guard's own depth,
+    so a column-zero census still sees every definition; the guard itself never flattens onto one line."""
+    return isinstance(blk, Blk) and blk.next is None and EXTERN_C_RX.match(blk.opener) is not None
+
+
 def flat(item):
     if isinstance(item, (PP, Sep)):
         return None
     if isinstance(item, Blk):
+        if transparent(item):
+            return None
         parts = []; cur = item
         while cur is not None:
             if not cur.closed:
@@ -329,7 +394,7 @@ def layout(items, depth, width, out):
                 out.append(ind + cur.opener)
             else:
                 out.extend(wrap_long(cur.opener, ind, width))
-            layout(cur.children, depth + 1, width, out)
+            layout(cur.children, depth + (0 if transparent(cur) else 1), width, out)
             if cur.next is None and cur.closed:
                 closer = cur.closer if cur.closer is not None else "}"
                 if len(ind) + W(closer) <= width:
@@ -340,14 +405,14 @@ def layout(items, depth, width, out):
 
 
 def reflow(text, width=200):
-    units = []
-    for kind, payload in logical_lines(text):
+    units = []; items = logical_lines(text); deltas = macro_brace_deltas(items)
+    for kind, payload in items:
         if kind == "sep":
             units.append((Sep(payload), 0, 0))
         elif kind == "pp":
             units.append((PP(payload), 0, 0))
         else:
-            units.extend(split_units(payload))
+            units.extend(split_units(payload, deltas))
     out = []
     layout(build_tree(units), 0, width, out)
     return "\n".join(l for l in out if l.strip()) + "\n"
@@ -629,6 +694,8 @@ def main(argv):
             over += 1; print("  OVER %4d %s" % (longest, os.path.relpath(f, ROOT)))
         if new != src:
             changed += 1
+            if mode == "--check":
+                print("  WOULD CHANGE %s" % os.path.relpath(f, ROOT))
             if mode == "--apply":
                 open(f, "wb").write(new.encode("utf-8"))
     if mode == "--proof":
