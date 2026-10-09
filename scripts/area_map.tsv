@@ -92,6 +92,8 @@ lang:icon	src/parsers/icon/
 lang:icon	src/lower/lower_icon.c
 lang:prolog	src/parsers/prolog/
 lang:prolog	src/lower/lower_prolog.c
+# src/lower/g_lower.h carries only g_lower.pl (lower_prolog.c's state, CEO-1575) until the g_lower stage folds every lowerer; that landing re-maps it to *
+lang:prolog	src/lower/g_lower.h
 lang:prolog	src/lower/pl_arith_names.h
 lang:prolog	src/lower/pl_control_names.h
 lang:prolog	src/templates/bb/bb_unify_const.cpp
