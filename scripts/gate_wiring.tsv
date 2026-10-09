@@ -686,6 +686,7 @@ test_gate_raku_a_block_passed_to_a_synchronous_builtin_reads_its_enclosing_subs_
 test_gate_raku_a_code_parameter_is_callable_and_the_test_module_judges_blocks_and_matches.sh	WIRED	-	-	-
 test_gate_raku_a_code_variable_call_keeps_the_global_base_in_r9.sh	WIRED	-	-	-
 test_gate_raku_a_named_sub_nested_in_a_sub_reads_and_writes_the_enclosing_locals_through_a_reference.sh	WIRED	-	-	-
+test_gate_raku_a_scalar_gist_and_the_str_of_every_aggregate_and_object_and_put_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_a_sort_comparator_is_an_emitted_merge_sort_not_a_c_to_bb_entry.sh	WIRED	-	-	-
 test_gate_raku_a_tail_call_through_a_builtin_is_entered_by_the_box.sh	WIRED	-	-	-
 test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
@@ -707,9 +708,8 @@ test_gate_raku_roast_ablation_ranker.sh	WIRED	-	-	-
 test_gate_raku_roast_bucket_names_the_stage_the_file_died_in.sh	WIRED	-	-	-
 test_gate_raku_set_bag_mix_are_typed_values_as_rakudo_has_them.sh	WIRED	-	-	-
 test_gate_raku_string_zero_is_true_and_the_string_function_forms_agree_with_rakudo.sh	WIRED	-	-	-
-test_gate_raku_the_bare_dollar_and_the_item_and_hash_contextualizers_agree_with_rakudo.sh	WIRED	-	-	-
-test_gate_raku_a_scalar_gist_and_the_str_of_every_aggregate_and_object_and_put_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
+test_gate_raku_the_bare_dollar_and_the_item_and_hash_contextualizers_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_infix_operators_the_front_end_names_have_a_runtime_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_the_math_and_list_routines_answer_in_function_form_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_the_test_module_exits_as_rakudos_does_when_the_plan_is_not_met_or_a_test_fails.sh	WIRED	-	-	-
@@ -787,6 +787,7 @@ test_gate_snc_two_nreturn_functions_link_in_m4.sh	WIRED	-	-	-
 test_gate_sno_a_bare_fence_as_an_alternation_arm_matches_null_and_seals_its_backtrack.sh	WIRED	-	-	-
 test_gate_sno_a_bare_fence_in_a_pattern_thunk_releases_the_cells_to_its_left.sh	WIRED	-	-	-
 test_gate_sno_a_builtin_called_short_or_over_its_arity_pads_with_null_and_drops_extras.sh	WIRED	-	-	-
+test_gate_sno_a_builtin_integer_argument_that_is_not_an_integer_is_the_spitbol_fatal_error.sh	WIRED	-	-	-
 test_gate_sno_a_by_name_call_survives_collect.sh	WIRED	-	-	-
 test_gate_sno_a_call_saves_binds_and_restores_an_io_associated_name_without_io.sh	WIRED	-	-	-
 test_gate_sno_a_call_through_an_opsyn_alias_is_the_functions_own_call.sh	WIRED	-	-	-

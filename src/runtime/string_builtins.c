@@ -6,6 +6,7 @@
 #include <stdlib.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t DUPL_fn(DESCR_t s, DESCR_t n) {
+    if (!is_numeric_like(n)) { core_runtime_error(90, "dupl second argument is not integer"); return FAILDESCR; }
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t times = to_int(n);
     if (times < 0) return FAILDESCR;
@@ -36,6 +37,8 @@ DESCR_t REPLACE_fn(DESCR_t s, DESCR_t from, DESCR_t to) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
+    if (!is_numeric_like(i)) { core_runtime_error(193, "substr second argument is not integer"); return FAILDESCR; }
+    if (!is_numeric_like(n)) { core_runtime_error(192, "substr third argument is not integer"); return FAILDESCR; }
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t start = to_int(i);
     int64_t len_ = to_int(n);
@@ -54,6 +57,8 @@ DESCR_t SUBSTR_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t SUBSTR_bytes_fn(DESCR_t s, DESCR_t i, DESCR_t n) {
+    if (!is_numeric_like(i)) { core_runtime_error(193, "substr second argument is not integer"); return FAILDESCR; }
+    if (!is_numeric_like(n)) { core_runtime_error(192, "substr third argument is not integer"); return FAILDESCR; }
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t start = to_int(i);
     int64_t len_ = to_int(n);
@@ -79,6 +84,7 @@ DESCR_t TRIM_fn(DESCR_t s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t lpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
+    if (!is_numeric_like(n)) { core_runtime_error(145, "lpad second argument is not integer"); return FAILDESCR; }
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t width = to_int(n);
     const char *p = VARVAL_fn(pad);
@@ -96,6 +102,7 @@ DESCR_t lpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rpad_fn(DESCR_t s, DESCR_t n, DESCR_t pad) {
+    if (!is_numeric_like(n)) { core_runtime_error(179, "rpad second argument is not integer"); return FAILDESCR; }
     const char *STRVAL_fn = VARVAL_fn(s);
     int64_t width = to_int(n);
     const char *p = VARVAL_fn(pad);
@@ -121,8 +128,9 @@ DESCR_t REVERS_fn(DESCR_t s) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t BCHAR_fn(DESCR_t n) {
+    if (!is_numeric_like(n)) { core_runtime_error(281, "char argument not integer"); return FAILDESCR; }
     int64_t code = to_int(n);
-    if (code < 0 || code >= 256) return FAILDESCR;
+    if (code < 0 || code >= 256) { core_runtime_error(282, "char argument not in range"); return FAILDESCR; }
     char *buf = rt_str_alloc(1);
     buf[0] = (char)(code & 0xFF);
     buf[1] = '\0';
