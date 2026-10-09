@@ -177,7 +177,21 @@ words="$(printf '%s\n' "$pop" | grep -m1 '^CENSUS unmapped-store UNREAD-ROAD sym
 wsum="$(printf '%s\n' "$words" | sed -n 's/.* stores=\([0-9]*\) .*/\1/p')"
 wn="$(printf '%s\n' "$words" | sed -n 's/.* words=\([0-9]*\) .*/\1/p')"
 nmd="$(printf '%s\n' "$pop" | grep -c '^CENSUS unmapped-store UNREAD-ROAD symbol=')"
-if [ -n "${rst:-}" ] && [ "${rst:-0}" -gt 0 ] && [ "${wsum:-x}" = "${rst:-y}" ] && [ "${wn:-0}" = "${nmd:-x}" ] && [ "${wn:-0}" -gt 0 ]; then
+# ⛔ RE-CUT 2026-10-09 BY hq_collector, ON hq_runtime's 4daa72f89 (the rtcc bracket carries r9 alone): the r8, r10 and
+# r11 write-backs into rtccb retired, so the static road is EMPTY, not unread -- unread_static read 0 on all 104
+# baseline rows and the old arm, which demanded a non-empty road, went red on a win. A CLOSED road passes only on
+# an INDEPENDENT reading: the census's own accounting reads 0 words summing to 0, its frame road is non-empty (it
+# was looking), and the emitted text of hb_aggt.icn -- 57 unread static stores in the old baseline -- carries no
+# rip-relative store at all. A census blind to a road that still exists reads 0 here and fails on the third clause.
+ripst=x
+if [ "${rst:-x}" = 0 ]; then
+  ags="$(mktemp --suffix=.s)"
+  timeout 120 "$ROOT/scrip" --compile -o "$ags" "$ROOT/scripts/gc_witnesses/hb_aggt.icn" < /dev/null > /dev/null 2>&1 && [ -s "$ags" ] && ripst="$(grep -cE '^[[:space:]]*mov[a-z]*[[:space:]]+[a-z]+ ptr \[rip \+ [^]]+\],' "$ags")"
+  rm -f "$ags"
+fi
+if [ "${rst:-x}" = 0 ] && [ "${wsum:-x}" = 0 ] && [ "${wn:-x}" = 0 ] && [ "${nmd:-x}" = 0 ] && [ "${rfr:-0}" -gt 0 ] && [ "$ripst" = 0 ]; then
+  ck ok "(i) the static road is CLOSED, read independently: the census accounts 0 words summing to 0 while reading frame_shielded=$rfr, and the emitted text of hb_aggt.icn (57 unread static stores in the old baseline) carries 0 rip-relative stores"
+elif [ -n "${rst:-}" ] && [ "${rst:-0}" -gt 0 ] && [ "${wsum:-x}" = "${rst:-y}" ] && [ "${wn:-0}" = "${nmd:-x}" ] && [ "${wn:-0}" -gt 0 ]; then
   ck ok "(i) the census reports its OWN reach and NAMES the unread road BY WORD, and the naming ACCOUNTS FOR ALL OF IT -- frame_shielded=$rfr static_shielded=$rst, $wn word(s) named summing to $wsum: $(printf '%s\n' "$pop" | grep -o '^CENSUS unmapped-store UNREAD-ROAD symbol=[A-Za-z_][A-Za-z0-9_.$+]*' | sed 's/.*symbol=//' | tr '\n' ' ')-- a zero from this census is now a zero with its denominator beside it, and the denominator is a NAME SET rather than a size"
 else
   ck no "(i) the census printed no REACH line, or its per-word naming does not ACCOUNT for the road -- static_shielded=${rst:-?} against ${wn:-?} word(s) summing to ${wsum:-?}, ${nmd:-?} word line(s) printed. An instrument that silently drops a whole shielding road, or names part of one and reports the whole, is success reported while it is not looking, which is the failure THE INSTRUMENT LAWS exist to catch: $reach"
