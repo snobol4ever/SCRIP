@@ -623,7 +623,256 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
     return result ? result : leaf_sval(TT_QLIT, "");
 }
 /*====================================================================================================================================================================================================*/
-static char *regex_to_engine(const char *r) { return (char *) r; }
+typedef struct RkRq {
+    char word[8];
+    int open, close, ps, pe, rs, re, g, ov, ex, cont, posn, x_min, x_max, nth_n, bad, c_val, p_val, has_adv, trf;
+    char rxflags[48];
+    int nth[8];
+} RkRq;
+static int rq_closer(int o) { return o == '(' ? ')' : o == '[' ? ']' : o == '{' ? '}' : o == '<' ? '>' : o; }
+static int rq_find_close(const char *s, int i, int to, int open, int close) {
+    int depth = 1;
+    for (; i < to; i++) {
+        if (s[i] == '\\' && i + 1 < to) { i++; continue; }
+        if (open != close && s[i] == open) depth++;
+        else if (s[i] == close && --depth == 0) return i;
+    }
+    return -1;
+}
+static int rq_ordinal(const char *n, int len) {
+    if (len < 3) return 0;
+    const char *suf = n + len - 2;
+    if (strncmp(suf, "st", 2) && strncmp(suf, "nd", 2) && strncmp(suf, "rd", 2) && strncmp(suf, "th", 2)) return 0;
+    for (int i = 0; i < len - 2; i++) if (!isdigit((unsigned char) n[i])) return 0;
+    return atoi(n);
+}
+static void rq_addflag(RkRq *q, const char *f) { if (strlen(q->rxflags) + strlen(f) + 2 < sizeof q->rxflags) { strcat(q->rxflags, f); strcat(q->rxflags, " "); } }
+static void rq_apply(RkRq *q, const char *name, int nlen, int neg, const char *arg, int alen) {
+    char nm[24];
+    if (nlen >= (int) sizeof nm) { q->bad = 1; return; }
+    memcpy(nm, name, (size_t) nlen); nm[nlen] = 0;
+    int ord = rq_ordinal(nm, nlen);
+    if (ord) { if (q->nth_n < 8) q->nth[q->nth_n++] = ord; q->has_adv = 1; return; }
+    if (!strcmp(nm, "i") || !strcmp(nm, "ignorecase")) { rq_addflag(q, neg ? ":!i" : ":i"); return; }
+    if (!strcmp(nm, "ii")) { rq_addflag(q, ":ii"); return; }
+    if (!strcmp(nm, "m") || !strcmp(nm, "ignoremark")) { rq_addflag(q, neg ? ":!m" : ":m"); return; }
+    if (!strcmp(nm, "mm")) { rq_addflag(q, ":mm"); return; }
+    if (!strcmp(nm, "s") || !strcmp(nm, "sigspace")) { rq_addflag(q, neg ? ":!s" : ":s"); return; }
+    if (!strcmp(nm, "ss")) { rq_addflag(q, ":ss"); return; }
+    if (!strcmp(nm, "r") || !strcmp(nm, "ratchet")) { rq_addflag(q, neg ? ":!r" : ":r"); return; }
+    if (!strcmp(nm, "g") || !strcmp(nm, "global")) { q->g = !neg; q->has_adv = !neg; return; }
+    if (!strcmp(nm, "ov") || !strcmp(nm, "overlap")) { q->ov = !neg; q->has_adv = !neg; return; }
+    if (!strcmp(nm, "ex") || !strcmp(nm, "exhaustive")) { q->ex = !neg; q->has_adv = !neg; return; }
+    if (!strcmp(nm, "c") || !strcmp(nm, "continue")) { q->cont = 1; q->c_val = alen ? atoi(arg) : 0; q->has_adv = 1; return; }
+    if (!strcmp(nm, "p") || !strcmp(nm, "pos")) { q->posn = 1; q->p_val = alen ? atoi(arg) : 0; q->has_adv = 1; return; }
+    if (!strcmp(nm, "x")) {
+        if (!alen) { q->bad = 1; return; }
+        const char *dd = strstr(arg, "..");
+        q->x_min = atoi(arg);
+        q->x_max = dd ? (dd[2] == '*' ? -1 : atoi(dd[2] == '^' ? dd + 3 : dd + 2)) : q->x_min;
+        q->has_adv = 1;
+        return;
+    }
+    if (!strcmp(nm, "nth")) {
+        if (!alen) { q->bad = 1; return; }
+        const char *p = arg;
+        while (p < arg + alen && q->nth_n < 8) {
+            while (p < arg + alen && (*p == ',' || *p == ' ')) p++;
+            if (p >= arg + alen) break;
+            q->nth[q->nth_n++] = atoi(p);
+            while (p < arg + alen && isdigit((unsigned char) *p)) p++;
+            if (p + 1 < arg + alen && p[0] == '.' && p[1] == '.') { q->bad = 1; return; }
+        }
+        q->has_adv = 1;
+        return;
+    }
+    if (!strcmp(nm, "Perl5") || !strcmp(nm, "P5")) { rq_addflag(q, ":P5"); return; }
+    q->bad = 1;
+}
+static int rk_rq_parse(const char *s, int from, int to, RkRq *q) {
+    memset(q, 0, sizeof *q);
+    q->x_min = q->x_max = -2;
+    int i = from, wl = 0;
+    if (isalpha((unsigned char) s[i])) {
+        while (i + wl < to && isalnum((unsigned char) s[i + wl])) wl++;
+        if (wl >= (int) sizeof q->word) return 0;
+        memcpy(q->word, s + i, (size_t) wl);
+        i += wl;
+    }
+    if (wl && strcmp(q->word, "m") && strcmp(q->word, "rx") && strcmp(q->word, "ms") && strcmp(q->word, "mm") && strcmp(q->word, "s") && strcmp(q->word, "S") && strcmp(q->word, "ss") && strcmp(q->word, "Ss")
+        && strcmp(q->word, "tr") && strcmp(q->word, "TR")) return 0;
+    if (!strcmp(q->word, "ms") || !strcmp(q->word, "ss") || !strcmp(q->word, "Ss")) rq_addflag(q, ":s");
+    if (!strcmp(q->word, "mm")) rq_addflag(q, ":m");
+    while (i < to && s[i] == ':') {
+        int j = i + 1, neg = 0;
+        if (j < to && s[j] == '!') { neg = 1; j++; }
+        int st = j;
+        while (j < to && (isalnum((unsigned char) s[j]) || s[j] == '_')) j++;
+        if (j == st) break;
+        const char *arg = NULL;
+        int nl = j - st, al = 0;
+        if (j < to && (s[j] == '(' || s[j] == '<' || s[j] == '[')) { int c = rq_find_close(s, j + 1, to, s[j], rq_closer(s[j])); if (c < 0) return 0; arg = s + j + 1; al = c - j - 1; j = c + 1; }
+        if (!strcmp(q->word, "tr") || !strcmp(q->word, "TR")) {
+            char nm[16];
+            if (nl < (int) sizeof nm) {
+                memcpy(nm, s + st, (size_t) nl); nm[nl] = 0;
+                if (!strcmp(nm, "c") || !strcmp(nm, "complement")) q->trf |= 1;
+                else if (!strcmp(nm, "d") || !strcmp(nm, "delete")) q->trf |= 2;
+                else if (!strcmp(nm, "s") || !strcmp(nm, "squash")) q->trf |= 4;
+                else if (!strcmp(nm, "r")) q->trf |= 8;
+                else q->bad = 1;
+            }
+            i = j;
+            continue;
+        }
+        rq_apply(q, s + st, nl, neg, arg, al);
+        i = j;
+    }
+    while (i < to && isspace((unsigned char) s[i])) i++;
+    if (i >= to) return 0;
+    q->open = (unsigned char) s[i]; q->close = rq_closer(q->open);
+    int c1 = rq_find_close(s, i + 1, to, q->open, q->close);
+    if (c1 < 0) return 0;
+    q->ps = i + 1; q->pe = c1;
+    int e = c1 + 1;
+    int two = !strcmp(q->word, "s") || !strcmp(q->word, "S") || !strcmp(q->word, "ss") || !strcmp(q->word, "Ss") || !strcmp(q->word, "tr") || !strcmp(q->word, "TR");
+    if (two) {
+        if (q->open == q->close) { int c2 = rq_find_close(s, e, to, q->open, q->close); if (c2 < 0) return 0; q->rs = e; q->re = (s[to - 1] == q->close && to - 1 >= e) ? to - 1 : c2; }
+        else {
+            while (e < to && isspace((unsigned char) s[e])) e++;
+            if (e >= to) return 0;
+            int o2 = (unsigned char) s[e], c2c = rq_closer(o2);
+            int c2 = rq_find_close(s, e + 1, to, o2, c2c);
+            if (c2 < 0) return 0;
+            q->rs = e + 1; q->re = c2;
+        }
+    }
+    return 1;
+}
+static int rx_idstart(int c) { return isalpha(c) || c == '_'; }
+static int rx_idchar(int c) { return isalnum(c) || c == '_'; }
+static tree_t *rx_var(RkB *b, int sig, const char *name) {
+    if (sig == '@') return var_node(b, fmt("@%s", name));
+    const char *st = b->st_look ? b->st_look(b->st_ctx, fmt("$%s", name), (int) strlen(name) + 1) : NULL;
+    return leaf_sval(TT_VAR, st ? st + 1 : name);
+}
+static tree_t *rx_wrap(const char *fn, tree_t *x) { tree_t *c = make_call(fn); expr_add_child(c, x); return c; }
+static tree_t *rk_rx_expr(RkB *b, const char *flags, const char *s, int len) {
+    tree_t *result = NULL;
+    SB lit = { 0 };
+    for (const char *f = flags; *f; f++) sb_c(&lit, *f);
+    int i = 0;
+#define RXFLUSH() do { if (lit.n > 0) { tree_t *lq = leaf_sval(TT_QLIT, sb_str(&lit)); result = result ? expr_binary(TT_CAT, result, lq) : lq; lit.v = NULL; lit.n = 0; lit.cap = 0; } } while (0)
+#define RXPART(x) do { RXFLUSH(); tree_t *pt = (x); result = result ? expr_binary(TT_CAT, result, pt) : pt; } while (0)
+    while (i < len) {
+        char c = s[i];
+        if (c == '\\' && i + 1 < len) { sb_c(&lit, c); sb_c(&lit, s[i + 1]); i += 2; continue; }
+        if (c == '\'') { int j = i + 1; while (j < len && s[j] != '\'') { if (s[j] == '\\' && j + 1 < len) j++; j++; } if (j < len) j++; for (int k = i; k < j; k++) sb_c(&lit, s[k]); i = j; continue; }
+        if (c == '$' && i + 1 < len && rx_idstart((unsigned char) s[i + 1])) {
+            int j = i + 1;
+            while (j < len && (rx_idchar((unsigned char) s[j]) || ((s[j] == '-' || s[j] == '\'') && j + 1 < len && isalpha((unsigned char) s[j + 1])))) j++;
+            RXPART(rx_wrap("__rk_rxq", rx_var(b, '$', trimdup(s + i + 1, j - i - 1))));
+            i = j; continue;
+        }
+        if (c == '@' && i + 1 < len && rx_idstart((unsigned char) s[i + 1])) {
+            int j = i + 1;
+            while (j < len && rx_idchar((unsigned char) s[j])) j++;
+            RXPART(rx_wrap("__rk_rxalt", rx_var(b, '@', trimdup(s + i + 1, j - i - 1))));
+            i = j; continue;
+        }
+        if (c == '<' && i + 2 < len && (s[i + 1] == '$' || s[i + 1] == '@') && rx_idstart((unsigned char) s[i + 2])) {
+            int j = i + 2;
+            while (j < len && rx_idchar((unsigned char) s[j])) j++;
+            if (j < len && s[j] == '>') { RXPART(rx_wrap(s[i + 1] == '$' ? "__rk_rxsrc" : "__rk_rxsrcalt", rx_var(b, s[i + 1], trimdup(s + i + 2, j - i - 2)))); i = j + 1; continue; }
+        }
+        sb_c(&lit, c); i++;
+    }
+    RXFLUSH();
+#undef RXFLUSH
+#undef RXPART
+    return result ? result : leaf_sval(TT_QLIT, "");
+}
+static tree_t *rk_rq_opts(const RkRq *q) {
+    if (!q->has_adv) return NULL;
+    tree_t *o = make_call("__rk_rxopts");
+    int mode = (q->g ? 1 : 0) | (q->ov ? 2 : 0) | (q->ex ? 4 : 0) | (q->cont ? 8 : 0) | (q->posn ? 16 : 0) | (q->x_min != -2 ? 32 : 0) | (q->nth_n ? 64 : 0);
+    expr_add_child(o, rk_ilit(mode));
+    expr_add_child(o, rk_ilit(q->cont ? q->c_val : q->posn ? q->p_val : 0));
+    expr_add_child(o, rk_ilit(q->x_min == -2 ? 0 : q->x_min));
+    expr_add_child(o, rk_ilit(q->x_min == -2 ? 0 : q->x_max));
+    for (int k = 0; k < q->nth_n; k++) expr_add_child(o, rk_ilit(q->nth[k]));
+    return o;
+}
+static tree_t *rk_rq_smatch(RkB *b, const RkRq *q, tree_t *subj, const char *kind) {
+    tree_t *pat = rk_rx_expr(b, q->rxflags, b->s + q->ps, q->pe - q->ps);
+    tree_t *m = ast_node_new(TT_SMATCH);
+    ast_push(m, subj);
+    ast_push(m, pat);
+    ast_push(m, leaf_sval(TT_QLIT, kind));
+    tree_t *o = rk_rq_opts(q);
+    if (o) ast_push(m, o);
+    return m;
+}
+static tree_t *b_dq(RkB *b, RkClosure *cl, int ncl, int from, int to);
+static int rk_rq_assignable(const tree_t *t) { return t && (t->t == TT_VAR || t->t == TT_IDX); }
+static tree_t *rk_rq_subst(RkB *b, const RkRq *q, tree_t *subj, RkClosure *cl, int ncl) {
+    int nondestructive = q->word[0] == 'S';
+    tree_t *pat = rk_rx_expr(b, q->rxflags, b->s + q->ps, q->pe - q->ps);
+    tree_t *repl;
+    int plain = 1;
+    for (int i = q->rs; i < q->re; i++) if (b->s[i] == '$' || b->s[i] == '@' || b->s[i] == '{' || b->s[i] == '\\') plain = 0;
+    if (plain) repl = leaf_sval(TT_QLIT, trimdup(b->s + q->rs, q->re - q->rs));
+    else {
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+        expr_add_child(seq, b_dq(b, cl, ncl, q->rs, q->re));
+        repl = ast_node_new(TT_ANON_BLOCK);
+        expr_add_child(repl, seq);
+    }
+    tree_t *call = make_call("re_subst");
+    expr_add_child(call, subj);
+    expr_add_child(call, pat);
+    expr_add_child(call, repl);
+    int mode = (q->g ? 1 : 0) | (q->ov ? 2 : 0) | (q->ex ? 4 : 0) | (q->cont ? 8 : 0) | (q->posn ? 16 : 0) | (q->x_min != -2 ? 32 : 0) | (q->nth_n ? 64 : 0) | (nondestructive ? 128 : 0);
+    expr_add_child(call, rk_ilit(mode));
+    expr_add_child(call, rk_ilit(q->cont ? q->c_val : q->posn ? q->p_val : 0));
+    expr_add_child(call, rk_ilit(q->x_min == -2 ? 0 : q->x_min));
+    expr_add_child(call, rk_ilit(q->x_min == -2 ? 0 : q->x_max));
+    for (int k = 0; k < q->nth_n; k++) expr_add_child(call, rk_ilit(q->nth[k]));
+    if (nondestructive || !rk_rq_assignable(subj)) return call;
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(seq, expr_binary(TT_ASSIGN, rk_tree_clone(subj), call));
+    expr_add_child(seq, leaf_sval(TT_VAR, "/"));
+    return seq;
+}
+static tree_t *rk_rq_term(RkB *b, const RkRq *q, RkClosure *cl, int ncl) {
+    const char *w = q->word;
+    if (!w[0] || !strcmp(w, "rx")) {
+        tree_t *c = make_call("__rk_regex");
+        expr_add_child(c, rk_rx_expr(b, q->rxflags, b->s + q->ps, q->pe - q->ps));
+        return c;
+    }
+    tree_t *topic = leaf_sval(TT_VAR, "_");
+    if (!strcmp(w, "m") || !strcmp(w, "ms") || !strcmp(w, "mm")) {
+        int plain_g = q->g && !q->ov && !q->ex && !q->cont && !q->posn && q->x_min == -2 && !q->nth_n;
+        if (plain_g) { RkRq g = *q; g.has_adv = 0; return rk_rq_smatch(b, &g, topic, "match_global"); }
+        return rk_rq_smatch(b, q, topic, "match");
+    }
+    if (!strcmp(w, "s") || !strcmp(w, "S") || !strcmp(w, "ss") || !strcmp(w, "Ss")) return rk_rq_subst(b, q, topic, cl, ncl);
+    if (!strcmp(w, "tr") || !strcmp(w, "TR")) {
+        int nondestructive = w[0] == 'T' || (q->trf & 8);
+        tree_t *call = make_call("re_trans");
+        expr_add_child(call, topic);
+        expr_add_child(call, leaf_sval(TT_QLIT, trimdup(b->s + q->ps, q->pe - q->ps)));
+        expr_add_child(call, leaf_sval(TT_QLIT, trimdup(b->s + q->rs, q->re - q->rs)));
+        expr_add_child(call, rk_ilit(q->trf));
+        if (nondestructive) return call;
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+        expr_add_child(seq, expr_binary(TT_ASSIGN, rk_tree_clone(topic), call));
+        expr_add_child(seq, rk_tree_clone(topic));
+        return seq;
+    }
+    return NULL;
+}
 /*====================================================================================================================================================================================================*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int dq_closure_end(const char *s, int i, int n) {
@@ -882,6 +1131,16 @@ static tree_t *b_addsub(RkB *b, int k, tree_t *l, tree_t *r) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_rx_obj_of(tree_t *r) {
+    if (r && r->t == TT_SMATCH && r->n >= 3 && r->c[0] && r->c[0]->t == TT_VAR && r->c[0]->v.sval && !strcmp(r->c[0]->v.sval, "_") && r->c[2] && r->c[2]->v.sval
+        && (!strcmp(r->c[2]->v.sval, "match") || !strcmp(r->c[2]->v.sval, "match_global"))) {
+        tree_t *c = make_call("__rk_regex");
+        expr_add_child(c, r->c[1]);
+        return c;
+    }
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *b_cmp(RkB *b, int k, tree_t *l, tree_t *r) {
     switch (k) {
     case 0: return rk_chain_cmp(nctx(b, l), TT_EQ, nctx(b, r));
@@ -890,7 +1149,7 @@ static tree_t *b_cmp(RkB *b, int k, tree_t *l, tree_t *r) {
     case 3: return rk_chain_cmp(nctx(b, l), TT_GT, nctx(b, r));
     case 4: case 6: return rk_chain_cmp(nctx(b, l), TT_LE, nctx(b, r));
     case 5: case 7: return rk_chain_cmp(nctx(b, l), TT_GE, nctx(b, r));
-    case 9: return call2("__rk_not_smartmatch", l, r);
+    case 9: return call2("__rk_not_smartmatch", l, rk_rx_obj_of(r));
     case 10: return call2("__rk_approx", l, r);
     case 11: case 27: case 28: return call2("__rk_set_elem", l, r);
     case 12: case 30: case 31: return call2("__rk_set_cont", l, r);
@@ -1251,21 +1510,24 @@ tree_t *rkb_prefix_apply(RkB *b, const char *op, tree_t *x) {
 tree_t *rkb_incdec(RkB *b, const char *var, int add) { return rk_incdec(b, var, add); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_smartmatch_term(RkB *b, tree_t *l, RkTerm *x) {
-    if (x->kind == TK_QUOTE && !x->npost && !x->npre) {
-        const char *s = b->s + x->from;
-        const char *kind = NULL; char *body = NULL, *srep = NULL; int sg = 0;
-        if (s[0] == '/') { kind = "match"; body = regex_to_engine(regex_body(b, x->from + 1, x->to, '/')); }
-        else if (!strncmp(s, "m:g/", 4)) { kind = "match_global"; body = regex_to_engine(regex_body(b, x->from + 4, x->to, '/')); }
-        else if (s[0] == 'm' && (s[1] == '{' || s[1] == '(' || s[1] == '[' || s[1] == '<' || s[1] == '!' || s[1] == '|' || s[1] == '#' || s[1] == ',')) { char cl = s[1] == '{' ? '}' : s[1] == '(' ? ')' : s[1] == '[' ? ']' : s[1] == '<' ? '>' : s[1]; kind = "match"; body = regex_to_engine(regex_body(b, x->from + 2, x->to, cl)); }
-        else if (s[0] == 's' && s[1] == '/') {
-            kind = "subst";
-            char *pat = regex_to_engine(regex_body(b, x->from + 2, x->to, '/'));
-            int i = x->from + 2; while (i < x->to && !(b->s[i] == '/' && b->s[i - 1] != '\\')) i++;
-            char *rep = regex_body(b, i + 1, x->to, '/');
-            int g = b->s[x->to - 1] == 'g';
-            body = pat; srep = rep; sg = g;
+    if (x->kind == TK_QUOTE && !x->npost && !x->npre && x->t) {
+        tree_t *t = x->t;
+        if (t->t == TT_SMATCH && t->n >= 3) { t->c[0] = l; return t; }
+        if (t->t == TT_SEQ_EXPR && t->n == 2 && t->c[0] && t->c[0]->t == TT_ASSIGN && t->c[0]->n == 2 && t->c[0]->c[1] && t->c[0]->c[1]->t == TT_FNC && t->c[0]->c[1]->v.sval
+            && (!strcmp(t->c[0]->c[1]->v.sval, "re_subst") || !strcmp(t->c[0]->c[1]->v.sval, "re_trans"))) {
+            tree_t *call = t->c[0]->c[1];
+            call->c[1] = l;
+            if (rk_rq_assignable(l)) { t->c[0]->c[0] = rk_tree_clone(l); if (t->c[1] && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "_")) t->c[1] = rk_tree_clone(l); } else return call;
+            return t;
         }
-        if (kind) { tree_t *m = ast_node_new(TT_SMATCH); tree_t *bn = leaf_sval(TT_QLIT, body); if (srep) { ast_push(bn, leaf_sval(TT_QLIT, srep)); ast_push(bn, leaf_sval(TT_QLIT, sg ? "g" : "-")); } ast_push(m, l); ast_push(m, bn); ast_push(m, leaf_sval(TT_QLIT, kind)); return m; }
+        if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "re_subst") || !strcmp(t->v.sval, "re_trans"))) { t->c[1] = l; return t; }
+        if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_regex") && t->n == 2) {
+            tree_t *m = ast_node_new(TT_SMATCH);
+            ast_push(m, l);
+            ast_push(m, t->c[1]);
+            ast_push(m, leaf_sval(TT_QLIT, "match"));
+            return m;
+        }
     }
     if ((x->kind == TK_NAME || (x->kind == TK_CALL && x->t && x->t->t == TT_VAR)) && !x->npost && !x->npre) {
         tree_t *mc = ast_node_new(TT_METHCALL); ast_push(mc, l); ast_push(mc, leaf_sval(TT_QLIT, "does")); ast_push(mc, leaf_sval(TT_QLIT, x->name)); return mc;
@@ -1447,6 +1709,7 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     memset(it, 0, sizeof *it); it->kind = TK_VAR; it->from = from; it->to = it->core_to = to;
     if (nc) { tree_t *c = ast_node_new(TT_NAMED_CAPTURE); ast_push(c, leaf_sval(TT_QLIT, trimdup(nc, nclen))); it->t = c; it->cls = 'N'; return; }
     char *name = spn(b, from, to); if (!strcmp(name, "$")) name = fmt("$__rk_st_anon%d", from); it->name = name;
+    if (!strcmp(name, "@$/") || !strcmp(name, "%$/")) { tree_t *mc = ast_node_new(TT_METHCALL); ast_push(mc, leaf_sval(TT_VAR, "/")); ast_push(mc, leaf_sval(TT_QLIT, name[0] == '@' ? "list" : "hash")); it->t = mc; it->cls = 'V'; return; }
     int n = (int) strlen(name);
     it->cls = var_cls_of(name, n);
     switch (it->cls) {
@@ -1546,11 +1809,12 @@ void rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl) {
     if (u[0] == '"') it->t = b_dq(b, cl, ncl, from + 1, to - 1);
     else if (u[0] == '\'') it->t = b_sq(b, from + 1, to - 1);
     else if (u[0] == 0xEF && u[1] == 0xBD && u[2] == 0xA2) it->t = leaf_sval(TT_QLIT, spn(b, from + 3, to - 3));
-    else if (u[0] == '/' || !strncmp((const char *) u, "rx/", 3) || !strncmp((const char *) u, "m/", 2)) {
-        int at = from + (u[0] == '/' ? 1 : u[0] == 'r' ? 3 : 2);
-        it->t = make_call("__rk_regex"); expr_add_child(it->t, leaf_sval(TT_QLIT, regex_to_engine(regex_body(b, at, to, '/'))));
+    else {
+        RkRq q;
+        tree_t *rt = NULL;
+        if (rk_rq_parse(b->s, from, to, &q) && !q.bad) rt = rk_rq_term(b, &q, cl, ncl);
+        it->t = rt ? rt : leaf_sval(TT_QLIT, spn(b, from, to));
     }
-    else it->t = leaf_sval(TT_QLIT, spn(b, from, to));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_words(RkB *b, RkTerm *it, int from, int to, int ifrom, int ito) {

@@ -1,4 +1,5 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -9,9 +10,9 @@
 static void *rx_alloc0(size_t n) { void *p = rt_wsb_alloc(n); memset(p, 0, n ? n : 1); return p; }
 typedef enum {
     N_LIT, N_ANY, N_SET, N_BOS, N_EOS, N_BOL, N_EOL, N_WB, N_NWB, N_LWB, N_RWB, N_WW, N_NWW, N_SEQ, N_ALT, N_CONJ, N_GROUP, N_QUANT, N_LOOK, N_BACKREF, N_RULE, N_NULL, N_FAIL, N_ATOMIC, N_WS, N_CODE,
-        N_SPAN, N_NLN
+        N_SPAN, N_NLN, N_MARK
 } NK;
-enum { CL_DIGIT = 1, CL_WORD, CL_SPACE, CL_HSPACE, CL_VSPACE, CL_ALPHA, CL_ALNUM, CL_UPPER, CL_LOWER, CL_PUNCT, CL_XDIGIT, CL_CNTRL, CL_PRINT, CL_GRAPH, CL_BLANK, CL_NL };
+enum { CL_DIGIT = 1, CL_WORD, CL_SPACE, CL_HSPACE, CL_VSPACE, CL_ALPHA, CL_ALNUM, CL_UPPER, CL_LOWER, CL_PUNCT, CL_XDIGIT, CL_CNTRL, CL_PRINT, CL_GRAPH, CL_BLANK, CL_NL, CL_ASCII };
 typedef struct RxSetItem { char op, kind; int cls, neg, nrng, plen; unsigned *rng; const char *prop; } RxSetItem;
 typedef struct RxSet { int n; RxSetItem *it; } RxSet;
 typedef struct RxNode {
@@ -26,10 +27,10 @@ typedef struct RxNode {
 typedef struct CapList { RxCap **v; int n, cap; } CapList;
 struct RxProg { RxNode *root; int flags; const RxEnv *env; CapList tops; };
 static RxCap rx_silent_cap = { 'h', 0, "", 0, 0, 0, 0, 0, 0 };
-typedef struct Ctx { const RxEnv *env; const unsigned char *s; int slen, tend, nev, cev; RxEv *ev; int depth; } Ctx;
+typedef struct Ctx { const RxEnv *env; const unsigned char *s; int slen, tend, nev, cev; RxEv *ev; int depth, mfrom, mto; } Ctx;
 typedef struct Cont Cont;
 struct Cont { int (*fn)(Ctx *, const Cont *, int); const RxNode *n; int a, b, c; const Cont *up; };
-typedef struct P { const char *s; int n, i, flags, pidx, angle, sigok, esc_more, esc_end; const char *err; const RxEnv *env; CapList *cur; } P;
+typedef struct P { const char *s; int n, i, flags, pidx, angle, sigok, esc_more, esc_end, nmark, force_rep; const char *err; const RxEnv *env; CapList *cur; } P;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned rx_cp(const unsigned char *s, int n, int i, int *len) {
     unsigned char c = s[i];
@@ -98,6 +99,8 @@ static int rx_cls(const RxEnv *e, int cls, unsigned c) {
         return rx_ishspace_u(c);
         case CL_VSPACE:
         return rx_isvspace_u(c);
+        case CL_ASCII:
+        return c < 0x80;
         case CL_NL:
         return c == 10 || c == 13 || c == 0x85 || c == 0x2028 || c == 0x2029;
         case CL_ALPHA:
@@ -346,7 +349,7 @@ static int p_cls_name(const char *nm, int n) {
         const char *n;
         int c;
     } t[] = { { "alpha", CL_ALPHA }, { "digit", CL_DIGIT }, { "alnum", CL_ALNUM }, { "upper", CL_UPPER }, { "lower", CL_LOWER }, { "space", CL_SPACE }, { "blank", CL_BLANK }, { "punct", CL_PUNCT },
-        { "xdigit", CL_XDIGIT }, { "cntrl", CL_CNTRL }, { "print", CL_PRINT }, { "graph", CL_GRAPH }, { "word", CL_WORD }, { 0, 0 } };
+        { "xdigit", CL_XDIGIT }, { "cntrl", CL_CNTRL }, { "print", CL_PRINT }, { "graph", CL_GRAPH }, { "word", CL_WORD }, { "ascii", CL_ASCII }, { 0, 0 } };
     for (int k = 0; t[k].n; k++) if ((int) strlen(t[k].n) == n && !strncmp(t[k].n, nm, (size_t) n)) return t[k].c;
     return 0;
 }
@@ -387,6 +390,15 @@ static int p_setitem_bracket(P *p, RxSetItem *it) {
             p->i += l;
         }
         unsigned b = a;
+        {
+            int j = p->i;
+            while (j < p->n && p->s[j] == ' ') j++;
+            if (j < p->n && p->s[j] == '-') {
+                int k = j + 1;
+                while (k < p->n && p->s[k] == ' ') k++;
+                if (k < p->n && p->s[k] != ']') { perr(p, "Unsupported use of - as character range; in Raku please use .."); return 0; }
+            }
+        }
         int save = p->i;
         while (peekc(p) == ' ') p->i++;
         if (peekc(p) == '.' && p->i + 1 < p->n && p->s[p->i + 1] == '.') {
@@ -419,6 +431,7 @@ static int p_setitem_bracket(P *p, RxSetItem *it) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static RxNode *p_set(P *p, int firstop) {
     RxNode *x = nn(N_SET);
+    x->fl = (unsigned char) (p->flags & (RXF_I | RXF_M));
     x->set = (RxSet *) RX_ALLOC(sizeof(RxSet));
     int cap = 4;
     x->set->it = (RxSetItem *) RX_ALLOC(sizeof(RxSetItem) * (size_t) cap);
@@ -449,7 +462,11 @@ static RxNode *p_set(P *p, int firstop) {
             int ng = 0;
             if (peekc(p) == '!') { ng = 1; p->i++; }
             int st = p->i;
-            while (p->i < p->n && (isw(peekc(p)) || peekc(p) == '=' || peekc(p) == '(' || peekc(p) == ')')) p->i++;
+            while (p->i < p->n && (isw(peekc(p)) || peekc(p) == '=')) p->i++;
+            if (peekc(p) == '<' || peekc(p) == '(') {
+                int open = peekc(p), close = open == '<' ? '>' : ')', d = 0;
+                while (p->i < p->n) { if (peekc(p) == open) d++; else if (peekc(p) == close && --d == 0) { p->i++; break; } p->i++; }
+            }
             it->kind = 'P';
             it->prop = p->s + st;
             it->plen = p->i - st;
@@ -512,6 +529,21 @@ static int p_ident(P *p, int *st) {
 static RxNode *p_angle(P *p) {
     int c = peekc(p);
     int fl = p->flags;
+    if (c == '(') { p->i++; p->nmark++; return nn(N_MARK); }
+    if (c == ' ' || c == '\t' || c == '\n') {
+        RxNode *alt = nn(N_ALT);
+        alt->ltm = 1;
+        for (;;) {
+            skipws(p);
+            if (p->i >= p->n) { perr(p, "Unable to parse regex; couldn't find final '>'"); return alt; }
+            if (peekc(p) == '>') { p->i++; break; }
+            int st = p->i;
+            while (p->i < p->n && !isspace(peekc(p)) && peekc(p) != '>') p->i++;
+            nadd(alt, nlit(p->s + st, p->i - st, fl & (RXF_I | RXF_M)));
+        }
+        if (alt->nch == 1) return alt->ch[0];
+        return alt;
+    }
     if (c == '[') return p_set(p, '+');
     if (c == '+' || c == '-') { int op = c; p->i++; while (peekc(p) == ' ') p->i++; return p_set(p, op); }
     if (c == ':') { RxNode *x = p_set(p, '+'); return x; }
@@ -544,6 +576,15 @@ static RxNode *p_angle(P *p) {
             return x;
         }
         if (c == '?' || c == '!') { p->i++; if (peekc(p) == '>') p->i++; return nn(pred == '?' ? N_NULL : N_FAIL); }
+        if (c == '[' || c == ':' || c == '+' || c == '-') {
+            RxNode *set;
+            if (c == '+' || c == '-') { int op = c; p->i++; while (peekc(p) == ' ') p->i++; set = p_set(p, op); } else set = p_set(p, '+');
+            RxNode *lk = nn(N_LOOK);
+            lk->neg = pred == '!';
+            lk->fl = (unsigned char) fl;
+            nadd(lk, set);
+            return lk;
+        }
     }
     int dot = 0, amp = 0;
     if (c == '.') {
@@ -621,7 +662,7 @@ static RxNode *p_angle(P *p) {
     }
     if (peekc(p) == '>') p->i++;
     else perr(p, "Unable to parse regex; couldn't find final '>'");
-    if (!dot && !pred) {
+    if (!dot && !pred && !(amp && !alias)) {
         x->cap = alias ? mkcap(p, 'n', 0, alias, alen) : mkcap(p, 'n', 0, nm, nl);
         if (alias) { ((RxCap *) x->cap)->name2 = nm; ((RxCap *) x->cap)->nlen2 = nl; }
     } else if (alias) x->cap = mkcap(p, 'n', 0, alias, alen);
@@ -646,12 +687,14 @@ static RxNode *p_alias(P *p, char kind, int idx, const char *name, int nlen) {
         cap->idx = idx;
         cap->name = name;
         cap->nlen = nlen;
+        if (p->force_rep) cap->rep = 1;
         p->pidx = kind == 'p' ? idx + 1 : save_pidx;
         return a;
     }
     if (kind == 'n' && base->kind == N_RULE && base->cap) { RxCap *cap = (RxCap *) base->cap; cap->name2 = cap->name; cap->nlen2 = cap->nlen; cap->name = name; cap->nlen = nlen; return a; }
     RxNode *sp = nn(N_SPAN);
     sp->cap = mkcap(p, kind, idx, name, nlen);
+    if (p->force_rep) ((RxCap *) sp->cap)->rep = 1;
     nadd(sp, a);
     p->pidx = kind == 'p' ? idx + 1 : save_pidx;
     return sp;
@@ -688,7 +731,7 @@ static RxNode *p_quant(P *p, RxNode *a) {
         p->i += 2;
         skipws(p);
         if (peekc(p) == '?' || peekc(p) == '!' || peekc(p) == ':') { pre = peekc(p); p->i++; skipws(p); }
-        if (peekc(p) == '{') p_closure_bounds(p, &mn, &mx);
+        if (peekc(p) == '^') { p->i++; unsigned w = 0; p_number(p, &w, 10); mn = 0; mx = (int) w - 1; } else if (peekc(p) == '{') p_closure_bounds(p, &mn, &mx);
         else if (isw(peekc(p)) && p_number(p, &v, 10)) {
             mn = (int) v;
             mx = mn;
@@ -760,6 +803,7 @@ static void p_modifier(P *p) {
     else if ((nl == 1 && nm[0] == 'm') || (nl == 2 && !strncmp(nm, "mm", 2)) || (nl == 10 && !strncmp(nm, "ignoremark", 10))) bit = RXF_M;
     else if ((nl == 1 && nm[0] == 's') || (nl == 2 && !strncmp(nm, "ss", 2)) || (nl == 8 && !strncmp(nm, "sigspace", 8))) bit = RXF_S;
     else if ((nl == 1 && nm[0] == 'r') || (nl == 7 && !strncmp(nm, "ratchet", 7))) bit = RXF_R;
+    else if ((nl == 2 && !strncmp(nm, "P5", 2)) || (nl == 5 && !strncmp(nm, "Perl5", 5))) { perr(p, "Perl 5 regex syntax is not supported"); return; }
     if (peekc(p) == '(') {
         int d = 0, st2 = p->i;
         while (p->i < p->n) { if (p->s[p->i] == '(') d++; else if (p->s[p->i] == ')' && --d == 0) { p->i++; break; } p->i++; }
@@ -847,6 +891,15 @@ static RxNode *p_atom(P *p) {
         }
         return nn(N_EOS);
     }
+    if ((c == '@' || c == '%') && p->i + 1 < p->n && p->s[p->i + 1] == '<') {
+        int st = p->i + 2, j = st;
+        while (j < p->n && p->s[j] != '>') j++;
+        if (j < p->n) {
+            int k = j + 1;
+            while (k < p->n && p->s[k] == ' ') k++;
+            if (k < p->n && p->s[k] == '=') { p->i = k + 1; p->force_rep = 1; RxNode *r = p_alias(p, 'n', 0, p->s + st, j - st); p->force_rep = 0; return r; }
+        }
+    }
     if (c == '<') { if (p->i + 1 < p->n && p->s[p->i + 1] == '<') { p->i += 2; return nn(N_LWB); } p->i++; return p_angle(p); }
     if (c == '>') {
         if (p->angle > 0) return NULL;
@@ -867,6 +920,7 @@ static RxNode *p_atom(P *p) {
         x->neg = 3;
         return x;
     }
+    if (c == ')' && p->nmark > 0 && p->i + 1 < p->n && p->s[p->i + 1] == '>') { p->i += 2; p->nmark--; RxNode *m = nn(N_MARK); m->neg = 1; return m; }
     if (c == ')' || c == ']' || c == '|' || c == '&') return NULL;
     if (c == ':') {
         if (p->i + 1 < p->n && (isidstart((unsigned char) p->s[p->i + 1]) || p->s[p->i + 1] == '!')) { p_modifier(p); return nn(N_NULL); }
@@ -936,19 +990,26 @@ static RxNode *p_seq(P *p) {
     if (s->nch == 1) return s->ch[0];
     return s;
 }
-static RxNode *p_conj(P *p, int dbl) {
+static int amp1_at(P *p) { return peekc(p) == '&' && !(p->i + 1 < p->n && p->s[p->i + 1] == '&'); }
+static int amp2_at(P *p) { return peekc(p) == '&' && p->i + 1 < p->n && p->s[p->i + 1] == '&'; }
+static RxNode *p_conj1(P *p) {
     RxNode *first = p_seq(p);
-    for (;;) {
-        skipws(p);
-        if (peekc(p) == '&' && (dbl ? (p->i + 1 < p->n && p->s[p->i + 1] == '&') : !(p->i + 1 < p->n && p->s[p->i + 1] == '&'))) {
-            RxNode *cj = nn(N_CONJ);
-            cj->ltm = (unsigned char) dbl;
-            nadd(cj, first);
-            while (peekc(p) == '&' && (dbl ? (p->i + 1 < p->n && p->s[p->i + 1] == '&') : !(p->i + 1 < p->n && p->s[p->i + 1] == '&'))) { p->i += dbl ? 2 : 1; nadd(cj, p_seq(p)); skipws(p); }
-            return cj;
-        }
-        return first;
-    }
+    skipws(p);
+    if (!amp1_at(p)) return first;
+    RxNode *cj = nn(N_CONJ);
+    nadd(cj, first);
+    while (amp1_at(p)) { p->i++; nadd(cj, p_seq(p)); skipws(p); }
+    return cj;
+}
+static RxNode *p_conj(P *p, int dbl) {
+    (void) dbl;
+    RxNode *first = p_conj1(p);
+    skipws(p);
+    if (!amp2_at(p)) return first;
+    RxNode *cj = nn(N_CONJ);
+    nadd(cj, first);
+    while (amp2_at(p)) { p->i += 2; nadd(cj, p_conj1(p)); skipws(p); }
+    return cj;
 }
 static RxNode *p_ltm(P *p) {
     int base = p->pidx, mx = base;
@@ -1015,6 +1076,15 @@ const RxCap *const *rx_tops(const RxProg *p, int *n) { *n = p->tops.n; return (c
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int mnode(Ctx *c, const RxNode *n, int pos, const Cont *k);
 static int k_final(Ctx *c, const Cont *k, int pos) { (void) k; c->tend = pos; return 1; }
+static int k_exact(Ctx *c, const Cont *k, int pos) { (void) c; return pos == k->a; }
+static int k_conj(Ctx *c, const Cont *k, int pos) {
+    const RxNode *n = k->n;
+    int save = c->nev;
+    for (int i = 1; i < n->nch; i++) { Cont ek = { k_exact, n, pos, 0, 0, 0 }; if (!mnode(c, n->ch[i], k->a, &ek)) { c->nev = save; return 0; } }
+    int r = k->up->fn(c, k->up, pos);
+    if (!r) c->nev = save;
+    return r;
+}
 static int k_final_full(Ctx *c, const Cont *k, int pos) { (void) k; if (pos != c->slen) return 0; c->tend = pos; return 1; }
 static int run(Ctx *c, const Cont *k, int pos) { return k->fn(c, k, pos); }
 static int ev_push(Ctx *c, const RxCap *cap, int from, int to, int sub) {
@@ -1161,7 +1231,7 @@ static int call_rule(Ctx *c, const RxNode *n, int pos, const Cont *k) {
         const char *src = builtin_rule_src(n->s, n->slen);
         if (!src) { if (n->behind && n->neg) return run(c, k, pos); return 0; }
         const char *err = NULL;
-        ((RxNode *) n)->sub = rx_compile(src, 0, e, &err);
+        ((RxNode *) n)->sub = rx_compile(src, RXF_R, e, &err);
         if (!n->sub) return 0;
     }
     if (c->depth > 4000) return 0;
@@ -1281,14 +1351,9 @@ static int mnode(Ctx *c, const RxNode *n, int pos, const Cont *k) {
             return 0;
         }
         case N_CONJ:
-        {
-            int save = c->nev;
-            Cont stop = { k_final, n, 0, 0, 0, 0 };
-            int last = pos;
-            for (int i = 0; i < n->nch - 1; i++) { if (!mnode(c, n->ch[i], pos, &stop)) { c->nev = save; return 0; } last = c->tend; }
-            (void) last;
-            return mnode(c, n->ch[n->nch - 1], pos, k);
-        }
+        { Cont cj = { k_conj, n, pos, 0, 0, k }; return mnode(c, n->ch[0], pos, &cj); }
+        case N_MARK:
+        { int old = n->neg ? c->mto : c->mfrom; if (n->neg) c->mto = pos; else c->mfrom = pos; int r = run(c, k, pos); if (!r) { if (n->neg) c->mto = old; else c->mfrom = old; } return r; }
         case N_GROUP:
         { Cont gk = { k_group, n, pos, c->nev, 0, k }; return mnode(c, n->ch[0], pos, &gk); }
         case N_QUANT:
@@ -1331,8 +1396,9 @@ int rx_exec(const RxProg *pr, const char *subj, int slen, int start, int anchore
             pos = (int) ((const char *) q - subj);
         }
         c.nev = 0;
+        c.mfrom = c.mto = -1;
         Cont fin = { (anchored & 2) ? k_final_full : k_final, pr->root, 0, 0, 0, 0 };
-        if (mnode(&c, pr->root, pos, &fin)) { m->ok = 1; m->from = pos; m->to = c.tend; m->nev = c.nev; m->ev = c.ev; return 1; }
+        if (mnode(&c, pr->root, pos, &fin)) { m->ok = 1; m->from = c.mfrom >= 0 ? c.mfrom : pos; m->to = c.mto >= 0 ? c.mto : c.tend; m->nev = c.nev; m->ev = c.ev; return 1; }
         if ((anchored & 1) || pos >= slen) break;
         int l;
         (void) rx_cp(c.s, slen, pos, &l);
