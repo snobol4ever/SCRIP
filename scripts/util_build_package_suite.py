@@ -212,7 +212,7 @@ def read_contract(pkg_dir):
     it (the Icon packages' boards), so a source without one (a library graded through its driver, a spliced include) is no unit
     here either. Absent file = stdout alone and every source a unit, as every package before the file existed. Any other key or
     value refuses."""
-    out = {"stderr": "", "units": ""}
+    out = {"stderr": "", "units": "", "dialect": ""}
     cf = pkg_dir / "CONTRACT.tsv"
     if not cf.is_file():
         return out
@@ -226,8 +226,10 @@ def read_contract(pkg_dir):
             out["stderr"] = "merged"
         elif f[0] == "units" and f[1] == "ref-beside":
             out["units"] = "ref-beside"
+        elif f[0] == "dialect" and f[1] == "any-fpc-mode":
+            out["dialect"] = "any-fpc-mode"
         else:
-            h.refuse(f"{cf}:{n}: contract {f[0]!r}={f[1]!r} -- this builder admits stderr=merged and units=ref-beside only")
+            h.refuse(f"{cf}:{n}: contract {f[0]!r}={f[1]!r} -- this builder admits stderr=merged, units=ref-beside and dialect=any-fpc-mode only")
     return out
 
 
@@ -254,7 +256,7 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
                   if not p.stem.startswith(out_prefix))
     if not srcs:
         h.refuse(f"no {ext} files under {pkg_dir} (direct or one level down)")
-    entries, excluded = [], []
+    entries, excluded, dialects = [], [], []
     for i, src in enumerate(srcs, 1):
         # ⭐ QUALIFY WITH PARENT DIR WHEN NESTED (measured on csnobol4_suite: aa.sno at pkg_dir root AND
         # aa/aa.sno one level down are BOTH real, byte-identical vendored fixtures -- bare name would
@@ -342,15 +344,7 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
         # is nothing else present for the oracle to rename, the real corpus tree is never touched at all, and
         # it matches this package's own README's documented usage (`cp progs/hello.icn /tmp/t.icn && cd /tmp
         # && icont -s t.icn`) rather than inventing a new invocation contract.
-        _mode = re.search(r"\{\$mode +(delphi|objfpc|fpc|tp|macpas)", text, re.I) if lang == "pascal" else None
-        if _mode:
-            # ⛔ -Miso IS NOT ISO WHEN THE SOURCE SAYS OTHERWISE (the coo 2026-10-09, measured on rosetta-pascal: 102 of 203 graded programs
-            # carried {$mode delphi} or {$mode objfpc}, which overrides the command line, so fpc cut their refs as Delphi or Object Pascal).
-            # ISO is the oracle (Lon, CEO-1225): such a program is not graded against it.
-            excluded.append((name, f"not ISO 7185 -- the source's own {{$mode {_mode.group(1).lower()}}} overrides fpc -Miso"))
-            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (non-ISO $mode directive)", file=sys.stderr)
-            continue
-        def _oracle_isolated():
+        def _oracle_isolated(flags=flags):
             with tempfile.TemporaryDirectory(prefix="pkgsuite_oracle_") as _iso_dir:
                 _iso_src = Path(_iso_dir) / src.name
                 # ⭐ COMPANIONS TRAVEL WITH THE SOURCE (row aisnobol-all-eight-..., cto 2026-09-07): a program that
@@ -379,12 +373,25 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
                 else:
                     return h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text,
                                                               prog_args=prog_args, out_files=out_files, merge_stderr=merged)
-        ora_text, ora_rc, ora_kind = _oracle_isolated()
+        # ⭐ EVERY FPC DIALECT, ISO FIRST (Lon 2026-10-09, in-chat to the coo, verbatim: "I suspect you should ignore the compiler directives
+        # suggesting and hinting at the dialect. Let's get all those rosetta programs working if they run and give reasonable results, REF
+        # file, from the oracle."): under CONTRACT.tsv dialect=any-fpc-mode a Pascal program fpc refuses to compile under -Miso (the wrapper's
+        # exit 126 with nothing on stdout) is compiled again in fpc's default mode (which honours the source's own {$mode}), then objfpc,
+        # delphi and tp; the first that compiles cuts the ref, and ALL.dialect names the mode per entry.
+        _ladder = [flags, "", "-Mobjfpc", "-Mdelphi", "-Mtp"] if (lang == "pascal" and contract["dialect"] == "any-fpc-mode") else [flags]
+        for _fl in _ladder:
+            ora_text, ora_rc, ora_kind = _oracle_isolated(_fl)
+            if not (lang == "pascal" and ora_rc == 126 and not ora_text.strip()):
+                break
+        if lang == "pascal" and ora_rc == 126 and not ora_text.strip():
+            excluded.append((name, "fpc refuses to compile it" + (" in every mode (iso, default, objfpc, delphi, tp)" if len(_ladder) > 1 else " under -Miso")))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (fpc refuses to compile it)", file=sys.stderr)
+            continue
         # ⭐ ONE GROUND TRUTH OR NONE (the coo 2026-10-09, --twice, built for the Rosetta packages on Lon's word "Graded against the
         # oracle."): a program that prints the time, a random draw or an address answers differently on every run, so a ref cut from
         # one run grades SCRIP against an accident. Under --twice the oracle runs again in a fresh directory and a program whose
         # output or exit code differs is excluded with that reason, never absorbed.
-        if twice and ora_kind not in ("TRANSLATE", "HANG", "UNPROVEN") and _oracle_isolated()[:2] != (ora_text, ora_rc):
+        if twice and ora_kind not in ("TRANSLATE", "HANG", "UNPROVEN") and _oracle_isolated(_fl)[:2] != (ora_text, ora_rc):
             excluded.append((name, "the oracle answers differently on two runs (time, randomness or addresses in its output) -- no one ground truth"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle nondeterministic)", file=sys.stderr)
             continue
@@ -440,6 +447,8 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
         e = h.Entry("block", len(entries) + 1, name, text.splitlines(), ora_text.split("\n"),
                      stdin=stdin_text, want_rc=want_rc)
         entries.append(e)
+        if len(_ladder) > 1:
+            dialects.append((name, {"-Miso": "iso", "": "fpc-default", "-Mobjfpc": "objfpc", "-Mdelphi": "delphi", "-Mtp": "tp"}[_fl]))
         _fed = f" [stdin: {stdin_path.name}]" if stdin_text is not None else ""
         if prog_args: e.argv = list(prog_args)
         if out_files: e.out_files = list(out_files)
@@ -472,6 +481,12 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
     if not wrote_in and out_in.exists():
         out_in.unlink()
 
+    out_dialect = pkg_dir / f"{out_prefix}.dialect"
+    if dialects:
+        out_dialect.write_text("# the fpc mode that cut each entry's ref (CONTRACT.tsv dialect=any-fpc-mode): name<TAB>mode\n"
+                               + "".join(f"{n}\t{d}\n" for n, d in dialects))
+    elif out_dialect.exists():
+        out_dialect.unlink()
     wr_lines = [f"{e.name}\t{e.want_rc}" for e in entries if e.want_rc]
     if wr_lines:
         out_wantrc.write_text("\n".join(wr_lines) + "\n")
