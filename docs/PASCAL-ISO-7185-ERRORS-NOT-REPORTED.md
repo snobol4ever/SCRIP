@@ -11,14 +11,12 @@ Everything SCRIP can detect it reports, and the PAT rejection tests grade that. 
 | 6.9.3.1 | a `TotalWidth` below one in a `write` parameter | `iso7185prt1758a`, `iso7185prt1839` | accepts, rc 0; SCRIP prints byte-identically in both modes | CEO-1301 |
 | 6.9.3.1 | a `FracDigits` below one in a `write` parameter | `iso7185prt1758b`, `iso7185prt1840` | accepts, rc 0; SCRIP prints byte-identically in both modes | CEO-1301 |
 | 6.7.1 | the use of an undefined variable (a variable no statement has assigned): the use is not detected in general; a variable that no assignment reaches reads as zero | `iso7185prt1743` | accepts, rc 0, prints a zero; SCRIP prints the same in both modes | cfo yes on the CEO-1301 precedent, 2026-10-09 (corpus `218d94be5`); the ceo may overrule |
+| 6.5.3.3 case C | a read of an undiscriminated variant after a write of another arm | `iso7185prt1702c` | accepts, rc 0, prints nothing; SCRIP prints the same in both modes. Detecting it would break fpc-graded master entries that pun across arms on purpose (`test_tprec4`, `test_tprec12`) | the ceo, the cfo concurring, on the CEO-1301 precedent, 2026-10-09 (CEO-1575) |
 
 SCRIP does detect, and reports, several neighbours of these: the function whose result is never assigned (6.6.2, PAT 1918), the control variable of a `for` statement used after the statement (6.8.3.9, PAT 1811), a variant read after the tag changed (6.5.3.3, PAT 1851), a file buffer or pointer target whose owner is altered while a reference exists (6.5.5, 6.5.4, PAT 1706a, 1706b, 1705).
 
 ## Proposed, awaiting the ceo (not ruled)
 
-| Clause | Error | PAT program | What is measured |
-|---|---|---|---|
-| 6.5.3.3 case C | a read of an undiscriminated variant after a write of another arm | `iso7185prt1702c` | the oracle accepts, rc 0, prints nothing; SCRIP the same. Detecting it would break fpc-graded master entries that pun across arms on purpose (`test_tprec4`, `test_tprec12`), so the proposal is to list it here and grade 1702c as an acceptance test. |
-| 6.5.3.3 case D | a write of an undiscriminated variant while a reference to another arm exists | `iso7185prt1702d` | the oracle accepts and prints `i: 99` (it overlays the character's byte onto the integer); SCRIP prints `i: 1`: since CEO-647 the arms share one byte storage, but the `var` actual `a.i` travels as a copy (copy-in and copy-out), so the callee's write of the other arm is not seen through the formal; fpc passes the address. It cannot be graded as an acceptance test against the oracle. It needs a decision: detect case D at the call (a variable actual that is a field of an undiscriminated variant, a callee that writes another arm of the same record), or rule the program ungradable. |
+None open. 6.5.3.3 case D (`iso7185prt1702d`, a write of an undiscriminated variant while a reference to another arm exists) is NOT an error SCRIP leaves unreported: the ceo ruled (CEO-1575, 2026-10-09) that it is a defect of SCRIP, a `var` actual that is a record field or an array element travels copy-in and copy-out where ISO 7185 6.6.3.3 makes the formal denote the actual variable, and the row that cures it passes the component by reference; the program stays in the PAT denominator until then.
 
 A row moves from "proposed" to "ruled" only on the ceo's ruling, and a program leaves this document the day SCRIP reports its error.
