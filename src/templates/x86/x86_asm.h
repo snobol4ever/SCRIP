@@ -2089,6 +2089,8 @@ inline std::string x86_freturn_floater() { return x86_srf_floater(24); }
 extern "C" void rt_scan_sync_out(uint64_t delta);
 extern "C" uint64_t rt_scan_sync_in(void);
 extern "C" uint64_t rt_scan_live_subj(void);
+typedef struct { uint64_t ptr; uint64_t len; } ScanLiveRegs_t;
+extern "C" ScanLiveRegs_t rt_scan_live_regs(void);
 extern "C" int g_scan_regs_live;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int g_gc_pending;
@@ -2127,11 +2129,17 @@ inline std::string x86_scan_sync_out_force() {
     return x86("mov", "rdi", "r14") + x86("call", "rt_scan_sync_out", (uint64_t)(uintptr_t)(void *)rt_scan_sync_out) + x86_scan_plant_request_collection();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-inline std::string x86_scan_cursor_sync_in_force() {
-    return x86("push", "rax") + x86("push", "rdx")
+inline std::string x86_scan_switch_reload_force() {
+    return x86("push", "rax")
+         + x86("push", "rdx")
+         + x86("comment", "co-expression switch: &subject and &pos are global (iconx), so r13/r15 and r14 reload from the rooted global the other thread set or the collector moved")
+         + x86("call", "rt_scan_live_regs", (uint64_t)(uintptr_t)(void *)rt_scan_live_regs)
+         + x86("mov", "r13", "rax")
+         + x86("mov", "r15", "rdx")
          + x86("call", "rt_scan_sync_in", (uint64_t)(uintptr_t)(void *)rt_scan_sync_in)
          + x86("mov", "r14", "rax")
-         + x86("pop", "rdx") + x86("pop", "rax");
+         + x86("pop", "rdx")
+         + x86("pop", "rax");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline std::string x86_scan_sync_in_rr_force() {

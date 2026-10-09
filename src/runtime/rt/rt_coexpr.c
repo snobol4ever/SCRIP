@@ -22,19 +22,18 @@ static pthread_t g_co_main_thr;
 static int g_co_main_set = 0;
 static long g_coexpr_serial = 1;
 extern int scan_depth;
-typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r13, r14, r15, rbx, csav5, gva, frame_bytes, below; } scrip_coexpr_entry_pkg_t;
+typedef struct scrip_coexpr_entry_pkg_t { void *body_entry_addr; uint64_t r12, r14, rbx, csav5, gva, frame_bytes, below; } scrip_coexpr_entry_pkg_t;
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, body_entry_addr) == 0, "pkg layout drift: body_entry_addr");
 _Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r12) == 8, "pkg layout drift: r12");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r13) == 16, "pkg layout drift: r13");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14) == 24, "pkg layout drift: r14");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r15) == 32, "pkg layout drift: r15");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx) == 40, "pkg layout drift: rbx");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5) == 48, "pkg layout drift: csav5");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva) == 56,
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, r14) == 16,
+    "pkg layout drift: r14 -- the package holds no subject word: the trampoline loads r13/r15 from the rooted global scan_subj, as iconx keeps &subject global");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, rbx) == 24, "pkg layout drift: rbx");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, csav5) == 32, "pkg layout drift: csav5");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, gva) == 40,
     "pkg layout drift: gva -- the GLOBAL-VARIABLE AREA base, r9. A co-expression body reads every global as [r9 + off], and r9 was not among the six registers this package carried, so on the body's "
     "own thread it held whatever the trampoline left there: EVERY GLOBAL READ INSIDE A CO-EXPRESSION RETURNED GARBAGE, which is also why activating a co-expression stored in a global segfaulted -- t"
     "he target pointer was garbage, not the co-expression.");
-_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes) == 64, "pkg layout drift: frame_bytes -- the trampoline reads it at 64(pkg) to size the frame-snapshot restore onto the body stack");
+_Static_assert(offsetof(scrip_coexpr_entry_pkg_t, frame_bytes) == 48, "pkg layout drift: frame_bytes -- the trampoline reads it at 48(pkg) to size the frame-snapshot restore onto the body stack");
 _Static_assert(sizeof(DESCR_t) == 16,
     "the transmitted value is one 16-byte DESCR: bb_activate stages it as rsi:rdx and bb_coret as rdi:rsi, and scrip_coret/scrip_coexpr_activate write exactly those two words");
 static void co_xmit_set(DESCR_t *x, uint64_t d0, uint64_t d1) { uint64_t w[2]; w[0] = d0; w[1] = d1; memcpy(x, w, sizeof *x); }
@@ -126,11 +125,8 @@ void scrip_coswitch(scrip_coctx_t *old, scrip_coctx_t *new_ctx, int first) {
         { extern void rt_scan_state_reset(void); if (new_ctx->entry_fn && !_inh_ctx) rt_scan_state_reset(); }
         if (_inh_ctx && new_ctx->entry_fn == scrip_coexpr_trampoline_entry && new_ctx->entry_arg) {
             extern int scan_pos;
-            extern const char *scan_subj;
-            extern long rt_scan_subj_len(void);
             scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)new_ctx->entry_arg;
             pkg->r14 = (uint64_t)(scan_pos > 0 ? scan_pos - 1 : 0);
-            if (!new_ctx->sigma_live && scan_depth > 0 && scan_subj) { pkg->r13 = (uint64_t)(uintptr_t)scan_subj; pkg->r15 = (uint64_t)rt_scan_subj_len(); new_ctx->sigma_live = 1; }
         }
     }
     __asm__ volatile ("mov %%rsp, %0\n\tmov %%rbp, %1" : "=m"(old->park_sp), "=m"(old->park_rbp));
@@ -214,10 +210,13 @@ void scrip_cofail(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void scrip_coexpr_trampoline_entry(void *arg) {
     scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)arg;
-    __asm__ volatile ( "mov  8(%0), %%r12\n\t" "mov 16(%0), %%r13\n\t" "mov 24(%0), %%r14\n\t" "mov 32(%0), %%r15\n\t" "mov 40(%0), %%rbx\n\t" "mov 56(%0), %%r9\n\t" "mov 48(%0), %%rsi\n\t"
-        "mov 64(%0), %%rcx\n\t" "mov  0(%0), %%rax\n\t" "test %%rcx, %%rcx\n\t" "jz 2f\n\t" "sub %%rcx, %%rsp\n\t" "sub $256, %%rsp\n\t" "and $-16, %%rsp\n\t" "mov %%rsp, %%rdi\n\t"
-        "mov %%rsp, %%rbp\n\t" "mov 72(%0), %%rdx\n\t" "add %%rdx, %%rbp\n\t" "cld\n\t" "rep movsb\n\t" "jmp *%%rax\n\t" "2:\n\t" "mov %%rsp, %%rbp\n\t" "jmp *%%rax\n\t" : : "r"(pkg) : "rax", "rcx",
-        "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory" );
+    typedef struct { uint64_t ptr; uint64_t len; } co_subj_regs_t;
+    extern co_subj_regs_t rt_scan_live_regs(void);
+    const co_subj_regs_t subj = rt_scan_live_regs();
+    __asm__ volatile ( "mov %1, %%r13\n\t" "mov %2, %%r15\n\t" "mov  8(%0), %%r12\n\t" "mov 16(%0), %%r14\n\t" "mov 24(%0), %%rbx\n\t" "mov 40(%0), %%r9\n\t" "mov 32(%0), %%rsi\n\t"
+        "mov 48(%0), %%rcx\n\t" "mov  0(%0), %%rax\n\t" "test %%rcx, %%rcx\n\t" "jz 2f\n\t" "sub %%rcx, %%rsp\n\t" "sub $256, %%rsp\n\t" "and $-16, %%rsp\n\t" "mov %%rsp, %%rdi\n\t"
+        "mov %%rsp, %%rbp\n\t" "mov 56(%0), %%rdx\n\t" "add %%rdx, %%rbp\n\t" "cld\n\t" "rep movsb\n\t" "jmp *%%rax\n\t" "2:\n\t" "mov %%rsp, %%rbp\n\t" "jmp *%%rax\n\t" : : "r"(pkg), "r"(subj.ptr),
+        "r"(subj.len) : "rax", "rcx", "rdx", "rsi", "rdi", "r12", "r13", "r14", "r15", "rbx", "r9", "memory" );
     fprintf(stderr, "scrip_coexpr: FATAL scrip_coexpr_trampoline_entry fell through the jmp -- bad body_entry_addr?\n");
     abort();
 }
@@ -260,9 +259,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     pkg->body_entry_addr = body_entry_addr;
     ctx->inherit_scan = 1;
     pkg->r12 = regs[0];
-    pkg->r13 = regs[1];
     pkg->r14 = regs[2];
-    pkg->r15 = regs[3];
     pkg->rbx = regs[4];
     pkg->csav5 = regs[5];
     pkg->gva = regs[6];
@@ -293,7 +290,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->stk_hi = 0;
     ctx->park_sp = 0;
     ctx->park_rbp = 0;
-    ctx->sigma_live = scan_depth > 0;
+    ctx->sigma_live = 0;
     ctx->scan_state = NULL;
     ctx->serial = ++g_coexpr_serial;
     ctx->activations = 0;
@@ -315,9 +312,9 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     if (!opkg) scrip_co_uerror("scrip_coexpr: refresh of a coexpression with no entry package");
     uint64_t regs[7];
     regs[0] = opkg->r12;
-    regs[1] = opkg->r13;
+    regs[1] = 0;
     regs[2] = opkg->r14;
-    regs[3] = opkg->r15;
+    regs[3] = 0;
     regs[4] = opkg->rbx;
     regs[5] = opkg->csav5 + opkg->below;
     regs[6] = opkg->gva;
@@ -408,7 +405,6 @@ scrip_coctx_t *scrip_co_gc_head(void) { return g_co_gc_head; }
 extern void rt_genp_thread_entry(void *arg);
 static void co_gc_visit_record(scrip_coctx_t *c, long *n_sigma) {
     if (!c->entry_arg || !c->sigma_live) return;
-    if (c->entry_fn == scrip_coexpr_trampoline_entry) { scrip_coexpr_entry_pkg_t *pkg = (scrip_coexpr_entry_pkg_t *)c->entry_arg; rt_gc_visit_raw((const char **)&pkg->r13); (*n_sigma)++; return; }
     if (c->entry_fn == rt_genp_thread_entry) { rt_gc_visit_raw((const char **)((char *)c->entry_arg + 24)); (*n_sigma)++; return; }
 }
 #if RT_DIAG

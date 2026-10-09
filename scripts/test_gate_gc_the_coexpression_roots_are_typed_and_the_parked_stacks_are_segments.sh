@@ -16,17 +16,22 @@
 # thread record rt_genp_s (rbx,r12,r13,r14,r15 at +8..+48, co.thread at +48).
 #
 # WHAT IS HERE. (1) xmit is a DESCR_t field visited by rt_gc_visit_descr -- typed by its own tag. (2) gc_spill is
-# DELETED; scrip_coswitch records park_sp (the parked thread's rsp) instead. (3) each record is tagged sigma_live at
-# creation (scan_depth > 0: the creator was inside a string scan, so the marshalled r13 IS a heap subject pointer)
-# and only then is its r13 word visited raw -- the package's r13 (rt_coexpr.c owns the struct) and the generator
-# record's word at +24 (pinned by rt.c's own _Static_assert offsetof(regs)==8 and its `movq 24(%rdi), %r13`; arm 7
+# DELETED; scrip_coswitch records park_sp (the parked thread's rsp) instead. (3) the generator record is tagged
+# sigma_live at creation (scan_depth > 0: the creator was inside a string scan, so the marshalled r13 IS a heap
+# subject pointer) and only then is its r13 word visited raw -- the generator record's word at +24 (pinned by rt.c's own _Static_assert offsetof(regs)==8 and its `movq 24(%rdi), %r13`; arm 7
 # reads both lines because rt.c is another seat's file). (4) the parked stacks are SEGMENTS of the same population
 # as the running stack: one iterator hands every segment (parked main, each parked co-expression, then the running
 # thread from the poll's floor) to the ONE remaining stack-walker call, reported under pop=parked; the walker row
 # replaces that call by the mapped walk. gc_zeta_frame_calls 11 -> 4 (the registered ranges, the segments, the
-# pz seam, the heap interior); the rt_coexpr.c stack root range is gone. (5) THE SWITCH RECORD (bb_activate,
-# bb_coret): r13 is spilled as ONE tagged DESCR cell {DT_S, slen=r15d, s=r13} on the thread's own spine before the
-# switch and reloaded after it, because a collection on the OTHER thread cannot rewrite a parked thread's register.
+# pz seam, the heap interior); the rt_coexpr.c stack root range is gone. (5) THE SWITCH RELOADS THE GLOBAL
+# (bb_activate, bb_coret; row icon-a-co-expression-that-changes-the-subject-its-activator-scans-..., hq_icon
+# 2026-10-08 on the cfo's 2026-09-27 ruling): iconx keeps &subject and &pos global across a co-expression switch, so
+# after every switch r13/r15 are reloaded from the rooted global scan_subj and its length cache (rt_scan_live_regs,
+# visited raw by gen_gc_roots) and r14 from scan_pos. The 2026-09-19 SWITCH RECORD -- r13 spilled as one tagged DESCR
+# cell across the switch and restored after it -- is DELETED: it kept the subject right under motion but restored
+# the activator's OWN subject, so an activator never saw a subject its co-expression assigned (w1: iconx zz 1, the
+# record abc 1). The Icon create package's seeded r13/r15 and their sigma_live visit are DELETED with it: the
+# trampoline loads both from the global at the body's first entry.
 #
 # THE ACCIDENT THIS GATE NAMES (measured with gdb and objdump on 2026-09-19): the subject block of hb_coexpr_sigma
 # moved 0x7ffe6d61b200 -> 0x7ffe6d61b1b0 under SCRIP_GC_STRESS=8 and r13 FOLLOWED it, although no frame of ours saves
@@ -45,13 +50,15 @@
 # ARMS. (1) census + structure: gc_zeta_frame_calls <= 4, gc_spill absent, no stack root range in rt_coexpr.c.
 # (2) the three witnesses match their iconx-cut refs at SCRIP_GC_STRESS=1,3,5,8 under the shift plant in BOTH modes
 # (band printed). (3) EMISSION: every `call scrip_coexpr_activate` and `call scrip_coret` in the sigma witness's
-# mode-4 asm carries the record idiom before it and the r13 reload after it, and SCRIP_GC_SWITCH_RECORD_PLANT=1
-# removes it (the plant is seen). (4) THE RECORD IS LOAD-BEARING: with the parked sweep bounded at park_sp
-# (SCRIP_GC_COEXPR_PLANT=2 -- glibc's words excluded, the accident switched off) the sigma witness matches its ref
-# WITH the record and NOT without it, both modes. (5) THE TYPED RECORD VISIT IS LOAD-BEARING: hb_coexpr_create
-# matches its ref and fails when SCRIP_GC_COEXPR_PLANT=1 skips the record visits, both modes. (6) the reporter
-# prints [GC-COEXPR] with sigma>=1 on the create witness (its package is tagged) and sigma=0 on the sigma witness
-# (created outside any scan) -- the tag discriminates. (7) the cross-file pin for the generator record's r13 word.
+# mode-4 asm is followed by the global reload (call rt_scan_live_regs, then mov r13, rax and mov r15, rdx) and
+# carries no r13 spill before it. (4) THE GLOBAL'S VISIT IS LOAD-BEARING: with the parked sweep bounded at park_sp
+# (SCRIP_GC_COEXPR_PLANT=2 -- glibc's words excluded, the accident switched off) the sigma witness matches its ref,
+# and with gen_gc_roots' scan_subj visit dropped (SCRIP_GC_COEXPR_PLANT=3) it does not, both modes. (5) THE PACKAGE
+# HOLDS NO SUBJECT WORD: scrip_coexpr_entry_pkg_t has no r13/r15 field and no visitor reads one; hb_coexpr_create
+# (a co-expression created inside a scan, first activated after collections) matches its ref at every stress and
+# loses it at some stress per mode under SCRIP_GC_COEXPR_PLANT=3, so its inherited subject rides on the global.
+# (6) the reporter prints [GC-COEXPR] with sigma=0 on both witnesses (no Icon package holds a subject word; only the
+# generator record can) and reports the parked population. (7) the cross-file pin for the generator record's r13 word.
 #
 # MEASURED AND RECORDED, NOT HIDDEN. (a) The parked segments are still swept over their WHOLE mappings (8 MB each;
 # the reporter read 617 MB over 98 ranges on the sigma witness) because every runtime call that can park a thread
@@ -74,7 +81,7 @@ export SHIFT=4096
 m4build() { "$SCRIP" --compile "$1" > "$2.s" 2>/dev/null && gcc "$2.s" -o "$2" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" 2>/dev/null; }
 run3() { local st="$1"; shift; ( cd "$T" && env SCRIP_GC_PLANT_SHIFT="$SHIFT" SCRIP_GC_STRESS="$st" "$@" timeout 120 "$SCRIP" "$WIT" 2>/dev/null </dev/null | tr -d '\0' ); }
 run4() { local st="$1" bin="$2"; shift 2; ( cd "$T" && env SCRIP_GC_PLANT_SHIFT="$SHIFT" SCRIP_GC_STRESS="$st" "$@" timeout 120 "$bin" 2>/dev/null </dev/null | tr -d '\0' ); }
-echo "  HOLDS: the seven coexpression sweeps are typed visits or one segment walk (gc_zeta_frame_calls <= 4); the transmitted value is a DESCR visited by tag; a record created inside a scan has its subject word visited; the two switch boxes carry the tagged r13 record; every fail-once is run live under SCRIP_GC_PLANT_SHIFT=$SHIFT, where every block moves at every collection"
+echo "  HOLDS: the seven coexpression sweeps are typed visits or one segment walk (gc_zeta_frame_calls <= 4); the transmitted value is a DESCR visited by tag; the two switch boxes reload r13/r15 from the rooted global subject and the Icon package holds no subject word; every fail-once is run live under SCRIP_GC_PLANT_SHIFT=$SHIFT, where every block moves at every collection"
 n=$(python3 "$HERE/util_gc_census.py" conservative 2>/dev/null | grep -oE 'gc_zeta_frame_calls=[0-9]+' | cut -d= -f2)
 spill=$(grep -rl 'gc_spill' "$ROOT/src" 2>/dev/null | wc -l)
 rng=$(grep -c 'rt_gc_root_range_add((const char \*)new_ctx->stk_lo' "$ROOT/src/runtime/rt/rt_coexpr.c")
@@ -91,51 +98,40 @@ if [ "$bad" = 0 ]; then echo "  arm 2 PASS: three witnesses match their iconx re
 else echo "  arm 2 FAIL: a witness lost a root under forced motion --$band"; RC=1; fi
 rec_ok=0; rec_bad=0
 while IFS= read -r ln; do
-    pre="$(sed -n "$((ln-8)),$((ln-1))p" "$T/sigma.s")"; post="$(sed -n "$((ln+1)),$((ln+8))p" "$T/sigma.s")"
-    if echo "$pre" | grep -q 'mov  *dword ptr \[rsp + 0\], 2' && echo "$pre" | grep -q 'mov  *dword ptr \[rsp + 4\], r15d' && echo "$pre" | grep -q 'mov  *qword ptr \[rsp + 8\], r13' && echo "$post" | grep -q 'mov  *r13, qword ptr \[rsp + 8\]'; then rec_ok=$((rec_ok+1)); else rec_bad=$((rec_bad+1)); fi
+    pre="$(sed -n "$((ln-8)),$((ln-1))p" "$T/sigma.s")"; post="$(sed -n "$((ln+1)),$((ln+30))p" "$T/sigma.s")"
+    rl=$(echo "$post" | grep -nE 'call +rt_scan_live_regs' | head -1 | cut -d: -f1)
+    if [ -n "$rl" ] && echo "$post" | sed -n "$rl,\$p" | grep -qE 'mov +r13, +rax' && echo "$post" | sed -n "$rl,\$p" | grep -qE 'mov +r15, +rdx' && ! echo "$pre" | grep -q 'mov  *qword ptr \[rsp + 8\], r13'; then rec_ok=$((rec_ok+1)); else rec_bad=$((rec_bad+1)); fi
 done < <(grep -nE 'call +(scrip_coexpr_activate|scrip_coret)@PLT' "$T/sigma.s" | cut -d: -f1)
-SCRIP_GC_SWITCH_RECORD_PLANT=1 "$SCRIP" --compile "$WD/hb_coexpr_sigma.icn" > "$T/sigma_np.s" 2>/dev/null
-# ⛔ THE PLANTED COUNT IS TAKEN AT THE SWITCH SITES ONLY (cto 2026-09-23, CTO-149): a file-wide grep for the r13 spill counted
-# the sigma-recording safe-point polls (x86_rt_gc_poll_rec_sigma spills {DT_S, r15d, r13} at [rsp+0..8] before rt_gc_point_arr_c)
-# as switch records -- 12 of them on this witness once the match templates polled -- and this arm read FAIL on a tree where the
-# plant removed every switch record. The record is a property of the switch CALL, so it is read in the same eight-line window
-# before scrip_coexpr_activate/scrip_coret that arm 3's own rec_ok reading uses; a poll's spill is not a switch record.
-np=0
-while IFS= read -r ln; do
-    pre="$(sed -n "$((ln-8)),$((ln-1))p" "$T/sigma_np.s")"
-    if echo "$pre" | grep -q 'mov  *qword ptr \[rsp + 8\], r13'; then np=$((np+1)); fi
-done < <(grep -nE 'call +(scrip_coexpr_activate|scrip_coret)@PLT' "$T/sigma_np.s" | cut -d: -f1)
-if [ "$rec_ok" -gt 0 ] && [ "$rec_bad" = 0 ] && [ "$np" = 0 ]; then echo "  arm 3 PASS: $rec_ok switch site(s) carry the tagged r13 record before the call and the reload after it; SCRIP_GC_SWITCH_RECORD_PLANT=1 removes it ($np records)"
-else echo "  arm 3 FAIL: sites with record=$rec_ok without=$rec_bad, planted emission still carries $np record(s)"; RC=1; fi
+if [ "$rec_ok" -gt 0 ] && [ "$rec_bad" = 0 ]; then echo "  arm 3 PASS: $rec_ok switch site(s) reload r13/r15 from the rooted global after the call (rt_scan_live_regs) and spill no r13 record before it"
+else echo "  arm 3 FAIL: sites with the global reload=$rec_ok without=$rec_bad"; RC=1; fi
 WIT="$WD/hb_coexpr_sigma.icn"; ref="$(cat "$WD/hb_coexpr_sigma.ref")"
-SCRIP_GC_SWITCH_RECORD_PLANT=1 m4build "$WIT" "$T/sigma_np" || { echo "  arm 4 FAIL: planted mode-4 build failed"; RC=1; }
-a4=""; a4bad=0
+a4=""; a4bad=0; seen4_3=0; seen4_4=0
 for st in 1 3 5 8; do
     w3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=2)"; w4="$(run4 "$st" "$T/sigma" SCRIP_GC_COEXPR_PLANT=2)"
-    n3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=2 SCRIP_GC_SWITCH_RECORD_PLANT=1)"; n4="$(run4 "$st" "$T/sigma_np" SCRIP_GC_COEXPR_PLANT=2)"
-    if [ "$w3" = "$ref" ] && [ "$w4" = "$ref" ] && [ "$n3" != "$ref" ] && [ "$n4" != "$ref" ]; then a4="$a4 @$st:record=ok,norecord=red"; else a4="$a4 @$st:record=$([ "$w3" = "$ref" ] && echo ok || echo RED)/$([ "$w4" = "$ref" ] && echo ok || echo RED),norecord=$([ "$n3" != "$ref" ] && echo red || echo GREEN)/$([ "$n4" != "$ref" ] && echo red || echo GREEN)"; a4bad=1; fi
+    n3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=3)"; n4="$(run4 "$st" "$T/sigma" SCRIP_GC_COEXPR_PLANT=3)"
+    [ "$w3" = "$ref" ] && [ "$w4" = "$ref" ] || a4bad=1
+    [ "$n3" != "$ref" ] && seen4_3=1; [ "$n4" != "$ref" ] && seen4_4=1
+    a4="$a4 @$st:bounded=$([ "$w3" = "$ref" ] && echo ok || echo RED)/$([ "$w4" = "$ref" ] && echo ok || echo RED),novisit=$([ "$n3" != "$ref" ] && echo red || echo GREEN)/$([ "$n4" != "$ref" ] && echo red || echo GREEN)"
 done
-if [ "$a4bad" = 0 ]; then echo "  arm 4 PASS: with the parked sweep bounded at park_sp (glibc's words excluded) the subject survives the switch WITH the record and is lost WITHOUT it, both modes --$a4"
-else echo "  arm 4 FAIL: the switch record is not what keeps the subject right --$a4"; RC=1; fi
+[ "$seen4_3" = 1 ] && [ "$seen4_4" = 1 ] || a4bad=1
+if [ "$a4bad" = 0 ]; then echo "  arm 4 PASS: with the parked sweep bounded at park_sp (glibc's words excluded) the subject survives the switch through the global's visit, and is lost when SCRIP_GC_COEXPR_PLANT=3 drops that visit, both modes --$a4"
+else echo "  arm 4 FAIL: the global's visit is not what keeps the subject right across the switch --$a4"; RC=1; fi
 WIT="$WD/hb_coexpr_create.icn"; ref="$(cat "$WD/hb_coexpr_create.ref")"
-# ARM 5 READS: typed=ok at EVERY stress (the property), and planted=red at AT LEAST ONE stress PER MODE (the plant seen
-# to look).  It used to demand planted=red at every stress, and on this witness stress 1 and 3 in mode 3 stopped losing
-# the subject under the plant (identical on the control at 5be3047cf, so it is the collection's timing on this witness
-# and not a landing): a plant that reds at 5 and 8 has proven the record visit load-bearing, and a stress where the
-# subject is held by a second road as well is not a failure of the first (cto 2026-09-24, the seventeen-red row).
+pk=$(grep -cE 'typedef struct scrip_coexpr_entry_pkg_t \{[^}]*\b(r13|r15)\b' "$ROOT/src/runtime/rt/rt_coexpr.c"); pv=$(grep -c 'pkg->r13\|pkg->r15\|opkg->r13\|opkg->r15' "$ROOT/src/runtime/rt/rt_coexpr.c")
 a5=""; a5bad=0; seen_p3=0; seen_p4=0
+[ "$pk" = 0 ] && [ "$pv" = 0 ] || a5bad=1
 for st in 1 3 5 8; do
-    t3="$(run3 "$st")"; t4="$(run4 "$st" "$T/create")"; p3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=1)"; p4="$(run4 "$st" "$T/create" SCRIP_GC_COEXPR_PLANT=1)"
+    t3="$(run3 "$st")"; t4="$(run4 "$st" "$T/create")"; p3="$(run3 "$st" SCRIP_GC_COEXPR_PLANT=3)"; p4="$(run4 "$st" "$T/create" SCRIP_GC_COEXPR_PLANT=3)"
     [ "$t3" = "$ref" ] && [ "$t4" = "$ref" ] || a5bad=1
     [ "$p3" != "$ref" ] && seen_p3=1; [ "$p4" != "$ref" ] && seen_p4=1
-    a5="$a5 @$st:typed=$([ "$t3" = "$ref" ] && echo ok || echo RED)/$([ "$t4" = "$ref" ] && echo ok || echo RED),planted=$([ "$p3" != "$ref" ] && echo red || echo GREEN)/$([ "$p4" != "$ref" ] && echo red || echo GREEN)"
+    a5="$a5 @$st:global=$([ "$t3" = "$ref" ] && echo ok || echo RED)/$([ "$t4" = "$ref" ] && echo ok || echo RED),novisit=$([ "$p3" != "$ref" ] && echo red || echo GREEN)/$([ "$p4" != "$ref" ] && echo red || echo GREEN)"
 done
 [ "$seen_p3" = 1 ] && [ "$seen_p4" = 1 ] || a5bad=1
-if [ "$a5bad" = 0 ]; then echo "  arm 5 PASS: the inherited subject in a create package survives forced motion through the typed record visit at every stress, and SCRIP_GC_COEXPR_PLANT=1 loses it at some stress in both modes --$a5"
-else echo "  arm 5 FAIL: the typed record visit is not load-bearing --$a5"; RC=1; fi
+if [ "$a5bad" = 0 ]; then echo "  arm 5 PASS: the Icon create package holds no subject word (struct fields=$pk, readers=$pv); a co-expression created inside a scan reads its inherited subject from the global at every stress, and SCRIP_GC_COEXPR_PLANT=3 loses it at some stress in both modes --$a5"
+else echo "  arm 5 FAIL: struct subject fields=$pk readers=$pv --$a5"; RC=1; fi
 rc6=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_PLANT_SHIFT=$SHIFT SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep '^\[GC-COEXPR\]' | grep -oE 'sigma=[0-9]+' | sort -u | tr '\n' ' ')
 rs6=$( ( cd "$T" && SCRIP_GC_MAPS=1 SCRIP_GC_PLANT_SHIFT=$SHIFT SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_sigma.icn" 2>&1 >/dev/null </dev/null ) | grep -E '^\[GC-COEXPR\]|pop=parked' | grep -oE 'sigma=[0-9]+|pop=parked' | sort -u | tr '\n' ' ')
-if echo "$rc6" | grep -qE 'sigma=[1-9]' && echo "$rs6" | grep -q 'sigma=0' && echo "$rs6" | grep -q 'pop=parked'; then echo "  arm 6 PASS: the reporter tags the create-inside-scan package (create: $rc6) and not the scan-free contexts (sigma: $rs6)"
+if [ "$rc6" = "sigma=0 " ] && echo "$rs6" | grep -q 'sigma=0' && ! echo "$rs6" | grep -qE 'sigma=[1-9]' && echo "$rs6" | grep -q 'pop=parked'; then echo "  arm 6 PASS: the reporter counts no Icon package subject word (create: $rc6) and reports the parked population (sigma: $rs6)"
 else echo "  arm 6 FAIL: reporter create=[$rc6] sigma=[$rs6]"; RC=1; fi
 p1=$(grep -c 'offsetof(rt_genp_s, regs) == 8' "$ROOT/src/runtime/rt/rt.c"); p2=$(grep -c 'movq 24(%rdi), %r13' "$ROOT/src/runtime/rt/rt.c"); p3=$(grep -c 'c->entry_arg + 24' "$ROOT/src/runtime/rt/rt_coexpr.c")
 if [ "$p1" -ge 1 ] && [ "$p2" -ge 1 ] && [ "$p3" -ge 1 ]; then echo "  arm 7 PASS: the generator record's r13 word is +24 in rt.c (static assert on regs at +8, the entry asm loads r13 from 24(%rdi)) and rt_coexpr.c visits exactly that word"
@@ -143,7 +139,7 @@ else echo "  arm 7 FAIL: cross-file pin broken (assert=$p1 asm=$p2 visitor=$p3)"
 pl=$( ( cd "$T" && env SCRIP_GC_PLANT_SHIFT="$SHIFT" SCRIP_GC_STRESS=3 timeout 120 "$SCRIP" "$WD/hb_coexpr_create.icn" 2>&1 >/dev/null </dev/null ) | grep -c "^\[GC-SHIFT\] plant:" ); pl=${pl:-0}
 if [ "$pl" -ge 1 ]; then echo "  arm 8 PASS: the forced motion this gate grades under is REAL -- the shift plant announced $pl application(s) at SCRIP_GC_PLANT_SHIFT=$SHIFT with nothing asked for, so arms 2-6 moved every block rather than relying on ordinary compaction"
 else echo "⛔ GATE REFUSE(2) [$G]: the shift plant applied ZERO times at SCRIP_GC_PLANT_SHIFT=$SHIFT and SCRIP_HEAP_MB=${SCRIP_HEAP_MB:-default} -- gc_plant_shift_bytes() declines whenever arena headroom is not strictly greater than the shift, so EVERY arm here graded ordinary compaction while claiming forced relocation. Nothing is graded and nothing is red: this is a configuration statement (cto 2026-09-21, held by test_gate_gc_the_plant_says_whether_it_applied)"; exit 2; fi
-if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the coexpression roots are typed, the parked stacks are one segment population, the switch record and the record visit are each load-bearing under forced motion (examined 8 arms, three with planted violations)"
+if [ "$RC" = 0 ]; then echo "GATE PASS(0) [$G]: the coexpression roots are typed, the parked stacks are one segment population, the switch reloads the rooted global and its visit is load-bearing under forced motion (examined 8 arms, two with planted violations)"
 else echo "GATE FAIL(1) [$G]: the coexpression roots are not typed or a plant went unseen (examined 8 arms)"; fi
 echo "    tree: SCRIP=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY)  measured $(date -u +%Y-%m-%dT%H:%MZ)"
 exit $RC

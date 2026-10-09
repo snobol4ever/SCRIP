@@ -127,6 +127,13 @@ void rt_scan_leave(uint64_t outer_sigma, uint64_t outer_delta, uint64_t outer_le
 void rt_scan_sync_out(uint64_t delta) { scan_pos = (int)delta + 1; }
 uint64_t rt_scan_sync_in(void) { return (uint64_t)(int64_t)(scan_pos - 1); }
 uint64_t rt_scan_live_subj(void) { return (uint64_t)(uintptr_t)(scan_subj ? scan_subj : ""); }
+ScanSubjRegs rt_scan_live_regs(void) {
+    ScanSubjRegs r;
+    long n = scan_subj ? rt_scan_subj_len() : 0;
+    r.ptr = (uint64_t)(uintptr_t)(scan_subj ? scan_subj : g_scan_empty);
+    r.len = (uint64_t)(n > 0 ? n : 0);
+    return r;
+}
 ScanSubjRegs rt_scan_reenter_live(uint64_t subj, uint64_t len) {
     const char *s = subj ? (const char *)(uintptr_t)subj : g_scan_empty;
     long n = (s == g_scan_empty) ? 0 : (long)(uint32_t)len;
@@ -413,9 +420,11 @@ void gen_gc_roots(void) {
     extern void rt_gc_visit_descr(DESCR_t *d);
     extern void rt_gc_visit_raw(const char **loc);
     rt_gc_visit_descr(&drive_val);
-    if (g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
+    extern int scrip_co_gc_plant(void);
+    const int drop_subj = scrip_co_gc_plant() == 3;
+    if (!drop_subj && g_scan_subj_ptr == scan_subj) rt_gc_visit_raw(&g_scan_subj_ptr);
     if (g_scan_needle_ptr) rt_gc_visit_raw(&g_scan_needle_ptr);
-    rt_gc_visit_raw(&scan_subj);
+    if (!drop_subj) rt_gc_visit_raw(&scan_subj);
     { extern void rt_coexpr_gc_scan_states(void); rt_coexpr_gc_scan_states(); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
