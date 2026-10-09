@@ -12,7 +12,7 @@
 # THE ARMS (expectations cut from sbl -bf AT RUN TIME; SCRIP under its --stlimit instrumentation switch, as the graders run it --
 # a CALL trace function fires only under that switch, by the switch's design):
 #   1-2  m3 / m4: a dynamic-scope function's RETURN trace reads its result, its formal and its local; the caller's X is back after
-#   3    m3: the same for an FRETURN trace
+#   3    m3 and m4: the same for an FRETURN trace
 #   4    CONTROL: the CALL trace reads the bound formal, as before
 # EXIT: 0 all arms pass · 1 an arm failed · 2 REFUSED (no binary, no oracle, the oracle's answer moved).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -76,6 +76,8 @@ rc=$(m3 ret); arm "m3: the RETURN trace reads the result, the formal and the loc
 rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 20 "$SCRIP" --stlimit --compile -o r.s ret.sno < /dev/null > /dev/null 2>&1 && gcc r.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o r.bin > /dev/null 2>&1 && SCRIP_SNO_STMTKW=1 timeout 10 ./r.bin < /dev/null > ret.m4 2>&1; echo $? )
 arm "m4: the RETURN trace reads the result, the formal and the local while bound" "$(same "$rc" ret.m4 ret.oracle)"
 rc=$(m3 fret); arm "m3: an FRETURN trace reads the formal and the local while bound" "$(same "$rc" fret.m3 fret.oracle)"
+rc=$( cd "$T" && SCRIP_SNO_STMTKW=1 timeout 20 "$SCRIP" --stlimit --compile -o f.s fret.sno < /dev/null > /dev/null 2>&1 && gcc f.s -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -lm -o f.bin > /dev/null 2>&1 && SCRIP_SNO_STMTKW=1 timeout 10 ./f.bin < /dev/null > fret.m4 2>&1; echo $? )
+arm "m4: an FRETURN trace reads the formal and the local while bound" "$(same "$rc" fret.m4 fret.oracle)"
 rc=$(m3 ctl); arm "CONTROL: the CALL trace reads the bound formal" "$(same "$rc" ctl.m3 ctl.oracle)"
 [ "$fail" = 0 ] && { echo "PASS [$NAME]: $n arms"; exit 0; }
 echo "FAIL [$NAME]"; exit 1

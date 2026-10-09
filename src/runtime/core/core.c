@@ -463,7 +463,10 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
     }
     trace_recursion_depth--;
 }
-void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) {
+DESCR_t rt_trace_apply_island(const char *name, DESCR_t *args, int nargs, long island);
+__asm__( ".text\n" ".globl rt_trace_apply_island\n" ".type rt_trace_apply_island, @function\n" "rt_trace_apply_island:\n" "  pushq %r12\n" "  movq %rcx, %r12\n" "  xorl %ecx, %ecx\n"
+    "  call APPLY_fn_rq@PLT\n" "  popq %r12\n" "  ret\n" ".size rt_trace_apply_island, .-rt_trace_apply_island\n" );
+void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island) {
     if (trace_idle()) return;
     if (!name || !*name) return;
     if (trace_recursion_depth > 0) return;
@@ -489,7 +492,7 @@ void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, D
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
-        (void)RT_GC_CALLBACK(APPLY_fn(e->cbfn, cbargs, 2));
+        (void)RT_GC_CALLBACK(island ? rt_trace_apply_island(e->cbfn, cbargs, 2, island) : APPLY_fn(e->cbfn, cbargs, 2));
         trace_recursion_depth--;
         g_trace = saved_trace;
         kw_ftrace = saved_ftrace;
@@ -497,20 +500,26 @@ void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, D
         trace_print_banner_args(name, args, nargs, value, stno, kind);
     }
 }
+void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) { rt_trace_event_args_i(kind, name, args, nargs, value, stno, 0); }
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { rt_trace_event_args(kind, name, (DESCR_t *)0, 0, value, stno); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_trace_call_hook(const char *fname) {
+void rt_trace_call_hook_i(const char *fname, long island) {
     if (trace_idle()) return;
     extern long g_stno;
     extern int rt_proc_nformals_exact(const char *name);
     extern const char *rt_proc_pname(const char *name, int k);
     extern DESCR_t NV_GET_fn(const char *);
+    extern int rt_proc_nparams(const char *name);
+    int nv = fname ? rt_proc_nparams(fname) : 0;
+    if (nv < 0) nv = 0;
     int np = fname ? rt_proc_nformals_exact(fname) : 0;
     if (np < 0) np = 0;
-    DESCR_t a[np > 0 ? np : 1];
+    if (np > nv) np = nv;
+    DESCR_t a[nv > 0 ? nv : 1];
     for (int i = 0; i < np; i++) { const char *pn = rt_proc_pname(fname, i); a[i] = pn ? NV_GET_fn(pn) : NULVCL; }
-    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_stno); }
+    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args_i(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_stno, island); }
 }
+void rt_trace_call_hook(const char *fname) { rt_trace_call_hook_i(fname, 0); }
 #else
 void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override) {
     (void)procname;
@@ -527,6 +536,7 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) { (void)k
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) { (void)kind; (void)name; (void)args; (void)nargs; (void)value; (void)stno; }
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { (void)kind; (void)name; (void)value; (void)stno; }
 void rt_trace_call_hook(const char *fname) { (void)fname; }
+void rt_trace_call_hook_i(const char *fname, long island) { (void)fname; (void)island; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *icn_errmsg(int n);
@@ -938,20 +948,24 @@ void rt_trace_resume_hook(const char *pname, void *h) { (void)pname; (void)h; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-void rt_trace_fail_hook(const char *fname) {
+void rt_trace_fail_hook_i(const char *fname, long island) {
     if (trace_idle()) return;
     extern long g_stno;
     extern const char *rt_proc_trace_canon(const char *);
-    rt_trace_event(TRK_RETURN, rt_proc_trace_canon(fname), FAILDESCR, g_stno);
+    rt_trace_event_args_i(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, FAILDESCR, g_stno, island);
 }
-void rt_trace_return_hook(const char *fname, DESCR_t retval) {
+void rt_trace_fail_hook(const char *fname) { rt_trace_fail_hook_i(fname, 0); }
+void rt_trace_return_hook_i(const char *fname, DESCR_t retval, long island) {
     extern long g_stno;
     extern const char *rt_proc_trace_canon(const char *);
-    if (!trace_idle()) rt_trace_event(TRK_RETURN, rt_proc_trace_canon(fname), retval, g_stno);
+    if (!trace_idle()) rt_trace_event_args_i(TRK_RETURN, rt_proc_trace_canon(fname), (DESCR_t *)0, 0, retval, g_stno, island);
 }
+void rt_trace_return_hook(const char *fname, DESCR_t retval) { rt_trace_return_hook_i(fname, retval, 0); }
 #else
 void rt_trace_fail_hook(const char *fname) { (void)fname; }
+void rt_trace_fail_hook_i(const char *fname, long island) { (void)fname; (void)island; }
 void rt_trace_return_hook(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
+void rt_trace_return_hook_i(const char *fname, DESCR_t retval, long island) { (void)fname; (void)retval; (void)island; }
 #endif
 int64_t kw_stcount = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
