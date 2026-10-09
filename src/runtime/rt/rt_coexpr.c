@@ -269,6 +269,8 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->image_src = 0;
     ctx->image_span = 0;
     ctx->image_below = below_bytes;
+    ctx->image_map = 0;
+    ctx->image_off = 0;
     ctx->started = 0;
     ctx->eager = 1;
     ctx->stk_need = (size_t)frame_bytes;
@@ -276,6 +278,12 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
         ctx->image_span = (size_t)(frame_bytes + below_bytes);
         ctx->image_src = (const char *)(uintptr_t)(regs[5] - below_bytes);
         ctx->stk_need = 2 * ctx->image_span;
+        {
+            extern int rt_gc_caller_frame(const void **map, const char **base);
+            const void *m = 0;
+            const char *b = 0;
+            if (rt_gc_caller_frame(&m, &b) && b >= ctx->image_src && b < ctx->image_src + ctx->image_span) { ctx->image_map = m; ctx->image_off = (long)(b - ctx->image_src); }
+        }
     }
     ctx->entry_fn = scrip_coexpr_trampoline_entry;
     ctx->entry_arg = pkg;
@@ -318,7 +326,10 @@ scrip_coctx_t *scrip_coexpr_refresh(scrip_coctx_t *orig) {
     regs[4] = opkg->rbx;
     regs[5] = opkg->csav5 + opkg->below;
     regs[6] = opkg->gva;
-    return scrip_coexpr_create(opkg->body_entry_addr, regs, orig->image_span ? (uint64_t)orig->image_span - orig->image_below : 0, orig->image_below, orig->create_proc);
+    scrip_coctx_t *fresh = scrip_coexpr_create(opkg->body_entry_addr, regs, orig->image_span ? (uint64_t)orig->image_span - orig->image_below : 0, orig->image_below, orig->create_proc);
+    fresh->image_map = orig->image_map;
+    fresh->image_off = orig->image_off;
+    return fresh;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int scrip_coexpr_activate(scrip_coctx_t *target, uint64_t x0, uint64_t x1, uint64_t *out2, const char *procname, uint64_t tagw) {
@@ -370,6 +381,8 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->image_src = 0;
     ctx->image_span = 0;
     ctx->image_below = 0;
+    ctx->image_map = 0;
+    ctx->image_off = 0;
     ctx->started = 0;
     ctx->eager = 0;
     ctx->scan_state = NULL;
