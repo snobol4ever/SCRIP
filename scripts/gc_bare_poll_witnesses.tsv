@@ -11,6 +11,7 @@
 # COLUMNS: site  witness
 src/templates/bb/bb_activate.cpp:scrip_coexpr_activate#1	hb_coexpr_refresh.icn
 src/templates/bb/bb_assign_global.cpp:NV_SET_fn#1	UNWITNESSED
+src/templates/bb/bb_assign_var.cpp:rt_assign_var_strict#1	hb_table_elem_ref_across_collections.icn
 src/templates/bb/bb_assign_var.cpp:rt_assign_var_strict/rt_assign_var#1	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_assign_var.cpp:rt_assign_var_strict/rt_assign_var#2	hb_concat_augmented_then_subscript.icn
 src/templates/bb/bb_assign_var_sub.cpp:rt_table_assign_fast#1	hb_arena_grow.sno
