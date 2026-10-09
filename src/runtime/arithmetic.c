@@ -80,6 +80,7 @@ static const char *rk_binop_opstr(int op) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     if (a.v != DT_DATA && b.v != DT_DATA) return 0;
+    { extern int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out); if (rk_rat_binop(a, b, op, out)) return 1; }
     const char *ops = rk_binop_opstr(op);
     if (!ops) return 0;
     char base[sizeof "Rinfix_" + 2 * strlen(ops)];

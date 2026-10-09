@@ -1591,6 +1591,7 @@ int is_numeric_like(DESCR_t d) {
         return (*end == '\0');
     }
     if (IS_KW(d)) return is_numeric_like(NV_GET_fn(d.s));
+    if (d.v == DT_DATA) { extern int rk_rat_is(DESCR_t); return rk_rat_is(d); }
     return 0;
 }
 #define NUM_GUARD(fn) do { if (!is_numeric_like(a[0])) { core_runtime_error(1, fn " first argument is not numeric"); return FAILDESCR; } if (!is_numeric_like(a[1])) { core_runtime_error(1, fn \
@@ -3367,6 +3368,8 @@ int64_t to_int_slow(DESCR_t v) {
         { const char *s = rt_cstr_d(v); while (*s == ' ') s++; if (!*s) return 0; return (int64_t)strtoll(s, NULL, 10); }
         case DT_K:
         return to_int(NV_GET_fn(v.s));
+        case DT_DATA:
+        { extern int rk_rat_to_int(DESCR_t, long long *); long long q; if (rk_rat_to_int(v, &q)) return q; core_runtime_error(1, NULL); return 0; }
         case DT_N:
         if (v.slen == 1 && v.p) return to_int(*(DESCR_t *)v.p);
         if (v.slen == 2 && v.p && ((VCELL_t *)v.p)->cellp) return to_int(*((VCELL_t *)v.p)->cellp);
@@ -3395,6 +3398,8 @@ double to_real(DESCR_t v) {
         { const char *s = rt_cstr_d(v); return strtod(s, NULL); }
         case DT_K:
         return to_real(NV_GET_fn(v.s));
+        case DT_DATA:
+        { extern int rk_rat_to_real(DESCR_t, double *); double q; if (rk_rat_to_real(v, &q)) return q; core_runtime_error(1, NULL); return 0.0; }
         default:
         core_runtime_error(1, NULL);
         return 0.0;

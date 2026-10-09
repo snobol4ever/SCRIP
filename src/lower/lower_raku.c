@@ -782,6 +782,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         return ea;
     }
     if (t->t == TT_DIV && t->n > 1) { return lower_rcall(cx, t, "__rk_div", 0, γ, ω, res); }
+    if (t->t == TT_POW && t->n > 1 && !(t->c[1] && t->c[1]->t == TT_ILIT && (t->c[1]->v.ival == 1 || t->c[1]->v.ival == 2))) { return lower_rcall(cx, t, "__rk_pow", 0, γ, ω, res); }
     if (t->t == TT_MOD && t->n > 1) { return lower_rcall(cx, t, "__rk_mod", 0, γ, ω, res); }
     if (rk_is_binop(t->t)) {
         IR_t * op = build(cx, IR_BINOP, γ, ω);
@@ -805,6 +806,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_ILIT:
         { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = t->v.ival; *res = nd; return nd; }
         case TT_FLIT:
+        if (t->n == 1 && t->c[0] && t->c[0]->t == TT_QLIT) {
+            tree_t * rl = ast_node_new(TT_FNC);
+            rl->line = t->line;
+            rl->v.sval = (char *) intern("__rk_ratlit");
+            ast_push(rl, leaf_sval2(TT_VAR, "__rk_ratlit"));
+            ast_push(rl, t->c[0]);
+            return lower_rv(cx, rl, γ, ω, res);
+        }
         { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = t->v.dval; *res = nd; return nd; }
         case TT_QLIT:
         { IR_t * nd = build(cx, IR_LIT_STRING, γ, ω); IR_LIT(nd).sval = t->v.sval; *res = nd; return nd; }
@@ -824,7 +833,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (t->n < 1) return rk_excise(cx, γ, ω, res);
             const tree_t * x = t->c[0];
             if (x && x->t == TT_ILIT && x->v.ival != INT64_MIN) { IR_t * nd = build(cx, IR_LIT_INTEGER, γ, ω); IR_LIT(nd).ival = -x->v.ival; *res = nd; return nd; }
-            if (x && x->t == TT_FLIT) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = -x->v.dval; *res = nd; return nd; }
+            if (x && x->t == TT_FLIT && x->n == 0) { IR_t * nd = build(cx, IR_LIT_REAL, γ, ω); IR_LIT(nd).dval = -x->v.dval; *res = nd; return nd; }
             tree_t * m = ast_node_new(TT_MUL);
             m->line = t->line;
             ast_push(m, t->c[0]);
@@ -1743,6 +1752,16 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 for (int i = 1; i < t->n; i++) ast_push(mc, t->c[i]);
                 return lower_rcall(cx, mc, "__multi_call", 1, γ, ω, res);
             }
+            if (cls && (t->n == 3 || t->n == 1) && !rk_is_class_name(cls) && (!strcmp(cls, "Rat") || !strcmp(cls, "FatRat"))) {
+                tree_t * rn = ast_node_new(TT_FNC);
+                rn->line = t->line;
+                rn->v.sval = (char *) intern("__rk_ratnew");
+                ast_push(rn, leaf_sval2(TT_VAR, "__rk_ratnew"));
+                ast_push(rn, leaf_sval2(TT_QLIT, cls));
+                ast_push(rn, t->n == 3 ? t->c[1] : ({ tree_t * z = ast_node_new(TT_ILIT); z->v.ival = 0; z; }));
+                ast_push(rn, t->n == 3 ? t->c[2] : ({ tree_t * z = ast_node_new(TT_ILIT); z->v.ival = 1; z; }));
+                return lower_rv(cx, rn, γ, ω, res);
+            }
             if (cls && !rk_is_class_name(cls) && (!strcmp(cls, "Set") || !strcmp(cls, "SetHash") || !strcmp(cls, "Bag") || !strcmp(cls, "BagHash") || !strcmp(cls, "Mix") || !strcmp(cls, "MixHash"))) {
                 tree_t * ar = ast_node_new(TT_FNC);
                 ar->v.sval = (char *) "__rk_arr";
@@ -1979,7 +1998,7 @@ static void rk_register_classes(const tree_t * prog) {
             if (!dv) continue;
             if (dv->t == TT_ILIT) dat_set_field_default_i(cname, fn, dv->v.ival);
             else if (dv->t == TT_QLIT) dat_set_field_default_s(cname, fn, dv->v.sval);
-            else if (dv->t == TT_FLIT) dat_set_field_default_r(cname, fn, dv->v.dval);
+            else if (dv->t == TT_FLIT && dv->n == 0) dat_set_field_default_r(cname, fn, dv->v.dval);
         }
         extern void dat_set_field_required(const char *cls, const char *field);
         for (int j = 1; j < d->n; j++) {
@@ -3716,7 +3735,8 @@ static void rk_class_default_tweaks(tree_t * prog) {
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
             if (!ch || !ch->v.sval || ch->n < 1 || !ch->c[0]) continue;
-            int sig = ch->t == TT_ARR_DECL ? '@' : ch->t == TT_HASH_DECL ? '%' : (ch->t == TT_HAS_DECL && ch->c[0]->t != TT_ILIT && ch->c[0]->t != TT_QLIT && ch->c[0]->t != TT_FLIT) ? '$' : 0;
+            int sig = ch->t == TT_ARR_DECL ? '@' : ch->t == TT_HASH_DECL ? '%' :
+                (ch->t == TT_HAS_DECL && ch->c[0]->t != TT_ILIT && ch->c[0]->t != TT_QLIT && !(ch->c[0]->t == TT_FLIT && ch->c[0]->n == 0)) ? '$' : 0;
             if (!sig) continue;
             const char * fn = rk_fld_bare(ch->v.sval);
             if (!*fn) continue;

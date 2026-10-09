@@ -7,7 +7,8 @@
 # 2026-10-03 hq_raku: RAKU 89 -> 60, earned by the array-producer landing (row raku-arrays-lists-and-hashes-are-typed-storage-..., L2b: split/comb/words/lines, ranges, match-global, polymod, hash keys/values/pairs/kv and rt_make_flat_agg/push/unshift all build typed DT_A storage; the SOH reads of rk_iter and the hash string stay for their own steps).
 # 2026-10-03 hq_raku: RAKU 60 -> 57, earned by deleting the whole rk_iter mechanism (the C map/grep/reduce callback fallback: rk_iter_open, rk_iter_step, rk_iter_acc_append and the six functions around them, with bb_call_fn.cpp's bcfn_iter_open_enter arm; never opened across the ladder and 860 Raku area entries in both modes; the cto, CEO-985/CEO-1086).
 # 2026-10-03 hq_raku: RAKU 57 -> 4, earned by the whole-mechanism landing (row raku-arrays-lists-and-hashes-are-typed-storage-..., CEO-1479): a Hash is a typed table, a Pair and a Junction are marked DT_A, the List/Array/Slip marker rides in ARBLK.proto by address, the legacy rk_a_* readers, SOH and RK_A1 and rt_make_nested_agg and re_subst are DELETED, and the parser hands class traits and the substitution parts to the lowerer as tree children. The 4 that remain are RK_RX and RK_TY, in-band TYPE TAGS on a scalar (Regex and type objects), a different mechanism and its own row.
+# 2026-10-09 hq_raku: RAKU 4 -> 5, a NAMED INTERIM GRANTED BY THE ceo (hq_raku ask ask-delimited-census-baseline-raku-step-4-to-5-for-rk-apply-actions; the cfo's attribution): the fifth site is rk_apply_actions in by_name_dispatch.c, the key.s[0] != RK_TY test, one more reader of the RK_TY type-object string encoding that landed with 65dc91b20 (the regex front end: grammar actions). The landing that lowers it back to 0 is hq_raku's rank-0 row converting type objects to typed storage, which deletes the writer rk_typeobj and the readers rk_typeobj_name, rk_rx_pat and rk_apply_actions and the RK_RX site together.
 PASCAL	0
-RAKU	4
+RAKU	5
 REGISTRY_KEY	0
 OTHER	0
