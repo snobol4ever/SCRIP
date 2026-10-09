@@ -233,6 +233,7 @@ test_gate_gc_the_tiny_arena_is_the_default_of_gc_testing.sh	WIRED	-	-	-
 test_gate_gc_the_unmapped_spine_store_witness_answers_its_oracle_at_every_band_point.sh	WIRED	-	-	-
 test_gate_gc_the_visited_set_key_spaces_do_not_collide.sh	WIRED	-	-	-
 test_gate_gimpel_runner_masks_the_engine_clock_lines.sh	WIRED	-	-	-
+test_gate_globals_census_counts_writable_sections_only.sh	WIRED	-	-	-
 test_gate_handoff_status_lane_scoped_debt_and_refusal_never_reads_complete.sh	WIRED	-	-	-
 test_gate_harness_containers_break_lines_on_lf_only.sh	WIRED	-	-	-
 test_gate_harness_extract_refuses_before_it_writes.sh	WIRED	-	-	-
