@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2213
+#define GC_ALLOC_TAB_N 2215
 #define GC_ALLOC_TAB_N_VOID 263
-#define GC_ALLOC_TAB_N_DESCR 1127
+#define GC_ALLOC_TAB_N_DESCR 1129
 #define GC_ALLOC_TAB_N_OTHER 808
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -613,6 +613,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "icn_extfn_marshal_out", GC_RET_DESCR },
     { "icn_extfn_unprovided", GC_RET_VOID },
     { "icn_field_get", GC_RET_DESCR },
+    { "icn_field_get_at", GC_RET_DESCR },
     { "icn_index_operand_ok", GC_RET_OTHER },
     { "icn_opgen_pump", GC_RET_DESCR },
     { "icn_opgen_seq", GC_RET_OTHER },
@@ -1336,6 +1337,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_field_var", GC_RET_DESCR },
     { "rt_field_var_cell", GC_RET_DESCR },
     { "rt_field_var_strict", GC_RET_DESCR },
+    { "rt_field_var_strict_at", GC_RET_DESCR },
     { "rt_fire_build", GC_RET_VOID },
     { "rt_fire_buildplan_tweak", GC_RET_VOID },
     { "rt_fn_frame_bytes_register", GC_RET_VOID },

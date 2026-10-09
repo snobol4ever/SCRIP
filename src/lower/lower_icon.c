@@ -40,6 +40,7 @@ typedef struct {
     int ret_lv;
     const char * file;
     int links;
+    const tree_t * prog;
 } icx_t;
 static IR_t * icn_line_hook(icx_t * cx, int line, IR_t * next);
 static IR_t * icn_trace_stmt_wrap(icx_t * cx, long line, IR_t * stmt_entry, IR_t * ω);
@@ -661,6 +662,7 @@ static IR_t * lower_idx_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var
     *var_res = cur;
     return entry;
 }
+static int icn_field_hint(const tree_t * prog, const char * fn);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** var_res) {
     if (!t) return NULL;
@@ -791,6 +793,7 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
     if (t->t == TT_FIELD && t->n > 0 && t->c[0]) {
         IR_t * fg = build(cx, IR_FIELD_VAR, NULL, ω);
         IR_LIT(fg).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
+        fg->seal = icn_field_hint(cx->prog, IR_LIT(fg).sval);
         IR_t * br = NULL;
         IR_t * be = lower(cx, t->c[0], NULL, ω, &br);
         lc_γ_to(br, fg);
@@ -973,6 +976,21 @@ static IR_t * lower_scan_impl(icx_t * cx, const tree_t * subj_t, const tree_t * 
     return s_entry;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int icn_field_hint(const tree_t * prog, const char * fn) {
+    static const char * const lf[] = { "frame_elems", "frame_size", "gen_type", "frame_cap" };
+    int at = -1;
+    if (!prog || !fn) return 0;
+    for (int i = 0; i < 4; i++) if (!strcmp(fn, lf[i])) return 0;
+    for (int ci = 0; ci < prog->n; ci++) {
+        const tree_t * s = prog->c[ci];
+        if (!s || (s->t != TT_STMT && s->t != TT_END)) continue;
+        const tree_t * r = stmt_attr_expr(stmt_attr_find(s, ":subj"));
+        if (!r || r->t != TT_RECORD) continue;
+        for (int k = 0; k < r->n; k++) if (r->c[k] && r->c[k]->v.sval && !strcmp(r->c[k]->v.sval, fn)) { if (at >= 0 && at != k) return 0; at = k; }
+    }
+    return at + 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_t * dummy = NULL;
     if (!res) res = &dummy;
@@ -1138,6 +1156,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         {
             IR_t * nd = build(cx, IR_FIELD_GET, γ, ω);
             IR_LIT(nd).sval = (t->n > 1 && t->c[1]) ? t->c[1]->v.sval : t->v.sval;
+            nd->seal = icn_field_hint(cx->prog, IR_LIT(nd).sval);
             IR_t * br = NULL;
             IR_t * ea = lower(cx, t->c[0], nd, ω, &br);
             ir_operand_push(nd, br);
@@ -3094,6 +3113,7 @@ IR_graph_t * lower_icon_proc(const tree_t * prog, const tree_t * pd) {
     fill_pnames(prog, &pnv);
     icx_t cx;
     memset(&cx, 0, sizeof cx);
+    cx.prog = prog;
     cx.pn = (const char **) pnv.data;
     cx.npn = pnv.n;
     static lc_vec lnv;

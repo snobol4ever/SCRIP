@@ -4,8 +4,10 @@ extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern DESCR_t icn_field_get(const char *fname, DESCR_t obj);
+extern DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at);
 extern DESCR_t rt_field_var(const char *fname, DESCR_t obj);
 extern DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj);
+extern DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at);
 }
 #include "x86_asm.h"
 #define RO_SEAL_STR(n, s) \
@@ -13,6 +15,20 @@ extern DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj);
    + x86(".quad", LS(n), (s)) \
    + x86("label", LS(n)) \
    + x86(".string", (s)))
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string field_get_call() {
+    return (_.op_node_kind == IR_FIELD_VAR)
+         ? (_.op_strict && _.op_seal > 0
+            ? x86("mov", "ecx", (long)(_.op_seal - 1))
+            + x86("call", "rt_field_var_strict_at", (uint64_t)(uintptr_t)(void *)rt_field_var_strict_at)
+            : _.op_strict
+            ? x86("call", "rt_field_var_strict", (uint64_t)(uintptr_t)(void *)rt_field_var_strict)
+            : x86("call", "rt_field_var", (uint64_t)(uintptr_t)(void *)rt_field_var))
+         : (_.op_seal > 0)
+         ? x86("mov", "ecx", (long)(_.op_seal - 1))
+         + x86("call", "icn_field_get_at", (uint64_t)(uintptr_t)(void *)icn_field_get_at)
+         : x86("call", "icn_field_get", (uint64_t)(uintptr_t)(void *)icn_field_get);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_field_get() {
     return IF(_.op_zres,
@@ -23,9 +39,7 @@ std::string bb_field_get() {
              + x86("mov", "rsi", ZOPQ(0, 0))
              + x86("note", ZOPN(0))
              + x86("mov", "rdx", ZOPQ(0, 8))
-             + ((_.op_node_kind == IR_FIELD_VAR) ? (_.op_strict ? x86("call", "rt_field_var_strict", (uint64_t)(uintptr_t)(void *)rt_field_var_strict) :
-             x86("call", "rt_field_var", (uint64_t)(uintptr_t)(void *)rt_field_var))
-                   : x86("call", "icn_field_get", (uint64_t)(uintptr_t)(void *)icn_field_get))
+             + field_get_call()
              + x86("cmp", "al", std::to_string((long)DT_FAIL))
              + x86_omega("je")
              + x86("note", ZRESN())
@@ -43,9 +57,7 @@ std::string bb_field_get() {
          + x86("mov", "rdi", ROQ(0))
          + x86("mov", "rsi", FRQ(_.op_a_slot))
          + x86("mov", "rdx", FRQ(_.op_a_slot + 8))
-         + ((_.op_node_kind == IR_FIELD_VAR) ? (_.op_strict ? x86("call", "rt_field_var_strict", (uint64_t)(uintptr_t)(void *)rt_field_var_strict) :
-         x86("call", "rt_field_var", (uint64_t)(uintptr_t)(void *)rt_field_var))
-               : x86("call", "icn_field_get", (uint64_t)(uintptr_t)(void *)icn_field_get))
+         + field_get_call()
          + x86("cmp", "al", std::to_string((long)DT_FAIL))
          + x86_omega("je")
          + x86("mov", FRQ(_.op_off), "rax")

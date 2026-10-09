@@ -1645,7 +1645,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_UNOP_TEST: case IR_NULLTEST_VAR: {
         { extern int fc_vbinop_active(const IR_t *); extern long fc_vwpop(const IR_t *); long _w = fc_vwpop(nd); if (_w > 0 && fc_vbinop_active(nd) && !g_emit.op_zres) g_emit.op_wpop += (int)_w; }
         bb_emit_x86(bb_unop()); return 0; }
-    case IR_FIELD_GET: case IR_FIELD_VAR: bb_emit_x86(bb_field_get()); return 0;
+    case IR_FIELD_GET: case IR_FIELD_VAR: g_emit.op_seal = nd->seal; bb_emit_x86(bb_field_get()); return 0;
     default:
         fprintf(out, "# [walk_bb_node: kind=%d unhandled]\n", (int)nd->op);
         return 1;
@@ -2019,7 +2019,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         IR_t * obj = bb_child0(nd);
         int sa = obj ? emit_binop_opnd_slot(obj) : -1;
         if (sa < 0) { drive_guard_refused(nd, __LINE__); break; }
-        g_emit.op_a_slot = sa; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd);
+        g_emit.op_a_slot = sa; g_emit.op_sval = IR_LIT(nd).sval; g_emit.op_off = drive_value_slot(nd); g_emit.op_seal = nd->seal;
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ASSIGN: {
