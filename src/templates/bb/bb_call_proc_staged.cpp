@@ -69,6 +69,12 @@ void rt_trace_call_hook_f(const char *fname, int np, void *base);
 int zls_g_block_args(const IR_graph_t * g);
 }
 #include "x86_asm.h"
+extern "C++" long bcps_parse_rsp(const char * t);
+extern "C++" int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i);
+extern "C++" IR_t * bb_chain_terminal_staged(IR_t * entry);
+extern "C++" int bcps_result_slot();
+extern "C++" int bcps_beta_pair_idx();
+extern "C++" void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const char * why, const char * opnd);
 #define RO_SEAL_STR(n, s) \
     (x86("def", L(n)) \
    + x86(".quad", LS(n), (s)) \
@@ -141,33 +147,9 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
          + x86("def", L(SAI_L0 + 1 + i * 2));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * bb_chain_terminal_staged(IR_t * entry) {
-    IR_t * n = entry; int guard = 0;
-    while (n && n->γ.node && n->γ.node->op != IR_SUCCEED && n->γ.node->op != IR_FAIL && guard++ < 4096) n = n->γ.node;
-    return n;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcps_beta_pair_idx() {
-    for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
-        if (XA_PAIR(i).define == _.lbl_β_p && XA_PAIR(i).jmp) return i;
-    return -1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i) {
-    IR_t * a = ir_call_arg(call, i);
-    if (a) {
-    int s = bb_slot_get(a);
-    if (s < 0) s = zls_off(a);
-    if (s >= 0) return s;
-}
-    IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int s = prod ? bb_slot_get(prod) : -1; return s < 0 ? 0 : s;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcps_result_slot() {
-    IR_t * nd = _.node;
-    { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
-    return -1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define c2farm() (_.op_fc_wbytes > 0)
 static inline int bcps_pl() { return x86_fb_pinned(); }
@@ -189,30 +171,10 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
          + x86("def", L(29));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static long bcps_parse_rsp(const char * t) {
-    const char * p = strstr(t, "[rsp");
-    if (!p) return -1;
-    p += 4; if (*p == '#' || *p == '$') p++;
-    while (*p == ' ') p++;
-    if (*p == ']') return 0;
-    if (*p != '+') return -1;
-    p++; while (*p == ' ') p++;
-    if (*p < '0' || *p > '9') return -1;
-    long v = 0; while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
-    return (*p == ']') ? v : -1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcps_sig_disp(slot) (bcps_parse_rsp(FRQB((slot), 0)))
 #define bcps_zref_disp(zoff) (bcps_parse_rsp(x86_zref((zoff), 1)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const char * why, const char * opnd) {
-    static int _sd = -1; if (_sd < 0) {
-    const char * _e = getenv("SCRIP_SIG_DIAG");
-    _sd = (_e && *_e == '1') ? 1 : 0;
-}
-    if (!_sd) return;
-    fprintf(stderr, "[SIG] arm=%s fn=%s nargs=%ld verdict=%s why=%s opnd=%s\n", arm, fn ? fn : "?", n, ok ? "SIG" : "DECLINE", why, (opnd && *opnd) ? opnd : "-");
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" int bb_proc_multi_proto(const char *fname) { if (!fname) return 0; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; return (bi >= 0 && bi < g_stage2.bbp.count

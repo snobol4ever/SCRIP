@@ -5632,3 +5632,358 @@ const int * pl_anum_rules(const char * name, int nargs) {
     if (nargs == 3 && !strcmp(name, "functor")) return r_functor;
     return 0;
 }
+extern "C" { int stage2_owner_varslot(const char *, const char *); int bb_scc_probe(const char *, int, int *, int *, int *, int *); int rt_proc_nformals(const char *); extern int g_rt_fragment_emit;
+    extern int g_flat_frame_floor; }
+IR_t * bb_chain_terminal_staged(IR_t * entry);
+int zf_display_level(void) {
+    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
+    int dl = g_emit_cfg->decl_level;
+    return (dl >= 1) ? dl : 0;
+}
+int zf_pas_nest_graph(void) {
+    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
+    return g_emit_cfg->decl_level >= 1;
+}
+int zf_display_mem_off(int dl) {
+    if (!g_emit_cfg || !g_emit_cfg->l3_ancestor_name) return -1;
+    char nm[32]; snprintf(nm, sizeof nm, "__pas_display_%d", dl);
+    return stage2_owner_varslot(g_emit_cfg->l3_ancestor_name, nm);
+}
+int xa_flat_class_zf(void) {
+    if (g_emit.zframe_graph) return 1;
+    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) return 1;
+    return 0;
+}
+int xa_flat_class_c(void) {
+    if (!g_emit.flat_jmp_entry) { if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=no_jmp_entry\n", g_emit.nid); return 0; }
+    if (g_emit.flat_pat || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph || g_emit.flat_stmt_frame) {
+        if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=pat/gen/lcl/zframe/stmt pat=%d gen=%d lcl=%d zframe=%d stmt=%d\n",
+                                                g_emit.nid, g_emit.flat_pat, g_emit.flat_gen, g_emit.flat_lcl_proc, g_emit.zframe_graph, g_emit.flat_stmt_frame);
+        return 0; }
+    { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0) {
+        if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=floor floor=%d\n", g_emit.nid, g_flat_frame_floor);
+        return 0; } }
+    { int _r = (g_emit.flat_frame_bytes >= 48) ? 1 : 0;
+      if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d PASS frame_bytes=%d -> %d\n", g_emit.nid, g_emit.flat_frame_bytes, _r);
+      return _r; }
+}
+int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out) {
+    if (!fname || !fname[0] || g_rt_fragment_emit) return 0;
+    int nf = rt_proc_nformals(fname); if (nf < 0) nf = 0;
+    int np = 0, nsave = 0, res_gk = -1;
+    int have = bb_scc_probe(fname, nf, &np, &nsave, gk_out, &res_gk);
+    if (!have || nsave <= 0 || nsave > 29) return 0;
+    for (int k = 0; k < nsave; k++) if (gk_out[k] < 0) return 0;
+    if (res_gk < 0) return 0;
+    *nf_out = nf; *nsave_out = nsave;
+    if (res_gk_out) *res_gk_out = res_gk;
+    return 1;
+}
+const char * xa_icn_trace_intern(const char * s) {
+    static std::unordered_set<std::string> pool;
+    if (!s) return s;
+    return pool.insert(std::string(s)).first->c_str();
+}
+int xa_flat_graph_holds_a_frame_retry(void) {
+    if (!g_emit_cfg) return 0;
+    for (int i = 0; i < g_emit_cfg->n; i++) { const IR_t * nd = g_emit_cfg->all[i];
+        if (nd && (nd->op == IR_DISJUNCTION || nd->op == IR_TO || nd->op == IR_TO_BY)) return 1; }
+    return 0;
+}
+long bcps_parse_rsp(const char * t) {
+    const char * p = strstr(t, "[rsp");
+    if (!p) return -1;
+    p += 4; if (*p == '#' || *p == '$') p++;
+    while (*p == ' ') p++;
+    if (*p == ']') return 0;
+    if (*p != '+') return -1;
+    p++; while (*p == ' ') p++;
+    if (*p < '0' || *p > '9') return -1;
+    long v = 0; while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
+    return (*p == ']') ? v : -1;
+}
+int bcps_arg_slot(IR_t * call, IR_graph_t ** argblks, int i) {
+    IR_t * a = ir_call_arg(call, i);
+    if (a) {
+    int s = bb_slot_get(a);
+    if (s < 0) s = zls_off(a);
+    if (s >= 0) return s;
+}
+    IR_t * prod = bb_chain_terminal_staged(argblks && argblks[i] ? argblks[i]->entry : NULL); int s = prod ? bb_slot_get(prod) : -1; return s < 0 ? 0 : s;
+}
+IR_t * bb_chain_terminal_staged(IR_t * entry) {
+    IR_t * n = entry; int guard = 0;
+    while (n && n->γ.node && n->γ.node->op != IR_SUCCEED && n->γ.node->op != IR_FAIL && guard++ < 4096) n = n->γ.node;
+    return n;
+}
+int bcps_result_slot() {
+    IR_t * nd = _.node;
+    { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
+    return -1;
+}
+int bcps_beta_pair_idx() {
+    for (int i = 0; i < g_emit.xa_bb_emit_pair_n; i++)
+        if (XA_PAIR(i).define == _.lbl_β_p && XA_PAIR(i).jmp) return i;
+    return -1;
+}
+void bcps_sig_tally(const char * arm, const char * fn, long n, int ok, const char * why, const char * opnd) {
+    static int _sd = -1; if (_sd < 0) {
+    const char * _e = getenv("SCRIP_SIG_DIAG");
+    _sd = (_e && *_e == '1') ? 1 : 0;
+}
+    if (!_sd) return;
+    fprintf(stderr, "[SIG] arm=%s fn=%s nargs=%ld verdict=%s why=%s opnd=%s\n", arm, fn ? fn : "?", n, ok ? "SIG" : "DECLINE", why, (opnd && *opnd) ? opnd : "-");
+}
+int bcfn_result_slot(IR_t * nd) {
+    { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
+    return -1;
+}
+extern "C" int xa_flat_class_c_pred(void) { return xa_flat_class_c(); }
+extern "C" {
+DESCR_t rt_pl_throw_raise(DESCR_t *, int); DESCR_t rt_pl_exist_raise(DESCR_t *, int); DESCR_t rt_pl_catch_handle(DESCR_t *, int); DESCR_t rt_pl_dop_clause_unify(DESCR_t *,
+    int); DESCR_t dop_write(DESCR_t *, int); DESCR_t dop_nl(DESCR_t *, int); DESCR_t rt_fp_model_spitbol(DESCR_t *, int); DESCR_t rt_sno_wantnm_d(DESCR_t *,
+        int); DESCR_t rt_sno_mkpat_d(DESCR_t *, int);
+DESCR_t rt_sno_name_dl(DESCR_t *, int); DESCR_t rt_sno_pbk_d(DESCR_t *, int); DESCR_t rt_sno_pbn_d(DESCR_t *, int); DESCR_t rt_sno_pb0_d(DESCR_t *, int); DESCR_t rt_sno_pbc_d(DESCR_t *,
+    int); DESCR_t rt_sno_pcur_d(DESCR_t *, int); DESCR_t rt_sno_pbalt_d(DESCR_t *, int); DESCR_t rt_sno_parb_d(DESCR_t *, int); DESCR_t rt_sno_pfen_d(DESCR_t *,
+        int); DESCR_t rt_sno_pdef_d(DESCR_t *, int); DESCR_t rt_sno_kwset_d(DESCR_t *, int); DESCR_t rt_sno_mkexpr_d(DESCR_t *, int); DESCR_t rt_sno_stmt_d(DESCR_t *,
+            int); DESCR_t rt_sno_nofail_d(DESCR_t *, int); DESCR_t rt_sno_list_d(DESCR_t *, int);
+DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, int);
+DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
+DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *,
+    int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
+DESCR_t rt_pl_dop_wall_us(DESCR_t *, int); DESCR_t rt_pl_dop_wall_ms(DESCR_t *, int);
+DESCR_t rt_pl_dop_plus(DESCR_t *, int); DESCR_t rt_pl_dop_sort(DESCR_t *, int); DESCR_t rt_pl_dop_msort(DESCR_t *, int); DESCR_t rt_pl_dop_char_type(DESCR_t *, int);
+DESCR_t rt_pl_dop_findall_new(DESCR_t *, int); DESCR_t rt_pl_dop_findall_add(DESCR_t *, int); DESCR_t rt_pl_dop_findall_result(DESCR_t *, int); DESCR_t rt_pl_dop_findall_result4(DESCR_t *,
+    int); DESCR_t rt_pl_dop_bagof_result(DESCR_t *, int); DESCR_t rt_pl_dop_setof_result(DESCR_t *, int);
+DESCR_t rt_pl_dop_sub_atom_n(DESCR_t *, int); DESCR_t rt_pl_dop_sub_atom_at(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_n(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat_at(DESCR_t *,
+    int); DESCR_t rt_pl_dop_bagof_group_n(DESCR_t *, int); DESCR_t rt_pl_dop_bagof_group_at(DESCR_t *, int); DESCR_t rt_pl_dop_setof_group_at(DESCR_t *, int);
+DESCR_t rt_pl_dop_big(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase(DESCR_t *,
+    int); DESCR_t rt_pl_dop_db_abolish(DESCR_t *, int); DESCR_t rt_pl_dop_db_nonempty(DESCR_t *, int); DESCR_t rt_pl_dop_ball_pending(DESCR_t *, int); DESCR_t rt_pl_dop_format(DESCR_t *,
+        int); DESCR_t rt_pl_dop_db_seed_once(DESCR_t *, int);
+DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t *, int); DESCR_t rt_pl_dop_b_setval(DESCR_t *, int);
+DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
+DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
+DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *,
+    int); DESCR_t rt_pl_dop_db_abolish_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_retractall_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_r(DESCR_t *,
+        int); DESCR_t rt_pl_dop_db_assertz_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_ref(DESCR_t *, int); DESCR_t rt_pl_dop_db_n_r(DESCR_t *, int); DESCR_t rt_pl_dop_db_at_r(DESCR_t *,
+            int); DESCR_t rt_pl_dop_db_ref_r(DESCR_t *, int);
+DESCR_t rt_pl_dop_db_store_k(DESCR_t *, int); DESCR_t rt_pl_dop_db_copy(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cp_nth(DESCR_t *,
+    int); DESCR_t rt_pl_dop_pl_cp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_pp_nth(DESCR_t *,
+        int); DESCR_t rt_pl_dop_halt(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_eguard(DESCR_t *, int);
+DESCR_t rt_quit_trap_300(DESCR_t *, int); DESCR_t rt_quit_trap_320(DESCR_t *, int);
+DESCR_t rt_pl_dop_char_guard(DESCR_t *, int); DESCR_t rt_pl_dop_between_guard(DESCR_t *, int); DESCR_t rt_pl_dop_stream_guard(DESCR_t *, int); DESCR_t rt_pl_dop_curstream_guard(DESCR_t *, int);
+DESCR_t rt_pl_dop_nb_getval_guard(DESCR_t *, int);
+DESCR_t rt_pl_dop_goal_guard(DESCR_t *, int); DESCR_t rt_pl_dop_list_guard(DESCR_t *, int); DESCR_t rt_pl_dop_pl_declared(DESCR_t *, int); DESCR_t rt_pl_dop_pl_dynamic(DESCR_t *, int);
+DESCR_t rt_pl_dop_term_string(DESCR_t *, int); DESCR_t rt_pl_dop_term_to_atom(DESCR_t *, int);
+DESCR_t rt_pl_dop_atom_length(DESCR_t *, int); DESCR_t rt_pl_dop_atom_concat(DESCR_t *, int); DESCR_t rt_pl_dop_atomic_concat(DESCR_t *,
+    int); DESCR_t rt_pl_dop_atom_chars(DESCR_t *, int);
+DESCR_t rt_pl_dop_atom_codes(DESCR_t *, int); DESCR_t rt_pl_dop_atom_number(DESCR_t *, int); DESCR_t rt_pl_dop_atom_string(DESCR_t *, int); DESCR_t rt_pl_dop_upcase_atom(DESCR_t *, int);
+DESCR_t rt_pl_dop_downcase_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_concat(DESCR_t *, int); DESCR_t rt_pl_dop_string_length(DESCR_t *, int); DESCR_t rt_pl_dop_string_lower(DESCR_t *, int);
+DESCR_t rt_pl_dop_string_upper(DESCR_t *, int); DESCR_t rt_pl_dop_string_to_atom(DESCR_t *, int); DESCR_t rt_pl_dop_string_codes(DESCR_t *, int); DESCR_t rt_pl_dop_string_chars(DESCR_t *,
+    int); DESCR_t rt_pl_dop_number_string(DESCR_t *, int);
+DESCR_t rt_pl_dop_atomic_list_concat(DESCR_t *, int); DESCR_t rt_pl_dop_concat_atom(DESCR_t *, int); DESCR_t rt_pl_dop_char_code(DESCR_t *, int); DESCR_t rt_pl_dop_number_codes(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_sort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_msort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_keysort1(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_line_count(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_line_position(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_character_count(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_stream_line_column(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_last_read_start(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_absolute_file_name(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_prolog_file_name(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_builtin(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_working_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_change_directory(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_make_directory(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_delete_file(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_exists(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_directory_files(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_environ_list(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_file_props(DESCR_t *, int); DESCR_t rt_pl_dop_gnu_term_hash(DESCR_t *, int);
+DESCR_t rt_pl_dop_gnu_prolog_pid(DESCR_t *, int);
+DESCR_t rt_pl_dop_number_chars(DESCR_t *, int); DESCR_t rt_pl_dop_name(DESCR_t *, int); DESCR_t rt_pl_dop_get_char(DESCR_t *, int); DESCR_t rt_pl_dop_peek_char(DESCR_t *, int);
+DESCR_t rt_pl_dop_read(DESCR_t *, int); DESCR_t rt_pl_dop_atom_to_term(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_atom(DESCR_t *,
+    int); DESCR_t rt_pl_dop_read_term_from_chars(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_from_codes(DESCR_t *, int);DESCR_t rt_pl_dop_display(DESCR_t *,
+        int); DESCR_t rt_pl_dop_display_s(DESCR_t *, int); DESCR_t rt_pl_dop_unify_oc(DESCR_t *, int); DESCR_t rt_pl_dop_aggregate_reduce(DESCR_t *, int);
+DESCR_t rt_pl_dop_read_term_opts(DESCR_t *, int); DESCR_t rt_pl_dop_read_term_opts_s(DESCR_t *, int);
+DESCR_t rt_pl_dop_wot_open(DESCR_t *, int); DESCR_t rt_pl_dop_wot_capture(DESCR_t *, int); DESCR_t rt_pl_dop_wot_discard(DESCR_t *, int);
+DESCR_t rt_pl_dop_set_prolog_flag_declare(DESCR_t *, int);
+DESCR_t dop_pl_ground(DESCR_t *, int); DESCR_t dop_pl_is_list(DESCR_t *, int); DESCR_t dop_pl_acyclic_term(DESCR_t *, int);
+DESCR_t dop_pl_writeq(DESCR_t *, int); DESCR_t dop_pl_write_canonical(DESCR_t *, int);
+DESCR_t dop_pl_writeln(DESCR_t *, int); DESCR_t dop_pl_tab(DESCR_t *, int); DESCR_t dop_pl_put_char(DESCR_t *, int);
+DESCR_t dop_pl_flush_output(DESCR_t *, int); DESCR_t dop_pl_format(DESCR_t *, int);
+DESCR_t dop_pl_write_s(DESCR_t *, int); DESCR_t dop_pl_writeq_s(DESCR_t *, int); DESCR_t dop_pl_write_canonical_s(DESCR_t *, int); DESCR_t dop_pl_writeln_s(DESCR_t *,
+    int); DESCR_t dop_pl_nl_s(DESCR_t *, int);
+DESCR_t dop_pl_tab_s(DESCR_t *, int); DESCR_t dop_pl_put_char_s(DESCR_t *, int); DESCR_t dop_pl_flush_output_s(DESCR_t *, int); DESCR_t dop_pl_set_output(DESCR_t *,
+    int); DESCR_t dop_pl_set_input(DESCR_t *, int);
+DESCR_t rt_pl_dop_close(DESCR_t *, int); DESCR_t rt_pl_dop_read_s(DESCR_t *, int); DESCR_t rt_pl_dop_get_char_s(DESCR_t *, int); DESCR_t rt_pl_dop_peek_char_s(DESCR_t *,
+    int); DESCR_t rt_pl_dop_current_output(DESCR_t *, int);
+DESCR_t rt_pl_dop_get_code(DESCR_t *, int); DESCR_t rt_pl_dop_peek_code(DESCR_t *, int); DESCR_t rt_pl_dop_get_byte(DESCR_t *, int); DESCR_t rt_pl_dop_peek_byte(DESCR_t *,
+    int); DESCR_t rt_pl_dop_unget_char(DESCR_t *, int);
+DESCR_t rt_pl_dop_get_code_s(DESCR_t *, int); DESCR_t rt_pl_dop_peek_code_s(DESCR_t *, int); DESCR_t rt_pl_dop_get_byte_s(DESCR_t *, int); DESCR_t rt_pl_dop_peek_byte_s(DESCR_t *,
+    int); DESCR_t rt_pl_dop_unget_char_s(DESCR_t *, int);
+DESCR_t rt_pl_dop_unget_code(DESCR_t *, int); DESCR_t rt_pl_dop_unget_byte(DESCR_t *, int); DESCR_t rt_pl_dop_unget_code_s(DESCR_t *, int); DESCR_t rt_pl_dop_unget_byte_s(DESCR_t *, int);
+DESCR_t dop_pl_at_end_of_stream(DESCR_t *, int); DESCR_t rt_pl_dop_at_end_of_stream_s(DESCR_t *, int); DESCR_t rt_pl_dop_get_edin(DESCR_t *, int); DESCR_t rt_pl_dop_skip(DESCR_t *, int);
+DESCR_t rt_pl_dop_put_char_c(DESCR_t *, int); DESCR_t rt_pl_dop_put_char_c_s(DESCR_t *, int);
+DESCR_t rt_pl_dop_current_prolog_flag(DESCR_t *, int); DESCR_t rt_pl_dop_set_prolog_flag(DESCR_t *, int); DESCR_t rt_pl_dop_telling(DESCR_t *, int); DESCR_t rt_pl_dop_seeing(DESCR_t *,
+    int); DESCR_t rt_pl_dop_tell(DESCR_t *, int); DESCR_t rt_pl_dop_append1(DESCR_t *, int); DESCR_t rt_pl_dop_see(DESCR_t *, int);
+DESCR_t dop_pl_told(DESCR_t *, int); DESCR_t dop_pl_seen(DESCR_t *, int);
+DESCR_t rt_pl_dop_put_byte(DESCR_t *, int); DESCR_t rt_pl_dop_put_byte_s(DESCR_t *, int); DESCR_t dop_pl_put_code(DESCR_t *, int); DESCR_t dop_pl_put_code_s(DESCR_t *, int);
+DESCR_t rt_pl_dop_current_input(DESCR_t *, int); DESCR_t rt_pl_dop_open(DESCR_t *, int); DESCR_t rt_pl_dop_open4(DESCR_t *, int); DESCR_t rt_pl_dop_keysort(DESCR_t *,
+    int); DESCR_t rt_pl_dop_set_stream_position(DESCR_t *, int); DESCR_t rt_pl_dop_format3(DESCR_t *, int); DESCR_t rt_pl_dop_write_term(DESCR_t *,
+        int); DESCR_t rt_pl_dop_write_term_s(DESCR_t *, int); DESCR_t rt_pl_dop_print(DESCR_t *, int);
+        DESCR_t rt_pl_dop_print_s(DESCR_t *, int); DESCR_t rt_pl_dop_write_sb(DESCR_t *, int); DESCR_t rt_pl_dop_writeq_sb(DESCR_t *,
+            int); DESCR_t rt_pl_dop_write_canonical_sb(DESCR_t *, int); DESCR_t rt_pl_dop_writeln_sb(DESCR_t *, int); DESCR_t rt_pl_dop_nl_sb(DESCR_t *,
+                int); DESCR_t rt_pl_dop_tab_sb(DESCR_t *, int); DESCR_t rt_pl_dop_put_char_sb(DESCR_t *, int); DESCR_t rt_pl_dop_put_code_sb(DESCR_t *,
+                    int); DESCR_t rt_pl_dop_flush_output_sb(DESCR_t *, int); DESCR_t rt_pl_dop_op(DESCR_t *, int); DESCR_t rt_pl_dop_pl_op_check(DESCR_t *,
+                        int); DESCR_t rt_pl_dop_pl_sp_check(DESCR_t *, int); DESCR_t rt_pl_dop_pl_ioarg(DESCR_t *, int); DESCR_t rt_pl_dop_pl_op_count(DESCR_t *,
+                            int); DESCR_t rt_pl_dop_pl_op_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_sp_count(DESCR_t *, int); DESCR_t rt_pl_dop_cutcall(DESCR_t *,
+                                int); DESCR_t rt_pl_dop_pl_sp_nth(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cs_count(DESCR_t *, int); DESCR_t rt_pl_dop_pl_cs_nth(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_rem(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fpow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pow(DESCR_t *, int); DESCR_t rt_pl_dop_ax_min(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_max(DESCR_t *, int); DESCR_t rt_pl_dop_ax_gcd(DESCR_t *, int); DESCR_t rt_pl_dop_ax_xor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_shr(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_shl(DESCR_t *, int); DESCR_t rt_pl_dop_ax_band(DESCR_t *, int); DESCR_t rt_pl_dop_ax_bor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_neg(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_pos(DESCR_t *, int); DESCR_t rt_pl_dop_ax_abs(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sign(DESCR_t *, int); DESCR_t rt_pl_dop_ax_trunc(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_intg(DESCR_t *, int); DESCR_t rt_pl_dop_ax_flt(DESCR_t *, int); DESCR_t rt_pl_dop_ax_floor(DESCR_t *, int); DESCR_t rt_pl_dop_ax_ceil(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_round(DESCR_t *, int); DESCR_t rt_pl_dop_ax_sqrt(DESCR_t *, int); DESCR_t rt_pl_dop_ax_msb(DESCR_t *, int); DESCR_t rt_pl_dop_ax_bnot(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_sin(DESCR_t *, int); DESCR_t rt_pl_dop_ax_cos(DESCR_t *, int); DESCR_t rt_pl_dop_ax_atan(DESCR_t *, int); DESCR_t rt_pl_dop_ax_log(DESCR_t *, int);
+DESCR_t rt_pl_dop_ax_exp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_fip(DESCR_t *, int); DESCR_t rt_pl_dop_ax_ffp(DESCR_t *, int); DESCR_t rt_pl_dop_ax_pi(DESCR_t *,
+    int); DESCR_t rt_pl_dop_ax_e(DESCR_t *, int);
+}
+void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
+    static const struct { const char * nm; int ar; const char * sy; DESCR_t (*fp)(DESCR_t *, int); } t[] = {
+        { "$clause_unify", 2, "rt_pl_dop_clause_unify", rt_pl_dop_clause_unify },
+        { "$throw", 1, "rt_pl_throw_raise", rt_pl_throw_raise }, { "$existence_error", 1, "rt_pl_exist_raise", rt_pl_exist_raise },
+        { "$catch_handle", 1, "rt_pl_catch_handle", rt_pl_catch_handle },
+        { "$write", 1, "dop_write", dop_write }, { "$nl", 0, "dop_nl", dop_nl },
+        { "$fp_model_spitbol", 0, "rt_fp_model_spitbol", rt_fp_model_spitbol }, { "SNO$WANTNM", -1, "rt_sno_wantnm_d", rt_sno_wantnm_d }, { "SNO$MKPAT", -1, "rt_sno_mkpat_d", rt_sno_mkpat_d },
+        { "SNO$NAME", 1, "rt_sno_name_dl", rt_sno_name_dl }, { "SNO$PBK", 2, "rt_sno_pbk_d", rt_sno_pbk_d }, { "SNO$PBN", 2, "rt_sno_pbn_d", rt_sno_pbn_d }, { "SNO$PB0", 1, "rt_sno_pb0_d",
+            rt_sno_pb0_d },
+        { "SNO$PBC", 3, "rt_sno_pbc_d", rt_sno_pbc_d }, { "SNO$PCUR", 1, "rt_sno_pcur_d", rt_sno_pcur_d }, { "SNO$PBALT", 2, "rt_sno_pbalt_d", rt_sno_pbalt_d }, { "SNO$PARB", 1,
+            "rt_sno_parb_d", rt_sno_parb_d },
+        { "SNO$PFEN", 1, "rt_sno_pfen_d", rt_sno_pfen_d }, { "SNO$PDEF", 1, "rt_sno_pdef_d", rt_sno_pdef_d }, { "SNO$KWSET", 2, "rt_sno_kwset_d", rt_sno_kwset_d }, { "SNO$MKEXPR", 1,
+            "rt_sno_mkexpr_d", rt_sno_mkexpr_d },
+        { "SNO$STMT", -1, "rt_sno_stmt_d", rt_sno_stmt_d }, { "SNO$NOFAIL", 0, "rt_sno_nofail_d", rt_sno_nofail_d }, { "SNO$LIST", 1, "rt_sno_list_d", rt_sno_list_d },
+        { "$compare", 3, "rt_pl_dop_compare", rt_pl_dop_compare }, { "$functor", 3, "rt_pl_dop_functor", rt_pl_dop_functor }, { "$arg", 3, "rt_pl_dop_arg", rt_pl_dop_arg },
+        { "$skip_list", 3, "rt_pl_dop_skip_list", rt_pl_dop_skip_list }, { "$argv", 1, "rt_pl_dop_argv", rt_pl_dop_argv },
+        { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term },
+        { "$term_variables", 2, "rt_pl_dop_term_variables", rt_pl_dop_term_variables }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },
+        { "$numbervars1", 1, "rt_pl_dop_numbervars1", rt_pl_dop_numbervars1 }, { "$succ", 2, "rt_pl_dop_succ", rt_pl_dop_succ }, { "$plus", 3, "rt_pl_dop_plus", rt_pl_dop_plus },
+        { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },
+        { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
+        { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },
+        { "$findall_result", 2, "rt_pl_dop_findall_result", rt_pl_dop_findall_result }, { "$findall_result4", 3, "rt_pl_dop_findall_result4", rt_pl_dop_findall_result4 }, { "$bagof_result",
+            2, "rt_pl_dop_bagof_result", rt_pl_dop_bagof_result },
+        { "$setof_result", 2, "rt_pl_dop_setof_result", rt_pl_dop_setof_result },
+        { "$sub_atom_n", 5, "rt_pl_dop_sub_atom_n", rt_pl_dop_sub_atom_n }, { "$sub_atom_at", 6, "rt_pl_dop_sub_atom_at", rt_pl_dop_sub_atom_at },
+        { "$atom_concat_n", 3, "rt_pl_dop_atom_concat_n", rt_pl_dop_atom_concat_n }, { "$atom_concat_at", 4, "rt_pl_dop_atom_concat_at", rt_pl_dop_atom_concat_at },
+        { "$bagof_group_n", 1, "rt_pl_dop_bagof_group_n", rt_pl_dop_bagof_group_n }, { "$bagof_group_at", 4, "rt_pl_dop_bagof_group_at", rt_pl_dop_bagof_group_at }, { "$setof_group_at", 4,
+            "rt_pl_dop_setof_group_at", rt_pl_dop_setof_group_at },
+        { "$db_assertz", 2, "rt_pl_dop_db_assertz", rt_pl_dop_db_assertz }, { "$db_asserta", 2, "rt_pl_dop_db_asserta", rt_pl_dop_db_asserta },
+        { "$db_erase", 2, "rt_pl_dop_db_erase", rt_pl_dop_db_erase }, { "$db_abolish", 1, "rt_pl_dop_db_abolish", rt_pl_dop_db_abolish }, { "$db_nonempty", 1, "rt_pl_dop_db_nonempty",
+            rt_pl_dop_db_nonempty }, { "$ball_pending", 0, "rt_pl_dop_ball_pending", rt_pl_dop_ball_pending }, { "$db_seed_once", 3, "rt_pl_dop_db_seed_once", rt_pl_dop_db_seed_once },
+        { "$db_retractall", 2, "rt_pl_dop_db_retractall", rt_pl_dop_db_retractall },
+        { "$db_alive", 2, "rt_pl_dop_db_alive", rt_pl_dop_db_alive },
+        { "$db_store_k", 1, "rt_pl_dop_db_store_k", rt_pl_dop_db_store_k }, { "$db_copy", 2, "rt_pl_dop_db_copy", rt_pl_dop_db_copy }, { "$pl_cp_count", 1, "rt_pl_dop_pl_cp_count",
+            rt_pl_dop_pl_cp_count }, { "$pl_cp_nth", 3, "rt_pl_dop_pl_cp_nth", rt_pl_dop_pl_cp_nth }, { "$pl_pp_guard", 1, "rt_pl_dop_pl_pp_guard", rt_pl_dop_pl_pp_guard }, { "$pl_pp_count",
+                2, "rt_pl_dop_pl_pp_count", rt_pl_dop_pl_pp_count }, { "$pl_pp_nth", 3, "rt_pl_dop_pl_pp_nth", rt_pl_dop_pl_pp_nth }, { "$pl_cp_guard", 1, "rt_pl_dop_pl_cp_guard",
+                    rt_pl_dop_pl_cp_guard },
+        { "$db_t_guard", 2, "rt_pl_dop_db_t_guard", rt_pl_dop_db_t_guard }, { "$db_assertz_t", 1, "rt_pl_dop_db_assertz_t", rt_pl_dop_db_assertz_t }, { "$db_asserta_t", 1,
+            "rt_pl_dop_db_asserta_t", rt_pl_dop_db_asserta_t },
+        { "$db_erase_t", 2, "rt_pl_dop_db_erase_t", rt_pl_dop_db_erase_t }, { "$db_abolish_t", 1, "rt_pl_dop_db_abolish_t", rt_pl_dop_db_abolish_t }, { "$db_retractall_t", 1,
+            "rt_pl_dop_db_retractall_t", rt_pl_dop_db_retractall_t }, { "$db_asserta_r", 2, "rt_pl_dop_db_asserta_r", rt_pl_dop_db_asserta_r }, { "$db_assertz_r", 2, "rt_pl_dop_db_assertz_r",
+                rt_pl_dop_db_assertz_r }, { "$db_erase_ref", 1, "rt_pl_dop_db_erase_ref", rt_pl_dop_db_erase_ref }, { "$db_n_r", 2, "rt_pl_dop_db_n_r", rt_pl_dop_db_n_r }, { "$db_at_r", 3,
+                    "rt_pl_dop_db_at_r", rt_pl_dop_db_at_r }, { "$db_ref_r", 3, "rt_pl_dop_db_ref_r", rt_pl_dop_db_ref_r },
+        { "$nb_setval", 2, "rt_pl_dop_nb_setval", rt_pl_dop_nb_setval }, { "$nb_getval", 2, "rt_pl_dop_nb_getval", rt_pl_dop_nb_getval }, { "$b_setval", 2, "rt_pl_dop_b_setval", rt_pl_dop_b_setval },
+        { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },
+        { "$ax_eguard", 1, "rt_pl_dop_ax_eguard", rt_pl_dop_ax_eguard },
+        { "$quit_trap_300", 0, "rt_quit_trap_300", rt_quit_trap_300 }, { "$quit_trap_320", 0, "rt_quit_trap_320", rt_quit_trap_320 },
+        { "$pl_char_guard", 1, "rt_pl_dop_char_guard", rt_pl_dop_char_guard },
+        { "$pl_between_guard", 3, "rt_pl_dop_between_guard", rt_pl_dop_between_guard },
+        { "$pl_stream_guard", 2, "rt_pl_dop_stream_guard", rt_pl_dop_stream_guard },
+        { "$pl_curstream_guard", 1, "rt_pl_dop_curstream_guard", rt_pl_dop_curstream_guard },
+        { "$pl_goal_guard", 1, "rt_pl_dop_goal_guard", rt_pl_dop_goal_guard }, { "$pl_list_guard", 1, "rt_pl_dop_list_guard", rt_pl_dop_list_guard }, { "$pl_declared", 2,
+            "rt_pl_dop_pl_declared", rt_pl_dop_pl_declared }, { "$pl_dynamic", 1, "rt_pl_dop_pl_dynamic", rt_pl_dop_pl_dynamic },
+        { "$term_string", 2, "rt_pl_dop_term_string", rt_pl_dop_term_string }, { "$term_to_atom", 2, "rt_pl_dop_term_to_atom", rt_pl_dop_term_to_atom },
+        { "$atom_length", 2, "rt_pl_dop_atom_length", rt_pl_dop_atom_length },
+        { "$atom_concat", 3, "rt_pl_dop_atom_concat", rt_pl_dop_atom_concat }, { "$atomic_concat", 3, "rt_pl_dop_atomic_concat", rt_pl_dop_atomic_concat }, { "$atom_chars", 2,
+            "rt_pl_dop_atom_chars", rt_pl_dop_atom_chars },
+        { "$atom_codes", 2, "rt_pl_dop_atom_codes", rt_pl_dop_atom_codes }, { "$atom_number", 2, "rt_pl_dop_atom_number", rt_pl_dop_atom_number },
+        { "$atom_string", 2, "rt_pl_dop_atom_string", rt_pl_dop_atom_string }, { "$upcase_atom", 2, "rt_pl_dop_upcase_atom", rt_pl_dop_upcase_atom },
+        { "$downcase_atom", 2, "rt_pl_dop_downcase_atom", rt_pl_dop_downcase_atom }, { "$string_concat", 3, "rt_pl_dop_string_concat", rt_pl_dop_string_concat },
+        { "$string_length", 2, "rt_pl_dop_string_length", rt_pl_dop_string_length }, { "$string_lower", 2, "rt_pl_dop_string_lower", rt_pl_dop_string_lower },
+        { "$string_upper", 2, "rt_pl_dop_string_upper", rt_pl_dop_string_upper }, { "$string_to_atom", 2, "rt_pl_dop_string_to_atom", rt_pl_dop_string_to_atom }, { "$string_codes", 2,
+            "rt_pl_dop_string_codes", rt_pl_dop_string_codes }, { "$string_chars", 2, "rt_pl_dop_string_chars", rt_pl_dop_string_chars },
+        { "$number_string", 2, "rt_pl_dop_number_string", rt_pl_dop_number_string }, { "$atomic_list_concat", 2, "rt_pl_dop_atomic_list_concat", rt_pl_dop_atomic_list_concat },
+        { "$atomic_list_concat", 3, "rt_pl_dop_atomic_list_concat", rt_pl_dop_atomic_list_concat }, { "$concat_atom", 2, "rt_pl_dop_concat_atom", rt_pl_dop_concat_atom },
+        { "$concat_atom", 3, "rt_pl_dop_concat_atom", rt_pl_dop_concat_atom }, { "$char_code", 2, "rt_pl_dop_char_code", rt_pl_dop_char_code },
+        { "$gnu_sort1", 1, "rt_pl_dop_gnu_sort1", rt_pl_dop_gnu_sort1 }, { "$gnu_msort1", 1, "rt_pl_dop_gnu_msort1", rt_pl_dop_gnu_msort1 },
+        { "$gnu_keysort1", 1, "rt_pl_dop_gnu_keysort1", rt_pl_dop_gnu_keysort1 }, { "$gnu_line_count", 2, "rt_pl_dop_gnu_line_count", rt_pl_dop_gnu_line_count },
+        { "$gnu_line_position", 2, "rt_pl_dop_gnu_line_position", rt_pl_dop_gnu_line_position }, { "$gnu_character_count", 2, "rt_pl_dop_gnu_character_count", rt_pl_dop_gnu_character_count },
+        { "$gnu_stream_line_column", 3, "rt_pl_dop_gnu_stream_line_column", rt_pl_dop_gnu_stream_line_column },
+        { "$gnu_last_read_start", 2, "rt_pl_dop_gnu_last_read_start", rt_pl_dop_gnu_last_read_start },
+        { "$gnu_absolute_file_name", 2, "rt_pl_dop_gnu_absolute_file_name", rt_pl_dop_gnu_absolute_file_name },
+        { "$gnu_prolog_file_name", 2, "rt_pl_dop_gnu_prolog_file_name", rt_pl_dop_gnu_prolog_file_name }, { "$gnu_builtin", 2, "rt_pl_dop_gnu_builtin", rt_pl_dop_gnu_builtin },
+        { "$gnu_working_directory", 1, "rt_pl_dop_gnu_working_directory", rt_pl_dop_gnu_working_directory },
+        { "$gnu_change_directory", 1, "rt_pl_dop_gnu_change_directory", rt_pl_dop_gnu_change_directory },
+        { "$gnu_make_directory", 1, "rt_pl_dop_gnu_make_directory", rt_pl_dop_gnu_make_directory },
+        { "$gnu_delete_file", 1, "rt_pl_dop_gnu_delete_file", rt_pl_dop_gnu_delete_file },
+        { "$gnu_file_exists", 1, "rt_pl_dop_gnu_file_exists", rt_pl_dop_gnu_file_exists },
+        { "$gnu_directory_files", 2, "rt_pl_dop_gnu_directory_files", rt_pl_dop_gnu_directory_files },
+        { "$gnu_environ_list", 1, "rt_pl_dop_gnu_environ_list", rt_pl_dop_gnu_environ_list },
+        { "$gnu_file_props", 2, "rt_pl_dop_gnu_file_props", rt_pl_dop_gnu_file_props },
+        { "$gnu_term_hash", 2, "rt_pl_dop_gnu_term_hash", rt_pl_dop_gnu_term_hash },
+        { "$gnu_prolog_pid", 1, "rt_pl_dop_gnu_prolog_pid", rt_pl_dop_gnu_prolog_pid },
+        { "$number_codes", 2, "rt_pl_dop_number_codes", rt_pl_dop_number_codes }, { "$number_chars", 2, "rt_pl_dop_number_chars", rt_pl_dop_number_chars },
+        { "$name", 2, "rt_pl_dop_name", rt_pl_dop_name }, { "$get_char", 1, "rt_pl_dop_get_char", rt_pl_dop_get_char }, { "$peek_char", 1, "rt_pl_dop_peek_char", rt_pl_dop_peek_char },
+        { "$get_code", 1, "rt_pl_dop_get_code", rt_pl_dop_get_code }, { "$peek_code", 1, "rt_pl_dop_peek_code", rt_pl_dop_peek_code },
+        { "$get_byte", 1, "rt_pl_dop_get_byte", rt_pl_dop_get_byte }, { "$peek_byte", 1, "rt_pl_dop_peek_byte", rt_pl_dop_peek_byte },
+        { "$unget_char", 1, "rt_pl_dop_unget_char", rt_pl_dop_unget_char }, { "$unget_code", 1, "rt_pl_dop_unget_code", rt_pl_dop_unget_code }, { "$unget_byte", 1, "rt_pl_dop_unget_byte",
+            rt_pl_dop_unget_byte }, { "$put_code", 1, "dop_pl_put_code", dop_pl_put_code },
+        { "$put_byte", 1, "rt_pl_dop_put_byte", rt_pl_dop_put_byte },
+        { "$current_prolog_flag", 2, "rt_pl_dop_current_prolog_flag", rt_pl_dop_current_prolog_flag }, { "$set_prolog_flag", 2, "rt_pl_dop_set_prolog_flag", rt_pl_dop_set_prolog_flag },
+            { "$telling", 1, "rt_pl_dop_telling", rt_pl_dop_telling }, { "$seeing", 1, "rt_pl_dop_seeing", rt_pl_dop_seeing },
+        { "$tell", 1, "rt_pl_dop_tell", rt_pl_dop_tell }, { "$append1", 1, "rt_pl_dop_append1", rt_pl_dop_append1 }, { "$see", 1, "rt_pl_dop_see", rt_pl_dop_see },
+        { "$told", 0, "dop_pl_told", dop_pl_told }, { "$seen", 0, "dop_pl_seen", dop_pl_seen },
+        { "$put_char_c", 1, "rt_pl_dop_put_char_c", rt_pl_dop_put_char_c }, { "$put_char_c_s", 2, "rt_pl_dop_put_char_c_s", rt_pl_dop_put_char_c_s },
+        { "$at_end_of_stream", 0, "dop_pl_at_end_of_stream", dop_pl_at_end_of_stream }, { "$at_end_of_stream_s", 1, "rt_pl_dop_at_end_of_stream_s", rt_pl_dop_at_end_of_stream_s },
+        { "$get_edin", 1, "rt_pl_dop_get_edin", rt_pl_dop_get_edin }, { "$skip", 1, "rt_pl_dop_skip", rt_pl_dop_skip },
+        { "$get_code_s", 2, "rt_pl_dop_get_code_s", rt_pl_dop_get_code_s }, { "$peek_code_s", 2, "rt_pl_dop_peek_code_s", rt_pl_dop_peek_code_s },
+        { "$get_byte_s", 2, "rt_pl_dop_get_byte_s", rt_pl_dop_get_byte_s }, { "$peek_byte_s", 2, "rt_pl_dop_peek_byte_s", rt_pl_dop_peek_byte_s },
+        { "$unget_char_s", 2, "rt_pl_dop_unget_char_s", rt_pl_dop_unget_char_s }, { "$unget_code_s", 2, "rt_pl_dop_unget_code_s", rt_pl_dop_unget_code_s }, { "$unget_byte_s", 2,
+            "rt_pl_dop_unget_byte_s", rt_pl_dop_unget_byte_s }, { "$put_byte_s", 2, "rt_pl_dop_put_byte_s", rt_pl_dop_put_byte_s },
+        { "$put_code_s", 2, "rt_pl_dop_put_code_sb", rt_pl_dop_put_code_sb },
+        { "$read", 1, "rt_pl_dop_read", rt_pl_dop_read }, { "$atom_to_term", 3, "rt_pl_dop_atom_to_term", rt_pl_dop_atom_to_term },
+        { "$display", 1, "rt_pl_dop_display", rt_pl_dop_display }, { "$display_s", 2, "rt_pl_dop_display_s", rt_pl_dop_display_s }, { "$unify_oc", 2, "rt_pl_dop_unify_oc", rt_pl_dop_unify_oc },
+        { "$aggregate_reduce", 3, "rt_pl_dop_aggregate_reduce", rt_pl_dop_aggregate_reduce },
+        { "$read_term_opts", 2, "rt_pl_dop_read_term_opts", rt_pl_dop_read_term_opts }, { "$read_term_opts_s", 3, "rt_pl_dop_read_term_opts_s", rt_pl_dop_read_term_opts_s },
+        { "$wot_open", 3, "rt_pl_dop_wot_open", rt_pl_dop_wot_open }, { "$wot_capture", 4, "rt_pl_dop_wot_capture", rt_pl_dop_wot_capture }, { "$wot_discard", 3, "rt_pl_dop_wot_discard",
+            rt_pl_dop_wot_discard },
+        { "$set_prolog_flag_declare", 2, "rt_pl_dop_set_prolog_flag_declare", rt_pl_dop_set_prolog_flag_declare },
+        { "$read_term_from_atom", 3, "rt_pl_dop_read_term_from_atom", rt_pl_dop_read_term_from_atom }, { "$read_term_from_chars", 3, "rt_pl_dop_read_term_from_chars",
+            rt_pl_dop_read_term_from_chars }, { "$read_term_from_codes", 3, "rt_pl_dop_read_term_from_codes", rt_pl_dop_read_term_from_codes },
+        { "$ground", 1, "dop_pl_ground", dop_pl_ground }, { "$is_list", 1, "dop_pl_is_list", dop_pl_is_list }, { "$acyclic_term", 1, "dop_pl_acyclic_term", dop_pl_acyclic_term },
+        { "$writeq", 1, "dop_pl_writeq", dop_pl_writeq }, { "$write_canonical", 1, "dop_pl_write_canonical", dop_pl_write_canonical }, { "$writeln", 1, "dop_pl_writeln", dop_pl_writeln },
+        { "$tab", 1, "dop_pl_tab", dop_pl_tab }, { "$put_char", 1, "dop_pl_put_char", dop_pl_put_char }, { "$halt", 0, "rt_pl_dop_halt", rt_pl_dop_halt }, { "$halt", 1, "rt_pl_dop_halt",
+            rt_pl_dop_halt },
+        { "$flush_output", 0, "dop_pl_flush_output", dop_pl_flush_output }, { "$format", 1, "rt_pl_dop_format", rt_pl_dop_format }, { "$format", 2, "rt_pl_dop_format", rt_pl_dop_format },
+        { "$write_s", 2, "rt_pl_dop_write_sb", rt_pl_dop_write_sb }, { "$writeq_s", 2, "rt_pl_dop_writeq_sb", rt_pl_dop_writeq_sb }, { "$write_canonical_s", 2, "rt_pl_dop_write_canonical_sb",
+            rt_pl_dop_write_canonical_sb },
+        { "$writeln_s", 2, "rt_pl_dop_writeln_sb", rt_pl_dop_writeln_sb }, { "$nl_s", 1, "rt_pl_dop_nl_sb", rt_pl_dop_nl_sb }, { "$tab_s", 2, "rt_pl_dop_tab_sb", rt_pl_dop_tab_sb },
+            { "$put_char_s", 2, "rt_pl_dop_put_char_sb", rt_pl_dop_put_char_sb },
+        { "$flush_output_s", 1, "rt_pl_dop_flush_output_sb", rt_pl_dop_flush_output_sb }, { "$set_output", 1, "dop_pl_set_output", dop_pl_set_output }, { "$set_input", 1, "dop_pl_set_input",
+            dop_pl_set_input },
+        { "$close", 1, "rt_pl_dop_close", rt_pl_dop_close }, { "$close", 2, "rt_pl_dop_close", rt_pl_dop_close }, { "$read_s", 2, "rt_pl_dop_read_s", rt_pl_dop_read_s }, { "$get_char_s", 2,
+            "rt_pl_dop_get_char_s", rt_pl_dop_get_char_s },
+        { "$peek_char_s", 2, "rt_pl_dop_peek_char_s", rt_pl_dop_peek_char_s }, { "$current_output", 1, "rt_pl_dop_current_output", rt_pl_dop_current_output }, { "$current_input", 1,
+            "rt_pl_dop_current_input", rt_pl_dop_current_input },
+        { "$open", 3, "rt_pl_dop_open", rt_pl_dop_open }, { "$open4", 4, "rt_pl_dop_open4", rt_pl_dop_open4 }, { "$keysort", 2, "rt_pl_dop_keysort", rt_pl_dop_keysort },
+            { "$set_stream_position", 2, "rt_pl_dop_set_stream_position", rt_pl_dop_set_stream_position }, { "$format3", 3, "rt_pl_dop_format3", rt_pl_dop_format3 }, { "$write_term", 2,
+                "rt_pl_dop_write_term", rt_pl_dop_write_term }, { "$write_term_s", 3, "rt_pl_dop_write_term_s", rt_pl_dop_write_term_s }, { "$op", 3, "rt_pl_dop_op", rt_pl_dop_op },
+                    { "$pl_op_check", 3, "rt_pl_dop_pl_op_check", rt_pl_dop_pl_op_check }, { "$pl_sp_check", 2, "rt_pl_dop_pl_sp_check", rt_pl_dop_pl_sp_check }, { "$pl_ioarg", 2,
+                        "rt_pl_dop_pl_ioarg", rt_pl_dop_pl_ioarg }, { "$cutcall", 2, "rt_pl_dop_cutcall", rt_pl_dop_cutcall },
+        { "$print", 1, "rt_pl_dop_print", rt_pl_dop_print }, { "$print_s", 2, "rt_pl_dop_print_s", rt_pl_dop_print_s },
+        { "$pl_op_count", 1, "rt_pl_dop_pl_op_count", rt_pl_dop_pl_op_count }, { "$pl_op_nth", 4, "rt_pl_dop_pl_op_nth", rt_pl_dop_pl_op_nth },
+        { "$pl_sp_count", 1, "rt_pl_dop_pl_sp_count", rt_pl_dop_pl_sp_count }, { "$pl_sp_nth", 3, "rt_pl_dop_pl_sp_nth", rt_pl_dop_pl_sp_nth },
+        { "$pl_cs_count", 1, "rt_pl_dop_pl_cs_count", rt_pl_dop_pl_cs_count }, { "$pl_cs_nth", 4, "rt_pl_dop_pl_cs_nth", rt_pl_dop_pl_cs_nth },
+        { 0, 0, 0, 0 } };
+    for (int i = 0; t[i].nm; i++) if (!strcmp(fn, t[i].nm) && (t[i].ar < 0 ? narg >= 1 : narg == t[i].ar)) {
+        const char * nd = getenv("SCRIP_NO_DOP"); if (nd && nd[0] == '1') return (void *)0;
+        const char * sk = getenv("SCRIP_DOP_SKIP"); if (sk && sk[0] && strstr(sk, t[i].nm + 1)) return (void *)0;
+        *sym = t[i].sy; return (void *)(uintptr_t)t[i].fp;
+    }
+    return (void *)0;
+}
+extern "C" int dop_direct_leaf_known(const char * fn, int narg) {
+    const char * s = 0;
+    return (dop_direct_fp(fn, (int64_t)narg, &s) || pl_leaf_inline_known(fn, narg)) ? 1 : 0;
+}

@@ -19,6 +19,7 @@ int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 }
 #include "x86_asm.h"
+extern "C++" int bcfn_result_slot(IR_t * nd);
 extern "C++" long bid_bake_of(const char * fn);
 extern "C++" int sn4_byname_kind(const char * fn, int strict);
 extern "C++" const char * sn4_byname_sym(const char * fn, int strict);
@@ -138,10 +139,6 @@ static std::string bcfn_apply_open_enter(int base, int decl_id, int join_id) {
          + bb_glue_try_enter("rt_call_arr_bl_try", (uint64_t)(uintptr_t)(void *)rt_call_arr_bl_try, "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ, \
                              "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω, (base), (val_id), (join_id)) )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bcfn_result_slot(IR_t * nd) {
-    { int _s = nd ? zls_off(nd) : -1; if (_s >= 0) { if (bb_slot_get(nd) < 0) bb_slot_register(nd, _s); return _s; } }
-    return -1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_call_fn_str(IR_t * pBB) {
     int polled_in_arm = 0;

@@ -5,6 +5,14 @@
 #include "emit.h"
 #include "gc_frame_map.h"
 #include "x86_asm.h"
+extern "C++" int zf_display_level(void);
+extern "C++" int zf_pas_nest_graph(void);
+extern "C++" int zf_display_mem_off(int dl);
+extern "C++" int xa_flat_class_zf(void);
+extern "C++" int xa_flat_class_c(void);
+extern "C++" int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out = 0);
+extern "C++" const char * xa_icn_trace_intern(const char * s);
+extern "C++" int xa_flat_graph_holds_a_frame_retry(void);
 #include "pin_va.h"
 extern "C" {
 #include "xa_template_common.h"
@@ -228,24 +236,10 @@ extern "C" void rt_arg_stage(int idx, DESCR_t v);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define xa_flat_zanchor_poison() emit_knob_if_one("SCRIP_PL_ZANCHOR_POISON")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zf_display_level(void) {
-    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
-    int dl = g_emit_cfg->decl_level;
-    return (dl >= 1) ? dl : 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zf_pas_nest_graph(void) {
-    if (!g_emit_cfg || g_emit_cfg->icn_cells_graph) return 0;
-    return g_emit_cfg->decl_level >= 1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" { int stage2_owner_varslot(const char *, const char *); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int zf_display_mem_off(int dl) {
-    if (!g_emit_cfg || !g_emit_cfg->l3_ancestor_name) return -1;
-    char nm[32]; snprintf(nm, sizeof nm, "__pas_display_%d", dl);
-    return stage2_owner_varslot(g_emit_cfg->l3_ancestor_name, nm);
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string zf_display_restore(int kt) {
     int dl = zf_display_level();
@@ -474,40 +468,10 @@ static std::string xa_flat_zframe_prologue_str(void) {
     return s;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_class_zf(void) {
-    if (g_emit.zframe_graph) return 1;
-    if (g_emit_cfg && g_emit_cfg->icn_cells_graph && g_emit.flat_lcl_proc) return 1;
-    return 0;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_class_c(void) {
-    if (!g_emit.flat_jmp_entry) { if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=no_jmp_entry\n", g_emit.nid); return 0; }
-    if (g_emit.flat_pat || g_emit.flat_gen || g_emit.flat_lcl_proc || g_emit.zframe_graph || g_emit.flat_stmt_frame) {
-        if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=pat/gen/lcl/zframe/stmt pat=%d gen=%d lcl=%d zframe=%d stmt=%d\n",
-                                                g_emit.nid, g_emit.flat_pat, g_emit.flat_gen, g_emit.flat_lcl_proc, g_emit.zframe_graph, g_emit.flat_stmt_frame);
-        return 0; }
-    { extern int g_flat_frame_floor; if (g_flat_frame_floor > 0) {
-        if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d bail=floor floor=%d\n", g_emit.nid, g_flat_frame_floor);
-        return 0; } }
-    { int _r = (g_emit.flat_frame_bytes >= 48) ? 1 : 0;
-      if (getenv("SCRIP_FLOOR_DIAG")) fprintf(stderr, "[CLASS-C] nid=%d PASS frame_bytes=%d -> %d\n", g_emit.nid, g_emit.flat_frame_bytes, _r);
-      return _r; }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define xa_flat_sig_gq(gk, w) (g_rtcc_on ? std::string(GVARQ((gk), (w))) : std::string(ABSQ(RT_GVA_VA + (unsigned long)(gk) * 16 + (unsigned long)(w))))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out = 0) {
-    if (!fname || !fname[0] || g_rt_fragment_emit) return 0;
-    int nf = rt_proc_nformals(fname); if (nf < 0) nf = 0;
-    int np = 0, nsave = 0, res_gk = -1;
-    int have = bb_scc_probe(fname, nf, &np, &nsave, gk_out, &res_gk);
-    if (!have || nsave <= 0 || nsave > 29) return 0;
-    for (int k = 0; k < nsave; k++) if (gk_out[k] < 0) return 0;
-    if (res_gk < 0) return 0;
-    *nf_out = nf; *nsave_out = nsave;
-    if (res_gk_out) *res_gk_out = res_gk;
-    return 1;
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define xa_flat_wn_park(fname) (!g_rt_fragment_emit && (fname) && (fname)[0] && !strchr((fname), '$') && strncmp((fname), "LBL__", 5) != 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -635,11 +599,6 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
          + x86_jmp_reg("rcx");
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * xa_icn_trace_intern(const char * s) {
-    static std::unordered_set<std::string> pool;
-    if (!s) return s;
-    return pool.insert(std::string(s)).first->c_str();
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_icn_trace_tap(const char * pname, int kind, int np, int r11d) {
     extern long g_trace; extern void rt_trace_call_hook_f(const char *, int, void *); extern void rt_trace_return_hook(const char *, DESCR_t); extern void rt_trace_fail_hook(const char *);
@@ -681,12 +640,6 @@ const char * xa_icn_trace_pname(void) {
          : !g_emit.flat_fam ? (const char *)0
          : (strncmp(g_emit.flat_fam, "proc_", 5) == 0) ? g_emit.flat_fam + 5
          : g_emit.flat_fam;
-}
-static int xa_flat_graph_holds_a_frame_retry(void) {
-    if (!g_emit_cfg) return 0;
-    for (int i = 0; i < g_emit_cfg->n; i++) { const IR_t * nd = g_emit_cfg->all[i];
-        if (nd && (nd->op == IR_DISJUNCTION || nd->op == IR_TO || nd->op == IR_TO_BY)) return 1; }
-    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string xa_flat_zframe_epilogue_γ_str(void) {
@@ -951,7 +904,6 @@ extern "C" void xa_pl_switch(int a0_off, const pl_ix_arm_t * arms, int narms, bb
     bb_emit_x86(xa_pl_switch_str(a0_off, arms, narms, fb_ref, fb_atom, fb_int, chain)); }
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
 extern "C" void xa_flat_chain_prologue(const char * fname) { bb_emit_x86(xa_flat_chain_prologue_str(fname)); }
-extern "C" int xa_flat_class_c_pred(void) { return xa_flat_class_c(); }
 extern "C" void xa_flat_chain_epilogue(void) { bb_emit_x86(xa_flat_chain_epilogue_str()); }
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname) { bb_emit_x86(xa_flat_chain_epilogue_sig_str(is_gamma, fname)); }
 extern "C" void xa_flat_zframe_epilogue_γ(void) { bb_emit_x86(xa_flat_zframe_epilogue_γ_str()); }
