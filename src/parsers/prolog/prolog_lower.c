@@ -309,6 +309,7 @@ static void pld_mark_spec(tree_t *spec) {
         return;
     }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pld_mark_spec(spec->c[i]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) { pld_mark_spec(spec->c[0]); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pld_mark_spec(spec->c[0]); pld_mark_spec(spec->c[1]); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -328,7 +329,7 @@ static void pld_mark_scan(tree_t *t, int mark_assertz) {
         if (mark_assertz && (!strcmp(fn,"assertz")||!strcmp(fn,"asserta")||!strcmp(fn,"assert")) && t->n == 1) pld_mark_clause_arg(t->c[0]);
         else if ((!strcmp(fn,"retract")||!strcmp(fn,"retractall")) && t->n == 1) pld_mark_clause_arg(t->c[0]);
         else if (!strcmp(fn,"abolish") && t->n == 1) pld_mark_spec(t->c[0]);
-        else if (!strcmp(fn,"dynamic") && t->n == 1) pld_mark_spec(t->c[0]);
+        else if (!strcmp(fn,"dynamic") && (t->n == 1 || t->n == 2)) pld_mark_spec(t->c[0]);
     }
     for (int i = 0; i < t->n; i++) pld_mark_scan(t->c[i], mark_assertz);
 }

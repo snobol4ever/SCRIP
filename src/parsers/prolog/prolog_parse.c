@@ -1781,7 +1781,28 @@ static const char *PL_PRELUDE_SRC =
     "'$load_test'(test(N),N,[],true):-!.\n"
     "'$load_test'(test(N,O),N,Os,true):-'$load_test_opts'(O,Os).\n"
     "'$load_test_opts'(O,O):-is_list(O),!.\n"
-    "'$load_test_opts'(O,[O]).\n";
+    "'$load_test_opts'(O,[O]).\n"
+    "'$rand_seed'(S):-catch(nb_getval('$rand_seed',S),error(existence_error(_,_),_),S=12345).\n"
+    "'$rand_next'(R):-'$rand_seed'(S0),R is (S0*1103515245+12345) mod 2147483648,nb_setval('$rand_seed',R).\n"
+    "'$rand_out'(X,P):-nonvar(X),!,throw(error(uninstantiation_error(X),P)).\n"
+    "'$rand_out'(_,_).\n"
+    "'$rand_num'(V,P):-var(V),!,throw(error(instantiation_error,P)).\n"
+    "'$rand_num'(V,P):-number(V),!.\n"
+    "'$rand_num'(V,P):-throw(error(type_error(number,V),P)).\n"
+    "random(X):-'$rand_out'(X,random/1),'$rand_next'(R),X is (R+0.5)/2147483648.0.\n"
+    "random(L,H,X):-'$rand_num'(L,random/3),'$rand_num'(H,random/3),'$rand_out'(X,random/3),H>L,'$rand_next'(R),"
+        "(integer(L),integer(H)->X is L+R mod (H-L);X is L+(H-L)*((R+0.5)/2147483648.0)).\n"
+    "set_seed(S):-var(S),!,throw(error(instantiation_error,set_seed/1)).\n"
+    "set_seed(S):- \\+integer(S),!,throw(error(type_error(integer,S),set_seed/1)).\n"
+    "set_seed(S):-S<0,!,throw(error(domain_error(not_less_than_zero,S),set_seed/1)).\n"
+    "set_seed(S):-S1 is S mod 2147483648,nb_setval('$rand_seed',S1).\n"
+    "get_seed(S):-nonvar(S),\\+ integer(S),!,throw(error(type_error(integer,S),get_seed/1)).\n"
+    "get_seed(S):-'$rand_seed'(S).\n"
+    "randomize:-'$rand_next'(_).\n"
+    "random_between(L,H,X):-'$rand_int'(L),'$rand_int'(H),H>=L,'$rand_next'(R),X is L+R mod (H-L+1).\n"
+    "'$rand_int'(V):-var(V),!,throw(error(instantiation_error,random_between/3)).\n"
+    "'$rand_int'(V):-integer(V),!.\n"
+    "'$rand_int'(V):-throw(error(type_error(integer,V),random_between/3)).\n";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *pl_clause_dcg(const PlClause *cl) {
     tree_t *r;

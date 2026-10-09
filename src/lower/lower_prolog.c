@@ -472,11 +472,12 @@ static int pl_rung_of(const char * nm) {
 }
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
-static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", NULL };
+static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "module_transparent", NULL };
 static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
     if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_decl_dynamic_record(s2, spec->c[i], marker); return; }
+    if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "as") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); return; }
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, "/") && spec->n == 2 && spec->c[0] && (spec->c[0]->t == TT_QLIT || spec->c[0]->t == TT_NAME) && spec->c[0]->v.sval && spec->c[1] &&
         spec->c[1]->t == TT_ILIT) {
         char key[fmt_len("%s/%d", spec->c[0]->v.sval, (int) spec->c[1]->v.ival)];
@@ -3689,7 +3690,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             }
         }
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "dynamic") && subj->n >= 1) {
-            for (int k = 0; k < subj->n; k++) pl_decl_dynamic_record(&g_stage2, subj->c[k], (tree_t *) subj);
+            for (int k = 0; k < (subj->n == 2 ? 1 : subj->n); k++) pl_decl_dynamic_record(&g_stage2, subj->c[k], (tree_t *) subj);
             continue;
         }
         if (subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "multifile") || !strcmp(subj->v.sval, "discontiguous")) && subj->n >= 1) {
