@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2228
-#define GC_ALLOC_TAB_N_VOID 264
-#define GC_ALLOC_TAB_N_DESCR 1129
-#define GC_ALLOC_TAB_N_OTHER 820
+#define GC_ALLOC_TAB_N 2236
+#define GC_ALLOC_TAB_N_VOID 265
+#define GC_ALLOC_TAB_N_DESCR 1131
+#define GC_ALLOC_TAB_N_OTHER 825
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1083,6 +1083,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_hash_store", GC_RET_DESCR },
     { "rk_hy_rec", GC_RET_DESCR },
     { "rk_idx_label", GC_RET_OTHER },
+    { "rk_in_range", GC_RET_OTHER },
+    { "rk_in_range_value", GC_RET_OTHER },
     { "rk_io_abs", GC_RET_OTHER },
     { "rk_io_arg", GC_RET_OTHER },
     { "rk_io_basename", GC_RET_OTHER },
@@ -1173,6 +1175,12 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_qh_subset", GC_RET_OTHER },
     { "rk_raku_scalar", GC_RET_OTHER },
     { "rk_raku_str", GC_RET_OTHER },
+    { "rk_range_arr_make", GC_RET_DESCR },
+    { "rk_range_bounds", GC_RET_VOID },
+    { "rk_range_method", GC_RET_OTHER },
+    { "rk_range_num", GC_RET_OTHER },
+    { "rk_range_text", GC_RET_OTHER },
+    { "rk_range_value", GC_RET_DESCR },
     { "rk_register_classes", GC_RET_VOID },
     { "rk_run_child", GC_RET_OTHER },
     { "rk_scrip_exe", GC_RET_OTHER },

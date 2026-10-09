@@ -922,7 +922,9 @@ static DESCR_t rk_mk_arr(const DESCR_t *el, int n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_slip(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_slip; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_is_list(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_list; }
+static const char rk_proto_range[] = "Range";
+static int rk_is_range(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_range; }
+static int rk_is_list(DESCR_t v) { return v.v == DT_A && v.arr && (((ARBLK_t *) v.arr)->proto == rk_proto_list || ((ARBLK_t *) v.arr)->proto == rk_proto_range); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mark_list(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = rk_proto_list; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1128,6 +1130,7 @@ static const char *rk_join_gists(const char **tx, int n, const char *sep, const 
     return buf;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_range_text(DESCR_t v);
 static const char *rk_gist_str(DESCR_t v) {
     { const char *tn = rk_typeobj_name(v); if (tn) { char *r = rt_wsb_alloc(strlen(tn) + 3); snprintf(r, strlen(tn) + 3, "(%s)", tn); return r; } }
     if (v.v == DT_T && v.tbl) {
@@ -1162,6 +1165,7 @@ static const char *rk_gist_str(DESCR_t v) {
         return ln;
     }
     if (rk_is_jct(v)) return rk_jct_text(v);
+    if (rk_is_range(v)) return rk_range_text(v);
     if (v.v == DT_A && v.arr) {
         rk_av_t a = rk_av(v);
         const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
@@ -1302,6 +1306,7 @@ static const char *rk_raku_str(DESCR_t v, int in_hash) {
         op[fln + 1] = '\0';
         return rk_join_gists(tx, a.n, ", ", op, ")");
     }
+    if (rk_is_range(v)) return rk_range_text(v);
     if (v.v == DT_A && v.arr) {
         rk_av_t a = rk_av(v);
         const char **tx = a.n ? (const char **) rt_pvec_alloc((size_t) a.n) : NULL;
@@ -1325,6 +1330,27 @@ static const char *rk_raku_str(DESCR_t v, int in_hash) {
     return rk_raku_scalar(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_range_bounds(DESCR_t v, DESCR_t *lo, DESCR_t *hi, int *xl, int *xh) {
+    ARBLK_t *b = (ARBLK_t *) v.arr;
+    int fl = b->proto_bare;
+    *xl = fl & 1;
+    *xh = (fl >> 1) & 1;
+    if (fl & 4) { *lo = INTVAL(b->lo2); *hi = INTVAL(b->hi2); return; }
+    rk_av_t a = rk_av(v);
+    *lo = a.n ? a.el[0] : NULVCL;
+    *hi = a.n ? a.el[a.n - 1] : NULVCL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_range_text(DESCR_t v) {
+    DESCR_t lo, hi;
+    int xl, xh;
+    rk_range_bounds(v, &lo, &hi, &xl, &xh);
+    const char *ls = rk_raku_str(lo, 0), *hs = rk_raku_str(hi, 0);
+    char *r = (char *) rt_wsb_alloc(strlen(ls) + strlen(hs) + 8);
+    sprintf(r, "%s%s..%s%s", ls, xl ? "^" : "", xh ? "^" : "", hs);
+    return r;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_typeobj(const char *nm) { size_t l = strlen(nm ? nm : ""); char *r = (char *)rt_str_alloc(l + 1); r[0] = RK_TY; memcpy(r + 1, nm ? nm : "", l); r[l + 1] = '\0'; return STRVAL(r); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_value_type(DESCR_t v) {
@@ -1337,7 +1363,8 @@ static const char *rk_value_type(DESCR_t v) {
     if (IS_REAL_fn(v)) return "Num";
     if (v.v == DT_SNUL) return "Nil";
     if (v.v == DT_T) return "Hash";
-    if (v.v == DT_A) return rk_is_pair(v) ? "Pair" : rk_is_jct(v) ? "Junction" : ((ARBLK_t *) v.arr)->proto == rk_proto_list ? "List" : ((ARBLK_t *) v.arr)->proto == rk_proto_slip ? "Slip" : "Array";
+    if (v.v == DT_A) return rk_is_pair(v) ? "Pair" : rk_is_jct(v) ? "Junction" : ((ARBLK_t *) v.arr)->proto == rk_proto_list ? "List" : ((ARBLK_t *) v.arr)->proto == rk_proto_range ? "Range" :
+        ((ARBLK_t *) v.arr)->proto == rk_proto_slip ? "Slip" : "Array";
     if (IS_DATA_INST_fn(v) && v.u) { DATINST_t *di = (DATINST_t *)v.u; return (di && di->type) ? di->type->name : "Any"; }
     return "Str";
 }
@@ -1345,7 +1372,7 @@ static const char *rk_value_type(DESCR_t v) {
 static int rk_type_isa(const char *have, const char *want) {
     static const char *const up[][8] = { { "Bool", "Int", "Cool", "Any", "Numeric", "Real", 0 }, { "Order", "Int", "Cool", "Any", "Numeric", "Real", 0 }, { "Int", "Cool", "Any", "Numeric", "Real",
         0 }, { "Num", "Cool", "Any", "Numeric", "Real", 0 }, { "Rat", "Cool", "Any", "Numeric", "Real", "Rational", 0 }, { "Str", "Cool", "Any", "Stringy", 0 }, { "List", "Cool", "Any", "Positional",
-        "Iterable", 0 }, { "Array", "List", "Cool", "Any", "Positional", "Iterable", 0 }, { "Nil", "Cool", "Any", 0 }, { 0 } };
+        "Iterable", 0 }, { "Array", "List", "Cool", "Any", "Positional", "Iterable", 0 }, { "Range", "Cool", "Any", "Positional", "Iterable", 0 }, { "Nil", "Cool", "Any", 0 }, { 0 } };
     if (!have || !want) return 0;
     if (!strcmp(have, want) || !strcmp(want, "Mu")) return 1;
     for (int i = 0; up[i][0]; i++) if (!strcmp(up[i][0], have)) { for (int j = 1; up[i][j]; j++) if (!strcmp(up[i][j], want)) return 1; return 0; }
@@ -1359,6 +1386,136 @@ static int rk_type_isa(const char *have, const char *want) {
 static const char *rk_real_str(double r, char *buf, int bufsz);
 static DESCR_t rk_hash_from_list(const DESCR_t *el, int n);
 #include "rk_unicode_norm_tables.inc"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static char *rk_str_succ_buf(const char *s, char *b) {
+    size_t n = strlen(s);
+    memcpy(b, s, n + 1);
+    if (!n) return b;
+    int p = (int) n - 1;
+    while (p >= 0 && !isalnum((unsigned char) b[p])) p--;
+    if (p < 0) { b[n - 1]++; return b; }
+    for (int i = p; ; i--) {
+        char c = b[i], kind;
+        if (c == 'z') { b[i] = 'a'; kind = 'a'; } else if (c == 'Z') { b[i] = 'A'; kind = 'A'; } else if (c == '9') { b[i] = '0'; kind = '1'; } else { b[i]++; break; }
+        if (i == 0 || !isalnum((unsigned char) b[i - 1])) { memmove(b + i + 1, b + i, strlen(b + i) + 1); b[i] = kind; break; }
+    }
+    return b;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_range_num(DESCR_t v, double *d, int *isint) {
+    if (IS_INT_fn(v)) { *d = (double) v.i; *isint = 1; return 1; }
+    if (IS_REAL_fn(v)) { *d = v.r; *isint = 0; return 1; }
+    if (v.v == DT_BIG) { *d = strtod(rk_cstr(v), NULL); *isint = 1; return 1; }
+    if (!IS_STR_fn(v) || rk_typeobj_name(v)) return 0;
+    const char *t = rk_cstr(v);
+    char *e;
+    if (!*t || isspace((unsigned char) *t)) return 0;
+    long long iv = strtoll(t, &e, 10);
+    if (!*e) { *d = (double) iv; *isint = 1; return 1; }
+    double dv = strtod(t, &e);
+    if (!*e) { *d = dv; *isint = 0; return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_range_arr_make(DESCR_t a, DESCR_t b) {
+    double dl, dh;
+    int il, ih;
+    if (rk_range_num(a, &dl, &il) && rk_range_num(b, &dh, &ih)) {
+        if (dh != dh || dh > 4e18 || dl != dl) return rk_mk_arr(NULL, 0);
+        if (il) {
+            long long lo = (long long) dl, hi = (long long) floor(dh);
+            if (hi < lo) return rk_mk_arr(NULL, 0);
+            long long cnt = hi - lo + 1;
+            ARBLK_t *ra = array_new(0, (int) (cnt - 1));
+            for (long long v = lo; v <= hi; v++) ra->data[v - lo] = INTVAL(v);
+            DESCR_t d = {0};
+            d.v = DT_A;
+            d.slen = 0;
+            d.arr = ra;
+            return d;
+        }
+        if (dh < dl) return rk_mk_arr(NULL, 0);
+        long long cnt = (long long) floor(dh - dl) + 1;
+        ARBLK_t *ra = array_new(0, (int) (cnt - 1));
+        for (long long i = 0; i < cnt; i++) ra->data[i] = REALVAL(dl + (double) i);
+        DESCR_t d = {0};
+        d.v = DT_A;
+        d.slen = 0;
+        d.arr = ra;
+        return d;
+    }
+    const char *lo = rk_cstr(a), *hi = rk_cstr(b);
+    size_t hl = strlen(hi), ll = strlen(lo);
+    if (strcmp(lo, hi) > 0) return rk_mk_arr(NULL, 0);
+    char cur[(ll > hl ? ll : hl) + 4], nxt[(ll > hl ? ll : hl) + 4];
+    long long cnt = 0;
+    strcpy(cur, lo);
+    for (;;) { cnt++; if (!strcmp(cur, hi) || cnt > 50000000) break; rk_str_succ_buf(cur, nxt); if (strlen(nxt) > hl) break; strcpy(cur, nxt); }
+    ARBLK_t *ra = array_new(0, (int) (cnt - 1));
+    strcpy(cur, lo);
+    for (long long i = 0; i < cnt; i++) { ra->data[i] = STRVAL(rt_heap_strdup_c(cur)); rk_str_succ_buf(cur, nxt); strcpy(cur, nxt); }
+    DESCR_t d = {0};
+    d.v = DT_A;
+    d.slen = 0;
+    d.arr = ra;
+    return d;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_range_value(DESCR_t lo, DESCR_t hi, int fl) {
+    double dl, dh;
+    int il, ih;
+    DESCR_t ra;
+    int xl = fl & 1, xh = (fl >> 1) & 1, ib = 0;
+    if (rk_range_num(lo, &dl, &il) && rk_range_num(hi, &dh, &ih) && il && ih && dl > -2e9 && dh < 2e9 && dh > -2e9 && dl < 2e9) {
+        long long l = (long long) dl, h = (long long) dh;
+        ra = rk_range_arr_make(INTVAL(l + xl), INTVAL(h - xh));
+        ib = 4;
+        ((ARBLK_t *) ra.arr)->lo2 = (int) l;
+        ((ARBLK_t *) ra.arr)->hi2 = (int) h;
+    } else {
+        DESCR_t full = rk_range_arr_make(lo, hi);
+        rk_av_t a = rk_av(full);
+        int from = xl && a.n ? 1 : 0, to = a.n;
+        if (xh && to > from) to--;
+        ra = rk_mk_arr(a.el + from, to - from);
+    }
+    ((ARBLK_t *) ra.arr)->proto = rk_proto_range;
+    ((ARBLK_t *) ra.arr)->proto_bare = fl | ib;
+    return ra;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_range_method(const char *m, DESCR_t v, int nmargs, DESCR_t *out) {
+    DESCR_t lo, hi;
+    int xl, xh;
+    rk_range_bounds(v, &lo, &hi, &xl, &xh);
+    if (nmargs == 0 && !strcmp(m, "min")) { *out = lo; return 1; }
+    if (nmargs == 0 && !strcmp(m, "max")) { *out = hi; return 1; }
+    if (nmargs == 0 && !strcmp(m, "excludes-min")) { *out = (DESCR_t){ .v = DT_BOOL, .i = xl }; return 1; }
+    if (nmargs == 0 && !strcmp(m, "excludes-max")) { *out = (DESCR_t){ .v = DT_BOOL, .i = xh }; return 1; }
+    if (nmargs == 0 && !strcmp(m, "bounds")) { DESCR_t b2[2] = { lo, hi }; *out = rk_mk_arr(b2, 2); return 1; }
+    if (nmargs == 0 && !strcmp(m, "minmax")) { DESCR_t b2[2] = { lo, hi }; *out = rk_mk_arr(b2, 2); return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_in_range_value(DESCR_t x, DESCR_t r) {
+    DESCR_t lo, hi;
+    int xl, xh;
+    rk_range_bounds(r, &lo, &hi, &xl, &xh);
+    double dx, dl, dh;
+    int ix, il, ih;
+    if (rk_range_num(x, &dx, &ix) && rk_range_num(lo, &dl, &il) && rk_range_num(hi, &dh, &ih)) return (xl ? dx > dl : dx >= dl) && (xh ? dx < dh : dx <= dh);
+    const char *sx = rk_cstr(x), *sl = rk_cstr(lo), *sh = rk_cstr(hi);
+    int c1 = strcmp(sx, sl), c2 = strcmp(sx, sh);
+    return (xl ? c1 > 0 : c1 >= 0) && (xh ? c2 < 0 : c2 <= 0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_in_range(DESCR_t x, DESCR_t lo, DESCR_t hi) {
+    double dx, dl, dh;
+    int ix, il, ih;
+    if (rk_range_num(x, &dx, &ix) && rk_range_num(lo, &dl, &il) && rk_range_num(hi, &dh, &ih)) return dx >= dl && dx <= dh;
+    const char *sx = rk_cstr(x), *sl = rk_cstr(lo), *sh = rk_cstr(hi);
+    return strcmp(sx, sl) >= 0 && strcmp(sx, sh) <= 0;
+}
 #include "rk_rakudo_method_names.inc"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_rakudo_method(const char *m) {
@@ -1921,6 +2078,12 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
         r[p++] = '"';
         r[p] = '\0';
         *out = STRVAL(r);
+        return 1;
+    }
+    if (!strcmp(meth, "succ") && !IS_INT_fn(recv) && !IS_REAL_fn(recv) && IS_STR_fn(recv) && !rk_typeobj_name(recv)) {
+        const char *sv = rk_cstr(recv);
+        char sc[strlen(sv) + 3];
+        *out = STRVAL(rt_heap_strdup_c(rk_str_succ_buf(sv, sc)));
         return 1;
     }
     if ((!strcmp(meth, "succ") || !strcmp(meth, "pred")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) {
@@ -9961,16 +10124,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = STRVAL(buf);
         return 1;
     }
-    if (!strcmp(fn, "__rk_range_arr") && nargs == 2) {
-        long long lo = IS_INT_fn(args[0]) ? (long long)args[0].i : (IS_REAL_fn(args[0]) ? (long long)args[0].r : 0);
-        long long hi = IS_INT_fn(args[1]) ? (long long)args[1].i : (IS_REAL_fn(args[1]) ? (long long)args[1].r : 0);
-        if (hi < lo) { *out = rk_mk_arr(NULL, 0); return 1; }
-        long long cnt = hi - lo + 1;
-        ARBLK_t *ra = array_new(0, (int) (cnt - 1));
-        for (long long v = lo; v <= hi; v++) ra->data[v - lo] = INTVAL(v);
-        { DESCR_t d = {0}; d.v = DT_A; d.slen = 0; d.arr = ra; *out = d; }
-        return 1;
-    }
+    if (!strcmp(fn, "__rk_range_arr") && nargs == 2) { *out = rk_range_arr_make(args[0], args[1]); return 1; }
+    if (!strcmp(fn, "__rk_range_val") && nargs == 3) { *out = rk_range_value(args[0], args[1], IS_INT_fn(args[2]) ? (int) args[2].i : 0); return 1; }
+    if (!strcmp(fn, "__rk_in_range") && nargs == 3) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_in_range(args[0], args[1], args[2]) }; return 1; }
     if (!strcmp(fn, "__rk_substr_replace") && (nargs == 3 || nargs == 4)) {
         const char *str = rk_cstr(args[0]);
         const char *rep = rk_cstr(args[nargs - 1]);
@@ -10441,6 +10597,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_smartmatch") && nargs == 2) {
+        if (rk_is_range(args[1])) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_in_range_value(args[0], args[1]) }; return 1; }
         const char *pat = rk_rx_pat(args[1]);
         if (pat) {
             char sb[64];
@@ -11214,6 +11371,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
         const char *mname0 = VARVAL_fn(args[1]);
+        if (mname0 && rk_is_range(args[0]) && rk_range_method(mname0, args[0], nargs - 2, out)) return 1;
         int maybe = 0;
         if (mname0 && mname0[0] == '?' && mname0[1]) {
             DESCR_t *fa = rt_ws_alloc_descr((size_t) nargs);

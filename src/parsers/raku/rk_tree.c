@@ -1354,7 +1354,16 @@ tree_t *rkb_smartmatch_term(RkB *b, tree_t *l, RkTerm *x) {
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-tree_t *rkb_smartmatch(RkB *b, tree_t *l, tree_t *r) { (void) b; return call2("__rk_smartmatch", l, r); }
+static tree_t *rkb_smartmatch_raw(RkB *b, tree_t *l, tree_t *r);
+tree_t *rkb_smartmatch(RkB *b, tree_t *l, tree_t *r) {
+    if (rk_wc_operand(b, l)) { TL ps = { 0 }; tree_t *lb = rk_wc_take(b, l, &ps); return rk_wc_close(rkb_smartmatch_raw(b, lb, r), &ps); }
+    return rkb_smartmatch_raw(b, l, r);
+}
+static tree_t *rkb_smartmatch_raw(RkB *b, tree_t *l, tree_t *r) {
+    (void) b;
+    if (r && r->t == TT_TO && r->n == 2) { tree_t *c = make_call("__rk_in_range"); expr_add_child(c, l); expr_add_child(c, r->c[0]); expr_add_child(c, r->c[1]); return c; }
+    return call2("__rk_smartmatch", l, r);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rkb_wrap_call(const char *fn, tree_t *x) { tree_t *e = make_call(fn); expr_add_child(e, x); return e; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2536,6 +2545,13 @@ static void rk_ph_ren(tree_t *t, const char *from, const char *to) {
     for (int i = 0; i < t->n; i++) rk_ph_ren(t->c[i], from, to);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_range_end_int(const tree_t *e) {
+    if (!e) return 1;
+    if (e->t == TT_FLIT) return 0;
+    if (e->t == TT_QLIT && e->v.sval) { char *ep; if (!*e->v.sval) return 0; strtoll(e->v.sval, &ep, 10); return !*ep; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_for(RkB *b, RkList *list, tree_t *sig, tree_t *blk) {
     TL phs = { 0 };
     if (!sig && blk) rk_collect_ph(blk, &phs);
@@ -2548,7 +2564,7 @@ tree_t *rkb_for(RkB *b, RkList *list, tree_t *sig, tree_t *blk) {
     int n = list ? list->n : 0;
     const char *vn = NULL;
     if (np == 1 && sig->c[0] && sig->c[0]->t == TT_VAR && !sig->c[0]->n && sig->c[0]->v.sval && sig->c[0]->v.sval[0] != '@' && sig->c[0]->v.sval[0] != '%') vn = sig->c[0]->v.sval;
-    if (vn && n == 1 && list->nitem >= 2 && list->rg_op && (!strcmp(list->rg_op, "..") || !strcmp(list->rg_op, "..^")) && list->rg_nitem == list->nitem) {
+    if (vn && n == 1 && list->nitem >= 2 && list->rg_op && (!strcmp(list->rg_op, "..") || !strcmp(list->rg_op, "..^")) && list->rg_nitem == list->nitem && rk_range_end_int(list->rg_lo) && rk_range_end_int(list->rg_hi)) {
         el_fill(b, &list->v[0]);
         tree_t *r = ast_node_new(TT_FOR_RANGE);
         ast_push(r, leaf_sval(TT_VAR, vn)); ast_push(r, list->rg_lo); ast_push(r, list->rg_op[2] == '^' ? rk_dec(list->rg_hi) : list->rg_hi); ast_push(r, blk); ast_push(r, rk_ilit(0));
