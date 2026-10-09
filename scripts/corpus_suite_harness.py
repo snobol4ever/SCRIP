@@ -3266,7 +3266,11 @@ def _progress_record(sno_path, paths, rows):
         # its own environment and a runner may set the axis per-child.
         _axis = _pa.gc_axis_env()
         _config = ",".join(f"{k}={v}" for k, v in _axis.items()) if _axis else "shipped"
-        n = _pa.append_rows([{"class": cls, "suite": suite, "lang": lang, "program": name, "mode": m, "outcome": kind, "secs": secs or 0, "note": note, "config": _config} for name, m, kind, secs, note in rows])
+        # ⛔ THE KEY IS THE BOARD'S (the coo 2026-10-09, CEO-1366 (b) under CEO-1269): an Icon package entry graded through its driver
+        # is recorded under the LIBRARY, the key the package's board writes, through the one rule both sides import.
+        from lib_package_keys import board_key as _bk
+        _pkg = Path(sno_path).resolve().parent
+        n = _pa.append_rows([{"class": cls, "suite": suite, "lang": lang, "program": _bk(_pkg, lang, name), "mode": m, "outcome": kind, "secs": secs or 0, "note": note, "config": _config} for name, m, kind, secs, note in rows])
     except _pa.ProgressUnwritable:
         sys.exit(2)
     except _pa.ProgressGroundMoved as e:
