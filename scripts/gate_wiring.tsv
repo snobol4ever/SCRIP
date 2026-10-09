@@ -431,6 +431,7 @@ test_gate_parser_demos_match_bootstrap.sh	WIRED	-	-	-
 test_gate_parser_generated_files_in_sync.sh	WIRED	-	-	-
 test_gate_parser_raku_sc_nest8_witness.sh	WIRED	-	-	-
 test_gate_pas_a_blocks_declaration_parts_come_in_iso_order.sh	WIRED	-	-	-
+test_gate_pas_a_boolean_array_element_or_record_field_prints_as_a_boolean.sh	WIRED	-	-	-
 test_gate_pas_a_call_carries_as_many_actuals_as_formals.sh	WIRED	-	-	-
 test_gate_pas_a_case_statement_with_no_matching_constant_is_an_error.sh	WIRED	-	-	-
 test_gate_pas_a_char_array_read_out_of_a_record_field_keeps_its_characters.sh	WIRED	-	-	-
