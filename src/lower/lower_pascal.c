@@ -729,6 +729,7 @@ static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
         case TT_NE:
         case TT_CONJ:
         case TT_ALT:
+        case TT_CAT:
         return lower_binop(cx, t, γ, ω, res);
         case TT_MNS:
         case TT_PLS:
