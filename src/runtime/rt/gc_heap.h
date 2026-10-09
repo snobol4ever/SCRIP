@@ -65,6 +65,8 @@ char *rt_sxt_extend(char *s, long al, long bl);
 long rt_gcheap_verify(void);
 int rt_gc_stale_addr_report(void *fault, void *ip);
 long rt_gc_collect(void);
+typedef void (*rt_gc_frame_fn)(const void *map, const char *base, void *a);
+int rt_gc_frames_visit(rt_gc_frame_fn fn, void *a);
 long rt_gcheap_free(void);
 long rt_gc_runs_count(void);
 void rt_gc_assert_dead(const void *payload);
