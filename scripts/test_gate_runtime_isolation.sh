@@ -20,6 +20,10 @@
 #
 # Run: bash scripts/test_gate_runtime_isolation.sh
 set -euo pipefail
+# ⛔ THIS GATE MEASURED NOTHING FROM THE src/parser -> src/parsers RENAME UNTIL 2026-10-08 (the cfo found it, the coo cured it):
+# its scan read include.*parser/, which no longer matched, and the count `grep | wc -l` failed under pipefail, so set -e ended
+# the script at rc 1 with no output. It now reads parsers?/, normalizes every include to parsers/..., and a scan with no match
+# counts zero instead of ending the run. The allowlist entries were renamed to the parsers/ spelling and nothing else.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
@@ -29,7 +33,7 @@ ALLOW=(
     #   Universal AST/language infrastructure misfiled under parser/snobol4/
     #   for historical reasons.  Included by 54 files tree-wide.
     #   Owning relocation goal: move to src/include/scrip_lang.h.
-    "parser/snobol4/scrip_cc.h"
+    "parsers/snobol4/scrip_cc.h"
 
     # The four Prolog "runtime-ish" headers below describe Prolog Term
     # representation, atom interning, unification scaffolding, broker
@@ -40,17 +44,17 @@ ALLOW=(
     # Owning relocation goal: split src/parsers/prolog/ into
     # src/parsers/prolog/ (lex/parse only) and src/runtime/interp/prolog/
     # (Term, atoms, unify, broker, builtins).
-    "parser/prolog/term.h"
-    "parser/prolog/prolog_runtime.h"
-    "parser/prolog/prolog_atom.h"
-    "parser/prolog/prolog_driver.h"
-    "parser/prolog/prolog_builtin.h"
-    "parser/prolog/pl_broker.h"
+    "parsers/prolog/term.h"
+    "parsers/prolog/prolog_runtime.h"
+    "parsers/prolog/prolog_atom.h"
+    "parsers/prolog/prolog_driver.h"
+    "parsers/prolog/prolog_builtin.h"
+    "parsers/prolog/pl_broker.h"
 
     # raku_re.h: Raku regex runtime — match/capture/grep operations.
     #   Pure runtime API misfiled under parser/raku/.
     #   Owning relocation goal: relocate to src/runtime/interp/raku/.
-    "parser/raku/raku_re.h"
+    "parsers/raku/raku_re.h"
 )
 
 violations=0
@@ -63,7 +67,8 @@ while IFS= read -r line; do
     lineno="${rest%%:*}"
     inc_path=$(echo "$rest" | sed -E 's/.*include[[:space:]]+["<]([^">]+)[">].*/\1/')
     normalized=$(echo "$inc_path" | sed -E 's|^(\.\./)+||')
-    if [[ "$normalized" != parser/* ]]; then
+    normalized="${normalized#src/}"
+    if [[ "$normalized" != parsers/* ]]; then
         continue
     fi
     ok=0
@@ -77,9 +82,9 @@ while IFS= read -r line; do
         new_violations+=("$file:$lineno: $normalized")
         violations=$((violations + 1))
     fi
-done < <(grep -rn "include.*parser/" src/runtime/ 2>/dev/null | grep -v "^Binary file" || true)
+done < <(grep -rnE "include.*parsers?/" src/runtime/ 2>/dev/null | grep -v "^Binary file" || true)
 
-present=$(grep -rn "include.*parser/" src/runtime/ 2>/dev/null | grep -v "^Binary file" | wc -l)
+present=$( { grep -rnE "include.*parsers?/" src/runtime/ 2>/dev/null || true; } | { grep -v "^Binary file" || true; } | wc -l)
 
 if [ $violations -gt 0 ]; then
     echo "FAIL runtime->frontend firewall: $violations new include(s) not on allowlist:"

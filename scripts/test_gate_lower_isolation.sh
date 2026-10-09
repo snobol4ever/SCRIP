@@ -13,6 +13,10 @@
 #
 # Run: bash scripts/test_gate_lower_isolation.sh
 set -euo pipefail
+# ⛔ THIS GATE MEASURED NOTHING FROM THE src/parser -> src/parsers RENAME UNTIL 2026-10-08 (the cfo found it, the coo cured it):
+# its scan read include.*parser/, which no longer matched, and the count `grep | wc -l` failed under pipefail, so set -e ended
+# the script at rc 1 with no output. It now reads parsers?/, normalizes every include to parsers/..., and a scan with no match
+# counts zero instead of ending the run. The allowlist entries were renamed to the parsers/ spelling and nothing else.
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT"
@@ -29,14 +33,14 @@ ALLOW=(
     #   parser/snobol4/ for historical reasons (snobol4 was the first
     #   frontend).  54 files include it tree-wide.
     #   Owning relocation goal: move scrip_cc.h to src/include/scrip_lang.h.
-    "parser/snobol4/scrip_cc.h"
+    "parsers/snobol4/scrip_cc.h"
 
     # icon_lex.h: defines IcnTkKind enum (TK_AUG*, TK_PLUS, TK_MINUS, ...).
     #   lower.c reads these enum values when lowering Icon TT_AUGOP nodes
     #   to SM/BB.  The enum is a lex artifact but its values are used as
     #   stable opcode tags downstream.
     #   Owning relocation goal: extract IcnTkKind to src/include/icon_tk.h.
-    "parser/icon/icon_lex.h"
+    "parsers/icon/icon_lex.h"
 
     # icon_gen.h: relocated to src/runtime/interp/ on 2026-05-20.  Allowlist
     #   entry removed.  The header is pure Icon Byrd-box generator runtime
@@ -51,16 +55,16 @@ ALLOW=(
     #   alongside the Raku parser.
     #   Owning relocation goal: split raku_driver.h into raku_parse.h
     #   (frontend-only) and raku_runtime.h (relocated to src/runtime/).
-    "parser/raku/raku_driver.h"
+    "parsers/raku/raku_driver.h"
 
     # term.h, prolog_runtime.h, prolog_atom.h: Prolog runtime data
     #   structures (Term, atom table, unification scaffolding).  Used by
     #   ir_exec.c for Prolog choice-point execution.  Belong under
     #   src/runtime/interp/ alongside pl_runtime.h.
     #   Owning relocation goal: relocate to src/runtime/interp/.
-    "parser/prolog/term.h"
-    "parser/prolog/prolog_runtime.h"
-    "parser/prolog/prolog_atom.h"
+    "parsers/prolog/term.h"
+    "parsers/prolog/prolog_runtime.h"
+    "parsers/prolog/prolog_atom.h"
 )
 
 violations=0
@@ -77,7 +81,8 @@ while IFS= read -r line; do
     inc_path=$(echo "$rest" | sed -E 's/.*include[[:space:]]+["<]([^">]+)[">].*/\1/')
     # Normalize: strip leading ../ chains, keep "parser/..." suffix.
     normalized=$(echo "$inc_path" | sed -E 's|^(\.\./)+||')
-    if [[ "$normalized" != parser/* ]]; then
+    normalized="${normalized#src/}"
+    if [[ "$normalized" != parsers/* ]]; then
         continue
     fi
 
@@ -93,10 +98,10 @@ while IFS= read -r line; do
         new_violations+=("$file:$lineno: $normalized")
         violations=$((violations + 1))
     fi
-done < <(grep -rn "include.*parser/" src/lower/ 2>/dev/null || true)
+done < <(grep -rnE "include.*parsers?/" src/lower/ 2>/dev/null || true)
 
 # Count expected (allowlisted) entries actually present.
-present=$(grep -rn "include.*parser/" src/lower/ 2>/dev/null | wc -l)
+present=$( { grep -rnE "include.*parsers?/" src/lower/ 2>/dev/null || true; } | wc -l)
 
 if [ $violations -gt 0 ]; then
     echo "FAIL parse->lower firewall: $violations new include(s) into src/parsers/ not on allowlist:"
