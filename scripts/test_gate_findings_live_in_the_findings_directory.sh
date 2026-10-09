@@ -11,7 +11,9 @@
 # FAIL_ONCE=1 plants a FINDING at the .github ROOT in a scratch clone and grades that clone, so the criterion is proven to red.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
-GH="$ROOT/.github"; SC="$ROOT/SCRIP"
+# ⛔ SCRIP IS THIS GATE'S OWN REPO, .github S4E_HOME's ELSE THE SIBLING OF THIS CHECKOUT (coo 2026-10-08, CEO-1573): ROOT/SCRIP named
+# the directory BESIDE a worktree, so a worktree of any other name refused ("not a git checkout").
+GH="${S4E_HOME:-$ROOT}/.github"; SC="$(cd "$HERE/.." && pwd)"
 if [ -n "${FAIL_ONCE:-}" ]; then
   W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
   git clone -q "$GH" "$W/gh" 2>/dev/null || { echo "⛔ REFUSED-TO-GRADE: could not clone $GH for the planted arm"; exit 2; }

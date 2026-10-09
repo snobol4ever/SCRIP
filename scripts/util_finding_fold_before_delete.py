@@ -169,9 +169,12 @@ def main():
     a = ap.parse_args()
 
     here = os.path.dirname(os.path.abspath(__file__))
-    root = os.path.abspath(os.path.join(here, "..", ".."))
+    # ⛔ THE SCRIP TREE IS THIS SCRIPT'S OWN REPO, .github S4E_HOME's ELSE THE SIBLING OF THIS CHECKOUT (coo 2026-10-08, CEO-1573):
+    # root/SCRIP and root/.github named the directories BESIDE a worktree, so from a worktree under a scratch directory the sweep
+    # refused "no such tree" and the gate's arm 9 read that refusal as a deleted, still-cited FINDING.
+    root = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(here, "..", ".."))
     gh = os.path.abspath(a.tree) if a.tree else os.path.join(root, ".github")
-    scrip = os.path.abspath(a.scrip) if a.scrip else os.path.join(root, "SCRIP")
+    scrip = os.path.abspath(a.scrip) if a.scrip else os.path.abspath(os.path.join(here, ".."))
     if not os.path.isdir(gh):
         die("no such tree: %s" % gh)
     self_paths = {os.path.realpath(os.path.join(here, n)) for n in

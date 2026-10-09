@@ -21,7 +21,9 @@
 # FAIL_ONCE=1 points the real-tree arm at a scratch clone holding a deleted-unfolded FINDING, proving THIS GATE reds.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/../.." && pwd)"
-SWEEP="$HERE/util_finding_fold_before_delete.sh"; GH="$ROOT/.github"
+# ⛔ .github IS S4E_HOME's, ELSE THE SIBLING OF THIS CHECKOUT (coo 2026-10-08, CEO-1573): from a worktree under a scratch directory,
+# ROOT/.github named a directory that is not there and arm 9 refused (origin/main not resolvable); the seat's own clone resolves it.
+SWEEP="$HERE/util_finding_fold_before_delete.sh"; GH="${S4E_HOME:-$ROOT}/.github"
 [ -x "$SWEEP" ] || { echo "⛔ REFUSED-TO-GRADE(2): the sweep is missing or not executable: $SWEEP"; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE(2): python3 not on PATH"; exit 2; }
 W="$(mktemp -d)" || { echo "⛔ REFUSED-TO-GRADE(2): mktemp failed"; exit 2; }
