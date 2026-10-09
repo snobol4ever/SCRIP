@@ -151,6 +151,14 @@ ScanSubjRegs c_rt_match_enter(uint64_t lo, uint64_t hi) {
     w[1] = hi;
     DESCR_t sv;
     memcpy(&sv, w, sizeof sv);
+    if (sv.v == DT_A || sv.v == DT_T || sv.v == DT_P || sv.v == DT_C || sv.v == DT_E || sv.v == DT_X || IS_DATA_INST_fn(sv)) {
+        extern void core_runtime_error(int, const char *);
+        core_runtime_error(241, "pattern match left operand is not a string");
+        ScanSubjRegs z;
+        z.ptr = 0;
+        z.len = 0;
+        return z;
+    }
     if (IS_INT_fn(sv) || IS_REAL_fn(sv)) sv = descr_to_str(sv);
     const char *s = IS_NULL_fn(sv) ? "" : VARVAL_fn(sv);
     if (!s) s = "";
