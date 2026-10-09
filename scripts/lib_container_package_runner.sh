@@ -8,11 +8,11 @@
 #
 # It grades the container in both modes through corpus_suite_harness.py run (the one grader: declared heap and stack from ALL.csv, the
 # timeout retry, the per-program progress rows), prints the board line and the inventory, and writes the suite row through
-# util_score_row.py: THE AND PER PROGRAM over the programs the oracle grades, with the programs it cannot grade named in EXCLUDED.tsv
-# (each also in UNGRADABLE.tsv, the oracle's reason) and shown as Excl, so shipped = denominator + Excl. rc: the harness's, 2 refused.
+# util_score_row.py: THE AND PER PROGRAM over the programs the oracle grades, with a program a ruled class excludes named in EXCLUDED.tsv
+# by a ruled class and shown as Excl, so shipped = denominator + Excl; every other ungraded program stays in as debt. rc: the harness's, 2 refused.
 container_package_run() {
   local lang="$1" ext="$2" key="$3" suite="$4" gate="$5"
-  local here sd board rc out field_ scored shipped excl bothp m3p m4p inv cc
+  local here sd board rc out field_ scored shipped excl denom bothp m3p m4p inv cc
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; sd="$here/.."
   export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$here/util_timeout_retry.sh}"
   . "$here/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; return 2; }
@@ -26,20 +26,18 @@ container_package_run() {
   [ -n "$board" ] || { echo "⛔ REFUSE(rc=2): corpus_suite_harness.py printed no SUITE_BOARD line (above) -- nothing measured, no row written"; return 2; }
   field_() { printf '%s\n' "$board" | grep -oE " $1=[0-9]+" | head -1 | cut -d= -f2; }
   scored="$(field_ total)"; bothp="$(field_ all_pass)"; m3p="$(field_ m3_pass)"; m4p="$(field_ m4_pass)"
-  excl=$((shipped - scored))
-  [ "$excl" -ge 0 ] || { echo "⛔ REFUSE(rc=2): the container grades $scored programs but the package ships $shipped -- rebuild the container"; return 2; }
-  if [ -f "$suite/EXCLUDED.tsv" ]; then
-    local named; named=$(grep -vc -E '^#|^\s*$' "$suite/EXCLUDED.tsv")
-    [ "$named" = "$excl" ] || { echo "⛔ REFUSE(rc=2): EXCLUDED.tsv names $named programs but shipped $shipped - graded $scored = $excl -- the container and the record drifted; rebuild both"; return 2; }
-  elif [ "$excl" -gt 0 ]; then echo "⛔ REFUSE(rc=2): $excl shipped programs are not in the container and no EXCLUDED.tsv names them"; return 2; fi
-  echo "$(printf '%s' "$key" | tr 'a-z-' 'A-Z_')_BOARD shipped=$shipped graded=$scored excluded=$excl both_pass=$bothp m3_pass=$m3p m4_pass=$m4p"
+  # the denominator is SHIPPED (CEO-1286): a program the container does not grade is named in UNGRADABLE.tsv or UNGRADED.tsv and stays
+  # in as debt; only a program a ruled EXCLUDED.tsv class names leaves it, shown as Excl
+  excl=0; [ -f "$suite/EXCLUDED.tsv" ] && excl=$(grep -vc -E '^#|^\s*$' "$suite/EXCLUDED.tsv")
+  denom=$((shipped - excl))
+  echo "$(printf '%s' "$key" | tr 'a-z-' 'A-Z_')_BOARD shipped=$shipped graded=$scored excluded=$excl denominator=$denom both_pass=$bothp m3_pass=$m3p m4_pass=$m4p"
   INV_PACKAGE="$key"; INV_DIR="$suite"; INV_EXT=".$ext"
   inv="$(inventory_line "$scored" 0)"
   if [ -n "$inv" ]; then echo "$inv"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
   cc="${S4E_CRITERION_CHANGED:-}"
   python3 "$here/util_score_row.py" write --lang "$lang" --column vendor --suite "$key" --suite-key "$key" --modes m3,m4 \
-      ${cc:+--criterion-changed "$cc"} --suite-pass "$bothp" --suite-total "$scored" --excluded "$excl" --measurer "${S4E_SEAT:-}" \
-      --text "$key both-modes $bothp/$scored · m3 $m3p/$scored · m4 $m4p/$scored ($shipped shipped, EXCLUDED=$excl the oracle cannot grade, named in EXCLUDED.tsv${inv:+ · $inv} (\`$gate.sh\`))" \
+      ${cc:+--criterion-changed "$cc"} --suite-pass "$bothp" --suite-total "$denom" --excluded "$excl" --measurer "${S4E_SEAT:-}" \
+      --text "$key both-modes $bothp/$denom · m3 $m3p/$denom · m4 $m4p/$denom ($scored graded of $shipped shipped, the rest named in UNGRADABLE.tsv/UNGRADED.tsv as debt, EXCLUDED=$excl${inv:+ · $inv} (\`$gate.sh\`))" \
       || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
   return "$rc"
 }
