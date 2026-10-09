@@ -380,17 +380,17 @@ int rt_builtin_is_known(const char *name) {
         "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup",
         "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max",
-        "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick",
-        "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before",
-        "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list",
-        "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure",
-        "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any",
-        "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture", "nqp::create",
-        "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref",
-        "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE",
-        "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE",
-        "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt",
-        "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg",
+        "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm",
+        "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr",
+        "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems",
+        "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv",
+        "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture",
+        "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check",
+        "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT",
+        "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM",
+        "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g",
+        "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -9811,6 +9811,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_typeobj") && nargs == 1) { *out = rk_typeobj(VARVAL_fn(args[0])); return 1; }
+    if (!strcmp(fn, "__rk_item1") && nargs == 1) { *out = args[0]; return 1; }
     if (!strcmp(fn, "__rk_str") && nargs == 1) {
         extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
         DESCR_t a = args[0];

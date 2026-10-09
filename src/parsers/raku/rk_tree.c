@@ -2074,17 +2074,22 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
     }
     tree_t *a = assign_forms(b, L, 0, BK_MAIN);
     if (a) return a;
-    if (L->n > 1 || L->trailing) return rkb_paren(b, L, 0);
+    if (L->n > 1) {
+        tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+        for (int i = 0; i < L->n; i++) expr_add_child(seq, el_tree(b, &L->v[i]));
+        return seq;
+    }
     return el_tree(b, e0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *stmt_tail(RkB *b, RkList *L, int bk) {
     if (!L->n) return ast_node_new(TT_NUL);
     tree_t *a = assign_forms(b, L, 1, bk);
-    if (!a && L->nitem > 1 && L->op1 && !strcmp(L->op1, ".=")) a = stmt_plain(b, L);
+    if (!a && L->nitem > 1 && L->op1 && (!strcmp(L->op1, ".=") || (!strcmp(L->op1, "=") && L->v[0].t0.kind == TK_PAREN && !L->v[0].t0.npost && !L->v[0].t0.npre))) a = stmt_plain(b, L);
     if (a) { if (bk == BK_SUB || bk == BK_METHOD) { tree_t *r = ast_node_new(TT_RETURN); expr_add_child(r, a); return r; } return a; }
     RkTerm *t0 = &L->v[0].t0;
-    tree_t *e = (L->n > 1 || L->trailing) ? rkb_paren(b, L, 0) : el_tree(b, &L->v[0]);
+    int clv0, ck0, asg = L->nitem > 1 && L->op1 && (!strcmp(L->op1, "=") || rkb_compound_base(L->op1, &clv0, &ck0));
+    tree_t *e = ((L->n > 1 || L->trailing) && !asg) ? rkb_paren(b, L, 0) : el_tree(b, &L->v[0]);
     if (bk == BK_SUB || bk == BK_METHOD) {
         if (L->nitem == 1 && t0->kind == TK_CALL && t0->name && (!strcmp(t0->name, "say") || !strcmp(t0->name, "print") || !strcmp(t0->name, "return"))) return e;
         if (e && e->t == TT_YADA && bk == BK_METHOD) return e;

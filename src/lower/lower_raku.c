@@ -3023,6 +3023,47 @@ static void rk_cap_file_scope(tree_t * prog) {
     rk_cap_box_decls(prog, &Bx);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_gw_boxed(const tree_t * t, rk_ns_t * out) {
+    if (!t) return;
+    if (t->t == TT_VAR && t->v.sval && (t->slen & RK_VF_BOXED)) rk_ns_add(out, t->v.sval);
+    for (int i = 0; i < t->n; i++) rk_gw_boxed(t->c[i], out);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_gw_collect(const tree_t * t, const rk_ns_t * fsd, const rk_ns_t * excl, rk_ns_t * W) {
+    if (!t) return;
+    if (t->t == TT_SUB_DECL) {
+        rk_ns_t d = { 0 };
+        rk_cap_declared_deep(t, &d);
+        for (int k = 0; k < fsd->n; k++) {
+            const char * v = fsd->v[k];
+            if (rk_ns_has(&d, v) || rk_ns_has(excl, v) || rk_ns_has(W, v)) continue;
+            for (int j = 1; j < t->n; j++) if (rk_cap_mutated(t->c[j], v)) { rk_ns_add(W, v); break; }
+        }
+    }
+    for (int i = 0; i < t->n; i++) rk_gw_collect(t->c[i], fsd, excl, W);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_gw_rename(tree_t * t, const char * v, const char * to) {
+    if (!t) return;
+    if (t->t == TT_SUB_DECL || t->t == TT_ANON_BLOCK) { rk_ns_t d = { 0 }; rk_cap_declared_deep(t, &d); if (rk_ns_has(&d, v)) return; }
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, v)) t->v.sval = (char *) to;
+    for (int i = (t->t == TT_FNC || t->t == TT_SUB_DECL) ? 1 : 0; i < t->n; i++) rk_gw_rename(t->c[i], v, to);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_globalize_file_scope_writes(tree_t * prog) {
+    extern void global_register(const char * name);
+    rk_ns_t fsd = { 0 }, it = { 0 }, lvs = { 0 }, W = { 0 };
+    rk_cap_iter_decls(prog, 0, &it, &lvs);
+    rk_gw_boxed(prog, &it);
+    for (int i = 0; i < prog->n; i++) rk_cap_declared(prog->c[i], &fsd);
+    for (int i = 0; i < fsd.n; ) {
+        const char * v = fsd.v[i];
+        if (!*v || v[0] == '&' || v[0] == '_' || v[0] == '*' || v[0] == '?' || v[0] == '!' || v[0] == '.' || !strncmp(v, "__", 2)) { fsd.v[i] = fsd.v[fsd.n - 1]; fsd.n--; } else i++;
+    }
+    rk_gw_collect(prog, &fsd, &it, &W);
+    for (int i = 0; i < W.n; i++) { const char * v = W.v[i]; char nb[strlen(v) + 8]; snprintf(nb, sizeof nb, "%s__fs", v); char * to = lp_strdup(nb); rk_gw_rename(prog, v, to); global_register(to); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_tail_return(tree_t * st);
 static tree_t * rk_tail_if(tree_t * st) {
     if (!st || (st->t != TT_IF && st->t != TT_UNLESS) || st->n < 2) return st;
@@ -3537,9 +3578,23 @@ static void rk_hoist_nested_types(tree_t * prog) {
     for (int i = 0; i < h.nout; i++) ast_push(prog, out[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_assign_pow_rhs(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_assign_pow_rhs(t->c[i]);
+    if (t->t == TT_ASSIGN && t->n == 2 && t->c[1] && t->c[1]->t == TT_POW) {
+        tree_t * w = ast_node_new(TT_FNC);
+        w->line = t->line;
+        w->v.sval = (char *) "__rk_item1";
+        ast_push(w, leaf_sval2(TT_VAR, "__rk_item1"));
+        ast_push(w, t->c[1]);
+        t->c[1] = w;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_hoist_nested_types((tree_t *) prog);
     rk_tail_ifs((tree_t *) prog);
+    rk_assign_pow_rhs((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
     { int gseq = 0; rk_desugar_gather((tree_t *) prog, &gseq); }
@@ -3547,6 +3602,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_sub_placeholders((tree_t *) prog);
     rk_ph_alias((tree_t *) prog);
     rk_cap_file_scope((tree_t *) prog);
+    rk_globalize_file_scope_writes((tree_t *) prog);
     rk_hoist_anon_blocks((tree_t *) prog);
     rk_sort_cmp_walk((tree_t *) prog, (tree_t *) prog);
     raku_register_program(&g_stage2, prog);
