@@ -25,7 +25,12 @@ DEFINE = re.compile(r"^\s*#\s*define\s+([A-Z][A-Z0-9_]*)\s+(\S.*?)\s*$")
 # phantom table -- 87 of them in the census on c2cdd7480, 8 at file scope inside the ratchet's population (frame_layout.c zc_nofc,
 # lower_icon.c icn_kw_assignable, lower_raku.c rk_fld_priv, lower_snobol4.c sno_setexit_on, by_name_dispatch.c plw_vvb_on, core.c
 # core_setexit_on, rt.c rt_byname_alpha_on, runtime_eval.c's EVAL_TMP_MARK switch). `&&` is no type separator and `==` no initializer.
-ARRAY = re.compile(r"(?P<pre>(?:^|[;{,(]|\)\s*)\s*(?:static\s+|const\s+|volatile\s+|unsigned\s+|signed\s+|struct\s+|enum\s+|extern\s+)*(?:[A-Za-z_][A-Za-z0-9_:<>]*\s*(?:[*\s]|&(?!&))+))(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(?P<bound>[A-Z0-9_][A-Za-z0-9_+*\- <]*?)\s*\](?P<dims>(?:\s*\[[^\]]*\])*)\s*(?P<post>[;,)]|=(?!=)|\[)")
+# ⛔ A DECLARATION IS A STATEMENT, NOT A LINE (coo 2026-10-08, the 200-column re-flow CEO-1565): `post` was CONSUMED, so the `;` that
+# ends one declaration could not anchor the next and `static char * cache[1024]; static char buf[24];` read one table; and `}` was no
+# anchor, so `{ return 0; } char c2[2] = ...` read none. The re-flow put each child on its own line and 11 tables the census had never
+# seen appeared with byte-identical objects (lower_prolog.c buf, keywords.c g_kw_cset_regc_len, gc_heap.c g_ah_tb, by_name_dispatch.c
+# acc_names acc_types acc_var sb2 ...). `post` is a lookahead and `}` an anchor, so a line holding several statements reads all of them.
+ARRAY = re.compile(r"(?P<pre>(?:^|[;{},(]|\)\s*)\s*(?:static\s+|const\s+|volatile\s+|unsigned\s+|signed\s+|struct\s+|enum\s+|extern\s+)*(?:[A-Za-z_][A-Za-z0-9_:<>]*\s*(?:[*\s]|&(?!&))+))(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\[\s*(?P<bound>[A-Z0-9_][A-Za-z0-9_+*\- <]*?)\s*\](?P<dims>(?:\s*\[[^\]]*\])*)\s*(?=(?P<post>[;,)]|=(?!=)|\[))")
 # ⭐ A TABLE NAMED AFTER A CLOSING BRACE (coo 2026-09-23, the cfo's finding on this row): `static struct { fields } name[CAP];` -- one
 # line or several -- names its array after the `}`, where ARRAY needs a type word before the name, so the census never saw it. In
 # lower_snobol4.c alone that hid five population caps (g_sno_exprs[SNO_EXPR_MAX] FATAL past 4096, g_sno_pats[SNO_PAT_MAX] FATAL past
@@ -482,6 +487,36 @@ class GuardReader:
         return g, ev
 
 
+def decl_prefix(lines, i, name):
+    """The declaration's own text before NAME on line I (1-based) of comment-stripped LINES: walked back to the `;` that ends the previous
+    statement, the `{` that opens the enclosing block, or the `}` of a block that is not a struct, union or enum body (whose braces belong
+    to this declaration's type). ⛔ coo 2026-10-08 (CEO-1565): the physical line was read instead, so `if (e->is_const) { char eb[192];`
+    and `if (!sno_const_static_on()) ... char cb[130];` read as read-only tables, and the re-flowed `} g_bid_tab[BID_TABSZ] = {` lost the
+    `static const struct {` three lines above it."""
+    line = lines[i - 1] if 0 < i <= len(lines) else ""
+    m = re.search(r"(?<![\w.>])" + re.escape(name) + r"\s*\[", line)
+    s = "\n".join(lines[max(0, i - 400):i - 1] + [line[:m.start() if m else len(line)]])
+    k, d, close = len(s), 0, None
+    while k > 0:
+        k -= 1
+        ch = s[k]
+        if ch == "}":
+            close = k if d == 0 else close
+            d += 1
+        elif ch == "{":
+            if d == 0:
+                k += 1
+                break
+            d -= 1
+            if d == 0 and not re.search(r"\b(?:struct|union|enum)(?:\s+\w+)?\s*$", s[:k]):
+                k = close + 1
+                break
+        elif ch == ";" and d == 0:
+            k += 1
+            break
+    return s[k:]
+
+
 def is_const_table(decl_line, name):
     """True when the ARRAY is read-only: a const that is not followed by a pointer star before the name (`const char *names[N]` is a
     writable array of pointers; `static const uint8_t tbl[N]` and `char *const names[N]` are not)."""
@@ -494,7 +529,8 @@ def is_const_table(decl_line, name):
     # read-only, and the `*` of its first field read it as a writable array of pointers
     while re.search(r"\{[^{}]*\}", pre):
         pre = re.sub(r"\{[^{}]*\}", " ", pre)
-    return "const" in pre and "*" not in pre[pre.rfind("const"):]
+    cs = [m.end() for m in re.finditer(r"\bconst\b", pre)]
+    return bool(cs) and "*" not in pre[cs[-1]:]
 
 
 def classify_guards(rows, texts):
@@ -521,8 +557,8 @@ def classify_guards(rows, texts):
             scan += sorted(includers.get(os.path.basename(p), ()))
         g, ev = gr.table(p, name, bound, scan)
         if p not in lines_of:
-            lines_of[p] = texts[p].split("\n")
-        c = is_const_table(lines_of[p][i - 1] if 0 < i <= len(lines_of[p]) else "", name)
+            lines_of[p] = strip_c(texts[p], pp=False).split("\n")
+        c = is_const_table(decl_prefix(lines_of[p], i, name) + name + "[", name)
         out.append(tuple(r[:7]) + (g, "const" if c else "", " ".join(ev)))
     return out, gr
 
@@ -1110,9 +1146,9 @@ def classify_locals(rows, texts, gr, defines):
             out.append(tuple(r) + ("",))
             continue
         if r[0] not in lines_of:
-            lines_of[r[0]] = texts[r[0]].split("\n")
+            lines_of[r[0]] = strip_c(texts[r[0]], pp=False).split("\n")
         i = int(r[1])
-        c = is_const_table(lines_of[r[0]][i - 1] if 0 < i <= len(lines_of[r[0]]) else "", r[3])
+        c = is_const_table(decl_prefix(lines_of[r[0]], i, r[3]) + r[3] + "[", r[3])
         if c:
             out.append(tuple(r[:7]) + ("", "const", "", ""))
             continue
@@ -1222,6 +1258,13 @@ def selftest():
             "static int s4_after_tail[8];\n"
             "static int s5_brace_chr(void) { return '{'; }\n"
             "static int s5_after_brace[8];\n")
+        # ⭐ A DECLARATION IS A STATEMENT, NOT A LINE (coo 2026-10-08, CEO-1565): two on one line, one after a block's closing brace, a
+        # local whose line holds an identifier containing "const", and a const struct whose name stands lines below its qualifiers
+        open(os.path.join(d, "g.c"), "w").write(
+            "static char *g1_first[8]; static char g1_second[24];\n"
+            "void g2(int c) { if (c) { return; } char g2_after_brace[2] = { (char)c, 0 }; (void)g2_after_brace; }\n"
+            "void g3(int is_const, const char *s) { if (is_const) { char g3_not_const[64]; snprintf(g3_not_const, sizeof g3_not_const, \"p_%s\", s); } }\n"
+            "static const struct {\n    const char *nm;\n    int id;\n} g4_const_multiline[4] = { {\"a\", 1} };\n")
         out = os.path.join(d, "c.tsv")
         import io, contextlib
         with contextlib.redirect_stdout(io.StringIO()):
@@ -1238,7 +1281,8 @@ def selftest():
                 "t13_const": ["file"], "t14_lit": ["file"], "t15_wrapped": ["file"],
                 "s2_field": ["field"], "s3_macro_local": ["local"], "s4_after_tail": ["file"], "s5_after_brace": ["file"],
                 "e1_after_extern_c": ["file"], "e2_const_struct": ["file"], "e3_first": ["file"], "e3_second": ["file"], "e3_third": ["file"],
-                "e4_after_scalar": ["file"], "A1_BYTES": ["arena"], "A2_BYTES": ["arena"], "A3_SIZE": ["arena"], "a5_shift_table": ["file"]}
+                "e4_after_scalar": ["file"], "g1_first": ["file"], "g1_second": ["file"], "g2_after_brace": ["local"], "g3_not_const": ["local"],
+                "g4_const_multiline": ["file"], "A1_BYTES": ["arena"], "A2_BYTES": ["arena"], "A3_SIZE": ["arena"], "a5_shift_table": ["file"]}
         ok = True
         for n, sc in want.items():
             if got.get(n) != sc:
@@ -1252,7 +1296,7 @@ def selftest():
                 print("SELFTEST: %s not counted (not storage)" % n)
         gwant = {"t8_drop": ("DROP", ""), "t9_loud": ("LOUD", ""), "t10_clamp": ("DROP", ""), "t11_trunc": ("DROP", ""),
                  "t12_none": ("NONE", ""), "t13_const": ("NONE", "const"), "t14_lit": ("DROP", ""), "t15_wrapped": ("LOUD", ""),
-                 "e2_const_struct": ("NONE", "const"), "A1_BYTES": ("LOUD", ""), "A2_BYTES": ("NONE", ""), "A3_SIZE": ("DROP", ""),
+                 "e2_const_struct": ("NONE", "const"), "g4_const_multiline": ("NONE", "const"), "A1_BYTES": ("LOUD", ""), "A2_BYTES": ("NONE", ""), "A3_SIZE": ("DROP", ""),
                  "a5_shift_table": ("NONE", "")}
         for n, w in gwant.items():
             if guard.get(n) != w:
@@ -1265,7 +1309,8 @@ def selftest():
                  "l12_callee_loud": ("CALLEE:l12_flat", "LOUD"), "l13_callee_fixed": ("B:copy@l13_itos", ""), "l14_constfmt": ("B:fmt", ""),
                  "l15_minclamp": ("COUNTER", "DROP"), "l16_callee_plus": ("CALLEE:l16_text", "DROP"), "l17_count": ("B:count", ""),
                  "l18_alias": ("FORMAT:snprintf", "DROP"), "l19_fits": ("B:fmt", ""), "l20_fresh": ("B:code", ""),
-                 "l21_andclamp": ("COUNTER", "DROP"), "l22_sentinelclamp": ("COUNTER", "DROP"), "l23_flagtrip": ("B:trip", "")}
+                 "l21_andclamp": ("COUNTER", "DROP"), "l22_sentinelclamp": ("COUNTER", "DROP"), "l23_flagtrip": ("B:trip", ""),
+                 "g3_not_const": ("FORMAT:snprintf", "DROP")}
         for n, w in lwant.items():
             if fill.get(n) != w:
                 print("SELFTEST FAIL: local %s reads (fill, guard) %r, want %r" % (n, fill.get(n), w)); ok = False
@@ -1375,7 +1420,7 @@ def main(argv):
             for m in ARRAY.finditer(s):
                 name = m.group("name")
                 pre = m.group("pre")
-                if name in SKIP_NAMES or re.search(r"\b(return|case|sizeof|if|while|for)\b", pre):
+                if name in SKIP_NAMES or re.search(r"\b(return|case|sizeof|if|while|for|else|do|goto)\b", pre):
                     continue
                 # ⛔ AN extern IS A RE-DECLARATION, NOT STORAGE (coo 2026-09-23): counting it made one array two tables -- hq_snobol4's
                 # 2b89a5ef2 added a file-scope `extern jmp_buf g_core_errjmp_stk[64];` in core.c beside the definition 900 lines
