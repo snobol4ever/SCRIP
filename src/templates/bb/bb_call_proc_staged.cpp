@@ -48,7 +48,6 @@ int rt_proc_nformals(const char *name);
 int rt_pl_dc_ok(const char *name, int nargs);
 void **rt_pl_dc_slot(long idx);
 DESCR_t rt_nret_fix(DESCR_t r, int wn);
-DESCR_t rt_nret_fix_tiny(DESCR_t r, int unused_edx);
 int rt_proc_nparams(const char *name);
 const char *rt_proc_pname(const char *name, int k);
 const char *rt_proc_result_name_get(const char *name);
@@ -157,17 +156,36 @@ static inline int bcps_pl() { return x86_fb_pinned(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {
     extern int rt_g_ret_by_name;
-    return x86("note", std::string("NRETURN by-name consult (live wn, consumed)"))
-         + x86("mov", "rcx", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+    extern int rt_g_want_name;
+    extern DESCR_t rt_deref(DESCR_t d);
+    const int strict = emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT");
+    const std::string got_rbn = std::string("[rip@got + __]");
+    return x86("note", std::string("NRETURN by-name consult (live wn, consumed): the fix-up is emitted here, rt_nret_fix_tiny is gone from the graph"))
+         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
          + x86("mov", "ecx", RDD("rcx", 0))
          + x86("cmp", "ecx", (long)0)
          + x86("je", L(29))
+         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+         + x86("mov", "ecx", RDD("rcx", 0))
+         + x86("cmp", "ecx", (long)0)
+         + x86("jne", L(24))
+         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+         + x86("mov", RDD("rcx", 0), (long)0)
+         + x86("cmp", "eax", (long)DT_N)
+         + x86("jne", L(23))
          + x86("mov", "rdi", "rax")
          + x86("mov", "rsi", "rdx")
-         + x86("mov32", "edx", 0L)
-         + x86_rtcc_call_descr_ops("rt_nret_fix_tiny", TEMPLATE_FN_ADDR(rt_nret_fix_tiny), r0, r8)
+         + x86_rtcc_call_descr_ops("rt_deref", TEMPLATE_FN_ADDR(rt_deref), r0, r8)
          + x86("mov", "rax", r0.c_str())
          + x86("mov", "rdx", r8.c_str())
+         + x86("jmp", L(23))
+         + x86("def", L(24))
+         + IF(!strict,
+               x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+             + x86("mov", RDD("rcx", 0), (long)0))
+         + x86("def", L(23))
+         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+         + x86("mov", RDD("rcx", 0), (long)0)
          + x86("def", L(29));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
