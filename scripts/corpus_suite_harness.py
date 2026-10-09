@@ -1354,11 +1354,24 @@ def convert_one(paths, sno_path, ref_path, seq, tmp_root, modes, companion_dir=N
 def run_all_modes(paths, sno_path, expected_text, tmp_root, modes, stdin_text=None, want_rc=0, prog_argv=None, mask=None, where="", bin_dir=None, heap_kb=None, stack_kb=None, compile_args=None, out_files=None, merge_stderr=False):
     """Every mode is graded against the ONE ref: the two modes are one machine in two media (Lon 2026-09-23, CEO-1218/1230)."""
     out = {}
+    # ⭐ A TRACE PER ENTRY AND MODE (the coo 2026-10-09, the cfo's ask for the rank-0 row gc-rt-c-c-to-bb-...): rt_c2bb_hit appends every
+    # C-entered box to the ONE path SCRIP_C2BB_TRACE names, so a suite run under one path loses which entry fired. With
+    # S4E_ENTRY_TRACE_DIR set, each mode of each entry gets its own <dir>/<entry>.<mode>.trace; run_m3 and run_m4 inherit it through
+    # os.environ (this harness grades one entry at a time, in one thread). util_c2bb_trace_census.py counts the directory by mark.
+    _trd = os.environ.get("S4E_ENTRY_TRACE_DIR", "")
+    if _trd:
+        os.makedirs(_trd, exist_ok=True)
     if "m3" in modes:
+        if _trd:
+            os.environ["SCRIP_C2BB_TRACE"] = os.path.join(_trd, "%s.m3.trace" % Path(sno_path).stem)
         out["m3"] = run_m3(paths, sno_path, expected_text, stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files, merge_stderr=merge_stderr)
     if "m4" in modes:
+        if _trd:
+            os.environ["SCRIP_C2BB_TRACE"] = os.path.join(_trd, "%s.m4.trace" % Path(sno_path).stem)
         with tempfile.TemporaryDirectory(dir=tmp_root) as td:
             out["m4"] = run_m4(paths, sno_path, expected_text, Path(td), stdin_text=stdin_text, want_rc=want_rc, prog_argv=prog_argv, mask=mask, bin_dir=bin_dir, heap_kb=heap_kb, stack_kb=stack_kb, compile_args=compile_args, out_files=out_files, merge_stderr=merge_stderr)
+    if _trd:
+        os.environ.pop("SCRIP_C2BB_TRACE", None)
     return out
 
 
