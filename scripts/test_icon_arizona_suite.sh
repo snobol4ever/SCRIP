@@ -60,7 +60,9 @@ PROGRESS_CONFIG="$(progress_config_of_env)"   # every row declares what it ran u
 # the caller decides. Aborting mid-loop would let one bookkeeping failure destroy a real measurement of 90
 # programs (the reason gate_score_row is non-fatal); `|| true` would turn "never written" into silence.
 PROGRESS_FAILED=0
-arizona_progress() { progress_append package arizona icon "$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
+# ⛔ THE PROGRESS KEY IS THE PATH KEY <subdir>/<stem> (coo 2026-10-08, CEO-1366 (b)): the container ALL.csv keys arizona_tests
+# general/args, the IPL board writes progs/when, and this board wrote the bare stem -- two keys for one program in the progress table.
+arizona_progress() { progress_append package arizona icon "$sub/$1" "$2" "$3" || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); }
 SCRIP="${SCRIP:-$HERE/../scrip}"
 RT_SO="$HERE/../out/libscrip_rt.so"
 CORPUS="$S4E/corpus"
@@ -397,7 +399,7 @@ if [ -f "$PRE_TSV" ]; then
         CRASH) M3_CRASH=$((M3_CRASH+1)); M4_CRASH=$((M4_CRASH+1)); M3_CRASH_NAMES="$M3_CRASH_NAMES $id"; M4_CRASH_NAMES="$M4_CRASH_NAMES $id" ;;
         *)     M3_FAIL=$((M3_FAIL+1)); M4_FAIL=$((M4_FAIL+1)); M3_FAIL_NAMES="$M3_FAIL_NAMES $id"; M4_FAIL_NAMES="$M4_FAIL_NAMES $id" ;;
       esac
-      for _pm in m3 m4; do progress_append package arizona icon "$id" "$_pm" "$_pv" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- one run, the shared frontend, recorded in both modes" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); done
+      for _pm in m3 m4; do progress_append package arizona icon "$_psub/$id" "$_pm" "$_pv" 0 "preprocess-only contract: scrip -E $_pargv against icont -E (stderr then stdout, rc $_prc) -- one run, the shared frontend, recorded in both modes" </dev/null || PROGRESS_FAILED=$((PROGRESS_FAILED+1)); done
     done
     echo "PREPROCESS_CONTRACT $_pp argv=\"$_pargv\" want_rc=$_prc got_rc=$_pgot verdict=$_pv graded=$(echo $_pargv | wc -w)"
   done < "$PRE_TSV"

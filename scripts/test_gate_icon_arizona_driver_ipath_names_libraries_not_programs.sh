@@ -45,10 +45,10 @@ rm -f "$S"/*.u1 "$S"/*.u2 "$X"/*.u1 "$X"/*.u2 "$S/lib_driver" "$S/helper"
 echo "  HOLDS: a driver run links the suite's libraries through IPATH and never a shipped program that shares a library's name"
 out="$(cd "$ROOT" && env S4E_HOME="$W/az" IPATH="$X" S4E_PROGRESS_DB="$W/p.tsv" S4E_SCORE_NO_WRITE="gate $G" timeout 300 bash "$R" 2>&1)"; r=$?
 oc() { awk -F'\t' -v p="$1" -v m="$2" 'NR>1 && $8==p && $9==m {print $10}' "$W/p.tsv" 2>/dev/null | tail -1; }
-l3="$(oc lib m3)"; l4="$(oc lib m4)"
+l3="$(oc general/lib m3)"; l4="$(oc general/lib m4)"   # the board keys a program by its path key <subdir>/<stem>, as its container does (CEO-1366 (b))
 if [ "$r" = 2 ] || [ "$r" = 124 ]; then echo "  arm L FAIL: the runner could not measure its fixture (rc=$r): $(printf '%s\n' "$out" | grep -E 'REFUSE|⛔' | head -2 | tr '\n' ' ')"; RC=1
 elif [ "$l3" = PASS ] && [ "$l4" = PASS ]; then echo "  arm L PASS: lib, graded through lib_driver with a same-named test program in the suite, reads PASS/PASS"
-else echo "  arm L FAIL: lib reads ${l3:-none}/${l4:-none} (want PASS/PASS -- a FAIL means the driver linked the suite's test program)"; RC=1; fi
+else echo "  arm L FAIL: general/lib reads ${l3:-none}/${l4:-none} (want PASS/PASS -- a FAIL means the driver linked the suite's test program)"; RC=1; fi
 f="$(cd "$S" && IPATH="$S:$X" timeout 30 "$SCRIP" --run lib_driver.icn < /dev/null 2>&1)"
 if printf '%s\n' "$f" | grep -q 'error 106' && ! printf '%s\n' "$f" | grep -q 'helper(3) = 21'; then echo "  arm F PASS: with the whole suite first on IPATH the driver reads error 106 at the library's call (red once)"
 else echo "  arm F FAIL: the whole-suite IPATH no longer reds -- the fixture cannot tell the mirror from the directory: $(printf '%s\n' "$f" | head -2 | tr '\n' ' ')"; RC=1; fi
