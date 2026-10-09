@@ -29,6 +29,7 @@ std::string bb_call_bool_str(IR_t * pBB) {
          + x86("call", "rk_is_truthy", (uint64_t)(uintptr_t)(void *)rk_is_truthy)
          + x86("test", "eax", "eax")
          + x86_omega("je")
+         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta_trampoline();
 }
