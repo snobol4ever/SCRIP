@@ -8563,6 +8563,15 @@ static const struct {
     "X::TypeCheck::Binding", "X::TypeCheck" }, { "Type check failed in assignment", "X::TypeCheck::Assignment", "X::TypeCheck" }, { "Cannot modify an immutable", "X::Assignment::RO", "Exception" },
     { "No such method", "X::Method::NotFound", "Exception" }, { "out of range", "X::OutOfRange", "Exception" }, { "Cannot convert string to number", "X::Str::Numeric", "Exception" },
     { "Unrecognized trailing characters", "X::Str::Numeric", "Exception" }, { "must be resolved by class", "X::Role::Composition", "Exception" }, { NULL, NULL, NULL } };
+static const struct {
+    const char *needle, *cls, *parent;
+} rk_comp_tab[] = { { "Unsupported use of", "X::Obsolete", "X::Comp" }, { "Quantifier quantifies nothing", "X::Syntax::Regex::SolitaryQuantifier", "X::Syntax" }, { "Null regex not allowed",
+    "X::Syntax::Regex::NullRegex", "X::Syntax" }, { "Missing block", "X::Syntax::Missing", "X::Syntax" }, { "Missing initializer", "X::Syntax::Missing", "X::Syntax" }, { "Malformed",
+    "X::Syntax::Malformed", "X::Syntax" }, { "Bogus statement", "X::Syntax::Malformed", "X::Syntax" }, { "Redeclaration of", "X::Redeclaration", "X::Comp" }, { "already has a method",
+    "X::Redeclaration", "X::Comp" }, { "Cannot declare a match variable", "X::Syntax::Variable::Match", "X::Syntax" }, { "Cannot declare a numeric variable", "X::Syntax::Variable::Numeric",
+    "X::Syntax" }, { "Name component may not be null", "X::Syntax::Name::Null", "X::Syntax" }, { "Cannot add tokens of category", "X::Syntax::Reserved", "X::Syntax" },
+    { "Opening bracket required for #`", "X::Syntax::Comment::Embedded", "X::Syntax" }, { "does not take \"elsi", "X::Syntax::UnlessElse", "X::Syntax" }, { "Non-variable $ must be backslashed",
+    "X::Backslash::NonVariableDollar", "X::Syntax" }, { NULL, NULL, NULL } };
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_exc_init(void) {
     static int rk_exc_reg = 0;
@@ -8587,6 +8596,12 @@ static void rk_exc_init(void) {
     class_inherit("X::Undeclared", "X::Comp");
     record_register("X::Method::NotFound(message,method,typename,invocant)");
     class_inherit("X::Method::NotFound", "Exception");
+    for (int i = 0; rk_comp_tab[i].cls; i++) {
+        char spec[strlen(rk_comp_tab[i].cls) + 16];
+        snprintf(spec, sizeof spec, "%s(message)", rk_comp_tab[i].cls);
+        record_register(spec);
+        class_inherit(rk_comp_tab[i].cls, rk_comp_tab[i].parent);
+    }
     for (int i = 0; rk_exc_tab[i].cls; i++) {
         if (!strcmp(rk_exc_tab[i].cls, "X::Method::NotFound")) continue;
         char spec[strlen(rk_exc_tab[i].cls) + 16];
@@ -10870,6 +10885,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             rk_exc_init();
             const char *e0 = err ? err : "syntax error";
             const char *cls = strstr(e0, "Confused") ? "X::Syntax::Confused" : strstr(e0, "not declared") ? "X::Undeclared" : "X::Comp::AdHoc";
+            for (int ci = 0; rk_comp_tab[ci].cls; ci++) if (strstr(e0, rk_comp_tab[ci].needle)) { cls = rk_comp_tab[ci].cls; break; }
             rk_exc_throw(DATCON_fn(cls, STRVAL(rt_heap_strdup_c(e0))));
             *out = FAILDESCR;
             return 1;
