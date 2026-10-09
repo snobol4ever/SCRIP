@@ -63,6 +63,9 @@ S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"; [ -x "$SCRIP" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $SCRIP"; exit 2; }
 FL="$ROOT/src/ir/frame_layout.c"; [ -f "$FL" ] || { echo "⛔ GATE REFUSE(2) [$G]: $FL absent"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
+# RE-CUT 2026-10-09 cfo (CEO-1575, the g_lower stage landing B): frame_layout.c's counters and node maps are members of
+# g_lower_ir_t in src/lower/g_lower.h, so arm 1 reads the declared counters there (int <name>_n;) and the map checks the
+# g_lower.ir. spelling (fcn_gen, fcn_n, fca, znb_gen); what it covers is unchanged.
 RC=0
 export SNO_LIB="${SNO_LIB:-$S4E/corpus/include}"
 HW_CEILING=${HW_CEILING:-64}
@@ -72,7 +75,7 @@ echo "  HOLDS: the frame_layout.c side tables are keyed by raw IR node pointer, 
 
 body=$(awk '/^void fc_tables_reset\(void\)/{f=1} f{print} f&&/^}/{exit}' "$FL")
 zbody=$(awk '/^void zls_reset\(void\)/{f=1} f{print} f&&/^}/{exit}' "$FL")
-declared=$(grep -oE 'static int [a-z]+_n = 0' "$FL" | awk '{print $3}' | sort -u)
+declared=$(awk '/^typedef struct \{/{b=""} {b=b $0 "\n"} /^\} g_lower_ir_t;/{printf "%s", b; exit}' "$ROOT/src/lower/g_lower.h" | grep -oE '^ *int [a-z]+_n;' | sed -E 's/^ *int //; s/;$//' | sort -u)
 missf=""; missz=""; n_fc=0; n_zls=0; exc=""; n_exc=0
 for c in $declared; do
     case "$c" in
@@ -87,8 +90,8 @@ n_ctr=$n_fc
 kinds=$(grep -oE '^#define FCN_[A-Z]+ ' "$FL" | awk '{print $2}' | sort -u | tr '\n' ' ')
 n_kinds=$(echo $kinds | wc -w)
 mapok=1; mapmiss=""
-for w in 'g_fcn_gen++' 'g_fcn_n = 0' 'g_fca.len = 0'; do echo "$body" | grep -qF "$w" || { mapok=0; mapmiss="$mapmiss $w"; }; done
-echo "$zbody" | grep -qF 'g_znb_gen++' || { mapok=0; mapmiss="$mapmiss g_znb_gen++(zls_reset)"; }
+for w in 'g_lower.ir.fcn_gen++' 'g_lower.ir.fcn_n = 0' 'g_lower.ir.fca.len = 0'; do echo "$body" | grep -qF "$w" || { mapok=0; mapmiss="$mapmiss $w"; }; done
+echo "$zbody" | grep -qF 'g_lower.ir.znb_gen++' || { mapok=0; mapmiss="$mapmiss g_lower.ir.znb_gen++(zls_reset)"; }
 [ "$mapok" = 1 ] && n_fc=$((n_fc + n_kinds))
 if [ -z "$missf" ] && [ -z "$missz" ] && [ "$mapok" = 1 ] && [ "$n_kinds" -ge 13 ] && [ "$n_fc" -ge 14 ] && [ "$n_zls" -ge 8 ] && [ "$n_exc" -eq 1 ]; then
     echo "  arm 1 PASS: every pointer-keyed registry in frame_layout.c dies at the reset that owns it -- $n_fc covered by fc_tables_reset ($n_ctr plain counter(s) zeroed, $n_kinds kind(s) of the generation-stamped node map g_fcn: $kinds-- dead by g_fcn_gen++, count and arm vector emptied), $n_zls counter(s) in zls_reset plus g_znb's generation bump, and $n_exc NAMED exclusion(s):$exc"

@@ -5,9 +5,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-static const char * kind_names[IR_OP_COUNT] = { [IR_LIT_INTEGER] = "IR_LIT_INTEGER", [IR_LIT_STRING] = "IR_LIT_STRING", [IR_LIT_REAL] = "IR_LIT_REAL", [IR_VAR] = "IR_VAR", [IR_VAR_REF] = "IR_VAR_REF",
-    [IR_VAR_FRAME] = "IR_VAR_FRAME", [IR_ASSIGN_FRAME] = "IR_ASSIGN_FRAME", [IR_ACTIVATE] = "IR_ACTIVATE", [IR_ASSIGN] = "IR_ASSIGN", [IR_ASSIGN_VAR] = "IR_ASSIGN_VAR", [IR_BINOP] = "IR_BINOP",
-    [IR_BINOP_TEST] = "IR_BINOP_TEST", [IR_BINOP_RELOP_VAL] = "IR_BINOP_RELOP_VAL", [IR_UNOP] = "IR_UNOP", [IR_UNOP_TEST] = "IR_UNOP_TEST", [IR_CALL] = "IR_CALL",
+#include "g_lower.h"
+static const char * const kind_names[IR_OP_COUNT] = { [IR_LIT_INTEGER] = "IR_LIT_INTEGER", [IR_LIT_STRING] = "IR_LIT_STRING", [IR_LIT_REAL] = "IR_LIT_REAL", [IR_VAR] = "IR_VAR",
+    [IR_VAR_REF] = "IR_VAR_REF", [IR_VAR_FRAME] = "IR_VAR_FRAME", [IR_ASSIGN_FRAME] = "IR_ASSIGN_FRAME", [IR_ACTIVATE] = "IR_ACTIVATE", [IR_ASSIGN] = "IR_ASSIGN", [IR_ASSIGN_VAR] = "IR_ASSIGN_VAR",
+    [IR_BINOP] = "IR_BINOP", [IR_BINOP_TEST] = "IR_BINOP_TEST", [IR_BINOP_RELOP_VAL] = "IR_BINOP_RELOP_VAL", [IR_UNOP] = "IR_UNOP", [IR_UNOP_TEST] = "IR_UNOP_TEST", [IR_CALL] = "IR_CALL",
     [IR_CALL_PROC_STAGED] = "IR_CALL_PROC_STAGED", [IR_CALL_BUILTIN] = "IR_CALL_BUILTIN", [IR_CALL_BUILTIN_GEN] = "IR_CALL_BUILTIN_GEN", [IR_CALL_ICON] = "IR_CALL_ICON",
     [IR_CALL_SNOBOL4] = "IR_CALL_SNOBOL4", [IR_FAIL] = "IR_FAIL", [IR_SUCCEED] = "IR_SUCCEED", [IR_SUSPEND] = "IR_SUSPEND", [IR_RETURN] = "IR_RETURN", [IR_TO] = "IR_TO", [IR_TO_BY] = "IR_TO_BY",
     [IR_PROC_GEN] = "IR_PROC_GEN", [IR_RANDOM] = "IR_RANDOM", [IR_KW_ICON] = "IR_KW_ICON", [IR_KW_ICON_GEN] = "IR_KW_ICON_GEN", [IR_KW_SNOBOL4] = "IR_KW_SNOBOL4", [IR_KW_ASSIGN] = "IR_KW_ASSIGN",
@@ -186,10 +187,8 @@ void ir_drive_slot_assign(IR_graph_t * g) {
     g->nvalue_slots = zls_g_nslots(g);
     { extern int zdp_mode(void); extern void zdp_report(IR_graph_t *, const char *); if (zdp_mode()) zdp_report(g, "graph"); { extern void zdp_port_census(IR_graph_t *); zdp_port_census(g); } }
 }
-static const int * g_seq_of_node = (const int *)0;
-static int g_seq_of_node_n = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int bb_seq_of(int ix) { return (g_seq_of_node && ix >= 0 && ix < g_seq_of_node_n) ? g_seq_of_node[ix] : -1; }
+static int bb_seq_of(int ix) { return (g_lower.ir.seq_of_node && ix >= 0 && ix < g_lower.ir.seq_of_node_n) ? g_lower.ir.seq_of_node[ix] : -1; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void bb_ref_fmt(const IR_graph_t *bbg, const IR_t *target, char *out, size_t outsz) {
     if (!target) { snprintf(out, outsz, "."); return; }
@@ -302,8 +301,8 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
         for (int sq = 0; sq < norder; sq++) if (order0[sq] >= 0 && order0[sq] < nn0) seqmap[order0[sq]] = sq;
         int nxt = norder;
         for (int i = 0; i < nn0; i++) if (!vis0[i] && bbg->all[i] && seqmap[i] < 0) seqmap[i] = nxt++;
-        g_seq_of_node = seqmap;
-        g_seq_of_node_n = nn0;
+        g_lower.ir.seq_of_node = seqmap;
+        g_lower.ir.seq_of_node_n = nn0;
     }
     char ent[12];
     bb_ref_fmt(bbg, bbg->entry, ent, sizeof ent);
@@ -323,16 +322,15 @@ void bb_print_v(const IR_graph_t * bbg, FILE * fp, int verbose) {
     } else {
         for (int i = 0; i < nn; i++) bb_print_node_line(bbg, fp, i, i, verbose);
     }
-    g_seq_of_node = (const int *)0;
-    g_seq_of_node_n = 0;
+    g_lower.ir.seq_of_node = (const int *)0;
+    g_lower.ir.seq_of_node_n = 0;
     ct_drop(vis0);
     ct_drop(order0);
     ct_drop(seqmap);
     for (int i = 0; i < bbg->n; i++) { const IR_t * bb = bbg->all[i]; if (!bb) continue; IR_graph_t * pg = (IR_graph_t *)0; if (pg) bb_print(pg, fp); }
     {
-        static int xd2 = -1;
-        if (xd2 < 0) { const char * e = getenv("SCRIP_DUMP_X"); xd2 = (e && e[0] == '1') ? 1 : 0; }
-        if (xd2) for (int i = 0; i < bbg->n; i++) {
+        if (g_lower.ir.bb_print_v_xd2 < 0) { const char * e = getenv("SCRIP_DUMP_X"); g_lower.ir.bb_print_v_xd2 = (e && e[0] == '1') ? 1 : 0; }
+        if (g_lower.ir.bb_print_v_xd2) for (int i = 0; i < bbg->n; i++) {
             const IR_t * bb = bbg->all[i];
             if (!bb) continue;
             if (bb->op != IR_CALL) continue;

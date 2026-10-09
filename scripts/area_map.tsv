@@ -27,6 +27,7 @@
 *	src/lower/lower_common.c
 *	src/lower/lower.h
 *	src/lower/g_lower.h
+*	src/lower/lc_vec.h
 *	src/templates/bb/bb_common.h
 *	src/templates/bb/bb_template_common.h
 *	src/templates/bb/bb_templates.h

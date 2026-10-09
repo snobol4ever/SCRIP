@@ -1,7 +1,12 @@
 #ifndef G_LOWER_H
 #define G_LOWER_H
+#include <stdint.h>
+#include <stddef.h>
 #include "ct_vec.h"
-#include "lower.h"
+#include "lc_vec.h"
+typedef struct tree_t tree_t;
+typedef struct IR_t IR_t;
+typedef struct IR_graph_t IR_graph_t;
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
 typedef struct { cv_t v, ix; } gname_set_t;
 typedef struct { const IR_t ** nd; const char ** src; int * line; int n; int max; } lc_bb_src_t;
@@ -134,6 +139,103 @@ typedef struct {
     int scc_taint;
     int scc_taint_inherited;
 } g_lower_opt_t;
-typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_icn_t icn; g_lower_pas_t pas; g_lower_opt_t opt; } g_lower_t;
+typedef struct { const IR_graph_t * g; int i1; } zgh_t;
+typedef struct {
+    const IR_t * head;
+    const IR_t * arbno;
+    int i0;
+    int ia;
+    int b0;
+    int b1;
+    int r1;
+    int fpl;
+    int fpb;
+    int fpr;
+    int fpr_rsp;
+    int span;
+    int rspan;
+    int opsb;
+    int fin;
+    int dfr;
+    cv_t wsv;
+    cv_t wcd;
+    int nw;
+} zls_fct_t;
+typedef struct {
+    int zls_slot_census_on;
+    long zls_slot_census_tg;
+    long zls_slot_census_tl;
+    long zls_slot_census_tn;
+    int zls_pas_display_name_init;
+    int zls_build_dbg;
+    int zls_build_dbg2;
+    int zls_build_dbg3;
+    int zls_build_subj_on;
+    int zls_build_dyn_on;
+    int zls_build_dbg4;
+    int zls_build_dbg5;
+    int zls_build_eon;
+    int zc_nofc_v;
+    int fc_geom_ac;
+    const char * fc_reg_hw_e;
+    int zls_dump_plant;
+    int zw_carve_k_ba;
+    int zw_carve_k_all;
+    const char * zw_carve_k_bo;
+    const char * zw_carve_k_bs;
+    int zop_audit_graph_close_reg;
+    int bb_print_v_xd2;
+    int zdp_mode_m;
+    int zdp_cap_seamtier_v;
+    int zdp_atp_seamtier_v;
+    int zdp_bomb_census_bm;
+    int ast_print_width;
+    cv_t ze_v;
+    int ze_n;
+    cv_t zf_v;
+    int zf_n;
+    cv_t znb;
+    uint32_t znb_gen;
+    uint32_t znb_n;
+    cv_t zs_v;
+    int zs_n;
+    cv_t zg_v;
+    int zg_n;
+    cv_t zv_v;
+    int zv_n;
+    cv_t zm_v;
+    int zm_n;
+    cv_t zx_v;
+    int zx_n;
+    int zx_sorted;
+    cv_t zx_tail;
+    zgh_t * zgh;
+    uint32_t zgh_cap;
+    cv_t za_v;
+    int za_n;
+    int fct_n;
+    int fct_pricing;
+    int fcc_gfence;
+    cv_t fcn;
+    uint32_t fcn_gen;
+    uint32_t fcn_n;
+    cv_t fca;
+    cv_t zlq_v;
+    cv_t pz_v;
+    int pz_n;
+    long zop_g_total;
+    long zop_g_mixed;
+    long zop_hist[16];
+    const int * seq_of_node;
+    int seq_of_node_n;
+    cv_t zdp_ent;
+    cv_t zdp_idx;
+    cv_t zdp_wl;
+    int zdp_valid;
+    int zzone_valid;
+    zls_fct_t fct[64];
+    char zls_pas_display_name_names[13][24];
+} g_lower_ir_t;
+typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_icn_t icn; g_lower_pas_t pas; g_lower_opt_t opt; g_lower_ir_t ir; } g_lower_t;
 extern g_lower_t g_lower;
 #endif

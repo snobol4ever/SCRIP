@@ -33,7 +33,7 @@ void bb_src_note(const IR_t *nd, const char *src, int line);
 const char *bb_src_of(const IR_t *nd);
 int bb_line_of(const IR_t *nd);
 void bb_src_reset(void);
-typedef struct { void * data; int n; int cap; int esz; } lc_vec;
+#include "lc_vec.h"
 void lc_vec_init(lc_vec * v, int esz);
 void * lc_vec_push(lc_vec * v, const void * elem);
 void * lc_vec_at(const lc_vec * v, int i);

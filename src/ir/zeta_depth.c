@@ -1,5 +1,6 @@
 #include "zeta_depth.h"
 #include "ct_vec.h"
+#include "g_lower.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,31 +8,32 @@ extern long zw_node_k(const IR_t * nd);
 extern long zw_carve_k(const IR_t * nd);
 extern int zls_result_live(const IR_t * nd);
 typedef struct { const IR_t * key; int ina, inb, ret, wy, src, ztier, zoff; } zdp_ent_t;
-static cv_t zdp_ent;
-static cv_t zdp_idx;
-static cv_t zdp_wl;
-static int zdp_valid = 0;
-#define ZE(s) CV_AT(zdp_ent, zdp_ent_t, (s))
+#define ZE(s) CV_AT(g_lower.ir.zdp_ent, zdp_ent_t, (s))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zdp_mode(void) { static int m = -1; if (m < 0) { const char * e = getenv("SCRIP_ZDP"); m = (e && *e && *e != '0') ? atoi(e) : 0; } return m; }
+int zdp_mode(void) { if (g_lower.ir.zdp_mode_m < 0) { const char * e = getenv("SCRIP_ZDP"); g_lower.ir.zdp_mode_m = (e && *e && *e != '0') ? atoi(e) : 0; } return g_lower.ir.zdp_mode_m; }
 static unsigned zdp_h(const IR_t * p) { unsigned long long v = (unsigned long long)(size_t)p; v ^= v >> 33; v *= 0xff51afd7ed558ccdULL; v ^= v >> 33; return (unsigned)v; }
-static void zdp_index_put(uint32_t i) { unsigned m = zdp_idx.cap - 1; unsigned j = zdp_h(ZE(i).key) & m; while (CV_AT(zdp_idx, int, j)) j = (j + 1) & m; CV_AT(zdp_idx, int, j) = (int)i + 1; }
+static void zdp_index_put(uint32_t i) {
+    unsigned m = g_lower.ir.zdp_idx.cap - 1;
+    unsigned j = zdp_h(ZE(i).key) & m;
+    while (CV_AT(g_lower.ir.zdp_idx, int, j)) j = (j + 1) & m;
+    CV_AT(g_lower.ir.zdp_idx, int, j) = (int)i + 1;
+}
 static void zdp_index_size(uint64_t need) {
     uint64_t c = 16;
     while (c < need) c <<= 1;
-    if (c > zdp_idx.cap) cv_reserve(&zdp_idx, (uint32_t)sizeof(int), c, "zdp_idx");
-    memset(zdp_idx.p, 0, (size_t)zdp_idx.cap * sizeof(int));
-    for (uint32_t i = 0; i < zdp_ent.len; i++) zdp_index_put(i);
+    if (c > g_lower.ir.zdp_idx.cap) cv_reserve(&g_lower.ir.zdp_idx, (uint32_t)sizeof(int), c, "zdp_idx");
+    memset(g_lower.ir.zdp_idx.p, 0, (size_t)g_lower.ir.zdp_idx.cap * sizeof(int));
+    for (uint32_t i = 0; i < g_lower.ir.zdp_ent.len; i++) zdp_index_put(i);
 }
 static int zdp_slot(const IR_t * nd, int create) {
-    if (!nd || !zdp_idx.cap) return -1;
-    unsigned m = zdp_idx.cap - 1;
+    if (!nd || !g_lower.ir.zdp_idx.cap) return -1;
+    unsigned m = g_lower.ir.zdp_idx.cap - 1;
     unsigned j = zdp_h(nd) & m;
-    for (;;) { int e = CV_AT(zdp_idx, int, j); if (!e) break; if (ZE(e - 1).key == nd) return e - 1; j = (j + 1) & m; }
+    for (;;) { int e = CV_AT(g_lower.ir.zdp_idx, int, j); if (!e) break; if (ZE(e - 1).key == nd) return e - 1; j = (j + 1) & m; }
     if (!create) return -1;
-    if (((uint64_t)zdp_ent.len + 1) * 2 > zdp_idx.cap) zdp_index_size((uint64_t)zdp_idx.cap * 2);
+    if (((uint64_t)g_lower.ir.zdp_ent.len + 1) * 2 > g_lower.ir.zdp_idx.cap) zdp_index_size((uint64_t)g_lower.ir.zdp_idx.cap * 2);
     {
-        zdp_ent_t * en = &CV_PUSH(zdp_ent, zdp_ent_t);
+        zdp_ent_t * en = &CV_PUSH(g_lower.ir.zdp_ent, zdp_ent_t);
         en->key = nd;
         en->ina = ZDP_BOT;
         en->inb = ZDP_BOT;
@@ -41,8 +43,8 @@ static int zdp_slot(const IR_t * nd, int create) {
         en->ztier = ZDP_TIER_SPINE;
         en->zoff = -1;
     }
-    zdp_index_put(zdp_ent.len - 1);
-    return (int)zdp_ent.len - 1;
+    zdp_index_put(g_lower.ir.zdp_ent.len - 1);
+    return (int)g_lower.ir.zdp_ent.len - 1;
 }
 static int zdp_meet(int a, int b) { if (a == ZDP_BOT) return b; if (b == ZDP_BOT) return a; if (a == ZDP_TOP || b == ZDP_TOP) return ZDP_TOP; return (a == b) ? a : ZDP_TOP; }
 static int zdp_carve_dynamic(const IR_t * nd) { if (!nd) return 0; switch (nd->op) { case IR_STATEMENT: case IR_BOUND: case IR_UNMARK: return 1; default: return 0; } }
@@ -82,8 +84,14 @@ int zdp_scan_pure(const IR_t * nd) {
     }
 }
 static int zdp_cap_alttier(void) { const char * e = getenv("SCRIP_ALT_SEAM_TIER"); return (e && *e == '0') ? 0 : 1; }
-static int zdp_cap_seamtier(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_CAP_SEAMTIER"); v = (e && *e == '0') ? 0 : 1; } return v; }
-static int zdp_atp_seamtier(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_ATP_SEAMTIER"); v = (e && *e == '0') ? 0 : 1; } return v; }
+static int zdp_cap_seamtier(void) {
+    if (g_lower.ir.zdp_cap_seamtier_v < 0) { const char * e = getenv("SCRIP_CAP_SEAMTIER"); g_lower.ir.zdp_cap_seamtier_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower.ir.zdp_cap_seamtier_v;
+}
+static int zdp_atp_seamtier(void) {
+    if (g_lower.ir.zdp_atp_seamtier_v < 0) { const char * e = getenv("SCRIP_ATP_SEAMTIER"); g_lower.ir.zdp_atp_seamtier_v = (e && *e == '0') ? 0 : 1; }
+    return g_lower.ir.zdp_atp_seamtier_v;
+}
 int zdp_seam_tier(const IR_t * nd) {
     if (!nd) return 0;
     switch (nd->op) {
@@ -123,7 +131,7 @@ static long zdp_carve(const IR_t * nd) { return nd ? zw_carve_k(nd) : 0L; }
 static int zdp_out_gamma(const IR_t * nd, int in) { if (in == ZDP_TOP) return ZDP_TOP; if (zdp_carve_dynamic(nd)) return ZDP_TOP; return zls_result_live(nd) ? in + (int)zdp_carve(nd) : in; }
 static int zdp_out_omega(const IR_t * nd, int in) { if (in == ZDP_TOP) return ZDP_TOP; if (zdp_carve_dynamic(nd)) return ZDP_TOP; return in; }
 static int zdp_disagree(int a, int b) { return (a != ZDP_BOT && b != ZDP_BOT && a != ZDP_TOP && b != ZDP_TOP && a != b); }
-static void zdp_push(const IR_t * nd) { CV_PUSH(zdp_wl, const IR_t *) = nd; }
+static void zdp_push(const IR_t * nd) { CV_PUSH(g_lower.ir.zdp_wl, const IR_t *) = nd; }
 static void zdp_edge(int t, int val, int is_beta, const IR_t * succ) {
     if (t < 0) return;
     int * cell = is_beta ? &ZE(t).inb : &ZE(t).ina;
@@ -154,17 +162,17 @@ static int zdp_inside_of(const IR_t * nd, int in) { if (in == ZDP_TOP) return ZD
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zdp_analyze(IR_graph_t * g) {
     if (!g || !g->entry || g->n <= 0) return 0;
-    zdp_ent.len = 0;
-    zdp_valid = 0;
+    g_lower.ir.zdp_ent.len = 0;
+    g_lower.ir.zdp_valid = 0;
     zdp_index_size((uint64_t)g->n * 4 + 16);
     for (int i = 0; i < g->n; i++) (void)zdp_slot(g->all[i], 1);
     int es = zdp_slot(g->entry, 1);
     if (es < 0) return 0;
     ZE(es).ina = 0;
-    zdp_wl.len = 0;
+    g_lower.ir.zdp_wl.len = 0;
     zdp_push(g->entry);
-    while (zdp_wl.len > 0) {
-        const IR_t * nd = CV_AT(zdp_wl, const IR_t *, --zdp_wl.len);
+    while (g_lower.ir.zdp_wl.len > 0) {
+        const IR_t * nd = CV_AT(g_lower.ir.zdp_wl, const IR_t *, --g_lower.ir.zdp_wl.len);
         int s = zdp_slot(nd, 0);
         if (s < 0) continue;
         int gtag = zdp_tag(nd->γ.sz);
@@ -213,17 +221,17 @@ int zdp_analyze(IR_graph_t * g) {
         else if (ZE(s).src) ZE(s).wy = ZDP_JOIN;
         else ZE(s).wy = ZDP_OK;
     }
-    zdp_valid = 1;
+    g_lower.ir.zdp_valid = 1;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zdp_alpha(const IR_t * nd) { int s = zdp_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_TOP : ZE(s).ina; }
-int zdp_beta(const IR_t * nd) { int s = zdp_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_TOP : ZE(s).inb; }
+int zdp_alpha(const IR_t * nd) { int s = g_lower.ir.zdp_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_TOP : ZE(s).ina; }
+int zdp_beta(const IR_t * nd) { int s = g_lower.ir.zdp_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_TOP : ZE(s).inb; }
 int zdp_inside(const IR_t * nd) { int a = zdp_alpha(nd); return zdp_inside_of(nd, a); }
 int zdp_known_alpha(const IR_t * nd) { int d = zdp_alpha(nd); return (d != ZDP_TOP && d != ZDP_BOT); }
 int zdp_known_beta(const IR_t * nd) { int d = zdp_beta(nd); return (d != ZDP_TOP && d != ZDP_BOT); }
 int zdp_resume_sound(const IR_t * nd) { int a = zdp_alpha(nd); int b = zdp_beta(nd); if (b == ZDP_BOT) return 1; if (a == ZDP_TOP || b == ZDP_TOP) return 0; return a == b; }
-int zdp_why(const IR_t * nd) { int s = zdp_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_UNREACHED : ZE(s).wy; }
+int zdp_why(const IR_t * nd) { int s = g_lower.ir.zdp_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_UNREACHED : ZE(s).wy; }
 static int zdp_match_lifetime(const IR_t * nd) {
     if (!nd) return 0;
     switch (nd->op) { case IR_MATCH_ASSIGN_SAVE: case IR_MATCH_ASSIGN_COND: case IR_MATCH_ASSIGN_IMM: case IR_MATCH_BEGIN: return 1; default: return 0; }
@@ -257,9 +265,8 @@ static int zdp_guaranteed_meet(const IR_t * nd) { if (!nd) return 0; switch (nd-
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void zdp_bomb_census(IR_graph_t * g, const char * tag) {
     if (!g) return;
-    static int bm = -1;
-    if (bm < 0) { const char * e = getenv("SCRIP_ZDP_BOMB"); bm = (e && *e && *e != '0') ? 1 : 0; }
-    if (!bm) return;
+    if (g_lower.ir.zdp_bomb_census_bm < 0) { const char * e = getenv("SCRIP_ZDP_BOMB"); g_lower.ir.zdp_bomb_census_bm = (e && *e && *e != '0') ? 1 : 0; }
+    if (!g_lower.ir.zdp_bomb_census_bm) return;
     for (int i = 0; i < g->n; i++) {
         const IR_t * nd = g->all[i];
         int td = zdp_teardown_owner(nd);
@@ -379,15 +386,14 @@ void zdp_port_census(IR_graph_t * g) {
         }
     }
 }
-static int zzone_valid = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int zzone_plan(IR_graph_t * g) {
     if (!g || g->n <= 0) return 0;
-    zzone_valid = 0;
+    g_lower.ir.zzone_valid = 0;
     for (int i = 0; i < g->n; i++) { const IR_t * nd = g->all[i]; int s = zdp_slot(nd, 0); if (s < 0) continue; ZE(s).zoff = -1; ZE(s).ztier = zdp_tier(nd); }
-    zzone_valid = 1;
+    g_lower.ir.zzone_valid = 1;
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int zzone_tier_of(const IR_t * nd) { int s = zzone_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_TIER_SPINE : ZE(s).ztier; }
-int zzone_off_of(const IR_t * nd) { int s = zzone_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? -1 : ZE(s).zoff; }
+int zzone_tier_of(const IR_t * nd) { int s = g_lower.ir.zzone_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? ZDP_TIER_SPINE : ZE(s).ztier; }
+int zzone_off_of(const IR_t * nd) { int s = g_lower.ir.zzone_valid ? zdp_slot(nd, 0) : -1; return (s < 0) ? -1 : ZE(s).zoff; }
