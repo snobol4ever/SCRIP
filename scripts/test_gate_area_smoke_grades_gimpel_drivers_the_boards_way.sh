@@ -29,7 +29,8 @@ smoke() {  # <harness> <out>
 }
 red=0; n=0
 arm() { n=$((n+1)); if [ "$2" = "$3" ]; then echo "  ok   $n $1: $2"; else echo "  FAIL $n $1: got '$2' want '$3'"; red=$((red+1)); fi; }
-sig() { cat "$GH/SUITES.tsv" "$GH/SCORE.md" 2>/dev/null | md5sum | cut -c1-12; }
+. "$ROOT/scripts/lib_suites_tsv.sh" || exit 2; mark="$(suites_real_mark)"
+sig() { { md5sum < "$GH/SCORE.md"; suites_real_untouched "$mark" || echo moved; } 2>/dev/null | md5sum | cut -c1-12; }
 before="$(sig)"
 rc=$(smoke "$H" "$T/cure.out")
 [ "$rc" = 2 ] && { echo "⛔ GATE REFUSE(2) [$GATE_NAME]: the smoke refused:"; tail -6 "$T/cure.out"; exit 2; }

@@ -68,7 +68,7 @@ if [ "$SELFTEST" = 1 ]; then
   [ "$fails" = 0 ] && { echo "GATE PASS [score_row_denominator_identity --selftest]: 4 of 4 arms hold"; exit 0; }
   echo "⛔ GATE RED [score_row_denominator_identity --selftest]: $fails of 4 arms FAIL"; exit 1
 fi
-SUITES="${S4E_SUITES_TSV:-$HERE/../../.github/SUITES.tsv}"
+SUITES="$(. "$HERE/lib_suites_tsv.sh"; suites_tsv "$(cd "$HERE/../.." && pwd)")"
 DB="${S4E_PROGRESS_DB:-/home/resources/progress/results.tsv}"
 CORPUS="${S4E_CORPUS_ROOT:-$HERE/../../corpus}"
 [ -r "$SUITES" ] || { echo "⛔ GATE REFUSES (rc=2): cannot read SUITES.tsv at $SUITES"; exit 2; }

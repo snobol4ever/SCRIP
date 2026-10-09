@@ -9,7 +9,7 @@
 # per-tree attribute file. So a *-bench-ref key is PLACED when its benchmark directory exists, counted apart from the ALL.csv
 # suites. Its first row (snocone-bench-ref) refused this gate for every seat's preflight for one push -- hq_pascal's report.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
-T="$S4E/.github/SUITES.tsv"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh"; T="$(suites_tsv "$S4E")"
 [ -r "$T" ] || { echo "REFUSE(2): cannot read $T"; exit 2; }
 declare -A DIR=(
   [gimpel]=corpus/packages/snobol4/gimpel [csnobol4]=corpus/packages/snobol4/csnobol4_suite [snoflake]=corpus/packages/snobol4/snoflake_suite

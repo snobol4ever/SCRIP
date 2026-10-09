@@ -34,7 +34,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
-PK="${S4E_CORPUS_ROOT:-$ROOT/corpus}/packages/snobol4"; TSV="${S4E_SUITES_TSV:-$ROOT/.github/SUITES.tsv}"
+PK="${S4E_CORPUS_ROOT:-$ROOT/corpus}/packages/snobol4"; TSV="$(. "$HERE/lib_suites_tsv.sh"; suites_tsv "$ROOT")"
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
 [ -d "$PK" ] || refuse "no packages tree at $PK"
 [ -f "$TSV" ] || refuse "no SUITES.tsv at $TSV"

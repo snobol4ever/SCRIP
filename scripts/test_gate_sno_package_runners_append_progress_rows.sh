@@ -99,9 +99,9 @@ uns="$(printf '%s\n' "$OUT10" | sed -n 's/^  UNSCORED  \([^ ]*\) .*/\1/p' | sort
 out_db="$(awk -F'\t' 'NR>1 && $10=="OUTSIDE" && $12 ~ /sbl -bf/ {print $8}' "$W/db3.tsv" 2>/dev/null | sort | uniq -c | awk '$1==2 {print $2}' | tr '\n' ' ')"
 [ "$uns" = "$out_db" ] && ok 11 "testpgms: the programs the oracle does not run [${uns:-none}] read OUTSIDE in both modes with its refusal" \
     || red 11 "UNSCORED on the board [${uns:-none}] vs OUTSIDE in both modes in the table [${out_db:-none}]"
-s_before="$(cat "$S4E/.github/SUITES.tsv" "$S4E/.github/SCORE.md" 2>/dev/null | md5sum)"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh" || exit 2; s_mark="$(suites_real_mark)"; s_before="$(md5sum < "$S4E/.github/SCORE.md" 2>/dev/null)"
 OUT12="$(cd "$ROOT" && env -u S4E_PROGRESS_DB SPITBOL_TESTPGMS_SUITE="$W/tp" timeout 600 bash "$TP_RUNNER" 2>&1)"
-s_after="$(cat "$S4E/.github/SUITES.tsv" "$S4E/.github/SCORE.md" 2>/dev/null | md5sum)"
+s_after="$(md5sum < "$S4E/.github/SCORE.md" 2>/dev/null)"; suites_real_untouched "$s_mark" || s_after="the shared SUITES.tsv moved"
 if printf '%s\n' "$OUT12" | grep -q 'progress: scratch suite .* NOT recorded' && printf '%s\n' "$OUT12" | grep -q '^SCORE.md: scratch suite' && [ "$s_before" = "$s_after" ]; then
     ok 12 "testpgms: a scratch deck without a scratch table records nothing and leaves the live SUITES.tsv and SCORE.md byte-identical"
 else red 12 "testpgms scratch deck without S4E_PROGRESS_DB: NOT-recorded line $(printf '%s\n' "$OUT12" | grep -c 'NOT recorded'), scratch SCORE line $(printf '%s\n' "$OUT12" | grep -c '^SCORE.md: scratch suite'), live files $([ "$s_before" = "$s_after" ] && echo unchanged || echo CHANGED)"; fi

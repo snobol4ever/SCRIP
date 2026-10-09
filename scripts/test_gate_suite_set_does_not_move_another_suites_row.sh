@@ -23,17 +23,18 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GH="$HERE/../../.github"
 BANNER="$GH/scripts/util_suite_banner.py"
-for f in "$BANNER" "$GH/SUITES.tsv" "$GH/SCORE.md"; do
+. "$HERE/lib_suites_tsv.sh" || exit 2
+for f in "$BANNER" "$SUITES_TSV_REAL" "$GH/SCORE.md"; do
     [ -f "$f" ] || { echo "⛔ REFUSE(rc=2): missing $f -- cannot measure, which is never green"; exit 2; }
 done
-REAL_BEFORE="$(cat "$GH/SUITES.tsv" "$GH/SCORE.md" | cksum)"
+REAL_MARK="$(suites_real_mark)"; REAL_BEFORE="$(cksum < "$GH/SCORE.md")"
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 RED=0; ARMS=0
 # VICTIM is the suite whose row must NOT move; SUBJECT is the one being --set.
 VICTIM=gimpel; SUBJECT=snoflake
 reset_fixture() {
-    cp "$GH/SUITES.tsv" "$W/SUITES.tsv"; cp "$GH/SCORE.md" "$W/SCORE.md"
+    cp "$SUITES_TSV_REAL" "$W/SUITES.tsv"; cp "$GH/SCORE.md" "$W/SCORE.md"
     # Make the LOCAL tsv deliberately stale for the VICTIM, standing in for "origin moved ahead of me".
     python3 - "$W/SUITES.tsv" "$VICTIM" <<'PY'
 import sys
@@ -86,7 +87,7 @@ else echo "  ⛔ arm 3: the unscoped --render did NOT move $VICTIM -- this fixtu
 
 # ARM 4 — HERMETIC: the real records were never written.
 ARMS=$((ARMS+1))
-if [ "$(cat "$GH/SUITES.tsv" "$GH/SCORE.md" | cksum)" = "$REAL_BEFORE" ]; then echo "  ✓ arm 4: the real SUITES.tsv and SCORE.md are byte-identical after this run"
+if [ "$(cksum < "$GH/SCORE.md")" = "$REAL_BEFORE" ] && suites_real_untouched "$REAL_MARK"; then echo "  ✓ arm 4: the real SUITES.tsv and SCORE.md are byte-identical after this run"
 else echo "  ⛔ arm 4: THIS GATE WROTE THE REAL BOARD -- a gate that mutates live state is unrunnable"; RED=$((RED+1)); fi
 
 echo "-- population: 1 stale-TSV fixture × $ARMS arms (invariant, positive control, detector proof, hermeticity), $RED red"

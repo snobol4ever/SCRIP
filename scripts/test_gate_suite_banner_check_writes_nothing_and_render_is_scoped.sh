@@ -19,13 +19,14 @@
 # FAIL_ONCE=1 runs arm (a)'s check on an AGREEING pair so the expected disagreement never comes, proving the arm trips.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; GH="$HERE/../../.github"; B="$GH/scripts/util_suite_banner.py"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh" || { echo "REFUSED(2): cannot load lib_suites_tsv.sh"; exit 2; }
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
-[ -f "$B" ] && [ -f "$GH/SUITES.tsv" ] && [ -f "$GH/SCORE.md" ] || refuse "need $B, SUITES.tsv and SCORE.md"
+[ -f "$B" ] && [ -f "$SUITES_TSV_REAL" ] && [ -f "$GH/SCORE.md" ] || refuse "need $B, SUITES.tsv and SCORE.md"
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_banner_check.XXXXXX")" || refuse "mktemp failed"; trap 'rm -rf "$W"' EXIT
 TSV="$W/SUITES.tsv"; MD="$W/SCORE.md"
 run(){ S4E_SUITES_TSV="$TSV" S4E_SCORE_MD="$MD" python3 "$B" "$@" 2>&1; }
-fresh(){ cp "$GH/SUITES.tsv" "$TSV"; cp "$GH/SCORE.md" "$MD"; S4E_SUITES_TSV="$TSV" S4E_SCORE_MD="$MD" python3 "$B" --render --all-rows >/dev/null 2>&1 || refuse "could not bring the scratch pair to agreement"; }
-KEY=gimpel; NICK="$(awk -F'\t' -v k="$KEY" '!/^#/ && $1==k{print $2; exit}' "$GH/SUITES.tsv")"; [ -n "$NICK" ] || refuse "no row $KEY in SUITES.tsv"
+fresh(){ cp "$SUITES_TSV_REAL" "$TSV"; cp "$GH/SCORE.md" "$MD"; S4E_SUITES_TSV="$TSV" S4E_SCORE_MD="$MD" python3 "$B" --render --all-rows >/dev/null 2>&1 || refuse "could not bring the scratch pair to agreement"; }
+KEY=gimpel; NICK="$(awk -F'\t' -v k="$KEY" '!/^#/ && $1==k{print $2; exit}' "$SUITES_TSV_REAL")"; [ -n "$NICK" ] || refuse "no row $KEY in SUITES.tsv"
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }
 echo "=== gate: --check writes nothing, --render is scoped (hq_raku 2026-09-16) ==="
 fresh; out="$(run --check)"; rc=$?

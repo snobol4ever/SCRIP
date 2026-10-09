@@ -17,7 +17,7 @@ set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PR="$HERE/util_progress_prune_ghosts.py"
 SIB="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
-PKG="$SIB/corpus/packages/icon"; ST="$SIB/.github/SUITES.tsv"; DB="${S4E_PROGRESS_DB:-/home/resources/progress/results.tsv}"
+PKG="$SIB/corpus/packages/icon"; ST="$(. "$HERE/lib_suites_tsv.sh"; suites_tsv "$SIB")"; DB="${S4E_PROGRESS_DB:-/home/resources/progress/results.tsv}"
 for f in "$PR" "$ST" "$DB" "$PKG/arizona_tests/ALL.csv" "$PKG/jcon_tests/ALL.csv" "$PKG/ipl/ALL.csv"; do
   [ -e "$f" ] || { echo "GATE UNPROVEN(2): missing $f"; exit 2; }
 done

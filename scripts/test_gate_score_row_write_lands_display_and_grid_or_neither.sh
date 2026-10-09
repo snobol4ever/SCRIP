@@ -19,10 +19,11 @@ export S4E_DB_CHECK_OVERRIDE="gate fixture: this gate plants no progress rows (u
 # FAIL_ONCE=1 puts the grid V cell's PAT fraction back to the old value after the write, before arm (a) asserts, to prove it trips.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; GH="$HERE/../../.github"; HELPER="$HERE/util_score_row.py"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh" || { echo "REFUSED(2): cannot load lib_suites_tsv.sh"; exit 2; }
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
-[ -f "$HELPER" ] && [ -f "$GH/SCORE.md" ] && [ -f "$GH/SUITES.tsv" ] && [ -f "$GH/scripts/util_suite_banner.py" ] || refuse "need $HELPER and the live .github files"
+[ -f "$HELPER" ] && [ -f "$GH/SCORE.md" ] && [ -f "$SUITES_TSV_REAL" ] && [ -f "$GH/scripts/util_suite_banner.py" ] || refuse "need $HELPER and the live .github files"
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_two_cells.XXXXXX")" || refuse "mktemp failed"; trap 'rm -rf "$W"' EXIT
-mkdir -p "$W/.github/scripts"; cp "$GH/SCORE.md" "$GH/SUITES.tsv" "$W/.github/"; cp "$GH/scripts/util_suite_banner.py" "$W/.github/scripts/"
+mkdir -p "$W/.github/scripts"; cp "$GH/SCORE.md" "$SUITES_TSV_REAL" "$W/.github/"; cp "$GH/scripts/util_suite_banner.py" "$W/.github/scripts/"
 ( cd "$W/.github" && git init -q && git add -A && git -c user.name=fixture -c user.email=f@x commit -q -m fixture && git remote add origin "file://$W/.github" ) || refuse "could not shape the scratch .github as a clone"
 MODE="$W/MODE"; printf 'DECTET\n# fixture\nLANES: pascal=hq_pascal\n' > "$MODE"
 MD="$W/.github/SCORE.md"

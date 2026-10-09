@@ -19,7 +19,7 @@ Without --apply it prints the counts and the ghosts and writes nothing. With --a
 under the writers' own lock (results.tsv.lock, the flock util_progress_append.py takes), through a temporary file renamed into place,
 after a backup beside the table; it prints every removed key with its row count. rc 0 measured, 2 could not measure.
 """
-import csv, fcntl, os, shutil, sys, time
+import csv, fcntl, os, re, shutil, sys, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from lib_package_keys import board_key
 
@@ -94,7 +94,7 @@ def main(argv):
     db = argv[argv.index("--db") + 1] if "--db" in argv else os.environ.get("S4E_PROGRESS_DB", DB)
     here = os.path.dirname(os.path.abspath(__file__))
     sib = os.environ.get("S4E_HOME") or os.path.abspath(os.path.join(here, "..", ".."))
-    suites_tsv = argv[argv.index("--suites-tsv") + 1] if "--suites-tsv" in argv else os.path.join(sib, ".github", "SUITES.tsv")
+    suites_tsv = argv[argv.index("--suites-tsv") + 1] if "--suites-tsv" in argv else (os.environ.get("S4E_SUITES_TSV") or ("/home/resources/progress/SUITES.tsv" if re.fullmatch(r"/home/claude_[A-Za-z0-9_]+", os.path.realpath(sib)) else os.path.join(sib, ".github", "SUITES.tsv")))
     specs = [a for a in argv[1:] if "=" in a and not a.startswith("--")]
     if not specs:
         print("REFUSE(2): usage: util_progress_prune_ghosts.py [--apply] [--db PATH] [--suites-tsv PATH] SUITE=PACKAGE_DIR ...")

@@ -30,18 +30,19 @@ set -uo pipefail
 export S4E_SEAT=coo   # the one call shape below reads it (test_gate_seat_identity_one_map ARM 5)
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GH="${S4E_GITHUB_DIR:-$HERE/../../.github}"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh" || { echo "REFUSED(2): cannot load lib_suites_tsv.sh"; exit 2; }
 BANNER="$GH/scripts/util_suite_banner.py"; HELPER="$HERE/util_score_row.py"
 refuse(){ echo "⛔ REFUSED-TO-GRADE: $*"; exit 2; }
-[ -f "$GH/SUITES.tsv" ] && [ -f "$GH/SCORE.md" ] && [ -f "$BANNER" ] && [ -f "$HELPER" ] || refuse "need $GH/SUITES.tsv, SCORE.md, scripts/util_suite_banner.py and $HELPER"
+[ -f "$SUITES_TSV_REAL" ] && [ -f "$GH/SCORE.md" ] && [ -f "$BANNER" ] && [ -f "$HELPER" ] || refuse "need $SUITES_TSV_REAL, SCORE.md, scripts/util_suite_banner.py and $HELPER"
 W="$(mktemp -d "${TMPDIR:-/tmp}/gate_criterion_stamp.XXXXXX")" || refuse "mktemp failed"
 trap 'rm -rf "$W"' EXIT
-mkdir -p "$W/.github/scripts"; cp "$GH/SUITES.tsv" "$W/.github/SUITES.tsv"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"; cp "$BANNER" "$W/.github/scripts/util_suite_banner.py"
+mkdir -p "$W/.github/scripts"; cp "$SUITES_TSV_REAL" "$W/.github/SUITES.tsv"; cp "$GH/SCORE.md" "$W/.github/SCORE.md"; cp "$BANNER" "$W/.github/scripts/util_suite_banner.py"
 TSV="$W/.github/SUITES.tsv"; cp "$TSV" "$W/orig.tsv"
 KEY="$(awk -F'\t' '!/^#/ && $1!="key" && $10 ~ /^[0-9]+$/ {print $1; exit}' "$TSV")"; [ -n "$KEY" ] || refuse "no SUITES.tsv row with a numeric today_total to plant on"
 OLDT="$(awk -F'\t' -v k="$KEY" '$1==k{print $10}' "$TSV")"; OLDP="$(awk -F'\t' -v k="$KEY" '$1==k{print $9}' "$TSV")"; NEWT=$((OLDT+7))
 # ⛔ THE ARIZONA MOVE IS DERIVED FROM THE LIVE TOTAL TOO (ceo CEO-808): arms (e2)/(e3)/(f)/(g) hardcoded 46/124, and when Zona moved to 88/124
 # (.github 1d7c89d2) that became a same-total write, lawful rc=0 -- a gate anchored on a live value (the CEO-554 class) went red fleet-wide.
-AZT="$(awk -F'\t' '!/^#/ && $1=="arizona"{print $10; exit}' "$GH/SUITES.tsv")"; [ -n "$AZT" ] || refuse "no arizona row in SUITES.tsv"; AZN=$((AZT+7)); AZP=46
+AZT="$(awk -F'\t' '!/^#/ && $1=="arizona"{print $10; exit}' "$SUITES_TSV_REAL")"; [ -n "$AZT" ] || refuse "no arizona row in SUITES.tsv"; AZN=$((AZT+7)); AZP=46
 echo "    fixture: row $KEY reads $OLDP/$OLDT; the planted move is to $NEWT; the Arizona dry-run moves $AZT -> $AZN"
 set_(){ S4E_SUITES_TSV="$TSV" S4E_SCORE_MD="$W/.github/SCORE.md" python3 "$BANNER" --set "$@" 2>&1; }
 fails=0; checks=0; ck(){ checks=$((checks+1)); if [ "$1" = ok ]; then printf '  ok    %s\n' "$2"; else printf '  FAIL  %s\n' "$2"; fails=$((fails+1)); fi; }

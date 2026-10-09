@@ -28,11 +28,12 @@ GATE_NAME=progress_readers_stream_and_answer_the_same
 GATE_STRICT=1
 gate_parse_args "$@"
 GH="$(cd "$ROOT/.." && pwd)/.github"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh" || { echo "REFUSED(2): cannot load lib_suites_tsv.sh"; exit 2; }
 F="$GH/scripts/util_progress_flips.py"; B="$GH/scripts/util_suite_banner.py"; DB="${S4E_PROGRESS_DB_LIVE:-/home/resources/progress/results.tsv}"
 gate_require "$F" "util_progress_flips.py" || exit 2
 gate_require "$B" "util_suite_banner.py" || exit 2
 gate_require "$DB" "the live progress table (read, never written)" || exit 2
-gate_require "$GH/SUITES.tsv" ".github/SUITES.tsv" || exit 2
+gate_require "$SUITES_TSV_REAL" ".github/SUITES.tsv" || exit 2
 SCRATCH="${S4E_SCRATCH:-$(cd "$ROOT/.." && pwd)/.scratch}"
 mkdir -p "$SCRATCH" || { echo "REFUSING(2) [$GATE_NAME]: cannot create $SCRATCH"; exit 2; }
 WORK=$(mktemp -d "$SCRATCH/gate_progress_readers_XXXXXX") || exit 2
@@ -106,7 +107,7 @@ _h, rows = m.load()
 print(json.dumps({r['key']: [m.likeforlike(r), m.lfl_why(r)] for r in rows}, sort_keys=True))
 PY
 fixture lfl "[row(ts_utc='2026-09-%02dT%02d:%02d:00' % (d, h, mi), scrip=('abc1234-dirty' if (d + h) % 7 == 0 else 'abc1234'), suite=s, program='x/%s/p%d.sno' % (s, pn), mode=md, outcome=o) for d in (18, 19, 21, 23) for h in (3, 9, 9, 15) for mi in (0, 30) for s in ('snobol4-rungs', 'gimpel', 'icon-rungs', 'rebus-rungs') for pn in range(4) for md in ('m3', 'm4', 'ast') for o in [('PASS' if (d + pn + h) % 3 else 'FAIL')]] + [row(ts_utc=t, scrip='abc1234', suite='rebus-rungs', program='x/rebus/z.reb', mode=md, outcome=o) for (t, md, o) in [('2026-09-18T12:00:00', 'm4', 'PASS'), ('2026-09-18T23:59:59', 'm3', 'FAIL'), ('2026-09-18T23:59:59', 'm3', 'PASS'), ('2026-09-23T18:00:00', 'm3', 'FAIL'), ('2026-09-23T18:00:00', 'm3', 'PASS'), ('2026-09-23T18:00:00', 'm4', 'PASS')]]"
-o3=$(S4E_PROGRESS="$WORK/lfl.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" python3 "$WORK/lfl.py" "$WORK/old/util_suite_banner.py" 2>&1); n3=$(S4E_PROGRESS="$WORK/lfl.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" python3 "$WORK/lfl.py" "$B" 2>&1)
+o3=$(S4E_PROGRESS="$WORK/lfl.tsv" S4E_SUITES_TSV="$SUITES_TSV_REAL" python3 "$WORK/lfl.py" "$WORK/old/util_suite_banner.py" 2>&1); n3=$(S4E_PROGRESS="$WORK/lfl.tsv" S4E_SUITES_TSV="$SUITES_TSV_REAL" python3 "$WORK/lfl.py" "$B" 2>&1)
 if [ "$o3" != "$n3" ] || ! printf '%s' "$n3" | grep -q '"then"'; then
   fails=$((fails+1)); echo "  FAIL arm3: likeforlike/lfl_why differ on the planted table (or compared nothing)"
 fi
@@ -117,9 +118,9 @@ examined=$((examined+1)); a4=""
 peak() { /usr/bin/time -f '%M' "$@" 2>&1 >/dev/null | tail -1; }
 ratchet_cmp "$WORK/live.tsv" || a4="the ratchet (old rc=$orc new rc=$nrc)"
 po=$(peak python3 "$WORK/old/util_progress_flips.py" --db "$WORK/live.tsv" --ratchet); pn=$(peak python3 "$F" --db "$WORK/live.tsv" --ratchet)
-o4=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" python3 "$WORK/lfl.py" "$WORK/old/util_suite_banner.py" 2>&1); n4=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" python3 "$WORK/lfl.py" "$B" 2>&1)
+o4=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$SUITES_TSV_REAL" python3 "$WORK/lfl.py" "$WORK/old/util_suite_banner.py" 2>&1); n4=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$SUITES_TSV_REAL" python3 "$WORK/lfl.py" "$B" 2>&1)
 [ "$o4" = "$n4" ] || a4="${a4:+$a4; }likeforlike"
-bo=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" peak python3 "$WORK/lfl.py" "$WORK/old/util_suite_banner.py"); bn=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$GH/SUITES.tsv" peak python3 "$WORK/lfl.py" "$B")
+bo=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$SUITES_TSV_REAL" peak python3 "$WORK/lfl.py" "$WORK/old/util_suite_banner.py"); bn=$(S4E_PROGRESS="$WORK/live.tsv" S4E_SUITES_TSV="$SUITES_TSV_REAL" peak python3 "$WORK/lfl.py" "$B")
 echo "  live sample (300000 rows): ratchet peak ${po} KB old -> ${pn} KB new; banner peak ${bo} KB old -> ${bn} KB new"
 [ "${pn:-999999}" -lt 65536 ] 2>/dev/null || a4="${a4:+$a4; }the streaming ratchet peaked at ${pn} KB (want under 64 MB -- it holds aggregates, never rows)"
 [ -z "$a4" ] || { fails=$((fails+1)); echo "  FAIL arm4: $a4"; }

@@ -24,12 +24,12 @@ GH="$HERE/../../.github"
 B="$GH/scripts/util_suite_banner.py"
 [ -f "$B" ] || { echo "⛔ REFUSE(rc=2): $B missing -- cannot measure, which is never green"; exit 2; }
 grep -q 'def xfail_by_lang' "$B" || { echo "⛔ REFUSE(rc=2): util_suite_banner.py no longer defines xfail_by_lang -- this gate grades a rule that is gone, which must never read green"; exit 2; }
-REAL="$(cksum < "$GH/SUITES.tsv")"
+. "$HERE/lib_suites_tsv.sh" || exit 2; REAL="$(suites_real_mark)"
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 # The banner resolves the corpus as ../corpus/tests/<lang> relative to the TSV's directory.
 mkdir -p "$W/gh" "$W/corpus/tests/xl"
-head -2 "$GH/SUITES.tsv" > "$W/gh/SUITES.tsv"
+head -2 "$SUITES_TSV_REAL" > "$W/gh/SUITES.tsv"
 printf 'xl-rungs\tXlM\t🧪\txl\t2026-09-01\t10\t10\t2026-09-08\t10\t10\tdeadbeef1\t\n' >> "$W/gh/SUITES.tsv"
 # ⛔ THE OBSERVATION SURFACE MOVED 2026-09-13, THE RULE DID NOT. This read the BANNER's printed line
 # (--line --plain, line 2) until Lon deleted the banner that day -- "Delete whatever produced that. I want it
@@ -63,7 +63,7 @@ out="$(run_banner)"; case "$out" in *unreadable*) ok=yes;; *) ok=no;; esac
 arm "arm 3: an UNREADABLE corpus reads 'xfail unreadable', never a silent zero that prints done" "$ok"
 
 # ARM 4 — HERMETIC.
-[ "$(cksum < "$GH/SUITES.tsv")" = "$REAL" ] && ok=yes || ok=no
+suites_real_untouched "$REAL" && ok=yes || ok=no
 arm "arm 4: the real SUITES.tsv is byte-identical after this run" "$ok"
 
 echo "-- population: $ARMS arms over 3 corpus states, $RED red"

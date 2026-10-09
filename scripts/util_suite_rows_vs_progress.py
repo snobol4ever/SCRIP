@@ -376,7 +376,8 @@ def main(argv):
     if any(a.startswith("-") for a in argv):
         sys.stderr.write("usage: util_suite_rows_vs_progress.py [--selftest]   (env: S4E_SUITES_TSV S4E_PROGRESS_DB S4E_CORPUS_ROOT)\n")
         return 2
-    suites = os.environ.get("S4E_SUITES_TSV") or os.path.join(HERE, "..", "..", ".github", "SUITES.tsv")
+    _root = os.path.abspath(os.path.join(HERE, "..", ".."))
+    suites = os.environ.get("S4E_SUITES_TSV") or ("/home/resources/progress/SUITES.tsv" if re.fullmatch(r"/home/claude_[A-Za-z0-9_]+", os.path.realpath(_root)) else os.path.join(_root, ".github", "SUITES.tsv"))
     db = os.environ.get("S4E_PROGRESS_DB") or "/home/resources/progress/results.tsv"
     corpus = os.environ.get("S4E_CORPUS_ROOT") or os.path.join(HERE, "..", "..", "corpus")
     for f, what in ((suites, "SUITES.tsv"), (db, "the progress DB")):

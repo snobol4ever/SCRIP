@@ -263,7 +263,7 @@ echo "EXCLUDED_NOT_SPITBOL_DIALECT=$EXCL_D_N of this run's outside set leave the
 _cc="${S4E_CRITERION_CHANGED:-}"
 if [ -z "$_cc" ]; then
     # the denominator moved from the 144 drivers to the libraries they grade: stamped as CEO-1269's criterion change, not CEO-749's
-    _prevt="$(awk -F'\t' '$1=="gimpel" {print $10; exit}' "${S4E_HOME:-$ROOT}/.github/SUITES.tsv" 2>/dev/null)"
+    _prevt="$(awk -F'\t' '$1=="gimpel" {print $10; exit}' "$(. "$HERE/lib_suites_tsv.sh"; suites_tsv "${S4E_HOME:-$ROOT}")" 2>/dev/null)"
     if [ -n "$_prevt" ] && [ "$_prevt" != "$SHIPPED_LIBS" ] && [ "$_prevt" = "$TOTAL" ]; then
         _cc="$(date +%F):CEO-1269-the-program-is-the-library-graded-through-its-driver-shipped-counts-the-${SHIPPED_LIBS}-libraries-not-the-${TOTAL}-drivers-OUTSIDE=${UNSCR}-named-no-driver=$(printf '%s' "$NODRV_NAMES" | wc -w)-owed"
     else _cc="$(excluded_shape_stamp gimpel "$DENOM" "$UNSCR" "$EXCL_D_N")" || exit 2; fi

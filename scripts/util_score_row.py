@@ -1179,10 +1179,19 @@ def write_grid_direct(a):
 # number under a correct-looking provenance stamp -- strictly worse than the hand-editing it replaces.
 # --suite-pass/--suite-total say it outright; --suite-key names a row auto-resolution cannot reach;
 # --no-suite-sync is the labelled escape for a write that genuinely has no suite row.
-SUITES_TSV = os.path.join(S4E, ".github", "SUITES.tsv")
+# ⛔⭐⭐ THE SUITE TABLE IS ONE FILE (Lon 2026-10-09 15:2x CDT, in-chat to the coo, verbatim: "You choose to put the one single data location to be
+# spread across all root via GitHub instead of choosing one file in /home/resources. That was stupid."): every seat root reads and writes
+# /home/resources/progress/SUITES.tsv beside the progress database. A scratch root (a fixture's S4E_HOME, never /home/claude_<seat>) keeps its
+# scratch .github/SUITES.tsv, so a fixture that redirects the root without naming S4E_SUITES_TSV still never writes the real record.
+REAL_SUITES_TSV = "/home/resources/progress/SUITES.tsv"
+def _root_suites_tsv():
+    if re.fullmatch(r"/home/claude_[A-Za-z0-9_]+", os.path.realpath(S4E)):
+        return REAL_SUITES_TSV
+    return os.path.join(S4E, ".github", "SUITES.tsv")
+SUITES_TSV = os.environ.get("S4E_SUITES_TSV") or _root_suites_tsv()
 # ⛔⭐ ONE WRITER AT A TIME ON THE SUITE TABLE (coo 2026-09-25, hq_pascal's report: parallel runners of one lane lost each other's
 # SCORE.md line -- SUITES.tsv read fpc 158/181 while SCORE.md's FPC line read 156, twice, the last writer putting back what it had
-# read). A write holds an exclusive flock on SUITES.tsv's own inode from before its first read of SCORE.md or SUITES.tsv until the
+# read). A write holds an exclusive flock on SUITES.tsv.lock beside the record from before its first read of SCORE.md or SUITES.tsv until the
 # process exits, and hands S4E_SUITE_TABLE_LOCKED to the util_suite_banner.py --set it runs, which takes the same lock otherwise.
 # A lock not granted within S4E_SUITE_TABLE_LOCK_S (120 s) refuses rc 2 -- never a hang. No SUITES.tsv (a fixture) means no lock.
 _SUITE_TABLE_LOCK_FD = None
@@ -1191,14 +1200,14 @@ def _suite_table_lock():
     if os.environ.get("S4E_SUITE_TABLE_LOCKED") or not os.path.exists(SUITES_TSV):
         return
     import fcntl
-    fd = os.open(SUITES_TSV, os.O_RDONLY)
+    fd = os.open(SUITES_TSV + ".lock", os.O_RDWR | os.O_CREAT, 0o664)
     limit = time.monotonic() + float(os.environ.get("S4E_SUITE_TABLE_LOCK_S", "120"))
     while True:
         try:
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB); break
         except BlockingIOError:
             if time.monotonic() > limit:
-                die("another writer has held the suite-table lock on %s past %s s -- NOTHING WAS WRITTEN; re-run when it finishes"
+                die("another writer has held the suite-table lock on %s.lock past %s s -- NOTHING WAS WRITTEN; re-run when it finishes"
                     % (SUITES_TSV, os.environ.get("S4E_SUITE_TABLE_LOCK_S", "120")))
             time.sleep(0.05)
     _SUITE_TABLE_LOCK_FD = fd
@@ -1432,7 +1441,7 @@ def suite_sync_decide(a):
         return None, None, None, "  ⚠ suite table: --no-suite-sync given -- SUITES.tsv NOT updated, and the banner will read this row STALE"
     key, why = resolve_suite_key(a.lang, a.column, a.suite, getattr(a, "suite_key", "") or "")
     if key is None:
-        die("this write moves a %s cell, so it owes .github/SUITES.tsv a row -- and %s.\n"
+        die("this write moves a %s cell, so it owes SUITES.tsv a row -- and %s.\n"
             "        Row %s: the suite table is what the banner and Lon read; a grid cell written without it\n"
             "        is a measurement only this file can see.  Use --suite-key / --suite-pass / --suite-total,\n"
             "        or --no-suite-sync if this write genuinely has no suite row.\n"
@@ -1638,7 +1647,7 @@ def write_suite_row_only(a):
         die("--text spans lines; a board line is one line")
     if not re.search(r"\d", text):
         die("--text carries no digit (%r). A suite row states a measurement; pass the runner's own board line" % text)
-    if os.path.abspath(SUITES_TSV) == os.path.abspath(os.path.join(S4E, ".github", "SUITES.tsv")):
+    if os.path.abspath(SUITES_TSV) == os.path.abspath(_root_suites_tsv()):
         dirty = tree_is_dirty()
         if dirty:
             print("⚠ SUITE ROW SKIPPED — %s %s uncommitted; this run measured a tree nobody else can check out."
@@ -1681,7 +1690,7 @@ def write_suite_row_only(a):
         return 0
     print(suite_sync(a, tree, False, decided))
     _arch = archive_board_line(a.text, key, a.measurer, tree)
-    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SUITES.tsv AND .github/SCORE.md (its suite-table line, re-rendered in this call)"
+    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md (its suite-table line, re-rendered in this call; SUITES.tsv is %s, written in place)" % SUITES_TSV
           + (" AND %s" % os.path.relpath(_arch, os.path.join(S4E, ".github")) if _arch else "")
           + " with the landing that carried this measurement.")
     return 0
@@ -2254,7 +2263,7 @@ def cmd_write(a):
         print(gnote)
     print(suite_sync(a, suite_tree_stamp(), False, _decided))
     _arch = archive_board_line(a.text, _decided[0], a.measurer, suite_tree_stamp())
-    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md AND .github/SUITES.tsv"
+    print("⛔ NOT DONE UNTIL PUSHED: commit .github/SCORE.md (SUITES.tsv is %s, written in place)" % SUITES_TSV
           + (" AND %s" % os.path.relpath(_arch, os.path.join(S4E, ".github")) if _arch else "")
           + " with the landing that carried this measurement.")
     return 0
@@ -4857,7 +4866,7 @@ def main():
     w.add_argument("--modes", default="", help="e.g. m3,m4")
     w.add_argument("--suite", default="", help="name ONE measurement inside a shared cell (e.g. Arizona, JCON, SWI, GNU, fpc); "
                                                "without it the whole cell is replaced, which is wrong for the vendor column")
-    w.add_argument("--suite-key", default="", help="name the .github/SUITES.tsv row explicitly when --lang/--suite cannot resolve it")
+    w.add_argument("--suite-key", default="", help="name the SUITES.tsv row explicitly when --lang/--suite cannot resolve it")
     w.add_argument("--suite-pass", type=int, default=None, help="pass count for the suite row (with --suite-total); required when --text carries no single N/M")
     w.add_argument("--suite-total", type=int, default=None, help="total for the suite row (with --suite-pass)")
     w.add_argument("--criterion-changed", default="", metavar="'YYYY-MM-DD:reason'",

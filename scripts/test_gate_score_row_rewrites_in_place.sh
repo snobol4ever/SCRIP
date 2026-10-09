@@ -52,6 +52,7 @@ gate_require "$ROOT/../.github/SCORE.md" "the ONE LEADERBOARD .github/SCORE.md"
 # sessions mid-landing, so "was dirty and stayed exactly as dirty" is the honest invariant, never
 # "is clean". Comparing to a hardcoded clean would fail every seat that ran it while working.
 GH="$ROOT/../.github"
+. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh" || { echo "REFUSED(2): cannot load lib_suites_tsv.sh"; exit 2; }
 before="$(git -C "$GH" status --porcelain -- SCORE.md 2>/dev/null)"
 
 violations=0
@@ -339,7 +340,7 @@ mkdir -p "$S10/.github/scripts"; cp "$GH/SCORE.md" "$S10/.github/SCORE.md"
 # .github/SUITES.tsv or refuses naming the row, so a scratch tree carrying only SCORE.md is not a scratch
 # copy of what this command touches -- it is half of one, and the preview would refuse for a reason that is
 # about the fixture rather than about the write.
-[ -f "$GH/SUITES.tsv" ] && cp "$GH/SUITES.tsv" "$S10/.github/SUITES.tsv"
+[ -f "$SUITES_TSV_REAL" ] && cp "$SUITES_TSV_REAL" "$S10/.github/SUITES.tsv"
 [ -f "$GH/scripts/util_suite_banner.py" ] && cp "$GH/scripts/util_suite_banner.py" "$S10/.github/scripts/util_suite_banner.py"
 d10_before="$(md5sum < "$S10/.github/SCORE.md")"
 d10out="$(S4E_HOME="$S10" python3 "$HELPER" write --lang icon --column vendor --suite Arizona \

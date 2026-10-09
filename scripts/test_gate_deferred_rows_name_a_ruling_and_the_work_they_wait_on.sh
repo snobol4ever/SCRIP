@@ -36,7 +36,7 @@ cd "$ROOT" || exit 2
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 GATE_NAME="$(basename "$0")"
 DEF="${S4E_DEFERRED_TSV:-$S4E/.github/DEFERRED.tsv}"
-SUITES="${S4E_SUITES_TSV:-$S4E/.github/SUITES.tsv}"
+SUITES="$(. "$ROOT/scripts/lib_suites_tsv.sh"; suites_tsv "$S4E")"
 BANNER="$S4E/.github/scripts/util_suite_banner.py"
 [ -f "$DEF" ]    || { echo "⛔ GATE REFUSES(2) [$GATE_NAME]: no DEFERRED.tsv at $DEF -- the record this gate grades does not exist. That is not 'nothing is deferred': ARCH-PROGRAM-LEDGER § DEFERRED names gnu_fd's 30 FD programs, so an absent record means the ruling is live and unrecorded, which no green can describe."; exit 2; }
 [ -f "$SUITES" ] || { echo "⛔ GATE REFUSES(2) [$GATE_NAME]: no SUITES.tsv at $SUITES -- ARM 2 cannot tie a deferral to the board it lifts"; exit 2; }

@@ -266,7 +266,7 @@ fi
 # ⭐ THE ROW'S CRITERION IS STAMPED WHEN IT MOVES: the banner renders the LAST OUTSIDE=N token of SUITES.tsv column 12, and this row
 # carried OUTSIDE=15 for one run under the CEO-749 reading, so the first run under CEO-1228 records OUTSIDE=0 with its reason.
 _cc="${S4E_CRITERION_CHANGED:-}"
-_lastout="$(awk -F'\t' '$1=="fpc"{print $12; exit}' "$S4E/.github/SUITES.tsv" 2>/dev/null | grep -oE 'OUTSIDE=[0-9]+' | tail -1 | cut -d= -f2)"
+_lastout="$(awk -F'\t' '$1=="fpc"{print $12; exit}' "$(. "$HERE/lib_suites_tsv.sh"; suites_tsv "$S4E")" 2>/dev/null | grep -oE 'OUTSIDE=[0-9]+' | tail -1 | cut -d= -f2)"
 if [ -z "$_cc" ] && [ -n "$_lastout" ] && [ "$_lastout" != 0 ]; then
     _cc="$(date +%F):CEO-1228-programs-iso-7185-refuses-and-fpc-Miso-runs-are-graded-as-expected-refusals-$NREF-named-in-ISO_EXPECTED_REFUSALS.tsv-denominator-$TOTAL-OUTSIDE=0"
 fi

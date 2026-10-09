@@ -23,13 +23,14 @@ gate_parse_args "$@"
 GH="$(cd "$ROOT/.." && pwd)/.github"; B="$GH/scripts/util_suite_banner.py"; SR="$HERE/util_score_row.py"
 gate_require "$B" "util_suite_banner.py" || exit 2
 gate_require "$SR" "util_score_row.py" || exit 2
-gate_require "$GH/SUITES.tsv" ".github/SUITES.tsv" || exit 2
+. "$HERE/lib_suites_tsv.sh" || exit 2
+gate_require "$SUITES_TSV_REAL" "the shared suite table" || exit 2
 BOXTZ="$(cat /etc/timezone 2>/dev/null)"; [ -n "$BOXTZ" ] || BOXTZ="$(readlink /etc/localtime 2>/dev/null | sed 's#.*zoneinfo/##')"
 [ -n "$BOXTZ" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: cannot read the box's zone from /etc/timezone or /etc/localtime"; gate_stamp; exit 2; }
 TODAY="$(TZ="$BOXTZ" date +%F)"; TOM="$(TZ="$BOXTZ" date -d tomorrow +%F)"
 W=$(mktemp -d) || exit 2; trap 'rm -rf "$W"' EXIT INT TERM
-REAL0="$(sha1sum < "$GH/SUITES.tsv")"
-cp "$GH/SUITES.tsv" "$GH/SCORE.md" "$W/"
+REAL0="$(suites_real_mark)"
+cp "$SUITES_TSV_REAL" "$GH/SCORE.md" "$W/"
 K=$(awk -F'\t' '!/^#/ && $1!="key" && $9!="" {print $1; exit}' "$W/SUITES.tsv"); P=$(awk -F'\t' -v k="$K" '$1==k{print $9}' "$W/SUITES.tsv"); T=$(awk -F'\t' -v k="$K" '$1==k{print $10}' "$W/SUITES.tsv")
 [ -n "$K" ] && [ -n "$T" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no graded row in SUITES.tsv to build the fixture on"; gate_stamp; exit 2; }
 fails=0
@@ -51,6 +52,6 @@ cp "$W/before.tsv" "$W/SUITES.tsv"
 TZ=Pacific/Kiritimati S4E_SUITES_TSV="$W/SUITES.tsv" S4E_SCORE_MD="$W/SCORE.md" python3 "$B" --set "$K" "$P" "$T" >/dev/null 2>&1; r3=$?
 d3=$(awk -F'\t' -v k="$K" '$1==k{print $8}' "$W/SUITES.tsv")
 ck "3 a --set with no DATE from a +14h process lands the box-clock day (rc=$r3, dated $d3)" '[ "$r3" = 0 ] && [ "$d3" = "$TODAY" ]'
-ck "4 the real SUITES.tsv is byte-identical to before this gate ran" '[ "$(sha1sum < "$GH/SUITES.tsv")" = "$REAL0" ]'
+ck "4 the real SUITES.tsv is byte-identical to before this gate ran" 'suites_real_untouched "$REAL0"'
 if [ "$fails" = 0 ]; then echo "GATE PASS(0) [$GATE_NAME]: 4 arms -- suite rows are dated on the box clock ($BOXTZ)"; gate_stamp; exit 0; fi
 echo "GATE FAIL(1) [$GATE_NAME]: $fails of 4 arms red"; gate_stamp; exit 1

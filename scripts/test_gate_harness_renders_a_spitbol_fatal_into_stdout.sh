@@ -28,7 +28,7 @@ gate_require_exec "$SCRIP" "scrip binary" || exit 2
 . "$HERE/lib_oracle_flags.sh" 2>/dev/null || { echo "GATE UNPROVEN(2) [$GATE_NAME]: lib_oracle_flags.sh unloadable"; exit 2; }
 SBL="$(sbl_correctness_bin 2>/dev/null)"; SBLF="$(sbl_lang_flags 2>/dev/null)"
 [ -n "$SBL" ] && [ -x "$SBL" ] || { echo "GATE UNPROVEN(2) [$GATE_NAME]: no SNOBOL4 oracle (sbl_correctness_bin) -- the ref is cut from the oracle or not at all"; exit 2; }
-S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"; SUITES="$S4E/.github/SUITES.tsv"
+S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"; . "$HERE/lib_suites_tsv.sh" || { echo "REFUSING(2): cannot load lib_suites_tsv.sh"; exit 2; }
 SCRATCH="${S4E_SCRATCH:-$(cd "$ROOT/.." && pwd)/.scratch}"; mkdir -p "$SCRATCH" || exit 2
 W=$(mktemp -d "$SCRATCH/gate_fatal_XXXXXX") || exit 2
 trap '[ -n "${W:-}" ] && rm -rf "$W"' EXIT INT TERM
@@ -81,15 +81,14 @@ echo "--- ARM 4: the Budne runner (its own loop, merged capture) grades the witn
 mkdir -p "$W/csn"; cp "$W/fatal_witness.sno" "$W/csn/fatal_witness.sno"; cp "$W/ref.merged" "$W/csn/fatal_witness.ref"; cp "$W/ALL.mask" "$W/csn/ALL.mask"
 : > "$W/csn/ALL.ref"   # the mask shim derives ALL.mask from ALL.ref beside it and refuses when the ref is absent (the real suite has both)
 printf 'rank,entry,origin,package,n_lines,stdin,want_rc,heap_kb,stack_kb,compile_args,run_args\n1,fatal_witness,fatal_witness,csnobol4_suite,5,0,0,131072,4096,,\n' > "$W/csn/ALL.csv"
-md5_before=$(md5sum "$SUITES" 2>/dev/null | cut -c1-32)
+mark_before="$(suites_real_mark)"
 o4=$(cd "$ROOT" && CSNOBOL4_SUITE="$W/csn" S4E_PROGRESS_DB="$W/p4.tsv" S4E_ONE_RUNNER_FIXTURE="gate $GATE_NAME: the Budne runner over a one-program scratch suite, not a board" timeout 300 bash "$BR" 2>&1); r4=$?
 p4m3=$(awk -F'\t' '$8=="fatal_witness" && $9=="m3" {print $10}' "$W/p4.tsv" 2>/dev/null | tail -1); p4m4=$(awk -F'\t' '$8=="fatal_witness" && $9=="m4" {print $10}' "$W/p4.tsv" 2>/dev/null | tail -1)
 ck "4 the runner's progress rows read fatal_witness m3 PASS and m4 PASS (rc $r4)" '[ "$p4m3" = PASS ] && [ "$p4m4" = PASS ]'
 [ "$p4m3" = PASS ] && [ "$p4m4" = PASS ] || { printf '%s\n' "$o4" | grep -iE 'fatal_witness|REFUS|PASS|FAIL' | head -6 | sed 's/^/      /'; }
 
 echo "--- ARM 5: that scratch run wrote NO score row (the fixture door of util_score_row.py, COO-216) ---"
-md5_after=$(md5sum "$SUITES" 2>/dev/null | cut -c1-32)
-ck "5a the real SUITES.tsv is byte-identical before and after the fixture run" '[ -n "$md5_before" ] && [ "$md5_before" = "$md5_after" ]'
+ck "5a the real SUITES.tsv is byte-identical before and after the fixture run (another session's row write excused by its history line)" 'suites_real_untouched "$mark_before"'
 ck "5b the runner said so: publishes nothing (S4E_ONE_RUNNER_FIXTURE or a scratch progress table)" 'grep -qE "publishes nothing|publishes no row" <<<"$o4"'
 
 echo "--- ARM 6: the Dotnet runner (live oracle diff, no ref, its own loop) grades the witness PASS in both modes over a scratch suite ---"
@@ -107,8 +106,7 @@ if [ -f "$DR" ]; then
   [ "$p6m3" = PASS ] && [ "$p6m4" = PASS ] || { printf '%s\n' "$o6" | grep -iE 'fatal_witness|REFUS|DOTNET_BOARD|FATAL' | head -6 | sed 's/^/      /'; echo "      what the runner compared (oracle vs m3), first lines of the diff:"; diff "$W/dbg/fatal_witness.oracle" "$W/dbg/fatal_witness.m3" 2>&1 | head -8 | sed 's/^/        /'; echo "      m3 stderr:"; head -4 "$W/dbg/fatal_witness.err3" 2>/dev/null | sed 's/^/        /'; }
   p6x=$(awk -F'\t' '$8=="excluded_witness" && $9=="m3" {print $10}' "$W/p6.tsv" 2>/dev/null | tail -1)
   ck "6c a program EXCLUDED.tsv names keeps its fatal as the dialect refusal: UNGRADED, never graded through the rendered block (the d6c775c13 defect)" '[ "$p6x" = UNGRADED ] && ! grep -q "FATAL_GRADED.* excluded_witness" <<<"$o6"'
-  md5_after6=$(md5sum "$SUITES" 2>/dev/null | cut -c1-32)
-  ck "6b and wrote no score row either" '[ "$md5_before" = "$md5_after6" ]'
+  ck "6b and wrote no score row either" 'suites_real_untouched "$mark_before"'
   # ⭐ A FATAL WITH NOTHING PRINTED BEFORE IT (the cto 1957d1d0f, reviewed by the coo 2026-10-02): Dotnet asgn1 printed nothing before
   # its ERROR 038, and the render joined the empty stdout to the block with a newline -- a fourth leading empty line where sbl prints
   # three -- so it read FAIL in both modes on that line alone. The separator follows non-empty stdout only.

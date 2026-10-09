@@ -21,7 +21,7 @@ outside_shape_stamp() {
   local key="${1:-}" total="${2:-}" out="${3:-}" tsv prev cc last
   case "$total$out" in ''|*[!0-9]*) echo "⛔ REFUSE(2) outside_shape_stamp: total [$total] and outside [$out] must be counts" >&2; return 2;; esac
   [ -n "$key" ] || { echo "⛔ REFUSE(2) outside_shape_stamp: no suites key" >&2; return 2; }
-  tsv="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/.github/SUITES.tsv"
+  tsv="$(. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh"; suites_tsv "${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}")"
   if [ -f "$tsv" ]; then
     prev="$(awk -F'\t' -v k="$key" '$1==k {print $10; exit}' "$tsv")"
     cc="$(awk -F'\t' -v k="$key" '$1==k {print $12; exit}' "$tsv")"
@@ -50,7 +50,7 @@ excluded_shape_stamp() {
   [ -n "$oc" ] || [ -n "$con" ] || { echo "⛔ REFUSE(2) excluded_shape_stamp: an outside of - is a language with no SPITBOL baseline, and only a row that names its containers has one" >&2; return 2; }
   [ -z "$con" ] || [ "$con" -le "$exc" ] || { echo "⛔ REFUSE(2) excluded_shape_stamp: containers [$con] exceed the row's whole Excl [$exc] -- Excl is containers plus EXCLUDED.tsv" >&2; return 2; }
   [ -n "$key" ] || { echo "⛔ REFUSE(2) excluded_shape_stamp: no suites key" >&2; return 2; }
-  tsv="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}/.github/SUITES.tsv"
+  tsv="$(. "$(dirname "${BASH_SOURCE[0]}")/lib_suites_tsv.sh"; suites_tsv "${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}")"
   if [ -f "$tsv" ]; then
     prev="$(awk -F'\t' -v k="$key" '$1==k {print $10; exit}' "$tsv")"
     cc="$(awk -F'\t' -v k="$key" '$1==k {print $12; exit}' "$tsv")"
