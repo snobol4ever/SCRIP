@@ -62,6 +62,8 @@ runner_for() {  # $1 = "<lang>/<name>" -> echoes the grading script's basename, 
     icon/ipl)                echo test_icon_ipl_suite.sh ;;
     icon/jcon_tests)         echo test_icon_jcon_suite.sh ;;
     pascal/fpc_tests)        echo test_pascal_fpc_suite.sh ;;
+    pascal/rosetta-pascal)   echo test_pascal_rosetta_suite.sh ;;
+    prolog/rosetta-prolog)   echo test_prolog_rosetta_suite.sh ;;
     pascal/pat)              echo test_pascal_pat_suite.sh ;;
     prolog/gnu_prolog)       echo test_prolog_gnu_suite.sh ;;
     prolog/inriasuite)       echo test_prolog_inria_suite.sh ;;

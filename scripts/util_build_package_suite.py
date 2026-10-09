@@ -231,7 +231,7 @@ def read_contract(pkg_dir):
     return out
 
 
-def build(pkg_dir, lang, out_prefix="ALL"):
+def build(pkg_dir, lang, out_prefix="ALL", twice=False):
     ext = LANG_EXT[lang]
     paths = h.resolve_paths()
     h.check_scrip(paths)
@@ -342,34 +342,44 @@ def build(pkg_dir, lang, out_prefix="ALL"):
         # is nothing else present for the oracle to rename, the real corpus tree is never touched at all, and
         # it matches this package's own README's documented usage (`cp progs/hello.icn /tmp/t.icn && cd /tmp
         # && icont -s t.icn`) rather than inventing a new invocation contract.
-        with tempfile.TemporaryDirectory(prefix="pkgsuite_oracle_") as _iso_dir:
-            _iso_src = Path(_iso_dir) / src.name
-            # ⭐ COMPANIONS TRAVEL WITH THE SOURCE (row aisnobol-all-eight-..., cto 2026-09-07): a program that
-            # -INCLUDEs a vendored module (SIR/TEST -> SPITCORE.sno) or opens a vendored data file by name
-            # (spitlib.spt / spitlib.idx) died in the one-file isolation and was filed "oracle died" for want of
-            # the files beside it. Every regular file of the package's own directory is copied into the
-            # throwaway cwd (a fresh copy per program, so the rename hazard the isolation exists for cannot
-            # leak back), the container's own ALL.* excepted; the source itself is written last, verbatim.
-            if lang == "icon" and merged:
-                # ⛔ STAGED AS THE GRADER STAGES (the coo 2026-10-01, measured on jcon recent, which reports the files it finds:
-                # beside the whole package it printed "found file: recogn.dat", a line the shipped ref and the board's
-                # one-program run directory do not have). The ref and the grade must see the same directory, so this path
-                # stages through the harness's own _copy_companions plus the argv companions, as run_suite_entry does.
-                h._copy_companions(src.read_text(errors="replace"), src.parent, Path(_iso_dir))
-                for _tok in (prog_args or []):
-                    if _tok and "/" not in _tok and (src.parent / _tok).is_file() and not (Path(_iso_dir) / _tok).exists():
-                        (Path(_iso_dir) / _tok).write_bytes((src.parent / _tok).read_bytes())
-            else:
-                for _cf in src.parent.iterdir():
-                    if _cf.is_file() and not _cf.name.startswith("ALL.") and _cf.name != src.name:
-                        (Path(_iso_dir) / _cf.name).write_bytes(_cf.read_bytes())
-            _iso_src.write_bytes(src.read_bytes())
-            if lang == "icon" and merged:
-                ora_text, ora_rc, ora_kind = h.run_icon_built_oracle(paths, _iso_src, paths["timeout"], stdin_text=stdin_text,
-                                                                     prog_args=prog_args, out_files=out_files)
-            else:
-                ora_text, ora_rc, ora_kind = h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text,
-                                                          prog_args=prog_args, out_files=out_files, merge_stderr=merged)
+        def _oracle_isolated():
+            with tempfile.TemporaryDirectory(prefix="pkgsuite_oracle_") as _iso_dir:
+                _iso_src = Path(_iso_dir) / src.name
+                # ⭐ COMPANIONS TRAVEL WITH THE SOURCE (row aisnobol-all-eight-..., cto 2026-09-07): a program that
+                # -INCLUDEs a vendored module (SIR/TEST -> SPITCORE.sno) or opens a vendored data file by name
+                # (spitlib.spt / spitlib.idx) died in the one-file isolation and was filed "oracle died" for want of
+                # the files beside it. Every regular file of the package's own directory is copied into the
+                # throwaway cwd (a fresh copy per program, so the rename hazard the isolation exists for cannot
+                # leak back), the container's own ALL.* excepted; the source itself is written last, verbatim.
+                if lang == "icon" and merged:
+                    # ⛔ STAGED AS THE GRADER STAGES (the coo 2026-10-01, measured on jcon recent, which reports the files it finds:
+                    # beside the whole package it printed "found file: recogn.dat", a line the shipped ref and the board's
+                    # one-program run directory do not have). The ref and the grade must see the same directory, so this path
+                    # stages through the harness's own _copy_companions plus the argv companions, as run_suite_entry does.
+                    h._copy_companions(src.read_text(errors="replace"), src.parent, Path(_iso_dir))
+                    for _tok in (prog_args or []):
+                        if _tok and "/" not in _tok and (src.parent / _tok).is_file() and not (Path(_iso_dir) / _tok).exists():
+                            (Path(_iso_dir) / _tok).write_bytes((src.parent / _tok).read_bytes())
+                else:
+                    for _cf in src.parent.iterdir():
+                        if _cf.is_file() and not _cf.name.startswith("ALL.") and _cf.name != src.name:
+                            (Path(_iso_dir) / _cf.name).write_bytes(_cf.read_bytes())
+                _iso_src.write_bytes(src.read_bytes())
+                if lang == "icon" and merged:
+                    return h.run_icon_built_oracle(paths, _iso_src, paths["timeout"], stdin_text=stdin_text,
+                                                                         prog_args=prog_args, out_files=out_files)
+                else:
+                    return h.run_oracle(oracle_bin, flags, _iso_src, paths["timeout"], stdin_text=stdin_text,
+                                                              prog_args=prog_args, out_files=out_files, merge_stderr=merged)
+        ora_text, ora_rc, ora_kind = _oracle_isolated()
+        # ⭐ ONE GROUND TRUTH OR NONE (the coo 2026-10-09, --twice, built for the Rosetta packages on Lon's word "Graded against the
+        # oracle."): a program that prints the time, a random draw or an address answers differently on every run, so a ref cut from
+        # one run grades SCRIP against an accident. Under --twice the oracle runs again in a fresh directory and a program whose
+        # output or exit code differs is excluded with that reason, never absorbed.
+        if twice and ora_kind not in ("TRANSLATE", "HANG", "UNPROVEN") and _oracle_isolated()[:2] != (ora_text, ora_rc):
+            excluded.append((name, "the oracle answers differently on two runs (time, randomness or addresses in its output) -- no one ground truth"))
+            print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle nondeterministic)", file=sys.stderr)
+            continue
         if ora_kind == "TRANSLATE":
             excluded.append((name, f"the oracle's translator refused it: {ora_text}"))
             print(f"[{i}/{len(srcs)}] {name}: EXCLUDED (oracle translation failed)", file=sys.stderr)
@@ -582,11 +592,13 @@ def main():
     ap.add_argument("package_dir")
     ap.add_argument("--lang", default="", choices=sorted(set(LANG_EXT) - {""}),
                      help="default snobol4 (blank); selects extension + attribute table + oracle")
+    ap.add_argument("--twice", action="store_true",
+                    help="run the oracle twice per program and exclude one whose two answers differ (time, randomness, addresses)")
     args = ap.parse_args()
     pkg_dir = Path(args.package_dir).resolve()
     if not pkg_dir.is_dir():
         h.refuse(f"not a directory: {pkg_dir}")
-    build(pkg_dir, args.lang)
+    build(pkg_dir, args.lang, twice=args.twice)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ test_icon_jcon_suite.sh
 test_icon_rung_suite.sh
 test_icon_all_rungs.sh
 test_pascal_fpc_suite.sh
+test_pascal_rosetta_suite.sh
 test_pascal_pat_suite.sh
 test_prolog_gnu_suite.sh
 test_prolog_inria_suite.sh
@@ -33,4 +34,5 @@ test_snocone_bench_suite.sh
 test_snobol4_spitbol_x64_suite.sh
 test_snobol4_spitbol_x32_suite.sh
 test_prolog_logtalk_suite.sh
+test_prolog_rosetta_suite.sh
 test_demos_suite.sh
