@@ -17,7 +17,7 @@ _Static_assert(sizeof(sno_stno_rec_t) == 24,
 #ifdef __cplusplus
 extern "C" {
 #endif
-    const sno_stno_rec_t * scrip_emit_stno_table(uint32_t * out_count) __attribute__((weak));
+const sno_stno_rec_t * scrip_emit_stno_table(uint32_t * out_count) __attribute__((weak));
 #ifdef __cplusplus
 }
 #endif
