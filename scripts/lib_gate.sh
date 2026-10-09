@@ -382,14 +382,19 @@ gate_bin_unmoved() {
 # on a seat root than a commit is -- the coo edited corpus refs by hand four times on the day this was written.
 # No false positives: a board READS SCRIP and corpus and writes neither. ⛔ .github IS NEVER WATCHED -- the
 # board writes SCORE.md and SUITES.tsv itself, so watching it would make every board trip on its own row.
+# ⛔ THE SCRIP WATCHED IS THE CHECKOUT THIS LIBRARY LIVES IN (coo 2026-10-08, the class of CEO-1573): every board grades its own
+# checkout's scrip, so a board run from a worktree watched <root>/SCRIP -- the directory BESIDE the worktree, by name -- and refused
+# "cannot read HEAD" (or, beside a seat root, watched a tree it was not grading). corpus stays <root>/corpus, the caller's root.
+_gate_tree_repo() { case "$2" in SCRIP) (cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd);; *) printf '%s/%s\n' "$1" "$2";; esac; }
 gate_tree_watch() {
-    local _root="$1" _r _h _d _fp=""
+    local _root="$1" _r _h _d _fp="" _p
     for _r in SCRIP corpus; do
-        _h="$(git -C "$_root/$_r" rev-parse --short HEAD 2>/dev/null)" || _h=""
+        _p="$(_gate_tree_repo "$_root" "$_r")"
+        _h="$(git -C "$_p" rev-parse --short HEAD 2>/dev/null)" || _h=""
         [ -n "$_h" ] || {
-            echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: cannot read HEAD of $_root/$_r -- a board that cannot tell whether its corpus moved must not print a verdict"
+            echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: cannot read HEAD of $_p -- a board that cannot tell whether its corpus moved must not print a verdict"
             exit 2; }
-        _d="$(git -C "$_root/$_r" status --porcelain 2>/dev/null | md5sum | cut -c1-8)"
+        _d="$(git -C "$_p" status --porcelain 2>/dev/null | md5sum | cut -c1-8)"
         _fp="$_fp$_r=$_h/$_d "
         case "$_r" in SCRIP) GATE_TREE_STAMP="SCRIP=$_h";; corpus) GATE_TREE_STAMP="$GATE_TREE_STAMP,corpus=$_h";; esac
     done
@@ -400,13 +405,14 @@ gate_tree_unmoved() {
     [ -n "${GATE_TREE_FP0:-}" ] || {
         echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: gate_tree_unmoved called without gate_tree_watch -- there is no baseline, so this cannot answer"
         exit 2; }
-    local _r _h _d _now=""
+    local _r _h _d _now="" _p
     for _r in SCRIP corpus; do
-        _h="$(git -C "$GATE_TREE_ROOT/$_r" rev-parse --short HEAD 2>/dev/null)" || _h=""
+        _p="$(_gate_tree_repo "$GATE_TREE_ROOT" "$_r")"
+        _h="$(git -C "$_p" rev-parse --short HEAD 2>/dev/null)" || _h=""
         [ -n "$_h" ] || {
-            echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: $GATE_TREE_ROOT/$_r can no longer be read -- it moved or vanished mid-run, which is the moved-tree case in its loudest form"
+            echo "⛔ REFUSE(rc=2) [${GATE_NAME:-gate}]: $_p can no longer be read -- it moved or vanished mid-run, which is the moved-tree case in its loudest form"
             exit 2; }
-        _d="$(git -C "$GATE_TREE_ROOT/$_r" status --porcelain 2>/dev/null | md5sum | cut -c1-8)"
+        _d="$(git -C "$_p" status --porcelain 2>/dev/null | md5sum | cut -c1-8)"
         _now="$_now$_r=$_h/$_d "
     done
     [ "$_now" = "$GATE_TREE_FP0" ] || {
