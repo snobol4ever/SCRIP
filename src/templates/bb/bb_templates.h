@@ -4,6 +4,7 @@
 #include <string>
 #include "IR.h"
 enum { BB_SCC_NP_MAX = 60, BB_SHIM_ID_ALPHA = 10, BB_SHIM_ID_BETA = 80, BB_SHIM_ID_OMEGA = 150, BB_SHIM_ID_FIXED = 230 };
+enum { BB_SHIM_TRACE_IDS = 13, BB_SHIM_TRACE_NF_MAX = 39 };
 static_assert(BB_SHIM_ID_ALPHA + BB_SCC_NP_MAX < BB_SHIM_ID_BETA - 5 && BB_SHIM_ID_BETA + BB_SCC_NP_MAX < BB_SHIM_ID_OMEGA - 5
               && BB_SHIM_ID_OMEGA + BB_SCC_NP_MAX < BB_SHIM_ID_FIXED,
               "THE ROLE-4 DEFINE SHIM ADMITS EVERY DEFINE THE SCC PROBE ADMITS (bb_scc_probe: np <= BB_SCC_NP_MAX): its three per-formal "
@@ -11,6 +12,11 @@ static_assert(BB_SHIM_ID_ALPHA + BB_SCC_NP_MAX < BB_SHIM_ID_BETA - 5 && BB_SHIM_
               "its own base, below the next base's lid-5 join and the fixed ids 230..249 (X86_INTERNAL_MAX 250); the branch is monotone "
               "in the argument count, so every formal past the arguments falls through the ext chain (it spent two ids per formal and "
               "stopped at 29 formals until 2026-09-27)");
+static_assert(BB_SHIM_ID_OMEGA + BB_SHIM_TRACE_NF_MAX + 2 + 3 * BB_SHIM_TRACE_IDS <= BB_SHIM_ID_FIXED,
+              "THE ROLE-4 DEFINE SHIM'S THREE TRACE-HANDLER GLUES (call, return, failing return; bb_glue_trace_pend_run in_shim) each take a compact block of "
+              "BB_SHIM_TRACE_IDS one-byte internal label ids, placed after the omega chain (OMEGA + nformals + 2), below the fixed ids 230..249; a traced "
+              "DEFINE with more than BB_SHIM_TRACE_NF_MAX formals keeps the C-entered hook (rt_trace_*_hook_i through the r12 island bridge: a dyn-scope procedure runs only "
+              "through its role-4 shim, so the shim cannot be refused, and the id space is one byte)");
 extern "C" { void bb_pattern_stub(const char * which); }
 extern "C++" {
 std::string bb_match_any();
@@ -85,11 +91,12 @@ std::string bb_glue_pass_wires(int gid, int wid);
 std::string bb_glue_wire_land(void);
 std::string bb_glue_pass_wires_blob(int gid, int wid);
 std::string bb_glue_pass_wires_blob_regs(int gid, int wid);
-std::string bb_glue_enter_c2bb(int base, int lg, int lw);
+std::string bb_glue_enter_c2bb(int base, int lg, int lw, int hi = -1);
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id);
-std::string bb_glue_apply_try_enter(int base, int val_id, int join_id);
-std::string bb_glue_trace_pend_run(int base, const std::string & after);
-std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno = 0);
+std::string bb_glue_apply_try_enter(int base, int val_id, int join_id, int in_shim = 0);
+std::string bb_glue_trace_pend_run(int base, const std::string & after, int in_shim = 0);
+std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno = 0,
+    int in_shim = 0);
 std::string bb_glue_stno_unit_push(void);
 std::string bb_glue_enter_chain_ret(int lid);
 std::string bb_glue_name_or_rec_lea(const char * nm);

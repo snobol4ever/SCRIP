@@ -188,10 +188,11 @@ inline std::string x86_neg(const char * reg) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline int x86_rsp_trace_on(void) { static int v = -1; if (v < 0) { const char * e = getenv("SCRIP_GC_RSP_TRACE"); v = (e && *e == '1') ? 1 : 0; } return v; }
 typedef struct { uint64_t key; int kind, delta; } x86_rsp_snap_t;
-struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead = 0, mark = 0, mark_unknown = 0, quiet = 0; std::vector<x86_rsp_snap_t> j, p; };
+struct x86_rsp_st_t { int delta = 0, before = 0, aligned = 0, unknown = 0, dead = 0, mark = 0, mark_unknown = 0, quiet = 0; int mark9 = 0, mark9_unknown = 0, mark9_set = 0;
+    std::vector<x86_rsp_snap_t> j, p; };
 inline x86_rsp_st_t & x86_rsp_S(void) { static x86_rsp_st_t v; return v; }
 inline int & x86_rsp_state(int k) { x86_rsp_st_t & S = x86_rsp_S(); return k == 0 ? S.delta : k == 1 ? S.before : k == 2 ? S.aligned : S.unknown; }
-inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.quiet = 0; }
+inline void x86_rsp_reset_all(void) { x86_rsp_st_t & S = x86_rsp_S(); S.delta = 0; S.before = 0; S.aligned = 0; S.unknown = 0; S.dead = 0; S.j.clear(); S.p.clear(); S.quiet = 0; S.mark9_set = 0; }
 inline void x86_rsp_jump(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); if (S.aligned || S.unknown) return; for (const x86_rsp_snap_t & q : S.j) if (q.kind == kind && q.key == key) return;
     S.j.push_back(x86_rsp_snap_t{ key, kind, S.delta }); }
 inline void x86_rsp_define(int kind, uint64_t key) { x86_rsp_st_t & S = x86_rsp_S(); int found = -1;
@@ -210,6 +211,13 @@ inline void x86_rsp_prepass_commit(const x86_rsp_st_t & before) { x86_rsp_st_t a
     for (const x86_rsp_snap_t & a : after.j) { int have = 0; for (const x86_rsp_snap_t & q : S.p) if (q.kind == a.kind && q.key == a.key) { have = 1; break; }
         if (!have) S.p.push_back(a); } }
 inline std::string x86_rsp_mark_save(void) { if (MEDIUM_BINARY) return std::string(1, 'K'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspK\n"); }
+inline void x86_rsp_mark9_push(void) { x86_rsp_st_t & S = x86_rsp_S();
+    if (S.mark9_set) { fprintf(stderr, "FATAL x86_rsp_mark9_push: a shim's mark is already saved; a glue nests one deep inside a SHIM-SELF site\n"); abort(); }
+    S.mark9 = S.mark; S.mark9_unknown = S.mark_unknown; S.mark9_set = 1; }
+inline void x86_rsp_mark9_pop(void) { x86_rsp_st_t & S = x86_rsp_S(); if (!S.mark9_set) { fprintf(stderr, "FATAL x86_rsp_mark9_pop: no shim mark is saved\n"); abort(); }
+    S.mark = S.mark9; S.mark_unknown = S.mark9_unknown; S.mark9_set = 0; }
+inline std::string x86_rsp_mark_push(void) { if (MEDIUM_BINARY) return std::string(1, 'M'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspM\n"); }
+inline std::string x86_rsp_mark_pop(void) { if (MEDIUM_BINARY) return std::string(1, 'N'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspN\n"); }
 inline std::string x86_rsp_land(long k) { if (MEDIUM_BINARY) { std::string r; r += (char)'k'; uint32_t u = (uint32_t)(int32_t)k; for (int j = 0; j < 4; j++) r += (char)((u >> (8 * j)) & 255);
     return r; } return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspk ") + std::to_string(k) + "\n"; }
 inline std::string x86_rsp_goto(void) { if (MEDIUM_BINARY) return std::string(1, 'G'); return MEDIUM_MACRO_DEF ? std::string() : std::string("#@rspG\n"); }
@@ -2533,6 +2541,8 @@ inline void x86_text_sites_scan(const std::string & r, bool real = true) {
         if (line.compare(0, 6, "#@rspZ") == 0) { g_x86_rsp_aligned = 0; g_x86_rsp_delta = g_x86_rsp_before; continue; }
         if (line.compare(0, 6, "#@rspG") == 0) { x86_rsp_S().dead = 1; continue; }
         if (line.compare(0, 6, "#@rspK") == 0) { x86_rsp_S().mark = x86_rsp_S().delta; x86_rsp_S().mark_unknown = x86_rsp_S().unknown; continue; }
+        if (line.compare(0, 6, "#@rspM") == 0) { x86_rsp_mark9_push(); continue; }
+        if (line.compare(0, 6, "#@rspN") == 0) { x86_rsp_mark9_pop(); continue; }
         if (line.compare(0, 7, "#@rspk ") == 0) { x86_rsp_S().delta = x86_rsp_S().mark + atoi(line.c_str() + 7); x86_rsp_S().dead = 0; x86_rsp_S().unknown = x86_rsp_S().mark_unknown; continue; }
         if (!line.empty() && line[0] == '#') continue;
         size_t p = 0; while (p < line.size()) { size_t q = line.find(';', p); if (q == std::string::npos) q = line.size(); std::string ins = line.substr(p, q - p); p = q + 1;
@@ -2576,6 +2586,8 @@ inline void bb_emit_x86(const std::string & s) {
             else x86_rsp_define(3, v); }
         else if (tag == 'G') { S.dead = 1; }
         else if (tag == 'K') { S.mark = S.delta; S.mark_unknown = S.unknown; }
+        else if (tag == 'M') { x86_rsp_mark9_push(); }
+        else if (tag == 'N') { x86_rsp_mark9_pop(); }
         else if (tag == 'k' || tag == 'R' || tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j);
             if (tag == 'k') { S.delta = S.mark + (int32_t)v; S.dead = 0; S.unknown = S.mark_unknown; } else if (tag == 'R' && !S.aligned) S.delta += (int32_t)v; }
         else if (tag == 'U') { if (!S.aligned) S.unknown = 1; }
@@ -2600,6 +2612,8 @@ inline void bb_emit_x86(const std::string & s) {
         else if (tag == 'Y') { uint64_t v = 0; for (int j = 0; j < 8; j++) v |= ((uint64_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_define(3, v); bb_label_define((bb_label_t *)(uintptr_t)v); }
         else if (tag == 'G') { x86_rsp_S().dead = 1; }
         else if (tag == 'K') { x86_rsp_S().mark = x86_rsp_S().delta; x86_rsp_S().mark_unknown = x86_rsp_S().unknown; }
+        else if (tag == 'M') { x86_rsp_mark9_push(); }
+        else if (tag == 'N') { x86_rsp_mark9_pop(); }
         else if (tag == 'k') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); x86_rsp_S().delta = x86_rsp_S().mark + (int32_t)v; x86_rsp_S().dead = 0;
             x86_rsp_S().unknown = x86_rsp_S().mark_unknown; }
         else if (tag == 'S') { uint32_t v = 0; for (int j = 0; j < 4; j++) v |= ((uint32_t)(unsigned char)s[i++]) << (8 * j); extern bb_buf_t bb_emit_buf; extern int bb_emit_pos;
@@ -2619,7 +2633,7 @@ extern "C" int g_gc_pending;
 inline long x86_rec_bytes(const std::string & s) { long n = 0; size_t i = 0; while (i < s.size()) { char t = s[i++]; if (t == 'L') { int k = (unsigned char)s[i++]; n += k; i += (size_t)k;
     } else if (t == 'J') { i += 1; n += 4; } else if (t == 'F') { i += 4; n += 4; } else if (t == 'X') { i += 8; n += 4; } else if (t == 'D') { i += 1; } else if (t == 'E') { i += 4;
     } else if (t == 'Y') { i += 8; } else if (t == 'Q') { i += 1; n += 8; } else if (t == 'S') { i += 4; } else if (t == 'R') { i += 4;
-    } else if (t == 'U' || t == 'A' || t == 'Z' || t == 'G' || t == 'K') { } else if (t == 'k') { i += 4; } else return -1; } return n; }
+    } else if (t == 'U' || t == 'A' || t == 'Z' || t == 'G' || t == 'K' || t == 'M' || t == 'N') { } else if (t == 'k') { i += 4; } else return -1; } return n; }
 inline std::string x86_gc_gate(const std::string & body) {
     std::string test =
         x86("push", "rax") + x86("mov", "rax", std::string("[rip@got + __]"), (uint64_t)(uintptr_t)(const void *)&g_gc_pending, "g_gc_pending") + x86("mov", "eax", RDD("rax", 0)) +

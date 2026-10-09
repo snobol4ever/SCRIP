@@ -10,8 +10,8 @@
 # ARMS, each both modes, expectations cut from sbl -bf AT RUN TIME: (A) the C2BB trace of the first program holds an apply.open line (the box entered) and no C-entered
 # line -- REFUSED when SCRIP_C2BB_TRACE writes nothing; (B) a tag and several reads; (C) a handler that allocates 25 KB per event under SCRIP_GC_STRESS=1 (the value
 # survives the handler); (D) a handler that FRETURNs and reads the traced name itself (no nested event fires).
-# NOT COVERED, NAMED: the CALL and RETURN handlers of the DEFINE shim (the chain walker has no site row for a glue frame inside a shim-self site -- asked of hq_zetas
-# and hq_collector), the LABEL, KEYWORD and FUNCTION kinds, and the two bb_rev_assign_global reads.
+# NOT COVERED, NAMED: the LABEL, KEYWORD and FUNCTION kinds, and the two bb_rev_assign_global reads. The CALL and RETURN handlers of the DEFINE shim are
+# test_gate_sno_a_call_and_return_trace_handler_is_entered_by_the_define_shim_box_and_its_chain_reads_clean.sh.
 # FAIL-ONCE, MEASURED: on the trace-callback witness (CALL, RETURN and ACCESS handlers, X read once) the C2BB trace read 3 descr.tiny lines before this landing and 2 after (the ACCESS one
 # gone, an apply.open in its place); arm A reads 0 C-entered lines and an apply.open per read on a program with an ACCESS handler alone.
 # rc=0 clean · rc=1 a divergence · rc=2 REFUSAL.

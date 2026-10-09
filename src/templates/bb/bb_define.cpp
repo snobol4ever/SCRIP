@@ -31,6 +31,9 @@ void rt_trace_fail_hook(const char *fname);
 void rt_trace_call_hook_i(const char *fname, long island);
 void rt_trace_return_hook_i(const char *fname, DESCR_t retval, long island);
 void rt_trace_fail_hook_i(const char *fname, long island);
+void rt_trace_call_hook_p(const char *fname, trace_pend_t *pend);
+void rt_trace_return_hook_p(const char *fname, DESCR_t retval, trace_pend_t *pend);
+void rt_trace_fail_hook_p(const char *fname, trace_pend_t *pend);
 extern long g_trace;
 extern int64_t kw_ftrace;
 const char *rt_define_query(const char *, int *, int *, int *, void **);
@@ -261,6 +264,7 @@ static std::string bb_define_sr() {
                  + x86_gamma());
         int xt4 = ns4 - nf4;
         long T4 = 16L * xt4 + 32;
+        int trace_ids = BB_SHIM_ID_OMEGA + nf4 + 2, pend_fit = nf4 <= BB_SHIM_TRACE_NF_MAX;
         int rgx = rg4 < 0 ? 0 : rg4; int nnv4 = 0; for (int j = 0; j < ns4; j++) if (gk4[j] < 0) nnv4++;
         auto GQ = [&](int gk, int w) { return (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(gk, w) : ABSQ(RT_GVA_VA + (unsigned long)gk * 16 + (unsigned long)w); };
         auto R8Q = [&](long d) { return std::string("[r8 + ") + std::to_string(d) + "]"; };
@@ -449,10 +453,13 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
+                 + IF(pend_fit, x86("sub", "rsp", 112L) + x86("mov", RDQ("rsp", 0), 0L))
                  + x86("mov", "rdi", ROQ(232))
-                 + x86("mov", "rsi", "r12")
-                 + S9([&]() { return x86("call", "rt_trace_call_hook_i", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_i)
+                 + x86("mov", "rsi", pend_fit ? "rsp" : "r12")
+                 + S9([&]() { return (pend_fit ? x86("call", "rt_trace_call_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_p)
+                                               : x86("call", "rt_trace_call_hook_i", (uint64_t)(uintptr_t)(void *)rt_trace_call_hook_i))
                  + x86_rt_gc_poll(); })
+                 + IF(pend_fit, S9([&]() { return bb_glue_trace_pend_run(trace_ids, std::string(), 1); }) + x86("add", "rsp", 112L))
                  + x86_align_leave()
                  + x86("pop", "rdi")
                  + x86("pop", "r12")
@@ -531,9 +538,12 @@ static std::string bb_define_sr() {
                  + x86("mov", "rdi", ROQ(237))
                  + x86_rsp_load64("rsi", 48)
                  + x86_rsp_load64("rdx", 56)
-                 + x86("mov", "rcx", "r12")
-                 + S9([&]() { return x86("call", "rt_trace_return_hook_i", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook_i)
+                 + IF(pend_fit, x86("sub", "rsp", 112L) + x86("mov", RDQ("rsp", 0), 0L))
+                 + x86("mov", "rcx", pend_fit ? "rsp" : "r12")
+                 + S9([&]() { return (pend_fit ? x86("call", "rt_trace_return_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook_p)
+                                               : x86("call", "rt_trace_return_hook_i", (uint64_t)(uintptr_t)(void *)rt_trace_return_hook_i))
                  + x86_rt_gc_poll(); })
+                 + IF(pend_fit, S9([&]() { return bb_glue_trace_pend_run(trace_ids + BB_SHIM_TRACE_IDS, std::string(), 1); }) + x86("add", "rsp", 112L))
                  + x86_align_leave()
                  + x86("pop", "r12")
                  + x86("pop", "r9")
@@ -614,10 +624,13 @@ static std::string bb_define_sr() {
                  + x86("push", "r12")
                  + x86("push", "rdi")
                  + x86_align_enter()
+                 + IF(pend_fit, x86("sub", "rsp", 112L) + x86("mov", RDQ("rsp", 0), 0L))
                  + x86("mov", "rdi", ROQ(237))
-                 + x86("mov", "rsi", "r12")
-                 + S9([&]() { return x86("call", "rt_trace_fail_hook_i", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook_i)
+                 + x86("mov", "rsi", pend_fit ? "rsp" : "r12")
+                 + S9([&]() { return (pend_fit ? x86("call", "rt_trace_fail_hook_p", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook_p)
+                                               : x86("call", "rt_trace_fail_hook_i", (uint64_t)(uintptr_t)(void *)rt_trace_fail_hook_i))
                  + x86_rt_gc_poll(); })
+                 + IF(pend_fit, S9([&]() { return bb_glue_trace_pend_run(trace_ids + 2 * BB_SHIM_TRACE_IDS, std::string(), 1); }) + x86("add", "rsp", 112L))
                  + x86_align_leave()
                  + x86("pop", "rdi")
                  + x86("pop", "r12")
