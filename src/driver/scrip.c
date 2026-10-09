@@ -391,7 +391,7 @@ static int rhs_kind_ok(IR_t *r) {
     if (r->op == IR_BINOP_RELOP_VAL) return 1;
     if (r->op == IR_BINOP &&
         (IR_LIT(r).ival == BINOP_ADD || IR_LIT(r).ival == BINOP_SUB || IR_LIT(r).ival == BINOP_MUL || IR_LIT(r).ival == BINOP_ADD_BIG || IR_LIT(r).ival == BINOP_SUB_BIG ||
-        IR_LIT(r).ival == BINOP_MUL_BIG || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || binop_is_concat((long)IR_LIT(r).ival))) return 1;
+        IR_LIT(r).ival == BINOP_MUL_BIG || IR_LIT(r).ival == BINOP_DIV || IR_LIT(r).ival == BINOP_MOD || IR_LIT(r).ival == BINOP_POW || binop_is_concat((long)IR_LIT(r).ival))) return 1;
     if (ir_norm_call_kind(r->op) == IR_CALL || r->op == IR_UNOP || r->op == IR_FIELD_GET || r->op == IR_PROC_GEN) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 0.0) return 1;
     if (r->op == IR_CALL && IR_LIT(r).dval == 1.0) return 1;

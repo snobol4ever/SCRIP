@@ -3783,19 +3783,6 @@ static void rk_nested_elem_sets(tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_assign_pow_rhs(tree_t * t) {
-    if (!t) return;
-    for (int i = 0; i < t->n; i++) rk_assign_pow_rhs(t->c[i]);
-    if (t->t == TT_ASSIGN && t->n == 2 && t->c[1] && t->c[1]->t == TT_POW) {
-        tree_t * w = ast_node_new(TT_FNC);
-        w->line = t->line;
-        w->v.sval = (char *) "__rk_item1";
-        ast_push(w, leaf_sval2(TT_VAR, "__rk_item1"));
-        ast_push(w, t->c[1]);
-        t->c[1] = w;
-    }
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_range_call_of(tree_t * to, const char * fn, int flagged) {
     tree_t * w = ast_node_new(TT_FNC);
     w->line = to->line;
@@ -3974,7 +3961,6 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_hoist_nested_multis((tree_t *) prog);
     rk_class_default_tweaks((tree_t *) prog);
     rk_tail_ifs((tree_t *) prog);
-    rk_assign_pow_rhs((tree_t *) prog);
     rk_typed_vars((tree_t *) prog);
     rk_sprintf_names((tree_t *) prog, rk_uses_v6e(prog));
     rk_range_values((tree_t *) prog);
