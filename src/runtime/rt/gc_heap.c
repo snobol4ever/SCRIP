@@ -2386,6 +2386,10 @@ static void gc_chain_report_atexit(void) {
     fprintf(stderr, "[CHAIN-CHECK] SUMMARY ok=%ld host=%ld frameless=%ld ctxrbp=%ld nosite=%ld mismatch=%ld fnhops=%ld landhops=%ld roadhops=%ld\n", g_gc_chain_ok, g_gc_chain_host,
         g_gc_chain_frameless, g_gc_chain_ctx, g_gc_chain_nosite, g_gc_chain_bad, g_gc_chain_fnhops, g_gc_chain_landhops, g_gc_chain_roadhops);
 }
+static const gc_site_blk_t *gc_code_block_of(uint64_t pc) {
+    for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].code && pc >= g_gc_sblk[i].code && pc < g_gc_sblk[i].hi) return &g_gc_sblk[i];
+    return (const gc_site_blk_t *)0;
+}
 static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *rbp, const char *seg_top) {
     const gc_site_ent_t *e = (const gc_site_ent_t *)0;
     const gc_site_blk_t *b;
@@ -2463,6 +2467,12 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
             r = fb + b->ckt;
             g_gc_chain_roadhops++;
             goto again;
+        }
+        if (g && gc_code_block_of(g) && gc_code_block_of(g + 8)) {
+            uint64_t sg = *(const uint64_t *)(uintptr_t)(g + 8);
+            const gc_site_ent_t *y = (const gc_site_ent_t *)0;
+            const gc_site_blk_t *yb = gc_site_find(sg, &y);
+            if (yb && y && (y->kind & 255) == 2) { pc = sg; r = fb + b->ckt; g_gc_chain_landhops++; goto again; }
         }
     }
     if (!b->map) { cx->st = 3; return; }

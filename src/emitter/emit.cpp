@@ -3646,6 +3646,7 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
 }
 extern "C" int xa_flat_class_c_pred(void);
 extern "C" void xa_flat_chain_prologue(const char * fname);
+extern "C++" int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out);
 extern "C" void xa_flat_chain_epilogue(void);
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
 extern int g_rt_fragment_emit;
@@ -4366,7 +4367,12 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     if (!bare) emit_label_define_bb(&lbl_α_body);
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
-    if (xa_flat_class_c_pred()) xa_flat_chain_prologue(fam);
+    int _sigk = 0;
+    if (xa_flat_class_c_pred()) {
+        int _snf = 0, _sns = 0, _sgk[BB_SCC_NP_MAX + 1];
+        xa_flat_chain_prologue(fam);
+        if (fam && xa_flat_sig_names(fam, &_snf, &_sns, _sgk, (int *)0)) _sigk = 16 * _sns;
+    }
     if (!bare && blob_frame_scope()) blob_first_guard();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb);
         bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +
@@ -4731,7 +4737,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
               for (int _d = 0; _d < zw5_stmt[_lo].cnt; _d++) { if (zw5_depth[_sb + _d] == zd_wp[i]) { _zw5_saved_omega = node_ω; node_ω = &zw5_pool[_sb + _d]; _zw5_wpop_stolen = zd_wp[i]; break;
               } } } } }
           g_emit.op_trap_drop = (nodes[i]->op == IR_SETEXIT_TEST && zd_on[i]) ? (long)(zd_out[i] - zd_k(nodes[i])) : 0;
-          g_emit.op_zrun = (zd_out[i] >= 0 ? (int)(zd_out[i] - (zd_on[i] ? zd_k(nodes[i]) : 0)) : 0);
+          g_emit.op_zrun = (zd_out[i] >= 0 ? (int)(zd_out[i] - (zd_on[i] ? zd_k(nodes[i]) : 0)) : 0) + _sigk;
           if (zd_on[i] || zd_gp[i] > 0 || zd_wp[i] > 0) { g_zd_stage = 1; g_zd_arm = zd_on[i] ? 1 : 0; g_zd_gpop = zd_gp[i];
               g_zd_wpop = (_uw_stolen ? (int)_uw_pop : ((_zw5_wpop_stolen || _endj_stolen) ? 0 : zd_wp[i])); g_zd_wsteal = _endj_stolen || _uw_stolen;
               g_zd_k = zd_on[i] ? zd_k(nodes[i]) : 0;
