@@ -16293,7 +16293,15 @@ extern int rt_pl_b_set(void *, int64_t, void *, pl_tr_ctx_t *);
 DESCR_t rt_pl_dop_b_setval_c(DESCR_t *args, int nargs, pl_tr_ctx_t *cx, void *root) {
     if (nargs != 2) return FAILDESCR;
     pl_atoms_ready();
-    { DESCR_t k = rt_pl_deref_val(args[0]); int64_t kk = pl_nb_cell_k(k, root); if (kk < 0) return FAILDESCR; return rt_pl_b_set(root, kk, (void *)&args[1], cx) ? pl_ok() : FAILDESCR; }
+    rt_pl_tr_gc_sync(cx->tr);
+    {
+        DESCR_t k = rt_pl_deref_val(args[0]);
+        int64_t kk = pl_nb_cell_k(k, root);
+        if (kk < 0) return FAILDESCR;
+        int ok = rt_pl_b_set(root, kk, (void *)&args[1], cx);
+        rt_pl_tr_gc_sync(cx->tr);
+        return ok ? pl_ok() : FAILDESCR;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t pl_db_add(DESCR_t *args, int nargs, void *root, int prepend) {

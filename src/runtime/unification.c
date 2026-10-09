@@ -2870,8 +2870,16 @@ int rt_pl_b_set(void *root, int64_t k, void *val, pl_tr_ctx_t *cx) {
     {
         pl_cell_t **cell = (pl_cell_t **)pl_db_cell_addr(root, k, 1);
         if (!cell) return 0;
-        pl_cell_t *t = pl_deref((pl_cell_t *)val);
-        pl_cell_t stored = plc_copy(t);
+        pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1);
+        if (!j) return 0;
+        j->v = (DTYPE_t)DT_PLVAR;
+        j->slen = 0;
+        j->p = (void *)j;
+        if (!plc_unify_cells_cx(j, (pl_cell_t *)val, cx)) return 0;
+        pl_cell_t stored;
+        stored.v = (DTYPE_t)DT_PLVAR;
+        stored.slen = 0;
+        stored.p = (void *)j;
         if (*cell) {
             char probe;
             char *floor_ = &probe;

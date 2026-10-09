@@ -37,7 +37,7 @@
 #   in its own header that it is deliberately out of the recipe. NOT ONE DOES. The 8 below are the ceo's
 #   ruling of 2026-09-03, quoted from the Makefile's own test-postoffice header — cited, not invented.
 #   Everything else is TASK because nobody has ruled, which is the honest word for it.
-# TASK-CEILING: 159
+# TASK-CEILING: 158
 # 166 -> 165 (coo 2026-09-25): test_gate_diag_regs_survive.sh retired -- its r10 statement number was removed by design at 2a81a02db, and r11 cannot stand in, because a later box stamp masks a planted clobber; the survival property is test_gate_rtx_entries_keep_the_rtcc_four.sh's.
 test_gate_a_blocking_set_death_names_its_killer.sh	WIRED	-	-	-
 test_gate_a_cgroup_kill_is_a_refusal_not_a_red.sh	WIRED	-	-	-
@@ -613,6 +613,7 @@ test_gate_pl_findall_4_serves_a_bound_tail_and_an_unbound_one.sh	WIRED	-	-	-
 test_gate_pl_format_column_fill_is_a_character_not_a_byte.sh	WIRED	-	-	-
 test_gate_pl_gnu_all_solutions_dec10_io_for_and_name_answer_as_gprolog.sh	WIRED	-	-	-
 test_gate_pl_gnu_dialect_value_builtins_answer_as_gnu_prolog.sh	WIRED	-	-	-
+test_gate_pl_gnu_global_variables_answer_as_gprolog_and_b_setval_links_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_gz6b.sh	WIRED	-	-	-
 test_gate_pl_ieee_float_flags_and_ceil_lgamma_powm_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_include_splices_in_place_and_ensure_loaded_loads_once.sh	WIRED	-	-	-
@@ -632,6 +633,7 @@ test_gate_pl_meta_wrapper_does_not_break_m4_declarations.sh	WIRED	-	-	-
 test_gate_pl_mode_4_startup_registers_a_predicate_in_one_lookup_not_ten.sh	WIRED	-	-	-
 test_gate_pl_monitor_dynamic_and_asserted_predicates_are_no_events.sh	WIRED	-	-	-
 test_gate_pl_multifile_initialization_runs_every_file.sh	WIRED	-	-	-
+test_gate_pl_no_new_global.sh	WIRED	-	-	-
 test_gate_pl_no_value_stack.sh	WIRED	-	-	-
 test_gate_pl_number_syntax_iso.sh	WIRED	-	-	-
 test_gate_pl_only_tree_t_crosses_parser_to_lower.sh	WIRED	-	-	-
@@ -1095,7 +1097,6 @@ test_gate_pl_gz5b.sh	TASK	-	-	-
 test_gate_pl_gz5c.sh	TASK	-	-	-
 test_gate_pl_gz6.sh	TASK	-	-	-
 test_gate_pl_gz7.sh	TASK	-	-	-
-test_gate_pl_no_new_global.sh	TASK	-	-	-
 test_gate_pl_no_synthetic_main.sh	TASK	-	-	-
 test_gate_pl_port_trace.sh	TASK	-	-	-
 test_gate_pl_rung11_lco.sh	TASK	-	-	-

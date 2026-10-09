@@ -2472,7 +2472,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 const char * kk = pl_nb_key(t->c[0]);
                 if (!kk) {
                     if (!strcmp(nm, "nb_setval")) return pl_db_leaf2_tree(cx, "$nb_setval", t->c[0], t->c[1], γnext, ωfail, entry_out);
-                    if (!strcmp(nm, "b_setval")) return pl_db_leaf2_tree(cx, "$b_setval", t->c[0], t->c[1], γnext, ωfail, entry_out);
+                    if (!strcmp(nm, "b_setval")) return pl_nb_leaf_lv_tree(cx, "$b_setval", t->c[0], t->c[1], γnext, ωfail, entry_out);
                     {
                         IR_t * body_entry = NULL;
                         IR_t * nd = pl_nb_leaf_lv_tree(cx, "$nb_getval", t->c[0], t->c[1], γnext, ωfail, &body_entry);
@@ -2486,7 +2486,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     int k = pl_dyn_index_or_add(kk, -1);
                     if (k < 0) pl_refuse("global variable needs a root cell but the 64 compile-time root cells are exhausted --", kk, 10);
                     if (!strcmp(nm, "nb_setval")) return pl_db_leaf2(cx, "$nb_setval", k, t->c[1], γnext, ωfail, entry_out);
-                    if (!strcmp(nm, "b_setval")) return pl_db_leaf2(cx, "$b_setval", k, t->c[1], γnext, ωfail, entry_out);
+                    if (!strcmp(nm, "b_setval")) return pl_nb_leaf_lv(cx, "$b_setval", k, t->c[1], γnext, ωfail, entry_out);
                     {
                         IR_t * body_entry = NULL;
                         IR_t * nd = pl_nb_leaf_lv(cx, "$nb_getval", k, t->c[1], γnext, ωfail, &body_entry);
