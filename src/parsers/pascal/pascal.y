@@ -1532,13 +1532,23 @@ static tree_t *pas_vt_wrap_read(tree_t *sel) { tree_t *c = pas_vt_check_of(sel);
         ast_push(er, leaf_s(TT_QLIT, "a variant of a variant-part is undefined after the tag-field changes value until it is assigned")); ast_push(q, bin(TT_IF, bin(TT_EQ, mk_fnc1("__pas_resundef", pas_tree_clone(_sl)), ilit(1)), er)); }
     ast_push(q, sel); return q; }
 static int pas_tree_pure(const tree_t *t) { if (!t) return 0; switch (t->t) { case TT_ILIT: case TT_QLIT: case TT_VAR: return 1; case TT_EQ: case TT_NE: case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_NOT: case TT_ADD: case TT_SUB: case TT_MUL: for (int i = 0; i < t->n; i++) if (!pas_tree_pure(t->c[i])) return 0; return 1; default: return 0; } }
+static tree_t *pas_field_init_tree(const char *rn, const char *vn, int fi) {
+    char *const *fr = NULL; const int *fn = NULL; const long long *lo = NULL, *hi = NULL; int nf = 0;
+    for (int i = 0; rn && i < g_pas_nrectype; i++) if (g_pas_rectypes[i].tname && !strcmp(g_pas_rectypes[i].tname, rn)) { fr = g_pas_rectypes[i].fldrec; fn = g_pas_rectypes[i].fldna; lo = g_pas_rectypes[i].fldna_lo; hi = g_pas_rectypes[i].fldna_hi; nf = g_pas_rectypes[i].nf; break; }
+    for (int i = g_pas_nrecvar - 1; !fr && vn && i >= 0; i--) if (g_pas_recvars[i].vname && !strcmp(g_pas_recvars[i].vname, vn)) { fr = g_pas_recvars[i].fldrec; fn = g_pas_recvars[i].fldna; lo = g_pas_recvars[i].fldna_lo; hi = g_pas_recvars[i].fldna_hi; nf = g_pas_recvars[i].nf; break; }
+    if (!fr || fi < 0 || fi >= nf) return NULL;
+    if (fn[fi] && hi[fi] >= lo[fi] && fr[fi]) return mk_fnc3("__pas_arr_of", ilit(lo[fi]), ilit(hi[fi]), mk_rec_init_type_d(fr[fi], 1));
+    if (fn[fi] && hi[fi] >= lo[fi]) return mk_fnc2("arr_make", ilit(lo[fi]), ilit(hi[fi]));
+    if (!fn[fi] && fr[fi]) return mk_rec_init_type_d(fr[fi], 1);
+    return NULL;
+}
 static tree_t *pas_vt_undefine_variants(tree_t *sel, tree_t *rhs, tree_t *st) {
     if (g_pas_seen_mode_directive || !sel || sel->t != TT_IDX || sel->n < 2 || !sel->c[0] || sel->c[0]->t != TT_VAR || !sel->c[0]->v.sval || !pas_tree_pure(rhs)) return st;
     const char *vn = sel->c[0]->v.sval, *rn = pas_with_sel_rtype(sel->c[0]); struct pas_vt *t = rn ? pas_vt_find_name(rn) : NULL; if (!t) t = pas_vt_find_name(vn);
     if (!t || t->tagfi < 0) return st;
     tree_t *nul = ast_node_new(TT_SEQ_EXPR); int ns = 0;
     for (int fi = 0; fi < PAS_FIELD_MAX; fi++) { if (!t->fhas[fi] || fi == t->tagfi) continue; int sl = pas_recvar_slot(vn, fi); int dup = 0; for (int fj = 0; fj < fi; fj++) if (t->fhas[fj] && fj != t->tagfi && pas_recvar_slot(vn, fj) == sl) dup = 1; if (dup) continue; ns++;
-        tree_t *ix = ast_node_new(TT_IDX); ast_push(ix, leaf_s(TT_VAR, vn)); ast_push(ix, ilit(sl)); ast_push(nul, mk_assign(ix, leaf_s(TT_VAR, "__pas_undefined_value"))); }
+        tree_t *ix = ast_node_new(TT_IDX); ast_push(ix, leaf_s(TT_VAR, vn)); ast_push(ix, ilit(sl)); { tree_t *_iv = pas_field_init_tree(rn, vn, fi); ast_push(nul, mk_assign(ix, _iv ? _iv : leaf_s(TT_VAR, "__pas_undefined_value"))); } }
     if (!ns) return st;
     tree_t *q = ast_node_new(TT_SEQ_EXPR); ast_push(q, bin(TT_IF, bin(TT_NE, pas_tree_clone(sel), pas_tree_clone(rhs)), nul)); ast_push(q, st); return q;
 }
