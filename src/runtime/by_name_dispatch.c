@@ -648,8 +648,8 @@ static int rk_cp_off(const char *s, int boff) { int n = 0; for (int i = 0; i < b
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_match_rec(DESCR_t orig, int from, int to, int ok, DESCR_t text, DESCR_t pos, DESCR_t named) {
     static int rk_match_reg = 0;
-    if (!rk_match_reg) { DEFDAT_fn("Match(orig,from,to,ok,text,positional,named)"); rk_match_reg = 1; }
-    return DATCON_fn("Match", orig, INTVAL(from), INTVAL(to), INTVAL(ok), text, pos, named);
+    if (!rk_match_reg) { DEFDAT_fn("Match(orig,from,to,ok,text,positional,named,made)"); rk_match_reg = 1; }
+    return DATCON_fn("Match", orig, INTVAL(from), INTVAL(to), INTVAL(ok), text, pos, named, NULVCL);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_match_nil(void) { return rk_match_rec(STRVAL(rt_heap_strdup_c("")), 0, 0, 0, STRVAL(rt_heap_strdup_c("")), rk_mk_arr(NULL, 0), TABLE_VAL(table_new())); }
@@ -729,14 +729,73 @@ static DESCR_t rk_match_obj_in(const Match *m, const char *subj, DESCR_t orig) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_match_obj(const Match *m, const char *subj) { return rk_match_obj_in(m, subj, STRVAL(rt_heap_strdup_c(subj ? subj : ""))); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_rx_sym_of(const char *name, int nlen, int *len) {
+    const char *q = NULL;
+    for (int i = 0; i + 5 < nlen; i++) if (!strncmp(name + i, ":sym", 4) && (name[i + 4] == '<' || (unsigned char) name[i + 4] == 0xC2)) { q = name + i + 4; break; }
+    if (!q) return NULL;
+    const char *st = q[0] == '<' ? q + 1 : q + 2;
+    const char *e = q[0] == '<' ? name + nlen - 1 : name + nlen - 2;
+    if (e <= st) return NULL;
+    *len = (int) (e - st);
+    return st;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_rx_rule(void *ud, const char *name, int nlen, int *flags) {
     const char *gname = ud ? (const char *) ud : "";
     char qn[strlen(gname) + (size_t) nlen + 3];
     snprintf(qn, sizeof qn, "%s::%.*s", gname, nlen, name);
     const char *body = gram_get(qn);
+    if (!body && gname[0]) { snprintf(qn, sizeof qn, "::%.*s", nlen, name); body = gram_get(qn); }
     if (!body) return NULL;
     int fl = gram_get_flavor(qn);
     *flags = fl == 0 ? RXF_R : fl == 1 ? (RXF_R | RXF_S) : 0;
+    const char *tb = body;
+    while (*tb == ' ' || *tb == '\t' || *tb == '\n') tb++;
+    if (tb[0] == '*') {
+        size_t cap = 16;
+        for (int i = 0; i < gram_n; i++) cap += strlen(GRAM(i).qname) + 8;
+        char *o = (char *) rt_wsb_alloc(cap);
+        size_t k = 0;
+        char pre[strlen(gname) + (size_t) nlen + 4];
+        snprintf(pre, sizeof pre, "%s::%.*s:", gname, nlen, name);
+        o[k++] = '[';
+        int any = 0;
+        for (int i = 0; i < gram_n; i++) {
+            const char *qi = GRAM(i).qname;
+            if (strncmp(qi, pre, strlen(pre))) continue;
+            const char *cand = qi + strlen(gname) + 2;
+            if (any) { o[k++] = ' '; o[k++] = '|'; o[k++] = ' '; }
+            o[k++] = '<';
+            o[k++] = '.';
+            size_t l = strlen(cand);
+            memcpy(o + k, cand, l);
+            k += l;
+            o[k++] = '>';
+            any = 1;
+        }
+        if (!any) { o[k++] = '<'; o[k++] = '!'; o[k++] = '>'; }
+        o[k++] = ']';
+        o[k] = 0;
+        return o;
+    }
+    int sl = 0;
+    const char *sym = rk_rx_sym_of(name, nlen, &sl);
+    if (sym && strstr(body, "<sym>")) {
+        size_t cap = strlen(body) + (size_t) sl * 4 + 32;
+        char *o = (char *) rt_wsb_alloc(cap);
+        size_t k = 0;
+        for (const char *b = body; *b;) {
+            if (!strncmp(b, "<sym>", 5)) {
+                memcpy(o + k, "$<sym>='", 8);
+                k += 8;
+                for (int j = 0; j < sl; j++) { if (sym[j] == '\\' || sym[j] == '\'') o[k++] = '\\'; o[k++] = sym[j]; }
+                o[k++] = '\'';
+                b += 5;
+            } else o[k++] = *b++;
+        }
+        o[k] = 0;
+        return o;
+    }
     return body;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -864,7 +923,8 @@ static void rk_rx_to_match(Match *gm, const RxProg *p, const RxMatch *rm) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out) {
+static void rk_apply_actions(DESCR_t m, DESCR_t actions, DESCR_t key);
+static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out, int partial, DESCR_t actions) {
     if (!gname) gname = "";
     if (!subj) subj = "";
     char qn[fmt_len("%s::TOP", gname)];
@@ -878,9 +938,10 @@ static int grammar_parse_core(const char *gname, const char *subj, DESCR_t *out)
     int slen = (int) strlen(subj);
     RxMatch rm;
     Match m;
-    int ok = rx_exec(prog, subj, slen, 0, 3, &rm);
+    int ok = rx_exec(prog, subj, slen, 0, partial ? 1 : 3, &rm);
     rk_rx_to_match(&m, prog, &rm);
     *out = ok ? rk_match_obj_in(&m, subj, STRVAL(rt_heap_strdup_c(subj))) : rk_match_nil();
+    if (ok && actions.v != 0 && !IS_FAIL_fn(actions)) rk_apply_actions(*out, actions, STRVAL("TOP"));
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1076,6 +1137,244 @@ static void rk_arr_append(ARBLK_t *b, DESCR_t v) {
     if ((size_t) n + 1 > cap) { size_t nc = 2 * cap > (size_t) n + 1 ? 2 * cap : (size_t) n + 1; b->data = (DESCR_t *) rt_gcheap_grow_block(b->data, HB_DVEC, nc * sizeof(DESCR_t)); }
     b->data[n] = v;
     b->hi++;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { long mode, posv, xmin, xmax; const long *nth; int nnth; } RkRxOpt;
+static int rk_rx_cp_to_byte(const char *s, long cp) { int i = 0; while (cp > 0 && s[i]) { i++; while (((unsigned char) s[i] & 0xC0) == 0x80) i++; cp--; } return i; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_rx_step(const char *s, int slen, int pos) { if (pos >= slen) return pos + 1; int l = 1; while (pos + l < slen && ((unsigned char) s[pos + l] & 0xC0) == 0x80) l++; return pos + l; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_rx_collect(const RxProg *prog, const char *subj, const RkRxOpt *o, DESCR_t *out) {
+    int slen = (int) strlen(subj), start = 0, anchored = 0;
+    if (o->mode & 8) start = rk_rx_cp_to_byte(subj, o->posv);
+    if (o->mode & 16) { start = rk_rx_cp_to_byte(subj, o->posv); anchored = 1; }
+    int stream = (o->mode & (1 | 2 | 4 | 32 | 64)) != 0;
+    long maxnth = 0;
+    for (int k = 0; k < o->nnth; k++) if (o->nth[k] > maxnth) maxnth = o->nth[k];
+    DESCR_t gorig = STRVAL(rt_heap_strdup_c(subj));
+    DESCR_t *mr = (DESCR_t *) rt_ws_alloc_descr((size_t) slen + 2);
+    int count = 0, pos = start;
+    long seen = 0;
+    g_subject = subj;
+    while (pos <= slen) {
+        RxMatch rm;
+        if (!rx_exec(prog, subj, slen, pos, anchored, &rm)) break;
+        seen++;
+        int take = 1;
+        if (o->nnth) { take = 0; for (int k = 0; k < o->nnth; k++) if (o->nth[k] == seen) take = 1; }
+        if (take) { rk_rx_to_match(&g_match, prog, &rm); mr[count++] = rk_match_obj_in(&g_match, subj, gorig); }
+        if (!stream) break;
+        if ((o->mode & 32) && o->xmax >= 0 && count >= o->xmax) break;
+        if (maxnth && seen >= maxnth && !(o->mode & 1)) break;
+        pos = (o->mode & 2) ? rk_rx_step(subj, slen, rm.from) : (rm.to > rm.from ? rm.to : rk_rx_step(subj, slen, rm.to));
+        if (anchored) break;
+    }
+    if (count == 0 || ((o->mode & 32) && count < o->xmin)) { memset(&g_match, 0, sizeof g_match); *out = FAILDESCR; return 0; }
+    if (!stream) { *out = mr[0]; return 1; }
+    if (o->nnth == 1 && !(o->mode & (1 | 2 | 4 | 32))) { *out = mr[0]; return 1; }
+    *out = rk_mk_arr(mr, count);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_quoted(const char *s) {
+    size_t n = strlen(s);
+    char *o = (char *) rt_wsb_alloc(n * 2 + 3);
+    size_t k = 0;
+    o[k++] = '\'';
+    for (size_t i = 0; i < n; i++) { if (s[i] == '\\' || s[i] == '\'') o[k++] = '\\'; o[k++] = s[i]; }
+    o[k++] = '\'';
+    o[k] = 0;
+    return STRVAL(o);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_rx_piece(DESCR_t v, int as_source, char *scratch, size_t scap) {
+    const char *rx = rk_rx_pat(v);
+    if (rx) return rx;
+    const char *t = to_cstring(v, scratch, scap);
+    (void) as_source;
+    return t ? t : "";
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_concat3(const char *a, const char *b, const char *c) {
+    size_t la = strlen(a), lb = strlen(b), lc = strlen(c);
+    char *o = (char *) rt_wsb_alloc(la + lb + lc + 1);
+    memcpy(o, a, la);
+    memcpy(o + la, b, lb);
+    memcpy(o + la + lb, c, lc);
+    o[la + lb + lc] = 0;
+    return STRVAL(o);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_interp_item(DESCR_t v, int as_source) {
+    char sb[64];
+    const char *rx = rk_rx_pat(v);
+    if (rx) return rk_rx_concat3("[", rx, "]");
+    const char *t = rk_rx_piece(v, as_source, sb, sizeof sb);
+    if (as_source) return rk_rx_concat3("[", t, "]");
+    return rk_rx_quoted(t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_interp_list(DESCR_t arr, int as_source) {
+    rk_av_t a = rk_av(arr);
+    if (a.n == 0) return STRVAL(rt_heap_strdup_c("<!>"));
+    size_t cap = 8;
+    for (int i = 0; i < a.n; i++) { char sb[64]; const char *t = rk_rx_piece(a.el[i], as_source, sb, sizeof sb); cap += strlen(t) * 2 + 8; }
+    char *o = (char *) rt_wsb_alloc(cap);
+    size_t k = 0;
+    o[k++] = '[';
+    for (int i = 0; i < a.n; i++) {
+        DESCR_t it = rk_rx_interp_item(a.el[i], as_source);
+        const char *t = it.s ? it.s : "";
+        if (i) { o[k++] = ' '; o[k++] = '|'; o[k++] = ' '; }
+        size_t l = strlen(t);
+        memcpy(o + k, t, l);
+        k += l;
+    }
+    o[k++] = ']';
+    o[k] = 0;
+    return STRVAL(o);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_rx_piece_str(const char *s, int from, int to) {
+    int n = to > from ? to - from : 0;
+    char *t = (char *) rt_wsb_alloc((size_t) n + 1);
+    if (n) memcpy(t, s + from, (size_t) n);
+    t[n] = 0;
+    return STRVAL(t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_rx_subst_run(DESCR_t subjD, DESCR_t patD, DESCR_t replD, const RkRxOpt *o, DESCR_t *out) {
+    DESCR_t items[3] = { subjD, patD, replD };
+    rk_cbh_t H = { g_rk_cbh_cur, { rk_mk_arr(items, 3), rk_mk_arr(NULL, 0) } };
+    g_rk_cbh_cur = &H;
+    int iscode = rk_is_code(replD), nrf = iscode ? rk_blk_nref(replD) : 0;
+    DESCR_t rfs[nrf ? nrf : 1];
+    rk_cb_t cb = iscode ? rk_blk_snap(replD, rfs) : (rk_cb_t) { NULL, 0 };
+    int anchored = 0, pos = 0, last_end = 0, count = 0, nondestructive = (o->mode & 128) != 0;
+    int stream = (o->mode & (1 | 2 | 4 | 32 | 64)) != 0;
+    long seen = 0, maxnth = 0;
+    for (int k = 0; k < o->nnth; k++) if (o->nth[k] > maxnth) maxnth = o->nth[k];
+    { const char *s0 = rk_cstr(rk_av_elem(rk_av(H.d[0]), 0)); if (o->mode & 8) pos = rk_rx_cp_to_byte(s0, o->posv); if (o->mode & 16) { pos = rk_rx_cp_to_byte(s0, o->posv); anchored = 1; } }
+    if (pos > 0) { const char *s0 = rk_cstr(rk_av_elem(rk_av(H.d[0]), 0)); last_end = pos <= (int) strlen(s0) ? pos : 0; }
+    for (;;) {
+        rk_av_t hv = rk_av(H.d[0]);
+        const char *subj = rk_cstr(hv.el[0]), *pat = rk_cstr(hv.el[1]);
+        int slen = (int) strlen(subj);
+        if (pos > slen) break;
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+        RxMatch rm;
+        if (!prog || !rx_exec(prog, subj, slen, pos, anchored, &rm)) break;
+        seen++;
+        int take = 1;
+        if (o->nnth) { take = 0; for (int k = 0; k < o->nnth; k++) if (o->nth[k] == seen) take = 1; }
+        if (take) {
+            rk_rx_to_match(&g_match, prog, &rm);
+            g_subject = subj;
+            rk_arr_append((ARBLK_t *) H.d[1].arr, rk_rx_piece_str(subj, last_end, rm.from));
+            DESCR_t rv;
+            if (iscode) { rt_call_args_need(1); rv = rk_call_snap(cb, rfs, 0); } else rv = rk_av_elem(rk_av(H.d[0]), 2);
+            char rb[64];
+            const char *rt = to_cstring(rv, rb, sizeof rb);
+            DESCR_t rs = STRVAL(rt_heap_strdup_c(rt ? rt : ""));
+            rk_arr_append((ARBLK_t *) H.d[1].arr, rs);
+            last_end = rm.to;
+            count++;
+        }
+        if (!stream) break;
+        if (maxnth && seen >= maxnth && !(o->mode & 1)) break;
+        if ((o->mode & 32) && o->xmax >= 0 && count >= o->xmax) break;
+        {
+            const char *s1 = rk_cstr(rk_av_elem(rk_av(H.d[0]), 0));
+            int sl1 = (int) strlen(s1);
+            pos = (o->mode & 2) ? rk_rx_step(s1, sl1, rm.from) : (rm.to > rm.from ? rm.to : rk_rx_step(s1, sl1, rm.to));
+        }
+        if (anchored) break;
+    }
+    g_rk_cbh_cur = H.prev;
+    if (count == 0 || ((o->mode & 32) && count < o->xmin)) { if (nondestructive) { *out = rk_av_elem(rk_av(H.d[0]), 0); return 1; } *out = FAILDESCR; return 0; }
+    const char *subj = rk_cstr(rk_av_elem(rk_av(H.d[0]), 0));
+    int slen = (int) strlen(subj);
+    rk_arr_append((ARBLK_t *) H.d[1].arr, rk_rx_piece_str(subj, last_end, slen));
+    rk_av_t pv = rk_av(H.d[1]);
+    size_t total = 0;
+    for (int i = 0; i < pv.n; i++) total += strlen(rk_cstr(pv.el[i]));
+    char *res = (char *) rt_str_alloc((long) total + 1);
+    size_t k = 0;
+    for (int i = 0; i < pv.n; i++) { const char *t = rk_cstr(pv.el[i]); size_t l = strlen(t); memcpy(res + k, t, l); k += l; }
+    res[k] = 0;
+    *out = STRVAL(res);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_tr_cp(const char *s, int *i) {
+    unsigned char c = (unsigned char) s[*i];
+    if (c < 0x80) { (*i)++; return c; }
+    int k = c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : 2, v = c & (0x7F >> k);
+    (*i)++;
+    for (int j = 1; j < k && s[*i]; j++, (*i)++) v = (v << 6) | (s[*i] & 0x3F);
+    return v;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_tr_atom(const char *s, int *i) {
+    if (s[*i] != '\\') return rk_tr_cp(s, i);
+    (*i)++;
+    char e = s[*i];
+    if (e == 'x' || e == 'X') {
+        (*i)++;
+        int br = s[*i] == '[';
+        if (br) (*i)++;
+        int v = 0;
+        while (isxdigit((unsigned char) s[*i])) { v = v * 16 + (isdigit((unsigned char) s[*i]) ? s[*i] - '0' : (tolower((unsigned char) s[*i]) - 'a' + 10)); (*i)++; }
+        if (br && s[*i] == ']') (*i)++;
+        return v;
+    }
+    (*i)++;
+    switch (e) { case 'n': return 10; case 't': return 9; case 'r': return 13; case 'e': return 27; case '0': return 0; case 'f': return 12; case 'a': return 7; default: return (unsigned char) e; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_tr_expand(const char *s, unsigned *out) {
+    int i = 0, n = 0;
+    while (s[i]) {
+        unsigned a = (unsigned) rk_tr_atom(s, &i);
+        if (s[i] == '.' && s[i + 1] == '.' && s[i + 2]) {
+            i += 2;
+            unsigned b = (unsigned) rk_tr_atom(s, &i);
+            for (unsigned c = a; c <= b; c++) { if (out) out[n] = c; n++; }
+        } else {
+            if (out) out[n] = a;
+            n++;
+        }
+    }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_trans_run(const char *subj, const char *search, const char *repl, long flags) {
+    int ns = rk_tr_expand(search, NULL), nr = rk_tr_expand(repl, NULL);
+    unsigned sa[ns + 1], ra[nr + 1];
+    rk_tr_expand(search, sa);
+    rk_tr_expand(repl, ra);
+    int complement = (flags & 1) != 0, del = (flags & 2) != 0 || nr == 0, squash = (flags & 4) != 0;
+    size_t n = strlen(subj);
+    char *o = (char *) rt_wsb_alloc(n * 4 + 8);
+    size_t k = 0;
+    int last_out = -1, last_mapped = 0;
+    for (int i = 0; subj[i];) {
+        int cp = rk_tr_cp(subj, &i), idx = -1;
+        for (int j = 0; j < ns; j++) if ((int) sa[j] == cp) { idx = j; break; }
+        int hit = complement ? idx < 0 : idx >= 0;
+        if (!hit) { k += rk_utf8_put((unsigned) cp, o + k); last_out = -1; last_mapped = 0; continue; }
+        int rc;
+        if (complement) rc = nr ? (int) ra[nr - 1] : -1;
+        else rc = idx < nr ? (int) ra[idx] : (del ? -1 : (int) ra[nr - 1]);
+        if (rc < 0) { last_mapped = 0; continue; }
+        if (squash && last_mapped && last_out == rc) continue;
+        k += rk_utf8_put((unsigned) rc, o + k);
+        last_out = rc;
+        last_mapped = 1;
+    }
+    o[k] = 0;
+    return STRVAL(rt_heap_strdup_c(o));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_txt_elem(const char *t, size_t L) {
@@ -8501,6 +8800,102 @@ static int rk_list_coercion_meth(const char *m, int nargs) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_cp_to_byte(const char *s, int cp) { int b = 0; while (cp > 0 && s[b]) { b++; while (((unsigned char) s[b] & 0xC0) == 0x80) b++; cp--; } return b; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_match_ncaps(DESCR_t d) {
+    DESCR_t pa = FIELD_GET_fn(d, "positional"), na = FIELD_GET_fn(d, "named");
+    ARBLK_t *pb = (pa.v == DT_A && pa.arr) ? (ARBLK_t *) pa.arr : NULL;
+    int np = pb ? pb->hi - pb->lo + 1 : 0, total = 0;
+    DESCR_t hn = rk_hash_list(na, 'w');
+    ARBLK_t *hb = (hn.v == DT_A && hn.arr) ? (ARBLK_t *) hn.arr : NULL;
+    int nh = hb ? (hb->hi - hb->lo + 1) / 2 : 0;
+    for (int i = 0; i < np; i++) { rk_av_t v = rk_av(pb->data[i]); total += (pb->data[i].v == DT_A && v.n) ? v.n : 1; }
+    for (int i = 0; i < nh; i++) { rk_av_t v = rk_av(hb->data[2 * i + 1]); total += (hb->data[2 * i + 1].v == DT_A && v.n) ? v.n : 1; }
+    return total;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_match_caps_fill(DESCR_t d, DESCR_t *keys, DESCR_t *vals, long *from) {
+    DESCR_t pa = FIELD_GET_fn(d, "positional"), na = FIELD_GET_fn(d, "named");
+    ARBLK_t *pb = (pa.v == DT_A && pa.arr) ? (ARBLK_t *) pa.arr : NULL;
+    int np = pb ? pb->hi - pb->lo + 1 : 0, n = 0;
+    DESCR_t hn = rk_hash_list(na, 'w');
+    ARBLK_t *hb = (hn.v == DT_A && hn.arr) ? (ARBLK_t *) hn.arr : NULL;
+    int nh = hb ? (hb->hi - hb->lo + 1) / 2 : 0;
+    for (int i = 0; i < np + nh; i++) {
+        DESCR_t key = i < np ? INTVAL(i) : hb->data[2 * (i - np)], val = i < np ? pb->data[i] : hb->data[2 * (i - np) + 1];
+        rk_av_t items = rk_av(val);
+        int cnt = (val.v == DT_A) ? items.n : 1;
+        for (int k = 0; k < cnt; k++) {
+            DESCR_t it = (val.v == DT_A) ? items.el[k] : val;
+            if (!IS_DATA_INST_fn(it) || !FIELD_GET_fn(it, "ok").i) continue;
+            keys[n] = key;
+            vals[n] = it;
+            from[n] = FIELD_GET_fn(it, "from").i;
+            n++;
+        }
+    }
+    for (int i = 1; i < n; i++) for (int j = i; j > 0 && from[j - 1] > from[j]; j--) {
+        DESCR_t tk = keys[j];
+        keys[j] = keys[j - 1];
+        keys[j - 1] = tk;
+        DESCR_t tv = vals[j];
+        vals[j] = vals[j - 1];
+        vals[j - 1] = tv;
+        long tf = from[j];
+        from[j] = from[j - 1];
+        from[j - 1] = tf;
+    }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_apply_actions(DESCR_t m, DESCR_t actions, DESCR_t key) {
+    rk_cbh_t H = { g_rk_cbh_cur, { m, actions } };
+    g_rk_cbh_cur = &H;
+    for (int i = 0;; i++) {
+        int total = rk_match_ncaps(H.d[0]);
+        DESCR_t keys[total + 1], vals[total + 1];
+        long from[total + 1];
+        int n = rk_match_caps_fill(H.d[0], keys, vals, from);
+        if (i >= n) break;
+        rk_apply_actions(vals[i], H.d[1], keys[i]);
+    }
+    if (IS_STR_fn(key) && key.s && key.s[0] != RK_TY) {
+        const char *cname = rk_typeobj_name(H.d[1]);
+        if (!cname && IS_STR_fn(H.d[1]) && H.d[1].s) cname = H.d[1].s;
+        if (!cname && H.d[1].v == DT_DATA && IS_DATA_INST_fn(H.d[1]) && H.d[1].u) { DATINST_t *di = (DATINST_t *) H.d[1].u; cname = di->type ? di->type->name : NULL; }
+        if (cname) {
+            char kb[256];
+            const char *kn = to_cstring(key, kb, sizeof kb);
+            const char *tryk[2] = { kn, NULL };
+            char symk[320];
+            {
+                DESCR_t hn = rk_hash_list(FIELD_GET_fn(H.d[0], "named"), 'w');
+                ARBLK_t *hb = (hn.v == DT_A && hn.arr) ? (ARBLK_t *) hn.arr : NULL;
+                int nh = hb ? (hb->hi - hb->lo + 1) / 2 : 0;
+                for (int q = 0; q < nh; q++) {
+                    char sb[64];
+                    const char *kk = to_cstring(hb->data[2 * q], sb, sizeof sb);
+                    if (kk && !strcmp(kk, "sym") && IS_DATA_INST_fn(hb->data[2 * q + 1])) {
+                        char tb[128];
+                        const char *tt = to_cstring(FIELD_GET_fn(hb->data[2 * q + 1], "text"), tb, sizeof tb);
+                        snprintf(symk, sizeof symk, "%s:sym<%s>", kn, tt ? tt : "");
+                        tryk[1] = symk;
+                    }
+                }
+            }
+            for (int t = 0; t < 2; t++) {
+                if (!tryk[t]) continue;
+                int fidx;
+                const char *rmc = resolve_method_chain(cname, tryk[t], &fidx);
+                char procname[strlen(rmc) + strlen(tryk[t]) + 4];
+                snprintf(procname, sizeof procname, "%s__%s", rmc, tryk[t]);
+                if (!meth_is_user_proc(procname)) continue;
+                DESCR_t ca[2] = { H.d[1], H.d[0] };
+                invoke_method_proc(procname, ca, 2);
+            }
+        }
+    }
+    g_rk_cbh_cur = H.prev;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_match_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
     DESCR_t d = args[0];
     int ok = (int) FIELD_GET_fn(d, "ok").i;
@@ -8527,6 +8922,51 @@ static int rk_match_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out
         memcpy(t, st, len);
         t[len] = '\0';
         *out = STRVAL(t);
+        return 1;
+    }
+    if (!strcmp(m, "Int") || !strcmp(m, "Num") || !strcmp(m, "Numeric") || !strcmp(m, "Real") || !strcmp(m, "Rat")) {
+        char nb[64];
+        const char *t = to_cstring(FIELD_GET_fn(d, "text"), nb, sizeof nb);
+        if (!t) t = "";
+        char *e;
+        long long iv = strtoll(t, &e, 10);
+        if (!strcmp(m, "Int") || (!strcmp(m, "Numeric") && !*e && *t)) { *out = INTVAL(iv); return 1; }
+        *out = (DESCR_t){ .v = DT_R, .r = strtod(t, NULL) };
+        return 1;
+    }
+    if (!strcmp(m, "put") || !strcmp(m, "note") || !strcmp(m, "print")) {
+        char nb[64];
+        const char *t = to_cstring(FIELD_GET_fn(d, "text"), nb, sizeof nb);
+        if (m[0] == 'n') fprintf(stderr, "%s\n", t ? t : "");
+        else printf("%s%s", t ? t : "", m[1] == 'u' ? "\n" : "");
+        *out = (DESCR_t){ .v = DT_BOOL, .i = 1 };
+        return 1;
+    }
+    if (!strcmp(m, "made") || !strcmp(m, "ast")) { DESCR_t mv = FIELD_GET_fn(d, "made"); *out = mv; return 1; }
+    if (!strcmp(m, "caps") || !strcmp(m, "chunks")) {
+        int chunks = m[1] == 'h';
+        int total = rk_match_ncaps(d);
+        DESCR_t keys[total + 1], vals[total + 1];
+        long from[total + 1];
+        int n = rk_match_caps_fill(d, keys, vals, from);
+        DESCR_t r[2 * n + 3];
+        int rn = 0;
+        if (!chunks) { for (int i = 0; i < n; i++) r[rn++] = rk_mk_pair(keys[i], vals[i]); *out = rk_mk_arr(r, rn); return 1; }
+        const char *txt = VARVAL_fn(FIELD_GET_fn(d, "text"));
+        if (!txt) txt = "";
+        long base = FIELD_GET_fn(d, "from").i, cur = 0, tlen = (long) utf8_strlen(txt);
+        for (int i = 0; i <= n; i++) {
+            long stop = i < n ? from[i] - base : tlen;
+            if (stop > cur) {
+                int b0 = rk_cp_to_byte(txt, (int) cur), b1 = rk_cp_to_byte(txt, (int) stop);
+                char *t = (char *) rt_wsb_alloc((size_t) (b1 - b0) + 1);
+                memcpy(t, txt + b0, (size_t) (b1 - b0));
+                t[b1 - b0] = 0;
+                r[rn++] = rk_mk_pair(STRVAL(rt_heap_strdup_c("~")), STRVAL(t));
+            }
+            if (i < n) { r[rn++] = rk_mk_pair(keys[i], vals[i]); cur = FIELD_GET_fn(vals[i], "to").i - base; }
+        }
+        *out = rk_mk_arr(r, rn);
         return 1;
     }
     if (!strcmp(m, "keys") || !strcmp(m, "values") || !strcmp(m, "pairs") || !strcmp(m, "kv")) {
@@ -12489,9 +12929,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             *out = dat_construct(dt, fvals, dt->nfields);
             return 1;
         }
-        if (mname0 && !strcmp(mname0, "parse") && nargs == 3) {
+        if (mname0 && (!strcmp(mname0, "parse") || !strcmp(mname0, "subparse")) && nargs >= 3) {
             const char *gname = VARVAL_fn(args[0]);
-            if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
+            if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out, mname0[0] == 's', nargs > 3 ? args[3] : (DESCR_t) { 0 }); }
         }
         if (mname0 && rk_match_is(args[0]) && rk_match_method(mname0, args, nargs, out)) return 1;
         if (mname0 && rk_qh_hook(mname0, args, nargs, out)) return 1;
@@ -12725,6 +13165,75 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = g_match.matched ? rk_match_obj(&g_match, subj) : FAILDESCR;
         return 1;
     }
+    if (!strcmp(fn, "__rk_make") && nargs == 2) { if (IS_DATA_INST_fn(args[0])) FIELD_SET_fn(args[0], "made", args[1]); *out = args[1]; return 1; }
+    if ((!strcmp(fn, "__rk_cap_named") || !strcmp(fn, "__rk_cap_pos")) && nargs == 2) {
+        *out = NULVCL;
+        if (!IS_DATA_INST_fn(args[0])) return 1;
+        if (fn[9] == 'n') {
+            char kb[128];
+            const char *key = to_cstring(args[1], kb, sizeof kb);
+            DESCR_t hn = rk_hash_list(FIELD_GET_fn(args[0], "named"), 'w');
+            ARBLK_t *hb = (hn.v == DT_A && hn.arr) ? (ARBLK_t *) hn.arr : NULL;
+            int nh = hb ? (hb->hi - hb->lo + 1) / 2 : 0;
+            for (int q = 0; q < nh && key; q++) { char sb[128]; const char *kk = to_cstring(hb->data[2 * q], sb, sizeof sb); if (kk && !strcmp(kk, key)) { *out = hb->data[2 * q + 1]; break; } }
+        } else {
+            DESCR_t pa = FIELD_GET_fn(args[0], "positional");
+            long i = IS_INT_fn(args[1]) ? args[1].i : 0;
+            ARBLK_t *pb = (pa.v == DT_A && pa.arr) ? (ARBLK_t *) pa.arr : NULL;
+            if (pb && i >= 0 && i < pb->hi - pb->lo + 1) *out = pb->data[i];
+        }
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_numify") && nargs == 1) {
+        *out = args[0];
+        if (IS_DATA_INST_fn(args[0]) && FIELD_GET_fn(args[0], "text").v != 0) {
+            char nb[64];
+            const char *t = to_cstring(FIELD_GET_fn(args[0], "text"), nb, sizeof nb);
+            char *e;
+            long long iv = t ? strtoll(t, &e, 10) : 0;
+            if (t && *t && !*e) *out = INTVAL(iv);
+            else *out = (DESCR_t){ .v = DT_R, .r = t ? strtod(t, NULL) : 0.0 };
+        }
+        return 1;
+    }
+    if (!strcmp(fn, "re_trans") && nargs == 4) {
+        char sb[64], pb[512], rb[512];
+        const char *sj = to_cstring(args[0], sb, sizeof sb), *se = to_cstring(args[1], pb, sizeof pb), *rp = to_cstring(args[2], rb, sizeof rb);
+        *out = rk_trans_run(sj ? sj : "", se ? se : "", rp ? rp : "", args[3].i);
+        return 1;
+    }
+    if (!strcmp(fn, "re_subst") && nargs >= 7) {
+        long nth[nargs - 7 > 0 ? nargs - 7 : 1];
+        for (int i = 7; i < nargs; i++) nth[i - 7] = args[i].i;
+        RkRxOpt o = { args[3].i, args[4].i, args[5].i, args[6].i, nth, nargs - 7 };
+        DESCR_t pd = args[1];
+        if (rk_rx_pat(pd)) pd = STRVAL((char *) rk_rx_pat(pd));
+        DESCR_t sd = args[0];
+        char sbuf[64];
+        if (!IS_STR_fn(sd)) { const char *t = to_cstring(sd, sbuf, sizeof sbuf); sd = STRVAL(rt_heap_strdup_c(t ? t : "")); }
+        rk_rx_subst_run(sd, pd, args[2], &o, out);
+        return 1;
+    }
+    if ((!strcmp(fn, "re_matchx") || !strcmp(fn, "re_testx")) && nargs >= 6) {
+        const char *subj = VARVAL_fn(args[0]);
+        if (!subj) subj = "";
+        const char *pat = VARVAL_fn(args[1]);
+        if (!pat) pat = "";
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+        if (!prog) { *out = FAILDESCR; return 1; }
+        long nth[nargs - 6 > 0 ? nargs - 6 : 1];
+        for (int i = 6; i < nargs; i++) nth[i - 6] = args[i].i;
+        RkRxOpt o = { args[2].i, args[3].i, args[4].i, args[5].i, nth, nargs - 6 };
+        DESCR_t r;
+        int ok = rk_rx_collect(prog, subj, &o, &r);
+        *out = ok ? (fn[6] == 't' ? INTVAL(1) : r) : FAILDESCR;
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_rxq") && nargs == 1) { *out = rk_rx_interp_item(args[0], 0); return 1; }
+    if (!strcmp(fn, "__rk_rxsrc") && nargs == 1) { *out = rk_rx_interp_item(args[0], 1); return 1; }
+    if (!strcmp(fn, "__rk_rxalt") && nargs == 1) { *out = rk_rx_interp_list(args[0], 0); return 1; }
+    if (!strcmp(fn, "__rk_rxsrcalt") && nargs == 1) { *out = rk_rx_interp_list(args[0], 1); return 1; }
     if (!strcmp(fn, "re_test") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]);
         if (!subj) subj = "";
@@ -12765,7 +13274,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = INTVAL(1);
         return 1;
     }
-    if (!strcmp(fn, "grammar_parse") && nargs == 2) { const char *gname = VARVAL_fn(args[0]); const char *subj = VARVAL_fn(args[1]); return grammar_parse_core(gname, subj, out); }
+    if (!strcmp(fn, "grammar_parse") && nargs == 2) { const char *gname = VARVAL_fn(args[0]); const char *subj = VARVAL_fn(args[1]); return grammar_parse_core(gname, subj, out, 0, (DESCR_t) { 0 }); }
     if (!strcmp(fn, "re_match_global") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]);
         if (!subj) subj = "";
@@ -13646,7 +14155,7 @@ static void rk_match_gist_into(DESCR_t d, int depth, char *b, size_t *bp) {
     rk_cap_t cs[nc > 0 ? nc : 1];
     rk_match_caps(d, cs, nc);
     for (int i = 1; i < nc; i++) { rk_cap_t t = cs[i]; int j = i - 1; while (j >= 0 && cs[j].from > t.from) { cs[j + 1] = cs[j]; j--; } cs[j + 1] = t; }
-    for (int i = 0; i < nc; i++) { *bp += (size_t) sprintf(b + *bp, "\n%*s%s => ", depth * 2 + 1, "", cs[i].label); rk_match_gist_into(cs[i].m, depth + 1, b, bp); }
+    for (int i = 0; i < nc; i++) { *bp += (size_t) sprintf(b + *bp, "\n%*s%s => ", depth + 1, "", cs[i].label); rk_match_gist_into(cs[i].m, depth + 1, b, bp); }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_match_render(DESCR_t d, int use_gist) {

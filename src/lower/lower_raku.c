@@ -511,6 +511,15 @@ static IR_t * lower_cond(rcx_t * cx, const tree_t * c, IR_t * on_true, IR_t * on
     if (c->t == TT_NOT && c->n > 0) return lower_cond(cx, c->c[0], on_false, on_true);
     if (c->t == TT_ALT && c->n > 1) { IR_t * rhs = lower_cond(cx, c->c[1], on_true, on_false); return lower_cond(cx, c->c[0], on_true, rhs); }
     if (c->t == TT_SEQ && c->n > 1) { IR_t * rhs = lower_cond(cx, c->c[1], on_true, on_false); return lower_cond(cx, c->c[0], rhs, on_false); }
+    if (c->t == TT_SMATCH && c->n > 3 && c->c[3] && c->c[2] && c->c[2]->v.sval && !strcmp(c->c[2]->v.sval, "match")) {
+        tree_t * call = ast_node_new(TT_FNC);
+        call->line = c->line;
+        ast_push(call, c->c[0]);
+        ast_push(call, c->c[1]);
+        for (int k = 1; k < c->c[3]->n; k++) ast_push(call, c->c[3]->c[k]);
+        IR_t * res = NULL;
+        return lower_rcall(cx, call, "re_testx", 0, on_true, on_false, &res);
+    }
     if (c->t == TT_SMATCH && c->n > 2 && c->c[2] && c->c[2]->v.sval && !strcmp(c->c[2]->v.sval, "match")) {
         IR_t * nd = build(cx, IR_CALL, on_true, on_false);
         IR_LIT(nd).sval = "re_test";
@@ -1522,6 +1531,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         if (t->n >= 1 && t->c[0]) return lower_rv(cx, rk_case_desugar(t), γ, ω, res);
         return rk_excise(cx, γ, ω, res);
         case TT_SMATCH:
+        if (t->n > 3 && t->c[3] && t->c[2] && t->c[2]->v.sval && !strcmp(t->c[2]->v.sval, "match")) {
+            tree_t * call = ast_node_new(TT_FNC);
+            call->line = t->line;
+            ast_push(call, t->c[0]);
+            ast_push(call, t->c[1]);
+            for (int k = 1; k < t->c[3]->n; k++) ast_push(call, t->c[3]->c[k]);
+            return lower_rcall(cx, call, "re_matchx", 0, γ, ω, res);
+        }
         if (t->n > 2 && t->c[2] && t->c[2]->v.sval && strcmp(t->c[2]->v.sval, "subst")) {
             IR_t * nd = build(cx, IR_CALL, γ, ω);
             IR_LIT(nd).sval = strcmp(t->c[2]->v.sval, "match_global") ? "re_match" : "re_match_global";
@@ -1853,10 +1870,23 @@ static int rk_proc_known(const char * name) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_discover_lexical_regexes(const tree_t * t) {
+    extern void rt_grammar_register(const char *qname, const char *body, int flavor);
+    if (!t || t->t == TT_GRAMMAR_DECL) return;
+    if (t->t == TT_REGEX_DECL) {
+        const char * rname = (t->n > 0 && t->c[0] && t->c[0]->v.sval) ? t->c[0]->v.sval : NULL;
+        const char * body = (t->n > 1 && t->c[1] && t->c[1]->v.sval) ? t->c[1]->v.sval : NULL;
+        if (rname && body) { char qn[fmt_len("::%s", rname)]; snprintf(qn, sizeof qn, "::%s", rname); rt_grammar_register(qn, body, (int) t->v.ival); }
+        return;
+    }
+    for (int i = 0; i < t->n; i++) rk_discover_lexical_regexes(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_discover_grammars(const tree_t * prog) {
     extern void rt_grammar_register(const char *qname, const char *body, int flavor);
     g_rk_gram_names.len = 0;
     if (!prog) return;
+    rk_discover_lexical_regexes(prog);
     for (int i = 0; i < prog->n; i++) {
         const tree_t * d = prog->c[i];
         if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
@@ -3565,7 +3595,7 @@ static void rk_alpha_name(char * out, size_t cap, const char * base, int n) {
     for (int i = 0, j = k - 1; i < j; i++, j--) { char c = sfx[i]; sfx[i] = sfx[j]; sfx[j] = c; }
     snprintf(out, cap, "%sZ%s", base, sfx);
 }
-static int rk_is_type_decl(const tree_t * d) { return d && (d->t == TT_CLASS_DECL || d->t == TT_ROLE_DECL); }
+static int rk_is_type_decl(const tree_t * d) { return d && (d->t == TT_CLASS_DECL || d->t == TT_ROLE_DECL || d->t == TT_GRAMMAR_DECL); }
 static const char * rk_decl_name(const tree_t * d) { return (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_count_type_decls(const tree_t * t) { if (!t) return 0; int n = rk_is_type_decl(t) ? 1 : 0; for (int i = 0; i < t->n; i++) n += rk_count_type_decls(t->c[i]); return n; }
