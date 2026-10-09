@@ -13,6 +13,8 @@
 #       and src/emitter/** (asm_callees)
 #   (b) C functions that TRANSITIVELY REACH an asm activation entry  -- rt_proc_enter & siblings, computed (asm_entries)
 # Anything in both is an ASM -> C -> ASM road.
+# PRINTS one line per road (its shortest path to an asm entry), then BY_ENTRY entry=E roads=N witness=F per asm entry a
+# shortest road ends at, largest class first (the cto 2026-10-09: each class is rowed with its witness), then COUNT=N.
 #
 # ⛔ LIMITATIONS, STATED SO NOBODY READS THIS AS COMPLETE.  It is a STATIC, NAME-BASED call graph over src/runtime/**.c:
 #   1. INDIRECT CALLS ARE INVISIBLE.  A call through a function pointer (p->fn, a dtp slot, a jump table) is not an edge
@@ -161,9 +163,13 @@ def main():
     print("    C functions parsed %d · asm entries %d · reaching an asm entry %d · called from emitted asm %d" %
           (len(g), len(entries), len(reach), len(callees)))
     print("    ASM -> C -> ASM roads: %d" % len(bad))
+    by = collections.defaultdict(list)
     for f in bad:
         p = path(f)
         print("  ⛔ %-30s %s" % (f, " -> ".join(p) if p else "?"))
+        by[p[-1] if p else "?"].append(f)
+    for e in sorted(by, key=lambda e: (-len(by[e]), e)):
+        print("BY_ENTRY entry=%s roads=%d witness=%s" % (e, len(by[e]), by[e][0]))
     print("COUNT=%d" % len(bad))
     return 0
 if __name__ == "__main__": sys.exit(main())
