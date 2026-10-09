@@ -15,6 +15,10 @@
 # Anything in both is an ASM -> C -> ASM road.
 # PRINTS one line per road (its shortest path to an asm entry), then BY_ENTRY entry=E roads=N witness=F per asm entry a
 # shortest road ends at, largest class first (the cto 2026-10-09: each class is rowed with its witness), then COUNT=N.
+# --roads-by-entry (the ceo 2026-10-09, for the C-to-BB removal): instead, for EVERY asm entry, every emitted callee that
+# reaches THAT entry (a road reaching two entries is listed under both), as ROAD entry=E from=F path=F -> ... -> E, then
+# CALLER entry=E caller=C roads=N per C function that calls E directly on those paths (the caller a removal converts or
+# leaves as a bomb), then ENTRY entry=E roads=N; the selftest and COUNT are the same as the default mode's.
 #
 # ⛔ LIMITATIONS, STATED SO NOBODY READS THIS AS COMPLETE.  It is a STATIC, NAME-BASED call graph over src/runtime/**.c:
 #   1. INDIRECT CALLS ARE INVISIBLE.  A call through a function pointer (p->fn, a dtp slot, a jump table) is not an edge
@@ -126,9 +130,12 @@ def asm_callees(root, plant=None):
     return out
 def main():
     root = os.environ.get('S4E_SCRIP') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    plant = sys.argv[2] if len(sys.argv) == 3 and sys.argv[1] == '--plant' else None
-    if len(sys.argv) > 1 and not (plant and os.path.isdir(plant)):
-        print("usage: util_asm_c_asm_census.py [--plant DIR]  (DIR's *.c read as runtime C, its *.cpp as emitter source)")
+    args = sys.argv[1:]
+    per_entry = '--roads-by-entry' in args
+    args = [a for a in args if a != '--roads-by-entry']
+    plant = args[1] if len(args) == 2 and args[0] == '--plant' else None
+    if args and not (plant and os.path.isdir(plant)):
+        print("usage: util_asm_c_asm_census.py [--roads-by-entry] [--plant DIR]  (DIR's *.c read as runtime C, its *.cpp as emitter source)")
         return 2
     entries = asm_entries(root)
     g = build(root, entries, plant)
@@ -146,23 +153,43 @@ def main():
         for f,cs in g.items():
             if f not in reach and (cs & reach): reach.add(f); ch = True
     bad = sorted(callees & set(g) & reach)
-    def path(f):
+    def path(f, goal=None, through=None):
+        goal, through = goal or entries, through or reach
         prev, q = {f: None}, collections.deque([f])
         while q:
             u = q.popleft()
             for c in sorted(g.get(u, ())):
                 if c in prev: continue
                 prev[c] = u
-                if c in entries:
+                if c in goal:
                     p = [c]
                     while prev[p[-1]] is not None: p.append(prev[p[-1]])
                     return p[::-1]
-                if c in reach: q.append(c)
+                if c in through: q.append(c)
         return None
     print("=== NO-ASM->C->ASM CENSUS (selftest OK: the measured road of %s reproduces) ===" % GROUND_TRUTH_TREE)
     print("    C functions parsed %d · asm entries %d · reaching an asm entry %d · called from emitted asm %d" %
           (len(g), len(entries), len(reach), len(callees)))
     print("    ASM -> C -> ASM roads: %d" % len(bad))
+    if per_entry:
+        for e in sorted(entries):
+            re_, ch = {f for f in g if e in g[f]}, True
+            while ch:
+                ch = False
+                for f,cs in g.items():
+                    if f not in re_ and (cs & re_): re_.add(f); ch = True
+            roads = sorted(callees & set(g) & re_)
+            if not roads: continue
+            callers = collections.Counter()
+            for f in roads:
+                p = path(f, {e}, re_)
+                print("ROAD entry=%s from=%s path=%s" % (e, f, " -> ".join(p) if p else "?"))
+                if p and len(p) >= 2: callers[p[-2]] += 1
+            for c, n in sorted(callers.items(), key=lambda x: (-x[1], x[0])):
+                print("CALLER entry=%s caller=%s roads=%d" % (e, c, n))
+            print("ENTRY entry=%s roads=%d" % (e, len(roads)))
+        print("COUNT=%d" % len(bad))
+        return 0
     by = collections.defaultdict(list)
     for f in bad:
         p = path(f)
