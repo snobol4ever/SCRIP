@@ -104,6 +104,9 @@ scan() {  # each file of the population that ends SCRIP's run, named in $T/$L.go
     while [ -s "$rest" ]; do
         run "$rest" "$T/$L.scan"; whole "$T/$L.scan" "$rest" && break
         last="$(grep '^== ' "$T/$L.scan.out" | tail -1 | cut -c4-)"; culprit=""
+        # ⛔ A CRASH CAN CUT THE LAST HEADER MID-WRITE (coo 2026-10-08: "== /home/claude_" on the Icon chain's segfault): a name that is
+        # not a whole line of the list is no culprit, so the one-file search starts at the head of what is left instead.
+        grep -qxF -- "$last" "$rest" || last=""
         while IFS= read -r f; do
             printf '%s\n' "$f" > "$T/$L.one"; TM="$TMO1" run "$T/$L.one" "$T/$L.onerun"; whole "$T/$L.onerun" "$T/$L.one" || { culprit="$f"; break; }
         done < <(awk -v x="$last" 'x == "" || $0 == x { f = 1 } f' "$rest")
@@ -167,9 +170,23 @@ for L in $LANGS; do
     np=$(wc -l < "$T/$L.pop"); [ "$np" -gt 0 ] || { echo "$L ⛔ REFUSE(2): no corpus program ends in .$ext"; RC=2; continue; }
     scan || { echo "$L ⛔ REFUSE(2): SCRIP dies before its first file"; RC=2; continue; }
     grep -vxF -f "$T/$L.gone" "$T/$L.pop" > "$T/$L.all"
-    if [ -n "${PHASE_FILES:-}" ]; then head -n "$PHASE_FILES" "$T/$L.all" > "$T/$L.list"; else cp "$T/$L.all" "$T/$L.list"; fi
-    nf=$(wc -l < "$T/$L.list"); [ "$nf" -gt 0 ] || { echo "$L ⛔ REFUSE(2): every file ends SCRIP's run"; RC=2; continue; }
-    run "$T/$L.list" "$T/$L.plain"; whole "$T/$L.plain" "$T/$L.list" || { echo "$L ⛔ REFUSE(2): the plain run did not reach PARSER-METRICS over all $nf files"; RC=2; continue; }
+    # ⛔ THE LIST IS FILES THE PARSER ACCEPTS (coo 2026-10-08): a file the parser refuses prints Parse Error, and one refused BEFORE its
+    # clock (parser_icon.sc returns from ParseOne on a preprocessor error ahead of pf_a = TIME()) reads TIME() no times, so the shim's
+    # toggle count fell short of twice the files and the language REFUSED (Icon 76 of 80: the two family_icon.icn copies, $import).
+    # Each plain run's refused files leave the list, named in $T/$L.refused, and the list is refilled from the population.
+    : > "$T/$L.refused"; okl=1
+    for _pass in 1 2 3 4 5 6; do
+        grep -vxF -f "$T/$L.refused" "$T/$L.all" > "$T/$L.acc"
+        if [ -n "${PHASE_FILES:-}" ]; then head -n "$PHASE_FILES" "$T/$L.acc" > "$T/$L.list"; else cp "$T/$L.acc" "$T/$L.list"; fi
+        nf=$(wc -l < "$T/$L.list"); [ "$nf" -gt 0 ] || break
+        run "$T/$L.list" "$T/$L.plain"; whole "$T/$L.plain" "$T/$L.list" || { okl=0; break; }
+        awk '/^== / { f = substr($0, 4); next } $0 == "Parse Error" && f != "" { print f; f = "" }' "$T/$L.plain.out" > "$T/$L.newref"
+        [ -s "$T/$L.newref" ] || break
+        cat "$T/$L.newref" >> "$T/$L.refused"; okl=2
+    done
+    nf=$(wc -l < "$T/$L.list"); [ "$nf" -gt 0 ] || { echo "$L ⛔ REFUSE(2): every file ends SCRIP's run or is refused by the parser"; RC=2; continue; }
+    [ "$okl" = 0 ] && { echo "$L ⛔ REFUSE(2): the plain run did not reach PARSER-METRICS over all $nf files"; RC=2; continue; }
+    [ -s "$T/$L.newref" ] && { echo "$L ⛔ REFUSE(2): the parser still refuses files of the list after six refills"; RC=2; continue; }
     why="$(profile "$T/$L.list" "$T/$L.prof" "$T/$L.bin")"; [ -z "$why" ] || { echo "$L ⛔ REFUSE(2): $why"; RC=2; continue; }
     python3 "$PY" report "$T/$L.prof.cg" "$T/$L.s" "$T/$L.map" "$L.bin" "$TOPN" > "$T/$L.phases" 2> "$T/$L.py.err" || { echo "$L ⛔ REFUSE(2): the classifier failed ($(tail -1 "$T/$L.py.err"))"; RC=2; continue; }
     tot=$(awk '$1 == "TOTAL" { print $2 }' "$T/$L.phases"); [ "${tot:-0}" -gt 0 ] || { echo "$L ⛔ REFUSE(2): the profile holds no instruction of the parse"; RC=2; continue; }
@@ -183,7 +200,7 @@ for L in $LANGS; do
         top="$(awk -v p="$p" '$1 == "PHASE" && $2 == p { $1 = $2 = $3 = $4 = ""; sub(/^ +/, ""); print }' "$T/$L.phases")"
         [ -n "$top" ] && echo "   $L $p: $top"
     done
-    echo "   $L list: $nf of $np corpus programs$via; dropped because the file ended SCRIP's run: $(wc -l < "$T/$L.gone")${PHASE_FILES:+ (PHASE_FILES=$PHASE_FILES kept)}; callgrind peak $(cat "$T/$L.prof.peak") MB"
+    echo "   $L list: $nf of $np corpus programs$via; dropped because the file ended SCRIP's run: $(wc -l < "$T/$L.gone"); refused by the parser (Parse Error): $(wc -l < "$T/$L.refused")${PHASE_FILES:+ (PHASE_FILES=$PHASE_FILES kept)}; callgrind peak $(cat "$T/$L.prof.peak") MB"
     awk -v u="$un" -v t="$tot" 'BEGIN { exit !(u * 10 >= t) }' && { echo "   $L ⛔ OVER THE BAR: UNCLASSIFIED $(pct "$un" "$tot")% >= 10%"; [ "$RC" = 2 ] || RC=1; }
     if [ "${PHASE_PLANT:-}" = 1 ] && [ -z "$PLANTED" ] && [ -z "$via" ]; then
         PLANTED=1; head -n "${PHASE_PLANT_FILES:-40}" "$T/$L.list" > "$T/$L.plist"; run "$T/$L.plist" "$T/$L.plain"
