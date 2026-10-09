@@ -483,7 +483,7 @@ static int pl_rung_of(const char * nm) {
 }
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
-static const char * pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", NULL };
+static const char * pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", NULL };
 static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
@@ -3400,7 +3400,86 @@ static void pl_db_decls_capture(void) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int pl_db_decls_words(long long ** out) { *out = g_stage2.db_decls_words; return g_stage2.db_decls_words ? g_stage2.db_decls_n : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_table_specs(const tree_t * a, const char ** keys, int n, int cap) {
+    if (!a || a->t != TT_FNC || !a->v.sval || a->n != 2) return n;
+    if (!strcmp(a->v.sval, ",")) return pl_table_specs(a->c[1], keys, pl_table_specs(a->c[0], keys, n, cap), cap);
+    if (!strcmp(a->v.sval, "as")) return pl_table_specs(a->c[0], keys, n, cap);
+    if (strcmp(a->v.sval, "/") || !a->c[0] || (a->c[0]->t != TT_QLIT && a->c[0]->t != TT_NAME) || !a->c[0]->v.sval || !a->c[1] || a->c[1]->t != TT_ILIT) return n;
+    if (keys && n < cap) { char b[strlen(a->c[0]->v.sval) + 24]; snprintf(b, sizeof b, "%s/%lld", a->c[0]->v.sval, a->c[1]->v.ival); keys[n] = lp_strdup(b); }
+    return n + 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_table_dir(const tree_t * s) {
+    const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+    return (subj && subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "table") && subj->n >= 1) ? subj->c[0] : NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_table_stmt(const tree_t * s, tree_t * subj) {
+    tree_t * st = ast_node_new(TT_STMT);
+    const tree_t * old = stmt_attr_find(s, ":subj");
+    for (int i = 0; i < s->n; i++) ast_push(st, s->c[i] == old ? ast_attr_expr(":subj", subj) : s->c[i]);
+    st->line = s->line;
+    return st;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_table_goal(const char * f, int ar) {
+    tree_t * g = ast_node_new(ar > 0 ? TT_FNC : TT_QLIT);
+    g->v.sval = (char *) f;
+    for (int i = 0; i < ar; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = i; ast_push(g, v); }
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_table_wrapper(const char * key) {
+    const char * sl = strrchr(key, '/');
+    int ar = atoi(sl + 1);
+    char nm[sl - key + 1], tn[sl - key + 6];
+    memcpy(nm, key, (size_t)(sl - key));
+    nm[sl - key] = 0;
+    snprintf(tn, sizeof tn, "$tbl %s", nm);
+    tree_t * cl = ast_node_new(TT_CLAUSE);
+    cl->v.dval = ar;
+    for (int i = 0; i < ar; i++) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = i; ast_push(cl, v); }
+    tree_t * call = ast_node_new(TT_FNC);
+    call->v.sval = (char *) "$tbl_call";
+    ast_push(call, pl_table_goal(lp_strdup(nm), ar));
+    ast_push(call, pl_table_goal(lp_strdup(tn), ar));
+    ast_push(cl, call);
+    tree_t * ch = ast_node_new(TT_CHOICE);
+    ch->v.sval = (char *) lp_strdup(key);
+    ast_push(ch, cl);
+    return ch;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_table_rewrite(const tree_t * prog) {
+    int nk = 0;
+    for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, nk, 0);
+    if (!nk) return prog;
+    const char * keys[nk];
+    unsigned char done[nk];
+    int nf = 0;
+    memset(done, 0, sizeof done);
+    for (int i = 0; i < prog->n; i++) nf = pl_table_specs(pl_table_dir(prog->c[i]), keys, nf, nk);
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        int k = -1;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && subj->v.sval) for (int j = 0; j < nf; j++) if (!strcmp(keys[j], subj->v.sval)) k = j;
+        if (k < 0) { ast_push(np, (tree_t *) s); continue; }
+        tree_t * rn = pl_tree_copy(subj);
+        char b[strlen(keys[k]) + 6];
+        snprintf(b, sizeof b, "$tbl %s", keys[k]);
+        rn->v.sval = (char *) lp_strdup(b);
+        ast_push(np, pl_table_stmt(s, rn));
+        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_table_wrapper(keys[k]))); }
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
+    prog = pl_table_rewrite(prog);
     int _pl_bb0 = g_stage2.bbp.count;
     pl_register_program(&g_stage2, prog);
     int ndirs = 1, ndvn = 1;
