@@ -154,22 +154,22 @@ static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {
 static inline int bcps_pl() { return x86_fb_pinned(); }
 #define bcps_fnsig() emit_knob_unless_zero("SCRIP_FN_SIG")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define bcps_nret_got() std::string("[rip@got + __]")
+#define bcps_cap_name_strict() emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT")
 static std::string bcps_nret_consult(const std::string & r0, const std::string & r8) {
     extern int rt_g_ret_by_name;
     extern int rt_g_want_name;
     extern DESCR_t rt_deref(DESCR_t d);
-    const int strict = emit_knob_unless_zero("SCRIP_CAP_NAME_STRICT");
-    const std::string got_rbn = std::string("[rip@got + __]");
     return x86("note", std::string("NRETURN by-name consult (live wn, consumed): the fix-up is emitted here, rt_nret_fix_tiny is gone from the graph"))
-         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+         + x86("mov", "rcx", bcps_nret_got(), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
          + x86("mov", "ecx", RDD("rcx", 0))
          + x86("cmp", "ecx", (long)0)
          + x86("je", L(29))
-         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+         + x86("mov", "rcx", bcps_nret_got(), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", "ecx", RDD("rcx", 0))
          + x86("cmp", "ecx", (long)0)
          + x86("jne", L(24))
-         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+         + x86("mov", "rcx", bcps_nret_got(), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
          + x86("mov", RDD("rcx", 0), (long)0)
          + x86("cmp", "eax", (long)DT_N)
          + x86("jne", L(23))
@@ -180,11 +180,11 @@ static std::string bcps_nret_consult(const std::string & r0, const std::string &
          + x86("mov", "rdx", r8.c_str())
          + x86("jmp", L(23))
          + x86("def", L(24))
-         + IF(!strict,
-               x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
+         + IF(!bcps_cap_name_strict(),
+               x86("mov", "rcx", bcps_nret_got(), (uint64_t)(uintptr_t)(void *)&rt_g_ret_by_name, "rt_g_ret_by_name")
              + x86("mov", RDD("rcx", 0), (long)0))
          + x86("def", L(23))
-         + x86("mov", "rcx", got_rbn, (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
+         + x86("mov", "rcx", bcps_nret_got(), (uint64_t)(uintptr_t)(void *)&rt_g_want_name, "rt_g_want_name")
          + x86("mov", RDD("rcx", 0), (long)0)
          + x86("def", L(29));
 }

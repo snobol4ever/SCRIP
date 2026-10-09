@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 2322
-#define GC_ALLOC_TAB_N_VOID 283
+#define GC_ALLOC_TAB_N_VOID 284
 #define GC_ALLOC_TAB_N_DESCR 1152
-#define GC_ALLOC_TAB_N_OTHER 871
+#define GC_ALLOC_TAB_N_OTHER 870
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -2327,6 +2327,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "walk_bb_node", GC_RET_OTHER },
     { "walk_bb_node_inner", GC_RET_OTHER },
     { "xa_flat_chain_epilogue_sig", GC_RET_VOID },
-    { "xa_flat_chain_prologue", GC_RET_OTHER },
+    { "xa_flat_chain_prologue", GC_RET_VOID },
 };
 #endif

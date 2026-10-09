@@ -19,6 +19,9 @@ static inline int vg_patv_slot(const char * sv) {
          ? atoi(VG_PATV_DIGITS(sv)) : -1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define VG_TRACE_LAND() ( \
+      x86("mov", "rax", RDQ("rsp", 80)) \
+    + x86("mov", "rdx", RDQ("rsp", 88)))
 std::string bb_var_global() {
         return !_.op_zres && _.op_off < 0 ? x86_alpha() + x86_bomb("bb_var_global: unhandled (needs descr flat-chain + own slot)")
              : vg_patv_slot(_.op_sval) >= 0 ?
@@ -70,7 +73,7 @@ std::string bb_var_global() {
                 + x86("mov", "rdi", ROQ(0))
                 + x86("mov", "rsi", "rsp")
                 + x86("call", "NV_GET_open", (uint64_t)(uintptr_t)(void *)NV_GET_open)
-                + bb_glue_trace_pend_run(110, x86("mov", "rax", RDQ("rsp", 80)) + x86("mov", "rdx", RDQ("rsp", 88)))
+                + bb_glue_trace_pend_run(110, VG_TRACE_LAND())
                 + x86("add", "rsp", 112L))
              + x86("cmp", "al", (long)DT_FAIL)
              + x86_omega("je")

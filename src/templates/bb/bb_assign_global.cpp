@@ -17,8 +17,13 @@ const char * stmt_src_get_file(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int mon_vars_on() { return x86_trace_hooks_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define MVT_B 110
+#define MVT_LAND() ( \
+      x86("mov", "rax", RDQ("rsp", 80)) \
+    + x86("mov", RDQ("rsp", 184), "rax") \
+    + x86("mov", "rax", RDQ("rsp", 88)) \
+    + x86("mov", RDQ("rsp", 152), "rax"))
 static inline std::string mon_var_trace_tap() {
-    const int B = 110;
     return x86("push", "rax")
          + x86("push", "rax")
          + x86("push", "rdi")
@@ -36,7 +41,7 @@ static inline std::string mon_var_trace_tap() {
          + x86("mov", "rcx", (long)_.op_stno)
          + x86("mov", "r8", "rsp")
          + x86("call", "comm_var_open", (uint64_t)(uintptr_t)(void *)comm_var_open)
-         + bb_glue_trace_pend_run(B, x86("mov", "rax", RDQ("rsp", 80)) + x86("mov", RDQ("rsp", 184), "rax") + x86("mov", "rax", RDQ("rsp", 88)) + x86("mov", RDQ("rsp", 152), "rax"))
+         + bb_glue_trace_pend_run(MVT_B, MVT_LAND())
          + x86("add", "rsp", 112L)
          + x86("pop", "r11")
          + x86("pop", "r10")

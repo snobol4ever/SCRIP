@@ -904,7 +904,7 @@ static std::string xa_pl_switch_str(int a0_off, const pl_ix_arm_t * arms, int na
 extern "C" void xa_pl_switch(int a0_off, const pl_ix_arm_t * arms, int narms, bb_label_t * fb_ref, bb_label_t * fb_atom, bb_label_t * fb_int, bb_label_t * chain) {
     bb_emit_x86(xa_pl_switch_str(a0_off, arms, narms, fb_ref, fb_atom, fb_int, chain)); }
 extern "C" void xa_flat_zframe_prologue(void) { bb_emit_x86(xa_flat_zframe_prologue_str()); }
-extern "C" int xa_flat_chain_prologue(const char * fname) { int argkt = 0; bb_emit_x86(xa_flat_chain_prologue_str(fname, &argkt)); return argkt; }
+extern "C" void xa_flat_chain_prologue(const char * fname, int * argkt_out) { bb_emit_x86(xa_flat_chain_prologue_str(fname, argkt_out)); }
 extern "C" void xa_flat_chain_epilogue(void) { bb_emit_x86(xa_flat_chain_epilogue_str()); }
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname) { bb_emit_x86(xa_flat_chain_epilogue_sig_str(is_gamma, fname)); }
 extern "C" void xa_flat_zframe_epilogue_γ(void) { bb_emit_x86(xa_flat_zframe_epilogue_γ_str()); }
