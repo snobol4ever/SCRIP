@@ -1803,10 +1803,12 @@ DESCR_t icn_field_get(const char *fname, DESCR_t obj) {
     { DESCR_t *cell = data_field_ptr(fname ? fname : "", obj); if (!cell) { core_icn_op_ctx(".", 2, obj, FAILDESCR); core_icn_error(207, obj); return FAILDESCR; } return *cell; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at) {
+DESCR_t icn_field_get_at(const char *fname, DESCR_t obj, long at1) {
+    long at = at1 - 1;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
     if (IS_DATA_INST_fn(obj) && obj.u && obj.u->fields) { DATBLK_t *t = obj.u->type; if (t && t->name && at < t->nfields && t->fields[at] && !strcmp(t->fields[at], fname)) return obj.u->fields[at]; }
-    return icn_field_get(fname, obj);
+    DESCR_t declined = { .v = RTX_NOT_HANDLED };
+    return declined;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_field_var_cell(const char *fname, DESCR_t obj, DESCR_t *cell) {
@@ -1865,13 +1867,15 @@ DESCR_t rt_field_var_strict(const char *fname, DESCR_t obj) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at) {
+DESCR_t rt_field_var_strict_at(const char *fname, DESCR_t obj, long at1) {
+    long at = at1 - 1;
     if (IS_VARREF_fn(obj)) obj = rt_deref(obj);
     if (IS_DATA_INST_fn(obj) && obj.u && obj.u->fields) {
         DATBLK_t *t = obj.u->type;
         if (t && t->name && at < t->nfields && t->fields[at] && !strcmp(t->fields[at], fname)) return rt_field_var_cell(fname, obj, &obj.u->fields[at]);
     }
-    return rt_field_var_strict(fname, obj);
+    DESCR_t declined = { .v = RTX_NOT_HANDLED };
+    return declined;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_list_bang_var_body(DESCR_t obj, int64_t idx, int elems_only);
