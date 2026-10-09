@@ -642,6 +642,15 @@ void bb_slot_register(IR_t *nd, int off) {
 int bb_varslot_peek(const char *name) {
     return ir_varslot_of(g_emit_cfg, name);
 }
+typedef struct { const char * name; int depth; } zv_home_t;
+static int drive_local_slot(const char *vn) {
+    int voff = bb_varslot_peek(vn);
+    if (voff < 0 || !g_emit.op_zres || x86_fb_pinned_any() || icn_gen_zeta_ft() > 0) return voff;
+    if (g_emit.zv_home_cfg != (const void *)g_emit_cfg) { g_emit.zv_home.len = 0; g_emit.zv_home_cfg = (const void *)g_emit_cfg; }
+    for (uint32_t k = 0; k < g_emit.zv_home.len; k++) { zv_home_t * h = &CV_AT(g_emit.zv_home, zv_home_t, k); if (!strcmp(h->name, vn)) return voff + g_emit.op_zrun - h->depth; }
+    CV_PUSH(g_emit.zv_home, zv_home_t) = (zv_home_t){ vn, g_emit.op_zrun };
+    return voff;
+}
 int g_proc_direct_active = 0;
 int g_gva_active = 0;
 int g_gvar_callarg_live = 0;
@@ -1982,7 +1991,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         if (vn && vn[0] == '&') { g_emit.op_sval = vn; g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); }
         else if (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn;
             g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
-        else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = (voff != -1) ? drive_value_slot(nd) : -1; }
+        else if (vn) { int voff = drive_local_slot(vn); g_emit.op_sa = voff; g_emit.op_off = (voff != -1) ? drive_value_slot(nd) : -1; }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -1990,7 +1999,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         const char *vn = IR_LIT(nd).sval; g_emit.op_var_named = nd->pat_static;
         if (vn && is_global(vn) && !graph_has_local(g_emit_cfg, vn)) { g_emit.op_sa = -1; g_emit.op_off = drive_value_slot(nd); g_emit.op_sval = vn;
             g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1; }
-        else if (vn) { int voff = bb_varslot_peek(vn); g_emit.op_sa = voff; g_emit.op_off = drive_value_slot(nd); }
+        else if (vn) { int voff = drive_local_slot(vn); g_emit.op_sa = voff; g_emit.op_off = drive_value_slot(nd); }
         else { g_emit.op_sa = -1; g_emit.op_off = -1; }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
@@ -2033,7 +2042,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
             g_emit.op_sb = -1; g_emit.op_sval = vn; g_emit.op_gva_k = g_gva_active ? gva_index_of(vn) : -1;
             g_emit.op_off = drive_value_slot(nd); DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
         }
-        { int voff = bb_varslot_peek(vn);
+        { int voff = drive_local_slot(vn);
           if (voff == -1) { fprintf(stderr, "[TE-4] IR_ASSIGN local '%s' has no LOWER-granted varslot — grant it in ir_drive_slot_assign (scrip_ir.c), never allocate in the emitter\n", vn); abort();
               }
           g_emit.op_sb = voff; }

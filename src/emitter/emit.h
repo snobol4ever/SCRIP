@@ -481,6 +481,8 @@ typedef struct {
     int x86_uid;
     const char * x86_uid_kind;
     cv_t x86_uid_kind_buf;
+    cv_t zv_home;
+    const void * zv_home_cfg;
     int x86_scratch_off;
     int * op_arg_slot;
     int op_arg_slot_cap;
