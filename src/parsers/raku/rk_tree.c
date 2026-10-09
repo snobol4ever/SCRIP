@@ -632,10 +632,10 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
 }
 /*====================================================================================================================================================================================================*/
 typedef struct RkRq {
-    char word[8];
-    int open, close, ps, pe, rs, re, g, ov, ex, cont, posn, x_min, x_max, nth_n, bad, c_val, p_val, has_adv, trf;
-    char rxflags[48];
-    int nth[8];
+    const char *word;
+    int open, close, ps, pe, rs, re, g, ov, ex, cont, posn, x_min, x_max, nth_n, nth_cap, rxcap, bad, c_val, p_val, has_adv, trf;
+    char *rxflags;
+    int *nth;
 } RkRq;
 static int rq_closer(int o) { return o == '(' ? ')' : o == '[' ? ']' : o == '{' ? '}' : o == '<' ? '>' : o; }
 static int rq_find_close(const char *s, int i, int to, int open, int close) {
@@ -654,26 +654,29 @@ static int rq_ordinal(const char *n, int len) {
     for (int i = 0; i < len - 2; i++) if (!isdigit((unsigned char) n[i])) return 0;
     return atoi(n);
 }
-static void rq_addflag(RkRq *q, const char *f) { if (strlen(q->rxflags) + strlen(f) + 2 < sizeof q->rxflags) { strcat(q->rxflags, f); strcat(q->rxflags, " "); } }
+static int rq_is(const char *name, int nlen, const char *lit) { return (size_t) nlen == strlen(lit) && !memcmp(name, lit, (size_t) nlen); }
+static const char *rq_word_lit(const char *w, int wl) {
+    static const char *const lits[] = { "m", "rx", "ms", "mm", "s", "S", "ss", "Ss", "tr", "TR" };
+    for (size_t k = 0; k < sizeof lits / sizeof *lits; k++) if (rq_is(w, wl, lits[k])) return lits[k];
+    return NULL;
+}
+static void rq_addflag(RkRq *q, const char *f) { if (strlen(q->rxflags) + strlen(f) + 2 < (size_t) q->rxcap) { strcat(q->rxflags, f); strcat(q->rxflags, " "); } }
 static void rq_apply(RkRq *q, const char *name, int nlen, int neg, const char *arg, int alen) {
-    char nm[24];
-    if (nlen >= (int) sizeof nm) { q->bad = 1; return; }
-    memcpy(nm, name, (size_t) nlen); nm[nlen] = 0;
-    int ord = rq_ordinal(nm, nlen);
-    if (ord) { if (q->nth_n < 8) q->nth[q->nth_n++] = ord; q->has_adv = 1; return; }
-    if (!strcmp(nm, "i") || !strcmp(nm, "ignorecase")) { rq_addflag(q, neg ? ":!i" : ":i"); return; }
-    if (!strcmp(nm, "ii")) { rq_addflag(q, ":ii"); return; }
-    if (!strcmp(nm, "m") || !strcmp(nm, "ignoremark")) { rq_addflag(q, neg ? ":!m" : ":m"); return; }
-    if (!strcmp(nm, "mm")) { rq_addflag(q, ":mm"); return; }
-    if (!strcmp(nm, "s") || !strcmp(nm, "sigspace")) { rq_addflag(q, neg ? ":!s" : ":s"); return; }
-    if (!strcmp(nm, "ss")) { rq_addflag(q, ":ss"); return; }
-    if (!strcmp(nm, "r") || !strcmp(nm, "ratchet")) { rq_addflag(q, neg ? ":!r" : ":r"); return; }
-    if (!strcmp(nm, "g") || !strcmp(nm, "global")) { q->g = !neg; q->has_adv = !neg; return; }
-    if (!strcmp(nm, "ov") || !strcmp(nm, "overlap")) { q->ov = !neg; q->has_adv = !neg; return; }
-    if (!strcmp(nm, "ex") || !strcmp(nm, "exhaustive")) { q->ex = !neg; q->has_adv = !neg; return; }
-    if (!strcmp(nm, "c") || !strcmp(nm, "continue")) { q->cont = 1; q->c_val = alen ? atoi(arg) : 0; q->has_adv = 1; return; }
-    if (!strcmp(nm, "p") || !strcmp(nm, "pos")) { q->posn = 1; q->p_val = alen ? atoi(arg) : 0; q->has_adv = 1; return; }
-    if (!strcmp(nm, "x")) {
+    int ord = rq_ordinal(name, nlen);
+    if (ord) { if (q->nth_n < q->nth_cap) q->nth[q->nth_n++] = ord; q->has_adv = 1; return; }
+    if (rq_is(name, nlen, "i") || rq_is(name, nlen, "ignorecase")) { rq_addflag(q, neg ? ":!i" : ":i"); return; }
+    if (rq_is(name, nlen, "ii")) { rq_addflag(q, ":ii"); return; }
+    if (rq_is(name, nlen, "m") || rq_is(name, nlen, "ignoremark")) { rq_addflag(q, neg ? ":!m" : ":m"); return; }
+    if (rq_is(name, nlen, "mm")) { rq_addflag(q, ":mm"); return; }
+    if (rq_is(name, nlen, "s") || rq_is(name, nlen, "sigspace")) { rq_addflag(q, neg ? ":!s" : ":s"); return; }
+    if (rq_is(name, nlen, "ss")) { rq_addflag(q, ":ss"); return; }
+    if (rq_is(name, nlen, "r") || rq_is(name, nlen, "ratchet")) { rq_addflag(q, neg ? ":!r" : ":r"); return; }
+    if (rq_is(name, nlen, "g") || rq_is(name, nlen, "global")) { q->g = !neg; q->has_adv = !neg; return; }
+    if (rq_is(name, nlen, "ov") || rq_is(name, nlen, "overlap")) { q->ov = !neg; q->has_adv = !neg; return; }
+    if (rq_is(name, nlen, "ex") || rq_is(name, nlen, "exhaustive")) { q->ex = !neg; q->has_adv = !neg; return; }
+    if (rq_is(name, nlen, "c") || rq_is(name, nlen, "continue")) { q->cont = 1; q->c_val = alen ? atoi(arg) : 0; q->has_adv = 1; return; }
+    if (rq_is(name, nlen, "p") || rq_is(name, nlen, "pos")) { q->posn = 1; q->p_val = alen ? atoi(arg) : 0; q->has_adv = 1; return; }
+    if (rq_is(name, nlen, "x")) {
         if (!alen) { q->bad = 1; return; }
         const char *dd = strstr(arg, "..");
         q->x_min = atoi(arg);
@@ -681,10 +684,10 @@ static void rq_apply(RkRq *q, const char *name, int nlen, int neg, const char *a
         q->has_adv = 1;
         return;
     }
-    if (!strcmp(nm, "nth")) {
+    if (rq_is(name, nlen, "nth")) {
         if (!alen) { q->bad = 1; return; }
         const char *p = arg;
-        while (p < arg + alen && q->nth_n < 8) {
+        while (p < arg + alen && q->nth_n < q->nth_cap) {
             while (p < arg + alen && (*p == ',' || *p == ' ')) p++;
             if (p >= arg + alen) break;
             q->nth[q->nth_n++] = atoi(p);
@@ -694,21 +697,24 @@ static void rq_apply(RkRq *q, const char *name, int nlen, int neg, const char *a
         q->has_adv = 1;
         return;
     }
-    if (!strcmp(nm, "Perl5") || !strcmp(nm, "P5")) { rq_addflag(q, ":P5"); return; }
+    if (rq_is(name, nlen, "Perl5") || rq_is(name, nlen, "P5")) { rq_addflag(q, ":P5"); return; }
     q->bad = 1;
 }
 static int rk_rq_parse(const char *s, int from, int to, RkRq *q) {
+    char *rxbuf = q->rxflags;
+    int *nthbuf = q->nth, rxcap = q->rxcap, nthcap = q->nth_cap;
     memset(q, 0, sizeof *q);
+    q->rxflags = rxbuf; q->rxcap = rxcap; q->nth = nthbuf; q->nth_cap = nthcap;
+    if (rxcap > 0) rxbuf[0] = 0;
     q->x_min = q->x_max = -2;
+    q->word = "";
     int i = from, wl = 0;
     if (isalpha((unsigned char) s[i])) {
         while (i + wl < to && isalnum((unsigned char) s[i + wl])) wl++;
-        if (wl >= (int) sizeof q->word) return 0;
-        memcpy(q->word, s + i, (size_t) wl);
+        q->word = rq_word_lit(s + i, wl);
+        if (!q->word) return 0;
         i += wl;
     }
-    if (wl && strcmp(q->word, "m") && strcmp(q->word, "rx") && strcmp(q->word, "ms") && strcmp(q->word, "mm") && strcmp(q->word, "s") && strcmp(q->word, "S") && strcmp(q->word, "ss") && strcmp(q->word, "Ss")
-        && strcmp(q->word, "tr") && strcmp(q->word, "TR")) return 0;
     if (!strcmp(q->word, "ms") || !strcmp(q->word, "ss") || !strcmp(q->word, "Ss")) rq_addflag(q, ":s");
     if (!strcmp(q->word, "mm")) rq_addflag(q, ":m");
     while (i < to && s[i] == ':') {
@@ -721,15 +727,12 @@ static int rk_rq_parse(const char *s, int from, int to, RkRq *q) {
         int nl = j - st, al = 0;
         if (j < to && (s[j] == '(' || s[j] == '<' || s[j] == '[')) { int c = rq_find_close(s, j + 1, to, s[j], rq_closer(s[j])); if (c < 0) return 0; arg = s + j + 1; al = c - j - 1; j = c + 1; }
         if (!strcmp(q->word, "tr") || !strcmp(q->word, "TR")) {
-            char nm[16];
-            if (nl < (int) sizeof nm) {
-                memcpy(nm, s + st, (size_t) nl); nm[nl] = 0;
-                if (!strcmp(nm, "c") || !strcmp(nm, "complement")) q->trf |= 1;
-                else if (!strcmp(nm, "d") || !strcmp(nm, "delete")) q->trf |= 2;
-                else if (!strcmp(nm, "s") || !strcmp(nm, "squash")) q->trf |= 4;
-                else if (!strcmp(nm, "r")) q->trf |= 8;
-                else q->bad = 1;
-            }
+            const char *nm = s + st;
+            if (rq_is(nm, nl, "c") || rq_is(nm, nl, "complement")) q->trf |= 1;
+            else if (rq_is(nm, nl, "d") || rq_is(nm, nl, "delete")) q->trf |= 2;
+            else if (rq_is(nm, nl, "s") || rq_is(nm, nl, "squash")) q->trf |= 4;
+            else if (rq_is(nm, nl, "r")) q->trf |= 8;
+            else q->bad = 1;
             i = j;
             continue;
         }
@@ -1820,6 +1823,9 @@ void rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl) {
     else if (u[0] == 0xEF && u[1] == 0xBD && u[2] == 0xA2) it->t = leaf_sval(TT_QLIT, spn(b, from + 3, to - 3));
     else {
         RkRq q;
+        char rxbuf[2 * (to - from) + 8];
+        int nthbuf[to - from + 1];
+        q.rxflags = rxbuf; q.rxcap = (int) sizeof rxbuf; q.nth = nthbuf; q.nth_cap = to - from + 1;
         tree_t *rt = NULL;
         if (rk_rq_parse(b->s, from, to, &q) && !q.bad) rt = rk_rq_term(b, &q, cl, ncl);
         it->t = rt ? rt : leaf_sval(TT_QLIT, spn(b, from, to));

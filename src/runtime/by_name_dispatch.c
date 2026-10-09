@@ -8865,7 +8865,8 @@ static void rk_apply_actions(DESCR_t m, DESCR_t actions, DESCR_t key) {
             char kb[256];
             const char *kn = to_cstring(key, kb, sizeof kb);
             const char *tryk[2] = { kn, NULL };
-            char symk[320];
+            char tb[128];
+            const char *symtxt = NULL;
             {
                 DESCR_t hn = rk_hash_list(FIELD_GET_fn(H.d[0], "named"), 'w');
                 ARBLK_t *hb = (hn.v == DT_A && hn.arr) ? (ARBLK_t *) hn.arr : NULL;
@@ -8874,13 +8875,13 @@ static void rk_apply_actions(DESCR_t m, DESCR_t actions, DESCR_t key) {
                     char sb[64];
                     const char *kk = to_cstring(hb->data[2 * q], sb, sizeof sb);
                     if (kk && !strcmp(kk, "sym") && IS_DATA_INST_fn(hb->data[2 * q + 1])) {
-                        char tb[128];
                         const char *tt = to_cstring(FIELD_GET_fn(hb->data[2 * q + 1], "text"), tb, sizeof tb);
-                        snprintf(symk, sizeof symk, "%s:sym<%s>", kn, tt ? tt : "");
-                        tryk[1] = symk;
+                        symtxt = tt ? tt : "";
                     }
                 }
             }
+            char symk[strlen(kn) + (symtxt ? strlen(symtxt) : 0) + 16];
+            if (symtxt) { snprintf(symk, sizeof symk, "%s:sym<%s>", kn, symtxt); tryk[1] = symk; }
             for (int t = 0; t < 2; t++) {
                 if (!tryk[t]) continue;
                 int fidx;
