@@ -1787,6 +1787,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
         case TT_FNC:
         {
             const char * nm = t->v.sval ? t->v.sval : "?";
+            if (!strcmp(nm, ":") && t->n == 2 && t->c[0] && (t->c[0]->t == TT_QLIT || t->c[0]->t == TT_NAME) && t->c[1]) return goal(cx, t->c[1], γnext, ωfail, entry_out);
             if (!strcmp(nm, ",")) {
                 lc_vec glv;
                 lc_vec_init(&glv, (int) sizeof(const tree_t *));
