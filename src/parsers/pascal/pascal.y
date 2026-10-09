@@ -126,6 +126,7 @@ static int is_pas_io(const char *fn) {
 }
 static const char *pas_ptrvar_target(const char *v);
 static const char *pas_enumnames_by_idx(int i);
+static char pas_typename_class(const char *t);
 static const char *pas_ptrexpr_target(tree_t *e);
 static const char *pas_elem_rectype(tree_t *e);
 static const char *pas_with_sel_rtype(tree_t *sel);
@@ -1190,7 +1191,7 @@ static void pas_boolvar_add(const char *name) { if (g_pas_nboolvar < 512 && name
 static int pas_is_boolvar(const char *name) { if (!name) return 0; for (int i = g_pas_nboolvar - 1; i >= 0; i--) if (g_pas_boolvars[i].name && !strcmp(g_pas_boolvars[i].name, name)) return 1; return 0; }
 static void pas_booltype_add(const char *name) { if (g_pas_nbooltype < 64 && name) g_pas_booltypes[g_pas_nbooltype++].name = ct_strdup(name); }
 static int pas_is_booltype(const char *name) { if (!name) return 0; if (!strcmp(name, "boolean")) return 1; for (int i = 0; i < g_pas_nbooltype; i++) if (g_pas_booltypes[i].name && !strcmp(g_pas_booltypes[i].name, name)) return 1; return 0; }
-static int pas_is_boolexpr(tree_t *e) { if (!e) return 0; if (pas_pf_rtype(e)) return pas_is_booltype(pas_pf_rtype(e)); switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_NOT: return 1; case TT_CONJ: case TT_ALT: return 1; case TT_MUL: case TT_ADD: return e->n == 2 && pas_is_boolexpr(e->c[0]) && pas_is_boolexpr(e->c[1]); case TT_VAR: return pas_is_boolvar(e->v.sval); case TT_FNC: { const char *fn = (e->n >= 1 && e->c[0]) ? e->c[0]->v.sval : NULL; if (!fn) return 0; if (!strcmp(fn, "__pas_in") || !strcmp(fn, "__pas_eof") || !strcmp(fn, "__pas_eoln") || !strcmp(fn, "__pas_eof_f") || !strcmp(fn, "__pas_eoln_f") || !strcmp(fn, "__pas_feof_t") || !strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne") || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")) return 1; return pas_is_boolvar(fn); } default: return 0; } }
+static int pas_is_boolexpr(tree_t *e) { if (!e) return 0; if (pas_pf_rtype(e)) return pas_is_booltype(pas_pf_rtype(e)); switch (e->t) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_NOT: return 1; case TT_CONJ: case TT_ALT: return 1; case TT_MUL: case TT_ADD: return e->n == 2 && pas_is_boolexpr(e->c[0]) && pas_is_boolexpr(e->c[1]); case TT_VAR: return pas_is_boolvar(e->v.sval); case TT_FNC: { const char *fn = (e->n >= 1 && e->c[0]) ? e->c[0]->v.sval : NULL; if (!fn) return 0; if (!strcmp(fn, "__pas_deref") && e->n == 2 && pas_typename_class(pas_ptrexpr_target(e->c[1])) == 'b') return 1; if (!strcmp(fn, "__pas_in") || !strcmp(fn, "__pas_eof") || !strcmp(fn, "__pas_eoln") || !strcmp(fn, "__pas_eof_f") || !strcmp(fn, "__pas_eoln_f") || !strcmp(fn, "__pas_feof_t") || !strcmp(fn, "__pas_seteq") || !strcmp(fn, "__pas_setne") || !strcmp(fn, "__pas_subset") || !strcmp(fn, "__pas_super")) return 1; return pas_is_boolvar(fn); } default: return 0; } }
 static int pas_is_charvar(const char *name) { if (!name) return 0; for (int i = 0; i < g_pas_ncharvar; i++) if (g_pas_charvars[i].name && !strcmp(g_pas_charvars[i].name, name)) return 1; return 0; }
 static struct { char *name; } g_pas_filevars[256]; static int g_pas_nfilevar;
 static void pas_filevar_add(const char *name) { if (g_pas_nfilevar < 256 && name) { for (int i = 0; i < g_pas_nfilevar; i++) if (g_pas_filevars[i].name && !strcmp(g_pas_filevars[i].name, name)) return; g_pas_filevars[g_pas_nfilevar++].name = ct_strdup(name); } }
@@ -1244,7 +1245,7 @@ static tree_t *pas_arrrec_flatten(tree_t *idxsel, long long fi) {
 static tree_t *mk_chr_wrap(tree_t *e) { tree_t *r = ast_node_new(TT_FNC); ast_push(r, leaf_s(TT_VAR, "__pas_chr")); ast_push(r, e); return r; }
 static int pas_buf_is_char(tree_t *e) { return !(!strcmp(e->c[0]->v.sval, "__pas_fbuf_get") && e->n >= 2 && e->c[1] && e->c[1]->t == TT_VAR && pas_tfcomp_nonchar(e->c[1]->v.sval)); }
 static tree_t *pas_vt_unwrap_read(tree_t *e) { if (e && e->t == TT_SEQ_EXPR && e->n == 2 && e->c[0] && e->c[0]->t == TT_FNC && e->c[0]->n >= 1 && e->c[0]->c[0] && e->c[0]->c[0]->v.sval && (!strcmp(e->c[0]->c[0]->v.sval, "__pas_vcheck") || !strcmp(e->c[0]->c[0]->v.sval, "__pas_tagwhole"))) return e->c[1]; return e; }
-static int pas_is_charexpr(tree_t *e) { e = pas_vt_unwrap_read(e); if (!e) return 0; if (pas_pf_rtype(e)) return !strcmp(pas_pf_rtype(e), "char"); if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_fbuf_get") || !strcmp(e->c[0]->v.sval, "__pas_tbuf_get") || !strcmp(e->c[0]->v.sval, "__pas_pchar_deref"))) return pas_buf_is_char(e); if (e->t == TT_FNC && e->n == 1 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_getbufch")) return 1; if (e->t == TT_VAR && e->v.sval && pas_is_charvar(e->v.sval)) return 1; if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[1]->t == TT_ILIT && pas_recvar_field_is_char(e->c[0]->v.sval, e->c[1]->v.ival)) return 1; if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_chr") || !strcmp(e->c[0]->v.sval, "__pas_chrlit"))) return 1; if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_charvar(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_chararr(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (pas_var_string_kind(e->c[0]->v.sval) || pas_is_pcharvar(e->c[0]->v.sval))) return 1; if (e->t == TT_IDX && e->n >= 2 && e->c[0] && pas_is_cafield(e->c[0])) return 1; if (pas_is_cvfield(e)) return 1; return 0; }
+static int pas_is_charexpr(tree_t *e) { e = pas_vt_unwrap_read(e); if (!e) return 0; if (e->t == TT_FNC && e->n == 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_deref") && pas_typename_class(pas_ptrexpr_target(e->c[1])) == 'c') return 1; if (pas_pf_rtype(e)) return !strcmp(pas_pf_rtype(e), "char"); if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_fbuf_get") || !strcmp(e->c[0]->v.sval, "__pas_tbuf_get") || !strcmp(e->c[0]->v.sval, "__pas_pchar_deref"))) return pas_buf_is_char(e); if (e->t == TT_FNC && e->n == 1 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_getbufch")) return 1; if (e->t == TT_VAR && e->v.sval && pas_is_charvar(e->v.sval)) return 1; if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[1]->t == TT_ILIT && pas_recvar_field_is_char(e->c[0]->v.sval, e->c[1]->v.ival)) return 1; if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_chr") || !strcmp(e->c[0]->v.sval, "__pas_chrlit"))) return 1; if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_charvar(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_chararr(e->c[0]->v.sval)) return 1; if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (pas_var_string_kind(e->c[0]->v.sval) || pas_is_pcharvar(e->c[0]->v.sval))) return 1; if (e->t == TT_IDX && e->n >= 2 && e->c[0] && pas_is_cafield(e->c[0])) return 1; if (pas_is_cvfield(e)) return 1; return 0; }
 static int pas_is_strtyped(tree_t *e) { if (!e) return 0; if (e->t == TT_QLIT) return 1; if (pas_ca_is_read(e)) return 1; if (e->t == TT_VAR && e->v.sval && pas_is_chararr(e->v.sval)) return 1; if (e->t == TT_IDX && e->n >= 1 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && (pas_is_chararr(e->c[0]->v.sval) || pas_is_strarr(e->c[0]->v.sval))) return 1; return 0; }
 static tree_t *pas_alpha_wrap(tree_t *x) { if (x && x->t == TT_VAR && x->v.sval && pas_is_chararr(x->v.sval)) { tree_t *f = ast_node_new(TT_FNC); ast_push(f, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(f, x); ast_push(f, ilit(pas_chararr_lo(x->v.sval))); return f; } if (x && x->t == TT_IDX && x->n >= 2 && x->c[0] && x->c[0]->t == TT_VAR && x->c[0]->v.sval && pas_is_strarr(x->c[0]->v.sval)) { tree_t *f = ast_node_new(TT_FNC); ast_push(f, leaf_s(TT_VAR, "__pas_alpha_str")); ast_push(f, x); ast_push(f, ilit(pas_strarr_lo(x->c[0]->v.sval))); return f; } return x; }
 static int pas_func_returns_stringish(const char *fname) {
@@ -1445,16 +1446,20 @@ static char pas_expr_lit_class(tree_t *e) {
     if (e->t == TT_EQ && e->n == 2 && e->c[0] && e->c[1] && e->c[0]->t == TT_ILIT && e->c[1]->t == TT_ILIT) return 'b';
     return 0;
 }
+static char pas_typename_class(const char *t) {
+    char c = 0;
+    for (int guard = 0; t && guard < 8 && !c; guard++) {
+        if (pas_is_int_typename(t)) c = 'i'; else if (pas_is_realtypename(t)) c = 'r'; else if (!strcmp(t, "char")) c = 'c';
+        else if (pas_is_booltype(t)) c = 'b'; else if (pas_enumtype_high(t) >= 0) c = 'e';
+        else { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; } }
+    return c;
+}
 static char pas_var_decl_class(const char *name) {
     char k = 0;
     if (!name || pas_is_chararr(name) || pas_is_strarr(name)) return 0;
     for (int i = 0; i < g_pas_narray; i++) if (g_pas_arrays[i].name && !strcmp(g_pas_arrays[i].name, name)) return 0;
     for (int i = 0; name && i < g_pas_nscalarvartype; i++) if (g_pas_scalarvartype[i].vname && !strcmp(g_pas_scalarvartype[i].vname, name)) {
-        const char *t = g_pas_scalarvartype[i].tname; char c = 0;
-        for (int guard = 0; t && guard < 8 && !c; guard++) {
-            if (pas_is_int_typename(t)) c = 'i'; else if (pas_is_realtypename(t)) c = 'r'; else if (!strcmp(t, "char")) c = 'c';
-            else if (pas_is_booltype(t)) c = 'b'; else if (pas_enumtype_high(t) >= 0) c = 'e';
-            else { const char *al = pas_typealias_get(t); if (!al || !strcmp(al, t)) break; t = al; } }
+        char c = pas_typename_class(g_pas_scalarvartype[i].tname);
         if (!c || (k && k != c)) return 0;
         k = c; }
     return k;
@@ -1534,6 +1539,14 @@ static void pas_value_compat(const char *vn, tree_t *rhs, const char *clause, co
     if (!to || !from || pas_class_compatible(to, from)) return;
     fprintf(stderr, "pascal: ISO 7185 %s violation: %s '%s' is given a value of %s, which is not assignment-compatible with its %s (6.4.6)\n",
             clause, what, vn, pas_class_name(from), pas_class_name(to));
+    g_pas_iso_errors++;
+}
+static void pas_deref_assign_compat(tree_t *lhs, tree_t *rhs) {
+    if (!lhs || lhs->t != TT_FNC || lhs->n != 2 || !lhs->c[0] || !lhs->c[0]->v.sval || strcmp(lhs->c[0]->v.sval, "__pas_deref")) return;
+    const char *tn = pas_ptrexpr_target(lhs->c[1]); char to = pas_typename_class(tn), from = pas_expr_lit_class(rhs);
+    if (!from && to == 'c' && rhs && rhs->t == TT_ILIT) from = 'i';
+    if (!to || !from || pas_class_compatible(to, from)) return;
+    fprintf(stderr, "pascal: ISO 7185 6.8.2.2 violation: the variable referenced through a pointer of the domain type '%s' is given a value of %s, which is not assignment-compatible with its %s (6.4.6)\n", tn, pas_class_name(from), pas_class_name(to));
     g_pas_iso_errors++;
 }
 static void pas_string_assign_check(const char *vn, tree_t *rhs) {
@@ -2302,7 +2315,7 @@ argument:
     ;
 assignment:
     selector BECOMES expression
-        { if ($1 && $1->t == TT_VAR && $1->v.sval) { pas_value_compat($1->v.sval, $3, "6.8.2.2", "the variable"); pas_string_assign_check($1->v.sval, $3); }
+        { if ($1 && $1->t == TT_VAR && $1->v.sval) { pas_value_compat($1->v.sval, $3, "6.8.2.2", "the variable"); pas_string_assign_check($1->v.sval, $3); } pas_deref_assign_compat($1, $3);
           tree_t *_tl = pas_trace_lhs($1);
           if ($1 && $1->t == TT_FNC && $1->n == 2 && $1->c[0] && $1->c[0]->v.sval && (!strcmp($1->c[0]->v.sval, "__pas_fbuf_get") || !strcmp($1->c[0]->v.sval, "__pas_tbuf_get"))) {
               int _isqlit = $3 && ($3->t == TT_QLIT || ($3->t == TT_FNC && $3->n >= 1 && $3->c[0] && $3->c[0]->v.sval && !strcmp($3->c[0]->v.sval, "__pas_chrlit")));
