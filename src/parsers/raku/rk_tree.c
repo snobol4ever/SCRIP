@@ -1855,7 +1855,7 @@ static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
         if (pf->form == 2 && pf->args->n == 1 && pf->args->nitem > 1 && pf->args->op1) { ast_push(c, stmt_plain(b, pf->args)); return c; }
         TL pos = { 0 }, named = { 0 };
         arglist(b, pf->args, pf->form == 2 ? 4 : 2, &pos, &named);
-        static const char *const iom[] = { "spurt", "open", "lines", "words", "mkdir", "copy", "rename", "move", "chmod", "slurp", "dir", "readchars", "seek", "first", NULL }; int isio = 0;
+        static const char *const iom[] = { "spurt", "open", "lines", "words", "mkdir", "copy", "rename", "move", "chmod", "slurp", "dir", "readchars", "seek", "first", "rotor", NULL }; int isio = 0;
         for (int k = 0; iom[k]; k++) if (!strcmp(nm, iom[k])) isio = 1;
         if (isio) for (int i = 0; i < pos.n; i++) { tree_t *a = pos.v[i];
             if (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_mkbool") && a->n >= 3 && a->c[2] && a->c[2]->t == TT_QLIT) { tree_t *pc = make_call("__rk_pair"); expr_add_child(pc, a->c[2]); tree_t *bv = rk_adverb_bool(a->c[1] && a->c[1]->v.ival ? 1 : 0); expr_add_child(pc, bv); pos.v[i] = pc; } }

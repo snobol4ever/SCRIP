@@ -1662,6 +1662,245 @@ static int rk_str_norm_method(const char *m, DESCR_t recv, int nmargs, DESCR_t *
     return 1;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_mk_jct(const char *flavor, DESCR_t *args, int nargs);
+static DESCR_t rk_hash_from_list(const DESCR_t *el, int n);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_cmp_val(DESCR_t a, DESCR_t b) {
+    double da, db;
+    int ia, ib;
+    if (rk_range_num(a, &da, &ia) && rk_range_num(b, &db, &ib)) return da < db ? -1 : da > db ? 1 : 0;
+    return strcmp(rk_cstr(a), rk_cstr(b));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_next_perm(int *ix, int n) {
+    int i = n - 2;
+    while (i >= 0 && ix[i] >= ix[i + 1]) i--;
+    if (i < 0) return 0;
+    int j = n - 1;
+    while (ix[j] <= ix[i]) j--;
+    int t = ix[i];
+    ix[i] = ix[j];
+    ix[j] = t;
+    for (int a = i + 1, b = n - 1; a < b; a++, b--) { t = ix[a]; ix[a] = ix[b]; ix[b] = t; }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_combos_of(rk_av_t a, int k, DESCR_t outl) {
+    if (k < 0 || k > a.n) return;
+    int ix[k > 0 ? k : 1];
+    for (int i = 0; i < k; i++) ix[i] = i;
+    for (;;) {
+        DESCR_t row[k > 0 ? k : 1];
+        for (int i = 0; i < k; i++) row[i] = a.el[ix[i]];
+        rk_arr_append((ARBLK_t *) outl.arr, rk_mk_arr(row, k));
+        int i = k - 1;
+        while (i >= 0 && ix[i] == a.n - k + i) i--;
+        if (i < 0) break;
+        ix[i]++;
+        for (int j = i + 1; j < k; j++) ix[j] = ix[j - 1] + 1;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_list_more_methods(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
+    rk_av_t a = rk_av(recv);
+    if (nmargs == 0 && !strcmp(meth, "permutations")) {
+        if (a.n > 9) return 0;
+        DESCR_t res = rk_mk_arr(NULL, 0);
+        int ix[a.n > 0 ? a.n : 1];
+        for (int i = 0; i < a.n; i++) ix[i] = i;
+        do {
+            DESCR_t row[a.n > 0 ? a.n : 1];
+            for (int i = 0; i < a.n; i++) row[i] = a.el[ix[i]];
+            rk_arr_append((ARBLK_t *) res.arr, rk_mk_arr(row, a.n));
+            a = rk_av(recv);
+        } while (rk_next_perm(ix, a.n));
+        *out = res;
+        return 1;
+    }
+    if (!strcmp(meth, "combinations") && nmargs <= 1) {
+        int lo = 0, hi = a.n;
+        if (nmargs == 1) {
+            DESCR_t m = margs[0];
+            if (rk_is_range(m)) {
+                DESCR_t l, h;
+                int xl, xh;
+                rk_range_bounds(m, &l, &h, &xl, &xh);
+                lo = (int) (IS_INT_fn(l) ? l.i : 0) + xl;
+                hi = (int) (IS_INT_fn(h) ? h.i : a.n) - xh;
+            } else if (IS_INT_fn(m)) lo = hi = (int) m.i;
+            else return 0;
+        }
+        DESCR_t res = rk_mk_arr(NULL, 0);
+        for (int k = lo < 0 ? 0 : lo; k <= hi && k <= a.n; k++) rk_combos_of(a, k, res);
+        *out = res;
+        return 1;
+    }
+    if (!strcmp(meth, "rotor") && nmargs >= 1) {
+        int partial = 0, nc = 0;
+        int cn[nmargs + 8], cg[nmargs + 8];
+        for (int i = 0; i < nmargs; i++) {
+            DESCR_t m = margs[i];
+            if (rk_is_pair(m)) {
+                rk_av_t pa = rk_av(m);
+                const char *k = rk_cstr(pa.el[0]);
+                if (!strcmp(k, "partial")) { partial = rk_is_truthy(pa.el[1]); continue; }
+                cn[nc] = (int) (IS_INT_fn(pa.el[0]) ? pa.el[0].i : atoi(k));
+                cg[nc] = IS_INT_fn(pa.el[1]) ? (int) pa.el[1].i : 0;
+                nc++;
+            } else if (IS_INT_fn(m)) {
+                cn[nc] = (int) m.i;
+                cg[nc] = 0;
+                nc++;
+            } else return 0;
+        }
+        if (nc == 0) return 0;
+        DESCR_t res = rk_mk_arr(NULL, 0);
+        long pos = 0;
+        for (int step = 0; pos < a.n && step < 1000000; step++) {
+            int n = cn[step % nc], g = cg[step % nc];
+            if (n <= 0) break;
+            if (pos + n > a.n && !partial) break;
+            long e = pos + n > a.n ? a.n : pos + n;
+            rk_arr_append((ARBLK_t *) res.arr, rk_mk_arr(a.el + pos, (int) (e - pos)));
+            pos += n + g;
+            if (pos < 0) pos = 0;
+        }
+        *out = res;
+        return 1;
+    }
+    if (nmargs == 0 && !strcmp(meth, "pairup")) {
+        DESCR_t res = rk_mk_arr(NULL, 0);
+        for (int i = 0; i < a.n; ) {
+            if (rk_is_pair(a.el[i])) { rk_arr_append((ARBLK_t *) res.arr, a.el[i]); i++; continue; }
+            if (i + 1 >= a.n) { extern void rt_script_die_surface(const char *msg); rt_script_die_surface("Odd number of elements found for .pairup()"); *out = FAILDESCR; return 1; }
+            rk_arr_append((ARBLK_t *) res.arr, rk_mk_pair(a.el[i], a.el[i + 1]));
+            i += 2;
+        }
+        *out = res;
+        return 1;
+    }
+    if (nmargs == 0 && (!strcmp(meth, "maxpairs") || !strcmp(meth, "minpairs"))) {
+        int mx = meth[1] == 'a';
+        DESCR_t res = rk_mk_arr(NULL, 0);
+        if (a.n) {
+            DESCR_t best = a.el[0];
+            for (int i = 1; i < a.n; i++) { int c = rk_cmp_val(a.el[i], best); if (mx ? c > 0 : c < 0) best = a.el[i]; }
+            for (int i = 0; i < a.n; i++) if (!rk_cmp_val(a.el[i], best)) rk_arr_append((ARBLK_t *) res.arr, rk_mk_pair(INTVAL(i), a.el[i]));
+        }
+        *out = res;
+        return 1;
+    }
+    if (!strcmp(meth, "skip") && nmargs <= 1) {
+        long n = nmargs == 1 && IS_INT_fn(margs[0]) ? (long) margs[0].i : 1;
+        if (n < 0) n = 0;
+        *out = n >= a.n ? rk_mk_arr(NULL, 0) : rk_mk_arr(a.el + n, a.n - (int) n);
+        return 1;
+    }
+    if (!strcmp(meth, "roll") && nmargs <= 1) {
+        if (!a.n) { *out = rk_mk_arr(NULL, 0); return 1; }
+        if (nmargs == 0) { *out = a.el[rand() % a.n]; return 1; }
+        if (!IS_INT_fn(margs[0])) return 0;
+        long cnt = margs[0].i;
+        DESCR_t *r = cnt > 0 ? (DESCR_t *) rt_ws_alloc_descr((size_t) cnt) : NULL;
+        for (long i = 0; i < cnt; i++) r[i] = a.el[rand() % a.n];
+        *out = rk_mk_arr(r, (int) (cnt > 0 ? cnt : 0));
+        return 1;
+    }
+    if (nmargs == 0 && (!strcmp(meth, "any") || !strcmp(meth, "all") || !strcmp(meth, "one") || !strcmp(meth, "none"))) {
+        const char *fl = meth[0] == 'a' ? (meth[1] == 'n' ? rk_proto_jct_any : rk_proto_jct_all) : meth[0] == 'o' ? rk_proto_jct_one : rk_proto_jct_none;
+        DESCR_t *src = (DESCR_t *) a.el;
+        *out = rk_mk_jct(fl, src, a.n);
+        return 1;
+    }
+    if (nmargs == 0 && !strcmp(meth, "invert")) {
+        DESCR_t res = rk_mk_arr(NULL, 0);
+        for (int i = 0; i < a.n; i++) {
+            if (!rk_is_pair(a.el[i])) return 0;
+            rk_av_t pa = rk_av(a.el[i]);
+            DESCR_t k = pa.el[0], v = pa.el[1];
+            if (v.v == DT_A && v.arr && !rk_is_pair(v)) {
+                rk_av_t va = rk_av(v);
+                for (int j = 0; j < va.n; j++) rk_arr_append((ARBLK_t *) res.arr, rk_mk_pair(va.el[j], k));
+            } else rk_arr_append((ARBLK_t *) res.arr, rk_mk_pair(v, k));
+            a = rk_av(recv);
+        }
+        *out = res;
+        return 1;
+    }
+    if ((!strcmp(meth, "unique") || !strcmp(meth, "squish") || !strcmp(meth, "repeated")) && nmargs == 2 && IS_STR_fn(margs[0]) && !strcmp(rk_cstr(margs[0]), "as") && rk_is_code(margs[1])) {
+        int nrf = rk_blk_nref(margs[1]);
+        DESCR_t rfs[nrf ? nrf : 1];
+        rk_cb_t cb = rk_blk_snap(margs[1], rfs);
+        rk_cbh_t H = { g_rk_cbh_cur, { recv, rk_mk_arr(NULL, 0) } };
+        g_rk_cbh_cur = &H;
+        DESCR_t keys = rk_mk_arr(NULL, 0);
+        DESCR_t prev = NULVCL;
+        int mode = meth[0] == 'u' ? 0 : meth[0] == 's' ? 1 : 2;
+        for (int i = 0; i < a.n; i++) {
+            DESCR_t el = rk_av_elem(rk_av(H.d[0]), i);
+            rt_call_args_need(2);
+            CALL_ARGS[0] = el;
+            DESCR_t kd = rk_call_snap(cb, rfs, 1);
+            const char *kt = rk_cstr(kd);
+            rk_av_t ka = rk_av(keys);
+            int seen = 0;
+            if (mode == 1) seen = i > 0 && !strcmp(rk_cstr(prev), kt);
+            else for (int j = 0; j < ka.n && !seen; j++) if (!strcmp(rk_cstr(ka.el[j]), kt)) seen = 1;
+            if (mode == 1) prev = STRVAL(rt_heap_strdup_c(kt));
+            else if (!seen) rk_arr_append((ARBLK_t *) keys.arr, STRVAL(rt_heap_strdup_c(kt)));
+            if (mode == 2 ? seen : !seen) rk_arr_append((ARBLK_t *) H.d[1].arr, rk_av_elem(rk_av(H.d[0]), i));
+        }
+        g_rk_cbh_cur = H.prev;
+        *out = H.d[1];
+        return 1;
+    }
+    if (nmargs == 1 && !strcmp(meth, "produce") && rk_is_code(margs[0])) {
+        int nrf = rk_blk_nref(margs[0]);
+        DESCR_t rfs[nrf ? nrf : 1];
+        rk_cb_t cb = rk_blk_snap(margs[0], rfs);
+        rk_cbh_t H = { g_rk_cbh_cur, { recv, rk_mk_arr(NULL, 0) } };
+        g_rk_cbh_cur = &H;
+        DESCR_t acc = NULVCL;
+        for (int i = 0; i < a.n; i++) {
+            DESCR_t el = rk_av_elem(rk_av(H.d[0]), i);
+            if (i == 0) acc = el;
+            else { rt_call_args_need(3); CALL_ARGS[0] = acc; CALL_ARGS[1] = el; acc = rk_call_snap(cb, rfs, 2); }
+            rk_arr_append((ARBLK_t *) H.d[1].arr, acc);
+        }
+        g_rk_cbh_cur = H.prev;
+        *out = H.d[1];
+        return 1;
+    }
+    if (nmargs == 0 && !strcmp(meth, "is-lazy")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
+    if (nmargs == 0 && !strcmp(meth, "tail")) { *out = a.n ? a.el[a.n - 1] : NULVCL; return 1; }
+    if (nmargs == 0 && !strcmp(meth, "minmax")) {
+        if (!a.n) { *out = rk_mk_arr(NULL, 0); return 1; }
+        DESCR_t lo = a.el[0], hi = a.el[0];
+        for (int i = 1; i < a.n; i++) { if (rk_cmp_val(a.el[i], lo) < 0) lo = a.el[i]; if (rk_cmp_val(a.el[i], hi) > 0) hi = a.el[i]; }
+        *out = rk_range_value(lo, hi, 0);
+        return 1;
+    }
+    if (!strcmp(meth, "fmt") && nmargs >= 1) {
+        extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+        const char *sep = nmargs >= 2 ? rk_cstr(margs[1]) : " ";
+        DESCR_t parts = rk_mk_arr(NULL, 0);
+        for (int i = 0; i < a.n; i++) {
+            DESCR_t fa[3] = { margs[0], a.el[i], NULVCL }, r;
+            int na = 2;
+            DESCR_t pair = a.el[i];
+            if (rk_is_pair(pair)) { rk_av_t pa = rk_av(pair); fa[1] = pa.el[0]; fa[2] = pa.el[1]; na = 3; }
+            if (script_try_call_builtin_by_name("sprintf", fa, na, &r) && !IS_FAIL_fn(r)) rk_arr_append((ARBLK_t *) parts.arr, r);
+            a = rk_av(recv);
+        }
+        rk_av_t pv = rk_av(parts);
+        const char **tx = pv.n ? (const char **) rt_pvec_alloc((size_t) pv.n) : NULL;
+        for (int i = 0; i < pv.n; i++) tx[i] = rk_cstr(pv.el[i]);
+        *out = STRVAL((char *) rk_join_gists(tx, pv.n, sep, "", ""));
+        return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
     if (meth[0] == 'N' && meth[1] == 'F' && rk_str_norm_method(meth, recv, nmargs, out)) return 1;
@@ -1690,8 +1929,15 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (recv.v == DT_BOOL && nmargs == 0 && (!strcmp(meth, "Int") || !strcmp(meth, "Num") || !strcmp(meth, "Numeric") || !strcmp(meth, "Real") || !strcmp(meth, "abs") || !strcmp(meth, "sum"))) recv =
         INTVAL(recv.i);
+    if (nmargs == 0 && (!strcmp(meth, "pairs") || !strcmp(meth, "antipairs")) && recv.v != DT_A && recv.v != DT_T && !rk_typeobj_name(recv) && (IS_INT_fn(recv) || IS_REAL_fn(recv) || IS_STR_fn(recv)))
+        {
+        DESCR_t p1 = meth[0] == 'p' ? rk_mk_pair(INTVAL(0), recv) : rk_mk_pair(recv, INTVAL(0));
+        *out = rk_mk_arr(&p1, 1);
+        return 1;
+    }
     if (nmargs == 0 && (!strcmp(meth, "Numeric") || !strcmp(meth, "Real")) && (IS_INT_fn(recv) || IS_REAL_fn(recv))) { *out = recv; return 1; }
     if (recv.v == DT_A) {
+        if (!rk_is_pair(recv) && !rk_is_jct(recv) && rk_list_more_methods(meth, recv, margs, nmargs, out)) return 1;
         if (rk_is_pair(recv)) {
             rk_av_t pa = rk_av(recv);
             if (!strcmp(meth, "key")) { *out = pa.el[0]; return 1; }
