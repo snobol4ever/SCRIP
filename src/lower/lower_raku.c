@@ -1998,7 +1998,7 @@ static void rk_register_classes(const tree_t * prog) {
             if (!dv) continue;
             if (dv->t == TT_ILIT) dat_set_field_default_i(cname, fn, dv->v.ival);
             else if (dv->t == TT_QLIT) dat_set_field_default_s(cname, fn, dv->v.sval);
-            else if (dv->t == TT_FLIT) dat_set_field_default_r(cname, fn, dv->v.dval);
+            else if (dv->t == TT_FLIT && dv->n == 0) dat_set_field_default_r(cname, fn, dv->v.dval);
         }
         extern void dat_set_field_required(const char *cls, const char *field);
         for (int j = 1; j < d->n; j++) {
@@ -3735,7 +3735,8 @@ static void rk_class_default_tweaks(tree_t * prog) {
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
             if (!ch || !ch->v.sval || ch->n < 1 || !ch->c[0]) continue;
-            int sig = ch->t == TT_ARR_DECL ? '@' : ch->t == TT_HASH_DECL ? '%' : (ch->t == TT_HAS_DECL && ch->c[0]->t != TT_ILIT && ch->c[0]->t != TT_QLIT && ch->c[0]->t != TT_FLIT) ? '$' : 0;
+            int sig = ch->t == TT_ARR_DECL ? '@' : ch->t == TT_HASH_DECL ? '%' :
+                (ch->t == TT_HAS_DECL && ch->c[0]->t != TT_ILIT && ch->c[0]->t != TT_QLIT && !(ch->c[0]->t == TT_FLIT && ch->c[0]->n == 0)) ? '$' : 0;
             if (!sig) continue;
             const char * fn = rk_fld_bare(ch->v.sval);
             if (!*fn) continue;

@@ -2859,6 +2859,11 @@ static int rk_rat_dispatch(const char *meth, DESCR_t *recv, const DESCR_t *margs
             return 1;
         }
         DESCR_t arg0 = nmargs ? margs[0] : NULVCL;
+        if (!strcmp(meth, "fmt") && nmargs <= 1) {
+            DESCR_t fa[2] = { nmargs ? margs[0] : STRVAL("%s"), *recv };
+            extern int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out);
+            return script_try_call_builtin_by_name("sprintf", fa, 2, out);
+        }
         if (rk_rat_method(meth, *recv, nmargs ? &arg0 : NULL, out)) return 1;
         for (int nm = 0; nummeth[nm]; nm++) if (!strcmp(meth, nummeth[nm])) { double rv; if (rk_rat_to_real(*recv, &rv)) *recv = REALVAL(rv); break; }
         return 0;
@@ -3936,7 +3941,7 @@ static const char *rt_mc_type_name(DESCR_t d) {
         case DT_S:
         return "Str";
         case DT_DATA:
-        { if (d.slen == DATA_INST_SLEN && d.u && d.u->type && d.u->type->name) return d.u->type->name; return "Any"; }
+        { if (d.slen == DATA_INST_SLEN && d.u && d.u->type && d.u->type->name) return rk_dat_tname(d.u->type->name); return "Any"; }
         default:
         return "Any";
     }
@@ -3946,7 +3951,7 @@ static int rt_mc_is_subtype(const char *a, const char *b) {
     if (!a || !b) return 0;
     if (!strcmp(b, "Any") || !strcmp(b, "Mu") || !strcmp(b, "Cool")) return 1;
     if (!strcmp(a, b)) return 1;
-    int a_numleaf = (!strcmp(a, "Int") || !strcmp(a, "Num") || !strcmp(a, "Rat"));
+    int a_numleaf = (!strcmp(a, "Int") || !strcmp(a, "Num") || !strcmp(a, "Rat") || !strcmp(a, "FatRat"));
     if ((!strcmp(b, "Numeric") || !strcmp(b, "Real")) && a_numleaf) return 1;
     {
         extern int dat_mro(const char *name, const char **out, int max);
@@ -12971,7 +12976,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             const char *cn = NULL;
             if (IS_DATA_INST_fn(args[0]) && args[0].u) {
                 DATINST_t *di = (DATINST_t *)args[0].u;
-                cn = (di && di->type) ? rk_dat_tname(di->type->name) : NULL;
+                cn = (di && di->type && di->type->name[0] != 1) ? di->type->name : NULL;
             } else {
                 cn = VARVAL_fn(args[0]);
                 if (cn && !dat_find_type(cn)) cn = NULL;
@@ -13000,7 +13005,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             const char *cn = NULL;
             if (IS_DATA_INST_fn(args[0]) && args[0].u) {
                 DATINST_t *di = (DATINST_t *)args[0].u;
-                cn = (di && di->type) ? rk_dat_tname(di->type->name) : NULL;
+                cn = (di && di->type && di->type->name[0] != 1) ? di->type->name : NULL;
             } else {
                 cn = VARVAL_fn(args[0]);
                 if (cn && !dat_find_type(cn)) cn = NULL;
@@ -17027,7 +17032,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         DESCR_t best = args[0];
         for (int _j = 1; _j < nargs; _j++) {
             DESCR_t cv = args[_j];
-            int gt = (best.v == DT_DATA || cv.v == DT_DATA) ? rk_order_cmp_num(best, cv) < 0 : (IS_REAL_fn(best)||IS_REAL_fn(cv)) ?
+            int gt = ((best.v == DT_DATA || cv.v == DT_DATA) && rk_order_both_numeric(best, cv)) ? rk_order_cmp_num(best, cv) < 0 : (IS_REAL_fn(best)||IS_REAL_fn(cv)) ?
                 ((IS_REAL_fn(best)?best.r:(double)best.i) < (IS_REAL_fn(cv)?cv.r:(double)cv.i)) : (best.i < cv.i);
             if (gt) best = cv;
         }
@@ -17040,7 +17045,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         DESCR_t best = args[0];
         for (int _j = 1; _j < nargs; _j++) {
             DESCR_t cv = args[_j];
-            int lt = (best.v == DT_DATA || cv.v == DT_DATA) ? rk_order_cmp_num(best, cv) > 0 : (IS_REAL_fn(best)||IS_REAL_fn(cv)) ?
+            int lt = ((best.v == DT_DATA || cv.v == DT_DATA) && rk_order_both_numeric(best, cv)) ? rk_order_cmp_num(best, cv) > 0 : (IS_REAL_fn(best)||IS_REAL_fn(cv)) ?
                 ((IS_REAL_fn(best)?best.r:(double)best.i) > (IS_REAL_fn(cv)?cv.r:(double)cv.i)) : (best.i > cv.i);
             if (lt) best = cv;
         }
