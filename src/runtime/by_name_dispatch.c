@@ -1462,7 +1462,11 @@ static const char *rk_value_type(DESCR_t v) {
     if (v.v == DT_T) return "Hash";
     if (v.v == DT_A) return rk_is_pair(v) ? "Pair" : rk_is_jct(v) ? "Junction" : ((ARBLK_t *) v.arr)->proto == rk_proto_list ? "List" : ((ARBLK_t *) v.arr)->proto == rk_proto_range ? "Range" :
         ((ARBLK_t *) v.arr)->proto == rk_proto_slip ? "Slip" : "Array";
-    if (IS_DATA_INST_fn(v) && v.u) { DATINST_t *di = (DATINST_t *)v.u; return (di && di->type) ? di->type->name : "Any"; }
+    if (IS_DATA_INST_fn(v) && v.u) {
+        DATINST_t *di = (DATINST_t *)v.u;
+        if (di && di->type && di->type->name && di->type->name[0] == 1) return di->type->name + 1;
+        return (di && di->type) ? di->type->name : "Any";
+    }
     return "Str";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -11266,12 +11270,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (!ai && !arl) { char sa[64]; const char *cs = to_cstring(a, sa, sizeof sa); ad = cs ? strtod(cs, (char **)0) : 0.0; }
         if (!bi && !brl) { char sb[64]; const char *cs = to_cstring(b, sb, sizeof sb); bd = cs ? strtod(cs, (char **)0) : 0.0; }
         if (ai && bi) {
+            extern DESCR_t rk_rat_div(DESCR_t, DESCR_t);
             if (b.i == 0) { rt_script_die_surface("Attempt to divide by zero"); *out = FAILDESCR; return 1; }
-            if (b.i == -1) { extern DESCR_t rt_num_arith(DESCR_t, DESCR_t, int); *out = rt_num_arith(a, b, BINOP_DIV); return 1; }
-            if ((a.i % b.i) == 0) { *out = INTVAL(a.i / b.i); return 1; }
-            *out = REALVAL((double)a.i / (double)b.i);
+            *out = rk_rat_div(a, b);
             return 1;
         }
+        { extern int rk_rat_binop(DESCR_t, DESCR_t, int, DESCR_t *); if ((a.v == DT_DATA || b.v == DT_DATA) && rk_rat_binop(a, b, BINOP_DIV, out)) return 1; }
         if (bd == 0.0) { rt_script_die_surface("Attempt to divide by zero"); *out = FAILDESCR; return 1; }
         *out = REALVAL(ad / bd);
         return 1;
@@ -12494,6 +12498,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (gname && rt_grammar_has_top(gname)) { const char *subj = VARVAL_fn(args[2]); return grammar_parse_core(gname, subj, out); }
         }
         if (mname0 && rk_match_is(args[0]) && rk_match_method(mname0, args, nargs, out)) return 1;
+        { extern int rk_rat_is(DESCR_t); extern int rk_rat_method(const char *, DESCR_t, DESCR_t *); if (mname0 && rk_rat_is(args[0]) && nargs == 2 && rk_rat_method(mname0, args[0], out)) return 1; }
         if (mname0 && rk_qh_hook(mname0, args, nargs, out)) return 1;
         if (mname0 && rk_io_is(args[0]) && rk_io_path_method(mname0, args, nargs, out)) return 1;
         if (mname0 && IS_FH_fn(args[0]) && rk_io_fh_method(mname0, args, nargs, out)) return 1;
@@ -13747,6 +13752,7 @@ static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
     return 0;
 }
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
+    { extern int rk_rat_is(DESCR_t); extern const char *rk_rat_str(DESCR_t, int); if (rk_rat_is(d)) return rk_rat_str(d, 0); }
     { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
     if (IS_DATA_INST_fn(d) && d.u && d.u->type && rk_uni_is_name(d.u->type->name)) { DESCR_t ur; if (rk_uni_method(use_gist ? "gist" : "Str", d, 0, &ur)) return rk_cstr(ur); }
     if (IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name) {
