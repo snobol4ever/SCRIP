@@ -283,7 +283,7 @@ static tree_t *rk_incdec(RkB *b, const char *var, int add) { return rk_quiet_sto
 static tree_t *rk_post_incdec(RkB *b, const char *var, int add) {
     const char *tmp = fmt("__post_%d", b->post_uid++);
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
-    expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), var_node(b, var)));
+    expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), call2("__rk_dor", var_node(b, var), rk_ilit(0))));
     expr_add_child(seq, rk_quiet_store(var_node(b, var), expr_binary(add ? TT_ADD : TT_SUB, var_node(b, var), rk_ilit(1))));
     expr_add_child(seq, leaf_sval(TT_VAR, tmp));
     return seq;
@@ -1222,7 +1222,7 @@ static int var_cls_of(const char *t, int n) {
 void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     memset(it, 0, sizeof *it); it->kind = TK_VAR; it->from = from; it->to = it->core_to = to;
     if (nc) { tree_t *c = ast_node_new(TT_NAMED_CAPTURE); ast_push(c, leaf_sval(TT_QLIT, trimdup(nc, nclen))); it->t = c; it->cls = 'N'; return; }
-    char *name = spn(b, from, to); it->name = name;
+    char *name = spn(b, from, to); if (!strcmp(name, "$")) name = fmt("$__rk_st_anon%d", from); it->name = name;
     int n = (int) strlen(name);
     it->cls = var_cls_of(name, n);
     switch (it->cls) {
