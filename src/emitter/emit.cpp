@@ -1576,7 +1576,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_UNIFY_FIRST: { extern void unify_prepare(IR_t *); unify_prepare(nd); bb_emit_x86(bb_unify_first()); } return 0;
     case IR_UNIFY_VALUE: { extern void unify_prepare(IR_t *); unify_prepare(nd); bb_emit_x86(bb_unify_value()); } return 0;
     case IR_RANDOM: bb_emit_x86(bb_random()); return 0;
-    case IR_ASSIGN_VAR: bb_emit_x86(nd->n_operands == 3 ? bb_assign_var_sub() : bb_assign_var()); return 0;
+    case IR_ASSIGN_VAR: g_emit.op_seal = nd->seal; bb_emit_x86((nd->n_operands == 3 && nd->seal != IR_SEAL_ASSIGN_LVTBL) ? bb_assign_var_sub() : bb_assign_var()); return 0;
     case IR_REV_ASSIGN: {
         if (g_emit.op_sb == -1) { IR_t * _lv = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0; const char * _vn = _lv ? IR_LIT(_lv).sval : (const char *)0;
             g_emit.op_sval = _vn; g_emit.op_gva_k = (g_gva_active && _vn && !graph_has_local(g_emit_cfg, _vn)) ? gva_index_of(_vn) : -1;
@@ -2408,7 +2408,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_ASSIGN_VAR: {
-        if (nd->n_operands == 3) {
+        if (nd->n_operands == 3 && nd->seal != IR_SEAL_ASSIGN_LVTBL) {
             IR_t * b = nd->operands[0]; IR_t * ix = nd->operands[1]; IR_t * v = nd->operands[2];
             int sb2 = b ? drive_value_slot(b) : -1; int si = ix ? drive_value_slot(ix) : -1; int sv = v ? drive_value_slot(v) : -1;
             if (sb2 < 0 || si < 0 || sv < 0) { drive_guard_refused(nd, __LINE__); break; }
@@ -2420,6 +2420,12 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
         int sa = v ? drive_value_slot(v) : -1; int sb = r ? drive_value_slot(r) : -1;
         if (sa < 0 || sb < 0) { drive_guard_refused(nd, __LINE__); break; }
         g_emit.op_a_slot = sa; g_emit.op_sa = sb; g_emit.op_off = drive_value_slot(nd);
+        if (nd->seal == IR_SEAL_ASSIGN_LVTBL && nd->n_operands == 3) {
+            int si = nd->operands[2] ? drive_value_slot(nd->operands[2]) : -1;
+            if (si < 0) { drive_guard_refused(nd, __LINE__); break; }
+            g_emit.op_sb = si;
+            g_emit.op_seal = nd->seal;
+        }
         DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
     }
     case IR_SWAP: {

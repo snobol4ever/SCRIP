@@ -301,6 +301,15 @@ int table_delete_d(TBBLK_t *tbl, DESCR_t k) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static TBBUCK_t *_tbl_bucket_new(unsigned count) {
+    unsigned nc = 1u;
+    if (count <= 128u) { while (nc < count) nc <<= 1; } else nc = (count + 127u) & ~127u;
+    TBBUCK_t *nb = rt_gcheap_alloc(HB_AGGB, (unsigned long long)(sizeof(TBBUCK_t) + (size_t)nc * sizeof(TBPAIR_t)));
+    nb->len = 0u;
+    nb->cap = nc;
+    return nb;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void _tbl_rehash(TBBLK_t *tbl) {
     unsigned old_n = tbl->nbuck, nb = old_n << 1;
     if (!nb || nb > 1u << 22) return;
@@ -308,18 +317,15 @@ static void _tbl_rehash(TBBLK_t *tbl) {
     tbl->buckets = nv;
     tbl->nbuck = nb;
     for (unsigned b = 0; b < old_n; b++) {
-        TBBUCK_t *ob = ov[b];
+        TBBUCK_t *ob = ov[b], *hi = (TBBUCK_t *)0;
+        unsigned nhi = 0u, nlo = 0u;
         if (!ob) continue;
-        for (unsigned i = 0; i < ob->len; i++) {
-            TBPAIR_t *e = &ob->ent[i];
-            unsigned nbi = (unsigned)e->hkey & (nb - 1u);
-            TBBUCK_t *nbk = nv[nbi];
-            if (!nbk || nbk->len == nbk->cap) { nbk = _tbl_grow(tbl, nbk); nv[nbi] = nbk; }
-            unsigned j = _tbl_lower(nbk->ent, nbk->len, e->hkey);
-            if (j < nbk->len) memmove(&nbk->ent[j + 1], &nbk->ent[j], (size_t)(nbk->len - j) * sizeof(TBPAIR_t));
-            nbk->ent[j] = *e;
-            nbk->len++;
-        }
+        for (unsigned i = 0; i < ob->len; i++) nhi += (ob->ent[i].hkey & old_n) ? 1u : 0u;
+        if (nhi) hi = _tbl_bucket_new(nhi);
+        for (unsigned i = 0; i < ob->len; i++) { if (ob->ent[i].hkey & old_n) hi->ent[hi->len++] = ob->ent[i]; else ob->ent[nlo++] = ob->ent[i]; }
+        ob->len = nlo;
+        nv[b] = nlo ? ob : (TBBUCK_t *)0;
+        nv[b + old_n] = hi;
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

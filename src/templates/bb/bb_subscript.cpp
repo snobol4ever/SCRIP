@@ -11,6 +11,7 @@ extern DESCR_t rt_subscript_var_container_only(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_var_container_only_strict(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_val(DESCR_t base, DESCR_t idx);
 extern DESCR_t rt_subscript_val_strict(DESCR_t base, DESCR_t idx);
+extern DESCR_t rt_subscript_lv_strict(DESCR_t base, DESCR_t idx);
 }
 #include "x86_asm.h"
 #define sub_val_on() emit_knob_unless_zero("SCRIP_SUB_VAL")
@@ -23,7 +24,9 @@ static const char * sub_open_sym(void) { return sub_vctx() ? "rt_subscript_val" 
 #define SUB_OPEN_FN() (sub_vctx() ? (uint64_t)(uintptr_t)(void *)rt_subscript_val \
                       : (uint64_t)(uintptr_t)(void *)(sub_conly() ? (_.op_strict ? rt_subscript_var_container_only_strict : rt_subscript_var_container_only) \
                                                                    : (_.op_strict ? rt_subscript_var_strict : rt_subscript_var)))
-#define sub_ival() (_.op_strict && _.op_seal == IR_SEAL_SUBSCRIPT_VALUE && !sub_conly())
+#define sub_ilv() (_.op_strict && _.op_seal == IR_SEAL_SUBSCRIPT_LVTBL && !sub_conly())
+#define sub_ival() ((_.op_strict && _.op_seal == IR_SEAL_SUBSCRIPT_VALUE && !sub_conly()) || sub_ilv())
+#define SUB_LEAF_FN() (sub_ilv() ? (uint64_t)(uintptr_t)(void *)rt_subscript_lv_strict : (uint64_t)(uintptr_t)(void *)rt_subscript_val_strict)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SUB_ARGS() \
     (IF(_.op_zres, \
@@ -48,7 +51,7 @@ static const char * sub_open_sym(void) { return sub_vctx() ? "rt_subscript_val" 
        + SUB_ARGS() \
        + x86("test", "eax", "eax") \
        + x86("jne", L(2)) \
-       + x86("call", "rt_subscript_val_strict", (uint64_t)(uintptr_t)(void *)rt_subscript_val_strict) \
+       + x86("call", sub_ilv() ? "rt_subscript_lv_strict" : "rt_subscript_val_strict", SUB_LEAF_FN()) \
        + x86("cmp", "al", (long)RTX_NOT_HANDLED) \
        + x86("jne", L(4)) \
        + x86("mov", "eax", 1L) \

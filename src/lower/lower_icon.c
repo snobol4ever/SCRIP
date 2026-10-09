@@ -1308,9 +1308,11 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
                     IR_t * rr = NULL;
                     IR_t * re = lower(cx, rhs, asn, lvbeta ? lvbeta : ω, &rr);
+                    int tbl_store = lhs->t == TT_IDX && lhs->n == 2 && lv->op == IR_SUBSCRIPT && lv->n_operands == 2 && !IR_LIT(lv).sval;
                     lc_γ_to(lv, re);
                     ir_operand_push(asn, lv);
                     ir_operand_push(asn, rr);
+                    if (tbl_store) { lv->seal = IR_SEAL_SUBSCRIPT_LVTBL; asn->seal = IR_SEAL_ASSIGN_LVTBL; ir_operand_push(asn, lv->operands[1]); }
                     *res = asn;
                     return lve;
                 }

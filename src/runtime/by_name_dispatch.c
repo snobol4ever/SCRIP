@@ -16167,9 +16167,20 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         if (IS_CSET_fn(av)) { *out = rt_str_coerce(av); return 1; }
         if (IS_STR_fn(av)) { *out = av; return 1; }
         if (av.v == DT_BIG) { extern char *rt_big_str(DESCR_t); *out = STRVAL(rt_big_str(av)); return 1; }
+        if (IS_INT_fn(av)) {
+            char tmp[24], *e = tmp + sizeof tmp;
+            unsigned long long u = av.i < 0 ? 0ull - (unsigned long long)av.i : (unsigned long long)av.i;
+            do { *--e = (char)('0' + u % 10ull); u /= 10ull; } while (u);
+            if (av.i < 0) *--e = '-';
+            size_t n = (size_t)(tmp + sizeof tmp - e);
+            char *ib = rt_wsb_alloc(n + 1);
+            memcpy(ib, e, n);
+            ib[n] = 0;
+            *out = (DESCR_t){ .v = DT_S, .slen = (uint32_t)n, .s = ib };
+            return 1;
+        }
         char *buf = rt_wsb_alloc(64);
-        if (IS_INT_fn(av)) snprintf(buf,64,"%lld",(long long)av.i);
-        else if (IS_REAL_fn(av)) { icon_real_str(av.r,buf,64); } else { *out = FAILDESCR; return 1; }
+        if (IS_REAL_fn(av)) { icon_real_str(av.r,buf,64); } else { *out = FAILDESCR; return 1; }
         *out = STRVAL(buf);
         return 1;
     }
