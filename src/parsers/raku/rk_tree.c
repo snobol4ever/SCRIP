@@ -24,6 +24,7 @@ struct RkB {
     int nocurry, wc_uid;
     const char **pcv; int npcv, cpcv; int use_test;
     const char *rop_txt;
+    tree_t *rad_inner;
 };
 #define GROW(arr, n, cap, type) do { if ((n) >= (cap)) { (cap) = (cap) ? (cap) * 2 : 8; (arr) = (type *) ct_grow((arr), sizeof(type) * (size_t) (cap)); } } while (0)
 /*====================================================================================================================================================================================================*/
@@ -1220,6 +1221,7 @@ tree_t *rkb_assign_op(RkB *b, const char *name, const char *op, tree_t *r) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_elem(const tree_t *g) { return g && (g->t == TT_ARR_GET || g->t == TT_HASH_GET) && g->n >= 2; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_unany(tree_t *rd) { tree_t *c = make_call("__rk_unany"); expr_add_child(c, rd); return c; }
 static tree_t *rk_elem_store(tree_t *g, tree_t *val) {
     tree_t *c = ast_node_new(g->t == TT_ARR_GET ? TT_ARR_SET : TT_HASH_SET); ast_push(c, rk_tree_clone(g->c[0])); ast_push(c, rk_tree_clone(g->c[1])); ast_push(c, val); return c;
 }
@@ -1228,14 +1230,14 @@ tree_t *rkb_elem_incdec(RkB *b, tree_t *g, int add, int post) {
     if (post) {
         tree_t *seq = ast_node_new(TT_SEQ_EXPR);
         const char *tmp = fmt("__post_%d", b->post_uid++);
-        expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), rk_tree_clone(g)));
+        expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), rk_unany(rk_tree_clone(g))));
         expr_add_child(seq, rk_elem_store(g, expr_binary(add ? TT_ADD : TT_SUB, leaf_sval(TT_VAR, tmp), rk_ilit(1))));
         expr_add_child(seq, leaf_sval(TT_VAR, tmp));
         return seq;
     }
     tree_t *seq = ast_node_new(TT_SEQ_EXPR);
     const char *tmp = fmt("__pre_%d", b->post_uid++);
-    expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), expr_binary(add ? TT_ADD : TT_SUB, rk_tree_clone(g), rk_ilit(1))));
+    expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), expr_binary(add ? TT_ADD : TT_SUB, rk_unany(rk_tree_clone(g)), rk_ilit(1))));
     expr_add_child(seq, rk_elem_store(g, leaf_sval(TT_VAR, tmp)));
     expr_add_child(seq, leaf_sval(TT_VAR, tmp));
     return seq;
@@ -1450,11 +1452,70 @@ void rkb_var(RkB *b, RkTerm *it, int from, int to, const char *nc, int nclen) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_big_lit(int base, const char *digits, int neg) {
+    tree_t *c = make_call("__rk_radix_str");
+    expr_add_child(c, rk_ilit(base));
+    expr_add_child(c, leaf_sval(TT_QLIT, intern(digits)));
+    if (!neg) return c;
+    return expr_unary(TT_MNS, c);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_digits_fit(const char *digits, int base) {
+    unsigned __int128 acc = 0;
+    for (const char *p = digits; *p; p++) {
+        int c = (unsigned char) *p, dv = isdigit(c) ? c - '0' : isalpha(c) ? tolower(c) - 'a' + 10 : -1;
+        if (dv < 0 || dv >= base) continue;
+        acc = acc * (unsigned) base + (unsigned) dv;
+        if (acc > (unsigned __int128) 0x7fffffffffffffffULL) return 0;
+    }
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rkb_set_rad_inner(RkB *b, tree_t *t) { b->rad_inner = t; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rkb_number(RkB *b, RkTerm *it, int from, int to) {
     memset(it, 0, sizeof *it); it->kind = TK_TREE; it->from = from; it->to = it->core_to = to;
     char *t = spn(b, from, to); int len = (int) strlen(t);
+    if (len > 3 && t[0] == ':' && isdigit((unsigned char) t[1])) {
+        int base = 0, k = 1;
+        while (k < len && isdigit((unsigned char) t[k])) base = base * 10 + (t[k++] - '0');
+        while (k < len && (t[k] == ' ' || t[k] == '\t')) k++;
+        if (base >= 2 && base <= 36 && k < len && t[k] == '<') {
+            double frac = 0, scale = 1;
+            unsigned __int128 acc = 0;
+            int neg = 0, seen_dot = 0, ovf = 0;
+            for (k++; k < len && t[k] != '>'; k++) {
+                int c = (unsigned char) t[k], dv;
+                if (c == '_' || c == ' ') continue;
+                if (c == '-' && acc == 0 && !seen_dot) { neg = 1; continue; }
+                if (c == '+' && acc == 0 && !seen_dot) continue;
+                if (c == '.') { seen_dot = 1; continue; }
+                dv = isdigit(c) ? c - '0' : isalpha(c) ? tolower(c) - 'a' + 10 : -1;
+                if (dv < 0 || dv >= base) continue;
+                if (seen_dot) { scale /= base; frac += dv * scale; }
+                else { if (acc > ((unsigned __int128) 1 << 120)) ovf = 1; acc = acc * (unsigned) base + (unsigned) dv; }
+            }
+            if (!seen_dot && (ovf || acc > (unsigned __int128) 0x7fffffffffffffffULL)) {
+                SB ds = { 0 };
+                for (int m = 1; m < len; m++) { if (t[m] == '<') { for (m++; m < len && t[m] != '>'; m++) if (t[m] != '_' && t[m] != ' ' && t[m] != '-' && t[m] != '+') sb_c(&ds, t[m]); break; } }
+                it->t = rk_big_lit(base, sb_str(&ds), neg);
+                return;
+            }
+            if (seen_dot) { tree_t *e = ast_node_new(TT_FLIT); e->v.dval = (neg ? -1.0 : 1.0) * ((double) acc + frac); it->t = e; return; }
+            it->t = rk_ilit(neg ? -(long long) acc : (long long) acc);
+            return;
+        }
+        if (base >= 2 && k < len && (t[k] == '[' || t[k] == '(') && b->rad_inner) {
+            tree_t *c = make_call("__rk_radix_list");
+            expr_add_child(c, rk_ilit(base));
+            expr_add_child(c, b->rad_inner);
+            b->rad_inner = NULL;
+            it->t = c;
+            return;
+        }
+    }
     int alld = len > 0; for (int i = 0; i < len; i++) if (!isdigit((unsigned char) t[i])) alld = 0;
-    if (alld) { it->t = rk_ilit(atol(t)); return; }
+    if (alld) { if (len >= 19 && !rk_digits_fit(t, 10)) it->t = rk_big_lit(10, t, 0); else it->t = rk_ilit(atol(t)); return; }
     int i = 0; while (i < len && isdigit((unsigned char) t[i])) i++;
     int fl = 0;
     if (i > 0 && i < len && t[i] == '.' && i + 1 < len && isdigit((unsigned char) t[i + 1])) { i++; while (i < len && isdigit((unsigned char) t[i])) i++; fl = 1; }
@@ -1466,9 +1527,10 @@ void rkb_number(RkB *b, RkTerm *it, int from, int to) {
     char *u = sb_str(&s);
     if (!strncmp(u, "Inf", 3) || !strncmp(u, "NaN", 3)) { it->t = var_node(b, u); return; }
     if (strchr(u, '.') || ((strchr(u, 'e') || strchr(u, 'E')) && strncmp(u, "0x", 2))) { tree_t *e = ast_node_new(TT_FLIT); e->v.dval = atof(u); it->t = e; return; }
-    if (u[0] == '0' && (u[1] == 'b' || u[1] == 'B')) { it->t = rk_ilit(strtoll(u + 2, NULL, 2)); return; }
-    if (u[0] == '0' && (u[1] == 'o' || u[1] == 'O')) { it->t = rk_ilit(strtoll(u + 2, NULL, 8)); return; }
-    if (u[0] == '0' && (u[1] == 'd' || u[1] == 'D')) { it->t = rk_ilit(strtoll(u + 2, NULL, 10)); return; }
+    if (u[0] == '0' && (u[1] == 'b' || u[1] == 'B')) { it->t = rk_digits_fit(u + 2, 2) ? rk_ilit(strtoll(u + 2, NULL, 2)) : rk_big_lit(2, u + 2, 0); return; }
+    if (u[0] == '0' && (u[1] == 'o' || u[1] == 'O')) { it->t = rk_digits_fit(u + 2, 8) ? rk_ilit(strtoll(u + 2, NULL, 8)) : rk_big_lit(8, u + 2, 0); return; }
+    if (u[0] == '0' && (u[1] == 'd' || u[1] == 'D')) { it->t = rk_digits_fit(u + 2, 10) ? rk_ilit(strtoll(u + 2, NULL, 10)) : rk_big_lit(10, u + 2, 0); return; }
+    if (u[0] == '0' && (u[1] == 'x' || u[1] == 'X') && !rk_digits_fit(u + 2, 16)) { it->t = rk_big_lit(16, u + 2, 0); return; }
     it->t = rk_ilit(strtoll(u, NULL, 0));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1578,7 +1640,7 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
         return;
     }
     if (!strcmp(nm, "say") || !strcmp(nm, "print") || !strcmp(nm, "put")) {
-        arglist(b, args, 0, &pos, NULL); flatten_paren_args(args, &pos);
+        arglist(b, args, 0, &pos, NULL); if (form == 1) flatten_paren_args(args, &pos);
         tree_t *c = ast_node_new(nm[0] == 's' ? TT_SAY : TT_PRINT); for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]);
         if (nm[1] == 'u') expr_add_child(c, leaf_sval(TT_QLIT, "\n"));
         it->t = c; return;
@@ -1632,6 +1694,14 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     if (form == 2 && args->subst) { it->t = rkb_expr(b, args); return; }
     int hn = arglist(b, args, 1, &pos, &named);
     if (hn) { it->t = rk_named_call(nm, pos.n ? &pos : NULL, &named); return; }
+    if (pos.n >= 1 && pos.v[0] && pos.v[0]->t == TT_TWIGIL_FIELD) {
+        static const char *const mut[] = { "push", "unshift", "append", "prepend", "pop", "shift", "splice", NULL };
+        for (int i = 0; mut[i]; i++) if (!strcmp(nm, mut[i])) {
+            tree_t *m = ast_node_new(TT_METHCALL); ast_push(m, pos.v[0]); ast_push(m, leaf_sval(TT_QLIT, intern(nm)));
+            for (int k = 1; k < pos.n; k++) ast_push(m, pos.v[k]);
+            it->t = m; return;
+        }
+    }
     tree_t *e = make_call(nm); for (int i = 0; i < pos.n; i++) expr_add_child(e, pos.v[i]); it->t = e;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1956,7 +2026,16 @@ static void has_items(RkB *b, tree_t *list, RkDecl *d, int from) {
     if (handles) { tree_t *fv = ast_node_new(TT_HANDLES_DECL); fv->v.sval = (char *) intern(fn); expr_add_child(fv, leaf_sval(TT_QLIT, handles)); app(b, list, fv, from); return; }
     int has_init = d->init_op && !strcmp(d->init_op, "=") && d->init;
     if (nm[0] == '@' || nm[0] == '%') {
-        tree_t *fv = ast_node_new(nm[0] == '@' ? TT_ARR_DECL : TT_HASH_DECL); fv->v.sval = (char *) intern(fn); app(b, list, fv, from); return;
+        tree_t *fv = ast_node_new(nm[0] == '@' ? TT_ARR_DECL : TT_HASH_DECL); fv->v.sval = (char *) intern(fn);
+        if (has_init) {
+            RkEl **rs = NULL; int nrs = 0, crs = 0;
+            for (int i = 0; i < d->init->n; i++) { GROW(rs, nrs, crs, RkEl *); rs[nrs++] = &d->init->v[i]; }
+            tree_t *val;
+            if (nm[0] == '@') val = nrs == 1 ? rk_arr_rhs(el_tree(b, rs[0])) : rs_list(b, rs, nrs);
+            else { val = hash_pairs(b, rs, nrs); if (!val) val = el_tree(b, rs[0]); }
+            expr_add_child(fv, val);
+        }
+        app(b, list, fv, from); return;
     }
     if (has_init) {
         tree_t *e = rkb_expr(b, d->init);
@@ -2016,7 +2095,7 @@ static tree_t *assign_forms(RkB *b, RkList *L, int tail, int bk) {
     int clv, ck;
     if (!eq && t0->kind == TK_VAR && t0->npost >= 1 && !t0->npre && rk_is_elem(t0->t) && L->n == 1 && rkb_compound_base(op1, &clv, &ck)) {
         tree_t *g = t0->t; tree_t *rhs = el_rest(b, e0);
-        return rk_elem_store(g, rk_scalar_rhs(rkb_binop(b, clv, ck, rk_tree_clone(g), rhs)));
+        return rk_elem_store(g, rk_scalar_rhs(rkb_binop(b, clv, ck, rk_unany(rk_tree_clone(g)), rhs)));
     }
     return NULL;
 }
@@ -2038,6 +2117,15 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
         for (int i = 1; i < L->n; i++) expr_add_child(call, el_tree(b, &L->v[i]));
         return expr_binary(TT_ASSIGN, var_node(b, t0->name), call);
     }
+    if (op1 && !strcmp(op1, "=") && (plain(t0, 'H') || plain(t0, 'U') || plain(t0, 'W'))) {
+        tree_t *first = el_rest(b, e0);
+        int arr = plain(t0, 'U');
+        tree_t *lhs = plain(t0, 'H') ? var_node(b, t0->name) : rk_tw_field(t0->name + 1), *rhs;
+        if (L->n == 1) rhs = arr ? rk_arr_rhs(first) : first;
+        else { rhs = make_call("__rk_arr"); expr_add_child(rhs, first); for (int i = 1; i < L->n; i++) expr_add_child(rhs, el_tree(b, &L->v[i])); }
+        { tree_t *th = make_call(arr ? "__rk_to_array" : "__rk_to_hash"); expr_add_child(th, rhs); rhs = th; }
+        return expr_binary(TT_ASSIGN, lhs, rhs);
+    }
     if (op1 && !strcmp(op1, "=") && L->n == 1 && t0->t) {
         tree_t *g = t0->t, *var = NULL, *from = NULL, *len = NULL;
         if (g->t == TT_FNC && g->v.sval && !strcmp(g->v.sval, "substr-rw") && g->n >= 3) { var = g->c[1]; from = g->c[2]; len = g->n >= 4 ? g->c[3] : NULL; }
@@ -2057,7 +2145,7 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
         if (eq || rkb_compound_base(op1, &clv, &ck)) {
             tree_t *inner = t0->t, *lhs = inner->c[0], *rhs = el_rest(b, e0);
             if (inner->t == TT_ARR_SET || inner->t == TT_HASH_SET) { lhs = ast_node_new(inner->t == TT_ARR_SET ? TT_ARR_GET : TT_HASH_GET); ast_push(lhs, rk_tree_clone(inner->c[0])); ast_push(lhs, rk_tree_clone(inner->c[1])); }
-            tree_t *val = eq ? rk_scalar_rhs(rhs) : rk_scalar_rhs(rkb_binop(b, clv, ck, rk_tree_clone(lhs), rhs));
+            tree_t *val = eq ? rk_scalar_rhs(rhs) : rk_scalar_rhs(rkb_binop(b, clv, ck, rk_is_elem(lhs) ? rk_unany(rk_tree_clone(lhs)) : rk_tree_clone(lhs), rhs));
             tree_t *seq = ast_node_new(TT_SEQ_EXPR); expr_add_child(seq, inner);
             expr_add_child(seq, rk_is_elem(lhs) ? rk_elem_store(lhs, val) : expr_binary(TT_ASSIGN, rk_tree_clone(lhs), val));
             return seq;

@@ -76,6 +76,7 @@ void     rkb_set_st_lookup(RkB *b, const char *(*look)(void *, const char *, int
 tree_t  *rkb_bracket(RkB *b, RkList *L);
 void     rkb_var(RkB *b, RkTerm *it, int from, int to, const char *named_capture, int nclen);
 void     rkb_number(RkB *b, RkTerm *it, int from, int to);
+void     rkb_set_rad_inner(RkB *b, tree_t *t);
 void     rkb_quote(RkB *b, RkTerm *it, int from, int to, RkClosure *cl, int ncl);
 void     rkb_words(RkB *b, RkTerm *it, int from, int to, int inner_from, int inner_to);
 void     rkb_name(RkB *b, RkTerm *it, int from, int to, int namelen);

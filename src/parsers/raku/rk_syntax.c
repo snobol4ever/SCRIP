@@ -938,7 +938,7 @@ static int r_rad_number(RkP *p, int pos) {
         if (ch(p, r) != '>') panic_at(p, q, "Malformed radix number");
         return r + 1;
     }
-    if (c == '[' || c == '(') return r_circumfix(p, q);
+    if (c == '[' || c == '(') { int f = r_circumfix(p, q); if (f >= 0 && p->build) rkb_set_rad_inner(p->B, p->tm.t); return f; }
     panic_at(p, q, "Malformed radix number");
     return -1;
 }

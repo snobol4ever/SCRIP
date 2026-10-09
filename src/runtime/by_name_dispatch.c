@@ -380,17 +380,17 @@ int rt_builtin_is_known(const char *name) {
         "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup",
         "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
         "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max",
-        "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg",
-        "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm",
-        "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr",
-        "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems",
-        "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv",
-        "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture",
-        "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check",
-        "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT",
-        "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM",
-        "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g",
-        "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool",
+        "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor",
+        "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb",
+        "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile",
+        "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists",
+        "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub",
+        "__rk_say_capture", "__rk_say_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame",
+        "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT",
+        "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD",
+        "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT",
+        "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -1127,6 +1127,7 @@ static const char *rk_join_gists(const char **tx, int n, const char *sep, const 
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_gist_str(DESCR_t v) {
+    { const char *tn = rk_typeobj_name(v); if (tn) { char *r = rt_wsb_alloc(strlen(tn) + 3); snprintf(r, strlen(tn) + 3, "(%s)", tn); return r; } }
     if (v.v == DT_T && v.tbl) {
         TBBLK_t *t = v.tbl;
         const char **tx = t->size ? (const char **) rt_pvec_alloc((size_t) t->size) : NULL;
@@ -8622,20 +8623,20 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             ARBLK_t *b = (ARBLK_t *) args[0].arr;
             rk_av_t ix = rk_av(args[1]);
             DESCR_t *r = ix.n ? (DESCR_t *) rt_ws_alloc_descr((size_t) ix.n) : NULL;
-            for (int k = 0; k < ix.n; k++) { long i = IS_INT_fn(ix.el[k]) ? ix.el[k].i : 0; r[k] = (i < b->lo || i > b->hi) ? NULVCL : b->data[i - b->lo]; }
+            for (int k = 0; k < ix.n; k++) { long i = IS_INT_fn(ix.el[k]) ? ix.el[k].i : 0; r[k] = (i < b->lo || i > b->hi) ? rk_typeobj("Any") : b->data[i - b->lo]; }
             *out = rk_mk_arr(r, ix.n);
             return 1;
         }
         if (args[0].v == DT_A && args[0].arr) {
             ARBLK_t *b = (ARBLK_t *) args[0].arr;
             long i = IS_INT_fn(args[1]) ? args[1].i : 0;
-            if (i < b->lo || i > b->hi) { *out = NULVCL; return 1; }
+            if (i < b->lo || i > b->hi) { *out = rk_typeobj("Any"); return 1; }
             *out = b->data[i - b->lo];
             return 1;
         }
         rk_av_t sc = rk_av(args[0]);
         long idx = IS_INT_fn(args[1]) ? args[1].i : 0;
-        *out = (idx >= 0 && idx < sc.n) ? sc.el[idx] : NULVCL;
+        *out = (idx >= 0 && idx < sc.n) ? sc.el[idx] : rk_typeobj("Any");
         return 1;
     }
     if (!strncmp(fn, "__rk_test_", 10)) {
@@ -9857,6 +9858,37 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if (!strcmp(fn, "__rk_typeobj") && nargs == 1) { *out = rk_typeobj(VARVAL_fn(args[0])); return 1; }
     if (!strcmp(fn, "__rk_item1") && nargs == 1) { *out = args[0]; return 1; }
+    if (!strcmp(fn, "__rk_radix_str") && nargs == 2) {
+        extern DESCR_t rt_mul_big(DESCR_t, DESCR_t), rt_add_big(DESCR_t, DESCR_t);
+        const char *ds = VARVAL_fn(args[1]);
+        DESCR_t base = IS_INT_fn(args[0]) ? args[0] : INTVAL(10), acc = INTVAL(0);
+        for (const char *q = ds ? ds : ""; *q; q++) {
+            int c = (unsigned char) *q, dv = isdigit(c) ? c - '0' : isalpha(c) ? tolower(c) - 'a' + 10 : -1;
+            if (dv < 0) continue;
+            acc = rt_add_big(rt_mul_big(acc, base), INTVAL(dv));
+        }
+        *out = acc;
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_radix_list") && nargs == 2) {
+        extern DESCR_t rt_mul_big(DESCR_t, DESCR_t), rt_add_big(DESCR_t, DESCR_t);
+        rk_av_t a = rk_av(args[1]);
+        DESCR_t base = IS_INT_fn(args[0]) ? args[0] : INTVAL(10), acc = INTVAL(0);
+        for (int i = 0; i < a.n; i++) {
+            DESCR_t d = a.el[i];
+            if (IS_STR_fn(d) && d.s && d.s[0] && !d.s[1]) { int c = (unsigned char) d.s[0]; d = INTVAL(isdigit(c) ? c - '0' : isalpha(c) ? tolower(c) - 'a' + 10 : 0); }
+            acc = rt_add_big(rt_mul_big(acc, base), IS_INT_fn(d) ? d : INTVAL(0));
+        }
+        *out = acc;
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_unany") && nargs == 1) { *out = rk_typeobj_name(args[0]) ? NULVCL : args[0]; return 1; }
+    if (!strcmp(fn, "__rk_unset") && nargs == 1) {
+        DESCR_t a = args[0];
+        int u = a.v == DT_SNUL || rk_typeobj_name(a) || (IS_STR_fn(a) && (!a.s || !a.s[0]));
+        *out = (DESCR_t){ .v = DT_BOOL, .i = u };
+        return 1;
+    }
     if (!strcmp(fn, "__rk_str") && nargs == 1) {
         extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
         DESCR_t a = args[0];
@@ -9965,7 +9997,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         DESCR_t *r = (DESCR_t *) rt_ws_alloc_descr((size_t) nsel);
         for (int i = 1; i < nargs; i++) {
             long long k = IS_INT_fn(args[i]) ? (long long)args[i].i : (IS_REAL_fn(args[i]) ? (long long)args[i].r : 0);
-            r[i - 1] = (k >= 0 && k < a.n) ? a.el[k] : STRVAL(rt_heap_strdup_c(""));
+            r[i - 1] = (k >= 0 && k < a.n) ? a.el[k] : rk_typeobj("Any");
         }
         *out = rk_mk_arr(r, nsel);
         return 1;
@@ -10903,6 +10935,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "obj_new") && nargs >= 1) {
+        extern DESCR_t rk_attr_defaults(DatType *dt, DESCR_t inst);
         { const char *xc = VARVAL_fn(args[0]); if (xc && ((xc[0] == 'X' && xc[1] == ':') || !strcmp(xc, "Exception"))) rk_exc_init(); }
         const char *cname = VARVAL_fn(args[0]);
         if (!cname || !*cname) { *out = FAILDESCR; return 1; }
@@ -10927,15 +10960,15 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         DatType *dt = dat_find_type(cname);
         if (!dt) { *out = FAILDESCR; return 1; }
         extern int dat_has_build_mro(const char *cls);
-        if (dat_has_build_mro(cname)) { extern DESCR_t rt_construct_build(DatType *t, DESCR_t *named, int nnamed); *out = rt_construct_build(dt, &args[1], nargs - 1); return 1; }
+        if (dat_has_build_mro(cname)) { extern DESCR_t rt_construct_build(DatType *t, DESCR_t *named, int nnamed); *out = rk_attr_defaults(dt, rt_construct_build(dt, &args[1], nargs - 1)); return 1; }
         DESCR_t fvals[dt->nfields > 0 ? dt->nfields : 1];
         for (int fi = 0; fi < dt->nfields; fi++) fvals[fi] = NULVCL;
         for (int ci = 1; ci + 1 < nargs; ci += 2) {
             const char *kname = VARVAL_fn(args[ci]);
             if (!kname) continue;
-            for (int fi = 0; fi < dt->nfields; fi++) { if (strcmp(dt->fields[fi], kname) == 0) { fvals[fi] = args[ci + 1]; break; } }
+            for (int fi = 0; fi < dt->nfields; fi++) { if (strcmp(dt->fields[fi], kname) == 0) { if (!dt->priv[fi]) fvals[fi] = args[ci + 1]; break; } }
         }
-        *out = dat_construct(dt, fvals, dt->nfields);
+        *out = rk_attr_defaults(dt, dat_construct(dt, fvals, dt->nfields));
         return 1;
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
@@ -11458,7 +11491,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         if (rk_match_is(args[0])) args[0] = FIELD_GET_fn(args[0], "named");
         int found = 0;
         DESCR_t v = (args[0].v == DT_T && args[0].tbl) ? table_get_found_d(args[0].tbl, rk_key_tmp(args[1]), &found) : NULVCL;
-        *out = found ? v : NULVCL;
+        *out = found ? v : rk_typeobj("Any");
         return 1;
     }
     if (!strcmp(fn, "hash_exists") && nargs >= 2 && rk_qh_is(args[0])) { *out = INTVAL(rk_qh_get(args[0], args[1]).i ? 1 : 0); return 1; }
@@ -12274,6 +12307,17 @@ static const char *rk_obj_default_raku(DESCR_t d) {
     size_t o = (size_t)snprintf(r, total + 1, "%s.new", cn);
     if (np) { r[o++] = '('; for (int i = 0; i < np; i++) o += (size_t)snprintf(r + o, total + 1 - o, "%s%s", i ? ", " : "", piece[i]); r[o++] = ')'; r[o] = '\0'; }
     return r;
+}
+DESCR_t rk_attr_defaults(DatType *dt, DESCR_t inst) {
+    DATINST_t *di = (inst.v == DT_DATA && inst.u) ? (DATINST_t *) inst.u : NULL;
+    if (!di || !dt) return inst;
+    for (int i = 0; i < dt->nfields; i++) {
+        DESCR_t f0 = di->fields[i];
+        int unset = f0.v == DT_SNUL || ((dt->sigil[i] == '@' || dt->sigil[i] == '%') && IS_STR_fn(f0) && (!f0.s || !f0.s[0]));
+        if (!unset || dt->has_default[i]) continue;
+        di->fields[i] = dt->sigil[i] == '@' ? rk_unmark(rk_mk_arr(NULL, 0)) : dt->sigil[i] == '%' ? TABLE_VAL(table_new()) : rk_typeobj("Any");
+    }
+    return inst;
 }
 static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
     if (nmargs) return 0;

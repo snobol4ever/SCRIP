@@ -2412,6 +2412,29 @@ static void rk_file_scope_reads_are_globals(void) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_dyn_name(const char * nm) { return nm && (nm[0] == '*' || ((nm[0] == '@' || nm[0] == '%') && nm[1] == '*')); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_unassigned_dynamics_are_globals(void) {
+    extern void global_register(const char * name);
+    extern int is_global(const char *);
+    for (int pi = 0; pi < g_stage2.proc_count; pi++) {
+        int bi = g_stage2.proc_table[pi].bb_idx;
+        if (bi < 0 || bi >= g_stage2.bbp.count || !g_stage2.bbp.table[bi]) continue;
+        IR_graph_t * g = g_stage2.bbp.table[bi];
+        for (int i = 0; i < g->n; i++) {
+            IR_t * m = g->all[i];
+            const char * nm = (m && m->op == IR_VAR) ? IR_LIT(m).sval : NULL;
+            if (!rk_dyn_name(nm) || is_global(nm) || rk_graph_param(g, nm)) continue;
+            int assigned = 0;
+            for (int pj = 0; pj < g_stage2.proc_count && !assigned; pj++) {
+                int bj = g_stage2.proc_table[pj].bb_idx;
+                if (bj >= 0 && bj < g_stage2.bbp.count && g_stage2.bbp.table[bj] && rk_graph_assigns(g_stage2.bbp.table[bj], nm)) assigned = 1;
+            }
+            if (!assigned) global_register(nm);
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_eval_call_next(int * pi, int * i) {
     for (; *pi < g_stage2.proc_count; (*pi)++, *i = 0) {
         int bi = g_stage2.proc_table[*pi].bb_idx;
@@ -3578,6 +3601,76 @@ static void rk_hoist_nested_types(tree_t * prog) {
     for (int i = 0; i < h.nout; i++) ast_push(prog, out[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_clone_tree(const tree_t * t) {
+    if (!t) return NULL;
+    tree_t * c = ast_node_new(t->t);
+    c->v = t->v;
+    c->line = t->line;
+    c->slen = t->slen;
+    for (int i = 0; i < t->n; i++) ast_push(c, rk_clone_tree(t->c[i]));
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_class_default_tweaks(tree_t * prog) {
+    for (int i = 0; i < prog->n; i++) {
+        tree_t * d = prog->c[i];
+        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); d = (tree_t *) sub; }
+        if (!d || d->t != TT_CLASS_DECL) continue;
+        tree_t * seq = ast_node_new(TT_SEQ_EXPR);
+        for (int j = 1; j < d->n; j++) {
+            const tree_t * ch = d->c[j];
+            if (!ch || !ch->v.sval || ch->n < 1 || !ch->c[0]) continue;
+            int sig = ch->t == TT_ARR_DECL ? '@' : ch->t == TT_HASH_DECL ? '%' : (ch->t == TT_HAS_DECL && ch->c[0]->t != TT_ILIT && ch->c[0]->t != TT_QLIT && ch->c[0]->t != TT_FLIT) ? '$' : 0;
+            if (!sig) continue;
+            const char * fn = rk_fld_bare(ch->v.sval);
+            if (!*fn) continue;
+            tree_t * rhs = rk_clone_tree(ch->c[0]);
+            if (sig != '$') {
+                tree_t * w = ast_node_new(TT_FNC);
+                w->v.sval = (char *) (sig == '@' ? "__rk_to_array" : "__rk_to_hash");
+                ast_push(w, leaf_sval2(TT_VAR, w->v.sval));
+                ast_push(w, rhs);
+                rhs = w;
+            }
+            tree_t * f1 = ast_node_new(TT_TWIGIL_FIELD), * f2 = ast_node_new(TT_TWIGIL_FIELD);
+            f1->v.sval = f2->v.sval = (char *) fn;
+            tree_t * cond;
+            if (sig == '$') {
+                cond = ast_node_new(TT_METHCALL);
+                ast_push(cond, f1);
+                ast_push(cond, leaf_sval2(TT_QLIT, "defined"));
+            } else {
+                cond = ast_node_new(TT_FNC);
+                cond->v.sval = (char *) "__rk_unset";
+                ast_push(cond, leaf_sval2(TT_VAR, "__rk_unset"));
+                ast_push(cond, f1);
+            }
+            tree_t * asg = ast_node_new(TT_ASSIGN);
+            ast_push(asg, f2);
+            ast_push(asg, rhs);
+            tree_t * body = ast_node_new(TT_SEQ_EXPR);
+            ast_push(body, asg);
+            tree_t * br = ast_node_new(sig == '$' ? TT_UNLESS : TT_IF);
+            ast_push(br, cond);
+            ast_push(br, body);
+            ast_push(seq, br);
+        }
+        if (seq->n == 0) continue;
+        tree_t * tw = NULL;
+        for (int j = 1; j < d->n && !tw; j++) { tree_t * ch = d->c[j]; if (ch && ch->t == TT_SUB_DECL && ch->n > 0 && ch->c[0] && ch->c[0]->v.sval && !strcmp(ch->c[0]->v.sval, "TWEAK")) tw = ch; }
+        if (!tw) { tw = ast_node_new(TT_SUB_DECL); tw->v.ival = 1; ast_push(tw, leaf_sval2(TT_VAR, "TWEAK")); for (int k = 0; k < seq->n; k++) ast_push(tw, seq->c[k]); ast_push(d, tw); continue; }
+        int at = (int) tw->v.ival;
+        if (at < 1) at = 1;
+        if (at > tw->n) at = tw->n;
+        int nold = tw->n - at;
+        tree_t ** old = (tree_t **) ct_alloc(sizeof(tree_t *) * (size_t) (nold + 1));
+        for (int k = 0; k < nold; k++) old[k] = tw->c[at + k];
+        tw->n = at;
+        for (int k = 0; k < seq->n; k++) ast_push(tw, seq->c[k]);
+        for (int k = 0; k < nold; k++) ast_push(tw, old[k]);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_assign_pow_rhs(tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_assign_pow_rhs(t->c[i]);
@@ -3593,6 +3686,7 @@ static void rk_assign_pow_rhs(tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_hoist_nested_types((tree_t *) prog);
+    rk_class_default_tweaks((tree_t *) prog);
     rk_tail_ifs((tree_t *) prog);
     rk_assign_pow_rhs((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
@@ -3753,6 +3847,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     }
     rk_reclassify_calls();
     rk_file_scope_reads_are_globals();
+    rk_unassigned_dynamics_are_globals();
     rk_eval_main_globals();
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         int bi = g_stage2.proc_table[pi].bb_idx;
