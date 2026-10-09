@@ -13,17 +13,24 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 CEIL=73   # measured 2026-10-01 at SCRIP c798131e2 after two cures; lower it when you cure one, never raise it
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT; trap 'rm -rf "$W"; exit 143' TERM; trap 'rm -rf "$W"; exit 130' INT
 fail=0; ck() { if [ "$1" = ok ]; then echo "  ✅ $2"; else echo "  ⛔ $2"; fail=$((fail+1)); fi; }
-py_offenders() { # py_offenders <dir> -> prints "file:line" per offending creation
-  local f n_make n_free
-  for f in "$1"/*.py; do [ -f "$f" ] || continue
-    n_make=$(grep -cE 'tempfile\.mkdtemp\(|tempfile\.mkstemp\(|_tf\.mkdtemp\(|_tf\.mkstemp\(' "$f")
-    [ "$n_make" = 0 ] && continue
-    n_free=$(grep -cE 'rmtree\(|os\.unlink\(|os\.remove\(|_os\.unlink\(|TemporaryDirectory\(' "$f")
-    [ "$n_free" -ge "$n_make" ] && continue
-    grep -nE 'tempfile\.mkdtemp\(|tempfile\.mkstemp\(|_tf\.mkdtemp\(|_tf\.mkstemp\(' "$f" | grep -vE 'atexit|rmtree|TemporaryDirectory|unlink' | sed "s#^#$f:#"
-  done
+# ⛔ ONE grep PER PATTERN, NOT PER FILE (coo 2026-10-08): the per-file loops forked about 1900 greps over 161 .py and 1642 .sh
+# files, 6 to 11 s of CPU (mostly sys) under load, and test_gate_preflight_arms_stay_cheap read this arm SLOW over its 5 s budget
+# in pass 42's blocking set. The counts are read in one pass and joined; only an offending file's lines are read one file at a time.
+MK='tempfile\.mkdtemp\(|tempfile\.mkstemp\(|_tf\.mkdtemp\(|_tf\.mkstemp\('
+FR='rmtree\(|os\.unlink\(|os\.remove\(|_os\.unlink\(|TemporaryDirectory\('
+py_offenders() { # py_offenders <dir> -> prints "file:line:text" per offending creation
+  local fs=("$1"/*.py) f bad
+  [ -e "${fs[0]}" ] || return 0
+  bad=$(awk -F: 'FNR == NR {m[$1] = $2; next} ($1 in m) && m[$1] > 0 && $2 < m[$1] {print $1}' <(grep -HcE "$MK" "${fs[@]}" 2>/dev/null) <(grep -HcE "$FR" "${fs[@]}" 2>/dev/null))
+  for f in $bad; do grep -nE "$MK" "$f" | grep -vE 'atexit|rmtree|TemporaryDirectory|unlink' | sed "s#^#$f:#"; done
 }
-sh_untrapped() { local f n=0; for f in "$1"/*.sh; do [ -f "$f" ] || continue; grep -q 'mktemp' "$f" || continue; grep -q 'trap ' "$f" && continue; n=$((n+1)); done; echo "$n"; }
+sh_untrapped() { # sh_untrapped <dir> -> the count of .sh files that call mktemp and carry no trap
+  local fs=("$1"/*.sh) m
+  [ -e "${fs[0]}" ] || { echo 0; return; }
+  m=$(grep -l 'mktemp' "${fs[@]}" 2>/dev/null)
+  [ -n "$m" ] || { echo 0; return; }
+  grep -L 'trap ' $m 2>/dev/null | grep -c .
+}
 echo "--- SELF-PROOF on fixtures ---"
 mkdir -p "$W/a" "$W/b"
 printf 'import tempfile\nd = tempfile.mkdtemp(prefix="x.")\nprint(d)\n' > "$W/a/leak.py"
