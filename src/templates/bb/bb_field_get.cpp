@@ -36,11 +36,15 @@ static std::string field_get_hinted(const char *at_name, void *at_addr, const ch
          + x86("je", L(2))
          + x86("call", at_name, (uint64_t)(uintptr_t)at_addr)
          + x86("cmp", "al", (long)RTX_NOT_HANDLED)
-         + x86("jne", L(3))
+         + x86("jne", L(4))
          + x86("xor", "ecx", "ecx")
          + x86("jmp", L(1))
+         + x86("def", L(4))
+         + x86_rt_gc_poll_rec_res()
+         + x86("jmp", L(3))
          + x86("def", L(2))
          + x86("call", plain_name, (uint64_t)(uintptr_t)plain_addr)
+         + x86_rt_gc_poll_rec_res()
          + x86("def", L(3));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -49,11 +53,11 @@ static std::string field_get_call() {
          ? (_.op_strict && _.op_seal > 0
             ? field_get_hinted("rt_field_var_strict_at", (void *)rt_field_var_strict_at, "rt_field_var_strict", (void *)rt_field_var_strict)
             : _.op_strict
-            ? FIELD_GET_ARGS() + x86("call", "rt_field_var_strict", (uint64_t)(uintptr_t)(void *)rt_field_var_strict)
-            : FIELD_GET_ARGS() + x86("call", "rt_field_var", (uint64_t)(uintptr_t)(void *)rt_field_var))
+            ? FIELD_GET_ARGS() + x86("call", "rt_field_var_strict", (uint64_t)(uintptr_t)(void *)rt_field_var_strict) + x86_rt_gc_poll_rec_res()
+            : FIELD_GET_ARGS() + x86("call", "rt_field_var", (uint64_t)(uintptr_t)(void *)rt_field_var) + x86_rt_gc_poll_rec_res())
          : (_.op_seal > 0)
          ? field_get_hinted("icn_field_get_at", (void *)icn_field_get_at, "icn_field_get", (void *)icn_field_get)
-         : FIELD_GET_ARGS() + x86("call", "icn_field_get", (uint64_t)(uintptr_t)(void *)icn_field_get);
+         : FIELD_GET_ARGS() + x86("call", "icn_field_get", (uint64_t)(uintptr_t)(void *)icn_field_get) + x86_rt_gc_poll_rec_res();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_field_get() {
@@ -67,7 +71,6 @@ std::string bb_field_get() {
              + x86("mov", ZRES(0), "rax")
              + x86("note", ZRESN())
              + x86("mov", ZRES(8), "rdx")
-             + x86_rt_gc_poll()
              + x86_gamma()
              + x86_beta_trampoline()
              + RO_SEAL_STR(0, _.op_sval ? _.op_sval : ""))
@@ -80,7 +83,6 @@ std::string bb_field_get() {
          + x86_omega("je")
          + x86("mov", FRQ(_.op_off), "rax")
          + x86("mov", FRQ(_.op_off + 8), "rdx")
-         + x86_rt_gc_poll()
          + x86_gamma()
          + x86_beta_trampoline()
          + RO_SEAL_STR(0, _.op_sval ? _.op_sval : ""));
