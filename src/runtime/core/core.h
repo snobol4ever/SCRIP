@@ -10,7 +10,7 @@
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) uint32_t descr_cstrlen(const char *s_) { return s_ ? (uint32_t)__builtin_strlen(s_) : 0u; }
 int kw_cset_len(const char *ptr);
-static inline size_t descr_slen(DESCR_t d) {
+static inline __attribute__((always_inline)) size_t descr_slen(DESCR_t d) {
     if (d.v == DT_S) { if (d.slen == 0xFFFFFFFFu) { if (!d.s) return 0; int kl = kw_cset_len(d.s); return kl >= 0 ? (size_t)kl : __builtin_strlen(d.s); } return (size_t)d.slen; }
     return 0;
 }
@@ -29,12 +29,12 @@ static inline __attribute__((always_inline)) const char *rt_cstr_d(DESCR_t d) {
 #define NAMEPTR(dp_) ((DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void*)(dp_) })
 #define NAMEVAL(s_) ((DESCR_t){ .v = DT_N, .slen = 0, .s = (char *)(s_) })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static inline int IS_NULL_fn(DESCR_t v) { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
-static inline int IS_STR_fn(DESCR_t v) { return v.v == DT_S || v.v == DT_SNUL; }
-static inline int IS_INT_fn(DESCR_t v) { return v.v == DT_I; }
-static inline int IS_REAL_fn(DESCR_t v) { return v.v == DT_R; }
-static inline int IS_CSET_fn(DESCR_t v) { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
-static inline int IS_DATA_fn(DESCR_t v) { return v.v == DT_DATA; }
+static inline __attribute__((always_inline)) int IS_NULL_fn(DESCR_t v) { return v.v == DT_SNUL || (v.v == DT_S && v.slen == 0 && (!v.s || !*v.s)); }
+static inline __attribute__((always_inline)) int IS_STR_fn(DESCR_t v) { return v.v == DT_S || v.v == DT_SNUL; }
+static inline __attribute__((always_inline)) int IS_INT_fn(DESCR_t v) { return v.v == DT_I; }
+static inline __attribute__((always_inline)) int IS_REAL_fn(DESCR_t v) { return v.v == DT_R; }
+static inline __attribute__((always_inline)) int IS_CSET_fn(DESCR_t v) { return v.v == DT_S && v.slen == 0xFFFFFFFFu; }
+static inline __attribute__((always_inline)) int IS_DATA_fn(DESCR_t v) { return v.v == DT_DATA; }
 char *VARVAL_fn(DESCR_t v);
 int lex_cmp_pair(DESCR_t a, DESCR_t b);
 void rt_translate_bytes(char *dst, const char *src, size_t n, const char *map);
