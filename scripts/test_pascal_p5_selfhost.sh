@@ -24,7 +24,7 @@
 # Declared sizes (RULES.md hard-cap clause 8 (g)): pint's store is sixteen million cells and needs a declared arena; PCOM_HEAP_KB and
 # PINT_HEAP_KB are the declarations, passed as -d<kb>k to every run of that program.
 #
-# Verdict line: "P5_SELFHOST: pre=<rc> pcom=<rc|BLOCKED> pint=<match|differs|BLOCKED> gen1_pcode_lines=<n> gen1_hello=<identical|differs> gen2=<rc|BLOCKED> pcode_identical=<yes|no|n/a>"
+# Verdict line: "P5_SELFHOST: pre=<rc> pcom=<rc|BLOCKED> pint=<match|differs|BLOCKED> gen1_pcode_lines=<n> gen1_native=<identical|differs|unavailable> gen1_hello=<identical|differs> gen2=<rc|BLOCKED> pcode_identical=<yes|no|n/a>"
 # then "SELFHOST OK" (gen2 reproduced gen1's P-code), "SELFHOST PARTIAL" (both halves run, the P-code differs) or
 # "SELFHOST BLOCKED" (a half cannot run, with the reason printed).
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
@@ -64,6 +64,15 @@ if [ "$pcomrc" -ne 0 ] || [ "$g1lines" -eq 0 ]; then
   exit 1
 fi
 cp "$W/prr" "$W/gen1.pcode"
+# ---- the native oracle: P5's own compiler built by fpc from the same preprocessed source compiles the same program -------------
+FPC="${FPC_BIN:-/usr/bin/fpc}"; gnat=unavailable
+if [ -x "$FPC" ]; then
+  mkdir -p "$W/native"; cp "$W/pcom.pas" "$W/native/pcom_fpc.pas"; cp "$W/pcom_self.pas" "$W/native/prd"
+  if ( cd "$W/native" && "$FPC" -Miso -v0 -opcom_fpc pcom_fpc.pas >/dev/null 2>&1 && timeout 300s ./pcom_fpc prd prr < /dev/null > native.out 2>&1 ); then
+    if cmp -s "$W/native/prr" "$W/gen1.pcode"; then gnat=identical; else gnat=differs; fi
+  fi
+fi
+echo "native: fpc-built pcom on the same source -> gen1 P-code $gnat ($( [ -f "$W/native/prr" ] && wc -l < "$W/native/prr" || echo 0) lines)"
 # ---- half 2: the interpreter, a known-answer probe: P5's hello sample through scrip-compiled pcom and pint ---------
 cp "$SMP/hello.pas" "$W/prd"
 ( cd "$W" && rm -f prr && timeout 300s "$SCRIP" -d${PCOM_HEAP_KB}k --run pcom.pas < /dev/null > hello_c.out 2> hello_c.err ); hcrc=$?
@@ -88,11 +97,11 @@ echo "WORK pint.pas(gen2, running the gen1 P-code on pcom's own source) wall=${s
 g2lines=$(wc -l < "$W/prr" 2>/dev/null); g2lines=${g2lines:-0}
 echo "gen2: rc=$gen2rc out_lines=$(wc -l < "$W/gen2.out") pcode_lines=$g2lines $(grep -v '^Command' "$W/gen2.err" | head -c 160 | tr '\n' ' ')"
 if [ "$gen2rc" -ne 0 ] || [ "$g2lines" -eq 0 ]; then
-  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_hello=$g1h gen2=BLOCKED pcode_identical=n/a"
+  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_native=$gnat gen1_hello=$g1h gen2=BLOCKED pcode_identical=n/a"
   echo "SELFHOST BLOCKED (generation 2 did not finish: rc=$gen2rc)"; exit 1
 fi
 if cmp -s "$W/prr" "$W/gen1.pcode"; then
-  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_hello=$g1h gen2=0 pcode_identical=yes"; echo "SELFHOST OK"; exit 0
+  echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_native=$gnat gen1_hello=$g1h gen2=0 pcode_identical=yes"; echo "SELFHOST OK"; exit 0
 fi
 echo "first differing line: $(diff "$W/prr" "$W/gen1.pcode" | head -2 | tr '\n' ' ' | cut -c1-160)"
-echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_hello=$g1h gen2=0 pcode_identical=no"; echo "SELFHOST PARTIAL"; exit 1
+echo "P5_SELFHOST: pre=0 pcom=0 pint=$pintv gen1_pcode_lines=$g1lines gen1_native=$gnat gen1_hello=$g1h gen2=0 pcode_identical=no"; echo "SELFHOST PARTIAL"; exit 1
