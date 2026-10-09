@@ -35,6 +35,7 @@ while [ $# -gt 0 ]; do case "$1" in --modes) mode=modes;; --trace) mode=trace;; 
 src="$(realpath "$src")"; base="${src%.*}"; ext="${src##*.}"
 [ -z "$input" ] && [ -f "$base.input" ] && input="$base.input"; [ -z "$input" ] && input=/dev/null
 [ "$input" = /dev/null ] || { [ -f "$input" ] || { echo "REFUSE(2): --input $input is not a file"; exit 2; }; input="$(realpath "$input")"; }   # absolute before the cd into the scratch mirror below
+case "${ext,,}" in p|pp|lpr|dpr) ext=pas;; pro|prolog|plt) ext=pl;; esac
 case "$ext" in sno|spt|sbl|icn|pl|pas|raku|sc|reb) ;; *) echo "REFUSE(2): $ext is not a SCRIP source extension"; exit 2;; esac
 # every run below at the heap and stack the source declares beside itself (<base>.heap / <base>.stack, which extract writes for a suite entry):
 # -d/-s after --run, leading each compiled binary's arguments (ceo CEO-1353, RULES.md clause 8 (g)); the participants read the same sidecars

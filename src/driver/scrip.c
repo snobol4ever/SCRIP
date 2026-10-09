@@ -1735,8 +1735,9 @@ int main(int argc, char **argv) {
         const char *lang;
         int sno, non_sno, scrip, prolog, icon, raku, pascal;
     } scrip_exts[] = { { ".sno", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".spt", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".sbl", "SNOBOL4", 1,0,0,0,0,0,0 }, { ".sc", "Snocone", 1,1,0,0,0,0,0 }, { ".reb", "Rebus", 1,1,0,
-        0,0,0,0 }, { ".icn", "Icon", 0,1,0,0,1,0,0 }, { ".pl", "Prolog", 0,1,0,1,0,0,0 }, { ".raku", "Raku", 0,1,0,0,0,1,0 }, { ".pas", "Pascal", 0,0,0,0,0,0,1 }, { ".scrip", "polyglot", 0,1,1,0,0,0,
-        0 }, { ".md", "polyglot", 0,1,1,0,0,0,0 } };
+        0,0,0,0 }, { ".icn", "Icon", 0,1,0,0,1,0,0 }, { ".pl", "Prolog", 0,1,0,1,0,0,0 }, { ".pro", "Prolog", 0,1,0,1,0,0,0 }, { ".prolog", "Prolog", 0,1,0,1,0,0,0 }, { ".plt", "Prolog", 0,1,0,1,0,0,
+        0 }, { ".raku", "Raku", 0,1,0,0,0,1,0 }, { ".pas", "Pascal", 0,0,0,0,0,0,1 }, { ".p", "Pascal", 0,0,0,0,0,0,1 }, { ".pp", "Pascal", 0,0,0,0,0,0,1 }, { ".lpr", "Pascal", 0,0,0,0,0,0,1 },
+        { ".dpr", "Pascal", 0,0,0,0,0,0,1 }, { ".scrip", "polyglot", 0,1,1,0,0,0, 0 }, { ".md", "polyglot", 0,1,1,0,0,0,0 } };
     const int scrip_next = (int)(sizeof scrip_exts / sizeof scrip_exts[0]);
     if (argi >= argc) {
         fprintf(stderr,
@@ -1861,11 +1862,11 @@ int main(int argc, char **argv) {
         }
         const char *dot = strrchr(input_path, '.');
         int lang_snocone = dot && strcasecmp(dot, ".sc") == 0;
-        int lang_prolog = dot && strcasecmp(dot, ".pl") == 0;
+        int lang_prolog = dot && (strcasecmp(dot, ".pl") == 0 || strcasecmp(dot, ".pro") == 0 || strcasecmp(dot, ".prolog") == 0 || strcasecmp(dot, ".plt") == 0);
         int lang_icon = dot && strcasecmp(dot, ".icn") == 0;
         int lang_raku = dot && strcasecmp(dot, ".raku") == 0;
         int lang_rebus = dot && strcasecmp(dot, ".reb") == 0;
-        int lang_pascal = dot && strcasecmp(dot, ".pas") == 0;
+        int lang_pascal = dot && (strcasecmp(dot, ".pas") == 0 || strcasecmp(dot, ".p") == 0 || strcasecmp(dot, ".pp") == 0 || strcasecmp(dot, ".lpr") == 0 || strcasecmp(dot, ".dpr") == 0);
         int lang_polyglot = dot && (strcasecmp(dot, ".scrip") == 0 || strcasecmp(dot, ".md") == 0);
         if (lang_polyglot) {
             g_polyglot = 1;

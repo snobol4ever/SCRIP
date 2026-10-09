@@ -76,7 +76,7 @@ for e in $EXTS; do
     else ok "ARM 1 $e dispatches (rc=$rc, not an unknown-extension refusal)"; fi
 done
 # ARM 2 -- an extension the usage does not name is refused, rc=2, and the refusal names the list.
-for e in .xyz .lgt .P .txt; do
+for e in .xyz .lgt .cob .txt; do
     case "$EXTS_SP" in *" $e "*) continue;; esac
     EXAMINED=$((EXAMINED+1))
     printf 'END\n' > "$W/probe$e"

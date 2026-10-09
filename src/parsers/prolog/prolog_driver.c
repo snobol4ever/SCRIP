@@ -14,17 +14,20 @@ static int g_pl_consulted_n = 0;
 static int g_pl_consult_depth = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * pl_consult_resolve(const char *spec, const char *from_file) {
-    const char *slash; size_t dlen; FILE *probe; int has_ext;
+    const char *const sfx[] = { ".pl", ".pro", ".prolog", ".plt" };
+    const char *slash; size_t dlen, sl; FILE *probe; int has_ext = 0;
     if (!spec || !*spec) return (char *)0;
-    has_ext = (strlen(spec) > 3 && !strcmp(spec + strlen(spec) - 3, ".pl"));
+    sl = strlen(spec);
+    for (int k = 0; k < 4; k++) if (sl > strlen(sfx[k]) && !strcmp(spec + sl - strlen(sfx[k]), sfx[k])) has_ext = 1;
     slash = from_file ? strrchr(from_file, '/') : (const char *)0;
     dlen = slash ? (size_t)(slash - from_file) + 1 : 0;
-    char cand[dlen + strlen(spec) + sizeof ".pl"];
-    if (dlen) {
-        memcpy(cand, from_file, dlen); snprintf(cand + dlen, sizeof cand - dlen, "%s%s", spec, has_ext ? "" : ".pl");
-        probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); } }
-    snprintf(cand, sizeof cand, "%s%s", spec, has_ext ? "" : ".pl");
-    probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); }
+    char cand[dlen + sl + sizeof ".prolog"];
+    for (int at = dlen ? 0 : 1; at < 2; at++) {
+        for (int k = 0; k < (has_ext ? 1 : 4); k++) {
+            size_t o = at ? 0 : dlen;
+            if (o) memcpy(cand, from_file, o);
+            snprintf(cand + o, sizeof cand - o, "%s%s", spec, has_ext ? "" : sfx[k]);
+            probe = fopen(cand, "r"); if (probe) { fclose(probe); return ct_strdup(cand); } } }
     return (char *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

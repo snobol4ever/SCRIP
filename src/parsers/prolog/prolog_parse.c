@@ -1749,6 +1749,9 @@ static const char * const PL_PRELUDE_SRC =
     "'$consult_path'(F,_):-var(F),!,throw(error(instantiation_error,consult/1)).\n"
     "'$consult_path'(F,F):-atom(F),file_exists(F),!.\n"
     "'$consult_path'(F,P):-atom(F),atom_concat(F,'.pl',P),file_exists(P),!.\n"
+    "'$consult_path'(F,P):-atom(F),atom_concat(F,'.pro',P),file_exists(P),!.\n"
+    "'$consult_path'(F,P):-atom(F),atom_concat(F,'.prolog',P),file_exists(P),!.\n"
+    "'$consult_path'(F,P):-atom(F),atom_concat(F,'.plt',P),file_exists(P),!.\n"
     "'$consult_path'(F,_):-throw(error(existence_error(source_sink,F),consult/1)).\n"
     "'$consult_loop'(S,Is):-read_term(S,T,[]),(T==end_of_file->Is=[];expand_term(T,X),'$consult_terms'(X,Is,R),'$consult_loop'(S,R)).\n"
     "'$consult_terms'(X,Is,R):-var(X),!,'$consult_term'(X,Is,R).\n"
@@ -1936,13 +1939,13 @@ static void pl_parse_loop(Parser *pp, PlProgram *prog);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char *pl_include_read(const Parser *pp, const char *spec, char **path_out) {
     const char *slash = strrchr(pp->filename, '/'); size_t dl = slash ? (size_t)(slash - pp->filename) + 1 : 0; size_t sl = strlen(spec);
-    char *cand = (char *)ct_alloc(dl + sl + 4); FILE *f = (FILE *)0; char *src; long n;
+    const char *const sfx[] = { "", ".pl", ".pro", ".prolog", ".plt" };
+    char *cand = (char *)ct_alloc(dl + sl + sizeof ".prolog"); FILE *f = (FILE *)0; char *src; long n;
     if (!cand) return (char *)0;
-    for (int k = 0; k < 4 && !f; k++) {
-        size_t o = (k < 2 && spec[0] != '/') ? dl : 0;
+    for (int k = 0; k < 10 && !f; k++) {
+        size_t o = (k < 5 && spec[0] != '/') ? dl : 0;
         if (o) memcpy(cand, pp->filename, dl);
-        memcpy(cand + o, spec, sl); cand[o + sl] = 0;
-        if (k % 2) memcpy(cand + o + sl, ".pl", 4);
+        memcpy(cand + o, spec, sl); memcpy(cand + o + sl, sfx[k % 5], strlen(sfx[k % 5]) + 1);
         f = fopen(cand, "r"); }
     if (!f) { ct_drop(cand); return (char *)0; }
     fseek(f, 0, SEEK_END); n = ftell(f); rewind(f);
