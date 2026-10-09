@@ -557,6 +557,7 @@ test_gate_pas_sizeof_of_an_array_or_an_empty_record_is_its_byte_count.sh	WIRED	-
 test_gate_pas_string_plus_concatenates_and_a_one_character_literal_is_a_string_where_a_string_is_wanted.sh	WIRED	-	-	-
 test_gate_pas_succ_and_pred_keep_their_arguments_type.sh	WIRED	-	-	-
 test_gate_pas_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
+test_gate_pas_the_c_parser_builds_the_pruned_parse_tree.sh	WIRED	-	-	-
 test_gate_pas_the_input_buffer_variable_is_the_next_character.sh	WIRED	-	-	-
 test_gate_pas_the_tag_of_a_variable_passed_by_reference_is_not_changed_during_the_call.sh	WIRED	-	-	-
 test_gate_pas_two_routines_of_one_name_get_distinct_assembler_labels.sh	WIRED	-	-	-
