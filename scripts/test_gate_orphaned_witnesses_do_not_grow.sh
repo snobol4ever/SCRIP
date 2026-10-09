@@ -107,7 +107,7 @@ CENSUS="$CORPUS/tests/ORPHANED-WITNESSES.tsv"
 # both modes (error 111 where iconx assigns through the returned variable), so the builder cannot carry them into the rungs honestly
 # today (the auto-XFAIL note above), and moving them would break the DONE-WHENs that name their path. tests/icon/PENDING.md declares
 # them under the reopened row; they are absorbed when those rows cure and this floor falls in that commit. Named debt, not a leak.
-FLOOR_icon=2 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=1
+FLOOR_icon=2 FLOOR_pascal=0 FLOOR_prolog=0 FLOOR_raku=0 FLOOR_rebus=0 FLOOR_snobol4=39 FLOOR_snocone=0
 out="$(python3 scripts/util_orphaned_witness_census.py "$CORPUS" --counts 2>&1)" || { echo "⛔ GATE REFUSES(2): census generator failed:"; echo "$out"; exit 2; }
 printf %s "$out" | grep -q . || { echo "⛔ GATE REFUSES(2): census produced NO output -- an empty census is not a green board"; exit 2; }
 rc=0 tot=0 seen=0

@@ -17,21 +17,25 @@
 #
 # FAIL-ONCE, MEASURED 2026-09-23 by hq_snocone on ONE binary through the zd-planner killswitches: SCRIP_ZD_REPL_FREE=0 reds test_Qize
 # and test_case, SCRIP_ZD_OBACK=0 reds test_strings and test_trace, SCRIP_ZD_MATCHDIAMOND=0 reds test_trace -- each a SIGSEGV or a
-# wrong answer in both modes -- so `SCRIP_ZD_OBACK=0 bash $0` must print RED. It grades output against the refs, never rc alone.
+# wrong answer in both modes. RE-MEASURED 2026-10-09 by hq_snocone (SCRIP ddd1d8bd7, the old container and the rungs view alike):
+# OBACK=0 and MATCHDIAMOND=0 no longer red any test; REPL_FREE=0 still reds test_Qize and test_case (m3 18/20, m4 18/20), so
+# `SCRIP_ZD_REPL_FREE=0 bash $0` must print RED. It grades output against the refs, never rc alone.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
-S="$S4E/corpus/tests/snocone/beauty_modules.sc"; R="$S4E/corpus/tests/snocone/beauty_modules.ref"
+M="$S4E/corpus/tests/snocone"
 [ -x "$ROOT/scrip" ] || { echo "⛔ GATE REFUSE(2) [$G]: no scrip at $ROOT/scrip -- run make"; exit 2; }
-{ [ -f "$S" ] && [ -f "$R" ]; } || { echo "⛔ GATE REFUSE(2) [$G]: the beauty container or its ref is missing ($S)"; exit 2; }
+{ [ -f "$M/ALL.sc" ] && [ -f "$M/ALL.ref" ] && [ -f "$M/ALL.csv" ]; } || { echo "⛔ GATE REFUSE(2) [$G]: the Snocone rungs (ALL.sc, ALL.ref, ALL.csv) are missing under $M"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
-# ⛔ THE HARNESS GRADES A COPY OF THE CONTAINER, OUTSIDE THE SHARED CORPUS (coo 2026-09-27, ceo CEO-1306, the five-gates row): the real
-# container is a Snocone board, which the one-runner guard admits for hq_snocone alone, so on every other seat -- the ceo's CEO-1274
-# audit board among them -- this blocking gate REFUSED rc 2 and graded nothing. Its tests inline their code (no -INCLUDE), so the copy
-# grades the same twenty programs, and a gate is an invariant check any seat runs, never a lane's board (CEO-1232).
-cp "$S" "$R" "$T/" || { echo "⛔ GATE REFUSE(2) [$G]: could not copy the container to a scratch directory"; exit 2; }
+# ⛔ THE SUITE IS A VIEW OVER THE RUNGS (row snocone-the-beauty-suite-folds-into-sncm-..., hq_snocone 2026-10-09): the twenty tests were
+# absorbed into corpus/tests/snocone/ALL.* with origin beauty_modules__test_<name> and the loose container deleted, so the gate extracts
+# the family from the rungs (corpus_suite_harness.py extract-family, the one authority) and grades that. It grades OUTSIDE the shared
+# corpus (coo 2026-09-27, ceo CEO-1306): the rungs are a Snocone board the one-runner guard admits for hq_snocone alone, and a gate is an
+# invariant check any seat runs, never a lane's board (CEO-1232). The tests inline their code (no -INCLUDE), so the extract stands alone.
+S="$T/beauty_modules.sc"; R="$T/beauty_modules.ref"
+python3 "$HERE/corpus_suite_harness.py" extract-family "$M/ALL.sc" "$M/ALL.ref" "$M/ALL.csv" beauty_modules "$S" "$R" >/dev/null 2>&1 || { echo "⛔ GATE REFUSE(2) [$G]: could not extract family beauty_modules from the rungs"; exit 2; }
 out=$(cd "$ROOT" && S4E_PROGRESS_DB="$T/progress.tsv" timeout 1200 python3 "$HERE/corpus_suite_harness.py" run "$T/$(basename "$S")" "$T/$(basename "$R")" --lang snocone --modes m3,m4 2>&1); rc=$?
 line=$(printf '%s\n' "$out" | grep '^SUITE_BOARD family=beauty_modules' | tail -1)
 [ -n "$line" ] || { printf '%s\n' "$out" | tail -5; echo "⛔ GATE REFUSE(2) [$G]: the harness printed no SUITE_BOARD line (rc=$rc) -- nothing was graded"; exit 2; }
