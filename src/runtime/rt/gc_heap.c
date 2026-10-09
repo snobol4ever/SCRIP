@@ -2244,7 +2244,7 @@ typedef struct {
 } gc_chx_t;
 static struct {
     long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, beyond, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, s_costart,
-        v_same, v_diff, v_refused;
+        s_badlink, links, said_link, v_same, v_diff, v_refused;
     uint64_t fsum;
 } g_gc_chw;
 static const char *gc_chw_divname(int k) {
@@ -2643,17 +2643,87 @@ static long gc_chain_walk(const gc_ent_t *ent, const char *hi, gc_chf_t *out, lo
         if ((w.b->map->flags & GC_FRAME_MAP_ROOT) && !gc_site_find(pc, (const gc_site_ent_t **)0)) { *stop = 0; return n; }
     }
 }
-static long gc_frames_segment(const char *lo, const char *hi, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, rt_gc_frame_fn fn, void *a) {
-    int stop = 0;
-    long n = ent ? gc_chain_walk(ent, hi, (gc_chf_t *)0, 0, &stop, sc) : 0;
+static const gc_site_blk_t *gc_code_block(uint64_t pc) {
+    const gc_site_blk_t *hit = (const gc_site_blk_t *)0;
+    uint64_t best = 0;
+    for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].map && g_gc_sblk[i].code && g_gc_sblk[i].code <= pc && g_gc_sblk[i].code > best) best = g_gc_sblk[i].code;
+    for (int i = 0; best && i < g_gc_sblk_n; i++) {
+        const gc_site_blk_t *k = &g_gc_sblk[i];
+        if (k->code != best || !k->map) continue;
+        if (hit && hit->map != k->map) return (const gc_site_blk_t *)0;
+        hit = k;
+    }
+    return hit;
+}
+static int gc_chf_cmp(const void *x, const void *y) { const char *a = ((const gc_chf_t *)x)->base, *b = ((const gc_chf_t *)y)->base; return a < b ? -1 : a > b ? 1 : 0; }
+static long gc_chain_links(gc_chf_t *f, long n, long cap, const char *lo, const char *hi, int *stop) {
+    int plant = gc_chain_check_on() && getenv("SCRIP_GC_PLANT_FRAME_LINK") != (char *)0;
+    for (long i = 0; i < n && i < cap; i++) {
+        const gc_frame_map_t *m = f[i].map;
+        const uint64_t *t;
+        if (!m || !(m->flags & GC_FRAME_MAP_LAYOUT)) continue;
+        t = (const uint64_t *)(m + 1);
+        for (long j = 0; j < (long)t[0]; j++) {
+            uint64_t q = t[1 + j];
+            if (GC_LAY_KIND(q) != GC_LAY_PTR_FRAME) continue;
+            for (int k = 0; k < GC_LAY_SIZE(q); k += 8) {
+                const char *c = f[i].base + GC_LAY_OFF(q) + k, *v = *(const char *const *)c, *why = (const char *)0;
+                uint64_t beta = *(const uint64_t *)(c + 8);
+                const gc_site_blk_t *b;
+                long d;
+                if (!v) continue;
+                if (plant) { v += 16; plant = 0; }
+                b = gc_code_block(beta);
+                if (!b) why = "its beta word names no registered graph";
+                else if (v < lo || v + b->map->map_off + 16 + b->map->header_bytes > hi) why = "the target lies outside the segment";
+                else if (v >= f[i].base) why = "the target is not below the frame that links it";
+                else if (!GC_LINK_SET(b->link)) why = "the target's map states no link word";
+                else {
+                    const gc_site_ent_t *e = (const gc_site_ent_t *)0;
+                    const gc_site_blk_t *xb = gc_site_find(*(const uint64_t *)(v + GC_LINK_PC(b->link)), &e);
+                    if (!xb || !e || xb->map != m) why = "the target's return word is not a site of the frame that links it";
+                }
+                if (why) {
+                    if (gc_chain_check_on() && g_gc_chw.said_link++ < 4)
+                        fprintf(stderr, "[CHAIN-WALK] FRAME-LINK REFUSED: %s (linking frame %s base=%p slot +%ld holds %p, beta %p)\n", why, m->graph_name ? m->graph_name : "?",
+                        (const void *)f[i].base, (long)(c - f[i].base), (const void *)v, (const void *)(uintptr_t)beta);
+                    *stop = 9;
+                    return n;
+                }
+                for (d = 0; d < n && d < cap && f[d].base != v; d++) ;
+                if (d < n) continue;
+                if (n < cap) { f[n].base = v; f[n].map = b->map; f[n].link = b->link; f[n].rule = -1; }
+                n++;
+                g_gc_chw.links++;
+            }
+        }
+    }
+    if (n <= cap) qsort(f, (size_t)n, sizeof *f, gc_chf_cmp);
+    return n;
+}
+static long gc_chain_list(const gc_ent_t *ent, const char *lo, const char *hi, const scrip_coctx_t *sc, gc_chf_t *out, long cap, int *stop) {
     const char *img = (sc && sc->image && sc->image_map) ? sc->image + sc->image_off : (const char *)0;
-    if (ent && stop != 0 && (run || (stop != 7 && stop != 8))) return -1;
+    long n = ent ? gc_chain_walk(ent, hi, out, cap, stop, sc) : 0;
     if (img && (img < lo || img >= hi)) img = (const char *)0;
-    gc_chf_t chf[n + 1];
-    if (n) n = gc_chain_walk(ent, hi, chf, n, &stop, sc);
-    if (img && (!n || chf[n - 1].base < img)) { chf[n].base = img; chf[n].map = (const gc_frame_map_t *)sc->image_map; n++; }
+    if (!out || n > cap) return n + (img ? 1 : 0);
+    if (img && (!n || out[n - 1].base < img)) { if (n < cap) { out[n].base = img; out[n].map = (const gc_frame_map_t *)sc->image_map; out[n].link = 0; out[n].rule = -1; } n++; }
+    if (n > cap) return n;
+    { int ls = 0; n = gc_chain_links(out, n, cap, lo, hi, &ls); if (ls) *stop = ls; }
+    return n;
+}
+static long gc_frames_segment_cap(const char *lo, const char *hi, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, rt_gc_frame_fn fn, void *a, long cap) {
+    int stop = 0;
+    gc_chf_t chf[cap];
+    long n = gc_chain_list(ent, lo, hi, sc, chf, cap, &stop);
+    if (n > cap) return gc_frames_segment_cap(lo, hi, ent, sc, run, fn, a, 2 * n);
+    if (ent && stop != 0 && (run || (stop != 7 && stop != 8))) return -1;
     for (long i = 0; fn && i < n; i++) fn((const void *)chf[i].map, chf[i].base, a);
     return n;
+}
+static long gc_frames_segment(const char *lo, const char *hi, const gc_ent_t *ent, const scrip_coctx_t *sc, int run, rt_gc_frame_fn fn, void *a) {
+    int stop = 0;
+    long need = gc_chain_list(ent, lo, hi, sc, (gc_chf_t *)0, 0, &stop);
+    return gc_frames_segment_cap(lo, hi, ent, sc, run, fn, a, need + 16);
 }
 int rt_gc_frames_visit(rt_gc_frame_fn fn, void *a) {
     gc_seg_it_t it;
@@ -2704,10 +2774,10 @@ static void gc_frames_visit_judge(const uint64_t *v) {
 static void gc_chain_walk_report_atexit(void) {
     fprintf(stderr,
         "[CHAIN-WALK] SUMMARY runs=%ld whole=%ld frames=%ld offchain-swept=%ld missing=%ld mapdiff=%ld extra-blob-ptrgc=%ld extra-gen-ptrgc=%ld extra-root-ptrgc=%ld extra-plain-ptrgc=%ld beyond-stop"
-        "=%ld short=%ld | stop: root=%ld nosite=%ld frameless=%ld unknown-depth=%ld cycle=%ld no-link=%ld no-rise=%ld left-segment=%ld coroutine-start=%ld | visitor: same=%ld differ=%ld refused=%ld"
-        "\n", g_gc_chw.runs, g_gc_chw.whole, g_gc_chw.frames, g_gc_chw.offchain, g_gc_chw.missing, g_gc_chw.mapdiff, g_gc_chw.xblob, g_gc_chw.xgen, g_gc_chw.xroot, g_gc_chw.xplain, g_gc_chw.beyond,
-        g_gc_chw.shrt, g_gc_chw.s_root, g_gc_chw.s_nosite, g_gc_chw.s_frameless, g_gc_chw.s_unknown, g_gc_chw.s_cycle, g_gc_chw.s_nolink, g_gc_chw.s_rise, g_gc_chw.s_left, g_gc_chw.s_costart,
-        g_gc_chw.v_same, g_gc_chw.v_diff, g_gc_chw.v_refused);
+        "=%ld short=%ld | stop: root=%ld nosite=%ld frameless=%ld unknown-depth=%ld cycle=%ld no-link=%ld no-rise=%ld left-segment=%ld coroutine-start=%ld bad-link=%ld | frame-links=%ld | visitor: s"
+        "ame=%ld differ=%ld refused=%ld" "\n", g_gc_chw.runs, g_gc_chw.whole, g_gc_chw.frames, g_gc_chw.offchain, g_gc_chw.missing, g_gc_chw.mapdiff, g_gc_chw.xblob, g_gc_chw.xgen, g_gc_chw.xroot,
+        g_gc_chw.xplain, g_gc_chw.beyond, g_gc_chw.shrt, g_gc_chw.s_root, g_gc_chw.s_nosite, g_gc_chw.s_frameless, g_gc_chw.s_unknown, g_gc_chw.s_cycle, g_gc_chw.s_nolink, g_gc_chw.s_rise,
+        g_gc_chw.s_left, g_gc_chw.s_costart, g_gc_chw.s_badlink, g_gc_chw.links, g_gc_chw.v_same, g_gc_chw.v_diff, g_gc_chw.v_refused);
 }
 static void gc_chain_walk_judge(gc_chx_t *cx) {
     if (!g_gc_chw.runs) atexit(gc_chain_walk_report_atexit);
@@ -2738,6 +2808,9 @@ static void gc_chain_walk_judge(gc_chx_t *cx) {
         break;
         case 8:
         g_gc_chw.s_costart++;
+        break;
+        case 9:
+        g_gc_chw.s_badlink++;
         break;
         default:
         g_gc_chw.s_left++;
@@ -3070,28 +3143,16 @@ static void gc_s16_census(const char *lo0, const char *hi0, const char *pop) {
     if (n) fprintf(stderr, "[GC-S16-SUM] pop=%s units=%ld cell=%ld raw=%ld code=%ld stack=%ld heap=%ld other=%ld frames=%ld\n", pop, n, cell, n - cell, code, stack, heap, other, nf);
 }
 #endif
-static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc) {
-#if RT_DIAG
-    if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
-    gc_s16_census(lo0, hi0, g_gc_rep_popname[g_gc_rep_pop]);
-#endif
+static long gc_visit_segment_cap(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc, long cap) {
     gc_chx_t cx;
     gc_chx_t *cp = ((g_gc_seg_main && gc_chain_check_on()) || gc_chain_check_on() == 3) ? &cx : (gc_chx_t *)0;
-    if (cp) { gc_chain_resolve_in(cp, ent, hi0); cx.segmain = g_gc_seg_main; }
     int stop = 0;
-    long nchf = (cp && ent && gc_chain_check_on() == 3) ? gc_chain_walk(ent, hi0, (gc_chf_t *)0, 0, &stop, sc) : 0;
-    const char *img = (sc && sc->image && sc->image_map) ? sc->image + sc->image_off : (const char *)0;
-    if (img && (img < lo0 || img >= hi0)) img = (const char *)0;
-    gc_chf_t chf[nchf + 1];
+    gc_chf_t chf[cap + 1];
+    if (cp) { gc_chain_resolve_in(cp, ent, hi0); cx.segmain = g_gc_seg_main; }
     if (cp && ent && gc_chain_check_on() == 3) {
-        cx.chf_n = gc_chain_walk(ent, hi0, chf, nchf, &stop, sc);
-        if (img && cx.chf_n == nchf && (!cx.chf_n || chf[cx.chf_n - 1].base < img)) {
-            chf[cx.chf_n].base = img;
-            chf[cx.chf_n].map = (const gc_frame_map_t *)sc->image_map;
-            chf[cx.chf_n].link = 0;
-            chf[cx.chf_n].rule = -1;
-            cx.chf_n++;
-        }
+        long n = gc_chain_list(ent, lo0, hi0, sc, chf, cap, &stop);
+        if (n > cap) return gc_visit_segment_cap(lo0, hi0, ent, sc, 2 * n);
+        cx.chf_n = n;
         cx.chf = chf;
         cx.chf_stop = stop;
     }
@@ -3099,6 +3160,14 @@ static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *e
     if (cp && g_gc_seg_main) gc_chain_judge(cp);
     if (cp && cp->chf) gc_chain_walk_judge(cp);
     return 0;
+}
+static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *ent, const scrip_coctx_t *sc) {
+    int stop = 0;
+#if RT_DIAG
+    if (gc_maps_on()) gc_maps_report_range(lo0, hi0);
+    gc_s16_census(lo0, hi0, g_gc_rep_popname[g_gc_rep_pop]);
+#endif
+    return gc_visit_segment_cap(lo0, hi0, ent, sc, (ent && gc_chain_check_on() == 3) ? gc_chain_list(ent, lo0, hi0, sc, (gc_chf_t *)0, 0, &stop) + 16 : 0);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
@@ -3221,7 +3290,7 @@ static long gc_audit_b_lay_ranges(const char *anchor, const gc_frame_map_t *m, c
         uint64_t q = t[1 + j];
         unsigned kind = GC_LAY_KIND(q);
         const char *w = anchor + GC_LAY_OFF(q), *e = w + GC_LAY_SIZE(q);
-        if (kind != GC_LAY_RAW && kind != GC_LAY_PTR_CODE) continue;
+        if (kind != GC_LAY_RAW && kind != GC_LAY_PTR_CODE && kind != GC_LAY_PTR_FRAME) continue;
         if (w < lo) w = lo;
         if (e > hi) e = hi;
         if (w < e) { xr[n].lo = w; xr[n].hi = e; n++; }

@@ -3,7 +3,7 @@ import os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CORPUS = os.path.join(os.path.dirname(ROOT), 'corpus', 'benchmarks')
 EXTS = ('.sno', '.sc', '.icn', '.pl', '.reb', '.raku', '.pas')
-LINE = re.compile(r'^;\s+\+(\d+)\s+(\d+)\s+(DESCR|RAW|PTR_GC|PTR_CODE)\s')
+LINE = re.compile(r'^;\s+\+(\d+)\s+(\d+)\s+(DESCR|RAW|PTR_GC|PTR_CODE|PTR_FRAME)\s')
 def census(path):
     p = subprocess.run([os.path.join(ROOT, 'scrip'), '--dump-zeta', path], capture_output=True, timeout=120); out = p.stdout.decode("utf-8", "replace")
     regs = []

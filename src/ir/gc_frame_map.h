@@ -14,6 +14,7 @@
 #define GC_LAY_RAW 1u
 #define GC_LAY_PTR_GC 2u
 #define GC_LAY_PTR_CODE 3u
+#define GC_LAY_PTR_FRAME 4u
 #define GC_LAY_Q(off, kind, size) ((uint64_t)(uint32_t)(int32_t)(off) | ((uint64_t)(kind) << 32) | ((uint64_t)(size) << 40))
 #define GC_LAY_OFF(q) ((int)(int32_t)(uint32_t)(q))
 #define GC_LAY_KIND(q) ((unsigned)(((q) >> 32) & 0xFFu))

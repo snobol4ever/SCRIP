@@ -75,7 +75,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-KINDS = {"DESCR", "RAW", "PTR_GC", "PTR_CODE"}
+KINDS = {"DESCR", "RAW", "PTR_GC", "PTR_CODE", "PTR_FRAME"}
 RE_GRAPH = re.compile(r"^; graph (\d+) '(.*)' \S+ slots=(\d+) region_end=(\d+) resume=(-?\d+) vslots=(\d+) scopes=(\d+)")
 RE_SCOPE = re.compile(r"^;   scope (\d+)\s+(\S+)\s+(\S+)\s+parent=(-?\d+)\s+(?:\[(\d+)\.\.(\d+)\)|\(no frame fields\))")
 RE_FIELD = re.compile(r"^;     \+(\d+)\s+(\d+)\s+(\S+)\s+(.*?)\s*$")

@@ -193,6 +193,12 @@ static void zls_entry(const IR_t * nd, int scope_id, int off) {
     g_lower.ir.ze_n++;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int zls_act_kind(const IR_graph_t * g, const IR_t * nd) {
+    if (!g || !g->zframe_pinned_base || !g->zframe_graph || g->icn_cells_graph) return ZK_RAW;
+    if (nd->op == IR_CALL_PROC_STAGED) return ZK_PTR_FRAME;
+    if (nd->op == IR_CALL_VALUE && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "goal")) return ZK_PTR_FRAME;
+    return ZK_RAW;
+}
 static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id, int off) {
     switch (nd->op) {
         case IR_TO:
@@ -455,8 +461,9 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_PROC_GEN:
         case IR_CALL_VALUE:
         for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
-        zls_field(scope_id, off + 16 * nd->n_operands, 8, ZK_RAW, 0,
-            "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a NON-RESUMABLE callee -- a plain procedure return"
+        zls_field(scope_id, off + 16 * nd->n_operands, 8, zls_act_kind(g, nd), 0,
+            "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a"
+            " NON-RESUMABLE callee -- a plain procedure return"
             "s once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame base (rax) or 0 whe"
             "n the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
         zls_field(scope_id, off + 16 * nd->n_operands + 8, 8, ZK_PTR_CODE, 0,
@@ -467,8 +474,9 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         if (nd->op == IR_CALL || ir_is_call_kind(nd->op)) {
             if (nd->op == IR_CALL_PROC_STAGED) {
                 if (!zls_callee_is_gen(nd)) return 0;
-                zls_field(scope_id, off, 8, ZK_RAW, 0,
-                    "callgen.act +0 (ZK_RAW: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that opened a NON-RESUMABLE callee -- a plain procedur"
+                zls_field(scope_id, off, 8, zls_act_kind(g, nd), 0,
+                    "callgen.act +0 (ZK_RAW, or ZK_PTR_FRAME on a pinned caller's Prolog arm: the spine arm writes 0 at alpha and 1 once its epilogue has run, or 2 for the whole life of a call that "
+                    "opened a NON-RESUMABLE callee -- a plain procedur"
                     "e returns once and releases, so beta fails forward on 2 instead of resuming (ceo 2026-09-19, CVSPINE_t in descr.h); at the gamma landing it holds the callee's RETAINED frame bas"
                     "e (rax) or 0 when the callee released -- a machine-stack address, never a heap block; measured from bb_call_proc_staged.cpp)", nd);
                 zls_field(scope_id, off + 8, 8, ZK_PTR_CODE, 0,
@@ -1606,7 +1614,7 @@ const char * zls_g_vslot_get(const IR_graph_t * g, int i, int * off) {
     return zv[r->first_vslot + i].name;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RAW ? "RAW" : k == ZK_PTR_GC ? "PTR_GC" : k == ZK_PTR_CODE ? "PTR_CODE" : "?"; }
+static const char * zk_name(int k) { return k == ZK_DESCR ? "DESCR" : k == ZK_RAW ? "RAW" : k == ZK_PTR_GC ? "PTR_GC" : k == ZK_PTR_CODE ? "PTR_CODE" : k == ZK_PTR_FRAME ? "PTR_FRAME" : "?"; }
 static const char * zsc_name(int k) { return k == ZSC_FN ? "FN" : k == ZSC_GROUP ? "GROUP" : k == ZSC_ITER ? "ITER" : k == ZSC_PAT ? "PAT" : k == ZSC_COEXPR ? "COEXPR" : "?"; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_op_names_a_string(IR_e op) {

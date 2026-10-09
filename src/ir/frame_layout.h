@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "IR.h"
-enum { ZK_DESCR = 0, ZK_RAW = 1, ZK_PTR_GC = 2, ZK_PTR_CODE = 3 };
+enum { ZK_DESCR = 0, ZK_RAW = 1, ZK_PTR_GC = 2, ZK_PTR_CODE = 3, ZK_PTR_FRAME = 4 };
 enum { ZSC_FN = 0, ZSC_GROUP = 1, ZSC_ITER = 2, ZSC_PAT = 3, ZSC_COEXPR = 4 };
 typedef struct { int off; int size; unsigned char kind; unsigned char audit; const char * what; } zls_field_t;
 typedef struct { int id; int parent; int klass; const char * name; int first_field; int n_fields; int lo_off; int hi_off; } zls_scope_t;
