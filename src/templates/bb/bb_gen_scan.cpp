@@ -21,7 +21,7 @@ static_assert(sizeof(uint64_t) == 8,
         "the live subject at +24, ARCH-GC 13.5) AND +32 (delta, RAW), THE OFFSETS frame_layout.c GRANTS -- IR_SCAN is not a shifted-locals kind, so zls_off "
             "is the RESULT slot and the fields start 16 past it; the cell's DT_S tag is what makes the walker visit and relocate the subject, "
                 "and a collection during the suspension of an untagged bank handed rt_scan_reenter_live vacated ground (unitgenr, cto 2026-09-23, CTO-154)");
-static int scan_bank_off() { return 16; }
+#define scan_bank_off() (16)
 static long scan_bank_tag() {
     static int said = 0;
     return !(getenv("SCRIP_GC_PLANT_SCAN_BANK") && *getenv("SCRIP_GC_PLANT_SCAN_BANK") == '1') ? (long)DT_S
