@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2226
-#define GC_ALLOC_TAB_N_VOID 263
+#define GC_ALLOC_TAB_N 2228
+#define GC_ALLOC_TAB_N_VOID 264
 #define GC_ALLOC_TAB_N_DESCR 1129
-#define GC_ALLOC_TAB_N_OTHER 819
+#define GC_ALLOC_TAB_N_OTHER 820
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1129,6 +1129,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_match_span", GC_RET_DESCR },
     { "rk_match_text", GC_RET_OTHER },
     { "rk_method_land_γ", GC_RET_DESCR },
+    { "rk_method_missing", GC_RET_VOID },
     { "rk_method_open", GC_RET_OTHER },
     { "rk_mk_arr", GC_RET_DESCR },
     { "rk_mk_jct", GC_RET_DESCR },
@@ -1139,6 +1140,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_one", GC_RET_DESCR },
     { "rk_order_cmp_num", GC_RET_OTHER },
     { "rk_order_cmp_str", GC_RET_OTHER },
+    { "rk_os_release", GC_RET_OTHER },
     { "rk_pair_text", GC_RET_OTHER },
     { "rk_pre_args", GC_RET_DESCR },
     { "rk_pre_env", GC_RET_DESCR },

@@ -719,6 +719,7 @@ test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
 test_gate_raku_an_array_subscript_slices_by_an_array_of_indexes_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_raku_an_element_assignment_through_a_chain_of_subscripts_stores_into_the_nested_container_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_an_exception_is_a_value_that_die_carries_and_catch_and_throws_like_read.sh	WIRED	-	-	-
+test_gate_raku_an_unknown_method_throws_x_method_notfound_dot_question_calls_it_maybe_can_finds_methods_and_attributes_and_fallback_catches_the_rest_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
 test_gate_raku_builtin_gaps_and_is_run_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_eval_compiles_a_string_in_process_in_both_modes.sh	WIRED	-	-	-

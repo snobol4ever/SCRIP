@@ -1840,6 +1840,7 @@ void rkb_reduce(RkB *b, RkTerm *it, int from, int to, const char *rop, RkList *a
 static tree_t *method_call(RkB *b, tree_t *inv, RkPf *pf) {
     char *nm = trimdup(pf->txt ? pf->txt : "", pf->txt ? (int) strlen(pf->txt) : 0);
     if (pf->mod == '^') { char *x = (char *) ct_alloc(strlen(nm) + 2); x[0] = '^'; strcpy(x + 1, nm); nm = x; }
+    if (pf->mod == '?') { char *x = (char *) ct_alloc(strlen(nm) + 2); x[0] = '?'; strcpy(x + 1, nm); nm = x; }
     tree_t *c = ast_node_new(TT_METHCALL); ast_push(c, inv); ast_push(c, leaf_sval(TT_QLIT, nm));
     if (pf->args) {
         if (pf->form == 2 && pf->args->n == 1 && pf->args->nitem > 1 && pf->args->op1) { ast_push(c, stmt_plain(b, pf->args)); return c; }

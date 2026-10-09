@@ -3586,7 +3586,7 @@ static void rk_hoist_types_walk(rk_hoist_t * h, tree_t * t) {
         if (rk_is_type_decl(c) && !rk_is_top_decl(h, c)) {
             const char * nm = rk_decl_name(c);
             int stmt_pos = t->t == TT_ATTR;
-            char buf[64];
+            char buf[(nm ? strlen(nm) : 0) + 32];
             if (!nm || !*nm) {
                 rk_alpha_name(buf, sizeof buf, "AnonClass", ++h->uid);
                 nm = lp_strdup(buf);

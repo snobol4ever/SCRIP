@@ -1359,6 +1359,13 @@ static int rk_type_isa(const char *have, const char *want) {
 static const char *rk_real_str(double r, char *buf, int bufsz);
 static DESCR_t rk_hash_from_list(const DESCR_t *el, int n);
 #include "rk_unicode_norm_tables.inc"
+#include "rk_rakudo_method_names.inc"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_rakudo_method(const char *m) {
+    int lo = 0, hi = rk_rakudo_methods_n;
+    while (lo < hi) { int mid = (lo + hi) / 2; int c = strcmp(m, rk_rakudo_methods[mid]); if (!c) return 1; if (c < 0) hi = mid; else lo = mid + 1; }
+    return 0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned rk_un_ccc_of(unsigned cp) {
     unsigned lo = 0, hi = rk_un_ccc_n;
@@ -1423,7 +1430,10 @@ static unsigned *rk_un_normalize(const unsigned *in, int n, int compat, int comp
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_uni_types[] = { "Uni", "NFC", "NFD", "NFKC", "NFKD", NULL };
 static int rk_uni_is_name(const char *nm) { for (int i = 0; nm && rk_uni_types[i]; i++) if (!strcmp(nm, rk_uni_types[i])) return 1; return 0; }
-static void rk_uni_reg(void) { if (dat_find_type("Uni")) return; for (int i = 0; rk_uni_types[i]; i++) { char spec[40]; snprintf(spec, sizeof spec, "%s(codes)", rk_uni_types[i]); DEFDAT_fn(spec); } }
+static void rk_uni_reg(void) {
+    if (dat_find_type("Uni")) return;
+    for (int i = 0; rk_uni_types[i]; i++) { char spec[strlen(rk_uni_types[i]) + 16]; snprintf(spec, sizeof spec, "%s(codes)", rk_uni_types[i]); DEFDAT_fn(spec); }
+}
 static DESCR_t rk_uni_make(const char *tn, const unsigned *cps, int n) {
     rk_uni_reg();
     DESCR_t *el = n ? (DESCR_t *) rt_ws_alloc_descr((size_t) n) : NULL;
@@ -7271,25 +7281,34 @@ static DESCR_t rk_pre_args(void) {
     return rk_unmark(rk_mk_arr(r, n));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char *rk_os_release(const char *key, char *buf, size_t cap) {
+static const char *rk_os_release(const char *key) {
     FILE *f = fopen("/etc/os-release", "r");
-    buf[0] = '\0';
-    if (!f) return buf;
-    char ln[512];
-    size_t kl = strlen(key);
-    while (fgets(ln, sizeof ln, f)) {
-        if (strncmp(ln, key, kl) || ln[kl] != '=') continue;
-        const char *v = ln + kl + 1;
-        size_t n = strlen(v);
-        while (n && (v[n - 1] == '\n' || v[n - 1] == '"')) n--;
-        if (n && v[0] == '"') { v++; n--; }
-        if (n >= cap) n = cap - 1;
-        memcpy(buf, v, n);
-        buf[n] = '\0';
-        break;
-    }
+    if (!f) return "";
+    fseek(f, 0, SEEK_END);
+    long sz = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (sz < 0) sz = 0;
+    char all[(size_t) sz + 1];
+    size_t got = fread(all, 1, (size_t) sz, f);
+    all[got] = '\0';
     fclose(f);
-    return buf;
+    size_t kl = strlen(key);
+    for (char *ln = all; *ln; ) {
+        char *nl = strchr(ln, '\n');
+        size_t len = nl ? (size_t) (nl - ln) : strlen(ln);
+        if (len > kl && !strncmp(ln, key, kl) && ln[kl] == '=') {
+            const char *v = ln + kl + 1;
+            size_t n = len - kl - 1;
+            while (n && v[n - 1] == '"') n--;
+            if (n && v[0] == '"') { v++; n--; }
+            char tmp[n + 1];
+            memcpy(tmp, v, n);
+            tmp[n] = '\0';
+            return rt_heap_strdup_c(tmp);
+        }
+        ln += len + (nl ? 1 : 0);
+    }
+    return "";
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_dyn_str(const char *s) { return STRVAL(rt_heap_strdup_c(s ? s : "")); }
@@ -7305,31 +7324,28 @@ static DESCR_t rk_dyn_obj(const char *nm) {
     }
     DESCR_t no = { .v = DT_BOOL, .i = 0 };
     if (!strcmp(nm, "*DISTRO")) {
-        char id[128], vid[128], url[256], pretty[256], ver[160];
-        rk_os_release("ID", id, sizeof id);
-        rk_os_release("VERSION_ID", vid, sizeof vid);
-        rk_os_release("HOME_URL", url, sizeof url);
-        rk_os_release("PRETTY_NAME", pretty, sizeof pretty);
-        char fullv[160];
+        const char *id = rk_os_release("ID"), *vid = rk_os_release("VERSION_ID"), *url = rk_os_release("HOME_URL"), *pretty = rk_os_release("PRETTY_NAME"), *fullv = rk_os_release("VERSION");
+        const char *vsrc = fullv[0] ? fullv : vid;
+        char ver[strlen(vsrc) + 2];
         size_t vk = 0;
-        rk_os_release("VERSION", fullv, sizeof fullv);
         ver[vk++] = 'v';
-        for (const char *c = fullv[0] ? fullv : vid; *c && vk + 1 < sizeof ver; c++) { if (*c == ' ') ver[vk++] = '.'; else if (*c != '(' && *c != ')') ver[vk++] = *c; }
+        for (const char *c = vsrc; *c; c++) { if (*c == ' ') ver[vk++] = '.'; else if (*c != '(' && *c != ')') ver[vk++] = *c; }
         ver[vk] = '\0';
         return DATCON_fn("Distro", rk_dyn_str(id[0] ? id : "linux"), rk_dyn_str(ver), rk_dyn_str(url), rk_dyn_str(vid), rk_dyn_str(pretty), no, rk_dyn_str(":"));
     }
     if (!strcmp(nm, "*KERNEL")) {
         struct utsname u;
-        char ver[300];
-        size_t k = 0;
         memset(&u, 0, sizeof u);
         uname(&u);
+        const char *uv = u.version[0] == '#' ? u.version + 1 : u.version;
+        char ver[strlen(uv) + 2];
+        size_t k = 0;
         ver[k++] = 'v';
-        for (const char *c = u.version[0] == '#' ? u.version + 1 : u.version; *c && k + 1 < sizeof ver; c++) ver[k++] = (*c == '-' || *c == ' ' || *c == ':') ? '.' : *c;
+        for (const char *c = uv; *c; c++) ver[k++] = (*c == '-' || *c == ' ' || *c == ':') ? '.' : *c;
         ver[k] = '\0';
-        char low[64];
+        char low[strlen(u.sysname) + 1];
         size_t i = 0;
-        for (; u.sysname[i] && i + 1 < sizeof low; i++) low[i] = (char) tolower((unsigned char) u.sysname[i]);
+        for (; u.sysname[i]; i++) low[i] = (char) tolower((unsigned char) u.sysname[i]);
         low[i] = '\0';
         return DATCON_fn("Kernel", rk_dyn_str(low), rk_dyn_str(ver), rk_dyn_str(u.release), rk_dyn_str(u.machine), rk_dyn_str(u.machine), INTVAL((long) (sizeof(void *) * 8)));
     }
@@ -8569,7 +8585,10 @@ static void rk_exc_init(void) {
     class_inherit("X::Syntax::Confused", "X::Syntax");
     record_register("X::Undeclared(message)");
     class_inherit("X::Undeclared", "X::Comp");
+    record_register("X::Method::NotFound(message,method,typename,invocant)");
+    class_inherit("X::Method::NotFound", "Exception");
     for (int i = 0; rk_exc_tab[i].cls; i++) {
+        if (!strcmp(rk_exc_tab[i].cls, "X::Method::NotFound")) continue;
         char spec[strlen(rk_exc_tab[i].cls) + 16];
         snprintf(spec, sizeof spec, "%s(message)", rk_exc_tab[i].cls);
         record_register(spec);
@@ -8624,6 +8643,19 @@ static DESCR_t rk_exc_current(void) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_exc_throw(DESCR_t ex) { extern void rt_script_die_surface(const char *msg); NV_SET_fn("!", ex); rt_script_die_surface(rk_exc_message(ex)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_method_missing(DESCR_t recv, const char *mname, DESCR_t *out) {
+    rk_exc_init();
+    const char *tn = NULL;
+    if (IS_DATA_INST_fn(recv) && recv.u && recv.u->type) tn = recv.u->type->name;
+    else if (rk_typeobj_name(recv)) tn = rk_typeobj_name(recv);
+    else if (IS_STR_fn(recv) && recv.s && dat_find_type(recv.s)) tn = recv.s;
+    if (!tn) tn = rk_value_type(recv);
+    char msg[strlen(mname) + strlen(tn) + 64];
+    snprintf(msg, sizeof msg, "No such method '%s' for invocant of type '%s'", mname, tn);
+    rk_exc_throw(DATCON_fn("X::Method::NotFound", STRVAL(rt_heap_strdup_c(msg)), STRVAL(rt_heap_strdup_c(mname)), STRVAL(rt_heap_strdup_c(tn)), recv));
+    *out = FAILDESCR;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
     DESCR_t ex = args[0];
@@ -11166,6 +11198,15 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
         const char *mname0 = VARVAL_fn(args[1]);
+        int maybe = 0;
+        if (mname0 && mname0[0] == '?' && mname0[1]) {
+            DESCR_t *fa = rt_ws_alloc_descr((size_t) nargs);
+            for (int k = 0; k < nargs; k++) fa[k] = args[k];
+            mname0++;
+            fa[1] = STRVAL(rt_heap_strdup_c(mname0));
+            args = fa;
+            maybe = 1;
+        }
         if (IS_STR_fn(args[0]) && args[0].s && ((args[0].s[0] == 'X' && args[0].s[1] == ':') || args[0].s[0] == 'E') && (args[0].s[0] == 'X' || !strcmp(args[0].s, "Exception"))) rk_exc_init();
         if (mname0 && mname0[0] == '^') {
             const char *mm = mname0 + 1;
@@ -11262,6 +11303,35 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             }
             *out = INTVAL(hit ? 1 : 0);
             return 1;
+        }
+        if (mname0 && !strcmp(mname0, "can") && nargs == 3) {
+            const char *cn = NULL;
+            if (IS_DATA_INST_fn(args[0]) && args[0].u) {
+                DATINST_t *di = (DATINST_t *)args[0].u;
+                cn = (di && di->type) ? di->type->name : NULL;
+            } else {
+                cn = VARVAL_fn(args[0]);
+                if (cn && !dat_find_type(cn)) cn = NULL;
+            }
+            const char *want = VARVAL_fn(args[2]);
+            if (cn && want) {
+                extern int dat_mro(const char *name, const char **out, int max);
+                const char *mro[bnd_dat_need(cn, 0)];
+                int mn = dat_mro(cn, mro, (int)(sizeof mro / sizeof mro[0]));
+                if (mn == 0) { mro[0] = cn; mn = 1; }
+                DESCR_t hits[mn];
+                int nh = 0;
+                for (int i = 0; i < mn; i++) {
+                    if (!mro[i]) continue;
+                    char pn[fmt_len("%s__%s", mro[i], want)];
+                    snprintf(pn, sizeof pn, "%s__%s", mro[i], want);
+                    if (meth_is_user_proc(pn)) { hits[nh++] = STRVAL(rt_heap_strdup_c(want)); continue; }
+                    DatType *ft = dat_find_type(mro[i]);
+                    if (ft) for (int f = 0; f < ft->nfields; f++) if (!ft->priv[f] && !strcmp(ft->fields[f], want)) { hits[nh++] = STRVAL(rt_heap_strdup_c(want)); break; }
+                }
+                *out = rk_mark_list(rk_mk_arr(hits, nh));
+                return 1;
+            }
         }
         if (mname0 && !strcmp(mname0, "bless")) {
             const char *cname = VARVAL_fn(args[0]);
@@ -11409,7 +11479,35 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 }
             }
         }
-        if (_was_list_recv || !IS_DATA_INST_fn(args[0]) || !args[0].u) { *out = FAILDESCR; return 1; }
+        if (_was_list_recv || !IS_DATA_INST_fn(args[0]) || !args[0].u) {
+            if (!_was_list_recv && mname0 && *mname0) {
+                const char *tn = rk_value_type(args[0]);
+                const char *cands[6];
+                int nc = 0;
+                cands[nc++] = tn;
+                if (!strcmp(tn, "Bool")) cands[nc++] = "Int";
+                if (!strcmp(tn, "Array")) cands[nc++] = "List";
+                cands[nc++] = "Cool";
+                cands[nc++] = "Any";
+                cands[nc++] = "Mu";
+                for (int ci = 0; ci < nc; ci++) {
+                    char pn[fmt_len("%s__%s", cands[ci], mname0)];
+                    snprintf(pn, sizeof pn, "%s__%s", cands[ci], mname0);
+                    if (!meth_is_user_proc(pn)) continue;
+                    int total = nargs - 1;
+                    DESCR_t ca[total > 0 ? total : 1];
+                    ca[0] = args[0];
+                    for (int k = 1; k < total; k++) ca[k] = args[1 + k];
+                    *out = invoke_method_proc(pn, ca, total);
+                    return 1;
+                }
+            }
+            int is_class = IS_STR_fn(args[0]) && args[0].s && dat_find_type(args[0].s) != NULL;
+            if (maybe) *out = NULVCL;
+            else if (!is_class && mname0 && rk_is_rakudo_method(mname0)) *out = FAILDESCR;
+            else rk_method_missing(args[0], mname0 ? mname0 : "", out);
+            return 1;
+        }
         DATINST_t *inst = (DATINST_t *)args[0].u;
         const char *cname = (inst && inst->type) ? inst->type->name : NULL;
         if (!cname) { *out = FAILDESCR; return 1; }
@@ -11454,6 +11552,22 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         DESCR_t callargs[total > 0 ? total : 1];
         callargs[0] = args[0];
         for (int k = 0; k < nextra; k++) callargs[1 + k] = args[2 + k];
+        if (!meth_is_user_proc(procname)) {
+            const char *fbc = resolve_method_chain(cname, "FALLBACK", NULL);
+            char fbp[fmt_len("%s__%s", fbc, "FALLBACK")];
+            snprintf(fbp, sizeof fbp, "%s__%s", fbc, "FALLBACK");
+            if (!maybe && strcmp(mname, "FALLBACK") && meth_is_user_proc(fbp)) {
+                DESCR_t fargs[total + 1];
+                fargs[0] = args[0];
+                fargs[1] = STRVAL(rt_heap_strdup_c(mname));
+                for (int k = 1; k < total; k++) fargs[1 + k] = callargs[k];
+                *out = invoke_method_proc(fbp, fargs, total + 1);
+                return 1;
+            }
+            if (maybe) *out = NULVCL;
+            else rk_method_missing(args[0], mname, out);
+            return 1;
+        }
         rk_redisp_t rec;
         rec.self = args[0];
         rec.mname = args[1];
