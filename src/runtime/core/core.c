@@ -502,14 +502,14 @@ void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) {
 void rt_trace_call_hook(const char *fname) {
     if (trace_idle()) return;
     extern long g_stno;
-    extern int rt_proc_nparams(const char *name);
+    extern int rt_proc_nformals_exact(const char *name);
     extern const char *rt_proc_pname(const char *name, int k);
     extern DESCR_t NV_GET_fn(const char *);
-    int np = fname ? rt_proc_nparams(fname) : 0;
+    int np = fname ? rt_proc_nformals_exact(fname) : 0;
     if (np < 0) np = 0;
     DESCR_t a[np > 0 ? np : 1];
     for (int i = 0; i < np; i++) { const char *pn = rt_proc_pname(fname, i); a[i] = pn ? NV_GET_fn(pn) : NULVCL; }
-    rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
+    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_stno); }
 }
 #else
 void rt_icn_trace_coexpr(const char *procname, long self_serial, long targ_serial, uint64_t x0, uint64_t x1, int kind, long line_override) {
@@ -872,7 +872,7 @@ void rt_trace_call_hook_f(const char *fname, int np, void *base) {
     if (np < 0) np = 0;
     DESCR_t a[np > 0 ? np : 1];
     for (int i = 0; i < np; i++) a[i] = *(DESCR_t *)((char *)base + (i + 1) * 16);
-    rt_trace_event_args(TRK_CALL, fname, a, np, NULVCL, g_stno);
+    { extern const char *rt_proc_trace_canon(const char *); rt_trace_event_args(TRK_CALL, rt_proc_trace_canon(fname), a, np, NULVCL, g_stno); }
 }
 void rt_trace_suspend_hook(const char *pname, uint64_t lo, uint64_t hi, long line) {
     if (trace_idle()) return;
@@ -938,8 +938,17 @@ void rt_trace_resume_hook(const char *pname, void *h) { (void)pname; (void)h; }
 #endif
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #if RT_DIAG
-void rt_trace_fail_hook(const char *fname) { if (trace_idle()) return; extern long g_stno; rt_trace_event(TRK_RETURN, fname, FAILDESCR, g_stno); }
-void rt_trace_return_hook(const char *fname, DESCR_t retval) { extern long g_stno; if (!trace_idle()) rt_trace_event(TRK_RETURN, fname, retval, g_stno); }
+void rt_trace_fail_hook(const char *fname) {
+    if (trace_idle()) return;
+    extern long g_stno;
+    extern const char *rt_proc_trace_canon(const char *);
+    rt_trace_event(TRK_RETURN, rt_proc_trace_canon(fname), FAILDESCR, g_stno);
+}
+void rt_trace_return_hook(const char *fname, DESCR_t retval) {
+    extern long g_stno;
+    extern const char *rt_proc_trace_canon(const char *);
+    if (!trace_idle()) rt_trace_event(TRK_RETURN, rt_proc_trace_canon(fname), retval, g_stno);
+}
 #else
 void rt_trace_fail_hook(const char *fname) { (void)fname; }
 void rt_trace_return_hook(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
@@ -1248,10 +1257,17 @@ void sno_trace_value(const char *name, DESCR_t val) {
     if (sno_name_is_output_assoc(name)) return;
     rt_trace_value(name, val);
 }
-void sno_trace_call(const char *fname) { if (g_trace_budget == 0 || !fname || !*fname) return; if (mon_synth_name(fname)) return; rt_trace_call(fname, (DESCR_t *)0, 0); }
-void sno_trace_return(const char *fname, DESCR_t retval) {
+void sno_trace_call(const char *fname) {
+    extern const char *rt_proc_trace_canon(const char *);
     if (g_trace_budget == 0 || !fname || !*fname) return;
     if (mon_synth_name(fname)) return;
+    rt_trace_call(rt_proc_trace_canon(fname), (DESCR_t *)0, 0);
+}
+void sno_trace_return(const char *fname, DESCR_t retval) {
+    extern const char *rt_proc_trace_canon(const char *);
+    if (g_trace_budget == 0 || !fname || !*fname) return;
+    if (mon_synth_name(fname)) return;
+    fname = rt_proc_trace_canon(fname);
     rt_trace_return_wire(fname, retval, STRVAL(IS_FAIL_fn(retval) ? "FRETURN" : (kw_rtntype[0] == 'N' ? "NRETURN" : "RETURN")));
 }
 void mon_emit_trace_bin(uint32_t kind, const char *name, DESCR_t val) {
@@ -1440,7 +1456,9 @@ void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, l
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { comm_var_hook(name, val, file, line, stno, 0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_call(const char *fname) {
+    extern const char *rt_proc_trace_canon(const char *);
     if (!fname || !*fname) return;
+    fname = rt_proc_trace_canon(fname);
     if (mon_synth_name(fname)) return;
     if (kw_ftrace > 0 && !g_monitor_bin) { fprintf(stdout, "****%-7lld  %s()\n", (long long)kw_stcount, fname); fflush(stdout); }
     if (monitor_fd < 0) return;
@@ -1451,7 +1469,9 @@ void comm_call(const char *fname) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_return(const char *fname, DESCR_t retval) {
+    extern const char *rt_proc_trace_canon(const char *);
     if (!fname || !*fname) return;
+    fname = rt_proc_trace_canon(fname);
     if (mon_synth_name(fname)) return;
     if (kw_ftrace > 0 && !g_monitor_bin) { const char *s = VARVAL_fn(retval); fprintf(stdout, "****%-7lld  RETURN %s = '%s'\n", (long long)kw_stcount, fname, s ? s : ""); fflush(stdout); }
     if (monitor_fd < 0) return;

@@ -972,6 +972,11 @@ const char *rt_proc_lname(const char *name, int k) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_nformals(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; if (!p) return -1; return p->nformals > 0 ? p->nformals : p->nparams; }
+int rt_proc_nformals_exact(const char *name) {
+    rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
+    if (!p) return -1;
+    return p->dyn_scope ? p->nformals : (p->nformals > 0 ? p->nformals : p->nparams);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_pname(const char *name, int k, const char *pname) {
     rt_proc_t *p = rt_proc_find(name);
