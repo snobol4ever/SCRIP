@@ -1473,10 +1473,15 @@ void rt_ab_cell_bind(const char *name, void **quad) {
     }
 }
 void rt_ab_cell_bind_table(void **tab) { if (!tab) return; for (int i = 0; tab[i]; i += 2) rt_ab_cell_bind((const char *)tab[i], (void **)tab[i + 1]); }
+static void rt_proc_resolve_cells(rt_proc_t *p);
+extern int monitor_quiet_depth;
+static DESCR_t rt_shim_cell_get(DESCR_t *c, const char *nm) { if (c) return *c; monitor_quiet_depth++; DESCR_t v = NV_GET_fn(nm); monitor_quiet_depth--; return v; }
+static void rt_shim_cell_set(DESCR_t *c, const char *nm, DESCR_t v) { if (c) { *c = v; return; } monitor_quiet_depth++; NV_SET_fn(nm, v); monitor_quiet_depth--; }
 static int rt_shim_nv_name(const char *nm) { extern int gva_index_of(const char *); extern int gva_trace_demoted(void); return nm && (gva_trace_demoted() || gva_index_of(nm) < 0); }
 void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char *base) {
     rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;
     if (!p || !cells || !sig || !base) return;
+    rt_proc_resolve_cells(p);
     {
         int np = p->nparams, nf = p->nformals > 0 ? p->nformals : np, nargs = (int)sig[0], j = 0, sh = 0;
         const char *rn = p->result_name ? p->result_name : p->name;
@@ -1487,8 +1492,8 @@ void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char
             if (!rt_shim_nv_name(nm)) continue;
             {
                 DESCR_t arg = (k < nf && k < nargs) ? *(const DESCR_t *)(base + sig[3 + k]) : NULVCL;
-                cells[j] = NV_GET_fn(nm);
-                NV_SET_fn(nm, arg);
+                cells[j] = rt_shim_cell_get(p->pcells ? p->pcells[k] : (DESCR_t *)0, nm);
+                rt_shim_cell_set(p->pcells ? p->pcells[k] : (DESCR_t *)0, nm, arg);
                 {
                     static int diag = -1;
                     if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
@@ -1499,14 +1504,15 @@ void rt_shim_nv_in(const char *proc, DESCR_t *cells, const long *sig, const char
                 j++;
             }
         }
-        if (rn && !sh && rt_shim_nv_name(rn)) { cells[j++] = NV_GET_fn(rn); NV_SET_fn(rn, NULVCL); }
+        if (rn && !sh && rt_shim_nv_name(rn)) { cells[j++] = rt_shim_cell_get(p->rcell, rn); rt_shim_cell_set(p->rcell, rn, NULVCL); }
     }
 }
 static void rt_shim_nv_restore(rt_proc_t *p, DESCR_t *cells) {
+    rt_proc_resolve_cells(p);
     int np = p->nparams, j = 0, sh = 0;
     const char *rn = p->result_name ? p->result_name : p->name;
     for (int k = 0; k < np; k++) { const char *nm = p->pnames ? p->pnames[k] : (const char *)0; if (!nm) continue; if (rn && !strcmp(nm, rn)) sh = 1; if (rt_shim_nv_name(nm)) j++; }
-    if (rn && !sh && rt_shim_nv_name(rn)) NV_SET_fn(rn, cells[j]);
+    if (rn && !sh && rt_shim_nv_name(rn)) rt_shim_cell_set(p->rcell, rn, cells[j]);
     for (int k = np - 1; k >= 0; k--) {
         const char *nm = p->pnames ? p->pnames[k] : (const char *)0;
         if (!nm || !rt_shim_nv_name(nm)) continue;
@@ -1516,13 +1522,14 @@ static void rt_shim_nv_restore(rt_proc_t *p, DESCR_t *cells) {
             if (diag < 0) { const char *e = getenv("SCRIP_SHIM_DIAG"); diag = (e && *e == '1') ? 1 : 0; }
             if (diag) fprintf(stderr, "[NVOUT] %s.%s cells=%p j=%d old.v=%d\n", p->name ? p->name : "?", nm, (void *)cells, j, (int)cells[j].v);
         }
-        NV_SET_fn(nm, cells[j]);
+        rt_shim_cell_set(p->pcells ? p->pcells[k] : (DESCR_t *)0, nm, cells[j]);
     }
 }
 DESCR_t rt_shim_nv_gamma(const char *proc, DESCR_t *cells) {
     rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0;
     if (!p || !cells) return NULVCL;
-    { const char *rn = p->result_name ? p->result_name : p->name; DESCR_t r = (rn && rt_shim_nv_name(rn)) ? NV_GET_fn(rn) : NULVCL; rt_shim_nv_restore(p, cells); return r; }
+    rt_proc_resolve_cells(p);
+    { const char *rn = p->result_name ? p->result_name : p->name; DESCR_t r = (rn && rt_shim_nv_name(rn)) ? rt_shim_cell_get(p->rcell, rn) : NULVCL; rt_shim_nv_restore(p, cells); return r; }
 }
 void rt_shim_nv_omega(const char *proc, DESCR_t *cells) { rt_proc_t *p = proc ? rt_proc_find(proc) : (rt_proc_t *)0; if (p && cells) rt_shim_nv_restore(p, cells); }
 static cv_t g_initial_fired;
