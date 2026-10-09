@@ -384,6 +384,38 @@ def binary_moved_since_start():
     return None if now == start else (start, now)
 
 
+def _attach_timeout_stamps(rows):
+    """CEO-1335: util_timeout_retry.sh appends one line per retried timeout to $S4E_TIMEOUT_STAMP -- key TAB m3|m4|oracle TAB
+    retried=1 load1=<first>/<second> nproc=<n> [timeout-twice]. Each stamp joins the note of the row it names (the key is the
+    program, its basename, or a comma list of argv stems; m3 to m3, m4 to m4, an oracle's to every mode), the file is consumed,
+    and a stamp no row matches is said aloud on stderr, never dropped silently."""
+    p = os.environ.get("S4E_TIMEOUT_STAMP", "")
+    if not p or not os.path.isfile(p):
+        return
+    try:
+        with open(p) as f:
+            stamps = [ln.rstrip("\n").split("\t") for ln in f if ln.strip()]
+        os.unlink(p)
+    except OSError:
+        return
+    for s in stamps:
+        if len(s) < 3:
+            continue
+        keys = [k for k in s[0].split(",") if k]
+        hit = False
+        for r in rows:
+            prog = r["program"]
+            base = prog.rsplit("/", 1)[-1]
+            if not any(k == prog or k.rsplit("/", 1)[-1] == base or k == base + "_driver" for k in keys):
+                continue
+            if s[1] != "oracle" and r["mode"] != s[1]:
+                continue
+            r["note"] = (r["note"] + " " if r["note"] else "") + s[2]
+            hit = True
+        if not hit:
+            print("progress: a timeout retry stamp matched no row (key %s, %s): %s" % (s[0], s[1], s[2]), file=sys.stderr)
+
+
 def append_rows(rows, db=None):
     moved = binary_moved_since_start()
     if moved:
@@ -393,6 +425,7 @@ def append_rows(rows, db=None):
     rows = [normalize_row(r) for r in rows]
     if not rows:
         return 0
+    _attach_timeout_stamps(rows)
     if recording_off():
         print(f"progress: S4E_PROGRESS_OFF=1 -- {len(rows)} row(s) NOT recorded in {db or db_path()} (the control arm; a landing verdict never runs with it set)", file=sys.stderr)
         return 0
