@@ -609,6 +609,7 @@ test_gate_pl_clause_2_sees_the_clauses_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_compiled_tables_refuse_a_mismatch.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_a_file_of_clauses_directives_and_initialization_goals.sh	WIRED	-	-	-
 test_gate_pl_consult_loads_the_named_file.sh	WIRED	-	-	-
+test_gate_pl_copy_term_terminates_on_a_rational_tree.sh	WIRED	-	-	-
 test_gate_pl_ctx_leaf_thunks_cannot_drop_a_ball.sh	WIRED	-	-	-
 test_gate_pl_current_op_enumerates_newest_first_over_the_table_of_its_call.sh	WIRED	-	-	-
 test_gate_pl_cyclic_terms_every_walker_terminates_and_writes_as_swipl_does.sh	WIRED	-	-	-
