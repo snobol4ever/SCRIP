@@ -105,17 +105,20 @@ static inline int rtop_row(long long op, int strict, int i) {
 }
 #define rtop_addr_s(op, strict) (rtop_tab[rtop_row((op), (strict), 0)].addr)
 #define rtop_is_dyn(op) (rtop_addr_s((op), 0) == (void*)rt_num_arith)
-#define RTOP() (rtop_tab[rtop_row(_.op_ival, _.op_strict, 0)])
+#define RTOP_I() rtop_row(_.op_ival, _.op_strict, 0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define rtop_call_leaf() ( \
-      x86("call", RTOP().name, (uint64_t)(uintptr_t)RTOP().addr) \
-    + IF(RTOP().cname, x86("cmp", "al", (long)RTX_NOT_HANDLED) \
+      x86("call", rtop_tab[RTOP_I()].name, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].addr) \
+    + IF(rtop_tab[RTOP_I()].cname, x86("cmp", "al", (long)RTX_NOT_HANDLED) \
                      + x86("jne", L(11)) \
-                     + x86("call", RTOP().cname, (uint64_t)(uintptr_t)RTOP().caddr) \
+                     + x86("call", rtop_tab[RTOP_I()].cname, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].caddr) \
                      + x86("def", L(11))) \
 )
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define rtop_call_c() x86("call", RTOP().cname ? RTOP().cname : RTOP().name, (uint64_t)(uintptr_t)(RTOP().cname ? RTOP().caddr : RTOP().addr))
+#define rtop_call_c() ( \
+      IF(rtop_tab[RTOP_I()].cname, x86("call", rtop_tab[RTOP_I()].cname, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].caddr)) \
+    + IF(!rtop_tab[RTOP_I()].cname, x86("call", rtop_tab[RTOP_I()].name, (uint64_t)(uintptr_t)rtop_tab[RTOP_I()].addr)) \
+)
 #define SCRIP_DEF_ARITH_FUSE 1
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define fuse_on() (SCRIP_DEF_ARITH_FUSE)
@@ -139,20 +142,21 @@ static inline int rtop_row(long long op, int strict, int i) {
 )
 #define inl2_ok() (fuse_op_ok() && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define inl_tail_by(callx) ( \
+#define inl_tail_by(to_c) ( \
       x86("mov", "rdi", FRQ(_.op_sa)) \
     + x86("mov", "rsi", FRQ(_.op_sa + 8)) \
     + x86("mov", "rdx", FRQ(_.op_sb)) \
     + x86("mov", "rcx", FRQ(_.op_sb + 8)) \
     + IF(rtop_is_dyn(_.op_ival), x86("mov", "r8d", (long)_.op_ival)) \
-    + callx \
+    + IF(!(to_c), rtop_call_leaf()) \
+    + IF((to_c), rtop_call_c()) \
     + x86("cmp", "al", (long)DT_FAIL) \
     + x86_omega("je") \
     + x86("mov", FRQ(_.op_off), "rax") \
     + x86("mov", FRQ(_.op_off + 8), "rdx") \
     + x86_rt_gc_poll() \
 )
-#define inl_tail() inl_tail_by(rtop_call_leaf())
+#define inl_tail() inl_tail_by(0)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BA_IA() ((_.op_imm_a_ok && _.op_imm_b_ok) || sn4_opt_binimm_off() ? 0 : _.op_imm_a_ok)
 #define BA_IB() ((_.op_imm_a_ok && _.op_imm_b_ok) || sn4_opt_binimm_off() ? 0 : _.op_imm_b_ok)
@@ -307,7 +311,7 @@ std::string bb_binop_arith() {
              + x86("def", L(7))
              + x86_gamma()
              + x86("def", L(0))
-             + inl_tail_by(rtop_call_c())
+             + inl_tail_by(1)
              + x86_gamma()
              + x86_beta_trampoline())
          + IF(!BAR_FUSE1() && !BAR_FUSE2() && _.op_zres,
