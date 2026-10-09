@@ -956,12 +956,42 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
     int _cva = comm_var_active();
     int _prev_star = 0;
 #endif
+#if RT_DIAG
+    static long _slice_budget = -2;
+    static int _slice_trace = -1;
+    static long _slice_idx = 0;
+    if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
+    if (_slice_trace < 0) { const char *_e = getenv("SCRIP_CAP_SLICE_TRACE"); _slice_trace = (_e && *_e) ? 1 : 0; }
+    const int _fast_ok = rt_cap_slice_on() && _slice_budget < 0 && !_slice_trace;
+#else
+    const int _fast_ok = rt_cap_slice_on();
+#endif
     while (c->cur < c->top) {
 #if RT_DIAG
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
 #endif
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }
+        if (_fast_ok && e->len > 0 && c->subj && e->varname[0] != '*') {
+            extern int Σlen;
+            extern unsigned long g_nv_memo_gen;
+            unsigned fi = (unsigned)((((uintptr_t)e->varname * 0x9E3779B97F4A7C15ull) >> 32) & (RT_DCAP_NVCACHE_N - 1));
+#if RT_DIAG
+            if (_cva) goto dcap_slow;
+#endif
+            if (g_dcap_nv_key[fi] == e->varname && g_dcap_nv_seen[fi] == g_nv_memo_gen && (int)e->len <= Σlen && (long long)e->saved_delta + (long long)e->len <= (long long)Σlen) {
+                rt_sxt_break_fast(c->subj);
+                DESCR_t fd = (DESCR_t){ .v = DT_S, .slen = (uint32_t)e->len, .s = (char *)c->subj + e->saved_delta };
+                rt_sxt_break_fast(fd.s);
+                *g_dcap_nv_cell[fi] = fd;
+                c->cur += sizeof(rt_dcap_e);
+                continue;
+            }
+        }
+#if RT_DIAG
+        dcap_slow:
+        ;
+#endif
         DESCR_t *ecell;
         { extern DESCR_t *rt_gva_cell_of(const void *); ecell = rt_gva_cell_of(e->varname); }
         int len = (int)e->len;
@@ -983,11 +1013,6 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
         DESCR_t d;
         int _star_arm = (!ecell && e->varname && e->varname[0] == '*');
 #if RT_DIAG
-        static long _slice_budget = -2;
-        static int _slice_trace = -1;
-        static long _slice_idx = 0;
-        if (_slice_budget == -2) { const char *_e = getenv("SCRIP_CAP_SLICE_MAX"); _slice_budget = (_e && *_e) ? atol(_e) : -1; }
-        if (_slice_trace < 0) { const char *_e = getenv("SCRIP_CAP_SLICE_TRACE"); _slice_trace = (_e && *_e) ? 1 : 0; }
         int _budget_ok = (_slice_budget < 0) || (_slice_idx < _slice_budget);
 #else
         enum { _budget_ok = 1 };
