@@ -20,7 +20,6 @@
 #define GC_LAY_SIZE(q) ((int)(((q) >> 40) & 0xFFFFu))
 typedef struct gc_frame_map_t { uint32_t magic; uint32_t frame_bytes; uint32_t header_bytes; uint32_t flags; const char * graph_name; uint64_t map_off; } gc_frame_map_t;
 typedef struct rt_icn_frame_t { const gc_frame_map_t * map; const char * base; uint64_t caller_pc; } rt_icn_frame_t;
-void * rt_match_frame_cur(void);
 #ifdef __cplusplus
 static_assert(sizeof(gc_frame_map_t) == 32,
     "gc_frame_map_t is four sealed quads beside the code in both media (ARCH-GC-COMPILE-TIME-FRAME-MAPS.md section 6.3): magic|frame_bytes, header_bytes|flags, graph_name, map_off -- the emitter wri"

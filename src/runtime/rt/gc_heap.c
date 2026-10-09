@@ -2481,23 +2481,11 @@ static int gc_chain_entry_from_c(uint64_t *pco, const char **ro, const char **rb
         uint64_t ra = *(const uint64_t *)(fp + 8);
         const char *fp2 = *(const char *const *)fp;
         const gc_site_ent_t *e = (const gc_site_ent_t *)0;
-        if (gc_site_find(ra, &e) && e) { *pco = ra; *ro = fp + 16; *rbpo = fp2; return 1; }
+        if (gc_site_find(ra, &e) && e) rt_bomb("gc_chain_entry_from_c: the unwinder missed an emitted frame the rbp chain reaches (an asm leaf without true CFI, or an emitted pc with no site)");
         if (!fp2 || fp2 <= fp) break;
         fp = fp2;
     }
     return 0;
-}
-void *rt_match_frame_cur(void) {
-    uint64_t pc = 0;
-    const char *r = (const char *)0, *rbp = (const char *)0;
-    gc_chx_t cx;
-    gc_ent_t ent;
-    if (!gc_chain_entry_from_c(&pc, &r, &rbp)) return (void *)0;
-    ent.pc = (const void *)(uintptr_t)pc;
-    ent.r = r;
-    ent.rbp = (const void *)rbp;
-    gc_chain_resolve(&cx, &ent);
-    return (cx.st == 1 && cx.e && cx.e->rule == 6 && cx.rbp) ? (void *)cx.rbp : (void *)0;
 }
 int rt_icn_frames(rt_icn_frame_t *out, int cap) {
     extern int rt_proc_nparams(const char *);
