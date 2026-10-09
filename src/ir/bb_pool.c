@@ -66,6 +66,8 @@ void bb_free(bb_buf_t buf, size_t size) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 size_t bb_pool_mark(void) { return g_lower.ir.bb_pool_base ? (size_t)(g_lower.ir.bb_pool_top - g_lower.ir.bb_pool_base) : 0; }
+const uint8_t * bb_pool_base(void) { return g_lower.ir.bb_pool_base; }
+long bb_pool_page(void) { return g_lower.ir.bb_pool_page_size; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern void g_emit_stno_drop_above(uint64_t addr);
 extern void rt_gc_frame_maps_drop_range(const void * lo, const void * hi);

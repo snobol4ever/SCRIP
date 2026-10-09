@@ -9,6 +9,7 @@
 #include "bb_pool.h"
 #include "rt/prolog_atom.h"
 #include "../ir/IR.h"
+#include "../ir/gc_frame_map.h"
 #include <stdio.h>
 #include <time.h>
 #include <ctype.h>
@@ -2814,8 +2815,10 @@ typedef struct { int i; int mark; } pl_flagit_t;
 typedef struct { int si; int pi; int mark; } pl_spropit_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define PL_DB_CELL0 24
-typedef struct { pl_cell_t cl; int erased; int ref; int ridx; int chain_off; int next_idx; int pad; } pl_db_slot_t;
-typedef struct { pl_db_slot_t *s; int n; int cap; int killed; int next_ref; int head_idx; int tail_idx; int cell_k; int pad; } pl_db_t;
+typedef struct { pl_cell_t cl; int erased; int ref; int ridx; int chain_off; int next_idx; int frag; } pl_db_slot_t;
+typedef struct { pl_db_slot_t *s; int n; int cap; int killed; int next_ref; int head_idx; int tail_idx; int cell_k; int erased_n; } pl_db_t;
+_Static_assert(__builtin_offsetof(pl_db_slot_t, frag) == 36,
+    "frag at +36 is the C side's alone (no emitted code reads it): the fragment's first code-pool page in the low 20 bits and its page count above them, 0 when unrecorded");
 _Static_assert(sizeof(pl_db_slot_t) == 40 && __builtin_offsetof(pl_db_slot_t, erased) == 16 && __builtin_offsetof(pl_db_slot_t, ref) == 20 && __builtin_offsetof(pl_db_slot_t, ridx) == 24 &&
     __builtin_offsetof(pl_db_slot_t, chain_off) == 28 && __builtin_offsetof(pl_db_slot_t, next_idx) == 32,
     "xa_flat.cpp's chain-omega and bb_to.cpp's db walk bake the slot layout (ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 A/B)");
@@ -2839,7 +2842,7 @@ void * rt_pl_db_get(void *root, int64_t k) {
             d->head_idx = -1;
             d->tail_idx = -1;
             d->cell_k = (int)k;
-            d->pad = 0;
+            d->erased_n = 0;
             d->s = (pl_db_slot_t *)rt_pl_struct_alloc(HB_PLDBS, (size_t)d->cap * sizeof(pl_db_slot_t));
             if (!d->s) { d->cap = 0; }
             *cell = d;
@@ -3124,6 +3127,20 @@ int rt_pl_db_term_key(void *term_cell, char *out, size_t n, int *ar) {
     }
 }
 static const char *pl_db_head_name(void *pair_cell, int *ar);
+static int pl_db_frag_pack(size_t m0, size_t m1) {
+    long ps = bb_pool_page();
+    size_t lo, hi;
+    if (ps <= 0) return 0;
+    lo = (m0 + (size_t)ps - 1) / (size_t)ps;
+    hi = (m1 + (size_t)ps - 1) / (size_t)ps;
+    if (hi <= lo || lo >= ((size_t)1 << 20) || hi - lo >= ((size_t)1 << 11)) return 0;
+    return (int)(lo | ((hi - lo) << 20));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_db_frag_lo(int f) { const uint8_t *b = bb_pool_base(); return (f && b) ? (const char *)b + (size_t)(f & 0xFFFFF) * (size_t)bb_pool_page() : (const char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_db_frag_hi(int f) { const char *lo = pl_db_frag_lo(f); return lo ? lo + (size_t)((f >> 20) & 0x7FF) * (size_t)bb_pool_page() : (const char *)0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_db_fragment(void *root, pl_db_t *db, int i) {
     extern void * pl_runtime_define_fragment(const char *, void *, int, int, int, int *, int *, void *);
     extern int pl_runtime_install_packet_entry(const char *, int, const char *);
@@ -3138,8 +3155,10 @@ static int pl_db_fragment(void *root, pl_db_t *db, int i) {
         PL_DB_KEY_VLA(key, nm, ar);
         {
             char fkey[fmt_len("%s@%d", key, i)];
+            size_t m0 = bb_pool_mark();
             snprintf(fkey, sizeof fkey, "%s@%d", key, i);
             if (!pl_runtime_define_fragment(fkey, (void *)&db->s[i].cl, ar, db->cell_k, i, &ridx, &off, root)) return 0;
+            db->s[i].frag = pl_db_frag_pack(m0, bb_pool_mark());
         }
         db->s[i].ridx = ridx;
         db->s[i].chain_off = off;
@@ -3221,7 +3240,7 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
             db->s[i].ridx = -1;
             db->s[i].chain_off = 0;
             db->s[i].next_idx = -1;
-            db->s[i].pad = 0;
+            db->s[i].frag = 0;
             if (prepend) {
                 db->s[i].next_idx = db->head_idx;
                 db->head_idx = i;
@@ -3238,7 +3257,69 @@ static int pl_db_store(void *root, void *db_v, void *clause_term, int prepend, i
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-int rt_pl_db_erase(void *db_v, int i) { pl_db_t *db = (pl_db_t *)db_v; if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0; db->s[i].erased = db->next_ref++; return 1; }
+typedef struct { pl_db_t *db; unsigned char *mk; long frames; } pl_db_rr_t;
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_rr_mark(pl_db_rr_t *r, const char *p, unsigned char bit) {
+    const char *b = (const char *)bb_pool_base();
+    if (!p || !b || p < b || p >= b + bb_pool_used()) return;
+    for (int i = 0; i < r->db->n; i++) { int f = r->db->s[i].frag; if (f && p >= pl_db_frag_lo(f) && p < pl_db_frag_hi(f)) { r->mk[i] |= bit; return; } }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_rr_frame(const void *map, const char *base, void *a) {
+    pl_db_rr_t *r = (pl_db_rr_t *)a;
+    const gc_frame_map_t *m = (const gc_frame_map_t *)map;
+    r->frames++;
+    pl_db_rr_mark(r, (const char *)map, 1);
+    if (!m || !(m->flags & (GC_FRAME_MAP_BLOB | GC_FRAME_MAP_LAYOUT))) return;
+    {
+        const uint64_t *t = (const uint64_t *)(m + 1);
+        for (long i = 0; i < (long)t[0]; i++) {
+            uint64_t q = t[1 + i];
+            if (GC_LAY_KIND(q) != GC_LAY_PTR_CODE) continue;
+            for (int o = 0; o + 8 <= GC_LAY_SIZE(q); o += 8) pl_db_rr_mark(r, *(const char * const *)(base + GC_LAY_OFF(q) + o), 1);
+        }
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_db_reclaim_report(pl_db_t *db) {
+    extern char *rt_gc_program_stack_top(void);
+    const char *e = getenv("SCRIP_PL_RECLAIM_REPORT");
+    long every = e ? strtol(e, (char **)0, 10) : 0;
+    if (every <= 0 || !db || db->n <= 0 || db->erased_n % every) return;
+    {
+        unsigned char mk[db->n];
+        pl_db_rr_t r = { db, mk, 0 };
+        int ar = 0, live = 0, recount = 0, unrec = 0, vis = 0, raw = 0, only = 0, ok;
+        long pages = 0;
+        const char *nm = (const char *)0, *top = rt_gc_program_stack_top();
+        char probe = 0;
+        memset(mk, 0, sizeof mk);
+        ok = rt_gc_frames_visit(pl_db_rr_frame, (void *)&r);
+        for (const char *w = (const char *)(((uintptr_t)&probe + 7) & ~(uintptr_t)7); top && w + 8 <= top; w += 8) pl_db_rr_mark(&r, *(const char * const *)w, 2);
+        for (int i = 0; i < db->n; i++) {
+            if (!nm) nm = pl_db_head_name((void *)&db->s[i].cl, &ar);
+            if (!db->s[i].erased) { live++; continue; }
+            recount++;
+            if (!db->s[i].frag) unrec++;
+            else pages += (db->s[i].frag >> 20) & 0x7FF;
+            if (mk[i] & 1) vis++;
+            if (mk[i] & 2) raw++;
+            if ((mk[i] & 2) && !(mk[i] & 1)) only++;
+        }
+        fprintf(stderr,
+            "[PL-RECLAIM] key=%s/%d slots=%d live=%d erased=%d recount=%d erased_pages=%ld unrecorded=%d visitor=%s frames=%ld visitor_live=%d raw_live=%d raw_only=%d pool_used=%zu slot_bytes=%ld\n",
+            nm ? nm : "?", ar, db->n, live, db->erased_n, recount, pages, unrec, ok ? "whole" : "refused", r.frames, vis, raw, only, bb_pool_used(), (long)db->cap * (long)sizeof(pl_db_slot_t));
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_pl_db_erase(void *db_v, int i) {
+    pl_db_t *db = (pl_db_t *)db_v;
+    if (!db || i < 0 || i >= db->n || db->s[i].erased) return 0;
+    db->s[i].erased = db->next_ref++;
+    db->erased_n++;
+    pl_db_reclaim_report(db);
+    return 1;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_pl_db_count(void *db_v) { pl_db_t *db = (pl_db_t *)db_v; return db ? db->n : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -3319,7 +3400,8 @@ int rt_pl_db_abolish(void *root, void *db_v) {
     int hi = -1;
     if (!db) return 0;
     for (int i = 0; i < db->n && hi < 0; i++) if (pl_db_head_name((void *)&db->s[i].cl, &ar)) hi = i;
-    { int st = db->next_ref++; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) db->s[i].erased = st; }
+    { int st = db->next_ref++; for (int i = 0; i < db->n; i++) if (!db->s[i].erased) { db->s[i].erased = st; db->erased_n++; } }
+    pl_db_reclaim_report(db);
     db->killed = 1;
     if (hi >= 0) { const char *nm = pl_db_head_name((void *)&db->s[hi].cl, &ar); PL_DB_KEY_VLA(key, nm, ar); pl_db_define_absent(root, key, ar); }
     return 1;
@@ -3337,11 +3419,12 @@ int rt_pl_db_match_erase(void *db_v, void *goal_term) {
             pl_cell_t pair = plc_copy(&db->s[i].cl);
             pl_cell_t g = plc_copy((pl_cell_t *)goal_term);
             pl_cell_t *h = (pl_cell_t *)pl_deref(&pair)->p;
-            if (h && pl_unify(&h[0], &g)) { if (key_i < 0 && pl_db_head_name((void *)&db->s[i].cl, &ar)) key_i = i; db->s[i].erased = db->next_ref++; hit++; }
+            if (h && pl_unify(&h[0], &g)) { if (key_i < 0 && pl_db_head_name((void *)&db->s[i].cl, &ar)) key_i = i; db->s[i].erased = db->next_ref++; db->erased_n++; hit++; }
         }
     }
     (void)key_i;
     (void)ar;
+    if (hit) pl_db_reclaim_report(db);
     return hit;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

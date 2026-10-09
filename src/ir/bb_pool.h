@@ -16,5 +16,7 @@ void bb_pool_reset (void);
 size_t bb_pool_used (void);
 size_t bb_pool_free (void);
 size_t bb_pool_mark (void);
+const uint8_t * bb_pool_base(void);
+long bb_pool_page(void);
 void bb_pool_release (size_t mark);
 #endif

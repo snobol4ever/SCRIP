@@ -691,6 +691,7 @@ test_gate_pl_the_iso_flag_makes_reads_strict_and_integer_division_a_float.sh	WIR
 test_gate_pl_the_neck_atom_before_an_adjacent_paren_is_functional_notation.sh	WIRED	-	-	-
 test_gate_pl_the_prelude_sees_every_clause_of_the_program.sh	WIRED	-	-	-
 test_gate_pl_the_query_neck_reads_as_an_atom_and_a_prefix_operator.sh	WIRED	-	-	-
+test_gate_pl_the_reclaim_report_names_every_erased_fragment_and_its_holders.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
 test_gate_pl_two_variables_compare_one_way_only.sh	WIRED	-	-	-
 test_gate_pl_wall_us_arity1.sh	WIRED	-	-	-
