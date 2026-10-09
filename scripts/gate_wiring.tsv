@@ -467,6 +467,7 @@ test_gate_pas_a_numeric_literal_fits_what_scrip_represents.sh	WIRED	-	-	-
 test_gate_pas_a_numeric_read_accepts_prefixed_integers_and_lenient_reals_as_fpc_does.sh	WIRED	-	-	-
 test_gate_pas_a_pack_records_directive_sets_the_field_alignment_of_the_records_after_it.sh	WIRED	-	-	-
 test_gate_pas_a_pchar_is_a_string_and_an_offset_and_a_widechar_array_converts_through_stringtowidechar.sh	WIRED	-	-	-
+test_gate_pas_a_pointer_target_is_a_variable_parameter_and_is_not_disposed_during_the_call.sh	WIRED	-	-	-
 test_gate_pas_a_qword_divides_unsigned_and_a_wide_integer_prints_as_fpc_miso_does.sh	WIRED	-	-	-
 test_gate_pas_a_record_wider_than_the_field_table_still_resolves_its_variant_tags.sh	WIRED	-	-	-
 test_gate_pas_a_required_procedure_is_activated_with_its_parameters.sh	WIRED	-	-	-
