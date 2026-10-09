@@ -1358,8 +1358,146 @@ static int rk_type_isa(const char *have, const char *want) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char *rk_real_str(double r, char *buf, int bufsz);
 static DESCR_t rk_hash_from_list(const DESCR_t *el, int n);
+#include "rk_unicode_norm_tables.inc"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned rk_un_ccc_of(unsigned cp) {
+    unsigned lo = 0, hi = rk_un_ccc_n;
+    while (lo < hi) { unsigned mid = (lo + hi) / 2; if (cp < rk_un_ccc[mid][0]) hi = mid; else if (cp > rk_un_ccc[mid][1]) lo = mid + 1; else return rk_un_ccc[mid][2]; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const unsigned *rk_un_row(const unsigned (*t)[3], unsigned n, unsigned key) {
+    unsigned lo = 0, hi = n;
+    while (lo < hi) { unsigned mid = (lo + hi) / 2; if (key < t[mid][0]) hi = mid; else if (key > t[mid][0]) lo = mid + 1; else return t[mid]; }
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned rk_un_compose2(unsigned a, unsigned b) {
+    if (a >= 0x1100 && a <= 0x1112 && b >= 0x1161 && b <= 0x1175) return 0xAC00 + ((a - 0x1100) * 21 + (b - 0x1161)) * 28;
+    if (a >= 0xAC00 && a <= 0xD7A3 && (a - 0xAC00) % 28 == 0 && b >= 0x11A8 && b <= 0x11C2) return a + (b - 0x11A7);
+    unsigned lo = 0, hi = rk_un_comp_n;
+    while (lo < hi) {
+        unsigned mid = (lo + hi) / 2;
+        if (a < rk_un_comp[mid][0] || (a == rk_un_comp[mid][0] && b < rk_un_comp[mid][1])) hi = mid;
+        else if (a > rk_un_comp[mid][0] || b > rk_un_comp[mid][1]) lo = mid + 1;
+        else return rk_un_comp[mid][2];
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_un_decomp(unsigned cp, int compat, unsigned *out, int n) {
+    if (cp >= 0xAC00 && cp <= 0xD7A3) { unsigned si = cp - 0xAC00; out[n++] = 0x1100 + si / 588; out[n++] = 0x1161 + (si % 588) / 28; if (si % 28) out[n++] = 0x11A7 + si % 28; return n; }
+    const unsigned *r = rk_un_row(rk_un_canon, rk_un_canon_n, cp);
+    if (r) { n = rk_un_decomp(r[1], compat, out, n); if (r[2]) n = rk_un_decomp(r[2], compat, out, n); return n; }
+    if (compat && (r = rk_un_row(rk_un_compat, rk_un_compat_n, cp))) { for (unsigned i = 0; i < r[2]; i++) n = rk_un_decomp(rk_un_compat_pool[r[1] + i], compat, out, n); return n; }
+    out[n++] = cp;
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned *rk_un_normalize(const unsigned *in, int n, int compat, int compose, int *outn) {
+    unsigned *o = (unsigned *) rt_wsb_alloc(sizeof(unsigned) * (size_t) (n * 20 + 8));
+    int m = 0;
+    for (int i = 0; i < n; i++) m = rk_un_decomp(in[i], compat, o, m);
+    for (int i = 0; i < m; ) {
+        if (!rk_un_ccc_of(o[i])) { i++; continue; }
+        int j = i;
+        while (j < m && rk_un_ccc_of(o[j])) j++;
+        for (int a = i + 1; a < j; a++) { unsigned v = o[a], cv = rk_un_ccc_of(v); int b = a - 1; while (b >= i && rk_un_ccc_of(o[b]) > cv) { o[b + 1] = o[b]; b--; } o[b + 1] = v; }
+        i = j;
+    }
+    if (compose && m > 0) {
+        int w = 1, st = rk_un_ccc_of(o[0]) == 0 ? 0 : -1;
+        unsigned last = st == 0 ? 0 : 256;
+        for (int i = 1; i < m; i++) {
+            unsigned c = o[i], cc = rk_un_ccc_of(c), comp = 0;
+            if (st >= 0) { int blocked = (w - 1 > st) && (last >= cc || last == 0); if (!blocked) comp = rk_un_compose2(o[st], c); }
+            if (comp) { o[st] = comp; continue; }
+            if (cc == 0) { st = w; last = 0; } else last = cc;
+            o[w++] = c;
+        }
+        m = w;
+    }
+    *outn = m;
+    return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *rk_uni_types[] = { "Uni", "NFC", "NFD", "NFKC", "NFKD", NULL };
+static int rk_uni_is_name(const char *nm) { for (int i = 0; nm && rk_uni_types[i]; i++) if (!strcmp(nm, rk_uni_types[i])) return 1; return 0; }
+static void rk_uni_reg(void) { if (dat_find_type("Uni")) return; for (int i = 0; rk_uni_types[i]; i++) { char spec[40]; snprintf(spec, sizeof spec, "%s(codes)", rk_uni_types[i]); DEFDAT_fn(spec); } }
+static DESCR_t rk_uni_make(const char *tn, const unsigned *cps, int n) {
+    rk_uni_reg();
+    DESCR_t *el = n ? (DESCR_t *) rt_ws_alloc_descr((size_t) n) : NULL;
+    for (int i = 0; i < n; i++) el[i] = INTVAL(cps[i]);
+    return DATCON_fn(tn, rk_unmark(rk_mk_arr(el, n)));
+}
+static int rk_uni_count(DESCR_t d) {
+    if (d.v == DT_A && d.arr) { rk_av_t a = rk_av(d); int c = 0; for (int i = 0; i < a.n; i++) c += rk_uni_count(rk_av_elem(a, i)); return c; }
+    return IS_INT_fn(d) ? 1 : 0;
+}
+static int rk_uni_fill(DESCR_t d, unsigned *buf, int n) {
+    if (d.v == DT_A && d.arr) { rk_av_t a = rk_av(d); for (int i = 0; i < a.n; i++) n = rk_uni_fill(rk_av_elem(a, i), buf, n); return n; }
+    if (IS_INT_fn(d)) buf[n++] = (unsigned) d.i;
+    return n;
+}
+static DESCR_t rk_uni_new(const char *tn, DESCR_t *args, int nargs) {
+    int total = 0, n = 0;
+    for (int i = 0; i < nargs; i++) total += rk_uni_count(args[i]);
+    unsigned *buf = (unsigned *) rt_wsb_alloc(sizeof(unsigned) * (size_t) (total + 1));
+    for (int i = 0; i < nargs; i++) n = rk_uni_fill(args[i], buf, n);
+    return rk_uni_make(tn, buf, n);
+}
+static int rk_uni_codes(DESCR_t self, unsigned **out) {
+    rk_av_t a = rk_av(FIELD_GET_fn(self, "codes"));
+    unsigned *c = (unsigned *) rt_wsb_alloc(sizeof(unsigned) * (size_t) (a.n + 1));
+    for (int i = 0; i < a.n; i++) { DESCR_t e = rk_av_elem(a, i); c[i] = IS_INT_fn(e) ? (unsigned) e.i : 0; }
+    *out = c;
+    return a.n;
+}
+static const char *rk_uni_str(const unsigned *c, int n) { char *s = rt_wsb_alloc((size_t) n * 4 + 1); size_t k = 0; for (int i = 0; i < n; i++) k += rk_utf8_put(c[i], s + k); s[k] = '\0'; return s; }
+static int rk_uni_form(const char *m, int *compat, int *compose) {
+    if (!strcmp(m, "NFC")) { *compat = 0; *compose = 1; return 1; }
+    if (!strcmp(m, "NFD")) { *compat = 0; *compose = 0; return 1; }
+    if (!strcmp(m, "NFKC")) { *compat = 1; *compose = 1; return 1; }
+    if (!strcmp(m, "NFKD")) { *compat = 1; *compose = 0; return 1; }
+    return 0;
+}
+static int rk_uni_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
+    if (nmargs || !IS_DATA_INST_fn(self) || !self.u || !self.u->type || !rk_uni_is_name(self.u->type->name)) return 0;
+    unsigned *c;
+    int n = rk_uni_codes(self, &c), compat, compose;
+    if (rk_uni_form(m, &compat, &compose)) { int on; unsigned *r = rk_un_normalize(c, n, compat, compose, &on); *out = rk_uni_make(m, r, on); return 1; }
+    if (!strcmp(m, "list") || !strcmp(m, "Seq") || !strcmp(m, "values") || !strcmp(m, "flat")) { *out = rk_mark_list(FIELD_GET_fn(self, "codes")); return 1; }
+    if (!strcmp(m, "elems") || !strcmp(m, "codes") || !strcmp(m, "Int") || !strcmp(m, "Numeric")) { *out = INTVAL(n); return 1; }
+    if (!strcmp(m, "Str")) { *out = STRVAL((char *) rk_uni_str(c, n)); return 1; }
+    if (!strcmp(m, "gist") || !strcmp(m, "raku") || !strcmp(m, "perl")) {
+        size_t cap = (size_t) n * 7 + 16 + strlen(self.u->type->name);
+        char *r = rt_wsb_alloc(cap);
+        size_t k = (size_t) snprintf(r, cap, "%s:0x<", self.u->type->name);
+        for (int i = 0; i < n; i++) k += (size_t) snprintf(r + k, cap - k, "%s%X", i ? " " : "", c[i]);
+        snprintf(r + k, cap - k, ">");
+        *out = STRVAL(r);
+        return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_str_norm_method(const char *m, DESCR_t recv, int nmargs, DESCR_t *out) {
+    int compat, compose;
+    if (nmargs || !IS_STR_fn(recv) || rk_typeobj_name(recv) || !rk_uni_form(m, &compat, &compose)) return 0;
+    const char *s = recv.s ? recv.s : "";
+    size_t len = strlen(s), cap = len + 1;
+    unsigned *c = (unsigned *) rt_wsb_alloc(sizeof(unsigned) * cap);
+    int n = 0;
+    for (size_t i = 0, ln; i < len; i += ln) { c[n++] = rk_utf8_cp((const unsigned char *) s + i, len - i, &ln); if (!ln) ln = 1; }
+    int on;
+    unsigned *r = rk_un_normalize(c, n, compat, compose, &on);
+    *out = rk_uni_make(m, r, on);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
     if (!meth || !*meth) return 0;
+    if (meth[0] == 'N' && meth[1] == 'F' && rk_str_norm_method(meth, recv, nmargs, out)) return 1;
     if (nmargs == 0 && !strcmp(meth, "item")) { *out = recv; return 1; }
     {
         const char *tn = rk_typeobj_name(recv);
@@ -10985,6 +11123,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             *out = ir_call_proc(pi, args, nargs);
             return 1;
         }
+        if (rk_uni_is_name(cname) && !dat_find_type(cname)) { *out = rk_uni_new(cname, &args[1], nargs - 1); return 1; }
+        if (rk_uni_is_name(cname)) { rk_uni_reg(); *out = rk_uni_new(cname, &args[1], nargs - 1); return 1; }
         DatType *dt = dat_find_type(cname);
         if (!dt) { *out = FAILDESCR; return 1; }
         extern int dat_has_build_mro(const char *cls);
@@ -12349,6 +12489,7 @@ DESCR_t rk_attr_defaults(DatType *dt, DESCR_t inst) {
     return inst;
 }
 static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
+    if (rk_uni_method(m, self, nmargs, out)) return 1;
     if (nmargs) return 0;
     if (!strcmp(m, "defined") || !strcmp(m, "Bool") || !strcmp(m, "so") || !strcmp(m, "DEFINITE")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
     if (!strcmp(m, "not")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 0 }; return 1; }
@@ -12371,6 +12512,7 @@ static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
 }
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
+    if (IS_DATA_INST_fn(d) && d.u && d.u->type && rk_uni_is_name(d.u->type->name)) { DESCR_t ur; if (rk_uni_method(use_gist ? "gist" : "Str", d, 0, &ur)) return rk_cstr(ur); }
     if (IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name) {
         const char *mname = use_gist ? "gist" : "Str";
         const char *rmc = resolve_method_chain(d.u->type->name, mname, NULL);

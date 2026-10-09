@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2216
-#define GC_ALLOC_TAB_N_VOID 262
-#define GC_ALLOC_TAB_N_DESCR 1127
-#define GC_ALLOC_TAB_N_OTHER 812
+#define GC_ALLOC_TAB_N 2226
+#define GC_ALLOC_TAB_N_VOID 263
+#define GC_ALLOC_TAB_N_DESCR 1129
+#define GC_ALLOC_TAB_N_OTHER 819
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1180,11 +1180,21 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_spill_scalar", GC_RET_OTHER },
     { "rk_sprintf_core", GC_RET_VOID },
     { "rk_stage2_core", GC_RET_OTHER },
+    { "rk_str_norm_method", GC_RET_OTHER },
     { "rk_tap_str", GC_RET_OTHER },
     { "rk_tap_truthy", GC_RET_OTHER },
     { "rk_tbl_text", GC_RET_OTHER },
     { "rk_txt_elem", GC_RET_DESCR },
     { "rk_typeobj", GC_RET_DESCR },
+    { "rk_un_normalize", GC_RET_OTHER },
+    { "rk_uni_codes", GC_RET_OTHER },
+    { "rk_uni_count", GC_RET_OTHER },
+    { "rk_uni_fill", GC_RET_OTHER },
+    { "rk_uni_make", GC_RET_DESCR },
+    { "rk_uni_method", GC_RET_OTHER },
+    { "rk_uni_new", GC_RET_DESCR },
+    { "rk_uni_reg", GC_RET_VOID },
+    { "rk_uni_str", GC_RET_OTHER },
     { "rls", GC_RET_OTHER },
     { "rpad_fn", GC_RET_DESCR },
     { "rsort_fn", GC_RET_DESCR },
