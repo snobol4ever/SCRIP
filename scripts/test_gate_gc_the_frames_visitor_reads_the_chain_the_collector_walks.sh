@@ -18,7 +18,10 @@
 # visitor refuses only where the collector's chain itself stopped short; (2) THE REFUSAL: on the SIG-shim witness, whose
 # run-time fragment polls are frameless today, every collection with a frameless running chain is refused, never
 # handed back as a shorter list (when the fragment class lands and frameless reads 0 the arm says there was nothing to
-# refuse); (3) the visitor and its callback type are declared once, in gc_heap.h.
+# refuse); (3) the visitor and its callback type are declared once, in gc_heap.h; (4) THE COROUTINE START (the ceo's
+# order of 2026-10-09: rt_genp_spine_enter_n2 is the sanctioned coroutine start of a generator's co-expression thread, so
+# the collector names it): on hb_coexpr_genp_scan every suspended body's chain that links to the stub's gamma or omega
+# label (published in rt_genp_n2_conts, a read-only record, so no text symbol splits the stub) ends there as the segment's start, so nosite reads 0, coroutine-start > 0 and the visitor refuses nothing.
 # Measured at landing over all 107 gc_witnesses, both modes, 64 KB, stress 1: same=733261 differ=0 refused=28 (the 28
 # are hb_coexpr_genp_scan 13, hb_shim_rt_names 14, hb_cv_spine_plain_redo 1 -- the open nosite/frameless classes).
 set -u
@@ -67,6 +70,16 @@ for m in 3 4; do
   if [ "${fl:-0}" = 0 ] && [ "$di" = 0 ]; then ck ok "(2) $REF mode $m: frameless=0, nothing to refuse (the run-time fragment class is cured), differ=0"
   elif [ "${rf:-0}" -ge "$fl" ] && [ "$di" = 0 ]; then ck ok "(2) $REF mode $m: $fl frameless running chain(s), the visitor refused $rf collection(s) and handed back no partial list (differ=0)"
   else ck no "(2) $REF mode $m: frameless=$fl refused=${rf:-?} differ=${di:-?} -- a chain that stops short was handed to the caller as a list"; fi
+done
+GEN="hb_coexpr_genp_scan.icn"
+[ -f "$WD/$GEN" ] || refuse "witness $WD/$GEN is missing"
+run_both "$GEN"
+for m in 3 4; do
+  s="$(grep -a '^\[CHAIN-WALK\] SUMMARY ' "$W/${GEN%.*}.e$m" | tail -1)"
+  [ -n "$s" ] || { ck no "(4) $GEN mode $m: no [CHAIN-WALK] SUMMARY line"; continue; }
+  ns="$(num "$s" nosite)"; cs="$(num "$s" coroutine-start)"; rf="$(num "$s" refused)"; di="$(num "$s" differ)"
+  if [ "$ns" = 0 ] && [ "${cs:-0}" -gt 0 ] && [ "$rf" = 0 ] && [ "$di" = 0 ]; then ck ok "(4) $GEN mode $m: $cs suspended-generator chain(s) end at the named coroutine start (the gamma and omega words of rt_genp_n2_conts), nosite=0, the visitor refused 0"
+  else ck no "(4) $GEN mode $m: nosite=${ns:-?} coroutine-start=${cs:-?} refused=${rf:-?} differ=${di:-?} -- a generator segment's chain no longer ends at its coroutine start"; fi
 done
 hd="$(grep -cE '^(int rt_gc_frames_visit\(rt_gc_frame_fn fn, void \*a\);|typedef void \(\*rt_gc_frame_fn\)\(const void \*map, const char \*base, void \*a\);)$' "$ROOT/src/runtime/rt/gc_heap.h")"
 el="$(grep -rlE 'int rt_gc_frames_visit[[:space:]]*\(|rt_gc_frame_fn\)[[:space:]]*\(' "$ROOT/src" | grep -vE '/src/runtime/rt/gc_heap\.(c|h)$' | sed "s#^$ROOT/##" | tr '\n' ' ')"

@@ -2243,8 +2243,8 @@ typedef struct {
     long div_i;
 } gc_chx_t;
 static struct {
-    long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, beyond, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, v_same, v_diff,
-        v_refused;
+    long runs, whole, frames, offchain, said, missing, mapdiff, xblob, xgen, xroot, xplain, beyond, shrt, s_root, s_nosite, s_frameless, s_unknown, s_cycle, s_nolink, s_rise, s_left, s_costart,
+        v_same, v_diff, v_refused;
     uint64_t fsum;
 } g_gc_chw;
 static const char *gc_chw_divname(int k) {
@@ -2389,6 +2389,7 @@ static int gc_chain_check_on(void) {
 static long g_gc_chain_ok = 0, g_gc_chain_nosite = 0, g_gc_chain_host = 0, g_gc_chain_bad = 0, g_gc_chain_said = 0, g_gc_chain_frameless = 0, g_gc_chain_ctx = 0, g_gc_chain_fnhops = 0,
     g_gc_chain_landhops = 0, g_gc_chain_roadhops = 0;
 extern char rt_tge_gamma_ret[], rt_tge_omega_ret[], rt_chain_enter_ret[], rt_chain_enter_v_ret[];
+extern const uint64_t rt_genp_n2_conts[2];
 static void gc_chain_report_atexit(void) {
     fprintf(stderr, "[CHAIN-CHECK] SUMMARY ok=%ld host=%ld frameless=%ld ctxrbp=%ld nosite=%ld mismatch=%ld fnhops=%ld landhops=%ld roadhops=%ld\n", g_gc_chain_ok, g_gc_chain_host,
         g_gc_chain_frameless, g_gc_chain_ctx, g_gc_chain_nosite, g_gc_chain_bad, g_gc_chain_fnhops, g_gc_chain_landhops, g_gc_chain_roadhops);
@@ -2417,6 +2418,7 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
         g_gc_chain_roadhops++;
         goto again;
     }
+    if (pc == rt_genp_n2_conts[0] || pc == rt_genp_n2_conts[1]) { cx->pc = pc; cx->r = r; cx->rbp = rbp; cx->st = 7; return; }
     b = gc_site_find(pc, &e);
     if (b && e && (e->kind & 255) == 7) { pc = *(const uint64_t *)(r + e->depth); r = r + e->depth + 8; g_gc_chain_roadhops++; goto again; }
     if (!b || !e) {
@@ -2639,7 +2641,7 @@ static long gc_chain_walk(const gc_ent_t *ent, const char *hi, gc_chf_t *out, lo
             if (!gc_chain_link(gb, bb->link, &pc, &r, &rbp)) { *stop = 5; return n; }
             continue;
         }
-        if (w.st != 1) { *stop = w.st == 3 ? 2 : w.st == 4 ? 3 : w.st == 5 ? 4 : 1; return n; }
+        if (w.st != 1) { *stop = w.st == 3 ? 2 : w.st == 4 ? 3 : w.st == 5 ? 4 : w.st == 7 ? 8 : 1; return n; }
         if (last && w.base <= last) { *stop = 6; return n; }
         if (out && n < cap) { out[n].base = w.base; out[n].map = w.b->map; out[n].link = w.b->link; out[n].rule = w.e->rule; }
         n++;
@@ -2652,7 +2654,7 @@ static long gc_frames_segment(const char *lo, const char *hi, const gc_ent_t *en
     int stop = 0;
     long n = ent ? gc_chain_walk(ent, hi, (gc_chf_t *)0, 0, &stop, sc) : 0;
     const char *img = (sc && sc->image && sc->image_map) ? sc->image + sc->image_off : (const char *)0;
-    if (ent && stop != 0 && (run || stop != 7)) return -1;
+    if (ent && stop != 0 && (run || (stop != 7 && stop != 8))) return -1;
     if (img && (img < lo || img >= hi)) img = (const char *)0;
     gc_chf_t chf[n + 1];
     if (n) n = gc_chain_walk(ent, hi, chf, n, &stop, sc);
@@ -2709,10 +2711,10 @@ static void gc_frames_visit_judge(const uint64_t *v) {
 static void gc_chain_walk_report_atexit(void) {
     fprintf(stderr,
         "[CHAIN-WALK] SUMMARY runs=%ld whole=%ld frames=%ld offchain-swept=%ld missing=%ld mapdiff=%ld extra-blob-ptrgc=%ld extra-gen-ptrgc=%ld extra-root-ptrgc=%ld extra-plain-ptrgc=%ld beyond-stop"
-        "=%ld short=%ld | stop: root=%ld nosite=%ld frameless=%ld unknown-depth=%ld cycle=%ld no-link=%ld no-rise=%ld left-segment=%ld | visitor: same=%ld differ=%ld refused=%ld\n", g_gc_chw.runs,
-        g_gc_chw.whole, g_gc_chw.frames, g_gc_chw.offchain, g_gc_chw.missing, g_gc_chw.mapdiff, g_gc_chw.xblob, g_gc_chw.xgen, g_gc_chw.xroot, g_gc_chw.xplain, g_gc_chw.beyond, g_gc_chw.shrt,
-        g_gc_chw.s_root, g_gc_chw.s_nosite, g_gc_chw.s_frameless, g_gc_chw.s_unknown, g_gc_chw.s_cycle, g_gc_chw.s_nolink, g_gc_chw.s_rise, g_gc_chw.s_left, g_gc_chw.v_same, g_gc_chw.v_diff,
-        g_gc_chw.v_refused);
+        "=%ld short=%ld | stop: root=%ld nosite=%ld frameless=%ld unknown-depth=%ld cycle=%ld no-link=%ld no-rise=%ld left-segment=%ld coroutine-start=%ld | visitor: same=%ld differ=%ld refused=%ld"
+        "\n", g_gc_chw.runs, g_gc_chw.whole, g_gc_chw.frames, g_gc_chw.offchain, g_gc_chw.missing, g_gc_chw.mapdiff, g_gc_chw.xblob, g_gc_chw.xgen, g_gc_chw.xroot, g_gc_chw.xplain, g_gc_chw.beyond,
+        g_gc_chw.shrt, g_gc_chw.s_root, g_gc_chw.s_nosite, g_gc_chw.s_frameless, g_gc_chw.s_unknown, g_gc_chw.s_cycle, g_gc_chw.s_nolink, g_gc_chw.s_rise, g_gc_chw.s_left, g_gc_chw.s_costart,
+        g_gc_chw.v_same, g_gc_chw.v_diff, g_gc_chw.v_refused);
 }
 static void gc_chain_walk_judge(gc_chx_t *cx) {
     if (!g_gc_chw.runs) atexit(gc_chain_walk_report_atexit);
@@ -2740,6 +2742,9 @@ static void gc_chain_walk_judge(gc_chx_t *cx) {
         break;
         case 6:
         g_gc_chw.s_rise++;
+        break;
+        case 8:
+        g_gc_chw.s_costart++;
         break;
         default:
         g_gc_chw.s_left++;
