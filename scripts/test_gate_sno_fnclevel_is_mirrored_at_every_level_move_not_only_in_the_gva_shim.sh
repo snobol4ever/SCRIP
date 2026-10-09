@@ -107,12 +107,21 @@ fi
 # ++/-- line carries its mirror, and the count is printed so a future reader sees the population, not a boolean.
 src="$ROOT/src/runtime/rt/rt.c"
 [ -f "$src" ] || { echo "⛔ REFUSE(2): no $src"; exit 2; }
-mv=$(grep -cE 'rt_k_level(\+\+|--);' "$src" || true)
-bare=$(grep -nE 'rt_k_level(\+\+|--);' "$src" | grep -vc 'rt_k_level_mirror' || true)
+# ⛔ READ AS STATEMENTS, NOT LINES (the 200-column re-flow, CEO-1565, lays every child statement on its own line, so the mirror is the NEXT statement and no longer shares the move's physical line):
+# a move is a  rt_k_level++;  or  rt_k_level--;  statement and it is mirrored when the statement that follows it, whitespace and newlines skipped, is  rt_k_level_mirror();
+read -r mv bare < <(python3 - "$src" <<'PYEOF'
+import re, sys
+t = open(sys.argv[1], encoding="utf-8").read()
+moves = list(re.finditer(r"rt_k_level(\+\+|--);", t))
+bare = [m for m in moves if not re.match(r"\s*rt_k_level_mirror\(\);", t[m.end():])]
+print(len(moves), len(bare))
+for m in bare[:6]:
+    sys.stderr.write("    rt.c:%d: %s\n" % (t.count("\n", 0, m.start()) + 1, t.splitlines()[t.count("\n", 0, m.start())].strip()[:120]))
+PYEOF
+)
 [ "$mv" -ge 8 ] || { echo "⛔ REFUSE(2): only $mv rt_k_level move line(s) in rt.c -- the level machinery has moved and this arm is grading a file that no longer holds it"; exit 2; }
 if [ "$bare" -ne 0 ]; then
-  rc=1; echo "⛔ RED bare_level_move: $bare of $mv rt_k_level move line(s) in rt.c do not mirror kw_fnclevel:"
-  grep -nE 'rt_k_level(\+\+|--);' "$src" | grep -v 'rt_k_level_mirror' | head -6 | sed 's/^/    /'
+  rc=1; echo "⛔ RED bare_level_move: $bare of $mv rt_k_level move statement(s) in rt.c are not followed by rt_k_level_mirror():"
 fi
-[ "$rc" = 0 ] && echo "GATE OK: 4 oracle arms x 2 modes + the island-off control + the source invariant -- &FNCLEVEL tracks a DEFINE'd call on the slim path as well as in the GVA shim, and all $mv rt_k_level move lines in rt.c mirror it"
+[ "$rc" = 0 ] && echo "GATE OK: 4 oracle arms x 2 modes + the island-off control + the source invariant -- &FNCLEVEL tracks a DEFINE'd call on the slim path as well as in the GVA shim, and all $mv rt_k_level move statements in rt.c mirror it"
 exit "$rc"
