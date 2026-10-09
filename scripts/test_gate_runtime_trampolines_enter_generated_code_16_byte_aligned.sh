@@ -131,9 +131,10 @@ if refused:
 if not found:
     print("⛔ REFUSES rc=2: no trampoline matched -- the asm blocks moved and this gate is blind, which is not a pass.")
     sys.exit(2)
-if len(found) < 4:
-    print("⛔ REFUSES rc=2: only %d trampoline(s) found; this gate expects the family (rt_outer_call, rt_chain_enter," % len(found))
-    print("   rt_proc_enter, rt_proc_enter_named, rt_proc_enter_frag). A shrinking population is a blind gate, not a clean one.")
+if len(found) < 3:
+    print("⛔ REFUSES rc=2: only %d trampoline(s) found; this gate expects the family (rt_chain_enter, rt_chain_enter_v," % len(found))
+    print("   rt_proc_enter_named; rt_proc_enter_frag DELETED under CEO-1576 2026-10-09, the C-to-BB removal). A shrinking population is a")
+    print("   blind gate, not a clean one: this floor follows the tree DOWN one deletion at a time, re-cut in the landing that deletes, never ahead of it.")
     sys.exit(2)
 if bad:
     print()

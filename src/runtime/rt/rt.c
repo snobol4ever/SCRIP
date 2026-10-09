@@ -1133,7 +1133,6 @@ void *rt_proc_open_fn(void);
 DESCR_t rt_pl_enter(void *fn, long nargs);
 DESCR_t rt_proc_enter(void *fn, long nargs, long touched);
 DESCR_t rt_proc_enter_named(void *fn, long idx);
-DESCR_t rt_proc_enter_frag(void *fn, long idx);
 int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn);
 DESCR_t rt_proc_call_epilogue_γ(DESCR_t frame0, long touched);
 DESCR_t rt_proc_call_epilogue_ω(long touched);
@@ -1875,12 +1874,6 @@ __asm__( ".text\n" ".globl rt_proc_enter_named\n" "rt_proc_enter_named:\n" "  pu
     "  cmpb $0, (%r10)\n" "  je 4f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n"
     "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "4:\n" "  pushq %rdx\n" "  pushq %rcx\n" "  jmp *%rax\n" "2:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n"
     "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_γ\n" "3:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n"
-    "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_ω\n" );
-__asm__( ".text\n" ".globl rt_proc_enter_frag\n" "rt_proc_enter_frag:\n" "  pushq %rsi\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n"
-    "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  subq $8, %rsp\n" "  movq %rdi, %rax\n" "  leaq 7f(%rip), %rcx\n" "  leaq 8f(%rip), %rdx\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-    "  cmpb $0, (%r10)\n" "  je 9f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n"
-    "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "9:\n" "  pushq %rdx\n" "  pushq %rcx\n" "  jmp *%rax\n" "7:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n"
-    "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_γ\n" "8:\n" "  addq $8, %rsp\n" "  movl 4(%rsp), %r15d\n"
     "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_idx_ω\n" );
 DESCR_t rt_proc_enter_named(void *fn, long idx);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/

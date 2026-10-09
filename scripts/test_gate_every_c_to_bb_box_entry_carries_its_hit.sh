@@ -39,7 +39,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 cd "$ROOT" || exit 2
 
-ENTRY_PRIMS='rt_proc_enter|rt_proc_enter_named|rt_proc_enter_frag|rt_tiny_record_enter|rt_chain_enter|rt_chain_enter_v'
+ENTRY_PRIMS='rt_proc_enter|rt_proc_enter_named|rt_tiny_record_enter|rt_chain_enter|rt_chain_enter_v'
 SCAN_DIRS="src/runtime src/driver"
 WINDOW=3
 # The program-initiating entry and the coroutine start -- the ONLY entries that may carry no hit (CEO-970).
