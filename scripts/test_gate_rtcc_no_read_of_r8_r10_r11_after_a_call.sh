@@ -15,7 +15,9 @@
 # across the languages, dumped by gdb at bb_seal, cut at the slab's ZMAP frame-map block (the data the emitter appends after
 # the last instruction, which a linear disassembly would read as code), disassembled by objdump, want reads=0; (d) THE PLANT,
 # both media: a read of r8 inserted after the first call of a real witness stream reads red and names r8; (e) THE BRACKET IS
-# GONE: no witness .s stores or reloads r8, r10 or r11 through rtccb.
+# GONE: no witness .s stores or reloads r8, r10 or r11 through rtccb; (f) THE DIAG ROAD (the cto's review, condition 2):
+# five witnesses under SCRIP_DIAG_REGS=1 print exactly what they print without it, in both modes under stress 1, and
+# carry r11 (its rtccb+64 reload) and not r8 or r10; a plant that drops r11 from the mask is seen.
 # LIMIT, NAMED: a later call that takes r8 as its fifth argument without writing it is a read no stream reader can see.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
 set -uo pipefail
@@ -75,6 +77,27 @@ fi
     || arm fail "(d) the plant did not red (mode 4 rc=$rc4, mode 3 rc=$rc3) -- the detector fails open"
 nb=$(cat "${ASMS[@]/--asm/}" 2>/dev/null | grep -cE 'rtccb\+(40|56|64)')
 [ "$nb" -eq 0 ] && arm ok "(e) the bracket is gone: no witness .s spills or reloads r8, r10 or r11 through rtccb" || arm fail "(e) $nb rtccb+40/56/64 store or reload(s) remain in the witness .s"
+run4() { "$SCRIP" --compile -o "$1.s" "$2" < /dev/null > /dev/null 2>&1 && gcc "$1.s" -L"$ROOT/out" -lscrip_rt -lm -lpthread -Wl,-rpath,"$ROOT/out" -o "$1" 2>/dev/null \
+    && { SCRIP_GC_STRESS=1 timeout 120 "$1" < /dev/null; echo "rc=$?"; }; }
+dbad=""; dn=0
+for w in hb_arr.sno hb_datblk.sno hb_coexpr_sigma.icn hb_pl_findall.pl hb_cv_spine_plain_redo.icn; do
+    [ -f "$WD/$w" ] || continue
+    d="$T/diag_$w"; mkdir -p "$d"
+    { SCRIP_GC_STRESS=1 timeout 120 "$SCRIP" "$WD/$w" < /dev/null; echo "rc=$?"; } > "$d/m3.plain" 2>&1
+    { SCRIP_DIAG_REGS=1 SCRIP_GC_STRESS=1 timeout 120 "$SCRIP" "$WD/$w" < /dev/null; echo "rc=$?"; } > "$d/m3.diag" 2>&1
+    run4 "$d/p" "$WD/$w" > "$d/m4.plain" 2>&1
+    SCRIP_DIAG_REGS=1 run4 "$d/q" "$WD/$w" > "$d/m4.diag" 2>&1
+    cmp -s "$d/m3.plain" "$d/m3.diag" || dbad="$dbad $w:m3"
+    cmp -s "$d/m4.plain" "$d/m4.diag" || dbad="$dbad $w:m4"
+    r11=$(grep -cE 'mov +r11, +qword ptr \[rip \+ rtccb\+64\]' "$d/q.s"); rest=$(grep -cE 'rtccb\+(40|56)' "$d/q.s")
+    [ "$r11" -gt 0 ] && [ "$rest" -eq 0 ] || dbad="$dbad $w:r11=$r11,r8r10=$rest"
+    dn=$((dn+1))
+done
+SCRIP_DIAG_REGS=1 SCRIP_RTCC_VENEER=2 "$SCRIP" --compile -o "$T/dplant.s" "$WD/hb_arr.sno" < /dev/null > /dev/null 2>&1
+dpl=$(grep -cE 'mov +r11, +qword ptr \[rip \+ rtccb\+64\]' "$T/dplant.s")
+[ "$dn" -eq 5 ] && [ -z "$dbad" ] && [ "$dpl" -eq 0 ] \
+    && arm ok "(f) SCRIP_DIAG_REGS: $dn witnesses print the same with and without it in both modes under stress 1, r11 still carried and r8/r10 not; the plant that drops r11 (SCRIP_RTCC_VENEER=2) is seen" \
+    || arm fail "(f) SCRIP_DIAG_REGS: graded $dn of 5;${dbad:- none differ}; plant r11 reloads=$dpl (want 0)"
 echo "population: $ARMS arm(s), $FAILS FAIL; mode 4 $n witness .s, mode 3 $ns slab(s)"
 [ $FAILS -eq 0 ] && { echo "✅ GATE GREEN [$G]"; exit 0; }
 echo "⛔ GATE RED [$G]: $FAILS of $ARMS arms FAIL"; exit 1
