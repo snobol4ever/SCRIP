@@ -570,7 +570,7 @@ def _oom_verdict(out, err, rc, masked_n=0):
 
 
 class Verdict:
-    __slots__ = ("kind", "stdout", "stderr", "returncode", "detail", "masked_lines")
+    __slots__ = ("kind", "stdout", "stderr", "returncode", "detail", "masked_lines", "retry")
 
     def __init__(self, kind, stdout=b"", stderr=b"", returncode=None, detail=""):
         self.kind = kind  # PASS FAIL CRASH HANG UNPROVEN SKIP OOM
@@ -579,6 +579,7 @@ class Verdict:
         self.returncode = returncode
         self.detail = detail
         self.masked_lines = 0
+        self.retry = ""   # "retried=1 load1=<first>/<second> nproc=<n>" when a timeout under load was re-run (CEO-1335)
 
     def text(self):
         return self.stdout.decode("utf-8", "replace")
@@ -834,7 +835,41 @@ def _render_fatal_into_stdout(got, err_bytes):
     return text, len(rendered)
 
 
+def _timeout_load():
+    """(the 1-minute load, the cores) as the fan-out reads them -- lib_fanout's FANOUT_PROC seam plants a loadavg for the gate."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        import lib_fanout as _lf
+        return _lf.fanout_load1(), _lf.fanout_cores()
+    except Exception:
+        return 0.0, os.cpu_count() or 1
+
+
 def classify(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None, out_files=None, merge_stderr=False):
+    # ⛔ A TIMEOUT UNDER LOAD MEASURED THE SCHEDULER, NOT THE PROGRAM (ceo CEO-1335; the coo 2026-10-09): at load 39 two Prolog rung
+    # entries that run in 0.1 to 0.6 s read m4 TIMEOUT, and at load ~25 pass 42's RakBench lost point_class_add's iter angle the same
+    # way. When a program times out while the 1-minute load exceeds the cores, the reading is COULD NOT MEASURE: the program is run
+    # ONCE more (this harness runs one child at a time, so the retry is serial within it), and only a second timeout grades HANG.
+    # The verdict carries retried=1 and the load at both attempts into its progress row. A timeout at or under the cores is graded
+    # as before -- a timeout scaled by load is NOT the cure (it would hide a real hang at high load). S4E_TIMEOUT_RETRY=0 disables
+    # the retry (the gate's fail-once arm).
+    v = _classify_run(argv, timeout, expected_text, cwd=cwd, env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask,
+                      out_files=out_files, merge_stderr=merge_stderr)
+    if v.kind != "HANG" or os.environ.get("S4E_TIMEOUT_RETRY", "1") == "0":
+        return v
+    l1, n = _timeout_load()
+    if l1 <= n:
+        return v
+    v2 = _classify_run(argv, timeout, expected_text, cwd=cwd, env=env, stdin_text=stdin_text, want_rc=want_rc, mask=mask,
+                       out_files=out_files, merge_stderr=merge_stderr)
+    l2, _n = _timeout_load()
+    v2.retry = "retried=1 load1=%.2f/%.2f nproc=%d" % (l1, l2, n)
+    if v2.kind == "HANG":
+        v2.detail = "%s twice (the first under load %.2f over %d cores was retried; the retry timed out too)" % (v2.detail, l1, n)
+    return v2
+
+
+def _classify_run(argv, timeout, expected_text, cwd=None, env=None, stdin_text=None, want_rc=0, mask=None, out_files=None, merge_stderr=False):
     _out_files_clear(cwd, out_files)
     kind, out, err, rc = _run_raw(argv, timeout, cwd=cwd, env=env, stdin_text=stdin_text, merge_stderr=merge_stderr)
     out = _out_files_append(out, cwd, out_files) if out_files else out
@@ -3202,6 +3237,8 @@ def _entry_note(xfail, v, shard_tag=""):
         if _r:
             toks.append("heap_cap_kb=%d" % _r[1])
             toks.append("oom_error=%d" % _r[0])
+    if v is not None and getattr(v, "retry", ""):
+        toks.extend(v.retry.split())   # retried=1 load1=<first>/<second> nproc=<n> (CEO-1335)
     if shard_tag:
         toks.append(shard_tag)
     return " ".join(toks)
