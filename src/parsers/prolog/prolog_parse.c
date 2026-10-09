@@ -1888,7 +1888,12 @@ static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, i
     *is_include = 0;
     if (!t || t->t != TT_CLAUSE || t->n < 2 || !t->c[0] || t->c[0]->t != TT_NUL) return (PlProgram *)0;
     g = t->c[1];
-    if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "include") || g->n != 1 || !g->c[0] || (g->c[0]->t != TT_QLIT && g->c[0]->t != TT_NAME) || !g->c[0]->v.sval) return (PlProgram *)0;
+    if (!g || g->t != TT_FNC || !g->v.sval || !g->c || !g->c[0] || (g->c[0]->t != TT_QLIT && g->c[0]->t != TT_NAME) || !g->c[0]->v.sval) return (PlProgram *)0;
+    if (!strcmp(g->v.sval, "use_module") && (g->n == 1 || g->n == 2)) {
+        char *probe = (char *)0; char *psrc = pl_include_read(pp, g->c[0]->v.sval, &probe);
+        if (!psrc) return (PlProgram *)0;
+        ct_drop(psrc); ct_drop(probe);
+    } else if (strcmp(g->v.sval, "include") || g->n != 1) return (PlProgram *)0;
     *is_include = 1;
     spec = g->c[0]->v.sval;
     if (depth >= 16 || !(src = pl_include_read(pp, spec, &path))) {
