@@ -42,7 +42,7 @@ IR_graph_t * g_emit_cfg = (IR_graph_t *)0;
 static void emit_stno_mark(int32_t stno);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" const char * bb_ab_sym_name(const char * nm);
-struct bb_ab_thunk_stems_t { std::unordered_map<std::string, std::string> stem; std::unordered_set<std::string> stems; int n[3]; std::string fn; };
+struct bb_ab_thunk_stems_t { std::unordered_map<std::string, std::string> stem; std::unordered_set<std::string> stems; int np; int nx; std::string fn; };
 static bb_ab_thunk_stems_t * bb_ab_thunk_stems(void) {
     bb_ab_thunk_stems_t * t = (bb_ab_thunk_stems_t *) g_emit.thunk_stems; if (!t) { t = new bb_ab_thunk_stems_t(); g_emit.thunk_stems = t; } return t;
 }
@@ -50,7 +50,8 @@ extern "C" void bb_ab_thunk_stem_note(const char * nm, int kind) {
     if (!nm || kind <= PROC_THUNK_NONE || kind > PROC_THUNK_EXPR) return;
     bb_ab_thunk_stems_t * t = bb_ab_thunk_stems();
     if (t->stem.count(nm)) return;
-    char b[fmt_len(".LT%c%d", 'x', t->n[kind])]; snprintf(b, sizeof b, ".LT%c%d", kind == PROC_THUNK_PATTERN ? 'p' : 'x', t->n[kind]); t->n[kind]++;
+    int * n = kind == PROC_THUNK_PATTERN ? &t->np : &t->nx;
+    char b[fmt_len(".LT%c%d", 'x', *n)]; snprintf(b, sizeof b, ".LT%c%d", kind == PROC_THUNK_PATTERN ? 'p' : 'x', *n); (*n)++;
     t->stem.emplace(std::string(nm), std::string(b)); t->stems.emplace(std::string(b));
 }
 static const char * bb_ab_thunk_stem(const char * nm) {
