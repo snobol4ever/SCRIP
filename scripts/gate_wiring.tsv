@@ -706,6 +706,7 @@ test_gate_raku_roast_bucket_names_the_stage_the_file_died_in.sh	WIRED	-	-	-
 test_gate_raku_set_bag_mix_are_typed_values_as_rakudo_has_them.sh	WIRED	-	-	-
 test_gate_raku_string_zero_is_true_and_the_string_function_forms_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_bare_dollar_and_the_item_and_hash_contextualizers_agree_with_rakudo.sh	WIRED	-	-	-
+test_gate_raku_a_scalar_gist_and_the_str_of_every_aggregate_and_object_and_put_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_the_activation_frame_is_carved_and_released_by_the_emitted_prologue.sh	WIRED	-	-	-
 test_gate_raku_the_infix_operators_the_front_end_names_have_a_runtime_as_rakudos_do.sh	WIRED	-	-	-
 test_gate_raku_the_math_and_list_routines_answer_in_function_form_as_rakudos_do.sh	WIRED	-	-	-

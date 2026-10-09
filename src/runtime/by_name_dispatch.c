@@ -1457,6 +1457,10 @@ int rt_str_method(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmar
     }
     if (!strcmp(meth, "wordcase")) { *out = STRVAL(rk_case_str(s, n, 0, 0, 1)); return 1; }
     if (!strcmp(meth, "Str")) { *out = STRVAL(rt_heap_strdup_c(s)); return 1; }
+    if (nmargs == 0 && !strcmp(meth, "gist") && (IS_STR_fn(recv) || IS_INT_fn(recv) || IS_REAL_fn(recv) || recv.v == DT_BOOL || recv.v == DT_BIG)) {
+        *out = STRVAL(rt_heap_strdup_c(recv.v == DT_SNUL ? "Nil" : s));
+        return 1;
+    }
     if (!strcmp(meth, "Int")) { if (IS_INT_fn(recv)) { *out = recv; return 1; } if (IS_REAL_fn(recv)) { *out = INTVAL((long)recv.r); return 1; } *out = INTVAL((long)atoll(s)); return 1; }
     if (!strcmp(meth, "contains") && nmargs >= 1) { char nb[64]; const char *nd = to_cstring(margs[0], nb, sizeof nb); if (!nd) nd = ""; *out = INTVAL(strstr(s, nd) ? 1 : 0); return 1; }
     if (!strcmp(meth, "starts-with") && nmargs >= 1) {
@@ -9659,12 +9663,18 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if (!strcmp(fn, "__rk_typeobj") && nargs == 1) { *out = rk_typeobj(VARVAL_fn(args[0])); return 1; }
     if (!strcmp(fn, "__rk_str") && nargs == 1) {
+        extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
         DESCR_t a = args[0];
         if (a.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(a.i ? "True" : "False")); return 1; }
         if (a.v == DT_ORDER) { *out = STRVAL(rt_heap_strdup_c(a.i < 0 ? "Less" : (a.i > 0 ? "More" : "Same"))); return 1; }
         if (a.v == DT_SNUL || rk_typeobj_name(a)) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
         if (rk_match_is(a)) { *out = FIELD_GET_fn(a, "text"); return 1; }
         if (IS_REAL_fn(a)) { *out = STRVAL(rt_heap_strdup_c(rk_cstr(a))); return 1; }
+        if ((a.v == DT_A && a.arr) || (a.v == DT_T && a.tbl) || a.v == DT_DATA) {
+            const char *st = a.v == DT_DATA ? rk_obj_stringify(a, 0) : a.v == DT_A ? rk_arr_text(a) : rk_tbl_text(a);
+            *out = STRVAL(rt_heap_strdup_c(st ? st : ""));
+            return 1;
+        }
         *out = a;
         return 1;
     }

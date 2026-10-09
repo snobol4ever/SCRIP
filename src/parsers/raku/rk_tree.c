@@ -1308,7 +1308,7 @@ static tree_t *rk_await_call(TL *pos) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rkb_listop_substitutes(const char *name, int namelen) {
-    static const char *const own[] = { "say", "print", "take", "return", "fail", "exit", "die", "join", "map", "grep", "sort", "reverse", "exists", "delete", 0 };
+    static const char *const own[] = { "say", "print", "put", "take", "return", "fail", "exit", "die", "join", "map", "grep", "sort", "reverse", "exists", "delete", 0 };
     char *nm = trimdup(name, namelen);
     if (testop_rt(nm)) return 0;
     for (int i = 0; own[i]; i++) if (!strcmp(own[i], nm)) return 0;
@@ -1350,9 +1350,11 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     }
     TL pos = { 0 }, named = { 0 };
     if (rt) { arglist(b, args, 0, &pos, NULL); it->t = rk_testop_call(b, rt, &pos); return; }
-    if (!strcmp(nm, "say") || !strcmp(nm, "print")) {
+    if (!strcmp(nm, "say") || !strcmp(nm, "print") || !strcmp(nm, "put")) {
         arglist(b, args, 0, &pos, NULL); flatten_paren_args(args, &pos);
-        tree_t *c = ast_node_new(nm[0] == 's' ? TT_SAY : TT_PRINT); for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]); it->t = c; return;
+        tree_t *c = ast_node_new(nm[0] == 's' ? TT_SAY : TT_PRINT); for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]);
+        if (nm[1] == 'u') expr_add_child(c, leaf_sval(TT_QLIT, "\n"));
+        it->t = c; return;
     }
     if (!strcmp(nm, "take")) {
         arglist(b, args, 0, &pos, NULL);
