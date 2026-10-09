@@ -44,7 +44,19 @@ for f in scrip out src Makefile; do [ -e "$ROOT/$f" ] && ln -s "$ROOT/$f" "$T/pr
 rm -f "$T/pre/scripts/corpus_suite_harness.py"; sed 's/^SMOKE_DELEGATES = {.*}$/SMOKE_DELEGATES = {}/' "$H" > "$T/pre/scripts/corpus_suite_harness.py"
 if cmp -s "$H" "$T/pre/scripts/corpus_suite_harness.py"; then arm "fail-once: the delegation is plantable" "no SMOKE_DELEGATES line" "a table emptied"
 else
-    prc=$(S4E_HOME="$(cd "$ROOT/.." && pwd)" smoke "$T/pre/scripts/corpus_suite_harness.py" "$T/pre.out")
+    # ⛔ THE STALE CONTAINER IS PLANTED, NOT ASSUMED (the coo 2026-10-09): this arm read the real package's container, which held the
+    # 120 entries cut before CEO-1269 -- until corpus 0b8fac0c4 (10-03 17:44) re-cut Gimpel's container to its drivers, after which the
+    # pre-cure smoke graded fine, exited 0, and this arm read red ('0 0 0') for six days with nothing wrong. A copy of the package whose
+    # container holds one entry the table does not name is the disagreement this arm exists to see, on any corpus.
+    P="$T/prehome"; mkdir -p "$P/corpus/packages/snobol4"; cp -r "$CORPUS/packages/snobol4/gimpel" "$P/corpus/packages/snobol4/"; ln -s "$GH" "$P/.github"
+    find "$P/corpus/packages/snobol4/gimpel" -maxdepth 1 -name 'ALL.*' ! -name 'ALL.csv' -delete   # the container and its sidecars; the table stays
+    python3 - "$P/corpus/packages/snobol4/gimpel" <<'PY'
+import sys
+d = sys.argv[1]; b = "*" + "-" * (80 - 1 - len(" 1 stale_entry")) + " 1 stale_entry"
+open(d + "/ALL.sno", "w").write(b + "\n        OUTPUT = 'stale'\nEND\n")
+open(d + "/ALL.ref", "w").write(b + "\nstale\n")
+PY
+    prc=$(S4E_HOME="$P" smoke "$T/pre/scripts/corpus_suite_harness.py" "$T/pre.out")
     arm "fail-once: the container smoke names the disagreement and refuses on grading none" \
         "$prc $(grep -c '^AREA_SMOKE_TABLE_SUITE_DISAGREEMENT table=packages/snobol4/gimpel' "$T/pre.out") $(grep -c 'NONE graded' "$T/pre.out")" "2 1 1"
 fi
