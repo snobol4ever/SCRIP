@@ -1928,14 +1928,14 @@ static void rk_register_classes(const tree_t * prog) {
         for (int li = 0; RK_LISTLIKE_METHNAMES[li]; li++) if (rk_type_provides_real_method(d, RK_LISTLIKE_METHNAMES[li])) g_lower.rk.listlike_overridden[li] = 1;
         if (!rk_is_class_name(cname)) CV_PUSH(g_lower.rk.class_names, const char *) = cname;
         size_t specn = strlen(cname) + 3;
-        for (int j = 1; j < d->n; j++) if (d->c[j] && d->c[j]->t != TT_SUB_DECL) specn += 1 + (d->c[j]->v.sval ? strlen(d->c[j]->v.sval) : 0);
+        for (int j = 1; j < d->n; j++) if (d->c[j] && d->c[j]->t != TT_SUB_DECL && d->c[j]->t != TT_REGEX_DECL) specn += 1 + (d->c[j]->v.sval ? strlen(d->c[j]->v.sval) : 0);
         char spec[specn];
         int pos = 0;
         pos += snprintf(spec + pos, sizeof(spec) - pos, "%s(", cname);
         int first_field = 1;
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
-            if (!ch || ch->t == TT_SUB_DECL) continue;
+            if (!ch || ch->t == TT_SUB_DECL || ch->t == TT_REGEX_DECL) continue;
             if (!first_field) { if (pos < (int)sizeof(spec) - 2) spec[pos++] = ','; }
             const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : "");
             pos += snprintf(spec + pos, sizeof(spec) - pos, "%s", fn);
@@ -2018,7 +2018,7 @@ static void rk_register_classes(const tree_t * prog) {
         extern void dat_set_field_priv(const char *cls, const char *field);
         for (int j = 1; j < d->n; j++) {
             const tree_t * ch = d->c[j];
-            if (!ch || ch->t == TT_SUB_DECL) continue;
+            if (!ch || ch->t == TT_SUB_DECL || ch->t == TT_REGEX_DECL) continue;
             if (!rk_fld_priv(ch->v.sval)) continue;
             const char * fn = rk_fld_bare(ch->v.sval ? ch->v.sval : "");
             if (*fn) dat_set_field_priv(cname, fn);
@@ -4091,7 +4091,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
                 for (int j = s->n - 1; j >= 1; j--) {
                     const tree_t * ch = s->c[j];
                     if (ch && ch->t == TT_STMT) { const tree_t * sub = stmt_subj(ch); if (!sub) continue; ch = sub; }
-                    if (!ch || ch->t == TT_SUB_DECL) continue;
+                    if (!ch || ch->t == TT_SUB_DECL || ch->t == TT_REGEX_DECL) continue;
                     IR_t * r = NULL;
                     IR_t * e = lower_rv(&tcx, ch, sentry, sentry, &r);
                     if (e) e = trace_stmt_wrap(&tcx, trace_stmt_line(ch), e, sentry);

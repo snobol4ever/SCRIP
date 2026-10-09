@@ -4173,10 +4173,11 @@ static void register_user_op_x(RkP *p, int from, int to, int exported) {
             if (i == 0 || i == 1 || i == 2 || i == 5) { if (exported) for (int k = nb; k < p->nuops; k++) p->uops[k].depth = 1000; return; }
             int sp = x; while (sp < y && !asc_space((unsigned char) p->s[sp])) sp++;
             int op2 = sp; while (op2 < y && asc_space((unsigned char) p->s[op2])) op2++;
+            int pair0 = p->nuops;
             if (i == 3) { add_user_op(p, 'c', p->s + x, sp - x, 0); add_user_op(p, 'C', p->s + op2, y - op2, 0); }
-            if (i == 3 && p->B) rkb_user_op(p->B, 'c', p->uops[p->nuops - 2].sym, p->uops[p->nuops - 2].len, p->s + x, y - x, 0);
+            if (i == 3 && p->B && p->nuops == pair0 + 2) rkb_user_op(p->B, 'c', p->uops[pair0].sym, p->uops[pair0].len, p->s + x, y - x, 0);
             if (i == 4) { add_user_op(p, 'k', p->s + x, sp - x, 0); add_user_op(p, 'K', p->s + op2, y - op2, 0); }
-            if (i == 4 && p->B) rkb_user_op(p->B, 'k', p->uops[p->nuops - 2].sym, p->uops[p->nuops - 2].len, p->s + x, y - x, 0);
+            if (i == 4 && p->B && p->nuops == pair0 + 2) rkb_user_op(p->B, 'k', p->uops[pair0].sym, p->uops[pair0].len, p->s + x, y - x, 0);
             if (exported) for (int k = nb; k < p->nuops; k++) p->uops[k].depth = 1000;
             return;
         }
