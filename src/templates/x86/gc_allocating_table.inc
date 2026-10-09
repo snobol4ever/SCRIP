@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2208
+#define GC_ALLOC_TAB_N 2209
 #define GC_ALLOC_TAB_N_VOID 262
-#define GC_ALLOC_TAB_N_DESCR 1123
+#define GC_ALLOC_TAB_N_DESCR 1124
 #define GC_ALLOC_TAB_N_OTHER 808
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -1076,6 +1076,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_hash_from_list", GC_RET_DESCR },
     { "rk_hash_list", GC_RET_DESCR },
     { "rk_hash_store", GC_RET_DESCR },
+    { "rk_hy_rec", GC_RET_DESCR },
     { "rk_idx_label", GC_RET_OTHER },
     { "rk_io_abs", GC_RET_OTHER },
     { "rk_io_arg", GC_RET_OTHER },

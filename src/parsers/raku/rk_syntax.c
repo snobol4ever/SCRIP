@@ -2106,7 +2106,7 @@ typedef struct RkX {
     tree_t *cur;
     RkTerm *pend;
     RkList *L; RkEl *el; int xstop;
-    int star; int rev; const char *subst; int subst_len;
+    int star; int rev; int hyper; const char *subst; int subst_len;
     tree_t *subst_call, *subst_paren;
 } RkX;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2193,7 +2193,14 @@ static void x_take(RkP *p, RkX *x) {
     if (x->nops - x->el_nops == 1 && strcmp(x->pk_txt, ",")) x->el->op1 = x->pk_txt;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int x_in(RkP *p, RkX *x, int lv) { if (!x_peek(p, x)) return -1; int rv = 0; int k = rkb_op_index_rev(lv, x->pk_txt, &rv); x->rev = rv; return k; }
+static int x_in(RkP *p, RkX *x, int lv) {
+    if (!x_peek(p, x)) return -1;
+    int rv = 0, hy = 0;
+    int k = rkb_op_index_rev(lv, x->pk_txt, &rv);
+    if (k < 0) k = rkb_hyper_index(lv, x->pk_txt, &rv, &hy);
+    x->rev = rv; x->hyper = hy;
+    return k;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *x_expr(RkP *p, RkX *x);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2222,7 +2229,7 @@ static tree_t *x_unary(RkP *p, RkX *x) {
             x_take(p, x); x_after(p, x); x->lastcls = 0; return ast_node_new(TT_NUL);
         }
     }
-    if (x_in(p, x, LV_POW) >= 0) { int rv = x->rev; x_take(p, x); tree_t *r = x_unary(p, x); if (p->build) base = rv ? rkb_binop(p->B, LV_POW, 0, r, base) : rkb_binop(p->B, LV_POW, 0, base, r); x->lastcls = 0; }
+    if (x_in(p, x, LV_POW) >= 0) { int rv = x->rev, hy = x->hyper; x_take(p, x); tree_t *r = x_unary(p, x); if (p->build) base = hy ? rkb_hyper(p->B, LV_POW, 0, hy, base, r) : rv ? rkb_binop(p->B, LV_POW, 0, r, base) : rkb_binop(p->B, LV_POW, 0, base, r); x->lastcls = 0; }
     if (p->build) for (int i = np - 1; i >= (loose ? 1 : 0); i--) base = rkb_prefix_apply(p->B, t->pre[i], base);
     if (loose) {
         RkTerm lt; memset(&lt, 0, sizeof lt); lt.kind = TK_TREE; lt.t = base; lt.from = t->from; lt.to = lt.core_to = t->to;
@@ -2245,9 +2252,9 @@ static tree_t *x_level(RkP *p, RkX *x, int lv, tree_t *(*lower)(RkP *, RkX *), t
     tree_t *l = lower(p, x); int k;
     if (x->fail) return NULL;
     while ((k = x_in(p, x, lv)) >= 0) {
-        int rv = x->rev; x_take(p, x);
+        int rv = x->rev, hy = x->hyper; x_take(p, x);
         if (rv) { l = x_rchain(p, x, lv, right, l, k); x->lastcls = 0; continue; }
-        tree_t *r = right(p, x); if (p->build) l = rkb_binop(p->B, lv, k, l, r); x->lastcls = 0;
+        tree_t *r = right(p, x); if (p->build) l = hy ? rkb_hyper(p->B, lv, k, hy, l, r) : rkb_binop(p->B, lv, k, l, r); x->lastcls = 0;
     }
     return l;
 }
@@ -2293,11 +2300,11 @@ static tree_t *x_cmp(RkP *p, RkX *x) {
     tree_t *l = x_divis(p, x); int k;
     if (x->fail) return NULL;
     while ((k = x_in(p, x, LV_CMP)) >= 0) {
-        int rv = x->rev, sm = !strcmp(x->pk_txt, "~~");
+        int rv = x->rev, hy = x->hyper, sm = !strcmp(x->pk_txt, "~~");
         x_take(p, x); x->lastcls = 0;
         if (sm) { l = x_smartmatch(p, x, l); continue; }
         tree_t *r = x_divis(p, x);
-        if (p->build) l = rv ? rkb_binop(p->B, LV_CMP, k, r, l) : rkb_binop(p->B, LV_CMP, k, l, r);
+        if (p->build) l = hy ? rkb_hyper(p->B, LV_CMP, k, hy, l, r) : rv ? rkb_binop(p->B, LV_CMP, k, r, l) : rkb_binop(p->B, LV_CMP, k, l, r);
     }
     return l;
 }

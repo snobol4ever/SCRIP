@@ -1023,6 +1023,85 @@ tree_t *rkb_binop(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
     return rk_wc_close(rkb_binop_raw(b, lv, k, lb, rb), &ps);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rkb_prefix_raw(RkB *b, const char *op, tree_t *x);
+static int rk_hyper_pure(tree_t *t) {
+    if (!t) return 0;
+    if (t->t == TT_VAR || t->t == TT_ILIT || t->t == TT_QLIT) return 1;
+    if (t->t == TT_METHCALL && t->n == 2 && t->c[1] && t->c[1]->t == TT_QLIT && t->c[1]->v.sval && !strcmp(t->c[1]->v.sval, "list")) return rk_hyper_pure(t->c[0]);
+    if (t->t != TT_FNC || !t->v.sval || (strcmp(t->v.sval, "__rk_arr") && strcmp(t->v.sval, "__rk_arr_lit") && strcmp(t->v.sval, "__rk_range_arr"))) return 0;
+    for (int i = 1; i < t->n; i++) if (!rk_hyper_pure(t->c[i])) return 0;
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rkb_hyper_index(int lv, const char *op, int *rev, int *hy) {
+    *rev = 0; *hy = 0;
+    if (!op) return -1;
+    size_t n = strlen(op);
+    int lw, rw;
+    if (n < 5) return -1;
+    if (!strncmp(op, "<<", 2) || !strncmp(op, "\xc2\xab", 2)) lw = 1; else if (!strncmp(op, ">>", 2) || !strncmp(op, "\xc2\xbb", 2)) lw = 0; else return -1;
+    if (!strcmp(op + n - 2, ">>") || !strcmp(op + n - 2, "\xc2\xbb")) rw = 1; else if (!strcmp(op + n - 2, "<<") || !strcmp(op + n - 2, "\xc2\xab")) rw = 0; else return -1;
+    char *inner = trimdup(op + 2, (int) n - 4);
+    size_t il = strlen(inner);
+    if (il > 2 && inner[0] == '[' && inner[il - 1] == ']') inner = trimdup(inner + 1, (int) il - 2);
+    int k = rkb_op_index_rev(lv, inner, rev);
+    if (k >= 0) *hy = 1 | (lw << 1) | (rw << 2);
+    return k;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_hyper_elem(int i) {
+    tree_t *e = ast_node_new(TT_ARR_GET);
+    ast_push(e, leaf_sval(TT_VAR, "_"));
+    ast_push(e, rk_ilit(i));
+    return e;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_hyper_map(tree_t *zip, tree_t *body, int hy, tree_t *kl, tree_t *kr) {
+    tree_t *blk = ast_node_new(TT_ANON_BLOCK), *sq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(sq, body);
+    expr_add_child(blk, sq);
+    tree_t *mc = ast_node_new(TT_METHCALL);
+    ast_push(mc, zip);
+    ast_push(mc, leaf_sval(TT_QLIT, "map"));
+    ast_push(mc, blk);
+    tree_t *sh = make_call("__rk_hyper_shape");
+    expr_add_child(sh, rk_ilit(hy));
+    expr_add_child(sh, mc);
+    expr_add_child(sh, kl);
+    expr_add_child(sh, kr);
+    return sh;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_hyper_range(tree_t *x) {
+    if (!x || x->t != TT_TO || x->n < 2) return x;
+    tree_t *mc = ast_node_new(TT_METHCALL);
+    ast_push(mc, rk_arr_rhs(x));
+    ast_push(mc, leaf_sval(TT_QLIT, "list"));
+    return mc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_hyper(RkB *b, int lv, int k, int hy, tree_t *l, tree_t *r) {
+    l = rk_hyper_range(l);
+    r = rk_hyper_range(r);
+    int both = rk_hyper_pure(l) && rk_hyper_pure(r);
+    tree_t *kl = both ? rk_tree_clone(l) : ast_node_new(TT_NUL), *kr = both ? rk_tree_clone(r) : ast_node_new(TT_NUL);
+    tree_t *zip = make_call("__rk_hyper_zip");
+    expr_add_child(zip, rk_ilit(hy));
+    expr_add_child(zip, l);
+    expr_add_child(zip, r);
+    return rk_hyper_map(zip, rkb_binop_raw(b, lv, k, rk_hyper_elem(0), rk_hyper_elem(1)), hy, kl, kr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_hyper_prefix(RkB *b, const char *op, tree_t *x) {
+    x = rk_hyper_range(x);
+    tree_t *kx = rk_hyper_pure(x) ? rk_tree_clone(x) : ast_node_new(TT_NUL);
+    tree_t *zip = make_call("__rk_hyper_zip");
+    expr_add_child(zip, rk_ilit(15));
+    expr_add_child(zip, x);
+    expr_add_child(zip, rk_ilit(0));
+    return rk_hyper_map(zip, rkb_prefix_raw(b, op, rk_hyper_elem(0)), 15, kx, ast_node_new(TT_NUL));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_ternary(RkB *b, tree_t *l, tree_t *mid, tree_t *r) {
     (void) b;
     tree_t *t = ast_node_new(TT_TERNARY); ast_push(t, l); ast_push(t, mid ? mid : ast_node_new(TT_NUL)); ast_push(t, r); return t;
@@ -1074,6 +1153,8 @@ static tree_t *rkb_prefix_raw(RkB *b, const char *op, tree_t *x) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_prefix_apply(RkB *b, const char *op, tree_t *x) {
+    size_t opn = strlen(op);
+    if (opn > 2 && (!strcmp(op + opn - 2, "<<") || !strcmp(op + opn - 2, "\xc2\xab"))) return rkb_hyper_prefix(b, trimdup(op, (int) opn - 2), x);
     int cur = !strcmp(op, "-") || !strcmp(op, "+") || !strcmp(op, "?") || !strcmp(op, "!") || !strcmp(op, "~");
     if (!cur || !rk_wc_operand(b, x)) return rkb_prefix_raw(b, op, x);
     TL ps = { 0 }; tree_t *xb = rk_wc_take(b, x, &ps);

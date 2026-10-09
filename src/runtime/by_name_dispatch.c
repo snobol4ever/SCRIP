@@ -374,21 +374,22 @@ int rt_builtin_is_known(const char *name) {
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
         "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort",
         "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done",
-        "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash",
-        "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem",
-        "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne",
-        "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat",
-        "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_ident", "__rk_intdiv",
-        "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor",
-        "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem",
-        "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack",
-        "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure",
-        "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "meth_call", "field_set",
-        "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die",
-        "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where",
-        "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR",
-        "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL",
-        "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip",
+        "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum",
+        "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup",
+        "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub",
+        "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace",
+        "__rk_typeobj", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref",
+        "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor",
+        "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "__rk_range_xb", "__rk_range_xl", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep",
+        "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure",
+        "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one",
+        "__rk_jct_none", "obj_new", "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n",
+        "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box",
+        "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE",
+        "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE",
+        "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value",
+        "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -930,6 +931,37 @@ static const char rk_proto_jct_one[] = "one";
 static const char rk_proto_jct_none[] = "none";
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_pair(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_pair; }
+typedef struct { int fl, err, mode, n, cap, nv, vi; DESCR_t *buf, *vals; } rk_hy_t;
+static int rk_hy_seq(DESCR_t v) { return v.v == DT_A && v.arr && !rk_is_pair(v); }
+static DESCR_t rk_hy_rec(rk_hy_t *h, DESCR_t l, DESCR_t r) {
+    int ls = rk_hy_seq(l), rs = rk_hy_seq(r) && !(h->fl & 8);
+    if (!ls && !rs) {
+        if (h->mode == 0) {
+            DESCR_t pr[2] = { l, r };
+            if (h->n == h->cap) {
+                int nc = h->cap ? h->cap * 2 : 16;
+                DESCR_t *nb = (DESCR_t *) rt_ws_alloc_descr((size_t) nc);
+                for (int i = 0; i < h->n; i++) nb[i] = h->buf[i];
+                h->buf = nb;
+                h->cap = nc;
+            }
+            h->buf[h->n++] = rk_mk_arr(pr, 2);
+            return NULVCL;
+        }
+        return h->vi < h->nv ? h->vals[h->vi++] : NULVCL;
+    }
+    rk_av_t la = ls ? rk_av(l) : (rk_av_t){ 0 }, ra = rs ? rk_av(r) : (rk_av_t){ 0 };
+    int nl = ls ? la.n : 1, nr = rs ? ra.n : 1, ldw = (h->fl >> 1) & 1, rdw = (h->fl >> 2) & 1, n;
+    if (!ldw && !rdw) { if (nl != nr) { h->err = 1; return NULVCL; } n = nl; } else if (ldw && !rdw) n = nr;
+    else if (!ldw && rdw) n = nl;
+    else n = nl > nr ? nl : nr;
+    if (nl == 0 || nr == 0) n = 0;
+    DESCR_t *res = (h->mode == 1 && n) ? (DESCR_t *) rt_ws_alloc_descr((size_t) n) : NULL;
+    for (int i = 0; i < n && !h->err; i++) { DESCR_t a = ls ? rk_av_elem(la, i % nl) : l, b = rs ? rk_av_elem(ra, i % nr) : r; DESCR_t x = rk_hy_rec(h, a, b); if (res) res[i] = x; }
+    if (h->mode == 0) return NULVCL;
+    DESCR_t out = rk_mk_arr(res, n);
+    return rk_is_list(ls ? l : r) || rk_is_slip(ls ? l : r) ? rk_mark_list(out) : rk_unmark(out);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_is_jct(DESCR_t v) {
     if (!(v.v == DT_A && v.arr)) return 0;
@@ -10074,6 +10106,29 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         else if (IS_INT_fn(args[1]) || IS_REAL_fn(args[1])) hit = to_real(args[0]) == to_real(args[1]);
         else { char s1[64], s2[64]; const char *x = to_cstring(args[0], s1, sizeof s1), *y = to_cstring(args[1], s2, sizeof s2); hit = !strcmp(x ? x : "", y ? y : ""); }
         *out = (DESCR_t){ .v = DT_BOOL, .i = hit };
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_hyper_zip") && nargs == 3) {
+        rk_hy_t h;
+        memset(&h, 0, sizeof h);
+        h.fl = (int) args[0].i;
+        h.mode = 0;
+        rk_hy_rec(&h, args[1], args[2]);
+        if (h.err) { extern void rt_script_die_surface(const char *msg); rt_script_die_surface("Lists on either side of non-dwimmy hyperop are not of the same length"); *out = FAILDESCR; return 1; }
+        *out = rk_mark_list(rk_mk_arr(h.buf, h.n));
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_hyper_shape") && nargs == 4) {
+        DESCR_t mapped = args[1];
+        if ((args[2].v == DT_SNUL && args[3].v == DT_SNUL) || !(mapped.v == DT_A && mapped.arr)) { *out = mapped; return 1; }
+        rk_av_t ma = rk_av(mapped);
+        rk_hy_t h;
+        memset(&h, 0, sizeof h);
+        h.fl = (int) args[0].i;
+        h.mode = 1;
+        h.vals = ma.el;
+        h.nv = ma.n;
+        *out = rk_hy_rec(&h, args[2], args[3]);
         return 1;
     }
     if (!strcmp(fn, "__rk_hyper_meth") && nargs >= 2) {
