@@ -1905,13 +1905,36 @@ extern "C" void * bb_callee_rec_addr(const char * name) {
     if (!r->name) { r->name = CV_AT(g_emit.callee_names, const char *, s); r->gen1 = 0; r->fi = -1; }
     return (void *)r;
 }
+static uint32_t emit_thunk_flags_of(const char * star) {
+    if (!star || star[0] != '*') return 0;
+    for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].thunk_flags && g_stage2.proc_table[i].name && !strcmp(g_stage2.proc_table[i].name, star + 1)) return g_stage2.proc_table[i]
+        .thunk_flags;
+    return 0;
+}
 extern "C" void * bb_dstar_rec_addr(const char * star) {
     if (!star || star[0] != '*' || !star[1]) return (void *)0;
     int s = dir_slot_for(dstar_dir(), star);
     if (!MEDIUM_BINARY) return (void *)0;
     sno_dstar_rec_t * r = (sno_dstar_rec_t *)dir_rec(dstar_dir(), s);
-    if (!r->star) { r->mark[0] = '*'; r->mark[1] = 1; r->star = CV_AT(g_emit.dstar_names, const char *, s); r->pidx = -1; r->flags = 0; }
+    if (!r->star) { r->mark[0] = '*'; r->mark[1] = 1; r->star = CV_AT(g_emit.dstar_names, const char *, s); r->pidx = -1; r->flags = emit_thunk_flags_of(star); }
     return (void *)r;
+}
+extern "C" void emit_thunk_star_bind(const char * thunk_name) {
+    extern int rt_proc_index_of(const char *);
+    if (!thunk_name) return;
+    std::string star = std::string("*") + thunk_name;
+    sno_dstar_rec_t * r = (sno_dstar_rec_t *)bb_dstar_rec_addr(star.c_str());
+    if (r && (r->flags & SNO_DSTAR_THUNK)) r->pidx = (int32_t)rt_proc_index_of(thunk_name);
+}
+extern "C" const char * emit_thunk_star_label(const char * thunk_name) {
+    extern const char * bb_ab_sym_name(const char *);
+    if (!thunk_name) return (const char *)0;
+    std::string star = std::string("*") + thunk_name;
+    (void)dir_slot_for(dstar_dir(), star.c_str());
+    std::string lbl = std::string(".Ldstar_") + bb_ab_sym_name(star.c_str());
+    cv_reserve(&g_emit.star_label_buf, 1, (uint64_t)lbl.size() + 1, "star_label_buf");
+    memcpy(g_emit.star_label_buf.p, lbl.c_str(), lbl.size() + 1);
+    return (const char *)g_emit.star_label_buf.p;
 }
 extern "C" void * bb_dstar_rec_intern(const char * key, uint32_t flags) {
     if (!key || !key[0] || !key[1]) return (void *)0;
@@ -1925,7 +1948,7 @@ static void emit_dstar_records_data(void) {
     extern const char * bb_ab_sym_name(const char *); extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
     emit_textf("  .section .data\n");
     for (int k = 0; k < g_emit.dstar_n; k++) { const char * nm = CV_AT(g_emit.dstar_names, const char *, k); std::string sym = bb_ab_sym_name(nm);
-        emit_textf("  .p2align 3\n.Ldstar_%s:\n  .byte 42, 1, 0, 0, 0, 0, 0, 0\n  .quad .Ldstarn_%s\n  .long -1, 0\n", sym.c_str(), sym.c_str()); }
+        emit_textf("  .p2align 3\n.Ldstar_%s:\n  .byte 42, 1, 0, 0, 0, 0, 0, 0\n  .quad .Ldstarn_%s\n  .long -1, %u\n", sym.c_str(), sym.c_str(), (unsigned)emit_thunk_flags_of(nm)); }
     emit_textf("  .section .rodata\n");
     for (int k = 0; k < g_emit.dstar_n; k++) { const char * nm = CV_AT(g_emit.dstar_names, const char *, k); std::string sym = bb_ab_sym_name(nm); size_t cap = 4 * strlen(nm) + 1;
         std::string esc(cap, '\0'); x86_asm_str_escape_c(nm, &esc[0], cap);
@@ -5359,6 +5382,7 @@ extern "C" void emit_proc_props(stage2_t * s2, int pi) {
     rt_proc_set_variadic(pname, pe->is_variadic); rt_proc_set_rest_kind(pname, pe->rest_kind); rt_proc_set_named_rest(pname, pe->named_rest); rt_proc_set_dyn_scope(pname, pe->dyn_scope);
     if (pe->result_name) rt_proc_set_result_name(pname, pe->result_name);
     rt_proc_set_thunk(pname, pe->thunk_kind != PROC_THUNK_NONE);
+    if (pe->thunk_kind == PROC_THUNK_EXPR) emit_thunk_star_bind(pname);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" void * emit_install_proc(stage2_t * s2, int pi, const emit_install_hooks_t * hk) {

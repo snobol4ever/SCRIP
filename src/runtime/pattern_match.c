@@ -900,12 +900,22 @@ static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char
     return cell;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline const sno_dstar_rec_t *dcf_rec(const char *s) { return (s && s[0] == '*' && (unsigned char)s[1] == 1) ? (const sno_dstar_rec_t *)(const void *)s : (const sno_dstar_rec_t *)0; }
+static inline const char *dcf_name(const char *s) { const sno_dstar_rec_t *r = dcf_rec(s); return r ? r->star : s; }
+static void dcf_stage_leave(const char *s) {
+    extern void rt_eval_stage_leave(const char *);
+    extern void rt_eval_stage_leave_var(int);
+    const sno_dstar_rec_t *r = dcf_rec(s);
+    if (r && (r->flags & SNO_DSTAR_THUNK)) rt_eval_stage_leave_var((r->flags & SNO_DSTAR_STAGEVAR) ? 1 : 0);
+    else rt_eval_stage_leave(s ? dcf_name(s) + 1 : (const char *)0);
+}
 static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
     extern DESCR_t rt_assign_var(DESCR_t var, DESCR_t val);
     extern int rt_g_ret_by_name;
     extern int rt_g_want_name;
     const int strict = rt_cap_name_strict();
-    const int nmyield = c->star[1] == 'E' && !strncmp(c->star + 1, "EXPRNM$", 7);
+    const sno_dstar_rec_t *srec = dcf_rec(c->star);
+    const int nmyield = srec ? ((srec->flags & SNO_DSTAR_EXPRNM) ? 1 : 0) : (c->star[1] == 'E' && !strncmp(c->star + 1, "EXPRNM$", 7));
     g_cap_abort_gen = c->asv;
     rt_g_want_name = c->wsv;
     const int by_name = rt_g_ret_by_name || nmyield;
@@ -915,25 +925,25 @@ static long rt_dcap_star_finish(rt_dcf_t *c, DESCR_t nm) {
     if (IS_FAIL_fn(nm)) {
         if (strict) {
             if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; }
-            if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", c->star);
+            if (g_dcap_trace) fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: call FAILED -> rc=1 (match will fail at END)\n", dcf_name(c->star));
             c->rc = 1;
             return 1;
         }
-        fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", c->star);
+        fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", dcf_name(c->star));
         return 0;
     }
     if (strict && !by_name) {
         if (g_dcap_trace < 0) { const char *_e = getenv("SCRIP_DCAP_TRACE"); g_dcap_trace = (_e && _e[0]) ? 1 : 0; }
         if (g_dcap_trace)
-            fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", c->star, (int)nm.v, nm.slen,
-            (nm.v == DT_S && nm.s) ? nm.s : "?");
+            fprintf(stderr, "[DCAP] STRICT-REFUSE target=%s: returned a VALUE not a NAME (by_name=0, nm.v=%d, nm.slen=%u, nm.s=%.24s) -> rc=1 (match will fail at END)\n", dcf_name(c->star), (int)nm.v,
+            nm.slen, (nm.v == DT_S && nm.s) ? nm.s : "?");
         c->rc = 1;
         return 1;
     }
 #else
     if (IS_FAIL_fn(nm)) {
         if (strict) { c->rc = 1; return 1; }
-        fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", c->star);
+        fprintf(stderr, "[DCAP] WARN deferred assignment target '%s' failed or is not invocable; conditional assignment skipped\n", dcf_name(c->star));
         return 0;
     }
     if (strict && !by_name) { c->rc = 1; return 1; }
@@ -1044,7 +1054,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
             _prev_star = 1;
 #endif
             c->pending = d;
-            c->star = star;
+            c->star = srec ? (const char *)(const void *)srec : star;
             c->wsv = rt_g_want_name;
             c->asv = g_cap_abort_gen;
             c->how = 0;
@@ -1113,9 +1123,9 @@ rt_dcap_next_t rt_dcap_land_γ(DESCR_t frame0, rt_dcf_t *c) {
     extern DESCR_t rt_nret_fix_tiny(DESCR_t, int);
     if (!c) { rt_bomb("rt_dcap_land_γ: no spine record -- release_pump passes the one it carved"); return (rt_dcap_next_t){ 1, 0 }; }
     int how = c->how & 0x3f;
-    DESCR_t nm = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(c->star + 1, (long)((c->how >> 7) & 1)) :
+    DESCR_t nm = (how == 2) ? rt_nret_fix_tiny(frame0, 0) : (how == 1) ? rt_proc_call_epilogue_named_γ(dcf_name(c->star) + 1, (long)((c->how >> 7) & 1)) :
         rt_proc_call_epilogue_γ(frame0, (long)((c->how >> 6) & 1));
-    { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
+    dcf_stage_leave(c->star);
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump(c);
 }
@@ -1126,8 +1136,8 @@ rt_dcap_next_t rt_dcap_land_ω(rt_dcf_t *c) {
     extern DESCR_t rt_ret_faildescr(void);
     if (!c) { rt_bomb("rt_dcap_land_ω: no spine record -- release_pump passes the one it carved"); return (rt_dcap_next_t){ 1, 0 }; }
     int how = c->how & 0x3f;
-    DESCR_t nm = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(c->star + 1, (long)((c->how >> 7) & 1)) : rt_proc_call_epilogue_ω((long)((c->how >> 6) & 1));
-    { extern void rt_eval_stage_leave(const char *); rt_eval_stage_leave(c->star ? c->star + 1 : (const char *)0); }
+    DESCR_t nm = (how == 2) ? rt_ret_faildescr() : (how == 1) ? rt_proc_call_epilogue_named_ω(dcf_name(c->star) + 1, (long)((c->how >> 7) & 1)) : rt_proc_call_epilogue_ω((long)((c->how >> 6) & 1));
+    dcf_stage_leave(c->star);
     if (rt_dcap_star_finish(c, nm)) return (rt_dcap_next_t){ 1, 0 };
     return rt_dcap_pump(c);
 }

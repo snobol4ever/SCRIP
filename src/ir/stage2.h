@@ -38,6 +38,7 @@ typedef struct ProcEntry {
     int decl_level;
     IR_t * proc_entry_node;
     int thunk_kind;
+    unsigned thunk_flags;
 } ProcEntry;
 struct Resolve_PredEntry_t;
 typedef struct Resolve_PredTable { struct Resolve_PredEntry_t *buckets[STAGE2_PL_PRED_TABLE_SIZE]; } Resolve_PredTable;

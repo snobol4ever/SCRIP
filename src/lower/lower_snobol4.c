@@ -8,6 +8,7 @@
 #include <time.h>
 #include <setjmp.h>
 #include "lower.h"
+#include "dtp.h"
 #include "bb_program.h"
 #include "parsers/icon/icon_lex.h"
 #include "snobol4_system_fns.h"
@@ -37,7 +38,7 @@ typedef struct {
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
 static int sno_fname_is_multiproto(const char * fname);
-typedef struct { const char * name; const tree_t * expr; int salt; int want_name; } sno_expr_ent_t;
+typedef struct { const char * name; const tree_t * expr; int salt; int want_name; int nm; int stage; } sno_expr_ent_t;
 static cv_t g_sno_exprs;
 static int g_sno_expr_salt = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -119,7 +120,7 @@ static const char * sno_expr_collect(const tree_t * expr) {
     if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPR$%dF%d", (int) g_sno_exprs.len, g_sno_expr_salt);
     else snprintf(buf, sizeof buf, "EXPR$%d", (int) g_sno_exprs.len);
     if (*xv) { size_t bl = strlen(buf); snprintf(buf + bl, sizeof buf - bl, "$%s", xv); }
-    { sno_expr_ent_t x; x.name = lp_strdup(buf); x.expr = expr; x.salt = g_sno_expr_salt; x.want_name = 0; CV_PUSH(g_sno_exprs, sno_expr_ent_t) = x; return x.name; }
+    { sno_expr_ent_t x; x.name = lp_strdup(buf); x.expr = expr; x.salt = g_sno_expr_salt; x.want_name = 0; x.nm = 0; x.stage = *xv ? 1 : 0; CV_PUSH(g_sno_exprs, sno_expr_ent_t) = x; return x.name; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_expr_collect_nm(const tree_t * expr) {
@@ -130,7 +131,7 @@ static const char * sno_expr_collect_nm(const tree_t * expr) {
     char buf[40];
     if (g_sno_expr_salt) snprintf(buf, sizeof buf, "EXPRNM$%dF%d", (int) g_sno_exprs.len, g_sno_expr_salt);
     else snprintf(buf, sizeof buf, "EXPRNM$%d", (int) g_sno_exprs.len);
-    { sno_expr_ent_t x; x.name = lp_strdup(buf); x.expr = expr; x.salt = g_sno_expr_salt; x.want_name = 1; CV_PUSH(g_sno_exprs, sno_expr_ent_t) = x; return x.name; }
+    { sno_expr_ent_t x; x.name = lp_strdup(buf); x.expr = expr; x.salt = g_sno_expr_salt; x.want_name = 1; x.nm = 1; x.stage = 0; CV_PUSH(g_sno_exprs, sno_expr_ent_t) = x; return x.name; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_expr_collect_wn(const tree_t * expr) {
@@ -4233,6 +4234,8 @@ void sno_expr_thunks_build(int x0) {
         g_stage2.proc_table[xpi].is_generator = 0;
         g_stage2.proc_table[xpi].dyn_scope = 1;
         g_stage2.proc_table[xpi].thunk_kind = PROC_THUNK_EXPR;
+        g_stage2.proc_table[xpi].thunk_flags =
+            SNO_DSTAR_THUNK | (CV_AT(g_sno_exprs, sno_expr_ent_t, xi).nm ? SNO_DSTAR_EXPRNM : 0u) | (CV_AT(g_sno_exprs, sno_expr_ent_t, xi).stage ? SNO_DSTAR_STAGEVAR : 0u);
         g_stage2.proc_table[xpi].result_name = CV_AT(g_sno_exprs, sno_expr_ent_t, xi).name;
         g_stage2.proc_table[xpi].bb_idx = bb_program_add(&g_stage2.bbp, gx);
     }

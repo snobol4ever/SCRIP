@@ -1289,6 +1289,11 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     else if (_ihas_p) emit_textf("  .quad .Lstartup_ipnames%d\n", i);
                     else emit_textf("  .quad 0\n");
                     emit_textf("  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n  .long %d\n", proc_nparams_buf[i], _nf, proc_fb_buf[i], _rkflags, pe->rest_kind, pe->named_rest);
+                    {
+                        extern const char *emit_thunk_star_label(const char *);
+                        if (pe->thunk_kind == PROC_THUNK_EXPR) emit_textf("  .quad %s\n", emit_thunk_star_label(pe->name));
+                        else emit_textf("  .quad 0\n");
+                    }
                     emit_textf("  .section .text\n");
                     emit_textf("  .intel_syntax noprefix\n");
                     emit_textf("  lea rdi, [rip + .Lstartup_prec%d]\n", i);
@@ -1415,6 +1420,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     "  .section .rodata\n  .Lstartup_rootcall: .string \"main\"\n  .align 8\n  .Lstartup_prec_root:\n  .quad .Lstartup_rootcall\n  .quad main_\xce\xb1\n  .quad 0\n  .quad 0\n  .quad "
                     "0\n");
                 emit_textf("  .long %d\n  .long %d\n  .long 0\n  .long %d\n  .long %d\n  .long %d\n", _mp->nparams, _mp->nformals, (_mp->is_variadic ? 4 : 0) | 16, _mp->rest_kind, _mp->named_rest);
+                emit_textf("  .quad 0\n");
                 emit_textf("  .section .text\n  .intel_syntax noprefix\n  lea rdi, [rip + .Lstartup_prec_root]\n  call rt_proc_register_rec@PLT\n");
             }
         }

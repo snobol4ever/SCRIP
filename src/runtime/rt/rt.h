@@ -83,6 +83,7 @@ typedef struct rt_proc_reg_rec {
     int32_t flags;
     int32_t rest_kind;
     int32_t named_rest;
+    void *star;
 } rt_proc_reg_rec_t;
 void rt_proc_register_rec(const rt_proc_reg_rec_t *r);
 void rt_proc_reset(void);

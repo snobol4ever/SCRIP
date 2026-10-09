@@ -35,6 +35,9 @@ _Static_assert(sizeof(sno_callee_rec_t) == 56 && __builtin_offsetof(sno_callee_r
 #endif
 typedef struct sno_dstar_rec { char mark[8]; const char *star; int32_t pidx; uint32_t flags; } sno_dstar_rec_t;
 #define SNO_DSTAR_VARREF 1u
+#define SNO_DSTAR_THUNK 2u
+#define SNO_DSTAR_EXPRNM 4u
+#define SNO_DSTAR_STAGEVAR 8u
 #define SNO_DTX_REC(d) ((sno_dstar_rec_t *)(d).p)
 #ifdef __cplusplus
 static_assert(sizeof(sno_dstar_rec_t) == 24 && __builtin_offsetof(sno_dstar_rec_t, star) == 8 && __builtin_offsetof(sno_dstar_rec_t, pidx) == 16,

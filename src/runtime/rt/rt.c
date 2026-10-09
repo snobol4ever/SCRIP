@@ -1393,6 +1393,7 @@ rt_call_next_t rt_call_open_found(const char *name, int nargs, int *registered) 
 static int rt_eval_stage_is_var(const char *name) { return name && name[0] == 'E' && !strncmp(name, "EXPR$", 5) && strchr(name + 5, '$'); }
 void rt_eval_stage_enter(const char *name) { if (g_error == 0 && !rt_eval_stage_is_var(name)) g_error = G_ERROR_EVAL_STAGE; }
 void rt_eval_stage_leave(const char *name) { if (g_error == G_ERROR_EVAL_STAGE && !rt_eval_stage_is_var(name)) g_error = 0; }
+void rt_eval_stage_leave_var(int is_var) { if (g_error == G_ERROR_EVAL_STAGE && !is_var) g_error = 0; }
 void rt_eval_stage_leave_word(long word) { long idx = word >> 40; if (g_error == G_ERROR_EVAL_STAGE && !((idx >= 0 && idx < g_rt_gen_proc_count) ? g_rt_gen_procs[idx].stage_var : 0)) g_error = 0; }
 rt_call_next_t rt_call_open_staged(const char *name, int *registered) {
     rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0;
@@ -1416,6 +1417,12 @@ static long rt_dcap_call_prepare_p(rt_proc_t *p, const char *name, short *how, i
 }
 long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_find(name), name, how, nsb, registered); }
 static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r) {
+    if (r->flags & SNO_DSTAR_THUNK) {
+        if (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count) return &g_rt_gen_procs[r->pidx];
+        fprintf(stderr, "rt_proc_of_rec: the thunk %s has no registry slot in its star record -- its startup record must write pidx, never a by-name lookup (CEO-1362 chunk 2b)\n",
+            r->star ? r->star : "?");
+        { volatile char *z = (volatile char *)0; (void)*z; }
+    }
     rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count && g_rt_gen_procs[r->pidx].name && g_rt_gen_procs[r->pidx].name[0] != 1) ? &g_rt_gen_procs[r->pidx] : rt_proc_find(r->star + 1);
     if (p) r->pidx = (int32_t)(p - g_rt_gen_procs);
     return p;
@@ -2386,7 +2393,7 @@ void rt_gc_root_args(void) {
 void rt_nofail_abort(void) { extern void core_runtime_error(int code, const char *msg); core_runtime_error(35, "unexpected failure in -nofail mode"); exit(1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
-    _Static_assert(sizeof(rt_proc_reg_rec_t) == 64, "ONE-REG record is 64 bytes");
+    _Static_assert(sizeof(rt_proc_reg_rec_t) == 72 && __builtin_offsetof(rt_proc_reg_rec_t, star) == 64, "ONE-REG record is 72 bytes, the thunk's star record last");
     _Static_assert(__builtin_offsetof(rt_proc_reg_rec_t, pnames) == 32 && __builtin_offsetof(rt_proc_reg_rec_t, nparams) == 40 && __builtin_offsetof(rt_proc_reg_rec_t, flags) == 52,
         "ONE-REG field offsets are law");
     extern void **rt_pl_dc_slot(long idx);
@@ -2454,6 +2461,7 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
         if (r->dcfn) { void **sl = rt_pl_dc_slot(i); if (sl) *sl = r->dcfn; }
         if (r->flags & 8) p->is_generator = 1;
         p->thunk = (r->flags & 64) ? 1 : 0;
+        if (r->star) { sno_dstar_rec_t *sr = (sno_dstar_rec_t *)r->star; sr->pidx = (int32_t)i; p->stage_var = (sr->flags & SNO_DSTAR_STAGEVAR) ? 1 : 0; }
         if (r->flags & 32) p->pinned = 1;
     }
 }
