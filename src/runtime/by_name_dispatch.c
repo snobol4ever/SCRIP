@@ -710,7 +710,7 @@ int rk_is_truthy(DESCR_t v) {
     if (rk_match_is_nil(v)) return 0;
     if (rk_match_is(v)) return 1;
     if (rk_qh_is(v)) return rk_qh_n(v) > 0;
-    if (v.v == DT_S && v.s && v.slen != 0xFFFFFFFFu && v.s[0] != RK_TY) return v.s[0] != '\0';
+    if (v.v == DT_S && v.s && v.slen != 0xFFFFFFFFu && !rk_typeobj_name(v)) return v.s[0] != '\0';
     if (v.v == DT_ORDER) return (v.i != 0);
     return rt_is_truthy(v);
 }
