@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 2326
-#define GC_ALLOC_TAB_N_VOID 286
+#define GC_ALLOC_TAB_N_VOID 285
 #define GC_ALLOC_TAB_N_DESCR 1155
-#define GC_ALLOC_TAB_N_OTHER 869
+#define GC_ALLOC_TAB_N_OTHER 870
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -145,7 +145,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "_ZL14bb_define_bindv", GC_RET_UNKNOWN },
     { "_ZL18bb_call_byname_strP4IR_t", GC_RET_UNKNOWN },
     { "_ZL22bb_call_byname_gen_strP4IR_t", GC_RET_UNKNOWN },
-    { "_ZL26xa_flat_chain_prologue_strPKc", GC_RET_UNKNOWN },
+    { "_ZL26xa_flat_chain_prologue_strPKcPi", GC_RET_UNKNOWN },
     { "_ZL30xa_flat_chain_epilogue_sig_striPKc", GC_RET_UNKNOWN },
     { "_b_MON_OPEN", GC_RET_DESCR },
     { "_b_add", GC_RET_DESCR },
@@ -2331,6 +2331,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "walk_bb_node", GC_RET_OTHER },
     { "walk_bb_node_inner", GC_RET_OTHER },
     { "xa_flat_chain_epilogue_sig", GC_RET_VOID },
-    { "xa_flat_chain_prologue", GC_RET_VOID },
+    { "xa_flat_chain_prologue", GC_RET_OTHER },
 };
 #endif
