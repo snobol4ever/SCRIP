@@ -3671,6 +3671,25 @@ static void rk_class_default_tweaks(tree_t * prog) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_nested_elem_sets(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_nested_elem_sets(t->c[i]);
+    while ((t->t == TT_ARR_SET || t->t == TT_HASH_SET) && t->n == 3 && t->c[0] && (t->c[0]->t == TT_ARR_GET || t->c[0]->t == TT_HASH_GET) && t->c[0]->n >= 2) {
+        tree_t * g = t->c[0];
+        tree_t * put = ast_node_new(TT_FNC);
+        put->v.sval = (char *) "__rk_elem_put";
+        ast_push(put, leaf_sval2(TT_VAR, "__rk_elem_put"));
+        ast_push(put, leaf_sval2(TT_QLIT, t->t == TT_ARR_SET ? "a" : "h"));
+        ast_push(put, rk_clone_tree(g));
+        ast_push(put, t->c[1]);
+        ast_push(put, t->c[2]);
+        t->t = g->t == TT_ARR_GET ? TT_ARR_SET : TT_HASH_SET;
+        t->c[0] = g->c[0];
+        t->c[1] = g->c[1];
+        t->c[2] = put;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_assign_pow_rhs(tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_assign_pow_rhs(t->c[i]);
@@ -3689,6 +3708,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_class_default_tweaks((tree_t *) prog);
     rk_tail_ifs((tree_t *) prog);
     rk_assign_pow_rhs((tree_t *) prog);
+    rk_nested_elem_sets((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);
     rk_rename_user_main((tree_t *) prog);
     { int gseq = 0; rk_desugar_gather((tree_t *) prog, &gseq); }

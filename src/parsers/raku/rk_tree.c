@@ -1804,6 +1804,10 @@ void rkb_postfix(RkB *b, RkTerm *it, RkPf *pf) {
     }
     it->npost++; it->to = pf->to;
     if (!first && pf->k == 'P' && pf->txt && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--")) && rk_is_elem(e)) { it->t = rkb_elem_incdec(b, e, pf->txt[0] == '+', 1); return; }
+    if (first && it->kind == TK_VAR && pf->hyper && pf->k == 'P' && pf->txt && it->cls == 'A' && (!strcmp(pf->txt, "++") || !strcmp(pf->txt, "--"))) {
+        tree_t *c = make_call("__rk_hyper_incdec"); expr_add_child(c, var_node(b, it->name)); expr_add_child(c, rk_ilit(pf->txt[0] == '+' ? 1 : -1));
+        it->t = expr_binary(TT_ASSIGN, var_node(b, it->name), c); return;
+    }
     if (first && it->kind == TK_VAR) {
         const char *name = it->name; int cls = it->cls;
         if (cls == 'A' && pf->k == '[') {
@@ -2155,6 +2159,11 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
         tree_t *rhs = el_rest(b, e0);
         TL targets = { 0 }; rk_group_targets(t0->t, &targets);
         return rk_destructure(b, &targets, rhs);
+    }
+    if (op1 && !strcmp(op1, ".=") && (plain(t0, 'A') || plain(t0, 'H')) && L->nitem == 2 && L->t1.kind == TK_DOTTY && L->t1.t && L->t1.t->t == TT_METHCALL) {
+        tree_t *mc = L->t1.t; mc->c[0] = var_node(b, t0->name);
+        tree_t *cv = make_call(plain(t0, 'A') ? "__rk_to_array" : "__rk_to_hash"); expr_add_child(cv, mc);
+        return expr_binary(TT_ASSIGN, var_node(b, t0->name), cv);
     }
     if (op1 && !strcmp(op1, ".=") && plain(t0, 'S') && L->nitem == 2 && L->t1.kind == TK_DOTTY && L->t1.t && L->t1.t->t == TT_METHCALL) {
         tree_t *mc = L->t1.t; mc->c[0] = var_node(b, t0->name);
