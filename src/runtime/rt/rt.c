@@ -571,7 +571,7 @@ typedef struct {
     int named_rest;
     int jmp_entry;
     unsigned int redefined : 15;
-    unsigned int self_save : 1;
+    unsigned int thunk : 1;
     unsigned int pinned : 16;
     int zstatic;
     int pnames_owned;
@@ -1033,9 +1033,8 @@ void rt_proc_set_generator(const char *name, int is_gen) { if (!name) return; { 
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_is_variadic(const char *name) { if (!name) return 0; { int i = rt_proc_hash_lookup(name); if (i >= 0) return g_rt_gen_procs[i].is_variadic ? 1 : 0; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rt_proc_set_thunk(const char *name, int v) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].thunk = v ? 1 : 0; return; } } }
 void rt_proc_set_variadic(const char *name, int is_var) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].is_variadic = is_var ? 1 : 0; return; } } }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void rt_proc_set_self_save(const char *name, int v) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].self_save = v ? 1 : 0; return; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_proc_set_rest_kind(const char *name, int kind) { if (!name) return; { int i = rt_proc_hash_lookup(name); if (i >= 0) { g_rt_gen_procs[i].rest_kind = kind; return; } } }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1127,7 +1126,7 @@ long rt_proc_call_open(const char *name, int nargs);
 void *rt_frame_prep(void *fb, long fbytes);
 void *rt_proc_open_fn(void);
 DESCR_t rt_pl_enter(void *fn, long nargs);
-DESCR_t rt_proc_enter(void *fn, long nargs);
+DESCR_t rt_proc_enter(void *fn, long nargs, long touched);
 DESCR_t rt_proc_enter_named(void *fn, long idx);
 DESCR_t rt_proc_enter_frag(void *fn, long idx);
 int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn);
@@ -1139,7 +1138,7 @@ DESCR_t rt_proc_call_epilogue_ω(long touched);
 #define RT_WORD_HOW(w) ((long)((w) & 0x3f))
 #define RT_WORD_TOUCH(w) ((long)(((w) >> 6) & 1))
 #define RT_WORD_WN(w) ((long)(((w) >> 7) & 1))
-static inline __attribute__((always_inline)) long rt_proc_touches_level(const rt_proc_t *p) { return (p->dyn_scope || p->is_generator) ? 1L : 0L; }
+static inline __attribute__((always_inline)) long rt_proc_touches_level(const rt_proc_t *p) { return ((p->dyn_scope && !p->thunk) || p->is_generator) ? 1L : 0L; }
 __asm__( ".text\n" ".globl rt_tiny_record_enter\n" "rt_tiny_record_enter:\n" "  pushq %rbp\n" "  movq %rsp, %rbp\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n"
     "  movl $2, (%rsp)\n" "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  movq %rdi, %rax\n" "  movq %rsi, %rdx\n" "  shlq $4, %rdx\n" "  movq %rsi, %rcx\n" "  shlq $3, %rcx\n"
     "  addq %rdx, %rcx\n" "  addq $47, %rcx\n" "  andq $-16, %rcx\n" "  addq $8, %rcx\n" "  subq %rcx, %rsp\n" "  movq g_call_args@GOTPCREL(%rip), %r10\n" "  movq (%r10), %r10\n" "  xorq %rdi, %rdi\n"
@@ -1152,19 +1151,6 @@ __asm__( ".text\n" ".globl rt_tiny_record_enter\n" "rt_tiny_record_enter:\n" "  
     "4:\n" "  jmp *%rax\n" "2:\n" "  movq %rax, %rdi\n" "  movq %rdx, %rsi\n" "  xorl %edx, %edx\n" "  leaq -40(%rbp), %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n"
     "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rbp\n" "  jmp rt_nret_fix_tiny\n" "3:\n" "  leaq -40(%rbp), %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n"
     "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rbp\n" "  jmp rt_ret_faildescr\n" );
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__asm__( ".text\n" ".globl rt_proc_enter_barrier\n" "rt_proc_enter_barrier:\n" "  pushq %rsi\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n"
-    "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  subq $8, %rsp\n" "  movq %rdi, %rax\n" "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
-    "  cmpb $0, (%r10)\n" "  je 4f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n"
-    "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "4:\n" "  pushq %rdx\n" "  pushq %rcx\n" "  jmp *%rax\n" "2:\n" "  addq $24, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n"
-    "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  movq %rax, %rdi\n" "  movq %rdx, %rsi\n" "  popq %rdx\n" "  jmp rt_proc_call_epilogue_barrier_\u03b3\n" "3:\n"
-    "  addq $24, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n"
-    "  jmp rt_proc_call_epilogue_barrier_\u03c9\n" );
-DESCR_t rt_proc_enter_barrier(void *fn, long nsb);
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_barrier_γ(DESCR_t frame0, long nsb) { (void)nsb; return rt_proc_call_epilogue_γ(frame0, 1L); }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-DESCR_t rt_proc_call_epilogue_barrier_ω(long nsb) { (void)nsb; return rt_proc_call_epilogue_ω(1L); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t rt_ret_faildescr(void) { rt_g_ret_by_name = 0; return FAILDESCR; }
 void *rt_dyn_alpha_fn(const char *name, void *fallback);
@@ -1237,7 +1223,7 @@ static void rt_sno_shim_refresh_ent(rt_proc_t *p, const char *name, void *ent) {
 }
 static void rt_sno_shim_refresh(rt_proc_t *p, const char *name) { rt_sno_shim_refresh_ent(p, name, (void *)0); }
 DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs) {
-    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) {
+    if (p && p->dyn_scope && !p->thunk) {
         void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0);
         if (!afn) afn = rt_sno_shim_lazy(p, name);
         if (afn) {
@@ -1276,9 +1262,9 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs) {
     if (!fbytes) return FAILDESCR;
     if (!p->dyn_scope) {
 #if RT_DIAG
-        if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L); }
+        if (p->jmp_entry) { rt_c2bb_hit("descr.enter.lex", name); return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L, rt_proc_touches_level(p)); }
 #else
-        if (p->jmp_entry) { return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L); }
+        if (p->jmp_entry) { return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L, rt_proc_touches_level(p)); }
 #endif
         core_runtime_error(287,
             "lexical procedure has no jmp_entry: the callregime path is DELETED (CEO-1086, Lon: eradicate C->BB->C->BB). It alloca'd the frame on the C STACK, called the box, and then chose omega-vs"
@@ -1288,9 +1274,9 @@ DESCR_t rt_call_proc_descr_p(rt_proc_t *p, const char *name, int nargs) {
     }
     rt_g_want_name = _wn_gen;
 #if RT_DIAG
-    if (name && strchr(name, '$')) { rt_c2bb_hit("descr.enter.dyn$", name); return rt_proc_enter_barrier((void *)p->fn, 0L); }
+    if (p->thunk) { rt_c2bb_hit("descr.enter.thunk", name); return rt_proc_enter((void *)p->fn, 0L, rt_proc_touches_level(p)); }
 #else
-    if (name && strchr(name, '$')) { return rt_proc_enter_barrier((void *)p->fn, 0L); }
+    if (p->thunk) { return rt_proc_enter((void *)p->fn, 0L, rt_proc_touches_level(p)); }
 #endif
 #if RT_DIAG
     rt_c2bb_hit("descr.enter.dyn.named", name);
@@ -1306,7 +1292,7 @@ static rt_call_next_t rt_c2bb_word(rt_proc_t *p, long fn, long how, int nsb, lon
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int nargs) {
-    if (p && p->dyn_scope && !p->self_save && !(name && strchr(name, '$'))) {
+    if (p && p->dyn_scope && !p->thunk) {
         void *afn = rt_dyn_alpha_fn_p(p, name, (void *)0);
         if (!afn) afn = rt_sno_shim_lazy(p, name);
         if (afn) return rt_c2bb_word(p, (long)(uintptr_t)afn, 2, nargs > 0 ? nargs : 0, 0L);
@@ -1331,7 +1317,7 @@ static rt_call_next_t rt_call_open_by_name_p(rt_proc_t *p, const char *name, int
         long fbytes = rt_proc_call_open_pn(&p, name, nargs);
         if (!fbytes) return (rt_call_next_t){ 0, 0 };
         rt_g_want_name = _wn_gen;
-        return rt_c2bb_word(p, (long)(uintptr_t)p->fn, !p->dyn_scope ? 0 : (name && strchr(name, '$')) ? 3 : 1, 0, (long)_wn_gen);
+        return rt_c2bb_word(p, (long)(uintptr_t)p->fn, (!p->dyn_scope || p->thunk) ? 0 : 1, 0, (long)_wn_gen);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1637,7 +1623,7 @@ DESCR_t rt_proc_call_gen_h(const char *name, int nargs, void **hout, const uint6
 #if RT_DIAG
         rt_c2bb_hit("gen_h.enter", name);
 #endif
-        return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L);
+        return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L, rt_proc_touches_level(p));
     }
     if (hout) *hout = (void *)0;
     core_runtime_error(287,
@@ -1751,15 +1737,13 @@ int rt_proc_call_prologue(rt_proc_t **pp, DESCR_t *args, int nargs, int wn) {
     (void)pn;
     (void)args;
     (void)rname;
-    if (!p->self_save) rt_nsave_bomb("rt_proc_call_prologue", p->name);
+    if (!p->thunk) rt_nsave_bomb("rt_proc_call_prologue", p->name);
     fbytes = (int)(((long)fbytes + 15L) & ~15L);
 #if RT_DIAG
     if (g_trace_budget != 0) sno_trace_call(p->result_name ? p->result_name : p->name);
     if (!rt_trace_layer_idle()) { extern long g_stno; rt_trace_event_args(TRK_CALL, p->result_name ? p->result_name : p->name, args, nargs, NULVCL, g_stno); }
 #endif
     if (slot) *pp = &g_rt_gen_procs[ix];
-    rt_k_level++;
-    rt_k_level_mirror();
     rt_g_want_name = rt_wn_park_on() ? 0 : wn;
     return fbytes;
 }
@@ -1778,10 +1762,7 @@ static DESCR_t rt_proc_epilogue_named(const char *name, int failed, long wn) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rt_proc_epilogue_p(rt_proc_t *p, int failed, int wn_parked) {
     if (!p) return failed ? FAILDESCR : NULVCL;
-    if (p->self_save) {
-        fprintf(stderr, "rt_proc_epilogue_p: the self-saving thunk %s reached the cell-reading epilogue -- its road must hand the land frame0 (CEO-1543 chunk 1)\n", p->name ? p->name : "?");
-        abort();
-    }
+    if (p->thunk) { fprintf(stderr, "rt_proc_epilogue_p: the thunk %s reached the cell-reading epilogue -- its road must hand the land frame0\n", p->name ? p->name : "?"); abort(); }
     (void)wn_parked;
     rt_nsave_bomb("rt_proc_epilogue_p", p->name);
     return FAILDESCR;
@@ -1860,15 +1841,15 @@ DESCR_t rt_pl_dc_leave_ω(long vtmark, void *fb) { rt_k_level--; rt_k_level_mirr
 const char *rt_proc_pname(const char *name, int k) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return (p && p->pnames && k >= 0 && k < p->nparams) ? p->pnames[k] : (const char *)0; }
 const char *rt_proc_result_name_get(const char *name) { rt_proc_t *p = name ? rt_proc_find(name) : (rt_proc_t *)0; return p ? (p->result_name ? p->result_name : p->name) : (const char *)0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-__asm__( ".text\n" ".globl rt_proc_enter\n" "rt_proc_enter:\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n" "  movl %r15d, 4(%rsp)\n"
-    "  movq %r13, 8(%rsp)\n" "  movq %rdi, %rax\n" "  movq %rsi, %r9\n" "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  pushq %rdx\n" "  pushq %rcx\n" "  testq %r9, %r9\n" "  jz 6f\n"
-    "  movq %r9, %rcx\n" "  shlq $4, %rcx\n" "  subq %rcx, %rsp\n" "  pushq %rcx\n" "  leaq 8(%rsp), %rdi\n" "  movq g_call_args@GOTPCREL(%rip), %rsi\n" "  movq (%rsi), %rsi\n" "  shrq $3, %rcx\n"
-    "  rep movsq\n" "  popq %rcx\n" "  leaq 2f(%rip), %rcx\n" "6:\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 4f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n"
-    "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n" "4:\n" "  jmp *%rax\n" "2:\n"
-    "  addq $16, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  movq %rax, %rdi\n" "  movq %rdx, %rsi\n"
-    "  jmp rt_proc_call_epilogue_γ\n" "3:\n" "  addq $16, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n"
-    "  jmp rt_proc_call_epilogue_ω\n" );
-DESCR_t rt_proc_enter(void *fn, long nargs);
+__asm__( ".text\n" ".globl rt_proc_enter\n" "rt_proc_enter:\n" "  pushq %rdx\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n" "  movl %r15d, 4(%rsp)\n"
+    "  movq %r13, 8(%rsp)\n" "  subq $8, %rsp\n" "  movq %rdi, %rax\n" "  movq %rsi, %r9\n" "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  pushq %rdx\n" "  pushq %rcx\n" "  testq %r9, %r9\n"
+    "  jz 6f\n" "  movq %r9, %rcx\n" "  shlq $4, %rcx\n" "  subq %rcx, %rsp\n" "  pushq %rcx\n" "  leaq 8(%rsp), %rdi\n" "  movq g_call_args@GOTPCREL(%rip), %rsi\n" "  movq (%rsi), %rsi\n"
+    "  shrq $3, %rcx\n" "  rep movsq\n" "  popq %rcx\n" "  leaq 2f(%rip), %rcx\n" "6:\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n" "  cmpb $0, (%r10)\n" "  je 4f\n"
+    "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n" "  movq 48(%r10), %r9\n" "  movq 56(%r10), %r10\n"
+    "4:\n" "  jmp *%rax\n" "2:\n" "  addq $24, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n" "  popq %r12\n" "  popq %rbx\n" "  movq %rax, %rdi\n"
+    "  movq %rdx, %rsi\n" "  popq %rdx\n" "  jmp rt_proc_call_epilogue_γ\n" "3:\n" "  addq $24, %rsp\n" "  movl 4(%rsp), %r15d\n" "  movq 8(%rsp), %r13\n" "  addq $16, %rsp\n" "  popq %r14\n"
+    "  popq %r12\n" "  popq %rbx\n" "  popq %rdi\n" "  jmp rt_proc_call_epilogue_ω\n" );
+DESCR_t rt_proc_enter(void *fn, long nargs, long touched);
 __asm__( ".text\n" ".globl rt_proc_enter_named\n" "rt_proc_enter_named:\n" "  pushq %rsi\n" "  pushq %rbx\n" "  pushq %r12\n" "  pushq %r14\n" "  subq $16, %rsp\n" "  movl $2, (%rsp)\n"
     "  movl %r15d, 4(%rsp)\n" "  movq %r13, 8(%rsp)\n" "  subq $8, %rsp\n" "  movq %rdi, %rax\n" "  leaq 2f(%rip), %rcx\n" "  leaq 3f(%rip), %rdx\n" "  movq g_rtcc_on@GOTPCREL(%rip), %r10\n"
     "  cmpb $0, (%r10)\n" "  je 4f\n" "  movq rtccb@GOTPCREL(%rip), %r10\n" "  movq 24(%r10), %rsi\n" "  movq 32(%r10), %rdi\n" "  movq 64(%r10), %r11\n" "  movq 40(%r10), %r8\n"
@@ -1936,7 +1917,7 @@ static DESCR_t rt_proc_call_c_lex(rt_proc_t *p, DESCR_t *args, int nargs, int wn
 #if RT_DIAG
         rt_c2bb_hit("c_lex.enter", p->name);
 #endif
-        return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L);
+        return rt_proc_enter((void *)p->fn, p->pinned ? (long)p->nparams : 0L, rt_proc_touches_level(p));
     }
     (void)rt_proc_call_prologue_lex(&p, nargs, wn);
     core_runtime_error(287,
@@ -2058,7 +2039,7 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs) {
     if (!p || !p->fn) return FAILDESCR;
     if (!p->dyn_scope) return rt_proc_call_c_lex(p, args, nargs, _wn);
     {
-        void *afn = (rt_byname_alpha_on() && !strchr(name, '$')) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
+        void *afn = (rt_byname_alpha_on() && !p->thunk) ? rt_dyn_alpha_fn(name, (void *)0) : (void *)0;
         if (afn) {
             extern DESCR_t rt_tiny_record_enter(void *fn, long nargs);
             int _n = nargs;
@@ -2074,9 +2055,9 @@ DESCR_t rt_call_named_proc(const char *name, DESCR_t *args, int nargs) {
     }
     (void)rt_proc_call_prologue(&p, args, nargs, _wn);
 #if RT_DIAG
-    rt_c2bb_hit((name && strchr(name, '$')) ? "named.enter.dyn$" : "named.enter.dyn.named", name);
+    rt_c2bb_hit(p->thunk ? "named.enter.thunk" : "named.enter.dyn.named", name);
 #endif
-    return (name && strchr(name, '$')) ? rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
+    return p->thunk ? rt_proc_enter((void *)p->fn, p->pinned ? (long)nargs : 0L, rt_proc_touches_level(p)) : rt_proc_enter_named((void *)p->fn, (long)(p - g_rt_gen_procs));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_index_of(const char *name) {
@@ -2466,7 +2447,7 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
         p->jmp_entry = (r->flags >> 4) & 1;
         if (r->dcfn) { void **sl = rt_pl_dc_slot(i); if (sl) *sl = r->dcfn; }
         if (r->flags & 8) p->is_generator = 1;
-        p->self_save = (r->flags & 64) ? 1 : 0;
+        p->thunk = (r->flags & 64) ? 1 : 0;
         if (r->flags & 32) p->pinned = 1;
     }
 }

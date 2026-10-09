@@ -883,6 +883,7 @@ test_gate_sno_eval_chains_nothing_references_are_reclaimed_and_a_full_code_pool_
 test_gate_sno_eval_fails_when_its_expression_fails.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_converted_expression_keeps_the_replacement_pointer.sh	WIRED	-	-	-
 test_gate_sno_eval_of_a_string_opens_its_chain_from_the_box_and_lands_with_no_c_frame.sh	WIRED	-	-	-
+test_gate_sno_eval_of_an_unevaluated_expression_is_no_function_level.sh	WIRED	-	-	-
 test_gate_sno_eval_of_text_that_does_not_compile_raises_spitbols_syntax_error.sh	WIRED	-	-	-
 test_gate_sno_every_real_overflow_in_the_family_raises.sh	WIRED	-	-	-
 test_gate_sno_every_unused_operator_opsyn_names_calls_its_function.sh	WIRED	-	-	-

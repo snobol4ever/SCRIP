@@ -153,11 +153,7 @@ static int eval_thunks_emit_from(int pc0) {
         rt_proc_set_named_rest(pname, g_stage2.proc_table[pi].named_rest);
         rt_proc_set_dyn_scope(pname, g_stage2.proc_table[pi].dyn_scope);
         if (g_stage2.proc_table[pi].result_name) rt_proc_set_result_name(pname, g_stage2.proc_table[pi].result_name);
-        {
-            extern int emit_thunk_self_save_k(stage2_t *, const char *);
-            extern void rt_proc_set_self_save(const char *, int);
-            rt_proc_set_self_save(pname, emit_thunk_self_save_k(&g_stage2, pname) >= 0);
-        }
+        { extern void rt_proc_set_thunk(const char *, int); rt_proc_set_thunk(pname, g_stage2.proc_table[pi].thunk_kind != PROC_THUNK_NONE); }
     }
     IR_graph_t *cfg_sv = g_emit_cfg;
     int fa = g_frame_active;

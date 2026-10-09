@@ -562,7 +562,7 @@ def parity_walk(insns, succ, asm_text):
     So this walk starts at every `.type X, @function` label, every box port label, every procedure port label and
     `main`, with the parity the road fixes there.  MEASURED, NOT ASSUMED, AT THE ONE PLACE C ENTERS EMITTED CODE
     (cto 2026-09-22): the four hand-written entry shims in rt.c all JUMP into the port after their own pushes --
-    rt_proc_enter moves rsp by -56, rt_proc_enter_named by -72, rt_proc_enter_barrier and rt_proc_enter_frag by
+    rt_proc_enter, rt_proc_enter_named, rt_proc_enter_barrier and rt_proc_enter_frag each move rsp by
     -72 -- so from a C call's 8 mod 16 every one lands the port at 0 mod 16; the wiring's own jumps carry the grid
     the grid census holds at every decidable floor (3790 of 3790, CTO-103); and `main` is the ONE label libc
     calls, entered at 8, whose 65544-byte prologue puts it back on the grid.  A first cut called every column-0

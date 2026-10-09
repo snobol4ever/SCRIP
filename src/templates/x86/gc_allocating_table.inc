@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2208
-#define GC_ALLOC_TAB_N_VOID 263
+#define GC_ALLOC_TAB_N 2206
+#define GC_ALLOC_TAB_N_VOID 262
 #define GC_ALLOC_TAB_N_DESCR 1123
-#define GC_ALLOC_TAB_N_OTHER 807
+#define GC_ALLOC_TAB_N_OTHER 806
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -565,9 +565,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "emit_chain", GC_RET_OTHER },
     { "emit_drive", GC_RET_VOID },
     { "emit_install_proc", GC_RET_OTHER },
-    { "emit_proc_props", GC_RET_VOID },
     { "emit_register_proc", GC_RET_VOID },
-    { "emit_thunk_self_save_k", GC_RET_OTHER },
     { "eps_closure_into", GC_RET_VOID },
     { "etrace_spell_of_cell", GC_RET_OTHER },
     { "eval_build_chain", GC_RET_OTHER },

@@ -1214,8 +1214,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                     int _nf = (_pin >= 0 && _pin < s2->proc_count) ? s2->proc_table[_pin].nformals : 0;
                     int _rkflags =
                         (pe->dyn_scope ? 1 : 0) | ((proc_ispat_buf[i] && proc_zstatic_buf[i]) ? 2 : 0) | (pe->is_variadic ? 4 : 0) | (pe->is_generator ? 8 : 0) |
-                        ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0);
-                    { extern int emit_thunk_self_save_k(stage2_t *, const char *); if (emit_thunk_self_save_k(s2, proc_names_buf[i]) >= 0) _rkflags |= 64; }
+                        ((strncmp(proc_names_buf[i], "gram__", 6) != 0) ? 16 : 0) | (pe->thunk_kind != PROC_THUNK_NONE ? 64 : 0);
                     {
                         IR_graph_t *_pg4 = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
                         extern int zls_g_entry_block(const IR_graph_t *);
