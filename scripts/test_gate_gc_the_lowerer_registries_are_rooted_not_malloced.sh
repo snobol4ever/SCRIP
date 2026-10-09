@@ -47,11 +47,11 @@ W="$ROOT/../corpus/tests/snobol4/code_call_runtime_define_pending_entry.sno"
 [ -f "$W" ] || { echo "⛔ GATE REFUSE(2) [$G]: the witness $W is not there, so nothing was measured"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
-n=$(awk '/^void lower_gc_roots\(void\)$/{f=1} f&&/&e->name\)/{a++} f&&/&e->landing\)/{c++} f&&/&g_bb_labels\.data\)/{d++} f&&/bb_src_gc_roots\(\);/{b++} f&&/^}/{exit} END{printf "%d %d %d %d", a+0, c+0, b+0, d+0}' "$LC")
+n=$(python3 "$ROOT/scripts/util_c_function_body.py" "$LC" lower_gc_roots | awk '/&e->name\)/{a++} /&e->landing\)/{c++} /&g_bb_labels\.data\)/{d++} /^bb_src_gc_roots\(\);/{b++} END{printf "%d %d %d %d", a+0, c+0, b+0, d+0}')
 if [ "$n" = "1 1 1 0" ] && grep -q 'lower_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
     echo "  structural labels PASS (lower_gc_roots visits every g_bb_labels entry's name and landing and calls bb_src_gc_roots, and the collector calls lower_gc_roots; the label block itself is arena memory and is not visited -- CEO-1272)"
 else echo "  structural labels FAIL (lower_gc_roots visits [e->name e->landing bb_src_gc_roots &g_bb_labels.data] = [$n], want [1 1 1 0], or gc_heap.c never calls lower_gc_roots)"; RC=1; fi
-n=$(awk '/^void bb_src_gc_roots\(void\)$/{f=1} f&&/&g_bb_src\.nd\[i\]\)/{a++} f&&/&g_bb_src\.src\[i\]\)/{b++} f&&/&g_bb_src\.(nd|src|line)\)/{c++} f&&/^}/{exit} END{printf "%d %d %d", a+0, b+0, c+0}' "$LC")
+n=$(python3 "$ROOT/scripts/util_c_function_body.py" "$LC" bb_src_gc_roots | awk '/&g_bb_src\.nd\[i\]\)/{a++} /&g_bb_src\.src\[i\]\)/{b++} /&g_bb_src\.(nd|src|line)\)/{c++} END{printf "%d %d %d", a+0, b+0, c+0}')
 if [ "$n" = "1 1 0" ]; then echo "  structural bb_src PASS (bb_src_gc_roots visits every entry's node and source text; the three parallel arrays are arena memory and are not visited -- CEO-1272)"
 else echo "  structural bb_src FAIL (bb_src_gc_roots visits [nd[i] src[i] block] = [$n], want [1 1 0]: an element a registry holds is not rooted, or an arena block is being visited as if the collector owned it)"; RC=1; fi
 # ⛔⭐ THE COLLECTED-HEAP ALLOCATOR FAMILY COMES FROM ITS ONE AUTHORITY, NOT FROM A SPELLING TYPED HERE (ceo CEO-946).
@@ -80,7 +80,7 @@ case "$ROOTED_RX" in
 esac
 bad=0
 for fn in lc_vec_push bb_src_note; do
-    body=$(awk -v f="$fn" 'index($0, f"(")&&/^void |^static void |^void \* /{d=1} d{print} d&&/^}/{exit}' "$LC")
+    body=$(python3 "$ROOT/scripts/util_c_function_body.py" "$LC" "$fn")
     [ -n "$body" ] || { echo "  fact-rule FAIL ($fn not found in lower_common.c, so this arm measured nothing)"; bad=1; continue; }
     printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc|free)[[:space:]]*\(' && { echo "  fact-rule FAIL ($fn grows with a C allocator)"; bad=1; }
     printf '%s' "$body" | grep -qE "$ROOTED_RX" && { echo "  fact-rule FAIL ($fn grows on the COLLECTED heap -- CEO-1244/1272 put every compile-time population in the compile-time arena)"; bad=1; }

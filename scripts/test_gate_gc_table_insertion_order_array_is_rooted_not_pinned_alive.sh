@@ -32,7 +32,7 @@ LIBDIR="$ROOT/out"; [ -f "$LIBDIR/libscrip_rt.so" ] || { echo "⛔ GATE REFUSE(2
 SBL="${SBL_BIN:-/home/resources/x64/bin/sbl}"; [ -x "$SBL" ] || { echo "⛔ GATE REFUSE(2) [$G]: no sbl at $SBL -- the ref is CUT FROM THE ORACLE at run time, never typed"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
-n=$(awk '/^static void gc_visit_tbblk\(struct _TBBLK_t \*t\)$/{f=1} f&&/->ord\)/{c++} f&&/^}/{exit} END{print c+0}' "$ROOT/src/runtime/rt/gc_heap.c")
+n=$(python3 "$ROOT/scripts/util_c_function_body.py" "$ROOT/src/runtime/rt/gc_heap.c" gc_visit_tbblk | grep -c -- '->ord)')
 if [ "$n" -ge 1 ]; then echo "  structural PASS (gc_visit_tbblk visits t->ord)"; else echo "  structural FAIL (gc_visit_tbblk does not visit t->ord -- the insertion-order array has no root)"; RC=1; fi
 { printf '        T = TABLE()\n        I = 0\nL1      I = I + 1\n        T[I] = I\n        LT(I, 20)   :S(L1)\n'
   for c in a b c d e f; do printf "        S%s = DUPL('%s', 100)\n" "$c" "$c"; done

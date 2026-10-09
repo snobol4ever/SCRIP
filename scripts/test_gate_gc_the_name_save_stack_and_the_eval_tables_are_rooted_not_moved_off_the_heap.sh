@@ -43,10 +43,10 @@ W="$ROOT/../corpus/tests/snobol4/code_call_runtime_define_pending_entry.sno"
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 cp "$W" "$T/w.sno"
-n="$(awk '/^void bnd_gc_roots\(void\)$/{f=1} f&&/for \(rk_cbh_t \*h = g_rk_cbh_cur; h; h = h->prev\)/{a++} f&&/^}/{exit} END{printf "%d", a+0}' "$ROOT/src/runtime/by_name_dispatch.c") $(grep -c 'g_rk_cbh_cur = &H;' "$ROOT/src/runtime/by_name_dispatch.c") $(grep -c 'g_rk_cbh_cur = H.prev;' "$ROOT/src/runtime/by_name_dispatch.c")"
+n="$(python3 "$ROOT/scripts/util_c_function_body.py" "$ROOT/src/runtime/by_name_dispatch.c" bnd_gc_roots | grep -cF 'for (rk_cbh_t *h = g_rk_cbh_cur; h; h = h->prev)') $(grep -oF 'g_rk_cbh_cur = &H;' "$ROOT/src/runtime/by_name_dispatch.c" | wc -l) $(grep -oF 'g_rk_cbh_cur = H.prev;' "$ROOT/src/runtime/by_name_dispatch.c" | wc -l)"
 if [ "$n" = "1 4 5" ]; then echo "  structural holds PASS (bnd_gc_roots walks the rk_cbh_t chain from g_rk_cbh_cur, the four Raku block-callback builtins link their frame record and every return unlinks it -- the holder g_rk_cb_hold is gone, CEO-1560; visiting a descriptor inside a block does not mark the block)"
 else echo "  structural holds FAIL (bnd_gc_roots chain walk, site links, site unlinks = [$n], want [1 4 5]: a held array is reclaimed under a live callback and re-carved as a string)"; RC=1; fi
-if grep -q '^void eval_gc_roots(void)$' "$ROOT/src/runtime/runtime_eval.c" && grep -q 'eval_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
+if python3 "$ROOT/scripts/util_c_function_body.py" "$ROOT/src/runtime/runtime_eval.c" eval_gc_roots 2>/dev/null | head -1 | grep -q '^void eval_gc_roots(void) {$' && grep -q 'eval_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
     echo "  structural eval PASS (eval_gc_roots is defined in runtime_eval.c AND called from the collector's root phase -- a root walk nothing calls is not a root)"
 else echo "  structural eval FAIL (eval_gc_roots is missing, or gc_heap.c never calls it: the label table and the eval cache have no root)"; RC=1; fi
 # ⛔⭐ THE COLLECTED-HEAP ALLOCATOR FAMILY COMES FROM ITS ONE AUTHORITY, NOT FROM A SPELLING TYPED HERE (ceo CEO-946).
@@ -75,7 +75,7 @@ case "$ROOTED_RX" in
 esac
 bad=0
 for fn in eval_cache_put rt_label_set_fn; do
-    body=$(awk -v f="$fn" 'index($0, f"(")&&/^static void |^void /{d=1} d{print} d&&/^}/{exit}' "$ROOT/src/runtime/runtime_eval.c")
+    body=$(python3 "$ROOT/scripts/util_c_function_body.py" "$ROOT/src/runtime/runtime_eval.c" "$fn")
     printf '%s' "$body" | grep -qE '\b(malloc|calloc|realloc|strdup)[[:space:]]*\(' && { echo "  fact-rule FAIL ($fn allocates with a C allocator -- moving a holder off the collected heap is the SAME EVASION as pinning it, one indirection further out; the cure for an unrooted holder is a ROOT)"; bad=1; }
     printf '%s' "$body" | grep -qE "$ROOTED_RX" || { echo "  fact-rule FAIL ($fn no longer allocates from the collected heap at all, so the roots below are guarding nothing)"; bad=1; }
 done

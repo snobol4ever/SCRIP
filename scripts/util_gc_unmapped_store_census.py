@@ -950,6 +950,7 @@ def build_frames(asm_path, report_text, tag):
         return None, None, None, None, None, f"{tag}: the emitter printed no [GC-MAP] line -- nothing to measure"
     symbase = fixed_symbol_store_bases(insns)
     by_label = {mangle(g): g for g in maps}
+    by_label.update({lab[len(".Lgcmap_"):]: g for g, lab in GCC.read_gcmap_labels(report_text).items() if g in maps and lab.startswith(".Lgcmap_")})
     frames, unmatched = {}, []
     for lbl, (ai, base, cell) in find_anchors(insns).items():
         g = by_label.get(lbl)

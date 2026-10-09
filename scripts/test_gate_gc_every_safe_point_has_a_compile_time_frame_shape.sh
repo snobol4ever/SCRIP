@@ -30,7 +30,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && p
 CORPUS="$ROOT/../corpus/benchmarks"; [ -d "$CORPUS" ] || { echo "REFUSE(2): corpus/benchmarks not beside SCRIP"; exit 2; }
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 bad=0
-n1=$(grep -c 'DT_RAW *= *0x98\|DT_MAP *= *0xA0' src/ir/descr.h); n2=$(grep -c '^#define DT_RAW *0x98\|^#define DT_MAP *0xA0' src/ir/descr_tags.inc)
+n1=$(grep -oE 'DT_RAW *= *0x98|DT_MAP *= *0xA0' src/ir/descr.h | wc -l); n2=$(grep -c '^#define DT_RAW *0x98\|^#define DT_MAP *0xA0' src/ir/descr_tags.inc)
 if [ "$n1" -eq 2 ] && [ "$n2" -eq 2 ] && python3 scripts/util_tag_layout_verify.py >/dev/null 2>&1; then echo "  arm 1 PASS: DT_RAW/DT_MAP in both tag sources, layout verifier green"; else echo "  arm 1 RED: tag codes missing ($n1/$n2) or the layout verifier is red"; bad=1; fi
 maps=0; cells=0; tabs=0; progs=0; skipped=0
 for f in "$CORPUS"/*/*.sno "$CORPUS"/*/*.sc "$CORPUS"/*/*.icn "$CORPUS"/*/*.pl "$CORPUS"/*/*.reb "$CORPUS"/*/*.raku "$CORPUS"/*/*.pas; do

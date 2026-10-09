@@ -78,7 +78,7 @@ LINES="$T/asm.lines"; grep -n 'r15\|PL_BALL_' "$ASM" > "$LINES" || true
 [ -n "${FAIL_ONCE:-}" ] && echo "9999:    mov     r15, rax" >> "$LINES"
 while IFS= read -r nl; do
   line=${nl#*:}
-  case "$line" in '#define PL_BALL_'*) continue ;; esac
+  case "$line" in '#define PL_BALL_'*) continue ;; '#define CTX_SAVE '*) echo "  note the leaf context save copies r15 into the frame's CTX_R15 word for the generator road's register image (2fa1fcd5c): r15 is only ever tested there for pendency, the ball's value is read through PL_BALL_GET"; continue ;; esac
   nw=$((nw+1)); examined=$((examined+1))
   case "$line" in
     *'test'*'r15, r15'*) ;;

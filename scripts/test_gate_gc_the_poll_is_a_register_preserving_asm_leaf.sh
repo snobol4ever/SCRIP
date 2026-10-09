@@ -20,11 +20,11 @@ G="${0##*/}"; R="$(cd "$(dirname "$0")/.." && pwd)"; F=0; N=0
 ck() { N=$((N+1)); if [ "$1" = 0 ]; then printf '  ok    %s\n' "$2"; else F=$((F+1)); printf '  FAIL  %s\n' "$2"; fi; }
 H="$R/src/runtime/rt/gc_heap.c"; X="$R/src/templates/x86/x86_asm.h"
 [ -r "$H" ] && [ -r "$X" ] || { echo "GATE REFUSE(2) [$G]: gc_heap.c or x86_asm.h unreadable"; exit 2; }
-grep -q 'x86_rt_gc_poll_at(const char \* f, int l) {.*x86("call", "rt_gc_poll_asm"' "$X"; ck $? "the emitter's bare poll calls rt_gc_poll_asm, not the C rt_gc_poll (the helper carries its template site as a note since 2026-09-23; x86_rt_gc_poll() is the macro that stamps it)"
+tr -s ' \t\n' '   ' < "$X" | grep -q 'x86_rt_gc_poll_at(const char \* f, int l) {.*x86("call", "rt_gc_poll_asm"'; ck $? "the emitter's bare poll calls rt_gc_poll_asm, not the C rt_gc_poll (the helper carries its template site as a note since 2026-09-23; x86_rt_gc_poll() is the macro that stamps it)"
 grep -q '".globl rt_gc_poll_asm' "$H";                               ck $? "rt_gc_poll_asm is defined as a file-scope __asm__ leaf in gc_heap.c"
 BODY="$(awk '/"rt_gc_poll_asm:/{f=1} f{print} f&&/size rt_gc_poll_asm/{exit}' "$H")"
 [ -n "$BODY" ]; ck $? "the leaf body is extractable between its label and its .size directive"
-PUSH=$(printf '%s\n' "$BODY" | grep -c 'pushq'); POP=$(printf '%s\n' "$BODY" | grep -c 'popq')
+PUSH=$(printf '%s\n' "$BODY" | grep -o 'pushq' | wc -l); POP=$(printf '%s\n' "$BODY" | grep -o 'popq' | wc -l)
 PSET="$(printf '%s\n' "$BODY" | grep -oE 'pushq %[a-z0-9]+' | awk '{print $2}' | tr -d '%' | sort -u | tr '\n' ' ')"
 QSET="$(printf '%s\n' "$BODY" | grep -oE 'popq %[a-z0-9]+'  | awk '{print $2}' | tr -d '%' | sort -u | tr '\n' ' ')"
 [ "$PUSH" -gt 0 ] && [ "$PSET" = "$QSET" ] && [ "$POP" -ge "$PUSH" ]
@@ -62,7 +62,7 @@ for r in rax rcx rdx rsi rdi r8 r9 r10 r11; do printf '%s\n' "$SP" | grep -qx "%
 [ -z "$MISS" ]; ck $? "the slow path saves the WHOLE caller-saved set across the collector call, so a bare poll is transparent to emitted code${MISS:+ -- MISSING:$MISS}"
 printf '%s\n' "$SBODY" | grep -q 'fs:0x28'; ck $((1-$?)) "the slow path carries no %fs:0x28 canary either"
 SPILL=$(printf '%s\n' "$SBODY" | grep -oE 'subq +\$[0-9]+, *%rsp' | grep -oE '[0-9]+' | head -1); SPILL="${SPILL:-0}"
-NPUSH=$(printf '%s\n' "$SBODY" | grep -c 'pushq'); FLOOR=$(printf '%s\n' "$SBODY" | grep -oE 'leaq +[0-9]+\(%rsp\), *%rcx' | grep -oE '[0-9]+' | head -1); FLOOR="${FLOOR:-0}"
+NPUSH=$(printf '%s\n' "$SBODY" | grep -o 'pushq' | wc -l); FLOOR=$(printf '%s\n' "$SBODY" | grep -oE 'leaq +[0-9]+\(%rsp\), *%rcx' | grep -oE '[0-9]+' | head -1); FLOOR="${FLOOR:-0}"
 [ "$FLOOR" = "$(( NPUSH * 8 + SPILL ))" ]
 ck $? "the slow path hands the collector the ENTRY rsp as its walk floor -- COMPUTED, not a literal: leaq $FLOOR(%rsp) == 8 x $NPUSH pushes + $SPILL bytes of own spill, so the caller's spilled cells stay INSIDE the swept range and everything this leaf saved for itself stays OUTSIDE it. ⛔ THE LITERAL 72 WAS THE WRONG KEY and it red on a correct landing: the cfo's subject probe added a 16-byte slot below the floor, the floor moved to 88 and the property never changed"
 printf '%s\n' "$SBODY" | grep -qE 'movq +%r13, *\(%rsp\)'; ck $? "THE SUBJECT REGISTER IS HANDED TO THE COLLECTOR, NOT MERELY PRESERVED (cfo 2026-09-22): the slow path spills r13 into its own slot below the floor"

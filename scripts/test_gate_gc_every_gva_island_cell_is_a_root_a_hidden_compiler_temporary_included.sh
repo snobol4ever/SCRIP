@@ -59,7 +59,8 @@ if [ -z "$noplant" ]; then echo "  ok   (b) THE PLANT APPLIED: all $n runs print
 else echo "  FAIL (b) the plant did not apply in:$noplant -- those runs measured nothing"; RC=1; fi
 if [ "$reach" = " ${WS// / }" ]; then echo "  ok   (c) every witness carries a nameless GVA cell (.quad 0 in __gva_names) and resolves a deferred reference through rt_defer_open_cell"
 else echo "  FAIL (c) a witness no longer reaches a nameless GVA cell (reached:${reach:- none}) -- it cannot grade the root"; RC=1; fi
-if grep -q 'gc_root_cas(); gc_root_gva();' "$ROOT/src/runtime/rt/gc_heap.c" && grep -q 'for (int k = 0; k < g_sxt_gva_n; k++) rt_gc_visit_descr(&gv\[k\]);' "$ROOT/src/runtime/rt/gc_heap.c" && ! grep -q 'rt_gc_visit_descr(e->cell)' "$ROOT/src/runtime/core/core.c"; then
+GCH_FLAT=$(tr -s ' \t\n' '   ' < "$ROOT/src/runtime/rt/gc_heap.c")
+if printf '%s' "$GCH_FLAT" | grep -qF 'gc_root_cas(); gc_root_gva();' && printf '%s' "$GCH_FLAT" | grep -qF 'for (int k = 0; k < g_sxt_gva_n; k++) rt_gc_visit_descr(&gv[k]);' && ! grep -q 'rt_gc_visit_descr(e->cell)' "$ROOT/src/runtime/core/core.c"; then
   echo "  ok   (d) gc_collect_ex walks the whole island through gc_root_gva and the NV walk does not visit e->cell a second time"
 else echo "  FAIL (d) the island root walk is gone or the NV walk visits e->cell again"; RC=1; fi
 echo "population: 4 arm(s) graded, $n run(s)"
