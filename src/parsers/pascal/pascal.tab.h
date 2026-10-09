@@ -57,9 +57,8 @@ extern int pascal_yydebug;
 
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
-typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
 
-#line 63 "pascal.tab.h"
+#line 62 "pascal.tab.h"
 
 /* Token kinds.  */
 #ifndef PASCAL_YYTOKENTYPE
@@ -140,15 +139,10 @@ typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 2265 "pascal.y"
+#line 70 "pascal.y"
+ tree_t *node; 
 
-    tree_t    *node;
-    PNodeList *list;
-    char      *str;
-    long long  ival;
-    double     dval;
-
-#line 152 "pascal.tab.h"
+#line 146 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

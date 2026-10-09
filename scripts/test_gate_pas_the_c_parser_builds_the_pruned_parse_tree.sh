@@ -36,6 +36,7 @@ begin i := 1; r := 0.0; a[2] := 7; p(i, r); writeln(r:6:2, a[2]:3) end.
 PAS
 ( cd "$T" && timeout 20s "$SCRIP" --dump-ast prune.pas </dev/null >"$T/ast" 2>"$T/ast.err" ); arc=$?
 [ -s "$T/ast" ] || { echo "⛔ GATE REFUSE(2) [$G]: --dump-ast printed nothing (rc=$arc): $(head -1 "$T/ast.err" | cut -c1-140)"; exit 2; }
+tr -s ' \n' ' ' < "$T/ast" | sed -e 's/( */(/g' -e 's/ *)/)/g' > "$T/ast.flat"; mv "$T/ast.flat" "$T/ast"   # one line, the form the arms read (--dump-ast prints the tree one node per line)
 arm() { N=$((N + 1)); if [ "$1" = ok ]; then echo "  ($N) $2"; else echo "  ⛔ ($N) FAILED: $2"; RC=1; fi; }
 n_assign_src=$(grep -o ':=' "$T/prune.pas" | wc -l); n_assign_ast=$(grep -o '(TT_ASSIGN' "$T/ast" | wc -l)
 c_stmt=$(grep -c '^(STMT' "$T/ast"); c_main=$(grep -c '(TT_VAR main)' "$T/ast"); c_pas=$(grep -c '__pas_' "$T/ast"); c_arr=$(grep -c 'arr_make' "$T/ast")

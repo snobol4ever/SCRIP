@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2322
-#define GC_ALLOC_TAB_N_VOID 284
+#define GC_ALLOC_TAB_N 2348
+#define GC_ALLOC_TAB_N_VOID 283
 #define GC_ALLOC_TAB_N_DESCR 1152
-#define GC_ALLOC_TAB_N_OTHER 870
+#define GC_ALLOC_TAB_N_OTHER 897
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -19,6 +19,35 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "DUPL_fn", GC_RET_DESCR },
     { "EVAL_fn", GC_RET_DESCR },
     { "EXPVAL_fn", GC_RET_DESCR },
+    { "E_argument", GC_RET_OTHER },
+    { "E_argument_list", GC_RET_OTHER },
+    { "E_assignment", GC_RET_OTHER },
+    { "E_block", GC_RET_OTHER },
+    { "E_body", GC_RET_OTHER },
+    { "E_body_stmt", GC_RET_OTHER },
+    { "E_call", GC_RET_OTHER },
+    { "E_call_with_args", GC_RET_OTHER },
+    { "E_case_elem", GC_RET_OTHER },
+    { "E_case_list", GC_RET_OTHER },
+    { "E_case_statement", GC_RET_OTHER },
+    { "E_compound_statement", GC_RET_OTHER },
+    { "E_decl_part", GC_RET_OTHER },
+    { "E_expression", GC_RET_OTHER },
+    { "E_expression_list", GC_RET_OTHER },
+    { "E_for_statement", GC_RET_OTHER },
+    { "E_if_statement", GC_RET_OTHER },
+    { "E_procedure_decl", GC_RET_OTHER },
+    { "E_program", GC_RET_OTHER },
+    { "E_repeat_statement", GC_RET_OTHER },
+    { "E_selector", GC_RET_OTHER },
+    { "E_set_member", GC_RET_OTHER },
+    { "E_set_member_list", GC_RET_OTHER },
+    { "E_statement", GC_RET_OTHER },
+    { "E_statement_list", GC_RET_OTHER },
+    { "E_statement_no_label", GC_RET_OTHER },
+    { "E_while_statement", GC_RET_OTHER },
+    { "E_with_open", GC_RET_OTHER },
+    { "E_with_statement", GC_RET_OTHER },
     { "NV_GET_fn", GC_RET_DESCR },
     { "NV_GET_open", GC_RET_DESCR },
     { "NV_GET_untapped", GC_RET_DESCR },
@@ -692,6 +721,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_pascal_body", GC_RET_OTHER },
     { "lower_pascal_proc", GC_RET_OTHER },
     { "lower_pascal_stage2", GC_RET_OTHER },
+    { "lower_pascal_tree", GC_RET_OTHER },
     { "lower_pl_pred_graph", GC_RET_OTHER },
     { "lower_pl_stage2", GC_RET_OTHER },
     { "lower_proc_body", GC_RET_OTHER },
@@ -787,11 +817,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_view_get", GC_RET_DESCR },
     { "pas_view_make", GC_RET_DESCR },
     { "pas_view_set", GC_RET_DESCR },
-    { "pascal_compile", GC_RET_VOID },
-    { "pascal_compile_parse", GC_RET_OTHER },
-    { "pascal_parse_string", GC_RET_OTHER },
     { "pascal_register_program", GC_RET_VOID },
-    { "pascal_yyparse", GC_RET_OTHER },
     { "pat_abort", GC_RET_DESCR },
     { "pat_alt", GC_RET_DESCR },
     { "pat_any_cs", GC_RET_DESCR },

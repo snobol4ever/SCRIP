@@ -8,6 +8,7 @@ typedef struct tree_t tree_t;
 typedef struct IR_t IR_t;
 typedef struct IR_graph_t IR_graph_t;
 struct ct_head;
+#include "lower_pascal_tree.h"
 typedef struct { const char * name; IR_t * landing; } bb_label_entry_t;
 typedef struct { cv_t v, ix; } gname_set_t;
 typedef struct { const IR_t ** nd; const char ** src; int * line; int n; int max; } lc_bb_src_t;
@@ -115,7 +116,7 @@ typedef struct {
     const char * icn_record_names[512];
     int icn_record_name_count;
 } g_lower_icn_t;
-typedef struct { int pas_vptmp_var_vptmp_n; int pas_vpref_var_vpref_n; lc_vec proc_list; lc_vec proc_parent; int has_nesting; } g_lower_pas_t;
+typedef struct { int pas_vptmp_var_vptmp_n; int pas_vpref_var_vpref_n; lc_vec proc_list; lc_vec proc_parent; int has_nesting; g_lower_pas_sem_t sem; } g_lower_pas_t;
 typedef struct {
     int bc_mon_m;
     int dg_mon_m;

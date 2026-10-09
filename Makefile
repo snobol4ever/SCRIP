@@ -1165,7 +1165,7 @@ test-sequential: scrip parsers  # ⛔⭐ THE DECLARATION OF THE BLOCKING SET, AN
 	bash scripts/test_gate_pas_a_name_is_a_char_array_only_where_its_char_array_declaration_is_visible.sh   # ~6s MEASURED 2026-09-27 (three programs, both modes, cut against fpc -Miso), needs the build; hermetic: g_pas_chararrs answers only for the visible declaration (P5's strequri(a: restr) made strassvr's pointer formal a a char array, a = nil read false, pcom died in entstdnames with 6.5.4)
 	bash scripts/test_gate_pas_a_goto_out_of_a_routine_leaves_every_box_of_main_at_one_depth.sh   # ~6s MEASURED 2026-09-27 (two programs: gdb rsp per box of main, both modes against fpc -Miso), needs the build and gdb; hermetic
 	bash scripts/test_gate_pas_only_the_tree_crosses_from_the_parser_to_lower.sh   # ~4s MEASURED 2026-09-27 (nm over lower_pascal.o and the four parser objects, one program both modes against fpc -Miso), needs the build; hermetic
-	-bash scripts/test_gate_pas_the_c_parser_builds_the_pruned_parse_tree.sh   # ~4s MEASURED 2026-10-09 (--dump-ast of one program, 8 tree arms + m3/m4 against fpc -Miso). REPORTED, NOT BLOCKING: THE WITNESS of the Pascal pruned-parse-tree conversion (RULES.md FACT RULE, the cto 2026-10-09), red by design until the row lands the cure, then its `-` comes off in that landing
+	bash scripts/test_gate_pas_the_c_parser_builds_the_pruned_parse_tree.sh   # ~4s MEASURED 2026-10-09 (--dump-ast of one program, 8 tree arms + m3/m4 against fpc -Miso). BLOCKING since the cure landed: THE WITNESS of the Pascal pruned-parse-tree conversion (RULES.md FACT RULE, the cto 2026-10-09), the C parser hands lower the pruned parse tree and the program still prints what fpc -Miso prints
 	bash scripts/test_gate_x86_cmp_and_or_reg_mem_source_never_falls_through_silently.sh   # ~5.4s MEASURED 2026-10-01 (compiles+links a probe against out/libscrip_rt.so, 6 arms: 3 good encodings objdump-cross-checked both media, 3 abort-not-vanish checks), needs the build; hermetic. ⭐ WIRED 2026-10-01 (hq_templates, row encoder-cmp-and-or-reg-mem-source-falls-through-to-empty-string): x86_asm.h's cmp/and/or dispatch matched a register-dest + memory/cell-source form (cmp rdi, [r13+32], same shape for and/or) against no arm; cmp's FATAL guard tested only the DEST operand kind and and/or had no guard at all, so the call fell through to return std::string() -- no instruction emitted, a following jcc reading stale flags, silently (the ZB-FC-1 class; hq_prolog's R4.1 work hit this shape). Adds the named encodings in both media and extends/adds each guard to test b.kind too, so every other unmatched frame/cell form now aborts loudly (R7) instead of vanishing.
 	bash scripts/test_gate_gimpel_runner_masks_the_engine_clock_lines.sh   # ~2.75s MEASURED 2026-10-02 (grades timegc_driver through scorecard_snobol4.sh one over a scratch corpus, m3+m4+sbl x3 fixtures, 4 arms)
 	bash scripts/test_gate_extension_refs_are_marked_graded_and_never_recut.sh   # ~9.3s MEASURED 2026-10-02 (14 arms: extension-ref, run, extension-check and capture-oracle-refs over a scratch rung suite and package; sbl -bf and csnobol4; Lon 2026-10-02 / CEO-1416)
@@ -1428,6 +1428,7 @@ RT_PIC_SRCS := \
     $(SRC)/lower/lower_prolog.c \
     $(SRC)/lower/lower_raku.c \
     $(SRC)/lower/lower_pascal.c \
+    $(SRC)/lower/lower_pascal_tree.c \
     $(SRC)/runtime/builtins/gen_runtime.c \
     $(SRC)/runtime/by_name_dispatch.c \
     $(SRC)/runtime/rt_dir_snapshot.c \
@@ -1471,7 +1472,6 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/pascal/pascal.tab.c \
     $(SRC)/parsers/pascal/pascal.lex.c \
     $(SRC)/parsers/pascal/pascal_driver.c \
-    $(SRC)/parsers/pascal/pascal_sem.c \
     $(SRC)/templates/bb/bb_assign_frame.cpp \
     $(SRC)/templates/bb/bb_var_frame.cpp
 

@@ -104,6 +104,8 @@ lang:raku	src/parsers/raku/
 lang:raku	src/lower/lower_raku.c
 lang:pascal	src/parsers/pascal/
 lang:pascal	src/lower/lower_pascal.c
+lang:pascal	src/lower/lower_pascal_tree.c
+lang:pascal	src/lower/lower_pascal_tree.h
 # ---- SNOBOL4 / Snocone / Rebus pattern features: the match boxes ----
 FENCE	src/templates/bb/bb_match_fence0.cpp
 FENCE	src/templates/bb/bb_match_fence1.cpp
@@ -319,7 +321,7 @@ for_with_say	src/lower/lower_raku.c
 # ---- Pascal features ----
 program	src/parsers/pascal/pascal.y
 function	src/lower/lower_pascal.c
-const	src/parsers/pascal/pascal_sem.c
+const	src/lower/lower_pascal_tree.c
 array	src/lower/lower_pascal.c
 file	src/lower/lower_pascal.c
 packed	src/lower/lower_pascal.c
@@ -327,7 +329,7 @@ label	src/lower/lower_pascal.c
 goto	src/lower/lower_pascal.c
 with	src/lower/lower_pascal.c
 downto	src/lower/lower_pascal.c
-forward	src/parsers/pascal/pascal_sem.c
+forward	src/lower/lower_pascal_tree.c
 nil	src/lower/lower_pascal.c
 div	src/lower/lower_pascal.c
 mod	src/lower/lower_pascal.c
@@ -350,7 +352,7 @@ odd	src/lower/lower_pascal.c
 pointer	src/lower/lower_pascal.c
 pointer_with_new	src/lower/lower_pascal.c
 set_literal	src/lower/lower_pascal.c
-subrange	src/parsers/pascal/pascal_sem.c
+subrange	src/lower/lower_pascal_tree.c
 nested_proc	src/lower/lower_pascal.c
 for_with_array	src/lower/lower_pascal.c
 with_record	src/lower/lower_pascal.c

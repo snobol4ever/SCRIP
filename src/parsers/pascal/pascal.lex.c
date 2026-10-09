@@ -1068,25 +1068,38 @@ static char pascal_strbuf[65536];
 static int  pascal_strpos;
 static char pascal_ifdefbuf[256];
 static int  pascal_ifdefpos;
-int pas_const_get(const char *name, long long *out);
-int pas_rconst_get(const char *name, double *out);
-const char *pas_sconst_get(const char *name);
-extern int g_pas_iso_errors;
+int pascal_cenv_int(const char *name, long long *out);
+int pascal_cenv_real(const char *name, double *out);
+const char *pascal_cenv_str(const char *name);
+static char **pascal_ev; static int pascal_nev, pascal_cev;
+static void pascal_event(const char *s) {
+    if (pascal_nev >= pascal_cev) { pascal_cev = pascal_cev ? pascal_cev * 2 : 8; pascal_ev = (char **)ct_grow(pascal_ev, (size_t)pascal_cev * sizeof(char *)); }
+    pascal_ev[pascal_nev++] = ct_strdup(s);
+}
+static void pascal_event_num(const char *name, long long v) { size_t n = strlen(name) + 24; char b[n]; snprintf(b, n, "%s %lld", name, v); pascal_event(b); }
+static tree_t *pascal_attr_of(const char *ev) { tree_t *a = ast_node_new(TT_ATTR); tree_t *q = ast_node_new(TT_QLIT); a->v.sval = ct_strdup(":pragma"); q->v.sval = ct_strdup(ev); ast_push(a, q); return a; }
+static tree_t *pascal_leaf(tree_e kind) {
+    tree_t *l = ast_node_new(kind); l->line = pascal_yylineno;
+    for (int i = 0; i < pascal_nev; i++) ast_push(l, pascal_attr_of(pascal_ev[i]));
+    pascal_nev = 0;
+    return l;
+}
+void pascal_pragma_flush(tree_t *root) { for (int i = 0; root && i < pascal_nev; i++) ast_push(root, pascal_attr_of(pascal_ev[i])); pascal_nev = 0; }
 static long long pascal_int_lit(const char *t) {
     errno = 0; unsigned long long v = strtoull(t, NULL, 10);
     if (errno == ERANGE) { fprintf(stderr, "pascal: ISO 7185 6.1.5 violation line %d: the integer literal '%.24s%s' is beyond the largest integer SCRIP represents\n",
-                                   pascal_yylineno, t, strlen(t) > 24 ? "..." : ""); g_pas_iso_errors++; }
+                                   pascal_yylineno, t, strlen(t) > 24 ? "..." : ""); pascal_event("iso_error"); }
     return (long long)v;
 }
 static double pascal_real_lit(const char *t) {
     errno = 0; double d = strtod(t, NULL);
     if (errno == ERANGE && isinf(d)) { fprintf(stderr, "pascal: ISO 7185 6.1.5 violation line %d: the real literal '%.24s%s' is beyond the largest real SCRIP represents\n",
-                                               pascal_yylineno, t, strlen(t) > 24 ? "..." : ""); g_pas_iso_errors++; }
+                                               pascal_yylineno, t, strlen(t) > 24 ? "..." : ""); pascal_event("iso_error"); }
     return d;
 }
 static int pascal_if_declared(const char *name) {
     long long iv; double rv;
-    return pas_const_get(name, &iv) || pas_rconst_get(name, &rv) || pas_sconst_get(name) != NULL;
+    return pascal_cenv_int(name, &iv) || pascal_cenv_real(name, &rv) || pascal_cenv_str(name) != NULL;
 }
 static int pascal_if_eval(const char *expr) {
     char buf[256]; int bn = 0;
@@ -1103,7 +1116,7 @@ static int pascal_if_eval(const char *expr) {
         char op[3] = { 0, 0, 0 }; long long rhs;
         if (sscanf(p, "%127[a-z_0-9] %2[<>=] %lld", ident, op, &rhs) == 3) {
             long long lv;
-            if (pas_const_get(ident, &lv)) {
+            if (pascal_cenv_int(ident, &lv)) {
                 if      (!strcmp(op, ">=")) result = lv >= rhs;
                 else if (!strcmp(op, "<=")) result = lv <= rhs;
                 else if (!strcmp(op, ">"))  result = lv > rhs;
@@ -1115,24 +1128,13 @@ static int pascal_if_eval(const char *expr) {
     }
     return neg ? !result : result;
 }
-int g_pas_seen_mode_directive = 0;
-int g_pas_mode_iso = 0;
 int pascal_seen_decl_start = 0;
 static char pascal_modebuf[64];
 static int  pascal_modepos;
-int g_pas_min_enum_size = 4;
-int g_pas_pack_set_size = 0;
-int g_pas_range_check_on = 2;
-int g_pas_align_mac68k = 0;
-int g_pas_pack_records = 0;
-int g_pas_zerobased_strings = 0;
-static int g_pas_zerobased_strings_stack[64];
-static int g_pas_pack_records_stack[64];
 static char pascal_packrecbuf[16];
 static int  pascal_packrecpos;
 static char pascal_alignbuf[32];
 static int  pascal_alignpos;
-int g_pas_codepage = 0;
 static char pascal_codepagebuf[32];
 static int  pascal_codepagepos;
 static int pas_codepage_parse(const char *s) {
@@ -1143,17 +1145,10 @@ static int pas_codepage_parse(const char *s) {
     for (const char *p = s; *p; p++) if (!isdigit((unsigned char)*p)) { alldig = 0; break; }
     return alldig ? atoi(s) : 0;
 }
-static int g_pas_min_enum_stack[64];
-static int g_pas_pack_set_stack[64];
-static int g_pas_min_enum_sp;
 static char pascal_minenumbuf[16];
 static int  pascal_minenumpos;
 static char pascal_packsetbuf[16];
 static int  pascal_packsetpos;
-static void pas_min_enum_size_set(int n) { if (n > 0) g_pas_min_enum_size = n; }
-static void pas_pack_set_size_set(int n) { if (n > 0) g_pas_pack_set_size = n; }
-static void pas_min_enum_size_push(void) { if (g_pas_min_enum_sp < (int)(sizeof(g_pas_min_enum_stack) / sizeof(g_pas_min_enum_stack[0]))) { g_pas_min_enum_stack[g_pas_min_enum_sp] = g_pas_min_enum_size; g_pas_pack_set_stack[g_pas_min_enum_sp] = g_pas_pack_set_size; g_pas_pack_records_stack[g_pas_min_enum_sp] = g_pas_pack_records; g_pas_zerobased_strings_stack[g_pas_min_enum_sp] = g_pas_zerobased_strings; g_pas_min_enum_sp++; } }
-static void pas_min_enum_size_pop(void) { if (g_pas_min_enum_sp > 0) { g_pas_min_enum_sp--; g_pas_min_enum_size = g_pas_min_enum_stack[g_pas_min_enum_sp]; g_pas_pack_set_size = g_pas_pack_set_stack[g_pas_min_enum_sp]; g_pas_pack_records = g_pas_pack_records_stack[g_pas_min_enum_sp]; g_pas_zerobased_strings = g_pas_zerobased_strings_stack[g_pas_min_enum_sp]; } }
 static int pascal_mode_is_known(const char *m) {
     static const char *K[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
     for (size_t i = 0; i < sizeof(K) / sizeof(K[0]); i++) if (!strcasecmp(m, K[i])) return 1;
@@ -1595,7 +1590,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-{ pas_min_enum_size_set(atoi(pascal_minenumbuf)); BEGIN INITIAL; }
+{ if (atoi(pascal_minenumbuf) > 0) pascal_event_num("minenum", atoi(pascal_minenumbuf)); BEGIN INITIAL; }
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
@@ -1616,7 +1611,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 36:
 YY_RULE_SETUP
-{ pas_pack_set_size_set(atoi(pascal_packsetbuf)); BEGIN INITIAL; }
+{ if (atoi(pascal_packsetbuf) > 0) pascal_event_num("packset", atoi(pascal_packsetbuf)); BEGIN INITIAL; }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
@@ -1633,19 +1628,19 @@ YY_RULE_SETUP
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-{ pas_min_enum_size_push(); }
+{ pascal_event("push"); }
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-{ pas_min_enum_size_pop(); }
+{ pascal_event("pop"); }
 	YY_BREAK
 case 42:
 YY_RULE_SETUP
-{ g_pas_range_check_on = 1; }
+{ pascal_event("range 1"); }
 	YY_BREAK
 case 43:
 YY_RULE_SETUP
-{ g_pas_range_check_on = 0; }
+{ pascal_event("range 0"); }
 	YY_BREAK
 case 44:
 YY_RULE_SETUP
@@ -1653,7 +1648,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 45:
 YY_RULE_SETUP
-{ if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) g_pas_seen_mode_directive = 1; if (strcasecmp(pascal_modebuf, "iso") == 0) g_pas_mode_iso = 1; BEGIN INITIAL; }
+{ if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) pascal_event("seen_mode"); if (strcasecmp(pascal_modebuf, "iso") == 0) pascal_event("mode_iso"); BEGIN INITIAL; }
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
@@ -1670,35 +1665,35 @@ YY_RULE_SETUP
 	YY_BREAK
 case 49:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings |= 1; }
+{ pascal_event("zerobased 1"); }
 	YY_BREAK
 case 50:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings &= ~1; }
+{ pascal_event("zerobased 0"); }
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings |= 1; }
+{ pascal_event("zerobased 1"); }
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings |= 2; }
+{ pascal_event("overflow 1"); }
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings &= ~2; }
+{ pascal_event("overflow 0"); }
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings |= 2; }
+{ pascal_event("overflow 1"); }
 	YY_BREAK
 case 55:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings &= ~2; }
+{ pascal_event("overflow 0"); }
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-{ g_pas_zerobased_strings &= ~1; }
+{ pascal_event("zerobased 0"); }
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
@@ -1706,7 +1701,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 58:
 YY_RULE_SETUP
-{ g_pas_pack_records = atoi(pascal_packrecbuf); BEGIN INITIAL; }
+{ pascal_event_num("packrec", atoi(pascal_packrecbuf)); BEGIN INITIAL; }
 	YY_BREAK
 case 59:
 YY_RULE_SETUP
@@ -1727,7 +1722,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 63:
 YY_RULE_SETUP
-{ g_pas_align_mac68k = (strcasecmp(pascal_alignbuf, "mac68k") == 0); BEGIN INITIAL; }
+{ pascal_event_num("align", strcasecmp(pascal_alignbuf, "mac68k") == 0); BEGIN INITIAL; }
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
@@ -1748,7 +1743,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
-{ g_pas_codepage = pas_codepage_parse(pascal_codepagebuf); BEGIN INITIAL; }
+{ pascal_event_num("codepage", pas_codepage_parse(pascal_codepagebuf)); BEGIN INITIAL; }
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
@@ -1922,52 +1917,52 @@ YY_RULE_SETUP
 	YY_BREAK
 case 111:
 YY_RULE_SETUP
-{ pascal_yylval.dval = pascal_real_lit(pascal_yytext); return REALCONST; }
+{ double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; return REALCONST; }
 	YY_BREAK
 case 112:
 YY_RULE_SETUP
-{ pascal_yylval.dval = pascal_real_lit(pascal_yytext); return REALCONST; }
+{ double _d = pascal_real_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_FLIT); pascal_yylval.node->v.dval = _d; return REALCONST; }
 	YY_BREAK
 case 113:
 YY_RULE_SETUP
-{ pascal_yylval.ival = pascal_int_lit(pascal_yytext); return INTCONST; }
+{ long long _i = pascal_int_lit(pascal_yytext); pascal_yylval.node = pascal_leaf(TT_ILIT); pascal_yylval.node->v.ival = _i; return INTCONST; }
 	YY_BREAK
 case 114:
 YY_RULE_SETUP
 { int nd = 0; while (isdigit((unsigned char)pascal_yytext[nd])) nd++;
                           fprintf(stderr, "pascal: ISO 7185 6.1.8 violation line %d: the unsigned-number '%.*s' is directly followed by '%s' -- a separator shall occur between them\n",
                                   pascal_yylineno, nd, pascal_yytext, pascal_yytext + nd);
-                          g_pas_iso_errors++; yyless(nd); pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext, NULL, 10); return INTCONST; }
+                          pascal_event("iso_error"); yyless(nd); pascal_yylval.node = pascal_leaf(TT_ILIT); pascal_yylval.node->v.ival = (long long)(unsigned long long)strtoull(pascal_yytext, NULL, 10); return INTCONST; }
 	YY_BREAK
 case 115:
 YY_RULE_SETUP
-{ pascal_yylval.ival = (long long)(unsigned long long)strtoull(pascal_yytext + 1, NULL, 16); return INTCONST; }
+{ pascal_yylval.node = pascal_leaf(TT_ILIT); pascal_yylval.node->v.ival = (long long)(unsigned long long)strtoull(pascal_yytext + 1, NULL, 16); return INTCONST; }
 	YY_BREAK
 case 116:
 YY_RULE_SETUP
-{ pascal_yylval.ival = strtoll(pascal_yytext + 1, NULL, 10) & 0xFF; return CHARCODE; }
+{ pascal_yylval.node = pascal_leaf(TT_CHRLIT); pascal_yylval.node->v.ival = strtoll(pascal_yytext + 1, NULL, 10) & 0xFF; return CHARCODE; }
 	YY_BREAK
 case 117:
 YY_RULE_SETUP
-{ pascal_yylval.ival = strtoll(pascal_yytext + 2, NULL, 16) & 0xFF; return CHARCODE; }
+{ pascal_yylval.node = pascal_leaf(TT_CHRLIT); pascal_yylval.node->v.ival = strtoll(pascal_yytext + 2, NULL, 16) & 0xFF; return CHARCODE; }
 	YY_BREAK
 case 118:
 /* rule 118 can match eol */
 YY_RULE_SETUP
 { int n = (int)pascal_yyleng; pascal_strpos = 0;
-                          if (n == 2) { g_pas_iso_errors++;
+                          if (n == 2) { pascal_event("iso_error");
                               fprintf(stderr, "pascal: ISO 7185 6.1.7 violation line %d: a character-string shall contain at least one string-element -- '' is not one\n", pascal_yylineno); }
                           for (int i = 1; i < n - 1; i++) {
                               if (pascal_yytext[i] == '\'' && i + 1 < n - 1 && pascal_yytext[i + 1] == '\'') { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = '\''; i++; }
                               else { if (pascal_strpos < (int)sizeof pascal_strbuf - 1) pascal_strbuf[pascal_strpos++] = pascal_yytext[i]; }
                           }
                           pascal_strbuf[pascal_strpos] = '\0';
-                          pascal_yylval.str = pascal_raw_dup(pascal_strbuf, pascal_strpos);
+                          pascal_yylval.node = pascal_leaf(TT_QLIT); pascal_yylval.node->v.sval = pascal_raw_dup(pascal_strbuf, pascal_strpos);
                           return STRINGCONST; }
 	YY_BREAK
 case 119:
 YY_RULE_SETUP
-{ pascal_yylval.str = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
+{ pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
 	YY_BREAK
 case 120:
 YY_RULE_SETUP
@@ -3054,4 +3049,6 @@ void yyfree (void * ptr )
 }
 
 #define YYTABLES_NAME "yytables"
+
+void pascal_lex_reset(void) { pascal_nev = 0; pascal_seen_decl_start = 0; BEGIN INITIAL; }
 

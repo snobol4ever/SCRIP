@@ -6,7 +6,7 @@
 # one I just discovered." (after "What are seperator bytes? Are you storing data as tag delimited strings? Where are you doing that crazy thing?")
 #
 # POPULATION, declared rather than globbed: src/runtime/by_name_dispatch.c -- the builtins named __pas_*, arr_get and arr_set_pure (emitted
-# by the Pascal lowerer alone: grep -rlw '"arr_get"' src/lower) and the C functions named pas_*; src/parsers/pascal/pascal.y; and
+# by the Pascal lowerer alone: grep -rlw '"arr_get"' src/lower) and the C functions named pas_*; src/parsers/pascal/pascal.y and src/lower/lower_pascal_tree.c (the front end's semantic body since the pruned-parse-tree conversion moved it out of the parser); and
 # src/lower/lower_common.c's norm_charseq (the shared string relop decoding Pascal's SOH-coded char arrays -- it serves no other encoding).
 # A site is a line carrying SOH, '\x01', "\x01", '\x05' or \001 inside one of those bodies. Raku's delimited arrays and hashes (__rk_*,
 # hash_*, push_pure, arr_init/last/tail ...) are hq_raku's and are NOT counted here.
@@ -14,8 +14,8 @@
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BND="$ROOT/src/runtime/by_name_dispatch.c"; PY="$ROOT/src/parsers/pascal/pascal.y"; LC="$ROOT/src/lower/lower_common.c"
-for f in "$BND" "$PY" "$LC"; do [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: $f is not on disk"; exit 2; }; done
+BND="$ROOT/src/runtime/by_name_dispatch.c"; PY="$ROOT/src/parsers/pascal/pascal.y"; LC="$ROOT/src/lower/lower_common.c"; LT="$ROOT/src/lower/lower_pascal_tree.c"
+for f in "$BND" "$PY" "$LC" "$LT"; do [ -f "$f" ] || { echo "⛔ GATE REFUSE(2) [$G]: $f is not on disk"; exit 2; }; done
 PAT='SOH|\\\\x01|\\\\x05|\\\\001'
 sites=$(
   awk -v pat="$PAT" -v F="src/runtime/by_name_dispatch.c" '
@@ -23,6 +23,7 @@ sites=$(
     /strcmp\(fn, "[^"]+"\)/ { x=$0; sub(/.*strcmp\(fn, "/,"",x); sub(/".*/,"",x); cur=x }
     $0 ~ pat && (cur ~ /^__pas_/ || cur ~ /^pas_/ || cur == "arr_get" || cur == "arr_set_pure") { print F ":" NR " [" cur "]" }' "$BND"
   awk -v pat="$PAT" -v F="src/parsers/pascal/pascal.y" '$0 ~ pat { print F ":" NR " [parser]" }' "$PY"
+  awk -v pat="$PAT" -v F="src/lower/lower_pascal_tree.c" '$0 ~ pat { print F ":" NR " [elaborator]" }' "$LT"
   awk -v pat="$PAT" -v F="src/lower/lower_common.c" '
     /^static .*norm_charseq\(/ { inb=1 } inb && /^}/ { inb=0 }
     $0 ~ pat && (inb || /norm_charseq/) { print F ":" NR " [norm_charseq]" }' "$LC")

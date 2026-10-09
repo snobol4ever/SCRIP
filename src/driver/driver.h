@@ -16,6 +16,7 @@ const tree_t *label_lookup(const char *name);
 void prescan_defines(const tree_t *prog);
 void execute_program(const tree_t *prog);
 void ir_dump_program(const tree_t *prog, FILE *f);
+void ir_dump_tree(const tree_t *e, FILE *f);
 DESCR_t _builtin_IDENT (DESCR_t *args, int nargs);
 DESCR_t _builtin_DIFFER (DESCR_t *args, int nargs);
 DESCR_t _builtin_EVAL (DESCR_t *args, int nargs);
