@@ -2,7 +2,7 @@
 #define GC_ALLOCATING_TABLE_INC
 #define GC_ALLOC_TAB_N 2252
 #define GC_ALLOC_TAB_N_VOID 273
-#define GC_ALLOC_TAB_N_DESCR 1135
+#define GC_ALLOC_TAB_N_DESCR 1136
 #define GC_ALLOC_TAB_N_OTHER 828
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -2112,6 +2112,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_sub_big", GC_RET_DESCR },
     { "rt_subject_load_nv", GC_RET_VOID },
     { "rt_subscript_val", GC_RET_DESCR },
+    { "rt_subscript_val_strict", GC_RET_DESCR },
     { "rt_subscript_var", GC_RET_DESCR },
     { "rt_subscript_var_container_only", GC_RET_DESCR },
     { "rt_subscript_var_container_only_strict", GC_RET_DESCR },

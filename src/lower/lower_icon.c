@@ -1238,6 +1238,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
             IR_t * vr = NULL;
             IR_t * e = lower_idx_var(cx, t, ω, &vr);
             IR_t * idxβ = cx->beta;
+            if (vr && vr->op == IR_SUBSCRIPT && vr->n_operands == 2) vr->seal = IR_SEAL_SUBSCRIPT_VALUE;
             IR_t * drf = build(cx, IR_DEREF, γ, idxβ ? idxβ : ω);
             lc_γ_to(vr, drf);
             ir_operand_push(drf, vr);

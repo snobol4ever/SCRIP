@@ -2433,6 +2433,22 @@ DESCR_t rt_subscript_val(DESCR_t base, DESCR_t idx) {
     { DESCR_t r = rt_subscript_var_container_only(base, idx); return (r.v == DT_N && r.slen != 0) ? rt_deref(r) : r; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t rt_subscript_val_strict(DESCR_t base, DESCR_t idx) {
+    DESCR_t declined = { .v = RTX_NOT_HANDLED };
+    if (base.v == DT_N && base.slen == 1 && base.ptr) base = *(DESCR_t *)base.ptr;
+    if (IS_VARREF_fn(base)) return declined;
+    if (base.v == DT_T && base.tbl) { TBPAIR_t *e = table_find_pair_d(base.tbl, idx); if (e) return e->val; return (base.tbl->dflt.v != DT_FAIL && base.tbl->dflt.v != 0) ? base.tbl->dflt : NULVCL; }
+    if (idx.v != DT_I) return declined;
+    if (base.v == DT_A && base.arr && base.arr->ndim == 1 && base.arr->data) {
+        long off = (long)idx.i - (long)base.arr->lo;
+        return (off >= 0 && off <= (long)base.arr->hi - (long)base.arr->lo) ? base.arr->data[off] : declined;
+    }
+    DESCR_t *elems = 0;
+    int n = 0;
+    if (base.v == DT_DATA && rt_list_view(base, &elems, &n)) { long i = (long)idx.i; if (i < 0) i = n + i + 1; return (elems && i >= 1 && i <= n) ? elems[i - 1] : declined; }
+    return declined;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 DESCR_t c_rt_subscript_var(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 0); }
 DESCR_t rt_subscript_var_strict(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_s(base, idx, 1); }
 DESCR_t c_rt_subscript_var_container_only(DESCR_t base, DESCR_t idx) { return c_rt_subscript_var_container_only_s(base, idx, 0); }

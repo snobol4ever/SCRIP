@@ -1566,7 +1566,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_BOUND: { g_emit.op_sb = 1; g_emit.op_off = zls_off(nd); g_emit.op_fc_bytes = 0; bb_emit_x86(bb_bound()); } return 0;
     case IR_UNMARK: { IR_t * _mk = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0; g_emit.op_sb = 0; g_emit.op_off = _mk ? zls_off(_mk) : -1; g_emit.op_fc_bytes = 0;
         g_emit.op_ival = IR_LIT(nd).ival; bb_emit_x86(bb_bound()); } return 0;
-    case IR_SUBSCRIPT: bb_emit_x86(nd->n_operands == 2 ? (IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "lv-check", 8) ? bb_subscript_lvck() : bb_subscript())
+    case IR_SUBSCRIPT: g_emit.op_seal = nd->seal; bb_emit_x86(nd->n_operands == 2 ? (IR_LIT(nd).sval && !strncmp(IR_LIT(nd).sval, "lv-check", 8) ? bb_subscript_lvck() : bb_subscript())
                                              : (nd->n_operands == 3 && IR_LIT(nd).sval && (!strcmp(IR_LIT(nd).sval, "nd2") || !strcmp(IR_LIT(nd).sval, "nd2-lv"))) ? bb_subscript2()
                                              : bb_section()); return 0;
     case IR_DEREF: bb_emit_x86(bb_deref()); return 0;
@@ -2353,7 +2353,7 @@ void emit_drive(IR_t *nd, bb_label_t *lbl_α, bb_label_t *lbl_γ, bb_label_t *lb
             IR_t * vb = nd->operands[0]; IR_t * vi = nd->operands[1];
             int va = vb ? drive_value_slot(vb) : -1; int vs = vi ? drive_value_slot(vi) : -1;
             if (va < 0 || vs < 0) { drive_guard_refused(nd, __LINE__); break; }
-            g_emit.op_a_slot = va; g_emit.op_sa = vs; g_emit.op_off = drive_value_slot(nd);
+            g_emit.op_a_slot = va; g_emit.op_sa = vs; g_emit.op_off = drive_value_slot(nd); g_emit.op_seal = nd->seal;
             DRIVE_FILL(nd, lbl_α, lbl_γ, lbl_ω, lbl_β); break;
         }
         IR_t * base = nd->n_operands > 0 ? nd->operands[0] : NULL;
