@@ -245,6 +245,7 @@ unify	src/templates/bb/bb_differ.cpp
 unify	src/runtime/rtx/rtx_plunify.s
 unify	src/runtime/rt/rt_pl_trail.c
 call	src/templates/bb/bb_call_pl_leaf.cpp
+array	src/templates/bb/bb_call_pas_elem.cpp
 findall	src/lower/lower_prolog.c
 findall_with_var_goal	src/lower/lower_prolog.c
 bagof	src/lower/lower_prolog.c

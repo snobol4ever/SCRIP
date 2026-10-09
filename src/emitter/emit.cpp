@@ -5656,6 +5656,13 @@ int pl_leaf_kind(const char * fn, int narg, const char ** op) {
     if (narg == 1) for (int i = 0; types[i]; i++) if (!strcmp(fn + 1, types[i])) { *op = fn + 1; return PLK_TYPE; }
     return PLK_NONE;
 }
+int pas_elem_kind(void) {
+    const char * fn = g_emit.op_sval ? g_emit.op_sval : "";
+    if (!emit_knob_unless_zero("SCRIP_PAS_ELEM")) return 0;
+    if (!strcmp(fn, "arr_get") && g_emit.op_ival == 2) return 1;
+    if (!strcmp(fn, "arr_set_pure") && g_emit.op_ival == 3) return 2;
+    return 0;
+}
 int pl_leaf_inline_known(const char * fn, int narg) {
     const char * op = 0;
     return pl_leaf_kind(fn, narg, &op) != PLK_NONE;

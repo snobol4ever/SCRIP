@@ -1097,6 +1097,7 @@ test-sequential: scrip parsers  # ⛔⭐ THE DECLARATION OF THE BLOCKING SET, AN
 	bash scripts/test_gate_pas_a_var_actual_that_is_a_component_is_the_component_not_a_copy.sh   # MEASURED 2026-10-09 ~5s, a record-field or array-element var actual is the component itself in both modes (fpc -Miso 8 and 71 where it printed 2 and 11), a broad control, a reference held across compacting collections, and the 6.5.3.2 stop kept
 	bash scripts/test_gate_pas_a_var_actual_that_is_a_variant_field_is_a_view_of_its_region_not_a_copy.sh   # MEASURED 2026-10-09 ~5s, PAT 1702d prints i: 99 as fpc -Miso does (was i: 1) in both modes, a variant integer, real, Boolean and character field as a var actual, a view passed on, and PAT 1702b still refused with 6.5.3.3
 	bash scripts/test_gate_pas_a_for_variable_threat_names_its_real_lines_and_a_sibling_local_is_not_one.sh   # MEASURED 2026-10-09 ~4s, the int.p shape (an outer i, a sibling assigning it, a local i driving a for) accepted as fpc -Miso runs it, and a real threat refused naming its for-line and threat-line (was line 0 and line 1) in both modes
+	bash scripts/test_gate_pas_an_array_element_is_one_guarded_load_or_store_in_the_emitted_code.sh   # MEASURED 2026-10-09 ~3s, the eight kernels' asm carries one inline guarded access per element site (equal to its cold-path calls), a 13-line control byte-identical to fpc -Miso with the arm on and off in both modes, and the 6.5.3.2 stops kept
 	bash scripts/test_gate_pas_the_tag_of_a_variable_passed_by_reference_is_not_changed_during_the_call.sh   # MEASURED 2026-10-07 ~4s, a tag changed while a variant component is a variable actual is refused (PAT 1702b); a function call with a component variable actual returns its value
 	bash scripts/test_gate_pas_a_value_formal_parameter_is_not_of_a_file_type_nor_holds_one.sh   # MEASURED 2026-10-07 ~3s, a value formal of a file type or holding a file is refused at compile time (PAT 1707b)
 	bash scripts/test_gate_pas_a_character_string_is_assigned_only_to_a_string_type_of_its_length.sh   # MEASURED 2026-10-07 ~4s, a character-string is given only to a string-type of its length, twelve faults refused in both modes (PAT 1761-1765)
@@ -1336,6 +1337,7 @@ RT_PIC_SRCS := \
     $(SRC)/templates/xa/xa_coexpr_entry.cpp \
     $(SRC)/templates/bb/bb_call.cpp \
     $(SRC)/templates/bb/bb_call_pl_leaf.cpp \
+    $(SRC)/templates/bb/bb_call_pas_elem.cpp \
     $(SRC)/templates/bb/bb_call_proc_staged.cpp \
     $(SRC)/templates/bb/bb_call_bool.cpp \
     $(SRC)/templates/bb/bb_call_fn.cpp \

@@ -10145,6 +10145,8 @@ static int rk_exc_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) 
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+_Static_assert(offsetof(ARBLK_t, lo) == 0 && offsetof(ARBLK_t, hi) == 4 && offsetof(ARBLK_t, data) == 32 && sizeof(DESCR_t) == 16,
+    "bb_call_pas_elem.cpp reads the block bounds and the data vector at these offsets");
 DESCR_t pas_arr_get(DESCR_t *args, int nargs) {
     if (args[0].v == DT_A && args[0].arr) {
         ARBLK_t *b = (ARBLK_t *) args[0].arr;

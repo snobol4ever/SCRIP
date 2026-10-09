@@ -508,6 +508,7 @@ test_gate_pas_an_anonymous_record_variable_borrows_no_declared_record_type.sh	WI
 test_gate_pas_an_arithmetic_or_transfer_function_has_a_value.sh	WIRED	-	-	-
 test_gate_pas_an_array_assigned_or_passed_by_value_is_a_copy.sh	WIRED	-	-	-
 test_gate_pas_an_array_element_is_not_fetched_by_a_builtin_looked_up_by_its_name.sh	WIRED	-	-	-
+test_gate_pas_an_array_element_is_one_guarded_load_or_store_in_the_emitted_code.sh	WIRED	-	-	-
 test_gate_pas_an_array_field_of_a_record_component_is_indexed_as_its_type.sh	WIRED	-	-	-
 test_gate_pas_an_array_keeps_its_declared_low_bound.sh	WIRED	-	-	-
 test_gate_pas_an_array_of_records_held_as_a_record_field_compiles_and_runs.sh	WIRED	-	-	-

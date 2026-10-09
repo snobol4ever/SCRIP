@@ -43,6 +43,10 @@ extern "C++" std::string bb_callee_rdx(const char * fn) {
 }
 std::string pl_leaf_inline_arm(const char * fn, int narg, int argbase, int resoff, IR_t * first_operand);
 std::string pl_leaf_zd_cold(const char * fn, int narg);
+std::string pas_elem_zd_fast(void);
+std::string pas_elem_flat_fast(int argbase, int resoff);
+std::string pas_elem_flat_join(void);
+extern "C++" int pas_elem_kind(void);
 int pl_leaf_inline_known(const char * fn, int narg);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 extern "C" {
@@ -147,6 +151,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
     if (_.op_zres) {
         std::string s = x86_alpha()
                       + x86("comment", std::string("BOX IR_CALL ZD-7 ") + fn + "(...) -> rt_call_arr [ZD: args from ZOPQ, result to ZRES]");
+        if (pas_elem_kind() && !_.op_sb) s += pas_elem_zd_fast();
         if (nargs > 0) {
             s += x86("sub", "rsp", (long)(nargs * 16));
             for (int i = 0; i < nargs; i++) {
@@ -244,6 +249,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += marshal_call_arg((subs && subs[i]) ? subs[i]->entry : ir_call_arg(pBB, i), (subs && subs[i]) ? subs[i] : NULL, argbase + i * 16, _.node, i);
     { std::string arm = pl_leaf_inline_arm(fn, nargs, argbase, resoff, (subs && subs[0]) ? subs[0]->entry : ir_call_arg(pBB, 0)); if (!arm.empty()) return s + arm; }
     if (dfp) {
+        if (pas_elem_kind()) s += pas_elem_flat_fast(argbase, resoff);
         s += x86("comment", (std::string("PL-REGAIN-2 direct det leaf: ") + dsym + " (no by-name dispatch)").c_str());
         s += x86("lea", "rdi", FRQ(argbase));
         s += x86("mov32", "esi", (long)nargs);
@@ -252,6 +258,7 @@ std::string bb_call_fn_str(IR_t * pBB) {
         s += x86("mov", FRQ(resoff + 8), "rdx");
         s += x86_rt_gc_poll();
         polled_in_arm = 1;
+        if (pas_elem_kind()) s += pas_elem_flat_join();
     } else {
         int _mopen = bcfn_opens_as_method(fn, nargs);
         if (_mopen) { s += x86("lea", "rdi", FRQ(argbase))
