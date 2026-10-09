@@ -12,7 +12,7 @@ typedef struct PNodeList { tree_t **items; int count; int cap; } PNodeList;
 #define PAS_WITH_MAX 8
 struct pas_pend_frame;
 typedef union { tree_t *node; PNodeList *list; char *str; long long ival; double dval; } pval;
-typedef struct { const char *name; const char *sig; const char *owner; int depth, rid, formal, uid, fld; } PasDef;
+typedef struct { const char *name; const char *sig; const char *owner; const char *alias; int depth, rid, formal, uid, fld; } PasDef;
 typedef struct { const char *name; PNodeList *params; const char *sig; } PasFwd;
 struct pas_vt { int state; char *name; tree_t *node; tree_t *tagexpr; long long mask; int tagslot; int tagfi; long long fmask[PAS_FIELD_MAX]; unsigned char fhas[PAS_FIELD_MAX]; };
 struct pas_pend_frame {
@@ -263,5 +263,6 @@ typedef struct {
     int said;
     int wn;
     int fln;
+    int pas_routine_alias_n;
 } g_lower_pas_sem_t;
 #endif

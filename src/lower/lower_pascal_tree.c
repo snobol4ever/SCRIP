@@ -22,6 +22,7 @@ static PasDef *pas_scope_push(PasDef **a, int *n, int *cap, const char *name) {
     d->name = name;
     d->sig = NULL;
     d->owner = NULL;
+    d->alias = NULL;
     d->depth = g_lower.pas.sem.pas_scope.depth;
     d->rid = 0;
     d->formal = 0;
@@ -4165,6 +4166,24 @@ static void pas_pf_define_routine(const char *name, const char *sig) {
         d->rid = ++g_lower.pas.sem.pas_scope.nrid;
     }
 }
+static const PasDef *pas_innermost_def(const char *name) {
+    for (int i = g_lower.pas.sem.pas_scope.n - 1; name && i >= 0; i--) { const PasDef *d = &g_lower.pas.sem.pas_scope.defs[i]; if (d->name && !d->fld && !strcmp(d->name, name)) return d; }
+    return NULL;
+}
+static const char *pas_alias_resolve(const char *name) { const PasDef *d = pas_innermost_def(name); return (d && d->alias) ? d->alias : name; }
+static const char *pas_shadow_name(const char *src) {
+    const PasDef *d = pas_innermost_def(src);
+    if (!d || (!d->rid && !d->alias)) return src;
+    if (d->depth >= g_lower.pas.sem.pas_scope.depth) return d->alias ? d->alias : src;
+    size_t n = strlen(src) + 24;
+    char buf[n];
+    snprintf(buf, n, "%s$%d", src, ++g_lower.pas.sem.pas_routine_alias_n);
+    const char *uniq = ct_strdup(buf);
+    PasDef *a = pas_scope_push(&g_lower.pas.sem.pas_scope.defs, &g_lower.pas.sem.pas_scope.n, &g_lower.pas.sem.pas_scope.cap, src);
+    a->alias = uniq;
+    a->rid = 1;
+    return uniq;
+}
 static const PasDef *pas_pf_lookup(const char *name) {
     for (int i = g_lower.pas.sem.pas_scope.n - 1; name && i >= 0; i--) if (g_lower.pas.sem.pas_scope.defs[i].name && !strcmp(g_lower.pas.sem.pas_scope.defs[i].name, name))
         return g_lower.pas.sem.pas_scope.defs[i].sig ? &g_lower.pas.sem.pas_scope.defs[i] : NULL;
@@ -4697,7 +4716,7 @@ static pval E_call(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC) && n->n == 1) {
-        v[1].str = tok_s(n->c[0]);
+        v[1].str = pas_alias_resolve(tok_s(n->c[0]));
         {
             if (pas_pf_is_formal(v[1].str)) out.node = pas_pf_callthrough(v[1].str, NULL);
             else if (pas_is_proc(v[1].str)) {
@@ -4721,7 +4740,7 @@ static pval E_call_with_args(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_FNC)) {
-        v[1].str = tok_s(n->c[0]);
+        v[1].str = pas_alias_resolve(tok_s(n->c[0]));
         v[3] = E_argument_list(n, 1, n->n);
         {
             v[3].list = pas_pf_actuals(v[1].str, v[3].list);
@@ -5342,7 +5361,7 @@ static pval E_procedure_decl(const tree_t *n) {
     int hasr = n->t == TT_FUNCTION && n->n > (hasp ? 2 : 1) && n->c[hasp ? 2 : 1] && n->c[hasp ? 2 : 1]->t == TT_VAR;
     tree_t *tail = n->c[n->n - 1];
     if (IS(n, TT_PROCEDURE) && IS(tail, TT_KEYWORD)) {
-        v[2].str = tok_s(n->c[0]);
+        v[2].str = pas_shadow_name(tok_s(n->c[0]));
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         {
@@ -5358,7 +5377,7 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_FUNCTION) && hasr && IS(tail, TT_KEYWORD)) {
-        v[2].str = tok_s(n->c[0]);
+        v[2].str = pas_shadow_name(tok_s(n->c[0]));
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         v[6].str = tok_s(n->c[hasp ? 2 : 1]);
@@ -5378,7 +5397,7 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_PROCEDURE)) {
-        v[2].str = tok_s(n->c[0]);
+        v[2].str = pas_shadow_name(tok_s(n->c[0]));
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         {
@@ -5406,7 +5425,7 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_FUNCTION) && hasr) {
-        v[2].str = tok_s(n->c[0]);
+        v[2].str = pas_shadow_name(tok_s(n->c[0]));
         v[3] = E_pv_mark(NULL);
         v[4] = E_parameter_list_opt(hasp ? n->c[1] : NULL);
         v[6].str = tok_s(n->c[hasp ? 2 : 1]);
@@ -5439,7 +5458,7 @@ static pval E_procedure_decl(const tree_t *n) {
         return out;
     }
     if (IS(n, TT_FUNCTION)) {
-        v[2].str = tok_s(n->c[0]);
+        v[2].str = pas_shadow_name(tok_s(n->c[0]));
         v[3] = E_pv_mark(NULL);
         {
             pas_pf_define_routine(v[2].str, pas_pf_heading(v[2].str, NULL, 'F', NULL));
@@ -5790,7 +5809,7 @@ static pval E_selector(const tree_t *n) {
         }
         return out;
     }
-    if (IS(n, TT_VAR)) { v[1].str = tok_s(n); { out.node = mk_ident(v[1].str); } return out; }
+    if (IS(n, TT_VAR)) { v[1].str = pas_alias_resolve(tok_s(n)); { out.node = mk_ident(v[1].str); } return out; }
     elab_bad("selector", n);
     return out;
 }

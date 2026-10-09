@@ -1247,3 +1247,4 @@ test_gate_zpop_whitelist.sh	TASK	-	-	-
 test_gate_pas_a_two_dimensional_array_of_records_is_indexed_by_both_subscripts.sh	WIRED	-	-	-
 test_gate_pas_a_real_value_parameter_is_assignable_inside_its_procedure.sh	WIRED	-	-	-
 test_gate_pas_a_packed_char_array_field_of_an_array_element_reads_back_what_was_assigned.sh	WIRED	-	-	-
+test_gate_pas_a_routine_declared_inside_another_hides_an_outer_routine_of_the_same_name.sh	WIRED	-	-	-
