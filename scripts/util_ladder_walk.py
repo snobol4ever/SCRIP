@@ -7,7 +7,10 @@
 #                         is no violation: it returns only by re-mint from a current red (ceo CEO-1386), so the rung prints RETIRED (CEO-1510)
 #   V2 OFF-LADDER SEAT    a seat holding a live claim on a row that is no rung while a rung is FREE (finish or park, then step onto a rung)
 #   V3 STALE PARK         a rung PARKED-AWAITING:x / BLOCKED-ON:x whose blocker x is DONE (un-park owed)
-#   V4 RANK INVERSION     an off-ladder FREE row at rank 0/1 (ranks 0/1 are the rungs' — the picker would serve it before a rung)
+#   V4 RANK INVERSION     a FREE row, rung or off-ladder, at rank 0/1 that is neither an every-suite-to-100 row, nor a BLOCKING-RED gate row
+#                         (its baton's LINKS line), nor a vendored-package row (ceo CEO-1574 re-cut to CEO-1386: rank 0 and 1 are for a red on
+#                         the SUITE TABLE or a blocking gate, and the zero-base sweep re-ranks every other red to 2; the older rule, that
+#                         rungs live at rank 0/1 and a rung FREE at rank 2 is an inversion, is withdrawn -- a rung at rank 2 is the sweep's own doing)
 #   V5 UNOWNED BLOCK      a rung bare-PARKED/BLOCKED with owner unassigned (nobody re-runs its gate)
 #   V6 ORPHAN             a FREE row with 'prolog' in its topic that sits on no ladder (an HQ places it on a rung or retires it)
 # Exit 0 = every rung placed and no violation · 1 = violations printed · 2 = REFUSE (plan or postoffice unreadable, no rung table found).
@@ -77,12 +80,14 @@ ladder_by_id = {l['id']: l for l in ladders}
 LADDER_TOK_RE = re.compile(r'\bLADDER:([A-Za-z0-9]+)')
 links_ladders = {}
 non_ladder = set()
+blocking_red = set()   # a baton whose LINKS line carries BLOCKING-RED names a blocking gate: rank 0/1 is its by CEO-1386
 for t in tasks:
     try: body = open(os.path.join(PO, 'tasks', t + '.task.md'), encoding='utf-8', errors='replace').read()
     except OSError: continue
     ids = set(LADDER_TOK_RE.findall(body))
     if ids: links_ladders[t] = ids
     if 'NON-LADDER' in body: non_ladder.add(t)
+    if 'BLOCKING-RED' in body: blocking_red.add(t)
 def on_ladder(t): return t in rung_rows or t in links_ladders
 V = []
 def viol(code, text): V.append('%s %s' % (code, text))
@@ -100,7 +105,6 @@ for l in ladders:
             q = queue[t]; s = q['state']
             if s == 'FREE' or s == '':
                 st = 'FREE rank %d' % q['rank']; counts['FREE'] += 1; any_free_rung = True
-                if q['rank'] > 1: viol('V4 RANK INVERSION', '%s/%s: rung %s is FREE at rank %d (rungs live at rank 0/1)' % (l['id'], r['rung'], t, q['rank']))
             else:
                 st = s + ' rank %d' % q['rank']; counts['BLOCKED'] += 1
                 mb = re.match(r'^(PARKED-AWAITING|BLOCKED-ON):(.+)$', s)
@@ -185,17 +189,22 @@ def is_package_row(t):
     seg = t.split('-')
     if len(seg) < 3 or seg[0].lower() not in LANG_PREFIX: return False
     return any(x.lower() in PKG_TOKENS for x in seg[1:3])
-# V4 off-ladder FREE rows at rung ranks
-_pkg_exempt = []
+# V4 FREE rows at rank 0/1 (ceo CEO-1574, re-cut to CEO-1386: rank 0 and 1 are for a red on the SUITE TABLE -- an every-suite-to-100 row -- or a
+# blocking gate -- a baton tagged BLOCKING-RED; the zero-base sweep re-ranks every other red to 2 and never touches those two, so any other FREE
+# row at rank 0/1 is one the sweep has not yet seen or one minted above its station). Rung and off-ladder rows alike; package rows exempt as before.
+_pkg_exempt = []; _law_exempt = []
 for t, q in sorted(queue.items(), key=lambda kv: (kv[1]['rank'], kv[0])):
-    if t in rung_rows or q['state'] not in ('FREE', ''): continue
+    if q['state'] not in ('FREE', ''): continue
     if q['rank'] <= 1 and not is_done(t) and t not in claims:
         if is_package_row(t): _pkg_exempt.append(t); continue
-        viol('V4 RANK INVERSION', 'off-ladder FREE row %s at rank %d — the picker serves it before rungs at that rank' % (t, q['rank']))
+        if '-every-suite-to-100-' in t or t in blocking_red: _law_exempt.append(t); continue
+        viol('V4 RANK INVERSION', '%sFREE row %s at rank %d — neither a SUITE TABLE red (every-suite-to-100) nor a BLOCKING-RED gate (CEO-1386); the sweep re-ranks it to 2' % ('rung ' if t in rung_rows else 'off-ladder ', t, q['rank']))
 if not PKG_TOKENS:
     print('⚠ V4 EXEMPTION OFF: no vendored-package census readable (looked under $S4E_HOME/corpus/packages and $S4E_HOME/SCRIP/scripts) -- package rows below are flagged as inversions and should not be read as new')
 elif _pkg_exempt:
     print('V4 EXEMPT (package rule): %d FREE package row(s) at rank 0/1 -- ladder-rank by law, not inversions (%d token(s) censused from %d source(s) on disk)' % (len(_pkg_exempt), len(PKG_TOKENS), len(PKG_SOURCES)))
+if _law_exempt:
+    print('V4 EXEMPT (CEO-1386): %d FREE row(s) at rank 0/1 that are a SUITE TABLE red or a BLOCKING-RED gate -- rank 0/1 is theirs by law' % len(_law_exempt))
 # V6 orphans — any row of any recognized language (not just Prolog) sitting on no ladder: no table entry, no LADDER:<tok> LINKS tag, no NON-LADDER exemption
 # ⛔ ONE CENSUS LINE PER LANE, NOT ONE PER ROW (ceo 2026-09-03 22:33). Widening V6 from Prolog to all seven
 # languages took it from 2 lines to 95, and the ceo reads this every tick on an 8% budget: 95 lines is not a

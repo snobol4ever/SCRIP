@@ -11,13 +11,15 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 refuse() { echo "⛔ bench_pascal_bar REFUSE(2): $*"; exit 2; }
+. "$HERE/lib_perf_fmt.sh" 2>/dev/null || refuse "cannot load lib_perf_fmt.sh -- the one authority for a load stamp and the load guard"
+refuse_timing() { local g; if g="$(perf_load_guard)"; then echo "⛔ bench_pascal_bar REFUSE(2) $g: $*"; else echo "⛔ bench_pascal_bar REFUSE(2): $* ($g)"; fi; exit 2; }
 [ $# -ge 3 ] && [ "$1" = kernel ] || { echo "usage: $0 kernel <stem> <bar>"; exit 2; }
 NAME=$2; BAR=$3; MODE="${BAR_MODE:-m4}"
 [ -x "$ROOT/scrip" ] || refuse "no ./scrip (make first)"; . "$HERE/lib_oracle_flags.sh" 2>/dev/null || refuse "cannot load lib_oracle_flags.sh"; fpc_bin > /dev/null || refuse "fpc absent"
 T=$(mktemp -d) || refuse "mktemp"; trap 'rm -rf "$T"' EXIT
 ( cd "$ROOT" && KERNELS="$NAME" bash scripts/test_bench_pascal_timed.sh ) > "$T/log" 2>&1
-row=$(grep -E "^$NAME[[:space:]]" "$T/log" | head -1); [ -n "$row" ] || { tail -4 "$T/log" | cut -c1-160; refuse "angle 1 printed no row for $NAME"; }
+row=$(grep -E "^$NAME[[:space:]]" "$T/log" | head -1); [ -n "$row" ] || { tail -4 "$T/log" | cut -c1-160; refuse_timing "angle 1 printed no row for $NAME"; }
 read -r _k fpc m3 m4 check <<<"$row"
 case "$MODE" in m3) mine=$m3;; *) mine=$m4;; esac
-for v in "$fpc" "$mine"; do case "$v" in ''|SKIP|NA|MISSING|*[!0-9.]*) echo "$row" | cut -c1-160; refuse "$NAME has no citable work reading on fpc and $MODE (a SKIP, an NA or NONLINEAR arm: $fpc / $mine)";; esac; done
+for v in "$fpc" "$mine"; do case "$v" in ''|SKIP|NA|MISSING|*[!0-9.]*) echo "$row" | cut -c1-160; refuse_timing "$NAME has no citable work reading on fpc and $MODE (a SKIP, an NA or NONLINEAR arm: $fpc / $mine)";; esac; done
 awk -v r="$fpc" -v m="$mine" -v bar="$BAR" -v k="$NAME" -v mode="$MODE" -v chk="$check" 'BEGIN{x=r/m; printf "kernel %s: fpc -O2 %.2f us/rep, %s %.2f us/rep (angle 1, the WORK slope over a x1/x4/x16 triple), check %s; reads %.4fx fpc in mode %s (bar %.4fx): %s\n", k, r, mode, m, chk, x, substr(mode,2), bar, (x>=bar)?"GREEN":"RED"; exit (x>=bar)?0:1}'

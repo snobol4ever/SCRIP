@@ -27,6 +27,7 @@ SBL="$(sbl_clean_bin)"; [ -x "$SBL" ] || refuse "clean SPITBOL oracle missing ($
 WRAP="$ROOT/tools/bench_rusage"; [ -x "$WRAP" ] || gcc -O2 -o "$WRAP" "$ROOT/tools/bench_rusage.c" || refuse "bench_rusage did not build"
 T=$(mktemp -d) || refuse "mktemp"; trap 'rm -rf "$T"' EXIT
 . "$HERE/lib_perf_fmt.sh"
+refuse_timing() { local g; if g="$(perf_load_guard)"; then echo "⛔ bench_snobol4_bar REFUSE(2) $g: $*"; else echo "⛔ bench_snobol4_bar REFUSE(2): $* ($g)"; fi; exit 2; }
 verdict() { awk -v x="$1" -v bar="$BAR" -v what="$2" -v st="$(perf_build_stamp)" 'BEGIN{printf "%s reads %.2fx SPITBOL in mode 4 (bar %.2fx): %s · %s\n", what, x, bar, (x>=bar)?"GREEN":"RED", st; exit (x>=bar)?0:1}'; }
 case "$KIND" in
   kernel)
@@ -35,7 +36,7 @@ case "$KIND" in
     ( cd "$ROOT" && BENCH_SNOBOL4_DIR="$T" BENCH_ORACLE_ARM=1 BENCH_ITER_N="${BAR_ITER_N:-3}" BENCH_BUD_MS="${BAR_BUD_MS:-500}" bash scripts/test_snobol4_bench_suite.sh ) > "$T/log" 2>&1
     s=$(grep -E "scouting $NAME sbl: BENCH mode=time" "$T/log" | sed -E 's/.*iters=([0-9]+) ns=([0-9]+).*/\2 \1/' | head -1)
     m=$(grep -E "scouting $NAME m4: BENCH mode=time" "$T/log" | sed -E 's/.*iters=([0-9]+) ns=([0-9]+).*/\2 \1/' | head -1)
-    [ -n "$s" ] && [ -n "$m" ] || { tail -5 "$T/log"; refuse "the harness printed no time twin for $NAME (sbl='$s' m4='$m')"; }
+    [ -n "$s" ] && [ -n "$m" ] || { tail -5 "$T/log"; refuse_timing "the harness printed no time twin for $NAME (sbl='$s' m4='$m')"; }
     grep -qE "^$NAME +m4 +PASS +PASS +PASS +PASS" "$T/log" || refuse "$NAME did not PASS every angle in mode 4 (a number over a wrong answer is not a number)"
     x=$(awk -v s="$s" -v m="$m" 'BEGIN{split(s,a," "); split(m,b," "); printf "%.4f", (a[1]/a[2])/(b[1]/b[2])}')
     awk -v s="$s" -v m="$m" 'BEGIN{split(s,a," "); split(m,b," "); printf "kernel %s: SPITBOL %.2f us/rep, m4 %.2f us/rep (fixed-time twins, %s ms points)\n", "'"$NAME"'", a[1]/a[2]/1000, b[1]/b[2]/1000, "'"${BAR_BUD_MS:-500}"'"}'
@@ -56,7 +57,7 @@ case "$KIND" in
     "$SCRIP" --compile -o "$T/d.s" "$P" < /dev/null 2> "$T/cc.err" && gcc "$T/d.s" -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o "$T/d.prog" 2>> "$T/cc.err" || { head -3 "$T/cc.err"; refuse "$NAME did not build in mode 4"; }
     best() { local tag=$1 b=999999999999 i e; shift; for ((i=0;i<${BAR_REPS:-3};i++)); do ( cd "$S4E/corpus/include" && "$WRAP" timeout 600 "$@" < "$T/in" > "$T/$tag.out" 2> "$T/err" ); e=$(grep -oE 'elapsed_ns=[0-9]+' "$T/err" | tail -1 | cut -d= -f2); [ -n "$e" ] || { echo ""; return; }; [ "$e" -lt "$b" ] && b=$e; done; echo "$b"; }
     s=$(best sbl "$SBL" -bf $OAD "$P"); m=$(best m4 "$T/d.prog" $SWD)
-    [ -n "$s" ] && [ -n "$m" ] || refuse "a run printed no BENCH_RUSAGE line (sbl='$s' m4='$m')"
+    [ -n "$s" ] && [ -n "$m" ] || refuse_timing "a run printed no BENCH_RUSAGE line (sbl='$s' m4='$m')"
     cmp -s "$T/sbl.out" "$T/m4.out" && [ -s "$T/m4.out" ] || refuse "$NAME: outputs differ between sbl -bf and mode 4 (or are empty) -- no multiple over a wrong answer"
     x=$(awk -v s="$s" -v m="$m" 'BEGIN{printf "%.4f", s/m}')
     awk -v s="$s" -v m="$m" 'BEGIN{printf "demo %s: SPITBOL %.1f ms, m4 %.1f ms (best of %s, %s)\n", "'"$NAME"'", s/1e6, m/1e6, "'"${BAR_REPS:-3}"'", "'"sbl [$OAD] m4 [$SWD], the declarations -- CRITERION CHANGED 2026-10-03, CEO-1485"'"}'

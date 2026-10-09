@@ -85,3 +85,4 @@ scripts/test_gate_every_tree_kind_has_a_dump_name.sh
 scripts/test_gate_tmp_scratch_is_released.sh
 scripts/test_gate_a_descr_is_minted_whole_never_field_by_field.sh
 scripts/test_area_smoke.sh
+scripts/test_gate_sweep_keeps_a_load_guard_refusal_and_retires_a_cannot_measure_one.sh

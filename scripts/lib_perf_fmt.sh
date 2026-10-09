@@ -210,6 +210,25 @@ perf_load_stamp() {
     awk -v l="$la" -v c="$cores" 'BEGIN{ printf "load %s on %s cores (%.2f/core)", l, c, l/c }'
 }
 #-----------------------------------------------------------------------------------------------------
+# perf_load_guard -- THE LOAD GUARD a timing criterion names on a refusal (ceo CEO-1574, 2026-10-08, the coo's row
+# instruments-the-sweep-keeps-a-row-whose-finish-line-refused-on-a-load-guard-instead-of-retiring-it-ceo-1562). A timing-shaped
+# refusal -- angles that DISAGREE, a harness that printed no row or no time twin because the kernel ran past its budget -- taken
+# while the box is busy is not a measurement of the program (a multiple is not load-invariant, CEO-743), and the zero-base sweep
+# retired fourteen live performance rows on exactly that between 10-07 20:16 and 10-08 19:17. Prints one phrase and returns 0 when
+# the 1-minute load per core is at or above BENCH_LOAD_GUARD_PER_CORE (default 0.5: on this 16-core box the fleet's builds and the
+# coo's fan-out/4 board read 1.2-2.4/core, a quiet box under 0.3); the phrase carries the words "load-guard" the sweep keys on
+# (.github/scripts/util_queue_zero_base.py LOAD GUARD). Returns 1 with a plain load stamp when the box is quiet, so the same
+# refusal on a quiet box is what it says it is -- the kernel's own, a cannot-measure the sweep retires. A bar's refuse_timing
+# wraps it; the precondition refusals (no binary, no oracle, an unknown kernel, a wrong answer) never do.
+perf_load_guard() {
+    local la cores thr
+    la="$(awk '{print $1}' /proc/loadavg 2>/dev/null)" || la=""
+    cores="$(getconf _NPROCESSORS_ONLN 2>/dev/null)" || cores=""
+    thr="${BENCH_LOAD_GUARD_PER_CORE:-0.5}"
+    [ -n "$la" ] && [ -n "$cores" ] || { printf 'load UNKNOWN (no /proc/loadavg)'; return 1; }
+    awk -v l="$la" -v c="$cores" -v t="$thr" 'BEGIN{ r = l / c; if (r >= t) { printf "load-guard: load %s on %s cores (%.2f/core) at or above the %s/core guard -- a timing refusal under load is not a measurement (CEO-743)", l, c, r, t; exit 0 } printf "load %s on %s cores (%.2f/core), under the %s/core guard", l, c, r, t; exit 1 }'
+}
+#-----------------------------------------------------------------------------------------------------
 # perf_build_stamp [LIB] -- the build a reading was taken on, RT_OPT beside RT_DIAG, READ BACK and never assumed (ceo CEO-1390,
 # 2026-10-01: every bar line and grid header names RT_DIAG beside RT_OPT -- a LABEL, not a configuration; the bars keep grading
 # the shipped library). RT_OPT is the RT_OPT this run was handed, else the checkout's own `make buildinfo`. RT_DIAG is read
