@@ -128,8 +128,8 @@ extern "C" long rt_pat_prim_member(int ch, long codes);
     + x86_jmp_id(lw) \
 )
 std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
-    return GLUE_SAVE()
-         + x86_rsp_mark_save()
+    return emit_seq({ GLUE_SAVE(),
+         x86_rsp_mark_save()
          + x86("mov", "rcx", "rdx")
          + x86("and", "rcx", 63L)
          + x86("cmp", "rcx", 2L)
@@ -161,7 +161,7 @@ std::string bb_glue_enter_c2bb(int base, int lg, int lw) {
          + x86_deflabel_id(base + 101)
          + GLUE_LAND_G(lg, 0L, 16)
          + x86_deflabel_id(base + 102)
-         + GLUE_LAND_W(lw, 0L, 16);
+         + GLUE_LAND_W(lw, 0L, 16) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_stno_unit_push(void) {
@@ -266,19 +266,19 @@ std::string bb_glue_prim_member(int base, int code) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code) {
-    return bb_glue_prim_open_enter(base)
-         + x86("lea", "rdi", LFDQ(ptr_d, ptr_sd))
-         + x86("lea", "rsi", LFD(len_d, len_sd))
-         + x86("mov", "rdx", (long)code | ((long)code << 16))
-         + x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take)
-         + x86_rt_gc_poll_rec_sigma(1);
+    return emit_seq({ bb_glue_prim_open_enter(base),
+                      x86("lea", "rdi", LFDQ(ptr_d, ptr_sd)),
+                      x86("lea", "rsi", LFD(len_d, len_sd)),
+                      x86("mov", "rdx", (long)code | ((long)code << 16)),
+                      x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take),
+                      x86_rt_gc_poll_rec_sigma(1) });
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off, int code) {
-    return bb_glue_prim_open_enter(base)
-         + x86("lea", "rdi", RDQ("rsp", ptr_off))
-         + x86("lea", "rsi", RDQ("rsp", len_off))
-         + x86("mov", "rdx", (long)code | ((long)code << 16))
-         + x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take)
-         + x86_rt_gc_poll_rec_sigma(1);
+    return emit_seq({ bb_glue_prim_open_enter(base),
+                      x86("lea", "rdi", RDQ("rsp", ptr_off)),
+                      x86("lea", "rsi", RDQ("rsp", len_off)),
+                      x86("mov", "rdx", (long)code | ((long)code << 16)),
+                      x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take),
+                      x86_rt_gc_poll_rec_sigma(1) });
 }

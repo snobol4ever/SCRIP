@@ -10,9 +10,9 @@ extern "C" {
 #define disj_dispatch_chain(N, base, lo) emit_for((int)(lo), (int)(N), [&](int i) { return x86("cmp", "eax", i) \
                                                                        + x86("je", PAIR((int)(base) + i)); })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define disj_sigma_copy() ( \
-      x86("mov", "eax", FR(_.op_off + 16)) \
-    + emit_for(0, _.op_parts_n, [&](int i) { return x86("cmp", "eax", i) \
+#define disj_sigma_copy() emit_seq({ \
+      x86("mov", "eax", FR(_.op_off + 16)), \
+      emit_for(0, _.op_parts_n, [&](int i) { return x86("cmp", "eax", i) \
                                              + x86("jne", L(i)) \
                                              + IF(_.op_parts_ival[i] >= 0, \
                                                    x86("mov", "rax", FRQ((int)_.op_parts_ival[i])) \
@@ -20,9 +20,8 @@ extern "C" {
                                                  + x86("mov", "rax", FRQ((int)_.op_parts_ival[i] + 8)) \
                                                  + x86("mov", FRQ(_.op_off + 8), "rax")) \
                                              + x86_gamma() \
-                                             + x86("def", L(i)); }) \
-    + x86_gamma() \
-)
+                                             + x86("def", L(i)); }), \
+      x86_gamma() })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define disj_choice_open() ( \
       IF(x86_fb_pinned(), \

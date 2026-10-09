@@ -796,6 +796,7 @@ std::string net_spec_zw_str();
 template<typename F> inline std::string FOR(int lo, int hi, F f) { std::string r; for (int i = lo; i < hi; i++) r += f(i); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 template<typename F> inline std::string emit_for(int lo, int hi, F f) { return FOR(lo, hi, f); }
+inline std::string emit_seq(std::initializer_list<std::string> parts) { std::string r; for (const std::string & p : parts) r += p; return r; }
 template<typename F> inline std::string emit_shim9(long loff, long carve, F f) {
     long sv = g_emit.site_shim9;
     if (loff > 0xFFFF || carve > 0xFFFF) {
