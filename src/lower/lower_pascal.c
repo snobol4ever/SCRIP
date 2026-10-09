@@ -7,7 +7,8 @@
 #define PAS_MAX_SCOPE 64
 typedef struct pas_scope_s { const char * names[PAS_MAX_SCOPE]; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
 typedef struct { const char * name; IR_t * node; } pas_label_t;
-typedef struct { IR_graph_t * g; pas_scope_t sc; lc_vec labels; int npbt; const tree_t * pd; IR_t * unw; IR_t * xit; } pcx_t;
+struct pas_fact { const char * nm; struct pas_fact * up; };
+typedef struct { IR_graph_t * g; pas_scope_t sc; lc_vec labels; int npbt; const tree_t * pd; IR_t * unw; IR_t * xit; lc_vec fvars; struct pas_fact * fact; int inchk; } pcx_t;
 static lc_vec g_pas_proc_list = { NULL, 0, 0, (int) sizeof(const tree_t *) };
 static lc_vec g_pas_proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) };
 static int g_pas_has_nesting = 0;
@@ -35,6 +36,8 @@ static IR_t * label_find(pcx_t * cx, const char * name) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int is_relop(tree_e tt) { switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: return 1; default: return 0; } }
 static IR_t * lower(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+static tree_t * pas_lc_leaf(tree_e k, const char * s);
+static tree_t * pas_lc_bin(tree_e k, tree_t * a, tree_t * b);
 static IR_t * pas_nlg_goto(pcx_t * cx, const char * name, IR_t * ω);
 static IR_t * pas_nlg_check(pcx_t * cx, IR_t * γ, IR_t * ω);
 static IR_t * pas_lower_exit(pcx_t * cx, const tree_t * t, IR_t * ω);
@@ -84,7 +87,41 @@ static IR_t * pas_read_node(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * lower_var(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω) { return pas_read_node(cx, name, γ, ω); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_forvar_checked(pcx_t * cx, const char * name) {
+    if (!name || cx->inchk || !cx->fvars.n) return 0;
+    for (struct pas_fact * f = cx->fact; f; f = f->up) if (f->nm && !strcmp(f->nm, name)) return 0;
+    for (int i = 0; i < cx->fvars.n; i++) if (!strcmp(LC_AT(&cx->fvars, const char *, i), name)) return 1;
+    return 0;
+}
+static void pas_collect_forvars(pcx_t * cx, const tree_t * t) {
+    if (!t) return;
+    if (t->t == TT_FOR && (t->v.ival & 2) && t->n > 0 && t->c[0] && t->c[0]->v.sval) {
+        int have = 0;
+        for (int i = 0; i < cx->fvars.n; i++) if (!strcmp(LC_AT(&cx->fvars, const char *, i), t->c[0]->v.sval)) have = 1;
+        if (!have) { const char * nm = t->c[0]->v.sval; lc_vec_push(&cx->fvars, &nm); }
+    }
+    for (int i = 0; i < t->n; i++) pas_collect_forvars(cx, t->c[i]);
+}
 static IR_t * lower_var_r(pcx_t * cx, const char * name, IR_t * γ, IR_t * ω, IR_t ** res) {
+    if (pas_forvar_checked(cx, name)) {
+        char * msg = (char *) ct_zalloc(strlen(name) + 90, 1);
+        snprintf(msg, strlen(name) + 90, "the control-variable '%s' of a for-statement is undefined after the for-statement is left", name);
+        tree_t * ck = pas_lc_bin(TT_IF, pas_lc_bin(TT_EQ, ast_node_new(TT_FNC), ast_node_new(TT_ILIT)), ast_node_new(TT_FNC));
+        tree_t * rq = ck->c[0]->c[0];
+        ast_push(rq, pas_lc_leaf(TT_VAR, "__pas_resundef"));
+        ast_push(rq, pas_lc_leaf(TT_VAR, name));
+        ck->c[0]->c[1]->v.ival = 1;
+        tree_t * er = ck->c[1];
+        ast_push(er, pas_lc_leaf(TT_VAR, "__pas_rterr"));
+        ast_push(er, pas_lc_leaf(TT_QLIT, "6.8.3.9"));
+        ast_push(er, pas_lc_leaf(TT_QLIT, msg));
+        IR_t * rd = NULL;
+        cx->inchk++;
+        rd = lower_var_r(cx, name, γ, ω, res);
+        IR_t * ce = lower(cx, ck, rd, ω, NULL);
+        cx->inchk--;
+        return ce ? ce : rd;
+    }
     if (pas_name_is_byref(cx, name)) { IR_t * dr = build(cx, IR_DEREF, γ, ω); IR_t * v = pas_read_node(cx, name, dr, ω); ir_operand_push(dr, v); if (res) *res = dr; return v; }
     IR_t * nd = lower_var(cx, name, γ, ω);
     if (res) *res = nd;
@@ -512,8 +549,10 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     const tree_t * to = (t->n > 2) ? t->c[2] : NULL;
     const tree_t * body = (t->n > 3) ? t->c[3] : NULL;
     const char * vname = (var && var->t == TT_VAR) ? var->v.sval : NULL;
-    int is_downto = (t->v.ival == 1);
-    IR_t * cmp = build(cx, IR_BINOP_TEST, NULL, γ);
+    int is_downto = (t->v.ival & 1);
+    IR_t * out = γ;
+    if ((t->v.ival & 2) && vname) { IR_t * ua = lower_assign_var(cx, vname, γ, ω); IR_t * us = lower_var(cx, "__pas_undefined_value", ua, ω); ir_operand_push(ua, us); out = us; }
+    IR_t * cmp = build(cx, IR_BINOP_TEST, NULL, out);
     IR_LIT(cmp).ival = is_downto ? 8 : 6;
     IR_t * lim_var = lower_var(cx, vname, NULL, ω);
     IR_t * tr = NULL;
@@ -533,7 +572,7 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
     ir_operand_push(inc_asn, inc_op);
     IR_t * cont = iv;
     if (pas_trace_wanted()) {
-        IR_t * xt = build(cx, IR_BINOP_TEST, γ, iv);
+        IR_t * xt = build(cx, IR_BINOP_TEST, out, iv);
         IR_LIT(xt).ival = is_downto ? 6 : 8;
         IR_t * xi = lower_var(cx, vname, NULL, ω);
         IR_t * xtr = NULL;
@@ -543,7 +582,10 @@ static IR_t * lower_for(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t
         ir_operand_push(xt, xtr);
         cont = xi;
     }
+    struct pas_fact me = { vname, cx->fact };
+    if (t->v.ival & 2) cx->fact = &me;
     IR_t * be = lower(cx, body, cont, cont, NULL);
+    cx->fact = me.up;
     γ_to(cmp, be ? be : cont);
     IR_t * init_asn = lower_assign_var(cx, vname, lim_var, ω);
     IR_t * fr = NULL;
@@ -951,6 +993,7 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     memset(&cx, 0, sizeof cx);
     cx.g = g;
     lc_vec_init(&cx.labels, (int) sizeof(pas_label_t));
+    lc_vec_init(&cx.fvars, (int) sizeof(const char *));
     scan_labels(&cx, pd, NULL);
     IR_t * succ = IR_node_alloc(g, IR_SUCCEED);
     IR_t * fail = IR_node_alloc(g, IR_FAIL);
@@ -965,6 +1008,7 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     pas_scope_t * sc = build_scope_chain(pd);
     if (sc) cx.sc = *sc;
     const tree_t * body = (pd->n > 2) ? pd->c[2] : NULL;
+    pas_collect_forvars(&cx, body);
     int is_func = (pd->n > 3) && pd->c[3] && (pd->c[3]->t == TT_VAR);
     IR_t * top = succ;
     if (is_func) {

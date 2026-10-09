@@ -2398,12 +2398,12 @@ for_statement:
         { pas_scope_require($2); pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
           if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 0);
-          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); $$ = e; }
+          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = e; }
     | FORSY IDENT BECOMES expression DOWNTOSY expression DOSY statement
         { pas_scope_require($2); pas_value_compat($2, $4, "6.8.3.9", "the control-variable"); pas_value_compat($2, $6, "6.8.3.9", "the control-variable");
           if (pas_var_is_real($2)) { fprintf(stderr, "pascal: ISO 7185 6.8.3.9 violation: the control-variable '%s' of a for-statement has type real, which is not an ordinal-type\n", $2); g_pas_iso_errors++; }
           pas_for_const_bounds($2, $4, $6, 1);
-          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; $$ = e; }
+          tree_t *e = ast_node_new(TT_FOR); ast_push(e, leaf_s(TT_VAR, $2)); ast_push(e, $4); ast_push(e, $6); ast_push(e, pas_trace_wrap_for_body($2, $8)); e->v.ival = 1; if (!g_pas_seen_mode_directive) e->v.ival |= 2; $$ = e; }
     ;
 with_statement:
     WITHSY with_open DOSY statement { long long n = $2; for (long long i = 0; i < n; i++) pas_with_pop(); $$ = $4; }

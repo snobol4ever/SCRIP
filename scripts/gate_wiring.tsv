@@ -445,6 +445,7 @@ test_gate_pas_a_declared_label_prefixes_exactly_one_statement_of_its_block.sh	WI
 test_gate_pas_a_field_of_an_anonymous_record_variable_keeps_its_record_type.sh	WIRED	-	-	-
 test_gate_pas_a_file_carries_its_iso_mode_and_says_so.sh	WIRED	-	-	-
 test_gate_pas_a_file_component_is_never_itself_a_file.sh	WIRED	-	-	-
+test_gate_pas_a_for_control_variable_is_undefined_after_the_for_statement.sh	WIRED	-	-	-
 test_gate_pas_a_for_statement_stays_inside_its_control_variables_type.sh	WIRED	-	-	-
 test_gate_pas_a_forward_declared_parameters_record_fields_resolve.sh	WIRED	-	-	-
 test_gate_pas_a_function_result_is_defined_when_its_algorithm_completes.sh	WIRED	-	-	-
