@@ -48,6 +48,7 @@ int      rkb_op_index_rev(int lv, const char *op, int *rev);
 tree_t  *rkb_binop(RkB *b, int lv, int k, tree_t *l, tree_t *r);
 tree_t  *rkb_hyper(RkB *b, int lv, int k, int hy, tree_t *l, tree_t *r);
 tree_t  *rkb_hyper_prefix(RkB *b, const char *op, tree_t *x);
+tree_t  *rkb_loose(RkB *b, int kind, tree_t *l, tree_t *r);
 int      rkb_hyper_index(int lv, const char *op, int *rev, int *hy);
 int      rkb_cross_inner(const char *op, int *lv, int *k, int *rev);
 int      rkb_neg_index(int lv, const char *op, int *rev);

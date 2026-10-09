@@ -1159,6 +1159,14 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                     if (swap) ast_push(mc, t->c[1]);
                     return lower_rv(cx, mc, γ, ω, res);
                 }
+                if (!strcmp(nm, "samewith") && cx->cur_proc_name && *cx->cur_proc_name && !strstr(cx->cur_proc_name, "__")) {
+                    tree_t * sc = ast_node_new(TT_FNC);
+                    sc->line = t->line;
+                    sc->v.sval = (char *) cx->cur_proc_name;
+                    ast_push(sc, leaf_sval2(TT_VAR, cx->cur_proc_name));
+                    for (int i = 1; i < t->n; i++) ast_push(sc, t->c[i]);
+                    return lower_rv(cx, sc, γ, ω, res);
+                }
                 if (!strcmp(nm, "not") && t->n == 2) { tree_t * nt = ast_node_new(TT_NOT); nt->line = t->line; ast_push(nt, t->c[1]); return lower_rv(cx, nt, γ, ω, res); }
                 {
                     static const struct {

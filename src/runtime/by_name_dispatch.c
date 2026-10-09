@@ -715,6 +715,7 @@ int rk_is_truthy(DESCR_t v) {
     if (rk_typeobj_name(v)) return 0;
     if (v.v == DT_S && v.s && v.slen != 0xFFFFFFFFu && !rk_typeobj_name(v)) return v.s[0] != '\0';
     if (v.v == DT_ORDER) return (v.i != 0);
+    if (v.v == DT_DATA || v.v == DT_FH) return 1;
     return rt_is_truthy(v);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -8493,6 +8494,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         else if (IS_STR_fn(a) && !rk_typeobj_name(a)) t = (a.s && a.s[0] != '\0' && a.slen != 0xFFFFFFFFu);
         else if (rk_typeobj_name(a)) t = 0;
         else if (rk_qh_is(a)) t = rk_qh_n(a) > 0;
+        else if (a.v == DT_DATA) t = rk_match_is_nil(a) ? 0 : 1;
+        else if (a.v == DT_FH) t = 1;
         else t = rt_is_truthy(a) ? 1 : 0;
         if (fn[5] == 'n') t = !t;
         *out = (DESCR_t){ .v = DT_BOOL, .i = t };
@@ -10058,7 +10061,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if (!strcmp(fn, "__rk_xor") && nargs == 2) {
         int x = rk_is_truthy(args[0]) ? 1 : 0, y = rk_is_truthy(args[1]) ? 1 : 0;
-        *out = (x && !y) ? args[0] : (y && !x) ? args[1] : (x && y) ? (DESCR_t){ .v = DT_BOOL, .i = 0 } : args[1];
+        *out = (x && !y) ? args[0] : (y && !x) ? args[1] : (x && y) ? NULVCL : args[1];
         return 1;
     }
     if ((!strcmp(fn, "__rk_coll") || !strcmp(fn, "__rk_unicmp")) && nargs == 2) {
@@ -13682,6 +13685,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : rk_qh_is(v) ? rk_qh_n(v) > 0 : 1;
+        else if (v.v == DT_FH) t = 1;
         else { const char *s = v.s ? v.s : ""; t = rk_typeobj_name(v) ? 0 : (s[0] != '\0'); }
         if (!t) { *out = FAILDESCR; return 1; }
         *out = v;
@@ -13703,6 +13707,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : rk_qh_is(v) ? rk_qh_n(v) > 0 : 1;
+        else if (v.v == DT_FH) t = 1;
         else { const char *s = v.s ? v.s : ""; t = rk_typeobj_name(v) ? 0 : (s[0] != '\0'); }
         *out = INTVAL(t);
         return 1;

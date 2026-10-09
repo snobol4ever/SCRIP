@@ -2351,10 +2351,41 @@ static int x_listinfix(RkX *x) {
     return (tx[0] == 'X' || tx[0] == 'Z') && tx[1] && rkb_cross_inner(tx + 1, &lv, &k, &rv);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int x_loose_kind(const char *t) {
+    return !strcmp(t, "and") ? 1 : !strcmp(t, "andthen") ? 2 : !strcmp(t, "notandthen") ? 3 : !strcmp(t, "or") ? 4 : !strcmp(t, "xor") ? 5 : !strcmp(t, "orelse") ? 6 : 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_loose_and(RkP *p, RkX *x, tree_t *l) {
+    int k;
+    while (x_peek(p, x) && (k = x_loose_kind(x->pk_txt)) >= 1 && k <= 3) {
+        x_take(p, x);
+        tree_t *r = x_after(p, x);
+        if (x->fail) return l;
+        if (p->build) l = rkb_loose(p->B, k, l, r);
+        x->lastcls = 0;
+    }
+    return l;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *x_loose(RkP *p, RkX *x, tree_t *l) {
+    int k;
+    l = x_loose_and(p, x, l);
+    while (x_peek(p, x) && (k = x_loose_kind(x->pk_txt)) >= 4) {
+        x_take(p, x);
+        tree_t *r = x_after(p, x);
+        if (x->fail) return l;
+        r = x_loose_and(p, x, r);
+        if (p->build) l = rkb_loose(p->B, k, l, r);
+        x->lastcls = 0;
+    }
+    return l;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *x_elem(RkP *p, RkX *x) {
     x->nterm = 0; x->el_nops = x->nops;
     tree_t *t = x_expr(p, x);
     if (x->fail) return NULL;
+    t = x_loose(p, x, t);
     while (x_peek(p, x) && strcmp(x->pk_txt, ",") && !x_listinfix(x)) { x_take(p, x); x_after(p, x); }
     return t;
 }

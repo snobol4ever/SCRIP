@@ -563,6 +563,11 @@ static tree_t *lower_interp_str(RkB *b, const char *s) {
             i++;
             SB vn = { 0 };
             while (i < len && (s[i] == '_' || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= 'a' && s[i] <= 'z') || (s[i] >= '0' && s[i] <= '9'))) { sb_c(&vn, s[i]); i++; }
+            while (i + 1 < len && (s[i] == '-' || s[i] == '\'') && isalpha((unsigned char) s[i + 1])) {
+                sb_c(&vn, s[i]);
+                i++;
+                while (i < len && (s[i] == '_' || isalnum((unsigned char) s[i]))) { sb_c(&vn, s[i]); i++; }
+            }
             char *vs = sb_str(&vn); const char *st = b->st_look ? b->st_look(b->st_ctx, fmt("$%s", vs), (int) strlen(vs) + 1) : NULL;
             tree_t *var = leaf_sval(TT_VAR, st ? st + 1 : vs);
             result = result ? expr_binary(TT_CAT, result, var) : var;
@@ -985,6 +990,19 @@ static tree_t *b_cmp(RkB *b, int k, tree_t *l, tree_t *r) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_is_ctrl(const tree_t *r) { return r && (r->t == TT_RETURN || r->t == TT_DIE || r->t == TT_LOOP_BREAK || r->t == TT_LOOP_NEXT); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_ctrl_guard(int is_or, tree_t *l, tree_t *r) {
+    if (rk_is_ctrl(l)) return l;
+    tree_t *g = ast_node_new(is_or ? TT_UNLESS : TT_IF);
+    tree_t *sq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(g, l);
+    expr_add_child(sq, r);
+    expr_add_child(g, sq);
+    return g;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rk_defined_op(RkB *b, int kind, tree_t *l, tree_t *r);
 static tree_t *rkb_binop_raw(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
     static const char *const jfn[] = { NULL, "__rk_set_sym", "__rk_set_dif", "__rk_set_sum", "__rk_set_uni", "__rk_set_mul", "__rk_set_int", NULL, "__rk_set_uni", "__rk_set_int", "__rk_set_sym", "__rk_set_sum", "__rk_set_dif", "__rk_set_mul" };
     switch (lv) {
@@ -994,12 +1012,12 @@ static tree_t *rkb_binop_raw(RkB *b, int lv, int k, tree_t *l, tree_t *r) {
     case LV_CAT: return k == 0 ? expr_binary(TT_CAT, l, r) : call2("__rk_compose", l, r);
     case LV_RANGE1: return k < 2 ? expr_binary(TT_TO, l, r) : rk_range_ex(b, l, r);
     case LV_RANGE2: return call2(k == 0 ? "__rk_unicmp" : k == 1 ? "__rk_coll" : k == 2 ? "__rk_range_xb" : "__rk_range_xl", l, r);
-    case LV_DOR: return call2("__rk_dor", l, r);
+    case LV_DOR: return (r && (r->t == TT_VAR || r->t == TT_ILIT || r->t == TT_QLIT || r->t == TT_FLIT)) ? call2("__rk_dor", l, r) : rk_defined_op(b, 0, l, r);
     case LV_JCT: return k == 0 ? mk_junction("any", l, r) : k == 7 ? mk_junction("all", l, r) : call2(jfn[k], l, r);
     case LV_DIVIS: return expr_binary(TT_DIVIS, l, r);
     case LV_CMP: return b_cmp(b, k, l, r);
-    case LV_AND: return rk_logical_and(l, r);
-    case LV_OR: return k == 0 ? expr_binary(TT_ALT, l, r) : call2(k == 1 ? "__rk_xor" : k == 2 ? "__rk_max" : "__rk_min", l, r);
+    case LV_AND: return (rk_is_ctrl(r) || rk_is_ctrl(l)) ? rk_ctrl_guard(0, l, r) : rk_logical_and(l, r);
+    case LV_OR: return k == 0 ? ((rk_is_ctrl(r) || rk_is_ctrl(l)) ? rk_ctrl_guard(1, l, r) : expr_binary(TT_ALT, l, r)) : call2(k == 1 ? "__rk_xor" : k == 2 ? "__rk_max" : "__rk_min", l, r);
     case LV_POW: return expr_binary(TT_POW, nctx(b, l), nctx(b, r));
     case LV_PAIR: {
         if (l && l->t == TT_VAR && (l->slen & 1) && !l->n && l->v.sval) l = leaf_sval(TT_QLIT, l->v.sval);
@@ -1132,6 +1150,45 @@ tree_t *rkb_hyper(RkB *b, int lv, int k, int hy, tree_t *l, tree_t *r) {
     expr_add_child(zip, l);
     expr_add_child(zip, r);
     return rk_hyper_map(zip, rkb_binop_raw(b, lv, k, rk_hyper_elem(0), rk_hyper_elem(1)), hy, kl, kr);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_loose_topical(RkB *b, tree_t *r, const char *tmp) {
+    if (r && r->t == TT_ANON_BLOCK) {
+        tree_t *iv = ast_node_new(TT_INVOKE);
+        ast_push(iv, r);
+        ast_push(iv, leaf_sval(TT_VAR, tmp));
+        return iv;
+    }
+    tree_t *sq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(sq, expr_binary(TT_ASSIGN, leaf_sval(TT_VAR, "_"), leaf_sval(TT_VAR, tmp)));
+    expr_add_child(sq, r);
+    return sq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rk_defined_op(RkB *b, int kind, tree_t *l, tree_t *r) {
+    const char *tmp = fmt("__lg_%d", b->post_uid++);
+    tree_t *seq = ast_node_new(TT_SEQ_EXPR);
+    expr_add_child(seq, rk_quiet_store(leaf_sval(TT_VAR, tmp), l));
+    tree_t *dcall = make_call("__rk_defined");
+    expr_add_child(dcall, leaf_sval(TT_VAR, tmp));
+    int topical = kind != 0;
+    tree_t *rside = topical ? rk_loose_topical(b, r, tmp) : r;
+    if (rk_is_ctrl(r) && kind != 2) {
+        expr_add_child(seq, rk_ctrl_guard(1, dcall, rside));
+        expr_add_child(seq, leaf_sval(TT_VAR, tmp));
+        return seq;
+    }
+    tree_t *yes = kind == 2 ? rside : kind == 3 ? make_call("__rk_arr") : leaf_sval(TT_VAR, tmp);
+    tree_t *no = kind == 2 ? make_call("__rk_arr") : rside;
+    expr_add_child(seq, rkb_ternary(b, dcall, yes, no));
+    return seq;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+tree_t *rkb_loose(RkB *b, int kind, tree_t *l, tree_t *r) {
+    if (kind == 1) return rkb_binop_raw(b, LV_AND, 0, l, r);
+    if (kind == 4) return rkb_binop_raw(b, LV_OR, 0, l, r);
+    if (kind == 5) return rkb_binop_raw(b, LV_OR, 1, l, r);
+    return rk_defined_op(b, kind == 6 ? 1 : kind == 2 ? 2 : 3, l, r);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_hyper_prefix(RkB *b, const char *op, tree_t *x) {
@@ -1503,11 +1560,22 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
         if (!strcmp(nm, "return") || !strcmp(nm, "fail")) { it->t = ast_node_new(TT_RETURN); return; }
         if (!strcmp(nm, "exit")) { tree_t *c = make_call("__rk_exit"); expr_add_child(c, rk_ilit(0)); it->t = c; return; }
         if (rt) { it->t = make_call(rt); return; }
+        if (!strcmp(nm, "callsame") || !strcmp(nm, "samewith") || !strcmp(nm, "callwith") || !strcmp(nm, "nextcallee")) { it->t = make_call(nm); return; }
+        if (!strcmp(nm, "nextsame")) { tree_t *r = ast_node_new(TT_RETURN); ast_push(r, make_call("callsame")); it->t = r; return; }
         if (form == 0) { it->t = var_node(b, nm); return; }
         it->t = make_call(nm); return;
     }
     TL pos = { 0 }, named = { 0 };
     if (rt) { arglist(b, args, 0, &pos, NULL); it->t = rk_testop_call(b, rt, &pos); return; }
+    if (!strcmp(nm, "nextwith")) {
+        arglist(b, args, 0, &pos, NULL);
+        tree_t *c = make_call("callwith");
+        for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]);
+        tree_t *r = ast_node_new(TT_RETURN);
+        ast_push(r, c);
+        it->t = r;
+        return;
+    }
     if (!strcmp(nm, "say") || !strcmp(nm, "print") || !strcmp(nm, "put")) {
         arglist(b, args, 0, &pos, NULL); flatten_paren_args(args, &pos);
         tree_t *c = ast_node_new(nm[0] == 's' ? TT_SAY : TT_PRINT); for (int i = 0; i < pos.n; i++) expr_add_child(c, pos.v[i]);
@@ -2076,6 +2144,8 @@ void rkb_block_term(RkB *b, RkTerm *it, int from, int to, tree_t *seq, tree_t *s
     rk_pcv_release(b, sig);
     tree_t *a = ast_node_new(TT_ANON_BLOCK); expr_add_child(a, seq);
     for (int i = 0; sig && i < sig->n; i++) { tree_t *p = sig->c[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0]; expr_add_child(a, p); }
+    if (!sig && rk_reads_var(seq, "@_")) { tree_t *ap = var_node(b, "@_"); expr_add_child(ap, leaf_sval(TT_QLIT, intern("*@"))); expr_add_child(a, ap); }
+    if (!sig && rk_reads_var(seq, "%_")) { tree_t *hp = var_node(b, "%_"); expr_add_child(hp, leaf_sval(TT_QLIT, intern("*%"))); expr_add_child(a, hp); }
     it->t = a;
 }
 /*====================================================================================================================================================================================================*/
@@ -2086,6 +2156,7 @@ tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, 
     rk_pcv_release(b, sig);
     if (!body) body = ast_node_new(TT_SEQ_EXPR);
     if (params.n == 0 && !has_parens && rk_reads_var(body, "@_")) { tree_t *ap = var_node(b, "@_"); expr_add_child(ap, leaf_sval(TT_QLIT, intern("*@"))); tl_add(&params, ap); }
+    if (!has_parens && (params.n == 0 || (params.n == 1 && params.v[0] && params.v[0]->v.sval && !strcmp(params.v[0]->v.sval, "@_"))) && rk_reads_var(body, "%_")) { tree_t *hp = var_node(b, "%_"); expr_add_child(hp, leaf_sval(TT_QLIT, intern("*%"))); tl_add(&params, hp); }
     tree_t *rkbody = rk_defaults_prologue(&params, body);
     char *nm = trimdup(name ? name : "", name ? namelen : 0);
     const char *lt = strstr(nm, ":<"), *gq = strstr(nm, ":\xC2\xAB"); size_t nl0 = strlen(nm);
