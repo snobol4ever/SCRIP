@@ -1432,34 +1432,51 @@ void rt_gc_frame_maps_drop_range(const void *lo, const void *hi) {
     for (int i = 0; i < g_gc_maps_n; i++) if ((const void *)g_gc_maps[i] < lo || (const void *)g_gc_maps[i] >= hi) g_gc_maps[w++] = g_gc_maps[i];
     g_gc_maps_n = w;
 }
-typedef struct { uint64_t pc; int32_t depth; uint16_t kind, rule; } gc_site_ent_t;
-typedef struct { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi; int n; int ckt; uint64_t link; gc_site_ent_t *ents; } gc_site_blk_t;
+typedef struct { uint64_t pc; uint16_t kind, rule; int32_t depth; } gc_site_ent_t;
+_Static_assert(sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_ent_t, kind) == 8 && __builtin_offsetof(gc_site_ent_t, rule) == 10 && __builtin_offsetof(gc_site_ent_t, depth) == 12,
+    "A SITE ENTRY IS LAID OUT EXACTLY AS THE EMITTED (pc, word) PAIR, word = kind | rule << 16 | depth << 32 little-endian (cto, row gc-a-registered-site-table-costs-its-entries-not-an-mmapped-page-"
+    "per-blo" "ck): a table the emitter wrote sorted by pc with no skipped entry is searched in place in the fragment's own data, so registering it costs no page; any other table is copied as before")
+    ;
+typedef struct { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi, maxhi; int n; int ckt; int own; uint64_t link; const gc_site_ent_t *ents; } gc_site_blk_t;
 static gc_site_blk_t *g_gc_sblk = (gc_site_blk_t *)0;
 static int g_gc_sblk_n = 0, g_gc_sblk_cap = 0;
 static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const gc_site_ent_t *)a)->pc, y = ((const gc_site_ent_t *)b)->pc; return x < y ? -1 : x > y ? 1 : 0; }
+static void gc_site_blk_maxhi_from(int i) {
+    for (int j = i < 0 ? 0 : i; j < g_gc_sblk_n; j++) g_gc_sblk[j].maxhi = (j > 0 && g_gc_sblk[j - 1].maxhi > g_gc_sblk[j].hi) ? g_gc_sblk[j - 1].maxhi : g_gc_sblk[j].hi;
+}
 void rt_gc_frame_sites_add(const void *tab) {
     const uint64_t *t = (const uint64_t *)tab;
     int n;
     const gc_frame_map_t *m;
-    gc_site_ent_t *e;
+    const gc_site_ent_t *e;
     int k = 0;
+    int own = 0;
+    int inplace = 1;
     if (!t) return;
     for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].tab == t) return;
     n = (int)t[0];
     m = (const gc_frame_map_t *)(uintptr_t)t[1];
     if (m && m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-SITES] rt_gc_frame_sites_add: table %p names no frame map (%p)\n", tab, (const void *)m); abort(); }
-    e = n > 0 ? (gc_site_ent_t *)gcbk_alloc((size_t)n * sizeof *e) : (gc_site_ent_t *)0;
-    for (int i = 0; i < n; i++) {
-        uint64_t pc = t[3 + 2 * i], w = t[4 + 2 * i];
-        if (!pc) continue;
-        if ((w & 255u) == 4u || (w & 255u) == 5u) continue;
-        e[k].pc = pc;
-        e[k].kind = (uint16_t)(w & 0xFFFFu);
-        e[k].rule = (uint16_t)((w >> 16) & 0xFFFFu);
-        e[k].depth = (int32_t)(uint32_t)(w >> 32);
-        k++;
+    for (int i = 0; i < n && inplace; i++) { uint64_t pc = t[3 + 2 * i], w = t[4 + 2 * i]; if (!pc || (w & 255u) == 4u || (w & 255u) == 5u || (i > 0 && pc <= t[1 + 2 * i])) inplace = 0; }
+    if (inplace) {
+        e = n > 0 ? (const gc_site_ent_t *)(const void *)(t + 3) : (const gc_site_ent_t *)0;
+        k = n;
+    } else {
+        gc_site_ent_t *c = n > 0 ? (gc_site_ent_t *)gcbk_alloc((size_t)n * sizeof *c) : (gc_site_ent_t *)0;
+        for (int i = 0; i < n; i++) {
+            uint64_t pc = t[3 + 2 * i], w = t[4 + 2 * i];
+            if (!pc) continue;
+            if ((w & 255u) == 4u || (w & 255u) == 5u) continue;
+            c[k].pc = pc;
+            c[k].kind = (uint16_t)(w & 0xFFFFu);
+            c[k].rule = (uint16_t)((w >> 16) & 0xFFFFu);
+            c[k].depth = (int32_t)(uint32_t)(w >> 32);
+            k++;
+        }
+        if (k > 1) qsort(c, (size_t)k, sizeof *c, gc_site_ent_cmp);
+        e = c;
+        own = c ? 1 : 0;
     }
-    if (k > 1) qsort(e, (size_t)k, sizeof *e, gc_site_ent_cmp);
     if (g_gc_sblk_n == g_gc_sblk_cap) {
         g_gc_sblk_cap = g_gc_sblk_cap ? g_gc_sblk_cap * 2 : 64;
         g_gc_sblk = (gc_site_blk_t *)gcbk_grow((void *)g_gc_sblk, (size_t)g_gc_sblk_cap * sizeof *g_gc_sblk);
@@ -1476,17 +1493,20 @@ void rt_gc_frame_sites_add(const void *tab) {
         g_gc_sblk[i].n = k;
         g_gc_sblk[i].ckt = m ? 0 : (int)t[2];
         g_gc_sblk[i].link = m ? t[2] : 0u;
+        g_gc_sblk[i].own = own;
         g_gc_sblk[i].ents = e;
         g_gc_sblk_n++;
+        gc_site_blk_maxhi_from(i);
     }
 }
 void rt_gc_frame_sites_drop_range(const void *lo, const void *hi) {
     int w = 0;
     for (int i = 0; i < g_gc_sblk_n; i++) {
         if ((const void *)g_gc_sblk[i].tab < lo || (const void *)g_gc_sblk[i].tab >= hi) { g_gc_sblk[w++] = g_gc_sblk[i]; continue; }
-        if (g_gc_sblk[i].ents) gcbk_drop(g_gc_sblk[i].ents);
+        if (g_gc_sblk[i].own && g_gc_sblk[i].ents) gcbk_drop((void *)(uintptr_t)g_gc_sblk[i].ents);
     }
     g_gc_sblk_n = w;
+    gc_site_blk_maxhi_from(0);
 }
 void rt_gc_frame_sites_install_counted(const void *tab) {
     const uint64_t *t = (const uint64_t *)tab;
@@ -1494,9 +1514,12 @@ void rt_gc_frame_sites_install_counted(const void *tab) {
     for (int i = 0; i < (int)t[0]; i++) rt_gc_frame_sites_add((const void *)(uintptr_t)t[1 + i]);
 }
 static const gc_site_blk_t *gc_site_find(uint64_t pc, const gc_site_ent_t **eo) {
-    for (int b = 0; b < g_gc_sblk_n; b++) {
+    long a = 0, z = (long)g_gc_sblk_n - 1, b = -1;
+    while (a <= z) { long mid = (a + z) >> 1; if (g_gc_sblk[mid].lo <= pc) { b = mid; a = mid + 1; } else z = mid - 1; }
+    for (; b >= 0; b--) {
         const gc_site_blk_t *k = &g_gc_sblk[b];
         long lo, hi;
+        if (k->maxhi <= pc) break;
         if (pc < k->lo || pc >= k->hi) continue;
         lo = 0;
         hi = k->n - 1;
