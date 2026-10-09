@@ -1119,7 +1119,8 @@ def bare_norm_sites(sites):
     seen, out = {}, []
     for site, poll_at in sites:
         path, _line, callees = site.split(":", 2)
-        base = path + ":" + callees
+        names = callees.split("/")
+        base = path + ":" + (callees if len(names) <= 4 else "/".join(names[:2]) + "/...")
         seen[base] = seen.get(base, 0) + 1
         out.append((base + "#" + str(seen[base]), site, poll_at))
     return out
@@ -1400,6 +1401,9 @@ def bare_selftest(ck):
     b = bare_norm_sites([("src/templates/bb/bb_x.cpp:310:rt_a/rt_b", "src/templates/bb/bb_x.cpp:312"), ("src/templates/bb/bb_x.cpp:330:rt_a/rt_b", "src/templates/bb/bb_x.cpp:332"), ("src/templates/bb/bb_x.cpp:340:rt_c", "src/templates/bb/bb_x.cpp:341")])
     ck([x[0] for x in a] == ["src/templates/bb/bb_x.cpp:rt_a/rt_b#1", "src/templates/bb/bb_x.cpp:rt_a/rt_b#2", "src/templates/bb/bb_x.cpp:rt_c#1"], "BARE-POLL KEY: two sites naming the same callees take the ordinals 1 and 2, a third site its own #1 (%s)" % ([x[0] for x in a],))
     ck([x[0] for x in a] == [x[0] for x in b], "BARE-POLL KEY: every site moved 300 lines keeps its row name -- a re-flow or a line move never invalidates the table")
+    c = bare_norm_sites([("src/templates/bb/bb_x.cpp:10:rt_a/rt_b/rt_c/rt_d/rt_e/rt_f", "src/templates/bb/bb_x.cpp:12")])
+    d = bare_norm_sites([("src/templates/bb/bb_x.cpp:90:rt_a/rt_b/rt_c/rt_d/rt_e/rt_f/rt_g", "src/templates/bb/bb_x.cpp:92")])
+    ck(c[0][0] == d[0][0] == "src/templates/bb/bb_x.cpp:rt_a/rt_b/...#1", "BARE-POLL KEY: a table-driven site names its first two callees and an ellipsis, so a callee added to or removed from the table never renames the row (%s)" % (c[0][0],))
 
 
 
