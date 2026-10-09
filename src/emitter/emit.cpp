@@ -3646,8 +3646,7 @@ static void flat_beta_used_scan(IR_t **nodes, int n, unsigned char *used) {
     }
 }
 extern "C" int xa_flat_class_c_pred(void);
-extern "C" void xa_flat_chain_prologue(const char * fname);
-extern "C++" int xa_flat_sig_names(const char * fname, int * nf_out, int * nsave_out, int * gk_out, int * res_gk_out);
+extern "C" int xa_flat_chain_prologue(const char * fname);
 extern "C" void xa_flat_chain_epilogue(void);
 extern "C" void xa_flat_chain_epilogue_sig(int is_gamma, const char * fname);
 extern int g_rt_fragment_emit;
@@ -4368,12 +4367,7 @@ if (((c)->op == IR_BINOP || (c)->op == IR_BINOP_TEST || (c)->op == IR_BINOP_RELO
     if (!bare) emit_label_define_bb(&lbl_α_body);
     if (lbl_α_orig_p && xa_flat_class_c_pred() && !g_rt_fragment_emit) emit_label_define_bb(lbl_α_orig_p);
     { extern std::string bb_zdp_origin(long); extern int x86_zdp_on_c(void); if (x86_zdp_on_c()) bb_emit_x86(bb_zdp_origin((long)0)); } { if (x86_zdp_rbp_on()) bb_emit_x86(x86_zsm_ev(0)); }
-    int _sigk = 0;
-    if (xa_flat_class_c_pred()) {
-        int _snf = 0, _sns = 0, _sgk[BB_SCC_NP_MAX + 1];
-        xa_flat_chain_prologue(fam);
-        if (fam && xa_flat_sig_names(fam, &_snf, &_sns, _sgk, (int *)0)) _sigk = 16 * _sns;
-    }
+    int _sigk = xa_flat_class_c_pred() ? xa_flat_chain_prologue(fam) : 0;
     if (!bare && blob_frame_scope()) blob_first_guard();
     { int _bfb = blob_frame_bytes(); if (_bfb > 0) { blob_layout_build(_bfb);
         bb_emit_x86( x86("push", "rbp") + x86("mov", "rbp", "rsp") + x86("sub", "rsp", (long)(blob_carve_bytes() + blob_carve_pad())) +
