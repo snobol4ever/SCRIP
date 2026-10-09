@@ -427,8 +427,16 @@ void rt_coerce_int_d(const DESCR_t *in, DESCR_t *out, long codes) {
 static DESCR_t g_prim_val;
 void rt_eval_stage_enter(const char *name);
 void rt_eval_stage_leave_word(long word);
+rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered);
 rt_call_next_t rt_pat_prim_open(const char *varname) {
     extern int rt_proc_is_registered(const char *name);
+    if (varname && varname[0] == '*' && (unsigned char)varname[1] == 1) {
+        int reg = 0;
+        rt_call_next_t n = rt_call_open_staged_rec((sno_dstar_rec_t *)(void *)varname, &reg);
+        if (n.fn) return n;
+        g_prim_val = FAILDESCR;
+        return (rt_call_next_t){ 0, 0 };
+    }
     if (varname && varname[0] == '*') {
         if (rt_proc_is_registered(varname + 1)) {
             rt_call_next_t n = rt_call_open_by_name(varname + 1, 0);
@@ -594,6 +602,7 @@ rt_proc_t *g_rt_gen_procs = (rt_proc_t *)0;
 __attribute__((visibility("hidden"))) int g_rt_gen_proc_count = 0;
 static int g_rt_gen_proc_cap = 0;
 static int *g_proc_hsl = (int *)0;
+static const char rt_proc_thunk_name[] = "(expression)";
 static unsigned g_proc_hcap = 0;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static unsigned rt_proc_fnv(const char *s) { unsigned h = 2166136261u; while (*s) { h ^= (unsigned char)*s++; h *= 16777619u; } return h; }
@@ -618,7 +627,7 @@ static void rt_proc_hash_insert(int idx) {
         g_proc_hsl = np;
         g_proc_hcap = nc;
         memset(g_proc_hsl, 0, (size_t)nc * sizeof(int));
-        for (int i = 0; i < g_rt_gen_proc_count; i++) if (g_rt_gen_procs[i].name) rt_proc_hash_seed(i);
+        for (int i = 0; i < g_rt_gen_proc_count; i++) if (g_rt_gen_procs[i].name && g_rt_gen_procs[i].name != rt_proc_thunk_name) rt_proc_hash_seed(i);
         return;
     }
     rt_proc_hash_seed(idx);
@@ -851,8 +860,8 @@ int rt_proc_named_runs(const char *name) { rt_proc_t *p = name ? rt_proc_find(na
 DESCR_t rt_c2bb_bomb(const char *site, const char *name);
 DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *r) {
     rt_proc_t *p = (r && !(r->flags & SNO_DSTAR_VARREF)) ? rt_proc_of_rec(r) : (rt_proc_t *)0;
-    if (!p) return NV_GET_fn(r ? r->star + 1 : "");
-    return rt_c2bb_bomb("rt_sno_dtx_value_rec", r->star + 1);
+    if (!p) return NV_GET_fn(r ? sno_dstar_star(r) + 1 : "");
+    return rt_c2bb_bomb("rt_sno_dtx_value_rec", sno_dstar_star(r) + 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_proc_unregister(const char *name) {
@@ -1323,11 +1332,11 @@ int rt_dtx_open_tail(sno_dstar_rec_t *r, long *rq) {
     rt_proc_t *p = (r && !(r->flags & SNO_DSTAR_VARREF)) ? rt_proc_of_rec(r) : (rt_proc_t *)0;
     if (!p || !p->dyn_scope || !p->fn) return 0;
     {
-        rt_call_next_t n = rt_call_open_by_name_p(p, r->star + 1, 0);
+        rt_call_next_t n = rt_call_open_by_name_p(p, sno_dstar_star(r) + 1, 0);
         rq[0] = n.fn;
         rq[1] = n.how;
 #if RT_DIAG
-        if (n.fn) rt_c2bb_hit("dtx.open", r->star + 1);
+        if (n.fn) rt_c2bb_hit("dtx.open", sno_dstar_star(r) + 1);
 #endif
         return 1;
     }
@@ -1366,20 +1375,20 @@ long rt_dcap_call_prepare(const char *name, short *how, int *nsb, int *registere
 static rt_proc_t *rt_proc_of_rec(sno_dstar_rec_t *r) {
     if (r->flags & SNO_DSTAR_THUNK) {
         if (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count) return &g_rt_gen_procs[r->pidx];
-        fprintf(stderr, "rt_proc_of_rec: the thunk %s has no registry slot in its star record -- its startup record must write pidx, never a by-name lookup (CEO-1362 chunk 2b)\n",
-            r->star ? r->star : "?");
+        fprintf(stderr, "rt_proc_of_rec: the thunk %s has no registry slot in its star record -- its startup record must write pidx, never a by-name lookup (CEO-1362 chunk 2b)\n", sno_dstar_star(r));
         { volatile char *z = (volatile char *)0; (void)*z; }
     }
-    rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count && g_rt_gen_procs[r->pidx].name && g_rt_gen_procs[r->pidx].name[0] != 1) ? &g_rt_gen_procs[r->pidx] : rt_proc_find(r->star + 1);
+    rt_proc_t *p = (r->pidx >= 0 && r->pidx < g_rt_gen_proc_count && g_rt_gen_procs[r->pidx].name && g_rt_gen_procs[r->pidx].name[0] != 1) ? &g_rt_gen_procs[r->pidx] :
+        rt_proc_find(sno_dstar_star(r) + 1);
     if (p) r->pidx = (int32_t)(p - g_rt_gen_procs);
     return p;
 }
-long rt_dcap_call_prepare_rec(sno_dstar_rec_t *r, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_of_rec(r), r->star + 1, how, nsb, registered); }
+long rt_dcap_call_prepare_rec(sno_dstar_rec_t *r, short *how, int *nsb, int *registered) { return rt_dcap_call_prepare_p(rt_proc_of_rec(r), sno_dstar_star(r) + 1, how, nsb, registered); }
 rt_call_next_t rt_call_open_staged_rec(sno_dstar_rec_t *r, int *registered) {
     rt_proc_t *p = rt_proc_of_rec(r);
     *registered = p ? 1 : 0;
     if (!p) return (rt_call_next_t){ 0, 0 };
-    { rt_call_next_t n = rt_call_open_by_name_p(p, r->star + 1, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; }
+    { rt_call_next_t n = rt_call_open_by_name_p(p, sno_dstar_star(r) + 1, 0); if (n.fn && g_error == 0 && !p->stage_var) g_error = G_ERROR_EVAL_STAGE; return n; }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_dyn_alpha_fn(const char *name, void *fallback) {
@@ -1859,6 +1868,10 @@ static long rt_proc_call_open_p(rt_proc_t **pp, int nargs) {
 }
 static long rt_proc_call_open_pn(rt_proc_t **pp, const char *name, int nargs) {
     if (proc_open_p_on()) return rt_proc_call_open_p(pp, nargs);
+    if (*pp && (*pp)->thunk && (*pp)->name == rt_proc_thunk_name) {
+        fprintf(stderr, "rt_proc_call_open_pn: a nameless thunk reached the by-name open (SCRIP_PROC_OPEN_P=0) -- it is opened by its registry slot only (CEO-1362 chunk 2b)\n");
+        abort();
+    }
     long ix = (long)(*pp - g_rt_gen_procs);
     long fb = rt_proc_call_open(name, nargs);
     if (ix >= 0 && ix < g_rt_gen_proc_count) *pp = &g_rt_gen_procs[ix];
@@ -2265,18 +2278,18 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
     _Static_assert(__builtin_offsetof(rt_proc_reg_rec_t, pnames) == 32 && __builtin_offsetof(rt_proc_reg_rec_t, nparams) == 40 && __builtin_offsetof(rt_proc_reg_rec_t, flags) == 52,
         "ONE-REG field offsets are law");
     extern void **rt_pl_dc_slot(long idx);
-    if (!r || !r->name) return;
+    if (!r || (!r->name && !(r->flags & 64))) return;
     {
-        unsigned h = rt_proc_fnv(r->name);
-        int i = rt_proc_hash_lookup_h(r->name, h);
+        unsigned h = r->name ? rt_proc_fnv(r->name) : 0u;
+        int i = r->name ? rt_proc_hash_lookup_h(r->name, h) : -1;
         rt_proc_t *p;
         if (i < 0) {
             rt_gen_proc_grow();
             if (g_rt_gen_proc_count >= g_rt_gen_proc_cap) return;
             i = g_rt_gen_proc_count++;
             p = &g_rt_gen_procs[i];
-            p->name = r->name;
-            p->stage_var = rt_eval_stage_is_var(r->name);
+            p->name = r->name ? r->name : rt_proc_thunk_name;
+            p->stage_var = r->name ? rt_eval_stage_is_var(r->name) : 0;
             p->fn = NULL;
             p->pnames = (const char **)r->pnames;
             p->nparams = r->nparams;
@@ -2301,8 +2314,7 @@ void rt_proc_register_rec(const rt_proc_reg_rec_t *r) {
             p->gen_region_ft = 0;
             p->redefined = 0;
             p->pinned = 0;
-            if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) rt_proc_hash_insert(i);
-            else rt_proc_hash_seed_h(i, h);
+            if (r->name) { if ((unsigned)(g_rt_gen_proc_count + 1) * 4 >= g_proc_hcap * 3) rt_proc_hash_insert(i); else rt_proc_hash_seed_h(i, h); }
         } else {
             p = &g_rt_gen_procs[i];
             if (r->flags & 1) {

@@ -44,7 +44,7 @@ typedef struct {
 #define SNO_DEF_NAMES_MAX 64
 typedef struct { const char * fname; const char * entry; const char * result_name; const char * names[SNO_DEF_NAMES_MAX]; int nnames; int nformals; } sno_def_t;
 static int sno_fname_is_multiproto(const char * fname);
-typedef struct { const char * name; const tree_t * expr; int salt; int want_name; int nm; int stage; } sno_expr_ent_t;
+typedef struct { const char * name; const tree_t * expr; int salt; int want_name; int nm; const char * svar; } sno_expr_ent_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void sno_expr_salt_next(void) { g_lower.sno.expr_salt++; }
 static const char * sno_expr_collect(const tree_t * expr);
@@ -98,7 +98,7 @@ static const tree_t * sfind(const tree_t * s, const char * tag) {
 static int zw5_on(void) { const char * e = getenv("SCRIP_ZW5"); return (e && *e == '0') ? 0 : 1; }
 static const char * sfind_str(const tree_t * s, const char * tag) { const tree_t * a = sfind(s, tag); return (a && a->n > 0 && a->c[0]) ? a->c[0]->v.sval : NULL; }
 static tree_t * sfind_expr(const tree_t * s, const char * tag) { const tree_t * a = sfind(s, tag); return (a && a->n > 0) ? a->c[0] : NULL; }
-static void sno_reg_var(const char * nm) { extern void global_register_copy(const char *); if (nm && nm[0] && nm[0] != '&') global_register_copy(nm); }
+static void sno_reg_var(const char * nm) { extern void global_register_copy(const char *); if (nm && nm[0] && nm[0] != '&' && !(nm[0] == '*' && (unsigned char) nm[1] == 1)) global_register_copy(nm); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int sno_expr_eq(const tree_t * a, const tree_t * b) {
     if (a == b) return 1;
@@ -108,6 +108,8 @@ static int sno_expr_eq(const tree_t * a, const tree_t * b) {
     for (int i = 0; i < a->n; i++) if (!sno_expr_eq(a->c[i], b->c[i])) return 0;
     return 1;
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int sno_expr_is_thunk(const char * nm) { for (int i = 0; i < (int) g_lower.sno.exprs.len; i++) if (!strcmp(CV_AT(g_lower.sno.exprs, sno_expr_ent_t, i).name, nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_expr_collect(const tree_t * expr) {
     if (!expr) sno_fatal("unevaluated-expression operator (*) with no operand", NULL);
@@ -126,7 +128,7 @@ static const char * sno_expr_collect(const tree_t * expr) {
         x.salt = g_lower.sno.expr_salt;
         x.want_name = 0;
         x.nm = 0;
-        x.stage = *xv ? 1 : 0;
+        x.svar = *xv ? lp_strdup(xv) : (const char *)0;
         CV_PUSH(g_lower.sno.exprs, sno_expr_ent_t) = x;
         return x.name;
     }
@@ -140,7 +142,17 @@ static const char * sno_expr_collect_nm(const tree_t * expr) {
     char buf[40];
     if (g_lower.sno.expr_salt) snprintf(buf, sizeof buf, "EXPRNM$%dF%d", (int) g_lower.sno.exprs.len, g_lower.sno.expr_salt);
     else snprintf(buf, sizeof buf, "EXPRNM$%d", (int) g_lower.sno.exprs.len);
-    { sno_expr_ent_t x; x.name = lp_strdup(buf); x.expr = expr; x.salt = g_lower.sno.expr_salt; x.want_name = 1; x.nm = 1; x.stage = 0; CV_PUSH(g_lower.sno.exprs, sno_expr_ent_t) = x; return x.name; }
+    {
+        sno_expr_ent_t x;
+        x.name = lp_strdup(buf);
+        x.expr = expr;
+        x.salt = g_lower.sno.expr_salt;
+        x.want_name = 1;
+        x.nm = 1;
+        x.svar = (const char *)0;
+        CV_PUSH(g_lower.sno.exprs, sno_expr_ent_t) = x;
+        return x.name;
+    }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * sno_expr_collect_wn(const tree_t * expr) {
@@ -900,6 +912,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             if (vn) {
                 nl = lc_build(cx->g, IR_LIT_STRING, NULL, ω);
                 IR_LIT(nl).sval = (char *) vn;
+                if (vn[0] == '*' && sno_expr_is_thunk(vn + 1)) { IR_LIT(nl).sval = (char *) (vn + 1); nl->seal = IR_SEAL_DSTAR_REF; }
                 es = sx_lower(cx, t->c[0], NULL, ω, &vs);
                 lc_γ_to(kt, nl);
                 lc_γ_to(nl, es);
@@ -1547,6 +1560,7 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_LIT(mk).sval = (char *) "SNO$PCUR";
             IR_t * nl = lc_build(cx->g, IR_LIT_STRING, mk, ω);
             IR_LIT(nl).sval = (char *) cvn;
+            if (cvn[0] == '*' && sno_expr_is_thunk(cvn + 1)) { IR_LIT(nl).sval = (char *) (cvn + 1); nl->seal = IR_SEAL_DSTAR_REF; }
             ir_operand_push(mk, nl);
             if (res) *res = mk;
             return nl;
@@ -4250,7 +4264,8 @@ void sno_expr_thunks_build(int x0) {
         g_stage2.proc_table[xpi].dyn_scope = 1;
         g_stage2.proc_table[xpi].thunk_kind = PROC_THUNK_EXPR;
         g_stage2.proc_table[xpi].thunk_flags =
-            SNO_DSTAR_THUNK | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).nm ? SNO_DSTAR_EXPRNM : 0u) | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).stage ? SNO_DSTAR_STAGEVAR : 0u);
+            SNO_DSTAR_THUNK | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).nm ? SNO_DSTAR_EXPRNM : 0u) | (CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).svar ? SNO_DSTAR_STAGEVAR : 0u);
+        g_stage2.proc_table[xpi].stage_var = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).svar;
         g_stage2.proc_table[xpi].result_name = CV_AT(g_lower.sno.exprs, sno_expr_ent_t, xi).name;
         g_stage2.proc_table[xpi].bb_idx = bb_program_add(&g_stage2.bbp, gx);
     }

@@ -27,7 +27,7 @@ std::string bb_match_notany() {
     return IF(_.op_pat_static && _.op_sval,
                x86("comment", "IR_MATCH_NOTANY defer")
              + x86_alpha()
-             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
+             + bb_glue_name_or_rec_lea(_.op_sval)
              + bb_glue_prim_member(50, 49)
              + x86("test", "eax", "eax")
              + x86_omega("jne")

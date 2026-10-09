@@ -1242,7 +1242,7 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                         extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
                         char _esc[4 * strlen(proc_names_buf[i] ? proc_names_buf[i] : "") + 1];
                         x86_asm_str_escape_c(proc_names_buf[i], _esc, sizeof _esc);
-                        emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc);
+                        if (pe->thunk_kind == PROC_THUNK_NONE) emit_textf("  .Lstartup_pname%d: .string \"%s\"\n", i, _esc);
                     }
                     if (pe->dyn_scope) {
                         for (int k = 0; k < pe->nparams && k < pe->lower_sc.n; k++) {
@@ -1276,7 +1276,8 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                         emit_textf("  .Lstartup_prn%d: .string \"%s\"\n", i, _esc);
                     }
                     emit_textf("  .align 8\n  .Lstartup_prec%d:\n", i);
-                    emit_textf("  .quad .Lstartup_pname%d\n", i);
+                    if (pe->thunk_kind == PROC_THUNK_NONE) emit_textf("  .quad .Lstartup_pname%d\n", i);
+                    else emit_textf("  .quad 0\n");
                     if (strncmp(proc_names_buf[i], "LBL__", 5) == 0) emit_textf("  .quad LBL__%s\n", asm_sym_name(proc_names_buf[i] + 5));
                     else emit_textf("  .quad %s\n", asm_fn_sym(proc_names_buf[i]));
                     if (_dc) emit_textf("  .quad %s_dc\xce\xb1\n", asm_sym_name(proc_names_buf[i]));
@@ -1305,6 +1306,10 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
                         if (_gpi >= 0 && _gpi < s2->proc_count) {
                             int _ggi = s2->proc_table[_gpi].bb_idx;
                             if (_ggi >= 0 && _ggi < s2->bbp.count && s2->bbp.table[_ggi]) _gft2 = emit_icn_n2_gen_region_ft(proc_names_buf[i], s2->proc_table[_gpi].is_generator, s2->bbp.table[_ggi]);
+                        }
+                        if (_gft2 > 0 && pe->thunk_kind != PROC_THUNK_NONE) {
+                            fprintf(stderr, "FATAL mode-4 startup: the thunk %s has no name to set its generator region by\n", proc_names_buf[i]);
+                            abort();
                         }
                         if (_gft2 > 0) { emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n", i); emit_textf("  mov esi, %d\n", _gft2); emit_textf("  call rt_proc_set_gen_region_ft@PLT\n"); }
                     }
@@ -1404,6 +1409,10 @@ static void emit_module_init_body(stage2_t *s2, const char **proc_names_buf, int
             }
             {
                 IR_graph_t *_cg = (pe->bb_idx >= 0 && pe->bb_idx < s2->bbp.count) ? s2->bbp.table[pe->bb_idx] : (IR_graph_t *)0;
+                if (_cg && _cg->caller_frame && _cg->nslots > 0 && pe->thunk_kind != PROC_THUNK_NONE) {
+                    fprintf(stderr, "FATAL mode-4 startup: the thunk %s has no name to set its frame by\n", proc_names_buf[i]);
+                    abort();
+                }
                 if (_cg && _cg->caller_frame && _cg->nslots > 0)
                     emit_textf("  lea rdi, [rip + .Lstartup_pname%d]\n  mov esi, %d\n  mov edx, %d\n  call rt_proc_set_frame@PLT\n", i, _cg->nslots - 1, pe->decl_level);
             }
@@ -2453,20 +2462,17 @@ int main(int argc, char **argv) {
                 if (n_gva_tab > 0) {
                     emit_textf("  .section .rodata\n");
                     for (int k = 0; k < n_gva_tab; k++) {
-                        extern int gva_name_hidden(const char *);
+                        extern const char *gva_note(int);
                         extern void x86_asm_str_escape_c(const char *, char *, unsigned long);
-                        const char * _gn = gva_name(k) ? gva_name(k) : "";
-                        if (gva_name_hidden(_gn)) continue;
+                        const char * _gn = gva_note(k);
+                        if (!*_gn) continue;
                         size_t _cap = 4 * strlen(_gn) + 1;
                         char _esc[_cap];
                         x86_asm_str_escape_c(_gn, _esc, _cap);
                         emit_textf("  .Lgvan%d: .string \"%s\"\n", k, _esc);
                     }
                     emit_textf("  .align 8\n__gva_names:\n");
-                    {
-                        extern int gva_name_hidden(const char *);
-                        for (int k = 0; k < n_gva_tab; k++) { if (gva_name_hidden(gva_name(k))) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); }
-                    }
+                    { extern const char *gva_note(int); for (int k = 0; k < n_gva_tab; k++) { if (!*gva_note(k)) emit_textf("  .quad 0\n"); else emit_textf("  .quad .Lgvan%d\n", k); } }
                     emit_textf("  .section .text\n  .intel_syntax noprefix\n");
                 }
             }
@@ -2611,6 +2617,11 @@ int main(int argc, char **argv) {
                     { extern DESCR_t *rt_gva_island(int); m3_gva_arena = rt_gva_island(n_gva_m3); }
                     const char **m3_gva_nms = (const char **)ct_alloc((size_t)n_gva_m3 * sizeof(const char *));
                     { extern int gva_name_hidden(const char *); for (int _k = 0; _k < n_gva_m3; _k++) m3_gva_nms[_k] = gva_name_hidden(gva_name(_k)) ? (const char *)0 : gva_name(_k); }
+                    for (int _tq = 0; _tq < s2->proc_count; _tq++) if (s2->proc_table[_tq].thunk_kind) {
+                        extern int gva_index_of(const char *);
+                        int _k = gva_index_of(s2->proc_table[_tq].name);
+                        if (_k >= 0 && _k < n_gva_m3) m3_gva_nms[_k] = (const char *)0;
+                    }
                     if (m3_gva_arena && m3_gva_nms) { gva_register(m3_gva_nms, (DESCR_t *)m3_gva_arena, n_gva_m3); g_gva_active = 1; }
                 }
                 if (getenv("SCRIP_M3_GVA_TRACE")) fprintf(stderr, "[M3-GVA] m3 globals via pinned island: active=%d n_gva=%d\n", g_gva_active, n_gva_m3);

@@ -98,9 +98,8 @@ static dtp_rcp_t *rcp_lit(const char *s, uint32_t n) { return rcp_node(TT_QLIT, 
 static dtp_rcp_t *rcp_bin(int tt, dtp_rcp_t *l, dtp_rcp_t *rr) { return rcp_node(tt, 0, 0, 0, l, rr); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static dtp_rcp_t *rcp_of(DESCR_t d) {
-    if (d.v == DT_P && d.p) {
-        DTP_t *h = (DTP_t *)d.p;
-        if (h->rcp) return h->rcp;
+    if (d.v == DT_P && d.p && ((DTP_t *)d.p)->rcp) return ((DTP_t *)d.p)->rcp;
+    if ((d.v == DT_P && d.p) || (d.v == DT_X && SNO_DTX_REC(d) && (SNO_DTX_REC(d)->flags & SNO_DSTAR_THUNK))) {
         static int opq_uid = 0;
         char nb[24];
         snprintf(nb, sizeof nb, "OPQ$%d", opq_uid++);
@@ -109,7 +108,7 @@ static dtp_rcp_t *rcp_of(DESCR_t d) {
     }
     if (d.v == DT_X) {
         sno_dstar_rec_t *rec = SNO_DTX_REC(d);
-        const char *nm = !rec ? "*" : (rec->flags & SNO_DSTAR_VARREF) ? rec->star + 1 : rec->star;
+        const char *nm = !rec ? "*" : (rec->flags & SNO_DSTAR_VARREF) ? sno_dstar_star(rec) + 1 : sno_dstar_star(rec);
         return rcp_node(TT_DEFER, nm, (uint32_t)strlen(nm), 0, 0, 0);
     }
     if (d.v == DT_S || d.v == DT_SNUL) { const char *s = d.s ? d.s : ""; return rcp_lit(s, d.slen ? d.slen : (uint32_t)strlen(s)); }
@@ -904,7 +903,7 @@ static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline const sno_dstar_rec_t *dcf_rec(const char *s) { return (s && s[0] == '*' && (unsigned char)s[1] == 1) ? (const sno_dstar_rec_t *)(const void *)s : (const sno_dstar_rec_t *)0; }
-static inline const char *dcf_name(const char *s) { const sno_dstar_rec_t *r = dcf_rec(s); return r ? r->star : s; }
+static inline const char *dcf_name(const char *s) { const sno_dstar_rec_t *r = dcf_rec(s); return r ? sno_dstar_star(r) : s; }
 static void dcf_stage_leave(const char *s) {
     extern void rt_eval_stage_leave(const char *);
     extern void rt_eval_stage_leave_var(int);
@@ -1019,8 +1018,8 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
                 fprintf(stderr,
                     "rt_dcap_pump: CORRUPT CAPTURE ENTRY refused — len=%d saved_delta=%llu end=%lld exceeds subject length %d (target '%s'). Deferred re-entry invalidated the outer frame; capture "
                     "skipped rather than reading out of bounds.\n", len, (unsigned long long)e->saved_delta, _end, Σlen,
-                    ecell ? "(a variable's cell)" : !e->varname ? "(null)" : (e->varname[0] == '*' && (unsigned char)e->varname[1] == 1) ? ((const sno_dstar_rec_t *)(const void *)e->varname)->star :
-                    e->varname);
+                    ecell ? "(a variable's cell)" : !e->varname ? "(null)" : (e->varname[0] == '*' && (unsigned char)e->varname[1] == 1) ?
+                    sno_dstar_star((const sno_dstar_rec_t *)(const void *)e->varname) : e->varname);
                 c->cur += sizeof(rt_dcap_e);
                 c->rc = 1;
                 continue;
@@ -1054,7 +1053,7 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
             extern long rt_dcap_call_prepare(const char *, short *, int *, int *);
             extern long rt_dcap_call_prepare_rec(sno_dstar_rec_t *, short *, int *, int *);
             sno_dstar_rec_t *srec = ((unsigned char)e->varname[1] == 1) ? (sno_dstar_rec_t *)(void *)e->varname : (sno_dstar_rec_t *)0;
-            const char *star = srec ? srec->star : e->varname;
+            const char *star = srec ? sno_dstar_star(srec) : e->varname;
             const char *pn = star + 1;
 #if RT_DIAG
             _prev_star = 1;
@@ -1187,6 +1186,17 @@ rt_dcap_next_t c_rt_cap_open(const char *varname, int saved_delta, int cur_delta
             if (varname[0] != '*') {
                 rt_bomb("c_rt_cap_open: plain-name arm DELETED (s196 Lon one-to-maintain) — rt_cap_open in rtx_match.s is the sole spelling; this entry serves computed-name '*' targets only");
                 return (rt_dcap_next_t){ 0, 0 };
+            }
+            if ((unsigned char)varname[1] == 1) {
+                extern rt_dcap_next_t rt_call_open_staged_rec(sno_dstar_rec_t *, int *);
+                sno_dstar_rec_t *srec = (sno_dstar_rec_t *)(void *)varname;
+                int wsv = rt_g_want_name, reg = 0;
+                rec->matched = matched;
+                rec->wsv = INTVAL((long long)wsv);
+                rec->asv = INTVAL((long long)g_cap_abort_gen);
+                rec->nmy = INTVAL((long long)((srec->flags & SNO_DSTAR_EXPRNM) ? 1 : 0));
+                rt_g_want_name = 1;
+                { rt_dcap_next_t n = rt_call_open_staged_rec(srec, &reg); if (!n.fn) { rt_g_want_name = wsv; return (rt_dcap_next_t){ 0, 0 }; } return n; }
             }
             {
                 const char *tn = varname + 1;
@@ -1325,6 +1335,19 @@ void rt_gvar_assign_concat_parts(const char *dst, void *parts, int n) {
 void rt_at_cursor(const char *varname, int cur_delta) {
     if (!varname || !*varname) return;
     DESCR_t pos = { .v = DT_I, .i = (int64_t)cur_delta };
+    if (varname[0] == '*' && (unsigned char)varname[1] == 1) {
+        extern DESCR_t rt_sno_dtx_value_rec(sno_dstar_rec_t *);
+        extern int rt_g_want_name;
+        extern DESCR_t rt_assign_var(DESCR_t, DESCR_t);
+        int wsv = rt_g_want_name;
+        rt_g_want_name = 1;
+        DESCR_t nm = rt_sno_dtx_value_rec((sno_dstar_rec_t *)(void *)varname);
+        rt_g_want_name = wsv;
+        if (IS_FAIL_fn(nm)) return;
+        if (IS_VARREF_fn(nm)) rt_assign_var(nm, pos);
+        else if (nm.v == DT_S && nm.s && *nm.s) NV_SET_fn(nm.s, pos);
+        return;
+    }
     if (varname[0] == '*') {
         extern int rt_proc_is_registered(const char *);
         extern DESCR_t rt_call_proc_descr(const char *, int);
@@ -1426,12 +1449,12 @@ static rt_dcap_next_t rt_defer_resolve(rt_dfx_t *s, DESCR_t r) {
             sno_dstar_rec_t *rec = SNO_DTX_REC(r);
             s->dtx_used = 1;
             if (!rec) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
-            if (rec->flags & SNO_DSTAR_VARREF) { r = NV_GET_fn(rec->star + 1); continue; }
+            if (rec->flags & SNO_DSTAR_VARREF) { r = NV_GET_fn(sno_dstar_star(rec) + 1); continue; }
             {
                 extern rt_dcap_next_t rt_call_open_staged_rec(sno_dstar_rec_t *, int *);
                 int reg = 0;
                 rt_dcap_next_t n = rt_call_open_staged_rec(rec, &reg);
-                if (!reg) { r = NV_GET_fn(rec->star + 1); continue; }
+                if (!reg) { r = NV_GET_fn(sno_dstar_star(rec) + 1); continue; }
                 if (!n.fn) { s->failed = 1; return (rt_dcap_next_t){ 0, 0 }; }
                 return n;
             }

@@ -91,6 +91,9 @@ std::string bb_glue_pass_wires_blob_regs(int gid, int wid) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long fn; long how; } rt_prim_next_t;
 extern "C" rt_prim_next_t rt_pat_prim_open(const char *varname);
+extern "C" int emit_star_is_thunk(const char * star);
+extern "C" const char * bb_ab_sym_name(const char * nm);
+extern "C" void * bb_dstar_rec_addr(const char * star);
 extern "C" void rt_tiny_glue_enter(void);
 extern "C" void rt_pat_prim_land_γ(DESCR_t frame0, long word);
 extern "C" void rt_pat_prim_land_ω(long word);
@@ -249,6 +252,11 @@ std::string bb_glue_enter_chain_ret(int lid) {
          + x86_rsp_load64("r13", 8) + x86_rsp_load32("r15d", 4) + x86_rsp_load64("r14", 24)
          + x86_rsp_load64("rbx", 48) + x86_rsp_load64("r12", 56)
          + x86("add", "rsp", 64L);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_name_or_rec_lea(const char * nm) {
+    if (emit_star_is_thunk(nm)) return x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(nm), (std::string(".Ldstar_") + bb_ab_sym_name(nm)).c_str());
+    return x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)nm, x86_strtab_lbl(nm).c_str());
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bb_glue_prim_open_enter(int base) {

@@ -92,6 +92,7 @@ std::string bb_glue_trace_pend_run(int base, const std::string & after);
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno = 0);
 std::string bb_glue_stno_unit_push(void);
 std::string bb_glue_enter_chain_ret(int lid);
+std::string bb_glue_name_or_rec_lea(const char * nm);
 std::string bb_glue_prim_int(int base);
 std::string bb_glue_prim_member(int base, int code);
 std::string bb_glue_prim_str(int base, int ptr_d, int ptr_sd, int len_d, int len_sd, int code);

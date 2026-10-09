@@ -50,7 +50,7 @@ std::string bb_match_break() {
     return IF(_.op_pat_static && _.op_sval,
                x86("comment", "IR_MATCH_BREAK defer")
              + x86_alpha()
-             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
+             + bb_glue_name_or_rec_lea(_.op_sval)
              + bb_glue_prim_str(50, 0, 4, 8, 12, 44)
              + x86("test", "rax", "rax")
              + x86_omega("js")

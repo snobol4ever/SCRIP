@@ -24,8 +24,7 @@ std::string bb_match_rpos() {
     return IF(_.op_sval != NULL,
                x86("comment", "IR_MATCH_RPOS defer")
              + x86_alpha()
-             + x86("lea", "rdi", "[rip + __]",
-                   (uint64_t)(uintptr_t)(const void *)(_.op_sval + 1), x86_strtab_lbl(_.op_sval + 1).c_str())
+             + bb_glue_name_or_rec_lea(_.op_sval + 1)
              + bb_glue_prim_int(50)
              + x86("test", "rax", "rax")
              + x86_omega("js")

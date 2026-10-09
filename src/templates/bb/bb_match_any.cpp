@@ -33,7 +33,7 @@ std::string bb_match_any() {
     return IF(_.op_pat_static && _.op_sval,
                x86("comment", "IR_MATCH_ANY defer")
              + x86_alpha()
-             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)_.op_sval, x86_strtab_lbl(_.op_sval).c_str())
+             + bb_glue_name_or_rec_lea(_.op_sval)
              + bb_glue_prim_member(50, 43)
              + x86("cmp", "eax", 1L)
              + x86_omega("jne")

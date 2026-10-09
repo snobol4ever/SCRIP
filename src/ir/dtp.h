@@ -39,6 +39,8 @@ typedef struct sno_dstar_rec { char mark[8]; const char *star; int32_t pidx; uin
 #define SNO_DSTAR_EXPRNM 4u
 #define SNO_DSTAR_STAGEVAR 8u
 #define SNO_DTX_REC(d) ((sno_dstar_rec_t *)(d).p)
+#define SNO_DSTAR_NONAME "*(expression)"
+static inline const char *sno_dstar_star(const sno_dstar_rec_t *r) { return (r && r->star) ? r->star : SNO_DSTAR_NONAME; }
 #ifdef __cplusplus
 static_assert(sizeof(sno_dstar_rec_t) == 24 && __builtin_offsetof(sno_dstar_rec_t, star) == 8 && __builtin_offsetof(sno_dstar_rec_t, pidx) == 16,
     "a deferred-capture star target's record (. *f() and . *X at match end) begins with the two bytes '*' and 1 -- the capture pump's star test reads the first, and no *name string carries a byt"

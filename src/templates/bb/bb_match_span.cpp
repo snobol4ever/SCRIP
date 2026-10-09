@@ -84,7 +84,7 @@ std::string bb_match_span() {
          + IF(!(_.op_zres && _.op_sa >= 0) && _.op_pat_static && _.op_sval,
                x86("comment", "IR_MATCH_SPAN defer")
              + x86_alpha()
-             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(_.op_sval), x86_strtab_lbl(_.op_sval).c_str())
+             + bb_glue_name_or_rec_lea(_.op_sval)
              + bb_glue_prim_str(50, 0, 0, 8, 8, 56)
              + x86("test", "rax", "rax")
              + x86_omega("js")

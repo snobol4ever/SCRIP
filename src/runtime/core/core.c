@@ -4066,7 +4066,8 @@ static void dump_val(DESCR_t d) {
     if (d.v == DT_C) { dump_puts("CODE"); return; }
     if (d.v == DT_X) {
         sno_dstar_rec_t *rec = SNO_DTX_REC(d);
-        const char *q = rec ? rec->star + 1 : "";
+        if (rec && (rec->flags & SNO_DSTAR_THUNK)) { if (rec->star) dump_puts(rec->star); else dump_puts("EXPRESSION"); return; }
+        const char *q = rec ? sno_dstar_star(rec) + 1 : "";
         const char *t = strncmp(q, "EXPR$", 5) ? (const char *)0 : strrchr(q + 5, '$');
         if (t) { dump_putc('*'); dump_puts(t + 1); } else if (strchr(q, '$')) dump_puts("EXPRESSION");
         else { dump_putc('*'); dump_puts(q); }
