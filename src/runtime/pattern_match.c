@@ -887,9 +887,12 @@ _Static_assert(offsetof(rt_dcf_t, nhr_v) == 80 && offsetof(rt_dcf_t, nsb) == 88 
     offsetof(rt_dcf_t, wsv) == 104 && offsetof(rt_dcf_t, asv) == 108, "rtx_match.s rt_dcap_end_ok_open writes the two DT_I flag cells at +80 and +96 with their payloads zero");
 _Static_assert(sizeof(DESCR_t) == 16 && DT_S == 2 && DT_I == 3, "rtx_match.s rt_dcap_end_ok_open stores the cell tags as imm32 qwords");
 #define RT_DCAP_NVCACHE_N 16
-static const char *g_dcap_nv_key[RT_DCAP_NVCACHE_N];
-static DESCR_t *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
-static unsigned long g_dcap_nv_seen[RT_DCAP_NVCACHE_N];
+__attribute__((visibility("hidden"))) const char *g_dcap_nv_key[RT_DCAP_NVCACHE_N];
+__attribute__((visibility("hidden"))) DESCR_t *g_dcap_nv_cell[RT_DCAP_NVCACHE_N];
+__attribute__((visibility("hidden"))) unsigned long g_dcap_nv_seen[RT_DCAP_NVCACHE_N];
+_Static_assert(sizeof(rt_dcap_e) == 24 && offsetof(rt_dcap_e, varname) == 0 && offsetof(rt_dcap_e, saved_delta) == 8 && offsetof(rt_dcap_e, len) == 16 && RT_DCAP_NVCACHE_N == 16 &&
+    sizeof(unsigned long) == 8, "rtx_match.s rt_dcap_fast_run walks 24-byte capture entries and indexes the three 16-slot cache arrays with the same hash as rt_dcap_nv_cell");
+_Static_assert(offsetof(DESCR_t, slen) == 4 && DT_S == 2, "rtx_match.s rt_dcap_fast_run builds the string cell as (len << 32) | DT_S");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline __attribute__((always_inline)) DESCR_t *rt_dcap_nv_cell(const char *name) {
     extern unsigned long g_nv_memo_gen;
@@ -979,6 +982,9 @@ __attribute__((visibility("hidden"))) rt_dcap_next_t rt_dcap_pump(rt_dcf_t *c) {
     while (c->cur < c->top) {
 #if RT_DIAG
         if (_prev_star) { _cva = comm_var_active(); _prev_star = 0; }
+        if (_fast_ok && !_cva) { extern const char *rt_dcap_fast_run(const char *, const char *, const char *); c->cur = rt_dcap_fast_run(c->cur, c->top, c->subj); if (c->cur >= c->top) break; }
+#else
+        if (_fast_ok) { extern const char *rt_dcap_fast_run(const char *, const char *, const char *); c->cur = rt_dcap_fast_run(c->cur, c->top, c->subj); if (c->cur >= c->top) break; }
 #endif
         const rt_dcap_e *e = (const rt_dcap_e *)(const void *)c->cur;
         if (!e->varname) { c->cur += sizeof(rt_dcap_e); continue; }

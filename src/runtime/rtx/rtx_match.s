@@ -142,6 +142,81 @@ RTX_FUNC(rt_match_enter)
 .Lme_c:
     RTX_CTAIL(c_rt_match_enter)
 RTX_ENDF(rt_match_enter)
+RTX_FUNC(rt_dcap_fast_run)
+    RTX_GATE(match, .Ldfr_off)
+    RTX_PUSH(rbx)
+    RTX_PUSH(r12)
+    RTX_PUSH(r13)
+    RTX_PUSH(r14)
+    RTX_PUSH(r15)
+    mov     rax, rdi
+    test    rdx, rdx
+    jz      .Ldfr_ret
+.Ldfr_loop:
+    cmp     rax, rsi
+    jae     .Ldfr_ret
+    mov     rcx, qword ptr [rax]
+    test    rcx, rcx
+    jz      .Ldfr_marker
+    cmp     byte ptr [rcx], 42
+    je      .Ldfr_ret
+    mov     rdi, qword ptr [rax + 16]
+    test    rdi, rdi
+    jz      .Ldfr_ret
+    mov     r12, qword ptr [rax + 8]
+    mov     r13, qword ptr [rip + Σlen@GOTPCREL]
+    movsxd  r13, dword ptr [r13]
+    movsxd  r14, edi
+    cmp     r14, r13
+    jg      .Ldfr_ret
+    lea     r14, [r12 + rdi]
+    cmp     r14, r13
+    jg      .Ldfr_ret
+    movabs  r14, 0x9E3779B97F4A7C15
+    imul    r14, rcx
+    shr     r14, 32
+    and     r14d, 15
+    lea     r13, [rip + g_dcap_nv_key]
+    cmp     qword ptr [r13 + r14*8], rcx
+    jne     .Ldfr_ret
+    mov     rbx, qword ptr [rip + g_nv_memo_gen]
+    lea     r13, [rip + g_dcap_nv_seen]
+    cmp     qword ptr [r13 + r14*8], rbx
+    jne     .Ldfr_ret
+    lea     r13, [rip + g_dcap_nv_cell]
+    mov     r13, qword ptr [r13 + r14*8]
+    lea     r15, [rip + g_sxt_fr]
+    mov     r14, qword ptr [r15]
+    cmp     r14, rdx
+    jne     .Ldfr_own1
+    mov     qword ptr [r15], 0
+    xor     r14d, r14d
+.Ldfr_own1:
+    lea     r12, [rdx + r12]
+    cmp     r14, r12
+    jne     .Ldfr_own2
+    mov     qword ptr [r15], 0
+.Ldfr_own2:
+    shl     rdi, 32
+    or      rdi, DT_S
+    mov     qword ptr [r13], rdi
+    mov     qword ptr [r13 + 8], r12
+    add     rax, 24
+    jmp     .Ldfr_loop
+.Ldfr_marker:
+    add     rax, 24
+    jmp     .Ldfr_loop
+.Ldfr_ret:
+    RTX_POP(r15)
+    RTX_POP(r14)
+    RTX_POP(r13)
+    RTX_POP(r12)
+    RTX_POP(rbx)
+    ret
+.Ldfr_off:
+    mov     rax, rdi
+    ret
+RTX_ENDF(rt_dcap_fast_run)
 RTX_FUNC(rt_dcap_end_ok_open)
     RTX_GATE(match, .Ldeoo_c)
 #if RT_DIAG
