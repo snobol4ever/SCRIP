@@ -191,7 +191,7 @@ NegNumber = ( '-' *$' ' ( (*Float) . thx . *Shift('TT_FLIT', '-' thx)
                         | *IntVal . *Shift('TT_ILIT', -rval[i_txt])
                         | *NegBigInt ) );
 /* ==================================================================================================================== */
-/* op/3: the user operator table -- uop_band[name] is the band key ('in700', 'pre500', 'post'); uop_on is FAIL until the first */
+/* op/3: the user operator table -- uop_band[kind name] is the band key ('in700', 'pre500', 'post'); uop_on is FAIL until the first */
 /* op/3 goal declares, then the one token pattern; each site checks its own key at scan time and the one Reduce pops the name */
 uop_band = TABLE(64);
 uop_tok  = *$' ' ((*Atom | *Graphic_atom) $ uop_tx . uop_nm . *PushVal(uop_nm)) *$' ';
@@ -202,19 +202,19 @@ band_key = TABLE(24);
 band_key['in200'] = 'in200'; band_key['in400'] = 'in400'; band_key['in500'] = 'in500'; band_key['in600'] = 'in600'; band_key['in700'] = 'in700'; band_key['in900'] = 'in900';
 band_key['pre200'] = 'pre200'; band_key['pre400'] = 'pre400'; band_key['pre500'] = 'pre500'; band_key['pre600'] = 'pre600'; band_key['pre700'] = 'pre700'; band_key['pre900'] = 'pre900';
 band_key['post200'] = 'post'; band_key['post400'] = 'post'; band_key['post500'] = 'post'; band_key['post600'] = 'post'; band_key['post700'] = 'post'; band_key['post900'] = 'post';
-OpBand  = ( *LE(op_p, 0)   *DIFFER((uop_band[op_n] = '') 'x')
-          | *LE(op_p, 200) *DIFFER((uop_band[op_n] = band_key[op_kind[op_t] '200']) 'x')
-          | *LE(op_p, 400) *DIFFER((uop_band[op_n] = band_key[op_kind[op_t] '400']) 'x')
-          | *LE(op_p, 500) *DIFFER((uop_band[op_n] = band_key[op_kind[op_t] '500']) 'x')
-          | *LE(op_p, 600) *DIFFER((uop_band[op_n] = band_key[op_kind[op_t] '600']) 'x')
-          | *LE(op_p, 700) *DIFFER((uop_band[op_n] = band_key[op_kind[op_t] '700']) 'x')
-          | *DIFFER((uop_band[op_n] = band_key[op_kind[op_t] '900']) 'x')
+OpBand  = ( *LE(op_p, 0)   *DIFFER((uop_band[op_kind[op_t] op_n] = '') 'x')
+          | *LE(op_p, 200) *DIFFER((uop_band[op_kind[op_t] op_n] = band_key[op_kind[op_t] '200']) 'x')
+          | *LE(op_p, 400) *DIFFER((uop_band[op_kind[op_t] op_n] = band_key[op_kind[op_t] '400']) 'x')
+          | *LE(op_p, 500) *DIFFER((uop_band[op_kind[op_t] op_n] = band_key[op_kind[op_t] '500']) 'x')
+          | *LE(op_p, 600) *DIFFER((uop_band[op_kind[op_t] op_n] = band_key[op_kind[op_t] '600']) 'x')
+          | *LE(op_p, 700) *DIFFER((uop_band[op_kind[op_t] op_n] = band_key[op_kind[op_t] '700']) 'x')
+          | *DIFFER((uop_band[op_kind[op_t] op_n] = band_key[op_kind[op_t] '900']) 'x')
           ) *DIFFER((uop_on = uop_tok) 'x');
 op_type = ( 'xfx' | 'xfy' | 'yfx' | 'fy' | 'fx' | 'xf' | 'yf' );
 op_goal = (   *$' ' 'op' *$'(' . *PushVal('op') . *PushCounter()
               (*Int $ op_p) . thx . *Shift('TT_ILIT', thx) . *IncCounter() *$','
               (*op_type $ op_t) . thx . *Shift('TT_QLIT', thx) . *IncCounter() *$','
-              *$' ' ( "'" (BREAK("'") $ op_n . thx) "'" | (*Atom | *Graphic_atom) $ op_n . thx ) . *Shift('TT_QLIT', thx) . *IncCounter()
+              *$' ' ( "'" (BREAK("'") $ op_n . thx) "'" | (*Atom | *Graphic_atom) $ op_n . thx | '(' *$' ' (*Atom | *Graphic_atom) $ op_n . thx *$')' ) . *Shift('TT_QLIT', thx) . *IncCounter()
               *$')' *OpBand
               . *Reduce('TT_FNC', nTop(), PopVal()) . *PopCounter()
           );
@@ -248,12 +248,12 @@ primary = (   *BqStr
           |   (*Atom) . p_name *$'(' . *PushVal(p_name) *compound_args
           |   *$' ' (*Graphic_atom | ';') . g_name *$'(' . *PushVal(g_name) *compound_args
           |   *$' ' *NegNumber
-          |   *uop_on *IDENT(uop_band[uop_tx], 'pre200') *primary     . *Reduce('TT_FNC', 1, PopVal())
-          |   *uop_on *IDENT(uop_band[uop_tx], 'pre400') *pow_expr    . *Reduce('TT_FNC', 1, PopVal())
-          |   *uop_on *IDENT(uop_band[uop_tx], 'pre500') *mul_expr    . *Reduce('TT_FNC', 1, PopVal())
-          |   *uop_on *IDENT(uop_band[uop_tx], 'pre600') *add_expr    . *Reduce('TT_FNC', 1, PopVal())
-          |   *uop_on *IDENT(uop_band[uop_tx], 'pre700') *colon_expr  . *Reduce('TT_FNC', 1, PopVal())
-          |   *uop_on *IDENT(uop_band[uop_tx], 'pre900') *unify_expr  . *Reduce('TT_FNC', 1, PopVal())
+          |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre200') *primary     . *Reduce('TT_FNC', 1, PopVal())
+          |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre400') *pow_expr    . *Reduce('TT_FNC', 1, PopVal())
+          |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre500') *mul_expr    . *Reduce('TT_FNC', 1, PopVal())
+          |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre600') *add_expr    . *Reduce('TT_FNC', 1, PopVal())
+          |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre700') *colon_expr  . *Reduce('TT_FNC', 1, PopVal())
+          |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre900') *unify_expr  . *Reduce('TT_FNC', 1, PopVal())
           |   *$' ' '\+' *$' ' *unify_expr    . *Reduce('TT_FNC', 1, '\+')
           |   (*Graphic_atom2) . thx . *Shift('TT_QLIT', thx)
           |   *Tk_cut                  . *Reduce('TT_CUT', 0)
@@ -267,6 +267,7 @@ primary = (   *BqStr
           |   *$'(' (*Graphic_atom | ';') . b_name *$')' . *Shift('TT_QLIT', b_name)
           |   *$'{' *$'}'             . *Reduce('TT_FNC', 0, '{}')
           |   *$'{' *body *$'}'       . *Reduce('TT_FNC', 1, '{}')
+          |   *$'{' (*Graphic_atom | ';') . b_name *$'}' . *Shift('TT_QLIT', b_name) . *Reduce('TT_FNC', 1, '{}')
           |   *list
           |   *$'\' *$' ' *primary            . *Reduce('TT_FNC', 1, '\')
           |   *$' ' '-' *$' ' *primary   . *Reduce('TT_FNC', 1, '-')
@@ -275,8 +276,8 @@ primary = (   *BqStr
 pow_expr  = (   *primary
                 FENCE( *$'^'  *pow_expr  . *Reduce('TT_FNC', 2, '^')
                      | *$'**' *primary   . *Reduce('TT_FNC', 2, '**')
-                     | *uop_on *IDENT(uop_band[uop_tx], 'in200') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
-                     | *uop_on *IDENT(uop_band[uop_tx], 'post') . *Reduce('TT_FNC', 1, PopVal())
+                     | *uop_on *IDENT(uop_band['in' uop_tx], 'in200') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
+                     | *uop_on *IDENT(uop_band['post' uop_tx], 'post') . *Reduce('TT_FNC', 1, PopVal())
                      | epsilon
                      )
             );
@@ -291,18 +292,18 @@ mul_tail  = FENCE( FENCE( *$'mod' *pow_expr  . *Reduce('TT_FNC', 2, 'mod')
                          | *$'//'  *pow_expr  . *Reduce('TT_FNC', 2, '//')
                          | *$'/'   *pow_expr  . *Reduce('TT_FNC', 2, '/')
                          | *$'xor' *pow_expr  . *Reduce('TT_FNC', 2, 'xor')
-                         | *uop_on *IDENT(uop_band[uop_tx], 'in400') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
+                         | *uop_on *IDENT(uop_band['in' uop_tx], 'in400') *pow_expr . *Reduce('TT_FNC', 2, PopVal())
                          ) *mul_tail | epsilon );
 add_expr  = (   *mul_expr *add_tail );
 add_tail  = FENCE( FENCE( *$'+' *mul_expr  . *Reduce('TT_FNC', 2, '+')
                          | *$'-' *mul_expr  . *Reduce('TT_FNC', 2, '-')
                          | *$'/\' *mul_expr . *Reduce('TT_FNC', 2, '/\')
                          | *$'\/' *mul_expr . *Reduce('TT_FNC', 2, '\/')
-                         | *uop_on *IDENT(uop_band[uop_tx], 'in500') *mul_expr . *Reduce('TT_FNC', 2, PopVal())
+                         | *uop_on *IDENT(uop_band['in' uop_tx], 'in500') *mul_expr . *Reduce('TT_FNC', 2, PopVal())
                          ) *add_tail | epsilon );
 colon_expr = (  *add_expr
                 FENCE( *$':' *colon_expr  . *Reduce('TT_FNC', 2, ':')
-                     | *uop_on *IDENT(uop_band[uop_tx], 'in600') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
+                     | *uop_on *IDENT(uop_band['in' uop_tx], 'in600') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
                      | epsilon
                      )
              );
@@ -326,12 +327,12 @@ cmp_expr  = (   *colon_expr
                      | *$'=..' *colon_expr  . *Reduce('TT_FNC', 2, '=..')
                      | *$'=='  *colon_expr  . *Reduce('TT_FNC', 2, '==')
                      | *$'='   *colon_expr  . *Reduce('TT_FNC', 2, '=')
-                     | *uop_on *IDENT(uop_band[uop_tx], 'in700') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
+                     | *uop_on *IDENT(uop_band['in' uop_tx], 'in700') *colon_expr . *Reduce('TT_FNC', 2, PopVal())
                      | epsilon
                      )
             );
 unify_expr = ( *cmp_expr *op_tail );
-op_tail    = FENCE( *uop_on *IDENT(uop_band[uop_tx], 'in900') *cmp_expr . *Reduce('TT_FNC', 2, PopVal()) *op_tail | epsilon );
+op_tail    = FENCE( *uop_on *IDENT(uop_band['in' uop_tx], 'in900') *cmp_expr . *Reduce('TT_FNC', 2, PopVal()) *op_tail | epsilon );
 /* ==================================================================================================================== */
 pfx_kw_name = (   "dynamic" | "discontiguous" | "meta_predicate" | "multifile"
               |   "module_transparent" | "thread_local" | "volatile"
