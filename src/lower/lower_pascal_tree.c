@@ -998,7 +998,7 @@ static tree_t *mk_proc(const char *name, PNodeList *params, tree_t *body_stmt, i
     for (int _z = 0; _z < 64; _z++) calo[_z] = 0;
     if (params) for (int i = 0; i < params->count; i++) {
         tree_t *pv = params->items[i];
-        if (pv && pv->n > 0) { if (i < 64) byref |= (1LL << i); pv->n = 0; }
+        if (pv && pv->n > 0) { int _isvar = 0; for (int _c = 0; _c < pv->n; _c++) if (pv->c[_c] && pv->c[_c]->t == TT_SUCCEED) _isvar = 1; if (_isvar && i < 64) byref |= (1LL << i); pv->n = 0; }
         if (pv && pv->v.sval && i < 64 && pas_is_chararr(pv->v.sval)) { camask |= (1ULL << i); calo[i] = pas_chararr_lo(pv->v.sval); }
         ast_push(vlist, pv);
     }
@@ -5753,6 +5753,7 @@ static pval E_selector(const tree_t *n) {
                         if (!_fe && _arn) _fe = pas_rectype_field_enum_by_index(_arn, _afi);
                         if (_fe && out.node) { int _ei = pas_enumnames_idx(_fe); if (_ei >= 0) out.node->v.ival = (long long)(_ei + 1); }
                         out.node = pas_arrrec_region(out.node, v[1].node->c[0]->v.sval, _afi);
+                        if (_arn && out.node && pas_rectype_field_is_ca(_arn, _afi)) pas_cafield_mark_add(out.node, pas_rectype_field_ca_lo(_arn, _afi), pas_rectype_field_ca_hi(_arn, _afi));
                     } else {
                         out.node = bin(TT_FIELD, v[1].node, leaf_s(TT_VAR, v[3].str));
                     }
@@ -6190,7 +6191,8 @@ static pval E_var_decl(const tree_t *n) {
                         if (g_lower.pas.sem.pas_pend_ptrtarget) pas_ptrvar_add(id->v.sval, g_lower.pas.sem.pas_pend_ptrtarget);
                     } else {
                         if (_ty3 >= 0 && g_lower.pas.sem.pas_pend_nf > 0) {
-                            pas_array_add(id->v.sval, _ty3);
+                            if (g_lower.pas.sem.pas_pend_arr_ncols >= 0) pas_array_add2d(id->v.sval, _ty3, g_lower.pas.sem.pas_pend_arr_ncols);
+                            else pas_array_add(id->v.sval, _ty3);
                             pas_arrrec_add(id->v.sval, g_lower.pas.sem.pas_pend_typename, g_lower.pas.sem.pas_pend_nf);
                         } else if (_ty3 >= 0) {
                             long long _varnc = (g_lower.pas.sem.pas_pend_arr_ncols >= 0) ? g_lower.pas.sem.pas_pend_arr_ncols : pas_arrtype_ncols(g_lower.pas.sem.pas_pend_typename);
