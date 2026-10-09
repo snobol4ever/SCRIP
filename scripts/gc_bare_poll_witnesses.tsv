@@ -74,13 +74,10 @@ src/templates/bb/bb_define.cpp:rt_shim_nv_in#1	hb_shim_nv_road.sno
 src/templates/bb/bb_define.cpp:rt_shim_nv_gamma#1	hb_shim_nv_road.sno
 src/templates/bb/bb_define.cpp:rt_shim_nv_omega#1	hb_shim_nv_road.sno
 src/templates/bb/bb_define.cpp:rt_trace_call_hook_p#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:rt_trace_call_hook_i#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:sno_trace_call#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:rt_trace_return_hook_p#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:rt_trace_return_hook_i#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:sno_trace_return#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:rt_trace_fail_hook_p#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
-src/templates/bb/bb_define.cpp:rt_trace_fail_hook_i#1	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_define.cpp:sno_trace_return#2	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_deref.cpp:rt_deref#1	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_deref.cpp:rt_deref#2	stack_top_under_valgrind.icn

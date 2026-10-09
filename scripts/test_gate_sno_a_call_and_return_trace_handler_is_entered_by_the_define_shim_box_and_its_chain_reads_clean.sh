@@ -12,7 +12,7 @@
 # ARMS, each both modes, expectations cut from sbl -bf AT RUN TIME: (A) the C2BB trace of the CALL/RETURN/ACCESS witness holds an apply.open per event and NO C-entered line --
 # REFUSED when SCRIP_C2BB_TRACE writes nothing; (B) output equals sbl on the witness, on nested traced calls, on a failing return (the FRETURN block) and on traced functions of 12, 39 and 41 formals (the three hook
 # blocks take compact blocks of internal label ids after the omega chain; a block that overlapped a per-formal chain defined a label twice at 10 or more formals -- found by hq_snocone's
-# test_gate_sno_tracing_does_not_change_a_match_result on the bootstrap parsers; past BB_SHIM_TRACE_NF_MAX = 39 the hook blocks keep the C-entered rt_trace_*_hook_i, because a dyn-scope procedure runs only through its role-4 shim and the one-byte id space is full -- arm m41 pins that the program still agrees with sbl); (C) a handler that
+# test_gate_sno_tracing_does_not_change_a_match_result on the bootstrap parsers; past BB_SHIM_TRACE_NF_MAX = 39 the one-byte id space is full, so a TRACED call of such a function dies with a named bomb (the C-entered hook it would otherwise take is deleted, CEO-1576) while the same function untraced still agrees with sbl -- arms m41 and m41u); (C) a handler that
 # allocates under SCRIP_GC_STRESS=1 with SCRIP_GC_CHAIN_CHECK=1: output equals sbl and the chain check reads frameless=0 mismatch=0 nosite=0, with ok>0 and roadhops>0 as the
 # positive control (REFUSED when the summary line is absent).
 # NOT COVERED, NAMED: the LABEL, KEYWORD and FUNCTION kinds, and the two NV_GET_fn reads of bb_rev_assign_global.cpp (the ACCESS pattern applies unchanged).
@@ -109,18 +109,20 @@ L       I = LT(I,40) I + 1                       :F(DONE)
 DONE    OUTPUT = SIZE(Z) " " HN
 END
 SNO
-many() {  # many <name> <nformals>: a traced DEFINEd function with <nformals> formals, called with all of them
-  local name="$1" k="$2" f="" a="" i
+many() {  # many <name> <nformals> [untraced]: a traced (unless "untraced") DEFINEd function with <nformals> formals, called with all of them
+  local name="$1" k="$2" f="" a="" i tr="TRACE('M','CALL','','TF')\n        TRACE('M','RETURN','','TF')\n        &TRACE = 100\n"
+  [ "${3:-}" = untraced ] && tr=""
   for i in $(seq 1 "$k"); do f="$f${f:+,}A$i"; a="$a${a:+,}$i"; done
   { printf "        DEFINE('TF(NAME,TAG)')                    :(TFEND)\n"
     printf "TF      OUTPUT = 'trace ' NAME ' tag=' TAG       :(RETURN)\n"
     printf "TFEND   DEFINE('M(%s)')                            :(MEND)\n" "$f"
     printf "M       M = A1 + A%s                                 :(RETURN)\n" "$k"
-    printf "MEND    TRACE('M','CALL','','TF')\n        TRACE('M','RETURN','','TF')\n        &TRACE = 100\n"
+    printf "MEND    X = 0\n"; printf "        $tr"
     printf "        OUTPUT = M(%s)\n        OUTPUT = 'again ' M(%s)\nEND\n" "$a" "$a"; } > "$D/$name.sno"; }
 many m12 12
 many m39 39
 many m41 41
+many m41u 41 untraced
 for mode in m3 m4; do
   tr="$D/c2bb_$mode.tr"; : > "$tr"
   if [ "$mode" = m3 ]; then (cd "$D" && SCRIP_C2BB_TRACE="$tr" timeout 60 "$B/scrip" --stlimit a.sno < /dev/null > /dev/null 2>&1)
@@ -134,7 +136,11 @@ arm n ""
 arm f ""
 arm m12 ""
 arm m39 ""
-arm m41 ""
+arm m41u ""
+for mode in m3 m4; do
+  got="$( { $mode m41 ""; } 2>/dev/null )"; err="$(cat "$D/m41.$mode.err" 2>/dev/null)"
+  if printf '%s' "$err" | grep -q "more than 39 formals" && ! printf '%s' "$got" | grep -q 'again'; then ok "m41 $mode: a traced call of a 41-formal DEFINE dies with the named bomb (the C-entered hook is deleted, CEO-1576)"; else red "m41 $mode: no named bomb: out [$(printf '%s' "$got" | tr '\n' '|' | cut -c1-70)] err [$(printf '%s' "$err" | tr '\n' '|' | cut -c1-110)]"; fi
+done
 want="$(want_of w)"
 for mode in m3 m4; do
   got="$($mode w "SCRIP_GC_STRESS=1 SCRIP_GC_CHAIN_CHECK=1")"
