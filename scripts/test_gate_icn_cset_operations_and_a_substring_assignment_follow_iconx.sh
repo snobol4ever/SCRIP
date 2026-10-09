@@ -20,7 +20,8 @@
 # base, as the ! and ? sites already did; the substring assignment reads a cset value through its registry length and a
 # large integer through its digits, and returns a string right-hand side itself instead of a copy.
 #
-# ARMS. (1) STRUCTURE: the cset operators route before big_str_operand; the operand reader carries a string's length; the
+# ARMS. Arm 1's counts read statements with whitespace folded (stmts), so a re-flow of the source lines cannot blind them (CEO-1565).
+# (1) STRUCTURE: the cset operators route before big_str_operand; the operand reader carries a string's length; the
 # subscript and section trap sites exclude a cset; the substring assignment has a cset arm. (2) BEHAVIOUR, both media, graded
 # against the LIVE oracle (icont/iconx 9.5.25a) on five witnesses: stdout byte-identical, the same exit status, and the same
 # run-time error number. A witness the oracle does not run refuses the gate rather than passing it.
@@ -39,9 +40,10 @@ echo "  HOLDS: ++ -- ** ~ read a string's carried length and a large integer's d
 body="$(sed -n '/^static DESCR_t rt_num_arith_body(DESCR_t a, DESCR_t b, int op, int strict) {/,/^}/p' "$AR")"
 route=$(printf '%s\n' "$body" | grep -n 'return rt_cset_arith(a, b, op);' | head -1 | cut -d: -f1)
 bigpre=$(printf '%s\n' "$body" | grep -n 'big_str_operand(a)' | head -1 | cut -d: -f1)
-carried=$(grep -c 'if (d.v == DT_S || d.v == DT_SNUL) { \*len = (int)descr_slen(d);' "$AR")
-guards=$(grep -c '&& !IS_CSET_fn(base) && IS_VARREF_fn(bvar)) {' "$PM")
-csval=$(grep -c 'if (IS_CSET_fn(val)) { src = val.s ? val.s : ""; srclen = (long)descr_slen(val); owned = 0; }' "$PM")
+stmts() { tr -s ' \n\t' '   ' < "$2" | grep -oF -- "$1" | wc -l; }
+carried=$(stmts 'if (d.v == DT_S || d.v == DT_SNUL) { *len = (int)descr_slen(d);' "$AR")
+guards=$(stmts '&& !IS_CSET_fn(base) && IS_VARREF_fn(bvar)) {' "$PM")
+csval=$(stmts 'if (IS_CSET_fn(val)) { src = val.s ? val.s : ""; srclen = (long)descr_slen(val); owned = 0; }' "$PM")
 if [ -n "$route" ] && [ -n "$bigpre" ] && [ "$route" -lt "$bigpre" ] && [ "$carried" = 1 ] && [ "$guards" = 2 ] && [ "$csval" = 1 ]; then
   echo "  arm 1 PASS: the cset operators route before the numeric pre-pass, the operand reader carries a string's length, both trap sites exclude a cset base, the substring assignment has a cset arm"
 else echo "  arm 1 FAIL: route_line=${route:-none} bigpre_line=${bigpre:-none} carried_len_reader=$carried cset_trap_guards=$guards cset_value_arm=$csval (want route<bigpre 1 2 1)"; RC=1; fi

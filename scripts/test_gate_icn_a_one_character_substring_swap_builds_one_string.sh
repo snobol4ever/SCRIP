@@ -15,7 +15,8 @@
 # subject with the two bytes exchanged and storing it once; every other shape takes the two-assignment path, whose
 # same-variable test now reads the base cell through either form too.
 #
-# ARMS. (1) STRUCTURE: the one-character read, the same-cell fast path and the widened same-variable test are present.
+# ARMS. Arm 1 reads statements with whitespace folded (stmts), so a re-flow of the source lines cannot blind it (CEO-1565).
+# (1) STRUCTURE: the one-character read, the same-cell fast path and the widened same-variable test are present.
 # (2) BEHAVIOUR, both media, against the LIVE oracle (icont/iconx 9.5.25a): a witness of 30 swaps over locals, a global, list
 # elements, a table element, sections of unequal length, a NUL-carrying subject, equal positions, swaps between two
 # variables, a shuffle procedure and a seeded random loop -- stdout byte-identical. (3) ALLOCATION, both media: the heap's
@@ -32,9 +33,10 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 PM="$ROOT/src/runtime/pattern_match.c"; [ -f "$PM" ] || { echo "⛔ GATE REFUSE(2) [$G]: missing $PM"; exit 2; }
 echo "  HOLDS: a swap of two one-character substrings of one variable builds one new string, and every substring swap answers as iconx does"
-one=$(grep -c 'if (vc->len == 1) return (DESCR_t){ .v = DT_S, .slen = 1, .s = (char \*)&k_one_char_str\[2 \* (unsigned char)sp\[vc->pos - 1\]\] };' "$PM")
-fast=$(grep -c 'DESCR_t \*cx_cell = swap_base_cell(xc->sv), \*cy_cell = swap_base_cell(yc->sv);' "$PM")
-wide=$(grep -c 'DESCR_t \*bx = swap_base_cell(xc->sv); if (bx && bx == swap_base_cell(yc->sv)' "$PM")
+stmts() { tr -s ' \n\t' '   ' < "$2" | grep -oF -- "$1" | wc -l; }
+one=$(stmts 'if (vc->len == 1) return (DESCR_t){ .v = DT_S, .slen = 1, .s = (char *)&k_one_char_str[2 * (unsigned char)sp[vc->pos - 1]] };' "$PM")
+fast=$(stmts 'DESCR_t *cx_cell = swap_base_cell(xc->sv), *cy_cell = swap_base_cell(yc->sv);' "$PM")
+wide=$(stmts 'DESCR_t *bx = swap_base_cell(xc->sv); if (bx && bx == swap_base_cell(yc->sv)' "$PM")
 if [ "$one" = 1 ] && [ "$fast" = 1 ] && [ "$wide" = 1 ]; then echo "  arm 1 PASS: the one-character read, the same-cell fast path and the widened same-variable test are present"
 else echo "  arm 1 FAIL: one_char_read=$one same_cell_fast_path=$fast widened_same_variable=$wide (want 1 1 1)"; RC=1; fi
 cat > "$T/w.icn" <<'EOF'
