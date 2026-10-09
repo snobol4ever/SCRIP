@@ -650,7 +650,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
                     n->v.dval = -num.fval;
                     return pt_stamp(n, ln);
                 }
-                if (pk3.kind == TK_ATOM || pk3.kind == TK_OP || pk3.kind == TK_VAR || pk3.kind == TK_LPAREN) {
+                if (pk3.kind == TK_ATOM || pk3.kind == TK_OP || prefix_arg_starts(pk3)) {
                     tree_t *arg = pt_term(p, ts, 200);
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup("-");
@@ -661,8 +661,7 @@ static tree_t *pt_primary(Parser *p, TreeScope *ts) {
             }
             if (strcmp(tk.text, "+") == 0) {
                 Token pk3 = lexer_peek(&p->lx);
-                if (pk3.kind == TK_ATOM || pk3.kind == TK_OP || pk3.kind == TK_VAR ||
-                    pk3.kind == TK_LPAREN || pk3.kind == TK_INT || pk3.kind == TK_FLOAT) {
+                if (pk3.kind == TK_ATOM || pk3.kind == TK_OP || prefix_arg_starts(pk3)) {
                     tree_t *arg = pt_term(p, ts, 200);
                     tree_t *fnc = ast_node_new(TT_FNC);
                     fnc->v.sval = ct_strdup("+");

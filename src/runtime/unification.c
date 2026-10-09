@@ -523,7 +523,8 @@ static void plc_wt_lv(pl_cell_t *c, int quoted, int ignore_ops, int numbervars, 
                     extern int rt_big_sign(DESCR_t);
                     int a_num = ((int)a0->v == DT_I && a0->i >= 0) || ((int)a0->v == DT_R && a0->r >= 0) || ((int)a0->v == DT_BIG && rt_big_sign(*a0) >= 0);
                     int a_opatom = plc_is_op_atom(a0);
-                    int needp = (ap > rmax) || a_opatom || (a_num && !strcmp(fn, "-"));
+                    int a_digit = !strcmp(fn, "-") && isdigit(plc_first_char(a0, quoted, ignore_ops, numbervars));
+                    int needp = (ap > rmax) || a_opatom || (a_num && !strcmp(fn, "-")) || a_digit;
                     int sep = needp || (!alnum_op && plc_is_graphic_char(plc_first_char(&aa[0], quoted, ignore_ops, numbervars)));
                     if (alnum_op) fprintf(fp, "%s ", fn);
                     else plc_wt_atom(fp, fn, quoted);
