@@ -2601,9 +2601,9 @@ int main(int argc, char **argv) {
                 gva_collect_icon_globals();
                 {
                     extern void rt_icn_global_note(const char *);
-                    extern const char **global_names;
-                    extern int global_count;
-                    for (int _gi = 0; _gi < global_count; _gi++) if (global_names[_gi]) rt_icn_global_note(global_names[_gi]);
+                    extern const char ** lc_global_names(void);
+                    extern int lc_global_count(void);
+                    for (int _gi = 0; _gi < lc_global_count(); _gi++) if (lc_global_names()[_gi]) rt_icn_global_note(lc_global_names()[_gi]);
                 }
                 int n_gva_m3;
                 { extern int gva_trace_demoted(void); const char *_gv = getenv("SCRIP_M3_GVA"); n_gva_m3 = (gva_trace_demoted() || (_gv && *_gv && *_gv == (char)48)) ? 0 : gva_count(); }

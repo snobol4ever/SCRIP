@@ -1,12 +1,13 @@
 #include "branch_chain.h"
 #include "ct_arena.h"
 #include "ir_index.h"
+#include "g_lower.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int bc_is_passthrough(IR_e op) { return op == IR_SUCCEED || op == IR_GOTO; }
-static int bc_mon(void) { static int m = -1; if (m < 0) m = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; return m; }
+static int bc_mon(void) { if (g_lower.opt.bc_mon_m < 0) g_lower.opt.bc_mon_m = (getenv("MONITOR_BIN") && getenv("MONITOR_GOTO_TAP")) ? 1 : 0; return g_lower.opt.bc_mon_m; }
 static int bc_stamped(const IR_t *nd) { return bc_mon() && nd->op == IR_GOTO && IR_LIT(nd).ival > 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static char * bc_build_protect(IR_graph_t *g, const ir_index_t *ix) {

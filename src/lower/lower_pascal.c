@@ -3,16 +3,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "lower.h"
+#include "g_lower.h"
 #define PAS_MAX_SCOPE 64
 typedef struct pas_scope_s { const char * names[PAS_MAX_SCOPE]; int n; int nparams; long long byref; int has_children; const char * proc_name; struct pas_scope_s * outer; } pas_scope_t;
 typedef struct { const char * name; IR_t * node; } pas_label_t;
 struct pas_fact { const char * nm; struct pas_fact * up; };
 typedef struct { IR_graph_t * g; pas_scope_t sc; lc_vec labels; int npbt; const tree_t * pd; IR_t * unw; IR_t * xit; lc_vec fvars; struct pas_fact * fact; int inchk; } pcx_t;
-static lc_vec g_pas_proc_list = { NULL, 0, 0, (int) sizeof(const tree_t *) };
-static lc_vec g_pas_proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) };
-static int g_pas_has_nesting = 0;
-#define PAS_PROC(i) LC_AT(&g_pas_proc_list, const tree_t *, (i))
-#define PAS_PARENT(i) LC_AT(&g_pas_proc_parent, const tree_t *, (i))
+#define PAS_PROC(i) LC_AT(&g_lower.pas.proc_list, const tree_t *, (i))
+#define PAS_PARENT(i) LC_AT(&g_lower.pas.proc_parent, const tree_t *, (i))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void γ_to(IR_t * nd, IR_t * t) { lc_γ_to(nd, t); }
 static void ω_to(IR_t * nd, IR_t * t) { lc_ω_to(nd, t); }
@@ -284,9 +282,8 @@ static uint64_t pas_callee_byref_mask(const char * name) {
 static int pas_is_stdfile_actual(const tree_t * a) { return a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_stdfile"); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pas_vpref_var(void) {
-    static int g_pas_vpref_n = 0;
     char buf[32];
-    snprintf(buf, sizeof buf, "__pas_vpref_%d", g_pas_vpref_n++);
+    snprintf(buf, sizeof buf, "__pas_vpref_%d", g_lower.pas.pas_vpref_var_vpref_n++);
     tree_t * v = ast_node_new(TT_VAR);
     v->v.sval = lp_strdup(buf);
     return v;
@@ -295,9 +292,8 @@ static tree_t * pas_vpref_var(void) {
 static int pas_is_vpref(const tree_t * a) { return a && a->t == TT_VAR && a->v.sval && !strncmp(a->v.sval, "__pas_vpref_", 12); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pas_vptmp_var(void) {
-    static int g_pas_vptmp_n = 0;
     char buf[32];
-    snprintf(buf, sizeof buf, "__pas_vptmp_%d", g_pas_vptmp_n++);
+    snprintf(buf, sizeof buf, "__pas_vptmp_%d", g_lower.pas.pas_vptmp_var_vptmp_n++);
     tree_t * v = ast_node_new(TT_VAR);
     v->v.sval = lp_strdup(buf);
     return v;
@@ -408,7 +404,7 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
             const tree_t * a = t->c[i];
             if (!(((brm >> (i - env - 1)) & 1ULL) && (pas_is_filebuf_actual(a) || pas_is_deref_actual(a)))) continue;
             const tree_t * body = NULL;
-            for (int pi = 0; pi < g_pas_proc_list.n; pi++) if (PAS_PROC(pi)->v.sval && !strcmp(PAS_PROC(pi)->v.sval, cn->v.sval)) { body = pas_proc_body(PAS_PROC(pi)); break; }
+            for (int pi = 0; pi < g_lower.pas.proc_list.n; pi++) if (PAS_PROC(pi)->v.sval && !strcmp(PAS_PROC(pi)->v.sval, cn->v.sval)) { body = pas_proc_body(PAS_PROC(pi)); break; }
             int isfile = pas_is_filebuf_actual(a);
             if (!(isfile ? pas_tree_alters_file(body, a->c[1]->v.sval) : pas_tree_disposes(body, a->c[1]->v.sval))) continue;
             size_t ml = strlen(a->c[1]->v.sval) + strlen(cn->v.sval) + 140;
@@ -924,7 +920,7 @@ static void collect_procs(const tree_t * body, const tree_t * parent) {
                 if (a && a->t == TT_ATTR && a->v.sval && !strcmp(a->v.sval, ":subj") && a->n > 0 && a->c[0] && a->c[0]->t == TT_PROC_DECL) { pd = a->c[0]; break; }
             }
         }
-        if (pd) { lc_vec_push(&g_pas_proc_list, &pd); lc_vec_push(&g_pas_proc_parent, &parent); }
+        if (pd) { lc_vec_push(&g_lower.pas.proc_list, &pd); lc_vec_push(&g_lower.pas.proc_parent, &parent); }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -936,30 +932,30 @@ static int proc_decl_level(const tree_t * pd) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void assign_parents(void) {
-    for (int i = 0; i < g_pas_proc_list.n; i++) {
+    for (int i = 0; i < g_lower.pas.proc_list.n; i++) {
         int my_level = proc_decl_level(PAS_PROC(i));
         PAS_PARENT(i) = NULL;
         if (my_level <= 1) continue;
-        for (int j = i + 1; j < g_pas_proc_list.n; j++) { if (proc_decl_level(PAS_PROC(j)) == my_level - 1) { PAS_PARENT(i) = PAS_PROC(j); break; } }
+        for (int j = i + 1; j < g_lower.pas.proc_list.n; j++) { if (proc_decl_level(PAS_PROC(j)) == my_level - 1) { PAS_PARENT(i) = PAS_PROC(j); break; } }
         if (!PAS_PARENT(i)) { for (int j = i - 1; j >= 0; j--) { if (proc_decl_level(PAS_PROC(j)) == my_level - 1) { PAS_PARENT(i) = PAS_PROC(j); break; } } }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int lower_pascal_enum(const tree_t * prog, const tree_t ** out, int max) {
-    g_pas_proc_list.n = 0;
-    g_pas_proc_parent.n = 0;
+    g_lower.pas.proc_list.n = 0;
+    g_lower.pas.proc_parent.n = 0;
     if (!prog) return 0;
     collect_procs(prog, NULL);
     assign_parents();
-    if (!out) return g_pas_proc_list.n;
-    int n = (g_pas_proc_list.n < max) ? g_pas_proc_list.n : max;
+    if (!out) return g_lower.pas.proc_list.n;
+    int n = (g_lower.pas.proc_list.n < max) ? g_lower.pas.proc_list.n : max;
     for (int i = 0; i < n; i++) out[i] = PAS_PROC(i);
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pas_proc_body(const tree_t * pd) { return (pd && pd->n > 2) ? pd->c[2] : NULL; }
 static int pas_is_main(const tree_t * pd) { return pd && pd->v.sval && !strcmp(pd->v.sval, "main"); }
-static int pas_proc_idx(const tree_t * pd) { for (int i = 0; i < g_pas_proc_list.n; i++) if (PAS_PROC(i) == pd) return i; return -1; }
+static int pas_proc_idx(const tree_t * pd) { for (int i = 0; i < g_lower.pas.proc_list.n; i++) if (PAS_PROC(i) == pd) return i; return -1; }
 static int pas_body_has_label(const tree_t * t, const char * lab) {
     if (!t || !lab) return 0;
     if (t->t == TT_LABEL_DEF && t->v.sval && !strcmp(t->v.sval, lab)) return 1;
@@ -972,7 +968,7 @@ static const tree_t * pas_label_owner(const tree_t * pd, const char * lab) {
     int i = pas_proc_idx(pd);
     for (const tree_t * p = (i >= 0) ? PAS_PARENT(i) : NULL; p; ) { if (pas_body_has_label(pas_proc_body(p), lab)) return p; int j = pas_proc_idx(p); p = (j >= 0) ? PAS_PARENT(j) : NULL; }
     if (pas_is_main(pd)) return NULL;
-    for (int k = 0; k < g_pas_proc_list.n; k++) if (pas_is_main(PAS_PROC(k))) return pas_body_has_label(pas_proc_body(PAS_PROC(k)), lab) ? PAS_PROC(k) : NULL;
+    for (int k = 0; k < g_lower.pas.proc_list.n; k++) if (pas_is_main(PAS_PROC(k))) return pas_body_has_label(pas_proc_body(PAS_PROC(k)), lab) ? PAS_PROC(k) : NULL;
     return NULL;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1088,11 +1084,11 @@ static void pas_nlg_unwind(pcx_t * cx, const lc_vec * mine, int xm, IR_t * succ,
 static pas_scope_t * build_scope_chain(const tree_t * pd) {
     if (!pd) return NULL;
     const tree_t * parent_pd = NULL;
-    for (int i = 0; i < g_pas_proc_list.n; i++) { if (PAS_PROC(i) == pd) { parent_pd = PAS_PARENT(i); break; } }
+    for (int i = 0; i < g_lower.pas.proc_list.n; i++) { if (PAS_PROC(i) == pd) { parent_pd = PAS_PARENT(i); break; } }
     pas_scope_t * outer = parent_pd ? build_scope_chain(parent_pd) : NULL;
     pas_scope_t * sc = (pas_scope_t *) ct_zalloc(1, sizeof(pas_scope_t));
     build_scope(sc, pd, outer);
-    for (int i = 0; i < g_pas_proc_list.n; i++) if (PAS_PARENT(i) == pd) { sc->has_children = 1; break; }
+    for (int i = 0; i < g_lower.pas.proc_list.n; i++) if (PAS_PARENT(i) == pd) { sc->has_children = 1; break; }
     return sc;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1110,7 +1106,7 @@ IR_graph_t * lower_pascal_proc(const tree_t * prog, const tree_t * pd) {
     lc_vec_init(&mine, (int) sizeof(const char *));
     int any = 0, wx = 0, xm = 0;
     cx.pd = pd;
-    for (int i = 0; i < g_pas_proc_list.n; i++) pas_nlg_scan(pas_proc_body(PAS_PROC(i)), PAS_PROC(i), pd, &mine, &any, &wx, &xm);
+    for (int i = 0; i < g_lower.pas.proc_list.n; i++) pas_nlg_scan(pas_proc_body(PAS_PROC(i)), PAS_PROC(i), pd, &mine, &any, &wx, &xm);
     if (any) cx.unw = IR_node_alloc(g, IR_GOTO);
     if (wx) cx.xit = IR_node_alloc(g, IR_GOTO);
     for (int li = 0; li < cx.labels.n; li++) ω_to(LC_AT(&cx.labels, pas_label_t, li).node, fail);
@@ -1160,7 +1156,7 @@ static int lower_pascal_body(const tree_t *prog, const tree_t *proc) { IR_graph_
 static const char * pas_l3_ancestor_name(const tree_t * pd, int level) {
     if (level <= 3) return NULL;
     const tree_t * cur = pd;
-    for (int h = 0; h < level - 3 && cur; h++) { const tree_t * next = NULL; for (int i = 0; i < g_pas_proc_list.n; i++) if (PAS_PROC(i) == cur) { next = PAS_PARENT(i); break; } cur = next; }
+    for (int h = 0; h < level - 3 && cur; h++) { const tree_t * next = NULL; for (int i = 0; i < g_lower.pas.proc_list.n; i++) if (PAS_PROC(i) == cur) { next = PAS_PARENT(i); break; } cur = next; }
     if (!cur) return NULL;
     for (int i = 0; i < g_stage2.proc_count; i++) if (g_stage2.proc_table[i].proc == cur) return g_stage2.proc_table[i].name;
     return NULL;
@@ -1220,10 +1216,10 @@ static void pascal_register_program(stage2_t * s2, const tree_t * prog) {
 stage2_t *lower_pascal_stage2(const tree_t *prog) {
     pascal_register_program(&g_stage2, prog);
     lower_pascal_enum(prog, NULL, 0);
-    g_pas_has_nesting = 0;
+    g_lower.pas.has_nesting = 0;
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
-        if (proc && proc->t == TT_PROC_DECL && (proc_decl_level(proc) > 1 || g_stage2.proc_table[pi].byref_mask)) { g_pas_has_nesting = 1; break; }
+        if (proc && proc->t == TT_PROC_DECL && (proc_decl_level(proc) > 1 || g_stage2.proc_table[pi].byref_mask)) { g_lower.pas.has_nesting = 1; break; }
     }
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;

@@ -5429,8 +5429,10 @@ extern "C" void * emit_install_proc(stage2_t * s2, int pi, const emit_install_ho
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void gva_collect_icon_globals(void) {
-    extern const char **global_names; extern int global_count;
+    extern const char ** lc_global_names(void); extern int lc_global_count(void);
     extern int gva_name_hidden(const char *);
+    const char ** global_names = lc_global_names();
+    int global_count = lc_global_count();
     for (int i = 0; i < global_count; i++) if (global_names[i] && !gva_name_hidden(global_names[i])) (void)gva_collect_var(global_names[i]);
     for (int i = 0; i < global_count; i++) if (global_names[i] && gva_name_hidden(global_names[i])) (void)gva_collect_var(global_names[i]);
 }

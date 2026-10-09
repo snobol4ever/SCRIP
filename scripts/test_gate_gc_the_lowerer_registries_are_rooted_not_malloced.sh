@@ -36,6 +36,8 @@
 # and arm 3 red (bb_src_note allocating with realloc), with arms 1 and 4 green -- so the two halves are independently
 # measured and neither rides the other's green.
 "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_require_fresh.sh" --gate "$(basename "${BASH_SOURCE[0]}" .sh)" || exit $?
+# RE-CUT 2026-10-09 cfo (CEO-1575, the g_lower stage): the two registries live in g_lower.lc (g_bb_labels -> g_lower.lc.bb_labels,
+# g_bb_src -> g_lower.lc.bb_src), so the structural arms read the new spelling; what they count is unchanged.
 set -uo pipefail
 G="$(basename "${BASH_SOURCE[0]}" .sh)"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -47,11 +49,11 @@ W="$ROOT/../corpus/tests/snobol4/code_call_runtime_define_pending_entry.sno"
 [ -f "$W" ] || { echo "⛔ GATE REFUSE(2) [$G]: the witness $W is not there, so nothing was measured"; exit 2; }
 T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
-n=$(python3 "$ROOT/scripts/util_c_function_body.py" "$LC" lower_gc_roots | awk '/&e->name\)/{a++} /&e->landing\)/{c++} /&g_bb_labels\.data\)/{d++} /^bb_src_gc_roots\(\);/{b++} END{printf "%d %d %d %d", a+0, c+0, b+0, d+0}')
+n=$(python3 "$ROOT/scripts/util_c_function_body.py" "$LC" lower_gc_roots | awk '/&e->name\)/{a++} /&e->landing\)/{c++} /&g_lower\.lc\.bb_labels\.data\)/{d++} /^bb_src_gc_roots\(\);/{b++} END{printf "%d %d %d %d", a+0, c+0, b+0, d+0}')
 if [ "$n" = "1 1 1 0" ] && grep -q 'lower_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
-    echo "  structural labels PASS (lower_gc_roots visits every g_bb_labels entry's name and landing and calls bb_src_gc_roots, and the collector calls lower_gc_roots; the label block itself is arena memory and is not visited -- CEO-1272)"
-else echo "  structural labels FAIL (lower_gc_roots visits [e->name e->landing bb_src_gc_roots &g_bb_labels.data] = [$n], want [1 1 1 0], or gc_heap.c never calls lower_gc_roots)"; RC=1; fi
-n=$(python3 "$ROOT/scripts/util_c_function_body.py" "$LC" bb_src_gc_roots | awk '/&g_bb_src\.nd\[i\]\)/{a++} /&g_bb_src\.src\[i\]\)/{b++} /&g_bb_src\.(nd|src|line)\)/{c++} END{printf "%d %d %d", a+0, b+0, c+0}')
+    echo "  structural labels PASS (lower_gc_roots visits every g_lower.lc.bb_labels entry's name and landing and calls bb_src_gc_roots, and the collector calls lower_gc_roots; the label block itself is arena memory and is not visited -- CEO-1272)"
+else echo "  structural labels FAIL (lower_gc_roots visits [e->name e->landing bb_src_gc_roots &g_lower.lc.bb_labels.data] = [$n], want [1 1 1 0], or gc_heap.c never calls lower_gc_roots)"; RC=1; fi
+n=$(python3 "$ROOT/scripts/util_c_function_body.py" "$LC" bb_src_gc_roots | awk '/&g_lower\.lc\.bb_src\.nd\[i\]\)/{a++} /&g_lower\.lc\.bb_src\.src\[i\]\)/{b++} /&g_lower\.lc\.bb_src\.(nd|src|line)\)/{c++} END{printf "%d %d %d", a+0, b+0, c+0}')
 if [ "$n" = "1 1 0" ]; then echo "  structural bb_src PASS (bb_src_gc_roots visits every entry's node and source text; the three parallel arrays are arena memory and are not visited -- CEO-1272)"
 else echo "  structural bb_src FAIL (bb_src_gc_roots visits [nd[i] src[i] block] = [$n], want [1 1 0]: an element a registry holds is not rooted, or an arena block is being visited as if the collector owned it)"; RC=1; fi
 # ⛔⭐ THE COLLECTED-HEAP ALLOCATOR FAMILY COMES FROM ITS ONE AUTHORITY, NOT FROM A SPELLING TYPED HERE (ceo CEO-946).
