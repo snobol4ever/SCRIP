@@ -1437,7 +1437,7 @@ _Static_assert(sizeof(gc_site_ent_t) == 16 && __builtin_offsetof(gc_site_ent_t, 
     "A SITE ENTRY IS LAID OUT EXACTLY AS THE EMITTED (pc, word) PAIR, word = kind | rule << 16 | depth << 32 little-endian (cto, row gc-a-registered-site-table-costs-its-entries-not-an-mmapped-page-"
     "per-blo" "ck): a table the emitter wrote sorted by pc with no skipped entry is searched in place in the fragment's own data, so registering it costs no page; any other table is copied as before")
     ;
-typedef struct { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi, maxhi; int n; int ckt; int own; uint64_t link; const gc_site_ent_t *ents; } gc_site_blk_t;
+typedef struct { const uint64_t *tab; const gc_frame_map_t *map; uint64_t lo, hi, maxhi; int n; int ckt; int own; uint64_t link; const gc_site_ent_t *ents; uint64_t code; } gc_site_blk_t;
 static gc_site_blk_t *g_gc_sblk = (gc_site_blk_t *)0;
 static int g_gc_sblk_n = 0, g_gc_sblk_cap = 0;
 static int gc_site_ent_cmp(const void *a, const void *b) { uint64_t x = ((const gc_site_ent_t *)a)->pc, y = ((const gc_site_ent_t *)b)->pc; return x < y ? -1 : x > y ? 1 : 0; }
@@ -1457,14 +1457,14 @@ void rt_gc_frame_sites_add(const void *tab) {
     n = (int)t[0];
     m = (const gc_frame_map_t *)(uintptr_t)t[1];
     if (m && m->magic != GC_FRAME_MAP_MAGIC) { fprintf(stderr, "[GC-SITES] rt_gc_frame_sites_add: table %p names no frame map (%p)\n", tab, (const void *)m); abort(); }
-    for (int i = 0; i < n && inplace; i++) { uint64_t pc = t[3 + 2 * i], w = t[4 + 2 * i]; if (!pc || (w & 255u) == 4u || (w & 255u) == 5u || (i > 0 && pc <= t[1 + 2 * i])) inplace = 0; }
+    for (int i = 0; i < n && inplace; i++) { uint64_t pc = t[4 + 2 * i], w = t[5 + 2 * i]; if (!pc || (w & 255u) == 4u || (w & 255u) == 5u || (i > 0 && pc <= t[2 + 2 * i])) inplace = 0; }
     if (inplace) {
-        e = n > 0 ? (const gc_site_ent_t *)(const void *)(t + 3) : (const gc_site_ent_t *)0;
+        e = n > 0 ? (const gc_site_ent_t *)(const void *)(t + 4) : (const gc_site_ent_t *)0;
         k = n;
     } else {
         gc_site_ent_t *c = n > 0 ? (gc_site_ent_t *)gcbk_alloc((size_t)n * sizeof *c) : (gc_site_ent_t *)0;
         for (int i = 0; i < n; i++) {
-            uint64_t pc = t[3 + 2 * i], w = t[4 + 2 * i];
+            uint64_t pc = t[4 + 2 * i], w = t[5 + 2 * i];
             if (!pc) continue;
             if ((w & 255u) == 4u || (w & 255u) == 5u) continue;
             c[k].pc = pc;
@@ -1484,12 +1484,14 @@ void rt_gc_frame_sites_add(const void *tab) {
     }
     {
         int i = g_gc_sblk_n;
-        uint64_t lo = k > 0 ? e[0].pc : 0, hi = k > 0 ? e[k - 1].pc + 1 : 0;
+        uint64_t code = t[3], lo = k > 0 ? e[0].pc : code, hi = k > 0 ? e[k - 1].pc + 1 : code;
+        if (code && code < lo) lo = code;
         while (i > 0 && g_gc_sblk[i - 1].lo > lo) { g_gc_sblk[i] = g_gc_sblk[i - 1]; i--; }
         g_gc_sblk[i].tab = t;
         g_gc_sblk[i].map = m;
         g_gc_sblk[i].lo = lo;
         g_gc_sblk[i].hi = hi;
+        g_gc_sblk[i].code = code;
         g_gc_sblk[i].n = k;
         g_gc_sblk[i].ckt = m ? 0 : (int)t[2];
         g_gc_sblk[i].link = m ? t[2] : 0u;
@@ -2407,10 +2409,12 @@ static void gc_chain_find(gc_chx_t *cx, uint64_t pc, const char *r, const char *
     b = gc_site_find(pc, &e);
     if (b && e && (e->kind & 255) == 7) { pc = *(const uint64_t *)(r + e->depth); r = r + e->depth + 8; g_gc_chain_roadhops++; goto again; }
     if (!b || !e) {
+        extern char rt_genp_n2_deliver_ret[];
         const char *fp = rbp, *top = seg_top ? seg_top : gc_stack_top();
         while (fp && fp > r && fp + 16 <= top) {
             uint64_t pc2 = *(const uint64_t *)(fp + 8);
             const char *fp2 = *(const char *const *)fp;
+            if (pc2 == (uint64_t)(uintptr_t)rt_genp_n2_deliver_ret) { cx->pc = pc2; cx->r = fp + 16; cx->rbp = fp2; cx->st = 6; return; }
             b = gc_site_find(pc2, &e);
             if (b && e) { pc = pc2; r = fp + 16; rbp = fp2; break; }
             if (fp2 <= fp) break;
@@ -2584,7 +2588,21 @@ static int gc_chain_link(const char *base, uint64_t q, uint64_t *pc, const char 
     *r = (GC_LINK_FL(q) & GC_LINK_R_IND) ? *(const char *const *)(base + GC_LINK_R(q)) : base + GC_LINK_R(q);
     return 1;
 }
-static long gc_chain_walk(const gc_ent_t *ent, const char *hi, gc_chf_t *out, long cap, int *stop) {
+static const gc_site_blk_t *gc_body_block(const scrip_coctx_t *sc) {
+    const gc_site_blk_t *hit = (const gc_site_blk_t *)0;
+    uint64_t pc, best = 0;
+    if (!sc || !sc->gen_h) return hit;
+    pc = *(const uint64_t *)(sc->gen_h + 32);
+    for (int i = 0; i < g_gc_sblk_n; i++) if (g_gc_sblk[i].code && g_gc_sblk[i].code <= pc && g_gc_sblk[i].code > best) best = g_gc_sblk[i].code;
+    for (int i = 0; best && i < g_gc_sblk_n; i++) {
+        const gc_site_blk_t *k = &g_gc_sblk[i];
+        if (k->code != best || !k->map || !(k->map->flags & GC_FRAME_MAP_GEN_ANCHOR)) continue;
+        if (hit && hit->map != k->map) rt_bomb("gc_body_block: two generator maps share one graph's code start -- the suspended body's frame shape is not named");
+        hit = k;
+    }
+    return hit;
+}
+static long gc_chain_walk(const gc_ent_t *ent, const char *hi, gc_chf_t *out, long cap, int *stop, const scrip_coctx_t *sc) {
     gc_chx_t w;
     uint64_t pc = (uint64_t)(uintptr_t)ent->pc;
     const char *r = ent->r, *rbp = (const char *)ent->rbp, *last = (const char *)0;
@@ -2593,6 +2611,17 @@ static long gc_chain_walk(const gc_ent_t *ent, const char *hi, gc_chf_t *out, lo
     for (;;) {
         if (r > hi || (last && r < last)) { *stop = 7; return n; }
         gc_chain_find(&w, pc, r, rbp, hi);
+        if (w.st == 6) {
+            const gc_site_blk_t *bb = gc_body_block(sc);
+            const char *gb = bb ? sc->gen_h - (long)bb->map->frame_bytes : (const char *)0;
+            if (!bb || gb < w.r || gb > hi) { *stop = 1; return n; }
+            if (last && gb <= last) { *stop = 6; return n; }
+            if (out && n < cap) { out[n].base = gb; out[n].map = bb->map; out[n].link = bb->link; out[n].rule = -1; }
+            n++;
+            last = gb;
+            if (!gc_chain_link(gb, bb->link, &pc, &r, &rbp)) { *stop = 5; return n; }
+            continue;
+        }
         if (w.st != 1) { *stop = w.st == 3 ? 2 : w.st == 4 ? 3 : w.st == 5 ? 4 : 1; return n; }
         if (last && w.base <= last) { *stop = 6; return n; }
         if (out && n < cap) { out[n].base = w.base; out[n].map = w.b->map; out[n].link = w.b->link; out[n].rule = w.e->rule; }
@@ -2975,12 +3004,12 @@ static long gc_visit_segment(const char *lo0, const char *hi0, const gc_ent_t *e
     gc_chx_t *cp = ((g_gc_seg_main && gc_chain_check_on()) || gc_chain_check_on() == 3) ? &cx : (gc_chx_t *)0;
     if (cp) { gc_chain_resolve_in(cp, ent, hi0); cx.segmain = g_gc_seg_main; }
     int stop = 0;
-    long nchf = (cp && ent && gc_chain_check_on() == 3) ? gc_chain_walk(ent, hi0, (gc_chf_t *)0, 0, &stop) : 0;
+    long nchf = (cp && ent && gc_chain_check_on() == 3) ? gc_chain_walk(ent, hi0, (gc_chf_t *)0, 0, &stop, sc) : 0;
     const char *img = (sc && sc->image && sc->image_map) ? sc->image + sc->image_off : (const char *)0;
     if (img && (img < lo0 || img >= hi0)) img = (const char *)0;
     gc_chf_t chf[nchf + 1];
     if (cp && ent && gc_chain_check_on() == 3) {
-        cx.chf_n = gc_chain_walk(ent, hi0, chf, nchf, &stop);
+        cx.chf_n = gc_chain_walk(ent, hi0, chf, nchf, &stop, sc);
         if (img && cx.chf_n == nchf && (!cx.chf_n || chf[cx.chf_n - 1].base < img)) {
             chf[cx.chf_n].base = img;
             chf[cx.chf_n].map = (const gc_frame_map_t *)sc->image_map;

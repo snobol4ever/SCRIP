@@ -1,10 +1,10 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2251
+#define GC_ALLOC_TAB_N 2252
 #define GC_ALLOC_TAB_N_VOID 273
 #define GC_ALLOC_TAB_N_DESCR 1135
 #define GC_ALLOC_TAB_N_OTHER 828
-#define GC_ALLOC_TAB_N_UNKNOWN 15
+#define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "APPLY_fn_rq", GC_RET_DESCR },
@@ -1390,6 +1390,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_genp_deliver_γ", GC_RET_VOID },
     { "rt_genp_deliver_ω", GC_RET_VOID },
     { "rt_genp_entry_c", GC_RET_VOID },
+    { "rt_genp_n2_deliver_ret", GC_RET_UNKNOWN },
     { "rt_genp_spine_enter", GC_RET_VOID },
     { "rt_genp_spine_enter_n2", GC_RET_VOID },
     { "rt_genp_thread_entry", GC_RET_VOID },

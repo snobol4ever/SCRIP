@@ -3807,7 +3807,8 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
     const uint64_t ckt = frameless ? ((xa_flat_class_c_pred()) ? (uint64_t)g_emit.flat_frame_bytes : 0u) : g_gc_map_link;
     if (g_is_text) {
         std::string t =
-            std::string(tl.name) + ":\n .quad " + std::to_string(n) + "\n .quad " + (frameless ? std::string("0") : std::string(g_gc_map_lbl.name)) + "\n .quad " + std::to_string(ckt) + "\n";
+            std::string(tl.name) + ":\n .quad " + std::to_string(n) + "\n .quad " + (frameless ? std::string("0") : std::string(g_gc_map_lbl.name)) + "\n .quad " + std::to_string(ckt) + "\n .quad "
+            + (g_emit.gc_code_lbl.name ? std::string(g_emit.gc_code_lbl.name) : std::string("0")) + "\n";
             emit_text_n(t.data(), t.size());
         for (int i = 0; i < n; i++) { gc_site_t * e = &CV_AT(g_gc_sites_v, gc_site_t, i); uint64_t w = (uint64_t)e->kind | ((uint64_t)e->rule << 16) | ((uint64_t)(uint32_t)e->depth << 32);
             t = " .quad " + emit_gc_site_label(i) + "\n .quad " + std::to_string((unsigned long long)w) + "\n"; emit_text_n(t.data(), t.size()); }
@@ -3815,6 +3816,7 @@ static void emit_gc_sites_data(const char * fam, int frameless) {
     } else {
         emit_label_define_bb(&tl); g_gc_sites_last_off = tl.offset; CV_PUSH(g_gc_sites_offs_v, int) = tl.offset;
         bb_emit_u64((uint64_t)n); bb_emit_u64(frameless ? (uint64_t)0 : (uint64_t)(uintptr_t)(bb_emit_buf + g_gc_map_lbl.offset)); bb_emit_u64(ckt);
+        bb_emit_u64(g_emit.gc_code_lbl.name ? (uint64_t)(uintptr_t)(bb_emit_buf + g_emit.gc_code_lbl.offset) : (uint64_t)0);
         if (n > 1)
             qsort(&CV_AT(g_gc_sites_v, gc_site_t, 0), (size_t)n, sizeof(gc_site_t), [](const void * a, const void * b) -> int { uint64_t x = ((const gc_site_t *)a)->pc, y = ((const gc_site_t *)b)->pc;
             return (x > y) - (x < y); });
@@ -3930,6 +3932,8 @@ static int codegen_flat_chain_body(IR_t *entry, const char *prefix) {
     const char *fam = (strncmp(prefix, "proc_", 5) == 0) ? prefix + 5 : prefix;
     g_emit.flat_fam = fam;
     g_gc_sites_v.len = 0; g_gc_sites_armed = 1; g_gc_sites_last_off = -1; g_gc_sites_offs_v.len = 0; g_gc_match_n = 0; emit_gc_rsp_reset();
+    emit_label_initf(&g_emit.gc_code_lbl, ".Lgccode_%s_%d", fam ? fam : "chain", g_emit.gc_code_seq++);
+    if (g_is_text) { std::string _cl = std::string(g_emit.gc_code_lbl.name) + ":\n"; emit_text_n(_cl.data(), _cl.size()); } else emit_label_define_bb(&g_emit.gc_code_lbl);
     g_emit.op_zdepth = 0; g_emit.op_fc_bytes = 0;
     if (gc_sites_report_on()) fprintf(stderr, "[GC-GRAPH] fam=%s prefix=%s buf=%p text=%d\n", fam ? fam : "?", prefix ? prefix : "?", (const void *)bb_emit_buf, g_is_text);
     g_flt_fam = (strncmp(prefix, "proc_", 5) == 0) ? fam : (const char *)0; g_flt_lbl[1] = g_flt_lbl[2] = g_flt_lbl[3] = (bb_label_t *)0;

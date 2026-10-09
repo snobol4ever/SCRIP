@@ -1552,6 +1552,7 @@ uint64_t rt_genp_deliver_n2_γ(uint64_t H) {
     DESCR_t v;
     memcpy(&v, (const void *)(uintptr_t)(H - (uint64_t)ftc), 16);
     if (!g->first_done) { g->first_done = 1; v = rt_proc_call_epilogue_γ(v, 1L); }
+    g->co.gen_h = (const char *)(uintptr_t)H;
     { uint64_t d0, d1; memcpy(&d0, &v, 8); memcpy(&d1, (char *)&v + 8, 8); scrip_coret(d0, d1, (void *)0); }
     return H;
 }

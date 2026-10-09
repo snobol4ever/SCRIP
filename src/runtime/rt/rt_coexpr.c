@@ -246,7 +246,7 @@ __asm__(".text\n.globl rt_genp_spine_enter_n2\n" "rt_genp_spine_enter_n2:\n"
     "  # the block protocol (twin of bcps_icn_block_arm): rdx = the callee's argument cell count, copied from the staged medium BELOW the five words, at the callee's entry rsp\n"
     "  testq %rdx, %rdx\n" "  jz 7f\n" "  movq %rdx, %rcx\n" "  shlq $4, %rcx\n" "  subq %rcx, %rsp\n" "  movq g_call_args@GOTPCREL(%rip), %rsi\n" "  movq (%rsi), %rsi\n" "  movq %rsp, %rdi\n"
     "  shrq $3, %rcx\n" "  rep movsq\n" "7:\n" "  leaq 5f(%rip), %rcx\n" "  leaq 6f(%rip), %rdx\n" "  jmp *%rax\n" "5:\n" "  cmpb $0x68, %al\n" "  je 6f\n" "  movq %rdx, %rdi\n"
-    "  call rt_genp_deliver_n2_γ\n" "  movq 40(%rax), %rsp\n" "  jmpq *32(%rax)\n" "6:\n" "  call rt_genp_deliver_ω\n" );
+    "  call rt_genp_deliver_n2_γ\n" ".globl rt_genp_n2_deliver_ret\n" "rt_genp_n2_deliver_ret:\n" "  movq 40(%rax), %rsp\n" "  jmpq *32(%rax)\n" "6:\n" "  call rt_genp_deliver_ω\n" );
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7], uint64_t frame_bytes, uint64_t below_bytes, const char *procname) {
@@ -271,6 +271,7 @@ scrip_coctx_t *scrip_coexpr_create(void *body_entry_addr, const uint64_t regs[7]
     ctx->image_below = below_bytes;
     ctx->image_map = 0;
     ctx->image_off = 0;
+    ctx->gen_h = 0;
     ctx->started = 0;
     ctx->eager = 1;
     ctx->stk_need = (size_t)frame_bytes;
@@ -383,6 +384,7 @@ void scrip_co_ctx_init(scrip_coctx_t *ctx, void (*entry_fn)(void *), void *entry
     ctx->image_below = 0;
     ctx->image_map = 0;
     ctx->image_off = 0;
+    ctx->gen_h = 0;
     ctx->started = 0;
     ctx->eager = 0;
     ctx->scan_state = NULL;

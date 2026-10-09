@@ -32,6 +32,7 @@ typedef struct scrip_coctx_t {
     uint64_t image_below;
     const void *image_map;
     long image_off;
+    const char *gen_h;
     sem_t created;
     int started;
     int eager;
