@@ -6152,6 +6152,7 @@ static int pl_open_leaf(DESCR_t *args, int nargs, pl_tr_ctx_t *cx) {
         if (idx < 0) { fclose(fp); return 0; }
         g_fh[idx].name = rt_heap_strdup_c(fn);
         g_fh[idx].mode = (char) fmode[0];
+        if (fmode[0] == 'a') { off_t e = lseek(fileno(fp), 0, SEEK_END); g_fh[idx].pos_off = e > 0 ? (long)e : 0; }
         {
             int bom_opt = -1;
             if (!pl_open_opts(args, nargs, idx, cx, &bom_opt)) { fclose(fp); fh_free(idx); return 0; }
@@ -7536,7 +7537,8 @@ static const pl_flag_t pl_flags_init[] = { { "bounded", "false", 0, { 0 } }, { "
     { "on", "off", 0 } }, { "debug", "off", 1, { "on", "off", 0 } }, { "unknown", "error", 1, { "error", "fail", "warning", 0 } }, { "double_quotes", "codes", 1, { "atom", "chars", "codes", "string",
     0 } }, { "protect_static_code", "false", 1, { "true", "false", 0 } }, { "iso", "false", 1, { "true", "false", 0 } }, { "occurs_check", "false", 1, { "true", "false", "error", 0 } },
     { "print_write_options", "", 1, { 0 }, 1, { 0 } }, { "encoding", "UTF-8", 1, { "UTF-8", 0 } }, { "argv", "[]", 0, { 0 } }, { "dialect", "scrip", 0, { 0 } }, { "prolog_name", "SCRIP", 0, { 0 } },
-    { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { 0, "", 0, { 0 } } };
+    { "prolog_version", "0.0.0", 0, { 0 } }, { "version_data", "", 0, { 0 } }, { "singleton_warning", "on", 1, { "on", "off", 0 } }, { "suspicious_warning", "on", 1, { "on", "off", 0 } },
+    { "multifile_warning", "on", 1, { "on", "off", 0 } }, { 0, "", 0, { 0 } } };
 static cv_t g_pl_flags;
 #define pl_flags ((pl_flag_t *)g_pl_flags.p)
 static void pl_flags_ready(void) { if (g_pl_flags.len) return; for (int i = 0; ; i++) { pl_flag_t *e = &CV_PUSH(g_pl_flags, pl_flag_t); *e = pl_flags_init[i]; if (!pl_flags_init[i].nm) break; } }
@@ -7822,8 +7824,8 @@ static int pl_gnu_position(DESCR_t s, long *ch, long *ln, long *lp, pl_tr_ctx_t 
     if (b) { cx->ball = b; return 0; }
     r = fh_in_position(idx, ch, ln, lp);
     if (r == 1) return 1;
-    fprintf(stderr, "scrip: prolog: %s on %s is not tracked yet -- positions are read from ftell and pread over a readable, seekable input stream\n", who,
-        r == -1 ? "an output stream" : "a stream that cannot seek");
+    fprintf(stderr, "scrip: prolog: %s on %s is not tracked yet -- positions are read with pread over a seekable input stream or a regular-file output stream\n", who,
+        r == -1 ? "an output stream that is not a regular file" : "a stream that cannot seek");
     exit(2);
 }
 PL_CX_LEAF_HEAD(gnu_line_count, 2) { long c, l, p; ok = pl_gnu_position(args[0], &c, &l, &p, cx, "line_count/2") && plw_unify_vals(args[1], INTVAL(l), cx); } PL_CX_LEAF_TAIL

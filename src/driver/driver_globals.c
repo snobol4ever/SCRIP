@@ -1,5 +1,7 @@
 #define _GNU_SOURCE
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include "driver_private.h"
 char g_script_exception[512] = "";
 int g_script_try_depth = 0;
@@ -28,6 +30,7 @@ void fh_ensure_init(void) {
         h[0].type='t';
         h[1].type='t';
         h[2].type='t';
+        for(int i=1;i<3;i++){ off_t o=lseek(i,0,SEEK_CUR); h[i].pos_off = o>0 ? (long)o : 0; }
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -50,23 +53,45 @@ int fh_repos(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return 0; return g
 void fh_set_eof(int idx, int v){ fh_ensure_init(); if(idx>=0&&idx<FH_N) g_fh[idx].eof=(char)v; }
 int fh_eof(int idx){ fh_ensure_init(); if(idx<0||idx>=FH_N) return 0; return g_fh[idx].eof; }
 static void fh_pos_reset(int idx){ g_fh[idx].pos_off=0; g_fh[idx].pos_chars=0; g_fh[idx].pos_lines=0; g_fh[idx].pos_lpos=0; g_fh[idx].rd_line=0; g_fh[idx].rd_col=0; g_fh[idx].rd_last=0; }
-int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
-    fh_ensure_init();
-    if(idx<0||idx>=FH_N||!g_fh[idx].fp) return 0;
-    if(idx!=0&&g_fh[idx].mode!='r') return -1;
-    fh_slot_t *s=&g_fh[idx];
-    long off=ftell(s->fp);
-    if(off<0) return -2;
+static int fh_pos_scan(fh_slot_t *s, int fd, long off) {
     if(off<s->pos_off){ s->pos_off=0; s->pos_chars=0; s->pos_lines=0; s->pos_lpos=0; }
     while(s->pos_off<off){
         size_t want=(size_t)(off-s->pos_off);
         if(want>65536) want=65536;
         char buf[want];
-        ssize_t got=pread(fileno(s->fp),buf,want,(off_t)s->pos_off);
+        ssize_t got=pread(fd,buf,want,(off_t)s->pos_off);
         if(got<=0) return -2;
         for(ssize_t i=0;i<got;i++){ unsigned char c=(unsigned char)buf[i]; if((c&0xC0)==0x80) continue; s->pos_chars++; if(c=='\n'){ s->pos_lines++; s->pos_lpos=0; } else s->pos_lpos++; }
         s->pos_off+=got;
     }
+    return 1;
+}
+static int fh_out_position(fh_slot_t *s) {
+    struct stat st;
+    int fd, rfd, r, pn;
+    off_t off;
+    fflush(s->fp);
+    fd=fileno(s->fp);
+    if(fd<0||fstat(fd,&st)!=0||!S_ISREG(st.st_mode)) return -1;
+    off=lseek(fd,0,SEEK_CUR);
+    if(off<0) return -1;
+    pn=snprintf((char *)0,0,"/proc/self/fd/%d",fd)+1;
+    char pth[pn];
+    snprintf(pth,(size_t)pn,"/proc/self/fd/%d",fd);
+    rfd=open(pth,O_RDONLY);
+    if(rfd<0) return -1;
+    r=fh_pos_scan(s,rfd,(long)off);
+    close(rfd);
+    return r;
+}
+int fh_in_position(int idx, long *chars, long *lines, long *lpos) {
+    fh_ensure_init();
+    if(idx<0||idx>=FH_N||!g_fh[idx].fp) return 0;
+    fh_slot_t *s=&g_fh[idx];
+    int r;
+    if(idx!=0&&s->mode!='r') r=fh_out_position(s);
+    else { long off=ftell(s->fp); if(off<0) return -2; r=fh_pos_scan(s,fileno(s->fp),off); }
+    if(r!=1) return r;
     *chars=s->pos_chars;
     *lines=s->pos_lines;
     *lpos=s->pos_lpos;
@@ -83,7 +108,26 @@ void fh_note_read_start(int idx) {
 }
 int fh_last_read_start(long *line, long *col) { fh_ensure_init(); for(int i=0;i<FH_N;i++) if(g_fh[i].rd_last){ *line=g_fh[i].rd_line; *col=g_fh[i].rd_col; return 1; } return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void fh_slot_init(fh_slot_t *s, FILE *fp) { s->fp=fp; s->name=NULL; s->alias=NULL; s->enc=NULL; s->mode=0; s->type='t'; s->untrans=0; s->bom=0; s->repos=1; s->closed=0; s->eof=0; }
+static void fh_slot_init(fh_slot_t *s, FILE *fp) {
+    s->fp=fp;
+    s->name=NULL;
+    s->alias=NULL;
+    s->enc=NULL;
+    s->mode=0;
+    s->type='t';
+    s->untrans=0;
+    s->bom=0;
+    s->repos=1;
+    s->closed=0;
+    s->eof=0;
+    s->rd_last=0;
+    s->pos_off=0;
+    s->pos_chars=0;
+    s->pos_lines=0;
+    s->pos_lpos=0;
+    s->rd_line=0;
+    s->rd_col=0;
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int fh_alloc(FILE *fp) {
     fh_ensure_init();
