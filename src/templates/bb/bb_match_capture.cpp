@@ -39,7 +39,7 @@ static std::string cap_imm_gva(const std::string & homeop) {
          + x86_alpha()
          + x86("mov", "eax", homeop.c_str())
          + x86_anchor_enter()
-         + x86("note", gva_name(_.op_gva_k))
+         + x86("note", gva_note(_.op_gva_k))
          + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", gva_cell_addr(_.op_gva_k).c_str()) :
          x86("mov", "rdi", (long)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
          + x86("mov", "esi", "eax")
@@ -53,7 +53,7 @@ static std::string cap_imm_gva(const std::string & homeop) {
 }
 static std::string cap_cond_target_rcx() {
     return IF(cap_gva() && gva_name_hidden(_.op_sval),
-               x86("note", gva_name(_.op_gva_k))
+               x86("note", gva_note(_.op_gva_k))
                         + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rcx", gva_cell_addr(_.op_gva_k).c_str())
                                                             : x86_movabs_r64("rcx", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16))))
          + IF(!(cap_gva() && gva_name_hidden(_.op_sval)) && (_.op_sval && _.op_sval[0] == '*' && _.op_sval[1]),

@@ -1055,6 +1055,7 @@ inline const char * RDQ(const char * base, int off) { static char b[8][40]; stat
 inline const char * ABSQ(unsigned long va) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [%lu]", va); return b[i]; }
 inline const char * GVARQ(int k, int w) { static char b[8][40]; static int i; i = (i + 1) & 7; snprintf(b[i], 40, "qword ptr [" RTCC_GVA_REG " + %d]", k * 16 + w); return b[i]; }
 extern "C" const char * gva_name(int k);
+extern "C" const char * gva_note(int k);
 extern "C" const char * bb_kind_name(int op);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 inline const char * ZOPAN() { if (_.op_a_node_kind < 0) return ""; static char b[8][48]; static int i; i = (i + 1) & 7; const char * n = bb_kind_name(_.op_a_node_kind);

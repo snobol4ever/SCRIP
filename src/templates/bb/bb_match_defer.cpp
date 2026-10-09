@@ -135,9 +135,9 @@ std::string bb_match_defer() {
              + x86("def", L(16))
              + IF(patv_fast_on(), x86("def", L(18))))
          + IF(vslot < 0 && g_gva_active && _.op_gva_k >= 0,
-               x86("note", gva_name(_.op_gva_k))
+               x86("note", gva_note(_.op_gva_k))
              + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 0) : ABSQ(RT_GVA_VA + _.op_gva_k * 16))
-             + x86("note", gva_name(_.op_gva_k))
+             + x86("note", gva_note(_.op_gva_k))
              + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
              + x86("cmp", "al", (long)DT_P)
              + x86("jne", L(9))
@@ -149,7 +149,7 @@ std::string bb_match_defer() {
              + x86("call", "dtp_fn_of", (uint64_t)(uintptr_t)(void *)(void *(*)(void *))dtp_fn_of)
              + x86_align_leave()
              + x86_rt_gc_poll()
-             + x86("note", gva_name(_.op_gva_k))
+             + x86("note", gva_note(_.op_gva_k))
              + x86("mov", "rdx", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 8) : ABSQ(RT_GVA_VA + _.op_gva_k * 16 + 8))
              + x86("jmp", L(10))
              + x86("def", L(9))
@@ -307,7 +307,7 @@ std::string bb_match_defer() {
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *,
                  int, void *))rt_patv_defer_open_entry)
              : !star && gva_road
-             ? x86("note", gva_name(_.op_gva_k))
+             ? x86("note", gva_note(_.op_gva_k))
              + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", (std::string("[" RTCC_GVA_REG " + ") + std::to_string(_.op_gva_k * 16) + "]").c_str())
                                                      : x86_movabs_r64("rdi", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
              + x86("xor", "esi", "esi")

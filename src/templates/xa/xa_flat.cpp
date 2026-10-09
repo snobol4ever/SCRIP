@@ -562,7 +562,7 @@ static std::string xa_flat_chain_prologue_str(const char * fname) {
              + x86("mov", "rdx", "[rcx + 0]")
              + x86("lea", "r8", "[rsp + " + std::to_string(kt + argkt) + "]")
              + FOR(0, nsave, [&](int i) {
-                   std::string sv = x86("note", gva_name(gk[i]))
+                   std::string sv = x86("note", gva_note(gk[i]))
                         + x86("mov", "r10", xa_flat_sig_gq(gk[i], 0))
                         + x86("mov", "[rsp + " + std::to_string(16 * i) + "]", "r10")
                         + x86("mov", "r10", xa_flat_sig_gq(gk[i], 8))
@@ -601,13 +601,13 @@ static std::string xa_flat_chain_epilogue_sig_str(int is_gamma, const char * fna
       if (have) {
           int argkt = 16 * nsave;
           std::string reload = (is_gamma && res_gk >= 0)
-              ? ( x86("note", gva_name(res_gk))
+              ? ( x86("note", gva_note(res_gk))
                 + x86("mov", "rax", xa_flat_sig_gq(res_gk, 0))
                 + x86("mov", "rdx", xa_flat_sig_gq(res_gk, 8)))
               : std::string();
           pre = reload
          + FOR(0, nsave, [&](int i) {
-                    return x86("note", gva_name(gk[i]))
+                    return x86("note", gva_note(gk[i]))
                          + x86("mov", "r10", "[rsp + " + std::to_string(16 * i) + "]")
                          + x86("mov", xa_flat_sig_gq(gk[i], 0), "r10")
                          + x86("mov", "r10", "[rsp + " + std::to_string(16 * i + 8) + "]")

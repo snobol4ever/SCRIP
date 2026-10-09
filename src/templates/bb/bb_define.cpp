@@ -46,6 +46,7 @@ extern "C" const char * bb_ab_sym_name(const char * nm);
 extern "C" const char * bb_ab_thunk_stem_or(const char * nm);
 extern "C" const char * bb_ab_sym_name(const char * nm) {
     enum { MAXN = 48, KEEP = 31 }; static_assert(KEEP + 17 <= MAXN, "a long name is its kept units, a dollar and 16 hex"); static char b[MAXN + 1]; int j = 0, bnd = 0, over = 0;
+    std::string star_stem; if (nm && nm[0] == '*' && bb_ab_thunk_stem_or(nm + 1) != nm + 1) { star_stem = std::string("*") + bb_ab_thunk_stem_or(nm + 1); nm = star_stem.c_str(); }
     nm = bb_ab_thunk_stem_or(nm);
     unsigned long long h = 1469598103934665603ULL; for (const char * c = nm ? nm : ""; *c; c++) { unsigned char u = (unsigned char) *c; char e[4]; int k; h = (h ^ u) * 1099511628211ULL;
         if ((u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z') || (u >= '0' && u <= '9') || u == '_' || u == '$' || u == '.') { e[0] = (char) u; k = 1; } else k = snprintf(e, sizeof e, "$%02X", u);
@@ -301,20 +302,20 @@ static std::string bb_define_sr() {
                  + x86("sub", "r8", "rax")
                  + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j;
                        return x86_rsp_load64("rax", 16 * k)
-                            + x86("note", gva_name(gk4[nf4 + k]))
+                            + x86("note", gva_note(gk4[nf4 + k]))
                             + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
                             + x86_rsp_load64("rax", 16 * k + 8)
                             + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
                  + CHAIN(lid, "rcx",
                        [&](int i) {
                            return x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
-                                + x86("note", gva_name(gk4[i]))
+                                + x86("note", gva_note(gk4[i]))
                                 + x86("mov", GQ(gk4[i], 0), "rax")
                                 + x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i + 8))
                                 + x86("mov", GQ(gk4[i], 8), "rax"); },
                        [&](int i) {
                            return x86("mov", "rax", R8Q(16L * i))
-                                + x86("note", gva_name(gk4[i]))
+                                + x86("note", gva_note(gk4[i]))
                                 + x86("mov", GQ(gk4[i], 0), "rax")
                                 + x86("mov", "rax", R8Q(16L * i + 8))
                                 + x86("mov", GQ(gk4[i], 8), "rax"); }); };
@@ -345,7 +346,7 @@ static std::string bb_define_sr() {
                      + R8AT()
                      + FOR(0, xt4, [&](int j) { int k = xt4 - 1 - j; if (gk4[nf4 + k] < 0) return std::string();
                            return x86_rsp_load64("rax", 16 * k)
-                                + x86("note", gva_name(gk4[nf4 + k]))
+                                + x86("note", gva_note(gk4[nf4 + k]))
                                 + x86("mov", GQ(gk4[nf4 + k], 0), "rax")
                                 + x86_rsp_load64("rax", 16 * k + 8)
                                 + x86("mov", GQ(gk4[nf4 + k], 8), "rax"); })
@@ -354,7 +355,7 @@ static std::string bb_define_sr() {
                                return x86("mov", "rax", SIGQ(24 + 8L * i))
                                     + x86("add", "rax", "r8")
                                     + x86("mov", "rax", "[rax + 0]")
-                                    + x86("note", gva_name(gk4[i]))
+                                    + x86("note", gva_note(gk4[i]))
                                     + x86("mov", GQ(gk4[i], 0), "rax")
                                     + x86("mov", "rax", SIGQ(24 + 8L * i))
                                     + x86("add", "rax", "r8")
@@ -362,7 +363,7 @@ static std::string bb_define_sr() {
                                     + x86("mov", GQ(gk4[i], 8), "rax"); },
                            [&](int i) { if (gk4[i] < 0) return std::string();
                                return x86("mov", "rax", EXTQ(16L * i).c_str())
-                                    + x86("note", gva_name(gk4[i]))
+                                    + x86("note", gva_note(gk4[i]))
                                     + x86("mov", GQ(gk4[i], 0), "rax")
                                     + x86("mov", "rax", EXTQ(16L * i + 8).c_str())
                                     + x86("mov", GQ(gk4[i], 8), "rax"); }); };
@@ -374,7 +375,7 @@ static std::string bb_define_sr() {
                  + x86("sub", "rsp", F4)
                  + WNSAVE()
                  + FOR(0, xt4, [&](int k) { if (gk4[nf4 + k] < 0) return std::string();
-                       return x86("note", gva_name(gk4[nf4 + k]))
+                       return x86("note", gva_note(gk4[nf4 + k]))
                             + x86("mov", "rax", GQ(gk4[nf4 + k], 0))
                             + x86_rsp_store64(16 * k, "rax")
                             + x86("mov", "rax", GQ(gk4[nf4 + k], 8))
@@ -389,7 +390,7 @@ static std::string bb_define_sr() {
                            return x86("mov", "rdi", SIGQ(24 + 8L * i))
                                 + x86("add", "rdi", "r8")
                                 + x86("mov", "rax", "[rdi + 0]")
-                                + x86("note", gva_name(gk4[i]))
+                                + x86("note", gva_note(gk4[i]))
                                 + x86("mov", "rsi", GQ(gk4[i], 0))
                                 + x86("mov", GQ(gk4[i], 0), "rax")
                                 + x86("mov", "[rdi + 0]", "rsi")
@@ -398,7 +399,7 @@ static std::string bb_define_sr() {
                                 + x86("mov", GQ(gk4[i], 8), "rax")
                                 + x86("mov", "[rdi + 8]", "rsi"); },
                        [&](int i) { if (gk4[i] < 0) return std::string();
-                           return x86("note", gva_name(gk4[i]))
+                           return x86("note", gva_note(gk4[i]))
                                 + x86("mov", "rax", GQ(gk4[i], 0))
                                 + x86("mov", EXTQ(16L * i).c_str(), "rax")
                                 + x86("mov", "rax", GQ(gk4[i], 8))
@@ -482,7 +483,7 @@ static std::string bb_define_sr() {
                  + x86_def_ext(lbl_b)
                  + x86_gc_site_raw(X86_SITE_FN_EXIT, 7, (int)((32 + 16 * xt4) | (F4 << 16)))
                  + NVGAMMA()
-                 + IF(rg4 >= 0, x86("note", gva_name(rgx))
+                 + IF(rg4 >= 0, x86("note", gva_note(rgx))
                  + x86("mov", "rdi", GQ(rgx, 0))
                  + x86("mov", "rsi", GQ(rgx, 8)))
                  + x86("mov", "rax", "rdi")
@@ -517,7 +518,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rcx")
                  + x86("pop", "rdi")
                  + x86("pop", "rsi")
-                 + IF(rg4 >= 0, x86("note", gva_name(rgx))
+                 + IF(rg4 >= 0, x86("note", gva_note(rgx))
                  + x86("mov", "rdi", GQ(rgx, 0))
                  + x86("mov", "rsi", GQ(rgx, 8)))
                  + x86_deflabel_id(235))
@@ -544,7 +545,7 @@ static std::string bb_define_sr() {
                  + x86("pop", "rcx")
                  + x86("pop", "rdi")
                  + x86("pop", "rsi")
-                 + IF(rg4 >= 0, x86("note", gva_name(rgx))
+                 + IF(rg4 >= 0, x86("note", gva_note(rgx))
                  + x86("mov", "rdi", GQ(rgx, 0))
                  + x86("mov", "rsi", GQ(rgx, 8)))
                  + x86_deflabel_id(239))
@@ -634,7 +635,7 @@ static std::string bb_define_sr() {
              + x86("add", "rsp", "rax")
              + WNSAVE()
              + FOR(0, xt4, [&](int k) {
-                   return x86("note", gva_name(gk4[nf4 + k]))
+                   return x86("note", gva_note(gk4[nf4 + k]))
                         + x86("mov", "rax", GQ(gk4[nf4 + k], 0))
                         + x86_rsp_store64(16 * k, "rax")
                         + x86("mov", "rax", GQ(gk4[nf4 + k], 8))
@@ -645,7 +646,7 @@ static std::string bb_define_sr() {
              + CHAIN(BB_SHIM_ID_ALPHA, "rcx",
                    [&](int i) {
                        return x86("mov", "rax", R8Q(16L * nf4 + 32 + 16L * i))
-                            + x86("note", gva_name(gk4[i]))
+                            + x86("note", gva_note(gk4[i]))
                             + x86("mov", "rdx", GQ(gk4[i], 0))
                             + x86("mov", GQ(gk4[i], 0), "rax")
                             + x86("mov", R8Q(16L * nf4 + 32 + 16L * i).c_str(), "rdx")
@@ -654,7 +655,7 @@ static std::string bb_define_sr() {
                             + x86("mov", GQ(gk4[i], 8), "rax")
                             + x86("mov", R8Q(16L * nf4 + 32 + 16L * i + 8).c_str(), "rdx"); },
                    [&](int i) {
-                       return x86("note", gva_name(gk4[i]))
+                       return x86("note", gva_note(gk4[i]))
                             + x86("mov", "rax", GQ(gk4[i], 0))
                             + x86("mov", R8Q(16L * i).c_str(), "rax")
                             + x86("mov", "rax", GQ(gk4[i], 8))
@@ -668,7 +669,7 @@ static std::string bb_define_sr() {
              + bb_define_entry_cell_data(bcell, blb) + x86("jmp_fn_cell", bcell.c_str(), entry_cell)
              + x86_def_ext(lbl_b)
              + x86_gc_site_raw(X86_SITE_FN_EXIT, 8, (int)(32 + 16 * xt4))
-             + x86("note", gva_name(rgx))
+             + x86("note", gva_note(rgx))
              + x86("mov", "rdi", GQ(rgx, 0))
              + x86("mov", "rsi", GQ(rgx, 8))
              + RESTORE4(BB_SHIM_ID_BETA)

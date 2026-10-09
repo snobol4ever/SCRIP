@@ -58,7 +58,7 @@ std::string bb_var_ref() {
                x86("comment", "IR_VAR_REF named: a value-call argument carries its identifier so name() through a value can answer -> rt_var_ref_cell_named(&cell, \"id\")")
              + x86_alpha()
              + (_.op_gva_k >= 0
-                 ? x86("note", gva_name(_.op_gva_k))
+                 ? x86("note", gva_note(_.op_gva_k))
                  + x86("mov", "rdi", (long)(RT_GVA_VA + _.op_gva_k * 16))
                  : x86("lea", "rdi", FRQ(_.op_sa)))
              + x86_rodata_str_lea("rsi", _.op_sval, "_vrnm")
@@ -81,7 +81,7 @@ std::string bb_var_ref() {
              + x86("note", ZRESN())
              + x86("mov", ZRES(0), "rax")
              + (_.op_gva_k >= 0
-                 ? x86("note", gva_name(_.op_gva_k))
+                 ? x86("note", gva_note(_.op_gva_k))
                  + x86("mov", "rax", (long)(RT_GVA_VA + _.op_gva_k * 16))
                  : x86("lea", "rax", FRQ(_.op_sa)))
              + x86("note", ZRESN())
@@ -93,7 +93,7 @@ std::string bb_var_ref() {
              + x86_alpha()
              + x86("mov", "rax", (long)((long)1 << 32 | (long)DT_N))
              + (_.op_gva_k >= 0
-                 ? x86("note", gva_name(_.op_gva_k))
+                 ? x86("note", gva_note(_.op_gva_k))
                  + x86("mov", "rdx", (long)(RT_GVA_VA + _.op_gva_k * 16))
                  : x86("lea", "rdx", FRQ(_.op_sa)))
              + x86("mov", FRQ(_.op_off), "rax")
