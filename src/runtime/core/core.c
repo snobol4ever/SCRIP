@@ -1831,9 +1831,9 @@ static DESCR_t _HOST_(DESCR_t *a, int n) {
     }
     if (selector == 4 && n >= 2) {
         const char *envname = VARVAL_fn(a[1]);
-        if (!envname || !*envname) return NULVCL;
+        if (!envname || !*envname) { core_runtime_error(254, "erroneous argument for host"); return FAILDESCR; }
         const char *val = getenv(envname);
-        if (!val) return NULVCL;
+        if (!val) return FAILDESCR;
         return STRVAL(rt_heap_strdup_c(val));
     }
     if (selector == 2212) return STRVAL(rt_heap_strdup_c("/"));
