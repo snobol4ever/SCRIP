@@ -37,6 +37,7 @@ src/runtime/by_name_dispatch.c	to_cstring	DT_BOOL	method-dispatch string coercio
 src/runtime/by_name_dispatch.c	rt_mc_type_name	DT_BOOL	the name method dispatch reports for a receiver; answers Bool
 src/runtime/by_name_dispatch.c	rk_raku_scalar	DT_BOOL	the .raku rendering of one scalar for a typed Hash, Pair, List or Array element: Nil, Bool::True and Bool::False, a number as itself, anything else a quoted Str (hq_raku 2026-10-03)
 src/runtime/by_name_dispatch.c	rk_qh_w	DT_BOOL	a Set / Bag / Mix weight read as a double: an Int, a Num or a Bool (True is 1, False is 0), anything else weighs nothing (hq_raku 2026-10-07)
+src/runtime/by_name_dispatch.c	pas_elem_ref	-	a Pascal array or record element reference: it tests the base for an array block and answers a name-reference to the element cell, else hands the base to pas_arr_get's string element and parks the value in the caller's temporary; DT_BOOL is minted by the Raku lowering alone and a Pascal base is never a Bool, so it owes no arm of its own (hq_pascal 2026-10-09)
 src/runtime/string_builtins.c	ident	DT_BOOL	IDENT compares by value; a Bool is identical exactly as its 1/0 is
 src/runtime/aggregates.c	_tbl_hval	-	OPEN-ASK: the hash half of the same question; it must hash whatever tbl_key_str keys on, so it is ruled with it, never separately
 src/runtime/aggregates.c	_tbl_eq_d	-	OPEN-ASK: the equality half of the same question; same ruling, same reason

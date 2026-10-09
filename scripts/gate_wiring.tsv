@@ -1221,3 +1221,4 @@ test_gate_zdp_on_null.sh	TASK	-	-	-
 test_gate_zeta_no_arena.sh	TASK	-	-	-
 test_gate_zpop_whitelist.sh	TASK	-	-	-
 test_gate_pas_an_array_element_is_not_fetched_by_a_builtin_looked_up_by_its_name.sh	WIRED	-	-	-
+test_gate_pas_a_var_actual_that_is_a_component_is_the_component_not_a_copy.sh	WIRED	-	-	-

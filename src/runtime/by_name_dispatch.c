@@ -9645,6 +9645,21 @@ DESCR_t pas_arr_set(DESCR_t *args, int nargs) {
     return pas_str_setch(STRVAL((char *) cur), idx, pas_ch_of(args[2]));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_elem_ref(DESCR_t *args, int nargs) {
+    if (args[0].v == DT_A && args[0].arr) {
+        ARBLK_t *b = (ARBLK_t *) args[0].arr;
+        long i = IS_INT_fn(args[1]) ? args[1].i : 0;
+        if (i < b->lo || i > b->hi) return FAILDESCR;
+        return (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &b->data[i - b->lo] };
+    }
+    DESCR_t v = pas_arr_get(args, 2);
+    if (v.v == DT_FAIL) return v;
+    *(DESCR_t *) args[2].ptr = v;
+    return args[2];
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+DESCR_t pas_ref_val(DESCR_t *args, int nargs) { extern DESCR_t rt_deref(DESCR_t); return rt_deref(args[0]); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int script_try_call_builtin_by_name(const char *fn, DESCR_t *args, int nargs, DESCR_t *out) { return script_try_call_builtin_by_name_rq(fn, args, nargs, out, (long *)0); }
 static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int nargs, DESCR_t *out, long *rq) {
 #if RT_DIAG
@@ -11672,6 +11687,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "arr_get") && nargs == 2) { *out = pas_arr_get(args, nargs); return 1; }
+    if (!strcmp(fn, "__pas_elem_ref") && nargs == 3) { *out = pas_elem_ref(args, nargs); return 1; }
+    if (!strcmp(fn, "__pas_ref_val") && nargs == 1) { *out = pas_ref_val(args, nargs); return 1; }
     if (!strcmp(fn, "str_substr") || (!strcmp(fn, "substr") && nargs >= 2)) {
         const char *s = VARVAL_fn(args[0]);
         if (!s) s = "";

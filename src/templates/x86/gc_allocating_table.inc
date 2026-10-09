@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2252
+#define GC_ALLOC_TAB_N 2255
 #define GC_ALLOC_TAB_N_VOID 273
-#define GC_ALLOC_TAB_N_DESCR 1136
+#define GC_ALLOC_TAB_N_DESCR 1138
 #define GC_ALLOC_TAB_N_OTHER 828
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
@@ -734,6 +734,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_cond", GC_RET_OTHER },
     { "pas_cond_bool", GC_RET_OTHER },
     { "pas_cond_sc", GC_RET_OTHER },
+    { "pas_elem_ref", GC_RET_DESCR },
     { "pas_envcall_wrap", GC_RET_OTHER },
     { "pas_index_fault", GC_RET_OTHER },
     { "pas_lower_exit", GC_RET_OTHER },
@@ -744,6 +745,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pas_ord_of", GC_RET_OTHER },
     { "pas_pf_resolve", GC_RET_VOID },
     { "pas_read_number", GC_RET_DESCR },
+    { "pas_ref_val", GC_RET_DESCR },
     { "pas_str_setch", GC_RET_DESCR },
     { "pas_tf_read", GC_RET_OTHER },
     { "pas_tf_set", GC_RET_VOID },

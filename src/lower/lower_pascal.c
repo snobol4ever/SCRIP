@@ -277,11 +277,23 @@ static IR_t * pas_index_fault(pcx_t * cx, IR_t * ω) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static uint64_t pas_callee_byref_mask(const char * name) {
     if (!name) return 0;
+    if (!strcmp(name, "__pas_elem_ref")) return 4ULL;
     for (int pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, name)) return g_stage2.proc_table[pi].byref_mask;
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_is_stdfile_actual(const tree_t * a) { return a && a->t == TT_FNC && a->n == 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_stdfile"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pas_vpref_var(void) {
+    static int g_pas_vpref_n = 0;
+    char buf[32];
+    snprintf(buf, sizeof buf, "__pas_vpref_%d", g_pas_vpref_n++);
+    tree_t * v = ast_node_new(TT_VAR);
+    v->v.sval = lp_strdup(buf);
+    return v;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pas_is_vpref(const tree_t * a) { return a && a->t == TT_VAR && a->v.sval && !strncmp(a->v.sval, "__pas_vpref_", 12); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * pas_vptmp_var(void) {
     static int g_pas_vptmp_n = 0;
@@ -300,7 +312,8 @@ static IR_t * pas_call_args_brm_dir(pcx_t * cx, IR_t * call, IR_t * tgt, uint64_
         int k = rtl ? (nargs - 1 - i) : i;
         IR_t * ar = NULL;
         IR_t * ae;
-        if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
+        if (pas_is_vpref(args[k])) ae = lower(cx, args[k], (i == nargs - 1) ? tgt : NULL, ω, &ar);
+        else if (((brm >> k) & 1ULL) && args[k] && args[k]->t == TT_VAR && args[k]->v.sval && !pas_name_is_byref(cx, args[k]->v.sval)) {
             pas_res_t r;
             pas_resolve2(cx, args[k]->v.sval, &r);
             IR_t * vr = r.uplevel ? pas_frame_node(cx, IR_VAR_REF, args[k]->v.sval, &r, (i == nargs - 1) ? tgt : NULL, ω) : build(cx, IR_VAR_REF, (i == nargs - 1) ? tgt : NULL, ω);
@@ -430,9 +443,17 @@ static IR_t * lower_call(pcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_
                 tree_t * arg = t->c[i];
                 if (((brm >> (i - env - 1)) & 1ULL) && arg && arg->t == TT_IDX) {
                     tree_t * tv = pas_vptmp_var();
-                    ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
-                    ast_push(call, tv);
-                    outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg), pas_lc_clone(tv));
+                    tree_t * rf = pas_vpref_var();
+                    tree_t * mk = ast_node_new(TT_FNC);
+                    tree_t * rv0 = ast_node_new(TT_FNC);
+                    ast_push(mk, pas_lc_leaf(TT_VAR, "__pas_elem_ref"));
+                    for (int k = 0; k < arg->n; k++) ast_push(mk, pas_lc_clone(arg->c[k]));
+                    ast_push(mk, tv);
+                    ast_push(seq, pas_lc_bin(TT_ASSIGN, rf, mk));
+                    ast_push(call, pas_lc_clone(rf));
+                    ast_push(rv0, pas_lc_leaf(TT_VAR, "__pas_ref_val"));
+                    ast_push(rv0, pas_lc_clone(rf));
+                    outs[nout++] = pas_lc_bin(TT_ASSIGN, pas_lc_clone(arg), rv0);
                 } else if (((brm >> (i - env - 1)) & 1ULL) && pas_is_deref_actual(arg)) {
                     tree_t * tv = pas_vptmp_var();
                     ast_push(seq, pas_lc_bin(TT_ASSIGN, tv, arg));
