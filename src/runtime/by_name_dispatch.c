@@ -708,9 +708,11 @@ static DESCR_t rk_io_mk(const char *path);
 static const char *rk_match_text(DESCR_t d);
 static int rk_match_is_nil(DESCR_t d) { if (!(IS_DATA_INST_fn(d) && d.u && d.u->type && d.u->type->name && !strcmp(d.u->type->name, "Match"))) return 0; return FIELD_GET_fn(d, "ok").i == 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_agg_truth(DESCR_t v);
 int rk_is_truthy(DESCR_t v) {
     extern int rt_is_truthy(DESCR_t);
     if (rk_match_is_nil(v)) return 0;
+    if ((v.v == DT_A && v.arr) || (v.v == DT_T && v.tbl)) return rk_agg_truth(v);
     if (rk_match_is(v)) return 1;
     if (rk_qh_is(v)) return rk_qh_n(v) > 0;
     if (rk_typeobj_name(v)) return 0;
@@ -8564,6 +8566,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         else if (IS_STR_fn(a) && !rk_typeobj_name(a)) t = (a.s && a.s[0] != '\0' && a.slen != 0xFFFFFFFFu);
         else if (rk_typeobj_name(a)) t = 0;
         else if (rk_qh_is(a)) t = rk_qh_n(a) > 0;
+        else if ((a.v == DT_A && a.arr) || (a.v == DT_T && a.tbl)) t = rk_agg_truth(a);
         else if (a.v == DT_DATA) t = rk_match_is_nil(a) ? 0 : 1;
         else if (a.v == DT_FH) t = 1;
         else t = rt_is_truthy(a) ? 1 : 0;
@@ -12333,6 +12336,7 @@ static const char *rk_obj_default_raku(DESCR_t d) {
     if (np) { r[o++] = '('; for (int i = 0; i < np; i++) o += (size_t)snprintf(r + o, total + 1 - o, "%s%s", i ? ", " : "", piece[i]); r[o++] = ')'; r[o] = '\0'; }
     return r;
 }
+static int rk_agg_truth(DESCR_t v) { if (v.v == DT_T) return v.tbl && v.tbl->size > 0; return v.arr ? rk_av(v).n > 0 : 0; }
 DESCR_t rk_attr_defaults(DatType *dt, DESCR_t inst) {
     DATINST_t *di = (inst.v == DT_DATA && inst.u) ? (DATINST_t *) inst.u : NULL;
     if (!di || !dt) return inst;
@@ -13888,6 +13892,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : rk_qh_is(v) ? rk_qh_n(v) > 0 : 1;
+        else if ((v.v == DT_A && v.arr) || (v.v == DT_T && v.tbl)) t = rk_agg_truth(v);
         else if (v.v == DT_FH) t = 1;
         else { const char *s = v.s ? v.s : ""; t = rk_typeobj_name(v) ? 0 : (s[0] != '\0'); }
         if (!t) { *out = FAILDESCR; return 1; }
@@ -13910,6 +13915,7 @@ static int try_call_builtin_by_name_bl_s_rq(const char *fn, DESCR_t *args, int n
         else if (IS_REAL_fn(v)) t = (v.r != 0.0);
         else if (v.v == DT_SNUL) t = 0;
         else if (v.v == DT_DATA) t = rk_match_is_nil(v) ? 0 : rk_qh_is(v) ? rk_qh_n(v) > 0 : 1;
+        else if ((v.v == DT_A && v.arr) || (v.v == DT_T && v.tbl)) t = rk_agg_truth(v);
         else if (v.v == DT_FH) t = 1;
         else { const char *s = v.s ? v.s : ""; t = rk_typeobj_name(v) ? 0 : (s[0] != '\0'); }
         *out = INTVAL(t);

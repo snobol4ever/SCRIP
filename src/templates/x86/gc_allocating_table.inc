@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2213
+#define GC_ALLOC_TAB_N 2216
 #define GC_ALLOC_TAB_N_VOID 262
 #define GC_ALLOC_TAB_N_DESCR 1127
-#define GC_ALLOC_TAB_N_OTHER 809
+#define GC_ALLOC_TAB_N_OTHER 812
 #define GC_ALLOC_TAB_N_UNKNOWN 15
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1040,6 +1040,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "register_op_one", GC_RET_VOID },
     { "relop_num_coerce", GC_RET_OTHER },
     { "rgbkey", GC_RET_OTHER },
+    { "rk_agg_truth", GC_RET_OTHER },
     { "rk_arr_append", GC_RET_VOID },
     { "rk_arr_of_texts", GC_RET_DESCR },
     { "rk_arr_text", GC_RET_OTHER },
@@ -1108,6 +1109,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_io_text_of", GC_RET_OTHER },
     { "rk_io_words_of", GC_RET_DESCR },
     { "rk_io_write_args", GC_RET_VOID },
+    { "rk_is_truthy", GC_RET_OTHER },
     { "rk_item", GC_RET_OTHER },
     { "rk_item_count", GC_RET_OTHER },
     { "rk_jct_text", GC_RET_OTHER },
@@ -1179,6 +1181,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_sprintf_core", GC_RET_VOID },
     { "rk_stage2_core", GC_RET_OTHER },
     { "rk_tap_str", GC_RET_OTHER },
+    { "rk_tap_truthy", GC_RET_OTHER },
     { "rk_tbl_text", GC_RET_OTHER },
     { "rk_txt_elem", GC_RET_DESCR },
     { "rk_typeobj", GC_RET_DESCR },

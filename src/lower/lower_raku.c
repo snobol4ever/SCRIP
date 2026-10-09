@@ -3601,6 +3601,46 @@ static void rk_hoist_nested_types(tree_t * prog) {
     for (int i = 0; i < h.nout; i++) ast_push(prog, out[i]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const tree_t ** top; int ntop; tree_t ** out; int nout; } rk_mhoist_t;
+static int rk_is_multi_decl(const tree_t * c) { return c && c->t == TT_SUB_DECL && c->n > 0 && c->c[0] && c->c[0]->v.sval && strchr(c->c[0]->v.sval, '$'); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_multi_captures(const tree_t * c, const tree_t * encl) {
+    if (!encl) return 0;
+    rk_ns_t used = { 0 }, own = { 0 }, outer = { 0 };
+    for (int k = 1; k < c->n; k++) rk_cap_uses_deep(c->c[k], &used);
+    rk_cap_declared_deep(c, &own);
+    rk_cap_declared_deep(encl, &outer);
+    for (int k = 0; k < used.n; k++) if (!rk_ns_has(&own, used.v[k]) && rk_ns_has(&outer, used.v[k])) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_hoist_multis_walk(rk_mhoist_t * h, tree_t * t, const tree_t * encl) {
+    if (!t || t->t == TT_CLASS_DECL || t->t == TT_ROLE_DECL || t->t == TT_GRAMMAR_DECL) return;
+    if (t->t == TT_SUB_DECL) encl = t;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        if (rk_is_multi_decl(c)) {
+            int top = 0;
+            for (int k = 0; k < h->ntop; k++) if (h->top[k] == c) top = 1;
+            if (!top && !rk_multi_captures(c, encl)) { h->out[h->nout++] = c; t->c[i] = ast_node_new(TT_SEQ_EXPR); rk_hoist_multis_walk(h, c, NULL); continue; }
+        }
+        rk_hoist_multis_walk(h, c, encl);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_count_multi_decls(const tree_t * t) { if (!t) return 0; int n = rk_is_multi_decl(t) ? 1 : 0; for (int i = 0; i < t->n; i++) n += rk_count_multi_decls(t->c[i]); return n; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_hoist_nested_multis(tree_t * prog) {
+    if (!prog) return;
+    int cap = rk_count_multi_decls(prog) + 1;
+    const tree_t * top[cap];
+    tree_t * out[cap];
+    rk_mhoist_t h = { top, 0, out, 0 };
+    for (int i = 0; i < prog->n; i++) { const tree_t * d = prog->c[i]; if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (sub) d = sub; } if (rk_is_multi_decl(d)) top[h.ntop++] = d; }
+    rk_hoist_multis_walk(&h, prog, NULL);
+    for (int i = 0; i < h.nout; i++) ast_push(prog, out[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_clone_tree(const tree_t * t) {
     if (!t) return NULL;
     tree_t * c = ast_node_new(t->t);
@@ -3705,6 +3745,7 @@ static void rk_assign_pow_rhs(tree_t * t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_hoist_nested_types((tree_t *) prog);
+    rk_hoist_nested_multis((tree_t *) prog);
     rk_class_default_tweaks((tree_t *) prog);
     rk_tail_ifs((tree_t *) prog);
     rk_assign_pow_rhs((tree_t *) prog);

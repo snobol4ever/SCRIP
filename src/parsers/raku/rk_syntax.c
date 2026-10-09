@@ -3931,6 +3931,7 @@ static int r_xblock(RkP *p, int pos, int implicit) {
     int f = r_pblock(p, e, implicit);
     p->next_bk = 0;
     p->xb_cond = cond; p->xb_blk = p->tv; p->xb_sig = p->pb_sig;
+    if (p->build) rkb_pointy(p->B, p->xb_blk, p->xb_sig);
     return f;
 }
 /*====================================================================================================================================================================================================*/
