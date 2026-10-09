@@ -44,8 +44,11 @@ T=$(mktemp -d) || exit 2; trap 'rm -rf "$T"' EXIT
 RC=0
 cp "$W" "$T/w.sno"
 n="$(python3 "$ROOT/scripts/util_c_function_body.py" "$ROOT/src/runtime/by_name_dispatch.c" bnd_gc_roots | grep -cF 'for (rk_cbh_t *h = g_rk_cbh_cur; h; h = h->prev)') $(grep -oF 'g_rk_cbh_cur = &H;' "$ROOT/src/runtime/by_name_dispatch.c" | wc -l) $(grep -oF 'g_rk_cbh_cur = H.prev;' "$ROOT/src/runtime/by_name_dispatch.c" | wc -l)"
-if [ "$n" = "1 4 5" ]; then echo "  structural holds PASS (bnd_gc_roots walks the rk_cbh_t chain from g_rk_cbh_cur, the four Raku block-callback builtins link their frame record and every return unlinks it -- the holder g_rk_cb_hold is gone, CEO-1560; visiting a descriptor inside a block does not mark the block)"
-else echo "  structural holds FAIL (bnd_gc_roots chain walk, site links, site unlinks = [$n], want [1 4 5]: a held array is reclaimed under a live callback and re-carved as a string)"; RC=1; fi
+seq=$(grep -oE 'g_rk_cbh_cur = (&H|H\.prev);' "$ROOT/src/runtime/by_name_dispatch.c" | sed -e 's/.*&H;/L/' -e 's/.*H\.prev;/U/' | tr -d '\n')
+paired=$(printf '%s' "$seq" | awk '{ok = ($0 ~ /^(LU+)+$/) ? 1 : 0; print ok}')
+nl=$(printf '%s' "$seq" | tr -cd L | wc -c)
+if [ "${n%% *}" = 1 ] && [ "${paired:-0}" = 1 ] && [ "$nl" -ge 4 ]; then echo "  structural holds PASS (bnd_gc_roots walks the rk_cbh_t chain from g_rk_cbh_cur, every Raku block-callback builtin links its frame record and unlinks it before the next link in source order ($nl links, order $seq) -- the holder g_rk_cb_hold is gone, CEO-1560; visiting a descriptor inside a block does not mark the block)"
+else echo "  structural holds FAIL (bnd_gc_roots chain walk, site links, site unlinks = [$n], link/unlink order [$seq], want the walk present, at least 4 links, and in source order every link followed by its unlink before the next link: a held array is reclaimed under a live callback and re-carved as a string)"; RC=1; fi
 if python3 "$ROOT/scripts/util_c_function_body.py" "$ROOT/src/runtime/runtime_eval.c" eval_gc_roots 2>/dev/null | head -1 | grep -q '^void eval_gc_roots(void) {$' && grep -q 'eval_gc_roots();' "$ROOT/src/runtime/rt/gc_heap.c"; then
     echo "  structural eval PASS (eval_gc_roots is defined in runtime_eval.c AND called from the collector's root phase -- a root walk nothing calls is not a root)"
 else echo "  structural eval FAIL (eval_gc_roots is missing, or gc_heap.c never calls it: the label table and the eval cache have no root)"; RC=1; fi

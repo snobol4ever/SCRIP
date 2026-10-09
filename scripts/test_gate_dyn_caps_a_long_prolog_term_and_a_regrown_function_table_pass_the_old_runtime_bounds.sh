@@ -45,7 +45,8 @@ for M in m3 m4; do
   rb=$(run f.sno 2>&1 | tr '\n' ';')
   if [ "$rb" = "8407050;4100 1 2053;" ]; then echo "  $M arm B PASS (4100 run-time functions past the first table, byte-identical to sbl)"; else echo "  $M arm B FAIL (got '$(echo "$rb" | cut -c1-120)')"; RC=1; fi
 done
-rs=$( cd "$T" && SCRIP_HEAP_KB=65536 SCRIP_GC_PLANT_SHIFT=4096 LD_LIBRARY_PATH="$ROOT/out" timeout 300 ./f.bin </dev/null 2>/dev/null | tr '\n' ';' )
+rs=$( cd "$T" && SCRIP_HEAP_KB=1024 SCRIP_GC_PLANT_SHIFT=4096 LD_LIBRARY_PATH="$ROOT/out" timeout 300 ./f.bin </dev/null 2>"$T/shift.err" | tr '\n' ';' )
+grep -q '^\[GC-SHIFT\] plant:' "$T/shift.err" || { echo "  m4 arm B under the shift plant FAIL (the plant printed no applied banner, so nothing moved)"; RC=1; }
 if [ "$rs" = "8407050;4100 1 2053;" ]; then echo "  m4 arm B under SCRIP_GC_PLANT_SHIFT=4096 PASS"; else echo "  m4 arm B under the shift plant FAIL (got '$(echo "$rs" | cut -c1-120)')"; RC=1; fi
 if [ "$RC" = 0 ]; then echo "GATE PASS [$(basename "${BASH_SOURCE[0]}" .sh)]: a term past the old read buffer and 4100 run-time functions past the first function table read and run as the oracles do"
 else echo "GATE FAIL(1) [$(basename "${BASH_SOURCE[0]}" .sh)]: an old runtime bound still cuts a program"; fi

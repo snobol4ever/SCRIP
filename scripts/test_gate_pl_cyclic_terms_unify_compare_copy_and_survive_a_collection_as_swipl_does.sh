@@ -85,7 +85,7 @@ run_arm() {
             gcc -m64 -no-pie "$TMPD/w_cyc.s" -o "$TMPD/w_cyc.bin" -L"$RT" -lscrip_rt -Wl,-rpath,"$RT" -lm 2>"$TMPD/err" || { echo "  RED m4: the assembler or linker refused: $(grep -m1 -E 'Error|error' "$TMPD/err")"; red=$((red+1)); return; }
             got="$(cd "$TMPD" && env -u SCRIP_GC_STRESS -u SCRIP_GC_PLANT_FLIP timeout 60 ./w_cyc.bin </dev/null 2>"$TMPD/err")"; rc=$? ;;
         stress) got="$(cd "$TMPD" && SCRIP_GC_STRESS=1 timeout 300 "$SCRIP" w_cyc.pl </dev/null 2>"$TMPD/err" | grep -v '^\[GC-')"; rc=${PIPESTATUS[0]} ;;
-        flip) got="$(cd "$TMPD" && SCRIP_GC_STRESS=1 SCRIP_GC_PLANT_FLIP=1 timeout 300 "$SCRIP" w_cyc.pl </dev/null 2>"$TMPD/err" | grep -v '^\[GC-')"; rc=${PIPESTATUS[0]} ;;
+        flip) got="$(cd "$TMPD" && SCRIP_GC_STRESS=1 SCRIP_GC_PLANT_FLIP=1 timeout 300 "$SCRIP" w_cyc.pl </dev/null 2>"$TMPD/err" | grep -v '^\[GC-')"; rc=${PIPESTATUS[0]}; grep -q '^\[GC-FLIP\] plant:' "$TMPD/err" || { echo "  FAIL flip: the flip plant printed no applied banner, so this arm graded an unplanted run"; rc=99; } ;;
     esac
     if [ "$rc" = 0 ] && [ "$got" = "$want" ]; then echo "  ok  $arm"
     else echo "  RED $arm: rc=$rc out=[$(printf '%s' "$got" | tr '\n' '|' | cut -c1-240)] err=[$(head -c 160 "$TMPD/err" | tr '\n' '|')]"; red=$((red+1)); fi

@@ -52,6 +52,9 @@ for st in 1 2 3 4 5 6; do
   ( cd "$T" && env -u SCRIP_HEAP_MB SCRIP_HEAP_KB=128 SCRIP_GC_PLANT_SHIFT=1024 SCRIP_GC_STRESS=$st timeout 60s ./wp.bin < /dev/null > p_$st.out 2> p_$st.err ); rp=$?
   if [ $rp != 0 ] || ! cmp -s "$T/p_$st.out" "$W.ref"; then pband="$pband s$st:LOSS"; phit=$((phit+1)); else pband="$pband s$st:ref"; fi
 done
+pa=$(cat "$T"/m3_*.err "$T"/m4_*.err "$T"/p_*.err 2>/dev/null | grep -c '^\[GC-SHIFT\] plant:')
+if [ "${pa:-0}" -ge 3 ]; then echo "  ok   (a2) THE SHIFT PLANT APPLIED: $pa banner line(s) over the m3, m4 and planted runs -- the band below grades forced movement, not an unplanted run"
+else echo "  FAIL (a2) the shift plant printed its applied banner ${pa:-0} time(s) -- the band below may grade a run nothing moved"; RC=1; fi
 if [ "$bad" = 0 ]; then echo "  ok   (b) THE PROPERTY: the witness answers its ref at stress 1..6 under the displacement plant, both modes --$band"
 else echo "  FAIL (b) a poll_res inside a match lost the subject --$band"; RC=1; fi
 if [ "$phit" -ge 4 ]; then echo "  ok   (c) PLANTED: with the saved-subject argument taken away the same text loses at $phit of 6 points --$pband -- so (b) measures the shield"

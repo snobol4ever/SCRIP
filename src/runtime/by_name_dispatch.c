@@ -13594,7 +13594,7 @@ static const char *rk_obj_default_raku(DESCR_t d) {
 }
 static int rk_agg_truth(DESCR_t v) { if (v.v == DT_T) return v.tbl && v.tbl->size > 0; return v.arr ? rk_av(v).n > 0 : 0; }
 DESCR_t rk_attr_defaults(DatType *dt, DESCR_t inst) {
-    DATINST_t *di = (inst.v == DT_DATA && inst.u) ? (DATINST_t *) inst.u : NULL;
+    DATINST_t *di = (IS_DATA_INST_fn(inst) && inst.u) ? (DATINST_t *) inst.u : NULL;
     if (!di || !dt) return inst;
     for (int i = 0; i < dt->nfields; i++) {
         DESCR_t f0 = di->fields[i];
