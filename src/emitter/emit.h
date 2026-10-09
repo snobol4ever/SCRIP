@@ -787,6 +787,17 @@ std::string net_spec_zw_str();
 template<typename F> inline std::string FOR(int lo, int hi, F f) { std::string r; for (int i = lo; i < hi; i++) r += f(i); return r; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 template<typename F> inline std::string emit_for(int lo, int hi, F f) { return FOR(lo, hi, f); }
+template<typename F> inline std::string emit_shim9(long loff, long carve, F f) {
+    long sv = g_emit.site_shim9;
+    if (loff > 0xFFFF || carve > 0xFFFF) {
+        fprintf(stderr, "FATAL bb_define role 4: a SIG shim frame of %ld bytes cannot be named by a rule-9 SHIM-SELF site (loff and carve must fit 16 bits)\n", carve);
+        abort();
+    }
+    g_emit.site_shim9 = (loff | (carve << 16)) + 1L;
+    std::string r = f();
+    g_emit.site_shim9 = sv;
+    return r;
+}
 void emit_text_s(const std::string & s);
 void emit_write_file_s(const char * path, const std::string & s);
 int emit_knob_unless_zero(const char * name);

@@ -235,6 +235,7 @@ int rt_proc_nformals(const char *);
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define S9(f) emit_shim9(32 + 16L * xt4, F4, (f))
 static std::string bb_define_sr() {
     x86_begin();
     long role = (long)_.op_ival;
@@ -320,14 +321,6 @@ static std::string bb_define_sr() {
                                 + x86("mov", GQ(gk4[i], 8), "rax"); }); };
         if (fnsig()) {
             long F4nv = T4 + 16L * nf4; long F4 = F4nv + 16L * nnv4;
-            auto S9 = [&](auto f) {
-                long sv = _.site_shim9;
-                if (32 + 16L * xt4 > 0xFFFF || F4 > 0xFFFF)
-                    { fprintf(stderr, "FATAL bb_define role 4: a SIG shim frame of %ld bytes cannot be named by a rule-9 SHIM-SELF site (loff and carve must fit 16 bits)\n", (long)F4); abort(); }
-                _.site_shim9 = ((32 + 16L * xt4) | ((long)F4 << 16)) + 1L;
-                std::string r = f();
-                _.site_shim9 = sv;
-                return r; };
             auto NVPUSH =
                 [&]() { return x86("push", "rdi")
                              + x86("push", "rsi")
