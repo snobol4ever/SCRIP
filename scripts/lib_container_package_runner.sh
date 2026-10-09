@@ -31,14 +31,13 @@ container_package_run() {
   . "$here/lib_progress.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_progress.sh unloadable"; return 2; }
   local graded_list ung_rows n cls
   graded_list="$(cd "$sd" && S4E_PROGRESS_OFF=1 python3 scripts/corpus_suite_harness.py list "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" 2>/dev/null)"
-  ung_rows="$(mktemp)"
+  ( ung_rows="$(mktemp)"; trap 'rm -f "$ung_rows"' EXIT   # a subshell trap: this library is sourced, so an EXIT trap here must not replace the caller's
   while IFS= read -r f; do
     n="$(basename "$f" ".$ext")"; grep -qxF "$n" <<<"$graded_list" && continue
     cls="$(awk -F'\t' -v k="$n.$ext" '$1==k {print $2; exit}' "$suite/UNGRADABLE.tsv" "$suite/UNGRADED.tsv" 2>/dev/null)"
     printf 'package\t%s\t%s\t%s\tm3\tUNGRADED\t0\t%s\npackage\t%s\t%s\t%s\tm4\tUNGRADED\t0\t%s\n' "$key" "$lang" "$n" "${cls:-unclassed}" "$key" "$lang" "$n" "${cls:-unclassed}" >> "$ung_rows"
   done < <(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" | sort)
-  [ -s "$ung_rows" ] && { progress_append_rows_tsv "$ung_rows" || echo "⚠ the UNGRADED progress rows were not appended (reason above) -- the row write's cross-check reads the graded population only" >&2; }
-  rm -f "$ung_rows"
+  [ -s "$ung_rows" ] && { progress_append_rows_tsv "$ung_rows" || echo "⚠ the UNGRADED progress rows were not appended (reason above) -- the row write's cross-check reads the graded population only" >&2; } )
   # the denominator is SHIPPED (CEO-1286): a program the container does not grade is named in UNGRADABLE.tsv or UNGRADED.tsv and stays
   # in as debt; only a program a ruled EXCLUDED.tsv class names leaves it, shown as Excl
   excl=0; [ -f "$suite/EXCLUDED.tsv" ] && excl=$(grep -vc -E '^#|^\s*$' "$suite/EXCLUDED.tsv")
