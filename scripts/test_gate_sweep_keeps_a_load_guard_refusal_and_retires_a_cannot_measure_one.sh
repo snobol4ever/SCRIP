@@ -15,9 +15,10 @@
 # line that does NOT restart the PARKED-EXPIRED clock (a quiet sweep measures it); the salvage log names the class
 # LOAD-GUARD-kept; --help names the rule. A plain rc 2 (no oracle, no binary, a wrong answer) stays CANNOT MEASURE and retires.
 # The two refusals differ by one phrase, so both are planted side by side and graded side by side.
-# THE FIXTURE is a four-row scratch postoffice (S4E_POSTOFFICE): a load-guard refusal, a plain cannot-measure, a red at rank 0
-# (kept, re-ranked to 2, ledgered) and a green (archived). ZB_SCRIPT points the gate at another copy of the sweep for the
-# red-once proof: against the pre-cure script (.github f7d92b24) arms H, L, B and S read RED; on the cured one all seven green.
+# THE FIXTURE is a five-row scratch postoffice (S4E_POSTOFFICE): a load-guard refusal, a plain cannot-measure, a red at rank 0
+# (kept, re-ranked to 2, ledgered), a green (archived) and a criterion that sleeps past the timeout (kept; the KNIT arms below).
+# ZB_SCRIPT points the gate at another copy of the sweep for the red-once proofs: against the pre-cure script (.github cfe569fb)
+# arms H, L, B and S read RED; against the pre-knit script (.github a3248fbb) arm K reads RED; on the cured one all nine green.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; S4E="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 G=sweep_keeps_a_load_guard_refusal_and_retires_a_cannot_measure_one
@@ -39,8 +40,9 @@ row 2 fx-load-guard-row coo FREE; baton fx-load-guard-row "echo 'REFUSE(2) load-
 row 2 fx-cannot-row coo FREE;     baton fx-cannot-row "echo 'REFUSE(2): fixture cannot measure (no oracle)'; exit 2"
 row 0 fx-red-row coo FREE;        baton fx-red-row "exit 1"
 row 2 fx-green-row coo FREE;      baton fx-green-row "exit 0"
+row 2 fx-timeout-row coo FREE;    baton fx-timeout-row "sleep 20; exit 0"
 m0="$(stat -c %Y "$W/tasks/fx-load-guard-row.task.md")"
-o="$(cd "$W" && S4E_POSTOFFICE="$W" S4E_HOME="$S4E" python3 "$ZB" --apply --timeout 30 2>&1)"; r=$?
+o="$(cd "$W" && S4E_POSTOFFICE="$W" S4E_HOME="$S4E" ZB_KNIT_CMD='echo knit' python3 "$ZB" --apply --timeout 1 2>&1)"; r=$?
 [ "$r" = 0 ] || { printf '%s\n' "$o" | tail -5; unproven "the sweep exited $r on the fixture"; }
 h="$(python3 "$ZB" --help 2>&1)"
 grep -qi 'load-guard' <<<"$h" && ok H "--help names the load-guard rule" || red H "--help does not name load-guard"
@@ -69,5 +71,16 @@ s="$(ls "$W"/salvage/zero-base-*.tsv 2>/dev/null | head -1)"
 [ -n "$s" ] && grep -qE "^fx-load-guard-row${T}coo${T}FREE${T}LOAD-GUARD-kept${T}2${T}KEEP$" "$s" \
     && ok S "the salvage log names the class LOAD-GUARD-kept with rc 2 and place KEEP" \
     || red S "salvage: [$( [ -n "$s" ] && grep 'fx-load-guard-row' "$s" | cut -c1-100)] (want class LOAD-GUARD-kept, rc 2, KEEP)"
-echo "GATE $([ "$FAIL" = 0 ] && echo PASS || echo "FAIL($FAIL)") [$G]: $PASS of $((PASS + FAIL)) arms green (population: a four-row fixture postoffice swept by $ZB)"
+# THE KNIT (ceo CEO-1574, measured on the first sweep under the guard): a criterion that builds in the root and is killed at the
+# timeout leaves the tree half-built, and every later binary-running criterion refuses rc 2 -- nine false retirements on 2026-10-08.
+# The sweep knits the tree (ZB_KNIT_CMD, by default make in the root) once before the run phase and again after every kill; the
+# fixture plants a criterion that sleeps past --timeout 1 and hands the sweep an echo as its knit, so this gate never builds.
+nk="$(grep -c '^KNIT ' <<<"$o")"
+[ "$nk" = 2 ] && grep -q '^KNIT before the run phase: echo knit -> rc 0' <<<"$o" && grep -q '^KNIT after the killed criterion fx-timeout-row: echo knit -> rc 0' <<<"$o" \
+    && ok K "the tree is knit once before the run phase and once after the killed criterion, each knit printed with its rc" \
+    || red K "$nk KNIT line(s): $(grep '^KNIT ' <<<"$o" | cut -c1-80 | tr '\n' '|') (want 2: before the run phase, after the killed criterion fx-timeout-row, rc 0)"
+grep -qE "^2${T}fx-timeout-row${T}coo${T}FREE$" "$W/QUEUE.tsv" && ! grep -q 'fx-timeout-row' "$W/QUEUE.retired.tsv" && ! grep -q 'fx-timeout-row' "$W/QUEUE.done.tsv" \
+    && ok T "the criterion killed at the timeout is kept FREE, neither retired nor done" \
+    || red T "timeout row: live [$(grep 'fx-timeout-row' "$W/QUEUE.tsv" | cut -c1-60)] retired [$(grep -c 'fx-timeout-row' "$W/QUEUE.retired.tsv")] done [$(grep -c 'fx-timeout-row' "$W/QUEUE.done.tsv")] (want FREE, 0, 0)"
+echo "GATE $([ "$FAIL" = 0 ] && echo PASS || echo "FAIL($FAIL)") [$G]: $PASS of $((PASS + FAIL)) arms green (population: a five-row fixture postoffice swept by $ZB)"
 [ "$FAIL" = 0 ]
