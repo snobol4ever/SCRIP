@@ -144,11 +144,11 @@ RTX_FUNC(rt_match_enter)
 RTX_ENDF(rt_match_enter)
 RTX_FUNC(rt_dcap_fast_run)
     RTX_GATE(match, .Ldfr_off)
-    RTX_PUSH(rbx)
-    RTX_PUSH(r12)
-    RTX_PUSH(r13)
-    RTX_PUSH(r14)
-    RTX_PUSH(r15)
+    RTX_PUSHS(rbx)
+    RTX_PUSHS(r12)
+    RTX_PUSHS(r13)
+    RTX_PUSHS(r14)
+    RTX_PUSHS(r15)
     mov     rax, rdi
     test    rdx, rdx
     jz      .Ldfr_ret
@@ -207,11 +207,11 @@ RTX_FUNC(rt_dcap_fast_run)
     add     rax, 24
     jmp     .Ldfr_loop
 .Ldfr_ret:
-    RTX_POP(r15)
-    RTX_POP(r14)
-    RTX_POP(r13)
-    RTX_POP(r12)
-    RTX_POP(rbx)
+    RTX_POPS(r15)
+    RTX_POPS(r14)
+    RTX_POPS(r13)
+    RTX_POPS(r12)
+    RTX_POPS(rbx)
     ret
 .Ldfr_off:
     mov     rax, rdi
