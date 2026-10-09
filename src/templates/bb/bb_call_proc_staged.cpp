@@ -118,7 +118,7 @@ static std::string bcps_epi_named(int is_omega, uint64_t bare_fp)
         TEMPLATE_FN_ADDR(is_omega ? rt_proc_call_epilogue_named_ω : rt_proc_call_epilogue_named_γ))
          + x86_rt_gc_poll_res();
 }
-static std::string bcps_epi_det(int is_omega, int is_gen) { return x86("mov32", is_omega ? "edi" : "edx", (long)(is_gen ? 1 : 0)); }
+#define bcps_epi_det(is_omega, is_gen) (x86("mov32", (is_omega) ? "edi" : "edx", (long)((is_gen) ? 1 : 0)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define SAI_L0 200
 static std::string stage_arg_inline(int i, int slot, uint64_t stage_fp) {

@@ -15,9 +15,9 @@ extern DESCR_t rt_subscript_val_strict(DESCR_t base, DESCR_t idx);
 #include "x86_asm.h"
 #define sub_val_on() emit_knob_unless_zero("SCRIP_SUB_VAL")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int sub_cval(void) { return _.op_sval && !strcmp(_.op_sval, "container-value"); }
+#define sub_cval() (_.op_sval && !strcmp(_.op_sval, "container-value"))
 static int sub_conly(void) { return sub_cval() || (_.op_sval && !strcmp(_.op_sval, "container-only")); }
-static int sub_vctx(void) { return (sub_cval() && !_.op_strict && sub_val_on()) ? 1 : 0; }
+#define sub_vctx() ((sub_cval() && !_.op_strict && sub_val_on()) ? 1 : 0)
 static const char * sub_open_sym(void) { return sub_vctx() ? "rt_subscript_val" : (sub_conly() ? (_.op_strict ? "rt_subscript_var_container_only_strict" : "rt_subscript_var_container_only")
     : (_.op_strict ? "rt_subscript_var_strict" : "rt_subscript_var")); }
 #define SUB_OPEN_FN() (sub_vctx() ? (uint64_t)(uintptr_t)(void *)rt_subscript_val \

@@ -25,7 +25,6 @@ extern "C" uint64_t g_rspd_save, g_rspd_g4, g_rspd_g5, g_rspd_s2, g_rspd_g6, g_r
 #include "x86_asm.h"
 extern "C" int sn4_alt_carrier(void);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-#define dw_cell() emit_knob_nonzero("SCRIP_DEFER_CELL")
 #define defer_inline() emit_knob_unless_zero("SCRIP_DEFER_INLINE")
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define dfrm() ((_.op_seal == 1))
@@ -43,39 +42,29 @@ extern "C" int sn4_alt_carrier(void);
                          + x86("test", "rcx", "rcx") \
                          + x86_jcc_tgt("jne", X86T_TGT1))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#define DF_GVA() (_.op_df_vslot < 0 && g_gva_active && _.op_gva_k >= 0)
+#define DF_STAR() (_.op_df_vslot < 0 && !DF_GVA() && _.op_sval && _.op_sval[0] == '*' && _.op_sval[1])
+#define DF_MERGED() (_.op_df_vslot < 0 && !(g_gva_active && _.op_gva_k >= 0))
+#define DF_DLBL() (DF_STAR() ? std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval) : std::string())
+#define DF_CADR() (_.op_df_cell >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[_.op_df_cell] : 0)
+#define DF_PAIRADR() (_.op_df_site >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[2048 + _.op_df_site * 2] : 0)
 std::string bb_match_defer() {
-    static char b[24];
-    int vslot = -1;
-    { const char *sv = _.op_sval, *d = sv ? strstr(sv, "$V") : 0;
-      if (d && d[2] >= '0' && d[2] <= '9')
-      { char *e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } }
-    const int gva_road = (vslot < 0 && g_gva_active && _.op_gva_k >= 0); const int star = (vslot < 0 && !gva_road && _.op_sval && _.op_sval[0] == '*' && _.op_sval[1]) ? 1 : 0;
-    if (gva_road || vslot >= 0 || star) b[0] = 0; else strtab_label(b, sizeof b, _.op_sval ? _.op_sval : "");
-    int ci = (vslot < 0 && dw_cell() && g_gva_active && _.op_gva_k >= 0 && _.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
-    static char cl[8][48]; static int cln; if (ci >= 0) { cln = (cln + 1) & 7; snprintf(cl[cln], sizeof cl[cln], "g_sno_defer_cells+%d", ci * 8); }
-    const char * clbl = ci >= 0 ? cl[cln] : "";
-    int merged = (vslot < 0 && !(g_gva_active && _.op_gva_k >= 0)); std::string dlbl = star ? std::string(".Ldstar_") + bb_ab_sym_name(_.op_sval) : std::string();
-    static int g_defer_site_n; int msite = (merged && !star) ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
-    static char pl[8][48]; static int pln; if (msite >= 0) { pln = (pln + 1) & 7; snprintf(pl[pln], sizeof pl[pln], "g_sno_defer_cells+%d", (2048 + msite * 2) * 8); }
-    const char * pairlbl = msite >= 0 ? pl[pln] : "";
-    uint64_t pairadr = msite >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[2048 + msite * 2] : 0;
-    uint64_t cadr = ci >= 0 ? (uint64_t)(uintptr_t)(const void *)&g_sno_defer_cells[ci] : 0;
     return x86("comment", "IR_MATCH_DEFER (ZS-2 jmp-entry)")
          + x86_alpha()
          + IF(dfrm(),
                x86("comment", "IR_MATCH_DEFER ζ-frame")
              + x86("push", "rbp")
              + x86("mov", "rbp", "rsp"))
-         + IF(ci >= 0,
+         + IF(_.op_df_cell >= 0,
                x86("comment", "IR_MATCH_DEFER cell")
-             + x86("lea", "rsi", "[rip + __]", cadr, clbl)
+             + x86("lea", "rsi", "[rip + __]", DF_CADR(), _.op_df_clbl)
              + x86("mov", "rdx", RDQ("rsi", 0))
              + x86("test", "rdx", "rdx")
              + x86("je", L(13))
              + x86("mov", "rax", RDQ("rdx", 0))
              + x86("jmp", L(11))
              + x86("def", L(13)))
-         + IF(vslot >= 0 && patv_fast_on(),
+         + IF(_.op_df_vslot >= 0 && patv_fast_on(),
                x86("comment", "IR_MATCH_DEFER patv-fast")
              + x86("mov", "rdi", RDQ("rbp", -24))
              + x86("test", "rdi", "rdi")
@@ -83,22 +72,22 @@ std::string bb_match_defer() {
              + x86("mov", "rsi", RDQ("rdi", 32))
              + x86("test", "rsi", "rsi")
              + x86("je", L(17))
-             + x86("cmp", RDQ("rdi", 40), (long)vslot + 1)
+             + x86("cmp", RDQ("rdi", 40), (long)_.op_df_vslot + 1)
              + x86("jl", L(17))
-             + x86("mov", "rax", RDQ("rsi", vslot * 16))
+             + x86("mov", "rax", RDQ("rsi", _.op_df_vslot * 16))
              + x86("cmp", "al", (long)DT_P)
              + x86("jne", L(17))
-             + x86("mov", "rdx", RDQ("rsi", vslot * 16 + 8))
+             + x86("mov", "rdx", RDQ("rsi", _.op_df_vslot * 16 + 8))
              + x86("test", "rdx", "rdx")
              + x86("je", L(17))
              + x86("mov", "rax", RDQ("rdx", 0))
              + x86("test", "rax", "rax")
              + x86("jne", L(18))
              + x86("def", L(17)))
-         + IF(vslot >= 0,
+         + IF(_.op_df_vslot >= 0,
                x86("comment", "IR_MATCH_DEFER $V-slot")
              + x86("mov", "rdi", RDQ("rbp", -24))
-             + x86("mov", "esi", (long)vslot)
+             + x86("mov", "esi", (long)_.op_df_vslot)
              + x86("xor", "edx", "edx")
              + x86_align_enter()
              + x86("call", "rt_patv_defer_get_pat_dtp", (uint64_t)(uintptr_t)(void *)(void *(*)(void *, long, const char *))rt_patv_defer_get_pat_dtp)
@@ -110,7 +99,7 @@ std::string bb_match_defer() {
              + x86("mov", "rax", RDQ("rdx", 0))
              + x86("def", L(16))
              + IF(patv_fast_on(), x86("def", L(18))))
-         + IF(vslot < 0 && g_gva_active && _.op_gva_k >= 0,
+         + IF(_.op_df_vslot < 0 && g_gva_active && _.op_gva_k >= 0,
                x86("note", gva_note(_.op_gva_k))
              + x86("mov", "rax", (g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? GVARQ(_.op_gva_k, 0) : ABSQ(RT_GVA_VA + _.op_gva_k * 16))
              + x86("note", gva_note(_.op_gva_k))
@@ -131,18 +120,18 @@ std::string bb_match_defer() {
              + x86("def", L(9))
              + x86("xor", "eax", "eax")
              + x86("def", L(10)))
-         + IF(ci >= 0,
+         + IF(_.op_df_cell >= 0,
                x86("test", "rax", "rax")
              + x86("je", L(15))
-             + x86("lea", "rsi", "[rip + __]", cadr, clbl)
+             + x86("lea", "rsi", "[rip + __]", DF_CADR(), _.op_df_clbl)
              + x86("mov", RDQ("rsi", 0), "rdx")
              + x86("def", L(15))
              + x86("def", L(11)))
-         + IF(merged && msite >= 0 && defer_inline() && defer_ic_on(),
+         + IF(DF_MERGED() && _.op_df_site >= 0 && defer_inline() && defer_ic_on(),
                x86("comment", "IR_MATCH_DEFER probe-head")
-             + x86("lea", "rcx", "[rip + __]", pairadr, pairlbl)
+             + x86("lea", "rcx", "[rip + __]", DF_PAIRADR(), _.op_df_pairlbl)
              + x86("mov", "rax", RDQ("rcx", 0))
-             + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
              + x86("cmp", "rax", "rdx")
              + x86("jne", L(22))
              + x86("mov", "rax", RDQ("rcx", 8))
@@ -181,11 +170,11 @@ std::string bb_match_defer() {
              + x86("mov", "edx", -1L)
              + x86("jmp", "L0")
              + x86("def", L(22)))
-         + IF(merged && msite >= 0 && defer_inline() && !defer_ic_on(),
+         + IF(DF_MERGED() && _.op_df_site >= 0 && defer_inline() && !defer_ic_on(),
                x86("comment", "IR_MATCH_DEFER inline-read")
-             + x86("lea", "rcx", "[rip + __]", pairadr, pairlbl)
+             + x86("lea", "rcx", "[rip + __]", DF_PAIRADR(), _.op_df_pairlbl)
              + x86("mov", "rax", RDQ("rcx", 0))
-             + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("lea", "rdx", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
              + x86("cmp", "rax", "rdx")
              + x86("jne", L(30))
              + x86("mov", "rax", RDQ("rcx", 8))
@@ -212,10 +201,10 @@ std::string bb_match_defer() {
              + x86("mov", "edx", -1L)
              + x86("jmp", "L0")
              + x86("def", L(30)))
-         + IF(merged && msite >= 0 && defer_ic_on() && !defer_inline(),
+         + IF(DF_MERGED() && _.op_df_site >= 0 && defer_ic_on() && !defer_inline(),
                x86("comment", "IR_MATCH_DEFER ic")
-             + x86("lea", "rsi", "[rip + __]", pairadr, pairlbl)
-             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("lea", "rsi", "[rip + __]", DF_PAIRADR(), _.op_df_pairlbl)
+             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
              + x86("mov", "rcx", RDQ("rsi", 0))
              + x86("cmp", "rcx", "rdi")
              + x86("jne", L(22))
@@ -232,22 +221,22 @@ std::string bb_match_defer() {
              + x86("test", "rax", "rax")
              + x86("jne", L(23))
              + x86("def", L(22)))
-         + IF(merged && !star,
+         + IF(DF_MERGED() && !DF_STAR(),
                x86("comment", "IR_MATCH_DEFER resolve")
              + x86_xfer_enter()
-             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             + x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
              + x86("mov", "esi", "r14d")
-             + x86("mov", "rdx", (long)msite)
+             + x86("mov", "rdx", (long)_.op_df_site)
              + x86_anchor_enter()
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_probe_run", (uint64_t)(uintptr_t)(void *)(rt_defer_pr_t (*)(const char *, int, long))rt_defer_probe_run)
          + x86_rt_gc_poll_rec_sigma_pair(0, 50)
              + x86_anchor_leave()
              + x86_xfer_leave())
-         + IF(merged && msite >= 0 && defer_ic_on(), x86("comment", "IR_MATCH_DEFER ic-hit")
+         + IF(DF_MERGED() && _.op_df_site >= 0 && defer_ic_on(), x86("comment", "IR_MATCH_DEFER ic-hit")
                                                    + x86("def", L(23)))
-         + IF(!star, x86("test", "rax", "rax")
+         + IF(!DF_STAR(), x86("test", "rax", "rax")
          + x86("jz", "L0"))
-         + IF(star, x86("jmp", "L0"))
+         + IF(DF_STAR(), x86("jmp", "L0"))
          + rspd_snap(&g_rspd_save, "g_rspd_save")
          + x86("def", L(48))
          + x86("mov", "r8d", (long)(_.op_scan ? 1 : 0))
@@ -273,33 +262,33 @@ std::string bb_match_defer() {
          + T1_TRAP_TEST()
          + x86_omega()
          + x86("def", "L0")
-         + IF(merged && !star, x86("comment", "IR_MATCH_DEFER probe-str")
+         + IF(DF_MERGED() && !DF_STAR(), x86("comment", "IR_MATCH_DEFER probe-str")
                     + x86("mov", "eax", "edx")
                     + x86("cmp", "eax", -2L)
                     + x86("jne", L(49)))
          + x86_xfer_enter()
          + x86("sub", "rsp", DFX_RECORD_BYTES)
-         + (vslot >= 0
+         + (_.op_df_vslot >= 0
              ? x86("mov", "rdi", RDQ("rbp", -24))
-             + x86("mov", "esi", (long)vslot)
+             + x86("mov", "esi", (long)_.op_df_vslot)
              + x86("xor", "edx", "edx")
              + x86("xor", "ecx", "ecx")
              + x86("mov", "r8", "rsp")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_patv_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, long, const char *,
                  int, void *))rt_patv_defer_open_entry)
-             : !star && gva_road
+             : !DF_STAR() && DF_GVA()
              ? x86("note", gva_note(_.op_gva_k))
              + ((g_rtcc_on && RTCC_GLOBAL_R9_GVA) ? x86("lea", "rdi", (std::string("[" RTCC_GVA_REG " + ") + std::to_string(_.op_gva_k * 16) + "]").c_str())
                                                      : x86_movabs_r64("rdi", (uint64_t)(RT_GVA_VA + (unsigned long)_.op_gva_k * 16)))
              + x86("xor", "esi", "esi")
              + x86("mov", "rdx", "rsp")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_cell", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(DESCR_t *, int, void *))rt_defer_open_cell)
-             : !star
-             ? x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), b)
+             : !DF_STAR()
+             ? x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)(const void *)(_.op_sval ? _.op_sval : ""), _.op_df_b)
              + x86("xor", "esi", "esi")
              + x86("mov", "rdx", "rsp")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_entry", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(const char *, int, void *))rt_defer_open_entry)
-             : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), dlbl.c_str())
+             : x86("lea", "rdi", "[rip + __]", (uint64_t)(uintptr_t)bb_dstar_rec_addr(_.op_sval), (DF_DLBL()).c_str())
              + x86("mov", "rsi", "rsp")
              + x86_abs_disp32_store64(0x70000000L, "r12") + x86("call", "rt_defer_open_rec", (uint64_t)(uintptr_t)(void *)(rt_dcap_next_t (*)(void *, void *))rt_defer_open_rec))
          + x86_rt_gc_poll_rec_sigma_pair(1, 51)
@@ -375,7 +364,7 @@ std::string bb_match_defer() {
                       + x86("def", L(12))
                       + x86_jmp_reg("rax"))
                    : (rspd_snap(&g_rspd_beta, "g_rspd_beta")
-                      + (({ static int _bg = -1; if (_bg < 0) { const char * e = getenv("SCRIP_DEFER_BETA_GUARD"); _bg = (e && *e == '0') ? 0 : 1; } _bg; })
+                      + (emit_knob_unless_zero("SCRIP_DEFER_BETA_GUARD")
                           ? (x86("cmp", RDQ("rsp", 0), 0L)
                            + x86("jne", L(12))
                            + x86("mov", "rcx", "[rip@got + __]", (uint64_t)(uintptr_t)(const void *)&rtccb[0], "rtccb")

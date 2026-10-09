@@ -9,13 +9,13 @@ A function is converted only when it is safe to do so by construction: no defaul
 uses more than once is converted only when every call site passes it a side-effect-free argument (no call). A parameter is parenthesized at each use; one of a narrowing or sign-changing type (bool, unsigned, uint64_t, double, char and the like) is also cast to its declared type, and a result of such a type is cast to
 the declared return type, so the macro converts exactly as the function did; an int, long, pointer or std::string result is not cast.
 --check prints the candidates and the helper_count each file would read after, and exits 1 if any candidate exists; without it the files are rewritten in place.
-A helper whose body holds an asm call or a gc poll, or whose name sits on a line with an asm call, stays a function: the safe-point and bare-poll censuses read the call's source line and a computed call target, and a macro body
+A helper whose body holds an asm call or a gc poll, or whose name is inside the target argument of an x86("call", ...), stays a function: the safe-point and bare-poll censuses read the call's source line and a computed call target, and a macro body
 reports the line of its invocation. Only as many are converted as the file's static count exceeds two, the shortest bodies first, so a one-box file keeps its box body a function.
 HQ-TEMPLATES (CEO-1321), after a rebase conflict or a landing that adds a static to a template: run it over the file, rebuild, A/B."""
 import re, sys, glob, os
 
 CAST = {'unsigned', 'unsigned int', 'unsigned long', 'uint64_t', 'uint32_t', 'int64_t', 'size_t', 'bool', 'double', 'char', 'uint8_t', 'uint16_t', 'int32_t', 'short'}
-HEAD = re.compile(r'^static[ \t]+(?:inline[ \t]+)?((?:const[ \t]+)?[\w:]+(?:[ \t]*\*+)?)[ \t]*(\w+)[ \t]*\(([^()]*)\)[ \t]*\{', re.M)
+HEAD = re.compile(r'^static[ \t]+(?:inline[ \t]+)?((?:(?:const|unsigned|signed|long|short)[ \t]+)*[\w:]+(?:[ \t]*\*+)?)(?:[ \t]+|(?<=\*))(\w+)[ \t]*\(([^()]*)\)[ \t]*\{', re.M)
 COLS = 200
 
 
@@ -152,9 +152,9 @@ def convert(path, apply):
                     d -= 1
                 q += 1
             calls.append(rest[k:q - 1])
-        if re.search(r'"call"|gc_poll', body) or any(re.search(r'"call"', ln) for ln in rest.split('\n') if re.search(r'\b%s\b' % re.escape(name), ln)):
+        if re.search(r'"call"|gc_poll', body) or re.search(r'x86\("call(?:_bare)?",\s*[^,]*\b%s\b' % re.escape(name), rest):
             continue
-        if not ok or re.search(r'^static[^\n]*\b%s\s*\([^{]*;' % re.escape(name), rest, re.M):
+        if not ok or re.search(r'^static[^\n{(]*\b%s\s*\([^(){]*\)\s*;' % re.escape(name), rest, re.M):
             continue
         expr_lines = body.strip().split('\n')
         first = re.sub(r'^\s*return\s+', '', expr_lines[0])

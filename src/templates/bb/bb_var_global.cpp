@@ -19,9 +19,8 @@ static inline int vg_patv_slot(const char * sv) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_var_global() {
-        const int vs = vg_patv_slot(_.op_sval);
         return !_.op_zres && _.op_off < 0 ? x86_alpha() + x86_bomb("bb_var_global: unhandled (needs descr flat-chain + own slot)")
-             : vs >= 0 ?
+             : vg_patv_slot(_.op_sval) >= 0 ?
                x86("comment", "IR_VAR patv-slot: the snapshot the pattern's constructor passed, read from its own header")
              + x86_alpha()
              + (_.op_head_spine && _.op_head_rsp < 0 ? x86_bomb("bb_var_global: a frameless thunk reads its head from a box with no spine depth") :
@@ -31,10 +30,10 @@ std::string bb_var_global() {
              + x86("mov", "rsi", RDQ("rdi", 32))
              + x86("test", "rsi", "rsi")
              + x86("je", L(1))
-             + x86("cmp", RDQ("rdi", 40), (long) vs + 1)
+             + x86("cmp", RDQ("rdi", 40), (long) vg_patv_slot(_.op_sval) + 1)
              + x86("jl", L(1))
-             + x86("mov", "rax", RDQ("rsi", vs * 16))
-             + x86("mov", "rdx", RDQ("rsi", vs * 16 + 8))
+             + x86("mov", "rax", RDQ("rsi", vg_patv_slot(_.op_sval) * 16))
+             + x86("mov", "rdx", RDQ("rsi", vg_patv_slot(_.op_sval) * 16 + 8))
              + x86("jmp", L(2))
              + x86("def", L(1))
              + x86("xor", "eax", "eax")

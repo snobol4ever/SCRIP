@@ -7,27 +7,22 @@ extern "C" {
 }
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string disj_dispatch_chain(long N, int base, int lo)
-{ std::string r;
-  for (long i = lo; i < N; i++) r += x86("cmp", "eax", (int)i)
-                                    + x86("je", PAIR((int)(base + i)));
-  return r; }
+#define disj_dispatch_chain(N, base, lo) emit_for((int)(lo), (int)(N), [&](int i) { return x86("cmp", "eax", i) \
+                                                                       + x86("je", PAIR((int)(base) + i)); })
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string disj_sigma_copy() {
-    std::string r = x86("mov", "eax", FR(_.op_off + 16));
-    for (int i = 0; i < _.op_parts_n; i++) {
-        r += x86("cmp", "eax", i)
-           + x86("jne", L(i))
-           + IF(_.op_parts_ival[i] >= 0,
-                 x86("mov", "rax", FRQ((int)_.op_parts_ival[i]))
-               + x86("mov", FRQ(_.op_off), "rax")
-               + x86("mov", "rax", FRQ((int)_.op_parts_ival[i] + 8))
-               + x86("mov", FRQ(_.op_off + 8), "rax"))
-           + x86_gamma()
-           + x86("def", L(i));
-    }
-    return r + x86_gamma();
-}
+#define disj_sigma_copy() ( \
+      x86("mov", "eax", FR(_.op_off + 16)) \
+    + emit_for(0, _.op_parts_n, [&](int i) { return x86("cmp", "eax", i) \
+                                             + x86("jne", L(i)) \
+                                             + IF(_.op_parts_ival[i] >= 0, \
+                                                   x86("mov", "rax", FRQ((int)_.op_parts_ival[i])) \
+                                                 + x86("mov", FRQ(_.op_off), "rax") \
+                                                 + x86("mov", "rax", FRQ((int)_.op_parts_ival[i] + 8)) \
+                                                 + x86("mov", FRQ(_.op_off + 8), "rax")) \
+                                             + x86_gamma() \
+                                             + x86("def", L(i)); }) \
+    + x86_gamma() \
+)
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define disj_choice_open() ( \
       IF(x86_fb_pinned(), \

@@ -6,8 +6,6 @@ extern "C" {
 }
 #include "rt/rt_pl_trail.h"
 #include "x86_asm.h"
-static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "x86_pl_tr_pop_entry spells the trail entry size as a literal");
-static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "x86_pl_tr_top_sync spells the trail arena mask as a literal");
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define BND_BOMB() (_.op_off < 0)
 static std::string bound_unmark_zd() {

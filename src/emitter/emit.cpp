@@ -1412,6 +1412,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_MATCH_BAL: { bb_prepare(nd); { long fck; if (fc_geom(nd, &fck) || blob_arm_leaf_fc(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.x86_scratch_off;
         } } bb_emit_x86(bb_match_bal()); } return 0;
     case IR_MATCH_DEFER: { bb_prepare(nd); g_emit.op_seal = nd->seal; g_emit.op_off = drive_value_slot(nd); g_emit.op_defer_leaf_susp = g_emit_cfg ? fc_tail_defer_susp_g(g_emit_cfg, nd) : -1;
+        defer_prepare();
         bb_emit_x86(bb_match_defer()); } return 0;
     case IR_MATCH_VALUE: { bb_prepare(nd); bb_emit_x86(bb_match_value()); } return 0;
     case IR_MATCH_ARBNO: { bb_prepare(nd); g_emit.op_arbno_rbp = 0;
@@ -6036,3 +6037,39 @@ extern "C" int dop_direct_leaf_known(const char * fn, int narg) {
     const char * s = 0;
     return (dop_direct_fp(fn, (int64_t)narg, &s) || pl_leaf_inline_known(fn, narg)) ? 1 : 0;
 }
+extern "C" uint64_t g_sno_defer_cells[4096];
+void defer_prepare(void) {
+    extern int g_gva_active;
+    static int g_defer_site_n;
+    int vslot = -1;
+    { const char * sv = g_emit.op_sval, * d = sv ? strstr(sv, "$V") : 0;
+      if (d && d[2] >= '0' && d[2] <= '9') { char * e = 0; long k = strtol(d + 2, &e, 10); if (e && !*e) vslot = (int)k; } }
+    int gva_road = (vslot < 0 && g_gva_active && g_emit.op_gva_k >= 0);
+    int star = (vslot < 0 && !gva_road && g_emit.op_sval && g_emit.op_sval[0] == '*' && g_emit.op_sval[1]) ? 1 : 0;
+    if (gva_road || vslot >= 0 || star) g_emit.op_df_b[0] = 0; else strtab_label(g_emit.op_df_b, sizeof g_emit.op_df_b, g_emit.op_sval ? g_emit.op_sval : "");
+    int ci = (vslot < 0 && emit_knob_nonzero("SCRIP_DEFER_CELL") && g_gva_active && g_emit.op_gva_k >= 0 && g_emit.op_seal == 2 && g_emit.sn4_defer_cell_n < 2048) ? g_emit.sn4_defer_cell_n++ : -1;
+    g_emit.op_df_clbl[0] = 0;
+    if (ci >= 0) snprintf(g_emit.op_df_clbl, sizeof g_emit.op_df_clbl, "g_sno_defer_cells+%d", ci * 8);
+    int merged = (vslot < 0 && !(g_gva_active && g_emit.op_gva_k >= 0));
+    int msite = (merged && !star) ? (g_defer_site_n < 1024 ? g_defer_site_n++ : -1) : -1;
+    g_emit.op_df_pairlbl[0] = 0;
+    if (msite >= 0) snprintf(g_emit.op_df_pairlbl, sizeof g_emit.op_df_pairlbl, "g_sno_defer_cells+%d", (2048 + msite * 2) * 8);
+    g_emit.op_df_vslot = vslot;
+    g_emit.op_df_cell = ci;
+    g_emit.op_df_site = msite;
+}
+void emit_diag_arbno_arm(const char * arm) { if (emit_knob_if_one("SCRIP_ARBNO_DIAG")) fprintf(stderr, "[ARBNO-ARM] %s\n", arm); }
+long emit_scan_bank_tag(void) {
+    static int said = 0;
+    return !(getenv("SCRIP_GC_PLANT_SCAN_BANK") && *getenv("SCRIP_GC_PLANT_SCAN_BANK") == '1') ? (long)DT_S
+         : (said ? (long)DT_I : (said = 1, fprintf(stderr,
+    "[GC-SCANBANK] plant: the suspend-leave bank's cell is tagged DT_I, so the walker reads an integer and the live subject is invisible to it "
+        "(SCRIP_GC_PLANT_SCAN_BANK=1). THIS LINE IS THE ONLY PROOF "
+            "THE PLANT APPLIED, so it prints ONCE PER PROCESS at the first suspend-leave box emitted.\n"), (long)DT_I));
+}
+long emit_lit_d(const char * s, long k) { uint32_t w; memcpy(&w, s + k, 4); return (long)(int32_t)w; }
+uint64_t emit_double_bits(double d) { uint64_t b = 0; memcpy(&b, &d, 8); return b; }
+const char * emit_rec_or_empty(void * r) { return r ? (const char *)r : ""; }
+#include "rt/rt_pl_trail.h"
+static_assert(X86_PL_TR_ENTRY_BYTES == PL_TR_ENTRY_BYTES, "x86_pl_tr_pop_entry spells the trail entry size as a literal");
+static_assert(X86_PL_TR_ARENA_MASK == -(long)PL_TR_ARENA_BYTES, "x86_pl_tr_top_sync spells the trail arena mask as a literal");

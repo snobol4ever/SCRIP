@@ -499,6 +499,12 @@ typedef struct {
     int op_arbno_dt;
     int op_arbno_dt_susp;
     int op_defer_leaf_susp;
+    int op_df_vslot;
+    int op_df_cell;
+    int op_df_site;
+    char op_df_b[24];
+    char op_df_clbl[48];
+    char op_df_pairlbl[48];
     int op_tail_dfr;
     int op_tail_fpr_rsp;
     int op_body_has_arbno;
@@ -802,6 +808,12 @@ template<typename F> inline std::string emit_shim9(long loff, long carve, F f) {
     return r;
 }
 void emit_text_s(const std::string & s);
+void defer_prepare(void);
+long emit_lit_d(const char * s, long k);
+uint64_t emit_double_bits(double d);
+const char * emit_rec_or_empty(void * r);
+long emit_scan_bank_tag(void);
+void emit_diag_arbno_arm(const char * arm);
 void emit_write_file_s(const char * path, const std::string & s);
 int emit_knob_unless_zero(const char * name);
 int emit_knob_nonzero(const char * name);
