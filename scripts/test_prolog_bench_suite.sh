@@ -45,11 +45,11 @@ PROG_ROWS="$T/progress.tsv"; : >"$PROG_ROWS"
 run1() {
   local o="$1" kb="$2"; shift 2
   ( cd "$T" && [ -n "$kb" ] && export SCRIP_HEAP_CAP_KB="$kb" && unset SCRIP_HEAP_MB SCRIP_HEAP_KB; [ -n "${st:-}" ] && export SCRIP_STACK="${st}k"
-    timeout 300s "$@" </dev/null >"$o.out" 2>"$o.err" )
+    "$TIMEOUT_RETRY" 300s "$@" </dev/null >"$o.out" 2>"$o.err" )
 }
 # build4 <src.pl> <bin> -- the mode-4 binary of one program; returns 0 when it links
 build4() {
-  ( cd "$T" && timeout 300s "$SCRIP" --compile "$1" -o "$2.s" </dev/null >"$2.cc" 2>&1 ) \
+  ( cd "$T" && "$TIMEOUT_RETRY" 300s "$SCRIP" --compile "$1" -o "$2.s" </dev/null >"$2.cc" 2>&1 ) \
     && ( cd "$T" && cc -m64 -no-pie "$2.s" -o "$2" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >>"$2.cc" 2>&1 )
 }
 # bench_ok <err-file> <mode> -- the generated wrapper's BENCH line holds: its mode, its count, and for time no mismatch

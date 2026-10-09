@@ -76,8 +76,9 @@ BOTH=0
 for f in "$SUITE"/iso7185prt*.pas; do
     [ -e "$f" ] || continue
     b="$(basename "$f" .pas)"; [ -n "${ACCEPT_SET[$b]:-}" ] && continue; TOTAL=$((TOTAL+1)); okboth=1
+    export S4E_TIMEOUT_KEY="$b"   # the unit a retried timeout's stamp names (CEO-1335)
     if [ -n "${OUTSIDE_SET[$b]:-}" ]; then
-        _oerr="$(cd "$TMP" && timeout 8s "$SCRIP" --dump-ast "$f" </dev/null 2>&1 >/dev/null)"; _orc=$?
+        _oerr="$(cd "$TMP" && "$TIMEOUT_RETRY" 8s "$SCRIP" --dump-ast "$f" </dev/null 2>&1 >/dev/null)"; _orc=$?
         if [ "$_orc" -eq 0 ] && ! printf '%s' "$_oerr" | grep -q 'ISO 7185'; then
             OUTSIDE=$((OUTSIDE+1)); OUTSIDE_NAMES+=("$b")
             for m in m3 m4; do printf 'package\tpat\tpascal\t%s\t%s\tUNGRADED\t0\toutside-iso-baseline-not-an-iso-error\n' "$b" "$m" >>"$PROG_ROWS"; done
@@ -108,11 +109,11 @@ for f in "$SUITE"/iso7185prt*.pas; do
         # get louder as the cure lands -- it gets quieter, because the cure it cannot see keeps arriving.
         # ⛔ A LINK FAILURE IS NOT A REFUSAL: the compiler accepted the program, so the witness FAILS (it was not
         # refused) rather than passing on a toolchain accident. test_gate_pas_pat_m4_arm_links_and_runs.sh pins this.
-        if [ "$m" = m3 ]; then ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- timeout 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
-        else ( cd "$TMP" && exec timeout 8s "$SCRIP" --compile -o "$TMP/rj.s" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
+        if [ "$m" = m3 ]; then ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 2s "$SCRIP" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
+        else ( cd "$TMP" && exec "$TIMEOUT_RETRY" 8s "$SCRIP" --compile -o "$TMP/rj.s" "$f" </dev/null >"$TMP/o" 2>&1 ); rc=$?
              if [ "$rc" = 0 ]; then
                  if ( cd "$TMP" && cc -m64 -no-pie rj.s -o rj -L"$HERE/../out" -lscrip_rt -lm -Wl,-rpath,"$HERE/../out" >/dev/null 2>&1 ); then
-                     ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- timeout 2s ./rj </dev/null >"$TMP/o" 2>&1 ); rc=$?
+                     ( cd "$TMP" && run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 2s ./rj </dev/null >"$TMP/o" 2>&1 ); rc=$?
                  else : ; fi
              fi; fi
         # ⛔⭐ THE VERDICT IS STABLE; ONLY THE DIAGNOSIS VARIES (ceo ruling 2026-09-03, after their audit read
@@ -157,6 +158,7 @@ RULED_UNGRADABLE="$(_inv_names "$(_inv_tsv UNGRADABLE.tsv)" UNGRADABLE 2>/dev/nu
 for f in "$SUITE"/iso7185pat*.pas "${ACCEPT_FILES[@]}"; do
     [ -e "$f" ] || continue
     b="$(basename "$f" .pas)"
+    export S4E_TIMEOUT_KEY="$b"   # the unit a retried timeout's stamp names (CEO-1335)
     [ -n "$FPC" ] || { echo "note: fpc absent -- acceptance test $b not graded (its oracle is fpc -Miso); rejection population unaffected"; break; }
     in="$SUITE/$b.inp"; [ -f "$in" ] || in=/dev/null
     # ⛔⭐ THE ORACLE GETS A TIMEOUT TOO, AND THAT IS NOT DEFENSIVE PADDING -- MEASURED: `fpc -Miso` does not
@@ -166,7 +168,7 @@ for f in "$SUITE"/iso7185pat*.pas "${ACCEPT_FILES[@]}"; do
     rm -f "$TMP/oracle"
     ruled=0; printf '%s\n' "$RULED_UNGRADABLE" | grep -qxF "$b.pas" && ruled=1
     bound=60; [ "$ruled" -eq 1 ] && bound=10
-    ( cd "$TMP" && timeout "$bound" "$FPC" -Miso -o"$TMP/oracle" "$f" >"$TMP/oracle.err" 2>&1 ); orc=$?
+    ( cd "$TMP" && "$TIMEOUT_RETRY" "$bound" "$FPC" -Miso -o"$TMP/oracle" "$f" >"$TMP/oracle.err" 2>&1 ); orc=$?
     if [ ! -x "$TMP/oracle" ] && [ "$ruled" -eq 1 ]; then
         echo "note: acceptance test $b is DECLARED UNGRADABLE in $SUITE/UNGRADABLE.tsv; the oracle (fpc -Miso) was re-probed at a ${bound}s bound (rc=$orc) and the ruling stands -- not graded, and explicitly NOT counted against scrip"
         UNGRADABLE=$((UNGRADABLE+1))
@@ -186,17 +188,17 @@ for f in "$SUITE"/iso7185pat*.pas "${ACCEPT_FILES[@]}"; do
         UNGRADABLE=$((UNGRADABLE+1))
         continue
     fi
-    timeout 20s "$TMP/oracle" <"$in" >"$TMP/want" 2>&1 || true
+    "$TIMEOUT_RETRY" 20s "$TMP/oracle" <"$in" >"$TMP/want" 2>&1 || true
     TOTAL=$((TOTAL+1))
     # ⛔⭐ THE AND PER PROGRAM (ceo-372, 2026-09-06): this suite's row states the programs green in EVERY graded
     # mode. `okboth` starts at 1 and only ever falls to 0 -- a CRASH and a MISMATCH both clear it -- so the AND is
     # taken from the verdicts themselves rather than reconstructed from two counts afterwards, which cannot be done.
     okboth=1
     for m in m3 m4; do
-        if [ "$m" = m3 ]; then run_at_declared_table "$DECL" "$b" -- timeout 20s "$SCRIP" "$f" <"$in" >"$TMP/got" 2>&1; rc=$?
-        else timeout 20s "$SCRIP" --compile -o "$TMP/b.s" "$f" </dev/null >/dev/null 2>&1 && \
+        if [ "$m" = m3 ]; then run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 20s "$SCRIP" "$f" <"$in" >"$TMP/got" 2>&1; rc=$?
+        else "$TIMEOUT_RETRY" 20s "$SCRIP" --compile -o "$TMP/b.s" "$f" </dev/null >/dev/null 2>&1 && \
              gcc -m64 -no-pie "$TMP/b.s" -o "$TMP/bin" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -lm 2>/dev/null && \
-             run_at_declared_table "$DECL" "$b" -- timeout 20s "$TMP/bin" <"$in" >"$TMP/got" 2>&1; rc=$?; fi
+             run_at_declared_table "$DECL" "$b" -- "$TIMEOUT_RETRY" 20s "$TMP/bin" <"$in" >"$TMP/got" 2>&1; rc=$?; fi
         # ⛔ A CRASHED ACCEPTANCE TEST IS A FAIL AND MUST BE COUNTED AS ONE. Before this line it incremented
         # the crash column ALONE, so a crash left P+F one short of TOTAL and the board's own denominator
         # stopped adding up -- latent today only because both acceptance fixtures are ungradable by the

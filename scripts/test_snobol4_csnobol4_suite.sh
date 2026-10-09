@@ -312,6 +312,7 @@ MOD_SUMMARY=""
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero .sno files in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"
+    export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     ref="$SUITE/$name.ref"
     [ -f "$ref" ] || continue          # not a graded pair (support file) — never hand-curated
     # ⛔ ALL.sno IS OUR OWN GENERATED CONCATENATION (2006 lines, every entry run together), NOT A SHIPPED
@@ -349,12 +350,12 @@ for sno in "$SUITE"/*.sno; do
     fi
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
     dep="$(setup_dep_for "$name")"
-    [ -n "$dep" ] && { dca="$(declared_compile_args_from_table "$DECL" "$dep")" || exit 2; (cd "$RUN" && run_at_declared_table "$DECL" "$dep" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT --run $dca "$dep.sno" > /dev/null 2>&1); }
+    [ -n "$dep" ] && { dca="$(declared_compile_args_from_table "$DECL" "$dep")" || exit 2; (cd "$RUN" && run_at_declared_table "$DECL" "$dep" -- env SNO_LIB="$SUITE" "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" $COMPAT --run $dca "$dep.sno" > /dev/null 2>&1); }
     xargs_extra="$(argv_for "$name")"
     pre_extra="$(preload_for "$name")"
     if [ "$RECUT" != 0 ] && is_extension "$name"; then echo "RECUT SKIPS $name.sno: an EXTENSION REF (EXTENSIONS.tsv), not sbl's to cut"; continue; fi
     if [ "$RECUT" != 0 ]; then
-        gotr="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$relprog" $xargs_extra < "$inp" 2>&1)"; rcr=$?
+        gotr="$(cd "$RUN" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SBL" $SBL_FLAGS "$relprog" $xargs_extra < "$inp" 2>&1)"; rcr=$?
         if [ "$rcr" != 1 ]; then printf '%s\n' "$gotr" > "$ref"; RECUT_OK=$((RECUT_OK+1)); awk -F"\t" -v n="$name.sno" '$1!=n' "$OUTSIDE" > "$OUTSIDE.tmp" 2>/dev/null; mv -f "$OUTSIDE.tmp" "$OUTSIDE" 2>/dev/null
         else first="$(printf '%s' "$gotr" | head -1 | cut -c1-120)"; awk -F"\t" -v n="$name.sno" '$1!=n' "$OUTSIDE" > "$OUTSIDE.tmp" 2>/dev/null; mv -f "$OUTSIDE.tmp" "$OUTSIDE" 2>/dev/null; printf '%s.sno\tORACLE_REFUSES\toutside the SPITBOL baseline (Lon 2026-09-07): sbl -bf rc=%s: %s\n' "$name" "$rcr" "$first" >> "$OUTSIDE"; RECUT_OUT=$((RECUT_OUT+1)); fi
         continue
@@ -365,7 +366,7 @@ for sno in "$SUITE"/*.sno; do
     # referencing program (TRACE(), error messages, &FILE) embed a throwaway tmpdir string instead of the
     # bare name the .ref expects — a harness artifact, not a SCRIP or oracle divergence (found triaging
     # row snobol4-csnobol4-thirty-regen-candidate-refs-stale-pin-or-real-defect, seat07 2026-09-04).
-    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run $ca "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
+    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" $COMPAT $pre_extra --run $ca "$relprog" ${xargs_extra:+-- $xargs_extra} < "$inp" 2>&1)"; rc3=$?
     got3="$(normalize "$name" "$got3")"
     st3="$(status_of "$got3" "$rc3" "$exp")"
     progress_append package csnobol4 snobol4 "$name" m3 "$st3" >/dev/null 2>&1 || true
@@ -378,7 +379,7 @@ for sno in "$SUITE"/*.sno; do
     esac
 
     if (cd "$RUN" && compile_m4 "$relprog" "$W/prog.bin" "$ca"); then
-        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
+        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" "$TIMEOUT_RETRY" "$TIMEOUT" "$W/prog.bin" $xargs_extra < "$inp" 2>&1)"; rc4=$?
         got4="$(normalize "$name" "$got4")"
         st4="$(status_of "$got4" "$rc4" "$exp")"
         progress_append package csnobol4 snobol4 "$name" m4 "$st4" >/dev/null 2>&1 || true
@@ -396,7 +397,7 @@ for sno in "$SUITE"/*.sno; do
 
     # an EXTENSION program's ref was cut by the oracle its EXTENSIONS.tsv row names, so sbl is not asked to reproduce it (CEO-1416)
     if is_extension "$name"; then CSN_EXT=$((CSN_EXT+1)); continue; fi
-    gotc="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$relprog" $xargs_extra < "$inp" 2>&1)"
+    gotc="$(cd "$RUN" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SBL" $SBL_FLAGS "$relprog" $xargs_extra < "$inp" 2>&1)"
     gotc="$(normalize "$name" "$gotc")"
     if [ "$gotc" = "$exp" ]; then CSN_PASS=$((CSN_PASS+1))
     else

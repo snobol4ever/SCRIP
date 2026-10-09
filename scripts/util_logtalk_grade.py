@@ -37,6 +37,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import util_logtalk_extract as ex   # noqa: E402
+import lib_timeout_retry as _ltr   # noqa: E402 -- a graded run's timeout under load is retried once (CEO-1335)
 
 # ⛔ Helpers the shim implements. A helper NOT in this set makes its case UNGRADED and names the helper, so
 # the work owed reads off the board instead of hiding inside a red count. Keep it in sync with
@@ -538,7 +539,7 @@ def decl_switches(decl, fc, plan):
     return (["-d%sk" % kb] if kb else []) + (["-s%sk" % st] if st else [])
 
 
-def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loaded=(), sw=()):
+def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loaded=(), sw=(), key=None):
     """Run one planned case in one mode. Returns (outcome, detail). `sw` is the case's declared heap and stack (decl_switches)."""
     d = tempfile.mkdtemp(prefix="lgtcase.", dir=workroot)
     try:
@@ -562,21 +563,21 @@ def run_one(plan, db, shim_src, scrip, mode, workroot, srcdir, timeout=10, loade
         open(prog, "w", encoding="utf-8").write(program_text(plan, db, shim_src, loaded))
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, "--run"] + list(sw) + [prog], capture_output=True, text=True, errors="replace", timeout=timeout,
+                r = _ltr.run(key=key, argv=[scrip, "--run"] + list(sw) + [prog], capture_output=True, text=True, errors="replace", timeout=timeout,
                                    stdin=subprocess.DEVNULL, cwd=d)
             else:
                 s_out = os.path.join(d, "case.s")
                 b_out = os.path.join(d, "case.bin")
-                cp = subprocess.run([scrip, "--compile", "-o", s_out, prog], capture_output=True, text=True, errors="replace",
+                cp = _ltr.run(key=key, argv=[scrip, "--compile", "-o", s_out, prog], capture_output=True, text=True, errors="replace",
                                     timeout=timeout, stdin=subprocess.DEVNULL, cwd=d)
                 if cp.returncode != 0:
                     return "nobuild", (cp.stderr or cp.stdout).strip()[:160]
                 rt = os.path.join(os.path.dirname(os.path.abspath(scrip)), "out")
-                g = subprocess.run(["gcc", "-m64", "-no-pie", s_out, "-o", b_out, "-L", rt, "-lscrip_rt",
+                g = _ltr.run(["gcc", "-m64", "-no-pie", s_out, "-o", b_out, "-L", rt, "-lscrip_rt",
                                     "-Wl,-rpath," + rt, "-lm"], capture_output=True, text=True, errors="replace", timeout=120, cwd=d)
                 if g.returncode != 0:
                     return "nolink", (g.stderr or "").strip()[:160]
-                r = subprocess.run([b_out] + list(sw), capture_output=True, text=True, errors="replace", timeout=timeout,
+                r = _ltr.run(key=key, argv=[b_out] + list(sw), capture_output=True, text=True, errors="replace", timeout=timeout,
                                    stdin=subprocess.DEVNULL, cwd=d)
         except subprocess.TimeoutExpired:
             return "timeout", ""
@@ -633,7 +634,7 @@ def _sweep(work, results, where, builders, dbs, shim_src, scrip, modes, workroot
             i, fc, q = t
             try:
                 return i, run_one(q, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
-                                  loaded=fc.loaded or (), sw=decl_switches(decl, fc, q))
+                                  loaded=fc.loaded or (), sw=decl_switches(decl, fc, q), key="%s:%s" % (fc.group, q.case.name))
             except Exception as e:                          # noqa: BLE001 -- one case never takes a run down
                 return i, ("harness", "%s: %s" % (type(e).__name__, e))
         with ThreadPoolExecutor(max_workers=jobs) as pool:
@@ -694,7 +695,7 @@ def oracle_has(swipl, name, arity, cache):
     g = ("( catch(( current_predicate(%s/%d) ; functor(H,%s,%d), predicate_property(H,built_in) ),_,fail)"
          " -> write(has) ; write(lacks) ), nl, halt" % (name, arity, name, arity))
     try:
-        r = subprocess.run([swipl, "-q", "-g", g], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+        r = _ltr.run([swipl, "-q", "-g", g], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                            timeout=20)
         out = r.stdout.decode("utf-8", "replace").strip()
     except Exception:
@@ -815,20 +816,20 @@ def _run_text(text, scrip, mode, timeout=20):
         open(prog, "w", encoding="utf-8").write(text)
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, prog], capture_output=True, text=True, errors="replace", timeout=timeout,
+                r = _ltr.run([scrip, prog], capture_output=True, text=True, errors="replace", timeout=timeout,
                                    stdin=subprocess.DEVNULL, cwd=d)
             else:
                 s_out, b_out = os.path.join(d, "probe.s"), os.path.join(d, "probe.bin")
-                cp = subprocess.run([scrip, "--compile", "-o", s_out, prog], capture_output=True, text=True, errors="replace",
+                cp = _ltr.run([scrip, "--compile", "-o", s_out, prog], capture_output=True, text=True, errors="replace",
                                     timeout=timeout, stdin=subprocess.DEVNULL, cwd=d)
                 if cp.returncode != 0:
                     return None
                 rt = os.path.join(os.path.dirname(os.path.abspath(scrip)), "out")
-                g = subprocess.run(["gcc", "-m64", "-no-pie", s_out, "-o", b_out, "-L", rt, "-lscrip_rt", "-Wl,-rpath," + rt, "-lm"],
+                g = _ltr.run(["gcc", "-m64", "-no-pie", s_out, "-o", b_out, "-L", rt, "-lscrip_rt", "-Wl,-rpath," + rt, "-lm"],
                                    capture_output=True, text=True, errors="replace", timeout=120, cwd=d)
                 if g.returncode != 0:
                     return None
-                r = subprocess.run([b_out], capture_output=True, text=True, errors="replace", timeout=timeout,
+                r = _ltr.run([b_out], capture_output=True, text=True, errors="replace", timeout=timeout,
                                    stdin=subprocess.DEVNULL, cwd=d)
         except subprocess.TimeoutExpired:
             return None
@@ -1059,7 +1060,7 @@ def grade(root, scrip, modes, jobs=8, limit=None, only_group=None, seq_table=SEQ
                 k, fc, p = t
                 try:
                     return k, run_one(p, dbs[fc.path], shim_src, scrip, mode, workroot, os.path.dirname(fc.path),
-                                      loaded=fc.loaded or (), sw=decl_switches(decl, fc, p))
+                                      loaded=fc.loaded or (), sw=decl_switches(decl, fc, p), key="%s:%s" % (fc.group, p.case.name))
                 except Exception as e:                      # noqa: BLE001 -- deliberately broad, see above
                     return k, ("harness", "%s: %s" % (type(e).__name__, e))
             with ThreadPoolExecutor(max_workers=jobs) as pool:

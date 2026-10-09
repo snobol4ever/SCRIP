@@ -32,6 +32,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/prolog}"
 RUNG=""
@@ -76,9 +77,9 @@ run_prog() {
     local mode="$1" pl="$2" tmo="$3" sw
     sw="$(declared_switches_beside "$pl" 2>"$ERRF")" || return 2
     case "$mode" in
-        interp)  timeout "$tmo" "$SCRIP" --run $sw "$pl" < /dev/null 2>"$ERRF" ;;
-        run)     timeout "$tmo" "$SCRIP" --run $sw "$pl" < /dev/null 2>"$ERRF" ;;
-        compile) timeout "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>"$ERRF" ;;
+        interp)  "$TIMEOUT_RETRY" "$tmo" "$SCRIP" --run $sw "$pl" < /dev/null 2>"$ERRF" ;;
+        run)     "$TIMEOUT_RETRY" "$tmo" "$SCRIP" --run $sw "$pl" < /dev/null 2>"$ERRF" ;;
+        compile) "$TIMEOUT_RETRY" "$tmo" bash "$HERE/run_prolog_via_x86_backend.sh" "$pl" < /dev/null 2>"$ERRF" ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
     esac
 }

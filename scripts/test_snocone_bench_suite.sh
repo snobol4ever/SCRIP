@@ -64,10 +64,10 @@ stdin_of() { local b="${1%.sc}" d fam; [ -f "$b.input" ] && { echo "$b.input"; r
   [ -f "$d/$fam.input" ] && { echo "$d/$fam.input"; return; }; echo /dev/null; }
 # run_one <mode> <program.sc> <stdin> <tag> <prefix...> -> stdout in $W/o, stderr in $W/e, rc in RC; m4 compiles and links first
 run_one() { local mode="$1" prog="$2" in="$3" tag="$4"; shift 4
-  if [ "$mode" = m3 ]; then "$@" timeout "$TMO" "$SCRIP" "${SW[@]}" "$prog" <"$in" >"$W/o" 2>"$W/e"; RC=$?; return; fi
+  if [ "$mode" = m3 ]; then "$@" timeout "$TMO" "$SCRIP" "${SW[@]}" "$prog" <"$in" >"$W/o" 2>"$W/e"; RC=$?; return; fi  # timeout-retry: exempt -- a timed run: the rusage prefix wraps this timeout, so the tool's own process would enter the measurement
   if ! "$SCRIP" --compile -o "$W/$tag.s" "$prog" </dev/null >"$W/c.err" 2>&1 || ! gcc -no-pie -o "$W/$tag.x" "$W/$tag.s" -L"$RT" -Wl,-rpath,"$RT" -lscrip_rt -lm >>"$W/c.err" 2>&1; then
     : >"$W/o"; cp "$W/c.err" "$W/e"; RC=97; return; fi
-  "$@" timeout "$TMO" "$W/$tag.x" "${SW[@]}" <"$in" >"$W/o" 2>"$W/e"; RC=$?; }
+  "$@" timeout "$TMO" "$W/$tag.x" "${SW[@]}" <"$in" >"$W/o" 2>"$W/e"; RC=$?; }  # timeout-retry: exempt -- a timed run: the rusage prefix wraps this timeout, so the tool's own process would enter the measurement
 echo "=== SNOCONE BENCHMARK SUITE: ${#POP[@]} programs x 2 modes x 3 angles, graded against each REF (SCRIP $(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null)$(git -C "$ROOT" diff --quiet 2>/dev/null || echo -DIRTY), corpus $(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)$(git -C "$S4E/corpus" diff --quiet 2>/dev/null || echo -DIRTY), RT_OPT from the Makefile, iter n=${NITER:-marker check}, time budget ${BUD} ms) ==="
 PASS=0; P3=0; P4=0; REFLESS=0; UNWRAP=0; HEAPD=0; NOTES=""; SCOUT=""; PREFUSED=0
 sev() { case "$1" in PASS) echo 0;; FAIL) echo 1;; UNPROVEN) echo 2;; CRASH) echo 3;; HANG) echo 4;; esac; }

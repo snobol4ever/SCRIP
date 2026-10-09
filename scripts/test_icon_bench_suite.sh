@@ -71,7 +71,7 @@ stdin_of() { local b="${1%.icn}" x; for x in in stdin dat; do [ -f "$b.$x" ] && 
 refx() { local i; : >"$2"; for ((i = 0; i < $3; i++)); do cat "$1" >>"$2"; done; }
 # go <cmd...> -- one run from the kernel's directory under bench_rusage (timeout INSIDE it, so a timeout reports exit=124 instead of
 # orphaning the child), the engine's environment prefix in ENVP; stdout in $W/o, stderr in $W/e; RC, ITERS and WORK read back.
-go() { ( cd "$KD" && env "${ENVP[@]}" "$RUSAGE" timeout "$TMO" "$@" <"$IN" >"$W/o" 2>"$W/e" ); RC=$?
+go() { ( cd "$KD" && env "${ENVP[@]}" "$RUSAGE" timeout "$TMO" "$@" <"$IN" >"$W/o" 2>"$W/e" ); RC=$?  # timeout-retry: exempt -- a timed run: the rusage prefix wraps this timeout, so the tool's own process would enter the measurement
   ITERS="$(sed -n 's/^BENCH iters=\([0-9]*\) .*/\1/p' "$W/e" | tail -1)"; WORK="$(sed -n 's/^BENCH .*work_ms=\([0-9-]*\).*/\1/p' "$W/e" | tail -1)"; }
 sev() { case "$1" in PASS) echo 0;; FAIL) echo 1;; UNPROVEN) echo 2;; CRASH) echo 3;; HANG) echo 4;; esac; }
 worst() { if [ "$(sev "$2")" -gt "$(sev "$1")" ]; then echo "$2"; else echo "$1"; fi; }

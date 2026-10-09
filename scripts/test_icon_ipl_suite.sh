@@ -85,6 +85,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 set -uo pipefail
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 SCRIP="${SCRIP:-$HERE/../scrip}"
 PKG="$S4E/corpus/packages/icon/ipl"
 TIMEOUT="${IPL_SUITE_TIMEOUT:-30}"
@@ -211,7 +212,7 @@ for f in "${FILES[@]}"; do
 
     decl_ask "$(basename "$(dirname "$f")")/$base"
     _ca="$(declared_compile_args_from_table "$CA_TBL" "$(basename "$(dirname "$f")")/$base")" || exit 2
-    timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$f" -o "$out" < /dev/null > "$log" 2>&1
+    "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --compile $_ca "$f" -o "$out" < /dev/null > "$log" 2>&1
     rc=$?
 
     if [ "$rc" -eq 124 ]; then

@@ -18,6 +18,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 # (refuses otherwise) -- not re-checked here, this script only grades what the container already holds.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; SD="$HERE/.."; ROOT="$(cd "$SD/.." && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 . "$HERE/lib_inventory.sh" 2>/dev/null || { echo "⛔ REFUSE(rc=2): lib_inventory.sh unloadable"; exit 2; }
 SUITE="${AISNOBOL_SUITE:-$ROOT/corpus/packages/snobol4/aisnobol}"
 SCRIP="$SD/scrip"; RT_DIR="$SD/out"
@@ -94,7 +95,7 @@ for _f in "$_ow"/*.sno; do
     inventory_is_container "$SUITE" "$_n.sno" && continue   # not a program (CONTAINERS.tsv, CEO-1272): neither inside nor outside the baseline
     _in=/dev/null; for _e in IN in input; do [ -f "$_ow/$_n.$_e" ] && _in="$_ow/$_n.$_e"; done
     _av=""; [ -f "$_ow/$_n.argv" ] && _av="$(cat "$_ow/$_n.argv")"
-    _o="$(cd "$_ow" && timeout 20s "$_SBL" $_SBLF "$_n.sno" $_av < "$_in" 2>&1)"; _rc=$?
+    _o="$(cd "$_ow" && "$TIMEOUT_RETRY" 20s "$_SBL" $_SBLF "$_n.sno" $_av < "$_in" 2>&1)"; _rc=$?
     _why=""
     case "$_o" in *"No END statement found"*) _why="sbl -bf answers: No END statement found in source file(s)";; esac
     if [ -z "$_why" ]; then _e1="$(printf '%s' "$_o" | grep -oiE 'ERROR +[0-9]+[^)]*' | head -1 | cut -c1-90)"; [ -n "$_e1" ] && _why="$_e1"; fi

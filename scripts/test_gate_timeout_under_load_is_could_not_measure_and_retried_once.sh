@@ -13,7 +13,7 @@
 #   ARM 4  a program that never answers, under load: retried once, HANG, and the detail says it timed out twice
 #   ARM 5  the progress note of a retried verdict carries retried=1 and load1=<first>/<second> (the row's stamp)
 # THE PACKAGE RUNNERS' HALF -- util_timeout_retry.sh, timeout's own argv for a runner's graded run (lib_progress.sh's $TIMEOUT_RETRY):
-#   ARM 6  load over the cores, stdin a pipe, 2>&1: the first timeout is retried, the retry answers from the SAME stdin, only the
+#   ARM 6  load over the cores, stdin a file, 2>&1: the first timeout is retried, the retry answers from the SAME stdin, only the
 #          standing attempt's bytes come out in the program's own interleaving, rc 0, and a stamp line names the key and the mode
 #   ARM 7  load under the cores: rc 124 at once, run once, no stamp
 #   ARM 8  FAIL-ONCE, S4E_TIMEOUT_RETRY=0: plain timeout -- rc 124, run once, the first attempt's partial output stands
@@ -22,6 +22,16 @@
 #   ARM 10 test_pascal_fpc_suite.sh over a scratch suite (a program that never finishes, FPC_SUITE_RUN_TIMEOUT=1): under planted
 #          load its m3 and m4 rows read FAIL timeout-at-1s carrying retried=1 ... timeout-twice; under a cool load the same rows
 #          carry no retry -- the runner's graded timeouts go through the tool and its stamps reach the progress table
+#   ARM 11 lib_timeout_retry.run (the Python graders' face, subprocess.run's own signature): under load the retry's result comes
+#          back and a stamp names the key; under a cool load and with S4E_TIMEOUT_RETRY=0 TimeoutExpired is raised after one run
+#   ARM 12 THE CENSUS (audit_bare_timeout_census.py): no runner of the population times a graded run out bare -- every guarded
+#          runner of one_runner_boards.txt, test_demos_suite.sh, lib_ladder.sh and util_logtalk_grade.py; a line that is not a
+#          graded unit says so with `timeout-retry: exempt -- <reason>`
+#   ARM 13 FAIL-ONCE for the census: a planted runner with one bare shell timeout, one bare two-line subprocess.run(timeout=),
+#          one exempt line and one echo reads exactly 2 bare, rc 1
+#   ARM 14 the tool never reads a stdin its command does not: a `while read` loop over three lines that calls the tool (on a
+#          command reading nothing) once per line sees all three lines -- an eager stdin buffer swallowed the roast runner's file
+#          list on 2026-10-09 (its two-file fixture graded one)
 # EXIT: 0 all arms pass · 1 an arm failed · 2 could not measure.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -75,7 +85,8 @@ TR="$HERE/util_timeout_retry.sh"
 [ -x "$TR" ] || { echo "GATE UNPROVEN(2): $TR is missing or not executable"; exit 2; }
 P='read -r x; echo "in=$x"; echo err1 >&2; echo out2; echo run >> runs; if [ -e marker ]; then echo answered; else touch marker; echo partial; sleep 5; fi'
 mkdir -p "$W/t6" "$W/t7" "$W/t8"
-o6="$(cd "$W/t6" && printf 'hello\n' | FANOUT_PROC="$W/hot" S4E_TIMEOUT_STAMP="$W/t6.stamp" S4E_TIMEOUT_KEY=unit6 "$TR" 1 bash -c "$P" 2>&1)"; r6=$?
+printf 'hello\n' > "$W/t6.in"
+o6="$(cd "$W/t6" && FANOUT_PROC="$W/hot" S4E_TIMEOUT_STAMP="$W/t6.stamp" S4E_TIMEOUT_KEY=unit6 "$TR" 1 bash -c "$P" < "$W/t6.in" 2>&1)"; r6=$?
 n6="$(wc -l < "$W/t6/runs" 2>/dev/null)"; st6="$(cat "$W/t6.stamp" 2>/dev/null)"
 if [ "$r6" = 0 ] && [ "$(printf '%s' "$o6" | tr '\n' '|')" = "in=hello|err1|out2|answered" ] && [ "$n6" = 2 ] && [[ "$st6" == unit6$'\t'm4$'\t'"retried=1 load1=999.00/999.00 nproc="* ]]; then
     ck ok "the tool under load: retried once, the retry read the same stdin, only its bytes in their own order, rc 0, stamp '$(printf '%s' "$st6" | tr '\t' ' ')'"
@@ -114,6 +125,41 @@ if [ -x "$ROOT/scrip" ] && "$HERE/util_require_fresh.sh" --gate test_gate_timeou
 else
     echo "GATE UNPROVEN(2): arm 10 grades the fpc runner and needs a current $ROOT/scrip (make first)"; exit 2
 fi
-echo "population: $checks arm(s), $fails failed (mktemp fixtures through corpus_suite_harness.classify, util_timeout_retry.sh, util_progress_append.py and test_pascal_fpc_suite.sh; the load planted through FANOUT_PROC)"
+mkdir -p "$W/t11"
+o11="$(cd "$W/t11" && python3 - "$HERE" "$W" <<'PY11'
+import os, subprocess, sys
+sys.path.insert(0, sys.argv[1]); w = sys.argv[2]
+import lib_timeout_retry as R
+P = "echo run >> runs; if [ -e marker ]; then echo answered; else touch marker; sleep 5; fi"
+def runs(): return sum(1 for _ in open("runs")) if os.path.exists("runs") else 0
+os.environ["FANOUT_PROC"] = w + "/hot"; os.environ["S4E_TIMEOUT_STAMP"] = w + "/t11.stamp"
+r = R.run(["bash", "-c", P], timeout=1, key="unit11", capture_output=True, text=True)
+print("HOT", r.returncode, r.stdout.strip(), runs(), open(w + "/t11.stamp").read().replace("\t", "|").strip())
+for tag, env in (("COOL", {"FANOUT_PROC": w + "/cool"}), ("OFF", {"FANOUT_PROC": w + "/hot", "S4E_TIMEOUT_RETRY": "0"})):
+    os.remove("marker"); os.remove("runs"); os.environ.update(env)
+    try:
+        R.run(["bash", "-c", P], timeout=1, capture_output=True, text=True); print(tag, "returned", runs())
+    except subprocess.TimeoutExpired:
+        print(tag, "raised", runs())
+PY11
+)"
+if printf '%s\n' "$o11" | grep -qx 'HOT 0 answered 2 unit11|m4|retried=1 load1=999.00/999.00 nproc=[0-9]*' && printf '%s\n' "$o11" | grep -qx 'COOL raised 1' && printf '%s\n' "$o11" | grep -qx 'OFF raised 1'; then
+    ck ok "lib_timeout_retry.run: under load the retry's result returns with a stamp naming unit11; cool and disabled raise after one run"
+else ck no "arm 11: $(printf '%s' "$o11" | tr '\n' ' ')"; fi
+c12="$(python3 "$HERE/audit_bare_timeout_census.py" 2>&1)"; r12=$?
+if [ "$r12" = 0 ] && printf '%s' "$c12" | grep -qE 'bare graded timeouts: 0;'; then ck ok "THE CENSUS: $(printf '%s' "$c12" | tail -1)"
+elif [ "$r12" = 2 ]; then echo "GATE UNPROVEN(2): the census could not read its population: $(printf '%s' "$c12" | tail -1)"; exit 2
+else ck no "arm 12: $(printf '%s' "$c12" | grep -E 'BARE|population' | head -4 | tr '\n' ' ')"; fi
+mkdir -p "$W/t13"
+printf '#!/bin/bash\nout=$(timeout "$T" "$SCRIP" --run x.sno < /dev/null)\nok=$("$TIMEOUT_RETRY" "$T" "$SCRIP" --run y.sno)\nfetch=$(timeout 20s git fetch)  # timeout-retry: exempt -- a git fetch\necho "timeout $T seconds"\n' > "$W/t13/runner.sh"
+printf 'import subprocess\nr = subprocess.run(["scrip", "x.pl"], capture_output=True,\n                   timeout=10)\nq = subprocess.run(["ls"])\n' > "$W/t13/grader.py"
+c13="$(python3 "$HERE/audit_bare_timeout_census.py" --files "$W/t13/runner.sh" "$W/t13/grader.py" 2>&1)"; r13=$?
+if [ "$r13" = 1 ] && printf '%s' "$c13" | grep -qE 'bare graded timeouts: 2;' && printf '%s' "$c13" | grep -q 'runner.sh:2' && printf '%s' "$c13" | grep -q 'grader.py:2'; then
+    ck ok "FAIL-ONCE for the census: the planted runner and grader read exactly 2 bare (runner.sh:2, grader.py:2), rc 1"
+else ck no "arm 13: rc=$r13 $(printf '%s' "$c13" | tr '\n' ' ' | cut -c1-200)"; fi
+o14="$(printf 'a\nb\nc\n' | while read -r x; do FANOUT_PROC="$W/hot" "$TR" 5 true; printf 'got-%s ' "$x"; done)"
+if [ "$o14" = "got-a got-b got-c " ]; then ck ok "the tool never reads a stdin its command does not: a while-read loop around it sees all three lines"
+else ck no "arm 14: the loop saw [$o14] -- the tool consumed its caller's stdin"; fi
+echo "population: $checks arm(s), $fails failed (mktemp fixtures through corpus_suite_harness.classify, util_timeout_retry.sh, lib_timeout_retry.py, util_progress_append.py and test_pascal_fpc_suite.sh, the load planted through FANOUT_PROC; the census over the runner population)"
 [ "$fails" = 0 ] && { echo "GATE PASS(0) [timeout_under_load_is_could_not_measure_and_retried_once]: $checks of $checks arms hold"; exit 0; }
 echo "GATE FAIL(1) [timeout_under_load_is_could_not_measure_and_retried_once]: $fails of $checks arms red"; exit 1

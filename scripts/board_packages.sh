@@ -102,7 +102,7 @@ for pkg in "${ALL_PKGS[@]}"; do
   if [ ! -f "$HERE/$runner" ]; then
     UNPROVEN=$((UNPROVEN+1)); DETAIL+=("UNPROVEN $pkg -- mapped runner $runner is missing from scripts/"); continue
   fi
-  _to="$(suite_timeout_for "$pkg")"; out=$(cd "$S4E/SCRIP" && timeout "$_to" bash "scripts/$runner" 2>&1); rc=$?
+  _to="$(suite_timeout_for "$pkg")"; out=$(cd "$S4E/SCRIP" && timeout "$_to" bash "scripts/$runner" 2>&1); rc=$?  # timeout-retry: exempt -- a whole-suite cap per runner, not a graded unit
   # Cosmetic preview only -- the authoritative per-suite numbers already live in each runner's own
   # SCORE.md vendor-cell write, not here; this line just saves a reader one extra terminal round trip.
   line="$(printf '%s\n' "$out" | grep -E '_BOARD |Suite totals:|^mode-4' | tail -1)"

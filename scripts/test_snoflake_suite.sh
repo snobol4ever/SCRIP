@@ -285,8 +285,8 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
         # Identical class to the Arizona runner's cure (SCRIP 3bb0a210c).
         m3)  ln -sf "$2" "$RUN/f.sno"
              local ca; ca="$(declared_compile_args_from_table "$DECL" "$(basename "$2" .sno)")" || exit 2
-             GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" ${SCRIP_LIST_SINK:+SCRIP_SNO_LIST_SINK="$SCRIP_LIST_SINK"} timeout "$TIMEOUT" "$SCRIP" --run $ca f.sno < "$inp" 2>&1)"; RC=$?;;
-        m4)  GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" ${SCRIP_LIST_SINK:+SCRIP_SNO_LIST_SINK="$SCRIP_LIST_SINK"} timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
+             GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" ${SCRIP_LIST_SINK:+SCRIP_SNO_LIST_SINK="$SCRIP_LIST_SINK"} "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $ca f.sno < "$inp" 2>&1)"; RC=$?;;
+        m4)  GOT="$(cd "$RUN" && run_at_declared_table "$DECL" "$(basename "$2" .sno)" -- env SNO_LIB="$GIMPEL" ${SCRIP_LIST_SINK:+SCRIP_SNO_LIST_SINK="$SCRIP_LIST_SINK"} "$TIMEOUT_RETRY" "$TIMEOUT" "$W/prog.bin" < "$inp" 2>&1)"; RC=$?;;
         # ⛔⭐ THE ORACLE IS HANDED A SHORT NAME, NEVER THE ABSOLUTE PATH, AND IT IS A GRADING BUG IF YOU
         # "TIDY" THIS BACK (hq_B 2026-09-04, measured). SPITBOL formats its diagnostic as
         # `<path>(<line>) : ERROR <n> -- <text>`, wraps it at column 119 into the LISTING, and spills only
@@ -315,7 +315,7 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
         # the dump, and appending the whole file would re-furnish the stream the sink just cleaned.
         sbl) ln -sf "$2" "$RUN/f.sno"
              rm -f "${SBL_SINK#-o=}.lst"
-             GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS $SBL_SINK f.sno < "$inp" 2>&1)"; RC=$?
+             GOT="$(cd "$RUN" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SBL" $SBL_FLAGS $SBL_SINK f.sno < "$inp" 2>&1)"; RC=$?
              if grep -qE '&DUMP[[:space:]]*=' "$2" 2>/dev/null; then
                  _lst="${SBL_SINK#-o=}.lst"
                  if [ -s "$_lst" ] && grep -qE '^dump of ' "$_lst"; then
@@ -326,11 +326,12 @@ run_one() { # $1=cmdkind $2=sno -> sets GOT RC ; input from $W/inp if HASINP
                      GOT="${GOT}$(awk '/^dump of /{f=1; for(i=1;i<=nb;i++) print ""; nb=0} !f && /^[[:space:]]*$/{nb++; next} !f{nb=0; next} f' "$_lst")"
                  fi
              fi;;
-        csn) GOT="$(cd "$RUN" && timeout "$TIMEOUT" "$CSN" "$2" < "$inp" 2>&1)"; RC=$?;;
+        csn) GOT="$(cd "$RUN" && "$TIMEOUT_RETRY" "$TIMEOUT" "$CSN" "$2" < "$inp" 2>&1)"; RC=$?;;
     esac; }
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"; TOTAL=$((TOTAL+1))
+    export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     read -r MATCH IC NSTD HASINP OPTS <<< "$(parse_fixture "$sno")"
     mask_arm "$name"
     [ "$OPTS" = 1 ] && OPTS_LIST="$OPTS_LIST $name"

@@ -18,7 +18,7 @@ _PROGRESS_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_progress_append
 # timeout's own argv, and a timeout while the 1-minute load exceeds the cores re-runs the command once -- the reading measured the
 # scheduler. Its stamp lands in S4E_TIMEOUT_STAMP (one file per runner process) and the writer attaches it to the row it names;
 # a runner names the unit it is grading with S4E_TIMEOUT_KEY at the head of its loop.
-TIMEOUT_RETRY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh"
+export TIMEOUT_RETRY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/util_timeout_retry.sh"
 export S4E_TIMEOUT_STAMP="${S4E_TIMEOUT_STAMP:-${TMPDIR:-/tmp}/s4e-timeout-stamp.$$}"
 _progress_run() {
     [ -f "$_PROGRESS_PY" ] || { echo "⛔ PROGRESS APPEND REFUSES(2): writer missing at $_PROGRESS_PY" >&2; return 2; }

@@ -9,7 +9,10 @@
 # USAGE: exactly timeout's -- util_timeout_retry.sh [timeout options] DURATION COMMAND [ARG]... -- so a runner swaps the word
 # `timeout` for "$TIMEOUT_RETRY" (lib_progress.sh) and changes nothing else at the site: behind run_at_declared_table, env, a
 # $(...) capture, `> out 2> err`, `2>&1` and `< in` alike.
-#   * stdin is replayed: a regular file or a pipe is buffered once and fed to both attempts; /dev/null and a terminal are re-opened
+#   * stdin is NEVER read by this tool: the first attempt inherits it untouched (a command that reads no stdin leaves a caller's
+#     `while read ... done < list` loop its input -- an eager buffer swallowed the roast runner's file list, measured 2026-10-09);
+#     the retry re-opens a regular file or a character device (/dev/null) by its path, and a pipe it cannot replay is inherited as
+#     it stands, the stamp saying stdin-not-replayed
 #   * stdout and stderr are buffered and only the attempt that stands is written; when the two are one file (2>&1) they are captured
 #     as one stream, so the interleaving the caller grades is the program's own
 #   * the exit status is the standing attempt's, timeout's own (124 on a timeout, 125-127 and 128+n as timeout returns them)
@@ -37,10 +40,8 @@ dur="$1"; shift
 W="$(mktemp -d "${TMPDIR:-/tmp}/s4e-tretry.XXXXXX")" || exec timeout ${opts[@]+"${opts[@]}"} "$dur" "$@"
 trap 'rm -rf "$W"' EXIT
 fd0="/proc/$$/fd/0"
-if [ -t 0 ]; then IN=""
-elif [ -c "$fd0" ]; then IN="$(readlink -f "$fd0" 2>/dev/null || echo /dev/null)"
-else IN="$W/in"; timeout ${opts[@]+"${opts[@]}"} "$dur" cat > "$IN"
-fi
+REOPEN=""
+if [ ! -t 0 ] && { [ -c "$fd0" ] || [ -f "$fd0" ]; }; then REOPEN="$(readlink -f "$fd0" 2>/dev/null)"; [ -r "$REOPEN" ] || REOPEN=""; fi
 same=0
 [ "$(stat -L -c %d:%i "/proc/$$/fd/1" 2>/dev/null)" = "$(stat -L -c %d:%i "/proc/$$/fd/2" 2>/dev/null)" ] && same=1
 attempt() {
@@ -50,11 +51,13 @@ attempt() {
         if [ "$same" = 1 ]; then timeout ${opts[@]+"${opts[@]}"} "$dur" "$@" < "$IN" > "$W/o" 2>&1; else timeout ${opts[@]+"${opts[@]}"} "$dur" "$@" < "$IN" > "$W/o" 2> "$W/e"; fi
     fi
 }
+IN=""
 load() { python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import lib_fanout as f; print("%.2f %d" % (f.fanout_load1(), f.fanout_cores()))' "$HERE" 2>/dev/null || echo "0.00 1"; }
 attempt "$@"; rc=$?
 if [ "$rc" = 124 ]; then
     read -r l1 n <<<"$(load)"
     if awk -v l="$l1" -v n="$n" 'BEGIN { exit !(l > n) }'; then
+        IN="$REOPEN"; rm -f "$W/o" "$W/e"
         attempt "$@"; rc=$?
         read -r l2 _n <<<"$(load)"
         if [ -n "${S4E_TIMEOUT_STAMP:-}" ]; then
@@ -74,6 +77,7 @@ if [ "$rc" = 124 ]; then
                 for a in "$@"; do case "$a" in -*) ;; */*|*.*) s="$(basename -- "$a")"; key="${key:+$key,}${s%.*}" ;; esac; done
             fi
             tw=""; [ "$rc" = 124 ] && tw=" timeout-twice"
+            [ -n "$REOPEN" ] || [ -t 0 ] || tw="$tw stdin-not-replayed"
             printf '%s\t%s\tretried=1 load1=%s/%s nproc=%s%s\n' "$key" "$role" "$l1" "$l2" "$n" "$tw" >> "$S4E_TIMEOUT_STAMP" 2>/dev/null
         fi
     fi

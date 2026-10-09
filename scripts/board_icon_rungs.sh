@@ -237,7 +237,7 @@ _errf=$(mktemp); trap 'rm -f "$_errf"' EXIT
 # oracle's own words and never masked per line).
 OUTSIDE_TSV="$CORPUS/ALL.outside.tsv"
 _outside_arg=""; [ -f "$OUTSIDE_TSV" ] && _outside_arg="--outside $OUTSIDE_TSV"
-_raw=$(timeout 1800 python3 "$HARNESS" run "$RUNGS_ICN" "$RUNGS_REF" --lang icon --modes m3,m4 $_outside_arg 2>"$_errf" || true)
+_raw=$(timeout 1800 python3 "$HARNESS" run "$RUNGS_ICN" "$RUNGS_REF" --lang icon --modes m3,m4 $_outside_arg 2>"$_errf" || true)  # timeout-retry: exempt -- a whole-suite cap around the harness, which retries per entry itself
 # ⛔ THE OUTSIDE SET IS ECHOED, NEVER SWALLOWED. This board captures the harness into $_raw and prints only
 # what it greps, so without this the entries dropped from the denominator would be INVISIBLE on the very
 # board whose number they changed -- which is precisely the masking the ruling forbids. Printed before the

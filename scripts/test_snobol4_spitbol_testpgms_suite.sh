@@ -113,12 +113,13 @@ TOTAL=0; SCORED=0; UNSCR=0; M3P=0; M3F=0; M4P=0; M4F=0; UNSCR_LINES=""; RED_LINE
 # BOTH is the ceo-372 AND per program: the suite row states both_modes_pass over the baseline, never a per-mode count.
 BOTH=0; OUTSIDE_LIST=""; OUTSIDE_TSV="$SUITE/OUTSIDE_SPITBOL_BASELINE.tsv"; MIRROR_TSV="$SUITE/UNGRADABLE.tsv"
 for p in $progs; do
+    export S4E_TIMEOUT_KEY="$p"   # the unit a retried timeout's stamp names (CEO-1335)
     TOTAL=$((TOTAL+1))
     src="$W/$p.spt"
     okind=sbl; obin="$SBL"; oflags="$FLAGS"; cmpt=""
     # ── the oracle, in the scratch dir, fed the shared stdin file. Status FIRST, bytes never.
     ora="$W/$p.oracle"
-    (cd "$W" && timeout "$T" "$obin" $oflags "$p.spt" < "$(stdin_of "$p")" > "$ora" 2>/dev/null); orc=$?
+    (cd "$W" && "$TIMEOUT_RETRY" "$T" "$obin" $oflags "$p.spt" < "$(stdin_of "$p")" > "$ora" 2>/dev/null); orc=$?
     # ⭐⭐ CEO-1323 (2026-09-27, on Lon's "I want to see TPgm go to 8/8"): A COMPILE REFUSAL IS GRADED, the way CEO-1316 grades a post-mortem.
     # When sbl -bf refuses to compile a program (test2: rc 231, ERROR 214 at line 238, deterministic 30 of 30), SCRIP passes by refusing
     # where SPITBOL x64 refuses: util_spitbol_compile_refusal.py reads the oracle's diagnostics as (line, code) pairs, SCRIP's stderr is
@@ -132,9 +133,9 @@ for p in $progs; do
         if [ "$crc" = 0 ]; then
             SCORED=$((SCORED+1)); CR_GRADED=$((CR_GRADED+1))
             ca="$(declared_compile_args_from_table "$DECL" "$p")" || exit 2
-            m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?
+            m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?
             got3="$(python3 "$HERE/util_render_error_voice.py" spitbol < "$m3.err" | python3 "$HERE/util_spitbol_compile_refusal.py" pairs -)"
-            s4="$W/$p.s"; (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>"$s4.err") </dev/null; r4=$?
+            s4="$W/$p.s"; (cd "$W" && "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>"$s4.err") </dev/null; r4=$?
             got4="$(python3 "$HERE/util_render_error_voice.py" spitbol < "$s4.err" | python3 "$HERE/util_spitbol_compile_refusal.py" pairs -)"
             want="$(printf '%s' "$cr_pairs" | tr '\t\n' ': ' | sed 's/ *$//')"
             _p3=0; _p4=0
@@ -227,15 +228,15 @@ for p in $progs; do
     SCORED=$((SCORED+1))
     # ── mode 3 and mode 4, same scratch cwd, same stdin.
     ca="$(declared_compile_args_from_table "$DECL" "$p")" || exit 2
-    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?
+    m3="$W/$p.m3"; (cd "$W" && run_at_declared_table "$DECL" "$p" -- "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt $ca "$p.spt" < "$(stdin_of "$p")" > "$m3" 2>"$m3.err"); r3=$?
     _p3=0
     if graded_same "$m3"; then M3P=$((M3P+1)); _p3=1; else M3F=$((M3F+1)); RED_LINES="$RED_LINES  RED  $p m3 (rc=$r3, $(why_red "$m3"))
 "; fi
     s4="$W/$p.s"; b4="$W/$p.bin"
-    (cd "$W" && timeout "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>/dev/null) </dev/null
+    (cd "$W" && "$TIMEOUT_RETRY" "$T" "$SCRIP" $cmpt --compile $ca "$p.spt" > "$s4" 2>/dev/null) </dev/null
     m4="$W/$p.m4"; r4=0
     if [ -s "$s4" ] && gcc -no-pie "$s4" -L"$RT_DIR" -lscrip_rt -Wl,-rpath,"$RT_DIR" -o "$b4" 2>/dev/null; then
-        (cd "$W" && run_at_declared_table "$DECL" "$p" -- timeout "$T" "$b4" < "$(stdin_of "$p")" > "$m4" 2>"$m4.err"); r4=$?
+        (cd "$W" && run_at_declared_table "$DECL" "$p" -- "$TIMEOUT_RETRY" "$T" "$b4" < "$(stdin_of "$p")" > "$m4" 2>"$m4.err"); r4=$?
     else
         : > "$m4"; : > "$m4.err"; r4=125
     fi

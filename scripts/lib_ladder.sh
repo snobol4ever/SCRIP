@@ -45,6 +45,7 @@ ladder_main() {
   local S4E HERE ROOT TO ONLY LIST SEL
   S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
   HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
+  export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once
   SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"; T="${TIMEOUT:-20}"
   refuse() { echo "REFUSE (rc=2): $*"; exit 2; }
   [ -n "${LADDER_LANG:-}" ] && [ -n "${LADDER_SUITE:-}" ] && [ -n "${LADDER_EXT:-}" ] \
@@ -152,15 +153,15 @@ PY
     ca=$(printf '%s\n' "$_cl" | sed -n 1p); ra=$(printf '%s\n' "$_cl" | sed -n 2p)
     [ -n "$sw" ] || undeclared="$undeclared $o"
     # shellcheck disable=SC2086
-    r3=$( ( timeout "$T" "$SCRIP" --run $ca $sw "$src" ${ra:+-- $ra} <"$stdin_src" >"$W/$o.m3.out" 2>"$W/$o.m3.err"; echo $? ) 2>/dev/null )
+    r3=$( ( "$TIMEOUT_RETRY" "$T" "$SCRIP" --run $ca $sw "$src" ${ra:+-- $ra} <"$stdin_src" >"$W/$o.m3.out" 2>"$W/$o.m3.err"; echo $? ) 2>/dev/null )
     [ -s "$W/$o.m3.err" ] && [ ! -f "$err_ref" ] && unasserted=$((unasserted+1)) && unasserted_names="$unasserted_names $o"
     if [ "$r3" = "$want" ] && cmp -s "$W/$o.m3.out" "$ref" && { [ ! -f "$err_ref" ] || cmp -s "$W/$o.m3.err" "$err_ref"; }; then v3=PASS; pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else v3="FAIL(rc=$r3)"; fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi
     v4=NOBUILD
     # shellcheck disable=SC2086
-    if (cd "$W" && timeout "$T" "$SCRIP" --compile $ca -o "$o.s" "$src" </dev/null >/dev/null 2>&1) && [ -s "$W/$o.s" ] \
+    if (cd "$W" && "$TIMEOUT_RETRY" "$T" "$SCRIP" --compile $ca -o "$o.s" "$src" </dev/null >/dev/null 2>&1) && [ -s "$W/$o.s" ] \
        && as --64 -o "$W/$o.o" "$W/$o.s" 2>/dev/null && gcc -no-pie -o "$W/$o.bin" "$W/$o.o" "$RT/libscrip_rt.so" -lm -lstdc++ -Wl,-rpath,"$RT" 2>/dev/null; then
       # shellcheck disable=SC2086
-      r4=$( ( timeout "$T" "$W/$o.bin" $sw ${ra:+-- $ra} <"$stdin_src" >"$W/$o.m4.out" 2>"$W/$o.m4.err"; echo $? ) 2>/dev/null )
+      r4=$( ( "$TIMEOUT_RETRY" "$T" "$W/$o.bin" $sw ${ra:+-- $ra} <"$stdin_src" >"$W/$o.m4.out" 2>"$W/$o.m4.err"; echo $? ) 2>/dev/null )
       if [ "$r4" = "$want" ] && cmp -s "$W/$o.m4.out" "$ref" && { [ ! -f "$err_ref" ] || cmp -s "$W/$o.m4.err" "$err_ref"; }; then v4=PASS; else v4="FAIL(rc=$r4)"; fi
     fi
     if [ "$v4" = PASS ]; then pass=$((pass+1)); rp[$r]=$(( ${rp[$r]:-0} + 1 )); else fail=$((fail+1)); rf[$r]=$(( ${rf[$r]:-0} + 1 )); fi

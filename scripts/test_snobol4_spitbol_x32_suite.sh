@@ -100,7 +100,7 @@ compile_m4() {  # compile_m4 <src> <out> [<compile_args>]; on failure echoes "<O
     # is the waiter instead, and `2>/dev/null` on the timeout discards only that inner shell's own
     # diagnostics -- the child's stdout and stderr are redirected to files one level further in and
     # every byte of them survives.  rc still arrives intact (134, 153, 124).
-    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; ulimit -f "$2" 2>/dev/null; "$3" --compile $7 "$4" > "$5" 2> "$6"' _ "$RUN" "$((M4_ASM_MB * 1024))" "$SCRIP" "$sno" "$W/p.s" "$W/p.cerr" "$ca" 2>/dev/null; rc=$?
+    "$TIMEOUT_RETRY" "$TIMEOUT" bash -c 'cd "$1" || exit 2; ulimit -f "$2" 2>/dev/null; "$3" --compile $7 "$4" > "$5" 2> "$6"' _ "$RUN" "$((M4_ASM_MB * 1024))" "$SCRIP" "$sno" "$W/p.s" "$W/p.cerr" "$ca" 2>/dev/null; rc=$?
     sz="$(wc -c < "$W/p.s" 2>/dev/null || echo 0)"
     if [ "$rc" = 153 ]; then printf 'DEFERRED\tWE chose not to measure: mode-4 asm exceeded the declared %s MB budget (SIGXFSZ at %s bytes); raise SPITBOL_X32_M4_ASM_MB to grade it\n' "$M4_ASM_MB" "$sz"; return 1; fi
     if [ "$rc" = 124 ]; then printf 'DEFERRED\tWE chose not to measure: mode-4 compile hit the declared %ss timeout (asm at %s bytes); raise TIMEOUT to grade it\n' "$TIMEOUT" "$sz"; return 1; fi
@@ -112,10 +112,11 @@ compile_m4() {  # compile_m4 <src> <out> [<compile_args>]; on failure echoes "<O
 }
 for sno in "$SUITE"/*.spt; do
     name="$(basename "$sno" .spt)"; base="$(basename "$sno")"
+    export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     # ⛔ THE ORACLE FIRST, AND IT DECIDES BOTH WHETHER AND HOW.  Whether: a program our mandated -bf arm
     # cannot get an answer for is UNGRADED (work owed, declared in UNGRADED.tsv).  How: whether its own
     # run carried verdict lines picks the instrument.  Nothing here is read off a name.
-    timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" $3 "$4" < /dev/null > "$5" 2> "$6"' _ "$RUN" "$SBL" "$SBL_FLAGS" "$base" "$W/o.out" "$W/o.err" 2>/dev/null; rcO=$?
+    "$TIMEOUT_RETRY" "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" $3 "$4" < /dev/null > "$5" 2> "$6"' _ "$RUN" "$SBL" "$SBL_FLAGS" "$base" "$W/o.out" "$W/o.err" 2>/dev/null; rcO=$?
     if grep -q 'No END statement found' "$W/o.out" "$W/o.err" 2>/dev/null; then
         UNGRADED_N=$((UNGRADED_N+1)); UNG_LIST="${UNG_LIST}${base}\tORACLE_FAIL\tsbl -bf rc=$rcO \"No END statement found in source file(s).\"\n"
         prog_row "$name" m3 UNGRADED "the oracle gives no answer under sbl -bf: No END statement found"
@@ -142,7 +143,7 @@ for sno in "$SUITE"/*.spt; do
     fi
     # --- mode 3
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
-    run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run $6 "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" "$ca" 2>/dev/null; rc3=$?
+    run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" --run $6 "$3" < /dev/null > "$4" 2> "$5"' _ "$RUN" "$SCRIP" "$base" "$W/m3.out" "$W/m3.err" "$ca" 2>/dev/null; rc3=$?
     if [ "$rc3" -eq 124 ] || [ "$rc3" -ge 128 ]; then OUT3="$(verdict_of "$rc3")"; N3="rc=$rc3: $(head -1 "$W/m3.err" | cut -c1-90)"
     elif [ "$ARM" = self ]; then
         sp="$(pass_lines "$W/m3.out")"; sf="$(fail_lines "$W/m3.out")"
@@ -154,7 +155,7 @@ for sno in "$SUITE"/*.spt; do
     if [ "$isx" = 1 ]; then :; elif [ "$OUT3" = PASS ]; then P3=$((P3+1)); else F3=$((F3+1)); FL3="$FL3 $name($OUT3)"; fi
     # --- mode 4
     m4why=""; if m4why="$(compile_m4 "$base" "$W/prog.bin" "$ca")"; then
-        run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
+        run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$TIMEOUT" bash -c 'cd "$1" || exit 2; "$2" < /dev/null > "$3" 2> "$4"' _ "$RUN" "$W/prog.bin" "$W/m4.out" "$W/m4.err" 2>/dev/null; rc4=$?
         if [ "$rc4" -eq 124 ] || [ "$rc4" -ge 128 ]; then OUT4="$(verdict_of "$rc4")"; N4="rc=$rc4: $(head -1 "$W/m4.err" | cut -c1-90)"
         elif [ "$ARM" = self ]; then
             sp="$(pass_lines "$W/m4.out")"; sf="$(fail_lines "$W/m4.out")"

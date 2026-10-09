@@ -34,6 +34,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 set -uo pipefail
 GATE_NAME=test_prolog_logtalk_suite
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 ROOT="${S4E_HOME:-$(cd "$HERE/../.." && pwd)}"
 SUITE="${S4E_CORPUS:-$ROOT/corpus}/packages/prolog/logtalk_iso"
 SCRIP="$HERE/../scrip"
@@ -81,7 +82,7 @@ _pf="$(mktemp -d "${TMPDIR:-/tmp}/lgt_preflight.XXXXXX")"
   echo "'\$p' :- lgt_h(lgt_set_text_output('')), write(ok), lgt_h(lgt_text_output_assertion(ok, A)), A."
   echo ":- ( catch('\$p', E, (write(user_output, '@PRE ball '), writeq(user_output, E))) -> write(user_output, '@PRE ok') ; write(user_output, '@PRE fail') ), nl(user_output)."
 } > "$_pf/preflight.pl"
-_pfout="$(cd "$_pf" && timeout 30 "$SCRIP" "$_pf/preflight.pl" </dev/null 2>&1)"; _pfrc=$?
+_pfout="$(cd "$_pf" && "$TIMEOUT_RETRY" 30 "$SCRIP" "$_pf/preflight.pl" </dev/null 2>&1)"; _pfrc=$?
 rm -rf "$_pf"
 case "$_pfout" in
     *"@PRE ok"*) echo "HARNESS PREFLIGHT ok: lib_logtalk_lgtunit.pl compiles and round-trips a captured write under this binary" ;;

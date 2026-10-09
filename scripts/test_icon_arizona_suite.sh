@@ -294,9 +294,9 @@ for std in "$SUITE"/*.ref; do
   # already applies the ONE error voice itself (same renderer, called from inside it) -- proven byte-stable
   # against the oracle over 8 m3 + 8 m4 runs before landing (see the script's own header).
   if [ "$sub/$name" = "special/keyboard" ]; then
-    m3out=$(cd "$SUITE" && timeout $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$SUITE" "$TIMEOUT" -- "$SCRIP" --run $_ca $_sw "$name.icn"); m3rc=$?
+    m3out=$(cd "$SUITE" && "$TIMEOUT_RETRY" $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$SUITE" "$TIMEOUT" -- "$SCRIP" --run $_ca $_sw "$name.icn"); m3rc=$?
   else
-    m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
+    m3out=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} ${_fp[@]+"${_fp[@]}"} "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$name.icn" < "$stdin_file" 2>&1); m3rc=$?
     # ⛔⭐ ONE ERROR VOICE (CEO-625): SCRIP's error shape is rendered through the Icon equivalence list before the compare.
     m3out=$(printf '%s\n' "$m3out" | python3 "$HERE/util_render_error_voice.py" icon)
   fi
@@ -332,15 +332,15 @@ for std in "$SUITE"/*.ref; do
   # tracked corpus content, and the snapshot sweep would NOT remove it (it is not new) -- so the damage would
   # be silent and permanent. No arizona name collides today; this is the guard for the day one does.
   if [ -e "$bin4" ]; then echo "REFUSE(2): $sub/$name -- cannot pin the m4 binary to $bin4, a shipped file already owns that name" >&2; rm -f "$s4"; exit 2; fi
-  m4diag=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
+  m4diag=$(cd "$SUITE" && ${_ipath[@]+"${_ipath[@]}"} "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --compile $_ca "$name.icn" 2>&1 >"$s4" </dev/null)
   m4out=""
   if [ -s "$s4" ] && [ -f "$RT_SO" ]; then
     if gcc -no-pie "$s4" -L"$HERE/../out" -lscrip_rt -Wl,-rpath,"$HERE/../out" -o "$bin4" 2>/dev/null; then
       if [ "$sub/$name" = "special/keyboard" ]; then
         # ⛔⭐ PTY-GRADED, see the m3 arm above for the reasoning -- the compiled binary, not the stdin path.
-        m4out=$(cd "$SUITE" && timeout $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$SUITE" "$TIMEOUT" -- "$bin4" $_sw); m4rc=$?
+        m4out=$(cd "$SUITE" && "$TIMEOUT_RETRY" $((TIMEOUT+5)) python3 "$HERE/icn_keyboard_pty_drive.py" "$SUITE" "$TIMEOUT" -- "$bin4" $_sw); m4rc=$?
       else
-        m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} timeout "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
+        m4out=$(cd "$SUITE" && PATH="$SUITE:$PATH" ${_fp[@]+"${_fp[@]}"} "$TIMEOUT_RETRY" "$TIMEOUT" "$name" $_sw < "$stdin_file" 2>&1); m4rc=$?
         m4out=$(printf '%s\n' "$m4out" | python3 "$HERE/util_render_error_voice.py" icon)
       fi
     fi
@@ -386,7 +386,7 @@ if [ -f "$PRE_TSV" ]; then
       [ -f "$_pd/$_pa" ] || { echo "⛔ REFUSED TO GRADE rc=2: $_pp's contract argv names $_psub/$_pa, which is not shipped" >&2; exit 2; }
       [ -f "$_pd/${_pa%.icn}.ref" ] && { echo "⛔ REFUSED TO GRADE rc=2: $_psub/$_pa has its own .ref AND a preprocess contract -- two grading vehicles for one program" >&2; exit 2; }
     done
-    ( cd "$_pd" && timeout "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$RUNDIR/pp.out" 2> "$RUNDIR/pp.err" ); _pgot=$?
+    ( cd "$_pd" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$RUNDIR/pp.out" 2> "$RUNDIR/pp.err" ); _pgot=$?
     if cat "$RUNDIR/pp.err" "$RUNDIR/pp.out" | cmp -s - "$_pref" && [ "$_pgot" = "$_prc" ]; then _pv=PASS
     elif [ "$_pgot" = 124 ]; then _pv=HANG
     elif [ "$_pgot" -ge 128 ]; then _pv=CRASH
@@ -478,7 +478,7 @@ while IFS=$'\t' read -r _on _oc _orest; do
                 _odat="$PKG/$_osub/$_ob.dat"; _ostdin="/dev/null"; [ -f "$_odat" ] && _ostdin="$_odat"
                 decl_ask "$_osub/$_ob"
                 _oca="$(declared_compile_args_from_table "$CA_TBL" "$_osub/$_ob")" || exit 2
-                _oout=$(cd "$PKG/$_osub" && timeout "$TIMEOUT" "$SCRIP" --run $_oca "$_ob.icn" < "$_ostdin" 2>&1)
+                _oout=$(cd "$PKG/$_osub" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $_oca "$_ob.icn" < "$_ostdin" 2>&1)
                 OUT_RECHECKED=$((OUT_RECHECKED+1))
                 [ "$_oout" = "$(cat "$PKG/$_osub/$_ob.ref")" ] && OUT_STALE="$OUT_STALE $_on(m3 matches .ref NOW)"
             else OUT_UNCHECKED="$OUT_UNCHECKED $_on(no .ref)"; fi ;;

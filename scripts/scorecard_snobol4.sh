@@ -29,6 +29,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 S4A="${S4E_ASSETS:-$([ -d "$S4E/x64" ] && echo "$S4E" || echo /home/resources)}"   # D-17b: ASSET root -- oracles/vendor trees live at the HQ root on this machine (Lon: seats carry ONLY .github/SCRIP/corpus); a root owning its own x64 (HQ, or a full standalone clone-set) is self-contained.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 SC="$(cd "$HERE/.." && pwd)"
 CORPUS="${CORPUS:-$S4E/corpus}"
 SBL="${SBL:-$S4A/x64/bin/sbl}"
@@ -193,7 +194,7 @@ sc_oracle_run() {  # $1 = program  $2 = RESOLVED lib path  $3 = stdin file  $4 =
   local prog="$1" lib="$2" in="$3" out="$4" d ocwd rc
   d="$(dirname "$prog")"; ocwd="$d"; [ "$lib" = "$CORPUS" ] && ocwd="$CORPUS"
   local oa; oa="$(declared_oracle_args_beside "$prog")" || { echo 2; return; }
-  (cd "$ocwd" && SETL4PATH=".:$lib" timeout 60 "$SBL" $(sbl_flags) $oa "$prog" < "$in" > "$out" 2>/dev/null); rc=$?
+  (cd "$ocwd" && SETL4PATH=".:$lib" "$TIMEOUT_RETRY" 60 "$SBL" $(sbl_flags) $oa "$prog" < "$in" > "$out" 2>/dev/null); rc=$?
   echo "$rc"
 }
 # The WEIGHTS table has a RAGGED tail (find-args are variable-length, with lib/rto/norm as the last three), so parsing a row is a
@@ -302,6 +303,7 @@ sc_mask() {  # $1 = ALL.mask, $2 = entry name, $3 = oracle|scrip, $4 = file mask
 }
 run_one() {  # suite lib prog norm run_to
   local suite="$1" lib="$2" prog="$3" norm="$4" rto="$5"
+  export S4E_TIMEOUT_KEY="$prog"   # the unit a retried timeout's stamp names (CEO-1335)
   local d n in ref_pin ref_live have_pin=0 have_live=0 W st3 st4 t0 t3 t4 rc out note=""
   # ⛔ SUITE-FILE GUARD (row probe-suite-grading-path, 2026-08-27). A corpus-suites-consolidation suite .sno file
   # (format A one-liners or format B banner-blocks) is a CONTAINER of independently-complete programs, never one
@@ -364,15 +366,15 @@ run_one() {  # suite lib prog norm run_to
   }
   # ---- m3
   t0=$SECONDS
-  (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" timeout "$rto" "$SCRIP" $cflag --run $ca "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
+  (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" "$TIMEOUT_RETRY" "$rto" "$SCRIP" $cflag --run $ca "$prog" < "$in" > "$W/m3" 2>"$W/m3e"); rc=$?
   if [ ! -s "$W/m3" ] && [ $rc -ne 0 ] && grep -q 'emit_chain.*FAILED\|unresolved forward\|bb_emit_end\|[Pp]arse error\|syntax error\|COMPILE' "$W/m3e" 2>/dev/null; then st3=COMPILE_FAIL; else st3="$(grade "$W/m3" $rc)"; fi
   t3=$((SECONDS-t0))
   # ---- m4
   t0=$SECONDS
-  if ! (cd "$d" && SNO_LIB="$lib" timeout 60 "$SCRIP" $cflag --compile $ca "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
+  if ! (cd "$d" && SNO_LIB="$lib" "$TIMEOUT_RETRY" 60 "$SCRIP" $cflag --compile $ca "$prog" </dev/null > "$W/p.s" 2>/dev/null) || [ ! -s "$W/p.s" ]; then st4=COMPILE_FAIL
   elif ! gcc -no-pie "$W/p.s" -L"$SC/out" -lscrip_rt -lm -Wl,-rpath,"$SC/out" -o "$W/p.bin" 2>/dev/null; then st4=ASM_FAIL
   else
-    (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" timeout "$rto" "$W/p.bin" < "$in" > "$W/m4" 2>/dev/null); rc=$?
+    (cd "$d" && run_at_declared_table "$SC_DECL" "$prog" -- env SNO_LIB="$lib" "$TIMEOUT_RETRY" "$rto" "$W/p.bin" < "$in" > "$W/m4" 2>/dev/null); rc=$?
     st4="$(grade "$W/m4" $rc)"
   fi
   t4=$((SECONDS-t0))

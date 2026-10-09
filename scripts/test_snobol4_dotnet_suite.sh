@@ -143,6 +143,7 @@ mask_dot() { # $1=text $2=name $3=side -> the text masked per ALL.mask (the harn
 for sno in "$SUITE"/*.sno; do
     [ -e "$sno" ] || { echo "⛔ REFUSE(rc=2): zero fixtures in $SUITE"; exit 2; }
     name="$(basename "$sno" .sno)"
+    export S4E_TIMEOUT_KEY="$name"   # the unit a retried timeout's stamp names (CEO-1335)
     # ⛔ A CONTAINER IS NOT A PROGRAM (ceo CEO-1272): chap7.sno carries two top-level ENDs, a chapter of example programs in one
     # file, and CONTAINERS.tsv names it MULTI_PROGRAM with that measurement -- it is neither graded nor outside the baseline.
     inventory_is_container "$SUITE" "$name.sno" && continue
@@ -163,7 +164,7 @@ for sno in "$SUITE"/*.sno; do
         UNSCR=$((UNSCR+1)); FLU="$FLU $name(multi-program-file:$ends-END-statements)"; prog_unscr "$name" "unscored: multi-program file, $ends END statements"; continue
     fi
     inp="$(stdin_of "$sno")"
-    gotS="$(cd "$RUN" && timeout "$TIMEOUT" "$SBL" $SBL_FLAGS "$sno" < "$inp" 2>/dev/null)"; rcS=$?
+    gotS="$(cd "$RUN" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SBL" $SBL_FLAGS "$sno" < "$inp" 2>/dev/null)"; rcS=$?
     if [ "$rcS" -ge 128 ]; then
         UNSCR=$((UNSCR+1)); FLU="$FLU $name(oracle-crashed:sig$((rcS-128)))"; prog_unscr "$name" "unscored: oracle crashed sig$((rcS-128))"; continue
     fi
@@ -179,7 +180,7 @@ for sno in "$SUITE"/*.sno; do
     # are per-entry rows); a row that matches nothing changes nothing, so a program without one is compared byte for byte as before
     gotS="$(mask_dot "$gotS" "$name" oracle)"
     ca="$(declared_compile_args_from_table "$DECL" "$name")" || exit 2
-    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>"$W/err3")"; rc3=$?
+    got3="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- env SNO_LIB="$SUITE" "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp" 2>"$W/err3")"; rc3=$?
     if [ "$DIED" = 1 ]; then got3="$(mask_dot "$(fatal_render "$got3" "$W/err3")" "$name" scrip)"; else got3="$(mask_dot "$got3" "$name" scrip)"; fi
     [ -n "${DOTNET_DEBUG_DIR:-}" ] && { printf '%s' "$gotS" > "$DOTNET_DEBUG_DIR/$name.oracle"; printf '%s' "$got3" > "$DOTNET_DEBUG_DIR/$name.m3"; cp "$W/err3" "$DOTNET_DEBUG_DIR/$name.err3" 2>/dev/null; }   # what this runner compared, on request (a red a reader cannot see is a red nobody can cure)
     if [ "$got3" = "$gotS" ]; then P3=$((P3+1)); OUT3=PASS; else F3=$((F3+1)); FL3="$FL3 $name"; OUT3="$(verdict_of "$rc3")"; fi
@@ -189,7 +190,7 @@ for sno in "$SUITE"/*.sno; do
     # progress row and the AND line say HANG, which is what happened.
     [ "$rc3" -eq 124 ] && OUT3=HANG
     rc4=""; if compile_m4 "$sno" "$W/prog.bin" "$ca"; then
-        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- timeout "$TIMEOUT" "$W/prog.bin" < "$inp" 2>"$W/err4")"; rc4=$?
+        got4="$(cd "$RUN" && run_at_declared_table "$DECL" "$name" -- "$TIMEOUT_RETRY" "$TIMEOUT" "$W/prog.bin" < "$inp" 2>"$W/err4")"; rc4=$?
         if [ "$DIED" = 1 ]; then got4="$(mask_dot "$(fatal_render "$got4" "$W/err4")" "$name" scrip)"; else got4="$(mask_dot "$got4" "$name" scrip)"; fi
         if [ "$got4" = "$gotS" ]; then P4=$((P4+1)); OUT4=PASS; else F4=$((F4+1)); FL4="$FL4 $name"; OUT4="$(verdict_of "$rc4")"; fi
         [ "$rc4" -eq 124 ] && OUT4=HANG

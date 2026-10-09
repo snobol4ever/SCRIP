@@ -387,8 +387,9 @@ def binary_moved_since_start():
 def _attach_timeout_stamps(rows):
     """CEO-1335: util_timeout_retry.sh appends one line per retried timeout to $S4E_TIMEOUT_STAMP -- key TAB m3|m4|oracle TAB
     retried=1 load1=<first>/<second> nproc=<n> [timeout-twice]. Each stamp joins the note of the row it names (the key is the
-    program, its basename, or a comma list of argv stems; m3 to m3, m4 to m4, an oracle's to every mode), the file is consumed,
-    and a stamp no row matches is said aloud on stderr, never dropped silently."""
+    program, a prefix of it before ':' or '#' -- SWI's rows are <file>:<unit>:<case>, Logtalk's <group>:<name>#<n> -- or a file stem
+    equal to the program's, from S4E_TIMEOUT_KEY or the argv; m3 to m3, m4 to m4, an oracle's to every mode), the file is
+    consumed, and a stamp no row matches is said aloud on stderr, never dropped silently."""
     p = os.environ.get("S4E_TIMEOUT_STAMP", "")
     if not p or not os.path.isfile(p):
         return
@@ -398,6 +399,9 @@ def _attach_timeout_stamps(rows):
         os.unlink(p)
     except OSError:
         return
+    def stem(x):
+        b = x.rsplit("/", 1)[-1]
+        return b.rsplit(".", 1)[0] if "." in b else b
     for s in stamps:
         if len(s) < 3:
             continue
@@ -405,8 +409,7 @@ def _attach_timeout_stamps(rows):
         hit = False
         for r in rows:
             prog = r["program"]
-            base = prog.rsplit("/", 1)[-1]
-            if not any(k == prog or k.rsplit("/", 1)[-1] == base or k == base + "_driver" for k in keys):
+            if not any(k == prog or prog.startswith(k + ":") or prog.startswith(k + "#") or stem(k) in (stem(prog), stem(prog) + "_driver") for k in keys):
                 continue
             if s[1] != "oracle" and r["mode"] != s[1]:
                 continue

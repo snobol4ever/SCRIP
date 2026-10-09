@@ -10,6 +10,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME: the sibling root (all repos + oracles are siblings under ONE root; /home/claude2-style seat roots work with zero env; S4E_HOME overrides)
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 # ⛔⭐ RECORD THE TREE THIS RUN GRADES, AT ITS START (hq_T 2026-09-08). A board takes ten to forty minutes and its
 # SCORE.md write happens at the END; a seat who commits and pushes mid-run -- which the CEO-174 dirty-tree guard
 # actively pushes you toward, since a dirty tree skips the write entirely -- moves HEAD under a measurement that
@@ -240,9 +241,9 @@ run_test() {
     local rc3=0
     local m3ok=0   # ⭐ the m3 half of this program's AND -- a TIMEOUT or a FAIL both leave it 0, because neither is green
     if [ -n "$inp_arg" ]; then
-        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
+        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $ca "$sno" < "$inp_arg" 2>/dev/null); rc3=$?
     else
-        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$SCRIP" --run $ca "$sno" < /dev/null 2>/dev/null); rc3=$?
+        got3=$(env SNO_LIB="$INC" "${heap_env[@]}" "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $ca "$sno" < /dev/null 2>/dev/null); rc3=$?
     fi
     [ -n "$filter" ] && got3=$(printf '%s\n' "$got3" | grep -v "$filter" || true)
     T_M3=$((T_M3+SECONDS-T0m3))
@@ -259,9 +260,9 @@ run_test() {
     local got4
     local rc4=0
     if [ -n "$inp_arg" ]; then
-        got4=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$bin" < "$inp_arg" 2>/dev/null); rc4=$?
+        got4=$(env SNO_LIB="$INC" "${heap_env[@]}" "$TIMEOUT_RETRY" "$TIMEOUT" "$bin" < "$inp_arg" 2>/dev/null); rc4=$?
     else
-        got4=$(env SNO_LIB="$INC" "${heap_env[@]}" timeout "$TIMEOUT" "$bin" < /dev/null 2>/dev/null); rc4=$?
+        got4=$(env SNO_LIB="$INC" "${heap_env[@]}" "$TIMEOUT_RETRY" "$TIMEOUT" "$bin" < /dev/null 2>/dev/null); rc4=$?
     fi
     [ -n "$filter" ] && got4=$(printf '%s\n' "$got4" | grep -v "$filter" || true)
     T_M4=$((T_M4+SECONDS-T0m4))
@@ -648,7 +649,7 @@ if [ "$MISSING" -gt 0 ]; then
     # failed fetch we print both possibilities and recommend NOTHING. An instrument that cannot measure refuses.
     _stale=0; _gone=0; _undet=0
     if [ -d "$CORPUS/.git" ] && git -C "$CORPUS" rev-parse --verify -q origin/main >/dev/null 2>&1; then
-        timeout 20s git -C "$CORPUS" fetch -q origin 2>/dev/null || true
+        timeout 20s git -C "$CORPUS" fetch -q origin 2>/dev/null || true  # timeout-retry: exempt -- a git fetch, not a graded unit
         for _p in $(printf "$MISSING_LIST" | grep -oE "$CORPUS/[^ ]+" | sort -u); do
             _rel="${_p#$CORPUS/}"
             if git -C "$CORPUS" cat-file -e "origin/main:$_rel" 2>/dev/null; then _stale=$((_stale+1)); else _gone=$((_gone+1)); fi

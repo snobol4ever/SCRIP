@@ -85,7 +85,9 @@ cat > "$WORK/grade_one.sh" <<'GEOF'
 #!/usr/bin/env bash
 f="$1"; mode="$2"
 . "$LIB_DECL" || exit 2
+TIMEOUT_RETRY="${TIMEOUT_RETRY:-$(dirname "$LIB_DECL")/util_timeout_retry.sh}"   # the runner exports it; a lifted grade_one finds it beside LIB_DECL (CEO-1335)
 rel="${f#"$SWIT"/}"; ref="${f%.pl}.ref"; od="$WORK/out/${rel%.pl}"; mkdir -p "$od"
+export S4E_TIMEOUT_KEY="$rel"   # the unit a retried timeout's stamp names (CEO-1335)
 act="$od/$mode.actual"; : > "$act"
 if [ ! -f "$ref" ]; then echo "NOREF" > "$od/$mode.tsv"; exit 0; fi
 # ⛔ THE RUN'S EXIT STATUS TRAVELS WITH ITS OUTPUT (the coo 2026-09-27, ceo CEO-1309): the matcher saw the output alone, so a run killed
@@ -94,17 +96,17 @@ if [ ! -f "$ref" ]; then echo "NOREF" > "$od/$mode.tsv"; exit 0; fi
 # program that never compiled has no run, and keeps rc 0 and its FAIL.
 rc=0
 if [ "$mode" = "m4" ]; then
-    if timeout 60 "$SCRIP" --compile "$PLUNIT" "$f" "$WORK/wrap.pl" > "$od/m4.s" 2>"$od/m4.err" && [ -s "$od/m4.s" ] \
+    if "$TIMEOUT_RETRY" 60 "$SCRIP" --compile "$PLUNIT" "$f" "$WORK/wrap.pl" > "$od/m4.s" 2>"$od/m4.err" && [ -s "$od/m4.s" ] \
        && gcc -no-pie "$od/m4.s" -L"$RT" -lscrip_rt -lm -Wl,-rpath,"$RT" -o "$od/m4.bin" 2>>"$od/m4.err"; then
         # ⛔ UNBUFFERED, AS THE HARNESS RUNS EVERY MODE-4 BINARY (stdbuf -o0 -e0; the coo 2026-10-04, on hq_prolog's measurement): a mode-4
         # binary block-buffers stdout to the pipe, so a file killed at the timeout lost EVERY case it had printed and read HANG throughout,
         # while mode 3 writes as it goes and kept them -- core/test_acyclic read 41 m3-PASS and 0 m4-PASS for one hang in both modes, a
         # per-mode split made by the flush, not the program (measured: a print-then-loop witness keeps its two lines under stdbuf, none bare).
-        run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 ${STDBUF:+$STDBUF -o0 -e0} "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"; rc=$?
+        run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- "$TIMEOUT_RETRY" 60 ${STDBUF:+$STDBUF -o0 -e0} "$od/m4.bin" < /dev/null > "$act" 2>"$od/m4.run.err"; rc=$?
     fi
     rm -f "$od/m4.s" "$od/m4.bin"
 else
-    run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- timeout 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"; rc=$?
+    run_at_declared_arena "$SWIT/ALL.csv" "${rel%.pl}" -- "$TIMEOUT_RETRY" 60 "$SCRIP" --run "$PLUNIT" "$f" "$WORK/wrap.pl" < /dev/null > "$act" 2>"$od/m3.err"; rc=$?
 fi
 python3 "$MATCH_PY" "$f" "$ref" "$act" "$rc" > "$od/$mode.tsv"
 GEOF

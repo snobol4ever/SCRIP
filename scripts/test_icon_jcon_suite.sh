@@ -261,7 +261,7 @@ run_one() {
             # a .icn name (io, kwds, recent, traceback, cxtrace, loadfunc, tracing, tpp). All nine gradable ones
             # were run both ways on a scratch corpus: kwds FAIL -> PASS, every other verdict byte-identical.
             # The mods stay absolute on purpose -- they are not argv[0] and nothing echoes them.
-            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} timeout "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+            ( cd "$rundir" && ${_ipath3[@]+"${_ipath3[@]}"} "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --run $_ca $_sw "$(basename "$icn")" ${mods[@]+"${mods[@]}"} ${extra_args[@]+"${extra_args[@]}"} < "$IN" > "$outfile" 2>&1 )
             rc=$?
             ;;
         m4)
@@ -281,7 +281,7 @@ run_one() {
             # all. Measured across every .ref in the package: io is the ONLY program that lists its directory.
             local s="$WORK/$name.s" o="$WORK/$name.o" bin="$rundir/$name"
             # the shipped library first on the link search for a driver run only, as in the arizona runner (coo 2026-09-25)
-            if ! ${_ipath4[@]+"${_ipath4[@]}"} timeout "$TIMEOUT" "$SCRIP" --compile --target=x86 $_ca "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
+            if ! ${_ipath4[@]+"${_ipath4[@]}"} "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" --compile --target=x86 $_ca "$icn" ${mods[@]+"${mods[@]}"} < /dev/null > "$s" 2>"$errf"; then
                 : > "$outfile"; rc=1
             elif grep -q 'icon: parse error' "$errf"; then
                 : > "$outfile"; rc=1
@@ -292,7 +292,7 @@ run_one() {
             else
                 # ⭐ BARE RELATIVE NAME, matching run_m4 in corpus_suite_harness.py exactly: a mode-4
                 # binary's argv IS the program's argv, so what we type here is what &progname answers.
-                ( cd "$rundir" && PATH="$rundir:$PATH" timeout "$TIMEOUT" "$name" ${_sw4[@]+"${_sw4[@]}"} ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
+                ( cd "$rundir" && PATH="$rundir:$PATH" "$TIMEOUT_RETRY" "$TIMEOUT" "$name" ${_sw4[@]+"${_sw4[@]}"} ${prog_args[@]+"${prog_args[@]}"} < "$IN" > "$outfile" 2>&1 )
                 rc=$?
             fi
             ;;
@@ -383,7 +383,7 @@ run_mode() {
         local _pp _pargv _prc _prest _pgot _pa
         while IFS=$'\t' read -r _pp _pargv _prc _prest; do
             case "$_pp" in ''|'#'*) continue ;; esac
-            ( cd "$CORPUS/$(dirname "$_pp")" && timeout "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$WORK/pp.out" 2> "$WORK/pp.err" ); _pgot=$?
+            ( cd "$CORPUS/$(dirname "$_pp")" && "$TIMEOUT_RETRY" "$TIMEOUT" "$SCRIP" -E $_pargv < /dev/null > "$WORK/pp.out" 2> "$WORK/pp.err" ); _pgot=$?
             if cat "$WORK/pp.err" "$WORK/pp.out" | cmp -s - "$CORPUS/$(dirname "$_pp")/$(basename "$_pp" .icn).E.ref" && [ "$_pgot" = "$_prc" ]; then kind=PASS
             elif [ "$_pgot" = 124 ]; then kind=HANG; elif [ "$_pgot" -ge 128 ]; then kind=CRASH; else kind=FAIL; fi
             for _pa in $_pargv; do
@@ -538,7 +538,7 @@ while IFS="$(printf '\t')" read -r _on _oc _or; do
         ORACLE_REFUSES)
             if _ic="$(icont_bin 2>/dev/null)" && [ -x "$_ic" ]; then
                 cp "$CORPUS/$_on.icn" "$_ORWORK/" 2>/dev/null || true
-                _oout="$(cd "$_ORWORK" && timeout 120 "$_ic" -s -c "$_on.icn" 2>&1)"; _orc=$?
+                _oout="$(cd "$_ORWORK" && "$TIMEOUT_RETRY" 120 "$_ic" -s -c "$_on.icn" 2>&1)"; _orc=$?
                 OUT_RECHECKED=$((OUT_RECHECKED+1))
                 [ "$_orc" = 0 ] && OUT_STALE="$OUT_STALE $_on(icont -s -c now rc=0)"
             else OUT_UNCHECKED="$OUT_UNCHECKED $_on(no icont)"; fi ;;

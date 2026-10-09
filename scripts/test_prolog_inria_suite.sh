@@ -39,13 +39,14 @@ refuse() { echo "⛔ REFUSED(2) [$GATE_NAME]: $*" >&2; exit 2; }
 . "$HERE/lib_declared_arena.sh" || refuse "lib_declared_arena.sh unloadable -- the one reader of a declared heap and stack"
 _inria_decl="$(mktemp "${TMPDIR:-/tmp}/inria_decl.XXXXXX")"
 declared_memory_begin "$SUITE/ALL.csv" "$_inria_decl" || { rm -f "$_inria_decl"; refuse "a declared-memory cell in $SUITE/ALL.csv is refused (named above) -- fix the cell; this board does not grade around it"; }
-export INRIA_SUITE="$SUITE" INRIA_SCRIP="$SCRIP" INRIA_DECL="$_inria_decl"
+export INRIA_SUITE="$SUITE" INRIA_SCRIP="$SCRIP" INRIA_DECL="$_inria_decl" INRIA_HERE="$HERE"
 # ⛔ THE HEREDOC DELIMITER IS QUOTED and every value crosses by ENVIRONMENT, never by interpolation. This repo has
 # measured the alternative three times in one day: an unquoted heredoc hands the shell the whole program and every
 # backtick in it runs as a command. The trap lives in the medium, not in the language you think you are writing.
 _inria_out="$(mktemp "${TMPDIR:-/tmp}/inria_board.XXXXXX")"
 python3 - <<'PY' | tee "$_inria_out"
 import os, re, subprocess, tempfile, sys
+sys.path.insert(0, os.environ["INRIA_HERE"]); import lib_timeout_retry as _ltr   # a graded run's timeout under load is retried once (CEO-1335)
 suite = os.environ["INRIA_SUITE"]; scrip = os.environ["INRIA_SCRIP"]
 def expected_class(exp):
     e = exp.strip()
@@ -302,16 +303,16 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
             f.write(":- catch( ( %s -> write('@OK') ; write('@NO') ), E, ( write('@ER('), write(E), write(')') ) ), nl.\n" % goal)
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, "--run"] + decl_sw(_tidx, fam) + [prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = _ltr.run(key="%s#%d" % (fam, _tidx), argv=[scrip, "--run"] + decl_sw(_tidx, fam) + [prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
             else:
                 s = os.path.join(tmp, "t.s"); b = os.path.join(tmp, "t.bin")
-                c = subprocess.run([scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                c = _ltr.run(key="%s#%d" % (fam, _tidx), argv=[scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
                 if c.returncode != 0: res[mode][1] += 1; named.append("%s:%s:m4:NOBUILD" % (fam, goal[:28])); continue
-                g = subprocess.run(["gcc", "-m64", "-no-pie", s, "-o", b, "-L", os.path.join(os.path.dirname(scrip), "out"),
+                g = _ltr.run(["gcc", "-m64", "-no-pie", s, "-o", b, "-L", os.path.join(os.path.dirname(scrip), "out"),
                                     "-lscrip_rt", "-Wl,-rpath," + os.path.join(os.path.dirname(scrip), "out"), "-lm"],
                                    capture_output=True, text=True, timeout=60, cwd=tmp)
                 if g.returncode != 0: res[mode][1] += 1; named.append("%s:%s:m4:NOLINK" % (fam, goal[:28])); continue
-                r = subprocess.run([b] + decl_sw(_tidx, fam), capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = _ltr.run(key="%s#%d" % (fam, _tidx), argv=[b] + decl_sw(_tidx, fam), capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
         except subprocess.TimeoutExpired:
             res[mode][2] += 1; named.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
         if want == "impl_defined":
@@ -500,16 +501,16 @@ for _tidx, (fam, goal, exp) in enumerate(tests):
         bok[(_tidx, mode)] = False
         try:
             if mode == "m3":
-                r = subprocess.run([scrip, "--run"] + decl_sw(_tidx, fam) + [prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = _ltr.run(key="%s#%d" % (fam, _tidx), argv=[scrip, "--run"] + decl_sw(_tidx, fam) + [prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
             else:
                 s = os.path.join(tmp, "t.s"); b = os.path.join(tmp, "t.bin")
-                c = subprocess.run([scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                c = _ltr.run(key="%s#%d" % (fam, _tidx), argv=[scrip, "--compile", "-o", s, prog], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
                 if c.returncode != 0: bres[mode][1] += 1; bnamed.append("%s:%s:m4:NOBUILD" % (fam, goal[:28])); continue
-                g = subprocess.run(["gcc", "-m64", "-no-pie", s, "-o", b, "-L", os.path.join(os.path.dirname(scrip), "out"),
+                g = _ltr.run(["gcc", "-m64", "-no-pie", s, "-o", b, "-L", os.path.join(os.path.dirname(scrip), "out"),
                                     "-lscrip_rt", "-Wl,-rpath," + os.path.join(os.path.dirname(scrip), "out"), "-lm"],
                                    capture_output=True, text=True, timeout=60, cwd=tmp)
                 if g.returncode != 0: bres[mode][1] += 1; bnamed.append("%s:%s:m4:NOLINK" % (fam, goal[:28])); continue
-                r = subprocess.run([b] + decl_sw(_tidx, fam), capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
+                r = _ltr.run(key="%s#%d" % (fam, _tidx), argv=[b] + decl_sw(_tidx, fam), capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL, cwd=tmp)
         except subprocess.TimeoutExpired:
             bres[mode][1] += 1; bnamed.append("%s:%s:%s:TIMEOUT" % (fam, goal[:28], mode)); continue
         o = r.stdout

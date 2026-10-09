@@ -54,6 +54,7 @@ printf '%-40s %-6s %-6s %s\n' program m3 m4 note
 for r in "${PROGS[@]}"; do
     if [ -f "$CONT" ] && awk -F'\t' -v n="$r" '$1 == n { f = 1 } END { exit !f }' "$CONT"; then CONTN=$((CONTN+1)); continue; fi
     TOTAL=$((TOTAL+1)); f="$DD/$r"; stem="${f%.*}"; ref="$stem.ref"; d="$(dirname "$f")"; b="$(basename "$f")"
+    export S4E_TIMEOUT_KEY="demos/$L/$r"   # the unit a retried timeout's stamp names (CEO-1335)
     if [ -s "$stem.workhorse" ]; then declared_workhorse_beside "$f" > /dev/null || refuse "$r: its .workhorse sidecar is refused (the reader said why above)"; WH=$((WH+1)); fi
     if [ ! -s "$ref" ]; then
         for m in m3 m4; do printf 'benchmark\t%s-demos\t%s\tdemos/%s/%s\t%s\tFAIL\t0\tno-ref\n' "$L" "$L" "$L" "$r" "$m" >> "$PROG_ROWS"; done
@@ -83,13 +84,13 @@ for r in "${PROGS[@]}"; do
         CH=$((CH+1))
     fi
     # shellcheck disable=SC2086
-    ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" timeout "$TMO" "$SCRIP" $sw --run $ca "$b" ${args[@]+-- "${args[@]}"} < "$in" > "$W/.m3" 2> "$W/.m3e" ); r3=$?
+    ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" "$TIMEOUT_RETRY" "$TMO" "$SCRIP" $sw --run $ca "$b" ${args[@]+-- "${args[@]}"} < "$in" > "$W/.m3" 2> "$W/.m3e" ); r3=$?
     v3="$(verdict "$r3" "$W/.m3" "$ref")"
     # shellcheck disable=SC2086
-    if ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" timeout "$TMO" "$SCRIP" --compile $ca "$b" < /dev/null > "$W/.p.s" 2> "$W/.p.cc" ) && [ -s "$W/.p.s" ] \
+    if ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" "$TIMEOUT_RETRY" "$TMO" "$SCRIP" --compile $ca "$b" < /dev/null > "$W/.p.s" 2> "$W/.p.cc" ) && [ -s "$W/.p.s" ] \
        && cc -m64 -no-pie "$W/.p.s" -o "$W/.p4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >> "$W/.p.cc" 2>&1; then
         # shellcheck disable=SC2086
-        ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" timeout "$TMO" "$W/.p4" $sw ${args[@]+"${args[@]}"} < "$in" > "$W/.m4" 2> "$W/.m4e" ); r4=$?
+        ( cd "$W" && SNO_LIB="$W:$S4E/corpus/include" "$TIMEOUT_RETRY" "$TMO" "$W/.p4" $sw ${args[@]+"${args[@]}"} < "$in" > "$W/.m4" 2> "$W/.m4e" ); r4=$?
         v4="$(verdict "$r4" "$W/.m4" "$ref")"
     else v4=FAIL; r4=125; fi
     note=""; [ "$v3" = PASS ] || note="m3 rc=$r3$(head -c 90 "$W/.m3e" 2>/dev/null | tr '\n' ' ' | sed 's/^/ /')"

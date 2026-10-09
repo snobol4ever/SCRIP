@@ -94,7 +94,7 @@ declared_memory_begin "$PKG/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a 
 
 # gprolog_out FILE: the oracle's stdout for a consulted file, its banner and its own compile diagnostics stripped -- ONE filter,
 # used by the driver arm and the ref cut alike (the non-driven arm below keeps its historical copy until no file needs it).
-gprolog_out() { cd "$TMP" && timeout "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$1" --query-goal halt < /dev/null 2>/dev/null \
+gprolog_out() { cd "$TMP" && "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$1" --query-goal halt < /dev/null 2>/dev/null \
     | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$'; }
 # ⭐ GNU_SUITE_CUT_REFS=1 CUTS EVERY DRIVER'S REF FROM gprolog AND GRADES NOTHING (no row, no progress append): NAME_driver.ref is
 # the oracle's answer as recorded evidence, cut by the same filter the board compares through; a driver gprolog answers with
@@ -155,6 +155,7 @@ echo "=== GNU Prolog vendored suite ($TOTAL files, $PKG) ==="
 for f in "${FILES[@]}"; do
     base="$(basename "$f" .pl)"
     rel="${f#"$PKG"/}"
+    export S4E_TIMEOUT_KEY="$rel"   # the unit a retried timeout's stamp names (CEO-1335)
     out="$TMP/${base}.s"
     probe_log="$TMP/${base}.probe"
 
@@ -176,11 +177,11 @@ for f in "${FILES[@]}"; do
         dout="$TMP/${base}.drv.s"; dbin="$TMP/${base}.drv.bin"
         # ⛔ A DRIVER RUNS IN THE SCRATCH DIRECTORY, never in the tree under test: dec10io's tell(user) made a FILE named user in the cwd
         # (a SCRIP defect the driver exposed) and a dirty SCRIP skips every row this pass writes.
-        timeout "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
-        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$drv" < /dev/null 2>/dev/null)
+        "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
+        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$drv" < /dev/null 2>/dev/null)
         m4_out=""
         if [ "$drc" -eq 0 ] && gcc -no-pie "$dout" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$dbin" 2>/dev/null; then
-            m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$dbin" < /dev/null 2>/dev/null)
+            m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$dbin" < /dev/null 2>/dev/null)
         fi
         gp_out=$(gprolog_out "$drv")
         dref="${f%.pl}_driver.ref"
@@ -218,7 +219,7 @@ for f in "${FILES[@]}"; do
         continue
     fi
 
-    timeout "$CLASSIFY_TIMEOUT" "$SCRIP" --compile "$f" -o "$out" < /dev/null > "$probe_log" 2>&1
+    "$TIMEOUT_RETRY" "$CLASSIFY_TIMEOUT" "$SCRIP" --compile "$f" -o "$out" < /dev/null > "$probe_log" 2>&1
     rc=$?
 
     if [ "$rc" -eq 124 ]; then
@@ -230,11 +231,11 @@ for f in "${FILES[@]}"; do
     if [ "$rc" -eq 0 ]; then
         OK_TOTAL=$((OK_TOTAL+1))
         # -- triangulate: SCRIP m3, SCRIP m4 (link+run the .s this classify pass already produced), gprolog --
-        m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
+        m3_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$f" < /dev/null 2>/dev/null)
         bin="$TMP/${base}.bin"
         m4_out=""
         if gcc -no-pie "$out" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$bin" 2>/dev/null; then
-            m4_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- timeout "$RUN_TIMEOUT" "$bin" < /dev/null 2>/dev/null)
+            m4_out=$(run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$bin" < /dev/null 2>/dev/null)
         fi
         # ⛔⭐ --init-goal RUNS *BEFORE* --consult-file, SO THE FILE'S OWN `:- initialization(...)`
         # DIRECTIVE NEVER FIRES (verified by hand: --init-goal halt produces silent empty output on a
@@ -244,7 +245,7 @@ for f in "${FILES[@]}"; do
         # test_bench_prolog_modes.sh: --query-goal (runs AFTER consult, so the file's own
         # initialization has already executed) + an explicit banner-strip, reused verbatim rather than
         # re-derived, since it is already battle-tested.
-        gp_raw=$(timeout "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$f" --query-goal halt < /dev/null 2>/dev/null)
+        gp_raw=$("$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$f" --query-goal halt < /dev/null 2>/dev/null)
         # ⛔⭐ THE OLD `^error:`/`^warning:` ANCHORS NEVER MATCHED A REAL GPROLOG LINE (row
         # prolog-gnu-suite-ciaolib-use-module-warning): gprolog's own compile-time diagnostics are
         # prefixed `<path>:<line>[-<line>]: warning: ...` / `<path>:<line>[-<line>]: fatal error: ...`

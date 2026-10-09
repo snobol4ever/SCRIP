@@ -28,14 +28,14 @@ run_suite(){ local s="$1" out="$2" r=""
                     # SCORED AS A FAILURE (0%) at weight 15 instead of reported as UNPROVEN, understating Icon META by
                     # ~13 points (69.0 vs the honest 82.0). lib_gate.sh's own law applies here even though this suite
                     # doesn't source it: zero-examined is indistinguishable from all-clean, so it is refused, not passed.
-                    raw="$( { [ -d "$ORACLE_BIN" ] && export PATH="$ORACLE_BIN:$PATH"; cd "$SD" && SCRIPDIR="$SD" timeout 900 bash scripts/honest_icon_correctness.sh; } 2>/dev/null )"; rc=$?
+                    raw="$( { [ -d "$ORACLE_BIN" ] && export PATH="$ORACLE_BIN:$PATH"; cd "$SD" && SCRIPDIR="$SD" timeout 900 bash scripts/honest_icon_correctness.sh; } 2>/dev/null )"; rc=$?  # timeout-retry: exempt -- a whole-script cap, not a graded unit
                     read -r pc tc <<< "$(printf '%s\n' "$raw" | awk -F'|' '/^[a-z0-9_]+ *\|/{t++; if ($0 ~ /IDENTICAL/) p++} END{print p+0, t+0}')"
                     if [ "$rc" -eq 124 ]; then r="UNPROVEN timeout(900s)_examined=${tc:-0}"
                     elif [ "${tc:-0}" -eq 0 ]; then r="UNPROVEN examined=0_rc=$rc"
                     else r="$pc $tc"; fi;;
-    smoke)          r="$(cd "$SD" && timeout 600 bash scripts/test_smoke_icon.sh 2>/dev/null | sed -n 's/.*PASS=\([0-9]*\) FAIL=\([0-9]*\) *\/ *\([0-9]*\).*/\1 \3/p' | awk '{p+=$1; t+=$2} END{print p+0, t+0}')";;
-    crosscheck)     r="$(cd "$SD" && timeout 600 bash scripts/test_crosscheck_icon.sh 2>/dev/null | sed -n 's/.*PASS=\([0-9]*\) FAIL=\([0-9]*\).*/\1 \2/p' | tail -1 | awk '{print $1, $1+$2}')";;
-    gates)          local p=0 t=0 g; for g in no_stack one_reg_frame semicolon_required rbp_census_ratchet zk5_gva zcells_gva local_no_nv global_no_nv_m3 scan var; do t=$((t+1)); (cd "$SD" && timeout 240 bash "scripts/test_gate_icn_$g.sh" >/dev/null 2>&1) && p=$((p+1)); done; r="$p $t";;
+    smoke)          r="$(cd "$SD" && timeout 600 bash scripts/test_smoke_icon.sh 2>/dev/null | sed -n 's/.*PASS=\([0-9]*\) FAIL=\([0-9]*\) *\/ *\([0-9]*\).*/\1 \3/p' | awk '{p+=$1; t+=$2} END{print p+0, t+0}')";;  # timeout-retry: exempt -- a whole-script cap, not a graded unit
+    crosscheck)     r="$(cd "$SD" && timeout 600 bash scripts/test_crosscheck_icon.sh 2>/dev/null | sed -n 's/.*PASS=\([0-9]*\) FAIL=\([0-9]*\).*/\1 \2/p' | tail -1 | awk '{print $1, $1+$2}')";;  # timeout-retry: exempt -- a whole-script cap, not a graded unit
+    gates)          local p=0 t=0 g; for g in no_stack one_reg_frame semicolon_required rbp_census_ratchet zk5_gva zcells_gva local_no_nv global_no_nv_m3 scan var; do t=$((t+1)); (cd "$SD" && timeout 240 bash "scripts/test_gate_icn_$g.sh" >/dev/null 2>&1) && p=$((p+1)); done; r="$p $t";;  # timeout-retry: exempt -- a gate's cap, not a graded unit
   esac
   [ -n "$r" ] && echo "$r" > "$out/$s" && echo "  $s: $r" || echo "  $s: NO RESULT (suite errored — file not written)"; }
 cmd="${1:-report}"; shift || true

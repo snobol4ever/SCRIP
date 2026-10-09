@@ -39,6 +39,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 ROOT="$(cd "$HERE/.." && pwd)"
 . "$HERE/lib_icn_rundir.sh" || { echo "⛔ REFUSES rc=2: cannot load lib_icn_rundir.sh" >&2; exit 2; }
 SCRIP="${SCRIP:-$ROOT/scrip}"
@@ -111,18 +112,18 @@ run_prog() {
     name=$(basename "$icn" .icn)
     local IN; IN="$(icn_rundir_stdin "$icn")"
     case "$mode" in
-        interp)  (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run ${RP_SW[@]+"${RP_SW[@]}"} "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
-        run)     (cd "$RP_TDIR" && timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run ${RP_SW[@]+"${RP_SW[@]}"} "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
+        interp)  (cd "$RP_TDIR" && "$TIMEOUT_RETRY" "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run ${RP_SW[@]+"${RP_SW[@]}"} "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
+        run)     (cd "$RP_TDIR" && "$TIMEOUT_RETRY" "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$SCRIP" --run ${RP_SW[@]+"${RP_SW[@]}"} "$icn" -- ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>"$errf" ;;
         compile)
             s="$WORK/$name.s"; o="$WORK/$name.o"; mkdir -p "$WORK/bin"; bin="$WORK/bin/$name"
-            if ! timeout "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
+            if ! "$TIMEOUT_RETRY" "$tmo" "$SCRIP" --compile --target=x86 "$icn" < /dev/null > "$s" 2>"$errf"; then
                 return 1   # emit failed; a loud [SMX] banner in errf still wins (REFUSED) in run_corpus
             fi
             # a loud [SMX] refuse prints to stderr and emits no usable .s — surface the banner, no asm step
             if grep -qE "$SMX_SIG" "$errf"; then return 0; fi
             if ! as "$s" -o "$o" 2>>"$errf"; then return 1; fi
             if ! gcc -no-pie "$o" -L"$OUTDIR" -lscrip_rt -Wl,-rpath,"$OUTDIR" -lm -o "$bin" 2>>"$errf"; then return 1; fi
-            (cd "$RP_TDIR" && PATH="$WORK/bin:$PATH" timeout "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$name" ${RP_SW[@]+"${RP_SW[@]}"} ${RP_SW[@]+--} ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>>"$errf"
+            (cd "$RP_TDIR" && PATH="$WORK/bin:$PATH" "$TIMEOUT_RETRY" "$tmo" env ${RP_ENV[@]+"${RP_ENV[@]}"} "$name" ${RP_SW[@]+"${RP_SW[@]}"} ${RP_SW[@]+--} ${RP_ARGV[@]+"${RP_ARGV[@]}"}) < "$IN" 2>>"$errf"
             ;;
         *) echo "bad mode $mode" >&2; exit 1 ;;
     esac

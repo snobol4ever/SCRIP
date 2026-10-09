@@ -55,8 +55,8 @@ now() { date +%s.%N; }
 run_kernel() {
   local m="$1" k="$2" in="$3" out="$4" w="${5:-}"
   # the kernel's declared heap and stack ride its command line as -d/-s switches in both modes (its .heap/.stack sidecars; CEO-1281)
-  if [ "$m" = m3 ]; then ( cd "$TMP" && timeout 300s $w "$SCRIP" --run "${DECL_SW[@]}" "$B/$k.pas" <"$in" >"$out" 2>"$out.err" )
-  else ( cd "$TMP" && timeout 300s $w "$TMP/$k.m4" "${DECL_SW[@]}" <"$in" >"$out" 2>"$out.err" ); fi
+  if [ "$m" = m3 ]; then ( cd "$TMP" && "$TIMEOUT_RETRY" 300s $w "$SCRIP" --run "${DECL_SW[@]}" "$B/$k.pas" <"$in" >"$out" 2>"$out.err" )
+  else ( cd "$TMP" && "$TIMEOUT_RETRY" 300s $w "$TMP/$k.m4" "${DECL_SW[@]}" <"$in" >"$out" 2>"$out.err" ); fi
 }
 # same_as_ref <out-file> <kernel> -- byte-for-byte after the shell's own trailing-newline trim, the rule every Pascal board uses.
 same_as_ref() { [ "$(cat "$1")" = "$(cat "$B/$2.ref")" ]; }
@@ -73,7 +73,7 @@ for k in "${KERNELS[@]}"; do
   in="$B/$k.in"; [ -f "$in" ] || in=/dev/null
   DECL_SW=(); dw=$(declared_switches_beside "$B/$k.pas") || refuse "$k: a .heap or .stack sidecar the reader refuses (it said why above)"; [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"
   knob=0; if [ "$in" != /dev/null ] && [ "$(grep -c . "$in")" = 1 ] && grep -qE '^[[:space:]]*[0-9]+[[:space:]]*$' "$in"; then knob=1; fi
-  m4ok=1; ( cd "$TMP" && timeout 300s "$SCRIP" --compile -o "$TMP/$k.s" "$B/$k.pas" </dev/null >"$TMP/$k.cc.err" 2>&1 ) \
+  m4ok=1; ( cd "$TMP" && "$TIMEOUT_RETRY" 300s "$SCRIP" --compile -o "$TMP/$k.s" "$B/$k.pas" </dev/null >"$TMP/$k.cc.err" 2>&1 ) \
     && ( cd "$TMP" && cc -m64 -no-pie "$k.s" -o "$k.m4" -L"$RT_DIR" -lscrip_rt -lm -Wl,-rpath,"$RT_DIR" >>"$TMP/$k.cc.err" 2>&1 ) || m4ok=0
   for m in m3 m4; do
     a1=FAIL; a2=FAIL; a3=FAIL; why=""

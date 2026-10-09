@@ -233,7 +233,7 @@ fns="$(sed -n '/^compile_mode4() {/,/^}/p; /^run_test() {/,/^}/p' "$HERE/test_co
 if printf '%s' "$fns" | grep -q '^run_test() {' && printf '%s' "$fns" | grep -q '^compile_mode4() {'; then
     d1="$(cd "$ROOT" && env "${typed[@]}" bash -c '
         . "$1/lib_declared_arena.sh" || exit 2; eval "$2"
-        SCRIP="$3/scrip"; RT_DIR="$3/out"; INC="$4"; TIMEOUT=30; WORKDIR="$(mktemp -d)"; HERE="$1"
+        SCRIP="$3/scrip"; RT_DIR="$3/out"; INC="$4"; TIMEOUT=30; WORKDIR="$(mktemp -d)"; HERE="$1"; TIMEOUT_RETRY="$1/util_timeout_retry.sh"
         PASS3=0 FAIL3=0 PASS4=0 FAIL4=0 BOTH=0 SKIP4=0 TMOUT3=0 TMOUT4=0 MISSING=0 T_M3=0 T_M4=0 FAILURES3= FAILURES4= TMOUT_LIST= MISSING_LIST=
         run_test decl "$5/decl.sno" "$5/decl.ref" "" ""; echo "decl $PASS3 $PASS4"
         run_test nodecl "$5/nodecl.sno" "$5/nodecl.ref" "" ""; echo "nodecl $FAIL3 $FAIL4"; rm -rf "$WORKDIR"' _ "$HERE" "$fns" "$ROOT" "$ROOT/../corpus/include" "$W/dm" 2>&1)"; rc=$?

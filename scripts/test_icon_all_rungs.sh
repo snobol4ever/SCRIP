@@ -34,6 +34,7 @@ S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export TIMEOUT_RETRY="${TIMEOUT_RETRY:-$HERE/util_timeout_retry.sh}"   # a graded run's timeout (CEO-1335): a timeout under load is retried once, util_timeout_retry.sh
 . "$HERE/lib_icn_rundir.sh"   # THE ONE AUTHORITY for a witness's stdin/argv/fixtures/env contract -- see that file's header
 SCRIP="${SCRIP:-$HERE/../scrip}"
 CORPUS="${CORPUS:-$S4E/corpus/tests/icon}"
@@ -168,7 +169,7 @@ run_one() {
     # ⛔ `--` separates OUR flags from the PROGRAM's argv; without it a declared argument is read as a
     # second source file (CLAUDE.md § Build and run). ${rd_argv[@]+"${rd_argv[@]}"} is the empty-safe form
     # -- a bare "${rd_argv[@]}" is an unbound-variable error under `set -u` when nothing is declared.
-    got=$( (cd "$tdir" && timeout "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$SCRIP" --run ${rd_sw[@]+"${rd_sw[@]}"} "$tfn" -- ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null) || rc=$?
+    got=$( (cd "$tdir" && "$TIMEOUT_RETRY" "$tmo" env ${rd_env[@]+"${rd_env[@]}"} "$SCRIP" --run ${rd_sw[@]+"${rd_sw[@]}"} "$tfn" -- ${rd_argv[@]+"${rd_argv[@]}"}) < "$stdin_file" 2>/dev/null) || rc=$?
     [ -f "${base}.exitcode" ] && want_rc=$(tr -dc '0-9' < "${base}.exitcode")
     want=$(cat "$exp")
     if [ "$is_xfail" = 1 ]; then
