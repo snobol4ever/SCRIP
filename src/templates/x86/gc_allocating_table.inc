@@ -1,8 +1,8 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2296
-#define GC_ALLOC_TAB_N_VOID 273
-#define GC_ALLOC_TAB_N_DESCR 1146
+#define GC_ALLOC_TAB_N 2301
+#define GC_ALLOC_TAB_N_VOID 277
+#define GC_ALLOC_TAB_N_DESCR 1147
 #define GC_ALLOC_TAB_N_OTHER 861
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
