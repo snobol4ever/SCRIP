@@ -105,6 +105,7 @@ DESCR_t str_repeat_d(DESCR_t s, DESCR_t n) {
     else { DESCR_t sd = descr_to_str(s); sp = (sd.v == DT_S || sd.v == DT_SNUL) ? VARVAL_fn(sd) : NULL; }
     if (!sp) sp = "";
     long cnt = IS_INT_fn(n) ? (long)n.i : (IS_REAL_fn(n) ? (long)n.r : 0);
+    if (n.v == DT_DATA) { extern int rk_rat_to_int(DESCR_t, long long *); long long q; if (rk_rat_to_int(n, &q)) cnt = (long) q; }
     size_t sl = strlen(sp);
     if (cnt < 1 || sl == 0) { char *e = rt_str_alloc(0); e[0] = '\0'; rt_sxt_note(e, 0); return STRVAL(e); }
     size_t total = sl * (size_t)cnt;
