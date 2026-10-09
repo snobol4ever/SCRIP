@@ -380,7 +380,15 @@ static tree_t *rk_range_ex(RkB *b, tree_t *lo, tree_t *hi) {
     return expr_binary(TT_TO, lo, expr_binary(TT_SUB, hi, rk_ilit(1)));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_capture_like(const tree_t *e) {
+    if (!e) return 0;
+    if (e->t == TT_CAPTURE || e->t == TT_NAMED_CAPTURE) return 1;
+    if (e->t == TT_VAR && e->v.sval && (!strcmp(e->v.sval, "/") || !strcmp(e->v.sval, "__slash"))) return 1;
+    return e->t == TT_FNC && e->v.sval && (!strcmp(e->v.sval, "__rk_cap_named") || !strcmp(e->v.sval, "__rk_cap_pos"));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *nctx(RkB *b, tree_t *e) {
+    if (rk_capture_like(e)) { tree_t *c = make_call("__rk_numify"); expr_add_child(c, e); return c; }
     if (e && e->t == TT_VAR && is_arr(b, e->v.sval)) { tree_t *el = ast_node_new(TT_METHCALL); ast_push(el, e); ast_push(el, leaf_sval(TT_QLIT, "elems")); return el; }
     return e;
 }
@@ -1489,6 +1497,7 @@ tree_t *rkb_elem_incdec(RkB *b, tree_t *g, int add, int post) {
 static tree_t *rkb_prefix_raw(RkB *b, const char *op, tree_t *x) {
     if (!strcmp(op, "-")) return expr_unary(TT_MNS, nctx(b, x));
     if (!strcmp(op, "+")) { tree_t *n = nctx(b, x); if (n == x && x->t != TT_ILIT && x->t != TT_FLIT) n = expr_binary(TT_ADD, x, rk_ilit(0)); return n; }
+    if ((!strcmp(op, "?") || !strcmp(op, "so")) && x && x->t == TT_SMATCH) return rkb_ternary(b, x, mkbool_lit(1), mkbool_lit(0));
     if (!strcmp(op, "?") || !strcmp(op, "so")) { tree_t *m = make_call("__rk_mkbool"); expr_add_child(m, x); return m; }
     if (!strcmp(op, "!") || !strcmp(op, "not")) return expr_unary(TT_NOT, x);
     if (!strcmp(op, "~")) { tree_t *m = make_call("__rk_str"); expr_add_child(m, x); return m; }
@@ -1882,6 +1891,11 @@ void rkb_call(RkB *b, RkTerm *it, int from, int to, int namelen, RkList *args, i
     if (nm[0] != '&' && strchr(nm, ':')) { char *cn = rk_op_name_canon(nm); if (cn != nm && rk_user_canon_known(b, cn)) nm = cn; }
     it->name = nm;
     if (!args || !args->nitem) args = NULL;
+    if (!strcmp(nm, "make") && args && args->nitem == 1) {
+        TL mk = { 0 };
+        arglist(b, args, 0, &mk, NULL);
+        if (mk.n == 1) { tree_t *c = make_call("__rk_make"); expr_add_child(c, leaf_sval(TT_VAR, "/")); expr_add_child(c, mk.v[0]); it->t = c; return; }
+    }
     const char *rt = testop_rt(nm);
     if (rt && (!strcmp(nm, "like") || !strcmp(nm, "unlike")) && !b->use_test) rt = NULL;
     if (!rt && ns_has(&b->codev, nm)) {
@@ -2565,12 +2579,40 @@ static char *rk_op_name_canon(char *nm) {
     return nm;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_slash_param(const TL *params) {
+    for (int i = 0; i < params->n; i++) { tree_t *p = params->v[i]; if (p && p->t == TT_ASSIGN && p->n) p = p->c[0]; if (p && p->t == TT_VAR && p->v.sval && !strcmp(p->v.sval, "/")) return 1; }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *rk_slash_cap(const char *fn, tree_t *key) {
+    tree_t *c = make_call(fn);
+    expr_add_child(c, leaf_sval(TT_VAR, "__slash"));
+    expr_add_child(c, key);
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_slash_rename(tree_t *t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t *c = t->c[i];
+        if (!c) continue;
+        if (c->t == TT_NAMED_CAPTURE && c->n == 1 && c->c[0]) { t->c[i] = rk_slash_cap("__rk_cap_named", c->c[0]); continue; }
+        if (c->t == TT_CAPTURE && c->n == 1 && c->c[0]) { t->c[i] = rk_slash_cap("__rk_cap_pos", c->c[0]); continue; }
+        rk_slash_rename(c);
+    }
+    if (t->t == TT_VAR && t->v.sval && !strcmp(t->v.sval, "/")) t->v.sval = (char *) intern("__slash");
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *rkb_routine(RkB *b, int kind, int multi, const char *name, int namelen, int prefix, tree_t *sig, int has_parens, tree_t *body, RkTrait *tr, int ntr) {
     (void) prefix; (void) has_parens; (void) tr; (void) ntr;
     TL params = { 0 };
     for (int i = 0; sig && i < sig->n; i++) tl_add(&params, sig->c[i]);
     rk_pcv_release(b, sig);
     if (!body) body = ast_node_new(TT_SEQ_EXPR);
+    if (rk_slash_param(&params)) {
+        for (int i = 0; i < params.n; i++) { tree_t *pp = params.v[i]; if (pp && pp->t == TT_ASSIGN && pp->n) pp = pp->c[0]; if (pp && pp->t == TT_VAR && pp->v.sval && !strcmp(pp->v.sval, "/")) pp->v.sval = (char *) intern("__slash"); }
+        rk_slash_rename(body);
+    }
     if (params.n == 0 && !has_parens && rk_reads_var(body, "@_")) { tree_t *ap = var_node(b, "@_"); expr_add_child(ap, leaf_sval(TT_QLIT, intern("*@"))); tl_add(&params, ap); }
     if (!has_parens && (params.n == 0 || (params.n == 1 && params.v[0] && params.v[0]->v.sval && !strcmp(params.v[0]->v.sval, "@_"))) && rk_reads_var(body, "%_")) { tree_t *hp = var_node(b, "%_"); expr_add_child(hp, leaf_sval(TT_QLIT, intern("*%"))); tl_add(&params, hp); }
     tree_t *rkbody = rk_defaults_prologue(&params, body);

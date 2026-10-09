@@ -516,11 +516,30 @@ static RxNode *p_regex_until(P *p, int close) { RxNode *r = p_alt(p); (void) clo
 static int p_ident(P *p, int *st) {
     int s0 = p->i;
     if (!isidstart(peekc(p))) return 0;
-    while (p->i < p->n &&
-        (isw(peekc(p)) || ((peekc(p) == '-' || peekc(p) == '\'') && p->i + 1 < p->n && isidstart((unsigned char) p->s[p->i + 1])) ||
-        (peekc(p) == ':' && p->i + 2 < p->n && p->s[p->i + 1] == ':' && isidstart((unsigned char) p->s[p->i + 2])))) {
-        if (peekc(p) == ':') p->i += 2;
-        else p->i++;
+    while (p->i < p->n) {
+        int c = peekc(p);
+        if (isw(c) || ((c == '-' || c == '\'') && p->i + 1 < p->n && isidstart((unsigned char) p->s[p->i + 1]))) { p->i++; continue; }
+        if (c == ':' && p->i + 2 < p->n && p->s[p->i + 1] == ':' && isidstart((unsigned char) p->s[p->i + 2])) { p->i += 2; continue; }
+        if (c == ':' && p->i + 2 < p->n && isidstart((unsigned char) p->s[p->i + 1])) {
+            int j = p->i + 1;
+            while (j < p->n && (isalnum((unsigned char) p->s[j]) || p->s[j] == '_')) j++;
+            if (j < p->n && (p->s[j] == '<' || p->s[j] == '(' || (unsigned char) p->s[j] == 0xC2)) {
+                int open = p->s[j] == '(' ? '(' : '<', close = open == '(' ? ')' : '>', d = 0, k = j;
+                if ((unsigned char) p->s[j] == 0xC2) {
+                    if (!((unsigned char) p->s[j + 1] == 0xAB)) break;
+                    k = j + 2;
+                    while (k + 1 < p->n && !((unsigned char) p->s[k] == 0xC2 && (unsigned char) p->s[k + 1] == 0xBB)) k++;
+                    if (k + 1 >= p->n) break;
+                    p->i = k + 2;
+                    continue;
+                }
+                for (; k < p->n; k++) { if (p->s[k] == open) d++; else if (p->s[k] == close && --d == 0) { k++; break; } }
+                if (d != 0) break;
+                p->i = k;
+                continue;
+            }
+        }
+        break;
     }
     *st = s0;
     return p->i - s0;
@@ -1203,7 +1222,8 @@ static const char *builtin_rule_src(const char *nm, int n) {
 }
 static int k_rule_end(Ctx *c, const Cont *k, int pos) {
     const RxNode *n = k->n;
-    int idx = ev_push(c, n->cap ? n->cap : &rx_silent_cap, k->a, pos, k->b);
+    if (!n->cap) return run(c, k->up, pos);
+    int idx = ev_push(c, n->cap, k->a, pos, k->b);
     int r = run(c, k->up, pos);
     if (!r) c->nev = idx;
     return r;
