@@ -243,7 +243,13 @@ void rt_trace_gen_return_hook(const char *pname, uint64_t lo, uint64_t hi, void 
 void rt_trace_resume_hook(const char *pname, void *h);
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno);
 void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno);
+typedef struct { DESCR_t args[3]; DESCR_t saved_trace; DESCR_t saved_ftrace; DESCR_t val; DESCR_t hook; } trace_pend_t;
 void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island);
+void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island, trace_pend_t *pend);
+void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend);
+void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend);
+void rt_trace_pend_run(trace_pend_t *pend);
+void rt_trace_pend_close(trace_pend_t *pend);
 void rt_trace_call_hook_i(const char *fname, long island);
 void rt_trace_return_hook_i(const char *fname, DESCR_t retval, long island);
 void rt_trace_fail_hook_i(const char *fname, long island);

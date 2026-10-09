@@ -891,6 +891,7 @@ test_gate_sno_a_table_keyed_by_a_name_finds_it_through_any_name_of_that_variable
 test_gate_sno_a_traced_call_keeps_its_procedure_and_its_value_across_a_collection.sh	WIRED	-	-	-
 test_gate_sno_a_unary_and_a_binary_opsyn_of_one_operator_are_two_functions.sh	WIRED	-	-	-
 test_gate_sno_a_value_list_in_a_function_with_a_local_yields_its_arm.sh	WIRED	-	-	-
+test_gate_sno_a_value_trace_callback_is_entered_by_the_assignment_box_and_not_by_c.sh	WIRED	-	-	-
 test_gate_sno_a_variable_name_is_a_counted_string_and_a_nul_byte_is_part_of_it.sh	WIRED	-	-	-
 test_gate_sno_an_abort_inside_a_pattern_thunk_fails_the_match_without_a_crash.sh	WIRED	-	-	-
 test_gate_sno_an_argument_evaluated_before_a_match_in_a_later_argument_reads_its_own_slot.sh	WIRED	-	-	-

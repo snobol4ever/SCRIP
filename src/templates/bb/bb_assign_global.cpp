@@ -1,13 +1,13 @@
 #include <string>
 #include <cstdint>
 #include "emit.h"
+#include "bb_templates.h"
 extern "C" {
 #include "bb_template_common.h"
 #include "descr.h"
 extern int g_gva_active;
 extern int g_monitor_bin;
 DESCR_t NV_SET_fn(const char * name, DESCR_t val);
-void comm_var(const char * name, DESCR_t val, const char * file, long line, long long stno);
 const char * stmt_src_get_file(void);
 }
 #include "x86_asm.h"
@@ -18,6 +18,7 @@ const char * stmt_src_get_file(void);
 static inline int mon_vars_on() { return x86_trace_hooks_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline std::string mon_var_trace_tap() {
+    const int B = 110;
     return x86("push", "rax")
          + x86("push", "rax")
          + x86("push", "rdi")
@@ -28,16 +29,30 @@ static inline std::string mon_var_trace_tap() {
          + x86("push", "r9")
          + x86("push", "r10")
          + x86("push", "r11")
+         + x86("sub", "rsp", 112L)
+         + x86("mov", RDQ("rsp", 0), 0L)
          + x86("mov", "rsi", "rax")
          + x86("mov", "rdi", ROQ(0))
-         + x86("directive", ".section .rodata")
-         + x86("directive", (LS(1) + ": .string \"" + (stmt_src_get_file() ? stmt_src_get_file() : "") + "\"").c_str())
-         + x86("directive", ".section .text")
-         + x86("directive", ".intel_syntax noprefix")
-         + x86("lea", "rcx", "[rip + __]", (uint64_t)(uintptr_t)(stmt_src_get_file() ? stmt_src_get_file() : ""), LS(1).c_str())
-         + x86("mov", "r8", (long)_.op_line)
-         + x86("mov", "r9", (long)_.op_stno)
-         + x86("call", "comm_var", (uint64_t)(uintptr_t)(void *)(void (*)(const char *, DESCR_t, const char *, long, long long))comm_var)
+         + x86("mov", "rcx", (long)_.op_stno)
+         + x86("mov", "r8", "rsp")
+         + x86("call", "comm_var_open", (uint64_t)(uintptr_t)(void *)comm_var_open)
+         + x86("mov", "rax", RDQ("rsp", 0))
+         + x86("test", "rax", "rax")
+         + x86_jcc_id("jz", B + 20)
+         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("mov32", "esi", 3L)
+         + bb_glue_apply_try_enter(B, B + 21, B + 22)
+         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("call", "rt_trace_pend_run", (uint64_t)(uintptr_t)(void *)rt_trace_pend_run)
+         + x86_deflabel_id(B + 22)
+         + x86("lea", "rdi", RDQ("rsp", 0))
+         + x86("call", "rt_trace_pend_close", (uint64_t)(uintptr_t)(void *)rt_trace_pend_close)
+         + x86("mov", "rax", RDQ("rsp", 80))
+         + x86("mov", RDQ("rsp", 184), "rax")
+         + x86("mov", "rax", RDQ("rsp", 88))
+         + x86("mov", RDQ("rsp", 152), "rax")
+         + x86_deflabel_id(B + 20)
+         + x86("add", "rsp", 112L)
          + x86("pop", "r11")
          + x86("pop", "r10")
          + x86("pop", "r9")

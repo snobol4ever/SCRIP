@@ -87,6 +87,7 @@ std::string bb_glue_pass_wires_blob(int gid, int wid);
 std::string bb_glue_pass_wires_blob_regs(int gid, int wid);
 std::string bb_glue_enter_c2bb(int base, int lg, int lw);
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id);
+std::string bb_glue_apply_try_enter(int base, int val_id, int join_id);
 std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char * lg_sym, uint64_t lg_fp, const char * lw_sym, uint64_t lw_fp, int base, int val_id, int join_id, int stno = 0);
 std::string bb_glue_stno_unit_push(void);
 std::string bb_glue_enter_chain_ret(int lid);

@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2301
-#define GC_ALLOC_TAB_N_VOID 277
+#define GC_ALLOC_TAB_N 2307
+#define GC_ALLOC_TAB_N_VOID 283
 #define GC_ALLOC_TAB_N_DESCR 1147
 #define GC_ALLOC_TAB_N_OTHER 861
 #define GC_ALLOC_TAB_N_UNKNOWN 16
@@ -483,6 +483,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "comm_return", GC_RET_VOID },
     { "comm_var", GC_RET_VOID },
     { "comm_var_hook", GC_RET_VOID },
+    { "comm_var_hook_p", GC_RET_VOID },
+    { "comm_var_open", GC_RET_VOID },
+    { "comm_var_tail", GC_RET_VOID },
     { "core_DATA_register", GC_RET_DESCR },
     { "core_apply_runtime_proc", GC_RET_OTHER },
     { "core_error_voice", GC_RET_VOID },
@@ -2174,12 +2177,15 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_trace_event", GC_RET_VOID },
     { "rt_trace_event_args", GC_RET_VOID },
     { "rt_trace_event_args_i", GC_RET_VOID },
+    { "rt_trace_event_args_ip", GC_RET_VOID },
     { "rt_trace_fail_hook", GC_RET_VOID },
     { "rt_trace_fail_hook_i", GC_RET_VOID },
     { "rt_trace_gen_fail_hook", GC_RET_VOID },
     { "rt_trace_gen_return_hook", GC_RET_VOID },
     { "rt_trace_keyword_write", GC_RET_VOID },
     { "rt_trace_label_hook", GC_RET_VOID },
+    { "rt_trace_pend_close", GC_RET_VOID },
+    { "rt_trace_pend_run", GC_RET_VOID },
     { "rt_trace_resume_hook", GC_RET_VOID },
     { "rt_trace_return", GC_RET_VOID },
     { "rt_trace_return_hook", GC_RET_VOID },

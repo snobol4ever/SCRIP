@@ -9,6 +9,7 @@
 # lives in a slab it must be told about). Arms: (m3) scrip --run under gdb, (m4) the --compile'd and linked binary
 # under gdb, both with the switch off: both counts 0; (control) --stlimit with SCRIP_TRACE=60: rt_trace_event_args is
 # entered and the trace names the CALL and the RETURN of the function through the direct call and through APPLY.
+# (2026-10-09, hq_snobol4: the layer body is rt_trace_event_args_ip since the trace hooks carry their island and the VALUE tap carries its pend; rt_trace_event_args and _i are one-line wrappers, so the counter sits on the body.)
 # FAIL-ONCE: on 65bb1f417 (before the cure) arms m3 and m4 read trace_idle=400 rt_trace_event_args=400 each (one entry per call; the control arm read 2010 entries).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -35,7 +36,7 @@ SNO
 ( cd "$T" && "$ROOT/scrip" --compile -o w4.s w.sno < /dev/null > cc4.out 2>&1 && gcc w4.s -L"$ROOT/out" -lscrip_rt -lm -Wl,-rpath,"$ROOT/out" -o w4.bin > ld4.out 2>&1 ) || { echo "⛔ REFUSED(2): the witness did not build in mode 4"; cat "$T/cc4.out" "$T/ld4.out" 2>/dev/null; exit 2; }
 count() {   # count <label> <program...> : gdb hit counts of the two functions; prints "label idle=N args=N rc=R"
   local label="$1"; shift
-  ( cd "$T" && timeout 120 gdb -batch -q -ex 'set breakpoint pending on' -ex 'set pagination off' -ex 'set confirm off' -ex 'break trace_idle' -ex 'ignore 1 1000000000' -ex 'break rt_trace_event_args' -ex 'ignore 2 1000000000' -ex run -ex 'info breakpoints' --args "$@" > "$T/$label.gdb" 2>&1 < /dev/null ); local rc=$?
+  ( cd "$T" && timeout 120 gdb -batch -q -ex 'set breakpoint pending on' -ex 'set pagination off' -ex 'set confirm off' -ex 'break trace_idle' -ex 'ignore 1 1000000000' -ex 'break rt_trace_event_args_ip' -ex 'ignore 2 1000000000' -ex run -ex 'info breakpoints' --args "$@" > "$T/$label.gdb" 2>&1 < /dev/null ); local rc=$?
   grep -q '^sum = 40600$' "$T/$label.gdb" || { echo "$label REFUSED: the witness did not print sum = 40600 under gdb (rc=$rc)"; tail -5 "$T/$label.gdb"; return 2; }
   local idle args
   idle=$(awk '/^1 /{f=1} /^2 /{f=0} f && /already hit/ {for(i=1;i<=NF;i++) if ($i=="hit") print $(i+1)}' "$T/$label.gdb"); args=$(awk '/^2 /{f=1} f && /already hit/ {for(i=1;i<=NF;i++) if ($i=="hit") print $(i+1); exit}' "$T/$label.gdb")

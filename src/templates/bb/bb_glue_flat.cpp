@@ -7,6 +7,7 @@ extern long g_stno;
 extern long g_line;
 #include "dtp.h"
 typedef struct { long fn; long how; } rt_call_next_t;
+extern rt_call_next_t rt_apply_open(DESCR_t * args, int nargs);
 extern rt_call_next_t rt_call_callee_try_sn4(DESCR_t * args, int nargs, sno_callee_rec_t * r, DESCR_t * out);
 extern DESCR_t rt_apply_land_γ(DESCR_t frame0, long word, const long * sv);
 extern DESCR_t rt_apply_land_ω(long word, const long * sv);
@@ -199,6 +200,11 @@ std::string bb_glue_try_enter(const char * try_sym, uint64_t try_fp, const char 
 std::string bb_glue_callee_try_enter(int base, int val_id, int join_id) {
     return bb_glue_try_enter("rt_call_callee_try_sn4", (uint64_t)(uintptr_t)(void *)rt_call_callee_try_sn4, "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ,
                              "rt_apply_land_ω", (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_apply_try_enter(int base, int val_id, int join_id) {
+    return bb_glue_try_enter("rt_apply_open", (uint64_t)(uintptr_t)(void *)rt_apply_open, "rt_apply_land_γ", (uint64_t)(uintptr_t)(void *)rt_apply_land_γ, "rt_apply_land_ω",
+        (uint64_t)(uintptr_t)(void *)rt_apply_land_ω, base, val_id, join_id, 1);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_glue_enter_chain_ret(int lid) {

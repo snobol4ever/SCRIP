@@ -466,7 +466,7 @@ void rt_trace_keyword_write(const char *kw, int64_t v, long long stno) {
 DESCR_t rt_trace_apply_island(const char *name, DESCR_t *args, int nargs, long island);
 __asm__( ".text\n" ".globl rt_trace_apply_island\n" ".type rt_trace_apply_island, @function\n" "rt_trace_apply_island:\n" "  pushq %r12\n" "  movq %rcx, %r12\n" "  xorl %ecx, %ecx\n"
     "  call APPLY_fn_rq@PLT\n" "  popq %r12\n" "  ret\n" ".size rt_trace_apply_island, .-rt_trace_apply_island\n" );
-void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island) {
+void rt_trace_event_args_ip(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island, trace_pend_t *pend) {
     if (trace_idle()) return;
     if (!name || !*name) return;
     if (trace_recursion_depth > 0) return;
@@ -492,6 +492,14 @@ void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs,
         DESCR_t cbargs[2];
         cbargs[0] = NAMEVAL(rt_heap_strdup_c(name));
         cbargs[1] = STRVAL(rt_heap_strdup_c(e->tag ? e->tag : ""));
+        if (pend) {
+            pend->args[0] = STRVAL(rt_heap_strdup_c(e->cbfn));
+            pend->args[1] = cbargs[0];
+            pend->args[2] = cbargs[1];
+            pend->saved_trace = INTVAL(saved_trace);
+            pend->saved_ftrace = INTVAL(saved_ftrace);
+            return;
+        }
         (void)RT_GC_CALLBACK(island ? rt_trace_apply_island(e->cbfn, cbargs, 2, island) : APPLY_fn(e->cbfn, cbargs, 2));
         trace_recursion_depth--;
         g_trace = saved_trace;
@@ -500,7 +508,10 @@ void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs,
         trace_print_banner_args(name, args, nargs, value, stno, kind);
     }
 }
-void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) { rt_trace_event_args_i(kind, name, args, nargs, value, stno, 0); }
+void rt_trace_event_args_i(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno, long island) {
+    rt_trace_event_args_ip(kind, name, args, nargs, value, stno, island, (trace_pend_t *)0);
+}
+void rt_trace_event_args(int kind, const char *name, DESCR_t *args, int nargs, DESCR_t value, long long stno) { rt_trace_event_args_ip(kind, name, args, nargs, value, stno, 0, (trace_pend_t *)0); }
 void rt_trace_event(int kind, const char *name, DESCR_t value, long long stno) { rt_trace_event_args(kind, name, (DESCR_t *)0, 0, value, stno); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_trace_call_hook_i(const char *fname, long island) {
@@ -1449,7 +1460,15 @@ static int mon_synth_name(const char *n) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int comm_var_active(void) { return g_comm_dbg != 0 || trace_set_n != 0 || monitor_fd >= 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook) {
+static void comm_var_tail(const char *name, DESCR_t val, int hook) {
+    if (g_trace_budget != 0) { if (!g_trace_tap_off && g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value_sigil(name, val, hook); return; }
+    if (monitor_fd < 0 || g_monitor_bin) return;
+    if (!monitor_ready) return;
+    if (kw_trace <= 0 && !trace_registered(name)) return;
+    const char *s = VARVAL_fn(val);
+    mon_send("VALUE", name, s ? s : "(undef)");
+}
+void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend) {
     if (!name || name[0] == '_') return;
     if (mon_synth_name(name)) return;
     if (monitor_quiet_depth > 0) return;
@@ -1458,13 +1477,19 @@ void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, l
     if (!dbg && trace_set_n == 0 && monitor_fd < 0 && kw_trace <= 0) return;
     if (dbg) fprintf(stderr, "[scrip-trace] comm_var name=%s recur=%d\n", name, trace_recursion_depth);
     if (stno <= 0) { extern long g_stno; stno = (long long)g_stno; }
-    if (!g_monitor_bin) { rt_trace_event(TRK_VALUE, name, val, stno); }
-    if (g_trace_budget != 0) { if (!g_trace_tap_off && g_trace_stmt_seen && !mon_name_is_internal(name) && !sno_name_is_output_assoc(name)) rt_trace_value_sigil(name, val, hook); return; }
-    if (monitor_fd < 0 || g_monitor_bin) return;
-    if (!monitor_ready) return;
-    if (kw_trace <= 0 && !trace_registered(name)) return;
-    const char *s = VARVAL_fn(val);
-    mon_send("VALUE", name, s ? s : "(undef)");
+    if (!g_monitor_bin) { rt_trace_event_args_ip(TRK_VALUE, name, (DESCR_t *)0, 0, val, stno, 0, pend); if (pend && pend->args[0].v) { pend->val = val; pend->hook = INTVAL(hook); return; } }
+    comm_var_tail(name, val, hook);
+}
+void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook) { comm_var_hook_p(name, val, file, line, stno, hook, (trace_pend_t *)0); }
+void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend) { comm_var_hook_p(name, val, (const char *)0, 0, stno, 0, pend); }
+void rt_trace_pend_run(trace_pend_t *pend) { (void)RT_GC_CALLBACK(APPLY_fn(VARVAL_fn(pend->args[0]), &pend->args[1], 2)); }
+void rt_trace_pend_close(trace_pend_t *pend) {
+    if (!pend->args[0].v) return;
+    g_trace = pend->saved_trace.i;
+    kw_ftrace = pend->saved_ftrace.i;
+    trace_recursion_depth--;
+    pend->args[0].v = 0;
+    comm_var_tail(pend->args[1].s, pend->val, (int)pend->hook.i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { comm_var_hook(name, val, file, line, stno, 0); }
@@ -1506,6 +1531,18 @@ void comm_return(const char *fname, DESCR_t retval) {
 #else
 int comm_var_active(void) { return 0; }
 void comm_var_hook(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook) { (void)name; (void)val; (void)file; (void)line; (void)stno; (void)hook; }
+void comm_var_hook_p(const char *name, DESCR_t val, const char *file, long line, long long stno, int hook, trace_pend_t *pend) {
+    (void)name;
+    (void)val;
+    (void)file;
+    (void)line;
+    (void)stno;
+    (void)hook;
+    (void)pend;
+}
+void comm_var_open(const char *name, DESCR_t val, long long stno, trace_pend_t *pend) { (void)name; (void)val; (void)stno; (void)pend; }
+void rt_trace_pend_run(trace_pend_t *pend) { (void)pend; }
+void rt_trace_pend_close(trace_pend_t *pend) { (void)pend; }
 void comm_var(const char *name, DESCR_t val, const char *file, long line, long long stno) { (void)name; (void)val; (void)file; (void)line; (void)stno; }
 void comm_call(const char *fname) { (void)fname; }
 void comm_return(const char *fname, DESCR_t retval) { (void)fname; (void)retval; }
