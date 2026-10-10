@@ -4916,6 +4916,77 @@ static int rk_tap_proclaim(int cond, const char *desc, const char *prefix) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_tap_diag(const char *msg) { fprintf(stderr, "# %s\n", msg ? msg : ""); fflush(stderr); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_subtest_open(const char *nm) {
+    DESCR_t st[10];
+    if (nm && *nm) printf("# Subtest: %s\n", nm);
+    else printf("# Subtest\n");
+    fflush(stdout);
+    st[0] = STRVAL(rt_heap_strdup_c(nm ? nm : ""));
+    st[1] = INTVAL(g_tap_planned);
+    st[2] = INTVAL(g_tap_run);
+    st[3] = INTVAL(g_tap_failed);
+    st[4] = INTVAL(g_tap_todo_upto);
+    st[5] = INTVAL(g_tap_no_plan);
+    st[6] = INTVAL(g_tap_done_run);
+    st[7] = STRVAL(rt_heap_strdup_c(g_tap_todo_reason ? g_tap_todo_reason : ""));
+    g_tap_planned = 0;
+    g_tap_run = 0;
+    g_tap_failed = 0;
+    g_tap_no_plan = 1;
+    g_tap_todo_upto = 0;
+    g_tap_todo_reason = "";
+    g_tap_done_run = 0;
+    int saved = dup(fileno(stdout)), cfd = -1;
+    FILE *cap = tmpfile();
+    if (cap) { cfd = dup(fileno(cap)); fclose(cap); }
+    if (saved < 0 || cfd < 0) { if (saved >= 0) close(saved); if (cfd >= 0) close(cfd); saved = cfd = -1; }
+    if (saved >= 0) dup2(cfd, fileno(stdout));
+    st[8] = INTVAL(saved);
+    st[9] = INTVAL(cfd);
+    return rk_mk_arr(st, 10);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_subtest_close(DESCR_t stv) {
+    rk_av_t sa = rk_av(stv);
+    if (sa.n != 10) return 0;
+    const char *n0 = rk_cstr(sa.el[0]), *r0 = rk_cstr(sa.el[7]);
+    char nm[strlen(n0) + 1], reason[strlen(r0) + 1];
+    strcpy(nm, n0);
+    strcpy(reason, r0);
+    int saved = (int) sa.el[8].i, cfd = (int) sa.el[9].i;
+    if (g_tap_no_plan) printf("1..%ld\n", g_tap_run);
+    fflush(stdout);
+    if (saved >= 0 && cfd >= 0) {
+        dup2(saved, fileno(stdout));
+        close(saved);
+        lseek(cfd, 0, SEEK_SET);
+        FILE *cap = fdopen(cfd, "r");
+        if (cap) {
+            long lmax = 0, lcur = 0;
+            int lc;
+            while ((lc = getc(cap)) != EOF) { lcur++; if (lc == '\n') { if (lcur > lmax) lmax = lcur; lcur = 0; } }
+            if (lcur > lmax) lmax = lcur;
+            rewind(cap);
+            char ln[lmax + 2];
+            while (fgets(ln, (int)sizeof ln, cap)) printf("    %s", ln);
+            fflush(stdout);
+            fclose(cap);
+        } else close(cfd);
+    }
+    long i_run = g_tap_run, i_failed = g_tap_failed, i_planned = g_tap_planned;
+    int i_noplan = g_tap_no_plan;
+    g_tap_planned = sa.el[1].i;
+    g_tap_run = sa.el[2].i;
+    g_tap_failed = sa.el[3].i;
+    g_tap_todo_upto = sa.el[4].i;
+    g_tap_no_plan = (int) sa.el[5].i;
+    g_tap_done_run = (int) sa.el[6].i;
+    g_tap_todo_reason = reason[0] ? rt_heap_strdup_c(reason) : "";
+    int okv = (i_failed == 0) && (i_run > 0) && (i_noplan || i_planned == i_run);
+    rk_tap_proclaim(okv, nm, "");
+    return okv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_spec_need(const char *p) {
     int n = 2;
     while (*p == '-' || *p == '+' || *p == ' ' || *p == '0' || *p == '#') { n++; p++; }
@@ -10876,6 +10947,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
                 return 1;
             }
         }
+        if (!strcmp(op, "subtest_open")) { *out = rk_subtest_open(nargs > 0 ? to_cstring(args[0], sb1, sizeof sb1) : ""); return 1; }
+        if (!strcmp(op, "subtest_close") && nargs == 1) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_subtest_close(args[0]) }; return 1; }
         if (!strcmp(op, "subtest")) {
             const char *nm = "";
             DESCR_t blk;
@@ -10884,56 +10957,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             memset(&blk, 0, sizeof blk);
             for (int i = 0; i < nargs; i++) { if (rk_is_code(args[i])) { blk = args[i]; haveblk = 1; } else if (!havenm) { nm = to_cstring(args[i], sb1, sizeof sb1); havenm = 1; } }
             if (!haveblk) { rk_tap_proclaim(0, nm, ""); *out = INTVAL(0); return 1; }
-            char nmc[strlen(nm ? nm : "") + 1];
-            strcpy(nmc, nm ? nm : "");
-            nm = nmc;
-            if (nm && *nm) printf("# Subtest: %s\n", nm);
-            else printf("# Subtest\n");
-            fflush(stdout);
-            long o_planned = g_tap_planned, o_run = g_tap_run, o_failed = g_tap_failed, o_todo = g_tap_todo_upto;
-            int o_noplan = g_tap_no_plan, o_done = g_tap_done_run;
-            char o_reason[fmt_len("%s", g_tap_todo_reason)];
-            snprintf(o_reason, sizeof o_reason, "%s", g_tap_todo_reason);
-            g_tap_planned = 0;
-            g_tap_run = 0;
-            g_tap_failed = 0;
-            g_tap_no_plan = 1;
-            g_tap_todo_upto = 0;
-            g_tap_todo_reason = "";
-            g_tap_done_run = 0;
-            fflush(stdout);
-            int saved = dup(fileno(stdout));
-            FILE *cap = tmpfile();
-            if (saved >= 0 && cap) fflush(stdout), dup2(fileno(cap), fileno(stdout));
-            (void) rk_call_block(blk, 0);
-            if (g_tap_no_plan) { printf("1..%ld\n", g_tap_run); }
-            fflush(stdout);
-            if (saved >= 0 && cap) {
-                dup2(saved, fileno(stdout));
-                close(saved);
-                rewind(cap);
-                long lmax = 0, lcur = 0;
-                int lc;
-                while ((lc = getc(cap)) != EOF) { lcur++; if (lc == '\n') { if (lcur > lmax) lmax = lcur; lcur = 0; } }
-                if (lcur > lmax) lmax = lcur;
-                rewind(cap);
-                char ln[lmax + 2];
-                while (fgets(ln, (int)sizeof ln, cap)) printf("    %s", ln);
-                fflush(stdout);
-            }
-            if (cap) fclose(cap);
-            long i_run = g_tap_run, i_failed = g_tap_failed, i_planned = g_tap_planned;
-            int i_noplan = g_tap_no_plan;
-            g_tap_planned = o_planned;
-            g_tap_run = o_run;
-            g_tap_failed = o_failed;
-            g_tap_no_plan = o_noplan;
-            g_tap_todo_upto = o_todo;
-            g_tap_done_run = o_done;
-            g_tap_todo_reason = o_reason[0] ? rt_heap_strdup_c(o_reason) : "";
-            int okv = (i_failed == 0) && (i_run > 0) && (i_noplan || i_planned == i_run);
-            rk_tap_proclaim(okv, nm, "");
-            *out = INTVAL(okv);
+            rk_cbh_t H = { g_rk_cbh_cur, { blk, rk_subtest_open(nm) } };
+            g_rk_cbh_cur = &H;
+            (void) rk_call_block(H.d[0], 0);
+            g_rk_cbh_cur = H.prev;
+            *out = (DESCR_t){ .v = DT_BOOL, .i = rk_subtest_close(H.d[1]) };
             return 1;
         }
         if (!strcmp(op, "diag")) { const char *d = (nargs > 0) ? to_cstring(args[0], sb1, sizeof sb1) : ""; rk_tap_diag(d); *out = NULVCL; return 1; }
