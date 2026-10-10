@@ -18,12 +18,15 @@
                                          generator refuses to rename a c span not written name( -- an operator form)
     The library is loaded from SWI's own library directory first, so its operators and meta-predicate declarations are
     known, and read in the module that file declares (library(option) is module swi_option); the vendored file must be
-    byte-identical to that copy or this refuses (exit 2).
+    byte-identical to that copy or this refuses (exit 2).  An optional THIRD argument names the file to READ instead
+    (the generator's EXPANDED mode, cfo 2026-10-10, row prolog-clpfd-library-clpfd-vendored-...-ceo-1596: the text SWI
+    itself compiles, written by util_gen_prolog_prelude_libs_expand.pl); the identity check stays on the vendored file.
 */
 :- initialization(main, main).
 
 main :-
-    current_prolog_flag(argv, [File, LibA]),
+    current_prolog_flag(argv, [File, LibA | Rest]),
+    (   Rest = [ReadFileA] -> atom_string(ReadFile, ReadFileA) ; ReadFile = File ),
     atom_string(Lib, LibA),
     absolute_file_name(library(Lib), Installed, [file_type(prolog), access(read)]),
     read_file_to_codes(File, C1, []), read_file_to_codes(Installed, C2, []),
@@ -33,7 +36,7 @@ main :-
     ),
     use_module(library(Lib)),
     (   module_property(M, file(Installed)) -> true ; M = Lib ),
-    setup_call_cleanup(open(File, read, S), read_all(S, M), close(S)).
+    setup_call_cleanup(open(ReadFile, read, S), read_all(S, M), close(S)).
 
 read_all(S, M) :-
     read_term(S, T, [subterm_positions(P), module(M), syntax_errors(error)]),

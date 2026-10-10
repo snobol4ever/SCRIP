@@ -62,8 +62,14 @@ REFS_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_refs.pl")
 
 DROP_DIRECTIVES = {"module", "use_module", "autoload", "meta_predicate", "multifile", "public", "det", "set_prolog_flag",
                    "$clausable", "noprofile", "license", "discontiguous", "module_transparent", "predicate_options",
-                   "create_prolog_flag", "reexport", "type", "pred", "quasi_quotation_syntax", "volatile", "encoding", "$hide"}
-KEEP_DIRECTIVES = {"if", "elif", "else", "endif"}
+                   "reexport", "type", "pred", "quasi_quotation_syntax", "volatile", "encoding", "$hide"}
+KEEP_DIRECTIVES = {"if", "elif", "else", "endif", "op", "create_prolog_flag", "dynamic"}
+EXPANDED = {"clpfd"}
+EXPAND_PL = os.path.join(HERE, "util_gen_prolog_prelude_libs_expand.pl")
+INIT_DROPS = {"clpfd": {"warn_if_bounded_arithmetic": "only prints a warning when the integer flag bounded is true"}}
+ATTR_HOOKS = {("attr_unify_hook", 2), ("attribute_goals", 3)}
+LIB_FLAGS = {"clpfd": [("clpfd_propagation", "default", "read by the propagation loop and never created by 9.0.4's library: swipl fails on an absent flag where "
+                                                           "SCRIP's ISO current_prolog_flag/2 raises domain_error, so the flag is declared at its documented default")]}
 HOOK_HEADS = {("term_expansion", 2), ("goal_expansion", 2), ("term_expansion", 4), ("goal_expansion", 4)}
 OMIT = {"aggregate": {("foreach", 2): "SWI's foreach/2 resets its template between solutions with '$unbind_template'/1, SWI C; the base prelude "
                                       "hand-types it as SWI 6 did, copying the goal per solution with its other variables kept shared"},
@@ -211,16 +217,31 @@ def parse_exports(s, path):
     if not lst or lst[0] != ("punct", "["):
         raise Refuse("%s: the export list is not a list" % path)
     elems, _ = top_level_args(lst, 0)
-    exports = []
+    exports, ops = [], []
     for e in elems:
         e = [t for t in e if t != ("punct", "(") and t != ("punct", ")")]
         if e and atom_value(e[0]) == "op":
-            raise Refuse("%s: exports an operator (%s) -- decide where SCRIP's reader learns it before vendoring" % (path, " ".join(t[1] for t in e)))
+            e = [t for t in e if t != ("punct", ",")]
+            if len(e) == 4 and e[1][0] == "num" and atom_value(e[2]) in ("xfx", "xfy", "yfx", "fy", "fx", "xf", "yf") and atom_value(e[3]) is not None:
+                ops.append((int(e[1][1]), atom_value(e[2]), atom_value(e[3])))
+                continue
+            raise Refuse("%s: exports an operator this generator cannot read (%s)" % (path, " ".join(t[1] for t in e)))
         if len(e) == 3 and atom_value(e[0]) is not None and atom_value(e[1]) in ("/", "//") and e[2][0] == "num":
             exports.append((atom_value(e[0]), int(e[2][1]) + (2 if atom_value(e[1]) == "//" else 0)))
             continue
         raise Refuse("%s: an export this generator cannot read (%s)" % (path, " ".join(t[1] for t in e)))
-    return mod, exports
+    return mod, exports, ops
+
+
+def expanded_text(path, lib):
+    """The library as SWI compiles it (util_gen_prolog_prelude_libs_expand.pl): term- and goal-expanded, its operators
+    restored after the last clause."""
+    if not shutil.which("swipl"):
+        raise Refuse("swipl is not on PATH -- %s is embedded as SWI expands it" % path)
+    r = subprocess.run(["swipl", EXPAND_PL, "--", path, lib], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if r.returncode != 0 or not r.stdout:
+        raise Refuse("SWI's expander refused %s (rc=%d): %s" % (path, r.returncode, r.stderr.strip()[:300]))
+    return r.stdout
 
 
 def quote(name):
@@ -234,12 +255,20 @@ def strip_comments(text, path):
     return "".join(out)
 
 
-def reader_refs(path, lib):
+def directive_name(s):
+    """s are the significant tokens of a directive: its name, read through the parenthesis portray_clause puts around a
+    prefix-operator directive (:- (public a/1, b/2))."""
+    if len(s) < 2:
+        return None
+    return atom_value(s[2]) if s[1] == ("punct", "(") and len(s) > 2 else atom_value(s[1])
+
+
+def reader_refs(path, lib, read_path=None):
     """SWI's own reader over the vendored file (util_gen_prolog_prelude_libs_refs.pl): every clause's start offset and
     head key, and every predicate reference's span -- head, body goal, meta-argument, DCG nonterminal -- never data."""
     if not shutil.which("swipl"):
         raise Refuse("swipl is not on PATH -- the predicate references of %s are read by SWI's own reader" % path)
-    r = subprocess.run(["swipl", REFS_PL, "--", path, lib], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    r = subprocess.run(["swipl", REFS_PL, "--", path, lib] + ([read_path] if read_path else []), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if r.returncode != 0:
         raise Refuse("SWI's reader refused %s (rc=%d): %s" % (path, r.returncode, r.stderr.strip()[:300]))
     heads, refs = {}, []
@@ -255,15 +284,22 @@ def reader_refs(path, lib):
 def process(path):
     lib = os.path.splitext(os.path.basename(path))[0]
     src = open(path, encoding="utf-8").read()
+    read_path = None
+    if lib in EXPANDED:
+        src = expanded_text(path, lib)
+        read_path = os.path.join(os.environ.get("TMPDIR", "/tmp"), "pl_prelude_expanded_%s_%d.pl" % (lib, os.getpid()))
+        open(read_path, "w", encoding="utf-8").write(src)
     toks = tokenize(src, path)
     for no, cl in enumerate(split_clauses(toks), 1):
         s = sig(cl)
         if s and atom_value(s[0]) == ":-" and len(s) > 1:
-            d = atom_value(s[1])
-            if d not in KEEP_DIRECTIVES and d not in DROP_DIRECTIVES and d != "module":
+            d = directive_name(s)
+            if d not in KEEP_DIRECTIVES and d not in DROP_DIRECTIVES and d != "module" and d != "initialization":
                 raise Refuse("%s clause %d: the directive :- %s is neither dropped nor kept by this generator -- decide what it means for SCRIP first" % (path, no, d))
-    heads, refs = reader_refs(path, lib)
-    mod, exports, kept, drops, keyed = None, [], [], {}, []
+    heads, refs = reader_refs(path, lib, read_path)
+    if read_path:
+        os.unlink(read_path)
+    mod, exports, ops, kept, drops, keyed, hooks, libops = None, [], [], [], {}, [], [], set()
     off = 0
     for no, cl in enumerate(split_clauses(toks), 1):
         start = off
@@ -278,11 +314,28 @@ def process(path):
         if kind is None:
             raise Refuse("%s clause %d: SWI's reader reports no clause at offset %d where this tokenizer starts one" % (path, no, first))
         if kind == "directive":
-            d = atom_value(s[1]) if len(s) > 1 else None
+            d = directive_name(s)
             if d == "module" and mod is None:
-                mod, exports = parse_exports(s[1:], path)
+                mod, exports, ops = parse_exports(s[1:], path)
                 drops["directive module"] = drops.get("directive module", 0) + 1
                 continue
+            if d == "dynamic" and any(t[1] == ":" for t in s):
+                drops["directive dynamic (module-qualified)"] = drops.get("directive dynamic (module-qualified)", 0) + 1
+                continue
+            if d == "initialization":
+                k = 3 if s[1] == ("punct", "(") else 2
+                g = next((atom_value(t) for t in s[k:] if t[0] in ("atom", "qatom")), None)
+                if g in INIT_DROPS.get(lib, {}):
+                    drops["directive initialization(%s): %s" % (g, INIT_DROPS[lib][g])] = drops.get("directive initialization(%s): %s" % (g, INIT_DROPS[lib][g]), 0) + 1
+                    continue
+            if d == "op":
+                k = s.index(("punct", "(")) if ("punct", "(") in s else -1
+                if k >= 0:
+                    args, _ = top_level_args(s, k)
+                    if len(args) == 3:
+                        for t in args[2]:
+                            if atom_value(t) is not None:
+                                libops.add(atom_value(t))
             if d in KEEP_DIRECTIVES:
                 kept.append((start, off)); continue
             if d in DROP_DIRECTIVES:
@@ -292,7 +345,17 @@ def process(path):
         if kind == "unkeyable":
             raise Refuse("%s clause %d: a head this generator cannot key (%s)" % (path, no, " ".join(t[1] for t in s[:6])))
         if kind == "qualified":
-            drops["module-qualified head"] = drops.get("module-qualified head", 0) + 1
+            qm, qn = atom_value(s[0]), (atom_value(s[2]) if len(s) > 2 and s[1][1] == ":" else None)
+            if qm == "user" and qn:
+                hooks.append((start, first, off, "")); drops["user: qualifier stripped"] = drops.get("user: qualifier stripped", 0) + 1
+                continue
+            if qn and (qn, 0) in {(h, 0) for h, _ in ATTR_HOOKS}:
+                kept.append((start, off)); drops["hook %s:%s kept qualified" % (qm, qn)] = drops.get("hook %s:%s kept qualified" % (qm, qn), 0) + 1
+                continue
+            drops["module-qualified head (%s)" % qm] = drops.get("module-qualified head (%s)" % qm, 0) + 1
+            continue
+        if (name, arity) in ATTR_HOOKS:
+            hooks.append((start, first, off, mod)); drops["hook %s/%d qualified with the module" % (name, arity)] = drops.get("hook %s/%d qualified with the module" % (name, arity), 0) + 1
             continue
         if (name, arity) in DICT_METHOD_HEADS:
             drops["dict-method clause (SCRIP has no dicts)"] = drops.get("dict-method clause (SCRIP has no dicts)", 0) + 1
@@ -309,24 +372,32 @@ def process(path):
         raise Refuse("%s: no :- module directive -- only a module library is vendored" % path)
     exp = set(exports)
     cside = [e for e in exports if e not in keyed and e not in OMIT.get(lib, {})]
-    local = {k for k in keyed if k not in exp}
+    local = {k for k in keyed if k not in exp and k[0] not in libops}
+    as_op = sorted({k[0] for k in keyed if k not in exp and k[0] in libops})
     renamed, chunks = {}, []
-    for cs, ce in kept:
+    for cs, ce in sorted(kept + [(cs, ce) for cs, _, ce, _ in hooks]):
         raw = src[cs:ce]
+        hk = next((h for h in hooks if h[0] == cs), None)
         for f, t, ar, kd, nm in sorted((r for r in refs if cs <= r[0] < ce and (r[4], r[2]) in local), reverse=True):
             if kd == "c" and src[t:t + 1] != "(":
                 raise Refuse("%s: the local predicate %s/%d is referenced in operator form at offset %d -- a renamed operator would not parse" % (path, nm, ar, f))
             new = "$%s_%s" % (lib, nm)
             raw = raw[:f - cs] + quote(new) + raw[t - cs:]
             renamed["%s/%d" % (nm, ar)] = new
+        if hk and hk[3]:
+            raw = raw[:hk[1] - cs] + hk[3] + ":" + raw[hk[1] - cs:]
+        elif hk:
+            raw = raw[:hk[1] - cs] + raw[hk[1] - cs + len("user:"):]
         chunks.append(strip_comments(raw, path))
-    text = "".join(chunks)
+    text = "".join(":- create_prolog_flag(%s, %s, []).\n" % (f, v) for f, v, _ in LIB_FLAGS.get(lib, [])) + "".join(chunks)
+    for f, v, why in LIB_FLAGS.get(lib, []):
+        drops["flag %s declared %s: %s" % (f, v, why)] = 1
     lines = [l.rstrip() for l in text.split("\n")]
     text = "\n".join(l for l in lines if l.strip()) + "\n"
     out_toks = tokenize(text, path)
     local_names = {n for n, _ in local} - {n for n, _ in exports}
     as_data = sorted({atom_value(t) for t in out_toks if t[0] in ("atom", "qatom") and atom_value(t) in local_names})
-    return {"lib": lib, "exports": [e for e in exports if e not in OMIT.get(lib, {}) and e not in cside], "cside": cside, "renames": renamed,
+    return {"lib": lib, "exports": [e for e in exports if e not in OMIT.get(lib, {}) and e not in cside], "cside": cside, "renames": renamed, "ops": ops, "as_op": as_op,
             "drops": drops, "as_data": as_data, "text": text, "atoms": {atom_value(t) for t in out_toks if t[0] in ("atom", "qatom")}}
 
 
@@ -347,20 +418,26 @@ def generate(pdir):
     for L in libs:
         L["names"] = sorted(M["lib"] for M in libs if M is not L and any(n in L["atoms"] for n, _ in M["exports"]))
     o = ["typedef struct { const char *nm; int ar; } pl_prelude_lib_pi_t;",
-         "typedef struct { const char *lib; const pl_prelude_lib_pi_t *exports; const char *src; } pl_prelude_lib_t;"]
+         "typedef struct { int pri; const char *type; const char *nm; } pl_prelude_lib_op_t;",
+         "typedef struct { const char *lib; const pl_prelude_lib_pi_t *exports; const pl_prelude_lib_op_t *ops; const char *src; } pl_prelude_lib_t;"]
     for i, L in enumerate(libs):
         o.append("static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_%d_EXPORTS[] = {" % i)
         for n, a in L["exports"]:
             o.append('    { "%s", %d },' % (n.replace("\\", "\\\\").replace('"', '\\"'), a))
         o.append("    { 0, 0 }")
         o.append("};")
+        o.append("static const pl_prelude_lib_op_t PL_PRELUDE_LIB_%d_OPS[] = {" % i)
+        for pri, ty, n in L["ops"]:
+            o.append('    { %d, "%s", "%s" },' % (pri, ty, n.replace("\\", "\\\\").replace('"', '\\"')))
+        o.append("    { 0, 0, 0 }")
+        o.append("};")
         o.append("static const char PL_PRELUDE_LIB_%d_SRC[] =" % i)
         o.extend(c_string_lines(L["text"]))
         o[-1] += ";"
     o.append("static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {")
     for i, L in enumerate(libs):
-        o.append('    { "%s", PL_PRELUDE_LIB_%d_EXPORTS, PL_PRELUDE_LIB_%d_SRC },' % (L["lib"], i, i))
-    o.append("    { 0, 0, 0 }")
+        o.append('    { "%s", PL_PRELUDE_LIB_%d_EXPORTS, PL_PRELUDE_LIB_%d_OPS, PL_PRELUDE_LIB_%d_SRC },' % (L["lib"], i, i, i))
+    o.append("    { 0, 0, 0, 0 }")
     o.append("};")
     return libs, "\n".join(o) + "\n"
 
@@ -383,11 +460,13 @@ def main():
             print("REFUSED(2): no vendored library %s" % a.show, file=sys.stderr)
             return 2
         print("exports: " + " ".join("%s/%d" % e for e in L["exports"]))
+        print("operators: " + " ".join("op(%d,%s,%s)" % o for o in L["ops"]))
         print("renamed: " + " ".join("%s->%s" % kv for kv in sorted(L["renames"].items())))
         print("dropped: " + ", ".join("%s x%d" % kv for kv in sorted(L["drops"].items())))
         print("names exports of (informational -- the injector selects a library by the name/arity references it finds when it parses the libraries it selected): " + " ".join(L["names"]))
         print("C-side exports (no clause in the library; SCRIP answers them as builtins or they are existence errors): " + " ".join("%s/%d" % e for e in L["cside"]))
         print("left as data (a helper's name used as a term, never a goal -- review each): " + " ".join(L["as_data"]))
+        print("helpers kept under their own names because the library declares them as operators (a renamed operator would not parse): " + " ".join(L["as_op"]))
         sys.stdout.write(L["text"])
         return 0
     if a.check:

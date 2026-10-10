@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2533
-#define GC_ALLOC_TAB_N_VOID 301
-#define GC_ALLOC_TAB_N_DESCR 1225
-#define GC_ALLOC_TAB_N_OTHER 990
+#define GC_ALLOC_TAB_N 2541
+#define GC_ALLOC_TAB_N_VOID 302
+#define GC_ALLOC_TAB_N_DESCR 1231
+#define GC_ALLOC_TAB_N_OTHER 991
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1159,6 +1159,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "record_register", GC_RET_VOID },
     { "register_fn", GC_RET_VOID },
     { "register_fn_alias", GC_RET_VOID },
+    { "register_lib_ops", GC_RET_VOID },
     { "register_op_directive", GC_RET_VOID },
     { "register_op_one", GC_RET_VOID },
     { "relop_num_coerce", GC_RET_OTHER },
@@ -1843,6 +1844,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_copy_term_c", GC_RET_DESCR },
     { "rt_pl_dop_copy_term_nat", GC_RET_DESCR },
     { "rt_pl_dop_copy_term_nat_c", GC_RET_DESCR },
+    { "rt_pl_dop_create_prolog_flag", GC_RET_DESCR },
+    { "rt_pl_dop_create_prolog_flag_c", GC_RET_DESCR },
     { "rt_pl_dop_current_input", GC_RET_DESCR },
     { "rt_pl_dop_current_input_c", GC_RET_DESCR },
     { "rt_pl_dop_current_output", GC_RET_DESCR },
@@ -1989,6 +1992,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_nb_getval_c", GC_RET_DESCR },
     { "rt_pl_dop_nb_getval_guard", GC_RET_DESCR },
     { "rt_pl_dop_nb_getval_guard_c", GC_RET_OTHER },
+    { "rt_pl_dop_nb_setarg", GC_RET_DESCR },
+    { "rt_pl_dop_nb_setarg_c", GC_RET_DESCR },
     { "rt_pl_dop_nb_setval", GC_RET_DESCR },
     { "rt_pl_dop_nb_setval_c", GC_RET_DESCR },
     { "rt_pl_dop_nl_sb", GC_RET_DESCR },
@@ -2101,6 +2106,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_dop_set_prolog_flag_declare_c", GC_RET_DESCR },
     { "rt_pl_dop_set_stream_position", GC_RET_DESCR },
     { "rt_pl_dop_set_stream_position_c", GC_RET_DESCR },
+    { "rt_pl_dop_setarg", GC_RET_DESCR },
+    { "rt_pl_dop_setarg_c", GC_RET_DESCR },
     { "rt_pl_dop_setof_group_at", GC_RET_DESCR },
     { "rt_pl_dop_setof_group_at_c", GC_RET_DESCR },
     { "rt_pl_dop_setof_result", GC_RET_DESCR },
@@ -2249,6 +2256,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_pl_root_omega", GC_RET_VOID },
     { "rt_pl_scc_bnew_cell", GC_RET_OTHER },
     { "rt_pl_scc_take_cell", GC_RET_OTHER },
+    { "rt_pl_setarg_cell", GC_RET_OTHER },
     { "rt_pl_sort_cell", GC_RET_OTHER },
     { "rt_pl_sort_in_place_cell", GC_RET_OTHER },
     { "rt_pl_struct_alloc", GC_RET_OTHER },

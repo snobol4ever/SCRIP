@@ -6795,6 +6795,36 @@ PL_CX_LEAF_HEAD(attv_set, 2) ok = rt_pl_attv_set_cell(&args[0], &args[1], cx); P
 PL_CX_LEAF_HEAD(unifiable, 3) ok = rt_pl_unifiable_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(attv_atts, 2) ok = rt_pl_attv_atts_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(attv_take, 1) ok = rt_pl_attv_take_cell(&args[0], cx); PL_CX_LEAF_TAIL
+static int rt_pl_setarg_cell(DESCR_t *na, DESCR_t *ta, DESCR_t *va, pl_tr_ctx_t *cx, int trail) {
+    extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+    extern void *rt_pl_ball_instantiation(void);
+    char probe;
+    char *floor_ = &probe;
+    DESCR_t *n = plw_cell_deref(plw_entry(na)), *t = plw_cell_deref(plw_entry(ta));
+    if (plw_unbound_tag(n) || plw_unbound_tag(t)) { cx->ball = rt_pl_ball_instantiation(); return 0; }
+    if (n->v != (DTYPE_t)DT_I) { cx->ball = rt_pl_ball_kind2("type_error", "integer", *n); return 0; }
+    if (t->v != (DTYPE_t)DT_PLREF || !t->p) { cx->ball = rt_pl_ball_kind2("type_error", "compound", *t); return 0; }
+    if (n->i < 1 || n->i > (int64_t)plc_fid_arity(t->slen)) return 0;
+    {
+        DESCR_t *cell = &((DESCR_t *)t->p)[n->i - 1];
+        DESCR_t w;
+        if (trail) w = pl_attv_word(va, cx);
+        else {
+            DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1), *d;
+            j->v = (DTYPE_t)DT_PLVAR;
+            j->slen = 0;
+            j->p = (void *)j;
+            if (!rt_pl_copy_term_cell(va, j, cx)) return 0;
+            d = plw_cell_deref(j);
+            if (plw_unbound_tag(d)) { w.v = (DTYPE_t)DT_PLVAR; w.slen = 0; w.p = (void *)d; } else w = *d;
+        }
+        if (trail && pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
+        *cell = w;
+    }
+    return 1;
+}
+PL_CX_LEAF_HEAD(setarg, 3) ok = rt_pl_setarg_cell(&args[0], &args[1], &args[2], cx, 1); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(nb_setarg, 3) ok = rt_pl_setarg_cell(&args[0], &args[1], &args[2], cx, 0); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL
@@ -8299,6 +8329,24 @@ PL_CX_LEAF_HEAD(set_prolog_flag, 2)
     }
 PL_CX_LEAF_TAIL
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+PL_CX_LEAF_HEAD(create_prolog_flag, 2)
+    {
+        extern void *rt_pl_ball_kind2(const char *, const char *, DESCR_t);
+        extern void *rt_pl_ball_instantiation(void);
+        const char *fn, *vn;
+        DESCR_t f = rt_pl_deref_val(args[0]), v = rt_pl_deref_val(args[1]);
+        pl_flag_t *fl;
+        ok = 0;
+        fn = pl_atom_str(f);
+        vn = pl_atom_str(v);
+        if (!vn && v.v == (DTYPE_t)DT_I) { char *b = rt_wsb_alloc(24); snprintf(b, 24, "%lld", (long long)v.i); vn = b; }
+        if (pl_val_unbound(f) || pl_val_unbound(v)) cx->ball = rt_pl_ball_instantiation();
+        else if (!fn) cx->ball = rt_pl_ball_kind2("type_error", "atom", f);
+        else if (!vn) cx->ball = rt_pl_ball_kind2("domain_error", "flag_value", v);
+        else if (!(fl = pl_flag_find_or_create(fn))) cx->ball = rt_pl_ball_kind2("domain_error", "prolog_flag", f);
+        else { fl->val = rt_heap_strdup_c(vn); fl->mod = 1; fl->allow[0] = 0; fl->is_term = 0; ok = 1; }
+    }
+PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(set_prolog_flag_declare, 2)
     {
         char fb[128], vb[128];
