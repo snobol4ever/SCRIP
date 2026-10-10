@@ -84,6 +84,7 @@ test_gate_claim_and_next_announce_the_start_of_work.sh	WIRED	-	-	-
 test_gate_claim_computes_the_premise.sh	WIRED	-	-	-
 test_gate_coexpr_stack_of_uncreated_thread.sh	WIRED	-	-	-
 test_gate_collect_reports_free_storage_and_fails_when_short.sh	WIRED	-	-	-
+test_gate_container_package_runner_counts_its_containers_as_excl.sh	WIRED	-	-	-
 test_gate_control_edges_live_on_ports.sh	WIRED	-	-	-
 test_gate_corpus_coverage_classified.sh	WIRED	-	-	-
 test_gate_cross_suite_ref_agreement.sh	WIRED	-	-	-
@@ -558,6 +559,7 @@ test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-
 test_gate_pas_pat_m4_arm_links_and_runs.sh	WIRED	-	-	-
 test_gate_pas_port_trace.sh	WIRED	-	-	-
+test_gate_pas_prelude_units_in_sync.sh	WIRED	-	-	-
 test_gate_pas_read_at_end_of_line_yields_a_space.sh	WIRED	-	-	-
 test_gate_pas_readln_and_writeln_require_a_textfile.sh	WIRED	-	-	-
 test_gate_pas_real_record_fields_read_back_as_reals.sh	WIRED	-	-	-
@@ -575,6 +577,7 @@ test_gate_pas_two_routines_of_one_name_get_distinct_assembler_labels.sh	WIRED	-	
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_under_overflow_checking_an_unsigned_sum_that_goes_negative_is_runtime_error_215.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
+test_gate_pas_uses_and_units_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_variant_arms_overlay_the_same_storage.sh	WIRED	-	-	-
 test_gate_pas_variant_record_arms_share_one_byte_storage_as_fpc_overlays_them.sh	WIRED	-	-	-
 test_gate_pas_zero_based_strings_make_low_zero_and_index_from_zero_after_the_directive.sh	WIRED	-	-	-
@@ -680,8 +683,6 @@ test_gate_pl_portray_reaches_every_subterm_of_print_and_write_term.sh	WIRED	-	-	
 test_gate_pl_predicate_property_of_a_head_known_only_at_run_time_asks_the_registry.sh	WIRED	-	-	-
 test_gate_pl_prelude_libs_cost.sh	WIRED	-	-	-
 test_gate_pl_prelude_libs_in_sync.sh	WIRED	-	-	-
-test_gate_pas_prelude_units_in_sync.sh	WIRED	-	-	-
-test_gate_pas_uses_and_units_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-

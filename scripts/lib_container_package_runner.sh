@@ -10,6 +10,26 @@
 # timeout retry, the per-program progress rows), prints the board line and the inventory, and writes the suite row through
 # util_score_row.py: THE AND PER PROGRAM over the programs the oracle grades, with a program a ruled class excludes named in EXCLUDED.tsv
 # by a ruled class and shown as Excl, so shipped = denominator + Excl; every other ungraded program stays in as debt. rc: the harness's, 2 refused.
+#
+# container_package_excl <suite-dir> <ext> -- echo "<excl> <containers>": Excl is the EXCLUDED.tsv rows plus every CONTAINERS.tsv fragment
+# shipped as <name>.<ext> beside the container and not already named in EXCLUDED.tsv (CEO-1288: Excl is every shipped unit a row leaves out,
+# so shipped = denominator + Excl as jcon, arizona, gnu and ipl read; the coo 2026-10-10: rosetta-prolog published 220/786 with Excl 0 over
+# 9 containers). Both files are read through lib_inventory.sh, the one reader; rc 2 when either is refused. Gate:
+# test_gate_container_package_runner_counts_its_containers_as_excl.sh.
+container_package_excl() {
+  local suite="$1" ext="$2" conts exnames nex=0 ncont=0 f
+  conts="$(inventory_container_names "$suite")" || return 2
+  exnames="$(inventory_excluded_names "$suite")" || return 2
+  [ -f "$suite/EXCLUDED.tsv" ] && nex=$(grep -vc -E '^#|^\s*$' "$suite/EXCLUDED.tsv")
+  if [ -n "$conts" ]; then
+    while IFS= read -r f; do
+      grep -qxF -- "$f" <<<"$conts" || continue
+      grep -qxF -- "$f" <<<"$exnames" && continue
+      ncont=$((ncont + 1))
+    done < <(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" -printf '%f\n')
+  fi
+  echo "$((nex + ncont)) $ncont"
+}
 container_package_run() {
   local lang="$1" ext="$2" key="$3" suite="$4" gate="$5"
   local here sd board rc out field_ scored shipped excl denom bothp m3p m4p inv cc
@@ -20,6 +40,10 @@ container_package_run() {
   "$here/util_require_fresh.sh" --gate "$gate" "$sd/scrip" "${RT_DIR:-$sd/out}/libscrip_rt.so" || return 2
   [ -f "$suite/ALL.$ext" ] && [ -f "$suite/ALL.ref" ] || { echo "⛔ REFUSE(rc=2): no container at $suite/ALL.{$ext,ref} -- run: python3 scripts/util_build_package_suite.py $suite --lang $lang --twice"; return 2; }
   shipped=$(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" | wc -l)
+  local conts xc ncont
+  conts="$(inventory_container_names "$suite")" && xc="$(container_package_excl "$suite" "$ext")" \
+    || { echo "⛔ REFUSE(rc=2): $suite/CONTAINERS.tsv or EXCLUDED.tsv is refused (the reader said why above) -- no row over an unread exclusion"; return 2; }
+  excl="${xc% *}"; ncont="${xc#* }"
   out="$(cd "$sd" && python3 scripts/corpus_suite_harness.py run "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" --modes m3,m4 2>&1)"; rc=$?
   printf '%s\n' "$out"
   board="$(printf '%s\n' "$out" | grep -m1 '^SUITE_BOARD ')"
@@ -33,23 +57,22 @@ container_package_run() {
   graded_list="$(cd "$sd" && S4E_PROGRESS_OFF=1 python3 scripts/corpus_suite_harness.py list "$suite/ALL.$ext" "$suite/ALL.ref" --lang "$lang" 2>/dev/null)"
   ( ung_rows="$(mktemp)"; trap 'rm -f "$ung_rows"' EXIT   # a subshell trap: this library is sourced, so an EXIT trap here must not replace the caller's
   while IFS= read -r f; do
-    n="$(basename "$f" ".$ext")"; grep -qxF "$n" <<<"$graded_list" && continue
+    n="$(basename "$f" ".$ext")"; grep -qxF "$n" <<<"$graded_list" && continue; grep -qxF -- "$n.$ext" <<<"$conts" && continue
     cls="$(awk -F'\t' -v k="$n.$ext" '$1==k {print $2; exit}' "$suite/UNGRADABLE.tsv" "$suite/UNGRADED.tsv" 2>/dev/null)"
     printf 'package\t%s\t%s\t%s\tm3\tUNGRADED\t0\t%s\npackage\t%s\t%s\t%s\tm4\tUNGRADED\t0\t%s\n' "$key" "$lang" "$n" "${cls:-unclassed}" "$key" "$lang" "$n" "${cls:-unclassed}" >> "$ung_rows"
   done < <(find "$suite" -maxdepth 1 -name "*.$ext" ! -name "ALL.$ext" | sort)
   [ -s "$ung_rows" ] && { progress_append_rows_tsv "$ung_rows" || echo "⚠ the UNGRADED progress rows were not appended (reason above) -- the row write's cross-check reads the graded population only" >&2; } )
   # the denominator is SHIPPED (CEO-1286): a program the container does not grade is named in UNGRADABLE.tsv or UNGRADED.tsv and stays
-  # in as debt; only a program a ruled EXCLUDED.tsv class names leaves it, shown as Excl
-  excl=0; [ -f "$suite/EXCLUDED.tsv" ] && excl=$(grep -vc -E '^#|^\s*$' "$suite/EXCLUDED.tsv")
+  # in as debt; only a program a ruled EXCLUDED.tsv class names, or a CONTAINERS.tsv fragment, leaves it, shown as Excl
   denom=$((shipped - excl))
-  echo "$(printf '%s' "$key" | tr 'a-z-' 'A-Z_')_BOARD shipped=$shipped graded=$scored excluded=$excl denominator=$denom both_pass=$bothp m3_pass=$m3p m4_pass=$m4p"
+  echo "$(printf '%s' "$key" | tr 'a-z-' 'A-Z_')_BOARD shipped=$shipped graded=$scored excluded=$excl containers=$ncont denominator=$denom both_pass=$bothp m3_pass=$m3p m4_pass=$m4p"
   INV_PACKAGE="$key"; INV_DIR="$suite"; INV_EXT=".$ext"
   inv="$(inventory_line "$scored" 0)"
   if [ -n "$inv" ]; then echo "$inv"; else echo "⚠ inventory refused (above) -- the board line still stands; the inventory does not" >&2; fi
   cc="${S4E_CRITERION_CHANGED:-}"
   python3 "$here/util_score_row.py" write --lang "$lang" --column vendor --suite "$key" --suite-key "$key" --modes m3,m4 \
       ${cc:+--criterion-changed "$cc"} --suite-pass "$bothp" --suite-total "$denom" --excluded "$excl" --measurer "${S4E_SEAT:-}" \
-      --text "$key both-modes $bothp/$denom · m3 $m3p/$denom · m4 $m4p/$denom ($scored graded of $shipped shipped, the rest named in UNGRADABLE.tsv/UNGRADED.tsv as debt, EXCLUDED=$excl${inv:+ · $inv} (\`$gate.sh\`))" \
+      --text "$key both-modes $bothp/$denom · m3 $m3p/$denom · m4 $m4p/$denom ($scored graded of $shipped shipped, the rest named in UNGRADABLE.tsv/UNGRADED.tsv as debt, EXCLUDED=$excl of which $ncont CONTAINERS.tsv fragments${inv:+ · $inv} (\`$gate.sh\`))" \
       || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
   return "$rc"
 }
