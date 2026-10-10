@@ -795,7 +795,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "assign") && args && args->count >= 3) { tree_t *fv = args->items[0]; tree_t *nm = args->items[2]; return mk_assign(fv, mk_fnc1("__pas_fassign", pas_alpha_wrap(nm))); }
     if (name && !strcmp(name, "rewrite") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
-        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ? ((g_lower.pas.sem.pas_mode_iso && pas_is_hdrfile(fv->v.sval)) ? ilit(1) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
+        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ?
+            (((g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) && pas_is_hdrfile(fv->v.sval)) ? ilit(1) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
         return mk_assign(fv, dflt ? mk_set_bin("__pas_rewrite", pas_tree_clone(fv), dflt) : mk_fnc1("__pas_rewrite", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "append") && args && args->count >= 1) {
@@ -804,7 +805,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     }
     if (name && !strcmp(name, "reset") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
-        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ? ((g_lower.pas.sem.pas_mode_iso && pas_is_hdrfile(fv->v.sval)) ? ilit(0) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
+        tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ?
+            (((g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) && pas_is_hdrfile(fv->v.sval)) ? ilit(0) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
         return mk_assign(fv, dflt ? mk_set_bin("__pas_reset", pas_tree_clone(fv), dflt) : mk_fnc1("__pas_reset", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "close") && args && args->count >= 1) { return mk_fnc1("__pas_fclose", args->items[0]); }
