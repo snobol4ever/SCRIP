@@ -2167,8 +2167,11 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
     {
-        unsigned char seen[32] = { 0 };
+        int napi = 0;
+        while (pl_attv_api[napi]) napi++;
+        unsigned char seen[napi + 1];
         int armed = 0;
+        memset(seen, 0, (size_t)napi + 1);
         for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr) pl_attv_term_arms(cl->tr, seen);
         for (int i = 0; pl_attv_api[i]; i++) if (seen[i]) armed = 1;
         if (armed) pl_cv_add(&referenced, "$wakeup");
