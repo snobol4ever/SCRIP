@@ -155,6 +155,7 @@ static int pas_var_string_kind(const char *name);
 static int pas_tfcomp_range(const char *n, long long *lo, long long *hi);
 static int pas_tfcomp_nonchar(const char *n);
 static int pas_is_hdrfile(const char *n);
+static int pas_hdrfile_index(const char *n);
 static void pas_assigned_add(const char *n);
 static int pas_assigned_get(const char *n);
 static int pas_array_is_param(const char *name);
@@ -797,7 +798,8 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "rewrite") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
         tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ?
-            (((g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) && pas_is_hdrfile(fv->v.sval)) ? ilit(1) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
+            (((g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) && pas_is_hdrfile(fv->v.sval)) ? ilit(1 + 2 * pas_hdrfile_index(fv->v.sval)) : leaf_s(TT_QLIT, fv->v.sval)) :
+            NULL;
         return mk_assign(fv, dflt ? mk_set_bin("__pas_rewrite", pas_tree_clone(fv), dflt) : mk_fnc1("__pas_rewrite", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "append") && args && args->count >= 1) {
@@ -807,7 +809,7 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "reset") && args && args->count >= 1) {
         tree_t *fv = args->items[0];
         tree_t *dflt = (fv && fv->t == TT_VAR && fv->v.sval) ?
-            (((g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) && pas_is_hdrfile(fv->v.sval)) ? ilit(0) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
+            (((g_lower.pas.sem.pas_mode_iso || !g_lower.pas.sem.pas_seen_mode_directive) && pas_is_hdrfile(fv->v.sval)) ? ilit(2 * pas_hdrfile_index(fv->v.sval)) : leaf_s(TT_QLIT, fv->v.sval)) : NULL;
         return mk_assign(fv, dflt ? mk_set_bin("__pas_reset", pas_tree_clone(fv), dflt) : mk_fnc1("__pas_reset", pas_tree_clone(fv)));
     }
     if (name && !strcmp(name, "close") && args && args->count >= 1) { return mk_fnc1("__pas_fclose", args->items[0]); }
@@ -2441,6 +2443,11 @@ static int pas_is_filevar_elem(tree_t *e) {
     return e && e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && pas_is_filevar(e->c[0]->v.sval) && pas_array_high_get(e->c[0]->v.sval, &_ah);
 }
 static int pas_is_stdstream(const char *name) { return name && (!strcmp(name, "input") || !strcmp(name, "output")); }
+static int pas_hdrfile_index(const char *n) {
+    for (int i = 0; n && i < g_lower.pas.sem.pas_nhdrfile; i++) if (g_lower.pas.sem.pas_hdrfiles[i] && !strcmp(g_lower.pas.sem.pas_hdrfiles[i], n)) return i + 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pas_is_hdrfile(const char *n) {
     if (!n) return 0;
     for (int i = 0; i < g_lower.pas.sem.pas_nhdrfile; i++) if (g_lower.pas.sem.pas_hdrfiles[i] && !strcmp(g_lower.pas.sem.pas_hdrfiles[i], n)) return 1;

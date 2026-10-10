@@ -11664,7 +11664,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name;
         }
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
-        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(args[1].i == 1 ? 1 : 0); return 1; }
+        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) {
+            extern const char *pas_main_arg(int);
+            const char *pa = pas_main_arg((int)(args[1].i >> 1));
+            if (pa) nm = pa;
+            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((args[1].i & 1) ? 1 : 0); return 1; }
+        }
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (nm && nm[0] && (!strcmp(nm, "input") || !strcmp(nm, "output"))) nm = "";
         FILE *fp;
@@ -11696,7 +11701,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         const char *stale_nm = NULL;
         if (IS_FH_fn(args[0])) { int oidx = (int)args[0].i; FILE *ofp = fh_get(oidx); if (ofp) { rewind(ofp); *out = args[0]; return 1; } if (oidx >= 0 && oidx < FH_N) stale_nm = g_fh[oidx].name; }
         const char *nm = (stale_nm && stale_nm[0]) ? stale_nm : VARVAL_fn(args[0]);
-        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL(args[1].i == 1 ? 1 : 0); return 1; }
+        if ((!nm || !nm[0]) && nargs == 2 && IS_INT_fn(args[1])) {
+            extern const char *pas_main_arg(int);
+            const char *pa = pas_main_arg((int)(args[1].i >> 1));
+            if (pa) nm = pa;
+            else { extern void fh_ensure_init(void); fh_ensure_init(); *out = FHVAL((args[1].i & 1) ? 1 : 0); return 1; }
+        }
         if ((!nm || !nm[0]) && nargs == 2 && !IS_INT_fn(args[1])) nm = VARVAL_fn(args[1]);
         if (!nm || !nm[0]) { *out = FAILDESCR; return 1; }
         FILE *fp = fopen(nm, "r");
@@ -14436,6 +14446,7 @@ static int g_main_args_n = -1;
 static const char *g_main_progname;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_main_args_v = v; g_main_args_n = n; }
+const char *pas_main_arg(int k) { return (k >= 1 && k <= g_main_args_n && g_main_args_v && g_main_args_v[k - 1] && g_main_args_v[k - 1][0]) ? g_main_args_v[k - 1] : (const char *)0; }
 void rt_main_args_stage_argv(char **v, int n) {
     extern int rt_cmdline_prog_first(void);
     int skip = rt_cmdline_prog_first() - 1;

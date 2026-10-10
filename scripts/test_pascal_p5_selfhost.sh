@@ -52,7 +52,7 @@ pre pint "-DWRDSIZ32" pint
 [ "$prerc" -eq 0 ] || { echo "P5_SELFHOST: pre=$prerc pcom=BLOCKED pint=BLOCKED gen1_pcode_lines=0 gen2=BLOCKED pcode_identical=n/a"; echo "SELFHOST BLOCKED (P5's preprocessing step failed: rc=$prerc)"; exit 1; }
 # ---- half 1: the compiler compiles its own source (generation 1) ---------------------------------------------------
 cp "$W/pcom_self.pas" "$W/prd"
-( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t1" timeout 900s "$SCRIP" -d${PCOM_HEAP_KB}k --run pcom.pas < /dev/null > pcom.out 2> pcom.err ); pcomrc=$?
+( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t1" timeout 900s "$SCRIP" -d${PCOM_HEAP_KB}k --run pcom.pas -- prd prr < /dev/null > pcom.out 2> pcom.err ); pcomrc=$?
 read -r s1 k1 < <(tail -1 "$W/t1"); case "$s1" in ""|*[!0-9.]*) s1=unmeasured; k1=unmeasured;; esac
 echo "WORK pcom.pas(gen1, compiling its own preprocessed source) wall=${s1}s rss=${k1}KB  ($TREE)"
 g1lines=$(wc -l < "$W/prr" 2>/dev/null); g1lines=${g1lines:-0}
@@ -75,23 +75,23 @@ fi
 echo "native: fpc-built pcom on the same source -> gen1 P-code $gnat ($( [ -f "$W/native/prr" ] && wc -l < "$W/native/prr" || echo 0) lines)"
 # ---- half 2: the interpreter, a known-answer probe: P5's hello sample through scrip-compiled pcom and pint ---------
 cp "$SMP/hello.pas" "$W/prd"
-( cd "$W" && rm -f prr && timeout 300s "$SCRIP" -d${PCOM_HEAP_KB}k --run pcom.pas < /dev/null > hello_c.out 2> hello_c.err ); hcrc=$?
+( cd "$W" && rm -f prr && timeout 300s "$SCRIP" -d${PCOM_HEAP_KB}k --run pcom.pas -- prd prr < /dev/null > hello_c.out 2> hello_c.err ); hcrc=$?
 cp "$W/prr" "$W/hello.pcode" 2>/dev/null; cp "$W/hello.pcode" "$W/prd"
-( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t2" timeout 300s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas < /dev/null > hello_i.out 2> hello_i.err ); pintrc=$?
+( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t2" timeout 300s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas -- prd prr < /dev/null > hello_i.out 2> hello_i.err ); pintrc=$?
 read -r s2 k2 < <(tail -1 "$W/t2"); case "$s2" in ""|*[!0-9.]*) s2=unmeasured; k2=unmeasured;; esac
 echo "WORK pint.pas(hello probe, the P-code of P5's hello sample) wall=${s2}s rss=${k2}KB  ($TREE)"
 if [ "$hcrc" -eq 0 ] && [ "$pintrc" -eq 0 ] && diff <(tail -n +2 "$SMP/hello.cmp") <(tail -n +2 "$W/hello_i.out") >/dev/null 2>&1; then pintv=match; else pintv=differs; fi
 echo "pint: rc=$pintrc hello_transcript=$pintv first_line=$(head -1 "$W/hello_i.out" | cut -c1-60) $(grep -v '^Command' "$W/hello_i.err" | head -c 120 | tr '\n' ' ')"
 # ---- generation 2, the quick probe: the compiler, compiled by itself and run by pint, compiles P5's hello -----------------
 cat "$W/gen1.pcode" "$SMP/hello.pas" > "$W/prd"
-( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t3" timeout 1200s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas < /dev/null > g2h.out 2> g2h.err ); g2hrc=$?
+( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t3" timeout 1200s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas -- prd prr < /dev/null > g2h.out 2> g2h.err ); g2hrc=$?
 read -r s3 k3 < <(tail -1 "$W/t3"); case "$s3" in ""|*[!0-9.]*) s3=unmeasured; k3=unmeasured;; esac
 echo "WORK pint.pas(gen2 probe, the gen1 P-code compiling P5's hello) wall=${s3}s rss=${k3}KB  ($TREE)"
 if [ "$g2hrc" -eq 0 ] && cmp -s "$W/prr" "$W/hello.pcode"; then g1h=identical; else g1h=differs; fi
 echo "gen2 probe: rc=$g2hrc hello_pcode=$g1h pcode_lines=$(wc -l < "$W/prr" 2>/dev/null)"
 # ---- generation 2, in full: the gen1 P-code compiles pcom's own source -------------------------------------------------
 cat "$W/gen1.pcode" "$W/pcom_self.pas" > "$W/prd"
-( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t4" timeout ${GEN2_TIMEOUT_S}s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas < /dev/null > gen2.out 2> gen2.err ); gen2rc=$?
+( cd "$W" && rm -f prr && /usr/bin/time -f "%e %M" -o "$W/t4" timeout ${GEN2_TIMEOUT_S}s "$SCRIP" -d${PINT_HEAP_KB}k --run pint.pas -- prd prr < /dev/null > gen2.out 2> gen2.err ); gen2rc=$?
 read -r s4 k4 < <(tail -1 "$W/t4"); case "$s4" in ""|*[!0-9.]*) s4=unmeasured; k4=unmeasured;; esac
 echo "WORK pint.pas(gen2, running the gen1 P-code on pcom's own source) wall=${s4}s rss=${k4}KB  ($TREE)"
 g2lines=$(wc -l < "$W/prr" 2>/dev/null); g2lines=${g2lines:-0}
