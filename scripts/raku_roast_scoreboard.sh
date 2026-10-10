@@ -218,7 +218,7 @@ if [ "$DO_RUN" = 1 ]; then
   ROAST_COMMIT="unversioned-tree"
   [ -d "$ROAST/.git" ] && ROAST_COMMIT="$(cd "$ROAST" && git rev-parse --short=9 HEAD 2>/dev/null || echo unversioned-tree)"
   RT_DIR="$ROOT/out"
-  m3p=0; m3f=0; m4p=0; m4f=0; compiled_ok=0; n=0; t0=$(date +%s)
+  m3p=0; m3f=0; m4p=0; m4f=0; bothp=0; compiled_ok=0; n=0; t0=$(date +%s)
   TREE_T=$(find -L "$ROAST" -name '*.t' | wc -l)
   MAN_ALL=0; MAN_TIER=0; MAN_MISSING=0; MAN_MISSING_LIST=""
   if [ -f "$MANIFEST" ]; then
@@ -252,6 +252,7 @@ if [ "$DO_RUN" = 1 ]; then
       v4="$(classify "$TMP/o4" "$TMP/e4" "$rc4")"
       progress_append package roast raku "$pname" m4 "$(roast_outcome "$v4")" >/dev/null 2>&1 || true
       if [ "$v4" = PASS ]; then m4p=$((m4p+1)); else m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:$v4"; fi
+      [ "$v3" = PASS ] && [ "$v4" = PASS ] && bothp=$((bothp+1))
     else
       m4f=$((m4f+1)); FAILED_M4="$FAILED_M4 $pname:CC"
       progress_append package roast raku "$pname" m4 REJECT 0 "mode-4 compile or link failed" >/dev/null 2>&1 || true
@@ -263,7 +264,11 @@ if [ "$DO_RUN" = 1 ]; then
   roast_undecl_report
   compile_only=$((compiled_ok - m4p))
   elapsed=$(( $(date +%s) - t0 ))
-  both=$((m3p < m4p ? m3p : m4p))
+  # ⛔ THE AND PER PROGRAM, NEVER THE SMALLER COUNT (ceo-372; the coo 2026-10-10): this line read min(m3p, m4p), which counts a program
+  # green in one mode beside a different program green in the other. Measured: pass 45 on fcff46d90 read 164 here against the progress
+  # DB's 162, pass 46 on 8f5f2f7ac 144 against 141 (seven S15-normalization files pass in one mode only), and util_score_row refused both
+  # writes -- the published row stayed at pass 44's reading. bothp counts a program only when its m3 and m4 verdicts are both PASS.
+  both=$bothp
   if [ -n "$MAN_MISSING_LIST" ]; then
     printf 'ROAST_MANIFEST_ABSENT %d file(s) the 6.c manifest names and the vendored tree does not contain:\n' "$MAN_MISSING"
     for f in $MAN_MISSING_LIST; do printf '    %s\n' "$f"; done | head -40
