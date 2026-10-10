@@ -512,7 +512,9 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
                     zls_field(scope_id, off + 16 * nd->n_operands + 40, 8, ZK_RAW, 0, "redisp.cname (the invocant's class name, interned)", nd);
                     zls_field(scope_id, off + 16 * nd->n_operands + 48, 8, ZK_RAW, 0, "redisp.found_idx | nargs (two 32-bit halves)", nd);
                     zls_field(scope_id, off + 16 * nd->n_operands + 56, 8, ZK_RAW, 0, "redisp.args (a pointer into this frame's own argv: self, mname, the rest)", nd);
-                    return nd->n_operands + 4;
+                    zls_field(scope_id, off + 16 * nd->n_operands + 64, 8, ZK_RAW, 0, "redisp.skip_mname | local (two 32-bit halves)", nd);
+                    zls_field(scope_id, off + 16 * nd->n_operands + 72, 16 * RK_REDISP_REC_SLOTS - 72, ZK_RAW, 0, "redisp pad (the record is RK_REDISP_REC_BYTES; the grant is whole slots)", nd);
+                    return nd->n_operands + RK_REDISP_REC_SLOTS;
                 }
             }
             {

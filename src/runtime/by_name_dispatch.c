@@ -147,6 +147,7 @@ void rt_call_args_clear_from(int n);
 #include "rt/rt.h"
 #include "rt/rt_list_view.h"
 #include "rt/rt_protected.h"
+#include "gc_frame_map.h"
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
@@ -3744,6 +3745,8 @@ static int meth_is_user_proc(const char *procname) {
     return 0;
 }
 typedef struct rk_redisp_t { DESCR_t self; DESCR_t mname; struct rk_redisp_t *prev; const char *cname; int found_idx; int nargs; const DESCR_t *args; int skip_mname; int local; } rk_redisp_t;
+_Static_assert(sizeof(rk_redisp_t) == RK_REDISP_REC_BYTES,
+    "the redispatch record is RK_REDISP_REC_BYTES of the meth_call node's frame grant (frame_layout.c grants RK_REDISP_REC_SLOTS slots after the argv)");
 static rk_redisp_t *g_redisp_cur = (rk_redisp_t *)0;
 static DESCR_t rd_arg(const rk_redisp_t *r, int k) { return (r->skip_mname && k > 0) ? r->args[1 + k] : r->args[k]; }
 static int rd_mro_len(const char *cname) {

@@ -54,6 +54,8 @@ _Static_assert(GC_LAY_OFF(GC_LAY_Q(-72, GC_LAY_PTR_GC, 8)) == -72 && GC_LAY_KIND
 #define GC_LINK_RBP(q) (GC_LINK_PC(q) + (int)(int16_t)(uint16_t)((q) >> 32))
 #define GC_LINK_R(q) (GC_LINK_PC(q) + (int)(int8_t)(uint8_t)((q) >> 48))
 #define GC_LINK_FL(q) ((unsigned)(((q) >> 56) & 0x7Fu))
+#define RK_REDISP_REC_BYTES 72
+#define RK_REDISP_REC_SLOTS ((RK_REDISP_REC_BYTES + 15) / 16)
 #define FLAT_FRAME_ALLOWANCE 64
 #define FLAT_FRAME_ALLOWANCE_PINNED 96
 #define FLAT_FRAME_ALLOWANCE_ROOT 80

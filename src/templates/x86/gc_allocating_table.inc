@@ -1,7 +1,7 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2410
-#define GC_ALLOC_TAB_N_VOID 287
+#define GC_ALLOC_TAB_N 2411
+#define GC_ALLOC_TAB_N_VOID 288
 #define GC_ALLOC_TAB_N_DESCR 1181
 #define GC_ALLOC_TAB_N_OTHER 926
 #define GC_ALLOC_TAB_N_UNKNOWN 16
@@ -955,6 +955,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_leaf_guarded1_dir", GC_RET_OTHER },
     { "pl_leaf_lv", GC_RET_OTHER },
     { "pl_leaf_lv_guarded", GC_RET_OTHER },
+    { "pl_libs_append", GC_RET_VOID },
     { "pl_list_from_arr", GC_RET_DESCR },
     { "pl_list_text_heap", GC_RET_OTHER },
     { "pl_load_procs", GC_RET_VOID },
