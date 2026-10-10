@@ -219,7 +219,7 @@ static int rk_is_relop(tree_e tt) {
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { IR_t * entry; IR_t * tail; } rkrx_t;
-typedef struct { int maxp; int nnamed; const char * named[64]; } rkrx_groups_t;
+typedef struct { int maxp; int nnamed; const char ** named; } rkrx_groups_t;
 static long long rk_rx_fl(const tree_t * t) { return (t && t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT) ? t->c[0]->v.ival : 0; }
 static void rk_rx_tag(IR_ref_t * r, const char * tg) { memcpy(r->sz, tg, 3); r->sz[3] = 0; }
 static int rk_rx_tagged(const IR_ref_t * r, unsigned char b1) { return (unsigned char) r->sz[0] == 0xcf && (unsigned char) r->sz[1] == b1; }
@@ -231,6 +231,7 @@ static int rk_rx_atomic(const tree_t * a) {
     if (a->t == TT_RX_GROUP && a->n == 1) return rk_rx_atomic(a->c[0]);
     return 0;
 }
+static int rk_rx_has_cap(const tree_t * t) { if (!t) return 0; if (t->t == TT_RX_CAP) return 1; for (int i = 0; i < t->n; i++) if (rk_rx_has_cap(t->c[i])) return 1; return 0; }
 static int rk_rx_core(const tree_t * t) {
     if (!t) return 0;
     switch (t->t) {
@@ -247,7 +248,7 @@ static int rk_rx_core(const tree_t * t) {
         case TT_RX_QUANT:
         return t->n == 3 && rk_rx_atomic(t->c[0]) && t->c[1] && t->c[1]->t == TT_ILIT && t->c[2] && t->c[2]->t == TT_ILIT;
         case TT_RX_CAP:
-        return t->n == 1 && rk_rx_core(t->c[0]);
+        return t->n == 1 && !rk_rx_has_cap(t->c[0]) && rk_rx_core(t->c[0]);
         case TT_RX_ANCHOR:
         return t->v.ival == 0 || t->v.ival == 1;
         case TT_RX_NULL:
@@ -256,13 +257,14 @@ static int rk_rx_core(const tree_t * t) {
         return 0;
     }
 }
+static int rk_rx_count_caps(const tree_t * t) { int n = 0; if (!t) return 0; if (t->t == TT_RX_CAP) n = 1; for (int i = 0; i < t->n; i++) n += rk_rx_count_caps(t->c[i]); return n; }
 static void rk_rx_scan_groups(const tree_t * t, rkrx_groups_t * gr) {
     if (!t) return;
     if (t->t == TT_RX_CAP) {
         if (t->slen > 0 && t->v.sval) {
             int seen = 0;
             for (int i = 0; i < gr->nnamed; i++) if (!strcmp(gr->named[i], t->v.sval)) seen = 1;
-            if (!seen && gr->nnamed < 64) gr->named[gr->nnamed++] = t->v.sval;
+            if (!seen) gr->named[gr->nnamed++] = t->v.sval;
         } else if ((int) t->v.ival > gr->maxp) gr->maxp = (int) t->v.ival;
     }
     for (int i = 0; i < t->n; i++) rk_rx_scan_groups(t->c[i], gr);
@@ -414,7 +416,9 @@ static rkrx_t rk_rx_lower(rcx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail
 static IR_t * rk_lower_smatch_boxes(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
     IR_graph_t * g = cx->g;
     const tree_t * rx = t->c[1]->c[1];
-    rkrx_groups_t gr = { -1, 0, { 0 } };
+    int ncap = rk_rx_count_caps(rx);
+    const char * named[ncap > 0 ? ncap : 1];
+    rkrx_groups_t gr = { -1, 0, named };
     IR_t * last, * clr, * head, * release, * land, * sv = NULL, * se;
     rkrx_t p;
     rk_rx_scan_groups(rx, &gr);
