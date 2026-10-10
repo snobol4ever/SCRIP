@@ -673,6 +673,25 @@ static tree_t * rk_divis_desugar(const tree_t * t) {
     return eq;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_fnc2(const char * nm, const tree_t * a, const tree_t * b);
+static const tree_t * rk_closure_block(const tree_t * t);
+static tree_t * rk_fnc_cl(const char * nm, const tree_t * cl, const tree_t * a, const tree_t * b);
+static int rk_proc_nparams(const char * name);
+static const tree_t * rk_block_decl(const tree_t * prog, const char * nm);
+static int rk_is_code_var(const tree_t * t) { size_t n = (t && t->t == TT_VAR && t->v.sval) ? strlen(t->v.sval) : 0; return n > 6 && !strcmp(t->v.sval + n - 6, "__code"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_code_call1(const tree_t * prog, const tree_t * code, const tree_t * topic, int * ok) {
+    const tree_t * cl = rk_closure_block(code) ? code : NULL, * B = cl ? cl->c[1] : code;
+    *ok = 0;
+    if (rk_is_code_var(code)) { tree_t * iv = ast_node_new(TT_INVOKE); ast_push(iv, (tree_t *) code); if (topic) ast_push(iv, (tree_t *) topic); *ok = 1; return iv; }
+    if (!B || B->t != TT_ANON_BLOCK || !B->v.sval) return NULL;
+    const tree_t * bd = prog ? rk_block_decl(prog, B->v.sval) : NULL;
+    int np = prog ? (bd ? (int) bd->v.ival : -1) : rk_proc_nparams(B->v.sval), nref = cl ? cl->n - 2 : 0;
+    if (np < 0 || np - nref > 1) return NULL;
+    *ok = 1;
+    return rk_fnc_cl(B->v.sval, cl, np - nref == 1 ? topic : NULL, NULL);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t * rk_case_match(const tree_t * subj, const tree_t * cond) {
     if (cond->t == TT_FNC && cond->n > 1 && cond->c[0] && cond->c[0]->v.sval && !strcmp(cond->c[0]->v.sval, "__rk_regex")) {
         tree_t * m = ast_node_new(TT_SMATCH);
@@ -693,6 +712,7 @@ static tree_t * rk_case_match(const tree_t * subj, const tree_t * cond) {
         ast_push(an, le);
         return an;
     }
+    { int ok = 0; tree_t * bc = rk_code_call1(NULL, cond, subj, &ok); if (ok) return rk_fnc2("__rk_mkbool", bc, NULL); }
     if (cond->t == TT_VAR) {
         tree_t * mc = ast_node_new(TT_FNC);
         mc->v.sval = (char *) intern("__rk_when_match");
@@ -898,16 +918,26 @@ static tree_t * rk_fnc_cl(const char * nm, const tree_t * cl, const tree_t * a, 
     return f;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_iter_call(const char * bn, const tree_t * cl, const tree_t * cv, const tree_t * a, const tree_t * b) {
+    if (!cv) return rk_fnc_cl(bn, cl, a, b);
+    tree_t * iv = ast_node_new(TT_INVOKE);
+    ast_push(iv, (tree_t *) cv);
+    if (a) ast_push(iv, (tree_t *) a);
+    if (b) ast_push(iv, (tree_t *) b);
+    return iv;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mname, IR_t * γ, IR_t * ω, IR_t ** res) {
     int k = !strcmp(mname, "map") ? 1 : !strcmp(mname, "grep") ? 2 : !strcmp(mname, "first") ? 3 : !strcmp(mname, "reduce") ? 4 : !strcmp(mname, "sort") ? 5 : 0;
     const tree_t * fa = t->n == 3 ? t->c[2] : NULL;
     const tree_t * cl = rk_closure_block(fa) ? fa : NULL;
     const char * bn = NULL;
+    const tree_t * cv = rk_is_code_var(fa) ? fa : NULL;
     if (cl) fa = cl->c[1];
     if (fa && fa->t == TT_ANON_BLOCK && fa->v.sval) bn = fa->v.sval;
     else if (fa && fa->t == TT_VAR && fa->v.sval && fa->v.sval[0] == '&' && rk_proc_known(fa->v.sval + 1) && !rk_is_multi_name(fa->v.sval + 1)) bn = fa->v.sval + 1;
-    if (!k || !bn || !t->c[0]) return NULL;
-    int np = rk_proc_nparams(bn), nref = cl ? cl->n - 2 : 0;
+    if (!k || !(bn || (cv && k != 5)) || !t->c[0]) return NULL;
+    int np = cv ? (k == 4 ? 2 : 1) : rk_proc_nparams(bn), nref = cl ? cl->n - 2 : 0;
     if (np >= 0 && (np -= nref) < 0) return NULL;
     int step = (k == 1 && np > 1) ? np : 1;
     if (k == 4 ? np != 2 : k == 5 ? np != 1 : (np < 0 || (k != 1 && np > 1))) return NULL;
@@ -949,9 +979,9 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
     if (k == 1 || k == 4 || k == 5) {
         IR_t * as = build(cx, IR_ASSIGN, to, to);
         IR_LIT(as).sval = acc;
-        tree_t * call = k == 4 ? rk_fnc_cl(bn, cl, leaf_sval2(TT_VAR, acc), at) : rk_fnc_cl(bn, cl, np ? at : NULL, NULL);
+        tree_t * call = k == 4 ? rk_iter_call(bn, cl, cv, leaf_sval2(TT_VAR, acc), at) : rk_iter_call(bn, cl, cv, np ? at : NULL, NULL);
         if (step > 1) {
-            call = rk_fnc_cl(bn, cl, NULL, NULL);
+            call = rk_iter_call(bn, cl, cv, NULL, NULL);
             for (int j = 0; j < step; j++) {
                 tree_t * sn = ast_node_new(TT_ILIT);
                 sn->v.ival = step;
@@ -967,7 +997,7 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
             }
         }
         if (k == 1 || k == 5) call = rk_fnc2(k == 1 ? "__rk_map_append" : "__rk_grep_append", leaf_sval2(TT_VAR, acc), call);
-        bentry = lower_rcall(cx, call, call->v.sval, 1, as, to, &r);
+        bentry = call->t == TT_INVOKE ? lower_rv(cx, call, as, to, &r) : lower_rcall(cx, call, call->v.sval, 1, as, to, &r);
         if (r) ir_operand_push(as, r);
     } else {
         IR_t * hit;
@@ -983,7 +1013,7 @@ static IR_t * rk_lower_iter_meth(rcx_t * cx, const tree_t * t, const char * mnam
             IR_LIT(hit).sval = el;
             ir_operand_push(as, hit);
         }
-        IR_t * ce = lower_cond(cx, rk_fnc_cl(bn, cl, np ? leaf_sval2(TT_VAR, el) : NULL, NULL), hit, to);
+        IR_t * ce = lower_cond(cx, rk_iter_call(bn, cl, cv, np ? leaf_sval2(TT_VAR, el) : NULL, NULL), hit, to);
         IR_t * ael = build(cx, IR_ASSIGN, ce, to);
         IR_LIT(ael).sval = el;
         bentry = lower_rcall(cx, at, "__rk_arr_at", 1, ael, to, &r);
@@ -3829,6 +3859,100 @@ static void rk_new_build_walk(tree_t * prog, tree_t * t, int * seq) {
     ast_push(t, rk_tv(hname));
     for (int k = 0; k < nkv; k++) ast_push(t, vals[k]);
 }
+static void rk_smartmatch_code_walk(const tree_t * prog, tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_smartmatch_code_walk(prog, t->c[i]);
+    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "__rk_smartmatch") || t->n != 3) return;
+    int ok = 0;
+    tree_t * bc = rk_code_call1(prog, t->c[2], t->c[1], &ok);
+    if (!ok) return;
+    t->v.sval = (char *) "__rk_mkbool";
+    t->c[0] = leaf_sval2(TT_VAR, "__rk_mkbool");
+    t->c[1] = bc;
+    t->n = 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_subst_code_walk(tree_t * t, int * seq) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_subst_code_walk(t->c[i], seq);
+    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "re_subst") || t->n < 8) return;
+    const tree_t * cl = rk_closure_block(t->c[3]) ? t->c[3] : NULL, * B = cl ? cl->c[1] : t->c[3];
+    if (!B || B->t != TT_ANON_BLOCK || !B->v.sval) return;
+    char sv[32];
+    snprintf(sv, sizeof sv, "__rk_sst%d", (*seq)++);
+    const char * st = lp_strdup(sv);
+    tree_t * op = rk_fnc2("__rk_subst_open", t->c[1], t->c[2]);
+    for (int i = 4; i < t->n; i++) ast_push(op, t->c[i]);
+    tree_t * wh = ast_node_new(TT_WHILE);
+    ast_push(wh, rk_fnc2("__rk_subst_next", rk_tv(st), NULL));
+    ast_push(wh, rk_fnc2("__rk_subst_put", rk_tv(st), rk_fnc_cl(B->v.sval, cl, NULL, NULL)));
+    tree_t * fin = rk_fnc2("__rk_subst_close", rk_tv(st), NULL);
+    int line = t->line;
+    t->t = TT_SEQ_EXPR;
+    t->v.sval = NULL;
+    t->n = 0;
+    t->line = line;
+    ast_push(t, rk_tset(st, op));
+    ast_push(t, wh);
+    ast_push(t, fin);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_parse_actions_walk(tree_t * t, int * seq) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_parse_actions_walk(t->c[i], seq);
+    if (t->t != TT_METHCALL || t->n < 3 || !t->c[1] || !t->c[1]->v.sval || (strcmp(t->c[1]->v.sval, "parse") && strcmp(t->c[1]->v.sval, "subparse"))) return;
+    int ai = -1;
+    for (int i = 2; i < t->n; i++) {
+        const tree_t * a = t->c[i];
+        if (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "__rk_pair") && a->n == 3 && a->c[1] && a->c[1]->t == TT_QLIT && a->c[1]->v.sval && !strcmp(a->c[1]->v.sval, "actions")) ai = i;
+    }
+    int positional = ai < 0 && t->n == 4 && t->c[3] && !(t->c[3]->t == TT_FNC && t->c[3]->v.sval && !strcmp(t->c[3]->v.sval, "__rk_pair"));
+    if (positional) ai = 3;
+    if (ai < 0) return;
+    char b1[32], b2[32], b3[32], b4[32];
+    snprintf(b1, sizeof b1, "__rk_ga%d", *seq);
+    snprintf(b2, sizeof b2, "__rk_gm%d", *seq);
+    snprintf(b3, sizeof b3, "__rk_gp%d", *seq);
+    snprintf(b4, sizeof b4, "__rk_gi%d", (*seq)++);
+    const char * ga = lp_strdup(b1), * gm = lp_strdup(b2), * gp = lp_strdup(b3), * gi = lp_strdup(b4);
+    tree_t * act = positional ? t->c[ai] : t->c[ai]->c[2];
+    tree_t * pc = ast_node_new(TT_METHCALL);
+    pc->line = t->line;
+    for (int i = 0; i < t->n; i++) if (i != ai) ast_push(pc, t->c[i]);
+    tree_t * call = rk_fnc2("__rk_named_call", rk_fnc2("__rk_arr_at", rk_tv(gp), rk_tv(gi)), rk_ti(2));
+    ast_push(call, rk_tv(ga));
+    ast_push(call, rk_fnc2("__rk_arr_at", rk_tv(gp), rk_t2(TT_ADD, rk_tv(gi), rk_ti(1))));
+    tree_t * wh = ast_node_new(TT_WHILE);
+    ast_push(wh, rk_t2(TT_LT, rk_tv(gi), rk_fnc2("elems", rk_tv(gp), NULL)));
+    ast_push(wh, rk_tsq(call, rk_tinc(gi, rk_ti(2)), NULL));
+    int line = t->line;
+    t->t = TT_SEQ_EXPR;
+    t->v.sval = NULL;
+    t->n = 0;
+    t->line = line;
+    ast_push(t, rk_tset(ga, act));
+    ast_push(t, rk_tset(gm, pc));
+    ast_push(t, rk_tset(gp, rk_fnc2("__rk_actions_plan", rk_tv(gm), rk_tv(ga))));
+    ast_push(t, rk_tset(gi, rk_ti(0)));
+    ast_push(t, wh);
+    ast_push(t, rk_tv(gm));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_make_walk(tree_t * t, const char * slash) {
+    if (!t) return;
+    if (t->t == TT_SUB_DECL) {
+        slash = "/";
+        for (int k = 0; k < (int) t->v.ival && 1 + k < t->n; k++) { const tree_t * pv = t->c[1 + k]; if (pv && pv->t == TT_VAR && pv->v.sval && !strcmp(pv->v.sval, "__slash")) slash = "__slash"; }
+    }
+    for (int i = 0; i < t->n; i++) rk_make_walk(t->c[i], slash);
+    if (t->t != TT_FNC || !t->v.sval || strcmp(t->v.sval, "make") || t->n != 2 || rk_proc_known("make")) return;
+    tree_t * arg = t->c[1];
+    t->v.sval = (char *) "__rk_make";
+    t->c[0] = leaf_sval2(TT_VAR, "__rk_make");
+    t->c[1] = leaf_sval2(TT_VAR, slash);
+    ast_push(t, arg);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void rk_subtest_walk(tree_t * t, int * seq) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_subtest_walk(t->c[i], seq);
@@ -4265,6 +4389,10 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_hoist_anon_blocks((tree_t *) prog);
     rk_sort_cmp_walk((tree_t *) prog, (tree_t *) prog);
     { int sseq = 0; rk_subtest_walk((tree_t *) prog, &sseq); }
+    rk_smartmatch_code_walk(prog, (tree_t *) prog);
+    { int sseq = 0; rk_subst_code_walk((tree_t *) prog, &sseq); }
+    { int pseq = 0; rk_parse_actions_walk((tree_t *) prog, &pseq); }
+    rk_make_walk((tree_t *) prog, "/");
     { int nseq = 0; rk_new_build_walk((tree_t *) prog, (tree_t *) prog, &nseq); }
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);

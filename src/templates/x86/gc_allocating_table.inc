@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2503
-#define GC_ALLOC_TAB_N_VOID 289
-#define GC_ALLOC_TAB_N_DESCR 1218
-#define GC_ALLOC_TAB_N_OTHER 979
+#define GC_ALLOC_TAB_N 2509
+#define GC_ALLOC_TAB_N_VOID 291
+#define GC_ALLOC_TAB_N_DESCR 1221
+#define GC_ALLOC_TAB_N_OTHER 980
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1151,6 +1151,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "register_op_one", GC_RET_VOID },
     { "relop_num_coerce", GC_RET_OTHER },
     { "rgbkey", GC_RET_OTHER },
+    { "rk_actions_plan", GC_RET_DESCR },
+    { "rk_actions_plan_rec", GC_RET_VOID },
     { "rk_agg_truth", GC_RET_OTHER },
     { "rk_apply_actions", GC_RET_VOID },
     { "rk_arr_append", GC_RET_VOID },
@@ -1369,6 +1371,11 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_stage2_core", GC_RET_OTHER },
     { "rk_str_norm_method", GC_RET_OTHER },
     { "rk_strmeth_open", GC_RET_OTHER },
+    { "rk_subst_after", GC_RET_VOID },
+    { "rk_subst_close", GC_RET_DESCR },
+    { "rk_subst_next", GC_RET_OTHER },
+    { "rk_subst_open", GC_RET_DESCR },
+    { "rk_subst_put", GC_RET_VOID },
     { "rk_subtest_close", GC_RET_OTHER },
     { "rk_subtest_open", GC_RET_DESCR },
     { "rk_tap_str", GC_RET_OTHER },
@@ -1557,7 +1564,6 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_field_var_strict", GC_RET_DESCR },
     { "rt_field_var_strict_at", GC_RET_DESCR },
     { "rt_fire_build", GC_RET_VOID },
-    { "rt_fire_buildplan_tweak", GC_RET_VOID },
     { "rt_fn_frame_bytes_register", GC_RET_VOID },
     { "rt_frame_bind_args", GC_RET_VOID },
     { "rt_gc_assert_instances", GC_RET_OTHER },

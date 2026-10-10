@@ -458,10 +458,11 @@ static int rk_blk_nref(DESCR_t blk) { return rk_is_closure(blk) ? ((ARBLK_t *) b
 static rk_cb_t rk_blk_snap(DESCR_t blk, DESCR_t *refs) { rk_cb_t c = { rk_code_name(blk), rk_blk_nref(blk) }; for (int i = 0; i < c.nref; i++) refs[i] = ((ARBLK_t *) blk.arr)->data[1 + i]; return c; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_proc_descr_rq(const char *name, int nargs, long *rq) {
-    extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
+    extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
     extern int rt_call_open_tail_lex(const char *name, int nargs, long *rq);
+    (void) nargs;
     if (rq && rt_call_open_tail_lex(name, nargs, rq)) return FAILDESCR;
-    return RT_GC_CALLBACK(rt_call_proc_descr(name, nargs));
+    return rt_c2bb_bomb("rk_proc_descr_rq (a Raku C site reached user code with no request channel: the box that called it opens the address, or the lowerer emits the loop)", name);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_call_snap_rq(rk_cb_t c, const DESCR_t *refs, int na, long *rq) {
@@ -665,6 +666,7 @@ int rk_is_truthy(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mk_arr(const DESCR_t *el, int n);
+static DESCR_t rk_unmark(DESCR_t d);
 static DESCR_t rk_mk_pair(DESCR_t k, DESCR_t v);
 static DESCR_t rk_hash_store(DESCR_t h, DESCR_t k, DESCR_t v);
 static int rk_cp_off(const char *s, int boff) { int n = 0; for (int i = 0; i < boff && s[i]; i++) if (((unsigned char) s[i] & 0xC0) != 0x80) n++; return n; }
@@ -694,11 +696,11 @@ static DESCR_t rk_rx_inst(const Match *m, const char *subj, DESCR_t orig, int i)
 static int rk_ev_has_name(const int *e, const Match *m, const char *nm) { const char *a = rk_ev_nm(m, e[2]), *b = rk_ev_nm(m, e[3]); return (a && !strcmp(a, nm)) || (b && !strcmp(b, nm)); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_rx_slot(const Match *m, const char *subj, DESCR_t orig, const int *evs, int n, int rep) {
-    if (n == 0) return rep ? rk_mk_arr(NULL, 0) : NULVCL;
+    if (n == 0) return rep ? rk_unmark(rk_mk_arr(NULL, 0)) : NULVCL;
     if (!rep && n == 1) return rk_rx_inst(m, subj, orig, evs[0]);
     DESCR_t el[n];
     for (int k = 0; k < n; k++) el[k] = rk_rx_inst(m, subj, orig, evs[k]);
-    return rk_mk_arr(el, n);
+    return rep ? rk_unmark(rk_mk_arr(el, n)) : rk_mk_arr(el, n);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_rx_sub(const Match *m, const char *subj, DESCR_t orig, int lo, int hi, int from, int to) {
@@ -1264,6 +1266,94 @@ static DESCR_t rk_rx_piece_str(const char *s, int from, int to) {
     if (n) memcpy(t, s + from, (size_t) n);
     t[n] = 0;
     return STRVAL(t);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_subst_open(DESCR_t *args, int nargs) {
+    DESCR_t sd = args[0], pd = args[1];
+    char sbuf[64];
+    if (!IS_STR_fn(sd)) { const char *t = to_cstring(sd, sbuf, sizeof sbuf); sd = STRVAL(rt_heap_strdup_c(t ? t : "")); }
+    if (rk_rx_pat(pd)) pd = STRVAL((char *) rk_rx_pat(pd));
+    long mode = args[2].i;
+    int nn = nargs > 6 ? nargs - 6 : 0, pos = 0, anchored = 0, last_end = 0;
+    DESCR_t nth[nn ? nn : 1];
+    for (int k = 0; k < nn; k++) nth[k] = INTVAL(args[6 + k].i);
+    const char *s0 = rk_cstr(sd);
+    if (mode & 8) pos = rk_rx_cp_to_byte(s0, args[3].i);
+    if (mode & 16) { pos = rk_rx_cp_to_byte(s0, args[3].i); anchored = 1; }
+    if (pos > 0) last_end = pos <= (int) strlen(s0) ? pos : 0;
+    DESCR_t st[16] = { sd, pd, rk_mk_arr(NULL, 0), INTVAL(pos), INTVAL(last_end), INTVAL(0), INTVAL(0), INTVAL(anchored), INTVAL(mode), INTVAL(args[3].i), INTVAL(args[4].i), INTVAL(args[5].i),
+        rk_mk_arr(nth, nn), INTVAL(0), INTVAL(0), INTVAL(0) };
+    return rk_mk_arr(st, 16);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_subst_after(DESCR_t *e, int from, int to) {
+    long mode = e[8].i, seen = e[6].i, maxnth = 0;
+    rk_av_t nv = rk_av(e[12]);
+    for (int k = 0; k < nv.n; k++) if (nv.el[k].i > maxnth) maxnth = nv.el[k].i;
+    int stream = (mode & (1 | 2 | 4 | 32 | 64)) != 0;
+    if (!stream || (maxnth && seen >= maxnth && !(mode & 1)) || ((mode & 32) && e[11].i >= 0 && e[5].i >= e[11].i) || e[7].i) { e[13] = INTVAL(1); return; }
+    const char *s1 = rk_cstr(e[0]);
+    int sl1 = (int) strlen(s1);
+    e[3] = INTVAL((mode & 2) ? rk_rx_step(s1, sl1, from) : (to > from ? to : rk_rx_step(s1, sl1, to)));
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int rk_subst_next(DESCR_t stv) {
+    rk_av_t a = rk_av(stv);
+    if (a.n != 16 || a.el[13].i) return 0;
+    DESCR_t *e = a.el;
+    for (;;) {
+        const char *subj = rk_cstr(e[0]), *pat = rk_cstr(e[1]);
+        int slen = (int) strlen(subj), pos = (int) e[3].i;
+        if (pos > slen) { e[13] = INTVAL(1); return 0; }
+        RxEnv renv;
+        RxProg *prog = rk_rx_compile(&renv, "", pat, 0);
+        RxMatch rm;
+        if (!prog || !rx_exec(prog, subj, slen, pos, (int) e[7].i, &rm)) { e[13] = INTVAL(1); return 0; }
+        e[6] = INTVAL(e[6].i + 1);
+        rk_av_t nv = rk_av(e[12]);
+        int take = 1;
+        if (nv.n) { take = 0; for (int k = 0; k < nv.n; k++) if (nv.el[k].i == e[6].i) take = 1; }
+        if (take) {
+            rk_rx_to_match(&g_match, prog, &rm);
+            g_subject = subj;
+            rk_arr_append((ARBLK_t *) e[2].arr, rk_rx_piece_str(subj, (int) e[4].i, rm.from));
+            e[14] = INTVAL(rm.from);
+            e[15] = INTVAL(rm.to);
+            return 1;
+        }
+        rk_subst_after(e, rm.from, rm.to);
+        if (e[13].i) return 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_subst_put(DESCR_t stv, DESCR_t val) {
+    rk_av_t a = rk_av(stv);
+    if (a.n != 16) return;
+    DESCR_t *e = a.el;
+    char rb[64];
+    const char *rt = to_cstring(val, rb, sizeof rb);
+    rk_arr_append((ARBLK_t *) e[2].arr, STRVAL(rt_heap_strdup_c(rt ? rt : "")));
+    e[4] = INTVAL(e[15].i);
+    e[5] = INTVAL(e[5].i + 1);
+    rk_subst_after(e, (int) e[14].i, (int) e[15].i);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_subst_close(DESCR_t stv) {
+    rk_av_t a = rk_av(stv);
+    if (a.n != 16) return FAILDESCR;
+    DESCR_t *e = a.el;
+    long mode = e[8].i, count = e[5].i;
+    if (count == 0 || ((mode & 32) && count < e[10].i)) return (mode & 128) ? e[0] : FAILDESCR;
+    const char *subj = rk_cstr(e[0]);
+    rk_arr_append((ARBLK_t *) e[2].arr, rk_rx_piece_str(subj, (int) e[4].i, (int) strlen(subj)));
+    rk_av_t pv = rk_av(e[2]);
+    size_t total = 0;
+    for (int i = 0; i < pv.n; i++) total += strlen(rk_cstr(pv.el[i]));
+    char *res = (char *) rt_str_alloc((long) total + 1);
+    size_t k = 0;
+    for (int i = 0; i < pv.n; i++) { const char *t = rk_cstr(pv.el[i]); size_t l = strlen(t); memcpy(res + k, t, l); k += l; }
+    res[k] = 0;
+    return STRVAL(res);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_rx_subst_run(DESCR_t subjD, DESCR_t patD, DESCR_t replD, const RkRxOpt *o, DESCR_t *out) {
@@ -4002,10 +4092,8 @@ void rt_fire_buildplan_tweak(const char *cname, DESCR_t self) {
             int pi;
             for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
             if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
-                extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-                rt_call_args_need(2);
-                CALL_ARGS[0] = self;
-                RT_GC_CALLBACK(rt_call_proc_descr(proc, 1));
+                extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
+                rt_c2bb_bomb("TWEAK from C (a class the lowerer's .new helper sub did not see: the box calls TWEAK, C never does)", proc);
             } else {
                 extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na);
                 DESCR_t a0 = self;
@@ -4043,10 +4131,8 @@ void rt_fire_build(const char *cname, DESCR_t self, DESCR_t *named, int nnamed) 
         int pi;
         for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, proc)) break;
         if (pi >= g_stage2.proc_count || rt_proc_has_native_fn(proc)) {
-            extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
-            rt_call_args_need(total);
-            for (int k = 0; k < total; k++) CALL_ARGS[k] = callargs[k];
-            RT_GC_CALLBACK(rt_call_proc_descr(proc, total));
+            extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
+            rt_c2bb_bomb("BUILD from C (a class the lowerer's .new helper sub did not see: the box calls BUILD, C never does)", proc);
         } else {
             extern DESCR_t ir_call_proc(int pix, DESCR_t *a, int na);
             ir_call_proc(pi, callargs, total);
@@ -9300,56 +9386,59 @@ static int rk_match_caps_fill(DESCR_t d, DESCR_t *keys, DESCR_t *vals, long *fro
     return n;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_apply_actions(DESCR_t m, DESCR_t actions, DESCR_t key) {
-    rk_cbh_t H = { g_rk_cbh_cur, { m, actions } };
-    g_rk_cbh_cur = &H;
-    for (int i = 0;; i++) {
-        int total = rk_match_ncaps(H.d[0]);
+static void rk_actions_plan_rec(DESCR_t m, DESCR_t actions, DESCR_t key, DESCR_t plan, int bomb) {
+    {
+        int total = rk_match_ncaps(m);
         DESCR_t keys[total + 1], vals[total + 1];
         long from[total + 1];
-        int n = rk_match_caps_fill(H.d[0], keys, vals, from);
-        if (i >= n) break;
-        rk_apply_actions(vals[i], H.d[1], keys[i]);
+        int n = rk_match_caps_fill(m, keys, vals, from);
+        for (int i = 0; i < n; i++) rk_actions_plan_rec(vals[i], actions, keys[i], plan, bomb);
     }
-    if (IS_STR_fn(key) && key.s && key.s[0] != RK_TY) {
-        const char *cname = rk_typeobj_name(H.d[1]);
-        if (!cname && IS_STR_fn(H.d[1]) && H.d[1].s) cname = H.d[1].s;
-        if (!cname && H.d[1].v == DT_DATA && IS_DATA_INST_fn(H.d[1]) && H.d[1].u) { DATINST_t *di = (DATINST_t *) H.d[1].u; cname = di->type ? di->type->name : NULL; }
-        if (cname) {
-            char kb[256];
-            const char *kn = to_cstring(key, kb, sizeof kb);
-            const char *tryk[2] = { kn, NULL };
-            char tb[128];
-            const char *symtxt = NULL;
-            {
-                DESCR_t hn = rk_hash_list(FIELD_GET_fn(H.d[0], "named"), 'w');
-                ARBLK_t *hb = (hn.v == DT_A && hn.arr) ? (ARBLK_t *) hn.arr : NULL;
-                int nh = hb ? (hb->hi - hb->lo + 1) / 2 : 0;
-                for (int q = 0; q < nh; q++) {
-                    char sb[64];
-                    const char *kk = to_cstring(hb->data[2 * q], sb, sizeof sb);
-                    if (kk && !strcmp(kk, "sym") && IS_DATA_INST_fn(hb->data[2 * q + 1])) {
-                        const char *tt = to_cstring(FIELD_GET_fn(hb->data[2 * q + 1], "text"), tb, sizeof tb);
-                        symtxt = tt ? tt : "";
-                    }
-                }
-            }
-            char symk[strlen(kn) + (symtxt ? strlen(symtxt) : 0) + 16];
-            if (symtxt) { snprintf(symk, sizeof symk, "%s:sym<%s>", kn, symtxt); tryk[1] = symk; }
-            for (int t = 0; t < 2; t++) {
-                if (!tryk[t]) continue;
-                int fidx;
-                const char *rmc = resolve_method_chain(cname, tryk[t], &fidx);
-                char procname[strlen(rmc) + strlen(tryk[t]) + 4];
-                snprintf(procname, sizeof procname, "%s__%s", rmc, tryk[t]);
-                if (!meth_is_user_proc(procname)) continue;
-                DESCR_t ca[2] = { H.d[1], H.d[0] };
-                invoke_method_proc(procname, ca, 2);
-            }
+    if (!(IS_STR_fn(key) && key.s && key.s[0] != RK_TY)) return;
+    const char *cname = rk_typeobj_name(actions);
+    if (!cname && IS_STR_fn(actions) && actions.s) cname = actions.s;
+    if (!cname && actions.v == DT_DATA && IS_DATA_INST_fn(actions) && actions.u) { DATINST_t *di = (DATINST_t *) actions.u; cname = di->type ? di->type->name : NULL; }
+    if (!cname) return;
+    char kb[256];
+    const char *kn = to_cstring(key, kb, sizeof kb);
+    const char *tryk[2] = { kn, NULL };
+    char tb[128];
+    const char *symtxt = NULL;
+    {
+        DESCR_t hn = rk_hash_list(FIELD_GET_fn(m, "named"), 'w');
+        ARBLK_t *hb = (hn.v == DT_A && hn.arr) ? (ARBLK_t *) hn.arr : NULL;
+        int nh = hb ? (hb->hi - hb->lo + 1) / 2 : 0;
+        for (int q = 0; q < nh; q++) {
+            char sb[64];
+            const char *kk = to_cstring(hb->data[2 * q], sb, sizeof sb);
+            if (kk && !strcmp(kk, "sym") && IS_DATA_INST_fn(hb->data[2 * q + 1])) { const char *tt = to_cstring(FIELD_GET_fn(hb->data[2 * q + 1], "text"), tb, sizeof tb); symtxt = tt ? tt : ""; }
         }
     }
-    g_rk_cbh_cur = H.prev;
+    char symk[strlen(kn) + (symtxt ? strlen(symtxt) : 0) + 16];
+    if (symtxt) { snprintf(symk, sizeof symk, "%s:sym<%s>", kn, symtxt); tryk[1] = symk; }
+    for (int t = 0; t < 2; t++) {
+        if (!tryk[t]) continue;
+        int fidx;
+        const char *rmc = resolve_method_chain(cname, tryk[t], &fidx);
+        char procname[strlen(rmc) + strlen(tryk[t]) + 4];
+        snprintf(procname, sizeof procname, "%s__%s", rmc, tryk[t]);
+        if (!meth_is_user_proc(procname)) continue;
+        if (bomb) {
+            extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
+            rt_c2bb_bomb("grammar actions from C (the lowered .parse loops over __rk_actions_plan and the box calls each action)", procname);
+        }
+        rk_arr_append((ARBLK_t *) plan.arr, STRVAL(rt_heap_strdup_c(procname)));
+        rk_arr_append((ARBLK_t *) plan.arr, m);
+    }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static DESCR_t rk_actions_plan(DESCR_t m, DESCR_t actions) {
+    DESCR_t plan = rk_mk_arr(NULL, 0);
+    if (rk_match_is(m) && actions.v != 0 && !IS_FAIL_fn(actions)) rk_actions_plan_rec(m, actions, STRVAL("TOP"), plan, 0);
+    return plan;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_apply_actions(DESCR_t m, DESCR_t actions, DESCR_t key) { rk_actions_plan_rec(m, actions, key, rk_mk_arr(NULL, 0), 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_match_method(const char *m, DESCR_t *args, int nargs, DESCR_t *out) {
     DESCR_t d = args[0];
@@ -12534,6 +12623,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             r[i] = rd;
         }
         *out = rk_mk_arr(r, a.n);
+        if (args[0].v == DT_A && args[0].arr && !((ARBLK_t *) args[0].arr)->proto) *out = rk_unmark(*out);
         return 1;
     }
     if (!strcmp(fn, "__rk_iter_src") && nargs <= 1) {
@@ -12906,7 +12996,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             *out = FAILDESCR;
             return 1;
         }
-        extern DESCR_t rt_call_proc_descr(const char *name, int nargs);
         extern int rt_proc_has_native_fn(const char *name);
         extern DESCR_t ir_call_proc(int pi, DESCR_t *args, int nargs);
         int pi;
@@ -12914,7 +13003,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         DESCR_t none[1] = { NULVCL };
         if (pi < g_stage2.proc_count && !rt_proc_has_native_fn(pn)) { *out = ir_call_proc(pi, none, 0); return 1; }
         rt_call_args_need(0);
-        *out = RT_GC_CALLBACK(rt_call_proc_descr(pn, 0));
+        { extern int rt_call_open_tail_lex(const char *name, int nargs, long *rq); if (rq && rt_call_open_tail_lex(pn, 0, rq)) { *out = FAILDESCR; return 1; } }
+        {
+            extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
+            *out = rt_c2bb_bomb("__rk_eval (the compiled EVAL body opens through the request channel; a by-name call without one)", pn);
+        }
         return 1;
     }
     if (!strcmp(fn, "__rk_rethrow") && nargs == 0) { DESCR_t ex = rk_exc_current(); if (rk_exc_is(ex)) rk_exc_throw(ex); *out = FAILDESCR; return 1; }
@@ -13678,6 +13771,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = rk_trans_run(sj ? sj : "", se ? se : "", rp ? rp : "", args[3].i);
         return 1;
     }
+    if (!strcmp(fn, "__rk_actions_plan") && nargs == 2) { *out = rk_actions_plan(args[0], args[1]); return 1; }
+    if (!strcmp(fn, "__rk_subst_open") && nargs >= 6) { *out = rk_subst_open(args, nargs); return 1; }
+    if (!strcmp(fn, "__rk_subst_next") && nargs == 1) { *out = rk_subst_next(args[0]) ? (DESCR_t){ .v = DT_BOOL, .i = 1 } : FAILDESCR; return 1; }
+    if (!strcmp(fn, "__rk_subst_put") && nargs == 2) { rk_subst_put(args[0], args[1]); *out = args[0]; return 1; }
+    if (!strcmp(fn, "__rk_subst_close") && nargs == 1) { *out = rk_subst_close(args[0]); return 1; }
     if (!strcmp(fn, "re_subst") && nargs >= 7) {
         long nth[nargs - 7 > 0 ? nargs - 7 : 1];
         for (int i = 7; i < nargs; i++) nth[i - 7] = args[i].i;
@@ -14007,7 +14105,7 @@ static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int
 int rt_builtin_tail_may_open(const char *fn) {
     return fn &&
         (!strcmp(fn, "__blk_invoke") || !strcmp(fn, "__multi_call") || !strcmp(fn, "obj_new") || !strcmp(fn, "__rk_named_call") || !strcmp(fn, "meth_call") || !strcmp(fn, "__rk_str") ||
-        !strcmp(fn, "__rk_gist_pre") || !strcmp(fn, "__rk_str_pre"));
+        !strcmp(fn, "__rk_gist_pre") || !strcmp(fn, "__rk_str_pre") || !strcmp(fn, "__rk_eval"));
 }
 rt_call_next_t rt_call_arr_bl_try(const char *fn, DESCR_t *args, long nb, DESCR_t *out) {
     long rq[2] = { 0, 0 };
