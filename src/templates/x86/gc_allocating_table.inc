@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2509
-#define GC_ALLOC_TAB_N_VOID 291
+#define GC_ALLOC_TAB_N 2520
+#define GC_ALLOC_TAB_N_VOID 300
 #define GC_ALLOC_TAB_N_DESCR 1221
-#define GC_ALLOC_TAB_N_OTHER 980
+#define GC_ALLOC_TAB_N_OTHER 982
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -987,6 +987,17 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "pl_mk_cmp1", GC_RET_DESCR },
     { "pl_mk_stream", GC_RET_DESCR },
     { "pl_mk_string_dup", GC_RET_DESCR },
+    { "pl_mod_args", GC_RET_VOID },
+    { "pl_mod_clause_term", GC_RET_VOID },
+    { "pl_mod_closure", GC_RET_VOID },
+    { "pl_mod_goal", GC_RET_VOID },
+    { "pl_mod_head", GC_RET_VOID },
+    { "pl_mod_opt1", GC_RET_VOID },
+    { "pl_mod_opts", GC_RET_VOID },
+    { "pl_mod_pi", GC_RET_VOID },
+    { "pl_mod_qname", GC_RET_OTHER },
+    { "pl_mod_resolve", GC_RET_OTHER },
+    { "pl_module_flatten", GC_RET_VOID },
     { "pl_name_is_scrip_own", GC_RET_OTHER },
     { "pl_nb_cell_k", GC_RET_OTHER },
     { "pl_nb_leaf_lv", GC_RET_OTHER },

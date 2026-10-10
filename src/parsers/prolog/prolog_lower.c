@@ -454,10 +454,390 @@ static void pl_stmt_push(tree_t *prog, tree_t *subj, int lineno, const char *fil
     ast_push(prog, st);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { const char *mod; const char *name; int ar; } pl_mkey_t;
+typedef struct { cv_t defs; cv_t exps; cv_t trans; cv_t metas; cv_t dyns; cv_t foreign; } pl_mods_t;
+typedef struct { const char *nm; int ar; const char *spec; } pl_mspec_t;
+static const pl_mspec_t pl_mod_meta_builtins[] = { { "call", 1, "0" }, { "call", 2, "1-" }, { "call", 3, "2--" }, { "call", 4, "3---" }, { "call", 5, "4----" }, { "call", 6, "5-----" },
+    { "call", 7, "6------" }, { "call", 8, "7-------" }, { "findall", 3, "-0-" }, { "findall", 4, "-0--" }, { "forall", 2, "00" }, { "\\+", 1, "0" }, { "not", 1, "0" }, { "once", 1, "0" },
+    { "ignore", 1, "0" }, { "catch", 3, "0-0" }, { "bagof", 3, "-^-" }, { "setof", 3, "-^-" }, { "aggregate_all", 3, "-0-" }, { "aggregate_all", 4, "--0-" }, { "call_cleanup", 2, "00" },
+    { "setup_call_cleanup", 3, "000" }, { "time", 1, "0" }, { "with_output_to", 2, "-0" }, { "maplist", 2, "1-" }, { "maplist", 3, "2--" }, { "maplist", 4, "3---" }, { "maplist", 5, "4----" },
+    { "maplist", 6, "5-----" }, { "maplist", 7, "6------" }, { "foldl", 4, "3---" }, { "foldl", 5, "4----" }, { "foldl", 6, "5-----" }, { "foldl", 7, "6------" }, { "include", 3, "1--" },
+    { "exclude", 3, "1--" }, { "partition", 4, "1---" }, { "partition", 6, "2-----" }, { "convlist", 3, "2--" }, { "phrase", 2, "2-" }, { "phrase", 3, "2--" }, { "initialization", 1, "0" },
+    { "initialization", 2, "0-" }, { "assertion", 1, "0" }, { "call_nth", 2, "0-" }, { "limit", 2, "-0" }, { "offset", 2, "-0" }, { "distinct", 1, "0" }, { "distinct", 2, "-0" },
+    { "snapshot", 1, "0" }, { "transaction", 1, "0" }, { "tnot", 1, "0" }, { "call_with_depth_limit", 3, "0--" }, { 0, 0, 0 } };
+static int pl_mk_has(const cv_t *v, const char *mod, const char *name, int ar) {
+    for (uint32_t i = 0; i < v->len; i++) {
+        const pl_mkey_t *e = &CV_AT(*v, pl_mkey_t, i);
+        if (e->ar == ar && !strcmp(e->name, name) && (!mod || (e->mod && !strcmp(e->mod, mod)))) return 1;
+    }
+    return 0;
+}
+static void pl_mk_add(cv_t *v, const char *mod, const char *name, int ar) { if (!pl_mk_has(v, mod, name, ar)) { pl_mkey_t k; k.mod = mod; k.name = name; k.ar = ar; CV_PUSH(*v, pl_mkey_t) = k; } }
+static const char *pl_mod_qname(const char *mod, const char *nm) { char b[strlen(mod) + strlen(nm) + 2]; snprintf(b, sizeof b, "%s:%s", mod, nm); (void)prolog_atom_intern(b); return ct_strdup(b); }
+static int pl_mod_atomish(const tree_t *t) { return t && (t->t == TT_QLIT || t->t == TT_NAME || (t->t == TT_FNC && t->n == 0)) && t->v.sval; }
+static int pl_mod_never_renamed(const char *nm, int ar, int in_unit) {
+    if (!nm || nm[0] == '$') return 1;
+    if ((!strcmp(nm, "attr_unify_hook") && ar == 2) || (!strcmp(nm, "attribute_goals") && ar == 3) || (!strcmp(nm, "term_expansion") && ar == 2)) return 1;
+    if ((!strcmp(nm, "goal_expansion") && ar == 2) || (!strcmp(nm, "portray") && ar == 1) || (!strcmp(nm, "message_hook") && ar == 3)) return 1;
+    return in_unit && !strcmp(nm, "test") && (ar == 1 || ar == 2);
+}
+static tree_t *pl_mod_directive_goal(tree_t *tr) {
+    tree_t *bp;
+    if (!tr || tr->t != TT_CLAUSE || tr->n < 2 || !tr->c[0] || tr->c[0]->t != TT_NUL) return (tree_t *)0;
+    bp = tr->c[1];
+    if (bp && bp->t == TT_PROGRAM && bp->n > 0) return bp->c[0];
+    return bp;
+}
+static void pl_mod_pi_each(tree_t *spec, const char *mod, cv_t *into) {
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, ",") || !strcmp(spec->v.sval, "as")) && spec->n == 2) {
+        pl_mod_pi_each(spec->c[0], mod, into);
+        if (!strcmp(spec->v.sval, ",")) pl_mod_pi_each(spec->c[1], mod, into);
+        return;
+    }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_mod_pi_each(spec->c[i], mod, into); return; }
+    if (spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, "/") || !strcmp(spec->v.sval, "//")) && spec->n == 2 && pl_mod_atomish(spec->c[0]) && spec->c[1] && spec->c[1]->t == TT_ILIT)
+        pl_mk_add(into, mod, spec->c[0]->v.sval, (int)spec->c[1]->v.ival + (spec->v.sval[1] == '/' ? 2 : 0));
+}
+static const char *pl_mod_resolve(pl_mods_t *ms, const char *m1, const char *m2, const char *nm, int ar) {
+    if (!nm) return (const char *)0;
+    if (m1 && pl_mk_has(&ms->defs, m1, nm, ar)) return pl_mod_qname(m1, nm);
+    if (m2 && pl_mk_has(&ms->defs, m2, nm, ar)) return pl_mod_qname(m2, nm);
+    return (const char *)0;
+}
+static tree_t *pl_mod_ctx_node(const char *m1, int transparent) {
+    tree_t *c = ast_node_new(transparent ? TT_VAR : TT_QLIT);
+    c->v.sval = ct_strdup(transparent ? "$ctx" : (m1 ? m1 : "user"));
+    return c;
+}
+static void pl_mod_prepend(tree_t *g, tree_t *first) {
+    ast_push(g, first);
+    for (int j = g->n - 1; j > 0; j--) g->c[j] = g->c[j - 1];
+    g->c[0] = first;
+}
+static void pl_mod_head(pl_mods_t *ms, const char *m1, const char *m2, tree_t *h) {
+    const char *q;
+    if (!h) return;
+    if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && pl_mod_atomish(h->c[0])) {
+        tree_t *in = h->c[1];
+        const char *m = h->c[0]->v.sval;
+        if (in && pl_mod_atomish(in) && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, 0))) in->v.sval = (char *)q;
+        else if (in && in->t == TT_FNC && in->v.sval && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, in->n))) in->v.sval = (char *)q;
+        return;
+    }
+    if (pl_mod_atomish(h) && (q = pl_mod_resolve(ms, m1, m2, h->v.sval, 0))) h->v.sval = (char *)q;
+    else if (h->t == TT_FNC && h->v.sval && (q = pl_mod_resolve(ms, m1, m2, h->v.sval, h->n))) h->v.sval = (char *)q;
+}
+static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g, int trans);
+static void pl_mod_clause_term(pl_mods_t *ms, const char *m1, const char *m2, tree_t *t, int trans) {
+    if (!t) return;
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, ":-") && t->n == 2) { pl_mod_head(ms, m1, m2, t->c[0]); pl_mod_goal(ms, m1, m2, t->c[1], trans); return; }
+    pl_mod_head(ms, m1, m2, t);
+}
+static void pl_mod_pi(pl_mods_t *ms, const char *m1, const char *m2, tree_t *spec) {
+    const char *q;
+    if (!spec) return;
+    if (spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, ",") || !strcmp(spec->v.sval, "as")) && spec->n == 2) {
+        pl_mod_pi(ms, m1, m2, spec->c[0]);
+        if (!strcmp(spec->v.sval, ",")) pl_mod_pi(ms, m1, m2, spec->c[1]);
+        return;
+    }
+    if (spec->t == TT_MAKELIST) { for (int i = 0; i < spec->n; i++) pl_mod_pi(ms, m1, m2, spec->c[i]); return; }
+    if (spec->t == TT_FNC && spec->v.sval && (!strcmp(spec->v.sval, "/") || !strcmp(spec->v.sval, "//")) && spec->n == 2 && pl_mod_atomish(spec->c[0]) && spec->c[1] && spec->c[1]->t == TT_ILIT
+        && (q = pl_mod_resolve(ms, m1, m2, spec->c[0]->v.sval, (int)spec->c[1]->v.ival + (spec->v.sval[1] == '/' ? 2 : 0))))
+        spec->c[0]->v.sval = (char *)q;
+}
+static void pl_mod_closure(pl_mods_t *ms, const char *m1, const char *m2, tree_t *a, int extra) {
+    const char *q;
+    if (!a) return;
+    if (pl_mod_atomish(a) && (q = pl_mod_resolve(ms, m1, m2, a->v.sval, extra))) a->v.sval = (char *)q;
+    else if (a->t == TT_FNC && a->v.sval && strcmp(a->v.sval, ":") && (q = pl_mod_resolve(ms, m1, m2, a->v.sval, a->n + extra))) a->v.sval = (char *)q;
+}
+static const char *pl_mod_meta_spec(pl_mods_t *ms, const char *nm, int ar) {
+    for (int i = 0; pl_mod_meta_builtins[i].nm; i++) if (pl_mod_meta_builtins[i].ar == ar && !strcmp(pl_mod_meta_builtins[i].nm, nm)) return pl_mod_meta_builtins[i].spec;
+    for (uint32_t i = 0; i < ms->metas.len; i++) { const tree_t *m = CV_AT(ms->metas, const tree_t *, i); if (m->n == ar && m->v.sval && !strcmp(m->v.sval, nm)) return (const char *)m; }
+    return (const char *)0;
+}
+static void pl_mod_args(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g, int trans, const char *nm) {
+    const char *spec = pl_mod_meta_spec(ms, nm, g->n);
+    int declared = 0;
+    if (!spec) return;
+    for (uint32_t i = 0; i < ms->metas.len; i++) if ((const char *)CV_AT(ms->metas, const tree_t *, i) == spec) declared = 1;
+    for (int i = 0; i < g->n; i++) {
+        char k = '-';
+        if (declared) {
+            const tree_t *ds = ((const tree_t *)spec)->c[i];
+            if (ds && ds->t == TT_ILIT && ds->v.ival >= 0 && ds->v.ival <= 9) k = (char)('0' + ds->v.ival);
+            else if (ds && pl_mod_atomish(ds) && (!strcmp(ds->v.sval, ":") || !strcmp(ds->v.sval, "^"))) k = ds->v.sval[0];
+        } else k = spec[i];
+        if (k == '0') pl_mod_goal(ms, m1, m2, g->c[i], trans);
+        else if (k == '^') { tree_t *a = g->c[i]; while (a && a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, "^") && a->n == 2) a = a->c[1]; pl_mod_goal(ms, m1, m2, a, trans); }
+        else if (k >= '1' && k <= '9') pl_mod_closure(ms, m1, m2, g->c[i], k - '0');
+        else if (k == ':' && g->c[i] && g->c[i]->t != TT_VAR && !(g->c[i]->t == TT_FNC && g->c[i]->v.sval && !strcmp(g->c[i]->v.sval, ":") && g->c[i]->n == 2) && m1 && strcmp(m1, "user")) {
+            tree_t *w = ast_node_new(TT_FNC);
+            w->v.sval = ct_strdup(":");
+            ast_push(w, pl_mod_ctx_node(m1, trans));
+            ast_push(w, g->c[i]);
+            g->c[i] = w;
+        }
+    }
+}
+static void pl_mod_goal(pl_mods_t *ms, const char *m1, const char *m2, tree_t *g, int trans) {
+    const char *nm, *q;
+    int ar;
+    if (!g) return;
+    if (g->t == TT_PROGRAM) { for (int i = 0; i < g->n; i++) pl_mod_goal(ms, m1, m2, g->c[i], trans); return; }
+    if (!pl_mod_atomish(g) && g->t != TT_FNC) return;
+    nm = g->v.sval;
+    ar = (g->t == TT_FNC) ? g->n : 0;
+    if (!nm) return;
+    if (ar == 2 && (!strcmp(nm, ",") || !strcmp(nm, ";") || !strcmp(nm, "->") || !strcmp(nm, "*->"))) { pl_mod_goal(ms, m1, m2, g->c[0], trans); pl_mod_goal(ms, m1, m2, g->c[1], trans); return; }
+    if (ar == 2 && !strcmp(nm, ":") && pl_mod_atomish(g->c[0]) && g->c[1]) {
+        tree_t *in = g->c[1];
+        const char *m = g->c[0]->v.sval;
+        if (pl_mod_atomish(in) && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, 0))) in->v.sval = (char *)q;
+        else if (in->t == TT_FNC && in->v.sval && (q = pl_mod_resolve(ms, m, (const char *)0, in->v.sval, in->n))) in->v.sval = (char *)q;
+        return;
+    }
+    if (ar == 1 && !strcmp(nm, "context_module")) {
+        g->v.sval = ct_strdup("=");
+        ast_push(g, pl_mod_ctx_node(m1, trans));
+        return;
+    }
+    if ((ar == 1 || ar == 2) && (!strcmp(nm, "assert") || !strcmp(nm, "asserta") || !strcmp(nm, "assertz") || (ar == 1 && !strcmp(nm, "retract")))) { pl_mod_clause_term(ms, m1, m2, g->c[0], trans); return; }
+    if ((ar == 1 && !strcmp(nm, "retractall")) || (ar == 2 && (!strcmp(nm, "clause") || !strcmp(nm, "predicate_property")))) { pl_mod_head(ms, m1, m2, g->c[0]); return; }
+    if (ar == 1 && (!strcmp(nm, "abolish") || !strcmp(nm, "current_predicate"))) { pl_mod_pi(ms, m1, m2, g->c[0]); return; }
+    pl_mod_args(ms, m1, m2, g, trans, nm);
+    q = pl_mod_resolve(ms, m1, m2, nm, ar);
+    if (pl_mk_has(&ms->trans, (const char *)0, q ? q : nm, ar)) {
+        char b[strlen(q ? q : nm) + 5];
+        snprintf(b, sizeof b, "$mt %s", q ? q : nm);
+        (void)prolog_atom_intern(b);
+        if (g->t != TT_FNC) { g->t = TT_FNC; g->n = 0; }
+        g->v.sval = ct_strdup(b);
+        pl_mod_prepend(g, pl_mod_ctx_node(m1, trans));
+        return;
+    }
+    if (q) g->v.sval = (char *)q;
+}
+static void pl_mod_opt1(pl_mods_t *ms, const char *m1, const char *m2, tree_t *o, int trans) {
+    if (o && o->t == TT_FNC && o->n == 1 && o->v.sval && (!strcmp(o->v.sval, "setup") || !strcmp(o->v.sval, "cleanup") || !strcmp(o->v.sval, "condition") || !strcmp(o->v.sval, "forall")))
+        pl_mod_goal(ms, m1, m2, o->c[0], trans);
+}
+static void pl_mod_opts(pl_mods_t *ms, const char *m1, const char *m2, tree_t *opts, int trans) {
+    if (!opts) return;
+    if (opts->t != TT_MAKELIST) { pl_mod_opt1(ms, m1, m2, opts, trans); return; }
+    for (int i = 0; i < opts->n; i++) pl_mod_opt1(ms, m1, m2, opts->c[i], trans);
+}
+static void pl_mod_meta_collect(tree_t *e, cv_t *metas) {
+    if (!e) return;
+    if (e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, ",") && e->n == 2) { pl_mod_meta_collect(e->c[0], metas); pl_mod_meta_collect(e->c[1], metas); return; }
+    if (e->t == TT_MAKELIST) { for (int j = 0; j < e->n; j++) pl_mod_meta_collect(e->c[j], metas); return; }
+    if (e->t == TT_FNC && e->v.sval && !strcmp(e->v.sval, ":") && e->n == 2) e = e->c[1];
+    if (e && e->t == TT_FNC && e->v.sval && e->n > 0) CV_PUSH(*metas, const tree_t *) = e;
+}
+static void pl_module_flatten(PlProgram *pl_prog) {
+    pl_mods_t ms;
+    int n = 0, ci = 0, any = 0;
+    memset(&ms, 0, sizeof ms);
+    for (PlClause *cl = pl_prog->head; cl; cl = cl->next) n++;
+    if (!n) return;
+    const char *m1v[n], *m2v[n];
+    const char *fmod = "user", *unit = (const char *)0;
+    for (PlClause *cl = pl_prog->head; cl; cl = cl->next, ci++) {
+        tree_t *d = pl_mod_directive_goal(cl->tr);
+        int prelude = (cl->lineno == 0);
+        m1v[ci] = prelude ? "user" : (unit ? unit : fmod);
+        m2v[ci] = (prelude || !unit) ? (const char *)0 : fmod;
+        if (prelude) continue;
+        if (d && d->t == TT_FNC && d->v.sval) {
+            const char *f = d->v.sval;
+            if (!strcmp(f, "module") && d->n == 2 && pl_mod_atomish(d->c[0])) { fmod = d->c[0]->v.sval; m1v[ci] = fmod; pl_mod_pi_each(d->c[1], fmod, &ms.exps); any = 1; }
+            else if (!strcmp(f, "$module_restore") && d->n == 1 && pl_mod_atomish(d->c[0])) fmod = d->c[0]->v.sval;
+            else if (!strcmp(f, "export") && d->n == 1) pl_mod_pi_each(d->c[0], fmod, &ms.exps);
+            else if (!strcmp(f, "begin_tests") && (d->n == 1 || d->n == 2) && pl_mod_atomish(d->c[0])) {
+                char b[strlen(d->c[0]->v.sval) + 8];
+                snprintf(b, sizeof b, "plunit_%s", d->c[0]->v.sval);
+                unit = ct_strdup(b);
+                m1v[ci] = unit;
+                m2v[ci] = fmod;
+                any = 1;
+            }
+            else if (!strcmp(f, "end_tests")) unit = (const char *)0;
+            else if (!strcmp(f, "module_transparent")) for (int k = 0; k < d->n; k++) pl_mod_pi_each(d->c[k], m1v[ci], &ms.trans);
+            else if (!strcmp(f, "meta_predicate")) for (int k = 0; k < d->n; k++) pl_mod_meta_collect(d->c[k], &ms.metas);
+            else if (!strcmp(f, "dynamic") || !strcmp(f, "discontiguous") || !strcmp(f, "table")) {
+                if (strcmp(m1v[ci], "user")) for (int k = 0; k < (d->n == 2 && !strcmp(f, "dynamic") ? 1 : d->n); k++) {
+                    pl_mod_pi_each(d->c[k], m1v[ci], &ms.defs);
+                    if (!strcmp(f, "dynamic")) pl_mod_pi_each(d->c[k], m1v[ci], &ms.dyns);
+                }
+            }
+            continue;
+        }
+        if (!cl->tr || cl->tr->t != TT_CLAUSE || cl->tr->n < 1 || !cl->tr->c[0] || cl->tr->c[0]->t == TT_NUL) continue;
+        {
+            tree_t *h = cl->tr->c[0];
+            const char *dm = m1v[ci];
+            int foreign = 0;
+            if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2 && pl_mod_atomish(h->c[0])) { dm = h->c[0]->v.sval; h = h->c[1]; foreign = 1; }
+            if (!h || !dm || !strcmp(dm, "user")) continue;
+            if (h->t == TT_FNC && h->n == 2 && h->v.sval && (!strcmp(h->v.sval, ":-") || !strcmp(h->v.sval, ",") || !strcmp(h->v.sval, ";") || !strcmp(h->v.sval, "->") || !strcmp(h->v.sval, ":"))) continue;
+            {
+                const char *hn = h->v.sval;
+                int ha = (h->t == TT_FNC) ? h->n : 0;
+                if (!hn || (h->t != TT_FNC && !pl_mod_atomish(h)) || pl_mod_never_renamed(hn, ha, unit != (const char *)0)) continue;
+                pl_mk_add(&ms.defs, dm, hn, ha);
+                if (foreign && strcmp(dm, m1v[ci])) pl_mk_add(&ms.foreign, dm, hn, ha);
+            }
+        }
+    }
+    if (!any) return;
+    {
+        cv_t keep = { 0 };
+        for (uint32_t i = 0; i < ms.defs.len; i++) {
+            const pl_mkey_t *e = &CV_AT(ms.defs, pl_mkey_t, i);
+            if (strncmp(e->mod, "plunit_", 7) && pl_mk_has(&ms.exps, e->mod, e->name, e->ar)) continue;
+            CV_PUSH(keep, pl_mkey_t) = *e;
+        }
+        ms.defs = keep;
+    }
+    {
+        cv_t tf = { 0 };
+        for (uint32_t i = 0; i < ms.trans.len; i++) {
+            const pl_mkey_t *e = &CV_AT(ms.trans, pl_mkey_t, i);
+            const char *q = pl_mk_has(&ms.defs, e->mod, e->name, e->ar) ? pl_mod_qname(e->mod, e->name) : e->name;
+            pl_mk_add(&tf, (const char *)0, q, e->ar);
+        }
+        ms.trans = tf;
+    }
+    ci = 0;
+    PlClause *last = (PlClause *)0;
+    for (PlClause *cl = pl_prog->head; cl; cl = cl->next, ci++) {
+        tree_t *d = pl_mod_directive_goal(cl->tr);
+        const char *m1 = m1v[ci], *m2 = m2v[ci];
+        last = cl;
+        if (cl->lineno == 0) continue;
+        if (d) {
+            const char *f = (d->t == TT_FNC) ? d->v.sval : (const char *)0;
+            if (f && (!strcmp(f, "dynamic") || !strcmp(f, "discontiguous") || !strcmp(f, "table") || !strcmp(f, "module_transparent"))) { for (int k = 0; k < d->n; k++) pl_mod_pi(&ms, m1, m2, d->c[k]); continue; }
+            if (f && !strcmp(f, "meta_predicate")) continue;
+            if (f && !strcmp(f, "begin_tests") && d->n == 2) { pl_mod_opts(&ms, m1, m2, d->c[1], 0); continue; }
+            if (f && (!strcmp(f, "module") || !strcmp(f, "$module_restore") || !strcmp(f, "end_tests") || !strcmp(f, "begin_tests") || !strcmp(f, "use_module") || !strcmp(f, "ensure_loaded")
+                || !strcmp(f, "multifile") || !strcmp(f, "op") || !strcmp(f, "set_prolog_flag"))) continue;
+            pl_mod_goal(&ms, m1, m2, cl->tr->c[1], 0);
+            continue;
+        }
+        if (!cl->tr || cl->tr->t != TT_CLAUSE || cl->tr->n < 1 || !cl->tr->c[0]) continue;
+        {
+            tree_t *h = cl->tr->c[0];
+            int trans;
+            const char *hn0, *q;
+            int ha;
+            if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, ":") && h->n == 2) {
+                tree_t *in = h->c[1];
+                if (!in || !in->v.sval || pl_mod_never_renamed(in->v.sval, in->t == TT_FNC ? in->n : 0, m1 && !strncmp(m1, "plunit_", 7)) || (in->t == TT_FNC && in->n == 2 && (!strcmp(in->v.sval, ":-")
+                    || !strcmp(in->v.sval, ",") || !strcmp(in->v.sval, ";") || !strcmp(in->v.sval, "->") || !strcmp(in->v.sval, ":")))) {
+                    if (cl->tr->n >= 2) pl_mod_goal(&ms, m1, m2, cl->tr->c[1], 0);
+                    continue;
+                }
+                pl_mod_head(&ms, m1, m2, h);
+                cl->tr->c[0] = in;
+                h = in;
+            } else pl_mod_head(&ms, m1, m2, h);
+            hn0 = h->v.sval;
+            ha = (h->t == TT_FNC) ? h->n : 0;
+            trans = hn0 && pl_mk_has(&ms.trans, (const char *)0, hn0, ha);
+            if (trans) {
+                char b[strlen(hn0) + 5];
+                snprintf(b, sizeof b, "$mt %s", hn0);
+                (void)prolog_atom_intern(b);
+                if (h->t != TT_FNC) { h->t = TT_FNC; h->n = 0; }
+                q = ct_strdup(b);
+                h->v.sval = (char *)q;
+                pl_mod_prepend(h, pl_mod_ctx_node(m1, 1));
+            }
+            if (h->t == TT_FNC && h->v.sval && !strcmp(h->v.sval, "test") && (h->n == 2) && m1 && !strncmp(m1, "plunit_", 7)) pl_mod_opts(&ms, m1, m2, h->c[1], 0);
+            if (cl->tr->n >= 2) pl_mod_goal(&ms, m1, m2, cl->tr->c[1], trans);
+        }
+    }
+    {
+        cv_t bare = { 0 };
+        for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
+            tree_t *h = (cl->tr && cl->tr->t == TT_CLAUSE && cl->tr->n >= 1) ? cl->tr->c[0] : (tree_t *)0;
+            if (!h || h->t == TT_NUL || !h->v.sval || strchr(h->v.sval, ':')) continue;
+            pl_mk_add(&bare, (const char *)0, h->v.sval, h->t == TT_FNC ? h->n : 0);
+        }
+        for (uint32_t i = 0; i < ms.defs.len && last; i++) {
+            const pl_mkey_t *e = &CV_AT(ms.defs, pl_mkey_t, i);
+            int dup = pl_mk_has(&ms.foreign, e->mod, e->name, e->ar);
+            for (uint32_t j = 0; j < ms.defs.len; j++) {
+                const pl_mkey_t *o = &CV_AT(ms.defs, pl_mkey_t, j);
+                if (j != i && o->ar == e->ar && !strcmp(o->name, e->name) && !pl_mk_has(&ms.foreign, o->mod, o->name, o->ar)) dup = 1;
+            }
+            if (dup || pl_mk_has(&bare, (const char *)0, e->name, e->ar) || pl_mk_has(&ms.dyns, e->mod, e->name, e->ar) || pl_mk_has(&ms.trans, (const char *)0, pl_mod_qname(e->mod, e->name), e->ar)) continue;
+            {
+                PlClause *w = ct_zalloc(1, sizeof(PlClause));
+                tree_t *cl = ast_node_new(TT_CLAUSE), *hd = ast_node_new(e->ar > 0 ? TT_FNC : TT_QLIT), *call = ast_node_new(e->ar > 0 ? TT_FNC : TT_QLIT);
+                hd->v.sval = ct_strdup(e->name);
+                call->v.sval = (char *)pl_mod_qname(e->mod, e->name);
+                for (int k = 0; k < e->ar; k++) {
+                    char vn[16];
+                    snprintf(vn, sizeof vn, "$a%d", k);
+                    tree_t *v1 = ast_node_new(TT_VAR), *v2 = ast_node_new(TT_VAR);
+                    v1->v.sval = ct_strdup(vn);
+                    v2->v.sval = ct_strdup(vn);
+                    ast_push(hd, v1);
+                    ast_push(call, v2);
+                }
+                ast_push(cl, hd);
+                ast_push(cl, call);
+                w->tr = cl;
+                w->lineno = last->lineno > 0 ? last->lineno : 1;
+                w->next = last->next;
+                last->next = w;
+                if (pl_prog->tail == last) pl_prog->tail = w;
+                last = w;
+                pl_prog->nclauses++;
+            }
+        }
+    }
+    for (uint32_t i = 0; i < ms.trans.len && last; i++) {
+        const pl_mkey_t *e = &CV_AT(ms.trans, pl_mkey_t, i);
+        PlClause *w = ct_zalloc(1, sizeof(PlClause));
+        tree_t *cl = ast_node_new(TT_CLAUSE), *hd = ast_node_new(e->ar > 0 ? TT_FNC : TT_QLIT), *call = ast_node_new(TT_FNC), *u = ast_node_new(TT_QLIT);
+        char b[strlen(e->name) + 5];
+        snprintf(b, sizeof b, "$mt %s", e->name);
+        (void)prolog_atom_intern(b);
+        hd->v.sval = ct_strdup(e->name);
+        call->v.sval = ct_strdup(b);
+        u->v.sval = ct_strdup("user");
+        ast_push(call, u);
+        for (int k = 0; k < e->ar; k++) {
+            char vn[16];
+            snprintf(vn, sizeof vn, "$a%d", k);
+            tree_t *v1 = ast_node_new(TT_VAR), *v2 = ast_node_new(TT_VAR);
+            v1->v.sval = ct_strdup(vn);
+            v2->v.sval = ct_strdup(vn);
+            ast_push(hd, v1);
+            ast_push(call, v2);
+        }
+        ast_push(cl, hd);
+        ast_push(cl, call);
+        w->tr = cl;
+        w->lineno = last->lineno > 0 ? last->lineno : 1;
+        w->next = last->next;
+        last->next = w;
+        if (pl_prog->tail == last) pl_prog->tail = w;
+        last = w;
+        pl_prog->nclauses++;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *prolog_lower(PlProgram *pl_prog) {
     for (PlClause *fcl = pl_prog->head; fcl; fcl = fcl->next) prolog_fold_pieces(fcl->tr);
     pl_dq_lower_program(pl_prog);
     for (PlClause *dcl = pl_prog->head; dcl; dcl = dcl->next) prolog_dcg_expand(dcl);
+    pl_module_flatten(pl_prog);
     pl_dyn_mark(ct_strdup("$db_registry"), 0);
     for (PlClause *mcl = pl_prog->head; mcl; mcl = mcl->next) if (mcl->tr) { int _isdir = (mcl->tr->n > 0 && mcl->tr->c[0] && mcl->tr->c[0]->t == TT_NUL); pld_mark_scan(mcl->tr, 1); (void) _isdir; }
     tree_t *prog = ast_node_new(TT_PROGRAM);

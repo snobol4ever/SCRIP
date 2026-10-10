@@ -2437,6 +2437,13 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * g2 = ast_node_new(TT_FNC);
                 g2->v = t->v;
                 g2->line = t->line;
+                if (t->c[0]->c[0] && t->c[0]->c[0]->t == TT_VAR) {
+                    tree_t * q = pl_cc_freshvar();
+                    tree_t * q2 = ast_node_new(TT_VAR);
+                    q2->v.ival = q->v.ival;
+                    ast_push(g2, q2);
+                    return goal(cx, pl_cc_fnc2(",", pl_cc_fnc3("$mod_head", t->c[0]->c[0], t->c[0]->c[1], q), g2), γnext, ωfail, entry_out);
+                }
                 ast_push(g2, t->c[0]->c[1]);
                 return goal(cx, g2, γnext, ωfail, entry_out);
             }
