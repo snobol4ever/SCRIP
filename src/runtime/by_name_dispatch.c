@@ -14192,6 +14192,13 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "arr_set_pure") && nargs >= 3) { *out = pas_arr_set(args, nargs); return 1; }
     if (!strcmp(fn, "arr_last") && nargs == 1) { rk_av_t a = rk_av(args[0]); *out = a.n ? rk_av_elem(a, a.n - 1) : FAILDESCR; return 1; }
     if ((!strcmp(fn, "arr_init") || !strcmp(fn, "arr_tail")) && nargs == 1) {
+        if (args[0].v == DT_A && args[0].arr && !((ARBLK_t *) args[0].arr)->proto && ((ARBLK_t *) args[0].arr)->ndim == 1) {
+            ARBLK_t *b = (ARBLK_t *) args[0].arr;
+            int n = b->hi - b->lo + 1;
+            if (n > 0) { if (fn[4] == 't') memmove(b->data, b->data + 1, (size_t) (n - 1) * sizeof(DESCR_t)); b->data[n - 1] = NULVCL; b->hi--; }
+            *out = args[0];
+            return 1;
+        }
         rk_av_t a = rk_av(args[0]);
         *out = rk_unmark(a.n > 1 ? rk_mk_arr(a.el + (fn[4] == 't' ? 1 : 0), a.n - 1) : rk_mk_arr(NULL, 0));
         return 1;

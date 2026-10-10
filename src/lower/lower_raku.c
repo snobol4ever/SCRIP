@@ -1270,7 +1270,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * nd = build(cx, IR_ASSIGN, vtrace ? vtrace : γ, ω);
             IR_LIT(nd).sval = t->c[0]->v.sval;
             IR_t * rr = NULL;
-            IR_t * e = lower_rv(cx, decl_only ? t->c[1] : rk_assign_rhs(t->c[0]->v.sval, t->c[1]), nd, ω, &rr);
+            IR_t * e = lower_rv(cx, decl_only || t->v.ival == 2 ? t->c[1] : rk_assign_rhs(t->c[0]->v.sval, t->c[1]), nd, ω, &rr);
             if (rr) ir_operand_push(nd, rr);
             if (rr && vtrace_call) ir_operand_push(vtrace_call, rr);
             *res = nd;
@@ -1928,6 +1928,7 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         }
         return rk_excise(cx, γ, ω, res);
         case TT_ARR_GET:
+        if (t->n == 2 && t->c[0] && t->c[1] && t->c[1]->t == TT_NUL) return lower_rv(cx, t->c[0], γ, ω, res);
         return lower_rcall(cx, t, "__rk_arr_at", 0, γ, ω, res);
         case TT_HASH_GET:
         return lower_rcall(cx, t, "hash_get", 0, γ, ω, res);
@@ -4548,7 +4549,8 @@ static void rk_range_values(tree_t * t) {
     if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "__rk_in_range") || !strcmp(t->v.sval, "__rk_numify") || !strcmp(t->v.sval, "__rk_smartmatch"))) {
         for (int i = 1; i < t->n && i < (strcmp(t->v.sval, "__rk_smartmatch") ? 2 : 3); i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
     }
-    if (t->t == TT_SAY || t->t == TT_PRINT) for (int i = 0; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    if (t->t == TT_SAY || t->t == TT_PRINT || t->t == TT_REVERSE || t->t == TT_SORT) for (int i = 0; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] =
+        rk_range_val_of(t->c[i]);
     if (t->t == TT_METHCALL && t->n >= 2 && t->c[0] && t->c[0]->t == TT_TO && t->c[0]->n == 2 && t->c[1] && t->c[1]->t == TT_QLIT && rk_range_method_name(t->c[1]->v.sval)) t->c[0] =
         rk_range_val_of(t->c[0]);
 }
@@ -4707,6 +4709,28 @@ static void rk_exclusive_ranges(tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * rk_elem_store_value(tree_t * st) {
+    if (!st || st->t != TT_ARR_SET || st->n != 3 || !st->c[0] || st->c[0]->t != TT_VAR || !st->c[1]) return st;
+    tree_t * ix = st->c[1];
+    if (ix->t != TT_ILIT && ix->t != TT_QLIT && !(ix->t == TT_VAR && ix->n == 0)) return st;
+    tree_t * get = ast_node_new(TT_ARR_GET);
+    get->line = st->line;
+    ast_push(get, rk_clone_tree(st->c[0]));
+    ast_push(get, rk_clone_tree(ix));
+    tree_t * seq = ast_node_new(TT_SEQ_EXPR);
+    seq->line = st->line;
+    ast_push(seq, st);
+    ast_push(seq, get);
+    return seq;
+}
+static void rk_elem_store_values(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) rk_elem_store_values(t->c[i]);
+    int from = t->t == TT_METHCALL ? 2 : t->t == TT_FNC || t->t == TT_INVOKE ? 1 : t->t == TT_SAY || t->t == TT_PRINT || t->t == TT_RETURN ? 0 : t->t == TT_ASSIGN ? 1 : -1;
+    if (from < 0) return;
+    for (int i = from; i < t->n; i++) t->c[i] = rk_elem_store_value(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);
@@ -4716,6 +4740,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_sprintf_names((tree_t *) prog, rk_uses_v6e(prog));
     rk_range_values((tree_t *) prog);
     rk_exclusive_ranges((tree_t *) prog);
+    rk_elem_store_values((tree_t *) prog);
     rk_nonint_ranges((tree_t *) prog);
     rk_nested_elem_sets((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);

@@ -296,6 +296,7 @@ static tree_t *rk_cstyle_loop(tree_t *init, tree_t *cond, tree_t *incr, tree_t *
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_quiet_store(tree_t *target, tree_t *rhs) { tree_t *a = expr_binary(TT_ASSIGN, target, rhs); a->v.ival = 1; return a; }
+static tree_t *rk_container_bind(tree_t *target, tree_t *rhs) { tree_t *a = expr_binary(TT_ASSIGN, target, rhs); a->v.ival = 2; return a; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static tree_t *rk_incdec(RkB *b, const char *var, int add) { return rk_quiet_store(var_node(b, var), expr_binary(add ? TT_ADD : TT_SUB, var_node(b, var), rk_ilit(1))); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -405,7 +406,8 @@ static tree_t *rk_arr_rhs(tree_t *rhs) {
     if (rhs->t == TT_TO && rhs->n >= 2) {
         tree_t *call = make_call("__rk_range_arr"); expr_add_child(call, rhs->c[0]); expr_add_child(call, rhs->c[1]); rk_range_fl_arg(call, rhs); return call;
     }
-    if (!rk_one_scalar(rhs)) return rhs;
+    int item = rhs->t == TT_METHCALL && rhs->n == 2 && rhs->c[1] && rhs->c[1]->t == TT_QLIT && rhs->c[1]->v.sval && !strcmp(rhs->c[1]->v.sval, "item");
+    if (!item && !rk_one_scalar(rhs)) return rhs;
     tree_t *call = make_call("__rk_arr"); expr_add_child(call, rhs); return call;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -2343,7 +2345,7 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
     if (!strcmp(d->init_op, ":=")) {
         tree_t *e = el_tree(b, rs[0]);
         tree_t *var = var_node(b, name);
-        if (sig != '$') return expr_binary(TT_ASSIGN, var, e);
+        if (sig != '$') return rk_container_bind(var, e);
         tree_t *bd = rk_bind(var, rk_scalar_rhs(e));
         if (!bd) bd = expr_binary(TT_ASSIGN, var, e);
         if (type) return decl_node(b, type, var_node(b, name), bd->c[1]);
@@ -2351,7 +2353,7 @@ static tree_t *build_decl_raw(RkB *b, RkDecl *d, RkList *outer, int ofirst) {
     }
     if (sig == '@') {
         tree_t *val;
-        if (nrs == 1) { tree_t *e = el_tree(b, rs[0]); val = rk_arr_rhs(e); }
+        if (nrs == 1 && !(d->init ? d->init->trailing : outer && outer->trailing)) { tree_t *e = el_tree(b, rs[0]); val = rk_arr_rhs(e); }
         else val = rs_list(b, rs, nrs);
         tree_t *var = var_node(b, name);
         return type ? decl_node(b, type, var, val) : expr_binary(TT_ASSIGN, var, val);
@@ -2473,9 +2475,10 @@ static tree_t *stmt_plain(RkB *b, RkList *L) {
         mark_arrlit(b, strip_sigil(t0->name), rhs);
         return expr_binary(TT_ASSIGN, var_node(b, t0->name), rk_scalar_rhs(rhs));
     }
+    if (op1 && !strcmp(op1, ":=") && (plain(t0, 'A') || plain(t0, 'H')) && L->n == 1) return rk_container_bind(var_node(b, t0->name), el_rest(b, e0));
     if (op1 && !strcmp(op1, "=") && plain(t0, 'A')) {
         tree_t *first = el_rest(b, e0);
-        if (L->n == 1) return expr_binary(TT_ASSIGN, var_node(b, t0->name), rk_arr_rhs(first));
+        if (L->n == 1 && !L->trailing) return expr_binary(TT_ASSIGN, var_node(b, t0->name), rk_arr_rhs(first));
         tree_t *call = make_call("__rk_arr"); expr_add_child(call, first);
         for (int i = 1; i < L->n; i++) expr_add_child(call, el_tree(b, &L->v[i]));
         return expr_binary(TT_ASSIGN, var_node(b, t0->name), call);
