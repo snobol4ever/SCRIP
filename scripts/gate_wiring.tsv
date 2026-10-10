@@ -680,6 +680,8 @@ test_gate_pl_portray_reaches_every_subterm_of_print_and_write_term.sh	WIRED	-	-	
 test_gate_pl_predicate_property_of_a_head_known_only_at_run_time_asks_the_registry.sh	WIRED	-	-	-
 test_gate_pl_prelude_libs_cost.sh	WIRED	-	-	-
 test_gate_pl_prelude_libs_in_sync.sh	WIRED	-	-	-
+test_gate_pas_prelude_units_in_sync.sh	WIRED	-	-	-
+test_gate_pas_uses_and_units_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-

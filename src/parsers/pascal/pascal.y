@@ -2,6 +2,9 @@
 %code requires {
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
+enum { PAS_DIALECT_ISO_DEFAULT, PAS_DIALECT_ISO, PAS_DIALECT_FPC, PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI };
+int pascal_dialect(void);
+void pascal_dialect_set(int d);
 }
 %{
 #include "ct_arena.h"
@@ -35,7 +38,7 @@ static tree_t *pt_part(const char *w, tree_t *first) { return pt_add(pt_sval(pt_
 static tree_t *pt_decl(const char *w, tree_t *a, tree_t *b) { return pt_add(pt_add(pt_sval(pt_new(TT_DECL), w), a), b); }
 static void pt_flush_pragmas(tree_t *root) { pascal_pragma_flush(root); }
 typedef struct { char *name; int kind; long long iv; double dv; char *sv; } PasCEnvE;
-static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; } g_pascal_cenv;
+static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; } g_pascal_cenv;
 static void cenv_put(const char *name, int kind, long long iv, double dv, const char *sv) {
     if (!name || (kind == 0 && g_pascal_cenv.ni >= 256) || (kind == 1 && g_pascal_cenv.nr >= 64) || (kind == 2 && g_pascal_cenv.ns >= 64)) return;
     if (g_pascal_cenv.n >= g_pascal_cenv.cap) { g_pascal_cenv.cap = g_pascal_cenv.cap ? g_pascal_cenv.cap * 2 : 64; g_pascal_cenv.e = (PasCEnvE *)ct_grow(g_pascal_cenv.e, (size_t)g_pascal_cenv.cap * sizeof(PasCEnvE)); }
@@ -48,7 +51,11 @@ static void cenv_string(const char *name, const char *s) { if (s && strlen(s) ==
 int pascal_cenv_int(const char *name, long long *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 0 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].iv; return 1; } return 0; }
 int pascal_cenv_real(const char *name, double *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 1 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].dv; return 1; } return 0; }
 const char *pascal_cenv_str(const char *name) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 2 && !strcmp(g_pascal_cenv.e[i].name, name)) return g_pascal_cenv.e[i].sv; return NULL; }
-void pascal_cenv_reset(void) { g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; }
+void pascal_cenv_reset(void) { g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; }
+int pascal_unit_mode(void) { return g_pascal_cenv.unit_mode; }
+void pascal_unit_mode_set(int m) { g_pascal_cenv.unit_mode = m; }
+int pascal_dialect(void) { return g_pascal_cenv.dialect; }
+void pascal_dialect_set(int d) { g_pascal_cenv.dialect = d; }
 static long long cenv_value(tree_t *n) {
     long long cv = 0;
     if (!n) return 0;
@@ -69,6 +76,7 @@ static long long cenv_value(tree_t *n) {
 %}
 %union { tree_t *node; }
 %token GOTOSY PROGRAMSY SEMICOLON ARRAYSY LABELSY CONSTSY FORWARDSY
+%token USESSY UNITSY INTERFACESY IMPLEMENTATIONSY INITIALIZATIONSY FINALIZATIONSY
 %token DOSY DOWNTOSY FORSY REPEATSY WHILESY TOSY UNTILSY WITHSY CASESY
 %token PROCEDURESY PACKEDSY OFSY FILESY ENDSY SETSY VARSY THENSY RECORDSY
 %token FUNCTIONSY BEGINSY BECOMES TYPESY IFSY ELSESY INOP NOTSY IDIV IMOD ANDOP OROP
@@ -81,9 +89,13 @@ static long long cenv_value(tree_t *n) {
 %type <node> pf_section id_list body statement_list body_stmt statement statement_no_label call call_with_args argument_list argument assignment
 %type <node> selector expression_list compound_statement goto_statement if_statement case_statement case_list case_elem constant_list while_statement
 %type <node> repeat_statement for_statement with_statement with_open selector_list expression simple_expression term factor set_member_list set_member
-%type <node> expression_list_opt
-%start program
+%type <node> expression_list_opt compilation_unit unit intf_part_list intf_part init_opt fini_opt
+%start compilation_unit
 %%
+compilation_unit:
+    program { $$ = $1; }
+    |unit { $$ = $1; }
+    ;
 program:
     PROGRAMSY IDENT file_id_list_opt SEMICOLON block PERIOD { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROGRAM), $2), $3), $5); pt_flush_pragmas($$); pascal_prog_result = $$; }
     ;
@@ -104,6 +116,31 @@ decl_part:
     |TYPESY type_decl_list { $$ = $2; }
     |VARSY var_decl_list { $$ = $2; }
     |procedure_decl { $$ = $1; }
+    |USESSY id_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "uses"), $2); }
+    ;
+unit:
+    UNITSY IDENT SEMICOLON INTERFACESY intf_part_list IMPLEMENTATIONSY decl_part_list init_opt fini_opt ENDSY PERIOD { $$ = pt_add(pt_add(pt_add(pt_add(pt_add(pt_new(TT_MODULE_DECL), $2), $5), pt_sval(pt_retag($7, TT_PART), "implementation")), $8), $9); pt_flush_pragmas($$); pascal_prog_result = $$; }
+    ;
+intf_part_list:
+    intf_part_list intf_part { $$ = pt_add($1, $2); }
+    |{ $$ = pt_sval(pt_new(TT_PART), "interface"); }
+    ;
+intf_part:
+    USESSY id_list SEMICOLON { $$ = pt_add(pt_sval(pt_new(TT_PART), "uses"), $2); }
+    |CONSTSY const_decl_list { $$ = $2; }
+    |TYPESY type_decl_list { $$ = $2; }
+    |VARSY var_decl_list { $$ = $2; }
+    |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
+    ;
+init_opt:
+    INITIALIZATIONSY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "initialization"), $2); }
+    |BEGINSY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "initialization"), $2); }
+    |{ $$ = NULL; }
+    ;
+fini_opt:
+    FINALIZATIONSY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "finalization"), $2); }
+    |{ $$ = NULL; }
     ;
 label_list:
     label_list COMMA INTCONST { $$ = pt_add($1, $3); }
@@ -269,10 +306,12 @@ statement_no_label:
     ;
 call:
     IDENT { $$ = pt_add(pt_new(TT_FNC), $1); }
+    |selector PERIOD IDENT { $$ = pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)); }
     |call_with_args { $$ = $1; }
     ;
 call_with_args:
     IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), $1), $3); }
+    |selector PERIOD IDENT LPARENT argument_list RPARENT { $$ = pt_cat(pt_add(pt_new(TT_FNC), pt_add(pt_add(pt_new(TT_FIELD), $1), $3)), $5); }
     ;
 argument_list:
     argument_list COMMA argument { $$ = pt_add($1, $3); }

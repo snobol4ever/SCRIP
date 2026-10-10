@@ -11625,6 +11625,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = NULVCL;
         return 1;
     }
+    if (!strcmp(fn, "__pas_std_mute") && nargs == 0) { fflush(stdout); int nul = open("/dev/null", O_WRONLY); if (nul >= 0) { dup2(nul, 1); close(nul); } *out = NULVCL; return 1; }
     if (!strcmp(fn, "__pas_ferase") && nargs == 1) {
         extern FILE *fh_get(int);
         extern void fh_free(int);
@@ -14585,10 +14586,10 @@ DESCR_t proc_as_value(const char *name) {
     static const char *const builtins[] = { "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln",
         "__pas_trunc","__pas_abs","__pas_sin", "__pas_read_i_f","__pas_read_c_f","__pas_readln_f","__pas_eof_f","__pas_eoln_f","__pas_getbufch","__pas_getbufch_f", "__pas_ca_pack", "__pas_ca_unpack",
         "__pas_ca_encode","__pas_stdfile","__pas_arr_copy","__pas_arr_of", "__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite", "__pas_reset","__pas_fclose",
-        "write","writes","read","reads","close","open","remove", "flush", "put","get","pull","push","pop","list","image","proc","type","copy", "string","integer", "real","numeric","ord","char",
-        "reverse","sort","sortf", "find","match","many","any","upto","bal","move","tab","pos", "map","repl","trim","left","right","center","detab","entab", "abs", "sqrt","sin","cos","tan","asin",
-        "acos","atan","exp","log", "dtor","rtod", "iand","ior","ixor","ishift","icom", "table","key","insert","delete","member","args","level", "collect", "stop","exit","runerr","name","variable",
-        "seq", "chdir","delay","getch","getche","kbhit","loadfunc", NULL };
+        "__pas_std_mute", "write","writes","read","reads","close","open","remove", "flush", "put","get","pull","push","pop","list","image","proc","type","copy", "string","integer", "real","numeric",
+        "ord","char", "reverse","sort","sortf", "find","match","many","any","upto","bal","move","tab","pos", "map","repl","trim","left","right","center","detab","entab", "abs", "sqrt","sin","cos",
+        "tan","asin", "acos","atan","exp","log", "dtor","rtod", "iand","ior","ixor","ishift","icom", "table","key","insert","delete","member","args","level", "collect", "stop","exit","runerr","name",
+        "variable", "seq", "chdir","delay","getch","getche","kbhit","loadfunc", NULL };
     for (int i = 0; builtins[i]; i++) if (strcmp(builtins[i], name) == 0) return STRVAL(name);
     return FAILDESCR;
 }

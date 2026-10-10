@@ -1076,6 +1076,8 @@ static int  pascal_strpos;
 static char pascal_ifdefbuf[256];
 static int  pascal_ifdefpos;
 int pascal_cenv_int(const char *name, long long *out);
+int pascal_unit_mode(void);
+void pascal_unit_mode_set(int m);
 int pascal_cenv_real(const char *name, double *out);
 const char *pascal_cenv_str(const char *name);
 static char **pascal_ev; static int pascal_nev, pascal_cev;
@@ -1136,6 +1138,23 @@ static int pascal_if_eval(const char *expr) {
     return neg ? !result : result;
 }
 int pascal_seen_decl_start = 0;
+static int pascal_context_keyword(const char *w) {
+    static const char *K[] = { "unit", "uses", "interface", "implementation", "initialization", "finalization" };
+    static const int T[] = { UNITSY, USESSY, INTERFACESY, IMPLEMENTATIONSY, INITIALIZATIONSY, FINALIZATIONSY };
+    int k = -1, m = pascal_unit_mode(), d = pascal_dialect();
+    for (int i = 0; i < 6; i++) if (!strcasecmp(w, K[i])) k = i;
+    if (k < 0 || d == PAS_DIALECT_ISO) return 0;
+    if (d == PAS_DIALECT_ISO_DEFAULT) {
+        if (k == 0 && (m != 0 || pascal_seen_decl_start)) return 0;
+        if (k == 1 && pascal_seen_decl_start) return 0;
+        if (k >= 2 && m != 1) return 0;
+        if (k == 2 && pascal_seen_decl_start) return 0;
+        if (k <= 1) { pascal_dialect_set(PAS_DIALECT_FPC); pascal_event("seen_mode"); }
+    }
+    if (k == 0 && m == 0) pascal_unit_mode_set(1);
+    if (k == 3) pascal_seen_decl_start = 0;
+    return T[k];
+}
 static char pascal_modebuf[64];
 static int  pascal_modepos;
 static char pascal_packrecbuf[16];
@@ -1156,10 +1175,18 @@ static char pascal_minenumbuf[16];
 static int  pascal_minenumpos;
 static char pascal_packsetbuf[16];
 static int  pascal_packsetpos;
-static int pascal_mode_is_known(const char *m) {
-    static const char *K[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
-    for (size_t i = 0; i < sizeof(K) / sizeof(K[0]); i++) if (!strcasecmp(m, K[i])) return 1;
-    return 0;
+static void pascal_mode_directive(const char *m) {
+    static const char *M[] = { "objfpc", "delphi", "tp", "fpc", "macpas" };
+    static const int D[] = { PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI, PAS_DIALECT_FPC, PAS_DIALECT_FPC, PAS_DIALECT_FPC };
+    if (!strcasecmp(m, "iso")) {
+        pascal_event("mode_iso");
+        if (!pascal_seen_decl_start) pascal_dialect_set(PAS_DIALECT_ISO);
+        return;
+    }
+    for (int i = 0; i < 5; i++) if (!strcasecmp(m, M[i]) && !pascal_seen_decl_start) {
+        pascal_dialect_set(D[i]);
+        pascal_event("seen_mode");
+    }
 }
 static char *pascal_raw_dup(const char *s, int n) {
     char *b = (char *)ct_alloc((size_t)(n + 1)); memcpy(b, s, (size_t)n); b[n] = '\0'; return b;
@@ -1659,7 +1686,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 46:
 YY_RULE_SETUP
-{ if (!pascal_seen_decl_start && pascal_mode_is_known(pascal_modebuf) && strcasecmp(pascal_modebuf, "iso") != 0) pascal_event("seen_mode"); if (strcasecmp(pascal_modebuf, "iso") == 0) pascal_event("mode_iso"); BEGIN INITIAL; }
+{ pascal_mode_directive(pascal_modebuf); BEGIN INITIAL; }
 	YY_BREAK
 case 47:
 YY_RULE_SETUP
@@ -1788,7 +1815,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
-{ return PROGRAMSY; }
+{ pascal_unit_mode_set(-1); return PROGRAMSY; }
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
@@ -1973,7 +2000,9 @@ YY_RULE_SETUP
 	YY_BREAK
 case 120:
 YY_RULE_SETUP
-{ pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
+{ int kw = pascal_context_keyword(pascal_yytext);
+                          if (kw) return kw;
+                          pascal_yylval.node = pascal_leaf(TT_VAR); pascal_yylval.node->v.sval = pascal_lower_dup(pascal_yytext, (int)pascal_yyleng); return IDENT; }
 	YY_BREAK
 case 121:
 YY_RULE_SETUP
@@ -3061,5 +3090,5 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-void pascal_lex_reset(void) { pascal_nev = 0; pascal_seen_decl_start = 0; BEGIN INITIAL; }
+void pascal_lex_reset(void) { pascal_nev = 0; pascal_seen_decl_start = 0; pascal_yylineno = 1; BEGIN INITIAL; }
 

@@ -415,6 +415,7 @@ static int pas_is_unsigned_inttypename(const char *n) {
 }
 static int pas_with_holds_pointee_of(tree_t *ptr);
 static tree_t *mk_call(const char *name, PNodeList *args) {
+    if (name && !strcmp(name, "fini.mute")) return mk_fnc0("__pas_std_mute");
     if (name && !strcmp(name, "ord") && args && args->count >= 1) {
         tree_t *a = args->items[0];
         if (a && a->t == TT_FNC && a->n >= 2 && a->c[0] && a->c[0]->v.sval && !strcmp(a->c[0]->v.sval, "__pas_chrlit")) return a->c[1];
@@ -6335,6 +6336,195 @@ static pval E_with_statement(const tree_t *n) {
     elab_bad("with_statement", n);
     return out;
 }
+static int pu_is_part(const tree_t *t, const char *w) { return IS(t, TT_PART) && t->v.sval && !strcmp(t->v.sval, w); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pu_has(const tree_t *names, const char *s) { for (int i = 0; names && s && i < names->n; i++) if (names->c[i]->v.sval && !strcasecmp(names->c[i]->v.sval, s)) return 1; return 0; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_add(tree_t *names, const tree_t *v) { if (IS(v, TT_VAR) && v->v.sval && !pu_has(names, v->v.sval)) ast_push(names, leaf_s(TT_VAR, v->v.sval)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_decl_names(const tree_t *d, tree_t *names) {
+    if (IS(d, TT_PROCEDURE) || IS(d, TT_FUNCTION)) { if (d->n > 0) pu_add(names, d->c[0]); return; }
+    if (!IS(d, TT_DECL) || d->n < 1) return;
+    if (IS(d->c[0], TT_VLIST)) for (int i = 0; i < d->c[0]->n; i++) pu_add(names, d->c[0]->c[i]);
+    else pu_add(names, d->c[0]);
+    if (d->n > 1 && IS(d->c[1], TT_ENUM_TYPE)) for (int i = 0; i < d->c[1]->n; i++) pu_add(names, d->c[1]->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_part_names(const tree_t *part, tree_t *names) {
+    for (int i = 0; part && i < part->n; i++) {
+        const tree_t *p = part->c[i];
+        if (IS(p, TT_PART) && !pu_is_part(p, "uses")) for (int j = 0; j < p->n; j++) pu_decl_names(p->c[j], names);
+        else pu_decl_names(p, names);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_rename(tree_t *t, const tree_t *from, const tree_t *to, const tree_t *shadow);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_rename_routine(tree_t *r, const tree_t *from, const tree_t *to, const tree_t *shadow) {
+    tree_t *inner = ast_node_new(TT_VLIST);
+    for (int i = 0; shadow && i < shadow->n; i++) ast_push(inner, shadow->c[i]);
+    if (r->n > 0) pu_rename(r->c[0], from, to, shadow);
+    for (int i = 1; i < r->n; i++) {
+        tree_t *c = r->c[i];
+        if (IS(c, TT_PARAMS)) { for (int j = 0; j < c->n; j++) { pu_decl_names(c->c[j], inner); if (IS(c->c[j], TT_DECL) && c->c[j]->n > 1) pu_rename(c->c[j]->c[1], from, to, shadow); } }
+        if (IS(c, TT_BLOCK)) pu_part_names(c, inner);
+    }
+    for (int i = 1; i < r->n; i++) if (!IS(r->c[i], TT_PARAMS)) pu_rename(r->c[i], from, to, inner);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_rename(tree_t *t, const tree_t *from, const tree_t *to, const tree_t *shadow) {
+    if (!t) return;
+    if (IS(t, TT_VAR)) {
+        if (!t->v.sval || pu_has(shadow, t->v.sval)) return;
+        for (int i = 0; i < from->n; i++) if (!strcasecmp(from->c[i]->v.sval, t->v.sval)) { t->v.sval = to->c[i]->v.sval; return; }
+        return;
+    }
+    if (IS(t, TT_PROCEDURE) || IS(t, TT_FUNCTION)) { pu_rename_routine(t, from, to, shadow); return; }
+    if (IS(t, TT_FIELD)) { if (t->n > 0) pu_rename(t->c[0], from, to, shadow); return; }
+    if (IS(t, TT_DECL) && t->v.sval && !strcmp(t->v.sval, "field")) { for (int i = 1; i < t->n; i++) pu_rename(t->c[i], from, to, shadow); return; }
+    for (int i = 0; i < t->n; i++) pu_rename(t->c[i], from, to, shadow);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pu_qualify(tree_t *t, const tree_t *units, const tree_t *qfrom, const tree_t *qto) {
+    if (!t) return t;
+    if (IS(t, TT_FIELD) && t->n == 2 && IS(t->c[0], TT_VAR) && IS(t->c[1], TT_VAR) && t->c[0]->v.sval && t->c[1]->v.sval && pu_has(units, t->c[0]->v.sval)) {
+        size_t l = strlen(t->c[0]->v.sval) + strlen(t->c[1]->v.sval) + 2;
+        char *q = ct_alloc(l);
+        snprintf(q, l, "%s.%s", t->c[0]->v.sval, t->c[1]->v.sval);
+        for (int i = 0; i < qfrom->n; i++) if (!strcasecmp(qfrom->c[i]->v.sval, q)) return leaf_s(TT_VAR, qto->c[i]->v.sval);
+        return leaf_s(TT_VAR, t->c[1]->v.sval);
+    }
+    for (int i = 0; i < t->n; i++) t->c[i] = pu_qualify(t->c[i], units, qfrom, qto);
+    return t;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_merge_part(tree_t **slot, const char *kind, const tree_t *from) {
+    for (int i = 0; from && i < from->n; i++) {
+        const tree_t *p = from->c[i];
+        if (!pu_is_part(p, kind)) continue;
+        if (!*slot) *slot = leaf_s(TT_PART, kind);
+        for (int j = 0; j < p->n; j++) ast_push(*slot, p->c[j]);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_stmts(tree_t *seq, const tree_t *part) {
+    for (int i = 0; part && i < part->n; i++) { tree_t *s = part->c[i]; if (IS(s, TT_SEQ_EXPR)) for (int j = 0; j < s->n; j++) ast_push(seq, s->c[j]); else if (s) ast_push(seq, s); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t *pu_child_part(const tree_t *u, const char *w) { for (int i = 1; u && i < u->n; i++) if (pu_is_part(u->c[i], w)) return u->c[i]; return NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pu_fnc0(const char *fn) { tree_t *e = ast_node_new(TT_FNC); ast_push(e, leaf_s(TT_VAR, fn)); return e; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static long long pu_part_rank(const tree_t *p) {
+    static const char *nm[] = { "label", "const", "type", "var" };
+    if (IS(p, TT_PROCEDURE) || IS(p, TT_FUNCTION)) return 5;
+    for (int i = 0; i < 4; i++) if (pu_is_part(p, nm[i])) return i + 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pu_qname(const char *un, const char *nm) { size_t l = strlen(un) + strlen(nm) + 2; char *q = ct_alloc(l); snprintf(q, l, "%s.%s", un, nm); return q; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_map(tree_t *from, tree_t *to, const char *nm, const char *q) { if (pu_has(from, nm)) return; ast_push(from, leaf_s(TT_VAR, nm)); ast_push(to, leaf_s(TT_VAR, q)); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t *pu_uses(const tree_t *part) { for (int i = 0; part && i < part->n; i++) if (pu_is_part(part->c[i], "uses") && part->c[i]->n > 0) return part->c[i]->c[0]; return NULL; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_map_uses(tree_t *from, tree_t *to, const tree_t *conf, const tree_t *own, const tree_t *forest, const tree_t *pubs, const tree_t *u1, const tree_t *u2) {
+    for (int i = 0; i < conf->n; i++) {
+        const char *nm = conf->c[i]->v.sval, *q = NULL;
+        if (pu_has(own, nm)) continue;
+        for (int pass = 0; pass < 2; pass++) {
+            const tree_t *ul = pass ? u2 : u1;
+            for (int j = 0; ul && j < ul->n; j++) for (int k = 0; k < forest->n; k++) {
+                const char *un = forest->c[k]->c[0]->v.sval;
+                if (ul->c[j]->v.sval && !strcasecmp(un, ul->c[j]->v.sval) && pu_has(pubs->c[k], nm)) q = pu_qname(un, nm);
+            }
+        }
+        if (q) pu_map(from, to, nm, q);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pu_apply_pragmas(tree_t *t) {
+    if (!t) return;
+    if (t->t == TT_ATTR && t->v.sval && !strcmp(t->v.sval, ":pragma") && t->slen == 0 && t->n > 0 && t->c[0] && t->c[0]->v.sval) { t->slen = 1; pas_apply_event(t->c[0]->v.sval); }
+    for (int i = 0; i < t->n; i++) pu_apply_pragmas(t->c[i]);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pas_flatten_units(tree_t *prog) {
+    if (!IS(prog, TT_PROGRAM)) return prog;
+    tree_t *forest = NULL;
+    int bi = -1;
+    for (int i = 0; i < prog->n; i++) { if (pu_is_part(prog->c[i], "units")) forest = prog->c[i]; else if (IS(prog->c[i], TT_BLOCK)) bi = i; }
+    if (bi < 0 || !forest) return prog;
+    tree_t *block = prog->c[bi];
+    for (int i = 0; i < block->n; i++) if (pu_is_part(block->c[i], "uses")) pu_apply_pragmas(block->c[i]);
+    long long ord = 0;
+    for (int i = 0; i < block->n - 1; i++) if (pu_part_rank(block->c[i])) ord = pas_decl_part_order(ord, pu_part_rank(block->c[i]));
+    int nu = forest->n;
+    tree_t *unames = ast_node_new(TT_VLIST), *qfrom = ast_node_new(TT_VLIST), *qto = ast_node_new(TT_VLIST), *pnames = ast_node_new(TT_VLIST);
+    tree_t *pubs = ast_node_new(TT_VLIST), *seen = ast_node_new(TT_VLIST), *conf = ast_node_new(TT_VLIST);
+    for (int k = 0; k < nu; k++) pu_add(unames, forest->c[k]->c[0]);
+    pu_part_names(block, pnames);
+    for (int k = 0; k < nu; k++) {
+        tree_t *pub = ast_node_new(TT_VLIST);
+        pu_part_names(forest->c[k]->c[1], pub);
+        ast_push(pubs, pub);
+        for (int i = 0; i < pub->n; i++) { if (pu_has(seen, pub->c[i]->v.sval) || pu_has(pnames, pub->c[i]->v.sval)) pu_add(conf, pub->c[i]); pu_add(seen, pub->c[i]); }
+    }
+    for (int k = 0; k < nu; k++) {
+        tree_t *u = forest->c[k], *all = ast_node_new(TT_VLIST), *from = ast_node_new(TT_VLIST), *to = ast_node_new(TT_VLIST);
+        pu_part_names(u->c[1], all);
+        pu_part_names(u->c[2], all);
+        for (int i = 0; i < all->n; i++) {
+            const char *nm = all->c[i]->v.sval, *q = pu_qname(u->c[0]->v.sval, nm);
+            int hide = !pu_has(pubs->c[k], nm) || pu_has(conf, nm);
+            if (hide) pu_map(from, to, nm, q);
+            ast_push(qfrom, leaf_s(TT_VAR, q));
+            ast_push(qto, leaf_s(TT_VAR, hide ? q : nm));
+        }
+        pu_map_uses(from, to, conf, all, forest, pubs, pu_uses(u->c[1]), pu_uses(u->c[2]));
+        for (int i = 1; i < u->n; i++) pu_rename(u->c[i], from, to, NULL);
+    }
+    tree_t *pfrom = ast_node_new(TT_VLIST), *pto = ast_node_new(TT_VLIST);
+    pu_map_uses(pfrom, pto, conf, pnames, forest, pubs, pu_uses(block), NULL);
+    pu_rename(block, pfrom, pto, NULL);
+    for (int k = 0; k < nu; k++) for (int i = 1; i < forest->c[k]->n; i++) forest->c[k]->c[i] = pu_qualify(forest->c[k]->c[i], unames, qfrom, qto);
+    block = pu_qualify(block, unames, qfrom, qto);
+    tree_t *nb = ast_node_new(TT_BLOCK), *lab = NULL, *con = NULL, *typ = NULL, *var = NULL, *body = ast_node_new(TT_SEQ_EXPR);
+    pu_merge_part(&lab, "label", block);
+    for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&con, "const", forest->c[k]->c[s]);
+    pu_merge_part(&con, "const", block);
+    for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&typ, "type", forest->c[k]->c[s]);
+    pu_merge_part(&typ, "type", block);
+    for (int k = 0; k < nu; k++) for (int s = 1; s <= 2; s++) pu_merge_part(&var, "var", forest->c[k]->c[s]);
+    pu_merge_part(&var, "var", block);
+    if (lab) ast_push(nb, lab);
+    if (con) ast_push(nb, con);
+    if (typ) ast_push(nb, typ);
+    if (var) ast_push(nb, var);
+    for (int k = 0; k < nu; k++) {
+        tree_t *intf = forest->c[k]->c[1];
+        for (int i = 0; i < intf->n; i++) {
+            if (!IS(intf->c[i], TT_PROCEDURE) && !IS(intf->c[i], TT_FUNCTION)) continue;
+            ast_push(intf->c[i], leaf_s(TT_KEYWORD, "forward"));
+            ast_push(nb, intf->c[i]);
+        }
+    }
+    for (int k = 0; k < nu; k++) { tree_t *impl = forest->c[k]->c[2]; for (int i = 0; i < impl->n; i++) if (IS(impl->c[i], TT_PROCEDURE) || IS(impl->c[i], TT_FUNCTION)) ast_push(nb, impl->c[i]); }
+    for (int i = 0; i < block->n - 1; i++) if (IS(block->c[i], TT_PROCEDURE) || IS(block->c[i], TT_FUNCTION)) ast_push(nb, block->c[i]);
+    for (int k = 0; k < nu; k++) pu_stmts(body, pu_child_part(forest->c[k], "initialization"));
+    tree_t *main_seq = block->n > 0 ? block->c[block->n - 1] : NULL;
+    if (IS(main_seq, TT_SEQ_EXPR)) for (int j = 0; j < main_seq->n; j++) ast_push(body, main_seq->c[j]);
+    int fini = 0;
+    for (int k = 0; k < nu; k++) if (pu_child_part(forest->c[k], "finalization")) fini = 1;
+    if (fini) ast_push(body, pu_fnc0("fini.mute"));
+    for (int k = nu - 1; k >= 0; k--) pu_stmts(body, pu_child_part(forest->c[k], "finalization"));
+    ast_push(nb, body);
+    tree_t *np = ast_node_new(TT_PROGRAM);
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) { if (i == bi) ast_push(np, nb); else if (prog->c[i] != forest) ast_push(np, prog->c[i]); }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     if (!pruned) return NULL;
     if (!filename) filename = "<stdin>";
@@ -6351,7 +6541,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_arr_ncols = -1;
     g_lower.pas.sem.pas_pend_enum_max = -1;
     g_lower.pas.sem.pas_pend_sub_high = -1;
-    tree_t *root = E_program(pruned).node;
+    tree_t *root = E_program(pas_flatten_units(pruned)).node;
     int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors;
     if (nsem > 0) { fprintf(stderr, "pascal: %d ISO 7185 violation(s) in %s -- no code generated\n", nsem, filename); return NULL; }
     return root;
