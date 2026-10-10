@@ -215,25 +215,25 @@ OUTCOME_ERRATA = {
     ("functor-bis", "functor(foo(a),foo,2)"): ("failure", None,
         "ISO 13211-1 sec 8.5.1: functor(foo(a),foo,2) asks whether foo(a) has name foo and arity 2; its arity is 1, "
         "so the goal FAILS. The suite declares success and its OWN comment on the same line reads 'Must fail'. "
-        "swipl 9.x FAILS and gprolog 1.4.5 FAILS -- both independent references agree with each other, with ISO, "
+        "swipl 9.x FAILS and gprolog 1.6.0 (the oracle since CEO-1598; re-measured on this goal 2026-10-10, CEO-1603, and 1.4.5 answered alike) FAILS -- both independent references agree with each other, with ISO, "
         "and with scrip, against the vendored cell (measured hq_R 2026-09-06)."),
     ("functor-bis", "functor([_|_],'.',2)"): ("success", None,
         "ISO 13211-1 sec 6.3.5: the list constructor IS '.'/2, so a partial list [_|_] has name '.' and arity 2 and "
         "the goal SUCCEEDS. The suite declares failure and its OWN comment reads 'Must succeed'. ⛔ THE ORACLES SPLIT "
-        "HERE AND THAT IS THE POINT: gprolog 1.4.5 SUCCEEDS (ISO-conformant) and swipl 9.x FAILS because modern SWI "
+        "HERE AND THAT IS THE POINT: gprolog 1.6.0 (the oracle since CEO-1598; re-measured on this goal 2026-10-10, CEO-1603, and 1.4.5 answered alike) SUCCEEDS (ISO-conformant) and swipl 9.x FAILS because modern SWI "
         "uses '[|]' as its list functor, a documented post-ISO divergence. The vendored expectation follows the "
         "NON-ISO reading while its own comment follows ISO, so grading against that cell PENALISES the conformance "
         "this suite exists to measure. Graded on ISO + gprolog per ceo-370 (measured hq_R 2026-09-06)."),
     ("functor-bis", "functor(X, foo, a)"): ("error", "type_error",
         "ISO 13211-1 sec 8.5.1.3: functor/3 raises type_error(integer, a) when the arity argument is not an integer. "
         "The suite declares failure and its OWN comment reads 'type_error(integer,a) expected'. swipl 9.x and "
-        "gprolog 1.4.5 BOTH raise type_error(integer,a), as does scrip (measured hq_R 2026-09-06)."),
+        "gprolog 1.6.0 (the oracle since CEO-1598; re-measured on this goal 2026-10-10, CEO-1603, and 1.4.5 answered alike) BOTH raise type_error(integer,a), as does scrip (measured hq_R 2026-09-06)."),
     ("atom_codes", "atom_codes(A,[ 0'i, 0's, 1000])"): ("success", None,
         "The suite's own comment reads '1000 not a code', an assumption from the pre-Unicode era this 1999 suite "
         "was authored in (a character code above the then-common 8-bit/Latin-1 range). ISO 13211-1 leaves the "
         "representable character-code range IMPLEMENTATION DEFINED. ⛔ THE ORACLES SPLIT ON THIS EXACT WITNESS: "
-        "gprolog 1.4.5 (Latin-1-range engine, measured boundary: codes 0-255 accepted, 256+ raise "
-        "representation_error(character_code)) raises the error the suite expects; swipl 9.0.4 (full-Unicode "
+        "gprolog 1.6.0, the oracle since CEO-1598 (Latin-1-range engine, measured boundary: codes 0-255 accepted, 256+ raise "
+        "representation_error(character_code); re-measured 2026-10-10 at 255, 256 and 1000, CEO-1603, and 1.4.5 answered alike) raises the error the suite expects; swipl 9.0.4 (full-Unicode "
         "engine, codes up to 0x10FFFF) SUCCEEDS, binding A to the 3-character atom 'is\\u03e8' -- code 1000 is a "
         "real, representable Unicode character (GREEK CAPITAL LETTER PAMPHYLIAN DIGAMMA). scrip already commits "
         "to the full-Unicode reading elsewhere (pl_anum_code_ok in by_name_dispatch.c caps representable codes at "
@@ -242,7 +242,7 @@ OUTCOME_ERRATA = {
         "2026-09-23, live oracle runs of both swipl and gprolog on this exact goal)."),
     ("number_codes", "number_codes(A,[ 0'1, 0'2, 1000])"): ("error", "syntax_error",
         "SAME oracle split as the atom_codes entry above, same root cause, same suite-authorship-era assumption "
-        "('1000 not a code'). gprolog 1.4.5 raises representation_error(character_code) (its Latin-1 code-range "
+        "('1000 not a code'). gprolog 1.6.0 (the oracle since CEO-1598; re-measured on this goal 2026-10-10, CEO-1603, and 1.4.5 answered alike) raises representation_error(character_code) (its Latin-1 code-range "
         "limit); swipl 9.0.4 raises syntax_error(illegal_number) instead -- code 1000 IS representable (Unicode), "
         "so swipl converts it to the character U+03E8 and then finds \"12\\u03e8\" is not a syntactically valid "
         "number, which is the correct ISO reading for a Unicode-complete implementation: representation_error is "
@@ -458,7 +458,7 @@ KNOWN_SUITE_ERRATA = {
         "SAME LINE's own %% comment reads 'Must instantiate Y by 3', contradicting its own machine-readable "
         "cell exactly as the three OUTCOME_ERRATA functor-bis entries above do. swipl AND gprolog (independent "
         "ISO references) both bind Y=3; so does scrip. VENDORED SUITE TEXT is the erratum (measured hq_prolog "
-        "2026-09-23, live oracle run: swipl 9.0.4 and gprolog 1.4.5 both agree Y=3).",
+        "2026-09-23, live oracle run: swipl 9.0.4 and gprolog 1.4.5 both agree Y=3; gprolog 1.6.0, the oracle since CEO-1598, binds Y=3 too, re-measured 2026-10-10, CEO-1603).",
 }
 excluded_suite_erratum = []  # (fam, goal) short label for entries matched above, printed every run
 excluded_fresh_named = []   # (fam, goal) this comparator refuses to check finer than outcome class
