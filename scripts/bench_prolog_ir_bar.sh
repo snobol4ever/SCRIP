@@ -5,7 +5,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off (Lon 2026-09-25
 # to hq_prolog, verbatim: "Yes, you are correct to use instruction counts. That is good enough."): a prolog-speed row may close on
 # this reading, with the wall-clock bench_prolog_bar.sh reading reported beside it, self-stamping its load (CEO-743).
 #   usage: bench_prolog_ir_bar.sh kernel K [gplc|gnu|swi] [BAR]     K = the kernel's file stem under corpus/benchmarks/prolog/bench
-#          rival gplc (default; GNU Prolog compiled native, --no-top-level), gnu (gprolog --consult-file, the byte-code WAM) or swi.
+#          rival gplc (default; GNU Prolog compiled native, --no-top-level), gnu ("$(gprolog_bin)" --consult-file, the byte-code WAM) or swi.
 #          BAR (default 1.0): exits 0 when rival WORK / SCRIP m4 WORK >= BAR (SCRIP retires no more instructions per iteration than
 #          BAR times the rival's), 1 when below it, 2 when it could not measure (no valgrind, no rival, a twin that did not build,
 #          a run that died -- an Ir from a run that died is not a measurement, lib_ir_measure.sh).
@@ -25,7 +25,7 @@ SCRIP_BIN="${SCRIP:-$ROOT/scrip}"; RT_DIR="${RT_DIR:-$ROOT/out}"; [ -x "$SCRIP_B
 . "$HERE/lib_perf_fmt.sh" 2>/dev/null || refuse "cannot load lib_perf_fmt.sh -- the one authority for printing a multiple"
 ir_have_valgrind || refuse "valgrind/callgrind_annotate absent"
 case "$RIVAL" in
-  gplc) GPLC="${GPLC:-$(command -v gplc 2>/dev/null)}"; [ -x "${GPLC:-/nonexistent}" ] || refuse "gplc absent (GNU Prolog's native compiler; test_bench_prolog_timed.sh refuses without it too)";;
+  gplc) GPLC="${GPLC:-$(gplc_bin 2>/dev/null)}"; [ -x "${GPLC:-/nonexistent}" ] || refuse "gplc absent (GNU Prolog's native compiler; test_bench_prolog_timed.sh refuses without it too)";;
   gnu)  GNU="$(gprolog_bin)" || refuse "gprolog oracle absent";;
   swi)  SWI="$(swipl_bin)" || refuse "swipl oracle absent";;
 esac

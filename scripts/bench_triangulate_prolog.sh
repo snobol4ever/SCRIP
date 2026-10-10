@@ -54,6 +54,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # DISAGREE. 2 = REFUSED -- missing scrip/oracle/corpus, loud, never a plausible table.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
@@ -203,7 +204,7 @@ done
 
 echo
 grid_incomplete=0
-perf_grid_begin "FACT-RULE grid: m3 and m4 vs gnu (gprolog --consult-file, the byte-code WAM), vs gplc (GNU Prolog compiled native) and vs swi (angle 1's self-measured WORK per iteration, us/it -- the two-number basis, a COST: rival us / SCRIP us, axis named once here; RT_OPT=-O0)"
+perf_grid_begin "FACT-RULE grid: m3 and m4 vs gnu ("$(gprolog_bin)" --consult-file, the byte-code WAM), vs gplc (GNU Prolog compiled native) and vs swi (angle 1's self-measured WORK per iteration, us/it -- the two-number basis, a COST: rival us / SCRIP us, axis named once here; RT_OPT=-O0)"
 # ⛔ perf_row_or_refuse takes (LABEL, REF, OURS) as COSTS (lower is faster; multiple = ref / ours): the rival's us/it first, SCRIP's second.
 #   The rate form this grid carried until CEO-1281 passed (ours, ref) RATES, which yields the same multiple for a rate and the inverse
 #   for a cost -- so the order below is not cosmetic.

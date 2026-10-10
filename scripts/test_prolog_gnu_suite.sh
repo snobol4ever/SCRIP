@@ -41,6 +41,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib_one_runner.sh" && one_runner_guard "$
 #
 # AUTHORS: seat05, 2026-08-30 (Lon direct via ceo, row gnu-prolog-suite-runner-and-score)
 set -uo pipefail   # deliberately NOT -e: a per-file compile/run failure is DATA the board must finish
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
                    # printing, never a reason to abort the whole sweep partway through
 
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"   # D-17 PORTABLE-HOME
@@ -54,7 +55,7 @@ RT_SO="${HERE}/../out/libscrip_rt.so"
 PKG="${GNU_PROLOG_SUITE:-$S4E/corpus/packages/prolog/gnu_prolog}"   # line 2 sets it to this default, so the guard judges the suite graded here
 CLASSIFY_TIMEOUT="${GNU_SUITE_CLASSIFY_TIMEOUT:-10}"
 RUN_TIMEOUT="${GNU_SUITE_RUN_TIMEOUT:-15}"
-GPROLOG_BIN="$(command -v gprolog || true)"
+GPROLOG_BIN="$(gprolog_bin 2>/dev/null || true)"
 VERBOSE="${GNU_SUITE_VERBOSE:-0}"
 
 # Named individually per the ruling (neither contains a bootstrap-only directive, so the content

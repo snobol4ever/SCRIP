@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 # test_bench_prolog_4way.sh — 4-way Prolog benchmark comparison.
 # Columns: GNU (gprolog) · SWI (swipl) · m3 (scrip --run, in-process x86 binary)
 #          · m4 (scrip --compile x86 -> as+gcc -> exec).
@@ -20,7 +21,7 @@ B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"; T="${TIMEOUT:-30}"
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
-HAVE_GNU=0; command -v gprolog >/dev/null 2>&1 && HAVE_GNU=1
+HAVE_GNU=0; gprolog_bin >/dev/null 2>&1 && HAVE_GNU=1
 HAVE_SWI=0; command -v swipl   >/dev/null 2>&1 && HAVE_SWI=1
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 printf "%-14s %-7s %-7s %-7s %-7s  %s\n" BENCH GNU SWI m3 m4 "consensus / result"
@@ -34,7 +35,7 @@ for pl in "$B"/*.pl; do
   # --- GNU Prolog (gprolog): consult fires :- initialization(main), then halt. ---
   gnu="-"
   if [ "$HAVE_GNU" = 1 ]; then
-    go=$(cd "$W" && timeout "$T" gprolog --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
+    go=$(cd "$W" && timeout "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
          | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined')
     [ "$go" = "$want" ] && gnu=PASS || gnu=FAIL
   fi
@@ -69,7 +70,7 @@ for pl in "$B"/*.pl; do
   printf "%-14s %-7s %-7s %-7s %-7s  %s %s\n" "$s" "$gnu" "$swi" "$m3" "$m4" "$verdict" "$(echo "$m3out" | head -1 | cut -c1-30)"
 done
 echo
-echo "ENGINES: GNU=$( [ $HAVE_GNU = 1 ] && gprolog --version </dev/null 2>&1 | head -1 || echo absent )"
+echo "ENGINES: GNU=$( [ $HAVE_GNU = 1 ] && "$(gprolog_bin)" --version </dev/null 2>&1 | head -1 || echo absent )"
 echo "         SWI=$( [ $HAVE_SWI = 1 ] && swipl --version </dev/null 2>&1 | head -1 || echo absent )"
 echo "RESULT: consensus(all-4-agree)=$consensus  divergent=$divergent  total=$tot"
 [ "$divergent" -eq 0 ]

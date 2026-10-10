@@ -22,6 +22,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # Every run here is gated on BENCH_RUSAGE's own exit= field, nothing else.
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
@@ -36,9 +37,9 @@ KERNELS="${KERNELS:-}"   # optional allowlist, same convention as bench_prolog_f
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
-command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
+gprolog_bin >/dev/null || exit 2
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
-command -v gplc    >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gplc absent (GNU Prolog's native compiler, the gplc arm)"; exit 2; }
+gplc_bin >/dev/null || exit 2
 # ⛔ THE RIVAL PRELUDES ARE PART OF THE RIVAL INVOCATION, NOT AN OPTION (hq_P 2026-09-02, row prolog-instruments-and-baseline-standup).
 # Ten of the 21 van Roy kernels are self-timed on the two-number basis and call wall_us/1 + wall_ms/1 -- SCRIP builtins that are
 # UNDEFINED on gprolog/swipl unless prelude_gplc.pl / prelude_swipl.pl is consulted first. MEASURED before this line existed: every
@@ -96,14 +97,14 @@ run1() {
     #   MEASURED as a regression against the pre-generator control on nrev: gnu 33243/s ok -> NA.
     #   ⭐ A doubled prelude is invisible on every engine that tolerates redefinition and fatal on the
     #   one that does not, which is why this comment is longer than the fix.
-    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    gnu) out=$("$WRAP" timeout -k 5 "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
     # ⭐ gplc -- GNU Prolog's NATIVE compiler (Prolog -> WAM -> mini-assembly -> x86-64, linked; ceo CEO-1281 on Lon's question of 2026-09-26,
     #   "Is GNU Prolog a true compiler?"): the gnu arm above is gprolog's BYTE-CODE WAM interpreter (a consulted file never becomes native
     #   code), so until this arm the grid compared SCRIP with two interpreters. Same generated program as gnu (--engine=gnu inlines the
     #   real_time/1 prelude), compiled here with --no-top-level so the binary exits after its initialization goals and prints no banner.
     #   MEASURED at the arm's birth: nrev at 65536 iterations, gplc 371 ms of work against 911-930 ms consulted -- about 2.5x.
     gplc) local gb="$W/$$.gplc"; rm -f "$gb"
-         if ! (cd "$W" && timeout -k 5 "$T" gplc --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- GPLC-BUILD-ERR"; return; fi
+         if ! (cd "$W" && timeout -k 5 "$T" "$(gplc_bin)" --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- GPLC-BUILD-ERR"; return; fi
          out=$("$WRAP" timeout -k 5 "$T" "$gb" >"$W/o.$$" 2>"$W/e.$$") ;;
     swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
@@ -152,7 +153,7 @@ search() {
 }
 
 echo "TIME-BASED PROLOG BENCHMARKS -- angle 1: fixed wall-time budget (${BUDGET_MS}ms), iterations counted via live doubling search"
-echo "engines: gnu gplc swi m3 m4 (gnu = gprolog --consult-file, the byte-code WAM; gplc = GNU Prolog compiled native)   corpus: $B   budget: TIME_BUDGET_MS=$BUDGET_MS cap NMAX=$NMAX   external instrument: tools/bench_rusage"
+echo "engines: gnu gplc swi m3 m4 (gnu = "$(gprolog_bin)" --consult-file, the byte-code WAM; gplc = GNU Prolog compiled native)   corpus: $B   budget: TIME_BUDGET_MS=$BUDGET_MS cap NMAX=$NMAX   external instrument: tools/bench_rusage"
 echo "wrapper: GENERATED per engine by $(basename "$GEN") --mode=iter (never checked in, CEO-567 -- this angle no longer writes its own)"
 # ⛔ CEO-697: A COST WITHOUT THE LOAD IT RAN UNDER IS NOT A COST, and perf_grid_begin welds the load to
 #   the shared-axes line so this harness CANNOT print a rate without it -- two runs of one tree on this
@@ -171,14 +172,14 @@ for pl in "$B"/*.pl; do
   want=$(cat "$exp")
   DECL_SW=(); dw=$(declared_switches_beside "$pl") || { echo "⛔ REFUSED-TO-GRADE: $k: a .stack or .heap sidecar the reader refuses (it said why above) -- a program whose declaration cannot be read is not timed under the default it did not ask for"; exit 2; }
   [ -n "$dw" ] && { read -r -a DECL_SW <<<"$dw"; DECLW["$k"]="$dw"; }
-  go=$(cd "$W" && timeout -k 5 15 gprolog --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
+  go=$(cd "$W" && timeout -k 5 15 "$(gprolog_bin)" --consult-file "$PRO/prelude_gplc.pl" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
   so=$(cd "$W" && timeout -k 5 15 swipl -q -g halt "$PRO/prelude_swipl.pl" "$pl" 2>/dev/null </dev/null | head -200)
   m3o=$(cd "$W" && timeout -k 5 15 "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>/dev/null | head -200)
   # ⛔ A gplc REFUSAL DARKENS THE gplc CELL, NEVER THE KERNEL (CEO-1281, found the hour the arm was born): witness_depth_nrev8 defines
   #   append/3, which gplc refuses as "redefining built-in predicate append/3" where gprolog's consult only prints an error line and runs
   #   the built-in -- the kernel is OUTSIDE THE gplc BASELINE (RULES.md § THE OUTSIDE-BASELINE TEST IS ABOUT THE ORACLE), and the first
   #   cut of this gate SKIPped the whole kernel on all five engines for it. The three engines that decide SKIP stay gnu, swi and m3.
-  gpo=$(cd "$W" && rm -f ss.gplc && gplc --no-top-level -o ss.gplc "$pl" >/dev/null 2>&1 && timeout -k 5 15 ./ss.gplc </dev/null 2>/dev/null | head -200)
+  gpo=$(cd "$W" && rm -f ss.gplc && "$(gplc_bin)" --no-top-level -o ss.gplc "$pl" >/dev/null 2>&1 && timeout -k 5 15 ./ss.gplc </dev/null 2>/dev/null | head -200)
   gp_ok=1; [ "$gpo" = "$want" ] || gp_ok=0
   if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
     printf "%-14s %14s %14s %14s %14s %14s  %s\n" "$k" SKIP SKIP SKIP SKIP SKIP "correctness-fail(single-shot$([ "$go" != "$want" ] && printf " gnu")$([ "$gpo" != "$want" ] && printf " gplc")$([ "$so" != "$want" ] && printf " swi")$([ "$m3o" != "$want" ] && printf " m3"))"; tot_skip=$((tot_skip+1)); continue

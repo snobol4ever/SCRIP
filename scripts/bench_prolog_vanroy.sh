@@ -49,7 +49,7 @@ fi
 # the legacy per-iteration board rather than changed under it, so this row's diff is the new path, not a silent
 # re-basing of numbers nobody re-measured.
 if [ "$TWO_NUMBER" -eq 0 ] && [ -z "$RULECHECK" ]; then
-command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
+gprolog_bin >/dev/null || exit 2
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
 fi
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT

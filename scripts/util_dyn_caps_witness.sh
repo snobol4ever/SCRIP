@@ -7,9 +7,10 @@
 #          at its cap+1 by the program scripts/fixtures/dyn_caps/WITNESSES.tsv names for it. Every verb first sets aside the compilation
 #          units scripts/fixtures/dyn_caps/NOT_SHIPPED.tsv declares, each checked against the scrip and libscrip_rt link lines (CEO-1235 (3)).
 # rc 0 GREEN, 1 RED, 2 REFUSE (an oracle or the binary missing). The population regexes are the page's § 6 list, spelled once here.
-# The GNU Prolog oracle is gplc's native binary, never `gprolog --consult-file`: the top level prints a four-line banner and consult's two
+# The GNU Prolog oracle is gplc's native binary, never `"$(gprolog_bin)" --consult-file`: the top level prints a four-line banner and consult's two
 # "compiling ..." lines to STDOUT before the program runs, so that arm read 606 lines against a correct 600 and could never go green (cfo 2026-09-23).
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 HERE=$(cd "$(dirname "$0")" && pwd); cd "$HERE/.." || exit 2
 . "$HERE/lib_fanout.sh" || { echo "REFUSE(2): scripts/lib_fanout.sh is missing -- a census runs serially under nice 19 (CEO-1333) and has no instrument"; exit 2; }
 mode=${1:-}; [ -n "$mode" ] || { echo "REFUSE(2): usage: util_dyn_caps_witness.sh compile|runtime|census|witness"; exit 2; }
@@ -59,8 +60,8 @@ compile)
   if cmp -s "$T/a.ref" "$T/a.out"; then echo "PASS defines200.sno: 200 DEFINEs read $(tr -d '\n' < "$T/a.ref") in both"; else echo "RED defines200.sno: sbl -bf prints $(head -c 40 "$T/a.ref" | tr -d '\n'), scrip prints '$(head -c 40 "$T/a.out" | tr -d '\n')' -- $(head -c 140 "$T/a.err" | tr '\n' ' ')"; red=1; fi
   "$SBL" -bf "$T/w/blobs150.sno" < /dev/null > "$T/d.ref" 2>&1; timeout 60 ./scrip --run "$T/w/blobs150.sno" < /dev/null > "$T/d.out" 2> "$T/d.err"
   if cmp -s "$T/d.ref" "$T/d.out"; then echo "PASS blobs150.sno: a run-time pattern whose blob layout needs 608 entries reads $(tr -d '\n' < "$T/d.ref") in both"; else echo "RED blobs150.sno: sbl -bf prints $(head -c 40 "$T/d.ref" | tr -d '\n'), scrip prints '$(head -c 40 "$T/d.out" | tr -d '\n')' -- $(head -c 140 "$T/d.err" | tr '\n' ' ')"; red=1; fi
-  command -v gplc > /dev/null || { echo "REFUSE(2): no gplc, the GNU Prolog oracle's native compiler"; exit 2; }
-  ( cd "$T/w" && timeout 120 gplc preds600.pl -o preds600.gp > /dev/null 2>&1 ) || { echo "REFUSE(2): gplc could not compile preds600.pl"; exit 2; }
+  gplc_bin >/dev/null || exit 2
+  ( cd "$T/w" && timeout 120 "$(gplc_bin)" preds600.pl -o preds600.gp > /dev/null 2>&1 ) || { echo "REFUSE(2): gplc could not compile preds600.pl"; exit 2; }
   timeout 120 "$T/w/preds600.gp" < /dev/null > "$T/b.ref" 2> /dev/null; timeout 120 ./scrip --run "$T/w/preds600.pl" < /dev/null > "$T/b.out" 2> "$T/b.err"
   if cmp -s "$T/b.ref" "$T/b.out"; then echo "PASS preds600.pl: 600 predicates, $(wc -l < "$T/b.ref") lines identical to gprolog"; else echo "RED preds600.pl: gprolog prints $(wc -l < "$T/b.ref") lines, scrip $(wc -l < "$T/b.out") -- $(head -c 120 "$T/b.err" | tr '\n' ' ')"; red=1; fi
   L=$(count_caps '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); n=$(printf '%s' "$L" | grep -c .); D=$(count_caps_declared '^src/(ir|emitter|lower|parsers|driver)/' "$COMPILE_CAPS"); d=$(printf '%s' "$D" | grep -c .); echo "compile-time tables still bound by a population cap: $n ($d declared class A/B in $(_ab_file), set aside)"; [ "$d" = 0 ] || printf '%s\n' "$D"; [ "$n" = 0 ] || { printf '%s\n' "$L"; red=1; }

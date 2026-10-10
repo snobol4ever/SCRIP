@@ -25,6 +25,7 @@
 # never lands (CEO-589), so the text-stream arm is graded beside the binary one, always.
 # rc 0 green · 1 red · 2 could not measure.
 set -uo pipefail
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 GATE_NAME=test_gate_pl_a_binary_stream_has_no_encoding_property
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"; cd "$ROOT"
 SCRIP="${SCRIP_BIN:-$ROOT/scrip}"
@@ -84,7 +85,7 @@ main :- open('ob.bin', write, B, [type(binary)]),
 PLEOF
 sw="unavailable"; gp="unavailable"
 command -v swipl >/dev/null 2>&1 && sw=$(cd "$D" && timeout 20 swipl -q -g halt "$D/orc.pl" 2>&1 | tr '\n' ' ')
-command -v gprolog >/dev/null 2>&1 && gp=$(cd "$D" && timeout 20 gprolog --consult-file "$D/orc.pl" </dev/null 2>&1 | grep -o 'oracle_says=[a-z_]*\|domain_error(stream_property[^)]*)' | head -1)
+gprolog_bin >/dev/null 2>&1 && gp=$(cd "$D" && timeout 20 "$(gprolog_bin)" --consult-file "$D/orc.pl" </dev/null 2>&1 | grep -o 'oracle_says=[a-z_]*\|domain_error(stream_property[^)]*)' | head -1)
 echo "    NOT GRADED, printed so the divergence cannot be mistaken for a defect: swipl [$sw] · gprolog [${gp:-domain_error(stream_property,encoding(_))}] · this engine: NO SOLUTION, which is the suite's expectation and ISO 7.10.2.13's property list"
 [ "$N" -gt 0 ] || { echo "⛔ REFUSE(2) [$GATE_NAME]: graded ZERO witnesses"; exit 2; }
 echo "PL BINARY STREAM ENCODING: PASS=$PASS FAIL=$FAIL / $N arms graded (m3+m4; binary has no encoding, text keeps the one it declared)"

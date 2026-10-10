@@ -33,6 +33,7 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # bench-external-cpu-and-elapsed-clock's law, applied here too).
 S4E="${S4E_HOME:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 SCRIP="${SCRIP:-$ROOT/scrip}"; RT="${RT_DIR:-$ROOT/out}"
 B="${BENCH_DIR:-$S4E/corpus/benchmarks/prolog/bench}"
@@ -50,9 +51,9 @@ KERNELS="${KERNELS:-}"
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE kernel dir missing: $B"; exit 2; }
 [ -s "$NTSV" ] || { echo "⛔ REFUSED-TO-GRADE committed-N table missing or empty: $NTSV -- angle 2 has no historical N and would be a second copy of angle 1"; exit 2; }
 [ -x "$GEN" ] || { echo "⛔ REFUSED-TO-GRADE wrapper generator missing: $GEN -- the counted form is generated, never checked in (CEO-567)"; exit 2; }
-command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
+gprolog_bin >/dev/null || exit 2
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
-command -v gplc    >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gplc absent (GNU Prolog's native compiler, the gplc arm)"; exit 2; }
+gplc_bin >/dev/null || exit 2
 # ⛔ THE RIVAL PRELUDES ARE PART OF THE RIVAL INVOCATION, NOT AN OPTION (hq_P 2026-09-02, row prolog-instruments-and-baseline-standup).
 # The generated wrapper calls wall_us/1 + wall_ms/1, which gprolog and swipl do not have; prelude_gplc.pl / prelude_swipl.pl supply
 # them. MEASURED before that line existed: every bracketed kernel failed the rival correctness gate with existence_error(wall_us/1),
@@ -101,14 +102,14 @@ rate() { awk -v n="$1" -v us="$2" 'BEGIN{ if (us+0>0) printf "%.4f", n/(us/1e6);
 run1() {
   local eng="$1" pl="$2" n="${3:-}" exp="${4:-}" out rl user sys nivcsw r
   case "$eng" in
-    gnu) out=$("$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
+    gnu) out=$("$WRAP" timeout -k 5 "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt >"$W/o.$$" 2>"$W/e.$$") ;;
     # ⭐ gplc -- GNU Prolog's NATIVE compiler (Prolog -> WAM -> mini-assembly -> x86-64, linked; ceo CEO-1281 on Lon's question of 2026-09-26,
     #   "Is GNU Prolog a true compiler?"): the gnu arm above is gprolog's BYTE-CODE WAM interpreter (a consulted file never becomes native
     #   code), so until this arm the grid compared SCRIP with two interpreters. Same generated program as gnu (--engine=gnu inlines the
     #   real_time/1 prelude), compiled here with --no-top-level so the binary exits after its initialization goals and prints no banner.
     #   MEASURED at the arm's birth: nrev at 65536 iterations, gplc 371 ms of work against 911-930 ms consulted -- about 2.5x.
     gplc) local gb="$W/$$.gplc"; rm -f "$gb"
-         if ! (cd "$W" && timeout -k 5 "$T" gplc --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- - GPLC-BUILD-ERR"; return; fi
+         if ! (cd "$W" && timeout -k 5 "$T" "$(gplc_bin)" --no-top-level -o "$gb" "$pl" >/dev/null 2>&1) || [ ! -x "$gb" ]; then echo "- - GPLC-BUILD-ERR"; return; fi
          out=$("$WRAP" timeout -k 5 "$T" "$gb" >"$W/o.$$" 2>"$W/e.$$") ;;
     swi) out=$("$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
     m3)  out=$("$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/o.$$" 2>"$W/e.$$") ;;
@@ -154,7 +155,7 @@ run1() {
 
 echo "FIXED-ITERATION PROLOG BENCHMARKS -- angle 2: N fixed per kernel (committed in $NTSV), external cpu time measured"
 echo "kernels: $B (pristine, verbatim)   wrapper: GENERATED per engine by $(basename "$GEN") --mode=iter (never checked in, CEO-567)"
-echo "engines: gnu gplc swi m3 m4 (gnu = gprolog --consult-file, the byte-code WAM; gplc = GNU Prolog compiled native)   external instrument: tools/bench_rusage (user+sys cpu time)"
+echo "engines: gnu gplc swi m3 m4 (gnu = "$(gprolog_bin)" --consult-file, the byte-code WAM; gplc = GNU Prolog compiled native)   external instrument: tools/bench_rusage (user+sys cpu time)"
 # ⛔⭐ THE LOAD STAMP IS THE PRINTER'S JOB AND IT BELONGS ABOVE THE NUMBERS, NOT UNDER THEM (hq_P
 #   2026-09-13).  This harness hand-rolled its own LOAD line and printed it AFTER the last grid, so a
 #   reader who pasted a grid -- which is what anyone pastes -- carried the numbers away and left the

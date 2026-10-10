@@ -8,18 +8,19 @@ export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector'
 # single-shot output is held to its .ref on every engine, under its declared -d/-s sidecars, before it is timed) for the one kernel, in ONE
 # run -- no board, no row written.
 #   kernel K BAR [swi|gnu]   K is the kernel's file stem (tak, deriv, nreverse, ...); the rival is swipl (default) or gprolog
-#                            (gprolog --consult-file, the byte-code WAM) or gplc (GNU Prolog compiled native, CEO-1281). A kernel whose arm reads SKIP, CRASH or no rate REFUSES: no multiple over an
+#                            ("$(gprolog_bin)" --consult-file, the byte-code WAM) or gplc (GNU Prolog compiled native, CEO-1281). A kernel whose arm reads SKIP, CRASH or no rate REFUSES: no multiple over an
 #                            uncited reading. BAR_MODE=m3 grades mode 3 instead of mode 4.
 # EXIT 0 at or above the bar (GREEN), 1 below it (RED, the row is open), 2 REFUSED (no binary, no rival, no citable reading).
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 refuse() { echo "⛔ bench_prolog_bar REFUSE(2): $*"; exit 2; }
 . "$HERE/lib_perf_fmt.sh" 2>/dev/null || refuse "cannot load lib_perf_fmt.sh -- the one authority for a load stamp and the load guard"
 refuse_timing() { local g; if g="$(perf_load_guard)"; then echo "⛔ bench_prolog_bar REFUSE(2) $g: $*"; else echo "⛔ bench_prolog_bar REFUSE(2): $* ($g)"; fi; exit 2; }
 [ $# -ge 3 ] && [ "$1" = kernel ] || { echo "usage: $0 kernel <stem> <bar> [swi|gnu]"; exit 2; }
 NAME=$2; BAR=$3; RIVAL="${4:-swi}"; MODE="${BAR_MODE:-m4}"
-case "$RIVAL" in swi|gnu|gplc) ;; *) refuse "rival must be swi, gnu (gprolog --consult-file, the byte-code WAM) or gplc (GNU Prolog compiled native)";; esac
-[ -x "$ROOT/scrip" ] || refuse "no ./scrip (make first)"; command -v swipl > /dev/null || refuse "swipl absent"; command -v gprolog > /dev/null || refuse "gprolog absent"
+case "$RIVAL" in swi|gnu|gplc) ;; *) refuse "rival must be swi, gnu ("$(gprolog_bin)" --consult-file, the byte-code WAM) or gplc (GNU Prolog compiled native)";; esac
+[ -x "$ROOT/scrip" ] || refuse "no ./scrip (make first)"; command -v swipl > /dev/null || refuse "swipl absent"; gprolog_bin >/dev/null || exit 2
 T=$(mktemp -d) || refuse "mktemp"; trap 'rm -rf "$T"' EXIT
 ( cd "$ROOT" && KERNELS="$NAME" TIME_BUDGET_MS="${BAR_BUD_MS:-500}" bash scripts/test_bench_prolog_timed.sh ) > "$T/log" 2>&1
 row=$(grep -E "^$NAME[[:space:]]" "$T/log" | head -1); [ -n "$row" ] || { tail -4 "$T/log" | cut -c1-160; refuse_timing "angle 1 printed no row for $NAME"; }   # the FIRST row is the rates table (SKIP / ok is read there)

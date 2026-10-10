@@ -273,15 +273,33 @@ swipl_bin() {
     fi
     printf '%s\n' "$c"
 }
+# ⛔⭐ THE GNU PROLOG ORACLE IS THE PRISTINE 1.6.0 UNDER /home/resources, NOT /usr/bin (Lon 2026-10-10 10:2x CDT, in-chat to the ceo, verbatim: "Get the new oracle 1.6.0 and
+# begin using it instead of the older one."; ceo CEO-1598, the ORACLE-SWAP PROCEDURE of RULES.md). The vendored GNU Prolog source (corpus/packages/prolog/gnu_prolog) IS 1.6.0 and
+# /usr/bin/gprolog is 1.4.5, which dies on a 1.6.0 format directive in pl2wam's all.pl; the monitor fork gprolog-mon/gprolog-1.6.0 is 1.6.0 too, so the graded oracle and the
+# monitor now agree. The pristine build (configure --prefix under gprolog-mon/pristine, 2026-09-23, zero Pl_Mon references -- the fork carries 2) is the ONE grading binary; gplc
+# beside it is the ONE compiler. Nothing under scripts/ names gprolog or gplc any other way (test_gate_no_bare_gprolog_or_gplc_outside_the_accessors.sh).
+# ⛔ THE ACCESSORS NAME WRAPPERS, NOT THE BINARIES (the coo, measured 2026-10-10 10:3x): 1.6.0's gprolog runs pl2wam FROM PATH, so with /usr/bin first a consult
+# compiles with 1.4.5's pl2wam and fails ("unknown option --include"); scripts/oracle_gprolog.sh and scripts/oracle_gplc.sh put the oracle's bin first and exec the
+# real binary, and nothing else. The wrapper is what a caller runs; GPROLOG_ORACLE_DIR is where the binaries are, for a caller that must name the directory.
+GPROLOG_ORACLE_DIR="/home/resources/gprolog-mon/pristine/gprolog-1.6.0/bin"
 gprolog_bin() {
-    local c="/usr/bin/gprolog"
-    if [ ! -x "$c" ]; then
-        printf "⛔ THE GNU-PROLOG RIVAL IS MISSING: %s\n" "$c" >&2
-        printf "   A Prolog rival column measured with it absent is not slow, it is ABSENT -- and a harness that fills it anyway publishes a false number.\n" >&2
-        printf "   Do not hand-assemble a path or fall back to bare 'gprolog' on PATH -- install it, then re-run.\n" >&2
+    local c="$GPROLOG_ORACLE_DIR/gprolog" w="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/oracle_gprolog.sh"
+    if [ ! -x "$c" ] || [ ! -x "$w" ]; then
+        printf "⛔ THE GNU-PROLOG ORACLE IS MISSING: %s (wrapper %s)\n" "$c" "$w" >&2
+        printf "   A Prolog column measured with it absent is not slow, it is ABSENT -- and a harness that fills it anyway publishes a false number.\n" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'gprolog' on PATH (that is 1.4.5, retired as the oracle 2026-10-10, CEO-1598) -- rebuild the pristine drop, then re-run.\n" >&2
         return 1
     fi
-    printf '%s\n' "$c"
+    printf '%s\n' "$w"
+}
+gplc_bin() {
+    local c="$GPROLOG_ORACLE_DIR/gplc" w="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/oracle_gplc.sh"
+    if [ ! -x "$c" ] || [ ! -x "$w" ]; then
+        printf "⛔ THE GNU-PROLOG COMPILER gplc IS MISSING: %s (wrapper %s)\n" "$c" "$w" >&2
+        printf "   Do not hand-assemble a path or fall back to bare 'gplc' on PATH (that is 1.4.5, retired as the oracle 2026-10-10, CEO-1598) -- rebuild the pristine drop, then re-run.\n" >&2
+        return 1
+    fi
+    printf '%s\n' "$w"
 }
 # ⛔⭐ JCON RE-EXECS BY NAME, SO THE ACCESSOR EXPORTS PATH -- CALLING IT BY ABSOLUTE PATH ALONE IS NOT ENOUGH (CEO s272,
 # measured: the launcher scripts resolve their siblings off PATH). Use as: eval "$(jcon_path_export)"; then run jcont/jcon.

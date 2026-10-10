@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 # bench_prolog_ab_pregut.sh — PL-REGAIN-0 A/B parity rail (GOAL-PROLOG-BB.md, 2026-07-19).
 # Three engines on IDENTICAL era-neutral wrappers: the PRE-GUTTING GZ engine (worktree pinned at
 # 7ec7305a, the 2026-06-27 README-table tree; 63c666ba = documented last-green head, differs only by
@@ -32,7 +33,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; NEW="$(cd "$HERE/.." && pw
 PREGUT_REF="${PREGUT_REF:-7ec7305a}"; OLD="${PREGUT_DIR:-$S4E/SCRIP-pregut}"
 K="${BENCH_K:-$S4E/corpus/benchmarks/prolog/bench}"
 W=/tmp/ab_pregut.$$; mkdir -p "$W"; trap 'rm -rf "$W"' EXIT
-command -v gprolog >/dev/null || { echo "⛔ REFUSED-TO-GRADE: gprolog absent (apt-get install gprolog)"; exit 2; }
+gprolog_bin >/dev/null || exit 2
 [ -d "$K" ] || { echo "⛔ REFUSED-TO-GRADE: pristine kernel dir missing: $K"; exit 2; }
 if [ ! -d "$OLD" ]; then (cd "$NEW" && git worktree add "$OLD" "$PREGUT_REF") || { echo "FAIL worktree"; exit 1; }; fi
 [ -x "$OLD/scrip" ] || (cd "$OLD" && make -j4 scrip >/tmp/ab_build_old.log 2>&1) || { echo "FAIL old build (see /tmp/ab_build_old.log)"; exit 1; }
@@ -60,7 +61,7 @@ getN(){ for e in $Ns; do case "$e" in $1:*) IFS=: read -r _ g o n <<<"$e"; case 
 printf "%-9s | %9s %7s %4s | %9s %7s %4s | %9s %7s %4s\n" PROG GNUms/it N lpi OLDms/it N lpi NEWms/it N lpi
 for p in fib tak qsort nrev deriv queens_8; do
   gn=$(getN $p gnu); on=$(getN $p old); nn=$(getN $p new)
-  fg=$(mkwrap $p $gn); read gt gl <<<"$(run1 gprolog --consult-file "$fg" --query-goal halt)"
+  fg=$(mkwrap $p $gn); read gt gl <<<"$(run1 "$(gprolog_bin)" --consult-file "$fg" --query-goal halt)"
   case $gt in DNF*) gms=$gt; glpi=-;; *) gms=$(echo "scale=3;$gt/$gn"|bc); glpi=$(echo "scale=1;$gl/$gn"|bc);; esac
   fo=$(mkwrap $p $on); bo="$W/${p}_old"
   if build_m4 "$OLD" "$fo" "$bo" "-lgc" >/dev/null; then
@@ -74,4 +75,4 @@ for p in fib tak qsort nrev deriv queens_8; do
   else nms=$(build_m4 "$NEW" "$fn" "$bn" ""); nlpi=-; fi
   printf "%-9s | %9s %7s %4s | %9s %7s %4s | %9s %7s %4s\n" "$p" "$gms" "$gn" "$glpi" "$oms" "$on" "$olpi" "$nms" "$nn" "$nlpi"
 done
-echo "ENGINES: OLD=$PREGUT_REF (pre-GZ#5)  NEW=$(cd "$NEW" && git rev-parse --short HEAD)  GNU=$(gprolog --version </dev/null 2>&1 | head -1)"
+echo "ENGINES: OLD=$PREGUT_REF (pre-GZ#5)  NEW=$(cd "$NEW" && git rev-parse --short HEAD)  GNU=$("$(gprolog_bin)" --version </dev/null 2>&1 | head -1)"

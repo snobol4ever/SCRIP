@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 export SCRIP_DIAG=0   # benchmarks run with every diagnostic off: the collector's self-checks and the node-id stores (Lon 2026-09-25, in-chat to the ceo: "For benchmarks turn off all diagnostic code."; ceo CEO-1262)
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
 # bench_prolog_perf.sh — ANGLE 3 of the Prolog three-angle triangulation: THE PROCESS WRAPPER.
 #
 # TWO BASES, PRINTED SEPARATELY AND NEVER SUBTRACTED ACROSS (RULES.md FACT RULE, apples-to-apples):
 #
 #   (A) PROCESS TOTALS, wall ms, median of RUNS, over the PRISTINE kernel — the table this harness has
-#       always printed.  Columns: GNU (gprolog --consult-file, bytecode consult mode) · SWI (swipl -q -g
+#       always printed.  Columns: GNU ("$(gprolog_bin)" --consult-file, bytecode consult mode) · SWI (swipl -q -g
 #       halt, script mode) · m3 (scrip --run: in-process x86 codegen + execution, end to end) · m4r (the
 #       precompiled scrip --compile binary, execution only) · m4c (scrip --compile + as + gcc, one-shot
 #       compile+link).  Single-shot, so small entries are startup-dominated — stated up front, and that
@@ -68,7 +69,7 @@ declare -a DECL_SW=()
 [ -x "$SCRIP" ] || { echo "⛔ REFUSED-TO-GRADE scrip not built"; exit 2; }
 [ -f "$RT/libscrip_rt.so" ] || { echo "⛔ REFUSED-TO-GRADE libscrip_rt.so not built"; exit 2; }
 [ -d "$B" ] || { echo "⛔ REFUSED-TO-GRADE bench corpus missing: $B"; exit 2; }
-command -v gprolog >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE gprolog absent"; exit 2; }
+gprolog_bin >/dev/null || exit 2
 command -v swipl   >/dev/null 2>&1 || { echo "⛔ REFUSED-TO-GRADE swipl absent"; exit 2; }
 [ -x "$GEN" ] || { echo "⛔ REFUSED-TO-GRADE wrapper generator missing: $GEN -- the wrapped form is generated, never checked in (CEO-567)"; exit 2; }
 # ⛔ A rival that cannot load its clock is not a rival that disagreed: REFUSE, never a plausible SKIP.
@@ -100,7 +101,7 @@ tick_us() { case "$1" in gnu) echo 1000 ;; *) echo 1 ;; esac; }
 basis1() {
   local eng="$1" pl="$2" exp="$3" rl xc r elns work
   case "$eng" in
-    gnu) "$WRAP" timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt >"$W/b.out" 2>"$W/b.err" </dev/null ;;
+    gnu) "$WRAP" timeout -k 5 "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt >"$W/b.out" 2>"$W/b.err" </dev/null ;;
     swi) "$WRAP" timeout -k 5 "$T" swipl -q -g halt "$pl" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
     m3)  "$WRAP" timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
     m4r) "$WRAP" timeout -k 5 "$T" "$W/wrapped.bin" "${DECL_SW[@]}" >"$W/b.out" 2>"$W/b.err" </dev/null ;;
@@ -146,7 +147,7 @@ for pl in "$B"/*.pl; do
   DECL_SW=(); dw=$(declared_switches_beside "$pl") || { echo "⛔ REFUSED-TO-GRADE: $s: a .stack or .heap sidecar the reader refuses (it said why above)"; exit 2; }
   [ -n "$dw" ] && read -r -a DECL_SW <<<"$dw"; undeclared_beside_named "$pl" || true
   # correctness pre-flight (one run per engine); any FAIL => SKIP row
-  go=$(cd "$W" && timeout -k 5 "$T" gprolog --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
+  go=$(cd "$W" && timeout -k 5 "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null | gnu_filter)
   so=$(cd "$W" && timeout -k 5 "$T" swipl -q -g halt "$pl" 2>/dev/null </dev/null | head -200)
   m3o=$(cd "$W" && timeout -k 5 "$T" "$SCRIP" --run "${DECL_SW[@]}" "$pl" </dev/null 2>/dev/null | head -200)
   if [ "$go" != "$want" ] || [ "$so" != "$want" ] || [ "$m3o" != "$want" ]; then
@@ -163,7 +164,7 @@ for pl in "$B"/*.pl; do
   if [ "$m4o" != "$want" ]; then
     printf "%-20s %8s %8s %8s %8s %8s\n" "$s" SKIP SKIP SKIP SKIP SKIP; tot_skip=$((tot_skip+1)); continue
   fi
-  gnu=$(median_ms gprolog --consult-file "$pl" --query-goal halt)
+  gnu=$(median_ms "$(gprolog_bin)" --consult-file "$pl" --query-goal halt)
   swi=$(median_ms swipl -q -g halt "$pl")
   m3=$(median_ms "$SCRIP" --run "${DECL_SW[@]}" "$pl")
   m4r=$(median_ms ./$s.bin "${DECL_SW[@]}")
@@ -254,7 +255,7 @@ for k in "${basis_rows[@]}"; do
   printf "%-20s %14s %14s %14s %14s\n" "$k" "${BOVH[$k:gnu]:-DARK}" "${BOVH[$k:swi]:-DARK}" "${BOVH[$k:m3]:-DARK}" "${BOVH[$k:m4r]:-DARK}"
 done
 echo
-echo "ENGINES: GNU=$(gprolog --version </dev/null 2>&1 | head -1)"
+echo "ENGINES: GNU=$("$(gprolog_bin)" --version </dev/null 2>&1 | head -1)"
 echo "         SWI=$(swipl --version </dev/null 2>&1 | head -1)"
 echo "METHOD: (A) wall-clock median of $N; GNU=consult mode; SWI=script mode; m3=--run end-to-end"
 echo "        (in-process codegen+exec); m4r=precompiled binary exec only; m4c=compile+as+gcc."
