@@ -6532,6 +6532,26 @@ static tree_t *pas_flatten_units(tree_t *prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pas_var_inits(tree_t *t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) pas_var_inits(t->c[i]);
+    if (!IS(t, TT_BLOCK) || t->n == 0 || !IS(t->c[t->n - 1], TT_SEQ_EXPR)) return;
+    tree_t *inits = ast_node_new(TT_SEQ_EXPR), *body = t->c[t->n - 1];
+    for (int i = 0; i < t->n - 1; i++) {
+        tree_t *part = t->c[i];
+        if (!IS(part, TT_PART) || !part->v.sval || strcmp(part->v.sval, "var")) continue;
+        for (int j = 0; j < part->n; j++) {
+            tree_t *d = part->c[j];
+            if (!IS(d, TT_DECL) || d->n < 3 || !IS(d->c[0], TT_VLIST)) continue;
+            for (int k = 0; k < d->c[0]->n; k++) ast_push(inits, bin(TT_ASSIGN, leaf_s(TT_VAR, d->c[0]->c[k]->v.sval), k ? pas_tree_clone(d->c[2]) : d->c[2]));
+            d->n = 2;
+        }
+    }
+    if (inits->n == 0) return;
+    for (int i = 0; i < body->n; i++) ast_push(inits, body->c[i]);
+    t->c[t->n - 1] = inits;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     if (!pruned) return NULL;
     if (!filename) filename = "<stdin>";
@@ -6548,7 +6568,9 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_arr_ncols = -1;
     g_lower.pas.sem.pas_pend_enum_max = -1;
     g_lower.pas.sem.pas_pend_sub_high = -1;
-    tree_t *root = E_program(pas_flatten_units(pruned)).node;
+    tree_t *flat = pas_flatten_units(pruned);
+    pas_var_inits(flat);
+    tree_t *root = E_program(flat).node;
     int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors;
     if (nsem > 0) { fprintf(stderr, "pascal: %d ISO 7185 violation(s) in %s -- no code generated\n", nsem, filename); return NULL; }
     return root;

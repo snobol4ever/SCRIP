@@ -5,6 +5,21 @@
 enum { PAS_DIALECT_ISO_DEFAULT, PAS_DIALECT_ISO, PAS_DIALECT_FPC, PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI };
 int pascal_dialect(void);
 void pascal_dialect_set(int d);
+int pascal_def_state(const char *n);
+void pascal_def_set(const char *n, int on);
+int pascal_def_value(const char *n, double *v);
+void pascal_def_setval(const char *n, double v);
+int *pascal_cond_unknown_p(void);
+int *pascal_macro_on_p(void);
+unsigned *pascal_sw_set_p(void);
+unsigned *pascal_sw_on_p(void);
+void pascal_sw_push(void);
+void pascal_sw_pop(void);
+int *pascal_cond_skip_p(void);
+int *pascal_cond_depth_p(void);
+int *pascal_cond_taken_p(void);
+const char *pascal_mode_macro(void);
+void pascal_mode_macro_set(const char *m);
 }
 %{
 #include "ct_arena.h"
@@ -15,6 +30,7 @@ void pascal_dialect_set(int d);
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 extern int  pascal_yylex(void);
 extern int  pascal_get_lineno(void);
 extern void pascal_pragma_flush(tree_t *root);
@@ -38,7 +54,8 @@ static tree_t *pt_part(const char *w, tree_t *first) { return pt_add(pt_sval(pt_
 static tree_t *pt_decl(const char *w, tree_t *a, tree_t *b) { return pt_add(pt_add(pt_sval(pt_new(TT_DECL), w), a), b); }
 static void pt_flush_pragmas(tree_t *root) { pascal_pragma_flush(root); }
 typedef struct { char *name; int kind; long long iv; double dv; char *sv; } PasCEnvE;
-static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; } g_pascal_cenv;
+typedef struct { char *name; int on; int has; double val; } PasDefE;
+static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; PasDefE *defs; int ndefs; int capdefs; int cond_skip; int cond_depth; int cond_taken; int cond_unknown; int macro_on; const char *mode_macro; unsigned sw_set; unsigned sw_on; unsigned *sw_save; int sw_n; int sw_cap; } g_pascal_cenv;
 static void cenv_put(const char *name, int kind, long long iv, double dv, const char *sv) {
     if (!name || (kind == 0 && g_pascal_cenv.ni >= 256) || (kind == 1 && g_pascal_cenv.nr >= 64) || (kind == 2 && g_pascal_cenv.ns >= 64)) return;
     if (g_pascal_cenv.n >= g_pascal_cenv.cap) { g_pascal_cenv.cap = g_pascal_cenv.cap ? g_pascal_cenv.cap * 2 : 64; g_pascal_cenv.e = (PasCEnvE *)ct_grow(g_pascal_cenv.e, (size_t)g_pascal_cenv.cap * sizeof(PasCEnvE)); }
@@ -51,11 +68,50 @@ static void cenv_string(const char *name, const char *s) { if (s && strlen(s) ==
 int pascal_cenv_int(const char *name, long long *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 0 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].iv; return 1; } return 0; }
 int pascal_cenv_real(const char *name, double *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 1 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].dv; return 1; } return 0; }
 const char *pascal_cenv_str(const char *name) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 2 && !strcmp(g_pascal_cenv.e[i].name, name)) return g_pascal_cenv.e[i].sv; return NULL; }
-void pascal_cenv_reset(void) { g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; }
+void pascal_cenv_reset(void) { g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; g_pascal_cenv.ndefs = 0; g_pascal_cenv.cond_skip = 0; g_pascal_cenv.cond_depth = 0; g_pascal_cenv.cond_taken = 0; g_pascal_cenv.cond_unknown = 0; g_pascal_cenv.macro_on = 0; g_pascal_cenv.mode_macro = NULL; g_pascal_cenv.sw_set = 0; g_pascal_cenv.sw_on = 0; g_pascal_cenv.sw_n = 0; }
 int pascal_unit_mode(void) { return g_pascal_cenv.unit_mode; }
 void pascal_unit_mode_set(int m) { g_pascal_cenv.unit_mode = m; }
 int pascal_dialect(void) { return g_pascal_cenv.dialect; }
 void pascal_dialect_set(int d) { g_pascal_cenv.dialect = d; }
+int pascal_def_state(const char *n) {
+    for (int i = 0; n && i < g_pascal_cenv.ndefs; i++) if (!strcasecmp(g_pascal_cenv.defs[i].name, n)) return g_pascal_cenv.defs[i].on;
+    return -1;
+}
+void pascal_def_set(const char *n, int on) {
+    if (!n || !n[0]) return;
+    for (int i = 0; i < g_pascal_cenv.ndefs; i++) if (!strcasecmp(g_pascal_cenv.defs[i].name, n)) { g_pascal_cenv.defs[i].on = on; return; }
+    if (g_pascal_cenv.ndefs >= g_pascal_cenv.capdefs) { g_pascal_cenv.capdefs = g_pascal_cenv.capdefs ? g_pascal_cenv.capdefs * 2 : 16; g_pascal_cenv.defs = (PasDefE *)ct_grow(g_pascal_cenv.defs, (size_t)g_pascal_cenv.capdefs * sizeof(PasDefE)); }
+    g_pascal_cenv.defs[g_pascal_cenv.ndefs].name = ct_strdup(n);
+    g_pascal_cenv.defs[g_pascal_cenv.ndefs].has = 0;
+    g_pascal_cenv.defs[g_pascal_cenv.ndefs++].on = on;
+}
+int pascal_def_value(const char *n, double *v) {
+    for (int i = 0; n && i < g_pascal_cenv.ndefs; i++) if (!strcasecmp(g_pascal_cenv.defs[i].name, n)) { if (!g_pascal_cenv.defs[i].on || !g_pascal_cenv.defs[i].has) return 0; *v = g_pascal_cenv.defs[i].val; return 1; }
+    return 0;
+}
+void pascal_def_setval(const char *n, double v) {
+    pascal_def_set(n, 1);
+    for (int i = 0; i < g_pascal_cenv.ndefs; i++) if (!strcasecmp(g_pascal_cenv.defs[i].name, n)) { g_pascal_cenv.defs[i].has = 1; g_pascal_cenv.defs[i].val = v; }
+}
+int *pascal_cond_unknown_p(void) { return &g_pascal_cenv.cond_unknown; }
+int *pascal_macro_on_p(void) { return &g_pascal_cenv.macro_on; }
+unsigned *pascal_sw_set_p(void) { return &g_pascal_cenv.sw_set; }
+unsigned *pascal_sw_on_p(void) { return &g_pascal_cenv.sw_on; }
+void pascal_sw_push(void) {
+    if (g_pascal_cenv.sw_n + 2 > g_pascal_cenv.sw_cap) { g_pascal_cenv.sw_cap = g_pascal_cenv.sw_cap ? g_pascal_cenv.sw_cap * 2 : 16; g_pascal_cenv.sw_save = (unsigned *)ct_grow(g_pascal_cenv.sw_save, (size_t)g_pascal_cenv.sw_cap * sizeof(unsigned)); }
+    g_pascal_cenv.sw_save[g_pascal_cenv.sw_n++] = g_pascal_cenv.sw_set;
+    g_pascal_cenv.sw_save[g_pascal_cenv.sw_n++] = g_pascal_cenv.sw_on;
+}
+void pascal_sw_pop(void) {
+    if (g_pascal_cenv.sw_n < 2) return;
+    g_pascal_cenv.sw_on = g_pascal_cenv.sw_save[--g_pascal_cenv.sw_n];
+    g_pascal_cenv.sw_set = g_pascal_cenv.sw_save[--g_pascal_cenv.sw_n];
+}
+int *pascal_cond_skip_p(void) { return &g_pascal_cenv.cond_skip; }
+int *pascal_cond_depth_p(void) { return &g_pascal_cenv.cond_depth; }
+int *pascal_cond_taken_p(void) { return &g_pascal_cenv.cond_taken; }
+const char *pascal_mode_macro(void) { return g_pascal_cenv.mode_macro; }
+void pascal_mode_macro_set(const char *m) { g_pascal_cenv.mode_macro = m; }
 static long long cenv_value(tree_t *n) {
     long long cv = 0;
     if (!n) return 0;
@@ -234,6 +290,7 @@ var_decl_list:
     ;
 var_decl:
     id_list COLON type SEMICOLON { $$ = pt_decl("var", $1, $3); }
+    |id_list COLON type EQOP expression SEMICOLON { $$ = pt_add(pt_decl("var", $1, $3), $5); }
     ;
 procedure_decl:
     PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), pt_kw("forward")); }

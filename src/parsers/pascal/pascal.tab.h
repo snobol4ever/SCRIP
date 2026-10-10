@@ -60,8 +60,23 @@ extern int pascal_yydebug;
 enum { PAS_DIALECT_ISO_DEFAULT, PAS_DIALECT_ISO, PAS_DIALECT_FPC, PAS_DIALECT_OBJFPC, PAS_DIALECT_DELPHI };
 int pascal_dialect(void);
 void pascal_dialect_set(int d);
+int pascal_def_state(const char *n);
+void pascal_def_set(const char *n, int on);
+int pascal_def_value(const char *n, double *v);
+void pascal_def_setval(const char *n, double v);
+int *pascal_cond_unknown_p(void);
+int *pascal_macro_on_p(void);
+unsigned *pascal_sw_set_p(void);
+unsigned *pascal_sw_on_p(void);
+void pascal_sw_push(void);
+void pascal_sw_pop(void);
+int *pascal_cond_skip_p(void);
+int *pascal_cond_depth_p(void);
+int *pascal_cond_taken_p(void);
+const char *pascal_mode_macro(void);
+void pascal_mode_macro_set(const char *m);
 
-#line 65 "pascal.tab.h"
+#line 80 "pascal.tab.h"
 
 /* Token kinds.  */
 #ifndef PASCAL_YYTOKENTYPE
@@ -148,10 +163,10 @@ void pascal_dialect_set(int d);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 77 "pascal.y"
+#line 133 "pascal.y"
  tree_t *node; 
 
-#line 155 "pascal.tab.h"
+#line 170 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

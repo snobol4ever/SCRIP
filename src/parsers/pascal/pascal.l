@@ -12,8 +12,6 @@
 #include <math.h>
 static char pascal_strbuf[65536];
 static int  pascal_strpos;
-static char pascal_ifdefbuf[256];
-static int  pascal_ifdefpos;
 int pascal_cenv_int(const char *name, long long *out);
 int pascal_unit_mode(void);
 void pascal_unit_mode_set(int m);
@@ -49,32 +47,189 @@ static int pascal_if_declared(const char *name) {
     long long iv; double rv;
     return pascal_cenv_int(name, &iv) || pascal_cenv_real(name, &rv) || pascal_cenv_str(name) != NULL;
 }
-static int pascal_if_eval(const char *expr) {
-    char buf[256]; int bn = 0;
-    for (const char *s = expr; *s && bn < (int)sizeof(buf) - 1; s++) buf[bn++] = (char)tolower((unsigned char)*s);
-    buf[bn] = '\0';
-    char *p = buf; while (*p == ' ' || *p == '\t') p++;
-    int neg = 0;
-    if (!strncmp(p, "not ", 4)) { neg = 1; p += 4; while (*p == ' ') p++; }
-    int result = 0;
-    char ident[128];
-    if (sscanf(p, "declared(%127[^)])", ident) == 1) {
-        result = pascal_if_declared(ident);
-    } else {
-        char op[3] = { 0, 0, 0 }; long long rhs;
-        if (sscanf(p, "%127[a-z_0-9] %2[<>=] %lld", ident, op, &rhs) == 3) {
-            long long lv;
-            if (pascal_cenv_int(ident, &lv)) {
-                if      (!strcmp(op, ">=")) result = lv >= rhs;
-                else if (!strcmp(op, "<=")) result = lv <= rhs;
-                else if (!strcmp(op, ">"))  result = lv > rhs;
-                else if (!strcmp(op, "<"))  result = lv < rhs;
-                else if (!strcmp(op, "="))  result = lv == rhs;
-                else if (!strcmp(op, "<>")) result = lv != rhs;
-            }
-        }
+static const char *const PAS_FPC_MACROS[] = { "CONSOLE", "CPU64", "CPUAMD64", "CPUATHLON64", "CPUINT64", "CPUX64", "CPUX86_64", "CPUX86_HAS_CMOV", "CPUX86_HAS_SSE2", "CPUX86_HAS_SSEUNIT", "ENDIAN_LITTLE", "FPC", "FPC_ABI_DEFAULT", "FPC_DYNARRAYCOPY_FIXED", "FPC_HAS_CEXTENDED", "FPC_HAS_CONSTREF", "FPC_HAS_CPSTRING", "FPC_HAS_FEATURE_ANSISTRINGS", "FPC_HAS_FEATURE_CLASSES", "FPC_HAS_FEATURE_COMMANDARGS", "FPC_HAS_FEATURE_CONSOLEIO", "FPC_HAS_FEATURE_DYNARRAYS", "FPC_HAS_FEATURE_DYNLIBS", "FPC_HAS_FEATURE_EXCEPTIONS", "FPC_HAS_FEATURE_EXITCODE", "FPC_HAS_FEATURE_FILEIO", "FPC_HAS_FEATURE_HEAP", "FPC_HAS_FEATURE_INITFINAL", "FPC_HAS_FEATURE_OBJECTIVEC1", "FPC_HAS_FEATURE_OBJECTS", "FPC_HAS_FEATURE_PROCESSES", "FPC_HAS_FEATURE_RANDOM", "FPC_HAS_FEATURE_RESOURCES", "FPC_HAS_FEATURE_RTTI", "FPC_HAS_FEATURE_SOFTFPU", "FPC_HAS_FEATURE_STACKCHECK", "FPC_HAS_FEATURE_SUPPORT", "FPC_HAS_FEATURE_TEXTIO", "FPC_HAS_FEATURE_THREADING", "FPC_HAS_FEATURE_UNICODESTRINGS", "FPC_HAS_FEATURE_VARIANTS", "FPC_HAS_FEATURE_WIDESTRINGS", "FPC_HAS_INDIRECT_ENTRY_INFORMATION", "FPC_HAS_INTERNAL_ABS_INT64", "FPC_HAS_INTERNAL_ABS_LONG", "FPC_HAS_INTERNAL_BSF", "FPC_HAS_INTERNAL_BSR", "FPC_HAS_INTERNAL_ROX", "FPC_HAS_INTERNAL_SAR", "FPC_HAS_MEMBAR", "FPC_HAS_OPERATOR_ENUMERATOR", "FPC_HAS_RESSTRINITS", "FPC_HAS_RIP_RELATIVE", "FPC_HAS_TYPE_DOUBLE", "FPC_HAS_TYPE_EXTENDED", "FPC_HAS_TYPE_SINGLE", "FPC_HAS_UNICODESTRING", "FPC_HAS_WINLIKERESOURCES", "FPC_LINK_STATIC", "FPC_LITTLE_ENDIAN", "FPC_RTTI_PACKSET1", "FPC_SETBASE_USED", "FPC_STATICRIPFIXED", "FPC_VARIANTCOPY_FIXED", "FPC_WIDESTRING_EQUAL_UNICODESTRING", "FPUSSE64", "HASUNIX", "INTERNAL_BACKTRACE", "LINUX", "REGCALL", "STR_CONCAT_PROCS", "UNIX", "VER3", "VER3_2", "VER3_2_2", 0 };
+static int pascal_macro_value(const char *n, long long *v) {
+    static const char *const N[] = { "FPC_FULLVERSION", "FPC_VERSION", "FPC_RELEASE", "FPC_PATCH" };
+    static const long long V[] = { 30202, 3, 2, 2 };
+    for (int i = 0; i < 4; i++) if (!strcasecmp(n, N[i])) { *v = V[i]; return 1; }
+    return 0;
+}
+static int pascal_defined(const char *n) {
+    long long v;
+    int u = pascal_def_state(n);
+    if (u >= 0) return u;
+    for (int i = 0; PAS_FPC_MACROS[i]; i++) if (!strcasecmp(PAS_FPC_MACROS[i], n)) return 1;
+    if (pascal_macro_value(n, &v)) return 1;
+    const char *mm = pascal_mode_macro();
+    if (mm && !strcasecmp(mm, n)) return 1;
+    int d = pascal_dialect();
+    return (d == PAS_DIALECT_ISO_DEFAULT || d == PAS_DIALECT_ISO) && !strcasecmp(n, "FPC_ISO");
+}
+typedef struct { const char *p; int bad; } PasCondX;
+static void pcx_ws(PasCondX *x) { while (*x->p == ' ' || *x->p == '\t' || *x->p == '\n' || *x->p == '\r') x->p++; }
+static int pcx_word(PasCondX *x, const char *w) {
+    size_t n = strlen(w);
+    pcx_ws(x);
+    if (strncasecmp(x->p, w, n) || isalnum((unsigned char)x->p[n]) || x->p[n] == '_') return 0;
+    x->p += n;
+    return 1;
+}
+static int pcx_ident(PasCondX *x, char *buf, size_t cap) {
+    size_t k = 0;
+    pcx_ws(x);
+    if (!isalpha((unsigned char)*x->p) && *x->p != '_') return 0;
+    while (isalnum((unsigned char)*x->p) || *x->p == '_') { if (k + 1 < cap) buf[k++] = *x->p; x->p++; }
+    buf[k] = '\0';
+    return 1;
+}
+static double pcx_expr(PasCondX *x);
+static double pcx_prim(PasCondX *x) {
+    size_t cap = strlen(x->p) + 1;
+    char id[cap];
+    long long lv;
+    double rv;
+    pcx_ws(x);
+    if (*x->p == '(') {
+        x->p++;
+        double v = pcx_expr(x);
+        pcx_ws(x);
+        if (*x->p == ')') x->p++; else x->bad = 1;
+        return v;
     }
-    return neg ? !result : result;
+    int und = pcx_word(x, "undefined");
+    if (und || pcx_word(x, "defined")) {
+        pcx_ws(x);
+        int par = *x->p == '(';
+        if (par) x->p++;
+        if (!pcx_ident(x, id, cap)) { x->bad = 1; return 0; }
+        pcx_ws(x);
+        if (par) { if (*x->p == ')') x->p++; else x->bad = 1; }
+        return und ? !pascal_defined(id) : pascal_defined(id);
+    }
+    if (pcx_word(x, "declared")) {
+        pcx_ws(x);
+        if (*x->p != '(') { x->bad = 1; return 0; }
+        x->p++;
+        if (!pcx_ident(x, id, cap)) { x->bad = 1; return 0; }
+        pcx_ws(x);
+        if (*x->p == ')') x->p++; else x->bad = 1;
+        return pascal_if_declared(id);
+    }
+    if (pcx_word(x, "option")) {
+        pcx_ws(x);
+        if (*x->p != '(') { x->bad = 1; return 0; }
+        x->p++;
+        pcx_ws(x);
+        int c = tolower((unsigned char)*x->p) - 'a';
+        if (c < 0 || c > 25) { x->bad = 1; return 0; }
+        x->p++;
+        pcx_ws(x);
+        if (*x->p == ')') x->p++; else x->bad = 1;
+        if (!(*pascal_sw_set_p() & (1u << c))) { x->bad = 1; return 0; }
+        return (*pascal_sw_on_p() >> c) & 1u;
+    }
+    if (pcx_word(x, "true")) return 1;
+    if (pcx_word(x, "false")) return 0;
+    if (isdigit((unsigned char)*x->p)) { char *e; double v = strtod(x->p, &e); x->p = e; return v; }
+    if (!pcx_ident(x, id, cap)) { x->bad = 1; return 0; }
+    for (char *q = id; *q; q++) *q = (char)tolower((unsigned char)*q);
+    if (pascal_def_value(id, &rv)) return rv;
+    if (pascal_macro_value(id, &lv) || pascal_cenv_int(id, &lv)) return (double)lv;
+    if (pascal_cenv_real(id, &rv)) return rv;
+    x->bad = 1;
+    return 0;
+}
+static double pcx_rel(PasCondX *x) {
+    static const char *const OP[] = { "<>", "<=", ">=", "=", "<", ">" };
+    double a = pcx_prim(x);
+    pcx_ws(x);
+    for (int i = 0; i < 6; i++) {
+        size_t n = strlen(OP[i]);
+        if (strncmp(x->p, OP[i], n)) continue;
+        x->p += n;
+        double b = pcx_prim(x);
+        return i == 0 ? a != b : i == 1 ? a <= b : i == 2 ? a >= b : i == 3 ? a == b : i == 4 ? a < b : a > b;
+    }
+    return a;
+}
+static double pcx_unary(PasCondX *x) { return pcx_word(x, "not") ? !pcx_unary(x) : pcx_rel(x); }
+static double pcx_and(PasCondX *x) {
+    double v = pcx_unary(x);
+    while (pcx_word(x, "and")) { double w = pcx_unary(x); v = v != 0 && w != 0; }
+    return v;
+}
+static double pcx_expr(PasCondX *x) {
+    double v = pcx_and(x);
+    while (pcx_word(x, "or")) { double w = pcx_and(x); v = v != 0 || w != 0; }
+    return v;
+}
+extern int pascal_yylineno;
+static int pascal_if_eval(const char *expr) {
+    PasCondX x = { expr, 0 };
+    double v = pcx_expr(&x);
+    pcx_ws(&x);
+    if (!x.bad && !*x.p) return v != 0;
+    return -1;
+}
+static double pascal_value_eval(const char *expr, int *ok) {
+    PasCondX x = { expr, 0 };
+    double v = pcx_expr(&x);
+    pcx_ws(&x);
+    *ok = !x.bad && !*x.p;
+    return v;
+}
+static const char *pascal_unknown_expr;
+static void pascal_cond_code_in_unknown(void) {
+    if (!*pascal_cond_unknown_p()) return;
+    fprintf(stderr, "pascal: line %d: the conditional expression '%s' is beyond SCRIP's {$if} evaluator (defined, undefined, declared, option, not, and, or, and comparisons of numbers, constants and macro values), and a branch it guards holds program text\n", *pascal_cond_unknown_p(), pascal_unknown_expr ? pascal_unknown_expr : "?");
+    *pascal_cond_unknown_p() = 0;
+    pascal_event("iso_error");
+}
+static void pascal_cond(const char *text) {
+    const char *p = text + 2;
+    size_t cap = strlen(text) + 1;
+    char kw[cap], arg[cap];
+    size_t k = 0;
+    while (isalpha((unsigned char)*p)) { kw[k++] = (char)tolower((unsigned char)*p); p++; }
+    kw[k] = '\0';
+    while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') p++;
+    size_t al = strlen(p);
+    while (al > 0 && (p[al - 1] == '}' || p[al - 1] == ' ' || p[al - 1] == '\t' || p[al - 1] == '\n' || p[al - 1] == '\r')) al--;
+    memcpy(arg, p, al);
+    arg[al] = '\0';
+    size_t w = 0;
+    while (arg[w] && (isalnum((unsigned char)arg[w]) || arg[w] == '_')) w++;
+    char word[w + 1];
+    memcpy(word, arg, w);
+    word[w] = '\0';
+    int *skip = pascal_cond_skip_p(), *depth = pascal_cond_depth_p(), *taken = pascal_cond_taken_p();
+    if (!strcmp(kw, "ifdef") || !strcmp(kw, "ifndef") || !strcmp(kw, "if") || !strcmp(kw, "ifc")) {
+        if (*skip) { (*skip)++; return; }
+        int c = (!strcmp(kw, "if") || !strcmp(kw, "ifc")) ? pascal_if_eval(arg) : (pascal_defined(word) != (kw[2] == 'n'));
+        if (c < 0) {
+            *skip = 1;
+            *taken = 1;
+            *pascal_cond_unknown_p() = pascal_yylineno;
+            pascal_unknown_expr = ct_strdup(arg);
+        } else if (c) (*depth)++;
+        else { *skip = 1; *taken = 0; }
+    } else if (!strcmp(kw, "elseif") || !strcmp(kw, "else") || !strcmp(kw, "elsec")) {
+        if (*skip > 1) return;
+        if (*skip == 1) { if (!*taken && (kw[4] != 'i' || pascal_if_eval(arg) > 0)) { *skip = 0; (*depth)++; } return; }
+        if (*depth > 0) { (*depth)--; *skip = 1; *taken = 1; }
+    } else if (!strcmp(kw, "endif") || !strcmp(kw, "ifend") || !strcmp(kw, "endc")) {
+        if (*skip) { (*skip)--; if (!*skip) *pascal_cond_unknown_p() = 0; }
+        else if (*depth) (*depth)--;
+    } else if (!strcmp(kw, "define") || !strcmp(kw, "setc")) {
+        const char *as = strstr(arg, ":=");
+        int ok = 0;
+        double v = as ? pascal_value_eval(as + 2, &ok) : 0;
+        if (*skip) return;
+        if (as && ok && (*pascal_macro_on_p() || kw[0] == 's')) pascal_def_setval(word, v);
+        else pascal_def_set(word, 1);
+    } else if (!strcmp(kw, "undef")) {
+        if (!*skip) pascal_def_set(word, 0);
+    }
 }
 int pascal_seen_decl_start = 0;
 static int pascal_context_keyword(const char *w) {
@@ -122,8 +277,10 @@ static void pascal_mode_directive(const char *m) {
         if (!pascal_seen_decl_start) pascal_dialect_set(PAS_DIALECT_ISO);
         return;
     }
+    static const char *const MAC[] = { "FPC_OBJFPC", "FPC_DELPHI", "FPC_TP", NULL, "FPC_MACPAS" };
     for (int i = 0; i < 5; i++) if (!strcasecmp(m, M[i]) && !pascal_seen_decl_start) {
         pascal_dialect_set(D[i]);
+        pascal_mode_macro_set(MAC[i]);
         pascal_event("seen_mode");
     }
 }
@@ -142,8 +299,7 @@ int  pascal_get_lineno(void) { return pascal_yylineno; }
 %option prefix="pascal_yy"
 %option yylineno
 %option caseless
-%x COMMENT BRACE IFDEF_HDR IFDEF_BODY IFDEF_END IFDEF_ELSE1 IFDEF_ELSE2 MODE_HDR IF_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR PACKREC_HDR CODEPAGE_HDR
-%s IFDEF_TRUE
+%x COMMENT BRACE SKIPC MODE_HDR MINENUM_HDR PACKSET_HDR ALIGN_HDR PACKREC_HDR CODEPAGE_HDR
 DIGIT    [0-9]
 ALPHA    [A-Za-z_]
 ALNUM    [A-Za-z0-9_]
@@ -154,30 +310,14 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>.              { }
 <COMMENT>\n             { }
 "//"[^\n]*              { }
-"{$if"[ \t]             { pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IF_HDR; }
-<IF_HDR>"}"             { BEGIN (pascal_if_eval(pascal_ifdefbuf) ? IFDEF_TRUE : IFDEF_BODY); }
-<IF_HDR>.               { if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
-<IF_HDR>\n              { }
-"{$ifdef"               { pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IFDEF_HDR; }
-<IFDEF_HDR>"}"          { BEGIN (strcasecmp(pascal_ifdefbuf, "fpc") == 0 ? IFDEF_TRUE : IFDEF_BODY); }
-<IFDEF_HDR>[ \t]        { }
-<IFDEF_HDR>.            { if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
-<IFDEF_HDR>\n           { }
-<IFDEF_TRUE>"{$else"    { BEGIN IFDEF_ELSE1; }
-<IFDEF_ELSE1>"}"        { BEGIN IFDEF_BODY; }
-<IFDEF_ELSE1>.          { }
-<IFDEF_ELSE1>\n         { }
-<IFDEF_BODY>"{$else"    { BEGIN IFDEF_ELSE2; }
-<IFDEF_ELSE2>"}"        { BEGIN IFDEF_TRUE; }
-<IFDEF_ELSE2>.          { }
-<IFDEF_ELSE2>\n         { }
-<IFDEF_BODY>"{$endif"   { BEGIN IFDEF_END; }
-<IFDEF_BODY>"{$ifend"   { BEGIN IFDEF_END; }
-<IFDEF_BODY>.           { }
-<IFDEF_BODY>\n          { }
-<IFDEF_END>"}"          { BEGIN INITIAL; }
-<IFDEF_END>.            { }
-<IFDEF_END>\n           { }
+"{$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^}]*)?"}" { pascal_cond(pascal_yytext); if (*pascal_cond_skip_p()) BEGIN SKIPC; }
+<SKIPC>"{$"(ifdef|ifndef|if|elseif|else|endif|ifend|define|undef|ifc|elsec|endc|setc)([ \t\r\n][^}]*)?"}" { pascal_cond(pascal_yytext); if (!*pascal_cond_skip_p()) BEGIN INITIAL; }
+<SKIPC>"{"[^}]*"}"        { }
+<SKIPC>"(*"([^*]|"*"+[^*)])*"*"+")" { }
+<SKIPC>"'"[^'\n]*"'"     { pascal_cond_code_in_unknown(); }
+<SKIPC>"//"[^\n]*         { }
+<SKIPC>[ \t\r\n]           { }
+<SKIPC>.                 { pascal_cond_code_in_unknown(); }
 "{$MinEnumSize"         { pascal_minenumbuf[0] = '\0'; pascal_minenumpos = 0; BEGIN MINENUM_HDR; }
 <MINENUM_HDR>"}"        { if (atoi(pascal_minenumbuf) > 0) pascal_event_num("minenum", atoi(pascal_minenumbuf)); BEGIN INITIAL; }
 <MINENUM_HDR>[ \t]      { }
@@ -188,10 +328,13 @@ ALNUM    [A-Za-z0-9_]
 <PACKSET_HDR>[ \t]      { }
 <PACKSET_HDR>.          { if (pascal_packsetpos < (int)sizeof(pascal_packsetbuf) - 1) { pascal_packsetbuf[pascal_packsetpos++] = pascal_yytext[0]; pascal_packsetbuf[pascal_packsetpos] = '\0'; } }
 <PACKSET_HDR>\n         { }
-"{$push}"               { pascal_event("push"); }
-"{$pop}"                { pascal_event("pop"); }
-"{$"[Rr]"+}"             { pascal_event("range 1"); }
-"{$"[Rr]"-}"             { pascal_event("range 0"); }
+"{$macro"[ \t]+"on"[ \t]*"}"  { *pascal_macro_on_p() = 1; }
+"{$macro"[ \t]+"off"[ \t]*"}" { *pascal_macro_on_p() = 0; }
+"{$push}"               { pascal_event("push"); pascal_sw_push(); }
+"{$pop}"                { pascal_event("pop"); pascal_sw_pop(); }
+"{$"[Rr]"+}"             { pascal_event("range 1"); *pascal_sw_set_p() |= 1u << 17; *pascal_sw_on_p() |= 1u << 17; }
+"{$"[Rr]"-}"             { pascal_event("range 0"); *pascal_sw_set_p() |= 1u << 17; *pascal_sw_on_p() &= ~(1u << 17); }
+"{$"[A-PS-Za-ps-z][+-]"}" { int c = tolower((unsigned char)pascal_yytext[2]) - 'a'; *pascal_sw_set_p() |= 1u << c; if (pascal_yytext[3] == '+') *pascal_sw_on_p() |= 1u << c; else *pascal_sw_on_p() &= ~(1u << c); }
 "{$mode"                { pascal_modebuf[0] = '\0'; pascal_modepos = 0; BEGIN MODE_HDR; }
 <MODE_HDR>"}"           { pascal_mode_directive(pascal_modebuf); BEGIN INITIAL; }
 <MODE_HDR>[ \t]         { }
@@ -200,8 +343,8 @@ ALNUM    [A-Za-z0-9_]
 "{$zerobasedstrings"[ \t]+"on"[ \t]*"}"   { pascal_event("zerobased 1"); }
 "{$zerobasedstrings"[ \t]+"off"[ \t]*"}"  { pascal_event("zerobased 0"); }
 "{$zerobasedstrings+}"  { pascal_event("zerobased 1"); }
-"{$Q+}"  { pascal_event("overflow 1"); }
-"{$Q-}"  { pascal_event("overflow 0"); }
+"{$Q+}"  { pascal_event("overflow 1"); *pascal_sw_set_p() |= 1u << 16; *pascal_sw_on_p() |= 1u << 16; }
+"{$Q-}"  { pascal_event("overflow 0"); *pascal_sw_set_p() |= 1u << 16; *pascal_sw_on_p() &= ~(1u << 16); }
 "{$overflowchecks"[ \t]+"on"[ \t]*"}"  { pascal_event("overflow 1"); }
 "{$overflowchecks"[ \t]+"off"[ \t]*"}"  { pascal_event("overflow 0"); }
 "{$zerobasedstrings-}"  { pascal_event("zerobased 0"); }
