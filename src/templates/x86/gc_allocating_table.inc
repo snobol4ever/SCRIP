@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2523
+#define GC_ALLOC_TAB_N 2529
 #define GC_ALLOC_TAB_N_VOID 300
-#define GC_ALLOC_TAB_N_DESCR 1221
-#define GC_ALLOC_TAB_N_OTHER 985
+#define GC_ALLOC_TAB_N_DESCR 1224
+#define GC_ALLOC_TAB_N_OTHER 988
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1205,6 +1205,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_exc_message", GC_RET_OTHER },
     { "rk_exc_method", GC_RET_OTHER },
     { "rk_exc_throw", GC_RET_VOID },
+    { "rk_excl_hi", GC_RET_OTHER },
     { "rk_fast_rat_builtin", GC_RET_OTHER },
     { "rk_flat_agg", GC_RET_DESCR },
     { "rk_flat_count", GC_RET_OTHER },
@@ -1283,6 +1284,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_mk_jct", GC_RET_DESCR },
     { "rk_mk_pair", GC_RET_DESCR },
     { "rk_mu_method", GC_RET_OTHER },
+    { "rk_num_dbl", GC_RET_OTHER },
     { "rk_obj_default_raku", GC_RET_OTHER },
     { "rk_obj_stringify", GC_RET_OTHER },
     { "rk_one", GC_RET_DESCR },
@@ -1323,10 +1325,14 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_qh_wat", GC_RET_OTHER },
     { "rk_raku_scalar", GC_RET_OTHER },
     { "rk_raku_str", GC_RET_OTHER },
+    { "rk_range_accepts_range", GC_RET_OTHER },
     { "rk_range_arr_make", GC_RET_DESCR },
+    { "rk_range_arr_make_fl", GC_RET_DESCR },
     { "rk_range_bounds", GC_RET_VOID },
+    { "rk_range_end", GC_RET_DESCR },
     { "rk_range_method", GC_RET_OTHER },
     { "rk_range_num", GC_RET_OTHER },
+    { "rk_range_numeric", GC_RET_DESCR },
     { "rk_range_text", GC_RET_OTHER },
     { "rk_range_value", GC_RET_DESCR },
     { "rk_rat_base", GC_RET_OTHER },

@@ -4255,7 +4255,7 @@ static tree_t * rk_range_call_of(tree_t * to, const char * fn, int flagged) {
     ast_push(w, leaf_sval2(TT_VAR, fn));
     ast_push(w, to->c[0]);
     ast_push(w, to->c[1]);
-    if (flagged) { tree_t * fl = ast_node_new(TT_ILIT); fl->v.ival = 0; ast_push(w, fl); }
+    if (flagged || to->v.ival) { tree_t * fl = ast_node_new(TT_ILIT); fl->v.ival = to->v.ival; ast_push(w, fl); }
     return w;
 }
 static tree_t * rk_range_val_of(tree_t * to) { return rk_range_call_of(to, "__rk_range_val", 1); }
@@ -4270,10 +4270,10 @@ static void rk_range_values(tree_t * t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) rk_range_values(t->c[i]);
     if (t->t == TT_ASSIGN && t->n == 2 && t->c[0] && t->c[0]->t == TT_VAR && t->c[0]->v.sval && t->c[0]->v.sval[0] != '@' && t->c[0]->v.sval[0] != '%' && t->c[0]->v.sval[0] != '&' && t->c[1] &&
-        t->c[1]->t == TT_TO && t->c[1]->n == 2 && !t->c[1]->v.ival) t->c[1] = rk_range_val_of(t->c[1]);
-    if (t->t == TT_DECL && t->n >= 2 && t->c[t->n - 1] && t->c[t->n - 1]->t == TT_TO && t->c[t->n - 1]->n == 2 && !t->c[t->n - 1]->v.ival && t->c[t->n - 2] && t->c[t->n - 2]->t == TT_VAR &&
-        t->c[t->n - 2]->v.sval && t->c[t->n - 2]->v.sval[0] != '@' && t->c[t->n - 2]->v.sval[0] != '%') t->c[t->n - 1] = rk_range_val_of(t->c[t->n - 1]);
-    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_lit")) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2 && !t->c[i]->v.ival) {
+        t->c[1]->t == TT_TO && t->c[1]->n == 2) t->c[1] = rk_range_val_of(t->c[1]);
+    if (t->t == TT_DECL && t->n >= 2 && t->c[t->n - 1] && t->c[t->n - 1]->t == TT_TO && t->c[t->n - 1]->n == 2 && t->c[t->n - 2] && t->c[t->n - 2]->t == TT_VAR && t->c[t->n - 2]->v.sval &&
+        t->c[t->n - 2]->v.sval[0] != '@' && t->c[t->n - 2]->v.sval[0] != '%') t->c[t->n - 1] = rk_range_val_of(t->c[t->n - 1]);
+    if (t->t == TT_FNC && t->v.sval && !strcmp(t->v.sval, "__rk_arr_lit")) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) {
         if (t->n == 2) {
             tree_t * w = ast_node_new(TT_FNC);
             w->line = t->line;
@@ -4285,13 +4285,15 @@ static void rk_range_values(tree_t * t) {
         }
         t->c[i] = rk_range_val_of(t->c[i]);
     }
-    if (t->t == TT_FNC && t->v.sval && strncmp(t->v.sval, "__", 2)) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2 && !t->c[i]->v.ival) t->c[i] =
-        rk_range_val_of(t->c[i]);
-    if (t->t == TT_METHCALL) for (int i = 2; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2 && !t->c[i]->v.ival) t->c[i] = rk_range_val_of(t->c[i]);
-    if (t->t == TT_INVOKE) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2 && !t->c[i]->v.ival) t->c[i] = rk_range_val_of(t->c[i]);
-    if (t->t == TT_SAY || t->t == TT_PRINT) for (int i = 0; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2 && !t->c[i]->v.ival) t->c[i] = rk_range_val_of(t->c[i]);
-    if (t->t == TT_METHCALL && t->n >= 2 && t->c[0] && t->c[0]->t == TT_TO && t->c[0]->n == 2 && !t->c[0]->v.ival && t->c[1] && t->c[1]->t == TT_QLIT && rk_range_method_name(t->c[1]->v.sval)) t->c[0]
-        = rk_range_val_of(t->c[0]);
+    if (t->t == TT_FNC && t->v.sval && strncmp(t->v.sval, "__", 2)) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    if (t->t == TT_METHCALL) for (int i = 2; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    if (t->t == TT_INVOKE) for (int i = 1; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    if (t->t == TT_FNC && t->v.sval && (!strcmp(t->v.sval, "__rk_in_range") || !strcmp(t->v.sval, "__rk_numify") || !strcmp(t->v.sval, "__rk_smartmatch"))) {
+        for (int i = 1; i < t->n && i < (strcmp(t->v.sval, "__rk_smartmatch") ? 2 : 3); i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    }
+    if (t->t == TT_SAY || t->t == TT_PRINT) for (int i = 0; i < t->n; i++) if (t->c[i] && t->c[i]->t == TT_TO && t->c[i]->n == 2) t->c[i] = rk_range_val_of(t->c[i]);
+    if (t->t == TT_METHCALL && t->n >= 2 && t->c[0] && t->c[0]->t == TT_TO && t->c[0]->n == 2 && t->c[1] && t->c[1]->t == TT_QLIT && rk_range_method_name(t->c[1]->v.sval)) t->c[0] =
+        rk_range_val_of(t->c[0]);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const char * name; const char * type; } rk_tv_t;
@@ -4421,6 +4423,33 @@ static void rk_nonint_ranges(tree_t * t) {
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void rk_exclusive_ranges(tree_t * t) {
+    if (!t) return;
+    for (int i = 0; i < t->n; i++) {
+        tree_t * c = t->c[i];
+        rk_exclusive_ranges(c);
+        if (!c || c->t != TT_TO || c->n != 2 || !c->v.ival) continue;
+        if (c->v.ival != 2 || rk_range_end_nonint(c->c[0]) || rk_range_end_nonint(c->c[1])) { t->c[i] = rk_range_call_of(c, "__rk_range_arr", 0); continue; }
+        tree_t * hi = c->c[1];
+        if (hi && hi->t == TT_ILIT) {
+            tree_t * h = ast_node_new(TT_ILIT);
+            h->line = hi->line;
+            h->v.ival = hi->v.ival - 1;
+            hi = h;
+        } else {
+            if (hi && hi->t == TT_VAR && hi->v.sval && hi->v.sval[0] == '@') { tree_t * el = ast_node_new(TT_METHCALL); ast_push(el, hi); ast_push(el, leaf_sval2(TT_QLIT, "elems")); hi = el; }
+            tree_t * ex = ast_node_new(TT_FNC);
+            ex->line = c->line;
+            ex->v.sval = (char *) "__rk_exend";
+            ast_push(ex, leaf_sval2(TT_VAR, "__rk_exend"));
+            ast_push(ex, hi);
+            hi = ex;
+        }
+        c->c[1] = hi;
+        c->v.ival = 0;
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_main) {
     rk_hoist_nested_types((tree_t *) prog);
     rk_hoist_nested_multis((tree_t *) prog);
@@ -4429,6 +4458,7 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     rk_typed_vars((tree_t *) prog);
     rk_sprintf_names((tree_t *) prog, rk_uses_v6e(prog));
     rk_range_values((tree_t *) prog);
+    rk_exclusive_ranges((tree_t *) prog);
     rk_nonint_ranges((tree_t *) prog);
     rk_nested_elem_sets((tree_t *) prog);
     rk_place_phasers((tree_t *) prog);

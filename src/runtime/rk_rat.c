@@ -110,6 +110,7 @@ static int rq_kind(DESCR_t v) {
     return 0;
 }
 int rk_rat_is(DESCR_t d) { return rq_kind(d) != 0; }
+int rk_rat_zero_den(DESCR_t d) { return rq_kind(d) != 0 && bi_zero(d.u->fields[1]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rq_new(DESCR_t n, DESCR_t d, int fat) {
     const char *nm = fat ? RK_FATRAT_NAME : RK_RAT_NAME;
@@ -136,7 +137,13 @@ static int rq_get(DESCR_t v, DESCR_t *n, DESCR_t *d, int *fat) {
     return 1;
 }
 int rk_rat_to_real(DESCR_t v, double *out) { if (!rq_kind(v)) return 0; *out = rq_dbl(v.u->fields[0], v.u->fields[1]); return 1; }
-int rk_rat_to_int(DESCR_t v, long long *out) { if (!rq_kind(v)) return 0; DESCR_t q = bi_divt(v.u->fields[0], v.u->fields[1]); *out = q.v == DT_I ? (long long) q.i : (long long) bi_dbl(q); return 1; }
+int rk_rat_to_int(DESCR_t v, long long *out) {
+    if (!rq_kind(v)) return 0;
+    if (bi_zero(v.u->fields[1])) { rt_script_die_surface("Attempt to divide by zero when coercing Rational to Int"); *out = 0; return 1; }
+    DESCR_t q = bi_divt(v.u->fields[0], v.u->fields[1]);
+    *out = q.v == DT_I ? (long long) q.i : (long long) bi_dbl(q);
+    return 1;
+}
 int rk_rat_truthy(DESCR_t v) { return !bi_zero(v.u->fields[0]); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rq_bool(int b) { return (DESCR_t) { .v = DT_BOOL, .i = b != 0 }; }
@@ -169,7 +176,7 @@ int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
             *out = rq_make(bi_mul(an, bn), bi_mul(ad, bd), fat);
             return 1;
             case BINOP_DIV:
-            if (bi_zero(bn)) { rq_dz("infix:</>"); *out = FAILDESCR; return 1; }
+            if (bi_zero(bn)) { *out = rq_new(INTVAL(bi_sgn(an)), INTVAL(0), fat); return 1; }
             *out = rq_make(bi_mul(an, bd), bi_mul(ad, bn), fat);
             return 1;
             case BINOP_MOD:
@@ -270,7 +277,7 @@ DESCR_t rk_rat_div(DESCR_t a, DESCR_t b) {
     DESCR_t an, ad, bn, bd;
     int fat = 0;
     if (!rq_get(a, &an, &ad, &fat) || !rq_get(b, &bn, &bd, &fat)) return FAILDESCR;
-    if (bi_zero(bn)) { rq_dz("infix:</>"); return FAILDESCR; }
+    if (bi_zero(bn)) return rq_new(INTVAL(bi_sgn(an)), INTVAL(0), fat);
     return rq_make(bi_mul(an, bd), bi_mul(ad, bn), fat);
 }
 DESCR_t rk_rat_pow(DESCR_t a, DESCR_t b) {
