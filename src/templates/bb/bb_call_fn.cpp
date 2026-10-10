@@ -52,6 +52,8 @@ int pl_leaf_inline_known(const char * fn, int narg);
 extern "C" {
 typedef struct { long fn; long how; } rk_next_t;
 extern rk_next_t rk_method_open(DESCR_t * args, int nargs, void * rec);
+extern rk_next_t rk_callsame_open(DESCR_t * args, int nargs, void * rec);
+extern rk_next_t rk_callwith_open(DESCR_t * args, int nargs, void * rec);
 extern DESCR_t rk_method_land_γ(DESCR_t frame0, long word);
 extern DESCR_t rk_method_land_ω(long word);
 typedef struct { long fn; long how; } rt_call_next_t;
@@ -70,12 +72,14 @@ extern int rt_builtin_tail_may_open(const char * fn);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define bcfn_opens_as_method(fn, nargs) (((fn) && (nargs) >= 2 && !strcmp((fn), "meth_call")) ? 1 : 0)
+#define bcfn_redispatch_with(fn) ((fn) && (!strcmp((fn), "callwith") || !strcmp((fn), "nextwith")))
+#define bcfn_opens_as_redispatch(fn) ((fn) && (!strcmp((fn), "callsame") || !strcmp((fn), "nextsame") || bcfn_redispatch_with(fn)))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off) {
-    return IF(rec_off < 0, x86_bomb("bb_call_fn: a meth_call node without the argv grant that holds its redispatch record (CEO-1552)"))
+static std::string bcfn_method_open_enter(int base, int decl_id, int join_id, int rec_off, const char * osym, void * ofp) {
+    return IF(rec_off < 0, x86_bomb("bb_call_fn: a meth_call or redispatch node without the argv grant that holds its redispatch record (CEO-1552)"))
          + IF(rec_off >= 0,
                x86("lea", "rdx", FRQ(rec_off))
-             + x86("call", "rk_method_open", (uint64_t)(uintptr_t)(void *)rk_method_open)
+             + x86("call", osym, (uint64_t)(uintptr_t)ofp)
              + x86_rt_gc_poll_rec_sigma_word(1)
              + x86("test", "rax", "rax")
              + x86_jcc_id("jz", decl_id)
@@ -178,9 +182,15 @@ std::string bb_call_fn_str(IR_t * pBB) {
             s += pl_leaf_zd_cold(fn, nargs);
             polled_in_arm = 1;
         } else {
-        int _mopen = bcfn_opens_as_method(fn, nargs);
-        if (_mopen) { s += x86("lea", "rdi", RDQ("rsp", 0))
-                         + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1); s += x86_deflabel_id(28); }
+        const char * cmn = IR_LIT(pBB).sval;
+        int _meth = bcfn_opens_as_method(cmn, nargs), _mopen = _meth || bcfn_opens_as_redispatch(cmn);
+        if (_mopen) {
+            const char * osym = _meth ? "rk_method_open" : bcfn_redispatch_with(cmn) ? "rk_callwith_open" : "rk_callsame_open";
+            void * ofp = _meth ? (void *)rk_method_open : bcfn_redispatch_with(cmn) ? (void *)rk_callwith_open : (void *)rk_callsame_open;
+            s += x86("lea", "rdi", RDQ("rsp", 0)) + x86("mov32", "esi", (long)nargs);
+            s += bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1, osym, ofp);
+            s += x86_deflabel_id(28);
+        }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
         if (_aopen) { s += x86("lea", "rdi", RDQ("rsp", 0))
                          + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }
@@ -271,9 +281,15 @@ std::string bb_call_fn_str(IR_t * pBB) {
         polled_in_arm = 1;
         if (pas_elem_kind()) s += pas_elem_flat_join();
     } else {
-        int _mopen = bcfn_opens_as_method(fn, nargs);
-        if (_mopen) { s += x86("lea", "rdi", FRQ(argbase))
-                         + x86("mov32", "esi", (long)nargs) + bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1); s += x86_deflabel_id(28); }
+        const char * cmn = IR_LIT(pBB).sval;
+        int _meth = bcfn_opens_as_method(cmn, nargs), _mopen = _meth || bcfn_opens_as_redispatch(cmn);
+        if (_mopen) {
+            const char * osym = _meth ? "rk_method_open" : bcfn_redispatch_with(cmn) ? "rk_callwith_open" : "rk_callsame_open";
+            void * ofp = _meth ? (void *)rk_method_open : bcfn_redispatch_with(cmn) ? (void *)rk_callwith_open : (void *)rk_callsame_open;
+            s += x86("lea", "rdi", FRQ(argbase)) + x86("mov32", "esi", (long)nargs);
+            s += bcfn_method_open_enter(20, 28, 29, zls_argv_off(pBB) >= 0 ? zls_argv_off(pBB) + 16 * nargs : -1, osym, ofp);
+            s += x86_deflabel_id(28);
+        }
         int _aopen = bcfn_opens_as_apply(fn, nargs);
         if (_aopen) { s += x86("lea", "rdi", FRQ(argbase))
                          + x86("mov32", "esi", (long)nargs) + bcfn_apply_open_enter(60, 68, 29); s += x86_deflabel_id(68); }

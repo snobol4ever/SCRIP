@@ -1063,11 +1063,23 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             ast_push(f, t->c[0]->c[0]);
             return lower_rcall(cx, f, fn, 1, γ, ω, res);
         }
+        if (t->t == TT_SAY && rk_user_meth_named("gist")) {
+            tree_t * w = ast_node_new(TT_SAY);
+            w->line = t->line;
+            for (int i = 0; i < t->n; i++) ast_push(w, rk_yields_array(t->c[i]) || rk_yields_list(t->c[i]) ? t->c[i] : rk_fnc2("__rk_gist_pre", t->c[i], NULL));
+            t = w;
+        }
         if (t->n == 1 && rk_yields_array(t->c[0])) return lower_rcall(cx, t, "rk_write_arr", 0, γ, ω, res);
         if (t->n == 1 && rk_yields_list(t->c[0])) return lower_rcall(cx, t, "rk_write_list", 0, γ, ω, res);
         return lower_rcall(cx, t, "rk_write", 0, γ, ω, res);
         case TT_PRINT:
         case TT_PRINT_FH:
+        if (t->t == TT_PRINT && rk_user_meth_named("Str")) {
+            tree_t * w = ast_node_new(TT_PRINT);
+            w->line = t->line;
+            for (int i = 0; i < t->n; i++) ast_push(w, t->c[i] && t->c[i]->t == TT_QLIT ? t->c[i] : rk_fnc2("__rk_str_pre", t->c[i], NULL));
+            t = w;
+        }
         return lower_rcall(cx, t, "rk_writes", 0, γ, ω, res);
         case TT_DIE:
         return lower_rcall(cx, t, "die", 0, γ, ω, res);

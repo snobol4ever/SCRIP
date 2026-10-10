@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2477
+#define GC_ALLOC_TAB_N 2483
 #define GC_ALLOC_TAB_N_VOID 288
 #define GC_ALLOC_TAB_N_DESCR 1219
-#define GC_ALLOC_TAB_N_OTHER 954
+#define GC_ALLOC_TAB_N_OTHER 960
 #define GC_ALLOC_TAB_N_UNKNOWN 16
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1158,6 +1158,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_call_block_rq", GC_RET_DESCR },
     { "rk_call_snap", GC_RET_DESCR },
     { "rk_call_snap_rq", GC_RET_DESCR },
+    { "rk_callsame_open", GC_RET_OTHER },
+    { "rk_callwith_open", GC_RET_OTHER },
     { "rk_capture_list", GC_RET_DESCR },
     { "rk_case_str", GC_RET_OTHER },
     { "rk_cmp_val", GC_RET_OTHER },
@@ -1246,6 +1248,8 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_method_land_γ", GC_RET_DESCR },
     { "rk_method_missing", GC_RET_VOID },
     { "rk_method_open", GC_RET_OTHER },
+    { "rk_method_open_at", GC_RET_OTHER },
+    { "rk_method_open_d", GC_RET_OTHER },
     { "rk_mk_arr", GC_RET_DESCR },
     { "rk_mk_jct", GC_RET_DESCR },
     { "rk_mk_pair", GC_RET_DESCR },
@@ -1312,6 +1316,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_rat_str_method", GC_RET_OTHER },
     { "rk_rat_to_int", GC_RET_OTHER },
     { "rk_rat_to_real", GC_RET_OTHER },
+    { "rk_redispatch_open", GC_RET_OTHER },
     { "rk_register_classes", GC_RET_VOID },
     { "rk_rsp_arg_num", GC_RET_VOID },
     { "rk_rsp_legacy_pad", GC_RET_VOID },
@@ -1345,6 +1350,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_sprintf_core", GC_RET_VOID },
     { "rk_stage2_core", GC_RET_OTHER },
     { "rk_str_norm_method", GC_RET_OTHER },
+    { "rk_strmeth_open", GC_RET_OTHER },
     { "rk_subtest_close", GC_RET_OTHER },
     { "rk_subtest_open", GC_RET_DESCR },
     { "rk_tap_str", GC_RET_OTHER },

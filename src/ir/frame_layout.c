@@ -504,7 +504,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
             for (int j = 0; j < nd->n_operands; j++) zls_field(scope_id, off + 16 * j, 16, ZK_DESCR, 0, "call.argv", nd);
             {
                 const char * cmn = IR_LIT(nd).sval;
-                if (cmn && !strcmp(cmn, "meth_call")) {
+                if (cmn && (!strcmp(cmn, "meth_call") || !strcmp(cmn, "callsame") || !strcmp(cmn, "nextsame") || !strcmp(cmn, "callwith") || !strcmp(cmn, "nextwith"))) {
                     zls_field(scope_id, off + 16 * nd->n_operands, 16, ZK_DESCR, 0,
                         "redisp.self (the method call's redispatch record, CEO-1552: the invocant, for callsame/nextsame; lives as long as the call, chained from one head cell)", nd);
                     zls_field(scope_id, off + 16 * nd->n_operands + 16, 16, ZK_DESCR, 0, "redisp.mname (the method name)", nd);

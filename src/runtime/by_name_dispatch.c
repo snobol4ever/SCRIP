@@ -3761,7 +3761,8 @@ typedef struct rk_redisp_t { DESCR_t self; DESCR_t mname; struct rk_redisp_t *pr
 _Static_assert(sizeof(rk_redisp_t) == RK_REDISP_REC_BYTES,
     "the redispatch record is RK_REDISP_REC_BYTES of the meth_call node's frame grant (frame_layout.c grants RK_REDISP_REC_SLOTS slots after the argv)");
 static rk_redisp_t *g_redisp_cur = (rk_redisp_t *)0;
-static DESCR_t rd_arg(const rk_redisp_t *r, int k) { return (r->skip_mname && k > 0) ? r->args[1 + k] : r->args[k]; }
+static int rk_strmeth_open(DESCR_t d, int use_gist, long *rq, DESCR_t *out);
+static DESCR_t rd_arg(const rk_redisp_t *r, int k) { return r->skip_mname == 2 ? (k == 0 ? r->self : r->args[k - 1]) : (r->skip_mname && k > 0) ? r->args[1 + k] : r->args[k]; }
 static int rd_mro_len(const char *cname) {
     extern int dat_mro(const char *name, const char **out, int max);
     int cap = 16;
@@ -3798,57 +3799,138 @@ static DESCR_t invoke_method_proc_rq(const char *procname, DESCR_t *callargs, in
 }
 static DESCR_t invoke_method_proc(const char *procname, DESCR_t *callargs, int total) { return invoke_method_proc_rq(procname, callargs, total, (long *)0); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-rt_call_next_t rk_method_open(DESCR_t *args, int nargs, void *recp) {
-    rk_redisp_t *rec = (rk_redisp_t *)recp;
+static rt_call_next_t rk_method_open_at(DESCR_t *args, int nargs, rk_redisp_t *rec, const char *procname, const char *cname, int found_idx, int fallback, const char *mstrip) {
     extern int rt_define_returns_by_frame(const char *name);
     extern int rt_proc_has_native_fn(const char *name);
-    extern int dat_mro(const char *name, const char **out, int max);
-    rt_call_next_t none;
-    none.fn = 0;
-    none.how = 0;
-    if (nargs < 2 || !args) return none;
-    if (args[0].v != DT_DATA || !IS_DATA_INST_fn(args[0]) || !args[0].u) return none;
-    DATINST_t *inst = (DATINST_t *)args[0].u;
-    const char *cname = (inst && inst->type) ? inst->type->name : (const char *)0;
-    if (!cname) return none;
-    const char *mname = VARVAL_fn(args[1]);
-    if (!mname || !*mname) return none;
-    if (mname[0] == '^' || !strcmp(mname, "WHAT") || !strcmp(mname, "isa") || !strcmp(mname, "does") || !strcmp(mname, "bless") || !strcmp(mname, "clone") || !strcmp(mname, "parse")) return none;
-    int found_idx = -1;
-    const char *rmc = resolve_method_chain(cname, mname, &found_idx);
-    char procname[fmt_len("%s__%s", rmc, mname)];
-    snprintf(procname, sizeof procname, "%s__%s", rmc, mname);
-    if (!meth_is_user_proc(procname)) return none;
+    rt_call_next_t none = { 0, 0 };
+    if (!rec || !meth_is_user_proc(procname)) return none;
     {
         int pi;
         for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, procname)) break;
         if (pi < g_stage2.proc_count && !(g_stage2.proc_table[pi].bb_idx >= 0 && rt_proc_has_native_fn(procname))) return none;
     }
     if (!rt_define_returns_by_frame(procname)) return none;
-    {
-        int nextra = nargs - 2;
-        int total = 1 + nextra;
-        if (!rec) return none;
-        {
-            DESCR_t *argv = (DESCR_t *)((char *)rec - 16 * nargs);
-            if (argv != args) for (int k = 0; k < nargs; k++) argv[k] = args[k];
-            rec->self = args[0];
-            rec->mname = args[1];
-            rec->cname = cname;
-            rec->found_idx = found_idx;
-            rec->nargs = total;
-            rec->args = argv;
-            rec->skip_mname = 1;
-            rec->local = 0;
-        }
-        rec->prev = g_redisp_cur;
-        g_redisp_cur = rec;
-        rt_call_args_need(nextra + 1);
-        CALL_ARGS[0] = args[0];
-        for (int k = 0; k < nextra; k++) CALL_ARGS[1 + k] = args[2 + k];
-        { rt_call_next_t n = rt_call_open_by_name(procname, total); if (!n.fn) { g_redisp_cur = rec->prev; return none; } return n; }
-    }
+    DESCR_t *argv = (DESCR_t *)((char *)rec - 16 * nargs);
+    if (argv != args) for (int k = 0; k < nargs; k++) argv[k] = args[k];
+    if (mstrip) argv[1] = STRVAL(rt_heap_strdup_c(mstrip));
+    rec->self = argv[0];
+    rec->mname = argv[1];
+    rec->cname = cname;
+    rec->found_idx = found_idx;
+    rec->nargs = fallback ? nargs : nargs - 1;
+    rec->args = argv;
+    rec->skip_mname = fallback ? 0 : 1;
+    rec->local = 0;
+    rec->prev = g_redisp_cur;
+    g_redisp_cur = rec;
+    rt_call_args_need(rec->nargs);
+    for (int k = 0; k < rec->nargs; k++) CALL_ARGS[k] = rd_arg(rec, k);
+    { rt_call_next_t n = rt_call_open_by_name(procname, rec->nargs); if (!n.fn) { g_redisp_cur = rec->prev; return none; } return n; }
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rt_call_next_t rk_method_open_d(DESCR_t *args, int nargs, rk_redisp_t *rec, int depth) {
+    extern int dat_handles_field(const char *cls, const char *meth, char *out, int outsz);
+    extern DESCR_t dat_field_get(const char *field, DESCR_t obj);
+    rt_call_next_t none = { 0, 0 };
+    if (nargs < 2 || !args || !rec || depth > 16) return none;
+    const char *mname = VARVAL_fn(args[1]);
+    if (!mname || !*mname) return none;
+    int maybe = mname[0] == '?' && mname[1];
+    if (maybe) mname++;
+    if (mname[0] == '^' || !strcmp(mname, "WHAT") || !strcmp(mname, "isa") || !strcmp(mname, "does") || !strcmp(mname, "bless") || !strcmp(mname, "clone") || !strcmp(mname, "parse")) return none;
+    if (args[0].v != DT_DATA || !IS_DATA_INST_fn(args[0]) || !args[0].u || !args[0].u->type || !args[0].u->type->name) {
+        if (maybe || rk_is_rakudo_method(mname)) return none;
+        const char *tn = rk_value_type(args[0]), *cands[6];
+        int nc = 0;
+        cands[nc++] = tn;
+        if (!strcmp(tn, "Bool")) cands[nc++] = "Int";
+        if (!strcmp(tn, "Array")) cands[nc++] = "List";
+        cands[nc++] = "Cool";
+        cands[nc++] = "Any";
+        cands[nc++] = "Mu";
+        for (int ci = 0; ci < nc; ci++) {
+            char pn[fmt_len("%s__%s", cands[ci], mname)];
+            snprintf(pn, sizeof pn, "%s__%s", cands[ci], mname);
+            if (meth_is_user_proc(pn)) return rk_method_open_at(args, nargs, rec, pn, cands[ci], -1, 0, (const char *)0);
+        }
+        return none;
+    }
+    const char *cname = args[0].u->type->name;
+    int found_idx = -1;
+    const char *rmc = resolve_method_chain(cname, mname, &found_idx);
+    char procname[fmt_len("%s__%s", rmc, mname)];
+    snprintf(procname, sizeof procname, "%s__%s", rmc, mname);
+    if (meth_is_user_proc(procname)) return rk_method_open_at(args, nargs, rec, procname, cname, found_idx, 0, maybe ? mname : (const char *)0);
+    {
+        char df[bnd_handles_need(cname, mname)];
+        if (dat_handles_field(cname, mname, df, (int)sizeof df)) {
+            DESCR_t fwd[nargs];
+            for (int k = 0; k < nargs; k++) fwd[k] = args[k];
+            fwd[0] = dat_field_get(df, args[0]);
+            return rk_method_open_d(fwd, nargs, rec, depth + 1);
+        }
+    }
+    if (maybe || !strcmp(mname, "FALLBACK")) return none;
+    { DESCR_t mu; if (rk_mu_method(mname, args[0], nargs - 2, &mu)) return none; }
+    const char *fbc = resolve_method_chain(cname, "FALLBACK", NULL);
+    char fbp[fmt_len("%s__%s", fbc, "FALLBACK")];
+    snprintf(fbp, sizeof fbp, "%s__%s", fbc, "FALLBACK");
+    return rk_method_open_at(args, nargs, rec, fbp, cname, -1, 1, (const char *)0);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_call_next_t rk_method_open(DESCR_t *args, int nargs, void *recp) { return rk_method_open_d(args, nargs, (rk_redisp_t *)recp, 0); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static rt_call_next_t rk_redispatch_open(DESCR_t *args, int nargs, void *recp, int with) {
+    rk_redisp_t *rec = (rk_redisp_t *)recp, *top = g_redisp_cur;
+    extern int rt_define_returns_by_frame(const char *name);
+    extern int rt_proc_has_native_fn(const char *name);
+    extern int dat_mro(const char *name, const char **out, int max);
+    rt_call_next_t none = { 0, 0 };
+    if (!rec || !top) return none;
+    const char *fmname = VARVAL_fn(top->mname);
+    if (!fmname || !*fmname) return none;
+    int mro_len = rd_mro_len(top->cname);
+    const char *mro[mro_len];
+    { int got = dat_mro(top->cname, mro, mro_len); if (got <= 0) { mro[0] = top->cname; mro_len = 1; } else mro_len = got; }
+    int next = -1;
+    for (int i = top->found_idx + 1; i < mro_len && next < 0; i++) {
+        char cand[fmt_len("%s__%s", mro[i], fmname)];
+        snprintf(cand, sizeof cand, "%s__%s", mro[i], fmname);
+        if (meth_is_user_proc(cand)) next = i;
+    }
+    if (next < 0) return none;
+    char nproc[fmt_len("%s__%s", mro[next], fmname)];
+    snprintf(nproc, sizeof nproc, "%s__%s", mro[next], fmname);
+    {
+        int pi;
+        for (pi = 0; pi < g_stage2.proc_count; pi++) if (g_stage2.proc_table[pi].name && !strcmp(g_stage2.proc_table[pi].name, nproc)) break;
+        if (pi < g_stage2.proc_count && !(g_stage2.proc_table[pi].bb_idx >= 0 && rt_proc_has_native_fn(nproc))) return none;
+    }
+    if (!rt_define_returns_by_frame(nproc)) return none;
+    rec->self = top->self;
+    rec->mname = top->mname;
+    rec->cname = top->cname;
+    rec->found_idx = next;
+    rec->local = 0;
+    if (with) {
+        DESCR_t *argv = (DESCR_t *)((char *)rec - 16 * nargs);
+        if (argv != args) for (int k = 0; k < nargs; k++) argv[k] = args[k];
+        rec->args = argv;
+        rec->nargs = 1 + nargs;
+        rec->skip_mname = 2;
+    } else {
+        rec->args = top->args;
+        rec->nargs = top->nargs;
+        rec->skip_mname = top->skip_mname;
+    }
+    rec->prev = g_redisp_cur;
+    g_redisp_cur = rec;
+    rt_call_args_need(rec->nargs);
+    for (int k = 0; k < rec->nargs; k++) CALL_ARGS[k] = rd_arg(rec, k);
+    { rt_call_next_t n = rt_call_open_by_name(nproc, rec->nargs); if (!n.fn) { g_redisp_cur = rec->prev; return none; } return n; }
+}
+rt_call_next_t rk_callsame_open(DESCR_t *args, int nargs, void *recp) { return rk_redispatch_open(args, nargs, recp, 0); }
+rt_call_next_t rk_callwith_open(DESCR_t *args, int nargs, void *recp) { return rk_redispatch_open(args, nargs, recp, 1); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 rt_call_next_t rt_apply_open(DESCR_t *args, int nargs) {
     extern rt_call_next_t rt_call_open_by_name(const char *, int);
@@ -12041,9 +12123,12 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = (DESCR_t){ .v = DT_BOOL, .i = u };
         return 1;
     }
+    if (!strcmp(fn, "__rk_gist_pre") && nargs == 1) { if (!rk_strmeth_open(args[0], 1, rq, out)) *out = args[0]; return 1; }
+    if (!strcmp(fn, "__rk_str_pre") && nargs == 1) { if (!rk_strmeth_open(args[0], 0, rq, out)) *out = args[0]; return 1; }
     if (!strcmp(fn, "__rk_str") && nargs == 1) {
         extern const char *rk_obj_stringify(DESCR_t d, int use_gist);
         DESCR_t a = args[0];
+        if (rk_strmeth_open(a, 0, rq, out)) return 1;
         if (a.v == DT_BOOL) { *out = STRVAL(rt_heap_strdup_c(a.i ? "True" : "False")); return 1; }
         if (a.v == DT_ORDER) { *out = STRVAL(rt_heap_strdup_c(a.i < 0 ? "Less" : (a.i > 0 ? "More" : "Same"))); return 1; }
         if (a.v == DT_SNUL || rk_typeobj_name(a)) { *out = STRVAL(rt_heap_strdup_c("")); return 1; }
@@ -12851,26 +12936,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             snprintf(cand, sizeof cand, "%s__%s", mro[i], fmname);
             if (meth_is_user_proc(cand)) { next = i; break; }
         }
-        if (next < 0) { *out = FAILDESCR; return 1; }
+        if (next < 0) { *out = NULVCL; return 1; }
         char nproc[fmt_len("%s__%s", mro[next], fmname)];
         snprintf(nproc, sizeof nproc, "%s__%s", mro[next], fmname);
-        int total = (!strcmp(fn, "callwith")) ? 1 + nargs : top->nargs;
-        DESCR_t ca[total > 0 ? total : 1];
-        if (strcmp(fn, "callwith") == 0) { ca[0] = top->self; for (int k = 0; k + 1 < total; k++) ca[1 + k] = args[k]; } else { for (int k = 0; k < total; k++) ca[k] = rd_arg(top, k); }
-        rk_redisp_t rec;
-        rec.self = top->self;
-        rec.mname = top->mname;
-        rec.cname = top->cname;
-        rec.found_idx = next;
-        rec.nargs = total;
-        rec.args = ca;
-        rec.skip_mname = 0;
-        rec.local = 1;
-        rec.prev = g_redisp_cur;
-        g_redisp_cur = &rec;
-        DESCR_t r = invoke_method_proc(nproc, ca, total);
-        g_redisp_cur = rec.prev;
-        *out = r;
+        extern DESCR_t rt_c2bb_bomb(const char *site, const char *name);
+        *out = rt_c2bb_bomb("callsame/callwith (a next candidate rk_callsame_open / rk_callwith_open could not open: the box enters it, C never does)", nproc);
         return 1;
     }
     if (!strcmp(fn, "exc_clear") && nargs == 0) { extern char g_script_exception[512]; (void) rk_exc_current(); g_script_exception[0] = '\0'; *out = STRVAL(rt_heap_strdup_c("")); return 1; }
@@ -13932,7 +14002,9 @@ DESCR_t rt_call_fld_sn4(DESCR_t *args, int nargs, sno_callee_rec_t *r) {
 }
 static DESCR_t rt_call_name_sn4_rq(const char *fn, DESCR_t *args, int nargs, int bidlen, long *rq);
 int rt_builtin_tail_may_open(const char *fn) {
-    return fn && (!strcmp(fn, "__blk_invoke") || !strcmp(fn, "__multi_call") || !strcmp(fn, "obj_new") || !strcmp(fn, "__rk_named_call") || !strcmp(fn, "meth_call"));
+    return fn &&
+        (!strcmp(fn, "__blk_invoke") || !strcmp(fn, "__multi_call") || !strcmp(fn, "obj_new") || !strcmp(fn, "__rk_named_call") || !strcmp(fn, "meth_call") || !strcmp(fn, "__rk_str") ||
+        !strcmp(fn, "__rk_gist_pre") || !strcmp(fn, "__rk_str_pre"));
 }
 rt_call_next_t rt_call_arr_bl_try(const char *fn, DESCR_t *args, long nb, DESCR_t *out) {
     long rq[2] = { 0, 0 };
@@ -14684,6 +14756,20 @@ static int rk_mu_method(const char *m, DESCR_t self, int nmargs, DESCR_t *out) {
     if (!strcmp(m, "list") || !strcmp(m, "Seq") || !strcmp(m, "flat") || !strcmp(m, "cache") || !strcmp(m, "Slip")) { *out = rk_mark_list(rk_mk_arr(&self, 1)); return 1; }
     return 0;
 }
+static int rk_strmeth_open(DESCR_t d, int use_gist, long *rq, DESCR_t *out) {
+    if (!rq || !IS_DATA_INST_fn(d) || !d.u || !d.u->type || !d.u->type->name || rk_uni_is_name(d.u->type->name)) return 0;
+    { extern int rk_rat_is(DESCR_t); if (rk_rat_is(d) || rk_match_is(d)) return 0; }
+    const char *mname = use_gist ? "gist" : "Str";
+    const char *rmc = resolve_method_chain(d.u->type->name, mname, NULL);
+    char proc[fmt_len("%s__%s", rmc, mname)];
+    snprintf(proc, sizeof proc, "%s__%s", rmc, mname);
+    if (!meth_is_user_proc(proc)) return 0;
+    rt_call_args_need(1);
+    CALL_ARGS[0] = d;
+    *out = rk_proc_descr_rq(proc, 1, rq);
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 const char *rk_obj_stringify(DESCR_t d, int use_gist) {
     { extern int rk_rat_is(DESCR_t); extern const char *rk_rat_str(DESCR_t, int); if (rk_rat_is(d)) return rk_rat_str(d, 0); }
     { const char *ms = rk_match_render(d, use_gist); if (ms) return ms; }
