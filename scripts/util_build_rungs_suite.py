@@ -220,12 +220,18 @@ PROLOG_NAME_FEATURES = [
     ("list_cons", "list"), ("write_canonical", "write_canonical"), ("writeq", "writeq"), ("format", "format"),
     ("directive", "directive"),
 ]
+# ⭐ THE regex COLUMN MARKS EVERY REGEX CONSTRUCT, NOT THE BARE WORD (the coo 2026-10-10, row instruments-the-raku-rungs-regex-attribute-
+# column-marks-3-of-74-...; the cfo's finding: BARE("regex") marked 3 of the 73 rungs entries carrying a construct, so the area smoke, which
+# selects by this column through scripts/area_map.tsv, could not see the Raku regex roll-out). A regex, token, rule or grammar declaration
+# (the keyword not a sigilled name, followed by a name or a signature), a smartmatch against a literal pattern ~~ /.../ or ~~ m/.../,
+# an m//, rx// or s/// quote with or without adverbs (not $m/2, a division), and the .subst and .match methods.
+RAKU_REGEX_CONSTRUCT = re.compile(r"(?<![$@%&\w-])(regex|token|rule|grammar)\s+[\w<-]|~~\s*(m|rx)?\s*/|(?<![$@%&\w])(s|m|rx)(:\w+)*/|\.subst\b|\.match\b")
 RAKU_COLS = [
     ("sub", BARE("sub")), ("multi", BARE("multi")), ("my", BARE("my")), ("our", BARE("our")),
     ("say", LOW("say")), ("print", LOW("print")), ("given", BARE("given")), ("when", BARE("when")),
     ("if", BARE("if")), ("elsif", BARE("elsif")), ("unless", BARE("unless")), ("for", BARE("for")),
     ("while", BARE("while")), ("loop", BARE("loop")), ("return", BARE("return")), ("class", BARE("class")),
-    ("has", BARE("has")), ("method", BARE("method")), ("regex", BARE("regex")), ("token", BARE("token")),
+    ("has", BARE("has")), ("method", BARE("method")), ("regex", lambda t: 1 if RAKU_REGEX_CONSTRUCT.search(t) else 0), ("token", BARE("token")),
     ("grep", LOW("grep")), ("map", LOW("map")), ("sort", LOW("sort")), ("join", LOW("join")),
     ("split", LOW("split")), ("sprintf", LOW("sprintf")), ("die", LOW("die")), ("try", BARE("try")),
     ("sigil_scalar", lambda t: 1 if re.search(r"\$[A-Za-z_]", t) else 0),

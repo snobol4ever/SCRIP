@@ -24,6 +24,17 @@
 # to make that copy and never written.
 # SUT= overrides the builder under test, so this gate can be proven to FAIL against the pre-reindex version.
 set -uo pipefail
+# ⭐ PROLOG AND RAKU BY DEFAULT (the coo 2026-10-10, row instruments-the-raku-rungs-regex-attribute-column-marks-3-of-74-...): raku's ALL.csv
+# is the area smoke's selector for the regex roll-out, so its index is held to the builder that derives it beside prolog's, in ONE recipe
+# line (util_gate_wiring.py doubles: one line per script). LANG_T names one language and runs only that. A red outranks a refusal.
+if [ -z "${LANG_T:-}" ]; then
+  red=0; refused=0
+  for spec in prolog:.pl raku:.raku; do
+    LANG_T="${spec%%:*}" EXT_T="${spec#*:}" bash "${BASH_SOURCE[0]}" "$@"; r=$?
+    [ "$r" = 1 ] && red=1; [ "$r" -ge 2 ] && refused=1
+  done
+  [ "$red" = 1 ] && exit 1; [ "$refused" = 1 ] && exit 2; exit 0
+fi
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
 S4E_REAL="${S4E_HOME:-$(cd "$ROOT/.." && pwd)}"
 SUT="${SUT:-$HERE/util_build_rungs_suite.py}"
