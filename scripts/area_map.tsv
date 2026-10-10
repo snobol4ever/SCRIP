@@ -72,7 +72,6 @@
 *	src/templates/bb/bb_lit_scalar.cpp
 *	src/templates/bb/bb_zdp_anchor.cpp
 *	src/templates/bb/bb_random.cpp
-*	src/templates/bb/bb_gcc.cpp
 *	src/templates/bb/bb_gate.cpp
 *	src/templates/bb/bb_gate_arm.cpp
 *	src/templates/bb/bb_subscript.cpp
@@ -176,10 +175,7 @@ tab	src/templates/bb/bb_scan_tab.cpp
 move	src/templates/bb/bb_scan_move.cpp
 pos	src/templates/bb/bb_scan_pos.cpp
 alternation	src/templates/bb/bb_scan_alternate.cpp
-alternation	src/templates/bb/bb_galt.cpp
-gen_with_alternation	src/templates/bb/bb_galt.cpp
-element_gen	src/templates/bb/bb_glit.cpp
-every	src/templates/bb/bb_iterate.cpp
+gen_with_every	src/templates/bb/bb_iterate.cpp
 every_with_suspend	src/templates/bb/bb_iterate.cpp
 every_with_suspend	src/templates/bb/bb_suspend.cpp
 suspend	src/templates/bb/bb_suspend.cpp
@@ -361,3 +357,8 @@ lang:prolog	src/templates/bb/bb_pl_cell.h
 lang:prolog	src/templates/bb/bb_pl_leaf_kinds.h
 *	src/templates/bb/bb_match_lit.cpp
 *	src/templates/bb/bb_match_atp.cpp
+regex	src/templates/bb/bb_match_rkrun.cpp
+regex	src/templates/bb/bb_match_rkcap.cpp
+regex	src/templates/bb/bb_match_rkland.cpp
+regex	src/parsers/raku/rk_regex.c
+regex	src/parsers/raku/rk_regex.h

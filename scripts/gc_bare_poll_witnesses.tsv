@@ -81,7 +81,6 @@ src/templates/bb/bb_define.cpp:rt_trace_fail_hook_p#1	hb_sno_a_call_with_more_ar
 src/templates/bb/bb_define.cpp:sno_trace_return#2	hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 src/templates/bb/bb_deref.cpp:rt_deref#1	hb_sno_twenty_thousand_indirect_names.sno
 src/templates/bb/bb_deref.cpp:rt_deref#2	stack_top_under_valgrind.icn
-src/templates/bb/bb_gcc.cpp:rt_icn_cset_member#1	UNWITNESSED
 src/templates/bb/bb_glue_flat.cpp:sno_setexit_fire_on_end#1	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_glue_flat.cpp:rt_trace_pend_run#1	hb_deferexpr_a_dupl.sno
 src/templates/bb/bb_glue_flat.cpp:rt_trace_pend_close#1	hb_deferexpr_a_dupl.sno

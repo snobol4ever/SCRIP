@@ -402,11 +402,11 @@ int rt_builtin_is_known(const char *name) {
         "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure",
         "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any",
         "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults", "meth_call", "field_set", "field_set_pub", "field_get_pub",
-        "__rk_say_capture", "__rk_say_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame",
-        "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT",
-        "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD",
-        "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT",
-        "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die",
+        "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv",
+        "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR",
+        "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET",
+        "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -13623,6 +13623,8 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = _mr;
         return 1;
     }
+    if (!strcmp(fn, "__rk_match_last") && nargs == 0) { *out = (g_match.matched && g_subject) ? rk_match_obj(&g_match, g_subject) : rk_match_nil(); return 1; }
+    if (!strcmp(fn, "__rk_match_clear") && nargs == 0) { memset(&g_match, 0, sizeof g_match); *out = NULVCL; return 1; }
     if (!strcmp(fn, "re_match") && nargs == 2) {
         const char *subj = VARVAL_fn(args[0]);
         if (!subj) subj = "";
@@ -13773,9 +13775,9 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = count > 0 ? rk_mk_arr(mr, count) : FAILDESCR;
         return 1;
     }
-    if ((!strcmp(fn, "__rk_say_capture") || !strcmp(fn, "__rk_say_named_capture")) && nargs == 1) {
-        int g = -1;
-        if (g_match.matched && fn[9] == 'c') g = rk_positional_group(IS_INT_fn(args[0]) ? (int) args[0].i : -1);
+    if ((!strcmp(fn, "__rk_say_capture") || !strcmp(fn, "__rk_say_named_capture") || !strcmp(fn, "__rk_gist_capture") || !strcmp(fn, "__rk_gist_named_capture")) && nargs == 1) {
+        int g = -1, say = fn[5] == 's', named = fn[say ? 9 : 10] == 'n';
+        if (g_match.matched && !named) g = rk_positional_group(IS_INT_fn(args[0]) ? (int) args[0].i : -1);
         else if (g_match.matched) { const char *name = VARVAL_fn(args[0]); for (int i = 0; name && i < g_match.ngroups; i++) if (!strcmp(match_group_name(&g_match, i), name)) { g = i; break; } }
         if (g >= 0 && g < g_match.ngroups && match_group_repeatable(&g_match, g)) {
             DESCR_t l = rk_capture_list(g, 1);
@@ -13783,7 +13785,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             int ln = (int) FIELD_GET_fn(l, "frame_size").i;
             rk_av_t av = { ln, IS_DATA_ELEMS_fn(ea) ? (DESCR_t *) ea.ptr : NULL, 0 };
             DESCR_t s2 = STRVAL(rk_av_joined(av, " ", "[", "]"));
-            *out = RT_GC_CALLBACK(rt_call_arr("write", &s2, 1));
+            *out = say ? RT_GC_CALLBACK(rt_call_arr("write", &s2, 1)) : s2;
             return 1;
         }
         DESCR_t s;
@@ -13797,7 +13799,7 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
             o[len + 6] = '\0';
             s = STRVAL(o);
         }
-        *out = RT_GC_CALLBACK(rt_call_arr("write", &s, 1));
+        *out = say ? RT_GC_CALLBACK(rt_call_arr("write", &s, 1)) : s;
         return 1;
     }
     if (!strcmp(fn, "re_capture") && nargs == 1) {
@@ -20234,3 +20236,131 @@ PL_CX_LEAF_HEAD(cutcall, 2)
         }
     }
 PL_CX_LEAF_TAIL
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static unsigned rk_box_cp(const char *s, long i, long end, int *len) {
+    unsigned c = (unsigned char) s[i];
+    int k = c < 0x80 ? 1 : c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : c >= 0xC0 ? 2 : 1;
+    if (i + k > end) k = 1;
+    *len = k;
+    if (k == 1) return c;
+    { unsigned v = c & (0x7Fu >> k); for (int j = 1; j < k; j++) v = (v << 6) | ((unsigned char) s[i + j] & 0x3Fu); return v; }
+}
+static int rk_box_class_named(const char *nm, int nl, unsigned c) {
+    if (nl == 5 && !strncmp(nm, "digit", 5)) return c >= '0' && c <= '9';
+    if (nl == 4 && !strncmp(nm, "word", 4)) return c == '_' || (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c >= 0xAA;
+    if (nl == 5 && !strncmp(nm, "space", 5)) return c == ' ' || (c >= 9 && c <= 13) || c == 0x85 || c == 0xA0 || c == 0x1680 || (c >= 0x2000 && c <= 0x200A) || c == 0x2028 || c == 0x2029 ||
+        c == 0x202F || c == 0x205F || c == 0x3000;
+    if (nl == 6 && !strncmp(nm, "hspace", 6)) return c == 9 || c == ' ' || c == 0xA0 || c == 0x1680 || (c >= 0x2000 && c <= 0x200A) || c == 0x202F || c == 0x205F || c == 0x3000;
+    if (nl == 6 && !strncmp(nm, "vspace", 6)) return (c >= 10 && c <= 13) || c == 0x85 || c == 0x2028 || c == 0x2029;
+    if (nl == 2 && !strncmp(nm, "nl", 2)) return c == 10 || c == 11 || c == 12 || c == 13 || c == 0x85 || c == 0x2028 || c == 0x2029;
+    if (nl == 5 && !strncmp(nm, "alpha", 5)) return c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c >= 0xAA;
+    if (nl == 5 && !strncmp(nm, "alnum", 5)) return (c >= '0' && c <= '9') || c == '_' || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c >= 0xAA;
+    if (nl == 5 && !strncmp(nm, "upper", 5)) return c >= 'A' && c <= 'Z';
+    if (nl == 5 && !strncmp(nm, "lower", 5)) return c >= 'a' && c <= 'z';
+    if (nl == 5 && !strncmp(nm, "punct", 5)) return c < 0x80 && ispunct((int) c);
+    if (nl == 6 && !strncmp(nm, "xdigit", 6)) return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+    if (nl == 5 && !strncmp(nm, "cntrl", 5)) return c < 32 || c == 127;
+    if (nl == 5 && !strncmp(nm, "print", 5)) return c >= 32 && c != 127;
+    if (nl == 5 && !strncmp(nm, "graph", 5)) return c > 32 && c != 127;
+    if (nl == 5 && !strncmp(nm, "blank", 5)) return c == ' ' || c == 9;
+    if (nl == 5 && !strncmp(nm, "ascii", 5)) return c < 0x80;
+    return 0;
+}
+static int rk_box_class_member(const char *p, unsigned c) {
+    int in = (*p == '-') ? 1 : 0;
+    while (*p) {
+        int sub = 0, hit = 0;
+        if (*p == '-') { sub = 1; p++; }
+        if (*p == 'r') {
+            char *e;
+            unsigned lo = (unsigned) strtoul(p + 1, &e, 10), hi = (unsigned) strtoul(e + 1, &e, 10);
+            hit = c >= lo && c <= hi;
+            p = e;
+        } else if (*p == 'n' || *p == 'N') {
+            const char *q = strchr(p + 1, ';');
+            if (!q) break;
+            hit = rk_box_class_named(p + 1, (int) (q - p - 1), c) ^ (*p == 'N');
+            p = q;
+        } else break;
+        if (*p == ';') p++;
+        if (sub) { if (hit) in = 0; } else if (hit) in = 1;
+    }
+    return in;
+}
+long rk_box_step(const char *subj, long delta, long end, const char *blob) {
+    const char *spec = blob ? strchr(blob, ';') : (const char *) 0;
+    if (!spec) return -1;
+    spec++;
+    if (blob[0] == 'L') { long k = (long) strlen(spec); return (delta + k <= end && !memcmp(subj + delta, spec, (size_t) k)) ? delta + k : -1; }
+    if (blob[0] == 'A') { int l; if (delta >= end) return -1; rk_box_cp(subj, delta, end, &l); return delta + l; }
+    if (blob[0] == 'C') { int l; unsigned c; if (delta >= end) return -1; c = rk_box_cp(subj, delta, end, &l); return rk_box_class_member(spec, c) ? delta + l : -1; }
+    return -1;
+}
+long rk_box_back(const char *subj, long delta, const char *blob, long floor_delta) {
+    const char *spec = blob ? strchr(blob, ';') : (const char *) 0;
+    if (spec && blob[0] == 'L') { long k = (long) strlen(spec + 1); return delta - k >= floor_delta ? delta - k : floor_delta; }
+    if (delta <= floor_delta) return floor_delta;
+    delta--;
+    while (delta > floor_delta && ((unsigned char) subj[delta] & 0xC0) == 0x80) delta--;
+    return delta;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+void rk_box_match_build(const char *subj, long span, const long *cells, const char *names) {
+    int start = (int) (span >> 32), end = (int) (span & 0xFFFFFFFFL), n = (int) (cells[0] & 0xFFFFFFFFL), slen = (int) (cells[0] >> 32);
+    const int *pairs = (const int *) (cells + 1);
+    const char *nm[n > 0 ? n : 1];
+    int nl[n > 0 ? n : 1], ncl = 0;
+    {
+        const char *q = names ? strchr(names, '\n') : (const char *) 0;
+        q = q ? q + 1 : "";
+        for (int g = 0; g < n; g++) { const char *e = strchr(q, '\n'); nm[g] = q; nl[g] = e ? (int) (e - q) : (int) strlen(q); q = e ? e + 1 : q + strlen(q); if (pairs[2 * g + 1] >= 0) ncl++; }
+    }
+    {
+        size_t nb = 1, ints = (size_t) (4 * n + 3 * ncl + 10 * ncl);
+        for (int g = 0; g < n; g++) nb += 2 * ((size_t) nl[g] + 1);
+        char *copy = rt_wsb_alloc((size_t) slen + 1);
+        if (slen > 0) memcpy(copy, subj, (size_t) slen);
+        copy[slen] = '\0';
+        memset(&g_match, 0, sizeof g_match);
+        g_match.matched = 1;
+        g_match.full_start = start;
+        g_match.full_end = end;
+        g_match.ngroups = n;
+        g_match.ncaplog = ncl;
+        g_match.nev = ncl;
+        g_match.blk = rt_wsb_alloc(ints * sizeof(int) + nb);
+        {
+            char *base = g_match.blk + ints * sizeof(int), *np = base;
+            int lk = 0, ev = 0, pidx = 0;
+            *np++ = '\0';
+            for (int g = 0; g < n; g++) {
+                int *gr = MATCH_GRP(&g_match, g);
+                gr[0] = pairs[2 * g];
+                gr[1] = pairs[2 * g + 1];
+                gr[2] = 0;
+                if (nl[g]) { gr[3] = (int) (np - g_match.blk); memcpy(np, nm[g], (size_t) nl[g]); np += nl[g]; *np++ = '\0'; } else gr[3] = (int) (base - g_match.blk);
+            }
+            for (int g = 0; g < n; g++) {
+                int my = nl[g] ? 0 : pidx++;
+                if (pairs[2 * g + 1] < 0) continue;
+                { int *lg = MATCH_LOG(&g_match, lk++); lg[0] = g; lg[1] = pairs[2 * g]; lg[2] = pairs[2 * g + 1]; }
+                {
+                    int *e = RK_EV(&g_match, ev);
+                    e[0] = nl[g] ? 1 : 0;
+                    e[1] = my;
+                    e[2] = -1;
+                    e[3] = -1;
+                    e[4] = 0;
+                    e[5] = pairs[2 * g];
+                    e[6] = pairs[2 * g + 1];
+                    e[7] = ev;
+                    e[8] = g;
+                    e[9] = -1;
+                    if (nl[g]) { e[2] = (int) (np - g_match.blk); memcpy(np, nm[g], (size_t) nl[g]); np += nl[g]; *np++ = '\0'; }
+                    ev++;
+                }
+            }
+        }
+        g_subject = copy;
+    }
+}

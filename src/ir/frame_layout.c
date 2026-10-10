@@ -536,7 +536,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int zls_is_wiring(IR_e op) {
     return op == IR_GOTO || op == IR_GATE_ARM || op == IR_GOTO_DEFERRED || op == IR_SUCCEED || op == IR_FAIL || op == IR_RETURN || op == IR_SUSPEND || op == IR_CORET || op == IR_COFAIL ||
-        op == IR_CUT || op == IR_MATCH_END || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_GLIT || op == IR_GCC || op == IR_GALT;
+        op == IR_CUT || op == IR_MATCH_END || op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK;
 }
 static int zls_locals_shifted(IR_e op) {
     return op == IR_BOUND || op == IR_MATCH_BEGIN || op == IR_MATCH_ALTERNATE || op == IR_MATCH_ARB || op == IR_MATCH_BAL || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_MATCH_ARBNO ||
@@ -686,8 +686,7 @@ static int fct_rsp_range(IR_graph_t * g, int k0, int k1) {
             op == IR_STATEMENT || op == IR_STATEMENT_BEGIN || op == IR_STATEMENT_END || op == IR_STMT_MARK || op == IR_SETEXIT_TEST || op == IR_LINE_MARK || op == IR_MATCH_LIT || op == IR_MATCH_LEN ||
             op == IR_MATCH_ANY || op == IR_MATCH_NOTANY || op == IR_MATCH_POS || op == IR_MATCH_RPOS || op == IR_MATCH_ASSIGN_COND || op == IR_MATCH_ASSIGN_IMM || op == IR_MATCH_VALUE ||
             op == IR_MATCH_ALTERNATE || op == IR_MATCH_FENCE0 || op == IR_MATCH_FENCE1 || op == IR_BOUND || op == IR_UNMARK || op == IR_CONJUNCTION || op == IR_CUT || op == IR_GATE_ARM ||
-            op == IR_GLIT || op == IR_GCC || op == IR_GALT || op == IR_RETURN || (op == IR_DISJUNCTION && x->n_operands == 0) ||
-            (op == IR_MATCH_DEFER && x->pat_static && IR_LIT(x).sval && !strncmp(IR_LIT(x).sval, "PATV$", 5))) continue;
+            op == IR_RETURN || (op == IR_DISJUNCTION && x->n_operands == 0) || (op == IR_MATCH_DEFER && x->pat_static && IR_LIT(x).sval && !strncmp(IR_LIT(x).sval, "PATV$", 5))) continue;
         if (op == IR_MATCH_ALTERNATE) { int _b = 0, _e = 0; if (fc_alt_fpmax(x) >= 0 && fc_alt_extent(x, &_b, &_e)) { if (_e > j + 1) j = _e - 1; } continue; }
         rsp += 16;
     }
@@ -2070,7 +2069,6 @@ void fl_derive_tier(IR_graph_t * g) {
             case IR_REPALT:
             case IR_ITERATE:
             case IR_DISJUNCTION:
-            case IR_GALT:
             case IR_CUT:
             case IR_CALL_BUILTIN_GEN:
             case IR_KW_ICON_GEN:
@@ -2162,9 +2160,7 @@ long zw_carve_k(const IR_t * nd) {
         (nd->op == IR_BINOP || nd->op == IR_ASSIGN || nd->op == IR_LIT_INTEGER || nd->op == IR_LIT_STRING || nd->op == IR_LIT_ATOM || nd->op == IR_LIT_REAL || nd->op == IR_LIT_CHARSET ||
         nd->op == IR_LIT_NAME || nd->op == IR_VAR || nd->op == IR_CMP_TEST || nd->op == IR_COERCE_NUMERIC || nd->op == IR_IDENT || nd->op == IR_DIFFER);
     if (_spine) return 0;
-    if (!g_lower.ir.zw_carve_k_all &&
-        ((nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED || nd->op == IR_GLIT || nd->op == IR_GCC || nd->op == IR_GALT))
-        return 0;
+    if (!g_lower.ir.zw_carve_k_all && ((nd->op == IR_DEFINE && ir_define_sr_citizen(nd)) || ir_norm_call_kind(nd->op) == IR_CALL || nd->op == IR_GOTO_DEFERRED)) return 0;
     if (fc_geom(nd, &_d)) return 0;
     _k = zw_node_k(nd);
     if (_k <= 0) return 0;

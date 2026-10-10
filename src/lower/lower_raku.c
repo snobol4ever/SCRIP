@@ -217,6 +217,239 @@ static int rk_is_relop(tree_e tt) {
     switch (tt) { case TT_LT: case TT_LE: case TT_GT: case TT_GE: case TT_EQ: case TT_NE: case TT_LEQ: case TT_LNE: case TT_LLT: case TT_LLE: case TT_LGT: case TT_LGE: return 1; default: return 0; }
 }
 static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res);
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+typedef struct { IR_t * entry; IR_t * tail; } rkrx_t;
+typedef struct { int maxp; int nnamed; const char * named[64]; } rkrx_groups_t;
+static long long rk_rx_fl(const tree_t * t) { return (t && t->n > 0 && t->c[0] && t->c[0]->t == TT_ILIT) ? t->c[0]->v.ival : 0; }
+static void rk_rx_tag(IR_ref_t * r, const char * tg) { memcpy(r->sz, tg, 3); r->sz[3] = 0; }
+static int rk_rx_tagged(const IR_ref_t * r, unsigned char b1) { return (unsigned char) r->sz[0] == 0xcf && (unsigned char) r->sz[1] == b1; }
+static int rk_rx_atomic(const tree_t * a) {
+    if (!a) return 0;
+    if (a->t == TT_RX_ANY) return 1;
+    if (a->t == TT_RX_LIT) return (rk_rx_fl(a) & 33) == 0 && a->slen > 0 && a->v.sval && (int) strlen(a->v.sval) == a->slen;
+    if (a->t == TT_RX_CLASS) { if (a->v.ival & 1) return 0; for (int i = 0; i < a->n; i++) if (!a->c[i] || (a->c[i]->t != TT_RX_CRANGE && a->c[i]->t != TT_RX_CNAME)) return 0; return 1; }
+    if (a->t == TT_RX_GROUP && a->n == 1) return rk_rx_atomic(a->c[0]);
+    return 0;
+}
+static int rk_rx_core(const tree_t * t) {
+    if (!t) return 0;
+    switch (t->t) {
+        case TT_RX_SEQ:
+        case TT_RX_GROUP:
+        case TT_RX_ALT:
+        if ((t->t == TT_RX_SEQ && t->v.ival) || (t->t == TT_RX_ALT && t->v.ival == 2)) return 0;
+        for (int i = 0; i < t->n; i++) if (!rk_rx_core(t->c[i])) return 0;
+        return 1;
+        case TT_RX_LIT:
+        case TT_RX_ANY:
+        case TT_RX_CLASS:
+        return rk_rx_atomic(t);
+        case TT_RX_QUANT:
+        return t->n == 3 && rk_rx_atomic(t->c[0]) && t->c[1] && t->c[1]->t == TT_ILIT && t->c[2] && t->c[2]->t == TT_ILIT;
+        case TT_RX_CAP:
+        return t->n == 1 && rk_rx_core(t->c[0]);
+        case TT_RX_ANCHOR:
+        return t->v.ival == 0 || t->v.ival == 1;
+        case TT_RX_NULL:
+        return 1;
+        default:
+        return 0;
+    }
+}
+static void rk_rx_scan_groups(const tree_t * t, rkrx_groups_t * gr) {
+    if (!t) return;
+    if (t->t == TT_RX_CAP) {
+        if (t->slen > 0 && t->v.sval) {
+            int seen = 0;
+            for (int i = 0; i < gr->nnamed; i++) if (!strcmp(gr->named[i], t->v.sval)) seen = 1;
+            if (!seen && gr->nnamed < 64) gr->named[gr->nnamed++] = t->v.sval;
+        } else if ((int) t->v.ival > gr->maxp) gr->maxp = (int) t->v.ival;
+    }
+    for (int i = 0; i < t->n; i++) rk_rx_scan_groups(t->c[i], gr);
+}
+static int rk_rx_slot(const tree_t * cap, const rkrx_groups_t * gr) {
+    if (cap->slen <= 0) return (int) cap->v.ival;
+    for (int i = 0; i < gr->nnamed; i++) if (!strcmp(gr->named[i], cap->v.sval)) return gr->maxp + 1 + i;
+    return 0;
+}
+static char * rk_rx_blob(const tree_t * a, long mn, long mx, long flags) {
+    while (a->t == TT_RX_GROUP && a->n == 1) a = a->c[0];
+    {
+        size_t cap = 80 + (a->t == TT_RX_LIT ? (size_t) a->slen : (size_t) a->n * 48);
+        char * b = (char *) ct_alloc(cap);
+        int k = snprintf(b, cap, "%c%ld,%ld,%ld;", a->t == TT_RX_LIT ? 'L' : a->t == TT_RX_ANY ? 'A' : 'C', mn, mx, flags);
+        if (a->t == TT_RX_LIT) { memcpy(b + k, a->v.sval, (size_t) a->slen); b[k + a->slen] = 0; return b; }
+        for (int i = 0; a->t == TT_RX_CLASS && i < a->n; i++) {
+            const tree_t * it = a->c[i];
+            if (it->t == TT_RX_CRANGE) k += snprintf(b + k, cap - (size_t) k, "%sr%lld,%lld;", it->v.ival ? "-" : "", it->c[0]->v.ival, it->c[1]->v.ival);
+            else { long long f = rk_rx_fl(it); k += snprintf(b + k, cap - (size_t) k, "%s%c%s;", (f & 2) ? "-" : "", (f & 1) ? 'N' : 'n', it->v.sval); }
+        }
+        return b;
+    }
+}
+static rkrx_t rk_rx_lower(rcx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail, IR_t * land, const rkrx_groups_t * gr);
+static void rk_rx_retag_alpha(IR_graph_t * g, int from, IR_t * target) {
+    for (int k = from; k < g->n; k++) { IR_t * x = g->all[k]; if (x && x->γ.node == target && (unsigned char) x->γ.sz[0] == 0xce && (unsigned char) x->γ.sz[1] == 0xb2) lc_γ_to(x, target); }
+}
+static rkrx_t rk_rx_leaf(rcx_t * cx, IR_e op, IR_t * succ, IR_t * fail) { IR_t * nd = lc_build(cx->g, op, succ, NULL); lc_ω_to_β(nd, fail); return (rkrx_t) { nd, nd }; }
+static rkrx_t rk_rx_seq(rcx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail, IR_t * land, const rkrx_groups_t * gr) {
+    IR_graph_t * g = cx->g;
+    int ne = t->n;
+    IR_t * S = lc_build(g, IR_GOTO, succ, NULL);
+    IR_t * ent[ne > 0 ? ne : 1], * res[ne > 0 ? ne : 1];
+    int lo[ne > 0 ? ne : 1];
+    lc_ω_to_β(S, fail);
+    for (int i = 0; i < ne; i++) {
+        int before = g->n, rb = before;
+        rkrx_t r = rk_rx_lower(cx, t->c[i], S, S, land, gr);
+        IR_t * ti = NULL;
+        while (rb < g->n && g->all[rb] && g->all[rb]->op == IR_GOTO && g->all[rb]->γ.node == S && g->all[rb]->ω.node == S && g->all[rb]->n_operands == 0) rb++;
+        for (int k = before; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->ω.node == S) rk_rx_tag(&x->ω, "φ");
+            if (x->γ.node == S) { if (x->op == IR_GOTO && x->ω.node == S) rk_rx_tag(&x->γ, "φ"); else { rk_rx_tag(&x->γ, "σ"); ti = x; } }
+        }
+        ent[i] = r.entry;
+        res[i] = ti ? ti : ((rb < g->n) ? g->all[rb] : r.entry);
+        lo[i] = before;
+    }
+    for (int i = 0; i < ne; i++) {
+        IR_t * nxt = (i + 1 < ne) ? ent[i + 1] : succ;
+        IR_t * prv = (i > 0) ? res[i - 1] : fail;
+        int hi = (i + 1 < ne) ? lo[i + 1] : g->n;
+        for (int k = lo[i]; k < g->n && k < hi; k++) {
+            IR_t * x = g->all[k];
+            if (!x || x == S) continue;
+            if (x->ω.node == S && rk_rx_tagged(&x->ω, 0x86)) { x->ω.node = prv; rk_rx_tag(&x->ω, "β"); }
+            if (x->γ.node == S && rk_rx_tagged(&x->γ, 0x86)) { x->γ.node = prv; rk_rx_tag(&x->γ, "β"); }
+            if (x->γ.node == S && rk_rx_tagged(&x->γ, 0x83)) { x->γ.node = nxt; x->γ.sz[0] = 0; }
+        }
+    }
+    for (int k = 0; k < g->n; k++) {
+        IR_t * x = g->all[k];
+        if (!x || x == S) continue;
+        if (x->ω.node == S && rk_rx_tagged(&x->ω, 0x86)) { x->ω.node = fail; rk_rx_tag(&x->ω, "β"); }
+        if (x->γ.node == S && rk_rx_tagged(&x->γ, 0x86)) { x->γ.node = fail; rk_rx_tag(&x->γ, "β"); }
+        if (x->γ.node == S && rk_rx_tagged(&x->γ, 0x83)) { x->γ.node = succ; x->γ.sz[0] = 0; }
+    }
+    S->γ.node = succ;
+    S->γ.sz[0] = 0;
+    return (rkrx_t) { ne > 0 ? ent[0] : succ, ne > 0 ? res[ne - 1] : succ };
+}
+static rkrx_t rk_rx_alt(rcx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail, IR_t * land, const rkrx_groups_t * gr) {
+    IR_graph_t * g = cx->g;
+    IR_t * A = lc_build(g, IR_MATCH_ALTERNATE, succ, NULL);
+    lc_ω_to_β(A, fail);
+    for (int i = 0; i < t->n; i++) {
+        int before = g->n;
+        rkrx_t r = rk_rx_lower(cx, t->c[i], A, A, land, gr);
+        IR_t * ri = (before < g->n) ? g->all[before] : r.entry, * ti = NULL;
+        for (int k = before; k < g->n; k++) {
+            IR_t * x = g->all[k];
+            if (!x) continue;
+            if (x->ω.node == A) rk_rx_tag(&x->ω, "φ");
+            if (x->γ.node == A) { if (x->op == IR_GOTO && x->ω.node == A) rk_rx_tag(&x->γ, "φ"); else { rk_rx_tag(&x->γ, "σ"); ti = x; } }
+        }
+        if (ti) ri = ti;
+        ir_operand_push(A, r.entry);
+        ir_operand_push(A, ri);
+    }
+    IR_LIT(A).ival = (long) t->n;
+    return (rkrx_t) { A, A };
+}
+static rkrx_t rk_rx_lower(rcx_t * cx, const tree_t * t, IR_t * succ, IR_t * fail, IR_t * land, const rkrx_groups_t * gr) {
+    IR_graph_t * g = cx->g;
+    switch (t->t) {
+        case TT_RX_SEQ:
+        return rk_rx_seq(cx, t, succ, fail, land, gr);
+        case TT_RX_ALT:
+        return rk_rx_alt(cx, t, succ, fail, land, gr);
+        case TT_RX_GROUP:
+        return t->n == 1 ? rk_rx_lower(cx, t->c[0], succ, fail, land, gr) : rk_rx_seq(cx, t, succ, fail, land, gr);
+        case TT_RX_LIT:
+        { rkrx_t r = rk_rx_leaf(cx, IR_MATCH_LIT, succ, fail); IR_LIT(r.entry).sval = t->v.sval; return r; }
+        case TT_RX_ANY:
+        case TT_RX_CLASS:
+        { rkrx_t r = rk_rx_leaf(cx, IR_MATCH_RKRUN, succ, fail); IR_LIT(r.entry).sval = rk_rx_blob(t, 1, 1, 0); return r; }
+        case TT_RX_QUANT:
+        {
+            long mn = (long) t->c[1]->v.ival, mx = (long) t->c[2]->v.ival;
+            rkrx_t r = rk_rx_leaf(cx, IR_MATCH_RKRUN, succ, fail);
+            IR_LIT(r.entry).sval = rk_rx_blob(t->c[0], mn, mx < 0 ? 65535 : mx, (long) (t->v.ival & 3));
+            return r;
+        }
+        case TT_RX_ANCHOR:
+        { rkrx_t r = rk_rx_leaf(cx, t->v.ival == 0 ? IR_MATCH_POS : IR_MATCH_RPOS, succ, fail); IR_LIT(r.entry).ival = 0; return r; }
+        case TT_RX_CAP:
+        {
+            int slot = rk_rx_slot(t, gr);
+            IR_t * cape = lc_build(g, IR_MATCH_RKCAPE, succ, NULL);
+            IR_t * caps = lc_build(g, IR_MATCH_RKCAPS, NULL, NULL);
+            rkrx_t body;
+            ir_operand_push(cape, land);
+            ir_operand_push(caps, land);
+            IR_LIT(cape).ival = slot;
+            IR_LIT(caps).ival = slot;
+            lc_ω_to_β(caps, fail);
+            body = rk_rx_lower(cx, t->c[0], cape, caps, land, gr);
+            lc_γ_to(caps, body.entry);
+            lc_ω_to_β(cape, body.tail);
+            return (rkrx_t) { caps, cape };
+        }
+        case TT_RX_VAR:
+        {
+            IR_t * mv = lc_build(g, IR_MATCH_VALUE, succ, NULL), * vr = NULL, * ve;
+            tree_t * vt = ast_node_new(TT_VAR);
+            vt->v.sval = t->v.sval;
+            lc_ω_to_β(mv, fail);
+            { int before = g->n; ve = lower_rv(cx, vt, mv, fail, &vr); rk_rx_retag_alpha(g, before, mv); }
+            if (vr) ir_operand_push(mv, vr);
+            return (rkrx_t) { ve ? ve : mv, mv };
+        }
+        default:
+        return rk_rx_leaf(cx, IR_GOTO, succ, fail);
+    }
+}
+static IR_t * rk_lower_smatch_boxes(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** res) {
+    IR_graph_t * g = cx->g;
+    const tree_t * rx = t->c[1]->c[1];
+    rkrx_groups_t gr = { -1, 0, { 0 } };
+    IR_t * last, * clr, * head, * release, * land, * sv = NULL, * se;
+    rkrx_t p;
+    rk_rx_scan_groups(rx, &gr);
+    {
+        int n = gr.maxp + 1 + gr.nnamed;
+        size_t cap = 24;
+        char * names;
+        for (int i = 0; i < gr.nnamed; i++) cap += strlen(gr.named[i]) + 1;
+        cap += (size_t) (gr.maxp + 1) + 1;
+        names = (char *) ct_alloc(cap);
+        {
+            int k = snprintf(names, cap, "%d\n", n);
+            for (int i = 0; i <= gr.maxp; i++) names[k++] = '\n';
+            for (int i = 0; i < gr.nnamed; i++) k += snprintf(names + k, cap - (size_t) k, "%s\n", gr.named[i]);
+            names[k] = 0;
+        }
+        last = build(cx, IR_CALL, γ, ω);
+        IR_LIT(last).sval = (char *) "__rk_match_last";
+        clr = build(cx, IR_CALL, last, ω);
+        IR_LIT(clr).sval = (char *) "__rk_match_clear";
+        head = lc_build(g, IR_MATCH_BEGIN, NULL, clr);
+        release = lc_build(g, IR_MATCH_END, last, NULL);
+        ir_operand_push(release, head);
+        land = lc_build(g, IR_MATCH_RKLAND, release, NULL);
+        IR_LIT(land).sval = names;
+    }
+    p = rk_rx_lower(cx, rx, land, head, land, &gr);
+    lc_ω_to_β(land, p.tail);
+    lc_γ_to(head, p.entry);
+    { int before = g->n; se = lower_rv(cx, t->c[0], head, ω, &sv); rk_rx_retag_alpha(g, before, head); }
+    if (sv) ir_operand_push(head, sv);
+    *res = last;
+    return se ? se : head;
+}
+static int rk_rx_boxes_on(void) { const char * e = getenv("RK_RX_BOXES"); return !(e && e[0] == '0'); }
 static int rk_proc_known(const char * name);
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static IR_t * rk_excise(rcx_t * cx, IR_t * γ, IR_t * ω, IR_t ** res) { IR_t * nd = build(cx, IR_EXCISED, γ, ω); if (res) *res = nd; return nd; }
@@ -1063,6 +1296,26 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             ast_push(f, t->c[0]->c[0]);
             return lower_rcall(cx, f, fn, 1, γ, ω, res);
         }
+        if (t->t == TT_SAY && t->n > 1) {
+            int any = 0;
+            for (int i = 0; i < t->n; i++) if (t->c[i] && (t->c[i]->t == TT_CAPTURE || t->c[i]->t == TT_NAMED_CAPTURE) && t->c[i]->n > 0) any = 1;
+            if (any) {
+                tree_t * w = ast_node_new(TT_SAY);
+                for (int i = 0; i < t->n; i++) {
+                    tree_t * a = t->c[i];
+                    if (a && (a->t == TT_CAPTURE || a->t == TT_NAMED_CAPTURE) && a->n > 0) {
+                        const char * fn = a->t == TT_CAPTURE ? "__rk_gist_capture" : "__rk_gist_named_capture";
+                        tree_t * f = ast_node_new(TT_FNC);
+                        f->v.sval = (char *) fn;
+                        ast_push(f, leaf_sval2(TT_VAR, fn));
+                        ast_push(f, a->c[0]);
+                        a = f;
+                    }
+                    ast_push(w, a);
+                }
+                return lower_rcall(cx, w, "rk_write", 0, γ, ω, res);
+            }
+        }
         if (t->t == TT_SAY && rk_user_meth_named("gist")) {
             tree_t * w = ast_node_new(TT_SAY);
             w->line = t->line;
@@ -1574,7 +1827,11 @@ static IR_t * lower_rv(rcx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
         case TT_CASE:
         if (t->n >= 1 && t->c[0]) return lower_rv(cx, rk_case_desugar(t), γ, ω, res);
         return rk_excise(cx, γ, ω, res);
+        case TT_RX_ROOT:
+        return lower_rv(cx, t->c[0], γ, ω, res);
         case TT_SMATCH:
+        if (t->n == 3 && t->c[2] && t->c[2]->v.sval && !strcmp(t->c[2]->v.sval, "match") && t->c[1] && t->c[1]->t == TT_RX_ROOT && !t->c[1]->v.ival && (!t->c[1]->v.sval || !t->c[1]->v.sval[0]) &&
+            t->c[1]->n == 2 && rk_rx_core(t->c[1]->c[1]) && rk_rx_boxes_on()) return rk_lower_smatch_boxes(cx, t, γ, ω, res);
         if (t->n > 3 && t->c[3] && t->c[2] && t->c[2]->v.sval && !strcmp(t->c[2]->v.sval, "match")) {
             tree_t * call = ast_node_new(TT_FNC);
             call->line = t->line;
@@ -2332,154 +2589,6 @@ IR_graph_t * lower_raku_proc(const tree_t * prog, const tree_t * pd) {
 }
 #include "stage2.h"
 #include "bb_program.h"
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static const char * rk_gram_class_members(const char * nm) {
-    if (!nm) return NULL;
-    if (!strcmp(nm, "digit")) return "0123456789";
-    if (!strcmp(nm, "alpha")) return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    if (!strcmp(nm, "alnum")) return "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    if (!strcmp(nm, "upper")) return "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    if (!strcmp(nm, "lower")) return "abcdefghijklmnopqrstuvwxyz";
-    if (!strcmp(nm, "space")) return " \t\n\r";
-    if (!strcmp(nm, "xdigit")) return "0123456789abcdefABCDEF";
-    return NULL;
-}
-typedef struct { int is_lit; const char * s; int n; } rk_gleaf_t;
-static int rk_gram_leaf_cap(const char * b) { return (int) strlen(b) / 2 + 1; }
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_gram_seq_leaves(const char * body, rk_gleaf_t * out, int maxlv) {
-    if (!body || !out || maxlv < 1) return 0;
-    int n = (int) strlen(body);
-    int i = 0;
-    int nlv = 0;
-    while (i < n) {
-        while (i < n && (body[i]==' '||body[i]=='\t'||body[i]=='\n'||body[i]=='\r')) i++;
-        if (i >= n) break;
-        if (nlv >= maxlv) return 0;
-        if (body[i] == '"' || body[i] == '\'') {
-            char q = body[i++];
-            int op = 0;
-            out[nlv].s = body + i;
-            while (i < n && body[i] != q) { if (body[i] == '\\') return 0; op++; i++; }
-            if (i >= n || op == 0) return 0;
-            i++;
-            out[nlv].n = op;
-            out[nlv].is_lit = 1;
-            nlv++;
-        } else if (body[i] == '<') {
-            i++;
-            if (i < n && body[i] == '.') i++;
-            int s = i;
-            char nm[n - i + 1];
-            int nl = 0;
-            while (i < n && (isalnum((unsigned char)body[i]) || body[i] == '_')) nm[nl++] = body[i++];
-            nm[nl] = '\0';
-            if (i == s || i >= n || body[i] != '>') return 0;
-            i++;
-            const char * cs = rk_gram_class_members(nm);
-            if (!cs) return 0;
-            out[nlv].s = cs;
-            out[nlv].n = (int) strlen(cs);
-            out[nlv].is_lit = 0;
-            nlv++;
-        } else return 0;
-    }
-    return nlv;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int rk_gram_split_alt(const char * body, char * lbuf, int lsz, char * rbuf, int rsz) {
-    if (!body || !lbuf || !rbuf) return 0;
-    int n = (int) strlen(body);
-    int depth = 0;
-    for (int i = 0; i < n; i++) {
-        char c = body[i];
-        if (c == '"' || c == '\'') { char q = c; i++; while (i < n && body[i] != q) i++; continue; }
-        if (c == '<') { depth++; continue; }
-        if (c == '>') { if (depth > 0) depth--; continue; }
-        if (c == '|' && depth == 0) {
-            int ll = i;
-            while (ll > 0 && (body[ll-1]==' '||body[ll-1]=='\t')) ll--;
-            if (ll <= 0 || ll >= lsz) return 0;
-            memcpy(lbuf, body, (size_t)ll);
-            lbuf[ll] = '\0';
-            int rs = i + 1;
-            while (rs < n && (body[rs]==' '||body[rs]=='\t')) rs++;
-            int rl = n - rs;
-            if (rl <= 0 || rl >= rsz) return 0;
-            memcpy(rbuf, body + rs, (size_t)rl);
-            rbuf[rl] = '\0';
-            return 1;
-        }
-    }
-    return 0;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static IR_t * rk_gram_build_leaf_chain(IR_graph_t * gg, rk_gleaf_t * lv, int nlv, IR_t * fail_tgt, int beta_tag) {
-    IR_t * next = NULL;
-    for (int e = nlv - 1; e >= 0; e--) {
-        IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL);
-        IR_LIT(nd).sval = ct_strndup(lv[e].s, (size_t) lv[e].n);
-        if (beta_tag) lc_ω_to_β(nd, fail_tgt);
-        else lc_ω_to(nd, fail_tgt);
-        next = nd;
-    }
-    return next;
-}
-/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void rk_lower_grammar_boxes(const tree_t * prog) {
-    extern int g_opt_dump_bb;
-    if (g_lower.rk.rk_lower_grammar_boxes_nat < 0) { const char *e = getenv("RK_GRAM_NATIVE"); g_lower.rk.rk_lower_grammar_boxes_nat = (e && e[0] == '0') ? 0 : 1; }
-    if (!g_opt_dump_bb && !g_lower.rk.rk_lower_grammar_boxes_nat) return;
-    if (!prog) return;
-    for (int i = 0; i < prog->n; i++) {
-        const tree_t * d = prog->c[i];
-        if (d && d->t == TT_STMT) { const tree_t * sub = stmt_subj(d); if (!sub) continue; d = sub; }
-        if (!d || d->t != TT_GRAMMAR_DECL) continue;
-        const char * gname = (d->n > 0 && d->c[0] && d->c[0]->v.sval) ? d->c[0]->v.sval : NULL;
-        if (!gname || !*gname) continue;
-        for (int j = 1; j < d->n; j++) {
-            const tree_t * rd = d->c[j];
-            if (!rd || rd->t != TT_REGEX_DECL) continue;
-            const char * rname = (rd->n > 0 && rd->c[0] && rd->c[0]->v.sval) ? rd->c[0]->v.sval : NULL;
-            const char * body = (rd->n > 1 && rd->c[1] && rd->c[1]->v.sval) ? rd->c[1]->v.sval : NULL;
-            if (!rname || !body) continue;
-            char pn[fmt_len("gram__%s__%s", gname, rname)];
-            snprintf(pn, sizeof pn, "gram__%s__%s", gname, rname);
-            IR_graph_t * gg = IR_alloc(64);
-            IR_t * entry = NULL;
-            char lbody[strlen(body) + 1];
-            char rbody[strlen(body) + 1];
-            if (rk_gram_split_alt(body, lbody, (int) sizeof lbody, rbody, (int) sizeof rbody)) {
-                rk_gleaf_t lv1[rk_gram_leaf_cap(lbody)];
-                int nlv1 = rk_gram_seq_leaves(lbody, lv1, rk_gram_leaf_cap(lbody));
-                rk_gleaf_t lv2[rk_gram_leaf_cap(rbody)];
-                int nlv2 = rk_gram_seq_leaves(rbody, lv2, rk_gram_leaf_cap(rbody));
-                if (nlv1 <= 0 || nlv2 <= 0) continue;
-                IR_t * galt = lc_build(gg, IR_GALT, NULL , NULL );
-                IR_t * arm2_root = rk_gram_build_leaf_chain(gg, lv2, nlv2, NULL, 0);
-                ir_operand_push(galt, arm2_root);
-                IR_t * arm1_root = rk_gram_build_leaf_chain(gg, lv1, nlv1, galt, 1 );
-                ir_operand_push(galt, arm1_root);
-                entry = galt;
-            } else {
-                rk_gleaf_t lv[rk_gram_leaf_cap(body)];
-                int nlv = rk_gram_seq_leaves(body, lv, rk_gram_leaf_cap(body));
-                if (nlv <= 0) continue;
-                IR_t * next = NULL;
-                for (int e = nlv - 1; e >= 0; e--) { IR_t * nd = lc_build(gg, lv[e].is_lit ? IR_GLIT : IR_GCC, next, NULL); IR_LIT(nd).sval = ct_strndup(lv[e].s, (size_t) lv[e].n); next = nd; }
-                entry = next;
-            }
-            gg->entry = entry;
-            int gidx = bb_program_add(&g_stage2.bbp, gg);
-            int pidx = stage2_proc_grow(&g_stage2);
-            g_stage2.proc_table[pidx].name = lp_strdup(pn);
-            g_stage2.proc_table[pidx].proc = (tree_t *) rd;
-            g_stage2.proc_table[pidx].entry_pc = -1;
-            g_stage2.proc_table[pidx].bb_idx = gidx;
-            g_stage2.proc_table[pidx].nparams = 0;
-        }
-    }
-}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int lower_raku_body(const tree_t *prog, const tree_t *proc) { IR_graph_t * ng = lower_raku_proc(prog, proc); if (!ng || !ng->entry) return -1; return bb_program_add(&g_stage2.bbp, ng); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -4159,7 +4268,6 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
     { int nseq = 0; rk_new_build_walk((tree_t *) prog, (tree_t *) prog, &nseq); }
     raku_register_program(&g_stage2, prog);
     rk_discover_grammars(prog);
-    rk_lower_grammar_boxes(prog);
     rk_register_classes(prog);
     if (reset_multi) g_lower.rk.multi_names.len = 0;
     for (int i = 0; prog && i < prog->n; i++) {

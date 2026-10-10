@@ -7,6 +7,7 @@
 #include "ast.h"
 #include "../snobol4/scrip_cc.h"
 #include "rk_tree.h"
+#include "rk_regex.h"
 #include "rk_syntax.h"
 #include "rk_opname.h"
 /*====================================================================================================================================================================================================*/
@@ -814,8 +815,16 @@ static tree_t *rk_rq_opts(const RkRq *q) {
     for (int k = 0; k < q->nth_n; k++) expr_add_child(o, rk_ilit(q->nth[k]));
     return o;
 }
+static tree_t *rk_rx_root(RkB *b, const char *flags, int ps, int pe, tree_t *text) {
+    tree_t *r = rk_regex_parse(flags, b->s + ps, pe - ps), *w = ast_node_new(TT_RX_ROOT);
+    w->v.sval = r->v.sval; w->slen = r->slen; w->line = text ? text->line : 0;
+    ast_push(w, text);
+    ast_push(w, r->n > 0 ? r->c[0] : ast_node_new(TT_RX_NULL));
+    if (r->v.ival) { tree_t *e = ast_node_new(TT_RX_FAIL); e->v.sval = r->c[0] ? r->c[0]->v.sval : "regex parse error"; w->c[1] = e; }
+    return w;
+}
 static tree_t *rk_rq_smatch(RkB *b, const RkRq *q, tree_t *subj, const char *kind) {
-    tree_t *pat = rk_rx_expr(b, q->rxflags, b->s + q->ps, q->pe - q->ps);
+    tree_t *pat = rk_rx_root(b, q->rxflags, q->ps, q->pe, rk_rx_expr(b, q->rxflags, b->s + q->ps, q->pe - q->ps));
     tree_t *m = ast_node_new(TT_SMATCH);
     ast_push(m, subj);
     ast_push(m, pat);
@@ -859,7 +868,7 @@ static tree_t *rk_rq_term(RkB *b, const RkRq *q, RkClosure *cl, int ncl) {
     const char *w = q->word;
     if (!w[0] || !strcmp(w, "rx")) {
         tree_t *c = make_call("__rk_regex");
-        expr_add_child(c, rk_rx_expr(b, q->rxflags, b->s + q->ps, q->pe - q->ps));
+        expr_add_child(c, rk_rx_root(b, q->rxflags, q->ps, q->pe, rk_rx_expr(b, q->rxflags, b->s + q->ps, q->pe - q->ps)));
         return c;
     }
     tree_t *topic = leaf_sval(TT_VAR, "_");

@@ -1322,6 +1322,9 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_to.cpp \
     $(SRC)/templates/bb/bb_match_len.cpp \
     $(SRC)/templates/bb/bb_match_lit.cpp \
+    $(SRC)/templates/bb/bb_match_rkrun.cpp \
+    $(SRC)/templates/bb/bb_match_rkcap.cpp \
+    $(SRC)/templates/bb/bb_match_rkland.cpp \
     $(SRC)/templates/bb/bb_match_any.cpp \
     $(SRC)/templates/bb/bb_match_notany.cpp \
     $(SRC)/templates/bb/bb_match_span.cpp \
@@ -1403,9 +1406,6 @@ RT_PIC_SRCS := \
     $(SRC)/templates/bb/bb_scan_bal.cpp \
     $(SRC)/templates/bb/bb_scan_sequence.cpp \
     $(SRC)/templates/bb/bb_scan_alternate.cpp \
-    $(SRC)/templates/bb/bb_glit.cpp \
-    $(SRC)/templates/bb/bb_gcc.cpp \
-    $(SRC)/templates/bb/bb_galt.cpp \
     $(SRC)/runtime/rt/rt_sg_scan.S \
     $(SRC)/runtime/rt/rt_asm_helpers.S \
     $(SRC)/templates/xa/xa_stubs.cpp \
@@ -1485,6 +1485,7 @@ RT_PIC_SRCS := \
     $(SRC)/parsers/raku/raku_driver.c \
     $(SRC)/parsers/raku/rk_syntax.c \
     $(SRC)/parsers/raku/rk_tree.c \
+    $(SRC)/parsers/raku/rk_regex.c \
     $(SRC)/parsers/rebus/rebus.tab.c \
     $(SRC)/parsers/rebus/lex.rebus.c \
     $(SRC)/parsers/rebus/rebus_lower.c \

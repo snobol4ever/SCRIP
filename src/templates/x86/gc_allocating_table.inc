@@ -1,10 +1,10 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2483
-#define GC_ALLOC_TAB_N_VOID 288
-#define GC_ALLOC_TAB_N_DESCR 1219
-#define GC_ALLOC_TAB_N_OTHER 960
-#define GC_ALLOC_TAB_N_UNKNOWN 16
+#define GC_ALLOC_TAB_N 2503
+#define GC_ALLOC_TAB_N_VOID 289
+#define GC_ALLOC_TAB_N_DESCR 1218
+#define GC_ALLOC_TAB_N_OTHER 979
+#define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
     { "APPLY_fn_rq", GC_RET_DESCR },
@@ -720,7 +720,9 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_call", GC_RET_OTHER },
     { "lower_case", GC_RET_OTHER },
     { "lower_case_impl", GC_RET_OTHER },
+    { "lower_cond", GC_RET_OTHER },
     { "lower_every", GC_RET_OTHER },
+    { "lower_field_set", GC_RET_OTHER },
     { "lower_for", GC_RET_OTHER },
     { "lower_icon_body", GC_RET_OTHER },
     { "lower_icon_proc", GC_RET_OTHER },
@@ -740,11 +742,19 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "lower_pl_pred_graph", GC_RET_OTHER },
     { "lower_pl_stage2", GC_RET_OTHER },
     { "lower_proc_body", GC_RET_OTHER },
+    { "lower_raku_body", GC_RET_OTHER },
     { "lower_raku_eval_stage2", GC_RET_OTHER },
+    { "lower_raku_proc", GC_RET_OTHER },
     { "lower_raku_stage2", GC_RET_OTHER },
+    { "lower_rblock", GC_RET_OTHER },
+    { "lower_rcall", GC_RET_OTHER },
+    { "lower_rcall1", GC_RET_OTHER },
+    { "lower_rcall_bool", GC_RET_OTHER },
+    { "lower_rcall_skip1", GC_RET_OTHER },
     { "lower_repeat", GC_RET_OTHER },
     { "lower_result_operand", GC_RET_OTHER },
     { "lower_runerr_111", GC_RET_OTHER },
+    { "lower_rv", GC_RET_OTHER },
     { "lower_scan_impl", GC_RET_OTHER },
     { "lower_seq", GC_RET_OTHER },
     { "lower_seq_impl", GC_RET_OTHER },
@@ -1154,6 +1164,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_av_minmax", GC_RET_DESCR },
     { "rk_av_text", GC_RET_OTHER },
     { "rk_block_cmp_d", GC_RET_OTHER },
+    { "rk_box_match_build", GC_RET_VOID },
     { "rk_call_block", GC_RET_DESCR },
     { "rk_call_block_rq", GC_RET_DESCR },
     { "rk_call_snap", GC_RET_DESCR },
@@ -1232,6 +1243,10 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_key_tmp", GC_RET_DESCR },
     { "rk_lines_arr", GC_RET_DESCR },
     { "rk_list_more_methods", GC_RET_OTHER },
+    { "rk_lower_iter_meth", GC_RET_OTHER },
+    { "rk_lower_logical", GC_RET_OTHER },
+    { "rk_lower_smatch_boxes", GC_RET_OTHER },
+    { "rk_lower_str_operand", GC_RET_OTHER },
     { "rk_match_caps", GC_RET_OTHER },
     { "rk_match_caps_fill", GC_RET_OTHER },
     { "rk_match_gist_into", GC_RET_VOID },
@@ -1324,17 +1339,20 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_rsprintf", GC_RET_VOID },
     { "rk_rsprintf_legacy", GC_RET_VOID },
     { "rk_run_child", GC_RET_OTHER },
+    { "rk_rx_alt", GC_RET_OTHER },
     { "rk_rx_collect", GC_RET_OTHER },
     { "rk_rx_compile", GC_RET_OTHER },
     { "rk_rx_concat3", GC_RET_DESCR },
     { "rk_rx_inst", GC_RET_DESCR },
     { "rk_rx_interp_item", GC_RET_DESCR },
     { "rk_rx_interp_list", GC_RET_DESCR },
+    { "rk_rx_lower", GC_RET_OTHER },
     { "rk_rx_piece", GC_RET_OTHER },
     { "rk_rx_piece_str", GC_RET_DESCR },
     { "rk_rx_quoted", GC_RET_DESCR },
     { "rk_rx_rule", GC_RET_OTHER },
-    { "rk_rx_slot", GC_RET_DESCR },
+    { "rk_rx_seq", GC_RET_OTHER },
+    { "rk_rx_slot", GC_RET_UNKNOWN },
     { "rk_rx_sub", GC_RET_DESCR },
     { "rk_rx_subst_run", GC_RET_OTHER },
     { "rk_rx_to_match", GC_RET_VOID },
@@ -1356,6 +1374,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_tap_str", GC_RET_OTHER },
     { "rk_tap_truthy", GC_RET_OTHER },
     { "rk_tbl_text", GC_RET_OTHER },
+    { "rk_tern_branch", GC_RET_OTHER },
     { "rk_trans_run", GC_RET_DESCR },
     { "rk_txt_elem", GC_RET_DESCR },
     { "rk_typeobj", GC_RET_DESCR },
@@ -1368,6 +1387,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_uni_new", GC_RET_DESCR },
     { "rk_uni_reg", GC_RET_VOID },
     { "rk_uni_str", GC_RET_OTHER },
+    { "rk_xf_body", GC_RET_OTHER },
     { "rls", GC_RET_OTHER },
     { "rpad_fn", GC_RET_DESCR },
     { "rq_chars", GC_RET_OTHER },

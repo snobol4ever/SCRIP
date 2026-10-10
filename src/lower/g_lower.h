@@ -257,7 +257,6 @@ typedef struct {
     int rk_case_desugar_cid;
     int lower_rv_forlist_ctr;
     int lower_rv_tern_n;
-    int rk_lower_grammar_boxes_nat;
     int rk_hoist_anon_blocks_blk_ctr;
 } g_lower_rk_t;
 typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_icn_t icn; g_lower_pas_t pas; g_lower_opt_t opt; g_lower_ir_t ir; g_lower_rk_t rk; } g_lower_t;
@@ -269,6 +268,6 @@ typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_ic
     proc_parent = { NULL, 0, 0, (int) sizeof(const tree_t *) } }, .opt = { .bc_mon_m = -1, .dg_mon_m = -1, .cf_spine_on_s = -1 } , .ir = { .zls_slot_census_on = -1, .zls_build_dbg = -1, . \
     zls_build_dbg2 = -1, .zls_build_dbg3 = -1, .zls_build_subj_on = -1, .zls_build_dyn_on = -1, .zls_build_dbg4 = -1, .zls_build_dbg5 = -1, .zls_build_eon = -1, .zc_nofc_v = -1, .fc_geom_ac = -1, . \
     fc_reg_hw_e = (const char *) 1, .zls_dump_plant = -1, .zw_carve_k_ba = -1, .zw_carve_k_all = -1, .bb_print_v_xd2 = -1, .zdp_mode_m = -1, .zdp_cap_seamtier_v = -1, .zdp_atp_seamtier_v = -1, . \
-    zdp_bomb_census_bm = -1, .ast_print_width = 140, .znb_gen = 1, .zgh = (zgh_t *)0, .fcn_gen = 1, .seq_of_node = (const int *)0, .ct_poison = -1 }, .rk = { .rk_lower_grammar_boxes_nat = -1 } }
+    zdp_bomb_census_bm = -1, .ast_print_width = 140, .znb_gen = 1, .zgh = (zgh_t *)0, .fcn_gen = 1, .seq_of_node = (const int *)0, .ct_poison = -1 }, .rk = { 0 } }
 extern g_lower_t g_lower;
 #endif

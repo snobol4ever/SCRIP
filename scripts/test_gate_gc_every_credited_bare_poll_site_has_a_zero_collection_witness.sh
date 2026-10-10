@@ -24,6 +24,8 @@
 # the census now counts rt_str_coerce and rt_size_d as allocating, so two already-polled bare sites join the table -- bb_binop_relop.cpp
 # rt_str_coerce (hb_table_dump_every_key_ref.icn reaches it) and bb_unop.cpp rt_size_d (no witness yet: the arrival this ceiling names);
 # the two bb_match_capture.cpp sites are the same two under the label rt_cap_open_plain/rt_cap_open, and the rewrite also absorbed the
+# 56 over 169 on the Raku regex chunk-1 landing (cfo 2026-10-10, CEO-1609): the dead IR_GCC prototype template bb_gcc.cpp and its UNWITNESSED row are deleted, and hq_raku's 3005c5755 cured
+# the nextsame witness (A__m no longer reaches a C road), so its three sites read WITNESSED again.
 # 2b89a5ef2 / ae2a9e433 line drift in emit.cpp and bb_define.cpp that had arm (d) red on origin at 86.
 # 57 over 150 on the family-1 retirement (cto 2026-09-26, row gc-the-116-bare-poll-sites): ten credited bare sites LEFT THE TABLE with their roads -- the
 # marshal_arith cycle, the NV_GET argument arm, the by-name dop leaf, the three write routes, IR_DEFINE role 0 and the two slim roads --
@@ -61,7 +63,7 @@ TABLE="$ROOT/scripts/gc_bare_poll_witnesses.tsv"
 # 57 over 165 on the re-key after cf6af2b58 (cto 2026-10-09, hq_raku's report): the SNOBOL4 trace-hook landing renamed the three role-4 shim hook polls to their _i forms and added
 # sno_trace_return, so origin read undeclared 5 and retired 4 (unwitnessed 62); every one of the five is reached by hb_sno_a_call_with_more_arguments_than_formals_takes_the_open_road.sno
 # or hb_shim_nv_road.sno at zero collections in both modes, and the table carried two more witnessed rows than the old ceiling credited, so the ceiling falls to 57 and nothing arrives.
-CEILING="${BARE_POLL_UNWITNESSED_CEILING:-57}"
+CEILING="${BARE_POLL_UNWITNESSED_CEILING:-56}"
 [ "${FAIL_ONCE:-0}" = 1 ] && CEILING=0
 checks=0; fails=0
 ck() { checks=$((checks+1)); if [ "$1" = ok ]; then echo "  ok   $2"; else fails=$((fails+1)); echo "  FAIL $2"; fi; }
