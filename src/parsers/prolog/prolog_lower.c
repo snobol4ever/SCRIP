@@ -269,6 +269,43 @@ static tree_t *lower_clause_from_tree(tree_t *tr, PredKey key, int skip_rewrite,
     return ec;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_ssu_arrow(tree_t *tr) {
+    tree_t *a = (tr && tr->n == 1) ? tr->c[0] : (tree_t *)0;
+    return (a && a->t == TT_FNC && a->n == 2 && a->v.sval && !strcmp(a->v.sval, "=>")) ? a : (tree_t *)0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *pl_ssu_head(tree_t *arrow) {
+    tree_t *lhs = arrow->c[0];
+    return (lhs && lhs->t == TT_FNC && lhs->n == 2 && lhs->v.sval && !strcmp(lhs->v.sval, ",")) ? lhs->c[0] : lhs;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t *lower_ssu_clause_from_tree(tree_t *arrow, PredKey key, TRSlotMap *smp) {
+    tree_t *lhs = arrow->c[0], *head = pl_ssu_head(arrow), *guard = (head == lhs) ? (tree_t *)0 : lhs->c[1];
+    tree_t *syn = ast_node_new(TT_CLAUSE), *conj = (tree_t *)0;
+    expr_add_child(syn, head);
+    if (guard) {
+        conj = ast_node_new(TT_FNC);
+        conj->v.sval = ct_strdup(",");
+        expr_add_child(conj, guard);
+        expr_add_child(conj, arrow->c[1]);
+        expr_add_child(syn, conj);
+    } else expr_add_child(syn, arrow->c[1]);
+    tree_t *ec = lower_clause_from_tree(syn, key, 0, smp);
+    tree_t *gp = ast_node_new(TT_PROGRAM), *bp = ast_node_new(TT_PROGRAM), *cnt = ast_node_new(TT_PROGRAM);
+    if (conj) pl_flatten_conj(conj->c[0], cnt);
+    int ng = cnt->n;
+    tree_t *nc = ast_node_new(TT_CLAUSE);
+    nc->v = ec->v;
+    for (int i = 0; i < key.arity && i < ec->n; i++) expr_add_child(nc, ec->c[i]);
+    for (int i = key.arity; i < ec->n; i++) expr_add_child(i < key.arity + ng ? gp : bp, ec->c[i]);
+    tree_t *neck = ast_node_new(TT_FNC);
+    neck->v.sval = ct_strdup("=>");
+    expr_add_child(neck, gp);
+    expr_add_child(neck, bp);
+    expr_add_child(nc, neck);
+    return nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static PredKey key_of_head_tree(tree_t *head) {
     PredKey k = {-1, 0};
     if (!head) return k;
@@ -466,7 +503,8 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
         int is_rule = (cl->tr != NULL && cl->tr->n > 0 &&
                        cl->tr->c[0] && cl->tr->c[0]->t != TT_NUL);
         if (!is_rule) continue;
-        PredKey k = key_of_head_tree(cl->tr->c[0]);
+        tree_t *ssu = pl_ssu_arrow(cl->tr);
+        PredKey k = key_of_head_tree(ssu ? pl_ssu_head(ssu) : cl->tr->c[0]);
         if (k.functor < 0) continue;
         if (plunit_suite[clause_idx][0] != '\0') {
             const char *fn = prolog_atom_name(k.functor);
@@ -532,7 +570,7 @@ tree_t *prolog_lower(PlProgram *pl_prog) {
             }
         }
         int found = pl_pred_slot(&keys, &choices, k);
-        tree_t *ec = lower_clause_from_tree(cl->tr, k, cl->is_dcg, &csm);
+        tree_t *ec = ssu ? lower_ssu_clause_from_tree(ssu, k, &csm) : lower_clause_from_tree(cl->tr, k, cl->is_dcg, &csm);
         ec->line = cl->lineno;
         expr_add_child(CV_AT(choices, tree_t *, found), ec);
     }

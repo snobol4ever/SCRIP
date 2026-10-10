@@ -3849,7 +3849,81 @@ static void pl_load_procs(const tree_t * prog, const pl_load_item_t * it, int ni
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ssu_clause(const tree_t * cl, int ar) {
+    const tree_t * nk = (cl && cl->t == TT_CLAUSE && cl->n == ar + 1) ? cl->c[ar] : (const tree_t *) 0;
+    return nk && nk->t == TT_FNC && nk->n == 2 && nk->v.sval && !strcmp(nk->v.sval, "=>") && nk->c[0] && nk->c[0]->t == TT_PROGRAM && nk->c[1] && nk->c[1]->t == TT_PROGRAM;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_ssu_var(int i) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = i; return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_ssu_args(const tree_t * cl, int ar, int params) {
+    tree_t * h = ast_node_new(TT_FNC);
+    h->v.sval = (char *) "$ssu";
+    for (int i = 0; i < ar; i++) ast_push(h, params ? pl_ssu_var(i) : pl_tree_copy(cl->c[i]));
+    return h;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_ssu_lower_clause(const tree_t * cl, int ar) {
+    const tree_t * nk = cl->c[ar];
+    tree_t * nc = ast_node_new(TT_CLAUSE);
+    nc->v = cl->v;
+    nc->line = cl->line;
+    for (int i = 0; i < ar; i++) ast_push(nc, pl_ssu_var(i));
+    if (ar > 0) { ast_push(nc, pl_cc_fnc2("subsumes_term", pl_ssu_args(cl, ar, 0), pl_ssu_args(cl, ar, 1))); ast_push(nc, pl_cc_fnc2("=", pl_ssu_args(cl, ar, 0), pl_ssu_args(cl, ar, 1))); }
+    for (int i = 0; i < nk->c[0]->n; i++) ast_push(nc, pl_tree_copy(nk->c[0]->c[i]));
+    ast_push(nc, ast_node_new(TT_CUT));
+    for (int i = 0; i < nk->c[1]->n; i++) ast_push(nc, pl_tree_copy(nk->c[1]->c[i]));
+    return nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_ssu_nomatch(const tree_t * proto, const char * key, int ar) {
+    const char * sl = strrchr(key, '/');
+    char nm[sl - key + 1];
+    memcpy(nm, key, (size_t)(sl - key));
+    nm[sl - key] = 0;
+    tree_t * nc = ast_node_new(TT_CLAUSE);
+    nc->v = proto->v;
+    nc->line = proto->line;
+    for (int i = 0; i < ar; i++) ast_push(nc, pl_ssu_var(i));
+    tree_t * g = ast_node_new(ar ? TT_FNC : TT_QLIT);
+    g->v.sval = lp_strdup(nm);
+    for (int i = 0; i < ar; i++) ast_push(g, pl_ssu_var(i));
+    tree_t * ex = pl_cc_fnc2("existence_error", (tree_t *) pl_atom_goal("matching_rule"), g);
+    ast_push(nc, pl_cc_fnc1("throw", pl_cc_fnc2("error", ex, pl_ssu_var(ar))));
+    return nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_ssu_choice(const tree_t * subj) {
+    if (!subj || subj->t != TT_CHOICE || !subj->v.sval || !strrchr(subj->v.sval, '/')) return 0;
+    int ar = atoi(strrchr(subj->v.sval, '/') + 1);
+    for (int k = 0; k < subj->n; k++) if (pl_ssu_clause(subj->c[k], ar)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_ssu_rewrite(const tree_t * prog) {
+    int any = 0;
+    for (int i = 0; i < prog->n; i++) { const tree_t * s = prog->c[i]; any |= pl_ssu_choice((s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL); }
+    if (!any) return prog;
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (!pl_ssu_choice(subj)) { ast_push(np, (tree_t *) s); continue; }
+        int ar = atoi(strrchr(subj->v.sval, '/') + 1);
+        tree_t * ch = ast_node_new(TT_CHOICE);
+        ch->v = subj->v;
+        ch->line = subj->line;
+        for (int k = 0; k < subj->n; k++) ast_push(ch, pl_ssu_clause(subj->c[k], ar) ? pl_ssu_lower_clause(subj->c[k], ar) : pl_tree_copy(subj->c[k]));
+        if (subj->n && pl_ssu_clause(subj->c[subj->n - 1], ar)) ast_push(ch, pl_ssu_nomatch(subj->c[subj->n - 1], subj->v.sval, ar));
+        ast_push(np, pl_table_stmt(s, ch));
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 stage2_t *lower_pl_stage2(const tree_t *prog) {
+    prog = pl_ssu_rewrite(prog);
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
     const tree_t * prog_src = prog;

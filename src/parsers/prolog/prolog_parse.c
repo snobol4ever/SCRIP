@@ -63,6 +63,7 @@ typedef struct { const char *name; int prec; Assoc assoc; Fixity fixity; } OpEnt
 static const OpEntry BIN_OPS[] = {
     { ":-",   1200, ASSOC_NONE  },
     { "-->",  1200, ASSOC_NONE  },
+    { "=>",   1200, ASSOC_NONE  },
     { ",",    1000, ASSOC_RIGHT },
     { ";",    1100, ASSOC_RIGHT },
     { "|",    1105, ASSOC_RIGHT },
@@ -1141,6 +1142,15 @@ static PlClause *parse_clause(Parser *p) {
         Token dot = lexer_next(&p->lx);
         if (dot.kind != TK_DOT)
             perror_at(p, dot.line, "expected . at end of DCG clause");
+    } else if (pk.kind == TK_OP && strcmp(pk.text, "=>") == 0) {
+        Token arrow_tk = lexer_next(&p->lx);
+        tree_t *body_tr = pt_term(p, ts, 1200);
+        { tree_t *_cl = ast_node_new(TT_CLAUSE);
+          ast_push(_cl, pt_stamp(pt_binop("=>", head_tr, body_tr), arrow_tk.line));
+          cl->tr = _cl; }
+        Token dot = lexer_next(&p->lx);
+        if (dot.kind != TK_DOT)
+            perror_at(p, dot.line, "expected . at end of SSU rule");
     } else {
         { tree_t *_cl = ast_node_new(TT_CLAUSE);
           ast_push(_cl, head_tr);
@@ -1825,9 +1835,22 @@ static tree_t *pl_clause_dcg(const PlClause *cl) {
     if (!cl || !cl->tr || cl->tr->n != 1 || !(r = cl->tr->c[0]) || r->t != TT_FNC || r->n != 2 || !r->v.sval || strcmp(r->v.sval, "-->")) return (tree_t *)0;
     return r;
 }
+static tree_t *pl_clause_ssu(PlClause *cl) {
+    tree_t *r;
+    if (!cl || !cl->tr || cl->tr->n != 1 || !(r = cl->tr->c[0]) || r->t != TT_FNC || r->n != 2 || !r->v.sval || strcmp(r->v.sval, "=>")) return (tree_t *)0;
+    return r;
+}
 static int pl_clause_key(PlClause *cl, const char **name_out, int *ar_out) {
     tree_t *dcg = pl_clause_dcg(cl);
+    tree_t *ssu = pl_clause_ssu(cl);
     if (!cl) return 0;
+    if (ssu) {
+        tree_t *hd = ssu->c[0];
+        if (hd && hd->t == TT_FNC && hd->n == 2 && hd->v.sval && !strcmp(hd->v.sval, ",")) hd = hd->c[0];
+        if (hd && hd->t == TT_QLIT && hd->v.sval) { *name_out = hd->v.sval; *ar_out = 0;      return 1; }
+        if (hd && hd->t == TT_FNC  && hd->v.sval) { *name_out = hd->v.sval; *ar_out = hd->n;  return 1; }
+        return 0;
+    }
     if (dcg) {
         tree_t *hd = dcg->c[0];
         if (hd && hd->t == TT_FNC && hd->n == 2 && hd->v.sval && !strcmp(hd->v.sval, ",")) hd = hd->c[0];
@@ -1844,7 +1867,9 @@ static int pl_clause_key(PlClause *cl, const char **name_out, int *ar_out) {
 }
 static tree_t *pl_clause_body(PlClause *cl) {
     tree_t *dcg = pl_clause_dcg(cl);
+    tree_t *ssu = pl_clause_ssu(cl);
     if (dcg) return dcg->c[1];
+    if (ssu) return ssu;
     return (cl && cl->tr && cl->tr->n > 1) ? cl->tr->c[1] : (tree_t *)0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1930,6 +1955,7 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const char *user_sr
     for (int i = 0; i < nlibs; i++) {
         if (!sel[i]) continue;
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
+        if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) pl_cv_add(referenced, "subsumes_term");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
     }
     PlClause *base_last = pre->tail;
@@ -1965,6 +1991,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
+    for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
     int agg_native = 0;
