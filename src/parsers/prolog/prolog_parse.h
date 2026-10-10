@@ -13,6 +13,7 @@ struct PlClause {
     char    **var_names;
     int       nvar;
     int       is_dcg;
+    int       dq_forced;
 };
 typedef struct {
     PlClause *head;
@@ -30,6 +31,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src);
 void prolog_dcg_expand(PlClause *cl);
 PlProgram *prolog_parse_ex(const char *src, const char *filename, int quiet);
 int pl_prelude_defines(const char *nm, int ar);
+const char *pl_aggregate_all_native_kind(const tree_t *spec);
 void prolog_program_free(PlProgram *prog);
 int prolog_op_table_count(void);
 int prolog_op_table_get(int idx, const char **name_out, int *prec_out, const char **type_out);

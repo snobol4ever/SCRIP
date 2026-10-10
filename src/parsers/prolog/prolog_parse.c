@@ -1183,6 +1183,7 @@ static const char * const PL_PRELUDE_SRC =
     "sub_string(S,B,L,A,Sub):-atom_string(Sub,T),sub_atom(S,B,L,A,T).\n"
     "string_code(I,_,_):-var(I),!,throw(error(instantiation_error,string_code/3)).\n"
     "atomics_to_string(L,S):-atomic_list_concat(L,A),atom_string(A,S).\n"
+    "atomics_to_string(L,Sep,S):-atomic_list_concat(L,Sep,A),atom_string(A,S).\n"
     "string_code(I,S,C):-integer(I),I>0,string_codes(S,Cs),nth1(I,Cs,C0),!,C=C0.\n"
     "split_string(S,Sep,Pad,Subs):-string_codes(S,Cs),string_codes(Sep,SC),string_codes(Pad,PC),'$ss_fields'(Cs,SC,Fs),'$ss_strip_all'(Fs,PC,Subs).\n"
     "'$ss_fields'(Cs,SC,[F|Fs]):-'$ss_take'(Cs,SC,F,R),(R=[]->Fs=[];R=[_|R1],'$ss_fields'(R1,SC,Fs)).\n"
@@ -1372,6 +1373,16 @@ static const char * const PL_PRELUDE_SRC =
     "nth1(N,L,E):-'$nth_'(L,1,N,E).\n"
     "'$nth_'([H|_],I,I,H).\n"
     "'$nth_'([_|T],I,N,E):-I1 is I+1,'$nth_'(T,I1,N,E).\n"
+    "is_dict(_):-fail.\n"
+    "is_dict(_,_):-fail.\n"
+    "rational(X):-integer(X).\n"
+    "rational(X,N,D):-integer(X),N=X,D=1.\n"
+    "'$is_char_list'(L,N):-is_list(L),'$is_char_list_'(L,0,N).\n"
+    "'$is_char_list_'([],N,N).\n"
+    "'$is_char_list_'([C|T],N0,N):-atom(C),atom_length(C,1),N1 is N0+1,'$is_char_list_'(T,N1,N).\n"
+    "'$is_code_list'(L,N):-is_list(L),'$is_code_list_'(L,0,N).\n"
+    "'$is_code_list_'([],N,N).\n"
+    "'$is_code_list_'([C|T],N0,N):-integer(C),C>=0,C=<1114111,N1 is N0+1,'$is_code_list_'(T,N1,N).\n"
     "sum_list(L,S):-'$sum_list_'(L,0,S).\n"
     "sumlist(L,S):-'$sum_list_'(L,0,S).\n"
     "'$sum_list_'([],S,S).\n"
@@ -1864,6 +1875,83 @@ static void pl_tree_collect_calls(const tree_t *t, cv_t *names) {
     for (int i = 0; i < t->n; i++) pl_tree_collect_calls(t->c[i], names);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+const char *pl_aggregate_all_native_kind(const tree_t *spec) {
+    const char * const kinds[] = { "count", "max", "min", "sum", "bag", "set", NULL };
+    if (spec && spec->t == TT_FNC && spec->n == 1 && spec->v.sval) for (int i = 0; kinds[i]; i++) if (!strcmp(spec->v.sval, kinds[i])) return kinds[i];
+    if (spec && (spec->t == TT_NAME || spec->t == TT_QLIT) && spec->v.sval && !strcmp(spec->v.sval, "count")) return "count";
+    return NULL;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_agg_native_calls(const tree_t *t) {
+    if (!t) return 0;
+    int n = (t->t == TT_FNC && t->n == 3 && t->v.sval && !strcmp(t->v.sval, "aggregate_all") && pl_aggregate_all_native_kind(t->c[0])) ? 1 : 0;
+    for (int i = 0; i < t->n; i++) n += pl_agg_native_calls(t->c[i]);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_word_count(const char *src, const char *w) {
+    size_t wl = strlen(w);
+    int n = 0;
+    for (const char *p = src; (p = strstr(p, w)) != NULL; p += wl) {
+        char before = (p == src) ? ' ' : p[-1], after = p[wl];
+        if (!(before == '_' || isalnum((unsigned char)before)) && !(after == '_' || isalnum((unsigned char)after))) n++;
+    }
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+#include "prolog_prelude_libs.inc"
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_lib_named(const pl_prelude_lib_t *lib, const cv_t *referenced, const char *user_src, const char *native_only) {
+    for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) if ((!native_only || strcmp(e->nm, native_only)) && (pl_cv_has(referenced, e->nm) || pl_word_referenced(user_src, e->nm))) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int ar) {
+    for (PlClause *cl = first; cl; cl = cl->next) {
+        const char *cn; int car;
+        if (pl_clause_key(cl, &cn, &car) && cn && car == ar && !strcmp(cn, nm)) return 1;
+        if (cl == last) break;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_libs_append(PlProgram *pre, cv_t *referenced, const char *user_src, const char *native_only) {
+    int nlibs = 0;
+    while (PL_PRELUDE_LIBS[nlibs].lib) nlibs++;
+    char sel[nlibs + 1];
+    for (int i = 0; i < nlibs; i++) sel[i] = (char)pl_lib_named(&PL_PRELUDE_LIBS[i], referenced, user_src, native_only);
+    for (int changed = 1; changed;) {
+        changed = 0;
+        for (int i = 0; i < nlibs; i++) if (sel[i]) for (const int *d = PL_PRELUDE_LIBS[i].deps; *d >= 0; d++) if (!sel[*d]) { sel[*d] = 1; changed = 1; }
+    }
+    int any = 0;
+    for (int i = 0; i < nlibs; i++) any |= sel[i];
+    if (!any) return;
+    for (int i = 0; i < nlibs; i++) {
+        if (!sel[i]) continue;
+        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
+        if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
+    }
+    PlClause *base_last = pre->tail;
+    for (int i = 0; i < nlibs; i++) {
+        if (!sel[i]) continue;
+        PlProgram *lp = prolog_parse(PL_PRELUDE_LIBS[i].src, "<prelude>");
+        if (!lp) continue;
+        PlClause *nextc = NULL;
+        for (PlClause *cl = lp->head; cl; cl = nextc) {
+            nextc = cl->next;
+            const char *nm; int ar;
+            if (!pl_clause_key(cl, &nm, &ar) || !nm || (nm[0] != '$' && pl_base_defines(pre->head, base_last, nm, ar))) continue;
+            cl->next = NULL;
+            cl->dq_forced = 3 + 1;
+            if (!pre->head) pre->head = cl; else pre->tail->next = cl;
+            pre->tail = cl;
+            pre->nclauses++;
+        }
+        ct_drop(lp);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
     cv_t user_defined = { 0 }, referenced = { 0 }, wanted = { 0 };
@@ -1879,9 +1967,14 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     PlProgram *pre = prolog_parse(PL_PRELUDE_SRC, "<prelude>");
     if (!pre || !pre->head) { if (pre) ct_drop(pre); return; }
+    int agg_native = 0;
+    for (PlClause *cl = prog->head; cl; cl = cl->next) agg_native += pl_agg_native_calls(cl->tr);
+    const char *native_only = (agg_native && agg_native == pl_word_count(user_src, "aggregate_all")) ? "aggregate_all" : NULL;
+    pl_libs_append(pre, &referenced, user_src, native_only);
     for (PlClause *cl = pre->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
+        if (native_only && ar == 3 && !strcmp(nm, native_only)) continue;
         if (!pl_cv_has(&referenced, nm) && (nm[0] == '$' || !pl_word_referenced(user_src, nm))) continue;
         char *key = pl_pred_key(nm, ar);
         if (!pl_cv_has(&user_defined, key)) pl_cv_add(&wanted, key);
@@ -1914,6 +2007,8 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (keep) { cl->lineno = 0; cl->next = NULL; if (!prog->head) prog->head = cl; else prog->tail->next = cl; prog->tail = cl; prog->nclauses++; }
     }
     ct_drop(pre);
+    (void)pl_prelude_defines("", -1);
+    for (uint32_t i = 0; i < wanted.len; i++) if (!pl_cv_has(&g_stage2.pl_prelude_keys, CV_AT(wanted, char *, i))) CV_PUSH(g_stage2.pl_prelude_keys, char *) = CV_AT(wanted, char *, i);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_cv_has_key(const cv_t *v, const char *nm, int ar) {

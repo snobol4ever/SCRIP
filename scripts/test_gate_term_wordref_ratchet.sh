@@ -86,12 +86,17 @@ PINS="
  1 src/runtime/rt/rt.h
 "
 PIN_TOTAL=$(echo "$PINS" | awk 'NF{t+=$1} END{print t+0}')
+# ⭐ PROLOG SOURCE IS NOT THE C REPRESENTATION (cfo 2026-10-10, CEO-1473's vendored libraries): src/parsers/prolog/prelude/*.pl
+# are swipl's own library files, where Term is a Prolog VARIABLE NAME (library(aggregate) 43 lines, (error) 16), and
+# src/parsers/prolog/prolog_prelude_libs.inc is that same Prolog text embedded as C strings by util_gen_prolog_prelude_libs.py.
+# Neither is the C `Term *` this ladder deletes, so *.pl and that generated table are outside the scope; at the mint every
+# counted file was C (the 16 above), so the census the pins reproduce is unchanged.
 # ⚠️ *.bak is excluded because that is what reproduces the row's 490 (prolog_emit_jvm.c.bak carried 17 there).
 # It matches nothing at this tree, but a .bak must never become a place to PARK Term code, so it is reported loudly.
 BAK_HITS=$(find "$SRC" -name '*.bak' -exec grep -cw 'Term' {} + 2>/dev/null | awk -F: '{t+=$NF} END{print t+0}')
 # ⭐ WORKTREE SWEEP, NOT `git grep`: a plain `git grep` misses an UNTRACKED new file, which is precisely the
 # dodge the unpinned-file rule above exists to catch.  Verified equal (136) to the tracked sweep on a clean tree.
-FILES=$(grep -rIlw 'Term' "$SRC" 2>/dev/null | grep -v '\.bak$' | sed "s#^$SRC/#src/#" | sort)
+FILES=$(grep -rIlw 'Term' "$SRC" 2>/dev/null | grep -v '\.bak$' | grep -v '\.pl$' | grep -v '/prolog_prelude_libs\.inc$' | sed "s#^$SRC/#src/#" | sort)
 NFILES=$(echo "$FILES" | grep -c . )
 # ⭐⭐ THE FINISH LINE (Lon 2026-09-02 10:35, in-chat to ceo: "First order of business is to simply remove the definition of the struct named Term. Delete it now."):
 # a ratchet that could only REFUSE at zero could never say YES to its own goal (the criterion-that-cannot-say-YES defect, INSTRUMENT LAWS).

@@ -2196,34 +2196,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 tree_t * body = pl_cc_fnc2(",", op, pl_cc_fnc2(",", so, ite));
                 return goal(cx, body, γnext, ωfail, entry_out);
             }
-            if (!strcmp(nm, "aggregate_all") && t->n == 3 && !pl_file_defines(nm, 3)) {
+            extern int pl_prelude_defines(const char *, int);
+            if (!strcmp(nm, "aggregate_all") && t->n == 3 && (!pl_file_defines(nm, 3) || pl_prelude_defines(nm, 3))) {
                 const tree_t * spec = t->c[0];
-                const char * kind = NULL;
-                const tree_t * tmpl = NULL;
-                if (spec && spec->t == TT_FNC && spec->n == 1 && spec->v.sval) {
-                    if (!strcmp(spec->v.sval, "count")) {
-                        kind = "count";
-                        tmpl = spec->c[0];
-                    } else if (!strcmp(spec->v.sval, "max")) {
-                        kind = "max";
-                        tmpl = spec->c[0];
-                    } else if (!strcmp(spec->v.sval, "min")) {
-                        kind = "min";
-                        tmpl = spec->c[0];
-                    } else if (!strcmp(spec->v.sval, "sum")) {
-                        kind = "sum";
-                        tmpl = spec->c[0];
-                    } else if (!strcmp(spec->v.sval, "bag")) {
-                        kind = "bag";
-                        tmpl = spec->c[0];
-                    } else if (!strcmp(spec->v.sval, "set")) {
-                        kind = "set";
-                        tmpl = spec->c[0];
-                    }
-                } else if (spec && (spec->t == TT_NAME || spec->t == TT_QLIT) && spec->v.sval && !strcmp(spec->v.sval, "count")) {
-                    kind = "count";
-                    tmpl = pl_cc_ilit(0);
-                }
+                extern const char * pl_aggregate_all_native_kind(const tree_t *);
+                const char * kind = pl_aggregate_all_native_kind(spec);
+                const tree_t * tmpl = !kind ? (const tree_t *) 0 : (spec->t == TT_FNC ? spec->c[0] : pl_cc_ilit(0));
                 if (kind && !strcmp(kind, "set")) {
                     tree_t * lv = pl_cc_freshvar();
                     tree_t * fa = pl_cc_fnc3("findall", (tree_t *) tmpl, (tree_t *) t->c[1], lv);

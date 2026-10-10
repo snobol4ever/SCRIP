@@ -674,6 +674,8 @@ test_gate_pl_only_tree_t_crosses_parser_to_lower.sh	WIRED	-	-	-
 test_gate_pl_port_trace_oracle_diff.sh	WIRED	-	-	-
 test_gate_pl_portray_reaches_every_subterm_of_print_and_write_term.sh	WIRED	-	-	-
 test_gate_pl_predicate_property_of_a_head_known_only_at_run_time_asks_the_registry.sh	WIRED	-	-	-
+test_gate_pl_prelude_libs_cost.sh	WIRED	-	-	-
+test_gate_pl_prelude_libs_in_sync.sh	WIRED	-	-	-
 test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
@@ -686,6 +688,7 @@ test_gate_pl_stream_arg_errors_are_catchable.sh	WIRED	-	-	-
 test_gate_pl_stream_property_sees_the_standard_streams_before_any_file_operation.sh	WIRED	-	-	-
 test_gate_pl_sub_atom_with_two_bound_numbers_computes_its_one_slice.sh	WIRED	-	-	-
 test_gate_pl_swi_every_shipped_case_is_graded_by_path.sh	WIRED	-	-	-
+test_gate_pl_swi_library_modules_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_swi_shim_runs_a_forall_test_per_instance.sh	WIRED	-	-	-
 test_gate_pl_tabling_phase_1_answers_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_term_inspection_iso_errors.sh	WIRED	-	-	-

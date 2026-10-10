@@ -405,7 +405,7 @@ static void pl_dq_lower_program(PlProgram *pl_prog) {
     for (PlClause *cl = pl_prog->head; cl; cl = cl->next) {
         tree_t *tr = cl->tr; int m;
         if (tr && tr->t == TT_CLAUSE && tr->n == 2 && tr->c[0] && tr->c[0]->t == TT_NUL && (m = pl_dq_directive_mode(tr->c[1])) >= 0) { mode = m; continue; }
-        prolog_dq_lower(tr, mode);
+        prolog_dq_lower(tr, cl->dq_forced ? cl->dq_forced - 1 : mode);
     }
     g_stage2.pl_dq_mode = mode + 1;
 }
