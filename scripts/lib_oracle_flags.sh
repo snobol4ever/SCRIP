@@ -198,6 +198,28 @@ sbl_clean_refuse_if_load() {
   echo "⛔ REFUSING: $1 calls LOAD() -- the clean benchmark oracle's LOAD/external-fn support is stock upstream and UNVERIFIED against x64/bin/sbl (see sbl_clean_bin() above). Benchmarking this program against it would silently report a number of unknown validity, not a loud refusal. This is a preserved gap, not a bug for this row to fix. Time it against x64/bin/sbl directly (correctness oracle, sbl_lang_flags) if you must measure a LOAD()-calling program." >&2
   return 1
 }
+# ⛔⭐ THE ONE FILTER OVER gprolog's STANDARD OUTPUT (the coo 2026-10-10, ceo CEO-1599 on the swap CEO-1598): what a consult run prints
+# that is gprolog's and not the program's. gprolog_output_filter [--compile-diagnostics] < raw > program output. MEASURED, the two
+# banners: 1.4.5 printed "GNU Prolog 1.4.5 (64 bits)", "Compiled ...", "By Daniel Diaz", "Copyright ...", then "compiling ... for byte
+# code..." and "... compiled, N lines read"; 1.6.0 prints "GNU Prolog 1.6.0 (64 bits)", "Compiled ...", "Copyright ..." and then ONE EMPTY
+# LINE, with no By Daniel Diaz and no compiling line, and opens a compile diagnostic with "In file included from X:N". Five sites each held
+# a copy of the 1.4.5 pattern (the GNU runner twice, lib_prolog_bench.sh's gnu_filter, test_bench_prolog_4way.sh and _modes.sh), so under
+# 1.6.0 every one kept the banner's empty line and all 48 GNU driver outputs differed from their refs by that line alone. Both banners
+# are dropped here; the empty line only when it follows the Copyright line, so an empty line the program prints is kept. The query echo
+# ("| ?- halt.") and the diagnostics every copy dropped (^error:, ^warning:, cannot be redefined) go too. --compile-diagnostics also drops
+# a file:line: (fatal error|error|warning): line and "compilation failed" -- the GNU runner's stricter copy, kept to its own sites.
+# test_gate_gprolog_output_filter_is_the_one_filter.sh holds a fixed witness of each banner and the census of copies.
+gprolog_output_filter() {
+    local diag=0; [ "${1:-}" = --compile-diagnostics ] && diag=1
+    awk -v diag="$diag" '
+        after_copyright && $0 == "" { after_copyright = 0; next }
+        { after_copyright = 0 }
+        /^Copyright/ { after_copyright = 1; next }
+        /^GNU Prolog|^Compiled |^By Daniel|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|^In file included from / { next }
+        diag && (/:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):/ || /^compilation failed$/) { next }
+        { print }'
+}
+
 
 # ⭐ ICON ORACLE ACCESSORS (row icon-oracle-accessors-shared, added 2026-08-23) -- the same one-
 # authority pattern as the SPITBOL accessors above, extended to the Arizona Icon oracle.  Before

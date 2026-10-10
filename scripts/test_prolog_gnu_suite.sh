@@ -99,7 +99,7 @@ declared_memory_begin "$PKG/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a 
 # its arguments after --, which gprolog hands to argument_list/1.
 gprolog_out() { local _f="$1" _in="${2:-/dev/null}"; if [ $# -ge 2 ]; then shift 2; else shift $#; fi
     cd "$TMP" && "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$_f" --query-goal halt ${1+--} "$@" < "$_in" 2>/dev/null \
-    | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$'; }
+    | gprolog_output_filter --compile-diagnostics; }
 # ⭐ GNU_SUITE_CUT_REFS=1 CUTS EVERY DRIVER'S REF FROM gprolog AND GRADES NOTHING (no row, no progress append): NAME_driver.ref is
 # the oracle's answer as recorded evidence, cut by the same filter the board compares through; a driver gprolog answers with
 # nothing refuses, because an empty ref grades nothing (THE PACKAGE LOCKDOWN).
@@ -292,7 +292,7 @@ for f in "${FILES[@]}"; do
         # of it gprolog's own diagnostic text, not a real SCRIP divergence -- see the FINDING for the
         # full board before/after. Matched by line-number prefix instead of line start; the trailing
         # summary line gets its own literal match since it carries no line number.
-        gp_out=$(printf '%s\n' "$gp_raw" | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$')
+        gp_out=$(printf '%s\n' "$gp_raw" | gprolog_output_filter --compile-diagnostics)
 
         # ⛔⭐ CEO-331: one progress row per program per mode, from a runner that grades with its OWN loop (the coverage
         # report read gnu as MISSING, 0 of 62). ⛔ THIS SUITE'S VERDICT IS A THREE-WAY AGREEMENT m3=m4=gprolog, so a

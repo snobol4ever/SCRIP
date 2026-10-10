@@ -36,7 +36,7 @@ for pl in "$B"/*.pl; do
   gnu="-"
   if [ "$HAVE_GNU" = 1 ]; then
     go=$(cd "$W" && timeout "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
-         | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined')
+         | gprolog_output_filter)
     [ "$go" = "$want" ] && gnu=PASS || gnu=FAIL
   fi
   # --- SWI-Prolog (swipl): load file (runs initialization/1), then halt. ---

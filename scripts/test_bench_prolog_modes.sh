@@ -42,7 +42,7 @@ for pl in "$B"/*.pl; do
   orc="-"
   if gprolog_bin >/dev/null 2>&1; then
     go=$(timeout "$T" "$(gprolog_bin)" --consult-file "$pl" --query-goal halt 2>/dev/null </dev/null \
-         | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined')
+         | gprolog_output_filter)
     [ "$go" = "$want" ] && orc=ok || orc=DIFF
   fi
   status="$m3out"; [ "$m3" = FENCE ] && status="(pl_gz_admit fence)"

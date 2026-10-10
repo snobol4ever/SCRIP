@@ -13,7 +13,10 @@
 # The cure is not a SCRIP-specific guard (NO PER-ENGINE FILTER): every engine's loop stdout is compared byte-for-byte against N
 # copies of the kernel's .ref, and a run whose output is not exactly N answers is reported as what it IS --
 # LOOP-OUTPUT-MISMATCH(lines=<seen>/<wanted>) -- and never as a rate. The observation prints first, the belief nowhere.
-gnu_filter() { grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined'; }
+# gnu_filter is the one gprolog output filter, defined beside the oracle accessors (CEO-1599); four callers source this library and
+# not lib_oracle_flags.sh, so it is sourced here when it is not already in scope.
+command -v gprolog_output_filter >/dev/null 2>&1 || . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib_oracle_flags.sh"
+gnu_filter() { gprolog_output_filter; }
 # loop_check <engine> <stdout-file> <N> <expected-file>: rc=0 when stdout == N x expected (gnu stdout banner-filtered first, the
 # same filter the single-shot correctness gate uses); otherwise echoes the reason and returns 1. No N or no .ref is UNGRADED,
 # also rc=1: a loop whose iteration count cannot be verified has no rate.
