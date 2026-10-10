@@ -111,7 +111,7 @@ mapfile -t FILES < <(find "$PKG" -name "*.pl" ! -name "*_driver.pl" | sort)
 TOTAL=${#FILES[@]}
 [ "$TOTAL" -gt 0 ] || { echo "⛔ REFUSED-TO-GRADE: zero .pl files found under $PKG"; exit 2; }
 
-LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0; DRIVEN=0
+LIB=0; OK_TOTAL=0; OK_PASS=0; OK_FAIL=0; REJECT=0; UNEXPECTED=0; LADDER=0; EMPTY=0; CON_N=0; DRIVEN=0; UGB=0
 UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); EMPTY_NAMES=(); SIDE_ERR=()
 # ⛔⭐ THE ROW IS PUBLISHED OVER THE SHIPPED POPULATION, AND AN EMPTY OUTPUT GRADES NOTHING (Lon 2026-10-05, in-chat to the ceo, verbatim:
 # "What's up with \"GNU source\" test suite entry? Is that real? Did you write drivers for all those?"; ceo CEO-1523). The row read 11/11:
@@ -120,16 +120,26 @@ UNEXPECTED_NAMES=(); REJECT_NAMES=(); OK_FAIL_NAMES=(); EMPTY_NAMES=(); SIDE_ERR
 # less the CONTAINERS.tsv rows (excluded, the Excl column, CEO-1288); a program PASSES only when m3 = m4 = gprolog AND that output is not
 # empty; an empty three-way agreement and a library are UNGRADED and must each be NAMED in UNGRADED.tsv -- the board refuses an unnamed one
 # and a stale row (a named program that now grades, or names no shipped file).
-declare -A CON_SET=() UNG_SET=()
+declare -A CON_SET=() UNG_SET=() UGB_SET=()
 if [ -f "$PKG/CONTAINERS.tsv" ]; then
     while IFS=$'\t' read -r _cn _rest; do case "$_cn" in ''|'#'*) continue;; esac
         [ -f "$PKG/$_cn" ] || { echo "⛔ REFUSED-TO-GRADE: CONTAINERS.tsv names $_cn, which this package does not ship"; exit 2; }
         CON_SET[$_cn]=1; CON_N=$((CON_N+1)); done < "$PKG/CONTAINERS.tsv"
 fi
 if [ -f "$PKG/UNGRADED.tsv" ]; then
-    while IFS=$'\t' read -r _un _rest; do case "$_un" in ''|'#'*) continue;; esac
+    while IFS=$'\t' read -r _un _uc _rest; do case "$_un" in ''|'#'*) continue;; esac
         [ -f "$PKG/$_un" ] || { echo "⛔ REFUSED-TO-GRADE: UNGRADED.tsv names $_un, which this package does not ship"; exit 2; }
-        UNG_SET[$_un]=1; done < "$PKG/UNGRADED.tsv"
+        UNG_SET[$_un]="${_uc:-NEEDS_DRIVER}"; done < "$PKG/UNGRADED.tsv"
+fi
+# ⛔⭐ A FILE THE ORACLE GIVES NO ANSWER FOR IS NAMED IN UNGRADABLE.tsv AND STAYS IN THE DENOMINATOR AS DEBT (the coo 2026-10-10, row
+# prolog-gnu-every-prolog-source-file-...-ceo-1312; CEO-749, CEO-1286, CEO-1588 (a)). Measured: six of the 55 cannot be driven against
+# gprolog -- ciaolib.pl and whole.pl and foreign.pl fail its compile, no_le_interf.pl and no_sockets.pl are stubs this build links other
+# files in place of, top_level.pl reads its queries from a terminal. Each gets one UNGRADED progress row per mode whose note is its class
+# (the container runner's shape, lib_container_package_runner.sh), is never compiled or run here, and a driver beside it is a stale row.
+if [ -f "$PKG/UNGRADABLE.tsv" ]; then
+    while IFS=$'\t' read -r _gn _gc _rest; do case "$_gn" in ''|'#'*) continue;; esac
+        [ -f "$PKG/$_gn" ] || { echo "⛔ REFUSED-TO-GRADE: UNGRADABLE.tsv names $_gn, which this package does not ship"; exit 2; }
+        UGB_SET[$_gn]="$_gc"; done < "$PKG/UNGRADABLE.tsv"
 fi
 declare -A LADDER_RUNG_COUNT LADDER_RUNG_NAMES
 # ⛔⭐ AN EXCLUDED LINE IS NAMED, WITH ITS RULING (ceo CEO-1527 (a), 2026-10-06: SCRIP's integers are unbounded like SWI's, so
@@ -172,6 +182,16 @@ for f in "${FILES[@]}"; do
     # NAME_driver.ref is the oracle's answer as cut (GNU_SUITE_CUT_REFS=1, below): live gprolog that disagrees with it refuses the
     # board as a stale ref, so the stored evidence and the live oracle can never silently part.
     drv="${f%.pl}_driver.pl"
+    if [ -n "${UGB_SET[$rel]:-}" ]; then
+        UGB=$((UGB+1))
+        [ ! -f "$drv" ] || SIDE_ERR+=("$rel has a driver and UNGRADABLE.tsv still names it -- delete the stale row")
+        if command -v progress_append >/dev/null 2>&1; then
+            progress_append package gnu prolog "$rel" m3 UNGRADED 0 "${UGB_SET[$rel]}" || true
+            progress_append package gnu prolog "$rel" m4 UNGRADED 0 "${UGB_SET[$rel]}" || true
+        fi
+        [ "$VERBOSE" -eq 1 ] && echo "  UNGRADABLE ${UGB_SET[$rel]} (UNGRADABLE.tsv, the oracle's reason) $rel"
+        continue
+    fi
     if [ -f "$drv" ]; then
         DRIVEN=$((DRIVEN+1)); OK_TOTAL=$((OK_TOTAL+1))
         [ -z "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel has a driver and UNGRADED.tsv still names it -- delete the stale row")
@@ -212,9 +232,12 @@ for f in "${FILES[@]}"; do
     if is_bootstrap_only "$rel" "$f"; then
         LIB=$((LIB+1))
         [ -n "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel is a library (no entry point) and UNGRADED.tsv does not name it NEEDS_DRIVER")
+        # the note is the work owed: a library still owed its driver keeps the note it has carried since CEO-1523; a file owed something
+        # else (all.pl, NEEDS_ARGV_FIXTURE) carries its UNGRADED.tsv class, as the container runner's rows do
+        _ln="library-needs-driver"; [ "${UNG_SET[$rel]:-NEEDS_DRIVER}" = NEEDS_DRIVER ] || _ln="${UNG_SET[$rel]}"
         if command -v progress_append >/dev/null 2>&1; then
-            progress_append package gnu prolog "$rel" m3 UNGRADED 0 "library-needs-driver" || true
-            progress_append package gnu prolog "$rel" m4 UNGRADED 0 "library-needs-driver" || true
+            progress_append package gnu prolog "$rel" m3 UNGRADED 0 "$_ln" || true
+            progress_append package gnu prolog "$rel" m4 UNGRADED 0 "$_ln" || true
         fi
         [ "$VERBOSE" -eq 1 ] && echo "  LIB (bootstrap-only file, no SCRIP invocation) $rel"
         continue
@@ -350,7 +373,7 @@ if [ "${#SIDE_ERR[@]}" -gt 0 ]; then
     echo "⛔ REFUSED-TO-GRADE: UNGRADED.tsv disagrees with this run:"; for n in "${SIDE_ERR[@]}"; do echo "   $n"; done; exit 2
 fi
 echo ""
-echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS driven=$DRIVEN excluded=$CON_N empty=$EMPTY total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
+echo "GNU_SUITE_BOARD population=$POP pass=$OK_PASS driven=$DRIVEN excluded=$CON_N empty=$EMPTY ungradable=$UGB total=$TOTAL lib=$LIB ok=$OK_TOTAL ok_pass=$OK_PASS/$OK_TOTAL ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(subset of ok_fail) unexpected=$UNEXPECTED"
 # ⭐ THE PACKAGE LOCKDOWN inventory line, via the shared body (lib_inventory.sh) -- never a second copy
 # of the arithmetic. LIB (bootstrap/library files, no independent behavior) is a ruling about what the
 # file IS, so it is UNGRADABLE/CONTAINER_OR_LIBRARY; REJECT (hang after parse error, a known, filed,
@@ -367,7 +390,7 @@ if [ -n "$INV_LINE" ]; then echo "$INV_LINE"; else echo "⚠ inventory refused (
 # warns and names the unrecorded row instead; it has no silent path.
 python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GNU --modes m3,m4 \
     --suite-pass "$OK_PASS" --suite-total "$POP" --excluded "$CON_N" ${S4E_CRITERION_CHANGED:+--criterion-changed "$S4E_CRITERION_CHANGED"} \
-    --measurer "${S4E_SEAT:-}" --text "PASS $OK_PASS over $POP shipped programs (Excl $CON_N containers) -- a program passes when m3 = m4 = gprolog and the output is not empty · ungraded $((LIB + EMPTY)) owed drivers ($LIB libraries, $EMPTY that print nothing) · ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
+    --measurer "${S4E_SEAT:-}" --text "PASS $OK_PASS over $POP shipped programs (Excl $CON_N containers) -- a program passes when m3 = m4 = gprolog and the output is not empty · ungraded $((LIB + EMPTY)) named in UNGRADED.tsv ($LIB libraries, $EMPTY that print nothing) · ungradable $UGB named in UNGRADABLE.tsv with the oracle's reason · ok_fail=$OK_FAIL reject=$REJECT ladder=$LADDER(of ok_fail) unexpected=$UNEXPECTED of total=$TOTAL${INV_LINE:+ · $INV_LINE (\`test_prolog_gnu_suite.sh\`)}" \
     || echo "⚠ SCORE.md NOT UPDATED -- record this row by hand (the REFUSED line above says why)"
 
 
@@ -375,5 +398,5 @@ python3 "$HERE/util_score_row.py" write --lang prolog --column vendor --suite GN
 # vacuously, hq_T 2026-09-04): the bucket-sum check just below PASSES vacuously at TOTAL=0 (0==0),
 # and OK_FAIL/UNEXPECTED read 0 too when nothing was discovered -- refuse first.
 "$HERE/util_require_population.sh" --gate test_prolog_gnu_suite "$TOTAL" 1 "prolog GNU source files discovered" || exit 2
-[ "$((CON_N + LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
+[ "$((CON_N + UGB + LIB + OK_TOTAL + REJECT + UNEXPECTED))" -eq "$TOTAL" ] || { echo "⛔ BUCKET COUNTS DON'T SUM TO TOTAL -- instrument bug, refusing to trust the board"; exit 2; }
 [ "$OK_FAIL" -eq 0 ] && [ "$UNEXPECTED" -eq 0 ]
