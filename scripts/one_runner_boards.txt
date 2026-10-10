@@ -37,4 +37,5 @@ test_snobol4_spitbol_x32_suite.sh
 test_prolog_logtalk_suite.sh
 test_prolog_rosetta_suite.sh
 test_prolog_puzzles_suite.sh
+test_prolog_trealla_suite.sh
 test_demos_suite.sh

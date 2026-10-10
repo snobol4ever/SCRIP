@@ -65,6 +65,7 @@ runner_for() {  # $1 = "<lang>/<name>" -> echoes the grading script's basename, 
     pascal/rosetta-pascal)   echo test_pascal_rosetta_suite.sh ;;
     prolog/rosetta-prolog)   echo test_prolog_rosetta_suite.sh ;;
     prolog/puzzles)          echo test_prolog_puzzles_suite.sh ;;
+    prolog/trealla_tests)    echo test_prolog_trealla_suite.sh ;;
     pascal/wirth1976)        echo test_pascal_wirth76_suite.sh ;;
     pascal/pat)              echo test_pascal_pat_suite.sh ;;
     prolog/gnu_prolog)       echo test_prolog_gnu_suite.sh ;;
