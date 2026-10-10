@@ -13787,6 +13787,38 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
     if (!strcmp(fn, "__rk_actions_plan") && nargs == 2) { *out = rk_actions_plan(args[0], args[1]); return 1; }
+    if (!strcmp(fn, "__rk_hyper_done") && nargs == 2) { *out = (args[1].v == DT_A && args[1].arr && !((ARBLK_t *) args[1].arr)->proto) ? rk_unmark(args[0]) : args[0]; return 1; }
+    if (!strcmp(fn, "__rk_produce_init") && nargs == 1) {
+        rk_av_t a = rk_av(args[0]);
+        DESCR_t st[2] = { a.n ? rk_mk_arr(a.el, 1) : rk_mk_arr(NULL, 0), a.n ? a.el[0] : NULVCL };
+        *out = rk_mk_arr(st, 2);
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_produce_last") && nargs == 1) { rk_av_t s = rk_av(args[0]); *out = s.n == 2 ? s.el[1] : NULVCL; return 1; }
+    if (!strcmp(fn, "__rk_produce_step") && nargs == 2) {
+        rk_av_t s = rk_av(args[0]);
+        if (s.n == 2) { rk_arr_append((ARBLK_t *) s.el[0].arr, args[1]); ((ARBLK_t *) args[0].arr)->data[1] = args[1]; }
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_produce_done") && nargs == 1) { rk_av_t s = rk_av(args[0]); *out = s.n == 2 ? s.el[0] : rk_mk_arr(NULL, 0); return 1; }
+    if (!strcmp(fn, "__rk_keyed_init") && nargs == 1) { DESCR_t st[4] = { rk_mk_arr(NULL, 0), rk_mk_arr(NULL, 0), NULVCL, INTVAL(rk_ival(args[0])) }; *out = rk_mk_arr(st, 4); return 1; }
+    if (!strcmp(fn, "__rk_keyed_step") && nargs == 3) {
+        rk_av_t s = rk_av(args[0]);
+        if (s.n != 4) { *out = args[0]; return 1; }
+        long mode = s.el[3].i;
+        const char *kt = rk_cstr(args[2]);
+        rk_av_t ka = rk_av(s.el[1]);
+        int seen = 0;
+        if (mode == 1) seen = s.el[2].v != 0 && !strcmp(rk_cstr(s.el[2]), kt);
+        else for (int j = 0; j < ka.n && !seen; j++) if (!strcmp(rk_cstr(ka.el[j]), kt)) seen = 1;
+        if (mode == 1) ((ARBLK_t *) args[0].arr)->data[2] = STRVAL(rt_heap_strdup_c(kt));
+        else if (!seen) rk_arr_append((ARBLK_t *) s.el[1].arr, STRVAL(rt_heap_strdup_c(kt)));
+        if (mode == 2 ? seen : !seen) rk_arr_append((ARBLK_t *) s.el[0].arr, args[1]);
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_keyed_done") && nargs == 1) { rk_av_t s = rk_av(args[0]); *out = s.n == 4 ? s.el[0] : rk_mk_arr(NULL, 0); return 1; }
     if (!strcmp(fn, "__rk_subst_open") && nargs >= 6) { *out = rk_subst_open(args, nargs); return 1; }
     if (!strcmp(fn, "__rk_subst_next") && nargs == 1) { *out = rk_subst_next(args[0]) ? (DESCR_t){ .v = DT_BOOL, .i = 1 } : FAILDESCR; return 1; }
     if (!strcmp(fn, "__rk_subst_put") && nargs == 2) { rk_subst_put(args[0], args[1]); *out = args[0]; return 1; }
