@@ -126,6 +126,7 @@ ALNUM    [A-Za-z0-9_]
 <COMMENT>"*)"           { BEGIN INITIAL; }
 <COMMENT>.              { }
 <COMMENT>\n             { }
+"//"[^\n]*              { }
 "{$if"[ \t]             { pascal_ifdefbuf[0] = '\0'; pascal_ifdefpos = 0; BEGIN IF_HDR; }
 <IF_HDR>"}"             { BEGIN (pascal_if_eval(pascal_ifdefbuf) ? IFDEF_TRUE : IFDEF_BODY); }
 <IF_HDR>.               { if (pascal_ifdefpos < (int)sizeof(pascal_ifdefbuf) - 1) { pascal_ifdefbuf[pascal_ifdefpos++] = pascal_yytext[0]; pascal_ifdefbuf[pascal_ifdefpos] = '\0'; } }
