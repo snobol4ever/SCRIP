@@ -2136,14 +2136,36 @@ static PlProgram *pl_include_expand(Parser *pp, const PlClause *cl, int depth, i
     return sub;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *pl_module_directive_name(const tree_t *t) {
+    const tree_t *g;
+    if (!t || t->t != TT_CLAUSE || t->n != 2 || !t->c[0] || t->c[0]->t != TT_NUL) return (const char *)0;
+    g = t->c[1];
+    if (!g || g->t != TT_FNC || !g->v.sval || strcmp(g->v.sval, "module") || g->n != 2 || !g->c[0] || (g->c[0]->t != TT_QLIT && g->c[0]->t != TT_NAME)) return (const char *)0;
+    return g->c[0]->v.sval;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static PlClause *pl_module_restore_clause(const char *mod, int lineno) {
+    PlClause *c = ct_zalloc(1, sizeof(PlClause));
+    tree_t *cl = ast_node_new(TT_CLAUSE), *g = ast_node_new(TT_FNC), *m = ast_node_new(TT_QLIT);
+    m->v.sval = ct_strdup(mod);
+    g->v.sval = ct_strdup("$module_restore");
+    ast_push(g, m);
+    ast_push(cl, ast_node_new(TT_NUL));
+    ast_push(cl, g);
+    c->lineno = lineno;
+    c->tr = cl;
+    return c;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pl_preprocess_list(PlProgram *prog, int depth) {
-    Parser q; PlClause *prev = (PlClause *)0, *cl;
+    Parser q; PlClause *prev = (PlClause *)0, *cl; const char *cur_mod = "user";
     if (!prog) return;
     memset(&q, 0, sizeof q); q.filename = prog->filename ? prog->filename : "<stdin>"; q.quiet = prog->quiet; q.incl_depth = depth;
     cl = prog->head;
     while (cl) {
         PlClause *next = cl->next; int drop = 0, is_include = 0; const tree_t *t = cl->tr;
         prolog_fold_pieces(cl->tr);
+        { const char *mn = pl_module_directive_name(t); if (mn) cur_mod = mn; }
         if (t && t->t == TT_CLAUSE && t->n == 2 && t->c[0] && t->c[0]->t == TT_NUL && t->c[1] && try_handle_if_directive_tree(&q, t->c[1], cl->lineno)) drop = 1;
         else if (!if_currently_active(&q)) drop = 1;
         else {
@@ -2151,6 +2173,10 @@ static void pl_preprocess_list(PlProgram *prog, int depth) {
             if (is_include) {
                 drop = 1;
                 if (sub && sub->head) {
+                    PlClause *mr = pl_module_restore_clause(cur_mod, cl->lineno);
+                    sub->tail->next = mr;
+                    sub->tail = mr;
+                    sub->nclauses++;
                     if (prev) prev->next = sub->head; else prog->head = sub->head;
                     sub->tail->next = next; prev = sub->tail; prog->nclauses += sub->nclauses;
                 }

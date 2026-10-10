@@ -474,7 +474,8 @@ static int pl_rung_of(const char * nm) {
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
 static const char * const pl_db_mq_builtins[] = { "assert", "asserta", "assertz", "retract", "retractall", "abolish", NULL };
-static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "module_transparent", NULL };
+static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "module_transparent", "$module_restore",
+    NULL };
 static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
