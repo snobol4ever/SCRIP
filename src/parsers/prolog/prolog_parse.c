@@ -1605,7 +1605,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$tbl_done'(T):-'$trie_meta_set'(T,0,complete),'$tbl_inprog'(Ts),'$tbl_del'(Ts,T,Ts1),nb_setval('$tbl_inprog',Ts1).\n"
     "'$tbl_del'([],_,[]).\n"
     "'$tbl_del'([K|R],T,S):-(K==T->S=R;S=[K|S1],'$tbl_del'(R,T,S1)).\n"
-    "'$tbl_rounds':-'$tbl_inprog'(Ks0),(Ks0==[]->true;length(Ks0,N0),'$tbl_round'(Ks0,0,C),'$tbl_inprog'(Ks1),length(Ks1,N1),(C+N1-N0>0->'$tbl_rounds';true)).\n"
+    "'$tbl_rounds':-repeat,'$tbl_inprog'(Ks0),(Ks0==[]->!;length(Ks0,N0),'$tbl_round'(Ks0,0,C),'$tbl_inprog'(Ks1),length(Ks1,N1),(C+N1-N0>0->fail;!)).\n"
     "'$tbl_round'([],C,C).\n"
     "'$tbl_round'([K|T],C0,C):-'$tbl_eval'(K,N),C1 is C0+N,'$tbl_round'(T,C1,C).\n"
     "'$tbl_eval'(T,N):-'$trie_meta_get'(T,1,G-I),findall(G,I,Fs),'$tbl_add'(Fs,T,G,0,N).\n"
