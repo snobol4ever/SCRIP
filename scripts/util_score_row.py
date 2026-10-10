@@ -1587,7 +1587,11 @@ def suite_sync(a, tree, dry_run, decided=None):
     if not os.path.exists(SUITE_BANNER):
         die("suite row %r is owed but %s is missing.\n        Row %s." % (key, SUITE_BANNER, SUITE_SYNC_ROW))
     day = _box_clock_day()
-    env = dict(os.environ); env["S4E_SUITES_TSV"] = SUITES_TSV
+    # ⛔ BOTH OUTPUTS ARE NAMED TO THE BANNER (the coo 2026-10-10): given S4E_SUITES_TSV alone, util_suite_banner.py renders SCORE.md
+    # BESIDE THE TABLE -- correct for a fixture's scratch pair, wrong since the table moved to /home/resources/progress (SCRIP 0eb163da2,
+    # 2026-10-09): every write from then on rendered into a SCORE.md that does not exist there, the banner's "suite table NOT rendered"
+    # went unread, and .github/SCORE.md's suite table kept 10-09's readings through a whole pass whose rows all landed in SUITES.tsv.
+    env = dict(os.environ); env["S4E_SUITES_TSV"] = SUITES_TSV; env["S4E_SCORE_MD"] = SCORE_MD
     cmd = [sys.executable, SUITE_BANNER, "--set", key, str(p), str(t), day, tree]
     if getattr(a, "criterion_changed", None):
         cmd += ["--criterion-changed", a.criterion_changed]
@@ -1609,6 +1613,11 @@ def suite_sync(a, tree, dry_run, decided=None):
     # die() names which files actually moved, so PARTIAL is a measurement and not the author's claim.
     if r.returncode == 0:
         refusal_watch_wrote(SUITES_TSV)
+    # ⛔ A RENDER THE BANNER SKIPPED IS A SPLIT STATE, SAID ALOUD: SUITES.tsv took the row and SCORE.md's suite table did not.
+    if r.returncode == 0 and "suite table NOT rendered" in (r.stdout or "") + (r.stderr or ""):
+        die("util_suite_banner.py --set %s %s %s set SUITES.tsv and did NOT render SCORE.md's suite table:\n        %s\n"
+            "        ⛔ PARTIAL: SUITES.tsv carries the row and %s does not. Render it: util_suite_banner.py --render --only %s."
+            % (key, p, t, ((r.stdout or "") + (r.stderr or "")).strip()[:300], SCORE_MD, key))
     if r.returncode != 0:
         die("util_suite_banner.py --set %s %s %s failed rc=%d: %s\n        Row %s.\n"
             "        ⛔ PARTIAL: SCORE.md WAS rewritten and SUITES.tsv was NOT -- this is the one case where the board\n"
