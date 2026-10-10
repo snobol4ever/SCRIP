@@ -1606,6 +1606,23 @@ def suite_sync(a, tree, dry_run, decided=None):
                 "        DROP the count while this writer reports it recorded). Pull .github to origin (CEO-1286) and re-run.\n"
                 "        NOTHING WAS WRITTEN: SCORE.md and SUITES.tsv are both untouched." % SUITE_BANNER)
         cmd += ["--excluded", str(_exc)]
+    # ⭐ THE ROW'S WALL CLOCK (Lon 2026-10-08: "List in a grid the total time for each test suite to run."; CEO-1562): --secs when the caller
+    # measured it, else now minus S4E_RUN_T0, which one_runner_guard stamps at the runner's start; a stamp older than a week is no run's.
+    # Forwarded only to a banner that knows the flag -- an older one is named, and the row is written without it rather than refused.
+    _secs = getattr(a, "secs", None)
+    if _secs is None and os.environ.get("S4E_RUN_T0", "").isdigit():
+        _d = int(time.time()) - int(os.environ["S4E_RUN_T0"])
+        _secs = _d if 0 <= _d < 7 * 86400 else None
+    if _secs is not None:
+        try:
+            _btxt = open(SUITE_BANNER, encoding="utf-8").read()
+        except OSError:
+            _btxt = ""
+        if "--secs" in _btxt:
+            cmd += ["--secs", str(_secs)]
+        else:
+            print("  ⚠ wall clock %ds NOT recorded: the banner %s does not know --secs (pull .github to origin, CEO-1562)" % (_secs, SUITE_BANNER), file=sys.stderr)
+            _secs = None
     r = subprocess.run(cmd, capture_output=True, text=True, env=env)
     # ⛔ THE BANNER IS A SUBPROCESS, SO ITS WRITE IS DECLARED HERE ON ITS RC, NOT ASSUMED FROM THE CALL.
     # A banner that moved the row and THEN failed is a real partial state, and the digest is what tells
@@ -1631,14 +1648,15 @@ def suite_sync(a, tree, dry_run, decided=None):
     _cc = (_r or {}).get("criterion_changed", "")
     _stamp = getattr(a, "criterion_changed", None) or ""
     _exc_bad = (_exc is not None and (_r or {}).get("today_excluded", "") != str(_exc))
+    _exc_bad = _exc_bad or (_secs is not None and (_r or {}).get("today_secs", "") != str(_secs))
     if _r is None or _r.get("today_pass") != str(p) or _r.get("today_total") != str(t) or (_stamp and not _cc.endswith(_stamp)) or _exc_bad:
         die("util_suite_banner.py --set returned 0 but the row READ BACK from %s does not carry what was forwarded: pass %r total %r stamp %s.\n"
             "        ⛔ PARTIAL: SCORE.md WAS rewritten and SUITES.tsv did NOT take the write -- the banner beside this writer is not the one\n"
             "        this flag was landed with (pull .github to origin; the stamp landed at 49ca418e), then re-run this write.\n"
             "        Row util-score-row-forwards-the-criterion-stamp-to-a-banner-it-never-checked-and-never-reads-the-row-back."
             % (SUITES_TSV, (_r or {}).get("today_pass"), (_r or {}).get("today_total"), ("PRESENT" if (_stamp and _cc.endswith(_stamp)) else ("ABSENT" if _stamp else "none forwarded")))
-            + ("\n        excluded forwarded %r, row carries %r" % (_exc, (_r or {}).get("today_excluded")) if _exc_bad else ""))
-    return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call%s%s" % (key, p, t, day, tree, (" · criterion stamped and read back" if _stamp else ""), (" · EXCLUDED=%d read back" % _exc if _exc is not None else ""))
+            + ("\n        excluded forwarded %r, row carries %r; secs forwarded %r, row carries %r" % (_exc, (_r or {}).get("today_excluded"), _secs, (_r or {}).get("today_secs")) if _exc_bad else ""))
+    return "  suite table: %s -> %s/%s on %s (tree %s) -- SUITES.tsv rewritten in the same call%s%s%s" % (key, p, t, day, tree, (" · criterion stamped and read back" if _stamp else ""), (" · EXCLUDED=%d read back" % _exc if _exc is not None else ""), (" · WALL=%ds read back" % _secs if _secs is not None else ""))
 
 
 def write_suite_row_only(a):
@@ -2569,6 +2587,8 @@ def cmd_selftest(a):
         # every write arm below plants no progress rows: the DB cross-check (db_crosscheck) is overridden LOUDLY for them
         # and proven by its own arms, which pop this and plant a scratch DB
         os.environ["S4E_DB_CHECK_OVERRIDE"] = "selftest: the write arms plant no progress rows"
+        # the caller's run start is not this selftest's: every arm writes without a wall clock but the one that proves it (CEO-1562)
+        os.environ.pop("S4E_RUN_T0", None)
         if os.path.exists(real_tsv):
             shutil.copy(real_tsv, SUITES_TSV)
             # ⛔ SEED THE FIXTURE DENOMINATOR THROUGH THE STAMPED PATH (coo 2026-09-16, CEO-785): every arm below writes the
@@ -3583,6 +3603,19 @@ def cmd_selftest(a):
             print("SELFTEST: a reading that REALLY moved prints no notice (the notice is about stamps, not about writes)")
         else:
             print("SELFTEST FAIL: the unchanged-reading notice fired on a write that moved the reading"); ok = False
+        # ⭐ THE WALL CLOCK (Lon 2026-10-08: "List in a grid the total time for each test suite to run."; CEO-1562): a write under the run start
+        # one_runner_guard stamps carries now - S4E_RUN_T0 into today_secs, reads it back, and the suite-table cell shows it as WALL=.
+        os.environ["S4E_RUN_T0"] = str(int(time.time()) - 125)
+        try:
+            if not _arm("a bench-ref write under S4E_RUN_T0 lands with its wall clock",
+                        lambda: cmd_write(_A(column="bench-ref", text=_bl.replace("all_pass=2", "all_pass=3"))), False): ok = False
+        finally:
+            os.environ.pop("S4E_RUN_T0", None)
+        _ws = ((_tsv_row("rebus-bench-ref") or {}).get("today_secs") or "")
+        if _ws.isdigit() and 125 <= int(_ws) <= 245 and any(l.startswith("| RebBench | rebus | 3/3 WALL=%ss |" % _ws) for l in open(SCORE_MD, encoding="utf-8").read().split("\n")):
+            print("SELFTEST: ...the run's wall clock reads back from today_secs (%ss) and shows as WALL= in the suite table" % _ws)
+        else:
+            print("SELFTEST FAIL: the wall clock did not land -- today_secs %r, RebBench line %r" % (_ws, [l for l in open(SCORE_MD, encoding="utf-8").read().split("\n") if l.startswith("| RebBench ")][:1])); ok = False
     finally:
         SCORE_MD = real
         SUITES_TSV = real_tsv
@@ -4884,6 +4917,9 @@ def main():
     w.add_argument("--excluded", type=int, default=None, metavar="N",
                    help="the programs NOT IN THE SPITBOL DIALECT this row's denominator leaves out, named in the package's EXCLUDED.tsv "
                         "(Lon 2026-09-26, CEO-1286); written to SUITES.tsv column today_excluded and shown as EXCLUDED=N in the grid")
+    w.add_argument("--secs", type=int, default=None, metavar="N",
+                   help="the run's wall clock in seconds (Lon 2026-10-08, CEO-1562); default: now minus S4E_RUN_T0, which one_runner_guard stamps "
+                        "at the runner's start; written to SUITES.tsv column today_secs and shown as the grid's Wall")
     w.add_argument("--no-suite-sync", action="store_true", help="labelled escape: this V/M write genuinely has no SUITES.tsv row. The banner will read the row STALE")
     w.add_argument("--dry-run", action="store_true")
     w.set_defaults(fn=cmd_write)

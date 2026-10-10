@@ -184,6 +184,10 @@ one_runner_population_of() {
 }
 ONE_RUNNER_SMOKE_MODE_RUNNERS="test_icon_ipl_suite.sh test_snobol4_gimpel_suite.sh"   # runners with an area-smoke mode that writes nothing (see one_runner_guard)
 one_runner_guard() {
+  # ⭐ THE RUN'S START, STAMPED BY EVERY RUNNER FOR ITSELF (Lon 2026-10-08, in-chat to the ceo: "List in a grid the total time for each test
+  # suite to run."; CEO-1562): util_score_row.py turns it into the row's wall clock (SUITES.tsv today_secs, the grid's Wall). Unconditional,
+  # unlike S4E_BIN_AT_START: a runner a board launches times its own run, not its parent's.
+  S4E_RUN_T0="$(date +%s)"; export S4E_RUN_T0
   if [ -z "${S4E_BIN_AT_START:-}" ]; then S4E_BIN_AT_START="$(one_runner_bin_fingerprint)" && export S4E_BIN_AT_START; fi
   local board="${1:-${0##*/}}" suite="${2:-}" seat who lang
   if [ -n "$suite" ] && ! one_runner_suite_is_a_board "$suite"; then return 0; fi
