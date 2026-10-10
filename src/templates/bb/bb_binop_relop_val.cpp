@@ -131,7 +131,7 @@ std::string bb_binop_relop_val() {
              + x86("mov", "rcx", (long)0)
              + x86("mov", FRQ(_.op_off + 8), "rcx")
              + x86_gamma()
-             + x86("def", L(0))
+             + x86("def", L(0)) + RELOP_ARMED(0)
              + x86("mov", "rdi", FRQ(_.op_sa))
              + x86("mov", "rsi", FRQ(_.op_sa + 8))
              + x86("mov", "rdx", FRQ(_.op_sb))

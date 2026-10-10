@@ -4432,6 +4432,11 @@ static stage2_t *rk_stage2_core(const tree_t *prog, int reset_multi, int want_ma
         }
     }
     rk_discover_procs(prog);
+    {
+        extern int rt_binop_overload_armed_by(const char *pn);
+        g_stage2.rk_infix_armed = 0;
+        for (int i = 0; i < g_stage2.proc_count; i++) if (rt_binop_overload_armed_by(g_stage2.proc_table[i].name)) { g_stage2.rk_infix_armed = 1; break; }
+    }
     for (int pi = 0; pi < g_stage2.proc_count; pi++) {
         const tree_t *proc = (const tree_t *) g_stage2.proc_table[pi].proc;
         if (!proc || proc->t != TT_SUB_DECL) continue;

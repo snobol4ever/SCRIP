@@ -558,6 +558,7 @@ test_gate_pas_pack_unpack_stays_inside_the_unpacked_arrays_index_type.sh	WIRED	-
 test_gate_pas_packed_component_is_not_a_var_parameter.sh	WIRED	-	-	-
 test_gate_pas_pat_m4_arm_links_and_runs.sh	WIRED	-	-	-
 test_gate_pas_port_trace.sh	WIRED	-	-	-
+test_gate_pas_prelude_units_in_sync.sh	WIRED	-	-	-
 test_gate_pas_read_at_end_of_line_yields_a_space.sh	WIRED	-	-	-
 test_gate_pas_readln_and_writeln_require_a_textfile.sh	WIRED	-	-	-
 test_gate_pas_real_record_fields_read_back_as_reals.sh	WIRED	-	-	-
@@ -575,6 +576,7 @@ test_gate_pas_two_routines_of_one_name_get_distinct_assembler_labels.sh	WIRED	-	
 test_gate_pas_typed_files_read_and_write_components.sh	WIRED	-	-	-
 test_gate_pas_under_overflow_checking_an_unsigned_sum_that_goes_negative_is_runtime_error_215.sh	WIRED	-	-	-
 test_gate_pas_uplevel_var_parameter_writes_back.sh	WIRED	-	-	-
+test_gate_pas_uses_and_units_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pas_variant_arms_overlay_the_same_storage.sh	WIRED	-	-	-
 test_gate_pas_variant_record_arms_share_one_byte_storage_as_fpc_overlays_them.sh	WIRED	-	-	-
 test_gate_pas_zero_based_strings_make_low_zero_and_index_from_zero_after_the_directive.sh	WIRED	-	-	-
@@ -680,8 +682,6 @@ test_gate_pl_portray_reaches_every_subterm_of_print_and_write_term.sh	WIRED	-	-	
 test_gate_pl_predicate_property_of_a_head_known_only_at_run_time_asks_the_registry.sh	WIRED	-	-	-
 test_gate_pl_prelude_libs_cost.sh	WIRED	-	-	-
 test_gate_pl_prelude_libs_in_sync.sh	WIRED	-	-	-
-test_gate_pas_prelude_units_in_sync.sh	WIRED	-	-	-
-test_gate_pas_uses_and_units_answer_as_fpc.sh	WIRED	-	-	-
 test_gate_pl_print_1_honours_portray_and_costs_nothing_without_it.sh	WIRED	-	-	-
 test_gate_pl_quad_regs.sh	WIRED	-	-	-
 test_gate_pl_raising_directive_does_not_abort_the_load.sh	WIRED	-	-	-
@@ -754,6 +754,7 @@ test_gate_raku_aggregates_are_typed_storage.sh	WIRED	-	-	-
 test_gate_raku_an_array_subscript_slices_by_an_array_of_indexes_as_rakudo_does.sh	WIRED	-	-	-
 test_gate_raku_an_element_assignment_through_a_chain_of_subscripts_stores_into_the_nested_container_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_an_exception_is_a_value_that_die_carries_and_catch_and_throws_like_read.sh	WIRED	-	-	-
+test_gate_raku_an_infix_multi_on_objects_is_entered_from_the_binop_box_in_an_armed_program_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_an_unknown_method_throws_x_method_notfound_dot_question_calls_it_maybe_can_finds_methods_and_attributes_and_fallback_catches_the_rest_agree_with_rakudo.sh	WIRED	-	-	-
 test_gate_raku_array_push_is_amortised_constant_and_keeps_its_aliasing.sh	WIRED	-	-	-
 test_gate_raku_assigning_the_wrong_type_to_a_typed_variable_throws_x_typecheck_assignment_agree_with_rakudo.sh	WIRED	-	-	-
