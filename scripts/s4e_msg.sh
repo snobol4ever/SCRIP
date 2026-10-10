@@ -1032,9 +1032,6 @@ s4e_lane_owner_of_language() {
       # table again -- every language to its own HQ, hq_templates owning none, rebus the ceo's keep-green. MOVED AND COMMITTED BEFORE THE MODE FILE (CEO-1046/1051).
       # ⛔⭐ MODE QUARTET (CEO-1587, 2026-10-09 18:2x CDT, Lon in-chat to the ceo, verbatim: "Bring the fleet to QUARTET mode, only four officers."): the ten HQs stand
       # down (Lon had brought them idle at 17:4x); EVERY LANGUAGE TO THE ceo, who assigns, as the QUARTET of CEO-1521 (2026-10-05) and the DUO before it kept it; no
-      # ⛔⭐ MODE CEO (CEO-1589, 2026-10-09 19:1x CDT, Lon in-chat to the ceo, verbatim: "It really is just you and me now." then "All three officers, CTO, CFO, and COO are
-      # idle and will stay so."): the ceo alone; this table is unchanged (every language already the ceo's), and MODE's LANES line names the ceo for every language,
-      # so the ceo runs the suites and writes the score rows the coo ran and wrote. MOVED (by this comment) AND COMMITTED BEFORE THE MODE FILE.
       # re-lane (the CEO-1357/1372/1396 precedent: HQ rows and claims wait in place for the HQs' return). The TENET table above is the flip-back template:
       # icon hq_icon, prolog hq_prolog, snobol4 hq_snobol4, pascal hq_pascal, snocone hq_snocone, rebus ceo, raku hq_raku. MOVED AND COMMITTED BEFORE THE MODE FILE.
        icon)     printf 'ceo';;
