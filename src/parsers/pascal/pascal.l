@@ -30,6 +30,8 @@ static tree_t *pascal_leaf(tree_e kind) {
     pascal_nev = 0;
     return l;
 }
+void pascal_flip_dialect(int d) { if (pascal_dialect() == PAS_DIALECT_ISO_DEFAULT) { pascal_dialect_set(d); pascal_event("seen_mode"); } }
+void pascal_stamp_dialect(tree_t *leaf) { if (leaf && pascal_dialect() >= PAS_DIALECT_FPC) ast_push(leaf, pascal_attr_of("seen_mode")); }
 void pascal_pragma_flush(tree_t *root) { for (int i = 0; root && i < pascal_nev; i++) ast_push(root, pascal_attr_of(pascal_ev[i])); pascal_nev = 0; }
 static long long pascal_int_lit(const char *t) {
     errno = 0; unsigned long long v = strtoull(t, NULL, 10);
@@ -367,6 +369,7 @@ ALNUM    [A-Za-z0-9_]
 <BRACE>"}"              { BEGIN INITIAL; }
 <BRACE>.                { }
 <BRACE>\n               { }
+"otherwise"/[ \t\r\n]+[a-z_] { pascal_flip_dialect(PAS_DIALECT_FPC); return OTHERWISESY; }
 "program"               { pascal_unit_mode_set(-1); return PROGRAMSY; }
 "begin"                 { pascal_seen_decl_start = 1; return BEGINSY; }
 "end"                   { return ENDSY; }

@@ -100,7 +100,7 @@ static int pas_is_int_typename(const char *t);
 static int pas_is_realtypename(const char *t);
 static int pas_is_settype(const char *name);
 static int pas_scope_has(const char *name) {
-    const char *req[] = { "true", "false", "maxint", "input", "output", "nil", "char", "boolean", "text", "string", "widechar" };
+    const char *req[] = { "true", "false", "maxint", "input", "output", "nil", "char", "boolean", "text", "string", "widechar", "paramcount" };
     if (!name) return 1;
     if (pas_is_int_typename(name) || pas_is_realtypename(name)) return 1;
     for (size_t i = 0; i < sizeof req / sizeof req[0]; i++) if (!strcmp(name, req[i])) return 1;
@@ -225,6 +225,8 @@ static int pas_rectype_slot(const char *rn, int fi);
 static tree_t *mk_assign(tree_t *sel, tree_t *rhs);
 static tree_t *mk_chr_wrap(tree_t *e);
 static int pas_is_charexpr(tree_t *e);
+static int pas_is_stringexpr(tree_t *e);
+static tree_t *pas_concat_operand(tree_t *e);
 static int pas_is_charvar(const char *name);
 static int pas_var_is_real(const char *name);
 static int pas_is_setvar(const char *name);
@@ -668,6 +670,22 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
     if (name && !strcmp(name, "assert") && args && args->count >= 1) return mk_fnc1("__pas_assert", args->items[0]);
     if (name && !strcmp(name, "mkdir") && args && args->count >= 1) return mk_fnc1("__pas_mkdir", args->items[0]);
     if (name && !strcmp(name, "rmdir") && args && args->count >= 1) return mk_fnc1("__pas_rmdir", args->items[0]);
+    if (name && !strcmp(name, "upcase") && !pas_is_func(name) && args && args->count >= 1) return mk_fnc1("__pas_upcase", args->items[0]);
+    if (name && !strcmp(name, "paramstr") && !pas_is_func(name) && args && args->count >= 1) return mk_fnc1("__pas_paramstr", args->items[0]);
+    if (name && !strcmp(name, "paramcount") && !pas_is_func(name)) return mk_fnc0("__pas_paramcount");
+    if (name && !strcmp(name, "copy") && !pas_is_func(name) && args && args->count >= 3) {
+        tree_t *e = ast_node_new(TT_FNC);
+        ast_push(e, leaf_s(TT_VAR, "__pas_copy"));
+        ast_push(e, pas_concat_operand(args->items[0]));
+        ast_push(e, args->items[2]);
+        ast_push(e, args->count >= 6 ? args->items[4] : ilit(2147483647));
+        return e;
+    }
+    if (name && !strcmp(name, "concat") && !pas_is_func(name) && args && args->count >= 1) {
+        tree_t *e = pas_concat_operand(args->items[0]);
+        for (int i = 2; i < args->count; i += 2) e = bin(TT_CAT, e, pas_concat_operand(args->items[i]));
+        return args->count >= 3 ? e : bin(TT_CAT, e, leaf_s(TT_QLIT, ""));
+    }
     if (name && !strcmp(name, "pos") && args && args->count >= 3) {
         tree_t *needle = args->items[0];
         if (pas_is_charexpr(needle)) needle = mk_chr_wrap(needle);
@@ -762,6 +780,10 @@ static tree_t *mk_call(const char *name, PNodeList *args) {
                 continue;
             }
             int isc = v && ((v->t == TT_VAR && v->v.sval && pas_is_charvar(v->v.sval)) || pas_is_charexpr(v));
+            if (!isc && v && v->t == TT_VAR && v->v.sval && pas_var_string_kind(v->v.sval)) {
+                pnl_push(stmts, mk_assign(v, fstream ? mk_fnc1("__pas_read_s_f", pas_tree_clone(fstream)) : mk_fnc0("__pas_read_s")));
+                continue;
+            }
             int isr = !isc && v && v->t == TT_VAR && v->v.sval && pas_var_is_real(v->v.sval);
             tree_t *rv = isr ? (fstream ? mk_set_bin("__pas_read_i_f", pas_tree_clone(fstream), ilit(1)) : mk_fnc1("__pas_read_i", ilit(1))) : fstream ?
                 mk_fnc1(isc ? "__pas_read_c_f" : "__pas_read_i_f", pas_tree_clone(fstream)) : mk_fnc0(isc ? "__pas_read_c" : "__pas_read_i");
@@ -2613,6 +2635,7 @@ static int pas_is_charexpr(tree_t *e) {
     if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval &&
         (!strcmp(e->c[0]->v.sval, "__pas_fbuf_get") || !strcmp(e->c[0]->v.sval, "__pas_tbuf_get") || !strcmp(e->c[0]->v.sval, "__pas_pchar_deref"))) return pas_buf_is_char(e);
     if (e->t == TT_FNC && e->n == 1 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_getbufch")) return 1;
+    if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_upcase")) return !pas_is_stringexpr(e->c[1]);
     if (e->t == TT_VAR && e->v.sval && pas_is_charvar(e->v.sval)) return 1;
     if (e->t == TT_IDX && e->n == 2 && e->c[0] && e->c[0]->t == TT_VAR && e->c[0]->v.sval && e->c[1] && e->c[1]->t == TT_ILIT && pas_recvar_field_is_char(e->c[0]->v.sval, e->c[1]->v.ival)) return 1;
     if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_chr") || !strcmp(e->c[0]->v.sval, "__pas_chrlit"))) return 1;
@@ -2982,6 +3005,8 @@ static int pas_is_qword(tree_t *e) {
 static int pas_is_stringexpr(tree_t *e) {
     if (!e) return 0;
     if (e->t == TT_CAT) return 1;
+    if (e->t == TT_FNC && e->n >= 1 && e->c[0] && e->c[0]->v.sval && (!strcmp(e->c[0]->v.sval, "__pas_copy") || !strcmp(e->c[0]->v.sval, "__pas_paramstr"))) return 1;
+    if (e->t == TT_FNC && e->n >= 2 && e->c[0] && e->c[0]->v.sval && !strcmp(e->c[0]->v.sval, "__pas_upcase")) return pas_is_stringexpr(e->c[1]);
     if (e->t == TT_QLIT) return !(e->v.sval && strlen(e->v.sval) == 1);
     if (e->t == TT_VAR && e->v.sval) return pas_var_string_kind(e->v.sval) != 0;
     if (e->t == TT_IDX && e->n >= 2 && e->c[0] && e->c[1] && e->c[1]->t == TT_ILIT) {
@@ -3647,6 +3672,7 @@ static tree_t *mk_ident(const char *name) {
     if (name && !strcmp(name, "hinstance")) return ilit(0);
     if (name && !strcmp(name, "eof")) return mk_fnc0("__pas_eof");
     if (name && !strcmp(name, "eoln")) return mk_fnc0("__pas_eoln");
+    if (name && !strcmp(name, "paramcount") && !pas_is_func(name) && !pas_scalarvartype_get(name)) return mk_fnc0("__pas_paramcount");
     long long cv;
     if (pas_const_get(name, &cv)) return pas_is_charvar(name) ? mk_fnc1("__pas_chrlit", ilit(cv)) : ilit(cv);
     if (name && !strcmp(name, "maxint") && !pas_scalarvartype_get(name) && !pas_is_func(name)) return ilit(2147483647);
@@ -4823,16 +4849,19 @@ static pval E_case_statement(const tree_t *n) {
     memset(v, 0, sizeof v);
     memset(&out, 0, sizeof out);
     if (IS(n, TT_CASE)) {
+        const tree_t *els = n->n > 1 && IS(n->c[n->n - 1], TT_PART) && n->c[n->n - 1]->n > 0 ? n->c[n->n - 1] : NULL;
         v[2] = E_expression(n->c[0]);
         { pas_case_push(); }
-        v[5] = E_case_list(n, 1, n->n);
+        v[5] = E_case_list(n, 1, els ? n->n - 1 : n->n);
         {
             tree_t *seq = ast_node_new(TT_SEQ_EXPR);
             ast_push(seq, bin(TT_ASSIGN, leaf_s(TT_VAR, pas_case_cur()), v[2].node));
-            tree_t *chain = ast_node_new(TT_FNC);
-            ast_push(chain, leaf_s(TT_VAR, "__pas_rterr"));
-            ast_push(chain, leaf_s(TT_QLIT, "6.8.3.5"));
-            ast_push(chain, leaf_s(TT_QLIT, "no case-constant of the case-statement is equal to the value of its case-index"));
+            tree_t *chain = els ? E_compound_statement(els->c[0]).node : ast_node_new(TT_FNC);
+            if (!els) {
+                ast_push(chain, leaf_s(TT_VAR, "__pas_rterr"));
+                ast_push(chain, leaf_s(TT_QLIT, "6.8.3.5"));
+                ast_push(chain, leaf_s(TT_QLIT, "no case-constant of the case-statement is equal to the value of its case-index"));
+            }
             if (v[5].list) for (int i = v[5].list->count - 1; i >= 0; i--) { tree_t *e = v[5].list->items[i]; if (!e) continue; ast_push(e, chain); chain = e; }
             ast_push(seq, chain);
             pas_case_pop();
@@ -5718,6 +5747,11 @@ static pval E_selector(const tree_t *n) {
     if (IS(n, TT_IDX)) {
         v[1] = E_selector(n->c[0]);
         v[3] = E_expression_list(n, 1, n->n);
+        if (v[1].node && v[1].node->t == TT_VAR && v[1].node->v.sval && pas_var_string_kind(v[1].node->v.sval) && !(g_lower.pas.sem.pas_zerobased_strings & 1) && v[3].list && v[3].list->count == 1 &&
+            v[3].list->items[0] && v[3].list->items[0]->t == TT_ILIT && v[3].list->items[0]->v.ival == 0) {
+            out.node = mk_fnc1("__pas_chrlit", mk_fnc1("length", pas_tree_clone(v[1].node)));
+            return out;
+        }
         {
             tree_t *_rg =
                 (v[1].node && v[1].node->t == TT_FNC && v[1].node->n == 6 && v[1].node->c[0] && v[1].node->c[0]->v.sval && !strcmp(v[1].node->c[0]->v.sval, "__pas_rarr") && v[3].list &&
@@ -6532,6 +6566,17 @@ static tree_t *pas_flatten_units(tree_t *prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pu_is_shortstring_type(const tree_t *c) { return IS(c, TT_IDX) && c->n == 2 && IS(c->c[0], TT_VAR) && c->c[0]->v.sval && !strcasecmp(c->c[0]->v.sval, "string"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pas_shortstrings(tree_t *t) {
+    for (int i = 0; t && i < t->n; i++) {
+        tree_t *c = t->c[i];
+        int typepos = (IS(t, TT_DECL) && i >= 1) || ((IS(t, TT_ARRAY_TYPE) || IS(t, TT_FILE_TYPE) || IS(t, TT_SET_TYPE) || IS(t, TT_PTR_TYPE)) && i == t->n - 1);
+        if (typepos && pu_is_shortstring_type(c)) t->c[i] = c->c[0];
+        else pas_shortstrings(c);
+    }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void pas_var_inits(tree_t *t) {
     if (!t) return;
     for (int i = 0; i < t->n; i++) pas_var_inits(t->c[i]);
@@ -6569,6 +6614,7 @@ tree_t *lower_pascal_tree(tree_t *pruned, const char *filename) {
     g_lower.pas.sem.pas_pend_enum_max = -1;
     g_lower.pas.sem.pas_pend_sub_high = -1;
     tree_t *flat = pas_flatten_units(pruned);
+    pas_shortstrings(flat);
     pas_var_inits(flat);
     tree_t *root = E_program(flat).node;
     int nsem = pascal_sem_check(root, filename) + g_lower.pas.sem.pas_iso_errors;

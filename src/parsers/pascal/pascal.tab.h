@@ -66,6 +66,10 @@ int pascal_def_value(const char *n, double *v);
 void pascal_def_setval(const char *n, double v);
 int *pascal_cond_unknown_p(void);
 int *pascal_macro_on_p(void);
+void pascal_flip_dialect(int d);
+void pascal_stamp_dialect(tree_t *leaf);
+void pascal_note_type_ident(tree_t *id);
+void pascal_note_type_decl(tree_t *id);
 unsigned *pascal_sw_set_p(void);
 unsigned *pascal_sw_on_p(void);
 void pascal_sw_push(void);
@@ -76,7 +80,7 @@ int *pascal_cond_taken_p(void);
 const char *pascal_mode_macro(void);
 void pascal_mode_macro_set(const char *m);
 
-#line 80 "pascal.tab.h"
+#line 84 "pascal.tab.h"
 
 /* Token kinds.  */
 #ifndef PASCAL_YYTOKENTYPE
@@ -100,61 +104,62 @@ void pascal_mode_macro_set(const char *m);
     IMPLEMENTATIONSY = 268,        /* IMPLEMENTATIONSY  */
     INITIALIZATIONSY = 269,        /* INITIALIZATIONSY  */
     FINALIZATIONSY = 270,          /* FINALIZATIONSY  */
-    DOSY = 271,                    /* DOSY  */
-    DOWNTOSY = 272,                /* DOWNTOSY  */
-    FORSY = 273,                   /* FORSY  */
-    REPEATSY = 274,                /* REPEATSY  */
-    WHILESY = 275,                 /* WHILESY  */
-    TOSY = 276,                    /* TOSY  */
-    UNTILSY = 277,                 /* UNTILSY  */
-    WITHSY = 278,                  /* WITHSY  */
-    CASESY = 279,                  /* CASESY  */
-    PROCEDURESY = 280,             /* PROCEDURESY  */
-    PACKEDSY = 281,                /* PACKEDSY  */
-    OFSY = 282,                    /* OFSY  */
-    FILESY = 283,                  /* FILESY  */
-    ENDSY = 284,                   /* ENDSY  */
-    SETSY = 285,                   /* SETSY  */
-    VARSY = 286,                   /* VARSY  */
-    THENSY = 287,                  /* THENSY  */
-    RECORDSY = 288,                /* RECORDSY  */
-    FUNCTIONSY = 289,              /* FUNCTIONSY  */
-    BEGINSY = 290,                 /* BEGINSY  */
-    BECOMES = 291,                 /* BECOMES  */
-    TYPESY = 292,                  /* TYPESY  */
-    IFSY = 293,                    /* IFSY  */
-    ELSESY = 294,                  /* ELSESY  */
-    INOP = 295,                    /* INOP  */
-    NOTSY = 296,                   /* NOTSY  */
-    IDIV = 297,                    /* IDIV  */
-    IMOD = 298,                    /* IMOD  */
-    ANDOP = 299,                   /* ANDOP  */
-    OROP = 300,                    /* OROP  */
-    LTOP = 301,                    /* LTOP  */
-    LEOP = 302,                    /* LEOP  */
-    GTOP = 303,                    /* GTOP  */
-    GEOP = 304,                    /* GEOP  */
-    NEOP = 305,                    /* NEOP  */
-    EQOP = 306,                    /* EQOP  */
-    PLUS = 307,                    /* PLUS  */
-    MINUS = 308,                   /* MINUS  */
-    MUL = 309,                     /* MUL  */
-    RDIV = 310,                    /* RDIV  */
-    COMMA = 311,                   /* COMMA  */
-    PERIOD = 312,                  /* PERIOD  */
-    COLON = 313,                   /* COLON  */
-    ARROW = 314,                   /* ARROW  */
-    LBRACK = 315,                  /* LBRACK  */
-    RBRACK = 316,                  /* RBRACK  */
-    LPARENT = 317,                 /* LPARENT  */
-    RPARENT = 318,                 /* RPARENT  */
-    DOTDOT = 319,                  /* DOTDOT  */
-    ATSIGN = 320,                  /* ATSIGN  */
-    INTCONST = 321,                /* INTCONST  */
-    CHARCODE = 322,                /* CHARCODE  */
-    REALCONST = 323,               /* REALCONST  */
-    STRINGCONST = 324,             /* STRINGCONST  */
-    IDENT = 325                    /* IDENT  */
+    OTHERWISESY = 271,             /* OTHERWISESY  */
+    DOSY = 272,                    /* DOSY  */
+    DOWNTOSY = 273,                /* DOWNTOSY  */
+    FORSY = 274,                   /* FORSY  */
+    REPEATSY = 275,                /* REPEATSY  */
+    WHILESY = 276,                 /* WHILESY  */
+    TOSY = 277,                    /* TOSY  */
+    UNTILSY = 278,                 /* UNTILSY  */
+    WITHSY = 279,                  /* WITHSY  */
+    CASESY = 280,                  /* CASESY  */
+    PROCEDURESY = 281,             /* PROCEDURESY  */
+    PACKEDSY = 282,                /* PACKEDSY  */
+    OFSY = 283,                    /* OFSY  */
+    FILESY = 284,                  /* FILESY  */
+    ENDSY = 285,                   /* ENDSY  */
+    SETSY = 286,                   /* SETSY  */
+    VARSY = 287,                   /* VARSY  */
+    THENSY = 288,                  /* THENSY  */
+    RECORDSY = 289,                /* RECORDSY  */
+    FUNCTIONSY = 290,              /* FUNCTIONSY  */
+    BEGINSY = 291,                 /* BEGINSY  */
+    BECOMES = 292,                 /* BECOMES  */
+    TYPESY = 293,                  /* TYPESY  */
+    IFSY = 294,                    /* IFSY  */
+    ELSESY = 295,                  /* ELSESY  */
+    INOP = 296,                    /* INOP  */
+    NOTSY = 297,                   /* NOTSY  */
+    IDIV = 298,                    /* IDIV  */
+    IMOD = 299,                    /* IMOD  */
+    ANDOP = 300,                   /* ANDOP  */
+    OROP = 301,                    /* OROP  */
+    LTOP = 302,                    /* LTOP  */
+    LEOP = 303,                    /* LEOP  */
+    GTOP = 304,                    /* GTOP  */
+    GEOP = 305,                    /* GEOP  */
+    NEOP = 306,                    /* NEOP  */
+    EQOP = 307,                    /* EQOP  */
+    PLUS = 308,                    /* PLUS  */
+    MINUS = 309,                   /* MINUS  */
+    MUL = 310,                     /* MUL  */
+    RDIV = 311,                    /* RDIV  */
+    COMMA = 312,                   /* COMMA  */
+    PERIOD = 313,                  /* PERIOD  */
+    COLON = 314,                   /* COLON  */
+    ARROW = 315,                   /* ARROW  */
+    LBRACK = 316,                  /* LBRACK  */
+    RBRACK = 317,                  /* RBRACK  */
+    LPARENT = 318,                 /* LPARENT  */
+    RPARENT = 319,                 /* RPARENT  */
+    DOTDOT = 320,                  /* DOTDOT  */
+    ATSIGN = 321,                  /* ATSIGN  */
+    INTCONST = 322,                /* INTCONST  */
+    CHARCODE = 323,                /* CHARCODE  */
+    REALCONST = 324,               /* REALCONST  */
+    STRINGCONST = 325,             /* STRINGCONST  */
+    IDENT = 326                    /* IDENT  */
   };
   typedef enum pascal_yytokentype pascal_yytoken_kind_t;
 #endif
@@ -163,10 +168,10 @@ void pascal_mode_macro_set(const char *m);
 #if ! defined PASCAL_YYSTYPE && ! defined PASCAL_YYSTYPE_IS_DECLARED
 union PASCAL_YYSTYPE
 {
-#line 133 "pascal.y"
+#line 139 "pascal.y"
  tree_t *node; 
 
-#line 170 "pascal.tab.h"
+#line 175 "pascal.tab.h"
 
 };
 typedef union PASCAL_YYSTYPE PASCAL_YYSTYPE;

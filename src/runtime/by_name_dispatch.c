@@ -11770,6 +11770,54 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = NULVCL;
         return 1;
     }
+    if ((!strcmp(fn, "__pas_read_s") && nargs == 0) || (!strcmp(fn, "__pas_read_s_f") && nargs == 1)) {
+        extern FILE *fh_get(int);
+        FILE *f = nargs == 1 && IS_FH_fn(args[0]) ? fh_get((int)args[0].i) : stdin;
+        if (!f) f = stdin;
+        size_t cap = 64, n = 0;
+        char *r = (char *)rt_wsb_alloc(cap);
+        int ch;
+        while ((ch = fgetc(f)) != EOF && ch != '\n') { if (n + 1 >= cap) { char *g = (char *)rt_wsb_alloc(cap * 2); memcpy(g, r, n); r = g; cap *= 2; } r[n++] = (char)ch; }
+        if (ch == '\n') ungetc('\n', f);
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_copy") && nargs == 3) {
+        const char *sv = VARVAL_fn(args[0]);
+        long long len = sv ? (long long)strlen(sv) : 0, i = IS_INT_fn(args[1]) ? args[1].i : 1, n = IS_INT_fn(args[2]) ? args[2].i : 0;
+        if (i < 1) i = 1;
+        long long avail = len - (i - 1);
+        if (avail < 0) avail = 0;
+        if (n > avail) n = avail;
+        if (n < 0) n = 0;
+        char *r = (char *)rt_wsb_alloc((size_t)n + 1);
+        if (n > 0) memcpy(r, sv + (i - 1), (size_t)n);
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_upcase") && nargs == 1) {
+        if (IS_INT_fn(args[0])) { long long c = args[0].i; *out = INTVAL(c >= 'a' && c <= 'z' ? c - 32 : c); return 1; }
+        const char *sv = VARVAL_fn(args[0]);
+        size_t n = sv ? strlen(sv) : 0;
+        char *r = (char *)rt_wsb_alloc(n + 1);
+        for (size_t k = 0; k < n; k++) r[k] = (sv[k] >= 'a' && sv[k] <= 'z') ? (char)(sv[k] - 32) : sv[k];
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
+    if (!strcmp(fn, "__pas_paramcount") && nargs == 0) { extern int pas_main_argc(void); *out = INTVAL(pas_main_argc()); return 1; }
+    if (!strcmp(fn, "__pas_paramstr") && nargs == 1) {
+        extern const char *pas_main_arg(int);
+        const char *a = IS_INT_fn(args[0]) ? pas_main_arg((int)args[0].i) : (const char *)0;
+        size_t n = a ? strlen(a) : 0;
+        char *r = (char *)rt_wsb_alloc(n + 1);
+        if (n) memcpy(r, a, n);
+        r[n] = '\0';
+        *out = (DESCR_t){ .v = DT_S, .s = r, .slen = (uint32_t)n };
+        return 1;
+    }
     if (!strcmp(fn, "__pas_std_mute") && nargs == 0) { fflush(stdout); int nul = open("/dev/null", O_WRONLY); if (nul >= 0) { dup2(nul, 1); close(nul); } *out = NULVCL; return 1; }
     if (!strcmp(fn, "__pas_ferase") && nargs == 1) {
         extern FILE *fh_get(int);
@@ -14522,6 +14570,7 @@ static int g_main_args_n = -1;
 static const char *g_main_progname;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void rt_main_args_stage(char **v, int n) { if (n < 0 || !v) n = 0; g_main_args_v = v; g_main_args_n = n; }
+int pas_main_argc(void) { return g_main_args_n > 0 ? g_main_args_n : 0; }
 const char *pas_main_arg(int k) { return (k >= 1 && k <= g_main_args_n && g_main_args_v && g_main_args_v[k - 1] && g_main_args_v[k - 1][0]) ? g_main_args_v[k - 1] : (const char *)0; }
 void rt_main_args_stage_argv(char **v, int n) {
     extern int rt_cmdline_prog_first(void);
@@ -14771,10 +14820,10 @@ DESCR_t proc_as_value(const char *name) {
     static const char *const builtins[] = { "__pas_writeln","__pas_write","__pas_chr","__pas_chrlit","__pas_enum_name","__pas_read_i","__pas_read_c","__pas_readln","__pas_eof","__pas_eoln",
         "__pas_trunc","__pas_abs","__pas_sin", "__pas_read_i_f","__pas_read_c_f","__pas_readln_f","__pas_eof_f","__pas_eoln_f","__pas_getbufch","__pas_getbufch_f", "__pas_ca_pack", "__pas_ca_unpack",
         "__pas_ca_encode","__pas_stdfile","__pas_arr_copy","__pas_arr_of", "__pas_cos","__pas_exp","__pas_sqrt","__pas_ln","__pas_arctan","__pas_fassign","__pas_rewrite", "__pas_reset","__pas_fclose",
-        "__pas_std_mute", "write","writes","read","reads","close","open","remove", "flush", "put","get","pull","push","pop","list","image","proc","type","copy", "string","integer", "real","numeric",
-        "ord","char", "reverse","sort","sortf", "find","match","many","any","upto","bal","move","tab","pos", "map","repl","trim","left","right","center","detab","entab", "abs", "sqrt","sin","cos",
-        "tan","asin", "acos","atan","exp","log", "dtor","rtod", "iand","ior","ixor","ishift","icom", "table","key","insert","delete","member","args","level", "collect", "stop","exit","runerr","name",
-        "variable", "seq", "chdir","delay","getch","getche","kbhit","loadfunc", NULL };
+        "__pas_std_mute", "__pas_copy", "__pas_upcase", "__pas_paramcount", "__pas_paramstr", "__pas_read_s", "__pas_read_s_f", "write","writes","read","reads","close","open","remove", "flush", "put",
+        "get","pull","push","pop","list","image","proc","type","copy", "string","integer", "real","numeric", "ord","char", "reverse","sort","sortf", "find","match","many","any","upto","bal","move",
+        "tab","pos", "map","repl","trim","left","right","center","detab","entab", "abs", "sqrt","sin","cos", "tan","asin", "acos","atan","exp","log", "dtor","rtod", "iand","ior","ixor","ishift",
+        "icom", "table","key","insert","delete","member","args","level", "collect", "stop","exit","runerr","name", "variable", "seq", "chdir","delay","getch","getche","kbhit","loadfunc", NULL };
     for (int i = 0; builtins[i]; i++) if (strcmp(builtins[i], name) == 0) return STRVAL(name);
     return FAILDESCR;
 }

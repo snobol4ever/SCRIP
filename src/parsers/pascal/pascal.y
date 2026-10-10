@@ -11,6 +11,10 @@ int pascal_def_value(const char *n, double *v);
 void pascal_def_setval(const char *n, double v);
 int *pascal_cond_unknown_p(void);
 int *pascal_macro_on_p(void);
+void pascal_flip_dialect(int d);
+void pascal_stamp_dialect(tree_t *leaf);
+void pascal_note_type_ident(tree_t *id);
+void pascal_note_type_decl(tree_t *id);
 unsigned *pascal_sw_set_p(void);
 unsigned *pascal_sw_on_p(void);
 void pascal_sw_push(void);
@@ -55,7 +59,7 @@ static tree_t *pt_decl(const char *w, tree_t *a, tree_t *b) { return pt_add(pt_a
 static void pt_flush_pragmas(tree_t *root) { pascal_pragma_flush(root); }
 typedef struct { char *name; int kind; long long iv; double dv; char *sv; } PasCEnvE;
 typedef struct { char *name; int on; int has; double val; } PasDefE;
-static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; PasDefE *defs; int ndefs; int capdefs; int cond_skip; int cond_depth; int cond_taken; int cond_unknown; int macro_on; const char *mode_macro; unsigned sw_set; unsigned sw_on; unsigned *sw_save; int sw_n; int sw_cap; } g_pascal_cenv;
+static struct { PasCEnvE *e; int n; int cap; int ni; int nr; int ns; int unit_mode; int dialect; PasDefE *defs; int ndefs; int capdefs; int cond_skip; int cond_depth; int cond_taken; int cond_unknown; int macro_on; int string_declared; const char *mode_macro; unsigned sw_set; unsigned sw_on; unsigned *sw_save; int sw_n; int sw_cap; } g_pascal_cenv;
 static void cenv_put(const char *name, int kind, long long iv, double dv, const char *sv) {
     if (!name || (kind == 0 && g_pascal_cenv.ni >= 256) || (kind == 1 && g_pascal_cenv.nr >= 64) || (kind == 2 && g_pascal_cenv.ns >= 64)) return;
     if (g_pascal_cenv.n >= g_pascal_cenv.cap) { g_pascal_cenv.cap = g_pascal_cenv.cap ? g_pascal_cenv.cap * 2 : 64; g_pascal_cenv.e = (PasCEnvE *)ct_grow(g_pascal_cenv.e, (size_t)g_pascal_cenv.cap * sizeof(PasCEnvE)); }
@@ -68,7 +72,7 @@ static void cenv_string(const char *name, const char *s) { if (s && strlen(s) ==
 int pascal_cenv_int(const char *name, long long *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 0 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].iv; return 1; } return 0; }
 int pascal_cenv_real(const char *name, double *out) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 1 && !strcmp(g_pascal_cenv.e[i].name, name)) { *out = g_pascal_cenv.e[i].dv; return 1; } return 0; }
 const char *pascal_cenv_str(const char *name) { for (int i = 0; name && i < g_pascal_cenv.n; i++) if (g_pascal_cenv.e[i].kind == 2 && !strcmp(g_pascal_cenv.e[i].name, name)) return g_pascal_cenv.e[i].sv; return NULL; }
-void pascal_cenv_reset(void) { g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; g_pascal_cenv.ndefs = 0; g_pascal_cenv.cond_skip = 0; g_pascal_cenv.cond_depth = 0; g_pascal_cenv.cond_taken = 0; g_pascal_cenv.cond_unknown = 0; g_pascal_cenv.macro_on = 0; g_pascal_cenv.mode_macro = NULL; g_pascal_cenv.sw_set = 0; g_pascal_cenv.sw_on = 0; g_pascal_cenv.sw_n = 0; }
+void pascal_cenv_reset(void) { g_pascal_cenv.n = 0; g_pascal_cenv.ni = 0; g_pascal_cenv.nr = 0; g_pascal_cenv.ns = 0; g_pascal_cenv.unit_mode = 0; g_pascal_cenv.dialect = PAS_DIALECT_ISO_DEFAULT; g_pascal_cenv.ndefs = 0; g_pascal_cenv.cond_skip = 0; g_pascal_cenv.cond_depth = 0; g_pascal_cenv.cond_taken = 0; g_pascal_cenv.cond_unknown = 0; g_pascal_cenv.macro_on = 0; g_pascal_cenv.string_declared = 0; g_pascal_cenv.mode_macro = NULL; g_pascal_cenv.sw_set = 0; g_pascal_cenv.sw_on = 0; g_pascal_cenv.sw_n = 0; }
 int pascal_unit_mode(void) { return g_pascal_cenv.unit_mode; }
 void pascal_unit_mode_set(int m) { g_pascal_cenv.unit_mode = m; }
 int pascal_dialect(void) { return g_pascal_cenv.dialect; }
@@ -95,6 +99,8 @@ void pascal_def_setval(const char *n, double v) {
 }
 int *pascal_cond_unknown_p(void) { return &g_pascal_cenv.cond_unknown; }
 int *pascal_macro_on_p(void) { return &g_pascal_cenv.macro_on; }
+void pascal_note_type_ident(tree_t *id) { if (id && id->v.sval && !strcasecmp(id->v.sval, "string") && !g_pascal_cenv.string_declared) pascal_flip_dialect(PAS_DIALECT_FPC); }
+void pascal_note_type_decl(tree_t *id) { if (id && id->v.sval && !strcasecmp(id->v.sval, "string")) g_pascal_cenv.string_declared = 1; }
 unsigned *pascal_sw_set_p(void) { return &g_pascal_cenv.sw_set; }
 unsigned *pascal_sw_on_p(void) { return &g_pascal_cenv.sw_on; }
 void pascal_sw_push(void) {
@@ -132,14 +138,14 @@ static long long cenv_value(tree_t *n) {
 %}
 %union { tree_t *node; }
 %token GOTOSY PROGRAMSY SEMICOLON ARRAYSY LABELSY CONSTSY FORWARDSY
-%token USESSY UNITSY INTERFACESY IMPLEMENTATIONSY INITIALIZATIONSY FINALIZATIONSY
+%token USESSY UNITSY INTERFACESY IMPLEMENTATIONSY INITIALIZATIONSY FINALIZATIONSY OTHERWISESY
 %token DOSY DOWNTOSY FORSY REPEATSY WHILESY TOSY UNTILSY WITHSY CASESY
 %token PROCEDURESY PACKEDSY OFSY FILESY ENDSY SETSY VARSY THENSY RECORDSY
 %token FUNCTIONSY BEGINSY BECOMES TYPESY IFSY ELSESY INOP NOTSY IDIV IMOD ANDOP OROP
 %token LTOP LEOP GTOP GEOP NEOP EQOP PLUS MINUS MUL RDIV
 %token COMMA PERIOD COLON ARROW LBRACK RBRACK LPARENT RPARENT DOTDOT ATSIGN
 %token <node> INTCONST CHARCODE REALCONST STRINGCONST IDENT
-%type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl constant scalar_constant type_decl_list
+%type <node> program file_id_list_opt block decl_part_list decl_part label_list const_decl_list const_decl constant scalar_constant type_decl_list case_tail
 %type <node> type_decl type packed_opt simple_type record_body record_field_list record_field case_arm_mark case_open record_case_opt record_case_list
 %type <node> record_case_arm var_decl_list var_decl procedure_decl pv_mark parameter_list_opt parameter_decl_list parameter_decl pf_params pf_sections
 %type <node> pf_section id_list body statement_list body_stmt statement statement_no_label call call_with_args argument_list argument assignment
@@ -153,7 +159,7 @@ compilation_unit:
     |unit { $$ = $1; }
     ;
 program:
-    PROGRAMSY IDENT file_id_list_opt SEMICOLON block PERIOD { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROGRAM), $2), $3), $5); pt_flush_pragmas($$); pascal_prog_result = $$; }
+    PROGRAMSY IDENT file_id_list_opt SEMICOLON block PERIOD { pascal_stamp_dialect($2); $$ = pt_add(pt_add(pt_add(pt_new(TT_PROGRAM), $2), $3), $5); pt_flush_pragmas($$); pascal_prog_result = $$; }
     ;
 file_id_list_opt:
     LPARENT id_list RPARENT { $$ = $2; }
@@ -187,7 +193,7 @@ intf_part:
     |TYPESY type_decl_list { $$ = $2; }
     |VARSY var_decl_list { $$ = $2; }
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6); }
     ;
 init_opt:
     INITIALIZATIONSY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "initialization"), $2); }
@@ -231,7 +237,7 @@ type_decl_list:
     |type_decl { $$ = pt_part("type", $1); }
     ;
 type_decl:
-    IDENT EQOP type SEMICOLON { $$ = pt_decl("type", $1, $3); }
+    IDENT EQOP type SEMICOLON { pascal_note_type_decl($1); $$ = pt_decl("type", $1, $3); }
     ;
 type:
     simple_type { $$ = $1; }
@@ -249,7 +255,8 @@ packed_opt:
     ;
 simple_type:
     LPARENT id_list RPARENT { $$ = pt_retag($2, TT_ENUM_TYPE); for (int _i = 0; $$ && _i < $$->n; _i++) cenv_int($$->c[_i]->v.sval, _i); }
-    |IDENT { $$ = $1; }
+    |IDENT { pascal_note_type_ident($1); $$ = $1; }
+    |IDENT LBRACK constant RBRACK { pascal_note_type_ident($1); $$ = pt_add(pt_add(pt_new(TT_IDX), $1), $3); }
     |constant DOTDOT constant { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
     |STRINGCONST DOTDOT constant { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
     |CHARCODE DOTDOT constant { $$ = pt_add(pt_add(pt_new(TT_SUBRANGE), $1), $3); }
@@ -294,9 +301,9 @@ var_decl:
     ;
 procedure_decl:
     PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON FORWARDSY SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), pt_kw("forward")); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), pt_kw("forward")); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON FORWARDSY SEMICOLON { pascal_note_type_ident($6); $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), pt_kw("forward")); }
     |PROCEDURESY IDENT pv_mark parameter_list_opt SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_new(TT_PROCEDURE), $2), $4), $7); }
-    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $9); }
+    |FUNCTIONSY IDENT pv_mark parameter_list_opt COLON IDENT SEMICOLON { pascal_note_type_ident($6); } block SEMICOLON { $$ = pt_add(pt_add(pt_add(pt_add(pt_new(TT_FUNCTION), $2), $4), $6), $9); }
     |FUNCTIONSY IDENT pv_mark SEMICOLON { } block SEMICOLON { $$ = pt_add(pt_add(pt_new(TT_FUNCTION), $2), $6); }
     ;
 pv_mark:
@@ -312,9 +319,9 @@ parameter_decl_list:
     ;
 parameter_decl:
     PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
-    |FUNCTIONSY IDENT pf_params COLON IDENT { $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
-    |VARSY id_list COLON IDENT { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
-    |id_list COLON IDENT { $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
+    |FUNCTIONSY IDENT pf_params COLON IDENT { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
+    |VARSY id_list COLON IDENT { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
+    |id_list COLON IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
     ;
 pf_params:
     LPARENT pf_sections RPARENT { $$ = $2; }
@@ -325,10 +332,10 @@ pf_sections:
     |pf_section { $$ = pt_add(pt_new(TT_PARAMS), $1); }
     ;
 pf_section:
-    id_list COLON IDENT { $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
-    |VARSY id_list COLON IDENT { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
+    id_list COLON IDENT { pascal_note_type_ident($3); $$ = pt_add(pt_add(pt_new(TT_DECL), $1), $3); pt_sval($$, "value"); }
+    |VARSY id_list COLON IDENT { pascal_note_type_ident($4); $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $4); pt_sval($$, "var"); }
     |PROCEDURESY IDENT pf_params { $$ = pt_add(pt_add(pt_new(TT_DECL), $2), $3); pt_sval($$, "procedure"); }
-    |FUNCTIONSY IDENT pf_params COLON IDENT { $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
+    |FUNCTIONSY IDENT pf_params COLON IDENT { pascal_note_type_ident($5); $$ = pt_add(pt_add(pt_add(pt_new(TT_DECL), $2), $3), $5); pt_sval($$, "function"); }
     ;
 id_list:
     id_list COMMA IDENT { $$ = pt_add($1, $3); }
@@ -403,7 +410,12 @@ if_statement:
     |IFSY expression THENSY body_stmt ELSESY body_stmt { $$ = pt_add(pt_add(pt_add(pt_new(TT_IF), $2), $4), $6); }
     ;
 case_statement:
-    CASESY expression OFSY { } case_list ENDSY { $$ = pt_cat(pt_add(pt_new(TT_CASE), $2), $5); }
+    CASESY expression OFSY { } case_list case_tail ENDSY { $$ = pt_add(pt_cat(pt_add(pt_new(TT_CASE), $2), $5), $6); }
+    ;
+case_tail:
+    { $$ = NULL; }
+    |ELSESY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "else"), $2); }
+    |OTHERWISESY statement_list { $$ = pt_add(pt_sval(pt_new(TT_PART), "otherwise"), $2); }
     ;
 case_list:
     case_list SEMICOLON case_elem { $$ = pt_add($1, $3); }
