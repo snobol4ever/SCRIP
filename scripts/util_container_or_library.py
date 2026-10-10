@@ -7,12 +7,15 @@ the package around it, never from a row's prose:
   LIBRARY    it defines callable code (Icon procedures, SNOBOL4 DEFINEd functions, Prolog clauses) and has no entry point of its
              own. It is a PROGRAM owed its driver: UNGRADED, class NEEDS_DRIVER, in the denominator as a named non-pass (CEO-1269).
   CONTAINER  it is not a compilation unit on its own. It leaves the shipped population, named in CONTAINERS.tsv with the
-             measurement that makes it one -- one of four KINDs:
+             measurement that makes it one -- one of six KINDs:
                INCLUDED_BY <rel>   <rel> splices it: an Icon $include, a SNOBOL4 -INCLUDE, a Prolog/Logtalk include/1, or a
                                    csnobol4 tests.in -L preload names it (resolved from <rel>'s directory, else by a basename
                                    unique in the package)
                OPENED_BY <rel>     <rel> names it outside any load or include directive and it holds facts alone -- a data
                                    file a test opens and reads (a file of rules a test loads at run time is a library)
+               LOADED_BY <rel>     <rel>'s load directive names it -- a Prolog consult, ensure_loaded, use_module, load_files or
+                                   reexport (include stays INCLUDED_BY): a module of rules a program loads and is graded through,
+                                   not a program on its own (ceo CEO-1621, 2026-10-10; the harness stages it, coo cd52d401e)
                SCAFFOLDING         every term is a directive and at least one loads or includes something: the suite's own loader; or a Prolog
                                    file of ONE clause whose body is bare '$use_<module>' goals, each a bare fact in a sibling file (a link list)
                NO_DEFINITION       it defines nothing callable and loads nothing -- declarations or data alone
@@ -29,13 +32,14 @@ the package around it, never from a row's prose:
                                 --apply it prints the plan. A row measuring neither refuses --apply (rc 2), named.
   verify <pkgdir>               re-measures every row of <pkgdir>/CONTAINERS.tsv (name<TAB>KIND<TAB>measurement; for INCLUDED_BY and
                                 OPENED_BY the measurement's first word is the includer or opener). A row whose file is missing,
-                                whose KIND is not one of the five, or whose measurement does not re-derive is RED.
+                                whose KIND is not one of the six, or whose measurement does not re-derive is RED.
                                 EXIT 0 all rows re-derive (the count printed), 1 a red row (named), 2 unreadable.
 """
 import os, re, sys
 
 EXT_LANG = {'.icn': 'icon', '.sno': 'snobol4', '.spt': 'snobol4', '.inc': 'snobol4', '.pl': 'prolog', '.pro': 'prolog', '.lgt': 'prolog'}
-KINDS = ('INCLUDED_BY', 'OPENED_BY', 'SCAFFOLDING', 'NO_DEFINITION', 'MULTI_PROGRAM')
+KINDS = ('INCLUDED_BY', 'OPENED_BY', 'LOADED_BY', 'SCAFFOLDING', 'NO_DEFINITION', 'MULTI_PROGRAM')
+PL_LOADER = re.compile(r'\b(consult|ensure_loaded|use_module|load_files|reexport)\s*\(')
 PL_LOAD = re.compile(r'\b(consult|ensure_loaded|use_module|load_files|logtalk_load|include|reexport)\s*\(')
 
 
@@ -262,6 +266,12 @@ class Package:
         return [r for r in self.files if r != rel and os.path.basename(r) != 'tests.in'
                 and any(self._names(rel, l) for l in (self.m(r)[2] or {}).get('loads', []))]
 
+    def pl_loaders(self, rel):
+        """Prolog files of the package whose load directive (consult, ensure_loaded, use_module, load_files, reexport -- never
+        include, which is INCLUDED_BY) names <rel> by basename or stem: the programs a LOADED_BY module is graded through."""
+        return [r for r in self.files if r != rel and os.path.basename(r) != 'tests.in' and self.m(r)[0] == 'prolog'
+                and any(PL_LOADER.search(l) and self._names(rel, re.sub(r'\binclude\s*\([^()]*\)', '', l)) for l in (self.m(r)[2] or {}).get('loads', []))]
+
     def openers(self, rel):
         """Package files that name <rel>'s basename outside any load or include directive -- a data file a test opens."""
         base = os.path.basename(rel)
@@ -338,6 +348,9 @@ def classify(pkg, rel):
         nmark, _why = pl_marker_list(pkg, rel, mm) if lang == 'prolog' else (0, None)
         if nmark:
             return 'CONTAINER', 'SCAFFOLDING', 'one clause of %d bare $use_ marker goals, each a bare fact in a sibling file: a link-time reference list that computes nothing (ceo CEO-1526)' % nmark
+        ld = pkg.pl_loaders(rel) if lang == 'prolog' else []
+        if (mm['defs'] or idefs) and ld:
+            return 'CONTAINER', 'LOADED_BY', sorted(ld)[0]
         if mm['defs'] or idefs:
             own = '%d clause(s)' % len(mm['defs'])
             by = (', %d more by include of %s' % (len(idefs), ' '.join(sorted({t for t, _ in idefs})[:3]))) if idefs else ''
@@ -374,6 +387,7 @@ SPLIT_TAG = 'util_container_or_library.py, CEO-1272'
 PROSE = {
     'INCLUDED_BY': '%s -- its include directive splices this file, which is graded through it and is not a program on its own (%s)',
     'OPENED_BY': '%s -- facts alone, named by that test outside any load directive: a data file it opens and reads (%s)',
+    'LOADED_BY': '%s -- its load directive loads this module, which is graded through it and is not a program on its own (%s)',
     'SCAFFOLDING': '%s -- the suite\'s own loader, not a program under test (%s)',
     'NO_DEFINITION': '%s -- defines nothing a program can call, links nothing, and nothing shipped includes it (%s)',
     'MULTI_PROGRAM': '%s -- several programs concatenated in one file, so it is not one compilation unit; sbl -bf stops at the first END (%s)',
@@ -382,7 +396,8 @@ HDR_CONTAINERS = """# CONTAINERS.tsv -- files this package ships that are NOT PR
 # measurement that makes it one (ceo CEO-1272, 2026-09-25; split out of the retired UNGRADABLE class CONTAINER_OR_LIBRARY by
 # SCRIP scripts/util_container_or_library.py, which lib_inventory.sh re-runs as `verify` on every inventory -- a row whose
 # measurement no longer re-derives refuses the inventory). Columns: name<TAB>KIND<TAB>measurement. KIND is one of INCLUDED_BY,
-# OPENED_BY (the measurement's first word is the file that splices or opens it), SCAFFOLDING, NO_DEFINITION, MULTI_PROGRAM.
+# OPENED_BY, LOADED_BY (the measurement's first word is the file that splices, opens or loads it), SCAFFOLDING, NO_DEFINITION,
+# MULTI_PROGRAM.
 # A LIBRARY (callable code, no entry point) is NOT a container: it is UNGRADED NEEDS_DRIVER in UNGRADED.tsv (CEO-1269).
 """
 HDR_UNGRADED = """# UNGRADED.tsv -- programs this package ships that are OWED work (name<TAB>CLASS<TAB>reason; lib_inventory.sh's closed vocabulary).
@@ -485,8 +500,9 @@ def main(argv):
         if v != 'CONTAINER' or k != kind:
             red.append('%s: declared %s but measures %s %s (%s)' % (rel, kind, v, k, m))
             continue
-        if kind in ('INCLUDED_BY', 'OPENED_BY'):
-            ok = (kind == 'INCLUDED_BY' and meas in pkg.includes().get(rel, ())) or (kind == 'OPENED_BY' and meas in pkg.openers(rel))
+        if kind in ('INCLUDED_BY', 'OPENED_BY', 'LOADED_BY'):
+            ok = (kind == 'INCLUDED_BY' and meas in pkg.includes().get(rel, ())) or (kind == 'OPENED_BY' and meas in pkg.openers(rel)) \
+                or (kind == 'LOADED_BY' and meas in pkg.pl_loaders(rel))
             if not ok:
                 red.append('%s: %s %s does not re-derive (measured: %s)' % (rel, kind, meas, m))
                 continue

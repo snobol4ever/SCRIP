@@ -185,13 +185,14 @@ INV_CLASS_UNGRADED="NEEDS_STDIN_FIXTURE NEEDS_ARGV_FIXTURE NEEDS_RUNNER_WIRING N
 # 886-row ask; CEO-700, CEO-1245, CEO-1269). The UNGRADABLE class CONTAINER_OR_LIBRARY conflated two facts, and the split is
 # made file by file BY MEASUREMENT (util_container_or_library.py): a LIBRARY is a program owed its driver (UNGRADED NEEDS_DRIVER
 # above, in the denominator); a CONTAINER is not a compilation unit on its own and is written in CONTAINERS.tsv beside the
-# package's other sidecars -- name<TAB>KIND<TAB>measurement -- where KIND is one of the five below, and INCLUDED_BY/OPENED_BY
-# name the file that splices or opens it as the measurement's first word. inventory_line takes a container OUT of shipped,
+# package's other sidecars -- name<TAB>KIND<TAB>measurement -- where KIND is one of the six below, and INCLUDED_BY/OPENED_BY/
+# LOADED_BY name the file that splices, opens or loads it as the measurement's first word (LOADED_BY: a Prolog consult,
+# ensure_loaded, use_module, load_files or reexport names it -- ceo CEO-1621, 2026-10-10). inventory_line takes a container OUT of shipped,
 # refuses one that also sits in UNGRADED, UNGRADABLE or DEFERRED (two answers for one file), refuses one naming no shipped
 # file, and re-derives every row's measurement through util_container_or_library.py verify before it prints a line -- a row
 # whose measurement does not re-derive has not earned its way out of the denominator. PACKAGE_INVENTORY gains containers=N
 # only where a CONTAINERS.tsv exists, so every package without one prints the byte-identical line it always did.
-INV_CONTAINER_KINDS="INCLUDED_BY OPENED_BY SCAFFOLDING NO_DEFINITION MULTI_PROGRAM"
+INV_CONTAINER_KINDS="INCLUDED_BY OPENED_BY LOADED_BY SCAFFOLDING NO_DEFINITION MULTI_PROGRAM"
 # inventory_container_names [<pkgdir>] -- echo column 1 of <pkgdir>/CONTAINERS.tsv (default $INV_DIR); rc 2 on a malformed or
 # class-less row. Runners that count their own shipped population call this so their census and the inventory's agree.
 inventory_container_names() {

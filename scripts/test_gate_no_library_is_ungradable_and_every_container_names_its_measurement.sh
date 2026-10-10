@@ -12,12 +12,16 @@ export S4E_ONE_RUNNER_FIXTURE="gate arm ${0##*/}: the Arizona and Jcon runners i
 # shipped with containers=1 and the includer named; (3) a class-less row refuses; (4) a measurement that does not re-derive
 # refuses; (5) a container also declared UNGRADABLE refuses (two answers); (6) a library written as a container refuses; (7) the
 # retired class itself refuses. MEASUREMENT ARMS: (8) Prolog -- a loading tester is SCAFFOLDING, a fact file a test names is
-# OPENED_BY, a module of rules is a LIBRARY; (9) SNOBOL4 -- an -INCLUDEd file is INCLUDED_BY, two top-level ENDs are MULTI_PROGRAM,
+# OPENED_BY, a module of rules is a LIBRARY; (8b) Prolog LOADED_BY (ceo CEO-1621) -- a module a program's use_module loads is
+# LOADED_BY that program while an include stays INCLUDED_BY, a CONTAINERS row naming the loader verifies green, and one naming a
+# file that does not load it verifies RED (the kind fails once and passes once); (9) SNOBOL4 -- an -INCLUDEd file is INCLUDED_BY, two top-level ENDs are MULTI_PROGRAM,
 # DEFINEs with no END are a LIBRARY. RUNNER ARMS: (10) Jcon and (11) Arizona on a scratch package holding one program and the
 # fragment it $includes -- shipped=1, graded=1, both modes pass, containers=1 on the inventory line. CORPUS ARMS: (12) no sidecar
 # under corpus/ carries CONTAINER_OR_LIBRARY in its class column; (13) every corpus CONTAINERS.tsv re-derives; (14) IPL publishes
 # the inventory's shipped count, never the graded subset (CEO-1245).
 # ⛔ FAILED ONCE (measured at the landing, recorded in its commit): on bbfc21362's parent lib_inventory.sh, arms 2-7 read red.
+# ⛔ (8b) FAILED ONCE (hq_pascal 2026-10-10, CEO-1621): on the parent instrument the use_module-loaded module measured LIBRARY
+# NEEDS_DRIVER and a LOADED_BY row was refused as an unknown KIND.
 # EXIT 0 every arm holds; 1 an arm is red; 2 REFUSED (an oracle, the fixture or the corpus could not be read -- nothing measured).
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; ROOT="$(cd "$HERE/.." && pwd)"
@@ -78,6 +82,19 @@ printf ':- module(m, [p/1]).\np(X) :- X > 0.\n' > "$Q/m.pl"
 r8="$(python3 "$U" classify "$Q" tester.pl data.pl m.pl | cut -f1-3 | tr '\t\n' ' |')"
 [ "$r8" = "tester.pl CONTAINER SCAFFOLDING|data.pl CONTAINER OPENED_BY|m.pl LIBRARY NEEDS_DRIVER|" ] \
   && ck ok "(8) Prolog: a loading tester is SCAFFOLDING, a fact file a test opens is OPENED_BY, a module of rules is a LIBRARY" || ck no "(8) Prolog measured: $r8"
+L="$T/plb"; mkdir -p "$L"
+printf ':- use_module(mlib).\n:- include(%s).\n:- initialization(main).\nmain :- q(3), r(1).\n' "'inc.pl'" > "$L/prog.pl"
+printf ':- module(mlib, [q/1]).\nq(X) :- X > 0.\n' > "$L/mlib.pl"
+printf 'r(X) :- X > 0.\n' > "$L/inc.pl"
+printf 'other :- true.\n:- initialization(other).\n' > "$L/other.pl"
+r8b="$(python3 "$U" classify "$L" mlib.pl inc.pl | cut -f1-4 | tr '\t\n' ' |')"
+printf 'mlib.pl\tLOADED_BY\tprog.pl -- its use_module loads this module (fixture)\ninc.pl\tINCLUDED_BY\tprog.pl -- its include splices this file (fixture)\n' > "$L/CONTAINERS.tsv"
+python3 "$U" verify "$L" > "$L/v1" 2>&1; v1=$?
+printf 'mlib.pl\tLOADED_BY\tother.pl -- a file that does not load it (fixture)\n' > "$L/CONTAINERS.tsv"
+python3 "$U" verify "$L" > "$L/v2" 2>&1; v2=$?
+[ "$r8b" = "mlib.pl CONTAINER LOADED_BY prog.pl|inc.pl CONTAINER INCLUDED_BY prog.pl|" ] && [ "$v1" = 0 ] && [ "$v2" = 1 ] && grep -q 'LOADED_BY other.pl does not re-derive' "$L/v2" \
+  && ck ok "(8b) Prolog: a module a program's use_module loads is LOADED_BY it, an include stays INCLUDED_BY; the true loader verifies, a wrong one is RED" \
+  || ck no "(8b) Prolog LOADED_BY measured: [$r8b] verify true-loader rc=$v1, wrong-loader rc=$v2: $(tail -1 "$L/v2" | cut -c1-120)"
 S="$T/sno"; mkdir -p "$S"
 printf -- "-INCLUDE 'inc.sno'\n\tOUTPUT = F(1)\nEND\n" > "$S/main.sno"
 printf "\tDEFINE('F(X)')\t:(FE)\nF\tF = X\t:(RETURN)\nFE\n" > "$S/inc.sno"
