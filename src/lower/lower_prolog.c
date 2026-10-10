@@ -473,6 +473,7 @@ static int pl_rung_of(const char * nm) {
 }
 static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, IR_t ** entry_out);
 static int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
+static const char * const pl_db_mq_builtins[] = { "assert", "asserta", "assertz", "retract", "retractall", "abolish", NULL };
 static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "module_transparent", NULL };
 static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker) {
     if (!spec) return;
@@ -1176,20 +1177,22 @@ static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar",
     { "$put_char_c_s", 2, "$put_char_c_s" }, { "$get_code", 1, "$get_code" }, { "$get_code_s", 2, "$get_code_s" }, { "$peek_code", 1, "$peek_code" }, { "$peek_code_s", 2, "$peek_code_s" },
     { "$get_char", 1, "$get_char" }, { "$get_char_s", 2, "$get_char_s" }, { "$peek_char", 1, "$peek_char" }, { "$peek_char_s", 2, "$peek_char_s" }, { "$get_byte", 1, "$get_byte" }, { "$get_byte_s", 2,
     "$get_byte_s" }, { "$peek_byte", 1, "$peek_byte" }, { "$peek_byte_s", 2, "$peek_byte_s" }, { "$get_edin", 1, "$get_edin" }, { "$skip", 1, "$skip" }, { "$current_prolog_flag", 2,
-    "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$pl_cp_nth", 3, "$pl_cp_nth" },
-    { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard", 1, "$pl_cp_guard" }, { "halt", 0, "$halt" }, { "halt", 1,
-    "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" }, { "write", 2, "$write_s" }, { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" },
-    { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" }, { "put_char", 2, "$put_char_c_s" }, { "flush_output", 1, "$flush_output_s" }, { "format", 3,
-    "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" }, { "open", 3, "$open" }, { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close",
-    2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1, "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2,
-    "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" }, { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1,
-    "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us", 1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort",
-    1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" }, { "line_position", 2, "$gnu_line_position" }, { "character_count", 2,
-    "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2, "$gnu_last_read_start" }, { "absolute_file_name", 2,
-    "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory", 1, "$gnu_working_directory" }, { "change_directory",
-    1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1, "$gnu_file_exists" }, { "directory_files", 2,
-    "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "$gnu_environ_list", 1, "$gnu_environ_list" }, { "$gnu_file_props", 2,
-    "$gnu_file_props" }, { 0, 0, 0 } };
+    "$current_prolog_flag" }, { "$pl_sp_check", 2, "$pl_sp_check" }, { "$pl_goal_guard", 1, "$pl_goal_guard" }, { "$pl_cp_count", 1, "$pl_cp_count" }, { "$trie_new", 1, "$trie_new" }, { "$trie_alive",
+    1, "$trie_alive" }, { "$trie_destroy", 1, "$trie_destroy" }, { "$trie_insert", 5, "$trie_insert" }, { "$trie_lookup", 3, "$trie_lookup" }, { "$trie_delete", 3, "$trie_delete" }, { "$trie_entries",
+    2, "$trie_entries" }, { "$trie_entry_key", 3, "$trie_entry_key" }, { "$trie_count", 2, "$trie_count" }, { "$trie_meta_set", 3, "$trie_meta_set" }, { "$trie_meta_get", 3, "$trie_meta_get" },
+    { "$tbl_vt", 1, "$tbl_vt" }, { "$pl_cp_nth", 3, "$pl_cp_nth" }, { "$pl_pp_guard", 1, "$pl_pp_guard" }, { "$pl_pp_count", 2, "$pl_pp_count" }, { "$pl_pp_nth", 3, "$pl_pp_nth" }, { "$pl_cp_guard",
+    1, "$pl_cp_guard" }, { "halt", 0, "$halt" }, { "halt", 1, "$halt" }, { "flush_output", 0, "$flush_output" }, { "format", 1, "$format" }, { "format", 2, "$format" }, { "write", 2, "$write_s" },
+    { "writeq", 2, "$writeq_s" }, { "print", 2, "$print_s" }, { "write_canonical", 2, "$write_canonical_s" }, { "writeln", 2, "$writeln_s" }, { "nl", 1, "$nl_s" }, { "put_char", 2, "$put_char_c_s" },
+    { "flush_output", 1, "$flush_output_s" }, { "format", 3, "$format3" }, { "read", 2, "$read_s" }, { "get_char", 2, "$get_char_s" }, { "peek_char", 2, "$peek_char_s" }, { "open", 3, "$open" },
+    { "open", 4, "$open4" }, { "close", 1, "$close" }, { "close", 2, "$close" }, { "current_output", 1, "$current_output" }, { "current_input", 1, "$current_input" }, { "set_output", 1,
+    "$set_output" }, { "set_input", 1, "$set_input" }, { "keysort", 2, "$keysort" }, { "set_stream_position", 2, "$set_stream_position" }, { "op", 3, "$op" }, { "$pl_op_count", 1, "$pl_op_count" },
+    { "$pl_op_nth", 4, "$pl_op_nth" }, { "$pl_sp_count", 1, "$pl_sp_count" }, { "$pl_sp_nth", 3, "$pl_sp_nth" }, { "$pl_cs_count", 1, "$pl_cs_count" }, { "$pl_cs_nth", 4, "$pl_cs_nth" }, { "wall_us",
+    1, "$wall_us" }, { "wall_ms", 1, "$wall_ms" }, { "sort", 1, "$gnu_sort1" }, { "msort", 1, "$gnu_msort1" }, { "keysort", 1, "$gnu_keysort1" }, { "line_count", 2, "$gnu_line_count" },
+    { "line_position", 2, "$gnu_line_position" }, { "character_count", 2, "$gnu_character_count" }, { "stream_line_column", 3, "$gnu_stream_line_column" }, { "last_read_start_line_column", 2,
+    "$gnu_last_read_start" }, { "absolute_file_name", 2, "$gnu_absolute_file_name" }, { "prolog_file_name", 2, "$gnu_prolog_file_name" }, { "$gnu_builtin", 2, "$gnu_builtin" }, { "working_directory",
+    1, "$gnu_working_directory" }, { "change_directory", 1, "$gnu_change_directory" }, { "make_directory", 1, "$gnu_make_directory" }, { "delete_file", 1, "$gnu_delete_file" }, { "file_exists", 1,
+    "$gnu_file_exists" }, { "directory_files", 2, "$gnu_directory_files" }, { "term_hash", 2, "$gnu_term_hash" }, { "prolog_pid", 1, "$gnu_prolog_pid" }, { "$gnu_environ_list", 1,
+    "$gnu_environ_list" }, { "$gnu_file_props", 2, "$gnu_file_props" }, { 0, 0, 0 } };
 static int pl_det_leaf_name_wired(const char * nm) { for (int i = 0; pl_det_leaves[i].nm; i++) if (!strcmp(nm, pl_det_leaves[i].nm)) return 1; return 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_det_leaf_sym(const char * nm, int ar) {
@@ -2426,6 +2429,13 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             if (!strcmp(nm, "read_term") && t->n == 3 && pl_tree_is_nil(t->c[2])) return pl_leaf_lv(cx, "$read_s", t, 2, γnext, ωfail, entry_out);
             if (!strcmp(nm, "read_term") && t->n == 3) return pl_leaf_lv(cx, "$read_term_opts_s", t, 3, γnext, ωfail, entry_out);
             if (!strcmp(nm, "$db_decls") && t->n >= 1) return pl_leaf_lv(cx, "$db_decls", t, t->n, γnext, ωfail, entry_out);
+            if (t->n == 1 && t->c[0] && t->c[0]->t == TT_FNC && t->c[0]->v.sval && !strcmp(t->c[0]->v.sval, ":") && t->c[0]->n == 2 && pl_name_in(nm, pl_db_mq_builtins)) {
+                tree_t * g2 = ast_node_new(TT_FNC);
+                g2->v = t->v;
+                g2->line = t->line;
+                ast_push(g2, t->c[0]->c[1]);
+                return goal(cx, g2, γnext, ωfail, entry_out);
+            }
             if ((!strcmp(nm, "assertz") || !strcmp(nm, "assert") || !strcmp(nm, "asserta")) && t->n == 1) {
                 int ar = 0;
                 const char * pn;
@@ -3682,6 +3692,90 @@ static const tree_t * pl_table_rewrite(const tree_t * prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_mq_colon(const tree_t * t) { return t && (t->t == TT_QLIT || t->t == TT_NAME || (t->t == TT_FNC && t->n == 0)) && t->v.sval && !strcmp(t->v.sval, ":"); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_mq_specs(const tree_t * a, const char ** keys, const char ** masks, int n, int cap) {
+    if (!a) return n;
+    if (a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, ",") && a->n == 2) return pl_mq_specs(a->c[1], keys, masks, pl_mq_specs(a->c[0], keys, masks, n, cap), cap);
+    if (a->t == TT_MAKELIST) { for (int i = 0; i < a->n; i++) n = pl_mq_specs(a->c[i], keys, masks, n, cap); return n; }
+    if (a->t == TT_FNC && a->v.sval && !strcmp(a->v.sval, ":") && a->n == 2) return pl_mq_specs(a->c[1], keys, masks, n, cap);
+    if (a->t != TT_FNC || !a->v.sval || a->n <= 0) return n;
+    { int any = 0; for (int i = 0; i < a->n; i++) if (pl_mq_colon(a->c[i])) any = 1; if (!any) return n; }
+    if (keys && n < cap) {
+        char b[strlen(a->v.sval) + 24], m[a->n + 1];
+        snprintf(b, sizeof b, "%s/%d", a->v.sval, a->n);
+        for (int i = 0; i < a->n; i++) m[i] = pl_mq_colon(a->c[i]) ? '1' : '0';
+        m[a->n] = 0;
+        keys[n] = lp_strdup(b);
+        masks[n] = lp_strdup(m);
+    }
+    return n + 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_mq_dir_specs(const tree_t * s, const char ** keys, const char ** masks, int n, int cap) {
+    const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+    if (!subj || subj->t != TT_FNC || !subj->v.sval || strcmp(subj->v.sval, "meta_predicate")) return n;
+    for (int k = 0; k < subj->n; k++) n = pl_mq_specs(subj->c[k], keys, masks, n, cap);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_mq_var(int slot) { tree_t * v = ast_node_new(TT_VAR); v->v.ival = slot; return v; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_mq_wrapper(const char * key, const char * mask) {
+    const char * sl = strrchr(key, '/');
+    int ar = atoi(sl + 1), q = ar;
+    char tn[sl - key + 6];
+    snprintf(tn, sizeof tn, "$mq %.*s", (int)(sl - key), key);
+    tree_t * cl = ast_node_new(TT_CLAUSE);
+    cl->v.dval = ar;
+    for (int i = 0; i < ar; i++) ast_push(cl, pl_mq_var(i));
+    tree_t * call = ast_node_new(ar > 0 ? TT_FNC : TT_QLIT);
+    call->v.sval = (char *) lp_strdup(tn);
+    for (int i = 0; i < ar; i++) {
+        if (mask[i] != '1') { ast_push(call, pl_mq_var(i)); continue; }
+        tree_t * g = ast_node_new(TT_FNC);
+        g->v.sval = (char *) "$mq_arg";
+        ast_push(g, pl_mq_var(i));
+        ast_push(g, pl_mq_var(q));
+        ast_push(cl, g);
+        ast_push(call, pl_mq_var(q++));
+    }
+    ast_push(cl, call);
+    tree_t * ch = ast_node_new(TT_CHOICE);
+    ch->v.sval = (char *) lp_strdup(key);
+    ast_push(ch, cl);
+    return ch;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_mq_rewrite(const tree_t * prog) {
+    int nk = 0;
+    for (int i = 0; i < prog->n; i++) nk = pl_mq_dir_specs(prog->c[i], NULL, NULL, nk, 0);
+    if (!nk) return prog;
+    const char * keys[nk];
+    const char * masks[nk];
+    unsigned char done[nk];
+    int nf = 0;
+    memset(done, 0, sizeof done);
+    for (int i = 0; i < prog->n; i++) nf = pl_mq_dir_specs(prog->c[i], keys, masks, nf, nk);
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        int k = -1;
+        if (subj && (subj->t == TT_CHOICE || subj->t == TT_CLAUSE) && subj->v.sval) for (int j = 0; j < nf; j++) if (!strcmp(keys[j], subj->v.sval)) k = j;
+        if (k < 0) { ast_push(np, (tree_t *) s); continue; }
+        tree_t * rn = pl_tree_copy(subj);
+        char b[strlen(keys[k]) + 6];
+        snprintf(b, sizeof b, "$mq %s", keys[k]);
+        rn->v.sval = (char *) lp_strdup(b);
+        ast_push(np, pl_table_stmt(s, rn));
+        if (!done[k]) { done[k] = 1; ast_push(np, pl_table_stmt(s, pl_mq_wrapper(keys[k], masks[k]))); }
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { const tree_t * t; const char * pn; const char * file; int ar; int line; int fo; int ord; int expand; } pl_load_item_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char * pl_stmt_file(const tree_t * s) { const char * v = stmt_attr_str(stmt_attr_find(s, ":file")); return v ? v : ""; }
@@ -3926,6 +4020,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_ssu_rewrite(prog);
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
+    prog = pl_mq_rewrite(prog);
     const tree_t * prog_src = prog;
     int load_h = pl_load_hook_line(prog, NULL);
     int load_cap = load_h > 0 ? pl_load_capacity(prog) : 1;

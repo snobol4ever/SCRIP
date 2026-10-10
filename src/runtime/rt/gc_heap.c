@@ -533,7 +533,7 @@ void *rt_heap_alloc_c(size_t n) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void *rt_pl_struct_alloc(uint16_t type, size_t n) {
-    if (type < HB_PLDB || type > HB_PLDBK) abort();
+    if ((type < HB_PLDB || type > HB_PLDBK) && type != HB_TRIE && type != HB_TRIEN) abort();
 #if RT_DIAG
     if (rt_alloc_hist_on()) rt_alloc_hist_ra(__builtin_return_address(0), type, (uint64_t)n);
 #endif
@@ -1137,7 +1137,7 @@ static inline rt_hblk_t *gc_blk_of(const char *p) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int gc_type_moves(uint16_t t) __attribute__((always_inline));
-static inline int gc_type_moves(uint16_t t) { return (t == HB_DVEC || (t >= HB_PLDB && t <= HB_DTPRCP) || t == HB_ARR || t == HB_DINST || HB_IS_AGG(t)) ? 1 : 0; }
+static inline int gc_type_moves(uint16_t t) { return (t == HB_DVEC || (t >= HB_PLDB && t <= HB_TRIEN) || t == HB_ARR || t == HB_DINST || HB_IS_AGG(t)) ? 1 : 0; }
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) __attribute__((always_inline));
 static inline void gc_mark_blk(rt_hblk_t *h, uint16_t addf) {
     if (h->type == HB_FILL) return;
@@ -3689,6 +3689,7 @@ static long gc_collect_ex(const gc_ent_t *ent) {
                         pl_db_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t));
                         continue;
                     }
+                    if (h->type == HB_TRIE || h->type == HB_TRIEN) { extern void pl_trie_gc_visit(uint16_t, void *); pl_trie_gc_visit(h->type, (void *)(h + 1)); continue; }
                     if (h->type == HB_DTP || h->type == HB_DTPRCP) {
                         extern void pm_struct_gc_visit(uint16_t, void *, size_t);
                         pm_struct_gc_visit(h->type, (void *)(h + 1), (size_t)h->size - sizeof(rt_hblk_t));

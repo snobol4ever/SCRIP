@@ -5976,6 +5976,9 @@ DESCR_t rt_pl_dop_big(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz(DESCR_t *, i
     int); DESCR_t rt_pl_dop_db_abolish(DESCR_t *, int); DESCR_t rt_pl_dop_db_nonempty(DESCR_t *, int); DESCR_t rt_pl_dop_ball_pending(DESCR_t *, int); DESCR_t rt_pl_dop_format(DESCR_t *,
         int); DESCR_t rt_pl_dop_db_seed_once(DESCR_t *, int);
 DESCR_t rt_pl_dop_nb_setval(DESCR_t *, int); DESCR_t rt_pl_dop_nb_getval(DESCR_t *, int); DESCR_t rt_pl_dop_b_setval(DESCR_t *, int);
+DESCR_t rt_pl_dop_trie_new(DESCR_t *, int); DESCR_t rt_pl_dop_trie_alive(DESCR_t *, int); DESCR_t rt_pl_dop_trie_destroy(DESCR_t *, int); DESCR_t rt_pl_dop_trie_insert(DESCR_t *, int);
+DESCR_t rt_pl_dop_trie_lookup(DESCR_t *, int); DESCR_t rt_pl_dop_trie_delete(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entries(DESCR_t *, int); DESCR_t rt_pl_dop_trie_entry_key(DESCR_t *, int);
+DESCR_t rt_pl_dop_trie_count(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_set(DESCR_t *, int); DESCR_t rt_pl_dop_trie_meta_get(DESCR_t *, int); DESCR_t rt_pl_dop_tbl_vt(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_retractall(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_alive(DESCR_t *, int);
 DESCR_t rt_pl_dop_db_t_guard(DESCR_t *, int); DESCR_t rt_pl_dop_db_assertz_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_asserta_t(DESCR_t *, int); DESCR_t rt_pl_dop_db_erase_t(DESCR_t *,
@@ -6103,6 +6106,12 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
                 rt_pl_dop_db_assertz_r }, { "$db_erase_ref", 1, "rt_pl_dop_db_erase_ref", rt_pl_dop_db_erase_ref }, { "$db_n_r", 2, "rt_pl_dop_db_n_r", rt_pl_dop_db_n_r }, { "$db_at_r", 3,
                     "rt_pl_dop_db_at_r", rt_pl_dop_db_at_r }, { "$db_ref_r", 3, "rt_pl_dop_db_ref_r", rt_pl_dop_db_ref_r },
         { "$nb_setval", 2, "rt_pl_dop_nb_setval", rt_pl_dop_nb_setval }, { "$nb_getval", 2, "rt_pl_dop_nb_getval", rt_pl_dop_nb_getval }, { "$b_setval", 2, "rt_pl_dop_b_setval", rt_pl_dop_b_setval },
+        { "$trie_new", 1, "rt_pl_dop_trie_new", rt_pl_dop_trie_new }, { "$trie_alive", 1, "rt_pl_dop_trie_alive", rt_pl_dop_trie_alive },
+        { "$trie_destroy", 1, "rt_pl_dop_trie_destroy", rt_pl_dop_trie_destroy }, { "$trie_insert", 5, "rt_pl_dop_trie_insert", rt_pl_dop_trie_insert },
+        { "$trie_lookup", 3, "rt_pl_dop_trie_lookup", rt_pl_dop_trie_lookup }, { "$trie_delete", 3, "rt_pl_dop_trie_delete", rt_pl_dop_trie_delete },
+        { "$trie_entries", 2, "rt_pl_dop_trie_entries", rt_pl_dop_trie_entries }, { "$trie_entry_key", 3, "rt_pl_dop_trie_entry_key", rt_pl_dop_trie_entry_key },
+        { "$trie_count", 2, "rt_pl_dop_trie_count", rt_pl_dop_trie_count }, { "$trie_meta_set", 3, "rt_pl_dop_trie_meta_set", rt_pl_dop_trie_meta_set },
+        { "$trie_meta_get", 3, "rt_pl_dop_trie_meta_get", rt_pl_dop_trie_meta_get }, { "$tbl_vt", 1, "rt_pl_dop_tbl_vt", rt_pl_dop_tbl_vt },
         { "$pl_nb_getval_guard", 2, "rt_pl_dop_nb_getval_guard", rt_pl_dop_nb_getval_guard },
         { "$ax_eguard", 1, "rt_pl_dop_ax_eguard", rt_pl_dop_ax_eguard },
         { "$quit_trap_300", 0, "rt_quit_trap_300", rt_quit_trap_300 }, { "$quit_trap_320", 0, "rt_quit_trap_320", rt_quit_trap_320 },

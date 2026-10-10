@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 267
+#define RTX_CLOB_TAB_N 279
 #define RTX_CLOB_TAB_N_CLOBBERING 20
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -216,11 +216,23 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_sub_atom_at", 0 },
     { "rt_pl_dop_succ", 0 },
     { "rt_pl_dop_tab_sb", 0 },
+    { "rt_pl_dop_tbl_vt", 0 },
     { "rt_pl_dop_tell", 0 },
     { "rt_pl_dop_telling", 0 },
     { "rt_pl_dop_term_string", 0 },
     { "rt_pl_dop_term_to_atom", 0 },
     { "rt_pl_dop_term_variables", 0 },
+    { "rt_pl_dop_trie_alive", 0 },
+    { "rt_pl_dop_trie_count", 0 },
+    { "rt_pl_dop_trie_delete", 0 },
+    { "rt_pl_dop_trie_destroy", 0 },
+    { "rt_pl_dop_trie_entries", 0 },
+    { "rt_pl_dop_trie_entry_key", 0 },
+    { "rt_pl_dop_trie_insert", 0 },
+    { "rt_pl_dop_trie_lookup", 0 },
+    { "rt_pl_dop_trie_meta_get", 0 },
+    { "rt_pl_dop_trie_meta_set", 0 },
+    { "rt_pl_dop_trie_new", 0 },
     { "rt_pl_dop_unget_byte", 0 },
     { "rt_pl_dop_unget_byte_s", 0 },
     { "rt_pl_dop_unget_char", 0 },

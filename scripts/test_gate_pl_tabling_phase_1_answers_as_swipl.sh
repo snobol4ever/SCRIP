@@ -4,8 +4,9 @@
 # THE ROW: prolog-swi-tabling-the-table-directive-and-tabled-resolution-453-swi-cases (hq_prolog; phase 1 on the ceo's YES).
 # PHASE 1 is VARIANT tabling of DEFINITE programs. `:- table p/n` is placed by the LOWERER (lower_prolog.c
 # pl_table_rewrite): p/n's clauses lower as '$tbl p'/n and one wrapper clause p(A..) :- '$tbl_call'(p(A..), '$tbl p'(A..))
-# is added. '$tbl_call'/2 lives in the Prolog prelude: a table per call variant, kept in the computed-key global store
-# ('$tbl:'+variant), answers each once by variant; a table whose evaluation touched no incomplete table completes after
+# is added. '$tbl_call'/2 lives in the Prolog prelude: a table per call variant, kept since phase 2 (a) in a trie (one typed heap
+# kind, the variant trie mapping a call variant to its answer trie; test_gate_pl_tries_and_table_inspection_answer_as_swipl.sh),
+# answers each once by variant; a table whose evaluation touched no incomplete table completes after
 # one pass (as SLG evaluates a clause once), and the first table of a strongly connected group is its LEADER, which
 # re-evaluates the group's incomplete tables in rounds until none grows (a fixpoint). abolish_all_tables/0 drops them.
 # Out of phase 1, each its own row: tnot/WFS, answer subsumption and mode-directed tabling, incremental tabling.

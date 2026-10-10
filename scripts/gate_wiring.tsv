@@ -706,6 +706,7 @@ test_gate_pl_the_prelude_sees_every_clause_of_the_program.sh	WIRED	-	-	-
 test_gate_pl_the_query_neck_reads_as_an_atom_and_a_prefix_operator.sh	WIRED	-	-	-
 test_gate_pl_the_reclaim_report_names_every_erased_fragment_and_its_holders.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-
+test_gate_pl_tries_and_table_inspection_answer_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_two_variables_compare_one_way_only.sh	WIRED	-	-	-
 test_gate_pl_wall_us_arity1.sh	WIRED	-	-	-
 test_gate_pl_wildcard_match_answers_as_swipl.sh	WIRED	-	-	-
