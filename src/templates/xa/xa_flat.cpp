@@ -77,7 +77,8 @@ static std::string xa_flat_dc_stub_str(void) {
     extern int g_flat_dc_np;
     int np = g_flat_dc_np;
     static const char * const argreg[4] = { "rsi", "rdx", "rcx", "r8" };
-    if (!x86_fb_pinned() && g_emit_cfg && zls_g_block_args(g_emit_cfg)) {
+    int blk_pinned_rk = (x86_fb_pinned() && g_emit_cfg && g_emit_cfg->zframe_graph && !g_emit_cfg->icn_cells_graph && zls_g_block_args(g_emit_cfg)) ? 1 : 0;
+    if ((!x86_fb_pinned() || blk_pinned_rk) && g_emit_cfg && zls_g_block_args(g_emit_cfg)) {
         int nb = g_emit_cfg->nparams;
         if (np > nb || nb > 12) return x86_bomb("xa_flat_dc_stub: a block-protocol graph whose direct-call arity exceeds its parameter count, or has more than 12 parameters");
         std::string zs = x86("comment",

@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # test_gate_raku_gather_and_take_collect_what_the_body_takes_as_rakudos_do.sh -- `gather` / `take` (31 Roast files' first refusal: "an excised node (rk_excise) has no native template")
 # (row raku-every-suite-to-100-under-nonet-ceo-1266; Roast compile census 796/1381 on SCRIP 137f4d712; ceo CEO-1479).
-# THE DESIGN. The parser already builds TT_GATHER with TT_SUSPEND for `take` (Icon's every/suspend shape) and the lowerer excised the gather. lower_raku.c rk_desugar_gather
-# turns each gather into a SEQ_EXPR that declares a collector `@__gatherN`, runs the body with every `take X` of that gather (not of a nested sub) rewritten to
-# `@__gatherN.push(X)`, and answers the collector as a List (__rk_arr_values); a take inside a block handed to map/grep/for-like synchronous builtins reaches the collector
-# through the capture road (rk_cap_block), nested gathers each own theirs. EAGER: the body runs to completion when the gather is evaluated -- an infinite gather is not
-# supported by this road (it is the lazy Seq row), a take reached through a call to another sub is not supported either (dynamic scope), both named here so the claim is exact.
+# THE DESIGN (as re-landed by the cto on the lazy-generator row, CEO-1600/1619; the eager rk_desugar_gather collector is gone). A gather body is a hoisted block that
+# is a GENERATOR PROC: its `take` is IR_SUSPEND on Icon's suspend road; a for over a gather, an array assignment, say, [i], .head and the eager methods PUMP it
+# through IR_PROC_GEN with a bound where one exists; a gather that escapes (returned, assigned to a scalar, passed, taken) is a Seq pulled one value at a time
+# through the heap generator handle rt_genp_s on its own coroutine stack; a take inside a nested block (map's) or a called sub is a dynamic take delivered through
+# that handle. Infinite gathers are the lazy-generator gate's witnesses (test_gate_raku_gather_and_the_sequence_operator_are_lazy_generator_boxes_with_no_cap.sh).
 # THE WITNESS, ref cut by Rakudo (/usr/bin/raku) at generation: statement gather, gather as an expression printed as a List, the statement-prefix `gather for`, a sub
 # returning a gather, a take inside a map block that also writes a captured counter, nested gathers, a gather as the source of `for`, .sum and .join on a gather; both
 # modes, and under SCRIP_GC_STRESS 1 3 5 at the shrunk window.

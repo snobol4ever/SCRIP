@@ -258,6 +258,7 @@ typedef struct {
     int lower_rv_forlist_ctr;
     int lower_rv_tern_n;
     int rk_hoist_anon_blocks_blk_ctr;
+    int rk_gather_ctr;
 } g_lower_rk_t;
 typedef struct { g_lower_pl_t pl; g_lower_lc_t lc; g_lower_sno_t sno; g_lower_icn_t icn; g_lower_pas_t pas; g_lower_opt_t opt; g_lower_ir_t ir; g_lower_rk_t rk; } g_lower_t;
 #define G_LOWER_INIT { .pl = { .fresh_next = 900000, .seed_var_base = 4096, .fence_on = -1 }, .lc = { .bb_labels = { NULL, 0, 0, (int) sizeof(bb_label_entry_t) }, .bb_src_ix = { 0, 0, -1, -1 }, . \

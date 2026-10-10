@@ -388,25 +388,26 @@ int rt_builtin_is_known(const char *name) {
     static const char *const known[] = { "write", "writes", "stop", "integer", "real", "string", "numeric", "char", "chr", "ord", "cset", "type", "image", "proc", "args", "copy", "abs", "sqrt", "sin",
         "cos", "tan", "exp", "log", "asin", "acos", "atan", "dtor", "rtod", "max", "min", "trim", "reverse", "repl", "map", "left", "center", "right", "detab", "entab", "read", "reads", "sprintf",
         "printf", "iand", "ior", "ixor", "ishift", "icom", "table", "list", "set", "sort", "sortf", "get", "pop", "pull", "member", "insert", "delete", "key", "[]", "__apply__", "MAKELIST",
-        "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_arr_sort",
-        "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_arr_map", "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done",
-        "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape", "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_arr_values",
-        "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash", "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif",
-        "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem", "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup",
-        "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne", "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick",
-        "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat", "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend",
-        "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv", "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec",
-        "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv", "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick",
-        "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor", "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before",
-        "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem", "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit",
-        "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile", "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure",
-        "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists", "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none",
-        "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults", "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture",
-        "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr", "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame",
-        "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close", "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT",
-        "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE", "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD",
-        "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA", "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT",
-        "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call", "__trace_return", "__trace_value", "__trace_tap_off", NULL };
+        "__rk_arr", "__rk_arr_lit", "arr_get", "arr_set_pure", "__rk_arr_set", "arr_init", "arr_last", "array_sort", "array_reverse", "arr_make", "__rk_arr_xx", "__rk_arr_at", "__rk_seq_new",
+        "__rk_iter_has", "__rk_take_dyn", "__rk_seq_plan", "__rk_seq_next", "__rk_seq_stop", "__rk_seq_arity", "__rk_arr_sort", "__rk_arr_min", "__rk_arr_max", "__rk_arr_first", "__rk_arr_map",
+        "__rk_arr_grep", "__rk_arr_reduce", "__rk_iter_src", "__rk_map_append", "__rk_grep_append", "__rk_iter_done", "__rk_sort_by_keys", "__rk_hyper_meth", "__rk_hyper_zip", "__rk_hyper_shape",
+        "__rk_adjacent_pairs", "__rk_all_true", "__rk_regex", "__rk_smartmatch", "__rk_arr_keys", "__rk_arr_values", "__rk_arr_flat", "__rk_arr_slip", "__rk_flat", "__rk_to_array", "__rk_to_hash",
+        "__rk_pre", "__rk_eval", "__rk_rethrow", "re_test", "__rk_io", "__rk_set_uni", "__rk_set_int", "__rk_set_dif", "__rk_set_sym", "__rk_set_sum", "__rk_set_mul", "__rk_set_nelem",
+        "__rk_set_ncont", "__rk_set_sub", "__rk_set_nsub", "__rk_set_psub", "__rk_set_npsub", "__rk_set_sup", "__rk_set_nsup", "__rk_set_psup", "__rk_set_npsup", "__rk_set_eq", "__rk_set_ne",
+        "__rk_bag_sub", "__rk_bag_sup", "sleep", "val", "__rk_arr_kv", "__rk_range_arr", "__rk_arr_slice", "__rk_arr_pick", "__rk_reduce_add", "__rk_reduce_sub", "__rk_reduce_mul", "__rk_reduce_cat",
+        "__rk_reduce_min", "__rk_reduce_max", "__rk_div", "__rk_pow", "__rk_ratlit", "__rk_ratnew", "__rk_exend", "__rk_str", "__rk_cross", "__rk_zip", "__rk_min", "__rk_max", "__rk_eqv",
+        "__rk_substr_replace", "__rk_typeobj", "__rk_item1", "__rk_unset", "__rk_unany", "__rk_elem_put", "__rk_hyper_incdec", "__rk_radix_list", "__rk_radix_str", "__rk_ident", "__rk_intdiv",
+        "__rk_mod", "__rk_mkbool", "__rk_notbool", "__rk_cmp3", "__rk_cmpg", "__rk_leg", "__rk_when_match", "pick", "__rk_byref_assign", "__rk_deref", "__rk_not_smartmatch", "__rk_bor", "__rk_bxor",
+        "__rk_lbor", "__rk_lbxor", "__rk_sbor", "__rk_sband", "__rk_gcd", "__rk_lcm", "__rk_after", "__rk_before", "__rk_approx", "__rk_xor", "__rk_coll", "__rk_unicmp", "__rk_set_elem",
+        "__rk_set_cont", "rk_write", "rk_writes", "rk_write_arr", "rk_write_list", "__rk_named_call", "__rk_rep", "__rk_exit", "__pas_ca_pack", "__pas_ca_unpack", "__pas_ca_encode", "__pas_stdfile",
+        "__pas_arr_copy", "__pas_arr_of", "__rk_hash", "elems", "push_pure", "unshift_pure", "append_pure", "prepend_pure", "arr_tail", "hash_get", "hash_set_pure", "hash_delete", "hash_exists",
+        "hash_keys", "hash_values", "hash_pairs", "hash_kv", "__rk_jct_any", "__rk_jct_all", "__rk_jct_one", "__rk_jct_none", "obj_new", "__rk_new_alloc", "__rk_new_check", "__rk_new_defaults",
+        "meth_call", "field_set", "field_set_pub", "field_get_pub", "__rk_say_capture", "__rk_say_named_capture", "__rk_gist_capture", "__rk_gist_named_capture", "nqp::create", "nqp::bindattr",
+        "nqp::bindattr_n", "nqp::bindattr_i", "nqp::bindattr_s", "die", "script_die", "srand", "callsame", "nextsame", "callwith", "__multi_call", "__param_check", "__blk_ref", "__blk_close",
+        "__blk_invoke", "__rk_box", "TIME", "DATE", "IDENTICAL", "getenv", "open", "where", "close", "collect", "seek", "LT", "LE", "GT", "GE", "EQ", "NE", "LGT", "LLT", "LGE", "LLE", "LEQ", "LNE",
+        "IDENT", "DIFFER", "SIZE", "TRIM", "DUPL", "REPLACE", "REMDR", "SNO$NAME", "SUBSTR", "REVERSE", "LPAD", "RPAD", "INTEGER", "DATATYPE", "ARRAY", "TABLE", "ITEM", "PROTOTYPE", "CONVERT", "DATA",
+        "APPLY", "OPSYN", "VALUE", "SNO$KWSET", "SNO$NRET", "SNO$WANTNM", "EVAL", "SNO$MKEXPR", "SNO$MKPAT", "SNO$STMT", "$unify", "$unify_lst", "$ix_g", "__trace_stmt", "__trace_call",
+        "__trace_return", "__trace_value", "__trace_tap_off", NULL };
     for (int i = 0; known[i]; i++) if (!strcmp(known[i], name)) return 1;
     { if (dat_find_type(name)) return 1; }
     { extern int rt_dat_field_of_any(const char *); if (rt_dat_field_of_any(name)) return 1; }
@@ -1060,8 +1061,12 @@ static const char *rk_tap_str(DESCR_t v) {
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { int n; const DESCR_t *el; } rk_av_t;
+static const char rk_proto_seq[] = "Seq";
+static int rk_is_seq(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_seq; }
+static void rk_seq_reify(DESCR_t *sp, long need);
 static rk_av_t rk_av(DESCR_t v) {
     rk_av_t a = { 0, NULL };
+    if (rk_is_seq(v)) { rk_seq_reify(&v, -1L); v = ((ARBLK_t *) v.arr)->data[3]; }
     if (v.v == DT_A && v.arr) { ARBLK_t *b = (ARBLK_t *) v.arr; a.n = b->hi - b->lo + 1; if (a.n < 0) a.n = 0; a.el = b->data; return a; }
     if (v.v == DT_SNUL || v.v == DT_FAIL || (IS_STR_fn(v) && !*rk_cstr(v))) return a;
     DESCR_t *d = (DESCR_t *) rt_ws_alloc_descr(1);
@@ -1105,7 +1110,9 @@ static int rk_is_slip(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const char rk_proto_range[] = "Range";
 static int rk_is_range(DESCR_t v) { return v.v == DT_A && v.arr && ((ARBLK_t *) v.arr)->proto == rk_proto_range; }
-static int rk_is_list(DESCR_t v) { return v.v == DT_A && v.arr && (((ARBLK_t *) v.arr)->proto == rk_proto_list || ((ARBLK_t *) v.arr)->proto == rk_proto_range); }
+static int rk_is_list(DESCR_t v) {
+    return v.v == DT_A && v.arr && (((ARBLK_t *) v.arr)->proto == rk_proto_list || ((ARBLK_t *) v.arr)->proto == rk_proto_range || ((ARBLK_t *) v.arr)->proto == rk_proto_seq);
+}
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static DESCR_t rk_mark_list(DESCR_t d) { if (d.v == DT_A && d.arr) ((ARBLK_t *) d.arr)->proto = rk_proto_list; return d; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
@@ -1162,6 +1169,37 @@ static void rk_arr_append(ARBLK_t *b, DESCR_t v) {
     if ((size_t) n + 1 > cap) { size_t nc = 2 * cap > (size_t) n + 1 ? 2 * cap : (size_t) n + 1; b->data = (DESCR_t *) rt_gcheap_grow_block(b->data, HB_DVEC, nc * sizeof(DESCR_t)); }
     b->data[n] = v;
     b->hi++;
+}
+static int rk_seq_pull(DESCR_t *sp) {
+    extern DESCR_t rt_proc_call_gen_h(const char *, int, void **, const uint64_t *);
+    extern DESCR_t rt_proc_resume_frame_h(void **);
+    ARBLK_t *s = (ARBLK_t *) sp->arr;
+    if (s->data[2].i == 2) return 0;
+    void *h = s->data[1].ptr;
+    DESCR_t v;
+    if (s->data[2].i == 0) {
+        DESCR_t cl = s->data[0];
+        const char *nm = rk_code_name(cl);
+        int nr = rk_blk_nref(cl);
+        s->data[2] = INTVAL(1);
+        rt_call_args_need(nr);
+        for (int k = 0; k < nr; k++) CALL_ARGS[k] = ((ARBLK_t *) cl.arr)->data[1 + k];
+        rt_call_args_clear_from(nr);
+        v = rt_proc_call_gen_h(nm, nr, &h, (const uint64_t *) 0);
+    } else v = rt_proc_resume_frame_h(&h);
+    s = (ARBLK_t *) sp->arr;
+    s->data[1] = (DESCR_t){ .v = DT_RAW, .ptr = h };
+    if (IS_FAIL_fn(v)) { s->data[2] = INTVAL(2); return 0; }
+    rk_arr_append((ARBLK_t *) s->data[3].arr, v);
+    if (!h) { s = (ARBLK_t *) sp->arr; s->data[2] = INTVAL(2); }
+    return 1;
+}
+static void rk_seq_reify(DESCR_t *sp, long need) {
+    rk_cbh_t H = { g_rk_cbh_cur, { *sp, NULVCL } };
+    g_rk_cbh_cur = &H;
+    for (;;) { ARBLK_t *c = (ARBLK_t *) ((ARBLK_t *) H.d[0].arr)->data[3].arr; if (need >= 0 && (long) (c->hi - c->lo + 1) >= need) break; if (!rk_seq_pull(&H.d[0])) break; }
+    g_rk_cbh_cur = H.prev;
+    *sp = H.d[0];
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct { long mode, posv, xmin, xmax; const long *nth; int nnth; } RkRxOpt;
@@ -1913,8 +1951,8 @@ static const char *rk_value_type(DESCR_t v) {
     if (IS_REAL_fn(v)) return "Num";
     if (v.v == DT_SNUL) return "Nil";
     if (v.v == DT_T) return "Hash";
-    if (v.v == DT_A) return rk_is_pair(v) ? "Pair" : rk_is_jct(v) ? "Junction" : ((ARBLK_t *) v.arr)->proto == rk_proto_list ? "List" : ((ARBLK_t *) v.arr)->proto == rk_proto_range ? "Range" :
-        ((ARBLK_t *) v.arr)->proto == rk_proto_slip ? "Slip" : "Array";
+    if (v.v == DT_A) return rk_is_pair(v) ? "Pair" : rk_is_jct(v) ? "Junction" : rk_is_seq(v) ? "Seq" : ((ARBLK_t *) v.arr)->proto == rk_proto_list ? "List" :
+        ((ARBLK_t *) v.arr)->proto == rk_proto_range ? "Range" : ((ARBLK_t *) v.arr)->proto == rk_proto_slip ? "Slip" : "Array";
     if (IS_DATA_INST_fn(v) && v.u) { DATINST_t *di = (DATINST_t *)v.u; return (di && di->type) ? rk_dat_tname(di->type->name) : "Any"; }
     return "Str";
 }
@@ -2705,27 +2743,16 @@ static DESCR_t rk_seq_num2(DESCR_t a, DESCR_t b, int op) {
     return REALVAL(op == 0 ? da + db : op == 1 ? da - db : da * db);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static DESCR_t rk_sequence(int excl, DESCR_t seedv, DESCR_t endv) {
-    rk_av_t sd = rk_av(seedv), en = rk_av(endv);
-    DESCR_t res = rk_mk_arr(NULL, 0);
-    if (!sd.n) return res;
-    DESCR_t ev = en.n ? en.el[0] : NULVCL;
-    int infinite = rk_typeobj_name(ev) != NULL || (IS_REAL_fn(ev) && isinf(ev.r)) || en.n == 0;
-    int endcode = !infinite && rk_is_code(ev);
+static DESCR_t rk_seq_plan(DESCR_t seedv, int gen_code, DESCR_t ev) {
+    rk_av_t sd = rk_av(seedv);
+    int nseed = sd.n;
+    int infinite = rk_typeobj_name(ev) != NULL || (IS_REAL_fn(ev) && isinf(ev.r)) || ev.v == DT_SNUL;
     double dE = 0;
-    int iE = 0, endnum = !infinite && !endcode && rk_range_num(ev, &dE, &iE);
-    rk_cbh_t H = { g_rk_cbh_cur, { seedv, res } };
-    g_rk_cbh_cur = &H;
-    int gen_code = rk_is_code(sd.el[sd.n - 1]);
-    int nseed = gen_code ? sd.n - 1 : sd.n;
-    int nrf = endcode ? rk_blk_nref(ev) : 0, grf = gen_code ? rk_blk_nref(sd.el[sd.n - 1]) : 0;
-    DESCR_t erfs[nrf ? nrf : 1], grfs[grf ? grf : 1];
-    rk_cb_t ecb = endcode ? rk_blk_snap(ev, erfs) : (rk_cb_t) { NULL, 0 }, gcb = gen_code ? rk_blk_snap(sd.el[sd.n - 1], grfs) : (rk_cb_t) { NULL, 0 };
-    int ar = gen_code ? rk_code_arity(sd.el[sd.n - 1]) : 0;
+    int iE = 0, endnum = !infinite && !rk_is_code(ev) && rk_range_num(ev, &dE, &iE);
     int numeric_seeds = nseed > 0;
     for (int i = 0; i < nseed; i++) { double d; int ii; if (!rk_range_num(sd.el[i], &d, &ii)) numeric_seeds = 0; }
-    int dir = 1, geometric = 0;
-    DESCR_t step = INTVAL(1), ratio = INTVAL(1);
+    int dir = 1, kind = gen_code ? 4 : numeric_seeds ? 1 : 3;
+    DESCR_t step = INTVAL(1);
     if (!gen_code && numeric_seeds) {
         double d0, d1, d2;
         int i0, i1, i2;
@@ -2741,60 +2768,49 @@ static DESCR_t rk_sequence(int excl, DESCR_t seedv, DESCR_t endv) {
                 rk_range_num(sd.el[nseed - 3], &d0, &i0);
                 if (d2 - d1 != d1 - d0) {
                     if (d0 != 0 && d1 != 0 && d1 / d0 == d2 / d1) {
-                        geometric = 1;
+                        kind = 2;
                         double r = d2 / d1;
-                        ratio = (i0 && i1 && i2 && r == (double) (long long) r) ? INTVAL((long long) r) : REALVAL(r);
+                        step = (i0 && i1 && i2 && r == (double) (long long) r) ? INTVAL((long long) r) : REALVAL(r);
                     } else {
-                        g_rk_cbh_cur = H.prev;
                         rk_exc_init();
                         rk_exc_throw(rk_exc_adhoc(STRVAL(rt_heap_strdup_c("Unable to deduce arithmetic or geometric sequence from the seeds"))));
-                        return res;
+                        return rk_mk_arr(NULL, 0);
                     }
                 }
             }
-            double ds = geometric ? (d2 * (IS_REAL_fn(ratio) ? ratio.r : (double) ratio.i) - d2) : d2 - d1;
+            double ds = kind == 2 ? (d2 * (IS_REAL_fn(step) ? step.r : (double) step.i) - d2) : d2 - d1;
             dir = ds < 0 ? -1 : 1;
         }
     }
-    DESCR_t last = NULVCL;
-    long cap = infinite ? 1000 : 100000;
-    for (long k = 0; k < cap; k++) {
-        DESCR_t v;
-        if (k < nseed) v = rk_av_elem(rk_av(H.d[0]), (int) k);
-        else if (gen_code) {
-            rk_av_t ra = rk_av(H.d[1]);
-            rt_call_args_need(ar + 1);
-            for (int a = 0; a < ar; a++) CALL_ARGS[a] = rk_av_elem(ra, ra.n - ar + a);
-            v = rk_call_snap(gcb, grfs, ar);
-        } else if (numeric_seeds) v = geometric ? rk_seq_num2(last, ratio, 2) : rk_seq_num2(last, step, 0);
-        else { const char *ls = rk_cstr(last); char sb[strlen(ls) + 3]; v = STRVAL(rt_heap_strdup_c(rk_str_succ_buf(ls, sb))); }
-        if (endnum) {
-            double dv;
-            int iv;
-            if (rk_range_num(v, &dv, &iv)) {
-                double tol = 1e-9 * (fabs(dE) > 1 ? fabs(dE) : 1);
-                if (fabs(dv - dE) <= (iv && iE ? 0 : tol)) { if (!excl) rk_arr_append((ARBLK_t *) H.d[1].arr, iv ? v : ev); break; }
-                if (!gen_code && ((dir > 0 && dv > dE) || (dir < 0 && dv < dE))) break;
-            }
-        } else if (!infinite && !endcode) {
-            const char *vs = rk_cstr(v), *es = rk_cstr(ev);
-            if (!strcmp(vs, es)) { if (!excl) rk_arr_append((ARBLK_t *) H.d[1].arr, v); break; }
-            if (!numeric_seeds && !gen_code && strlen(vs) > strlen(es)) break;
+    DESCR_t pl = rk_mk_arr(NULL, 0);
+    rk_arr_append((ARBLK_t *) pl.arr, INTVAL(kind));
+    rk_arr_append((ARBLK_t *) pl.arr, step);
+    rk_arr_append((ARBLK_t *) pl.arr, INTVAL(dir));
+    rk_arr_append((ARBLK_t *) pl.arr, INTVAL(infinite ? 2 : endnum ? 1 : 0));
+    return pl;
+}
+static DESCR_t rk_seq_next(int kind, DESCR_t step, DESCR_t last) {
+    if (kind == 1) return rk_seq_num2(last, step, 0);
+    if (kind == 2) return rk_seq_num2(last, step, 2);
+    { const char *ls = rk_cstr(last); char sb[strlen(ls) + 3]; return STRVAL(rt_heap_strdup_c(rk_str_succ_buf(ls, sb))); }
+}
+static int rk_seq_stop(DESCR_t v, DESCR_t ev, int kind, int dir, int gen_code) {
+    if (rk_typeobj_name(ev) != NULL || (IS_REAL_fn(ev) && isinf(ev.r)) || ev.v == DT_SNUL) return 0;
+    if (rk_is_code(ev)) return 4;
+    double dE = 0;
+    int iE = 0;
+    if (rk_range_num(ev, &dE, &iE)) {
+        double dv;
+        int iv;
+        if (rk_range_num(v, &dv, &iv)) {
+            double tol = 1e-9 * (fabs(dE) > 1 ? fabs(dE) : 1);
+            if (fabs(dv - dE) <= (iv && iE ? 0 : tol)) return iv ? 1 : 3;
+            if (!gen_code && ((dir > 0 && dv > dE) || (dir < 0 && dv < dE))) return 2;
         }
-        if (endcode) {
-            rt_call_args_need(2);
-            CALL_ARGS[0] = v;
-            int stop = rt_is_truthy(rk_call_snap(ecb, erfs, 1));
-            if (stop && excl) break;
-            rk_arr_append((ARBLK_t *) H.d[1].arr, v);
-            if (stop) break;
-        } else rk_arr_append((ARBLK_t *) H.d[1].arr, v);
-        last = v;
+        return 0;
     }
-    g_rk_cbh_cur = H.prev;
-    res = H.d[1];
-    for (int i = 1; i < en.n; i++) rk_arr_append((ARBLK_t *) res.arr, rk_av_elem(rk_av(endv), i));
-    return res;
+    { const char *vs = rk_cstr(v), *es = rk_cstr(ev); if (!strcmp(vs, es)) return 1; if (kind == 3 && !gen_code && strlen(vs) > strlen(es)) return 2; }
+    return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int rk_list_more_methods(const char *meth, DESCR_t recv, const DESCR_t *margs, int nmargs, DESCR_t *out) {
@@ -11073,6 +11089,23 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     if (!strcmp(fn, "__rk_undef")) { (void) args; (void) nargs; *out = NULVCL; return 1; }
     if (!strcmp(fn, "__rk_mkcplx_i")) { (void) args; (void) nargs; extern DESCR_t rt_cplx_make(double, double); *out = rt_cplx_make(0.0, 1.0); return 1; }
     if (!strcmp(fn, "__rk_exit") && nargs == 1) { long code = IS_INT_fn(args[0]) ? args[0].i : 0; exit((int) code); }
+    if (!strcmp(fn, "__rk_arr_at") && nargs == 2 && rk_is_seq(args[0])) {
+        long need = -1L;
+        if (IS_INT_fn(args[1])) need = args[1].i >= 0 ? (long) args[1].i + 1 : -1L;
+        else if (rk_is_range(args[1])) {
+            DESCR_t l, h;
+            int xl, xh;
+            rk_range_bounds(args[1], &l, &h, &xl, &xh);
+            if (IS_INT_fn(h)) need = (long) h.i + 1 - xh;
+        } else if (args[1].v == DT_A && args[1].arr && !rk_is_pair(args[1])) {
+            rk_av_t ix = rk_av(args[1]);
+            long mx = -1;
+            for (int k = 0; k < ix.n; k++) if (IS_INT_fn(ix.el[k]) && ix.el[k].i > mx) mx = (long) ix.el[k].i;
+            need = mx + 1;
+        }
+        rk_seq_reify(&args[0], need);
+        args[0] = ((ARBLK_t *) args[0].arr)->data[3];
+    }
     if (!strcmp(fn, "__rk_arr_at") && nargs == 2) {
         if (rk_match_is(args[0])) args[0] = FIELD_GET_fn(args[0], "positional");
         if (args[0].v == DT_A && args[0].arr && args[1].v == DT_A && args[1].arr && !rk_is_pair(args[1]) && !rk_is_jct(args[1])) {
@@ -11467,6 +11500,38 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = (DESCR_t){ .v = DT_N, .slen = 1, .ptr = (void *) &bx->data[0] };
         return 1;
     }
+    if (!strcmp(fn, "__rk_seq_new") && nargs == 1) {
+        DESCR_t sq = rk_mk_arr(NULL, 0);
+        rk_arr_append((ARBLK_t *) sq.arr, args[0]);
+        rk_arr_append((ARBLK_t *) sq.arr, (DESCR_t){ .v = DT_RAW, .ptr = (void *) 0 });
+        rk_arr_append((ARBLK_t *) sq.arr, INTVAL(0));
+        rk_arr_append((ARBLK_t *) sq.arr, rk_mark_list(rk_mk_arr(NULL, 0)));
+        ((ARBLK_t *) sq.arr)->proto = rk_proto_seq;
+        *out = sq;
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_iter_has") && nargs == 2) {
+        long i = (long) rk_ival(args[1]);
+        if (rk_is_seq(args[0])) {
+            rk_seq_reify(&args[0], i + 1);
+            ARBLK_t *c = (ARBLK_t *) ((ARBLK_t *) args[0].arr)->data[3].arr;
+            *out = (DESCR_t){ .v = DT_BOOL, .i = (long) (c->hi - c->lo + 1) > i };
+            return 1;
+        }
+        { rk_av_t a = rk_av(args[0]); *out = (DESCR_t){ .v = DT_BOOL, .i = i < a.n }; return 1; }
+    }
+    if (!strcmp(fn, "__rk_take_dyn") && nargs == 1) {
+        extern int rt_genp_active(void);
+        extern void rt_genp_deliver_γ(DESCR_t);
+        if (!rt_genp_active()) { rk_exc_init(); rk_exc_throw(rk_exc_adhoc(STRVAL(rt_heap_strdup_c("take without gather")))); *out = NULVCL; return 1; }
+        rt_genp_deliver_γ(args[0]);
+        *out = args[0];
+        return 1;
+    }
+    if (!strcmp(fn, "__rk_seq_plan") && nargs == 3) { *out = rk_seq_plan(args[0], (int) rk_ival(args[1]), args[2]); return 1; }
+    if (!strcmp(fn, "__rk_seq_next") && nargs == 3) { *out = rk_seq_next((int) rk_ival(args[0]), args[1], args[2]); return 1; }
+    if (!strcmp(fn, "__rk_seq_stop") && nargs == 5) { *out = INTVAL(rk_seq_stop(args[0], args[1], (int) rk_ival(args[2]), (int) rk_ival(args[3]), (int) rk_ival(args[4]))); return 1; }
+    if (!strcmp(fn, "__rk_seq_arity") && nargs == 1) { *out = INTVAL(rk_is_code(args[0]) ? rk_code_arity(args[0]) : 0); return 1; }
     if (!strcmp(fn, "__blk_close") && nargs >= 1) { DESCR_t cl = rk_mk_arr(args, nargs); ((ARBLK_t *) cl.arr)->proto = rk_proto_closure; *out = cl; return 1; }
     if (!strcmp(fn, "__blk_ref") && nargs == 1) { const char *bn = VARVAL_fn(args[0]); DESCR_t b = {0}; b.v = DT_BLK; b.slen = 0; b.s = (char *)(bn ? bn : ""); *out = b; return 1; }
     if (!strcmp(fn, "__blk_invoke") && nargs >= 1) {
@@ -12175,7 +12240,6 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         *out = FAILDESCR;
         return 1;
     }
-    if (!strcmp(fn, "__rk_seq") && nargs == 3) { *out = rk_sequence(IS_INT_fn(args[0]) ? (int) args[0].i : 0, args[1], args[2]); return 1; }
     if (!strcmp(fn, "__rk_range_val") && nargs == 3) { *out = rk_range_value(args[0], args[1], IS_INT_fn(args[2]) ? (int) args[2].i : 0); return 1; }
     if (!strcmp(fn, "__rk_in_range") && (nargs == 3 || nargs == 4)) { *out = (DESCR_t){ .v = DT_BOOL, .i = rk_in_range(args[0], args[1], args[2], nargs == 4 ? (int) args[3].i : 0) }; return 1; }
     if (!strcmp(fn, "__rk_substr_replace") && (nargs == 3 || nargs == 4)) {
@@ -12397,6 +12461,17 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
         return 1;
     }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+    if (!strcmp(fn, "__rk_arr_slice") && (nargs == 3 || nargs == 4) && rk_is_seq(args[0])) {
+        long long hi = rk_ival(args[2]);
+        rk_seq_reify(&args[0], hi >= 0 ? (long) hi + 1 : -1L);
+        args[0] = ((ARBLK_t *) args[0].arr)->data[3];
+    }
+    if (!strcmp(fn, "__rk_arr_pick") && nargs >= 2 && rk_is_seq(args[0])) {
+        long mx = -1;
+        for (int k = 1; k < nargs; k++) if (IS_INT_fn(args[k]) && args[k].i > mx) mx = (long) args[k].i;
+        rk_seq_reify(&args[0], mx + 1);
+        args[0] = ((ARBLK_t *) args[0].arr)->data[3];
+    }
     if (!strcmp(fn, "__rk_arr_slice") && (nargs == 3 || nargs == 4)) {
         rk_av_t a = rk_av(args[0]);
         int fl = nargs == 4 ? (int) args[3].i : 0;
@@ -12850,7 +12925,11 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
     if (!strcmp(fn, "__rk_arr_values") && nargs >= 1) { rk_av_t a = rk_av(args[0]); *out = rk_mk_arr(a.el, a.n); return 1; }
     if ((!strcmp(fn, "__rk_flat") || !strcmp(fn, "__rk_arr_flat")) && nargs >= 0) { *out = rk_flat_agg(args, nargs); return 1; }
-    if (!strcmp(fn, "__rk_to_array") && nargs == 1) { if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_unmark(rk_mk_arr(a.el, a.n)); } else *out = args[0]; return 1; }
+    if (!strcmp(fn, "__rk_to_array") && nargs == 1) {
+        if (rk_is_seq(args[0])) { *out = args[0]; return 1; }
+        if (args[0].v == DT_A && args[0].arr) { rk_av_t a = rk_av(args[0]); *out = rk_unmark(rk_mk_arr(a.el, a.n)); } else *out = args[0];
+        return 1;
+    }
     if (!strcmp(fn, "__rk_arr_slip") && nargs >= 1) { rk_av_t a = rk_av(args[0]); DESCR_t s = rk_mk_arr(a.el, a.n); ((ARBLK_t *) s.arr)->proto = rk_proto_slip; *out = s; return 1; }
     if ((!strcmp(fn, "__rk_arr_kv") || !strcmp(fn, "__rk_arr_keys")) && nargs >= 1) {
         rk_av_t a = rk_av(args[0]);
@@ -13431,6 +13510,16 @@ static int script_try_call_builtin_by_name_rq(const char *fn, DESCR_t *args, int
     }
     if (!strcmp(fn, "meth_call") && nargs >= 2) {
         const char *mname0 = VARVAL_fn(args[1]);
+        if (mname0 && rk_is_seq(args[0])) {
+            if (!strcmp(mname0, "is-lazy")) { *out = (DESCR_t){ .v = DT_BOOL, .i = 1 }; return 1; }
+            if (!strcmp(mname0, "list") || !strcmp(mname0, "Seq") || !strcmp(mname0, "lazy") || !strcmp(mname0, "iterator")) { *out = args[0]; return 1; }
+            {
+                long need = -1L;
+                if (!strcmp(mname0, "head")) need = (nargs >= 3 && IS_INT_fn(args[2]) && args[2].i >= 0) ? (long) args[2].i : 1L;
+                rk_seq_reify(&args[0], need);
+                args[0] = ((ARBLK_t *) args[0].arr)->data[3];
+            }
+        }
         if (mname0 && rk_is_range(args[0]) && rk_range_method(mname0, args[0], nargs - 2, out)) return 1;
         int maybe = 0;
         if (mname0 && mname0[0] == '?' && mname0[1]) {

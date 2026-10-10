@@ -59,7 +59,7 @@ extern long g_trace_budget;
 int bb_slot_get(IR_t * nd);
 void bb_slot_register(IR_t * nd, int off);
 int bb_proc_target_zframe_graph(const char *fname);
-int bb_proc_target_pinned_graph(const char *fname); int bb_proc_target_det_block(const char *fname);
+int bb_proc_target_pinned_graph(const char *fname); int bb_proc_target_det_block(const char *fname); int bb_proc_target_pinned_block(const char *fname, int *vari);
 int rt_proc_pinned(const char *name);
 void *bb_ab_fn_cell_ptr(const char *fname);
 int bb_proc_target_icn_block(const char *fname, int *np, int *vari);
@@ -310,7 +310,7 @@ static std::string bcps_undef_fallback(uint64_t) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string bcps_block_build(IR_graph_t ** argblks, int n);
 static std::string bcps_icn_block_arm(int is_gen, int off, int act, IR_graph_t ** argblks, long idx, int np, int vari, int n2_ftc);
-static std::string bcps_block_build(IR_graph_t ** argblks, int n); static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t ** argblks, long idx);
+static std::string bcps_block_build(IR_graph_t ** argblks, int n); static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t ** argblks, long idx, int nb, int wires);
 static std::string bcps_pinned_byname_road(const std::string & blk, int fncell, int lγ, int lω, int lskip);
 static std::string bcps_det_arm() {
     x86_begin();
@@ -322,7 +322,10 @@ static std::string bcps_det_arm() {
         int is_dyn_z = _.op_sval && rt_proc_dyn_scope(_.op_sval);
         long det_idx_z = (!is_dyn_z && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
         int det_nA_z = (int)_.op_ival; { int _bnp = (det_idx_z >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != det_nA_z) return x86_alpha()
-            + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z); } }
+            + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z, det_nA_z, 1); } }
+        { int _v = 0; int _pnp = (det_idx_z >= 0 && _.op_sval && !bcps_pl()) ? bb_proc_target_pinned_block(_.op_sval, &_v) : -1; if (_pnp >= 0) { if (_v || det_nA_z > _pnp) return x86_alpha()
+            + x86_bomb("bb_call_proc_staged: a pinned block-protocol callee that is variadic or called with too many arguments");
+                return bcps_det_block_arm(1, off, bidx_z, argblks_z, det_idx_z, _pnp, 0); } }
         int det_fuse_z = (det_idx_z >= 0 && det_nA_z >= 0 && det_nA_z <= 4);
         int dc_z = 0; uint64_t dc_slot_z = 0; char dc_name_z[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name_z[0] = 0;
         if (det_fuse_z && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA_z)) {
@@ -516,7 +519,10 @@ static std::string bcps_det_arm() {
     static const char * const detN_argreg[4] = { "rsi", "rdx", "rcx", "r8" };
 { int _bnp = (det_idx >= 0 && _.op_sval) ? bb_proc_target_det_block(_.op_sval) : -1; if (_bnp >= 0) { if (_bnp != (int)_.op_ival) return x86_alpha()
     + x86_bomb("bb_call_proc_staged: a block-protocol callee is called with the wrong argument count"); return bcps_det_block_arm(0, off, bidx, argblks,
-        det_idx); } } int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
+        det_idx, (int)_.op_ival, 1); } }
+{ int _v = 0; int _pnp = (det_idx >= 0 && _.op_sval && !bcps_pl()) ? bb_proc_target_pinned_block(_.op_sval, &_v) : -1; if (_pnp >= 0) { if (_v || (int)_.op_ival > _pnp) return x86_alpha()
+    + x86_bomb("bb_call_proc_staged: a pinned block-protocol callee that is variadic or called with too many arguments"); return bcps_det_block_arm(0, off, bidx, argblks, det_idx, _pnp, 0); } }
+int det_nA = (int)_.op_ival; int det_fuse = (det_idx >= 0 && det_nA >= 0 && det_nA <= 4);
     int dc = (det_fuse && _.op_sval && rt_pl_dc_ok(_.op_sval, det_nA));
     uint64_t dc_slot = 0; char dc_name[_.op_sval ? fmt_len("%s_dc\xce\xb1", bb_ab_sym_name(_.op_sval)) : 1]; dc_name[0] = 0;
     if (dc) { void **sl = rt_pl_dc_slot(det_idx); if (!sl) dc = 0; else { dc_slot = (uint64_t)(uintptr_t)sl;
@@ -1057,8 +1063,9 @@ static std::string bcps_spine_gen_arm() {
     long gi_idx = (!gi_off && !gi_dyn && _.op_sval) ? (long)rt_proc_index_of(_.op_sval) : -1L;
     if (bcps_pl() && gi_idx >= 0 && bb_proc_target_pinned_graph(_.op_sval)) return bcps_block_arm(off, act, argblks, gi_idx);
     int n2_fb = -1;
-    if (icn_gen_regime() && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
-    if (icn_gen_regime() && n2_fb <= 0) return x86_alpha()
+    int cb_np = 0, cb_va = 0, callee_blk = (gi_idx >= 0 && _.op_sval) ? bb_proc_target_icn_block(_.op_sval, &cb_np, &cb_va) : 0;
+    if ((icn_gen_regime() || callee_blk) && _.op_sval) emit_patzeta_frame_reserve(_.op_sval, &n2_fb);
+    if ((icn_gen_regime() || callee_blk) && n2_fb <= 0) return x86_alpha()
         + x86_bomb("N-3: generator call site cannot size the callee's result slot (the callee's frame bytes are not registered: forward reference) -- refusing loudly") + x86_beta()
             + x86_bomb("N-3: beta re-entry into a refused generator call site");
     int n2_ftc = (n2_fb > 0) ? ((n2_fb + 15) & ~15) : 0;
@@ -1226,17 +1233,21 @@ extern "C" int zls_g_det_block(const IR_graph_t * g);
 extern "C" int bb_proc_target_det_block(const char *fname) { if (!fname) return -1; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
     || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
         && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; return (cg && zls_g_det_block(cg)) ? cg->nparams : -1; } return -1; }
-static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t ** argblks, long idx) {
-    int n = (int)_.op_ival; long bias = 16L + 16L * n;
+extern "C" int bb_proc_target_pinned_block(const char *fname, int *vari) { if (!fname) return -1; for (int i = 0; i < g_stage2.proc_count; i++) { if (!g_stage2.proc_table[i].name
+    || strcmp(g_stage2.proc_table[i].name, fname)) continue; int bi = g_stage2.proc_table[i].bb_idx; IR_graph_t * cg = (bi >= 0
+        && bi < g_stage2.bbp.count) ? g_stage2.bbp.table[bi] : (IR_graph_t *)0; if (vari) *vari = g_stage2.proc_table[i].is_variadic;
+    return (cg && cg->zframe_graph && cg->zframe_pinned_base && !cg->icn_cells_graph && !cg->root_graph && zls_g_block_args(cg)) ? cg->nparams : -1; } return -1; }
+static std::string bcps_det_block_arm(int zres, int off, int bidx, IR_graph_t ** argblks, long idx, int nb, int wires) {
+    int n = (int)_.op_ival; long bias = (wires ? 16L : 0L) + 16L * nb;
     auto zop = [&](int i, int w) -> std::string { int in = i >= 0 && i < _.op_zcap; if (in && _.op_zread_xf[i] != -1) return RDQ("rbp", _.op_zread_xf[i]
         + w); return x86_zref((in ? _.op_zread[i] : 0) + w + (int)bias, 1); };
     std::string s = x86_alpha() + x86_scan_sync_out() + x86_anchor_enter()
          + x86("note",
              "the block protocol for a deterministic Pascal callee (CEO-1491): the two wire cells, then the argument block "
                  "on this spine, then a jump; no staged medium, no registry call, no C prologue or epilogue")
-         + x86_lea_id("rcx", 4) + x86("push", "rcx") + x86_lea_id("rcx", 3)
-         + x86("push", "rcx")
-         + x86("sub", "rsp", (long)(16 * n))
+         + IF(wires, x86_lea_id("rcx", 4) + x86("push", "rcx") + x86_lea_id("rcx", 3) + x86("push", "rcx"))
+         + x86("sub", "rsp", (long)(16 * nb))
+         + FOR(n, nb, [&](int i) { return x86_rsp_store64_imm(16 * i, (long)DT_SNUL) + x86_rsp_store64_imm(16 * i + 8, 0L); })
          + FOR(0, n, [&](int i) {
                if (zres) return x86("note", ZOPN(i))
                               + x86("mov", "rax", zop(i, 0)) + x86_rsp_store64(16 * i, "rax")
