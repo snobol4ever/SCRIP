@@ -141,7 +141,7 @@ static inline int rtop_row(long long op, int strict, int i) {
 #define inl2_ok() (fuse_op_ok() && _.op_sa >= 0 && _.op_sb >= 0 && !(_.op_imm_a_ok && _.op_imm_b_ok))
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #define inl_tail_by(to_c) ( \
-      x86("mov", "rdi", FRQ(_.op_sa)) \
+      ARITH_ARMED_FR() + x86("mov", "rdi", FRQ(_.op_sa)) \
     + x86("mov", "rsi", FRQ(_.op_sa + 8)) \
     + x86("mov", "rdx", FRQ(_.op_sb)) \
     + x86("mov", "rcx", FRQ(_.op_sb + 8)) \
@@ -238,7 +238,7 @@ std::string bb_binop_arith() {
              + x86("mov", ZRES(8), "rax")
              + x86("def", L(7))
              + x86_gamma()
-             + x86("def", L(0))
+             + x86("def", L(0)) + ARITH_ARMED_ZD()
              + x86("note", ZOPN(0))
              + x86("mov", "rdi", ZOPQ(0, 0))
              + x86("note", ZOPN(0))
@@ -314,7 +314,7 @@ std::string bb_binop_arith() {
              + x86_beta_trampoline())
          + IF(!BAR_FUSE1() && !BAR_FUSE2() && _.op_zres,
                x86("comment", "IR_BINOP_ARITH zd")
-             + x86_alpha()
+             + x86_alpha() + ARITH_ARMED_ZD()
              + x86("note", ZOPN(0))
              + x86("mov", "rdi", ZOPQ(0, 0))
              + x86("note", ZOPN(0))

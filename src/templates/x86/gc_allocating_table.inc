@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2520
+#define GC_ALLOC_TAB_N 2521
 #define GC_ALLOC_TAB_N_VOID 300
 #define GC_ALLOC_TAB_N_DESCR 1221
-#define GC_ALLOC_TAB_N_OTHER 982
+#define GC_ALLOC_TAB_N_OTHER 983
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -1452,6 +1452,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rt_big_sub", GC_RET_DESCR },
     { "rt_big_xor", GC_RET_DESCR },
     { "rt_binop_overload", GC_RET_OTHER },
+    { "rt_binop_overload_open", GC_RET_OTHER },
     { "rt_bitop_operand", GC_RET_DESCR },
     { "rt_call_apply_gen_h", GC_RET_DESCR },
     { "rt_call_apply_spine_prep", GC_RET_OTHER },

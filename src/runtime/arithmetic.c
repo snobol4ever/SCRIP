@@ -102,6 +102,42 @@ int rt_binop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const int rk_binop_overloadable[] = { BINOP_ADD, BINOP_SUB, BINOP_MUL, BINOP_DIV, BINOP_MOD, BINOP_POW, BINOP_LT, BINOP_LE, BINOP_GT, BINOP_GE, BINOP_EQ, BINOP_NE, BINOP_CONCAT, BINOP_SEQ,
+    BINOP_SNE, BINOP_SLT, BINOP_SLE, BINOP_SGT, BINOP_SGE, -1 };
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rt_binop_overload_armed_by(const char *pn) {
+    for (int k = 0; pn && rk_binop_overloadable[k] >= 0; k++) {
+        const char *ops = rk_binop_opstr(rk_binop_overloadable[k]);
+        char base[sizeof "Rinfix_" + 2 * strlen(ops)];
+        rk_op_canon_base("infix", ops, base, sizeof base);
+        size_t bl = strlen(base);
+        if (!strncmp(pn, base, bl) && pn[bl] == '$') return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op) {
+    extern const char *rt_multi_winner(const char *base, const DESCR_t *aa, int na);
+    extern rt_call_next_t rt_call_open_by_name(const char *name, int nargs);
+    extern int rk_rat_binop(DESCR_t a, DESCR_t b, int op, DESCR_t *out);
+    rt_call_next_t none = { 0, 0 };
+    if (a.v != DT_DATA && b.v != DT_DATA) return none;
+    { DESCR_t rr; if (rk_rat_binop(a, b, op, &rr)) return none; }
+    const char *ops = rk_binop_opstr(op);
+    if (!ops) return none;
+    char base[sizeof "Rinfix_" + 2 * strlen(ops)];
+    rk_op_canon_base("infix", ops, base, sizeof base);
+    DESCR_t aa[2] = { a, b };
+    const char *w = rt_multi_winner(base, aa, 2);
+    if (!w) return none;
+    char wn[strlen(w) + 1];
+    strcpy(wn, w);
+    rt_call_args_need(2);
+    CALL_ARGS[0] = a;
+    CALL_ARGS[1] = b;
+    return rt_call_open_by_name(wn, 2);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rt_relop_overload(DESCR_t a, DESCR_t b, int op, DESCR_t *out) {
     if (a.v != DT_DATA && b.v != DT_DATA) return 0;
     DESCR_t r;

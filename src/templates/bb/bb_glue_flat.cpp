@@ -319,3 +319,31 @@ std::string bb_glue_prim_str_rsp(int base, int ptr_off, int len_off, int code) {
                       x86("call", "rt_pat_prim_str_take", (uint64_t)(uintptr_t)(void *)rt_pat_prim_str_take),
                       x86_rt_gc_poll_rec_sigma(1) });
 }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+extern "C" {
+extern rt_call_next_t rt_binop_overload_open(DESCR_t a, DESCR_t b, int op);
+extern DESCR_t rt_call_land_γ(DESCR_t frame0, long word);
+extern DESCR_t rt_call_land_ω(long word);
+extern int rt_is_truthy(DESCR_t v);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+std::string bb_glue_binop_open(int base, const std::string & load, const std::string & store, long op, int ldecline, int truthy) {
+    return x86("comment", "an infix multi on objects: rt_binop_overload_open returns the candidate's address and the box enters it (CEO-1576; armed programs only)")
+         + load
+         + x86("mov", "r8d", op)
+         + x86("call", "rt_binop_overload_open", (uint64_t)(uintptr_t)(void *)rt_binop_overload_open)
+         + x86_rt_gc_poll_rec_sigma_word(1)
+         + x86("test", "rax", "rax")
+         + x86("je", L(ldecline))
+         + bb_glue_enter_c2bb(base, base + 5, base + 6, -1)
+         + x86_deflabel_id(base + 5)
+         + x86("call", "rt_call_land_γ", (uint64_t)(uintptr_t)(void *)rt_call_land_γ)
+         + x86_rt_gc_poll_rec_res()
+         + store
+         + IF(truthy, x86("mov", "rdi", "rax") + x86("mov", "rsi", "rdx") + x86("call", "rt_is_truthy", (uint64_t)(uintptr_t)(void *)rt_is_truthy) + x86("test", "eax", "eax") + x86_omega("je"))
+         + x86_gamma()
+         + x86_deflabel_id(base + 6)
+         + x86("call", "rt_call_land_ω", (uint64_t)(uintptr_t)(void *)rt_call_land_ω)
+         + x86_rt_gc_poll_rec_res()
+         + x86_omega();
+}
