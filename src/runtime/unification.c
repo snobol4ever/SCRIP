@@ -3048,7 +3048,7 @@ static pl_db_key_t * pl_db_reg_add(pl_db_reg_t *r, const char *key) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 typedef struct pl_trie_node_s { DESCR_t tok; DESCR_t val; struct pl_trie_node_s *parent; void **kids; int nkids; int kcap; int kind; int has_val; int ent; int depth; } pl_trie_node_t;
 typedef struct { pl_trie_node_t *root; void **ents; int nents; int ecap; int nvals; int alive; DESCR_t status; DESCR_t data; } pl_trie_t;
-typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_trie_node_t *cur; int create; int nvar; int miss; } pl_trie_w_t;
+typedef struct { plr_stk_t ag, lg; pl_cell_t *s; pl_trie_node_t *cur; int create; int nvar; int miss; int attv; } pl_trie_w_t;
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void pl_trie_gc_visit(uint16_t type, void *p) {
     extern void rt_gc_visit_raw(const char **);
@@ -3137,6 +3137,7 @@ static int pl_trie_walk_run(void *wv) {
             tok = pl_make_int((int64_t)(intptr_t)d->p);
         } else if (pl_cell_unbound(d)) {
             uint64_t w0;
+            if (pl_attv_is(d)) { w->attv = 1; w->miss = 1; }
             if (!plr_room(&w->lg)) return plr_more(&w->ag, &w->lg, pl_trie_walk_run, w);
             memcpy(&w0, d, 8);
             plr_push(&w->lg, d, d->p, w0);
@@ -3162,7 +3163,7 @@ static int pl_trie_walk_run(void *wv) {
     for (plr_seg_t *g = w->lg.top; g; g = g->prev) for (long i = g->n; i-- > 0; ) { pl_cell_t *c = (pl_cell_t *)g->e[i].x; uint64_t w0 = g->e[i].n; memcpy(c, &w0, 8); c->p = g->e[i].y; }
     return 0;
 }
-static pl_trie_node_t * pl_trie_descend(pl_trie_t *t, pl_cell_t *key, int create) {
+static pl_trie_node_t * pl_trie_descend(pl_trie_t *t, pl_cell_t *key, int create, int *attv) {
     pl_trie_w_t w;
     plr_stk_init(&w.ag);
     plr_stk_init(&w.lg);
@@ -3171,7 +3172,9 @@ static pl_trie_node_t * pl_trie_descend(pl_trie_t *t, pl_cell_t *key, int create
     w.create = create;
     w.nvar = 0;
     w.miss = 0;
+    w.attv = 0;
     (void)pl_trie_walk_run(&w);
+    if (attv) *attv = w.attv;
     return w.miss ? (pl_trie_node_t *)0 : w.cur;
 }
 static pl_cell_t pl_trie_key_term(pl_trie_node_t *n) {
@@ -3208,7 +3211,7 @@ int rt_pl_trie_insert(void *root, int64_t id, void *key, void *val, int update) 
     pl_trie_t *t = pl_trie_at(root, id);
     pl_trie_node_t *n;
     if (!t) return -1;
-    n = pl_trie_descend(t, (pl_cell_t *)key, 1);
+    { int av = 0; n = pl_trie_descend(t, (pl_cell_t *)key, 1, &av); if (av) return -4; }
     if (!n) return -1;
     if (n->has_val && !update) return rt_pl_cell_compare(pl_deref((pl_cell_t *)val), &n->val) == 0 ? -2 : -3;
     if (n->ent < 0) {
@@ -3229,13 +3232,13 @@ static int pl_trie_give(pl_cell_t src, void *out_cell, pl_tr_ctx_t *cx) {
 }
 int rt_pl_trie_lookup(void *root, int64_t id, void *key, void *val_cell, pl_tr_ctx_t *cx) {
     pl_trie_t *t = pl_trie_at(root, id);
-    pl_trie_node_t *n = t ? pl_trie_descend(t, (pl_cell_t *)key, 0) : (pl_trie_node_t *)0;
+    pl_trie_node_t *n = t ? pl_trie_descend(t, (pl_cell_t *)key, 0, (int *)0) : (pl_trie_node_t *)0;
     if (!n || !n->has_val) return 0;
     return pl_trie_give(plc_copy(&n->val), val_cell, cx);
 }
 int rt_pl_trie_delete(void *root, int64_t id, void *key, void *val_cell, pl_tr_ctx_t *cx) {
     pl_trie_t *t = pl_trie_at(root, id);
-    pl_trie_node_t *n = t ? pl_trie_descend(t, (pl_cell_t *)key, 0) : (pl_trie_node_t *)0;
+    pl_trie_node_t *n = t ? pl_trie_descend(t, (pl_cell_t *)key, 0, (int *)0) : (pl_trie_node_t *)0;
     pl_cell_t v;
     if (!n || !n->has_val) return 0;
     v = n->val;

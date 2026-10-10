@@ -743,6 +743,14 @@ static void pl_module_flatten(PlProgram *pl_prog) {
                 pl_mod_head(&ms, m1, m2, h);
                 cl->tr->c[0] = in;
                 h = in;
+            } else if (h->v.sval && m1 && strcmp(m1, "user") && h->t == TT_FNC && ((!strcmp(h->v.sval, "attr_unify_hook") && h->n == 2) || (!strcmp(h->v.sval, "attribute_goals") && h->n == 3))) {
+                tree_t *q = ast_node_new(TT_FNC);
+                q->v.sval = ct_strdup(":");
+                ast_push(q, pl_mod_ctx_node(m1, 0));
+                ast_push(q, h);
+                cl->tr->c[0] = q;
+                if (cl->tr->n >= 2) pl_mod_goal(&ms, m1, m2, cl->tr->c[1], 0);
+                continue;
             } else pl_mod_head(&ms, m1, m2, h);
             hn0 = h->v.sval;
             ha = (h->t == TT_FNC) ? h->n : 0;

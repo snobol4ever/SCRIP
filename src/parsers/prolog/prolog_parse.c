@@ -1640,6 +1640,7 @@ static const char * const PL_PRELUDE_SRC =
     "'$trie_key_ok'(K):-throw(error(type_error(acyclic_term,K),_)).\n"
     "'$trie_ins_r'(R,_):-R>=0,!.\n"
     "'$trie_ins_r'(-3,K):-throw(error(permission_error(modify,trie_key,K),_)).\n"
+    "'$trie_ins_r'(-4,K):-throw(error(type_error(free_of_attvar,K),_)).\n"
     "trie_new(T):-'$trie_new'(I),T='$trie'(I).\n"
     "is_trie(T):-nonvar(T),T='$trie'(I),integer(I),'$trie_alive'(I).\n"
     "trie_destroy(T):-'$trie_id'(T,I),'$trie_destroy'(I).\n"
