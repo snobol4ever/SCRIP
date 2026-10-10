@@ -17,7 +17,8 @@
       R <From> <To> <Arity> a|c <Name>   a predicate reference spanning [From,To): a an atom, c a compound's functor (the
                                          generator refuses to rename a c span not written name( -- an operator form)
     The library is loaded from SWI's own library directory first, so its operators and meta-predicate declarations are
-    known; the vendored file must be byte-identical to that copy or this refuses (exit 2).
+    known, and read in the module that file declares (library(option) is module swi_option); the vendored file must be
+    byte-identical to that copy or this refuses (exit 2).
 */
 :- initialization(main, main).
 
@@ -31,7 +32,8 @@ main :-
         halt(2)
     ),
     use_module(library(Lib)),
-    setup_call_cleanup(open(File, read, S), read_all(S, Lib), close(S)).
+    (   module_property(M, file(Installed)) -> true ; M = Lib ),
+    setup_call_cleanup(open(File, read, S), read_all(S, M), close(S)).
 
 read_all(S, M) :-
     read_term(S, T, [subterm_positions(P), module(M), syntax_errors(error)]),

@@ -11,7 +11,10 @@ never a silent stub.
 WHAT THIS SCRIPT DOES.  It reads every src/parsers/prolog/prelude/*.pl (VERBATIM copies of swipl 9.0.4's library files,
 the version every SWI ref was cut from) and writes src/parsers/prolog/prolog_prelude_libs.inc, a committed table of
 const data that prolog_parse.c includes.  Per library it emits the export list (name/arity, a DCG export name//N as
-N+2), the libraries it depends on (another library's export named in its text), and its SOURCE as SCRIP will parse it:
+N+2) and its SOURCE as SCRIP will parse it.  THE INJECTOR (prolog_parse.c pl_libs_append) parses a library only when the
+program references one of its exports by name/arity (or by the bare name, a closure) that the BASE prelude does not
+define -- the base wins per key, so a reference the base answers selects nothing -- and then, from the name/arity
+references it finds in the parsed library, selects the libraries that one needs, to a fixpoint.  The embedded text:
 
   (1) THE MODULE IS FLATTENED, NOT IGNORED.  SCRIP has no module system, so a library's non-exported predicates would
       share one namespace with the user's program, with the base prelude and with every other library (assoc.pl and
@@ -62,7 +65,9 @@ DROP_DIRECTIVES = {"module", "use_module", "autoload", "meta_predicate", "multif
                    "create_prolog_flag", "reexport", "type", "pred", "quasi_quotation_syntax", "volatile", "encoding", "$hide"}
 KEEP_DIRECTIVES = {"if", "elif", "else", "endif"}
 HOOK_HEADS = {("term_expansion", 2), ("goal_expansion", 2), ("term_expansion", 4), ("goal_expansion", 4)}
-OMIT = {"strings": {("string", 4): "quasi-quotation support ({|string(X)||...|}); SCRIP's reader has no quasi-quotations, and the bare name string "
+OMIT = {"aggregate": {("foreach", 2): "SWI's foreach/2 resets its template between solutions with '$unbind_template'/1, SWI C; the base prelude "
+                                      "hand-types it as SWI 6 did, copying the goal per solution with its other variables kept shared"},
+        "strings": {("string", 4): "quasi-quotation support ({|string(X)||...|}); SCRIP's reader has no quasi-quotations, and the bare name string "
                                     "would select the library in every program that tests string/1"}}
 DICT_METHOD_HEADS = {(":=", 2)}
 
@@ -302,8 +307,6 @@ def process(path):
         kept.append((start, off)); keyed.append((name, arity))
     if mod is None:
         raise Refuse("%s: no :- module directive -- only a module library is vendored" % path)
-    if mod != lib:
-        raise Refuse("%s: the file declares module %s -- name the vendored file after its module" % (path, mod))
     exp = set(exports)
     cside = [e for e in exports if e not in keyed and e not in OMIT.get(lib, {})]
     local = {k for k in keyed if k not in exp}
@@ -341,25 +344,23 @@ def generate(pdir):
     libs = [process(os.path.join(pdir, f)) for f in sorted(os.listdir(pdir)) if f.endswith(".pl")]
     if not libs:
         raise Refuse("no vendored library under %s" % pdir)
-    idx = {L["lib"]: i for i, L in enumerate(libs)}
     for L in libs:
-        L["deps"] = sorted(idx[M["lib"]] for M in libs if M is not L and any(n in L["atoms"] for n, _ in M["exports"]))
+        L["names"] = sorted(M["lib"] for M in libs if M is not L and any(n in L["atoms"] for n, _ in M["exports"]))
     o = ["typedef struct { const char *nm; int ar; } pl_prelude_lib_pi_t;",
-         "typedef struct { const char *lib; const pl_prelude_lib_pi_t *exports; const int *deps; const char *src; } pl_prelude_lib_t;"]
+         "typedef struct { const char *lib; const pl_prelude_lib_pi_t *exports; const char *src; } pl_prelude_lib_t;"]
     for i, L in enumerate(libs):
         o.append("static const pl_prelude_lib_pi_t PL_PRELUDE_LIB_%d_EXPORTS[] = {" % i)
         for n, a in L["exports"]:
             o.append('    { "%s", %d },' % (n.replace("\\", "\\\\").replace('"', '\\"'), a))
         o.append("    { 0, 0 }")
         o.append("};")
-        o.append("static const int PL_PRELUDE_LIB_%d_DEPS[] = { %s };" % (i, ", ".join([str(d) for d in L["deps"]] + ["-1"])))
         o.append("static const char PL_PRELUDE_LIB_%d_SRC[] =" % i)
         o.extend(c_string_lines(L["text"]))
         o[-1] += ";"
     o.append("static const pl_prelude_lib_t PL_PRELUDE_LIBS[] = {")
     for i, L in enumerate(libs):
-        o.append('    { "%s", PL_PRELUDE_LIB_%d_EXPORTS, PL_PRELUDE_LIB_%d_DEPS, PL_PRELUDE_LIB_%d_SRC },' % (L["lib"], i, i, i))
-    o.append("    { 0, 0, 0, 0 }")
+        o.append('    { "%s", PL_PRELUDE_LIB_%d_EXPORTS, PL_PRELUDE_LIB_%d_SRC },' % (L["lib"], i, i))
+    o.append("    { 0, 0, 0 }")
     o.append("};")
     return libs, "\n".join(o) + "\n"
 
@@ -384,7 +385,7 @@ def main():
         print("exports: " + " ".join("%s/%d" % e for e in L["exports"]))
         print("renamed: " + " ".join("%s->%s" % kv for kv in sorted(L["renames"].items())))
         print("dropped: " + ", ".join("%s x%d" % kv for kv in sorted(L["drops"].items())))
-        print("deps: " + " ".join(libs[d]["lib"] for d in L["deps"]))
+        print("names exports of (informational -- the injector selects a library by the name/arity references it finds when it parses the libraries it selected): " + " ".join(L["names"]))
         print("C-side exports (no clause in the library; SCRIP answers them as builtins or they are existence errors): " + " ".join("%s/%d" % e for e in L["cside"]))
         print("left as data (a helper's name used as a term, never a goal -- review each): " + " ".join(L["as_data"]))
         sys.stdout.write(L["text"])

@@ -3,8 +3,9 @@
 # 2026-10-10, row prolog-swi-library-modules-rbtrees-assoc-ordsets-apply-error-pairs-aggregate-option-strings-516-swi-cases;
 # CEO-1473).
 #
-# THE CURE: swipl 9.0.4's own library(apply), library(error), library(pairs), library(heaps), library(aggregate) and
-# library(strings), vendored verbatim under src/parsers/prolog/prelude/ and embedded by util_gen_prolog_prelude_libs.py,
+# THE CURE: swipl 9.0.4's own library(apply), library(error), library(pairs), library(heaps), library(aggregate),
+# library(strings) and -- once SCRIP read SSU '=>' rules (SCRIP 1cb1b42aa) -- library(rbtrees), library(assoc),
+# library(ordsets), library(option) and library(lists), vendored verbatim under src/parsers/prolog/prelude/ and embedded by util_gen_prolog_prelude_libs.py,
 # reach a program that names one of their exports; the C-side helpers their closures call and SCRIP lacked are hand-typed
 # in the base prelude ('$is_char_list'/2, '$is_code_list'/2, rational/1,3, is_dict/1,2, atomics_to_string/3); library
 # clauses read their "..." as strings, as SWI reads them, whatever the program's double_quotes flag; aggregate_all/3 keeps
@@ -15,8 +16,11 @@
 # run refuses aggregate_all at "rung 8".  aggregate_all's count, sum, max, bag and set are called DIRECTLY (agg_*/1), the
 # shape SCRIP's lowerer answers; a META-CALLED aggregate_all(sum(X), ...) reaches SWI's clause, which needs nb_setarg/3,
 # which SCRIP lacks (a row of its own; the parent refused every meta-called aggregate_all).  A lambda of five arguments is
-# yall's >>/7, which this landing does not vendor; foldl/6 is graded with a plain predicate.  dedent_lines/3 calls option/3
-# (library(option), written in SSU '=>' rules) and joins this witness when SCRIP reads SSU.
+# yall's >>/7, not vendored yet; foldl/6 is graded with a plain predicate.  foreach/2 and string_code/3 are the base
+# prelude's: SWI's foreach needs '$unbind_template'/1 (C), and the hand-typed string_code/3 gained SWI's enumerating mode
+# and its two error terms because library(strings) calls it with an unbound index.  A no-match call into a library's SSU
+# rule is not graded here: swipl names the goal module-qualified (rbtrees:rb_visit(_,_)) and SCRIP has no modules; the
+# no-match error itself is test_gate_pl_ssu_rules_answer_as_swipl.sh's.
 # rc=0 both modes agree with swipl · rc=1 a divergence · rc=2 REFUSAL (no swipl, no build).  ~4 s.
 set -u
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,8 +62,21 @@ main :-
     t(aggregate_all(term(count, bag(V)), between(1, 3, V), _)), t(aggregate_all(r(max(M)), member(M, [3,9,2]), _)),
     t(agg_count(_)), t(agg_sum(_)), t(agg_max(_)), t(agg_bag(_)), t(agg_set(_)), t(aggregate_all(count, member(_, [a,b]), _)),
     t(aggregate_all(count, K, member(K, [a,b,a]), _)),
-    t(string_lines(_, ["a", "b"])), t(string_lines("x\ny\n", _)),
-    t(indent_lines("> ", "a\nb", _)).
+    t(string_lines(_, ["a", "b"])), t(string_lines("x\ny\n", _)), t(dedent_lines("  a\n   b", _, [])),
+    t(indent_lines("> ", "a\nb", _)),
+    t((list_to_rbtree([k1-v1, k2-v2], T), rb_insert(T, k0, v0, T2), rb_keys(T2, _), rb_lookup(k2, _, T2), rb_size(T2, _), rb_visit(T2, _))),
+    t((rb_new(E), rb_insert_new(E, a, 1, E1), \+ rb_insert_new(E1, a, 2, _), rb_update(E1, a, 9, E2), rb_visit(E2, _), rb_delete(E2, a, E3), rb_empty(E3))),
+    t((ord_list_to_rbtree([a-1, b-2, c-3], RT), rb_min(RT, _, _), rb_max(RT, _, _), rb_next(RT, a, _, _), rb_fold([_-V, A0, A]>>(A is A0+V), RT, 0, _))),
+    t((list_to_assoc([a-1, b-2], As), put_assoc(c, As, 3, As2), assoc_to_list(As2, _), assoc_to_keys(As2, _), get_assoc(b, As2, _), max_assoc(As2, _, _))),
+    t((empty_assoc(EA), \+ get_assoc(x, EA, _), pairs_keys_values(PKV, [z, y], [1, 2]), list_to_assoc(PKV, A3), del_assoc(z, A3, _, A4), assoc_to_values(A4, _))),
+    t(ord_union([a, c], [b, d], _)), t(ord_subtract([a, b, c], [b], _)), t(ord_intersection([a, b, c], [b, c, d], _, _)),
+    t(ord_memberchk(b, [a, b, c])), t(ord_subset([a, c], [a, b, c])), t(list_to_ord_set([c, a, b, a], _)), t(ord_union([[a], [c, b], [d]], _)),
+    t(option(depth(_), [depth(3), width(4)])), t(option(missing(_), [depth(3)], dflt)), t(select_option(width(_), [depth(3), width(4)], _)),
+    t(merge_options([a(1)], [a(2), b(3)], _)), t(option(a(_), [a=1])),
+    t(append([[1], [2, 3], []], _)), t(select(b, [a, b, c], x, _)), t(selectchk(a, [a, b, a], _)), t(nextto(_, _, [1, 2, 3])),
+    t(nth0(1, [a, b, c], _, _)), t(nth1(_, [a, b, c], c, _)), t(same_length([1, 2], _)), t(clumped([a, a, b, a], _)),
+    t(max_member(_, [3, 1, 4])), t(min_member(_, [3, 1, 4])), t(max_member(@=<, _, [b, c, a])), t(is_set([a, b])), t(proper_length([a, b], _)),
+    t(foreach(member(X, [1, 2]), X > 0)), t(foreach(member(X, [1, 2]), X > 1)), t(string_code(_, "ab", 0'b)), t(string_code(a, "ab", _)).
 PL
 ( cd "$D" && timeout 30 swipl -q -t halt w.pl < /dev/null > want 2> /dev/null )
 [ -s "$D/want" ] || refuse "swipl printed nothing for the witness"

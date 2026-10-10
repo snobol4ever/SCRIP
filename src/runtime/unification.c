@@ -1297,6 +1297,22 @@ int rt_pl_atom_op_cell(const char *fn, void *a0_cell, void *a1_cell, void *a2_ce
     if (!strcmp(fn, "string_concat")) {
         const char *s0 = plc_atom_op_text(t0, buf0, sizeof buf0);
         const char *s1 = plc_atom_op_text(t1, buf1, sizeof buf1);
+        int u0 = !t0 || pl_cell_unbound(t0), u1 = !t1 || pl_cell_unbound(t1);
+        if (u0 != u1 && t2 && !pl_cell_unbound(t2)) {
+            char buf2[512];
+            const char *s2 = plc_atom_op_text(t2, buf2, sizeof buf2);
+            if (!s2 || (u0 ? !s1 : !s0)) { return 0; }
+            size_t l2 = strlen(s2);
+            if (!u0) { size_t l0 = strlen(s0); return (l0 <= l2 && !memcmp(s2, s0, l0)) ? plc_text_out(a1_cell, s2 + l0, 1, cx) : 0; }
+            {
+                size_t l1 = strlen(s1);
+                char pre[l2 + 1];
+                if (l1 > l2 || memcmp(s2 + l2 - l1, s1, l1)) { return 0; }
+                memcpy(pre, s2, l2 - l1);
+                pre[l2 - l1] = 0;
+                return plc_text_out(a0_cell, pre, 1, cx);
+            }
+        }
         if (!s0 || !s1) { return 0; }
         size_t l0 = strlen(s0), l1 = strlen(s1);
         char cat[l0 + l1 + 1];

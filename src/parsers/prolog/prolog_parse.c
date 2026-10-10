@@ -1191,10 +1191,20 @@ static const char * const PL_PRELUDE_SRC =
     "sub_string(S,B,L,A,Sub):-var(Sub),!,sub_atom(S,B,L,A,X),atom_string(X,Sub).\n"
     "sub_string(S,B,L,A,Sub):-string(Sub),!,sub_atom(S,B,L,A,Sub).\n"
     "sub_string(S,B,L,A,Sub):-atom_string(Sub,T),sub_atom(S,B,L,A,T).\n"
-    "string_code(I,_,_):-var(I),!,throw(error(instantiation_error,string_code/3)).\n"
     "atomics_to_string(L,S):-atomic_list_concat(L,A),atom_string(A,S).\n"
     "atomics_to_string(L,Sep,S):-atomic_list_concat(L,Sep,A),atom_string(A,S).\n"
-    "string_code(I,S,C):-integer(I),I>0,string_codes(S,Cs),nth1(I,Cs,C0),!,C=C0.\n"
+    "string_code(_,S,_):-var(S),!,throw(error(instantiation_error,string_code/3)).\n"
+    "string_code(I,S,C):-var(I),!,string_codes(S,Cs),'$sc_enum'(Cs,1,I,C).\n"
+    "string_code(I,_,_):- \\+ integer(I),!,throw(error(type_error(integer,I),string_code/3)).\n"
+    "string_code(I,_,_):-I<0,!,throw(error(domain_error(not_less_than_zero,I),string_code/3)).\n"
+    "string_code(I,S,C):-I>0,string_codes(S,Cs),nth1(I,Cs,C0),!,C=C0.\n"
+    "'$sc_enum'([X|Xs],N,I,C):-(I=N,C=X;N1 is N+1,'$sc_enum'(Xs,N1,I,C)).\n"
+    "foreach(Gen,Goal):-term_variables(Gen,GV),term_variables(Goal,OV),'$fe_vars'(OV,GV,1,SV),'$fe_vars'(OV,GV,0,FV),Templ=..[v|SV],findall(Templ,Gen,L),'$fe_prove'(L,Templ,FV,Goal).\n"
+    "'$fe_vars'([],_,_,[]).\n"
+    "'$fe_vars'([V|Vs],GV,In,R):-('$fe_memq'(V,GV)->M=1;M=0),(M==In->R=[V|R1];R=R1),'$fe_vars'(Vs,GV,In,R1).\n"
+    "'$fe_memq'(V,[W|Ws]):-(V==W->true;'$fe_memq'(V,Ws)).\n"
+    "'$fe_prove'([],_,_,_).\n"
+    "'$fe_prove'([H|T],Templ,FV,Goal):-copy_term(Templ/FV/Goal,H/FV/G1),call(G1),'$fe_prove'(T,Templ,FV,Goal).\n"
     "split_string(S,Sep,Pad,Subs):-string_codes(S,Cs),string_codes(Sep,SC),string_codes(Pad,PC),'$ss_fields'(Cs,SC,Fs),'$ss_strip_all'(Fs,PC,Subs).\n"
     "'$ss_fields'(Cs,SC,[F|Fs]):-'$ss_take'(Cs,SC,F,R),(R=[]->Fs=[];R=[_|R1],'$ss_fields'(R1,SC,Fs)).\n"
     "'$ss_take'([],_,[],[]).\n"
@@ -1708,6 +1718,11 @@ static const char * const PL_PRELUDE_SRC =
     "call_nth(_,N):-N==0,!,fail.\n"
     "call_nth(G,N):-(retract('$cn_seq'(K0))->K is K0+1;K=1),assertz('$cn_seq'(K)),assertz('$cn_cnt'(K,0)),call(G),retract('$cn_cnt'(K,C0)),C is C0+1,assertz('$cn_cnt'(K,C)),(integer(N)->C=:=N,! ; N=C).\n"
     "subsumes_term(G,S):- \\+ \\+ (term_variables(S,V1),unify_with_occurs_check(G,S),term_variables(V1,V2),V1==V2).\n"
+    "'$btree_find_node'(K,T,P,N,C):-Kp is (P>>16)/\\255,Lp is (P>>8)/\\255,Rp is P/\\255,'$btree_find'(K,T,Kp,Lp,Rp,N,C).\n"
+    "'$btree_find'(K,T,Kp,Lp,Rp,N,C):-arg(Kp,T,K0),compare(O,K,K0),'$btree_step'(O,K,T,Kp,Lp,Rp,N,C).\n"
+    "'$btree_step'('=',_,T,_,_,_,T,'=').\n"
+    "'$btree_step'('<',K,T,Kp,Lp,Rp,N,C):-arg(Lp,T,S),(compound(S)->'$btree_find'(K,S,Kp,Lp,Rp,N,C);N=T,C='<').\n"
+    "'$btree_step'('>',K,T,Kp,Lp,Rp,N,C):-arg(Rp,T,S),(compound(S)->'$btree_find'(K,S,Kp,Lp,Rp,N,C);N=T,C='>').\n"
     "evaluable_property(E,_):-var(E),!,throw(error(instantiation_error,evaluable_property/2)).\n"
     "evaluable_property(E,_):- \\+ callable(E),!,throw(error(type_error(callable,E),evaluable_property/2)).\n"
     "evaluable_property(_,P):-nonvar(P),\\+ '$ev_dom'(P),!,throw(error(domain_error(evaluable_property,P),evaluable_property/2)).\n"
@@ -1957,9 +1972,10 @@ static int pl_word_count(const char *src, const char *w) {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 #include "prolog_prelude_libs.inc"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static int pl_lib_named(const pl_prelude_lib_t *lib, const cv_t *referenced, const char *user_src, const char *native_only) {
-    for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) if ((!native_only || strcmp(e->nm, native_only)) && (pl_cv_has(referenced, e->nm) || pl_word_referenced(user_src, e->nm))) return 1;
-    return 0;
+static void pl_tree_collect_keys(const tree_t *t, cv_t *keys) {
+    if (!t) return;
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) { char k[strlen(t->v.sval) + 16]; snprintf(k, sizeof k, "%s/%d", t->v.sval, t->t == TT_FNC ? t->n : 0); pl_cv_add(keys, k); }
+    for (int i = 0; i < t->n; i++) pl_tree_collect_keys(t->c[i], keys);
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int ar) {
@@ -1971,31 +1987,42 @@ static int pl_base_defines(PlClause *first, PlClause *last, const char *nm, int 
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
-static void pl_libs_append(PlProgram *pre, cv_t *referenced, const char *user_src, const char *native_only) {
+static int pl_cv_has_key(const cv_t *v, const char *nm, int ar);
+static int pl_lib_named(const pl_prelude_lib_t *lib, const cv_t *refkeys, PlClause *base, PlClause *base_last, const char *native_only) {
+    for (const pl_prelude_lib_pi_t *e = lib->exports; e->nm; e++) {
+        if (native_only && !strcmp(e->nm, native_only)) continue;
+        if (!pl_cv_has_key(refkeys, e->nm, e->ar) && !(e->ar && pl_cv_has_key(refkeys, e->nm, 0))) continue;
+        if (!pl_base_defines(base, base_last, e->nm, e->ar)) return 1;
+    }
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys, const char *native_only) {
     int nlibs = 0;
     while (PL_PRELUDE_LIBS[nlibs].lib) nlibs++;
-    char sel[nlibs + 1];
-    for (int i = 0; i < nlibs; i++) sel[i] = (char)pl_lib_named(&PL_PRELUDE_LIBS[i], referenced, user_src, native_only);
+    PlProgram *lp[nlibs + 1];
+    char seen[nlibs + 1];
+    PlClause *base_last = pre->tail;
+    int any = 0;
+    for (int i = 0; i < nlibs; i++) { lp[i] = NULL; seen[i] = 0; if (pl_lib_named(&PL_PRELUDE_LIBS[i], refkeys, pre->head, base_last, native_only)) { lp[i] = prolog_parse(PL_PRELUDE_LIBS[i].src, "<prelude>"); any = 1; } }
+    if (!any) return;
     for (int changed = 1; changed;) {
         changed = 0;
-        for (int i = 0; i < nlibs; i++) if (sel[i]) for (const int *d = PL_PRELUDE_LIBS[i].deps; *d >= 0; d++) if (!sel[*d]) { sel[*d] = 1; changed = 1; }
+        for (int i = 0; i < nlibs; i++) {
+            cv_t lk = { 0 };
+            if (!lp[i] || seen[i]) continue;
+            for (PlClause *cl = lp[i]->head; cl; cl = cl->next) pl_tree_collect_keys(cl->tr, &lk);
+            seen[i] = 1;
+            for (int j = 0; j < nlibs; j++) if (!lp[j] && pl_lib_named(&PL_PRELUDE_LIBS[j], &lk, pre->head, base_last, NULL)) { lp[j] = prolog_parse(PL_PRELUDE_LIBS[j].src, "<prelude>"); changed = 1; }
+        }
     }
-    int any = 0;
-    for (int i = 0; i < nlibs; i++) any |= sel[i];
-    if (!any) return;
     for (int i = 0; i < nlibs; i++) {
-        if (!sel[i]) continue;
+        if (!lp[i]) continue;
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "phrase")) pl_cv_add(referenced, "$phrase");
         if (strstr(PL_PRELUDE_LIBS[i].src, "=>")) pl_cv_add(referenced, "subsumes_term");
         if (pl_word_referenced(PL_PRELUDE_LIBS[i].src, "bagof") || pl_word_referenced(PL_PRELUDE_LIBS[i].src, "setof")) { pl_cv_add(referenced, "$bagof_var"); pl_cv_add(referenced, "$setof_var"); }
-    }
-    PlClause *base_last = pre->tail;
-    for (int i = 0; i < nlibs; i++) {
-        if (!sel[i]) continue;
-        PlProgram *lp = prolog_parse(PL_PRELUDE_LIBS[i].src, "<prelude>");
-        if (!lp) continue;
         PlClause *nextc = NULL;
-        for (PlClause *cl = lp->head; cl; cl = nextc) {
+        for (PlClause *cl = lp[i]->head; cl; cl = nextc) {
             nextc = cl->next;
             const char *nm; int ar;
             if (!pl_clause_key(cl, &nm, &ar) || !nm || (nm[0] != '$' && pl_base_defines(pre->head, base_last, nm, ar))) continue;
@@ -2005,17 +2032,17 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const char *user_sr
             pre->tail = cl;
             pre->nclauses++;
         }
-        ct_drop(lp);
+        ct_drop(lp[i]);
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
-    cv_t user_defined = { 0 }, referenced = { 0 }, wanted = { 0 };
+    cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 };
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
-        if (cl->tr) pl_tree_collect_calls(cl->tr, &referenced);
+        if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); }
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
     if (pl_cv_has(&referenced, "table")) pl_cv_add(&referenced, "$tbl_call");
@@ -2029,7 +2056,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     int agg_native = 0;
     for (PlClause *cl = prog->head; cl; cl = cl->next) agg_native += pl_agg_native_calls(cl->tr);
     const char *native_only = (agg_native && agg_native == pl_word_count(user_src, "aggregate_all")) ? "aggregate_all" : NULL;
-    pl_libs_append(pre, &referenced, user_src, native_only);
+    pl_libs_append(pre, &referenced, &refkeys, native_only);
     for (PlClause *cl = pre->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
