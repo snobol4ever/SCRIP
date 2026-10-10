@@ -95,14 +95,18 @@ declared_memory_begin "$PKG/ALL.csv" "$DECL" || { echo "⛔ REFUSED-TO-GRADE: a 
 
 # gprolog_out FILE: the oracle's stdout for a consulted file, its banner and its own compile diagnostics stripped -- ONE filter,
 # used by the driver arm and the ref cut alike (the non-driven arm below keeps its historical copy until no file needs it).
-gprolog_out() { cd "$TMP" && "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$1" --query-goal halt < /dev/null 2>/dev/null \
+# gprolog_out FILE [STDIN [ARG...]]: a driver's sidecars (below) ride on the oracle's run exactly as on SCRIP's -- its standard input, and
+# its arguments after --, which gprolog hands to argument_list/1.
+gprolog_out() { local _f="$1" _in="${2:-/dev/null}"; if [ $# -ge 2 ]; then shift 2; else shift $#; fi
+    cd "$TMP" && "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$GPROLOG_BIN" --consult-file "$_f" --query-goal halt ${1+--} "$@" < "$_in" 2>/dev/null \
     | grep -vE '^GNU Prolog|^Compiled |^By Daniel|^Copyright|^compiling |compiled, |^\| \?-|^error:|^warning:|cannot be redefined|:[0-9]+(-[0-9]+)?: *(fatal error|error|warning):|^compilation failed$'; }
 # ⭐ GNU_SUITE_CUT_REFS=1 CUTS EVERY DRIVER'S REF FROM gprolog AND GRADES NOTHING (no row, no progress append): NAME_driver.ref is
 # the oracle's answer as recorded evidence, cut by the same filter the board compares through; a driver gprolog answers with
 # nothing refuses, because an empty ref grades nothing (THE PACKAGE LOCKDOWN).
 if [ "${GNU_SUITE_CUT_REFS:-0}" = 1 ]; then
     n=0; while IFS= read -r d; do
-        o="$(gprolog_out "$d")"; [ -n "$o" ] || { echo "⛔ REFUSED: ${d#"$PKG"/} prints nothing in gprolog -- no ref written"; exit 2; }
+        _ca=(); [ -f "${d%.pl}.argv" ] && read -r -a _ca < "${d%.pl}.argv"; _ci=/dev/null; [ -f "${d%.pl}.in" ] && _ci="${d%.pl}.in"
+        o="$(gprolog_out "$d" "$_ci" "${_ca[@]}")"; [ -n "$o" ] || { echo "⛔ REFUSED: ${d#"$PKG"/} prints nothing in gprolog -- no ref written"; exit 2; }
         printf '%s\n' "$o" > "${d%.pl}.ref"; n=$((n+1)); echo "  cut ${d#"$PKG"/} -> $(printf '%s\n' "$o" | wc -l) line(s)"
     done < <(find "$PKG" -name "*_driver.pl" | sort)
     echo "GNU driver refs cut from gprolog: $n"; exit 0
@@ -196,15 +200,22 @@ for f in "${FILES[@]}"; do
         DRIVEN=$((DRIVEN+1)); OK_TOTAL=$((OK_TOTAL+1))
         [ -z "${UNG_SET[$rel]:-}" ] || SIDE_ERR+=("$rel has a driver and UNGRADED.tsv still names it -- delete the stale row")
         dout="$TMP/${base}.drv.s"; dbin="$TMP/${base}.drv.bin"
+        # ⭐ A DRIVER'S COMMAND LINE TRAVELS WITH IT (hard-cap clause 8 (f), CEO-1281; the coo 2026-10-10, row -ceo-1312): NAME_driver.argv is
+        # one line of the program's own arguments and NAME_driver.in its standard input, beside the driver, fed alike to m3 (after --), to the
+        # m4 binary and to gprolog (after --, its argument_list/1). Measured need: Pl2Wam/all.pl is pl2wam, whose own initialization reads
+        # argument_list/1 and aborts with none; run as pl2wam user -o user over a fixed input it compiles that input to WAM. A driver with
+        # neither sidecar runs exactly as before, on /dev/null with no arguments.
+        dargv=(); [ -f "${drv%.pl}.argv" ] && read -r -a dargv < "${drv%.pl}.argv"
+        din=/dev/null; [ -f "${drv%.pl}.in" ] && din="${drv%.pl}.in"
         # ⛔ A DRIVER RUNS IN THE SCRATCH DIRECTORY, never in the tree under test: dec10io's tell(user) made a FILE named user in the cwd
         # (a SCRIP defect the driver exposed) and a dirty SCRIP skips every row this pass writes.
         "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --compile "$drv" -o "$dout" < /dev/null > "$probe_log" 2>&1; drc=$?
-        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$drv" < /dev/null 2>/dev/null)
+        m3_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$SCRIP" --run "$drv" ${dargv[0]+--} "${dargv[@]}" < "$din" 2>/dev/null)
         m4_out=""
         if [ "$drc" -eq 0 ] && gcc -no-pie "$dout" -L "${HERE}/../out" -lscrip_rt -Wl,-rpath,"${HERE}/../out" -o "$dbin" 2>/dev/null; then
-            m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$dbin" < /dev/null 2>/dev/null)
+            m4_out=$(cd "$TMP" && run_at_declared_table "$DECL" "${rel%.pl}" -- "$TIMEOUT_RETRY" "$RUN_TIMEOUT" "$dbin" "${dargv[@]}" < "$din" 2>/dev/null)
         fi
-        gp_out=$(gprolog_out "$drv")
+        gp_out=$(gprolog_out "$drv" "$din" "${dargv[@]}")
         dref="${f%.pl}_driver.ref"
         if [ ! -s "$dref" ]; then SIDE_ERR+=("${dref#"$PKG"/} is missing or empty -- cut it from gprolog (GNU_SUITE_CUT_REFS=1 bash $0) before grading")
         elif [ "$(cat "$dref")" != "$gp_out" ]; then SIDE_ERR+=("${dref#"$PKG"/} differs from live gprolog -- a stale ref; re-cut it (GNU_SUITE_CUT_REFS=1 bash $0)"); fi
