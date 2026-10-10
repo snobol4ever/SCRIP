@@ -425,6 +425,73 @@ int rk_rat_method(const char *m, DESCR_t self, DESCR_t *arg, DESCR_t *out) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char *bi_base_str(DESCR_t v, int base) {
+    if (bi_zero(v)) return "0";
+    int cap = bi_bits(v) + 2;
+    char tmp[cap + 1];
+    int k = 0;
+    while (!bi_zero(v) && k < cap) { DESCR_t r = bi_modt(v, INTVAL(base)); tmp[k++] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[r.i]; v = bi_divt(v, INTVAL(base)); }
+    char *o = rt_wsb_alloc(k + 1);
+    for (int i = 0; i < k; i++) o[i] = tmp[k - 1 - i];
+    o[k] = 0;
+    return o;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+int rk_rat_base(DESCR_t self, DESCR_t radix, const DESCR_t *digd, DESCR_t *out) {
+    DESCR_t n, d;
+    int fat = 0;
+    if (!rq_get(self, &n, &d, &fat) || !rq_kind(self) || bi_zero(d) || radix.v != DT_I || radix.i < 2 || radix.i > 36) return 0;
+    int base = (int) radix.i, trailing = digd != NULL;
+    long digits;
+    if (digd) {
+        if (digd->v != DT_I || digd->i < 0) return 0;
+        digits = (long) digd->i;
+        if (digits == 0) {
+            DESCR_t rd = bi_floordiv(bi_add(bi_mul(n, INTVAL(2)), d), bi_mul(d, INTVAL(2)));
+            const char *rs = bi_base_str(bi_abs(rd), base);
+            char res[strlen(rs) + 2];
+            snprintf(res, sizeof res, "%s%s", bi_sgn(rd) < 0 ? "-" : "", rs);
+            *out = STRVAL(rt_heap_strdup_c(res));
+            return 1;
+        }
+    } else digits = bi_cmp(d, bi_pow(INTVAL(base), 6)) < 0 ? 6 : (long) ceil(log(bi_dbl(d)) / log((double) base)) + 1;
+    int neg = bi_sgn(n) < 0;
+    DESCR_t an = bi_abs(n), whole = bi_divt(an, d), r = bi_modt(an, d);
+    if (!bi_zero(r) && bi_dbl(r) / bi_dbl(d) == 1.0) { whole = bi_add(whole, INTVAL(1)); r = INTVAL(0); }
+    const char *ws = bi_base_str(whole, base);
+    if (bi_zero(r)) {
+        size_t L = strlen(ws) + (size_t) (trailing ? digits + 1 : 0) + 2;
+        char res[L];
+        snprintf(res, L, "%s%s", neg ? "-" : "", ws);
+        if (trailing && digits) { strcat(res, "."); for (long i = 0; i < digits; i++) strcat(res, "0"); }
+        *out = STRVAL(rt_heap_strdup_c(res));
+        return 1;
+    }
+    DESCR_t B = bi_pow(INTVAL(base), digits), v = bi_floordiv(bi_add(bi_mul(bi_mul(r, B), INTVAL(2)), d), bi_mul(d, INTVAL(2)));
+    const char *fs = bi_base_str(v, base);
+    size_t fl = strlen(fs);
+    int force = 0;
+    char frac[digits + fl + 2];
+    if ((long) fl > digits) {
+        whole = bi_add(whole, INTVAL(1));
+        ws = bi_base_str(whole, base);
+        strcpy(frac, fs + 1);
+        force = 1;
+    } else {
+        long pad = digits - (long) fl;
+        for (long i = 0; i < pad; i++) frac[i] = '0';
+        strcpy(frac + pad, fs);
+    }
+    long i = (long) strlen(frac);
+    if (!trailing) while (i > 0 && frac[i - 1] == '0') i--;
+    frac[i] = 0;
+    size_t L = strlen(ws) + (size_t) i + 4;
+    char res[L];
+    snprintf(res, L, "%s%s%s%s", neg ? "-" : "", ws, (i || force) ? "." : "", frac);
+    *out = STRVAL(rt_heap_strdup_c(res));
+    return 1;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 int rk_rat_int_method(const char *m, DESCR_t self, DESCR_t *out) {
     if (!bi_is(self)) return 0;
     if (!strcmp(m, "numerator")) { *out = self; return 1; }

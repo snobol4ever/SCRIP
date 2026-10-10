@@ -1,9 +1,9 @@
 #ifndef GC_ALLOCATING_TABLE_INC
 #define GC_ALLOCATING_TABLE_INC
-#define GC_ALLOC_TAB_N 2521
+#define GC_ALLOC_TAB_N 2523
 #define GC_ALLOC_TAB_N_VOID 300
 #define GC_ALLOC_TAB_N_DESCR 1221
-#define GC_ALLOC_TAB_N_OTHER 983
+#define GC_ALLOC_TAB_N_OTHER 985
 #define GC_ALLOC_TAB_N_UNKNOWN 17
 static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_TAB_N] = {
     { "APPLY_fn", GC_RET_DESCR },
@@ -426,6 +426,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "bb_tiny_shim_ok", GC_RET_OTHER },
     { "bi_abs", GC_RET_DESCR },
     { "bi_add", GC_RET_DESCR },
+    { "bi_base_str", GC_RET_OTHER },
     { "bi_cmp", GC_RET_OTHER },
     { "bi_dbl", GC_RET_OTHER },
     { "bi_divt", GC_RET_DESCR },
@@ -1328,6 +1329,7 @@ static const struct { const char * n; unsigned char rc; } GC_ALLOC_TAB[GC_ALLOC_
     { "rk_range_num", GC_RET_OTHER },
     { "rk_range_text", GC_RET_OTHER },
     { "rk_range_value", GC_RET_DESCR },
+    { "rk_rat_base", GC_RET_OTHER },
     { "rk_rat_binop", GC_RET_OTHER },
     { "rk_rat_cmp", GC_RET_OTHER },
     { "rk_rat_dispatch", GC_RET_OTHER },

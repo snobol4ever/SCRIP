@@ -2973,6 +2973,11 @@ static int rk_rat_dispatch(const char *meth, DESCR_t *recv, const DESCR_t *margs
         "match", "parse-base", "encode", "indent", "wrap", NULL };
     static const char *const keepmeth[] = { "WHAT", "WHICH", "HOW", "WHO", "VAR", "DEFINITE", "isa", "does", "can", "ACCEPTS", "clone", "Numeric", "Real", "Rational", "Bridge", NULL };
     if (rk_rat_is(*recv)) {
+        if (!strcmp(meth, "base") && (nmargs == 1 || nmargs == 2)) {
+            extern int rk_rat_base(DESCR_t self, DESCR_t radix, const DESCR_t *digd, DESCR_t *out);
+            long long iv;
+            if (!rk_int_exact(*recv, &iv) && rk_rat_base(*recv, margs[0], nmargs == 2 ? &margs[1] : NULL, out)) return 1;
+        }
         if (nmargs <= 1) {
             if (!strcmp(meth, "nude") && nmargs == 0) {
                 DESCR_t pr[2];
