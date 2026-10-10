@@ -1166,6 +1166,108 @@ static const char * const PL_PRELUDE_SRC =
     "'$scc_cut':-'$scc_bnew'(B),'$scc_cut_loop'(B).\n"
     "'$scc_cut_loop'(B):-'$scc_take'(B,C),!,(catch(C,_,true)->true;true),'$scc_cut_loop'(B).\n"
     "'$scc_cut_loop'(_).\n"
+    "'$wakeup':-'$attv_take'(L),'$wake_run'(L).\n"
+    "'$wake_run'([]).\n"
+    "'$wake_run'(wakeup(A,V,R)):-'$wake_hooks'(A,V),'$wake_run'(R).\n"
+    "'$wake_hooks'([],_).\n"
+    "'$wake_hooks'(att(M,AV,R),V):-'$wake_uhook'(M,AV,V),'$wake_hooks'(R,V).\n"
+    "'$wake_uhook'(freeze,G,Y):-!,(attvar(Y)->(get_attr(Y,freeze,G2)->put_attr(Y,freeze,'$and'(G2,G));put_attr(Y,freeze,G));'$wake_unfreeze'(G)).\n"
+    "'$wake_uhook'(dif,A,Y):-!,'$dif_hook'(A,Y).\n"
+    "'$wake_uhook'(when,A,Y):-!,'$when_hook'(A,Y).\n"
+    "'$wake_uhook'(M,A,Y):-('$attr_hook_mod'(M)->'$attr_unify_hook'(M,A,Y);throw(error(existence_error(procedure,M:attr_unify_hook/2),M:attr_unify_hook/2))).\n"
+    "'$wake_unfreeze'('$and'(A,B)):-!,'$wake_unfreeze'(A),'$wake_unfreeze'(B).\n"
+    "'$wake_unfreeze'(G):-call(G).\n"
+    "attvar(V):-'$attv_atts'(V,A),A\\==[].\n"
+    "put_attr(V,M,X):-(var(V)->true;throw(error(uninstantiation_error(V),put_attr/3))),('$attv_atts'(V,A)->true;A=[]),'$att_put'(A,M,X,A2),'$attv_set'(V,A2).\n"
+    "'$att_put'([],M,X,att(M,X,[])).\n"
+    "'$att_put'(att(M0,X0,R),M,X,A):-(M0==M->A=att(M,X,R);A=att(M0,X0,R2),'$att_put'(R,M,X,R2)).\n"
+    "get_attr(V,M,X):-'$attv_atts'(V,A),'$att_get'(A,M,X).\n"
+    "'$att_get'(att(M0,X0,R),M,X):-(M0==M->X=X0;'$att_get'(R,M,X)).\n"
+    "del_attr(V,M):-('$attv_atts'(V,A)->'$att_del'(A,M,A2),'$attv_set'(V,A2);true).\n"
+    "'$att_del'([],_,[]).\n"
+    "'$att_del'(att(M0,X0,R),M,A):-(M0==M->A=R;A=att(M0,X0,R2),'$att_del'(R,M,R2)).\n"
+    "get_attrs(V,A):-'$attv_atts'(V,A),A\\==[].\n"
+    "put_attrs(V,A):-(var(V)->true;throw(error(uninstantiation_error(V),put_attrs/2))),'$attv_set'(V,A).\n"
+    "del_attrs(V):-('$attv_atts'(V,_)->'$attv_set'(V,[]);true).\n"
+    "term_attvars(T,Vs):-term_variables(T,Vs0),'$attv_filter'(Vs0,Vs).\n"
+    "'$attv_filter'([],[]).\n"
+    "'$attv_filter'([V|T],R):-(attvar(V)->R=[V|R2];R=R2),'$attv_filter'(T,R2).\n"
+    "freeze(V,G):-var(V),!,'$freeze_goal'(G,MG),(get_attr(V,freeze,G0)->put_attr(V,freeze,'$and'(G0,MG));put_attr(V,freeze,MG)).\n"
+    "freeze(_,G):-call(G).\n"
+    "'$freeze_goal'(G,G):-nonvar(G),G=_:_,!.\n"
+    "'$freeze_goal'(G,user:G).\n"
+    "frozen(V,G):-(var(V),get_attr(V,freeze,G0)->'$frozen_goals'(G0,V,G);G=true).\n"
+    "'$frozen_goals'('$and'(A,B),V,(GA,GB)):-!,'$frozen_goals'(A,V,GA),'$frozen_goals'(B,V,GB).\n"
+    "'$frozen_goals'(G,V,freeze(V,G)).\n"
+    "?=(A,B):- \\+ unifiable(A,B,[_|_]).\n"
+    "unifiable(X,Y,Us):-'$unifiable'(X,Y,Us).\n"
+    "copy_term_nat(T,C):-'$copy_term_nat'(T,C).\n"
+    "nonground(X,V):-term_variables(X,[V|_]).\n"
+    "dif(X,Y):- ?=(X,Y),!,X\\==Y.\n"
+    "dif(X,Y):-'$dif_c_c'(X,Y,_).\n"
+    "'$dif_unifiable'(X,Y,Us):-unifiable(X,Y,Us).\n"
+    "'$dif_c_c'(X,Y,OrNode):-('$dif_unifiable'(X,Y,Unifier)->(Unifier==[]->'$dif_or_one_fail'(OrNode);'$dif_c_c_l'(Unifier,OrNode,U),'$dif_subunifier'(U,OrNode));'$dif_or_succeed'(OrNode)).\n"
+    "'$dif_subunifier'([],_).\n"
+    "'$dif_subunifier'([X=Y|T],OrNode):-'$dif_c_c'(X,Y,OrNode),'$dif_subunifier'(T,OrNode).\n"
+    "'$dif_c_c_l'(Unifier,OrNode,U):-'$dif_extend_ornode'(OrNode,List,Tail),'$dif_c_c_l_aux'(Unifier,OrNode,List0,Tail),('$dif_simplify'(List0,List,U)->true;List=List0,'$dif_or_succeed'(OrNode),U=[]).\n"
+    "'$dif_extend_ornode'(OrNode,List,Vars):-(get_attr(OrNode,dif,node(Vars))->true;Vars=[]),put_attr(OrNode,dif,node(List)).\n"
+    "'$dif_c_c_l_aux'([],_,List,List).\n"
+    "'$dif_c_c_l_aux'([X=Y|Unifier],OrNode,List,Tail):-List=[X=Y|Rest],'$dif_add_ornode'(X,Y,OrNode),'$dif_c_c_l_aux'(Unifier,OrNode,Rest,Tail).\n"
+    "'$dif_add_ornode'(X,Y,OrNode):-'$dif_add_ornode_var1'(X,Y,OrNode),(var(Y)->'$dif_add_ornode_var2'(X,Y,OrNode);true).\n"
+    "'$dif_add_ornode_var1'(X,Y,OrNode):-(get_attr(X,dif,Attr)->Attr=vardif(V1,V2),put_attr(X,dif,vardif([OrNode-Y|V1],V2));put_attr(X,dif,vardif([OrNode-Y],[]))).\n"
+    "'$dif_add_ornode_var2'(X,Y,OrNode):-(get_attr(Y,dif,Attr)->Attr=vardif(V1,V2),put_attr(Y,dif,vardif(V1,[OrNode-X|V2]));put_attr(Y,dif,vardif([],[OrNode-X]))).\n"
+    "'$dif_simplify_ornode'(OrNode):-(get_attr(OrNode,dif,node(Pairs0))->'$dif_simplify'(Pairs0,Pairs,U),Pairs-U\\==[]-[],put_attr(OrNode,dif,node(Pairs)),'$dif_subunifier'(U,OrNode);true).\n"
+    "'$dif_simplify'(List0,List,U):-sort(1,@=<,List0,Sorted),'$dif_simplify_'(Sorted,List,U).\n"
+    "'$dif_simplify_'([],List,U):-!,List=[],U=[].\n"
+    "'$dif_simplify_'([V1=V2|T],List,U):-V1==V2,!,'$dif_simplify_'(T,List,U).\n"
+    "'$dif_simplify_'([V1=Val1,V2=Val2|T],List,U):-var(V1),V1==V2,!,(?=(Val1,Val2)->Val1==Val2,'$dif_simplify_'([V1=Val2|T],List,U);U=[Val1=Val2|UT],'$dif_simplify_'([V2=Val2|T],List,UT)).\n"
+    "'$dif_simplify_'([H|T],List,U):-List=[H|Rest],'$dif_simplify_'(T,Rest,U).\n"
+    "'$dif_hook'(vardif(V1,V2),Other):-(get_attr(Other,dif,vardif(OV1,OV2))->'$dif_reverse_lookups'(V1,Other,OrNodes1,NV1),'$dif_or_one_fails'(OrNodes1),'$dif_reverse_lookups'(OV1,Other,OrNodes2,NOV1),'$dif_or_one_fails'(OrNodes2),'$dif_remove_obsolete'(V2,Other,NV2),'$dif_remove_obsolete'(OV2,Other,NOV2),append(NV1,NOV1,CV1),append(NV2,NOV2,CV2),(CV1==[],CV2==[]->del_attr(Other,dif);put_attr(Other,dif,vardif(CV1,CV2)));var(Other)->put_attr(Other,dif,vardif(V1,V2));'$dif_verify_compounds'(V1,Other),'$dif_verify_compounds'(V2,Other)).\n"
+    "'$dif_remove_obsolete'([],_,[]).\n"
+    "'$dif_remove_obsolete'([N-Y|T],X,L):-(Y==X->'$dif_remove_obsolete'(T,X,L);L=[N-Y|RT],'$dif_remove_obsolete'(T,X,RT)).\n"
+    "'$dif_reverse_lookups'([],_,[],[]).\n"
+    "'$dif_reverse_lookups'([N-X|NXs],Value,Nodes,Rest):-(X==Value->Nodes=[N|RNodes],Rest=RRest;Nodes=RNodes,Rest=[N-X|RRest]),'$dif_reverse_lookups'(NXs,Value,RNodes,RRest).\n"
+    "'$dif_verify_compounds'([],_).\n"
+    "'$dif_verify_compounds'([OrNode-Y|Rest],X):-(var(Y)->true;OrNode==(-)->true;'$dif_c_c'(X,Y,OrNode)),'$dif_verify_compounds'(Rest,X).\n"
+    "'$dif_or_succeed'(OrNode):-(get_attr(OrNode,dif,Attr)->Attr=node(Pairs),del_attr(OrNode,dif),OrNode=(-),'$dif_del_or_dif'(Pairs);true).\n"
+    "'$dif_del_or_dif'([]).\n"
+    "'$dif_del_or_dif'([X=Y|Xs]):-'$dif_cleanup_dead_nodes'(X),'$dif_cleanup_dead_nodes'(Y),'$dif_del_or_dif'(Xs).\n"
+    "'$dif_cleanup_dead_nodes'(X):-(get_attr(X,dif,Attr)->Attr=vardif(V1,V2),'$dif_filter_dead_ors'(V1,NV1),'$dif_filter_dead_ors'(V2,NV2),(NV1==[],NV2==[]->del_attr(X,dif);put_attr(X,dif,vardif(NV1,NV2)));true).\n"
+    "'$dif_filter_dead_ors'([],[]).\n"
+    "'$dif_filter_dead_ors'([Or-Y|Rest],List):-(var(Or)->List=[Or-Y|NRest];List=NRest),'$dif_filter_dead_ors'(Rest,NRest).\n"
+    "'$dif_or_one_fail'(OrNode):-'$dif_simplify_ornode'(OrNode).\n"
+    "'$dif_or_one_fails'([]).\n"
+    "'$dif_or_one_fails'([N|Ns]):-'$dif_or_one_fail'(N),'$dif_or_one_fails'(Ns).\n"
+    "when(Cond,Goal):-'$when_cond'(Cond,Opt),'$when_first'(Opt,Goal).\n"
+    "'$when_cond'(C,_):-var(C),!,throw(error(instantiation_error,when/2)).\n"
+    "'$when_cond'(nonvar(X),O):-!,(nonvar(X)->O=true;O=nonvar(X)).\n"
+    "'$when_cond'(ground(X),O):-!,(ground(X)->O=true;O=ground(X)).\n"
+    "'$when_cond'(?=(X,Y),O):-!,(?=(X,Y)->O=true;O = ?=(X,Y)).\n"
+    "'$when_cond'((A,B),O):-!,'$when_cond'(A,OA),'$when_cond'(B,OB),(OA==true->O=OB;OB==true->O=OA;O=(OA,OB)).\n"
+    "'$when_cond'((A;B),O):-!,'$when_cond'(A,OA),'$when_cond'(B,OB),(OA==true->O=true;OB==true->O=true;'$when_or_list'(OA,LA),'$when_or_list'(OB,LB),append(LA,LB,L),O=or(L)).\n"
+    "'$when_cond'(C,_):-throw(error(domain_error(when_condition,C),when/2)).\n"
+    "'$when_or_list'(or(L),L):-!.\n"
+    "'$when_or_list'(C,[C]).\n"
+    "'$when_first'(true,Goal):-!,call(Goal).\n"
+    "'$when_first'(nonvar(X),Goal):-!,'$when_suspend'(X,'$when_trigger_nonvar'(X,Goal)).\n"
+    "'$when_first'(Cond,Goal):-'$when_trigger'(Cond,Goal).\n"
+    "'$when_trigger'(nonvar(X),Goal):-'$when_trigger_nonvar'(X,Goal).\n"
+    "'$when_trigger'(ground(X),Goal):-'$when_trigger_ground'(X,Goal).\n"
+    "'$when_trigger'(?=(X,Y),Goal):-'$when_trigger_determined'(X,Y,Goal).\n"
+    "'$when_trigger'((G1,G2),Goal):-'$when_trigger'(G1,'$when_trigger'(G2,Goal)).\n"
+    "'$when_trigger'(or(GL),Goal):-'$when_trigger_disj'(GL,'$when_check_disj'(_,GL,Goal)).\n"
+    "'$when_trigger_nonvar'(X,Goal):-(nonvar(X)->call(Goal);'$when_suspend'(X,'$when_trigger_nonvar'(X,Goal))).\n"
+    "'$when_trigger_ground'(X,Goal):-(nonground(X,V)->'$when_suspend'(V,'$when_trigger_ground'(X,Goal));call(Goal)).\n"
+    "'$when_trigger_determined'(X,Y,Goal):-unifiable(X,Y,Unifier),!,(Unifier==[]->call(Goal);put_attr(Det,when,det('$when_trigger_determined'(X,Y,Goal))),'$when_suspend_list'(Unifier,'$when_wake_det'(Det))).\n"
+    "'$when_trigger_determined'(_,_,Goal):-call(Goal).\n"
+    "'$when_wake_det'(Det):-(var(Det)->get_attr(Det,when,Attr),del_attr(Det,when),Det=(-),Attr=det(Goal),call(Goal);true).\n"
+    "'$when_trigger_disj'([],_).\n"
+    "'$when_trigger_disj'([H|T],G):-'$when_trigger'(H,G),'$when_trigger_disj'(T,G).\n"
+    "'$when_check_disj'(Disj,_,Goal):-(Disj==(-)->true;Disj=(-),call(Goal)).\n"
+    "'$when_suspend_list'([],_).\n"
+    "'$when_suspend_list'([V=W|Unifier],Goal):-'$when_suspend'(V,Goal),(var(W)->'$when_suspend'(W,Goal);true),'$when_suspend_list'(Unifier,Goal).\n"
+    "'$when_suspend'(V,Goal):-(get_attr(V,when,call(G0))->put_attr(V,when,call((G0,Goal)));put_attr(V,when,call(Goal))).\n"
+    "'$when_hook'(call(Goal),Other):-(get_attr(Other,when,call(GOther))->del_attr(Other,when),call(Goal),call(GOther);call(Goal)).\n"
     "member(X,[_|T]):-member(X,T).\n"
     "append([],L,L).\n"
     "append([H|T],L,[H|R]):-append(T,L,R).\n"
@@ -2036,9 +2138,25 @@ static void pl_libs_append(PlProgram *pre, cv_t *referenced, const cv_t *refkeys
     }
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const char * const pl_attv_api[] = { "put_attr/3", "get_attr/3", "del_attr/2", "put_attrs/2", "get_attrs/2", "del_attrs/1", "attvar/1", "freeze/2", "frozen/2", "dif/2", "when/2",
+    "term_attvars/2", "call_residue_vars/2", "copy_term/3", "attr_unify_hook/2", "clpfd/0", "fd_domain/3", "fd_domain/2", "fd_labeling/1", "fd_labeling/2", "fd_labelingff/1",
+    "fd_all_different/1", "fd_element/3", "fd_relation/2", NULL };
+static void pl_attv_term_arms(const tree_t *t, unsigned char *seen) {
+    if (!t) return;
+    if ((t->t == TT_FNC || t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval) {
+        int ar = t->t == TT_FNC ? t->n : 0;
+        for (int i = 0; pl_attv_api[i]; i++) {
+            const char *sl = strchr(pl_attv_api[i], '/');
+            size_t nl = (size_t)(sl - pl_attv_api[i]);
+            if (!seen[i] && pl_attv_api[i][0] == t->v.sval[0] && strlen(t->v.sval) == nl && !memcmp(t->v.sval, pl_attv_api[i], nl) && atoi(sl + 1) == ar) seen[i] = 1;
+        }
+    }
+    for (int i = 0; i < t->n; i++) pl_attv_term_arms(t->c[i], seen);
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (!prog || !user_src) return;
-    cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 };
+    cv_t user_defined = { 0 }, referenced = { 0 }, refkeys = { 0 }, wanted = { 0 }, attv_off = { 0 };
     for (PlClause *cl = prog->head; cl; cl = cl->next) {
         const char *nm; int ar;
         if (pl_clause_key(cl, &nm, &ar) && nm) pl_cv_add(&user_defined, pl_pred_key(nm, ar));
@@ -2048,6 +2166,14 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
     if (pl_cv_has(&referenced, "table")) pl_cv_add(&referenced, "$tbl_call");
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");
+    {
+        unsigned char seen[32] = { 0 };
+        int armed = 0;
+        for (PlClause *cl = prog->head; cl; cl = cl->next) if (cl->tr) pl_attv_term_arms(cl->tr, seen);
+        for (int i = 0; pl_attv_api[i]; i++) if (seen[i]) armed = 1;
+        if (armed) pl_cv_add(&referenced, "$wakeup");
+        for (int i = 0; pl_attv_api[i]; i++) if (!seen[i]) { const char *sl = strchr(pl_attv_api[i], '/'); char nm[sl - pl_attv_api[i] + 1]; memcpy(nm, pl_attv_api[i], (size_t)(sl - pl_attv_api[i])); nm[sl - pl_attv_api[i]] = 0; pl_cv_add(&attv_off, ct_strdup(nm)); }
+    }
     if (pl_cv_has(&user_defined, "term_expansion/2") || pl_cv_has(&user_defined, "goal_expansion/2")) pl_cv_add(&referenced, "$load_item");
     if (pl_word_referenced(user_src, "bagof") || pl_word_referenced(user_src, "setof")) { pl_cv_add(&referenced, "$bagof_var"); pl_cv_add(&referenced, "$setof_var"); }
     for (PlClause *cl = prog->head; cl; cl = cl->next) if (pl_clause_ssu(cl)) { pl_cv_add(&referenced, "subsumes_term"); break; }
@@ -2061,6 +2187,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         const char *nm; int ar;
         if (!pl_clause_key(cl, &nm, &ar) || !nm) continue;
         if (native_only && ar == 3 && !strcmp(nm, native_only)) continue;
+        if (pl_cv_has(&attv_off, nm) && !pl_cv_has(&referenced, "$wakeup")) continue;
         if (!pl_cv_has(&referenced, nm) && (nm[0] == '$' || !pl_word_referenced(user_src, nm))) continue;
         char *key = pl_pred_key(nm, ar);
         if (!pl_cv_has(&user_defined, key)) pl_cv_add(&wanted, key);

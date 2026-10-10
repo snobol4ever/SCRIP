@@ -1,5 +1,6 @@
 #ifndef BB_PL_CELL_H
 #define BB_PL_CELL_H
+#include "stage2.h"
 #define PL_SRC_RDI() (IF(!_.op_u_kid, x86("lea", "rdi", FRQ(_.op_u_slot))) \
                     + IF(_.op_u_kid, \
                           x86("note", "the cell is child " + std::to_string((long long)_.op_u_idx) + " of the parent box's compound: [parent.p + 16j]") \
@@ -52,7 +53,28 @@
                     + x86("cmp", "rsi", "rdi") \
                     + x86("je", L(lbind)) \
                     + x86("def", L(lbound)))
-#define PL_TRAIL(lstore, lrefuse) (x86("note", \
+#define PL_TRAIL(lstore, lrefuse, larm) (IF(g_stage2.pl_attv_armed, \
+                      x86("note", "attvar: a cell whose slen is PL_ATTV_SLEN is always trailed and lowers the wake word at the trail header +48 to this entry's offset") \
+                    + x86("mov", "edx", RDD("rdi", 4)) \
+                    + x86("cmp", "edx", (long)PL_ATTV_SLEN) \
+                    + x86("jne", L(larm)) \
+                    + x86("mov", "rax", "r12") \
+                    + x86("and", "rax", X86_PL_TR_ARENA_MASK) \
+                    + x86("mov", "rdx", "r12") \
+                    + x86("sub", "rdx", "rax") \
+                    + x86("mov", "rax", RDQ("rax", PL_TR_WAKE_OFF)) \
+                    + x86("test", "rax", "rax") \
+                    + x86("je", L(larm + 1)) \
+                    + x86("cmp", "rax", "rdx") \
+                    + x86("jbe", L(larm + 2)) \
+                    + x86("def", L(larm + 1)) \
+                    + x86("mov", "rax", "r12") \
+                    + x86("and", "rax", X86_PL_TR_ARENA_MASK) \
+                    + x86("mov", RDQ("rax", PL_TR_WAKE_OFF), "rdx") \
+                    + x86("def", L(larm + 2)) \
+                    + x86("jmp", L(lstore + 1)) \
+                    + x86("def", L(larm))) \
+                    + x86("note", \
                       "trail test: no choice (B = r13 = 0) records nothing; a cell below rsp (the heap) or at or above the youngest choice's frame top [B + 32] is older than the choice") \
                     + x86("test", "r13", "r13") \
                     + x86("jz", L(lstore)) \

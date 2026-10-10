@@ -807,6 +807,8 @@ int emit_pl_fence_on(void) { if (g_lower.pl.fence_on < 0) { const char * e = get
 static int pl_fence_on(void) { return emit_pl_fence_on(); }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static int pl_file_defines(const char * nm, int ar);
+static int pl_attv_on(void);
+static int pl_attv_body(const tree_t * cl, int ar, const tree_t ** out, int cap);
 static int pl_scc_armed(void) { return pl_fence_on() && pl_file_defines("$scc_cut", 0); }
 int emit_pl_scc_armed(void) { return pl_scc_armed(); }
 static IR_t * pl_probe_before(lcx_t * cx, IR_t * target, IR_t * mark, int needs_mark) {
@@ -1152,10 +1154,11 @@ typedef struct { const char * nm; int ar; const char * sym; } pl_det_leaf_t;
 static const pl_det_leaf_t pl_det_leaves[] = { { "var", 1, "$var" }, { "nonvar", 1, "$nonvar" }, { "atom", 1, "$atom" }, { "number", 1, "$number" }, { "integer", 1, "$integer" }, { "float", 1,
     "$float" }, { "atomic", 1, "$atomic" }, { "string", 1, "$string" }, { "compound", 1, "$compound" }, { "callable", 1, "$callable" }, { "ground", 1, "$ground" }, { "is_list", 1, "$is_list" },
     { "acyclic_term", 1, "$acyclic_term" }, { "==", 2, "$atop_eq" }, { "\\==", 2, "$atop_ne" }, { "@<", 2, "$atop_lt" }, { "@=<", 2, "$atop_le" }, { "@>", 2, "$atop_gt" }, { "@>=", 2, "$atop_ge" },
-    { "compare", 3, "$compare" }, { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "term_variables", 2, "$term_variables" },
-    { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" }, { "$skip_list", 3, "$skip_list" }, { "$argv", 1, "$argv" }, { "$scc_bnew", 1, "$scc_bnew" },
-    { "$scc_take", 2, "$scc_take" }, { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom",
-    2, "$term_to_atom" }, { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2,
+    { "compare", 3, "$compare" }, { "functor", 3, "$functor" }, { "arg", 3, "$arg" }, { "=..", 2, "$univ" }, { "copy_term", 2, "$copy_term" }, { "$copy_term_nat", 2, "$copy_term_nat" },
+    { "term_variables", 2, "$term_variables" }, { "numbervars", 3, "$numbervars3" }, { "numbervars", 1, "$numbervars1" }, { "succ", 2, "$succ" }, { "$skip_list", 3, "$skip_list" }, { "$argv", 1,
+    "$argv" }, { "$scc_bnew", 1, "$scc_bnew" }, { "$scc_take", 2, "$scc_take" }, { "$attv_set", 2, "$attv_set" }, { "$attv_atts", 2, "$attv_atts" }, { "$attv_take", 1, "$attv_take" }, { "$unifiable",
+    3, "$unifiable" }, { "plus", 3, "$plus" }, { "sort", 2, "$sort" }, { "msort", 2, "$msort" }, { "char_type", 2, "$char_type" }, { "term_string", 2, "$term_string" }, { "term_to_atom", 2,
+    "$term_to_atom" }, { "atom_length", 2, "$atom_length" }, { "atom_concat", 3, "$atom_concat" }, { "atom_chars", 2, "$atom_chars" }, { "atom_codes", 2, "$atom_codes" }, { "atom_number", 2,
     "$atom_number" }, { "atom_string", 2, "$atom_string" }, { "upcase_atom", 2, "$upcase_atom" }, { "downcase_atom", 2, "$downcase_atom" }, { "string_concat", 3, "$string_concat" }, { "string_length",
     2, "$string_length" }, { "string_lower", 2, "$string_lower" }, { "string_upper", 2, "$string_upper" }, { "string_to_atom", 2, "$string_to_atom" }, { "number_string", 2, "$number_string" },
     { "string_chars", 2, "$string_chars" }, { "string_codes", 2, "$string_codes" }, { "atomic_concat", 3, "$atomic_concat" }, { "atomic_list_concat", 2, "$atomic_list_concat" },
@@ -2816,6 +2819,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
             const char * nm = t->v.sval ? t->v.sval : "?";
             if (!strcmp(nm, "true")) return build(cx, IR_SUCCEED, γnext, ωfail);
             if (!strcmp(nm, "fail") || !strcmp(nm, "false")) return build(cx, IR_GOTO, ωfail, ωfail);
+            if (!strcmp(nm, "$wake_pending")) { IR_t * wk = build(cx, IR_CLEANUP, γnext, ωfail); IR_LIT(wk).ival = CLEANUP_WAKE; return wk; }
             if (!strcmp(nm, "nl")) {
                 IR_t * ne = NULL;
                 IR_t * nd = pl_leaf(cx, "$nl", t, 0, γnext, ωfail, &ne);
@@ -3023,7 +3027,11 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
         IR_t * redo = NULL;
         IR_t * tnode = NULL;
         if (pl_trace_wanted()) for (int i = ar; i < cl->n; i++) pl_trace_number_goals(cl->c[i]);
-        IR_t * first = pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
+        int nbg = cl->n - ar + 1;
+        const tree_t * bg[nbg > 0 ? nbg : 1];
+        int nb = pl_attv_on() ? pl_attv_body(cl, ar, bg, nbg) : 0;
+        IR_t * first = pl_attv_on() ? pl_lower_conj(&cx, bg, nb, tret, step, &bentry, &redo, &tnode) :
+            pl_lower_conj(&cx, (const tree_t * const *)(cl->c + ar), cl->n - ar, tret, step, &bentry, &redo, &tnode);
         if (tnode && tnode->op == IR_CALL_PROC_STAGED && !pl_trace_wanted()) tnode->seal = PL_SEAL_TAIL;
         IR_t * next = bentry ? bentry : (first ? first : succeed);
         for (int i = ar - 1; i >= 0; i--) {
@@ -3066,6 +3074,12 @@ static IR_graph_t * pl_pred_graph(const tree_t * ch, const char * key) {
 static int lower_pl_pred_graph(const char * key, const tree_t * ch) {
     if (ch->t == TT_CHOICE) { if (ch->n < 1) return -1; if (!ch->c[0] || ch->c[0]->t != TT_CLAUSE) return -1; } else if (ch->t != TT_CLAUSE) return -1;
     { IR_graph_t * g = pl_pred_graph(ch, key); return bb_program_add(&g_stage2.bbp, g); }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_rt_armed(void) {
+    extern int rt_proc_is_registered(const char *);
+    if (!g_stage2.pl_attv_armed && rt_proc_is_registered("$wakeup/0")) g_stage2.pl_attv_armed = 1;
+    return g_stage2.pl_attv_armed;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static void * pl_runtime_define_pred_x(const char * key, const tree_t * choice, int arity, IR_graph_t ** gout, int pkt_cell, int pkt_slot, int * chain_off_out, void * rt_root) {
@@ -3665,6 +3679,154 @@ static const tree_t * pl_scc_rewrite(const tree_t * prog) {
     return np;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_attv_w(void) { return pl_cc_ite((tree_t *) pl_atom_goal("$wake_pending"), (tree_t *) pl_atom_goal("$wakeup"), (tree_t *) pl_atom_goal("true")); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_user(const char * nm, int ar) { return pl_file_defines(nm, ar) || pl_db_owned(nm, ar); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_nobind(const char * nm, int ar) {
+    static const char * const a0[] = { "true", "fail", "false", "nl", "halt", "$wake_pending", "$wakeup", "listing", NULL };
+    static const char * const a1[] = { "var", "nonvar", "atom", "number", "integer", "float", "atomic", "compound", "callable", "is_list", "ground", "attvar", "write", "writeq", "print", "writeln",
+        "write_canonical", "throw", "halt", "tab", "nl", "assert", "asserta", "assertz", "retractall", NULL };
+    static const char * const a2[] = { "==", "\\==", "@<", "@>", "@=<", "@>=", "<", ">", "=<", ">=", "=:=", "=\\=", "write", "writeq", "print", "nl", "dif", "freeze", "when", "put_attr", "del_attr",
+        NULL };
+    const char * const * t = ar == 0 ? a0 : ar == 1 ? a1 : ar == 2 ? a2 : NULL;
+    if (!t) return 0;
+    for (int i = 0; t[i]; i++) if (!strcmp(t[i], nm)) return 1;
+    return 0;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_attv_goal(const tree_t * g) {
+    if (!g) return NULL;
+    if (g->t == TT_CUT || g->t == TT_MAKELIST) return (tree_t *) g;
+    if (g->t == TT_VAR) return pl_cc_fnc2(",", (tree_t *) g, pl_attv_w());
+    if (g->t == TT_IF && g->n == 3) { tree_t * n = ast_node_new(TT_IF); n->v = g->v; n->line = g->line; for (int i = 0; i < 3; i++) ast_push(n, pl_attv_goal(g->c[i])); return n; }
+    if (g->t == TT_QLIT || g->t == TT_NAME) {
+        const char * nm = g->v.sval ? g->v.sval : "";
+        if (pl_attv_user(nm, 0) || pl_attv_nobind(nm, 0)) return (tree_t *) g;
+        return pl_cc_fnc2(",", (tree_t *) g, pl_attv_w());
+    }
+    if (g->t != TT_FNC || !g->v.sval) return (tree_t *) g;
+    if (g->n == 2 && !strcmp(g->v.sval, "\\=")) return pl_attv_goal(pl_cc_fnc1("\\+", pl_cc_fnc2("=", (tree_t *) g->c[0], (tree_t *) g->c[1])));
+    const char * nm = g->v.sval;
+    int n = g->n;
+    int ctl2 = n == 2 && (!strcmp(nm, ",") || !strcmp(nm, ";") || !strcmp(nm, "->") || !strcmp(nm, "*->"));
+    int ctl1 = n == 1 && (!strcmp(nm, "\\+") || !strcmp(nm, "not") || !strcmp(nm, "once") || !strcmp(nm, "ignore") || (!strcmp(nm, "call") && g->c[0] && g->c[0]->t != TT_VAR));
+    int modq = n == 2 && !strcmp(nm, ":") && g->c[0] && (g->c[0]->t == TT_QLIT || g->c[0]->t == TT_NAME);
+    if (ctl2 || ctl1 || modq) {
+        tree_t * c = ast_node_new(TT_FNC);
+        c->v = g->v;
+        c->line = g->line;
+        for (int i = 0; i < n; i++) ast_push(c, (modq && i == 0) ? (tree_t *) g->c[i] : pl_attv_goal(g->c[i]));
+        return c;
+    }
+    int gi0 = -1, gi1 = -1, w = 1;
+    if ((n == 3 || n == 4) && !strcmp(nm, "findall")) gi0 = 1;
+    else if (n == 3 && !strcmp(nm, "aggregate_all")) gi0 = 1;
+    else if (n == 2 && !strcmp(nm, "forall")) { gi0 = 0; gi1 = 1; w = 0; } else if (n == 3 && !strcmp(nm, "catch")) { gi0 = 0; gi1 = 2; }
+    if (gi0 >= 0) {
+        tree_t * c = ast_node_new(TT_FNC);
+        c->v = g->v;
+        c->line = g->line;
+        for (int i = 0; i < n; i++) ast_push(c, (i == gi0 || i == gi1) && g->c[i] ? pl_attv_goal(g->c[i]) : (tree_t *) g->c[i]);
+        return w ? pl_cc_fnc2(",", c, pl_attv_w()) : c;
+    }
+    if (pl_attv_user(nm, n) || pl_attv_nobind(nm, n)) return (tree_t *) g;
+    return pl_cc_fnc2(",", (tree_t *) g, pl_attv_w());
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_attv_clause(const tree_t * cl, const tree_t * mod, int lift) {
+    int ar = (int) cl->v.dval;
+    const tree_t * hd = lift ? cl->c[1] : NULL;
+    tree_t * nc = ast_node_new(TT_CLAUSE);
+    nc->v = cl->v;
+    nc->v.dval = lift ? 3 : (mod ? ar + 1 : ar);
+    nc->line = cl->line;
+    if (lift) {
+        ast_push(nc, (tree_t *) cl->c[0]);
+        ast_push(nc, (tree_t *) hd->c[0]);
+        ast_push(nc, (tree_t *) hd->c[1]);
+    } else {
+        if (mod) ast_push(nc, (tree_t *) mod);
+        for (int i = 0; i < ar; i++) ast_push(nc, (tree_t *) cl->c[i]);
+    }
+    for (int i = ar; i < cl->n; i++) ast_push(nc, (tree_t *) cl->c[i]);
+    return nc;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_on(void) { return g_stage2.pl_attv_armed || pl_attv_rt_armed(); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_body(const tree_t * cl, int ar, const tree_t ** out, int cap) {
+    int trivial = 1, n = 0;
+    for (int i = 0; i < ar && trivial; i++) {
+        if (!cl->c[i] || cl->c[i]->t != TT_VAR) { trivial = 0; break; }
+        for (int j = 0; j < i; j++) if (cl->c[j]->t == TT_VAR && cl->c[j]->v.ival == cl->c[i]->v.ival) { trivial = 0; break; }
+    }
+    if (!trivial && n < cap) out[n++] = pl_attv_w();
+    for (int i = ar; i < cl->n && n < cap; i++) out[n++] = pl_attv_goal(cl->c[i]);
+    return n;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static tree_t * pl_attv_fact1(const tree_t * a) { tree_t * c = ast_node_new(TT_CLAUSE); c->v.dval = 1; ast_push(c, (tree_t *) a); return c; }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_is_key(const tree_t * subj, const char * key) { return subj && subj->t == TT_CHOICE && subj->v.sval && !strcmp(subj->v.sval, key); }
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static int pl_attv_hook_head(const tree_t * cl) {
+    return cl && cl->t == TT_CLAUSE && (int) cl->v.dval == 2 && cl->c[0] && (cl->c[0]->t == TT_QLIT || cl->c[0]->t == TT_NAME) && cl->c[1] && cl->c[1]->t == TT_FNC && cl->c[1]->v.sval &&
+        !strcmp(cl->c[1]->v.sval, "attr_unify_hook") && cl->c[1]->n == 2;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static const tree_t * pl_attv_rewrite(const tree_t * prog) {
+    int top = 0;
+    for (int i = 0; i < prog->n; i++) { const tree_t * s = prog->c[i]; const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL; if (pl_attv_is_key(subj, "$wakeup/0")) top = 1; }
+    if (!top) return prog;
+    g_stage2.pl_attv_armed = 1;
+    tree_t * np = ast_node_new(prog->t);
+    np->v = prog->v;
+    np->line = prog->line;
+    tree_t * hooks = ast_node_new(TT_CHOICE);
+    hooks->v.sval = (char *) "$attr_unify_hook/3";
+    tree_t * mods = ast_node_new(TT_CHOICE);
+    mods->v.sval = (char *) "$attr_hook_mod/1";
+    const tree_t * cur_mod = pl_atom_goal("user");
+    const tree_t * last = NULL;
+    for (int i = 0; i < prog->n; i++) {
+        const tree_t * s = prog->c[i];
+        const tree_t * subj = (s && s->t == TT_STMT) ? lp_s_expr(s, ":subj") : NULL;
+        if (subj && subj->t == TT_FNC && subj->v.sval && (!strcmp(subj->v.sval, "module") || !strcmp(subj->v.sval, "$module_restore")) && subj->n >= 1 && subj->c[0] &&
+            (subj->c[0]->t == TT_QLIT || subj->c[0]->t == TT_NAME)) cur_mod = subj->c[0];
+        if (!subj || subj->t != TT_CHOICE) { ast_push(np, (tree_t *) s); continue; }
+        last = s;
+        int hk = pl_attv_is_key(subj, "attr_unify_hook/2");
+        int qk = pl_attv_is_key(subj, ":/2");
+        if (!hk && !qk) { ast_push(np, (tree_t *) s); continue; }
+        tree_t * ch = ast_node_new(TT_CHOICE);
+        ch->v = subj->v;
+        ch->line = subj->line;
+        for (int k = 0; k < subj->n; k++) {
+            const tree_t * cl = subj->c[k];
+            if (!cl || cl->t != TT_CLAUSE) { ast_push(ch, (tree_t *) cl); continue; }
+            if (hk) { ast_push(hooks, pl_attv_clause(cl, cur_mod, 0)); ast_push(mods, pl_attv_fact1(cur_mod)); continue; }
+            if (pl_attv_hook_head(cl)) { ast_push(hooks, pl_attv_clause(cl, NULL, 1)); ast_push(mods, pl_attv_fact1(cl->c[0])); continue; }
+            ast_push(ch, (tree_t *) cl);
+        }
+        if (ch->n > 0) ast_push(np, pl_table_stmt(s, ch));
+    }
+    if (last) {
+        tree_t * none = ast_node_new(TT_CLAUSE);
+        none->v.dval = 3;
+        ast_push(none, (tree_t *) pl_atom_goal("$none"));
+        { tree_t * v = ast_node_new(TT_VAR); v->v.ival = 0; ast_push(none, v); }
+        { tree_t * v = ast_node_new(TT_VAR); v->v.ival = 1; ast_push(none, v); }
+        ast_push(none, (tree_t *) pl_atom_goal("fail"));
+        ast_push(hooks, none);
+        ast_push(mods, pl_attv_fact1(pl_atom_goal("$none")));
+        ast_push(np, pl_table_stmt(last, hooks));
+        ast_push(np, pl_table_stmt(last, mods));
+    }
+    return np;
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static const tree_t * pl_table_rewrite(const tree_t * prog) {
     int nk = 0;
     for (int i = 0; i < prog->n; i++) nk = pl_table_specs(pl_table_dir(prog->c[i]), NULL, nk, 0);
@@ -4022,6 +4184,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
     prog = pl_table_rewrite(prog);
     prog = pl_scc_rewrite(prog);
     prog = pl_mq_rewrite(prog);
+    prog = pl_attv_rewrite(prog);
     const tree_t * prog_src = prog;
     int load_h = pl_load_hook_line(prog, NULL);
     int load_cap = load_h > 0 ? pl_load_capacity(prog) : 1;

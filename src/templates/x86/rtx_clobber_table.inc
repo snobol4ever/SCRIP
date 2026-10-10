@@ -1,4 +1,4 @@
-#define RTX_CLOB_TAB_N 279
+#define RTX_CLOB_TAB_N 284
 #define RTX_CLOB_TAB_N_CLOBBERING 20
 static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_TAB_N] = {
     { "VARVAL_fn", 0 },
@@ -58,6 +58,9 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_atom_to_term", 0 },
     { "rt_pl_dop_atomic_concat", 0 },
     { "rt_pl_dop_atomic_list_concat", 0 },
+    { "rt_pl_dop_attv_atts", 0 },
+    { "rt_pl_dop_attv_set", 0 },
+    { "rt_pl_dop_attv_take", 0 },
     { "rt_pl_dop_ax_eguard", 0 },
     { "rt_pl_dop_b_setval", 0 },
     { "rt_pl_dop_bagof_group_at", 0 },
@@ -72,6 +75,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_compare", 0 },
     { "rt_pl_dop_concat_atom", 0 },
     { "rt_pl_dop_copy_term", 0 },
+    { "rt_pl_dop_copy_term_nat", 0 },
     { "rt_pl_dop_current_input", 0 },
     { "rt_pl_dop_current_output", 0 },
     { "rt_pl_dop_current_prolog_flag", 0 },
@@ -239,6 +243,7 @@ static const struct { const char * sym; unsigned mask; } rtx_clob_tab[RTX_CLOB_T
     { "rt_pl_dop_unget_char_s", 0 },
     { "rt_pl_dop_unget_code", 0 },
     { "rt_pl_dop_unget_code_s", 0 },
+    { "rt_pl_dop_unifiable", 0 },
     { "rt_pl_dop_unify_oc", 0 },
     { "rt_pl_dop_unify_raise", 0 },
     { "rt_pl_dop_univ", 0 },

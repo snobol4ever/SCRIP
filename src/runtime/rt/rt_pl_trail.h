@@ -11,6 +11,8 @@
 #define PL_TR_OCHECK_OFF 24
 #define PL_TR_CLEANUP_OFF 32
 #define PL_TR_PROBE_B_OFF 40
+#define PL_TR_WAKE_OFF 48
+#define PL_ATTV_SLEN 0x56545441u
 #define PL_TR_FRAME_HEADER_BYTES 64
 #define CLEANUP_DONE 0
 #define CLEANUP_ACTIVE 1
@@ -34,6 +36,8 @@ static inline void **pl_tr_wslot_slot(const char *base) { return (void **)((char
 static inline uint64_t *pl_tr_ocheck_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_OCHECK_OFF); }
 static inline char **pl_tr_cleanup_slot(const char *base) { return (char **)((char *)base + PL_TR_CLEANUP_OFF); }
 static inline uint64_t *pl_tr_probe_b_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_PROBE_B_OFF); }
+static inline uint64_t *pl_tr_wake_slot(const char *base) { return (uint64_t *)((char *)base + PL_TR_WAKE_OFF); }
+static inline int pl_attv_is(const DESCR_t *c) { return c->v == (DTYPE_t)DT_PLVAR && c->p == (const void *)c && c->slen == PL_ATTV_SLEN; }
 static inline uint64_t pl_tr_ocheck_mode(const pl_tr_ctx_t *cx) { return (cx && cx->tr) ? *pl_tr_ocheck_slot(pl_tr_base_of(cx->tr)) : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline uintptr_t pl_tr_frame_hi(const char *b) { return *(const uintptr_t *)(b + PL_TR_FRAME_HI_OFF) >> 8; }
@@ -48,5 +52,13 @@ static inline int pl_tr_needs_log(const pl_tr_ctx_t *cx, const DESCR_t *cell, co
 static inline void pl_tr_push(pl_tr_ctx_t *cx, DESCR_t *cell) {
     if (((uintptr_t)cx->tr & (PL_TR_ARENA_BYTES - 1)) >= PL_TR_ARENA_BYTES - PL_TR_ENTRY_BYTES) rt_pl_tr_refuse(cx->tr);
     { pl_tr_entry_t *e = (pl_tr_entry_t *)cx->tr; e->cell = cell; e->pad = 0; e->old = *cell; cx->tr += PL_TR_ENTRY_BYTES; *(char **)pl_tr_base_of(cx->tr) = cx->tr; }
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline void pl_tr_push_attv(pl_tr_ctx_t *cx, DESCR_t *cell) {
+    char *base = pl_tr_base_of(cx->tr);
+    uint64_t off = (uint64_t)(cx->tr - base);
+    uint64_t *w = pl_tr_wake_slot(base);
+    if (!*w || *w > off) *w = off;
+    pl_tr_push(cx, cell);
 }
 #endif

@@ -11,6 +11,7 @@ RTX_GATE_DEF(plunify)
 #define PL_TR_ARENA_MASK  -134217728
 #define PL_TR_BALL_SLOT   8
 #define PL_TR_OCHECK_SLOT 24
+#define PL_ATTV_SLEN      0x56545441
 #define PL_BALL_ARM(r, t)  mov r15, r; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], r
 #define PL_BALL_DROP(t)    xor r15d, r15d; mov t, r12; and t, PL_TR_ARENA_MASK; mov qword ptr [t + PL_TR_BALL_SLOT], 0
 #define PL_BALL_GET(d)  mov d, r12; and d, PL_TR_ARENA_MASK; mov d, qword ptr [d + PL_TR_BALL_SLOT]
@@ -149,6 +150,8 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r10]
     PL_U_UNB(r10, .Lun_a_unb, .Lun_a_bnd)
 .Lun_a_unb:
+    cmp     dword ptr [r10 + 4], PL_ATTV_SLEN
+    je      .Lun_restart
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_both_unb, .Lun_a_unb_b_bnd)
 .Lun_a_unb_b_bnd:
@@ -166,6 +169,8 @@ RTX_FUNC(rtx_pl_unify)
     mov     qword ptr [r10 + 8], rdx
     jmp     .Lun_next
 .Lun_both_unb:
+    cmp     dword ptr [r11 + 4], PL_ATTV_SLEN
+    je      .Lun_restart
     cmp     r10, rsp
     jbe     .Lun_a_heap
     cmp     r11, rsp
@@ -198,6 +203,8 @@ RTX_FUNC(rtx_pl_unify)
     mov     eax, dword ptr [r11]
     PL_U_UNB(r11, .Lun_b_unb_a_bnd, .Lun_both_bnd)
 .Lun_b_unb_a_bnd:
+    cmp     dword ptr [r11 + 4], PL_ATTV_SLEN
+    je      .Lun_restart
     cmp     byte ptr [r10], DT_PLREF
     jne     .Lun_oc4
     mov     rax, r12
@@ -395,11 +402,16 @@ PL_CTX_LEAF_BALL(skip_list)
 PL_CTX_LEAF_BALL(argv)
 PL_CTX_LEAF_BALL(univ)
 PL_CTX_LEAF_BALL(copy_term)
+PL_CTX_LEAF_BALL(copy_term_nat)
 PL_CTX_LEAF_BALL(term_variables)
 PL_CTX_LEAF_BALL(numbervars3)
 PL_CTX_LEAF(numbervars1)
 PL_CTX_LEAF_BALL(scc_bnew)
 PL_CTX_LEAF_BALL(scc_take)
+PL_CTX_LEAF_BALL(attv_set)
+PL_CTX_LEAF_BALL(attv_atts)
+PL_CTX_LEAF_BALL(attv_take)
+PL_CTX_LEAF_BALL(unifiable)
 PL_CTX_LEAF_BALL(succ)
 PL_CTX_LEAF_BALL(plus)
 PL_CTX_LEAF_BALL(wall_us)

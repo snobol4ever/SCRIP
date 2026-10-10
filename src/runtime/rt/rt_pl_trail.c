@@ -14,11 +14,15 @@ void *rt_pl_tr_init(void) {
     *pl_tr_ocheck_slot(base) = 0;
     *pl_tr_cleanup_slot(base) = (char *)0;
     *pl_tr_probe_b_slot(base) = 0;
+    *pl_tr_wake_slot(base) = 0;
     rt_gc_root_range_add_topword(base);
     return (void *)tr;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 _Static_assert(PL_TR_HEADER_BYTES >= PL_TR_BALL_OFF + 8, "the pending-ball slot must fit inside the trail header, below the first entry");
+_Static_assert(PL_TR_WAKE_OFF == 48 && PL_TR_HEADER_BYTES >= PL_TR_WAKE_OFF + 8,
+    "the attvar wake word (the lowest trail offset of an unwoken attributed-variable binding, 0 none): bb_cleanup.cpp, bb_pl_cell.h and rtx_plunify.s read offset 48");
+_Static_assert(PL_ATTV_SLEN == 0x56545441u, "an attributed variable's word 0 carries this exact slen ('ATTV'); rtx_plunify.s spells it as the literal 0x56545441");
 _Static_assert(PL_TR_BALL_OFF >= 8, "the trail top word owns offset 0 of the header");
 _Static_assert((uintptr_t)PL_TR_ARENA_BYTES == (uintptr_t)134217728, "rtx_plunify.s spells this arena size as the literal mask -33554432");
 _Static_assert(PL_TR_BALL_OFF == 8, "rtx_plunify.s spells this offset as the literal 8");

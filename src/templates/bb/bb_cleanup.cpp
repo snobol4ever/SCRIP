@@ -104,6 +104,16 @@ static std::string cl_probe() {
          + x86_beta_trampoline();
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static std::string cl_wake() {
+    return x86("comment", "IR_CLEANUP wake: an attributed variable bound since the last probe lowered the trail header's wake word -- gamma runs '$wakeup', omega goes on")
+         + x86_alpha()
+         + cl_hdr("rax")
+         + x86("cmp", RDQ("rax", PL_TR_WAKE_OFF), 0L)
+         + x86_omega("je")
+         + x86_gamma()
+         + x86_beta_trampoline();
+}
+/*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static std::string cl_drain() {
     return x86("comment", "IR_CLEANUP drain: the exhaustion road's head -- every younger record was resolved on the way here, so the record must be the youngest")
          + x86_alpha()
@@ -126,7 +136,7 @@ static std::string cl_bank() {
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string bb_cleanup() {
     x86_begin();
-    if (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK) return x86_alpha() + x86_bomb("bb_cleanup: no record slot (op_off)");
+    if (_.op_off < 0 && _.op_ival != CLEANUP_PROBE && _.op_ival != CLEANUP_BANK && _.op_ival != CLEANUP_WAKE) return x86_alpha() + x86_bomb("bb_cleanup: no record slot (op_off)");
     if (!x86_fb_pinned()) return x86_alpha() + x86_bomb("bb_cleanup: a setup_call_cleanup record outside a pinned RBP frame");
     switch ((int)_.op_ival) {
         case CLEANUP_OPEN: return cl_open();
@@ -134,6 +144,7 @@ std::string bb_cleanup() {
         case CLEANUP_POP: return cl_pop();
         case CLEANUP_RESUME: return cl_resume();
         case CLEANUP_PROBE: return cl_probe();
+        case CLEANUP_WAKE: return cl_wake();
         case CLEANUP_DRAIN: return cl_drain();
         case CLEANUP_BANK: return cl_bank();
         default: return x86_alpha() + x86_bomb("bb_cleanup: unknown sub-kind");

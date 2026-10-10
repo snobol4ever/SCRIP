@@ -69,7 +69,7 @@ std::string bb_unify_const() {
                  + x86_omega("je")
                  + x86("jmp", L(40)))
              + x86("def", L(30))
-             + PL_TRAIL(31, 39)
+             + PL_TRAIL(31, 39, 80)
              + x86("mov", RDQ("rdi", 0), _.op_u_ktag)
              + x86_movabs_r64("rax", _.op_u_kval)
              + x86("mov", RDQ("rdi", 8), "rax")

@@ -246,7 +246,10 @@ extern void *rt_ws_alloc_descr(size_t);
 static void plw_bind(DESCR_t *cell, DESCR_t word, pl_tr_ctx_t *cx) {
     char probe;
     char *floor_ = &probe;
-    if (pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
+    if (pl_attv_is(cell)) {
+        if (!cx || !cx->tr) { extern void rt_bomb(const char *msg); rt_bomb("plw_bind: an attributed variable bound with no trail context, so its wakeup cannot be recorded"); }
+        pl_tr_push_attv(cx, cell);
+    } else if (pl_tr_needs_log(cx, cell, floor_)) pl_tr_push(cx, cell);
     if ((char *)cell <= floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *cell = word;
 }
@@ -259,6 +262,16 @@ static int plw_unify_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     if (av && bv) {
         char probe;
         char *floor_ = &probe;
+        int aa = pl_attv_is(A), ba = pl_attv_is(B);
+        if (aa || ba) {
+            DESCR_t r = {0};
+            r.v = (DTYPE_t)DT_PLVAR;
+            if (aa && ba) { DESCR_t *lo = A < B ? A : B, *hi = A < B ? B : A; r.p = (void *)lo; plw_bind(hi, r, cx); return 1; }
+            if (aa) { r.p = (void *)A; plw_bind(B, r, cx); return 1; }
+            r.p = (void *)B;
+            plw_bind(A, r, cx);
+            return 1;
+        }
         if (plw_vvb_on() && (char *)A > floor_ && (char *)B > floor_) {
             DESCR_t *lo = A < B ? A : B;
             DESCR_t *hi = A < B ? B : A;
@@ -5672,6 +5685,18 @@ static int plu_leaf(DESCR_t *A, DESCR_t *B, void *ctx) {
     const char *floor_ = ((plu_ctx_t *)ctx)->floor_;
     {
         int au = plw_unbound_tag(A), bu = plw_unbound_tag(B);
+        int aa = au && pl_attv_is(A), ba = bu && pl_attv_is(B);
+        if (aa || ba) {
+            DESCR_t r = {0};
+            r.v = (DTYPE_t)DT_PLVAR;
+            if (au && bu && aa != ba) { DESCR_t *plain = aa ? B : A; r.p = (void *)(aa ? A : B); if (pl_tr_needs_log(cx, plain, floor_)) pl_tr_push(cx, plain); *plain = r; return 1; }
+            if (au && bu) { DESCR_t *lo = A < B ? A : B, *hi = A < B ? B : A; r.p = (void *)lo; pl_tr_push_attv(cx, hi); *hi = r; return 1; }
+            if (aa) { if (B->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(A, B)) return 0; pl_tr_push_attv(cx, A); *A = *B; return 1; }
+            if (A->v == (DTYPE_t)DT_PLREF && pl_tr_ocheck_mode(cx) && plw_occurs_in(B, A)) return 0;
+            pl_tr_push_attv(cx, B);
+            *B = *A;
+            return 1;
+        }
         if (au && bu) {
             int ah = (const char *)A <= floor_, bh = (const char *)B <= floor_;
             DESCR_t *from, *to;
@@ -5771,6 +5796,7 @@ void rt_pl_format_cell(const char *, void *);
 int rt_pl_char_type_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_term_string_cell(void *, void *, int, pl_tr_ctx_t *);
 int rt_pl_copy_term_cell(void *, void *, pl_tr_ctx_t *);
+int rt_pl_copy_term_nat_cell(void *, void *, pl_tr_ctx_t *);
 int rt_pl_term_variables_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_numbervars_cell(void *, void *, void *, pl_tr_ctx_t *);
 int rt_pl_numbervars1_cell(void *, pl_tr_ctx_t *);
@@ -6379,6 +6405,7 @@ PL_CX_LEAF_HEAD(skip_list, 3)
 PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(univ, 2) ok = rt_pl_univ_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(copy_term, 2) ok = rt_pl_copy_term_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(copy_term_nat, 2) ok = rt_pl_copy_term_nat_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(term_variables, 2)
     {
         extern void *rt_pl_dop_list_guard_c(DESCR_t *, int);
@@ -6413,6 +6440,136 @@ static int rt_pl_scc_take_cell(DESCR_t *ab, DESCR_t *ac, pl_tr_ctx_t *cx) {
 }
 PL_CX_LEAF_HEAD(scc_bnew, 1) ok = rt_pl_scc_bnew_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(scc_take, 2) ok = rt_pl_scc_take_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+static DESCR_t pl_attv_word(DESCR_t *a, pl_tr_ctx_t *cx) {
+    char probe;
+    char *floor_ = &probe;
+    DESCR_t *c = plw_cell_deref(plw_entry(a));
+    DESCR_t r = {0};
+    if (!plw_unbound_tag(c)) return *c;
+    r.v = (DTYPE_t)DT_PLVAR;
+    if ((char *)c > floor_) { DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; r.p = (void *)j; plw_bind(c, r, cx); return r; }
+    r.p = (void *)c;
+    return r;
+}
+static int rt_pl_attv_set_cell(DESCR_t *av, DESCR_t *aa, pl_tr_ctx_t *cx) {
+    char probe;
+    char *floor_ = &probe;
+    DESCR_t w = pl_attv_word(aa, cx);
+    DESCR_t *c = plw_cell_deref(plw_entry(av));
+    if (pl_attv_is(c)) { if (pl_tr_needs_log(cx, c + 1, floor_)) pl_tr_push(cx, c + 1); c[1] = w; return 1; }
+    if (!plw_unbound_tag(c)) return 0;
+    {
+        DESCR_t *blk = (DESCR_t *)rt_ws_alloc_descr(2);
+        DESCR_t r = {0};
+        blk[0].v = (DTYPE_t)DT_PLVAR;
+        blk[0].slen = PL_ATTV_SLEN;
+        blk[0].p = (void *)blk;
+        blk[1] = w;
+        r.v = (DTYPE_t)DT_PLVAR;
+        r.p = (void *)blk;
+        plw_bind(c, r, cx);
+    }
+    return 1;
+}
+static int rt_pl_attv_atts_cell(DESCR_t *av, DESCR_t *aa, pl_tr_ctx_t *cx) {
+    DESCR_t *c = plw_cell_deref(plw_entry(av));
+    if (!pl_attv_is(c)) return 0;
+    return plw_unify_cell_val(plw_entry(aa), c[1], cx);
+}
+static int rt_pl_attv_take_cell(DESCR_t *al, pl_tr_ctx_t *cx) {
+    extern int prolog_atom_intern(const char *);
+    extern int prolog_functor_intern(int, int);
+    char *base = pl_tr_base_of(cx->tr);
+    uint64_t *wk = pl_tr_wake_slot(base);
+    uint64_t lo = *wk;
+    int fid = prolog_functor_intern(prolog_atom_intern("wakeup"), 3);
+    DESCR_t acc = pl_nil();
+    *wk = 0;
+    if (lo) for (char *p = cx->tr - PL_TR_ENTRY_BYTES; p >= base + lo; p -= PL_TR_ENTRY_BYTES) {
+        pl_tr_entry_t *e = (pl_tr_entry_t *)p;
+        if (e->old.v == (DTYPE_t)DT_PLVAR && e->old.slen == PL_ATTV_SLEN && e->old.p == (void *)e->cell) {
+            DESCR_t *k = (DESCR_t *)rt_ws_alloc_descr(3);
+            DESCR_t t = {0};
+            k[0] = e->cell[1];
+            k[1].v = (DTYPE_t)DT_PLVAR;
+            k[1].slen = 0;
+            k[1].p = (void *)e->cell;
+            k[2] = acc;
+            t.v = (DTYPE_t)DT_PLREF;
+            t.slen = (uint32_t)fid;
+            t.p = (void *)k;
+            acc = t;
+        }
+    }
+    if (lo && !cx->b && base + lo < cx->tr) { cx->tr = base + lo; *(char **)base = cx->tr; }
+    return plw_unify_cell_val(plw_entry(al), acc, cx);
+}
+static DESCR_t pl_unif_global(DESCR_t *c, const char *floor_, pl_tr_ctx_t *cx) {
+    DESCR_t r = {0};
+    r.v = (DTYPE_t)DT_PLVAR;
+    c = plw_cell_deref(c);
+    if (plw_unbound_tag(c) && (const char *)c > floor_) {
+        DESCR_t *j = (DESCR_t *)rt_ws_alloc_descr(1);
+        j->v = (DTYPE_t)DT_PLVAR;
+        j->slen = 0;
+        j->p = (void *)j;
+        r.p = (void *)j;
+        plw_bind(c, r, cx);
+        return r;
+    }
+    if (plw_unbound_tag(c)) { r.p = (void *)c; return r; }
+    return *c;
+}
+static int rt_pl_unifiable_cell(DESCR_t *ax, DESCR_t *ay, DESCR_t *au, pl_tr_ctx_t *cx) {
+    extern int prolog_atom_intern(const char *);
+    extern int prolog_functor_intern(int, int);
+    char probe;
+    char *floor_ = &probe;
+    char fakeb[PL_TR_FRAME_HEADER_BYTES];
+    char *base = pl_tr_base_of(cx->tr);
+    uint64_t wake0 = *pl_tr_wake_slot(base);
+    char *mark = cx->tr;
+    pl_tr_ctx_t c2 = *cx;
+    memset(fakeb, 0, sizeof fakeb);
+    pl_tr_frame_hi_set(fakeb, (const void *)0);
+    c2.b = fakeb;
+    int ok = rt_pl_unify_deep_c(plw_entry(ax), plw_entry(ay), &c2);
+    int n = (int)((c2.tr - mark) / PL_TR_ENTRY_BYTES);
+    DESCR_t *cells[n > 0 ? n : 1];
+    DESCR_t vals[n > 0 ? n : 1];
+    int k = 0;
+    if (ok) for (char *p = mark; p < c2.tr; p += PL_TR_ENTRY_BYTES) {
+        pl_tr_entry_t *e = (pl_tr_entry_t *)p;
+        if (e->cell->v == (DTYPE_t)DT_PLVAR && e->cell->p == (void *)e->cell) continue;
+        cells[k] = e->cell;
+        vals[k] = *e->cell;
+        k++;
+    }
+    cx->tr = rt_pl_tr_unwind_to(c2.tr, mark);
+    *(char **)base = cx->tr;
+    *pl_tr_wake_slot(base) = wake0;
+    cx->ball = c2.ball;
+    if (!ok) return 0;
+    {
+        int eq = prolog_functor_intern(prolog_atom_intern("="), 2);
+        DESCR_t acc = pl_nil();
+        for (int i = 0; i < k; i++) {
+            DESCR_t *kk = (DESCR_t *)rt_ws_alloc_descr(2);
+            DESCR_t t = {0};
+            kk[0] = pl_unif_global(cells[i], floor_, cx);
+            kk[1] = vals[i].v == (DTYPE_t)DT_PLVAR && vals[i].p ? pl_unif_global((DESCR_t *)vals[i].p, floor_, cx) : vals[i];
+            t.v = (DTYPE_t)DT_PLREF;
+            t.slen = (uint32_t)eq;
+            t.p = (void *)kk;
+            acc = pl_cons(t, acc);
+        }
+        return plw_unify_cell_val(plw_entry(au), acc, cx);
+    }
+}
+PL_CX_LEAF_HEAD(attv_set, 2) ok = rt_pl_attv_set_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(unifiable, 3) ok = rt_pl_unifiable_cell(&args[0], &args[1], &args[2], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(attv_atts, 2) ok = rt_pl_attv_atts_cell(&args[0], &args[1], cx); PL_CX_LEAF_TAIL
+PL_CX_LEAF_HEAD(attv_take, 1) ok = rt_pl_attv_take_cell(&args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_us, 1) ok = rt_pl_wall_clock_cell(0, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(wall_ms, 1) ok = rt_pl_wall_clock_cell(1, &args[0], cx); PL_CX_LEAF_TAIL
 PL_CX_LEAF_HEAD(succ, 2) ok = rt_pl_succ_plus_cell(2, &args[0], &args[1], (void *)0, cx); PL_CX_LEAF_TAIL

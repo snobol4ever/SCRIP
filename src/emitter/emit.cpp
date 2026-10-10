@@ -1774,9 +1774,10 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
     IR_t *nd = nodes[i];
     int kind = (int) IR_LIT(nd).ival;
     IR_t *op0 = nd->n_operands > 0 ? nd->operands[0] : (IR_t *)0;
-    IR_t *open = kind == CLEANUP_OPEN ? nd : kind == CLEANUP_PROBE ? (IR_t *)0 : kind == CLEANUP_BANK ? nd : op0;
+    IR_t *open = kind == CLEANUP_OPEN ? nd : (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE) ? (IR_t *)0 : kind == CLEANUP_BANK ? nd : op0;
     g_emit.xa_bb_emit_pair_n = 0;
-    if (kind != CLEANUP_PROBE && !emit_zframe_pinned()) { fprintf(stderr, "FATAL emit: a setup_call_cleanup record (IR_CLEANUP kind %d) in a graph that is not a pinned RBP frame\n", kind); abort(); }
+    if (kind != CLEANUP_PROBE && kind != CLEANUP_WAKE && !emit_zframe_pinned())
+        { fprintf(stderr, "FATAL emit: a setup_call_cleanup record (IR_CLEANUP kind %d) in a graph that is not a pinned RBP frame\n", kind); abort(); }
     if (kind == CLEANUP_RESUME) {
         IR_t *g = nd->n_operands > 1 ? nd->operands[1] : (IR_t *)0;
         IR_t *x = nd->n_operands > 2 ? nd->operands[2] : (IR_t *)0;
@@ -1785,7 +1786,7 @@ static void flat_drive_cleanup(IR_t **nodes, int n, int i, bb_label_t **lbls, bb
         xa_pair_push(NULL, kx >= 0 ? lbls[kx] : node_ω);
     }
     g_emit.op_ival = kind;
-    g_emit.op_off = kind == CLEANUP_PROBE ? 0 : (open ? zls_off(open) : -1);
+    g_emit.op_off = (kind == CLEANUP_PROBE || kind == CLEANUP_WAKE) ? 0 : (open ? zls_off(open) : -1);
     g_emit.op_sa = -1;
     if (kind == CLEANUP_OPEN && nd->n_operands > 1 && nd->operands[1]) g_emit.op_sa = drive_value_slot(nd->operands[1]);
     if (kind == CLEANUP_PROBE && op0) g_emit.op_sa = zls_off(op0);
@@ -5963,7 +5964,9 @@ DESCR_t rt_sno_name_dl(DESCR_t *, int); DESCR_t rt_sno_pbk_d(DESCR_t *, int); DE
             int); DESCR_t rt_sno_nofail_d(DESCR_t *, int); DESCR_t rt_sno_list_d(DESCR_t *, int);
 DESCR_t rt_pl_dop_skip_list(DESCR_t *, int); DESCR_t rt_pl_dop_argv(DESCR_t *, int);
 DESCR_t rt_pl_dop_compare(DESCR_t *, int); DESCR_t rt_pl_dop_functor(DESCR_t *, int); DESCR_t rt_pl_dop_arg(DESCR_t *, int); DESCR_t rt_pl_dop_univ(DESCR_t *, int);
-DESCR_t rt_pl_dop_scc_bnew(DESCR_t *, int); DESCR_t rt_pl_dop_scc_take(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_term_variables(DESCR_t *, int);
+DESCR_t rt_pl_dop_attv_set(DESCR_t *, int); DESCR_t rt_pl_dop_attv_atts(DESCR_t *, int); DESCR_t rt_pl_dop_attv_take(DESCR_t *, int); DESCR_t rt_pl_dop_unifiable(DESCR_t *, int);
+DESCR_t rt_pl_dop_scc_bnew(DESCR_t *, int); DESCR_t rt_pl_dop_scc_take(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term(DESCR_t *, int); DESCR_t rt_pl_dop_copy_term_nat(DESCR_t *, int);
+    DESCR_t rt_pl_dop_term_variables(DESCR_t *, int);
     DESCR_t rt_pl_dop_numbervars3(DESCR_t *, int); DESCR_t rt_pl_dop_numbervars1(DESCR_t *,
     int); DESCR_t rt_pl_dop_succ(DESCR_t *, int);
 DESCR_t rt_pl_dop_wall_us(DESCR_t *, int); DESCR_t rt_pl_dop_wall_ms(DESCR_t *, int);
@@ -6077,9 +6080,12 @@ void * dop_direct_fp(const char * fn, int64_t narg, const char ** sym) {
         { "$compare", 3, "rt_pl_dop_compare", rt_pl_dop_compare }, { "$functor", 3, "rt_pl_dop_functor", rt_pl_dop_functor }, { "$arg", 3, "rt_pl_dop_arg", rt_pl_dop_arg },
         { "$skip_list", 3, "rt_pl_dop_skip_list", rt_pl_dop_skip_list }, { "$argv", 1, "rt_pl_dop_argv", rt_pl_dop_argv },
         { "$univ", 2, "rt_pl_dop_univ", rt_pl_dop_univ }, { "$copy_term", 2, "rt_pl_dop_copy_term", rt_pl_dop_copy_term },
+        { "$copy_term_nat", 2, "rt_pl_dop_copy_term_nat", rt_pl_dop_copy_term_nat },
         { "$term_variables", 2, "rt_pl_dop_term_variables", rt_pl_dop_term_variables }, { "$numbervars3", 3, "rt_pl_dop_numbervars3", rt_pl_dop_numbervars3 },
         { "$numbervars1", 1, "rt_pl_dop_numbervars1", rt_pl_dop_numbervars1 }, { "$scc_bnew", 1, "rt_pl_dop_scc_bnew", rt_pl_dop_scc_bnew }, { "$scc_take", 2, "rt_pl_dop_scc_take",
             rt_pl_dop_scc_take }, { "$succ", 2, "rt_pl_dop_succ", rt_pl_dop_succ }, { "$plus", 3, "rt_pl_dop_plus", rt_pl_dop_plus },
+        { "$attv_set", 2, "rt_pl_dop_attv_set", rt_pl_dop_attv_set }, { "$attv_atts", 2, "rt_pl_dop_attv_atts", rt_pl_dop_attv_atts },
+        { "$attv_take", 1, "rt_pl_dop_attv_take", rt_pl_dop_attv_take }, { "$unifiable", 3, "rt_pl_dop_unifiable", rt_pl_dop_unifiable },
         { "$wall_us", 1, "rt_pl_dop_wall_us", rt_pl_dop_wall_us }, { "$wall_ms", 1, "rt_pl_dop_wall_ms", rt_pl_dop_wall_ms },
         { "$sort", 2, "rt_pl_dop_sort", rt_pl_dop_sort }, { "$msort", 2, "rt_pl_dop_msort", rt_pl_dop_msort }, { "$char_type", 2, "rt_pl_dop_char_type", rt_pl_dop_char_type },
         { "$pl_big", 1, "rt_pl_dop_big", rt_pl_dop_big }, { "$findall_new", 0, "rt_pl_dop_findall_new", rt_pl_dop_findall_new }, { "$findall_add", 2, "rt_pl_dop_findall_add", rt_pl_dop_findall_add },

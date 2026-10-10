@@ -2,6 +2,7 @@
 #ifndef PL_CELL_H
 #define PL_CELL_H
 #include "rt/rt_arena.h"
+#include "rt/rt_pl_trail.h"
 #include "descr.h"
 #include <stdint.h>
 #include <stdlib.h>
@@ -50,6 +51,7 @@ static inline void *pl_compound_heap(pl_cell_t *c) { return pl_deref(c)->p; }
 static inline void pl_bind(pl_cell_t *cell, pl_cell_t word) {
     pl_cell_t *v = pl_deref(cell);
     char probe; char *floor_ = &probe;
+    if (pl_attv_is(v)) { extern void rt_bomb(const char *msg); rt_bomb("pl_bind: an attributed variable bound on the untrailed road, so its wakeup cannot be recorded"); }
     if ((char *)v <= floor_) { extern void *rt_ws_alloc_descr(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1); *j = word; word.v = (DTYPE_t)DT_PLVAR; word.slen = 0; word.p = (void *)j; }
     *v = word;
 }
@@ -58,6 +60,7 @@ static inline int pl_unify(pl_cell_t *a, pl_cell_t *b) {
     pl_cell_t *A = pl_deref(a), *B = pl_deref(b);
     if (A == B) return 1;
     int av = pl_cell_unbound(A), bv = pl_cell_unbound(B);
+    if (av && bv && pl_attv_is(A) != pl_attv_is(B)) { pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)(pl_attv_is(A) ? A : B); pl_bind(pl_attv_is(A) ? B : A, r); return 1; }
     if (av && bv) { extern void *rt_ws_alloc_descr(size_t); pl_cell_t *j = (pl_cell_t *)rt_ws_alloc_descr(1); j->v = (DTYPE_t)DT_PLVAR; j->slen = 0; j->p = (void *)j; pl_cell_t r; r.v = (DTYPE_t)DT_PLVAR; r.slen = 0; r.p = (void *)j; pl_bind(A, r); pl_bind(B, r); return 1; }
     if (av) { pl_bind(A, *B); return 1; }
     if (bv) { pl_bind(B, *A); return 1; }

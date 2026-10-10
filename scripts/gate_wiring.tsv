@@ -619,6 +619,7 @@ test_gate_pl_a_write_to_a_binary_current_output_raises_permission_error.sh	WIRED
 test_gate_pl_a_zero_arity_term_is_the_atom_in_both_modes.sh	WIRED	-	-	-
 test_gate_pl_allsol_goal_is_validated.sh	WIRED	-	-	-
 test_gate_pl_an_asserted_atom_survives_a_collection.sh	WIRED	-	-	-
+test_gate_pl_an_attributed_variable_wakes_its_goals_on_every_bind_road.sh	WIRED	-	-	-
 test_gate_pl_an_initialization_goal_may_contain_a_variable.sh	WIRED	-	-	-
 test_gate_pl_an_int64_overflow_promotes_to_the_bignum_core_instead_of_raising.sh	WIRED	-	-	-
 test_gate_pl_an_opaque_goal_barrier_releases_the_frame_its_goal_carved.sh	WIRED	-	-	-

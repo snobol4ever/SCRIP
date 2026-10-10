@@ -85,7 +85,7 @@ std::string bb_unify_struct() {
              + pl_fresh_cells(0)
              + PL_SRC_RDI()
              + PL_DEREF(14, 15, 16, 17)
-             + PL_TRAIL(31, 39)
+             + PL_TRAIL(31, 39, 80)
              + x86("mov", "rax", FRQ(_.op_off))
              + x86("mov", "rdx", FRQ(_.op_off + 8))
              + x86("mov", RDQ("rdi", 0), "rax")
