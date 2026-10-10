@@ -63,11 +63,26 @@ bench_ok() {
 }
 printf '%-20s %-4s %-7s %-7s %-7s %s\n' kernel mode process iter time verdict
 declare -A PASSN; PASSN[m3]=0; PASSN[m4]=0; BOTH=0; TOTAL=0; NAMED=""; HEAPD=0
+# ⭐ EACH KERNEL'S REF NAMES ITS ORACLE (ceo CEO-1603 (3), the coo 2026-10-10, on the swap CEO-1598): a ref is gprolog's answer unless a
+# <k>.oracle sidecar beside the kernel (one line, NAME<TAB>ORACLE<TAB>why) names another. MEASURED: gprolog 1.6.0 refuses
+# witness_depth_nrev8 ("fatal error: redefining built-in predicate append/3"), where 1.4.5 ignored the redefinition and answered with
+# its own append/3 -- so that ref was never the kernel's answer under gprolog; it is swipl 9.0.4's (swipl -q -t halt), one oracle per
+# dialect. The count rides on the board line (oracles=) and every non-gprolog kernel is named with its reason. A name outside
+# gprolog|swipl refuses: a declaration nothing can check is not a declaration.
+declare -A ORC; ORC[gprolog]=0; ORC[swipl]=0; ORC_NAMED=""
 for k in "${KERNELS[@]}"; do
   TOTAL=$((TOTAL+1)); f="$BD/$k.pl"; ref="$BD/$k.ref"
   kb="$(declared_arena_kb_beside "$f")" || refuse "$k: its .heap sidecar is refused (the reader said why above)"
   st="$(declared_stack_kb_beside "$f")" || refuse "$k: its .stack sidecar is refused (the reader said why above)"
   cfg="shipped"; [ -n "$kb" ] && { cfg="SCRIP_HEAP_CAP_KB=$kb"; HEAPD=$((HEAPD+1)); }
+  orc=gprolog; orc_why=""
+  if [ -f "$BD/$k.oracle" ]; then
+    IFS=$'\t' read -r _on orc orc_why < "$BD/$k.oracle"
+    [ "$_on" = "$k" ] || refuse "$k.oracle names '$_on', not $k"
+    case "$orc" in gprolog|swipl) ;; *) refuse "$k.oracle names oracle '$orc' -- gprolog or swipl";; esac
+    [ -n "$orc_why" ] || refuse "$k.oracle names $orc and no reason"
+  fi
+  ORC[$orc]=$((${ORC[$orc]}+1)); [ "$orc" = gprolog ] || ORC_NAMED="$ORC_NAMED $k($orc: $orc_why)"
   [ -n "$st" ] && { cfg="$([ "$cfg" = shipped ] || printf '%s,' "$cfg")SCRIP_STACK=${st}k"; HEAPD=$((HEAPD+1)); }
   if [ ! -s "$ref" ]; then
     for m in m3 m4; do printf 'benchmark\tprolog-bench-ref\tprolog\t%s\t%s\tFAIL\t0\tno-ref\t%s\n' "$k" "$m" "$cfg" >>"$PROG_ROWS"; done
@@ -104,10 +119,11 @@ for k in "${KERNELS[@]}"; do
   done
   [ "$okboth" = 1 ] && BOTH=$((BOTH+1))
 done
-LINE="SUITE_BOARD family=prolog-bench-ref total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD"
+LINE="SUITE_BOARD family=prolog-bench-ref total=$TOTAL shipped=$TOTAL all_pass=$BOTH all_n=$TOTAL m3_pass=${PASSN[m3]} m4_pass=${PASSN[m4]} angles=process,iter,time iter_n=$ITER_N bud_ms=$BUD_MS memory_declared=$HEAPD oracles=gprolog:${ORC[gprolog]},swipl:${ORC[swipl]}"
 echo
 echo "$LINE"
 [ -n "$NAMED" ] && echo "  not passing:$NAMED"
+[ -n "$ORC_NAMED" ] && echo "  refs not cut from gprolog:$ORC_NAMED"
 echo "  tree: SCRIP=$(git -C "$HERE/.." rev-parse --short HEAD 2>/dev/null)$(git -C "$HERE/.." diff --quiet 2>/dev/null || echo -dirty) corpus=$(git -C "$S4E/corpus" rev-parse --short HEAD 2>/dev/null)$(git -C "$S4E/corpus" diff --quiet 2>/dev/null || echo -dirty)"
 if [ "$IS_BOARD" = 0 ]; then
   echo "  population $BD is OUTSIDE the corpus tree -- not a board (CEO-547): graded, and no progress row and no suite row written"
