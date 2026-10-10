@@ -2048,7 +2048,15 @@ _INCLUDE_PATTERNS = [
     # literal in the same body; excluding '\n' bounds the match to one line (a real filename argument never
     # spans lines) and non-greedy `*?` stops at the FIRST quote pair instead of backtracking past it.
     re.compile(r'\b(?:INPUT|OUTPUT)\s*\([^)\n]*?["\']([^"\'\n]+)["\']'),
+    # ⭐ PROLOG'S LOAD DIRECTIVES NAME A COMPANION BY AN UNQUOTED ATOM, USUALLY WITHOUT .pl (the coo 2026-10-10, row
+    # instruments-the-harness-stages-a-prolog-companion-...-ceo-1603; hq_prolog's report through the ceo: puzzles' farmer loads bplan.pl
+    # by use_module(bplan) and ran without it). use_module/ensure_loaded/consult/include/reexport/load_files take the name as their first
+    # argument; library(...) never matches (the name must be followed by , or ), not by a parenthesis). The quoted forms with an
+    # extension were already caught by the first pattern. An extension-less name resolves to NAME.pl in _copy_companions.
+    re.compile(r"\b(?:use_module|ensure_loaded|consult|include|reexport|load_files)\s*\(\s*'?([a-z][A-Za-z0-9_]*(?:\.pl)?)'?\s*[,)]"),
 ]
+# ⭐ AND THE LIST FORM, :- [a, b]. -- consult as a list, each element a name (split in _companion_files, not one capture)
+_PROLOG_CONSULT_LIST = re.compile(r"^\s*:-\s*\[([^\]\n]+)\]\s*\.", re.M)
 
 
 def _companion_files(text):
@@ -2062,6 +2070,11 @@ def _companion_files(text):
     names = []
     for pat in _INCLUDE_PATTERNS:
         names.extend(pat.findall(text))
+    for group in _PROLOG_CONSULT_LIST.findall(text):
+        for el in group.split(","):
+            el = el.strip().strip("'")
+            if re.fullmatch(r"[a-z][A-Za-z0-9_]*(?:\.pl)?", el):
+                names.append(el)
     return names
 
 
@@ -2140,6 +2153,9 @@ def _copy_companions(text, companion_dir, dest_dir):
         for _cd in companion_dirs:
             src_companion = _cd / name
             dst_companion = Path(dest_dir) / name
+            # an extension-less name a Prolog load directive gave resolves as the loader resolves it: NAME.pl beside the entry
+            if not src_companion.is_file() and not Path(name).suffix and (_cd / (name + ".pl")).is_file():
+                src_companion = _cd / (name + ".pl"); dst_companion = Path(dest_dir) / (name + ".pl")
             if src_companion.is_file() and not (dst_companion.exists() and src_companion.samefile(dst_companion)):
                 dst_companion.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(src_companion, dst_companion)
