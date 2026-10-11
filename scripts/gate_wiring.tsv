@@ -720,6 +720,7 @@ test_gate_pl_the_gnu_file_and_os_builtins_answer_as_gnu_prolog.sh	WIRED	-	-	-
 test_gate_pl_the_iso_flag_makes_reads_strict_and_integer_division_a_float.sh	WIRED	-	-	-
 test_gate_pl_the_neck_atom_before_an_adjacent_paren_is_functional_notation.sh	WIRED	-	-	-
 test_gate_pl_the_prelude_sees_every_clause_of_the_program.sh	WIRED	-	-	-
+test_gate_pl_the_press_and_chat80_dec10_surface_answers_as_swipl.sh	WIRED	-	-	-
 test_gate_pl_the_query_neck_reads_as_an_atom_and_a_prefix_operator.sh	WIRED	-	-	-
 test_gate_pl_the_reclaim_report_names_every_erased_fragment_and_its_holders.sh	WIRED	-	-	-
 test_gate_pl_trail_mechanism.sh	WIRED	-	-	-

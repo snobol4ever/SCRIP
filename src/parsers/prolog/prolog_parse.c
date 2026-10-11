@@ -1771,6 +1771,18 @@ static const char * const PL_PRELUDE_SRC =
     "trie_gen_compiled(T,K):-trie_gen(T,K,_).\n"
     "trie_gen_compiled(T,K,V):-trie_gen(T,K,V).\n"
     "trie_term('$trie_node'(I,E),K):-'$trie_entry_key'(I,E,K).\n"
+    "recorda(K,T):-recorda(K,T,_).\n"
+    "recordz(K,T):-recordz(K,T,_).\n"
+    "recorda(K,T,R):-'$rec_key'(K,K1),'$rec_id'(I),asserta('$rec'(K1,I,T)),R='$record'(I).\n"
+    "recordz(K,T,R):-'$rec_key'(K,K1),'$rec_id'(I),assertz('$rec'(K1,I,T)),R='$record'(I).\n"
+    "recorded(K,T):-recorded(K,T,_).\n"
+    "recorded(K,T,R):-'$rec_key'(K,K1),(nonvar(R)->R='$record'(I);true),'$rec'(K1,I,T),R='$record'(I).\n"
+    "'$rec_key'(K,K):-var(K),!.\n"
+    "'$rec_key'(K,N/A):-compound(K),!,functor(K,N,A).\n"
+    "'$rec_key'(K,K).\n"
+    "'$rec_id'(I):-catch(nb_getval('$rec_n',I0),_,I0=0),I is I0+1,nb_setval('$rec_n',I).\n"
+    "'$rec_ref'(R):-nonvar(R),R='$record'(_).\n"
+    "'$rec_erase'('$record'(I)):-retract('$rec'(_,I,_)),!.\n"
     "'$mq_arg'(A,Q):-(nonvar(A),A=_:_->Q=A;Q=user:A).\n"
     "print_message(_,format(F,A)):-!,catch(format(user_error,F,A),_,true),nl(user_error).\n"
     "print_message(_,_).\n"
@@ -2321,6 +2333,7 @@ void prolog_inject_prelude(PlProgram *prog, const char *user_src) {
         if (cl->tr) { pl_tree_collect_calls(cl->tr, &referenced); pl_tree_collect_keys(cl->tr, &refkeys); }
     }
     if (pl_cv_has(&referenced, "phrase")) pl_cv_add(&referenced, "$phrase");
+    if (pl_cv_has(&referenced, "erase")) { pl_cv_add(&referenced, "$rec_ref"); pl_cv_add(&referenced, "$rec_erase"); }
     if (pl_cv_has(&referenced, "table")) { pl_cv_add(&referenced, "$tbl_call"); pl_cv_add(&referenced, "$tbl_mcall"); }
     if (pl_cv_has(&referenced, "setup_call_cleanup") || pl_cv_has(&referenced, "call_cleanup")) pl_cv_add(&referenced, "$scc_cut");
     if (pl_cv_has(&referenced, "meta_predicate")) pl_cv_add(&referenced, "$mq_arg");

@@ -476,7 +476,7 @@ static IR_t * goal(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωfail, I
 static int pl_tree_is_nil(const tree_t * t) { if (!t) return 0; if (t->t == TT_MAKELIST) return t->n == 0; return (t->t == TT_QLIT || t->t == TT_NAME) && t->v.sval && !strcmp(t->v.sval, "[]"); }
 static const char * const pl_db_mq_builtins[] = { "assert", "asserta", "assertz", "retract", "retractall", "abolish", NULL };
 static const char * const pl_decl_directives[] = { "multifile", "discontiguous", "ensure_loaded", "use_module", "module", "meta_predicate", "dynamic", "table", "module_transparent", "$module_restore",
-    NULL };
+    "public", "mode", NULL };
 static void pl_decl_dynamic_record(stage2_t * s2, tree_t * spec, tree_t * marker) {
     if (!spec) return;
     if (spec->t == TT_FNC && spec->v.sval && !strcmp(spec->v.sval, ",") && spec->n == 2) { pl_decl_dynamic_record(s2, spec->c[0], marker); pl_decl_dynamic_record(s2, spec->c[1], marker); return; }
@@ -2499,8 +2499,8 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 }
             }
             if (!strcmp(nm, "erase") && t->n == 1) {
-                return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")), pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0])), γnext, ωfail,
-                    entry_out);
+                tree_t * clr = pl_cc_fnc2(",", pl_cc_fnc2("$db_t_guard", (tree_t *) t->c[0], (tree_t *) pl_atom_goal("clref_in")), pl_cc_fnc1("$db_erase_ref", (tree_t *) t->c[0]));
+                return goal(cx, pl_cc_fnc2(";", pl_cc_fnc2("->", pl_cc_fnc1("$rec_ref", (tree_t *) t->c[0]), pl_cc_fnc1("$rec_erase", (tree_t *) t->c[0])), clr), γnext, ωfail, entry_out);
             }
             if (!strcmp(nm, "retract") && t->n == 1) {
                 int ar = 0;
@@ -2543,6 +2543,12 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     return nd;
                 }
             }
+            if (!strcmp(nm, "put") && t->n == 1 && t->c[0] && t->c[0]->t != TT_ILIT && !pl_file_defines(nm, 1)) {
+                tree_t * v = pl_cc_freshvar();
+                return goal(cx, pl_cc_fnc2(",", pl_cc_fnc2("is", v, (tree_t *) t->c[0]), pl_cc_fnc1("put_code", v)), γnext, ωfail, entry_out);
+            }
+            if (!strcmp(nm, "abolish") && t->n == 2 && !pl_file_defines(nm, 2))
+                return goal(cx, pl_cc_fnc1("abolish", pl_cc_fnc2("/", (tree_t *) t->c[0], (tree_t *) t->c[1])), γnext, ωfail, entry_out);
             if (!strcmp(nm, "abolish") && t->n == 1) {
                 int ar = 0;
                 const char * pn;
@@ -2821,7 +2827,11 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     return nd;
                 }
             }
-            { extern int g_rt_fragment_emit; int r = pl_rung_of(nm); if (r && !g_rt_fragment_emit && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
+            {
+                extern int g_rt_fragment_emit;
+                int r = pl_rung_of(nm);
+                if (r && !g_rt_fragment_emit && !g_stage2.rt_lowering && !pl_file_defines(nm, t->n) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r);
+            }
             return pl_user_call(cx, nm, t, t->n, γnext, ωfail, entry_out);
         }
         case TT_QLIT:
@@ -2847,7 +2857,11 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 return cn;
             }
             { const char * ls = pl_det_leaf_sym(nm, 0); if (ls) return pl_leaf_lv(cx, ls, t, 0, γnext, ωfail, entry_out); }
-            { extern int g_rt_fragment_emit; int r = pl_rung_of(nm); if (r && !g_rt_fragment_emit && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r); }
+            {
+                extern int g_rt_fragment_emit;
+                int r = pl_rung_of(nm);
+                if (r && !g_rt_fragment_emit && !g_stage2.rt_lowering && !pl_file_defines(nm, 0) && !pl_det_leaf_name_wired(nm)) pl_refuse("builtin", nm, r);
+            }
             return pl_user_call(cx, nm, t, 0, γnext, ωfail, entry_out);
         }
         case TT_CUT:
@@ -4274,7 +4288,7 @@ stage2_t *lower_pl_stage2(const tree_t *prog) {
             continue;
         }
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "meta_predicate") && subj->n >= 1) { for (int k = 0; k < subj->n; k++) pl_decl_meta_record(subj->c[k]); continue; }
-        if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives)) continue;
+        if (subj->t == TT_FNC && subj->v.sval && pl_name_in(subj->v.sval, pl_decl_directives) && !pl_file_defines(subj->v.sval, subj->n)) continue;
         if (subj->t == TT_FNC && subj->v.sval && !strcmp(subj->v.sval, "op") && subj->n == 3) { init_goals[ninit++] = pl_dir_catch_wrap((tree_t *) subj, dvn, &dvc); continue; }
         {
             tree_t * dirgoal = (tree_t *) subj;

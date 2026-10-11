@@ -5896,6 +5896,18 @@ static int pl_ax_eval(DESCR_t t, DESCR_t *out, void **ball) {
         const char *sfx = pl_ax_suffix_any(nm, ar);
         DESCR_t *kids = (DESCR_t *)d.p;
         DESCR_t ev[3];
+        if (ar == 2 && nm && !strcmp(nm, ".") && kids) {
+            DESCR_t tl = rt_pl_deref_val(kids[1]), hd = rt_pl_deref_val(kids[0]);
+            if ((int)tl.v == DT_PLATOM && pl_atom_str(tl) && !strcmp(pl_atom_str(tl), "[]")) {
+                if (hd.v == (DTYPE_t)DT_PLVAR) { *ball = rt_pl_ball_instantiation(); return 0; }
+                if (hd.v == DT_I) { *out = hd; return 1; }
+                if ((int)hd.v == DT_PLATOM) {
+                    const char *a = pl_atom_str(hd);
+                    int adv = 0;
+                    if (a && a[0]) { long long cp = (long long)rt_pl_u8_get(a, &adv); if (a[adv] == '\0') { *out = INTVAL(cp); return 1; } }
+                }
+            }
+        }
         if (!sfx || ar < 1 || ar > 3 || !kids) { *ball = rt_pl_ball_type_pi("type_error", "evaluable", nm ? nm : "?", ar); return 0; }
         for (int k = 0; k < ar; k++) if (!pl_ax_eval(kids[k], &ev[k], ball)) { *out = ev[k]; return 0; }
         dop_ax(sfx, ev, ar, out, ball);
