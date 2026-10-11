@@ -448,7 +448,13 @@ def build(pkg_dir, lang, out_prefix="ALL", twice=False):
                      stdin=stdin_text, want_rc=want_rc)
         entries.append(e)
         if len(_ladder) > 1:
-            dialects.append((name, {"-Miso": "iso", "": "fpc-default", "-Mobjfpc": "objfpc", "-Mdelphi": "delphi", "-Mtp": "tp"}[_fl]))
+            # ⛔ THE LABEL IS THE MODE FPC COMPILED IN, NOT THE RUNG THAT ASKED (hq_pascal 2026-10-11, CEO-1657 clause 4): a source's own
+            # {$mode X} overrides the command line, so 102 entries cut on the -Miso rung under {$mode delphi} or {$mode objfpc} read "iso"
+            # and two delphi programs sat on ISO_EXPECTED_REFUSALS.tsv. The source's first {$mode X} names the mode; every directive in
+            # rosetta-pascal sits in a branch fpc takes ({$ifdef fpc}, {$else} of {$ifndef fpc}), measured, so the first one is the one fpc obeys.
+            _dm = re.search(r"\{\$mode\s+([a-z]+)", text, re.I)
+            _dmode = {"fpc": "fpc-default", "delphiunicode": "delphi"}.get(_dm.group(1).lower(), _dm.group(1).lower()) if _dm else None
+            dialects.append((name, _dmode or {"-Miso": "iso", "": "fpc-default", "-Mobjfpc": "objfpc", "-Mdelphi": "delphi", "-Mtp": "tp"}[_fl]))
         _fed = f" [stdin: {stdin_path.name}]" if stdin_text is not None else ""
         if prog_args: e.argv = list(prog_args)
         if out_files: e.out_files = list(out_files)
