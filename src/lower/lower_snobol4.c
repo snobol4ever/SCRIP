@@ -1461,6 +1461,8 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
             IR_t * else_tgt;
             if (def_body) { cx->loop_exit = γ; IR_t * db = sco_branch(cx, def_body, γ, ω); cx->loop_exit = sv_exit; else_tgt = db; } else else_tgt = γ;
             IR_t * chain = else_tgt;
+            tree_t * swv = ast_node_new(TT_VAR);
+            swv->v.sval = sno_scan_tmp("SWD");
             for (int i = t->n - 2; i >= 1; i -= 2) {
                 const tree_t * v = t->c[i];
                 const tree_t * b = t->c[i + 1];
@@ -1470,12 +1472,17 @@ static IR_t * sx_lower(scx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t 
                 cx->loop_exit = sv_exit;
                 tree_t * idc = ast_node_new(TT_FNC);
                 idc->v.sval = (char *) "IDENT";
-                ast_push(idc, (tree_t *) subj);
+                ast_push(idc, swv);
                 ast_push(idc, (tree_t *) v);
                 IR_t * ir = NULL;
                 IR_t * te = sx_lower(cx, idc, body_entry, lc_build(cx->g, IR_SETEXIT_TEST, chain, chain), &ir);
                 chain = te;
             }
+            tree_t * swa = ast_node_new(TT_ASSIGN);
+            ast_push(swa, swv);
+            ast_push(swa, (tree_t *) subj);
+            IR_t * swr = NULL;
+            chain = sx_lower(cx, swa, chain, else_tgt, &swr);
             cx->loop_exit = sv_exit;
             cx->loop_next = sv_next;
             if (res) *res = NULL;
