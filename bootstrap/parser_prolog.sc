@@ -28,6 +28,7 @@ $'is'  = *$' ' 'is' @wq *(~(Src ? (TAB(wq) ANY(&LCASE &UCASE '0123456789_')))) *
 $'*->' = *$' ' '*->' . op_name_ *$' ';
 $'as'  = *$' ' 'as' @wq *(~(Src ? (TAB(wq) ANY(&LCASE &UCASE '0123456789_')))) . op_name_ *$' ';
 $'-->' = *$' ' '-->' *$' ';
+$'=>'  = *$' ' '=>' *$' ';
 $'{'   = *$' '  '{'  *$' ';  $'}'  = *$' ' '}'  *$' ';
 Tk_cut = *$' ' '!' *$' ';
 $'=:=' = *$' ' '=:=' *$' ';  $'=\=' = *$' ' '=\=' *$' ';
@@ -243,7 +244,7 @@ list = (    *$'['
 compound_args = ( epsilon . *PushCounter() FENCE(*args | epsilon) *$')' . *Reduce('TT_FNC', nTop(), PopVal()) . *PopCounter() );
 /* primary: atoms, variables, numbers, compound terms, parenthesised terms, lists, curly terms */
 /* a fenced level above never retries a primary once one has matched, so a quoted form stands before the graphic-atom forms */
-primary = (   *BqStr
+primary0 = (   *BqStr
           |   *Str
           |   (*Atom) . p_name *$'(' . *PushVal(p_name) *compound_args
           |   *$' ' (*Graphic_atom | ';') . g_name *$'(' . *PushVal(g_name) *compound_args
@@ -255,6 +256,8 @@ primary = (   *BqStr
           |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre700') *colon_expr  . *Reduce('TT_FNC', 1, PopVal())
           |   *uop_on *IDENT(uop_band['pre' uop_tx], 'pre900') *unify_expr  . *Reduce('TT_FNC', 1, PopVal())
           |   *$' ' '\+' *$' ' *unify_expr    . *Reduce('TT_FNC', 1, '\+')
+          |   *$' ' '$' *$' ' *primary    . *Reduce('TT_FNC', 1, '$')
+          |   *$' ' '$' *$' '              . *Shift('TT_QLIT', '$')
           |   (*Graphic_atom2) . thx . *Shift('TT_QLIT', thx)
           |   *Tk_cut                  . *Reduce('TT_CUT', 0)
           |   *Number
@@ -273,6 +276,17 @@ primary = (   *BqStr
           |   *$' ' '-' *$' ' *primary   . *Reduce('TT_FNC', 1, '-')
           |   *$' ' '+' *$' ' *primary   . *Reduce('TT_FNC', 1, '+')
           );
+/* SWI dicts, as the C reads them: a tag glued to a brace is $dict_lit(Tag, K1, V1, ...), a dot glued to the term before it and followed by a letter or */
+/* an underscore is $dot(Obj, Func) with Func a variable, an atom or a compound, chaining left to right; the end dot is followed by layout and is neither */
+dict_key   = ( (*Atom) . thx . *Shift('TT_QLIT', thx) | (*Int) . thx . *Shift('TT_ILIT', thx) );
+dict_pair  = ( *dict_key . *IncCounter() *$':' *arg . *IncCounter() );
+dict_pairs = ( *dict_pair FENCE( *$',' *dict_pairs | epsilon ) );
+dict_lit   = ( epsilon . *PushCounter() . *IncCounter() '{' FENCE( *dict_pairs | epsilon ) *$'}' . *Reduce('TT_FNC', nTop(), '$dict_lit') . *PopCounter() );
+dot_func   = (   (*Var) . thx . *Shift('TT_VAR', thx)
+             |   (*Atom) . p_name *$'(' . *PushVal(p_name) *compound_args
+             |   (*Atom) . thx . *Shift('TT_QLIT', thx) );
+dot_chain  = FENCE( '.' *dot_func . *Reduce('TT_FNC', 2, '$dot') *dot_chain | epsilon );
+primary   = ( *primary0 FENCE( *dict_lit | epsilon ) *dot_chain );
 pow_expr  = (   *primary
                 FENCE( *$'^'  *pow_expr  . *Reduce('TT_FNC', 2, '^')
                      | *$'**' *primary   . *Reduce('TT_FNC', 2, '**')
@@ -349,7 +363,9 @@ body_goal = (   *$' ' (*pfx_kw_name) . pfx_kw *$'  ' . *PushVal(pfx_kw) *disj . 
 conj       = ( *body_goal FENCE( *$',' *conj . *Reduce('TT_FNC', 2, ',') | epsilon ) );
 conj_arrow = ( *conj FENCE( *$'->' *conj_arrow  . *Reduce('TT_FNC', 2, '->') | *$'*->' *conj_arrow  . *Reduce('TT_FNC', 2, '*->') | epsilon ) );
 disj       = ( *conj_arrow FENCE( *$';' *disj . *Reduce('TT_FNC', 2, ';') | epsilon ) );
-body = *disj;
+/* '|' is an infix operator, 1105 xfy, below ';' and above ':-' ; in an argument list or a list the bar keeps its other meanings, which are arg and list_body above */
+bar        = ( *disj FENCE( *$'|' *bar . *Reduce('TT_FNC', 2, '|') | epsilon ) );
+body = *bar;
 term_top = ( *$':-' *body . *Reduce('TT_FNC', 1, ':-')
            | *body FENCE( *$':-' *body . *Reduce('TT_FNC', 2, ':-') | *$'-->' *body . *Reduce('TT_FNC', 2, '-->') | epsilon ) );
 head = *unify_expr;
@@ -358,6 +374,11 @@ dcg_push  = (   *unify_expr FENCE(*$',' *dcg_push . *Reduce('TT_FNC', 2, ',') | 
 dcg_rule  = (   *head FENCE(*$',' *dcg_push . *Reduce('TT_FNC', 2, ',') | epsilon) *$'-->'
                 *body *$'.'
                                       . *Reduce('TT_FNC', 2, '-->') . *Reduce('TT_CLAUSE', 1)
+            );
+/* an SSU rule is the clause of the one term =>(head, body); a guard after the head is ','(head, goals) */
+ssu_rule  = (   *head FENCE(*$',' *conj . *Reduce('TT_FNC', 2, ',') | epsilon) *$'=>'
+                *body *$'.'
+                                      . *Reduce('TT_FNC', 2, '=>') . *Reduce('TT_CLAUSE', 1)
             );
 clause    = (   *head
                 ( *$':-' *body         . *Reduce('TT_CLAUSE', 2)
@@ -369,7 +390,7 @@ directive = (   *$':-' . *Reduce('TT_NUL', 0)
                 *body *$'.'
                                      . *Reduce('TT_CLAUSE', 2)
             );
-top_form  = (*directive | *clause | *dcg_rule);
+top_form  = (*directive | *clause | *dcg_rule | *ssu_rule);
 /* ==================================================================================================================== */
 Compiland = epsilon . *PushCounter()
             POS(0) ARBNO( FENCE(*$' ' *top_form . *IncCounter()) FLUSH ) *$' ' RPOS(0)
