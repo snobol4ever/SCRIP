@@ -1301,7 +1301,7 @@ static int walk_bb_node_inner(IR_t * nd, FILE * out) {
     case IR_LIT_ATOM:
     case IR_LIT_CHARSET:
     case IR_LIT_NAME:
-    case IR_LIT_REAL: { { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); } return 0;
+    case IR_LIT_REAL: { g_emit.op_seal = nd->seal; { long fck; if (!g_emit.op_zres && fc_geom(nd, &fck)) { g_emit.op_fc_bytes = fck; g_emit.op_fc_base = g_emit.op_off; } } bb_emit_x86(bb_lit_scalar()); } return 0;
     case IR_KW_ICON:
     case IR_KW_ICON_GEN: g_emit.op_var_form = nd->pat_static; g_emit.op_name2 = kw_bare(g_emit.op_sval); bb_emit_x86(bb_keyword_icon()); g_emit.op_var_form = 0; return 0;
     case IR_KW_SNOBOL4: kw_snobol4_prepare(); bb_emit_x86(bb_keyword_snobol4()); return 0;
