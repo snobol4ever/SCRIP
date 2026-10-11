@@ -39,6 +39,7 @@ typedef struct {
     int after_line;
     const tree_t * discard;
     int ret_lv;
+    int var_road;
     const char * file;
     int links;
     const tree_t * prog;
@@ -832,10 +833,13 @@ static IR_t * lower_lvalue_var(icx_t * cx, const tree_t * t, IR_t * ω, IR_t ** 
     }
     if ((t->t == TT_ASSIGN || t->t == TT_SWAP || t->t == TT_AUGOP || t->t == TT_REVSWAP || t->t == TT_REVASSIGN) && t->n > 1 && t->c[0]) {
         int sv = cx->ret_lv;
+        int svr = cx->var_road;
         cx->ret_lv = 0;
+        cx->var_road = 1;
         IR_t * ir = NULL;
         IR_t * ie = lower(cx, t, NULL, ω, &ir);
         cx->ret_lv = sv;
+        cx->var_road = svr;
         if (!ie || !ir) return NULL;
         if ((ir->op == IR_ASSIGN_VAR || ir->op == IR_SWAP_VAR || ir->op == IR_REV_ASSIGN_VAR) && ir->n_operands == 2 && ir->operands[0]) {
             IR_t * fw = build(cx, IR_CONJUNCTION, NULL, ω);
@@ -1300,6 +1304,8 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                 return entry;
             }
             {
+                int var_road = cx->var_road;
+                cx->var_road = 0;
                 IR_t * b4 = cx->beta;
                 IR_t * lv = NULL;
                 IR_t * lve = lhs ? lower_lvalue_var(cx, lhs, ω, &lv) : NULL;
@@ -1308,7 +1314,7 @@ static IR_t * lower(icx_t * cx, const tree_t * t, IR_t * γ, IR_t * ω, IR_t ** 
                     IR_t * asn = build(cx, IR_ASSIGN_VAR, γ, ω);
                     IR_t * rr = NULL;
                     IR_t * re = lower(cx, rhs, asn, lvbeta ? lvbeta : ω, &rr);
-                    int tbl_store = lhs->t == TT_IDX && lhs->n == 2 && lv->op == IR_SUBSCRIPT && lv->n_operands == 2 && !IR_LIT(lv).sval;
+                    int tbl_store = lhs->t == TT_IDX && lhs->n == 2 && lv->op == IR_SUBSCRIPT && lv->n_operands == 2 && !IR_LIT(lv).sval && !var_road;
                     lc_γ_to(lv, re);
                     ir_operand_push(asn, lv);
                     ir_operand_push(asn, rr);
