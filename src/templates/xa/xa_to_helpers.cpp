@@ -15,15 +15,15 @@ int core_icn_int_operand_ok(uint64_t lo, uint64_t hi);
 #include "x86_asm.h"
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_mark() {
-    return IF(x86_fb_pinned(),
+    return IF(x86_fb_pinned() && _.op_to_trailed,
                x86("mov", FRQ(_.op_off + 24), "r12")
              + x86_pl_disj_open(x86_fb(), g_emit.flat_frame_bytes, 226, 227));
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 std::string xa_to_trail_unwind() {
-    return IF(!x86_fb_pinned(),
+    return IF(!(x86_fb_pinned() && _.op_to_trailed),
                std::string())
-         + IF(!(!x86_fb_pinned()),
+         + IF(x86_fb_pinned() && _.op_to_trailed,
                x86_pl_tr_unwind_at(FRQ(_.op_off + 24), 200, 201)
                + x86("test", "r15", "r15")
                + x86_omega("jne"));

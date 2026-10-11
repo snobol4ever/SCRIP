@@ -206,7 +206,7 @@ static int zls_grant_locals(const IR_graph_t * g, const IR_t * nd, int scope_id,
         case IR_TO_BY:
         zls_field(scope_id, off, 8, ZK_RAW, 0, "to.I counter", nd);
         zls_field(scope_id, off + 8, 8, ZK_RAW, 0, "to.limit", nd);
-        if (nd->op == IR_TO && IR_LIT(nd).sval && !strcmp(IR_LIT(nd).sval, "db")) {
+        if (nd->op == IR_TO && ir_range_kind_is(nd, "db")) {
             zls_field(scope_id, off + 16, 8, ZK_RAW, 0, "to.db G (the generation the enumeration took at alpha, ARCH-PROLOG-C-OUT-OF-THE-BOX 5.2 B)", nd);
             zls_field(scope_id, off + 24, 8, ZK_RAW, 0, "to.db pad (unused)", nd);
             return 2;

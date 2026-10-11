@@ -1493,7 +1493,7 @@ static IR_t * pl_db_enum(lcx_t * cx, int k, const tree_t * target, int erase, IR
     IR_t * cp = build(cx, IR_CALL, uni, ωfail);
     IR_LIT(cp).sval = "$db_copy";
     IR_t * to = build(cx, IR_TO, cp, ωfail);
-    IR_LIT(to).sval = (char *) "db";
+    IR_LIT(to).sval = (char *) "db:trl";
     IR_t * z = build(cx, IR_LIT_INTEGER, to, ωfail);
     IR_LIT(z).ival = 0;
     IR_t * te = NULL;
@@ -1536,7 +1536,7 @@ static IR_t * pl_db_enum_ref(lcx_t * cx, const tree_t * target, const tree_t * r
     IR_t * at = build(cx, IR_CALL, uni, ωfail);
     IR_LIT(at).sval = "$db_at_r";
     IR_t * to = build(cx, IR_TO, at, ωfail);
-    IR_LIT(to).sval = (char *) "ag";
+    IR_LIT(to).sval = (char *) "ag:trl";
     IR_t * cnt = build(cx, IR_CALL, to, ωfail);
     IR_LIT(cnt).sval = "$db_n_r";
     IR_t * lo = build(cx, IR_LIT_INTEGER, cnt, ωfail);
@@ -2070,7 +2070,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 IR_t * nd = build(cx, IR_CALL, γnext, ωfail);
                 IR_LIT(nd).sval = "$atom_concat_at";
                 IR_t * to = build(cx, IR_TO, nd, ωfail);
-                IR_LIT(to).sval = (char *) "ag";
+                IR_LIT(to).sval = (char *) "ag:trl";
                 IR_t * cnt = build(cx, IR_CALL, to, ωfail);
                 IR_LIT(cnt).sval = "$atom_concat_n";
                 IR_t * lo = build(cx, IR_LIT_INTEGER, NULL, ωfail);
@@ -2124,7 +2124,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 IR_t * nd = build(cx, IR_CALL, γnext, ωfail);
                 IR_LIT(nd).sval = "$sub_atom_at";
                 IR_t * to = build(cx, IR_TO, nd, ωfail);
-                IR_LIT(to).sval = (char *) "ag";
+                IR_LIT(to).sval = (char *) "ag:trl";
                 IR_t * ae = NULL;
                 IR_t * av = term_e(cx, t->c[0], &ae);
                 IR_t * cnt = build(cx, IR_CALL, to, ωfail);
@@ -2239,7 +2239,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                     IR_t * nd = build(cx, IR_CALL, γnext, ωfail);
                     IR_LIT(nd).sval = (char *) gat;
                     IR_t * to = build(cx, IR_TO, nd, ωfail);
-                    IR_LIT(to).sval = (char *) "ag";
+                    IR_LIT(to).sval = (char *) "ag:trl";
                     IR_t * cnt = build(cx, IR_CALL, to, ωfail);
                     IR_LIT(cnt).sval = "$bagof_group_n";
                     IR_t * lo = build(cx, IR_LIT_INTEGER, cnt, ωfail);
@@ -2397,7 +2397,7 @@ static IR_t * goal_inner(lcx_t * cx, const tree_t * t, IR_t * γnext, IR_t * ωf
                 IR_t * nd = build(cx, IR_CALL, γnext, ωfail);
                 IR_LIT(nd).sval = "$is_v";
                 IR_t * to = build(cx, IR_TO, nd, ωfail);
-                IR_LIT(to).sval = (char *) "ag";
+                IR_LIT(to).sval = (char *) "ag:trl";
                 IR_t * loe = NULL;
                 IR_t * lo = lower_arith_val(cx, lo_t, ωfail, &loe);
                 IR_t * hie = NULL;

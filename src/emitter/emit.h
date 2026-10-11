@@ -355,6 +355,7 @@ typedef struct {
     int op_relop_descr;
     int op_num_real;
     int op_db_walk;
+    int op_to_trailed;
     int op_imm_a_ok;
     int op_imm_b_ok;
     long op_imm_a;

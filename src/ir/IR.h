@@ -141,6 +141,13 @@ static inline int ir_range_tag_has(const IR_t * nd, char a, char b, char c) {
     return 0;
 }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+static inline int ir_range_kind_is(const IR_t * nd, const char * k) {
+    const char * t = nd ? IR_LIT(nd).sval : (const char *)0;
+    if (!t || !k) return 0;
+    while (*k && *t == *k) { t++; k++; }
+    return (!*k && (!*t || *t == ':')) ? 1 : 0;
+}
+static inline int ir_range_trailed(const IR_t * nd) { return (nd && nd->op == IR_TO) ? ir_range_tag_has(nd, 't', 'r', 'l') : 0; }
 static inline int ir_range_operands_must_be_integers(const IR_t * nd) { return (nd && (nd->op == IR_TO || nd->op == IR_TO_BY)) ? ir_range_tag_has(nd, 'i', 'n', 't') : 0; }
 /*----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 static inline int ir_define_ch8_role(const IR_t * nd) { long long v = (long long)IR_LIT(nd).ival; return (v >= 1 && v <= 4) ? (int)v : 0; }
